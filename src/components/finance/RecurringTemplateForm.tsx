@@ -124,6 +124,11 @@ export function RecurringTemplateForm({
   const [installations, setInstallations] = React.useState<
     { id: string; name: string; address: string | null; commune: string | null }[]
   >([]);
+  // Contrato (Document) opcional — al borrarlo, esta plantilla queda inactiva.
+  const [contractDocumentId, setContractDocumentId] = React.useState<string>("");
+  const [contracts, setContracts] = React.useState<
+    { id: string; name: string; status: string | null }[]
+  >([]);
   const [ccEmailsRaw, setCcEmailsRaw] = React.useState("");
   const [crmSuggestions, setCrmSuggestions] = React.useState<{
     account: { id: string; name: string; rut: string } | null;
@@ -211,6 +216,7 @@ export function RecurringTemplateForm({
     setReceiverComuna("");
     setReceiverCiudad("");
     setInstallationId("");
+    setContractDocumentId("");
     setCcEmailsRaw("");
     setLines([{ ...EMPTY_LINE }]);
     setNotes("");
@@ -264,6 +270,7 @@ export function RecurringTemplateForm({
         setReceiverComuna(t.receiverComuna ?? "");
         setReceiverCiudad(t.receiverCiudad ?? "");
         setInstallationId(t.installationId ?? "");
+        setContractDocumentId(t.contractDocumentId ?? "");
         // Reconstruimos el `customer` cuando la plantilla referencia un
         // CRM account, así el form muestra la tarjeta verde del receptor
         // (y NO la vista vacía "Buscar cliente del CRM…") al editar.
@@ -400,6 +407,42 @@ export function RecurringTemplateForm({
       .catch(() => {});
     return () => ctrl.abort();
   }, [customer]);
+
+  // Cargar contratos del cliente (Documents categoría contrato_*). Si el
+  // cliente cambia y el contrato seleccionado no pertenece al nuevo cliente
+  // → limpiar la selección.
+  React.useEffect(() => {
+    if (!customer) {
+      setContracts([]);
+      return;
+    }
+    const ctrl = new AbortController();
+    fetch(`/api/crm/accounts/${customer.id}/contracts`, { signal: ctrl.signal })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.success && Array.isArray(j.data)) {
+          const list = (j.data as Array<{ id: string; name?: string | null; title?: string | null; fileName?: string | null; status?: string | null }>).map(
+            (d) => ({
+              id: d.id,
+              name: d.title || d.name || d.fileName || "(sin nombre)",
+              status: d.status ?? null,
+            }),
+          );
+          setContracts(list);
+        }
+      })
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, [customer]);
+
+  // Si el contrato seleccionado no está en la lista actual, lo limpiamos.
+  React.useEffect(() => {
+    if (!contractDocumentId) return;
+    if (contracts.length === 0) return;
+    if (!contracts.some((c) => c.id === contractDocumentId)) {
+      setContractDocumentId("");
+    }
+  }, [contracts, contractDocumentId]);
 
   // Sugerencias CRM cuando hay RUT (autocompletar contactos CC)
   React.useEffect(() => {
@@ -577,6 +620,7 @@ export function RecurringTemplateForm({
       receiverCiudad: receiverCiudad.trim() || null,
       crmAccountId: customer?.id ?? null,
       installationId: installationId || null,
+      contractDocumentId: contractDocumentId || null,
       // La plantilla siempre persiste como CLP. La moneda real viaja por
       // línea en `priceCurrency`. Plantillas legacy con `currency=UF` se
       // migran al guardar (la hidratación marcó cada línea con
@@ -839,6 +883,34 @@ export function RecurringTemplateForm({
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                )}
+
+                {customer && contracts.length > 0 && (
+                  <div className="space-y-1.5 pt-3 border-t">
+                    <Label className="text-xs">Contrato asociado (opcional)</Label>
+                    <Select
+                      value={contractDocumentId || "NONE"}
+                      onValueChange={(v) =>
+                        setContractDocumentId(v === "NONE" ? "" : v)
+                      }
+                    >
+                      <SelectTrigger className="h-10 sm:h-9">
+                        <SelectValue placeholder="Sin contrato asociado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="NONE">Sin contrato asociado</SelectItem>
+                        {contracts.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                            {c.status && ` · ${c.status}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground">
+                      Si se elimina el contrato, esta programación se desactiva automáticamente.
+                    </p>
                   </div>
                 )}
 

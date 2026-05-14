@@ -204,6 +204,14 @@ export async function DELETE(
       // Document — el helper resuelve por sourceRefId = contractId.
       await deactivateContractCashflowItems(tx, ctx.tenantId, contractId);
 
+      // Cascada a programaciones recurrentes (DTE): desactivamos (no borramos)
+      // toda plantilla vinculada al contrato para preservar el historial de
+      // FinanceDteRecurringRun.
+      await tx.financeDteRecurringTemplate.updateMany({
+        where: { tenantId: ctx.tenantId, contractDocumentId: contractId },
+        data: { isActive: false },
+      });
+
       await tx.docAssociation.deleteMany({ where: { documentId: contractId } });
       await tx.docHistory.deleteMany({ where: { documentId: contractId } });
       await tx.docSignatureRecipient.deleteMany({

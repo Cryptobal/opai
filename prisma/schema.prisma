@@ -6834,6 +6834,11 @@ model FinanceDteRecurringTemplate {
   crmAccountId      String?  @map("crm_account_id") @db.Uuid
   installationId    String?  @map("installation_id") @db.Uuid
 
+  /// Contrato (Document categoría contrato_*) que origina esta programación.
+  /// Si el contrato se elimina, esta plantilla se desactiva en cascada
+  /// (preserva FinanceDteRecurringRun como historial).
+  contractDocumentId String? @map("contract_document_id") @db.Uuid
+
   currency             String  @default("CLP") // "CLP" | "UF"
   /// Líneas como JSON: [{ itemName, description, quantity, unit, unitPrice|unitPriceUf, discountPct, isExempt, accountId }]
   lines                Json
@@ -6909,6 +6914,7 @@ model FinanceDteRecurringTemplate {
 
   @@index([tenantId, isActive], map: "idx_dte_recurring_tenant_active")
   @@index([nextRunAt], map: "idx_dte_recurring_next_run")
+  @@index([contractDocumentId], map: "idx_dte_recurring_contract_doc")
   @@map("finance_dte_recurring_templates")
   @@schema("finance")
 }
