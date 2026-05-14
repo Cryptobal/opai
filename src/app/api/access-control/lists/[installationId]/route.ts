@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { validateRut, cleanRut, cleanPlate } from "@/lib/access-control/utils";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
 import { requireAccessControlAuth } from "@/lib/access-control/auth";
-import { installationTenantScope } from "@/lib/access-control/installation-scope";
 
 export async function GET(
   request: NextRequest,
@@ -25,23 +24,26 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") as "whitelist" | "blacklist" | null;
 
-    const owned = installationTenantScope(installationId, tenantId);
+    // Alcance multitenant solo vía requireAccessControlAuth(installationId): la instalación ya
+    // quedó acotada al tenant del operador/dispositivo. Filtrar de nuevo por row.tenant_id o
+    // por join installation→tenant puede dejar todo vacío si hubo drift, o ante rarezas entre
+    // schemas. Las filas keyed por este installation_id son efectivamente las de ese sitio.
 
     let where: Prisma.AccessControlListWhereInput;
 
     if (type === "blacklist") {
       where = {
         OR: [
-          { ...owned, listType: "blacklist" },
+          { installationId, listType: "blacklist" },
           { scope: "global", listType: "blacklist", tenantId },
         ],
       };
     } else if (type === "whitelist") {
-      where = { ...owned, listType: "whitelist" };
+      where = { installationId, listType: "whitelist" };
     } else {
       where = {
         OR: [
-          owned,
+          { installationId },
           { scope: "global", listType: "blacklist", tenantId },
         ],
       };

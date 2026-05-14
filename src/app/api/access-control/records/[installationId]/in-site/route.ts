@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { installationTenantScope } from "@/lib/access-control/installation-scope";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
 import { requireAccessControlAuth } from "@/lib/access-control/auth";
 
@@ -31,7 +30,7 @@ export async function GET(
     );
 
     const baseWhere: Prisma.AccessControlRecordWhereInput = {
-      ...installationTenantScope(installationId, authCtx.tenantId),
+      installationId,
       exitAt: null,
     };
 

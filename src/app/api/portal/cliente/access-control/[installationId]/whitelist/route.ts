@@ -23,7 +23,6 @@ export async function GET(
       where: {
         installationId,
         listType: "whitelist",
-        installation: { tenantId: session.tenantId },
       },
       orderBy: { createdAt: "desc" },
     });
