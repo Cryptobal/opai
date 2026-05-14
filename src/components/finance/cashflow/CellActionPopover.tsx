@@ -20,10 +20,12 @@ import {
   CircleSlash,
   Trash2,
   Send,
+  ExternalLink,
+  Banknote,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import type { CashflowCellStatus } from "@/modules/finance/cashflow/types";
+import type { CashflowCellStatus, CellDteSummary } from "@/modules/finance/cashflow/types";
 import { CobranzaSendDialog } from "./CobranzaSendDialog";
 
 const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
@@ -57,6 +59,10 @@ interface CellOccurrenceTarget {
    *  "Igualar a factura". Usamos el bruto, no el neto recibido en banco,
    *  porque el costo de factoring vive en su propia categoría. */
   dteGrossAmount?: number | null;
+  /** Lista de TODOS los DTEs conciliados con esta celda. Cuando hay >1, el
+   *  popover los muestra individualmente (folio, fecha emisión, monto, link)
+   *  y el botón "Igualar" suma los totales en vez de matchear con uno solo. */
+  dtes?: CellDteSummary[];
   /** Días de mora (positivo si vencido, 0 si al día). */
   daysOverdue?: number;
   /** Cliente CRM dueño del ítem — necesario para traer contactos en cobranza. */
@@ -609,37 +615,21 @@ export function CellActionPopover({
             </div>
           ) : (
             <div className="space-y-3">
-              {/* "Igualar a factura": 1 clic para conciliar varianza usando el
-                  bruto del DTE vinculado (no el neto del banco). Si hay
-                  factoring asociado, el costo aterriza por su cuenta en su
-                  propia categoría — no se duplica desde acá. Aplica solo a
-                  esta semana; las siguientes siguen heredando la cuota
-                  contractual. */}
-              {target.dteGrossAmount != null &&
-                target.dteGrossAmount > 0 &&
-                target.dteGrossAmount !== target.amountClp && (
-                  <div className="space-y-1">
-                    <p className="text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-3 px-1">
-                      Conciliar con factura
-                    </p>
-                    <Button
-                      onClick={() => persistAmount(target.dteGrossAmount!)}
-                      disabled={busy !== null}
-                      className="w-full h-11 sm:h-10 text-[13px] justify-start"
-                    >
-                      {busy === "amount" ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
-                      )}
-                      <span className="truncate">
-                        Igualar a factura
-                        {target.dteFolio ? ` #${target.dteFolio}` : ""} ($
-                        {fmt.format(target.dteGrossAmount)})
-                      </span>
-                    </Button>
-                  </div>
-                )}
+              {/* Sección "Facturas conciliadas": lista las facturas que el
+                  matcher vinculó a esta celda. Cada fila muestra folio +
+                  fecha emisión + monto bruto + link a la factura origen,
+                  útil para distinguir facturas antiguas cobradas hoy del
+                  ingreso de la cuota corriente. El botón "Igualar" se
+                  adapta al número de facturas (1 → bruto exacto;
+                  N → suma de totales). */}
+              {target.dtes && target.dtes.length > 0 && (
+                <DtesSection
+                  dtes={target.dtes}
+                  cellAmountClp={target.amountClp}
+                  busy={busy === "amount"}
+                  onIgualar={(total) => persistAmount(total)}
+                />
+              )}
               <p className="text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-3 px-1">
                 Mover ocurrencia
               </p>
@@ -740,5 +730,110 @@ export function CellActionPopover({
       />
     )}
     </>
+  );
+}
+
+function formatShortDate(iso: string): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  return format(new Date(y, m - 1, d), "d MMM yy", { locale: es });
+}
+
+/**
+ * Sección de facturas conciliadas con la celda. Muestra cada DTE con folio,
+ * fecha de emisión, monto y link al detalle. El botón "Igualar" suma los
+ * totales cuando hay >1 factura, y solo aparece si el bruto total difiere
+ * del proyectado actual de la celda.
+ */
+function DtesSection({
+  dtes,
+  cellAmountClp,
+  busy,
+  onIgualar,
+}: {
+  dtes: CellDteSummary[];
+  cellAmountClp: number;
+  busy: boolean;
+  onIgualar: (total: number) => void;
+}) {
+  const grossTotal = dtes.reduce((s, d) => s + d.totalAmount, 0);
+  const hasFactoring = dtes.some((d) => d.hasFactoring);
+  // Solo mostramos el botón si el total real ≠ proyectado (sino no hay
+  // nada que igualar). Tolerancia 1 CLP para evitar disparos por redondeo.
+  const showIgualar = Math.abs(grossTotal - cellAmountClp) > 1;
+  const isMulti = dtes.length > 1;
+
+  return (
+    <div className="space-y-2">
+      <p className="text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-3 px-1">
+        {isMulti ? `Facturas conciliadas (${dtes.length})` : "Factura conciliada"}
+      </p>
+      <ul className="space-y-1.5">
+        {dtes.map((d) => (
+          <li
+            key={d.id}
+            className="flex items-center gap-2 rounded-ds-sm bg-muted/30 px-2 py-1.5"
+          >
+            <Banknote className="h-4 w-4 shrink-0 text-ds-text-3" />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-2">
+                <span className="text-[13px] font-semibold text-ds-text-1 truncate">
+                  {d.folio ? `#${d.folio}` : "(sin folio)"}
+                </span>
+                <span className="text-[12px] text-ds-text-3">
+                  {formatShortDate(d.issueDate)}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[12px] font-mono tabular-nums text-ds-text-2">
+                  ${fmt.format(d.totalAmount)}
+                </span>
+                {d.hasFactoring && (
+                  <span className="text-[11px] font-mono uppercase tracking-[0.06em] px-1 py-0.5 rounded-ds-sm bg-purple-500/15 text-purple-300">
+                    Factoring
+                  </span>
+                )}
+              </div>
+            </div>
+            <a
+              href={`/finanzas/facturacion/dtes?folio=${d.folio ?? ""}`}
+              target="_blank"
+              rel="noreferrer"
+              className="p-1.5 rounded-ds-sm text-ds-text-3 hover:text-ds-text-1 hover:bg-muted/60 shrink-0"
+              aria-label="Abrir factura"
+              title="Abrir factura"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          </li>
+        ))}
+      </ul>
+      {hasFactoring && (
+        <p className="text-[12px] text-ds-text-3 px-1">
+          ℹ️ El costo de factoring aparece en la categoría{" "}
+          <span className="font-medium text-ds-text-2">Costo Factoring</span>{" "}
+          (no se duplica desde aquí).
+        </p>
+      )}
+      {showIgualar && (
+        <Button
+          onClick={() => onIgualar(grossTotal)}
+          disabled={busy}
+          className="w-full h-11 sm:h-10 text-[13px] justify-start"
+        >
+          {busy ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <CheckCircle2 className="h-4 w-4 mr-2" />
+          )}
+          <span className="truncate">
+            {isMulti
+              ? `Igualar al total real ($${fmt.format(grossTotal)} · ${dtes.length} facturas)`
+              : `Igualar a factura${dtes[0].folio ? ` #${dtes[0].folio}` : ""} ($${fmt.format(grossTotal)})`}
+          </span>
+        </Button>
+      )}
+    </div>
   );
 }
