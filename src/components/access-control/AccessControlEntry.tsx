@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import {
   ArrowLeft,
   QrCode, Keyboard, Loader2, Check, AlertTriangle,
-  ShieldAlert, ShieldCheck, Camera, ChevronRight,
+  ShieldAlert, ShieldCheck, Camera, ChevronRight, Car,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,16 +18,16 @@ import { VehiclePlateOCR } from "./VehiclePlateOCR";
 import { ListValidationResult } from "./ListValidationResult";
 import type {
   AccessRecordType, AccessControlConfigData,
-  RutValidationResult, FormFieldConfig, CedulaQRData,
+  RutValidationResult, FormFieldConfig, CedulaQRData, ScanMode,
 } from "@/lib/access-control/types";
 import {
   DEFAULT_FORM_FIELDS, getRecordTypeLabel, isDefaultRecordType,
-  getRecordTypeScanMode,
+  getRecordTypeScanModes,
 } from "@/lib/access-control/types";
 import { RecordTypeIcon } from "@/lib/access-control/record-type-icon";
-import { validateRut, formatRut, cleanRut, formatRutDash, computeRutDv } from "@/lib/access-control/utils";
+import { validateRut, formatRut, cleanRut, formatRutDash, computeRutDv, cleanPlate, validateChileanPlate } from "@/lib/access-control/utils";
 
-type EntryStep = "type" | "identify" | "validation" | "form" | "confirm";
+type EntryStep = "type" | "choose-scan" | "identify" | "validation" | "form" | "confirm";
 
 interface Props {
   installationId: string;
@@ -46,6 +46,7 @@ export function AccessControlEntry({
 }: Props) {
   const [step, setStep] = useState<EntryStep>("type");
   const [selectedType, setSelectedType] = useState<AccessRecordType | null>(null);
+  const [chosenScanMode, setChosenScanMode] = useState<ScanMode | null>(null);
   const [showQR, setShowQR] = useState(false);
 
   // Identification
@@ -72,13 +73,28 @@ export function AccessControlEntry({
   }, []);
 
   // ── Step 1: Select Type ──
-  // The scan mode (resolved from the type) decides the next step:
-  //   "plate" → straight to the form, plate OCR rendered at the top
-  //   "rut"   → identify step (QR / manual RUT) before the form
-  //   "none"  → straight to the form, no scanner
+  // The available scan modes (resolved from the type) decide the next step:
+  //   varios modos (rut + plate) → choose-scan step para que el guardia elija
+  //   solo "plate" → straight to the form, plate OCR rendered at the top
+  //   solo "rut"   → identify step (QR / manual RUT) before the form
+  //   solo "none"  → straight to the form, no scanner
   const handleSelectType = (type: AccessRecordType) => {
     setSelectedType(type);
-    const mode = getRecordTypeScanMode(type, config);
+    setChosenScanMode(null);
+    const modes = getRecordTypeScanModes(type, config);
+    const realModes = modes.filter((m) => m !== "none");
+    if (realModes.length > 1) {
+      setStep("choose-scan");
+      return;
+    }
+    const single: ScanMode = realModes[0] ?? "none";
+    setChosenScanMode(single);
+    setStep(single === "rut" ? "identify" : "form");
+  };
+
+  // ── Step 1b: Choose Scan ──
+  const handleChooseScan = (mode: ScanMode) => {
+    setChosenScanMode(mode);
     setStep(mode === "rut" ? "identify" : "form");
   };
 
@@ -172,6 +188,38 @@ export function AccessControlEntry({
       setValidating(false);
     }
   };
+
+  // ── Validate plate against lists ──
+  const validatePlateAgainstLists = useCallback(async (plateValue: string) => {
+    if (!validateChileanPlate(plateValue).valid) return;
+    if (!config.useWhitelist && !config.useBlacklist) return;
+    setValidating(true);
+    try {
+      const res = await fetch("/api/access-control/validate-plate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vehiclePlate: plateValue, installationId }),
+      });
+      const json = await res.json();
+      if (json.success && (json.data.listMatch === "blacklist" || json.data.listMatch === "whitelist")) {
+        setValidationResult(json.data);
+        // Auto-pre-fill any cached identity data
+        const autoData: Record<string, unknown> = {};
+        if (json.data.personData) {
+          if (json.data.personData.fullName) autoData.full_name = json.data.personData.fullName;
+          if (json.data.personData.company) autoData.company = json.data.personData.company;
+        }
+        if (Object.keys(autoData).length > 0) {
+          setFormData((p) => ({ ...p, ...autoData }));
+        }
+        setStep("validation");
+      }
+    } catch {
+      // Silently fail — plate already in form, guardia continues
+    } finally {
+      setValidating(false);
+    }
+  }, [installationId, config.useWhitelist, config.useBlacklist]);
 
   // ── Step 3: Continue from validation ──
   const handleContinueFromValidation = () => {
@@ -297,6 +345,30 @@ export function AccessControlEntry({
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Step 1b: Choose Scan (when type accepts multiple modes) */}
+        {step === "choose-scan" && selectedType && (
+          <div className="space-y-4">
+            <p className="text-sm text-zinc-400">¿Cómo vas a registrar?</p>
+            <Button
+              onClick={() => handleChooseScan("rut")}
+              size="lg"
+              className="w-full h-16 text-base bg-status-info hover:bg-status-info"
+            >
+              <QrCode className="mr-3 h-6 w-6" />
+              Escanear cédula
+            </Button>
+            <Button
+              onClick={() => handleChooseScan("plate")}
+              size="lg"
+              variant="outline"
+              className="w-full h-16 text-base border-zinc-700"
+            >
+              <Car className="mr-3 h-6 w-6" />
+              Escanear patente
+            </Button>
           </div>
         )}
 
@@ -449,12 +521,16 @@ export function AccessControlEntry({
               )}
             </div>
 
-            {selectedType && getRecordTypeScanMode(selectedType, config) === "plate" && (
+            {selectedType && shouldShowPlateOcr(chosenScanMode, getRecordTypeScanModes(selectedType, config)) && (
               <VehiclePlateOCR
                 tenantId={tenantId}
-                onPlateDetected={(plate) =>
-                  setFormData((p) => ({ ...p, vehicle_plate: plate }))
-                }
+                onPlateDetected={(plate) => {
+                  const cleaned = cleanPlate(plate);
+                  setFormData((p) => ({ ...p, vehicle_plate: cleaned }));
+                  if (chosenScanMode === "plate") {
+                    validatePlateAgainstLists(cleaned);
+                  }
+                }}
               />
             )}
 
@@ -526,4 +602,15 @@ export function AccessControlEntry({
       </div>
     </div>
   );
+}
+
+/** Decide si renderizar el VehiclePlateOCR en el step "form".
+ *  - Si el guardia eligió explícitamente "plate" → siempre lo muestra.
+ *  - Si no eligió (no hubo step choose-scan) y los modos válidos para el tipo
+ *    incluyen "plate" pero NO "rut" → lo muestra (single-mode plate type).
+ *  - En cualquier otro caso → no lo muestra. */
+function shouldShowPlateOcr(chosen: ScanMode | null, modes: ScanMode[]): boolean {
+  if (chosen === "plate") return true;
+  if (chosen !== null) return false;
+  return modes.includes("plate") && !modes.includes("rut");
 }
