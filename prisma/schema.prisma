@@ -7638,6 +7638,18 @@ enum FinanceCashflowItemSource {
   SUPPLIER
   IVA
   TURNOS_EXTRA
+  /// Quincena / anticipo a guardias, generado por quincena-sync.ts. Recurrence
+  /// MONTHLY el día configurado en `config.quincenaPayDay` (default 15). El
+  /// monto se computa según `config.quincenaMode`: FICHA (suma de
+  /// `OpsGuardia.montoAnticipo` con `recibeAnticipo=true`) o PCT_LIQUIDO
+  /// (% sobre la suma de items PAYROLL_LIQUIDO proyectados).
+  QUINCENA
+  /// Retiro de socios / dividendos proyectado, generado por retiro-socios-sync.ts
+  /// como % de las ventas netas proyectadas del mes. Recurrence ONCE, un ítem
+  /// por mes, el día configurado en `config.retiroSocioPayDay` (default 5).
+  /// `config.retiroSocioPctVentas` controla el %; 0 desactiva la proyección
+  /// automática (el usuario puede seguir cargando retiros manuales).
+  RETIRO_SOCIO
   /// Línea de ajuste manual creada al cerrar un drift de conciliación bancaria.
   /// Recurrence=ONCE, status inicial=PAID, vinculada opcionalmente a una bank
   /// tx que justifique el ajuste. NO se considera en proyecciones automáticas:
@@ -7657,6 +7669,17 @@ enum FinanceCashflowItemSource {
 enum FinanceTurnosExtraMode {
   HISTORICAL
   PCT_PAYROLL
+
+  @@schema("finance")
+}
+
+/// Estrategia para proyectar la quincena/anticipo a guardias.
+/// - FICHA: suma `montoAnticipo` de los OpsGuardia con `recibeAnticipo=true`.
+/// - PCT_LIQUIDO: % configurable sobre el total de items PAYROLL_LIQUIDO
+///   proyectados (sueldos líquidos del mes).
+enum FinanceQuincenaMode {
+  FICHA
+  PCT_LIQUIDO
 
   @@schema("finance")
 }
@@ -7713,6 +7736,20 @@ model FinanceCashflowConfig {
   /// Umbral de drift en CLP por encima del cual se dispara notificación al CFO.
   /// Default 100.000 CLP. 0 = nunca notificar.
   driftAlertThresholdClp         Int                    @default(100000) @map("drift_alert_threshold_clp")
+  /// % de las ventas netas mensuales proyectadas que se retira como
+  /// dividendo/retiro de socios. 0.10 = 10%. Default 0 = no proyectar
+  /// retiro automático (el usuario puede seguir cargando retiros manuales).
+  retiroSocioPctVentas           Decimal                @default(0) @map("retiro_socio_pct_ventas") @db.Decimal(6, 4)
+  /// Día del mes en que se proyecta el retiro de socios. Default 5.
+  retiroSocioPayDay              Int                    @default(5) @map("retiro_socio_pay_day")
+  /// Modo de proyección de la quincena/anticipo a guardias.
+  /// FICHA = suma `montoAnticipo` de guardias con `recibeAnticipo=true`.
+  /// PCT_LIQUIDO = % sobre el total de sueldos líquidos proyectados.
+  quincenaMode                   FinanceQuincenaMode    @default(FICHA) @map("quincena_mode")
+  /// % sobre sueldos líquidos cuando quincenaMode=PCT_LIQUIDO. 0.10 = 10%.
+  quincenaPctLiquido             Decimal                @default(0.10) @map("quincena_pct_liquido") @db.Decimal(6, 4)
+  /// Día del mes en que se paga la quincena. Default 15.
+  quincenaPayDay                 Int                    @default(15) @map("quincena_pay_day")
   createdAt                      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 

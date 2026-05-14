@@ -21,6 +21,8 @@ const SOURCE_BADGE: Record<FinanceCashflowItemSource, string | null> = {
   SUPPLIER: "Proveedor",
   IVA: "F29",
   TURNOS_EXTRA: "TE",
+  QUINCENA: "Quincena",
+  RETIRO_SOCIO: "Retiro socio",
   AJUSTE: "Ajuste",
   OTHER: null,
 };
