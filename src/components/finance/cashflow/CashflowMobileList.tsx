@@ -184,47 +184,53 @@ export function CashflowMobileList({
 
   return (
     <Surface elevation={1} padding="md" className="space-y-3">
-      {/* Granularidad — segmented control */}
-      <div className="inline-flex w-full rounded-ds-md border border-border p-1 bg-muted/30">
-        <button
-          type="button"
-          onClick={() => setGranularity("monthly")}
-          className={`flex-1 h-10 text-[13px] rounded-ds-sm transition-colors ${
-            granularity === "monthly"
-              ? "bg-card font-semibold text-ds-text-1 shadow-sm"
-              : "text-ds-text-3"
-          }`}
-          aria-pressed={granularity === "monthly"}
-        >
-          Mensual
-        </button>
-        <button
-          type="button"
-          onClick={() => setGranularity("weekly")}
-          className={`flex-1 h-10 text-[13px] rounded-ds-sm transition-colors ${
-            granularity === "weekly"
-              ? "bg-card font-semibold text-ds-text-1 shadow-sm"
-              : "text-ds-text-3"
-          }`}
-          aria-pressed={granularity === "weekly"}
-        >
-          Semanal
-        </button>
-      </div>
+      {/* Franja sticky: segmented + navegador, anclados bajo la topbar fija. */}
+      <div
+        className="sticky z-20 -mx-4 px-4 py-2 space-y-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border"
+        style={{ top: "calc(3rem + env(safe-area-inset-top, 0px))" }}
+      >
+        {/* Granularidad — segmented control */}
+        <div className="inline-flex w-full rounded-ds-md border border-border p-1 bg-muted/30">
+          <button
+            type="button"
+            onClick={() => setGranularity("monthly")}
+            className={`flex-1 h-10 text-[13px] rounded-ds-sm transition-colors ${
+              granularity === "monthly"
+                ? "bg-card font-semibold text-ds-text-1 shadow-sm"
+                : "text-ds-text-3"
+            }`}
+            aria-pressed={granularity === "monthly"}
+          >
+            Mensual
+          </button>
+          <button
+            type="button"
+            onClick={() => setGranularity("weekly")}
+            className={`flex-1 h-10 text-[13px] rounded-ds-sm transition-colors ${
+              granularity === "weekly"
+                ? "bg-card font-semibold text-ds-text-1 shadow-sm"
+                : "text-ds-text-3"
+            }`}
+            aria-pressed={granularity === "weekly"}
+          >
+            Semanal
+          </button>
+        </div>
 
-      {activeBucket && (
-        <CashflowMobileBucketHeader
-          bucket={activeBucket}
-          granularity={granularity}
-          hasPrev={activeIdx > 0}
-          hasNext={activeIdx >= 0 && activeIdx < projection.buckets.length - 1}
-          isCurrent={isActiveBucketCurrent}
-          onPrev={gotoPrev}
-          onNext={gotoNext}
-          onTouchStart={onTouchStart}
-          onTouchEnd={onTouchEnd}
-        />
-      )}
+        {activeBucket && (
+          <CashflowMobileBucketHeader
+            bucket={activeBucket}
+            granularity={granularity}
+            hasPrev={activeIdx > 0}
+            hasNext={activeIdx >= 0 && activeIdx < projection.buckets.length - 1}
+            isCurrent={isActiveBucketCurrent}
+            onPrev={gotoPrev}
+            onNext={gotoNext}
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+          />
+        )}
+      </div>
 
       {loading && (
         <p className="text-[12px] text-ds-text-3">Cargando proyección…</p>
