@@ -1001,6 +1001,7 @@ export async function buildProjection(
   );
   const dteStatusById = new Map<string, DteStatusSlim>();
   const dteFolioById = new Map<string, number | null>();
+  const dteGrossById = new Map<string, number>();
   const activeFactoringDteIds = new Set<string>();
   if (dteIds.length > 0) {
     const [dtes, factoringOps] = await Promise.all([
@@ -1013,6 +1014,7 @@ export async function buildProjection(
           dueDate: true,
           folio: true,
           dteType: true,
+          totalAmount: true,
         },
       }),
       prisma.financeFactoringOperation.findMany({
@@ -1032,6 +1034,7 @@ export async function buildProjection(
         dueDate: d.dueDate,
       });
       dteFolioById.set(d.id, d.folio ?? null);
+      dteGrossById.set(d.id, Number(d.totalAmount));
     }
     for (const f of factoringOps) {
       if (f.dteId) activeFactoringDteIds.add(f.dteId);
@@ -1062,6 +1065,7 @@ export async function buildProjection(
     cellStatusByDteId,
     headcountByInstallation,
     dteFolioById,
+    dteGrossById,
   );
 
   const openingBreakdown = await resolveOpeningBalance(tenantId);
@@ -1236,6 +1240,7 @@ function buildRows(
   >,
   headcountByInstallation: Map<string, number>,
   dteFolioById: Map<string, number | null>,
+  dteGrossById: Map<string, number>,
 ): ProjectionRow[] {
   const rows: ProjectionRow[] = [];
   for (const cat of categories) {
@@ -1288,6 +1293,7 @@ function buildRows(
             cellStatus: "PROJECTED" as CashflowCellStatus,
             dteId: null,
             dteFolio: null,
+            dteGrossAmount: null,
             daysOverdue: 0,
           })),
           total: 0,
@@ -1331,6 +1337,9 @@ function buildRows(
             cell.dteFolio = derived.dteId
               ? (dteFolioById.get(derived.dteId) ?? null)
               : null;
+            cell.dteGrossAmount = derived.dteId
+              ? (dteGrossById.get(derived.dteId) ?? null)
+              : null;
             cell.daysOverdue = derived.daysOverdue;
           } else if (
             derived.status === "INVOICED" &&
@@ -1347,6 +1356,10 @@ function buildRows(
         if (!detail.values[bIdx].dteFolio) {
           const folio = dteFolioById.get(o.dteId);
           if (folio) detail.values[bIdx].dteFolio = folio;
+        }
+        if (!detail.values[bIdx].dteGrossAmount) {
+          const gross = dteGrossById.get(o.dteId);
+          if (gross) detail.values[bIdx].dteGrossAmount = gross;
         }
       }
     }
