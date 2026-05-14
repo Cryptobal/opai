@@ -29,14 +29,19 @@ export const SOURCE_BADGE: Record<FinanceCashflowItemSource, string | null> = {
   OTHER: null,
 };
 
-const STORAGE_PREFIX = "cashflow.expanded.";
+// Prefix dedicado al mobile para no interferir con `cashflow.expanded.` del
+// desktop (ExpandableMatrixRow), que mantiene default = colapsado. En móvil
+// la pantalla es vertical y el usuario espera ver TODOS los ítems de una sin
+// tener que abrir cada categoría una por una, así que default = expandido y
+// solo persistimos la desviación (colapsado).
+const STORAGE_PREFIX = "cashflow.mobile.expanded.";
 
 export function getStoredExpanded(categoryId: string | null): boolean {
-  if (typeof window === "undefined" || !categoryId) return false;
+  if (typeof window === "undefined" || !categoryId) return true;
   try {
-    return window.localStorage.getItem(STORAGE_PREFIX + categoryId) === "1";
+    return window.localStorage.getItem(STORAGE_PREFIX + categoryId) !== "0";
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -46,8 +51,8 @@ export function setStoredExpanded(
 ) {
   if (typeof window === "undefined" || !categoryId) return;
   try {
-    if (expanded) window.localStorage.setItem(STORAGE_PREFIX + categoryId, "1");
-    else window.localStorage.removeItem(STORAGE_PREFIX + categoryId);
+    if (expanded) window.localStorage.removeItem(STORAGE_PREFIX + categoryId);
+    else window.localStorage.setItem(STORAGE_PREFIX + categoryId, "0");
   } catch {
     // ignore
   }
