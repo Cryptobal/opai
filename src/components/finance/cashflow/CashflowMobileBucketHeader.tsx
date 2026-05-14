@@ -18,6 +18,7 @@ interface Props {
   granularity: "weekly" | "monthly";
   hasPrev: boolean;
   hasNext: boolean;
+  isCurrent: boolean;
   onPrev: () => void;
   onNext: () => void;
   onTouchStart: (e: React.TouchEvent) => void;
@@ -29,6 +30,7 @@ export function CashflowMobileBucketHeader({
   granularity,
   hasPrev,
   hasNext,
+  isCurrent,
   onPrev,
   onNext,
   onTouchStart,
@@ -36,96 +38,38 @@ export function CashflowMobileBucketHeader({
 }: Props) {
   return (
     <div
-      className="rounded-ds-md border border-border bg-card p-4"
+      className="flex items-center justify-between gap-2"
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <button
-          type="button"
-          onClick={onPrev}
-          disabled={!hasPrev}
-          className="p-2 -ml-2 rounded-ds-sm hover:bg-muted/40 disabled:opacity-30 disabled:pointer-events-none"
-          aria-label="Bucket anterior"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <h2 className="text-[14px] font-semibold text-ds-text-1 text-center flex-1 truncate">
+      <button
+        type="button"
+        onClick={onPrev}
+        disabled={!hasPrev}
+        className="p-2 -ml-2 rounded-ds-sm hover:bg-muted/40 disabled:opacity-30 disabled:pointer-events-none"
+        aria-label="Período anterior"
+      >
+        <ChevronLeft className="h-5 w-5" />
+      </button>
+      <div className="flex-1 min-w-0 flex flex-col items-center">
+        <h2 className="text-[14px] font-semibold text-ds-text-1 text-center truncate w-full">
           {getBucketDisplayLabel(bucket, granularity)}
         </h2>
-        <button
-          type="button"
-          onClick={onNext}
-          disabled={!hasNext}
-          className="p-2 -mr-2 rounded-ds-sm hover:bg-muted/40 disabled:opacity-30 disabled:pointer-events-none"
-          aria-label="Bucket siguiente"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
+        {isCurrent && (
+          <span className="text-[10px] font-mono uppercase tracking-wider text-status-info-fg">
+            {granularity === "weekly" ? "Esta semana" : "Este mes"}
+          </span>
+        )}
       </div>
-      <div className="grid grid-cols-3 gap-3">
-        <BucketStat
-          label="Ingresos"
-          projected={bucket.income}
-          actual={bucket.actualIncome}
-          tone="ok"
-        />
-        <BucketStat
-          label="Egresos"
-          projected={bucket.expense}
-          actual={bucket.actualExpense}
-          tone="warn"
-        />
-        <BucketStat
-          label="Neto"
-          projected={bucket.net}
-          actual={null}
-          tone={bucket.net >= 0 ? "ok" : "warn"}
-        />
-      </div>
-    </div>
-  );
-}
-
-function BucketStat({
-  label,
-  projected,
-  actual,
-  tone,
-}: {
-  label: string;
-  projected: number;
-  actual: number | null;
-  tone: "ok" | "warn";
-}) {
-  const variance = actual !== null && actual > 0 ? actual - projected : null;
-  const toneCls =
-    tone === "ok" ? "text-status-ok-fg" : "text-status-warn-fg";
-  return (
-    <div className="flex flex-col gap-0.5 min-w-0">
-      <span className="text-[10px] font-mono uppercase tracking-wider text-ds-text-3">
-        {label}
-      </span>
-      <span
-        className={`text-[15px] font-semibold tabular-nums truncate ${toneCls}`}
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={!hasNext}
+        className="p-2 -mr-2 rounded-ds-sm hover:bg-muted/40 disabled:opacity-30 disabled:pointer-events-none"
+        aria-label="Período siguiente"
       >
-        {fmt.format(projected)}
-      </span>
-      {variance !== null && (
-        <span
-          className={`text-[10px] tabular-nums ${
-            Math.abs(variance) < 50_000
-              ? "text-ds-text-3"
-              : variance > 0
-                ? "text-status-ok-fg"
-                : "text-status-warn-fg"
-          }`}
-          title="Real ejecutado vs proyectado"
-        >
-          {variance > 0 ? "+" : ""}
-          {fmt.format(variance)}
-        </span>
-      )}
+        <ChevronRight className="h-5 w-5" />
+      </button>
     </div>
   );
 }

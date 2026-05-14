@@ -12,12 +12,9 @@ import {
 import { BankBalanceAdjustDrawer } from "./BankBalanceAdjustDrawer";
 import { CashflowDriftBanner } from "./CashflowDriftBanner";
 import { useHasCapability } from "@/lib/permissions-context";
-import {
-  getChipLabel,
-  hydrateProjection,
-} from "./cashflow-mobile-helpers";
+import { hydrateProjection } from "./cashflow-mobile-helpers";
 
-export { getBucketDisplayLabel, getChipLabel } from "./cashflow-mobile-helpers";
+export { getBucketDisplayLabel } from "./cashflow-mobile-helpers";
 
 interface Props {
   initialProjection: ProjectionMatrix;
@@ -113,29 +110,6 @@ export function CashflowMobileList({
     () => projection.buckets.findIndex((b) => b.key === activeBucketKey),
     [projection.buckets, activeBucketKey],
   );
-
-  // Auto-scroll del chip strip al bucket "Hoy" al mount / cuando cambia.
-  const chipStripRef = useRef<HTMLDivElement | null>(null);
-  const hasAutoScrolled = useRef<string | null>(null);
-  useEffect(() => {
-    if (!activeBucketKey) return;
-    if (hasAutoScrolled.current === activeBucketKey) return;
-    const strip = chipStripRef.current;
-    if (!strip) return;
-    const chip = strip.querySelector<HTMLButtonElement>(
-      `[data-bucket-key="${activeBucketKey}"]`,
-    );
-    if (!chip) return;
-    const left =
-      chip.offsetLeft - strip.clientWidth / 2 + chip.clientWidth / 2;
-    // jsdom no implementa scrollTo; fallback a scrollLeft directo.
-    if (typeof strip.scrollTo === "function") {
-      strip.scrollTo({ left: Math.max(0, left), behavior: "auto" });
-    } else {
-      strip.scrollLeft = Math.max(0, left);
-    }
-    hasAutoScrolled.current = activeBucketKey;
-  }, [activeBucketKey]);
 
   function gotoPrev() {
     if (activeIdx > 0) setActiveBucketKey(projection.buckets[activeIdx - 1].key);
@@ -238,46 +212,19 @@ export function CashflowMobileList({
         </button>
       </div>
 
-      {/* Chips de buckets — scroll horizontal */}
-      <div
-        ref={chipStripRef}
-        className="-mx-4 px-4 flex gap-2 overflow-x-auto scrollbar-hide pb-1"
-        role="tablist"
-        aria-label="Selector de bucket"
-      >
-        {projection.buckets.map((b, idx) => {
-          const isActive = b.key === activeBucketKey;
-          const isToday = idx === currentBucketIdx;
-          return (
-            <button
-              key={b.key}
-              type="button"
-              data-bucket-key={b.key}
-              onClick={() => setActiveBucketKey(b.key)}
-              role="tab"
-              aria-selected={isActive}
-              className={`shrink-0 h-9 px-3 rounded-ds-md text-[12px] font-medium whitespace-nowrap flex items-center gap-1.5 transition-colors ${
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted/30 text-ds-text-2 hover:bg-muted/60"
-              }`}
-            >
-              <span>{getChipLabel(b, granularity)}</span>
-              {isToday && (
-                <span
-                  className={`text-[9px] font-mono uppercase tracking-wider px-1 py-0.5 rounded-ds-sm ${
-                    isActive
-                      ? "bg-primary-foreground/20 text-primary-foreground"
-                      : "bg-status-info-soft text-status-info-fg"
-                  }`}
-                >
-                  Hoy
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {activeBucket && (
+        <CashflowMobileBucketHeader
+          bucket={activeBucket}
+          granularity={granularity}
+          hasPrev={activeIdx > 0}
+          hasNext={activeIdx >= 0 && activeIdx < projection.buckets.length - 1}
+          isCurrent={isActiveBucketCurrent}
+          onPrev={gotoPrev}
+          onNext={gotoNext}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        />
+      )}
 
       {loading && (
         <p className="text-[12px] text-ds-text-3">Cargando proyección…</p>
@@ -285,17 +232,6 @@ export function CashflowMobileList({
 
       {activeBucket && (
         <>
-          <CashflowMobileBucketHeader
-            bucket={activeBucket}
-            granularity={granularity}
-            hasPrev={activeIdx > 0}
-            hasNext={activeIdx >= 0 && activeIdx < projection.buckets.length - 1}
-            onPrev={gotoPrev}
-            onNext={gotoNext}
-            onTouchStart={onTouchStart}
-            onTouchEnd={onTouchEnd}
-          />
-
           {isActiveBucketCurrent && cumulativePoint && (
             <CashflowDriftBanner
               driftClp={cumulativePoint.cumulativeBankVarianceClp}

@@ -50,16 +50,14 @@ describe("CashflowMobileList", () => {
     });
   });
 
-  it("cambiar de bucket actualiza el header", async () => {
+  it("cambiar de bucket con el navegador actualiza el header", async () => {
     renderList();
-    const w20Chip = screen
-      .getAllByRole("tab")
-      .find((b) => b.getAttribute("data-bucket-key") === "2026-W20");
-    expect(w20Chip).toBeTruthy();
-    fireEvent.click(w20Chip!);
+    // El bucket activo al mount es W20 (hoy: 2026-05-14 cae en W20).
+    // Retroceder con la flecha "Período anterior" lleva a W19.
+    const prevBtn = screen.getByRole("button", { name: /Período anterior/ });
+    fireEvent.click(prevBtn);
     await waitFor(() => {
-      const summary = screen.getAllByText(/1\.000\.000/);
-      expect(summary.length).toBeGreaterThan(0);
+      expect(screen.getByText(/Semana del 4 al 10 may/)).toBeTruthy();
     });
   });
 
@@ -148,13 +146,12 @@ describe("CashflowMobileList", () => {
     );
   });
 
-  it("auto-selecciona un bucket activo al mount", async () => {
+  it("auto-selecciona el bucket de hoy al mount y muestra el peek 'Esta semana'", async () => {
     renderList();
+    // 2026-05-14 cae en la semana W20 (11–17 may).
     await waitFor(() => {
-      const active = screen
-        .getAllByRole("tab")
-        .find((t) => t.getAttribute("aria-selected") === "true");
-      expect(active).toBeTruthy();
+      expect(screen.getByText(/Semana del 11 al 17 may/)).toBeTruthy();
+      expect(screen.getByText("Esta semana")).toBeTruthy();
     });
   });
 
