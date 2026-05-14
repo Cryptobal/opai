@@ -5,52 +5,11 @@ import { ChevronDown, ChevronRight as ChevronRightIcon, Building2, TrendingUp } 
 import type {
   ProjectionRow,
   ProjectionBucket,
-  CashflowCellStatus,
 } from "@/modules/finance/cashflow/types";
-import { CellAmount } from "./CellAmount";
 import { useDroppable } from "@dnd-kit/core";
 import { ItemDetailRow } from "./ItemDetailRow";
 
 const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
-
-const CELL_STATUS_RANK: Record<CashflowCellStatus, number> = {
-  PROJECTED: 0,
-  INVOICED: 1,
-  DRAFT: 2,
-  CEDED: 3,
-  PAID: 4,
-};
-
-/**
- * Para la fila agregada de categoría, mostramos el estado "más informativo"
- * entre todos los items de la fila en ese bucket. Misma precedencia que el
- * server-side. INVOICED con mora más alta gana en empate.
- */
-function aggregateRowStatus(
-  row: ProjectionRow,
-  bucketKey: string,
-): { cellStatus: CashflowCellStatus; daysOverdue: number; dteFolio: number | null } {
-  let best: CashflowCellStatus = "PROJECTED";
-  let maxOverdue = 0;
-  let bestFolio: number | null = null;
-  for (const item of row.items) {
-    const cell = item.values.find((v) => v.bucketKey === bucketKey);
-    if (!cell?.cellStatus) continue;
-    if (CELL_STATUS_RANK[cell.cellStatus] > CELL_STATUS_RANK[best]) {
-      best = cell.cellStatus;
-      maxOverdue = cell.daysOverdue ?? 0;
-      bestFolio = cell.dteFolio ?? null;
-    } else if (
-      cell.cellStatus === "INVOICED" &&
-      best === "INVOICED" &&
-      (cell.daysOverdue ?? 0) > maxOverdue
-    ) {
-      maxOverdue = cell.daysOverdue ?? 0;
-      if (!bestFolio && cell.dteFolio) bestFolio = cell.dteFolio;
-    }
-  }
-  return { cellStatus: best, daysOverdue: maxOverdue, dteFolio: bestFolio };
-}
 
 const STORAGE_PREFIX = "cashflow.expanded.";
 
@@ -98,6 +57,10 @@ function DroppableBucketCell({
 
 interface Props {
   row: ProjectionRow;
+  /** Mapa de montos reales conciliados — no se usa en la fila agregada
+   *  (que muestra suma proyectada pura). Lo recibimos solo por compat
+   *  con la API anterior; los descendientes ya leen sus actuales del
+   *  `row.items[i].values[j].actualAmount`. */
   actualByCellKey?: Map<string, number>;
   /** Ajustes IPC PENDING indexados por `${itemId}_${bucketKey}`. La celda
    *  con marker muestra un mini-badge ámbar para que el reajuste no se
@@ -118,13 +81,17 @@ interface Props {
  */
 export function ExpandableMatrixRow({
   row,
-  actualByCellKey,
+  // actualByCellKey: aceptado pero no usado en la fila agregada (la suma
+  // proyectada se muestra sin override/delta — ese formato vive en los
+  // ItemDetailRow). Quedó en Props por compat con WeeklyMatrix/MonthlyMatrix.
+  actualByCellKey: _actualByCellKey,
   ipcPending,
   buckets,
   granularity,
   rowOrder = "default",
   onActionDone,
 }: Props) {
+  void _actualByCellKey;
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -172,15 +139,9 @@ export function ExpandableMatrixRow({
           </button>
         </td>
         {row.values.map((v) => {
-          const cellKey = `${row.categoryId ?? "_"}_${v.bucketKey}`;
-          const actual = actualByCellKey?.has(cellKey)
-            ? (actualByCellKey.get(cellKey) ?? null)
-            : null;
-          const variance = actual !== null ? actual - v.amount : null;
-
           // ¿Algún item de la fila tiene IPC pendiente en este bucket?
-          // Si sí, marcamos la celda agregada para que el usuario lo vea
-          // aunque tenga la fila colapsada.
+          // Marcamos la celda agregada para que el usuario lo vea aunque
+          // tenga la fila colapsada.
           const hasIpcInBucket =
             ipcPending && ipcPending.size > 0
               ? row.items.some((it) =>
@@ -188,31 +149,22 @@ export function ExpandableMatrixRow({
                 )
               : false;
 
-          const agg = aggregateRowStatus(row, v.bucketKey);
+          // Fila AGREGADA de categoría: mostramos SOLO la suma proyectada
+          // como texto plano. Nada de tachado/override/delta/status — esos
+          // formatos viven en el ItemDetailRow del contrato individual.
+          // Si el usuario quiere ver el detalle, expande la categoría.
           const cellContent = (
-            <div className="relative inline-flex items-center justify-end gap-1">
+            <span className="inline-flex items-center justify-end gap-1 font-mono tabular-nums">
               {hasIpcInBucket && (
                 <TrendingUp
                   className="h-3 w-3 text-status-warn-fg shrink-0"
                   aria-label="Reajuste IPC pendiente este mes"
                 />
               )}
-              <CellAmount
-                projected={v.amount}
-                actual={actual}
-                variance={variance}
-                kind={row.kind as "INCOME" | "EXPENSE"}
-                cellStatus={agg.cellStatus}
-                daysOverdue={agg.daysOverdue}
-                dteFolio={agg.dteFolio}
-              />
-            </div>
+              {v.amount > 0 ? fmt.format(v.amount) : "—"}
+            </span>
           );
 
-          // En la fila AGREGADA (categoría) NO mostramos popover de DTE
-          // específico: la celda es la SUMA de varios items y el target
-          // único es engañoso. Para ver el DTE el usuario expande la
-          // categoría y usa el popover del ItemDetailRow correspondiente.
           return (
             <DroppableBucketCell
               key={v.bucketKey}
