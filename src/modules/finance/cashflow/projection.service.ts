@@ -410,37 +410,41 @@ export async function buildProjection(
   );
 
   // ── Reajuste IPC esperado (items CLP con hasIpcAdjustment=true) ──
-  // Pre-cargamos para cada item con ajuste IPC el último ajuste APPLIED
-  // (define la base + fecha del último reajuste real). Sirve para
-  // proyectar las cuotas futuras con incremento compuesto sin esperar a
-  // que el usuario aplique manualmente cada ajuste.
+  // Pre-cargamos TODO el historial de ajustes APPLIED por item, ordenado
+  // por fecha de vigencia (`dueDate`). Una cuota cae en el "tramo" del
+  // ajuste cuyo dueDate <= cuotaDate < dueDate del siguiente — con eso
+  // sabemos qué `newAmount` regía en esa fecha. Antes del primer ajuste,
+  // regía el `oldAmount` del primero (= el monto contractual inicial).
   const ipcItemIds = items
     .filter((i) => i.hasIpcAdjustment && i.currency === "CLP")
     .map((i) => i.id);
-  const lastIpcByItem = new Map<
-    string,
-    { appliedAt: Date; newAmount: number }
-  >();
+  type IpcSegment = {
+    dueDate: Date;
+    oldAmount: number;
+    newAmount: number;
+  };
+  const ipcSegmentsByItem = new Map<string, IpcSegment[]>();
   if (ipcItemIds.length > 0) {
-    const lastApplied = await prisma.financeContractIpcAdjustment.findMany({
+    const allApplied = await prisma.financeContractIpcAdjustment.findMany({
       where: {
         tenantId,
         itemId: { in: ipcItemIds },
         status: "APPLIED",
         newAmount: { not: null },
-        appliedAt: { not: null },
+        oldAmount: { not: null },
       },
-      select: { itemId: true, appliedAt: true, newAmount: true },
-      orderBy: { appliedAt: "desc" },
+      select: { itemId: true, dueDate: true, oldAmount: true, newAmount: true },
+      orderBy: { dueDate: "asc" },
     });
-    for (const a of lastApplied) {
-      if (!a.appliedAt || a.newAmount == null) continue;
-      if (!lastIpcByItem.has(a.itemId)) {
-        lastIpcByItem.set(a.itemId, {
-          appliedAt: a.appliedAt,
-          newAmount: Number(a.newAmount),
-        });
-      }
+    for (const a of allApplied) {
+      if (a.newAmount == null || a.oldAmount == null) continue;
+      const arr = ipcSegmentsByItem.get(a.itemId) ?? [];
+      arr.push({
+        dueDate: a.dueDate,
+        oldAmount: Number(a.oldAmount),
+        newAmount: Number(a.newAmount),
+      });
+      ipcSegmentsByItem.set(a.itemId, arr);
     }
   }
   const ipcAnnualPct = Number(config.ipcExpectedAnnualPct ?? 0);
@@ -451,14 +455,26 @@ export async function buildProjection(
     );
   };
   /**
-   * Calcula el monto estimado de una cuota CLP de un contrato con reajuste
-   * IPC. Aplica incremento compuesto basado en cuántos ciclos de ajuste
-   * (cada `ipcAdjustmentMonths`) caben entre la fecha base y la cuota.
+   * Calcula el monto NETO de una cuota CLP de un contrato con reajuste IPC,
+   * respetando el historial real del contrato:
    *
-   * - Base: último ajuste APPLIED si existe, si no `item.startDate` y
-   *   `item.amount` (asumimos que `amount` ya está actualizado al último).
-   * - El reajuste se aplica SOLO en ciclos completos futuros — la cuota
-   *   actual mantiene la base hasta que se cumpla el próximo ciclo.
+   *   - Si la cuota cae ANTES del primer ajuste aplicado → `oldAmount` del
+   *     primer ajuste (= monto contractual inicial).
+   *   - Si la cuota cae ENTRE dos ajustes (o después del último) → el
+   *     `newAmount` del ajuste cuya `dueDate` es la más reciente ≤ cuotaDate.
+   *   - Si el item tiene `hasIpcAdjustment` pero todavía no hay APPLIED →
+   *     se usa `baseAmount` (= `item.amount`).
+   *
+   * Sobre ese tramo histórico, si `ipcExpectedAnnualPct` está configurado,
+   * proyectamos crecimiento compuesto a futuro por ciclos completos de
+   * `ipcAdjustmentMonths` — útil para anticipar reajustes pendientes en
+   * meses siguientes al último APPLIED.
+   *
+   * BUG previo (corregido): la versión anterior usaba siempre `newAmount`
+   * del último APPLIED para CUALQUIER fecha, incluyendo cuotas anteriores
+   * al reajuste — entonces un IPC aplicado en mayo "retro-pintaba" las
+   * celdas de marzo y abril al nuevo monto, generando falsa varianza
+   * contra los pagos bancarios reales del período pre-reajuste.
    */
   const projectIpcAdjustedAmount = (
     item: (typeof items)[number],
@@ -466,12 +482,37 @@ export async function buildProjection(
     baseAmount: number
   ): number => {
     if (!item.hasIpcAdjustment || item.currency !== "CLP") return baseAmount;
-    if (!ipcAnnualPct || ipcAnnualPct <= 0) return baseAmount;
+    const segments = ipcSegmentsByItem.get(item.id) ?? [];
+
+    // Encontrar el tramo activo para `cuotaDate` (último ajuste con dueDate
+    // ≤ cuotaDate). Si no encontramos ninguno y existen ajustes, la cuota
+    // es anterior al primer reajuste — usamos `oldAmount` del primero.
+    let activeSegmentIdx = -1;
+    for (let i = 0; i < segments.length; i++) {
+      if (segments[i].dueDate.getTime() <= cuotaDate.getTime()) {
+        activeSegmentIdx = i;
+      } else {
+        break;
+      }
+    }
+    let base: number;
+    let baseDate: Date;
+    if (activeSegmentIdx >= 0) {
+      base = segments[activeSegmentIdx].newAmount;
+      baseDate = segments[activeSegmentIdx].dueDate;
+    } else if (segments.length > 0) {
+      base = segments[0].oldAmount;
+      baseDate = item.startDate;
+    } else {
+      base = baseAmount;
+      baseDate = item.startDate;
+    }
+
+    // Proyección futura por IPC esperado: sólo aplica si la cuota está
+    // adelante del tramo activo y hay tasa anual configurada.
+    if (!ipcAnnualPct || ipcAnnualPct <= 0) return base;
     const cycleMonths = Number(item.ipcAdjustmentMonths ?? 12);
-    if (cycleMonths <= 0) return baseAmount;
-    const last = lastIpcByItem.get(item.id);
-    const baseDate = last?.appliedAt ?? item.startDate;
-    const base = last?.newAmount ?? baseAmount;
+    if (cycleMonths <= 0) return base;
     const elapsed = monthsBetween(baseDate, cuotaDate);
     if (elapsed <= 0) return base;
     const cycles = Math.floor(elapsed / cycleMonths);
