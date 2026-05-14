@@ -3,6 +3,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmEdit, requireCrmDelete } from "@/lib/api-auth-crm";
 import { prisma } from "@/lib/prisma";
 import { requireTenantModule } from '@/lib/require-module';
+import { deactivateContractCashflowItems } from "@/modules/finance/cashflow/generators/sales-contract-sync";
 
 /**
  * PATCH /api/crm/accounts/[id]/contracts/[contractId]
@@ -197,6 +198,12 @@ export async function DELETE(
     }
 
     await prisma.$transaction(async (tx) => {
+      // Cascada al flujo de caja: el item del contrato se desactiva y sus
+      // occurrences PROJECTED no conciliadas se borran. Las matcheadas a
+      // banco/DTE quedan como historial. Debe ir ANTES del delete del
+      // Document — el helper resuelve por sourceRefId = contractId.
+      await deactivateContractCashflowItems(tx, ctx.tenantId, contractId);
+
       await tx.docAssociation.deleteMany({ where: { documentId: contractId } });
       await tx.docHistory.deleteMany({ where: { documentId: contractId } });
       await tx.docSignatureRecipient.deleteMany({

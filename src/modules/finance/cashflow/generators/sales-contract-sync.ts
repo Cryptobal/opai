@@ -1,4 +1,5 @@
 import "server-only";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -123,6 +124,98 @@ export async function deleteLegacyContractItems(
     where: { id: { in: legacyIds } },
   });
   return { deleted: result.count };
+}
+
+/**
+ * Desactiva el/los FinanceCashflowItem vinculados a un contrato (Document)
+ * y elimina sus occurrences PROJECTED no conciliadas. Las occurrences ya
+ * matcheadas a banco/DTE se conservan (auditoría). Idempotente.
+ *
+ * Debe llamarse DENTRO de una transacción Prisma (recibe el tx client) para
+ * que la limpieza ocurra atómicamente con el delete del Document.
+ */
+export async function deactivateContractCashflowItems(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  contractDocumentId: string,
+): Promise<{ itemsDeactivated: number; occurrencesDeleted: number }> {
+  const items = await tx.financeCashflowItem.findMany({
+    where: {
+      tenantId,
+      source: { in: ["CONTRACT", "OTHER"] },
+      sourceRefId: contractDocumentId,
+    },
+    select: { id: true },
+  });
+  if (items.length === 0) {
+    return { itemsDeactivated: 0, occurrencesDeleted: 0 };
+  }
+  const itemIds = items.map((i) => i.id);
+
+  const occDel = await tx.financeCashflowOccurrence.deleteMany({
+    where: {
+      tenantId,
+      itemId: { in: itemIds },
+      status: "PROJECTED",
+      bankTransactionId: null,
+      dteId: null,
+    },
+  });
+
+  const itemUpd = await tx.financeCashflowItem.updateMany({
+    where: { id: { in: itemIds } },
+    data: { isActive: false },
+  });
+
+  return {
+    itemsDeactivated: itemUpd.count,
+    occurrencesDeleted: occDel.count,
+  };
+}
+
+/**
+ * Limpieza one-shot: desactiva FinanceCashflowItem con source IN (CONTRACT,OTHER)
+ * cuyo sourceRefId apunta a un Document que ya NO existe (huérfanos por DELETEs
+ * antiguos que no limpiaban el flujo). Solo isActive:false (reversible). No
+ * borra occurrences — quedan como historia.
+ *
+ * Pensado para ejecución manual desde un script ad-hoc, NO desde cron.
+ */
+export async function deactivateOrphanContractItems(
+  tenantId: string,
+): Promise<{ deactivated: number; scanned: number }> {
+  const items = await prisma.financeCashflowItem.findMany({
+    where: {
+      tenantId,
+      source: { in: ["CONTRACT", "OTHER"] },
+      sourceRefId: { not: null },
+      isActive: true,
+    },
+    select: { id: true, sourceRefId: true },
+  });
+  if (items.length === 0) return { deactivated: 0, scanned: 0 };
+
+  const refIds = Array.from(
+    new Set(items.map((i) => i.sourceRefId).filter((x): x is string => !!x)),
+  );
+  const existing = await prisma.document.findMany({
+    where: { tenantId, id: { in: refIds } },
+    select: { id: true },
+  });
+  const existingSet = new Set(existing.map((d) => d.id));
+
+  const orphanIds = items
+    .filter((i) => i.sourceRefId && !existingSet.has(i.sourceRefId))
+    .map((i) => i.id);
+
+  if (orphanIds.length === 0) {
+    return { deactivated: 0, scanned: items.length };
+  }
+  const result = await prisma.financeCashflowItem.updateMany({
+    where: { id: { in: orphanIds } },
+    data: { isActive: false },
+  });
+  return { deactivated: result.count, scanned: items.length };
 }
 
 export async function migrateContractItemsToManual(tenantId: string): Promise<{
