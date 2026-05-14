@@ -43,8 +43,10 @@ import {
   TrendingUp,
   PlusCircle,
   X,
+  History,
 } from "lucide-react";
 import { ApplyIpcDialog } from "./ApplyIpcDialog";
+import { IpcHistoryDialog } from "./IpcHistoryDialog";
 import { cn } from "@/lib/utils";
 import { DOC_STATUS_CONFIG } from "@/lib/docs/token-registry";
 import {
@@ -304,12 +306,14 @@ export function AccountContractsSection({
   // Edit dialog state (only for manually uploaded contracts)
   const [editOpen, setEditOpen] = useState(false);
   const [ipcModal, setIpcModal] = useState<{
-    adjustmentId: string;
+    adjustmentId: string | null;
+    itemId: string;
     contractTitle: string;
     dueDate: string;
     currentAmount: number;
     currency: string;
   } | null>(null);
+  const [ipcHistoryOpen, setIpcHistoryOpen] = useState<string | null>(null);
   const [editContract, setEditContract] = useState<Contract | null>(null);
   const [editStatus, setEditStatus] = useState<"active" | "expired" | "renewed">(
     "active",
@@ -1392,26 +1396,52 @@ export function AccountContractsSection({
                               <span className="text-[12px] text-muted-foreground">
                                 · día {item.dayOfMonth === -1 ? "último" : item.dayOfMonth}
                               </span>
-                              {item.pendingIpcAdjustments && item.pendingIpcAdjustments.length > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const next = item.pendingIpcAdjustments![0];
-                                    setIpcModal({
-                                      adjustmentId: next.id,
-                                      contractTitle: c.title,
-                                      dueDate: next.dueDate,
-                                      currentAmount: item.amountClp,
-                                      currency: item.currency,
-                                    });
-                                  }}
-                                  className="inline-flex items-center gap-1 rounded-md bg-status-warn-soft text-status-warn-fg text-[12px] font-medium px-2 py-0.5 hover:bg-status-warn-soft/80 transition-colors"
-                                  title="Aplicar ajuste IPC pendiente"
-                                >
-                                  <TrendingUp className="h-3 w-3" />
-                                  Ajuste IPC
-                                </button>
-                              )}
+                              {item.hasIpcAdjustment && item.currency === "CLP" && (() => {
+                                const pending = item.pendingIpcAdjustments?.[0] ?? null;
+                                const isPending = !!pending;
+                                return (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setIpcModal({
+                                          adjustmentId: pending?.id ?? null,
+                                          itemId: item.itemId,
+                                          contractTitle: c.title,
+                                          dueDate:
+                                            pending?.dueDate ?? todayISO(),
+                                          currentAmount: item.amountClp,
+                                          currency: item.currency,
+                                        });
+                                      }}
+                                      className={cn(
+                                        "inline-flex items-center gap-1 rounded-md text-[12px] font-medium px-2 py-0.5 transition-colors",
+                                        isPending
+                                          ? "bg-status-warn-soft text-status-warn-fg hover:bg-status-warn-soft/80"
+                                          : "border border-ds-border-subtle text-ds-text-2 hover:bg-ds-surface-2",
+                                      )}
+                                      title={
+                                        isPending
+                                          ? `Reajuste IPC pendiente · ${pending!.dueDate}`
+                                          : "Registrar reajuste IPC manual"
+                                      }
+                                    >
+                                      <TrendingUp className="h-3 w-3" />
+                                      {isPending ? "Aplicar IPC" : "Reajuste IPC"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setIpcHistoryOpen(item.itemId)
+                                      }
+                                      className="inline-flex items-center gap-1 rounded-md text-[11px] text-ds-text-3 hover:text-ds-text-1 px-1 py-0.5 transition-colors"
+                                      title="Ver historial de reajustes"
+                                    >
+                                      <History className="h-3 w-3" />
+                                    </button>
+                                  </>
+                                );
+                              })()}
                               <div className="flex gap-1 ml-auto">
                                 <Button
                                   variant="ghost"
@@ -2838,6 +2868,7 @@ export function AccountContractsSection({
           open={true}
           onOpenChange={(o) => !o && setIpcModal(null)}
           adjustmentId={ipcModal.adjustmentId}
+          itemId={ipcModal.itemId}
           contractTitle={ipcModal.contractTitle}
           dueDate={ipcModal.dueDate}
           currentAmount={ipcModal.currentAmount}
@@ -2847,6 +2878,13 @@ export function AccountContractsSection({
             fetchContracts();
             onRefresh?.();
           }}
+        />
+      ) : null}
+      {ipcHistoryOpen ? (
+        <IpcHistoryDialog
+          itemId={ipcHistoryOpen}
+          open={true}
+          onOpenChange={(o) => !o && setIpcHistoryOpen(null)}
         />
       ) : null}
     </div>

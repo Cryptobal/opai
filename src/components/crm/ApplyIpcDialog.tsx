@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,13 @@ import { Textarea } from "@/components/ui/textarea";
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  adjustmentId: string;
+  /** ID del adjustment PENDING. Si se provee, se aplica ese adjustment;
+   *  si NO, se crea uno manual sobre `itemId` con dueDate=hoy. */
+  adjustmentId?: string | null;
+  /** Requerido cuando no hay `adjustmentId` (modo manual). */
+  itemId?: string;
   contractTitle: string;
+  /** Fecha programada del reajuste (PENDING) o "hoy" (manual). */
   dueDate: string;
   currentAmount: number;
   currency: string;
@@ -37,44 +42,94 @@ function formatAmount(n: number, currency: string): string {
   return `$${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(n)}`;
 }
 
+function roundAmount(n: number, currency: string): number {
+  if (currency === "UF") return Math.round(n * 100) / 100;
+  return Math.round(n);
+}
+
+function formatAmountInput(n: number, currency: string): string {
+  if (currency === "UF") return (Math.round(n * 100) / 100).toString();
+  return Math.round(n).toString();
+}
+
 export function ApplyIpcDialog({
   open,
   onOpenChange,
   adjustmentId,
+  itemId,
   contractTitle,
   dueDate,
   currentAmount,
   currency,
   onApplied,
 }: Props) {
+  const isManual = !adjustmentId;
   const [pct, setPct] = useState<string>("");
+  const [amount, setAmount] = useState<string>("");
+  const [lastEdited, setLastEdited] = useState<"pct" | "amount" | null>(null);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const preview = useMemo(() => {
-    const n = Number(pct);
-    if (!Number.isFinite(n)) return null;
+  useEffect(() => {
+    if (open) {
+      setPct("");
+      setAmount("");
+      setLastEdited(null);
+      setNotes("");
+    }
+  }, [open]);
+
+  function handlePctChange(value: string) {
+    setPct(value);
+    setLastEdited("pct");
+    const n = Number(value);
+    if (value === "" || !Number.isFinite(n)) {
+      setAmount("");
+      return;
+    }
     const next = currentAmount * (1 + n / 100);
-    const delta = next - currentAmount;
-    return { next, delta };
-  }, [pct, currentAmount]);
+    setAmount(formatAmountInput(next, currency));
+  }
+
+  function handleAmountChange(value: string) {
+    setAmount(value);
+    setLastEdited("amount");
+    const n = Number(value);
+    if (value === "" || !Number.isFinite(n) || currentAmount === 0) {
+      setPct("");
+      return;
+    }
+    const implied = (n / currentAmount - 1) * 100;
+    setPct((Math.round(implied * 100) / 100).toString());
+  }
+
+  const preview = useMemo(() => {
+    const pctNum = Number(pct);
+    if (!Number.isFinite(pctNum) || pct === "") return null;
+    const next = roundAmount(currentAmount * (1 + pctNum / 100), currency);
+    return { next, delta: next - currentAmount, pct: pctNum };
+  }, [pct, currentAmount, currency]);
 
   async function handleApply() {
-    const n = Number(pct);
-    if (!Number.isFinite(n) || n <= -100) {
+    const pctNum = Number(pct);
+    if (!Number.isFinite(pctNum) || pctNum <= -100) {
       toast.error("Ingresá un porcentaje válido");
+      return;
+    }
+    if (isManual && !itemId) {
+      toast.error("Falta el item del flujo de caja");
       return;
     }
     setSubmitting(true);
     try {
-      const res = await fetch(
-        `/api/finance/cashflow/ipc-adjustments/${adjustmentId}/apply`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pct: n, notes: notes.trim() || undefined }),
-        },
-      );
+      const url = isManual
+        ? `/api/finance/cashflow/items/${itemId}/ipc-adjust`
+        : `/api/finance/cashflow/ipc-adjustments/${adjustmentId}/apply`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pct: pctNum, notes: notes.trim() || undefined }),
+      });
       const json = await res.json();
       if (!json.success) {
         toast.error(json.error ?? "Error aplicando ajuste");
@@ -98,11 +153,17 @@ export function ApplyIpcDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-status-info-fg" />
-            Aplicar ajuste de IPC
+            {isManual ? "Registrar reajuste IPC" : "Aplicar ajuste de IPC"}
           </DialogTitle>
           <DialogDescription>
             {contractTitle} ·{" "}
             <span className="font-mono">{dueDate}</span>
+            {isManual ? (
+              <span className="block text-[11px] text-ds-text-3 mt-1">
+                El próximo ciclo se programará desde hoy según la frecuencia
+                configurada en el contrato.
+              </span>
+            ) : null}
           </DialogDescription>
         </DialogHeader>
 
@@ -114,7 +175,7 @@ export function ApplyIpcDialog({
                 {formatAmount(currentAmount, currency)}
               </span>
             </div>
-            {preview && Number(pct) !== 0 ? (
+            {preview && preview.pct !== 0 ? (
               <>
                 <div className="flex items-center justify-between">
                   <span className="text-ds-text-3">Variación</span>
@@ -139,24 +200,42 @@ export function ApplyIpcDialog({
             ) : null}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="ipcPct">% del ajuste IPC</Label>
-            <Input
-              id="ipcPct"
-              type="number"
-              step="0.01"
-              value={pct}
-              onChange={(e) => setPct(e.target.value)}
-              placeholder="3,5"
-              autoFocus
-            />
-            <p className="text-[11px] text-muted-foreground">
-              IPC publicado por el INE para el período. Ej: si fue 3,5%, ingresá{" "}
-              <code className="font-mono">3.5</code>. Si el contrato no se ajusta
-              este período por acuerdo con el cliente, ingresá{" "}
-              <code className="font-mono">0</code>.
-            </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="ipcPct">% del ajuste</Label>
+              <Input
+                id="ipcPct"
+                type="number"
+                step="0.01"
+                value={pct}
+                onChange={(e) => handlePctChange(e.target.value)}
+                placeholder="3,5"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ipcAmount">Monto nuevo</Label>
+              <Input
+                id="ipcAmount"
+                type="number"
+                step={currency === "UF" ? "0.01" : "1"}
+                value={amount}
+                onChange={(e) => handleAmountChange(e.target.value)}
+                placeholder={formatAmountInput(currentAmount, currency)}
+              />
+            </div>
           </div>
+          <p className="text-[11px] text-muted-foreground">
+            Editás % o monto nuevo indistintamente — el otro campo se calcula
+            automáticamente. Si el contrato no se ajusta este período por
+            acuerdo, ingresá <code className="font-mono">0</code> en %.
+            {lastEdited ? (
+              <span className="text-ds-text-3">
+                {" "}
+                · editando por <strong>{lastEdited === "pct" ? "%" : "monto"}</strong>
+              </span>
+            ) : null}
+          </p>
 
           <div className="space-y-2">
             <Label htmlFor="ipcNotes">Notas (opcional)</Label>

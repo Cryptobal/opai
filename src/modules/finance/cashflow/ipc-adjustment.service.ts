@@ -117,20 +117,36 @@ export interface ApplyAdjustmentInput {
  * Aplica el ajuste IPC: actualiza `item.amount`, deja snapshot old/new,
  * marca el adjustment como APPLIED, y borra ocurrencias proyectadas
  * desde la fecha en adelante para que se regeneren con el nuevo monto.
+ *
+ * Tras aplicar, recalcula el próximo ciclo: borra los PENDING futuros
+ * del item y crea uno nuevo con `dueDate = appliedAt + ipcAdjustmentMonths`
+ * (no desde startDate del contrato). El próximo reajuste cae N meses
+ * después del momento del reajuste real, no del calendario teórico.
  */
 export async function applyAdjustment(
   tenantId: string,
   adjustmentId: string,
   input: ApplyAdjustmentInput,
   ctx: { userId: string },
-): Promise<{ newAmount: number; oldAmount: number }> {
+): Promise<{ newAmount: number; oldAmount: number; nextDueDate: Date | null }> {
   if (!Number.isFinite(input.pct) || input.pct <= -100) {
     throw new Error("Porcentaje inválido");
   }
   return prisma.$transaction(async (tx) => {
     const adj = await tx.financeContractIpcAdjustment.findFirst({
       where: { id: adjustmentId, tenantId },
-      include: { item: { select: { id: true, amount: true, isActive: true } } },
+      include: {
+        item: {
+          select: {
+            id: true,
+            amount: true,
+            isActive: true,
+            endDate: true,
+            hasIpcAdjustment: true,
+            ipcAdjustmentMonths: true,
+          },
+        },
+      },
     });
     if (!adj) throw new Error("Ajuste IPC no encontrado");
     if (adj.status !== "PENDING") {
@@ -141,6 +157,7 @@ export async function applyAdjustment(
     }
     const oldAmount = Number(adj.item.amount);
     const newAmount = Math.round(oldAmount * (1 + input.pct / 100) * 100) / 100;
+    const now = new Date();
 
     await tx.financeCashflowItem.update({
       where: { id: adj.item.id },
@@ -154,7 +171,7 @@ export async function applyAdjustment(
         appliedPct: input.pct,
         oldAmount,
         newAmount,
-        appliedAt: new Date(),
+        appliedAt: now,
         appliedBy: ctx.userId,
         notes: input.notes ?? null,
       },
@@ -172,6 +189,196 @@ export async function applyAdjustment(
       },
     });
 
-    return { oldAmount, newAmount };
+    const nextDueDate = await rescheduleNextPending(tx, {
+      tenantId,
+      itemId: adj.item.id,
+      hasIpcAdjustment: adj.item.hasIpcAdjustment,
+      ipcAdjustmentMonths: adj.item.ipcAdjustmentMonths,
+      endDate: adj.item.endDate,
+      anchorDate: now,
+      excludeAdjustmentId: adjustmentId,
+    });
+
+    return { oldAmount, newAmount, nextDueDate };
   });
+}
+
+/**
+ * Aplica un ajuste IPC manual (sin esperar al PENDING del cron). Crea
+ * y aplica el adjustment en una sola transacción con `dueDate = hoy`.
+ * El próximo ciclo se programa N meses después de hoy.
+ */
+export async function applyManualAdjustment(
+  tenantId: string,
+  itemId: string,
+  input: ApplyAdjustmentInput,
+  ctx: { userId: string },
+): Promise<{ newAmount: number; oldAmount: number; nextDueDate: Date | null }> {
+  if (!Number.isFinite(input.pct) || input.pct <= -100) {
+    throw new Error("Porcentaje inválido");
+  }
+  return prisma.$transaction(async (tx) => {
+    const item = await tx.financeCashflowItem.findFirst({
+      where: { id: itemId, tenantId, isActive: true },
+      select: {
+        id: true,
+        amount: true,
+        currency: true,
+        hasIpcAdjustment: true,
+        ipcAdjustmentMonths: true,
+        endDate: true,
+      },
+    });
+    if (!item) throw new Error("Item no encontrado o inactivo");
+    if (!item.hasIpcAdjustment) {
+      throw new Error("El contrato no tiene ajuste de IPC habilitado");
+    }
+    if (item.currency !== "CLP") {
+      throw new Error("El ajuste IPC solo aplica a contratos en CLP");
+    }
+
+    const now = new Date();
+    const today = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
+    const oldAmount = Number(item.amount);
+    const newAmount = Math.round(oldAmount * (1 + input.pct / 100) * 100) / 100;
+
+    const adj = await tx.financeContractIpcAdjustment.create({
+      data: {
+        tenantId,
+        itemId,
+        dueDate: today,
+        status: "APPLIED",
+        appliedPct: input.pct,
+        oldAmount,
+        newAmount,
+        appliedAt: now,
+        appliedBy: ctx.userId,
+        notes: input.notes ?? null,
+      },
+    });
+
+    await tx.financeCashflowItem.update({
+      where: { id: itemId },
+      data: { amount: newAmount },
+    });
+
+    await tx.financeCashflowOccurrence.deleteMany({
+      where: {
+        tenantId,
+        itemId,
+        scheduledDate: { gte: today },
+        status: "PROJECTED",
+      },
+    });
+
+    const nextDueDate = await rescheduleNextPending(tx, {
+      tenantId,
+      itemId,
+      hasIpcAdjustment: item.hasIpcAdjustment,
+      ipcAdjustmentMonths: item.ipcAdjustmentMonths,
+      endDate: item.endDate,
+      anchorDate: now,
+      excludeAdjustmentId: adj.id,
+    });
+
+    return { oldAmount, newAmount, nextDueDate };
+  });
+}
+
+interface RescheduleInput {
+  tenantId: string;
+  itemId: string;
+  hasIpcAdjustment: boolean;
+  ipcAdjustmentMonths: number | null;
+  endDate: Date | null;
+  anchorDate: Date;
+  excludeAdjustmentId: string;
+}
+
+async function rescheduleNextPending(
+  // biome-ignore lint/suspicious/noExplicitAny: prisma transaction client
+  tx: any,
+  input: RescheduleInput,
+): Promise<Date | null> {
+  if (
+    !input.hasIpcAdjustment ||
+    !input.ipcAdjustmentMonths ||
+    input.ipcAdjustmentMonths <= 0
+  ) {
+    return null;
+  }
+
+  // Borrar otros PENDING del item: el calendario cambió (anclado al
+  // momento del reajuste real, no al teórico original).
+  await tx.financeContractIpcAdjustment.deleteMany({
+    where: {
+      tenantId: input.tenantId,
+      itemId: input.itemId,
+      status: "PENDING",
+      id: { not: input.excludeAdjustmentId },
+    },
+  });
+
+  const nextDue = addMonthsUtc(input.anchorDate, input.ipcAdjustmentMonths);
+  if (input.endDate && nextDue > input.endDate) return null;
+
+  await tx.financeContractIpcAdjustment.create({
+    data: {
+      tenantId: input.tenantId,
+      itemId: input.itemId,
+      dueDate: nextDue,
+      status: "PENDING",
+    },
+  });
+  return nextDue;
+}
+
+/**
+ * Lista todos los ajustes IPC (APPLIED + PENDING) de un item, ordenados
+ * por fecha. Usado por la UI de historial en la tarjeta del contrato.
+ */
+export async function listAdjustmentsByItem(
+  tenantId: string,
+  itemId: string,
+): Promise<
+  Array<{
+    id: string;
+    dueDate: Date;
+    status: "PENDING" | "APPLIED";
+    appliedPct: number | null;
+    oldAmount: number | null;
+    newAmount: number | null;
+    appliedAt: Date | null;
+    appliedBy: string | null;
+    notes: string | null;
+  }>
+> {
+  const rows = await prisma.financeContractIpcAdjustment.findMany({
+    where: { tenantId, itemId },
+    orderBy: { dueDate: "desc" },
+    select: {
+      id: true,
+      dueDate: true,
+      status: true,
+      appliedPct: true,
+      oldAmount: true,
+      newAmount: true,
+      appliedAt: true,
+      appliedBy: true,
+      notes: true,
+    },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    dueDate: r.dueDate,
+    status: r.status as "PENDING" | "APPLIED",
+    appliedPct: r.appliedPct === null ? null : Number(r.appliedPct),
+    oldAmount: r.oldAmount === null ? null : Number(r.oldAmount),
+    newAmount: r.newAmount === null ? null : Number(r.newAmount),
+    appliedAt: r.appliedAt,
+    appliedBy: r.appliedBy,
+    notes: r.notes,
+  }));
 }

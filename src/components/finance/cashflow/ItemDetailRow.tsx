@@ -141,8 +141,10 @@ export function ItemDetailRow({
 
   return (
     <tr className="bg-muted/10 hover:bg-muted/20 border-t border-border/50">
-      <td className="sticky left-0 z-20 bg-card p-2 truncate min-w-[140px] max-w-[200px] sm:min-w-[180px] sm:max-w-[260px] border-r border-border/50">
-        <div className={`flex items-center gap-1.5 ${inGroup ? "pl-8" : "pl-3"}`}>
+      <td className="sticky left-0 z-20 bg-card p-2 min-w-[140px] max-w-[200px] sm:min-w-[180px] sm:max-w-[260px] border-r border-border/50">
+        <div
+          className={`flex flex-wrap items-center gap-x-1.5 gap-y-0.5 ${inGroup ? "pl-8" : "pl-3"}`}
+        >
           {showAccount ? (
             <span
               className="text-[11px] font-mono uppercase tracking-[0.06em] text-ds-text-4 shrink-0"
@@ -154,13 +156,16 @@ export function ItemDetailRow({
           {link ? (
             <a
               href={link}
-              className="text-[12px] text-ds-text-2 hover:underline truncate"
+              className="text-[12px] text-ds-text-2 hover:underline line-clamp-2 break-words"
               title={display}
             >
               {display}
             </a>
           ) : (
-            <span className="text-[12px] text-ds-text-2 truncate" title={display}>
+            <span
+              className="text-[12px] text-ds-text-2 line-clamp-2 break-words"
+              title={display}
+            >
               {display}
             </span>
           )}
@@ -193,15 +198,9 @@ export function ItemDetailRow({
               UF
             </span>
           )}
-          {item.hasIpcAdjustment && item.currency !== "UF" && (
-            <span
-              className="inline-flex items-center gap-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-ds-sm bg-status-warn-soft text-status-warn-fg shrink-0"
-              title={`Contrato con reajuste IPC cada ${item.ipcAdjustmentMonths ?? "?"} meses — el monto se proyecta con el IPC esperado anual configurado`}
-            >
-              <TrendingUp className="h-2.5 w-2.5" />
-              IPC{item.ipcAdjustmentMonths ? ` · ${item.ipcAdjustmentMonths}m` : ""}
-            </span>
-          )}
+          {/* Badge "IPC · Nm" del nombre eliminado intencionalmente —
+              el indicador de reajuste ahora vive solo en la celda del
+              bucket donde cae el dueDate (ámbar + TrendingUp). */}
         </div>
       </td>
       {item.values.map((v) => {
@@ -212,9 +211,11 @@ export function ItemDetailRow({
           <span className="inline-flex items-center justify-end gap-1">
             {ipcMarker && (
               <span
-                title={`Reajuste IPC pendiente · vence ${ipcMarker.dueDate}`}
+                title={`Reajuste IPC pendiente · vence ${ipcMarker.dueDate} — clic para aplicar`}
+                className="inline-flex items-center gap-0.5 rounded-sm bg-status-warn-fg/15 px-1 py-0.5 text-[9px] font-mono font-semibold uppercase tracking-[0.06em] text-status-warn-fg"
               >
-                <TrendingUp className="h-3 w-3 text-status-warn-fg shrink-0" />
+                <TrendingUp className="h-2.5 w-2.5" />
+                IPC
               </span>
             )}
             <CellAmount
@@ -250,7 +251,7 @@ export function ItemDetailRow({
             bucketKey={v.bucketKey}
             className={`p-2 text-right text-ds-text-2 whitespace-nowrap ${
               ipcMarker
-                ? "bg-status-warn-soft ring-1 ring-status-warn-border"
+                ? "bg-status-warn-soft ring-1 ring-status-warn-border ring-inset"
                 : ""
             }`}
           >

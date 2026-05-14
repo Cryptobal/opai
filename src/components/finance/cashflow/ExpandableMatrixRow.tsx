@@ -170,15 +170,20 @@ export function ExpandableMatrixRow({
           <button
             type="button"
             onClick={toggle}
-            className="flex items-center gap-1.5 w-full text-left min-h-[44px] sm:min-h-0"
+            className="flex items-start gap-1.5 w-full text-left min-h-[44px] sm:min-h-0"
           >
             {expanded ? (
-              <ChevronDown className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
+              <ChevronDown className="h-3.5 w-3.5 text-ds-text-3 shrink-0 mt-0.5" />
             ) : (
-              <ChevronRightIcon className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
+              <ChevronRightIcon className="h-3.5 w-3.5 text-ds-text-3 shrink-0 mt-0.5" />
             )}
-            <span className="truncate">{row.categoryName}</span>
-            <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4 shrink-0">
+            <span
+              className="line-clamp-2 break-words flex-1 min-w-0"
+              title={row.categoryName}
+            >
+              {row.categoryName}
+            </span>
+            <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4 shrink-0 mt-0.5">
               ({row.items.length})
             </span>
           </button>
@@ -460,15 +465,15 @@ function ClientGroup({
             className="flex flex-col w-full text-left pl-3 min-h-[32px] gap-0.5"
             title={collapsed ? "Expandir" : "Colapsar"}
           >
-            <div className="flex items-center gap-1.5 min-w-0">
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
               {collapsed ? (
-                <ChevronRightIcon className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
+                <ChevronRightIcon className="h-3.5 w-3.5 text-ds-text-3 shrink-0 mt-0.5" />
               ) : (
-                <ChevronDown className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
+                <ChevronDown className="h-3.5 w-3.5 text-ds-text-3 shrink-0 mt-0.5" />
               )}
-              <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+              <Building2 className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
               <span
-                className="text-[12px] font-semibold text-ds-text-1 truncate min-w-0"
+                className="text-[12px] font-semibold text-ds-text-1 line-clamp-2 break-words"
                 title={name}
               >
                 {name}
