@@ -2,21 +2,26 @@
 
 /**
  * SendEmailDialog — modal reusable para reenviar el PDF + XML de un DTE
- * con control granular sobre TO / CC / BCC.
+ * con control granular sobre TO / CC / BCC + selección de adjuntos
+ * USER_UPLOAD.
  *
  * Antes el botón "Reenviar email" llamaba al endpoint con body vacío:
  * el email iba al receiverEmail por default sin posibilidad de copiar
- * a nadie ni de mandar oculto. Ahora el usuario puede:
- *   - Editar el TO (cambiar el destinatario al re-enviar).
- *   - Agregar CC (visible para el receptor).
- *   - Agregar BCC (oculto, ej: contador interno).
+ * a nadie ni de mandar oculto. Ahora el usuario puede editar TO/CC/BCC.
  *
- * Pre-llena con `receiverEmail` y `receiverEmailCc` del DTE para que el
- * caso típico (volver a enviar al mismo) sea un click.
+ * La parte TO/CC/BCC fue extraída a `DteRecipientsPicker` para
+ * reutilizarse en los formularios de emisión (factura/NC/ND); este
+ * dialog solo se queda con adjuntos + el endpoint /send-email.
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Mail, X, Plus, Paperclip, FileText, ImageIcon } from "lucide-react";
+import {
+  Loader2,
+  Mail,
+  Paperclip,
+  FileText,
+  ImageIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -26,9 +31,11 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import {
+  DteRecipientsPicker,
+  type DteRecipientsValue,
+} from "./DteRecipientsPicker";
 
 type UserAttachment = {
   id: string;
@@ -44,8 +51,10 @@ function fmtBytes(n: number): string {
 }
 
 function attachIcon(mime: string) {
-  if (mime.startsWith("image/")) return <ImageIcon className="h-3.5 w-3.5 text-blue-500" />;
-  if (mime === "application/pdf") return <FileText className="h-3.5 w-3.5 text-red-500" />;
+  if (mime.startsWith("image/"))
+    return <ImageIcon className="h-3.5 w-3.5 text-blue-500" />;
+  if (mime === "application/pdf")
+    return <FileText className="h-3.5 w-3.5 text-red-500" />;
   return <Paperclip className="h-3.5 w-3.5 text-gray-500" />;
 }
 
@@ -63,27 +72,24 @@ interface Props {
   defaultCc: string[];
   /**
    * Sugerencias de CC pre-computadas (opcional). Si se pasa
-   * `crmAccountId`, el dialog también las trae automáticamente desde
+   * `crmAccountId`, el picker también las trae automáticamente desde
    * /api/crm/contacts?accountId=…
    */
   suggestedCc?: { email: string; label?: string }[];
   /**
-   * Cuenta CRM dueña del DTE. Si está presente, el dialog hace fetch
-   * de los contactos asociados y los muestra como chips clickeables
-   * para añadirlos a CC.
+   * Cuenta CRM dueña del DTE. Si está presente, el picker hace fetch
+   * de los contactos asociados y los muestra como chips clickeables.
    */
   crmAccountId?: string | null;
   /**
    * RUT del receptor — fallback cuando crmAccountId está vacío (DTEs
-   * viejos sin auto-link). El endpoint /api/crm/contacts resuelve la
-   * cuenta CRM por RUT y devuelve sus contactos.
+   * viejos sin auto-link).
    */
   receiverRut?: string | null;
   /** Callback opcional al éxito. */
   onSent?: () => void;
 }
 
-/** Validador de email simple (mismo patrón que el resto del módulo). */
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function SendEmailDialog({
@@ -99,31 +105,26 @@ export function SendEmailDialog({
   receiverRut,
   onSent,
 }: Props) {
-  const [recipient, setRecipient] = useState<string>(defaultRecipient ?? "");
-  const [cc, setCc] = useState<string[]>(defaultCc);
-  const [bcc, setBcc] = useState<string[]>([]);
-  const [ccInput, setCcInput] = useState("");
-  const [bccInput, setBccInput] = useState("");
+  const [recipients, setRecipients] = useState<DteRecipientsValue>({
+    to: defaultRecipient ?? "",
+    cc: defaultCc,
+    bcc: [],
+  });
   const [sending, setSending] = useState(false);
   // Adjuntos del usuario (USER_UPLOAD) asociados al DTE. Por defecto se
   // incluyen TODOS en el correo; el usuario puede excluir alguno destildando.
   const [attachments, setAttachments] = useState<UserAttachment[]>([]);
   const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
   const [loadingAttachments, setLoadingAttachments] = useState(false);
-  // Contactos CRM de la cuenta dueña del DTE — se cargan en el background
-  // y se fusionan con `suggestedCc` para mostrar como chips agregables.
-  const [crmContacts, setCrmContacts] = useState<
-    { email: string; label?: string }[]
-  >([]);
 
   // Reset cuando se abre/cierra el modal o cambia el DTE.
   useEffect(() => {
     if (!open) return;
-    setRecipient(defaultRecipient ?? "");
-    setCc(defaultCc);
-    setBcc([]);
-    setCcInput("");
-    setBccInput("");
+    setRecipients({
+      to: defaultRecipient ?? "",
+      cc: defaultCc,
+      bcc: [],
+    });
     setExcludedIds(new Set());
   }, [open, defaultRecipient, defaultCc, dteId]);
 
@@ -132,7 +133,9 @@ export function SendEmailDialog({
     if (!open) return;
     const ctrl = new AbortController();
     setLoadingAttachments(true);
-    fetch(`/api/finance/billing/dtes/${dteId}/attachments`, { signal: ctrl.signal })
+    fetch(`/api/finance/billing/dtes/${dteId}/attachments`, {
+      signal: ctrl.signal,
+    })
       .then((r) => r.json())
       .then((j) => {
         if (j?.success) setAttachments(j.data ?? []);
@@ -141,39 +144,6 @@ export function SendEmailDialog({
       .finally(() => setLoadingAttachments(false));
     return () => ctrl.abort();
   }, [open, dteId]);
-
-  // Cargar contactos del CRM asociados a la cuenta del DTE.
-  // Estrategia: primero por accountId, si no hay accountId fallback por RUT
-  // del receptor — necesario para DTEs viejos donde crmAccountId quedó
-  // null pero el RUT sí matchea con una cuenta CRM.
-  useEffect(() => {
-    if (!open) return;
-    const param = crmAccountId
-      ? `accountId=${crmAccountId}`
-      : receiverRut
-        ? `rut=${encodeURIComponent(receiverRut)}`
-        : null;
-    if (!param) {
-      setCrmContacts([]);
-      return;
-    }
-    const ctrl = new AbortController();
-    fetch(`/api/crm/contacts?${param}`, { signal: ctrl.signal })
-      .then((r) => r.json())
-      .then((j) => {
-        if (!j?.success || !Array.isArray(j.data)) return;
-        const list: { email: string; label?: string }[] = [];
-        for (const c of j.data) {
-          const email = (c.email ?? "").trim();
-          if (!email || !EMAIL_RE.test(email)) continue;
-          const name = [c.firstName, c.lastName].filter(Boolean).join(" ").trim();
-          list.push({ email, label: name ? `${name} <${email}>` : email });
-        }
-        setCrmContacts(list);
-      })
-      .catch(() => {});
-    return () => ctrl.abort();
-  }, [open, crmAccountId, receiverRut]);
 
   const toggleExclude = (id: string) => {
     setExcludedIds((prev) => {
@@ -185,67 +155,17 @@ export function SendEmailDialog({
   };
 
   const isRecipientValid = useMemo(
-    () => recipient.trim() === "" || EMAIL_RE.test(recipient.trim()),
-    [recipient],
-  );
-
-  const addChip = (
-    list: string[],
-    setter: (s: string[]) => void,
-    raw: string,
-    inputSetter: (s: string) => void,
-  ) => {
-    const trimmed = raw.trim().replace(/[,;]+$/, "");
-    if (!trimmed) {
-      inputSetter("");
-      return;
-    }
-    if (!EMAIL_RE.test(trimmed)) {
-      toast.error(`Email inválido: ${trimmed}`);
-      return;
-    }
-    if (list.includes(trimmed) || trimmed === recipient) {
-      inputSetter("");
-      return;
-    }
-    if (list.length >= 10) {
-      toast.error("Máximo 10 emails por campo (CC o BCC).");
-      return;
-    }
-    setter([...list, trimmed]);
-    inputSetter("");
-  };
-
-  const removeChip = (
-    list: string[],
-    setter: (s: string[]) => void,
-    email: string,
-  ) => {
-    setter(list.filter((e) => e !== email));
-  };
-
-  // Sugerencias: fusionamos prop + CRM contacts dedupeando por email.
-  // Filtramos las que ya están en CC o son el TO actual.
-  const allSuggestions = useMemo(() => {
-    const seen = new Set<string>();
-    const out: { email: string; label?: string }[] = [];
-    for (const s of [...suggestedCc, ...crmContacts]) {
-      if (seen.has(s.email)) continue;
-      seen.add(s.email);
-      out.push(s);
-    }
-    return out;
-  }, [suggestedCc, crmContacts]);
-  const ccSuggestionsToShow = allSuggestions.filter(
-    (s) => !cc.includes(s.email) && s.email !== recipient,
+    () =>
+      recipients.to.trim() === "" || EMAIL_RE.test(recipients.to.trim()),
+    [recipients.to],
   );
 
   async function handleSend() {
-    if (!recipient.trim()) {
+    if (!recipients.to.trim()) {
       toast.error("Ingresa el email del destinatario (TO).");
       return;
     }
-    if (!EMAIL_RE.test(recipient.trim())) {
+    if (!isRecipientValid) {
       toast.error("El email TO no tiene formato válido.");
       return;
     }
@@ -261,12 +181,13 @@ export function SendEmailDialog({
         bccOverride?: string[];
         excludeAttachmentIds?: string[];
       } = {};
-      if (recipient.trim() !== (defaultRecipient ?? "")) {
-        body.recipientEmail = recipient.trim();
+      if (recipients.to.trim() !== (defaultRecipient ?? "")) {
+        body.recipientEmail = recipients.to.trim();
       }
-      if (cc.length > 0) body.ccOverride = cc;
-      if (bcc.length > 0) body.bccOverride = bcc;
-      if (excludedIds.size > 0) body.excludeAttachmentIds = Array.from(excludedIds);
+      if (recipients.cc.length > 0) body.ccOverride = recipients.cc;
+      if (recipients.bcc.length > 0) body.bccOverride = recipients.bcc;
+      if (excludedIds.size > 0)
+        body.excludeAttachmentIds = Array.from(excludedIds);
 
       const res = await fetch(
         `/api/finance/billing/issued/${dteId}/send-email`,
@@ -304,129 +225,14 @@ export function SendEmailDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* TO */}
-          <div className="space-y-1.5">
-            <Label htmlFor="email-to">Para (TO) *</Label>
-            <Input
-              id="email-to"
-              type="email"
-              value={recipient}
-              onChange={(e) => setRecipient(e.target.value)}
-              placeholder="cliente@empresa.cl"
-              className={`h-10 sm:h-9 ${
-                !isRecipientValid && recipient.trim()
-                  ? "border-status-danger-border"
-                  : ""
-              }`}
-            />
-            {!isRecipientValid && recipient.trim() && (
-              <p className="text-[12px] text-status-danger-fg">
-                Formato de email inválido.
-              </p>
-            )}
-            {!recipient.trim() && (
-              <p className="text-[12px] text-muted-foreground">
-                El receptor no tiene email guardado. Ingresá uno acá.
-              </p>
-            )}
-          </div>
-
-          {/* CC */}
-          <div className="space-y-1.5">
-            <Label htmlFor="email-cc">
-              CC <span className="text-[12px] text-muted-foreground font-normal">(visibles para el receptor)</span>
-            </Label>
-            <ChipList list={cc} onRemove={(e) => removeChip(cc, setCc, e)} />
-            <div className="flex gap-2">
-              <Input
-                id="email-cc"
-                type="email"
-                value={ccInput}
-                onChange={(e) => setCcInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === ",") {
-                    e.preventDefault();
-                    addChip(cc, setCc, ccInput, setCcInput);
-                  }
-                }}
-                placeholder="contador@empresa.cl, gerencia@empresa.cl…"
-                className="h-10 sm:h-9 flex-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addChip(cc, setCc, ccInput, setCcInput)}
-                disabled={!ccInput.trim()}
-                className="h-10 sm:h-9 shrink-0"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Agregar
-              </Button>
-            </div>
-            {ccSuggestionsToShow.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                <span className="text-[12px] text-muted-foreground self-center">
-                  Sugerencias del CRM:
-                </span>
-                {ccSuggestionsToShow.map((s) => (
-                  <button
-                    key={s.email}
-                    type="button"
-                    onClick={() => {
-                      if (!cc.includes(s.email)) setCc([...cc, s.email]);
-                    }}
-                    className="text-[12px] px-2 py-0.5 rounded-md border border-dashed border-ds-border-default hover:bg-status-info-soft hover:border-status-info-border hover:text-status-info-fg transition-colors"
-                    title={`Agregar ${s.email}`}
-                  >
-                    + {s.label ?? s.email}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* BCC */}
-          <div className="space-y-1.5">
-            <Label htmlFor="email-bcc">
-              BCC{" "}
-              <span className="text-[12px] text-muted-foreground font-normal">
-                (ocultos — el receptor NO los ve)
-              </span>
-            </Label>
-            <ChipList
-              list={bcc}
-              onRemove={(e) => removeChip(bcc, setBcc, e)}
-              variant="bcc"
-            />
-            <div className="flex gap-2">
-              <Input
-                id="email-bcc"
-                type="email"
-                value={bccInput}
-                onChange={(e) => setBccInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === ",") {
-                    e.preventDefault();
-                    addChip(bcc, setBcc, bccInput, setBccInput);
-                  }
-                }}
-                placeholder="contabilidad-interna@miempresa.cl…"
-                className="h-10 sm:h-9 flex-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addChip(bcc, setBcc, bccInput, setBccInput)}
-                disabled={!bccInput.trim()}
-                className="h-10 sm:h-9 shrink-0"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Agregar
-              </Button>
-            </div>
-          </div>
+          <DteRecipientsPicker
+            value={recipients}
+            onChange={setRecipients}
+            crmAccountId={crmAccountId}
+            receiverRut={receiverRut}
+            suggestedContacts={suggestedCc}
+            disabled={sending}
+          />
 
           <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 text-[12px] text-ds-text-3 space-y-2">
             <p>
@@ -436,7 +242,8 @@ export function SendEmailDialog({
             </p>
             {loadingAttachments ? (
               <p className="flex items-center gap-1.5 text-ds-text-3">
-                <Loader2 className="h-3 w-3 animate-spin" /> Cargando archivos adjuntos…
+                <Loader2 className="h-3 w-3 animate-spin" /> Cargando archivos
+                adjuntos…
               </p>
             ) : attachments.length > 0 ? (
               <div className="space-y-1">
@@ -461,7 +268,9 @@ export function SendEmailDialog({
                           >
                             {a.filename}
                           </span>
-                          <span className="text-ds-text-3 shrink-0">{fmtBytes(a.size)}</span>
+                          <span className="text-ds-text-3 shrink-0">
+                            {fmtBytes(a.size)}
+                          </span>
                         </label>
                       </li>
                     );
@@ -483,7 +292,10 @@ export function SendEmailDialog({
           >
             Cancelar
           </Button>
-          <Button onClick={handleSend} disabled={sending || !recipient.trim()}>
+          <Button
+            onClick={handleSend}
+            disabled={sending || !recipients.to.trim()}
+          >
             {sending ? (
               <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
             ) : (
@@ -494,38 +306,5 @@ export function SendEmailDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function ChipList({
-  list,
-  onRemove,
-  variant,
-}: {
-  list: string[];
-  onRemove: (email: string) => void;
-  variant?: "bcc";
-}) {
-  if (list.length === 0) return null;
-  const baseClass =
-    variant === "bcc"
-      ? "inline-flex items-center gap-1 text-[12px] px-2 py-1 rounded-md bg-ds-surface-3 text-ds-text-2 border border-ds-border-subtle"
-      : "inline-flex items-center gap-1 text-[12px] px-2 py-1 rounded-md bg-status-info-soft text-status-info-fg border border-status-info-border";
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {list.map((email) => (
-        <span key={email} className={baseClass}>
-          {email}
-          <button
-            type="button"
-            onClick={() => onRemove(email)}
-            className="hover:opacity-70"
-            aria-label={`Quitar ${email}`}
-          >
-            <X className="h-3 w-3" />
-          </button>
-        </span>
-      ))}
-    </div>
   );
 }
