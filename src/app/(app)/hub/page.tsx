@@ -32,6 +32,7 @@ import {
   getAlerts,
 } from './_lib/hub-queries';
 import type { HubPerms } from './_lib/hub-types';
+import type { HubSectionKey } from './_lib/hub-sections-registry';
 
 import { HubClientWrapper } from './_components/HubClientWrapper';
 
@@ -119,6 +120,16 @@ export default async function HubPage() {
     where: { tenantId, status: 'active' },
   });
 
+  // Preferencias de personalización del Hub (orden y secciones ocultas).
+  // Server-side para evitar flicker post-hidratación. Si el usuario nunca
+  // personalizó, ambos arrays vacíos → wrapper aplica orden default.
+  const userPref = await prisma.adminPreference.findUnique({
+    where: { adminId: session.user.id },
+    select: { hubOrder: true, hubHidden: true },
+  });
+  const hubOrder = (userPref?.hubOrder ?? []) as HubSectionKey[];
+  const hubHidden = (userPref?.hubHidden ?? []) as HubSectionKey[];
+
   return (
     <HubClientWrapper
       firstName={firstName}
@@ -137,6 +148,8 @@ export default async function HubPage() {
       payrollMetrics={payrollMetrics}
       personasMetrics={personasMetrics}
       installationsActivas={installationsActivas}
+      hubOrder={hubOrder}
+      hubHidden={hubHidden}
     />
   );
 }

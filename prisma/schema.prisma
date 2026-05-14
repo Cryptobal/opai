@@ -200,6 +200,34 @@ model AdminTourState {
   @@schema("public")
 }
 
+/// Preferencias de UI por usuario. Un único modelo para todas las prefs
+/// (orden del hub, secciones ocultas, theme, defaults colapsados, etc.).
+/// No mezclar con `AdminOnboardingState` (estado del wizard inicial) ni
+/// con `AdminTourState` (tours guiados por módulo).
+model AdminPreference {
+  id        String   @id @default(cuid())
+  adminId   String   @unique @map("admin_id")
+  /// Orden personalizado de secciones del Hub. Array de section keys del
+  /// registry (`hub-sections-registry.ts`). Vacío = usar default. Keys
+  /// desconocidas (después de un refactor de secciones) se ignoran en
+  /// runtime sin error.
+  hubOrder  String[] @default([]) @map("hub_order")
+  /// Section keys ocultadas por el usuario. No se renderizan, pero
+  /// aparecen como "ocultas" en el modo edición para reactivar.
+  hubHidden String[] @default([]) @map("hub_hidden")
+  /// Reservado para futuras prefs (theme, defaults colapsados por sección,
+  /// idioma, formato fecha personal, etc.) sin necesidad de migrar tabla.
+  data      Json?    @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@map("admin_preference")
+  @@schema("public")
+}
+
 model TenantModule {
   id        String   @id @default(cuid())
   tenantId  String   @map("tenant_id")
@@ -546,6 +574,7 @@ model Admin {
   aiActionLogs                  AiActionLog[]
   onboardingState               AdminOnboardingState?
   tourStates                    AdminTourState[]
+  preference                    AdminPreference?
 
   @@index([email])
   @@index([status])

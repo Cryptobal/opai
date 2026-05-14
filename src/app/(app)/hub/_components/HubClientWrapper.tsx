@@ -2,11 +2,13 @@
 
 /**
  * Wrapper cliente del Hub OPAI — War Room operacional.
- * Layout pensado para reunión semanal: KPIs ejecutivos arriba, heatmaps al medio,
- * detalle abajo. Mobile-first con secciones colapsables.
+ * Permite reordenar / ocultar secciones por usuario vía registry
+ * (`hub-sections-registry.ts`). Orden persistido en `AdminPreference`.
  */
 
+import { useState } from 'react';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Pencil } from 'lucide-react';
 import { HubGreeting } from './HubGreeting';
 import { HubQuickActions } from './HubQuickActions';
 import { HubAlertsBanner } from './HubAlertsBanner';
@@ -22,6 +24,14 @@ import { HubActivitySection } from './HubActivitySection';
 import { HubAtsSection } from './HubAtsSection';
 import { HubPayrollSection } from './HubPayrollSection';
 import { HubPersonasSection } from './HubPersonasSection';
+import { HubCustomizeBar } from './HubCustomizeBar';
+import {
+  resolveHubOrder,
+  resolveHiddenSections,
+  type HubSectionKey,
+  type HubSectionDataBag,
+  type HubSectionMeta,
+} from '../_lib/hub-sections-registry';
 import type {
   HubPerms,
   ClosingHubData,
@@ -55,6 +65,8 @@ export interface HubClientWrapperProps {
   payrollMetrics: PayrollMetrics | null;
   personasMetrics: PersonasMetrics | null;
   installationsActivas?: number;
+  hubOrder: HubSectionKey[];
+  hubHidden: HubSectionKey[];
 }
 
 export function HubClientWrapper({
@@ -73,77 +85,117 @@ export function HubClientWrapper({
   payrollMetrics,
   personasMetrics,
   installationsActivas = 0,
+  hubOrder,
+  hubHidden,
 }: HubClientWrapperProps) {
+  const [isEditing, setIsEditing] = useState(false);
+
   const pendingFollowUpsCount = closingData?.kpis.followUpsOverdueCount ?? 0;
+
+  const dataBag: HubSectionDataBag = {
+    closingData,
+    opsMetrics,
+    financeMetrics,
+    ticketMetrics,
+    supervisionMetrics,
+    atsMetrics,
+    payrollMetrics,
+    personasMetrics,
+  };
+
+  const orderedSections = resolveHubOrder(hubPerms, dataBag, { hubOrder, hubHidden });
+  const hiddenSections = resolveHiddenSections(hubPerms, dataBag, { hubHidden });
+
+  const renderSection = (section: HubSectionMeta) => {
+    switch (section.key) {
+      case 'executive_kpis':
+        return (
+          <HubExecutiveKpis
+            key={section.key}
+            closingData={closingData}
+            opsMetrics={opsMetrics}
+            financeMetrics={financeMetrics}
+            ticketMetrics={ticketMetrics}
+            installationsActivas={installationsActivas}
+          />
+        );
+      case 'crm':
+        return closingData ? (
+          <HubCrmSection
+            key={section.key}
+            perms={hubPerms}
+            closingData={closingData}
+            sellerFirstName={firstName}
+            upcomingProjects={upcomingProjects}
+          />
+        ) : null;
+      case 'contratos_cliente':
+        return <HubContratosClienteSection key={section.key} />;
+      case 'ops':
+        return opsMetrics ? (
+          <HubOperationsSection key={section.key} opsMetrics={opsMetrics} />
+        ) : null;
+      case 'installation_health':
+        return <HubInstallationHealthSection key={section.key} />;
+      case 'supervision':
+        return supervisionMetrics ? (
+          <HubSupervisionSection key={section.key} metrics={supervisionMetrics} />
+        ) : null;
+      case 'tickets':
+        return <HubTicketsSection key={section.key} ticketMetrics={ticketMetrics} />;
+      case 'personas':
+        return personasMetrics ? (
+          <HubPersonasSection key={section.key} metrics={personasMetrics} />
+        ) : null;
+      case 'ats':
+        return atsMetrics ? <HubAtsSection key={section.key} metrics={atsMetrics} /> : null;
+      case 'payroll':
+        return payrollMetrics ? (
+          <HubPayrollSection key={section.key} metrics={payrollMetrics} />
+        ) : null;
+      case 'finanzas':
+        return financeMetrics ? (
+          <HubFinanzasSection
+            key={section.key}
+            financeMetrics={financeMetrics}
+            financeCaps={financeCaps}
+            opsMetrics={opsMetrics}
+          />
+        ) : null;
+      case 'activity':
+        return <HubActivitySection key={section.key} activities={activities} />;
+    }
+  };
 
   return (
     <div className="space-y-4 min-w-0 max-w-screen-2xl">
-      <HubGreeting
-        firstName={firstName}
-        pendingFollowUpsCount={pendingFollowUpsCount}
-      />
-
+      <HubGreeting firstName={firstName} pendingFollowUpsCount={pendingFollowUpsCount} />
       <HubQuickActions perms={hubPerms} />
       <HubAlertsBanner alerts={alerts} />
 
-      {/* 1. KPIs ejecutivos — siempre visibles, base de la reunión */}
-      <HubExecutiveKpis
-        closingData={closingData}
-        opsMetrics={opsMetrics}
-        financeMetrics={financeMetrics}
-        ticketMetrics={ticketMetrics}
-        installationsActivas={installationsActivas}
-      />
-
-      {/* 2. Pipeline comercial */}
-      {closingData && hubPerms.hasCrm && (
-        <HubCrmSection
-          perms={hubPerms}
-          closingData={closingData}
-          sellerFirstName={firstName}
-          upcomingProjects={upcomingProjects}
+      {isEditing ? (
+        <HubCustomizeBar
+          orderedSections={orderedSections}
+          hiddenSections={hiddenSections}
+          onClose={() => setIsEditing(false)}
         />
+      ) : (
+        <>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Pencil className="h-3 w-3" />
+              Personalizar Inicio
+            </button>
+          </div>
+          {orderedSections.map(renderSection)}
+        </>
       )}
 
-      {/* 3. Contratos cliente — sin contrato / por vencer / vencidos */}
-      {hubPerms.hasCrm && <HubContratosClienteSection />}
-
-      {/* 4. Operaciones — KPIs + heatmaps de rondas y visitas integrados */}
-      {opsMetrics && hubPerms.hasOps && (
-        <HubOperationsSection opsMetrics={opsMetrics} />
-      )}
-
-      {/* 5. Salud por instalación — top 5 peores */}
-      {hubPerms.hasSupervision && <HubInstallationHealthSection />}
-
-      {/* 6. Supervisión (heatmap visitas existente, ya renderiza HubVisitHeatmap) */}
-      {supervisionMetrics && hubPerms.hasSupervision && (
-        <HubSupervisionSection metrics={supervisionMetrics} />
-      )}
-
-      {/* 7. Tickets — KPIs + matriz por instalación */}
-      <HubTicketsSection ticketMetrics={ticketMetrics} />
-
-      {/* 8. Personas — KPIs + heatmap conocimiento + postulantes + cumples */}
-      {personasMetrics && hubPerms.hasPersonas && (
-        <HubPersonasSection metrics={personasMetrics} />
-      )}
-
-      {/* 9. ATS, Payroll, Finanzas (colapsadas) */}
-      {atsMetrics && hubPerms.hasAts && <HubAtsSection metrics={atsMetrics} />}
-      {payrollMetrics && hubPerms.hasPayroll && <HubPayrollSection metrics={payrollMetrics} />}
-      {financeMetrics && hubPerms.hasFinance && (
-        <HubFinanzasSection
-          financeMetrics={financeMetrics}
-          financeCaps={financeCaps}
-          opsMetrics={opsMetrics}
-        />
-      )}
-
-      {/* 10. Actividad reciente */}
-      <HubActivitySection activities={activities} />
-
-      {!closingData && !opsMetrics && !financeMetrics && (
+      {!closingData && !opsMetrics && !financeMetrics && !isEditing && (
         <Card className="min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle className="text-base">Sin datos disponibles</CardTitle>
