@@ -24,6 +24,12 @@ export interface DtePaymentTagProps {
   totalAmount: number;
   amountPaid?: number;
   amountPending?: number;
+  /**
+   * Timestamp denormalizado de la conciliación bancaria. Si está presente
+   * es la fuente de verdad de "conciliada" — independiente de paymentStatus.
+   * Si está null/undefined se cae al campo `lastReconciliation` para compat.
+   */
+  reconciledAt?: string | null;
   lastReconciliation?: {
     paymentCode: string;
     paymentDate: string;
@@ -46,6 +52,7 @@ export function DtePaymentTag({
   totalAmount,
   amountPaid,
   amountPending,
+  reconciledAt,
   lastReconciliation,
   size = "sm",
   className,
@@ -120,11 +127,15 @@ export function DtePaymentTag({
   }
 
   // "Pagada pero sin conciliar contra banco" — caso típico de bulk-mark-paid
-  // o import Zoho. La factura figura cobrada pero no hay link al movimiento
-  // bancario real. Mostramos un mini-badge ámbar al lado para que el
-  // usuario sepa que falta cerrar el ciclo en banca.
-  const isPaidUnreconciled =
-    paymentStatus === "PAID" && !lastReconciliation?.bankTransactionDate;
+  // o import Zoho. Estado de pago y estado de conciliación son independientes.
+  // Fuente de verdad de "conciliada":
+  //   1. reconciledAt (campo denormalizado, autoritativo); si está null/undefined,
+  //   2. lastReconciliation.bankTransactionDate (compat con consumidores antiguos).
+  const isReconciled =
+    reconciledAt != null
+      ? Boolean(reconciledAt)
+      : Boolean(lastReconciliation?.bankTransactionDate);
+  const isPaidUnreconciled = paymentStatus === "PAID" && !isReconciled;
 
   return (
     <span
