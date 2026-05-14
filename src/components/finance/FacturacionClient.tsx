@@ -2210,7 +2210,7 @@ function ReceivedDteDetailDialog({
                               </p>
                             )}
                             {l.isExempt && (
-                              <span className="inline-block mt-0.5 text-[10px] uppercase tracking-wide text-muted-foreground border border-border rounded px-1 py-0.5">
+                              <span className="inline-block mt-0.5 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4 border border-border rounded px-1 py-0.5">
                                 Exenta
                               </span>
                             )}
