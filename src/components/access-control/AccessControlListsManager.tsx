@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import {
   Shield, ShieldAlert, Plus, Search, Edit, Trash2,
-  Loader2, Upload, X, Check, AlertTriangle,
+  Loader2, Upload, X, Check, AlertTriangle, Car,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,7 @@ export function AccessControlListsManager({ installationId }: Props) {
 
   // Form state
   const [formRut, setFormRut] = useState("");
+  const [formPlate, setFormPlate] = useState("");
   const [formName, setFormName] = useState("");
   const [formCompany, setFormCompany] = useState("");
   const [formBlockReason, setFormBlockReason] = useState("");
@@ -60,6 +61,7 @@ export function AccessControlListsManager({ installationId }: Props) {
 
   const resetForm = () => {
     setFormRut("");
+    setFormPlate("");
     setFormName("");
     setFormCompany("");
     setFormBlockReason("");
@@ -72,7 +74,8 @@ export function AccessControlListsManager({ installationId }: Props) {
 
   const openEdit = (entry: AccessControlListEntry) => {
     setEditEntry(entry);
-    setFormRut(entry.rut);
+    setFormRut(entry.rut ?? "");
+    setFormPlate(entry.vehiclePlate ?? "");
     setFormName(entry.fullName);
     setFormCompany(entry.company || "");
     setFormBlockReason(entry.blockReason || "");
@@ -83,7 +86,14 @@ export function AccessControlListsManager({ installationId }: Props) {
   };
 
   const handleSave = async () => {
-    if (!validateRut(formRut)) {
+    const hasRut = formRut.trim().length > 0;
+    const hasPlate = formPlate.trim().length >= 4;
+
+    if (!hasRut && !hasPlate) {
+      toast.error("Debe especificar RUT o patente");
+      return;
+    }
+    if (hasRut && !validateRut(formRut)) {
       toast.error("RUT inválido");
       return;
     }
@@ -99,6 +109,8 @@ export function AccessControlListsManager({ installationId }: Props) {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            rut: hasRut ? formRut : null,
+            vehiclePlate: hasPlate ? formPlate : null,
             fullName: formName,
             company: formCompany,
             blockReason: formBlockReason,
@@ -122,7 +134,8 @@ export function AccessControlListsManager({ installationId }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             listType: activeTab,
-            rut: formRut,
+            rut: hasRut ? formRut : null,
+            vehiclePlate: hasPlate ? formPlate : null,
             fullName: formName,
             company: formCompany,
             blockReason: formBlockReason,
@@ -165,7 +178,8 @@ export function AccessControlListsManager({ installationId }: Props) {
     if (!search) return true;
     const s = search.toLowerCase();
     return (
-      e.rut.toLowerCase().includes(s) ||
+      (e.rut?.toLowerCase().includes(s) ?? false) ||
+      (e.vehiclePlate?.toLowerCase().includes(s) ?? false) ||
       e.fullName.toLowerCase().includes(s) ||
       (e.company && e.company.toLowerCase().includes(s))
     );
@@ -206,7 +220,7 @@ export function AccessControlListsManager({ installationId }: Props) {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por RUT, nombre o empresa..."
+            placeholder="Buscar por RUT, patente, nombre o empresa..."
             className="pl-9 bg-zinc-800 border-zinc-600"
           />
         </div>
@@ -232,18 +246,32 @@ export function AccessControlListsManager({ installationId }: Props) {
             </button>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <Label className="text-zinc-400">RUT</Label>
-              <Input
-                value={formRut}
-                onChange={(e) => setFormRut(e.target.value)}
-                placeholder="12.345.678-9"
-                className="bg-zinc-700 border-zinc-600"
-                disabled={!!editEntry}
-              />
-              {formRut && !validateRut(formRut) && (
-                <p className="mt-1 text-xs text-status-danger-fg">RUT inválido</p>
-              )}
+            <div className="sm:col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <Label className="text-zinc-400">RUT</Label>
+                <Input
+                  value={formRut}
+                  onChange={(e) => setFormRut(e.target.value)}
+                  placeholder="12.345.678-9"
+                  className="bg-zinc-700 border-zinc-600"
+                />
+                {formRut && !validateRut(formRut) && (
+                  <p className="mt-1 text-xs text-status-danger-fg">RUT inválido</p>
+                )}
+              </div>
+              <div>
+                <Label className="text-zinc-400">Patente</Label>
+                <Input
+                  value={formPlate}
+                  onChange={(e) => setFormPlate(e.target.value.toUpperCase())}
+                  placeholder="BBBB12"
+                  className="bg-zinc-700 border-zinc-600 font-mono"
+                />
+              </div>
+              <p className="text-xs text-zinc-500 sm:col-span-2 -mt-1">
+                Debe ingresar al menos uno de los dos. Si ingresas ambos, la
+                persona puede entrar identificándose con cualquiera.
+              </p>
             </div>
             <div>
               <Label className="text-zinc-400">Nombre Completo</Label>
@@ -360,8 +388,14 @@ export function AccessControlListsManager({ installationId }: Props) {
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-3 text-xs text-zinc-500">
-                  <span>{formatRut(entry.rut)}</span>
+                <div className="flex items-center gap-3 text-xs text-zinc-500 flex-wrap">
+                  {entry.rut && <span>{formatRut(entry.rut)}</span>}
+                  {entry.vehiclePlate && (
+                    <span className="flex items-center gap-1 font-mono">
+                      <Car className="h-3 w-3" />
+                      {entry.vehiclePlate}
+                    </span>
+                  )}
                   {entry.company && <span>{entry.company}</span>}
                   {entry.blockReason && (
                     <span className="flex items-center gap-1 text-status-danger-fg">

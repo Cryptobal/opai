@@ -215,6 +215,9 @@ export default function ListasControlSection({
 
                     <div className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-[#9CA3AF]">
                       {entry.rut && <span>{formatRut(entry.rut)}</span>}
+                      {entry.vehiclePlate && (
+                        <span className="font-mono">🚗 {entry.vehiclePlate}</span>
+                      )}
                       {entry.company && (
                         <span className="flex items-center gap-1">
                           <Building2 className="h-3 w-3" />

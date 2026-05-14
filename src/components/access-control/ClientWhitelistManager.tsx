@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import {
-  Shield, Plus, Search, Loader2, Check, Upload,
+  Shield, Plus, Search, Loader2, Check, Upload, Pencil, Car,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,8 @@ import { ListImport } from "./ListImport";
 
 interface WhitelistEntry {
   id: string;
-  rut: string;
+  rut: string | null;
+  vehiclePlate?: string | null;
   fullName: string;
   company: string | null;
   validFrom: string | null;
@@ -51,8 +52,10 @@ export function ClientWhitelistManager({ installationId, createdBy }: Props) {
   const [saving, setSaving] = useState(false);
 
   const [fRut, setFRut] = useState("");
+  const [fPlate, setFPlate] = useState("");
   const [fName, setFName] = useState("");
   const [fCompany, setFCompany] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [fRecordType, setFRecordType] = useState<AccessRecordType>("visit");
   // Record types available for this installation (defaults + active customs).
   const [availableTypes, setAvailableTypes] = useState<string[]>([
@@ -107,6 +110,7 @@ export function ClientWhitelistManager({ installationId, createdBy }: Props) {
 
   const resetForm = () => {
     setFRut("");
+    setFPlate("");
     setFName("");
     setFCompany("");
     setFRecordType("visit");
@@ -116,45 +120,77 @@ export function ClientWhitelistManager({ installationId, createdBy }: Props) {
     setFSingleUse(false);
     setFValidFrom("");
     setFValidUntil("");
+    setEditingId(null);
     setShowForm(false);
   };
 
+  const startEdit = (entry: WhitelistEntry) => {
+    setFRut(entry.rut ?? "");
+    setFPlate(entry.vehiclePlate ?? "");
+    setFName(entry.fullName);
+    setFCompany(entry.company ?? "");
+    setFRecordType((entry.recordType as AccessRecordType) ?? "visit");
+    setFAllowedDays(entry.allowedDays ?? []);
+    setFTimeFrom(entry.allowedTimeFrom ?? "");
+    setFTimeTo(entry.allowedTimeTo ?? "");
+    setFSingleUse(!!entry.singleUse);
+    setFValidFrom(entry.validFrom ? entry.validFrom.slice(0, 10) : "");
+    setFValidUntil(entry.validUntil ? entry.validUntil.slice(0, 10) : "");
+    setEditingId(entry.id);
+    setShowForm(true);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   const handleSubmit = async () => {
-    if (!validateRut(fRut)) { toast.error("RUT inválido"); return; }
+    const hasRut = fRut.trim().length > 0;
+    const hasPlate = fPlate.trim().length >= 4;
+    if (!hasRut && !hasPlate) {
+      toast.error("Debe especificar RUT o patente");
+      return;
+    }
+    if (hasRut && !validateRut(fRut)) {
+      toast.error("RUT inválido");
+      return;
+    }
     if (!fName.trim()) { toast.error("Nombre requerido"); return; }
 
     setSaving(true);
     try {
-      const res = await fetch(
-        `/api/portal/cliente/access-control/${installationId}/whitelist`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            rut: fRut,
-            fullName: fName,
-            company: fCompany || null,
-            recordType: fRecordType,
-            allowedDays: fAllowedDays,
-            allowedTimeFrom: fTimeFrom || null,
-            allowedTimeTo: fTimeTo || null,
-            singleUse: fSingleUse,
-            validFrom: fValidFrom || null,
-            validUntil: fValidUntil || null,
-            createdBy,
-          }),
-        }
-      );
+      const url = editingId
+        ? `/api/portal/cliente/access-control/${installationId}/whitelist/${editingId}`
+        : `/api/portal/cliente/access-control/${installationId}/whitelist`;
+      const method = editingId ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rut: hasRut ? fRut : null,
+          vehiclePlate: hasPlate ? fPlate : null,
+          fullName: fName,
+          company: fCompany || null,
+          recordType: fRecordType,
+          allowedDays: fAllowedDays,
+          allowedTimeFrom: fTimeFrom || null,
+          allowedTimeTo: fTimeTo || null,
+          singleUse: fSingleUse,
+          validFrom: fValidFrom || null,
+          validUntil: fValidUntil || null,
+          ...(editingId ? {} : { createdBy }),
+        }),
+      });
       const json = await res.json();
       if (json.success) {
-        toast.success("Persona autorizada agregada");
+        toast.success(editingId ? "Cambios guardados" : "Persona autorizada agregada");
         resetForm();
         fetchList();
       } else {
         toast.error(json.error);
       }
     } catch {
-      toast.error("Error al agregar");
+      toast.error(editingId ? "Error al guardar" : "Error al agregar");
     } finally {
       setSaving(false);
     }
@@ -179,7 +215,11 @@ export function ClientWhitelistManager({ installationId, createdBy }: Props) {
   const filtered = entries.filter((e) => {
     if (!search) return true;
     const s = search.toLowerCase();
-    return e.fullName.toLowerCase().includes(s) || e.rut.includes(s);
+    return (
+      e.fullName.toLowerCase().includes(s) ||
+      (e.rut?.toLowerCase().includes(s) ?? false) ||
+      (e.vehiclePlate?.toLowerCase().includes(s) ?? false)
+    );
   });
 
   return (
@@ -219,9 +259,19 @@ export function ClientWhitelistManager({ installationId, createdBy }: Props) {
             </p>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <Label className="text-zinc-400">RUT *</Label>
-              <Input value={fRut} onChange={(e) => setFRut(e.target.value)} placeholder="12.345.678-9" className="bg-zinc-700 border-zinc-600" />
+            <div className="sm:col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <Label className="text-zinc-400">RUT</Label>
+                <Input value={fRut} onChange={(e) => setFRut(e.target.value)} placeholder="12.345.678-9" className="bg-zinc-700 border-zinc-600" />
+              </div>
+              <div>
+                <Label className="text-zinc-400">Patente</Label>
+                <Input value={fPlate} onChange={(e) => setFPlate(e.target.value.toUpperCase())} placeholder="BBBB12" className="bg-zinc-700 border-zinc-600 font-mono" />
+              </div>
+              <p className="text-xs text-zinc-500 sm:col-span-2 -mt-1">
+                Debe ingresar al menos uno de los dos. Si ingresas ambos, la
+                persona puede entrar identificándose con cualquiera.
+              </p>
             </div>
             <div>
               <Label className="text-zinc-400">Nombre *</Label>
@@ -311,7 +361,7 @@ export function ClientWhitelistManager({ installationId, createdBy }: Props) {
             <Button variant="outline" size="sm" onClick={resetForm}>Cancelar</Button>
             <Button size="sm" onClick={handleSubmit} disabled={saving}>
               {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
-              Agregar
+              {editingId ? "Guardar cambios" : "Agregar"}
             </Button>
           </div>
         </div>
@@ -355,9 +405,15 @@ export function ClientWhitelistManager({ installationId, createdBy }: Props) {
                   )}
                 </div>
                 <div className="text-xs text-zinc-500">
-                  {formatRut(entry.rut)}
-                  {entry.company && ` — ${entry.company}`}
+                  {entry.rut ? formatRut(entry.rut) : null}
+                  {entry.rut && entry.company ? ` — ${entry.company}` : !entry.rut && entry.company ? entry.company : null}
                 </div>
+                {entry.vehiclePlate && (
+                  <div className="text-xs text-zinc-500 mt-0.5 flex items-center gap-1">
+                    <Car className="h-3 w-3" />
+                    <span className="font-mono">{entry.vehiclePlate}</span>
+                  </div>
+                )}
                 {(entry.allowedDays && entry.allowedDays.length > 0) || entry.allowedTimeFrom ? (
                   <div className="text-xs text-zinc-500 mt-0.5">
                     {entry.allowedDays && entry.allowedDays.length > 0 && (
@@ -379,14 +435,25 @@ export function ClientWhitelistManager({ installationId, createdBy }: Props) {
                   </div>
                 )}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => toggleActive(entry)}
-                className={`text-xs ${entry.isActive ? "border-zinc-600" : "border-status-ok-border text-status-ok-fg"}`}
-              >
-                {entry.isActive ? "Desactivar" : "Activar"}
-              </Button>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => startEdit(entry)}
+                  className="border-zinc-600"
+                  title="Editar"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toggleActive(entry)}
+                  className={`text-xs ${entry.isActive ? "border-zinc-600" : "border-status-ok-border text-status-ok-fg"}`}
+                >
+                  {entry.isActive ? "Desactivar" : "Activar"}
+                </Button>
+              </div>
             </div>
           ))}
         </div>
