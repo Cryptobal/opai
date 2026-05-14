@@ -180,7 +180,18 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
   // la config del tenant, así que en vez de duplicar la lógica de bucketKeyFor
   // buscamos el bucket por rango de fecha de la dueDate.
   useEffect(() => {
-    fetch("/api/finance/cashflow/ipc-adjustments?status=PENDING")
+    // projectUntil: el último bucket visible — así el endpoint incluye
+    // también las dueDates teóricas futuras (no creadas por el cron) que
+    // caen en el horizonte del FC. Sin esto, contratos con IPC cada 2/6/12
+    // meses no muestran badge hasta que el cron las materialice <30 días.
+    const lastBucket = projection.buckets[projection.buckets.length - 1];
+    const projectUntil = lastBucket
+      ? lastBucket.end.toISOString().slice(0, 10)
+      : "";
+    const url = projectUntil
+      ? `/api/finance/cashflow/ipc-adjustments?status=PENDING&projectUntil=${projectUntil}`
+      : "/api/finance/cashflow/ipc-adjustments?status=PENDING";
+    fetch(url)
       .then((r) => r.json())
       .then((j) => {
         if (!j?.success || !Array.isArray(j.data)) return;

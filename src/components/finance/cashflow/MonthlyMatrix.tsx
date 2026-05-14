@@ -81,7 +81,16 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
   // Carga los ajustes IPC pendientes. Clave del Map: `${itemId}_${YYYY-MM}`
   // — replica el formato de `bucketKeyFor` para monthly.
   useEffect(() => {
-    fetch("/api/finance/cashflow/ipc-adjustments?status=PENDING")
+    // projectUntil: incluye dueDates teóricas futuras dentro del horizonte
+    // visible del FC (contratos con IPC cada 2/6/12 meses).
+    const lastBucket = projection.buckets[projection.buckets.length - 1];
+    const projectUntil = lastBucket
+      ? lastBucket.end.toISOString().slice(0, 10)
+      : "";
+    const url = projectUntil
+      ? `/api/finance/cashflow/ipc-adjustments?status=PENDING&projectUntil=${projectUntil}`
+      : "/api/finance/cashflow/ipc-adjustments?status=PENDING";
+    fetch(url)
       .then((r) => r.json())
       .then((j) => {
         if (!j?.success || !Array.isArray(j.data)) return;
