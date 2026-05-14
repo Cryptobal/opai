@@ -180,10 +180,6 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
   // la config del tenant, así que en vez de duplicar la lógica de bucketKeyFor
   // buscamos el bucket por rango de fecha de la dueDate.
   useEffect(() => {
-    // projectUntil: el último bucket visible — así el endpoint incluye
-    // también las dueDates teóricas futuras (no creadas por el cron) que
-    // caen en el horizonte del FC. Sin esto, contratos con IPC cada 2/6/12
-    // meses no muestran badge hasta que el cron las materialice <30 días.
     const lastBucket = projection.buckets[projection.buckets.length - 1];
     const projectUntil = lastBucket
       ? lastBucket.end.toISOString().slice(0, 10)
@@ -191,6 +187,29 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
     const url = projectUntil
       ? `/api/finance/cashflow/ipc-adjustments?status=PENDING&projectUntil=${projectUntil}`
       : "/api/finance/cashflow/ipc-adjustments?status=PENDING";
+
+    // Index de items por id para encontrar la primera cuota con monto
+    // >= dueDate. Si el bucket del dueDate cae en una semana SIN cuota
+    // del item (ej. día de pago = 5 pero dueDate = 13), movemos el badge
+    // a la primera cuota futura del mismo item — así el ámbar siempre
+    // pinta una celda con monto.
+    const itemById = new Map<
+      string,
+      { bucketKey: string; scheduledDate: Date; amount: number }[]
+    >();
+    for (const row of projection.rows) {
+      for (const it of row.items) {
+        itemById.set(
+          it.itemId,
+          it.values.map((v) => ({
+            bucketKey: v.bucketKey,
+            scheduledDate: new Date(v.scheduledDate),
+            amount: v.amount,
+          })),
+        );
+      }
+    }
+
     fetch(url)
       .then((r) => r.json())
       .then((j) => {
@@ -203,11 +222,28 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
         }>) {
           const due = new Date(a.dueDate);
           if (Number.isNaN(due.getTime())) continue;
-          const bucket = projection.buckets.find(
-            (b) => due >= b.start && due <= b.end,
-          );
-          if (!bucket) continue;
-          const key = `${a.itemId}_${bucket.key}`;
+          // Primera cuota del item con scheduledDate >= due y monto > 0
+          const values = itemById.get(a.itemId);
+          let targetBucketKey: string | null = null;
+          if (values) {
+            const candidate = values
+              .filter((v) => v.amount > 0 && v.scheduledDate >= due)
+              .sort(
+                (x, y) =>
+                  x.scheduledDate.getTime() - y.scheduledDate.getTime(),
+              )[0];
+            if (candidate) targetBucketKey = candidate.bucketKey;
+          }
+          // Fallback: bucket que contiene la dueDate (caso item sin cuotas
+          // futuras visibles — el badge cae donde se programó originalmente).
+          if (!targetBucketKey) {
+            const bucket = projection.buckets.find(
+              (b) => due >= b.start && due <= b.end,
+            );
+            if (!bucket) continue;
+            targetBucketKey = bucket.key;
+          }
+          const key = `${a.itemId}_${targetBucketKey}`;
           const list = m.get(key) ?? [];
           list.push({ id: a.id, dueDate: a.dueDate });
           m.set(key, list);
@@ -217,7 +253,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
       .catch(() => {
         // Highlight informativo: si falla, la matriz funciona igual.
       });
-  }, [refreshKey, projection.buckets]);
+  }, [refreshKey, projection.buckets, projection.rows]);
 
   // Índice del bucket que contiene hoy. Si hoy queda fuera del rango
   // (caso raro: range start > hoy), idx queda en -1 y no auto-scrolleamos.

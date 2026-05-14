@@ -82,8 +82,6 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
   // — replica el formato de `bucketKeyFor` para monthly.
   useEffect(() => {
     if (!projection) return;
-    // projectUntil: incluye dueDates teóricas futuras dentro del horizonte
-    // visible del FC (contratos con IPC cada 2/6/12 meses).
     const lastBucket = projection.buckets[projection.buckets.length - 1];
     const projectUntil = lastBucket
       ? lastBucket.end.toISOString().slice(0, 10)
@@ -91,6 +89,28 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
     const url = projectUntil
       ? `/api/finance/cashflow/ipc-adjustments?status=PENDING&projectUntil=${projectUntil}`
       : "/api/finance/cashflow/ipc-adjustments?status=PENDING";
+
+    // Index de items por id para mover el badge a la primera cuota del
+    // item con monto >= dueDate. Si la cuota mensual del contrato no cae
+    // en el mismo mes del reajuste (ej. contrato semestral + dueDate
+    // bimensual), el badge se moverá a la próxima cuota visible.
+    const itemById = new Map<
+      string,
+      { bucketKey: string; scheduledDate: Date; amount: number }[]
+    >();
+    for (const row of projection.rows) {
+      for (const it of row.items) {
+        itemById.set(
+          it.itemId,
+          it.values.map((v) => ({
+            bucketKey: v.bucketKey,
+            scheduledDate: new Date(v.scheduledDate),
+            amount: v.amount,
+          })),
+        );
+      }
+    }
+
     fetch(url)
       .then((r) => r.json())
       .then((j) => {
@@ -103,13 +123,26 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
         }>) {
           const d = new Date(a.dueDate);
           if (Number.isNaN(d.getTime())) continue;
-          // Replicamos el formato de `bucketKeyFor(date, "monthly")` que
-          // usa fecha local (date-fns getYear/getMonth, no UTC). Si
-          // diverge, las celdas no matchean en zonas horarias UTC≠0.
-          const bucketKey = `${d.getFullYear()}-${String(
-            d.getMonth() + 1,
-          ).padStart(2, "0")}`;
-          const key = `${a.itemId}_${bucketKey}`;
+          // Primera cuota del item con scheduledDate >= due y monto > 0
+          const values = itemById.get(a.itemId);
+          let targetBucketKey: string | null = null;
+          if (values) {
+            const candidate = values
+              .filter((v) => v.amount > 0 && v.scheduledDate >= d)
+              .sort(
+                (x, y) =>
+                  x.scheduledDate.getTime() - y.scheduledDate.getTime(),
+              )[0];
+            if (candidate) targetBucketKey = candidate.bucketKey;
+          }
+          // Fallback: bucket que contiene la dueDate (formato bucketKeyFor
+          // monthly: YYYY-MM en hora local, mismo que el server).
+          if (!targetBucketKey) {
+            targetBucketKey = `${d.getFullYear()}-${String(
+              d.getMonth() + 1,
+            ).padStart(2, "0")}`;
+          }
+          const key = `${a.itemId}_${targetBucketKey}`;
           const list = m.get(key) ?? [];
           list.push({ id: a.id, dueDate: a.dueDate });
           m.set(key, list);
