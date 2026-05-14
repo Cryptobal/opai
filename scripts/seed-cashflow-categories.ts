@@ -10,7 +10,12 @@
  *   TENANT_SLUG=gard npx tsx scripts/seed-cashflow-categories.ts
  */
 
+import path from "node:path";
+
+import { config as loadEnv } from "dotenv";
 import { PrismaClient, FinanceCashflowItemKind } from "@prisma/client";
+
+loadEnv({ path: path.resolve(process.cwd(), ".env.local") });
 
 const prisma = new PrismaClient();
 

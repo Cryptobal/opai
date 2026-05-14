@@ -2885,6 +2885,10 @@ export function AccountContractsSection({
           itemId={ipcHistoryOpen}
           open={true}
           onOpenChange={(o) => !o && setIpcHistoryOpen(null)}
+          onReverted={() => {
+            fetchContracts();
+            onRefresh?.();
+          }}
         />
       ) : null}
     </div>

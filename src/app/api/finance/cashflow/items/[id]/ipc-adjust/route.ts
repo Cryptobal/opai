@@ -22,6 +22,15 @@ import { applyManualAdjustment } from "@/modules/finance/cashflow/ipc-adjustment
 const schema = z.object({
   pct: z.number().gt(-100).lt(1000),
   notes: z.string().max(2000).optional(),
+  /**
+   * Fecha YYYY-MM-DD desde la cual aplica el reajuste. Si se omite,
+   * el servicio usa hoy. Se permite pasada o futura: la lógica de
+   * regeneración de ocurrencias respeta el rango.
+   */
+  dueDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD")
+    .optional(),
 });
 
 export async function POST(
@@ -42,10 +51,13 @@ export async function POST(
   if (parsed.error) return parsed.error;
 
   try {
+    const dueDate = parsed.data.dueDate
+      ? new Date(`${parsed.data.dueDate}T00:00:00.000Z`)
+      : undefined;
     const result = await applyManualAdjustment(
       ctx.tenantId,
       id,
-      { pct: parsed.data.pct, notes: parsed.data.notes },
+      { pct: parsed.data.pct, notes: parsed.data.notes, dueDate },
       { userId: ctx.userId },
     );
     return NextResponse.json({ success: true, data: result });

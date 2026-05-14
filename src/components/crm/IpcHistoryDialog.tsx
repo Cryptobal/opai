@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { CheckCircle2, Clock, Loader2, TrendingUp } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import {
+  CheckCircle2,
+  Clock,
+  Loader2,
+  TrendingUp,
+  Undo2,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +35,9 @@ interface Props {
   itemId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Callback opcional para refrescar la tarjeta del contrato tras
+   *  una reversión exitosa (vuelve a fetchear monto y PENDING). */
+  onReverted?: () => void;
 }
 
 function formatCLP(n: number | null): string {
@@ -44,19 +55,22 @@ function formatDate(iso: string | null): string {
   });
 }
 
-export function IpcHistoryDialog({ itemId, open, onOpenChange }: Props) {
+export function IpcHistoryDialog({
+  itemId,
+  open,
+  onOpenChange,
+  onReverted,
+}: Props) {
   const [rows, setRows] = useState<Adjustment[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reverting, setReverting] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
+  const loadHistory = useCallback(() => {
     setRows(null);
     setError(null);
-    fetch(`/api/finance/cashflow/items/${itemId}/ipc-adjustments`)
+    return fetch(`/api/finance/cashflow/items/${itemId}/ipc-adjustments`)
       .then((r) => r.json())
       .then((json) => {
-        if (cancelled) return;
         if (!json.success) {
           setError(json.error ?? "Error cargando historial");
           return;
@@ -64,15 +78,53 @@ export function IpcHistoryDialog({ itemId, open, onOpenChange }: Props) {
         setRows(json.data);
       })
       .catch(() => {
-        if (!cancelled) setError("Error de conexión");
+        setError("Error de conexión");
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, itemId]);
+  }, [itemId]);
+
+  useEffect(() => {
+    if (!open) return;
+    loadHistory();
+  }, [open, loadHistory]);
 
   const applied = rows?.filter((r) => r.status === "APPLIED") ?? [];
   const pending = rows?.filter((r) => r.status === "PENDING") ?? [];
+  // Solo el último APPLIED (por dueDate) se puede revertir — revertir
+  // uno antiguo rompe la cadena (los siguientes recalcularon encima).
+  const latestAppliedId = applied
+    .slice()
+    .sort((a, b) => b.dueDate.localeCompare(a.dueDate))[0]?.id;
+
+  async function handleRevert(adjustmentId: string, label: string) {
+    if (
+      !window.confirm(
+        `¿Revertir el reajuste de ${label}? Se restaurará el monto anterior y el registro desaparecerá del historial.`,
+      )
+    ) {
+      return;
+    }
+    setReverting(adjustmentId);
+    try {
+      const res = await fetch(
+        `/api/finance/cashflow/ipc-adjustments/${adjustmentId}/revert`,
+        { method: "POST" },
+      );
+      const json = await res.json();
+      if (!json.success) {
+        toast.error(json.error ?? "Error revirtiendo reajuste");
+        return;
+      }
+      toast.success(
+        `Reajuste revertido. Monto restaurado: ${formatCLP(json.data.restoredAmount)}`,
+      );
+      await loadHistory();
+      onReverted?.();
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setReverting(null);
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -126,6 +178,8 @@ export function IpcHistoryDialog({ itemId, open, onOpenChange }: Props) {
               <div className="space-y-1.5">
                 {applied.map((a) => {
                   const isZero = (a.appliedPct ?? 0) === 0;
+                  const canRevert = a.id === latestAppliedId;
+                  const isReverting = reverting === a.id;
                   return (
                     <div
                       key={a.id}
@@ -134,7 +188,7 @@ export function IpcHistoryDialog({ itemId, open, onOpenChange }: Props) {
                       <div className="flex items-start gap-3">
                         <CheckCircle2 className="h-4 w-4 text-status-ok-fg shrink-0 mt-0.5" />
                         <div className="flex-1 text-sm space-y-0.5">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-2">
                             <span className="font-medium">
                               {formatDate(a.dueDate)}
                             </span>
@@ -171,6 +225,26 @@ export function IpcHistoryDialog({ itemId, open, onOpenChange }: Props) {
                           {a.notes ? (
                             <div className="text-[11px] text-ds-text-2 italic pt-0.5">
                               "{a.notes}"
+                            </div>
+                          ) : null}
+                          {canRevert ? (
+                            <div className="pt-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-[12px] text-status-warn-fg hover:text-status-warn-fg hover:bg-status-warn-soft"
+                                onClick={() =>
+                                  handleRevert(a.id, formatDate(a.dueDate))
+                                }
+                                disabled={isReverting}
+                              >
+                                {isReverting ? (
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                ) : (
+                                  <Undo2 className="h-3 w-3 mr-1" />
+                                )}
+                                Revertir reajuste
+                              </Button>
                             </div>
                           ) : null}
                         </div>

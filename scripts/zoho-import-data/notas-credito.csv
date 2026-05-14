@@ -1,0 +1,528 @@
+Credit Note Date,Issued Date,Product ID,Issued Date,CreditNotes ID,Credit Note Number,Credit Note Status,Accounts Receivable,Customer Name,Customer Number,Billing Attention,Billing Address,Billing Street 2,Billing City,Billing State,Billing Country,Billing Code,Billing Phone,Billing Fax,Shipping Attention,Shipping Address,Shipping Street 2,Shipping City,Shipping State,Shipping Country,Shipping Phone,Shipping Code,Shipping Fax,Customer ID,Currency Code,Exchange Rate,Is Inclusive Tax,Total,Balance,Entity Discount Percent,Notes,Terms & Conditions,Reference#,Shipping Charge,Shipping Charge Tax ID,Shipping Charge Tax Amount,Shipping Charge Tax Name,Shipping Charge Tax %,Shipping Charge Tax Type,Cuenta de gastos de envío,Adjustment,Adjustment Account,Is Discount Before Tax,Item Name,Discount,Discount Amount,Quantity,Item Desc,Item Tax Amount,Item Total,Applied Invoice Number,Project ID,Project Name,Tax1 ID,Item Tax,Item Tax %,Item Tax Type,Sales person,Discount Type,SubTotal,Round Off,Adjustment Description,Subject,Template Name,Usage unit,Item Price,Account,Account Code,Entity Discount Amount,Kit Combo Item Name,CF.Tipo documento (DTE),CF.Tipo Nota de Crédito,CF.Folio NC,CF.Notificar NC,CF.Agregar observación,CF.RUT,CF.Comuna,CF.Ciudad,CF.Giro,CF.Dirección,CF.ID de NC,CF.Folio ND,CF.Fecha Emisión ND,CF.Tipo Nota de Débito,CF.ID de ND,CF.Notificar ND,CF.encryp NC,CF.encryp ND,CF.Documento Referencia NC,CF.Folio Referencia NC,CF.Fecha referencia NC,CF.Documento Referencia ND,CF.Fecha referencia ND,CF.Folio Referencia ND,CF.Resultado FE,CF.Descripción Resultado,CF.Código Estado SII,CF.Glosa Estado SII,CF.Resultado FE ND,CF.Descripción Resultado ND,CF.Código Estado SII ND,CF.Glosa Estado SII ND,CF.Track Id NC,CF.Track Id ND,CF.Observación SII NC,CF.Observación SII ND,CF.XML NC,CF.XML ND,CF.Giro DTE,CF.Log NC,CF.Log ND,CF.Resultado facturación NC,CF.Resultado facturación ND,CF.Descripción Resultado NC,CF.Resultado FE NC,CF.Código Estado SII NC,CF.Glosa Estado SII NC,CF.Código Estado Comercial NC,CF.Código Estado Mercadería NC,CF.Código Estado Comercial ND,CF.Código Estado Mercadería ND,CF.Fecha Consulta Dte ND,CF.Fecha Consulta Dte NC
+2025-04-07,,4984177000004179001,,4984177000006500011,NC70-FA1330,Closed,Cuentas por cobrar,GL Events,CUS-00012,,,,,,,,,,,,,,,,,,,4984177000005263231,CLP,1,false,4906103,0,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"Marzo 2025
+106 UF + IVA",783327,4122776,FA1330,4984177000005263416,GL Events - Metropolitan,4984177000000190108,IVA,19.00,ItemAmount,,item_level,4122776,0,Ajuste,,Standard Template,,4122776,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,70,false,,77133707-4,VITACURA,Santiago,ACTIVIDADES DE RESTAURANTES Y DE SERVICI,M ESCRIVA DE BALAGUER 5600,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F70A1.pdf,,Factura afecta (33),1330,2025-03-20,,,,,,,,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F70A1.xml,,,"
+FECHA DE PROCESO : 07-04-2025 11:45:55
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-04-25,,,,4984177000006855236,NC71-FA1343,Closed,Cuentas por cobrar,FMT Bbosch,CUS-00003,,,,,,,,,,,,,,,,,,,4984177000001031001,CLP,1,false,1627490,0,0.00,,,,0,,,,,,,0,,true,,0.00,0.00,1.00,"Servicio de Seguridad
+35 UF
+Mes Abril",259851,1367639,FA1343,4984177000001684913,FMT,4984177000000190108,IVA,19.00,ItemAmount,,item_level,1367639,0,Ajuste,,Standard Template,,1367639,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,71,false,,77729842-9,QUILICURA,SANTIAGO,INSTALACIONES ELECTRICAS,AMERICO VESPUCIO 2150,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F71A1.pdf,,Factura afecta (33),1343,2025-04-20,,,,,,,,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F71A1.xml,,,"
+FECHA DE PROCESO : 25-04-2025 10:00:21
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-04-25,,,,4984177000006855339,NC72-FA1342,Open,Cuentas por cobrar,Transmat,CUS-00001,,,,,,,,,,,,,,,,,,,4984177000000589049,CLP,1,false,1295952,1295952,0.00,,,,0,,,,,,,0,,true,,0.00,0.00,1.00,"Servicio Seguridad Febrero 2024
+142 UF
+Corresponde al 20% - 28 UF",206917,1089035,,4984177000000589265,Transmat,4984177000000190108,IVA,19.00,ItemAmount,,item_level,1089035,0,Ajuste,,Standard Template,,1089035,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,72,false,,76270521-4,ANTOFAGASTA,ANTOFAGASTA,ALQUILER DE MAQUINARIA Y EQUIPO AGROPECU,CALLE RUTA DEL COBRE 320  0 SITIO 11 SEC.LA NEGR,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F72A1.pdf,,Factura afecta (33),1342,2025-03-20,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F72A1.xml,,,"
+FECHA DE PROCESO : 25-04-2025 10:30:28
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-04-29,,,,4984177000006959003,NC73-FE254,Closed,Cuentas por cobrar,Condominio Alta Vista II,CUS-00011,,,,,,,,,,,,,,,,,,,4984177000004237060,CLP,1,false,1934233,0,0.00,,,,0,,,,,,,0,,true,,0.00,0.00,1.00,"Asesoria de Seguridad
+99 UF",0,1934233,FE254,4984177000004537084,Alta Vista II,4984177000000190090,Exento IVA,0.00,ItemAmount,,item_level,1934233,0,Ajuste,,Standard Template,,1934233,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,73,false,,53322482-2,LA FLORIDA,SANTIAGO,ACTIVIDADES DE ORGANIZACIONES POLITICAS,CAMINO DEL MONTE 6150,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F73A1.pdf,,Factura exenta (34),254,2025-04-21,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F73A1.xml,,,"
+FECHA DE PROCESO : 29-04-2025 10:51:51
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-05-05,,4984177000004179001,,4984177000007087101,NC74-FA1348,Closed,Cuentas por cobrar,GL Events,CUS-00012,,,,,,,,,,,,,,,,,,,4984177000005263231,CLP,1,false,4930560,0,0.00,,,1348,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"Mayo 2025
+106 UF + IVA",787232,4143328,FA1348,4984177000005263416,GL Events - Metropolitan,4984177000000190108,IVA,19.00,ItemAmount,,item_level,4143328,0,Ajuste,,Standard Template,,4143328,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,74,false,,77133707-4,VITACURA,Santiago,ACTIVIDADES DE RESTAURANTES Y DE SERVICI,M ESCRIVA DE BALAGUER 5600,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F74A1.pdf,,Factura afecta (33),1348,2025-05-01,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F74A1.xml,,,"
+FECHA DE PROCESO : 05-05-2025 10:35:04
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-05-05,,,,4984177000007087329,NC75-FA1345,Closed,Cuentas por cobrar,Transmat,CUS-00001,,,,,,,,,,,,,,,,,,,4984177000000589049,CLP,1,false,1295952,0,0.00,,,,0,,,,,,,0,,true,,0.00,0.00,1.00,"Servicio Seguridad Febrero 2025
+142 UF
+Corresponde al 20% - 28 UF",206917,1089035,FA1345,4984177000000589265,Transmat,4984177000000190108,IVA,19.00,ItemAmount,,item_level,1089035,0,Ajuste,,Standard Template,,1089035,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,75,false,,76270521-4,ANTOFAGASTA,ANTOFAGASTA,ALQUILER DE MAQUINARIA Y EQUIPO AGROPECU,CALLE RUTA DEL COBRE 320  0 SITIO 11 SEC.LA NEGR,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F75A1.pdf,,Factura afecta (33),1345,2025-04-25,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F75A1.xml,,,"
+FECHA DE PROCESO : 05-05-2025 12:05:43
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-05-05,,4984177000004179001,,4984177000007087427,NC76-FA1339,Closed,Cuentas por cobrar,Newtree,CUS-00015,,,,,,,,,,,,,,,,,,,4984177000006414003,CLP,1,false,2557486,0,0.00,,,1339,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"55 UF
+Abril 2025",408338,2149148,FA1339,,,4984177000000190108,IVA,19.00,ItemAmount,,item_level,2149148,0,Ajuste,,Standard Template,,2149148,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,76,false,,77873029-4,CONCEPCION,CONCEPCION,VENTA AL POR MAYOR DE ARTICULOS ELECTRIC,Av Los Carrera Poniente 301  T100,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F76A1.pdf,,Factura afecta (33),1339,2025-04-20,,,,,,,,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F76A1.xml,,,"
+FECHA DE PROCESO : 05-05-2025 12:28:12
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-05-26,,4984177000004179001,,4984177000007448003,NC77-FA1359,Closed,Cuentas por cobrar,Embajada Brasil,CUS-00013,,,,,,,,,,,,,,,,,,,4984177000006207055,CLP,1,false,23369917,0,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,Mayo 2025,3731331,19638586,FA1359,4984177000006207086,Embajada Brasil,4984177000000190108,IVA,19.00,ItemAmount,,item_level,19638586,0,Ajuste,,Standard Template,,19638586,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,77,false,,69900700-5,LAS CONDES,SANTIAGO,OTRAS ACTIVIDADES DE SERVICIOS PERSONALE,AV APOQUINDO 3039 OF 301,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F77A1.pdf,,Factura afecta (33),1359,2025-05-20,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F77A1.xml,,,"
+FECHA DE PROCESO : 26-05-2025 09:18:26
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-06-05,,4984177000004179001,,4984177000007671202,NC78-FA1365,Open,Cuentas por cobrar,GL Events,CUS-00012,,,,,,,,,,,,,,,,,,,4984177000005263231,CLP,1,false,4943931,4943931,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"Marzo 2025
+106 UF + IVA",789367,4154564,,4984177000005263416,GL Events - Metropolitan,4984177000000190108,IVA,19.00,ItemAmount,,item_level,4154564,0,Ajuste,,Standard Template,,4154564,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,78,false,,77133707-4,VITACURA,Santiago,ACTIVIDADES DE RESTAURANTES Y DE SERVICI,M ESCRIVA DE BALAGUER 5600,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F78A1.pdf,,Factura afecta (33),1365,2025-06-01,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F78A1.xml,,,"
+FECHA DE PROCESO : 05-06-2025 18:21:51
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-06-17,,4984177000004179001,,4984177000007896237,NC79-FA1374,Closed,Cuentas por cobrar,GL Events,CUS-00012,,,,,,,,,,,,,,,,,,,4984177000005263231,CLP,1,false,4953139,0,0.00,,,1374,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"Marzo 2025
+106 UF + IVA",790837,4162302,FA1374,4984177000005263416,GL Events - Metropolitan,4984177000000190108,IVA,19.00,ItemAmount,,item_level,4162302,0,,,Standard Template,,4162302,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,79,false,,77133707-4,VITACURA,Santiago,ACTIVIDADES DE RESTAURANTES Y DE SERVICI,M ESCRIVA DE BALAGUER 5600,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F79A1.pdf,,Factura afecta (33),1374,2025-06-10,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F79A1.xml,,,"
+FECHA DE PROCESO : 17-06-2025 14:52:25
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-06-25,,4984177000004179001,,4984177000008103053,NC80-FE256,Closed,Cuentas por cobrar,Jugabet,CUS-00018,,,,,,,,,,,,,,,,,,,4984177000007671066,CLP,1,false,5093323,0,0.00,,,256,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"129,71 UF",0,5093323,FE256,,,4984177000000190090,Exento IVA,0.00,ItemAmount,,item_level,5093323,0,Ajuste,,Standard Template,,5093323,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,80,false,,55555555-5,SIN INFORMACION,SIN INFORMACION,SIN INFORMACION,SIN INFORMACION,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F80A1.pdf,,Factura exenta (34),256,2025-06-20,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F80A1.xml,,,"
+FECHA DE PROCESO : 25-06-2025 12:18:43
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-06-25,,,,4984177000008103173,NC81-FA1384,Closed,Cuentas por cobrar,FMT Bbosch,CUS-00003,,,,,,,,,,,,,,,,,,,4984177000001031001,CLP,1,false,1635471,0,0.00,,,,0,,,,,,,0,,true,,0.00,0.00,1.00,"Servicio de Seguridad
+35 UF
+Mes Junio",261126,1374345,FA1384,4984177000001684913,FMT,4984177000000190108,IVA,19.00,ItemAmount,,item_level,1374345,0,Ajuste,,Standard Template,,1374345,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,81,false,,77729842-9,QUILICURA,SANTIAGO,INSTALACIONES ELECTRICAS,AMERICO VESPUCIO 2150,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F81A1.pdf,,Factura afecta (33),1384,2025-07-01,,,,,,,,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F81A1.xml,,,"
+FECHA DE PROCESO : 25-06-2025 12:44:58
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-06-26,,4984177000004179001,,4984177000008103283,NC82-FA1379,Closed,Cuentas por cobrar,Newtree,CUS-00015,,,,,,,,,,,,,,,,,,,4984177000006414003,CLP,1,false,2570025,0,0.00,,,1379,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,55 UF,410340,2159685,FA1379,,,4984177000000190108,IVA,19.00,ItemAmount,,item_level,2159685,0,Ajuste,,Standard Template,,2159685,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,82,false,,77873029-4,CONCEPCION,CONCEPCION,VENTA AL POR MAYOR DE ARTICULOS ELECTRIC,Av Los Carrera Poniente 301  T100,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F82A1.pdf,,Factura afecta (33),1379,2025-06-20,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F82A1.xml,,,"
+FECHA DE PROCESO : 26-06-2025 10:55:21
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-07-20,,4984177000004179001,,4984177000008661353,NC83-FA1398,Closed,Cuentas por cobrar,Fernando Leniz,CUS-00014,,,,,,,,,,,,,,,,,,,4984177000006404322,CLP,1,false,2661988,0,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"Distrito los Trapenses
+57 UF",425023,2236965,FA1398,,,4984177000000190108,IVA,19.00,ItemAmount,,item_level,2236965,0,Ajuste,,Standard Template,,2236965,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,83,false,,77009086-5,LAS CONDES,santiago,RECOGIDA DE DESECHOS NO PELIGROSOS,EL TROVADOR 4280  1007,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F83A1.pdf,,Factura afecta (33),1398,2025-07-20,,,,,,,,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F83A1.xml,,,"
+FECHA DE PROCESO : 20-07-2025 14:44:39
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-07-21,,4984177000004179001,,4984177000008689292,NC84-FE258,Closed,Cuentas por cobrar,Jugabet,CUS-00018,,,,,,,,,,,,,,,,,,,4984177000007671066,CLP,1,false,5090469,0,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"Provision of physical security services for the month of June 2025.
+Client Company: Insailer Ltd.
+Amount: 129.71 UF (Chilean Unidad de Fomento)
+Bank Details for Payment in CLP:
+Beneficiary Bank: Banco Santander Chile
+Gard SpA
+RUT: 77.840.623-3
+Cuenta Corriente N°: 94541158
+Correo: administracion@gard.cl",0,5090469,FE258,,,4984177000000190090,Exento IVA,0.00,ItemAmount,,item_level,5090469,0,Ajuste,,Standard Template,,5090469,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,84,false,,55555555-5,SIN INFORMACION,SIN INFORMACION,SIN INFORMACION,SIN INFORMACION,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F84A1.pdf,,Factura exenta (34),258,2025-07-20,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F84A1.xml,,,"
+FECHA DE PROCESO : 21-07-2025 12:20:35
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-07-21,,4984177000004179001,,4984177000008689438,NC85-FA1402,Closed,Cuentas por cobrar,Emecar,CUS-00021,,,,,,,,,,,,,,,,,,,4984177000008661777,CLP,1,false,2610616,0,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"39 UF
+Julio 2025",290805,1530555,FA1402,,,4984177000000190108,IVA,19.00,ItemAmount,,item_level,2193795,0,Ajuste,,Standard Template,,1530555,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,85,false,,79567820-4,VINA DEL MAR,VINA DEL MAR,OTROS SERVICIOS DE ATENCION DE LA SALUD,3 NORTE 857,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F85A1.pdf,,Factura afecta (33),1402,2025-07-20,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F85A1.xml,,,"
+FECHA DE PROCESO : 21-07-2025 13:35:41
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-07-21,,4984177000004179001,,4984177000008689438,NC85-FA1402,Closed,Cuentas por cobrar,Emecar,CUS-00021,,,,,,,,,,,,,,,,,,,4984177000008661777,CLP,1,false,2610616,0,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,Proporcional Junio 2025,126016,663240,FA1402,,,4984177000000190108,IVA,19.00,ItemAmount,,item_level,2193795,0,Ajuste,,Standard Template,,663240,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,85,false,,79567820-4,VINA DEL MAR,VINA DEL MAR,OTROS SERVICIOS DE ATENCION DE LA SALUD,3 NORTE 857,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F85A1.pdf,,Factura afecta (33),1402,2025-07-20,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F85A1.xml,,,"
+FECHA DE PROCESO : 21-07-2025 13:35:41
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-07-21,,4984177000004179001,,4984177000008698390,NC86-FA1401,Closed,Cuentas por cobrar,Pedemonte,CUS-00020,,,,,,,,,,,,,,,,,,,4984177000008661660,CLP,1,false,3409213,0,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,73 UF,544328,2864885,FA1401,,,4984177000000190108,IVA,19.00,ItemAmount,,item_level,2864885,0,Ajuste,,Standard Template,,2864885,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,86,false,,96993280-6,LA SERENA,LA SERENA,ALQUILER DE BIENES INMUEBLES AMOBLADOS O,ISLA DE PASCUA 3525  32 EDIFICIO LA PLAYA,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F86A1.pdf,,Factura afecta (33),1401,2025-07-20,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F86A1.xml,,,"
+FECHA DE PROCESO : 21-07-2025 14:48:07
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-08-20,,4984177000004179001,,4984177000009260497,NC87-FA1417,Closed,Cuentas por cobrar,Jugabet,CUS-00018,,,,,,,,,,,,,,,,,,,4984177000007671066,CLP,1,false,6059666,0,0.00,,,1417,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"Provision of physical security services for the month of August 2025.
+
+Client Company: Insailer Ltd.
+Amount: 129.71 UF (Chilean Unidad de Fomento)
+
+Bank Details for Payment in CLP:
+Beneficiary Bank: Banco Santander Chile
+Gard SpA
+RUT: 77.840.623-3
+Cuenta Corriente N°: 94541158
+Correo: administracion@gard.cl",967510,5092156,FA1417,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,5092156,0,,,Standard Template,,5092156,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,87,false,,55555555-5,SIN INFORMACION,SIN INFORMACION,SIN INFORMACION,SIN INFORMACION,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F87A1.pdf,,Factura afecta (33),1417,2025-08-20,,,,,,,,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F87A1.xml,,,"
+FECHA DE PROCESO : 20-08-2025 09:38:05
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-08-25,,4984177000004179001,,4984177000009400114,NC88-FA1418,Closed,Cuentas por cobrar,Newtree,CUS-00015,,,,,,,,,,,,,,,,,,,4984177000006414003,CLP,1,false,2569436,0,0.00,,,1418,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,55 UF,410246,2159190,FA1418,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,2159190,0,Ajuste,,Standard Template,,2159190,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,88,false,,77873029-4,CONCEPCION,CONCEPCION,VENTA AL POR MAYOR DE ARTICULOS ELECTRIC,Av Los Carrera Poniente 301  T100,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F88A1.pdf,,Factura afecta (33),1418,2025-08-20,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F88A1.xml,,,"
+FECHA DE PROCESO : 26-08-2025 09:55:28
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-08-28,,4984177000004179001,,4984177000009538003,NC89-FA1425,Closed,Cuentas por cobrar,Embajada Brasil,CUS-00013,,,,,,,,,,,,,,,,,,,4984177000006207055,CLP,1,false,23369917,0,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,,3731331,19638586,FA1425,4984177000006207086,Embajada Brasil,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,19638586,0,Ajuste,,Standard Template,,19638586,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,89,false,,69900700-5,LAS CONDES,SANTIAGO,OTRAS ACTIVIDADES DE SERVICIOS PERSONALE,AV APOQUINDO 3039 OF 301,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F89A1.pdf,,Factura afecta (33),1425,2025-08-20,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F89A1.xml,,,"
+FECHA DE PROCESO : 01-09-2025 16:28:33
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-09-21,,4984177000004179001,,4984177000009867106,NC90-FE261,Closed,Cuentas por cobrar,Jugabet,CUS-00018,,,,,,,,,,,,,,,,,,,4984177000007671066,CLP,1,false,5121729,0,0.00,,,FE261,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"Provision of physical security services for the month of June 2025.
+
+Client Company: Insailer Ltd.
+Amount: 129.71 UF (Chilean Unidad de Fomento)
+
+Bank Details for Payment in CLP:
+Beneficiary Bank: Banco Santander Chile
+Gard SpA
+RUT: 77.840.623-3
+Cuenta Corriente N°: 94541158
+Correo: administracion@gard.cl",0,5121729,FE261,,,4984177000000190090,Exento IVA,0.00,ItemAmount,Carlos Irigoyen Garcés,item_level,5121729,0,Ajuste,,Standard Template,,5121729,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,90,false,,55555555-5,SIN INFORMACION,SIN INFORMACION,SIN INFORMACION,SIN INFORMACION,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F90A1.pdf,,Factura exenta (34),261,2025-09-20,,,,,,,,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F90A1.xml,,,"
+FECHA DE PROCESO : 21-09-2025 12:37:01
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-09-30,,4984177000004179001,,4984177000010120345,ND15-NC93,Open,Cuentas por cobrar,Bodega Santa Amalia,CUS-00019,,,,,,,,,,,,,,,,,,,4984177000007713311,CLP,1,false,8035006,8035006,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,171 UF,1282900,6752106,,4984177000007713329,Bodega Santa Amalia,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,6752106,0,Ajuste,,Standard Template,,6752106,Ventas,,0.0,,Nota Débito (56),Anula Documento de Referencia,93,false,,79513230-9,PUDAHUEL,SANTIAGO,"COMPRA, VENTA Y ALQUILER (EXCEPTO AMOBLA",CAMINO SAN PEDRO 9650 PUERTO SANTIAGO,,15,,Anula Documento de Referencia,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F93A1.pdf,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T56F15A1.pdf,Factura afecta (33),1443,2025-09-20,Nota Crédito (61),2025-09-30,93,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F93A1.xml,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T56F15A1.xml,,"
+FECHA DE PROCESO : 15-10-2025 12:04:53
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+","
+FECHA DE PROCESO : 17-10-2025 11:27:31
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",Procesado correctamente,Procesado correctamente,,,,,,,,,,
+2025-10-01,,,,4984177000010120513,NC92-FA1452,Closed,Cuentas por cobrar,SCRB,78985840-3,,,,,,,,,,,,,,,,,,,4984177000000293041,CLP,1,false,864585,0,0.00,,,,0,,,,,,,0,,true,,0.00,0.00,1.00,"Servicios de Seguridad Privada
+Obra Lo Barnechea
+95 UF
+Prioporcional Septiembre 18,4 UF",138043,726542,FA1452,4984177000000293053,Obra Lo Barnechea,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,726542,0,Ajuste,,Standard Template,,726542,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,92,false,,78985840-3,MAIPU,SANTIAGO,"OTRAS ACTIVIDADES PROFESIONALES, CIENTIF",MININCO 391   CORESA,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F92A1.pdf,,Factura afecta (33),1452,2025-10-01,,,,,,,,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F92A1.xml,,,"
+FECHA DE PROCESO : 15-10-2025 12:04:39
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-10-15,,,,4984177000010340265,NC91-FA1453,Closed,Cuentas por cobrar,Polpaico,CUS-00005,,,,,,,,,,,,,,,,,,,4984177000001597001,CLP,1,false,10393173,0,0.00,,,,0,,,,,,,0,,true,,0.00,0.00,1.00,"Servicio Seguridad Quilicura
+Sept 2025",1509367,7944039,FA1453,4984177000005263365,Polpaico - Quilicura,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,8733759,0,Ajuste,,Standard Template,,7944039,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,91,false,,91337000-7,TIL-TIL,Til Til,RECOGIDA DE DESECHOS NO PELIGROSOS,"PANAMARICANA NORTE S/N   TIL-TIL,ROL66-8",,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F91A1.pdf,,Factura afecta (33),1453,2025-10-01,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F91A1.xml,,,"
+FECHA DE PROCESO : 15-10-2025 12:04:13
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-10-15,,,,4984177000010340265,NC91-FA1453,Closed,Cuentas por cobrar,Polpaico,CUS-00005,,,,,,,,,,,,,,,,,,,4984177000001597001,CLP,1,false,10393173,0,0.00,,,,0,,,,,,,0,,true,,0.00,0.00,1.00,"Refuerzo movil y guardia desde el 17 al 21
+20 UF",150047,789720,FA1453,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,8733759,0,Ajuste,,Standard Template,,789720,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,91,false,,91337000-7,TIL-TIL,Til Til,RECOGIDA DE DESECHOS NO PELIGROSOS,"PANAMARICANA NORTE S/N   TIL-TIL,ROL66-8",,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F91A1.pdf,,Factura afecta (33),1453,2025-10-01,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F91A1.xml,,,"
+FECHA DE PROCESO : 15-10-2025 12:04:13
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-10-17,,4984177000004179001,,4984177000010408028,NC94-FA1455,Closed,Cuentas por cobrar,Bodega Santa Amalia,CUS-00019,,,,,,,,,,,,,,,,,,,4984177000007713311,CLP,1,false,10311476,0,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,171 UF,1282900,6752106,FA1455,4984177000007713329,Bodega Santa Amalia,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,8665106,0,Ajuste,,Standard Template,,6752106,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,94,false,,79513230-9,PUDAHUEL,SANTIAGO,"COMPRA, VENTA Y ALQUILER (EXCEPTO AMOBLA",CAMINO SAN PEDRO 9650 PUERTO SANTIAGO,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F94A1.pdf,,Factura afecta (33),1455,2025-10-01,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F94A1.xml,,,"
+FECHA DE PROCESO : 17-10-2025 11:54:03
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-10-17,,,,4984177000010408028,NC94-FA1455,Closed,Cuentas por cobrar,Bodega Santa Amalia,CUS-00019,,,,,,,,,,,,,,,,,,,4984177000007713311,CLP,1,false,10311476,0,0.00,,,,0,,,,,,,0,,true,,0.00,0.00,1.00,"Servicio de Seguridad en Bodega Santa María correspondiente a 171 UF (base mensual). Se incluyen además 204 horas extraordinarias trabajadas por 6 guardias, calculadas con un recargo legal del 50% sobre el valor de la hora ordinaria, equivalente a $1.913.000 CLP adicionales.",363470,1913000,FA1455,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,8665106,0,Ajuste,,Standard Template,,1913000,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,94,false,,79513230-9,PUDAHUEL,SANTIAGO,"COMPRA, VENTA Y ALQUILER (EXCEPTO AMOBLA",CAMINO SAN PEDRO 9650 PUERTO SANTIAGO,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F94A1.pdf,,Factura afecta (33),1455,2025-10-01,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F94A1.xml,,,"
+FECHA DE PROCESO : 17-10-2025 11:54:03
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-10-20,,4984177000004179001,,4984177000010426939,NC95-FE263,Closed,Cuentas por cobrar,Jugabet,CUS-00018,,,,,,,,,,,,,,,,,,,4984177000007671066,CLP,1,false,5136257,0,0.00,,,263,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"Provision of physical security services for the month of June 2025.
+
+Client Company: Insailer Ltd.
+Amount: 129.71 UF (Chilean Unidad de Fomento)
+
+Bank Details for Payment in CLP:
+Beneficiary Bank: Banco Santander Chile
+Gard SpA
+RUT: 77.840.623-3
+Cuenta Corriente N°: 94541158
+Correo: administracion@gard.cl",0,5136257,FE263,,,4984177000000190090,Exento IVA,0.00,ItemAmount,Carlos Irigoyen Garcés,item_level,5136257,0,Ajuste,,Standard Template,,5136257,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,95,false,,55555555-5,SIN INFORMACION,SIN INFORMACION,SIN INFORMACION,SIN INFORMACION,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F95A1.pdf,,Factura exenta (34),263,2025-10-20,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F95A1.xml,,,"
+FECHA DE PROCESO : 20-10-2025 11:25:20
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-10-27,,,,4984177000010636003,NC96-FA1469,Closed,Cuentas por cobrar,FMT Bbosch,CUS-00003,,,,,,,,,,,,,,,,,,,4984177000001031001,CLP,1,false,2201523,0,0.00,,,,0,,,,,,,0,,true,,0.00,0.00,1.00,"Servicio de Seguridad
+6 UF proporcional
+10/2025",45142,237588,FA1469,4984177000001684913,FMT,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,1850019,0,Ajuste,,Standard Template,,237588,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,96,false,,77729842-9,QUILICURA,SANTIAGO,INSTALACIONES ELECTRICAS,AMERICO VESPUCIO 2150,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F96A1.pdf,,Factura afecta (33),1469,2025-10-27,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F96A1.xml,,,"
+FECHA DE PROCESO : 27-10-2025 13:15:42
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-10-27,,4984177000004179001,,4984177000010636003,NC96-FA1469,Closed,Cuentas por cobrar,FMT Bbosch,CUS-00003,,,,,,,,,,,,,,,,,,,4984177000001031001,CLP,1,false,2201523,0,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"Más 72 horas extraordinarias realizadas entre agosto y septiembre, valorizadas conforme al valor hora pactado incrementado en 1,5 (20,42 UF). Total: 40,72 UF.
+
+12HE - 20Sept
+12HE - 21Sept
+12HE - 27Sept
+12HE - 28Sept
+12HE - 04Oct
+12HE - 05Oct
+",306362,1612431,FA1469,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,1850019,0,Ajuste,,Standard Template,,1612431,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,96,false,,77729842-9,QUILICURA,SANTIAGO,INSTALACIONES ELECTRICAS,AMERICO VESPUCIO 2150,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F96A1.pdf,,Factura afecta (33),1469,2025-10-27,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F96A1.xml,,,"
+FECHA DE PROCESO : 27-10-2025 13:15:42
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-11-11,,4984177000004179001,,4984177000010896049,NC97-FA1461,Closed,Cuentas por cobrar,Bodega Santa Amalia,CUS-00019,,,,,,,,,,,,,,,,,,,4984177000007713311,CLP,1,false,10334267,0,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"171 UF
+Servicio 10/2025",1286539,6771258,FA1461,4984177000007713329,Bodega Santa Amalia,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,8684258,0,Ajuste,,Standard Template,,6771258,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,97,false,,79513230-9,PUDAHUEL,SANTIAGO,"COMPRA, VENTA Y ALQUILER (EXCEPTO AMOBLA",CAMINO SAN PEDRO 9650 PUERTO SANTIAGO,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F97A1.pdf,,Factura afecta (33),1461,2025-10-20,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F97A1.xml,,,"
+FECHA DE PROCESO : 11-11-2025 17:17:27
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-11-11,,,,4984177000010896049,NC97-FA1461,Closed,Cuentas por cobrar,Bodega Santa Amalia,CUS-00019,,,,,,,,,,,,,,,,,,,4984177000007713311,CLP,1,false,10334267,0,0.00,,,,0,,,,,,,0,,true,,0.00,0.00,1.00,"Servicio de Seguridad en Bodega Santa María correspondiente a 171 UF (base mensual). Se incluyen además 204 horas extraordinarias trabajadas por 6 guardias, calculadas con un recargo legal del 50% sobre el valor de la hora ordinaria, equivalente a $1.913.000 CLP adicionales.",363470,1913000,FA1461,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,8684258,0,Ajuste,,Standard Template,,1913000,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,97,false,,79513230-9,PUDAHUEL,SANTIAGO,"COMPRA, VENTA Y ALQUILER (EXCEPTO AMOBLA",CAMINO SAN PEDRO 9650 PUERTO SANTIAGO,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F97A1.pdf,,Factura afecta (33),1461,2025-10-20,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F97A1.xml,,,"
+FECHA DE PROCESO : 11-11-2025 17:17:27
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-12-01,,4984177000004179001,,4984177000011355237,NC98-FA1498,Closed,Cuentas por cobrar,Pine,CUS-00022,,,,,,,,,,,,,,,,,,,4984177000009283261,CLP,1,false,7878452,0,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"167 UF
+
+### Datos Bancarios
+Banco Santander
+
+Gard Spa
+77.840.623-3
+Cuenta Corriente
+94541158
+administracion@gard.cl",1257904,6620548,FA1498,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,6620548,0,Ajuste,,Standard Template,,6620548,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,98,false,,76530382-6,PROVIDENCIA,Santiago,OTRAS ACTIVIDADES ESPECIALIZADAS DE CONS,PROVIDENCIA 1208 OF 402 4P,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F98A1.pdf,,Factura afecta (33),1498,2025-12-01,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F98A1.xml,,,"
+FECHA DE PROCESO : 01-12-2025 16:29:07
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2025-12-02,,4984177000011120001,,4984177000011410037,NC99-FA1485,Closed,Cuentas por cobrar,Sparta,CUS-00023,,,,,,,,,,,,,,,,,,,4984177000009867959,CLP,1,false,612679,0,0.00,,,,0,,,,,,,0,,true,Guardia Festivo Sábado y Domingo Sparta Plaza Oeste 2 5 días,0.00,0.00,1.00,,97823,514856,FA1485,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,514856,0,Ajuste,,Standard Template,,514856,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,99,false,,76074938-9,LAS CONDES,SANTIAGO,OTROS SERVICIOS DE ALMACENAMIENTO Y DEPO,ANDRES BELLO 2711 OF 701 EDIF TORRE COSTANERA  OF.C OF.B,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F99A1.pdf,,Factura afecta (33),1485,2025-11-19,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F99A1.xml,,,"
+FECHA DE PROCESO : 02-12-2025 17:43:30
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2026-01-15,,4984177000004179001,,4984177000012391003,NC102-FA1518,Closed,Cuentas por cobrar,Pedemonte,CUS-00020,,,,,,,,,,,,,,,,,,,4984177000008661660,CLP,1,false,3451779,0,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,73 UF,551124,2900655,FA1518,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,2900655,0,Ajuste,,Standard Template,,2900655,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,102,false,,96993280-6,LA SERENA,LA SERENA,ALQUILER DE BIENES INMUEBLES AMOBLADOS O,ISLA DE PASCUA 3525  32 EDIFICIO LA PLAYA,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F102A1.pdf,,Factura afecta (33),1518,2026-01-02,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F102A1.xml,,,"
+FECHA DE PROCESO : 15-01-2026 13:53:32
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2026-01-21,,4984177000004179001,,4984177000012552246,NC103-FA1535,Closed,Cuentas por cobrar,Berlintex,CUS-00026,,,,,,,,,,,,,,,,,,,4984177000012552003,CLP,1,false,0,0,0.00,,,1535,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"Valor contrato mensual 255,3 UF",0,0,,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,0,0,Ajuste,,Standard Template,,0,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,103,false,,76600643-4,CONCEPCION,CONCEPCION,VENTA AL POR MENOR DE CALZADO EN COMERCI,BARROS ARANA 724 AL 746  CONCEPCION,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F103A1.pdf,,Factura afecta (33),1535,2026-01-21,,,,,,,,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F103A1.xml,,,"
+FECHA DE PROCESO : 21-01-2026 14:37:23
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2026-01-22,,,,4984177000012611003,NC104-FA1531,Closed,Cuentas por cobrar,SCRB,78985840-3,,,,,,,,,,,,,,,,,,,4984177000000293041,CLP,1,false,5201181,0,0.00,,,1531,0,,,,,,,0,,true,,0.00,0.00,1.00,"Servicios de Seguridad Privada
+Obra San Bernardo
+110 UF",830441,4370740,FA1531,4984177000000293053,Obra Lo Barnechea,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,4370740,0,Ajuste,,Standard Template,,4370740,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,104,false,,78985840-3,MAIPU,SANTIAGO,"OTRAS ACTIVIDADES PROFESIONALES, CIENTIF",MININCO 391   CORESA,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F104A1.pdf,,Factura afecta (33),1531,2026-01-20,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F104A1.xml,,,"
+FECHA DE PROCESO : 22-01-2026 12:57:33
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2026-01-27,,4984177000004179001,,4984177000012731003,NC105-FA1540,Closed,Cuentas por cobrar,Pine,CUS-00022,,,,,,,,,,,,,,,,,,,4984177000009283261,CLP,1,false,7896338,0,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"167 UF
+
+### Datos Bancarios
+Banco Santander
+
+Gard Spa
+77.840.623-3
+Cuenta Corriente
+94541158
+administracion@gard.cl",1260760,6635578,FA1540,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,6635578,0,Ajuste,,Standard Template,,6635578,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,105,false,,76530382-6,PROVIDENCIA,Santiago,OTRAS ACTIVIDADES ESPECIALIZADAS DE CONS,PROVIDENCIA 1208 OF 402 4P,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F105A1.pdf,,Factura afecta (33),1540,2026-01-25,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F105A1.xml,,,"
+FECHA DE PROCESO : 27-01-2026 10:57:35
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2026-02-02,,,,4984177000012917271,NC106-FA1545,Closed,Cuentas por cobrar,Transmat,CUS-00001,,,,,,,,,,,,,,,,,,,4984177000000589049,CLP,1,false,5386177,0,0.00,,,,0,,,,,,,0,,true,,0.00,0.00,1.00,"Servicio Seguridad Junio 2024
+142 UF
+Corresponde al 80% - 114 UF",859978,4526199,FA1545,4984177000000589265,Transmat,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,4526199,0,Ajuste,,Standard Template,,4526199,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,106,false,,76270521-4,ANTOFAGASTA,ANTOFAGASTA,ALQUILER DE MAQUINARIA Y EQUIPO AGROPECU,CALLE RUTA DEL COBRE 320  0 SITIO 11 SEC.LA NEGR,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F106A1.pdf,,Factura afecta (33),1545,2026-02-01,,,,,,,,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F106A1.xml,,,"
+FECHA DE PROCESO : 02-02-2026 11:36:07
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2026-02-21,2026-02-21,4984177000004179001,,4984177000013355908,NC108,Open,Cuentas por cobrar,Bodega Santa Amalia,CUS-00019,,,,,,,,,,,,,,,,,,,4984177000007713311,CLP,1,false,9270124,188789,0.00,,,1556,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,171 UF,1480104,7790020,FA1556,4984177000007713329,Bodega Santa Amalia,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,7790020,0,Ajuste,,Standard Template,,7790020,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,108,false,,79513230-9,PUDAHUEL,SANTIAGO,"COMPRA, VENTA Y ALQUILER (EXCEPTO AMOBLA",CAMINO SAN PEDRO 9650 PUERTO SANTIAGO,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F108A1.pdf,,Factura afecta (33),1556,2026-02-21,,,,,,,,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F108A1.xml,,,"
+SII : ENVIADO
+FECHA DE PROCESO : 2026-02-24 17:19:42
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+DETALLE : Procesado correctamente",,Procesado correctamente,,,,,,,,,,,
+2026-02-26,2026-02-26,4984177000004179001,,4984177000013439110,NC109-FA1553,Closed,Cuentas por cobrar,Polpaico,CUS-00005,,,,,,,,,,,,,,,,,,,4984177000001597001,CLP,1,false,9222500,0,0.00,,,1553,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,SERVICIO DE VIGILANCIA 12-25,1472500,7750000,FA1553,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,7750000,0,Ajuste,,Standard Template,,7750000,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,109,false,,91337000-7,TIL-TIL,Til Til,RECOGIDA DE DESECHOS NO PELIGROSOS,"PANAMARICANA NORTE S/N   TIL-TIL,ROL66-8",,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F109A1.pdf,,Factura afecta (33),1553,2026-02-01,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F109A1.xml,,,"
+FECHA DE PROCESO : 26-02-2026 13:26:28
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2026-03-02,2026-03-02,,,4984177000013513256,NC110-FA1562,Closed,Cuentas por cobrar,Polpaico,CUS-00005,,,,,,,,,,,,,,,,,,,4984177000001597001,CLP,1,false,2837793,0,0.00,,,,0,,,,,,,0,,true,,0.00,0.00,1.00,"SERVICIO NOCTURNO DE GUARDIA
+60 UF",453093,2384700,FA1562,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,2384700,0,Ajuste,,Standard Template,,2384700,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,110,false,,91337000-7,TIL-TIL,Til Til,RECOGIDA DE DESECHOS NO PELIGROSOS,"PANAMARICANA NORTE S/N   TIL-TIL,ROL66-8",,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F110A1.pdf,,Factura afecta (33),1562,2026-03-01,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F110A1.xml,,,"
+FECHA DE PROCESO : 02-03-2026 14:56:30
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2026-03-03,2026-03-03,4984177000004179001,,4984177000013535003,NC111-FA1572,Closed,Cuentas por cobrar,Berlintex,CUS-00026,,,,,,,,,,,,,,,,,,,4984177000012552003,CLP,1,false,12074810,0,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"Valor contrato mensual 255,3 UF",1927911,10146899,FA1572,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,10146899,0,Ajuste,,Standard Template,,10146899,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,111,false,,76600643-4,CONCEPCION,CONCEPCION,VENTA AL POR MENOR DE CALZADO EN COMERCI,BARROS ARANA 724 AL 746  CONCEPCION,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F111A1.pdf,,Factura afecta (33),1572,2026-03-02,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F111A1.xml,,,"
+FECHA DE PROCESO : 03-03-2026 15:24:39
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2026-03-03,2026-03-03,4984177000004179001,,4984177000013535117,NC112-FA1573,Closed,Cuentas por cobrar,East West,CUS-00027,,,,,,,,,,,,,,,,,,,4984177000012552023,CLP,1,false,5202621,0,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,Valor contrato 114 UF,830671,4371950,FA1573,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,4371950,0,Ajuste,,Standard Template,,4371950,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,112,false,,76600653-1,PENCO,Concepcion,"VENTA AL POR MENOR POR CORREO, POR INTER",PARCELA  5 C   SECTOR COSMITO,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F112A1.pdf,,Factura afecta (33),1573,2026-03-02,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F112A1.xml,,,"
+FECHA DE PROCESO : 03-03-2026 15:25:05
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2026-04-01,2026-04-01,,,4984177000014269518,NC113-FA1595,Closed,Cuentas por cobrar,Polpaico,CUS-00005,,,,,,,,,,,,,,,,,,,4984177000001597001,CLP,1,false,10457572,0,0.00,,,1595,0,,,,,,,0,,true,,0.00,0.00,1.00,"Servicio Seguridad Quilicura
+Febrero 2026",1518665,7992976,FA1595,4984177000005263365,Polpaico - Quilicura,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,8787876,0,Ajuste,,Standard Template,,7992976,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,113,false,,91337000-7,TIL-TIL,Til Til,RECOGIDA DE DESECHOS NO PELIGROSOS,"PANAMARICANA NORTE S/N   TIL-TIL,ROL66-8",,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F113A1.pdf,,Factura afecta (33),1595,2026-03-01,,,,,,,,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F113A1.xml,,,"
+FECHA DE PROCESO : 01-04-2026 13:16:11
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2026-04-01,2026-04-01,,,4984177000014269518,NC113-FA1595,Closed,Cuentas por cobrar,Polpaico,CUS-00005,,,,,,,,,,,,,,,,,,,4984177000001597001,CLP,1,false,10457572,0,0.00,,,1595,0,,,,,,,0,,true,,0.00,0.00,1.00,"Turnos refuerzo
+
+5 x 4 UF - 20 UF + IVA
+Del jueves 18 al domingo 22 (1 patrulla con conductor)",151031,794900,FA1595,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,8787876,0,Ajuste,,Standard Template,,794900,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,113,false,,91337000-7,TIL-TIL,Til Til,RECOGIDA DE DESECHOS NO PELIGROSOS,"PANAMARICANA NORTE S/N   TIL-TIL,ROL66-8",,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F113A1.pdf,,Factura afecta (33),1595,2026-03-01,,,,,,,,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F113A1.xml,,,"
+FECHA DE PROCESO : 01-04-2026 13:16:11
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2026-04-01,2026-04-01,4984177000004179001,,4984177000014269732,NC114-FA1593,Closed,Cuentas por cobrar,Ametel,CUS-00030,,,,,,,,,,,,,,,,,,,4984177000014213144,CLP,1,false,5073082,0,0.00,,,1593,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"Ametel Algarrobo
+107 UF
+Valor UF",809988,4263094,FA1593,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,4263094,0,Ajuste,,Standard Template,,4263094,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,114,false,,59273570-9,PROVIDENCIA,SANTIAGO,INSTALACIONES ELECTRICAS,PROVIDENCIA 1760 OF 2002,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F114A1.pdf,,Factura afecta (33),1593,2026-04-01,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F114A1.xml,,,"
+FECHA DE PROCESO : 01-04-2026 13:43:34
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2026-04-01,2026-04-01,4984177000004179001,,4984177000014269998,NC115-FA1601,Closed,Cuentas por cobrar,Ametel,CUS-00030,,,,,,,,,,,,,,,,,,,4984177000014213144,CLP,1,false,4091195,0,0.00,,,1601,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"Ametel Algarrobo
+Servicio del 6 - 31 marzo
+107 UF (86,29 UF)
+Valor UF 39.842",653216,3437979,FA1601,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,3437979,0,Ajuste,,Standard Template,,3437979,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,115,false,,59273570-9,PROVIDENCIA,SANTIAGO,INSTALACIONES ELECTRICAS,PROVIDENCIA 1760 OF 2002,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F115A1.pdf,,Factura afecta (33),1601,2026-04-01,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F115A1.xml,,,"
+FECHA DE PROCESO : 01-04-2026 14:52:50
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2026-04-01,2026-04-01,4984177000004179001,,4984177000014305146,NC116-FA1602,Closed,Cuentas por cobrar,International Papars,CUS-00025,,,,,,,,,,,,,,,,,,,4984177000010426745,CLP,1,false,20624211,0,0.00,,,1602,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"Graneros
+Marzo 2026
+435 UF",3292941,17331270,FA1602,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,17331270,0,Ajuste,,Standard Template,,17331270,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,116,false,,96584300-0,GRANEROS,GRANEROS,FABRICACION DE OTROS PRODUCTOS QUIMICOS,"LONGITUD SUR KM75,4",,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F116A1.pdf,,Factura afecta (33),1602,2026-04-01,,,,,,,,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F116A1.xml,,,"
+FECHA DE PROCESO : 01-04-2026 15:15:46
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2026-04-02,2026-04-02,4984177000004179001,,4984177000014328003,NC117-FA1576,Closed,Cuentas por cobrar,Polpaico,CUS-00005,,,,,,,,,,,,,,,,,,,4984177000001597001,CLP,1,false,9127771,0,0.00,,,1576,0,,,,,,,0,,true,Servicio de Seguridad,0.00,79604.000,1.00,Descuento aplicado 2 UF,1457375,7670396,FA1576,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,7670396,0,Ajuste,,Standard Template,,7750000,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,117,false,,91337000-7,TIL-TIL,Til Til,RECOGIDA DE DESECHOS NO PELIGROSOS,"PANAMARICANA NORTE S/N   TIL-TIL,ROL66-8",,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F117A1.pdf,,Factura afecta (33),1576,2026-03-02,,,,Estado DTE SII retornado correctamente.,TVAL,0,Documento Recibido por el SII. Datos Coinciden con los Registrados,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F117A1.xml,,,"
+FECHA DE PROCESO : 02-04-2026 17:26:40
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,
+2026-05-07,2026-05-07,4984177000004179001,,4984177000015069126,NC118-FA1634,Closed,Cuentas por cobrar,Ametel,CUS-00030,,,,,,,,,,,,,,,,,,,4984177000014213144,CLP,1,false,5306452,0,0.00,,,,0,,,,,,,0,,true,Servicio de Seguridad,0.00,0.00,1.00,"Ametel Algarrobo
+111 UF
+Valor UF 40.173",847249,4459203,FA1634,,,4984177000000190108,IVA,19.00,ItemAmount,Carlos Irigoyen Garcés,item_level,4459203,0,Ajuste,,Standard Template,,4459203,Ventas,,0.0,,Nota Crédito (61),Anula Documento de Referencia,118,false,,59273570-9,PROVIDENCIA,SANTIAGO,INSTALACIONES ELECTRICAS,PROVIDENCIA 1760 OF 2002,,,,,,false,https://d1iwzdr0d2nlun.cloudfront.net/PDF_R77840623-3T61F118A1.pdf,,Factura afecta (33),1634,2026-05-07,,,,,,,,,,,,,,,,https://d1iwzdr0d2nlun.cloudfront.net/XMLSII_R77840623-3T61F118A1.xml,,,"
+FECHA DE PROCESO : 07-05-2026 12:45:43
+DOCUMENTO EN SII : ENVIADO
+DOCUMENTO PDF : CREADO
+DOCUMENTO XML : CREADO
+PDF CREADO ADJUNTADO DTE : ADJUNTADO
+DETALLE : DTE procesado correctamente.
+",,Procesado correctamente,,,,,,,,,,,

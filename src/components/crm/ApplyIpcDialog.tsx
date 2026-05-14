@@ -68,6 +68,10 @@ export function ApplyIpcDialog({
   const [amount, setAmount] = useState<string>("");
   const [lastEdited, setLastEdited] = useState<"pct" | "amount" | null>(null);
   const [notes, setNotes] = useState("");
+  // Fecha de vigencia del reajuste manual. Para PENDING viene fija de
+  // la `dueDate` (definida por el cron); en manual el usuario la elige
+  // — default = hoy. Las ocurrencias desde esta fecha se regeneran.
+  const [effectiveDate, setEffectiveDate] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -76,8 +80,11 @@ export function ApplyIpcDialog({
       setAmount("");
       setLastEdited(null);
       setNotes("");
+      // Manual: pre-cargar hoy. PENDING: usar la dueDate del adjustment.
+      const today = new Date().toISOString().slice(0, 10);
+      setEffectiveDate(isManual ? today : dueDate);
     }
-  }, [open]);
+  }, [open, isManual, dueDate]);
 
   function handlePctChange(value: string) {
     setPct(value);
@@ -125,10 +132,18 @@ export function ApplyIpcDialog({
       const url = isManual
         ? `/api/finance/cashflow/items/${itemId}/ipc-adjust`
         : `/api/finance/cashflow/ipc-adjustments/${adjustmentId}/apply`;
+      // Solo el endpoint manual acepta dueDate (en PENDING viene fija).
+      const body: Record<string, unknown> = {
+        pct: pctNum,
+        notes: notes.trim() || undefined,
+      };
+      if (isManual && effectiveDate) {
+        body.dueDate = effectiveDate;
+      }
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pct: pctNum, notes: notes.trim() || undefined }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!json.success) {
@@ -236,6 +251,23 @@ export function ApplyIpcDialog({
               </span>
             ) : null}
           </p>
+
+          {isManual && (
+            <div className="space-y-2">
+              <Label htmlFor="ipcEffectiveDate">Vigente desde</Label>
+              <Input
+                id="ipcEffectiveDate"
+                type="date"
+                value={effectiveDate}
+                onChange={(e) => setEffectiveDate(e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Desde esta fecha el flujo de caja muestra el monto reajustado.
+                Las cuotas anteriores quedan al monto previo. El próximo
+                ciclo se programa N meses después.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="ipcNotes">Notas (opcional)</Label>

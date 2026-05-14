@@ -111,6 +111,13 @@ export interface ApplyAdjustmentInput {
   /** Porcentaje del ajuste (ej. 3.5 para 3,5%). */
   pct: number;
   notes?: string;
+  /**
+   * Fecha desde la cual el reajuste empieza a aplicar (solo manual). Si
+   * se omite, se usa hoy. Las ocurrencias PROYECTADAS con scheduledDate
+   * >= dueDate se regeneran al nuevo monto; las anteriores quedan al
+   * monto previo. El próximo ciclo se programa a `dueDate + N meses`.
+   */
+  dueDate?: Date;
 }
 
 /**
@@ -241,6 +248,18 @@ export async function applyManualAdjustment(
     const today = new Date(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
     );
+    // Fecha de vigencia del reajuste: la elegida por el usuario o hoy.
+    // Normalizamos a UTC midnight para que el unique index (itemId, dueDate)
+    // no choque por diferencia de horas.
+    const effectiveDate = input.dueDate
+      ? new Date(
+          Date.UTC(
+            input.dueDate.getUTCFullYear(),
+            input.dueDate.getUTCMonth(),
+            input.dueDate.getUTCDate(),
+          ),
+        )
+      : today;
     const oldAmount = Number(item.amount);
     const newAmount = Math.round(oldAmount * (1 + input.pct / 100) * 100) / 100;
 
@@ -248,7 +267,7 @@ export async function applyManualAdjustment(
       data: {
         tenantId,
         itemId,
-        dueDate: today,
+        dueDate: effectiveDate,
         status: "APPLIED",
         appliedPct: input.pct,
         oldAmount,
@@ -268,7 +287,7 @@ export async function applyManualAdjustment(
       where: {
         tenantId,
         itemId,
-        scheduledDate: { gte: today },
+        scheduledDate: { gte: effectiveDate },
         status: "PROJECTED",
       },
     });
@@ -279,11 +298,112 @@ export async function applyManualAdjustment(
       hasIpcAdjustment: item.hasIpcAdjustment,
       ipcAdjustmentMonths: item.ipcAdjustmentMonths,
       endDate: item.endDate,
-      anchorDate: now,
+      anchorDate: effectiveDate,
       excludeAdjustmentId: adj.id,
     });
 
     return { oldAmount, newAmount, nextDueDate };
+  });
+}
+
+/**
+ * Revierte un reajuste IPC APPLIED: restaura `item.amount` al valor
+ * previo (`oldAmount`), borra el registro del historial y limpia las
+ * ocurrencias proyectadas desde su `dueDate` para que se regeneren al
+ * monto restaurado. También borra cualquier PENDING futuro y regenera
+ * uno nuevo anclado al último APPLIED restante (o vacío si no hay
+ * más historial).
+ */
+export async function revertAdjustment(
+  tenantId: string,
+  adjustmentId: string,
+  ctx: { userId: string },
+): Promise<{ restoredAmount: number; nextDueDate: Date | null }> {
+  void ctx;
+  return prisma.$transaction(async (tx) => {
+    const adj = await tx.financeContractIpcAdjustment.findFirst({
+      where: { id: adjustmentId, tenantId, status: "APPLIED" },
+      include: {
+        item: {
+          select: {
+            id: true,
+            isActive: true,
+            endDate: true,
+            hasIpcAdjustment: true,
+            ipcAdjustmentMonths: true,
+          },
+        },
+      },
+    });
+    if (!adj) throw new Error("Reajuste no encontrado o no aplicado");
+    if (!adj.item || !adj.item.isActive) {
+      throw new Error("El item asociado no está activo");
+    }
+    if (adj.oldAmount === null) {
+      throw new Error("El reajuste no tiene snapshot del monto anterior");
+    }
+
+    const restoredAmount = Number(adj.oldAmount);
+
+    // Si hay un APPLIED posterior, no podemos revertir éste sin romper
+    // la cadena (el siguiente recalculó sobre el monto nuevo). Bloqueamos.
+    const laterApplied = await tx.financeContractIpcAdjustment.findFirst({
+      where: {
+        tenantId,
+        itemId: adj.item.id,
+        status: "APPLIED",
+        dueDate: { gt: adj.dueDate },
+      },
+      select: { id: true, dueDate: true },
+    });
+    if (laterApplied) {
+      throw new Error(
+        "No se puede revertir este reajuste: hay un reajuste posterior aplicado sobre él. Revertí el más reciente primero.",
+      );
+    }
+
+    await tx.financeCashflowItem.update({
+      where: { id: adj.item.id },
+      data: { amount: restoredAmount },
+    });
+
+    await tx.financeCashflowOccurrence.deleteMany({
+      where: {
+        tenantId,
+        itemId: adj.item.id,
+        scheduledDate: { gte: adj.dueDate },
+        status: "PROJECTED",
+      },
+    });
+
+    await tx.financeContractIpcAdjustment.delete({
+      where: { id: adjustmentId },
+    });
+
+    // Reprogramar el próximo PENDING anclado al último APPLIED restante
+    // (si existe), o al hoy si no hay historial previo. Si el contrato
+    // no tiene IPC habilitado, no se crea nada.
+    const lastApplied = await tx.financeContractIpcAdjustment.findFirst({
+      where: {
+        tenantId,
+        itemId: adj.item.id,
+        status: "APPLIED",
+      },
+      orderBy: { dueDate: "desc" },
+      select: { id: true, dueDate: true },
+    });
+    const anchor = lastApplied?.dueDate ?? new Date();
+    const nextDueDate = await rescheduleNextPending(tx, {
+      tenantId,
+      itemId: adj.item.id,
+      hasIpcAdjustment: adj.item.hasIpcAdjustment,
+      ipcAdjustmentMonths: adj.item.ipcAdjustmentMonths,
+      endDate: adj.item.endDate,
+      anchorDate: anchor,
+      excludeAdjustmentId: lastApplied?.id ?? adjustmentId,
+    });
+
+    return { restoredAmount, nextDueDate };
   });
 }
 
