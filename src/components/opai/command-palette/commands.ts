@@ -903,7 +903,7 @@ const navigationCommands: CommandItem[] = [
     description: 'Cuentas bancarias y saldos',
     category: 'navigation',
     icon: Landmark,
-    href: '/finanzas/bancos',
+    href: '/finanzas/bancos?tab=accounts',
     keywords: ['banco', 'bancos', 'cuenta corriente', 'cuenta bancaria', 'saldo banco', 'cartola'],
     canShow: (role) => hasAppAccess(role, 'finance'),
   },

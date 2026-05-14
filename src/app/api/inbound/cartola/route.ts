@@ -350,7 +350,7 @@ export async function POST(request: NextRequest) {
       type: "bank_cartola_received",
       title: `Cartola recibida — ${accountLabel}`,
       body: detail,
-      link: "/finanzas/bancos",
+      link: "/finanzas/bancos?tab=transactions",
       data: {
         bankAccountId: targetAccount.id,
         bank,

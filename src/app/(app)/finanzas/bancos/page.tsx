@@ -35,9 +35,12 @@ export default async function BancosPage({
   // Por preferencia del usuario (2026-05-14): la landing del módulo Banca es
   // Flujo de Caja. Entradas con `?tab=...` (header strip de Banca) o
   // `?txId=...` (deep-link desde DTE conciliado) siguen rindiendo /bancos
-  // para mostrar el sub-tab solicitado.
+  // para mostrar el sub-tab solicitado. Solo redirigimos si el usuario
+  // efectivamente puede ver flujo-caja; un rol con banking_view pero sin
+  // cashflow_view aterriza acá igual (si no, flujo-caja lo botaría a
+  // /finanzas y quedaría sin entrada al módulo).
   const sp = await searchParams;
-  if (!sp.tab && !sp.txId) {
+  if (!sp.tab && !sp.txId && hasCapability(perms, "cashflow_view")) {
     redirect("/finanzas/flujo-caja");
   }
 
