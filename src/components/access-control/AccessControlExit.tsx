@@ -95,15 +95,15 @@ export function AccessControlExit({ installationId, guardId, onClose }: Props) {
   };
 
   return (
-    <div className="flex flex-col min-h-full bg-zinc-950">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800">
+    <div className="flex flex-col h-full bg-zinc-950">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800 shrink-0">
         <button onClick={onClose} className="text-zinc-400 hover:text-zinc-200">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <h3 className="text-base font-semibold text-zinc-100">Registrar Salida</h3>
       </div>
 
-      <div className="p-4 space-y-3">
+      <div className="px-4 pt-4 pb-2 shrink-0">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
           <Input
@@ -113,7 +113,9 @@ export function AccessControlExit({ installationId, guardId, onClose }: Props) {
             className="pl-9 bg-zinc-800 border-zinc-600"
           />
         </div>
+      </div>
 
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
         {loading ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
