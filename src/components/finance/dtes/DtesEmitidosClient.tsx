@@ -1034,8 +1034,6 @@ export function DtesEmitidosClient({
               onEditDraft={handleEditDraft}
               onIssueDraft={handleIssueDraft}
               onDeleteDraft={handleDeleteDraft}
-              onUnreconcile={handleUnreconcile}
-              onMarkUnpaid={handleMarkUnpaid}
             />
           </div>
           <PaginationControls
