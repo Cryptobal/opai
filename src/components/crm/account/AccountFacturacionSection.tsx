@@ -44,6 +44,15 @@ function formatDate(iso: string): string {
 // 61 = nota de crédito, 56 = nota de débito.
 const FACTURA_TYPES = new Set([33, 34, 39]);
 
+type DtePrefix = "Factura" | "NC" | "ND" | "DTE";
+
+function prefixForDteType(dteType: number): DtePrefix {
+  if (FACTURA_TYPES.has(dteType)) return "Factura";
+  if (dteType === 61) return "NC";
+  if (dteType === 56) return "ND";
+  return "DTE";
+}
+
 function badgeFor(status: string):
   | { label: string; variant?: "default" | "success" | "destructive" }
   | undefined {
@@ -70,12 +79,14 @@ function DteCard({
   prefix,
 }: {
   dte: FacturacionDte;
-  prefix: "Factura" | "NC" | "ND";
+  /** Si se omite, se deriva del `dteType`. */
+  prefix?: DtePrefix;
 }) {
+  const resolvedPrefix = prefix ?? prefixForDteType(dte.dteType);
   return (
     <CrmRelatedRecordCard
       module="quotes"
-      title={`${prefix} N° ${dte.folio}`}
+      title={`${resolvedPrefix} N° ${dte.folio}`}
       subtitle={`${formatDate(dte.date)} · ${formatCLP(dte.totalAmount)}`}
       badge={badgeFor(dte.paymentStatus)}
       href={`/finanzas/facturacion/dtes/${dte.id}`}
@@ -118,6 +129,7 @@ export function AccountFacturacionSection({
   const facturas = facturacion.dtes.filter((d) => FACTURA_TYPES.has(d.dteType));
   const notasCredito = facturacion.dtes.filter((d) => d.dteType === 61);
   const notasDebito = facturacion.dtes.filter((d) => d.dteType === 56);
+  const recientes = facturacion.dtes.slice(0, 10);
 
   const { resumen } = facturacion;
 
@@ -143,8 +155,11 @@ export function AccountFacturacionSection({
         />
       </div>
 
-      <Tabs defaultValue="facturas">
+      <Tabs defaultValue="recientes">
         <TabsList>
+          <TabsTrigger value="recientes">
+            Recientes ({recientes.length})
+          </TabsTrigger>
           <TabsTrigger value="facturas">
             Facturas ({facturas.length})
           </TabsTrigger>
@@ -155,6 +170,22 @@ export function AccountFacturacionSection({
             Notas de débito ({notasDebito.length})
           </TabsTrigger>
         </TabsList>
+        <TabsContent value="recientes">
+          {recientes.length === 0 ? (
+            <EmptyState
+              icon={Receipt}
+              title="Sin DTE emitidos"
+              description="Esta cuenta aún no tiene DTE emitidos."
+              compact
+            />
+          ) : (
+            <CrmRelatedRecordGrid className="!grid-cols-1">
+              {recientes.map((d) => (
+                <DteCard key={d.id} dte={d} />
+              ))}
+            </CrmRelatedRecordGrid>
+          )}
+        </TabsContent>
         <TabsContent value="facturas">
           {facturas.length === 0 ? (
             <EmptyState
