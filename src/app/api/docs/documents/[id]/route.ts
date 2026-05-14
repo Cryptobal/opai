@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { requireDocsView, requireDocsEdit, requireDocsDelete } from "@/lib/api-auth-docs";
 import { updateDocumentSchema } from "@/lib/validations/docs";
+import { deactivateContractCashflowItems } from "@/modules/finance/cashflow/generators/sales-contract-sync";
 
 export async function GET(
   request: NextRequest,
@@ -226,7 +227,14 @@ export async function DELETE(
       );
     }
 
-    await prisma.document.delete({ where: { id } });
+    // Cascada a Flujo de Caja: si el Document tenía FinanceCashflowItem
+    // asociados (sourceRefId=docId, p.ej. contratos), deben quedar inactivos.
+    // Sin esto sobreviven como huérfanos en la proyección y en el resumen
+    // de cuentas CRM. Helper compartido con el DELETE de contratos CRM.
+    await prisma.$transaction(async (tx) => {
+      await deactivateContractCashflowItems(tx, ctx.tenantId, id);
+      await tx.document.delete({ where: { id } });
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
