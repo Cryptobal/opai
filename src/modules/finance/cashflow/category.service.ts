@@ -83,8 +83,20 @@ export async function seedSystemCategoriesForTenant(tenantId: string): Promise<v
 const REMOVED_SYSTEM_CODES = ["ING_TURNO_EXTRA", "ING_INSTALACION"];
 
 export async function listCategories(tenantId: string): Promise<FinanceCashflowCategory[]> {
-  const count = await prisma.financeCashflowCategory.count({ where: { tenantId } });
-  if (count === 0) await seedSystemCategoriesForTenant(tenantId);
+  // Self-heal: si el tenant no tiene NINGUNA categoría → seed completo. Si
+  // tiene algunas pero le faltan códigos de sistema (caso típico tras agregar
+  // categorías nuevas al catálogo y deployar a producción), también sembramos
+  // — el seed hace upsert idempotente por (tenantId, code) y solo crea
+  // mappings cuando la categoría no tiene ninguno, así que respeta los
+  // overrides del usuario.
+  const systemCodes = SYSTEM_CATEGORIES.map((c) => c.code);
+  const existingSystem = await prisma.financeCashflowCategory.findMany({
+    where: { tenantId, code: { in: systemCodes } },
+    select: { code: true },
+  });
+  if (existingSystem.length < systemCodes.length) {
+    await seedSystemCategoriesForTenant(tenantId);
+  }
 
   // Desactivar categorías eliminadas del catálogo (sin tocar items existentes —
   // quedan como histórico pero dejan de proyectarse al desactivarse la categoría).
