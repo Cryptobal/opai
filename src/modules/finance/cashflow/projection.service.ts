@@ -630,9 +630,12 @@ export async function buildProjection(
         scheduledDate: d,
         effectiveDate: mat?.effectiveDate ?? null,
         amountClp,
-        amountOriginal: mat?.amountOverride !== null && mat?.amountOverride !== undefined
-          ? Number(mat.amountOverride)
-          : itemAmount,
+        // `amountOriginal` representa el monto BASE del contrato en su moneda
+        // original (UF para contratos UF, CLP para contratos CLP). Alimenta
+        // el header del row ("UF 76,91/mes" / "$5.600.000/mes"), por lo que
+        // NUNCA debe contener el override por celda (que vive en CLP). El
+        // override aplica solo a `amountClp` de la ocurrencia individual.
+        amountOriginal: itemAmount,
         currency: item.currency,
         ufValueUsed: ufValue,
         status: mat?.status ?? "PROJECTED",
