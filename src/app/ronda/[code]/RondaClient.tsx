@@ -132,13 +132,23 @@ export function RondaClient({ code }: { code: string }) {
   };
 
   const getCoords = async () => {
-    return await new Promise<{ lat: number; lng: number }>((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        (err) => reject(err),
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-      );
-    });
+    return await new Promise<{ lat: number; lng: number; accuracy: number | null }>(
+      (resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) =>
+            resolve({
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              accuracy:
+                pos.coords.accuracy != null && Number.isFinite(pos.coords.accuracy)
+                  ? pos.coords.accuracy
+                  : null,
+            }),
+          (err) => reject(err),
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+        );
+      },
+    );
   };
 
   const flushQueue = async () => {
@@ -176,6 +186,7 @@ export function RondaClient({ code }: { code: string }) {
         checkpointQrCode,
         lat: coords.lat,
         lng: coords.lng,
+        gpsAccuracy: coords.accuracy ?? undefined,
         batteryLevel,
         motionData: { movementScore: motionScore },
       };

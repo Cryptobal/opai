@@ -8,6 +8,7 @@ import { GpsStatusIndicator } from "./GpsStatusIndicator";
 import { ProgressRing } from "./ProgressRing";
 import { ActiveCheckpointCard } from "./ActiveCheckpointCard";
 import { savePendingMark } from "@/lib/rondas-offline";
+import { evaluateGeofenceWithTolerance } from "@/lib/rondas/geo-fence-client";
 import type { RondasSession } from "./RondasPortalClient";
 import type { MapCheckpoint } from "./RondaMap";
 
@@ -384,8 +385,17 @@ export function RondaActiva({
     let closestDist = Infinity;
 
     for (const cp of unmarked) {
-      const dist = haversineDistance(guardPos.lat, guardPos.lng, cp.lat, cp.lng);
-      if (dist <= cp.geoRadiusM && dist < closestDist) {
+      const ev = evaluateGeofenceWithTolerance(
+        guardPos.lat,
+        guardPos.lng,
+        cp.lat,
+        cp.lng,
+        cp.geoRadiusM,
+        gpsAccuracy,
+      );
+      const dist = ev.distanceM;
+      if (!ev.inRange || dist == null) continue;
+      if (dist < closestDist) {
         closest = cp;
         closestDist = dist;
       }
@@ -704,9 +714,15 @@ export function RondaActiva({
 
   const isInGeofenceOfMarking = useMemo(() => {
     if (!markingCpInfo || !guardPos) return false;
-    const dist = haversineDistance(guardPos.lat, guardPos.lng, markingCpInfo.lat, markingCpInfo.lng);
-    return dist <= markingCpInfo.geoRadiusM;
-  }, [markingCpInfo, guardPos]);
+    return evaluateGeofenceWithTolerance(
+      guardPos.lat,
+      guardPos.lng,
+      markingCpInfo.lat,
+      markingCpInfo.lng,
+      markingCpInfo.geoRadiusM,
+      gpsAccuracy,
+    ).inRange;
+  }, [markingCpInfo, guardPos, gpsAccuracy]);
 
   // Incomplete checkpoint names (for confirmation modal)
   const incompleteCheckpoints = checkpoints.filter((c) => !c.completed);
@@ -1034,7 +1050,16 @@ export function RondaActiva({
                 distanceM: cpDistance,
                 geoRadiusM: activeCheckpoint.geoRadiusM,
                 qrRequired: needsQr,
-                isInRadius: cpDistance != null && cpDistance <= activeCheckpoint.geoRadiusM,
+                isInRadius:
+                  guardPos != null &&
+                  evaluateGeofenceWithTolerance(
+                    guardPos.lat,
+                    guardPos.lng,
+                    activeCheckpoint.lat,
+                    activeCheckpoint.lng,
+                    activeCheckpoint.geoRadiusM,
+                    gpsAccuracy,
+                  ).inRange,
               }
             : null;
 
