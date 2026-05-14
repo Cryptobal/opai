@@ -161,23 +161,34 @@ export async function GET(
     else if (trackingRoute.length >= 2) routeSource = "tracking";
 
     // Build the set of marked checkpoint IDs for quick lookup
-    const markedCheckpointIds = new Set(
+    const completedCheckpointIds = new Set(
       marcaciones.filter((m) => m.status === "COMPLETED").map((m) => m.checkpointId).filter(Boolean),
+    );
+    const geoNoVerificadaCheckpointIds = new Set(
+      marcaciones.filter((m) => m.status === "GEO_NO_VERIFICADA").map((m) => m.checkpointId).filter(Boolean),
     );
 
     // Merge template checkpoints with marcaciones to produce the full checkpoint list
     // Each entry shows position (from template) + marked status + geoValidada
     const checkpointStatuses = allTemplateCheckpoints.map((cp) => {
+      // Prefer COMPLETED if exists; else GEO_NO_VERIFICADA si existe.
       const marcacion = marcaciones.find(
         (m) => m.checkpointId === cp.id && m.status === "COMPLETED",
+      ) ?? marcaciones.find(
+        (m) => m.checkpointId === cp.id && m.status === "GEO_NO_VERIFICADA",
       );
+      const status = completedCheckpointIds.has(cp.id)
+        ? "COMPLETED"
+        : geoNoVerificadaCheckpointIds.has(cp.id)
+          ? "GEO_NO_VERIFICADA"
+          : "PENDING";
       return {
         id: cp.id,
         name: cp.name,
         lat: cp.lat as number,
         lng: cp.lng as number,
         orderIndex: cp.orderIndex,
-        status: markedCheckpointIds.has(cp.id) ? "COMPLETED" : "PENDING",
+        status,
         geoValidada: marcacion?.geoValidada ?? null,
         distanceM: marcacion?.distanceM ?? null,
         timestamp: marcacion?.timestamp ?? null,

@@ -22,7 +22,7 @@ interface CheckpointStatus {
   lat: number;
   lng: number;
   orderIndex: number;
-  status: "COMPLETED" | "PENDING";
+  status: "COMPLETED" | "GEO_NO_VERIFICADA" | "PENDING";
   geoValidada: boolean | null;
   distanceM: number | null;
   timestamp: string | null;
@@ -223,30 +223,42 @@ export function RondaMapView({ ejecucionId, height = 320 }: Props) {
 
       for (const cp of checkpointsToRender) {
         const isCompleted = cp.status === "COMPLETED";
+        const isGeoNoVerificada = cp.status === "GEO_NO_VERIFICADA";
         const geoOk = cp.geoValidada;
 
         let bgColor: string;
         let borderStyle: string;
         let icon: string;
         let tooltipExtra = "";
+        let label: string;
 
-        if (!isCompleted) {
+        if (isGeoNoVerificada) {
+          bgColor = "#f59e0b";
+          borderStyle = "border:2px dashed #fff;";
+          icon = "?";
+          label = "Ubicación sin confirmar";
+          tooltipExtra = " · Señal débil / fuera del radio";
+        } else if (!isCompleted) {
           bgColor = "#ef4444";
           borderStyle = "border:2px solid #fff;";
           icon = "✗";
+          label = "No marcado";
         } else if (geoOk === true) {
           bgColor = "#22c55e";
           borderStyle = "border:2px solid #fff;";
           icon = "✓";
+          label = "Marcado";
         } else if (geoOk === false) {
           bgColor = "#f59e0b";
           borderStyle = "border:2px dashed #fff;";
           icon = "✓";
+          label = "Marcado";
           tooltipExtra = " · Fuera del radio GPS";
         } else {
           bgColor = "#22c55e";
           borderStyle = "border:2px solid #fff;";
           icon = "✓";
+          label = "Marcado";
         }
 
         const distInfo =
@@ -267,9 +279,7 @@ export function RondaMapView({ ejecucionId, height = 320 }: Props) {
 
         L.marker([cp.lat, cp.lng], { icon: divIcon })
           .bindTooltip(
-            `${cp.orderIndex}. ${cp.name} — ${
-              isCompleted ? "Marcado" : "No marcado"
-            }${distInfo}${timeInfo}${tooltipExtra}`,
+            `${cp.orderIndex}. ${cp.name} — ${label}${distInfo}${timeInfo}${tooltipExtra}`,
             { permanent: false }
           )
           .addTo(map);
