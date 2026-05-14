@@ -124,6 +124,60 @@ export async function resolveOrCreateInstallation(
   return { ...created, created: true };
 }
 
+const QUOTE_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * Busca una cotización CPQ por código exacto (insensitive), por UUID válido en `id`,
+ * o por texto en código / nombre / cliente.
+ * Devuelve null si no encuentra; lanza si hay más de una coincidencia plausible.
+ */
+export async function resolveQuoteByCodeOrName(
+  tenantId: string,
+  query: string,
+): Promise<{ id: string; code: string; name: string | null } | null> {
+  const q = query.trim();
+  if (!q) return null;
+
+  if (QUOTE_UUID_RE.test(q)) {
+    const byId = await prisma.cpqQuote.findFirst({
+      where: { id: q, tenantId },
+      select: { id: true, code: true, name: true },
+    });
+    if (byId) return byId;
+  }
+
+  const byCode = await prisma.cpqQuote.findFirst({
+    where: { tenantId, code: { equals: q, mode: "insensitive" } },
+    select: { id: true, code: true, name: true },
+  });
+  if (byCode) return byCode;
+
+  const matches = await prisma.cpqQuote.findMany({
+    where: {
+      tenantId,
+      OR: [
+        { code: { contains: q, mode: "insensitive" } },
+        { name: { contains: q, mode: "insensitive" } },
+        { clientName: { contains: q, mode: "insensitive" } },
+      ],
+    },
+    select: { id: true, code: true, name: true },
+    take: 8,
+    orderBy: { updatedAt: "desc" },
+  });
+  if (matches.length === 0) return null;
+  if (matches.length === 1) return matches[0];
+  const ql = q.toLowerCase();
+  const exact =
+    matches.find((m) => m.code?.toLowerCase() === ql) ??
+    matches.find((m) => m.name?.toLowerCase() === ql);
+  if (exact) return exact;
+  throw new Error(
+    `Varias cotizaciones coinciden con "${query}". Ejemplos: ${matches.slice(0, 4).map((m) => m.code || m.name || m.id).join(", ")}. Dame el código exacto.`,
+  );
+}
+
 /**
  * Busca un DTE emitido por folio dentro del tenant. Acepta string o number.
  * Devuelve el DTE con datos clave (sin lines) para usar como referencia

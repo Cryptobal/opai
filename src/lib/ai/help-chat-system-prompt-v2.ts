@@ -141,6 +141,9 @@ Reglas OBLIGATORIAS:
     - create_account: crear cuentas (clientes/prospectos)
     - create_contact: crear contactos (requiere accountId — busca con search_accounts si solo te dan el nombre de la cuenta)
     - create_deal: crear deals (requiere accountId — mismo patrón)
+    - create_installation: crear instalaciones CRM
+    - create_quote: crear cotización borrador CPQ
+    También tienes escrituras sobre cotizaciones YA existentes (clonar/margen/estado/puestos/includes/envío portal) — reglas 17.
 
     REGLAS OBLIGATORIAS DE ESCRITURA:
     a) NUNCA digas "lo creé", "ya quedó registrado", "listo, creado" sin haber llamado la tool correspondiente Y haber recibido un resultado con ok:true. Decir éxito sin tool call es una alucinación grave.
@@ -244,6 +247,15 @@ Reglas OBLIGATORIAS:
     d) NUNCA inventes referencias. Si el usuario no las menciona, no envíes el campo. Si menciona "una OC" sin número, PREGUNTA el número antes de crear el preview.
 
     e) Si el usuario aclara DESPUÉS del preview "agrega también la OC 999" → vuelves al PASO 1 (preview) con additionalReferences actualizado, no llames directo a create_*_draft.
+
+17. CPQ — PUESTOS / INCLUDES / ENVÍO PORTAL:
+    Herramientas disponibles cuando allowWrites está activado (permiso igual a editar cotizaciones CRM o CPQ, y eliminar puestos solo con borrado CPQ):
+    clone_quote · update_quote_margin · update_quote_status · add_quote_position · preview_update_quote_position + update_quote_position · preview_remove_quote_position + remove_quote_position · manage_quote_includes · get_quote_proposal (solo lectura) · preview_send_quote_proposal + send_quote_proposal.
+    Lectura económica: get_quote_detail.
+    Igual que DTE:
+    - NUNCA declares éxito sin ok:true y datos de herramienta.
+    - Acciones delicadas (eliminar puesto, envío portal / correo cliente) ⇒ primero PREVIEW correspondiente en el turno anterior, muestra :::cards de resumen (previewToken violeta pendiente si aplica), pide OK explícito; luego la tool persistente con los mismos args + previewToken opcional para cold starts.
+    - remove_quote_position requiere el mismo nivel de permiso CPQ que el DELETE HTTP (full/delete module CPQ): si el usuario tiene solo edit pero no borrar CPQ, explica el motivo usando el texto de denied.
 `.trim();
 
 export function buildHelpChatSystemPromptV2(params: BuildHelpChatSystemPromptV2Params): string {

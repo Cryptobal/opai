@@ -5,6 +5,7 @@ import { hasCapability } from "@/lib/permissions";
 import { canUseAiHelpChat, getAiHelpChatConfig } from "@/lib/ai/help-chat-config";
 import { retrieveDocsContext, retrieveTemplatesContext } from "@/lib/ai/help-chat-retrieval";
 import { getToolDefinitionsV2, executeToolCallV2 } from "@/lib/ai/help-chat-tools-v2";
+import type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
 import { buildHelpChatSystemPromptV2 } from "@/lib/ai/help-chat-system-prompt-v2";
 import { parseVisualBlocks } from "@/lib/ai/help-chat-visual-types";
 import {
@@ -167,13 +168,7 @@ export async function POST(request: NextRequest) {
   };
 
   /* page context (Notion-like): the user is currently viewing an entity */
-  type PageContext = {
-    entityType: string;
-    entityId: string;
-    entityName: string;
-    entityUrl?: string;
-    extra?: string;
-  };
+  type PageContext = HelpChatPageContext;
   let pageContext: PageContext | null = null;
   if (body.pageContext && typeof body.pageContext === "object") {
     const pc = body.pageContext as Record<string, unknown>;
@@ -443,6 +438,7 @@ REGLAS DE CONTEXTO DE MÓDULO:
                 call.name, args, ctx.tenantId, ctx.userId,
                 perms,
                 hasCapability(perms, "rendicion_view_all"),
+                pageContext,
               );
               send("tool_call", { name: call.name, status: "done" });
               messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });

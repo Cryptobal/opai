@@ -678,6 +678,19 @@ const TOOL_LABELS: Record<string, string> = {
   get_deal_pipeline: "Cargando pipeline...",
   get_user_context: "Cargando contexto del usuario...",
   get_tenant_summary: "Cargando resumen del tenant...",
+  get_quote_detail: "Leyendo cotización CPQ...",
+  clone_quote: "Clonando cotización...",
+  update_quote_margin: "Actualizando margen CPQ...",
+  update_quote_status: "Actualizando estado CPQ...",
+  add_quote_position: "Agregando puesto a cotización...",
+  preview_update_quote_position: "Previsualizando cambio de puesto...",
+  update_quote_position: "Guardando cambio de puesto...",
+  preview_remove_quote_position: "Previsualizando borrado de puesto...",
+  remove_quote_position: "Eliminando puesto de cotización...",
+  get_quote_proposal: "Generando vista propuesta técnica...",
+  manage_quote_includes: "Editando bullets Incluye...",
+  preview_send_quote_proposal: "Previsualizando envío al cliente...",
+  send_quote_proposal: "Enviando propuesta por portal/correo...",
 };
 
 function friendlyToolLabel(name: string): string {

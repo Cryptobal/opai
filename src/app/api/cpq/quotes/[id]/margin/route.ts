@@ -4,16 +4,17 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCpqEdit } from "@/lib/api-auth-cpq";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
+import { prisma } from "@/lib/prisma";
 import { requireTenantModule } from '@/lib/require-module';
+import { updateCpqQuoteMargin } from "@/modules/cpq/update-quote-margin.service";
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const modCheck = await requireTenantModule('cpq');
@@ -29,44 +30,36 @@ export async function PUT(
     const marginPct = body?.marginPct ?? 13;
     const marginMode = body?.marginMode;
 
-    const updateData: Record<string, unknown> = { marginPct };
-    if (marginMode) updateData.marginMode = marginMode;
+    const owns = await prisma.cpqQuote.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+      select: { id: true },
+    });
+    if (!owns) {
+      return NextResponse.json({ success: false, error: "Quote not found" }, { status: 404 });
+    }
 
-    await prisma.cpqQuoteParameters.upsert({
-      where: { quoteId: id },
-      update: updateData,
-      create: {
-        quoteId: id,
-        monthlyHoursStandard: 180,
-        avgStayMonths: 4,
-        uniformChangesPerYear: 3,
-        financialRatePct: 2.5,
-        salePriceMonthly: 0,
-        policyRatePct: 0,
-        policyAdminRatePct: 0,
-        policyContractMonths: 12,
-        policyContractPct: 100,
-        contractMonths: 12,
-        contractAmount: 0,
-        marginPct,
-        ...(marginMode ? { marginMode } : {}),
-      },
+    await updateCpqQuoteMargin({
+      quoteId: id,
+      marginPct: Number(marginPct),
+      marginMode: typeof marginMode === "string" ? marginMode : null,
     });
 
     const summary = await computeCpqQuoteCosts(id);
 
-    await prisma.cpqQuote.update({
-      where: { id },
-      data: { monthlyCost: summary.monthlyTotal },
+    const quoteMeta = await prisma.cpqQuote.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+      select: { code: true },
     });
-
-    const quote = await prisma.cpqQuote.findFirst({ where: { id, tenantId: ctx.tenantId }, select: { code: true } });
     await createCrmHistoryLog({
       tenantId: ctx.tenantId,
       entityType: "quote",
       entityId: id,
       action: "quote_margin_updated",
-      details: { quoteCode: quote?.code ?? null, marginPct, marginMode: marginMode ?? null },
+      details: {
+        quoteCode: quoteMeta?.code ?? null,
+        marginPct: Number(marginPct),
+        marginMode: marginMode ?? null,
+      },
       createdBy: ctx.userId,
     });
 
@@ -75,7 +68,7 @@ export async function PUT(
     console.error("Error updating margin:", error);
     return NextResponse.json(
       { success: false, error: "Failed to update margin" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

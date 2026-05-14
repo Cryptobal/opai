@@ -1,33 +1,30 @@
 /**
- * Cache en memoria para el patrón two-step de creación de DTEs:
- * preview_*_draft → confirma con el usuario → create_*_draft({previewToken}).
- *
- * TTL corto (5 min) y single-use: una vez consumido, el token desaparece.
- * Si Vercel reinicia el proceso entre invocaciones, el peor caso es que el
- * usuario tenga que volver a pedir el preview — no hay riesgo de duplicar
- * un DTE.
+ * Cache en memoria para el patrón two-step: preview_* → usuario confirma → tool persistente.
+ * El `toolName` almacenado es siempre la herramienta FINAL (persistente), igual que en DTEs.
  */
+
 import { randomUUID } from "node:crypto";
 
+/** Nombres de tools persistentes enlazadas a previews de facturación. */
 export type DtePreviewToolName =
   | "create_invoice_draft"
   | "create_credit_note_draft"
   | "create_debit_note_draft"
   | "create_recurring_invoice";
 
+export type CpqPersistToolName =
+  | "update_quote_position"
+  | "remove_quote_position"
+  | "send_quote_proposal";
+
+export type PreviewBackedToolName = DtePreviewToolName | CpqPersistToolName;
+
 export type PreviewPayload = {
   tenantId: string;
   userId: string;
-  toolName: DtePreviewToolName;
+  toolName: PreviewBackedToolName;
   args: Record<string, unknown>;
   computed: {
-    netAmount: number;
-    exemptAmount: number;
-    taxAmount: number;
-    totalAmount: number;
-    currency: string;
-    receiverRut: string;
-    receiverName: string;
     [k: string]: unknown;
   };
   expiresAt: number;
@@ -54,7 +51,7 @@ export function consumePreview(
   token: string,
   expectedTenantId: string,
   expectedUserId: string,
-  expectedToolName: DtePreviewToolName,
+  expectedToolName: PreviewBackedToolName,
 ): PreviewPayload | null {
   gc();
   const p = cache.get(token);

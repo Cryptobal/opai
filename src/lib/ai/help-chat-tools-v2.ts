@@ -24,6 +24,7 @@ import {
   resolveStageByName,
   resolveOrCreateInstallation,
   resolveAccountByRutOrName,
+  resolveQuoteByCodeOrName,
   resolveDteByFolio,
 } from "@/lib/ai/help-chat-resolvers";
 import { storePreview, consumePreview } from "@/lib/ai/dte-preview-cache";
@@ -32,11 +33,33 @@ import {
   createDraftDte,
   type DraftDteInput,
 } from "@/modules/finance/billing/dte-draft.service";
-import { hasFacturacionCapability, hasCapability, canView } from "@/lib/permissions";
+import {
+  hasFacturacionCapability,
+  hasCapability,
+  canEdit,
+  canView,
+  type RolePermissions,
+} from "@/lib/permissions";
 import { factoringCompanyInputSchema } from "@/lib/validations/factoring";
 import { createFactoringCompany } from "@/modules/finance/factoring/factoring-companies.service";
 import { toSentenceCase } from "@/lib/text-format";
-import { canEdit, type RolePermissions } from "@/lib/permissions";
+import { formatWeekdaysShort } from "@/lib/cpq/weekdays";
+import type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
+import {
+  aiTool_add_quote_position,
+  aiTool_clone_quote,
+  aiTool_get_quote_proposal,
+  aiTool_manage_quote_includes,
+  aiTool_preview_remove_quote_position,
+  aiTool_preview_send_quote_proposal,
+  aiTool_preview_update_quote_position,
+  aiTool_remove_quote_position,
+  aiTool_send_quote_proposal,
+  aiTool_update_quote_margin,
+  aiTool_update_quote_position,
+  aiTool_update_quote_status,
+} from "@/lib/ai/help-chat-cpq-ai-handlers";
+export type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
 
 function baseToolDefinitions() {
   return [
@@ -364,6 +387,25 @@ function v2ToolDefinitions() {
     {
       type: "function" as const,
       function: {
+        name: "get_quote_detail",
+        description:
+          "Obtiene el detalle operativo/comercial de UNA cotización CPQ (puestos, costeo, margen, incluye lista de ítems 'incluye'). Si el usuario está en la ficha de la cotización (contexto página cpq_quote) y no pasa código, usa el ID del contexto. Usa después de search_quotes o cuando el usuario pida un resumen económico de la cotización.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: {
+              type: "string",
+              description:
+                "Código CPQ (ej. CPQ-2026-001), texto de búsqueda o UUID. Opcional cuando hay página de cotización abierta.",
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
         name: "search_contacts",
         description: "Busca contactos CRM por nombre, email o cargo; incluye la cuenta asociada.",
         parameters: {
@@ -680,6 +722,277 @@ function writeToolDefinitions() {
             notes: { type: "string" },
           },
           required: ["accountId"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "clone_quote",
+        description:
+          "Clona una cotización CPQ existente como nuevo borrador (mismo contenido económico y puestos). Requiere permiso igual que editar cotizaciones. Opcional newName.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string", description: "Código CPQ o UUID. Opcional con página cotización abierta." },
+            newName: { type: "string", description: "Nombre de la copia (default: nombre original + (copia))." },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "update_quote_margin",
+        description:
+          "Actualiza el margen (%) aplicado en la cotización CPQ y recalcula el mensual desde costeo. Requiere permiso CRM quotes o CPQ.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string", description: "Código CPQ / UUID." },
+            marginPct: { type: "number", description: "Margen objetivo ej. 22.5" },
+            marginMode: { type: "string", description: "Modo opcional legacy (si tenant lo usa)." },
+          },
+          required: ["marginPct"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "update_quote_status",
+        description: "Actualiza estado de la cotización: draft | sent | approved | rejected.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string", description: "Código CPQ / UUID." },
+            status: { type: "string", enum: ["draft", "sent", "approved", "rejected"] },
+          },
+          required: ["status"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "add_quote_position",
+        description:
+          "Agrega uno o más puestos CPQ usando catálogo. Puede expandir patrones conocidos en coveragePattern (24/7, 5x2...) en varios slots, o modo manual weekdays+startTime+endTime.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string" },
+            coveragePattern: { type: "string", description: "Texto tipo 24x7 / 12x36 / Lun-Vie diurno; si viene, expande desde plantillas." },
+            weekdays: {
+              type: "array",
+              items: { type: "string" },
+              description: "Días Lun..Dom cuando no hay coveragePattern.",
+            },
+            weekdaysText: { type: "string", description: "Alternativo: 'lun-vie'" },
+            startTime: { type: "string", description: "HH:MM modo manual." },
+            endTime: { type: "string", description: "HH:MM modo manual." },
+            numGuards: { type: "number" },
+            numPuestos: { type: "number" },
+            baseSalary: { type: "number", description: "Sueldo base mensual CPQ/Patrón A." },
+            targetNetMonthlyLiquid: { type: "number", description: "Si el usuario dice líquido: se invierte contra payroll." },
+            puestoTrabajoName: { type: "string" },
+            cargoName: { type: "string" },
+            rolName: { type: "string" },
+            customName: { type: "string" },
+            puestoLabelPrefix: { type: "string", description: "Prefijo si coveragePattern crea varios slots." },
+            forceSingleSlot: { type: "boolean", description: "true = sólo primera plantilla resultado." },
+            afpName: { type: "string" },
+            healthSystem: { type: "string" },
+            healthPlanPct: { type: "number" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "preview_update_quote_position",
+        description:
+          "PASO 1 para editar puesto: muestra vista previa + previewToken. No guarda cambios hasta update_quote_position confirmado.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string" },
+            positionId: { type: "string" },
+            positionIndex: { type: "number" },
+            positionNameSnippet: { type: "string" },
+            weekdays: { type: "array", items: { type: "string" } },
+            startTime: { type: "string" },
+            endTime: { type: "string" },
+            numGuards: { type: "number" },
+            numPuestos: { type: "number" },
+            cargoId: { type: "string" },
+            rolId: { type: "string" },
+            puestoTrabajoId: { type: "string" },
+            cargoName: { type: "string" },
+            rolName: { type: "string" },
+            puestoTrabajoName: { type: "string" },
+            baseSalary: { type: "number" },
+            afpName: { type: "string" },
+            healthSystem: { type: "string" },
+            healthPlanPct: { type: "number" },
+            customName: { type: "string" },
+            description: { type: "string" },
+            forceRecalculate: { type: "boolean" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "update_quote_position",
+        description:
+          "PASO 2: guarda cambios en un puesto. Pasa mismo patch que preview o previewToken+mismos datos (patrón DTE). Permiso igual API PATCH.",
+        parameters: {
+          type: "object",
+          properties: {
+            previewToken: { type: "string" },
+            quoteIdOrCode: { type: "string" },
+            positionId: { type: "string" },
+            positionIndex: { type: "number" },
+            positionNameSnippet: { type: "string" },
+            patch: {
+              type: "object",
+              description: "Objeto opcional cuando no vienes campo plano desde el modelo.",
+              additionalProperties: true,
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "preview_remove_quote_position",
+        description:
+          "PASO 1 para borrar puesto: mismo permiso que DELETE API (solo rol CPQ con nivel eliminar/full). Preview + token.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string" },
+            positionId: { type: "string" },
+            positionIndex: { type: "number" },
+            positionNameSnippet: { type: "string" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "remove_quote_position",
+        description: "PASO 2 borra posición después de preview_remove_quote_position y OK explícito del usuario.",
+        parameters: {
+          type: "object",
+          properties: {
+            previewToken: { type: "string" },
+            quoteIdOrCode: { type: "string" },
+            positionId: { type: "string" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "get_quote_proposal",
+        description:
+          "Resume la propuesta comercial técnica (PDF) lista en CPQ sin enviar correo (totales formateados, ítems, PDF relativo API). Solo lectura.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "manage_quote_includes",
+        description:
+          "Lista o edita bullets 'Incluye' de la cotización (tabla quote_includes_items + sync lista quote). Permiso igual editar cotizaciones.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string" },
+            action: { type: "string", enum: ["list", "add", "remove", "toggle_show_pdf"] },
+            text: { type: "string", description: "add" },
+            showInPdf: { type: "boolean", description: "add o toggle_show_pdf" },
+            itemId: { type: "string", description: "remove/toggle cuando ya conoces UUID" },
+            textSnippet: { type: "string", description: "remove/toggle texto único" },
+          },
+          required: ["action"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "preview_send_quote_proposal",
+        description:
+          "PASO 1 envío cotización/PIN portal: valida cuenta+deal+email y devuelve resumen sin enviar correo/whatsapp. Acción delicada igual facturación.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string" },
+            recipientContactId: { type: "string", description: "UUID contacto mismo account; opcional usa contacto cotización." },
+            includeProposalPdf: { type: "boolean" },
+            includeQuotationPdf: { type: "boolean" },
+            attachmentIds: { type: "array", items: { type: "string" } },
+            ccContactIds: { type: "array", items: { type: "string" } },
+            ccEmails: { type: "array", items: { type: "string" } },
+            bccEmails: { type: "array", items: { type: "string" } },
+            emailSubject: { type: "string" },
+            followUpTargetStageId: { type: "string", description: "UUID pipeline stage opcional para seguimiento post envío." },
+            followUpInclude: { type: "boolean", description: "Por defecto true si viene stage." },
+            followUpSkipAll: { type: "boolean", description: "skipAll del motor follow-up igual UI." },
+            previewEmailDraft: { type: "string", description: "Solo muestra snippet informativo — no cambia backend aún." },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "send_quote_proposal",
+        description:
+          "PASO 2: ejecuta envío igual send-portal después de preview_send_quote_proposal y confirmación usuario. Mantén mismo payload + previewToken opcional.",
+        parameters: {
+          type: "object",
+          properties: {
+            previewToken: { type: "string" },
+            quoteIdOrCode: { type: "string" },
+            recipientContactId: { type: "string" },
+            includeProposalPdf: { type: "boolean" },
+            includeQuotationPdf: { type: "boolean" },
+            attachmentIds: { type: "array", items: { type: "string" } },
+            ccContactIds: { type: "array", items: { type: "string" } },
+            ccEmails: { type: "array", items: { type: "string" } },
+            bccEmails: { type: "array", items: { type: "string" } },
+            emailSubject: { type: "string" },
+            followUpTargetStageId: { type: "string" },
+            followUpInclude: { type: "boolean" },
+            followUpSkipAll: { type: "boolean" },
+          },
           additionalProperties: false,
         },
       },
@@ -2105,7 +2418,183 @@ async function toolSearchQuotes(
   }));
 }
 
-/* ── Helpers para tools de documentos contextuales ── */
+function summarizeProposalAiContent(raw: unknown): string[] {
+  const out: string[] = [];
+  const walk = (val: unknown, depth: number) => {
+    if (depth > 4 || out.length >= 12) return;
+    if (!val || typeof val !== "object") return;
+    if (Array.isArray(val)) {
+      for (const item of val) {
+        walk(item, depth + 1);
+        if (out.length >= 12) return;
+      }
+      return;
+    }
+    const o = val as Record<string, unknown>;
+    const title =
+      typeof o.title === "string"
+        ? o.title
+        : typeof o.sectionTitle === "string"
+          ? o.sectionTitle
+          : typeof o.heading === "string"
+            ? o.heading
+            : typeof o.label === "string"
+              ? o.label
+              : null;
+    if (title?.trim()) {
+      const trimmed = title.trim();
+      if (!out.includes(trimmed)) out.push(trimmed);
+    }
+    for (const v of Object.values(o)) walk(v, depth + 1);
+  };
+  walk(raw, 0);
+  return out;
+}
+
+async function toolGetQuoteDetail(
+  tenantId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+  pageContext?: HelpChatPageContext | null,
+): Promise<unknown> {
+  if (!canView(perms, "cpq") && !canView(perms, "crm", "quotes")) {
+    return { ok: false, error: "No tienes permiso para ver cotizaciones CPQ." };
+  }
+
+  let ref = typeof args.quoteIdOrCode === "string" ? args.quoteIdOrCode.trim() : "";
+  if (!ref && pageContext?.entityType === "cpq_quote" && pageContext.entityId) {
+    ref = pageContext.entityId;
+  }
+  if (!ref) {
+    return {
+      ok: false,
+      error:
+        'Indica el código de la cotización en quoteIdOrCode o abre la ficha de la cotización para usar el contexto automático.',
+    };
+  }
+
+  try {
+    const resolved = await resolveQuoteByCodeOrName(tenantId, ref);
+    if (!resolved) {
+      return { ok: false, error: `No encontré una cotización que coincida con "${ref}".` };
+    }
+
+    const quote = await prisma.cpqQuote.findFirst({
+      where: { id: resolved.id, tenantId },
+      include: {
+        positions: {
+          include: { puestoTrabajo: true, cargo: true, rol: true },
+          orderBy: { createdAt: "asc" },
+        },
+        parameters: true,
+        installation: { select: { id: true, name: true } },
+        includesItems: { orderBy: { sortOrder: "asc" } },
+      },
+    });
+
+    if (!quote) return { ok: false, error: "Cotización no encontrada para este tenant." };
+
+    const dealRow = quote.dealId
+      ? await prisma.crmDeal.findFirst({
+          where: { id: quote.dealId, tenantId },
+          select: { id: true, title: true },
+        })
+      : null;
+    const { computeCpqQuoteCosts } = await import("@/modules/cpq/costing/compute-quote-costs");
+    const costs = await computeCpqQuoteCosts(quote.id);
+
+    const marginPctParam =
+      quote.parameters?.marginPct != null ? Number(quote.parameters.marginPct) : 13;
+
+    const positionsOut = quote.positions.map((p, idx) => {
+      const nombre = p.customName?.trim() || p.puestoTrabajo?.name || `Puesto ${idx + 1}`;
+      const coverage = `${formatWeekdaysShort(p.weekdays)} ${p.startTime}–${p.endTime}`;
+      return {
+        orden: idx + 1,
+        positionId: p.id,
+        nombre,
+        cargo: p.cargo?.name ?? null,
+        rol: p.rol?.name ?? null,
+        coverage,
+        weekdays: p.weekdays,
+        startTime: p.startTime,
+        endTime: p.endTime,
+        numGuards: p.numGuards,
+        numPuestos: p.numPuestos,
+        baseSalary: Number(p.baseSalary),
+        netSalary: p.netSalary != null ? Number(p.netSalary) : null,
+        employerCost: Number(p.employerCost),
+        monthlyPositionCost: Number(p.monthlyPositionCost),
+      };
+    });
+
+    const proposalSections = summarizeProposalAiContent(quote.proposalAiContent ?? null);
+
+    return {
+      ok: true,
+      data: {
+        header: {
+          id: quote.id,
+          code: quote.code,
+          name: quote.name,
+          clientName: quote.clientName,
+          status: quote.status,
+          currency: quote.currency,
+          validUntil: quote.validUntil,
+          monthlyCostStored: Number(quote.monthlyCost),
+          deal: dealRow ? { id: dealRow.id, title: dealRow.title } : null,
+          installation: quote.installation
+            ? { id: quote.installation.id, name: quote.installation.name }
+            : null,
+        },
+        positions: positionsOut,
+        costBreakdown: {
+          monthlyPositions: costs.monthlyPositions,
+          monthlyHolidayAdjustment: costs.monthlyHolidayAdjustment,
+          monthlyUniforms: costs.monthlyUniforms,
+          monthlyExams: costs.monthlyExams,
+          monthlyMeals: costs.monthlyMeals,
+          monthlyVehicles: costs.monthlyVehicles,
+          monthlyInfrastructure: costs.monthlyInfrastructure,
+          monthlyCostItems: costs.monthlyCostItems,
+          laborCost: costs.laborCost,
+          costsBase: costs.costsBase,
+          monthlyFinancial: costs.monthlyFinancial,
+          monthlyPolicy: costs.monthlyPolicy,
+          monthlyExtras: costs.monthlyExtras,
+          additionalLinesTotalBase: costs.additionalLinesTotalBase,
+          additionalLinesTotalWithMargin: costs.additionalLinesTotalWithMargin,
+        },
+        commercial: {
+          marginPctFromParameters: marginPctParam,
+          marginMode: costs.marginMode,
+          costsBase: costs.costsBase,
+          baseWithMargin: costs.baseWithMargin,
+          monthlyTotal: costs.monthlyTotal,
+          totalGuards: costs.totalGuards,
+        },
+        includes:
+          quote.includesItems?.map((i) => ({
+            id: i.id,
+            text: i.text,
+            sortOrder: i.sortOrder,
+            showInPdf: i.showInPdf,
+            source: i.source,
+          })) ?? [],
+        proposalAi: {
+          generatedAt: quote.proposalAiGeneratedAt,
+          sections: proposalSections.slice(0, 12),
+        },
+        pdfUrlRelative: `/api/cpq/quotes/${quote.id}/proposal-pdf`,
+        url: `/crm/cotizaciones/${quote.id}`,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Cotización ambigua.";
+    return { ok: false, error: msg };
+  }
+}
+
 
 /**
  * Extrae texto plano de un documento Tiptap (JSON).
@@ -4649,6 +5138,7 @@ export async function executeToolCallV2(
   userId: string,
   perms: RolePermissions,
   canViewAllRendiciones: boolean,
+  pageContext: HelpChatPageContext | null = null,
 ): Promise<unknown> {
   const legacy = await executeLegacyTool(toolName, args, tenantId, userId, canViewAllRendiciones);
   if (legacy !== null) return legacy;
@@ -4659,6 +5149,21 @@ export async function executeToolCallV2(
   if (toolName === "create_deal") return await toolCreateDeal(tenantId, userId, perms, args);
   if (toolName === "create_installation") return await toolCreateInstallation(tenantId, userId, perms, args);
   if (toolName === "create_quote") return await toolCreateQuote(tenantId, userId, perms, args);
+  if (toolName === "clone_quote") return await aiTool_clone_quote(tenantId, userId, perms, args, pageContext);
+  if (toolName === "update_quote_margin") return await aiTool_update_quote_margin(tenantId, userId, perms, args, pageContext);
+  if (toolName === "update_quote_status") return await aiTool_update_quote_status(tenantId, userId, perms, args, pageContext);
+  if (toolName === "add_quote_position") return await aiTool_add_quote_position(tenantId, userId, perms, args, pageContext);
+  if (toolName === "preview_update_quote_position")
+    return await aiTool_preview_update_quote_position(tenantId, userId, perms, args, pageContext);
+  if (toolName === "update_quote_position") return await aiTool_update_quote_position(tenantId, userId, perms, args, pageContext);
+  if (toolName === "preview_remove_quote_position")
+    return await aiTool_preview_remove_quote_position(tenantId, userId, perms, args, pageContext);
+  if (toolName === "remove_quote_position") return await aiTool_remove_quote_position(tenantId, userId, perms, args, pageContext);
+  if (toolName === "get_quote_proposal") return await aiTool_get_quote_proposal(tenantId, userId, perms, args, pageContext);
+  if (toolName === "manage_quote_includes") return await aiTool_manage_quote_includes(tenantId, userId, perms, args, pageContext);
+  if (toolName === "preview_send_quote_proposal")
+    return await aiTool_preview_send_quote_proposal(tenantId, userId, perms, args, pageContext);
+  if (toolName === "send_quote_proposal") return await aiTool_send_quote_proposal(tenantId, userId, perms, args, pageContext);
   if (toolName === "preview_invoice_draft") return await toolPreviewInvoiceDraft(tenantId, userId, perms, args);
   if (toolName === "create_invoice_draft") return await toolCreateInvoiceDraft(tenantId, userId, perms, args);
   if (toolName === "preview_credit_note_draft") return await toolPreviewCreditNoteDraft(tenantId, userId, perms, args);
@@ -4799,6 +5304,8 @@ export async function executeToolCallV2(
             typeof args.limit === "number" ? args.limit : 12,
           ),
         };
+      case "get_quote_detail":
+        return await toolGetQuoteDetail(tenantId, perms, args, pageContext);
       case "get_entity_documents":
         return {
           ok: true,
