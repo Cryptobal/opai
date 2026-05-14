@@ -87,12 +87,14 @@ export interface CompletionData {
   notes?: string | null;
   checkpoints?: {
     name: string;
-    status: "COMPLETED" | "MISSED";
+    status: "COMPLETED" | "GEO_NO_VERIFICADA" | "MISSED";
     timestamp?: string;
     distanceM?: number;
     geoValidada?: boolean;
     qrScanned?: boolean;
     hasPhoto?: boolean;
+    geoAccuracyM?: number;
+    geoConfidence?: string | null;
   }[];
   scheduledAt?: string;
   startedAt?: string;
@@ -139,6 +141,11 @@ function formatElapsed(seconds: number): string {
 function formatDistance(meters: number): string {
   if (meters < 1000) return `${Math.round(meters)}m`;
   return `${(meters / 1000).toFixed(1)}km`;
+}
+
+/** Pendiente de visita real (sin marca COMPLETED ni marca GEO_NO_VERIFICADA). */
+function checkpointNeedsVisit(c: ApiCheckpoint): boolean {
+  return !c.completed && !c.geoNoVerificada;
 }
 
 // ---------------------------------------------------------------------------
@@ -380,7 +387,7 @@ export function RondaActiva({
       return;
     }
 
-    const unmarked = checkpoints.filter((c) => !c.completed);
+    const unmarked = checkpoints.filter((c) => checkpointNeedsVisit(c));
     let closest: ApiCheckpoint | null = null;
     let closestDist = Infinity;
 
@@ -612,28 +619,34 @@ export function RondaActiva({
   const sortedCheckpoints = useMemo(() => {
     if (isAdHocFreeForm) return checkpoints;
 
-    const pending: (ApiCheckpoint & { _dist: number })[] = [];
+    const needsVisit: (ApiCheckpoint & { _dist: number })[] = [];
+    const geoPending: (ApiCheckpoint & { _dist: number })[] = [];
     const completed: ApiCheckpoint[] = [];
 
     for (const cp of checkpoints) {
       if (cp.completed) {
         completed.push(cp);
+      } else if (cp.geoNoVerificada) {
+        const dist = guardPos
+          ? haversineDistance(guardPos.lat, guardPos.lng, cp.lat, cp.lng)
+          : Infinity;
+        geoPending.push({ ...cp, _dist: dist });
       } else {
         const dist = guardPos
           ? haversineDistance(guardPos.lat, guardPos.lng, cp.lat, cp.lng)
           : Infinity;
-        pending.push({ ...cp, _dist: dist });
+        needsVisit.push({ ...cp, _dist: dist });
       }
     }
 
-    // Sort pending by distance (closest first)
-    pending.sort((a, b) => a._dist - b._dist);
+    needsVisit.sort((a, b) => a._dist - b._dist);
+    geoPending.sort((a, b) => a._dist - b._dist);
 
-    return [...pending, ...completed];
+    return [...needsVisit, ...geoPending, ...completed];
   }, [checkpoints, guardPos?.lat, guardPos?.lng, isAdHocFreeForm]);
 
-  // The closest pending checkpoint is the new "active"
-  const closestPendingId = sortedCheckpoints.find((cp) => !cp.completed)?.id ?? null;
+  // Closest punto que aún debe visitarse (no incluye GEO_NO_VERIFICADA: ya hay marca)
+  const closestPendingId = sortedCheckpoints.find((cp) => checkpointNeedsVisit(cp))?.id ?? null;
 
   // Map checkpoints (include ad-hoc marked points for libre rondas)
   const mapCheckpoints = useMemo<MapCheckpoint[]>(() => {
@@ -646,9 +659,11 @@ export function RondaActiva({
       geoRadiusM: cp.geoRadiusM,
       status: cp.completed
         ? ("completed" as const)
-        : cp.id === closestPendingId
-          ? ("active" as const)
-          : ("pending" as const),
+        : cp.geoNoVerificada
+          ? ("geo_pending" as const)
+          : cp.id === closestPendingId
+            ? ("active" as const)
+            : ("pending" as const),
     }));
 
     if (!isAdHocFreeForm) return templateCps;
@@ -746,7 +761,11 @@ export function RondaActiva({
         lat: cp.lat,
         lng: cp.lng,
         orderIndex: cp.orderIndex,
-        status: cp.completed ? "completed" : "pending",
+        status: cp.completed
+          ? "completed"
+          : cp.geoNoVerificada
+            ? "geo_no_verificada"
+            : "pending",
       }));
 
       const res = await fetch("/api/portal/rondas/completar", {
@@ -862,7 +881,7 @@ export function RondaActiva({
             </span>
             {/* Obligatorios pending pill — compact */}
             {(() => {
-              const reqPending = checkpoints.filter((cp) => cp.isRequired && !cp.completed);
+              const reqPending = checkpoints.filter((cp) => cp.isRequired && checkpointNeedsVisit(cp));
               if (reqPending.length === 0) return null;
               return (
                 <span
@@ -1024,13 +1043,13 @@ export function RondaActiva({
 
           // Determine which checkpoint to show
           const activeCheckpoint = (() => {
-            // Manual override from map tap
             if (selectedCheckpointId) {
-              const sel = checkpoints.find((c) => c.id === selectedCheckpointId && !c.completed);
-              if (sel) return sel;
+              const sel = checkpoints.find((c) => c.id === selectedCheckpointId);
+              if (sel && (checkpointNeedsVisit(sel) || sel.geoNoVerificada)) return sel;
             }
-            // Default: closest pending
-            return sortedCheckpoints.find((cp) => !cp.completed) ?? null;
+            const need = sortedCheckpoints.find((cp) => checkpointNeedsVisit(cp));
+            if (need) return need;
+            return sortedCheckpoints.find((cp) => cp.geoNoVerificada) ?? null;
           })();
 
           const cpDistance = activeCheckpoint && guardPos
@@ -1050,6 +1069,7 @@ export function RondaActiva({
                 distanceM: cpDistance,
                 geoRadiusM: activeCheckpoint.geoRadiusM,
                 qrRequired: needsQr,
+                geoPendingValidation: activeCheckpoint.geoNoVerificada === true,
                 isInRadius:
                   guardPos != null &&
                   evaluateGeofenceWithTolerance(
@@ -1071,7 +1091,7 @@ export function RondaActiva({
               total={total}
               isMarking={false}
               onConfirmMark={() => {
-                if (activeCheckpoint) {
+                if (activeCheckpoint && !activeCheckpoint.geoNoVerificada) {
                   // Clear manual override on mark action
                   setSelectedCheckpointId(null);
                   setMarkingCheckpointId(activeCheckpoint.id);

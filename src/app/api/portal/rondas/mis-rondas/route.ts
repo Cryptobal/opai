@@ -143,6 +143,9 @@ export async function GET(request: NextRequest) {
             orderIndex: idx,
             isRequired: cp.isCritical,
             completed: ej.marcaciones.some(m => m.checkpointId === cp.id && m.status === "COMPLETED"),
+            geoNoVerificada: ej.marcaciones.some(
+              (m) => m.checkpointId === cp.id && m.status === "GEO_NO_VERIFICADA",
+            ),
             tasks: [] as { id: string; label: string; type: string; required: boolean; options?: string[] | null; config: unknown; sortOrder: number }[],
           }))
         : (template?.checkpoints.map(tc => ({
@@ -157,6 +160,9 @@ export async function GET(request: NextRequest) {
             orderIndex: tc.orderIndex,
             isRequired: tc.isRequired,
             completed: ej.marcaciones.some(m => m.checkpointId === tc.checkpointId && m.status === "COMPLETED"),
+            geoNoVerificada: ej.marcaciones.some(
+              (m) => m.checkpointId === tc.checkpointId && m.status === "GEO_NO_VERIFICADA",
+            ),
             tasks: tc.checkpoint.tasks ?? [],
           })) ?? []);
 

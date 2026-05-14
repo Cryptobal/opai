@@ -11,7 +11,7 @@ interface CheckpointPoint {
   lat: number;
   lng: number;
   radiusM: number;
-  status: "completed" | "active" | "pending";
+  status: "completed" | "geo_pending" | "active" | "pending";
 }
 
 interface GuardPosition {
@@ -93,6 +93,7 @@ type GWindow = { google?: { maps?: GMaps } };
 
 const STATUS_COLORS: Record<string, string> = {
   completed: "#22c55e",
+  geo_pending: "#f59e0b",
   active: "#3b82f6",
   pending: "#6b7280",
 };

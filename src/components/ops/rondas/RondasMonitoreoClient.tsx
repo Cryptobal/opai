@@ -308,31 +308,49 @@ export function RondasMonitoreoClient({
     const cps: any[] = [];
     filtered.forEach((r: any) => {
       if (r.rondaTemplate) {
-        const markedIds = new Set((r.marcaciones ?? []).map((m: any) => m.checkpointId));
-        (r.rondaTemplate?.checkpoints ?? []).forEach((tc: any, i: number) => {
+        const statusByCheckpoint = new Map<string, string>();
+        for (const m of r.marcaciones ?? []) {
+          if (!m.checkpointId || !m.status) continue;
+          const cur = statusByCheckpoint.get(m.checkpointId);
+          if (m.status === "COMPLETED") {
+            statusByCheckpoint.set(m.checkpointId, "COMPLETED");
+          } else if (!cur || cur !== "COMPLETED") {
+            statusByCheckpoint.set(m.checkpointId, m.status);
+          }
+        }
+        const tpl = r.rondaTemplate?.checkpoints ?? [];
+        const firstIncompleteIdx = tpl.findIndex(
+          (tc: any) => statusByCheckpoint.get(tc.checkpoint.id) !== "COMPLETED",
+        );
+        tpl.forEach((tc: any, i: number) => {
           const cp = tc.checkpoint;
           if (cp?.lat != null && cp?.lng != null) {
+            const st = statusByCheckpoint.get(cp.id);
+            let mapStatus: "completed" | "geo_pending" | "active" | "pending";
+            if (st === "COMPLETED") mapStatus = "completed";
+            else if (st === "GEO_NO_VERIFICADA") mapStatus = "geo_pending";
+            else mapStatus = i === firstIncompleteIdx ? "active" : "pending";
             cps.push({
               id: `${r.id}-${cp.id}`,
               name: cp.name,
               lat: cp.lat,
               lng: cp.lng,
               radiusM: cp.geoRadiusM ?? 30,
-              status: markedIds.has(cp.id) ? "completed" : i === 0 || markedIds.size === i ? "active" : "pending",
+              status: mapStatus,
             });
           }
         });
       } else {
-        // Ad-hoc: show marked checkpoints from marcaciones
         (r.marcaciones ?? []).forEach((m: any) => {
           if (m.lat != null && m.lng != null) {
+            const st = m.status;
             cps.push({
               id: `${r.id}-${m.checkpointId ?? m.id}`,
               name: m.checkpoint?.name ?? (m.checkpointId ? "Checkpoint" : "Punto GPS"),
               lat: m.lat,
               lng: m.lng,
               radiusM: 30,
-              status: "completed",
+              status: st === "GEO_NO_VERIFICADA" ? "geo_pending" : "completed",
             });
           }
         });
@@ -393,6 +411,10 @@ export function RondasMonitoreoClient({
         lat: m.lat,
         lng: m.lng,
         fotoEvidenciaUrl: m.fotoEvidenciaUrl,
+        status: m.status,
+        distanceM: m.geoDistanciaM,
+        geoAccuracyM: m.geoAccuracy,
+        geoConfidence: m.geoConfidence,
       })),
       incidentes: (r.incidentes ?? []).map((inc: any) => ({
         id: inc.id,

@@ -13,6 +13,12 @@ interface AuditMapMarcacion {
   lat?: number | null;
   lng?: number | null;
   geoValidada?: boolean | null;
+  distanceM?: number | null;
+  geoAccuracyM?: number | null;
+  geoConfidence?: string | null;
+  fotoEvidenciaUrl?: string | null;
+  hasPhoto?: boolean;
+  verificationMethod?: string | null;
 }
 
 interface CheckpointStatus {
@@ -280,9 +286,11 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
           if (Number(m.lat) === 0 && Number(m.lng) === 0) continue;
           bounds.push([m.lat, m.lng]);
           const isCompleted = m.status === "COMPLETED";
+          const isGeoNv = m.status === "GEO_NO_VERIFICADA";
+          const fill = isCompleted ? "#22c55e" : isGeoNv ? "#f59e0b" : "#ef4444";
           L.circleMarker([m.lat, m.lng], {
             radius: 7,
-            fillColor: isCompleted ? "#22c55e" : "#ef4444",
+            fillColor: fill,
             color: "#fff",
             weight: 2,
             fillOpacity: 1,
@@ -318,9 +326,12 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
   const markedCheckpoints = payload?.checkpointStatuses.filter((c) => c.status === "COMPLETED").length ?? 0;
   const geoValidatedCheckpoints = payload?.checkpointStatuses.filter((c) => c.geoValidada === true).length ?? 0;
 
+  const geoNvCheckpoints =
+    payload?.checkpointStatuses.filter((c) => c.status === "GEO_NO_VERIFICADA").length ?? 0;
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="relative mx-4 w-full max-w-4xl rounded-xl border border-border bg-background shadow-2xl overflow-hidden">
+      <div className="relative mx-4 w-full max-w-4xl rounded-xl border border-border bg-background shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
             <h3 className="text-sm font-semibold text-foreground">
@@ -342,12 +353,15 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
               {totalCheckpoints > 0 && (
                 <> &middot; {markedCheckpoints}/{totalCheckpoints} puntos</>
               )}
+              {geoNvCheckpoints > 0 && (
+                <> &middot; {geoNvCheckpoints} pend. validación</>
+              )}
               {geoValidatedCheckpoints > 0 && (
                 <> &middot; {geoValidatedCheckpoints} con geocerca ✓</>
               )}
             </p>
             {payload && (
-              <p className="text-[11px] text-status-info-fg/90 mt-0.5">
+              <p className="text-xs text-status-info-fg/90 mt-0.5">
                 Trazo: {SOURCE_LABEL[payload.routeSource]}
               </p>
             )}
@@ -361,7 +375,7 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
           </button>
         </div>
 
-        <div className="relative h-[400px] w-full">
+        <div className="relative h-[400px] w-full shrink-0">
           {loading && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/80">
               <Loader2 className="h-8 w-8 animate-spin text-status-info-fg" />
@@ -376,6 +390,75 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
           <div ref={mapRef} className="h-full w-full" />
         </div>
 
+        {payload && payload.marcaciones.length > 0 && (
+          <div className="border-t border-border max-h-[220px] overflow-y-auto px-4 py-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              Marcaciones ({payload.marcaciones.length})
+            </p>
+            <ul className="space-y-2">
+              {payload.marcaciones.map((m) => {
+                const isNv = m.status === "GEO_NO_VERIFICADA";
+                const rowCls = isNv
+                  ? "border-status-warn-border bg-status-warn-soft/30"
+                  : "border-border bg-muted/20";
+                return (
+                  <li
+                    key={m.id}
+                    className={`rounded-lg border px-3 py-2 text-xs ${rowCls}`}
+                  >
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="font-medium text-foreground">{m.checkpointName}</span>
+                      <span
+                        className={
+                          isNv ? "text-status-warn-fg font-medium" : "text-muted-foreground"
+                        }
+                      >
+                        {isNv ? "Pendiente validación" : m.status}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {new Date(m.timestamp).toLocaleTimeString("es-CL", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                      {m.distanceM != null && <span>{Math.round(m.distanceM)} m del punto</span>}
+                      {m.geoConfidence != null && m.geoConfidence !== "" && (
+                        <span>conf. {m.geoConfidence}</span>
+                      )}
+                      {m.geoAccuracyM != null && (
+                        <span>GPS ±{Math.round(m.geoAccuracyM)} m</span>
+                      )}
+                      {m.geoValidada === true && (
+                        <span className="text-status-ok-fg">geocerca OK</span>
+                      )}
+                      {m.geoValidada === false && (
+                        <span className="text-status-warn-fg">geocerca no OK</span>
+                      )}
+                    </div>
+                    {m.fotoEvidenciaUrl && (
+                      <a
+                        href={m.fotoEvidenciaUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-2 text-status-info-fg hover:underline"
+                      >
+                        <img
+                          src={m.fotoEvidenciaUrl}
+                          alt="Evidencia"
+                          className="h-12 w-12 rounded object-cover border border-border"
+                        />
+                        <span>Abrir evidencia</span>
+                      </a>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border px-4 py-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <span className="inline-block h-2 w-4 rounded bg-status-ok" /> Trazo del guardia
@@ -385,6 +468,10 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
           </span>
           <span className="flex items-center gap-1">
             <AlertCircle className="h-3 w-3 text-status-warn-fg" /> Marcado (fuera del radio)
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-3 w-3 rounded-full bg-status-warn border border-white border-dashed" />{" "}
+            Pendiente validación (GEO)
           </span>
           <span className="flex items-center gap-1">
             <XCircle className="h-3 w-3 text-status-danger-fg" /> No marcado

@@ -8,12 +8,14 @@ import { useIsIOS } from "@/hooks/usePlatform";
 
 interface CheckpointDetail {
   name: string;
-  status: "COMPLETED" | "MISSED";
+  status: "COMPLETED" | "GEO_NO_VERIFICADA" | "MISSED";
   timestamp?: string;
   distanceM?: number;
   geoValidada?: boolean;
   qrScanned?: boolean;
   hasPhoto?: boolean;
+  geoAccuracyM?: number;
+  geoConfidence?: string | null;
 }
 
 interface TrustBreakdownEntry {
@@ -319,27 +321,32 @@ export function RondaCompletada({
             <div className="space-y-2">
               {checkpoints.map((cp, idx) => {
                 const isCompleted = cp.status === "COMPLETED";
+                const isGeoNv = cp.status === "GEO_NO_VERIFICADA";
                 return (
                   <div
                     key={idx}
                     className={`rounded-xl border p-3 ${
                       isCompleted
                         ? "border-gray-800 bg-gray-900/60"
-                        : "border-status-danger-border bg-status-danger-soft/30"
+                        : isGeoNv
+                          ? "border-status-warn-border bg-status-warn-soft/25"
+                          : "border-status-danger-border bg-status-danger-soft/30"
                     }`}
                   >
                     <div className="flex items-start gap-2">
-                      {/* Status icon */}
                       <span className="mt-0.5 shrink-0 text-base">
-                        {isCompleted ? "\u2705" : "\u274C"}
+                        {isCompleted ? "\u2705" : isGeoNv ? "\u26A0\uFE0F" : "\u274C"}
                       </span>
 
                       <div className="min-w-0 flex-1">
-                        {/* Name + timestamp */}
                         <div className="flex items-center justify-between gap-2">
                           <span
                             className={`truncate text-sm font-medium ${
-                              isCompleted ? "text-gray-200" : "text-status-danger-fg"
+                              isCompleted
+                                ? "text-gray-200"
+                                : isGeoNv
+                                  ? "text-status-warn-fg"
+                                  : "text-status-danger-fg"
                             }`}
                           >
                             {cp.name}
@@ -347,16 +354,29 @@ export function RondaCompletada({
                           <span className="shrink-0 text-xs text-gray-500">
                             {isCompleted && cp.timestamp
                               ? formatTime(cp.timestamp)
-                              : "No visitado"}
+                              : isGeoNv && cp.timestamp
+                                ? formatTime(cp.timestamp)
+                                : "No visitado"}
                           </span>
                         </div>
 
-                        {/* Badges */}
-                        {isCompleted && (
+                        {isGeoNv && (
+                          <p className="mt-1 text-xs text-status-warn-fg/90">
+                            Pendiente de validación — la marca quedó registrada; revisa la señal GPS o la foto si
+                            cargaste evidencia.
+                          </p>
+                        )}
+
+                        {(isCompleted || isGeoNv) && (
                           <div className="mt-1.5 flex flex-wrap gap-1.5">
                             {cp.geoValidada && (
                               <span className="rounded-md bg-status-ok-soft px-1.5 py-0.5 text-xs text-status-ok-fg">
                                 GPS {"\u2713"}
+                              </span>
+                            )}
+                            {isGeoNv && !cp.geoValidada && (
+                              <span className="rounded-md bg-status-warn-soft px-1.5 py-0.5 text-xs text-status-warn-fg">
+                                GPS no validado
                               </span>
                             )}
                             {cp.qrScanned && (
@@ -371,7 +391,17 @@ export function RondaCompletada({
                             )}
                             {cp.distanceM != null && (
                               <span className="rounded-md bg-gray-700/50 px-1.5 py-0.5 text-xs text-gray-400">
-                                {Math.round(cp.distanceM)}m
+                                {Math.round(cp.distanceM)}m al punto
+                              </span>
+                            )}
+                            {cp.geoAccuracyM != null && (
+                              <span className="rounded-md bg-gray-700/50 px-1.5 py-0.5 text-xs text-gray-400">
+                                precisión ±{Math.round(cp.geoAccuracyM)}m
+                              </span>
+                            )}
+                            {cp.geoConfidence && (
+                              <span className="rounded-md bg-gray-700/50 px-1.5 py-0.5 text-xs text-gray-400">
+                                conf. {cp.geoConfidence}
                               </span>
                             )}
                           </div>

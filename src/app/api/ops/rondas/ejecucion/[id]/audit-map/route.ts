@@ -69,6 +69,9 @@ export async function GET(
           lng: true,
           geoValidada: true,
           verificationMethod: true,
+          fotoEvidenciaUrl: true,
+          geoAccuracy: true,
+          geoConfidence: true,
           checkpoint: { select: { name: true } },
           checkpointId: true,
         },
@@ -136,7 +139,8 @@ export async function GET(
       checkpointName: m.checkpoint?.name ?? (m.checkpointId ? "Checkpoint" : "Punto GPS"),
       timestamp: m.timestamp.toISOString(),
       status: m.status,
-      hasPhoto: false as boolean,
+      hasPhoto: !!m.fotoEvidenciaUrl,
+      fotoEvidenciaUrl: m.fotoEvidenciaUrl,
       hasAudio: false as boolean,
       distanceM: m.geoDistanciaM,
       lat: m.lat,
@@ -144,6 +148,8 @@ export async function GET(
       googleMapsUrl:
         m.lat != null && m.lng != null ? `https://maps.google.com/?q=${m.lat},${m.lng}` : null,
       geoValidada: m.geoValidada,
+      geoAccuracyM: m.geoAccuracy,
+      geoConfidence: m.geoConfidence,
       verificationMethod: m.verificationMethod,
     }));
 

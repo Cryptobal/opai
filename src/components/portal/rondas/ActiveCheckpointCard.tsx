@@ -15,6 +15,8 @@ export interface ActiveCheckpoint {
   geoRadiusM: number;
   qrRequired: boolean;
   isInRadius: boolean;
+  /** Marca GEO_NO_VERIFICADA: el guardia ya registró, falta validación institucional. */
+  geoPendingValidation?: boolean;
 }
 
 interface Props {
@@ -98,6 +100,44 @@ export function ActiveCheckpointCard({
 
   // -- No checkpoint to show --
   if (!checkpoint) return null;
+
+  if (checkpoint.geoPendingValidation) {
+    return (
+      <div className="mx-2 mb-2">
+        <div
+          className="rounded-2xl border p-4"
+          style={{
+            backgroundColor: "rgba(245,158,11,0.08)",
+            borderColor: "rgba(245,158,11,0.35)",
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white"
+              style={{
+                background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                boxShadow: "0 4px 14px rgba(245,158,11,0.35)",
+              }}
+            >
+              ?
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-bold text-white" style={{ fontSize: 15 }}>
+                {checkpoint.name}
+              </p>
+              <p className="mt-1 text-xs font-medium text-status-warn-fg">
+                Pendiente de validación
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                Tu marcación quedó registrada. Un supervisor puede revisarla (GPS dudoso o fuera del
+                radio configurado).
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const canMark = checkpoint.isInRadius;
   const dc = distanceColor(checkpoint.distanceM);

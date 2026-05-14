@@ -61,6 +61,8 @@ interface MarcacionRow {
   lng?: number | null;
   googleMapsUrl?: string | null;
   geoValidada?: boolean | null;
+  geoAccuracyM?: number | null;
+  geoConfidence?: string | null;
   verificationMethod?: string | null;
 }
 
@@ -377,6 +379,7 @@ function ExpandedRow({
               <div className="space-y-1">
                 {row.marcaciones.map((m, i) => {
                   const isCompleted = m.status === "COMPLETED";
+                  const isGeoNv = m.status === "GEO_NO_VERIFICADA";
                   const isMissed = m.status === "MISSED";
                   const isOverlap = overlapIds.has(m.id);
                   return (
@@ -387,10 +390,17 @@ function ExpandedRow({
                           <CheckCircle2 className="h-3.5 w-3.5 text-status-ok-fg shrink-0" />
                         ) : isMissed ? (
                           <XCircle className="h-3.5 w-3.5 text-status-danger-fg shrink-0" />
+                        ) : isGeoNv ? (
+                          <AlertTriangle className="h-3.5 w-3.5 text-status-warn-fg shrink-0" />
                         ) : (
                           <AlertTriangle className="h-3.5 w-3.5 text-status-warn-fg shrink-0" />
                         )}
                         <span className="text-foreground">{m.checkpointName}</span>
+                        {isGeoNv && (
+                          <span className="rounded bg-status-warn-soft px-1 py-0.5 text-[10px] font-medium text-status-warn-fg">
+                            Pendiente validación
+                          </span>
+                        )}
                         <span className="text-muted-foreground">
                           {new Date(m.timestamp).toLocaleTimeString("es-CL", {
                             hour: "2-digit",
@@ -417,6 +427,12 @@ function ExpandedRow({
                           <span className="text-[10px] text-muted-foreground">
                             {Math.round(m.distanceM)}m
                           </span>
+                        )}
+                        {m.geoConfidence != null && m.geoConfidence !== "" && (
+                          <span className="text-[10px] text-muted-foreground">conf. {m.geoConfidence}</span>
+                        )}
+                        {m.geoAccuracyM != null && (
+                          <span className="text-[10px] text-muted-foreground">±{Math.round(m.geoAccuracyM)}m</span>
                         )}
                         {m.googleMapsUrl && (
                           <a

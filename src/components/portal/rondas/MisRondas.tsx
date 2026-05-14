@@ -28,6 +28,7 @@ interface CheckpointItem {
   orderIndex: number;
   isRequired: boolean;
   completed: boolean;
+  geoNoVerificada?: boolean;
 }
 
 interface RondaItem {
@@ -147,10 +148,12 @@ function toMapCheckpoints(checkpoints: CheckpointItem[], rondaStatus: string): M
       lat: cp.lat!,
       lng: cp.lng!,
       status: cp.completed
-        ? "completed" as const
-        : rondaStatus === "en_curso" && !cp.completed
-          ? "pending" as const
-          : "pending" as const,
+        ? ("completed" as const)
+        : cp.geoNoVerificada
+          ? ("geo_pending" as const)
+          : rondaStatus === "en_curso" && !cp.completed
+            ? ("pending" as const)
+            : ("pending" as const),
       orderIndex: cp.orderIndex,
     }));
 }

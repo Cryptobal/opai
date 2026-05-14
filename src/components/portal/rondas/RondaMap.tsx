@@ -31,7 +31,7 @@ export interface MapCheckpoint {
   name: string;
   lat: number;
   lng: number;
-  status: "completed" | "active" | "pending";
+  status: "completed" | "geo_pending" | "active" | "pending";
   orderIndex: number;
   /** Geo-fence radius in meters — used to render radius circles */
   geoRadiusM?: number;
@@ -70,12 +70,13 @@ export interface RondaMapProps {
 const MARKER_SIZE = 30;
 
 function createCheckpointIcon(
-  status: "completed" | "active" | "pending",
+  status: MapCheckpoint["status"],
   label?: string,
   isClosest?: boolean,
 ): L.DivIcon {
   const colors: Record<string, { bg: string; border: string; text: string }> = {
     completed: { bg: "#22c55e", border: "#16a34a", text: "#fff" },
+    geo_pending: { bg: "#f59e0b", border: "#d97706", text: "#fff" },
     active: { bg: "#ffffff", border: "#14b8a6", text: "#0d9488" },
     pending: { bg: "#ffffff", border: "#71717a", text: "#52525b" },
   };
@@ -85,6 +86,8 @@ function createCheckpointIcon(
   let inner = "";
   if (status === "completed") {
     inner = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M5 13l4 4L19 7"/></svg>`;
+  } else if (status === "geo_pending") {
+    inner = `<span style="font-size:13px;font-weight:800;color:${text};line-height:1;">?</span>`;
   } else if (label) {
     // Truncate label to keep it compact inside the marker circle
     const display = label.length > 3 ? label.slice(0, 2) : label;
@@ -352,13 +355,25 @@ function RoutePolylines({ checkpoints }: RoutePolylinesProps) {
         [to.lat, to.lng],
       ];
 
+      const fromMark =
+        from.status === "completed" || from.status === "geo_pending";
+      const toMark = to.status === "completed" || to.status === "geo_pending";
+      const fromFull = from.status === "completed";
+      const toFull = to.status === "completed";
+
       let color: string;
       let dashed: boolean;
 
-      if (from.status === "completed" && to.status === "completed") {
+      if (fromFull && toFull) {
         color = "#22c55e";
         dashed = false;
-      } else if (from.status === "completed" && to.status === "active") {
+      } else if (fromMark && toMark && (!fromFull || !toFull)) {
+        color = "#f59e0b";
+        dashed = false;
+      } else if (fromFull && to.status === "active") {
+        color = "#14b8a6";
+        dashed = false;
+      } else if (fromMark && to.status === "active") {
         color = "#14b8a6";
         dashed = false;
       } else {
@@ -438,7 +453,10 @@ export default function RondaMap({
   const checkpointIcons = useMemo(() => {
     const icons: Record<string, L.DivIcon> = {};
     for (const cp of checkpoints) {
-      const isClosest = cp.id === closestPendingId && cp.status !== "completed";
+      const isClosest =
+        cp.id === closestPendingId &&
+        cp.status !== "completed" &&
+        cp.status !== "geo_pending";
       const key = `${cp.status}-${cp.name}-${isClosest ? "c" : ""}`;
       if (!icons[key]) {
         icons[key] = createCheckpointIcon(cp.status, cp.name, isClosest);
@@ -511,7 +529,7 @@ export default function RondaMap({
 
         {/* Checkpoint radius circles */}
         {checkpoints.map((cp) => {
-          if (cp.status === "completed" || !cp.geoRadiusM) return null;
+          if (cp.status === "completed" || cp.status === "geo_pending" || !cp.geoRadiusM) return null;
           const isActive = cp.id === closestPendingId;
           return (
             <Circle
@@ -531,7 +549,10 @@ export default function RondaMap({
 
         {/* Checkpoint markers */}
         {checkpoints.map((cp) => {
-          const isClosest = cp.id === closestPendingId && cp.status !== "completed";
+          const isClosest =
+            cp.id === closestPendingId &&
+            cp.status !== "completed" &&
+            cp.status !== "geo_pending";
           const iconKey = `${cp.status}-${cp.name}-${isClosest ? "c" : ""}`;
           return (
             <Marker

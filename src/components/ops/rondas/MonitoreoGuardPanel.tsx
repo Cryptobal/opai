@@ -36,6 +36,10 @@ interface GuardRonda {
     lat?: number | null;
     lng?: number | null;
     fotoEvidenciaUrl?: string | null;
+    status?: string;
+    distanceM?: number | null;
+    geoAccuracyM?: number | null;
+    geoConfidence?: string | null;
   }>;
   incidentes?: Incidente[];
 }
@@ -205,22 +209,39 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
                 )}
 
                 <div className="space-y-1">
-                  <p className="text-[10px] text-muted-foreground font-medium">Timeline de marcaciones:</p>
-                  {r.marcaciones.map((m, i) => (
-                    <div key={i} className="flex items-center gap-2 text-[10px]">
-                      <span className="text-muted-foreground w-10 shrink-0">
-                        {new Date(m.timestamp).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                      <span className="text-foreground">{m.checkpointName ?? "Punto GPS"}</span>
-                      {m.fotoEvidenciaUrl && (
-                        <a href={m.fotoEvidenciaUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
-                          <img src={m.fotoEvidenciaUrl} alt="Foto" className="h-5 w-5 rounded object-cover border border-status-info-border" />
-                        </a>
-                      )}
-                    </div>
-                  ))}
+                  <p className="text-xs text-muted-foreground font-medium">Timeline de marcaciones:</p>
+                  {r.marcaciones.map((m, i) => {
+                    const isGeoNv = m.status === "GEO_NO_VERIFICADA";
+                    return (
+                      <div key={i} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                        <span className="text-muted-foreground w-10 shrink-0 tabular-nums">
+                          {new Date(m.timestamp).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                        <span className="text-foreground">{m.checkpointName ?? "Punto GPS"}</span>
+                        {isGeoNv && (
+                          <span className="rounded bg-status-warn-soft px-1 py-0.5 text-[10px] font-semibold text-status-warn-fg">
+                            Pendiente validación
+                          </span>
+                        )}
+                        {m.distanceM != null && (
+                          <span className="text-muted-foreground">{Math.round(m.distanceM)} m</span>
+                        )}
+                        {m.geoConfidence != null && m.geoConfidence !== "" && (
+                          <span className="text-muted-foreground">conf. {m.geoConfidence}</span>
+                        )}
+                        {m.geoAccuracyM != null && (
+                          <span className="text-muted-foreground">±{Math.round(m.geoAccuracyM)} m</span>
+                        )}
+                        {m.fotoEvidenciaUrl && (
+                          <a href={m.fotoEvidenciaUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
+                            <img src={m.fotoEvidenciaUrl} alt="Foto" className="h-5 w-5 rounded object-cover border border-status-info-border" />
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
                   {r.marcaciones.length === 0 && (
-                    <p className="text-[10px] text-muted-foreground">Sin marcaciones aún</p>
+                    <p className="text-xs text-muted-foreground">Sin marcaciones aún</p>
                   )}
                 </div>
 

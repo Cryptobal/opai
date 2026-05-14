@@ -233,18 +233,22 @@ export async function POST(request: NextRequest) {
           verificationMethod: true,
           fotoEvidenciaUrl: true,
           checkpointId: true,
+          geoAccuracy: true,
+          geoConfidence: true,
           checkpoint: { select: { id: true, name: true } },
         },
         orderBy: { timestamp: "asc" },
       });
       checkpointDetails = marcaciones.map((m: any, i: number) => ({
         name: m.checkpoint?.name ?? `Punto GPS #${i + 1}`,
-        status: m.status ?? "COMPLETED",
+        status: (m.status ?? "COMPLETED") as "COMPLETED" | "GEO_NO_VERIFICADA" | "MISSED",
         timestamp: m.timestamp?.toISOString(),
         distanceM: m.geoDistanciaM,
         geoValidada: m.geoValidada ?? false,
         qrScanned: m.verificationMethod === "QR" || m.verificationMethod === "BOTH",
         hasPhoto: !!m.fotoEvidenciaUrl,
+        geoAccuracyM: m.geoAccuracy ?? undefined,
+        geoConfidence: m.geoConfidence ?? undefined,
       }));
     } else {
       const templateCheckpointsForDetail = await prisma.opsRondaCheckpoint.findMany({
@@ -263,21 +267,35 @@ export async function POST(request: NextRequest) {
           verificationMethod: true,
           fotoEvidenciaUrl: true,
           status: true,
+          geoAccuracy: true,
+          geoConfidence: true,
         },
       });
 
       checkpointDetails = templateCheckpointsForDetail.map((tc: any) => {
-        const marc = allMarcacionesForDetail.find(
+        const marcCompleted = allMarcacionesForDetail.find(
           (m) => m.checkpointId === tc.checkpointId && m.status === "COMPLETED",
         );
+        const marcGeoNv = allMarcacionesForDetail.find(
+          (m) => m.checkpointId === tc.checkpointId && m.status === "GEO_NO_VERIFICADA",
+        );
+        const marc = marcCompleted ?? marcGeoNv;
+        const detailStatus =
+          marcCompleted != null
+            ? ("COMPLETED" as const)
+            : marcGeoNv != null
+              ? ("GEO_NO_VERIFICADA" as const)
+              : ("MISSED" as const);
         return {
           name: tc.checkpoint.name,
-          status: marc ? ("COMPLETED" as const) : ("MISSED" as const),
+          status: detailStatus,
           timestamp: marc?.timestamp?.toISOString() ?? undefined,
           distanceM: marc?.geoDistanciaM ?? undefined,
           geoValidada: marc?.geoValidada ?? false,
           qrScanned: marc?.verificationMethod === "QR" || marc?.verificationMethod === "BOTH",
           hasPhoto: !!marc?.fotoEvidenciaUrl,
+          geoAccuracyM: marc?.geoAccuracy ?? undefined,
+          geoConfidence: marc?.geoConfidence ?? undefined,
         };
       });
     }
