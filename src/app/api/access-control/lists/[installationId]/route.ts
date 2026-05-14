@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateRut, cleanRut } from "@/lib/access-control/utils";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
+import { requireAccessControlAuth } from "@/lib/access-control/auth";
 
 export async function GET(
   request: NextRequest,
@@ -9,10 +10,20 @@ export async function GET(
 ) {
   try {
     const { installationId } = await params;
+
+    const authCtx = await requireAccessControlAuth(request, installationId);
+    if (!authCtx) {
+      return NextResponse.json(
+        { success: false, error: "No autorizado" },
+        { status: 401 }
+      );
+    }
+    const tenantId = authCtx.tenantId;
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") as "whitelist" | "blacklist" | null;
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { tenantId };
 
     if (type === "blacklist") {
       where.OR = [
@@ -50,6 +61,15 @@ export async function POST(
 ) {
   try {
     const { installationId } = await params;
+
+    const authCtx = await requireAccessControlAuth(request, installationId);
+    if (!authCtx) {
+      return NextResponse.json(
+        { success: false, error: "No autorizado" },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
 
     // Validate RUT
@@ -60,24 +80,11 @@ export async function POST(
       );
     }
 
-    // Get installation for tenantId
-    const installation = await prisma.crmInstallation.findUnique({
-      where: { id: installationId },
-      select: { tenantId: true },
-    });
-
-    if (!installation) {
-      return NextResponse.json(
-        { success: false, error: "Instalación no encontrada" },
-        { status: 404 }
-      );
-    }
-
     const cleanedRut = cleanRut(body.rut);
 
     const entry = await prisma.accessControlList.create({
       data: {
-        tenantId: installation.tenantId,
+        tenantId: authCtx.tenantId,
         installationId: body.scope === "global" ? null : installationId,
         listType: body.listType,
         rut: cleanedRut,

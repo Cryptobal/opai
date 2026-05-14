@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
+import { requireAccessControlAuth } from "@/lib/access-control/auth";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ installationId: string }> }
 ) {
   try {
     const { installationId } = await params;
+
+    const authCtx = await requireAccessControlAuth(request, installationId);
+    if (!authCtx) {
+      return NextResponse.json(
+        { success: false, error: "No autorizado" },
+        { status: 401 }
+      );
+    }
+    const tenantId = authCtx.tenantId;
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -23,18 +33,18 @@ export async function GET(
           byTypeResults,
         ] = await Promise.all([
           prisma.accessControlRecord.count({
-            where: { installationId, entryAt: { gte: todayStart, lte: todayEnd } },
+            where: { tenantId, installationId, entryAt: { gte: todayStart, lte: todayEnd } },
           }),
           prisma.accessControlRecord.count({
-            where: { installationId, exitAt: { gte: todayStart, lte: todayEnd } },
+            where: { tenantId, installationId, exitAt: { gte: todayStart, lte: todayEnd } },
           }),
           prisma.accessControlRecord.findMany({
-            where: { installationId, exitAt: null },
+            where: { tenantId, installationId, exitAt: null },
             select: { recordType: true, entryAt: true },
           }),
           prisma.accessControlRecord.groupBy({
             by: ["recordType"],
-            where: { installationId, entryAt: { gte: todayStart, lte: todayEnd } },
+            where: { tenantId, installationId, entryAt: { gte: todayStart, lte: todayEnd } },
             _count: true,
           }),
         ]);
@@ -44,6 +54,7 @@ export async function GET(
 
         const completedToday = await prisma.accessControlRecord.findMany({
           where: {
+            tenantId,
             installationId,
             exitAt: { gte: todayStart, lte: todayEnd },
             NOT: { exitAt: null },
