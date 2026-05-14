@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Building, MapPin, Mail, MailX, Eye } from "lucide-react";
@@ -304,17 +305,23 @@ export function IssuedDtesTable({
             <span className="text-xs text-ds-text-4 italic">Sin asignar</span>
           );
         }
+        // El nombre de la cuenta es un link a la ficha del cliente,
+        // pestaña "Contratos" — desde DTEs típicamente se quiere revisar
+        // el contrato asociado. stopPropagation evita disparar el click
+        // del row si el contenedor lo tuviera más adelante.
         return (
           <div className="text-xs space-y-0.5">
-            <div
-              className="flex items-center gap-1 truncate"
-              title={row.crmAccount.name}
+            <Link
+              href={`/crm/accounts/${row.crmAccount.id}?tab=contracts`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 truncate hover:underline focus-visible:underline outline-none"
+              title={`Ver ficha de ${row.crmAccount.name}`}
             >
               <Building className="h-3 w-3 shrink-0 text-ds-text-4" />
               <span className="truncate font-medium">
                 {row.crmAccount.name}
               </span>
-            </div>
+            </Link>
             {row.installation && (
               <div
                 className="flex items-center gap-1 truncate text-ds-text-3"

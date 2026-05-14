@@ -16,6 +16,7 @@
  */
 
 import { useState, type ReactNode } from "react";
+import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -399,12 +400,14 @@ export function IssuedDtesMobileList({
                     {d.crmAccount?.name &&
                     d.crmAccount.name.trim().toLowerCase() !==
                       d.receiverName.trim().toLowerCase() ? (
-                      <p
-                        className="text-xs text-ds-text-3 truncate"
-                        title={d.crmAccount.name}
+                      <Link
+                        href={`/crm/accounts/${d.crmAccount.id}?tab=contracts`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="block text-xs text-ds-text-3 truncate hover:underline focus-visible:underline outline-none"
+                        title={`Ver ficha de ${d.crmAccount.name}`}
                       >
                         {d.crmAccount.name}
-                      </p>
+                      </Link>
                     ) : null}
                     <p className="text-xs text-ds-text-4 font-mono">
                       {d.receiverRut}
