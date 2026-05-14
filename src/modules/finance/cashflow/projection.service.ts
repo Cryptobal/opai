@@ -665,15 +665,194 @@ export async function buildProjection(
     if (m) allOccurrences[i] = m;
   }
 
+  const consumedBankTxIds = new Set(
+    matched.map((m) => m.bankTransactionId).filter(Boolean) as string[],
+  );
+  // También consumidos: bank txs ya linkeados en DB a occurrences materializadas
+  // (vía bulkReconcileToDtes/Dte que invoca linkOccurrenceToBankTx). Sin esto
+  // el orphan loop generaría un duplicado en ING_OTRO/EGR_OTRO.
+  for (const occ of allOccurrences) {
+    if (occ.bankTransactionId && occ.itemId) {
+      consumedBankTxIds.add(occ.bankTransactionId);
+    }
+  }
+
+  // ── DTE-targeted matcher por cliente (RUT → CRM account → item) ──
+  // El matcher account-driven empareja por categoría contable, lo que falla
+  // cuando: (a) el DTE no tiene líneas con accountId; (b) la conciliación
+  // masiva N→N genera N links contra el mismo DTE y solo uno puede matchear
+  // la única occurrence proyectada del cliente; (c) el DTE no tiene
+  // crmAccountId seteado pero su receiverRut sí coincide con un CrmAccount.
+  // Acá hacemos un pase adicional: para cada DTE conciliado, ubicamos su
+  // cliente CRM (directo o via RUT), buscamos el item de cashflow activo y
+  // emparejamos su occurrence PROJECTED más cercana en fecha, sumando los
+  // montos de TODOS los bank-txs del mismo DTE como actualAmount.
+  const dteTargetedLinks = await prisma.financeBankTransactionLink.findMany({
+    where: {
+      tenantId,
+      targetType: { in: ["DTE_ISSUED", "DTE_RECEIVED"] },
+      targetId: { not: null },
+      bankTransaction: {
+        transactionDate: { gte: range.from, lte: range.to },
+        hiddenAt: null,
+      },
+    },
+    select: {
+      bankTransactionId: true,
+      targetType: true,
+      targetId: true,
+      amount: true,
+      bankTransaction: { select: { transactionDate: true, amount: true } },
+    },
+  });
+
+  if (dteTargetedLinks.length > 0) {
+    type DteLinkAgg = {
+      dteId: string;
+      isIncome: boolean;
+      totalAmount: number;
+      bankTxs: Array<{ id: string; date: Date }>;
+    };
+    const dteLinkAgg = new Map<string, DteLinkAgg>();
+    for (const l of dteTargetedLinks) {
+      if (!l.targetId) continue;
+      // Excluir links cuyo bank tx ya fue consumido por el matcher account-driven
+      // o por un linkOccurrenceToBankTx previo. Aún consideramos el DTE si
+      // OTRO bank tx del mismo lote sigue libre (caso N→N parcial).
+      const isIncome = l.targetType === "DTE_ISSUED";
+      const agg = dteLinkAgg.get(l.targetId) ?? {
+        dteId: l.targetId,
+        isIncome,
+        totalAmount: 0,
+        bankTxs: [],
+      };
+      agg.totalAmount += Math.abs(Number(l.amount));
+      agg.bankTxs.push({
+        id: l.bankTransactionId,
+        date: l.bankTransaction.transactionDate,
+      });
+      dteLinkAgg.set(l.targetId, agg);
+    }
+
+    // Solo procesar DTEs cuyos bank txs no estén TODOS ya consumidos.
+    const dtesToResolve = Array.from(dteLinkAgg.values()).filter((agg) =>
+      agg.bankTxs.some((tx) => !consumedBankTxIds.has(tx.id)),
+    );
+
+    if (dtesToResolve.length > 0) {
+      const dteIdsToResolve = dtesToResolve.map((d) => d.dteId);
+      const dteInfos = await prisma.financeDte.findMany({
+        where: { tenantId, id: { in: dteIdsToResolve } },
+        select: {
+          id: true,
+          crmAccountId: true,
+          installationId: true,
+          receiverRut: true,
+          paymentStatus: true,
+        },
+      });
+
+      // Backfill crmAccountId por receiverRut cuando viene null
+      const rutsNeedingLookup = dteInfos
+        .filter((d) => !d.crmAccountId && d.receiverRut)
+        .map((d) => d.receiverRut!)
+        .filter((r, i, arr) => arr.indexOf(r) === i);
+      const crmByRut = new Map<string, string>();
+      if (rutsNeedingLookup.length > 0) {
+        const accs = await prisma.crmAccount.findMany({
+          where: { tenantId, rut: { in: rutsNeedingLookup } },
+          select: { id: true, rut: true },
+        });
+        for (const a of accs) if (a.rut) crmByRut.set(a.rut, a.id);
+      }
+
+      const dteToCrmAccount = new Map<string, string>();
+      const dteToInstallation = new Map<string, string | null>();
+      for (const d of dteInfos) {
+        const crmAccountId =
+          d.crmAccountId ?? (d.receiverRut ? (crmByRut.get(d.receiverRut) ?? null) : null);
+        if (crmAccountId) dteToCrmAccount.set(d.id, crmAccountId);
+        dteToInstallation.set(d.id, d.installationId);
+      }
+
+      // Index para búsqueda rápida de occurrences PROJECTED por itemId
+      const occsByItemId = new Map<string, VirtualOccurrence[]>();
+      for (const occ of allOccurrences) {
+        if (!occ.itemId) continue;
+        if (occ.status !== "PROJECTED") continue;
+        if (occ.bankTransactionId) continue;
+        const arr = occsByItemId.get(occ.itemId) ?? [];
+        arr.push(occ);
+        occsByItemId.set(occ.itemId, arr);
+      }
+
+      // Index items activos por crmAccountId (already in memory: items array)
+      const itemsByCrmAccount = new Map<string, typeof items>();
+      for (const it of items) {
+        if (!it.crmAccountId) continue;
+        const arr = itemsByCrmAccount.get(it.crmAccountId) ?? [];
+        arr.push(it);
+        itemsByCrmAccount.set(it.crmAccountId, arr);
+      }
+
+      const MAX_DAYS_TOLERANCE = 60;
+      for (const agg of dtesToResolve) {
+        const crmAccountId = dteToCrmAccount.get(agg.dteId);
+        if (!crmAccountId) continue;
+        const itemCandidates = itemsByCrmAccount.get(crmAccountId) ?? [];
+        if (itemCandidates.length === 0) continue;
+        const installationId = dteToInstallation.get(agg.dteId) ?? null;
+        const filteredItems = installationId
+          ? itemCandidates.filter(
+              (it) =>
+                it.installationId === installationId || it.installationId === null,
+            )
+          : itemCandidates;
+        const itemIds = (filteredItems.length > 0 ? filteredItems : itemCandidates).map(
+          (it) => it.id,
+        );
+
+        const firstTx = [...agg.bankTxs].sort(
+          (a, b) => a.date.getTime() - b.date.getTime(),
+        )[0];
+        const txDateMs = firstTx.date.getTime();
+
+        let best: { occ: VirtualOccurrence; days: number } | null = null;
+        for (const itemId of itemIds) {
+          const candidates = occsByItemId.get(itemId) ?? [];
+          for (const c of candidates) {
+            const days =
+              Math.abs(c.scheduledDate.getTime() - txDateMs) / 86_400_000;
+            if (days > MAX_DAYS_TOLERANCE) continue;
+            if (!best || days < best.days) best = { occ: c, days };
+          }
+        }
+
+        if (best) {
+          // Mark PAID con monto agregado (suma de TODOS los bank txs del DTE)
+          best.occ.status = "PAID";
+          best.occ.bankTransactionId = firstTx.id;
+          best.occ.actualAmountClp = agg.totalAmount;
+          best.occ.varianceClp = agg.totalAmount - best.occ.amountClp;
+          best.occ.effectiveDate = firstTx.date;
+          best.occ.dteId = agg.dteId;
+          for (const tx of agg.bankTxs) consumedBankTxIds.add(tx.id);
+          // Remover de occsByItemId para evitar doble-match si hay otra DTE
+          // del mismo cliente.
+          const arr = occsByItemId.get(best.occ.itemId!) ?? [];
+          const idx = arr.indexOf(best.occ);
+          if (idx >= 0) arr.splice(idx, 1);
+        }
+      }
+    }
+  }
+
   // Bank-links HUÉRFANOS: links bancarios con categoría resuelta que NO
   // matchearon ninguna occurrence proyectada. Típico: costo factoring
   // shortfall, comisión recibida surplus, gastos categorizados manualmente
   // sin item proyectado. Los exponemos como occurrences sintéticas PAID
   // (itemId=null, status=PAID) para que sumen a su categoría en el bucket
   // de la fecha del bank-tx. Sin esto, esos costos no aparecen en cashflow.
-  const consumedBankTxIds = new Set(
-    matched.map((m) => m.bankTransactionId).filter(Boolean) as string[],
-  );
   for (const link of bankLinks) {
     if (consumedBankTxIds.has(link.bankTransactionId)) continue;
     const cat = categoryMap.get(link.categoryId);
