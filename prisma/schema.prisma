@@ -6628,6 +6628,14 @@ model FinanceDte {
   amountPaid     Decimal              @default(0) @map("amount_paid") @db.Decimal(14, 2)
   amountPending  Decimal              @default(0) @map("amount_pending") @db.Decimal(14, 2)
 
+  /// Timestamp de la conciliación bancaria efectiva (instante del movimiento
+  /// matcheado). NULL = no conciliada. INDEPENDIENTE de paymentStatus: una
+  /// factura puede estar PAID (marca manual por bulk-mark-paid) y a la vez
+  /// reconciledAt=NULL hasta que aparezca el movimiento bancario real.
+  /// Se sincroniza en setTransactionLinks / clearTransactionLinks y en
+  /// tryAutoMatchBankTransactionToDte.
+  reconciledAt   DateTime?            @map("reconciled_at") @db.Timestamptz(6)
+
   // ── Plan de Documento de Cobro (Proforma / Estado de Pago) ──
   // Cuando el usuario crea el draft, decide si requiere mandar proforma
   // y/o estado de pago ANTES de emitir al SII, y a qué contactos del
@@ -6834,6 +6842,11 @@ model FinanceDteRecurringTemplate {
   crmAccountId      String?  @map("crm_account_id") @db.Uuid
   installationId    String?  @map("installation_id") @db.Uuid
 
+  /// Contrato (Document categoría contrato_*) que origina esta programación.
+  /// Si el contrato se elimina, esta plantilla se desactiva en cascada
+  /// (preserva FinanceDteRecurringRun como historial).
+  contractDocumentId String? @map("contract_document_id") @db.Uuid
+
   currency             String  @default("CLP") // "CLP" | "UF"
   /// Líneas como JSON: [{ itemName, description, quantity, unit, unitPrice|unitPriceUf, discountPct, isExempt, accountId }]
   lines                Json
@@ -6909,6 +6922,7 @@ model FinanceDteRecurringTemplate {
 
   @@index([tenantId, isActive], map: "idx_dte_recurring_tenant_active")
   @@index([nextRunAt], map: "idx_dte_recurring_next_run")
+  @@index([contractDocumentId], map: "idx_dte_recurring_contract_doc")
   @@map("finance_dte_recurring_templates")
   @@schema("finance")
 }

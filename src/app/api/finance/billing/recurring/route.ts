@@ -122,6 +122,7 @@ export async function POST(request: NextRequest) {
         receiverCiudad: body.receiverCiudad ?? null,
         crmAccountId: body.crmAccountId ?? null,
         installationId: body.installationId ?? null,
+        contractDocumentId: body.contractDocumentId ?? null,
         currency: body.currency,
         lines: body.lines as object,
         notes: body.notes ?? null,

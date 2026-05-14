@@ -193,12 +193,21 @@ export async function tryAutoMatchBankTransactionToDte(
     const maxDate = new Date(bankTx.transactionDate);
     maxDate.setDate(maxDate.getDate() + 30);
 
+    // Estado de pago y conciliación son independientes:
+    //  - Pendientes (UNPAID/PARTIAL/OVERDUE): candidatos clásicos.
+    //  - PAID por marca manual (bulk-mark-paid) con reconciledAt=null:
+    //    también deben auto-conciliarse cuando aparece el movimiento real.
+    // siiStatus: un DTE REJECTED por SII no debe auto-conciliarse; los
+    // importados sin estado SII significativo sí. Filtramos siiStatus != REJECTED.
     const candidates = await tx.financeDte.findMany({
       where: {
         tenantId,
         direction: dteDirection,
-        siiStatus: "ACCEPTED",
-        paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE"] },
+        siiStatus: { not: "REJECTED" },
+        OR: [
+          { paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE"] } },
+          { paymentStatus: "PAID", reconciledAt: null },
+        ],
         totalAmount: new Decimal(amountAbs),
         date: { gte: minDate, lte: maxDate },
       },
@@ -212,6 +221,8 @@ export async function tryAutoMatchBankTransactionToDte(
         date: true,
         totalAmount: true,
         amountPaid: true,
+        paymentStatus: true,
+        reconciledAt: true,
       },
     });
 
@@ -294,9 +305,16 @@ export async function tryAutoMatchBankTransactionToDte(
       },
     });
 
-    // Update DTE: amountPaid + amountPending + paymentStatus.
+    // Update DTE: amountPaid + amountPending + paymentStatus + reconciledAt.
+    // Si el DTE estaba PAID por marca manual (paymentStatus=PAID,
+    // reconciledAt=null), preservamos amountPaid (ya estaba en total) y solo
+    // marcamos reconciledAt. Para el resto se acumula contra allocations.
     const total = chosen.totalAmount.toNumber();
-    const newPaid = chosen.amountPaid.toNumber() + amountAbs;
+    const wasManualPaid =
+      chosen.paymentStatus === "PAID" && chosen.reconciledAt === null;
+    const newPaid = wasManualPaid
+      ? chosen.amountPaid.toNumber()
+      : chosen.amountPaid.toNumber() + amountAbs;
     const newPending = Math.max(0, total - newPaid);
     await tx.financeDte.update({
       where: { id: chosen.id },
@@ -304,6 +322,7 @@ export async function tryAutoMatchBankTransactionToDte(
         amountPaid: new Decimal(newPaid),
         amountPending: new Decimal(newPending),
         paymentStatus: newPaid >= total ? "PAID" : "PARTIAL",
+        reconciledAt: bankTx.transactionDate,
       },
     });
 

@@ -58,7 +58,13 @@ async function recomputeDtePaymentAggregate(
 ): Promise<void> {
   const dte = await txClient.financeDte.findUnique({
     where: { id: dteId },
-    select: { totalAmount: true, dueDate: true },
+    select: {
+      totalAmount: true,
+      dueDate: true,
+      paymentStatus: true,
+      amountPaid: true,
+      reconciledAt: true,
+    },
   });
   if (!dte) return;
   const agg = await txClient.financePaymentAllocation.aggregate({
@@ -67,6 +73,20 @@ async function recomputeDtePaymentAggregate(
   });
   const total = dte.totalAmount.toNumber();
   const paid = agg._sum.amount ? agg._sum.amount.toNumber() : 0;
+
+  // Invariante "pago manual sin conciliación": bulk-mark-paid marca el DTE
+  // como PAID sin crear allocations (no hay movimiento bancario aún). Si al
+  // recompute las allocations están vacías y el DTE ya estaba PAID con
+  // amountPaid==total y reconciledAt==null, ese estado representa el pago
+  // manual y NO debe revertirse a UNPAID. Solo seguimos al cálculo derivado
+  // cuando hay allocations vivas o cuando hay reconciliación bancaria.
+  const manualPaidStanding =
+    paid <= 0 &&
+    dte.paymentStatus === "PAID" &&
+    dte.reconciledAt === null &&
+    dte.amountPaid.toNumber() + 0.01 >= total;
+  if (manualPaidStanding) return;
+
   const pending = Math.max(0, total - paid);
   let status: "PAID" | "PARTIAL" | "UNPAID" | "OVERDUE";
   if (paid <= 0) {
@@ -207,10 +227,25 @@ export async function findDteCandidates(
       ...(isFactoring
         ? {}
         : {
-            paymentStatus: {
-              in: ["UNPAID", "PARTIAL", "OVERDUE"] as Prisma.EnumFinancePaymentStatusFilter["in"],
-            },
-            amountPending: { gt: 0 },
+            // Estado de pago y estado de conciliación son independientes:
+            // - Pendientes (UNPAID/PARTIAL/OVERDUE) con saldo > 0, O
+            // - PAID por marca manual (bulk-mark-paid) que aún no se conciliaron
+            //   con un movimiento bancario (reconciledAt = null).
+            // En ambos casos excluimos las que YA tienen link bancario
+            // de tipo DTE_ISSUED/DTE_RECEIVED (defensa contra doble conciliación)
+            // — ese filtro lo aplicamos en memoria después del findMany.
+            OR: [
+              {
+                paymentStatus: {
+                  in: ["UNPAID", "PARTIAL", "OVERDUE"] as Prisma.EnumFinancePaymentStatusFilter["in"],
+                },
+                amountPending: { gt: 0 },
+              },
+              {
+                paymentStatus: "PAID" as const,
+                reconciledAt: null,
+              },
+            ],
           }),
       date: { gte: minDate, lte: maxDate },
     },
@@ -218,10 +253,31 @@ export async function findDteCandidates(
     take: 200,
   });
 
+  // Defensa-en-profundidad: excluimos DTEs que ya tengan algún link bancario
+  // DTE_ISSUED/DTE_RECEIVED vivo. Para factoring esto NO se aplica (el caller
+  // usa esta función para sugerir, y un mismo DTE cedido puede aparecer en
+  // varias propuestas de match).
+  let filteredByExistingLink = dtes;
+  if (!isFactoring && dtes.length > 0) {
+    const dteIds = dtes.map((d) => d.id);
+    const linked = await prisma.financeBankTransactionLink.findMany({
+      where: {
+        tenantId,
+        targetType: { in: ["DTE_ISSUED", "DTE_RECEIVED"] },
+        targetId: { in: dteIds },
+      },
+      select: { targetId: true },
+    });
+    const linkedSet = new Set(
+      linked.map((l) => l.targetId).filter((x): x is string => !!x),
+    );
+    filteredByExistingLink = dtes.filter((d) => !linkedSet.has(d.id));
+  }
+
   // Sort por afinidad: delta absoluto al monto del banco (tomando el menor
   // entre amountPending y totalAmount). Empuja matches 1:1 al tope sin
   // ocultar los N:M.
-  const sorted = [...dtes].sort((a, b) => {
+  const sorted = [...filteredByExistingLink].sort((a, b) => {
     const da = Math.min(
       Math.abs(a.amountPending.toNumber() - amountAbs),
       Math.abs(a.totalAmount.toNumber() - amountAbs),
@@ -794,6 +850,44 @@ export async function setTransactionLinks(
     //    allocation por la reversión + los que ganaron por los nuevos links).
     for (const dteId of Array.from(dteIdsToRecompute)) {
       await recomputeDtePaymentAggregate(tx2, dteId);
+    }
+
+    // 4b. Sincronizar reconciledAt en los DTEs. Estado de conciliación es
+    //     INDEPENDIENTE de paymentStatus: lo refleja la presencia/ausencia
+    //     de FinanceBankTransactionLink DTE_*.
+    const newDteIds = dteLinks
+      .map((l) => l.targetId)
+      .filter((x): x is string => !!x);
+    if (newDteIds.length > 0) {
+      await tx2.financeDte.updateMany({
+        where: { id: { in: newDteIds } },
+        data: { reconciledAt: tx.transactionDate },
+      });
+    }
+    // Los DTEs que estaban linkeados antes y dejaron de estarlo: si ya no
+    // tienen NINGÚN link DTE_*, su reconciledAt vuelve a null.
+    const removedDteIds = Array.from(dteIdsToRecompute).filter(
+      (id) => !newDteIds.includes(id),
+    );
+    if (removedDteIds.length > 0) {
+      const stillLinked = await tx2.financeBankTransactionLink.findMany({
+        where: {
+          tenantId,
+          targetType: { in: ["DTE_ISSUED", "DTE_RECEIVED"] },
+          targetId: { in: removedDteIds },
+        },
+        select: { targetId: true },
+      });
+      const stillLinkedSet = new Set(
+        stillLinked.map((l) => l.targetId).filter((x): x is string => !!x),
+      );
+      const toClear = removedDteIds.filter((id) => !stillLinkedSet.has(id));
+      if (toClear.length > 0) {
+        await tx2.financeDte.updateMany({
+          where: { id: { in: toClear } },
+          data: { reconciledAt: null },
+        });
+      }
     }
 
     // 5. Estado de conciliación de la tx.
@@ -2069,6 +2163,32 @@ export async function clearTransactionLinks(
     // 3. Recomputar payment aggregate de los DTEs afectados.
     for (const dteId of Array.from(dteIdsToRecompute)) {
       await recomputeDtePaymentAggregate(tx2, dteId);
+    }
+
+    // 3b. reconciledAt: para los DTEs cuyo último link a este movimiento
+    //     se acaba de borrar, si ya no tienen NINGÚN link DTE_* vivo,
+    //     bajar reconciledAt a null. Si todavía está linkeado a otro mov,
+    //     se preserva (otro link sigue válido).
+    if (dteIdsToRecompute.size > 0) {
+      const ids = Array.from(dteIdsToRecompute);
+      const stillLinked = await tx2.financeBankTransactionLink.findMany({
+        where: {
+          tenantId,
+          targetType: { in: ["DTE_ISSUED", "DTE_RECEIVED"] },
+          targetId: { in: ids },
+        },
+        select: { targetId: true },
+      });
+      const stillLinkedSet = new Set(
+        stillLinked.map((l) => l.targetId).filter((x): x is string => !!x),
+      );
+      const toClear = ids.filter((id) => !stillLinkedSet.has(id));
+      if (toClear.length > 0) {
+        await tx2.financeDte.updateMany({
+          where: { id: { in: toClear } },
+          data: { reconciledAt: null },
+        });
+      }
     }
 
     // 4. Marcar tx como UNMATCHED.

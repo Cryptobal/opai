@@ -263,6 +263,9 @@ export const recurringTemplateSchema = z.object({
   receiverCiudad: optNull(z.string().trim().max(80)),
   crmAccountId: optNull(z.string().uuid()),
   installationId: optNull(z.string().uuid()),
+  // Contrato (Document) que origina la plantilla. Cuando se borra el
+  // contrato, la plantilla se desactiva en cascada (preserva runs).
+  contractDocumentId: optNull(z.string().uuid()),
   currency: z.enum(["CLP", "UF"]).default("CLP"),
   lines: z.array(dteLineSchema).min(1, "Debe incluir al menos una linea"),
   notes: optNull(z.string().trim().max(1000)),
