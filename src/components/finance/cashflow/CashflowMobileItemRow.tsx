@@ -28,7 +28,10 @@ export const CategoryGroup = memo(function CategoryGroup({
   canManage,
   onOpenItem,
 }: CategoryGroupProps) {
-  const [expanded, setExpanded] = useState(false);
+  // Default = expandido: en móvil queremos que al abrir Ingresos/Egresos se
+  // vean TODOS los ítems de una. La hidratación desde localStorage sólo
+  // colapsa categorías que el usuario marcó explícitamente como colapsadas.
+  const [expanded, setExpanded] = useState(true);
   useEffect(() => {
     setExpanded(getStoredExpanded(row.categoryId));
   }, [row.categoryId]);

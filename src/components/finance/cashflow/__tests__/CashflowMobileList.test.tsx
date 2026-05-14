@@ -43,10 +43,12 @@ describe("CashflowMobileList", () => {
     expect(screen.getAllByText(/Egresos/).length).toBeGreaterThan(0);
     // Ingresos abierto por default → "Ventas" visible.
     expect(screen.getByText("Ventas")).toBeTruthy();
-    // Egresos cerrado por default → abrir para ver "Sueldos".
+    // Egresos cerrado por default → abrir para ver la categoría "Sueldos".
+    // El texto "Sueldos" aparece también como badge en cada ítem (default
+    // expandido), por eso usamos getAllByText.
     fireEvent.click(screen.getByRole("button", { name: /Egresos/ }));
     await waitFor(() => {
-      expect(screen.getByText("Sueldos")).toBeTruthy();
+      expect(screen.getAllByText("Sueldos").length).toBeGreaterThan(0);
     });
   });
 
@@ -61,17 +63,14 @@ describe("CashflowMobileList", () => {
     });
   });
 
-  it("expandir una categoría muestra los ítems", async () => {
+  it("las categorías de Ingresos están expandidas por default — todos los ítems visibles", async () => {
     renderList();
-    fireEvent.click(screen.getByRole("button", { name: /Ventas/ }));
-    await waitFor(() => {
-      expect(screen.getByText("Edificio A")).toBeTruthy();
-    });
+    // Sin tap en la categoría, el ítem ya está visible.
+    expect(screen.getByText("Edificio A")).toBeTruthy();
   });
 
   it("tap en un ítem abre el drawer", async () => {
     renderList();
-    fireEvent.click(screen.getByRole("button", { name: /Ventas/ }));
     fireEvent.click(await screen.findByText("Edificio A"));
     await waitFor(() => {
       expect(screen.getByText(/Monto del período/i)).toBeTruthy();
@@ -87,19 +86,26 @@ describe("CashflowMobileList", () => {
     });
   });
 
-  it("persistencia: el estado expandido de una categoría se guarda en localStorage", async () => {
+  it("persistencia: colapsar una categoría se guarda en localStorage", async () => {
     renderList();
+    // Default = expandido → la primera click colapsa y persiste "0".
     fireEvent.click(screen.getByRole("button", { name: /Ventas/ }));
     await waitFor(() => {
       expect(
-        window.localStorage.getItem("cashflow.expanded.cat-ventas"),
-      ).toBe("1");
+        window.localStorage.getItem("cashflow.mobile.expanded.cat-ventas"),
+      ).toBe("0");
+    });
+    // Re-expandir limpia la entrada (vuelve al default).
+    fireEvent.click(screen.getByRole("button", { name: /Ventas/ }));
+    await waitFor(() => {
+      expect(
+        window.localStorage.getItem("cashflow.mobile.expanded.cat-ventas"),
+      ).toBeNull();
     });
   });
 
   it("oculta acciones cuando canManage=false", async () => {
     renderList(false);
-    fireEvent.click(screen.getByRole("button", { name: /Ventas/ }));
     fireEvent.click(await screen.findByText("Edificio A"));
     await waitFor(() => {
       expect(screen.getByText(/Monto del período/i)).toBeTruthy();
