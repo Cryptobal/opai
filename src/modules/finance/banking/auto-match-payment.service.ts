@@ -34,6 +34,7 @@
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import { findMatchingRule } from "./automatch-rule.service";
+import { tryAutoMatchBankTransactionToTurnoExtra } from "./auto-match-turno-extra.service";
 
 export interface AutoMatchResult {
   matched: boolean;
@@ -366,6 +367,8 @@ export interface BulkAutoMatchSummary {
   skipped: number;
   /** Tx categorizadas por una regla auto-match (no DTE). */
   ruleMatched: number;
+  /** Tx conciliadas como pago de turno extra contra OpsPagoTeItem. */
+  turnoExtraMatched: number;
   errors: { bankTransactionId: string; message: string }[];
 }
 
@@ -381,6 +384,7 @@ export async function bulkAutoMatchBankTransactions(
     noCandidate: 0,
     skipped: 0,
     ruleMatched: 0,
+    turnoExtraMatched: 0,
     errors: [],
   };
 
@@ -392,9 +396,28 @@ export async function bulkAutoMatchBankTransactions(
         continue;
       }
 
-      // Fallback: si no hubo match contra DTE, evaluar reglas custom.
-      // Si una regla matchea con requiresReview=false, creamos un link
-      // EXPENSE/INCOME con la cuenta contable y marcamos MATCHED.
+      // Fallback 1: pagos a guardia por turno extra. El matcher de DTE
+      // sale temprano para egresos (negative_amount) y para ingresos sin
+      // candidato; el de turnos extras solo aplica a egresos contra
+      // OpsPagoTeItem pendiente. Intentar antes de reglas genéricas para
+      // que un pago a guardia quede correctamente atribuido al item de
+      // planilla en vez de a una categoría contable genérica.
+      if (r.reason === "negative_amount" || r.reason === "no_candidate") {
+        const teResult = await tryAutoMatchBankTransactionToTurnoExtra(
+          tenantId,
+          id,
+          userId,
+        );
+        if (teResult.matched) {
+          summary.turnoExtraMatched += 1;
+          continue;
+        }
+      }
+
+      // Fallback 2: si no hubo match contra DTE ni turno extra, evaluar
+      // reglas custom. Si una regla matchea con requiresReview=false,
+      // creamos un link EXPENSE/INCOME con la cuenta contable y marcamos
+      // MATCHED.
       if (r.reason === "no_candidate" || r.reason === "ambiguous") {
         const applied = await tryApplyRule(tenantId, id, userId);
         if (applied) {

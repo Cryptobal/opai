@@ -7176,6 +7176,12 @@ enum FinanceLinkTarget {
   PAYROLL_ANTICIPO
   /// Lote de turnos extras pagado (TeLote).
   TE_LOTE
+  /// Item individual de pago de turno extra (OpsPagoTeItem). Permite
+  /// asociar 1 transferencia bancaria a 1+ items específicos cuando el
+  /// banco consolida varios turnos del mismo guardia en un solo pago.
+  /// El matcher automático lo usa cuando la planilla está cargada y el
+  /// monto/RUT/fecha calzan exacto contra items con paid_at IS NULL.
+  TE_ITEM
   /// Gasto manual sin entidad (solo cuenta contable).
   EXPENSE
   /// Ingreso manual sin entidad (solo cuenta contable).
