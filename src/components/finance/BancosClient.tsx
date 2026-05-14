@@ -25,7 +25,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
+import { DataTable, EmptyState, Tag, type DataTableColumn } from "@/components/opai-ds";
 import { PaginationControls } from "./PaginationControls";
 import { BankBalanceSheet } from "./BankBalanceSheet";
 import { BankRulesClient } from "./BankRulesClient";
@@ -116,6 +116,12 @@ interface TransactionRow {
   suggestedRuleName: string | null;
   suggestedAccountPlanId: string | null;
   suggestedAccountLabel: string | null;
+  rutRecognition: {
+    rut: string | null;
+    kind: "client" | "supplier" | "guardia" | "unknown";
+    entityId: string | null;
+    entityName: string | null;
+  } | null;
 }
 
 type TxSubTab = "all" | "recognized" | "unrecognized" | "matched";
@@ -1209,7 +1215,18 @@ function TransactionsTab({
       const ruleCount = s.ruleMatched ?? 0;
       const total = dteCount + teCount + ruleCount;
       if (total === 0) {
-        toast.info(`Escaneados ${s.scanned ?? 0} movimientos. Ningún match nuevo.`);
+        // Desglose para que el usuario sepa POR QUÉ no hubo matches.
+        // BulkAutoMatchSummary expone noCandidate, ambiguous, skipped y
+        // scanned; los usamos sin lógica nueva.
+        const breakdown: string[] = [];
+        if (s.noCandidate)
+          breakdown.push(`${s.noCandidate} sin candidato DTE`);
+        if (s.ambiguous) breakdown.push(`${s.ambiguous} ambiguos`);
+        if (s.skipped) breakdown.push(`${s.skipped} omitidos`);
+        const detail = breakdown.length > 0 ? ` (${breakdown.join(" · ")})` : "";
+        toast.info(
+          `Escaneados ${s.scanned ?? 0} movimientos. Ningún match nuevo${detail}.`,
+        );
       } else {
         const parts: string[] = [];
         if (dteCount) parts.push(`${dteCount} DTE`);
@@ -1337,7 +1354,39 @@ function TransactionsTab({
       {
         id: "description",
         header: sortableHeader("Descripción", "description"),
-        cell: (row) => row.description,
+        cell: (row) => {
+          const rr = row.rutRecognition;
+          const kindLabel =
+            rr?.kind === "client"
+              ? "Cliente"
+              : rr?.kind === "supplier"
+                ? "Proveedor"
+                : rr?.kind === "guardia"
+                  ? "Guardia"
+                  : null;
+          return (
+            <div className="flex flex-col gap-1 min-w-0">
+              <span className="truncate">{row.description}</span>
+              {rr?.kind && rr.kind !== "unknown" && rr.entityName ? (
+                <span
+                  title={`RUT ${rr.rut ?? ""} reconocido como ${kindLabel}`}
+                >
+                  <Tag variant="ok" size="sm">
+                    {kindLabel}: {rr.entityName}
+                  </Tag>
+                </span>
+              ) : rr?.rut ? (
+                <span
+                  title="RUT detectado en la cartola pero sin contraparte en el ERP"
+                >
+                  <Tag variant="neutral" size="sm">
+                    RUT no reconocido
+                  </Tag>
+                </span>
+              ) : null}
+            </div>
+          );
+        },
       },
       {
         id: "reference",

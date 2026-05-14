@@ -11,6 +11,7 @@ import {
   bulkAutoMatchBankTransactions,
   type BulkAutoMatchSummary,
 } from "./auto-match-payment.service";
+import { recognizeRutsForTransactions } from "./rut-recognition.service";
 
 /**
  * Genera un `apiTransactionId` determinístico para una transacción importada
@@ -382,6 +383,20 @@ export async function listBankTransactions(
   const accountMap = new Map(
     accounts.map((a) => [a.id, `${a.code} ${a.name}`])
   );
+
+  // RUT recognition: para la página visible cruzamos cada movimiento con
+  // CrmAccount / FinanceSupplier / OpsGuardia del tenant. Una pasada (3
+  // queries batch totales, no por fila). Si no se detecta RUT o no
+  // matchea con ninguna entidad → kind="unknown".
+  const rutMap = await recognizeRutsForTransactions(
+    tenantId,
+    transactions.map((t) => ({
+      id: t.id,
+      description: t.description ?? null,
+      reference: t.reference ?? null,
+    })),
+  );
+
   const enriched = transactions.map((t) => ({
     ...t,
     suggestedRuleName: t.suggestedRuleId
@@ -390,6 +405,7 @@ export async function listBankTransactions(
     suggestedAccountLabel: t.suggestedAccountPlanId
       ? accountMap.get(t.suggestedAccountPlanId) ?? null
       : null,
+    rutRecognition: rutMap.get(t.id) ?? null,
   }));
 
   return {
