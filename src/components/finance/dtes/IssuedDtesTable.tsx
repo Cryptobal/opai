@@ -41,6 +41,8 @@ interface Props {
   onEditDraft: (id: string) => void;
   onIssueDraft: (id: string) => void;
   onDeleteDraft: (id: string) => void;
+  onUnreconcile?: (id: string) => void;
+  onMarkUnpaid?: (id: string) => void;
 }
 
 /** Tri-state checkbox: indeterminate cuando hay selección parcial. */
@@ -91,6 +93,8 @@ export function IssuedDtesTable({
   onEditDraft,
   onIssueDraft,
   onDeleteDraft,
+  onUnreconcile,
+  onMarkUnpaid,
 }: Props) {
   const visibleIds = rows.map((r) => r.id);
   const selectedVisible = visibleIds.filter((id) => selectedIds.has(id));
@@ -353,7 +357,12 @@ export function IssuedDtesTable({
             <Eye className="h-4 w-4" />
           </button>
           <DteActionsMenu
-            row={row}
+            row={{
+              ...row,
+              paymentStatus: row.paymentStatus ?? undefined,
+              hasBankReconciliation:
+                !!row.lastReconciliation?.bankTransactionId,
+            }}
             canManage={canManage}
             sendingEmail={sendingEmail}
             checkingStatus={checkingStatus}
@@ -372,6 +381,12 @@ export function IssuedDtesTable({
             onEditDraft={() => onEditDraft(row.id)}
             onIssueDraft={() => onIssueDraft(row.id)}
             onDeleteDraft={() => onDeleteDraft(row.id)}
+            onUnreconcile={
+              onUnreconcile ? () => onUnreconcile(row.id) : undefined
+            }
+            onMarkUnpaid={
+              onMarkUnpaid ? () => onMarkUnpaid(row.id) : undefined
+            }
             hideViewDetail
           />
         </div>

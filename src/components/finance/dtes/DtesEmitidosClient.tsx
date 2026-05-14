@@ -642,6 +642,54 @@ export function DtesEmitidosClient({
     }
   };
 
+  const handleUnreconcile = async (id: string) => {
+    if (
+      !confirm(
+        "¿Desconciliar este DTE? Se borrará el link al movimiento bancario. La factura sigue marcada como pagada — usá 'Desmarcar como pagada' por separado si también querés revertir el estado.",
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/finance/billing/issued/${id}/unreconcile`,
+        { method: "POST" },
+      );
+      const body = await res.json();
+      if (!res.ok || !body.success) {
+        throw new Error(body.error ?? "Error al desconciliar");
+      }
+      toast.success("DTE desconciliado");
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error inesperado");
+    }
+  };
+
+  const handleMarkUnpaid = async (id: string) => {
+    if (
+      !confirm(
+        "¿Desmarcar este DTE como pagado? Volverá a estado 'Sin pagar'. Si tiene conciliación bancaria, primero hay que desconciliar.",
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/finance/billing/issued/${id}/mark-unpaid`,
+        { method: "POST" },
+      );
+      const body = await res.json();
+      if (!res.ok || !body.success) {
+        throw new Error(body.error ?? "Error al desmarcar como pagada");
+      }
+      toast.success("DTE desmarcado como pagado");
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error inesperado");
+    }
+  };
+
   // ── Bulk handlers ──
 
   const handleBulkResendEmail = async () => {
@@ -955,6 +1003,8 @@ export function DtesEmitidosClient({
               onEditDraft={handleEditDraft}
               onIssueDraft={handleIssueDraft}
               onDeleteDraft={handleDeleteDraft}
+              onUnreconcile={handleUnreconcile}
+              onMarkUnpaid={handleMarkUnpaid}
             />
           </div>
           <div className="md:hidden">
@@ -984,6 +1034,8 @@ export function DtesEmitidosClient({
               onEditDraft={handleEditDraft}
               onIssueDraft={handleIssueDraft}
               onDeleteDraft={handleDeleteDraft}
+              onUnreconcile={handleUnreconcile}
+              onMarkUnpaid={handleMarkUnpaid}
             />
           </div>
           <PaginationControls

@@ -37,8 +37,10 @@ import {
   Mail,
   MoreHorizontal,
   RefreshCw,
+  RotateCcw,
   Send,
   Trash2,
+  Unlink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -78,6 +80,12 @@ export interface DteActionsRow {
   } | null;
   /** Neto original — para detectar saldo agotado en NCs parciales. */
   netAmount?: number;
+  /** Estado de pago (UNPAID/PARTIAL/PAID/etc). Habilita "Desmarcar como
+   *  pagada" cuando es PAID/PARTIAL. */
+  paymentStatus?: string;
+  /** Si el DTE tiene allocations bancarias activas (link a movimiento).
+   *  Habilita "Desconciliar". */
+  hasBankReconciliation?: boolean;
 }
 
 interface Props {
@@ -104,6 +112,10 @@ interface Props {
   onIssueDraft?: () => void;
   /** Eliminar borrador (siiStatus=DRAFT). */
   onDeleteDraft?: () => void;
+  /** Desconciliar: borra link a movimiento bancario sin tocar paymentStatus. */
+  onUnreconcile?: () => void;
+  /** Desmarcar como pagada: vuelve paymentStatus a UNPAID. */
+  onMarkUnpaid?: () => void;
   /** Oculta el botón "Ver detalle" (cuando se renderiza fuera, ej. mobile cards). */
   hideViewDetail?: boolean;
   triggerVariant?: "ghost" | "outline";
@@ -132,6 +144,8 @@ export function DteActionsMenu({
   onEditDraft,
   onIssueDraft,
   onDeleteDraft,
+  onUnreconcile,
+  onMarkUnpaid,
   hideViewDetail,
   triggerVariant = "ghost",
 }: Props) {
@@ -360,6 +374,33 @@ export function DteActionsMenu({
               Ceder a factoring
             </DropdownMenuItem>
           )}
+
+          {/* Conciliación / Estado de pago — acciones reversibles */}
+          {canManage && row.hasBankReconciliation && onUnreconcile && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className={SECTION_LABEL}>
+                Conciliación
+              </DropdownMenuLabel>
+              <DropdownMenuItem onClick={onUnreconcile}>
+                <Unlink className="h-4 w-4 mr-2" />
+                Desconciliar (mantener pagada)
+              </DropdownMenuItem>
+            </>
+          )}
+          {canManage &&
+            (row.paymentStatus === "PAID" ||
+              row.paymentStatus === "PARTIAL") &&
+            !row.hasBankReconciliation &&
+            onMarkUnpaid && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onMarkUnpaid}>
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Desmarcar como pagada
+                </DropdownMenuItem>
+              </>
+            )}
 
           {/* Anular (destructivo, al final) */}
           {canManage && canAnular && (

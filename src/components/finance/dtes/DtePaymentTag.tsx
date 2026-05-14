@@ -119,6 +119,13 @@ export function DtePaymentTag({
     title = `Pagado el ${payDate} · Recibo ${lastReconciliation.paymentCode}`;
   }
 
+  // "Pagada pero sin conciliar contra banco" — caso típico de bulk-mark-paid
+  // o import Zoho. La factura figura cobrada pero no hay link al movimiento
+  // bancario real. Mostramos un mini-badge ámbar al lado para que el
+  // usuario sepa que falta cerrar el ciclo en banca.
+  const isPaidUnreconciled =
+    paymentStatus === "PAID" && !lastReconciliation?.bankTransactionDate;
+
   return (
     <span
       title={title}
@@ -131,6 +138,15 @@ export function DtePaymentTag({
       <Tag variant={variant} size={size}>
         {label}
       </Tag>
+      {isPaidUnreconciled ? (
+        <Tag
+          variant="warn"
+          size={size}
+          title="Marcada como pagada pero sin link a movimiento bancario — conciliá desde Banca para cerrar el ciclo"
+        >
+          Sin conciliar
+        </Tag>
+      ) : null}
     </span>
   );
 }

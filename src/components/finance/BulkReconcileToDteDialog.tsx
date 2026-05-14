@@ -263,6 +263,10 @@ export function BulkReconcileToDteDialog({
     params.set("page", "1");
     params.set("pageSize", "30");
     params.set("paymentStatus", "UNPAID,PARTIAL,OVERDUE");
+    // Incluir también facturas marcadas como PAID que NO tienen link a
+    // movimiento bancario (bulk-mark-paid / import Zoho). El usuario
+    // necesita poder conciliarlas para cerrar el ciclo en banca.
+    params.set("includePaidUnreconciled", "1");
     params.set("periodo", "ALL");
     if (debouncedSearch) params.set("search", debouncedSearch);
     setLoading(true);

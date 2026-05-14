@@ -96,8 +96,30 @@ export async function GET(request: NextRequest) {
     } else if (statusFilter === "issued") {
       where.siiStatus = { not: "DRAFT" };
     }
+    // Flag para conciliación bancaria: cuando está activo, además de los
+    // paymentStatus pedidos (típicamente UNPAID/PARTIAL/OVERDUE) también
+    // incluye PAID sin link a movimiento bancario (caso bulk-mark-paid o
+    // import Zoho — la factura figura cobrada pero falta cerrar el ciclo
+    // en banca). Lo detectamos vía `paymentAllocations.none.payment.bankTransactionId IS NOT NULL`.
+    const includePaidUnreconciled = flag("includePaidUnreconciled");
     if (paymentStatuses.length > 0) {
-      where.paymentStatus = { in: paymentStatuses };
+      if (includePaidUnreconciled && !paymentStatuses.includes("PAID")) {
+        where.OR = [
+          { paymentStatus: { in: paymentStatuses } },
+          {
+            paymentStatus: "PAID",
+            paymentAllocations: {
+              none: { payment: { bankTransactionId: { not: null } } },
+            },
+          },
+        ];
+      } else {
+        where.paymentStatus = { in: paymentStatuses };
+      }
+    } else if (includePaidUnreconciled) {
+      where.paymentAllocations = {
+        none: { payment: { bankTransactionId: { not: null } } },
+      };
     }
     if (dteTypes.length > 0) {
       where.dteType = { in: dteTypes };
