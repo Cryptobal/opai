@@ -283,6 +283,7 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
                     ipcPending={ipcPending}
                     buckets={projection.buckets}
                     granularity="monthly"
+                    rowOrder={rowOrder}
                     onActionDone={() => setRefreshKey((k) => k + 1)}
                   />
                 ))}
@@ -304,6 +305,7 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
                     ipcPending={ipcPending}
                     buckets={projection.buckets}
                     granularity="monthly"
+                    rowOrder={rowOrder}
                     onActionDone={() => setRefreshKey((k) => k + 1)}
                   />
                 ))}

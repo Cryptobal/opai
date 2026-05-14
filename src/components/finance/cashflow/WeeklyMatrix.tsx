@@ -492,6 +492,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                     ipcPending={ipcPending}
                     buckets={projection.buckets}
                     granularity="weekly"
+                    rowOrder={rowOrder}
                     onActionDone={() => setRefreshKey((k) => k + 1)}
                   />
                 ))}
@@ -513,6 +514,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
                     ipcPending={ipcPending}
                     buckets={projection.buckets}
                     granularity="weekly"
+                    rowOrder={rowOrder}
                     onActionDone={() => setRefreshKey((k) => k + 1)}
                   />
                 ))}

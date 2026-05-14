@@ -8,7 +8,6 @@ import type {
   CashflowCellStatus,
 } from "@/modules/finance/cashflow/types";
 import { CellAmount } from "./CellAmount";
-import { CellActionPopover } from "./CellActionPopover";
 import { useDroppable } from "@dnd-kit/core";
 import { ItemDetailRow } from "./ItemDetailRow";
 
@@ -106,6 +105,9 @@ interface Props {
   ipcPending?: Map<string, Array<{ id: string; dueDate: string }>>;
   buckets: ProjectionBucket[];
   granularity: "weekly" | "monthly";
+  /** Cuando es "amount_desc" los items y los grupos por cliente dentro
+   *  de la categoría se ordenan también por total descendente. */
+  rowOrder?: "default" | "alpha" | "amount_desc";
   onActionDone?: () => void;
 }
 
@@ -120,6 +122,7 @@ export function ExpandableMatrixRow({
   ipcPending,
   buckets,
   granularity,
+  rowOrder = "default",
   onActionDone,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
@@ -141,26 +144,6 @@ export function ExpandableMatrixRow({
   // — itemId+scheduledDate basta para materializar al primer move).
   // Items `_orphan` (sin itemId real) se filtran porque el endpoint de
   // materialize requiere un UUID válido.
-  function findAggregatedTarget(bucketKey: string) {
-    for (const item of row.items) {
-      if (item.itemId === "_orphan") continue;
-      const cell = item.values.find((v) => v.bucketKey === bucketKey);
-      if (cell && (cell.amount > 0 || cell.occurrenceId)) {
-        return {
-          id: cell.occurrenceId,
-          itemId: item.itemId,
-          originalDate: cell.scheduledDate,
-          amountClp: cell.amount,
-          cellStatus: cell.cellStatus,
-          dteId: cell.dteId ?? null,
-          daysOverdue: cell.daysOverdue ?? 0,
-          crmAccountId: item.crmAccountId,
-        };
-      }
-    }
-    return null;
-  }
-
   const onActionDoneSafe = onActionDone ?? (() => {});
 
   return (
@@ -226,7 +209,10 @@ export function ExpandableMatrixRow({
             </div>
           );
 
-          const aggregatedTarget = findAggregatedTarget(v.bucketKey);
+          // En la fila AGREGADA (categoría) NO mostramos popover de DTE
+          // específico: la celda es la SUMA de varios items y el target
+          // único es engañoso. Para ver el DTE el usuario expande la
+          // categoría y usa el popover del ItemDetailRow correspondiente.
           return (
             <DroppableBucketCell
               key={v.bucketKey}
@@ -237,13 +223,7 @@ export function ExpandableMatrixRow({
                   : ""
               }`}
             >
-              <CellActionPopover
-                target={aggregatedTarget}
-                granularity={granularity}
-                onActionDone={onActionDoneSafe}
-              >
-                {cellContent}
-              </CellActionPopover>
+              {cellContent}
             </DroppableBucketCell>
           );
         })}
@@ -259,7 +239,7 @@ export function ExpandableMatrixRow({
           // cuenta (huérfanos / manuales sin vincular) van planos en el grupo
           // "—" sin sub-header.
           type Item = (typeof row.items)[number];
-          const groups: Array<{ name: string; items: Item[] }> = [];
+          const groups: Array<{ name: string; items: Item[]; total: number }> = [];
           const order: string[] = [];
           const byName = new Map<string, Item[]>();
           for (const it of row.items) {
@@ -271,7 +251,21 @@ export function ExpandableMatrixRow({
             byName.get(key)!.push(it);
           }
           for (const name of order) {
-            groups.push({ name, items: byName.get(name)! });
+            const items = byName.get(name)!;
+            groups.push({
+              name,
+              items,
+              total: items.reduce((s, it) => s + it.total, 0),
+            });
+          }
+          // Si el usuario eligió "Mayor monto", reordenamos los grupos por
+          // cliente (descendente por total). Los items dentro de cada grupo
+          // se reordenan por su total individual.
+          if (rowOrder === "amount_desc") {
+            groups.sort((a, b) => b.total - a.total);
+            for (const g of groups) {
+              g.items = [...g.items].sort((a, b) => b.total - a.total);
+            }
           }
           const out: React.ReactNode[] = [];
           for (const g of groups) {
@@ -302,7 +296,6 @@ export function ExpandableMatrixRow({
                 );
               }
             }
-            const groupTotal = g.items.reduce((s, it) => s + it.total, 0);
             out.push(
               <ClientGroup
                 key={`grp-${row.categoryCode}-${g.name}`}
@@ -311,7 +304,7 @@ export function ExpandableMatrixRow({
                 items={g.items}
                 totalsByBucket={groupTotalsByBucket}
                 buckets={buckets}
-                grandTotal={groupTotal}
+                grandTotal={g.total}
                 granularity={granularity}
                 kind={row.kind as "INCOME" | "EXPENSE"}
                 ipcPending={ipcPending}
