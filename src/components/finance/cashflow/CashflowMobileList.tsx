@@ -12,7 +12,10 @@ import {
 import { BankBalanceAdjustDrawer } from "./BankBalanceAdjustDrawer";
 import { CashflowDriftBanner } from "./CashflowDriftBanner";
 import { useHasCapability } from "@/lib/permissions-context";
+import { subMonths } from "date-fns";
 import { hydrateProjection } from "./cashflow-mobile-helpers";
+
+const MONTHS_BACK = 2;
 
 export { getBucketDisplayLabel } from "./cashflow-mobile-helpers";
 
@@ -58,13 +61,17 @@ export function CashflowMobileList({
   // Fetch monthly on demand (primera vez que el usuario cambia a mensual).
   useEffect(() => {
     if (granularity !== "monthly" || monthlyProjection !== null) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date();
+    // Arrancar `MONTHS_BACK` meses atrás para permitir retroceder con el
+    // navegador (simétrico con el semanal, que ya viene con weeksBack=2 del
+    // server).
+    const fromStr = subMonths(today, MONTHS_BACK).toISOString().slice(0, 10);
     const to = new Date();
     to.setMonth(to.getMonth() + defaultMonths);
     const toStr = to.toISOString().slice(0, 10);
     setLoading(true);
     fetch(
-      `/api/finance/cashflow/projection?from=${today}&to=${toStr}&granularity=monthly`,
+      `/api/finance/cashflow/projection?from=${fromStr}&to=${toStr}&granularity=monthly`,
     )
       .then((r) => r.json())
       .then((j) => {
