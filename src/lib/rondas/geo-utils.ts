@@ -1,4 +1,5 @@
 import { haversineDistance } from "@/lib/marcacion";
+import { evaluateGeofenceWithTolerance } from "@/lib/rondas/geo-fence-client";
 
 export function distanceMeters(
   fromLat: number,
@@ -47,30 +48,18 @@ export function validateGeofenceWithAccuracy(
   radiusM: number,
   geoAccuracy: number | null | undefined,
 ): GeofenceResult {
-  const distanceM = distanceMeters(fromLat, fromLng, toLat, toLng);
-  if (distanceM == null) {
-    return { valid: false, distanceM: null, confidence: "unknown" };
-  }
-
-  // No accuracy → standard behavior
-  if (geoAccuracy == null || geoAccuracy <= 0) {
-    return { valid: distanceM <= radiusM, distanceM, confidence: "unknown" };
-  }
-
-  // Bad accuracy (>= radius): generous tolerance, low confidence
-  if (geoAccuracy >= radiusM) {
-    return {
-      valid: distanceM <= radiusM + geoAccuracy,
-      distanceM,
-      confidence: "low",
-    };
-  }
-
-  // Good accuracy (< radius): moderate tolerance, high confidence
+  const r = evaluateGeofenceWithTolerance(
+    fromLat,
+    fromLng,
+    toLat,
+    toLng,
+    radiusM,
+    geoAccuracy,
+  );
   return {
-    valid: distanceM <= radiusM + geoAccuracy * 0.5,
-    distanceM,
-    confidence: "high",
+    valid: r.inRange,
+    distanceM: r.distanceM,
+    confidence: r.confidence,
   };
 }
 
