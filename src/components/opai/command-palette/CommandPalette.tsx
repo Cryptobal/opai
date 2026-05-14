@@ -282,7 +282,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
   // Group by category
   const grouped = useMemo(() => {
     const groups: Record<string, CommandItem[]> = {};
-    const order = ['recent', 'navigation', 'action', 'config', 'search_finance', 'search_crm', 'search_ops', 'search_inventory', 'search_docs', 'search_chat'];
+    const order = ['recent', 'search_crm', 'search_ops', 'search_finance', 'search_chat', 'search_docs', 'search_inventory', 'navigation', 'action', 'config'];
 
     for (const cmd of allItems) {
       const cat = cmd.category;
