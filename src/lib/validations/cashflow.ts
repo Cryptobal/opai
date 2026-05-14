@@ -22,6 +22,14 @@ export const updateCashflowConfigSchema = z.object({
   turnosExtraLiquidoDiscountPct: z.number().min(0).max(1).optional(),
   // % del monto TE que descuenta el pago de PreviRed (fracción 0–1).
   turnosExtraPreviRedDiscountPct: z.number().min(0).max(1).optional(),
+  // % de ventas netas proyectadas que se retira como dividendo de socios.
+  // Fracción 0–0.5 (50% es absurdo pero damos margen).
+  retiroSocioPctVentas: z.number().min(0).max(0.5).optional(),
+  retiroSocioPayDay: z.number().int().min(1).max(28).optional(),
+  quincenaMode: z.enum(["FICHA", "PCT_LIQUIDO"]).optional(),
+  // % sobre líquidos cuando quincenaMode=PCT_LIQUIDO. Fracción 0–0.5.
+  quincenaPctLiquido: z.number().min(0).max(0.5).optional(),
+  quincenaPayDay: z.number().int().min(1).max(28).optional(),
 });
 
 export const createCashflowCategorySchema = z.object({

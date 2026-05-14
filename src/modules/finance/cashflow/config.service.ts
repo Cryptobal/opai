@@ -33,6 +33,11 @@ export async function updateCashflowConfig(
     turnosExtraPercentage: number;
     turnosExtraLiquidoDiscountPct: number;
     turnosExtraPreviRedDiscountPct: number;
+    retiroSocioPctVentas: number;
+    retiroSocioPayDay: number;
+    quincenaMode: "FICHA" | "PCT_LIQUIDO";
+    quincenaPctLiquido: number;
+    quincenaPayDay: number;
   }>,
 ): Promise<FinanceCashflowConfig> {
   await getOrCreateCashflowConfig(tenantId);

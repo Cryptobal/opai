@@ -40,17 +40,31 @@ interface CashflowConfig {
   turnosExtraLiquidoDiscountPct: number;
   /** % del monto TE que se descuenta del pago de PreviRed (0–1). */
   turnosExtraPreviRedDiscountPct: number;
+  /** % de ventas netas que se retira como dividendo de socios (0–1). */
+  retiroSocioPctVentas: number;
+  retiroSocioPayDay: number;
+  quincenaMode: "FICHA" | "PCT_LIQUIDO";
+  /** % sobre líquidos cuando quincenaMode=PCT_LIQUIDO (0–1). */
+  quincenaPctLiquido: number;
+  quincenaPayDay: number;
 }
 
 /** Prisma serializa campos Decimal como string en JSON; esta interfaz refleja esa realidad. */
 type RawCashflowConfig = Omit<
   CashflowConfig,
-  "ufMonthlyGrowthPct" | "turnosExtraPercentage" | "turnosExtraLiquidoDiscountPct" | "turnosExtraPreviRedDiscountPct"
+  | "ufMonthlyGrowthPct"
+  | "turnosExtraPercentage"
+  | "turnosExtraLiquidoDiscountPct"
+  | "turnosExtraPreviRedDiscountPct"
+  | "retiroSocioPctVentas"
+  | "quincenaPctLiquido"
 > & {
   ufMonthlyGrowthPct?: number | string;
   turnosExtraPercentage: number | string;
   turnosExtraLiquidoDiscountPct: number | string;
   turnosExtraPreviRedDiscountPct: number | string;
+  retiroSocioPctVentas: number | string;
+  quincenaPctLiquido: number | string;
 };
 
 interface Category {
@@ -114,6 +128,8 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
     turnosExtraPercentage: Number(initialConfig.turnosExtraPercentage ?? 0),
     turnosExtraLiquidoDiscountPct: Number(initialConfig.turnosExtraLiquidoDiscountPct),
     turnosExtraPreviRedDiscountPct: Number(initialConfig.turnosExtraPreviRedDiscountPct),
+    retiroSocioPctVentas: Number(initialConfig.retiroSocioPctVentas ?? 0),
+    quincenaPctLiquido: Number(initialConfig.quincenaPctLiquido ?? 0.1),
   });
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [savingConfig, setSavingConfig] = useState(false);
@@ -447,6 +463,100 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
               Porcentaje del total de TE proyectado que se descuenta del pago a{" "}
               <strong>PreviRed</strong> (cotizaciones) del mismo período. Ej: 20 =
               descuenta el 20% del TE de las imposiciones.
+            </p>
+          </div>
+          <div>
+            <Label>% retiro socios sobre ventas netas</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="number"
+              min={0}
+              max={50}
+              step={0.5}
+              value={Number((config.retiroSocioPctVentas * 100).toFixed(2))}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                setField("retiroSocioPctVentas", isNaN(v) ? 0 : Math.min(0.5, v / 100));
+              }}
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Cada mes se proyecta un <strong>retiro de socios</strong> = ventas
+              netas del mes × este %. Si dejás <strong>0</strong>, no se genera
+              el retiro automático (igual podés cargar retiros puntuales a mano
+              en la categoría Retiros socios). Editable celda por celda.
+            </p>
+          </div>
+          <div>
+            <Label>Día pago retiro socios</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="number"
+              min={1}
+              max={28}
+              value={config.retiroSocioPayDay}
+              onChange={(e) => setField("retiroSocioPayDay", Number(e.target.value))}
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Día del mes en que aparece el retiro proyectado.
+            </p>
+          </div>
+          <div>
+            <Label>Modo de proyección de quincena</Label>
+            <Select
+              value={config.quincenaMode}
+              onValueChange={(v) =>
+                setField("quincenaMode", v as "FICHA" | "PCT_LIQUIDO")
+              }
+            >
+              <SelectTrigger className="h-10 sm:h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="FICHA">Desde ficha de guardias</SelectItem>
+                <SelectItem value="PCT_LIQUIDO">% de sueldos líquidos</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              <strong>Desde ficha</strong>: suma <code className="font-mono">montoAnticipo</code> de los guardias con la opción
+              activada en su ficha. <strong>% de sueldos líquidos</strong>: aplica el
+              porcentaje configurado a la suma de líquidos proyectados.
+            </p>
+          </div>
+          <div>
+            <Label>% quincena sobre líquidos</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="number"
+              min={0}
+              max={50}
+              step={1}
+              disabled={config.quincenaMode !== "PCT_LIQUIDO"}
+              value={
+                config.quincenaMode === "PCT_LIQUIDO"
+                  ? Number((config.quincenaPctLiquido * 100).toFixed(2))
+                  : 0
+              }
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                setField("quincenaPctLiquido", isNaN(v) ? 0 : Math.min(0.5, v / 100));
+              }}
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Aplica solo cuando el modo es <strong>% de líquidos</strong>. Default 10%.
+            </p>
+          </div>
+          <div>
+            <Label>Día pago quincena</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="number"
+              min={1}
+              max={28}
+              value={config.quincenaPayDay}
+              onChange={(e) => setField("quincenaPayDay", Number(e.target.value))}
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Día del mes en que se proyecta la quincena. Default 15.
             </p>
           </div>
           <div className="sm:col-span-2">

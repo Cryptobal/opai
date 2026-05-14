@@ -11,7 +11,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
-import { fmt, SectionHeader, SubtotalRow, driftTone, DRIFT_TONE_CLASS } from "./MatrixHelpers";
+import {
+  fmt,
+  SectionHeader,
+  SubtotalRow,
+  driftTone,
+  DRIFT_TONE_CLASS,
+  loadRowOrder,
+  saveRowOrder,
+  sortRowsForDisplay,
+  type RowOrder,
+} from "./MatrixHelpers";
 import { ExpandableMatrixRow } from "./ExpandableMatrixRow";
 import { BucketBankDrawer } from "./BucketBankDrawer";
 import { BankBalanceAdjustDrawer } from "./BankBalanceAdjustDrawer";
@@ -65,7 +75,12 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
   const [refreshKey, setRefreshKey] = useState(0);
   const [drawerBucket, setDrawerBucket] = useState<string | null>(null);
   const [bankAdjustOpen, setBankAdjustOpen] = useState(false);
+  const [rowOrder, setRowOrder] = useState<RowOrder>("default");
   const canEditBalance = useHasCapability("banking_manage");
+
+  useEffect(() => {
+    setRowOrder(loadRowOrder());
+  }, []);
   const todayDate = useMemo(() => new Date(), []);
   // Ajustes IPC PENDING — mostramos un highlight ámbar en la celda
   // (semana × item) donde cae cada `dueDate` para que el reajuste de
@@ -151,8 +166,14 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
       .finally(() => setLoading(false));
   }, [weeks, defaultWeeks, fromDate, toDate, refreshKey, weeksBack]);
 
-  const incomeRows = projection.rows.filter((r) => r.kind === "INCOME");
-  const expenseRows = projection.rows.filter((r) => r.kind === "EXPENSE");
+  const incomeRows = sortRowsForDisplay(
+    projection.rows.filter((r) => r.kind === "INCOME"),
+    rowOrder,
+  );
+  const expenseRows = sortRowsForDisplay(
+    projection.rows.filter((r) => r.kind === "EXPENSE"),
+    rowOrder,
+  );
 
   // Carga los ajustes IPC pendientes y los indexa por `${itemId}_${bucketKey}`.
   // En weekly, el bucket.key tiene formato `YYYY-Www` o `WK-YYYYMMDD` según
@@ -330,6 +351,23 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
           {projection.buckets.length} semanas · saldo inicial {fmt.format(projection.openingBalanceClp)}
         </p>
         <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+          <Select
+            value={rowOrder}
+            onValueChange={(v) => {
+              const next = v as RowOrder;
+              setRowOrder(next);
+              saveRowOrder(next);
+            }}
+          >
+            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[170px] text-[13px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Orden por defecto</SelectItem>
+              <SelectItem value="alpha">Alfabético</SelectItem>
+              <SelectItem value="amount_desc">Mayor monto</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={String(weeksBack)} onValueChange={(v) => setWeeksBack(Number(v))}>
             <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[150px] text-[13px]">
               <SelectValue />
@@ -396,7 +434,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
             </colgroup>
             <thead className="sticky top-0 z-30 bg-background">
               <tr>
-                <th className="sticky left-0 z-40 bg-background text-left p-2 min-w-[140px] sm:min-w-[180px] border-b border-border">
+                <th className="sticky left-0 z-40 bg-background text-left p-2 min-w-[140px] max-w-[200px] sm:min-w-[180px] sm:max-w-[260px] border-b border-border">
                   Categoría
                 </th>
                 {projection.buckets.map((b, idx) => {

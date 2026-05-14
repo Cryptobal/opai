@@ -20,6 +20,11 @@ export const DEFAULT_CATEGORY_ACCOUNT_MAP: Record<string, string[]> = {
   ING_TURNO_EXTRA:    ["4.1.01.003"],                           // Ingresos por Horas Extra
   ING_INSTALACION:    ["4.1.01.001", "4.1.01.002"],             // Servicios + Servicios Exentos
   ING_OTRO:           ["4.2.01.001", "4.2.01.002"],             // Intereses + Dif. cambio favorable
+  // Inyección de caja de un socio: contra-cuenta el pasivo "Acreedores Varios"
+  // (relacionados/socios). No existe una cuenta dedicada a partes relacionadas
+  // en el plan estándar — Acreedores Varios es el catch-all de pasivos no
+  // comerciales y es lo que el contador suele usar para cuentas con socios.
+  ING_PRESTAMO_SOCIO: ["2.1.01.003"],
 
   // ─── Egresos: remuneraciones ───
   // Sueldos cubre tanto guardias (5.1.01.001) como administrativos (6.1.01.001)
@@ -43,6 +48,10 @@ export const DEFAULT_CATEGORY_ACCOUNT_MAP: Record<string, string[]> = {
   // ─── Egresos: socios y otros ───
   // Retiros de socios aproxima a Utilidades Retenidas (cargo cuando se distribuyen)
   EGR_RETIRO_SOCIO:   ["3.2.01.001"],
+  // Devolución del préstamo previo del socio: cargo contra el mismo pasivo
+  // "Acreedores Varios" que se acreditó al recibirlo. Igual que ING_PRESTAMO_SOCIO,
+  // mapea a la cuenta general de acreedores no comerciales.
+  EGR_DEVOL_PRESTAMO_SOCIO: ["2.1.01.003"],
   // Otros egresos: gastos legales/notariales y rendiciones
   EGR_OTRO:           ["6.1.02.011", "6.1.02.012"],
 };

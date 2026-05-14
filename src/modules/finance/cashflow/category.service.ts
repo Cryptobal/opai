@@ -14,6 +14,8 @@ export const SYSTEM_CATEGORIES: Array<{
   // Ingresos
   { code: "ING_VENTA_CONTRATO", name: "Ventas por contrato", kind: "INCOME", sortOrder: 10, color: "#10B981", isTaxExempt: false },
   { code: "ING_OTRO", name: "Otros ingresos", kind: "INCOME", sortOrder: 90, color: "#86EFAC", isTaxExempt: false },
+  // Préstamo recibido de un socio (inyección de caja): no es venta, va exento de IVA.
+  { code: "ING_PRESTAMO_SOCIO", name: "Préstamos de socios (ingreso)", kind: "INCOME", sortOrder: 95, color: "#38BDF8", isTaxExempt: true },
   // Egresos operativos — sueldos/cotizaciones ya son valor de caja, no llevan IVA
   { code: "EGR_SUELDO", name: "Sueldos líquidos", kind: "EXPENSE", sortOrder: 110, color: "#EF4444", isTaxExempt: true },
   { code: "EGR_QUINCENA", name: "Quincenas / anticipos", kind: "EXPENSE", sortOrder: 115, color: "#F87171", isTaxExempt: true },
@@ -29,6 +31,8 @@ export const SYSTEM_CATEGORIES: Array<{
   { code: "EGR_IMPUESTO", name: "Otros impuestos", kind: "EXPENSE", sortOrder: 310, color: "#FBBF24", isTaxExempt: true },
   // Financieros / socios — retiros y ajustes manuales no llevan IVA
   { code: "EGR_RETIRO_SOCIO", name: "Retiros socios / dividendos", kind: "EXPENSE", sortOrder: 400, color: "#0EA5E9", isTaxExempt: true },
+  // Devolución a un socio de un préstamo previo: movimiento de pasivo, exento de IVA.
+  { code: "EGR_DEVOL_PRESTAMO_SOCIO", name: "Devolución préstamos socios", kind: "EXPENSE", sortOrder: 410, color: "#0284C7", isTaxExempt: true },
   { code: "EGR_OTRO", name: "Otros egresos", kind: "EXPENSE", sortOrder: 990, color: "#94A3B8", isTaxExempt: false },
 ];
 

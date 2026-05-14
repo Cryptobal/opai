@@ -1,13 +1,16 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { addMonths, startOfMonth, endOfMonth, lastDayOfMonth } from "date-fns";
+import { expandRecurrence } from "../recurrence-engine";
+import { getUfValueForDate } from "@/lib/uf";
 
 const IVA_CATEGORY_CODE = "EGR_IVA_F29";
+const IVA_RATE = 0.19;
 
 type SyncAction = "created" | "updated" | "deactivated" | "reactivated" | "noop";
 
-/** Calcula débito − crédito para un período YYYY-MM. */
-async function computeIvaForPeriod(
+/** Calcula débito − crédito del período YYYY-MM desde FinanceDte (datos reales). */
+async function computeIvaFromDte(
   tenantId: string,
   periodStart: Date,
 ): Promise<number> {
@@ -40,13 +43,118 @@ async function computeIvaForPeriod(
 }
 
 /**
- * Idempotente: 1 item por (período YYYY-MM × tenant).
- * sourceRefId = "YYYY-MM" como TEXTO (cast en sync, no en schema).
+ * Estima débito − crédito del período YYYY-MM proyectando desde los items
+ * activos del flujo. Sirve para meses FUTUROS donde aún no hay DTEs reales
+ * pero la matriz ya muestra ingresos brutos (×1.19) y egresos afectos brutos.
  *
- * Como sourceRefId es @db.Uuid en Prisma, codificamos el período en el name
- * y usamos el item con ONCE recurrence + startDate/endDate apuntando al pago.
- * El sourceRefId queda null y la unicidad se protege con un find por tenant
- * + name + source=IVA.
+ * Débito proyectado = 19% × suma_neta(items kind=INCOME, categoría afecta).
+ * Crédito proyectado = 19% × suma_neta(items kind=EXPENSE, categoría afecta).
+ *
+ * Items UF se convierten a CLP con la UF del primer evento del mes —
+ * aproximación suficiente (variación intra-mes < 1%, el IVA se redondea).
+ * Categorías exentas (sueldos, previred, IVA, retiros, ajustes, préstamos
+ * de socios) quedan fuera automáticamente — son las que NO llevan ×1.19 en
+ * la proyección, así que tampoco deben sumar IVA.
+ */
+async function computeIvaFromProjectedItems(
+  tenantId: string,
+  periodStart: Date,
+): Promise<number> {
+  const periodEnd = endOfMonth(periodStart);
+
+  // Una sola query: ítems activos con categoría no-exenta-de-IVA.
+  const items = await prisma.financeCashflowItem.findMany({
+    where: {
+      tenantId,
+      isActive: true,
+      category: { isTaxExempt: false, isActive: true },
+    },
+    select: {
+      id: true,
+      kind: true,
+      amount: true,
+      currency: true,
+      recurrence: true,
+      startDate: true,
+      endDate: true,
+      dayOfMonth: true,
+      dayOfWeek: true,
+      monthOfYear: true,
+      ufFixingPolicy: true,
+      ufFixingDay: true,
+    },
+  });
+
+  let netoIncome = 0;
+  let netoExpense = 0;
+
+  for (const item of items) {
+    const dates = expandRecurrence(
+      {
+        recurrence: item.recurrence,
+        startDate: item.startDate,
+        endDate: item.endDate,
+        dayOfMonth: item.dayOfMonth,
+        dayOfWeek: item.dayOfWeek,
+        monthOfYear: item.monthOfYear,
+      },
+      periodStart,
+      periodEnd,
+    );
+    if (dates.length === 0) continue;
+    const baseNet = Number(item.amount ?? 0);
+    if (baseNet <= 0) continue;
+
+    let totalClp: number;
+    if (item.currency === "UF") {
+      const uf = await getUfValueForDate(dates[0]).catch(() => 0);
+      if (uf <= 0) continue;
+      totalClp = baseNet * uf * dates.length;
+    } else {
+      totalClp = baseNet * dates.length;
+    }
+
+    if (item.kind === "INCOME") netoIncome += totalClp;
+    else if (item.kind === "EXPENSE") netoExpense += totalClp;
+  }
+
+  const debit = Math.round(netoIncome * IVA_RATE);
+  const credit = Math.round(netoExpense * IVA_RATE);
+  return debit - credit;
+}
+
+interface IvaComputation {
+  net: number;
+  isProjected: boolean;
+}
+
+/**
+ * Decide cómo calcular el IVA del período:
+ * - Período cuyo fin <= hoy → DTEs reales (cálculo histórico).
+ * - Período cuyo fin > hoy → proyección desde items del flujo de caja.
+ *
+ * El "mes en curso" entra en la rama proyectada porque suele tener DTEs
+ * parciales: el cálculo DTE-only subestima sistemáticamente y el flujo
+ * proyectado refleja mejor el F29 que terminará declarando el contador.
+ */
+async function computeIvaForPeriod(
+  tenantId: string,
+  periodStart: Date,
+): Promise<IvaComputation> {
+  const periodEnd = endOfMonth(periodStart);
+  const now = new Date();
+  if (periodEnd.getTime() <= now.getTime()) {
+    return { net: await computeIvaFromDte(tenantId, periodStart), isProjected: false };
+  }
+  return { net: await computeIvaFromProjectedItems(tenantId, periodStart), isProjected: true };
+}
+
+/**
+ * Idempotente: 1 item por (período YYYY-MM × tenant).
+ *
+ * El sourceRefId queda null y la unicidad se protege con find por
+ * (tenant, name="IVA F29 YYYY-MM", source=IVA). Mismo patrón que existía
+ * antes — solo cambia el cálculo del `net` interno.
  */
 export async function recomputeIvaForPeriod(
   tenantId: string,
@@ -64,7 +172,6 @@ export async function recomputeIvaForPeriod(
   });
   const payDay = config?.ivaPayDay ?? 12;
 
-  // periodKey "YYYY-MM"
   const [yStr, mStr] = periodKey.split("-");
   const y = Number(yStr);
   const m = Number(mStr);
@@ -79,7 +186,7 @@ export async function recomputeIvaForPeriod(
   );
 
   const itemName = `IVA F29 ${periodKey}`;
-  const net = await computeIvaForPeriod(tenantId, periodStart);
+  const { net, isProjected } = await computeIvaForPeriod(tenantId, periodStart);
 
   const existing = await prisma.financeCashflowItem.findFirst({
     where: { tenantId, source: "IVA", name: itemName },
@@ -97,6 +204,10 @@ export async function recomputeIvaForPeriod(
     return { action: "noop" };
   }
 
+  const description = isProjected
+    ? `IVA F29 período ${periodKey} (estimado desde flujo afecto)`
+    : `IVA F29 período ${periodKey} (débito − crédito DTE)`;
+
   const data = {
     tenantId,
     categoryId: cat.id,
@@ -104,7 +215,7 @@ export async function recomputeIvaForPeriod(
     source: "IVA" as const,
     sourceRefId: null,
     name: itemName,
-    description: `IVA F29 período ${periodKey} (débito − crédito)`,
+    description,
     amount: Math.round(net),
     currency: "CLP",
     recurrence: "ONCE" as const,

@@ -166,7 +166,7 @@ export function ExpandableMatrixRow({
   return (
     <>
       <tr className="hover:bg-muted/20">
-        <td className="sticky left-0 z-20 bg-card p-2 truncate min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-none border-r border-border/50">
+        <td className="sticky left-0 z-20 bg-card p-2 truncate min-w-[140px] max-w-[200px] sm:min-w-[180px] sm:max-w-[260px] border-r border-border/50">
           <button
             type="button"
             onClick={toggle}
@@ -438,45 +438,51 @@ function ClientGroup({
   let totalHeadcount = 0;
   for (const h of headcountByInstallation.values()) totalHeadcount += h;
 
+  // Metadata de la 2da línea: base por moneda + dotación, separadas con "·".
+  // Se ensambla aparte para mantener limpio el JSX y permitir omitirla cuando
+  // no hay datos.
+  const metaParts: string[] = [];
+  if (baseLabel) metaParts.push(baseLabel);
+  if (totalHeadcount > 0) {
+    metaParts.push(
+      `${totalHeadcount} ${totalHeadcount === 1 ? "persona" : "personas"}`,
+    );
+  }
+  const metaLine = metaParts.join(" · ");
+
   return (
     <>
       <tr className="bg-primary/5 border-t-2 border-primary/30">
-        <td className="sticky left-0 z-20 bg-card p-2 truncate min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-none border-r border-border/50">
+        <td className="sticky left-0 z-20 bg-card p-2 min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-[260px] border-r border-border/50">
           <button
             type="button"
             onClick={toggle}
-            className="flex items-center gap-1.5 w-full text-left pl-3 min-h-[32px]"
+            className="flex flex-col w-full text-left pl-3 min-h-[32px] gap-0.5"
             title={collapsed ? "Expandir" : "Colapsar"}
           >
-            {collapsed ? (
-              <ChevronRightIcon className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
-            ) : (
-              <ChevronDown className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
-            )}
-            <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
-            <span
-              className="text-[12px] font-semibold text-ds-text-1 truncate"
-              title={name}
-            >
-              {name}
-            </span>
-            <span className="text-[10px] font-mono uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-ds-sm bg-primary/15 text-primary shrink-0">
-              {label}
-            </span>
-            {baseLabel ? (
+            <div className="flex items-center gap-1.5 min-w-0">
+              {collapsed ? (
+                <ChevronRightIcon className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
+              )}
+              <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
               <span
-                className="text-[11px] font-mono tabular-nums text-ds-text-3 shrink-0"
-                title="Suma de montos base de los contratos del cliente"
+                className="text-[12px] font-semibold text-ds-text-1 truncate min-w-0"
+                title={name}
               >
-                · {baseLabel}
+                {name}
               </span>
-            ) : null}
-            {totalHeadcount > 0 ? (
+              <span className="text-[10px] font-mono uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-ds-sm bg-primary/15 text-primary shrink-0">
+                {label}
+              </span>
+            </div>
+            {metaLine ? (
               <span
-                className="text-[11px] font-mono tabular-nums text-ds-text-3 shrink-0"
-                title="Dotación total del cliente (suma por instalación única, evita duplicar cuando dos contratos comparten instalación)"
+                className="text-[11px] font-mono tabular-nums text-ds-text-3 truncate pl-[18px]"
+                title={metaLine}
               >
-                · {totalHeadcount} {totalHeadcount === 1 ? "persona" : "personas"}
+                {metaLine}
               </span>
             ) : null}
           </button>
