@@ -22,6 +22,7 @@ import {
   type AccessControlStats,
 } from "@/lib/access-control/types";
 import { formatDuration } from "@/lib/access-control/utils";
+import { authFetch } from "../../_lib/authFetch";
 
 // ── Icon map ────────────────────────────────────────────────────────────────
 
@@ -47,6 +48,7 @@ interface ResumenTurnoSectionProps {
   installationId: string;
   guardId: string;
   guardName: string;
+  deviceToken?: string;
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -55,6 +57,7 @@ export default function ResumenTurnoSection({
   installationId,
   guardId,
   guardName,
+  deviceToken,
 }: ResumenTurnoSectionProps) {
   const [stats, setStats] = useState<AccessControlStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,8 +65,10 @@ export default function ResumenTurnoSection({
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch(
-        `/api/access-control/records/${installationId}/stats`
+      const res = await authFetch(
+        `/api/access-control/records/${installationId}/stats`,
+        undefined,
+        deviceToken,
       );
       const json = await res.json();
       if (json.success) {
@@ -74,7 +79,7 @@ export default function ResumenTurnoSection({
     } finally {
       setLoading(false);
     }
-  }, [installationId]);
+  }, [installationId, deviceToken]);
 
   useEffect(() => {
     fetchStats();

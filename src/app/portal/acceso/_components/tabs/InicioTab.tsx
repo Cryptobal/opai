@@ -32,6 +32,7 @@ import {
   elapsedMinutes,
   formatRut,
 } from "@/lib/access-control/utils";
+import { authFetch } from "../../_lib/authFetch";
 
 // ── Icon map ────────────────────────────────────────────────────────────────
 
@@ -57,6 +58,7 @@ interface InicioTabProps {
   installationId: string;
   installationName: string;
   guardName: string;
+  deviceToken?: string;
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -65,6 +67,7 @@ export default function InicioTab({
   installationId,
   installationName,
   guardName,
+  deviceToken,
 }: InicioTabProps) {
   const [stats, setStats] = useState<AccessControlStats | null>(null);
   const [recentRecords, setRecentRecords] = useState<AccessControlRecordData[]>([]);
@@ -75,8 +78,16 @@ export default function InicioTab({
   const fetchData = useCallback(async () => {
     try {
       const [statsRes, recordsRes] = await Promise.all([
-        fetch(`/api/access-control/records/${installationId}/stats`),
-        fetch(`/api/access-control/records/${installationId}?limit=10`),
+        authFetch(
+          `/api/access-control/records/${installationId}/stats`,
+          undefined,
+          deviceToken,
+        ),
+        authFetch(
+          `/api/access-control/records/${installationId}?limit=10`,
+          undefined,
+          deviceToken,
+        ),
       ]);
 
       const statsJson = statsRes.ok ? await statsRes.json() : { success: false };
@@ -103,7 +114,7 @@ export default function InicioTab({
     } finally {
       setLoading(false);
     }
-  }, [installationId]);
+  }, [installationId, deviceToken]);
 
   useEffect(() => {
     fetchData();

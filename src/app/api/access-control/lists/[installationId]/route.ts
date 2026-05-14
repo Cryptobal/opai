@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { validateRut, cleanRut } from "@/lib/access-control/utils";
+import { validateRut, cleanRut, cleanPlate } from "@/lib/access-control/utils";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
+import { requireAccessControlAuth } from "@/lib/access-control/auth";
 
 export async function GET(
   request: NextRequest,
@@ -9,10 +10,20 @@ export async function GET(
 ) {
   try {
     const { installationId } = await params;
+
+    const authCtx = await requireAccessControlAuth(request, installationId);
+    if (!authCtx) {
+      return NextResponse.json(
+        { success: false, error: "No autorizado" },
+        { status: 401 }
+      );
+    }
+    const tenantId = authCtx.tenantId;
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") as "whitelist" | "blacklist" | null;
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { tenantId };
 
     if (type === "blacklist") {
       where.OR = [
@@ -50,37 +61,43 @@ export async function POST(
 ) {
   try {
     const { installationId } = await params;
+
+    const authCtx = await requireAccessControlAuth(request, installationId);
+    if (!authCtx) {
+      return NextResponse.json(
+        { success: false, error: "No autorizado" },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
 
-    // Validate RUT
-    if (!body.rut || !validateRut(body.rut)) {
+    const hasRut = typeof body.rut === "string" && body.rut.trim().length > 0;
+    const hasPlate = typeof body.vehiclePlate === "string" && body.vehiclePlate.trim().length > 0;
+
+    if (!hasRut && !hasPlate) {
+      return NextResponse.json(
+        { success: false, error: "Debe especificar al menos RUT o patente" },
+        { status: 400 }
+      );
+    }
+    if (hasRut && !validateRut(body.rut)) {
       return NextResponse.json(
         { success: false, error: "RUT inválido" },
         { status: 400 }
       );
     }
 
-    // Get installation for tenantId
-    const installation = await prisma.crmInstallation.findUnique({
-      where: { id: installationId },
-      select: { tenantId: true },
-    });
-
-    if (!installation) {
-      return NextResponse.json(
-        { success: false, error: "Instalación no encontrada" },
-        { status: 404 }
-      );
-    }
-
-    const cleanedRut = cleanRut(body.rut);
+    const cleanedRut = hasRut ? cleanRut(body.rut) : null;
+    const cleanedPlate = hasPlate ? cleanPlate(body.vehiclePlate) : null;
 
     const entry = await prisma.accessControlList.create({
       data: {
-        tenantId: installation.tenantId,
+        tenantId: authCtx.tenantId,
         installationId: body.scope === "global" ? null : installationId,
         listType: body.listType,
         rut: cleanedRut,
+        vehiclePlate: cleanedPlate,
         fullName: body.fullName,
         company: body.company || null,
         blockReason: body.blockReason || null,

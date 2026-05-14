@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ensureInstallationAccess, requirePortalClienteAuth } from "@/lib/portal-cliente";
+import { validateRut, cleanRut, cleanPlate } from "@/lib/access-control/utils";
 
 export async function PUT(
   request: NextRequest,
@@ -29,7 +30,7 @@ export async function PUT(
         tenantId: session.tenantId,
         listType: "whitelist",
       },
-      select: { id: true },
+      select: { id: true, rut: true, vehiclePlate: true },
     });
     if (!existing) {
       return NextResponse.json(
@@ -38,9 +39,40 @@ export async function PUT(
       );
     }
 
+    const rutUpdate: { rut?: string | null } = {};
+    if (body.rut !== undefined) {
+      if (body.rut === null || body.rut === "") {
+        rutUpdate.rut = null;
+      } else if (!validateRut(body.rut)) {
+        return NextResponse.json(
+          { success: false, error: "RUT inválido" },
+          { status: 400 }
+        );
+      } else {
+        rutUpdate.rut = cleanRut(body.rut);
+      }
+    }
+
+    const plateUpdate: { vehiclePlate?: string | null } = {};
+    if (body.vehiclePlate !== undefined) {
+      const trimmed = typeof body.vehiclePlate === "string" ? body.vehiclePlate.trim() : "";
+      plateUpdate.vehiclePlate = trimmed.length > 0 ? cleanPlate(trimmed) : null;
+    }
+
+    const resultingRut = "rut" in rutUpdate ? rutUpdate.rut : existing.rut;
+    const resultingPlate = "vehiclePlate" in plateUpdate ? plateUpdate.vehiclePlate : existing.vehiclePlate;
+    if (!resultingRut && !resultingPlate) {
+      return NextResponse.json(
+        { success: false, error: "Debe especificar al menos RUT o patente" },
+        { status: 400 }
+      );
+    }
+
     const entry = await prisma.accessControlList.update({
       where: { id },
       data: {
+        ...rutUpdate,
+        ...plateUpdate,
         fullName: body.fullName,
         company: body.company,
         validFrom: body.validFrom ? new Date(body.validFrom) : null,

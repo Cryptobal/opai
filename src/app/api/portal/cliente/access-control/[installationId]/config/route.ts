@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
-import { requireAccessControlAuth } from "@/lib/access-control/auth";
+import { ensureInstallationAccess, requirePortalClienteAuth } from "@/lib/portal-cliente";
+
+/**
+ * Espejo del endpoint admin /api/access-control/config/[installationId] para
+ * que el cliente pueda ver/editar la configuración completa de Control de
+ * Acceso de su instalación. Cualquier cambio acá se refleja en el ERP y
+ * viceversa — es la misma fila de AccessControlConfig.
+ */
 
 const defaultConfig = (installationId: string) => ({
   installationId,
@@ -18,22 +25,8 @@ const defaultConfig = (installationId: string) => ({
   recordTypeLabels: {},
   recordTypeIcons: {},
   recordTypeScanModes: {},
-  customRecordTypes: [] as Array<{
-    id: string;
-    key: string;
-    label: string;
-    icon: string;
-    defaultFields: unknown[];
-    scanMode: string;
-    scanModes: string[];
-    orderIdx: number;
-    isActive: boolean;
-  }>,
 });
 
-/** Sanitiza el JSON de overrides por tipo: solo deja entries con array
- *  de ScanMode válidos. Devuelve el objeto con la forma exacta esperada
- *  por la columna recordTypeScanModes. */
 function normalizeRecordTypeScanModes(input: unknown): Record<string, string[]> {
   if (!input || typeof input !== "object" || Array.isArray(input)) return {};
   const allowed = new Set(["plate", "rut", "none"]);
@@ -49,30 +42,36 @@ function normalizeRecordTypeScanModes(input: unknown): Record<string, string[]> 
   return out;
 }
 
+async function authorize(request: NextRequest, installationId: string) {
+  const session = await requirePortalClienteAuth(request);
+  if (!session) {
+    return { error: NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 }), session: null };
+  }
+  if (!(await ensureInstallationAccess(session, installationId))) {
+    return { error: NextResponse.json({ success: false, error: "Acceso denegado" }, { status: 403 }), session: null };
+  }
+  return { error: null, session };
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ installationId: string }> }
 ) {
   try {
     const { installationId } = await params;
-
-    const authCtx = await requireAccessControlAuth(request, installationId);
-    if (!authCtx) {
-      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
-    }
+    const { error, session } = await authorize(request, installationId);
+    if (error) return error;
 
     const config = await safeAccessControlQuery(
-      () => prisma.accessControlConfig.findUnique({ where: { installationId } }),
+      () => prisma.accessControlConfig.findFirst({
+        where: { installationId, tenantId: session!.tenantId },
+      }),
       null,
     );
 
-    // Always include active custom record types for this installation.
-    // Inactive (soft-deleted) types are omitted so the admin UI and the
-    // mobile portal both stop offering them — but the rows stay in the
-    // DB so historic AccessControlRecords keep resolving their label.
     const customRecordTypes = await safeAccessControlQuery(
       () => prisma.accessControlRecordType.findMany({
-        where: { installationId, isActive: true },
+        where: { installationId, tenantId: session!.tenantId, isActive: true },
         orderBy: { orderIdx: "asc" },
         select: {
           id: true, key: true, label: true, icon: true,
@@ -95,7 +94,7 @@ export async function GET(
       data: { ...config, customRecordTypes: customRecordTypes ?? [] },
     });
   } catch (error) {
-    console.error("[AccessControl] Error fetching config:", error);
+    console.error("[PortalCliente/AccessControl] Error fetching config:", error);
     return NextResponse.json(
       { success: false, error: "Error al obtener configuración" },
       { status: 500 }
@@ -109,26 +108,10 @@ export async function PUT(
 ) {
   try {
     const { installationId } = await params;
-
-    const authCtx = await requireAccessControlAuth(request, installationId);
-    if (!authCtx) {
-      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
-    }
+    const { error, session } = await authorize(request, installationId);
+    if (error) return error;
 
     const body = await request.json();
-
-    const installation = await prisma.crmInstallation.findUnique({
-      where: { id: installationId },
-      select: { tenantId: true },
-    });
-
-    if (!installation) {
-      return NextResponse.json(
-        { success: false, error: "Instalación no encontrada" },
-        { status: 404 }
-      );
-    }
-
     const recordTypeScanModes = normalizeRecordTypeScanModes(body.recordTypeScanModes);
 
     const config = await safeAccessControlQuery(
@@ -149,7 +132,7 @@ export async function PUT(
           recordTypeScanModes: recordTypeScanModes as Prisma.InputJsonValue,
         },
         create: {
-          tenantId: installation.tenantId,
+          tenantId: session!.tenantId,
           installationId,
           enabledRecordTypes: body.enabledRecordTypes ?? [],
           useWhitelist: body.useWhitelist ?? false,
@@ -170,14 +153,14 @@ export async function PUT(
 
     if (!config) {
       return NextResponse.json(
-        { success: false, error: "Las tablas de control de acceso aún no existen. Ejecute la migración de base de datos." },
+        { success: false, error: "Las tablas de control de acceso aún no existen." },
         { status: 503 }
       );
     }
 
     return NextResponse.json({ success: true, data: config });
   } catch (error) {
-    console.error("[AccessControl] Error updating config:", error);
+    console.error("[PortalCliente/AccessControl] Error updating config:", error);
     return NextResponse.json(
       { success: false, error: "Error al actualizar configuración" },
       { status: 500 }
@@ -185,35 +168,16 @@ export async function PUT(
   }
 }
 
-/**
- * Actualización parcial — sólo persiste los campos presentes en el body.
- * Usada para auto-guardar campos individuales (ej. autoReportSchedule)
- * sin requerir un round-trip completo del formulario.
- */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ installationId: string }> }
 ) {
   try {
     const { installationId } = await params;
-
-    const authCtx = await requireAccessControlAuth(request, installationId);
-    if (!authCtx) {
-      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
-    }
+    const { error, session } = await authorize(request, installationId);
+    if (error) return error;
 
     const body = (await request.json()) as Record<string, unknown>;
-
-    const installation = await prisma.crmInstallation.findUnique({
-      where: { id: installationId },
-      select: { tenantId: true },
-    });
-    if (!installation) {
-      return NextResponse.json(
-        { success: false, error: "Instalación no encontrada" },
-        { status: 404 }
-      );
-    }
 
     const updateData: Prisma.AccessControlConfigUpdateInput = {};
     if ("enabledRecordTypes" in body) updateData.enabledRecordTypes = (body.enabledRecordTypes as string[]) ?? [];
@@ -236,7 +200,7 @@ export async function PATCH(
         where: { installationId },
         update: updateData,
         create: {
-          tenantId: installation.tenantId,
+          tenantId: session!.tenantId,
           installationId,
           enabledRecordTypes: (body.enabledRecordTypes as string[]) ?? ["visit", "provider", "vehicle", "staff", "delivery"],
           useWhitelist: Boolean(body.useWhitelist ?? false),
@@ -257,14 +221,14 @@ export async function PATCH(
 
     if (!config) {
       return NextResponse.json(
-        { success: false, error: "Las tablas de control de acceso aún no existen. Ejecute la migración de base de datos." },
+        { success: false, error: "Las tablas de control de acceso aún no existen." },
         { status: 503 }
       );
     }
 
     return NextResponse.json({ success: true, data: config });
   } catch (error) {
-    console.error("[AccessControl] Error patching config:", error);
+    console.error("[PortalCliente/AccessControl] Error patching config:", error);
     return NextResponse.json(
       { success: false, error: "Error al actualizar configuración" },
       { status: 500 }

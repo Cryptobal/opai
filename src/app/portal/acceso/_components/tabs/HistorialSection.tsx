@@ -23,6 +23,7 @@ import {
   type AccessControlRecordData,
 } from "@/lib/access-control/types";
 import { formatRut } from "@/lib/access-control/utils";
+import { authFetch } from "../../_lib/authFetch";
 
 // ── Icon map ────────────────────────────────────────────────────────────────
 
@@ -46,12 +47,14 @@ const TYPE_ICON_COLORS: Record<AccessRecordType, string> = {
 
 interface HistorialSectionProps {
   installationId: string;
+  deviceToken?: string;
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function HistorialSection({
   installationId,
+  deviceToken,
 }: HistorialSectionProps) {
   const [records, setRecords] = useState<AccessControlRecordData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,8 +77,10 @@ export default function HistorialSection({
         });
         if (search) params.set("search", search);
 
-        const res = await fetch(
-          `/api/access-control/records/${installationId}?${params.toString()}`
+        const res = await authFetch(
+          `/api/access-control/records/${installationId}?${params.toString()}`,
+          undefined,
+          deviceToken,
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
@@ -97,7 +102,7 @@ export default function HistorialSection({
         setLoadingMore(false);
       }
     },
-    [installationId, search]
+    [installationId, search, deviceToken]
   );
 
   useEffect(() => {

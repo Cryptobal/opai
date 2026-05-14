@@ -28,8 +28,8 @@ import type {
 import {
   RECORD_TYPE_CONFIG, DEFAULT_FORM_FIELDS, DEFAULT_RECORD_TYPE_IDS,
   AVAILABLE_RECORD_TYPE_ICONS,
-  SEED_FIELDS_BY_SCAN_MODE,
-  getRecordTypeLabel, getRecordTypeIconName,
+  getRecordTypeLabel, getRecordTypeIconName, getRecordTypeScanModes,
+  seedFieldsForScanModes,
   isDefaultRecordType,
 } from "@/lib/access-control/types";
 import { getLucideIconByName } from "@/lib/access-control/record-type-icon";
@@ -43,8 +43,33 @@ interface ReportRecipient {
   isRecipient: boolean;
 }
 
+/** Funciones que producen las URLs de los endpoints. Se inyectan vía
+ *  prop `apiBase` para que el mismo componente sirva al ERP (admin) y al
+ *  Portal Cliente, que tienen rutas diferentes pero comparten contrato. */
+export interface ApiBase {
+  config: (installationId: string) => string;
+  configRecipients: (installationId: string) => string;
+  configTestReport: (installationId: string) => string;
+  recordTypes: (installationId: string) => string;
+}
+
+export const ADMIN_API: ApiBase = {
+  config: (id) => `/api/access-control/config/${id}`,
+  configRecipients: (id) => `/api/access-control/config/${id}/recipients`,
+  configTestReport: (id) => `/api/access-control/config/${id}/test-report`,
+  recordTypes: (id) => `/api/access-control/record-types/${id}`,
+};
+
+export const CLIENTE_API: ApiBase = {
+  config: (id) => `/api/portal/cliente/access-control/${id}/config`,
+  configRecipients: (id) => `/api/portal/cliente/access-control/${id}/config/recipients`,
+  configTestReport: (id) => `/api/portal/cliente/access-control/${id}/config/test-report`,
+  recordTypes: (id) => `/api/portal/cliente/access-control/${id}/record-types`,
+};
+
 interface Props {
   installationId: string;
+  apiBase?: ApiBase;
 }
 
 interface ConfigState {
@@ -59,10 +84,12 @@ interface ConfigState {
   formConfig: AccessControlFormConfig;
   recordTypeLabels: Partial<Record<string, string>>;
   recordTypeIcons: Partial<Record<string, string>>;
+  recordTypeScanModes: Partial<Record<string, ScanMode[]>>;
   customRecordTypes: CustomRecordType[];
 }
 
-export function AccessControlConfigTab({ installationId }: Props) {
+export function AccessControlConfigTab({ installationId, apiBase }: Props) {
+  const api = apiBase ?? ADMIN_API;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [expandedType, setExpandedType] = useState<AccessRecordType | null>(null);
@@ -83,6 +110,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
     formConfig: {},
     recordTypeLabels: {},
     recordTypeIcons: {},
+    recordTypeScanModes: {},
     customRecordTypes: [],
   });
 
@@ -91,7 +119,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
   const [creatingType, setCreatingType] = useState(false);
   const [newTypeLabel, setNewTypeLabel] = useState("");
   const [newTypeIcon, setNewTypeIcon] = useState("UserPlus");
-  const [newTypeScan, setNewTypeScan] = useState<ScanMode>("rut");
+  const [newTypeScanModes, setNewTypeScanModes] = useState<ScanMode[]>(["rut"]);
 
   // Inline label editing for record types: stores the type whose label is
   // being edited, and the draft text. null means "not editing".
@@ -102,7 +130,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
 
   const fetchConfig = useCallback(async () => {
     try {
-      const res = await fetch(`/api/access-control/config/${installationId}`);
+      const res = await fetch(api.config(installationId));
       const json = await res.json();
       if (json.success && json.data) {
         setConfig({
@@ -117,6 +145,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
           formConfig: json.data.formConfig || {},
           recordTypeLabels: json.data.recordTypeLabels || {},
           recordTypeIcons: json.data.recordTypeIcons || {},
+          recordTypeScanModes: json.data.recordTypeScanModes || {},
           customRecordTypes: json.data.customRecordTypes || [],
         });
       }
@@ -125,7 +154,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [installationId]);
+  }, [installationId, api]);
 
   useEffect(() => {
     fetchConfig();
@@ -134,9 +163,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
   const fetchRecipients = useCallback(async () => {
     setRecipientsLoading(true);
     try {
-      const res = await fetch(
-        `/api/access-control/config/${installationId}/recipients`
-      );
+      const res = await fetch(api.configRecipients(installationId));
       const json = await res.json();
       if (json.success) setRecipients(json.data);
     } catch {
@@ -144,7 +171,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
     } finally {
       setRecipientsLoading(false);
     }
-  }, [installationId]);
+  }, [installationId, api]);
 
   useEffect(() => {
     if (config.autoReportSchedule) {
@@ -160,14 +187,11 @@ export function AccessControlConfigTab({ installationId }: Props) {
       )
     );
     try {
-      const res = await fetch(
-        `/api/access-control/config/${installationId}/recipients`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contactId: r.contactId, isRecipient: newValue }),
-        }
-      );
+      const res = await fetch(api.configRecipients(installationId), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId: r.contactId, isRecipient: newValue }),
+      });
       const json = await res.json();
       if (!json.success) {
         toast.error(json.error || "Error al actualizar destinatario");
@@ -182,14 +206,11 @@ export function AccessControlConfigTab({ installationId }: Props) {
   const handleSendTest = async () => {
     setSendingTest(true);
     try {
-      const res = await fetch(
-        `/api/access-control/config/${installationId}/test-report`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
-        }
-      );
+      const res = await fetch(api.configTestReport(installationId), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
       const json = await res.json();
       if (json.success) {
         toast.success(`Reporte enviado a ${json.sentTo.length} destinatario(s)`);
@@ -212,7 +233,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
       // exist on AccessControlConfig.
       const { customRecordTypes: _ignored, ...rest } = config;
       void _ignored;
-      const res = await fetch(`/api/access-control/config/${installationId}`, {
+      const res = await fetch(api.config(installationId), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(rest),
@@ -223,11 +244,11 @@ export function AccessControlConfigTab({ installationId }: Props) {
         return;
       }
 
-      // Persist edits to custom types (label/icon/defaultFields) and the
-      // current form fields, which the user edits inline. Done in
+      // Persist edits to custom types (label/icon/defaultFields/scanModes) and
+      // the current form fields, which the user edits inline. Done in
       // parallel; failures are reported but don't undo the main save.
       const customSaves = config.customRecordTypes.map((c) =>
-        fetch(`/api/access-control/record-types/${installationId}`, {
+        fetch(api.recordTypes(installationId), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -235,6 +256,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
             label: c.label,
             icon: c.icon,
             defaultFields: c.defaultFields,
+            scanModes: c.scanModes,
             orderIdx: c.orderIdx,
           }),
         }).then((r) => r.json()),
@@ -257,7 +279,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
     const previous = config.autoReportSchedule;
     setConfig((p) => ({ ...p, autoReportSchedule: next }));
     try {
-      const res = await fetch(`/api/access-control/config/${installationId}`, {
+      const res = await fetch(api.config(installationId), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ autoReportSchedule: next }),
@@ -377,6 +399,45 @@ export function AccessControlConfigTab({ installationId }: Props) {
     setEditingLabelDraft("");
   };
 
+  /** Toggle one of the supported scan modes for a record type. Validates
+   *  that at least one mode (rut or plate) remains enabled. "none" is
+   *  managed separately — it represents "no scanning, manual form only". */
+  const toggleScanModeForType = (type: AccessRecordType, mode: "rut" | "plate") => {
+    setConfig((prev) => {
+      const current = getRecordTypeScanModes(type, prev).filter((m) => m !== "none");
+      const isOn = current.includes(mode);
+      const next: ScanMode[] = isOn ? current.filter((m) => m !== mode) : [...current, mode];
+
+      if (next.length === 0) {
+        toast.error(
+          'Debe estar habilitado al menos un método (cédula o patente, o eliminar el tipo si no aplica).',
+        );
+        return prev;
+      }
+
+      // Custom types: store on the row (will be persisted with saveConfig).
+      if (!isDefaultRecordType(type)) {
+        return {
+          ...prev,
+          customRecordTypes: prev.customRecordTypes.map((c) =>
+            c.key === type ? { ...c, scanModes: next, scanMode: next[0] } : c,
+          ),
+        };
+      }
+      // Default types: store override map on the config.
+      const fallback: ScanMode[] = type === "vehicle" ? ["plate"] : ["rut"];
+      const sameAsDefault =
+        next.length === fallback.length && next.every((m) => fallback.includes(m));
+      const nextOverrides = { ...prev.recordTypeScanModes };
+      if (sameAsDefault) {
+        delete nextOverrides[type];
+      } else {
+        nextOverrides[type] = next;
+      }
+      return { ...prev, recordTypeScanModes: nextOverrides };
+    });
+  };
+
   const setRecordTypeIcon = (type: AccessRecordType, iconName: string) => {
     setConfig((prev) => {
       // Custom types store their icon directly on the row.
@@ -412,18 +473,18 @@ export function AccessControlConfigTab({ installationId }: Props) {
     }
     setCreatingType(true);
     try {
-      // Seed fields come from the chosen scan mode. The admin can edit /
-      // reorder / remove these immediately via the same UI used for the
-      // built-in types.
-      const seedFields: FormFieldConfig[] = SEED_FIELDS_BY_SCAN_MODE[newTypeScan];
-      const res = await fetch(`/api/access-control/record-types/${installationId}`, {
+      // Seed fields combine the selected scan modes (e.g. rut+plate dedups
+      // common fields). The admin can edit / reorder / remove these
+      // immediately via the same UI used for the built-in types.
+      const seedFields: FormFieldConfig[] = seedFieldsForScanModes(newTypeScanModes);
+      const res = await fetch(api.recordTypes(installationId), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           label: trimmed,
           icon: newTypeIcon,
           defaultFields: seedFields,
-          scanMode: newTypeScan,
+          scanModes: newTypeScanModes,
         }),
       });
       const json = await res.json();
@@ -443,7 +504,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
       }));
       setNewTypeLabel("");
       setNewTypeIcon("UserPlus");
-      setNewTypeScan("rut");
+      setNewTypeScanModes(["rut"]);
       setShowCreateTypeModal(false);
       toast.success("Tipo creado");
     } catch {
@@ -460,7 +521,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
       return;
     }
     try {
-      const res = await fetch(`/api/access-control/record-types/${installationId}`, {
+      const res = await fetch(api.recordTypes(installationId), {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: type.id }),
@@ -804,7 +865,11 @@ export function AccessControlConfigTab({ installationId }: Props) {
                     </div>
 
                     {!isEditingLabel && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-2">
+                        <ScanModeChips
+                          modes={getRecordTypeScanModes(type, config)}
+                          onToggle={(mode) => toggleScanModeForType(type, mode)}
+                        />
                         {!isDefaultRecordType(type) && (
                           <button
                             type="button"
@@ -942,24 +1007,38 @@ export function AccessControlConfigTab({ installationId }: Props) {
 
               <div>
                 <Label className="text-xs text-zinc-400 mb-1.5 block">¿Cómo inicia el registro?</Label>
+                <p className="text-xs text-zinc-500 mb-2">
+                  Puedes habilitar varios métodos. El guardia elegirá cuál usar al momento.
+                </p>
                 <div className="grid grid-cols-3 gap-2">
                   {([
-                    { mode: "plate", label: "Patente", Icon: Car, hint: "Escanea patente" },
-                    { mode: "rut", label: "RUT", Icon: UserIcon, hint: "Escanea cédula" },
-                    { mode: "none", label: "Manual", Icon: Hand, hint: "Sin scanner" },
-                  ] as const).map(({ mode, label, Icon, hint }) => {
-                    const isSelected = newTypeScan === mode;
+                    { mode: "rut", label: "Cédula/RUT", Icon: UserIcon },
+                    { mode: "plate", label: "Patente", Icon: Car },
+                    { mode: "none", label: "Manual", Icon: Hand },
+                  ] as const).map(({ mode, label, Icon }) => {
+                    const isManual = mode === "none";
+                    const isSelected = isManual
+                      ? newTypeScanModes.length === 1 && newTypeScanModes[0] === "none"
+                      : newTypeScanModes.includes(mode);
                     return (
                       <button
                         key={mode}
                         type="button"
-                        onClick={() => setNewTypeScan(mode)}
+                        onClick={() => {
+                          setNewTypeScanModes((prev) => {
+                            if (isManual) return ["none"];
+                            const withoutNone = prev.filter((m) => m !== "none");
+                            const next = withoutNone.includes(mode)
+                              ? withoutNone.filter((m) => m !== mode)
+                              : [...withoutNone, mode];
+                            return next.length === 0 ? ["none"] : next;
+                          });
+                        }}
                         className={`flex flex-col items-center gap-1 rounded-md border p-2 transition-colors ${
                           isSelected
                             ? "border-status-info-border bg-status-info-soft text-status-info-fg"
                             : "border-zinc-700 bg-zinc-800 text-zinc-300 hover:border-zinc-600"
                         }`}
-                        title={hint}
                       >
                         <Icon className="h-5 w-5" />
                         <span className="text-xs font-medium">{label}</span>
@@ -999,7 +1078,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
                   Campos iniciales (puedes editarlos después):
                 </p>
                 <ul className="text-xs text-zinc-300 space-y-0.5">
-                  {SEED_FIELDS_BY_SCAN_MODE[newTypeScan].map((f) => (
+                  {seedFieldsForScanModes(newTypeScanModes).map((f) => (
                     <li key={f.field} className="flex items-center gap-1.5">
                       <span className="text-zinc-500">•</span>
                       <span>{f.label}</span>
@@ -1125,6 +1204,60 @@ function SortableFieldRow({
       >
         <Trash2 className="h-4 w-4" />
       </button>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Scan-mode toggles shown in the header of each enabled record type.
+// Compact chips with a tooltip; clicking flips the mode. The parent
+// validates that at least one mode (rut or plate) remains active.
+// "none" is intentionally not toggleable here — it's set when the
+// type is created via the modal.
+// ═══════════════════════════════════════════════════════════════
+
+interface ScanModeChipsProps {
+  modes: ScanMode[];
+  onToggle: (mode: "rut" | "plate") => void;
+}
+
+function ScanModeChips({ modes, onToggle }: ScanModeChipsProps) {
+  const isManualOnly = modes.length === 1 && modes[0] === "none";
+  if (isManualOnly) {
+    return (
+      <Badge variant="outline" className="border-zinc-700 text-zinc-500 text-[10px]">
+        Manual
+      </Badge>
+    );
+  }
+
+  const chip = (
+    mode: "rut" | "plate",
+    label: string,
+    Icon: typeof Car,
+  ) => {
+    const active = modes.includes(mode);
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onToggle(mode); }}
+        title={active ? `${label} habilitado` : `Habilitar ${label}`}
+        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${
+          active
+            ? "border-status-info-border bg-status-info-soft text-status-info-fg"
+            : "border-zinc-700 bg-zinc-800 text-zinc-500 hover:text-zinc-300"
+        }`}
+      >
+        <Icon className="h-3 w-3" />
+        {label}
+      </button>
+    );
+  };
+
+  return (
+    <div className="flex items-center gap-1">
+      {chip("rut", "Cédula", UserIcon)}
+      {chip("plate", "Patente", Car)}
     </div>
   );
 }

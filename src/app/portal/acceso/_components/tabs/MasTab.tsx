@@ -18,6 +18,7 @@ import EsperadosHoySection from "./EsperadosHoySection";
 import HistorialSection from "./HistorialSection";
 import ListasControlSection from "./ListasControlSection";
 import ResumenTurnoSection from "./ResumenTurnoSection";
+import { authFetch } from "../../_lib/authFetch";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -111,8 +112,10 @@ export default function MasTab({
   useEffect(() => {
     async function fetchCount() {
       try {
-        const res = await fetch(
-          `/api/access-control/preregistrations/${installationId}/today`
+        const res = await authFetch(
+          `/api/access-control/preregistrations/${installationId}/today`,
+          undefined,
+          deviceToken,
         );
         const json = await res.json();
         if (json.success) {
@@ -126,7 +129,7 @@ export default function MasTab({
       }
     }
     fetchCount();
-  }, [installationId]);
+  }, [installationId, deviceToken]);
 
   const pairedDate = pairedAt
     ? new Date(pairedAt).toLocaleDateString("es-CL", {
@@ -149,7 +152,7 @@ export default function MasTab({
           <ArrowLeft className="h-4 w-4" />
           Volver
         </button>
-        <EsperadosHoySection installationId={installationId} />
+        <EsperadosHoySection installationId={installationId} deviceToken={deviceToken} />
       </div>
     );
   }
@@ -165,7 +168,7 @@ export default function MasTab({
           <ArrowLeft className="h-4 w-4" />
           Volver
         </button>
-        <HistorialSection installationId={installationId} />
+        <HistorialSection installationId={installationId} deviceToken={deviceToken} />
       </div>
     );
   }
@@ -181,7 +184,7 @@ export default function MasTab({
           <ArrowLeft className="h-4 w-4" />
           Volver
         </button>
-        <ListasControlSection installationId={installationId} />
+        <ListasControlSection installationId={installationId} deviceToken={deviceToken} />
       </div>
     );
   }
@@ -201,6 +204,7 @@ export default function MasTab({
           installationId={installationId}
           guardId={guardId}
           guardName={guardName}
+          deviceToken={deviceToken}
         />
       </div>
     );

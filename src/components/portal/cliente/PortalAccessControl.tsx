@@ -1,14 +1,15 @@
 "use client";
 
 import React, { useState } from "react";
-import { ShieldCheck, Eye, History, CalendarClock, Shield } from "lucide-react";
+import { ShieldCheck, Eye, History, CalendarClock, Shield, Settings } from "lucide-react";
 import { OpaiBadge } from "./OpaiBadge";
 import { ClientAccessControlLive } from "@/components/access-control/ClientAccessControlLive";
 import { ClientAccessControlHistory } from "@/components/access-control/ClientAccessControlHistory";
 import { ClientPreregistration } from "@/components/access-control/ClientPreregistration";
 import { ClientWhitelistManager } from "@/components/access-control/ClientWhitelistManager";
+import { AccessControlConfigTab, CLIENTE_API } from "@/components/access-control/AccessControlConfigTab";
 
-type ACTab = "live" | "history" | "preregister" | "whitelist";
+type ACTab = "live" | "history" | "preregister" | "whitelist" | "config";
 
 interface Props {
   session: {
@@ -90,6 +91,7 @@ export function PortalAccessControl({ session, selectedInstallation, isProspect 
     { key: "history" as ACTab, label: "Historial", icon: History },
     { key: "preregister" as ACTab, label: "Pre-registro", icon: CalendarClock },
     { key: "whitelist" as ACTab, label: "Autorizados", icon: Shield },
+    { key: "config" as ACTab, label: "Configuración", icon: Settings },
   ];
 
   return (
@@ -136,6 +138,12 @@ export function PortalAccessControl({ session, selectedInstallation, isProspect 
         <ClientWhitelistManager
           installationId={selectedInstallation}
           createdBy={session.contactId}
+        />
+      )}
+      {activeTab === "config" && (
+        <AccessControlConfigTab
+          installationId={selectedInstallation}
+          apiBase={CLIENTE_API}
         />
       )}
     </div>

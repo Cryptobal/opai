@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAccessControlAuth } from "@/lib/access-control/auth";
+import { validateRut, cleanRut, cleanPlate } from "@/lib/access-control/utils";
 
 export async function PUT(
   request: NextRequest,
@@ -24,9 +25,50 @@ export async function PUT(
 
     const body = await request.json();
 
+    const rutUpdate: { rut?: string | null } = {};
+    if (body.rut !== undefined) {
+      if (body.rut === null || body.rut === "") {
+        rutUpdate.rut = null;
+      } else if (!validateRut(body.rut)) {
+        return NextResponse.json(
+          { success: false, error: "RUT inválido" },
+          { status: 400 }
+        );
+      } else {
+        rutUpdate.rut = cleanRut(body.rut);
+      }
+    }
+
+    const plateUpdate: { vehiclePlate?: string | null } = {};
+    if (body.vehiclePlate !== undefined) {
+      const trimmed = typeof body.vehiclePlate === "string" ? body.vehiclePlate.trim() : "";
+      plateUpdate.vehiclePlate = trimmed.length > 0 ? cleanPlate(trimmed) : null;
+    }
+
+    if (Object.keys(rutUpdate).length > 0 || Object.keys(plateUpdate).length > 0) {
+      const finalRut = "rut" in rutUpdate ? rutUpdate.rut : undefined;
+      const finalPlate = "vehiclePlate" in plateUpdate ? plateUpdate.vehiclePlate : undefined;
+
+      // Check the resulting state would still satisfy the constraint
+      const existingFull = await prisma.accessControlList.findUnique({
+        where: { id },
+        select: { rut: true, vehiclePlate: true },
+      });
+      const resultingRut = finalRut === undefined ? existingFull?.rut : finalRut;
+      const resultingPlate = finalPlate === undefined ? existingFull?.vehiclePlate : finalPlate;
+      if (!resultingRut && !resultingPlate) {
+        return NextResponse.json(
+          { success: false, error: "Debe especificar al menos RUT o patente" },
+          { status: 400 }
+        );
+      }
+    }
+
     const entry = await prisma.accessControlList.update({
       where: { id },
       data: {
+        ...rutUpdate,
+        ...plateUpdate,
         fullName: body.fullName,
         company: body.company,
         blockReason: body.blockReason,

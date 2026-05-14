@@ -8764,6 +8764,7 @@ model AccessControlConfig {
   formConfig           Json      @default("{}") @map("form_config") @db.JsonB
   recordTypeLabels     Json      @default("{}") @map("record_type_labels") @db.JsonB
   recordTypeIcons      Json      @default("{}") @map("record_type_icons") @db.JsonB
+  recordTypeScanModes  Json      @default("{}") @map("record_type_scan_modes") @db.JsonB
   createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -8782,7 +8783,8 @@ model AccessControlRecordType {
   label          String
   icon           String   @default("UserPlus")
   defaultFields  Json     @default("[]") @map("default_fields") @db.JsonB
-  scanMode       String   @default("none") @map("scan_mode")
+  scanMode       String   @default("none") @map("scan_mode") /// DEPRECATED — usar scanModes
+  scanModes      String[] @default([]) @map("scan_modes")
   orderIdx       Int      @default(0) @map("order_idx")
   isActive       Boolean  @default(true) @map("is_active")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -8821,7 +8823,8 @@ model AccessControlList {
   tenantId        String    @map("tenant_id")
   installationId  String?   @map("installation_id") @db.Uuid
   listType        String    @map("list_type") // 'whitelist' | 'blacklist'
-  rut             String
+  rut             String?
+  vehiclePlate    String?   @map("vehicle_plate")
   fullName        String    @map("full_name")
   company         String?
   blockReason     String?   @map("block_reason")
@@ -8843,6 +8846,7 @@ model AccessControlList {
   deniedAttempts AccessControlDeniedAttempt[]
 
   @@index([rut], map: "idx_ac_lists_rut")
+  @@index([vehiclePlate], map: "idx_ac_lists_plate")
   @@index([installationId, listType], map: "idx_ac_lists_installation_type")
   @@index([scope], map: "idx_ac_lists_scope")
   @@index([tenantId], map: "idx_ac_lists_tenant")

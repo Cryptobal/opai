@@ -27,7 +27,7 @@ export async function GET(
     const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 200);
     const offset = (page - 1) * limit;
 
-    const where: Record<string, unknown> = { installationId };
+    const where: Record<string, unknown> = { tenantId: authCtx.tenantId, installationId };
 
     if (status === "in_site") {
       where.exitAt = null;
