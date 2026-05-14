@@ -564,14 +564,16 @@ export function ProveedoresClient({ suppliers, accounts, canManage }: Props) {
                 <div className="space-y-1.5">
                   <Label>Cuenta por pagar</Label>
                   <Select
-                    value={form.accountPayableId}
-                    onValueChange={(v) => setField("accountPayableId", v)}
+                    value={form.accountPayableId || "__none__"}
+                    onValueChange={(v) =>
+                      setField("accountPayableId", v === "__none__" ? "" : v)
+                    }
                   >
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Seleccionar..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Sin asignar</SelectItem>
+                      <SelectItem value="__none__">Sin asignar</SelectItem>
                       {accounts
                         .filter((a) => a.type === "LIABILITY")
                         .map((a) => (
@@ -585,14 +587,16 @@ export function ProveedoresClient({ suppliers, accounts, canManage }: Props) {
                 <div className="space-y-1.5">
                   <Label>Cuenta de gasto</Label>
                   <Select
-                    value={form.accountExpenseId}
-                    onValueChange={(v) => setField("accountExpenseId", v)}
+                    value={form.accountExpenseId || "__none__"}
+                    onValueChange={(v) =>
+                      setField("accountExpenseId", v === "__none__" ? "" : v)
+                    }
                   >
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Seleccionar..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Sin asignar</SelectItem>
+                      <SelectItem value="__none__">Sin asignar</SelectItem>
                       {accounts
                         .filter((a) => a.type === "EXPENSE" || a.type === "COST")
                         .map((a) => (
