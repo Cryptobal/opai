@@ -62,6 +62,7 @@ interface Category {
   color: string | null;
   isActive: boolean;
   isSystem: boolean;
+  isTaxExempt: boolean;
 }
 
 interface Props {
@@ -227,6 +228,15 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isActive: !c.isActive }),
+    });
+    if ((await r.json())?.success) reloadCategories();
+  }
+
+  async function toggleCategoryTaxExempt(c: Category) {
+    const r = await fetch(`/api/finance/cashflow/categorias/${c.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isTaxExempt: !c.isTaxExempt }),
     });
     if ((await r.json())?.success) reloadCategories();
   }
@@ -617,6 +627,14 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">
+                  <label className="flex items-center gap-1.5 text-[11px] text-ds-text-3">
+                    IVA
+                    <Switch
+                      checked={!c.isTaxExempt}
+                      onCheckedChange={() => toggleCategoryTaxExempt(c)}
+                      aria-label="Afecto a IVA"
+                    />
+                  </label>
                   <Switch checked={c.isActive} onCheckedChange={() => toggleCategoryActive(c)} />
                   {!c.isSystem && (
                     <button
@@ -644,6 +662,12 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
                 <th className="text-left p-2">Tipo</th>
                 <th className="text-left p-2">Cuentas contables</th>
                 <th className="text-center p-2">Sistema</th>
+                <th
+                  className="text-center p-2"
+                  title="Si está OFF, la proyección multiplica el monto por 1.19 (IVA)"
+                >
+                  Afecto IVA
+                </th>
                 <th className="text-center p-2">Activa</th>
                 <th className="p-2">Acciones</th>
               </tr>
@@ -657,7 +681,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
                   categoryName={c.name}
                   categoryKind={c.kind}
                   canManage={true}
-                  colSpan={7}
+                  colSpan={8}
                   header={
                     <>
                       <td className="p-2 font-mono text-ds-text-3">{c.code}</td>
@@ -678,6 +702,13 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
                         ) : (
                           "—"
                         )}
+                      </td>
+                      <td className="p-2 text-center">
+                        <Switch
+                          checked={!c.isTaxExempt}
+                          onCheckedChange={() => toggleCategoryTaxExempt(c)}
+                          aria-label="Afecto a IVA"
+                        />
                       </td>
                       <td className="p-2 text-center">
                         <Switch checked={c.isActive} onCheckedChange={() => toggleCategoryActive(c)} />

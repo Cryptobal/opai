@@ -119,6 +119,9 @@ export interface ProjectionRowItemValue {
   cellStatus?: CashflowCellStatus;
   /** dteId vinculado, si existe — para deep-link al DTE. */
   dteId?: string | null;
+  /** Folio del DTE vinculado, si existe. Usado en el tooltip de la celda
+   *  para mostrar "Factura N° {folio}" al hacer hover. */
+  dteFolio?: number | null;
   /** Días de mora si INVOICED + overdue (positivos), 0 si al día. */
   daysOverdue?: number;
 }

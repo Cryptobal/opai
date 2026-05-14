@@ -7733,6 +7733,13 @@ model FinanceCashflowCategory {
   accountPlan   FinanceAccountPlan?     @relation(fields: [accountPlanId], references: [id])
   isActive      Boolean                 @default(true) @map("is_active")
   isSystem      Boolean                 @default(false) @map("is_system")
+  /// Categoría exenta de IVA. El flujo de caja muestra valores BRUTOS (con
+  /// IVA incluido) porque representa movimiento bancario real. Los items
+  /// se almacenan en NETO (compatible con contabilidad), y la proyección
+  /// multiplica por 1.19 a menos que la categoría sea exenta. Default:
+  /// false (afecto). Ejemplos exentos: sueldos líquidos, cotizaciones
+  /// previsionales, IVA F29, retiros de socios, ajustes manuales.
+  isTaxExempt   Boolean                 @default(false) @map("is_tax_exempt")
   createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
 

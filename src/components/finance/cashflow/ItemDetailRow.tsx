@@ -222,6 +222,7 @@ export function ItemDetailRow({
               kind={kind}
               cellStatus={v.cellStatus}
               daysOverdue={v.daysOverdue}
+              dteFolio={v.dteFolio ?? null}
             />
           </span>
         );

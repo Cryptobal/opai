@@ -8,26 +8,28 @@ export const SYSTEM_CATEGORIES: Array<{
   kind: FinanceCashflowItemKind;
   sortOrder: number;
   color: string;
+  /** Si true, la proyección NO aplica IVA (×1.19). Default false (afecto). */
+  isTaxExempt: boolean;
 }> = [
   // Ingresos
-  { code: "ING_VENTA_CONTRATO", name: "Ventas por contrato", kind: "INCOME", sortOrder: 10, color: "#10B981" },
-  { code: "ING_OTRO", name: "Otros ingresos", kind: "INCOME", sortOrder: 90, color: "#86EFAC" },
-  // Egresos operativos
-  { code: "EGR_SUELDO", name: "Sueldos líquidos", kind: "EXPENSE", sortOrder: 110, color: "#EF4444" },
-  { code: "EGR_QUINCENA", name: "Quincenas / anticipos", kind: "EXPENSE", sortOrder: 115, color: "#F87171" },
-  { code: "EGR_PREVIRED", name: "Previred (cotizaciones)", kind: "EXPENSE", sortOrder: 120, color: "#DC2626" },
-  { code: "EGR_TURNO_EXTRA", name: "Pago turnos extra", kind: "EXPENSE", sortOrder: 130, color: "#F97316" },
+  { code: "ING_VENTA_CONTRATO", name: "Ventas por contrato", kind: "INCOME", sortOrder: 10, color: "#10B981", isTaxExempt: false },
+  { code: "ING_OTRO", name: "Otros ingresos", kind: "INCOME", sortOrder: 90, color: "#86EFAC", isTaxExempt: false },
+  // Egresos operativos — sueldos/cotizaciones ya son valor de caja, no llevan IVA
+  { code: "EGR_SUELDO", name: "Sueldos líquidos", kind: "EXPENSE", sortOrder: 110, color: "#EF4444", isTaxExempt: true },
+  { code: "EGR_QUINCENA", name: "Quincenas / anticipos", kind: "EXPENSE", sortOrder: 115, color: "#F87171", isTaxExempt: true },
+  { code: "EGR_PREVIRED", name: "Previred (cotizaciones)", kind: "EXPENSE", sortOrder: 120, color: "#DC2626", isTaxExempt: true },
+  { code: "EGR_TURNO_EXTRA", name: "Pago turnos extra", kind: "EXPENSE", sortOrder: 130, color: "#F97316", isTaxExempt: true },
   // Egresos administrativos
-  { code: "EGR_TELEFONIA", name: "Telefonía", kind: "EXPENSE", sortOrder: 200, color: "#8B5CF6" },
-  { code: "EGR_ARRIENDO", name: "Arriendos", kind: "EXPENSE", sortOrder: 210, color: "#A78BFA" },
-  { code: "EGR_SERVICIOS", name: "Servicios básicos", kind: "EXPENSE", sortOrder: 220, color: "#C4B5FD" },
-  { code: "EGR_PROVEEDOR", name: "Proveedores varios", kind: "EXPENSE", sortOrder: 230, color: "#6366F1" },
-  // Tributarios
-  { code: "EGR_IVA_F29", name: "IVA F29", kind: "EXPENSE", sortOrder: 300, color: "#F59E0B" },
-  { code: "EGR_IMPUESTO", name: "Otros impuestos", kind: "EXPENSE", sortOrder: 310, color: "#FBBF24" },
-  // Financieros / socios
-  { code: "EGR_RETIRO_SOCIO", name: "Retiros socios / dividendos", kind: "EXPENSE", sortOrder: 400, color: "#0EA5E9" },
-  { code: "EGR_OTRO", name: "Otros egresos", kind: "EXPENSE", sortOrder: 990, color: "#94A3B8" },
+  { code: "EGR_TELEFONIA", name: "Telefonía", kind: "EXPENSE", sortOrder: 200, color: "#8B5CF6", isTaxExempt: false },
+  { code: "EGR_ARRIENDO", name: "Arriendos", kind: "EXPENSE", sortOrder: 210, color: "#A78BFA", isTaxExempt: false },
+  { code: "EGR_SERVICIOS", name: "Servicios básicos", kind: "EXPENSE", sortOrder: 220, color: "#C4B5FD", isTaxExempt: false },
+  { code: "EGR_PROVEEDOR", name: "Proveedores varios", kind: "EXPENSE", sortOrder: 230, color: "#6366F1", isTaxExempt: false },
+  // Tributarios — el pago de impuestos ya es valor de caja directo
+  { code: "EGR_IVA_F29", name: "IVA F29", kind: "EXPENSE", sortOrder: 300, color: "#F59E0B", isTaxExempt: true },
+  { code: "EGR_IMPUESTO", name: "Otros impuestos", kind: "EXPENSE", sortOrder: 310, color: "#FBBF24", isTaxExempt: true },
+  // Financieros / socios — retiros y ajustes manuales no llevan IVA
+  { code: "EGR_RETIRO_SOCIO", name: "Retiros socios / dividendos", kind: "EXPENSE", sortOrder: 400, color: "#0EA5E9", isTaxExempt: true },
+  { code: "EGR_OTRO", name: "Otros egresos", kind: "EXPENSE", sortOrder: 990, color: "#94A3B8", isTaxExempt: false },
 ];
 
 export async function seedSystemCategoriesForTenant(tenantId: string): Promise<void> {
@@ -40,6 +42,8 @@ export async function seedSystemCategoriesForTenant(tenantId: string): Promise<v
   for (const c of SYSTEM_CATEGORIES) {
     const cat = await prisma.financeCashflowCategory.upsert({
       where: { tenantId_code: { tenantId, code: c.code } },
+      // No tocamos isTaxExempt en update: respetamos overrides del usuario
+      // que pudo marcar/desmarcar manualmente en /configuracion.
       update: { name: c.name, sortOrder: c.sortOrder, color: c.color, isSystem: true, kind: c.kind },
       create: { tenantId, ...c, isSystem: true, isActive: true },
     });
@@ -103,7 +107,14 @@ export async function createCategory(
 export async function updateCategory(
   tenantId: string,
   id: string,
-  patch: Partial<{ name: string; color: string; sortOrder: number; accountPlanId: string | null; isActive: boolean }>,
+  patch: Partial<{
+    name: string;
+    color: string;
+    sortOrder: number;
+    accountPlanId: string | null;
+    isActive: boolean;
+    isTaxExempt: boolean;
+  }>,
 ): Promise<FinanceCashflowCategory> {
   const existing = await prisma.financeCashflowCategory.findFirst({ where: { id, tenantId } });
   if (!existing) throw new Error("Categoría no encontrada");

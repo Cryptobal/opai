@@ -28,7 +28,17 @@ import {
   type BalanceTx,
 } from "./real-balance.helper";
 
-type CategoryLite = Pick<FinanceCashflowCategory, "id" | "code" | "name" | "kind" | "sortOrder">;
+type CategoryLite = Pick<
+  FinanceCashflowCategory,
+  "id" | "code" | "name" | "kind" | "sortOrder" | "isTaxExempt"
+>;
+
+/** Tasa de IVA Chile. El flujo de caja muestra montos BRUTOS porque
+ *  representa movimiento bancario; los items se guardan en NETO (consistente
+ *  con la contabilidad y los contratos firmados). Categorías marcadas como
+ *  `isTaxExempt=true` (sueldos, cotizaciones, impuestos, retiros, ajustes)
+ *  no aplican IVA porque sus montos ya son valor de caja directo. */
+const IVA_RATE = 0.19;
 
 interface DteStatusSlim {
   id: string;
@@ -594,6 +604,17 @@ export async function buildProjection(
         }
       }
       const cat = categoryMap.get(item.categoryId);
+      // IVA: el cashflow muestra valores BRUTOS porque proyecta movimiento
+      // bancario real. Los items en BD están en NETO (consistentes con
+      // contabilidad). Para categorías no exentas (ej: ventas por contrato,
+      // proveedores afectos, servicios) aplicamos ×1.19. Sueldos,
+      // cotizaciones, impuestos y retiros son exentos porque sus montos
+      // ya son valor de caja directo. Si el item ya tenía amountClp
+      // materializado, asumimos que fue calculado pre-IVA y lo brutéamos
+      // igual — la BD permanece en neto, solo el render sube a bruto.
+      if (cat && !cat.isTaxExempt) {
+        amountClp = amountClp * (1 + IVA_RATE);
+      }
       allOccurrences.push({
         id: mat?.id ?? null,
         itemId: item.id,
@@ -979,6 +1000,7 @@ export async function buildProjection(
     ),
   );
   const dteStatusById = new Map<string, DteStatusSlim>();
+  const dteFolioById = new Map<string, number | null>();
   const activeFactoringDteIds = new Set<string>();
   if (dteIds.length > 0) {
     const [dtes, factoringOps] = await Promise.all([
@@ -989,6 +1011,8 @@ export async function buildProjection(
           siiStatus: true,
           paymentStatus: true,
           dueDate: true,
+          folio: true,
+          dteType: true,
         },
       }),
       prisma.financeFactoringOperation.findMany({
@@ -1007,6 +1031,7 @@ export async function buildProjection(
         paymentStatus: d.paymentStatus,
         dueDate: d.dueDate,
       });
+      dteFolioById.set(d.id, d.folio ?? null);
     }
     for (const f of factoringOps) {
       if (f.dteId) activeFactoringDteIds.add(f.dteId);
@@ -1036,6 +1061,7 @@ export async function buildProjection(
     crmAccountNameById,
     cellStatusByDteId,
     headcountByInstallation,
+    dteFolioById,
   );
 
   const openingBreakdown = await resolveOpeningBalance(tenantId);
@@ -1209,6 +1235,7 @@ function buildRows(
     { status: CashflowCellStatus; daysOverdue: number; dteId: string | null }
   >,
   headcountByInstallation: Map<string, number>,
+  dteFolioById: Map<string, number | null>,
 ): ProjectionRow[] {
   const rows: ProjectionRow[] = [];
   for (const cat of categories) {
@@ -1260,6 +1287,7 @@ function buildRows(
             scheduledDate: "",
             cellStatus: "PROJECTED" as CashflowCellStatus,
             dteId: null,
+            dteFolio: null,
             daysOverdue: 0,
           })),
           total: 0,
@@ -1300,6 +1328,9 @@ function buildRows(
           if (CELL_STATUS_RANK[derived.status] > CELL_STATUS_RANK[current]) {
             cell.cellStatus = derived.status;
             cell.dteId = derived.dteId;
+            cell.dteFolio = derived.dteId
+              ? (dteFolioById.get(derived.dteId) ?? null)
+              : null;
             cell.daysOverdue = derived.daysOverdue;
           } else if (
             derived.status === "INVOICED" &&
@@ -1308,6 +1339,14 @@ function buildRows(
           ) {
             cell.daysOverdue = derived.daysOverdue;
           }
+        }
+        // Si aún no hay folio capturado y este DTE tiene uno conocido, lo
+        // exponemos para que el tooltip de la celda lo muestre aunque el
+        // cellStatus no haya cambiado (por ejemplo, DTE PAID cuya celda ya
+        // estaba marcada PAID por otra cuota).
+        if (!detail.values[bIdx].dteFolio) {
+          const folio = dteFolioById.get(o.dteId);
+          if (folio) detail.values[bIdx].dteFolio = folio;
         }
       }
     }

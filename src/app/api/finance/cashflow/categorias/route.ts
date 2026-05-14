@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
         color: c.color,
         isActive: c.isActive,
         isSystem: c.isSystem,
+        isTaxExempt: c.isTaxExempt,
         mappedAccountCount: c._count.accountMappings,
       })),
     });

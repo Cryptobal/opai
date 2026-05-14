@@ -1,6 +1,12 @@
 "use client";
 import { AlertCircle } from "lucide-react";
 import type { CashflowCellStatus } from "@/modules/finance/cashflow/types";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
 
@@ -28,6 +34,9 @@ const STATUS_TITLE: Record<Exclude<CashflowCellStatus, "PROJECTED">, string> = {
  * dot de 6px en la esquina superior derecha con el tono del estado. En
  * INVOICED + daysOverdue > 0 además aparece un ícono AlertCircle pequeño.
  *
+ * Al hover, un tooltip muestra el folio de la factura (si existe) junto al
+ * estado humano y días de mora cuando aplica.
+ *
  * Color de la varianza:
  *  - EXPENSE: positiva (sobregasto) = warn (amber); negativa (ahorro) = ok (verde).
  *  - INCOME: positiva (extra) = ok; negativa (faltante) = warn.
@@ -39,6 +48,7 @@ export function CellAmount({
   kind,
   cellStatus,
   daysOverdue,
+  dteFolio,
 }: {
   projected: number;
   actual: number | null;
@@ -46,20 +56,26 @@ export function CellAmount({
   kind: "INCOME" | "EXPENSE";
   cellStatus?: CashflowCellStatus;
   daysOverdue?: number;
+  dteFolio?: number | null;
 }) {
   const hasBadge = cellStatus && cellStatus !== "PROJECTED";
   const overdueWarn =
     cellStatus === "INVOICED" && (daysOverdue ?? 0) > 0;
 
+  const statusLabel = hasBadge
+    ? STATUS_TITLE[cellStatus as Exclude<CashflowCellStatus, "PROJECTED">]
+    : null;
+
+  const tooltipLines: string[] = [];
+  if (dteFolio) tooltipLines.push(`Factura N° ${dteFolio}`);
+  if (statusLabel) {
+    tooltipLines.push(
+      overdueWarn ? `${statusLabel} · ${daysOverdue}d de mora` : statusLabel,
+    );
+  }
+
   const dot = hasBadge ? (
-    <span
-      className="absolute -top-1 -right-1 inline-flex items-center gap-0.5"
-      title={
-        cellStatus === "INVOICED" && overdueWarn
-          ? `${STATUS_TITLE.INVOICED} · ${daysOverdue}d de mora`
-          : STATUS_TITLE[cellStatus as Exclude<CashflowCellStatus, "PROJECTED">]
-      }
-    >
+    <span className="absolute -top-1 -right-1 inline-flex items-center gap-0.5">
       {overdueWarn && (
         <AlertCircle
           className="h-3 w-3 text-status-warn-fg"
@@ -70,46 +86,62 @@ export function CellAmount({
         className={`h-1.5 w-1.5 rounded-full ${
           DOT_TONE[cellStatus as Exclude<CashflowCellStatus, "PROJECTED">]
         }`}
-        aria-label={STATUS_TITLE[cellStatus as Exclude<CashflowCellStatus, "PROJECTED">]}
+        aria-label={statusLabel ?? undefined}
       />
     </span>
   ) : null;
 
-  if (actual === null || variance === null) {
-    return (
+  const body =
+    actual === null || variance === null ? (
       <span className="relative inline-block">
         <span className="font-mono text-[12px]">
           {projected > 0 ? fmt.format(projected) : "—"}
         </span>
         {dot}
       </span>
-    );
-  }
-  if (variance === 0) {
-    return (
+    ) : variance === 0 ? (
       <span className="relative inline-block">
         <span className="font-mono text-[12px]">{fmt.format(actual)}</span>
         {dot}
       </span>
+    ) : (
+      <span className="relative inline-block">
+        <div className="leading-tight">
+          <div className="font-mono text-[12px] line-through opacity-50">
+            {fmt.format(projected)}
+          </div>
+          <div className="font-mono text-[12px] font-semibold">
+            {fmt.format(actual)}
+          </div>
+          <div
+            className={`font-mono text-[12px] ${
+              (kind === "EXPENSE" ? variance > 0 : variance < 0)
+                ? "text-status-warn-fg"
+                : "text-status-ok-fg"
+            }`}
+          >
+            {variance > 0 ? "+" : ""}
+            {fmt.format(variance)}
+          </div>
+        </div>
+        {dot}
+      </span>
     );
-  }
-  const isAdverse = kind === "EXPENSE" ? variance > 0 : variance < 0;
-  const tone = isAdverse ? "text-status-warn-fg" : "text-status-ok-fg";
+
+  if (tooltipLines.length === 0) return body;
+
   return (
-    <span className="relative inline-block">
-      <div className="leading-tight">
-        <div className="font-mono text-[12px] line-through opacity-50">
-          {fmt.format(projected)}
-        </div>
-        <div className="font-mono text-[12px] font-semibold">
-          {fmt.format(actual)}
-        </div>
-        <div className={`font-mono text-[12px] ${tone}`}>
-          {variance > 0 ? "+" : ""}
-          {fmt.format(variance)}
-        </div>
-      </div>
-      {dot}
-    </span>
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="cursor-help">{body}</span>
+        </TooltipTrigger>
+        <TooltipContent side="top" align="center">
+          {tooltipLines.map((l, i) => (
+            <div key={i}>{l}</div>
+          ))}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

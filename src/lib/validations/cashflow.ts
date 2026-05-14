@@ -39,6 +39,7 @@ export const updateCashflowCategorySchema = z.object({
   sortOrder: z.number().int().min(0).max(9999).optional(),
   accountPlanId: z.string().uuid().nullable().optional(),
   isActive: z.boolean().optional(),
+  isTaxExempt: z.boolean().optional(),
 });
 
 const recurrenceSchema = z.enum(["ONCE", "WEEKLY", "BIWEEKLY", "MONTHLY", "QUARTERLY", "YEARLY"]);

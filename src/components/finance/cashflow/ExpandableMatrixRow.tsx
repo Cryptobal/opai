@@ -30,24 +30,27 @@ const CELL_STATUS_RANK: Record<CashflowCellStatus, number> = {
 function aggregateRowStatus(
   row: ProjectionRow,
   bucketKey: string,
-): { cellStatus: CashflowCellStatus; daysOverdue: number } {
+): { cellStatus: CashflowCellStatus; daysOverdue: number; dteFolio: number | null } {
   let best: CashflowCellStatus = "PROJECTED";
   let maxOverdue = 0;
+  let bestFolio: number | null = null;
   for (const item of row.items) {
     const cell = item.values.find((v) => v.bucketKey === bucketKey);
     if (!cell?.cellStatus) continue;
     if (CELL_STATUS_RANK[cell.cellStatus] > CELL_STATUS_RANK[best]) {
       best = cell.cellStatus;
       maxOverdue = cell.daysOverdue ?? 0;
+      bestFolio = cell.dteFolio ?? null;
     } else if (
       cell.cellStatus === "INVOICED" &&
       best === "INVOICED" &&
       (cell.daysOverdue ?? 0) > maxOverdue
     ) {
       maxOverdue = cell.daysOverdue ?? 0;
+      if (!bestFolio && cell.dteFolio) bestFolio = cell.dteFolio;
     }
   }
-  return { cellStatus: best, daysOverdue: maxOverdue };
+  return { cellStatus: best, daysOverdue: maxOverdue, dteFolio: bestFolio };
 }
 
 const STORAGE_PREFIX = "cashflow.expanded.";
@@ -213,6 +216,7 @@ export function ExpandableMatrixRow({
                 kind={row.kind as "INCOME" | "EXPENSE"}
                 cellStatus={agg.cellStatus}
                 daysOverdue={agg.daysOverdue}
+                dteFolio={agg.dteFolio}
               />
             </div>
           );
