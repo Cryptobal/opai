@@ -122,6 +122,11 @@ export interface ProjectionRowItemValue {
   /** Folio del DTE vinculado, si existe. Usado en el tooltip de la celda
    *  para mostrar "Factura N° {folio}" al hacer hover. */
   dteFolio?: number | null;
+  /** Monto bruto (totalAmount) del DTE vinculado en CLP. Sirve como
+   *  fuente del botón "Igualar a factura" en el popover de la celda:
+   *  el bruto es lo que debe quedar en la línea, y el costo de
+   *  factoring (si lo hay) vive en su propia categoría sin duplicarse. */
+  dteGrossAmount?: number | null;
   /** Días de mora si INVOICED + overdue (positivos), 0 si al día. */
   daysOverdue?: number;
 }

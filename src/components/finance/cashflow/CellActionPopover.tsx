@@ -51,6 +51,12 @@ interface CellOccurrenceTarget {
   cellStatus?: CashflowCellStatus;
   /** DTE vinculado a esta celda (presente cuando hay vínculo). */
   dteId?: string | null;
+  /** Folio del DTE vinculado — usado en el botón "Igualar a factura #X". */
+  dteFolio?: number | null;
+  /** Monto bruto (totalAmount) del DTE en CLP — fuente del botón
+   *  "Igualar a factura". Usamos el bruto, no el neto recibido en banco,
+   *  porque el costo de factoring vive en su propia categoría. */
+  dteGrossAmount?: number | null;
   /** Días de mora (positivo si vencido, 0 si al día). */
   daysOverdue?: number;
   /** Cliente CRM dueño del ítem — necesario para traer contactos en cobranza. */
@@ -294,6 +300,11 @@ export function CellActionPopover({
       setError("Monto inválido");
       return;
     }
+    await persistAmount(n);
+  }
+
+  async function persistAmount(n: number) {
+    if (!target) return;
     setBusy("amount");
     setError(null);
     setSuccess(null);
@@ -598,6 +609,37 @@ export function CellActionPopover({
             </div>
           ) : (
             <div className="space-y-3">
+              {/* "Igualar a factura": 1 clic para conciliar varianza usando el
+                  bruto del DTE vinculado (no el neto del banco). Si hay
+                  factoring asociado, el costo aterriza por su cuenta en su
+                  propia categoría — no se duplica desde acá. Aplica solo a
+                  esta semana; las siguientes siguen heredando la cuota
+                  contractual. */}
+              {target.dteGrossAmount != null &&
+                target.dteGrossAmount > 0 &&
+                target.dteGrossAmount !== target.amountClp && (
+                  <div className="space-y-1">
+                    <p className="text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-3 px-1">
+                      Conciliar con factura
+                    </p>
+                    <Button
+                      onClick={() => persistAmount(target.dteGrossAmount!)}
+                      disabled={busy !== null}
+                      className="w-full h-11 sm:h-10 text-[13px] justify-start"
+                    >
+                      {busy === "amount" ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                      )}
+                      <span className="truncate">
+                        Igualar a factura
+                        {target.dteFolio ? ` #${target.dteFolio}` : ""} ($
+                        {fmt.format(target.dteGrossAmount)})
+                      </span>
+                    </Button>
+                  </div>
+                )}
               <p className="text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-3 px-1">
                 Mover ocurrencia
               </p>

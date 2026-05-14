@@ -606,13 +606,15 @@ export async function buildProjection(
       const cat = categoryMap.get(item.categoryId);
       // IVA: el cashflow muestra valores BRUTOS porque proyecta movimiento
       // bancario real. Los items en BD están en NETO (consistentes con
-      // contabilidad). Para categorías no exentas (ej: ventas por contrato,
-      // proveedores afectos, servicios) aplicamos ×1.19. Sueldos,
-      // cotizaciones, impuestos y retiros son exentos porque sus montos
-      // ya son valor de caja directo. Si el item ya tenía amountClp
-      // materializado, asumimos que fue calculado pre-IVA y lo brutéamos
-      // igual — la BD permanece en neto, solo el render sube a bruto.
-      if (cat && !cat.isTaxExempt) {
+      // contabilidad). Para categorías no exentas aplicamos ×1.19.
+      // EXCEPCIÓN: cuando el usuario hizo un override manual (`amountOverride`)
+      // —vía "Editar monto" o "Igualar a factura"— el monto guardado ES el
+      // bruto que el usuario quiere ver. Si re-aplicáramos IVA acá, el cell
+      // quedaría a 1.19× lo que el usuario pidió. Por eso saltamos el IVA
+      // cuando hay override.
+      const hasManualOverride =
+        mat?.amountOverride !== null && mat?.amountOverride !== undefined;
+      if (cat && !cat.isTaxExempt && !hasManualOverride) {
         amountClp = amountClp * (1 + IVA_RATE);
       }
       allOccurrences.push({
@@ -628,9 +630,12 @@ export async function buildProjection(
         scheduledDate: d,
         effectiveDate: mat?.effectiveDate ?? null,
         amountClp,
-        amountOriginal: mat?.amountOverride !== null && mat?.amountOverride !== undefined
-          ? Number(mat.amountOverride)
-          : itemAmount,
+        // `amountOriginal` representa el monto BASE del contrato en su moneda
+        // original (UF para contratos UF, CLP para contratos CLP). Alimenta
+        // el header del row ("UF 76,91/mes" / "$5.600.000/mes"), por lo que
+        // NUNCA debe contener el override por celda (que vive en CLP). El
+        // override aplica solo a `amountClp` de la ocurrencia individual.
+        amountOriginal: itemAmount,
         currency: item.currency,
         ufValueUsed: ufValue,
         status: mat?.status ?? "PROJECTED",
@@ -1001,6 +1006,7 @@ export async function buildProjection(
   );
   const dteStatusById = new Map<string, DteStatusSlim>();
   const dteFolioById = new Map<string, number | null>();
+  const dteGrossById = new Map<string, number>();
   const activeFactoringDteIds = new Set<string>();
   if (dteIds.length > 0) {
     const [dtes, factoringOps] = await Promise.all([
@@ -1013,6 +1019,7 @@ export async function buildProjection(
           dueDate: true,
           folio: true,
           dteType: true,
+          totalAmount: true,
         },
       }),
       prisma.financeFactoringOperation.findMany({
@@ -1032,6 +1039,7 @@ export async function buildProjection(
         dueDate: d.dueDate,
       });
       dteFolioById.set(d.id, d.folio ?? null);
+      dteGrossById.set(d.id, Number(d.totalAmount));
     }
     for (const f of factoringOps) {
       if (f.dteId) activeFactoringDteIds.add(f.dteId);
@@ -1062,6 +1070,7 @@ export async function buildProjection(
     cellStatusByDteId,
     headcountByInstallation,
     dteFolioById,
+    dteGrossById,
   );
 
   const openingBreakdown = await resolveOpeningBalance(tenantId);
@@ -1236,6 +1245,7 @@ function buildRows(
   >,
   headcountByInstallation: Map<string, number>,
   dteFolioById: Map<string, number | null>,
+  dteGrossById: Map<string, number>,
 ): ProjectionRow[] {
   const rows: ProjectionRow[] = [];
   for (const cat of categories) {
@@ -1288,6 +1298,7 @@ function buildRows(
             cellStatus: "PROJECTED" as CashflowCellStatus,
             dteId: null,
             dteFolio: null,
+            dteGrossAmount: null,
             daysOverdue: 0,
           })),
           total: 0,
@@ -1331,6 +1342,9 @@ function buildRows(
             cell.dteFolio = derived.dteId
               ? (dteFolioById.get(derived.dteId) ?? null)
               : null;
+            cell.dteGrossAmount = derived.dteId
+              ? (dteGrossById.get(derived.dteId) ?? null)
+              : null;
             cell.daysOverdue = derived.daysOverdue;
           } else if (
             derived.status === "INVOICED" &&
@@ -1347,6 +1361,10 @@ function buildRows(
         if (!detail.values[bIdx].dteFolio) {
           const folio = dteFolioById.get(o.dteId);
           if (folio) detail.values[bIdx].dteFolio = folio;
+        }
+        if (!detail.values[bIdx].dteGrossAmount) {
+          const gross = dteGrossById.get(o.dteId);
+          if (gross) detail.values[bIdx].dteGrossAmount = gross;
         }
       }
     }
