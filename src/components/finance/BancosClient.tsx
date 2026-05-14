@@ -129,8 +129,8 @@ const TX_SUB_TABS: { id: TxSubTab; label: string }[] = [
 /* ── Constants ── */
 
 const TABS = [
-  { id: "transactions", label: "Movimientos", icon: ArrowLeftRight },
   { id: "cashflow", label: "Flujo de caja", icon: Wallet },
+  { id: "transactions", label: "Movimientos", icon: ArrowLeftRight },
   { id: "analysis", label: "Análisis", icon: BarChart3 },
   { id: "rules", label: "Reglas", icon: Settings2 },
   { id: "accounts", label: "Cuentas Bancarias", icon: Landmark },

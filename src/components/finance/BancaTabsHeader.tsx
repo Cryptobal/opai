@@ -18,8 +18,8 @@ import { cn } from "@/lib/utils";
  * recoge el query param y arranca con ese tab activo.
  */
 const TABS = [
-  { id: "transactions", label: "Movimientos", icon: ArrowLeftRight },
   { id: "cashflow", label: "Flujo de caja", icon: Wallet },
+  { id: "transactions", label: "Movimientos", icon: ArrowLeftRight },
   { id: "analysis", label: "Análisis", icon: BarChart3 },
   { id: "rules", label: "Reglas", icon: Settings2 },
   { id: "accounts", label: "Cuentas Bancarias", icon: Landmark },

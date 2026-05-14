@@ -11,7 +11,11 @@ import { Building2 } from "lucide-react";
 import { BancosClient } from "@/components/finance/BancosClient";
 import { tenantInboxEmail } from "@/modules/finance/banking/cartola-inbox";
 
-export default async function BancosPage() {
+export default async function BancosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; txId?: string }>;
+}) {
   const session = await auth();
   if (!session?.user) {
     redirect("/opai/login?callbackUrl=/finanzas/bancos");
@@ -26,6 +30,15 @@ export default async function BancosPage() {
   // las reciben por defecto y quedan fuera de esta página.
   if (!hasCapability(perms, "banking_view")) {
     redirect("/finanzas/rendiciones");
+  }
+
+  // Por preferencia del usuario (2026-05-14): la landing del módulo Banca es
+  // Flujo de Caja. Entradas con `?tab=...` (header strip de Banca) o
+  // `?txId=...` (deep-link desde DTE conciliado) siguen rindiendo /bancos
+  // para mostrar el sub-tab solicitado.
+  const sp = await searchParams;
+  if (!sp.tab && !sp.txId) {
+    redirect("/finanzas/flujo-caja");
   }
 
   const tenantId = session.user.tenantId;
