@@ -33,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Save, Trash2 } from "lucide-react";
+import { Check, Copy, ExternalLink, Loader2, Mail, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { BillingDocConfigForm } from "@/components/finance/billing-doc-config/BillingDocConfigForm";
 import { SignersManager } from "@/components/finance/billing-doc-config/SignersManager";
@@ -118,12 +118,17 @@ interface Props {
   initialConfig: Partial<ConfigData> | null;
   initialCertificate: CertData | null;
   initialCafs: CafData[];
+  /** Buzón inbound del tenant (ej. "dte-gard@inbound.opai.cl"). Calculado
+   *  server-side a partir del slug del tenant + env INBOUND_DOMAIN. NULL si
+   *  el tenant no tiene slug (caso edge, no debería pasar en prod). */
+  inboundDteEmail: string | null;
 }
 
 export function DteConfigClient({
   initialConfig,
   initialCertificate,
   initialCafs,
+  inboundDteEmail,
 }: Props) {
   const [config, setConfig] = useState<ConfigData>(() => ({
     ...DEFAULT_CONFIG,
@@ -181,6 +186,7 @@ export function DteConfigClient({
         <TabsTrigger value="folios">Folios (CAFs)</TabsTrigger>
         <TabsTrigger value="docCobro">Documento de Cobro</TabsTrigger>
         <TabsTrigger value="firmantes">Firmantes</TabsTrigger>
+        <TabsTrigger value="inbound">Buzón DTE</TabsTrigger>
       </TabsList>
 
       {/* ── Tab 1: Datos del Emisor ───────────────────────────────────── */}
@@ -660,7 +666,180 @@ export function DteConfigClient({
       <TabsContent value="firmantes" className="space-y-4">
         <SignersManager />
       </TabsContent>
+
+      {/* ── Tab 6: Buzón DTE (Inbound Email) ────────────────────────────
+          Muestra el correo donde el tenant recibe los XML de sus
+          proveedores. El webhook /api/webhook/inbound-email branchea por
+          prefijo `dte-` y parsea el XML adjunto para enriquecer el DTE
+          recibido con líneas. SimpleAPI RCV trae solo cabezales, así que
+          este flujo es el único que entrega detalle de productos. */}
+      <TabsContent value="inbound" className="space-y-4">
+        <InboundEmailCard email={inboundDteEmail} />
+      </TabsContent>
     </Tabs>
+  );
+}
+
+// ─── Tab "Buzón DTE": correo inbound del tenant ─────────────────────────────
+
+function InboundEmailCard({ email }: { email: string | null }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    if (!email) return;
+    try {
+      await navigator.clipboard.writeText(email);
+      setCopied(true);
+      toast.success("Correo copiado");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("No se pudo copiar al portapapeles");
+    }
+  }
+
+  if (!email) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-sm text-muted-foreground">
+            No hay buzón configurado: el tenant no tiene slug asignado.
+            Contactá a soporte para resolver esto.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="p-6 space-y-5">
+          <div className="flex items-start gap-3">
+            <div className="rounded-md border border-border p-2 shrink-0">
+              <Mail className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-medium">Buzón DTE de este tenant</h3>
+              <p className="text-sm text-muted-foreground">
+                Los XML de tus proveedores deben llegar a este correo.
+                OPAI los procesa automáticamente y enriquece el DTE
+                recibido con sus líneas (productos, cantidades, precios).
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Correo de recepción</Label>
+            <div className="flex gap-2">
+              <Input
+                value={email}
+                readOnly
+                className="h-10 sm:h-9 font-mono"
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleCopy}
+                className="shrink-0 gap-1.5"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Copiado
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" />
+                    Copiar
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-6 space-y-4">
+          <h3 className="text-sm font-medium">Cómo dirigir a tus proveedores acá</h3>
+          <ol className="space-y-3 text-sm text-muted-foreground list-decimal pl-5">
+            <li>
+              <span className="text-foreground font-medium">
+                Cambiar el correo de intercambio en el SII
+              </span>{" "}
+              (recomendado, fuente formal). Ingresá a sii.cl con tu certificado
+              digital y actualizá el campo{" "}
+              <span className="font-mono text-foreground">
+                &quot;Mail Contacto Empresas&quot;
+              </span>{" "}
+              de Datos del Contribuyente. Ese correo viaja en el campo{" "}
+              <span className="font-mono">&lt;CorreoRecep&gt;</span> del XML
+              cuando vos emitís facturas, y los proveedores grandes lo refrescan
+              automáticamente desde el SII.
+              <div className="mt-2">
+                <Button variant="outline" size="sm" asChild>
+                  <a
+                    href="https://misiir.sii.cl/cgi_misii/siihome.cgi"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="gap-1.5"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Abrir Mi SII
+                  </a>
+                </Button>
+              </div>
+            </li>
+            <li>
+              <span className="text-foreground font-medium">
+                Auto-forward del buzón actual
+              </span>{" "}
+              (transición sin pérdida). En el Gmail/Outlook corporativo donde
+              hoy te llegan los XML, agregá una regla que reenvíe automáticamente
+              cada correo entrante al buzón de arriba. OPAI deduplica por folio,
+              así que no hay riesgo de duplicar DTEs si el mismo XML llega por
+              ambos caminos.
+            </li>
+            <li>
+              <span className="text-foreground font-medium">
+                Aviso manual a proveedores chicos
+              </span>{" "}
+              que no leen del SII (los proveedores con sistemas ad-hoc cargan tu
+              correo a mano en sus fichas de cliente).
+            </li>
+          </ol>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-6 space-y-2">
+          <h3 className="text-sm font-medium">¿Qué pasa con cada email recibido?</h3>
+          <ul className="space-y-1.5 text-sm text-muted-foreground list-disc pl-5">
+            <li>
+              Por cada XML adjunto: OPAI valida que el RUT receptor del XML sea
+              el de tu empresa. Si no coincide, descarta el adjunto
+              (protección anti-cruzado).
+            </li>
+            <li>
+              Si el folio ya existe en Compras y Ventas (cabezal bajado por
+              SimpleAPI RCV), se enriquece con las líneas del{" "}
+              <span className="font-mono">&lt;Detalle&gt;</span>. Si no existe,
+              se crea el DTE recibido completo desde el XML.
+            </li>
+            <li>
+              El XML original queda guardado como adjunto del DTE en el módulo
+              de Compras y Ventas, junto al PDF si vino en el mismo email.
+            </li>
+            <li>
+              El cabezal y los montos siguen pasando por el sync diario de
+              SimpleAPI también; este buzón solo agrega el detalle de líneas.
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

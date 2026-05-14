@@ -21,7 +21,7 @@ export default async function DteConfigPage() {
 
   const tenantId = session.user.tenantId;
 
-  const [config, cert, cafs] = await Promise.all([
+  const [config, cert, cafs, tenant] = await Promise.all([
     prisma.tenantDteConfig.findUnique({ where: { tenantId } }),
     prisma.tenantDteCertificate.findUnique({
       where: { tenantId },
@@ -52,7 +52,19 @@ export default async function DteConfigPage() {
         uploadedAt: true,
       },
     }),
+    prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { slug: true },
+    }),
   ]);
+
+  // Buzón inbound de DTE: el webhook /api/webhook/inbound-email branchea
+  // por prefijo `dte-` y mapea al tenant vía slug. Lo construimos server-side
+  // para que el componente cliente lo muestre sin extra fetch.
+  const inboundDomain = process.env.INBOUND_DOMAIN || "inbound.opai.cl";
+  const inboundDteEmail = tenant?.slug
+    ? `dte-${tenant.slug}@${inboundDomain}`
+    : null;
 
   // Serialize Date fields → Server Components no pueden enviar Date directo a
   // Client Components sin perder type-safety en el border.
@@ -95,6 +107,7 @@ export default async function DteConfigPage() {
         initialConfig={initialConfig}
         initialCertificate={initialCertificate}
         initialCafs={initialCafs}
+        inboundDteEmail={inboundDteEmail}
       />
     </ConfigPageLayout>
   );
