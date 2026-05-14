@@ -7852,6 +7852,11 @@ model FinanceCashflowItem {
   hasIpcAdjustment    Boolean @default(false) @map("has_ipc_adjustment")
   /// Frecuencia del ajuste en meses (típicamente 6 ó 12).
   ipcAdjustmentMonths Int?    @map("ipc_adjustment_months")
+  /// Fecha desde la cual empieza el calendario de reajustes IPC. Si es
+  /// null, se usa `startDate` del item como ancla (compat retroactiva).
+  /// Independiente de la fecha de inicio del contrato — útil cuando un
+  /// contrato vigente desde hace años se configura IPC desde hoy.
+  ipcStartDate        DateTime? @map("ipc_start_date") @db.Date
 
   createdBy String?  @map("created_by")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)

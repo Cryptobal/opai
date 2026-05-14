@@ -101,6 +101,7 @@ export async function GET(
         installationId: true,
         hasIpcAdjustment: true,
         ipcAdjustmentMonths: true,
+        ipcStartDate: true,
         ipcAdjustments: {
           where: { status: "PENDING" },
           orderBy: { dueDate: "asc" },
@@ -162,6 +163,9 @@ export async function GET(
           dayOfMonth: cf.dayOfMonth,
           hasIpcAdjustment: cf.hasIpcAdjustment,
           ipcAdjustmentMonths: cf.ipcAdjustmentMonths,
+          ipcStartDate: cf.ipcStartDate
+            ? cf.ipcStartDate.toISOString().slice(0, 10)
+            : null,
           pendingIpcAdjustments: cf.ipcAdjustments.map((a) => ({
             id: a.id,
             dueDate: a.dueDate.toISOString().slice(0, 10),

@@ -35,6 +35,17 @@ const upsertSchema = z.object({
   // Fase E — IPC adjustment metadata
   hasIpcAdjustment: z.boolean().optional(),
   ipcAdjustmentMonths: z.number().int().min(1).max(36).nullable().optional(),
+  /**
+   * Ancla del calendario IPC. Si es null, el sistema usa `startDate` del
+   * item (compat retroactiva). Independiente de la fecha de inicio del
+   * contrato — útil cuando un contrato vigente desde hace años configura
+   * IPC desde una fecha distinta.
+   */
+  ipcStartDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD")
+    .nullable()
+    .optional(),
 });
 
 async function loadContractAndCheck(
@@ -92,6 +103,7 @@ export async function GET(
       isActive: true,
       hasIpcAdjustment: true,
       ipcAdjustmentMonths: true,
+      ipcStartDate: true,
     },
   });
 
@@ -107,9 +119,6 @@ export async function GET(
       cashflowItem: item
         ? {
             id: item.id,
-            // El campo es el monto en su moneda nativa (CLP o UF). Se
-            // mantiene `amountClp` como alias por compatibilidad con
-            // ContractCashflowDialog/AccountContractsSection.
             amountClp: Number(item.amount),
             monthlyAmount: Number(item.amount),
             currency: item.currency,
@@ -120,6 +129,7 @@ export async function GET(
             isActive: item.isActive,
             hasIpcAdjustment: item.hasIpcAdjustment,
             ipcAdjustmentMonths: item.ipcAdjustmentMonths,
+            ipcStartDate: item.ipcStartDate,
           }
         : null,
     },
@@ -223,6 +233,10 @@ export async function PUT(
     ipcAdjustmentMonths:
       data.currency === "CLP" && data.hasIpcAdjustment
         ? data.ipcAdjustmentMonths ?? 12
+        : null,
+    ipcStartDate:
+      data.currency === "CLP" && data.hasIpcAdjustment && data.ipcStartDate
+        ? new Date(data.ipcStartDate)
         : null,
   };
 

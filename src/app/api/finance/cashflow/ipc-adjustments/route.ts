@@ -123,6 +123,7 @@ export async function GET(request: NextRequest) {
         ipcAdjustmentMonths: true,
         startDate: true,
         endDate: true,
+        ipcStartDate: true,
         ipcAdjustments: {
           select: { dueDate: true, status: true },
         },
@@ -135,15 +136,17 @@ export async function GET(request: NextRequest) {
     );
     for (const item of items) {
       const months = item.ipcAdjustmentMonths!;
-      // Anclar al último APPLIED (mayor dueDate con status=APPLIED), o
-      // al startDate si no hay historial aplicado.
+      // Anclar al último APPLIED (mayor dueDate con status=APPLIED).
+      // Si no hay historial aplicado, usar ipcStartDate (configurable
+      // por el usuario en el modal) o, como fallback, startDate del item.
       const lastApplied = item.ipcAdjustments
         .filter((a) => a.status === "APPLIED")
         .reduce<Date | null>((acc, a) => {
           if (!acc || a.dueDate > acc) return a.dueDate;
           return acc;
         }, null);
-      const anchor = lastApplied ?? item.startDate;
+      const anchor =
+        lastApplied ?? item.ipcStartDate ?? item.startDate;
       const existingDates = new Set(
         item.ipcAdjustments.map((a) =>
           a.dueDate.toISOString().slice(0, 10),

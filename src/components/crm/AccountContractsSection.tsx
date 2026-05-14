@@ -63,6 +63,7 @@ interface CfItem {
   dayOfMonth: number | null;
   hasIpcAdjustment?: boolean;
   ipcAdjustmentMonths?: number | null;
+  ipcStartDate?: string | null;
   pendingIpcAdjustments?: Array<{ id: string; dueDate: string }>;
 }
 
@@ -364,6 +365,10 @@ export function AccountContractsSection({
   const [cfEndDate, setCfEndDate] = useState<string>("");
   const [cfHasIpc, setCfHasIpc] = useState<boolean>(false);
   const [cfIpcMonths, setCfIpcMonths] = useState<string>("12");
+  // Fecha desde la cual aplica el calendario de reajustes IPC. Default
+  // = fecha inicio FC, pero el usuario puede elegirla independientemente
+  // (caso: contrato vigente desde hace años, IPC desde hoy).
+  const [cfIpcStartDate, setCfIpcStartDate] = useState<string>("");
   const [cfSaving, setCfSaving] = useState(false);
 
   // Action loading states
@@ -956,12 +961,14 @@ export function AccountContractsSection({
       setCfPayDay(String(item.dayOfMonth ?? 5));
       setCfHasIpc(!!item.hasIpcAdjustment);
       setCfIpcMonths(String(item.ipcAdjustmentMonths ?? 12));
+      setCfIpcStartDate(item.ipcStartDate?.slice(0, 10) ?? "");
     } else {
       setCfCurrency("CLP");
       setCfAmount("");
       setCfPayDay("5");
       setCfHasIpc(false);
       setCfIpcMonths("12");
+      setCfIpcStartDate("");
     }
     setCfStartDate(contract.effectiveDate?.slice(0, 10) ?? todayISO());
     setCfEndDate(contract.expirationDate?.slice(0, 10) ?? "");
@@ -991,6 +998,10 @@ export function AccountContractsSection({
             hasIpcAdjustment: cfCurrency === "CLP" && cfHasIpc,
             ipcAdjustmentMonths:
               cfCurrency === "CLP" && cfHasIpc ? Number(cfIpcMonths) || 12 : null,
+            ipcStartDate:
+              cfCurrency === "CLP" && cfHasIpc && cfIpcStartDate
+                ? cfIpcStartDate
+                : null,
           }),
         },
       );
@@ -3113,19 +3124,40 @@ export function AccountContractsSection({
                   </div>
                 </label>
                 {cfHasIpc && (
-                  <div className="space-y-1 pl-6">
-                    <Label className="text-xs">Cada cuántos meses se ajusta</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={36}
-                      value={cfIpcMonths}
-                      onChange={(e) => setCfIpcMonths(e.target.value)}
-                      className="max-w-[120px]"
-                    />
-                    <p className="text-[12px] text-muted-foreground">
-                      Típico: <strong>12</strong> (anual) o <strong>6</strong> (semestral).
-                    </p>
+                  <div className="space-y-3 pl-6">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Cada cuántos meses se ajusta</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={36}
+                        value={cfIpcMonths}
+                        onChange={(e) => setCfIpcMonths(e.target.value)}
+                        className="max-w-[120px]"
+                      />
+                      <p className="text-[12px] text-muted-foreground">
+                        Típico: <strong>12</strong> (anual), <strong>6</strong> (semestral)
+                        o <strong>2</strong> (bimensual).
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">
+                        Fecha de inicio del reajuste IPC{" "}
+                        <span className="text-muted-foreground font-normal">(opcional)</span>
+                      </Label>
+                      <Input
+                        type="date"
+                        value={cfIpcStartDate}
+                        onChange={(e) => setCfIpcStartDate(e.target.value)}
+                        className="max-w-[200px]"
+                      />
+                      <p className="text-[12px] text-muted-foreground">
+                        Desde qué fecha empieza el calendario de reajustes. Si
+                        está vacío, se usa la fecha de inicio del contrato. Útil
+                        cuando un contrato vigente hace años se configura IPC
+                        recién ahora.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
