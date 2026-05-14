@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { ProjectionRow } from "@/modules/finance/cashflow/types";
 import { fmt } from "./MatrixHelpers";
@@ -9,7 +9,8 @@ import type { DrawerItemTarget } from "./CashflowItemDrawer";
 interface Props {
   title: string;
   tone: "ok" | "warn";
-  storageKey: string;
+  expanded: boolean;
+  onToggle: () => void;
   rows: ProjectionRow[];
   bucketKey: string;
   emptyText: string;
@@ -20,32 +21,14 @@ interface Props {
 export function CashflowMobileSection({
   title,
   tone,
-  storageKey,
+  expanded,
+  onToggle,
   rows,
   bucketKey,
   emptyText,
   canManage,
   onOpenItem,
 }: Props) {
-  const [expanded, setExpanded] = useState(true);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const v = window.localStorage.getItem(storageKey);
-    if (v !== null) setExpanded(v === "1");
-  }, [storageKey]);
-
-  function toggle() {
-    setExpanded((prev) => {
-      const next = !prev;
-      try {
-        window.localStorage.setItem(storageKey, next ? "1" : "0");
-      } catch {
-        // ignore
-      }
-      return next;
-    });
-  }
-
   // Solo categorías con monto > 0 en el bucket activo o que tengan ítems
   // con movimiento. Evita ruido de categorías que no aplican.
   const visibleRows = useMemo(() => {
@@ -80,7 +63,7 @@ export function CashflowMobileSection({
     <div className="rounded-ds-md border border-border overflow-hidden">
       <button
         type="button"
-        onClick={toggle}
+        onClick={onToggle}
         className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 ${toneHeader}`}
         aria-expanded={expanded}
       >

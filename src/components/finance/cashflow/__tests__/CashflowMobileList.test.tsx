@@ -41,20 +41,23 @@ describe("CashflowMobileList", () => {
     // sección; basta que exista al menos una instancia.
     expect(screen.getAllByText(/Ingresos/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Egresos/).length).toBeGreaterThan(0);
+    // Ingresos abierto por default → "Ventas" visible.
     expect(screen.getByText("Ventas")).toBeTruthy();
-    expect(screen.getByText("Sueldos")).toBeTruthy();
+    // Egresos cerrado por default → abrir para ver "Sueldos".
+    fireEvent.click(screen.getByRole("button", { name: /Egresos/ }));
+    await waitFor(() => {
+      expect(screen.getByText("Sueldos")).toBeTruthy();
+    });
   });
 
-  it("cambiar de bucket actualiza el header", async () => {
+  it("cambiar de bucket con el navegador actualiza el header", async () => {
     renderList();
-    const w20Chip = screen
-      .getAllByRole("tab")
-      .find((b) => b.getAttribute("data-bucket-key") === "2026-W20");
-    expect(w20Chip).toBeTruthy();
-    fireEvent.click(w20Chip!);
+    // El bucket activo al mount es W20 (hoy: 2026-05-14 cae en W20).
+    // Retroceder con la flecha "Período anterior" lleva a W19.
+    const prevBtn = screen.getByRole("button", { name: /Período anterior/ });
+    fireEvent.click(prevBtn);
     await waitFor(() => {
-      const summary = screen.getAllByText(/1\.000\.000/);
-      expect(summary.length).toBeGreaterThan(0);
+      expect(screen.getByText(/Semana del 4 al 10 may/)).toBeTruthy();
     });
   });
 
@@ -116,22 +119,39 @@ describe("CashflowMobileList", () => {
         canManage
       />,
     );
+    // Por default, Ingresos está abierto y Egresos cerrado: hay que abrir Egresos.
     const egresosHeader = screen.getByRole("button", { name: /Egresos/ });
-    if (egresosHeader.getAttribute("aria-expanded") !== "true") {
-      fireEvent.click(egresosHeader);
-    }
+    expect(egresosHeader.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(egresosHeader);
     await waitFor(() => {
       expect(screen.getByText(/Sin egresos proyectados/i)).toBeTruthy();
     });
   });
 
-  it("auto-selecciona un bucket activo al mount", async () => {
+  it("acordeón: abrir Egresos cierra Ingresos", async () => {
     renderList();
+    const ingresosHeader = screen.getByRole("button", { name: /Ingresos/ });
+    const egresosHeader = screen.getByRole("button", { name: /Egresos/ });
+    // Default: Ingresos abierto, Egresos cerrado.
+    expect(ingresosHeader.getAttribute("aria-expanded")).toBe("true");
+    expect(egresosHeader.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(egresosHeader);
     await waitFor(() => {
-      const active = screen
-        .getAllByRole("tab")
-        .find((t) => t.getAttribute("aria-selected") === "true");
-      expect(active).toBeTruthy();
+      expect(egresosHeader.getAttribute("aria-expanded")).toBe("true");
+      expect(ingresosHeader.getAttribute("aria-expanded")).toBe("false");
+    });
+    // Persistencia.
+    expect(window.localStorage.getItem("cashflow.mobile.openSection")).toBe(
+      "expense",
+    );
+  });
+
+  it("auto-selecciona el bucket de hoy al mount y muestra el peek 'Esta semana'", async () => {
+    renderList();
+    // 2026-05-14 cae en la semana W20 (11–17 may).
+    await waitFor(() => {
+      expect(screen.getByText(/Semana del 11 al 17 may/)).toBeTruthy();
+      expect(screen.getByText("Esta semana")).toBeTruthy();
     });
   });
 

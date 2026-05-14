@@ -12,12 +12,12 @@ import {
 import { BankBalanceAdjustDrawer } from "./BankBalanceAdjustDrawer";
 import { CashflowDriftBanner } from "./CashflowDriftBanner";
 import { useHasCapability } from "@/lib/permissions-context";
-import {
-  getChipLabel,
-  hydrateProjection,
-} from "./cashflow-mobile-helpers";
+import { subMonths } from "date-fns";
+import { hydrateProjection } from "./cashflow-mobile-helpers";
 
-export { getBucketDisplayLabel, getChipLabel } from "./cashflow-mobile-helpers";
+const MONTHS_BACK = 2;
+
+export { getBucketDisplayLabel } from "./cashflow-mobile-helpers";
 
 interface Props {
   initialProjection: ProjectionMatrix;
@@ -61,13 +61,17 @@ export function CashflowMobileList({
   // Fetch monthly on demand (primera vez que el usuario cambia a mensual).
   useEffect(() => {
     if (granularity !== "monthly" || monthlyProjection !== null) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date();
+    // Arrancar `MONTHS_BACK` meses atrás para permitir retroceder con el
+    // navegador (simétrico con el semanal, que ya viene con weeksBack=2 del
+    // server).
+    const fromStr = subMonths(today, MONTHS_BACK).toISOString().slice(0, 10);
     const to = new Date();
     to.setMonth(to.getMonth() + defaultMonths);
     const toStr = to.toISOString().slice(0, 10);
     setLoading(true);
     fetch(
-      `/api/finance/cashflow/projection?from=${today}&to=${toStr}&granularity=monthly`,
+      `/api/finance/cashflow/projection?from=${fromStr}&to=${toStr}&granularity=monthly`,
     )
       .then((r) => r.json())
       .then((j) => {
@@ -114,29 +118,6 @@ export function CashflowMobileList({
     [projection.buckets, activeBucketKey],
   );
 
-  // Auto-scroll del chip strip al bucket "Hoy" al mount / cuando cambia.
-  const chipStripRef = useRef<HTMLDivElement | null>(null);
-  const hasAutoScrolled = useRef<string | null>(null);
-  useEffect(() => {
-    if (!activeBucketKey) return;
-    if (hasAutoScrolled.current === activeBucketKey) return;
-    const strip = chipStripRef.current;
-    if (!strip) return;
-    const chip = strip.querySelector<HTMLButtonElement>(
-      `[data-bucket-key="${activeBucketKey}"]`,
-    );
-    if (!chip) return;
-    const left =
-      chip.offsetLeft - strip.clientWidth / 2 + chip.clientWidth / 2;
-    // jsdom no implementa scrollTo; fallback a scrollLeft directo.
-    if (typeof strip.scrollTo === "function") {
-      strip.scrollTo({ left: Math.max(0, left), behavior: "auto" });
-    } else {
-      strip.scrollLeft = Math.max(0, left);
-    }
-    hasAutoScrolled.current = activeBucketKey;
-  }, [activeBucketKey]);
-
   function gotoPrev() {
     if (activeIdx > 0) setActiveBucketKey(projection.buckets[activeIdx - 1].key);
   }
@@ -177,6 +158,31 @@ export function CashflowMobileList({
   const canEditBalance = useHasCapability("banking_manage");
   const isActiveBucketCurrent = activeIdx >= 0 && activeIdx === currentBucketIdx;
 
+  // Acordeón mutuamente exclusivo: solo una sección abierta a la vez.
+  const [openSection, setOpenSection] = useState<"income" | "expense" | null>(
+    "income",
+  );
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const v = window.localStorage.getItem("cashflow.mobile.openSection");
+    if (v === "income" || v === "expense") setOpenSection(v);
+    else if (v === "none") setOpenSection(null);
+  }, []);
+  function toggleSection(s: "income" | "expense") {
+    setOpenSection((prev) => {
+      const next = prev === s ? null : s;
+      try {
+        window.localStorage.setItem(
+          "cashflow.mobile.openSection",
+          next ?? "none",
+        );
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }
+
   const cumulativePoint = useMemo(
     () =>
       projection.cumulativePoints.find((p) => p.bucketKey === activeBucketKey),
@@ -185,73 +191,52 @@ export function CashflowMobileList({
 
   return (
     <Surface elevation={1} padding="md" className="space-y-3">
-      {/* Granularidad — segmented control */}
-      <div className="inline-flex w-full rounded-ds-md border border-border p-1 bg-muted/30">
-        <button
-          type="button"
-          onClick={() => setGranularity("monthly")}
-          className={`flex-1 h-10 text-[13px] rounded-ds-sm transition-colors ${
-            granularity === "monthly"
-              ? "bg-card font-semibold text-ds-text-1 shadow-sm"
-              : "text-ds-text-3"
-          }`}
-          aria-pressed={granularity === "monthly"}
-        >
-          Mensual
-        </button>
-        <button
-          type="button"
-          onClick={() => setGranularity("weekly")}
-          className={`flex-1 h-10 text-[13px] rounded-ds-sm transition-colors ${
-            granularity === "weekly"
-              ? "bg-card font-semibold text-ds-text-1 shadow-sm"
-              : "text-ds-text-3"
-          }`}
-          aria-pressed={granularity === "weekly"}
-        >
-          Semanal
-        </button>
-      </div>
-
-      {/* Chips de buckets — scroll horizontal */}
+      {/* Franja sticky: segmented + navegador, anclados bajo la topbar fija. */}
       <div
-        ref={chipStripRef}
-        className="-mx-4 px-4 flex gap-2 overflow-x-auto scrollbar-hide pb-1"
-        role="tablist"
-        aria-label="Selector de bucket"
+        className="sticky z-20 -mx-4 px-4 py-2 space-y-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border"
+        style={{ top: "calc(3rem + env(safe-area-inset-top, 0px))" }}
       >
-        {projection.buckets.map((b, idx) => {
-          const isActive = b.key === activeBucketKey;
-          const isToday = idx === currentBucketIdx;
-          return (
-            <button
-              key={b.key}
-              type="button"
-              data-bucket-key={b.key}
-              onClick={() => setActiveBucketKey(b.key)}
-              role="tab"
-              aria-selected={isActive}
-              className={`shrink-0 h-9 px-3 rounded-ds-md text-[12px] font-medium whitespace-nowrap flex items-center gap-1.5 transition-colors ${
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted/30 text-ds-text-2 hover:bg-muted/60"
-              }`}
-            >
-              <span>{getChipLabel(b, granularity)}</span>
-              {isToday && (
-                <span
-                  className={`text-[9px] font-mono uppercase tracking-wider px-1 py-0.5 rounded-ds-sm ${
-                    isActive
-                      ? "bg-primary-foreground/20 text-primary-foreground"
-                      : "bg-status-info-soft text-status-info-fg"
-                  }`}
-                >
-                  Hoy
-                </span>
-              )}
-            </button>
-          );
-        })}
+        {/* Granularidad — segmented control */}
+        <div className="inline-flex w-full rounded-ds-md border border-border p-1 bg-muted/30">
+          <button
+            type="button"
+            onClick={() => setGranularity("monthly")}
+            className={`flex-1 h-10 text-[13px] rounded-ds-sm transition-colors ${
+              granularity === "monthly"
+                ? "bg-card font-semibold text-ds-text-1 shadow-sm"
+                : "text-ds-text-3"
+            }`}
+            aria-pressed={granularity === "monthly"}
+          >
+            Mensual
+          </button>
+          <button
+            type="button"
+            onClick={() => setGranularity("weekly")}
+            className={`flex-1 h-10 text-[13px] rounded-ds-sm transition-colors ${
+              granularity === "weekly"
+                ? "bg-card font-semibold text-ds-text-1 shadow-sm"
+                : "text-ds-text-3"
+            }`}
+            aria-pressed={granularity === "weekly"}
+          >
+            Semanal
+          </button>
+        </div>
+
+        {activeBucket && (
+          <CashflowMobileBucketHeader
+            bucket={activeBucket}
+            granularity={granularity}
+            hasPrev={activeIdx > 0}
+            hasNext={activeIdx >= 0 && activeIdx < projection.buckets.length - 1}
+            isCurrent={isActiveBucketCurrent}
+            onPrev={gotoPrev}
+            onNext={gotoNext}
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+          />
+        )}
       </div>
 
       {loading && (
@@ -260,17 +245,6 @@ export function CashflowMobileList({
 
       {activeBucket && (
         <>
-          <CashflowMobileBucketHeader
-            bucket={activeBucket}
-            granularity={granularity}
-            hasPrev={activeIdx > 0}
-            hasNext={activeIdx >= 0 && activeIdx < projection.buckets.length - 1}
-            onPrev={gotoPrev}
-            onNext={gotoNext}
-            onTouchStart={onTouchStart}
-            onTouchEnd={onTouchEnd}
-          />
-
           {isActiveBucketCurrent && cumulativePoint && (
             <CashflowDriftBanner
               driftClp={cumulativePoint.cumulativeBankVarianceClp}
@@ -287,22 +261,24 @@ export function CashflowMobileList({
           <CashflowMobileSection
             title="Ingresos"
             tone="ok"
-            storageKey="cashflow.ingresos.expanded"
             rows={incomeRows}
             bucketKey={activeBucket.key}
             emptyText="Sin ingresos proyectados en este período"
             canManage={canManage}
             onOpenItem={setDrawerTarget}
+            expanded={openSection === "income"}
+            onToggle={() => toggleSection("income")}
           />
           <CashflowMobileSection
             title="Egresos"
             tone="warn"
-            storageKey="cashflow.egresos.expanded"
             rows={expenseRows}
             bucketKey={activeBucket.key}
             emptyText="Sin egresos proyectados en este período"
             canManage={canManage}
             onOpenItem={setDrawerTarget}
+            expanded={openSection === "expense"}
+            onToggle={() => toggleSection("expense")}
           />
 
           <CashflowMobileBucketSummary
