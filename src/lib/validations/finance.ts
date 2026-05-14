@@ -169,6 +169,13 @@ const dteReferenceSchema = z.object({
 });
 
 export const issueDteSchema = z.object({
+  /**
+   * Fecha de emisión del DTE que se imprime en el XML y envía al SII
+   * (`FechaEmision`). Si no se envía, el backend usa «hoy» en zona Chile.
+   */
+  issueDate: optNull(
+    z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
+  ),
   dteType: z.number().int().refine((v) => [33, 34, 39, 52, 56, 61].includes(v), {
     message: "Tipo de DTE invalido",
   }),

@@ -790,9 +790,9 @@ export function DtesEmitidosClient({
 
   const buildCsvFromRows = (rows: typeof filtered) => {
     const header = [
+      "Fecha",
       "Tipo",
       "Folio",
-      "Fecha",
       "Receptor",
       "RUT",
       "Neto",
@@ -805,9 +805,9 @@ export function DtesEmitidosClient({
       "Cesión",
     ];
     const csvRows = rows.map((r) => [
+      r.date ? format(new Date(r.date), "yyyy-MM-dd", { locale: es }) : "",
       String(r.dteType),
       r.siiStatus === "DRAFT" ? "" : String(r.folio),
-      r.date ? format(new Date(r.date), "yyyy-MM-dd", { locale: es }) : "",
       JSON.stringify(r.receiverName ?? ""),
       r.receiverRut,
       String(r.netAmount),

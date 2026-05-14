@@ -20,7 +20,36 @@ export function todayChileStr(): string {
 
 /** Objeto Date para “hoy” en Chile (mediodía para evitar bordes de timezone) */
 export function todayChileDate(): Date {
-  return new Date(todayChileStr() + "T12:00:00");
+  return parseYmdToDbDate(todayChileStr());
+}
+
+/**
+ * Convierte YYYY-MM-DD a `Date` para columnas `@db.Date` (PostgreSQL) sin corrimientos
+ * por timezone: usa mediodía UTC como ancla estable.
+ */
+export function parseYmdToDbDate(ymd: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd.trim());
+  if (!m) {
+    throw new Error(`Fecha inválida (use YYYY-MM-DD): ${ymd}`);
+  }
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (!Number.isFinite(y) || mo < 1 || mo > 12 || d < 1 || d > 31) {
+    throw new Error(`Fecha inválida: ${ymd}`);
+  }
+  return new Date(Date.UTC(y, mo - 1, d, 12, 0, 0));
+}
+
+/**
+ * Formatea una fecha DATE de BD (`@db.Date`) a YYYY-MM-DD usando UTC
+ * — coherente con cómo Postgres serializa fechas sin hora en Node.
+ */
+export function formatDateOnlyUtcYmd(date: Date): string {
+  const y = date.getUTCFullYear();
+  const mo = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${y}-${mo}-${day}`;
 }
 
 function getDateOnlyParts(date: Date): { year: number; month: number; day: number } {

@@ -128,6 +128,17 @@ export function IssuedDtesTable({
       ),
     },
     {
+      id: "date",
+      header: "Fecha",
+      cell: (row) => (
+        <span className="text-ds-text-3 text-xs">
+          {format(new Date(row.date ?? row.createdAt), "dd MMM yyyy", {
+            locale: es,
+          })}
+        </span>
+      ),
+    },
+    {
       id: "dteType",
       header: "Tipo",
       cell: (row) => <DocumentTag dteType={row.dteType} />,
@@ -254,17 +265,6 @@ export function IssuedDtesTable({
             />
           )}
         </div>
-      ),
-    },
-    {
-      id: "date",
-      header: "Fecha",
-      cell: (row) => (
-        <span className="text-ds-text-3 text-xs">
-          {format(new Date(row.date ?? row.createdAt), "dd MMM yyyy", {
-            locale: es,
-          })}
-        </span>
       ),
     },
     {

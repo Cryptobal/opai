@@ -13,8 +13,21 @@ import { buildInvoiceIssuedEntry } from "../accounting/auto-entry.builder";
 import { createManualEntry, postEntry } from "../accounting/journal-entry.service";
 import { reserveNextFolio } from "./folio-tracker.service";
 import { sendDteEmail, sendDteXmlToBackoffice } from "./dte-email.service";
+import {
+  parseYmdToDbDate,
+  todayChileStr,
+} from "@/lib/fx-date";
+
+/** Resuelve YYYY-MM-DD de emisión: body explícito o hoy en Chile (no UTC servidor). */
+function resolveIssueDateYmd(input: IssueDteInput): string {
+  const raw = input.issueDate?.trim();
+  if (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  return todayChileStr();
+}
 
 export type IssueDteInput = {
+  /** Fecha de emisión tributaria YYYY-MM-DD (SII). Default: hoy en Chile. */
+  issueDate?: string;
   dteType: number;
   receiverRut: string;
   receiverName: string;
@@ -185,6 +198,15 @@ export async function issueDte(
   const calculatedLines = calc.lines;
   const ufValueAtIssue = calc.ufValue;
   const ufDateAtIssue = calc.ufDate;
+  const emissionYmd = resolveIssueDateYmd(input);
+  let emissionDbDate: Date;
+  try {
+    emissionDbDate = parseYmdToDbDate(emissionYmd);
+  } catch {
+    throw new Error(
+      `Fecha de emisión inválida: "${input.issueDate ?? ""}". Usá formato YYYY-MM-DD.`,
+    );
+  }
 
   // 5–9. Folio reservation + provider call + DTE persistence inside one
   // transaction so a provider error rolls back the folio increment too.
@@ -219,7 +241,7 @@ export async function issueDte(
       const dteRequest: DteIssueRequest = {
         dteType: input.dteType,
         folio,
-        date: new Date().toISOString().split("T")[0],
+        date: emissionYmd,
         issuerRut,
         issuerName,
         receiverRut: input.receiverRut,
@@ -290,7 +312,7 @@ export async function issueDte(
           dteType: input.dteType,
           folio,
           code,
-          date: new Date(),
+          date: emissionDbDate,
           issuerRut,
           issuerName,
           receiverRut: input.receiverRut,
@@ -498,7 +520,7 @@ export async function issueDte(
         dteId: dte.id,
         crmAccountId: input.crmAccountId ?? null,
         installationId: input.installationId ?? null,
-        expectedDate: dte.date,
+        expectedDate: emissionDbDate,
         amountClp: Number(totalAmount),
       });
     } catch (err) {
@@ -513,7 +535,7 @@ export async function issueDte(
   if (input.dteType === 33 || input.dteType === 34) {
     try {
       const entryInput = await buildInvoiceIssuedEntry(tenantId, {
-        date: new Date().toISOString().split("T")[0],
+        date: emissionYmd,
         folio: nextFolio,
         dteId: dte.id,
         netAmount: totalNet,

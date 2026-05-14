@@ -18,6 +18,11 @@ import {
   matchDraftToOccurrence,
   rebindDraftOccurrencesToIssued,
 } from "@/modules/finance/cashflow/draft-occurrence-matcher.service";
+import {
+  formatDateOnlyUtcYmd,
+  parseYmdToDbDate,
+  todayChileStr,
+} from "@/lib/fx-date";
 
 const DRAFT_REQUIRED_REFERENCE = [56, 61] as const;
 
@@ -64,6 +69,11 @@ export async function createDraftDte(
     ufOverride: opts?.ufOverride,
   });
 
+  const emissionDate =
+    input.issueDate?.trim() != null && input.issueDate.trim() !== ""
+      ? parseYmdToDbDate(input.issueDate.trim())
+      : parseYmdToDbDate(todayChileStr());
+
   const draft = await prisma.financeDte.create({
     data: {
       tenantId,
@@ -71,7 +81,7 @@ export async function createDraftDte(
       dteType: input.dteType,
       folio: 0,
       code: `DRAFT-${randomUUID().slice(0, 8)}`,
-      date: new Date(),
+      date: emissionDate,
       issuerRut: "",
       issuerName: "",
       receiverRut: input.receiverRut ?? "",
@@ -178,6 +188,9 @@ export async function updateDraftDte(
     return tx.financeDte.update({
       where: { id: draftId },
       data: {
+        ...(input.issueDate?.trim()
+          ? { date: parseYmdToDbDate(input.issueDate.trim()) }
+          : {}),
         dteType: input.dteType,
         receiverRut: input.receiverRut ?? "",
         receiverName: input.receiverName ?? "",
@@ -283,6 +296,7 @@ export async function issueDraftDte(
   }
 
   const input: IssueDteInput = {
+    issueDate: formatDateOnlyUtcYmd(draft.date),
     dteType: draft.dteType,
     receiverRut: draft.receiverRut,
     receiverName: draft.receiverName,
@@ -320,7 +334,7 @@ export async function issueDraftDte(
             docId: draft.referenceDteId ?? undefined,
             type: draft.referenceType,
             folio: draft.referenceFolio,
-            date: draft.referenceDate.toISOString().split("T")[0],
+            date: formatDateOnlyUtcYmd(draft.referenceDate),
             code: draft.referenceCode as 1 | 2 | 3,
             reason: draft.referenceReason ?? "",
           }

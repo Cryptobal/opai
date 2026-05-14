@@ -53,6 +53,7 @@ import {
   type PlaceholderContext,
 } from "@/modules/finance/billing/placeholders";
 import { formatCLP, formatUFSuffix } from "@/lib/utils";
+import { todayChileStr } from "@/lib/fx-date";
 
 /* ── Types ── */
 
@@ -125,6 +126,8 @@ export function DteForm({ availableTypes, accounts }: Props) {
   const router = useRouter();
 
   const [dteType, setDteType] = useState(String(availableTypes[0] ?? 33));
+  /** YYYY-MM-DD — va al XML SII como fecha de emisión y se persiste en el borrador. */
+  const [issueDate, setIssueDate] = useState<string>(() => todayChileStr());
   // Cliente seleccionado del CRM (vía CustomerCombobox). Si está null, el
   // usuario está ingresando manualmente los datos del receptor.
   const [customer, setCustomer] = useState<CustomerOption | null>(null);
@@ -288,6 +291,8 @@ export function DteForm({ availableTypes, accounts }: Props) {
       .then((j) => {
         const d = j?.data;
         if (!d) return;
+        const ds = String(d.date ?? "");
+        if (ds.length >= 10) setIssueDate(ds.slice(0, 10));
         setDteType(String(d.dteType));
         setReceiverRut(d.receiverRut ?? "");
         setReceiverName(d.receiverName ?? "");
@@ -769,6 +774,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
     );
     return {
       dteType: parseInt(dteType),
+      issueDate,
       receiverRut: effRut || undefined,
       receiverName: effName || undefined,
       receiverEmail: effEmail || null,
@@ -914,6 +920,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
       const body = {
         dteType: parseInt(dteType, 10),
         currency,
+        date: issueDate,
         receptor: {
           rut: effRut,
           razonSocial: effName,
@@ -1132,9 +1139,23 @@ export function DteForm({ availableTypes, accounts }: Props) {
         <CardContent className="pt-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
+              <Label htmlFor="dte-issue-date">Fecha de emisión *</Label>
+              <Input
+                id="dte-issue-date"
+                type="date"
+                value={issueDate}
+                onChange={(e) => setIssueDate(e.target.value)}
+                className="h-10 sm:h-9"
+              />
+              <p className="text-xs text-ds-text-3">
+                Esta fecha se registra como emisión tributaria ante el SII (incluye
+                borradores y emisión SimpleAPI).
+              </p>
+            </div>
+            <div className="space-y-1.5">
               <Label>Tipo de documento *</Label>
               <Select value={dteType} onValueChange={setDteType}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-10 sm:h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {availableTypes.map((t) => (
                     <SelectItem key={t} value={String(t)}>
@@ -1144,7 +1165,10 @@ export function DteForm({ availableTypes, accounts }: Props) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 mt-4">
+            <div className="space-y-1.5 md:col-span-2">
               <Label>Moneda</Label>
               <div className="flex gap-1 items-center flex-wrap">
                 <Button

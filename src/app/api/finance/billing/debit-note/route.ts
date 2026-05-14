@@ -9,6 +9,7 @@ import { hasFacturacionCapability } from "@/lib/permissions";
 import { dteCreditNoteSchema } from "@/lib/validations/finance";
 import { issueDte } from "@/modules/finance/billing/dte-issuer.service";
 import { prisma } from "@/lib/prisma";
+import { formatDateOnlyUtcYmd } from "@/lib/fx-date";
 
 export async function POST(request: NextRequest) {
   try {
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
         docId: originalDte.id,
         type: originalDte.dteType,
         folio: originalDte.folio,
-        date: originalDte.date.toISOString().split("T")[0],
+        date: formatDateOnlyUtcYmd(originalDte.date),
         code,
         reason: body.reason,
       },

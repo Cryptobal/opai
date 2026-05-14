@@ -343,6 +343,11 @@ export function IssuedDtesMobileList({
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                      <span className="text-xs font-mono text-ds-text-3 shrink-0">
+                        {format(new Date(d.date ?? d.createdAt), "dd MMM yyyy", {
+                          locale: es,
+                        })}
+                      </span>
                       <DocumentTag dteType={d.dteType} />
                       {!isDraftRow && (
                         <span className="font-mono text-xs text-ds-text-2">
@@ -412,7 +417,7 @@ export function IssuedDtesMobileList({
                     <p className="text-xs text-ds-text-4 font-mono">
                       {d.receiverRut}
                     </p>
-                    <div className="flex items-center justify-between gap-2 mt-2">
+                    <div className="flex items-center gap-2 mt-2">
                       <span
                         className={cn(
                           "font-mono text-sm font-semibold tabular-nums truncate",
@@ -421,11 +426,6 @@ export function IssuedDtesMobileList({
                         title={d.totalAmount.toLocaleString("es-CL")}
                       >
                         {fmtCLPSmart(d.totalAmount)}
-                      </span>
-                      <span className="text-xs text-ds-text-3 shrink-0">
-                        {format(new Date(d.date ?? d.createdAt), "dd MMM yyyy", {
-                          locale: es,
-                        })}
                       </span>
                     </div>
                     <div className="mt-1.5">
