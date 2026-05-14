@@ -129,6 +129,29 @@ export interface ProjectionRowItemValue {
   dteGrossAmount?: number | null;
   /** Días de mora si INVOICED + overdue (positivos), 0 si al día. */
   daysOverdue?: number;
+  /** Resumen de TODOS los DTEs conciliados con esta celda. Cuando hay >1,
+   *  el popover lista cada factura (folio, fecha emisión, monto, link) y
+   *  el botón "Igualar" suma los totales en lugar de matchear contra una
+   *  sola. Vacío o ausente = celda proyectada sin conciliar. */
+  dtes?: CellDteSummary[];
+}
+
+/** Resumen mínimo de un DTE conciliado a una celda del cashflow. Permite
+ *  listar facturas asociadas, mostrar fecha de emisión (útil para detectar
+ *  "factura antigua cobrada hoy") y linkear a la factura origen. */
+export interface CellDteSummary {
+  id: string;
+  folio: number | null;
+  /** Monto bruto del DTE (totalAmount) en CLP. */
+  totalAmount: number;
+  /** Fecha de emisión yyyy-MM-dd. */
+  issueDate: string;
+  /** True si hay un FactoringOperation activo asociado al DTE. */
+  hasFactoring: boolean;
+  /** Estado derivado para este DTE (PAID/CEDED/INVOICED/DRAFT). */
+  cellStatus: CashflowCellStatus;
+  /** Días de mora (positivo = vencido, 0 = al día). */
+  daysOverdue: number;
 }
 
 export interface ProjectionRowItemDetail {

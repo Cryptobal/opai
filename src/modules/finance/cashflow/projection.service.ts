@@ -1007,6 +1007,7 @@ export async function buildProjection(
   const dteStatusById = new Map<string, DteStatusSlim>();
   const dteFolioById = new Map<string, number | null>();
   const dteGrossById = new Map<string, number>();
+  const dteIssueDateById = new Map<string, string>();
   const activeFactoringDteIds = new Set<string>();
   if (dteIds.length > 0) {
     const [dtes, factoringOps] = await Promise.all([
@@ -1017,6 +1018,7 @@ export async function buildProjection(
           siiStatus: true,
           paymentStatus: true,
           dueDate: true,
+          date: true,
           folio: true,
           dteType: true,
           totalAmount: true,
@@ -1040,6 +1042,7 @@ export async function buildProjection(
       });
       dteFolioById.set(d.id, d.folio ?? null);
       dteGrossById.set(d.id, Number(d.totalAmount));
+      dteIssueDateById.set(d.id, d.date.toISOString().slice(0, 10));
     }
     for (const f of factoringOps) {
       if (f.dteId) activeFactoringDteIds.add(f.dteId);
@@ -1071,6 +1074,8 @@ export async function buildProjection(
     headcountByInstallation,
     dteFolioById,
     dteGrossById,
+    dteIssueDateById,
+    activeFactoringDteIds,
   );
 
   const openingBreakdown = await resolveOpeningBalance(tenantId);
@@ -1246,6 +1251,8 @@ function buildRows(
   headcountByInstallation: Map<string, number>,
   dteFolioById: Map<string, number | null>,
   dteGrossById: Map<string, number>,
+  dteIssueDateById: Map<string, string>,
+  activeFactoringDteIds: Set<string>,
 ): ProjectionRow[] {
   const rows: ProjectionRow[] = [];
   for (const cat of categories) {
@@ -1300,6 +1307,7 @@ function buildRows(
             dteFolio: null,
             dteGrossAmount: null,
             daysOverdue: 0,
+            dtes: [] as import("./types").CellDteSummary[],
           })),
           total: 0,
           totalActual: 0,
@@ -1352,6 +1360,24 @@ function buildRows(
             (derived.daysOverdue ?? 0) > (cell.daysOverdue ?? 0)
           ) {
             cell.daysOverdue = derived.daysOverdue;
+          }
+          // Acumular el DTE en el array de facturas conciliadas (dedup por id).
+          // Esto permite al popover listar TODAS las facturas que caen en la
+          // celda — no solo la "más informativa" — para que el usuario pueda
+          // verlas individualmente, distinguir facturas antiguas cobradas hoy
+          // (issueDate vs scheduledDate), y sumar al "Igualar al total real".
+          const dtes = cell.dtes ?? [];
+          if (!dtes.some((d) => d.id === o.dteId)) {
+            dtes.push({
+              id: o.dteId,
+              folio: dteFolioById.get(o.dteId) ?? null,
+              totalAmount: dteGrossById.get(o.dteId) ?? 0,
+              issueDate: dteIssueDateById.get(o.dteId) ?? "",
+              hasFactoring: activeFactoringDteIds.has(o.dteId),
+              cellStatus: derived.status,
+              daysOverdue: derived.daysOverdue,
+            });
+            cell.dtes = dtes;
           }
         }
         // Si aún no hay folio capturado y este DTE tiene uno conocido, lo

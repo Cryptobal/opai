@@ -237,6 +237,7 @@ export function ItemDetailRow({
                 dteId: v.dteId ?? null,
                 dteFolio: v.dteFolio ?? null,
                 dteGrossAmount: v.dteGrossAmount ?? null,
+                dtes: v.dtes ?? [],
                 daysOverdue: v.daysOverdue ?? 0,
                 crmAccountId: item.crmAccountId,
               }
