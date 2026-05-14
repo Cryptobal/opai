@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { validateRut, cleanRut } from "@/lib/access-control/utils";
+import { validateRut, cleanRut, cleanPlate } from "@/lib/access-control/utils";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
 import { requireAccessControlAuth } from "@/lib/access-control/auth";
 
@@ -72,15 +72,24 @@ export async function POST(
 
     const body = await request.json();
 
-    // Validate RUT
-    if (!body.rut || !validateRut(body.rut)) {
+    const hasRut = typeof body.rut === "string" && body.rut.trim().length > 0;
+    const hasPlate = typeof body.vehiclePlate === "string" && body.vehiclePlate.trim().length > 0;
+
+    if (!hasRut && !hasPlate) {
+      return NextResponse.json(
+        { success: false, error: "Debe especificar al menos RUT o patente" },
+        { status: 400 }
+      );
+    }
+    if (hasRut && !validateRut(body.rut)) {
       return NextResponse.json(
         { success: false, error: "RUT inválido" },
         { status: 400 }
       );
     }
 
-    const cleanedRut = cleanRut(body.rut);
+    const cleanedRut = hasRut ? cleanRut(body.rut) : null;
+    const cleanedPlate = hasPlate ? cleanPlate(body.vehiclePlate) : null;
 
     const entry = await prisma.accessControlList.create({
       data: {
@@ -88,6 +97,7 @@ export async function POST(
         installationId: body.scope === "global" ? null : installationId,
         listType: body.listType,
         rut: cleanedRut,
+        vehiclePlate: cleanedPlate,
         fullName: body.fullName,
         company: body.company || null,
         blockReason: body.blockReason || null,

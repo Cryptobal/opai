@@ -148,7 +148,8 @@ export interface AccessControlListEntry {
   id: string;
   installationId: string | null;
   listType: ListType;
-  rut: string;
+  rut: string | null;
+  vehiclePlate?: string | null;
   fullName: string;
   company?: string | null;
   blockReason?: string | null;

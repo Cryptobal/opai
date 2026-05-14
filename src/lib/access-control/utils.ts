@@ -82,6 +82,14 @@ export function formatRutDash(rut: string): string {
 // ═══════════════════════════════════════════════════════════════
 
 /**
+ * Normaliza una patente para almacenarla / compararla. Elimina espacios y
+ * guiones, convierte a mayúsculas. No valida el formato — usar validateChileanPlate.
+ */
+export function cleanPlate(plate: string): string {
+  return plate.replace(/[-\s]/g, "").toUpperCase();
+}
+
+/**
  * Validates and classifies a Chilean license plate.
  */
 export function validateChileanPlate(plate: string): { valid: boolean; format: PlateFormat } {

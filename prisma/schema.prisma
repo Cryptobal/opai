@@ -8823,7 +8823,8 @@ model AccessControlList {
   tenantId        String    @map("tenant_id")
   installationId  String?   @map("installation_id") @db.Uuid
   listType        String    @map("list_type") // 'whitelist' | 'blacklist'
-  rut             String
+  rut             String?
+  vehiclePlate    String?   @map("vehicle_plate")
   fullName        String    @map("full_name")
   company         String?
   blockReason     String?   @map("block_reason")
@@ -8845,6 +8846,7 @@ model AccessControlList {
   deniedAttempts AccessControlDeniedAttempt[]
 
   @@index([rut], map: "idx_ac_lists_rut")
+  @@index([vehiclePlate], map: "idx_ac_lists_plate")
   @@index([installationId, listType], map: "idx_ac_lists_installation_type")
   @@index([scope], map: "idx_ac_lists_scope")
   @@index([tenantId], map: "idx_ac_lists_tenant")

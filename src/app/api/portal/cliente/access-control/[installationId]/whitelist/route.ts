@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ensureInstallationAccess, requirePortalClienteAuth } from "@/lib/portal-cliente";
-import { validateRut, cleanRut } from "@/lib/access-control/utils";
+import { validateRut, cleanRut, cleanPlate } from "@/lib/access-control/utils";
 
 export async function GET(
   request: NextRequest,
@@ -56,7 +56,16 @@ export async function POST(
 
     const body = await request.json();
 
-    if (!body.rut || !validateRut(body.rut)) {
+    const hasRut = typeof body.rut === "string" && body.rut.trim().length > 0;
+    const hasPlate = typeof body.vehiclePlate === "string" && body.vehiclePlate.trim().length > 0;
+
+    if (!hasRut && !hasPlate) {
+      return NextResponse.json(
+        { success: false, error: "Debe especificar al menos RUT o patente" },
+        { status: 400 }
+      );
+    }
+    if (hasRut && !validateRut(body.rut)) {
       return NextResponse.json(
         { success: false, error: "RUT inválido" },
         { status: 400 }
@@ -68,7 +77,8 @@ export async function POST(
         tenantId: session.tenantId,
         installationId,
         listType: "whitelist",
-        rut: cleanRut(body.rut),
+        rut: hasRut ? cleanRut(body.rut) : null,
+        vehiclePlate: hasPlate ? cleanPlate(body.vehiclePlate) : null,
         fullName: body.fullName,
         company: body.company || null,
         scope: "local",
