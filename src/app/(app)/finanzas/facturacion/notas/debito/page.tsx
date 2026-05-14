@@ -48,6 +48,8 @@ export default async function NotaDebitoPage({ searchParams }: PageProps) {
         folio: dte.folio,
         receiverRut: dte.receiverRut,
         receiverName: dte.receiverName,
+        receiverEmail: dte.receiverEmail ?? null,
+        accountId: dte.accountId ?? null,
         totalAmount: dte.totalAmount.toNumber(),
         lines: dte.lines.map((l) => ({
           itemName: l.itemName,

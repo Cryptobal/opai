@@ -18,6 +18,10 @@ import { Plus, Trash2, Loader2, Send, Copy, FileEdit, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { EmisionConfirmDialog } from "./EmisionConfirmDialog";
 import { PdfPreviewDialog } from "./PdfPreviewDialog";
+import {
+  DteRecipientsPicker,
+  type DteRecipientsValue,
+} from "./DteRecipientsPicker";
 
 /* ── Types ── */
 
@@ -27,6 +31,10 @@ interface ReferenceDte {
   folio: number;
   receiverRut: string;
   receiverName: string;
+  /** Email guardado en el DTE original (pre-llena el TO del envío). */
+  receiverEmail?: string | null;
+  /** Cuenta CRM dueña del DTE (para traer sus contactos). */
+  accountId?: string | null;
   totalAmount: number;
   lines: {
     itemName: string;
@@ -108,6 +116,67 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
     emails: [],
     alwaysSend: false,
   });
+  // Destinatarios del envío externo. TO arranca con el email del DTE
+  // original; CC pre-marcado con los contactos de la cuenta (resuelto
+  // vía fetch a /api/crm/contacts por accountId o RUT).
+  const [emailRecipients, setEmailRecipients] = useState<DteRecipientsValue>({
+    to: referenceDte?.receiverEmail ?? "",
+    cc: [],
+    bcc: [],
+  });
+  // Contactos CRM resueltos (un solo fetch — el picker recibe estos como
+  // suggestedContacts y como defaultCheckedCc para pre-marcarlos).
+  const [crmContacts, setCrmContacts] = useState<
+    { email: string; label?: string }[]
+  >([]);
+  // Checkbox de auto-envío: por default sí enviamos. Si el usuario lo
+  // destilda, el endpoint NC/ND propaga autoSendEmail=false al issuer.
+  const [autoSendEmail, setAutoSendEmail] = useState(true);
+
+  // Cargar contactos asociados a la cuenta del DTE original. Estrategia
+  // espejo del SendEmailDialog: primero por accountId, fallback por RUT
+  // (DTEs viejos que quedaron sin accountId).
+  useEffect(() => {
+    if (!referenceDte) {
+      setCrmContacts([]);
+      return;
+    }
+    const param = referenceDte.accountId
+      ? `accountId=${referenceDte.accountId}`
+      : referenceDte.receiverRut
+        ? `rut=${encodeURIComponent(referenceDte.receiverRut)}`
+        : null;
+    if (!param) {
+      setCrmContacts([]);
+      return;
+    }
+    const ctrl = new AbortController();
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    fetch(`/api/crm/contacts?${param}`, { signal: ctrl.signal })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j?.success || !Array.isArray(j.data)) return;
+        const list: { email: string; label?: string }[] = [];
+        for (const c of j.data) {
+          const email = (c.email ?? "").trim();
+          if (!email || !EMAIL_RE.test(email)) continue;
+          const name = [c.firstName, c.lastName].filter(Boolean).join(" ").trim();
+          list.push({ email, label: name ? `${name} <${email}>` : email });
+        }
+        setCrmContacts(list);
+      })
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, [referenceDte]);
+
+  // Mantener el TO sincronizado si el referenceDte llega después
+  // (caso modal: arranca null y luego se rellena vía fetch).
+  useEffect(() => {
+    const sourceEmail = (referenceDte?.receiverEmail ?? "").trim();
+    setEmailRecipients((prev) =>
+      prev.to === sourceEmail ? prev : { ...prev, to: sourceEmail },
+    );
+  }, [referenceDte?.receiverEmail]);
 
   // Cargar config tenant para mostrar opción de XML al backoffice en confirm.
   useEffect(() => {
@@ -241,6 +310,7 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
 
   const buildPayload = () => {
     const validLines = lines.filter((l) => l.itemName.trim() && parseFloat(l.unitPrice) > 0);
+    const toTrim = emailRecipients.to.trim();
     return {
       referenceDteId: referenceDte!.id,
       reason: reason.trim(),
@@ -251,6 +321,12 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
         quantity: parseFloat(l.quantity) || 1,
         unitPrice: parseFloat(l.unitPrice) || 0,
       })),
+      autoSendEmail,
+      receiverEmailCc:
+        emailRecipients.cc.length > 0 ? emailRecipients.cc : undefined,
+      receiverEmailBcc:
+        emailRecipients.bcc.length > 0 ? emailRecipients.bcc : undefined,
+      receiverEmailOverride: toTrim || null,
     };
   };
 
@@ -716,6 +792,41 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
         </div>
       </div>
 
+      {/* Envío externo (TO/CC/BCC) — el TO va al XML SII como
+          CorreoRecep. El CC pre-marca los contactos asociados a la
+          cuenta de la factura original. */}
+      {referenceDte && (
+        <Card>
+          <CardContent className="pt-4 space-y-4">
+            <div>
+              <p className="text-sm font-medium">Envío por email</p>
+              <p className="text-xs text-muted-foreground">
+                Por defecto se envía PDF + XML al receptor. Podés
+                desmarcar contactos pre-cargados o agregar más como
+                copia (CC) u oculta (BCC).
+              </p>
+            </div>
+            <DteRecipientsPicker
+              value={emailRecipients}
+              onChange={setEmailRecipients}
+              suggestedContacts={crmContacts}
+              defaultCheckedCc={crmContacts.map((c) => c.email)}
+              disabled={saving}
+            />
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoSendEmail}
+                onChange={(e) => setAutoSendEmail(e.target.checked)}
+                className="rounded border-border"
+                disabled={saving}
+              />
+              <span>Enviar email automáticamente al emitir</span>
+            </label>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Actions */}
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
         <Button
@@ -768,7 +879,7 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
         receiver={{
           name: referenceDte?.receiverName ?? "",
           rut: referenceDte?.receiverRut ?? "",
-          email: null,
+          email: emailRecipients.to.trim() || null,
         }}
         totals={{
           netAmount: total,

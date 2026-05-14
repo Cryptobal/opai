@@ -33,6 +33,8 @@ interface ReferenceDte {
   folio: number;
   receiverRut: string;
   receiverName: string;
+  receiverEmail?: string | null;
+  accountId?: string | null;
   totalAmount: number;
   lines: {
     itemName: string;
@@ -79,6 +81,8 @@ export function CreditNoteModal({ open, onClose, referenceDteId, noteType }: Pro
           folio: d.folio,
           receiverRut: d.receiverRut,
           receiverName: d.receiverName,
+          receiverEmail: d.receiverEmail ?? null,
+          accountId: d.accountId ?? null,
           totalAmount: Number(d.totalAmount),
           lines: Array.isArray(d.lines)
             ? d.lines.map((l: Record<string, unknown>) => ({
