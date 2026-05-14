@@ -44,6 +44,7 @@ export interface MarcarCheckpointResult {
   trustScore: number;
   anomalies: RondaAnomalyCode[];
   geo: { valid: boolean; distanceM: number | null };
+  geoNoVerificada: boolean;
 }
 
 export class MarcarCheckpointError extends Error {
@@ -186,12 +187,15 @@ export async function marcarCheckpoint(
   const rawSpeed = prev ? speedKmh(prevDistance, elapsedSec) : 0;
   const speed = isSpeedReliable(prevDistance, gpsAccuracy) ? rawSpeed : 0;
 
-  // 5.2. Bloqueo por geo: todos los tipos con coordenadas exigen estar en rango.
-  // QR prueba que tienes el código; la geocerca prueba que estás en el lugar.
+  // 5.2. Geo soft-fail: si el guardia está fuera de rango (señal pobre / drift GPS)
+  // NO se descarta la marca. Se registra con status GEO_NO_VERIFICADA para que
+  // quede evidencia y el supervisor la revise. La marca NO cuenta para cumplimiento
+  // (todos los consumidores filtran status === "COMPLETED").
+  let geoNoVerificada = false;
   if (!isAdHocGps && checkpoint) {
     const hasCoords = checkpoint.lat != null && checkpoint.lng != null;
     if (hasCoords && !geo.valid) {
-      throw new MarcarCheckpointError("Debe estar en el rango del checkpoint para marcar", 400, "fuera_de_rango");
+      geoNoVerificada = true;
     }
   }
 
@@ -276,7 +280,7 @@ export async function marcarCheckpoint(
         note: note ?? null,
         hashIntegridad: hash,
         anomalias: anomalies as never,
-        status: "COMPLETED",
+        status: geoNoVerificada ? "GEO_NO_VERIFICADA" : "COMPLETED",
         verificationMethod: verificationMethod ?? (isAdHocGps ? "GEOFENCE" : checkpointId ? "GEOFENCE" : "QR"),
         isOfflineSync: isOfflineSync ?? false,
       },
@@ -299,7 +303,7 @@ export async function marcarCheckpoint(
     }
 
     const completed = await tx.opsMarcacionCheckpoint.count({
-      where: { tenantId: execution.tenantId, ejecucionId: execution.id },
+      where: { tenantId: execution.tenantId, ejecucionId: execution.id, status: "COMPLETED" },
     });
     const total = execution.rondaTemplateId
       ? await tx.opsRondaCheckpoint.count({
@@ -309,7 +313,7 @@ export async function marcarCheckpoint(
     const pct = total > 0 ? (completed / total) * 100 : 0;
 
     const trustRows = await tx.opsMarcacionCheckpoint.findMany({
-      where: { tenantId: execution.tenantId, ejecucionId: execution.id },
+      where: { tenantId: execution.tenantId, ejecucionId: execution.id, status: "COMPLETED" },
       select: { anomalias: true },
     });
     const severeCount = trustRows.filter((r) => ((r.anomalias as string[] | null) ?? []).length > 0).length;
@@ -451,5 +455,6 @@ export async function marcarCheckpoint(
     trustScore,
     anomalies,
     geo: { valid: geo.valid, distanceM: geo.distanceM },
+    geoNoVerificada,
   };
 }
