@@ -606,13 +606,15 @@ export async function buildProjection(
       const cat = categoryMap.get(item.categoryId);
       // IVA: el cashflow muestra valores BRUTOS porque proyecta movimiento
       // bancario real. Los items en BD están en NETO (consistentes con
-      // contabilidad). Para categorías no exentas (ej: ventas por contrato,
-      // proveedores afectos, servicios) aplicamos ×1.19. Sueldos,
-      // cotizaciones, impuestos y retiros son exentos porque sus montos
-      // ya son valor de caja directo. Si el item ya tenía amountClp
-      // materializado, asumimos que fue calculado pre-IVA y lo brutéamos
-      // igual — la BD permanece en neto, solo el render sube a bruto.
-      if (cat && !cat.isTaxExempt) {
+      // contabilidad). Para categorías no exentas aplicamos ×1.19.
+      // EXCEPCIÓN: cuando el usuario hizo un override manual (`amountOverride`)
+      // —vía "Editar monto" o "Igualar a factura"— el monto guardado ES el
+      // bruto que el usuario quiere ver. Si re-aplicáramos IVA acá, el cell
+      // quedaría a 1.19× lo que el usuario pidió. Por eso saltamos el IVA
+      // cuando hay override.
+      const hasManualOverride =
+        mat?.amountOverride !== null && mat?.amountOverride !== undefined;
+      if (cat && !cat.isTaxExempt && !hasManualOverride) {
         amountClp = amountClp * (1 + IVA_RATE);
       }
       allOccurrences.push({
