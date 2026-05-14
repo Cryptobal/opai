@@ -144,6 +144,19 @@ interface FolioStatus {
   totalIssued: number;
 }
 
+interface ReceivedDteLine {
+  id: string;
+  lineNumber: number;
+  itemCode: string | null;
+  itemName: string;
+  description: string | null;
+  quantity: number | string;
+  unit: string | null;
+  unitPrice: number | string;
+  netAmount: number | string;
+  isExempt: boolean;
+}
+
 interface ReceivedDteRow {
   id: string;
   dteType: number;
@@ -161,6 +174,10 @@ interface ReceivedDteRow {
   amountPaid: number;
   amountPending: number;
   supplier: { id: string; name: string; rut: string } | null;
+  /** Líneas del DTE — pobladas cuando el XML está disponible (vía email
+   *  a dte-{slug}@inbound.opai.cl o subida manual). El RCV de SimpleAPI
+   *  trae solo cabezales, así que muchos DTEs históricos no tienen `lines`. */
+  lines?: ReceivedDteLine[];
   /** Centro de costo: cliente CRM + instalación. */
   crmAccountId?: string | null;
   installationId?: string | null;
@@ -1837,16 +1854,55 @@ function ReceivedDteDetailDialog({
     }
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch(`/api/finance/billing/dte/${dte.id}/attachments`, {
-        method: "POST",
-        body: fd,
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error ?? "Error al subir");
-      setAttachments((prev) => [json.data, ...prev]);
-      toast.success(`${file.name} adjuntado`);
+      const isXml =
+        file.name.toLowerCase().endsWith(".xml") ||
+        file.type === "application/xml" ||
+        file.type === "text/xml";
+
+      if (isXml) {
+        // Ruta especializada: valida identidad SII (tipo/folio/RUTs/total)
+        // y backfillea FinanceDteLine desde <Detalle> si el DTE no tenía
+        // líneas. Si el cabezal vino de RCV (cabezal solo), esto es lo
+        // que activa el detalle del documento en el modal.
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch(
+          `/api/finance/billing/received/${dte.id}/attach-xml`,
+          { method: "POST", body: fd },
+        );
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.error ?? "Error al subir XML");
+        }
+        // Refrescar adjuntos (el endpoint también persiste el XML como
+        // FinanceDteAttachment kind=XML).
+        const refreshed = await fetch(
+          `/api/finance/billing/dte/${dte.id}/attachments`,
+        );
+        const refreshedJson = await refreshed.json();
+        if (refreshedJson?.success && Array.isArray(refreshedJson.data)) {
+          setAttachments(refreshedJson.data);
+        }
+        const msg = json.data?.linesBackfilled
+          ? `XML adjuntado. ${json.data.linesBackfilled} línea${json.data.linesBackfilled === 1 ? "" : "s"} cargada${json.data.linesBackfilled === 1 ? "" : "s"} del detalle.`
+          : "XML adjuntado.";
+        toast.success(msg);
+        // Avisar al padre que refresque para que las líneas aparezcan en
+        // la tabla del documento sin que el usuario tenga que cerrar y
+        // reabrir el modal.
+        onDecided?.();
+      } else {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch(`/api/finance/billing/dte/${dte.id}/attachments`, {
+          method: "POST",
+          body: fd,
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json.error ?? "Error al subir");
+        setAttachments((prev) => [json.data, ...prev]);
+        toast.success(`${file.name} adjuntado`);
+      }
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -2104,6 +2160,87 @@ function ReceivedDteDetailDialog({
               <span className="font-mono">{fmtCLP.format(dte.totalAmount)}</span>
             </div>
           </div>
+
+          {/* Detalle de líneas — disponible solo cuando el XML del DTE
+              fue ingerido (vía email a dte-{slug}@inbound.opai.cl o subida
+              manual). SimpleAPI RCV trae solo cabezales; las líneas vienen
+              del bloque <Detalle> del XML SII. */}
+          {dte.lines && dte.lines.length > 0 && (
+            <div className="rounded-md border border-border p-4 space-y-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Detalle del documento
+                </p>
+                <span className="text-[11px] text-muted-foreground">
+                  {dte.lines.length} línea{dte.lines.length === 1 ? "" : "s"}
+                </span>
+              </div>
+              <div className="overflow-x-auto -mx-1">
+                <table className="w-full text-xs">
+                  <thead className="text-muted-foreground">
+                    <tr className="border-b border-border">
+                      <th className="text-left font-medium pb-1.5 pr-2 w-8">#</th>
+                      <th className="text-left font-medium pb-1.5 pr-2">Ítem</th>
+                      <th className="text-right font-medium pb-1.5 pr-2">Cant.</th>
+                      <th className="text-left font-medium pb-1.5 pr-2">Un.</th>
+                      <th className="text-right font-medium pb-1.5 pr-2">P. unit.</th>
+                      <th className="text-right font-medium pb-1.5">Neto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dte.lines.map((l) => {
+                      const qty = Number(l.quantity);
+                      const price = Number(l.unitPrice);
+                      const net = Number(l.netAmount);
+                      return (
+                        <tr key={l.id} className="border-b border-border/40 last:border-0 align-top">
+                          <td className="py-1.5 pr-2 text-muted-foreground font-mono">
+                            {l.lineNumber}
+                          </td>
+                          <td className="py-1.5 pr-2">
+                            <p className="text-sm leading-tight">{l.itemName}</p>
+                            {l.itemCode && (
+                              <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                                {l.itemCode}
+                              </p>
+                            )}
+                            {l.description && (
+                              <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
+                                {l.description}
+                              </p>
+                            )}
+                            {l.isExempt && (
+                              <span className="inline-block mt-0.5 text-[10px] uppercase tracking-wide text-muted-foreground border border-border rounded px-1 py-0.5">
+                                Exenta
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-1.5 pr-2 text-right font-mono tabular-nums">
+                            {Number.isFinite(qty)
+                              ? qty.toLocaleString("es-CL", {
+                                  maximumFractionDigits: 2,
+                                })
+                              : "—"}
+                          </td>
+                          <td className="py-1.5 pr-2 text-muted-foreground">
+                            {l.unit ?? "—"}
+                          </td>
+                          <td className="py-1.5 pr-2 text-right font-mono tabular-nums">
+                            {Number.isFinite(price)
+                              ? fmtCLP.format(price)
+                              : "—"}
+                          </td>
+                          <td className="py-1.5 text-right font-mono tabular-nums">
+                            {Number.isFinite(net) ? fmtCLP.format(net) : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Movimiento bancario conciliado — clickeable, deep link al
               drawer de conciliación del módulo Bancos. */}
