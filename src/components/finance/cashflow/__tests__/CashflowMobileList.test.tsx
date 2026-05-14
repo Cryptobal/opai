@@ -41,8 +41,13 @@ describe("CashflowMobileList", () => {
     // sección; basta que exista al menos una instancia.
     expect(screen.getAllByText(/Ingresos/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Egresos/).length).toBeGreaterThan(0);
+    // Ingresos abierto por default → "Ventas" visible.
     expect(screen.getByText("Ventas")).toBeTruthy();
-    expect(screen.getByText("Sueldos")).toBeTruthy();
+    // Egresos cerrado por default → abrir para ver "Sueldos".
+    fireEvent.click(screen.getByRole("button", { name: /Egresos/ }));
+    await waitFor(() => {
+      expect(screen.getByText("Sueldos")).toBeTruthy();
+    });
   });
 
   it("cambiar de bucket actualiza el header", async () => {
@@ -116,13 +121,31 @@ describe("CashflowMobileList", () => {
         canManage
       />,
     );
+    // Por default, Ingresos está abierto y Egresos cerrado: hay que abrir Egresos.
     const egresosHeader = screen.getByRole("button", { name: /Egresos/ });
-    if (egresosHeader.getAttribute("aria-expanded") !== "true") {
-      fireEvent.click(egresosHeader);
-    }
+    expect(egresosHeader.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(egresosHeader);
     await waitFor(() => {
       expect(screen.getByText(/Sin egresos proyectados/i)).toBeTruthy();
     });
+  });
+
+  it("acordeón: abrir Egresos cierra Ingresos", async () => {
+    renderList();
+    const ingresosHeader = screen.getByRole("button", { name: /Ingresos/ });
+    const egresosHeader = screen.getByRole("button", { name: /Egresos/ });
+    // Default: Ingresos abierto, Egresos cerrado.
+    expect(ingresosHeader.getAttribute("aria-expanded")).toBe("true");
+    expect(egresosHeader.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(egresosHeader);
+    await waitFor(() => {
+      expect(egresosHeader.getAttribute("aria-expanded")).toBe("true");
+      expect(ingresosHeader.getAttribute("aria-expanded")).toBe("false");
+    });
+    // Persistencia.
+    expect(window.localStorage.getItem("cashflow.mobile.openSection")).toBe(
+      "expense",
+    );
   });
 
   it("auto-selecciona un bucket activo al mount", async () => {

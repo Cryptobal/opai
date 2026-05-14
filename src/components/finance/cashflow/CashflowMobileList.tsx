@@ -177,6 +177,31 @@ export function CashflowMobileList({
   const canEditBalance = useHasCapability("banking_manage");
   const isActiveBucketCurrent = activeIdx >= 0 && activeIdx === currentBucketIdx;
 
+  // Acordeón mutuamente exclusivo: solo una sección abierta a la vez.
+  const [openSection, setOpenSection] = useState<"income" | "expense" | null>(
+    "income",
+  );
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const v = window.localStorage.getItem("cashflow.mobile.openSection");
+    if (v === "income" || v === "expense") setOpenSection(v);
+    else if (v === "none") setOpenSection(null);
+  }, []);
+  function toggleSection(s: "income" | "expense") {
+    setOpenSection((prev) => {
+      const next = prev === s ? null : s;
+      try {
+        window.localStorage.setItem(
+          "cashflow.mobile.openSection",
+          next ?? "none",
+        );
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }
+
   const cumulativePoint = useMemo(
     () =>
       projection.cumulativePoints.find((p) => p.bucketKey === activeBucketKey),
@@ -287,22 +312,24 @@ export function CashflowMobileList({
           <CashflowMobileSection
             title="Ingresos"
             tone="ok"
-            storageKey="cashflow.ingresos.expanded"
             rows={incomeRows}
             bucketKey={activeBucket.key}
             emptyText="Sin ingresos proyectados en este período"
             canManage={canManage}
             onOpenItem={setDrawerTarget}
+            expanded={openSection === "income"}
+            onToggle={() => toggleSection("income")}
           />
           <CashflowMobileSection
             title="Egresos"
             tone="warn"
-            storageKey="cashflow.egresos.expanded"
             rows={expenseRows}
             bucketKey={activeBucket.key}
             emptyText="Sin egresos proyectados en este período"
             canManage={canManage}
             onOpenItem={setDrawerTarget}
+            expanded={openSection === "expense"}
+            onToggle={() => toggleSection("expense")}
           />
 
           <CashflowMobileBucketSummary
