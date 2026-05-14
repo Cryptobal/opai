@@ -533,8 +533,8 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
                     <th className="px-3 py-2 text-left font-medium text-muted-foreground">Nombre *</th>
                     <th className="px-3 py-2 text-left font-medium text-muted-foreground">Descripción</th>
                     <th className="px-3 py-2 text-right font-medium text-muted-foreground w-20">Cant.</th>
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground w-28">Precio *</th>
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground w-28">Subtotal</th>
+                    <th className="px-3 py-2 text-right font-medium text-muted-foreground w-36">Precio *</th>
+                    <th className="px-3 py-2 text-right font-medium text-muted-foreground w-32">Subtotal</th>
                     <th className="px-3 py-2 w-10" />
                   </tr>
                 </thead>
@@ -655,7 +655,7 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
                   <Input
                     value={line.itemName}
                     onChange={(e) => updateLine(i, "itemName", e.target.value)}
-                    className="h-10 sm:h-9 text-sm"
+                    className="h-10 sm:h-9 text-base sm:text-sm"
                     placeholder="Nombre *"
                     readOnly={lockAll}
                     autoComplete="off"
@@ -664,12 +664,15 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
                   <Input
                     value={line.description}
                     onChange={(e) => updateLine(i, "description", e.target.value)}
-                    className="h-10 sm:h-9 text-sm"
+                    className="h-10 sm:h-9 text-base sm:text-sm"
                     placeholder="Descripción (opcional)"
                     readOnly={lockAll}
                     autoComplete="off"
                   />
-                  <div className="grid grid-cols-2 gap-2">
+                  {/* Cant. queda con ancho fijo chico (1-3 dígitos típicos);
+                      Precio toma el resto para acomodar montos de hasta 8
+                      dígitos sin truncar el valor visible al escribir. */}
+                  <div className="grid grid-cols-[88px_1fr] gap-2">
                     <div className="space-y-1">
                       <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">Cant.</Label>
                       <Input
@@ -678,12 +681,12 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
                         inputMode="decimal"
                         value={line.quantity}
                         onChange={(e) => updateLine(i, "quantity", e.target.value)}
-                        className="h-10 sm:h-9 text-sm text-right tabular-nums"
+                        className="h-10 sm:h-9 text-base sm:text-sm text-right tabular-nums"
                         readOnly={lockMoney}
                         autoComplete="off"
                       />
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0">
                       <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">Precio *</Label>
                       <Input
                         type="number"
@@ -691,7 +694,7 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
                         inputMode="decimal"
                         value={line.unitPrice}
                         onChange={(e) => updateLine(i, "unitPrice", e.target.value)}
-                        className="h-10 sm:h-9 text-sm text-right tabular-nums"
+                        className="h-10 sm:h-9 w-full text-base sm:text-sm text-right tabular-nums"
                         placeholder="0"
                         readOnly={lockMoney}
                         autoComplete="off"
