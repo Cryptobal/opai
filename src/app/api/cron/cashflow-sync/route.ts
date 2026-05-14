@@ -20,6 +20,7 @@ import { recomputeTurnosExtraAmounts } from "@/modules/finance/cashflow/generato
 import { recomputeIvaUpcoming } from "@/modules/finance/cashflow/generators/iva-f29-sync";
 import { backfillRecurringDteItems } from "@/modules/finance/cashflow/generators/recurring-dte-sync";
 import { recomputeRetiroSociosAmounts } from "@/modules/finance/cashflow/generators/retiro-socios-sync";
+import { recomputeQuincenaAmounts } from "@/modules/finance/cashflow/generators/quincena-sync";
 
 interface TenantStats {
   tenantId: string;
@@ -29,6 +30,7 @@ interface TenantStats {
   iva: number;
   recurringDte: number;
   retiroSocios: number;
+  quincena: number;
   errors: string[];
 }
 
@@ -67,6 +69,7 @@ export async function GET(request: NextRequest) {
       iva: 0,
       recurringDte: 0,
       retiroSocios: 0,
+      quincena: 0,
       errors: [],
     };
     try {
@@ -117,6 +120,14 @@ export async function GET(request: NextRequest) {
       stats.retiroSocios = r.created + r.updated + r.reactivated + r.deactivated;
     } catch (err) {
       stats.errors.push(`retiro-socios: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    try {
+      // Quincena/anticipo guardias: gated por la presencia de la categoría
+      // EGR_QUINCENA activa (la chequea recomputeQuincenaAmounts internamente).
+      const r = await recomputeQuincenaAmounts(cfg.tenantId);
+      stats.quincena = r.created + r.updated + r.reactivated + r.deactivated;
+    } catch (err) {
+      stats.errors.push(`quincena: ${err instanceof Error ? err.message : String(err)}`);
     }
     results.push(stats);
   }

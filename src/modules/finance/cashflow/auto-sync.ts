@@ -5,6 +5,7 @@ import { recomputeTurnosExtraAmounts } from "./generators/turnos-extra-sync";
 import { recomputeIvaUpcoming } from "./generators/iva-f29-sync";
 import { backfillRecurringDteItems } from "./generators/recurring-dte-sync";
 import { recomputeRetiroSociosAmounts } from "./generators/retiro-socios-sync";
+import { recomputeQuincenaAmount } from "./generators/quincena-sync";
 
 /**
  * Self-heal: detecta si el tenant tiene drift entre datos fuente y items
@@ -23,6 +24,7 @@ export async function ensureCashflowSynced(tenantId: string): Promise<{
     payroll: boolean;
     recurringDte: boolean;
     retiroSocios: boolean;
+    quincena: boolean;
   };
 }> {
   const triggered = {
@@ -30,6 +32,7 @@ export async function ensureCashflowSynced(tenantId: string): Promise<{
     payroll: false,
     recurringDte: false,
     retiroSocios: false,
+    quincena: false,
   };
 
   try {
@@ -108,6 +111,23 @@ export async function ensureCashflowSynced(tenantId: string): Promise<{
       if (retiroItems < horizon) {
         triggered.retiroSocios = true;
         await recomputeRetiroSociosAmounts(tenantId);
+      }
+    }
+
+    // ── Quincena / anticipo guardias: dispara cuando existe la categoría
+    //    EGR_QUINCENA activa y aún no hay item materializado. Idempotente:
+    //    si ya existe, el cron nightly se encarga de mantenerlo al día.
+    const quincenaCat = await prisma.financeCashflowCategory.findFirst({
+      where: { tenantId, code: "EGR_QUINCENA", isActive: true },
+      select: { id: true },
+    });
+    if (quincenaCat) {
+      const quincenaItem = await prisma.financeCashflowItem.count({
+        where: { tenantId, source: "QUINCENA", isActive: true },
+      });
+      if (quincenaItem === 0) {
+        triggered.quincena = true;
+        await recomputeQuincenaAmount(tenantId);
       }
     }
   } catch (err) {
