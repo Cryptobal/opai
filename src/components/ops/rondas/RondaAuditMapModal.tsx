@@ -21,7 +21,7 @@ interface CheckpointStatus {
   lat: number;
   lng: number;
   orderIndex: number;
-  status: "COMPLETED" | "PENDING";
+  status: "COMPLETED" | "GEO_NO_VERIFICADA" | "PENDING";
   geoValidada: boolean | null;
   distanceM: number | null;
   timestamp: string | null;
@@ -208,34 +208,47 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
 
       for (const cp of checkpointsToRender) {
         const isCompleted = cp.status === "COMPLETED";
+        const isGeoNoVerificada = cp.status === "GEO_NO_VERIFICADA";
         const geoOk = cp.geoValidada;
 
         let bgColor: string;
         let borderStyle: string;
         let icon: string;
         let tooltipExtra = "";
+        let label: string;
 
-        if (!isCompleted) {
+        if (isGeoNoVerificada) {
+          // Marca registrada pero fuera del radio (señal pobre) — ámbar.
+          bgColor = "#f59e0b";
+          borderStyle = "border:2px dashed #fff;";
+          icon = "?";
+          label = "Ubicación sin confirmar";
+          tooltipExtra = " ⚠ Señal débil / fuera del radio";
+        } else if (!isCompleted) {
           // Not marked — red solid
           bgColor = "#ef4444";
           borderStyle = "border:2px solid #fff;";
           icon = "✗";
+          label = "No marcado";
         } else if (geoOk === true) {
           // Marked + inside geofence — green solid
           bgColor = "#22c55e";
           borderStyle = "border:2px solid #fff;";
           icon = "✓";
+          label = "Marcado";
         } else if (geoOk === false) {
-          // Marked but outside geofence — amber with dashed border
+          // Legacy: marcaciones anteriores con geoValidada=false pero status=COMPLETED.
           bgColor = "#f59e0b";
           borderStyle = "border:2px dashed #fff;";
           icon = "✓";
+          label = "Marcado";
           tooltipExtra = " ⚠ Fuera del radio GPS";
         } else {
           // Marked, geo unknown (e.g. ad-hoc or no coord) — green solid
           bgColor = "#22c55e";
           borderStyle = "border:2px solid #fff;";
           icon = "✓";
+          label = "Marcado";
         }
 
         const distInfo = cp.distanceM != null ? ` · ${Math.round(cp.distanceM)}m del punto` : "";
@@ -252,7 +265,7 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
 
         L.marker([cp.lat, cp.lng], { icon: divIcon })
           .bindTooltip(
-            `${cp.orderIndex}. ${cp.name} — ${isCompleted ? "Marcado" : "No marcado"}${distInfo}${timeInfo}${tooltipExtra}`,
+            `${cp.orderIndex}. ${cp.name} — ${label}${distInfo}${timeInfo}${tooltipExtra}`,
             { permanent: false },
           )
           .addTo(map);

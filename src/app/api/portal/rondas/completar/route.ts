@@ -92,10 +92,15 @@ export async function POST(request: NextRequest) {
     } else {
       templateCps = execution.rondaTemplate!.checkpoints;
       total = templateCps.length;
-      const markedCpIds = new Set(execution.marcaciones.map((m) => m.checkpointId));
+      // Set de checkpoints que YA tienen fila (cualquier status: COMPLETED o
+      // GEO_NO_VERIFICADA). No se debe insertar MISSED si ya existe fila —
+      // violaría el unique constraint (ejecucionId, checkpointId).
+      const existingRowCpIds = new Set(
+        execution.marcaciones.map((m) => m.checkpointId),
+      );
 
       missedData = templateCps
-        .filter((tc: any) => !markedCpIds.has(tc.checkpointId))
+        .filter((tc: any) => !existingRowCpIds.has(tc.checkpointId))
         .map((tc: any) => ({
           tenantId: execution.tenantId,
           ejecucionId: execution.id,
@@ -130,8 +135,12 @@ export async function POST(request: NextRequest) {
     const completedCount = execution.marcaciones.filter(
       (m) => m.status === "COMPLETED" || !m.status,
     ).length;
-    // For ad-hoc rounds, missed = total checkpoints minus completed marks
-    const missedCount = isAdHoc ? (total - completedCount) : missedData.length;
+    // missed = todo lo que no se completó (MISSED reales + GEO_NO_VERIFICADA).
+    // Derivar de total - completedCount mantiene el estado de la ejecución
+    // idéntico al comportamiento previo al fix: antes los geo-fallidos eran
+    // MISSED (sin fila) → ahora son GEO_NO_VERIFICADA (con fila), pero el
+    // missed lógico es el mismo.
+    const missedCount = Math.max(0, total - completedCount);
     const missedPercent = total > 0 ? (missedCount / total) * 100 : 0;
     const status = missedPercent > 20 ? "incompleta" : "completada";
     const pct = total > 0 ? (completedCount / total) * 100 : 0;

@@ -28,10 +28,13 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     const templateCps = execution.rondaTemplate?.checkpoints ?? [];
     const total = templateCps.length;
-    const markedCpIds = new Set(execution.marcaciones.map(m => m.checkpointId));
+    // Set de checkpoints que YA tienen fila (cualquier status: COMPLETED o
+    // GEO_NO_VERIFICADA). No se debe insertar MISSED si ya existe fila —
+    // violaría el unique constraint (ejecucionId, checkpointId).
+    const existingRowCpIds = new Set(execution.marcaciones.map(m => m.checkpointId));
 
     const missedData = templateCps
-      .filter(tc => !markedCpIds.has(tc.checkpointId))
+      .filter(tc => !existingRowCpIds.has(tc.checkpointId))
       .map(tc => ({
         tenantId: execution.tenantId,
         ejecucionId: execution.id,
@@ -59,8 +62,12 @@ export async function POST(request: NextRequest) {
       status: d.status,
     }))];
 
-    const completedCount = execution.marcaciones.filter(m => m.status === "COMPLETED" || !m.status || m.status === "COMPLETED").length;
-    const missedPercent = total > 0 ? (missedData.length / total) * 100 : 0;
+    const completedCount = execution.marcaciones.filter(m => m.status === "COMPLETED" || !m.status).length;
+    // missed = todo lo que no se completó (MISSED reales + GEO_NO_VERIFICADA).
+    // Derivar de total - completedCount mantiene el estado de la ejecución
+    // idéntico al comportamiento previo al fix.
+    const missedCount = Math.max(0, total - completedCount);
+    const missedPercent = total > 0 ? (missedCount / total) * 100 : 0;
     const status = missedPercent > 20 ? "incompleta" : "completada";
     const pct = total > 0 ? (completedCount / total) * 100 : 0;
 
@@ -117,7 +124,7 @@ export async function POST(request: NextRequest) {
         trustBreakdown: trustResult.breakdown,
         porcentajeCompletado: pct,
         durationMinutes,
-        missed: missedData.length,
+        missed: missedCount,
       },
     });
   } catch (error) {
