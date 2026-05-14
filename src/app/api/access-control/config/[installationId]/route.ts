@@ -110,12 +110,17 @@ export async function PUT(
   try {
     const { installationId } = await params;
 
+    // El tenant context lo resuelve requireAccessControlAuth contra esta
+    // instalación: si la instalación no pertenece al tenant de la sesión,
+    // devuelve null y respondemos 401 antes de tocar la BD. Por eso el
+    // upsert puede usar `where: { installationId }` (campo @unique) sin
+    // un AND extra de tenantId — la autorización ya filtró cross-tenant.
     const authCtx = await requireAccessControlAuth(request, installationId);
     if (!authCtx) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
     }
 
-    const body = await request.json();
+    const body = (await request.json()) as Record<string, unknown>;
 
     const installation = await prisma.crmInstallation.findUnique({
       where: { id: installationId },
@@ -129,40 +134,49 @@ export async function PUT(
       );
     }
 
-    const recordTypeScanModes = normalizeRecordTypeScanModes(body.recordTypeScanModes);
+    // PUT no destructivo: igual que PATCH, solo escribe los campos
+    // presentes en el body. Antes este handler caía a [] / false / {}
+    // para todo campo ausente — un body parcial del portal o del ERP
+    // podía borrar enabledRecordTypes, formConfig, recordTypeLabels,
+    // etc. Ahora un PUT con {useWhitelist:true} ya no toca el resto.
+    const updateData: Prisma.AccessControlConfigUpdateInput = {};
+    if ("enabledRecordTypes" in body) updateData.enabledRecordTypes = (body.enabledRecordTypes as string[]) ?? [];
+    if ("useWhitelist" in body) updateData.useWhitelist = Boolean(body.useWhitelist);
+    if ("useBlacklist" in body) updateData.useBlacklist = Boolean(body.useBlacklist);
+    if ("requireIdValidation" in body) updateData.requireIdValidation = Boolean(body.requireIdValidation);
+    if ("requirePhoto" in body) updateData.requirePhoto = Boolean(body.requirePhoto);
+    if ("requireSignature" in body) updateData.requireSignature = Boolean(body.requireSignature);
+    if ("maxStayHours" in body) updateData.maxStayHours = (body.maxStayHours as number | null) ?? null;
+    if ("autoReportSchedule" in body) updateData.autoReportSchedule = (body.autoReportSchedule as string | null) ?? null;
+    if ("formConfig" in body) updateData.formConfig = (body.formConfig ?? {}) as Prisma.InputJsonValue;
+    if ("recordTypeLabels" in body) updateData.recordTypeLabels = (body.recordTypeLabels ?? {}) as Prisma.InputJsonValue;
+    if ("recordTypeIcons" in body) updateData.recordTypeIcons = (body.recordTypeIcons ?? {}) as Prisma.InputJsonValue;
+    if ("recordTypeScanModes" in body) {
+      updateData.recordTypeScanModes = normalizeRecordTypeScanModes(body.recordTypeScanModes) as Prisma.InputJsonValue;
+    }
 
     const config = await safeAccessControlQuery(
       () => prisma.accessControlConfig.upsert({
         where: { installationId },
-        update: {
-          enabledRecordTypes: body.enabledRecordTypes ?? [],
-          useWhitelist: body.useWhitelist ?? false,
-          useBlacklist: body.useBlacklist ?? false,
-          requireIdValidation: body.requireIdValidation ?? false,
-          requirePhoto: body.requirePhoto ?? false,
-          requireSignature: body.requireSignature ?? false,
-          maxStayHours: body.maxStayHours ?? null,
-          autoReportSchedule: body.autoReportSchedule ?? null,
-          formConfig: (body.formConfig ?? {}) as Prisma.InputJsonValue,
-          recordTypeLabels: (body.recordTypeLabels ?? {}) as Prisma.InputJsonValue,
-          recordTypeIcons: (body.recordTypeIcons ?? {}) as Prisma.InputJsonValue,
-          recordTypeScanModes: recordTypeScanModes as Prisma.InputJsonValue,
-        },
+        update: updateData,
+        // Para CREATE (primera vez que se configura la instalación) sí usamos
+        // defaults — equivalen a "config recién iniciada con todos los tipos
+        // habilitados". Solo aplica si la fila no existe.
         create: {
           tenantId: installation.tenantId,
           installationId,
-          enabledRecordTypes: body.enabledRecordTypes ?? [],
-          useWhitelist: body.useWhitelist ?? false,
-          useBlacklist: body.useBlacklist ?? false,
-          requireIdValidation: body.requireIdValidation ?? false,
-          requirePhoto: body.requirePhoto ?? false,
-          requireSignature: body.requireSignature ?? false,
-          maxStayHours: body.maxStayHours ?? null,
-          autoReportSchedule: body.autoReportSchedule ?? null,
+          enabledRecordTypes: (body.enabledRecordTypes as string[]) ?? ["visit", "provider", "vehicle", "staff", "delivery"],
+          useWhitelist: Boolean(body.useWhitelist ?? false),
+          useBlacklist: Boolean(body.useBlacklist ?? false),
+          requireIdValidation: Boolean(body.requireIdValidation ?? false),
+          requirePhoto: Boolean(body.requirePhoto ?? false),
+          requireSignature: Boolean(body.requireSignature ?? false),
+          maxStayHours: (body.maxStayHours as number | null) ?? null,
+          autoReportSchedule: (body.autoReportSchedule as string | null) ?? null,
           formConfig: (body.formConfig ?? {}) as Prisma.InputJsonValue,
           recordTypeLabels: (body.recordTypeLabels ?? {}) as Prisma.InputJsonValue,
           recordTypeIcons: (body.recordTypeIcons ?? {}) as Prisma.InputJsonValue,
-          recordTypeScanModes: recordTypeScanModes as Prisma.InputJsonValue,
+          recordTypeScanModes: normalizeRecordTypeScanModes(body.recordTypeScanModes) as Prisma.InputJsonValue,
         },
       }),
       null,
