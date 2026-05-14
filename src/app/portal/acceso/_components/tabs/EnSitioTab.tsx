@@ -30,6 +30,7 @@ import {
   elapsedMinutes,
   stayDurationColor,
 } from "@/lib/access-control/utils";
+import { authFetch } from "../../_lib/authFetch";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -63,6 +64,7 @@ interface EnSitioTabProps {
   installationId: string;
   guardId: string;
   maxStayHours?: number | null;
+  deviceToken?: string;
 }
 
 // ── Filter Chip Component ───────────────────────────────────────────────────
@@ -111,6 +113,7 @@ export default function EnSitioTab({
   installationId,
   guardId,
   maxStayHours,
+  deviceToken,
 }: EnSitioTabProps) {
   const [records, setRecords] = useState<InSiteRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,7 +131,7 @@ export default function EnSitioTab({
       const url = `/api/access-control/records/${installationId}/in-site${
         params.toString() ? `?${params.toString()}` : ""
       }`;
-      const res = await fetch(url);
+      const res = await authFetch(url, undefined, deviceToken);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.success) {
@@ -143,7 +146,7 @@ export default function EnSitioTab({
     } finally {
       setLoading(false);
     }
-  }, [installationId, search]);
+  }, [installationId, search, deviceToken]);
 
   // Fetch on mount + auto-refresh every 30s
   useEffect(() => {

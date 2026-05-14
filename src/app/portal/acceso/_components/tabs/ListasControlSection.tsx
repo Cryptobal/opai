@@ -15,11 +15,13 @@ import { Input } from "@/components/ui/input";
 import SkeletonCard from "../ui/SkeletonCard";
 import type { AccessControlListEntry } from "@/lib/access-control/types";
 import { formatRut } from "@/lib/access-control/utils";
+import { authFetch } from "../../_lib/authFetch";
 
 // ── Props ───────────────────────────────────────────────────────────────────
 
 interface ListasControlSectionProps {
   installationId: string;
+  deviceToken?: string;
 }
 
 type ListFilter = "all" | "whitelist" | "blacklist";
@@ -28,6 +30,7 @@ type ListFilter = "all" | "whitelist" | "blacklist";
 
 export default function ListasControlSection({
   installationId,
+  deviceToken,
 }: ListasControlSectionProps) {
   const [entries, setEntries] = useState<AccessControlListEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,8 +39,10 @@ export default function ListasControlSection({
 
   const fetchLists = useCallback(async () => {
     try {
-      const res = await fetch(
-        `/api/access-control/lists/${installationId}`
+      const res = await authFetch(
+        `/api/access-control/lists/${installationId}`,
+        undefined,
+        deviceToken,
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
@@ -49,7 +54,7 @@ export default function ListasControlSection({
     } finally {
       setLoading(false);
     }
-  }, [installationId]);
+  }, [installationId, deviceToken]);
 
   useEffect(() => {
     fetchLists();

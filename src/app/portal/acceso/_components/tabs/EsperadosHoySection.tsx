@@ -17,6 +17,7 @@ import SkeletonCard from "../ui/SkeletonCard";
 import type { PreregistrationData, PreregistrationStatus } from "@/lib/access-control/types";
 import { PREREGISTRATION_STATUS_CONFIG } from "@/lib/access-control/types";
 import { formatRut } from "@/lib/access-control/utils";
+import { authFetch } from "../../_lib/authFetch";
 
 // ── Status badge colors ─────────────────────────────────────────────────────
 
@@ -40,20 +41,24 @@ const STATUS_ICONS: Record<PreregistrationStatus, React.ReactNode> = {
 
 interface EsperadosHoySectionProps {
   installationId: string;
+  deviceToken?: string;
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function EsperadosHoySection({
   installationId,
+  deviceToken,
 }: EsperadosHoySectionProps) {
   const [preregistrations, setPreregistrations] = useState<PreregistrationData[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch(
-        `/api/access-control/preregistrations/${installationId}/today`
+      const res = await authFetch(
+        `/api/access-control/preregistrations/${installationId}/today`,
+        undefined,
+        deviceToken,
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
@@ -65,7 +70,7 @@ export default function EsperadosHoySection({
     } finally {
       setLoading(false);
     }
-  }, [installationId]);
+  }, [installationId, deviceToken]);
 
   useEffect(() => {
     fetchData();

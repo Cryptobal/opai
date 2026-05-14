@@ -462,6 +462,7 @@ export function AccessPortalApp() {
             installationId={device.installationId}
             installationName={device.installationName}
             guardName={guardName}
+            deviceToken={device.deviceToken}
           />
         )}
         {activeTab === "registro" && config && (
@@ -480,6 +481,7 @@ export function AccessPortalApp() {
             installationId={device.installationId}
             guardId={guardId}
             maxStayHours={config?.maxStayHours}
+            deviceToken={device.deviceToken}
           />
         )}
         {activeTab === "mas" && (
