@@ -1,8 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Receipt } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "../CrmRelatedRecordCard";
 import { EmptyState } from "@/components/opai-ds/EmptyState";
 
@@ -130,8 +137,49 @@ export function AccountFacturacionSection({
   const notasCredito = facturacion.dtes.filter((d) => d.dteType === 61);
   const notasDebito = facturacion.dtes.filter((d) => d.dteType === 56);
   const recientes = facturacion.dtes.slice(0, 10);
+  const [view, setView] = useState<
+    "recientes" | "facturas" | "nc" | "nd"
+  >("recientes");
 
   const { resumen } = facturacion;
+
+  const viewConfig: Record<
+    typeof view,
+    { label: string; count: number; data: FacturacionDte[]; emptyTitle: string; emptyDesc: string; prefix?: "Factura" | "NC" | "ND" }
+  > = {
+    recientes: {
+      label: "Recientes",
+      count: recientes.length,
+      data: recientes,
+      emptyTitle: "Sin DTE emitidos",
+      emptyDesc: "Esta cuenta aún no tiene DTE emitidos.",
+    },
+    facturas: {
+      label: "Facturas",
+      count: facturas.length,
+      data: facturas,
+      emptyTitle: "Sin facturas",
+      emptyDesc: "No hay facturas emitidas asociadas a esta cuenta.",
+      prefix: "Factura",
+    },
+    nc: {
+      label: "Notas de crédito",
+      count: notasCredito.length,
+      data: notasCredito,
+      emptyTitle: "Sin notas de crédito",
+      emptyDesc: "No hay notas de crédito emitidas para esta cuenta.",
+      prefix: "NC",
+    },
+    nd: {
+      label: "Notas de débito",
+      count: notasDebito.length,
+      data: notasDebito,
+      emptyTitle: "Sin notas de débito",
+      emptyDesc: "No hay notas de débito emitidas para esta cuenta.",
+      prefix: "ND",
+    },
+  };
+  const current = viewConfig[view];
 
   return (
     <div className="space-y-3">
@@ -155,86 +203,36 @@ export function AccountFacturacionSection({
         />
       </div>
 
-      <Tabs defaultValue="recientes">
-        <TabsList>
-          <TabsTrigger value="recientes">
-            Recientes ({recientes.length})
-          </TabsTrigger>
-          <TabsTrigger value="facturas">
-            Facturas ({facturas.length})
-          </TabsTrigger>
-          <TabsTrigger value="nc">
-            Notas de crédito ({notasCredito.length})
-          </TabsTrigger>
-          <TabsTrigger value="nd">
-            Notas de débito ({notasDebito.length})
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="recientes">
-          {recientes.length === 0 ? (
-            <EmptyState
-              icon={Receipt}
-              title="Sin DTE emitidos"
-              description="Esta cuenta aún no tiene DTE emitidos."
-              compact
-            />
-          ) : (
-            <CrmRelatedRecordGrid className="!grid-cols-1">
-              {recientes.map((d) => (
-                <DteCard key={d.id} dte={d} />
-              ))}
-            </CrmRelatedRecordGrid>
-          )}
-        </TabsContent>
-        <TabsContent value="facturas">
-          {facturas.length === 0 ? (
-            <EmptyState
-              icon={Receipt}
-              title="Sin facturas"
-              description="No hay facturas emitidas asociadas a esta cuenta."
-              compact
-            />
-          ) : (
-            <CrmRelatedRecordGrid className="!grid-cols-1">
-              {facturas.map((d) => (
-                <DteCard key={d.id} dte={d} prefix="Factura" />
-              ))}
-            </CrmRelatedRecordGrid>
-          )}
-        </TabsContent>
-        <TabsContent value="nc">
-          {notasCredito.length === 0 ? (
-            <EmptyState
-              icon={Receipt}
-              title="Sin notas de crédito"
-              description="No hay notas de crédito emitidas para esta cuenta."
-              compact
-            />
-          ) : (
-            <CrmRelatedRecordGrid className="!grid-cols-1">
-              {notasCredito.map((d) => (
-                <DteCard key={d.id} dte={d} prefix="NC" />
-              ))}
-            </CrmRelatedRecordGrid>
-          )}
-        </TabsContent>
-        <TabsContent value="nd">
-          {notasDebito.length === 0 ? (
-            <EmptyState
-              icon={Receipt}
-              title="Sin notas de débito"
-              description="No hay notas de débito emitidas para esta cuenta."
-              compact
-            />
-          ) : (
-            <CrmRelatedRecordGrid className="!grid-cols-1">
-              {notasDebito.map((d) => (
-                <DteCard key={d.id} dte={d} prefix="ND" />
-              ))}
-            </CrmRelatedRecordGrid>
-          )}
-        </TabsContent>
-      </Tabs>
+      {/* Selector compacto en lugar de tabs: el panel de "Registros
+          asociados" tiene ancho limitado; con tabs horizontales se
+          desbordaba y forzaba scroll en todo el sidebar. */}
+      <Select value={view} onValueChange={(v) => setView(v as typeof view)}>
+        <SelectTrigger className="w-full h-9">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {(Object.keys(viewConfig) as (keyof typeof viewConfig)[]).map((k) => (
+            <SelectItem key={k} value={k}>
+              {viewConfig[k].label} ({viewConfig[k].count})
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {current.data.length === 0 ? (
+        <EmptyState
+          icon={Receipt}
+          title={current.emptyTitle}
+          description={current.emptyDesc}
+          compact
+        />
+      ) : (
+        <CrmRelatedRecordGrid className="!grid-cols-1">
+          {current.data.map((d) => (
+            <DteCard key={d.id} dte={d} prefix={current.prefix} />
+          ))}
+        </CrmRelatedRecordGrid>
+      )}
 
       <Link
         href={`/finanzas/facturacion/dtes?accountId=${accountId}`}
