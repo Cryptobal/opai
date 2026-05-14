@@ -182,6 +182,19 @@ export interface CumulativeBalancePoint {
   cumulativeBankVarianceClp: number | null;
 }
 
+/** Link bancario conciliado que no se pudo atribuir a una categoría
+ *  específica (o que cayó a "Otros" como fallback). La UI lo usa para
+ *  alertar al usuario y guiarlo a configurar mappings de cuenta o
+ *  regenerar líneas del DTE. */
+export interface UnresolvedBankLinkInfo {
+  bankTransactionId: string;
+  transactionDate: Date;
+  amountClp: number;
+  targetType: string;
+  targetRef: string | null;
+  reason: string;
+}
+
 export interface ProjectionMatrix {
   range: ProjectionRange;
   buckets: ProjectionBucket[];
@@ -202,4 +215,8 @@ export interface ProjectionMatrix {
   cumulativeBalances: { bucketKey: string; balanceClp: number }[];
   /** Saldo proyectado + real + drift por bucket. */
   cumulativePoints: CumulativeBalancePoint[];
+  /** Links bancarios conciliados sin categoría exacta (cayeron a Otros
+   *  o se descartaron). La UI puede mostrar un banner de "N conciliaciones
+   *  sin clasificar". */
+  unresolvedBankLinks: UnresolvedBankLinkInfo[];
 }

@@ -105,11 +105,26 @@ function recurrenceMatchToleranceDays(rec: string): number {
   }
 }
 
+/** Información sobre links que no pudieron resolverse a una categoría de
+ *  cashflow — se expone en la respuesta de la proyección para que la UI
+ *  pueda alertar al usuario y guiarlo a configurar mappings o regenerar
+ *  líneas del DTE. */
+export interface UnresolvedBankLink {
+  bankTransactionId: string;
+  transactionDate: Date;
+  amountClp: number;
+  targetType: string;
+  /** dteId si targetType=DTE_*, accountPlanId si EXPENSE/INCOME. */
+  targetRef: string | null;
+  /** Razón legible: "DTE sin líneas", "cuenta no mapeada", etc. */
+  reason: string;
+}
+
 async function loadResolvedBankLinks(
   tenantId: string,
   range: ProjectionRange,
   categoryByCode: Map<string, CategoryLite>,
-): Promise<BankLinkSlim[]> {
+): Promise<{ resolved: BankLinkSlim[]; unresolved: UnresolvedBankLink[] }> {
   const links = await prisma.financeBankTransactionLink.findMany({
     where: {
       tenantId,
@@ -159,7 +174,17 @@ async function loadResolvedBankLinks(
   const turnoExtraCat = categoryByCode.get("EGR_TURNO_EXTRA");
   const anticipoCat = categoryByCode.get("EGR_QUINCENA");
 
+  // Fallbacks "Otros ingresos" / "Otros egresos" para no perder visibilidad
+  // de conciliaciones cuando el DTE no tiene líneas o las cuentas no están
+  // mapeadas a una categoría. Sin esto, una conciliación masiva contra un
+  // DTE sin lines (típico: facturas one-off o importadas desde SII solo
+  // con header) queda invisible en el flujo de caja por categoría aunque
+  // el banco real sí sume — el usuario lo percibe como "no pasó nada".
+  const fallbackIncomeCat = categoryByCode.get("ING_OTRO");
+  const fallbackExpenseCat = categoryByCode.get("EGR_OTRO");
+
   const resolved: BankLinkSlim[] = [];
+  const unresolved: UnresolvedBankLink[] = [];
   for (const l of links) {
     const dteAccountIds =
       (l.targetType === "DTE_ISSUED" || l.targetType === "DTE_RECEIVED") && l.targetId
@@ -167,7 +192,7 @@ async function loadResolvedBankLinks(
             .filter((dl) => dl.dteId === l.targetId && dl.accountId)
             .map((dl) => dl.accountId!)
         : [];
-    const cat = resolveCategoryForLink({
+    let cat = resolveCategoryForLink({
       targetType: l.targetType,
       accountPlanId: l.accountPlanId,
       dteAccountIds,
@@ -176,7 +201,60 @@ async function loadResolvedBankLinks(
       payrollTurnoExtraCategoryId: turnoExtraCat?.id ?? null,
       payrollAnticipoCategoryId: anticipoCat?.id ?? null,
     });
-    if (!cat) continue;
+
+    let unresolvedReason: string | null = null;
+    if (!cat) {
+      // Fallback derivado del targetType del link. La conciliación masiva
+      // contra DTEs crea links con accountPlanId=null confiando en que las
+      // líneas del DTE resuelvan la categoría. Si el DTE no tiene líneas
+      // o sus accountIds no están mapeados, caemos a la categoría genérica
+      // "Otros" del kind correcto en lugar de descartar el link.
+      const linksDteNoLines =
+        (l.targetType === "DTE_ISSUED" || l.targetType === "DTE_RECEIVED") &&
+        l.targetId &&
+        dteAccountIds.length === 0;
+      const linksDteUnmappedAccounts =
+        (l.targetType === "DTE_ISSUED" || l.targetType === "DTE_RECEIVED") &&
+        l.targetId &&
+        dteAccountIds.length > 0;
+      if (l.targetType === "DTE_ISSUED" && fallbackIncomeCat) {
+        cat = fallbackIncomeCat as FinanceCashflowCategory;
+        unresolvedReason = linksDteNoLines
+          ? "DTE emitido sin líneas contables — atribuido a Otros ingresos"
+          : "Cuentas del DTE no mapeadas a categoría — atribuido a Otros ingresos";
+      } else if (l.targetType === "DTE_RECEIVED" && fallbackExpenseCat) {
+        cat = fallbackExpenseCat as FinanceCashflowCategory;
+        unresolvedReason = linksDteNoLines
+          ? "DTE recibido sin líneas contables — atribuido a Otros egresos"
+          : "Cuentas del DTE no mapeadas a categoría — atribuido a Otros egresos";
+      } else {
+        unresolved.push({
+          bankTransactionId: l.bankTransactionId,
+          transactionDate: l.bankTransaction.transactionDate,
+          amountClp: Math.abs(Number(l.amount)),
+          targetType: l.targetType,
+          targetRef: l.targetId ?? l.accountPlanId ?? null,
+          reason: linksDteUnmappedAccounts
+            ? "Cuenta contable del DTE no está mapeada a categoría de flujo de caja"
+            : linksDteNoLines
+              ? "DTE sin líneas contables (header-only)"
+              : "Link sin cuenta ni categoría resoluble",
+        });
+        continue;
+      }
+    }
+
+    if (unresolvedReason) {
+      unresolved.push({
+        bankTransactionId: l.bankTransactionId,
+        transactionDate: l.bankTransaction.transactionDate,
+        amountClp: Math.abs(Number(l.amount)),
+        targetType: l.targetType,
+        targetRef: l.targetId ?? l.accountPlanId ?? null,
+        reason: unresolvedReason,
+      });
+    }
+
     resolved.push({
       bankTransactionId: l.bankTransactionId,
       transactionDate: l.bankTransaction.transactionDate,
@@ -184,7 +262,7 @@ async function loadResolvedBankLinks(
       categoryId: cat.id,
     });
   }
-  return resolved;
+  return { resolved, unresolved };
 }
 
 export async function buildProjection(
@@ -566,7 +644,8 @@ export async function buildProjection(
   }
 
   // Aplicar matcher account-driven con bank links ya conciliados
-  const bankLinks = await loadResolvedBankLinks(tenantId, range, codeToCategory);
+  const { resolved: bankLinks, unresolved: unresolvedBankLinks } =
+    await loadResolvedBankLinks(tenantId, range, codeToCategory);
   const matched = await matchOccurrencesToBankLinks(allOccurrences, bankLinks, {
     matchDaysTolerance: config.matchDaysTolerance,
   });
@@ -907,6 +986,7 @@ export async function buildProjection(
     openingBreakdown,
     cumulativeBalances,
     cumulativePoints,
+    unresolvedBankLinks,
   };
 }
 

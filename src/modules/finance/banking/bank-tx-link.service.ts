@@ -1017,6 +1017,45 @@ export async function bulkReconcileToDte(
     await recomputeDtePaymentAggregate(tx2, dte.id);
   });
 
+  // Vincular la occurrence proyectada del flujo de caja al pago, igual que
+  // en bulkReconcileToDtes. Sin esto la celda del cliente sigue mostrándose
+  // como por cobrar aunque el DTE esté PAID.
+  const sortedTxsForOcc = [...txs].sort(
+    (a, b) => a.transactionDate.getTime() - b.transactionDate.getTime(),
+  );
+  const primaryTxForOcc = sortedTxsForOcc[0];
+  if (primaryTxForOcc) {
+    try {
+      const occ = await prisma.financeCashflowOccurrence.findFirst({
+        where: {
+          tenantId,
+          dteId: dte.id,
+          status: "PROJECTED",
+          bankTransactionId: null,
+        },
+        select: { id: true },
+      });
+      if (occ) {
+        await prisma.financeCashflowOccurrence.update({
+          where: { id: occ.id },
+          data: {
+            bankTransactionId: primaryTxForOcc.id,
+            status: "PAID",
+            matchedAt: new Date(),
+            matchedBy: userId ?? undefined,
+            effectiveDate: primaryTxForOcc.transactionDate,
+          },
+        });
+      }
+    } catch (err) {
+      console.warn(
+        "[bank-tx-link] no se pudo vincular occurrence proyectada al DTE",
+        dte.id,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
   return {
     paymentRecordId: firstRecordId,
     paymentRecordCode: firstRecordCode,
@@ -1453,6 +1492,50 @@ export async function bulkReconcileToDtes(
       } catch (err) {
         console.warn(
           "[bank-tx-link] shortfall: no se pudo crear link EXPENSE/INCOME:",
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
+  }
+
+  // Vincular occurrences proyectadas del flujo de caja al pago. Sin esto,
+  // la celda del cliente sigue mostrándose como por cobrar aunque el DTE
+  // esté PAID, porque el matcher account-driven solo empareja por categoría
+  // y se confunde en N→N (un DTE con N bank txs queda con N−1 links
+  // huérfanos). Acá usamos el vínculo directo dteId → occurrence, que es
+  // determinístico cuando el DTE fue emitido desde una cuota materializada.
+  const sortedTxs = [...txs].sort(
+    (a, b) => a.transactionDate.getTime() - b.transactionDate.getTime(),
+  );
+  const primaryTx = sortedTxs[0];
+  if (primaryTx) {
+    for (const a of allocations) {
+      try {
+        const occ = await prisma.financeCashflowOccurrence.findFirst({
+          where: {
+            tenantId,
+            dteId: a.dteId,
+            status: "PROJECTED",
+            bankTransactionId: null,
+          },
+          select: { id: true },
+        });
+        if (occ) {
+          await prisma.financeCashflowOccurrence.update({
+            where: { id: occ.id },
+            data: {
+              bankTransactionId: primaryTx.id,
+              status: "PAID",
+              matchedAt: new Date(),
+              matchedBy: userId ?? undefined,
+              effectiveDate: primaryTx.transactionDate,
+            },
+          });
+        }
+      } catch (err) {
+        console.warn(
+          "[bank-tx-link] no se pudo vincular occurrence proyectada al DTE",
+          a.dteId,
           err instanceof Error ? err.message : err,
         );
       }
