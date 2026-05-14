@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Plus, Save, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, Plus, Save, Trash2 } from "lucide-react";
 import type { PostulacionDocItem, GuardiaDocConfigItem } from "@/components/ops/OpsConfigTabs";
 
 interface OpsDocsGuardiasTabProps {
@@ -70,6 +70,29 @@ export function OpsDocsGuardiasTab({
 
   const removePostulacionDoc = (index: number) => {
     setPostulacionDocs((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  /** Reordena postulacionDocs y mantiene guardiaDocConfig alineado al mismo orden
+   *  (los códigos en guardiaDocConfig que no estén en postulacionDocs quedan al final).
+   */
+  const movePostulacionDoc = (from: number, to: number) => {
+    if (to < 0 || to >= postulacionDocs.length || from === to) return;
+    const reordered = (() => {
+      const arr = [...postulacionDocs];
+      const [item] = arr.splice(from, 1);
+      arr.splice(to, 0, item);
+      return arr;
+    })();
+    setPostulacionDocs(reordered);
+    setGuardiaDocConfig((prev) => {
+      const byCode = new Map(prev.map((g) => [g.code, g]));
+      const ordered = reordered
+        .map((d) => byCode.get(d.code))
+        .filter((g): g is GuardiaDocConfigItem => Boolean(g));
+      const inOrder = new Set(ordered.map((g) => g.code));
+      const extras = prev.filter((g) => !inOrder.has(g.code));
+      return [...ordered, ...extras];
+    });
   };
 
   const updateGuardiaDocConfigItem = (index: number, patch: Partial<GuardiaDocConfigItem>) => {
@@ -148,8 +171,34 @@ export function OpsDocsGuardiasTab({
                     key={doc.code}
                     className="rounded-lg border border-border p-3 space-y-2"
                   >
-                    {/* Fila superior: nombre + código + botón eliminar */}
+                    {/* Fila superior: orden + nombre + código + botón eliminar */}
                     <div className="flex items-center gap-3">
+                      <div className="flex flex-col shrink-0">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                          onClick={() => movePostulacionDoc(postIndex, postIndex - 1)}
+                          disabled={postIndex === 0}
+                          title="Subir"
+                          aria-label="Subir documento"
+                        >
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                          onClick={() => movePostulacionDoc(postIndex, postIndex + 1)}
+                          disabled={postIndex === postulacionDocs.length - 1}
+                          title="Bajar"
+                          aria-label="Bajar documento"
+                        >
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                       <Input
                         className="text-sm font-medium min-w-[140px] max-w-[260px] h-8"
                         value={doc.label}
