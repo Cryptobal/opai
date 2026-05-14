@@ -52,6 +52,8 @@ export interface ApiCheckpoint {
   orderIndex: number;
   isRequired: boolean;
   completed: boolean;
+  /** Marca quedó registrada pero fuera del radio de la geocerca (señal pobre). */
+  geoNoVerificada?: boolean;
   tasks?: ApiCheckpointTask[];
 }
 
@@ -208,6 +210,7 @@ export function RondaActiva({
   const [autoMarkToast, setAutoMarkToast] = useState<{
     checkpointId: string;
     checkpointName: string;
+    geoNoVerificada?: boolean;
   } | null>(null);
 
   // -- Live timer --
@@ -442,38 +445,54 @@ export function RondaActiva({
 
             const json = await res.json();
             if (json.success || json.already_marked) {
+              const geoNoVerificada = json.data?.geoNoVerificada === true;
               autoMarkedRef.current.add(cpToMark.id);
-              // Optimistic update
+              // Optimistic update — NO marcar como `completed` si la geo no se verificó.
               setCheckpoints((prev) =>
-                prev.map((cp) => cp.id === cpToMark.id ? { ...cp, completed: true } : cp),
+                prev.map((cp) =>
+                  cp.id === cpToMark.id
+                    ? { ...cp, completed: !geoNoVerificada, geoNoVerificada }
+                    : cp,
+                ),
               );
-              // Show toast + vibrate
               navigator.vibrate?.([100]);
-              setAutoMarkToast({ checkpointId: cpToMark.id, checkpointName: cpToMark.name });
+              setAutoMarkToast({
+                checkpointId: cpToMark.id,
+                checkpointName: cpToMark.name,
+                geoNoVerificada: geoNoVerificada || undefined,
+              });
               refreshCheckpoints();
             }
-          } catch {
-            // Network error — save offline
-            try {
-              await savePendingMark({
-                ejecucionId: rondaData.ejecucionId,
-                checkpointId: cpToMark.id,
-                lat: guardPos.lat,
-                lng: guardPos.lng,
-                gpsAccuracy: gpsAccuracy ?? undefined,
-                verificationMethod: "GEOFENCE",
-                isOfflineSync: true,
-                guardiaId: session.guardiaId,
-                clientTimestamp: new Date().toISOString(),
-              });
-              autoMarkedRef.current.add(cpToMark.id);
-              setCheckpoints((prev) =>
-                prev.map((cp) => cp.id === cpToMark.id ? { ...cp, completed: true } : cp),
-              );
-              navigator.vibrate?.([100]);
-              setAutoMarkToast({ checkpointId: cpToMark.id, checkpointName: cpToMark.name });
-            } catch {
-              // Failed offline too — fall back to manual
+          } catch (err) {
+            // Solo TypeError = caída de red real (estándar fetch en todos los navegadores).
+            // Cualquier otro error = el servidor respondió un error → NO guardar offline,
+            // NO pintar verde. Abrir el marcado manual para que el guardia vea qué pasó.
+            if (err instanceof TypeError) {
+              try {
+                await savePendingMark({
+                  ejecucionId: rondaData.ejecucionId,
+                  checkpointId: cpToMark.id,
+                  lat: guardPos.lat,
+                  lng: guardPos.lng,
+                  gpsAccuracy: gpsAccuracy ?? undefined,
+                  verificationMethod: "GEOFENCE",
+                  isOfflineSync: true,
+                  guardiaId: session.guardiaId,
+                  clientTimestamp: new Date().toISOString(),
+                });
+                autoMarkedRef.current.add(cpToMark.id);
+                setCheckpoints((prev) =>
+                  prev.map((cp) => cp.id === cpToMark.id ? { ...cp, completed: true } : cp),
+                );
+                navigator.vibrate?.([100]);
+                setAutoMarkToast({ checkpointId: cpToMark.id, checkpointName: cpToMark.name });
+              } catch {
+                // Falló también el guardado offline — abrir marcado manual
+                setMarkingCheckpointId(cpToMark.id);
+              }
+            } else {
+              // El servidor rechazó la marca. No es offline. Abrir marcado manual
+              // para que el guardia tenga feedback real en vez de un ✓ falso.
               setMarkingCheckpointId(cpToMark.id);
             }
           } finally {
@@ -1133,6 +1152,7 @@ export function RondaActiva({
       {autoMarkToast && (
         <AutoMarkToast
           checkpointName={autoMarkToast.checkpointName}
+          geoNoVerificada={autoMarkToast.geoNoVerificada}
           onAddPhoto={() => {
             setAutoMarkToast(null);
             // Open the checkpoint marker to add a photo
