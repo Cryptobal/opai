@@ -63,6 +63,7 @@ import {
   AlertTriangle,
   History,
   CheckCircle,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -886,6 +887,11 @@ function TransactionsTab({
   const [direction, setDirection] = useState<"all" | "inflow" | "outflow">("all");
   const [authorizing, setAuthorizing] = useState<string | null>(null);
   const [bulkAuthorizing, setBulkAuthorizing] = useState(false);
+  // Auto-conciliación contra DTEs / turnos extras / reglas para todos
+  // los movimientos UNMATCHED visibles de la cuenta. Útil cuando se
+  // agrega un matcher nuevo (p.ej. turnos extras) y queremos pasarlo
+  // por encima del histórico sin re-importar la cartola.
+  const [runningAutoMatch, setRunningAutoMatch] = useState(false);
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -1173,6 +1179,49 @@ function TransactionsTab({
       toast.error(err instanceof Error ? err.message : "Error en autorización masiva");
     } finally {
       setBulkAuthorizing(false);
+    }
+  };
+
+  const runHistoricalAutoMatch = async () => {
+    if (!selectedAccount) return;
+    if (
+      !confirm(
+        "¿Correr conciliación automática sobre los movimientos sin reconocer? Se evalúan DTEs, turnos extras y reglas (los matches con confianza alta quedan conciliados, los demás como sugerencia)."
+      )
+    ) {
+      return;
+    }
+    setRunningAutoMatch(true);
+    try {
+      const res = await fetch(
+        "/api/finance/banking/automatch-rules/run-historical",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bankAccountId: selectedAccount }),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error);
+      const s = json.data ?? {};
+      const dteCount = s.matched ?? 0;
+      const teCount = s.turnoExtraMatched ?? 0;
+      const ruleCount = s.ruleMatched ?? 0;
+      const total = dteCount + teCount + ruleCount;
+      if (total === 0) {
+        toast.info(`Escaneados ${s.scanned ?? 0} movimientos. Ningún match nuevo.`);
+      } else {
+        const parts: string[] = [];
+        if (dteCount) parts.push(`${dteCount} DTE`);
+        if (teCount) parts.push(`${teCount} turno extra`);
+        if (ruleCount) parts.push(`${ruleCount} por reglas`);
+        toast.success(`Conciliados: ${parts.join(" · ")}`);
+      }
+      loadTransactions();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error en auto-conciliación");
+    } finally {
+      setRunningAutoMatch(false);
     }
   };
 
@@ -1643,6 +1692,25 @@ function TransactionsTab({
               Autorizar todos
             </Button>
           )}
+          {(subTab === "all" || subTab === "unrecognized") &&
+            canManage &&
+            selectedAccount && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={runHistoricalAutoMatch}
+                disabled={runningAutoMatch}
+                className="h-8 shrink-0"
+                title="Corre el matcher contra DTEs, turnos extras y reglas configuradas"
+              >
+                {runningAutoMatch ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                ) : (
+                  <Zap className="h-3.5 w-3.5 mr-1.5" />
+                )}
+                Auto-conciliar
+              </Button>
+            )}
         </div>
       )}
 
