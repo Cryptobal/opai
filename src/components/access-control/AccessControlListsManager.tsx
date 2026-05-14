@@ -45,10 +45,22 @@ export function AccessControlListsManager({ installationId }: Props) {
         `/api/access-control/lists/${installationId}?type=${activeTab}`
       );
       const json = await res.json();
-      if (json.success) {
+      if (json.success && Array.isArray(json.data)) {
         setEntries(json.data);
+      } else {
+        setEntries([]);
+        if (!json.success || !res.ok) {
+          toast.error(
+            typeof json.error === "string"
+              ? json.error
+              : res.status === 401
+                ? "Sesión inválida. Vuelve a iniciar sesión para ver las listas."
+                : "No se pudieron cargar las listas de control de acceso.",
+          );
+        }
       }
     } catch {
+      setEntries([]);
       toast.error("Error al cargar lista");
     } finally {
       setLoading(false);

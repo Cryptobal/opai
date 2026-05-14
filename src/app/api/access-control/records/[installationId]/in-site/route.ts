@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { installationTenantScope } from "@/lib/access-control/installation-scope";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
 import { requireAccessControlAuth } from "@/lib/access-control/auth";
 
@@ -28,19 +30,25 @@ export async function GET(
       search ?? "(none)"
     );
 
-    const where: Record<string, unknown> = {
-      tenantId: authCtx.tenantId,
-      installationId,
+    const baseWhere: Prisma.AccessControlRecordWhereInput = {
+      ...installationTenantScope(installationId, authCtx.tenantId),
       exitAt: null,
     };
 
-    if (search) {
-      where.OR = [
-        { fullName: { contains: search, mode: "insensitive" } },
-        { rut: { contains: search } },
-        { vehiclePlate: { contains: search, mode: "insensitive" } },
-      ];
-    }
+    const where: Prisma.AccessControlRecordWhereInput = search
+      ? {
+          AND: [
+            baseWhere,
+            {
+              OR: [
+                { fullName: { contains: search, mode: "insensitive" } },
+                { rut: { contains: search } },
+                { vehiclePlate: { contains: search, mode: "insensitive" } },
+              ],
+            },
+          ],
+        }
+      : baseWhere;
 
     const records = await safeAccessControlQuery(
       () => prisma.accessControlRecord.findMany({

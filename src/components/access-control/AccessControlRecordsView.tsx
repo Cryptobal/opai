@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import {
   Search, Download, Loader2, ChevronLeft, ChevronRight,
 } from "lucide-react";
@@ -91,13 +92,26 @@ export function AccessControlRecordsView({ installationId }: Props) {
         `/api/access-control/records/${installationId}?${params}`,
       );
       const json = await res.json();
-      if (json.success) {
+      if (json.success && Array.isArray(json.data)) {
         setRecords(json.data);
-        setTotalPages(json.pagination.totalPages);
-        setTotal(json.pagination.total);
+        setTotalPages(json.pagination?.totalPages ?? 1);
+        setTotal(json.pagination?.total ?? 0);
+      } else {
+        setRecords([]);
+        setTotalPages(1);
+        setTotal(0);
+        if (!json.success || !res.ok) {
+          toast.error(
+            typeof json.error === "string"
+              ? json.error
+              : res.status === 401
+                ? "Sesión inválida o sin permiso para ver registros de esta instalación."
+                : "No se pudieron cargar los registros de control de acceso.",
+          );
+        }
       }
     } catch {
-      // offline
+      toast.error("No se pudieron cargar los registros de control de acceso.");
     } finally {
       setLoading(false);
     }

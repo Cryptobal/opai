@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { validateRut, cleanRut, cleanPlate } from "@/lib/access-control/utils";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
 import { requireAccessControlAuth } from "@/lib/access-control/auth";
+import { installationTenantScope } from "@/lib/access-control/installation-scope";
 
 export async function GET(
   request: NextRequest,
@@ -23,21 +25,26 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") as "whitelist" | "blacklist" | null;
 
-    const where: Record<string, unknown> = { tenantId };
+    const owned = installationTenantScope(installationId, tenantId);
+
+    let where: Prisma.AccessControlListWhereInput;
 
     if (type === "blacklist") {
-      where.OR = [
-        { installationId, listType: "blacklist" },
-        { scope: "global", listType: "blacklist" },
-      ];
+      where = {
+        OR: [
+          { ...owned, listType: "blacklist" },
+          { scope: "global", listType: "blacklist", tenantId },
+        ],
+      };
     } else if (type === "whitelist") {
-      where.installationId = installationId;
-      where.listType = "whitelist";
+      where = { ...owned, listType: "whitelist" };
     } else {
-      where.OR = [
-        { installationId },
-        { scope: "global", listType: "blacklist" },
-      ];
+      where = {
+        OR: [
+          owned,
+          { scope: "global", listType: "blacklist", tenantId },
+        ],
+      };
     }
 
     const lists = await safeAccessControlQuery(

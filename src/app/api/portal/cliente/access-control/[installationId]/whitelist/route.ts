@@ -21,9 +21,9 @@ export async function GET(
 
     const entries = await prisma.accessControlList.findMany({
       where: {
-        tenantId: session.tenantId,
         installationId,
         listType: "whitelist",
+        installation: { tenantId: session.tenantId },
       },
       orderBy: { createdAt: "desc" },
     });

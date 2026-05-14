@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { installationTenantScope } from "@/lib/access-control/installation-scope";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
 import { requireAccessControlAuth } from "@/lib/access-control/auth";
 
@@ -27,17 +29,19 @@ export async function GET(
     const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 200);
     const offset = (page - 1) * limit;
 
-    const where: Record<string, unknown> = { tenantId: authCtx.tenantId, installationId };
+    const where: Prisma.AccessControlRecordWhereInput = {
+      ...installationTenantScope(installationId, authCtx.tenantId),
+    };
 
     if (status === "in_site") {
       where.exitAt = null;
     }
 
-    if (from) {
-      where.entryAt = { ...(where.entryAt as object || {}), gte: new Date(from) };
-    }
-    if (to) {
-      where.entryAt = { ...(where.entryAt as object || {}), lte: new Date(to) };
+    const entryAt: Prisma.DateTimeFilter = {};
+    if (from) entryAt.gte = new Date(from);
+    if (to) entryAt.lte = new Date(to);
+    if (Object.keys(entryAt).length > 0) {
+      where.entryAt = entryAt;
     }
 
     if (type) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { installationTenantScope } from "@/lib/access-control/installation-scope";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
 import { requireAccessControlAuth } from "@/lib/access-control/auth";
 
@@ -18,6 +19,7 @@ export async function GET(
       );
     }
     const tenantId = authCtx.tenantId;
+    const scope = installationTenantScope(installationId, tenantId);
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -33,18 +35,18 @@ export async function GET(
           byTypeResults,
         ] = await Promise.all([
           prisma.accessControlRecord.count({
-            where: { tenantId, installationId, entryAt: { gte: todayStart, lte: todayEnd } },
+            where: { ...scope, entryAt: { gte: todayStart, lte: todayEnd } },
           }),
           prisma.accessControlRecord.count({
-            where: { tenantId, installationId, exitAt: { gte: todayStart, lte: todayEnd } },
+            where: { ...scope, exitAt: { gte: todayStart, lte: todayEnd } },
           }),
           prisma.accessControlRecord.findMany({
-            where: { tenantId, installationId, exitAt: null },
+            where: { ...scope, exitAt: null },
             select: { recordType: true, entryAt: true },
           }),
           prisma.accessControlRecord.groupBy({
             by: ["recordType"],
-            where: { tenantId, installationId, entryAt: { gte: todayStart, lte: todayEnd } },
+            where: { ...scope, entryAt: { gte: todayStart, lte: todayEnd } },
             _count: true,
           }),
         ]);
@@ -54,8 +56,7 @@ export async function GET(
 
         const completedToday = await prisma.accessControlRecord.findMany({
           where: {
-            tenantId,
-            installationId,
+            ...scope,
             exitAt: { gte: todayStart, lte: todayEnd },
             NOT: { exitAt: null },
           },

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { installationTenantScope } from "@/lib/access-control/installation-scope";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
 import { requireAccessControlAuth } from "@/lib/access-control/auth";
 
@@ -26,8 +27,7 @@ export async function GET(
     const preregistrations = await safeAccessControlQuery(
       () => prisma.accessControlPreregistration.findMany({
         where: {
-          tenantId: authCtx.tenantId,
-          installationId,
+          ...installationTenantScope(installationId, authCtx.tenantId),
           expectedDate: { gte: today, lt: tomorrow },
         },
         orderBy: { expectedTimeFrom: "asc" },
