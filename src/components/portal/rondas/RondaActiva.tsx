@@ -196,6 +196,8 @@ export function RondaActiva({
     lng: number;
   } | null>(null);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  /** Última lectura aceptada: accuracy + ts (filtro: no degradar salvo stale 15s). */
+  const guardReadQualityRef = useRef<{ accuracy: number; ts: number } | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
   // -- GPS trail for ad-hoc map display --
@@ -226,9 +228,20 @@ export function RondaActiva({
     if (!navigator.geolocation) return;
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
+        const rawAcc = pos.coords.accuracy;
+        const newAcc =
+          rawAcc != null && Number.isFinite(rawAcc) && rawAcc > 0 ? rawAcc : 999_999;
+        const now = Date.now();
+        const prevQ = guardReadQualityRef.current;
+        const stale = prevQ != null && now - prevQ.ts > 15_000;
+        const accept =
+          prevQ == null || newAcc <= prevQ.accuracy || stale;
+        if (!accept) return;
+
+        guardReadQualityRef.current = { accuracy: newAcc, ts: now };
         const pt = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setGuardPos(pt);
-        setGpsAccuracy(pos.coords.accuracy ?? null);
+        setGpsAccuracy(rawAcc ?? null);
         setTrailPoints((prev) => {
           // Only add if moved >3m from last point (avoid clutter)
           if (prev.length === 0) return [pt];
