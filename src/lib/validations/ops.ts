@@ -4,7 +4,6 @@ import {
   BANK_ACCOUNT_TYPES,
   CHILE_BANK_CODES,
   DOCUMENT_STATUS,
-  DOCUMENT_TYPES,
   GUARDIA_COMM_CHANNELS,
   GUARDIA_LIFECYCLE_STATUSES,
   HEALTH_SYSTEMS,
@@ -340,7 +339,10 @@ export const createGuardiaBankAccountSchema = z.object({
 export const updateGuardiaBankAccountSchema = createGuardiaBankAccountSchema.partial();
 
 export const createGuardiaDocumentSchema = z.object({
-  type: z.enum(DOCUMENT_TYPES),
+  // Acepta tipos del catálogo histórico DOCUMENT_TYPES y también tipos custom
+  // creados por el usuario en Configuración → Operaciones → Docs Guardias
+  // (slugificados a [a-z0-9_]). Validamos formato sin restringir a un enum fijo.
+  type: z.string().trim().min(1).max(100).regex(/^[a-z0-9_]+$/, "type inválido"),
   fileUrl: z.string().trim().max(3000000).refine(
     (value) => /^https?:\/\//i.test(value) || value.startsWith("/uploads/guardias/"),
     "fileUrl inválido (debe ser URL https o path /uploads/guardias/)"

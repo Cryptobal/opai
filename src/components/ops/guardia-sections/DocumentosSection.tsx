@@ -141,8 +141,31 @@ export default function DocumentosSection({
     return map;
   }, [guardiaDocConfig]);
 
-  // ── Unified slot list: operational slots + remaining config doc types ──
-  // Construye un checklist unificado con TODOS los tipos de doc
+  // Tipos disponibles en el selector de "Subir documento adicional": orden
+  // de config (incluye custom) + DOCUMENT_TYPES residuales como fallback.
+  const extraUploadOptions = useMemo(() => {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const c of guardiaDocConfig) {
+      if (seen.has(c.code)) continue;
+      seen.add(c.code);
+      out.push(c.code);
+    }
+    for (const t of DOCUMENT_TYPES) {
+      if (seen.has(t)) continue;
+      seen.add(t);
+      out.push(t);
+    }
+    return out;
+  }, [guardiaDocConfig]);
+
+  // ── Unified slot list ──
+  // El orden viene de guardiaDocConfig (configurado por el usuario en
+  // Configuración → Operaciones → Docs Guardias). Para cada entry de config, si
+  // existe un slot operacional (OS10) que cubra ese persona type, usamos los
+  // metadatos normativos del slot operacional; si no, lo tratamos como doc
+  // regular. Los slots operacionales no cubiertos por la config se añaden al
+  // final (defensivo), y los DOCUMENT_TYPES residuales también.
   const unifiedSlots = useMemo(() => {
     type UnifiedSlot = {
       code: string; // código principal (para matching con docs)
@@ -155,26 +178,61 @@ export default function DocumentosSection({
       isOperational: boolean;
     };
 
+    const operationalByPersonaType = new Map<string, OperationalGuardDocSlot>();
+    for (const op of operationalSlots) {
+      for (const pt of op.personaTypes) {
+        if (!operationalByPersonaType.has(pt)) operationalByPersonaType.set(pt, op);
+      }
+      if (!operationalByPersonaType.has(op.codigo)) operationalByPersonaType.set(op.codigo, op);
+    }
+
     const slots: UnifiedSlot[] = [];
     const seenCodes = new Set<string>();
 
-    // 1. Primero slots operacionales (OS10)
-    for (const slot of operationalSlots) {
+    const pushOperational = (op: OperationalGuardDocSlot) => {
       slots.push({
-        code: slot.codigo,
-        label: label(slot.personaTypes[0] ?? slot.codigo),
-        normativa: slot.normativa,
-        obligatorio: slot.obligatorio,
-        tieneVencimiento: slot.tieneVencimiento,
-        diasAlerta: slot.diasAlerta,
-        personaTypes: slot.personaTypes,
+        code: op.codigo,
+        label: label(op.personaTypes[0] ?? op.codigo),
+        normativa: op.normativa,
+        obligatorio: op.obligatorio,
+        tieneVencimiento: op.tieneVencimiento,
+        diasAlerta: op.diasAlerta,
+        personaTypes: op.personaTypes,
         isOperational: true,
       });
-      for (const pt of slot.personaTypes) seenCodes.add(pt);
-      seenCodes.add(slot.codigo);
+      seenCodes.add(op.codigo);
+      for (const pt of op.personaTypes) seenCodes.add(pt);
+    };
+
+    // 1. Orden definido por el usuario en config
+    for (const cfg of guardiaDocConfig) {
+      if (seenCodes.has(cfg.code)) continue;
+      const op = operationalByPersonaType.get(cfg.code);
+      if (op) {
+        pushOperational(op);
+        continue;
+      }
+      slots.push({
+        code: cfg.code,
+        label: label(cfg.code),
+        normativa: null,
+        obligatorio: false,
+        tieneVencimiento: cfg.hasExpiration,
+        diasAlerta: cfg.alertDaysBefore,
+        personaTypes: [cfg.code],
+        isOperational: false,
+      });
+      seenCodes.add(cfg.code);
     }
 
-    // 2. Luego los doc types del config que no están cubiertos por slots operacionales
+    // 2. Slots operacionales no cubiertos por la config (defensivo, p. ej. config vacío)
+    for (const op of operationalSlots) {
+      if (seenCodes.has(op.codigo)) continue;
+      if (op.personaTypes.some((pt) => seenCodes.has(pt))) continue;
+      pushOperational(op);
+    }
+
+    // 3. DOCUMENT_TYPES residuales (defensivo si la config quedó vacía)
     for (const dt of DOCUMENT_TYPES) {
       if (seenCodes.has(dt)) continue;
       const cfg = guardiaDocConfig.find((c) => c.code === dt);
@@ -715,7 +773,7 @@ export default function DocumentosSection({
                 if (!hasExpirationByType.get(t)) setExtraExpiresAt("");
               }}
             >
-              {DOCUMENT_TYPES.map((type) => (
+              {extraUploadOptions.map((type) => (
                 <option key={type} value={type}>{label(type)}</option>
               ))}
             </select>

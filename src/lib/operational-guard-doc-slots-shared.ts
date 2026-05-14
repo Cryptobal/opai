@@ -95,13 +95,19 @@ export function personaTypesForOperationalCodigo(codigo: string): string[] {
   return GUARDIA_TIPO_MAP[codigo] ?? [codigo];
 }
 
-/** Primer tipo OpsDocumentoPersona válido para subir desde la ficha */
+/** Primer tipo OpsDocumentoPersona válido para subir desde la ficha.
+ *
+ * Preferimos un tipo que pertenezca al catálogo histórico DOCUMENT_TYPES (slots
+ * operacionales OS10, etc.). Si todos los tipos del slot son custom (creados por
+ * el usuario en Configuración → Operaciones → Docs Guardias), retornamos el
+ * primero — esos slots vienen del config con un único persona type igual al code.
+ */
 export function pickPersonaTypeForSlot(personaTypes: string[]): string | null {
   const allowed = DOCUMENT_TYPES as readonly string[];
   for (const t of personaTypes) {
     if (allowed.includes(t)) return t;
   }
-  return null;
+  return personaTypes[0] ?? null;
 }
 
 export function slotIsUploadable(personaTypes: string[]): boolean {
