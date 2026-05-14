@@ -43,8 +43,33 @@ interface ReportRecipient {
   isRecipient: boolean;
 }
 
+/** Funciones que producen las URLs de los endpoints. Se inyectan vía
+ *  prop `apiBase` para que el mismo componente sirva al ERP (admin) y al
+ *  Portal Cliente, que tienen rutas diferentes pero comparten contrato. */
+export interface ApiBase {
+  config: (installationId: string) => string;
+  configRecipients: (installationId: string) => string;
+  configTestReport: (installationId: string) => string;
+  recordTypes: (installationId: string) => string;
+}
+
+export const ADMIN_API: ApiBase = {
+  config: (id) => `/api/access-control/config/${id}`,
+  configRecipients: (id) => `/api/access-control/config/${id}/recipients`,
+  configTestReport: (id) => `/api/access-control/config/${id}/test-report`,
+  recordTypes: (id) => `/api/access-control/record-types/${id}`,
+};
+
+export const CLIENTE_API: ApiBase = {
+  config: (id) => `/api/portal/cliente/access-control/${id}/config`,
+  configRecipients: (id) => `/api/portal/cliente/access-control/${id}/config/recipients`,
+  configTestReport: (id) => `/api/portal/cliente/access-control/${id}/config/test-report`,
+  recordTypes: (id) => `/api/portal/cliente/access-control/${id}/record-types`,
+};
+
 interface Props {
   installationId: string;
+  apiBase?: ApiBase;
 }
 
 interface ConfigState {
@@ -63,7 +88,8 @@ interface ConfigState {
   customRecordTypes: CustomRecordType[];
 }
 
-export function AccessControlConfigTab({ installationId }: Props) {
+export function AccessControlConfigTab({ installationId, apiBase }: Props) {
+  const api = apiBase ?? ADMIN_API;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [expandedType, setExpandedType] = useState<AccessRecordType | null>(null);
@@ -104,7 +130,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
 
   const fetchConfig = useCallback(async () => {
     try {
-      const res = await fetch(`/api/access-control/config/${installationId}`);
+      const res = await fetch(api.config(installationId));
       const json = await res.json();
       if (json.success && json.data) {
         setConfig({
@@ -128,7 +154,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [installationId]);
+  }, [installationId, api]);
 
   useEffect(() => {
     fetchConfig();
@@ -137,9 +163,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
   const fetchRecipients = useCallback(async () => {
     setRecipientsLoading(true);
     try {
-      const res = await fetch(
-        `/api/access-control/config/${installationId}/recipients`
-      );
+      const res = await fetch(api.configRecipients(installationId));
       const json = await res.json();
       if (json.success) setRecipients(json.data);
     } catch {
@@ -147,7 +171,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
     } finally {
       setRecipientsLoading(false);
     }
-  }, [installationId]);
+  }, [installationId, api]);
 
   useEffect(() => {
     if (config.autoReportSchedule) {
@@ -163,14 +187,11 @@ export function AccessControlConfigTab({ installationId }: Props) {
       )
     );
     try {
-      const res = await fetch(
-        `/api/access-control/config/${installationId}/recipients`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contactId: r.contactId, isRecipient: newValue }),
-        }
-      );
+      const res = await fetch(api.configRecipients(installationId), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId: r.contactId, isRecipient: newValue }),
+      });
       const json = await res.json();
       if (!json.success) {
         toast.error(json.error || "Error al actualizar destinatario");
@@ -185,14 +206,11 @@ export function AccessControlConfigTab({ installationId }: Props) {
   const handleSendTest = async () => {
     setSendingTest(true);
     try {
-      const res = await fetch(
-        `/api/access-control/config/${installationId}/test-report`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
-        }
-      );
+      const res = await fetch(api.configTestReport(installationId), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
       const json = await res.json();
       if (json.success) {
         toast.success(`Reporte enviado a ${json.sentTo.length} destinatario(s)`);
@@ -215,7 +233,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
       // exist on AccessControlConfig.
       const { customRecordTypes: _ignored, ...rest } = config;
       void _ignored;
-      const res = await fetch(`/api/access-control/config/${installationId}`, {
+      const res = await fetch(api.config(installationId), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(rest),
@@ -230,7 +248,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
       // the current form fields, which the user edits inline. Done in
       // parallel; failures are reported but don't undo the main save.
       const customSaves = config.customRecordTypes.map((c) =>
-        fetch(`/api/access-control/record-types/${installationId}`, {
+        fetch(api.recordTypes(installationId), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -261,7 +279,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
     const previous = config.autoReportSchedule;
     setConfig((p) => ({ ...p, autoReportSchedule: next }));
     try {
-      const res = await fetch(`/api/access-control/config/${installationId}`, {
+      const res = await fetch(api.config(installationId), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ autoReportSchedule: next }),
@@ -459,7 +477,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
       // common fields). The admin can edit / reorder / remove these
       // immediately via the same UI used for the built-in types.
       const seedFields: FormFieldConfig[] = seedFieldsForScanModes(newTypeScanModes);
-      const res = await fetch(`/api/access-control/record-types/${installationId}`, {
+      const res = await fetch(api.recordTypes(installationId), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -503,7 +521,7 @@ export function AccessControlConfigTab({ installationId }: Props) {
       return;
     }
     try {
-      const res = await fetch(`/api/access-control/record-types/${installationId}`, {
+      const res = await fetch(api.recordTypes(installationId), {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: type.id }),
