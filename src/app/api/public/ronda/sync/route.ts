@@ -52,10 +52,10 @@ export async function POST(request: NextRequest) {
               completedAt: new Date(round.completedAt),
               scheduledAt: new Date(round.startedAt),
               checkpointsTotal: template.checkpoints.length,
-              checkpointsCompletados: round.marcaciones.length,
-              porcentajeCompletado: template.checkpoints.length > 0
-                ? (round.marcaciones.length / template.checkpoints.length) * 100
-                : 0,
+              // checkpointsCompletados y porcentajeCompletado se recalculan
+              // tras crear las marcas, contando solo COMPLETED (ver update abajo).
+              checkpointsCompletados: 0,
+              porcentajeCompletado: 0,
               isOfflineSync: true,
               syncedAt: new Date(),
               notes: round.notes ?? null,
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
           const sortedMarcaciones = [...round.marcaciones].sort(
             (a, b) => new Date(a.marcadoAt).getTime() - new Date(b.marcadoAt).getTime(),
           );
-          const createdMarks: Array<{ status: "COMPLETED"; timestamp: Date; checkpointId: string }> = [];
+          const createdMarks: Array<{ status: string; timestamp: Date; checkpointId: string }> = [];
 
           for (let i = 0; i < sortedMarcaciones.length; i++) {
             const m = sortedMarcaciones[i];
@@ -79,13 +79,16 @@ export async function POST(request: NextRequest) {
 
             const geo = validateGeofenceWithAccuracy(m.lat, m.lng, checkpoint.lat, checkpoint.lng, checkpoint.geoRadiusM, m.gpsAccuracy);
 
-            // Bloqueo geo: GEOFENCE/BOTH exigen estar en rango; QR-only no
+            // Geo soft-fail: NO saltar la marca. Registrar con GEO_NO_VERIFICADA
+            // para que quede evidencia. La marca NO cuenta para cumplimiento
+            // (todos los consumidores filtran status === "COMPLETED").
             const vt = checkpoint.verificationType;
             const hasCoords = checkpoint.lat != null && checkpoint.lng != null;
+            let geoNoVerificada = false;
             if (vt === "QR") {
               // QR-only: escaneo es prueba, no validar geo
             } else if ((vt === "GEOFENCE" || vt === "BOTH") && hasCoords && !geo.valid) {
-              continue; // Skip mark: fuera de rango
+              geoNoVerificada = true;
             }
             const elapsedSec = prevM
               ? Math.max(1, (new Date(m.marcadoAt).getTime() - new Date(prevM.marcadoAt).getTime()) / 1000)
@@ -135,12 +138,16 @@ export async function POST(request: NextRequest) {
                 note: m.note ?? null,
                 hashIntegridad: hash,
                 anomalias: anomalies as never,
-                status: "COMPLETED",
+                status: geoNoVerificada ? "GEO_NO_VERIFICADA" : "COMPLETED",
                 verificationMethod: m.verificationMethod,
                 isOfflineSync: true,
               },
             });
-            createdMarks.push({ status: "COMPLETED", timestamp: new Date(m.marcadoAt), checkpointId: m.checkpointId });
+            createdMarks.push({
+              status: geoNoVerificada ? "GEO_NO_VERIFICADA" : "COMPLETED",
+              timestamp: new Date(m.marcadoAt),
+              checkpointId: m.checkpointId,
+            });
 
             if (alertAnomalies.length > 0) {
               // Dedupe telemetry alerts idempotently per ejecución
@@ -208,13 +215,16 @@ export async function POST(request: NextRequest) {
             templateCheckpoints: template.checkpoints,
           });
 
+          // Solo COMPLETED cuenta para porcentaje. Las marcas GEO_NO_VERIFICADA
+          // existen como fila pero NO mueven el cumplimiento que ve el cliente.
+          const completedCount = createdMarks.filter((m) => m.status === "COMPLETED").length;
           const pct = template.checkpoints.length > 0
-            ? (createdMarks.length / template.checkpoints.length) * 100
+            ? (completedCount / template.checkpoints.length) * 100
             : 0;
           await tx.opsRondaEjecucion.update({
             where: { id: ejecucion.id },
             data: {
-              checkpointsCompletados: createdMarks.length,
+              checkpointsCompletados: completedCount,
               porcentajeCompletado: pct,
               trustScore: trustResult.score,
               trustBreakdown: trustResult.breakdown as any,
