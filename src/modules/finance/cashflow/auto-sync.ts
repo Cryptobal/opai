@@ -4,6 +4,7 @@ import { recomputePayrollAmounts } from "./generators/payroll-sync";
 import { recomputeTurnosExtraAmounts } from "./generators/turnos-extra-sync";
 import { recomputeIvaUpcoming } from "./generators/iva-f29-sync";
 import { backfillRecurringDteItems } from "./generators/recurring-dte-sync";
+import { recomputeRetiroSociosAmounts } from "./generators/retiro-socios-sync";
 
 /**
  * Self-heal: detecta si el tenant tiene drift entre datos fuente y items
@@ -17,12 +18,18 @@ import { backfillRecurringDteItems } from "./generators/recurring-dte-sync";
  * Nunca lanza errores hacia el caller — el sync se hace best-effort.
  */
 export async function ensureCashflowSynced(tenantId: string): Promise<{
-  triggered: { contracts: boolean; payroll: boolean; recurringDte: boolean };
+  triggered: {
+    contracts: boolean;
+    payroll: boolean;
+    recurringDte: boolean;
+    retiroSocios: boolean;
+  };
 }> {
   const triggered = {
     contracts: false,
     payroll: false,
     recurringDte: false,
+    retiroSocios: false,
   };
 
   try {
@@ -85,6 +92,24 @@ export async function ensureCashflowSynced(tenantId: string): Promise<{
     // en el primer load (el cron los cubre).
     void recomputeTurnosExtraAmounts;
     void recomputeIvaUpcoming;
+
+    // ── Retiro socios: dispara cuando hay % > 0 configurado y faltan
+    //    items proyectados para el horizonte esperado. Best-effort.
+    const retiroCfg = await prisma.financeCashflowConfig.findUnique({
+      where: { tenantId },
+      select: { retiroSocioPctVentas: true, horizonMonthsDefault: true },
+    });
+    const retiroPct = Number(retiroCfg?.retiroSocioPctVentas ?? 0);
+    if (retiroPct > 0) {
+      const horizon = retiroCfg?.horizonMonthsDefault ?? 12;
+      const retiroItems = await prisma.financeCashflowItem.count({
+        where: { tenantId, source: "RETIRO_SOCIO", isActive: true },
+      });
+      if (retiroItems < horizon) {
+        triggered.retiroSocios = true;
+        await recomputeRetiroSociosAmounts(tenantId);
+      }
+    }
   } catch (err) {
     console.error("[cashflow] ensureCashflowSynced error:", err);
   }

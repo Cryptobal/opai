@@ -19,6 +19,7 @@ import { recomputePayrollAmounts } from "@/modules/finance/cashflow/generators/p
 import { recomputeTurnosExtraAmounts } from "@/modules/finance/cashflow/generators/turnos-extra-sync";
 import { recomputeIvaUpcoming } from "@/modules/finance/cashflow/generators/iva-f29-sync";
 import { backfillRecurringDteItems } from "@/modules/finance/cashflow/generators/recurring-dte-sync";
+import { recomputeRetiroSociosAmounts } from "@/modules/finance/cashflow/generators/retiro-socios-sync";
 
 interface TenantStats {
   tenantId: string;
@@ -27,6 +28,7 @@ interface TenantStats {
   turnosExtra: number;
   iva: number;
   recurringDte: number;
+  retiroSocios: number;
   errors: string[];
 }
 
@@ -64,6 +66,7 @@ export async function GET(request: NextRequest) {
       turnosExtra: 0,
       iva: 0,
       recurringDte: 0,
+      retiroSocios: 0,
       errors: [],
     };
     try {
@@ -105,6 +108,15 @@ export async function GET(request: NextRequest) {
       }
     } catch (err) {
       stats.errors.push(`recurring-dte: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    try {
+      // Retiro de socios: corre siempre, el generador decide qué hacer según
+      // el % configurado. Si pct=0 desactiva ítems vivos; si pct>0 los
+      // mantiene sincronizados con la proyección de ventas del tenant.
+      const r = await recomputeRetiroSociosAmounts(cfg.tenantId);
+      stats.retiroSocios = r.created + r.updated + r.reactivated + r.deactivated;
+    } catch (err) {
+      stats.errors.push(`retiro-socios: ${err instanceof Error ? err.message : String(err)}`);
     }
     results.push(stats);
   }
