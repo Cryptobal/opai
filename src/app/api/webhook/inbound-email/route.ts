@@ -22,6 +22,10 @@ import { extractLeadFromEmail, parseFromHeader, isGarbageEmail } from "@/lib/ema
 import { toSentenceCaseWords, formatChileanPhone } from "@/lib/text-format";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { resolveTenantFromSlug } from "@/lib/tenant";
+import {
+  ingestDtesFromInboundEmail,
+  type InboundAttachment,
+} from "@/modules/finance/billing/dte-inbound.service";
 
 const INBOUND_DOMAIN = process.env.INBOUND_DOMAIN || "inbound.opai.cl";
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10MB
@@ -96,24 +100,36 @@ export async function POST(request: NextRequest) {
 
     // Find recipient matching our inbound domain ({slug}@inbound.opai.cl)
     const domainSuffix = `@${INBOUND_DOMAIN.toLowerCase()}`;
-    let tenantSlug: string | null = null;
+    let recipientLocalPart: string | null = null;
     for (const addr of allRecipients) {
       const email = extractEmail(addr);
       if (email.endsWith(domainSuffix)) {
-        tenantSlug = email.replace(domainSuffix, "");
+        recipientLocalPart = email.replace(domainSuffix, "");
         break;
       }
     }
 
-    if (!tenantSlug) {
+    if (!recipientLocalPart) {
       console.log("[inbound-email] Skipped: no recipient matching inbound domain", {
         to: toList,
         cc: ccList,
         bcc: bccList,
         expectedDomain: INBOUND_DOMAIN,
-        hint: `El correo debe enviarse a {slug}@${INBOUND_DOMAIN}`,
+        hint: `El correo debe enviarse a {slug}@${INBOUND_DOMAIN} o dte-{slug}@${INBOUND_DOMAIN}`,
       });
       return NextResponse.json({ success: true, skipped: "wrong_recipient" });
+    }
+
+    // Routing: el prefijo `dte-` deriva al flujo de DTE recibidos (parseo XML
+    // de facturas de compra). El resto cae al flujo CrmLead.
+    const isDteInbound = recipientLocalPart.startsWith("dte-");
+    const tenantSlug = isDteInbound
+      ? recipientLocalPart.slice("dte-".length)
+      : recipientLocalPart;
+
+    if (!tenantSlug) {
+      console.log("[inbound-email] Skipped: empty slug after stripping dte- prefix");
+      return NextResponse.json({ success: true, skipped: "empty_slug" });
     }
 
     // Resolve tenant from the slug in the recipient address
@@ -123,6 +139,69 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, skipped: "tenant_not_found" });
     }
     const tenantId = tenant.id;
+
+    // ── FLUJO DTE RECIBIDOS ──
+    // dte-{slug}@inbound.opai.cl: el proveedor manda el XML firmado del DTE
+    // (los proveedores chilenos están obligados por SII a entregar el XML al
+    // receptor). Parseamos el XML, validamos que el RUT receptor coincida con
+    // el tenant y upserteamos FinanceDte (direction=RECEIVED) con líneas.
+    // Idempotente: la unique (tenantId, direction, dteType, folio) ya existe.
+    if (isDteInbound) {
+      const emailResponse = await resend.emails.receiving.get(emailId);
+      if (emailResponse.error || !emailResponse.data) {
+        console.error("[inbound-email/dte] Error fetching email:", emailResponse.error);
+        return NextResponse.json(
+          { error: "No se pudo obtener el correo" },
+          { status: 502 },
+        );
+      }
+      const email = emailResponse.data;
+      const from = email.from || "";
+      const subject = email.subject || "(sin asunto)";
+      const attachments = email.attachments || [];
+
+      // Descargar adjuntos vía Resend antes de pasarlos al servicio.
+      const downloaded: InboundAttachment[] = [];
+      for (const att of attachments) {
+        try {
+          const attResponse = await resend.emails.receiving.attachments.get({
+            emailId,
+            id: att.id,
+          });
+          if (attResponse.error || !attResponse.data?.download_url) continue;
+          const res = await fetch(attResponse.data.download_url);
+          if (!res.ok) continue;
+          const buffer = Buffer.from(await res.arrayBuffer());
+          if (buffer.length > MAX_ATTACHMENT_SIZE) continue;
+          downloaded.push({
+            id: att.id,
+            filename: attResponse.data.filename || att.filename || `attachment-${att.id}`,
+            contentType: attResponse.data.content_type || att.content_type || "application/octet-stream",
+            buffer,
+          });
+        } catch (err) {
+          console.warn("[inbound-email/dte] Skip attachment download:", att.id, err);
+        }
+      }
+
+      const result = await ingestDtesFromInboundEmail({
+        tenantId,
+        emailId,
+        fromEmail: from,
+        subject,
+        attachments: downloaded,
+      });
+
+      console.log("[inbound-email/dte] Ingested", {
+        tenantSlug,
+        from,
+        subject,
+        ...result,
+      });
+
+      return NextResponse.json({ success: true, kind: "dte-ingested", ...result });
+    }
+
     const tenantCfg = await getTenantCompanyConfig(tenantId);
 
     const emailResponse = await resend.emails.receiving.get(emailId);
