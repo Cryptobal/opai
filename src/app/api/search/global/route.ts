@@ -572,7 +572,7 @@ export async function GET(request: NextRequest) {
           group: "chat",
           title: ch.name,
           subtitle,
-          href: `/chat?channelId=${ch.id}`,
+          href: `/chat?channel=${ch.id}`,
         });
       }
     } catch (err) {
@@ -644,6 +644,10 @@ export async function GET(request: NextRequest) {
           asset: "Activo",
         };
 
+        // El command palette debe aterrizar en el ítem elegido, no en el
+        // listado genérico. Pasamos `?openId=` y los clientes de inventario
+        // lo usan para abrir edición (productos/líneas) o resaltar fila
+        // (activos).
         for (const prod of invProducts) {
           results.push({
             id: prod.id,
@@ -651,7 +655,7 @@ export async function GET(request: NextRequest) {
             group: "inventory",
             title: prod.name,
             subtitle: [INV_CATEGORY_LABEL[prod.category] ?? prod.category, prod.sku ? `SKU: ${prod.sku}` : null].filter(Boolean).join(" · "),
-            href: `/ops/inventario/productos`,
+            href: `/ops/inventario/productos?openId=${prod.id}`,
           });
         }
 
@@ -664,7 +668,7 @@ export async function GET(request: NextRequest) {
             group: "inventory",
             title: productName,
             subtitle: [identifier, ASSET_STATUS_LABEL[asset.status] ?? asset.status].filter(Boolean).join(" · "),
-            href: `/ops/inventario/activos`,
+            href: `/ops/inventario/activos?openId=${asset.id}`,
           });
         }
 
@@ -675,7 +679,7 @@ export async function GET(request: NextRequest) {
             group: "inventory",
             title: line.phoneNumber,
             subtitle: [line.carrier, line.label, line.status === "active" ? "Activa" : "Inactiva"].filter(Boolean).join(" · "),
-            href: `/ops/inventario/lineas`,
+            href: `/ops/inventario/lineas?openId=${line.id}`,
           });
         }
       } catch (err) {
@@ -757,9 +761,13 @@ export async function GET(request: NextRequest) {
             subtitle: [counterpartyRut, montoFmt, fechaFmt]
               .filter(Boolean)
               .join(" · "),
+            // Usamos `openDteId` (no `id`) porque los clientes de DTEs
+            // emitidos/recibidos abren el slide-over de detalle leyendo ese
+            // search param. Con `?id=` la página solo se cargaba sin
+            // navegar al documento elegido desde el command palette.
             href: isIssued
-              ? `/finanzas/facturacion/dtes?id=${d.id}`
-              : `/finanzas/facturacion/recibidos?id=${d.id}`,
+              ? `/finanzas/facturacion/dtes?openDteId=${d.id}`
+              : `/finanzas/facturacion/recibidos?openDteId=${d.id}`,
             badgeLabel: badge?.label,
             badgeClass: badge?.class,
           });

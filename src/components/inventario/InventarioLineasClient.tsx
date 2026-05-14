@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Surface, Tag, IconBubble, EmptyState, Spinner } from "@/components/opai-ds";
 import {
@@ -177,6 +178,22 @@ export function InventarioLineasClient() {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  // Deep link desde el command palette / búsqueda global: si llega
+  // `?openId=<lineId>` y la línea está cargada, abrimos el diálogo de
+  // edición. Disparamos una sola vez por valor de openId.
+  const searchParams = useSearchParams();
+  const openLineId = searchParams.get("openId");
+  const [openedDeepLink, setOpenedDeepLink] = useState<string | null>(null);
+  useEffect(() => {
+    if (!openLineId || openedDeepLink === openLineId || lines.length === 0) return;
+    const match = lines.find((l) => l.id === openLineId);
+    if (match) {
+      openEdit(match);
+      setOpenedDeepLink(openLineId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openLineId, lines, openedDeepLink]);
 
   // ── Create / Edit ──────────────────────────────────
   const openCreate = () => {

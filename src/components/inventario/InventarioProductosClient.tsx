@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -87,6 +88,25 @@ export function InventarioProductosClient() {
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  // Deep link desde el command palette / búsqueda global: si llega
+  // `?openId=<productId>` y el producto está cargado, abrimos el diálogo
+  // de edición. Disparamos una sola vez por valor de openId.
+  const searchParams = useSearchParams();
+  const openProductId = searchParams.get("openId");
+  const [openedDeepLink, setOpenedDeepLink] = useState<string | null>(null);
+  useEffect(() => {
+    if (!openProductId || openedDeepLink === openProductId || products.length === 0) return;
+    const match = products.find((p) => p.id === openProductId);
+    if (match) {
+      openEdit(match);
+      setOpenedDeepLink(openProductId);
+    }
+    // openEdit es estable a efectos de este lifecycle (definida en cuerpo del
+    // componente sin deps cambiantes); evitamos meterla en deps para no
+    // forzar useCallback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openProductId, products, openedDeepLink]);
 
   const filteredProducts = useMemo(() => {
     let result = products;

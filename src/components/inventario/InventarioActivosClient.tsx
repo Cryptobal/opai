@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Surface, Tag, EmptyState, Spinner, IconBubble, type TagVariant } from "@/components/opai-ds";
@@ -74,6 +75,26 @@ export function InventarioActivosClient() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Deep link desde el command palette: si llega `?openId=<assetId>` y el
+  // activo está cargado, hacemos scroll a su fila y la resaltamos un
+  // instante. No hay diálogo de edición para activos (a diferencia de
+  // productos/líneas), así que el feedback visual ocurre en la lista.
+  const searchParams = useSearchParams();
+  const openAssetId = searchParams.get("openId");
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const rowRefs = useRef<Record<string, HTMLLIElement | null>>({});
+  const flashedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!openAssetId || flashedFor.current === openAssetId || assets.length === 0) return;
+    const el = rowRefs.current[openAssetId];
+    if (!el) return;
+    flashedFor.current = openAssetId;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedId(openAssetId);
+    const t = setTimeout(() => setHighlightedId(null), 1800);
+    return () => clearTimeout(t);
+  }, [openAssetId, assets]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -225,7 +246,15 @@ export function InventarioActivosClient() {
         ) : (
           <ul className="space-y-2 ds-list-cascade">
             {assets.map((a) => (
-              <li key={a.id}>
+              <li
+                key={a.id}
+                ref={(el) => { rowRefs.current[a.id] = el; }}
+                className={
+                  highlightedId === a.id
+                    ? "rounded-lg ring-2 ring-primary transition-shadow"
+                    : undefined
+                }
+              >
                 <Surface elevation={1} padding="sm" hoverable className="flex items-center gap-3">
                   <IconBubble icon={Smartphone} variant="brand" size="md" />
                   <div className="min-w-0 flex-1">
