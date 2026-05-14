@@ -87,6 +87,11 @@ export interface AccessControlConfigData {
   /** Per-installation override of the type's lucide icon name. Keys are
    *  AccessRecordType ids; missing keys fall back to RECORD_TYPE_CONFIG. */
   recordTypeIcons?: Partial<Record<string, string>>;
+  /** Per-installation override of the scan modes enabled for each default
+   *  record type. Keys are AccessRecordType ids; values are arrays of
+   *  ScanMode (e.g. `["rut", "plate"]` to allow both). Custom types use
+   *  their own `scanModes` field instead. */
+  recordTypeScanModes?: Partial<Record<string, ScanMode[]>>;
   /** Custom record types created for this installation. Stored in a
    *  separate table, included in this payload so the mobile portal and
    *  admin get them in one round-trip. Inactive types are omitted from
@@ -103,7 +108,12 @@ export interface CustomRecordType {
   label: string;
   icon: string;
   defaultFields: FormFieldConfig[];
+  /** @deprecated usar scanModes (plural) */
   scanMode: ScanMode;
+  /** Modos de escaneo soportados por este tipo. Vacío = comportamiento
+   *  legacy basado en `scanMode`. Si tiene varios modos, el guardia elige
+   *  cuál usar al iniciar el registro. */
+  scanModes: ScanMode[];
   orderIdx: number;
   isActive: boolean;
 }
@@ -454,18 +464,53 @@ export function getRecordTypeIconName(
 
 type ScanModeResolverConfig = {
   customRecordTypes?: CustomRecordType[];
+  recordTypeScanModes?: Partial<Record<string, ScanMode[]>>;
 } | null | undefined;
 
-/** Returns the scan mode the portal should use when this record type is
- *  picked. Built-in types behave as before (vehicle = plate, others = rut).
- *  Custom types use the `scanMode` chosen at creation. */
+/** Modos de escaneo habilitados para un tipo (orden importa: el primero
+ *  es el sugerido por defecto en el UI cuando hay varios).
+ *  Resolución: override por installation → custom.scanModes → custom.scanMode
+ *  legacy → default fijo (vehicle=plate, otros=rut, none=[none]). */
+export function getRecordTypeScanModes(
+  type: AccessRecordType,
+  config?: ScanModeResolverConfig,
+): ScanMode[] {
+  const override = config?.recordTypeScanModes?.[type];
+  if (override && override.length > 0) return override;
+  const custom = config?.customRecordTypes?.find((t) => t.key === type);
+  if (custom?.scanModes && custom.scanModes.length > 0) return custom.scanModes;
+  if (custom?.scanMode) return [custom.scanMode];
+  if (isDefaultRecordType(type)) return type === "vehicle" ? ["plate"] : ["rut"];
+  return ["none"];
+}
+
+/** @deprecated usar getRecordTypeScanModes (plural). Wrapper que retorna
+ *  el primer modo habilitado para no romper consumidores existentes. */
 export function getRecordTypeScanMode(
   type: AccessRecordType,
   config?: ScanModeResolverConfig,
 ): ScanMode {
-  if (isDefaultRecordType(type)) return type === "vehicle" ? "plate" : "rut";
-  const custom = config?.customRecordTypes?.find((t) => t.key === type);
-  return custom?.scanMode ?? "none";
+  const modes = getRecordTypeScanModes(type, config);
+  return modes[0] ?? "none";
+}
+
+/** Combina los seed fields de varios scan modes deduplicando por `field`.
+ *  Preserva el orden de aparición y reordena al final con `order` ascendente.
+ *  Útil para el modal "Nuevo tipo" cuando el admin selecciona ambos
+ *  cédula y patente — se muestran los campos comunes una sola vez. */
+export function seedFieldsForScanModes(modes: ScanMode[]): FormFieldConfig[] {
+  if (modes.length === 0) return SEED_FIELDS_BY_SCAN_MODE.none;
+  const seen = new Set<string>();
+  const out: FormFieldConfig[] = [];
+  for (const mode of modes) {
+    for (const f of SEED_FIELDS_BY_SCAN_MODE[mode]) {
+      if (seen.has(f.field)) continue;
+      seen.add(f.field);
+      out.push(f);
+    }
+  }
+  return out
+    .map((f, i) => ({ ...f, order: i + 1 }));
 }
 
 export const PREREGISTRATION_STATUS_CONFIG: Record<PreregistrationStatus, { label: string; color: string }> = {

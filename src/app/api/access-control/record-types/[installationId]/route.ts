@@ -21,6 +21,27 @@ function generateCustomKey(): string {
   return `custom_${suffix}`;
 }
 
+/** Normaliza el body para extraer scanModes válidos. Acepta:
+ *  - body.scanModes (array de strings) si está presente y no vacío
+ *  - body.scanMode (string singular legacy) si scanModes no viene
+ *  Filtra valores no permitidos y deduplica. */
+function parseScanModes(scanModes: unknown, legacyScanMode?: string): ScanMode[] {
+  const allowed = new Set(SCAN_MODES);
+  if (Array.isArray(scanModes)) {
+    const out: ScanMode[] = [];
+    for (const v of scanModes) {
+      if (typeof v === "string" && allowed.has(v as ScanMode) && !out.includes(v as ScanMode)) {
+        out.push(v as ScanMode);
+      }
+    }
+    if (out.length > 0) return out;
+  }
+  if (typeof legacyScanMode === "string" && allowed.has(legacyScanMode as ScanMode)) {
+    return [legacyScanMode as ScanMode];
+  }
+  return ["none"];
+}
+
 /** GET — List all custom record types for an installation (active + soft-deleted). */
 export async function GET(
   request: NextRequest,
@@ -79,6 +100,7 @@ export async function POST(
       icon?: string;
       defaultFields?: unknown;
       scanMode?: string;
+      scanModes?: unknown;
     };
 
     const label = (body.label ?? "").trim();
@@ -89,9 +111,8 @@ export async function POST(
       );
     }
 
-    const scanMode: ScanMode = (SCAN_MODES as readonly string[]).includes(body.scanMode ?? "")
-      ? (body.scanMode as ScanMode)
-      : "none";
+    const scanModes = parseScanModes(body.scanModes, body.scanMode);
+    const scanMode: ScanMode = scanModes[0] ?? "none";
 
     // Find next orderIdx among active types
     const lastOrder = await safeAccessControlQuery(
@@ -119,6 +140,7 @@ export async function POST(
             icon: (body.icon ?? "UserPlus").toString(),
             defaultFields: (body.defaultFields ?? []) as Prisma.InputJsonValue,
             scanMode,
+            scanModes,
             orderIdx: nextOrder,
             isActive: true,
           },
@@ -168,6 +190,7 @@ export async function PATCH(
       isActive?: boolean;
       defaultFields?: unknown;
       scanMode?: string;
+      scanModes?: unknown;
     };
 
     if (!body.id) {
@@ -194,6 +217,14 @@ export async function PATCH(
       );
     }
 
+    const scanModesUpdate =
+      body.scanModes !== undefined || body.scanMode !== undefined
+        ? (() => {
+            const modes = parseScanModes(body.scanModes, body.scanMode);
+            return { scanModes: modes, scanMode: modes[0] ?? "none" };
+          })()
+        : {};
+
     const updated = await prisma.accessControlRecordType.update({
       where: { id: body.id },
       data: {
@@ -204,9 +235,7 @@ export async function PATCH(
         ...(body.defaultFields !== undefined
           ? { defaultFields: body.defaultFields as Prisma.InputJsonValue }
           : {}),
-        ...(body.scanMode !== undefined && (SCAN_MODES as readonly string[]).includes(body.scanMode)
-          ? { scanMode: body.scanMode as ScanMode }
-          : {}),
+        ...scanModesUpdate,
       },
     });
 

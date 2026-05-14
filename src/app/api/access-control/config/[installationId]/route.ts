@@ -17,6 +17,7 @@ const defaultConfig = (installationId: string) => ({
   formConfig: {},
   recordTypeLabels: {},
   recordTypeIcons: {},
+  recordTypeScanModes: {},
   customRecordTypes: [] as Array<{
     id: string;
     key: string;
@@ -24,10 +25,29 @@ const defaultConfig = (installationId: string) => ({
     icon: string;
     defaultFields: unknown[];
     scanMode: string;
+    scanModes: string[];
     orderIdx: number;
     isActive: boolean;
   }>,
 });
+
+/** Sanitiza el JSON de overrides por tipo: solo deja entries con array
+ *  de ScanMode válidos. Devuelve el objeto con la forma exacta esperada
+ *  por la columna recordTypeScanModes. */
+function normalizeRecordTypeScanModes(input: unknown): Record<string, string[]> {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+  const allowed = new Set(["plate", "rut", "none"]);
+  const out: Record<string, string[]> = {};
+  for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+    if (!Array.isArray(value)) continue;
+    const cleaned: string[] = [];
+    for (const v of value) {
+      if (typeof v === "string" && allowed.has(v) && !cleaned.includes(v)) cleaned.push(v);
+    }
+    if (cleaned.length > 0) out[key] = cleaned;
+  }
+  return out;
+}
 
 export async function GET(
   request: NextRequest,
@@ -56,7 +76,8 @@ export async function GET(
         orderBy: { orderIdx: "asc" },
         select: {
           id: true, key: true, label: true, icon: true,
-          defaultFields: true, scanMode: true, orderIdx: true, isActive: true,
+          defaultFields: true, scanMode: true, scanModes: true,
+          orderIdx: true, isActive: true,
         },
       }),
       [],
@@ -108,6 +129,8 @@ export async function PUT(
       );
     }
 
+    const recordTypeScanModes = normalizeRecordTypeScanModes(body.recordTypeScanModes);
+
     const config = await safeAccessControlQuery(
       () => prisma.accessControlConfig.upsert({
         where: { installationId },
@@ -123,6 +146,7 @@ export async function PUT(
           formConfig: (body.formConfig ?? {}) as Prisma.InputJsonValue,
           recordTypeLabels: (body.recordTypeLabels ?? {}) as Prisma.InputJsonValue,
           recordTypeIcons: (body.recordTypeIcons ?? {}) as Prisma.InputJsonValue,
+          recordTypeScanModes: recordTypeScanModes as Prisma.InputJsonValue,
         },
         create: {
           tenantId: installation.tenantId,
@@ -138,6 +162,7 @@ export async function PUT(
           formConfig: (body.formConfig ?? {}) as Prisma.InputJsonValue,
           recordTypeLabels: (body.recordTypeLabels ?? {}) as Prisma.InputJsonValue,
           recordTypeIcons: (body.recordTypeIcons ?? {}) as Prisma.InputJsonValue,
+          recordTypeScanModes: recordTypeScanModes as Prisma.InputJsonValue,
         },
       }),
       null,
@@ -202,6 +227,9 @@ export async function PATCH(
     if ("formConfig" in body) updateData.formConfig = (body.formConfig ?? {}) as Prisma.InputJsonValue;
     if ("recordTypeLabels" in body) updateData.recordTypeLabels = (body.recordTypeLabels ?? {}) as Prisma.InputJsonValue;
     if ("recordTypeIcons" in body) updateData.recordTypeIcons = (body.recordTypeIcons ?? {}) as Prisma.InputJsonValue;
+    if ("recordTypeScanModes" in body) {
+      updateData.recordTypeScanModes = normalizeRecordTypeScanModes(body.recordTypeScanModes) as Prisma.InputJsonValue;
+    }
 
     const config = await safeAccessControlQuery(
       () => prisma.accessControlConfig.upsert({
@@ -221,6 +249,7 @@ export async function PATCH(
           formConfig: (body.formConfig ?? {}) as Prisma.InputJsonValue,
           recordTypeLabels: (body.recordTypeLabels ?? {}) as Prisma.InputJsonValue,
           recordTypeIcons: (body.recordTypeIcons ?? {}) as Prisma.InputJsonValue,
+          recordTypeScanModes: normalizeRecordTypeScanModes(body.recordTypeScanModes) as Prisma.InputJsonValue,
         },
       }),
       null,

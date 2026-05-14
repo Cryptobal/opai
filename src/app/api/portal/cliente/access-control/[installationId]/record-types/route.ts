@@ -36,6 +36,7 @@ export async function GET(
             enabledRecordTypes: true,
             recordTypeLabels: true,
             recordTypeIcons: true,
+            recordTypeScanModes: true,
           },
         }),
         null,
@@ -46,7 +47,8 @@ export async function GET(
           orderBy: { orderIdx: "asc" },
           select: {
             id: true, key: true, label: true, icon: true,
-            defaultFields: true, scanMode: true, orderIdx: true, isActive: true,
+            defaultFields: true, scanMode: true, scanModes: true,
+            orderIdx: true, isActive: true,
           },
         }),
         [],
@@ -61,6 +63,7 @@ export async function GET(
         ],
         recordTypeLabels: config?.recordTypeLabels ?? {},
         recordTypeIcons: config?.recordTypeIcons ?? {},
+        recordTypeScanModes: config?.recordTypeScanModes ?? {},
         customRecordTypes: customRecordTypes ?? [],
       },
     });
