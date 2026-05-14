@@ -278,6 +278,22 @@ export function AccountContractsSection({
     "RUN_DAY" | "LAST_DAY_PREV_MONTH" | "FIRST_DAY_MONTH" | "LAST_DAY_MONTH"
   >("LAST_DAY_PREV_MONTH");
   const [recurringAutoSendEmail, setRecurringAutoSendEmail] = useState<boolean>(true);
+  // Espejo de los toggles del módulo Facturación → Programación: si los
+  // marcamos acá, el cron al generar el borrador dispara también el
+  // envío de proforma y/o estado de pago al receptor.
+  const [recurringIsActive, setRecurringIsActive] = useState<boolean>(true);
+  const [recurringAutoSendProforma, setRecurringAutoSendProforma] =
+    useState<boolean>(false);
+  const [recurringAutoSendPaymentStatement, setRecurringAutoSendPaymentStatement] =
+    useState<boolean>(false);
+  // CC: el receptor principal (TO) sale de `recurringEmail`. Estos van
+  // como copia. Texto crudo separado por coma/espacio/`;`.
+  const [recurringCcEmailsRaw, setRecurringCcEmailsRaw] = useState<string>("");
+  // Referencias adicionales (no-DTE): OC, HES, Contrato, etc.
+  // Se persisten en la plantilla y se copian a cada borrador.
+  const [recurringAdditionalRefs, setRecurringAdditionalRefs] = useState<
+    Array<{ tipoDocRef: string; folioRef: string; fchRef: string }>
+  >([]);
   const [recurringLineDescription, setRecurringLineDescription] =
     useState<string>("Servicios mensuales — {{periodo}}");
 
@@ -462,6 +478,11 @@ export function AccountContractsSection({
     setRecurringPeriodPolicy("CURRENT_MONTH");
     setRecurringUfFixingPolicy("LAST_DAY_PREV_MONTH");
     setRecurringAutoSendEmail(true);
+    setRecurringIsActive(true);
+    setRecurringAutoSendProforma(false);
+    setRecurringAutoSendPaymentStatement(false);
+    setRecurringCcEmailsRaw("");
+    setRecurringAdditionalRefs([]);
     setRecurringLineDescription("Servicios mensuales — {{periodo}}");
   }, [
     accountRut,
@@ -549,6 +570,23 @@ export function AccountContractsSection({
         if (!Number.isFinite(m) || m < 1 || m > 12)
           return "Plantilla recurrente: mes del año inválido (1-12)";
       }
+      // CC: validamos formato y tope de 10 igual que el schema zod.
+      const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const ccCandidates = recurringCcEmailsRaw
+        .split(/[\s,;]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const invalidCc = ccCandidates.filter((e) => !EMAIL_RE.test(e));
+      if (invalidCc.length > 0)
+        return `Plantilla recurrente: emails CC inválidos (${invalidCc.join(", ")})`;
+      if (ccCandidates.length > 10)
+        return "Plantilla recurrente: máximo 10 emails CC";
+      // Referencias: cada una requiere tipo + folio + fecha si fue agregada.
+      for (let i = 0; i < recurringAdditionalRefs.length; i++) {
+        const r = recurringAdditionalRefs[i];
+        if (!r.tipoDocRef.trim() || !r.folioRef.trim() || !r.fchRef)
+          return `Plantilla recurrente: referencia #${i + 1} incompleta (tipo, folio y fecha son obligatorios)`;
+      }
     }
     return null;
   }, [
@@ -570,6 +608,8 @@ export function AccountContractsSection({
     recurringFrequency,
     recurringDayOfWeek,
     recurringMonthOfYear,
+    recurringCcEmailsRaw,
+    recurringAdditionalRefs,
   ]);
 
   // ─── Submit upload ─────────────────────────────────────────────
@@ -707,13 +747,35 @@ export function AccountContractsSection({
               unitPriceUf: isUf ? (amt as number) : undefined,
               priceCurrency: isUf ? "UF" : "CLP",
             };
+            // CC: parsing alineado con RecurringTemplateForm (dedupe contra TO).
+            const effEmail = recurringEmail.trim();
+            const ccEmails = Array.from(
+              new Set(
+                recurringCcEmailsRaw
+                  .split(/[\s,;]+/)
+                  .map((s) => s.trim())
+                  .filter((e) => e && e !== effEmail),
+              ),
+            );
+            // Referencias: descartar las vacías por seguridad.
+            const validRefs = recurringAdditionalRefs
+              .filter(
+                (r) => r.tipoDocRef.trim() && r.folioRef.trim() && r.fchRef,
+              )
+              .map((r) => ({
+                tipoDocRef: r.tipoDocRef.trim(),
+                folioRef: r.folioRef.trim(),
+                fchRef: r.fchRef,
+                razonRef: "",
+              }));
             const recurringPayload: Record<string, unknown> = {
               name: recurringName.trim(),
-              isActive: true,
+              isActive: recurringIsActive,
               dteType: dteTypeNum,
               receiverRut: recurringRut.trim(),
               receiverName: recurringReceiverName.trim(),
-              receiverEmail: recurringEmail.trim() || null,
+              receiverEmail: effEmail || null,
+              receiverEmailCc: ccEmails,
               receiverGiro: recurringGiro.trim() || null,
               receiverDireccion: recurringAddress.trim() || null,
               receiverComuna: recurringComuna.trim() || null,
@@ -724,6 +786,9 @@ export function AccountContractsSection({
               currency: "CLP",
               lines: [lineItem],
               notes: uploadNotes.trim() || null,
+              ...(validRefs.length > 0
+                ? { additionalReferences: validRefs }
+                : {}),
               frequency: recurringFrequency,
               ...(dayOfMonthNum !== undefined ? { dayOfMonth: dayOfMonthNum } : {}),
               ...(dayOfWeekNum !== undefined ? { dayOfWeek: dayOfWeekNum } : {}),
@@ -731,6 +796,8 @@ export function AccountContractsSection({
               startDate: startISO,
               ...(endISO ? { endDate: endISO } : {}),
               autoSendEmail: recurringAutoSendEmail,
+              autoSendProforma: recurringAutoSendProforma,
+              autoSendPaymentStatement: recurringAutoSendPaymentStatement,
               ufFixingPolicy: isUf ? recurringUfFixingPolicy : "RUN_DAY",
               periodPolicy: recurringPeriodPolicy,
             };
@@ -2217,6 +2284,160 @@ export function AccountContractsSection({
                           />
                         </div>
                       </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">
+                          Emails CC adicionales (opcional)
+                        </Label>
+                        <Input
+                          value={recurringCcEmailsRaw}
+                          onChange={(e) =>
+                            setRecurringCcEmailsRaw(e.target.value)
+                          }
+                          placeholder="contador@cliente.cl, finanzas@cliente.cl"
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Separá con coma o espacio. Hasta 10 destinatarios.
+                          El email receptor (TO) sale del campo de arriba.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Referencias (OC, HES, Contrato, etc.) — se copian
+                        a cada borrador y aparecen en el bloque
+                        <Referencia> del XML SII. */}
+                    <div className="space-y-2 pt-3 border-t border-border">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div>
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                            Referencias (opcional)
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            OC, HES, Contrato, etc. Se copian a cada
+                            borrador y se imprimen en el PDF.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setRecurringAdditionalRefs((prev) => [
+                              ...prev,
+                              {
+                                tipoDocRef: "801",
+                                folioRef: "",
+                                fchRef: uploadEffective || todayISO(),
+                              },
+                            ])
+                          }
+                          disabled={recurringAdditionalRefs.length >= 30}
+                        >
+                          <PlusCircle className="h-3.5 w-3.5 mr-1" />
+                          Agregar referencia
+                        </Button>
+                      </div>
+                      {recurringAdditionalRefs.length === 0 ? (
+                        <p className="text-[11px] text-muted-foreground italic">
+                          Sin referencias.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {recurringAdditionalRefs.map((ref, i) => (
+                            <div
+                              key={i}
+                              className="grid grid-cols-12 gap-2 items-start p-2 rounded-md bg-muted/30 border border-border"
+                            >
+                              <div className="col-span-4">
+                                <Label className="text-xs">Tipo</Label>
+                                <Select
+                                  value={ref.tipoDocRef}
+                                  onValueChange={(v) =>
+                                    setRecurringAdditionalRefs((prev) =>
+                                      prev.map((r, idx) =>
+                                        idx === i ? { ...r, tipoDocRef: v } : r,
+                                      ),
+                                    )
+                                  }
+                                >
+                                  <SelectTrigger className="text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="801">
+                                      801 — Orden de Compra
+                                    </SelectItem>
+                                    <SelectItem value="802">
+                                      802 — Nota de Pedido
+                                    </SelectItem>
+                                    <SelectItem value="803">
+                                      803 — Contrato
+                                    </SelectItem>
+                                    <SelectItem value="804">
+                                      804 — Resolución
+                                    </SelectItem>
+                                    <SelectItem value="HES">HES</SelectItem>
+                                    <SelectItem value="GD">
+                                      GD — Guía manual
+                                    </SelectItem>
+                                    <SelectItem value="52">
+                                      52 — Guía electrónica
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="col-span-4">
+                                <Label className="text-xs">Folio / N°</Label>
+                                <Input
+                                  value={ref.folioRef}
+                                  onChange={(e) =>
+                                    setRecurringAdditionalRefs((prev) =>
+                                      prev.map((r, idx) =>
+                                        idx === i
+                                          ? { ...r, folioRef: e.target.value }
+                                          : r,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="PO-2026-0001"
+                                  className="text-xs"
+                                />
+                              </div>
+                              <div className="col-span-3">
+                                <Label className="text-xs">Fecha</Label>
+                                <Input
+                                  type="date"
+                                  value={ref.fchRef}
+                                  onChange={(e) =>
+                                    setRecurringAdditionalRefs((prev) =>
+                                      prev.map((r, idx) =>
+                                        idx === i
+                                          ? { ...r, fchRef: e.target.value }
+                                          : r,
+                                      ),
+                                    )
+                                  }
+                                  className="text-xs"
+                                />
+                              </div>
+                              <div className="col-span-1 flex items-end justify-end h-full">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    setRecurringAdditionalRefs((prev) =>
+                                      prev.filter((_, idx) => idx !== i),
+                                    )
+                                  }
+                                  className="h-9 w-9 p-0"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {/* Frecuencia + fechas */}
@@ -2430,26 +2651,86 @@ export function AccountContractsSection({
                       </p>
                     </div>
 
-                    {/* Notificación */}
-                    <label className="flex items-start gap-2 cursor-pointer pt-3 border-t border-border">
-                      <Checkbox
-                        checked={recurringAutoSendEmail}
-                        onCheckedChange={(v) =>
-                          setRecurringAutoSendEmail(v === true)
-                        }
-                        className="mt-1"
-                      />
-                      <div className="space-y-0.5">
-                        <span className="text-sm font-medium">
-                          Auto-enviar el DTE al receptor por email
-                        </span>
-                        <p className="text-xs text-muted-foreground">
-                          Cuando emites el borrador al SII, OPAI envía el
-                          PDF/XML al email receptor. Si lo desactivas, el
-                          envío queda manual.
-                        </p>
-                      </div>
-                    </label>
+                    {/* Notificaciones + estado de la plantilla — espejo
+                        del módulo Facturación → Programación. */}
+                    <div className="space-y-2 pt-3 border-t border-border">
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={recurringIsActive}
+                          onCheckedChange={(v) =>
+                            setRecurringIsActive(v === true)
+                          }
+                          className="mt-1"
+                        />
+                        <div className="space-y-0.5">
+                          <span className="text-sm font-medium">
+                            Plantilla activa
+                          </span>
+                          <p className="text-xs text-muted-foreground">
+                            Si la pausas, el cron deja de generar
+                            borradores pero la plantilla se conserva.
+                          </p>
+                        </div>
+                      </label>
+
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={recurringAutoSendEmail}
+                          onCheckedChange={(v) =>
+                            setRecurringAutoSendEmail(v === true)
+                          }
+                          className="mt-1"
+                        />
+                        <div className="space-y-0.5">
+                          <span className="text-sm font-medium">
+                            Auto-enviar el DTE al receptor por email
+                          </span>
+                          <p className="text-xs text-muted-foreground">
+                            Cuando emites el borrador al SII, OPAI envía
+                            el PDF/XML al email receptor. Si lo
+                            desactivas, el envío queda manual.
+                          </p>
+                        </div>
+                      </label>
+
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={recurringAutoSendProforma}
+                          onCheckedChange={(v) =>
+                            setRecurringAutoSendProforma(v === true)
+                          }
+                          className="mt-1"
+                        />
+                        <div className="space-y-0.5">
+                          <span className="text-sm font-medium">
+                            Enviar proforma automáticamente
+                          </span>
+                          <p className="text-xs text-muted-foreground">
+                            Cuando el cron genere el borrador, envía la
+                            proforma al receptor antes de emitir al SII.
+                          </p>
+                        </div>
+                      </label>
+
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={recurringAutoSendPaymentStatement}
+                          onCheckedChange={(v) =>
+                            setRecurringAutoSendPaymentStatement(v === true)
+                          }
+                          className="mt-1"
+                        />
+                        <div className="space-y-0.5">
+                          <span className="text-sm font-medium">
+                            Enviar estado de pago automáticamente
+                          </span>
+                          <p className="text-xs text-muted-foreground">
+                            Cuando el cron genere el borrador, envía el
+                            estado de pago al receptor.
+                          </p>
+                        </div>
+                      </label>
+                    </div>
                   </div>
                 )}
               </div>
