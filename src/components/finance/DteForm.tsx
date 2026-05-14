@@ -38,6 +38,10 @@ import { toast } from "sonner";
 import { EmisionConfirmDialog } from "./EmisionConfirmDialog";
 import { PdfPreviewDialog } from "./PdfPreviewDialog";
 import {
+  DteRecipientsPicker,
+  type DteRecipientsValue,
+} from "./DteRecipientsPicker";
+import {
   LineDetailSurface,
   computeLineSubtotal,
   lineDiscountToPct,
@@ -174,10 +178,16 @@ export function DteForm({ availableTypes, accounts }: Props) {
     { id: string; name: string; address: string | null; commune: string | null }[]
   >([]);
   /**
-   * Emails CC adicionales para el envío del PDF/XML del DTE.
-   * El XML SII solo lleva el email primario; estos van como copia.
+   * Destinatarios del envío externo (PDF/XML). El TO sale al XML SII como
+   * <CorreoRecep>; CC/BCC son solo para la copia que envía OPAI vía
+   * Resend. Se sincroniza con `receiverEmail` cuando el usuario edita
+   * el input manual del ReceiverSelector o cambia de customer CRM.
    */
-  const [ccEmailsRaw, setCcEmailsRaw] = useState("");
+  const [emailRecipients, setEmailRecipients] = useState<DteRecipientsValue>({
+    to: "",
+    cc: [],
+    bcc: [],
+  });
   /**
    * Sugerencias de contactos desde el CRM cuando el RUT del receptor
    * matchea un account existente.
@@ -286,7 +296,11 @@ export function DteForm({ availableTypes, accounts }: Props) {
         setReceiverDireccion(d.receiverDireccion ?? "");
         setReceiverComuna(d.receiverComuna ?? "");
         setReceiverCiudad(d.receiverCiudad ?? "");
-        setCcEmailsRaw((d.receiverEmailCc ?? []).join(", "));
+        setEmailRecipients({
+          to: d.receiverEmail ?? "",
+          cc: Array.isArray(d.receiverEmailCc) ? d.receiverEmailCc : [],
+          bcc: [],
+        });
         setNotes(d.notes ?? "");
         // Las referencias adicionales (OC, HES, Contrato, etc.) se persisten
         // en additionalReferences (JSON). Si no las cargamos acá al reabrir,
@@ -406,6 +420,17 @@ export function DteForm({ availableTypes, accounts }: Props) {
     const industryFromCrm = (customer.industry ?? "").trim();
     setReceiverGiro(giroFromCrm || industryFromCrm);
   }, [customer]);
+
+  // Sincronizar el TO del picker con la fuente del receptor: el email
+  // del customer CRM si hay uno, sino el input manual. El usuario puede
+  // override el TO directamente en el picker; ese override sobrevive
+  // hasta que cambie la fuente (customer/receiverEmail).
+  useEffect(() => {
+    const sourceEmail = (customer?.email || receiverEmail || "").trim();
+    setEmailRecipients((prev) =>
+      prev.to === sourceEmail ? prev : { ...prev, to: sourceEmail },
+    );
+  }, [customer?.email, receiverEmail]);
 
   // Cargar instalaciones del cliente cuando cambia el customer.
   useEffect(() => {
@@ -663,25 +688,25 @@ export function DteForm({ availableTypes, accounts }: Props) {
       return;
     }
 
-    // Parsear y validar emails CC (separador: coma, espacio o ;).
+    // Validar TO/CC/BCC del picker (el picker ya valida cada email al
+    // ingresarlo, pero re-chequeamos por si quedó algo inválido).
     const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const primaryEmail = effEmail;
-    const ccCandidates = ccEmailsRaw
-      .split(/[\s,;]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const invalidCc = ccCandidates.filter((e) => !EMAIL_RE.test(e));
+    const primaryEmail = (emailRecipients.to || effEmail).trim();
+    const invalidCc = emailRecipients.cc.filter((e) => !EMAIL_RE.test(e));
+    const invalidBcc = emailRecipients.bcc.filter((e) => !EMAIL_RE.test(e));
     if (invalidCc.length > 0) {
       toast.error(`Emails CC inválidos: ${invalidCc.join(", ")}`);
       return;
     }
-    const ccEmails = Array.from(
-      new Set(ccCandidates.filter((e) => e !== primaryEmail)),
-    );
-    if (ccEmails.length > 10) {
-      toast.error("Máximo 10 emails CC.");
+    if (invalidBcc.length > 0) {
+      toast.error(`Emails BCC inválidos: ${invalidBcc.join(", ")}`);
       return;
     }
+    if (emailRecipients.cc.length > 10 || emailRecipients.bcc.length > 10) {
+      toast.error("Máximo 10 emails por campo (CC o BCC).");
+      return;
+    }
+    void primaryEmail;
 
     // Validar referencias completas (descartar las vacías). La razón /
     // glosa dejó de exigirse — el SII la acepta vacía.
@@ -724,16 +749,20 @@ export function DteForm({ availableTypes, accounts }: Props) {
       currency === "UF" ? parseManualUf(manualUfStr) : undefined;
     const effRut = (customer?.rut || receiverRut).trim();
     const effName = (customer?.name || receiverName).trim();
-    const effEmail = (customer?.email || receiverEmail).trim();
+    const effEmail = (
+      emailRecipients.to ||
+      customer?.email ||
+      receiverEmail ||
+      ""
+    ).trim();
     const validLines = lines.filter(
       (l) => l.itemName.trim() && parseFloat(l.unitPrice) > 0,
     );
-    const ccCandidates = ccEmailsRaw
-      .split(/[\s,;]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
     const ccEmails = Array.from(
-      new Set(ccCandidates.filter((e) => e !== effEmail)),
+      new Set(emailRecipients.cc.filter((e) => e !== effEmail)),
+    );
+    const bccEmails = Array.from(
+      new Set(emailRecipients.bcc.filter((e) => e !== effEmail)),
     );
     const validRefs = additionalRefs.filter(
       (r) => r.tipoDocRef.trim() && r.folioRef.trim() && r.fchRef,
@@ -744,6 +773,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
       receiverName: effName || undefined,
       receiverEmail: effEmail || null,
       receiverEmailCc: ccEmails.length > 0 ? ccEmails : undefined,
+      receiverEmailBcc: bccEmails.length > 0 ? bccEmails : undefined,
       receiverGiro: receiverGiro.trim() || null,
       receiverDireccion: receiverDireccion.trim() || null,
       receiverComuna: receiverComuna.trim() || null,
@@ -1339,78 +1369,19 @@ export function DteForm({ availableTypes, accounts }: Props) {
             </div>
           </div>
 
-          {/* Sugerencias de contactos CRM cuando el RUT matchea un account */}
-          {crmSuggestions?.account && crmSuggestions.contacts.length > 0 && (
-            <div className="border-t mt-4 pt-4 space-y-2">
-              <p className="text-[13px] font-medium text-ds-text-1">
-                {crmSuggestions.contacts.length} contacto(s) en CRM para
-                {" "}
-                <span className="font-mono">{crmSuggestions.account.rut}</span>
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Click en un contacto para agregarlo al envío como CC.
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {crmSuggestions.contacts.map((c) => {
-                  const ccArr = ccEmailsRaw
-                    .split(/[\s,;]+/)
-                    .map((s) => s.trim())
-                    .filter(Boolean);
-                  const alreadyAdded = ccArr.includes(c.email);
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => {
-                        if (alreadyAdded) {
-                          setCcEmailsRaw(
-                            ccArr.filter((e) => e !== c.email).join(", "),
-                          );
-                        } else {
-                          setCcEmailsRaw(
-                            [...ccArr, c.email].filter(Boolean).join(", "),
-                          );
-                        }
-                      }}
-                      className={
-                        "rounded-full border px-3 py-1 text-xs transition-colors " +
-                        (alreadyAdded
-                          ? "border-primary/40 bg-primary/15 text-primary"
-                          : "border-border bg-muted/30 text-foreground hover:bg-muted/50")
-                      }
-                    >
-                      <span className="font-medium">{c.fullName}</span>
-                      {c.roleTitle && (
-                        <span className="text-muted-foreground"> · {c.roleTitle}</span>
-                      )}
-                      <span className="text-muted-foreground"> · {c.email}</span>
-                      {c.isPrimary && (
-                        <span className="ml-1 text-xs uppercase tracking-wide text-primary">
-                          principal
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Emails CC adicionales — solo afecta envío externo, no XML SII */}
-          <div className="border-t mt-4 pt-4 space-y-1.5">
-            <Label htmlFor="cc-emails">Emails CC (opcional)</Label>
-            <p className="text-xs text-muted-foreground">
-              Copia del PDF/XML a más destinatarios (contador, finanzas,
-              etc). Separá con coma o espacio. El XML del SII solo lleva
-              el email primario del receptor.
-            </p>
-            <Input
-              id="cc-emails"
-              placeholder="contador@cliente.cl, finanzas@cliente.cl"
-              value={ccEmailsRaw}
-              onChange={(e) => setCcEmailsRaw(e.target.value)}
-              className="h-9"
+          {/* Destinatarios del envío externo (TO/CC/BCC) — el TO también
+              va al XML SII como <CorreoRecep>. */}
+          <div className="border-t mt-4 pt-4">
+            <DteRecipientsPicker
+              value={emailRecipients}
+              onChange={setEmailRecipients}
+              crmAccountId={customer?.id ?? null}
+              receiverRut={(customer?.rut || receiverRut) || null}
             />
+            <p className="text-xs text-muted-foreground mt-2">
+              El TO es el correo que va al XML SII como receptor. CC y BCC
+              solo afectan la copia que envía OPAI por email.
+            </p>
           </div>
         </CardContent>
       </Card>
