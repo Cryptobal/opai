@@ -49,8 +49,10 @@ export async function POST(
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    // FinancePaymentAllocation no tiene tenantId directo; ya verificamos
+    // que el DTE pertenece al tenant arriba.
     const allocations = await tx.financePaymentAllocation.findMany({
-      where: { tenantId: ctx.tenantId, dteId: dte.id },
+      where: { dteId: dte.id },
       select: { id: true, paymentId: true, amount: true },
     });
     if (allocations.length === 0) {

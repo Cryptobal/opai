@@ -48,8 +48,10 @@ export async function POST(
     );
   }
 
+  // FinancePaymentAllocation no tiene tenantId directo; el dte ya fue
+  // verificado contra el tenant arriba, basta con dteId.
   const allocCount = await prisma.financePaymentAllocation.count({
-    where: { tenantId: ctx.tenantId, dteId: dte.id },
+    where: { dteId: dte.id },
   });
   if (allocCount > 0) {
     return NextResponse.json(

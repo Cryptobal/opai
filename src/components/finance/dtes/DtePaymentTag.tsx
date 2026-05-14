@@ -139,13 +139,11 @@ export function DtePaymentTag({
         {label}
       </Tag>
       {isPaidUnreconciled ? (
-        <Tag
-          variant="warn"
-          size={size}
-          title="Marcada como pagada pero sin link a movimiento bancario — conciliá desde Banca para cerrar el ciclo"
-        >
-          Sin conciliar
-        </Tag>
+        <span title="Marcada como pagada pero sin link a movimiento bancario — conciliá desde Banca para cerrar el ciclo">
+          <Tag variant="warn" size={size}>
+            Sin conciliar
+          </Tag>
+        </span>
       ) : null}
     </span>
   );
