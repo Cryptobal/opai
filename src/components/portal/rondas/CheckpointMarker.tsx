@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { QrScanner } from "./QrScanner";
 import { PhotoCapture } from "./PhotoCapture";
 import { savePendingMark, getPendingMarks, clearPendingMarks } from "@/lib/rondas-offline";
+import { evaluateGeofenceWithTolerance } from "@/lib/rondas/geo-fence-client";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,6 +42,8 @@ export interface MarcarResult {
   trustScore: number;
   anomalies: string[];
   geo: { valid: boolean; distanceM: number | null };
+  /** Marca registrada pero geo no verificada en servidor (pendiente revisión). */
+  geoNoVerificada?: boolean;
 }
 
 interface Props {
@@ -72,17 +75,6 @@ async function computeClientHash(parts: string[]): Promise<string> {
     // crypto.subtle unavailable (non-HTTPS context) — return empty string
     return "";
   }
-}
-
-function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371000;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 // ---------------------------------------------------------------------------
@@ -146,6 +138,10 @@ export function CheckpointMarker({
   const submittingRef = useRef(false);
   const [submitError, setSubmitError] = useState("");
   const [showSuccessFlash, setShowSuccessFlash] = useState(false);
+  /** Flash ámbar si el backend devolvió GEO_NO_VERIFICADA. */
+  const [flashPendingValidation, setFlashPendingValidation] = useState(false);
+  /** Confirmación explícita para marcar fuera del radio efectivo (evita tap accidental). */
+  const [confirmArrivedAtPoint, setConfirmArrivedAtPoint] = useState(false);
 
   // ---- Anti-fraud refs ----
   const batteryRef = useRef<number | null>(null);
@@ -308,28 +304,47 @@ export function CheckpointMarker({
   }, [photoPreview]);
 
   // ------------------------------------------------------------------
-  // Calculated values
+  // Calculated values — geocerca con tolerancia por accuracy (Bloque 1)
   // ------------------------------------------------------------------
-  const distanceM =
-    coords != null
-      ? haversineM(coords.lat, coords.lng, checkpoint.lat, checkpoint.lng)
-      : null;
+  const geofenceEval = useMemo(() => {
+    if (!coords) return null;
+    return evaluateGeofenceWithTolerance(
+      coords.lat,
+      coords.lng,
+      checkpoint.lat,
+      checkpoint.lng,
+      checkpoint.geoRadiusM,
+      gpsAccuracy,
+    );
+  }, [coords, checkpoint.lat, checkpoint.lng, checkpoint.geoRadiusM, gpsAccuracy]);
 
-  const withinRadius =
-    distanceM != null && distanceM <= checkpoint.geoRadiusM;
+  const distanceM = geofenceEval?.distanceM ?? null;
+  const inRange = geofenceEval?.inRange ?? false;
+  const effectiveRadiusM = geofenceEval?.effectiveRadiusM ?? checkpoint.geoRadiusM;
+  const geoConfidence = geofenceEval?.confidence ?? "unknown";
 
-  // Geo bloqueo: GEOFENCE y BOTH exigen estar en rango; QR-only no (el escaneo es prueba)
   const requiresGeoInRange =
     !checkpoint.id.startsWith("ad-hoc") &&
     (checkpoint.verificationType === "GEOFENCE" || checkpoint.verificationType === "BOTH");
-  const geoOk = !requiresGeoInRange || withinRadius;
+
+  const needsConfirmOutside = requiresGeoInRange && !inRange;
+
+  useEffect(() => {
+    if (inRange) setConfirmArrivedAtPoint(false);
+  }, [inRange]);
 
   const canSubmit =
     gpsStatus === "success" &&
     !submitting &&
     (needsQr ? qrCode != null : true) &&
     requiredTasksComplete &&
-    geoOk;
+    (!needsConfirmOutside || confirmArrivedAtPoint);
+
+  const primaryMarkLabel = submitting
+    ? "Registrando..."
+    : needsConfirmOutside
+      ? "Marcar de todas formas (fuera de rango)"
+      : "Confirmar Marcacion";
 
   // ------------------------------------------------------------------
   // Photo handlers
@@ -374,14 +389,6 @@ export function CheckpointMarker({
     setSubmitError("");
 
     try {
-      // Validación geo antes de enviar (defensa en profundidad)
-      if (requiresGeoInRange && !withinRadius) {
-        setSubmitError("Acércate al punto para poder marcar");
-        submittingRef.current = false;
-        setSubmitting(false);
-        return;
-      }
-
       // 1. Upload photo if present
       let fotoEvidenciaUrl: string | null = null;
       if (photo) {
@@ -477,8 +484,9 @@ export function CheckpointMarker({
           id: json.data?.id ?? "",
           trustScore: json.data?.trustScore ?? 0,
           anomalies: json.data?.anomalies ?? [],
+          geoNoVerificada: json.data?.geoNoVerificada === true,
           geo: {
-            valid: json.data?.geo?.valid ?? withinRadius,
+            valid: json.data?.geo?.valid ?? inRange,
             distanceM: json.data?.geo?.distanceM ?? distanceM,
           },
         };
@@ -486,9 +494,11 @@ export function CheckpointMarker({
         // Network error (offline) — save to IndexedDB for later sync
         // TypeError is the standard fetch failure across all browsers (Chrome, Firefox, Safari)
         if (networkErr instanceof TypeError) {
-          // No guardar offline si está fuera de rango (GEOFENCE/BOTH)
-          if (requiresGeoInRange && !withinRadius) {
-            throw new Error("Acércate al punto para poder marcar. Sin conexión.");
+          // Fuera de rango: la marca debe pasar por el servidor (GEO_NO_VERIFICADA). Sin red no se puede encolar de forma fiable.
+          if (requiresGeoInRange && !inRange) {
+            throw new Error(
+              "Sin conexión: para registrar una marca fuera del radio necesitas internet. Cuando vuelva la red, reintenta aquí.",
+            );
           }
           try {
             await savePendingMark({ ...body, isOfflineSync: true });
@@ -503,8 +513,9 @@ export function CheckpointMarker({
             id: `offline-${Date.now()}`,
             trustScore: 0,
             anomalies: [],
+            geoNoVerificada: false,
             geo: {
-              valid: withinRadius,
+              valid: inRange,
               distanceM,
             },
           };
@@ -515,11 +526,13 @@ export function CheckpointMarker({
       }
 
       // 6. Success feedback: vibration + sound + flash
+      setFlashPendingValidation(result.geoNoVerificada === true);
       navigator.vibrate?.([100, 50, 100]);
       playSuccessSound();
       setShowSuccessFlash(true);
       setTimeout(() => {
         setShowSuccessFlash(false);
+        setFlashPendingValidation(false);
         onComplete(result);
       }, 500);
     } catch (err: unknown) {
@@ -539,9 +552,12 @@ export function CheckpointMarker({
     qrCode,
     note,
     requiresGeoInRange,
-    withinRadius,
+    inRange,
     distanceM,
     onComplete,
+    tasks,
+    taskResponses,
+    checkpoint.geoRadiusM,
   ]);
 
   // ------------------------------------------------------------------
@@ -740,9 +756,13 @@ export function CheckpointMarker({
             <button
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="w-full rounded-xl bg-status-info py-3.5 text-base font-semibold text-white transition-colors active:brightness-95 disabled:opacity-40"
+              className={`w-full rounded-xl py-3.5 text-base font-semibold transition-colors active:brightness-95 disabled:opacity-40 ${
+                needsConfirmOutside
+                  ? "border-2 border-status-warn-border bg-status-warn-soft text-status-warn-fg"
+                  : "bg-status-info text-white"
+              }`}
             >
-              {submitting ? "Registrando..." : "Confirmar Marcacion"}
+              {primaryMarkLabel}
             </button>
 
             {!canSubmit && !submitting && gpsStatus !== "success" && (
@@ -798,7 +818,20 @@ export function CheckpointMarker({
           </button>
           <div className="relative w-full max-h-[50vh] bg-zinc-900 rounded-t-2xl overflow-y-auto animate-slide-up">
             {showSuccessFlash && (
-              <div className="pointer-events-none absolute inset-0 z-50 rounded-t-2xl bg-status-ok-soft transition-opacity" />
+              <>
+                <div
+                  className={`pointer-events-none absolute inset-0 z-50 rounded-t-2xl transition-opacity ${
+                    flashPendingValidation ? "bg-status-warn-soft" : "bg-status-ok-soft"
+                  }`}
+                />
+                {flashPendingValidation && (
+                  <div className="pointer-events-none absolute inset-0 z-[51] flex items-center justify-center px-3">
+                    <p className="rounded-lg bg-status-warn-soft px-3 py-2 text-center text-[13px] font-medium leading-snug text-status-warn-fg">
+                      Marcado — pendiente de validación
+                    </p>
+                  </div>
+                )}
+              </>
             )}
             <div className="flex justify-center py-2.5 px-4 sticky top-0 bg-zinc-900 z-10">
               <div className="w-10 h-1 bg-zinc-600 rounded-full" />
@@ -807,17 +840,35 @@ export function CheckpointMarker({
             <div className="space-y-3 px-4" style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
               {/* Checkpoint name + validated badge */}
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-status-ok-soft">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-status-ok-fg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                    requiresGeoInRange ? (inRange ? "bg-status-ok-soft" : "bg-status-warn-soft") : "bg-status-ok-soft"
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${requiresGeoInRange && !inRange ? "text-status-warn-fg" : "text-status-ok-fg"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
                 <div className="min-w-0 flex-1">
                   <h2 className="text-base font-semibold text-white">{checkpoint.name}</h2>
-                  <span className="inline-flex items-center gap-1 rounded-md bg-status-ok-soft px-2 py-0.5 text-xs font-medium text-status-ok-fg">
-                    {"\u2713"} Geocerca validada
-                  </span>
+                  {requiresGeoInRange ? (
+                    inRange ? (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-status-ok-soft px-2 py-0.5 text-xs font-medium text-status-ok-fg">
+                        {"\u2713"} Geocerca validada
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-status-warn-soft px-2 py-0.5 text-xs font-medium text-status-warn-fg">
+                        Fuera del radio efectivo — puedes marcar con confirmación
+                      </span>
+                    )
+                  ) : (
+                    isInGeofence && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-status-ok-soft px-2 py-0.5 text-xs font-medium text-status-ok-fg">
+                        {"\u2713"} En zona
+                      </span>
+                    )
+                  )}
                 </div>
               </div>
 
@@ -873,13 +924,39 @@ export function CheckpointMarker({
                 </div>
               )}
 
+              {needsConfirmOutside && gpsStatus === "success" && distanceM != null && (
+                <div className="rounded-xl border border-status-warn-border bg-status-warn-soft/40 p-3 space-y-2">
+                  <p className="text-[13px] leading-snug text-status-warn-fg">
+                    Estás a {Math.round(distanceM)}m — radio {checkpoint.geoRadiusM}
+                    m (efectivo ~{Math.round(effectiveRadiusM)}m). Tu señal GPS es{" "}
+                    {geoConfidence === "low" ? "débil" : "imprecisa"}. La marca quedará registrada
+                    como &quot;pendiente de validación&quot;.
+                  </p>
+                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-status-warn-border/60 bg-zinc-900/50 px-3 py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={confirmArrivedAtPoint}
+                      onChange={(e) => setConfirmArrivedAtPoint(e.target.checked)}
+                      className="mt-0.5 h-5 w-5 shrink-0 rounded accent-amber-500"
+                    />
+                    <span className="text-[13px] text-gray-200">
+                      Confirmo que estoy en el punto
+                    </span>
+                  </label>
+                </div>
+              )}
+
               <button
                 onClick={handleSubmit}
                 disabled={!canSubmit}
-                className="w-full rounded-xl bg-status-ok py-3.5 text-base font-semibold text-white transition-colors active:brightness-95 disabled:opacity-40"
+                className={`w-full rounded-xl py-3.5 text-base font-semibold transition-colors active:brightness-95 disabled:opacity-40 ${
+                  needsConfirmOutside
+                    ? "border-2 border-status-warn-border bg-status-warn-soft text-status-warn-fg"
+                    : "bg-status-ok text-white"
+                }`}
                 style={{ minHeight: 48 }}
               >
-                {submitting ? "Registrando..." : "Confirmar Marcacion"}
+                {primaryMarkLabel}
               </button>
             </div>
           </div>
@@ -923,7 +1000,20 @@ export function CheckpointMarker({
         {/* Sheet */}
         <div className="relative w-full max-h-[85vh] bg-zinc-900 rounded-t-2xl flex flex-col animate-slide-up">
           {showSuccessFlash && (
-            <div className="pointer-events-none absolute inset-0 z-50 rounded-t-2xl bg-status-ok-soft transition-opacity" />
+            <>
+              <div
+                className={`pointer-events-none absolute inset-0 z-50 rounded-t-2xl transition-opacity ${
+                  flashPendingValidation ? "bg-status-warn-soft" : "bg-status-ok-soft"
+                }`}
+              />
+              {flashPendingValidation && (
+                <div className="pointer-events-none absolute inset-0 z-[51] flex items-center justify-center px-3">
+                  <p className="rounded-lg bg-status-warn-soft px-3 py-2 text-center text-[13px] font-medium leading-snug text-status-warn-fg">
+                    Marcado — pendiente de validación
+                  </p>
+                </div>
+              )}
+            </>
           )}
           {/* Header: drag handle (drag-down or backdrop tap closes) */}
           <div className="flex justify-center py-2.5 px-4 shrink-0 rounded-t-2xl bg-zinc-900">
@@ -934,20 +1024,52 @@ export function CheckpointMarker({
           <div className="flex-1 overflow-y-auto min-h-0 px-4 space-y-3">
             {/* ---- Checkpoint name + geo status ---- */}
             <div className="flex items-center gap-3">
-              {isInGeofence && (
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-status-ok-soft">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-status-ok-fg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              {requiresGeoInRange ? (
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                    inRange ? "bg-status-ok-soft" : "bg-status-warn-soft"
+                  }`}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className={`h-5 w-5 ${inRange ? "text-status-ok-fg" : "text-status-warn-fg"}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
+              ) : (
+                isInGeofence && (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-status-ok-soft">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-status-ok-fg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </div>
+                )
               )}
               <div className="min-w-0 flex-1">
                 <h2 className="text-lg font-semibold text-white">{checkpoint.name}</h2>
-                {isInGeofence && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-status-ok-soft px-2 py-0.5 text-xs font-medium text-status-ok-fg">
-                    {"\u2713"} Geocerca validada
-                  </span>
+                {requiresGeoInRange ? (
+                  inRange ? (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-status-ok-soft px-2 py-0.5 text-xs font-medium text-status-ok-fg">
+                      {"\u2713"} Geocerca validada
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-status-warn-soft px-2 py-0.5 text-xs font-medium text-status-warn-fg">
+                      Fuera del radio efectivo — puedes marcar con confirmación
+                    </span>
+                  )
+                ) : (
+                  isInGeofence && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-status-ok-soft px-2 py-0.5 text-xs font-medium text-status-ok-fg">
+                      {"\u2713"} En zona
+                    </span>
+                  )
                 )}
               </div>
             </div>
@@ -1150,7 +1272,7 @@ export function CheckpointMarker({
 
               {gpsStatus === "success" && distanceM != null && (
                 <p className="mt-1 text-sm">
-                  {withinRadius ? (
+                  {inRange ? (
                     <span className="font-medium text-status-info-fg">
                       {distanceM < 1000
                         ? `${Math.round(distanceM)}m`
@@ -1296,10 +1418,34 @@ export function CheckpointMarker({
               </div>
             )}
 
+            {needsConfirmOutside && gpsStatus === "success" && distanceM != null && (
+              <div className="mb-3 rounded-xl border border-status-warn-border bg-status-warn-soft/40 p-3 space-y-2">
+                <p className="text-[13px] leading-snug text-status-warn-fg">
+                  Estás a {Math.round(distanceM)}m — radio {checkpoint.geoRadiusM}
+                  m (efectivo ~{Math.round(effectiveRadiusM)}m). Tu señal GPS es{" "}
+                  {geoConfidence === "low" ? "débil" : "imprecisa"}. La marca quedará registrada
+                  como &quot;pendiente de validación&quot;.
+                </p>
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-status-warn-border/60 bg-zinc-900/50 px-3 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={confirmArrivedAtPoint}
+                    onChange={(e) => setConfirmArrivedAtPoint(e.target.checked)}
+                    className="mt-0.5 h-5 w-5 shrink-0 rounded accent-amber-500"
+                  />
+                  <span className="text-[13px] text-gray-200">Confirmo que estoy en el punto</span>
+                </label>
+              </div>
+            )}
+
             <button
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="w-full rounded-xl bg-status-info py-3.5 text-base font-semibold text-white transition-colors hover:brightness-110 active:brightness-95 disabled:opacity-40"
+              className={`w-full rounded-xl py-3.5 text-base font-semibold transition-colors hover:brightness-110 active:brightness-95 disabled:opacity-40 ${
+                needsConfirmOutside
+                  ? "border-2 border-status-warn-border bg-status-warn-soft text-status-warn-fg"
+                  : "bg-status-info text-white"
+              }`}
               style={{ minHeight: 52 }}
             >
               {submitting ? (
@@ -1327,16 +1473,16 @@ export function CheckpointMarker({
                   Registrando...
                 </span>
               ) : (
-                "Confirmar Marcacion"
+                primaryMarkLabel
               )}
             </button>
 
             {!canSubmit && !submitting && (
               <p className="mt-1.5 text-center text-xs text-gray-500">
                 {gpsStatus !== "success" && "Esperando ubicacion GPS"}
-                {gpsStatus === "success" && requiresGeoInRange && !withinRadius && "Acercate al punto para poder marcar"}
-                {gpsStatus === "success" && !(requiresGeoInRange && !withinRadius) && needsQr && !qrCode && "Escanea el codigo QR del punto"}
-                {gpsStatus === "success" && !(requiresGeoInRange && !withinRadius) && (needsQr ? qrCode != null : true) && !requiredTasksComplete && "Completa las tareas obligatorias"}
+                {gpsStatus === "success" && needsQr && !qrCode && "Escanea el codigo QR del punto"}
+                {gpsStatus === "success" && (needsQr ? qrCode != null : true) && !requiredTasksComplete && "Completa las tareas obligatorias"}
+                {gpsStatus === "success" && (needsQr ? qrCode != null : true) && requiredTasksComplete && needsConfirmOutside && !confirmArrivedAtPoint && "Confirma que estas en el punto (casilla arriba)"}
               </p>
             )}
           </div>
