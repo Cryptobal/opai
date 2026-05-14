@@ -12,6 +12,50 @@ import { useDraggable, useDroppable } from "@dnd-kit/core";
 
 export const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
 
+export type RowOrder = "default" | "alpha" | "amount_desc";
+
+const ROW_ORDER_STORAGE_KEY = "cashflow.row.order";
+
+export function loadRowOrder(): RowOrder {
+  if (typeof window === "undefined") return "default";
+  try {
+    const v = window.localStorage.getItem(ROW_ORDER_STORAGE_KEY);
+    if (v === "alpha" || v === "amount_desc") return v;
+  } catch {
+    /* localStorage no disponible */
+  }
+  return "default";
+}
+
+export function saveRowOrder(order: RowOrder): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(ROW_ORDER_STORAGE_KEY, order);
+  } catch {
+    /* localStorage no disponible (modo privado, quota, etc.) */
+  }
+}
+
+/**
+ * Ordena las filas de la matriz dentro de un grupo (ingresos o egresos).
+ * El orden por defecto (vienen ya ordenadas del server por kind+sortOrder+name)
+ * no toca el arreglo. Alfabético usa `localeCompare` español. "amount_desc"
+ * usa el total acumulado del row.
+ */
+export function sortRowsForDisplay(
+  rows: ProjectionRow[],
+  order: RowOrder,
+): ProjectionRow[] {
+  if (order === "default") return rows;
+  const copy = [...rows];
+  if (order === "alpha") {
+    copy.sort((a, b) => a.categoryName.localeCompare(b.categoryName, "es"));
+  } else if (order === "amount_desc") {
+    copy.sort((a, b) => b.total - a.total);
+  }
+  return copy;
+}
+
 /**
  * Tono semántico para drift de caja:
  *  - |drift| < 50.000 → ok (cuadrado)
@@ -200,7 +244,7 @@ export function MatrixRow({
 }) {
   return (
     <tr className="hover:bg-muted/20">
-      <td className="sticky left-0 z-20 bg-background p-2 truncate min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-none">
+      <td className="sticky left-0 z-20 bg-background p-2 truncate min-w-[140px] max-w-[200px] sm:min-w-[180px] sm:max-w-[260px]">
         {row.categoryName}
       </td>
       {row.values.map((v) => {

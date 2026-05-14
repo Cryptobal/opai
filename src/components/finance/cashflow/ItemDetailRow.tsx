@@ -141,7 +141,7 @@ export function ItemDetailRow({
 
   return (
     <tr className="bg-muted/10 hover:bg-muted/20 border-t border-border/50">
-      <td className="sticky left-0 z-20 bg-card p-2 truncate min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-none border-r border-border/50">
+      <td className="sticky left-0 z-20 bg-card p-2 truncate min-w-[140px] max-w-[200px] sm:min-w-[180px] sm:max-w-[260px] border-r border-border/50">
         <div className={`flex items-center gap-1.5 ${inGroup ? "pl-8" : "pl-3"}`}>
           {showAccount ? (
             <span

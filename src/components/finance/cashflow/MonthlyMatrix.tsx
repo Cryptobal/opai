@@ -10,7 +10,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
-import { fmt, SectionHeader, SubtotalRow, driftTone, DRIFT_TONE_CLASS } from "./MatrixHelpers";
+import {
+  fmt,
+  SectionHeader,
+  SubtotalRow,
+  driftTone,
+  DRIFT_TONE_CLASS,
+  loadRowOrder,
+  saveRowOrder,
+  sortRowsForDisplay,
+  type RowOrder,
+} from "./MatrixHelpers";
 import { ExpandableMatrixRow } from "./ExpandableMatrixRow";
 import { BankBalanceAdjustDrawer } from "./BankBalanceAdjustDrawer";
 import { useHasCapability } from "@/lib/permissions-context";
@@ -32,7 +42,12 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [bankAdjustOpen, setBankAdjustOpen] = useState(false);
+  const [rowOrder, setRowOrder] = useState<RowOrder>("default");
   const canEditBalance = useHasCapability("banking_manage");
+
+  useEffect(() => {
+    setRowOrder(loadRowOrder());
+  }, []);
   // Ajustes IPC PENDING — mostramos un highlight en la celda (mes × item)
   // donde cae cada `dueDate` para que el reajuste no se pase de fecha.
   const [ipcPending, setIpcPending] = useState<
@@ -181,8 +196,14 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
     );
   }
 
-  const incomeRows = projection.rows.filter((r) => r.kind === "INCOME");
-  const expenseRows = projection.rows.filter((r) => r.kind === "EXPENSE");
+  const incomeRows = sortRowsForDisplay(
+    projection.rows.filter((r) => r.kind === "INCOME"),
+    rowOrder,
+  );
+  const expenseRows = sortRowsForDisplay(
+    projection.rows.filter((r) => r.kind === "EXPENSE"),
+    rowOrder,
+  );
   const colCount = projection.buckets.length + 2;
 
   return (
@@ -191,18 +212,37 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
         <p className="text-[12px] sm:text-[13px] text-ds-text-2">
           {projection.buckets.length} meses · saldo inicial {fmt.format(projection.openingBalanceClp)}
         </p>
-        <Select value={String(months)} onValueChange={(v) => setMonths(Number(v))}>
-          <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[140px] text-[13px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {[3, 6, 12, 18, 24, 36, 60].map((m) => (
-              <SelectItem key={m} value={String(m)}>
-                {m} meses
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2">
+          <Select
+            value={rowOrder}
+            onValueChange={(v) => {
+              const next = v as RowOrder;
+              setRowOrder(next);
+              saveRowOrder(next);
+            }}
+          >
+            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[170px] text-[13px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Orden por defecto</SelectItem>
+              <SelectItem value="alpha">Alfabético</SelectItem>
+              <SelectItem value="amount_desc">Mayor monto</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={String(months)} onValueChange={(v) => setMonths(Number(v))}>
+            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[140px] text-[13px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[3, 6, 12, 18, 24, 36, 60].map((m) => (
+                <SelectItem key={m} value={String(m)}>
+                  {m} meses
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="-mx-4 px-4 sm:mx-0 sm:px-0">
@@ -210,7 +250,7 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
           <table className="text-[11px] sm:text-[12px] w-full border-collapse">
             <thead className="sticky top-0 z-30 bg-background">
               <tr>
-                <th className="sticky left-0 z-40 bg-background text-left p-2 min-w-[140px] sm:min-w-[180px] border-b border-border">
+                <th className="sticky left-0 z-40 bg-background text-left p-2 min-w-[140px] max-w-[200px] sm:min-w-[180px] sm:max-w-[260px] border-b border-border">
                   Categoría
                 </th>
                 {projection.buckets.map((b) => (
