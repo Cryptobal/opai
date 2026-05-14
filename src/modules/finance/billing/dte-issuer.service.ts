@@ -30,6 +30,11 @@ export type IssueDteInput = {
    */
   receiverEmailCc?: string[];
   /**
+   * Lista de emails BCC para el envío externo. No va al XML SII ni
+   * queda persistido en FinanceDte (efímero por emisión).
+   */
+  receiverEmailBcc?: string[];
+  /**
    * Datos del receptor que el SII exige en facturas (tipo 33).
    * Si no vienen, el provider usa defaults razonables.
    */
@@ -438,10 +443,11 @@ export async function issueDte(
       const r = await sendDteEmail(
         tenantId,
         dte.id,
-        undefined,
-        undefined,
+        undefined,                       // recipientEmail: usa dte.receiverEmail ya persistido
+        input.receiverEmailCc,           // ccOverride explícito (cae a dte.receiverEmailCc si es undefined)
         "AUTO_RECEIVER",
         createdBy,
+        input.receiverEmailBcc,          // bccOverride efímero
       );
       if (r.success) {
         emailStatus = "sent";

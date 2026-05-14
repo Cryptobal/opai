@@ -196,6 +196,15 @@ export const issueDteSchema = z.object({
     .max(10, "Máximo 10 emails CC")
     .optional(),
   /**
+   * Emails BCC para el envío del PDF/XML. No va al XML SII ni queda
+   * persistido en FinanceDte (efímero por emisión); el reenvío posterior
+   * desde SendEmailDialog vuelve a permitir definir BCC.
+   */
+  receiverEmailBcc: z
+    .array(z.string().email())
+    .max(10, "Máximo 10 emails BCC")
+    .optional(),
+  /**
    * Referencias adicionales (no-DTE): OC, HES, Contrato, Resolución, etc.
    * Cada referencia tiene tipo (TpoDocRef SII), folio (alfanumérico ok),
    * fecha (YYYY-MM-DD) y razón. Se concatenan al bloque <Referencia>
@@ -331,6 +340,14 @@ export const dteCreditNoteSchema = z.object({
   reason: z.string().trim().min(1).max(500),
   referenceType: z.number().int().min(1).max(3).optional(),
   lines: z.array(dteLineSchema).min(1).optional(),
+  // Email — opcionales para que los endpoints existentes sigan
+  // funcionando sin cambios (defaults del issuer).
+  autoSendEmail: z.boolean().optional(),
+  receiverEmailCc: z.array(z.string().email()).max(10).optional(),
+  receiverEmailBcc: z.array(z.string().email()).max(10).optional(),
+  // Override del destinatario principal si el receptor no tenía email o
+  // se quiere cambiar antes de emitir la NC/ND.
+  receiverEmailOverride: optNull(z.string().email()),
 });
 
 // ── Query params helpers ──

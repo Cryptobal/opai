@@ -55,7 +55,11 @@ export async function POST(request: NextRequest) {
       dteType: 56,
       receiverRut: originalDte.receiverRut,
       receiverName: originalDte.receiverName,
-      receiverEmail: originalDte.receiverEmail ?? undefined,
+      receiverEmail:
+        body.receiverEmailOverride ?? originalDte.receiverEmail ?? undefined,
+      receiverEmailCc: body.receiverEmailCc,
+      receiverEmailBcc: body.receiverEmailBcc,
+      autoSendEmail: body.autoSendEmail,
       accountId: originalDte.accountId ?? undefined,
       lines: body.lines,
       notes: body.reason,
