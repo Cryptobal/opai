@@ -9,6 +9,17 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasModuleAccess } from "@/lib/permissions";
 import { ensureOpsAccess } from "@/lib/ops";
+import {
+  findCpqQuoteIdsBySearch,
+  findCrmAccountIdsBySearch,
+  findCrmContactIdsBySearch,
+  findCrmDealIdsBySearch,
+  findCrmDealIdsByTitleOrAccount,
+  findCrmInstallationIdsBySearch,
+  findCrmLeadIdsBySearch,
+  findOpsGuardiaIdsBySearch,
+  findOpsGuardiaIdsForDocsSearch,
+} from "@/lib/search-normalize";
 
 export type GlobalSearchResult = {
   id: string;
@@ -50,12 +61,12 @@ const LIFECYCLE_BADGE: Record<string, { label: string; class: string }> = {
   inactivo: { label: "Inactivo", class: "bg-status-danger-soft text-status-danger-fg" },
 };
 
-const CRM_TYPE_LIMIT = 6;
-const OPS_LIMIT = 6;
-const DOCS_LIMIT = 5;
-const CHANNEL_LIMIT = 5;
-const INVENTORY_LIMIT = 5;
-const FINANCE_LIMIT = 6;
+const CRM_TYPE_LIMIT = 10;
+const OPS_LIMIT = 10;
+const DOCS_LIMIT = 8;
+const CHANNEL_LIMIT = 8;
+const INVENTORY_LIMIT = 8;
+const FINANCE_LIMIT = 10;
 
 const DTE_TYPE_LABEL: Record<number, string> = {
   33: "Factura",
@@ -106,24 +117,14 @@ export async function GET(request: NextRequest) {
 
     const isSupervisorHub = ctx.userRole?.toLowerCase() === "supervisor";
 
-    const contains = { contains: q, mode: "insensitive" as const };
     const tenantId = ctx.tenantId;
     const results: GlobalSearchResult[] = [];
 
     // ── CRM (leads, accounts, contacts, deals, quotes, installations) ──
     if (hasCrm) {
-      // IDs de negocios (deals) cuyo título o nombre de cuenta coincide, para incluir sus cotizaciones
-      const dealIdsByTitleOrAccount = await prisma.crmDeal.findMany({
-        where: {
-          tenantId,
-          OR: [
-            { title: contains },
-            { account: { name: contains } },
-          ],
-        },
-        select: { id: true },
-      });
-      const dealIdsForQuotes = dealIdsByTitleOrAccount.map((d) => d.id);
+      // IDs de negocios (deals) cuyo título o nombre de cuenta coincide, para
+      // incluir sus cotizaciones. La búsqueda es accent-insensitive (f_unaccent).
+      const dealIdsForQuotes = await findCrmDealIdsByTitleOrAccount({ tenantId, query: q });
 
       // Cotizaciones vinculadas solo por CrmDealQuote (sin dealId en CpqQuote)
       const dealQuoteLinks =
@@ -136,128 +137,124 @@ export async function GET(request: NextRequest) {
       const quoteIdsFromDealLinks = dealQuoteLinks.map((r) => r.quoteId);
       const quoteIdToDealId = new Map(dealQuoteLinks.map((r) => [r.quoteId, r.dealId]));
 
+      // Resolución en dos pasos: primero IDs vía SQL normalizado, luego hidratación
+      // con findMany para conservar selects/relaciones de Prisma.
+      const [leadIds, accountIds, contactIds, dealIds, quoteIds, installationIds] =
+        await Promise.all([
+          findCrmLeadIdsBySearch({ tenantId, query: q, limit: CRM_TYPE_LIMIT }),
+          findCrmAccountIdsBySearch({
+            tenantId,
+            query: q,
+            limit: CRM_TYPE_LIMIT,
+            onlySupervisorScope: isSupervisorHub,
+          }),
+          findCrmContactIdsBySearch({
+            tenantId,
+            query: q,
+            limit: CRM_TYPE_LIMIT,
+            onlySupervisorScope: isSupervisorHub,
+          }),
+          findCrmDealIdsBySearch({ tenantId, query: q, limit: CRM_TYPE_LIMIT }),
+          findCpqQuoteIdsBySearch({
+            tenantId,
+            query: q,
+            limit: CRM_TYPE_LIMIT,
+            extraDealIds: dealIdsForQuotes,
+            extraQuoteIds: quoteIdsFromDealLinks,
+          }),
+          findCrmInstallationIdsBySearch({
+            tenantId,
+            query: q,
+            limit: CRM_TYPE_LIMIT,
+            onlyActive: isSupervisorHub,
+          }),
+        ]);
+
       const [leads, accounts, contacts, deals, quotes, installations] = await Promise.all([
-        prisma.crmLead.findMany({
-          where: {
-            tenantId,
-            OR: [
-              { firstName: contains },
-              { lastName: contains },
-              { companyName: contains },
-              { email: contains },
-              { phone: contains },
-            ],
-          },
-          take: CRM_TYPE_LIMIT,
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            companyName: true,
-            email: true,
-            status: true,
-          },
-        }),
-        prisma.crmAccount.findMany({
-          where: {
-            tenantId,
-            ...(isSupervisorHub ? { installations: { some: { status: "active" } } } : {}),
-            OR: [{ name: contains }, { rut: contains }, { industry: contains }],
-          },
-          take: CRM_TYPE_LIMIT,
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            name: true,
-            type: true,
-            industry: true,
-            rut: true,
-            logoUrl: true,
-            notes: true,
-          },
-        }),
-        prisma.crmContact.findMany({
-          where: {
-            tenantId,
-            ...(isSupervisorHub
-              ? { account: { installations: { some: { status: "active" } } } }
-              : {}),
-            OR: [
-              { firstName: contains },
-              { lastName: contains },
-              { email: contains },
-              { phone: contains },
-            ],
-          },
-          take: CRM_TYPE_LIMIT,
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            portalPin: true,
-            portalPinVisible: true,
-            account: { select: { name: true } },
-          },
-        }),
-        prisma.crmDeal.findMany({
-          where: { tenantId, OR: [{ title: contains }] },
-          take: CRM_TYPE_LIMIT,
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            title: true,
-            amount: true,
-            account: { select: { name: true } },
-            stage: { select: { name: true } },
-          },
-        }),
-        prisma.cpqQuote.findMany({
-          where: {
-            tenantId,
-            OR: [
-              { code: contains },
-              { name: contains },
-              { clientName: contains },
-              { notes: contains },
-              ...(dealIdsForQuotes.length > 0 ? [{ dealId: { in: dealIdsForQuotes } }] : []),
-              ...(quoteIdsFromDealLinks.length > 0 ? [{ id: { in: quoteIdsFromDealLinks } }] : []),
-            ],
-          },
-          take: CRM_TYPE_LIMIT,
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            clientName: true,
-            status: true,
-            dealId: true,
-          },
-        }),
-        prisma.crmInstallation.findMany({
-          where: {
-            tenantId,
-            ...(isSupervisorHub ? { status: "active" } : {}),
-            OR: [
-              { name: contains },
-              { address: contains },
-              { commune: contains },
-              { city: contains },
-            ],
-          },
-          take: CRM_TYPE_LIMIT,
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            name: true,
-            address: true,
-            pairingCode: true,
-            account: { select: { name: true } },
-          },
-        }),
+        leadIds.length > 0
+          ? prisma.crmLead.findMany({
+              where: { tenantId, id: { in: leadIds } },
+              orderBy: { createdAt: "desc" },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                companyName: true,
+                email: true,
+                status: true,
+              },
+            })
+          : Promise.resolve([] as Array<{ id: string; firstName: string | null; lastName: string | null; companyName: string | null; email: string | null; status: string }>),
+        accountIds.length > 0
+          ? prisma.crmAccount.findMany({
+              where: { tenantId, id: { in: accountIds } },
+              orderBy: { createdAt: "desc" },
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                industry: true,
+                rut: true,
+                logoUrl: true,
+                notes: true,
+              },
+            })
+          : Promise.resolve([] as Array<{ id: string; name: string; type: string; industry: string | null; rut: string | null; logoUrl: string | null; notes: string | null }>),
+        contactIds.length > 0
+          ? prisma.crmContact.findMany({
+              where: { tenantId, id: { in: contactIds } },
+              orderBy: { createdAt: "desc" },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                portalPin: true,
+                portalPinVisible: true,
+                account: { select: { name: true } },
+              },
+            })
+          : Promise.resolve([] as Array<{ id: string; firstName: string; lastName: string; email: string | null; portalPin: string | null; portalPinVisible: string | null; account: { name: string } | null }>),
+        dealIds.length > 0
+          ? prisma.crmDeal.findMany({
+              where: { tenantId, id: { in: dealIds } },
+              orderBy: { createdAt: "desc" },
+              select: {
+                id: true,
+                title: true,
+                amount: true,
+                account: { select: { name: true } },
+                stage: { select: { name: true } },
+              },
+            })
+          : Promise.resolve([] as Array<{ id: string; title: string; amount: unknown; account: { name: string } | null; stage: { name: string } | null }>),
+        quoteIds.length > 0
+          ? prisma.cpqQuote.findMany({
+              where: { tenantId, id: { in: quoteIds } },
+              orderBy: { createdAt: "desc" },
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                clientName: true,
+                status: true,
+                dealId: true,
+              },
+            })
+          : Promise.resolve([] as Array<{ id: string; code: string; name: string | null; clientName: string | null; status: string; dealId: string | null }>),
+        installationIds.length > 0
+          ? prisma.crmInstallation.findMany({
+              where: { tenantId, id: { in: installationIds } },
+              orderBy: { createdAt: "desc" },
+              select: {
+                id: true,
+                name: true,
+                address: true,
+                pairingCode: true,
+                account: { select: { name: true } },
+              },
+            })
+          : Promise.resolve([] as Array<{ id: string; name: string; address: string | null; pairingCode: string | null; account: { name: string } | null }>),
       ]);
 
       // ── CRM results in priority order: deals → quotes → accounts → contacts → leads → installations ──
@@ -418,37 +415,34 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ── Ops (guardias por nombre, código, RUT) ──
+    // ── Ops (guardias por nombre, código, RUT) — accent-insensitive ──
     if (hasOps) {
       const opsForbidden = await ensureOpsAccess(ctx);
       if (!opsForbidden) {
-        const searchNormG = q.replace(/[.\s-]/g, "");
-        const guardias = await prisma.opsGuardia.findMany({
-          where: {
-            tenantId,
-            OR: [
-              { persona: { firstName: contains } },
-              { persona: { lastName: contains } },
-              { persona: { rut: { contains: searchNormG, mode: "insensitive" } } },
-              { code: contains },
-            ],
-          },
-          take: OPS_LIMIT,
-          select: {
-            id: true,
-            code: true,
-            lifecycleStatus: true,
-            availableExtraShifts: true,
-            marcacionPin: true,
-            marcacionPinVisible: true,
-            faceIdPhotoUrl: true,
-            persona: {
-              select: { firstName: true, lastName: true, rut: true },
-            },
-            currentInstallation: { select: { name: true } },
-          },
-          orderBy: { createdAt: "desc" },
+        const guardiaIds = await findOpsGuardiaIdsBySearch({
+          tenantId,
+          query: q,
+          limit: OPS_LIMIT,
         });
+        const guardias = guardiaIds.length > 0
+          ? await prisma.opsGuardia.findMany({
+              where: { tenantId, id: { in: guardiaIds } },
+              select: {
+                id: true,
+                code: true,
+                lifecycleStatus: true,
+                availableExtraShifts: true,
+                marcacionPin: true,
+                marcacionPinVisible: true,
+                faceIdPhotoUrl: true,
+                persona: {
+                  select: { firstName: true, lastName: true, rut: true },
+                },
+                currentInstallation: { select: { name: true } },
+              },
+              orderBy: { createdAt: "desc" },
+            })
+          : [];
 
         for (const g of guardias) {
           const primerNombre = g.persona.firstName?.trim().split(/\s+/)[0] ?? "";
@@ -490,21 +484,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ── Documentos (por título o guardia asociado) ──
+    // ── Documentos (por título o guardia asociado) — accent-insensitive ──
     if (hasDocs) {
-      const searchNorm = q.replace(/[.\s-]/g, "");
-      const guardiasByPersona = await prisma.opsGuardia.findMany({
-        where: {
-          tenantId,
-          OR: [
-            { persona: { rut: { contains: searchNorm, mode: "insensitive" } } },
-            { persona: { firstName: { contains: q, mode: "insensitive" } } },
-            { persona: { lastName: { contains: q, mode: "insensitive" } } },
-          ],
-        },
-        select: { id: true },
-      });
-      const guardiaIds = guardiasByPersona.map((g) => g.id);
+      const guardiaIds = await findOpsGuardiaIdsForDocsSearch({ tenantId, query: q });
 
       const docsWhere: any = { tenantId };
       docsWhere.OR = [
@@ -702,13 +684,14 @@ export async function GET(request: NextRequest) {
           ? [{ totalAmount: folioCandidate }]
           : [];
         const rutSearch = q.replace(/[.\s-]/g, "");
+        const dteContains = { contains: q, mode: "insensitive" as const };
 
         const dteOr: Array<Record<string, unknown>> = [
           ...folioFilter,
           ...amountFilter,
-          { code: contains },
-          { receiverName: contains },
-          { issuerName: contains },
+          { code: dteContains },
+          { receiverName: dteContains },
+          { issuerName: dteContains },
           { receiverRut: { contains: rutSearch, mode: "insensitive" } },
           { issuerRut: { contains: rutSearch, mode: "insensitive" } },
         ];

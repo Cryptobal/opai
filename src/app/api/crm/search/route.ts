@@ -8,6 +8,15 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmView } from "@/lib/api-auth-crm";
 import { requireTenantModule } from '@/lib/require-module';
+import {
+  findCpqQuoteIdsBySearch,
+  findCrmAccountIdsBySearch,
+  findCrmContactIdsBySearch,
+  findCrmDealIdsBySearch,
+  findCrmDealIdsByTitleOrAccount,
+  findCrmInstallationIdsBySearch,
+  findCrmLeadIdsBySearch,
+} from "@/lib/search-normalize";
 
 type SearchResult = {
   id: string;
@@ -18,7 +27,7 @@ type SearchResult = {
   pinDisplay?: string;
 };
 
-const TYPE_LIMIT = 5;
+const TYPE_LIMIT = 10;
 const QUOTE_STATUS_LABEL: Record<string, string> = {
   draft: "Borrador",
   sent: "Enviada",
@@ -41,19 +50,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, data: [] });
     }
 
-    const contains = { contains: q, mode: "insensitive" as const };
     const tenantId = ctx.tenantId;
     const isSupervisorHub = ctx.userRole?.toLowerCase() === "supervisor";
 
     // IDs de negocios (deals) cuyo título o nombre de cuenta coincide
-    const dealIdsByTitleOrAccount = await prisma.crmDeal.findMany({
-      where: {
-        tenantId,
-        OR: [{ title: contains }, { account: { name: contains } }],
-      },
-      select: { id: true },
-    });
-    const dealIdsForQuotes = dealIdsByTitleOrAccount.map((d) => d.id);
+    // (búsqueda accent-insensitive via f_unaccent).
+    const dealIdsForQuotes = await findCrmDealIdsByTitleOrAccount({ tenantId, query: q });
 
     // Cotizaciones vinculadas solo por CrmDealQuote (sin dealId en CpqQuote)
     const dealQuoteLinks =
@@ -66,155 +68,121 @@ export async function GET(request: NextRequest) {
     const quoteIdsFromDealLinks = dealQuoteLinks.map((r) => r.quoteId);
     const quoteIdToDealId = new Map(dealQuoteLinks.map((r) => [r.quoteId, r.dealId]));
 
+    // Resolución en dos pasos: primero IDs vía SQL normalizado (f_unaccent),
+    // luego hidratación con findMany para conservar selects/relaciones Prisma.
+    const [leadIds, accountIds, contactIds, dealIds, quoteIds, installationIds] =
+      await Promise.all([
+        findCrmLeadIdsBySearch({ tenantId, query: q, limit: TYPE_LIMIT }),
+        findCrmAccountIdsBySearch({
+          tenantId,
+          query: q,
+          limit: TYPE_LIMIT,
+          onlySupervisorScope: isSupervisorHub,
+        }),
+        findCrmContactIdsBySearch({
+          tenantId,
+          query: q,
+          limit: TYPE_LIMIT,
+          onlySupervisorScope: isSupervisorHub,
+        }),
+        findCrmDealIdsBySearch({ tenantId, query: q, limit: TYPE_LIMIT }),
+        findCpqQuoteIdsBySearch({
+          tenantId,
+          query: q,
+          limit: TYPE_LIMIT,
+          extraDealIds: dealIdsForQuotes,
+          extraQuoteIds: quoteIdsFromDealLinks,
+        }),
+        findCrmInstallationIdsBySearch({
+          tenantId,
+          query: q,
+          limit: TYPE_LIMIT,
+          onlyActive: isSupervisorHub,
+        }),
+      ]);
+
     const [leads, accounts, contacts, deals, quotes, installations] = await Promise.all([
-      // Leads
-      prisma.crmLead.findMany({
-        where: {
-          tenantId,
-          OR: [
-            { firstName: contains },
-            { lastName: contains },
-            { companyName: contains },
-            { email: contains },
-            { phone: contains },
-          ],
-        },
-        take: TYPE_LIMIT,
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          companyName: true,
-          email: true,
-          status: true,
-        },
-      }),
-
-      // Accounts — en hub supervisor solo cuentas con instalaciones activas
-      prisma.crmAccount.findMany({
-        where: {
-          tenantId,
-          ...(isSupervisorHub
-            ? {
-                installations: {
-                  some: { status: "active" },
-                },
-              }
-            : {}),
-          OR: [
-            { name: contains },
-            { rut: contains },
-            { industry: contains },
-          ],
-        },
-        take: TYPE_LIMIT,
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          name: true,
-          type: true,
-          industry: true,
-          rut: true,
-        },
-      }),
-
-      // Contacts — en hub supervisor solo contactos de cuentas con instalaciones activas
-      prisma.crmContact.findMany({
-        where: {
-          tenantId,
-          ...(isSupervisorHub
-            ? {
-                account: {
-                  installations: {
-                    some: { status: "active" },
-                  },
-                },
-              }
-            : {}),
-          OR: [
-            { firstName: contains },
-            { lastName: contains },
-            { email: contains },
-            { phone: contains },
-          ],
-        },
-        take: TYPE_LIMIT,
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          portalPin: true,
-          portalPinVisible: true,
-          account: { select: { name: true } },
-        },
-      }),
-
-      // Deals
-      prisma.crmDeal.findMany({
-        where: {
-          tenantId,
-          OR: [{ title: contains }],
-        },
-        take: TYPE_LIMIT,
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          title: true,
-          amount: true,
-          account: { select: { name: true } },
-          stage: { select: { name: true } },
-        },
-      }),
-
-      // Quotes (código, nombre, cliente, notas o negocio asociado; también por CrmDealQuote)
-      prisma.cpqQuote.findMany({
-        where: {
-          tenantId,
-          OR: [
-            { code: contains },
-            { name: contains },
-            { clientName: contains },
-            { notes: contains },
-            ...(dealIdsForQuotes.length > 0 ? [{ dealId: { in: dealIdsForQuotes } }] : []),
-            ...(quoteIdsFromDealLinks.length > 0 ? [{ id: { in: quoteIdsFromDealLinks } }] : []),
-          ],
-        },
-        take: TYPE_LIMIT,
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          code: true,
-          name: true,
-          clientName: true,
-          status: true,
-          dealId: true,
-        },
-      }),
-
-      // Installations — en hub supervisor solo instalaciones activas
-      prisma.crmInstallation.findMany({
-        where: {
-          tenantId,
-          ...(isSupervisorHub ? { status: "active" } : {}),
-          OR: [
-            { name: contains },
-            { address: contains },
-            { commune: contains },
-            { city: contains },
-          ],
-        },
-        take: TYPE_LIMIT,
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          name: true,
-          address: true,
-          account: { select: { name: true } },
-        },
-      }),
+      leadIds.length > 0
+        ? prisma.crmLead.findMany({
+            where: { tenantId, id: { in: leadIds } },
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              companyName: true,
+              email: true,
+              status: true,
+            },
+          })
+        : Promise.resolve([] as Array<{ id: string; firstName: string | null; lastName: string | null; companyName: string | null; email: string | null; status: string }>),
+      accountIds.length > 0
+        ? prisma.crmAccount.findMany({
+            where: { tenantId, id: { in: accountIds } },
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              industry: true,
+              rut: true,
+            },
+          })
+        : Promise.resolve([] as Array<{ id: string; name: string; type: string; industry: string | null; rut: string | null }>),
+      contactIds.length > 0
+        ? prisma.crmContact.findMany({
+            where: { tenantId, id: { in: contactIds } },
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              portalPin: true,
+              portalPinVisible: true,
+              account: { select: { name: true } },
+            },
+          })
+        : Promise.resolve([] as Array<{ id: string; firstName: string; lastName: string; email: string | null; portalPin: string | null; portalPinVisible: string | null; account: { name: string } | null }>),
+      dealIds.length > 0
+        ? prisma.crmDeal.findMany({
+            where: { tenantId, id: { in: dealIds } },
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              title: true,
+              amount: true,
+              account: { select: { name: true } },
+              stage: { select: { name: true } },
+            },
+          })
+        : Promise.resolve([] as Array<{ id: string; title: string; amount: unknown; account: { name: string } | null; stage: { name: string } | null }>),
+      quoteIds.length > 0
+        ? prisma.cpqQuote.findMany({
+            where: { tenantId, id: { in: quoteIds } },
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              clientName: true,
+              status: true,
+              dealId: true,
+            },
+          })
+        : Promise.resolve([] as Array<{ id: string; code: string; name: string | null; clientName: string | null; status: string; dealId: string | null }>),
+      installationIds.length > 0
+        ? prisma.crmInstallation.findMany({
+            where: { tenantId, id: { in: installationIds } },
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              name: true,
+              address: true,
+              account: { select: { name: true } },
+            },
+          })
+        : Promise.resolve([] as Array<{ id: string; name: string; address: string | null; account: { name: string } | null }>),
     ]);
 
     const quoteDealIds = Array.from(
