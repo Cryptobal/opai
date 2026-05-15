@@ -7,6 +7,11 @@ export { CessionBadge } from "./CessionBadge";
 export { LinkedNoteBadge } from "./LinkedNoteBadge";
 export { RelationRow } from "./RelationRow";
 export { KpiStripReceived } from "./KpiStripReceived";
+export {
+  RecibidosClient,
+  type ReceivedDteRow,
+  type SupplierOption,
+} from "./RecibidosClient";
 
 export type {
   DteRow,
