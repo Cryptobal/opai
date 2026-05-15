@@ -24,6 +24,10 @@ import {
   tokenize,
   expandQueryTokens,
 } from "@/lib/ai/help-chat-retrieval";
+import {
+  hasLikelyEntityToken,
+  shouldUseInferredAnswerUpfront,
+} from "@/lib/ai/help-chat-intents";
 
 // ---------------------------------------------------------------------------
 // 1. Model Router
@@ -364,5 +368,83 @@ describe("Retrieval utilities", () => {
         expect(token.length).toBeGreaterThanOrEqual(3);
       }
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4. Entity-aware intent gating
+// ---------------------------------------------------------------------------
+describe("hasLikelyEntityToken()", () => {
+  it.each([
+    // Capitalizada en medio (Ametel, Felipe, Bauwerk) — caso principal del bug
+    "¿Qué contactos tiene el cliente Ametel?",
+    "actualiza el cargo de Felipe Rivas a Administrador de Contrato",
+    "instalación Bauwerk Centro qué status tiene",
+    // Códigos de entidad
+    "muéstrame la cotización CPQ-2024-15",
+    "buscar deal DEAL-99",
+    // RUT
+    "RUT 12.345.678-9 a quién pertenece",
+    // Email
+    "envíame info de frivas@ametel.cl",
+    // Frase entrecomillada
+    'cambia el cargo a "Jefe de Terreno"',
+  ])("detects an entity in: '%s'", (msg) => {
+    expect(hasLikelyEntityToken(msg)).toBe(true);
+  });
+
+  it.each([
+    "¿cómo creo un cliente?",
+    "¿dónde están los turnos extra?",
+    "qué módulos hay",
+    "qué puedes hacer",
+    "ayuda con rondas",
+    "cómo funciona la pauta mensual",
+    "qué es OPAI",
+    "qué es la UF",
+    // Variantes lowercase: la heurística NO dispara, pero el LLM aplica la
+    // regla #0 del system prompt y llama search_all igual. Documentamos
+    // este trade-off explícitamente.
+    "qué contactos tiene ametel",
+  ])("does NOT trigger entity detection on generic prompt: '%s'", (msg) => {
+    expect(hasLikelyEntityToken(msg)).toBe(false);
+  });
+});
+
+describe("shouldUseInferredAnswerUpfront()", () => {
+  it("returns true for a purely functional question (no entity)", () => {
+    expect(shouldUseInferredAnswerUpfront("¿cómo creo un cliente?")).toBe(true);
+    expect(shouldUseInferredAnswerUpfront("dónde están los turnos extra")).toBe(true);
+  });
+
+  it("returns false when the message references a named entity (the Ametel bug)", () => {
+    // Antes del fix, esto devolvía true porque "cliente" matchea el marker
+    // funcional y se servía la plantilla de CRM > Cuentas/Leads sin consultar
+    // los contactos reales. Tras el fix debe devolver false para que el LLM
+    // llame search_contacts/search_accounts.
+    expect(
+      shouldUseInferredAnswerUpfront("¿Qué contactos tiene el cliente Ametel?"),
+    ).toBe(false);
+  });
+
+  it("returns false on action verbs over entities", () => {
+    expect(
+      shouldUseInferredAnswerUpfront(
+        "actualiza el cargo de Felipe Rivas a Administrador de Contrato",
+      ),
+    ).toBe(false);
+    expect(
+      shouldUseInferredAnswerUpfront("cambia la dirección de la instalación Centro Bauwerk"),
+    ).toBe(false);
+  });
+
+  it("preserves the rendiciones data exception", () => {
+    expect(
+      shouldUseInferredAnswerUpfront("¿faltan rendiciones por aprobar?"),
+    ).toBe(false);
+  });
+
+  it("returns false for data-heavy questions (cuántos, total, hoy)", () => {
+    expect(shouldUseInferredAnswerUpfront("¿cuántos guardias hay hoy?")).toBe(false);
   });
 });

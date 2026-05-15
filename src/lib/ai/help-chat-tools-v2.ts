@@ -19,7 +19,11 @@ import {
   createContactSchema,
   createDealSchema,
   createInstallationSchema,
+  updateAccountSchema,
+  updateContactSchema,
+  updateInstallationSchema,
 } from "@/lib/validations/crm";
+import { createCrmHistoryLog, computeChangedFields } from "@/lib/crm-history";
 import {
   resolveStageByName,
   resolveOrCreateInstallation,
@@ -1016,6 +1020,143 @@ function writeToolDefinitions() {
             teMontoClp: { type: "number", description: "Monto base de turnos extra en CLP." },
           },
           required: ["accountId", "name"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "update_account",
+        description:
+          "Actualiza una cuenta CRM existente. Requiere id (UUID). Si el usuario menciona la cuenta por nombre, llama search_accounts primero para obtener el id real. Pasa SOLO los campos que el usuario pidió cambiar — patch parcial. NUNCA inventes UUIDs.",
+        parameters: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "UUID de la cuenta. OBLIGATORIO." },
+            name: { type: "string", description: "Nombre comercial." },
+            type: { type: "string", enum: ["prospect", "client"] },
+            rut: { type: "string" },
+            legalName: { type: "string", description: "Razón social." },
+            legalRepresentativeName: { type: "string" },
+            legalRepresentativeRut: { type: "string" },
+            industry: { type: "string" },
+            giro: { type: "string", description: "Giro/actividad económica SII." },
+            segment: { type: "string" },
+            status: { type: "string", enum: ["prospect", "client_active", "client_inactive", "active", "inactive"] },
+            isActive: { type: "boolean" },
+            website: { type: "string" },
+            address: { type: "string" },
+            commune: { type: "string" },
+            city: { type: "string" },
+            notes: { type: "string" },
+          },
+          required: ["id"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "update_contact",
+        description:
+          "Actualiza un contacto CRM existente. Requiere id (UUID). Si el usuario menciona el contacto por nombre, llama search_contacts primero (incluye el nombre de la cuenta para desambiguar cuando hay varios). Patch parcial: solo pasa los campos que cambian. Útil para actualizar cargo (roleTitle), email, teléfono, marcar como contacto principal, o moverlo a otra cuenta (accountId).",
+        parameters: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "UUID del contacto. OBLIGATORIO." },
+            firstName: { type: "string" },
+            lastName: { type: "string" },
+            email: { type: "string" },
+            phone: { type: "string" },
+            roleTitle: { type: "string", description: "Cargo o rol (ej: 'Administrador de Contrato', 'Jefe de Terreno')." },
+            isPrimary: { type: "boolean", description: "Si pasa a ser contacto principal de la cuenta." },
+            accountId: { type: "string", description: "Solo si se quiere mover el contacto a otra cuenta. UUID válido del tenant." },
+          },
+          required: ["id"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "update_lead",
+        description:
+          "Actualiza un lead/prospecto existente. Requiere id (UUID). Si el usuario lo menciona por nombre/empresa, llama search_all primero (los leads aparecen en la búsqueda general). Patch parcial: solo pasa los campos que cambian. No usar para aprobar/rechazar leads (esos tienen tools dedicadas en el módulo CRM).",
+        parameters: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "UUID del lead. OBLIGATORIO." },
+            companyName: { type: "string" },
+            firstName: { type: "string" },
+            lastName: { type: "string" },
+            email: { type: "string" },
+            phone: { type: "string" },
+            source: { type: "string" },
+            industry: { type: "string" },
+            address: { type: "string" },
+            commune: { type: "string" },
+            city: { type: "string" },
+            website: { type: "string" },
+            serviceType: { type: "string" },
+            notes: { type: "string" },
+            status: { type: "string", enum: ["pending", "in_review", "approved", "rejected"] },
+          },
+          required: ["id"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "update_deal",
+        description:
+          "Actualiza un deal/negocio existente. Requiere id (UUID). Patch parcial: solo pasa los campos que cambian. Para cambiar de etapa puedes pasar stageId (UUID) o stageName (la tool lo resuelve). NO uses esta tool para vincular cotizaciones (usa las tools CPQ específicas).",
+        parameters: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "UUID del deal. OBLIGATORIO." },
+            title: { type: "string" },
+            amount: { type: "number", description: "Monto en CLP." },
+            probability: { type: "number", description: "0-100." },
+            expectedCloseDate: { type: "string", description: "ISO YYYY-MM-DD." },
+            stageId: { type: "string", description: "UUID de la etapa." },
+            stageName: { type: "string", description: "Nombre de la etapa (la tool la resuelve a id). Alternativa a stageId." },
+            primaryContactId: { type: "string", description: "UUID del contacto principal." },
+            proposalLink: { type: "string", description: "URL externa de propuesta." },
+          },
+          required: ["id"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "update_installation",
+        description:
+          "Actualiza una instalación CRM existente. Requiere id (UUID). Si el usuario la menciona por nombre, llama search_installations primero. Patch parcial: solo pasa los campos que cambian. Para cambiar status a 'inactive' confirma con el usuario primero — implica afectar pauta y costos.",
+        parameters: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "UUID de la instalación. OBLIGATORIO." },
+            name: { type: "string" },
+            address: { type: "string" },
+            city: { type: "string" },
+            commune: { type: "string" },
+            lat: { type: "number" },
+            lng: { type: "number" },
+            status: { type: "string", enum: ["prospect", "active", "inactive"] },
+            geoRadiusM: { type: "number", description: "Radio del geofence en metros (10-1000)." },
+            teMontoClp: { type: "number", description: "Monto base TE en CLP." },
+            notes: { type: "string" },
+            nocturnoEnabled: { type: "boolean" },
+            chatEnabled: { type: "boolean" },
+          },
+          required: ["id"],
           additionalProperties: false,
         },
       },
@@ -3372,6 +3513,515 @@ async function toolCreateInstallation(
   }
 }
 
+/* ──────────────────────────────────────────────────────────────────────
+ * Update CRM tools
+ *
+ * Patch parciales (solo los campos que el usuario quiere cambiar). Todas
+ * las tools comparten el mismo patrón:
+ *   1. Validar permiso canEdit(perms, "crm", "<entidad>").
+ *   2. Validar args con el schema parcial existente (createXSchema.partial()
+ *      o updateXSchema). Si el cliente pasa un id inválido o un campo
+ *      desconocido, devolvemos un error legible.
+ *   3. Confirmar que la entidad existe y pertenece al tenant actual.
+ *   4. Aplicar el patch con prisma.X.update y registrar el cambio en
+ *      CrmHistoryLog (mismo formato que las rutas HTTP /api/crm/.../[id]).
+ *   5. Devolver la entidad actualizada en un shape consistente para que el
+ *      LLM pueda renderizar la card de confirmación.
+ * ────────────────────────────────────────────────────────────────────── */
+
+async function toolUpdateAccount(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!canEdit(perms, "crm", "accounts")) {
+    await logAiAction({ tenantId, userId, toolName: "update_account", args, status: "denied", errorMessage: "Sin permiso crm.accounts.edit", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para editar cuentas." };
+  }
+  const id = typeof args.id === "string" ? args.id.trim() : "";
+  if (!id) {
+    await logAiAction({ tenantId, userId, toolName: "update_account", args, status: "validation_error", errorMessage: "Falta id", startedAt: t0 });
+    return { ok: false, error: "Falta id de la cuenta. Usa search_accounts para obtenerlo." };
+  }
+  const rest = { ...args };
+  delete (rest as Record<string, unknown>).id;
+  const parsed = updateAccountSchema.safeParse(rest);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+    await logAiAction({ tenantId, userId, toolName: "update_account", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `Datos inválidos: ${msg}` };
+  }
+  const patch = parsed.data;
+  if (Object.keys(patch).length === 0) {
+    await logAiAction({ tenantId, userId, toolName: "update_account", args, status: "validation_error", errorMessage: "Sin campos a actualizar", startedAt: t0 });
+    return { ok: false, error: "No me pasaste qué campo cambiar." };
+  }
+  const existing = await prisma.crmAccount.findFirst({ where: { id, tenantId } });
+  if (!existing) {
+    await logAiAction({ tenantId, userId, toolName: "update_account", args, status: "validation_error", errorMessage: "Cuenta no encontrada", startedAt: t0 });
+    return { ok: false, error: "Cuenta no encontrada o no pertenece a tu organización." };
+  }
+  try {
+    const result = await prisma.crmAccount.updateMany({
+      where: { id, tenantId },
+      data: patch as Prisma.CrmAccountUpdateManyMutationInput,
+    });
+    if (result.count === 0) {
+      return { ok: false, error: "Cuenta no encontrada al aplicar el cambio." };
+    }
+    const account = await prisma.crmAccount.findFirst({
+      where: { id, tenantId },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        rut: true,
+        legalName: true,
+        industry: true,
+        status: true,
+        isActive: true,
+        website: true,
+        address: true,
+        commune: true,
+        city: true,
+      },
+    });
+    const diff = computeChangedFields(
+      existing as unknown as Record<string, unknown>,
+      patch as unknown as Record<string, unknown>,
+    );
+    await createCrmHistoryLog({
+      tenantId,
+      entityType: "account",
+      entityId: id,
+      action: "account_updated",
+      details: { changedFields: diff.changedFields, changes: diff.changes, source: "ai_assistant" },
+      createdBy: userId,
+    });
+    await logAiAction({ tenantId, userId, toolName: "update_account", args, status: "success", resultEntityId: id, resultEntityType: "crm_account", startedAt: t0 });
+    return {
+      ok: true,
+      data: {
+        id: account!.id,
+        entityType: "crm_account",
+        name: account!.name,
+        url: `/crm/accounts/${account!.id}`,
+        type: account!.type,
+        rut: account!.rut,
+        industry: account!.industry,
+        status: account!.status,
+        changedFields: diff.changedFields,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "update_account", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo actualizar la cuenta: ${msg}` };
+  }
+}
+
+async function toolUpdateContact(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!canEdit(perms, "crm", "contacts")) {
+    await logAiAction({ tenantId, userId, toolName: "update_contact", args, status: "denied", errorMessage: "Sin permiso crm.contacts.edit", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para editar contactos." };
+  }
+  const id = typeof args.id === "string" ? args.id.trim() : "";
+  if (!id) {
+    await logAiAction({ tenantId, userId, toolName: "update_contact", args, status: "validation_error", errorMessage: "Falta id", startedAt: t0 });
+    return { ok: false, error: "Falta id del contacto. Usa search_contacts para obtenerlo." };
+  }
+  const rest = { ...args };
+  delete (rest as Record<string, unknown>).id;
+  const parsed = updateContactSchema.safeParse(rest);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+    await logAiAction({ tenantId, userId, toolName: "update_contact", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `Datos inválidos: ${msg}` };
+  }
+  const patch = parsed.data;
+  if (Object.keys(patch).length === 0) {
+    await logAiAction({ tenantId, userId, toolName: "update_contact", args, status: "validation_error", errorMessage: "Sin campos a actualizar", startedAt: t0 });
+    return { ok: false, error: "No me pasaste qué campo cambiar." };
+  }
+  const existing = await prisma.crmContact.findFirst({ where: { id, tenantId } });
+  if (!existing) {
+    await logAiAction({ tenantId, userId, toolName: "update_contact", args, status: "validation_error", errorMessage: "Contacto no encontrado", startedAt: t0 });
+    return { ok: false, error: "Contacto no encontrado o no pertenece a tu organización." };
+  }
+  // Si se quiere mover a otra cuenta, verificar que la nueva cuenta exista en el tenant.
+  if (patch.accountId && patch.accountId !== existing.accountId) {
+    const newAccount = await prisma.crmAccount.findFirst({
+      where: { id: patch.accountId, tenantId },
+      select: { id: true },
+    });
+    if (!newAccount) {
+      await logAiAction({ tenantId, userId, toolName: "update_contact", args, status: "validation_error", errorMessage: "accountId destino no existe", startedAt: t0 });
+      return { ok: false, error: "La cuenta destino no existe en tu organización." };
+    }
+  }
+  try {
+    const result = await prisma.crmContact.updateMany({
+      where: { id, tenantId },
+      data: patch as Prisma.CrmContactUpdateManyMutationInput,
+    });
+    if (result.count === 0) {
+      return { ok: false, error: "Contacto no encontrado al aplicar el cambio." };
+    }
+    const contact = await prisma.crmContact.findFirst({
+      where: { id, tenantId },
+      include: { account: { select: { id: true, name: true } } },
+    });
+    const diff = computeChangedFields(
+      existing as unknown as Record<string, unknown>,
+      patch as unknown as Record<string, unknown>,
+    );
+    await createCrmHistoryLog({
+      tenantId,
+      entityType: "contact",
+      entityId: id,
+      action: "contact_updated",
+      details: { changedFields: diff.changedFields, changes: diff.changes, source: "ai_assistant" },
+      createdBy: userId,
+    });
+    await logAiAction({ tenantId, userId, toolName: "update_contact", args, status: "success", resultEntityId: id, resultEntityType: "crm_contact", startedAt: t0 });
+    const displayName = `${contact!.firstName} ${contact!.lastName}`.trim();
+    return {
+      ok: true,
+      data: {
+        id: contact!.id,
+        entityType: "crm_contact",
+        name: displayName,
+        url: `/crm/contacts/${contact!.id}`,
+        email: contact!.email,
+        phone: contact!.phone,
+        roleTitle: contact!.roleTitle,
+        isPrimary: contact!.isPrimary,
+        accountId: contact!.accountId,
+        accountName: contact!.account?.name ?? null,
+        changedFields: diff.changedFields,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "update_contact", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo actualizar el contacto: ${msg}` };
+  }
+}
+
+async function toolUpdateLead(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!canEdit(perms, "crm", "leads")) {
+    await logAiAction({ tenantId, userId, toolName: "update_lead", args, status: "denied", errorMessage: "Sin permiso crm.leads.edit", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para editar leads." };
+  }
+  const id = typeof args.id === "string" ? args.id.trim() : "";
+  if (!id) {
+    await logAiAction({ tenantId, userId, toolName: "update_lead", args, status: "validation_error", errorMessage: "Falta id", startedAt: t0 });
+    return { ok: false, error: "Falta id del lead. Usa search_all para obtenerlo." };
+  }
+  const rest = { ...args };
+  delete (rest as Record<string, unknown>).id;
+  const parsed = createLeadSchema.partial().safeParse(rest);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+    await logAiAction({ tenantId, userId, toolName: "update_lead", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `Datos inválidos: ${msg}` };
+  }
+  const payload = parsed.data;
+  if (Object.keys(payload).length === 0) {
+    await logAiAction({ tenantId, userId, toolName: "update_lead", args, status: "validation_error", errorMessage: "Sin campos a actualizar", startedAt: t0 });
+    return { ok: false, error: "No me pasaste qué campo cambiar." };
+  }
+  const existing = await prisma.crmLead.findFirst({ where: { id, tenantId } });
+  if (!existing) {
+    await logAiAction({ tenantId, userId, toolName: "update_lead", args, status: "validation_error", errorMessage: "Lead no encontrado", startedAt: t0 });
+    return { ok: false, error: "Lead no encontrado o no pertenece a tu organización." };
+  }
+  const normalized: Record<string, unknown> = {
+    ...payload,
+    firstName:
+      payload.firstName === undefined ? undefined : toSentenceCase(payload.firstName ?? undefined) ?? null,
+    lastName:
+      payload.lastName === undefined ? undefined : toSentenceCase(payload.lastName ?? undefined) ?? null,
+  };
+  try {
+    const result = await prisma.crmLead.updateMany({
+      where: { id, tenantId },
+      data: normalized as Prisma.CrmLeadUpdateManyMutationInput,
+    });
+    if (result.count === 0) {
+      return { ok: false, error: "Lead no encontrado al aplicar el cambio." };
+    }
+    const lead = await prisma.crmLead.findFirst({ where: { id, tenantId } });
+    const diff = computeChangedFields(
+      existing as unknown as Record<string, unknown>,
+      normalized,
+    );
+    await createCrmHistoryLog({
+      tenantId,
+      entityType: "lead",
+      entityId: id,
+      action: "lead_updated",
+      details: { changedFields: diff.changedFields, changes: diff.changes, source: "ai_assistant" },
+      createdBy: userId,
+    });
+    await logAiAction({ tenantId, userId, toolName: "update_lead", args, status: "success", resultEntityId: id, resultEntityType: "crm_lead", startedAt: t0 });
+    const displayName =
+      [lead!.firstName, lead!.lastName].filter(Boolean).join(" ").trim() ||
+      lead!.companyName ||
+      lead!.email ||
+      lead!.phone ||
+      "Lead sin nombre";
+    return {
+      ok: true,
+      data: {
+        id: lead!.id,
+        entityType: "crm_lead",
+        name: displayName,
+        url: `/crm/leads/${lead!.id}`,
+        companyName: lead!.companyName,
+        email: lead!.email,
+        phone: lead!.phone,
+        status: lead!.status,
+        changedFields: diff.changedFields,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "update_lead", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo actualizar el lead: ${msg}` };
+  }
+}
+
+async function toolUpdateDeal(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!canEdit(perms, "crm", "deals")) {
+    await logAiAction({ tenantId, userId, toolName: "update_deal", args, status: "denied", errorMessage: "Sin permiso crm.deals.edit", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para editar deals." };
+  }
+  const id = typeof args.id === "string" ? args.id.trim() : "";
+  if (!id) {
+    await logAiAction({ tenantId, userId, toolName: "update_deal", args, status: "validation_error", errorMessage: "Falta id", startedAt: t0 });
+    return { ok: false, error: "Falta id del deal. Usa search_deals para obtenerlo." };
+  }
+  // Construir patch a partir de los campos soportados. Usamos validación
+  // manual aquí porque createDealSchema.partial() permitiría sobreescribir
+  // accountId — explícitamente bloqueamos eso (mover deals de cuenta no es
+  // una operación que debamos exponer al asistente sin más controles).
+  const patch: Record<string, unknown> = {};
+  if (typeof args.title === "string") patch.title = args.title.trim();
+  if (typeof args.amount === "number") patch.amount = args.amount;
+  if (typeof args.probability === "number") patch.probability = args.probability;
+  if (typeof args.expectedCloseDate === "string" && args.expectedCloseDate.length >= 8) {
+    const date = new Date(args.expectedCloseDate);
+    if (Number.isNaN(date.getTime())) {
+      await logAiAction({ tenantId, userId, toolName: "update_deal", args, status: "validation_error", errorMessage: "expectedCloseDate inválida", startedAt: t0 });
+      return { ok: false, error: "expectedCloseDate inválida (usa YYYY-MM-DD)." };
+    }
+    patch.expectedCloseDate = date;
+  }
+  if (typeof args.primaryContactId === "string") patch.primaryContactId = args.primaryContactId;
+  if (typeof args.proposalLink === "string") patch.proposalLink = args.proposalLink;
+  let resolvedStageName: string | null = null;
+  if (typeof args.stageId === "string" && args.stageId.length > 0) {
+    const stage = await prisma.crmPipelineStage.findFirst({
+      where: { id: args.stageId, tenantId },
+      select: { id: true, name: true },
+    });
+    if (!stage) {
+      await logAiAction({ tenantId, userId, toolName: "update_deal", args, status: "validation_error", errorMessage: "stageId no existe", startedAt: t0 });
+      return { ok: false, error: "La etapa indicada no existe en este tenant." };
+    }
+    patch.stageId = stage.id;
+    resolvedStageName = stage.name;
+  } else if (typeof args.stageName === "string" && args.stageName.trim().length > 0) {
+    try {
+      const stageId = await resolveStageByName(tenantId, args.stageName);
+      if (!stageId) {
+        const stages = await prisma.crmPipelineStage.findMany({
+          where: { tenantId, isActive: true },
+          select: { name: true },
+          orderBy: { order: "asc" },
+          take: 10,
+        });
+        await logAiAction({ tenantId, userId, toolName: "update_deal", args, status: "validation_error", errorMessage: `Etapa "${args.stageName}" no existe`, startedAt: t0 });
+        return {
+          ok: false,
+          error: `Etapa "${args.stageName}" no existe. Etapas disponibles: ${stages.map((s) => s.name).join(", ") || "(ninguna configurada)"}.`,
+        };
+      }
+      patch.stageId = stageId;
+      resolvedStageName = args.stageName;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Etapa ambigua";
+      await logAiAction({ tenantId, userId, toolName: "update_deal", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
+      return { ok: false, error: msg };
+    }
+  }
+  if (Object.keys(patch).length === 0) {
+    await logAiAction({ tenantId, userId, toolName: "update_deal", args, status: "validation_error", errorMessage: "Sin campos a actualizar", startedAt: t0 });
+    return { ok: false, error: "No me pasaste qué campo cambiar." };
+  }
+  const existing = await prisma.crmDeal.findFirst({ where: { id, tenantId } });
+  if (!existing) {
+    await logAiAction({ tenantId, userId, toolName: "update_deal", args, status: "validation_error", errorMessage: "Deal no encontrado", startedAt: t0 });
+    return { ok: false, error: "Deal no encontrado o no pertenece a tu organización." };
+  }
+  try {
+    const result = await prisma.crmDeal.updateMany({
+      where: { id, tenantId },
+      data: patch as Prisma.CrmDealUpdateManyMutationInput,
+    });
+    if (result.count === 0) {
+      return { ok: false, error: "Deal no encontrado al aplicar el cambio." };
+    }
+    const deal = await prisma.crmDeal.findFirst({
+      where: { id, tenantId },
+      include: {
+        account: { select: { id: true, name: true } },
+        stage: { select: { id: true, name: true } },
+      },
+    });
+    const diff = computeChangedFields(
+      existing as unknown as Record<string, unknown>,
+      patch,
+    );
+    await createCrmHistoryLog({
+      tenantId,
+      entityType: "deal",
+      entityId: id,
+      action: "deal_updated",
+      details: { changedFields: diff.changedFields, changes: diff.changes, source: "ai_assistant" },
+      createdBy: userId,
+    });
+    await logAiAction({ tenantId, userId, toolName: "update_deal", args, status: "success", resultEntityId: id, resultEntityType: "crm_deal", startedAt: t0 });
+    return {
+      ok: true,
+      data: {
+        id: deal!.id,
+        entityType: "crm_deal",
+        name: deal!.title,
+        url: `/crm/deals/${deal!.id}`,
+        amount: Number(deal!.amount),
+        probability: deal!.probability,
+        accountId: deal!.accountId,
+        accountName: deal!.account?.name ?? null,
+        stageId: deal!.stageId,
+        stageName: resolvedStageName ?? deal!.stage?.name ?? null,
+        expectedCloseDate: deal!.expectedCloseDate?.toISOString().slice(0, 10) ?? null,
+        changedFields: diff.changedFields,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "update_deal", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo actualizar el deal: ${msg}` };
+  }
+}
+
+async function toolUpdateInstallation(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!canEdit(perms, "crm", "installations")) {
+    await logAiAction({ tenantId, userId, toolName: "update_installation", args, status: "denied", errorMessage: "Sin permiso crm.installations.edit", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para editar instalaciones." };
+  }
+  const id = typeof args.id === "string" ? args.id.trim() : "";
+  if (!id) {
+    await logAiAction({ tenantId, userId, toolName: "update_installation", args, status: "validation_error", errorMessage: "Falta id", startedAt: t0 });
+    return { ok: false, error: "Falta id de la instalación. Usa search_installations para obtenerlo." };
+  }
+  const rest = { ...args };
+  delete (rest as Record<string, unknown>).id;
+  const parsed = updateInstallationSchema.safeParse(rest);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+    await logAiAction({ tenantId, userId, toolName: "update_installation", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `Datos inválidos: ${msg}` };
+  }
+  const patch = parsed.data;
+  if (Object.keys(patch).length === 0) {
+    await logAiAction({ tenantId, userId, toolName: "update_installation", args, status: "validation_error", errorMessage: "Sin campos a actualizar", startedAt: t0 });
+    return { ok: false, error: "No me pasaste qué campo cambiar." };
+  }
+  const existing = await prisma.crmInstallation.findFirst({ where: { id, tenantId } });
+  if (!existing) {
+    await logAiAction({ tenantId, userId, toolName: "update_installation", args, status: "validation_error", errorMessage: "Instalación no encontrada", startedAt: t0 });
+    return { ok: false, error: "Instalación no encontrada o no pertenece a tu organización." };
+  }
+  if (patch.name) {
+    patch.name = toSentenceCase(patch.name) || patch.name;
+  }
+  try {
+    const result = await prisma.crmInstallation.updateMany({
+      where: { id, tenantId },
+      data: patch as Prisma.CrmInstallationUpdateManyMutationInput,
+    });
+    if (result.count === 0) {
+      return { ok: false, error: "Instalación no encontrada al aplicar el cambio." };
+    }
+    const installation = await prisma.crmInstallation.findFirst({
+      where: { id, tenantId },
+      include: { account: { select: { id: true, name: true } } },
+    });
+    const diff = computeChangedFields(
+      existing as unknown as Record<string, unknown>,
+      patch as unknown as Record<string, unknown>,
+    );
+    await createCrmHistoryLog({
+      tenantId,
+      entityType: "installation",
+      entityId: id,
+      action: "installation_updated",
+      details: { changedFields: diff.changedFields, changes: diff.changes, source: "ai_assistant" },
+      createdBy: userId,
+    });
+    await logAiAction({ tenantId, userId, toolName: "update_installation", args, status: "success", resultEntityId: id, resultEntityType: "crm_installation", startedAt: t0 });
+    return {
+      ok: true,
+      data: {
+        id: installation!.id,
+        entityType: "crm_installation",
+        name: installation!.name,
+        url: `/crm/installations/${installation!.id}`,
+        address: installation!.address,
+        commune: installation!.commune,
+        city: installation!.city,
+        status: installation!.status,
+        accountId: installation!.accountId,
+        accountName: installation!.account?.name ?? null,
+        changedFields: diff.changedFields,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "update_installation", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo actualizar la instalación: ${msg}` };
+  }
+}
+
 async function toolCreateQuote(
   tenantId: string,
   userId: string,
@@ -5148,6 +5798,11 @@ export async function executeToolCallV2(
   if (toolName === "create_contact") return await toolCreateContact(tenantId, userId, perms, args);
   if (toolName === "create_deal") return await toolCreateDeal(tenantId, userId, perms, args);
   if (toolName === "create_installation") return await toolCreateInstallation(tenantId, userId, perms, args);
+  if (toolName === "update_account") return await toolUpdateAccount(tenantId, userId, perms, args);
+  if (toolName === "update_contact") return await toolUpdateContact(tenantId, userId, perms, args);
+  if (toolName === "update_lead") return await toolUpdateLead(tenantId, userId, perms, args);
+  if (toolName === "update_deal") return await toolUpdateDeal(tenantId, userId, perms, args);
+  if (toolName === "update_installation") return await toolUpdateInstallation(tenantId, userId, perms, args);
   if (toolName === "create_quote") return await toolCreateQuote(tenantId, userId, perms, args);
   if (toolName === "clone_quote") return await aiTool_clone_quote(tenantId, userId, perms, args, pageContext);
   if (toolName === "update_quote_margin") return await aiTool_update_quote_margin(tenantId, userId, perms, args, pageContext);

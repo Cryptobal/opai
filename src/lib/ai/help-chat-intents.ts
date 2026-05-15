@@ -62,6 +62,210 @@ const DATA_MARKERS = [
   "utm",
 ];
 
+// Verbos que indican intención de mutación/consulta sobre una entidad
+// puntual (no sobre un módulo). Si están presentes la respuesta funcional
+// nunca debe servirse upfront — siempre dejamos que el LLM use tools.
+const ACTION_VERB_MARKERS = [
+  "actualiza", "actualizar", "actualizame",
+  "modifica", "modificar", "modificame",
+  "edita", "editar", "editame",
+  "cambia", "cambiar", "cambiame",
+  "pon", "poner", "ponle", "ponme",
+  "borra", "borrar", "elimina", "eliminar",
+  "asigna", "asignar", "asociame", "asociar",
+  "agrega", "agregar", "anade", "anadir",
+  "muestra", "muestrame", "mostrar",
+  "lista", "listame", "listar",
+  "dame", "damelo", "muestrameme",
+  "quien", "quienes",
+  "contactos",
+];
+
+// Patrones explícitos que indican una entidad nombrada/identificada.
+const RUT_PATTERN = /\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b/;
+const ENTITY_CODE_PATTERN =
+  /\b(?:CPQ|DEAL|INST|LEAD|TICKET|GUARDIA|RND|OT|OC|HES|FACT|NC|ND|DTE)[-_]?\d+/i;
+const EMAIL_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+const QUOTED_PATTERN = /["'`][^"'`]{2,}["'`]/;
+
+// Acrónimos del dominio que NO deben tratarse como nombre propio aunque
+// vengan en mayúsculas (ej. "CPQ", "OPAI", "DTE", "UF").
+const COMMON_ACRONYMS = new Set([
+  "CRM","CPQ","DTE","OPAI","TE","NC","ND","OC","HES","OT","SII","RUT","RUN",
+  "UF","UTM","CLP","USD","IVA","DNI","ATS","KPI","KPIS","SAP","API","URL",
+  "SMS","ID","UUID","PDF","XML","CSV","SLA","ERP","MRP","IA","AI",
+]);
+
+// Vocabulario español/del dominio "conocido". Cualquier token >= 4 letras
+// que NO esté aquí lo consideramos potencial nombre propio (cliente,
+// contacto, instalación, etc.). Mantener la lista grande es barato y
+// reduce falsos positivos.
+const KNOWN_VOCABULARY = new Set<string>([
+  // articulos, preposiciones, conjunciones
+  "este","esta","esto","estos","estas","ese","esa","eso","esos","esas",
+  "aquel","aquella","aquellos","aquellas","aquello",
+  "del","con","sin","por","para","sobre","ante","bajo","desde","hasta","hacia","entre",
+  "pero","sino","aunque","porque","mientras","cuando","donde","como","cual","cuales",
+  "que","quien","quienes","cuanto","cuanta","cuantos","cuantas",
+  // pronombres y conjugaciones
+  "nosotros","ustedes","ellos","ellas",
+  "mis","tus","sus","nuestro","nuestra","nuestros","nuestras",
+  // verbos comunes (formas mas frecuentes)
+  "ser","son","sean","sera","fue","fueron","fuiste","sido",
+  "estar","estan","estaba","estaban","estuvo","estuvieron","estado",
+  "tener","tiene","tienen","tenia","tenian","tuvo","tuvieron","tengo","tenga","tenemos",
+  "haber","habia","habian","habra","hayan","hubo","hubieron",
+  "hacer","hace","hacen","hacia","hicieron","hizo","hago","haga","hagan",
+  "poder","puede","pueden","podia","podian","podra","puedan","puedo","podemos","podemos",
+  "decir","dice","dicen","dijo","dijeron","digo","diga","digan","dime","dimelo",
+  "ver","veo","ves","vea","vean","vio","viste","viendo",
+  "saber","sabe","saben","sabia","supieron","sepa","sepan",
+  "dar","dan","daba","dio","dieron","doy","den",
+  "querer","quiere","quieren","queria","quiso","quiero","quisiera",
+  "deber","debe","deben","debia","debes","debas",
+  "necesito","necesitas","necesita","necesitan",
+  "agregar","agrega","agregue","anadir","anade",
+  "crear","crea","cree","creen","creame",
+  "editar","edita","edite","editen",
+  "actualizar","actualiza","actualice","actualicen","actualizado","actualizada",
+  "modificar","modifica","modifique","modifiquen",
+  "cambiar","cambia","cambie","cambien","cambio","cambios",
+  "poner","pone","ponen","puso","pusieron","ponga","ponle","ponerle",
+  "borrar","borra","borre","borren",
+  "eliminar","elimina","elimine","eliminen",
+  "buscar","busca","busque","busquen","buscame",
+  "encontrar","encuentra","encuentre","encuentren","encontre",
+  "listar","lista","liste","listen","listame",
+  "mostrar","muestra","muestre","muestren","muestrame",
+  "consultar","consulta","consulte","consultame",
+  "asignar","asigna","asignen","asignacion",
+  "asociar","asocia","asocien","asociacion",
+  "guardar","guarda","guarden","guardado",
+  "enviar","envia","envien","enviado","mandar","manda",
+  "revisar","revisa","revise","revisen","revisado",
+  // adverbios comunes
+  "siempre","nunca","jamas","tambien","tampoco","ademas","mucho","poco",
+  "mejor","peor","ahora","antes","despues","luego","entonces","casi",
+  "todavia","apenas","quizas","tal","vez",
+  "hola","gracias","favor","por favor","buenos","buenas","dias","tardes","noches",
+  // tiempo
+  "hoy","ayer","manana","semana","mes","ano","anos","dia","dias","tarde","tardes",
+  "noche","noches","minuto","minutos","hora","horas","fecha","fechas","ahora",
+  "ultimo","ultima","ultimos","ultimas","proximo","proxima",
+  // calificadores generales
+  "nuevo","nueva","nuevos","nuevas","viejo","vieja","actual","actuales",
+  "todo","todos","toda","todas","algun","alguna","algunos","algunas",
+  "ningun","ninguna","ningunos","ningunas",
+  "muchos","muchas","pocas","pocos",
+  "grande","grandes","pequeno","pequena","alto","alta","bajo","baja",
+  "principal","primario","primaria","secundario","secundaria",
+  "activo","activa","inactivo","inactiva",
+  "vigente","caducado","caducada","pendiente","pendientes","aprobado","aprobada",
+  "rechazado","rechazada","completo","completa","incompleto","incompleta",
+  // vocabulario de dominio CRM / Ops / Finance / Personas
+  "cliente","clientes","cuenta","cuentas","contacto","contactos",
+  "deal","deals","negocio","negocios","oportunidad","oportunidades",
+  "cotizacion","cotizaciones","quote","quotes",
+  "instalacion","instalaciones","faena","faenas",
+  "prospecto","prospectos",
+  "factura","facturas","boleta","boletas","nota","notas","credito","debito",
+  "rendicion","rendiciones","gasto","gastos","reembolso",
+  "colaborador","colaboradores","persona","personas","supervisor","supervisores",
+  "pauta","pautas","ronda","rondas","asistencia","supervision","monitoreo",
+  "ticket","tickets","alerta","alertas","incidente","incidentes",
+  "puesto","puestos","posicion","posiciones",
+  "modulo","modulos","submodulo","ruta","rutas","funcion","funcionalidad",
+  "permiso","permisos","usuario","usuarios",
+  "tenant","tenants","empresa","empresas",
+  "comuna","ciudad","direccion","direcciones","sector","sectores",
+  "telefono","celular","correo","mail","whatsapp",
+  "monto","montos","total","totales","subtotal","neto",
+  "moneda","monedas",
+  "industria","industrias","rubro","rubros","segmento","segmentos",
+  "razon","social","fantasia","legal",
+  "representante","administrador","jefe","encargado","encargada","prevencion",
+  "prevencionista","contrato","contratos","terreno",
+  "aplicacion","movil","celalar","aplicasion",
+  "home","screen","pantalla","inicio",
+  "registro","aprobacion","aprobaciones","lotes","pagos","pago",
+  "informacion","datos","detalle","detalles","resumen","reporte","reportes",
+  "documento","documentos","archivo","archivos","anexo","anexos","plantilla","plantillas",
+  "campana","campanas","oferta","ofertas","pipeline","embudo",
+  "ingreso","ingresos","egreso","egresos","saldo","saldos","balance",
+  "venta","ventas","compra","compras",
+  "contrato","contratos","servicio","servicios","seguridad",
+  "valor","valores",
+  // ya en FUNCTIONAL/DATA markers pero por completitud
+  "como","donde","ruta","funciona","sirve","turno","turnos","extra",
+  "guardia","guardias","lead","leads","rol","roles","descargar","instalar",
+  "telefono","aplicacion","celular","cuanto","cuantos","cuantas","valor",
+  "rut","metrica","indicador",
+]);
+
+function isKnownToken(token: string): boolean {
+  return KNOWN_VOCABULARY.has(token);
+}
+
+/**
+ * Detecta si el mensaje contiene una referencia a una entidad nombrada
+ * (cliente, contacto, deal, código, RUT, email, frase entrecomillada).
+ * Cuando esto es true, NUNCA se debe servir la plantilla funcional upfront:
+ * hay que dejar que el LLM llame search_all/search_accounts/etc. y consulte
+ * los datos reales antes de responder.
+ *
+ * Heurística (conservadora — preferimos falsos negativos a falsos positivos):
+ *  - RUT/email/código entidad/frase entrecomillada ⇒ entidad sí o sí.
+ *  - Palabra ALL CAPS de >=3 letras que NO sea acrónimo conocido ("AMETEL").
+ *  - Palabra capitalizada (Mayus + minúsculas, "Ametel", "Felipe") que NO
+ *    sea la primera palabra de la oración y NO esté en el vocabulario
+ *    común español/dominio.
+ *
+ * Si el usuario escribe TODO en minúsculas ("contactos de ametel") no
+ * dispara — confiamos en que el LLM aplicará la regla #0 del prompt y
+ * llamará search_all igual. Preferimos esto a romper la inferencia
+ * funcional legítima por palabras desconocidas accidentales.
+ */
+export function hasLikelyEntityToken(rawMessage: string): boolean {
+  const trimmed = rawMessage.trim();
+  if (!trimmed) return false;
+
+  if (RUT_PATTERN.test(trimmed)) return true;
+  if (ENTITY_CODE_PATTERN.test(trimmed)) return true;
+  if (EMAIL_PATTERN.test(trimmed)) return true;
+  if (QUOTED_PATTERN.test(trimmed)) return true;
+
+  const originalTokens = trimmed.match(/[A-Za-zÀ-ÿ0-9_]{3,}/g) ?? [];
+
+  // ALL CAPS no acrónimo (ej: "AMETEL", "BAUWERK").
+  for (const w of originalTokens) {
+    if (
+      w === w.toUpperCase() &&
+      /[A-Z]/.test(w) &&
+      w.length >= 3 &&
+      !COMMON_ACRONYMS.has(w)
+    ) {
+      return true;
+    }
+  }
+
+  // Capitalizada en medio de oración (no es la 1ª palabra). Saltamos la
+  // primera porque suele ser por mayúscula de inicio.
+  for (let i = 0; i < originalTokens.length; i++) {
+    const w = originalTokens[i];
+    if (i === 0) continue;
+    if (/^[A-ZÀ-Ý][a-zà-ÿ]{2,}$/.test(w)) {
+      const lower = w.toLowerCase();
+      if (!isKnownToken(lower)) return true;
+    }
+  }
+
+  return false;
+}
+
+function hasActionVerb(message: string): boolean {
+  return ACTION_VERB_MARKERS.some((marker) => message.includes(marker));
+}
+
 function normalize(text: string): string {
   const cleaned = text
     .toLowerCase()
@@ -927,6 +1131,12 @@ export function shouldPreferFunctionalInference(
       msg.includes("aprobar"));
 
   if (asksRendicionData) return false;
+  // Si la pregunta contiene una entidad nombrada (Ametel, Felipe Rivas,
+  // CPQ-1234, un RUT, un email) o un verbo de acción sobre entidad
+  // (actualizar/cambiar/asignar/listar/quién), la inferencia funcional NO
+  // aplica: la respuesta correcta requiere datos reales del CRM.
+  if (hasLikelyEntityToken(userMessage)) return false;
+  if (hasActionVerb(msg)) return false;
   if (!isFunctionalQuestion(msg) || isDataHeavyQuestion(msg)) return false;
   const hasClickableLink = /\[[^\]]+\]\(https?:\/\/[^\s)]+\)/.test(assistantText);
   return assistantText.length < 220 || !hasClickableLink;
@@ -951,6 +1161,14 @@ export function shouldUseInferredAnswerUpfront(userMessage: string): boolean {
       msg.includes("aprobacion") ||
       msg.includes("aprobar"));
   if (asksRendicionData) return false;
+  // Si hay nombre propio / código / RUT / email / frase entrecomillada,
+  // SIEMPRE dejar que el LLM consulte datos vía tools. Sin esto el bot
+  // contestaba "Te refieres a CRM > Cuentas/Leads" cuando el usuario
+  // preguntaba por "contactos de Ametel".
+  if (hasLikelyEntityToken(userMessage)) return false;
+  // Verbos de acción sobre entidad ("actualiza", "cambia", "quién", etc.)
+  // requieren tools, no la plantilla de navegación.
+  if (hasActionVerb(msg)) return false;
   if (isDataHeavyQuestion(msg)) return false;
   return isFunctionalQuestion(msg);
 }
