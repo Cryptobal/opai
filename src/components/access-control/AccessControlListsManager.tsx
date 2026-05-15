@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import {
   Shield, ShieldAlert, Plus, Search, Edit, Trash2,
-  Loader2, Upload, X, Check, AlertTriangle, Car, UserPlus, Users, Layers3,
+  Loader2, Upload, X, Check, AlertTriangle, Car, UserPlus, Users, Layers3, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,6 @@ export function AccessControlListsManager({ installationId }: Props) {
   const [activeTab, setActiveTab] = useState<ListType>("whitelist");
   const [entries, setEntries] = useState<AccessControlListEntry[]>([]);
   const [groups, setGroups] = useState<AccessControlListGroupData[]>([]);
-  const [tenantInstallations, setTenantInstallations] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -39,11 +38,11 @@ export function AccessControlListsManager({ installationId }: Props) {
   const [showPicker, setShowPicker] = useState(false);
   const [showAssignGroups, setShowAssignGroups] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<AccessControlListGroupData | null>(null);
   const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(new Set());
   const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(new Set());
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
-  const [groupInstallationIds, setGroupInstallationIds] = useState<string[]>([]);
   const [groupSaving, setGroupSaving] = useState(false);
 
   const [installConfig, setInstallConfig] = useState<AccessControlConfigData | null>(null);
@@ -97,7 +96,6 @@ export function AccessControlListsManager({ installationId }: Props) {
       const json = await res.json();
       if (json.success) {
         setGroups(json.data?.groups ?? []);
-        setTenantInstallations(json.data?.installations ?? []);
       } else {
         setGroups([]);
       }
@@ -115,12 +113,6 @@ export function AccessControlListsManager({ installationId }: Props) {
     setSelectedEntryIds(new Set());
     setSelectedGroupIds(new Set());
   }, [activeTab]);
-
-  useEffect(() => {
-    if (groupInstallationIds.length === 0 && tenantInstallations.length > 0) {
-      setGroupInstallationIds([installationId]);
-    }
-  }, [groupInstallationIds.length, tenantInstallations, installationId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -285,9 +277,12 @@ export function AccessControlListsManager({ installationId }: Props) {
     });
   };
 
-  const handleAssignSelectedToGroups = async () => {
+  const handleAssignSelectedToGroups = async (groupIdsOverride?: string[]) => {
     const entryIds = Array.from(selectedEntryIds);
-    const groupIds = Array.from(selectedGroupIds);
+    const groupIds =
+      Array.isArray(groupIdsOverride) && groupIdsOverride.length > 0
+        ? groupIdsOverride
+        : Array.from(selectedGroupIds);
     if (entryIds.length === 0 || groupIds.length === 0) {
       toast.error("Selecciona personas y al menos un grupo");
       return;
@@ -306,7 +301,9 @@ export function AccessControlListsManager({ installationId }: Props) {
         toast.success(`Asignaciones creadas: ${json.data.assigned}`);
         setShowAssignGroups(false);
         setSelectedGroupIds(new Set());
+        setSelectedEntryIds(new Set());
         await fetchList();
+        await fetchGroups();
       } else {
         toast.error(json.error || "Error al asignar");
       }
@@ -321,10 +318,6 @@ export function AccessControlListsManager({ installationId }: Props) {
       toast.error("Escribe un nombre de grupo");
       return;
     }
-    if (groupInstallationIds.length === 0) {
-      toast.error("Selecciona al menos una instalación");
-      return;
-    }
     setGroupSaving(true);
     try {
       const res = await fetch(`/api/access-control/groups/${installationId}`, {
@@ -334,7 +327,6 @@ export function AccessControlListsManager({ installationId }: Props) {
           listType: activeTab,
           name,
           description: groupDescription,
-          installationIds: groupInstallationIds,
         }),
       });
       const json = await res.json();
@@ -351,6 +343,61 @@ export function AccessControlListsManager({ installationId }: Props) {
       toast.error("Error al crear grupo");
     } finally {
       setGroupSaving(false);
+    }
+  };
+
+  const handleEditGroup = async () => {
+    if (!editingGroup) return;
+    const name = groupName.trim();
+    if (!name) {
+      toast.error("Escribe un nombre de grupo");
+      return;
+    }
+    setGroupSaving(true);
+    try {
+      const res = await fetch(`/api/access-control/groups/item/${editingGroup.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          installationId,
+          name,
+          description: groupDescription,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Grupo actualizado");
+        setEditingGroup(null);
+        setGroupName("");
+        setGroupDescription("");
+        await fetchGroups();
+      } else {
+        toast.error(json.error || "Error al editar grupo");
+      }
+    } catch {
+      toast.error("Error al editar grupo");
+    } finally {
+      setGroupSaving(false);
+    }
+  };
+
+  const handleDeleteGroup = async (groupId: string) => {
+    if (!confirm("¿Eliminar este grupo? (no borra personas, solo el grupo)")) return;
+    try {
+      const res = await fetch(
+        `/api/access-control/groups/item/${groupId}?installationId=${installationId}`,
+        { method: "DELETE" },
+      );
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Grupo eliminado");
+        await fetchGroups();
+        await fetchList();
+      } else {
+        toast.error(json.error || "Error al eliminar grupo");
+      }
+    } catch {
+      toast.error("Error al eliminar grupo");
     }
   };
 
@@ -421,9 +468,18 @@ export function AccessControlListsManager({ installationId }: Props) {
           disabled={selectedEntryIds.size === 0 || groups.length === 0}
         >
           <Layers3 className="mr-1 h-4 w-4" />
-          Asignar a grupos
+          Asignar seleccionados
         </Button>
-        <Button onClick={() => setShowCreateGroup(true)} variant="outline" size="sm">
+        <Button
+          onClick={() => {
+            setEditingGroup(null);
+            setGroupName("");
+            setGroupDescription("");
+            setShowCreateGroup(true);
+          }}
+          variant="outline"
+          size="sm"
+        >
           <Users className="mr-1 h-4 w-4" />
           Crear grupo
         </Button>
@@ -612,6 +668,63 @@ export function AccessControlListsManager({ installationId }: Props) {
         />
       )}
 
+      {/* Group catalog for current list type */}
+      <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <h4 className="text-sm font-medium text-zinc-200">
+            Grupos {activeTab === "whitelist" ? "de lista blanca" : "de lista negra"}
+          </h4>
+          <span className="text-xs text-zinc-500">{groups.length} grupo(s)</span>
+        </div>
+        {groups.length === 0 ? (
+          <p className="text-xs text-zinc-500">Aún no hay grupos creados para este tipo de lista.</p>
+        ) : (
+          <div className="space-y-2">
+            {groups.map((g) => (
+              <div key={g.id} className="rounded border border-zinc-700 bg-zinc-800 px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-zinc-200 truncate">{g.name}</p>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingGroup(g);
+                        setGroupName(g.name);
+                        setGroupDescription(g.description ?? "");
+                      }}
+                      className="rounded p-1 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
+                      title="Editar grupo"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteGroup(g.id)}
+                      className="rounded p-1 text-zinc-400 hover:bg-zinc-700 hover:text-status-danger-fg"
+                      title="Eliminar grupo"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+                <p className="mt-1 text-xs text-zinc-500">
+                  {(g._count?.memberLinks ?? 0)} personas
+                </p>
+                {selectedEntryIds.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleAssignSelectedToGroups([g.id])}
+                    className="mt-2 text-xs text-status-info-fg hover:underline"
+                  >
+                    Asignar {selectedEntryIds.size} seleccionada(s) a este grupo
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* List */}
       {loading ? (
         <div className="flex items-center justify-center py-8">
@@ -631,9 +744,7 @@ export function AccessControlListsManager({ installationId }: Props) {
             >
               {allVisibleSelected ? "Deseleccionar visibles" : "Seleccionar visibles"}
             </button>
-            <span className="text-[11px] text-zinc-500">
-              Grupos activos: {groups.length}
-            </span>
+            <span className="text-xs text-zinc-500">Selecciona personas y asigna a grupos</span>
           </div>
           {filtered.map((entry) => (
             <div
@@ -728,40 +839,6 @@ export function AccessControlListsManager({ installationId }: Props) {
         </div>
       )}
 
-      {/* Group catalog for current list type */}
-      <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-3">
-        <div className="mb-2 flex items-center justify-between">
-          <h4 className="text-sm font-medium text-zinc-200">
-            Grupos {activeTab === "whitelist" ? "de lista blanca" : "de lista negra"}
-          </h4>
-          <span className="text-xs text-zinc-500">{groups.length} grupo(s)</span>
-        </div>
-        {groups.length === 0 ? (
-          <p className="text-xs text-zinc-500">Aún no hay grupos creados para este tipo de lista.</p>
-        ) : (
-          <div className="space-y-2">
-            {groups.map((g) => (
-              <div key={g.id} className="rounded border border-zinc-700 bg-zinc-800 px-3 py-2">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-zinc-200 truncate">{g.name}</p>
-                  <span className="text-[11px] text-zinc-500">
-                    {(g._count?.memberLinks ?? 0)} personas · {(g._count?.installationLinks ?? 0)} instalaciones
-                  </span>
-                </div>
-                {(g.installationLinks ?? []).length > 0 && (
-                  <p className="mt-1 text-[11px] text-zinc-500 truncate">
-                    {(g.installationLinks ?? [])
-                      .map((l) => l.installation?.name)
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
       {showAssignGroups && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-md rounded-xl border border-zinc-700 bg-zinc-900 p-4">
@@ -836,23 +913,10 @@ export function AccessControlListsManager({ installationId }: Props) {
                 />
               </div>
               <div>
-                <Label className="text-zinc-400">Instalaciones asociadas</Label>
-                <div className="mt-1 max-h-40 space-y-1 overflow-y-auto rounded border border-zinc-700 p-2">
-                  {tenantInstallations.map((i) => (
-                    <label key={i.id} className="flex items-center gap-2 rounded px-2 py-1 hover:bg-zinc-800">
-                      <input
-                        type="checkbox"
-                        checked={groupInstallationIds.includes(i.id)}
-                        onChange={() =>
-                          setGroupInstallationIds((prev) =>
-                            prev.includes(i.id) ? prev.filter((x) => x !== i.id) : [...prev, i.id],
-                          )
-                        }
-                      />
-                      <span className="text-sm text-zinc-200">{i.name}</span>
-                    </label>
-                  ))}
-                </div>
+                <Label className="text-zinc-400">Alcance del grupo</Label>
+                <p className="mt-1 rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs text-zinc-300">
+                  Este grupo quedará asociado solo a la instalación actual para evitar mezcla de datos entre clientes.
+                </p>
               </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">
@@ -862,6 +926,46 @@ export function AccessControlListsManager({ installationId }: Props) {
               <Button size="sm" onClick={handleCreateGroup} disabled={groupSaving}>
                 {groupSaving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                 Crear grupo
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingGroup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-zinc-700 bg-zinc-900 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="text-sm font-medium text-zinc-200">Editar grupo</h4>
+              <button onClick={() => setEditingGroup(null)} className="text-zinc-500 hover:text-zinc-300">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <Label className="text-zinc-400">Nombre del grupo</Label>
+                <Input
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  className="bg-zinc-800 border-zinc-600"
+                />
+              </div>
+              <div>
+                <Label className="text-zinc-400">Descripción (opcional)</Label>
+                <Input
+                  value={groupDescription}
+                  onChange={(e) => setGroupDescription(e.target.value)}
+                  className="bg-zinc-800 border-zinc-600"
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setEditingGroup(null)}>
+                Cancelar
+              </Button>
+              <Button size="sm" onClick={handleEditGroup} disabled={groupSaving}>
+                {groupSaving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                Guardar cambios
               </Button>
             </div>
           </div>

@@ -24,43 +24,31 @@ export async function GET(
       },
     };
 
-    const [groups, installations] = await Promise.all([
-      safeAccessControlQuery(
-        () =>
-          prisma.accessControlListGroup.findMany({
-            where,
-            orderBy: [{ listType: "asc" }, { name: "asc" }],
-            include: {
-              installationLinks: {
-                include: {
-                  installation: {
-                    select: { id: true, name: true },
-                  },
+    const groups = await safeAccessControlQuery(
+      () =>
+        prisma.accessControlListGroup.findMany({
+          where,
+          orderBy: [{ listType: "asc" }, { name: "asc" }],
+          include: {
+            installationLinks: {
+              include: {
+                installation: {
+                  select: { id: true, name: true },
                 },
               },
-              _count: {
-                select: { memberLinks: true, installationLinks: true },
-              },
             },
-          }),
-        [],
-      ),
-      safeAccessControlQuery(
-        () =>
-          prisma.crmInstallation.findMany({
-            where: { tenantId: authCtx.tenantId, isActive: true },
-            select: { id: true, name: true },
-            orderBy: { name: "asc" },
-          }),
-        [],
-      ),
-    ]);
+            _count: {
+              select: { memberLinks: true, installationLinks: true },
+            },
+          },
+        }),
+      [],
+    );
 
     return NextResponse.json({
       success: true,
       data: {
         groups: groups ?? [],
-        installations: installations ?? [],
       },
     });
   } catch (error) {
@@ -87,7 +75,6 @@ export async function POST(
       listType?: "whitelist" | "blacklist";
       name?: string;
       description?: string;
-      installationIds?: string[];
       entryIds?: string[];
     };
     const listType = body.listType;
@@ -99,14 +86,10 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Nombre requerido" }, { status: 400 });
     }
 
-    const requestedInstallationIds =
-      Array.isArray(body.installationIds) && body.installationIds.length > 0
-        ? Array.from(new Set(body.installationIds))
-        : [installationId];
     const validInstallations = await prisma.crmInstallation.findMany({
       where: {
         tenantId: authCtx.tenantId,
-        id: { in: requestedInstallationIds },
+        id: installationId,
       },
       select: { id: true },
     });
@@ -128,7 +111,7 @@ export async function POST(
           name,
           description: body.description?.trim() || null,
           installationLinks: {
-            create: validInstallationIds.map((id) => ({ installationId: id })),
+            create: [{ installationId }],
           },
         },
       });

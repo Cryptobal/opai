@@ -15,7 +15,11 @@ async function authorizeByInstallation(
     return { error: "No autorizado", authCtx: null as null };
   }
   const group = await prisma.accessControlListGroup.findFirst({
-    where: { id: groupId, tenantId: authCtx.tenantId },
+    where: {
+      id: groupId,
+      tenantId: authCtx.tenantId,
+      installationLinks: { some: { installationId } },
+    },
     select: { id: true, tenantId: true },
   });
   if (!group) {
@@ -35,9 +39,8 @@ export async function PUT(
       name?: string;
       description?: string | null;
       isActive?: boolean;
-      installationIds?: string[];
     };
-    const { error, authCtx } = await authorizeByInstallation(
+    const { error } = await authorizeByInstallation(
       request,
       body.installationId ?? null,
       groupId,
@@ -58,29 +61,9 @@ export async function PUT(
     if ("description" in body) updateData.description = body.description?.trim() || null;
     if (typeof body.isActive === "boolean") updateData.isActive = body.isActive;
 
-    const result = await prisma.$transaction(async (tx) => {
-      if (Array.isArray(body.installationIds)) {
-        const validInstallations = await tx.crmInstallation.findMany({
-          where: {
-            tenantId: authCtx!.tenantId,
-            id: { in: body.installationIds },
-          },
-          select: { id: true },
-        });
-        const validIds = validInstallations.map((i) => i.id);
-        await tx.accessControlListGroupInstallation.deleteMany({ where: { groupId } });
-        if (validIds.length > 0) {
-          await tx.accessControlListGroupInstallation.createMany({
-            data: validIds.map((id) => ({ groupId, installationId: id })),
-            skipDuplicates: true,
-          });
-        }
-      }
-
-      return tx.accessControlListGroup.update({
-        where: { id: groupId },
-        data: updateData,
-      });
+    const result = await prisma.accessControlListGroup.update({
+      where: { id: groupId },
+      data: updateData,
     });
 
     return NextResponse.json({ success: true, data: result });
