@@ -178,11 +178,11 @@ export async function findCpqQuoteIdsBySearch(params: {
   const pattern = `%${query}%`;
   const extraDealsCond =
     extraDealIds && extraDealIds.length > 0
-      ? Prisma.sql`OR q.deal_id IN (${Prisma.join(extraDealIds)})`
+      ? Prisma.sql`OR q.deal_id IN (${Prisma.join(extraDealIds.map((id) => Prisma.sql`${id}::uuid`), ", ")})`
       : Prisma.empty;
   const extraQuotesCond =
     extraQuoteIds && extraQuoteIds.length > 0
-      ? Prisma.sql`OR q.id IN (${Prisma.join(extraQuoteIds)})`
+      ? Prisma.sql`OR q.id IN (${Prisma.join(extraQuoteIds.map((id) => Prisma.sql`${id}::uuid`), ", ")})`
       : Prisma.empty;
   return fetchIds(Prisma.sql`
     SELECT q.id
