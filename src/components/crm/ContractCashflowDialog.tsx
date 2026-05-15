@@ -64,6 +64,10 @@ export function ContractCashflowDialog({
   const [removing, setRemoving] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [hadLink, setHadLink] = useState(false);
+  // Id del item cargado del backend. Se manda en el PUT cuando
+  // estamos editando (Bloque 5 Fase 2) — sin esto el backend
+  // crearía un duplicado en lugar de actualizar.
+  const [loadedItemId, setLoadedItemId] = useState<string | null>(null);
   const [installationId, setInstallationId] = useState<string>("");
   const [monthlyAmount, setMonthlyAmount] = useState<string>("");
   const [currency, setCurrency] = useState<"CLP" | "UF">("CLP");
@@ -90,6 +94,7 @@ export function ContractCashflowDialog({
       if (cashflow && cashflow.isActive) {
         setEnabled(true);
         setHadLink(true);
+        setLoadedItemId(cashflow.id ?? null);
         setInstallationId(cashflow.installationId ?? "");
         setMonthlyAmount(fmt.format(cashflow.amountClp));
         setCurrency(cashflow.currency === "UF" ? "UF" : "CLP");
@@ -110,6 +115,7 @@ export function ContractCashflowDialog({
         // Defaults para link nuevo: heredamos las fechas del contrato.
         setEnabled(false);
         setHadLink(false);
+        setLoadedItemId(null);
         setInstallationId("");
         setMonthlyAmount("");
         setCurrency("CLP");
@@ -171,6 +177,10 @@ export function ContractCashflowDialog({
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            // Si estamos editando un item cargado, mandamos su id
+            // para que el backend haga UPDATE — sin esto crearía un
+            // duplicado (Bloque 5 Fase 2).
+            ...(loadedItemId && { itemId: loadedItemId }),
             installationId: installationId || null,
             monthlyAmount: amt,
             currency,

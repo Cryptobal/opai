@@ -982,6 +982,14 @@ export function AccountContractsSection({
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            // Si el modal se abrió en modo EDITAR (cfDialog.itemId
+            // presente), mandamos el id para que el backend haga
+            // UPDATE de ese item específico. Sin esto, el backend
+            // crea un nuevo item — correcto para "Agregar otra
+            // instalación" pero rompía la edición de un item
+            // existente cuando había varios items con la misma
+            // installationId (Bloque 5 Fase 2).
+            ...(cfDialog.itemId && { itemId: cfDialog.itemId }),
             installationId: cfInstallId || null,
             monthlyAmount: amt,
             currency: cfCurrency,

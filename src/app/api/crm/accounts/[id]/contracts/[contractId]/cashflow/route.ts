@@ -23,6 +23,19 @@ import { prisma } from "@/lib/prisma";
  */
 
 const upsertSchema = z.object({
+  /**
+   * Si está presente, se hace UPDATE de ese item específico. Si está
+   * ausente, se CREA un item nuevo. Permite múltiples items con la
+   * misma installationId (caso de cliente con varios ciclos de cobro
+   * por la misma instalación — ej. Transmat con dos contratos en la
+   * misma instalación pero con monto/calendario distintos).
+   *
+   * Antes de Bloque 5 Fase 2 el upsert buscaba existing por
+   * (sourceRefId, installationId), asumiendo "1 item por
+   * contrato-instalación", lo que sobrescribía el monto del primero
+   * cuando había dos items con la misma instalación.
+   */
+  itemId: z.string().uuid().optional(),
   installationId: z.string().uuid().nullable().optional(),
   /// Monto mensual en la moneda especificada en `currency` (CLP o UF). Si
   /// UF, el valor se persiste tal cual (ej. 117.94) y la conversión a CLP
@@ -46,6 +59,19 @@ const upsertSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD")
     .nullable()
     .optional(),
+  // ── Bloque 5 Fase 1 — Calendario de cobro por contrato ──
+  // Aceptados acá para que el form individual del item (Fase 3) pueda
+  // persistirlos. Si no vienen, se mantiene el default de la DB o el
+  // valor previo del item.
+  nickname: z.string().max(100).nullable().optional(),
+  emiteProforma: z.boolean().optional(),
+  diaEmisionProforma: z.number().int().min(-1).max(31).nullable().optional(),
+  diasFacturaDesdeProforma: z.number().int().min(0).max(60).nullable().optional(),
+  diaEmisionFactura: z.number().int().min(-1).max(31).nullable().optional(),
+  mesFacturaRelativo: z.enum(["MISMO_MES", "MES_SIGUIENTE"]).optional(),
+  modoCobro: z.enum(["DIRECTO", "FACTORING"]).optional(),
+  diasCobroDesdeFactura: z.number().int().min(0).max(180).optional(),
+  costoFactoringPct: z.number().min(0).max(20).nullable().optional(),
 });
 
 async function loadContractAndCheck(
@@ -191,19 +217,45 @@ export async function PUT(
     data.paymentDay === -1 ? -1 : Math.min(Math.max(data.paymentDay, 1), 28);
   const installationId = data.installationId ?? null;
 
-  // Busca el item existente filtrando por sourceRefId Y installationId.
-  // Esto permite múltiples items por contrato (uno por instalación):
-  //   installationId=null  → item "global" del contrato (sin instalación)
-  //   installationId="uuid" → item de esa instalación específica
-  const existing = await prisma.financeCashflowItem.findFirst({
-    where: {
-      tenantId: ctx.tenantId,
-      source: { in: ["CONTRACT", "OTHER"] },
-      sourceRefId: contractId,
-      installationId: installationId ?? null,
-    },
-    select: { id: true },
-  });
+  // Lookup del item a editar (Bloque 5 Fase 2).
+  //
+  // - Si el frontend manda `itemId`: editamos ESE item específico.
+  //   Esto es lo que permite múltiples items con la misma
+  //   installationId — sin esto, el lookup por (sourceRefId,
+  //   installationId) asumía "1 item por contrato-instalación" y
+  //   sobrescribía el monto del existente.
+  //
+  // - Si el frontend NO manda `itemId`: es CREACIÓN de un nuevo item.
+  //   No buscamos existing — pasamos directo a create.
+  //
+  // Nota de compatibilidad: el frontend ya pasaba a guardar el
+  // `itemId` del item editado en el state (`cfDialog.itemId`) — antes
+  // de Fase 2 simplemente no lo mandaba en el body. Form viejo
+  // (sin itemId en el body) → branch "no hay itemId → crear nuevo".
+  // Decisión: cortar limpio en lugar de mantener el findFirst como
+  // fallback, porque ese fallback re-introduce el bug de
+  // sobre-escritura.
+  let existing: { id: string } | null = null;
+  if (data.itemId) {
+    existing = await prisma.financeCashflowItem.findFirst({
+      where: {
+        id: data.itemId,
+        tenantId: ctx.tenantId,
+        source: { in: ["CONTRACT", "OTHER"] },
+        sourceRefId: contractId,
+      },
+      select: { id: true },
+    });
+    if (!existing) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Item no encontrado o no pertenece al contrato",
+        },
+        { status: 404 },
+      );
+    }
+  }
 
   const itemData = {
     tenantId: ctx.tenantId,
@@ -238,6 +290,33 @@ export async function PUT(
       data.currency === "CLP" && data.hasIpcAdjustment && data.ipcStartDate
         ? new Date(data.ipcStartDate)
         : null,
+    // ── Bloque 5 Fase 1 — Calendario de cobro por contrato ──
+    // Sólo seteamos los campos que el frontend mandó explícitamente.
+    // Si no vienen (form viejo), el item conserva su valor previo en
+    // el UPDATE o queda con el default de la DB en el CREATE.
+    ...(data.nickname !== undefined && { nickname: data.nickname }),
+    ...(data.emiteProforma !== undefined && {
+      emiteProforma: data.emiteProforma,
+    }),
+    ...(data.diaEmisionProforma !== undefined && {
+      diaEmisionProforma: data.diaEmisionProforma,
+    }),
+    ...(data.diasFacturaDesdeProforma !== undefined && {
+      diasFacturaDesdeProforma: data.diasFacturaDesdeProforma,
+    }),
+    ...(data.diaEmisionFactura !== undefined && {
+      diaEmisionFactura: data.diaEmisionFactura,
+    }),
+    ...(data.mesFacturaRelativo !== undefined && {
+      mesFacturaRelativo: data.mesFacturaRelativo,
+    }),
+    ...(data.modoCobro !== undefined && { modoCobro: data.modoCobro }),
+    ...(data.diasCobroDesdeFactura !== undefined && {
+      diasCobroDesdeFactura: data.diasCobroDesdeFactura,
+    }),
+    ...(data.costoFactoringPct !== undefined && {
+      costoFactoringPct: data.costoFactoringPct,
+    }),
   };
 
   let itemId: string;
