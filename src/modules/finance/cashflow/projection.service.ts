@@ -1038,6 +1038,13 @@ export async function buildProjection(
       // Excluimos NC/ND (56/61): ajustan al DTE original, no son flujo
       // independiente (mismo criterio que dte-issuer al llamar al matcher).
       dteType: { notIn: [56, 61] },
+      // Excluir facturas con NC viva sobre ellas: si fueron anuladas
+      // (CodRef=1) o acreditadas parcial (CodRef=3), salen del flujo.
+      // El usuario emite manualmente una factura nueva por el saldo
+      // si quiere reflejar el resto. Estado de resultados / libro IVA
+      // siguen viendo el original con la NC restando vía sales-aggregator.
+      voidedByCreditNoteId: null,
+      creditedNetAmount: 0,
       id: linkedDteIds.size > 0 ? { notIn: Array.from(linkedDteIds) } : undefined,
     },
     select: {
