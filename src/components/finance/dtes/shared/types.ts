@@ -79,6 +79,19 @@ export interface DteRow {
     creditedNet: number;
     primaryFolio: number;
   } | null;
+  /**
+   * NC con CodRef=1 que acreditó este DTE. Cuando está seteado: la factura
+   * sale del flujo de caja y de cobranzas. Persistido en el DTE original
+   * al emitir la NC (no derivado de un JOIN).
+   */
+  voidedByCreditNoteId?: string | null;
+  voidedAt?: string | null;
+  /**
+   * Suma de los netos de NCs CodRef=3 vivas sobre este DTE. > 0 cuando hay
+   * al menos una NC parcial; la factura sale del flujo de caja y cobranzas.
+   * Llega como string desde Prisma (Decimal serializado) o number.
+   */
+  creditedNetAmount?: number | string;
 }
 
 export type CostCenterOption = { id: string; name: string; legalName: string | null };
