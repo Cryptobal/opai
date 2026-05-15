@@ -306,6 +306,12 @@ function templateToDraftInput(
     // más abajo en `runTemplate` para enviarlos en el acto.
     requireProforma: t.autoSendProforma,
     requireEstadoPago: t.autoSendPaymentStatement,
+    // Los mismos contactos se usan como destinatarios de Proforma Y
+    // Estado de Pago. Decisión de diseño: simplificar la plantilla (una
+    // sola lista) vs flexibilidad post-creación del DTE (donde sí se
+    // pueden separar manualmente en el form de DTE).
+    proformaRecipientContactIds: t.recipientContactIds ?? [],
+    estadoPagoRecipientContactIds: t.recipientContactIds ?? [],
   };
 }
 
@@ -499,6 +505,20 @@ export async function runTemplate(tenantId: string, templateId: string) {
     const autoSendVariants: BillingDocVariant[] = [];
     if (template.autoSendProforma) autoSendVariants.push("PROFORMA");
     if (template.autoSendPaymentStatement) autoSendVariants.push("ESTADO_DE_PAGO");
+
+    // Guard de compat: si la plantilla tiene autoSend activo pero quedó
+    // sin contactos (plantillas pre-migración o caso edge), avisar en logs
+    // y saltar el envío. El borrador queda creado y la UI mostrará el
+    // badge "Proforma pendiente" para que el usuario reenvíe manualmente.
+    if (autoSendVariants.length > 0) {
+      const recipients = template.recipientContactIds ?? [];
+      if (recipients.length === 0) {
+        console.warn(
+          `[finance/recurring] Plantilla ${template.id} (${template.name}) tiene autoSendProforma/Estado Pago activos pero recipientContactIds está vacío. Saltando envío automático. Editá la plantilla y agregá contactos.`,
+        );
+        autoSendVariants.length = 0;
+      }
+    }
     for (const variant of autoSendVariants) {
       try {
         const result = await sendBillingDocument(tenantId, {
