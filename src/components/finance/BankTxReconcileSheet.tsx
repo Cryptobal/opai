@@ -1173,6 +1173,115 @@ export function BankTxReconcileSheet({
         {/* Content */}
         {tab === "compare" && (
           <div className="mt-4 space-y-4">
+            {/* Sugerencia destacada: la cesión con mayor confidence se
+                renderiza prominente sobre el search para que el usuario no
+                la confunda con los DTEs del listado. Aparece solo en modo
+                crear/editar y cuando hay ≥1 cesión con confidence ≥ 90.
+                Si está seleccionada, el banner cambia a estado OK. Si el
+                expectedDeposit del PDF supera el monto del banco se
+                advierte la merma (queda sin imputar contablemente — el
+                manejo de ese costo se agrega en PR2). */}
+            {(() => {
+              const topSuggested = factoringCandidates.find(
+                (c) => c.isSuggested,
+              );
+              if (!topSuggested) return null;
+              const isSelected = links.some(
+                (l) => l.key === topSuggested.id,
+              );
+              const merma = topSuggested.expectedDeposit - txAmountAbs;
+              const hasMerma = merma > 1;
+              return (
+                <div
+                  className={cn(
+                    "rounded-lg border-2 p-4 transition-colors",
+                    isSelected
+                      ? "border-status-ok-border bg-status-ok-soft/30"
+                      : "border-primary/60 bg-primary/[0.06]",
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="shrink-0 pt-0.5">
+                      {isSelected ? (
+                        <CheckCircle2 className="h-5 w-5 text-status-ok-fg" />
+                      ) : (
+                        <Layers className="h-5 w-5 text-primary" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="brand" className="text-xs">
+                          Sugerencia · {topSuggested.confidence}% coincidencia
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {topSuggested.factoringCompanyName}
+                        </Badge>
+                        {topSuggested.expectedDepositSource ===
+                        "simulation" ? (
+                          <Badge
+                            variant="outline"
+                            className="text-xs bg-status-ok-soft text-status-ok-fg border-status-ok-border"
+                          >
+                            desde PDF
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">
+                          Cesión {topSuggested.code}
+                          {topSuggested.dteFolio
+                            ? ` · Factura ${topSuggested.dteFolio}`
+                            : ""}
+                        </p>
+                        {topSuggested.dteReceiverName ? (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {topSuggested.dteReceiverName}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="text-xs text-muted-foreground">
+                          Cedida{" "}
+                          {format(
+                            new Date(topSuggested.fechaCesion),
+                            "dd MMM yyyy",
+                            { locale: es },
+                          )}
+                          {" · Esperado "}
+                          <span className="font-mono text-foreground">
+                            {fmtCLP.format(topSuggested.expectedDeposit)}
+                          </span>
+                        </div>
+                        {!isSelected ? (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => toggleFactoring(topSuggested)}
+                            className="shrink-0"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                            Usar esta cesión
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-status-ok-fg font-medium">
+                            Seleccionada · revisá el monto abajo
+                          </span>
+                        )}
+                      </div>
+                      {hasMerma ? (
+                        <p className="text-xs text-status-warn-fg bg-status-warn-soft/40 border border-status-warn-border rounded px-2 py-1">
+                          El banco trajo {fmtCLP.format(merma)} menos que el
+                          PDF. Hoy la merma queda sin imputar contablemente
+                          al conciliar la cesión — se contabilizará desde la
+                          próxima versión.
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div>
               <div className="flex items-center justify-between gap-2 mb-2">
                 <p className="text-xs font-mono uppercase tracking-[0.08em] text-muted-foreground">
