@@ -116,7 +116,7 @@ export function IssuedDtesTable({
           ariaLabel="Seleccionar todos"
         />
       ),
-      width: "w-10",
+      width: "w-9",
       cell: (row) => (
         <input
           type="checkbox"
@@ -131,8 +131,9 @@ export function IssuedDtesTable({
     {
       id: "date",
       header: "Fecha",
+      width: "w-[88px]",
       cell: (row) => (
-        <span className="text-ds-text-3 text-xs">
+        <span className="text-ds-text-3 text-xs font-mono tabular-nums">
           {row.date
             ? formatCalendarDateDisplay(row.date, "dd MMM yyyy", es)
             : format(new Date(row.createdAt), "dd MMM yyyy", { locale: es })}
@@ -142,15 +143,17 @@ export function IssuedDtesTable({
     {
       id: "dteType",
       header: "Tipo",
+      width: "w-[96px]",
       cell: (row) => <DocumentTag dteType={row.dteType} />,
     },
     {
       id: "folio",
       header: "Folio",
+      width: "w-[132px]",
       cell: (row) => (
-        <div className="space-y-1">
-          <div className="flex items-center gap-1.5">
-            <span className="font-mono text-xs">
+        <div className="min-w-0 space-y-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-mono tabular-nums text-xs">
               {row.siiStatus === "DRAFT" ? "—" : row.folio}
             </span>
             {row.activeCession && (
@@ -159,28 +162,21 @@ export function IssuedDtesTable({
                 factoringName={row.activeCession.factoringCompany}
               />
             )}
+            {row.linkedCreditNote && (
+              <LinkedNoteBadge
+                count={row.linkedCreditNote.count}
+                hasFullAnnulment={row.linkedCreditNote.hasFullAnnulment}
+                primaryFolio={row.linkedCreditNote.primaryFolio}
+                creditedNet={row.linkedCreditNote.creditedNet}
+              />
+            )}
           </div>
-          {row.activeCession?.factoringCompany && (
-            <div
-              className="text-[11px] text-violet-300/90 truncate"
-              title={row.activeCession.factoringCompany}
-            >
-              Cedido a {row.activeCession.factoringCompany}
-            </div>
-          )}
-          {row.linkedCreditNote && (
-            <LinkedNoteBadge
-              count={row.linkedCreditNote.count}
-              hasFullAnnulment={row.linkedCreditNote.hasFullAnnulment}
-              primaryFolio={row.linkedCreditNote.primaryFolio}
-              creditedNet={row.linkedCreditNote.creditedNet}
-            />
-          )}
           {row.referenceFolio != null && row.referenceType != null && (
             <RelationRow
-              referenceCode={row.referenceType === 56 || row.referenceType === 61 ? null : null}
+              referenceCode={null}
               referenceFolio={row.referenceFolio}
               referenceType={row.referenceType}
+              compact
             />
           )}
         </div>
@@ -189,28 +185,34 @@ export function IssuedDtesTable({
     {
       id: "receiverName",
       header: "Receptor",
+      width: "w-[236px]",
       cell: (row) => {
-        // Mostrar también el nombre de la cuenta CRM (nombre de fantasía)
-        // si difiere de la razón social emitida en el DTE. Permite que la
-        // búsqueda y el reconocimiento visual funcione tanto con
-        // "ANDALUZA DE MONTAJES..." como con "Ametel".
-        const accountName = row.crmAccount?.name;
-        const showFantasy =
-          accountName &&
-          accountName.trim().toLowerCase() !==
-            row.receiverName.trim().toLowerCase();
+        // Receptor: nombre de fantasía (CRM) primero, razón social después,
+        // RUT al pie. Cuando no hay nombre de fantasía o coincide con la
+        // razón social, mostramos solo la razón social como `primary`.
+        const fantasyName = row.crmAccount?.name?.trim() || null;
+        const legalName = row.receiverName?.trim() || "";
+        const sameName =
+          fantasyName && fantasyName.toLowerCase() === legalName.toLowerCase();
+        const primary = fantasyName && !sameName ? fantasyName : legalName;
+        const secondary = fantasyName && !sameName ? legalName : null;
         return (
-          <div>
-            <div className="text-sm">{row.receiverName}</div>
-            {showFantasy ? (
+          <div className="min-w-0">
+            <div
+              className="text-sm font-medium text-ds-text-1 truncate"
+              title={primary}
+            >
+              {primary}
+            </div>
+            {secondary && (
               <div
                 className="text-xs text-ds-text-3 truncate"
-                title={accountName}
+                title={secondary}
               >
-                {accountName}
+                {secondary}
               </div>
-            ) : null}
-            <div className="text-xs text-ds-text-4 font-mono">
+            )}
+            <div className="text-xs text-ds-text-4 font-mono tabular-nums truncate">
               {row.receiverRut}
             </div>
           </div>
@@ -221,6 +223,7 @@ export function IssuedDtesTable({
       id: "totalAmount",
       header: "Total",
       align: "right",
+      width: "w-[120px]",
       cell: (row) => {
         const isAnnulled =
           row.siiStatus === "ANNULLED" ||
@@ -228,7 +231,7 @@ export function IssuedDtesTable({
         return (
           <span
             className={cn(
-              "font-medium",
+              "font-medium font-mono tabular-nums",
               isAnnulled && "text-ds-text-3 line-through",
             )}
           >
@@ -243,6 +246,7 @@ export function IssuedDtesTable({
       // existe un FinancePaymentRecord asociado a la cartola (post 2026-05).
       id: "payment",
       header: "Pago",
+      width: "w-[128px]",
       cell: (row) => (
         <DtePaymentTag
           paymentStatus={row.paymentStatus}
@@ -254,6 +258,7 @@ export function IssuedDtesTable({
     {
       id: "siiStatus",
       header: "Estado SII",
+      width: "w-[120px]",
       cell: (row) => (
         <div className="flex items-center gap-1.5 flex-wrap">
           <SiiStatusPill siiStatus={row.siiStatus} />
@@ -272,6 +277,7 @@ export function IssuedDtesTable({
       id: "emailStatus",
       header: "Email",
       align: "center",
+      width: "w-[52px]",
       cell: (row) => {
         if (row.emailSentAt) {
           return (
@@ -304,6 +310,7 @@ export function IssuedDtesTable({
       // se deriva de la cuenta y la instalación asociadas al emitir.
       id: "centroCosto",
       header: "Cliente / Instalación",
+      width: "w-[176px]",
       cell: (row) => {
         if (!row.crmAccount) {
           return (
@@ -315,11 +322,11 @@ export function IssuedDtesTable({
         // el contrato asociado. stopPropagation evita disparar el click
         // del row si el contenedor lo tuviera más adelante.
         return (
-          <div className="text-xs space-y-0.5">
+          <div className="min-w-0 text-xs space-y-0.5">
             <Link
               href={`/crm/accounts/${row.crmAccount.id}?tab=contracts`}
               onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1 truncate hover:underline focus-visible:underline outline-none"
+              className="flex items-center gap-1 min-w-0 hover:underline focus-visible:underline outline-none"
               title={`Ver ficha de ${row.crmAccount.name}`}
             >
               <Building className="h-3 w-3 shrink-0 text-ds-text-4" />
@@ -329,10 +336,10 @@ export function IssuedDtesTable({
             </Link>
             {row.installation && (
               <div
-                className="flex items-center gap-1 truncate text-ds-text-3"
+                className="flex items-center gap-1 min-w-0 text-ds-text-3"
                 title={row.installation.name}
               >
-                <MapPin className="h-3 w-3 shrink-0" />
+                <MapPin className="h-3 w-3 shrink-0 text-ds-text-4" />
                 <span className="truncate">{row.installation.name}</span>
               </div>
             )}
@@ -343,7 +350,7 @@ export function IssuedDtesTable({
     {
       id: "_actions",
       header: "",
-      width: "w-24",
+      width: "w-[84px]",
       cell: (row) => (
         <div className="flex items-center justify-end gap-1">
           <button
@@ -399,6 +406,7 @@ export function IssuedDtesTable({
     <DataTable<DteRow>
       columns={columns}
       rows={rows}
+      layout="fixed"
       rowKey={(row) => row.id}
       rowVariant={(row) =>
         row.siiStatus === "ANNULLED" ||

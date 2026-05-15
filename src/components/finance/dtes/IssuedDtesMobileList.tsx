@@ -38,8 +38,8 @@ import {
   Send,
   Trash2,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Surface } from "@/components/opai-ds";
 import { cn, formatCLP } from "@/lib/utils";
 import { DteAgingBadge } from "../DteAgingBadge";
 import { DocumentTag } from "./DocumentTag";
@@ -308,26 +308,38 @@ export function IssuedDtesMobileList({
 
   return (
     <>
-      <div className="space-y-2">
+      <ul className="space-y-2 ds-list-cascade">
         {rows.map((d) => {
           const isDraftRow = d.siiStatus === "DRAFT";
           const isAnnulled =
             d.siiStatus === "ANNULLED" ||
             d.linkedCreditNote?.hasFullAnnulment === true;
           const isSelected = selectedIds.has(d.id);
+          // Receptor: nombre de fantasía (CRM) primero, razón social
+          // después, RUT al pie. Mismo orden que desktop.
+          const fantasyName = d.crmAccount?.name?.trim() || null;
+          const legalName = d.receiverName?.trim() || "";
+          const sameName =
+            fantasyName && fantasyName.toLowerCase() === legalName.toLowerCase();
+          const primaryName = fantasyName && !sameName ? fantasyName : legalName;
+          const secondaryName = fantasyName && !sameName ? legalName : null;
           return (
-            <Card
-              key={d.id}
-              className={cn(
-                "cursor-pointer hover:bg-ds-surface-2 transition-colors border-l-[3px]",
-                d.activeCession ? "border-l-violet-500" : "border-l-transparent",
-                isSelected && "ring-2 ring-primary/40",
-              )}
-              onClick={() =>
-                isDraftRow ? onEditDraft(d.id) : onViewDetail(d.id)
-              }
-            >
-              <CardContent className="p-4">
+            <li key={d.id}>
+              <Surface
+                elevation={1}
+                padding="sm"
+                tappable
+                selected={isSelected}
+                className={cn(
+                  "relative",
+                  d.activeCession && [
+                    "before:absolute before:left-0 before:top-3 before:bottom-3 before:w-[3px] before:rounded-r before:bg-tint-violet-fg/60",
+                  ],
+                )}
+                onClick={() =>
+                  isDraftRow ? onEditDraft(d.id) : onViewDetail(d.id)
+                }
+              >
                 <div className="flex items-start gap-2.5">
                   {selectionMode && (
                     <input
@@ -344,7 +356,7 @@ export function IssuedDtesMobileList({
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                      <span className="text-xs font-mono text-ds-text-3 shrink-0">
+                      <span className="text-xs font-mono tabular-nums text-ds-text-3 shrink-0">
                         {d.date
                           ? formatCalendarDateDisplay(d.date, "dd MMM yyyy", es)
                           : format(new Date(d.createdAt), "dd MMM yyyy", {
@@ -353,7 +365,7 @@ export function IssuedDtesMobileList({
                       </span>
                       <DocumentTag dteType={d.dteType} />
                       {!isDraftRow && (
-                        <span className="font-mono text-xs text-ds-text-2">
+                        <span className="font-mono tabular-nums text-xs text-ds-text-2">
                           #{d.folio}
                         </span>
                       )}
@@ -374,14 +386,6 @@ export function IssuedDtesMobileList({
                       )}
                       <span className="ml-auto inline-flex">{emailIcon(d)}</span>
                     </div>
-                    {d.activeCession?.factoringCompany && (
-                      <p
-                        className="text-[11px] text-violet-300/90 mb-1 truncate"
-                        title={d.activeCession.factoringCompany}
-                      >
-                        Cedido a {d.activeCession.factoringCompany}
-                      </p>
-                    )}
                     {d.linkedCreditNote && (
                       <div className="mb-1">
                         <LinkedNoteBadge
@@ -402,22 +406,26 @@ export function IssuedDtesMobileList({
                         />
                       </div>
                     )}
-                    <p className="font-medium text-sm text-ds-text-1">
-                      {d.receiverName}
-                    </p>
-                    {d.crmAccount?.name &&
-                    d.crmAccount.name.trim().toLowerCase() !==
-                      d.receiverName.trim().toLowerCase() ? (
+                    {fantasyName && !sameName ? (
                       <Link
-                        href={`/crm/accounts/${d.crmAccount.id}?tab=contracts`}
+                        href={`/crm/accounts/${d.crmAccount?.id}?tab=contracts`}
                         onClick={(e) => e.stopPropagation()}
-                        className="block text-xs text-ds-text-3 truncate hover:underline focus-visible:underline outline-none"
-                        title={`Ver ficha de ${d.crmAccount.name}`}
+                        className="block text-sm font-medium text-ds-text-1 truncate hover:underline focus-visible:underline outline-none"
+                        title={`Ver ficha de ${primaryName}`}
                       >
-                        {d.crmAccount.name}
+                        {primaryName}
                       </Link>
-                    ) : null}
-                    <p className="text-xs text-ds-text-4 font-mono">
+                    ) : (
+                      <p className="text-sm font-medium text-ds-text-1 truncate">
+                        {primaryName}
+                      </p>
+                    )}
+                    {secondaryName && (
+                      <p className="text-xs text-ds-text-3 truncate">
+                        {secondaryName}
+                      </p>
+                    )}
+                    <p className="text-xs text-ds-text-4 font-mono tabular-nums">
                       {d.receiverRut}
                     </p>
                     <div className="flex items-center gap-2 mt-2">
@@ -475,11 +483,11 @@ export function IssuedDtesMobileList({
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </Surface>
+            </li>
           );
         })}
-      </div>
+      </ul>
       <MobileActionSheet
         open={actionFor !== null}
         onOpenChange={(o) => {
