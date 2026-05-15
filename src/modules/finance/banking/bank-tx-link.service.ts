@@ -25,6 +25,8 @@ import type {
   Prisma,
 } from "@prisma/client";
 import { createManualEntry } from "../accounting/journal-entry.service";
+import { normalizeRutForMatch } from "./auto-match-payment.service";
+import { extractCanonicalRutFromBankText } from "./rut-recognition.service";
 
 // ── Helpers internos ──
 
@@ -154,26 +156,24 @@ export interface CandidateFactoring {
   status: string;
   dteFolio: number | null;
   dteReceiverName: string | null;
+  /** 0–100: combinación de monto, fecha, folio en glosa, catálogo factoring, banda bruta. */
+  confidence: number;
+  matchSignals: string[];
+  isSuggested: boolean;
 }
 
 // ── Candidatos sugeridos ──
 
-/**
- * Busca DTEs candidatos para conciliar con un movimiento bancario:
- *   - Si la tx es positiva (ingreso): DTEs emitidos no-pagados con monto
- *     pendiente cercano.
- *   - Si la tx es negativa (egreso): DTEs recibidos no-pagados similares.
- *
- * Ordena por proximidad de monto y fecha.
- */
-/**
- * Detecta si una descripción de cartola corresponde a un depósito de
- * factoring. Pattern matching basado en operadores comunes en Chile
- * (AMIFACTOR, BCI FACTORING, SECURITY FACTORING, FACTOTAL, etc).
- */
-function looksLikeFactoringDeposit(description: string | null | undefined): boolean {
-  if (!description) return false;
-  const d = description.toLowerCase();
+function stripDiacritics(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+/** Keywords históricos (fast path barato). */
+function keywordsHitFactoringDeposit(
+  text: string | null | undefined,
+): boolean {
+  if (!text) return false;
+  const d = text.toLowerCase();
   return (
     d.includes("factor") ||
     d.includes("amifac") ||
@@ -186,13 +186,172 @@ function looksLikeFactoringDeposit(description: string | null | undefined): bool
   );
 }
 
+/** Tokens numéricos tipo folio en glosa/referencia (4–7 dígitos). */
+function extractCandidateFoliosFromGloss(raw: string): number[] {
+  const found = new Set<number>();
+  for (const m of raw.matchAll(/\d{4,7}\b/g)) {
+    const n = Number.parseInt(m[0], 10);
+    if (n >= 1000 && n <= 9_999_999) found.add(n);
+  }
+  return [...found];
+}
+
+/**
+ * Keywords + catálogo `FinanceFactoringCompany`: RUT extraído de la glosa y/o
+ * tokens de razón social presentes en descripción + referencia.
+ */
+export async function detectFactoringFromTx(
+  tenantId: string,
+  description: string | null | undefined,
+  reference?: string | null | undefined,
+): Promise<{
+  isFactoring: boolean;
+  companyId: string | null;
+  companyRut: string | null;
+}> {
+  const gloss = `${description ?? ""} ${reference ?? ""}`.trim();
+  if (!gloss) {
+    return { isFactoring: false, companyId: null, companyRut: null };
+  }
+
+  const keywordHit =
+    keywordsHitFactoringDeposit(description) ||
+    keywordsHitFactoringDeposit(reference);
+
+  const companies = await prisma.financeFactoringCompany.findMany({
+    where: { tenantId, isActive: true },
+    select: { id: true, rut: true, razonSocial: true },
+  });
+
+  const rutCanon =
+    extractCanonicalRutFromBankText(description) ??
+    extractCanonicalRutFromBankText(reference);
+  const rutNorm = rutCanon ? normalizeRutForMatch(rutCanon) : null;
+
+  let matchByRut: { id: string; rutNorm: string } | null = null;
+  if (rutNorm) {
+    for (const co of companies) {
+      const k = normalizeRutForMatch(co.rut);
+      if (k && k === rutNorm) {
+        matchByRut = { id: co.id, rutNorm: k };
+        break;
+      }
+    }
+  }
+
+  const glossLower = stripDiacritics(gloss.toLowerCase());
+  let matchByName: { id: string } | null = null;
+  for (const co of companies) {
+    const tokens = stripDiacritics(co.razonSocial.toLowerCase()).split(/\s+/);
+    for (const tok of tokens) {
+      if (tok.length >= 4 && glossLower.includes(tok)) {
+        matchByName = { id: co.id };
+        break;
+      }
+    }
+    if (matchByName) break;
+  }
+
+  const companyId = matchByRut?.id ?? matchByName?.id ?? null;
+  let companyRut: string | null = matchByRut?.rutNorm ?? null;
+  if (!companyRut && companyId) {
+    const co = companies.find((c) => c.id === companyId);
+    const k = co ? normalizeRutForMatch(co.rut) : "";
+    companyRut = k || null;
+  }
+
+  const isFactoring =
+    keywordHit || matchByRut !== null || matchByName !== null;
+
+  return { isFactoring, companyId, companyRut };
+}
+
+/**
+ * Pesos sumados y clamp 0–100 (ajustables): monto vs expectedDeposit ~45,
+ * fecha cesión vs tx (21 días) ~25, folio en glosa ~20, empresa detectada ~15,
+ * cociente banco/bruto ∈ [0.92, 1] ~15.
+ */
+function scoreFactoringOperationCandidate(params: {
+  bankAmount: number;
+  txDate: Date;
+  glossNorm: string;
+  folioSet: Set<number>;
+  detectionCompanyId: string | null;
+  invoiceAmount: number;
+  expectedDeposit: number;
+  fechaCesion: Date | null;
+  factoringCompanyId: string | null;
+  dteFolio: number | null;
+}): { confidence: number; matchSignals: string[] } {
+  const signals: string[] = [];
+  let score = 0;
+
+  const expected = params.expectedDeposit;
+  if (expected > 0) {
+    const relErr = Math.abs(params.bankAmount - expected) / expected;
+    const amountFactor = Math.max(0, 1 - Math.min(1, relErr));
+    score += amountFactor * 45;
+    if (amountFactor >= 0.92) signals.push("monto_simulacion");
+  }
+
+  const inv = params.invoiceAmount;
+  if (inv > 0) {
+    const ratio = params.bankAmount / inv;
+    if (ratio >= 0.92 && ratio <= 1.0) {
+      score += 15;
+      signals.push("banda_factura_bruta");
+    }
+  }
+
+  if (params.fechaCesion) {
+    const days =
+      Math.abs(params.txDate.getTime() - params.fechaCesion.getTime()) /
+      86_400_000;
+    const dateFactor = Math.max(0, 1 - Math.min(1, days / 21));
+    score += dateFactor * 25;
+    if (dateFactor >= 0.6) signals.push("fecha_cesion");
+  }
+
+  if (
+    params.detectionCompanyId &&
+    params.factoringCompanyId &&
+    params.detectionCompanyId === params.factoringCompanyId
+  ) {
+    score += 15;
+    signals.push("rut_factoring");
+  }
+
+  if (params.dteFolio != null) {
+    const fs = String(params.dteFolio);
+    if (params.glossNorm.includes(fs) || params.folioSet.has(params.dteFolio)) {
+      score += 20;
+      signals.push("folio_en_glosa");
+    }
+  }
+
+  const confidence = Math.round(Math.max(0, Math.min(100, score)));
+  return { confidence, matchSignals: [...new Set(signals)] };
+}
+
+/**
+ * Busca DTEs candidatos para conciliar con un movimiento bancario:
+ * ingreso → emitidos; egreso → recibidos. Si `detectFactoringFromTx` marca
+ * factoring, amplía la ventana de fechas como antes.
+ *
+ * Ordena por proximidad de monto y fecha.
+ */
 export async function findDteCandidates(
   tenantId: string,
   bankTxId: string,
 ): Promise<CandidateDte[]> {
   const tx = await prisma.financeBankTransaction.findFirst({
     where: { id: bankTxId, tenantId },
-    select: { amount: true, transactionDate: true, description: true },
+    select: {
+      amount: true,
+      transactionDate: true,
+      description: true,
+      reference: true,
+    },
   });
   if (!tx) return [];
 
@@ -201,7 +360,12 @@ export async function findDteCandidates(
 
   const isIncome = tx.amount.toNumber() > 0;
   const direction = isIncome ? "ISSUED" : "RECEIVED";
-  const isFactoring = isIncome && looksLikeFactoringDeposit(tx.description);
+  const detection = await detectFactoringFromTx(
+    tenantId,
+    tx.description,
+    tx.reference,
+  );
+  const isFactoring = isIncome && detection.isFactoring;
 
   // Ventana de fecha: 90 días antes / 30 después para movimientos normales,
   // 180 antes / 7 después para factoring (cesiones pueden ser viejas).
@@ -307,12 +471,8 @@ export async function findDteCandidates(
 }
 
 /**
- * Busca cesiones a factoring cuyo monto a girar coincida (±tolerancia)
- * con un ingreso bancario. Sólo se evalúan tx positivas (los abonos del
- * factoring son ingresos). Match aceptable cuando:
- *   - status NOT IN (CANCELLED)
- *   - fechaCesion entre tx.transactionDate − 14 días y +1 día
- *   - expectedDeposit (sim o netAdvance) dentro de ±5% / ±$1.000
+ * Cesiones candidatas: query por ventana monto/fecha y/o folio DTE en glosa;
+ * puntúa cada fila (confidence 0–100) y ordena descendente.
  */
 export async function findFactoringCandidates(
   tenantId: string,
@@ -321,15 +481,24 @@ export async function findFactoringCandidates(
 ): Promise<CandidateFactoring[]> {
   const tx = await prisma.financeBankTransaction.findFirst({
     where: { id: bankTxId, tenantId },
-    select: { amount: true, transactionDate: true, description: true },
+    select: {
+      amount: true,
+      transactionDate: true,
+      description: true,
+      reference: true,
+    },
   });
   if (!tx) return [];
   const amount = tx.amount.toNumber();
   if (amount <= 0) return []; // Sólo ingresos.
 
-  // Si la descripción huele a factoring (AMIFACTOR, etc), relajamos rango y
-  // ventana. Para depósitos genéricos mantenemos ±5%.
-  const isFactoring = looksLikeFactoringDeposit(tx.description);
+  const detection = await detectFactoringFromTx(
+    tenantId,
+    tx.description,
+    tx.reference,
+  );
+  const isFactoring = detection.isFactoring;
+
   const tolerance = isFactoring
     ? Math.max(amount * 0.25, 1000)
     : Math.max(amount * toleranceFactor, 1000);
@@ -341,18 +510,34 @@ export async function findFactoringCandidates(
   const maxDate = new Date(tx.transactionDate);
   maxDate.setDate(maxDate.getDate() + (isFactoring ? 7 : 1));
 
+  const glossRaw = `${tx.description ?? ""} ${tx.reference ?? ""}`;
+  const glossNorm = stripDiacritics(glossRaw.toLowerCase());
+  const folioList = extractCandidateFoliosFromGloss(glossRaw);
+  const folioSet = new Set(folioList);
+
+  const amountBandOr: Prisma.FinanceFactoringOperationWhereInput[] = [
+    { simMontoAGirar: { gte: minAmount, lte: maxAmount } },
+    { netAdvance: { gte: minAmount, lte: maxAmount } },
+  ];
+  if (isFactoring) {
+    amountBandOr.push({
+      invoiceAmount: { gte: minAmount, lte: amount * 1.5 },
+    });
+  }
+
   const ops = await prisma.financeFactoringOperation.findMany({
     where: {
       tenantId,
       status: { notIn: ["CANCELLED"] },
-      fechaCesion: { gte: minDate, lte: maxDate },
       OR: [
-        { simMontoAGirar: { gte: minAmount, lte: maxAmount } },
-        { netAdvance: { gte: minAmount, lte: maxAmount } },
-        // Para factoring también permitimos matchear por invoiceAmount
-        // (bruto) si la simulación/netAdvance no están seteados.
-        ...(isFactoring
-          ? [{ invoiceAmount: { gte: minAmount, lte: amount * 1.5 } }]
+        {
+          AND: [
+            { fechaCesion: { gte: minDate, lte: maxDate } },
+            { OR: amountBandOr },
+          ],
+        },
+        ...(folioList.length > 0
+          ? [{ dte: { folio: { in: folioList } } }]
           : []),
       ],
     },
@@ -370,12 +555,34 @@ export async function findFactoringCandidates(
       dte: { select: { folio: true, receiverName: true } },
     },
     orderBy: { fechaCesion: "desc" },
-    take: 20,
+    take: 100,
   });
 
-  return ops.map((op) => {
+  const txDate =
+    tx.transactionDate instanceof Date
+      ? tx.transactionDate
+      : new Date(tx.transactionDate);
+
+  const mapped: CandidateFactoring[] = ops.map((op) => {
     const sim = op.simMontoAGirar ? Number(op.simMontoAGirar) : null;
     const net = op.netAdvance ? Number(op.netAdvance) : 0;
+    const expectedDeposit = sim ?? net;
+    const invoiceAmount = Number(op.invoiceAmount);
+    const fechaCesion = op.fechaCesion ? new Date(op.fechaCesion) : null;
+
+    const { confidence, matchSignals } = scoreFactoringOperationCandidate({
+      bankAmount: amount,
+      txDate,
+      glossNorm,
+      folioSet,
+      detectionCompanyId: detection.companyId,
+      invoiceAmount,
+      expectedDeposit,
+      fechaCesion,
+      factoringCompanyId: op.factoringCompanyId ?? null,
+      dteFolio: op.dte?.folio ?? null,
+    });
+
     return {
       id: op.id,
       code: op.code,
@@ -385,14 +592,20 @@ export async function findFactoringCandidates(
       fechaVencimiento: op.fechaVencimiento
         ? op.fechaVencimiento.toISOString()
         : "",
-      invoiceAmount: Number(op.invoiceAmount),
-      expectedDeposit: sim ?? net,
+      invoiceAmount,
+      expectedDeposit,
       expectedDepositSource: sim != null ? "simulation" : "computed",
       status: op.status,
       dteFolio: op.dte?.folio ?? null,
       dteReceiverName: op.dte?.receiverName ?? null,
+      confidence,
+      matchSignals,
+      isSuggested: confidence >= 90,
     };
   });
+
+  mapped.sort((a, b) => b.confidence - a.confidence);
+  return mapped.slice(0, 25);
 }
 
 // ── Listar links existentes de una tx ──
