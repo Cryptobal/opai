@@ -2328,6 +2328,7 @@ model CrmInstallation {
   accessControlPairingCodes       AccessControlPairingCode[]
   accessControlDevices            AccessControlDevice[]
   accessControlReportRecipients   AccessControlReportRecipient[]
+  accessControlListGroupInstallations AccessControlListGroupInstallation[]
   gamificacionScores              GamificacionScoreGuardia[]      @relation("gamificacion_score_installation")
   gamificacionEventos             GamificacionEvento[]            @relation("gamificacion_evento_installation")
   gamificacionReconocimientos     GamificacionReconocimiento[]    @relation("gamificacion_reconocimiento_installation")
