@@ -8849,9 +8849,16 @@ model AccessControlConfig {
   tenantId             String    @map("tenant_id")
   installationId       String    @unique @map("installation_id") @db.Uuid
   enabledRecordTypes   String[]  @default([]) @map("enabled_record_types") // ['visit','provider','vehicle','staff','delivery']
-  useWhitelist         Boolean   @default(false) @map("use_whitelist")
-  useBlacklist         Boolean   @default(false) @map("use_blacklist")
-  requireIdValidation  Boolean   @default(false) @map("require_id_validation")
+  useWhitelist               Boolean   @default(false) @map("use_whitelist")
+  useBlacklist               Boolean   @default(false) @map("use_blacklist")
+  /// Tipos de registro que validan contra la lista blanca. Si vacío, no
+  /// se aplica whitelist (independiente del flag legacy useWhitelist).
+  /// Reemplaza a useWhitelist como fuente de verdad.
+  whitelistRecordTypes       String[]  @default([]) @map("whitelist_record_types")
+  /// Tipos de registro que validan contra la lista negra. Si vacío, no
+  /// se aplica blacklist. Reemplaza a useBlacklist como fuente de verdad.
+  blacklistRecordTypes       String[]  @default([]) @map("blacklist_record_types")
+  requireIdValidation        Boolean   @default(false) @map("require_id_validation")
   requirePhoto         Boolean   @default(false) @map("require_photo")
   requireSignature     Boolean   @default(false) @map("require_signature")
   maxStayHours         Int?      @map("max_stay_hours")
@@ -8931,7 +8938,13 @@ model AccessControlList {
   allowedTimeFrom String?   @map("allowed_time_from")
   allowedTimeTo   String?   @map("allowed_time_to")
   isActive        Boolean   @default(true) @map("is_active")
+  /// @deprecated usar recordTypes (array). Mantener para back-compat con
+  /// el portal cliente; mirror del primer elemento de recordTypes.
   recordType      String?   @default("visit") @map("record_type")
+  /// Tipos de registro a los que aplica esta entrada. Si vacío, fallback
+  /// a [recordType ?? "visit"]. Permite que una persona aplique a varios
+  /// tipos sin duplicar la fila.
+  recordTypes     String[]  @default([]) @map("record_types")
   singleUse       Boolean   @default(false) @map("single_use")
   usedAt          DateTime? @map("used_at") @db.Timestamptz(6)
   createdBy       String?   @map("created_by")
@@ -8946,6 +8959,7 @@ model AccessControlList {
   @@index([installationId, listType], map: "idx_ac_lists_installation_type")
   @@index([scope], map: "idx_ac_lists_scope")
   @@index([tenantId], map: "idx_ac_lists_tenant")
+  @@index([recordTypes], map: "idx_ac_lists_record_types", type: Gin)
   @@map("access_control_lists")
   @@schema("access_control")
 }
