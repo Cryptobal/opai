@@ -877,7 +877,7 @@ export function AccessControlListsManager({ installationId }: Props) {
               <Button variant="outline" size="sm" onClick={() => setShowAssignGroups(false)}>
                 Cancelar
               </Button>
-              <Button size="sm" onClick={handleAssignSelectedToGroups}>
+              <Button size="sm" onClick={() => { void handleAssignSelectedToGroups(); }}>
                 Asignar
               </Button>
             </div>
