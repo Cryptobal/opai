@@ -1,6 +1,9 @@
 "use client";
 import { AlertCircle } from "lucide-react";
-import type { CashflowCellStatus } from "@/modules/finance/cashflow/types";
+import type {
+  CashflowCellStatus,
+  CellDteSummary,
+} from "@/modules/finance/cashflow/types";
 import {
   Tooltip,
   TooltipContent,
@@ -49,6 +52,7 @@ export function CellAmount({
   cellStatus,
   daysOverdue,
   dteFolio,
+  dtes,
 }: {
   projected: number;
   actual: number | null;
@@ -57,6 +61,11 @@ export function CellAmount({
   cellStatus?: CashflowCellStatus;
   daysOverdue?: number;
   dteFolio?: number | null;
+  /** Lista completa de DTEs conciliados con la celda. Si tiene >1, el
+   *  tooltip muestra TODOS los folios para que el hover sea informativo
+   *  sin tener que abrir el popover (caso típico: pago extra + factura
+   *  regular del mismo cliente en la misma semana). */
+  dtes?: CellDteSummary[];
 }) {
   const hasBadge = cellStatus && cellStatus !== "PROJECTED";
   const overdueWarn =
@@ -67,10 +76,23 @@ export function CellAmount({
     : null;
 
   const tooltipLines: string[] = [];
-  if (dteFolio) tooltipLines.push(`Factura N° ${dteFolio}`);
-  if (statusLabel) {
+  const visibleDtes = (dtes ?? []).filter((d) => d.folio != null);
+  if (visibleDtes.length > 1) {
     tooltipLines.push(
-      overdueWarn ? `${statusLabel} · ${daysOverdue}d de mora` : statusLabel,
+      `Facturas N° ${visibleDtes.map((d) => d.folio).join(", ")}`,
+    );
+  } else if (visibleDtes.length === 1 && visibleDtes[0].folio) {
+    tooltipLines.push(`Factura N° ${visibleDtes[0].folio}`);
+  } else if (dteFolio) {
+    tooltipLines.push(`Factura N° ${dteFolio}`);
+  }
+  if (statusLabel) {
+    const suffix =
+      visibleDtes.length > 1 ? ` · ${visibleDtes.length} facturas` : "";
+    tooltipLines.push(
+      overdueWarn
+        ? `${statusLabel} · ${daysOverdue}d de mora${suffix}`
+        : `${statusLabel}${suffix}`,
     );
   }
 

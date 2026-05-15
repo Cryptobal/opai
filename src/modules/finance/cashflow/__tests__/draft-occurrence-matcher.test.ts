@@ -139,21 +139,54 @@ describe("matchDraftToOccurrence", () => {
     expect(prisma.financeCashflowItem.findMany).not.toHaveBeenCalled();
   });
 
-  it("con empate en fecha, gana la más cercana en monto", async () => {
+  it("con dos cuotas posteriores en el mismo mes, gana la primera cronológicamente", async () => {
     (prisma.financeCashflowItem.findMany as Mock).mockResolvedValue([
       { id: "item-1" },
     ]);
-    // Dos candidatas equidistantes en fecha (ambas a +2 días del expected).
-    // La occ-A vale 1.5M y la occ-B vale 1.0M; el DTE vale 1.0M.
+    // Dos candidatas, ambas posteriores al DTE (2026-05-13) y mismo mes.
+    // Por la regla "factura posterior dentro del mes": primera cronológica.
     (prisma.financeCashflowOccurrence.findMany as Mock).mockResolvedValue([
       {
-        id: "occ-A",
+        id: "occ-late",
+        scheduledDate: new Date("2026-05-30"),
+        amountClp: 1_000_000,
+      },
+      {
+        id: "occ-early",
         scheduledDate: new Date("2026-05-15"),
         amountClp: 1_500_000,
       },
+    ]);
+
+    const result = await matchDraftToOccurrence({
+      tenantId: TENANT,
+      dteId: DTE_ID,
+      crmAccountId: "acc-1",
+      installationId: null,
+      expectedDate: new Date("2026-05-13"),
+      amountClp: 1_000_000,
+    });
+
+    expect(result).toEqual({ occurrenceId: "occ-early" });
+    expect(prisma.financeCashflowOccurrence.update).toHaveBeenCalledWith({
+      where: { id: "occ-early" },
+      data: { dteId: DTE_ID },
+    });
+  });
+
+  it("empate exacto en scheduledDate desempata por monto más cercano", async () => {
+    (prisma.financeCashflowItem.findMany as Mock).mockResolvedValue([
+      { id: "item-1" },
+    ]);
+    (prisma.financeCashflowOccurrence.findMany as Mock).mockResolvedValue([
       {
-        id: "occ-B",
-        scheduledDate: new Date("2026-05-11"),
+        id: "occ-far",
+        scheduledDate: new Date("2026-05-20"),
+        amountClp: 1_500_000,
+      },
+      {
+        id: "occ-close",
+        scheduledDate: new Date("2026-05-20"),
         amountClp: 1_000_000,
       },
     ]);
@@ -167,11 +200,33 @@ describe("matchDraftToOccurrence", () => {
       amountClp: 1_000_000,
     });
 
-    expect(result).toEqual({ occurrenceId: "occ-B" });
-    expect(prisma.financeCashflowOccurrence.update).toHaveBeenCalledWith({
-      where: { id: "occ-B" },
-      data: { dteId: DTE_ID },
+    expect(result).toEqual({ occurrenceId: "occ-close" });
+  });
+
+  it("excluye cuotas del mismo mes anteriores al DTE (filtra por scheduledDate >= DTE.date)", async () => {
+    (prisma.financeCashflowItem.findMany as Mock).mockResolvedValue([
+      { id: "item-1" },
+    ]);
+    (prisma.financeCashflowOccurrence.findMany as Mock).mockResolvedValue([]);
+
+    await matchDraftToOccurrence({
+      tenantId: TENANT,
+      dteId: DTE_ID,
+      crmAccountId: "acc-1",
+      installationId: null,
+      expectedDate: new Date("2026-05-13"),
+      amountClp: 1_000_000,
     });
+
+    const findManyCall = (prisma.financeCashflowOccurrence.findMany as Mock).mock
+      .calls[0]?.[0];
+    expect(findManyCall).toBeDefined();
+    // gte = la propia fecha del DTE (incluye igualdad — DTE del día de la cuota).
+    expect(findManyCall.where.scheduledDate.gte).toEqual(new Date("2026-05-13"));
+    // lt = primer día del mes siguiente (junio).
+    expect(findManyCall.where.scheduledDate.lt.getUTCFullYear()).toBe(2026);
+    expect(findManyCall.where.scheduledDate.lt.getUTCMonth()).toBe(5); // junio (0-indexed)
+    expect(findManyCall.where.scheduledDate.lt.getUTCDate()).toBe(1);
   });
 
   it("idempotente: si el DTE ya tiene una occurrence vinculada, devuelve esa y no busca", async () => {

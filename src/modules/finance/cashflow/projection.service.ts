@@ -1005,10 +1005,27 @@ export async function buildProjection(
   // dteId seteado, status derivado del SII/payment status). Caen en su
   // propia "fila DTE" agrupada bajo el cliente CRM correspondiente, con
   // badge (DRAFT/INVOICED/CEDED/PAID) según el estado actual del DTE.
-  // Categoría: ING_OTRO para emitidos, EGR_OTRO para recibidos
-  // (mismo fallback que loadResolvedBankLinks).
+  //
+  // Categoría preferida: la misma que el ítem CONTRACT activo del mismo
+  // crmAccount/installation — así la factura aparece bajo el mismo header
+  // "Cliente X" que su contrato dentro de "Ventas por contrato", en lugar
+  // de quedar separada bajo "Otros ingresos". El usuario ve clarito qué
+  // proyección le duplica con qué factura emitida y puede decidir cuál
+  // borrar. Fallback ING_OTRO/EGR_OTRO solo para DTEs sin contrato
+  // (one-offs, clientes nuevos, recibidas sin proveedor proyectado).
   const fallbackIncomeCat = codeToCategory.get("ING_OTRO");
   const fallbackExpenseCat = codeToCategory.get("EGR_OTRO");
+  const contractCategoryByCrmAccount = new Map<string, string>();
+  const contractCategoryByInstallation = new Map<string, string>();
+  for (const it of items) {
+    if (it.source !== "CONTRACT") continue;
+    if (it.crmAccountId && !contractCategoryByCrmAccount.has(it.crmAccountId)) {
+      contractCategoryByCrmAccount.set(it.crmAccountId, it.categoryId);
+    }
+    if (it.installationId && !contractCategoryByInstallation.has(it.installationId)) {
+      contractCategoryByInstallation.set(it.installationId, it.categoryId);
+    }
+  }
   const linkedDteIds = new Set(
     allOccurrences.map((o) => o.dteId).filter((x): x is string => !!x),
   );
@@ -1041,7 +1058,22 @@ export async function buildProjection(
   });
   for (const dte of orphanDtes) {
     const isIncome = dte.direction === "ISSUED";
-    const cat = isIncome ? fallbackIncomeCat : fallbackExpenseCat;
+    // Prioridad: categoría del contrato del mismo cliente/instalación →
+    // fallback ING_OTRO/EGR_OTRO. Solo aplica a INCOME (DTEs emitidos);
+    // los recibidos van directo al fallback hasta que existan items
+    // CONTRACT en la dirección de egresos.
+    let cat = isIncome ? fallbackIncomeCat : fallbackExpenseCat;
+    if (isIncome) {
+      const contractCatId =
+        (dte.crmAccountId && contractCategoryByCrmAccount.get(dte.crmAccountId)) ||
+        (dte.installationId &&
+          contractCategoryByInstallation.get(dte.installationId)) ||
+        null;
+      if (contractCatId) {
+        const contractCat = categoryMap.get(contractCatId);
+        if (contractCat) cat = contractCat;
+      }
+    }
     if (!cat) continue; // tenant sin las categorías fallback configuradas
     const gross = Number(dte.totalAmount);
     const paid = Number(dte.amountPaid);
@@ -1485,10 +1517,13 @@ function buildRows(
       return { bucketKey: b.key, amount };
     });
 
-    // Desglose por item — una sub-fila por (itemId | _orphan).
+    // Desglose por item — una sub-fila por (itemId | _dte:<id> | _orphan).
+    // Los DTE huérfanos (itemId=null, dteId seteado) reciben sub-fila propia
+    // para que cada factura/borrador aparezca como su propia línea con badge;
+    // sin esto colapsarían bajo "_orphan" junto a bank-links sintéticos.
     const byItem = new Map<string, import("./types").ProjectionRowItemDetail>();
     for (const o of filtered) {
-      const key = o.itemId ?? "_orphan";
+      const key = o.itemId ?? (o.dteId ? `_dte:${o.dteId}` : "_orphan");
       let detail = byItem.get(key);
       if (!detail) {
         detail = {
