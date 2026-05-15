@@ -1,18 +1,25 @@
 "use client";
 
 /**
- * RecurringClient — gestión inline de plantillas recurrentes (vive
- * embebido dentro de la pestaña "Programación" de Facturación). Lista
- * + acciones (crear, editar, generar borrador ahora, pausar/activar,
- * eliminar) + buscador global + filtros (estado, frecuencia, cliente,
- * instalación).
+ * RecurringClient — gestión de plantillas recurrentes que generan
+ * borradores de DTE. Vive embebido en la pestaña "Programación" del
+ * módulo Facturación.
  *
- * Auto-loading: si recibe `initialTemplates` los usa como render
- * inicial pero igual hace su propio refetch para mantener la lista
- * fresca después de mutaciones del modal de create/edit.
+ * Diseño alineado con DTE Emitidos / Recibidos:
+ *   - Toolbar: buscador amplio + filtro de estado en chips + sort.
+ *   - Listado mobile-first (cards Surface) hasta `lg`; tabla DS en desktop.
+ *   - Acciones por fila concentradas en un MobileActionSheet en mobile;
+ *     en desktop, icon-buttons compactos + dropdown de acciones.
+ *
+ * Fechas: usamos `formatCalendarDateDisplay` con TZ=UTC para que un
+ * `nextRunAt` almacenado como medianoche UTC se renderice como el día
+ * correcto en cualquier TZ del cliente (antes el render local en Chile
+ * desplazaba un día hacia atrás: ej. día 15 → "14 abr").
  */
+
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { es } from "date-fns/locale";
 import {
   Loader2,
   Play,
@@ -26,7 +33,12 @@ import {
   Building2,
   MapPin,
   FileText,
-  FilterX,
+  ArrowUpDown,
+  MoreHorizontal,
+  Link2,
+  Mail,
+  Receipt,
+  ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +59,12 @@ import {
 } from "@/components/opai-ds";
 import { DocumentTag } from "@/components/finance/dtes";
 import { cn } from "@/lib/utils";
+import { formatCalendarDateDisplay } from "@/lib/fx-date";
+import {
+  MobileActionSheet,
+  MobileFAB,
+  type MobileActionSheetItem,
+} from "@/components/finance/mobile";
 import { RecurringTemplateForm } from "./RecurringTemplateForm";
 
 const FREQ_LABELS: Record<string, string> = {
@@ -77,6 +95,23 @@ export type RecurringTemplateRow = {
   runCount: number;
   ufFixingPolicy?: string;
   ufFixingDay?: number | null;
+  /**
+   * Referencias adicionales que el cron embebe en el DTE generado (mismo
+   * shape que `FinanceDte.additionalReferences`). En la vista lista nos
+   * basta con saber si hay y cuántas; el detalle se edita en el form.
+   */
+  additionalReferences?: Array<{
+    tipoDocRef?: string;
+    folioRef?: string;
+    fchRef?: string;
+    razonRef?: string;
+  }> | null;
+  /** Envío automático del PDF/XML al cliente al emitir. */
+  autoSendEmail?: boolean;
+  /** Envío automático de Proforma (recurrentes que actúan como cobranza). */
+  autoSendProforma?: boolean;
+  /** Envío automático del Estado de Pago. */
+  autoSendPaymentStatement?: boolean;
   /** Cliente CRM asociado (enriquecido en GET, null si es manual). */
   crmAccount?: {
     id: string;
@@ -121,6 +156,17 @@ function ufPolicyText(t: RecurringTemplateRow): string | null {
   return UF_POLICY_LABEL[t.ufFixingPolicy] ?? t.ufFixingPolicy;
 }
 
+/**
+ * Render UTC-aware de `nextRunAt` / `lastRunAt`. Las fechas vienen
+ * persistidas como medianoche UTC; renderizarlas con la TZ del cliente
+ * (Chile = UTC-3/-4) desplazaría el día hacia atrás. `formatCalendarDateDisplay`
+ * fuerza UTC.
+ */
+function formatRunDate(iso: string | null): string {
+  if (!iso) return "—";
+  return formatCalendarDateDisplay(iso, "dd MMM yyyy", es);
+}
+
 interface Props {
   initialTemplates?: RecurringTemplateRow[];
   canManage: boolean;
@@ -129,7 +175,39 @@ interface Props {
 }
 
 type StatusFilter = "ALL" | "ACTIVE" | "PAUSED";
-type FreqFilter = "ALL" | "monthly" | "biweekly" | "weekly" | "yearly";
+type SortKey = "next_asc" | "next_desc" | "name_asc" | "last_desc";
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "next_asc", label: "Próxima ejecución ↑" },
+  { value: "next_desc", label: "Próxima ejecución ↓" },
+  { value: "name_asc", label: "Nombre A-Z" },
+  { value: "last_desc", label: "Última ejecución" },
+];
+
+function sortTemplates(
+  rows: RecurringTemplateRow[],
+  sort: SortKey,
+): RecurringTemplateRow[] {
+  const sorted = [...rows];
+  const cmpDateAsc = (a: string | null, b: string | null) => {
+    if (a === b) return 0;
+    if (a === null) return 1;
+    if (b === null) return -1;
+    return a < b ? -1 : 1;
+  };
+  switch (sort) {
+    case "next_asc":
+      return sorted.sort((a, b) => cmpDateAsc(a.nextRunAt, b.nextRunAt));
+    case "next_desc":
+      return sorted.sort((a, b) => -cmpDateAsc(a.nextRunAt, b.nextRunAt));
+    case "name_asc":
+      return sorted.sort((a, b) => a.name.localeCompare(b.name, "es"));
+    case "last_desc":
+      return sorted.sort((a, b) => -cmpDateAsc(a.lastRunAt, b.lastRunAt));
+    default:
+      return sorted;
+  }
+}
 
 export function RecurringClient({
   initialTemplates = [],
@@ -140,15 +218,15 @@ export function RecurringClient({
   const [templates, setTemplates] = React.useState<RecurringTemplateRow[]>(initialTemplates);
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [reloading, setReloading] = React.useState(false);
-  // Modal: null = cerrado, "" = crear nueva, "<id>" = editar existente
+  // Modal: null = cerrado, "" = crear nueva, "<id>" = editar existente.
   const [editingId, setEditingId] = React.useState<string | null>(null);
+  // Bottom-sheet de acciones por fila (mobile).
+  const [actionFor, setActionFor] = React.useState<string | null>(null);
 
   // ── Filtros + buscador ──
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("ALL");
-  const [freqFilter, setFreqFilter] = React.useState<FreqFilter>("ALL");
-  const [accountFilter, setAccountFilter] = React.useState<string>("ALL");
-  const [installationFilter, setInstallationFilter] = React.useState<string>("ALL");
+  const [sort, setSort] = React.useState<SortKey>("next_asc");
 
   const reload = React.useCallback(async () => {
     setReloading(true);
@@ -252,49 +330,13 @@ export function RecurringClient({
 
   const totalActive = templates.filter((t) => t.isActive).length;
 
-  // ── Opciones únicas de cliente / instalación para los selects ──
-  const accountOptions = React.useMemo(() => {
-    const map = new Map<string, string>();
-    for (const t of templates) {
-      if (t.crmAccount) {
-        map.set(t.crmAccount.id, t.crmAccount.legalName ?? t.crmAccount.name);
-      }
-    }
-    return Array.from(map.entries())
-      .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name, "es"));
-  }, [templates]);
-
-  const installationOptions = React.useMemo(() => {
-    const map = new Map<string, string>();
-    for (const t of templates) {
-      if (t.installation) {
-        map.set(t.installation.id, t.installation.name);
-      }
-    }
-    return Array.from(map.entries())
-      .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name, "es"));
-  }, [templates]);
-
-  // ── Filtrado en cliente ──
+  // ── Filtrado + ordenamiento en cliente ──
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
-    return templates.filter((t) => {
+    const rows = templates.filter((t) => {
       if (statusFilter === "ACTIVE" && !t.isActive) return false;
       if (statusFilter === "PAUSED" && t.isActive) return false;
-      if (freqFilter !== "ALL" && t.frequency !== freqFilter) return false;
-      if (accountFilter !== "ALL" && t.crmAccount?.id !== accountFilter) {
-        return false;
-      }
-      if (
-        installationFilter !== "ALL" &&
-        t.installation?.id !== installationFilter
-      ) {
-        return false;
-      }
       if (!q) return true;
-      // Buscador global: nombre, RUT, cliente CRM, instalación.
       const hay =
         t.name.toLowerCase().includes(q) ||
         t.receiverName.toLowerCase().includes(q) ||
@@ -306,40 +348,66 @@ export function RecurringClient({
         (t.installation?.commune ?? "").toLowerCase().includes(q);
       return hay;
     });
-  }, [templates, search, statusFilter, freqFilter, accountFilter, installationFilter]);
+    return sortTemplates(rows, sort);
+  }, [templates, search, statusFilter, sort]);
 
-  const hasActiveFilters =
-    !!search.trim() ||
-    statusFilter !== "ALL" ||
-    freqFilter !== "ALL" ||
-    accountFilter !== "ALL" ||
-    installationFilter !== "ALL";
+  const hasActiveFilters = !!search.trim() || statusFilter !== "ALL";
 
   const clearFilters = () => {
     setSearch("");
     setStatusFilter("ALL");
-    setFreqFilter("ALL");
-    setAccountFilter("ALL");
-    setInstallationFilter("ALL");
   };
 
-  const formatNextRun = (iso: string | null) =>
-    iso
-      ? new Date(iso).toLocaleDateString("es-CL", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        })
-      : "—";
+  const actionRow = actionFor ? templates.find((r) => r.id === actionFor) : null;
 
-  const formatLastRun = (iso: string | null) =>
-    iso ? new Date(iso).toLocaleDateString("es-CL") : "—";
+  const buildActionItems = (t: RecurringTemplateRow): MobileActionSheetItem[] => {
+    if (!canManage) return [];
+    const isBusy = busyId === t.id;
+    return [
+      {
+        key: "run-now",
+        label: "Generar borrador",
+        description: t.isActive
+          ? "Crea un borrador a partir de la plantilla"
+          : "Activá la plantilla primero",
+        icon: <FileText className="h-4 w-4" />,
+        disabled: !t.isActive || isBusy,
+        onSelect: () => handleRunNow(t.id),
+      },
+      {
+        key: "edit",
+        label: "Editar plantilla",
+        icon: <Pencil className="h-4 w-4" />,
+        disabled: isBusy,
+        onSelect: () => setEditingId(t.id),
+      },
+      {
+        key: "toggle",
+        label: t.isActive ? "Pausar" : "Activar",
+        icon: t.isActive ? (
+          <Pause className="h-4 w-4" />
+        ) : (
+          <Play className="h-4 w-4" />
+        ),
+        disabled: isBusy,
+        onSelect: () => handleToggleActive(t),
+      },
+      {
+        key: "delete",
+        label: "Eliminar plantilla",
+        tone: "danger",
+        icon: <Trash2 className="h-4 w-4" />,
+        disabled: isBusy,
+        onSelect: () => handleDelete(t.id),
+      },
+    ];
+  };
 
   const columns: DataTableColumn<RecurringTemplateRow>[] = [
     {
       id: "name",
       header: "Plantilla",
-      width: "w-[218px]",
+      width: "w-[224px]",
       cell: (t) => (
         <div className="min-w-0">
           <div className="text-sm font-medium text-ds-text-1 truncate">
@@ -361,7 +429,7 @@ export function RecurringClient({
     {
       id: "client",
       header: "Cliente / Instalación",
-      width: "w-[182px]",
+      width: "w-[200px]",
       cell: (t) => (
         <div className="min-w-0 text-xs space-y-0.5">
           {t.crmAccount ? (
@@ -395,7 +463,7 @@ export function RecurringClient({
     {
       id: "type",
       header: "Tipo",
-      width: "w-[130px]",
+      width: "w-[136px]",
       cell: (t) => {
         const ufText = ufPolicyText(t);
         return (
@@ -415,7 +483,7 @@ export function RecurringClient({
     {
       id: "frequency",
       header: "Frecuencia",
-      width: "w-[138px]",
+      width: "w-[144px]",
       cell: (t) => (
         <span className="text-xs">{formatFrequency(t)}</span>
       ),
@@ -423,7 +491,7 @@ export function RecurringClient({
     {
       id: "nextRun",
       header: "Próxima",
-      width: "w-[96px]",
+      width: "w-[112px]",
       cell: (t) => (
         <span
           className={cn(
@@ -431,14 +499,14 @@ export function RecurringClient({
             !t.nextRunAt && "text-ds-text-4",
           )}
         >
-          {formatNextRun(t.nextRunAt)}
+          {formatRunDate(t.nextRunAt)}
         </span>
       ),
     },
     {
       id: "lastRun",
       header: "Última",
-      width: "w-[96px]",
+      width: "w-[112px]",
       cell: (t) => (
         <span
           className={cn(
@@ -446,15 +514,102 @@ export function RecurringClient({
             !t.lastRunAt && "text-ds-text-4",
           )}
         >
-          {formatLastRun(t.lastRunAt)}
+          {formatRunDate(t.lastRunAt)}
         </span>
       ),
+    },
+    {
+      // Indica si la plantilla tiene referencias DTE adicionales — útil
+      // cuando el contrato exige citar OC, HES o folios previos.
+      id: "refs",
+      header: "Refs.",
+      align: "center",
+      width: "w-[72px]",
+      cell: (t) => {
+        const refs = Array.isArray(t.additionalReferences)
+          ? t.additionalReferences
+          : [];
+        const count = refs.length;
+        if (count === 0) {
+          return <span className="text-xs text-ds-text-4">—</span>;
+        }
+        const summary = refs
+          .slice(0, 3)
+          .map((r) => {
+            const folio = r.folioRef?.trim();
+            const tipo = r.tipoDocRef?.trim();
+            return [tipo, folio ? `#${folio}` : null]
+              .filter(Boolean)
+              .join(" ");
+          })
+          .filter((s) => s.length > 0)
+          .join(" · ");
+        return (
+          <span
+            className="inline-flex items-center gap-1 text-xs text-ds-text-2"
+            title={summary || `${count} referencia${count === 1 ? "" : "s"}`}
+          >
+            <Link2 className="h-3 w-3 text-ds-text-4" />
+            <span className="font-mono tabular-nums">{count}</span>
+          </span>
+        );
+      },
+    },
+    {
+      // Envíos automáticos al emitir el borrador / proforma / estado de
+      // pago. Iconos en colores ds para que se escanee a primera vista
+      // qué plantillas tienen cada flag activo.
+      id: "sends",
+      header: "Envíos",
+      align: "center",
+      width: "w-[104px]",
+      cell: (t) => {
+        const flags: { key: string; icon: React.ReactNode; label: string; on: boolean }[] = [
+          {
+            key: "email",
+            icon: <Mail className="h-3.5 w-3.5" />,
+            label: "Email automático del DTE",
+            on: !!t.autoSendEmail,
+          },
+          {
+            key: "proforma",
+            icon: <Receipt className="h-3.5 w-3.5" />,
+            label: "Envío automático de Proforma",
+            on: !!t.autoSendProforma,
+          },
+          {
+            key: "epago",
+            icon: <ClipboardList className="h-3.5 w-3.5" />,
+            label: "Envío automático de Estado de Pago",
+            on: !!t.autoSendPaymentStatement,
+          },
+        ];
+        const hasAny = flags.some((f) => f.on);
+        if (!hasAny) {
+          return <span className="text-xs text-ds-text-4">—</span>;
+        }
+        return (
+          <div className="flex items-center justify-center gap-1">
+            {flags.map((f) =>
+              f.on ? (
+                <span
+                  key={f.key}
+                  title={f.label}
+                  className="inline-flex h-5 w-5 items-center justify-center rounded text-tint-violet-fg bg-tint-violet-fg/10"
+                >
+                  {f.icon}
+                </span>
+              ) : null,
+            )}
+          </div>
+        );
+      },
     },
     {
       id: "runCount",
       header: "Corridas",
       align: "right",
-      width: "w-[82px]",
+      width: "w-[80px]",
       cell: (t) => (
         <span className="text-xs font-mono tabular-nums">{t.runCount}</span>
       ),
@@ -462,7 +617,7 @@ export function RecurringClient({
     {
       id: "status",
       header: "Estado",
-      width: "w-[94px]",
+      width: "w-[88px]",
       cell: (t) =>
         t.isActive ? (
           <Tag variant="ok" size="sm" dot>
@@ -478,71 +633,75 @@ export function RecurringClient({
       id: "_actions",
       header: "",
       align: "right",
-      width: "w-[206px]",
+      width: "w-[112px]",
       cell: (t) => {
         if (!canManage) return null;
         return (
-          <div className="flex justify-end gap-1 items-center">
-            <Button
-              variant="default"
-              size="sm"
+          <div className="flex justify-end items-center gap-0.5">
+            <button
+              type="button"
+              aria-label="Generar borrador ahora"
+              title={
+                t.isActive
+                  ? "Genera un borrador con los datos de la plantilla"
+                  : "Activá la plantilla para generar borradores"
+              }
               onClick={(e) => {
                 e.stopPropagation();
                 handleRunNow(t.id);
               }}
               disabled={busyId === t.id || !t.isActive}
-              title={
-                t.isActive
-                  ? "Genera un borrador con los datos de la plantilla (no emite al SII)"
-                  : "Activá la plantilla para poder generar borradores"
-              }
-              className="h-8"
+              className="h-8 w-8 inline-flex items-center justify-center rounded-md text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
             >
               {busyId === t.id ? (
-                <Loader2 className="size-4 mr-1 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <FileText className="size-4 mr-1" />
+                <FileText className="h-4 w-4" />
               )}
-              <span className="hidden lg:inline">Generar borrador</span>
-              <span className="lg:hidden">Borrador</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
+            </button>
+            <button
+              type="button"
+              aria-label="Editar plantilla"
+              title="Editar plantilla"
               onClick={(e) => {
                 e.stopPropagation();
                 setEditingId(t.id);
               }}
               disabled={busyId === t.id}
-              title="Editar plantilla"
+              className="h-8 w-8 inline-flex items-center justify-center rounded-md text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1 disabled:opacity-40 transition-colors"
             >
-              <Pencil className="size-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
+              <Pencil className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              aria-label={t.isActive ? "Pausar plantilla" : "Activar plantilla"}
+              title={t.isActive ? "Pausar" : "Activar"}
               onClick={(e) => {
                 e.stopPropagation();
                 handleToggleActive(t);
               }}
               disabled={busyId === t.id}
-              title={t.isActive ? "Pausar" : "Activar"}
+              className="h-8 w-8 inline-flex items-center justify-center rounded-md text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1 disabled:opacity-40 transition-colors"
             >
-              {t.isActive ? <Pause className="size-4" /> : <Play className="size-4" />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
+              {t.isActive ? (
+                <Pause className="h-4 w-4" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+            </button>
+            <button
+              type="button"
+              aria-label="Eliminar plantilla"
+              title="Eliminar"
               onClick={(e) => {
                 e.stopPropagation();
                 handleDelete(t.id);
               }}
               disabled={busyId === t.id}
-              title="Eliminar"
-              className="text-status-danger-fg hover:text-status-danger-fg"
+              className="h-8 w-8 inline-flex items-center justify-center rounded-md text-status-danger-fg/80 hover:bg-status-danger-soft hover:text-status-danger-fg disabled:opacity-40 transition-colors"
             >
-              <Trash2 className="size-4" />
-            </Button>
+              <Trash2 className="h-4 w-4" />
+            </button>
           </div>
         );
       },
@@ -550,177 +709,175 @@ export function RecurringClient({
   ];
 
   return (
-    <div className="space-y-3">
-      <Surface elevation={1} padding="sm" className="space-y-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <p className="text-sm text-ds-text-3">
-            {templates.length === 0
-              ? "Aún no hay plantillas."
-              : `${totalActive} activa${totalActive === 1 ? "" : "s"} · ${templates.length} total${templates.length === 1 ? "" : "es"}${
-                  hasActiveFilters
-                    ? ` · ${filtered.length} mostrad${filtered.length === 1 ? "a" : "as"}`
-                    : ""
-                }`}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={reload}
-              disabled={reloading}
-              className="h-10 sm:h-9"
+    <div className="space-y-4 pb-24 lg:pb-4">
+      {/* Toolbar: search (flex-1), filtros como chips, sort y refresh */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ds-text-4" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nombre, cliente, RUT o instalación…"
+            className="pl-10 pr-9 h-10"
+            autoComplete="off"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-ds-text-3 hover:bg-ds-surface-2 transition-colors"
+              aria-label="Limpiar búsqueda"
             >
-              {reloading ? (
-                <Loader2 className="size-4 animate-spin mr-1.5" />
-              ) : (
-                <RefreshCw className="size-4 mr-1.5" />
-              )}
-              Actualizar
-            </Button>
-            {canManage && (
-              <Button
-                size="sm"
-                onClick={() => setEditingId("")}
-                className="h-10 sm:h-9"
-              >
-                <Plus className="size-4 mr-1.5" />
-                Nueva plantilla
-              </Button>
-            )}
-          </div>
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
-        {/* Buscador global + filtros */}
-        {templates.length > 0 && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ds-text-3 pointer-events-none" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por nombre, cliente, RUT o instalación…"
-                className="h-10 sm:h-9 pl-9 pr-9"
-                autoComplete="off"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-ds-text-3 hover:bg-ds-surface-2 transition-colors"
-                  aria-label="Limpiar búsqueda"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-            <Select
-              value={statusFilter}
-              onValueChange={(v) => setStatusFilter(v as StatusFilter)}
-            >
-              <SelectTrigger className="h-10 sm:h-9 w-[140px]">
+        {/* Sort (desktop). En mobile el orden por "Próxima" es el default
+            y rara vez se cambia, así que ocultamos para reducir clutter. */}
+        <div className="hidden md:block">
+          <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+            <SelectTrigger className="w-48 h-10">
+              <span className="inline-flex items-center gap-1.5">
+                <ArrowUpDown className="h-3.5 w-3.5 text-ds-text-4" />
                 <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Todas</SelectItem>
-                <SelectItem value="ACTIVE">Activas</SelectItem>
-                <SelectItem value="PAUSED">Pausadas</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={freqFilter}
-              onValueChange={(v) => setFreqFilter(v as FreqFilter)}
-            >
-              <SelectTrigger className="h-10 sm:h-9 w-[150px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Toda frecuencia</SelectItem>
-                <SelectItem value="monthly">Mensual</SelectItem>
-                <SelectItem value="biweekly">Quincenal</SelectItem>
-                <SelectItem value="weekly">Semanal</SelectItem>
-                <SelectItem value="yearly">Anual</SelectItem>
-              </SelectContent>
-            </Select>
-            {accountOptions.length > 0 && (
-              <Select value={accountFilter} onValueChange={setAccountFilter}>
-                <SelectTrigger className="h-10 sm:h-9 w-[180px]">
-                  <SelectValue placeholder="Cliente" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Todos los clientes</SelectItem>
-                  {accountOptions.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            {installationOptions.length > 0 && (
-              <Select
-                value={installationFilter}
-                onValueChange={setInstallationFilter}
-              >
-                <SelectTrigger className="h-10 sm:h-9 w-[180px]">
-                  <SelectValue placeholder="Instalación" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Todas las instalaciones</SelectItem>
-                  {installationOptions.map((i) => (
-                    <SelectItem key={i.id} value={i.id}>
-                      {i.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            {hasActiveFilters && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearFilters}
-                className="h-10 sm:h-9 text-ds-text-3"
-              >
-                <FilterX className="size-4 mr-1.5" />
-                Limpiar
-              </Button>
-            )}
-          </div>
+              </span>
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={reload}
+          disabled={reloading}
+          className="h-10"
+        >
+          {reloading ? (
+            <Loader2 className="size-4 animate-spin md:mr-1.5" />
+          ) : (
+            <RefreshCw className="size-4 md:mr-1.5" />
+          )}
+          <span className="hidden md:inline">Actualizar</span>
+        </Button>
+
+        {canManage && (
+          <Button
+            size="sm"
+            onClick={() => setEditingId("")}
+            className="h-10 hidden lg:inline-flex"
+          >
+            <Plus className="size-4 mr-1.5" />
+            Nueva plantilla
+          </Button>
         )}
-      </Surface>
+      </div>
+
+      {/* Filtro de estado en chips — patrón equivalente al "Pago:" de DTEs */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs font-mono uppercase tracking-wide text-ds-text-4 mr-1">
+          Estado:
+        </span>
+        {(
+          [
+            { value: "ALL", label: "Todas", tone: "neutral" },
+            { value: "ACTIVE", label: "Activas", tone: "ok" },
+            { value: "PAUSED", label: "Pausadas", tone: "neutral" },
+          ] as const
+        ).map((opt) => {
+          const active = statusFilter === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setStatusFilter(opt.value as StatusFilter)}
+              className={cn(
+                "h-7 px-2.5 rounded-full border text-xs font-medium transition-colors",
+                active
+                  ? opt.tone === "ok"
+                    ? "bg-status-ok-soft border-status-ok-border text-status-ok-fg"
+                    : "bg-ds-surface-3 border-ds-border-default text-ds-text-1"
+                  : "bg-ds-surface-2 border-ds-border-default text-ds-text-3 hover:bg-ds-surface-3",
+              )}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="h-7 px-2.5 rounded-full border border-ds-border-subtle text-xs text-ds-text-4 hover:bg-ds-surface-2 transition-colors"
+          >
+            Limpiar
+          </button>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between text-xs text-ds-text-3">
+        <span>
+          {templates.length === 0
+            ? "Aún no hay plantillas"
+            : `${totalActive} activa${totalActive === 1 ? "" : "s"} · ${templates.length} total${templates.length === 1 ? "" : "es"}${
+                hasActiveFilters
+                  ? ` · ${filtered.length} mostrad${filtered.length === 1 ? "a" : "as"}`
+                  : ""
+              }`}
+        </span>
+      </div>
 
       {templates.length === 0 ? (
-        <Surface elevation={1} padding="none">
-          <EmptyState
-            icon={FileText}
-            title="No hay plantillas recurrentes"
-            description="Creá una para que el cron diario te genere borradores automáticamente."
-            tone="neutral"
-          />
-        </Surface>
-      ) : filtered.length === 0 ? (
-        <Surface elevation={1} padding="none">
-          <EmptyState
-            icon={FileText}
-            title="Sin coincidencias"
-            description="Ninguna plantilla coincide con los filtros actuales."
-            action={
-              <Button variant="outline" size="sm" onClick={clearFilters}>
-                Limpiar filtros
+        <EmptyState
+          icon={FileText}
+          title="No hay plantillas recurrentes"
+          description="Creá una para que el cron diario genere borradores automáticamente."
+          action={
+            canManage ? (
+              <Button size="sm" onClick={() => setEditingId("")}>
+                <Plus className="h-4 w-4 mr-1.5" />
+                Nueva plantilla
               </Button>
-            }
-            tone="neutral"
-          />
-        </Surface>
+            ) : undefined
+          }
+          tone="neutral"
+        />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="Sin coincidencias"
+          description="Ninguna plantilla coincide con los filtros actuales."
+          action={
+            <Button variant="outline" size="sm" onClick={clearFilters}>
+              Limpiar filtros
+            </Button>
+          }
+          tone="neutral"
+        />
       ) : (
         <>
-          {/* Mobile: lista de cards */}
-          <ul className="sm:hidden space-y-2 ds-list-cascade">
+          {/* Mobile + iPad: cards (hasta lg). Tabla aplastada en iPad
+              era el problema principal — mismo breakpoint que DTEs. */}
+          <ul className="lg:hidden space-y-2 ds-list-cascade">
             {filtered.map((t) => {
               const ufText = ufPolicyText(t);
+              const isBusy = busyId === t.id;
               return (
                 <li key={t.id}>
-                  <Surface elevation={1} padding="sm" className="space-y-2">
+                  <Surface
+                    elevation={1}
+                    padding="sm"
+                    tappable
+                    onClick={() => canManage && setEditingId(t.id)}
+                    className="space-y-2"
+                  >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-ds-text-1 truncate">
@@ -736,7 +893,7 @@ export function RecurringClient({
                               <span className="inline-flex items-center gap-1 min-w-0">
                                 <Building2 className="h-3 w-3 shrink-0 text-ds-text-4" />
                                 <span className="truncate">
-                                  CRM: {t.crmAccount.legalName ?? t.crmAccount.name}
+                                  {t.crmAccount.legalName ?? t.crmAccount.name}
                                 </span>
                               </span>
                             )}
@@ -783,7 +940,7 @@ export function RecurringClient({
                           Próxima
                         </span>
                         <span className="font-mono tabular-nums text-ds-text-1">
-                          {formatNextRun(t.nextRunAt)}
+                          {formatRunDate(t.nextRunAt)}
                         </span>
                       </div>
                       <div>
@@ -791,7 +948,7 @@ export function RecurringClient({
                           Última
                         </span>
                         <span className="font-mono tabular-nums text-ds-text-1">
-                          {formatLastRun(t.lastRunAt)}
+                          {formatRunDate(t.lastRunAt)}
                         </span>
                       </div>
                       <div>
@@ -803,54 +960,74 @@ export function RecurringClient({
                         </span>
                       </div>
                     </div>
+                    {(() => {
+                      const refs = Array.isArray(t.additionalReferences)
+                        ? t.additionalReferences
+                        : [];
+                      const sends = [
+                        t.autoSendEmail && { icon: <Mail className="h-3 w-3" />, label: "Email" },
+                        t.autoSendProforma && {
+                          icon: <Receipt className="h-3 w-3" />,
+                          label: "Proforma",
+                        },
+                        t.autoSendPaymentStatement && {
+                          icon: <ClipboardList className="h-3 w-3" />,
+                          label: "Estado de pago",
+                        },
+                      ].filter(Boolean) as { icon: React.ReactNode; label: string }[];
+                      if (refs.length === 0 && sends.length === 0) return null;
+                      return (
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                          {refs.length > 0 && (
+                            <span className="inline-flex items-center gap-1 px-1.5 h-5 rounded bg-ds-surface-3 text-ds-text-2">
+                              <Link2 className="h-3 w-3 text-ds-text-4" />
+                              <span className="font-mono tabular-nums">
+                                {refs.length}
+                              </span>
+                              <span className="text-ds-text-3">
+                                referencia{refs.length === 1 ? "" : "s"}
+                              </span>
+                            </span>
+                          )}
+                          {sends.map((s) => (
+                            <span
+                              key={s.label}
+                              className="inline-flex items-center gap-1 px-1.5 h-5 rounded bg-tint-violet-fg/10 text-tint-violet-fg"
+                            >
+                              {s.icon}
+                              {s.label}
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    })()}
                     {canManage && (
-                      <div className="flex flex-wrap justify-end gap-1.5 pt-1 border-t border-ds-border-subtle">
+                      <div
+                        className="flex gap-1 pt-2 border-t border-ds-border-subtle"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleRunNow(t.id)}
-                          disabled={busyId === t.id || !t.isActive}
-                          className="h-10 sm:h-9"
-                          title="Genera un borrador con los datos de la plantilla"
+                          disabled={isBusy || !t.isActive}
+                          className="flex-1 justify-center h-11"
                         >
-                          {busyId === t.id ? (
-                            <Loader2 className="size-4 mr-1.5 animate-spin" />
+                          {isBusy ? (
+                            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                           ) : (
-                            <FileText className="size-4 mr-1.5" />
+                            <FileText className="h-3.5 w-3.5 mr-1.5" />
                           )}
                           Generar borrador
                         </Button>
                         <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setEditingId(t.id)}
-                          disabled={busyId === t.id}
-                          className="h-10 sm:h-9"
-                        >
-                          <Pencil className="size-4 mr-1.5" />
-                          Editar
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleToggleActive(t)}
-                          disabled={busyId === t.id}
-                          className="h-10 sm:h-9"
-                        >
-                          {t.isActive ? (
-                            <Pause className="size-4 mr-1.5" />
-                          ) : (
-                            <Play className="size-4 mr-1.5" />
-                          )}
-                          {t.isActive ? "Pausar" : "Activar"}
-                        </Button>
-                        <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDelete(t.id)}
-                          disabled={busyId === t.id}
-                          className="h-10 sm:h-9 text-status-danger-fg hover:text-status-danger-fg"
+                          aria-label="Más acciones"
+                          onClick={() => setActionFor(t.id)}
+                          className="h-11 w-11 justify-center"
                         >
-                          <Trash2 className="size-4" />
+                          <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </div>
                     )}
@@ -861,12 +1038,15 @@ export function RecurringClient({
           </ul>
 
           {/* Desktop: tabla DS */}
-          <div className="hidden sm:block">
+          <div className="hidden lg:block">
             <DataTable<RecurringTemplateRow>
               columns={columns}
               rows={filtered}
               layout="fixed"
               rowKey={(t) => t.id}
+              onRowClick={
+                canManage ? (t) => setEditingId(t.id) : undefined
+              }
               empty={
                 <EmptyState
                   icon={FileText}
@@ -878,6 +1058,27 @@ export function RecurringClient({
           </div>
         </>
       )}
+
+      {/* FAB mobile para crear plantilla. Solo bajo lg para que en desktop
+          quede el botón inline; en mobile reemplaza al CTA del header. */}
+      {canManage && (
+        <MobileFAB
+          icon={<Plus className="h-5 w-5" />}
+          label="Nueva plantilla"
+          extended
+          onClick={() => setEditingId("")}
+        />
+      )}
+
+      <MobileActionSheet
+        open={actionFor !== null}
+        onOpenChange={(o) => {
+          if (!o) setActionFor(null);
+        }}
+        title={actionRow ? actionRow.name : ""}
+        description={actionRow?.receiverName ?? undefined}
+        items={actionRow ? buildActionItems(actionRow) : []}
+      />
 
       {/* key fuerza remount cuando cambiamos de plantilla — sin esto, el
           state local (en particular `customer`) se filtra entre ediciones

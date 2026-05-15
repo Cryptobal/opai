@@ -812,7 +812,54 @@ export function RecurringTemplateForm({
                   );
                 })()}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t">
+                {/* Botón "Traer datos del cliente" — sobreescribe giro/
+                    dirección/comuna/ciudad con los datos del CRM. El
+                    auto-fill del useEffect solo completa campos vacíos;
+                    este botón es la salida explícita cuando el usuario
+                    quiere refrescar tras un cambio en la ficha CRM. */}
+                {customer && (
+                  <div className="flex items-center justify-between gap-2 pt-3 border-t">
+                    <p className="text-xs text-muted-foreground">
+                      Datos del receptor para el bloque &lt;Receptor&gt; del DTE.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9 shrink-0"
+                      onClick={() => {
+                        const giroFromCrm = (customer.giro ?? "").trim();
+                        const industryFromCrm = (customer.industry ?? "").trim();
+                        setReceiverGiro(giroFromCrm || industryFromCrm);
+                        setReceiverDireccion(customer.address ?? "");
+                        setReceiverComuna(customer.commune ?? "");
+                        setReceiverCiudad(customer.city ?? "");
+                        const missing: string[] = [];
+                        if (!giroFromCrm && !industryFromCrm) missing.push("giro");
+                        if (!customer.address) missing.push("dirección");
+                        if (!customer.commune) missing.push("comuna");
+                        if (!customer.city) missing.push("ciudad");
+                        if (missing.length > 0) {
+                          toast.warning(
+                            `Datos traídos. Faltan en el CRM: ${missing.join(", ")}.`,
+                          );
+                        } else {
+                          toast.success("Datos del cliente actualizados desde el CRM");
+                        }
+                      }}
+                    >
+                      Traer datos del cliente
+                    </Button>
+                  </div>
+                )}
+
+                <div
+                  className={
+                    customer
+                      ? "grid grid-cols-1 sm:grid-cols-2 gap-3"
+                      : "grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t"
+                  }
+                >
                   <div className="space-y-1.5">
                     <Label className="text-xs">Giro / Actividad</Label>
                     <Input
