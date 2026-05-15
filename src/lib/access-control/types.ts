@@ -180,10 +180,30 @@ export interface AccessControlListEntry {
   /** Tipos de registro a los que aplica esta entrada. Si vacío, fallback
    *  a [recordType ?? "visit"]. */
   recordTypes?: AccessRecordType[];
+  groups?: Array<{ id: string; name: string }>;
   singleUse?: boolean;
   usedAt?: string | null;
   createdBy?: string | null;
   createdAt: string;
+}
+
+export interface AccessControlListGroupData {
+  id: string;
+  listType: ListType;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    memberLinks: number;
+    installationLinks: number;
+  };
+  installationLinks?: Array<{
+    installationId: string;
+    installation?: { id: string; name: string };
+  }>;
 }
 
 export interface ListImportRow {

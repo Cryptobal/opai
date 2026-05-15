@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       : (listConfig?.useWhitelist ? DEFAULTS : []);
 
     // Check blacklist solo si este tipo aplica.
-    const blacklistEntry = blacklistTypes.includes(effectiveType)
+    const directBlacklistEntry = blacklistTypes.includes(effectiveType)
       ? await safeAccessControlQuery(
           () => prisma.accessControlList.findFirst({
             where: {
@@ -80,13 +80,48 @@ export async function POST(request: NextRequest) {
         )
       : null;
 
-    const blacklistMatchesType = blacklistEntry
-      ? ((blacklistEntry.recordTypes ?? []).length > 0
-          ? (blacklistEntry.recordTypes ?? []).includes(effectiveType)
-          : (blacklistEntry.recordType ?? "visit") === effectiveType)
+    const directBlacklistMatchesType = directBlacklistEntry
+      ? ((directBlacklistEntry.recordTypes ?? []).length > 0
+          ? (directBlacklistEntry.recordTypes ?? []).includes(effectiveType)
+          : (directBlacklistEntry.recordType ?? "visit") === effectiveType)
       : false;
 
-    if (blacklistEntry && blacklistMatchesType) {
+    const groupedBlacklistEntry = installation && blacklistTypes.includes(effectiveType) && !directBlacklistMatchesType
+      ? await safeAccessControlQuery(
+          () => prisma.accessControlListGroupMember.findFirst({
+            where: {
+              listEntry: {
+                rut: cleaned,
+                tenantId: installation.tenantId,
+                listType: "blacklist",
+                isActive: true,
+              },
+              group: {
+                tenantId: installation.tenantId,
+                listType: "blacklist",
+                isActive: true,
+                installationLinks: { some: { installationId } },
+              },
+            },
+            select: { listEntry: true },
+          }),
+          null,
+        )
+      : null;
+
+    const groupedBlacklistMatchesType = groupedBlacklistEntry
+      ? ((groupedBlacklistEntry.listEntry.recordTypes ?? []).length > 0
+          ? (groupedBlacklistEntry.listEntry.recordTypes ?? []).includes(effectiveType)
+          : (groupedBlacklistEntry.listEntry.recordType ?? "visit") === effectiveType)
+      : false;
+
+    const blacklistEntry = directBlacklistMatchesType
+      ? directBlacklistEntry
+      : groupedBlacklistMatchesType
+        ? groupedBlacklistEntry?.listEntry
+        : null;
+
+    if (blacklistEntry) {
       const result: RutValidationResult = {
         valid: true,
         listMatch: "blacklist",
@@ -103,7 +138,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check whitelist solo si este tipo aplica.
-    const whitelistEntryRaw = whitelistTypes.includes(effectiveType)
+    const directWhitelistEntryRaw = whitelistTypes.includes(effectiveType)
       ? await safeAccessControlQuery(
           () => prisma.accessControlList.findFirst({
             where: {
@@ -118,13 +153,47 @@ export async function POST(request: NextRequest) {
         )
       : null;
 
-    const whitelistMatchesType = whitelistEntryRaw
-      ? ((whitelistEntryRaw.recordTypes ?? []).length > 0
-          ? (whitelistEntryRaw.recordTypes ?? []).includes(effectiveType)
-          : (whitelistEntryRaw.recordType ?? "visit") === effectiveType)
+    const directWhitelistMatchesType = directWhitelistEntryRaw
+      ? ((directWhitelistEntryRaw.recordTypes ?? []).length > 0
+          ? (directWhitelistEntryRaw.recordTypes ?? []).includes(effectiveType)
+          : (directWhitelistEntryRaw.recordType ?? "visit") === effectiveType)
       : false;
 
-    const whitelistEntry = whitelistEntryRaw && whitelistMatchesType ? whitelistEntryRaw : null;
+    const groupedWhitelistEntry = installation && whitelistTypes.includes(effectiveType) && !directWhitelistMatchesType
+      ? await safeAccessControlQuery(
+          () => prisma.accessControlListGroupMember.findFirst({
+            where: {
+              listEntry: {
+                rut: cleaned,
+                tenantId: installation.tenantId,
+                listType: "whitelist",
+                isActive: true,
+                OR: [{ singleUse: { not: true } }, { usedAt: null }],
+              },
+              group: {
+                tenantId: installation.tenantId,
+                listType: "whitelist",
+                isActive: true,
+                installationLinks: { some: { installationId } },
+              },
+            },
+            select: { listEntry: true },
+          }),
+          null,
+        )
+      : null;
+
+    const groupedWhitelistMatchesType = groupedWhitelistEntry
+      ? ((groupedWhitelistEntry.listEntry.recordTypes ?? []).length > 0
+          ? (groupedWhitelistEntry.listEntry.recordTypes ?? []).includes(effectiveType)
+          : (groupedWhitelistEntry.listEntry.recordType ?? "visit") === effectiveType)
+      : false;
+
+    const whitelistEntry = directWhitelistMatchesType
+      ? directWhitelistEntryRaw
+      : groupedWhitelistMatchesType
+        ? groupedWhitelistEntry?.listEntry
+        : null;
 
     if (whitelistEntry) {
       const withinSchedule = isWithinSchedule(

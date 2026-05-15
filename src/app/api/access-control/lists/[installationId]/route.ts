@@ -50,11 +50,44 @@ export async function GET(
     }
 
     const lists = await safeAccessControlQuery(
-      () => prisma.accessControlList.findMany({ where, orderBy: { createdAt: "desc" } }),
+      () =>
+        prisma.accessControlList.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+          include: {
+            groupLinks: {
+              include: {
+                group: {
+                  select: {
+                    id: true,
+                    name: true,
+                    listType: true,
+                    installationLinks: {
+                      select: { installationId: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
       [],
     );
 
-    return NextResponse.json({ success: true, data: lists });
+    const normalized = (lists ?? []).map((entry) => ({
+      ...entry,
+      groups: (entry.groupLinks ?? [])
+        .map((link) => link.group)
+        .filter(
+          (group) =>
+            group &&
+            group.listType === entry.listType &&
+            group.installationLinks.some((i) => i.installationId === installationId),
+        )
+        .map((group) => ({ id: group.id, name: group.name })),
+    }));
+
+    return NextResponse.json({ success: true, data: normalized });
   } catch (error) {
     console.error("[AccessControl] Error fetching lists:", error);
     return NextResponse.json(

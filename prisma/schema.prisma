@@ -8953,6 +8953,7 @@ model AccessControlList {
 
   installation   CrmInstallation?             @relation(fields: [installationId], references: [id], onDelete: Cascade)
   deniedAttempts AccessControlDeniedAttempt[]
+  groupLinks     AccessControlListGroupMember[]
 
   @@index([rut], map: "idx_ac_lists_rut")
   @@index([vehiclePlate], map: "idx_ac_lists_plate")
@@ -8961,6 +8962,55 @@ model AccessControlList {
   @@index([tenantId], map: "idx_ac_lists_tenant")
   @@index([recordTypes], map: "idx_ac_lists_record_types", type: Gin)
   @@map("access_control_lists")
+  @@schema("access_control")
+}
+
+model AccessControlListGroup {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String   @map("tenant_id")
+  listType    String   @map("list_type") // 'whitelist' | 'blacklist'
+  name        String
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdBy   String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  installationLinks AccessControlListGroupInstallation[]
+  memberLinks       AccessControlListGroupMember[]
+
+  @@index([tenantId], map: "idx_ac_list_groups_tenant")
+  @@index([listType], map: "idx_ac_list_groups_type")
+  @@index([isActive], map: "idx_ac_list_groups_active")
+  @@map("access_control_list_groups")
+  @@schema("access_control")
+}
+
+model AccessControlListGroupInstallation {
+  groupId        String   @map("group_id") @db.Uuid
+  installationId String   @map("installation_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  group        AccessControlListGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  installation CrmInstallation        @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, installationId])
+  @@index([installationId], map: "idx_ac_group_installation_installation")
+  @@map("access_control_list_group_installations")
+  @@schema("access_control")
+}
+
+model AccessControlListGroupMember {
+  groupId     String   @map("group_id") @db.Uuid
+  listEntryId String   @map("list_entry_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  group     AccessControlListGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  listEntry AccessControlList      @relation(fields: [listEntryId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, listEntryId])
+  @@index([listEntryId], map: "idx_ac_group_member_entry")
+  @@map("access_control_list_group_members")
   @@schema("access_control")
 }
 

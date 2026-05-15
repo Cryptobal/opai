@@ -4,13 +4,18 @@ import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import {
   Shield, ShieldAlert, Plus, Search, Edit, Trash2,
-  Loader2, Upload, X, Check, AlertTriangle, Car, UserPlus,
+  Loader2, Upload, X, Check, AlertTriangle, Car, UserPlus, Users, Layers3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import type { AccessControlListEntry, ListType, AccessControlConfigData } from "@/lib/access-control/types";
+import type {
+  AccessControlListEntry,
+  ListType,
+  AccessControlConfigData,
+  AccessControlListGroupData,
+} from "@/lib/access-control/types";
 import { getRecordTypeLabel, getRecordTypeIconName, DEFAULT_RECORD_TYPE_IDS } from "@/lib/access-control/types";
 import { formatRut, validateRut } from "@/lib/access-control/utils";
 import { getLucideIconByName } from "@/lib/access-control/record-type-icon";
@@ -24,12 +29,22 @@ interface Props {
 export function AccessControlListsManager({ installationId }: Props) {
   const [activeTab, setActiveTab] = useState<ListType>("whitelist");
   const [entries, setEntries] = useState<AccessControlListEntry[]>([]);
+  const [groups, setGroups] = useState<AccessControlListGroupData[]>([]);
+  const [tenantInstallations, setTenantInstallations] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editEntry, setEditEntry] = useState<AccessControlListEntry | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
+  const [showAssignGroups, setShowAssignGroups] = useState(false);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(new Set());
+  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(new Set());
+  const [groupName, setGroupName] = useState("");
+  const [groupDescription, setGroupDescription] = useState("");
+  const [groupInstallationIds, setGroupInstallationIds] = useState<string[]>([]);
+  const [groupSaving, setGroupSaving] = useState(false);
 
   const [installConfig, setInstallConfig] = useState<AccessControlConfigData | null>(null);
   const [formRecordTypes, setFormRecordTypes] = useState<string[]>(["visit"]);
@@ -74,9 +89,38 @@ export function AccessControlListsManager({ installationId }: Props) {
     }
   }, [installationId, activeTab]);
 
+  const fetchGroups = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/access-control/groups/${installationId}?listType=${activeTab}`,
+      );
+      const json = await res.json();
+      if (json.success) {
+        setGroups(json.data?.groups ?? []);
+        setTenantInstallations(json.data?.installations ?? []);
+      } else {
+        setGroups([]);
+      }
+    } catch {
+      setGroups([]);
+    }
+  }, [installationId, activeTab]);
+
   useEffect(() => {
     fetchList();
-  }, [fetchList]);
+    fetchGroups();
+  }, [fetchList, fetchGroups]);
+
+  useEffect(() => {
+    setSelectedEntryIds(new Set());
+    setSelectedGroupIds(new Set());
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (groupInstallationIds.length === 0 && tenantInstallations.length > 0) {
+      setGroupInstallationIds([installationId]);
+    }
+  }, [groupInstallationIds.length, tenantInstallations, installationId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -220,6 +264,96 @@ export function AccessControlListsManager({ installationId }: Props) {
     }
   };
 
+  const toggleEntrySelection = (entryId: string) =>
+    setSelectedEntryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(entryId)) next.delete(entryId);
+      else next.add(entryId);
+      return next;
+    });
+
+  const toggleSelectAllVisible = (visibleIds: string[]) => {
+    const allSelected = visibleIds.every((id) => selectedEntryIds.has(id));
+    setSelectedEntryIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        visibleIds.forEach((id) => next.delete(id));
+      } else {
+        visibleIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const handleAssignSelectedToGroups = async () => {
+    const entryIds = Array.from(selectedEntryIds);
+    const groupIds = Array.from(selectedGroupIds);
+    if (entryIds.length === 0 || groupIds.length === 0) {
+      toast.error("Selecciona personas y al menos un grupo");
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/access-control/groups/${installationId}/assign-members`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entryIds, groupIds, listType: activeTab }),
+        },
+      );
+      const json = await res.json();
+      if (json.success) {
+        toast.success(`Asignaciones creadas: ${json.data.assigned}`);
+        setShowAssignGroups(false);
+        setSelectedGroupIds(new Set());
+        await fetchList();
+      } else {
+        toast.error(json.error || "Error al asignar");
+      }
+    } catch {
+      toast.error("Error al asignar");
+    }
+  };
+
+  const handleCreateGroup = async () => {
+    const name = groupName.trim();
+    if (!name) {
+      toast.error("Escribe un nombre de grupo");
+      return;
+    }
+    if (groupInstallationIds.length === 0) {
+      toast.error("Selecciona al menos una instalación");
+      return;
+    }
+    setGroupSaving(true);
+    try {
+      const res = await fetch(`/api/access-control/groups/${installationId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          listType: activeTab,
+          name,
+          description: groupDescription,
+          installationIds: groupInstallationIds,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Grupo creado");
+        setShowCreateGroup(false);
+        setGroupName("");
+        setGroupDescription("");
+        await fetchGroups();
+      } else {
+        toast.error(json.error || "Error al crear grupo");
+      }
+    } catch {
+      toast.error("Error al crear grupo");
+    } finally {
+      setGroupSaving(false);
+    }
+  };
+
   const filtered = entries.filter((e) => {
     if (!search) return true;
     const s = search.toLowerCase();
@@ -230,6 +364,8 @@ export function AccessControlListsManager({ installationId }: Props) {
       (e.company && e.company.toLowerCase().includes(s))
     );
   });
+  const visibleIds = filtered.map((e) => e.id);
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedEntryIds.has(id));
 
   return (
     <div className="space-y-4">
@@ -278,11 +414,29 @@ export function AccessControlListsManager({ installationId }: Props) {
           <Upload className="mr-1 h-4 w-4" />
           Importar CSV
         </Button>
+        <Button
+          onClick={() => setShowAssignGroups(true)}
+          variant="outline"
+          size="sm"
+          disabled={selectedEntryIds.size === 0 || groups.length === 0}
+        >
+          <Layers3 className="mr-1 h-4 w-4" />
+          Asignar a grupos
+        </Button>
+        <Button onClick={() => setShowCreateGroup(true)} variant="outline" size="sm">
+          <Users className="mr-1 h-4 w-4" />
+          Crear grupo
+        </Button>
         <Button onClick={() => { resetForm(); setShowForm(true); }} size="sm">
           <Plus className="mr-1 h-4 w-4" />
           Agregar
         </Button>
       </div>
+      {selectedEntryIds.size > 0 && (
+        <p className="text-xs text-zinc-500 -mt-2">
+          {selectedEntryIds.size} persona(s) seleccionada(s)
+        </p>
+      )}
 
       {/* Form */}
       {showForm && (
@@ -469,12 +623,32 @@ export function AccessControlListsManager({ installationId }: Props) {
         </div>
       ) : (
         <div className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <button
+              type="button"
+              onClick={() => toggleSelectAllVisible(visibleIds)}
+              className="text-xs text-status-info-fg hover:underline"
+            >
+              {allVisibleSelected ? "Deseleccionar visibles" : "Seleccionar visibles"}
+            </button>
+            <span className="text-[11px] text-zinc-500">
+              Grupos activos: {groups.length}
+            </span>
+          </div>
           {filtered.map((entry) => (
             <div
               key={entry.id}
               className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800 p-3"
             >
-              <div className="min-w-0 flex-1">
+              <div className="flex items-start gap-2 min-w-0 flex-1">
+                <input
+                  type="checkbox"
+                  checked={selectedEntryIds.has(entry.id)}
+                  onChange={() => toggleEntrySelection(entry.id)}
+                  className="mt-1 rounded border-zinc-600"
+                  aria-label={`Seleccionar ${entry.fullName}`}
+                />
+                <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-zinc-200">{entry.fullName}</span>
                   {entry.scope === "global" && (
@@ -520,6 +694,20 @@ export function AccessControlListsManager({ installationId }: Props) {
                     </Badge>
                   ))}
                 </div>
+                {(entry.groups ?? []).length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {(entry.groups ?? []).map((g) => (
+                      <Badge
+                        key={g.id}
+                        variant="outline"
+                        className="text-[10px] border-status-info-border bg-status-info-soft text-status-info-fg"
+                      >
+                        {g.name}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                </div>
               </div>
               <div className="flex items-center gap-1">
                 <button
@@ -537,6 +725,146 @@ export function AccessControlListsManager({ installationId }: Props) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Group catalog for current list type */}
+      <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <h4 className="text-sm font-medium text-zinc-200">
+            Grupos {activeTab === "whitelist" ? "de lista blanca" : "de lista negra"}
+          </h4>
+          <span className="text-xs text-zinc-500">{groups.length} grupo(s)</span>
+        </div>
+        {groups.length === 0 ? (
+          <p className="text-xs text-zinc-500">Aún no hay grupos creados para este tipo de lista.</p>
+        ) : (
+          <div className="space-y-2">
+            {groups.map((g) => (
+              <div key={g.id} className="rounded border border-zinc-700 bg-zinc-800 px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-zinc-200 truncate">{g.name}</p>
+                  <span className="text-[11px] text-zinc-500">
+                    {(g._count?.memberLinks ?? 0)} personas · {(g._count?.installationLinks ?? 0)} instalaciones
+                  </span>
+                </div>
+                {(g.installationLinks ?? []).length > 0 && (
+                  <p className="mt-1 text-[11px] text-zinc-500 truncate">
+                    {(g.installationLinks ?? [])
+                      .map((l) => l.installation?.name)
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {showAssignGroups && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-xl border border-zinc-700 bg-zinc-900 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="text-sm font-medium text-zinc-200">Asignar personas a grupos</h4>
+              <button onClick={() => setShowAssignGroups(false)} className="text-zinc-500 hover:text-zinc-300">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="mb-2 text-xs text-zinc-500">
+              Personas seleccionadas: {selectedEntryIds.size}
+            </p>
+            <div className="max-h-64 space-y-1 overflow-y-auto rounded border border-zinc-700 p-2">
+              {groups.map((g) => {
+                const checked = selectedGroupIds.has(g.id);
+                return (
+                  <label key={g.id} className="flex items-center gap-2 rounded px-2 py-1 hover:bg-zinc-800">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() =>
+                        setSelectedGroupIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(g.id)) next.delete(g.id);
+                          else next.add(g.id);
+                          return next;
+                        })
+                      }
+                    />
+                    <span className="text-sm text-zinc-200">{g.name}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="mt-3 flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowAssignGroups(false)}>
+                Cancelar
+              </Button>
+              <Button size="sm" onClick={handleAssignSelectedToGroups}>
+                Asignar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCreateGroup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-zinc-700 bg-zinc-900 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="text-sm font-medium text-zinc-200">Crear grupo</h4>
+              <button onClick={() => setShowCreateGroup(false)} className="text-zinc-500 hover:text-zinc-300">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <Label className="text-zinc-400">Nombre del grupo</Label>
+                <Input
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  placeholder="Ej: Proveedores frecuentes"
+                  className="bg-zinc-800 border-zinc-600"
+                />
+              </div>
+              <div>
+                <Label className="text-zinc-400">Descripción (opcional)</Label>
+                <Input
+                  value={groupDescription}
+                  onChange={(e) => setGroupDescription(e.target.value)}
+                  className="bg-zinc-800 border-zinc-600"
+                />
+              </div>
+              <div>
+                <Label className="text-zinc-400">Instalaciones asociadas</Label>
+                <div className="mt-1 max-h-40 space-y-1 overflow-y-auto rounded border border-zinc-700 p-2">
+                  {tenantInstallations.map((i) => (
+                    <label key={i.id} className="flex items-center gap-2 rounded px-2 py-1 hover:bg-zinc-800">
+                      <input
+                        type="checkbox"
+                        checked={groupInstallationIds.includes(i.id)}
+                        onChange={() =>
+                          setGroupInstallationIds((prev) =>
+                            prev.includes(i.id) ? prev.filter((x) => x !== i.id) : [...prev, i.id],
+                          )
+                        }
+                      />
+                      <span className="text-sm text-zinc-200">{i.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowCreateGroup(false)}>
+                Cancelar
+              </Button>
+              <Button size="sm" onClick={handleCreateGroup} disabled={groupSaving}>
+                {groupSaving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                Crear grupo
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

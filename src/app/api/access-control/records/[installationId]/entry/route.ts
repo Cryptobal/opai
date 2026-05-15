@@ -64,7 +64,7 @@ export async function POST(
       if (blacklistTypes.includes(recordType)) {
         // Cross-tenant safety: queries con scope:"global" deben filtrar
         // por tenantId para no leakar entradas globales de otros tenants.
-        const candidate = await prisma.accessControlList.findFirst({
+        const directCandidate = await prisma.accessControlList.findFirst({
           where: {
             rut: cleaned,
             listType: "blacklist",
@@ -77,14 +77,52 @@ export async function POST(
           select: { id: true, blockReason: true, recordType: true, recordTypes: true },
         });
 
-        const matchesType = (() => {
-          if (!candidate) return false;
-          const arr = candidate.recordTypes ?? [];
+        const directMatchesType = (() => {
+          if (!directCandidate) return false;
+          const arr = directCandidate.recordTypes ?? [];
           if (arr.length > 0) return arr.includes(recordType);
-          return (candidate.recordType ?? "visit") === recordType;
+          return (directCandidate.recordType ?? "visit") === recordType;
         })();
 
-        if (candidate && matchesType) {
+        const groupedCandidate = !directMatchesType
+          ? await prisma.accessControlListGroupMember.findFirst({
+              where: {
+                listEntry: {
+                  rut: cleaned,
+                  tenantId: installation.tenantId,
+                  listType: "blacklist",
+                  isActive: true,
+                },
+                group: {
+                  tenantId: installation.tenantId,
+                  listType: "blacklist",
+                  isActive: true,
+                  installationLinks: { some: { installationId } },
+                },
+              },
+              select: {
+                group: { select: { id: true, name: true } },
+                listEntry: {
+                  select: { id: true, blockReason: true, recordType: true, recordTypes: true },
+                },
+              },
+            })
+          : null;
+
+        const groupedMatchesType = (() => {
+          if (!groupedCandidate) return false;
+          const arr = groupedCandidate.listEntry.recordTypes ?? [];
+          if (arr.length > 0) return arr.includes(recordType);
+          return (groupedCandidate.listEntry.recordType ?? "visit") === recordType;
+        })();
+
+        const candidate = directMatchesType
+          ? directCandidate
+          : groupedMatchesType
+            ? groupedCandidate?.listEntry
+            : null;
+
+        if (candidate) {
           if (body.entryGuardId) {
             await prisma.accessControlDeniedAttempt
               .create({
@@ -116,7 +154,7 @@ export async function POST(
       }
 
       if (whitelistTypes.includes(recordType)) {
-        const candidate = await prisma.accessControlList.findFirst({
+        const directCandidate = await prisma.accessControlList.findFirst({
           where: {
             rut: cleaned,
             installationId,
@@ -126,12 +164,49 @@ export async function POST(
           select: { id: true, recordType: true, recordTypes: true },
         });
 
-        const whitelistMatches = (() => {
-          if (!candidate) return false;
-          const arr = candidate.recordTypes ?? [];
+        const directWhitelistMatches = (() => {
+          if (!directCandidate) return false;
+          const arr = directCandidate.recordTypes ?? [];
           if (arr.length > 0) return arr.includes(recordType);
-          return (candidate.recordType ?? "visit") === recordType;
+          return (directCandidate.recordType ?? "visit") === recordType;
         })();
+
+        const groupedCandidate = !directWhitelistMatches
+          ? await prisma.accessControlListGroupMember.findFirst({
+              where: {
+                listEntry: {
+                  rut: cleaned,
+                  tenantId: installation.tenantId,
+                  listType: "whitelist",
+                  isActive: true,
+                  OR: [{ singleUse: { not: true } }, { usedAt: null }],
+                },
+                group: {
+                  tenantId: installation.tenantId,
+                  listType: "whitelist",
+                  isActive: true,
+                  installationLinks: { some: { installationId } },
+                },
+              },
+              select: {
+                listEntry: { select: { id: true, recordType: true, recordTypes: true } },
+              },
+            })
+          : null;
+
+        const groupedWhitelistMatches = (() => {
+          if (!groupedCandidate) return false;
+          const arr = groupedCandidate.listEntry.recordTypes ?? [];
+          if (arr.length > 0) return arr.includes(recordType);
+          return (groupedCandidate.listEntry.recordType ?? "visit") === recordType;
+        })();
+
+        const candidate = directWhitelistMatches
+          ? directCandidate
+          : groupedWhitelistMatches
+            ? groupedCandidate?.listEntry
+            : null;
+        const whitelistMatches = directWhitelistMatches || groupedWhitelistMatches;
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
