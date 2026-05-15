@@ -39,6 +39,7 @@ import {
   Mail,
   Receipt,
   ClipboardList,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -308,6 +309,28 @@ export function RecurringClient({
     }
   };
 
+  const handleDuplicateTemplate = async (id: string) => {
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/finance/billing/recurring/${id}/duplicate`, {
+        method: "POST",
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || "Error al duplicar plantilla");
+      const newId = j.data?.id as string | undefined;
+      if (!newId) throw new Error("Respuesta inválida");
+      toast.success(
+        "Plantilla duplicada en pausa. Revisá datos y activala si corresponde.",
+      );
+      await reload();
+      setEditingId(newId);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error inesperado");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm("¿Eliminar esta plantilla? Las corridas históricas se mantienen.")) return;
     setBusyId(id);
@@ -373,6 +396,14 @@ export function RecurringClient({
         icon: <FileText className="h-4 w-4" />,
         disabled: !t.isActive || isBusy,
         onSelect: () => handleRunNow(t.id),
+      },
+      {
+        key: "duplicate",
+        label: "Duplicar plantilla",
+        description: "Copia la configuración; queda pausada",
+        icon: <Copy className="h-4 w-4" />,
+        disabled: isBusy,
+        onSelect: () => handleDuplicateTemplate(t.id),
       },
       {
         key: "edit",
@@ -633,7 +664,7 @@ export function RecurringClient({
       id: "_actions",
       header: "",
       align: "right",
-      width: "w-[112px]",
+      width: "w-[152px]",
       cell: (t) => {
         if (!canManage) return null;
         return (
@@ -658,6 +689,19 @@ export function RecurringClient({
               ) : (
                 <FileText className="h-4 w-4" />
               )}
+            </button>
+            <button
+              type="button"
+              aria-label="Duplicar plantilla"
+              title="Duplicar plantilla (queda pausada)"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDuplicateTemplate(t.id);
+              }}
+              disabled={busyId === t.id}
+              className="h-8 w-8 inline-flex items-center justify-center rounded-md text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1 disabled:opacity-40 transition-colors"
+            >
+              <Copy className="h-4 w-4" />
             </button>
             <button
               type="button"

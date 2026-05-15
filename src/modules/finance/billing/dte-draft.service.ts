@@ -164,6 +164,91 @@ export async function createDraftDte(
   return draft;
 }
 
+/**
+ * Nuevo borrador con los mismos datos que un borrador existente (siiStatus=DRAFT).
+ * No copia folio, track SII ni vínculos a emisiones; genera code nuevo y
+ * re-ejecuta match de flujo de caja como todo borrador nuevo.
+ */
+export async function cloneDraftDte(
+  tenantId: string,
+  createdBy: string,
+  sourceDraftId: string,
+) {
+  const original = await prisma.financeDte.findFirst({
+    where: {
+      id: sourceDraftId,
+      tenantId,
+      direction: "ISSUED",
+      siiStatus: "DRAFT",
+    },
+    include: { lines: { orderBy: { lineNumber: "asc" } } },
+  });
+  if (!original) {
+    throw new Error("Borrador no encontrado o ya fue emitido");
+  }
+
+  const refCode = original.referenceCode;
+  const input: DraftDteInput = {
+    issueDate: formatDateOnlyUtcYmd(original.date),
+    dteType: original.dteType,
+    receiverRut: original.receiverRut || undefined,
+    receiverName: original.receiverName || undefined,
+    receiverEmail: original.receiverEmail ?? undefined,
+    receiverEmailCc: original.receiverEmailCc,
+    receiverGiro: original.receiverGiro ?? undefined,
+    receiverDireccion: original.receiverDireccion ?? undefined,
+    receiverComuna: original.receiverComuna ?? undefined,
+    receiverCiudad: original.receiverCiudad ?? undefined,
+    crmAccountId: original.crmAccountId ?? undefined,
+    installationId: original.installationId ?? undefined,
+    accountId: original.accountId ?? undefined,
+    currency: original.currency,
+    notes: original.notes ?? undefined,
+    lines: original.lines.map((l) => ({
+      itemCode: l.itemCode ?? undefined,
+      itemName: l.itemName,
+      description: l.description ?? undefined,
+      quantity: l.quantity.toNumber(),
+      unit: l.unit ?? undefined,
+      unitPrice: l.unitPrice.toNumber(),
+      unitPriceUf: l.unitPriceUf?.toNumber(),
+      discountPct: l.discountPct.toNumber(),
+      isExempt: l.isExempt,
+      accountId: l.accountId ?? undefined,
+      costCenterId: l.costCenterId ?? undefined,
+      refuerzoSolicitudId: l.refuerzoSolicitudId ?? undefined,
+    })),
+    reference:
+      original.referenceType != null &&
+      original.referenceFolio != null &&
+      original.referenceDate != null &&
+      refCode != null
+        ? {
+            docId: original.referenceDteId ?? undefined,
+            type: original.referenceType,
+            folio: original.referenceFolio,
+            date: formatDateOnlyUtcYmd(original.referenceDate),
+            code: refCode as 1 | 2 | 3,
+            reason: original.referenceReason ?? "",
+          }
+        : undefined,
+    additionalReferences:
+      (original.additionalReferences as IssueDteInput["additionalReferences"]) ??
+      undefined,
+    requireProforma: original.requireProforma,
+    proformaRecipientContactIds: original.proformaRecipientContactIds ?? [],
+    requireEstadoPago: original.requireEstadoPago,
+    estadoPagoRecipientContactIds: original.estadoPagoRecipientContactIds ?? [],
+  };
+
+  const ufOverride =
+    original.currency === "UF" && original.ufValueAtIssue != null
+      ? Number(original.ufValueAtIssue)
+      : undefined;
+
+  return createDraftDte(tenantId, createdBy, input, { ufOverride });
+}
+
 export async function updateDraftDte(
   tenantId: string,
   draftId: string,

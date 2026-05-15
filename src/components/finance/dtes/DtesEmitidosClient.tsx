@@ -133,6 +133,7 @@ export function DtesEmitidosClient({
   const [sendingEmail] = useState<string | null>(null);
   const [checkingStatus, setCheckingStatus] = useState<string | null>(null);
   const [deletingDraft, setDeletingDraft] = useState<string | null>(null);
+  const [cloningDraft, setCloningDraft] = useState<string | null>(null);
 
   const [issuingDraft, setIssuingDraft] = useState<{
     id: string;
@@ -502,6 +503,28 @@ export function DtesEmitidosClient({
 
   const handleEditDraft = (id: string) => {
     router.push(`/finanzas/facturacion/emitir?draftId=${id}`);
+  };
+
+  const handleCloneDraft = async (id: string) => {
+    setCloningDraft(id);
+    try {
+      const res = await fetch(`/api/finance/billing/drafts/${id}/duplicate`, {
+        method: "POST",
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json.error || "Error al duplicar borrador");
+      }
+      const newId = json.data?.id as string | undefined;
+      if (!newId) throw new Error("Respuesta inválida del servidor");
+      toast.success("Borrador duplicado");
+      router.push(`/finanzas/facturacion/emitir?draftId=${newId}`);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error inesperado");
+    } finally {
+      setCloningDraft(null);
+    }
   };
 
   const handleIssueDraft = async (id: string) => {
@@ -988,6 +1011,7 @@ export function DtesEmitidosClient({
               checkingStatus={checkingStatus}
               voiding={voiding}
               deletingDraft={deletingDraft}
+              cloningDraft={cloningDraft}
               onViewDetail={(id) => setDetailDteId(id)}
               onPreviewPdf={(id) => setPreviewDteId(id)}
               onDownloadPdf={handleDownloadPdf}
@@ -1005,6 +1029,7 @@ export function DtesEmitidosClient({
               onEditDraft={handleEditDraft}
               onIssueDraft={handleIssueDraft}
               onDeleteDraft={handleDeleteDraft}
+              onCloneDraft={handleCloneDraft}
               onUnreconcile={handleUnreconcile}
               onMarkUnpaid={handleMarkUnpaid}
             />
@@ -1019,6 +1044,7 @@ export function DtesEmitidosClient({
               checkingStatus={checkingStatus}
               voiding={voiding}
               deletingDraft={deletingDraft}
+              cloningDraft={cloningDraft}
               onViewDetail={(id) => setDetailDteId(id)}
               onPreviewPdf={(id) => setPreviewDteId(id)}
               onDownloadPdf={handleDownloadPdf}
@@ -1036,6 +1062,7 @@ export function DtesEmitidosClient({
               onEditDraft={handleEditDraft}
               onIssueDraft={handleIssueDraft}
               onDeleteDraft={handleDeleteDraft}
+              onCloneDraft={handleCloneDraft}
             />
           </div>
           <PaginationControls

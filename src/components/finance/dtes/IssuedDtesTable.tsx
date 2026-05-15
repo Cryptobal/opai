@@ -29,6 +29,7 @@ interface Props {
   checkingStatus: string | null;
   voiding: string | null;
   deletingDraft: string | null;
+  cloningDraft: string | null;
   onViewDetail: (id: string) => void;
   onPreviewPdf: (id: string) => void;
   onDownloadPdf: (id: string, folio: number) => void;
@@ -42,6 +43,7 @@ interface Props {
   onEditDraft: (id: string) => void;
   onIssueDraft: (id: string) => void;
   onDeleteDraft: (id: string) => void;
+  onCloneDraft: (id: string) => void;
   onUnreconcile?: (id: string) => void;
   onMarkUnpaid?: (id: string) => void;
 }
@@ -81,6 +83,7 @@ export function IssuedDtesTable({
   checkingStatus,
   voiding,
   deletingDraft,
+  cloningDraft,
   onViewDetail,
   onPreviewPdf,
   onDownloadPdf,
@@ -94,6 +97,7 @@ export function IssuedDtesTable({
   onEditDraft,
   onIssueDraft,
   onDeleteDraft,
+  onCloneDraft,
   onUnreconcile,
   onMarkUnpaid,
 }: Props) {
@@ -384,6 +388,7 @@ export function IssuedDtesTable({
             checkingStatus={checkingStatus}
             voiding={voiding}
             deletingDraft={deletingDraft}
+            cloningDraft={cloningDraft}
             onViewDetail={() => onViewDetail(row.id)}
             onPreviewPdf={() => onPreviewPdf(row.id)}
             onDownloadPdf={() => onDownloadPdf(row.id, row.folio)}
@@ -397,6 +402,7 @@ export function IssuedDtesTable({
             onEditDraft={() => onEditDraft(row.id)}
             onIssueDraft={() => onIssueDraft(row.id)}
             onDeleteDraft={() => onDeleteDraft(row.id)}
+            onCloneDraft={() => onCloneDraft(row.id)}
             onUnreconcile={
               onUnreconcile ? () => onUnreconcile(row.id) : undefined
             }

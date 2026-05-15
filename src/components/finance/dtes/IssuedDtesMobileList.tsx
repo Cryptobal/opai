@@ -31,6 +31,7 @@ import {
   FileMinus,
   FilePlus,
   FileSearch,
+  Copy,
   Mail,
   MailX,
   MoreHorizontal,
@@ -64,6 +65,7 @@ interface Props {
   checkingStatus: string | null;
   voiding: string | null;
   deletingDraft: string | null;
+  cloningDraft: string | null;
   onViewDetail: (id: string) => void;
   onPreviewPdf: (id: string) => void;
   onDownloadPdf: (id: string, folio: number) => void;
@@ -77,6 +79,7 @@ interface Props {
   onEditDraft: (id: string) => void;
   onIssueDraft: (id: string) => void;
   onDeleteDraft: (id: string) => void;
+  onCloneDraft: (id: string) => void;
 }
 
 /**
@@ -90,6 +93,7 @@ function buildActionItems(
   checkingStatus: string | null,
   voiding: string | null,
   deletingDraft: string | null,
+  cloningDraft: string | null,
   handlers: {
     onPreviewPdf: () => void;
     onDownloadPdf: () => void;
@@ -103,6 +107,7 @@ function buildActionItems(
     onEditDraft: () => void;
     onIssueDraft: () => void;
     onDeleteDraft: () => void;
+    onCloneDraft: () => void;
     onOpenCession: () => void;
   },
 ): MobileActionSheetItem[] {
@@ -115,12 +120,25 @@ function buildActionItems(
         key: "edit-draft",
         label: "Editar borrador",
         icon: <FileEdit className="h-4 w-4" />,
+        disabled:
+          deletingDraft === row.id || cloningDraft === row.id,
         onSelect: handlers.onEditDraft,
+      });
+      items.push({
+        key: "clone-draft",
+        label: "Duplicar borrador",
+        icon: <Copy className="h-4 w-4" />,
+        disabled:
+          deletingDraft === row.id ||
+          cloningDraft === row.id,
+        onSelect: handlers.onCloneDraft,
       });
       items.push({
         key: "issue-draft",
         label: "Emitir al SII",
         icon: <Send className="h-4 w-4" />,
+        disabled:
+          deletingDraft === row.id || cloningDraft === row.id,
         onSelect: handlers.onIssueDraft,
       });
       items.push({
@@ -128,7 +146,8 @@ function buildActionItems(
         label: "Eliminar borrador",
         tone: "danger",
         icon: <Trash2 className="h-4 w-4" />,
-        disabled: deletingDraft === row.id,
+        disabled:
+          deletingDraft === row.id || cloningDraft === row.id,
         onSelect: handlers.onDeleteDraft,
       });
     }
@@ -268,6 +287,7 @@ export function IssuedDtesMobileList({
   checkingStatus,
   voiding,
   deletingDraft,
+  cloningDraft,
   onViewDetail,
   onPreviewPdf,
   onDownloadPdf,
@@ -281,6 +301,7 @@ export function IssuedDtesMobileList({
   onEditDraft,
   onIssueDraft,
   onDeleteDraft,
+  onCloneDraft,
 }: Props) {
   const selectionMode = selectedIds.size > 0;
   const [actionFor, setActionFor] = useState<string | null>(null);
@@ -457,6 +478,9 @@ export function IssuedDtesMobileList({
                       variant="ghost"
                       size="sm"
                       onClick={() => onEditDraft(d.id)}
+                      disabled={
+                        deletingDraft === d.id || cloningDraft === d.id
+                      }
                       className="flex-1 justify-center h-11"
                     >
                       <FileEdit className="h-3.5 w-3.5 mr-1.5" />
@@ -510,6 +534,7 @@ export function IssuedDtesMobileList({
                 checkingStatus,
                 voiding,
                 deletingDraft,
+                cloningDraft,
                 {
                   onPreviewPdf: () => onPreviewPdf(actionRow.id),
                   onDownloadPdf: () =>
@@ -526,6 +551,7 @@ export function IssuedDtesMobileList({
                   onEditDraft: () => onEditDraft(actionRow.id),
                   onIssueDraft: () => onIssueDraft(actionRow.id),
                   onDeleteDraft: () => onDeleteDraft(actionRow.id),
+                  onCloneDraft: () => onCloneDraft(actionRow.id),
                   onOpenCession: () => {
                     if (actionRow.activeCession) {
                       window.location.href = `/finanzas/facturacion/cesiones/${actionRow.activeCession.id}`;

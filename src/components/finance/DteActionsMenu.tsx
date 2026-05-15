@@ -25,6 +25,7 @@ import { formatCLP } from "@/lib/utils";
 import {
   Ban,
   Coins,
+  Copy,
   Download,
   ExternalLink,
   Eye,
@@ -96,6 +97,8 @@ interface Props {
   voiding: string | null;
   /** Si el borrador está siendo eliminado, deshabilita la acción. */
   deletingDraft?: string | null;
+  /** Si el borrador está siendo clonado, deshabilita la acción. */
+  cloningDraft?: string | null;
   onViewDetail: () => void;
   onPreviewPdf: () => void;
   onDownloadPdf: () => void;
@@ -112,6 +115,8 @@ interface Props {
   onIssueDraft?: () => void;
   /** Eliminar borrador (siiStatus=DRAFT). */
   onDeleteDraft?: () => void;
+  /** Duplicar borrador → otro DRAFT nuevo. */
+  onCloneDraft?: () => void;
   /** Desconciliar: borra link a movimiento bancario sin tocar paymentStatus. */
   onUnreconcile?: () => void;
   /** Desmarcar como pagada: vuelve paymentStatus a UNPAID. */
@@ -131,6 +136,7 @@ export function DteActionsMenu({
   checkingStatus,
   voiding,
   deletingDraft,
+  cloningDraft,
   onViewDetail,
   onPreviewPdf,
   onDownloadPdf,
@@ -144,6 +150,7 @@ export function DteActionsMenu({
   onEditDraft,
   onIssueDraft,
   onDeleteDraft,
+  onCloneDraft,
   onUnreconcile,
   onMarkUnpaid,
   hideViewDetail,
@@ -165,6 +172,7 @@ export function DteActionsMenu({
               e.stopPropagation();
               onEditDraft();
             }}
+            disabled={deletingDraft === row.id || cloningDraft === row.id}
             title="Editar borrador"
           >
             <FileEdit className="h-3.5 w-3.5" />
@@ -178,9 +186,28 @@ export function DteActionsMenu({
               e.stopPropagation();
               onIssueDraft();
             }}
+            disabled={deletingDraft === row.id || cloningDraft === row.id}
             title="Emitir al SII"
           >
             <Send className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {canManage && onCloneDraft && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCloneDraft();
+            }}
+            disabled={cloningDraft === row.id || deletingDraft === row.id}
+            title="Duplicar borrador"
+          >
+            {cloningDraft === row.id ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
           </Button>
         )}
         {canManage && onDeleteDraft && (
@@ -191,7 +218,7 @@ export function DteActionsMenu({
               e.stopPropagation();
               onDeleteDraft();
             }}
-            disabled={deletingDraft === row.id}
+            disabled={deletingDraft === row.id || cloningDraft === row.id}
             title="Eliminar borrador"
             className="text-status-danger-fg hover:text-status-danger-fg"
           >
