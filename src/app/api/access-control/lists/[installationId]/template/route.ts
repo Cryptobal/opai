@@ -16,19 +16,26 @@ export async function GET(
 
   const headers =
     listType === "blacklist"
-      ? ["RUT", "Nombre Completo", "Empresa", "Motivo"]
-      : ["RUT", "Nombre Completo", "Empresa", "Vigencia Desde", "Vigencia Hasta"];
+      ? ["RUT", "Nombre Completo", "Empresa", "Patente", "Motivo"]
+      : ["RUT", "Nombre Completo", "Empresa", "Patente", "Vigencia Desde", "Vigencia Hasta"];
 
   ws.addRow(headers);
   ws.getRow(1).font = { bold: true };
 
   if (listType === "blacklist") {
-    ws.addRow(["12345678-9", "Juan Pérez González", "ACME S.A.", "Comportamiento agresivo"]);
+    ws.addRow([
+      "12345678-9",
+      "Juan Pérez González",
+      "ACME S.A.",
+      "ABCD12",
+      "Comportamiento agresivo",
+    ]);
   } else {
     ws.addRow([
       "12345678-9",
       "Juan Pérez González",
       "ACME S.A.",
+      "ABCD12",
       "2026-01-01",
       "2026-12-31",
     ]);

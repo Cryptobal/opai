@@ -18,10 +18,24 @@ export async function GET(
 
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Lista Blanca");
-  const headers = ["RUT", "Nombre Completo", "Empresa", "Vigencia Desde", "Vigencia Hasta"];
+  const headers = [
+    "RUT",
+    "Nombre Completo",
+    "Empresa",
+    "Patente",
+    "Vigencia Desde",
+    "Vigencia Hasta",
+  ];
   ws.addRow(headers);
   ws.getRow(1).font = { bold: true };
-  ws.addRow(["12345678-9", "Juan Pérez González", "ACME S.A.", "2026-01-01", "2026-12-31"]);
+  ws.addRow([
+    "12345678-9",
+    "Juan Pérez González",
+    "ACME S.A.",
+    "ABCD12",
+    "2026-01-01",
+    "2026-12-31",
+  ]);
   headers.forEach((_, i) => {
     ws.getColumn(i + 1).width = 22;
   });
