@@ -192,6 +192,8 @@ export interface AccessControlListGroupData {
   listType: ListType;
   name: string;
   description?: string | null;
+  /** Types of record forms this group applies to. Empty = applies to all. */
+  recordTypes: string[];
   isActive: boolean;
   createdBy?: string | null;
   createdAt: string;

@@ -98,10 +98,15 @@ export async function POST(
                   listType: "blacklist",
                   isActive: true,
                   installationLinks: { some: { installationId } },
+                  // Group recordTypes: empty means "all", otherwise must include this recordType
+                  OR: [
+                    { recordTypes: { isEmpty: true } },
+                    { recordTypes: { has: recordType } },
+                  ],
                 },
               },
               select: {
-                group: { select: { id: true, name: true } },
+                group: { select: { id: true, name: true, recordTypes: true } },
                 listEntry: {
                   select: { id: true, blockReason: true, recordType: true, recordTypes: true },
                 },
@@ -186,6 +191,10 @@ export async function POST(
                   listType: "whitelist",
                   isActive: true,
                   installationLinks: { some: { installationId } },
+                  OR: [
+                    { recordTypes: { isEmpty: true } },
+                    { recordTypes: { has: recordType } },
+                  ],
                 },
               },
               select: {

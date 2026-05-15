@@ -19,9 +19,7 @@ export async function GET(
       tenantId: authCtx.tenantId,
       isActive: true,
       ...(listType ? { listType } : {}),
-      installationLinks: {
-        some: { installationId },
-      },
+      installationLinks: { some: { installationId } },
     };
 
     const groups = await safeAccessControlQuery(
@@ -31,32 +29,18 @@ export async function GET(
           orderBy: [{ listType: "asc" }, { name: "asc" }],
           include: {
             installationLinks: {
-              include: {
-                installation: {
-                  select: { id: true, name: true },
-                },
-              },
+              include: { installation: { select: { id: true, name: true } } },
             },
-            _count: {
-              select: { memberLinks: true, installationLinks: true },
-            },
+            _count: { select: { memberLinks: true } },
           },
         }),
       [],
     );
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        groups: groups ?? [],
-      },
-    });
+    return NextResponse.json({ success: true, data: { groups: groups ?? [] } });
   } catch (error) {
     console.error("[AccessControl] Error fetching list groups:", error);
-    return NextResponse.json(
-      { success: false, error: "Error al obtener grupos" },
-      { status: 500 },
-    );
+    return NextResponse.json({ success: false, error: "Error al obtener grupos" }, { status: 500 });
   }
 }
 
@@ -75,8 +59,10 @@ export async function POST(
       listType?: "whitelist" | "blacklist";
       name?: string;
       description?: string;
+      recordTypes?: string[];
       entryIds?: string[];
     };
+
     const listType = body.listType;
     const name = (body.name ?? "").trim();
     if (!listType || !["whitelist", "blacklist"].includes(listType)) {
@@ -86,21 +72,18 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Nombre requerido" }, { status: 400 });
     }
 
-    const validInstallations = await prisma.crmInstallation.findMany({
-      where: {
-        tenantId: authCtx.tenantId,
-        id: installationId,
-      },
+    // Validate the installation belongs to this tenant
+    const inst = await prisma.crmInstallation.findFirst({
+      where: { id: installationId, tenantId: authCtx.tenantId },
       select: { id: true },
     });
-    const validInstallationIds = validInstallations.map((i) => i.id);
-    if (validInstallationIds.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "Debes seleccionar al menos una instalación válida" },
-        { status: 400 },
-      );
+    if (!inst) {
+      return NextResponse.json({ success: false, error: "Instalación inválida" }, { status: 400 });
     }
 
+    const recordTypes = Array.isArray(body.recordTypes)
+      ? body.recordTypes.filter((t) => typeof t === "string" && t.length > 0)
+      : [];
     const entryIds = Array.isArray(body.entryIds) ? body.entryIds : [];
 
     const created = await prisma.$transaction(async (tx) => {
@@ -110,19 +93,14 @@ export async function POST(
           listType,
           name,
           description: body.description?.trim() || null,
-          installationLinks: {
-            create: [{ installationId }],
-          },
+          recordTypes,
+          installationLinks: { create: [{ installationId }] },
         },
       });
 
       if (entryIds.length > 0) {
         const validEntries = await tx.accessControlList.findMany({
-          where: {
-            tenantId: authCtx.tenantId,
-            id: { in: entryIds },
-            listType,
-          },
+          where: { tenantId: authCtx.tenantId, id: { in: entryIds }, listType },
           select: { id: true },
         });
         if (validEntries.length > 0) {
@@ -139,9 +117,6 @@ export async function POST(
     return NextResponse.json({ success: true, data: created }, { status: 201 });
   } catch (error) {
     console.error("[AccessControl] Error creating list group:", error);
-    return NextResponse.json(
-      { success: false, error: "Error al crear grupo" },
-      { status: 500 },
-    );
+    return NextResponse.json({ success: false, error: "Error al crear grupo" }, { status: 500 });
   }
 }

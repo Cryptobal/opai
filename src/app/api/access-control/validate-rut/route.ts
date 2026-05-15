@@ -101,6 +101,10 @@ export async function POST(request: NextRequest) {
                 listType: "blacklist",
                 isActive: true,
                 installationLinks: { some: { installationId } },
+                OR: [
+                  { recordTypes: { isEmpty: true } },
+                  { recordTypes: { has: effectiveType } },
+                ],
               },
             },
             select: { listEntry: true },
@@ -175,6 +179,10 @@ export async function POST(request: NextRequest) {
                 listType: "whitelist",
                 isActive: true,
                 installationLinks: { some: { installationId } },
+                OR: [
+                  { recordTypes: { isEmpty: true } },
+                  { recordTypes: { has: effectiveType } },
+                ],
               },
             },
             select: { listEntry: true },

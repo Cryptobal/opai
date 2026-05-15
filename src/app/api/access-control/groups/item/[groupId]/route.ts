@@ -39,6 +39,7 @@ export async function PUT(
       name?: string;
       description?: string | null;
       isActive?: boolean;
+      recordTypes?: string[];
     };
     const { error } = await authorizeByInstallation(
       request,
@@ -56,10 +57,16 @@ export async function PUT(
       name?: string;
       description?: string | null;
       isActive?: boolean;
+      recordTypes?: string[];
     } = {};
     if (typeof body.name === "string" && body.name.trim()) updateData.name = body.name.trim();
     if ("description" in body) updateData.description = body.description?.trim() || null;
     if (typeof body.isActive === "boolean") updateData.isActive = body.isActive;
+    if (Array.isArray(body.recordTypes)) {
+      updateData.recordTypes = body.recordTypes.filter(
+        (t) => typeof t === "string" && t.length > 0,
+      );
+    }
 
     const result = await prisma.accessControlListGroup.update({
       where: { id: groupId },
