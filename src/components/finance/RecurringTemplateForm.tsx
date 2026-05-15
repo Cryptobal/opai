@@ -52,6 +52,7 @@ import {
   type PlaceholderContext,
 } from "@/modules/finance/billing/placeholders";
 import { formatCLP, formatUFSuffix } from "@/lib/utils";
+import { normalizeEmailAddress, normalizeEmailList } from "@/lib/email-address";
 
 const fmtCLP = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -66,6 +67,15 @@ interface AdditionalRef {
   folioRef: string;
   fchRef: string;
   razonRef: string;
+}
+
+/** CC del receptor: mismo criterio que envío/email (RFC: local case-insensitive para ASCII). */
+function parseCcEmailsFromRaw(raw: string): string[] {
+  const tokens = raw
+    .split(/[\s,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return normalizeEmailList(tokens);
 }
 
 const EMPTY_LINE: TemplateLine = {
@@ -294,7 +304,7 @@ export function RecurringTemplateForm({
         } else {
           setCustomer(null);
         }
-        setCcEmailsRaw((t.receiverEmailCc ?? []).join(", "));
+        setCcEmailsRaw(normalizeEmailList(t.receiverEmailCc ?? []).join(", "));
         setNotes(t.notes ?? "");
         const linesData: TemplateLine[] = Array.isArray(t.lines) && t.lines.length > 0
           ? (t.lines as Array<Record<string, unknown>>).map((l) => {
@@ -583,19 +593,22 @@ export function RecurringTemplateForm({
     }
 
     // Parsear y validar emails CC
-    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
     const ccCandidates = ccEmailsRaw
       .split(/[\s,;]+/)
-      .map((s) => s.trim())
+      .map((s) => normalizeEmailAddress(s))
       .filter(Boolean);
     const invalidCc = ccCandidates.filter((e) => !EMAIL_RE.test(e));
     if (invalidCc.length > 0) {
       toast.error(`Emails CC inválidos: ${invalidCc.join(", ")}`);
       return;
     }
-    const ccEmails = Array.from(
-      new Set(ccCandidates.filter((e) => e !== effEmail)),
-    );
+    const effCcKey = normalizeEmailAddress(effEmail);
+    const mergedCc = normalizeEmailList(ccCandidates);
+    const ccEmails =
+      effCcKey.length === 0
+        ? mergedCc
+        : mergedCc.filter((e) => e !== effCcKey);
     if (ccEmails.length > 10) {
       toast.error("Máximo 10 emails CC.");
       return;
@@ -612,7 +625,8 @@ export function RecurringTemplateForm({
       dteType: parseInt(dteType, 10),
       receiverRut: effRut,
       receiverName: effName,
-      receiverEmail: effEmail || null,
+      receiverEmail:
+        effEmail.length > 0 ? normalizeEmailAddress(effEmail) : null,
       receiverEmailCc: ccEmails,
       receiverGiro: receiverGiro.trim() || null,
       receiverDireccion: receiverDireccion.trim() || null,
@@ -973,11 +987,9 @@ export function RecurringTemplateForm({
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {crmSuggestions.contacts.map((c) => {
-                        const ccArr = ccEmailsRaw
-                          .split(/[\s,;]+/)
-                          .map((s) => s.trim())
-                          .filter(Boolean);
-                        const alreadyAdded = ccArr.includes(c.email);
+                        const ccArr = parseCcEmailsFromRaw(ccEmailsRaw);
+                        const cKey = normalizeEmailAddress(c.email);
+                        const alreadyAdded = ccArr.includes(cKey);
                         return (
                           <button
                             key={c.id}
@@ -985,12 +997,15 @@ export function RecurringTemplateForm({
                             onClick={() => {
                               if (alreadyAdded) {
                                 setCcEmailsRaw(
-                                  ccArr.filter((e) => e !== c.email).join(", "),
+                                  ccArr.filter((e) => e !== cKey).join(", "),
                                 );
                               } else {
-                                setCcEmailsRaw(
-                                  [...ccArr, c.email].filter(Boolean).join(", "),
-                                );
+                                const merged = normalizeEmailList([...ccArr, cKey]);
+                                if (merged.length > 10) {
+                                  toast.error("Máximo 10 emails CC.");
+                                  return;
+                                }
+                                setCcEmailsRaw(merged.join(", "));
                               }
                             }}
                             className={

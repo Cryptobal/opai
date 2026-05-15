@@ -13,11 +13,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
+import { normalizeEmailAddress } from "@/lib/email-address";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
 export type DteRecipientsValue = {
   to: string;
@@ -63,10 +64,17 @@ export function DteRecipientsPicker({
   useEffect(() => {
     if (defaultsApplied) return;
     if (!defaultCheckedCc || defaultCheckedCc.length === 0) return;
+    const normalizedDefaults = defaultCheckedCc
+      .map((e) => normalizeEmailAddress(e))
+      .filter((e) => EMAIL_RE.test(e));
+    const normalizedCc = value.cc.map((e) => normalizeEmailAddress(e));
+    const toKey = normalizeEmailAddress(value.to);
     const merged = Array.from(
-      new Set([...value.cc, ...defaultCheckedCc.filter((e) => EMAIL_RE.test(e))]),
-    ).filter((e) => e !== value.to);
-    if (merged.length !== value.cc.length) {
+      new Set([...normalizedCc, ...normalizedDefaults]),
+    ).filter((e) => e !== toKey);
+    const prevKey = [...value.cc.map((e) => normalizeEmailAddress(e))].sort().join("|");
+    const nextKey = [...merged].sort().join("|");
+    if (prevKey !== nextKey) {
       onChange({ ...value, cc: merged });
     }
     setDefaultsApplied(true);
@@ -93,7 +101,7 @@ export function DteRecipientsPicker({
         if (!j?.success || !Array.isArray(j.data)) return;
         const list: { email: string; label?: string }[] = [];
         for (const c of j.data) {
-          const email = (c.email ?? "").trim();
+          const email = normalizeEmailAddress(c.email ?? "");
           if (!email || !EMAIL_RE.test(email)) continue;
           const name = [c.firstName, c.lastName].filter(Boolean).join(" ").trim();
           list.push({ email, label: name ? `${name} <${email}>` : email });
@@ -104,24 +112,28 @@ export function DteRecipientsPicker({
     return () => ctrl.abort();
   }, [crmAccountId, receiverRut]);
 
-  const isRecipientValid = useMemo(
-    () => value.to.trim() === "" || EMAIL_RE.test(value.to.trim()),
-    [value.to],
-  );
+  const isRecipientValid = useMemo(() => {
+    const t = value.to.trim();
+    return t === "" || EMAIL_RE.test(normalizeEmailAddress(t));
+  }, [value.to]);
 
   const allSuggestions = useMemo(() => {
     const seen = new Set<string>();
     const out: { email: string; label?: string }[] = [];
     for (const s of [...suggestedContacts, ...crmContacts]) {
-      if (seen.has(s.email)) continue;
-      seen.add(s.email);
-      out.push(s);
+      const email = normalizeEmailAddress(s.email);
+      if (!email || !EMAIL_RE.test(email)) continue;
+      if (seen.has(email)) continue;
+      seen.add(email);
+      out.push({ email, label: s.label });
     }
     return out;
   }, [suggestedContacts, crmContacts]);
 
+  const ccKeys = new Set(value.cc.map((e) => normalizeEmailAddress(e)));
+  const toKey = normalizeEmailAddress(value.to);
   const ccSuggestionsToShow = allSuggestions.filter(
-    (s) => !value.cc.includes(s.email) && s.email !== value.to,
+    (s) => !ccKeys.has(s.email) && s.email !== toKey,
   );
 
   function addChip(
@@ -129,7 +141,7 @@ export function DteRecipientsPicker({
     raw: string,
     inputSetter: (s: string) => void,
   ) {
-    const trimmed = raw.trim().replace(/[,;]+$/, "");
+    const trimmed = normalizeEmailAddress(raw.replace(/[,;]+$/, ""));
     if (!trimmed) {
       inputSetter("");
       return;
@@ -139,7 +151,8 @@ export function DteRecipientsPicker({
       return;
     }
     const list = value[target];
-    if (list.includes(trimmed) || trimmed === value.to) {
+    const listKeys = list.map((e) => normalizeEmailAddress(e));
+    if (listKeys.includes(trimmed) || trimmed === normalizeEmailAddress(value.to)) {
       inputSetter("");
       return;
     }
@@ -152,7 +165,13 @@ export function DteRecipientsPicker({
   }
 
   function removeChip(target: "cc" | "bcc", email: string) {
-    onChange({ ...value, [target]: value[target].filter((e) => e !== email) });
+    const drop = normalizeEmailAddress(email);
+    onChange({
+      ...value,
+      [target]: value[target].filter(
+        (e) => normalizeEmailAddress(e) !== drop,
+      ),
+    });
   }
 
   return (
@@ -234,7 +253,7 @@ export function DteRecipientsPicker({
                 key={s.email}
                 type="button"
                 onClick={() => {
-                  if (!value.cc.includes(s.email)) {
+                  if (!ccKeys.has(s.email)) {
                     onChange({ ...value, cc: [...value.cc, s.email] });
                   }
                 }}

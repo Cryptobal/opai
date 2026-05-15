@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { normalizeEmailAddress } from "@/lib/email-address";
 
 /**
  * Devuelve las dos formas canónicas del RUT — con guión y sin guión —
@@ -117,7 +118,7 @@ export async function GET(request: NextRequest) {
         .map((c) => ({
           id: c.id,
           fullName: `${c.firstName} ${c.lastName}`.trim(),
-          email: c.email!,
+          email: normalizeEmailAddress(c.email!),
           roleTitle: c.roleTitle,
           isPrimary: c.isPrimary,
         })),

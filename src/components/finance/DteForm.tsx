@@ -54,6 +54,7 @@ import {
 } from "@/modules/finance/billing/placeholders";
 import { formatCLP, formatUFSuffix } from "@/lib/utils";
 import { todayChileStr } from "@/lib/fx-date";
+import { normalizeEmailAddress, normalizeEmailList } from "@/lib/email-address";
 
 /* ── Types ── */
 
@@ -303,7 +304,9 @@ export function DteForm({ availableTypes, accounts }: Props) {
         setReceiverCiudad(d.receiverCiudad ?? "");
         setEmailRecipients({
           to: d.receiverEmail ?? "",
-          cc: Array.isArray(d.receiverEmailCc) ? d.receiverEmailCc : [],
+          cc: normalizeEmailList(
+            Array.isArray(d.receiverEmailCc) ? d.receiverEmailCc : [],
+          ),
           bcc: [],
         });
         setNotes(d.notes ?? "");
@@ -760,14 +763,15 @@ export function DteForm({ availableTypes, accounts }: Props) {
       receiverEmail ||
       ""
     ).trim();
+    const effEmailKey = normalizeEmailAddress(effEmail);
     const validLines = lines.filter(
       (l) => l.itemName.trim() && parseFloat(l.unitPrice) > 0,
     );
-    const ccEmails = Array.from(
-      new Set(emailRecipients.cc.filter((e) => e !== effEmail)),
+    const ccEmails = normalizeEmailList(
+      emailRecipients.cc.filter((e) => normalizeEmailAddress(e) !== effEmailKey),
     );
-    const bccEmails = Array.from(
-      new Set(emailRecipients.bcc.filter((e) => e !== effEmail)),
+    const bccEmails = normalizeEmailList(
+      emailRecipients.bcc.filter((e) => normalizeEmailAddress(e) !== effEmailKey),
     );
     const validRefs = additionalRefs.filter(
       (r) => r.tipoDocRef.trim() && r.folioRef.trim() && r.fchRef,
