@@ -41,12 +41,15 @@ import type { CommandItem, CommandCategory } from './types';
 import { useCommandPalette } from './use-command-palette';
 import { defaultCommands, ICON_MAP, CATEGORY_LABELS } from './commands';
 import { useIsMobile } from '@/lib/pwa/use-is-mobile';
+import { normalizeForSearch } from '@/lib/search-normalize';
 
 // ── Fuzzy matching ──
+// Acento-insensible: normaliza ambos lados con NFD + strip de diacríticos
+// para que "Munoz" matchee "Muñoz" y viceversa.
 
 function fuzzyScore(text: string, query: string): number {
-  const lower = text.toLowerCase();
-  const q = query.toLowerCase();
+  const lower = normalizeForSearch(text);
+  const q = normalizeForSearch(query);
 
   if (lower === q) return 100;
   if (lower.startsWith(q)) return 90;
@@ -84,18 +87,24 @@ function getCommandScore(cmd: CommandItem, query: string): number {
 }
 
 // ── Highlight matching text ──
+// Busca el match en la versión normalizada (sin tildes/case) pero resalta
+// el slice correspondiente del texto original para preservar acentos.
 
 function highlightMatch(text: string, query: string): ReactNode {
   if (!query) return text;
-  const lower = text.toLowerCase();
-  const q = query.toLowerCase();
-  const idx = lower.indexOf(q);
+  const normText = normalizeForSearch(text);
+  const normQuery = normalizeForSearch(query);
+  const idx = normText.indexOf(normQuery);
   if (idx === -1) return text;
+  // Asume que cada char base+diacrítico precompuesto del original se reduce a
+  // 1 char base tras NFD+strip, lo cual es cierto para todo el español
+  // (vocales tildadas + ñ + ü). Bajo ese supuesto los offsets de la cadena
+  // normalizada se corresponden 1:1 con el original.
   return (
     <>
       {text.slice(0, idx)}
-      <span className="text-primary font-semibold">{text.slice(idx, idx + q.length)}</span>
-      {text.slice(idx + q.length)}
+      <span className="text-primary font-semibold">{text.slice(idx, idx + normQuery.length)}</span>
+      {text.slice(idx + normQuery.length)}
     </>
   );
 }
