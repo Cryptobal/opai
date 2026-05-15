@@ -33,7 +33,6 @@ import { BankTxReconcileSheet } from "./BankTxReconcileSheet";
 import { CategoryMappingDialog } from "./cashflow/CategoryMappingDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BulkAssignDialog } from "./BulkAssignDialog";
-import { BulkReconcileToDteDialog } from "./BulkReconcileToDteDialog";
 import { BankAnalysisClient } from "./BankAnalysisClient";
 import {
   Landmark,
@@ -923,19 +922,16 @@ function TransactionsTab({
   // Drawer de conciliación
   const [reconcileTx, setReconcileTx] = useState<TransactionRow | null>(null);
 
-  // ── Selección múltiple para bulk-assign ──
+  // ── Selección múltiple. Al marcar ≥1 checkbox el sidebar se abre y
+  //    acumula esas txs como lote para conciliar contra facturas o
+  //    cesiones. La bottom bar quedó reducida a acciones secundarias
+  //    (asignar cuenta sin DTE, ocultar). ──
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
-  // Conciliación masiva contra 1+ DTEs (post 2026-05).
-  const [bulkReconcileOpen, setBulkReconcileOpen] = useState(false);
-  // Ocultar masivo (post 2026-05).
+  // Ocultar masivo.
   const [bulkHideOpen, setBulkHideOpen] = useState(false);
   const [bulkHideReason, setBulkHideReason] = useState("");
   const [bulkHiding, setBulkHiding] = useState(false);
-  // Cola de conciliación uno-por-uno (post 2026-05). El sheet existente
-  // (`reconcileTx`) se reutiliza, navegando entre items con `queueIndex`.
-  const [reconcileQueue, setReconcileQueue] = useState<TransactionRow[]>([]);
-  const [queueIndex, setQueueIndex] = useState(0);
 
   const toggleSelectTx = (id: string) => {
     setSelectedTxIds((prev) => {
@@ -2065,101 +2061,72 @@ function TransactionsTab({
         </DialogContent>
       </Dialog>
 
-      <BankTxReconcileSheet
-        open={!!reconcileTx}
-        onOpenChange={(open) => {
-          if (!open) {
-            setReconcileTx(null);
-            // Si estábamos en cola, también limpiar.
-            if (reconcileQueue.length > 0) {
-              setReconcileQueue([]);
-              setQueueIndex(0);
-            }
-          }
-        }}
-        tx={reconcileTx}
-        accountPlans={accountPlans}
-        queueInfo={
-          reconcileQueue.length > 0
-            ? {
-                index: queueIndex,
-                total: reconcileQueue.length,
-                onNext: () => {
-                  const nextIdx = queueIndex + 1;
-                  if (nextIdx < reconcileQueue.length) {
-                    setQueueIndex(nextIdx);
-                    setReconcileTx(reconcileQueue[nextIdx]);
-                  } else {
-                    // Fin de la cola.
-                    setReconcileTx(null);
-                    setReconcileQueue([]);
-                    setQueueIndex(0);
-                    clearSelection();
-                    loadTransactions();
-                  }
-                },
-                onCancel: () => {
-                  setReconcileTx(null);
-                  setReconcileQueue([]);
-                  setQueueIndex(0);
-                  loadTransactions();
-                },
+      {(() => {
+        // Lote efectivo del sidebar: cuando hay checkboxes marcados, el
+        // sidebar acumula esas txs (multi-tx); si no, cae al click-en-fila
+        // (single-tx). Antes había 2 UIs separadas (sidebar + modal bulk)
+        // que terminaban en el mismo backend — ahora todo pasa por acá.
+        const selectedTxs = transactions.filter((t) =>
+          selectedTxIds.has(t.id),
+        );
+        const sheetTxs =
+          selectedTxs.length > 0
+            ? selectedTxs.map((t) => ({
+                id: t.id,
+                transactionDate: t.transactionDate,
+                description: t.description,
+                reference: t.reference,
+                amount: t.amount,
+              }))
+            : reconcileTx
+              ? [
+                  {
+                    id: reconcileTx.id,
+                    transactionDate: reconcileTx.transactionDate,
+                    description: reconcileTx.description,
+                    reference: reconcileTx.reference,
+                    amount: reconcileTx.amount,
+                  },
+                ]
+              : [];
+        return (
+          <BankTxReconcileSheet
+            open={sheetTxs.length > 0}
+            onOpenChange={(open) => {
+              if (!open) {
+                setReconcileTx(null);
+                clearSelection();
               }
-            : undefined
-        }
-        onSaved={() => {
-          if (reconcileQueue.length > 0) {
-            // En modo cola, avanzar al siguiente sin cerrar.
-            const nextIdx = queueIndex + 1;
-            if (nextIdx < reconcileQueue.length) {
-              setQueueIndex(nextIdx);
-              setReconcileTx(reconcileQueue[nextIdx]);
-              loadTransactions();
-            } else {
+            }}
+            tx={sheetTxs[0] ?? null}
+            txs={sheetTxs}
+            accountPlans={accountPlans}
+            onSaved={() => {
               setReconcileTx(null);
-              setReconcileQueue([]);
-              setQueueIndex(0);
               clearSelection();
               loadTransactions();
-            }
-          } else {
-            setReconcileTx(null);
-            loadTransactions();
-          }
-        }}
-      />
+            }}
+          />
+        );
+      })()}
 
-      {/* Barra flotante de acciones masivas */}
+      {/* Barra flotante de acciones secundarias. La conciliación se hace
+          en el sidebar (se abre solo al marcar checkboxes). Acá solo
+          quedan acciones que NO son conciliar: bulk-assign de cuenta sin
+          factura, ocultar el lote, limpiar selección. */}
       {selectedTxIds.size > 0 && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex flex-wrap items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-lg max-w-[95vw]">
           <span className="text-[12px] font-mono text-muted-foreground">
             {selectedTxIds.size} movimiento{selectedTxIds.size === 1 ? "" : "s"} seleccionado{selectedTxIds.size === 1 ? "" : "s"}
           </span>
           <div className="h-4 w-px bg-border" />
-          <Button size="sm" variant="default" onClick={() => setBulkAssignOpen(true)}>
-            Asignar cuenta…
-          </Button>
-          <Button
-            size="sm"
-            variant="default"
-            onClick={() => setBulkReconcileOpen(true)}
-            title="Conciliar todos contra una o varias facturas"
-          >
-            Conciliar contra DTEs
-          </Button>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => {
-              const queue = transactions.filter((t) => selectedTxIds.has(t.id));
-              if (queue.length === 0) return;
-              setReconcileQueue(queue);
-              setQueueIndex(0);
-              setReconcileTx(queue[0]);
-            }}
-            title="Abrir cada movimiento uno por uno"
+            onClick={() => setBulkAssignOpen(true)}
+            title="Asignar todos los seleccionados a una cuenta contable sin conciliar contra DTE"
           >
-            Conciliar uno por uno
+            Asignar cuenta…
           </Button>
           <Button
             size="sm"
@@ -2171,7 +2138,7 @@ function TransactionsTab({
             Ocultar seleccionados
           </Button>
           <Button size="sm" variant="ghost" onClick={clearSelection}>
-            Cancelar
+            Limpiar selección
           </Button>
         </div>
       )}
@@ -2185,26 +2152,6 @@ function TransactionsTab({
         onDone={() => {
           clearSelection();
           setBulkAssignOpen(false);
-          loadTransactions();
-        }}
-      />
-
-      {/* Modal de conciliación masiva contra 1 DTE (post 2026-05) */}
-      <BulkReconcileToDteDialog
-        open={bulkReconcileOpen}
-        onOpenChange={setBulkReconcileOpen}
-        transactions={transactions
-          .filter((t) => selectedTxIds.has(t.id))
-          .map((t) => ({
-            id: t.id,
-            transactionDate: t.transactionDate,
-            description: t.description,
-            reference: t.reference,
-            amount: t.amount,
-          }))}
-        accountPlans={accountPlans}
-        onConfirmed={() => {
-          clearSelection();
           loadTransactions();
         }}
       />

@@ -234,14 +234,26 @@ function groupAccounts(
 interface BankTxReconcileSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * Movimiento primario. En modo single-tx (click en fila) es el único.
+   * En modo multi-tx (checkboxes) es `txs[0]` y se usa para el modo
+   * "view"/"edit" que solo aplica si N === 1.
+   */
   tx: Tx | null;
+  /**
+   * Lote completo del sidebar. Si no se pasa, default a `[tx]` (modo
+   * single legacy). Si N > 1, el header y preview cambian a "N
+   * movimientos · $sumatoria" y el guardado usa siempre el endpoint
+   * bulk-reconcile-dtes.
+   */
+  txs?: Tx[];
   accountPlans: AccountPlanOption[];
   onSaved: () => void;
   /**
-   * Modo "cola" (post 2026-05): cuando viene definido, el sheet muestra
-   * "Movimiento N de M" en el header y permite "Saltar" para avanzar al
-   * siguiente sin guardar. Se setea desde la barra masiva de Bancos al
-   * iniciar una sesión de conciliación uno-por-uno.
+   * Modo "cola" (legacy, antes de multi-tx): el sidebar acumula
+   * movimientos en `txs`, así que la cola/uno-por-uno queda obsoleta.
+   * Se mantiene la prop por compatibilidad con call sites pero no se
+   * usa en flujos nuevos.
    */
   queueInfo?: {
     index: number;
@@ -261,10 +273,26 @@ export function BankTxReconcileSheet({
   open,
   onOpenChange,
   tx,
+  txs: txsProp,
   accountPlans,
   onSaved,
   queueInfo,
 }: BankTxReconcileSheetProps) {
+  // Lote efectivo. Mantiene compatibilidad con call sites legacy que solo
+  // pasan `tx`: si no viene `txs`, derivamos `[tx]` (o `[]` si null).
+  const txs = useMemo<Tx[]>(() => {
+    if (txsProp && txsProp.length > 0) return txsProp;
+    return tx ? [tx] : [];
+  }, [tx, txsProp]);
+  const isMulti = txs.length > 1;
+  const totalAmountSigned = useMemo(
+    () => txs.reduce((s, t) => s + t.amount, 0),
+    [txs],
+  );
+  const totalAmountAbs = useMemo(
+    () => txs.reduce((s, t) => s + Math.abs(t.amount), 0),
+    [txs],
+  );
   const [mode, setMode] = useState<SheetMode>("loading");
   const [existingLinks, setExistingLinks] = useState<ExistingLink[]>([]);
   const [existingPaymentRecord, setExistingPaymentRecord] =
@@ -297,7 +325,7 @@ export function BankTxReconcileSheet({
   const [restAccountId, setRestAccountId] = useState<string>("");
   const [restNote, setRestNote] = useState("");
   // Diff/shortfall: cuando sum(DTEs seleccionados) > banco (típico factoring).
-  // Misma UX que BulkReconcileToDteDialog.
+  // (Antes vivía en un modal aparte; ahora todo en el sidebar.)
   const [diffMode, setDiffMode] = useState<"prorate" | "single" | "manual">(
     "prorate"
   );
@@ -309,7 +337,10 @@ export function BankTxReconcileSheet({
   >([]);
   const factoringPrefillAppliedRef = useRef<string | null>(null);
 
-  const txAmountAbs = tx ? Math.abs(tx.amount) : 0;
+  // Para el lote (1..N movs) la "tx amount abs" pasa a ser la suma. La
+  // lógica de remaining/overflow opera sobre el lote completo, no sobre
+  // un mov individual.
+  const txAmountAbs = totalAmountAbs;
   const linksTotal = useMemo(
     () => links.reduce((s, l) => s + l.amount, 0),
     [links]
@@ -324,14 +355,23 @@ export function BankTxReconcileSheet({
   // montos manualmente.
   const overflow = Math.max(0, linksTotal - txAmountAbs);
   const hasShortfall = overflow > 1;
-  const allLinksAreDtes =
+  // El bloque "manejar diferencia" aplica cuando todos los links son
+  // reconciliables vía bulk (DTE o factoring). Si hay links manuales
+  // (INCOME/EXPENSE puros) mezclados, el bulk endpoint los rechaza y
+  // pedimos al user que los quite primero.
+  const allLinksAreReconcilable =
     links.length > 0 &&
     links.every(
-      (l) => l.targetType === "DTE_ISSUED" || l.targetType === "DTE_RECEIVED"
+      (l) =>
+        l.targetType === "DTE_ISSUED" ||
+        l.targetType === "DTE_RECEIVED" ||
+        l.targetType === "FACTORING_OPERATION",
     );
   // Sentido contable de la cuenta para el shortfall: ingreso → costo/gasto;
   // egreso → ingreso/pasivo (descuento). Mismo criterio que el bulk modal.
-  const isIncomeTx = tx ? tx.amount > 0 : false;
+  // El signo del lote: todos los movs deben tener mismo signo (validado
+  // por el endpoint bulk). Usamos la suma firmada para inferirlo.
+  const isIncomeTx = totalAmountSigned > 0;
   const eligibleShortfallAccounts = useMemo(() => {
     if (!accountPlans.length) return [];
     return accountPlans.filter((ap) => {
@@ -372,10 +412,11 @@ export function BankTxReconcileSheet({
     if (factoringPrefillAppliedRef.current === tx.id) return;
     factoringPrefillAppliedRef.current = tx.id;
     const c = suggestedOnes[0]!;
-    const suggestedAmt = Math.min(
-      c.expectedDeposit,
-      Math.abs(tx.amount) || c.expectedDeposit,
-    );
+    // Pre-cargamos el monto BRUTO esperado del PDF (sin clamp al banco).
+    // Si el banco trae menos (merma factoring) aparece el bloque
+    // "manejar diferencia" para imputar contablemente el costo. Antes
+    // se clampaba al banco y la merma quedaba invisible.
+    const suggestedAmt = c.expectedDeposit;
     setLinks([
       {
         key: c.id,
@@ -620,11 +661,10 @@ export function BankTxReconcileSheet({
       setLinks((prev) => prev.filter((l) => l.key !== c.id));
       return;
     }
-    // Monto sugerido: el expected del factoring (cap al remaining).
-    const suggested = Math.min(
-      c.expectedDeposit,
-      remaining || c.expectedDeposit,
-    );
+    // Monto sugerido: el expected BRUTO del PDF (sin clamp al banco).
+    // La diferencia banco vs expected aparece como shortfall y se imputa
+    // contablemente vía el bloque "manejar diferencia".
+    const suggested = c.expectedDeposit;
     setLinks((prev) => [
       ...prev,
       {
@@ -687,58 +727,84 @@ export function BankTxReconcileSheet({
   };
 
   const handleSave = async () => {
-    if (!tx) return;
+    if (!tx || txs.length === 0) return;
     if (links.length === 0) {
       toast.error("Agregá al menos un vínculo o categorización");
       return;
     }
 
-    // Shortfall path: las facturas suman más que el banco. Lo ruteamos al
-    // endpoint bulk-reconcile-dtes para que el backend genere el asiento
-    // contable de la diferencia (costo factoring / descuento recibido).
-    // Sólo aplica cuando todos los vínculos son DTE — el bulk endpoint no
-    // acepta factoring/manual.
-    if (hasShortfall) {
-      if (!allLinksAreDtes) {
+    const hasFactoringLinks = links.some(
+      (l) => l.targetType === "FACTORING_OPERATION",
+    );
+    const hasManualLinks = links.some(
+      (l) => l.targetType === "EXPENSE" || l.targetType === "INCOME",
+    );
+
+    // En multi-tx el endpoint bulk no acepta links manuales (INCOME/EXPENSE
+    // puros sin entidad). Si el usuario armó un lote con esos, le pedimos
+    // que los quite — la categorización manual aplica a 1 mov a la vez.
+    if (isMulti && hasManualLinks) {
+      toast.error(
+        "En conciliación multi-movimiento sólo se permiten facturas o cesiones. Quitá los ítems de categorización manual o procesá los movs uno a uno.",
+      );
+      return;
+    }
+
+    // Path bulk-reconcile-dtes: cubre multi-tx, shortfall (DTE o factoring)
+    // y cualquier caso que tenga links de factoring (el módulo factoring
+    // sólo se actualiza vía este endpoint). El path PUT /[id]/links queda
+    // como fallback para single-tx con DTE+manual sin diff contable.
+    const useBulk = isMulti || hasShortfall || hasFactoringLinks;
+
+    if (useBulk) {
+      if (hasShortfall && diffMode !== "manual" && !diffAccountPlanId) {
         toast.error(
-          "Para manejar la diferencia, los vínculos deben ser sólo facturas. Remové los ítems de factoring o manuales."
+          "Seleccioná una cuenta contable para la diferencia, o elegí modo Manual.",
         );
         return;
       }
-      if (diffMode !== "manual" && !diffAccountPlanId) {
-        toast.error(
-          "Seleccioná una cuenta contable para la diferencia, o elegí modo Manual."
+      // Construimos allocations a partir de los links DTE/factoring;
+      // los manuales no aplican acá (validado arriba para multi-tx; en
+      // single-tx vendrían capturados por el path PUT más abajo).
+      let allocations = links
+        .filter(
+          (l) =>
+            l.targetType === "DTE_ISSUED" ||
+            l.targetType === "DTE_RECEIVED" ||
+            l.targetType === "FACTORING_OPERATION",
+        )
+        .map((l) =>
+          l.targetType === "FACTORING_OPERATION"
+            ? {
+                factoringOperationId: l.targetId as string,
+                amount: l.amount,
+              }
+            : { dteId: l.targetId as string, amount: l.amount },
         );
-        return;
-      }
-      // En modo manual escalamos las allocations para que su suma == banco
-      // (water-fill proporcional al monto editado). Las facturas quedan
-      // PARTIAL y el usuario registra el costo aparte después.
-      let allocations = links.map((l) => ({
-        dteId: l.targetId as string,
-        amount: l.amount,
-      }));
-      if (diffMode === "manual") {
+      // En modo manual de shortfall, rescaleamos las allocations para
+      // que su suma == sumatoria del banco. Las facturas quedan PARTIAL
+      // por su porción real cobrada y el usuario registra el costo
+      // aparte después.
+      if (hasShortfall && diffMode === "manual") {
         const sum = allocations.reduce((s, a) => s + a.amount, 0);
         if (sum > 0) {
           const scale = txAmountAbs / sum;
           allocations = allocations.map((a) => ({
-            dteId: a.dteId,
+            ...a,
             amount: Math.round(a.amount * scale),
           }));
-          // Reparar residuo de redondeo en la última alloc.
           const newSum = allocations.reduce((s, a) => s + a.amount, 0);
-          const diff = Math.round(txAmountAbs) - newSum;
+          const residue = Math.round(txAmountAbs) - newSum;
           if (allocations.length > 0) {
-            allocations[allocations.length - 1].amount += diff;
+            allocations[allocations.length - 1].amount += residue;
           }
         }
       }
       const body: Record<string, unknown> = {
-        bankTransactionIds: [tx.id],
+        bankTransactionIds: txs.map((t) => t.id),
         allocations,
       };
-      if (diffMode !== "manual") {
+      if (hasShortfall && diffMode !== "manual") {
         body.differenceAllocation = {
           accountPlanId: diffAccountPlanId,
           amount: Math.round(overflow),
@@ -755,11 +821,15 @@ export function BankTxReconcileSheet({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
-          }
+          },
         );
         const json = await res.json();
         if (!res.ok || !json.success) throw new Error(json.error);
-        toast.success("Movimiento conciliado");
+        toast.success(
+          isMulti
+            ? `${txs.length} movimientos conciliados`
+            : "Movimiento conciliado",
+        );
         onSaved();
         onOpenChange(false);
       } catch (err) {
@@ -838,7 +908,9 @@ export function BankTxReconcileSheet({
       ? "Conciliación inconsistente"
       : mode === "edit"
         ? "Editar conciliación"
-        : "Conciliar movimiento";
+        : isMulti
+          ? `Conciliar ${txs.length} movimientos`
+          : "Conciliar movimiento";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -889,35 +961,82 @@ export function BankTxReconcileSheet({
             </div>
           </div>
         )}
-        {/* Preview de la tx — fuera de SheetDescription para no romper la
-            regla de DOM (DialogDescription es <p>; los <div> internos
-            disparaban hydration warning). */}
-        <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-1">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <span className="text-foreground font-medium">{tx.description}</span>
-            <span
-              className={cn(
-                "font-mono font-semibold",
-                tx.amount >= 0
-                  ? "text-status-ok-fg"
-                  : "text-status-danger-fg"
+        {/* Preview del/los movimiento(s). Single-tx muestra el detalle
+            individual; multi-tx muestra una sumatoria con la lista de
+            cada mov en una caja compacta. */}
+        {isMulti ? (
+          <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-2">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-foreground font-medium">
+                {txs.length} {isIncomeTx ? "ingresos" : "egresos"}
+              </span>
+              <span
+                className={cn(
+                  "font-mono font-semibold",
+                  isIncomeTx
+                    ? "text-status-ok-fg"
+                    : "text-status-danger-fg",
+                )}
+              >
+                {fmtCLP.format(totalAmountSigned)}
+              </span>
+            </div>
+            <ul className="space-y-1 max-h-40 overflow-y-auto pr-1">
+              {txs.map((t) => (
+                <li
+                  key={t.id}
+                  className="flex items-center justify-between gap-2 text-xs"
+                >
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className="text-muted-foreground mr-1.5">
+                      {format(new Date(t.transactionDate), "dd MMM", {
+                        locale: es,
+                      })}
+                    </span>
+                    {t.description}
+                  </span>
+                  <span
+                    className={cn(
+                      "font-mono shrink-0",
+                      t.amount >= 0
+                        ? "text-status-ok-fg"
+                        : "text-status-danger-fg",
+                    )}
+                  >
+                    {fmtCLP.format(t.amount)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-1">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-foreground font-medium">{tx.description}</span>
+              <span
+                className={cn(
+                  "font-mono font-semibold",
+                  tx.amount >= 0
+                    ? "text-status-ok-fg"
+                    : "text-status-danger-fg"
+                )}
+              >
+                {fmtCLP.format(tx.amount)}
+              </span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {format(new Date(tx.transactionDate), "dd MMM yyyy", {
+                locale: es,
+              })}
+              {tx.reference && (
+                <>
+                  {" · "}
+                  <span className="font-mono">{tx.reference}</span>
+                </>
               )}
-            >
-              {fmtCLP.format(tx.amount)}
-            </span>
+            </div>
           </div>
-          <div className="text-xs text-muted-foreground">
-            {format(new Date(tx.transactionDate), "dd MMM yyyy", {
-              locale: es,
-            })}
-            {tx.reference && (
-              <>
-                {" · "}
-                <span className="font-mono">{tx.reference}</span>
-              </>
-            )}
-          </div>
-        </div>
+        )}
 
         {/* Loading inicial: GET /links en curso. */}
         {mode === "loading" && (
@@ -1663,9 +1782,9 @@ export function BankTxReconcileSheet({
                   </div>
                 </div>
                 {/* Shortfall block: las facturas suman MÁS que el banco
-                    (típico factoring). Misma UX que BulkReconcileToDteDialog.
+                    (típico factoring). (Antes vivía en un modal aparte; ahora todo en el sidebar.)
                     Sólo aplica cuando todos los vínculos son DTE. */}
-                {hasShortfall && allLinksAreDtes && (
+                {hasShortfall && allLinksAreReconcilable && (
                   <div className="rounded-lg border border-status-warn-border bg-status-warn-soft/10 p-3 space-y-3">
                     <div className="space-y-1">
                       <p className="text-sm font-medium">
@@ -1766,11 +1885,11 @@ export function BankTxReconcileSheet({
                     )}
                   </div>
                 )}
-                {hasShortfall && !allLinksAreDtes && (
+                {hasShortfall && !allLinksAreReconcilable && (
                   <p className="text-xs text-status-danger-fg pt-2">
-                    Para manejar diferencia con facturas + factoring/manual
-                    mezclados, ajustá los montos de cada vínculo manualmente
-                    o remové los ítems no-factura.
+                    Para imputar la diferencia contablemente hay ítems
+                    manuales en el lote. Quitálos o procesá la
+                    categorización manual aparte.
                   </p>
                 )}
                 {remaining > 0.01 && (
