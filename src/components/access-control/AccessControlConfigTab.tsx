@@ -31,6 +31,7 @@ import {
   getRecordTypeLabel, getRecordTypeIconName, getRecordTypeScanModes,
   seedFieldsForScanModes,
   isDefaultRecordType,
+  isSystemFieldKey,
 } from "@/lib/access-control/types";
 import { getLucideIconByName } from "@/lib/access-control/record-type-icon";
 
@@ -1180,11 +1181,17 @@ function SortableFieldRow({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // Un campo es "sistema" si su flag systemField está activo o si su key
+  // está en el conjunto reservado (rut, vehicle_plate, documentSerial).
+  const isSystem = field.systemField || isSystemFieldKey(field.field);
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 rounded-md bg-zinc-800 p-2"
+      className={`flex items-center gap-2 rounded-md p-2 ${
+        isSystem ? "bg-zinc-800/60 border border-zinc-700" : "bg-zinc-800"
+      }`}
     >
       <button
         type="button"
@@ -1204,17 +1211,30 @@ function SortableFieldRow({
       <select
         value={field.type}
         onChange={(e) => onTypeChange(e.target.value as FormFieldConfig["type"])}
-        className="h-8 rounded-md border border-zinc-600 bg-zinc-700 px-2 text-xs text-zinc-200"
+        className="h-8 rounded-md border border-zinc-600 bg-zinc-700 px-2 text-xs text-zinc-200 disabled:opacity-60"
+        disabled={isSystem}
+        title={isSystem ? "Este campo es controlado automáticamente por el modo de escaneo" : undefined}
       >
         <option value="text">Texto</option>
         <option value="number">Número</option>
         <option value="select">Selección</option>
         <option value="boolean">Sí/No</option>
         <option value="date">Fecha</option>
-        <option value="photo">Foto</option>
         <option value="textarea">Texto largo</option>
-        <option value="signature">Firma</option>
+        <optgroup label="Capturas">
+          <option value="photo">Foto genérica</option>
+          <option value="photo_visitor">Foto del visitante</option>
+          <option value="photo_id">Foto de cédula</option>
+          <option value="photo_plate">Foto de patente</option>
+          <option value="qr_cedula">Escaneo QR cédula</option>
+          <option value="signature">Firma</option>
+        </optgroup>
       </select>
+      {isSystem && (
+        <Badge variant="outline" className="text-[9px] uppercase border-zinc-600 text-zinc-400">
+          Auto
+        </Badge>
+      )}
       <label className="flex items-center gap-1 text-xs text-zinc-400">
         <input
           type="checkbox"
@@ -1227,7 +1247,9 @@ function SortableFieldRow({
       <button
         type="button"
         onClick={onRemove}
-        className="text-zinc-500 hover:text-status-danger-fg"
+        disabled={isSystem}
+        className="text-zinc-500 hover:text-status-danger-fg disabled:opacity-40 disabled:cursor-not-allowed"
+        title={isSystem ? "No se puede eliminar un campo del sistema" : undefined}
       >
         <Trash2 className="h-4 w-4" />
       </button>

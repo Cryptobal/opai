@@ -58,11 +58,22 @@ export const SCAN_MODES = ["plate", "rut", "none"] as const;
 export interface FormFieldConfig {
   field: string;
   label: string;
-  type: "text" | "number" | "select" | "boolean" | "date" | "photo" | "textarea" | "signature";
+  type:
+    | "text" | "number" | "select" | "boolean" | "date" | "textarea"
+    | "photo"
+    | "photo_visitor"   // selfie del visitante
+    | "photo_id"        // foto del documento de identidad (cédula/RUT)
+    | "photo_plate"     // foto + OCR de la patente
+    | "qr_cedula"       // scanner QR de cédula
+    | "signature";
   required: boolean;
   order: number;
   options?: string[]; // for select fields
   placeholder?: string;
+  /** Indica que este campo es auto-llenado por el wizard (rut, vehicle_plate,
+   *  documentSerial). El admin puede renombrarlo pero no cambiar el type ni
+   *  borrarlo desde el ConfigTab. */
+  systemField?: boolean;
 }
 
 /** Form fields per record type. Keyed by record type id — the 5 default
@@ -576,3 +587,16 @@ export const DEFAULT_FORM_FIELDS: Record<DefaultRecordTypeId, FormFieldConfig[]>
     { field: "observations", label: "Observaciones", type: "textarea", required: false, order: 6 },
   ],
 };
+
+/** Conjunto de field keys que se auto-llenan desde el wizard del Entry
+ *  (CedulaQRScanner, VehiclePlateOCR). Estos campos se renderizan con
+ *  badge "Auto" en el ConfigTab y no permiten cambiar su tipo. */
+export const SYSTEM_FIELD_KEYS = new Set([
+  "rut",
+  "vehicle_plate",
+  "documentSerial",
+]);
+
+export function isSystemFieldKey(field: string): boolean {
+  return SYSTEM_FIELD_KEYS.has(field);
+}

@@ -144,7 +144,27 @@ export function DynamicFormRenderer({ fields, initialData, onSubmit }: Props) {
         );
 
       case "photo":
-      case "signature":
+      case "photo_visitor":
+      case "photo_id":
+      case "photo_plate":
+      case "qr_cedula":
+      case "signature": {
+        const captureLabel = (() => {
+          switch (field.type) {
+            case "photo_visitor":
+              return "Toca para tomar selfie del visitante";
+            case "photo_id":
+              return "Toca para tomar foto de la cédula";
+            case "photo_plate":
+              return "Toca para tomar foto de la patente";
+            case "qr_cedula":
+              return "Toca para escanear QR de cédula";
+            case "signature":
+              return "Toca para firmar";
+            default:
+              return "Toca para tomar foto";
+          }
+        })();
         return (
           <div key={field.field} className="space-y-1">
             <Label className="text-zinc-400">
@@ -152,13 +172,12 @@ export function DynamicFormRenderer({ fields, initialData, onSubmit }: Props) {
               {field.required && <span className="text-status-danger-fg ml-0.5">*</span>}
             </Label>
             <div className="rounded-md border border-dashed border-zinc-600 bg-zinc-800 p-4 text-center">
-              <p className="text-xs text-zinc-500">
-                {field.type === "photo" ? "Toca para tomar foto" : "Toca para firmar"}
-              </p>
+              <p className="text-xs text-zinc-500">{captureLabel}</p>
             </div>
             {error && <p className="text-xs text-status-danger-fg">{error}</p>}
           </div>
         );
+      }
 
       default:
         return null;
