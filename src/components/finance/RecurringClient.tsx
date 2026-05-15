@@ -28,7 +28,6 @@ import {
   FileText,
   FilterX,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -39,12 +38,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import {
+  DataTable,
+  EmptyState,
+  Surface,
+  Tag,
+  type DataTableColumn,
+} from "@/components/opai-ds";
+import { DocumentTag } from "@/components/finance/dtes";
+import { cn } from "@/lib/utils";
 import { RecurringTemplateForm } from "./RecurringTemplateForm";
-
-const DTE_LABELS: Record<number, string> = {
-  33: "Factura Electrónica",
-  34: "Factura Exenta",
-};
 
 const FREQ_LABELS: Record<string, string> = {
   monthly: "Mensual",
@@ -110,6 +113,12 @@ function formatFrequency(t: RecurringTemplateRow): string {
     return `${base} · ${t.monthOfYear ?? 1}/${t.dayOfMonth ?? 1}`;
   }
   return base;
+}
+
+function ufPolicyText(t: RecurringTemplateRow): string | null {
+  if (t.currency !== "UF" || !t.ufFixingPolicy) return null;
+  if (t.ufFixingPolicy === "CUSTOM_DAY") return `UF: día ${t.ufFixingDay ?? "?"}`;
+  return UF_POLICY_LABEL[t.ufFixingPolicy] ?? t.ufFixingPolicy;
 }
 
 interface Props {
@@ -314,11 +323,237 @@ export function RecurringClient({
     setInstallationFilter("ALL");
   };
 
+  const formatNextRun = (iso: string | null) =>
+    iso
+      ? new Date(iso).toLocaleDateString("es-CL", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
+      : "—";
+
+  const formatLastRun = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleDateString("es-CL") : "—";
+
+  const columns: DataTableColumn<RecurringTemplateRow>[] = [
+    {
+      id: "name",
+      header: "Plantilla",
+      width: "w-[218px]",
+      cell: (t) => (
+        <div className="min-w-0">
+          <div className="text-sm font-medium text-ds-text-1 truncate">
+            {t.name}
+          </div>
+          {t.receiverName && (
+            <div className="text-xs text-ds-text-3 truncate">
+              {t.receiverName}
+            </div>
+          )}
+          {t.receiverRut && (
+            <div className="text-xs text-ds-text-4 font-mono tabular-nums truncate">
+              {t.receiverRut}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "client",
+      header: "Cliente / Instalación",
+      width: "w-[182px]",
+      cell: (t) => (
+        <div className="min-w-0 text-xs space-y-0.5">
+          {t.crmAccount ? (
+            <div
+              className="flex items-center gap-1 min-w-0"
+              title={t.crmAccount.legalName ?? t.crmAccount.name}
+            >
+              <Building2 className="h-3 w-3 shrink-0 text-ds-text-4" />
+              <span className="truncate font-medium">
+                {t.crmAccount.legalName ?? t.crmAccount.name}
+              </span>
+            </div>
+          ) : (
+            <span className="text-ds-text-4 italic">Manual</span>
+          )}
+          {t.installation && (
+            <div
+              className="flex items-center gap-1 min-w-0 text-ds-text-3"
+              title={t.installation.name}
+            >
+              <MapPin className="h-3 w-3 shrink-0 text-ds-text-4" />
+              <span className="truncate">
+                {t.installation.name}
+                {t.installation.commune ? ` · ${t.installation.commune}` : ""}
+              </span>
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "type",
+      header: "Tipo",
+      width: "w-[130px]",
+      cell: (t) => {
+        const ufText = ufPolicyText(t);
+        return (
+          <div className="min-w-0 space-y-0.5">
+            <DocumentTag dteType={t.dteType} />
+            <div
+              className="text-xs text-ds-text-4 truncate"
+              title={ufText ?? undefined}
+            >
+              {t.currency}
+              {ufText ? ` · ${ufText.replace(/^UF: /, "")}` : ""}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      id: "frequency",
+      header: "Frecuencia",
+      width: "w-[138px]",
+      cell: (t) => (
+        <span className="text-xs">{formatFrequency(t)}</span>
+      ),
+    },
+    {
+      id: "nextRun",
+      header: "Próxima",
+      width: "w-[96px]",
+      cell: (t) => (
+        <span
+          className={cn(
+            "text-xs font-mono tabular-nums",
+            !t.nextRunAt && "text-ds-text-4",
+          )}
+        >
+          {formatNextRun(t.nextRunAt)}
+        </span>
+      ),
+    },
+    {
+      id: "lastRun",
+      header: "Última",
+      width: "w-[96px]",
+      cell: (t) => (
+        <span
+          className={cn(
+            "text-xs font-mono tabular-nums",
+            !t.lastRunAt && "text-ds-text-4",
+          )}
+        >
+          {formatLastRun(t.lastRunAt)}
+        </span>
+      ),
+    },
+    {
+      id: "runCount",
+      header: "Corridas",
+      align: "right",
+      width: "w-[82px]",
+      cell: (t) => (
+        <span className="text-xs font-mono tabular-nums">{t.runCount}</span>
+      ),
+    },
+    {
+      id: "status",
+      header: "Estado",
+      width: "w-[94px]",
+      cell: (t) =>
+        t.isActive ? (
+          <Tag variant="ok" size="sm" dot>
+            Activa
+          </Tag>
+        ) : (
+          <Tag variant="neutral" size="sm" dot>
+            Pausada
+          </Tag>
+        ),
+    },
+    {
+      id: "_actions",
+      header: "",
+      align: "right",
+      width: "w-[206px]",
+      cell: (t) => {
+        if (!canManage) return null;
+        return (
+          <div className="flex justify-end gap-1 items-center">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRunNow(t.id);
+              }}
+              disabled={busyId === t.id || !t.isActive}
+              title={
+                t.isActive
+                  ? "Genera un borrador con los datos de la plantilla (no emite al SII)"
+                  : "Activá la plantilla para poder generar borradores"
+              }
+              className="h-8"
+            >
+              {busyId === t.id ? (
+                <Loader2 className="size-4 mr-1 animate-spin" />
+              ) : (
+                <FileText className="size-4 mr-1" />
+              )}
+              <span className="hidden lg:inline">Generar borrador</span>
+              <span className="lg:hidden">Borrador</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingId(t.id);
+              }}
+              disabled={busyId === t.id}
+              title="Editar plantilla"
+            >
+              <Pencil className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleActive(t);
+              }}
+              disabled={busyId === t.id}
+              title={t.isActive ? "Pausar" : "Activar"}
+            >
+              {t.isActive ? <Pause className="size-4" /> : <Play className="size-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(t.id);
+              }}
+              disabled={busyId === t.id}
+              title="Eliminar"
+              className="text-status-danger-fg hover:text-status-danger-fg"
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+        );
+      },
+    },
+  ];
+
   return (
-    <Card>
-      <CardContent className="pt-4 space-y-3">
+    <div className="space-y-3">
+      <Surface elevation={1} padding="sm" className="space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-ds-text-3">
             {templates.length === 0
               ? "Aún no hay plantillas."
               : `${totalActive} activa${totalActive === 1 ? "" : "s"} · ${templates.length} total${templates.length === 1 ? "" : "es"}${
@@ -357,422 +592,292 @@ export function RecurringClient({
 
         {/* Buscador global + filtros */}
         {templates.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ds-text-3 pointer-events-none" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por nombre, cliente, RUT o instalación…"
-                  className="h-10 sm:h-9 pl-9 pr-9"
-                  autoComplete="off"
-                />
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => setSearch("")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-ds-text-3 hover:bg-ds-surface-2"
-                    aria-label="Limpiar búsqueda"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-              <Select
-                value={statusFilter}
-                onValueChange={(v) => setStatusFilter(v as StatusFilter)}
-              >
-                <SelectTrigger className="h-10 sm:h-9 w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Todas</SelectItem>
-                  <SelectItem value="ACTIVE">Activas</SelectItem>
-                  <SelectItem value="PAUSED">Pausadas</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select
-                value={freqFilter}
-                onValueChange={(v) => setFreqFilter(v as FreqFilter)}
-              >
-                <SelectTrigger className="h-10 sm:h-9 w-[150px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Toda frecuencia</SelectItem>
-                  <SelectItem value="monthly">Mensual</SelectItem>
-                  <SelectItem value="biweekly">Quincenal</SelectItem>
-                  <SelectItem value="weekly">Semanal</SelectItem>
-                  <SelectItem value="yearly">Anual</SelectItem>
-                </SelectContent>
-              </Select>
-              {accountOptions.length > 0 && (
-                <Select value={accountFilter} onValueChange={setAccountFilter}>
-                  <SelectTrigger className="h-10 sm:h-9 w-[180px]">
-                    <SelectValue placeholder="Cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">Todos los clientes</SelectItem>
-                    {accountOptions.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {installationOptions.length > 0 && (
-                <Select
-                  value={installationFilter}
-                  onValueChange={setInstallationFilter}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ds-text-3 pointer-events-none" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por nombre, cliente, RUT o instalación…"
+                className="h-10 sm:h-9 pl-9 pr-9"
+                autoComplete="off"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-ds-text-3 hover:bg-ds-surface-2 transition-colors"
+                  aria-label="Limpiar búsqueda"
                 >
-                  <SelectTrigger className="h-10 sm:h-9 w-[180px]">
-                    <SelectValue placeholder="Instalación" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">Todas las instalaciones</SelectItem>
-                    {installationOptions.map((i) => (
-                      <SelectItem key={i.id} value={i.id}>
-                        {i.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {hasActiveFilters && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearFilters}
-                  className="h-10 sm:h-9 text-ds-text-3"
-                >
-                  <FilterX className="size-4 mr-1.5" />
-                  Limpiar
-                </Button>
+                  <X className="h-3.5 w-3.5" />
+                </button>
               )}
             </div>
-          </div>
-        )}
-
-        {templates.length === 0 ? (
-          <div className="py-10 text-center text-sm text-muted-foreground">
-            No hay plantillas recurrentes. Creá una para que el cron diario
-            te genere borradores automáticamente.
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="py-10 text-center text-sm text-muted-foreground">
-            Ninguna plantilla coincide con los filtros actuales.
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="block mx-auto mt-2 text-primary hover:underline font-medium"
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v as StatusFilter)}
             >
-              Limpiar filtros
-            </button>
-          </div>
-        ) : (
-          <>
-            {/* Mobile: lista de cards */}
-            <div className="sm:hidden space-y-2">
-              {filtered.map((t) => (
-                <div
-                  key={t.id}
-                  className="rounded-lg border border-border bg-card p-3 space-y-2"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium truncate">{t.name}</div>
-                      <div className="text-[12px] text-muted-foreground truncate">
-                        {t.receiverName} · {t.receiverRut}
-                      </div>
-                      {(t.crmAccount || t.installation) && (
-                        <div className="mt-1 flex flex-col gap-0.5 text-[12px] text-ds-text-3">
-                          {t.crmAccount && (
-                            <span className="inline-flex items-center gap-1 truncate">
-                              <Building2 className="h-3 w-3 shrink-0" />
-                              <span className="truncate">
-                                CRM: {t.crmAccount.legalName ?? t.crmAccount.name}
-                              </span>
-                            </span>
-                          )}
-                          {t.installation && (
-                            <span className="inline-flex items-center gap-1 truncate">
-                              <MapPin className="h-3 w-3 shrink-0" />
-                              <span className="truncate">
-                                {t.installation.name}
-                                {t.installation.commune
-                                  ? ` · ${t.installation.commune}`
-                                  : ""}
-                              </span>
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      <div className="text-[12px] text-muted-foreground mt-0.5">
-                        {DTE_LABELS[t.dteType] ?? `Tipo ${t.dteType}`} · {t.currency}
-                        {t.currency === "UF" && t.ufFixingPolicy && (
-                          <span className="block">
-                            {t.ufFixingPolicy === "CUSTOM_DAY"
-                              ? `UF: día ${t.ufFixingDay ?? "?"}`
-                              : (UF_POLICY_LABEL[t.ufFixingPolicy] ?? t.ufFixingPolicy)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {t.isActive ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-status-ok-soft text-status-ok-fg border border-status-ok-border text-[12px]">
-                        Activa
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-ds-surface-3 text-ds-text-3 border border-ds-border-subtle text-[12px]">
-                        Pausada
-                      </span>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-[12px] text-muted-foreground">
-                    <div>
-                      <span className="block text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
-                        Frecuencia
-                      </span>
-                      <span>{formatFrequency(t)}</span>
-                    </div>
-                    <div>
-                      <span className="block text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
-                        Próxima
-                      </span>
-                      <span>
-                        {t.nextRunAt
-                          ? new Date(t.nextRunAt).toLocaleDateString("es-CL", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })
-                          : "—"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="block text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
-                        Última
-                      </span>
-                      <span>
-                        {t.lastRunAt
-                          ? new Date(t.lastRunAt).toLocaleDateString("es-CL")
-                          : "—"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="block text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
-                        Corridas
-                      </span>
-                      <span>{t.runCount}</span>
-                    </div>
-                  </div>
-                  {canManage && (
-                    <div className="flex flex-wrap justify-end gap-1.5 pt-1 border-t border-border/60">
-                      <Button
-                        size="sm"
-                        onClick={() => handleRunNow(t.id)}
-                        disabled={busyId === t.id || !t.isActive}
-                        className="h-10 sm:h-9"
-                        title="Genera un borrador con los datos de la plantilla"
-                      >
-                        {busyId === t.id ? (
-                          <Loader2 className="size-4 mr-1.5 animate-spin" />
-                        ) : (
-                          <FileText className="size-4 mr-1.5" />
-                        )}
-                        Generar borrador
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setEditingId(t.id)}
-                        disabled={busyId === t.id}
-                        className="h-10 sm:h-9"
-                      >
-                        <Pencil className="size-4 mr-1.5" />
-                        Editar
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleToggleActive(t)}
-                        disabled={busyId === t.id}
-                        className="h-10 sm:h-9"
-                      >
-                        {t.isActive ? (
-                          <Pause className="size-4 mr-1.5" />
-                        ) : (
-                          <Play className="size-4 mr-1.5" />
-                        )}
-                        {t.isActive ? "Pausar" : "Activar"}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(t.id)}
-                        disabled={busyId === t.id}
-                        className="h-10 sm:h-9"
-                      >
-                        <Trash2 className="size-4 text-destructive" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Desktop: tabla */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="border-b text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="py-2 text-left">Plantilla</th>
-                    <th className="py-2 text-left">Cliente / Instalación</th>
-                    <th className="py-2 text-left">Tipo</th>
-                    <th className="py-2 text-left">Frecuencia</th>
-                    <th className="py-2 text-left">Próxima</th>
-                    <th className="py-2 text-left">Última</th>
-                    <th className="py-2 text-right">Corridas</th>
-                    <th className="py-2 text-left">Estado</th>
-                    <th className="py-2 text-right">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((t) => (
-                    <tr key={t.id} className="border-b hover:bg-muted/40">
-                      <td className="py-2">
-                        <div className="font-medium">{t.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {t.receiverName}
-                          {t.receiverRut ? ` (${t.receiverRut})` : ""}
-                        </div>
-                      </td>
-                      <td className="py-2 text-xs">
-                        {t.crmAccount ? (
-                          <div className="inline-flex items-center gap-1 text-ds-text-1">
-                            <Building2 className="h-3 w-3 shrink-0 text-ds-text-3" />
-                            <span className="truncate max-w-[180px]">
-                              {t.crmAccount.legalName ?? t.crmAccount.name}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-ds-text-4 italic">Manual</span>
-                        )}
-                        {t.installation && (
-                          <div className="inline-flex items-center gap-1 text-muted-foreground mt-0.5">
-                            <MapPin className="h-3 w-3 shrink-0" />
-                            <span className="truncate max-w-[180px]">
-                              {t.installation.name}
-                              {t.installation.commune
-                                ? ` · ${t.installation.commune}`
-                                : ""}
-                            </span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-2 text-xs">
-                        {DTE_LABELS[t.dteType] ?? `Tipo ${t.dteType}`}
-                        <div className="text-xs text-muted-foreground">
-                          {t.currency}
-                          {t.currency === "UF" && t.ufFixingPolicy && (
-                            <span className="block text-[12px]">
-                              {t.ufFixingPolicy === "CUSTOM_DAY"
-                                ? `UF: día ${t.ufFixingDay ?? "?"}`
-                                : (UF_POLICY_LABEL[t.ufFixingPolicy] ?? t.ufFixingPolicy)}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-2 text-xs">{formatFrequency(t)}</td>
-                      <td className="py-2 text-xs">
-                        {t.nextRunAt
-                          ? new Date(t.nextRunAt).toLocaleDateString("es-CL")
-                          : "—"}
-                      </td>
-                      <td className="py-2 text-xs">
-                        {t.lastRunAt
-                          ? new Date(t.lastRunAt).toLocaleDateString("es-CL")
-                          : "—"}
-                      </td>
-                      <td className="py-2 text-right text-xs tabular-nums">{t.runCount}</td>
-                      <td className="py-2 text-xs">
-                        {t.isActive ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-status-ok-soft text-status-ok-fg border border-status-ok-border">
-                            Activa
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-ds-surface-3 text-ds-text-3 border border-ds-border-subtle">
-                            Pausada
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2 text-right">
-                        <div className="flex justify-end gap-1 items-center">
-                          {canManage && (
-                            <>
-                              <Button
-                                variant="default"
-                                size="sm"
-                                onClick={() => handleRunNow(t.id)}
-                                disabled={busyId === t.id || !t.isActive}
-                                title={
-                                  t.isActive
-                                    ? "Genera un borrador con los datos de la plantilla (no emite al SII)"
-                                    : "Activá la plantilla para poder generar borradores"
-                                }
-                                className="h-8"
-                              >
-                                {busyId === t.id ? (
-                                  <Loader2 className="size-4 mr-1 animate-spin" />
-                                ) : (
-                                  <FileText className="size-4 mr-1" />
-                                )}
-                                <span className="hidden lg:inline">
-                                  Generar borrador
-                                </span>
-                                <span className="lg:hidden">Borrador</span>
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setEditingId(t.id)}
-                                disabled={busyId === t.id}
-                                title="Editar plantilla"
-                              >
-                                <Pencil className="size-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleToggleActive(t)}
-                                disabled={busyId === t.id}
-                                title={t.isActive ? "Pausar" : "Activar"}
-                              >
-                                {t.isActive ? <Pause className="size-4" /> : <Play className="size-4" />}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDelete(t.id)}
-                                disabled={busyId === t.id}
-                                title="Eliminar"
-                              >
-                                <Trash2 className="size-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+              <SelectTrigger className="h-10 sm:h-9 w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todas</SelectItem>
+                <SelectItem value="ACTIVE">Activas</SelectItem>
+                <SelectItem value="PAUSED">Pausadas</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={freqFilter}
+              onValueChange={(v) => setFreqFilter(v as FreqFilter)}
+            >
+              <SelectTrigger className="h-10 sm:h-9 w-[150px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Toda frecuencia</SelectItem>
+                <SelectItem value="monthly">Mensual</SelectItem>
+                <SelectItem value="biweekly">Quincenal</SelectItem>
+                <SelectItem value="weekly">Semanal</SelectItem>
+                <SelectItem value="yearly">Anual</SelectItem>
+              </SelectContent>
+            </Select>
+            {accountOptions.length > 0 && (
+              <Select value={accountFilter} onValueChange={setAccountFilter}>
+                <SelectTrigger className="h-10 sm:h-9 w-[180px]">
+                  <SelectValue placeholder="Cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todos los clientes</SelectItem>
+                  {accountOptions.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                    </SelectItem>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </>
+                </SelectContent>
+              </Select>
+            )}
+            {installationOptions.length > 0 && (
+              <Select
+                value={installationFilter}
+                onValueChange={setInstallationFilter}
+              >
+                <SelectTrigger className="h-10 sm:h-9 w-[180px]">
+                  <SelectValue placeholder="Instalación" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todas las instalaciones</SelectItem>
+                  {installationOptions.map((i) => (
+                    <SelectItem key={i.id} value={i.id}>
+                      {i.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-10 sm:h-9 text-ds-text-3"
+              >
+                <FilterX className="size-4 mr-1.5" />
+                Limpiar
+              </Button>
+            )}
+          </div>
         )}
-      </CardContent>
+      </Surface>
+
+      {templates.length === 0 ? (
+        <Surface elevation={1} padding="none">
+          <EmptyState
+            icon={FileText}
+            title="No hay plantillas recurrentes"
+            description="Creá una para que el cron diario te genere borradores automáticamente."
+            tone="neutral"
+          />
+        </Surface>
+      ) : filtered.length === 0 ? (
+        <Surface elevation={1} padding="none">
+          <EmptyState
+            icon={FileText}
+            title="Sin coincidencias"
+            description="Ninguna plantilla coincide con los filtros actuales."
+            action={
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                Limpiar filtros
+              </Button>
+            }
+            tone="neutral"
+          />
+        </Surface>
+      ) : (
+        <>
+          {/* Mobile: lista de cards */}
+          <ul className="sm:hidden space-y-2 ds-list-cascade">
+            {filtered.map((t) => {
+              const ufText = ufPolicyText(t);
+              return (
+                <li key={t.id}>
+                  <Surface elevation={1} padding="sm" className="space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-ds-text-1 truncate">
+                          {t.name}
+                        </div>
+                        <div className="text-xs text-ds-text-3 truncate">
+                          {t.receiverName}
+                          {t.receiverRut ? ` · ${t.receiverRut}` : ""}
+                        </div>
+                        {(t.crmAccount || t.installation) && (
+                          <div className="mt-1 flex flex-col gap-0.5 text-xs text-ds-text-3">
+                            {t.crmAccount && (
+                              <span className="inline-flex items-center gap-1 min-w-0">
+                                <Building2 className="h-3 w-3 shrink-0 text-ds-text-4" />
+                                <span className="truncate">
+                                  CRM: {t.crmAccount.legalName ?? t.crmAccount.name}
+                                </span>
+                              </span>
+                            )}
+                            {t.installation && (
+                              <span className="inline-flex items-center gap-1 min-w-0">
+                                <MapPin className="h-3 w-3 shrink-0 text-ds-text-4" />
+                                <span className="truncate">
+                                  {t.installation.name}
+                                  {t.installation.commune
+                                    ? ` · ${t.installation.commune}`
+                                    : ""}
+                                </span>
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                          <DocumentTag dteType={t.dteType} />
+                          <span className="text-xs text-ds-text-4">
+                            {t.currency}
+                            {ufText ? ` · ${ufText}` : ""}
+                          </span>
+                        </div>
+                      </div>
+                      {t.isActive ? (
+                        <Tag variant="ok" size="sm" dot>
+                          Activa
+                        </Tag>
+                      ) : (
+                        <Tag variant="neutral" size="sm" dot>
+                          Pausada
+                        </Tag>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="block text-xs font-mono uppercase tracking-[0.08em] text-ds-text-4">
+                          Frecuencia
+                        </span>
+                        <span className="text-ds-text-1">{formatFrequency(t)}</span>
+                      </div>
+                      <div>
+                        <span className="block text-xs font-mono uppercase tracking-[0.08em] text-ds-text-4">
+                          Próxima
+                        </span>
+                        <span className="font-mono tabular-nums text-ds-text-1">
+                          {formatNextRun(t.nextRunAt)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-xs font-mono uppercase tracking-[0.08em] text-ds-text-4">
+                          Última
+                        </span>
+                        <span className="font-mono tabular-nums text-ds-text-1">
+                          {formatLastRun(t.lastRunAt)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-xs font-mono uppercase tracking-[0.08em] text-ds-text-4">
+                          Corridas
+                        </span>
+                        <span className="font-mono tabular-nums text-ds-text-1">
+                          {t.runCount}
+                        </span>
+                      </div>
+                    </div>
+                    {canManage && (
+                      <div className="flex flex-wrap justify-end gap-1.5 pt-1 border-t border-ds-border-subtle">
+                        <Button
+                          size="sm"
+                          onClick={() => handleRunNow(t.id)}
+                          disabled={busyId === t.id || !t.isActive}
+                          className="h-10 sm:h-9"
+                          title="Genera un borrador con los datos de la plantilla"
+                        >
+                          {busyId === t.id ? (
+                            <Loader2 className="size-4 mr-1.5 animate-spin" />
+                          ) : (
+                            <FileText className="size-4 mr-1.5" />
+                          )}
+                          Generar borrador
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditingId(t.id)}
+                          disabled={busyId === t.id}
+                          className="h-10 sm:h-9"
+                        >
+                          <Pencil className="size-4 mr-1.5" />
+                          Editar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleToggleActive(t)}
+                          disabled={busyId === t.id}
+                          className="h-10 sm:h-9"
+                        >
+                          {t.isActive ? (
+                            <Pause className="size-4 mr-1.5" />
+                          ) : (
+                            <Play className="size-4 mr-1.5" />
+                          )}
+                          {t.isActive ? "Pausar" : "Activar"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(t.id)}
+                          disabled={busyId === t.id}
+                          className="h-10 sm:h-9 text-status-danger-fg hover:text-status-danger-fg"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </Surface>
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* Desktop: tabla DS */}
+          <div className="hidden sm:block">
+            <DataTable<RecurringTemplateRow>
+              columns={columns}
+              rows={filtered}
+              layout="fixed"
+              rowKey={(t) => t.id}
+              empty={
+                <EmptyState
+                  icon={FileText}
+                  title="Sin plantillas"
+                  compact
+                />
+              }
+            />
+          </div>
+        </>
+      )}
 
       {/* key fuerza remount cuando cambiamos de plantilla — sin esto, el
           state local (en particular `customer`) se filtra entre ediciones
@@ -788,6 +893,6 @@ export function RecurringClient({
           router.refresh();
         }}
       />
-    </Card>
+    </div>
   );
 }
