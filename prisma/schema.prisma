@@ -7900,6 +7900,44 @@ model FinanceCashflowItem {
   /// contrato vigente desde hace años se configura IPC desde hoy.
   ipcStartDate        DateTime? @map("ipc_start_date") @db.Date
 
+  // ── Calendario de cobro por contrato (Bloque 5) ──
+  /// Nombre custom del contrato visible en el flujo de caja. Si null,
+  /// se usa el `name` del item. Útil cuando un cliente tiene varios
+  /// contratos con la misma instalación y hay que distinguirlos
+  /// visualmente (ej. "Transmat - Ciclo proforma" vs "Transmat -
+  /// Facturación directa").
+  nickname                    String?  @map("nickname")
+
+  /// Si emite proforma/estado de pago antes de la factura real.
+  /// Si false → factura directa el día `diaEmisionFactura`.
+  emiteProforma               Boolean  @default(false) @map("emite_proforma")
+  /// Día del mes para emitir proforma (1-31, -1=último día).
+  /// Solo aplica si `emiteProforma=true`.
+  diaEmisionProforma          Int?     @map("dia_emision_proforma")
+  /// Días entre la proforma y la factura real. 0=mismo día.
+  /// Solo aplica si `emiteProforma=true`.
+  diasFacturaDesdeProforma    Int?     @map("dias_factura_desde_proforma")
+  /// Día del mes para emitir factura. Si no hay proforma, este es el
+  /// día directo. Si hay proforma, se calcula desde
+  /// `diaEmisionProforma + diasFacturaDesdeProforma` y este campo
+  /// puede quedar null o usarse como override manual.
+  diaEmisionFactura           Int?     @map("dia_emision_factura")
+  /// En qué mes cae la factura respecto al mes del servicio.
+  /// MISMO_MES = se factura dentro del mismo mes del servicio.
+  /// MES_SIGUIENTE = se factura en el mes siguiente.
+  mesFacturaRelativo          String   @default("MISMO_MES") @map("mes_factura_relativo")
+
+  /// Modo de cobro. DIRECTO = cliente paga a mi cuenta.
+  /// FACTORING = vendido al factor (recibo monto neto del costo).
+  modoCobro                   String   @default("DIRECTO") @map("modo_cobro")
+  /// Días entre emisión de factura y entrada de plata al banco.
+  /// DIRECTO: típicamente 30/45/60. FACTORING: típicamente 2-5.
+  /// Default 0 = comportamiento legacy: cobra el día de la factura.
+  diasCobroDesdeFactura       Int      @default(0)  @map("dias_cobro_desde_factura")
+  /// Costo del factoring en %. Solo aplica si `modoCobro=FACTORING`.
+  /// Reduce el monto que entra al banco: monto_neto = monto_bruto × (1 - pct/100).
+  costoFactoringPct           Decimal? @db.Decimal(5, 2) @map("costo_factoring_pct")
+
   createdBy String?  @map("created_by")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
