@@ -5,7 +5,10 @@ import { Surface } from "@/components/opai-ds";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -36,8 +39,11 @@ interface IpcPendingMarker {
   dueDate: string;
 }
 
+// Horizonte: "rolling:N" = N meses desde hoy; "calendar:YYYY" = año Ene–Dic.
+type Horizon = `rolling:${number}` | `calendar:${number}`;
+
 export function MonthlyMatrix({ defaultMonths }: Props) {
-  const [months, setMonths] = useState<number>(defaultMonths);
+  const [horizon, setHorizon] = useState<Horizon>(`rolling:${defaultMonths}`);
   const [projection, setProjection] = useState<ProjectionMatrix | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -54,11 +60,20 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
     Map<string, IpcPendingMarker[]>
   >(new Map());
 
-  const fromDate = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const toDate = useMemo(
-    () => addMonths(new Date(), months).toISOString().slice(0, 10),
-    [months],
-  );
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const { fromDate, toDate } = useMemo(() => {
+    const [mode, raw] = horizon.split(":");
+    if (mode === "calendar") {
+      const year = Number(raw);
+      return { fromDate: `${year}-01-01`, toDate: `${year}-12-31` };
+    }
+    const months = Number(raw);
+    const today = new Date();
+    return {
+      fromDate: today.toISOString().slice(0, 10),
+      toDate: addMonths(today, months).toISOString().slice(0, 10),
+    };
+  }, [horizon]);
 
   useEffect(() => {
     setLoading(true);
@@ -273,16 +288,29 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
               <SelectItem value="amount_desc">Mayor monto</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={String(months)} onValueChange={(v) => setMonths(Number(v))}>
-            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[140px] text-[13px]">
+          <Select value={horizon} onValueChange={(v) => setHorizon(v as Horizon)}>
+            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[170px] text-[13px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {[3, 6, 12, 18, 24, 36, 60].map((m) => (
-                <SelectItem key={m} value={String(m)}>
-                  {m} meses
+              <SelectGroup>
+                <SelectLabel>Año calendario</SelectLabel>
+                <SelectItem value={`calendar:${currentYear}`}>
+                  {currentYear} (Ene–Dic)
                 </SelectItem>
-              ))}
+                <SelectItem value={`calendar:${currentYear + 1}`}>
+                  {currentYear + 1} (Ene–Dic)
+                </SelectItem>
+              </SelectGroup>
+              <SelectSeparator />
+              <SelectGroup>
+                <SelectLabel>Desde hoy</SelectLabel>
+                {[3, 6, 12, 18, 24, 36, 60].map((m) => (
+                  <SelectItem key={m} value={`rolling:${m}`}>
+                    {m} meses
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </div>
