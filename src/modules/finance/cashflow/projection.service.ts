@@ -840,7 +840,26 @@ export async function buildProjection(
     if (dtesToResolve.length > 0) {
       const dteIdsToResolve = dtesToResolve.map((d) => d.dteId);
       const dteInfos = await prisma.financeDte.findMany({
-        where: { tenantId, id: { in: dteIdsToResolve } },
+        where: {
+          tenantId,
+          id: { in: dteIdsToResolve },
+          // Skip NC/ND (56/61): el matcher de bank-links engancha DTEs
+          // con allocations bancarias a Occurrences proyectadas del
+          // contrato del mismo cliente. Las NCs y ND no son ingresos
+          // del contrato — son créditos/débitos al cliente. Si las
+          // dejáramos pasar, la celda del contrato mostraría la NC
+          // como "Factura N° X Pagada" (caso real: NC 147 sobre
+          // factura 1633 de Embajada Brasil).
+          //
+          // El filtro acá las excluye del map dteToCrmAccount; el guard
+          // existente más abajo (`if (!crmAccountId) continue;`) las
+          // skipa naturalmente sin requerir cambios en el loop.
+          //
+          // No hay backfill necesario: este matching es runtime y se
+          // re-ejecuta en cada carga del flujo. El fix aplica al
+          // siguiente deploy.
+          dteType: { notIn: [56, 61] },
+        },
         select: {
           id: true,
           crmAccountId: true,
