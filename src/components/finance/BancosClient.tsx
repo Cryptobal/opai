@@ -118,7 +118,7 @@ interface TransactionRow {
   suggestedAccountLabel: string | null;
   rutRecognition: {
     rut: string | null;
-    kind: "client" | "supplier" | "guardia" | "unknown";
+    kind: "client" | "factoring" | "supplier" | "guardia" | "unknown";
     entityId: string | null;
     entityName: string | null;
   } | null;
@@ -1359,19 +1359,24 @@ function TransactionsTab({
           const kindLabel =
             rr?.kind === "client"
               ? "Cliente"
-              : rr?.kind === "supplier"
-                ? "Proveedor"
-                : rr?.kind === "guardia"
-                  ? "Guardia"
-                  : null;
+              : rr?.kind === "factoring"
+                ? "Factoring"
+                : rr?.kind === "supplier"
+                  ? "Proveedor"
+                  : rr?.kind === "guardia"
+                    ? "Guardia"
+                    : null;
+          const recognizedVariant =
+            rr?.kind === "factoring" ? ("brand" as const) : ("ok" as const);
           return (
             <div className="flex flex-col gap-1 min-w-0">
               <span className="truncate">{row.description}</span>
               {rr?.kind && rr.kind !== "unknown" && rr.entityName ? (
                 <span
+                  className="flex flex-wrap items-center gap-1"
                   title={`RUT ${rr.rut ?? ""} reconocido como ${kindLabel}`}
                 >
-                  <Tag variant="ok" size="sm">
+                  <Tag variant={recognizedVariant} size="sm">
                     {kindLabel}: {rr.entityName}
                   </Tag>
                 </span>

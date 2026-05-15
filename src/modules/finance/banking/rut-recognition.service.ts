@@ -3,7 +3,12 @@ import { validateRut } from "@/lib/access-control/utils";
 import { prisma } from "@/lib/prisma";
 import { normalizeRutForMatch } from "./auto-match-payment.service";
 
-export type RutMatchKind = "client" | "supplier" | "guardia" | "unknown";
+export type RutMatchKind =
+  | "client"
+  | "factoring"
+  | "supplier"
+  | "guardia"
+  | "unknown";
 
 export interface RutRecognition {
   /** RUT canónico detectado en el texto (dígitos + DV, lowercase, sin puntos/guion). */
@@ -165,16 +170,17 @@ export function extractCanonicalRutFromBankText(
  *
  * Estrategia:
  *  1. Extrae el primer RUT canónico de cada description/reference.
- *  2. Una sola query por tipo de entidad (CrmAccount, FinanceSupplier,
- *     OpsPersona via OpsGuardia) usando IN sobre los RUTs canónicos.
- *  3. Construye el resultado priorizando: client > supplier > guardia.
+ *  2. Queries batch por tipo (CrmAccount, FinanceFactoringCompany,
+ *     FinanceSupplier, OpsGuardia) filtradas en memoria por los RUT detectados.
+ *  3. Prioridad por tx: client > factoring > supplier > guardia > unknown.
  *
  * Sin queries por-fila — N+1 evitado. Si el batch es la página visible
  * (e.g. 50 movs), una pasada por cada tabla resuelve todo.
  *
- * Prioridad cuando un mismo RUT calza en varias tablas: el cliente CRM
- * gana sobre proveedor y guardia. Documentado para que cambiar la
- * prioridad sea un cambio explícito.
+ * Prioridad cuando un mismo RUT calza en varias tablas: cliente CRM gana;
+ * si no hay cliente pero hay cesionario en catálogo de factoring, se marca
+ * factoring antes que proveedor/guardia (un mismo RUT rara vez es cliente y
+ * cesionario; si lo fuera, queda como cliente).
  */
 export async function recognizeRutsForTransactions(
   tenantId: string,
@@ -208,28 +214,32 @@ export async function recognizeRutsForTransactions(
   }
   if (allRuts.size === 0) return result;
 
-  // 2. Tres queries batch por tipo de entidad. Cada una devuelve {rut, id, name}
-  //    y construimos índices por rut canónico para lookup O(1).
-  const [accounts, suppliers, guardias] = await Promise.all([
-    prisma.crmAccount.findMany({
-      where: { tenantId, rut: { not: null } },
-      select: { id: true, name: true, rut: true },
-    }),
-    prisma.financeSupplier.findMany({
-      where: { tenantId },
-      select: { id: true, name: true, rut: true },
-    }),
-    prisma.opsGuardia.findMany({
-      where: {
-        tenantId,
-        persona: { rut: { not: null } },
-      },
-      select: {
-        id: true,
-        persona: { select: { rut: true, firstName: true, lastName: true } },
-      },
-    }),
-  ]);
+  // 2. Queries batch por tipo de entidad → índices por RUT canónico.
+  const [accounts, factoringCompanies, suppliers, guardias] =
+    await Promise.all([
+      prisma.crmAccount.findMany({
+        where: { tenantId, rut: { not: null } },
+        select: { id: true, name: true, rut: true },
+      }),
+      prisma.financeFactoringCompany.findMany({
+        where: { tenantId, isActive: true },
+        select: { id: true, razonSocial: true, rut: true },
+      }),
+      prisma.financeSupplier.findMany({
+        where: { tenantId },
+        select: { id: true, name: true, rut: true },
+      }),
+      prisma.opsGuardia.findMany({
+        where: {
+          tenantId,
+          persona: { rut: { not: null } },
+        },
+        select: {
+          id: true,
+          persona: { select: { rut: true, firstName: true, lastName: true } },
+        },
+      }),
+    ]);
 
   // Filtramos los que efectivamente matchean alguno de los RUTs detectados.
   // Hacemos el filtrado por rut canónico en memoria (los datos en BD pueden
@@ -239,6 +249,12 @@ export async function recognizeRutsForTransactions(
   for (const a of accounts) {
     const k = normalizeRutForMatch(a.rut);
     if (k && allRuts.has(k)) accountByRut.set(k, { id: a.id, name: a.name });
+  }
+  const factoringByRut = new Map<string, { id: string; name: string }>();
+  for (const f of factoringCompanies) {
+    const k = normalizeRutForMatch(f.rut);
+    if (k && allRuts.has(k))
+      factoringByRut.set(k, { id: f.id, name: f.razonSocial });
   }
   const supplierByRut = new Map<string, { id: string; name: string }>();
   for (const s of suppliers) {
@@ -255,7 +271,7 @@ export async function recognizeRutsForTransactions(
     guardiaByRut.set(k, { id: g.id, name: name || "Guardia" });
   }
 
-  // 3. Resolver cada tx con prioridad client > supplier > guardia.
+  // 3. Resolver cada tx: client > factoring > supplier > guardia.
   for (const tx of txs) {
     const rut = txToRut.get(tx.id);
     if (!rut) continue;
@@ -266,6 +282,16 @@ export async function recognizeRutsForTransactions(
         kind: "client",
         entityId: client.id,
         entityName: client.name,
+      });
+      continue;
+    }
+    const factoring = factoringByRut.get(rut);
+    if (factoring) {
+      result.set(tx.id, {
+        rut,
+        kind: "factoring",
+        entityId: factoring.id,
+        entityName: factoring.name,
       });
       continue;
     }

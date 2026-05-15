@@ -20,6 +20,8 @@ const badgeVariants = cva(
           "border-transparent bg-status-ok-soft text-status-ok-fg",
         warning:
           "border-transparent bg-status-warn-soft text-status-warn-fg",
+        brand:
+          "border-primary/30 bg-primary/10 text-primary",
       },
     },
     defaultVariants: {
