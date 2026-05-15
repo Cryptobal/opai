@@ -11,6 +11,7 @@ import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { uploadFile } from "@/lib/storage";
 import { openai } from "@/lib/openai";
 import { requireTenantModule } from '@/lib/require-module';
+import { fetchCompanyWebHints } from "@/lib/company-web-hints";
 
 type ExtractedWebData = {
   websiteNormalized: string;
@@ -368,6 +369,58 @@ async function fetchWithRetry(
   throw lastError ?? new Error("No se pudo leer el sitio web.");
 }
 
+/** Single fetch auxiliar para rutas internas: no reintenta, falla silencioso ante 404. */
+async function fetchHtmlQuiet(url: string, timeoutMs = 9000): Promise<string | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": BROWSER_UA,
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "es-CL,es;q=0.9,en;q=0.5",
+      },
+      cache: "no-store",
+      redirect: "follow",
+    });
+    if (!res.ok) return null;
+    return await res.text();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const INTERNAL_PATHS_TRIED = [
+  "/contacto",
+  "/nosotros",
+  "/quienes-somos",
+  "/empresa",
+  "/terminos-y-condiciones",
+  "/terminos",
+  "/politicas-de-privacidad",
+];
+
+function mergeDedupeParagraphs(primary: string[], extra: string[], maxTotal = 24): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  function push(ps: string[]) {
+    for (const p of ps) {
+      const norm = normalizeWhitespace(p).slice(0, 400).toLowerCase();
+      if (seen.has(norm)) continue;
+      seen.add(norm);
+      out.push(p);
+      if (out.length >= maxTotal) break;
+    }
+  }
+  push(primary);
+  if (out.length < maxTotal) push(extra);
+  return out;
+}
+
 async function scrapeWebsite(websiteNormalized: string, companyName: string): Promise<ExtractedWebData> {
   const html = await fetchWithRetry(websiteNormalized);
 
@@ -378,10 +431,40 @@ async function scrapeWebsite(websiteNormalized: string, companyName: string): Pr
       /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i
     )
   );
-  const headings = collectRegexMatches(html, /<h[1-2][^>]*>([\s\S]*?)<\/h[1-2]>/gi, 6);
-  const paragraphs = collectRegexMatches(html, /<p[^>]*>([\s\S]*?)<\/p>/gi, 10).filter(
-    (p) => p.length > 40
+  let headings = collectRegexMatches(html, /<h[1-2][^>]*>([\s\S]*?)<\/h[1-2]>/gi, 6);
+  let paragraphs = collectRegexMatches(html, /<p[^>]*>([\s\S]*?)<\/p>/gi, 12).filter(
+    (p) => p.length > 40,
   );
+
+  let baseOrigin: string;
+  try {
+    baseOrigin = new URL(websiteNormalized).origin;
+  } catch {
+    baseOrigin = "";
+  }
+
+  if (baseOrigin) {
+    const extraParas: string[] = [];
+    for (const suffix of INTERNAL_PATHS_TRIED) {
+      if (extraParas.length >= 28) break;
+      const abs = `${baseOrigin}${suffix}`;
+      const subHtml = await fetchHtmlQuiet(abs, 8500);
+      if (!subHtml) continue;
+      const subParas = collectRegexMatches(
+        subHtml,
+        /<p[^>]*>([\s\S]*?)<\/p>/gi,
+        10,
+      ).filter((p) => p.length > 40);
+      extraParas.push(...subParas);
+      headings = mergeDedupeParagraphs(
+        headings,
+        collectRegexMatches(subHtml, /<h[1-2][^>]*>([\s\S]*?)<\/h[1-2]>/gi, 4),
+        12,
+      );
+    }
+    paragraphs = mergeDedupeParagraphs(paragraphs, extraParas, 28);
+  }
+
   const logoCandidates = detectLogoCandidates(html, websiteNormalized, companyName);
   const logoUrl = pickBestLogoCandidate(logoCandidates);
 
@@ -471,51 +554,18 @@ function extractJsonObject(raw: string): string {
   throw new Error("No se encontró JSON válido en respuesta de IA.");
 }
 
-async function fetchWebHints(companyName: string): Promise<string[]> {
-  if (!companyName.trim()) return [];
-  const query = encodeURIComponent(`${companyName} representante legal rut razón social`);
-  const url = `https://duckduckgo.com/html/?q=${query}`;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      headers: {
-        "User-Agent": `Mozilla/5.0 (compatible; OPAI-Bot/1.0; +${process.env.NEXT_PUBLIC_SITE_URL || ""})`,
-        Accept: "text/html",
-      },
-      cache: "no-store",
-      signal: controller.signal,
-    });
-  } catch {
-    // Si DuckDuckGo no responde, seguimos sin pistas — no es crítico.
-    return [];
-  } finally {
-    clearTimeout(timer);
-  }
-  if (!response.ok) return [];
-  const html = await response.text();
-  const snippets = [
-    ...collectRegexMatches(
-      html,
-      /<a[^>]+class=["'][^"']*result__snippet[^"']*["'][^>]*>([\s\S]*?)<\/a>/gi,
-      6
-    ),
-    ...collectRegexMatches(
-      html,
-      /<div[^>]+class=["'][^"']*result__snippet[^"']*["'][^>]*>([\s\S]*?)<\/div>/gi,
-      6
-    ),
-  ];
-  return [...new Set(snippets)].slice(0, 8);
-}
-
 async function enrichCompanyWithAi(
   companyName: string,
   website: string,
   extracted: ExtractedWebData
 ): Promise<CompanyAiEnrichment> {
-  const webHints = await fetchWebHints(companyName);
+  let webHints: string[] = [];
+  try {
+    webHints = await fetchCompanyWebHints(companyName, website);
+  } catch (hintErr) {
+    console.warn("[company-enrich] web hints omitidos:", hintErr);
+    webHints = [];
+  }
   const sourceText = [
     `Empresa: ${companyName || "No especificada"}`,
     `Sitio: ${website}`,

@@ -38,6 +38,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let accountIndustry: string | null = null;
+    let accountSummarySnippet: string | null = null;
+    if (quote.accountId) {
+      const linkedAccount = await prisma.crmAccount.findFirst({
+        where: { id: quote.accountId, tenantId: ctx.tenantId },
+        select: { industry: true, notes: true },
+      });
+      if (linkedAccount) {
+        accountIndustry = linkedAccount.industry?.trim() || null;
+        const rawNotes = linkedAccount.notes?.trim();
+        if (rawNotes) {
+          const cleaned = rawNotes.replace(/\[\[ACCOUNT_LOGO_URL:[^\]]+\]\]\n?/g, "").trim();
+          accountSummarySnippet = cleaned.slice(0, 600).trim() || null;
+        }
+      }
+    }
+
     // Contact name + portal credentials
     let contactName = quote.clientName || "Cliente";
     let contactFirstName = contactName.split(" ")[0];
@@ -92,10 +109,16 @@ DATOS DE LA PROPUESTA:
 - Puestos: ${positionsList || "No definidos aun"}
 - Instalacion: ${quote.installation?.name || "No especificada"}
 - Vigencia: ${quote.validUntil ? new Date(quote.validUntil).toLocaleDateString("es-CL") : "No definida"}
+${accountIndustry ? `- Industria (cliente): ${accountIndustry}` : ""}
+${accountSummarySnippet ? `- Resumen empresa (dato interno, no mencionar literalmente esta etiqueta si suena redundante):\n"${accountSummarySnippet}"` : ""}
 
 INSTRUCCIONES ESTRICTAS:
 1. Comenzar con "Hola ${contactFirstName}," (tutear, NUNCA "usted" ni "Estimado/a")
-2. Parrafo 1: presentar brevemente la propuesta adjunta (guardias, puestos, instalacion)
+2. Parrafo 1: desarrollar en un mismo bloque corto lo siguiente —
+   SI hay datos de rubro/industria (${accountIndustry ? "si disponible según línea anterior" : "NO hay campo industria disponible"}), puedes usar UNA frase breve y natural contextualizando (sin clichés de "somos líderes del rubro").
+   Si NO hay industria, omitir ese matiz; no inventes un rubro.
+   También menciona la propuesta adjunta en lineas generales (guardias, puestos, instalación según aplique).
+   Si aparece bloque Resumen empresa en datos, puedes usarlo solo como contexto factual (sin copiar párrafos ni citar esa etiqueta).
 3. Parrafo 2: indicar que el detalle completo esta en el PDF adjunto
 4. Parrafo 3: ${portalLine}
 5. Cierre breve (ej: "Quedo disponible para cualquier consulta.")

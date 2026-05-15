@@ -55,12 +55,14 @@ export const CompanyPresentationEmail = ({
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
-            <Img
-              src={logoUrl}
-              width="160"
-              alt={brandName}
-              style={logo}
-            />
+            {logoUrl ? (
+              <Img
+                src={logoUrl}
+                width="160"
+                alt={brandName}
+                style={logo}
+              />
+            ) : null}
             <Text style={headerTagline}>Presentación de Servicios</Text>
           </Section>
 
