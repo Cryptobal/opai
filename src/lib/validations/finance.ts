@@ -263,7 +263,13 @@ export const recurringTemplateSchema = z.object({
   }),
   receiverName: z.string().trim().min(1).max(200),
   receiverEmail: optNull(z.string().email()),
-  receiverEmailCc: z.array(z.string().email()).max(10).default([]),
+  /**
+   * Prisma/`JSON.stringify` pueden mandar null; debe normalizarse a [] para
+   * el update sin romper PATCH (ej. pausar programación desde la lista).
+   */
+  receiverEmailCc: optNull(z.array(z.string().email()).max(10)).transform(
+    (v) => v ?? [],
+  ),
   receiverGiro: optNull(z.string().trim().max(200)),
   receiverDireccion: optNull(z.string().trim().max(200)),
   receiverComuna: optNull(z.string().trim().max(80)),
@@ -276,29 +282,32 @@ export const recurringTemplateSchema = z.object({
   currency: z.enum(["CLP", "UF"]).default("CLP"),
   lines: z.array(dteLineSchema).min(1, "Debe incluir al menos una linea"),
   notes: optNull(z.string().trim().max(1000)),
-  additionalReferences: z
-    .array(
-      z.object({
-        tipoDocRef: z.string().trim().min(1).max(10),
-        folioRef: z.string().trim().min(1).max(40),
-        fchRef: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
-        // Razón / glosa de la referencia. SII permite vacío. La UI
-        // dejó de exponerlo (era ruido) — se sigue aceptando para
-        // compat con drafts antiguos y con plantillas que lo tengan.
-        razonRef: z.string().trim().max(90).optional().default(""),
-      }),
-    )
-    .max(30)
-    .optional(),
+  // GET → PATCH reenvía `null` donde Prisma no tiene datos; `.optional()`
+  // solo aceptaba `undefined` y fallaba el toggle de pausa.
+  additionalReferences: optNull(
+    z
+      .array(
+        z.object({
+          tipoDocRef: z.string().trim().min(1).max(10),
+          folioRef: z.string().trim().min(1).max(40),
+          fchRef: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
+          // Razón / glosa de la referencia. SII permite vacío. La UI
+          // dejó de exponerlo (era ruido) — se sigue aceptando para
+          // compat con drafts antiguos y con plantillas que lo tengan.
+          razonRef: z.string().trim().max(90).optional().default(""),
+        }),
+      )
+      .max(30),
+  ),
   frequency: z.enum(["monthly", "biweekly", "weekly", "yearly"]),
   // Día del mes 1-31 (o -1 para último día del mes). monthly/yearly.
-  dayOfMonth: z.number().int().min(-1).max(31).optional(),
+  dayOfMonth: optNull(z.number().int().min(-1).max(31)),
   // Día de la semana 0=Domingo .. 6=Sábado. weekly/biweekly.
-  dayOfWeek: z.number().int().min(0).max(6).optional(),
+  dayOfWeek: optNull(z.number().int().min(0).max(6)),
   // Mes del año 1-12. Solo yearly.
-  monthOfYear: z.number().int().min(1).max(12).optional(),
+  monthOfYear: optNull(z.number().int().min(1).max(12)),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
-  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  endDate: optNull(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
   autoSendEmail: z.boolean().default(true),
   // Cuando el cron genera el borrador, dispara también el envío de la
   // proforma al receptor (reusa sendBillingDocument con variant=PROFORMA).
