@@ -1379,6 +1379,12 @@ function TransactionsTab({
                   <Tag variant={recognizedVariant} size="sm">
                     {kindLabel}: {rr.entityName}
                   </Tag>
+                  {row.reconciliationStatus === "UNMATCHED" &&
+                  rr.kind === "factoring" ? (
+                    <Tag variant="info" size="sm">
+                      Posible cesión
+                    </Tag>
+                  ) : null}
                 </span>
               ) : rr?.rut ? (
                 <span

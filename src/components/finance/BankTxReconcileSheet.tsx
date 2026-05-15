@@ -16,7 +16,7 @@
  * Soporta split N:N porque usa el endpoint de links que reemplaza atómico.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
@@ -58,6 +58,15 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CategoryMappingDialog } from "./cashflow/CategoryMappingDialog";
+import { Tag } from "@/components/opai-ds";
+
+const FACTORING_SIGNAL_LABELS: Record<string, string> = {
+  monto_simulacion: "Monto simulación",
+  banda_factura_bruta: "Banda vs factura bruta",
+  fecha_cesion: "Fecha cesión",
+  rut_factoring: "RUT de factoring",
+  folio_en_glosa: "Folio en glosa",
+};
 
 // ── Tipos ──
 
@@ -96,6 +105,7 @@ interface FactoringCandidate {
   id: string;
   code: string;
   factoringCompanyName: string;
+  factoringCompanyId?: string | null;
   fechaCesion: string;
   fechaVencimiento: string;
   invoiceAmount: number;
@@ -104,6 +114,9 @@ interface FactoringCandidate {
   status: string;
   dteFolio: number | null;
   dteReceiverName: string | null;
+  confidence: number;
+  matchSignals: string[];
+  isSuggested: boolean;
 }
 
 interface LocalLink {
@@ -294,6 +307,7 @@ export function BankTxReconcileSheet({
   const [unmappedQueue, setUnmappedQueue] = useState<
     Array<{ id: string; code: string; name: string }>
   >([]);
+  const factoringPrefillAppliedRef = useRef<string | null>(null);
 
   const txAmountAbs = tx ? Math.abs(tx.amount) : 0;
   const linksTotal = useMemo(
@@ -345,6 +359,45 @@ export function BankTxReconcileSheet({
     }
   }, [tx]);
 
+  useEffect(() => {
+    factoringPrefillAppliedRef.current = null;
+  }, [tx?.id]);
+
+  /** Una sola cesión sugerida (≥90%) en modo crear → pre-selección sin guardar. */
+  useEffect(() => {
+    if (!open || !tx || mode !== "create" || loadingCandidates) return;
+    if (links.length > 0) return;
+    const suggestedOnes = factoringCandidates.filter((c) => c.isSuggested);
+    if (suggestedOnes.length !== 1) return;
+    if (factoringPrefillAppliedRef.current === tx.id) return;
+    factoringPrefillAppliedRef.current = tx.id;
+    const c = suggestedOnes[0]!;
+    const suggestedAmt = Math.min(
+      c.expectedDeposit,
+      Math.abs(tx.amount) || c.expectedDeposit,
+    );
+    setLinks([
+      {
+        key: c.id,
+        targetType: "FACTORING_OPERATION",
+        targetId: c.id,
+        amount: suggestedAmt,
+        accountPlanId: null,
+        note: null,
+        label: `Cesión ${c.code} · ${c.factoringCompanyName}${
+          c.dteFolio ? ` · Factura ${c.dteFolio}` : ""
+        }`,
+      },
+    ]);
+  }, [
+    open,
+    tx,
+    mode,
+    loadingCandidates,
+    links.length,
+    factoringCandidates,
+  ]);
+
   // Reset + carga inicial al abrir.
   // Decide entre "view" (ya conciliado) y "create" (sin links) según GET.
   useEffect(() => {
@@ -372,6 +425,8 @@ export function BankTxReconcileSheet({
     setFilterDateTo("");
     setFilterDirection("all");
     setShowFilters(false);
+    setCandidates([]);
+    setFactoringCandidates([]);
 
     let cancelled = false;
     (async () => {
@@ -1220,12 +1275,15 @@ export function BankTxReconcileSheet({
               {/* Cesiones a factoring (Fase 4 — conciliación con monto a girar) */}
               {factoringCandidates.length > 0 && (
                 <div className="mb-4 space-y-2">
-                  <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-primary">
+                  <p className="text-xs font-mono uppercase tracking-wide text-primary">
                     Cesiones a factoring ({factoringCandidates.length})
                   </p>
                   <ul className="space-y-2">
                     {factoringCandidates.map((c) => {
                       const selected = links.some((l) => l.key === c.id);
+                      const suggested = c.isSuggested ?? false;
+                      const confidence = c.confidence ?? 0;
+                      const signals = c.matchSignals ?? [];
                       return (
                         <li
                           key={c.id}
@@ -1233,7 +1291,9 @@ export function BankTxReconcileSheet({
                             "flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors",
                             selected
                               ? "border-primary bg-primary/5"
-                              : "border-border hover:bg-muted/30",
+                              : suggested
+                                ? "border-primary/50 bg-primary/[0.04]"
+                                : "border-border hover:bg-muted/30",
                           )}
                           onClick={() => toggleFactoring(c)}
                         >
@@ -1252,6 +1312,16 @@ export function BankTxReconcileSheet({
                               <Badge variant="outline" className="text-xs">
                                 {c.factoringCompanyName}
                               </Badge>
+                              {suggested ? (
+                                <>
+                                  <Badge variant="brand" className="text-xs">
+                                    Sugerido
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    {confidence}% de coincidencia
+                                  </span>
+                                </>
+                              ) : null}
                               {c.expectedDepositSource === "simulation" ? (
                                 <Badge
                                   variant="outline"
@@ -1265,6 +1335,15 @@ export function BankTxReconcileSheet({
                                 </Badge>
                               )}
                             </div>
+                            {signals.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {signals.map((sig) => (
+                                  <Tag key={sig} variant="neutral" size="sm">
+                                    {FACTORING_SIGNAL_LABELS[sig] ?? sig}
+                                  </Tag>
+                                ))}
+                              </div>
+                            ) : null}
                             {c.dteFolio ? (
                               <p className="text-xs text-muted-foreground mt-0.5">
                                 Factura {c.dteFolio} · {c.dteReceiverName}
