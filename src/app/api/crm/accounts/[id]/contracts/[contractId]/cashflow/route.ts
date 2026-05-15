@@ -130,6 +130,16 @@ export async function GET(
       hasIpcAdjustment: true,
       ipcAdjustmentMonths: true,
       ipcStartDate: true,
+      // Bloque 5 — calendario de cobro por contrato
+      nickname: true,
+      emiteProforma: true,
+      diaEmisionProforma: true,
+      diasFacturaDesdeProforma: true,
+      diaEmisionFactura: true,
+      mesFacturaRelativo: true,
+      modoCobro: true,
+      diasCobroDesdeFactura: true,
+      costoFactoringPct: true,
     },
   });
 
@@ -156,6 +166,17 @@ export async function GET(
             hasIpcAdjustment: item.hasIpcAdjustment,
             ipcAdjustmentMonths: item.ipcAdjustmentMonths,
             ipcStartDate: item.ipcStartDate,
+            // Bloque 5 — calendario de cobro
+            nickname: item.nickname,
+            emiteProforma: item.emiteProforma,
+            diaEmisionProforma: item.diaEmisionProforma,
+            diasFacturaDesdeProforma: item.diasFacturaDesdeProforma,
+            diaEmisionFactura: item.diaEmisionFactura,
+            mesFacturaRelativo: item.mesFacturaRelativo,
+            modoCobro: item.modoCobro,
+            diasCobroDesdeFactura: item.diasCobroDesdeFactura,
+            costoFactoringPct:
+              item.costoFactoringPct != null ? Number(item.costoFactoringPct) : null,
           }
         : null,
     },

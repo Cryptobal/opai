@@ -61,8 +61,21 @@ interface CfItem {
   amountClp: number;
   currency: string;
   dayOfMonth: number | null;
+  startDate?: string | null;
+  endDate?: string | null;
   hasIpcAdjustment?: boolean;
   ipcAdjustmentMonths?: number | null;
+  ipcStartDate?: string | null;
+  // Bloque 5 — calendario de cobro por contrato
+  nickname?: string | null;
+  emiteProforma?: boolean;
+  diaEmisionProforma?: number | null;
+  diasFacturaDesdeProforma?: number | null;
+  diaEmisionFactura?: number | null;
+  mesFacturaRelativo?: "MISMO_MES" | "MES_SIGUIENTE" | string;
+  modoCobro?: "DIRECTO" | "FACTORING" | string;
+  diasCobroDesdeFactura?: number;
+  costoFactoringPct?: number | null;
   pendingIpcAdjustments?: Array<{ id: string; dueDate: string }>;
 }
 
@@ -359,12 +372,27 @@ export function AccountContractsSection({
   const [cfInstallId, setCfInstallId] = useState<string>("");
   const [cfAmount, setCfAmount] = useState<string>("");
   const [cfCurrency, setCfCurrency] = useState<"CLP" | "UF">("CLP");
-  const [cfPayDay, setCfPayDay] = useState<string>("5");
   const [cfStartDate, setCfStartDate] = useState<string>("");
   const [cfEndDate, setCfEndDate] = useState<string>("");
   const [cfHasIpc, setCfHasIpc] = useState<boolean>(false);
   const [cfIpcMonths, setCfIpcMonths] = useState<string>("12");
   const [cfSaving, setCfSaving] = useState(false);
+  // ── Bloque 5 Fase 3 — calendario de cobro por contrato ──
+  const [cfNickname, setCfNickname] = useState<string>("");
+  const [cfEmiteProforma, setCfEmiteProforma] = useState<boolean>(false);
+  const [cfDiaEmisionProforma, setCfDiaEmisionProforma] = useState<string>("");
+  const [cfDiasFacturaDesdeProforma, setCfDiasFacturaDesdeProforma] =
+    useState<string>("");
+  const [cfDiaEmisionFactura, setCfDiaEmisionFactura] = useState<string>("");
+  const [cfMesFacturaRelativo, setCfMesFacturaRelativo] = useState<
+    "MISMO_MES" | "MES_SIGUIENTE"
+  >("MISMO_MES");
+  const [cfModoCobro, setCfModoCobro] = useState<"DIRECTO" | "FACTORING">(
+    "DIRECTO",
+  );
+  const [cfDiasCobroDesdeFactura, setCfDiasCobroDesdeFactura] =
+    useState<string>("0");
+  const [cfCostoFactoringPct, setCfCostoFactoringPct] = useState<string>("");
 
   // Action loading states
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
@@ -953,27 +981,197 @@ export function AccountContractsSection({
       const cur = item.currency === "UF" ? "UF" : "CLP";
       setCfCurrency(cur);
       setCfAmount(formatAmount(item.amountClp, cur));
-      setCfPayDay(String(item.dayOfMonth ?? 5));
       setCfHasIpc(!!item.hasIpcAdjustment);
       setCfIpcMonths(String(item.ipcAdjustmentMonths ?? 12));
+      // Bloque 5 Fase 3 — campos calendario de cobro
+      setCfNickname(item.nickname ?? "");
+      setCfEmiteProforma(!!item.emiteProforma);
+      setCfDiaEmisionProforma(
+        item.diaEmisionProforma != null ? String(item.diaEmisionProforma) : "",
+      );
+      setCfDiasFacturaDesdeProforma(
+        item.diasFacturaDesdeProforma != null
+          ? String(item.diasFacturaDesdeProforma)
+          : "",
+      );
+      // Si el item ya tenía diaEmisionFactura, lo usamos. Si no, caemos
+      // al dayOfMonth legacy (paymentDay) para mantener consistencia con
+      // los items creados antes de la fase 1.
+      setCfDiaEmisionFactura(
+        item.diaEmisionFactura != null
+          ? String(item.diaEmisionFactura)
+          : item.dayOfMonth != null
+            ? String(item.dayOfMonth)
+            : "5",
+      );
+      setCfMesFacturaRelativo(
+        item.mesFacturaRelativo === "MES_SIGUIENTE"
+          ? "MES_SIGUIENTE"
+          : "MISMO_MES",
+      );
+      setCfModoCobro(item.modoCobro === "FACTORING" ? "FACTORING" : "DIRECTO");
+      setCfDiasCobroDesdeFactura(
+        item.diasCobroDesdeFactura != null
+          ? String(item.diasCobroDesdeFactura)
+          : "0",
+      );
+      setCfCostoFactoringPct(
+        item.costoFactoringPct != null ? String(item.costoFactoringPct) : "",
+      );
+      // Fechas del propio item (puede diferir del contrato).
+      setCfStartDate(item.startDate ?? contract.effectiveDate?.slice(0, 10) ?? todayISO());
+      setCfEndDate(item.endDate ?? contract.expirationDate?.slice(0, 10) ?? "");
     } else {
       setCfCurrency("CLP");
       setCfAmount("");
-      setCfPayDay("5");
       setCfHasIpc(false);
       setCfIpcMonths("12");
+      // Defaults Fase 3
+      setCfNickname("");
+      setCfEmiteProforma(false);
+      setCfDiaEmisionProforma("");
+      setCfDiasFacturaDesdeProforma("");
+      setCfDiaEmisionFactura("5");
+      setCfMesFacturaRelativo("MISMO_MES");
+      setCfModoCobro("DIRECTO");
+      setCfDiasCobroDesdeFactura("0");
+      setCfCostoFactoringPct("");
+      setCfStartDate(contract.effectiveDate?.slice(0, 10) ?? todayISO());
+      setCfEndDate(contract.expirationDate?.slice(0, 10) ?? "");
     }
-    setCfStartDate(contract.effectiveDate?.slice(0, 10) ?? todayISO());
-    setCfEndDate(contract.expirationDate?.slice(0, 10) ?? "");
+  };
+
+  // ── Bloque 5 Fase 3 — Auto-calc del día de emisión de factura cuando
+  // hay proforma. El usuario configura "día proforma" + "días desde
+  // proforma hasta factura"; nosotros derivamos el día de factura.
+  // Si pasa de 31, lo clampeamos a 31 (el generador de cuotas hace el
+  // ajuste real al último día del mes correspondiente).
+  useEffect(() => {
+    if (!cfDialog) return;
+    if (!cfEmiteProforma) return;
+    const dia = Number(cfDiaEmisionProforma);
+    const diasGap = Number(cfDiasFacturaDesdeProforma);
+    if (!Number.isFinite(dia) || dia < 1 || dia > 31) return;
+    if (!Number.isFinite(diasGap) || diasGap < 0) return;
+    const calc = Math.min(dia + diasGap, 31);
+    setCfDiaEmisionFactura(String(calc));
+  }, [
+    cfDialog,
+    cfEmiteProforma,
+    cfDiaEmisionProforma,
+    cfDiasFacturaDesdeProforma,
+  ]);
+
+  /**
+   * Calcula el próximo ciclo de fechas (proforma → factura → cobro) en
+   * base a los valores del form. Toma como mes-base el mes actual; el
+   * usuario lo lee como "lo que va a pasar la próxima vez".
+   *
+   * Si los valores son inválidos (ej. usuario aún no escribió día de
+   * proforma), devolvemos null y la vista previa se oculta.
+   */
+  const calcularProximoCiclo = (): {
+    proforma: string | null;
+    factura: string;
+    cobro: string;
+  } | null => {
+    const hoy = new Date();
+    const year = hoy.getUTCFullYear();
+    const month = hoy.getUTCMonth();
+
+    let fechaProforma: Date | null = null;
+    let fechaFactura: Date;
+
+    if (cfEmiteProforma) {
+      const diaPro = Number(cfDiaEmisionProforma);
+      const diasGap = Number(cfDiasFacturaDesdeProforma);
+      if (!Number.isFinite(diaPro) || diaPro < 1 || diaPro > 31) return null;
+      if (!Number.isFinite(diasGap) || diasGap < 0) return null;
+      fechaProforma = new Date(Date.UTC(year, month, diaPro));
+      fechaFactura = new Date(fechaProforma);
+      fechaFactura.setUTCDate(fechaFactura.getUTCDate() + diasGap);
+    } else {
+      const diaFac = Number(cfDiaEmisionFactura);
+      if (!Number.isFinite(diaFac) || diaFac < 1 || diaFac > 31) return null;
+      fechaFactura = new Date(Date.UTC(year, month, diaFac));
+    }
+
+    if (cfMesFacturaRelativo === "MES_SIGUIENTE") {
+      fechaFactura.setUTCMonth(fechaFactura.getUTCMonth() + 1);
+    }
+
+    const diasCobro = Number(cfDiasCobroDesdeFactura);
+    if (!Number.isFinite(diasCobro) || diasCobro < 0) return null;
+    const fechaCobro = new Date(fechaFactura);
+    fechaCobro.setUTCDate(fechaCobro.getUTCDate() + diasCobro);
+
+    const fmt = (d: Date) =>
+      d.toLocaleDateString("es-CL", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        timeZone: "UTC",
+      });
+
+    return {
+      proforma: fechaProforma ? fmt(fechaProforma) : null,
+      factura: fmt(fechaFactura),
+      cobro: fmt(fechaCobro),
+    };
+  };
+
+  /**
+   * Validación cliente — devuelve string con el primer error encontrado
+   * o null si todo OK. Se ejecuta antes del submit para evitar viajes
+   * inútiles al backend cuando hay un campo claramente incorrecto.
+   */
+  const validarCfForm = (): string | null => {
+    const amt = parseChileanAmount(cfAmount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      return "El monto mensual debe ser mayor a 0";
+    }
+    if (cfEmiteProforma) {
+      const diaPro = Number(cfDiaEmisionProforma);
+      if (!Number.isFinite(diaPro) || diaPro < 1 || diaPro > 31) {
+        return "Día de proforma debe estar entre 1 y 31";
+      }
+      const diasGap = Number(cfDiasFacturaDesdeProforma);
+      if (!Number.isFinite(diasGap) || diasGap < 0 || diasGap > 60) {
+        return "Días hasta facturar debe estar entre 0 y 60";
+      }
+    } else {
+      const diaFac = Number(cfDiaEmisionFactura);
+      if (!Number.isFinite(diaFac) || diaFac < 1 || diaFac > 31) {
+        return "Día de emisión factura debe estar entre 1 y 31";
+      }
+    }
+    const diasCobro = Number(cfDiasCobroDesdeFactura);
+    if (!Number.isFinite(diasCobro) || diasCobro < 0 || diasCobro > 180) {
+      return "Días de cobro debe estar entre 0 y 180";
+    }
+    if (cfModoCobro === "FACTORING") {
+      const pct = Number(cfCostoFactoringPct);
+      if (!Number.isFinite(pct) || pct < 0 || pct > 20) {
+        return "Costo factoring debe estar entre 0 y 20%";
+      }
+    }
+    if (!cfStartDate) return "Indica la fecha de inicio";
+    if (cfEndDate && cfEndDate < cfStartDate) {
+      return "La fecha de fin no puede ser anterior al inicio";
+    }
+    return null;
   };
 
   const handleCfSave = async () => {
     if (!cfDialog) return;
-    const amt = parseChileanAmount(cfAmount);
-    if (!Number.isFinite(amt) || amt <= 0) {
-      toast.error("Indica el monto mensual");
+    const errMsg = validarCfForm();
+    if (errMsg) {
+      toast.error(errMsg);
       return;
     }
+    const amt = parseChileanAmount(cfAmount);
+    const diaFac = Number(cfDiaEmisionFactura);
+    const diasCobro = Number(cfDiasCobroDesdeFactura);
     setCfSaving(true);
     try {
       const res = await fetch(
@@ -993,12 +1191,35 @@ export function AccountContractsSection({
             installationId: cfInstallId || null,
             monthlyAmount: amt,
             currency: cfCurrency,
-            paymentDay: Number(cfPayDay) || 5,
+            // Legacy: paymentDay sigue siendo requerido por el schema
+            // de upsert. Se deriva del nuevo `diaEmisionFactura`. TODO
+            // Fase 5: deprecar paymentDay y leer el dayOfMonth del
+            // diaEmisionFactura directamente en la capa de proyección.
+            paymentDay: Number.isFinite(diaFac) && diaFac >= -1 && diaFac <= 31
+              ? diaFac
+              : 5,
             startDate: cfStartDate || todayISO(),
             endDate: cfEndDate || null,
             hasIpcAdjustment: cfCurrency === "CLP" && cfHasIpc,
             ipcAdjustmentMonths:
               cfCurrency === "CLP" && cfHasIpc ? Number(cfIpcMonths) || 12 : null,
+            // ── Bloque 5 Fase 3 — calendario de cobro ──
+            nickname: cfNickname.trim() ? cfNickname.trim() : null,
+            emiteProforma: cfEmiteProforma,
+            diaEmisionProforma: cfEmiteProforma
+              ? Number(cfDiaEmisionProforma)
+              : null,
+            diasFacturaDesdeProforma: cfEmiteProforma
+              ? Number(cfDiasFacturaDesdeProforma)
+              : null,
+            diaEmisionFactura: Number.isFinite(diaFac) ? diaFac : null,
+            mesFacturaRelativo: cfMesFacturaRelativo,
+            modoCobro: cfModoCobro,
+            diasCobroDesdeFactura: Number.isFinite(diasCobro) ? diasCobro : 0,
+            costoFactoringPct:
+              cfModoCobro === "FACTORING" && cfCostoFactoringPct !== ""
+                ? Number(cfCostoFactoringPct)
+                : null,
           }),
         },
       );
@@ -2982,22 +3203,42 @@ export function AccountContractsSection({
 
       {/* ─── Diálogo FC por instalación ──────────────────────────── */}
       <Dialog open={!!cfDialog} onOpenChange={(o) => !o && setCfDialog(null)}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg w-[calc(100vw-1.5rem)] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {cfDialog?.itemId ? "Editar ítem del flujo de caja" : "Agregar al flujo de caja"}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="break-words">
               {cfDialog?.contractTitle}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            {/* Nickname (opcional, visible en el flujo) */}
+            <div className="space-y-2">
+              <Label>
+                Nombre en el flujo{" "}
+                <span className="text-[12px] text-ds-text-3 font-normal">
+                  (opcional)
+                </span>
+              </Label>
+              <Input
+                value={cfNickname}
+                onChange={(e) => setCfNickname(e.target.value)}
+                placeholder="Ej: Transmat — Ciclo proforma"
+                className="h-10 sm:h-9"
+                maxLength={100}
+              />
+              <p className="text-[12px] text-ds-text-3">
+                Si lo dejás vacío, se muestra el título del contrato.
+              </p>
+            </div>
+
             {/* Instalación */}
             <div className="space-y-2">
               <Label>
                 Instalación{" "}
-                <span className="text-[12px] text-muted-foreground font-normal">
+                <span className="text-[12px] text-ds-text-3 font-normal">
                   (opcional — si el contrato es global deja en blanco)
                 </span>
               </Label>
@@ -3005,7 +3246,7 @@ export function AccountContractsSection({
                 value={cfInstallId || "__none__"}
                 onValueChange={(v) => setCfInstallId(v === "__none__" ? "" : v)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10 sm:h-9">
                   <SelectValue placeholder="Sin instalación (global)" />
                 </SelectTrigger>
                 <SelectContent>
@@ -3036,7 +3277,7 @@ export function AccountContractsSection({
                     }
                   }}
                   placeholder={cfCurrency === "UF" ? "117,50" : "1.500.000"}
-                  className="font-mono text-right"
+                  className="font-mono text-right h-10 sm:h-9"
                 />
               </div>
               <div className="space-y-2">
@@ -3052,7 +3293,7 @@ export function AccountContractsSection({
                     }
                   }}
                 >
-                  <SelectTrigger className="w-24">
+                  <SelectTrigger className="w-24 h-10 sm:h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -3063,24 +3304,6 @@ export function AccountContractsSection({
               </div>
             </div>
 
-            {/* Día de pago */}
-            <div className="space-y-2">
-              <Label>Día de pago del mes</Label>
-              <Input
-                type="number"
-                min={-1}
-                max={31}
-                value={cfPayDay}
-                onChange={(e) => setCfPayDay(e.target.value)}
-              />
-              <p className="text-[12px] text-muted-foreground">
-                <code className="font-mono">-1</code> = último día del mes.
-                {cfCurrency === "UF" && (
-                  <> Monto en UF, convertido a CLP con la UF del día de pago.</>
-                )}
-              </p>
-            </div>
-
             {/* Fechas */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
@@ -3089,24 +3312,201 @@ export function AccountContractsSection({
                   type="date"
                   value={cfStartDate}
                   onChange={(e) => setCfStartDate(e.target.value)}
+                  className="h-10 sm:h-9"
                 />
               </div>
               <div className="space-y-2">
                 <Label>
                   Fecha fin FC{" "}
-                  <span className="text-[12px] text-muted-foreground font-normal">(opcional)</span>
+                  <span className="text-[12px] text-ds-text-3 font-normal">(opcional)</span>
                 </Label>
                 <Input
                   type="date"
                   value={cfEndDate}
                   onChange={(e) => setCfEndDate(e.target.value)}
+                  className="h-10 sm:h-9"
                 />
               </div>
             </div>
 
-            {/* Ajuste IPC — sólo CLP */}
+            {/* ── Ciclo de emisión ─────────────────────────────────── */}
+            <div className="space-y-3 pt-3 border-t border-ds-border-default">
+              <p className="text-[12px] uppercase tracking-wide font-medium text-ds-text-3">
+                Ciclo de emisión
+              </p>
+
+              <label className="flex items-start gap-2 cursor-pointer">
+                <Checkbox
+                  checked={cfEmiteProforma}
+                  onCheckedChange={(v) => setCfEmiteProforma(v === true)}
+                  className="mt-1"
+                />
+                <div className="space-y-0.5">
+                  <span className="text-sm font-medium">
+                    Emite proforma / estado de pago antes de la factura
+                  </span>
+                  <p className="text-xs text-ds-text-3">
+                    Para contratos que requieren aprobación previa (ej. Transmat,
+                    Embajadas). Si está desactivado, se factura directo el día indicado.
+                  </p>
+                </div>
+              </label>
+
+              {cfEmiteProforma && (
+                <div className="grid grid-cols-2 gap-3 pl-6">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Día de proforma</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={cfDiaEmisionProforma}
+                      onChange={(e) => setCfDiaEmisionProforma(e.target.value)}
+                      placeholder="20"
+                      className="h-10 sm:h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Días hasta facturar</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={60}
+                      value={cfDiasFacturaDesdeProforma}
+                      onChange={(e) =>
+                        setCfDiasFacturaDesdeProforma(e.target.value)
+                      }
+                      placeholder="4"
+                      className="h-10 sm:h-9"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <Label className="text-xs">
+                  Día de emisión factura
+                  {cfEmiteProforma && (
+                    <span className="ml-2 text-[12px] text-ds-text-3 font-normal">
+                      (autocalculado desde la proforma)
+                    </span>
+                  )}
+                </Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={cfDiaEmisionFactura}
+                  onChange={(e) => setCfDiaEmisionFactura(e.target.value)}
+                  readOnly={cfEmiteProforma}
+                  className={cn(
+                    "h-10 sm:h-9 max-w-[120px]",
+                    cfEmiteProforma && "bg-ds-surface-2 text-ds-text-3",
+                  )}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">La factura se emite en</Label>
+                <Select
+                  value={cfMesFacturaRelativo}
+                  onValueChange={(v) =>
+                    setCfMesFacturaRelativo(
+                      v === "MES_SIGUIENTE" ? "MES_SIGUIENTE" : "MISMO_MES",
+                    )
+                  }
+                >
+                  <SelectTrigger className="h-10 sm:h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MISMO_MES">
+                      Mismo mes del servicio
+                    </SelectItem>
+                    <SelectItem value="MES_SIGUIENTE">
+                      Mes siguiente
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* ── Ciclo de cobro ───────────────────────────────────── */}
+            <div className="space-y-3 pt-3 border-t border-ds-border-default">
+              <p className="text-[12px] uppercase tracking-wide font-medium text-ds-text-3">
+                Ciclo de cobro
+              </p>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Modo de cobro</Label>
+                <Select
+                  value={cfModoCobro}
+                  onValueChange={(v) =>
+                    setCfModoCobro(v === "FACTORING" ? "FACTORING" : "DIRECTO")
+                  }
+                >
+                  <SelectTrigger className="h-10 sm:h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DIRECTO">
+                      Directo — cliente paga a mi cuenta
+                    </SelectItem>
+                    <SelectItem value="FACTORING">
+                      Factoring — vendido al factor
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Días entre factura y cobro</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={180}
+                  value={cfDiasCobroDesdeFactura}
+                  onChange={(e) => setCfDiasCobroDesdeFactura(e.target.value)}
+                  placeholder={cfModoCobro === "FACTORING" ? "3" : "45"}
+                  className="h-10 sm:h-9 max-w-[120px]"
+                />
+                <p className="text-[12px] text-ds-text-3">
+                  {cfModoCobro === "FACTORING"
+                    ? "Factoring: típicamente 2–5 días."
+                    : "Directo: típicamente 30 / 45 / 60 días."}
+                </p>
+              </div>
+
+              {cfModoCobro === "FACTORING" && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Costo del factoring (%)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={20}
+                    step={0.01}
+                    value={cfCostoFactoringPct}
+                    onChange={(e) => setCfCostoFactoringPct(e.target.value)}
+                    placeholder="1.80"
+                    className="h-10 sm:h-9 max-w-[120px] font-mono text-right"
+                  />
+                  <p className="text-[12px] text-ds-text-3">
+                    Reduce el monto que entra al banco:{" "}
+                    <code className="font-mono">
+                      neto = bruto × (1 − pct/100)
+                    </code>
+                    .
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* ── Ajuste IPC — sólo CLP ──────────────────────────── */}
             {cfCurrency === "CLP" && (
-              <div className="space-y-2 pt-2 border-t border-border">
+              <div className="space-y-2 pt-3 border-t border-ds-border-default">
+                <p className="text-[12px] uppercase tracking-wide font-medium text-ds-text-3">
+                  Reajuste IPC
+                </p>
                 <label className="flex items-start gap-2 cursor-pointer">
                   <Checkbox
                     checked={cfHasIpc}
@@ -3115,7 +3515,7 @@ export function AccountContractsSection({
                   />
                   <div className="space-y-0.5">
                     <span className="text-sm font-medium">Tiene ajuste de IPC</span>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-ds-text-3">
                       Te avisamos cuando se acerque la fecha para que ingreses el % real.
                     </p>
                   </div>
@@ -3130,9 +3530,9 @@ export function AccountContractsSection({
                         max={36}
                         value={cfIpcMonths}
                         onChange={(e) => setCfIpcMonths(e.target.value)}
-                        className="max-w-[120px]"
+                        className="max-w-[120px] h-10 sm:h-9"
                       />
-                      <p className="text-[12px] text-muted-foreground">
+                      <p className="text-[12px] text-ds-text-3">
                         Típico: <strong>12</strong> (anual), <strong>6</strong> (semestral)
                         o <strong>2</strong> (bimensual). Solo se usa para la
                         alerta de reajuste pendiente — la fecha exacta de cada
@@ -3143,6 +3543,38 @@ export function AccountContractsSection({
                 )}
               </div>
             )}
+
+            {/* ── Vista previa del próximo ciclo ─────────────────── */}
+            {(() => {
+              const preview = calcularProximoCiclo();
+              if (!preview) return null;
+              return (
+                <div className="rounded-lg border border-ds-border-default bg-ds-surface-2 p-3 space-y-1">
+                  <p className="text-[12px] uppercase tracking-wide font-medium text-ds-text-3">
+                    Vista previa — próximo ciclo
+                  </p>
+                  {preview.proforma && (
+                    <p className="text-sm text-ds-text-2">
+                      <span className="font-mono">{preview.proforma}</span>{" "}
+                      <span className="text-ds-text-3">→ emite proforma</span>
+                    </p>
+                  )}
+                  <p className="text-sm text-ds-text-2">
+                    <span className="font-mono">{preview.factura}</span>{" "}
+                    <span className="text-ds-text-3">→ emite factura</span>
+                  </p>
+                  <p className="text-sm text-ds-text-1 font-medium">
+                    <span className="font-mono">{preview.cobro}</span>{" "}
+                    <span className="text-ds-text-3">→ cobro en flujo</span>
+                    <span className="text-[12px] text-ds-text-3 ml-2">
+                      (
+                      {cfModoCobro === "FACTORING" ? "factoring" : "directo"},{" "}
+                      {Number(cfDiasCobroDesdeFactura) || 0}d)
+                    </span>
+                  </p>
+                </div>
+              );
+            })()}
           </div>
 
           <DialogFooter>
