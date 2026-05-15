@@ -76,15 +76,28 @@ function deriveCellStatus(opts: {
   if (paymentStatus === "CEDED" || opts.hasFactoring) {
     return { status: "CEDED", daysOverdue: 0, dteId: id };
   }
-  if (siiStatus === "DRAFT" || siiStatus === "PENDING") {
+  // Únicamente DRAFT (sin folio, no enviada al SII) es "Borrador" visual.
+  // PENDING / SENT / ACCEPTED / WITH_OBJECTIONS son emitidas: tienen folio
+  // y van a INVOICED (visualmente "Facturada"). El sub-estado "Pendiente
+  // aceptación SII" se distingue en la vista de DTEs Emitidos, no en el
+  // flujo de caja donde lo que importa es: ¿ya se emitió o no?
+  if (siiStatus === "DRAFT") {
     return { status: "DRAFT", daysOverdue: 0, dteId: id };
   }
-  if (siiStatus === "ACCEPTED") {
+  if (
+    siiStatus === "PENDING" ||
+    siiStatus === "SENT" ||
+    siiStatus === "ACCEPTED" ||
+    siiStatus === "WITH_OBJECTIONS"
+  ) {
     const overdue = dueDate
       ? Math.max(0, Math.floor((opts.today.getTime() - dueDate.getTime()) / 86_400_000))
       : 0;
     return { status: "INVOICED", daysOverdue: overdue, dteId: id };
   }
+  // REJECTED / ANNULLED: no deberían llegar acá (filtradas en orphanDtes
+  // por siiStatus: { notIn: ['ANNULLED', 'REJECTED'] }). Defensivo:
+  // si llegaran, no tiene sentido mostrar badge — caen a PROJECTED.
   return { status: "PROJECTED", daysOverdue: 0, dteId: id };
 }
 

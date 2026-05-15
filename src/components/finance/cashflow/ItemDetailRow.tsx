@@ -230,8 +230,18 @@ export function ItemDetailRow({
             />
           </span>
         );
+        // Activamos el popover si: (a) hay proyección (amount>0), o
+        // (b) hay Occurrence materializada en DB (occurrenceId), o
+        // (c) hay DTEs vinculados a la celda (dtes.length>0).
+        // El caso (c) cubre DTEs enganchados al item vía Occurrence
+        // sintética con amountClp=0 (Bloque 2: factura/borrador
+        // huérfano que cae en una celda sin proyección propia).
+        // Sin (c), el popover quedaba deshabilitado y el usuario no
+        // podía ver el detalle del DTE ni operar sobre la celda.
+        const hasLinkedDtes = (v.dtes ?? []).length > 0;
         const target =
-          item.itemId !== "_orphan" && (v.amount > 0 || v.occurrenceId)
+          item.itemId !== "_orphan" &&
+          (v.amount > 0 || v.occurrenceId || hasLinkedDtes)
             ? {
                 id: v.occurrenceId,
                 itemId: item.itemId,
