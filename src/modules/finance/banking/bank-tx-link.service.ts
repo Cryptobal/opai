@@ -643,6 +643,8 @@ export interface EnrichedTransactionLink {
     id: string;
     code: string;
     factoringCompanyName: string;
+    /** Folio de la factura cedida (cuando el DTE asociado tiene folio). */
+    dteFolio: number | null;
   } | null;
 }
 
@@ -812,6 +814,7 @@ export async function listTransactionLinks(
             id: true,
             code: true,
             factoringCompany: true,
+            dte: { select: { folio: true } },
           },
         })
       : Promise.resolve([]),
@@ -846,11 +849,15 @@ export async function listTransactionLinks(
     } else if (r.targetType === "FACTORING_OPERATION") {
       const f = r.targetId ? factoringById.get(r.targetId) : undefined;
       if (f) {
-        entityLabel = `Cesión ${f.code} · ${f.factoringCompany}`;
+        const folio = f.dte?.folio ?? null;
+        entityLabel = folio
+          ? `Cesión ${f.code} · Factura ${folio} · ${f.factoringCompany}`
+          : `Cesión ${f.code} · ${f.factoringCompany}`;
         factoring = {
           id: f.id,
           code: f.code,
           factoringCompanyName: f.factoringCompany,
+          dteFolio: folio,
         };
       } else {
         entityLabel = `Cesión eliminada (id ${r.targetId ?? "?"})`;
