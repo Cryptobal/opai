@@ -3,8 +3,17 @@
 -- Además: limpiar Occurrences mal enganchadas a NCs/ND (bug del matcher
 -- arreglado en Bloque 1.6).
 --
+-- VERIFICACIÓN PREVIA (correr en Neon SQL Editor ANTES de aplicar):
+--   Ver BLOQUE_1_5_backfill_nc_ampliado.md — Paso 2.
+--
+-- RESULTADO ESPERADO POST-BLOQUE 1.6:
+--   Esta migración es idempotente. Si el código del Bloque 1.6 ya procesó
+--   las NCs existentes, los tres UPDATEs afectarán 0 filas (no-op seguro).
+--
 -- ROLLBACK SEGURO (3 UPDATEs reversibles, ningún DELETE / DROP):
---   ver sección "Rollback" al final de BLOQUE_1_5_backfill_nc_ampliado.md.
+--   Rollback 1: UPDATE finance.finance_dtes SET voided_by_credit_note_id = NULL, voided_at = NULL WHERE ...
+--   Rollback 2: UPDATE finance.finance_dtes SET credited_net_amount = 0 WHERE ...
+--   Rollback 3: No aplica — si occurrences ya eran NULL, el rollback no restaura nada.
 
 -- ── 1) BACKFILL CodRef=1 (anulación total) ──
 -- Para cada NC viva con CodRef=1, setear voidedByCreditNoteId y voidedAt
@@ -42,7 +51,7 @@ FROM (
 WHERE orig.id = sub.reference_dte_id
   AND orig.credited_net_amount = 0;
 
--- ── 3) NUEVO: LIMPIAR Occurrences mal enganchadas a NCs/ND ──
+-- ── 3) LIMPIAR Occurrences mal enganchadas a NCs/ND ──
 -- Bug del matcher anterior al Bloque 1.6: el matcher enganchaba NCs y
 -- ND como Occurrences del contrato. En el flujo aparecían como
 -- "Factura N° X Pagada" dentro de la celda del contrato. Set dteId=NULL
