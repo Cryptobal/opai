@@ -11,6 +11,7 @@ import {
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { PageHero, Surface, SetBreadcrumbTrailing } from "@/components/opai-ds";
+import { DTE_TYPE_LABELS } from "@/components/finance/dtes/shared/constants";
 
 const fmtCLP = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -78,7 +79,7 @@ export default async function FinancePaymentRecordReceiptPage({ params }: PagePr
             select: {
               id: true,
               folio: true,
-              documentType: true,
+              dteType: true,
               direction: true,
               receiverName: true,
               issuerName: true,
@@ -227,7 +228,7 @@ export default async function FinancePaymentRecordReceiptPage({ params }: PagePr
                       href={`/finanzas/facturacion/dtes?openDteId=${a.dte.id}`}
                       className="font-medium text-primary hover:underline"
                     >
-                      {a.dte.documentType} {a.dte.folio != null ? `N° ${a.dte.folio}` : ""}{" "}
+                      {DTE_TYPE_LABELS[a.dte.dteType] ?? `Tipo ${a.dte.dteType}`} {a.dte.folio != null ? `N° ${a.dte.folio}` : ""}{" "}
                       ·{" "}
                       {(a.dte.direction === "ISSUED"
                         ? a.dte.receiverName
