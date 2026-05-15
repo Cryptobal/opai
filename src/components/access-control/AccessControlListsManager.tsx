@@ -21,6 +21,7 @@ import { formatRut, validateRut } from "@/lib/access-control/utils";
 import { getLucideIconByName } from "@/lib/access-control/record-type-icon";
 import { ListImport } from "./ListImport";
 import { KnownVisitorPickerModal } from "./KnownVisitorPickerModal";
+import { ACCESS_CONTROL_LIST_PURGE_CONFIRMATION } from "@/lib/access-control/list-purge-constants";
 
 interface Props {
   installationId: string;
@@ -44,6 +45,11 @@ export function AccessControlListsManager({ installationId }: Props) {
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
   const [groupSaving, setGroupSaving] = useState(false);
+
+  const [showPurgeModal, setShowPurgeModal] = useState(false);
+  const [purgePhrase, setPurgePhrase] = useState("");
+  const [purgeIncludeGlobalBlacklist, setPurgeIncludeGlobalBlacklist] = useState(false);
+  const [purgeSaving, setPurgeSaving] = useState(false);
 
   const [installConfig, setInstallConfig] = useState<AccessControlConfigData | null>(null);
   const [formRecordTypes, setFormRecordTypes] = useState<string[]>(["visit"]);
@@ -112,6 +118,9 @@ export function AccessControlListsManager({ installationId }: Props) {
   useEffect(() => {
     setSelectedEntryIds(new Set());
     setSelectedGroupIds(new Set());
+    setShowPurgeModal(false);
+    setPurgePhrase("");
+    setPurgeIncludeGlobalBlacklist(false);
   }, [activeTab]);
 
   useEffect(() => {
@@ -401,6 +410,42 @@ export function AccessControlListsManager({ installationId }: Props) {
     }
   };
 
+  const handlePurgeList = async () => {
+    if (purgePhrase !== ACCESS_CONTROL_LIST_PURGE_CONFIRMATION) {
+      toast.error(`Escribe exactamente: ${ACCESS_CONTROL_LIST_PURGE_CONFIRMATION}`);
+      return;
+    }
+    setPurgeSaving(true);
+    try {
+      const res = await fetch(`/api/access-control/lists/${installationId}/purge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          listType: activeTab,
+          confirmation: purgePhrase,
+          deleteGlobalBlacklist:
+            activeTab === "blacklist" ? purgeIncludeGlobalBlacklist : undefined,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(`${json.data.deleted} registro(s) eliminados permanentemente`);
+        setShowPurgeModal(false);
+        setPurgePhrase("");
+        setPurgeIncludeGlobalBlacklist(false);
+        setSelectedEntryIds(new Set());
+        await fetchList();
+        await fetchGroups();
+      } else {
+        toast.error(json.error || "No se pudo vaciar la lista");
+      }
+    } catch {
+      toast.error("Error al vaciar la lista");
+    } finally {
+      setPurgeSaving(false);
+    }
+  };
+
   const filtered = entries.filter((e) => {
     if (!search) return true;
     const s = search.toLowerCase();
@@ -443,7 +488,7 @@ export function AccessControlListsManager({ installationId }: Props) {
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
           <Input
@@ -460,6 +505,20 @@ export function AccessControlListsManager({ installationId }: Props) {
         <Button onClick={() => setShowImport(true)} variant="outline" size="sm">
           <Upload className="mr-1 h-4 w-4" />
           Importar CSV
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="border-status-danger-border text-status-danger-fg hover:bg-status-danger-soft"
+          onClick={() => {
+            setPurgePhrase("");
+            setPurgeIncludeGlobalBlacklist(false);
+            setShowPurgeModal(true);
+          }}
+        >
+          <AlertTriangle className="mr-1 h-4 w-4" />
+          Vaciar lista
         </Button>
         <Button
           onClick={() => setShowAssignGroups(true)}
@@ -653,8 +712,13 @@ export function AccessControlListsManager({ installationId }: Props) {
           installationId={installationId}
           listType={activeTab}
           mode="admin"
+          groups={groups.map((g) => ({ id: g.id, name: g.name }))}
+          requireGroupWhenAvailable
           onClose={() => setShowImport(false)}
-          onImported={fetchList}
+          onImported={() => {
+            void fetchList();
+            void fetchGroups();
+          }}
         />
       )}
 
@@ -966,6 +1030,75 @@ export function AccessControlListsManager({ installationId }: Props) {
               <Button size="sm" onClick={handleEditGroup} disabled={groupSaving}>
                 {groupSaving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                 Guardar cambios
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPurgeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-status-danger-border bg-zinc-900 p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h4 className="text-sm font-medium text-zinc-200">
+                Vaciar {activeTab === "whitelist" ? "lista blanca" : "lista negra"}
+              </h4>
+              <button
+                type="button"
+                onClick={() => setShowPurgeModal(false)}
+                className="text-zinc-500 hover:text-zinc-300"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-3 text-xs text-zinc-400">
+              <p>
+                Se eliminarán <strong className="text-zinc-200">definitivamente</strong> los registros de esta lista
+                para <strong className="text-zinc-200">esta instalación</strong>. Los vínculos con grupos también se
+                borran (los grupos en sí no se eliminan).
+              </p>
+              {activeTab === "blacklist" && (
+                <label className="flex cursor-pointer items-start gap-2 rounded-md border border-zinc-700 bg-zinc-800 p-3">
+                  <input
+                    type="checkbox"
+                    checked={purgeIncludeGlobalBlacklist}
+                    onChange={(e) => setPurgeIncludeGlobalBlacklist(e.target.checked)}
+                    className="mt-0.5 rounded border-zinc-600"
+                  />
+                  <span>
+                    Incluir también la <strong className="text-zinc-200">lista negra global</strong> del tenant
+                    (entradas sin instalación que aplican en todas las sedes).
+                  </span>
+                </label>
+              )}
+              <div>
+                <Label className="text-zinc-400">
+                  Para confirmar, escribe <span className="font-mono text-status-danger-fg">{ACCESS_CONTROL_LIST_PURGE_CONFIRMATION}</span>
+                </Label>
+                <Input
+                  value={purgePhrase}
+                  onChange={(e) => setPurgePhrase(e.target.value)}
+                  placeholder={ACCESS_CONTROL_LIST_PURGE_CONFIRMATION}
+                  className="mt-1 bg-zinc-800 border-zinc-600 font-mono text-sm"
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowPurgeModal(false)}>
+                Cancelar
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={
+                  purgeSaving ||
+                  purgePhrase !== ACCESS_CONTROL_LIST_PURGE_CONFIRMATION
+                }
+                onClick={() => void handlePurgeList()}
+              >
+                {purgeSaving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+                Eliminar todo
               </Button>
             </div>
           </div>

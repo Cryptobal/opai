@@ -244,6 +244,7 @@ export function ClientWhitelistManager({ installationId, createdBy }: Props) {
           installationId={installationId}
           listType="whitelist"
           mode="client"
+          requireGroupWhenAvailable={false}
           onClose={() => setShowImport(false)}
           onImported={fetchList}
         />
