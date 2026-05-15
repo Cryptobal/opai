@@ -1373,15 +1373,38 @@ export async function bulkReconcileToDte(
 
 // ── N movs → N DTEs ──
 
+/**
+ * Asignación de una porción del lote a una entidad. Cada item debe traer
+ * EXACTAMENTE uno de `dteId` o `factoringOperationId`:
+ *   - `dteId`: el monto se aplica al pendiente de la factura. Genera
+ *     FinancePaymentAllocation + actualiza paymentStatus del DTE.
+ *   - `factoringOperationId`: el monto se aplica al depósito esperado de
+ *     la cesión. NO crea PaymentAllocation (el módulo factoring trackea
+ *     el pago vía `fundedAt`/`status`). Si la cesión está en estado
+ *     APPROVED transiciona a FUNDED. Si está en otro estado solo se
+ *     setea `fundedAt` sin tocar el status.
+ *
+ * La merma típica de factoring (banco < bruto cedido) se modela vía
+ * `differenceAllocation` con `direction: "shortfall"` y prorratea sobre
+ * las líneas del DTE asociado a la cesión.
+ */
+export interface BulkAllocationInput {
+  dteId?: string;
+  factoringOperationId?: string;
+  amount: number;
+}
+
 export interface BulkReconcileToDtesInput {
   bankTransactionIds: string[];
   /**
-   * Asignación por DTE. La suma debe ser ≈ sum(movs) — a menos que se
+   * Asignaciones del lote. La suma debe ser ≈ sum(movs) — a menos que se
    * incluya `differenceAllocation` que absorba la diferencia.
    * El reparto a nivel de cada mov se hace proporcionalmente al peso de
-   * cada DTE en el total.
+   * cada allocation en el total.
+   *
+   * Cada item es DTE o factoring (XOR). Ver `BulkAllocationInput`.
    */
-  allocations: Array<{ dteId: string; amount: number }>;
+  allocations: Array<BulkAllocationInput>;
   /**
    * Diferencia opcional para cuadrar el lote (típicamente comisión de
    * factoring). Se crea un FinanceBankTransactionLink EXPENSE/INCOME por
@@ -1460,6 +1483,22 @@ export async function bulkReconcileToDtes(
     throw new Error("Máximo 20 facturas por conciliación masiva");
   }
 
+  // Validación XOR por allocation: exactamente uno de dteId/factoringOperationId.
+  // Lo corremos antes de cualquier query DB para que el cliente reciba
+  // feedback rápido si el body está mal formado.
+  for (const a of allocations) {
+    const hasDte = !!a.dteId;
+    const hasFact = !!a.factoringOperationId;
+    if (hasDte === hasFact) {
+      throw new Error(
+        "Cada asignación debe traer dteId o factoringOperationId, no ambos ni ninguno.",
+      );
+    }
+    if (!Number.isFinite(a.amount) || a.amount <= 0) {
+      throw new Error("Cada asignación debe ser > 0");
+    }
+  }
+
   const txs = await prisma.financeBankTransaction.findMany({
     where: { tenantId, id: { in: bankTransactionIds } },
     select: {
@@ -1496,16 +1535,36 @@ export async function bulkReconcileToDtes(
   const isIncome = signs.has("in");
   const expectedDirection = isIncome ? "ISSUED" : "RECEIVED";
 
-  const dteIds = allocations.map((a) => a.dteId);
-  const dtes = await prisma.financeDte.findMany({
-    where: { tenantId, id: { in: dteIds } },
-    select: {
-      id: true,
-      direction: true,
-      totalAmount: true,
-      amountPending: true,
-    },
-  });
+  // Particionamos para procesar cada tipo por separado. El servicio
+  // soporta lotes mixtos (DTEs + cesiones) en un mismo mov.
+  const dteAllocs = allocations.filter(
+    (a): a is BulkAllocationInput & { dteId: string } => !!a.dteId,
+  );
+  const factoringAllocs = allocations.filter(
+    (a): a is BulkAllocationInput & { factoringOperationId: string } =>
+      !!a.factoringOperationId,
+  );
+
+  // Factoring sólo aplica en ingresos (depósito del cesionario al tenant).
+  if (factoringAllocs.length > 0 && !isIncome) {
+    throw new Error(
+      "Las cesiones a factoring sólo se concilian contra ingresos.",
+    );
+  }
+
+  const dteIds = dteAllocs.map((a) => a.dteId);
+  const dtes =
+    dteIds.length > 0
+      ? await prisma.financeDte.findMany({
+          where: { tenantId, id: { in: dteIds } },
+          select: {
+            id: true,
+            direction: true,
+            totalAmount: true,
+            amountPending: true,
+          },
+        })
+      : [];
   if (dtes.length !== dteIds.length) {
     throw new Error("Una o más facturas no existen o pertenecen a otro tenant");
   }
@@ -1519,10 +1578,7 @@ export async function bulkReconcileToDtes(
     }
   }
   const dteById = new Map(dtes.map((d) => [d.id, d]));
-  for (const a of allocations) {
-    if (a.amount <= 0) {
-      throw new Error("Cada asignación debe ser > 0");
-    }
+  for (const a of dteAllocs) {
     const d = dteById.get(a.dteId)!;
     if (a.amount > d.amountPending.toNumber() + 0.01) {
       throw new Error(
@@ -1530,6 +1586,36 @@ export async function bulkReconcileToDtes(
       );
     }
   }
+
+  // Validamos cesiones: existencia, tenant, estado compatible, y resolvemos
+  // el dteId asociado para el prorrateo de líneas y para el adapter al
+  // generador de asiento contable de la diferencia.
+  const factoringIds = factoringAllocs.map((a) => a.factoringOperationId);
+  const factoringOps =
+    factoringIds.length > 0
+      ? await prisma.financeFactoringOperation.findMany({
+          where: { tenantId, id: { in: factoringIds } },
+          select: {
+            id: true,
+            status: true,
+            dteId: true,
+            invoiceAmount: true,
+          },
+        })
+      : [];
+  if (factoringOps.length !== factoringIds.length) {
+    throw new Error(
+      "Una o más cesiones a factoring no existen o pertenecen a otro tenant",
+    );
+  }
+  for (const op of factoringOps) {
+    if (op.status === "CANCELLED" || op.status === "CLOSED") {
+      throw new Error(
+        `La cesión ${op.id} está ${op.status} y no se puede conciliar.`,
+      );
+    }
+  }
+  const factoringById = new Map(factoringOps.map((op) => [op.id, op]));
 
   const totalMovs = txs.reduce((s, t) => s + Math.abs(t.amount.toNumber()), 0);
   const totalAlloc = allocations.reduce((s, a) => s + a.amount, 0);
@@ -1573,19 +1659,35 @@ export async function bulkReconcileToDtes(
   }
 
   // Si vamos a prorratear a centros de costo, pre-cargamos las líneas de
-  // los DTE seleccionados con su accountId y subtotal.
+  // los DTE seleccionados con su accountId y subtotal. Para allocations
+  // factoring usamos las líneas del DTE asociado a la cesión.
   let dteLinesByDte: Map<string, Array<{ accountId: string | null; subtotal: number }>> =
     new Map();
+  // dteId equivalente para cada allocation, usado por el generador del
+  // asiento contable de la diferencia (acepta DTE-keyed allocations).
+  // Para DTE allocs es a.dteId; para factoring allocs es el dteId de la
+  // cesión.
+  const allocationEquivalentDteId = new Map<BulkAllocationInput, string>();
+  for (const a of dteAllocs) {
+    allocationEquivalentDteId.set(a, a.dteId);
+  }
+  for (const a of factoringAllocs) {
+    const op = factoringById.get(a.factoringOperationId)!;
+    allocationEquivalentDteId.set(a, op.dteId);
+  }
   if (
     differenceAllocation &&
     differenceAllocation.prorateAcrossDteLines &&
     diffAmount > 0
   ) {
+    const effectiveDteIds = Array.from(
+      new Set(Array.from(allocationEquivalentDteId.values())),
+    );
     // `netAmount` representa el subtotal de la línea (post-descuento,
     // pre-IVA) y es el campo correcto para ponderar el peso de cada
     // línea dentro de la factura para distribuir costos.
     const lines = await prisma.financeDteLine.findMany({
-      where: { dteId: { in: dteIds } },
+      where: { dteId: { in: effectiveDteIds } },
       select: { dteId: true, accountId: true, netAmount: true },
     });
     dteLinesByDte = lines.reduce((map, l) => {
@@ -1658,25 +1760,45 @@ export async function bulkReconcileToDtes(
           : Math.round(movLinkPool * share);
         assignedToLinks += linkPiece;
 
-        await tx2.financePaymentAllocation.create({
-          data: {
-            paymentId: record.id,
-            dteId: a.dteId,
-            amount: new Decimal(paymentPiece),
-          },
-        });
-        await tx2.financeBankTransactionLink.create({
-          data: {
-            tenantId,
-            bankTransactionId: t.id,
-            targetType: isIncome ? "DTE_ISSUED" : "DTE_RECEIVED",
-            targetId: a.dteId,
-            amount: new Decimal(linkPiece),
-            accountPlanId: null,
-            note: `Conciliación masiva N→N`,
-            createdById: userId ?? null,
-          },
-        });
+        if (a.dteId) {
+          await tx2.financePaymentAllocation.create({
+            data: {
+              paymentId: record.id,
+              dteId: a.dteId,
+              amount: new Decimal(paymentPiece),
+            },
+          });
+          await tx2.financeBankTransactionLink.create({
+            data: {
+              tenantId,
+              bankTransactionId: t.id,
+              targetType: isIncome ? "DTE_ISSUED" : "DTE_RECEIVED",
+              targetId: a.dteId,
+              amount: new Decimal(linkPiece),
+              accountPlanId: null,
+              note: `Conciliación masiva N→N`,
+              createdById: userId ?? null,
+            },
+          });
+        } else if (a.factoringOperationId) {
+          // Factoring: NO se crea PaymentAllocation porque el módulo
+          // factoring trackea el cobro vía status/fundedAt (no por suma
+          // de allocations). Solo creamos el link bancario contra la
+          // cesión; la transición de estado APPROVED→FUNDED ocurre
+          // post-transacción más abajo.
+          await tx2.financeBankTransactionLink.create({
+            data: {
+              tenantId,
+              bankTransactionId: t.id,
+              targetType: "FACTORING_OPERATION",
+              targetId: a.factoringOperationId,
+              amount: new Decimal(linkPiece),
+              accountPlanId: null,
+              note: `Conciliación masiva N→N · cesión factoring`,
+              createdById: userId ?? null,
+            },
+          });
+        }
       }
 
       // Link EXPENSE/INCOME del banco para la diferencia: SOLO en SURPLUS.
@@ -1715,8 +1837,33 @@ export async function bulkReconcileToDtes(
         data: { reconciliationStatus: "MATCHED" },
       });
     }
-    for (const a of allocations) {
+    // Recompute solo para DTEs: las cesiones no tienen amountPaid
+    // derivado de allocations, se manejan vía status/fundedAt fuera de
+    // la transacción.
+    for (const a of dteAllocs) {
       await recomputeDtePaymentAggregate(tx2, a.dteId);
+    }
+    // Cesiones: marcar `fundedAt` con la fecha del primer mov del lote
+    // (los lotes con varios movs son típicos de batches factoring). La
+    // transición de estado a FUNDED sólo procede desde APPROVED — si la
+    // cesión está en otro estado (SIMULATED/SUBMITTED), dejamos
+    // `fundedAt` para trazabilidad pero NO cambiamos el status (puede
+    // estar pendiente de aceptación SII).
+    if (factoringAllocs.length > 0) {
+      const sortedTxsForFunding = [...txs].sort(
+        (a, b) => a.transactionDate.getTime() - b.transactionDate.getTime(),
+      );
+      const fundingDate = sortedTxsForFunding[0].transactionDate;
+      for (const a of factoringAllocs) {
+        const op = factoringById.get(a.factoringOperationId)!;
+        await tx2.financeFactoringOperation.update({
+          where: { id: op.id },
+          data: {
+            fundedAt: fundingDate,
+            ...(op.status === "APPROVED" ? { status: "FUNDED" as const } : {}),
+          },
+        });
+      }
     }
   });
 
@@ -1731,6 +1878,14 @@ export async function bulkReconcileToDtes(
     diffAmount > 0 &&
     diffAccount
   ) {
+    // El generador del asiento sólo conoce DTE allocations; mapeamos
+    // factoring → dteId asociado de la cesión, manteniendo el monto. Eso
+    // permite prorratear la merma sobre las líneas del DTE original
+    // independiente del tipo de allocation.
+    const dteShapedAllocations = allocations.map((a) => ({
+      dteId: allocationEquivalentDteId.get(a)!,
+      amount: a.amount,
+    }));
     await generateDifferenceJournalEntry(tenantId, userId, {
       txs,
       isIncome,
@@ -1738,7 +1893,7 @@ export async function bulkReconcileToDtes(
       diffAccountId: diffAccount.id,
       diffLabel: differenceAllocation.label ?? null,
       prorateAcrossDteLines: !!differenceAllocation.prorateAcrossDteLines,
-      allocations,
+      allocations: dteShapedAllocations,
       dteLinesByDte,
       direction: diffDirection,
     });
@@ -1816,7 +1971,7 @@ export async function bulkReconcileToDtes(
   );
   const primaryTx = sortedTxs[0];
   if (primaryTx) {
-    for (const a of allocations) {
+    for (const a of dteAllocs) {
       try {
         const occ = await prisma.financeCashflowOccurrence.findFirst({
           where: {
@@ -1852,7 +2007,7 @@ export async function bulkReconcileToDtes(
   return {
     paymentRecordCodes,
     matchedTransactions: txs.length,
-    affectedDtes: allocations.length,
+    affectedDtes: dteAllocs.length + factoringAllocs.length,
     totalAmountAllocated: totalMovs,
     differenceAmount: diffAmount,
   };

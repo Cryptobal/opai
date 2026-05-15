@@ -11,12 +11,27 @@ import { bulkReconcileToDtes } from "@/modules/finance/banking/bank-tx-link.serv
 
 const schema = z.object({
   bankTransactionIds: z.array(z.string().uuid()).min(1).max(50),
+  /**
+   * Cada allocation debe traer exactamente uno de `dteId` o
+   * `factoringOperationId`. El servicio rechaza si vienen ambos o ninguno;
+   * acá lo refinamos a nivel schema para que el cliente reciba el error
+   * antes de hacer roundtrip.
+   */
   allocations: z
     .array(
-      z.object({
-        dteId: z.string().uuid(),
-        amount: z.number().positive(),
-      })
+      z
+        .object({
+          dteId: z.string().uuid().optional(),
+          factoringOperationId: z.string().uuid().optional(),
+          amount: z.number().positive(),
+        })
+        .refine(
+          (a) => !!a.dteId !== !!a.factoringOperationId,
+          {
+            message:
+              "Cada allocation debe traer dteId o factoringOperationId (XOR)",
+          },
+        ),
     )
     .min(1)
     .max(20),
