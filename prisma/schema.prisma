@@ -6835,6 +6835,12 @@ model FinanceDteRecurringTemplate {
   receiverName      String   @map("receiver_name")
   receiverEmail     String?  @map("receiver_email")
   receiverEmailCc   String[] @default([]) @map("receiver_email_cc")
+  /// Contactos del CRM (CrmContact.id) que reciben Proforma y Estado de
+  /// Pago cuando el cron genere el borrador desde esta plantilla. Se copian
+  /// como destinatarios a `proformaRecipientContactIds` y
+  /// `estadoPagoRecipientContactIds` del FinanceDte draft generado.
+  /// Obligatorio si `autoSendProforma=true` o `autoSendPaymentStatement=true`.
+  recipientContactIds String[] @default([]) @map("recipient_contact_ids") @db.Uuid
   receiverGiro      String?  @map("receiver_giro")
   receiverDireccion String?  @map("receiver_direccion")
   receiverComuna    String?  @map("receiver_comuna")

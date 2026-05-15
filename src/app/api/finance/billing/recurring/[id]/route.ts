@@ -74,6 +74,36 @@ export async function PATCH(
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
+    if (body.recipientContactIds && body.recipientContactIds.length > 0) {
+      if (!body.crmAccountId) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Para seleccionar contactos destinatarios, la plantilla debe estar vinculada a un cliente CRM.",
+          },
+          { status: 400 },
+        );
+      }
+      const validContacts = await prisma.crmContact.count({
+        where: {
+          tenantId: ctx.tenantId,
+          accountId: body.crmAccountId,
+          id: { in: body.recipientContactIds },
+        },
+      });
+      if (validContacts !== body.recipientContactIds.length) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Uno o más contactos seleccionados no pertenecen al cliente CRM o no existen.",
+          },
+          { status: 400 },
+        );
+      }
+    }
+
     const startDate = new Date(body.startDate);
     const endDate = body.endDate ? new Date(body.endDate) : null;
     // Recompute nextRunAt si cambió la frecuencia o la config de fecha.
@@ -105,6 +135,7 @@ export async function PATCH(
         receiverName: body.receiverName,
         receiverEmail: body.receiverEmail ?? null,
         receiverEmailCc: body.receiverEmailCc,
+        recipientContactIds: body.recipientContactIds ?? [],
         receiverGiro: body.receiverGiro ?? null,
         receiverDireccion: body.receiverDireccion ?? null,
         receiverComuna: body.receiverComuna ?? null,

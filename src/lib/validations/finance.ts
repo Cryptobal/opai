@@ -282,6 +282,12 @@ export const recurringTemplateSchema = z.object({
   receiverEmailCc: optNull(z.array(z.string().email()).max(10)).transform(
     (v) => v ?? [],
   ),
+  // Contactos del CRM destinatarios de Proforma + Estado de Pago. Validación
+  // de obligatoriedad cuando autoSendProforma o autoSendPaymentStatement
+  // está activo se aplica via .superRefine al final del schema.
+  recipientContactIds: optNull(z.array(z.string().uuid()).max(20)).transform(
+    (v) => v ?? [],
+  ),
   receiverGiro: optNull(z.string().trim().max(200)),
   receiverDireccion: optNull(z.string().trim().max(200)),
   receiverComuna: optNull(z.string().trim().max(80)),
@@ -334,6 +340,21 @@ export const recurringTemplateSchema = z.object({
   periodPolicy: z
     .enum(["CURRENT_MONTH", "PREVIOUS_MONTH", "NEXT_MONTH"])
     .default("CURRENT_MONTH"),
+}).superRefine((data, ctx) => {
+  // Si está activado el auto-envío de proforma o estado de pago, debe
+  // haber al menos un destinatario. Sin esto el cron crea el borrador
+  // pero el envío falla con "No hay destinatario configurado".
+  const requiresRecipients =
+    data.autoSendProforma === true ||
+    data.autoSendPaymentStatement === true;
+  if (requiresRecipients && (!data.recipientContactIds || data.recipientContactIds.length === 0)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["recipientContactIds"],
+      message:
+        "Debés seleccionar al menos un contacto del cliente cuando activás envío automático de proforma o estado de pago.",
+    });
+  }
 });
 
 // Schema para crear/actualizar borradores. Es el mismo que issueDteSchema

@@ -40,6 +40,7 @@ import {
 import { toast } from "sonner";
 import { CustomerCombobox, type CustomerOption } from "./CustomerCombobox";
 import { DteAttachmentsCard } from "./DteAttachmentsCard";
+import { ContactsMultiSelect } from "@/components/finance/recurring/ContactsMultiSelect";
 import {
   LineDetailSurface,
   computeLineSubtotal,
@@ -176,6 +177,7 @@ export function RecurringTemplateForm({
   const [autoSendEmail, setAutoSendEmail] = React.useState(true);
   const [autoSendProforma, setAutoSendProforma] = React.useState(false);
   const [autoSendPaymentStatement, setAutoSendPaymentStatement] = React.useState(false);
+  const [recipientContactIds, setRecipientContactIds] = React.useState<string[]>([]);
 
   // ── UF policy (solo si currency=UF) ──
   const [ufFixingPolicy, setUfFixingPolicy] = React.useState<
@@ -241,6 +243,7 @@ export function RecurringTemplateForm({
     setAutoSendEmail(true);
     setAutoSendProforma(false);
     setAutoSendPaymentStatement(false);
+    setRecipientContactIds([]);
     setUfFixingPolicy("LAST_DAY_PREV_MONTH");
     setUfFixingDay("1");
     setPeriodPolicy("CURRENT_MONTH");
@@ -368,6 +371,9 @@ export function RecurringTemplateForm({
         setAutoSendEmail(t.autoSendEmail ?? true);
         setAutoSendProforma(!!t.autoSendProforma);
         setAutoSendPaymentStatement(!!t.autoSendPaymentStatement);
+        setRecipientContactIds(
+          Array.isArray(t.recipientContactIds) ? t.recipientContactIds : [],
+        );
         setUfFixingPolicy(t.ufFixingPolicy ?? "LAST_DAY_PREV_MONTH");
         setUfFixingDay(t.ufFixingDay != null ? String(t.ufFixingDay) : "1");
         setPeriodPolicy(t.periodPolicy ?? "CURRENT_MONTH");
@@ -613,6 +619,21 @@ export function RecurringTemplateForm({
       return;
     }
 
+    if (autoSendProforma || autoSendPaymentStatement) {
+      if (!customer?.id) {
+        toast.error(
+          "Vinculá la plantilla a un cliente CRM para usar envío automático.",
+        );
+        return;
+      }
+      if (recipientContactIds.length === 0) {
+        toast.error(
+          "Seleccioná al menos un contacto para enviar proforma o estado de pago.",
+        );
+        return;
+      }
+    }
+
     // Razón / glosa dejó de ser obligatoria (la UI ya no la expone).
     const validRefs = additionalRefs
       .filter((r) => r.tipoDocRef.trim())
@@ -693,6 +714,7 @@ export function RecurringTemplateForm({
       autoSendEmail,
       autoSendProforma,
       autoSendPaymentStatement,
+      recipientContactIds,
       // La política UF aplica si AL MENOS UNA línea está en UF. Si todas
       // son CLP la mandamos como RUN_DAY (default neutro) y el campo
       // queda inerte en el cron.
@@ -1536,6 +1558,37 @@ export function RecurringTemplateForm({
                     cron genere el borrador.
                   </span>
                 </label>
+
+                {(autoSendProforma || autoSendPaymentStatement) && (
+                  <div className="rounded-md border border-ds-border-default bg-ds-surface-2 p-3 space-y-2">
+                    <div className="text-[13px] font-medium text-ds-text-1">
+                      Destinatarios de proforma y estado de pago
+                    </div>
+                    <p className="text-xs text-ds-text-3">
+                      Los mismos contactos reciben proforma y estado de pago.
+                      Obligatorio si activás cualquiera de los dos envíos automáticos.
+                    </p>
+                    {!customer?.id ? (
+                      <div className="rounded bg-status-warn-bg text-status-warn-fg text-xs p-2">
+                        Vinculá la plantilla a un cliente CRM (campo "Cliente")
+                        para poder seleccionar contactos.
+                      </div>
+                    ) : (
+                      <ContactsMultiSelect
+                        accountId={customer.id}
+                        value={recipientContactIds}
+                        onChange={setRecipientContactIds}
+                      />
+                    )}
+                    {(autoSendProforma || autoSendPaymentStatement) &&
+                      customer?.id &&
+                      recipientContactIds.length === 0 && (
+                        <div className="text-xs text-status-error-fg">
+                          Seleccioná al menos un contacto.
+                        </div>
+                      )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
