@@ -76,7 +76,7 @@ function TogglePill({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "h-8 px-3 rounded-full border text-[12px] font-medium transition-colors",
+        "h-8 px-3 rounded-full border text-xs font-medium transition-colors",
         active
           ? VARIANT_ACTIVE[variant]
           : "bg-ds-surface-2 border-ds-border-default text-ds-text-3 hover:bg-ds-surface-3",

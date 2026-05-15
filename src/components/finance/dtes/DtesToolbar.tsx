@@ -73,7 +73,7 @@ export function DtesToolbar({
         <SlidersHorizontal className="h-4 w-4" />
         <span className="hidden sm:inline">Filtros</span>
         {activeCount > 0 && (
-          <span className="inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-primary/15 text-primary text-[11px] font-medium px-1.5">
+          <span className="inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-primary/15 text-primary text-xs font-medium px-1.5">
             {activeCount}
           </span>
         )}

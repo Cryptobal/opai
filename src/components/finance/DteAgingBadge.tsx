@@ -133,7 +133,7 @@ export function DteAgingBadge(props: DteAgingInput) {
       ? Clock
       : null;
   return (
-    <Badge variant="outline" className={cn("text-[12px] gap-1", badge.className)}>
+    <Badge variant="outline" className={cn("text-xs gap-1", badge.className)}>
       {Icon && <Icon className="h-3 w-3" />}
       {badge.label}
     </Badge>

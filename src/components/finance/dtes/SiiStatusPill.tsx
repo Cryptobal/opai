@@ -25,22 +25,23 @@ export function SiiStatusPill({ siiStatus, size = "sm", className }: Props) {
   const cfg = SII_STATUS_CONFIG[siiStatus];
   const label = cfg?.label ?? siiStatus;
 
-  // Caso DRAFT: violet custom — no existe variant en DS v3.
+  // Caso DRAFT: tono violeta categórico (borrador) — no existe variant
+  // violet en DS v3 Tag. Usa tokens tint-violet del DS.
   if (siiStatus === "DRAFT") {
     const sizeCls =
-      size === "lg" ? "h-7 px-3 text-[13px]" :
-      size === "md" ? "h-6 px-2.5 text-[12px]" :
-      "h-5 px-2 text-[11px]";
+      size === "lg" ? "h-7 px-3 text-sm" :
+      size === "md" ? "h-6 px-2.5 text-xs" :
+      "h-5 px-2 text-xs";
     return (
       <span
         className={cn(
           "inline-flex items-center gap-1.5 rounded-full border font-medium leading-none whitespace-nowrap",
-          "bg-violet-500/15 text-violet-400 border-violet-500/30",
+          "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30",
           sizeCls,
           className,
         )}
       >
-        <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
+        <span className="h-1.5 w-1.5 rounded-full bg-tint-violet-fg" />
         {label}
       </span>
     );

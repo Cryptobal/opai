@@ -15,18 +15,20 @@ interface Props {
  * Badge violeta para indicar que el DTE está cedido a factoring.
  * Aparece inline en la celda de folio y como card en el slide-over.
  *
- * Usa color violet custom (no hay variant violet en DS v3 Tag).
+ * Cesión = categoría visual violeta (no hay variant violet en DS v3 Tag).
+ * Usa los tokens `tint-violet` / `tint-violet-fg` del DS para mantener
+ * coherencia con el resto de categóricos violetas (chat/deals, anexos
+ * portal, etc.).
  */
 export function CessionBadge({ code, size = "sm", className, factoringName }: Props) {
-  const sizeCls =
-    size === "md" ? "h-6 px-2.5 text-[12px]" : "h-5 px-2 text-[11px]";
+  const sizeCls = size === "md" ? "h-6 px-2.5 text-xs" : "h-5 px-2 text-xs";
   const title = factoringName ? `Cedido a ${factoringName}` : undefined;
   return (
     <span
       title={title}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border font-medium leading-none whitespace-nowrap",
-        "bg-violet-500/12 text-violet-300 border-violet-500/30",
+        "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30",
         sizeCls,
         className,
       )}

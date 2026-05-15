@@ -122,7 +122,7 @@ interface Props {
 }
 
 const SECTION_LABEL =
-  "text-[11px] font-mono uppercase tracking-[0.08em] text-muted-foreground";
+  "text-xs font-mono uppercase tracking-[0.08em] text-ds-text-3";
 
 export function DteActionsMenu({
   row,
@@ -193,7 +193,7 @@ export function DteActionsMenu({
             }}
             disabled={deletingDraft === row.id}
             title="Eliminar borrador"
-            className="text-destructive hover:text-destructive"
+            className="text-status-danger-fg hover:text-status-danger-fg"
           >
             {deletingDraft === row.id ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -298,7 +298,7 @@ export function DteActionsMenu({
             </>
           )}
           {!hasXml && (
-            <DropdownMenuLabel className="text-[12px] italic font-normal text-muted-foreground normal-case tracking-normal">
+            <DropdownMenuLabel className="text-xs italic font-normal text-ds-text-3 normal-case tracking-normal">
               Importado del SII (sin XML local)
             </DropdownMenuLabel>
           )}
@@ -356,7 +356,7 @@ export function DteActionsMenu({
               <FileMinus className="h-4 w-4 mr-2" />
               <span className="flex-1">Nota de Crédito</span>
               {creditNoteBlockedReason && (
-                <span className="text-[10px] text-muted-foreground ml-2 truncate max-w-[140px]">
+                <span className="text-xs text-ds-text-3 ml-2 truncate max-w-[140px]">
                   {creditNoteBlockedReason}
                 </span>
               )}
@@ -409,7 +409,7 @@ export function DteActionsMenu({
               <DropdownMenuItem
                 onClick={onVoid}
                 disabled={voiding === row.id}
-                className="text-destructive focus:text-destructive"
+                className="text-status-danger-fg focus:text-status-danger-fg"
               >
                 {voiding === row.id ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

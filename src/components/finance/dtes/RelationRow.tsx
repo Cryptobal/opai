@@ -47,7 +47,7 @@ export function RelationRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-1.5 text-[11px] text-ds-text-3 pl-2 border-l-2",
+        "flex items-center gap-1.5 text-xs text-ds-text-3 pl-2 border-l-2",
         tone,
         compact ? "pt-0.5" : "pt-1",
       )}
@@ -56,7 +56,7 @@ export function RelationRow({
       <span className="font-medium">{codeLabel}</span>
       <span>·</span>
       <span>{typeLabel} #</span>
-      <span className="font-mono">{referenceFolio}</span>
+      <span className="font-mono tabular-nums">{referenceFolio}</span>
     </div>
   );
 }

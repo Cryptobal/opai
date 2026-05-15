@@ -115,7 +115,7 @@ export function ActiveFilterChips({
           key={c.key}
           type="button"
           onClick={() => onRemove(c.key)}
-          className="inline-flex items-center gap-1 px-2.5 h-7 rounded-full border border-ds-border-default bg-ds-surface-2 text-[12px] text-ds-text-2 hover:bg-ds-surface-3 transition-colors shrink-0"
+          className="inline-flex items-center gap-1 px-2.5 h-7 rounded-full border border-ds-border-default bg-ds-surface-2 text-xs text-ds-text-2 hover:bg-ds-surface-3 transition-colors shrink-0"
         >
           <span>{c.label}</span>
           <X className="h-3 w-3" />
@@ -124,7 +124,7 @@ export function ActiveFilterChips({
       <button
         type="button"
         onClick={onClearAll}
-        className="text-[12px] text-ds-text-3 hover:text-ds-text-1 underline underline-offset-2 shrink-0 px-2"
+        className="text-xs text-ds-text-3 hover:text-ds-text-1 underline underline-offset-2 shrink-0 px-2"
       >
         Limpiar todos
       </button>

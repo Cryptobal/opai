@@ -885,7 +885,7 @@ export function DtesEmitidosClient({
       {/* Quick filter: estado de pago. Acceso inmediato sin abrir el
           drawer de filtros. Acción más frecuente en cuentas por cobrar. */}
       <div className="flex flex-wrap items-center gap-1.5 -mt-1">
-        <span className="text-[11px] font-mono uppercase tracking-wide text-ds-text-4 mr-1">
+        <span className="text-xs font-mono uppercase tracking-wide text-ds-text-4 mr-1">
           Pago:
         </span>
         {[
@@ -908,7 +908,7 @@ export function DtesEmitidosClient({
                 );
               }}
               className={[
-                "h-7 px-2.5 rounded-full border text-[12px] font-medium transition-colors",
+                "h-7 px-2.5 rounded-full border text-xs font-medium transition-colors",
                 active
                   ? opt.tone === "ok"
                     ? "bg-status-ok-soft border-status-ok-border text-status-ok-fg"
@@ -928,7 +928,7 @@ export function DtesEmitidosClient({
           <button
             type="button"
             onClick={() => update("paymentStatuses", [])}
-            className="h-7 px-2.5 rounded-full border border-ds-border-subtle text-[11px] text-ds-text-4 hover:bg-ds-surface-2"
+            className="h-7 px-2.5 rounded-full border border-ds-border-subtle text-xs text-ds-text-4 hover:bg-ds-surface-2 transition-colors"
           >
             Limpiar
           </button>

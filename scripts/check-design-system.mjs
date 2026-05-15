@@ -1116,6 +1116,36 @@ const MIGRATED_PATHS = [
   "src/app/(app)/finanzas/facturacion/emitir/page.tsx",
   "src/app/(app)/finanzas/facturacion/notas/credito/page.tsx",
   "src/app/(app)/finanzas/facturacion/notas/debito/page.tsx",
+  // Cluster facturación-tablas — DTEs Emitidos/Recibidos/Programación al
+  // canon Refined Industrial. DataTable con `layout="fixed"` y anchos
+  // por columna; cards mobile sobre Surface (sin shadcn Card); receptor
+  // ordenado nombre fantasía → razón social → RUT mono; folio compactado
+  // sin línea verbosa "Cedido a"; tipografía de escala (cero text-[Npx]);
+  // hex violeta de cesión/draft → tokens tint-violet/tint-violet-fg.
+  // Recibidos extraído desde FacturacionClient a RecibidosClient propio.
+  // FacturacionClient.tsx NO entra: tras la extracción aún tiene drift
+  // legacy en otras vistas (Resumen, Folios) — su migración completa es
+  // una sesión dedicada aparte. Mismo criterio que precedentes 4A-5F.
+  "src/components/finance/dtes/IssuedDtesTable.tsx",
+  "src/components/finance/dtes/IssuedDtesMobileList.tsx",
+  "src/components/finance/dtes/RecibidosClient.tsx",
+  "src/components/finance/dtes/DocumentTag.tsx",
+  "src/components/finance/dtes/DtePaymentTag.tsx",
+  "src/components/finance/dtes/SiiStatusPill.tsx",
+  "src/components/finance/dtes/CessionBadge.tsx",
+  "src/components/finance/dtes/LinkedNoteBadge.tsx",
+  "src/components/finance/dtes/RelationRow.tsx",
+  "src/components/finance/dtes/DtesToolbar.tsx",
+  "src/components/finance/dtes/ActiveFilterChips.tsx",
+  "src/components/finance/dtes/FiltersDrawer.tsx",
+  "src/components/finance/dtes/DtesEmitidosClient.tsx",
+  "src/components/finance/RecurringClient.tsx",
+  "src/components/finance/BorradoresTab.tsx",
+  "src/components/finance/DteActionsMenu.tsx",
+  "src/components/finance/DteAgingBadge.tsx",
+  "src/app/(app)/finanzas/facturacion/dtes/page.tsx",
+  "src/app/(app)/finanzas/facturacion/recibidos/page.tsx",
+  "src/app/(app)/finanzas/facturacion/programacion/page.tsx",
   "src/app/(app)/finanzas/pagos/page.tsx",
   "src/app/(app)/finanzas/pagos-proveedores/page.tsx",
   "src/app/(app)/finanzas/proveedores/page.tsx",
