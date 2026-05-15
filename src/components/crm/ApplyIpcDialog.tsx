@@ -68,10 +68,12 @@ export function ApplyIpcDialog({
   const [amount, setAmount] = useState<string>("");
   const [lastEdited, setLastEdited] = useState<"pct" | "amount" | null>(null);
   const [notes, setNotes] = useState("");
-  // Fecha de vigencia del reajuste, editable en ambos modos. En manual
-  // default = hoy; en PENDING default = la dueDate del cron, pero el
-  // usuario puede adelantarla o postergarla. Las ocurrencias desde esta
-  // fecha se regeneran y el próximo ciclo se ancla aquí.
+  // Fecha de vigencia del reajuste, editable en ambos modos. Default = hoy
+  // siempre, incluso si el modal viene de un PENDING con dueDate futura.
+  // El reajuste se aplica el día que el usuario lo concreta, no en la fecha
+  // teórica del calendario. El usuario puede cambiarlo manualmente si quiere
+  // antedatar o postergar. Las ocurrencias desde esta fecha se regeneran y
+  // el próximo ciclo se ancla aquí.
   const [effectiveDate, setEffectiveDate] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -81,10 +83,15 @@ export function ApplyIpcDialog({
       setAmount("");
       setLastEdited(null);
       setNotes("");
+      // Default = hoy SIEMPRE, incluso si el modal viene de un PENDING
+      // con dueDate teórica futura. Sin esto, abrir "Aplicar ajuste" sobre
+      // un PENDING a 12 meses dejaba el APPLIED con dueDate futura (bug del
+      // caso Embajada Brasil: PENDING 2027 → APPLIED quedó en 2027 aunque
+      // la aplicación real fue en 2026).
       const today = new Date().toISOString().slice(0, 10);
-      setEffectiveDate(isManual ? today : dueDate);
+      setEffectiveDate(today);
     }
-  }, [open, isManual, dueDate]);
+  }, [open]);
 
   function handlePctChange(value: string) {
     setPct(value);
@@ -269,6 +276,24 @@ export function ApplyIpcDialog({
               Las cuotas anteriores quedan al monto previo. El próximo
               ciclo se programa N meses después.
             </p>
+            {(() => {
+              if (!effectiveDate) return null;
+              const chosen = new Date(`${effectiveDate}T00:00:00.000Z`);
+              const today = new Date();
+              const diffDays = Math.floor(
+                (chosen.getTime() - today.getTime()) / 86_400_000,
+              );
+              if (diffDays > 60) {
+                return (
+                  <p className="text-[11px] text-status-warn-fg">
+                    ⚠ La fecha está {diffDays} días en el futuro. Confirmá
+                    que querés que el reajuste recién entre en vigencia el{" "}
+                    {effectiveDate}.
+                  </p>
+                );
+              }
+              return null;
+            })()}
           </div>
 
           <div className="space-y-2">
