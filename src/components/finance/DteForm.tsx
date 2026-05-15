@@ -716,13 +716,6 @@ export function DteForm({ availableTypes, accounts }: Props) {
     }
     void primaryEmail;
 
-    // Validar referencias completas (descartar las vacías). La razón /
-    // glosa dejó de exigirse — el SII la acepta vacía.
-    const validRefs = additionalRefs.filter(
-      (r) => r.tipoDocRef.trim() && r.folioRef.trim() && r.fchRef,
-    );
-    void validRefs;
-
     // Validación pasada — abrir modal de confirmación. La emisión real
     // se dispara desde EmisionConfirmDialog.onConfirm → submitToServer.
     setConfirmOpen(true);
@@ -770,9 +763,14 @@ export function DteForm({ availableTypes, accounts }: Props) {
     // del receptor). Varios contactos CRM comparten email con la cuenta.
     const ccEmails = normalizeEmailList(emailRecipients.cc);
     const bccEmails = normalizeEmailList(emailRecipients.bcc);
-    const validRefs = additionalRefs.filter(
-      (r) => r.tipoDocRef.trim() && r.folioRef.trim() && r.fchRef,
-    );
+    const validRefs = additionalRefs
+      .filter((r) => r.tipoDocRef.trim())
+      .map((r) => ({
+        tipoDocRef: r.tipoDocRef.trim(),
+        folioRef: r.folioRef.trim(),
+        fchRef: r.fchRef.trim(),
+        razonRef: (r.razonRef ?? "").trim(),
+      }));
     return {
       dteType: parseInt(dteType),
       issueDate,
@@ -942,9 +940,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
           isExempt: l.isExempt ?? false,
         })),
         references: additionalRefs
-          .filter(
-            (r) => r.tipoDocRef.trim() && r.folioRef.trim(),
-          )
+          .filter((r) => r.tipoDocRef.trim())
           .map((r) => ({
             tipoDocRef: r.tipoDocRef.trim(),
             folioRef: r.folioRef.trim(),

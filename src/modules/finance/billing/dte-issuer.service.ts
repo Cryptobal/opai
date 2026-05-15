@@ -114,6 +114,8 @@ export type IssueDteInput = {
    * Contrato, Resolución, etc. Se concatenan al bloque <Referencia>
    * después de la referencia principal. Opcional, hasta 40 totales por
    * DTE según especificación SII.
+   * Filas solo con tipo (sin folio/fecha) se persisten en BD como
+   * recordatorio; al armar el XML solo se envían las completas.
    */
   additionalReferences?: Array<{
     tipoDocRef: string;
@@ -122,6 +124,27 @@ export type IssueDteInput = {
     razonRef: string;
   }>;
 };
+
+/** Solo filas con folio y fecha YYYY-MM-DD válida van al XML SII. */
+function additionalReferencesForSii(
+  refs: IssueDteInput["additionalReferences"] | undefined,
+): NonNullable<IssueDteInput["additionalReferences"]> {
+  if (!refs?.length) return [];
+  const out: NonNullable<IssueDteInput["additionalReferences"]> = [];
+  for (const r of refs) {
+    const folio = (r.folioRef ?? "").trim();
+    const fch = (r.fchRef ?? "").trim();
+    if (folio && /^\d{4}-\d{2}-\d{2}$/.test(fch)) {
+      out.push({
+        tipoDocRef: r.tipoDocRef,
+        folioRef: folio,
+        fchRef: fch,
+        razonRef: (r.razonRef ?? "").trim(),
+      });
+    }
+  }
+  return out;
+}
 
 const DTE_TYPES_REQUIRING_REFERENCE = [56, 61] as const;
 
@@ -238,6 +261,7 @@ export async function issueDte(
       const issuerName = config?.emisorRazonSocial ?? process.env.COMPANY_NAME ?? "Empresa";
 
       const provider = await getDteProvider(tenantId);
+      const siiAdditionalRefs = additionalReferencesForSii(input.additionalReferences);
       const dteRequest: DteIssueRequest = {
         dteType: input.dteType,
         folio,
@@ -279,8 +303,8 @@ export async function issueDte(
             reason: input.reference.reason,
           },
         }),
-        ...(input.additionalReferences && input.additionalReferences.length > 0
-          ? { additionalReferences: input.additionalReferences }
+        ...(siiAdditionalRefs.length > 0
+          ? { additionalReferences: siiAdditionalRefs }
           : {}),
         ...(cafXml ? { cafXml } : {}),
       };

@@ -168,6 +168,30 @@ const dteReferenceSchema = z.object({
   reason: z.string().trim().min(1).max(500),
 });
 
+/**
+ * Referencia adicional persistible (plantilla recurrente, borrador, emisión).
+ * El tipo (TpoDocRef) es obligatorio; folio/fecha pueden quedar vacíos como
+ * recordatorio — el emisor solo envía al SII las filas completas.
+ */
+export const dteAdditionalReferenceStorageSchema = z.object({
+  tipoDocRef: z.string().trim().min(1).max(10),
+  folioRef: z.preprocess(
+    (v) => (v == null ? "" : String(v).trim()),
+    z.string().max(40),
+  ),
+  fchRef: z.preprocess(
+    (v) => (v == null || v === "" ? "" : String(v).trim()),
+    z.union([
+      z.literal(""),
+      z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
+    ]),
+  ),
+  razonRef: z.preprocess(
+    (v) => (v == null || v === undefined ? "" : String(v).trim()),
+    z.string().max(90),
+  ),
+});
+
 export const issueDteSchema = z.object({
   /**
    * Fecha de emisión del DTE que se imprime en el XML y envía al SII
@@ -213,23 +237,11 @@ export const issueDteSchema = z.object({
     .optional(),
   /**
    * Referencias adicionales (no-DTE): OC, HES, Contrato, Resolución, etc.
-   * Cada referencia tiene tipo (TpoDocRef SII), folio (alfanumérico ok),
-   * fecha (YYYY-MM-DD) y razón. Se concatenan al bloque <Referencia>
-   * del XML SII. Tope de 40 según especificación SII (acá ponemos 30
-   * para dejar margen si además hay reference principal).
+   * Tope 30 en payload. Al emitir, solo van al XML las filas con folio y
+   * fecha válidos (`dte-issuer`); el resto queda guardado en BD como nota.
    */
   additionalReferences: z
-    .array(
-      z.object({
-        tipoDocRef: z.string().trim().min(1).max(10),
-        folioRef: z.string().trim().min(1).max(40),
-        fchRef: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
-        // Razón / glosa de la referencia. SII permite vacío. La UI
-        // dejó de exponerlo (era ruido) — el campo se sigue aceptando
-        // para compat con drafts antiguos que lo tengan poblado.
-        razonRef: z.string().trim().max(90).optional().default(""),
-      }),
-    )
+    .array(dteAdditionalReferenceStorageSchema)
     .max(30, "Máximo 30 referencias adicionales")
     .optional(),
   lines: z.array(dteLineSchema).min(1, "Debe incluir al menos una linea"),
@@ -285,19 +297,7 @@ export const recurringTemplateSchema = z.object({
   // GET → PATCH reenvía `null` donde Prisma no tiene datos; `.optional()`
   // solo aceptaba `undefined` y fallaba el toggle de pausa.
   additionalReferences: optNull(
-    z
-      .array(
-        z.object({
-          tipoDocRef: z.string().trim().min(1).max(10),
-          folioRef: z.string().trim().min(1).max(40),
-          fchRef: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
-          // Razón / glosa de la referencia. SII permite vacío. La UI
-          // dejó de exponerlo (era ruido) — se sigue aceptando para
-          // compat con drafts antiguos y con plantillas que lo tengan.
-          razonRef: z.string().trim().max(90).optional().default(""),
-        }),
-      )
-      .max(30),
+    z.array(dteAdditionalReferenceStorageSchema).max(30),
   ),
   frequency: z.enum(["monthly", "biweekly", "weekly", "yearly"]),
   // Día del mes 1-31 (o -1 para último día del mes). monthly/yearly.

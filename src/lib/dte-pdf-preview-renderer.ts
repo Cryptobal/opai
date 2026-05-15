@@ -384,8 +384,13 @@ export async function renderDtePreviewPdf(
   if (input.references && input.references.length > 0) {
     const lines = input.references.map((r) => {
       const tipo = REF_TYPE_LABELS[r.tipoDocRef] ?? `REF ${r.tipoDocRef}`;
-      const parts = [`${tipo} N° ${r.folioRef}`];
-      if (r.fchRef) parts.push(`del ${r.fchRef}`);
+      const folio = (r.folioRef ?? "").trim();
+      const fch = (r.fchRef ?? "").trim();
+      const parts: string[] = [];
+      parts.push(
+        folio ? `${tipo} N° ${folio}` : `${tipo} (folio pendiente)`,
+      );
+      if (fch) parts.push(`del ${fch}`);
       if (r.razonRef) parts.push(`— ${r.razonRef}`);
       return parts.join(" ");
     });

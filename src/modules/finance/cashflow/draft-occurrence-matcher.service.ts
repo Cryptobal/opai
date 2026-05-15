@@ -12,17 +12,23 @@ export interface MatchDraftToOccurrenceInput {
   amountClp: number;
 }
 
-const DATE_TOLERANCE_DAYS = 15;
-
 /**
  * Busca una occurrence PROYECTADA (source=CONTRACT) del mismo cliente/instalación
- * con scheduledDate ±15d del expectedDate y, en empate, la más cercana en monto.
+ * cuya scheduledDate esté DENTRO DEL MISMO MES que el DTE Y sea POSTERIOR
+ * (>=) a la fecha del DTE. Es decir: el DTE se "adelanta" a una cuota del
+ * mismo mes que todavía no ha llegado.
  *
- * Vincula la occurrence al DTE seteando dteId. Idempotente: si ya está
- * vinculada al mismo dteId, no hace nada. Si está vinculada a OTRO dteId,
- * no la sobreescribe (deja log).
+ * Casos excluidos del auto-bind (quedan para que el usuario los mueva
+ * manualmente con drag&drop, apareciendo como fila propia del DTE):
+ *  - DTE atrasado: scheduledDate < DTE.date dentro del mismo mes.
+ *  - DTE de otro mes que la proyección.
  *
- * Si no encuentra match, devuelve null sin error.
+ * Si hay varias proyecciones posteriores en el mismo mes (raro: contratos
+ * quincenales), gana la PRIMERA cronológicamente —natural: facturas y la
+ * próxima cuota se cobra. En empate exacto, desempata el monto más cercano.
+ *
+ * Vincula la occurrence al DTE seteando dteId. Idempotente: si el DTE ya
+ * tiene una occurrence vinculada, no hace nada.
  */
 export async function matchDraftToOccurrence(
   input: MatchDraftToOccurrenceInput,
@@ -38,10 +44,12 @@ export async function matchDraftToOccurrence(
   });
   if (existing) return { occurrenceId: existing.id };
 
+  // Ventana: [DTE.date, primer día del mes siguiente). Captura cuotas del
+  // mismo mes-año posteriores o iguales a la fecha de emisión.
   const dateFrom = new Date(input.expectedDate);
-  dateFrom.setDate(dateFrom.getDate() - DATE_TOLERANCE_DAYS);
-  const dateTo = new Date(input.expectedDate);
-  dateTo.setDate(dateTo.getDate() + DATE_TOLERANCE_DAYS);
+  const dateTo = new Date(
+    Date.UTC(dateFrom.getUTCFullYear(), dateFrom.getUTCMonth() + 1, 1),
+  );
 
   const items = await prisma.financeCashflowItem.findMany({
     where: {
@@ -61,7 +69,7 @@ export async function matchDraftToOccurrence(
     where: {
       tenantId: input.tenantId,
       itemId: { in: items.map((i) => i.id) },
-      scheduledDate: { gte: dateFrom, lte: dateTo },
+      scheduledDate: { gte: dateFrom, lt: dateTo },
       status: "PROJECTED",
       dteId: null,
     },
@@ -70,9 +78,9 @@ export async function matchDraftToOccurrence(
   if (candidates.length === 0) return null;
 
   candidates.sort((a, b) => {
-    const dA = Math.abs(a.scheduledDate.getTime() - input.expectedDate.getTime());
-    const dB = Math.abs(b.scheduledDate.getTime() - input.expectedDate.getTime());
-    if (dA !== dB) return dA - dB;
+    const dA = a.scheduledDate.getTime();
+    const dB = b.scheduledDate.getTime();
+    if (dA !== dB) return dA - dB; // primera posterior cronológicamente
     const amtA = Math.abs(Number(a.amountClp) - input.amountClp);
     const amtB = Math.abs(Number(b.amountClp) - input.amountClp);
     return amtA - amtB;

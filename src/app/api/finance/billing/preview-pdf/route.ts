@@ -109,7 +109,10 @@ const previewSchema = z.object({
     .array(
       z.object({
         tipoDocRef: z.string().trim().min(1).max(10),
-        folioRef: z.string().trim().min(1).max(40),
+        folioRef: z.preprocess(
+          (v) => (v == null ? "" : String(v).trim()),
+          z.string().max(40),
+        ),
         fchRef: z
           .string()
           .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD")

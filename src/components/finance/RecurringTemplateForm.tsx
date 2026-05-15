@@ -614,9 +614,14 @@ export function RecurringTemplateForm({
     }
 
     // Razón / glosa dejó de ser obligatoria (la UI ya no la expone).
-    const validRefs = additionalRefs.filter(
-      (r) => r.tipoDocRef.trim() && r.folioRef.trim() && r.fchRef,
-    );
+    const validRefs = additionalRefs
+      .filter((r) => r.tipoDocRef.trim())
+      .map((r) => ({
+        tipoDocRef: r.tipoDocRef.trim(),
+        folioRef: r.folioRef.trim(),
+        fchRef: r.fchRef.trim(),
+        razonRef: (r.razonRef ?? "").trim(),
+      }));
 
     const payload: Record<string, unknown> = {
       name: name.trim(),
