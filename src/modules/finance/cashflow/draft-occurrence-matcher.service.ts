@@ -14,18 +14,15 @@ export interface MatchDraftToOccurrenceInput {
 
 /**
  * Busca una occurrence PROYECTADA (source=CONTRACT) del mismo cliente/instalación
- * cuya scheduledDate esté DENTRO DEL MISMO MES que el DTE Y sea POSTERIOR
- * (>=) a la fecha del DTE. Es decir: el DTE se "adelanta" a una cuota del
- * mismo mes que todavía no ha llegado.
+ * usando una ventana BIDIRECCIONAL adaptativa por recurrencia del item:
+ * WEEKLY±14d, BIWEEKLY±21d, MONTHLY±45d, QUARTERLY±90d, YEARLY±180d,
+ * ONCE/fallback±60d.
  *
- * Casos excluidos del auto-bind (quedan para que el usuario los mueva
- * manualmente con drag&drop, apareciendo como fila propia del DTE):
- *  - DTE atrasado: scheduledDate < DTE.date dentro del mismo mes.
- *  - DTE de otro mes que la proyección.
+ * Estrategia: query única con ventana amplia (±180d) y filtro en memoria
+ * por ventana específica de cada item.
  *
- * Si hay varias proyecciones posteriores en el mismo mes (raro: contratos
- * quincenales), gana la PRIMERA cronológicamente —natural: facturas y la
- * próxima cuota se cobra. En empate exacto, desempata el monto más cercano.
+ * Si hay varias candidatas, gana la MÁS CERCANA en días a la fecha del DTE.
+ * En empate de distancia, desempata por monto más cercano.
  *
  * Vincula la occurrence al DTE seteando dteId. Idempotente: si el DTE ya
  * tiene una occurrence vinculada, no hace nada.
@@ -61,12 +58,18 @@ export async function matchDraftToOccurrence(
   });
   if (existing) return { occurrenceId: existing.id };
 
-  // Ventana: [DTE.date, primer día del mes siguiente). Captura cuotas del
-  // mismo mes-año posteriores o iguales a la fecha de emisión.
-  const dateFrom = new Date(input.expectedDate);
-  const dateTo = new Date(
-    Date.UTC(dateFrom.getUTCFullYear(), dateFrom.getUTCMonth() + 1, 1),
-  );
+  // Ventana bidireccional adaptativa por `recurrence` del item. Antes era
+  // [DTE.date, primer día del mes siguiente) — eso dejaba huérfanos los
+  // casos donde el contrato proyecta antes del cobro real (cuota del 5
+  // cobrada el 15) o los contratos QUARTERLY/YEARLY donde la cuota
+  // adyacente cae en mes distinto.
+  //
+  // Estrategia: cargar ventana amplia (±180 días) y filtrar en memoria
+  // por la ventana específica de cada item. Una sola query.
+  const MAX_WINDOW_DAYS = 180;
+  const expectedMs = input.expectedDate.getTime();
+  const dateFrom = new Date(expectedMs - MAX_WINDOW_DAYS * 86_400_000);
+  const dateTo = new Date(expectedMs + MAX_WINDOW_DAYS * 86_400_000);
 
   const items = await prisma.financeCashflowItem.findMany({
     where: {
@@ -78,26 +81,59 @@ export async function matchDraftToOccurrence(
         input.crmAccountId ? { crmAccountId: input.crmAccountId } : null,
       ].filter(Boolean) as object[],
     },
-    select: { id: true },
+    select: { id: true, recurrence: true },
   });
   if (items.length === 0) return null;
 
-  const candidates = await prisma.financeCashflowOccurrence.findMany({
+  // Ventana en días según recurrencia del item. Se aplica como filtro
+  // en memoria luego de la query amplia.
+  function windowDaysFor(recurrence: string): number {
+    switch (recurrence) {
+      case "WEEKLY":
+        return 14;
+      case "BIWEEKLY":
+        return 21;
+      case "MONTHLY":
+        return 45;
+      case "QUARTERLY":
+        return 90;
+      case "YEARLY":
+        return 180;
+      // ONCE u otros: ventana intermedia razonable.
+      default:
+        return 60;
+    }
+  }
+  const windowByItemId = new Map<string, number>();
+  for (const it of items) {
+    windowByItemId.set(it.id, windowDaysFor(it.recurrence));
+  }
+
+  const candidatesRaw = await prisma.financeCashflowOccurrence.findMany({
     where: {
       tenantId: input.tenantId,
       itemId: { in: items.map((i) => i.id) },
-      scheduledDate: { gte: dateFrom, lt: dateTo },
+      scheduledDate: { gte: dateFrom, lte: dateTo },
       status: "PROJECTED",
       dteId: null,
     },
-    select: { id: true, scheduledDate: true, amountClp: true },
+    select: { id: true, scheduledDate: true, amountClp: true, itemId: true },
+  });
+  // Filtrar por ventana del item correspondiente.
+  const candidates = candidatesRaw.filter((c) => {
+    const win = windowByItemId.get(c.itemId ?? "") ?? 60;
+    const distDays = Math.abs(c.scheduledDate.getTime() - expectedMs) / 86_400_000;
+    return distDays <= win;
   });
   if (candidates.length === 0) return null;
 
+  // Ganador: menor distancia en días al DTE. Empate por fecha -> monto
+  // más cercano al del DTE. Antes era "primera posterior cronológica";
+  // ahora es "más cercana en cualquier dirección".
   candidates.sort((a, b) => {
-    const dA = a.scheduledDate.getTime();
-    const dB = b.scheduledDate.getTime();
-    if (dA !== dB) return dA - dB; // primera posterior cronológicamente
+    const distA = Math.abs(a.scheduledDate.getTime() - expectedMs);
+    const distB = Math.abs(b.scheduledDate.getTime() - expectedMs);
+    if (distA !== distB) return distA - distB;
     const amtA = Math.abs(Number(a.amountClp) - input.amountClp);
     const amtB = Math.abs(Number(b.amountClp) - input.amountClp);
     return amtA - amtB;

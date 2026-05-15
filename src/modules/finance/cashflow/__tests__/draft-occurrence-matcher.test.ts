@@ -43,13 +43,14 @@ beforeEach(() => {
 describe("matchDraftToOccurrence", () => {
   it("vincula la occurrence proyectada del cliente al DTE", async () => {
     (prisma.financeCashflowItem.findMany as Mock).mockResolvedValue([
-      { id: "item-1" },
+      { id: "item-1", recurrence: "MONTHLY" },
     ]);
     (prisma.financeCashflowOccurrence.findMany as Mock).mockResolvedValue([
       {
         id: "occ-1",
         scheduledDate: new Date("2026-05-15"),
         amountClp: 1_000_000,
+        itemId: "item-1",
       },
     ]);
 
@@ -71,13 +72,14 @@ describe("matchDraftToOccurrence", () => {
 
   it("vincula vía instalación cuando no hay cliente CRM", async () => {
     (prisma.financeCashflowItem.findMany as Mock).mockResolvedValue([
-      { id: "item-2" },
+      { id: "item-2", recurrence: "MONTHLY" },
     ]);
     (prisma.financeCashflowOccurrence.findMany as Mock).mockResolvedValue([
       {
         id: "occ-2",
         scheduledDate: new Date("2026-05-14"),
         amountClp: 500_000,
+        itemId: "item-2",
       },
     ]);
 
@@ -111,7 +113,7 @@ describe("matchDraftToOccurrence", () => {
 
   it("devuelve null cuando no hay candidatas proyectadas en la ventana", async () => {
     (prisma.financeCashflowItem.findMany as Mock).mockResolvedValue([
-      { id: "item-1" },
+      { id: "item-1", recurrence: "MONTHLY" },
     ]);
     (prisma.financeCashflowOccurrence.findMany as Mock).mockResolvedValue([]);
 
@@ -142,22 +144,23 @@ describe("matchDraftToOccurrence", () => {
     expect(prisma.financeCashflowItem.findMany).not.toHaveBeenCalled();
   });
 
-  it("con dos cuotas posteriores en el mismo mes, gana la primera cronológicamente", async () => {
+  it("con dos candidatas, gana la más cercana al DTE", async () => {
     (prisma.financeCashflowItem.findMany as Mock).mockResolvedValue([
-      { id: "item-1" },
+      { id: "item-1", recurrence: "MONTHLY" },
     ]);
-    // Dos candidatas, ambas posteriores al DTE (2026-05-13) y mismo mes.
-    // Por la regla "factura posterior dentro del mes": primera cronológica.
+    // Dos candidatas, ambas dentro de la ventana. Gana la de menor distancia.
     (prisma.financeCashflowOccurrence.findMany as Mock).mockResolvedValue([
       {
         id: "occ-late",
         scheduledDate: new Date("2026-05-30"),
         amountClp: 1_000_000,
+        itemId: "item-1",
       },
       {
         id: "occ-early",
         scheduledDate: new Date("2026-05-15"),
         amountClp: 1_500_000,
+        itemId: "item-1",
       },
     ]);
 
@@ -179,18 +182,20 @@ describe("matchDraftToOccurrence", () => {
 
   it("empate exacto en scheduledDate desempata por monto más cercano", async () => {
     (prisma.financeCashflowItem.findMany as Mock).mockResolvedValue([
-      { id: "item-1" },
+      { id: "item-1", recurrence: "MONTHLY" },
     ]);
     (prisma.financeCashflowOccurrence.findMany as Mock).mockResolvedValue([
       {
         id: "occ-far",
         scheduledDate: new Date("2026-05-20"),
         amountClp: 1_500_000,
+        itemId: "item-1",
       },
       {
         id: "occ-close",
         scheduledDate: new Date("2026-05-20"),
         amountClp: 1_000_000,
+        itemId: "item-1",
       },
     ]);
 
@@ -206,13 +211,20 @@ describe("matchDraftToOccurrence", () => {
     expect(result).toEqual({ occurrenceId: "occ-close" });
   });
 
-  it("excluye cuotas del mismo mes anteriores al DTE (filtra por scheduledDate >= DTE.date)", async () => {
+  it("consulta con ventana amplia ±180 días en SQL y filtra por recurrencia en memoria", async () => {
     (prisma.financeCashflowItem.findMany as Mock).mockResolvedValue([
-      { id: "item-1" },
+      { id: "item-1", recurrence: "WEEKLY" },
     ]);
-    (prisma.financeCashflowOccurrence.findMany as Mock).mockResolvedValue([]);
+    (prisma.financeCashflowOccurrence.findMany as Mock).mockResolvedValue([
+      {
+        id: "occ-far",
+        scheduledDate: new Date("2026-04-15"), // 30 días antes: fuera de WEEKLY
+        amountClp: 1_000_000,
+        itemId: "item-1",
+      },
+    ]);
 
-    await matchDraftToOccurrence({
+    const result = await matchDraftToOccurrence({
       tenantId: TENANT,
       dteId: DTE_ID,
       crmAccountId: "acc-1",
@@ -221,15 +233,12 @@ describe("matchDraftToOccurrence", () => {
       amountClp: 1_000_000,
     });
 
+    expect(result).toBeNull();
     const findManyCall = (prisma.financeCashflowOccurrence.findMany as Mock).mock
       .calls[0]?.[0];
     expect(findManyCall).toBeDefined();
-    // gte = la propia fecha del DTE (incluye igualdad — DTE del día de la cuota).
-    expect(findManyCall.where.scheduledDate.gte).toEqual(new Date("2026-05-13"));
-    // lt = primer día del mes siguiente (junio).
-    expect(findManyCall.where.scheduledDate.lt.getUTCFullYear()).toBe(2026);
-    expect(findManyCall.where.scheduledDate.lt.getUTCMonth()).toBe(5); // junio (0-indexed)
-    expect(findManyCall.where.scheduledDate.lt.getUTCDate()).toBe(1);
+    expect(findManyCall.where.scheduledDate.gte).toEqual(new Date("2025-11-14"));
+    expect(findManyCall.where.scheduledDate.lte).toEqual(new Date("2026-11-09"));
   });
 
   it("idempotente: si el DTE ya tiene una occurrence vinculada, devuelve esa y no busca", async () => {
@@ -255,7 +264,7 @@ describe("matchDraftToOccurrence", () => {
 
   it("no incluye occurrences ya vinculadas a otro DTE (filtra por dteId=null en la query)", async () => {
     (prisma.financeCashflowItem.findMany as Mock).mockResolvedValue([
-      { id: "item-1" },
+      { id: "item-1", recurrence: "MONTHLY" },
     ]);
     (prisma.financeCashflowOccurrence.findMany as Mock).mockResolvedValue([]);
 
@@ -308,6 +317,99 @@ describe("matchDraftToOccurrence", () => {
     expect(result).toBeNull();
     expect(prisma.financeCashflowOccurrence.findFirst).not.toHaveBeenCalled();
     expect(prisma.financeCashflowItem.findMany).not.toHaveBeenCalled();
+  });
+
+  it("matchea cuota proyectada anterior al DTE dentro de la ventana del recurrence", async () => {
+    (prisma.financeDte.findUnique as Mock).mockResolvedValue({ dteType: 33 });
+    (prisma.financeCashflowOccurrence.findFirst as Mock).mockResolvedValue(null);
+    (prisma.financeCashflowItem.findMany as Mock).mockResolvedValue([
+      { id: "item-monthly", recurrence: "MONTHLY" },
+    ]);
+    (prisma.financeCashflowOccurrence.findMany as Mock).mockResolvedValue([
+      {
+        id: "occ-1",
+        scheduledDate: new Date("2026-05-05"),
+        amountClp: 24_187_864,
+        itemId: "item-monthly",
+      },
+    ]);
+    (prisma.financeCashflowOccurrence.update as Mock).mockResolvedValue({});
+
+    const result = await matchDraftToOccurrence({
+      tenantId: "tenant-test",
+      dteId: "dte-1694",
+      crmAccountId: "account-brasil",
+      installationId: null,
+      expectedDate: new Date("2026-05-15"),
+      amountClp: 24_024_231,
+    });
+
+    expect(result).toEqual({ occurrenceId: "occ-1" });
+    expect(prisma.financeCashflowOccurrence.update).toHaveBeenCalledWith({
+      where: { id: "occ-1" },
+      data: { dteId: "dte-1694" },
+    });
+  });
+
+  it("respeta ventana WEEKLY de ±14 días (no matchea más allá)", async () => {
+    (prisma.financeDte.findUnique as Mock).mockResolvedValue({ dteType: 33 });
+    (prisma.financeCashflowOccurrence.findFirst as Mock).mockResolvedValue(null);
+    (prisma.financeCashflowItem.findMany as Mock).mockResolvedValue([
+      { id: "item-weekly", recurrence: "WEEKLY" },
+    ]);
+    (prisma.financeCashflowOccurrence.findMany as Mock).mockResolvedValue([
+      {
+        id: "occ-lejos",
+        scheduledDate: new Date("2026-04-15"), // 30 días antes
+        amountClp: 100_000,
+        itemId: "item-weekly",
+      },
+    ]);
+
+    const result = await matchDraftToOccurrence({
+      tenantId: "tenant-test",
+      dteId: "dte-x",
+      crmAccountId: "account-x",
+      installationId: null,
+      expectedDate: new Date("2026-05-15"),
+      amountClp: 100_000,
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it("gana el candidato MÁS CERCANO en días, no el primero cronológico", async () => {
+    (prisma.financeDte.findUnique as Mock).mockResolvedValue({ dteType: 33 });
+    (prisma.financeCashflowOccurrence.findFirst as Mock).mockResolvedValue(null);
+    (prisma.financeCashflowItem.findMany as Mock).mockResolvedValue([
+      { id: "item-monthly", recurrence: "MONTHLY" },
+    ]);
+    (prisma.financeCashflowOccurrence.findMany as Mock).mockResolvedValue([
+      {
+        id: "occ-lejos-anterior",
+        scheduledDate: new Date("2026-04-20"), // 25 días antes
+        amountClp: 100_000,
+        itemId: "item-monthly",
+      },
+      {
+        id: "occ-cerca-posterior",
+        scheduledDate: new Date("2026-05-18"), // 3 días después -> gana
+        amountClp: 100_000,
+        itemId: "item-monthly",
+      },
+    ]);
+    (prisma.financeCashflowOccurrence.update as Mock).mockResolvedValue({});
+
+    const result = await matchDraftToOccurrence({
+      tenantId: "tenant-test",
+      dteId: "dte-y",
+      crmAccountId: "account-y",
+      installationId: null,
+      expectedDate: new Date("2026-05-15"),
+      amountClp: 100_000,
+    });
+
+    expect(result).toEqual({ occurrenceId: "occ-cerca-posterior" });
   });
 });
 

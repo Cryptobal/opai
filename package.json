@@ -11,6 +11,7 @@
     "start": "next start",
     "start:dev": "npm run build && npm run start",
     "lint": "next lint",
+    "test": "vitest run",
     "lint:nav": "node scripts/lint-navigation.mjs",
     "postinstall": "prisma generate",
     "prepare": "husky",
