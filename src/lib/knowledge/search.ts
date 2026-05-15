@@ -49,7 +49,7 @@ export async function searchKnowledge(
     WHERE kb.enabled = true
       AND kb.status = 'ready'
       AND kc.embedding IS NOT NULL
-      AND (kb.tenant_id IS NULL OR kb.tenant_id = $2)
+      AND (kb.tenant_id IS NULL OR kb.tenant_id::text = $2)
     ORDER BY kc.embedding <=> $1::vector
     LIMIT $3`,
     vectorLiteral,

@@ -324,7 +324,7 @@ export async function listBankTransactions(
               (
                 SELECT SUM(t2.amount)
                 FROM finance.finance_bank_transactions t2
-                WHERE t2.tenant_id = ${tenantId}
+                WHERE t2.tenant_id::text = ${tenantId}
                   AND t2.bank_account_id = ${bankAccountId}::uuid
                   AND (
                     t2.transaction_date > t.transaction_date
@@ -336,7 +336,7 @@ export async function listBankTransactions(
           )::text AS running
         FROM finance.finance_bank_transactions t
         WHERE t.id = ANY(${ids}::uuid[])
-          AND t.tenant_id = ${tenantId}
+          AND t.tenant_id::text = ${tenantId}
           AND t.bank_account_id = ${bankAccountId}::uuid
       `;
       const balanceMap = new Map(rows.map((r) => [r.id, r.running]));

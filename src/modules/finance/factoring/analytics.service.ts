@@ -61,7 +61,7 @@ export async function getFactoringMetricsByCompany(
         ELSE NULL
       END AS weighted_rate
     FROM finance.finance_factoring_operations
-    WHERE tenant_id = ${tenantId}
+    WHERE tenant_id::text = ${tenantId}
       AND effective_monthly_rate IS NOT NULL
       AND status NOT IN ('CANCELLED')
       AND factoring_company_id IS NOT NULL

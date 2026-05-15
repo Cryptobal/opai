@@ -112,6 +112,7 @@ export async function GET(request: NextRequest) {
 
     // ── CRM (leads, accounts, contacts, deals, quotes, installations) ──
     if (hasCrm) {
+      try {
       // IDs de negocios (deals) cuyo título o nombre de cuenta coincide, para incluir sus cotizaciones
       const dealIdsByTitleOrAccount = await prisma.crmDeal.findMany({
         where: {
@@ -416,10 +417,14 @@ export async function GET(request: NextRequest) {
           href: `/ops/pauta-mensual?installationId=${inst.id}`,
         });
       }
+      } catch (crmErr) {
+        console.error("[global search] CRM query error:", crmErr);
+      }
     }
 
     // ── Ops (guardias por nombre, código, RUT) ──
     if (hasOps) {
+      try {
       const opsForbidden = await ensureOpsAccess(ctx);
       if (!opsForbidden) {
         const searchNormG = q.replace(/[.\s-]/g, "");
@@ -488,10 +493,14 @@ export async function GET(request: NextRequest) {
           });
         }
       }
+      } catch (opsErr) {
+        console.error("[global search] Ops (guardias) query error:", opsErr);
+      }
     }
 
     // ── Documentos (por título o guardia asociado) ──
     if (hasDocs) {
+      try {
       const searchNorm = q.replace(/[.\s-]/g, "");
       const guardiasByPersona = await prisma.opsGuardia.findMany({
         where: {
@@ -535,6 +544,9 @@ export async function GET(request: NextRequest) {
           subtitle: [doc.template?.name, doc.status].filter(Boolean).join(" · "),
           href: `/opai/documentos/${doc.id}`,
         });
+      }
+      } catch (docsErr) {
+        console.error("[global search] docs query error:", docsErr);
       }
     }
 
