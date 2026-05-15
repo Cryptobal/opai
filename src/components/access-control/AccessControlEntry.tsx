@@ -313,7 +313,12 @@ export function AccessControlEntry({
     if (configFields) return configFields;
     if (isDefaultRecordType(selectedType)) return DEFAULT_FORM_FIELDS[selectedType] ?? [];
     const custom = config.customRecordTypes?.find((c) => c.key === selectedType);
-    return custom?.defaultFields ?? [];
+    if (custom) return custom.defaultFields ?? [];
+    // Zombie: defensa en profundidad.
+    if (typeof console !== "undefined") {
+      console.warn(`[AccessControl] zombie record type detected in entry: ${selectedType}`);
+    }
+    return [];
   };
 
   return (

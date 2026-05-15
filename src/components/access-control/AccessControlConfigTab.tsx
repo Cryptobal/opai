@@ -314,10 +314,15 @@ export function AccessControlConfigTab({ installationId, apiBase }: Props) {
   const getFormFields = (type: AccessRecordType): FormFieldConfig[] => {
     const fromConfig = (config.formConfig as Record<string, FormFieldConfig[] | undefined>)[type];
     if (fromConfig) return fromConfig;
-    // Defaults: built-ins from constants, custom types from their seed
     if (isDefaultRecordType(type)) return DEFAULT_FORM_FIELDS[type] ?? [];
     const custom = config.customRecordTypes.find((c) => c.key === type);
-    return custom?.defaultFields ?? [];
+    if (custom) return custom.defaultFields ?? [];
+    // Zombie: la key sigue en enabledRecordTypes pero el tipo fue soft-deleted.
+    // Con el fix del bloque 1 esto ya no debería pasar, pero defendemos.
+    if (typeof console !== "undefined") {
+      console.warn(`[AccessControl] zombie record type detected in config: ${type}`);
+    }
+    return [];
   };
 
   /** All record type ids known to this installation, in display order:
