@@ -976,7 +976,8 @@ export function DtesEmitidosClient({
         />
       ) : (
         <>
-          <div className="hidden md:block">
+          {/* Tablet/iPad: lista tipo tarjeta (evita tabla aplastada). Desktop lg+: tabla. */}
+          <div className="hidden lg:block">
             <IssuedDtesTable
               rows={filtered}
               selectedIds={selectedIds}
@@ -1008,7 +1009,7 @@ export function DtesEmitidosClient({
               onMarkUnpaid={handleMarkUnpaid}
             />
           </div>
-          <div className="md:hidden">
+          <div className="lg:hidden">
             <IssuedDtesMobileList
               rows={filtered}
               selectedIds={selectedIds}

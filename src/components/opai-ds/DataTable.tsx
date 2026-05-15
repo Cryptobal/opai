@@ -137,7 +137,9 @@ export function DataTable<T>({
                     <td
                       key={c.id}
                       className={cn(
-                        "px-3.5 py-3 text-ds-text-1",
+                        // Filas altas alineadas arriba; min-w-0 + overflow-x-hidden
+                        // evitan que contenido nowrap/flex invada la celda siguiente en `table-fixed`.
+                        "px-3.5 py-3 text-ds-text-1 align-top min-w-0 overflow-x-hidden",
                         c.align === "right" ? "text-right ds-num" :
                         c.align === "center" ? "text-center" :
                         "text-left",

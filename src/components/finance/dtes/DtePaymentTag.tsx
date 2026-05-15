@@ -141,7 +141,9 @@ export function DtePaymentTag({
     <span
       title={title}
       className={cn(
-        "inline-flex items-center gap-1",
+        // Siempre columna: en tablas angostas "Pagado" arriba y "Sin conciliar" abajo
+        // sin invadir Estado SII / columnas vecinas.
+        "flex flex-col items-start gap-1 min-w-0 max-w-full",
         paymentStatus === "WRITTEN_OFF" && "line-through opacity-70",
         className,
       )}

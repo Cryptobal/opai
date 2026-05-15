@@ -149,36 +149,38 @@ export function IssuedDtesTable({
     {
       id: "folio",
       header: "Folio",
-      width: "w-[132px]",
+      width: "min-w-0 w-[172px]",
       cell: (row) => (
-        <div className="min-w-0 space-y-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-mono tabular-nums text-xs">
-              {row.siiStatus === "DRAFT" ? "—" : row.folio}
-            </span>
-            {row.activeCession && (
-              <CessionBadge
-                code={row.activeCession.code}
-                factoringName={row.activeCession.factoringCompany}
-              />
-            )}
-            {row.linkedCreditNote && (
-              <LinkedNoteBadge
-                count={row.linkedCreditNote.count}
-                hasFullAnnulment={row.linkedCreditNote.hasFullAnnulment}
-                primaryFolio={row.linkedCreditNote.primaryFolio}
-                creditedNet={row.linkedCreditNote.creditedNet}
-              />
-            )}
+        <div className="min-w-0 max-w-full overflow-hidden space-y-1">
+          <div className="font-mono tabular-nums text-xs">
+            {row.siiStatus === "DRAFT" ? "—" : row.folio}
           </div>
-          {row.referenceFolio != null && row.referenceType != null && (
+          {(row.activeCession || row.linkedCreditNote) && (
+            <div className="flex flex-col items-start gap-1 min-w-0 max-w-full">
+              {row.activeCession ? (
+                <CessionBadge
+                  code={row.activeCession.code}
+                  factoringName={row.activeCession.factoringCompany}
+                />
+              ) : null}
+              {row.linkedCreditNote ? (
+                <LinkedNoteBadge
+                  count={row.linkedCreditNote.count}
+                  hasFullAnnulment={row.linkedCreditNote.hasFullAnnulment}
+                  primaryFolio={row.linkedCreditNote.primaryFolio}
+                  creditedNet={row.linkedCreditNote.creditedNet}
+                />
+              ) : null}
+            </div>
+          )}
+          {row.referenceFolio != null && row.referenceType != null ? (
             <RelationRow
               referenceCode={null}
               referenceFolio={row.referenceFolio}
               referenceType={row.referenceType}
               compact
             />
-          )}
+          ) : null}
         </div>
       ),
     },
@@ -223,7 +225,7 @@ export function IssuedDtesTable({
       id: "totalAmount",
       header: "Total",
       align: "right",
-      width: "w-[120px]",
+      width: "min-w-0 w-[128px]",
       cell: (row) => {
         const isAnnulled =
           row.siiStatus === "ANNULLED" ||
@@ -231,9 +233,10 @@ export function IssuedDtesTable({
         return (
           <span
             className={cn(
-              "font-medium font-mono tabular-nums",
+              "inline-block max-w-full whitespace-nowrap font-medium font-mono tabular-nums text-right",
               isAnnulled && "text-ds-text-3 line-through",
             )}
+            title={fmtCLP.format(row.totalAmount)}
           >
             {fmtCLP.format(row.totalAmount)}
           </span>
@@ -246,30 +249,35 @@ export function IssuedDtesTable({
       // existe un FinancePaymentRecord asociado a la cartola (post 2026-05).
       id: "payment",
       header: "Pago",
-      width: "w-[128px]",
+      width: "min-w-0 w-[144px]",
       cell: (row) => (
-        <DtePaymentTag
-          paymentStatus={row.paymentStatus}
-          totalAmount={row.totalAmount}
-          lastReconciliation={row.lastReconciliation}
-        />
+        <div className="min-w-0 max-w-full">
+          <DtePaymentTag
+            paymentStatus={row.paymentStatus}
+            totalAmount={row.totalAmount}
+            lastReconciliation={row.lastReconciliation}
+          />
+        </div>
       ),
     },
     {
       id: "siiStatus",
       header: "Estado SII",
-      width: "w-[120px]",
+      width: "min-w-0 w-[128px]",
       cell: (row) => (
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex flex-col items-start gap-1 min-w-0 max-w-full">
           <SiiStatusPill siiStatus={row.siiStatus} />
-          {row.date && (
+          {/* Evita duplicar “Pagada” junto a la columna Pago (“Pagado” / “Sin conciliar”). */}
+          {row.date &&
+          row.paymentStatus !== "PAID" &&
+          row.siiStatus !== "ANNULLED" ? (
             <DteAgingBadge
               date={row.date}
               dueDate={row.dueDate}
               paymentStatus={row.paymentStatus}
               siiStatus={row.siiStatus}
             />
-          )}
+          ) : null}
         </div>
       ),
     },

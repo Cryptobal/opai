@@ -27,14 +27,14 @@ export function CessionBadge({ code, size = "sm", className, factoringName }: Pr
     <span
       title={title}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border font-medium leading-none whitespace-nowrap",
+        "inline-flex items-center gap-1.5 rounded-full border font-medium leading-none max-w-full min-w-0",
         "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30",
         sizeCls,
         className,
       )}
     >
-      <Coins className="h-3 w-3" />
-      {code}
+      <Coins className="h-3 w-3 shrink-0" />
+      <span className="truncate">{code}</span>
     </span>
   );
 }

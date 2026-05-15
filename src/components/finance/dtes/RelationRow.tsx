@@ -44,15 +44,40 @@ export function RelationRow({
     referenceCode === 1
       ? "border-status-danger-border"
       : "border-status-warn-border";
+
+  // Tabla `table-fixed` + columna angosta: una sola fila flex desborda y tapa Receptor.
+  if (compact) {
+    return (
+      <div
+        className={cn(
+          "min-w-0 max-w-full overflow-hidden pl-2 border-l-2 text-xs text-ds-text-3 leading-snug",
+          tone,
+          "pt-0.5",
+        )}
+      >
+        <div className="flex items-start gap-1 min-w-0">
+          <ArrowUpRight className="h-3 w-3 shrink-0 mt-px" aria-hidden />
+          <span className="min-w-0 break-words">
+            <span className="font-medium text-ds-text-2">{codeLabel}</span>
+            <span className="text-ds-text-4"> · {typeLabel}</span>
+          </span>
+        </div>
+        <div className="pl-5 font-mono tabular-nums text-ds-text-2">
+          #{referenceFolio}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
-        "flex items-center gap-1.5 text-xs text-ds-text-3 pl-2 border-l-2",
+        "flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs text-ds-text-3 pl-2 border-l-2 min-w-0 max-w-full",
         tone,
-        compact ? "pt-0.5" : "pt-1",
+        "pt-1",
       )}
     >
-      <ArrowUpRight className="h-3 w-3 shrink-0" />
+      <ArrowUpRight className="h-3 w-3 shrink-0" aria-hidden />
       <span className="font-medium">{codeLabel}</span>
       <span>·</span>
       <span>{typeLabel} #</span>
