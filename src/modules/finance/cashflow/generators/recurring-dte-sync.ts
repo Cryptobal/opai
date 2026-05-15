@@ -1,4 +1,5 @@
 import "server-only";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 const SALES_CATEGORY_CODE = "ING_VENTA_CONTRATO";
@@ -125,6 +126,58 @@ export async function syncRecurringDteItem(
   }
   await prisma.financeCashflowItem.create({ data });
   return { action: "created" };
+}
+
+/**
+ * Al desactivar o eliminar plantillas DTE recurrentes vinculadas a un contrato CRM,
+ * el espejo `FinanceCashflowItem` (source=RECURRING_DTE, sourceRefId=templateId)
+ * debe apagarse en la misma transacción. Si sólo actualizamos `FinanceDteRecurringTemplate.isActive`,
+ * el ítem del flujo queda vivo hasta el cron y la proyección sigue sumando ese ingreso
+ * — o reaparece al dedupe CONTRACT vs RECURRING al borrar sólo el DOCUMENT.
+ *
+ * Replica la limpieza de `deactivateContractCashflowItems` (occurrences PROJECTED sin match).
+ */
+export async function deactivateRecurringDteMirrorsForTemplateIds(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  templateIds: string[],
+): Promise<{ itemsDeactivated: number; occurrencesDeleted: number }> {
+  if (templateIds.length === 0) {
+    return { itemsDeactivated: 0, occurrencesDeleted: 0 };
+  }
+
+  const items = await tx.financeCashflowItem.findMany({
+    where: {
+      tenantId,
+      source: "RECURRING_DTE",
+      sourceRefId: { in: templateIds },
+    },
+    select: { id: true },
+  });
+  if (items.length === 0) {
+    return { itemsDeactivated: 0, occurrencesDeleted: 0 };
+  }
+  const itemIds = items.map((i) => i.id);
+
+  const occDel = await tx.financeCashflowOccurrence.deleteMany({
+    where: {
+      tenantId,
+      itemId: { in: itemIds },
+      status: "PROJECTED",
+      bankTransactionId: null,
+      dteId: null,
+    },
+  });
+
+  const itemUpd = await tx.financeCashflowItem.updateMany({
+    where: { id: { in: itemIds } },
+    data: { isActive: false },
+  });
+
+  return {
+    itemsDeactivated: itemUpd.count,
+    occurrencesDeleted: occDel.count,
+  };
 }
 
 export interface RecurringDteStats {

@@ -8,7 +8,7 @@
  *      (por monto + fecha). El usuario selecciona uno o varios; abajo se
  *      muestra el resumen con la diferencia respecto al monto del mov.
  *      Si queda resto, se prompt para asignarlo a una cuenta contable
- *      (split). Botón "Coincidir" guarda como links.
+ *      (split). Botón "Coincidir" (barra sticky bajo tabs) guarda como links.
  *   2. "Categorizar de forma manual" — categorización rápida sin entidad:
  *      cuenta contable + nota. Útil para comisiones, intereses, gastos
  *      que no están en DTE.
@@ -1289,12 +1289,40 @@ export function BankTxReconcileSheet({
           </div>
         </div>
 
+        {/* Acciones primarias debajo del tab — sticky para que "Coincidir"
+            siga visible al hacer scroll por la lista de candidatos. */}
+        <div className="sticky top-0 z-[40] -mx-6 flex flex-wrap items-center gap-2 border-b border-ds-border-default bg-background/98 px-6 py-3 backdrop-blur-sm">
+          <Button
+            onClick={handleSave}
+            disabled={saving || links.length === 0}
+            className="h-10 sm:h-9"
+          >
+            {saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+            {mode === "edit" ? "Guardar cambios" : "Coincidir"}
+          </Button>
+          <Button
+            variant="outline"
+            className="h-10 sm:h-9"
+            onClick={() => {
+              if (mode === "edit") {
+                setLinks([]);
+                setMode("view");
+              } else {
+                onOpenChange(false);
+              }
+            }}
+            disabled={saving}
+          >
+            {mode === "edit" ? "Cancelar edición" : "Cancelar"}
+          </Button>
+        </div>
+
         {/* Content */}
         {tab === "compare" && (
           <div className="mt-4 space-y-4">
             {/* Resumen: vínculos y diferencias arriba; la lista de candidatos queda debajo. */}
             {links.length > 0 && (
-              <div className="sticky top-0 z-[15] space-y-2 rounded-lg border border-ds-border-default bg-background/95 backdrop-blur-sm p-3 shadow-sm">
+              <div className="sticky top-[5.25rem] z-[15] space-y-2 rounded-lg border border-ds-border-default bg-background/95 backdrop-blur-sm p-3 shadow-sm">
                 <p className="text-xs font-mono uppercase tracking-[0.08em] text-muted-foreground">
                   Vínculos seleccionados
                 </p>
@@ -2055,32 +2083,6 @@ export function BankTxReconcileSheet({
             </Button>
           </div>
         )}
-
-        {/* Footer (solo en modo create / edit) */}
-        <div className="mt-6 flex items-center gap-2 border-t border-border pt-4">
-          <Button
-            onClick={handleSave}
-            disabled={saving || links.length === 0}
-          >
-            {saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-            {mode === "edit" ? "Guardar cambios" : "Coincidir"}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              if (mode === "edit") {
-                // Volver al resumen sin guardar.
-                setLinks([]);
-                setMode("view");
-              } else {
-                onOpenChange(false);
-              }
-            }}
-            disabled={saving}
-          >
-            {mode === "edit" ? "Cancelar edición" : "Cancelar"}
-          </Button>
-        </div>
         </>
         )}
 

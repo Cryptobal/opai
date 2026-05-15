@@ -54,7 +54,7 @@ import {
 } from "@/modules/finance/billing/placeholders";
 import { formatCLP, formatUFSuffix } from "@/lib/utils";
 import { todayChileStr } from "@/lib/fx-date";
-import { normalizeEmailAddress, normalizeEmailList } from "@/lib/email-address";
+import { normalizeEmailList } from "@/lib/email-address";
 
 /* ── Types ── */
 
@@ -763,16 +763,13 @@ export function DteForm({ availableTypes, accounts }: Props) {
       receiverEmail ||
       ""
     ).trim();
-    const effEmailKey = normalizeEmailAddress(effEmail);
     const validLines = lines.filter(
       (l) => l.itemName.trim() && parseFloat(l.unitPrice) > 0,
     );
-    const ccEmails = normalizeEmailList(
-      emailRecipients.cc.filter((e) => normalizeEmailAddress(e) !== effEmailKey),
-    );
-    const bccEmails = normalizeEmailList(
-      emailRecipients.bcc.filter((e) => normalizeEmailAddress(e) !== effEmailKey),
-    );
+    // Persistimos CC/BCC tal como armó el usuario (incluso si repite el mail
+    // del receptor). Varios contactos CRM comparten email con la cuenta.
+    const ccEmails = normalizeEmailList(emailRecipients.cc);
+    const bccEmails = normalizeEmailList(emailRecipients.bcc);
     const validRefs = additionalRefs.filter(
       (r) => r.tipoDocRef.trim() && r.folioRef.trim() && r.fchRef,
     );

@@ -603,12 +603,11 @@ export function RecurringTemplateForm({
       toast.error(`Emails CC inválidos: ${invalidCc.join(", ")}`);
       return;
     }
-    const effCcKey = normalizeEmailAddress(effEmail);
+    // No filtramos CC igual al mail del cliente: mismo correo suele estar en
+    // varios contactos CRM y el usuario puede querer persistir esa copia
+    // explícita; el envío SMTP deduplica donde haga falta.
     const mergedCc = normalizeEmailList(ccCandidates);
-    const ccEmails =
-      effCcKey.length === 0
-        ? mergedCc
-        : mergedCc.filter((e) => e !== effCcKey);
+    const ccEmails = mergedCc;
     if (ccEmails.length > 10) {
       toast.error("Máximo 10 emails CC.");
       return;
