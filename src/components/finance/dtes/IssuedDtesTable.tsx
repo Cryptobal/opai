@@ -135,14 +135,35 @@ export function IssuedDtesTable({
     {
       id: "date",
       header: "Fecha",
-      width: "w-[88px]",
-      cell: (row) => (
-        <span className="text-ds-text-3 text-xs font-mono tabular-nums">
-          {row.date
-            ? formatCalendarDateDisplay(row.date, "dd MMM yyyy", es)
-            : format(new Date(row.createdAt), "dd MMM yyyy", { locale: es })}
-        </span>
-      ),
+      width: "w-[112px]",
+      cell: (row) => {
+        // Para DRAFT: mostrar dos fechas — la del documento (teórica) y
+        // la de generación real (createdAt). Sin esto, era imposible
+        // distinguir cuándo se generó un borrador.
+        // Para emitidas (no-DRAFT): solo la fecha del documento, que es
+        // la que importa contablemente.
+        const fechaDoc = row.date
+          ? formatCalendarDateDisplay(row.date, "dd MMM yyyy", es)
+          : format(new Date(row.createdAt), "dd MMM yyyy", { locale: es });
+        const fechaGen = format(new Date(row.createdAt), "dd MMM", { locale: es });
+        if (row.siiStatus === "DRAFT") {
+          return (
+            <div className="flex flex-col gap-0.5">
+              <span className="text-ds-text-3 text-xs font-mono tabular-nums">
+                {fechaDoc}
+              </span>
+              <span className="text-ds-text-4 text-[11px] font-mono tabular-nums uppercase tracking-[0.08em]">
+                Gen. {fechaGen}
+              </span>
+            </div>
+          );
+        }
+        return (
+          <span className="text-ds-text-3 text-xs font-mono tabular-nums">
+            {fechaDoc}
+          </span>
+        );
+      },
     },
     {
       id: "dteType",
