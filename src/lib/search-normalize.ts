@@ -13,16 +13,9 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
-/**
- * Normaliza un texto para comparación: minúsculas + sin diacríticos.
- * Útil en frontend para `fuzzyScore` y resaltado de coincidencias.
- */
-export function normalizeForSearch(text: string): string {
-  return text
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
+// Re-exportado desde el módulo puro (sin Prisma) para que los Server Components
+// también puedan importar desde este archivo sin romper nada.
+export { normalizeForSearch } from "@/lib/search-normalize-pure";
 
 type IdRow = { id: string };
 

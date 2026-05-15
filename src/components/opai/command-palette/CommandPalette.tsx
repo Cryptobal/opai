@@ -41,7 +41,7 @@ import type { CommandItem, CommandCategory } from './types';
 import { useCommandPalette } from './use-command-palette';
 import { defaultCommands, ICON_MAP, CATEGORY_LABELS } from './commands';
 import { useIsMobile } from '@/lib/pwa/use-is-mobile';
-import { normalizeForSearch } from '@/lib/search-normalize';
+import { normalizeForSearch } from '@/lib/search-normalize-pure';
 
 // ── Fuzzy matching ──
 // Acento-insensible: normaliza ambos lados con NFD + strip de diacríticos
