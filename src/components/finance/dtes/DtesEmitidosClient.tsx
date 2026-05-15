@@ -30,6 +30,7 @@ import { CederDteDialog } from "../factoring/CederDteDialog";
 import { BulkCederDteDialog } from "../factoring/BulkCederDteDialog";
 import { PdfPreviewDialog } from "../PdfPreviewDialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { formatDateOnlyUtcYmd } from "@/lib/fx-date";
 import { EmisionConfirmDialog } from "../EmisionConfirmDialog";
 import { CreditNoteModal } from "../CreditNoteModal";
 import { SendEmailDialog } from "../SendEmailDialog";
@@ -805,7 +806,7 @@ export function DtesEmitidosClient({
       "Cesión",
     ];
     const csvRows = rows.map((r) => [
-      r.date ? format(new Date(r.date), "yyyy-MM-dd", { locale: es }) : "",
+      r.date ? formatDateOnlyUtcYmd(new Date(r.date)) : "",
       String(r.dteType),
       r.siiStatus === "DRAFT" ? "" : String(r.folio),
       JSON.stringify(r.receiverName ?? ""),

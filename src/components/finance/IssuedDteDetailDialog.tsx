@@ -19,6 +19,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { formatCalendarDateDisplay } from "@/lib/fx-date";
 import {
   Dialog,
   DialogContent,
@@ -869,7 +870,7 @@ export function IssuedDteDetailDialog({
               )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Fecha emisión:</span>
-                <span>{format(new Date(dte.date), "dd 'de' MMMM yyyy", { locale: es })}</span>
+                <span>{formatCalendarDateDisplay(dte.date, "dd 'de' MMMM yyyy", es)}</span>
               </div>
               {dte.siiLastStatusCheckAt && (
                 <div className="flex justify-between">

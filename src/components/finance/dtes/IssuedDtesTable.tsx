@@ -16,6 +16,7 @@ import { CessionBadge } from "./CessionBadge";
 import { LinkedNoteBadge } from "./LinkedNoteBadge";
 import { RelationRow } from "./RelationRow";
 import { fmtCLP } from "./shared/constants";
+import { formatCalendarDateDisplay } from "@/lib/fx-date";
 import type { DteRow } from "./shared/types";
 
 interface Props {
@@ -132,9 +133,9 @@ export function IssuedDtesTable({
       header: "Fecha",
       cell: (row) => (
         <span className="text-ds-text-3 text-xs">
-          {format(new Date(row.date ?? row.createdAt), "dd MMM yyyy", {
-            locale: es,
-          })}
+          {row.date
+            ? formatCalendarDateDisplay(row.date, "dd MMM yyyy", es)
+            : format(new Date(row.createdAt), "dd MMM yyyy", { locale: es })}
         </span>
       ),
     },

@@ -69,6 +69,10 @@ import { LibroIvaTab } from "./LibroIvaTab";
 import { BorradoresTab } from "./BorradoresTab";
 import { CostCenterEditor } from "./CostCenterEditor";
 import { SaludFinancieraHero } from "./SaludFinancieraHero";
+import {
+  formatCalendarDateDisplay,
+  formatDateOnlyUtcYmd,
+} from "@/lib/fx-date";
 
 /* ── Types ── */
 
@@ -829,8 +833,8 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
     const rows = filtered.map((r) => [
       String(r.dteType),
       String(r.folio),
-      r.date ? format(new Date(r.date), "yyyy-MM-dd", { locale: es }) : "",
-      r.dueDate ? format(new Date(r.dueDate), "yyyy-MM-dd", { locale: es }) : "",
+      r.date ? formatDateOnlyUtcYmd(new Date(r.date)) : "",
+      r.dueDate ? formatDateOnlyUtcYmd(new Date(r.dueDate)) : "",
       JSON.stringify(r.issuerName ?? ""),
       r.issuerRut,
       String(r.netAmount),
@@ -1193,7 +1197,7 @@ function RecibidosTab({ suppliers, canManage }: { suppliers: SupplierOption[]; c
                   header: "Fecha",
                   cell: (row) => (
                     <span className="text-muted-foreground text-xs">
-                      {format(new Date(row.date), "dd MMM yyyy", { locale: es })}
+                      {formatCalendarDateDisplay(row.date, "dd MMM yyyy", es)}
                     </span>
                   ),
                 },
@@ -1738,7 +1742,7 @@ function ReceivedDteMobileCard({
                 {fmtCLPSmart(dte.totalAmount)}
               </span>
               <span className="text-xs text-ds-text-3 shrink-0">
-                {format(new Date(dte.date), "dd MMM yyyy", { locale: es })}
+                {formatCalendarDateDisplay(dte.date, "dd MMM yyyy", es)}
               </span>
             </div>
           </div>
@@ -1975,9 +1979,9 @@ function ReceivedDteDetailDialog({
     }
   }
 
-  const dateStr = format(new Date(dte.date), "dd 'de' MMMM yyyy", { locale: es });
+  const dateStr = formatCalendarDateDisplay(dte.date, "dd 'de' MMMM yyyy", es);
   const dueStr = dte.dueDate
-    ? format(new Date(dte.dueDate), "dd 'de' MMMM yyyy", { locale: es })
+    ? formatCalendarDateDisplay(dte.dueDate, "dd 'de' MMMM yyyy", es)
     : "Sin fecha de vencimiento";
   const recCfg = RECEPTION_STATUS_CONFIG[dte.receptionStatus] ?? {
     label: dte.receptionStatus,

@@ -1,3 +1,7 @@
+import { formatInTimeZone } from "date-fns-tz";
+import type { Locale } from "date-fns";
+import { es as defaultEsLocale } from "date-fns/locale";
+
 const CHILE_TZ = "America/Santiago";
 
 /**
@@ -50,6 +54,22 @@ export function formatDateOnlyUtcYmd(date: Date): string {
   const mo = String(date.getUTCMonth() + 1).padStart(2, "0");
   const day = String(date.getUTCDate()).padStart(2, "0");
   return `${y}-${mo}-${day}`;
+}
+
+/**
+ * Fecha calendario persistida como `@db.Date` / fecha tributaria (SII).
+ * Postgres entrega medianoche UTC: `format()` local en Chile desplaza el día.
+ * Este helper interpreta el **día del calendario UTC** (= fecha guardada).
+ */
+export function formatCalendarDateDisplay(
+  date: Date | string | null | undefined,
+  pattern: string,
+  locale: Locale = defaultEsLocale,
+): string {
+  if (date == null || date === "") return "";
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (Number.isNaN(d.getTime())) return "";
+  return formatInTimeZone(d, "UTC", pattern, { locale });
 }
 
 function getDateOnlyParts(date: Date): { year: number; month: number; day: number } {

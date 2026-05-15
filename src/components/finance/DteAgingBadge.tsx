@@ -16,10 +16,20 @@
  * Tono semántico OPAI DS v3 (status-{ok,warn,danger}-{soft,fg,border}).
  */
 
-import { differenceInDays } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Check, AlertTriangle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  formatDateOnlyUtcYmd,
+  parseYmdToDbDate,
+  todayChileStr,
+} from "@/lib/fx-date";
+
+function calendarDaysDiff(laterYmd: string, earlierYmd: string): number {
+  const ms =
+    parseYmdToDbDate(laterYmd).getTime() - parseYmdToDbDate(earlierYmd).getTime();
+  return Math.round(ms / 86_400_000);
+}
 
 export interface DteAgingInput {
   /** Fecha tributaria del DTE (ISO string). */
@@ -54,14 +64,14 @@ function getAgingBadge(input: DteAgingInput): BadgeShape {
     };
   }
 
-  const today = new Date();
-  const issueDate = new Date(input.date);
-  const daysSinceIssue = differenceInDays(today, issueDate);
+  const todayYmd = todayChileStr();
+  const issueYmd = formatDateOnlyUtcYmd(new Date(input.date));
+  const daysSinceIssue = calendarDaysDiff(todayYmd, issueYmd);
 
   // Vencida: dueDate ya pasó.
   if (input.dueDate) {
-    const due = new Date(input.dueDate);
-    const daysUntilDue = differenceInDays(due, today);
+    const dueYmd = formatDateOnlyUtcYmd(new Date(input.dueDate));
+    const daysUntilDue = calendarDaysDiff(dueYmd, todayYmd);
     if (daysUntilDue < 0) {
       return {
         label: `Vencida ${Math.abs(daysUntilDue)}d`,

@@ -19,6 +19,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { formatCalendarDateDisplay } from "@/lib/fx-date";
 import {
   Ban,
   Coins,
@@ -344,9 +345,11 @@ export function IssuedDtesMobileList({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                       <span className="text-xs font-mono text-ds-text-3 shrink-0">
-                        {format(new Date(d.date ?? d.createdAt), "dd MMM yyyy", {
-                          locale: es,
-                        })}
+                        {d.date
+                          ? formatCalendarDateDisplay(d.date, "dd MMM yyyy", es)
+                          : format(new Date(d.createdAt), "dd MMM yyyy", {
+                              locale: es,
+                            })}
                       </span>
                       <DocumentTag dteType={d.dteType} />
                       {!isDraftRow && (
