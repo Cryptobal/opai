@@ -492,16 +492,10 @@ export function AccessControlConfigTab({ installationId, apiBase }: Props) {
         toast.error(json.error || "Error al crear tipo");
         return;
       }
-      // Refetch so we pick up the new key/order assigned by the server.
+      // El backend ya añadió la key a enabledRecordTypes en transacción.
+      // Solo refetcheamos; el estado local optimista creaba inconsistencias
+      // si el usuario no presionaba "Guardar".
       await fetchConfig();
-      // Enable the new type by default so it shows up in the portal
-      // immediately. Persisted on next "Guardar" click.
-      setConfig((prev) => ({
-        ...prev,
-        enabledRecordTypes: prev.enabledRecordTypes.includes(json.data.key)
-          ? prev.enabledRecordTypes
-          : [...prev.enabledRecordTypes, json.data.key],
-      }));
       setNewTypeLabel("");
       setNewTypeIcon("UserPlus");
       setNewTypeScanModes(["rut"]);
@@ -531,11 +525,9 @@ export function AccessControlConfigTab({ installationId, apiBase }: Props) {
         toast.error(json.error || "Error al eliminar tipo");
         return;
       }
-      setConfig((prev) => ({
-        ...prev,
-        customRecordTypes: prev.customRecordTypes.filter((c) => c.id !== type.id),
-        enabledRecordTypes: prev.enabledRecordTypes.filter((t) => t !== type.key),
-      }));
+      // Backend ya limpió la key de enabledRecordTypes/formConfig/labels/icons/scanModes.
+      // Refetcheamos para sincronizar con el servidor.
+      await fetchConfig();
       if (expandedType === type.key) setExpandedType(null);
       toast.success("Tipo eliminado");
     } catch {

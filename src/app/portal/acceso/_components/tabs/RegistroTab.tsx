@@ -1,40 +1,35 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-  ArrowUpRight,
-  ArrowDownLeft,
-  UserPlus,
-  Truck,
-  Car,
-  BadgeCheck,
-  Package,
-} from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AccessControlEntry, AccessControlExit } from "@/components/access-control";
 import {
-  RECORD_TYPE_CONFIG,
+  getRecordTypeLabel,
+  isDefaultRecordType,
   type AccessRecordType,
   type AccessControlConfigData,
 } from "@/lib/access-control/types";
+import { RecordTypeIcon } from "@/lib/access-control/record-type-icon";
 
-// ── Icon map ────────────────────────────────────────────────────────────────
-
-const TYPE_ICONS: Record<AccessRecordType, React.ReactNode> = {
-  visit: <UserPlus className="h-3.5 w-3.5" />,
-  provider: <Truck className="h-3.5 w-3.5" />,
-  vehicle: <Car className="h-3.5 w-3.5" />,
-  staff: <BadgeCheck className="h-3.5 w-3.5" />,
-  delivery: <Package className="h-3.5 w-3.5" />,
-};
-
-const TYPE_BADGE_COLORS: Record<AccessRecordType, string> = {
-  visit: "border-status-info-border bg-status-info-soft text-status-info-fg",
-  provider: "border-status-warn-border bg-status-warn-soft text-status-warn-fg",
-  vehicle: "border-tint-violet-fg/30 bg-tint-violet text-tint-violet-fg",
-  staff: "border-status-ok-border bg-status-ok-soft text-status-ok-fg",
-  delivery: "border-status-warn-border bg-status-warn-soft text-status-warn-fg",
-};
+/** Colores de badge por tipo. Los 5 defaults tienen color fijo; los custom
+ *  caen al color neutro para no depender de clases Tailwind dinámicas que
+ *  el JIT no detectaría. */
+function getBadgeColorClasses(type: AccessRecordType): string {
+  switch (type) {
+    case "visit":
+      return "border-status-info-border bg-status-info-soft text-status-info-fg";
+    case "provider":
+    case "delivery":
+      return "border-status-warn-border bg-status-warn-soft text-status-warn-fg";
+    case "vehicle":
+      return "border-tint-violet-fg/30 bg-tint-violet text-tint-violet-fg";
+    case "staff":
+      return "border-status-ok-border bg-status-ok-soft text-status-ok-fg";
+    default:
+      return "border-zinc-700 bg-zinc-800 text-zinc-300";
+  }
+}
 
 // ── Props ───────────────────────────────────────────────────────────────────
 
@@ -72,8 +67,6 @@ export default function RegistroTab({
 
   const enabledTypes = config.enabledRecordTypes ?? [];
 
-  // ── Entry flow ────────────────────────────────────────────────────────
-
   if (activeFlow === "entry") {
     return (
       <AccessControlEntry
@@ -89,8 +82,6 @@ export default function RegistroTab({
     );
   }
 
-  // ── Exit flow ─────────────────────────────────────────────────────────
-
   if (activeFlow === "exit") {
     return (
       <AccessControlExit
@@ -104,23 +95,16 @@ export default function RegistroTab({
     );
   }
 
-  // ── Main view ─────────────────────────────────────────────────────────
-
   return (
     <div className="space-y-6">
-      {/* Title */}
       <div>
-        <h2 className="text-lg font-semibold text-[#F9FAFB]">
-          Registro de Acceso
-        </h2>
+        <h2 className="text-lg font-semibold text-[#F9FAFB]">Registro de Acceso</h2>
         <p className="mt-1 text-sm text-[#9CA3AF]">
           Registra ingresos y salidas de personas y vehiculos.
         </p>
       </div>
 
-      {/* ── Action Buttons ────────────────────────────────────────── */}
       <div className="grid gap-4">
-        {/* Entry Button */}
         <button
           type="button"
           onClick={() => setActiveFlow("entry")}
@@ -130,16 +114,11 @@ export default function RegistroTab({
             <ArrowUpRight className="h-7 w-7 text-[#10B981]" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-lg font-bold text-[#10B981] tracking-wide">
-              REGISTRAR ENTRADA
-            </p>
-            <p className="text-sm text-[#9CA3AF]">
-              Persona o vehiculo ingresa a la instalacion
-            </p>
+            <p className="text-lg font-bold text-[#10B981] tracking-wide">REGISTRAR ENTRADA</p>
+            <p className="text-sm text-[#9CA3AF]">Persona o vehiculo ingresa a la instalacion</p>
           </div>
         </button>
 
-        {/* Exit Button */}
         <button
           type="button"
           onClick={() => setActiveFlow("exit")}
@@ -149,36 +128,31 @@ export default function RegistroTab({
             <ArrowDownLeft className="h-7 w-7 text-[#F59E0B]" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-lg font-bold text-[#F9FAFB] tracking-wide">
-              REGISTRAR SALIDA
-            </p>
-            <p className="text-sm text-[#9CA3AF]">
-              Persona o vehiculo sale de la instalacion
-            </p>
+            <p className="text-lg font-bold text-[#F9FAFB] tracking-wide">REGISTRAR SALIDA</p>
+            <p className="text-sm text-[#9CA3AF]">Persona o vehiculo sale de la instalacion</p>
           </div>
         </button>
       </div>
 
-      {/* ── Enabled Record Types ──────────────────────────────────── */}
       {enabledTypes.length > 0 && (
         <div className="space-y-2">
           <p className="text-sm font-medium uppercase tracking-wider text-[#9CA3AF]">
             Tipos habilitados
           </p>
           <div className="flex flex-wrap gap-2">
-            {enabledTypes.map((type) => {
-              const tc = RECORD_TYPE_CONFIG[type] ?? { label: type, icon: "UserPlus", color: "blue" };
-              return (
-                <Badge
-                  key={type}
-                  variant="outline"
-                  className={`flex items-center gap-1.5 px-3 py-1.5 ${TYPE_BADGE_COLORS[type]}`}
-                >
-                  {TYPE_ICONS[type]}
-                  <span>{tc.label}</span>
-                </Badge>
-              );
-            })}
+            {enabledTypes.map((type) => (
+              <Badge
+                key={type}
+                variant="outline"
+                className={`flex items-center gap-1.5 px-3 py-1.5 ${getBadgeColorClasses(type)}`}
+              >
+                <RecordTypeIcon type={type} config={config} className="h-3.5 w-3.5" />
+                <span>{getRecordTypeLabel(type, config)}</span>
+                {!isDefaultRecordType(type) && (
+                  <span className="ml-0.5 text-[9px] uppercase tracking-wider opacity-60">·</span>
+                )}
+              </Badge>
+            ))}
           </div>
         </div>
       )}
