@@ -76,7 +76,7 @@ function clipTitle(text: string): string {
 function describeModule(pathname: string): string {
   const p = pathname.toLowerCase();
   if (p === "/" || p.startsWith("/hub")) return "Hub / Inicio — dashboard general del tenant";
-  if (p.startsWith("/crm/leads") || p.startsWith("/crm/prospecting")) return "CRM > Leads / Prospección comercial";
+  if (p.startsWith("/crm/leads")) return "CRM > Leads";
   if (p.startsWith("/crm/contacts")) return "CRM > Contactos comerciales";
   if (p.startsWith("/crm/accounts")) return "CRM > Cuentas / Clientes";
   if (p.startsWith("/crm/deals")) return "CRM > Deals / Pipeline comercial";

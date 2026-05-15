@@ -552,12 +552,11 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   const [whatsappSentTo, setWhatsappSentTo] = useState("");
   const [enrichingCompanyInfo, setEnrichingCompanyInfo] = useState(false);
   const [detectedCompanyLogoUrl, setDetectedCompanyLogoUrl] = useState<string | null>(null);
-  const [enrichingApollo, setEnrichingApollo] = useState(false);
   type ApolloEnrichData = {
     person?: { title?: string; seniority?: string; linkedinUrl?: string; headline?: string; photoUrl?: string; city?: string; country?: string; departments?: string[]; isLikelyToEngage?: boolean; employmentHistory?: { company: string; title: string; current: boolean }[] };
     organization?: { name?: string; industry?: string; employees?: number; annualRevenue?: string; website?: string; description?: string; logoUrl?: string; keywords?: string[]; technologies?: string[] };
   };
-  const [apolloData, setApolloData] = useState<ApolloEnrichData | null>(() => {
+  const [apolloData] = useState<ApolloEnrichData | null>(() => {
     // Restore from lead metadata if previously enriched
     const meta = lead.metadata as Record<string, unknown> | undefined;
     const saved = meta?.apolloEnrichment as ApolloEnrichData | undefined;
@@ -1138,64 +1137,6 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       toast.error(detail || "No se pudo traer datos de la empresa. Verifica que la URL sea correcta e intenta de nuevo.");
     } finally {
       setEnrichingCompanyInfo(false);
-    }
-  };
-
-  // ─── Enrich from Apollo ───
-  const enrichFromApollo = async () => {
-    const email = lead.email?.trim();
-    const domain = approveForm.website?.trim()?.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
-    const name = [lead.firstName, lead.lastName].filter(Boolean).join(" ").trim();
-    if (!email && !domain && !name) { toast.error("Se necesita al menos email, sitio web o nombre para buscar en Apollo."); return; }
-    setEnrichingApollo(true);
-    try {
-      const response = await fetch("/api/crm/apollo/enrich", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...(email ? { email } : {}),
-          ...(domain ? { domain } : {}),
-          ...(lead.firstName ? { first_name: lead.firstName } : {}),
-          ...(lead.lastName ? { last_name: lead.lastName } : {}),
-          ...(approveForm.accountName ? { organization_name: approveForm.accountName } : {}),
-        }),
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload?.success) throw new Error(payload?.error || "Error al consultar Apollo.");
-      if (!payload.data) { toast.info("No se encontró información en Apollo para este contacto."); return; }
-      const { person, organization } = payload.data;
-      setApolloData({ person, organization });
-
-      // Auto-fill campos vacíos del formulario de aprobación
-      setApproveForm((prev) => ({
-        ...prev,
-        accountName: shouldReplaceEnriched(prev.accountName) && organization?.name ? organization.name : prev.accountName,
-        industry: shouldReplaceEnriched(prev.industry) && organization?.industry ? organization.industry : prev.industry,
-        website: shouldReplaceEnriched(prev.website) && organization?.website ? organization.website : prev.website,
-        companyInfo: shouldReplaceEnriched(prev.companyInfo) && organization?.description ? organization.description : prev.companyInfo,
-      }));
-      if (organization?.logoUrl && !detectedCompanyLogoUrl) setDetectedCompanyLogoUrl(organization.logoUrl);
-
-      // Persist Apollo data to lead metadata
-      const enrichPayload = { person, organization };
-      fetch(`/api/crm/leads/${lead.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          metadata: {
-            ...((lead.metadata && typeof lead.metadata === "object" && !Array.isArray(lead.metadata)) ? lead.metadata : {}),
-            apolloEnrichment: enrichPayload,
-          },
-        }),
-      }).catch((err) => console.error("[apollo] Error saving to metadata:", err));
-
-      toast.success("Datos de Apollo cargados correctamente.");
-    } catch (error) {
-      console.error("[apollo enrich]", error);
-      const detail = error instanceof Error ? error.message : "";
-      toast.error(detail || "No se pudo consultar Apollo. Intenta más tarde.");
-    } finally {
-      setEnrichingApollo(false);
     }
   };
 
@@ -2229,10 +2170,6 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                   <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={enrichCompanyInfoFromWebsite} disabled={enrichingCompanyInfo || !approveForm.website.trim()}>
                     {enrichingCompanyInfo && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                     Traer datos web
-                  </Button>
-                  <Button type="button" size="sm" variant="outline" className="h-7 text-xs border-status-warn-border text-status-warn-fg hover:bg-status-warn-soft" onClick={enrichFromApollo} disabled={enrichingApollo || (!lead.email && !approveForm.website.trim() && !lead.firstName)}>
-                    {enrichingApollo ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}
-                    Apollo
                   </Button>
                 </div>
               </div>

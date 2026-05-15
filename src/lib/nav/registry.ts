@@ -246,7 +246,6 @@ export const NAV_MODULES: NavNode[] = [
       { key: "crm-deals", href: "/crm/deals", label: "Negocios", icon: TrendingUp, module: "crm", submodule: "deals", badge: { notesKey: "deal" } },
       { key: "crm-contacts", href: "/crm/contacts", label: "Contactos", icon: Contact, module: "crm", submodule: "contacts", badge: { notesKey: "contact" } },
       { key: "crm-quotes", href: "/crm/cotizaciones", label: "Cotizaciones", icon: DollarSign, module: "crm", submodule: "quotes", tenantModule: "cpq", badge: { notesKey: "quotation" } },
-      { key: "crm-prospecting", href: "/crm/prospecting", label: "Prospección", icon: Sparkles, module: "crm", submodule: "leads" },
       { key: "crm-installations", href: "/crm/installations", label: "Instalaciones", icon: MapPin, module: "crm", submodule: "installations", badge: { notesKey: "installation" } },
     ],
   },

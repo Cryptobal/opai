@@ -769,7 +769,7 @@ function getQuickStarters(
   const p = pathname ?? "";
 
   // ── CRM ──
-  if (p.startsWith("/crm/leads") || p.startsWith("/crm/prospecting")) {
+  if (p.startsWith("/crm/leads")) {
     return [
       "¿Cómo creo un prospecto?",
       "Muéstrame los leads más recientes",

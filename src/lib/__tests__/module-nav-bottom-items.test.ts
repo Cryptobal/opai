@@ -24,7 +24,7 @@ const ALL_ENABLED = new Set([
 ]);
 
 describe("getBottomNavItems — back-compat snapshots", () => {
-  it("CRM main page → leads, accounts, deals, contacts, quotes, prospecting, installations", () => {
+  it("CRM main page → leads, accounts, deals, contacts, quotes, installations", () => {
     const items = getBottomNavItems("/crm", "owner", ALL_ENABLED);
     const hrefs = items.map((i) => i.href);
     expect(hrefs).toContain("/crm/leads");
@@ -32,7 +32,6 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     expect(hrefs).toContain("/crm/deals");
     expect(hrefs).toContain("/crm/contacts");
     expect(hrefs).toContain("/crm/cotizaciones");
-    expect(hrefs).toContain("/crm/prospecting");
     expect(hrefs).toContain("/crm/installations");
   });
 
