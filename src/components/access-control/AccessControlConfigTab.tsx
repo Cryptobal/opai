@@ -100,6 +100,7 @@ export function AccessControlConfigTab({ installationId, apiBase }: Props) {
   const [recipients, setRecipients] = useState<ReportRecipient[]>([]);
   const [recipientsLoading, setRecipientsLoading] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
+  const [testEmailOverride, setTestEmailOverride] = useState("");
 
   const [config, setConfig] = useState<ConfigState>({
     enabledRecordTypes: [],
@@ -213,14 +214,16 @@ export function AccessControlConfigTab({ installationId, apiBase }: Props) {
   const handleSendTest = async () => {
     setSendingTest(true);
     try {
+      const trimmedEmail = testEmailOverride.trim();
+      const body = trimmedEmail ? { email: trimmedEmail } : {};
       const res = await fetch(api.configTestReport(installationId), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (json.success) {
-        toast.success(`Reporte enviado a ${json.sentTo.length} destinatario(s)`);
+        toast.success(`Reporte enviado a: ${json.sentTo.join(", ")}`);
       } else {
         toast.error(json.error || "Error al enviar reporte de prueba");
       }
@@ -228,6 +231,38 @@ export function AccessControlConfigTab({ installationId, apiBase }: Props) {
       toast.error("Error al enviar reporte de prueba");
     } finally {
       setSendingTest(false);
+    }
+  };
+
+  /** Limpia una key orphan de enabledRecordTypes/formConfig/labels/icons.
+   *  Ocurre cuando el tipo fue soft-deleted antes del fix del B1 —
+   *  isActive=false en BD pero la key sigue en accessControlConfig. */
+  const handleRemoveOrphanedType = async (typeKey: string) => {
+    if (!confirm(`¿Eliminar el tipo "${typeKey}" de la configuración?`)) return;
+    try {
+      const updatedEnabled = config.enabledRecordTypes.filter((k) => k !== typeKey);
+      const cleanJsonKeys = (obj: Record<string, unknown>) =>
+        Object.fromEntries(Object.entries(obj).filter(([k]) => k !== typeKey));
+      const res = await fetch(api.config(installationId), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabledRecordTypes: updatedEnabled,
+          formConfig: cleanJsonKeys(config.formConfig as Record<string, unknown>),
+          recordTypeLabels: cleanJsonKeys(config.recordTypeLabels as Record<string, unknown>),
+          recordTypeIcons: cleanJsonKeys(config.recordTypeIcons as Record<string, unknown>),
+          recordTypeScanModes: cleanJsonKeys(config.recordTypeScanModes as Record<string, unknown>),
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchConfig();
+        toast.success("Tipo eliminado de la configuración");
+      } else {
+        toast.error(json.error || "Error al eliminar tipo");
+      }
+    } catch {
+      toast.error("Error al eliminar tipo");
     }
   };
 
@@ -793,21 +828,32 @@ export function AccessControlConfigTab({ installationId, apiBase }: Props) {
                   ))}
                 </div>
               )}
-              <button
-                onClick={handleSendTest}
-                disabled={
-                  sendingTest ||
-                  recipients.filter((r) => r.isRecipient).length === 0
-                }
-                className="mt-3 inline-flex items-center gap-1 text-xs text-status-info-fg hover:underline disabled:opacity-50 disabled:no-underline"
-              >
-                {sendingTest ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Send className="h-3 w-3" />
-                )}
-                Enviar reporte de prueba ahora
-              </button>
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="email"
+                    value={testEmailOverride}
+                    onChange={(e) => setTestEmailOverride(e.target.value)}
+                    placeholder="Enviar también a (email opcional)..."
+                    className="h-8 text-xs bg-zinc-800 border-zinc-600 flex-1"
+                  />
+                </div>
+                <button
+                  onClick={handleSendTest}
+                  disabled={
+                    sendingTest ||
+                    (recipients.filter((r) => r.isRecipient).length === 0 && !testEmailOverride.trim())
+                  }
+                  className="inline-flex items-center gap-1 text-xs text-status-info-fg hover:underline disabled:opacity-50 disabled:no-underline"
+                >
+                  {sendingTest ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Send className="h-3 w-3" />
+                  )}
+                  Enviar reporte de prueba ahora
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -908,7 +954,12 @@ export function AccessControlConfigTab({ installationId, apiBase }: Props) {
                             type="button"
                             onClick={() => {
                               const custom = config.customRecordTypes.find((c) => c.key === type);
-                              if (custom) handleDeleteCustomType(custom);
+                              if (custom) {
+                                handleDeleteCustomType(custom);
+                              } else {
+                                // Orphaned key: isActive=false en BD pero key aún en config.
+                                handleRemoveOrphanedType(type);
+                              }
                             }}
                             className="rounded-md p-1 text-zinc-400 hover:bg-zinc-700 hover:text-status-danger-fg"
                             title="Eliminar tipo personalizado"

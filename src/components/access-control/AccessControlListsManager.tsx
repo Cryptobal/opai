@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import {
   Shield, ShieldAlert, Plus, Search, Edit, Trash2,
-  Loader2, Upload, X, Check, AlertTriangle, Car,
+  Loader2, Upload, X, Check, AlertTriangle, Car, UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { getRecordTypeLabel, getRecordTypeIconName, DEFAULT_RECORD_TYPE_IDS } fr
 import { formatRut, validateRut } from "@/lib/access-control/utils";
 import { getLucideIconByName } from "@/lib/access-control/record-type-icon";
 import { ListImport } from "./ListImport";
+import { KnownVisitorPickerModal } from "./KnownVisitorPickerModal";
 
 interface Props {
   installationId: string;
@@ -28,6 +29,7 @@ export function AccessControlListsManager({ installationId }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [editEntry, setEditEntry] = useState<AccessControlListEntry | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
 
   const [installConfig, setInstallConfig] = useState<AccessControlConfigData | null>(null);
   const [formRecordTypes, setFormRecordTypes] = useState<string[]>(["visit"]);
@@ -268,9 +270,13 @@ export function AccessControlListsManager({ installationId }: Props) {
             className="pl-9 bg-zinc-800 border-zinc-600"
           />
         </div>
+        <Button onClick={() => setShowPicker(true)} variant="outline" size="sm">
+          <UserPlus className="mr-1 h-4 w-4" />
+          Desde visitantes
+        </Button>
         <Button onClick={() => setShowImport(true)} variant="outline" size="sm">
           <Upload className="mr-1 h-4 w-4" />
-          Importar
+          Importar CSV
         </Button>
         <Button onClick={() => { resetForm(); setShowForm(true); }} size="sm">
           <Plus className="mr-1 h-4 w-4" />
@@ -431,13 +437,23 @@ export function AccessControlListsManager({ installationId }: Props) {
         </div>
       )}
 
-      {/* Import */}
+      {/* Import CSV */}
       {showImport && (
         <ListImport
           installationId={installationId}
           listType={activeTab}
           mode="admin"
           onClose={() => setShowImport(false)}
+          onImported={fetchList}
+        />
+      )}
+
+      {/* Picker masivo desde visitantes conocidos */}
+      {showPicker && (
+        <KnownVisitorPickerModal
+          installationId={installationId}
+          listType={activeTab}
+          onClose={() => setShowPicker(false)}
           onImported={fetchList}
         />
       )}
