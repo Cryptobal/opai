@@ -36,6 +36,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { EmptyState } from "@/components/opai-ds";
+import { BankBuiltinAutomatchRulesPanel } from "./BankBuiltinAutomatchRulesPanel";
 import {
   Plus,
   Pencil,
@@ -46,6 +47,7 @@ import {
   Settings2,
   AlertCircle,
   RefreshCw,
+  BookMarked,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -208,6 +210,10 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
   const [runningHistorical, setRunningHistorical] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Rule | null>(null);
+  /** Lista editable vs motor fijo (documentación de autoconciliación). */
+  const [rulesPanel, setRulesPanel] = useState<"editable" | "builtin">(
+    "editable",
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -307,39 +313,91 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            {rules.length} regla{rules.length === 1 ? "" : "s"} ·{" "}
-            <span className="text-status-ok-fg font-medium">
-              {rules.filter((r) => r.enabled).length} activas
-            </span>
-          </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={rulesPanel === "editable" ? "default" : "outline"}
+            className={cn(
+              "h-9",
+              rulesPanel === "builtin" &&
+                "border-ds-border-default text-muted-foreground",
+            )}
+            onClick={() => setRulesPanel("editable")}
+          >
+            <Layers className="h-3.5 w-3.5 mr-1.5" />
+            Mis reglas (editables)
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={rulesPanel === "builtin" ? "default" : "outline"}
+            className={cn(
+              "h-9",
+              rulesPanel === "editable" &&
+                "border-ds-border-default text-muted-foreground",
+            )}
+            onClick={() => setRulesPanel("builtin")}
+          >
+            <BookMarked className="h-3.5 w-3.5 mr-1.5" />
+            Motor autoconciliación (fijo)
+          </Button>
         </div>
-        {canManage && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRunHistorical}
-              disabled={runningHistorical}
-            >
-              {runningHistorical ? (
-                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-              ) : (
-                <PlayCircle className="h-4 w-4 mr-1.5" />
-              )}
-              Conciliar histórico
-            </Button>
-            <Button size="sm" onClick={openCreate}>
-              <Plus className="h-4 w-4 mr-1.5" />
-              Nueva regla
-            </Button>
+        {rulesPanel === "editable" ? (
+          <div className="flex items-center gap-3 flex-wrap sm:justify-end">
+            <p className="text-sm text-muted-foreground whitespace-nowrap">
+              {rules.length} regla{rules.length === 1 ? "" : "s"} ·{" "}
+              <span className="text-status-ok-fg font-medium">
+                {rules.filter((r) => r.enabled).length} activas
+              </span>
+            </p>
+            {canManage && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRunHistorical}
+                  disabled={runningHistorical}
+                >
+                  {runningHistorical ? (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <PlayCircle className="h-4 w-4 mr-1.5" />
+                  )}
+                  Conciliar histórico
+                </Button>
+                <Button size="sm" onClick={openCreate}>
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Nueva regla
+                </Button>
+              </div>
+            )}
           </div>
+        ) : (
+          canManage && (
+            <div className="flex items-center gap-2 sm:ml-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRunHistorical}
+                disabled={runningHistorical}
+              >
+                {runningHistorical ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <PlayCircle className="h-4 w-4 mr-1.5" />
+                )}
+                Conciliar histórico
+              </Button>
+            </div>
+          )
         )}
       </div>
 
-      {loading ? (
+      {rulesPanel === "builtin" ? (
+        <BankBuiltinAutomatchRulesPanel />
+      ) : loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
@@ -366,7 +424,7 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
         <EmptyState
           icon={Settings2}
           title="Sin reglas configuradas"
-          description="Las reglas aplican automáticamente al importar cartola: por ejemplo categorizar todo lo que diga 'PAGO ENEL' a la cuenta contable de Servicios Básicos."
+          description="Las reglas aplican automáticamente al importar cartola: por ejemplo categorizar todo lo que diga 'PAGO ENEL' a la cuenta contable de Servicios Básicos. El orden DTE → turnos extra → estas reglas está descrito en «Motor autoconciliación (fijo)»."
           action={
             canManage ? (
               <Button size="sm" onClick={openCreate}>
@@ -486,7 +544,7 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
         </div>
       )}
 
-      {canManage && (
+      {rulesPanel === "editable" && canManage && (
         <RuleEditorSheet
           open={editorOpen}
           onOpenChange={setEditorOpen}

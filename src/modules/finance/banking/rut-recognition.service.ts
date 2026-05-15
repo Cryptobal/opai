@@ -1,4 +1,5 @@
 import "server-only";
+import { validateRut } from "@/lib/access-control/utils";
 import { prisma } from "@/lib/prisma";
 import { normalizeRutForMatch } from "./auto-match-payment.service";
 
@@ -12,26 +13,110 @@ export interface RutRecognition {
   entityName: string | null;
 }
 
-// Regex chileno: 1-2 dígitos millones, 3-3-3 (con/sin puntos), guion opcional,
-// dígito verificador (numérico o K). Acepta formatos con o sin puntos y guion.
-const RUT_REGEX = /(\d{1,2}\.?\d{3}\.?\d{3}-?[\dkK])/g;
+/** Con guión explícito y/o puntos (evita comerse sólo dígitos al azar). */
+const RUT_FORMATTED_REGEX =
+  /\b\d{1,2}\.\d{3}\.\d{3}\s*-\s*[\dkK]\b|\b\d{7,8}\s*-\s*[\dkK]\b/gi;
+
+type RutHit = { canon: string; index: number };
 
 /**
- * Extrae el primer RUT chileno presente en una cadena bancaria
- * (description o reference). Devuelve la forma canónica (lower, sin
- * puntos/guion) o null si no encuentra uno con 8-9 caracteres útiles.
+ * Intenta interpretar `slice` como cuerpo+RUT en un solo bloque de dígitos
+ * (cartolas: "0799324601 Transf...", sin guión).
  */
-function extractRutFromText(text: string | null | undefined): string | null {
-  if (!text) return null;
-  const matches = text.match(RUT_REGEX);
-  if (!matches) return null;
-  for (const raw of matches) {
-    const norm = normalizeRutForMatch(raw);
-    // RUT chileno tiene 8 o 9 chars (rut+dv). Filtramos números cortos
-    // que pueden ser folios, sucursales, etc.
-    if (norm.length >= 8 && norm.length <= 9) return norm;
+function tryDenseDigitRutAt(
+  digitRun: string,
+  runStartInText: number,
+  i: number,
+  len: number,
+): RutHit | null {
+  const slice = digitRun.slice(i, i + len);
+  if (slice.length < 8) return null;
+  const body = slice.slice(0, -1);
+  const dv = slice.slice(-1).toUpperCase();
+  const bodyTrim = body.replace(/^0+/, "") || "0";
+  const candidate = `${bodyTrim}-${dv}`;
+  if (!validateRut(candidate)) return null;
+  return {
+    canon: normalizeRutForMatch(candidate),
+    index: runStartInText + i,
+  };
+}
+
+/**
+ * Glosas típicamente traen el RUT al **inicio** ("0799324601 Transf...")
+ * o inmediatamente antes de marcas tipo Transf/TEF — no barremos cualquier
+ * carrera de dígitos (folios de 10 cifras pueden pasar DV por casualidad).
+ */
+function collectAnchoredDenseRutHits(text: string): RutHit[] {
+  const hits: RutHit[] = [];
+  const trimmed = text.trimStart();
+  const indexOffset = text.length - trimmed.length;
+
+  /** Ventanas válidas dentro de una sola carrera anclada. */
+  function scanRun(run: string, runStartInText: number) {
+    for (let i = 0; i <= run.length - 8; i++) {
+      for (let len = 8; len <= Math.min(10, run.length - i); len++) {
+        const h = tryDenseDigitRutAt(run, runStartInText, i, len);
+        if (h) hits.push(h);
+      }
+    }
   }
-  return null;
+
+  const lead = trimmed.match(/^(\d{8,12})(?=\s|\D|$)/u);
+  if (lead?.[1]) scanRun(lead[1], indexOffset + 0);
+
+  const midNearTransfer =
+    /\b(\d{9,11})\s*(?=Transf|TRANSF|TEF\b|INTERNET)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = midNearTransfer.exec(trimmed)) !== null) {
+    scanRun(m[1], indexOffset + m.index);
+  }
+
+  return hits;
+}
+
+/**
+ * Extrae candidatos RUT con **dígito verificador válido** para no confundir folios
+ * (p. ej. el viejo regex marcaba "079932460" frente a `0799324601` en glosa).
+ *
+ * Orden: aparece el de menor índice en el string. Expuesto para tests.
+ */
+export function extractCanonicalRutFromBankText(
+  text: string | null | undefined,
+): string | null {
+  if (!text?.trim()) return null;
+  const hits: RutHit[] = [];
+
+  let fm: RegExpExecArray | null;
+  const formatted = new RegExp(RUT_FORMATTED_REGEX.source, RUT_FORMATTED_REGEX.flags);
+  while ((fm = formatted.exec(text)) !== null) {
+    const raw = fm[0];
+    const normalized = normalizeRutForMatch(raw);
+    if (normalized.length < 8 || normalized.length > 9) continue;
+    const body = normalized.slice(0, -1);
+    const dv = normalized.slice(-1);
+    const bodyTrim = body.replace(/^0+/, "") || "0";
+    const candidate = `${bodyTrim}-${dv}`;
+    if (!validateRut(candidate)) continue;
+    hits.push({
+      canon: normalizeRutForMatch(candidate),
+      index: fm.index,
+    });
+  }
+
+  for (const h of collectAnchoredDenseRutHits(text)) {
+    hits.push(h);
+  }
+
+  if (hits.length === 0) return null;
+
+  const byCanon = new Map<string, number>();
+  for (const h of hits) {
+    const prev = byCanon.get(h.canon);
+    if (prev === undefined || h.index < prev) byCanon.set(h.canon, h.index);
+  }
+  const sorted = [...byCanon.entries()].sort((a, b) => a[1] - b[1]);
+  return sorted[0]?.[0] ?? null;
 }
 
 /**
@@ -65,7 +150,8 @@ export async function recognizeRutsForTransactions(
   const allRuts = new Set<string>();
   for (const tx of txs) {
     const rut =
-      extractRutFromText(tx.description) ?? extractRutFromText(tx.reference);
+      extractCanonicalRutFromBankText(tx.description) ??
+      extractCanonicalRutFromBankText(tx.reference);
     txToRut.set(tx.id, rut);
     if (rut) allRuts.add(rut);
   }
@@ -80,8 +166,6 @@ export async function recognizeRutsForTransactions(
     });
   }
   if (allRuts.size === 0) return result;
-
-  const rutList = Array.from(allRuts);
 
   // 2. Tres queries batch por tipo de entidad. Cada una devuelve {rut, id, name}
   //    y construimos índices por rut canónico para lookup O(1).
