@@ -50,16 +50,13 @@ export function BankBuiltinAutomatchRulesPanel() {
 
       <RuleBlock
         step={2}
-        title="Pago de turno extra (planilla TE)"
+        title="Pago de turno extra (planilla TE o TE operativo)"
         tone="info"
         bullets={[
           "Solo egresos (monto < 0). No aplica a transferencias que parezcan TGR / Tesorería (finiquitos).",
-          "Busca un ítem en lote de pago TE (OpsPagoTeItem) pendiente con monto CLP exactamente igual al valor absoluto del movimiento.",
-          "El RUT del guardia (persona en OPAI) debe poder alinearse con la glosa del banco (misma lógica flexible de dígitos que en DTE).",
-          "La fecha del movimiento debe caer entre semana del lote −7 días y +90 días desde el inicio de semana del lote.",
-          "Si en ±7 días hay una liquidación de sueldo del mismo guardia con neto muy parecido al monto, se descarta (evita confundir sueldo con TE).",
-          "Match correcto: vincula el movimiento al ítem TE, marca pagado el turno extra y deja trazabilidad al turno extra → instalación asociada en operaciones.",
-          "Importante: sin ítem TE pendiente con ese monto en planilla, no habrá autoconciliación TE aunque el RUT del guardia sea correcto.",
+          "Si hay ítems en lote de pago TE (OpsPagoTeItem) pendientes con monto CLP exactamente igual al valor absoluto del movimiento, se concilia contra la planilla: RUT del guardia en glosa (misma lógica flexible que DTE), fecha del movimiento entre inicio de semana del lote −7 días y +90 días, descarte si en ±7 días hay liquidación de sueldo del mismo guardia con neto muy parecido al monto.",
+          "Si no hay ningún ítem de planilla pendiente con ese monto y el egreso es menor a $300.000, se intenta conciliar contra un OpsTurnoExtra aprobado aún no pagado con el mismo monto, mismo guardia (RUT en glosa y cuerpo de RUT coherente con persona natural), y fecha del movimiento entre la fecha del turno −7 y +120 días. El vínculo queda como TE_TURNO (trazabilidad a la instalación vía el turno).",
+          "Match correcto: marca pagado el turno extra y deja el vínculo en banca. Con planilla también se actualiza el ítem y el cierre del lote si corresponde.",
         ]}
       />
 

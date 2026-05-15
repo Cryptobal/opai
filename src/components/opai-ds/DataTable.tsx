@@ -37,6 +37,14 @@ export interface DataTableColumn<T> {
 export interface DataTableProps<T> {
   columns: DataTableColumn<T>[];
   rows: T[];
+  /**
+   * Layout de la tabla.
+   *  - `"auto"` (default): comportamiento actual, columnas se ajustan al contenido.
+   *  - `"fixed"`: `table-layout: fixed` — los anchos de columna mandan y el
+   *    contenido con `truncate` se recorta correctamente. Requiere que las
+   *    columnas definan `width` y que las celdas usen `truncate`/`min-w-0`.
+   */
+  layout?: "auto" | "fixed";
   /** ID stable para keys. */
   rowKey: (row: T, index: number) => string;
   /** Filas con highlight semántico (row tinted). */
@@ -59,6 +67,7 @@ const ROW_VARIANT_BG = {
 export function DataTable<T>({
   columns,
   rows,
+  layout = "auto",
   rowKey,
   rowVariant,
   onRowClick,
@@ -89,7 +98,9 @@ export function DataTable<T>({
       )}
     >
       <div className="ds-scroll-x">
-        <table className="w-full text-sm">
+        <table
+          className={cn("w-full text-sm", layout === "fixed" && "table-fixed")}
+        >
           <thead className="bg-ds-surface-3 border-b border-ds-border-subtle">
             <tr>
               {columns.map((c) => (

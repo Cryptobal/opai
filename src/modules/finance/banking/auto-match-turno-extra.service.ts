@@ -1,43 +1,38 @@
 /**
- * Auto-Match de pagos de turnos extras contra OpsPagoTeItem pendientes.
+ * Auto-Match de pagos de turnos extras: planilla TE (OpsPagoTeItem) y, si no
+ * hay fila pendiente con ese monto, TE operativo aprobado (OpsTurnoExtra).
  *
- * Los turnos extras se pagan típicamente por transferencia a la cuenta
- * del guardia, sin marca distintiva en glosa salvo el RUT. Este servicio
- * busca, para cada movimiento bancario de egreso, un item de planilla
- * (OpsPagoTeItem) sin paidAt cuyo monto y RUT del guardia calcen exacto.
+ * Reglas nivel A — match contra planilla cargada (OpsPagoTeItem):
  *
- * Reglas (Nivel A — match contra planilla cargada):
+ *   1. Bank tx EGRESO (amount < 0).
+ *   2. Glosa sin TGR/Tesorería (finiquitos).
+ *   3. OpsPagoTeItem pendiente (paidAt null) con amount_clp = |amount| exacto.
+ *   4. RUT del guardia en description/reference (dígitos flexibles).
+ *   5. Fecha: weekStart del lote −7d … weekStart +90d.
+ *   6. Descarte sueldo: liquidación del mismo guardia en ±7d con neto ≈ monto.
+ *   7. Un solo candidato en ventana → match TE_ITEM + item + turno + lote.
  *
- *   1. Bank tx debe ser EGRESO (amount < 0). Pagos a guardia salen de
- *      cuenta de la empresa, nunca son ingreso.
- *   2. La glosa NO puede contener "TGR" / "TESORERIA" — esos son
- *      finiquitos pagados a la Tesorería General de la República.
- *   3. Buscar OpsPagoTeItem con paid_at IS NULL y amount_clp = |amount|
- *      EXACTO (turnos extras pueden ir de $3k a $300k según acumulación,
- *      no se usa rango como filtro).
- *   4. De los candidatos, retener solo aquellos cuyo guardia.persona.rut
- *      aparezca en description/reference de la bank tx.
- *   5. Descarte de sueldo: si existe un PayrollLiquidacion del mismo
- *      guardia con paidAt en ±7d y netSalary ≈ |amount| (±2%), el pago
- *      es probablemente un sueldo, no un turno extra → descartar.
- *   6. Ventana de fecha: weekStart del lote − 7d ≤ transactionDate ≤
- *      weekStart + 90d (los lotes se pagan hasta 3 meses después).
- *   7. Si queda EXACTAMENTE 1 candidato → match.
- *      Si quedan varios del mismo guardia/monto → ambiguous (revisar).
- *      Si quedan 0 → no_candidate.
+ * Reglas nivel B — sin OpsPagoTeItem pendiente con ese monto (pagos “fuera de lote”):
  *
- * Acciones del match:
- *   - Crear FinanceBankTransactionLink targetType=TE_ITEM, targetId=item.id.
- *   - Marcar item.paidAt = transactionDate, item.status = "paid".
- *   - Marcar turnoExtra.paidAt = transactionDate.
- *   - Si todos los items del lote están pagados → lote.paidAt + status=paid.
- *   - Marcar bankTx.reconciliationStatus = MATCHED.
+ *   1. |amount| < $300.000 (heurística: TE; montos mayores siguen solo por planilla).
+ *   2. OpsTurnoExtra approved, paidAt null, amount_clp = |amount|.
+ *   3. Misma lógica de RUT en glosa + cuerpo de RUT persona natural (< 30M).
+ *   4. Fecha movimiento entre fecha del turno −7d y +120d.
+ *   5. Mismo descarte “parece sueldo”.
+ *   6. Un solo TE candidato → link TE_TURNO + paidAt en OpsTurnoExtra.
  *
- * Idempotencia: si la bank tx ya está MATCHED, sale temprano sin tocar.
+ * Si existe al menos un OpsPagoTeItem pendiente con ese monto, NO se usa el
+ * nivel B (evita duplicar cuando la planilla está en juego pero falló RUT/fecha).
  */
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
-import { rutAppearsInText } from "./auto-match-payment.service";
+import {
+  isNaturalPersonRutBody,
+  rutAppearsInText,
+} from "./auto-match-payment.service";
+
+/** Monto máximo exclusivo para auto-match directo a OpsTurnoExtra sin planilla. */
+export const TE_ORPHAN_AUTO_MATCH_MAX_EXCL_CLP = 300_000;
 
 export interface AutoMatchTurnoExtraResult {
   matched: boolean;
@@ -47,8 +42,8 @@ export interface AutoMatchTurnoExtraResult {
    *   - not_egress: amount > 0, no aplica.
    *   - skipped_test_amount: amount = 0.
    *   - tgr_payment: pago a Tesorería (finiquito), no TE.
-   *   - no_candidate: ningún item pendiente con ese monto + RUT.
-   *   - ambiguous: múltiples items posibles, requiere revisión.
+   *   - no_candidate: ningún item/TE válido.
+   *   - ambiguous: múltiples candidatos, requiere revisión.
    *   - looks_like_salary: existe liquidación con paidAt y monto similar.
    */
   reason?:
@@ -59,18 +54,17 @@ export interface AutoMatchTurnoExtraResult {
     | "no_candidate"
     | "ambiguous"
     | "looks_like_salary";
+  /** Match vía planilla TE. */
   pagoTeItemId?: string;
+  /** Siempre el turno extra operativo afectado (planilla u orphan). */
   turnoExtraId?: string;
   guardiaId?: string;
   loteId?: string;
   candidateIds?: string[];
+  /** true cuando el match fue por OpsTurnoExtra sin fila de planilla. */
+  matchedOrphanTurno?: boolean;
 }
 
-/**
- * Detecta si la glosa del banco apunta a pago a Tesorería General de la
- * República (finiquitos típicamente). El usuario confirmó que los
- * finiquitos se pagan a TGR, no directo al RUT del guardia.
- */
 function looksLikeTgrPayment(...texts: (string | null | undefined)[]): boolean {
   for (const t of texts) {
     if (!t) continue;
@@ -82,13 +76,10 @@ function looksLikeTgrPayment(...texts: (string | null | undefined)[]): boolean {
   return false;
 }
 
-/**
- * Heurística "el monto parece sueldo de este guardia". Si en ±7d existe
- * un PayrollLiquidacion del mismo guardia con netSalary cercano (±2%),
- * el pago probablemente es sueldo, no turno extra. Conservador: tolera
- * 2% de diferencia para descontar reajustes/redondeos.
- */
+type PrismaTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
 async function looksLikeSalaryPayment(
+  tx: PrismaTx,
   guardiaId: string,
   amountClp: number,
   transactionDate: Date,
@@ -97,7 +88,7 @@ async function looksLikeSalaryPayment(
   minDate.setDate(minDate.getDate() - 7);
   const maxDate = new Date(transactionDate);
   maxDate.setDate(maxDate.getDate() + 7);
-  const liq = await prisma.payrollLiquidacion.findFirst({
+  const liq = await tx.payrollLiquidacion.findFirst({
     where: {
       guardiaId,
       status: { in: ["APPROVED", "PAID"] },
@@ -110,6 +101,18 @@ async function looksLikeSalaryPayment(
   if (net <= 0) return false;
   const diff = Math.abs(net - amountClp) / net;
   return diff <= 0.02;
+}
+
+function bankTxDateInTurnoPaymentWindow(turnoDate: Date, transactionDate: Date): boolean {
+  const base = new Date(turnoDate);
+  base.setHours(0, 0, 0, 0);
+  const minDate = new Date(base);
+  minDate.setDate(minDate.getDate() - 7);
+  const maxDate = new Date(base);
+  maxDate.setDate(maxDate.getDate() + 120);
+  const txD = new Date(transactionDate);
+  txD.setHours(0, 0, 0, 0);
+  return txD >= minDate && txD <= maxDate;
 }
 
 export async function tryAutoMatchBankTransactionToTurnoExtra(
@@ -141,7 +144,6 @@ export async function tryAutoMatchBankTransactionToTurnoExtra(
       return { matched: false, reason: "skipped_test_amount" as const };
     }
     if (amountNum > 0) {
-      // Pagos a guardia son egresos. Ingresos no aplican a este matcher.
       return { matched: false, reason: "not_egress" as const };
     }
 
@@ -150,10 +152,9 @@ export async function tryAutoMatchBankTransactionToTurnoExtra(
     }
 
     const amountAbs = Math.abs(amountNum);
+    const txDate = bankTx.transactionDate;
 
-    // Candidatos por monto exacto + pendientes. Incluimos lote y guardia
-    // con persona en una sola query para evitar N+1 en el matching de RUT.
-    const candidates = await tx.opsPagoTeItem.findMany({
+    const planillaCandidates = await tx.opsPagoTeItem.findMany({
       where: {
         tenantId,
         paidAt: null,
@@ -182,86 +183,169 @@ export async function tryAutoMatchBankTransactionToTurnoExtra(
       },
     });
 
-    if (candidates.length === 0) {
+    if (planillaCandidates.length > 0) {
+      const withRut = planillaCandidates.filter((c) =>
+        rutAppearsInText(c.guardia.persona.rut, bankTx.description, bankTx.reference),
+      );
+      if (withRut.length === 0) {
+        return { matched: false, reason: "no_candidate" as const };
+      }
+
+      const inWindow = withRut.filter((c) => {
+        const minDate = new Date(c.lote.weekStart);
+        minDate.setDate(minDate.getDate() - 7);
+        const maxDate = new Date(c.lote.weekStart);
+        maxDate.setDate(maxDate.getDate() + 90);
+        return txDate >= minDate && txDate <= maxDate;
+      });
+      if (inWindow.length === 0) {
+        return { matched: false, reason: "no_candidate" as const };
+      }
+
+      if (
+        await looksLikeSalaryPayment(tx, inWindow[0].guardiaId, amountAbs, txDate)
+      ) {
+        return { matched: false, reason: "looks_like_salary" as const };
+      }
+
+      if (inWindow.length > 1) {
+        return {
+          matched: false,
+          reason: "ambiguous" as const,
+          candidateIds: inWindow.map((c) => c.id),
+        };
+      }
+
+      const chosen = inWindow[0];
+
+      await tx.financeBankTransactionLink.create({
+        data: {
+          tenantId,
+          bankTransactionId: bankTx.id,
+          targetType: "TE_ITEM",
+          targetId: chosen.id,
+          amount: new Decimal(amountAbs),
+          accountPlanId: null,
+          note: "Auto-match turno extra por RUT + monto exacto (planilla TE)",
+          createdById: userId,
+        },
+      });
+
+      await tx.opsPagoTeItem.update({
+        where: { id: chosen.id },
+        data: { paidAt: txDate, status: "paid" },
+      });
+      await tx.opsTurnoExtra.update({
+        where: { id: chosen.turnoExtraId },
+        data: { paidAt: txDate },
+      });
+
+      const pendingInLote = await tx.opsPagoTeItem.count({
+        where: { loteId: chosen.loteId, paidAt: null },
+      });
+      if (pendingInLote === 0) {
+        await tx.opsPagoTeLote.update({
+          where: { id: chosen.loteId },
+          data: { status: "paid", paidAt: txDate },
+        });
+      }
+
+      await tx.financeBankTransaction.update({
+        where: { id: bankTx.id },
+        data: { reconciliationStatus: "MATCHED" },
+      });
+
+      return {
+        matched: true,
+        pagoTeItemId: chosen.id,
+        turnoExtraId: chosen.turnoExtraId,
+        guardiaId: chosen.guardiaId,
+        loteId: chosen.loteId,
+        matchedOrphanTurno: false,
+      };
+    }
+
+    // ── Nivel B: sin ítem de planilla con este monto ──
+    if (amountAbs >= TE_ORPHAN_AUTO_MATCH_MAX_EXCL_CLP) {
       return { matched: false, reason: "no_candidate" as const };
     }
 
-    // Filtro 1: RUT del guardia debe aparecer en glosa del banco.
-    const withRut = candidates.filter((c) =>
-      rutAppearsInText(c.guardia.persona.rut, bankTx.description, bankTx.reference),
-    );
-    if (withRut.length === 0) {
-      return { matched: false, reason: "no_candidate" as const };
-    }
-
-    // Filtro 2: ventana de fecha del lote (weekStart − 7d, weekStart + 90d).
-    const txDate = bankTx.transactionDate;
-    const inWindow = withRut.filter((c) => {
-      const minDate = new Date(c.lote.weekStart);
-      minDate.setDate(minDate.getDate() - 7);
-      const maxDate = new Date(c.lote.weekStart);
-      maxDate.setDate(maxDate.getDate() + 90);
-      return txDate >= minDate && txDate <= maxDate;
+    const orphanTurnos = await tx.opsTurnoExtra.findMany({
+      where: {
+        tenantId,
+        paidAt: null,
+        status: "approved",
+        amountClp: new Decimal(amountAbs),
+      },
+      select: {
+        id: true,
+        guardiaId: true,
+        date: true,
+        installationId: true,
+        guardia: {
+          select: {
+            id: true,
+            persona: { select: { rut: true } },
+          },
+        },
+      },
     });
-    if (inWindow.length === 0) {
+
+    const withRutOrphan = orphanTurnos.filter(
+      (t) =>
+        t.guardia.persona.rut &&
+        rutAppearsInText(
+          t.guardia.persona.rut,
+          bankTx.description,
+          bankTx.reference,
+        ) &&
+        isNaturalPersonRutBody(t.guardia.persona.rut),
+    );
+
+    if (withRutOrphan.length === 0) {
       return { matched: false, reason: "no_candidate" as const };
     }
 
-    // Filtro 3: descarte "parece sueldo". Si CUALQUIER candidato tiene un
-    // sueldo cercano por monto, descartamos toda la tx — es seguro que el
-    // contador prefiere revisar a equivocar un sueldo con un turno extra.
-    // Evaluamos contra el primer candidato (mismo monto/fecha, el guardia
-    // distinto no cambia la materialidad de la heurística).
+    const inWinOrphan = withRutOrphan.filter((t) =>
+      bankTxDateInTurnoPaymentWindow(t.date, txDate),
+    );
+    if (inWinOrphan.length === 0) {
+      return { matched: false, reason: "no_candidate" as const };
+    }
+
     if (
-      await looksLikeSalaryPayment(inWindow[0].guardiaId, amountAbs, txDate)
+      await looksLikeSalaryPayment(tx, inWinOrphan[0].guardiaId, amountAbs, txDate)
     ) {
       return { matched: false, reason: "looks_like_salary" as const };
     }
 
-    if (inWindow.length > 1) {
+    if (inWinOrphan.length > 1) {
       return {
         matched: false,
         reason: "ambiguous" as const,
-        candidateIds: inWindow.map((c) => c.id),
+        candidateIds: inWinOrphan.map((t) => t.id),
       };
     }
 
-    const chosen = inWindow[0];
+    const te = inWinOrphan[0];
 
-    // Crear link TE_ITEM → ítem específico de planilla.
     await tx.financeBankTransactionLink.create({
       data: {
         tenantId,
         bankTransactionId: bankTx.id,
-        targetType: "TE_ITEM",
-        targetId: chosen.id,
+        targetType: "TE_TURNO",
+        targetId: te.id,
         amount: new Decimal(amountAbs),
         accountPlanId: null,
-        note: "Auto-match turno extra por RUT + monto exacto",
+        note: "Auto-match turno extra (TE aprobado sin fila en planilla TE): RUT + monto",
         createdById: userId,
       },
     });
 
-    // Marcar item + turno extra como pagados con la fecha del banco.
-    await tx.opsPagoTeItem.update({
-      where: { id: chosen.id },
-      data: { paidAt: txDate, status: "paid" },
-    });
     await tx.opsTurnoExtra.update({
-      where: { id: chosen.turnoExtraId },
+      where: { id: te.id },
       data: { paidAt: txDate },
     });
-
-    // Si todos los items del lote están pagados, cerrar el lote.
-    const pendingInLote = await tx.opsPagoTeItem.count({
-      where: { loteId: chosen.loteId, paidAt: null },
-    });
-    if (pendingInLote === 0) {
-      await tx.opsPagoTeLote.update({
-        where: { id: chosen.loteId },
-        data: { status: "paid", paidAt: txDate },
-      });
-    }
 
     await tx.financeBankTransaction.update({
       where: { id: bankTx.id },
@@ -270,10 +354,9 @@ export async function tryAutoMatchBankTransactionToTurnoExtra(
 
     return {
       matched: true,
-      pagoTeItemId: chosen.id,
-      turnoExtraId: chosen.turnoExtraId,
-      guardiaId: chosen.guardiaId,
-      loteId: chosen.loteId,
+      turnoExtraId: te.id,
+      guardiaId: te.guardiaId,
+      matchedOrphanTurno: true,
     };
   });
 }

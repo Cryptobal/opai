@@ -7196,6 +7196,10 @@ enum FinanceLinkTarget {
   /// El matcher automático lo usa cuando la planilla está cargada y el
   /// monto/RUT/fecha calzan exacto contra items con paid_at IS NULL.
   TE_ITEM
+  /// Turno extra operativo (OpsTurnoExtra) sin conciliación vía ítem de lote.
+  /// Auto-match cuando no hay OpsPagoTeItem pendiente con ese monto, el TE
+  /// está aprobado y sin pagar, y el monto es menor al umbral heurístico.
+  TE_TURNO
   /// Gasto manual sin entidad (solo cuenta contable).
   EXPENSE
   /// Ingreso manual sin entidad (solo cuenta contable).

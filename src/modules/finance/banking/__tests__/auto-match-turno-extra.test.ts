@@ -24,6 +24,7 @@ vi.mock("@/lib/prisma", () => {
     count: vi.fn(),
   };
   const opsTurnoExtra = {
+    findMany: vi.fn(),
     update: vi.fn(),
   };
   const opsPagoTeLote = {
@@ -101,6 +102,7 @@ function buildCandidate(opts: {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  (prisma.opsTurnoExtra.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 });
 
 describe("tryAutoMatchBankTransactionToTurnoExtra", () => {
@@ -195,7 +197,7 @@ describe("tryAutoMatchBankTransactionToTurnoExtra", () => {
     expect(r.reason).toBe("tgr_payment");
   });
 
-  it("retorna no_candidate si no hay items pendientes con ese monto", async () => {
+  it("retorna no_candidate si no hay items pendientes ni TE huérfano", async () => {
     mockTransactionRunsCallback();
     (prisma.financeBankTransaction.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "tx-1",
@@ -212,6 +214,7 @@ describe("tryAutoMatchBankTransactionToTurnoExtra", () => {
 
     expect(r.matched).toBe(false);
     expect(r.reason).toBe("no_candidate");
+    expect(prisma.opsTurnoExtra.findMany).toHaveBeenCalled();
   });
 
   it("retorna no_candidate si hay items pero ninguno con el RUT en glosa", async () => {
@@ -347,6 +350,7 @@ describe("tryAutoMatchBankTransactionToTurnoExtra", () => {
     expect(r.turnoExtraId).toBe("te-1");
     expect(r.guardiaId).toBe("g-juan");
     expect(r.loteId).toBe("lote-1");
+    expect(r.matchedOrphanTurno).toBe(false);
 
     // Side effects esperados.
     expect(prisma.financeBankTransactionLink.create).toHaveBeenCalledWith({
@@ -449,5 +453,127 @@ describe("tryAutoMatchBankTransactionToTurnoExtra", () => {
 
     expect(r.matched).toBe(true);
     expect(r.pagoTeItemId).toBe("item-juan");
+  });
+
+  it("con ítems de planilla pendientes pero sin RUT en glosa no evalúa TE huérfano", async () => {
+    mockTransactionRunsCallback();
+    (prisma.financeBankTransaction.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "tx-1",
+      bankAccountId: "ba-1",
+      transactionDate: new Date("2026-05-15"),
+      description: "TRANSFERENCIA SIN RUT",
+      reference: null,
+      amount: dec(-35_000),
+      reconciliationStatus: "UNMATCHED",
+    });
+    (prisma.opsPagoTeItem.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      buildCandidate({ id: "item-1", amountClp: 35_000, rut: RUT_JUAN }),
+    ]);
+
+    const r = await tryAutoMatchBankTransactionToTurnoExtra("tenant-A", "tx-1", "u-1");
+
+    expect(r.matched).toBe(false);
+    expect(r.reason).toBe("no_candidate");
+    expect(prisma.opsTurnoExtra.findMany).not.toHaveBeenCalled();
+  });
+
+  it("sin planilla con ese monto, matchea TE aprobado pendiente (TE_TURNO) si monto < 300k", async () => {
+    mockTransactionRunsCallback();
+    (prisma.financeBankTransaction.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "tx-1",
+      bankAccountId: "ba-1",
+      transactionDate: new Date("2026-05-15"),
+      description: `TRANSF ${RUT_JUAN}`,
+      reference: null,
+      amount: dec(-35_000),
+      reconciliationStatus: "UNMATCHED",
+    });
+    (prisma.opsPagoTeItem.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.opsTurnoExtra.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        id: "te-orphan",
+        guardiaId: "g-juan",
+        date: new Date("2026-05-10"),
+        installationId: "inst-1",
+        guardia: { id: "g-juan", persona: { rut: RUT_JUAN } },
+      },
+    ]);
+    (prisma.payrollLiquidacion.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const r = await tryAutoMatchBankTransactionToTurnoExtra("tenant-A", "tx-1", "u-1");
+
+    expect(r.matched).toBe(true);
+    expect(r.matchedOrphanTurno).toBe(true);
+    expect(r.turnoExtraId).toBe("te-orphan");
+    expect(r.guardiaId).toBe("g-juan");
+    expect(r.pagoTeItemId).toBeUndefined();
+    expect(prisma.financeBankTransactionLink.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        targetType: "TE_TURNO",
+        targetId: "te-orphan",
+      }),
+    });
+    expect(prisma.opsTurnoExtra.update).toHaveBeenCalledWith({
+      where: { id: "te-orphan" },
+      data: expect.objectContaining({ paidAt: new Date("2026-05-15") }),
+    });
+    expect(prisma.opsPagoTeItem.update).not.toHaveBeenCalled();
+  });
+
+  it("sin planilla: monto ≥ $300.000 no autoconcilia TE huérfano", async () => {
+    mockTransactionRunsCallback();
+    (prisma.financeBankTransaction.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "tx-1",
+      bankAccountId: "ba-1",
+      transactionDate: new Date("2026-05-15"),
+      description: `TRANSF ${RUT_JUAN}`,
+      reference: null,
+      amount: dec(-350_000),
+      reconciliationStatus: "UNMATCHED",
+    });
+    (prisma.opsPagoTeItem.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+    const r = await tryAutoMatchBankTransactionToTurnoExtra("tenant-A", "tx-1", "u-1");
+
+    expect(r.matched).toBe(false);
+    expect(r.reason).toBe("no_candidate");
+    expect(prisma.opsTurnoExtra.findMany).not.toHaveBeenCalled();
+  });
+
+  it("sin planilla: dos TE huérfanos mismo monto y RUT → ambiguous", async () => {
+    mockTransactionRunsCallback();
+    (prisma.financeBankTransaction.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "tx-1",
+      bankAccountId: "ba-1",
+      transactionDate: new Date("2026-05-15"),
+      description: `TRANSF ${RUT_JUAN}`,
+      reference: null,
+      amount: dec(-35_000),
+      reconciliationStatus: "UNMATCHED",
+    });
+    (prisma.opsPagoTeItem.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prisma.opsTurnoExtra.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        id: "te-a",
+        guardiaId: "g-juan",
+        date: new Date("2026-05-08"),
+        installationId: "inst-1",
+        guardia: { id: "g-juan", persona: { rut: RUT_JUAN } },
+      },
+      {
+        id: "te-b",
+        guardiaId: "g-juan",
+        date: new Date("2026-05-09"),
+        installationId: "inst-2",
+        guardia: { id: "g-juan", persona: { rut: RUT_JUAN } },
+      },
+    ]);
+    (prisma.payrollLiquidacion.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const r = await tryAutoMatchBankTransactionToTurnoExtra("tenant-A", "tx-1", "u-1");
+
+    expect(r.matched).toBe(false);
+    expect(r.reason).toBe("ambiguous");
+    expect(r.candidateIds?.sort()).toEqual(["te-a", "te-b"].sort());
   });
 });

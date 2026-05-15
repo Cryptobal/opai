@@ -25,7 +25,7 @@ export interface LinkContext {
  * Orden de precedencia:
  *   1. PAYROLL_LIQUIDACION → EGR_SUELDO (convención)
  *      PAYROLL_ANTICIPO    → EGR_QUINCENA
- *      TE_LOTE             → EGR_TURNO_EXTRA
+ *      TE_LOTE / TE_ITEM / TE_TURNO → EGR_TURNO_EXTRA
  *      Estos atajos se aplican aunque también haya accountPlanId — el ítem
  *      proyectado de sueldos siempre vive en la categoría EGR_SUELDO, no en
  *      la cuenta contable específica que use cada tenant.
@@ -50,6 +50,8 @@ export function resolveCategoryForLink(ctx: LinkContext): FinanceCashflowCategor
       }
       break;
     case "TE_LOTE":
+    case "TE_ITEM":
+    case "TE_TURNO":
       if (ctx.payrollTurnoExtraCategoryId) {
         return { id: ctx.payrollTurnoExtraCategoryId } as FinanceCashflowCategory;
       }

@@ -21,6 +21,8 @@ const linkSchema = z.object({
     "PAYROLL_LIQUIDACION",
     "PAYROLL_ANTICIPO",
     "TE_LOTE",
+    "TE_ITEM",
+    "TE_TURNO",
     "EXPENSE",
     "INCOME",
     "FACTORING_OPERATION",

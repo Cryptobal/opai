@@ -61,15 +61,17 @@ describe("resolveCategoryForLink", () => {
     expect(resolveCategoryForLink(ctx)?.id).toBe("cat-anticipo");
   });
 
-  it("TE_LOTE → EGR_TURNO_EXTRA via convention", () => {
-    const ctx: LinkContext = {
-      targetType: "TE_LOTE",
-      accountPlanId: null,
-      dteAccountIds: [],
-      accountToCategory: new Map(),
-      payrollTurnoExtraCategoryId: "cat-te",
-    };
-    expect(resolveCategoryForLink(ctx)?.id).toBe("cat-te");
+  it("TE_LOTE, TE_ITEM y TE_TURNO → EGR_TURNO_EXTRA via convention", () => {
+    for (const targetType of ["TE_LOTE", "TE_ITEM", "TE_TURNO"] as const) {
+      const ctx: LinkContext = {
+        targetType,
+        accountPlanId: null,
+        dteAccountIds: [],
+        accountToCategory: new Map(),
+        payrollTurnoExtraCategoryId: "cat-te",
+      };
+      expect(resolveCategoryForLink(ctx)?.id).toBe("cat-te");
+    }
   });
 
   it("returns null when no mapping exists", () => {

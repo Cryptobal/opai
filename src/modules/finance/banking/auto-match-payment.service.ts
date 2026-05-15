@@ -90,6 +90,20 @@ export function rutAppearsInText(
 }
 
 /**
+ * Heurística para distinguir RUT de persona natural (guardias) frente a
+ * societarios en glosas bancarias: el cuerpo numérico (sin dígito verificador)
+ * típicamente queda bajo ~30M.
+ */
+export function isNaturalPersonRutBody(rut: string | null | undefined): boolean {
+  const norm = normalizeRutForMatch(rut);
+  if (norm.length < 2) return false;
+  const bodyStr = norm.slice(0, -1);
+  const body = parseInt(bodyStr, 10);
+  if (!Number.isFinite(body) || body <= 0) return false;
+  return body < 30_000_000;
+}
+
+/**
  * Busca una conciliación bancaria activa (status=IN_PROGRESS) que
  * corresponda al período de la bank tx. Si existe, crea el match
  * formal en FinanceReconciliationMatch para que el cierre de mes lo

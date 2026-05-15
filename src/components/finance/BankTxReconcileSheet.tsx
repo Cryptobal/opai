@@ -121,7 +121,13 @@ interface LocalLink {
 /** Forma del link enriquecido que devuelve GET /links (post 2026-05). */
 interface ExistingLink {
   id: string;
-  targetType: LocalLinkType | "PAYROLL_LIQUIDACION" | "PAYROLL_ANTICIPO" | "TE_LOTE";
+  targetType:
+    | LocalLinkType
+    | "PAYROLL_LIQUIDACION"
+    | "PAYROLL_ANTICIPO"
+    | "TE_LOTE"
+    | "TE_ITEM"
+    | "TE_TURNO";
   targetId: string | null;
   amount: number;
   note: string | null;
