@@ -128,6 +128,50 @@ export interface SimpleApiMultipartPart {
 }
 
 /**
+ * Alinea el JSON del campo multipart `input` con bytes ISO-8859-1 antes de
+ * `Buffer.from(..., "latin1")`.
+ *
+ * **Bug real (mayo 2026):** Node trunca code points >255 a un solo byte
+ * (ej. U+2014 "—" → 0x14). Eso **rompe el JSON** (carácter de control
+ * ilegal dentro de un string) y SimpleAPI responde HTTP 400 con mensajes
+ * tipo "Data at the root level is invalid" al fallar el parseo.
+ *
+ * El SII solo admite ISO-8859-1 en el XML del DTE; sustituir tipografía
+ * "linda" por ASCII o Latin-1 es el comportamiento correcto.
+ */
+export function sanitizeJsonStringForSimpleApiLatin1(json: string): string {
+  let s = json
+    .replace(/\u2014/g, "-") // em dash —
+    .replace(/\u2013/g, "-") // en dash –
+    .replace(/[\u2018\u2019\u2032]/g, "'")
+    .replace(/[\u201C\u201D\u2033]/g, '"')
+    .replace(/\u2026/g, "...")
+    .replace(/\u00A0/g, " ");
+
+  let out = "";
+  for (const ch of s) {
+    const cp = ch.codePointAt(0)!;
+    if (cp <= 0xff) {
+      out += ch;
+      continue;
+    }
+    const stripped = ch.normalize("NFD").replace(/\p{M}/gu, "");
+    let piece = "";
+    let fits = true;
+    for (const c of stripped) {
+      const ccp = c.codePointAt(0)!;
+      if (ccp > 0xff) {
+        fits = false;
+        break;
+      }
+      piece += c;
+    }
+    out += fits && piece.length > 0 ? piece : "?";
+  }
+  return out;
+}
+
+/**
  * Construye un cuerpo multipart/form-data manualmente. Lo hago a mano
  * (en vez de usar `FormData` global de Node 18+) porque necesito control
  * fino sobre los headers y el tipo de cada parte para que SimpleAPI lo
@@ -155,8 +199,11 @@ export function buildMultipartBody(parts: SimpleApiMultipartPart[]): {
         ),
       );
       // Codificamos en ISO-8859-1 para compatibilidad con SII (que rechaza
-      // caracteres fuera del set Latin-1).
-      chunks.push(Buffer.from(part.content, "latin1"));
+      // caracteres fuera del set Latin-1). NUNCA pasar JSON crudo sin
+      // sanitizeJsonStringForSimpleApiLatin1: ver JSDoc del sanitizer.
+      chunks.push(
+        Buffer.from(sanitizeJsonStringForSimpleApiLatin1(part.content), "latin1"),
+      );
     } else {
       // Campo de archivo binario.
       const filename = part.filename ?? "file.bin";
