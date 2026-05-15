@@ -63,6 +63,7 @@ import {
   History,
   CheckCircle,
   Zap,
+  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -919,13 +920,15 @@ function TransactionsTab({
   const [hideDialog, setHideDialog] = useState<TransactionRow | null>(null);
   const [hideReason, setHideReason] = useState("");
   const [hiding, setHiding] = useState(false);
-  // Drawer de conciliación
+  // Drawer de conciliación (un solo movimiento: clic en fila o deep-link)
   const [reconcileTx, setReconcileTx] = useState<TransactionRow | null>(null);
+  /** Lote explícito: se abre solo con «Conciliar selección», no al marcar checkboxes */
+  const [bulkReconcileTxs, setBulkReconcileTxs] = useState<
+    TransactionRow[] | null
+  >(null);
 
-  // ── Selección múltiple. Al marcar ≥1 checkbox el sidebar se abre y
-  //    acumula esas txs como lote para conciliar contra facturas o
-  //    cesiones. La bottom bar quedó reducida a acciones secundarias
-  //    (asignar cuenta sin DTE, ocultar). ──
+  // ── Selección múltiple: las casillas acumulan IDs; el panel lateral se
+  //    abre con «Conciliar selección» (suma de montos). ──
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   // Ocultar masivo.
@@ -942,6 +945,29 @@ function TransactionsTab({
     });
   };
   const clearSelection = () => setSelectedTxIds(new Set());
+
+  const selectedBulkTransactions = useMemo(
+    () => transactions.filter((t) => selectedTxIds.has(t.id)),
+    [transactions, selectedTxIds],
+  );
+  const selectedBulkSum = useMemo(
+    () => selectedBulkTransactions.reduce((acc, t) => acc + t.amount, 0),
+    [selectedBulkTransactions],
+  );
+
+  const openBulkReconcilePanel = useCallback(() => {
+    const txs = transactions.filter((t) => selectedTxIds.has(t.id));
+    if (txs.length === 0) {
+      toast.error("Seleccioná al menos un movimiento");
+      return;
+    }
+    if (txs.some((t) => t.hiddenAt)) {
+      toast.error("Hay movimientos ocultos en la selección. Quitálos antes.");
+      return;
+    }
+    setReconcileTx(null);
+    setBulkReconcileTxs(txs);
+  }, [transactions, selectedTxIds]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 250);
@@ -1058,6 +1084,7 @@ function TransactionsTab({
     };
     const inList = transactions.find((t) => t.id === requestedTxId);
     if (inList) {
+      setBulkReconcileTxs(null);
       setReconcileTx(inList);
       clearQuery();
       return;
@@ -1071,6 +1098,7 @@ function TransactionsTab({
         if (!res.ok) return;
         const json = await res.json();
         if (cancelled || !json?.success || !json.data) return;
+        setBulkReconcileTxs(null);
         setReconcileTx(json.data as TransactionRow);
         clearQuery();
       } catch {
@@ -1770,6 +1798,58 @@ function TransactionsTab({
         </div>
       )}
 
+      {canManage && !showHidden && (
+        <div className="rounded-lg border border-ds-border-default bg-ds-surface-2 px-3 py-2.5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-2 min-w-0">
+              <Layers className="h-[18px] w-[18px] text-ds-text-3 shrink-0 mt-0.5" />
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-[13px] font-medium text-ds-text-2 leading-snug">
+                  Conciliar varios movimientos (lote)
+                </p>
+                <p className="text-[13px] text-ds-text-3 leading-snug">
+                  Marcá filas en la primera columna. Cuando termines, pulsa{" "}
+                  <span className="font-medium text-ds-text-2">
+                    Conciliar selección
+                  </span>{" "}
+                  para abrir el panel con la{" "}
+                  <span className="font-medium text-ds-text-2">
+                    suma de los montos
+                  </span>
+                  . Un solo movimiento: también podés hacer clic en la fila.
+                </p>
+              </div>
+            </div>
+            {selectedTxIds.size > 0 ? (
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end shrink-0">
+                <span className="text-[13px] text-ds-text-2 whitespace-nowrap">
+                  <span className="font-semibold">{selectedTxIds.size}</span>{" "}
+                  seleccionados ·{" "}
+                  <span
+                    className={cn(
+                      "font-mono tabular-nums",
+                      selectedBulkSum >= 0
+                        ? "text-status-ok-fg"
+                        : "text-status-danger-fg",
+                    )}
+                  >
+                    {fmtCLP.format(selectedBulkSum)}
+                  </span>
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-10 sm:h-9"
+                  onClick={openBulkReconcilePanel}
+                >
+                  Conciliar selección
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -1797,7 +1877,11 @@ function TransactionsTab({
               onRowClick={
                 canManage
                   ? (row) => {
-                      if (!row.hiddenAt) setReconcileTx(row);
+                      if (!row.hiddenAt) {
+                        clearSelection();
+                        setBulkReconcileTxs(null);
+                        setReconcileTx(row);
+                      }
                     }
                   : undefined
               }
@@ -1826,6 +1910,8 @@ function TransactionsTab({
                           // No abrir el sheet si el click fue sobre el checkbox o sus children
                           const target = e.target as HTMLElement;
                           if (target.closest("[data-bulk-checkbox]")) return;
+                          clearSelection();
+                          setBulkReconcileTxs(null);
                           setReconcileTx(tx);
                         }
                       : undefined
@@ -2062,16 +2148,10 @@ function TransactionsTab({
       </Dialog>
 
       {(() => {
-        // Lote efectivo del sidebar: cuando hay checkboxes marcados, el
-        // sidebar acumula esas txs (multi-tx); si no, cae al click-en-fila
-        // (single-tx). Antes había 2 UIs separadas (sidebar + modal bulk)
-        // que terminaban en el mismo backend — ahora todo pasa por acá.
-        const selectedTxs = transactions.filter((t) =>
-          selectedTxIds.has(t.id),
-        );
+        const bulk = bulkReconcileTxs ?? [];
         const sheetTxs =
-          selectedTxs.length > 0
-            ? selectedTxs.map((t) => ({
+          bulk.length > 0
+            ? bulk.map((t) => ({
                 id: t.id,
                 transactionDate: t.transactionDate,
                 description: t.description,
@@ -2095,6 +2175,7 @@ function TransactionsTab({
             onOpenChange={(open) => {
               if (!open) {
                 setReconcileTx(null);
+                setBulkReconcileTxs(null);
                 clearSelection();
               }
             }}
@@ -2103,6 +2184,7 @@ function TransactionsTab({
             accountPlans={accountPlans}
             onSaved={() => {
               setReconcileTx(null);
+              setBulkReconcileTxs(null);
               clearSelection();
               loadTransactions();
             }}
@@ -2110,14 +2192,31 @@ function TransactionsTab({
         );
       })()}
 
-      {/* Barra flotante de acciones secundarias. La conciliación se hace
-          en el sidebar (se abre solo al marcar checkboxes). Acá solo
-          quedan acciones que NO son conciliar: bulk-assign de cuenta sin
-          factura, ocultar el lote, limpiar selección. */}
+      {/* Barra flotante: conciliar el lote y acciones secundarias */}
       {selectedTxIds.size > 0 && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex flex-wrap items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-lg max-w-[95vw]">
-          <span className="text-[12px] font-mono text-muted-foreground">
-            {selectedTxIds.size} movimiento{selectedTxIds.size === 1 ? "" : "s"} seleccionado{selectedTxIds.size === 1 ? "" : "s"}
+          <Button
+            size="sm"
+            className="h-10 sm:h-9 shrink-0"
+            onClick={openBulkReconcilePanel}
+          >
+            Conciliar selección ({selectedTxIds.size})
+          </Button>
+          <span className="hidden sm:inline h-4 w-px bg-border" />
+          <span className="text-[13px] font-mono text-ds-text-3">
+            Σ{" "}
+            <span
+              className={
+                selectedBulkSum >= 0 ? "text-status-ok-fg" : "text-status-danger-fg"
+              }
+            >
+              {fmtCLP.format(selectedBulkSum)}
+            </span>
+          </span>
+          <div className="h-4 w-px bg-border hidden sm:block" />
+          <span className="text-[13px] text-ds-text-3 sm:hidden basis-full pt-1">
+            {selectedTxIds.size} movimiento
+            {selectedTxIds.size === 1 ? "" : "s"}
           </span>
           <div className="h-4 w-px bg-border" />
           <Button

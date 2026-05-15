@@ -1292,6 +1292,249 @@ export function BankTxReconcileSheet({
         {/* Content */}
         {tab === "compare" && (
           <div className="mt-4 space-y-4">
+            {/* Resumen: vínculos y diferencias arriba; la lista de candidatos queda debajo. */}
+            {links.length > 0 && (
+              <div className="sticky top-0 z-[15] space-y-2 rounded-lg border border-ds-border-default bg-background/95 backdrop-blur-sm p-3 shadow-sm">
+                <p className="text-xs font-mono uppercase tracking-[0.08em] text-muted-foreground">
+                  Vínculos seleccionados
+                </p>
+                <ul className="space-y-1.5">
+                  {links.map((l) => (
+                    <li
+                      key={l.key}
+                      className="flex items-center gap-2 text-sm"
+                    >
+                      <span className="flex-1 truncate">{l.label}</span>
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        className="h-8 w-32 font-mono text-right"
+                        value={formatCLPInput(String(l.amount))}
+                        onChange={(e) =>
+                          updateLinkAmount(
+                            l.key,
+                            parseCLPInput(e.target.value) ?? 0,
+                          )
+                        }
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 shrink-0"
+                        onClick={() => removeLink(l.key)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="border-t border-border pt-2 space-y-1 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Asignado</span>
+                    <span className="font-mono font-medium">
+                      {fmtCLP.format(linksTotal)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">
+                      Monto del movimiento
+                    </span>
+                    <span className="font-mono">
+                      {fmtCLP.format(txAmountAbs)}
+                    </span>
+                  </div>
+                  <div
+                    className={cn(
+                      "flex items-center justify-between font-medium",
+                      remaining > 0.01 || hasShortfall
+                        ? "text-status-warn-fg"
+                        : "text-status-ok-fg"
+                    )}
+                  >
+                    <span>
+                      {hasShortfall
+                        ? "Diferencia (banco < facturas)"
+                        : remaining > 0.01
+                          ? "Falta asignar"
+                          : "Cuadrado"}
+                    </span>
+                    <span className="font-mono">
+                      {hasShortfall
+                        ? `−${fmtCLP.format(overflow)}`
+                        : remaining > 0.01
+                          ? fmtCLP.format(remaining)
+                          : "✓"}
+                    </span>
+                  </div>
+                </div>
+                {/* Shortfall block: las facturas suman MÁS que el banco
+                    (típico factoring). (Antes vivía en un modal aparte; ahora todo en el sidebar.)
+                    Sólo aplica cuando todos los vínculos son DTE. */}
+                {hasShortfall && allLinksAreReconcilable && (
+                  <div className="rounded-lg border border-status-warn-border bg-status-warn-soft/10 p-3 space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">
+                        ¿Cómo manejar la diferencia de{" "}
+                        <span className="font-mono tabular-nums">
+                          {fmtCLP.format(overflow)}
+                        </span>
+                        ?
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {isIncomeTx
+                          ? "El banco recibió menos que el bruto de las facturas (típico: comisión factoring, retención)."
+                          : "Las facturas suman más que el egreso bancario (descuento recibido)."}
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="flex items-start gap-2 text-xs cursor-pointer p-2 rounded-md hover:bg-muted/40">
+                        <input
+                          type="radio"
+                          name="reconcile-diff-mode"
+                          checked={diffMode === "prorate"}
+                          onChange={() => setDiffMode("prorate")}
+                          className="mt-0.5 accent-primary"
+                        />
+                        <span>
+                          <span className="font-medium text-foreground">
+                            Prorratear por centro de costo
+                          </span>
+                          <span className="block text-muted-foreground mt-0.5">
+                            Reparte la diferencia entre los centros de costo
+                            de las líneas de cada factura, ponderado por
+                            subtotal × asignación.
+                          </span>
+                        </span>
+                      </label>
+                      <label className="flex items-start gap-2 text-xs cursor-pointer p-2 rounded-md hover:bg-muted/40">
+                        <input
+                          type="radio"
+                          name="reconcile-diff-mode"
+                          checked={diffMode === "single"}
+                          onChange={() => setDiffMode("single")}
+                          className="mt-0.5 accent-primary"
+                        />
+                        <span>
+                          <span className="font-medium text-foreground">
+                            Todo a una sola cuenta (sin prorrateo)
+                          </span>
+                          <span className="block text-muted-foreground mt-0.5">
+                            Imputa los {fmtCLP.format(overflow)} completos a
+                            la cuenta elegida abajo.
+                          </span>
+                        </span>
+                      </label>
+                      <label className="flex items-start gap-2 text-xs cursor-pointer p-2 rounded-md hover:bg-muted/40">
+                        <input
+                          type="radio"
+                          name="reconcile-diff-mode"
+                          checked={diffMode === "manual"}
+                          onChange={() => setDiffMode("manual")}
+                          className="mt-0.5 accent-primary"
+                        />
+                        <span>
+                          <span className="font-medium text-foreground">
+                            Manual (asignar después)
+                          </span>
+                          <span className="block text-muted-foreground mt-0.5">
+                            No asignar costo ahora. Las facturas quedan
+                            PARTIAL y registrás el costo en un asiento aparte.
+                          </span>
+                        </span>
+                      </label>
+                    </div>
+                    {diffMode !== "manual" && (
+                      <div className="space-y-2 pt-1">
+                        <AccountPlanCombobox
+                          items={eligibleShortfallAccounts}
+                          value={diffAccountPlanId}
+                          onChange={setDiffAccountPlanId}
+                          placeholder={
+                            isIncomeTx
+                              ? "Buscar cuenta de gasto / costo factoring…"
+                              : "Buscar cuenta de ingreso / descuento…"
+                          }
+                          emptyLabel="Seleccionar cuenta"
+                          triggerClassName="w-full"
+                        />
+                        <Input
+                          value={diffLabel}
+                          onChange={(e) => setDiffLabel(e.target.value)}
+                          placeholder={
+                            isIncomeTx
+                              ? "Nota del asiento (ej. 'Comisión factoring AMIFACTOR')"
+                              : "Nota del asiento (ej. 'Descuento proveedor')"
+                          }
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+                {hasShortfall && !allLinksAreReconcilable && (
+                  <p className="text-xs text-status-danger-fg pt-2">
+                    Para imputar la diferencia contablemente hay ítems
+                    manuales en el lote. Quitálos o procesá la
+                    categorización manual aparte.
+                  </p>
+                )}
+                {remaining > 0.01 && (
+                  <div className="space-y-2 pt-2 border-t border-border">
+                    <p className="text-xs text-muted-foreground">
+                      Asigná el resto a una cuenta contable (ej. costos
+                      factoring, comisión, gastos varios):
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Select
+                        value={restAccountType}
+                        onValueChange={(v) => {
+                          setRestAccountType(v);
+                          setRestAccountId("");
+                        }}
+                      >
+                        <SelectTrigger className="h-10 sm:h-9">
+                          <SelectValue placeholder="Tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {groupAccounts(
+                            accountPlans,
+                            tx && tx.amount > 0 ? "income" : "expense"
+                          ).map((g) => (
+                            <SelectItem key={g.type} value={g.type}>
+                              {g.label}{" "}
+                              <span className="text-muted-foreground text-xs">
+                                ({g.items.length})
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <AccountPlanCombobox
+                        items={
+                          groupAccounts(
+                            accountPlans,
+                            tx && tx.amount > 0 ? "income" : "expense"
+                          ).find((g) => g.type === restAccountType)?.items ?? []
+                        }
+                        value={restAccountId}
+                        onChange={setRestAccountId}
+                        disabled={!restAccountType}
+                        placeholder="Buscar por código o nombre…"
+                        emptyLabel={
+                          restAccountType ? "Seleccionar cuenta" : "Tipo primero"
+                        }
+                      />
+                    </div>
+                    <Input
+                      placeholder="Nota (opcional)"
+                      value={restNote}
+                      onChange={(e) => setRestNote(e.target.value)}
+                      maxLength={300}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
             {/* Sugerencia destacada: la cesión con mayor confidence se
                 renderiza prominente sobre el search para que el usuario no
                 la confunda con los DTEs del listado. Aparece solo en modo
@@ -1706,249 +1949,6 @@ export function BankTxReconcileSheet({
               )}
             </div>
 
-            {/* Resumen */}
-            {links.length > 0 && (
-              <div className="space-y-2 rounded-lg border border-border bg-card p-3">
-                <p className="text-xs font-mono uppercase tracking-[0.08em] text-muted-foreground">
-                  Vínculos seleccionados
-                </p>
-                <ul className="space-y-1.5">
-                  {links.map((l) => (
-                    <li
-                      key={l.key}
-                      className="flex items-center gap-2 text-sm"
-                    >
-                      <span className="flex-1 truncate">{l.label}</span>
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        className="h-8 w-32 font-mono text-right"
-                        value={formatCLPInput(String(l.amount))}
-                        onChange={(e) =>
-                          updateLinkAmount(
-                            l.key,
-                            parseCLPInput(e.target.value) ?? 0,
-                          )
-                        }
-                      />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 shrink-0"
-                        onClick={() => removeLink(l.key)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-                <div className="border-t border-border pt-2 space-y-1 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Asignado</span>
-                    <span className="font-mono font-medium">
-                      {fmtCLP.format(linksTotal)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">
-                      Monto del movimiento
-                    </span>
-                    <span className="font-mono">
-                      {fmtCLP.format(txAmountAbs)}
-                    </span>
-                  </div>
-                  <div
-                    className={cn(
-                      "flex items-center justify-between font-medium",
-                      remaining > 0.01 || hasShortfall
-                        ? "text-status-warn-fg"
-                        : "text-status-ok-fg"
-                    )}
-                  >
-                    <span>
-                      {hasShortfall
-                        ? "Diferencia (banco < facturas)"
-                        : remaining > 0.01
-                          ? "Falta asignar"
-                          : "Cuadrado"}
-                    </span>
-                    <span className="font-mono">
-                      {hasShortfall
-                        ? `−${fmtCLP.format(overflow)}`
-                        : remaining > 0.01
-                          ? fmtCLP.format(remaining)
-                          : "✓"}
-                    </span>
-                  </div>
-                </div>
-                {/* Shortfall block: las facturas suman MÁS que el banco
-                    (típico factoring). (Antes vivía en un modal aparte; ahora todo en el sidebar.)
-                    Sólo aplica cuando todos los vínculos son DTE. */}
-                {hasShortfall && allLinksAreReconcilable && (
-                  <div className="rounded-lg border border-status-warn-border bg-status-warn-soft/10 p-3 space-y-3">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">
-                        ¿Cómo manejar la diferencia de{" "}
-                        <span className="font-mono tabular-nums">
-                          {fmtCLP.format(overflow)}
-                        </span>
-                        ?
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {isIncomeTx
-                          ? "El banco recibió menos que el bruto de las facturas (típico: comisión factoring, retención)."
-                          : "Las facturas suman más que el egreso bancario (descuento recibido)."}
-                      </p>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="flex items-start gap-2 text-xs cursor-pointer p-2 rounded-md hover:bg-muted/40">
-                        <input
-                          type="radio"
-                          name="reconcile-diff-mode"
-                          checked={diffMode === "prorate"}
-                          onChange={() => setDiffMode("prorate")}
-                          className="mt-0.5 accent-primary"
-                        />
-                        <span>
-                          <span className="font-medium text-foreground">
-                            Prorratear por centro de costo
-                          </span>
-                          <span className="block text-muted-foreground mt-0.5">
-                            Reparte la diferencia entre los centros de costo
-                            de las líneas de cada factura, ponderado por
-                            subtotal × asignación.
-                          </span>
-                        </span>
-                      </label>
-                      <label className="flex items-start gap-2 text-xs cursor-pointer p-2 rounded-md hover:bg-muted/40">
-                        <input
-                          type="radio"
-                          name="reconcile-diff-mode"
-                          checked={diffMode === "single"}
-                          onChange={() => setDiffMode("single")}
-                          className="mt-0.5 accent-primary"
-                        />
-                        <span>
-                          <span className="font-medium text-foreground">
-                            Todo a una sola cuenta (sin prorrateo)
-                          </span>
-                          <span className="block text-muted-foreground mt-0.5">
-                            Imputa los {fmtCLP.format(overflow)} completos a
-                            la cuenta elegida abajo.
-                          </span>
-                        </span>
-                      </label>
-                      <label className="flex items-start gap-2 text-xs cursor-pointer p-2 rounded-md hover:bg-muted/40">
-                        <input
-                          type="radio"
-                          name="reconcile-diff-mode"
-                          checked={diffMode === "manual"}
-                          onChange={() => setDiffMode("manual")}
-                          className="mt-0.5 accent-primary"
-                        />
-                        <span>
-                          <span className="font-medium text-foreground">
-                            Manual (asignar después)
-                          </span>
-                          <span className="block text-muted-foreground mt-0.5">
-                            No asignar costo ahora. Las facturas quedan
-                            PARTIAL y registrás el costo en un asiento aparte.
-                          </span>
-                        </span>
-                      </label>
-                    </div>
-                    {diffMode !== "manual" && (
-                      <div className="space-y-2 pt-1">
-                        <AccountPlanCombobox
-                          items={eligibleShortfallAccounts}
-                          value={diffAccountPlanId}
-                          onChange={setDiffAccountPlanId}
-                          placeholder={
-                            isIncomeTx
-                              ? "Buscar cuenta de gasto / costo factoring…"
-                              : "Buscar cuenta de ingreso / descuento…"
-                          }
-                          emptyLabel="Seleccionar cuenta"
-                          triggerClassName="w-full"
-                        />
-                        <Input
-                          value={diffLabel}
-                          onChange={(e) => setDiffLabel(e.target.value)}
-                          placeholder={
-                            isIncomeTx
-                              ? "Nota del asiento (ej. 'Comisión factoring AMIFACTOR')"
-                              : "Nota del asiento (ej. 'Descuento proveedor')"
-                          }
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-                {hasShortfall && !allLinksAreReconcilable && (
-                  <p className="text-xs text-status-danger-fg pt-2">
-                    Para imputar la diferencia contablemente hay ítems
-                    manuales en el lote. Quitálos o procesá la
-                    categorización manual aparte.
-                  </p>
-                )}
-                {remaining > 0.01 && (
-                  <div className="space-y-2 pt-2 border-t border-border">
-                    <p className="text-xs text-muted-foreground">
-                      Asigná el resto a una cuenta contable (ej. costos
-                      factoring, comisión, gastos varios):
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Select
-                        value={restAccountType}
-                        onValueChange={(v) => {
-                          setRestAccountType(v);
-                          setRestAccountId("");
-                        }}
-                      >
-                        <SelectTrigger className="h-10 sm:h-9">
-                          <SelectValue placeholder="Tipo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {groupAccounts(
-                            accountPlans,
-                            tx && tx.amount > 0 ? "income" : "expense"
-                          ).map((g) => (
-                            <SelectItem key={g.type} value={g.type}>
-                              {g.label}{" "}
-                              <span className="text-muted-foreground text-xs">
-                                ({g.items.length})
-                              </span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <AccountPlanCombobox
-                        items={
-                          groupAccounts(
-                            accountPlans,
-                            tx && tx.amount > 0 ? "income" : "expense"
-                          ).find((g) => g.type === restAccountType)?.items ?? []
-                        }
-                        value={restAccountId}
-                        onChange={setRestAccountId}
-                        disabled={!restAccountType}
-                        placeholder="Buscar por código o nombre…"
-                        emptyLabel={
-                          restAccountType ? "Seleccionar cuenta" : "Tipo primero"
-                        }
-                      />
-                    </div>
-                    <Input
-                      placeholder="Nota (opcional)"
-                      value={restNote}
-                      onChange={(e) => setRestNote(e.target.value)}
-                      maxLength={300}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         )}
 
