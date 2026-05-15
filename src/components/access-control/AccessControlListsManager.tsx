@@ -10,8 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import type { AccessControlListEntry, ListType } from "@/lib/access-control/types";
+import type { AccessControlListEntry, ListType, AccessControlConfigData } from "@/lib/access-control/types";
+import { getRecordTypeLabel, getRecordTypeIconName, DEFAULT_RECORD_TYPE_IDS } from "@/lib/access-control/types";
 import { formatRut, validateRut } from "@/lib/access-control/utils";
+import { getLucideIconByName } from "@/lib/access-control/record-type-icon";
 import { ListImport } from "./ListImport";
 
 interface Props {
@@ -26,6 +28,9 @@ export function AccessControlListsManager({ installationId }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [editEntry, setEditEntry] = useState<AccessControlListEntry | null>(null);
   const [showImport, setShowImport] = useState(false);
+
+  const [installConfig, setInstallConfig] = useState<AccessControlConfigData | null>(null);
+  const [formRecordTypes, setFormRecordTypes] = useState<string[]>(["visit"]);
 
   // Form state
   const [formRut, setFormRut] = useState("");
@@ -71,6 +76,19 @@ export function AccessControlListsManager({ installationId }: Props) {
     fetchList();
   }, [fetchList]);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/access-control/config/${installationId}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!cancelled && j.success) setInstallConfig(j.data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [installationId]);
+
   const resetForm = () => {
     setFormRut("");
     setFormPlate("");
@@ -80,6 +98,7 @@ export function AccessControlListsManager({ installationId }: Props) {
     setFormScope("local");
     setFormValidFrom("");
     setFormValidUntil("");
+    setFormRecordTypes(["visit"]);
     setEditEntry(null);
     setShowForm(false);
   };
@@ -94,6 +113,13 @@ export function AccessControlListsManager({ installationId }: Props) {
     setFormScope(entry.scope as "local" | "global");
     setFormValidFrom(entry.validFrom ? entry.validFrom.split("T")[0] : "");
     setFormValidUntil(entry.validUntil ? entry.validUntil.split("T")[0] : "");
+    setFormRecordTypes(
+      Array.isArray(entry.recordTypes) && entry.recordTypes.length > 0
+        ? entry.recordTypes
+        : entry.recordType
+          ? [entry.recordType]
+          : ["visit"],
+    );
     setShowForm(true);
   };
 
@@ -113,6 +139,10 @@ export function AccessControlListsManager({ installationId }: Props) {
       toast.error("El nombre es requerido");
       return;
     }
+    if (formRecordTypes.length === 0) {
+      toast.error("Selecciona al menos un tipo de registro");
+      return;
+    }
 
     setFormSaving(true);
     try {
@@ -130,6 +160,7 @@ export function AccessControlListsManager({ installationId }: Props) {
             validFrom: formValidFrom || null,
             validUntil: formValidUntil || null,
             isActive: true,
+            recordTypes: formRecordTypes,
           }),
         });
         const json = await res.json();
@@ -154,6 +185,7 @@ export function AccessControlListsManager({ installationId }: Props) {
             scope: formScope,
             validFrom: formValidFrom || null,
             validUntil: formValidUntil || null,
+            recordTypes: formRecordTypes,
           }),
         });
         const json = await res.json();
@@ -346,6 +378,46 @@ export function AccessControlListsManager({ installationId }: Props) {
                 </div>
               </>
             )}
+            <div className="sm:col-span-2">
+              <Label className="text-zinc-400 mb-1.5 block">
+                Tipos de registro a los que aplica
+              </Label>
+              <p className="text-xs text-zinc-500 mb-2">
+                Esta entrada se valida solo cuando el guardia registra uno de los tipos marcados.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {(installConfig?.enabledRecordTypes ?? Array.from(DEFAULT_RECORD_TYPE_IDS)).map((type) => {
+                  const active = formRecordTypes.includes(type);
+                  const Icon = getLucideIconByName(
+                    getRecordTypeIconName(type, installConfig ?? undefined),
+                  );
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() =>
+                        setFormRecordTypes((prev) =>
+                          prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
+                        )
+                      }
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                        active
+                          ? "border-status-info-border bg-status-info-soft text-status-info-fg"
+                          : "border-zinc-700 bg-zinc-700 text-zinc-400 hover:text-zinc-200"
+                      }`}
+                    >
+                      <Icon className="h-3 w-3" />
+                      {getRecordTypeLabel(type, installConfig ?? undefined)}
+                    </button>
+                  );
+                })}
+              </div>
+              {formRecordTypes.length === 0 && (
+                <p className="mt-1 text-xs text-status-danger-fg">
+                  Selecciona al menos un tipo de registro.
+                </p>
+              )}
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={resetForm}>
@@ -415,6 +487,22 @@ export function AccessControlListsManager({ installationId }: Props) {
                       {entry.blockReason}
                     </span>
                   )}
+                </div>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {(Array.isArray(entry.recordTypes) && entry.recordTypes.length > 0
+                    ? entry.recordTypes
+                    : entry.recordType
+                      ? [entry.recordType]
+                      : []
+                  ).map((rt) => (
+                    <Badge
+                      key={rt}
+                      variant="outline"
+                      className="text-[10px] border-zinc-700 bg-zinc-800/50 text-zinc-400"
+                    >
+                      {getRecordTypeLabel(rt, installConfig ?? undefined)}
+                    </Badge>
+                  ))}
                 </div>
               </div>
               <div className="flex items-center gap-1">
