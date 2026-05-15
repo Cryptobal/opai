@@ -8972,6 +8972,8 @@ model AccessControlListGroup {
   listType    String   @map("list_type") // 'whitelist' | 'blacklist'
   name        String
   description String?
+  /// Formularios (record types) a los que aplica este grupo. Vacío = todos.
+  recordTypes String[] @default([]) @map("record_types")
   isActive    Boolean  @default(true) @map("is_active")
   createdBy   String?  @map("created_by")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
