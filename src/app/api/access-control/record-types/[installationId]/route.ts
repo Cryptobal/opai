@@ -127,26 +127,52 @@ export async function POST(
     // Retry-on-collision: even though `custom_<random>` is unique with
     // high probability, the @@unique([installationId, key]) constraint
     // guarantees correctness. 3 retries is plenty.
-    let created = null;
+    //
+    // Atomic: dentro de la misma transacción, añadimos la key a
+    // `enabledRecordTypes` del config (creando el config si no existe).
+    // Evita el estado inconsistente donde el tipo existe pero el portal
+    // de terreno no lo ve hasta que el admin presiona "Guardar".
+    let created: Awaited<ReturnType<typeof prisma.accessControlRecordType.create>> | null = null;
     for (let attempt = 0; attempt < 3 && !created; attempt++) {
       const key = generateCustomKey();
       try {
-        created = await prisma.accessControlRecordType.create({
-          data: {
-            tenantId: installation.tenantId,
-            installationId,
-            key,
-            label,
-            icon: (body.icon ?? "UserPlus").toString(),
-            defaultFields: (body.defaultFields ?? []) as Prisma.InputJsonValue,
-            scanMode,
-            scanModes,
-            orderIdx: nextOrder,
-            isActive: true,
-          },
+        created = await prisma.$transaction(async (tx) => {
+          const row = await tx.accessControlRecordType.create({
+            data: {
+              tenantId: installation.tenantId,
+              installationId,
+              key,
+              label,
+              icon: (body.icon ?? "UserPlus").toString(),
+              defaultFields: (body.defaultFields ?? []) as Prisma.InputJsonValue,
+              scanMode,
+              scanModes,
+              orderIdx: nextOrder,
+              isActive: true,
+            },
+          });
+
+          const existing = await tx.accessControlConfig.findUnique({
+            where: { installationId },
+            select: { enabledRecordTypes: true },
+          });
+          const nextEnabled = existing
+            ? Array.from(new Set([...(existing.enabledRecordTypes ?? []), key]))
+            : ["visit", "provider", "vehicle", "staff", "delivery", key];
+
+          await tx.accessControlConfig.upsert({
+            where: { installationId },
+            update: { enabledRecordTypes: nextEnabled },
+            create: {
+              tenantId: installation.tenantId,
+              installationId,
+              enabledRecordTypes: nextEnabled,
+            },
+          });
+
+          return row;
         });
       } catch (e) {
-        // Unique constraint hit → retry with a new key
         if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") continue;
         throw e;
       }
@@ -281,9 +307,49 @@ export async function DELETE(
       );
     }
 
-    await prisma.accessControlRecordType.update({
-      where: { id: body.id },
-      data: { isActive: false },
+    // Atomic: soft-delete + limpiar la key de TODOS los lugares donde
+    // pudiera quedar referenciada en el config. Si no lo hacemos, el
+    // portal de terreno (que itera sobre enabledRecordTypes) sigue
+    // mostrando un botón con la key sin label/icon hasta que el admin
+    // presione "Guardar".
+    const stripKeyFromJson = (json: unknown, key: string): Prisma.InputJsonValue => {
+      if (!json || typeof json !== "object" || Array.isArray(json)) {
+        return (json ?? {}) as Prisma.InputJsonValue;
+      }
+      const copy = { ...(json as Record<string, unknown>) };
+      delete copy[key];
+      return copy as Prisma.InputJsonValue;
+    };
+
+    await prisma.$transaction(async (tx) => {
+      await tx.accessControlRecordType.update({
+        where: { id: body.id },
+        data: { isActive: false },
+      });
+
+      const cfg = await tx.accessControlConfig.findUnique({
+        where: { installationId },
+        select: {
+          enabledRecordTypes: true,
+          formConfig: true,
+          recordTypeLabels: true,
+          recordTypeIcons: true,
+          recordTypeScanModes: true,
+        },
+      });
+
+      if (cfg) {
+        await tx.accessControlConfig.update({
+          where: { installationId },
+          data: {
+            enabledRecordTypes: (cfg.enabledRecordTypes ?? []).filter((k) => k !== existing.key),
+            formConfig: stripKeyFromJson(cfg.formConfig, existing.key),
+            recordTypeLabels: stripKeyFromJson(cfg.recordTypeLabels, existing.key),
+            recordTypeIcons: stripKeyFromJson(cfg.recordTypeIcons, existing.key),
+            recordTypeScanModes: stripKeyFromJson(cfg.recordTypeScanModes, existing.key),
+          },
+        });
+      }
     });
 
     return NextResponse.json({ success: true });
