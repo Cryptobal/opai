@@ -8,6 +8,7 @@ vi.mock("server-only", () => ({}));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    financeDte: { findUnique: vi.fn() },
     financeCashflowItem: { findMany: vi.fn() },
     financeCashflowOccurrence: {
       findFirst: vi.fn(),
@@ -31,6 +32,8 @@ const DTE_ID = "dte-1";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // DTE válido por default (factura electrónica tipo 33).
+  (prisma.financeDte.findUnique as Mock).mockResolvedValue({ dteType: 33 });
   // Por default no hay vínculo previo — el guard de idempotencia pasa.
   (prisma.financeCashflowOccurrence.findFirst as Mock).mockResolvedValue(null);
   (prisma.financeCashflowOccurrence.update as Mock).mockResolvedValue({ id: "occ-1" });
@@ -270,6 +273,41 @@ describe("matchDraftToOccurrence", () => {
     expect(findManyCall).toBeDefined();
     expect(findManyCall.where.dteId).toBeNull();
     expect(findManyCall.where.status).toBe("PROJECTED");
+  });
+
+  it("retorna null si el DTE es nota de crédito (dteType=61)", async () => {
+    (prisma.financeDte.findUnique as Mock).mockResolvedValue({ dteType: 61 });
+
+    const result = await matchDraftToOccurrence({
+      tenantId: "tenant-test",
+      dteId: "nc-id",
+      crmAccountId: "account-test",
+      installationId: null,
+      expectedDate: new Date("2026-05-15"),
+      amountClp: 100000,
+    });
+
+    expect(result).toBeNull();
+    // El guard NC/ND corta antes del guard de idempotencia y de la búsqueda.
+    expect(prisma.financeCashflowOccurrence.findFirst).not.toHaveBeenCalled();
+    expect(prisma.financeCashflowItem.findMany).not.toHaveBeenCalled();
+  });
+
+  it("retorna null si el DTE es nota de débito (dteType=56)", async () => {
+    (prisma.financeDte.findUnique as Mock).mockResolvedValue({ dteType: 56 });
+
+    const result = await matchDraftToOccurrence({
+      tenantId: "tenant-test",
+      dteId: "nd-id",
+      crmAccountId: "account-test",
+      installationId: null,
+      expectedDate: new Date("2026-05-15"),
+      amountClp: 100000,
+    });
+
+    expect(result).toBeNull();
+    expect(prisma.financeCashflowOccurrence.findFirst).not.toHaveBeenCalled();
+    expect(prisma.financeCashflowItem.findMany).not.toHaveBeenCalled();
   });
 });
 
