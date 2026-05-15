@@ -334,6 +334,28 @@ export async function buildProjection(
     (i) => !orphanGlobalItemIds.has(i.id),
   );
 
+  // Espejo RECURRING_DTE sin plantilla o con plantilla inactiva: no debe
+  // proyectarse (p. ej. plantilla borrada desde facturación sin apagar el ítem).
+  const recurringTemplateIds = [
+    ...new Set(
+      itemsAfterOrphan
+        .filter((i) => i.source === "RECURRING_DTE" && i.sourceRefId)
+        .map((i) => i.sourceRefId as string),
+    ),
+  ];
+  let itemsAfterRecurringSanity = itemsAfterOrphan;
+  if (recurringTemplateIds.length > 0) {
+    const tplActive = await prisma.financeDteRecurringTemplate.findMany({
+      where: { tenantId, id: { in: recurringTemplateIds }, isActive: true },
+      select: { id: true },
+    });
+    const activeTplIds = new Set(tplActive.map((t) => t.id));
+    itemsAfterRecurringSanity = itemsAfterOrphan.filter((i) => {
+      if (i.source !== "RECURRING_DTE" || !i.sourceRefId) return true;
+      return activeTplIds.has(i.sourceRefId);
+    });
+  }
+
   // Deduplicación CONTRACT ↔ RECURRING_DTE: el flujo de caja se alimenta
   // desde el tab Contratos de la ficha de cuenta CRM. Cuando un contrato
   // ya emite un item `source=CONTRACT`, una plantilla DTE recurrente
@@ -343,13 +365,22 @@ export async function buildProjection(
   // debe sumar ingreso paralelo en la proyección. La clave de dedup es
   // (crmAccountId, installationId): cubre el caso típico de un cliente
   // con contrato + plantilla para la misma instalación.
+  //
+  // Incluimos source=OTHER cuando tiene sourceRefId (contratos migrados /
+  // asociados a Document): si sólo mirábamos CONTRACT, al tener el ítem
+  // como OTHER la dedupe no aplicaba y el RECURRING_DTE volvía a sumar tras
+  // quirks de datos o migración.
   const contractKeys = new Set<string>();
-  for (const it of itemsAfterOrphan) {
-    if (it.source === "CONTRACT" && it.crmAccountId) {
+  for (const it of itemsAfterRecurringSanity) {
+    if (
+      it.crmAccountId &&
+      (it.source === "CONTRACT" ||
+        (it.source === "OTHER" && it.sourceRefId != null))
+    ) {
       contractKeys.add(`${it.crmAccountId}|${it.installationId ?? ""}`);
     }
   }
-  const items = itemsAfterOrphan.filter((i) => {
+  const items = itemsAfterRecurringSanity.filter((i) => {
     if (i.source !== "RECURRING_DTE") return true;
     if (!i.crmAccountId) return true;
     return !contractKeys.has(`${i.crmAccountId}|${i.installationId ?? ""}`);
@@ -875,9 +906,9 @@ export async function buildProjection(
                 it.installationId === installationId || it.installationId === null,
             )
           : itemCandidates;
-        const itemIds = (filteredItems.length > 0 ? filteredItems : itemCandidates).map(
-          (it) => it.id,
-        );
+        const eligibleItems =
+          filteredItems.length > 0 ? filteredItems : itemCandidates;
+        const itemIds = eligibleItems.map((it) => it.id);
 
         const firstTx = [...agg.bankTxs].sort(
           (a, b) => a.date.getTime() - b.date.getTime(),
@@ -909,6 +940,49 @@ export async function buildProjection(
           const arr = occsByItemId.get(best.occ.itemId!) ?? [];
           const idx = arr.indexOf(best.occ);
           if (idx >= 0) arr.splice(idx, 1);
+        } else {
+          // Sin occurrence PROJECTED disponible (caso típico: dos DTEs del
+          // mismo cliente/instalación cayendo en la misma semana — el primer
+          // DTE consumió la única cuota proyectada y el segundo se queda sin
+          // par). Para que el segundo DTE aparezca también en la celda del
+          // contrato (y "Igualar a factura" pueda sumar AMBAS facturas),
+          // generamos una occurrence sintética PAID anclada al mismo item:
+          // amountClp=0 para no inflar la proyección, actualAmountClp=monto
+          // banco real → solo suma a "actual" del bucket y a cell.dtes[].
+          const chosenItem = eligibleItems[0];
+          const cat = categoryMap.get(chosenItem.categoryId);
+          allOccurrences.push({
+            id: null,
+            itemId: chosenItem.id,
+            source: chosenItem.source,
+            categoryId: chosenItem.categoryId,
+            categoryCode: cat?.code ?? "UNKNOWN",
+            categoryName: cat?.name ?? "Sin categoría",
+            kind: chosenItem.kind,
+            name: chosenItem.name,
+            description: chosenItem.description,
+            scheduledDate: firstTx.date,
+            effectiveDate: firstTx.date,
+            amountClp: 0,
+            amountOriginal: 0,
+            currency: "CLP",
+            ufValueUsed: null,
+            status: "PAID",
+            installationId: chosenItem.installationId,
+            installationName: chosenItem.installationId
+              ? (installationNameById.get(chosenItem.installationId) ?? null)
+              : null,
+            crmAccountId: chosenItem.crmAccountId ?? null,
+            bankTransactionId: firstTx.id,
+            isVirtual: true,
+            isAutoGenerated: true,
+            actualAmountClp: agg.totalAmount,
+            varianceClp: agg.totalAmount,
+            hasIpcAdjustment: false,
+            ipcAdjustmentMonths: null,
+            dteId: agg.dteId,
+          });
+          for (const tx of agg.bankTxs) consumedBankTxIds.add(tx.id);
         }
       }
     }

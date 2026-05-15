@@ -56,6 +56,7 @@ function makeTpl(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   (prisma.document.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "doc-ok" });
+  (prisma.financeCashflowItem.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
     fn(prisma),
   );

@@ -53,7 +53,14 @@ export async function syncRecurringDteItem(
       isActive: true,
     },
   });
-  if (!tpl) return { action: "noop" };
+  if (!tpl) {
+    const r = await prisma.$transaction(async (tx) =>
+      deactivateRecurringDteMirrorsForTemplateIds(tx, tenantId, [templateId]),
+    );
+    return r.itemsDeactivated > 0 || r.occurrencesDeleted > 0
+      ? { action: "deactivated" }
+      : { action: "noop" };
+  }
 
   // Contrato (Document) eliminado por un path legacy o huérfano: la plantilla
   // no debe seguir generando ingreso en flujo de caja. Se auto-apaga en el
