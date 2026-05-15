@@ -112,8 +112,10 @@ export interface ApplyAdjustmentInput {
   pct: number;
   notes?: string;
   /**
-   * Fecha desde la cual el reajuste empieza a aplicar (solo manual). Si
-   * se omite, se usa hoy. Las ocurrencias PROYECTADAS con scheduledDate
+   * Fecha desde la cual el reajuste empieza a aplicar. En `applyManualAdjustment`,
+   * si se omite, se usa hoy. En `applyAdjustment` (PENDING existente),
+   * si se omite, se usa la `dueDate` original del adjustment; si se pasa,
+   * sobreescribe esa fecha. Las ocurrencias PROYECTADAS con scheduledDate
    * >= dueDate se regeneran al nuevo monto; las anteriores quedan al
    * monto previo. El próximo ciclo se programa a `dueDate + N meses`.
    */
@@ -165,6 +167,18 @@ export async function applyAdjustment(
     const oldAmount = Number(adj.item.amount);
     const newAmount = Math.round(oldAmount * (1 + input.pct / 100) * 100) / 100;
     const now = new Date();
+    // Fecha de vigencia: la que eligió el usuario en el modal o, si no,
+    // la dueDate original del adjustment (la fijada por el cron). Se
+    // normaliza a UTC midnight para no chocar con el unique index.
+    const effectiveDate = input.dueDate
+      ? new Date(
+          Date.UTC(
+            input.dueDate.getUTCFullYear(),
+            input.dueDate.getUTCMonth(),
+            input.dueDate.getUTCDate(),
+          ),
+        )
+      : adj.dueDate;
 
     await tx.financeCashflowItem.update({
       where: { id: adj.item.id },
@@ -181,17 +195,19 @@ export async function applyAdjustment(
         appliedAt: now,
         appliedBy: ctx.userId,
         notes: input.notes ?? null,
+        dueDate: effectiveDate,
       },
     });
 
-    // Limpiar ocurrencias PROYECTADAS desde dueDate (inclusive) para que
-    // se regeneren con el nuevo monto. Las PAID/CONFIRMED/CANCELLED se
-    // respetan: el ajuste sólo afecta el futuro.
+    // Limpiar ocurrencias PROYECTADAS desde la fecha de vigencia
+    // (inclusive) para que se regeneren con el nuevo monto. Las
+    // PAID/CONFIRMED/CANCELLED se respetan: el ajuste sólo afecta el
+    // futuro.
     await tx.financeCashflowOccurrence.deleteMany({
       where: {
         tenantId,
         itemId: adj.item.id,
-        scheduledDate: { gte: adj.dueDate },
+        scheduledDate: { gte: effectiveDate },
         status: "PROJECTED",
       },
     });
@@ -202,7 +218,7 @@ export async function applyAdjustment(
       hasIpcAdjustment: adj.item.hasIpcAdjustment,
       ipcAdjustmentMonths: adj.item.ipcAdjustmentMonths,
       endDate: adj.item.endDate,
-      anchorDate: now,
+      anchorDate: effectiveDate,
       excludeAdjustmentId: adjustmentId,
     });
 

@@ -68,9 +68,10 @@ export function ApplyIpcDialog({
   const [amount, setAmount] = useState<string>("");
   const [lastEdited, setLastEdited] = useState<"pct" | "amount" | null>(null);
   const [notes, setNotes] = useState("");
-  // Fecha de vigencia del reajuste manual. Para PENDING viene fija de
-  // la `dueDate` (definida por el cron); en manual el usuario la elige
-  // — default = hoy. Las ocurrencias desde esta fecha se regeneran.
+  // Fecha de vigencia del reajuste, editable en ambos modos. En manual
+  // default = hoy; en PENDING default = la dueDate del cron, pero el
+  // usuario puede adelantarla o postergarla. Las ocurrencias desde esta
+  // fecha se regeneran y el próximo ciclo se ancla aquí.
   const [effectiveDate, setEffectiveDate] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -80,7 +81,6 @@ export function ApplyIpcDialog({
       setAmount("");
       setLastEdited(null);
       setNotes("");
-      // Manual: pre-cargar hoy. PENDING: usar la dueDate del adjustment.
       const today = new Date().toISOString().slice(0, 10);
       setEffectiveDate(isManual ? today : dueDate);
     }
@@ -132,12 +132,11 @@ export function ApplyIpcDialog({
       const url = isManual
         ? `/api/finance/cashflow/items/${itemId}/ipc-adjust`
         : `/api/finance/cashflow/ipc-adjustments/${adjustmentId}/apply`;
-      // Solo el endpoint manual acepta dueDate (en PENDING viene fija).
       const body: Record<string, unknown> = {
         pct: pctNum,
         notes: notes.trim() || undefined,
       };
-      if (isManual && effectiveDate) {
+      if (effectiveDate) {
         body.dueDate = effectiveDate;
       }
       const res = await fetch(url, {
@@ -171,14 +170,19 @@ export function ApplyIpcDialog({
             {isManual ? "Registrar reajuste IPC" : "Aplicar ajuste de IPC"}
           </DialogTitle>
           <DialogDescription>
-            {contractTitle} ·{" "}
-            <span className="font-mono">{dueDate}</span>
-            {isManual ? (
+            {contractTitle}
+            {!isManual ? (
               <span className="block text-[11px] text-ds-text-3 mt-1">
-                El próximo ciclo se programará desde hoy según la frecuencia
-                configurada en el contrato.
+                Reajuste programado para{" "}
+                <span className="font-mono">{dueDate}</span> — podés
+                adelantarlo o postergarlo cambiando la fecha de vigencia.
               </span>
-            ) : null}
+            ) : (
+              <span className="block text-[11px] text-ds-text-3 mt-1">
+                El próximo ciclo se programará desde la fecha de vigencia
+                según la frecuencia configurada en el contrato.
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -252,22 +256,20 @@ export function ApplyIpcDialog({
             ) : null}
           </p>
 
-          {isManual && (
-            <div className="space-y-2">
-              <Label htmlFor="ipcEffectiveDate">Vigente desde</Label>
-              <Input
-                id="ipcEffectiveDate"
-                type="date"
-                value={effectiveDate}
-                onChange={(e) => setEffectiveDate(e.target.value)}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Desde esta fecha el flujo de caja muestra el monto reajustado.
-                Las cuotas anteriores quedan al monto previo. El próximo
-                ciclo se programa N meses después.
-              </p>
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label htmlFor="ipcEffectiveDate">Vigente desde</Label>
+            <Input
+              id="ipcEffectiveDate"
+              type="date"
+              value={effectiveDate}
+              onChange={(e) => setEffectiveDate(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Desde esta fecha el flujo de caja muestra el monto reajustado.
+              Las cuotas anteriores quedan al monto previo. El próximo
+              ciclo se programa N meses después.
+            </p>
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="ipcNotes">Notas (opcional)</Label>
