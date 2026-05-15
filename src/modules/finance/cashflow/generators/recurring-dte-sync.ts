@@ -49,10 +49,31 @@ export async function syncRecurringDteItem(
       ufFixingDay: true,
       installationId: true,
       crmAccountId: true,
+      contractDocumentId: true,
       isActive: true,
     },
   });
   if (!tpl) return { action: "noop" };
+
+  // Contrato (Document) eliminado por un path legacy o huérfano: la plantilla
+  // no debe seguir generando ingreso en flujo de caja. Se auto-apaga en el
+  // próximo sync/cron/backfill (defensa en profundidad además del DELETE en API).
+  if (tpl.contractDocumentId) {
+    const doc = await prisma.document.findFirst({
+      where: { id: tpl.contractDocumentId, tenantId },
+      select: { id: true },
+    });
+    if (!doc) {
+      await prisma.$transaction(async (tx) => {
+        await tx.financeDteRecurringTemplate.updateMany({
+          where: { id: tpl.id, tenantId },
+          data: { isActive: false },
+        });
+        await deactivateRecurringDteMirrorsForTemplateIds(tx, tenantId, [tpl.id]);
+      });
+      return { action: "deactivated" };
+    }
+  }
 
   const cat = await prisma.financeCashflowCategory.findFirst({
     where: { tenantId, code: SALES_CATEGORY_CODE, isActive: true },
@@ -177,6 +198,46 @@ export async function deactivateRecurringDteMirrorsForTemplateIds(
   return {
     itemsDeactivated: itemUpd.count,
     occurrencesDeleted: occDel.count,
+  };
+}
+
+/**
+ * Al eliminar el Document del contrato (cualquier DELETE que borre el PDF row),
+ * las plantillas `FinanceDteRecurringTemplate` con `contractDocumentId` apuntando
+ * ahí deben desactivarse y apagarse sus espejos `FinanceCashflowItem` (RECURRING_DTE)
+ * en la misma transacción. Si no, la dedupe CONTRACT↔RECURRING_DTE deja de aplicar
+ * (ya no hay CONTRACT activo) y el flujo vuelve a sumar la recurrente — bug típico
+ * tras borrar el contrato solo vía módulo Documentos.
+ */
+export async function cascadeRecurringDteForDeletedContractDocument(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  contractDocumentId: string,
+): Promise<{ templatesTouched: number; itemsDeactivated: number; occurrencesDeleted: number }> {
+  const linked = await tx.financeDteRecurringTemplate.findMany({
+    where: { tenantId, contractDocumentId },
+    select: { id: true },
+  });
+  const templateIds = linked.map((t) => t.id);
+  if (templateIds.length === 0) {
+    return { templatesTouched: 0, itemsDeactivated: 0, occurrencesDeleted: 0 };
+  }
+
+  await tx.financeDteRecurringTemplate.updateMany({
+    where: { tenantId, contractDocumentId },
+    data: { isActive: false },
+  });
+
+  const mir = await deactivateRecurringDteMirrorsForTemplateIds(
+    tx,
+    tenantId,
+    templateIds,
+  );
+
+  return {
+    templatesTouched: templateIds.length,
+    itemsDeactivated: mir.itemsDeactivated,
+    occurrencesDeleted: mir.occurrencesDeleted,
   };
 }
 

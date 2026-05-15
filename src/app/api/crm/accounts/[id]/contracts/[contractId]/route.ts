@@ -4,7 +4,7 @@ import { requireCrmEdit, requireCrmDelete } from "@/lib/api-auth-crm";
 import { prisma } from "@/lib/prisma";
 import { requireTenantModule } from '@/lib/require-module';
 import { deactivateContractCashflowItems } from "@/modules/finance/cashflow/generators/sales-contract-sync";
-import { deactivateRecurringDteMirrorsForTemplateIds } from "@/modules/finance/cashflow/generators/recurring-dte-sync";
+import { cascadeRecurringDteForDeletedContractDocument } from "@/modules/finance/cashflow/generators/recurring-dte-sync";
 
 /**
  * PATCH /api/crm/accounts/[id]/contracts/[contractId]
@@ -205,28 +205,10 @@ export async function DELETE(
       // Document — el helper resuelve por sourceRefId = contractId.
       await deactivateContractCashflowItems(tx, ctx.tenantId, contractId);
 
-      // Plantillas DTE recurrentes ligadas al contrato: guardamos IDs antes del
-      // updateMany para apagar YA sus espejos RECURRING_DTE en FC (sin esperar
-      // cron). Si no, el ingreso sigue en la matriz hasta cashflow-sync o
-      // reaparece al caer la dedupe CONTRACT ↔ RECURRING_DTE tras borrar el doc.
-      const linkedRecurringTpl = await tx.financeDteRecurringTemplate.findMany({
-        where: { tenantId: ctx.tenantId, contractDocumentId: contractId },
-        select: { id: true },
-      });
-      const recurringTplIds = linkedRecurringTpl.map((t) => t.id);
-
-      // Cascada a programaciones recurrentes (DTE): desactivamos (no borramos)
-      // toda plantilla vinculada al contrato para preservar el historial de
-      // FinanceDteRecurringRun.
-      await tx.financeDteRecurringTemplate.updateMany({
-        where: { tenantId: ctx.tenantId, contractDocumentId: contractId },
-        data: { isActive: false },
-      });
-
-      await deactivateRecurringDteMirrorsForTemplateIds(
+      await cascadeRecurringDteForDeletedContractDocument(
         tx,
         ctx.tenantId,
-        recurringTplIds,
+        contractId,
       );
 
       await tx.docAssociation.deleteMany({ where: { documentId: contractId } });

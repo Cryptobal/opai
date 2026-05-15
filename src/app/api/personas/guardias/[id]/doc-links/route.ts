@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseBody, requireAuth, unauthorized, ensureCanDelete } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
+import { deactivateContractCashflowItems } from "@/modules/finance/cashflow/generators/sales-contract-sync";
+import { cascadeRecurringDteForDeletedContractDocument } from "@/modules/finance/cashflow/generators/recurring-dte-sync";
 import { ensureOpsAccess, ensureOpsCapability } from "@/lib/ops";
 import { z } from "zod";
 
@@ -229,7 +231,11 @@ export async function DELETE(
       if (otherAssocs === 0) {
         const forbiddenDelete = await ensureCanDelete(ctx, "docs", "gestion");
         if (!forbiddenDelete) {
-          await prisma.document.delete({ where: { id: documentId } });
+          await prisma.$transaction(async (tx) => {
+            await deactivateContractCashflowItems(tx, ctx.tenantId, documentId);
+            await cascadeRecurringDteForDeletedContractDocument(tx, ctx.tenantId, documentId);
+            await tx.document.delete({ where: { id: documentId } });
+          });
         }
       }
     }

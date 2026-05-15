@@ -3,14 +3,22 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    financeDteRecurringTemplate: { findFirst: vi.fn(), findMany: vi.fn() },
+    $transaction: vi.fn(),
+    document: { findFirst: vi.fn() },
+    financeDteRecurringTemplate: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      updateMany: vi.fn(),
+    },
     financeCashflowCategory: { findFirst: vi.fn() },
     financeCashflowItem: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
     },
+    financeCashflowOccurrence: { deleteMany: vi.fn() },
   },
 }));
 
@@ -47,6 +55,10 @@ function makeTpl(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  (prisma.document.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "doc-ok" });
+  (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+    fn(prisma),
+  );
   (prisma.financeCashflowCategory.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
     id: "cat-ventas",
   });
@@ -103,6 +115,35 @@ describe("syncRecurringDteItem", () => {
     (prisma.financeDteRecurringTemplate.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     const r = await syncRecurringDteItem("tenant-other", "tpl-1");
     expect(r.action).toBe("noop");
+    expect(prisma.financeCashflowItem.create).not.toHaveBeenCalled();
+  });
+
+  it("si contractDocumentId apunta a documento inexistente, desactiva plantilla y espejo", async () => {
+    (prisma.financeDteRecurringTemplate.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(
+      makeTpl({ contractDocumentId: "doc-missing" }),
+    );
+    (prisma.document.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const txTemplateUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const txItemFindMany = vi.fn().mockResolvedValue([{ id: "it1" }]);
+    const txItemUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const txOccDeleteMany = vi.fn().mockResolvedValue({ count: 0 });
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(
+      async (fn: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        fn({
+          financeDteRecurringTemplate: { updateMany: txTemplateUpdateMany },
+          financeCashflowItem: {
+            findMany: txItemFindMany,
+            updateMany: txItemUpdateMany,
+          },
+          financeCashflowOccurrence: { deleteMany: txOccDeleteMany },
+        }),
+    );
+
+    const r = await syncRecurringDteItem(TENANT, "tpl-1");
+    expect(r.action).toBe("deactivated");
+    expect(txTemplateUpdateMany).toHaveBeenCalled();
+    expect(txItemUpdateMany).toHaveBeenCalled();
     expect(prisma.financeCashflowItem.create).not.toHaveBeenCalled();
   });
 });

@@ -11,6 +11,7 @@ import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { requireDocsView, requireDocsEdit, requireDocsDelete } from "@/lib/api-auth-docs";
 import { updateDocumentSchema } from "@/lib/validations/docs";
 import { deactivateContractCashflowItems } from "@/modules/finance/cashflow/generators/sales-contract-sync";
+import { cascadeRecurringDteForDeletedContractDocument } from "@/modules/finance/cashflow/generators/recurring-dte-sync";
 
 export async function GET(
   request: NextRequest,
@@ -233,6 +234,7 @@ export async function DELETE(
     // de cuentas CRM. Helper compartido con el DELETE de contratos CRM.
     await prisma.$transaction(async (tx) => {
       await deactivateContractCashflowItems(tx, ctx.tenantId, id);
+      await cascadeRecurringDteForDeletedContractDocument(tx, ctx.tenantId, id);
       await tx.document.delete({ where: { id } });
     });
 
