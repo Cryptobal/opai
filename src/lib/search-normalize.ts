@@ -50,7 +50,7 @@ export async function findCrmContactIdsBySearch(params: {
   return fetchIds(Prisma.sql`
     SELECT c.id
     FROM crm.contacts c
-    WHERE c.tenant_id = ${tenantId}
+    WHERE c.tenant_id::text = ${tenantId}
       ${supervisorFilter}
       AND (
         LOWER(public.f_unaccent(c.first_name)) LIKE LOWER(public.f_unaccent(${"%" + query + "%"}))
@@ -85,7 +85,7 @@ export async function findCrmAccountIdsBySearch(params: {
   return fetchIds(Prisma.sql`
     SELECT a.id
     FROM crm.accounts a
-    WHERE a.tenant_id = ${tenantId}
+    WHERE a.tenant_id::text = ${tenantId}
       ${supervisorFilter}
       AND (
         LOWER(public.f_unaccent(a.name)) LIKE LOWER(public.f_unaccent(${pattern}))
@@ -109,7 +109,7 @@ export async function findCrmLeadIdsBySearch(params: {
   return fetchIds(Prisma.sql`
     SELECT l.id
     FROM crm.leads l
-    WHERE l.tenant_id = ${tenantId}
+    WHERE l.tenant_id::text = ${tenantId}
       AND (
         LOWER(public.f_unaccent(COALESCE(l.first_name, ''))) LIKE LOWER(public.f_unaccent(${pattern}))
         OR LOWER(public.f_unaccent(COALESCE(l.last_name, ''))) LIKE LOWER(public.f_unaccent(${pattern}))
@@ -134,7 +134,7 @@ export async function findCrmDealIdsBySearch(params: {
     SELECT d.id
     FROM crm.deals d
     LEFT JOIN crm.accounts a ON a.id = d.account_id
-    WHERE d.tenant_id = ${tenantId}
+    WHERE d.tenant_id::text = ${tenantId}
       AND (
         LOWER(public.f_unaccent(d.title)) LIKE LOWER(public.f_unaccent(${pattern}))
         OR LOWER(public.f_unaccent(COALESCE(a.name, ''))) LIKE LOWER(public.f_unaccent(${pattern}))
@@ -158,7 +158,7 @@ export async function findCrmDealIdsByTitleOrAccount(params: {
     SELECT d.id
     FROM crm.deals d
     LEFT JOIN crm.accounts a ON a.id = d.account_id
-    WHERE d.tenant_id = ${tenantId}
+    WHERE d.tenant_id::text = ${tenantId}
       AND (
         LOWER(public.f_unaccent(d.title)) LIKE LOWER(public.f_unaccent(${pattern}))
         OR LOWER(public.f_unaccent(COALESCE(a.name, ''))) LIKE LOWER(public.f_unaccent(${pattern}))
@@ -187,7 +187,7 @@ export async function findCpqQuoteIdsBySearch(params: {
   return fetchIds(Prisma.sql`
     SELECT q.id
     FROM cpq.quotes q
-    WHERE q.tenant_id = ${tenantId}
+    WHERE q.tenant_id::text = ${tenantId}
       AND (
         LOWER(public.f_unaccent(q.code)) LIKE LOWER(public.f_unaccent(${pattern}))
         OR LOWER(public.f_unaccent(COALESCE(q.name, ''))) LIKE LOWER(public.f_unaccent(${pattern}))
@@ -215,7 +215,7 @@ export async function findCrmInstallationIdsBySearch(params: {
   return fetchIds(Prisma.sql`
     SELECT i.id
     FROM crm.installations i
-    WHERE i.tenant_id = ${tenantId}
+    WHERE i.tenant_id::text = ${tenantId}
       ${statusFilter}
       AND (
         LOWER(public.f_unaccent(i.name)) LIKE LOWER(public.f_unaccent(${pattern}))
@@ -241,7 +241,7 @@ export async function findOpsGuardiaIdsBySearch(params: {
     SELECT g.id
     FROM ops.guardias g
     INNER JOIN ops.personas p ON p.id = g.persona_id
-    WHERE g.tenant_id = ${tenantId}
+    WHERE g.tenant_id::text = ${tenantId}
       AND (
         LOWER(public.f_unaccent(p.first_name)) LIKE LOWER(public.f_unaccent(${pattern}))
         OR LOWER(public.f_unaccent(p.last_name)) LIKE LOWER(public.f_unaccent(${pattern}))
@@ -270,7 +270,7 @@ export async function findOpsGuardiaIdsForDocsSearch(params: {
     SELECT g.id
     FROM ops.guardias g
     INNER JOIN ops.personas p ON p.id = g.persona_id
-    WHERE g.tenant_id = ${tenantId}
+    WHERE g.tenant_id::text = ${tenantId}
       AND (
         LOWER(public.f_unaccent(p.first_name)) LIKE LOWER(public.f_unaccent(${pattern}))
         OR LOWER(public.f_unaccent(p.last_name)) LIKE LOWER(public.f_unaccent(${pattern}))

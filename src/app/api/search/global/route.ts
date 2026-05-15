@@ -122,6 +122,7 @@ export async function GET(request: NextRequest) {
 
     // ── CRM (leads, accounts, contacts, deals, quotes, installations) ──
     if (hasCrm) {
+      try {
       // IDs de negocios (deals) cuyo título o nombre de cuenta coincide, para
       // incluir sus cotizaciones. La búsqueda es accent-insensitive (f_unaccent).
       const dealIdsForQuotes = await findCrmDealIdsByTitleOrAccount({ tenantId, query: q });
@@ -413,10 +414,14 @@ export async function GET(request: NextRequest) {
           href: `/ops/pauta-mensual?installationId=${inst.id}`,
         });
       }
+      } catch (crmErr) {
+        console.error("[global search] CRM query error:", crmErr);
+      }
     }
 
     // ── Ops (guardias por nombre, código, RUT) — accent-insensitive ──
     if (hasOps) {
+      try {
       const opsForbidden = await ensureOpsAccess(ctx);
       if (!opsForbidden) {
         const guardiaIds = await findOpsGuardiaIdsBySearch({
@@ -482,10 +487,14 @@ export async function GET(request: NextRequest) {
           });
         }
       }
+      } catch (opsErr) {
+        console.error("[global search] Ops (guardias) query error:", opsErr);
+      }
     }
 
     // ── Documentos (por título o guardia asociado) — accent-insensitive ──
     if (hasDocs) {
+      try {
       const guardiaIds = await findOpsGuardiaIdsForDocsSearch({ tenantId, query: q });
 
       const docsWhere: any = { tenantId };
@@ -517,6 +526,9 @@ export async function GET(request: NextRequest) {
           subtitle: [doc.template?.name, doc.status].filter(Boolean).join(" · "),
           href: `/opai/documentos/${doc.id}`,
         });
+      }
+      } catch (docsErr) {
+        console.error("[global search] docs query error:", docsErr);
       }
     }
 
