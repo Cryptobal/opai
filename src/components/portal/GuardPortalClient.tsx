@@ -42,6 +42,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import { UnifiedLoginCard } from "@/components/auth/UnifiedLoginCard";
+import { SplashScreen } from "@/components/pwa/SplashScreen";
 import { ChatGuardPortal } from "@/components/portal/ChatGuardPortal";
 import { GuardDesempenoSection } from "@/components/portal/GuardDesempenoSection";
 import { AccessControlGuardHome } from "@/components/access-control/AccessControlGuardHome";
@@ -146,11 +147,18 @@ export function GuardPortalClient() {
   const searchParams = useSearchParams();
   const initialSection = searchParams.get("section") as PortalSection | null;
 
-  const [session, setSession] = useState<GuardSession | null>(() => {
-    if (typeof window === "undefined") return null;
-    return readStoredSession();
-  });
+  // Start with null + loading=true so server and client render the same initial
+  // state (SplashScreen). After mount, read localStorage. This avoids the Safari
+  // PWA problem where Next.js SSR hydrates with null (window undefined on server)
+  // and React keeps the null state, forcing the user to re-login every cold start.
+  const [session, setSession] = useState<GuardSession | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<PortalSection>(initialSection || "inicio");
+
+  useEffect(() => {
+    setSession(readStoredSession());
+    setSessionLoading(false);
+  }, []);
 
   function handleLogin(s: GuardSession) {
     setSession(s);
@@ -162,6 +170,10 @@ export function GuardPortalClient() {
     setActiveSection("inicio");
     try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
     toast.success("Sesión cerrada correctamente");
+  }
+
+  if (sessionLoading) {
+    return <SplashScreen />;
   }
 
   if (!session) {
