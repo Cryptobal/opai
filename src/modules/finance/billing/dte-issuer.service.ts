@@ -532,27 +532,26 @@ export async function issueDte(
   // issueDraft, por lo que facturas emitidas sin pasar por borrador
   // nunca se vinculaban a la proyección.
   //
-  // Skip NC/ND (56/61): no son items proyectados independientes —
-  // ajustan al DTE original.
-  if (input.dteType !== 56 && input.dteType !== 61) {
-    try {
-      const { matchDraftToOccurrence } = await import(
-        "@/modules/finance/cashflow/draft-occurrence-matcher.service"
-      );
-      await matchDraftToOccurrence({
-        tenantId,
-        dteId: dte.id,
-        crmAccountId: input.crmAccountId ?? null,
-        installationId: input.installationId ?? null,
-        expectedDate: emissionDbDate,
-        amountClp: Number(totalAmount),
-      });
-    } catch (err) {
-      console.error(
-        "[dte-issuer] auto-match cashflow falló (no bloqueante):",
-        err,
-      );
-    }
+  // Auto-match al item de contrato. El matcher mismo aplica el skip
+  // de NC/ND (56/61) internamente — defense in depth. Acá no
+  // duplicamos el guard.
+  try {
+    const { matchDraftToOccurrence } = await import(
+      "@/modules/finance/cashflow/draft-occurrence-matcher.service"
+    );
+    await matchDraftToOccurrence({
+      tenantId,
+      dteId: dte.id,
+      crmAccountId: input.crmAccountId ?? null,
+      installationId: input.installationId ?? null,
+      expectedDate: emissionDbDate,
+      amountClp: Number(totalAmount),
+    });
+  } catch (err) {
+    console.error(
+      "[dte-issuer] auto-match cashflow falló (no bloqueante):",
+      err,
+    );
   }
 
   // 11. Auto-generate journal entry for facturas (not boletas)

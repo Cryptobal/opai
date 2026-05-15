@@ -35,6 +35,23 @@ export async function matchDraftToOccurrence(
 ): Promise<{ occurrenceId: string } | null> {
   if (!input.crmAccountId && !input.installationId) return null;
 
+  // Guard NC/ND (dteType 56 / 61): nunca enganchar este matcher de
+  // contrato. NCs y ND ajustan al DTE original (vía referenceDteId),
+  // no son items proyectados independientes. Si la NC se enganchara,
+  // aparecería como "factura" dentro de la celda del contrato — lo
+  // que es contablemente incorrecto.
+  //
+  // Defense in depth: el guard vive acá en el matcher en vez de
+  // duplicarse en cada caller (dte-draft, dte-issuer, rcv-ventas-sync).
+  // Costo: una query de PK por llamada. Acceptable.
+  const dteMeta = await prisma.financeDte.findUnique({
+    where: { id: input.dteId },
+    select: { dteType: true },
+  });
+  if (!dteMeta || dteMeta.dteType === 56 || dteMeta.dteType === 61) {
+    return null;
+  }
+
   // Guard de idempotencia: si el DTE ya tiene una occurrence vinculada, no
   // buscar más. Esto permite llamar al matcher desde múltiples puntos
   // (createDraft, issueDraft, issueDte directo, RCV sync, backfill).
