@@ -96,7 +96,7 @@ export async function issuedDteHasStoredXmlBytes(
     ) AS ok
     FROM finance.finance_dtes d
     WHERE d.id = ${dteId}::uuid
-      AND d.tenant_id = ${tenantId}
+      AND d.tenant_id::text = ${tenantId}
       AND d.direction = 'ISSUED'::finance."FinanceDteDirection"
     LIMIT 1
   `;

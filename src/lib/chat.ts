@@ -3,7 +3,10 @@
  * Pusher client singleton + helper functions
  */
 
+import "server-only";
+
 import Pusher from "pusher";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 // ── Pusher Server Singleton ──
@@ -128,6 +131,13 @@ export async function batchUnreadCounts(
 ): Promise<Map<string, number>> {
   if (channelIds.length === 0) return new Map();
 
+  // Cast each id to uuid in SQL fragments so Postgres never compares uuid = text
+  // (Prisma's ANY(${arr}::uuid[]) often binds the array as text[] — error 42883).
+  const channelIdList = Prisma.join(
+    channelIds.map((id) => Prisma.sql`${id}::uuid`),
+    ", ",
+  );
+
   // Compare reader_type as text to avoid enum type resolution issues across environments
   const rows = excludeThreadReplies
     ? await prisma.$queryRaw<{ channel_id: string; unread_count: bigint }[]>`
@@ -136,8 +146,8 @@ export async function batchUnreadCounts(
         LEFT JOIN chat.read_cursors rc
           ON rc.channel_id = m.channel_id
           AND rc.reader_type::text = ${readerType}
-          AND rc.reader_id = ${readerId}
-        WHERE m.channel_id = ANY(${channelIds}::uuid[])
+          AND rc.reader_id::text = ${readerId}
+        WHERE m.channel_id IN (${channelIdList})
           AND m.deleted_at IS NULL
           AND m.thread_root_id IS NULL
           AND (rc.last_read_at IS NULL OR m.created_at > rc.last_read_at)
@@ -149,8 +159,8 @@ export async function batchUnreadCounts(
         LEFT JOIN chat.read_cursors rc
           ON rc.channel_id = m.channel_id
           AND rc.reader_type::text = ${readerType}
-          AND rc.reader_id = ${readerId}
-        WHERE m.channel_id = ANY(${channelIds}::uuid[])
+          AND rc.reader_id::text = ${readerId}
+        WHERE m.channel_id IN (${channelIdList})
           AND m.deleted_at IS NULL
           AND (rc.last_read_at IS NULL OR m.created_at > rc.last_read_at)
         GROUP BY m.channel_id

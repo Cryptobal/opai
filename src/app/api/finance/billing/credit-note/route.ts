@@ -165,6 +165,44 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Reflejar el estado de acreditación en el DTE original.
+    //   code=1 → setear voidedByCreditNoteId + voidedAt (sale del flujo y cobranza).
+    //   code=2 → no toca montos (corrige solo texto).
+    //   code=3 → incrementar creditedNetAmount con el neto de esta NC.
+    // No se reintenta si falla — la NC ya impactó al SII, no podemos
+    // revertir. Loggeamos explícito para que el operador pueda fixear
+    // a mano (raro: UPDATE local sobre row existente).
+    try {
+      if (code === 1) {
+        await prisma.financeDte.update({
+          where: { id: originalDte.id },
+          data: {
+            voidedByCreditNoteId: result.id,
+            voidedAt: new Date(),
+          },
+        });
+      } else if (code === 3) {
+        const ncTotalNet = Math.round(
+          body.lines.reduce(
+            (acc: number, l: { quantity?: number; unitPrice?: number }) =>
+              acc + (l.quantity ?? 0) * (l.unitPrice ?? 0),
+            0,
+          ),
+        );
+        await prisma.financeDte.update({
+          where: { id: originalDte.id },
+          data: {
+            creditedNetAmount: { increment: ncTotalNet },
+          },
+        });
+      }
+    } catch (updateErr) {
+      console.error(
+        "[Finance/Billing] NC emitida OK pero falló UPDATE del DTE original. Requiere fix manual:",
+        { originalDteId: originalDte.id, ncId: result.id, code, error: updateErr },
+      );
+    }
+
     return NextResponse.json({ success: true, data: result }, { status: 201 });
   } catch (error) {
     console.error("[Finance/Billing] Error issuing credit note:", error);

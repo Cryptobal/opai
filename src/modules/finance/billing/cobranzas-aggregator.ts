@@ -135,6 +135,11 @@ async function computeAgingForPeriod(
       date: { gte: range.from, lt: range.to },
       // Excluir NCs: las NCs no se "cobran".
       dteType: { notIn: [61] },
+      // Excluir facturas anuladas o con NC parcial — el saldo nominal
+      // ya no representa una deuda real. Mismo criterio que el flujo
+      // de caja en projection.service.
+      voidedByCreditNoteId: null,
+      creditedNetAmount: 0,
     },
     select: {
       id: true,
@@ -227,6 +232,9 @@ async function computeTopDebtorsForTenant(
       siiStatus: "ACCEPTED",
       paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE"] },
       dteType: { notIn: [61] },
+      // Excluir anuladas o con NC parcial — saldo nominal no es deuda real.
+      voidedByCreditNoteId: null,
+      creditedNetAmount: 0,
     },
     select: {
       crmAccountId: true,

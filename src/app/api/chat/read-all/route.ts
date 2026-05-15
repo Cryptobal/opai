@@ -4,6 +4,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { syncBadgeAcrossDevices } from "@/lib/pwa/push-service";
@@ -61,10 +62,15 @@ export async function POST() {
 
     const now = new Date();
 
+    const channelValues = Prisma.join(
+      channelIds.map((id) => Prisma.sql`(${id}::uuid)`),
+      ", ",
+    );
+
     await prisma.$executeRaw`
       INSERT INTO chat.read_cursors (id, tenant_id, channel_id, reader_type, reader_id, last_read_at)
       SELECT uuid_generate_v4(), ${ctx.tenantId}, cid, 'ADMIN', ${ctx.userId}, ${now}
-      FROM UNNEST(${channelIds}::uuid[]) AS cid
+      FROM (VALUES ${channelValues}) AS t(cid)
       ON CONFLICT (channel_id, reader_type, reader_id)
       DO UPDATE SET last_read_at = EXCLUDED.last_read_at
     `;

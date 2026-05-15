@@ -6624,6 +6624,22 @@ model FinanceDte {
 
   journalEntryId String?              @map("journal_entry_id") @db.Uuid
   journalEntry   FinanceJournalEntry? @relation(fields: [journalEntryId], references: [id])
+
+  /// NC con CodRef=1 (anulación total) que acreditó este DTE.
+  /// Cuando está seteado: la factura sale del flujo de caja y de
+  /// cobranzas. NO afecta libro IVA ni estado de resultados (esos
+  /// usan la fórmula contable bruto+ND-NC).
+  /// NULL = no acreditado. siiStatus se mantiene ACCEPTED.
+  voidedByCreditNoteId String?   @map("voided_by_credit_note_id") @db.Uuid
+  /// Timestamp del momento en que se emitió la NC anulante.
+  voidedAt             DateTime? @map("voided_at") @db.Timestamptz(6)
+  /// Suma de los netos de NCs CodRef=3 (acreditación parcial) vivas
+  /// sobre este DTE. > 0 cuando hay al menos una NC parcial.
+  /// Cuando > 0: la factura sale del flujo de caja y de cobranzas
+  /// (el usuario emite una factura nueva por el saldo). NO afecta
+  /// libro IVA ni estado de resultados.
+  creditedNetAmount    Decimal   @default(0) @map("credited_net_amount") @db.Decimal(15, 2)
+
   paymentStatus  FinancePaymentStatus @default(UNPAID) @map("payment_status")
   amountPaid     Decimal              @default(0) @map("amount_paid") @db.Decimal(14, 2)
   amountPending  Decimal              @default(0) @map("amount_pending") @db.Decimal(14, 2)
@@ -6689,6 +6705,7 @@ model FinanceDte {
   @@index([tenantId, date], map: "idx_finance_dte_date")
   @@index([tenantId, proformaStatus], map: "idx_finance_dte_proforma_status")
   @@index([tenantId, estadoPagoStatus], map: "idx_finance_dte_estado_pago_status")
+  @@index([tenantId, voidedByCreditNoteId], map: "idx_finance_dte_voided")
   @@map("finance_dtes")
   @@schema("finance")
 }

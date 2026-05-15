@@ -4,7 +4,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Building, MapPin, Mail, MailX, Eye } from "lucide-react";
-import { DataTable, EmptyState, type DataTableColumn } from "@/components/opai-ds";
+import { DataTable, EmptyState, Tag, type DataTableColumn } from "@/components/opai-ds";
 import { FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DteActionsMenu } from "../DteActionsMenu";
@@ -233,6 +233,7 @@ export function IssuedDtesTable({
       cell: (row) => {
         const isAnnulled =
           row.siiStatus === "ANNULLED" ||
+          !!row.voidedByCreditNoteId ||
           row.linkedCreditNote?.hasFullAnnulment === true;
         return (
           <span
@@ -268,22 +269,41 @@ export function IssuedDtesTable({
       id: "siiStatus",
       header: "Estado SII",
       width: "min-w-0 w-[128px]",
-      cell: (row) => (
-        <div className="flex flex-col items-start gap-1 min-w-0 max-w-full">
-          <SiiStatusPill siiStatus={row.siiStatus} />
-          {/* Evita duplicar “Pagada” junto a la columna Pago (“Pagado” / “Sin conciliar”). */}
-          {row.date &&
-          row.paymentStatus !== "PAID" &&
-          row.siiStatus !== "ANNULLED" ? (
-            <DteAgingBadge
-              date={row.date}
-              dueDate={row.dueDate}
-              paymentStatus={row.paymentStatus}
-              siiStatus={row.siiStatus}
-            />
-          ) : null}
-        </div>
-      ),
+      cell: (row) => {
+        // Estado de acreditación por NC: lee los campos persistidos
+        // en el original (más confiable que linkedCreditNote derivado).
+        const isVoidedByNc = !!row.voidedByCreditNoteId;
+        const partiallyCredited =
+          !isVoidedByNc && Number(row.creditedNetAmount ?? 0) > 0;
+        return (
+          <div className="flex flex-col items-start gap-1 min-w-0 max-w-full">
+            <SiiStatusPill siiStatus={row.siiStatus} />
+            {isVoidedByNc ? (
+              <Tag variant="danger" size="sm">
+                Anulada por NC
+              </Tag>
+            ) : partiallyCredited ? (
+              <Tag variant="warn" size="sm">
+                Acreditada parcial
+              </Tag>
+            ) : null}
+            {/* Evita duplicar “Pagada” junto a la columna Pago (“Pagado” / “Sin conciliar”).
+              También evita aging cuando la factura ya está fuera de cobranza por NC. */}
+            {row.date &&
+            row.paymentStatus !== "PAID" &&
+            row.siiStatus !== "ANNULLED" &&
+            !isVoidedByNc &&
+            !partiallyCredited ? (
+              <DteAgingBadge
+                date={row.date}
+                dueDate={row.dueDate}
+                paymentStatus={row.paymentStatus}
+                siiStatus={row.siiStatus}
+              />
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       id: "emailStatus",
@@ -424,6 +444,7 @@ export function IssuedDtesTable({
       rowKey={(row) => row.id}
       rowVariant={(row) =>
         row.siiStatus === "ANNULLED" ||
+        !!row.voidedByCreditNoteId ||
         row.linkedCreditNote?.hasFullAnnulment === true
           ? "danger"
           : "default"
