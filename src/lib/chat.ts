@@ -3,6 +3,8 @@
  * Pusher client singleton + helper functions
  */
 
+import "server-only";
+
 import Pusher from "pusher";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -133,7 +135,7 @@ export async function batchUnreadCounts(
   // (Prisma's ANY(${arr}::uuid[]) often binds the array as text[] — error 42883).
   const channelIdList = Prisma.join(
     channelIds.map((id) => Prisma.sql`${id}::uuid`),
-    Prisma.sql`, `,
+    ", ",
   );
 
   // Compare reader_type as text to avoid enum type resolution issues across environments

@@ -64,7 +64,7 @@ export async function POST() {
 
     const channelValues = Prisma.join(
       channelIds.map((id) => Prisma.sql`(${id}::uuid)`),
-      Prisma.sql`, `,
+      ", ",
     );
 
     await prisma.$executeRaw`
