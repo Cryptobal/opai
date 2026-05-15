@@ -63,6 +63,8 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
     "PAYROLL_LIQUIDO",
     "PAYROLL_PREVIRED",
     "TURNOS_EXTRA",
+    "QUINCENA",
+    "RETIRO_SOCIO",
     "IVA",
     "RECURRING_DTE",
     "OTHER",
