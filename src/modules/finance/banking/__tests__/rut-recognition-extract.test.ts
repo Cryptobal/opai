@@ -33,4 +33,33 @@ describe("extractCanonicalRutFromBankText", () => {
       ),
     ).toBe("799324601");
   });
+
+  it("toma el RUT completo, no una sub-ventana que pasa el DV por casualidad", () => {
+    expect(
+      extractCanonicalRutFromBankText(
+        "0789858403 Transf. S.C.R.B. INGENI",
+      ),
+    ).toBe("789858403");
+    expect(
+      extractCanonicalRutFromBankText(
+        "0779124363 Transf de AMIFACTOR SPA",
+      ),
+    ).toBe("779124363");
+    expect(
+      extractCanonicalRutFromBankText(
+        "0770090865 Transf. ASESORIAS INTEG",
+      ),
+    ).toBe("770090865");
+  });
+
+  it("no regresiona casos que ya andaban", () => {
+    expect(
+      extractCanonicalRutFromBankText(
+        "0760835072 Transf. CAPITAL EXPRESS",
+      ),
+    ).toBe("760835072");
+    expect(
+      extractCanonicalRutFromBankText("0778406233 Transf. Gard Spa"),
+    ).toBe("778406233");
+  });
 });
