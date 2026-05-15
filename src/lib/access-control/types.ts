@@ -75,6 +75,11 @@ export interface AccessControlConfigData {
   enabledRecordTypes: AccessRecordType[];
   useWhitelist: boolean;
   useBlacklist: boolean;
+  /** Tipos de registro que validan contra la lista blanca. Si vacío,
+   *  fallback a useWhitelist (legacy: aplica a los 5 defaults). */
+  whitelistRecordTypes?: string[];
+  /** Tipos de registro que validan contra la lista negra. */
+  blacklistRecordTypes?: string[];
   requireIdValidation: boolean;
   requirePhoto: boolean;
   requireSignature: boolean;
@@ -161,6 +166,9 @@ export interface AccessControlListEntry {
   allowedTimeTo?: string | null;
   isActive: boolean;
   recordType?: AccessRecordType | null;
+  /** Tipos de registro a los que aplica esta entrada. Si vacío, fallback
+   *  a [recordType ?? "visit"]. */
+  recordTypes?: AccessRecordType[];
   singleUse?: boolean;
   usedAt?: string | null;
   createdBy?: string | null;

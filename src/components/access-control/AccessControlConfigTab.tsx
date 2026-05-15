@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import {
   Settings,
   Save, Loader2, GripVertical, Plus, Trash2, ChevronDown, ChevronUp, Mail, Send, Pencil, Check, X,
-  Car, User as UserIcon, Hand,
+  Car, User as UserIcon, Hand, Shield, ShieldAlert,
 } from "lucide-react";
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor,
@@ -76,6 +76,8 @@ interface ConfigState {
   enabledRecordTypes: AccessRecordType[];
   useWhitelist: boolean;
   useBlacklist: boolean;
+  whitelistRecordTypes: string[];
+  blacklistRecordTypes: string[];
   requireIdValidation: boolean;
   requirePhoto: boolean;
   requireSignature: boolean;
@@ -102,6 +104,8 @@ export function AccessControlConfigTab({ installationId, apiBase }: Props) {
     enabledRecordTypes: [],
     useWhitelist: false,
     useBlacklist: false,
+    whitelistRecordTypes: [],
+    blacklistRecordTypes: [],
     requireIdValidation: false,
     requirePhoto: false,
     requireSignature: false,
@@ -137,6 +141,8 @@ export function AccessControlConfigTab({ installationId, apiBase }: Props) {
           enabledRecordTypes: json.data.enabledRecordTypes || [],
           useWhitelist: json.data.useWhitelist || false,
           useBlacklist: json.data.useBlacklist || false,
+          whitelistRecordTypes: json.data.whitelistRecordTypes || [],
+          blacklistRecordTypes: json.data.blacklistRecordTypes || [],
           requireIdValidation: json.data.requireIdValidation || false,
           requirePhoto: json.data.requirePhoto || false,
           requireSignature: json.data.requireSignature || false,
@@ -621,20 +627,49 @@ export function AccessControlConfigTab({ installationId, apiBase }: Props) {
 
       {/* Lists */}
       <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-4">
-        <h4 className="mb-3 text-sm font-medium text-zinc-300">Listas de Control</h4>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label className="text-zinc-400">Lista Blanca (Autorizados)</Label>
-            <Switch
-              checked={config.useWhitelist}
-              onCheckedChange={(v) => setConfig((p) => ({ ...p, useWhitelist: v }))}
+        <h4 className="mb-2 text-sm font-medium text-zinc-300">Listas de Control</h4>
+        <p className="mb-3 text-xs text-zinc-500">
+          Marca qué tipos de registro deben validar contra cada lista. Sin marcar = no se aplica.
+        </p>
+
+        <div className="space-y-4">
+          <div>
+            <div className="mb-2 flex items-center gap-2">
+              <Shield className="h-4 w-4 text-status-ok-fg" />
+              <Label className="text-zinc-300">Lista Blanca (Autorizados)</Label>
+            </div>
+            <ListTypeChips
+              enabledTypes={config.enabledRecordTypes}
+              selectedTypes={config.whitelistRecordTypes}
+              configForLabels={config}
+              onToggle={(type) =>
+                setConfig((p) => {
+                  const next = p.whitelistRecordTypes.includes(type)
+                    ? p.whitelistRecordTypes.filter((t) => t !== type)
+                    : [...p.whitelistRecordTypes, type];
+                  return { ...p, whitelistRecordTypes: next, useWhitelist: next.length > 0 };
+                })
+              }
             />
           </div>
-          <div className="flex items-center justify-between">
-            <Label className="text-zinc-400">Lista Negra (Bloqueados)</Label>
-            <Switch
-              checked={config.useBlacklist}
-              onCheckedChange={(v) => setConfig((p) => ({ ...p, useBlacklist: v }))}
+
+          <div>
+            <div className="mb-2 flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-status-danger-fg" />
+              <Label className="text-zinc-300">Lista Negra (Bloqueados)</Label>
+            </div>
+            <ListTypeChips
+              enabledTypes={config.enabledRecordTypes}
+              selectedTypes={config.blacklistRecordTypes}
+              configForLabels={config}
+              onToggle={(type) =>
+                setConfig((p) => {
+                  const next = p.blacklistRecordTypes.includes(type)
+                    ? p.blacklistRecordTypes.filter((t) => t !== type)
+                    : [...p.blacklistRecordTypes, type];
+                  return { ...p, blacklistRecordTypes: next, useBlacklist: next.length > 0 };
+                })
+              }
             />
           </div>
         </div>
@@ -1250,6 +1285,57 @@ function ScanModeChips({ modes, onToggle }: ScanModeChipsProps) {
     <div className="flex items-center gap-1">
       {chip("rut", "Cédula", UserIcon)}
       {chip("plate", "Patente", Car)}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Chips multi-select: marcar qué tipos de registro aplican a una lista.
+// Solo muestra los tipos actualmente habilitados en la instalación.
+// ═══════════════════════════════════════════════════════════════
+
+interface ListTypeChipsProps {
+  enabledTypes: string[];
+  selectedTypes: string[];
+  configForLabels: ConfigState;
+  onToggle: (type: string) => void;
+}
+
+function ListTypeChips({
+  enabledTypes,
+  selectedTypes,
+  configForLabels,
+  onToggle,
+}: ListTypeChipsProps) {
+  if (enabledTypes.length === 0) {
+    return (
+      <p className="text-xs italic text-zinc-500">
+        Habilita primero al menos un tipo de registro arriba.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {enabledTypes.map((type) => {
+        const active = selectedTypes.includes(type);
+        const Icon = getLucideIconByName(getRecordTypeIconName(type, configForLabels));
+        return (
+          <button
+            key={type}
+            type="button"
+            onClick={() => onToggle(type)}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              active
+                ? "border-status-info-border bg-status-info-soft text-status-info-fg"
+                : "border-zinc-700 bg-zinc-800 text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            <Icon className="h-3 w-3" />
+            {getRecordTypeLabel(type, configForLabels)}
+          </button>
+        );
+      })}
     </div>
   );
 }
