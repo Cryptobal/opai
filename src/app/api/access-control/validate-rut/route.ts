@@ -17,7 +17,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { rut, installationId } = body as { rut: string; installationId: string };
+    const { rut, installationId, recordType } = body as {
+      rut: string;
+      installationId: string;
+      recordType?: string;
+    };
 
     if (!rut || !validateRut(rut)) {
       return NextResponse.json(
@@ -27,21 +31,62 @@ export async function POST(request: NextRequest) {
     }
 
     const cleaned = cleanRut(rut);
+    const effectiveType = recordType || "visit";
 
-    // Check blacklist (local for this installation + global)
-    const blacklistEntry = await safeAccessControlQuery(
-      () => prisma.accessControlList.findFirst({
-        where: {
-          rut: cleaned,
-          listType: "blacklist",
-          isActive: true,
-          OR: [{ installationId }, { scope: "global" }],
+    // Resolver el tenantId de la instalación para filtrar global scope.
+    const installation = await prisma.crmInstallation.findUnique({
+      where: { id: installationId },
+      select: { tenantId: true },
+    });
+
+    // Cargar config para gating per-tipo de las listas.
+    const listConfig = await safeAccessControlQuery(
+      () => prisma.accessControlConfig.findUnique({
+        where: { installationId },
+        select: {
+          useWhitelist: true,
+          useBlacklist: true,
+          whitelistRecordTypes: true,
+          blacklistRecordTypes: true,
         },
       }),
       null,
     );
+    const DEFAULTS = ["visit", "provider", "vehicle", "staff", "delivery"];
+    const blacklistTypes = (listConfig?.blacklistRecordTypes ?? []).length > 0
+      ? listConfig!.blacklistRecordTypes
+      : (listConfig?.useBlacklist ? DEFAULTS : []);
+    const whitelistTypes = (listConfig?.whitelistRecordTypes ?? []).length > 0
+      ? listConfig!.whitelistRecordTypes
+      : (listConfig?.useWhitelist ? DEFAULTS : []);
 
-    if (blacklistEntry) {
+    // Check blacklist solo si este tipo aplica.
+    const blacklistEntry = blacklistTypes.includes(effectiveType)
+      ? await safeAccessControlQuery(
+          () => prisma.accessControlList.findFirst({
+            where: {
+              rut: cleaned,
+              listType: "blacklist",
+              isActive: true,
+              OR: [
+                { installationId },
+                ...(installation
+                  ? [{ scope: "global", tenantId: installation.tenantId } as const]
+                  : []),
+              ],
+            },
+          }),
+          null,
+        )
+      : null;
+
+    const blacklistMatchesType = blacklistEntry
+      ? ((blacklistEntry.recordTypes ?? []).length > 0
+          ? (blacklistEntry.recordTypes ?? []).includes(effectiveType)
+          : (blacklistEntry.recordType ?? "visit") === effectiveType)
+      : false;
+
+    if (blacklistEntry && blacklistMatchesType) {
       const result: RutValidationResult = {
         valid: true,
         listMatch: "blacklist",
@@ -57,20 +102,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, data: result });
     }
 
-    // Check whitelist (excluyendo entradas de uso único ya consumidas)
-    const whitelistEntry = await safeAccessControlQuery(
-      () => prisma.accessControlList.findFirst({
-        where: {
-          rut: cleaned,
-          installationId,
-          listType: "whitelist",
-          isActive: true,
-          // Excluir uso único ya consumido: válido si NO es uso único, o si lo es pero aún no se ha usado
-          OR: [{ singleUse: { not: true } }, { usedAt: null }],
-        },
-      }),
-      null,
-    );
+    // Check whitelist solo si este tipo aplica.
+    const whitelistEntryRaw = whitelistTypes.includes(effectiveType)
+      ? await safeAccessControlQuery(
+          () => prisma.accessControlList.findFirst({
+            where: {
+              rut: cleaned,
+              installationId,
+              listType: "whitelist",
+              isActive: true,
+              OR: [{ singleUse: { not: true } }, { usedAt: null }],
+            },
+          }),
+          null,
+        )
+      : null;
+
+    const whitelistMatchesType = whitelistEntryRaw
+      ? ((whitelistEntryRaw.recordTypes ?? []).length > 0
+          ? (whitelistEntryRaw.recordTypes ?? []).includes(effectiveType)
+          : (whitelistEntryRaw.recordType ?? "visit") === effectiveType)
+      : false;
+
+    const whitelistEntry = whitelistEntryRaw && whitelistMatchesType ? whitelistEntryRaw : null;
 
     if (whitelistEntry) {
       const withinSchedule = isWithinSchedule(

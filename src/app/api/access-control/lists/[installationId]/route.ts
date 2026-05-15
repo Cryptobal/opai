@@ -100,6 +100,14 @@ export async function POST(
     const cleanedRut = hasRut ? cleanRut(body.rut) : null;
     const cleanedPlate = hasPlate ? cleanPlate(body.vehiclePlate) : null;
 
+    const recordTypesInput: string[] = Array.isArray(body.recordTypes)
+      ? body.recordTypes.filter((t: unknown): t is string => typeof t === "string" && t.length > 0)
+      : [];
+    const recordTypeSingular: string = typeof body.recordType === "string" && body.recordType.length > 0
+      ? body.recordType
+      : "visit";
+    const finalRecordTypes = recordTypesInput.length > 0 ? recordTypesInput : [recordTypeSingular];
+
     const entry = await prisma.accessControlList.create({
       data: {
         tenantId: authCtx.tenantId,
@@ -116,7 +124,8 @@ export async function POST(
         allowedDays: Array.isArray(body.allowedDays) ? body.allowedDays : [],
         allowedTimeFrom: body.allowedTimeFrom || null,
         allowedTimeTo: body.allowedTimeTo || null,
-        recordType: body.recordType || "visit",
+        recordType: finalRecordTypes[0], // mirror legacy del primer elemento
+        recordTypes: finalRecordTypes,
         singleUse: !!body.singleUse,
         isActive: true,
         createdBy: body.createdBy || null,

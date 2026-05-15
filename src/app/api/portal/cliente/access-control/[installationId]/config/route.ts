@@ -16,6 +16,8 @@ const defaultConfig = (installationId: string) => ({
   enabledRecordTypes: ["visit", "provider", "vehicle", "staff", "delivery"],
   useWhitelist: false,
   useBlacklist: false,
+  whitelistRecordTypes: [] as string[],
+  blacklistRecordTypes: [] as string[],
   requireIdValidation: false,
   requirePhoto: false,
   requireSignature: false,
@@ -136,6 +138,20 @@ export async function PUT(
     if ("recordTypeScanModes" in body) {
       updateData.recordTypeScanModes = normalizeRecordTypeScanModes(body.recordTypeScanModes) as Prisma.InputJsonValue;
     }
+    if ("whitelistRecordTypes" in body) {
+      const arr = Array.isArray(body.whitelistRecordTypes)
+        ? (body.whitelistRecordTypes as unknown[]).filter((t): t is string => typeof t === "string")
+        : [];
+      updateData.whitelistRecordTypes = arr;
+      updateData.useWhitelist = arr.length > 0;
+    }
+    if ("blacklistRecordTypes" in body) {
+      const arr = Array.isArray(body.blacklistRecordTypes)
+        ? (body.blacklistRecordTypes as unknown[]).filter((t): t is string => typeof t === "string")
+        : [];
+      updateData.blacklistRecordTypes = arr;
+      updateData.useBlacklist = arr.length > 0;
+    }
 
     const config = await safeAccessControlQuery(
       () => prisma.accessControlConfig.upsert({
@@ -158,6 +174,12 @@ export async function PUT(
           recordTypeLabels: (body.recordTypeLabels ?? {}) as Prisma.InputJsonValue,
           recordTypeIcons: (body.recordTypeIcons ?? {}) as Prisma.InputJsonValue,
           recordTypeScanModes: normalizeRecordTypeScanModes(body.recordTypeScanModes) as Prisma.InputJsonValue,
+          whitelistRecordTypes: Array.isArray(body.whitelistRecordTypes)
+            ? (body.whitelistRecordTypes as unknown[]).filter((t): t is string => typeof t === "string")
+            : [],
+          blacklistRecordTypes: Array.isArray(body.blacklistRecordTypes)
+            ? (body.blacklistRecordTypes as unknown[]).filter((t): t is string => typeof t === "string")
+            : [],
         },
       }),
       null,
@@ -206,6 +228,20 @@ export async function PATCH(
     if ("recordTypeScanModes" in body) {
       updateData.recordTypeScanModes = normalizeRecordTypeScanModes(body.recordTypeScanModes) as Prisma.InputJsonValue;
     }
+    if ("whitelistRecordTypes" in body) {
+      const arr = Array.isArray(body.whitelistRecordTypes)
+        ? (body.whitelistRecordTypes as unknown[]).filter((t): t is string => typeof t === "string")
+        : [];
+      updateData.whitelistRecordTypes = arr;
+      updateData.useWhitelist = arr.length > 0;
+    }
+    if ("blacklistRecordTypes" in body) {
+      const arr = Array.isArray(body.blacklistRecordTypes)
+        ? (body.blacklistRecordTypes as unknown[]).filter((t): t is string => typeof t === "string")
+        : [];
+      updateData.blacklistRecordTypes = arr;
+      updateData.useBlacklist = arr.length > 0;
+    }
 
     const config = await safeAccessControlQuery(
       () => prisma.accessControlConfig.upsert({
@@ -226,6 +262,12 @@ export async function PATCH(
           recordTypeLabels: (body.recordTypeLabels ?? {}) as Prisma.InputJsonValue,
           recordTypeIcons: (body.recordTypeIcons ?? {}) as Prisma.InputJsonValue,
           recordTypeScanModes: normalizeRecordTypeScanModes(body.recordTypeScanModes) as Prisma.InputJsonValue,
+          whitelistRecordTypes: Array.isArray(body.whitelistRecordTypes)
+            ? (body.whitelistRecordTypes as unknown[]).filter((t): t is string => typeof t === "string")
+            : [],
+          blacklistRecordTypes: Array.isArray(body.blacklistRecordTypes)
+            ? (body.blacklistRecordTypes as unknown[]).filter((t): t is string => typeof t === "string")
+            : [],
         },
       }),
       null,

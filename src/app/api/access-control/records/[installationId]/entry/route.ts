@@ -35,23 +35,56 @@ export async function POST(
     const cleaned = body.rut ? cleanRut(body.rut) : null;
 
     // ── Defense in depth: revalidar listas server-side ──
+    // Las listas ahora se aplican por tipo de registro: solo se valida
+    // la blacklist/whitelist si el recordType del request está incluido
+    // en blacklistRecordTypes / whitelistRecordTypes del config. Si los
+    // arrays están vacíos, fallback a los booleans legacy interpretados
+    // como "aplica a los 5 defaults".
     if (cleaned) {
       const config = await prisma.accessControlConfig.findUnique({
         where: { installationId },
-        select: { useWhitelist: true, useBlacklist: true },
+        select: {
+          useWhitelist: true,
+          useBlacklist: true,
+          whitelistRecordTypes: true,
+          blacklistRecordTypes: true,
+        },
       });
 
-      if (config?.useBlacklist) {
-        const onBlacklist = await prisma.accessControlList.findFirst({
+      const DEFAULTS = ["visit", "provider", "vehicle", "staff", "delivery"];
+      const blacklistTypes = (config?.blacklistRecordTypes ?? []).length > 0
+        ? config!.blacklistRecordTypes
+        : (config?.useBlacklist ? DEFAULTS : []);
+      const whitelistTypes = (config?.whitelistRecordTypes ?? []).length > 0
+        ? config!.whitelistRecordTypes
+        : (config?.useWhitelist ? DEFAULTS : []);
+
+      const recordType = String(body.recordType ?? "visit");
+
+      if (blacklistTypes.includes(recordType)) {
+        // Cross-tenant safety: queries con scope:"global" deben filtrar
+        // por tenantId para no leakar entradas globales de otros tenants.
+        const candidate = await prisma.accessControlList.findFirst({
           where: {
             rut: cleaned,
             listType: "blacklist",
             isActive: true,
-            OR: [{ installationId }, { scope: "global" }],
+            OR: [
+              { installationId },
+              { scope: "global", tenantId: installation.tenantId },
+            ],
           },
-          select: { id: true, blockReason: true },
+          select: { id: true, blockReason: true, recordType: true, recordTypes: true },
         });
-        if (onBlacklist) {
+
+        const matchesType = (() => {
+          if (!candidate) return false;
+          const arr = candidate.recordTypes ?? [];
+          if (arr.length > 0) return arr.includes(recordType);
+          return (candidate.recordType ?? "visit") === recordType;
+        })();
+
+        if (candidate && matchesType) {
           if (body.entryGuardId) {
             await prisma.accessControlDeniedAttempt
               .create({
@@ -61,8 +94,8 @@ export async function POST(
                   guardId: body.entryGuardId,
                   rut: cleaned,
                   fullName: body.fullName || null,
-                  blacklistEntryId: onBlacklist.id,
-                  blockReason: onBlacklist.blockReason || "blacklist_match",
+                  blacklistEntryId: candidate.id,
+                  blockReason: candidate.blockReason || "blacklist_match",
                   gpsLat: body.gpsLat ?? null,
                   gpsLng: body.gpsLng ?? null,
                 },
@@ -82,16 +115,23 @@ export async function POST(
         }
       }
 
-      if (config?.useWhitelist) {
-        const onWhitelist = await prisma.accessControlList.findFirst({
+      if (whitelistTypes.includes(recordType)) {
+        const candidate = await prisma.accessControlList.findFirst({
           where: {
             rut: cleaned,
             installationId,
             listType: "whitelist",
             isActive: true,
           },
-          select: { id: true },
+          select: { id: true, recordType: true, recordTypes: true },
         });
+
+        const whitelistMatches = (() => {
+          if (!candidate) return false;
+          const arr = candidate.recordTypes ?? [];
+          if (arr.length > 0) return arr.includes(recordType);
+          return (candidate.recordType ?? "visit") === recordType;
+        })();
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -107,7 +147,7 @@ export async function POST(
           select: { id: true },
         });
 
-        if (!onWhitelist && !prereg) {
+        if (!(candidate && whitelistMatches) && !prereg) {
           if (body.entryGuardId) {
             await prisma.accessControlDeniedAttempt
               .create({
@@ -129,8 +169,8 @@ export async function POST(
           return NextResponse.json(
             {
               success: false,
-              error: "Persona no autorizada. No está en lista blanca ni pre-registrada.",
-              code: "NOT_IN_WHITELIST",
+              error: "Persona no autorizada (no está en lista blanca).",
+              code: "NO_IN_WHITELIST",
             },
             { status: 403 }
           );

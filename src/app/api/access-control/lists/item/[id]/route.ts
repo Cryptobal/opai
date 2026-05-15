@@ -78,7 +78,18 @@ export async function PUT(
         allowedDays: body.allowedDays,
         allowedTimeFrom: body.allowedTimeFrom,
         allowedTimeTo: body.allowedTimeTo,
-        recordType: body.recordType ?? undefined,
+        ...(Array.isArray(body.recordTypes) || typeof body.recordType === "string"
+          ? (() => {
+              const arr: string[] = Array.isArray(body.recordTypes)
+                ? body.recordTypes.filter((t: unknown): t is string => typeof t === "string" && t.length > 0)
+                : [];
+              const sing: string = typeof body.recordType === "string" && body.recordType.length > 0
+                ? body.recordType
+                : "visit";
+              const final = arr.length > 0 ? arr : [sing];
+              return { recordType: final[0], recordTypes: final };
+            })()
+          : {}),
         singleUse: typeof body.singleUse === "boolean" ? body.singleUse : undefined,
         isActive: body.isActive,
       },
