@@ -1453,6 +1453,19 @@ export async function buildProjection(
   const todayMidnight = new Date();
   todayMidnight.setHours(0, 0, 0, 0);
 
+  // ── ANCHOR DEL CIERRE SEMANAL ─────────────────────────────────────
+  // Si existe un cierre con isAnchor=true, la proyección hacia adelante
+  // parte de ahí, no de `opening`. Los buckets pre-anchor muestran saldo
+  // banco real histórico (auditoría visual). Sin anchor, comportamiento
+  // idéntico al previo.
+  const anchorClose = await prisma.financeCashflowWeeklyClose.findFirst({
+    where: { tenantId, isAnchor: true },
+    orderBy: { weekEndDate: "desc" },
+    select: { weekEndDate: true, bankBalanceClp: true },
+  });
+  const anchorBalance = anchorClose ? Number(anchorClose.bankBalanceClp) : null;
+  const anchorDate = anchorClose?.weekEndDate ?? null;
+
   // Snapshots de saldo: necesarios para calcular el saldo real por bucket de
   // forma independiente (no acumulativa). El algoritmo previo arrancaba en
   // `opening` (que ya es el saldo de hoy) y sumaba `actualBankNet` de cada
@@ -1509,12 +1522,50 @@ export async function buildProjection(
     txsByAccount.set(t.bankAccountId, arr);
   }
 
-  let runningProjected = opening;
+  // Si hay anchor, el runningProjected arranca diferente:
+  //  - buckets con end <= anchorDate → mostramos saldo banco real al b.end
+  //                                    (ya disponible via getRealBankBalanceAt)
+  //  - primer bucket con start > anchorDate → runningProjected = anchorBalance + b.net
+  //  - buckets siguientes → runningProjected += b.net
+  // Sin anchor: igual que antes (runningProjected = opening; runningProjected += b.net).
+  let runningProjected = anchorBalance ?? opening;
+  let crossedAnchor = anchorDate === null; // sin anchor, ya estamos "post-anchor" desde el bucket 0
   let lastRealBucketIdx = -1;
   const cumulativePoints: CumulativeBalancePoint[] = buckets.map((b, idx) => {
-    runningProjected += b.net;
-
     const isPastOrCurrent = b.start.getTime() <= todayMidnight.getTime();
+    const cutoff =
+      b.end.getTime() <= todayMidnight.getTime() ? b.end : todayMidnight;
+
+    // Caso A: bucket totalmente pre-anchor (end <= anchorDate)
+    if (anchorDate !== null && b.end.getTime() <= anchorDate.getTime()) {
+      const realBank = getRealBankBalanceAt(
+        cutoff,
+        accountIds,
+        snapshotsByAccount,
+        txsByAccount,
+      );
+      if (realBank !== null) runningProjected = realBank;
+      lastRealBucketIdx = idx;
+      return {
+        bucketKey: b.key,
+        projectedClp: realBank ?? runningProjected,
+        realBankClp: realBank,
+        cumulativeBankVarianceClp: 0,
+      };
+    }
+
+    // Caso B: bucket que cruza el anchor (start <= anchorDate < end) o primer post-anchor
+    if (!crossedAnchor && anchorDate !== null && b.start.getTime() <= anchorDate.getTime()) {
+      runningProjected = (anchorBalance as number) + b.net;
+      crossedAnchor = true;
+    } else if (!crossedAnchor && anchorDate !== null && b.start.getTime() > anchorDate.getTime()) {
+      runningProjected = (anchorBalance as number) + b.net;
+      crossedAnchor = true;
+    } else {
+      // Buckets siguientes (post-anchor) o sin anchor en absoluto
+      runningProjected += b.net;
+    }
+
     if (!isPastOrCurrent) {
       return {
         bucketKey: b.key,
@@ -1524,19 +1575,12 @@ export async function buildProjection(
       };
     }
 
-    // Para buckets pasados/actuales, calculamos el saldo real al cierre del
-    // bucket de forma independiente. Si b.end > today (caso del bucket
-    // actual), recortamos a hoy: el saldo real sólo va hasta hoy.
-    const cutoff =
-      b.end.getTime() <= todayMidnight.getTime() ? b.end : todayMidnight;
-
     const realBank = getRealBankBalanceAt(
       cutoff,
       accountIds,
       snapshotsByAccount,
       txsByAccount,
     );
-
     lastRealBucketIdx = idx;
     return {
       bucketKey: b.key,
@@ -1575,6 +1619,12 @@ export async function buildProjection(
     cumulativeBalances,
     cumulativePoints,
     unresolvedBankLinks,
+    anchor: anchorClose
+      ? {
+          weekEndDate: anchorClose.weekEndDate.toISOString(),
+          bankBalanceClp: Number(anchorClose.bankBalanceClp),
+        }
+      : null,
   };
 }
 

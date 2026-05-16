@@ -32,6 +32,15 @@ export default async function CuadraturaPage() {
           </h1>
         </div>
       </div>
+      <div className="px-4 py-3 bg-status-info-soft border border-status-info-border rounded-md text-sm text-status-info-fg">
+        <strong>Esta vista pasó a ser solo de auditoría.</strong> Para cerrar
+        la semana y conciliar saldo banco vs proyectado, usa el botón "Cerrar
+        semana" en la celda del bucket actual de{" "}
+        <Link href="/finanzas/flujo-caja" className="underline">
+          la grilla principal
+        </Link>
+        .
+      </div>
       <p className="text-xs text-muted-foreground">
         Mantén tu flujo de caja siempre cuadrado con el saldo real de tus
         cuentas. Resuelve movimientos huérfanos, occurrences no cumplidas, y

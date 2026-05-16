@@ -141,44 +141,48 @@ export async function computeWeeklyCloseSnapshot(
   };
 }
 
+export interface PersistWeeklyCloseInput {
+  weekEnd: Date;
+  notes?: string;
+  /** Si true, marca este cierre como anchor de la proyección y desactiva
+   *  cualquier anchor previo del tenant en la misma transacción. */
+  anchor?: boolean;
+  /** Cómo se resolvió la diferencia banco vs proyectado de la semana.
+   *  Default 'PENDING' (drift no resuelto formalmente). */
+  varianceResolution?: "ADJUSTED" | "ACCEPTED" | "PENDING";
+}
+
 /**
  * Persiste el snapshot de cierre. Idempotente (upsert por tenant+weekEndDate).
+ *
+ * Si `anchor=true`, desactiva el anchor previo del tenant antes de prender
+ * el nuevo, todo en una sola transacción para que nunca haya dos anchors
+ * activos simultáneamente (también protegido por el índice único parcial
+ * uq_cashflow_weekly_close_anchor_per_tenant).
  */
 export async function persistWeeklyClose(
   tenantId: string,
   userId: string | null,
-  weekEnd: Date,
-  notes?: string,
+  input: PersistWeeklyCloseInput,
 ) {
-  const snap = await computeWeeklyCloseSnapshot(tenantId, weekEnd);
+  const snap = await computeWeeklyCloseSnapshot(tenantId, input.weekEnd);
   const unassignedTotal = snap.unassignedBank.reduce((s, b) => s + Math.abs(b.amount), 0);
   const unfulfilledTotal = snap.unfulfilledProj.reduce((s, p) => s + p.amountClp, 0);
+  const anchor = input.anchor ?? false;
+  const varianceResolution = input.varianceResolution ?? "PENDING";
 
-  const existing = await prisma.financeCashflowWeeklyClose.findFirst({
-    where: { tenantId, weekEndDate: snap.weekEndDate },
-  });
-  if (existing) {
-    return prisma.financeCashflowWeeklyClose.update({
-      where: { id: existing.id },
-      data: {
-        bankBalanceClp: snap.bankBalanceClp,
-        projectedBalanceClp: snap.projectedBalanceClp,
-        varianceClp: snap.varianceClp,
-        unassignedBankCount: snap.unassignedBank.length,
-        unassignedBankTotalClp: unassignedTotal,
-        unfulfilledProjCount: snap.unfulfilledProj.length,
-        unfulfilledProjTotalClp: unfulfilledTotal,
-        closedBy: userId ?? undefined,
-        closedAt: new Date(),
-        notes,
-      },
+  return prisma.$transaction(async (tx) => {
+    if (anchor) {
+      await tx.financeCashflowWeeklyClose.updateMany({
+        where: { tenantId, isAnchor: true },
+        data: { isAnchor: false },
+      });
+    }
+
+    const existing = await tx.financeCashflowWeeklyClose.findFirst({
+      where: { tenantId, weekEndDate: snap.weekEndDate },
     });
-  }
-  return prisma.financeCashflowWeeklyClose.create({
-    data: {
-      tenantId,
-      weekStartDate: snap.weekStartDate,
-      weekEndDate: snap.weekEndDate,
+    const data = {
       bankBalanceClp: snap.bankBalanceClp,
       projectedBalanceClp: snap.projectedBalanceClp,
       varianceClp: snap.varianceClp,
@@ -187,8 +191,26 @@ export async function persistWeeklyClose(
       unfulfilledProjCount: snap.unfulfilledProj.length,
       unfulfilledProjTotalClp: unfulfilledTotal,
       closedBy: userId ?? undefined,
-      notes,
-    },
+      closedAt: new Date(),
+      notes: input.notes,
+      isAnchor: anchor,
+      varianceResolution,
+    };
+
+    if (existing) {
+      return tx.financeCashflowWeeklyClose.update({
+        where: { id: existing.id },
+        data,
+      });
+    }
+    return tx.financeCashflowWeeklyClose.create({
+      data: {
+        tenantId,
+        weekStartDate: snap.weekStartDate,
+        weekEndDate: snap.weekEndDate,
+        ...data,
+      },
+    });
   });
 }
 
