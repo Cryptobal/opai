@@ -39,6 +39,7 @@ import {
   FileText,
   Wallet,
   ChevronRight,
+  CalendarClock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -115,6 +116,7 @@ const TOP_TABS = [
   { id: "costcenters", label: "Centros de Costo", icon: Building2 },
   { id: "dte", label: "Facturación Electrónica", icon: FileText, href: "/opai/configuracion/finanzas/dte" },
   { id: "cashflow", label: "Flujo de caja", icon: Wallet, href: "/opai/configuracion/finanzas/flujo-caja" },
+  { id: "contratos", label: "Contratos — Ciclo de cobro", icon: CalendarClock, href: "/finanzas/configuracion/contratos-cobro" },
 ] as const;
 
 type TopTabId = (typeof TOP_TABS)[number]["id"];

@@ -10,12 +10,12 @@ import { Settings2 } from "lucide-react";
 import { ContractsCobroBatchTable } from "@/components/finance/configuracion/ContractsCobroBatchTable";
 
 /**
- * Vista temporal de setup masivo del calendario de cobro por contrato.
+ * Centro de configuración masiva del calendario de cobro por contrato.
  *
- * No va en el menú principal — solo accesible vía URL directa. Después
- * del setup inicial (25-30 contratos del tenant), queda como herramienta
- * de soporte para ajustes batch. Para edición individual se usa el
- * modal "Editar ítem del flujo de caja" desde la página del contrato.
+ * Accesible desde Configuración Finanzas → "Contratos — Ciclo de cobro".
+ * Permite editar en batch el calendario de emisión y cobro de todos los
+ * contratos del tenant. Para edición individual se usa el modal
+ * "Editar ítem del flujo de caja" desde la página del contrato.
  *
  * Requiere capability `cashflow_configure`.
  */
@@ -33,16 +33,16 @@ export default async function ContratosCobroPage() {
       <PageHero
         icon={<Settings2 />}
         iconTone="teal"
-        title="Configuración de contratos — Ciclo de cobro"
-        description="Define el calendario de emisión y cobro para cada contrato del tenant. Pantalla de setup masivo."
+        title="Contratos — Ciclo de cobro"
+        description="Centro de configuración masiva del calendario de facturación y cobro por contrato."
       />
-      <div className="rounded-md bg-status-warn-soft text-status-warn-fg p-3 text-sm">
-        Esta es una pantalla de configuración masiva. Para edición
-        individual, usá el form de &quot;Editar ítem del flujo de caja&quot;
-        desde cada contrato. Cuando un contrato emite proforma, los
-        campos &quot;Día factura&quot; y &quot;Mes factura&quot; no
-        aplican (la fecha se deriva de proforma + días) y aparecen
-        deshabilitados.
+      <div className="rounded-md border border-ds-border-default bg-ds-surface-1 p-3 text-xs text-ds-text-3">
+        Edita el calendario de emisión y cobro de todos los contratos en una
+        sola vista. Los cambios se aplican en batch al guardar. Para edición
+        individual, podés usar el form desde cada contrato del cliente.
+        Cuando un contrato emite proforma, los campos &quot;Día factura&quot;
+        y &quot;Mes factura&quot; no aplican (la fecha se deriva de proforma
+        + días) y aparecen deshabilitados.
       </div>
       <ContractsCobroBatchTable />
     </div>
