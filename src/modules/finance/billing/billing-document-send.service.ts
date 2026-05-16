@@ -39,6 +39,13 @@ export interface SendBillingDocumentInput {
   customIntroHtml?: string | null;
   signerOverrides?: string[];
   triggeredBy: string;
+  /**
+   * Si true, el envío fue disparado por el cron de facturación recurrente
+   * (no por una acción manual del usuario). Determina el `kind` del log:
+   *   - true  → AUTO_PROFORMA / AUTO_ESTADO_PAGO
+   *   - false → MANUAL_PROFORMA / MANUAL_ESTADO_PAGO (default)
+   */
+  isAutoFromCron?: boolean;
 }
 
 export interface SendBillingDocumentResult {
@@ -62,11 +69,22 @@ function renderTemplate(
   });
 }
 
+/** Mapea la variante + origen (cron vs manual) a los enum values de BD. */
+function variantToKinds(variant: BillingDocVariant): {
+  successKind: BillingDocEmailKind;
+  failKind: BillingDocEmailKind;
+} {
+  return variant === "PROFORMA"
+    ? { successKind: "proforma_sent", failKind: "proforma_failed" }
+    : { successKind: "estado_pago_sent", failKind: "estado_pago_failed" };
+}
+
 async function logEmail(
   tenantId: string,
   dteId: string,
   data: {
     kind: BillingDocEmailKind;
+    isAutoFromCron: boolean;
     to: string[];
     cc: string[];
     bcc: string[];
@@ -77,23 +95,27 @@ async function logEmail(
     sentBy: string;
   },
 ) {
-  // Post-Fase 1.C: FinanceDteEmailLog.kind es enum cerrado (AUTO_RECEIVER,
-  // AUTO_BACKOFFICE, MANUAL_RESEND, MANUAL_OVERRIDE_RECIPIENT,
-  // MANUAL_BACKOFFICE) y no admite los valores de billing-doc
-  // (proforma_*, estado_pago_*). Mapeamos a MANUAL_RESEND y dejamos
-  // la discriminación de variante en el subject. La discriminación
-  // proforma vs estado_pago tendrá su propio enum / tabla en Fase 2.
-  void data.kind;
+  const isProforma =
+    data.kind === "proforma_sent" || data.kind === "proforma_failed";
+  const enumKind: "AUTO_PROFORMA" | "AUTO_ESTADO_PAGO" | "MANUAL_PROFORMA" | "MANUAL_ESTADO_PAGO" =
+    data.isAutoFromCron
+      ? isProforma
+        ? "AUTO_PROFORMA"
+        : "AUTO_ESTADO_PAGO"
+      : isProforma
+        ? "MANUAL_PROFORMA"
+        : "MANUAL_ESTADO_PAGO";
+
   try {
     await prisma.financeDteEmailLog.create({
       data: {
         tenantId,
         dteId,
-        kind: "MANUAL_RESEND",
+        kind: enumKind,
         to: data.to,
         cc: data.cc,
         bcc: data.bcc,
-        subject: data.subject,
+        subject: data.subject || `(${data.kind} — sin asunto resuelto)`,
         attachments: "PDF_ONLY",
         status: data.status === "sent" ? "SENT" : "FAILED",
         resendId: data.resendId ?? null,
@@ -132,11 +154,21 @@ export async function sendBillingDocument(
 
   // Reglas de negocio según variante.
   if (input.variant === "PROFORMA" && dte.siiStatus !== "DRAFT") {
-    return {
-      success: false,
-      error:
-        "No se puede enviar proforma de un DTE ya emitido. Para reenviar el DTE, usar 'Reenviar email'.",
-    };
+    const { failKind } = variantToKinds(input.variant);
+    const errorMsg =
+      "No se puede enviar proforma de un DTE ya emitido. Para reenviar el DTE, usar 'Reenviar email'.";
+    await logEmail(tenantId, input.dteId, {
+      kind: failKind,
+      isAutoFromCron: input.isAutoFromCron ?? false,
+      to: [],
+      cc: [],
+      bcc: [],
+      subject: "(envío no intentado: DTE ya emitido)",
+      status: "failed",
+      errorMessage: errorMsg,
+      sentBy: input.triggeredBy,
+    });
+    return { success: false, error: errorMsg };
   }
   // ESTADO_DE_PAGO se permite siempre (incluye DTEs ya emitidos).
 
@@ -186,21 +218,52 @@ export async function sendBillingDocument(
     primary = dte.receiverEmail;
   }
   if (!primary) {
-    return {
-      success: false,
-      error:
-        "No hay destinatario configurado. Editá el borrador y elegí contactos del cliente en \"Documento de Cobro\".",
-    };
+    const { failKind } = variantToKinds(input.variant);
+    const errorMsg =
+      "No hay destinatario configurado. Editá el borrador y elegí contactos del cliente en \"Documento de Cobro\".";
+    await logEmail(tenantId, input.dteId, {
+      kind: failKind,
+      isAutoFromCron: input.isAutoFromCron ?? false,
+      to: [],
+      cc: [],
+      bcc: [],
+      subject: "(envío no intentado: sin destinatario)",
+      status: "failed",
+      errorMessage: errorMsg,
+      sentBy: input.triggeredBy,
+    });
+    return { success: false, error: errorMsg };
   }
 
-  // Construir props + renderizar PDF.
-  const billingProps = await buildBillingDocProps(
-    tenantId,
-    input.dteId,
-    input.variant,
-    { signerOverrideIds: input.signerOverrides },
-  );
-  const pdfBuffer = await renderBillingDocPdf(billingProps);
+  // Construir props + renderizar PDF dentro de try/catch para que cualquier
+  // error (fuente faltante, logo R2 inaccesible, relación CRM rota) quede
+  // registrado en FinanceDteEmailLog en vez de silenciarse o propagar al cron.
+  let billingProps;
+  let pdfBuffer;
+  try {
+    billingProps = await buildBillingDocProps(
+      tenantId,
+      input.dteId,
+      input.variant,
+      { signerOverrideIds: input.signerOverrides },
+    );
+    pdfBuffer = await renderBillingDocPdf(billingProps);
+  } catch (err) {
+    const { failKind } = variantToKinds(input.variant);
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    await logEmail(tenantId, input.dteId, {
+      kind: failKind,
+      isAutoFromCron: input.isAutoFromCron ?? false,
+      to: [primary],
+      cc: [],
+      bcc: [],
+      subject: "(envío no intentado: error generando PDF)",
+      status: "failed",
+      errorMessage: `Error generando PDF: ${errorMsg}`,
+      sentBy: input.triggeredBy,
+    });
+    return { success: false, error: `Error generando PDF: ${errorMsg}` };
+  }
 
   // Branding y email config del tenant.
   const tenantConfig = await prisma.tenantDteConfig.findUnique({
@@ -306,10 +369,7 @@ export async function sendBillingDocument(
       ? `proforma-${dte.folio > 0 ? dte.folio : "draft"}.pdf`
       : `estado-pago-${billingProps.document.dateIso}.pdf`;
 
-  const successKind: BillingDocEmailKind =
-    input.variant === "PROFORMA" ? "proforma_sent" : "estado_pago_sent";
-  const failKind: BillingDocEmailKind =
-    input.variant === "PROFORMA" ? "proforma_failed" : "estado_pago_failed";
+  const { successKind, failKind } = variantToKinds(input.variant);
 
   try {
     const result = await resend.emails.send({
@@ -326,6 +386,7 @@ export async function sendBillingDocument(
     if (result.error) {
       await logEmail(tenantId, input.dteId, {
         kind: failKind,
+        isAutoFromCron: input.isAutoFromCron ?? false,
         to: [primary],
         cc: ccList,
         bcc: bccList,
@@ -361,6 +422,7 @@ export async function sendBillingDocument(
 
     await logEmail(tenantId, input.dteId, {
       kind: successKind,
+      isAutoFromCron: input.isAutoFromCron ?? false,
       to: [primary],
       cc: ccList,
       bcc: bccList,
@@ -379,6 +441,7 @@ export async function sendBillingDocument(
     const message = err instanceof Error ? err.message : String(err);
     await logEmail(tenantId, input.dteId, {
       kind: failKind,
+      isAutoFromCron: input.isAutoFromCron ?? false,
       to: [primary],
       cc: ccList,
       bcc: bccList,

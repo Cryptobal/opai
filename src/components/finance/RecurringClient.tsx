@@ -40,6 +40,8 @@ import {
   Receipt,
   ClipboardList,
   Copy,
+  AlertTriangle,
+  SendHorizonal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,6 +69,10 @@ import {
   type MobileActionSheetItem,
 } from "@/components/finance/mobile";
 import { RecurringTemplateForm } from "./RecurringTemplateForm";
+import {
+  BillingDocSendModal,
+  type BillingDocVariant as BillingDocVariantModal,
+} from "@/components/finance/billing-doc-send/BillingDocSendModal";
 
 const FREQ_LABELS: Record<string, string> = {
   monthly: "Mensual",
@@ -113,6 +119,14 @@ export type RecurringTemplateRow = {
   autoSendProforma?: boolean;
   /** Envío automático del Estado de Pago. */
   autoSendPaymentStatement?: boolean;
+  /**
+   * Errores del último run recurrente, si al menos un auto-envío falló
+   * (autoSendIssues del FinanceDteRecurringRun). Null si todo fue OK.
+   * Shape: Array<{ variant: string; error: string; threw: boolean }>
+   */
+  lastRunIssues?: Array<{ variant: string; error: string; threw: boolean }> | null;
+  /** ID del DTE generado en el último run (para abrir BillingDocSendModal). */
+  lastRunDteId?: string | null;
   /** Cliente CRM asociado (enriquecido en GET, null si es manual). */
   crmAccount?: {
     id: string;
@@ -178,6 +192,8 @@ interface Props {
 type StatusFilter = "ALL" | "ACTIVE" | "PAUSED";
 type SortKey = "next_asc" | "next_desc" | "name_asc" | "last_desc";
 
+type AutoSendIssue = { variant: string; error: string; threw: boolean };
+
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "next_asc", label: "Próxima ejecución ↑" },
   { value: "next_desc", label: "Próxima ejecución ↓" },
@@ -228,6 +244,22 @@ export function RecurringClient({
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("ALL");
   const [sort, setSort] = React.useState<SortKey>("next_asc");
+  const [autoSendErrorsOnly, setAutoSendErrorsOnly] = React.useState(false);
+
+  // ── Modal de detalle de errores de auto-send ──
+  const [issueDetailFor, setIssueDetailFor] = React.useState<{
+    templateName: string;
+    receiverName: string;
+    issues: AutoSendIssue[];
+    dteId: string | null;
+  } | null>(null);
+
+  // ── Modal de reenvío manual (BillingDocSendModal) ──
+  const [resendModal, setResendModal] = React.useState<{
+    dteId: string;
+    variant: BillingDocVariantModal;
+    receiverName: string;
+  } | null>(null);
 
   const reload = React.useCallback(async () => {
     setReloading(true);
@@ -261,9 +293,16 @@ export function RecurringClient({
       if (!res.ok) throw new Error(j.error || "Error al generar borrador");
       const status = j.data?.status;
       if (status === "success") {
-        toast.success(
-          "Borrador generado desde la plantilla. Lo encontrás en \"DTEs Emitidos\" con el badge \"Borrador\".",
-        );
+        const issues = j.data?.autoSendIssues as AutoSendIssue[] | undefined;
+        if (issues && issues.length > 0) {
+          toast.warning(
+            `Borrador generado, pero ${issues.length} auto-envío${issues.length === 1 ? "" : "s"} fallaron. Reenviá manualmente desde el badge ⚠️ de la plantilla.`,
+          );
+        } else {
+          toast.success(
+            "Borrador generado desde la plantilla. Lo encontrás en \"DTEs Emitidos\" con el badge \"Borrador\".",
+          );
+        }
       } else if (status === "failed") {
         toast.error(j.data?.error || "Falla al generar borrador");
       } else {
@@ -359,6 +398,11 @@ export function RecurringClient({
     const rows = templates.filter((t) => {
       if (statusFilter === "ACTIVE" && !t.isActive) return false;
       if (statusFilter === "PAUSED" && t.isActive) return false;
+      if (autoSendErrorsOnly) {
+        const hasIssues =
+          Array.isArray(t.lastRunIssues) && t.lastRunIssues.length > 0;
+        if (!hasIssues) return false;
+      }
       if (!q) return true;
       const hay =
         t.name.toLowerCase().includes(q) ||
@@ -372,13 +416,15 @@ export function RecurringClient({
       return hay;
     });
     return sortTemplates(rows, sort);
-  }, [templates, search, statusFilter, sort]);
+  }, [templates, search, statusFilter, sort, autoSendErrorsOnly]);
 
-  const hasActiveFilters = !!search.trim() || statusFilter !== "ALL";
+  const hasActiveFilters =
+    !!search.trim() || statusFilter !== "ALL" || autoSendErrorsOnly;
 
   const clearFilters = () => {
     setSearch("");
     setStatusFilter("ALL");
+    setAutoSendErrorsOnly(false);
   };
 
   const actionRow = actionFor ? templates.find((r) => r.id === actionFor) : null;
@@ -637,6 +683,39 @@ export function RecurringClient({
       },
     },
     {
+      id: "autoSendStatus",
+      header: "Auto-envío",
+      align: "center",
+      width: "w-[96px]",
+      cell: (t) => {
+        const issues = Array.isArray(t.lastRunIssues) && t.lastRunIssues.length > 0
+          ? t.lastRunIssues
+          : null;
+        if (!issues) {
+          return <span className="text-xs text-ds-text-4">—</span>;
+        }
+        return (
+          <button
+            type="button"
+            title={`${issues.length} error${issues.length === 1 ? "" : "es"} de auto-envío. Click para ver detalle.`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIssueDetailFor({
+                templateName: t.name,
+                receiverName: t.receiverName,
+                issues,
+                dteId: t.lastRunDteId ?? null,
+              });
+            }}
+            className="inline-flex items-center gap-1 px-1.5 h-6 rounded-md text-xs font-medium bg-status-warn-soft text-status-warn-fg border border-status-warn-border hover:bg-status-warn-soft/80 transition-colors"
+          >
+            <AlertTriangle className="h-3 w-3 shrink-0" />
+            <span>{issues.length} error{issues.length === 1 ? "" : "es"}</span>
+          </button>
+        );
+      },
+    },
+    {
       id: "runCount",
       header: "Corridas",
       align: "right",
@@ -855,6 +934,19 @@ export function RecurringClient({
             </button>
           );
         })}
+        <button
+          type="button"
+          onClick={() => setAutoSendErrorsOnly((v) => !v)}
+          className={cn(
+            "h-7 px-2.5 rounded-full border text-xs font-medium transition-colors inline-flex items-center gap-1",
+            autoSendErrorsOnly
+              ? "bg-status-warn-soft border-status-warn-border text-status-warn-fg"
+              : "bg-ds-surface-2 border-ds-border-default text-ds-text-3 hover:bg-ds-surface-3",
+          )}
+        >
+          <AlertTriangle className="h-3 w-3" />
+          Con errores de auto-envío
+        </button>
         {hasActiveFilters && (
           <button
             type="button"
@@ -1019,7 +1111,11 @@ export function RecurringClient({
                           label: "Estado de pago",
                         },
                       ].filter(Boolean) as { icon: React.ReactNode; label: string }[];
-                      if (refs.length === 0 && sends.length === 0) return null;
+                      const issues =
+                        Array.isArray(t.lastRunIssues) && t.lastRunIssues.length > 0
+                          ? t.lastRunIssues
+                          : null;
+                      if (refs.length === 0 && sends.length === 0 && !issues) return null;
                       return (
                         <div className="flex flex-wrap items-center gap-1.5 text-xs">
                           {refs.length > 0 && (
@@ -1042,6 +1138,24 @@ export function RecurringClient({
                               {s.label}
                             </span>
                           ))}
+                          {issues && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIssueDetailFor({
+                                  templateName: t.name,
+                                  receiverName: t.receiverName,
+                                  issues,
+                                  dteId: t.lastRunDteId ?? null,
+                                });
+                              }}
+                              className="inline-flex items-center gap-1 px-1.5 h-5 rounded bg-status-warn-soft text-status-warn-fg border border-status-warn-border text-xs font-medium"
+                            >
+                              <AlertTriangle className="h-3 w-3 shrink-0" />
+                              ⚠️ {issues.length} error{issues.length === 1 ? "" : "es"} auto-envío
+                            </button>
+                          )}
                         </div>
                       );
                     })()}
@@ -1138,6 +1252,134 @@ export function RecurringClient({
           router.refresh();
         }}
       />
+
+      {/* ── Modal de detalle de errores de auto-envío ── */}
+      {issueDetailFor && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Errores de auto-envío"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={() => setIssueDetailFor(null)}
+        >
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div
+            className="relative z-10 w-full max-w-md rounded-xl bg-ds-surface-1 border border-ds-border-default shadow-lg p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-status-warn-soft text-status-warn-fg">
+                <AlertTriangle className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-ds-text-1 leading-snug">
+                  Errores de auto-envío
+                </p>
+                <p className="text-xs text-ds-text-3 mt-0.5 truncate">
+                  {issueDetailFor.templateName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIssueDetailFor(null)}
+                className="mt-0.5 h-7 w-7 inline-flex items-center justify-center rounded-md text-ds-text-3 hover:bg-ds-surface-2 transition-colors"
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <ul className="space-y-2">
+              {issueDetailFor.issues.map((issue, i) => (
+                <li
+                  key={i}
+                  className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3 space-y-1"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-status-warn-fg">
+                      {issue.variant === "PROFORMA" ? "Proforma" : "Estado de Pago"}
+                    </span>
+                    {issue.threw && (
+                      <span className="text-[12px] px-1.5 py-0.5 rounded bg-status-danger-soft text-status-danger-fg border border-status-danger-border">
+                        excepción
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-ds-text-2 break-words">
+                    {issue.error}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            {issueDetailFor.dteId && (
+              <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-ds-border-subtle">
+                <p className="text-xs text-ds-text-3 flex-1">
+                  El borrador fue generado correctamente. Podés reenviar manualmente:
+                </p>
+                <div className="flex gap-2 shrink-0">
+                  {issueDetailFor.issues.some((i) => i.variant === "PROFORMA") && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setResendModal({
+                          dteId: issueDetailFor.dteId!,
+                          variant: "PROFORMA",
+                          receiverName: issueDetailFor.receiverName,
+                        });
+                        setIssueDetailFor(null);
+                      }}
+                      className="h-9 gap-1.5"
+                    >
+                      <SendHorizonal className="h-3.5 w-3.5" />
+                      Proforma
+                    </Button>
+                  )}
+                  {issueDetailFor.issues.some((i) => i.variant === "ESTADO_DE_PAGO") && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setResendModal({
+                          dteId: issueDetailFor.dteId!,
+                          variant: "ESTADO_DE_PAGO",
+                          receiverName: issueDetailFor.receiverName,
+                        });
+                        setIssueDetailFor(null);
+                      }}
+                      className="h-9 gap-1.5"
+                    >
+                      <SendHorizonal className="h-3.5 w-3.5" />
+                      Estado de Pago
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal de reenvío manual ── */}
+      {resendModal && (
+        <BillingDocSendModal
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) {
+              setResendModal(null);
+              reload();
+            }
+          }}
+          dteId={resendModal.dteId}
+          target="draft"
+          defaultVariant={resendModal.variant}
+          defaultRecipientEmail={null}
+          receiverName={resendModal.receiverName}
+          onSent={() => {
+            setResendModal(null);
+            reload();
+          }}
+        />
+      )}
     </div>
   );
 }

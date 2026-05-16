@@ -6341,9 +6341,13 @@ enum FinanceProformaStatus {
 enum FinanceDteEmailKind {
   AUTO_RECEIVER
   AUTO_BACKOFFICE
+  AUTO_PROFORMA
+  AUTO_ESTADO_PAGO
   MANUAL_RESEND
   MANUAL_OVERRIDE_RECIPIENT
   MANUAL_BACKOFFICE
+  MANUAL_PROFORMA
+  MANUAL_ESTADO_PAGO
 
   @@schema("finance")
 }
@@ -6896,8 +6900,10 @@ model FinanceDteRecurringTemplate {
   /// Cantidad histórica de borradores generados.
   runCount  Int       @default(0) @map("run_count")
 
-  /// Auto-envío de email al receptor cuando el usuario emita el borrador
-  /// generado por esta plantilla.
+  /// Auto-envío del DTE al receptor cuando el USUARIO emita al SII el borrador
+  /// generado por esta plantilla. NO controla envíos durante la generación del
+  /// borrador por el cron — para eso usar autoSendProforma /
+  /// autoSendPaymentStatement, que se procesan en runTemplate al crear el draft.
   autoSendEmail Boolean @default(true) @map("auto_send_email")
 
   /// Si está activo, al generar el borrador el cron dispara automáticamente
@@ -6964,6 +6970,15 @@ model FinanceDteRecurringRun {
   status     String
   error      String?
   ranAt      DateTime                    @default(now()) @map("ran_at") @db.Timestamptz(6)
+
+  /// Errores de auto-envío de Proforma / Estado de Pago durante este run.
+  /// NULL si todos los auto-envíos fueron exitosos, no había auto-envíos
+  /// configurados, o el run falló antes de llegar a la fase de envío.
+  /// Si está poblado, el `status` puede seguir siendo "success" (el draft
+  /// se creó OK) pero existe degradación parcial que el usuario debe ver
+  /// en la UI para reenviar manualmente.
+  /// Shape: Array<{ variant: "PROFORMA" | "ESTADO_DE_PAGO", error: string, threw: boolean }>
+  autoSendIssues Json? @map("auto_send_issues")
 
   @@index([tenantId, templateId], map: "idx_dte_recurring_run_template")
   @@map("finance_dte_recurring_runs")

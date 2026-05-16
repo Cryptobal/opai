@@ -7,6 +7,7 @@
  * nuevo). Idempotencia: si lastRunAt = today, no duplica.
  */
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import type { FinanceDteRecurringTemplate } from "@prisma/client";
 import { createDraftDte, type DraftDteInput } from "./dte-draft.service";
 import {
@@ -501,37 +502,60 @@ export async function runTemplate(tenantId: string, templateId: string) {
     // Auto-envío opcional de PROFORMA y/o ESTADO_DE_PAGO al receptor.
     // Reusan el mismo flujo que el endpoint manual drafts/[id]/send-as.
     // Si un envío falla, NO rompemos el run — el borrador queda creado
-    // y el operador puede reenviar manualmente.
+    // y registramos el detalle en autoSendIssues para que la UI permita
+    // reenviar manualmente sin tener que mirar logs de Vercel.
     const autoSendVariants: BillingDocVariant[] = [];
     if (template.autoSendProforma) autoSendVariants.push("PROFORMA");
     if (template.autoSendPaymentStatement) autoSendVariants.push("ESTADO_DE_PAGO");
 
+    const autoSendIssues: Array<{
+      variant: BillingDocVariant;
+      error: string;
+      threw: boolean;
+    }> = [];
+
     // Guard de compat: si la plantilla tiene autoSend activo pero quedó
-    // sin contactos (plantillas pre-migración o caso edge), avisar en logs
-    // y saltar el envío. El borrador queda creado y la UI mostrará el
-    // badge "Proforma pendiente" para que el usuario reenvíe manualmente.
+    // sin contactos (plantillas pre-migración o caso edge), registrar el
+    // skip como issue (no como warning silencioso) y saltar el envío.
     if (autoSendVariants.length > 0) {
       const recipients = template.recipientContactIds ?? [];
       if (recipients.length === 0) {
+        for (const v of autoSendVariants) {
+          autoSendIssues.push({
+            variant: v,
+            error:
+              "recipientContactIds vacío al momento del run. Editá la plantilla, agregá contactos y reenviá manualmente desde el borrador.",
+            threw: false,
+          });
+        }
         console.warn(
-          `[finance/recurring] Plantilla ${template.id} (${template.name}) tiene autoSendProforma/Estado Pago activos pero recipientContactIds está vacío. Saltando envío automático. Editá la plantilla y agregá contactos.`,
+          `[finance/recurring] Plantilla ${template.id} (${template.name}) tiene autoSendProforma/Estado Pago activos pero recipientContactIds está vacío. Saltando envío automático.`,
         );
         autoSendVariants.length = 0;
       }
     }
+
     for (const variant of autoSendVariants) {
       try {
         const result = await sendBillingDocument(tenantId, {
           dteId: draft.id,
           variant,
           triggeredBy: template.createdBy,
+          isAutoFromCron: true,
         });
         if (!result.success) {
+          autoSendIssues.push({
+            variant,
+            error: result.error ?? "Error desconocido",
+            threw: false,
+          });
           console.error(
             `[finance/recurring] auto-send ${variant} draft ${draft.id} failed: ${result.error}`,
           );
         }
       } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        autoSendIssues.push({ variant, error: message, threw: true });
         console.error(
           `[finance/recurring] auto-send ${variant} draft ${draft.id} threw`,
           err,
@@ -548,8 +572,18 @@ export async function runTemplate(tenantId: string, templateId: string) {
         runCount: { increment: 1 },
       },
     });
+
     return prisma.financeDteRecurringRun.create({
-      data: { tenantId, templateId, dteId: draft.id, status: "success" },
+      data: {
+        tenantId,
+        templateId,
+        dteId: draft.id,
+        status: "success",
+        autoSendIssues:
+          autoSendIssues.length > 0
+            ? (autoSendIssues as unknown as Prisma.InputJsonValue)
+            : Prisma.DbNull,
+      },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error desconocido";
