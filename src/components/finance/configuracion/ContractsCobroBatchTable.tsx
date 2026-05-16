@@ -6,18 +6,34 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 /**
- * Tabla editable masiva del calendario de cobro por contrato.
+ * Tabla editable masiva del contrato + calendario de cobro.
  *
- * Usada en `/finanzas/configuracion/contratos-cobro` (vista temporal de
- * setup). Lista todos los items source=CONTRACT del tenant en una grilla
- * con inputs inline. El usuario edita N filas y luego clickea
- * "Guardar cambios" → PATCH batch al backend.
+ * Usada en `/finanzas/configuracion/contratos-cobro` (Configuración
+ * Finanzas → "Contratos — Ciclo de cobro"). Lista todos los items
+ * source=CONTRACT del tenant en una grilla con inputs inline. El usuario
+ * edita N filas y luego clickea "Guardar cambios" → PATCH batch al
+ * backend.
+ *
+ * Columnas (Bloque 6 Fase 2):
+ *  - Contrato/Cliente (read-only, identificación)
+ *  - Monto · Moneda · Inicio · Fin · Duración (derivada) · IPC ·
+ *    IPC meses · IPC desde
+ *  - Nickname · Proforma · Día prof. · Días→factura · Día factura ·
+ *    Mes fact. · Modo cobro · Días cobro
  *
  * Semántica de proforma (FIX 2 de Fase 3): cuando un item tiene
  * `emiteProforma=true`, los inputs "Día factura" y "Mes fact." quedan
  * deshabilitados (la fecha sale derivada de proforma + días). Al
  * marcar proforma en una fila, limpiamos esos campos en el state local
  * para que el usuario vea coherencia inmediata.
+ *
+ * Cambio de moneda (Bloque 6 Fase 2): si el usuario cambia CLP→UF o
+ * viceversa, pedimos confirmación con `window.confirm` y forzamos el
+ * monto a 0 para que se re-ingrese (un monto en CLP guardado como UF
+ * sin convertir genera valores erráticos en la proyección).
+ *
+ * Validación IPC: si `hasIpcAdjustment=true`, `ipcAdjustmentMonths` es
+ * obligatorio; el backend rechaza el batch si falta.
  */
 type Row = {
   id: string;
@@ -26,7 +42,14 @@ type Row = {
   accountName: string | null;
   installationName: string | null;
   amount: number;
-  currency: string;
+  currency: "CLP" | "UF";
+  // Bloque 6 Fase 2 — campos del contrato:
+  startDate: string; // YYYY-MM-DD
+  endDate: string | null;
+  hasIpcAdjustment: boolean;
+  ipcAdjustmentMonths: number | null;
+  ipcStartDate: string | null;
+  // Calendario de cobro:
   emiteProforma: boolean;
   diaEmisionProforma: number | null;
   diasFacturaDesdeProforma: number | null;
@@ -35,6 +58,46 @@ type Row = {
   modoCobro: "DIRECTO" | "FACTORING";
   diasCobroDesdeFactura: number;
 };
+
+/**
+ * Calcula la duración en meses (entero, redondeado al más cercano) entre
+ * startDate y endDate. Si endDate es null, retorna null ("indefinido").
+ */
+function calcularDuracionMeses(
+  startISO: string,
+  endISO: string | null,
+): number | null {
+  if (!endISO) return null;
+  const start = new Date(startISO + "T00:00:00Z");
+  const end = new Date(endISO + "T00:00:00Z");
+  const months =
+    (end.getUTCFullYear() - start.getUTCFullYear()) * 12 +
+    (end.getUTCMonth() - start.getUTCMonth());
+  return months;
+}
+
+/**
+ * Validación cliente del cambio de moneda: si el usuario cambia CLP→UF
+ * o UF→CLP, el monto que estaba (ej. 15.000.000 CLP) NO se convierte
+ * automáticamente. Si se guarda así, el sistema quedaría con
+ * `amount=15.000.000 UF` (= varios cientos de mil millones de pesos).
+ *
+ * Esta función pide confirmación explícita y limpia el monto, forzando
+ * al usuario a re-ingresarlo. Se usa `window.confirm` deliberadamente
+ * porque es una decisión rápida en plena edición masiva; abrir un modal
+ * shadcn interrumpe el flujo.
+ */
+function pedirConfirmacionCambioMoneda(
+  monedaActual: "CLP" | "UF",
+  monedaNueva: "CLP" | "UF",
+): boolean {
+  if (monedaActual === monedaNueva) return true;
+  return window.confirm(
+    `Vas a cambiar la moneda de ${monedaActual} a ${monedaNueva}. ` +
+      `El monto actual NO se convierte automáticamente — vas a tener ` +
+      `que re-ingresarlo. ¿Continuar?`,
+  );
+}
 
 export function ContractsCobroBatchTable() {
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -102,6 +165,15 @@ export function ContractsCobroBatchTable() {
           items: toSave.map((r) => ({
             id: r.id,
             nickname: r.nickname,
+            amount: r.amount,
+            currency: r.currency,
+            startDate: r.startDate,
+            endDate: r.endDate,
+            hasIpcAdjustment: r.hasIpcAdjustment,
+            ipcAdjustmentMonths: r.hasIpcAdjustment
+              ? r.ipcAdjustmentMonths
+              : null,
+            ipcStartDate: r.ipcStartDate,
             emiteProforma: r.emiteProforma,
             diaEmisionProforma: r.diaEmisionProforma,
             diasFacturaDesdeProforma: r.diasFacturaDesdeProforma,
@@ -163,6 +235,16 @@ export function ContractsCobroBatchTable() {
           <thead className="bg-ds-surface-2 text-ds-text-3 text-[12px] uppercase tracking-wide">
             <tr>
               <th className="px-2 py-2 text-left">Contrato / Cliente</th>
+              {/* Bloque 6 Fase 2 — campos del contrato */}
+              <th className="px-2 py-2 text-left">Monto</th>
+              <th className="px-2 py-2 text-left">Moneda</th>
+              <th className="px-2 py-2 text-left">Inicio</th>
+              <th className="px-2 py-2 text-left">Fin</th>
+              <th className="px-2 py-2 text-left">Duración</th>
+              <th className="px-2 py-2 text-left">IPC</th>
+              <th className="px-2 py-2 text-left">IPC meses</th>
+              <th className="px-2 py-2 text-left">IPC desde</th>
+              {/* Calendario de cobro */}
               <th className="px-2 py-2 text-left">Nickname</th>
               <th className="px-2 py-2 text-left">Proforma</th>
               <th className="px-2 py-2 text-left">Día prof.</th>
@@ -192,10 +274,134 @@ export function ContractsCobroBatchTable() {
                       {r.accountName ?? r.name}
                     </div>
                     <div className="text-ds-text-3 text-[12px]">
-                      {r.installationName ?? "—"} · {r.currency}{" "}
-                      {r.amount.toLocaleString("es-CL")}
+                      {r.installationName ?? "—"}
                     </div>
                   </td>
+                  {/* Bloque 6 Fase 2 — Monto */}
+                  <td className="px-2 py-1.5">
+                    <input
+                      type="number"
+                      min={0}
+                      step={r.currency === "UF" ? 0.01 : 1}
+                      value={r.amount}
+                      onChange={(e) =>
+                        updateRow(r.id, "amount", Number(e.target.value))
+                      }
+                      className="w-28 bg-ds-surface-1 border border-ds-border-default rounded px-1.5 py-1 text-xs text-right font-mono"
+                    />
+                  </td>
+                  {/* Moneda */}
+                  <td className="px-2 py-1.5">
+                    <select
+                      value={r.currency}
+                      onChange={(e) => {
+                        const nueva = e.target.value as "CLP" | "UF";
+                        if (
+                          pedirConfirmacionCambioMoneda(r.currency, nueva)
+                        ) {
+                          updateRow(r.id, "currency", nueva);
+                          updateRow(r.id, "amount", 0);
+                        }
+                      }}
+                      className="bg-ds-surface-1 border border-ds-border-default rounded px-1.5 py-1 text-xs"
+                    >
+                      <option value="CLP">CLP</option>
+                      <option value="UF">UF</option>
+                    </select>
+                  </td>
+                  {/* Inicio */}
+                  <td className="px-2 py-1.5">
+                    <input
+                      type="date"
+                      value={r.startDate}
+                      onChange={(e) =>
+                        updateRow(r.id, "startDate", e.target.value)
+                      }
+                      className="bg-ds-surface-1 border border-ds-border-default rounded px-1.5 py-1 text-xs"
+                    />
+                  </td>
+                  {/* Fin */}
+                  <td className="px-2 py-1.5">
+                    <input
+                      type="date"
+                      value={r.endDate ?? ""}
+                      onChange={(e) =>
+                        updateRow(r.id, "endDate", e.target.value || null)
+                      }
+                      className="bg-ds-surface-1 border border-ds-border-default rounded px-1.5 py-1 text-xs"
+                    />
+                  </td>
+                  {/* Duración derivada (no editable) */}
+                  <td className="px-2 py-1.5 text-xs text-ds-text-3 whitespace-nowrap">
+                    {(() => {
+                      const meses = calcularDuracionMeses(
+                        r.startDate,
+                        r.endDate,
+                      );
+                      return meses === null ? "—" : `${meses} meses`;
+                    })()}
+                  </td>
+                  {/* IPC checkbox */}
+                  <td className="px-2 py-1.5 text-center">
+                    <input
+                      type="checkbox"
+                      checked={r.hasIpcAdjustment}
+                      onChange={(e) =>
+                        updateRow(
+                          r.id,
+                          "hasIpcAdjustment",
+                          e.target.checked,
+                        )
+                      }
+                      className="cursor-pointer"
+                    />
+                  </td>
+                  {/* IPC meses */}
+                  <td className="px-2 py-1.5">
+                    <input
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={r.ipcAdjustmentMonths ?? ""}
+                      onChange={(e) =>
+                        updateRow(
+                          r.id,
+                          "ipcAdjustmentMonths",
+                          e.target.value ? Number(e.target.value) : null,
+                        )
+                      }
+                      disabled={!r.hasIpcAdjustment}
+                      placeholder="12"
+                      title={
+                        !r.hasIpcAdjustment
+                          ? "Marcá IPC para habilitar"
+                          : "Frecuencia del ajuste (1-60 meses)"
+                      }
+                      className="w-14 bg-ds-surface-1 border border-ds-border-default rounded px-1.5 py-1 text-xs disabled:opacity-40"
+                    />
+                  </td>
+                  {/* IPC fecha desde */}
+                  <td className="px-2 py-1.5">
+                    <input
+                      type="date"
+                      value={r.ipcStartDate ?? ""}
+                      onChange={(e) =>
+                        updateRow(
+                          r.id,
+                          "ipcStartDate",
+                          e.target.value || null,
+                        )
+                      }
+                      disabled={!r.hasIpcAdjustment}
+                      title={
+                        !r.hasIpcAdjustment
+                          ? "Marcá IPC para habilitar"
+                          : "Fecha desde la cual empieza el calendario de reajustes"
+                      }
+                      className="bg-ds-surface-1 border border-ds-border-default rounded px-1.5 py-1 text-xs disabled:opacity-40"
+                    />
+                  </td>
+                  {/* Nickname (existente) */}
                   <td className="px-2 py-1.5">
                     <input
                       type="text"

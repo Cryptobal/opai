@@ -44,6 +44,13 @@ export async function GET() {
       amount: true,
       currency: true,
       dayOfMonth: true,
+      // Bloque 6 Fase 2 — campos del contrato:
+      startDate: true,
+      endDate: true,
+      hasIpcAdjustment: true,
+      ipcAdjustmentMonths: true,
+      ipcStartDate: true,
+      // Calendario de cobro existente:
       emiteProforma: true,
       diaEmisionProforma: true,
       diasFacturaDesdeProforma: true,
@@ -83,6 +90,12 @@ export async function GET() {
   const enriched = items.map((it) => ({
     ...it,
     amount: Number(it.amount),
+    // Serializar fechas a ISO date (YYYY-MM-DD) para inputs HTML type="date".
+    startDate: it.startDate.toISOString().slice(0, 10),
+    endDate: it.endDate ? it.endDate.toISOString().slice(0, 10) : null,
+    ipcStartDate: it.ipcStartDate
+      ? it.ipcStartDate.toISOString().slice(0, 10)
+      : null,
     accountName: it.crmAccountId
       ? accountById.get(it.crmAccountId) ?? null
       : null,

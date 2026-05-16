@@ -27,17 +27,45 @@ import { prisma } from "@/lib/prisma";
  * regenere con el calendario nuevo. Las occurrences pagadas/conciliadas
  * (status != PROJECTED) se conservan.
  */
-const itemUpdateSchema = z.object({
-  id: z.string().uuid(),
-  nickname: z.string().max(100).nullable(),
-  emiteProforma: z.boolean(),
-  diaEmisionProforma: z.number().int().nullable(),
-  diasFacturaDesdeProforma: z.number().int().min(0).max(60).nullable(),
-  diaEmisionFactura: z.number().int().nullable(),
-  mesFacturaRelativo: z.enum(["MISMO_MES", "MES_SIGUIENTE"]),
-  modoCobro: z.enum(["DIRECTO", "FACTORING"]),
-  diasCobroDesdeFactura: z.number().int().min(0).max(180),
-});
+const itemUpdateSchema = z
+  .object({
+    id: z.string().uuid(),
+    nickname: z.string().max(100).nullable(),
+    // Bloque 6 Fase 2 — campos del contrato:
+    amount: z.number().positive(),
+    currency: z.enum(["CLP", "UF"]),
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    endDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .nullable(),
+    hasIpcAdjustment: z.boolean(),
+    ipcAdjustmentMonths: z.number().int().min(1).max(60).nullable(),
+    ipcStartDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .nullable(),
+    // Calendario de cobro existente:
+    emiteProforma: z.boolean(),
+    diaEmisionProforma: z.number().int().nullable(),
+    diasFacturaDesdeProforma: z.number().int().min(0).max(60).nullable(),
+    diaEmisionFactura: z.number().int().nullable(),
+    mesFacturaRelativo: z.enum(["MISMO_MES", "MES_SIGUIENTE"]),
+    modoCobro: z.enum(["DIRECTO", "FACTORING"]),
+    diasCobroDesdeFactura: z.number().int().min(0).max(180),
+  })
+  .refine(
+    (d) => !d.hasIpcAdjustment || d.ipcAdjustmentMonths != null,
+    {
+      message:
+        "Si hasIpcAdjustment=true, ipcAdjustmentMonths es obligatorio",
+      path: ["ipcAdjustmentMonths"],
+    },
+  )
+  .refine((d) => !d.endDate || d.endDate >= d.startDate, {
+    message: "endDate debe ser >= startDate",
+    path: ["endDate"],
+  });
 
 const batchSchema = z.object({
   items: z.array(itemUpdateSchema).min(1).max(100),
@@ -83,6 +111,21 @@ export async function PATCH(request: NextRequest) {
           where: { id: item.id },
           data: {
             nickname: item.nickname,
+            // Bloque 6 Fase 2 — campos del contrato:
+            amount: item.amount,
+            currency: item.currency,
+            startDate: new Date(item.startDate + "T00:00:00Z"),
+            endDate: item.endDate
+              ? new Date(item.endDate + "T00:00:00Z")
+              : null,
+            hasIpcAdjustment: item.hasIpcAdjustment,
+            ipcAdjustmentMonths: item.hasIpcAdjustment
+              ? item.ipcAdjustmentMonths
+              : null,
+            ipcStartDate: item.ipcStartDate
+              ? new Date(item.ipcStartDate + "T00:00:00Z")
+              : null,
+            // Calendario de cobro existente:
             emiteProforma: item.emiteProforma,
             diaEmisionProforma: item.diaEmisionProforma,
             diasFacturaDesdeProforma: item.diasFacturaDesdeProforma,
