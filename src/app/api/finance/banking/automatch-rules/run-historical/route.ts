@@ -14,6 +14,15 @@ const bodySchema = z.object({
   bankAccountId: z.string().nullable().optional(),
   /** Si true incluye también las que ya tienen sugerencia (re-evalúa). */
   includeSuggested: z.boolean().optional(),
+  /**
+   * Si viene, se valida que la regla pertenezca al tenant y se corre el motor
+   * completo (que incluirá esa regla recién creada entre las activas).
+   *
+   * TODO: en una iteración futura, ejecutar `findMatchingRule` filtrando solo
+   * esa regla. Hoy el motor evalúa todas las reglas activas en orden de
+   * prioridad — comportamiento seguro pero no aísla la regla nueva.
+   */
+  ruleId: z.string().uuid().nullable().optional(),
 });
 
 /**
@@ -39,6 +48,19 @@ export async function POST(request: NextRequest) {
     }
     const parsed = await parseBody(request, bodySchema);
     if (parsed.error) return parsed.error;
+
+    if (parsed.data.ruleId) {
+      const rule = await prisma.financeAutoMatchRule.findFirst({
+        where: { id: parsed.data.ruleId, tenantId: ctx.tenantId },
+        select: { id: true },
+      });
+      if (!rule) {
+        return NextResponse.json(
+          { success: false, error: "Regla no encontrada" },
+          { status: 404 },
+        );
+      }
+    }
 
     const where: Record<string, unknown> = {
       tenantId: ctx.tenantId,

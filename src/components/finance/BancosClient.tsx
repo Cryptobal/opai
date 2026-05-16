@@ -1049,6 +1049,32 @@ function TransactionsTab({
     loadTransactions();
   }, [loadTransactions]);
 
+  // Conteos por sub-tab (Todos / Reconocidos / Sin reconocer / Conciliados).
+  // Se recargan junto con las transactions para reflejar mutaciones inmediatas.
+  const [tabCounts, setTabCounts] = useState<{
+    all: number;
+    recognized: number;
+    unrecognized: number;
+    matched: number;
+  } | null>(null);
+
+  const loadCounts = useCallback(async () => {
+    if (!selectedAccount) return;
+    try {
+      const res = await fetch(
+        `/api/finance/banking/transactions/counts?bankAccountId=${selectedAccount}`,
+      );
+      const json = await res.json();
+      if (json?.success) setTabCounts(json.data);
+    } catch {
+      /* silencioso */
+    }
+  }, [selectedAccount]);
+
+  useEffect(() => {
+    loadCounts();
+  }, [loadCounts, transactions]);
+
   // Deep-link cross-módulo: cuando un DTE pagado linkea a `?txId=...` o
   // `?openTx=...`, auto-abrimos el drawer de conciliación de esa tx.
   // Si la tx no está cargada todavía (por filtros/paginación), hacemos
@@ -1469,17 +1495,18 @@ function TransactionsTab({
           }
           if (row.suggestedRuleId && row.reconciliationStatus === "UNMATCHED") {
             return (
-              <div className="flex flex-col gap-0.5">
-                <Badge
-                  variant="outline"
-                  className="text-xs bg-status-info-soft text-status-info-fg border-status-info-border"
-                  title={`Sugerido por: ${row.suggestedRuleName ?? "regla"}`}
-                >
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <Tag variant="warn" size="sm">
                   Reconocido
-                </Badge>
+                </Tag>
                 {row.suggestedAccountLabel && (
-                  <span className="text-[11px] text-muted-foreground truncate max-w-[180px]">
+                  <span className="text-[12px] text-ds-text-3 font-mono truncate max-w-[220px]">
                     → {row.suggestedAccountLabel}
+                  </span>
+                )}
+                {row.suggestedRuleName && (
+                  <span className="text-[12px] text-ds-text-4 italic truncate max-w-[220px]">
+                    ({row.suggestedRuleName})
                   </span>
                 )}
               </div>
@@ -1744,19 +1771,34 @@ function TransactionsTab({
           <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide flex-1 min-w-0">
             {TX_SUB_TABS.map((t) => {
               const isActive = subTab === t.id;
+              const count = tabCounts?.[t.id] ?? null;
               return (
                 <button
                   key={t.id}
                   type="button"
                   onClick={() => setSubTab(t.id)}
                   className={cn(
-                    "whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors shrink-0",
+                    "whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors shrink-0 inline-flex items-center gap-1.5",
                     isActive
                       ? "bg-primary/15 text-primary border border-primary/30"
                       : "text-muted-foreground hover:bg-accent/50 hover:text-foreground border border-transparent"
                   )}
                 >
-                  {t.label}
+                  <span>{t.label}</span>
+                  {count != null && count > 0 && (
+                    <span
+                      className={cn(
+                        "inline-flex items-center justify-center rounded-full px-1.5 min-w-[20px] h-[18px] text-[12px] font-mono tabular-nums",
+                        isActive
+                          ? "bg-primary/15 text-primary"
+                          : t.id === "recognized"
+                            ? "bg-status-warn-soft text-status-warn-fg"
+                            : "bg-ds-surface-3 text-ds-text-2",
+                      )}
+                    >
+                      {count > 99 ? "99+" : count}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -1785,18 +1827,38 @@ function TransactionsTab({
                 onClick={runHistoricalAutoMatch}
                 disabled={runningAutoMatch}
                 className="h-8 shrink-0"
-                title="Corre el matcher contra DTEs, turnos extras y reglas configuradas"
+                title="Corre el matcher contra DTEs, turnos extras y reglas activas para los movimientos visibles. Tip: usá los filtros antes para limitar el alcance."
               >
                 {runningAutoMatch ? (
                   <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                 ) : (
                   <Zap className="h-3.5 w-3.5 mr-1.5" />
                 )}
-                Auto-conciliar
+                Auto-conciliar visible
               </Button>
             )}
         </div>
       )}
+
+      {/* Mobile hint: pendientes de autorizar en sub-tab Reconocidos. */}
+      {!showHidden &&
+        subTab === "recognized" &&
+        tabCounts &&
+        tabCounts.recognized > 0 && (
+          <div className="sm:hidden rounded-md border border-status-warn-border bg-status-warn-soft p-3 flex items-start gap-2">
+            <CheckCircle2 className="h-4 w-4 text-status-warn-fg shrink-0 mt-0.5" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-medium text-status-warn-fg">
+                {tabCounts.recognized} movimiento
+                {tabCounts.recognized === 1 ? "" : "s"} listo
+                {tabCounts.recognized === 1 ? "" : "s"} para autorizar
+              </p>
+              <p className="text-[12px] text-status-warn-fg/80 mt-0.5">
+                Revisá cada uno o usá "Autorizar todos" arriba.
+              </p>
+            </div>
+          </div>
+        )}
 
       {canManage && !showHidden && (
         <div className="rounded-lg border border-ds-border-default bg-ds-surface-2 px-3 py-2.5">
