@@ -348,6 +348,36 @@ export async function PUT(
       where: { id: existing.id },
       data: itemData,
     });
+
+    // Bloque 5 Fase 5 — Cuando se cambia el calendario de cobro, las
+    // Occurrences PROYECTADAS futuras quedan stale (scheduledDate
+    // calculado con calendario viejo). Las borramos para que se
+    // regeneren con la lógica nueva.
+    //
+    // Nota: el deleteMany de arriba (pre-update, sin filtro de fecha)
+    // ya cubre este caso al borrar TODAS las PROYECTADAS. Mantenemos
+    // este bloque explícito para documentar la intención, alinear con
+    // el batch endpoint (Fase 4) y resistir refactors futuros que
+    // pudieran hacer la limpieza pre-update más conservadora.
+    if (
+      data.diasCobroDesdeFactura !== undefined ||
+      data.emiteProforma !== undefined ||
+      data.modoCobro !== undefined ||
+      data.diaEmisionProforma !== undefined ||
+      data.diasFacturaDesdeProforma !== undefined ||
+      data.diaEmisionFactura !== undefined ||
+      data.mesFacturaRelativo !== undefined
+    ) {
+      await prisma.financeCashflowOccurrence.deleteMany({
+        where: {
+          tenantId: ctx.tenantId,
+          itemId: existing.id,
+          status: "PROJECTED",
+          scheduledDate: { gte: new Date() },
+        },
+      });
+    }
+
     itemId = existing.id;
   } else {
     const created = await prisma.financeCashflowItem.create({

@@ -9,8 +9,97 @@ import {
   startOfISOWeek, endOfISOWeek, startOfMonth, endOfMonth,
 } from "date-fns";
 
+/**
+ * Calcula la fecha de cobro proyectada de una cuota mensual a partir
+ * del calendario configurado del contrato:
+ *
+ *   - Si `diasCobroDesdeFactura > 0`: usa el ciclo proforma → factura → cobro.
+ *   - Si es 0 (default legacy): retorna null, el caller usa el comportamiento
+ *     legacy (`dayOfMonth` del mes del servicio).
+ *
+ * Regla clave (alineada con FIX 2): cuando `emiteProforma=true`, el
+ * rollover al mes siguiente está implícito en `setUTCDate(diaProf +
+ * diasGap)`. En ese caso, NO se debe aplicar
+ * `mesFacturaRelativo=MES_SIGUIENTE` encima (sería doble suma).
+ * `mesFacturaRelativo` solo aplica al caso de factura directa (sin
+ * proforma).
+ */
+export function calcularFechaCobroProyectada(
+  item: {
+    diasCobroDesdeFactura: number;
+    emiteProforma: boolean;
+    diaEmisionProforma: number | null;
+    diasFacturaDesdeProforma: number | null;
+    diaEmisionFactura: number | null;
+    mesFacturaRelativo: string;
+    dayOfMonth: number | null;
+  },
+  servicioYear: number,
+  servicioMonth: number,
+): Date | null {
+  if (item.diasCobroDesdeFactura === 0) return null;
+
+  let fechaFactura: Date;
+  if (
+    item.emiteProforma &&
+    item.diaEmisionProforma != null &&
+    item.diasFacturaDesdeProforma != null
+  ) {
+    const ultDiaMes = new Date(
+      Date.UTC(servicioYear, servicioMonth + 1, 0),
+    ).getUTCDate();
+    const diaProf =
+      item.diaEmisionProforma === -1
+        ? ultDiaMes
+        : Math.min(item.diaEmisionProforma, ultDiaMes);
+    const fechaProforma = new Date(
+      Date.UTC(servicioYear, servicioMonth, diaProf),
+    );
+    fechaFactura = new Date(fechaProforma);
+    fechaFactura.setUTCDate(
+      fechaProforma.getUTCDate() + item.diasFacturaDesdeProforma,
+    );
+  } else {
+    const ultDiaMes = new Date(
+      Date.UTC(servicioYear, servicioMonth + 1, 0),
+    ).getUTCDate();
+    const diaFact = item.diaEmisionFactura ?? item.dayOfMonth ?? 5;
+    const diaFactClamp =
+      diaFact === -1 ? ultDiaMes : Math.min(diaFact, ultDiaMes);
+    fechaFactura = new Date(
+      Date.UTC(servicioYear, servicioMonth, diaFactClamp),
+    );
+    if (item.mesFacturaRelativo === "MES_SIGUIENTE") {
+      fechaFactura.setUTCMonth(fechaFactura.getUTCMonth() + 1);
+    }
+  }
+
+  const fechaCobro = new Date(fechaFactura);
+  fechaCobro.setUTCDate(
+    fechaFactura.getUTCDate() + item.diasCobroDesdeFactura,
+  );
+
+  return fechaCobro;
+}
+
+type ExpandRecurrenceItem = Pick<
+  FinanceCashflowItem,
+  "recurrence" | "startDate" | "endDate" | "dayOfMonth" | "dayOfWeek" | "monthOfYear"
+> &
+  Partial<
+    Pick<
+      FinanceCashflowItem,
+      | "emiteProforma"
+      | "diaEmisionProforma"
+      | "diasFacturaDesdeProforma"
+      | "diaEmisionFactura"
+      | "mesFacturaRelativo"
+      | "diasCobroDesdeFactura"
+    >
+  >;
+
 export function expandRecurrence(
-  item: Pick<FinanceCashflowItem, "recurrence" | "startDate" | "endDate" | "dayOfMonth" | "dayOfWeek" | "monthOfYear">,
+  item: ExpandRecurrenceItem,
   from: Date,
   to: Date,
 ): Date[] {
@@ -54,19 +143,47 @@ export function expandRecurrence(
       const dom = item.dayOfMonth ?? getDate(start);
       const targetMonth = item.recurrence === "YEARLY" ? (item.monthOfYear ?? getMonth(start) + 1) : null;
 
+      // Si el item tiene calendario nuevo (Bloque 5) configurado, usamos
+      // el helper que aplica proforma → factura → cobro. Si no, caemos al
+      // cálculo legacy con `dayOfMonth` del mes del servicio.
+      const calendarItem = {
+        diasCobroDesdeFactura: item.diasCobroDesdeFactura ?? 0,
+        emiteProforma: item.emiteProforma ?? false,
+        diaEmisionProforma: item.diaEmisionProforma ?? null,
+        diasFacturaDesdeProforma: item.diasFacturaDesdeProforma ?? null,
+        diaEmisionFactura: item.diaEmisionFactura ?? null,
+        mesFacturaRelativo: item.mesFacturaRelativo ?? "MISMO_MES",
+        dayOfMonth: item.dayOfMonth ?? null,
+      };
+
       let cursor = start;
       while (!isAfter(cursor, rangeEnd)) {
+        const servicioYear =
+          item.recurrence === "YEARLY" && targetMonth
+            ? getYear(cursor)
+            : getYear(cursor);
+        const servicioMonth =
+          item.recurrence === "YEARLY" && targetMonth
+            ? targetMonth - 1
+            : getMonth(cursor);
+
+        const fechaCobro = calcularFechaCobroProyectada(
+          calendarItem,
+          servicioYear,
+          servicioMonth,
+        );
+
         let d: Date;
-        if (item.recurrence === "YEARLY" && targetMonth) {
-          d = new Date(getYear(cursor), targetMonth - 1, 1);
+        if (fechaCobro) {
+          d = fechaCobro;
         } else {
-          d = new Date(getYear(cursor), getMonth(cursor), 1);
-        }
-        if (dom === -1) {
-          d = lastDayOfMonth(d);
-        } else {
-          const last = lastDayOfMonth(d);
-          d = setDate(d, Math.min(dom, getDate(last)));
+          d = new Date(servicioYear, servicioMonth, 1);
+          if (dom === -1) {
+            d = lastDayOfMonth(d);
+          } else {
+            const last = lastDayOfMonth(d);
+            d = setDate(d, Math.min(dom, getDate(last)));
+          }
         }
         push(d);
         cursor = addMonths(cursor, stepMonths);
