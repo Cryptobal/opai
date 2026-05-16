@@ -234,6 +234,18 @@ export interface CumulativeBalancePoint {
   cumulativeBankVarianceClp: number | null;
 }
 
+/** Metadata del anchor activo (cierre semanal con isAnchor=true). Cuando
+ *  está presente, las proyecciones futuras parten desde bankBalanceClp en
+ *  lugar de desde el opening tradicional. La UI lo usa para mostrar un
+ *  banner "Proyección anclada a $X al DD MMM" y para atenuar visualmente
+ *  los buckets pre-anchor. */
+export interface ProjectionAnchorInfo {
+  /** ISO datetime del cierre semanal anclado (weekEndDate). */
+  weekEndDate: string;
+  /** Saldo banco real al cierre, usado como base de la proyección. */
+  bankBalanceClp: number;
+}
+
 /** Link bancario conciliado que no se pudo atribuir a una categoría
  *  específica (o que cayó a "Otros" como fallback). La UI lo usa para
  *  alertar al usuario y guiarlo a configurar mappings de cuenta o
@@ -271,4 +283,8 @@ export interface ProjectionMatrix {
    *  o se descartaron). La UI puede mostrar un banner de "N conciliaciones
    *  sin clasificar". */
   unresolvedBankLinks: UnresolvedBankLinkInfo[];
+  /** Anchor activo del cierre semanal — null si no hay ninguno con
+   *  isAnchor=true para el tenant. Cuando está presente, los buckets
+   *  con start > weekEndDate parten de bankBalanceClp. */
+  anchor: ProjectionAnchorInfo | null;
 }
