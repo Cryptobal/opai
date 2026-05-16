@@ -29,7 +29,9 @@ export async function GET(request: NextRequest) {
 
 const postSchema = z.object({
   weekEnd: z.coerce.date(),
-  notes: z.string().max(500).optional(),
+  notes: z.string().max(1000).optional(),
+  anchor: z.boolean().optional().default(false),
+  varianceResolution: z.enum(["ADJUSTED", "ACCEPTED", "PENDING"]).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -42,12 +44,12 @@ export async function POST(request: NextRequest) {
   const parsed = await parseBody(request, postSchema);
   if (parsed.error) return parsed.error;
   try {
-    const closed = await persistWeeklyClose(
-      ctx.tenantId,
-      ctx.userId,
-      parsed.data.weekEnd,
-      parsed.data.notes,
-    );
+    const closed = await persistWeeklyClose(ctx.tenantId, ctx.userId, {
+      weekEnd: parsed.data.weekEnd,
+      notes: parsed.data.notes,
+      anchor: parsed.data.anchor,
+      varianceResolution: parsed.data.varianceResolution,
+    });
     return NextResponse.json({ success: true, data: closed });
   } catch (e) {
     return NextResponse.json(
