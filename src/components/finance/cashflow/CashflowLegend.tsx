@@ -139,20 +139,20 @@ function LegendSection({
 }) {
   return (
     <div className="space-y-2">
-      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-ds-text-3">
+      <h3 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ds-text-3">
         {title}
       </h3>
       <div className="space-y-2">
         {items.map((item, i) => (
           <div key={i} className="flex items-start gap-3">
-            <div className="flex h-8 w-14 shrink-0 items-center justify-center rounded bg-ds-surface-2">
+            <div className="flex h-9 w-16 shrink-0 items-center justify-center rounded bg-ds-surface-2">
               {item.symbol}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-xs font-medium text-ds-text-1">
+              <div className="text-[13px] font-medium text-ds-text-1">
                 {item.label}
               </div>
-              <div className="text-[11px] text-ds-text-3 leading-relaxed">
+              <div className="text-[12px] text-ds-text-3 leading-relaxed">
                 {item.description}
               </div>
             </div>
@@ -179,15 +179,22 @@ export function CashflowLegend({ className }: { className?: string }) {
           Leyenda
         </button>
       </PopoverTrigger>
+      {/* IMPORTANTE: el PopoverContent shadcn (src/components/ui/popover.tsx)
+          tiene hardcoded `max-w-[var(--radix-popover-trigger-width)]`, lo cual
+          fuerza el contenido al ancho del trigger (~80px del botón "Leyenda").
+          Por eso usamos style inline para override el max-width — Tailwind no
+          puede ganarle desde className. */}
       <PopoverContent
         align="end"
-        className="w-[420px] max-h-[80vh] overflow-y-auto p-4 space-y-4"
+        sideOffset={6}
+        className="max-h-[80vh] overflow-y-auto p-4 space-y-4"
+        style={{ width: 420, maxWidth: "min(420px, calc(100vw - 24px))" }}
       >
         <div>
           <h2 className="text-sm font-semibold text-ds-text-1 mb-1">
             Guía de íconos del flujo
           </h2>
-          <p className="text-[11px] text-ds-text-3">
+          <p className="text-[12px] text-ds-text-3 leading-relaxed">
             Cada celda puede tener varios indicadores. Esta es la guía de qué
             significa cada uno.
           </p>
@@ -200,7 +207,7 @@ export function CashflowLegend({ className }: { className?: string }) {
         <LegendSection title="Estilos de monto" items={STYLE_ITEMS} />
         <LegendSection title="Badges de fila" items={CONTRACT_BADGE_ITEMS} />
 
-        <div className="border-t border-ds-border-default pt-3 text-[11px] text-ds-text-3 leading-relaxed">
+        <div className="border-t border-ds-border-default pt-3 text-[12px] text-ds-text-3 leading-relaxed">
           <strong className="text-ds-text-2">Tip:</strong> hacé hover sobre
           cualquier celda para ver el tooltip con el detalle de la factura
           (folio, estado, días de mora).
