@@ -6969,6 +6969,15 @@ model FinanceDteRecurringRun {
   error      String?
   ranAt      DateTime                    @default(now()) @map("ran_at") @db.Timestamptz(6)
 
+  /// Errores de auto-envío de Proforma / Estado de Pago durante este run.
+  /// NULL si todos los auto-envíos fueron exitosos, no había auto-envíos
+  /// configurados, o el run falló antes de llegar a la fase de envío.
+  /// Si está poblado, el `status` puede seguir siendo "success" (el draft
+  /// se creó OK) pero existe degradación parcial que el usuario debe ver
+  /// en la UI para reenviar manualmente.
+  /// Shape: Array<{ variant: "PROFORMA" | "ESTADO_DE_PAGO", error: string, threw: boolean }>
+  autoSendIssues Json? @map("auto_send_issues")
+
   @@index([tenantId, templateId], map: "idx_dte_recurring_run_template")
   @@map("finance_dte_recurring_runs")
   @@schema("finance")
