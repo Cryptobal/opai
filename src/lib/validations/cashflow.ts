@@ -100,6 +100,28 @@ export const linkBankTxSchema = z.object({
   bankTransactionId: z.string().uuid(),
 });
 
+/** Crear un FinanceCashflowItem (recurrente o puntual) a partir de un
+ *  bank tx no clasificado, materializando una occurrence PAID en la
+ *  fecha del bank tx y vinculándolos. Lo usa el drawer de cierre semanal
+ *  para "meter al flujo" un movimiento inesperado en una sola acción. */
+export const createItemFromBankTxSchema = z.object({
+  bankTransactionId: z.string().uuid(),
+  categoryId: z.string().uuid(),
+  name: z.string().min(2).max(200),
+  recurrence: z.enum([
+    "ONCE",
+    "WEEKLY",
+    "BIWEEKLY",
+    "MONTHLY",
+    "QUARTERLY",
+    "YEARLY",
+  ]),
+  /** Opcional: si no viene, se toma el monto absoluto del bank tx. */
+  amountClp: z.number().positive().optional(),
+  installationId: z.string().uuid().optional(),
+  notes: z.string().max(1000).optional(),
+});
+
 export const autoMatchSchema = z.object({
   from: z.coerce.date(),
   to: z.coerce.date(),
