@@ -12,6 +12,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Sparkles, PlayCircle } from "lucide-react";
@@ -44,12 +51,38 @@ interface Props {
   onCreated: (ruleId: string, ruleName: string, historicalCount: number) => void;
 }
 
+type TextRuleOperator =
+  | "CONTAINS"
+  | "STARTS_WITH"
+  | "EQUALS"
+  | "IS_EMPTY";
+
+const TEXT_OPERATORS_ORDER: TextRuleOperator[] = [
+  "STARTS_WITH",
+  "CONTAINS",
+  "EQUALS",
+  "IS_EMPTY",
+];
+
+const TEXT_OPERATOR_UI_LABEL: Record<TextRuleOperator, string> = {
+  STARTS_WITH: "Empieza con",
+  CONTAINS: "Contiene",
+  EQUALS: "Es igual a",
+  IS_EMPTY: "Está vacío",
+};
+
+function textOperatorNeedsValue(op: TextRuleOperator): boolean {
+  return op !== "IS_EMPTY";
+}
+
 /**
  * Wizard "Guardar como regla" — abre desde el drawer de Conciliar movimiento
  * tab Categorizar manual.
  *
  * Pre-llena criterios analizando la tx actual:
- *   - Palabra clave de la descripción (>3 chars, no numérica) → criterio "contiene"
+ *   - Palabra clave de la descripción (>3 chars, no numérica) como valor sugerido
+ *   - Operadores de texto (empieza con / contiene / igual / vacío) en descripción y referencia
+ *   - Referencia del banco cuando existe en la cartola
  *   - RUT detectado → criterio "RUT contraparte es"
  *   - Monto ± 10% → criterio "monto entre"
  *
@@ -95,13 +128,24 @@ export function SaveAsRuleModal({
     return tokens[0] ?? "";
   }, [sourceTx.description]);
 
+  const suggestedRef = useMemo(
+    () => (sourceTx.reference ?? "").trim(),
+    [sourceTx.reference],
+  );
+
   const amountAbs = Math.abs(sourceTx.amount);
   const suggestedMin = Math.max(0, Math.floor(amountAbs * 0.9));
   const suggestedMax = Math.ceil(amountAbs * 1.1);
 
   const [ruleName, setRuleName] = useState("");
   const [criteriaDescription, setCriteriaDescription] = useState(true);
+  const [descriptionOperator, setDescriptionOperator] =
+    useState<TextRuleOperator>("CONTAINS");
   const [descriptionValue, setDescriptionValue] = useState("");
+  const [criteriaReference, setCriteriaReference] = useState(false);
+  const [referenceOperator, setReferenceOperator] =
+    useState<TextRuleOperator>("CONTAINS");
+  const [referenceValue, setReferenceValue] = useState("");
   const [criteriaRut, setCriteriaRut] = useState(!!detectedRut);
   const [rutValue, setRutValue] = useState(detectedRut ?? "");
   const [criteriaAmount, setCriteriaAmount] = useState(false);
@@ -116,7 +160,11 @@ export function SaveAsRuleModal({
     if (open) {
       setRuleName("");
       setCriteriaDescription(true);
+      setDescriptionOperator("CONTAINS");
       setDescriptionValue(suggestedKeyword);
+      setCriteriaReference(Boolean(suggestedRef));
+      setReferenceOperator(suggestedRef ? "CONTAINS" : "IS_EMPTY");
+      setReferenceValue(suggestedRef);
       setCriteriaRut(!!detectedRut);
       setRutValue(detectedRut ?? "");
       setCriteriaAmount(false);
@@ -125,8 +173,37 @@ export function SaveAsRuleModal({
       setRequiresReview(true);
       setRunHistorical(true);
     }
-  }, [open, suggestedKeyword, detectedRut, suggestedMin, suggestedMax]);
+  }, [
+    open,
+    suggestedKeyword,
+    suggestedRef,
+    detectedRut,
+    suggestedMin,
+    suggestedMax,
+  ]);
 
+  const defaultNameHint = useMemo(() => {
+    const d =
+      criteriaDescription &&
+      descriptionOperator !== "IS_EMPTY" &&
+      descriptionValue.trim()
+        ? descriptionValue.trim()
+        : "";
+    const r =
+      criteriaReference &&
+      referenceOperator !== "IS_EMPTY" &&
+      referenceValue.trim()
+        ? referenceValue.trim()
+        : "";
+    return d || r || "regla";
+  }, [
+    criteriaDescription,
+    descriptionOperator,
+    descriptionValue,
+    criteriaReference,
+    referenceOperator,
+    referenceValue,
+  ]);
   const account = accountPlans.find((a) => a.id === preselectedAccountId);
   const appliesTo: "DEPOSITS" | "WITHDRAWALS" =
     sourceTx.amount > 0 ? "DEPOSITS" : "WITHDRAWALS";
@@ -136,16 +213,48 @@ export function SaveAsRuleModal({
       toast.error("Faltó la cuenta contable.");
       return;
     }
+    if (
+      criteriaDescription &&
+      textOperatorNeedsValue(descriptionOperator) &&
+      !descriptionValue.trim()
+    ) {
+      toast.error(
+        'Ingresá texto para «Descripción» o cambiá el operador a «Está vacío».',
+      );
+      return;
+    }
+    if (
+      criteriaReference &&
+      textOperatorNeedsValue(referenceOperator) &&
+      !referenceValue.trim()
+    ) {
+      toast.error(
+        'Ingresá texto para «Referencia» o cambiá el operador a «Está vacío».',
+      );
+      return;
+    }
+
     const items: Array<{
       field: string;
       operator: string;
-      value: string | number | { min: number; max: number } | null;
+      value?: string | number | { min: number; max: number } | null;
     }> = [];
-    if (criteriaDescription && descriptionValue.trim()) {
+    if (criteriaDescription) {
       items.push({
         field: "DESCRIPTION",
-        operator: "CONTAINS",
-        value: descriptionValue.trim(),
+        operator: descriptionOperator,
+        ...(descriptionOperator === "IS_EMPTY"
+          ? { value: null }
+          : { value: descriptionValue.trim() }),
+      });
+    }
+    if (criteriaReference) {
+      items.push({
+        field: "REFERENCE",
+        operator: referenceOperator,
+        ...(referenceOperator === "IS_EMPTY"
+          ? { value: null }
+          : { value: referenceValue.trim() }),
       });
     }
     if (criteriaRut && rutValue.trim()) {
@@ -173,7 +282,7 @@ export function SaveAsRuleModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: ruleName.trim() || `Auto-${descriptionValue.trim() || "regla"}`,
+          name: ruleName.trim() || `Auto-${defaultNameHint}`,
           enabled: true,
           priority: 100,
           appliesTo,
@@ -199,13 +308,16 @@ export function SaveAsRuleModal({
             body: JSON.stringify({
               ruleId: json.data.id,
               includeSuggested: false,
+              monthsBack: 6,
             }),
           },
         );
         const histJson = await histRes.json();
         if (histRes.ok && histJson.success) {
           historicalCount =
-            (histJson.data?.ruleMatched ?? 0) + (histJson.data?.matched ?? 0);
+            (histJson.data?.ruleMatched ?? 0) +
+            (histJson.data?.matched ?? 0) +
+            (histJson.data?.ruleSuggested ?? 0);
         }
       }
 
@@ -265,6 +377,16 @@ export function SaveAsRuleModal({
               </>
             )}
           </div>
+          {sourceTx.reference?.trim() ? (
+            <div className="flex items-start gap-2 pt-1 border-t border-ds-border-subtle">
+              <span className="text-ds-text-3 font-mono text-[12px] uppercase shrink-0 mt-0.5">
+                Referencia:
+              </span>
+              <span className="font-mono text-ds-text-2 break-all leading-snug">
+                {sourceTx.reference.trim()}
+              </span>
+            </div>
+          ) : null}
         </div>
 
         {/* Nombre */}
@@ -274,7 +396,7 @@ export function SaveAsRuleModal({
             id="rule-name"
             value={ruleName}
             onChange={(e) => setRuleName(e.target.value)}
-            placeholder={`Auto-${descriptionValue.trim() || "regla"}`}
+            placeholder={`Auto-${defaultNameHint}`}
             className="h-10 sm:h-9"
           />
         </div>
@@ -300,17 +422,118 @@ export function SaveAsRuleModal({
                 onCheckedChange={(v) => setCriteriaDescription(!!v)}
                 className="mt-0.5"
               />
-              <div className="flex-1 min-w-0">
-                <span className="text-[13px] font-medium">
-                  Descripción contiene
-                </span>
-                <Input
-                  className="h-10 sm:h-9 mt-1.5"
-                  value={descriptionValue}
-                  onChange={(e) => setDescriptionValue(e.target.value)}
-                  disabled={!criteriaDescription}
-                  placeholder="Ej. ENEL"
-                />
+              <div className="flex-1 min-w-0 space-y-2">
+                <span className="text-[13px] font-medium">Descripción</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Select
+                    value={descriptionOperator}
+                    onValueChange={(v) => {
+                      setDescriptionOperator(v as TextRuleOperator);
+                    }}
+                    disabled={!criteriaDescription}
+                  >
+                    <SelectTrigger className="h-10 sm:h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TEXT_OPERATORS_ORDER.map((op) => (
+                        <SelectItem key={op} value={op}>
+                          {TEXT_OPERATOR_UI_LABEL[op]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {textOperatorNeedsValue(descriptionOperator) ? (
+                    <Input
+                      className="h-10 sm:h-9"
+                      value={descriptionValue}
+                      onChange={(e) => setDescriptionValue(e.target.value)}
+                      disabled={!criteriaDescription}
+                      placeholder={
+                        descriptionOperator === "EQUALS"
+                          ? "Texto exacto de la línea"
+                          : "Ej. Internet · ENEL · sueldo"
+                      }
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                    />
+                  ) : (
+                    <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 px-3 py-2 flex items-start sm:items-center">
+                      <p className="text-[12px] text-ds-text-3 leading-snug">
+                        Solo aplica cuando el campo descripción llega sin texto en
+                        el movimiento.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </label>
+          </div>
+
+          {/* Referencia (Nº de referencia / folio cartola) */}
+          <div
+            className={cn(
+              "rounded-md border p-3 transition-colors",
+              criteriaReference
+                ? "border-primary/40 bg-primary/5"
+                : "border-ds-border-subtle bg-ds-surface-2",
+            )}
+          >
+            <label className="flex items-start gap-2 cursor-pointer">
+              <Checkbox
+                checked={criteriaReference}
+                onCheckedChange={(v) => setCriteriaReference(!!v)}
+                className="mt-0.5"
+              />
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span className="text-[13px] font-medium">Referencia</span>
+                  <span className="text-[12px] text-ds-text-3 font-normal">
+                    Nº de referencia / folio de la línea del extracto
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Select
+                    value={referenceOperator}
+                    onValueChange={(v) =>
+                      setReferenceOperator(v as TextRuleOperator)
+                    }
+                    disabled={!criteriaReference}
+                  >
+                    <SelectTrigger className="h-10 sm:h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TEXT_OPERATORS_ORDER.map((op) => (
+                        <SelectItem key={op} value={op}>
+                          {TEXT_OPERATOR_UI_LABEL[op]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {textOperatorNeedsValue(referenceOperator) ? (
+                    <Input
+                      className="h-10 sm:h-9 font-mono text-[13px]"
+                      value={referenceValue}
+                      onChange={(e) => setReferenceValue(e.target.value)}
+                      disabled={!criteriaReference}
+                      placeholder={
+                        referenceOperator === "EQUALS"
+                          ? "Texto exacto de la referencia"
+                          : "Fragmento como en el estado de cuenta"
+                      }
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                    />
+                  ) : (
+                    <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 px-3 py-2 flex items-start sm:items-center">
+                      <p className="text-[12px] text-ds-text-3 leading-snug">
+                        Solo aplica cuando el banco no entrega campo de referencia
+                        para el movimiento.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </label>
           </div>

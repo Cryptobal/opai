@@ -10,30 +10,29 @@ import { hasCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { bulkAutoMatchBankTransactions } from "@/modules/finance/banking/auto-match-payment.service";
 
+const DEFAULT_RULE_HISTORICAL_MONTHS = 6;
+/** Máximo de movimientos por corrida (más recientes primero). */
+const RUN_HISTORICAL_CAP = 2500;
+
 const bodySchema = z.object({
   bankAccountId: z.string().nullable().optional(),
   /** Si true incluye también las que ya tienen sugerencia (re-evalúa). */
   includeSuggested: z.boolean().optional(),
-  /**
-   * Si viene, se valida que la regla pertenezca al tenant y se corre el motor
-   * completo (que incluirá esa regla recién creada entre las activas).
-   *
-   * TODO: en una iteración futura, ejecutar `findMatchingRule` filtrando solo
-   * esa regla. Hoy el motor evalúa todas las reglas activas en orden de
-   * prioridad — comportamiento seguro pero no aísla la regla nueva.
-   */
+  /** Si viene, solo esa regla participa en la fase de reglas (tras DTE / TE). */
   ruleId: z.string().uuid().nullable().optional(),
+  /**
+   * Ventana en meses calendario hacia atrás desde hoy.
+   * Sin `monthsBack`: no hay filtro de fecha (solo tope RUN_HISTORICAL_CAP).
+   * Si enviás `ruleId` pero no `monthsBack`, por defecto = 6 meses.
+   */
+  monthsBack: z.number().int().min(1).max(36).nullable().optional(),
 });
 
 /**
  * POST /api/finance/banking/automatch-rules/run-historical
  *
- * Corre el motor de auto-match (DTE + reglas) sobre todos los
- * movimientos UNMATCHED visibles del tenant (o de una cuenta). Útil
- * para evaluar reglas recién creadas contra el histórico.
- *
- * Hard cap de 1000 tx por ejecución para evitar timeouts. Si hay más,
- * el usuario llama de nuevo y se procesan las restantes en la próxima.
+ * Corre el motor de auto-match (DTE + turnos extra + reglas) sobre
+ * movimientos UNMATCHED visibles del tenant (o de una cuenta).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -57,10 +56,14 @@ export async function POST(request: NextRequest) {
       if (!rule) {
         return NextResponse.json(
           { success: false, error: "Regla no encontrada" },
-          { status: 404 },
+          { status: 404 }
         );
       }
     }
+
+    const effectiveMonthsBack =
+      parsed.data.monthsBack ??
+      (parsed.data.ruleId != null ? DEFAULT_RULE_HISTORICAL_MONTHS : undefined);
 
     const where: Record<string, unknown> = {
       tenantId: ctx.tenantId,
@@ -71,22 +74,28 @@ export async function POST(request: NextRequest) {
       where.bankAccountId = parsed.data.bankAccountId;
     }
     if (!parsed.data.includeSuggested) {
-      // Por defecto solo procesa las que NO tienen sugerencia, para no
-      // sobreescribir las ya marcadas. Si includeSuggested=true, las
-      // reevalúa todas.
       where.suggestedAccountPlanId = null;
+    }
+
+    if (effectiveMonthsBack != null) {
+      const since = new Date();
+      since.setHours(0, 0, 0, 0);
+      since.setMonth(since.getMonth() - effectiveMonthsBack);
+      where.transactionDate = { gte: since };
     }
 
     const txs = await prisma.financeBankTransaction.findMany({
       where,
       select: { id: true },
-      take: 1000,
+      orderBy: { transactionDate: "desc" },
+      take: RUN_HISTORICAL_CAP,
     });
 
     const summary = await bulkAutoMatchBankTransactions(
       ctx.tenantId,
       txs.map((t) => t.id),
-      ctx.userId
+      ctx.userId,
+      parsed.data.ruleId ? { onlyRuleId: parsed.data.ruleId } : undefined
     );
 
     return NextResponse.json({

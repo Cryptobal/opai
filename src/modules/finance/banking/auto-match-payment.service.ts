@@ -398,15 +398,23 @@ export interface BulkAutoMatchSummary {
   skipped: number;
   /** Tx categorizadas por una regla auto-match (no DTE). */
   ruleMatched: number;
+  /** Reglas que coincidieron pero solo dejaron sugerencia (requiresReview). */
+  ruleSuggested: number;
   /** Tx conciliadas como pago de turno extra contra OpsPagoTeItem. */
   turnoExtraMatched: number;
   errors: { bankTransactionId: string; message: string }[];
+}
+
+export interface BulkAutoMatchOptions {
+  /** Evaluar únicamente esta regla al paso de reglas (tras DTE y TE). */
+  onlyRuleId?: string;
 }
 
 export async function bulkAutoMatchBankTransactions(
   tenantId: string,
   bankTransactionIds: string[],
   userId: string,
+  options?: BulkAutoMatchOptions,
 ): Promise<BulkAutoMatchSummary> {
   const summary: BulkAutoMatchSummary = {
     total: bankTransactionIds.length,
@@ -415,6 +423,7 @@ export async function bulkAutoMatchBankTransactions(
     noCandidate: 0,
     skipped: 0,
     ruleMatched: 0,
+    ruleSuggested: 0,
     turnoExtraMatched: 0,
     errors: [],
   };
@@ -432,8 +441,9 @@ export async function bulkAutoMatchBankTransactions(
       // genéricas para que un pago a guardia quede correctamente
       // atribuido al item de planilla en vez de a una categoría contable
       // genérica. `no_candidate` cubre tanto ingresos sin DTE como
-      // egresos sin DTE RECEIVED candidato.
-      if (r.reason === "no_candidate") {
+      // egresos sin DTE RECEIVED candidato; `negative_amount` cubre respuestas
+      // legacy del matcher DTE.
+      if (r.reason === "negative_amount" || r.reason === "no_candidate") {
         const teResult = await tryAutoMatchBankTransactionToTurnoExtra(
           tenantId,
           id,
@@ -450,9 +460,15 @@ export async function bulkAutoMatchBankTransactions(
       // creamos un link EXPENSE/INCOME con la cuenta contable y marcamos
       // MATCHED.
       if (r.reason === "no_candidate" || r.reason === "ambiguous") {
-        const applied = await tryApplyRule(tenantId, id, userId);
-        if (applied) {
+        const ruleOutcome = await tryApplyRule(tenantId, id, userId, {
+          onlyRuleId: options?.onlyRuleId,
+        });
+        if (ruleOutcome === "applied") {
           summary.ruleMatched += 1;
+          continue;
+        }
+        if (ruleOutcome === "suggested") {
+          summary.ruleSuggested += 1;
           continue;
         }
       }
@@ -482,7 +498,8 @@ async function tryApplyRule(
   tenantId: string,
   bankTransactionId: string,
   userId: string,
-): Promise<boolean> {
+  options?: { onlyRuleId?: string },
+): Promise<"applied" | "suggested" | "none"> {
   const tx = await prisma.financeBankTransaction.findFirst({
     where: { id: bankTransactionId, tenantId },
     select: {
@@ -493,14 +510,18 @@ async function tryApplyRule(
       reconciliationStatus: true,
     },
   });
-  if (!tx || tx.reconciliationStatus !== "UNMATCHED") return false;
+  if (!tx || tx.reconciliationStatus !== "UNMATCHED") return "none";
 
-  const evaluation = await findMatchingRule(tenantId, {
-    amount: tx.amount.toNumber(),
-    description: tx.description,
-    reference: tx.reference,
-  });
-  if (!evaluation) return false;
+  const evaluation = await findMatchingRule(
+    tenantId,
+    {
+      amount: tx.amount.toNumber(),
+      description: tx.description,
+      reference: tx.reference,
+    },
+    options?.onlyRuleId ? { onlyRuleId: options.onlyRuleId } : undefined,
+  );
+  if (!evaluation) return "none";
   if (evaluation.action.requiresReview) {
     // La regla aplica pero pide revisión humana — guardamos la sugerencia
     // en la propia tx para que aparezca en el sub-tab "Reconocidos" y
@@ -514,12 +535,13 @@ async function tryApplyRule(
           suggestedAccountPlanId: evaluation.action.accountPlanId,
         },
       });
+      return "suggested";
     }
-    return false;
+    return "none";
   }
   if (!evaluation.action.accountPlanId) {
     // Regla sin cuenta contable destino → no podemos crear el link.
-    return false;
+    return "none";
   }
 
   const isIncome = tx.amount.toNumber() > 0;
@@ -551,5 +573,5 @@ async function tryApplyRule(
     }),
   ]);
 
-  return true;
+  return "applied";
 }

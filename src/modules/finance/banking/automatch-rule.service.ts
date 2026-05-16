@@ -175,16 +175,30 @@ function ruleScopeMatches(
   return false;
 }
 
+export interface FindMatchingRuleOptions {
+  /**
+   * Si se indica, solo se evalúa esa regla (debe existir para el tenant).
+   * Útil para «aplicar una regla al histórico» sin ganar contra otras
+   * por prioridad.
+   */
+  onlyRuleId?: string;
+}
+
 /**
  * Devuelve la PRIMERA regla habilitada (ordenada por priority asc) que
  * matchee la tx, o null si ninguna aplica. NO ejecuta efectos secundarios.
  */
 export async function findMatchingRule(
   tenantId: string,
-  tx: AutoMatchTx
+  tx: AutoMatchTx,
+  options?: FindMatchingRuleOptions,
 ): Promise<AutoMatchEvaluation | null> {
   const rules = await prisma.financeAutoMatchRule.findMany({
-    where: { tenantId, enabled: true },
+    where: {
+      tenantId,
+      enabled: true,
+      ...(options?.onlyRuleId ? { id: options.onlyRuleId } : {}),
+    },
     orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
   });
 

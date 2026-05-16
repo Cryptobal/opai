@@ -49,6 +49,7 @@ import {
   RefreshCw,
   BookMarked,
   HelpCircle,
+  CalendarClock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccountPlanCombobox } from "./AccountPlanCombobox";
@@ -168,13 +169,13 @@ const FIELD_LABEL: Record<RuleField, string> = {
 };
 
 const OPERATOR_LABEL: Record<RuleOperator, string> = {
-  CONTAINS: "contiene",
-  STARTS_WITH: "empieza por",
-  EQUALS: "es igual a",
-  IS_EMPTY: "está vacío",
-  AMOUNT_BETWEEN: "está entre",
-  AMOUNT_GTE: "es mayor o igual a",
-  AMOUNT_LTE: "es menor o igual a",
+  CONTAINS: "Contiene",
+  STARTS_WITH: "Empieza con",
+  EQUALS: "Es igual a",
+  IS_EMPTY: "Está vacío",
+  AMOUNT_BETWEEN: "Está entre",
+  AMOUNT_GTE: "Es mayor o igual a",
+  AMOUNT_LTE: "Es menor o igual a",
   RUT_MATCHES: "es",
 };
 
@@ -213,11 +214,17 @@ const EMPTY_RULE: Omit<Rule, "id" | "timesMatched" | "lastMatchedAt" | "createdA
   },
 };
 
+/** Debe coincidir con el default del endpoint run-historical cuando viene `ruleId`. */
+const RULE_HISTORICAL_MONTHS_DEFAULT = 6;
+
 export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProps) {
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [runningHistorical, setRunningHistorical] = useState(false);
+  const [runningRuleHistoricalId, setRunningRuleHistoricalId] = useState<string | null>(
+    null,
+  );
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Rule | null>(null);
   /** Lista editable vs motor fijo (documentación de autoconciliación). */
@@ -292,7 +299,7 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
   const handleRunHistorical = async () => {
     if (
       !confirm(
-        "¿Conciliar histórico? Se evaluarán los movimientos UNMATCHED contra DTEs pendientes (match por monto + RUT) y, como fallback, contra las reglas activas. Los matches quedan como conciliados o reconocidos según corresponda."
+        "¿Conciliar histórico? Se toman hasta 2.500 movimientos sin conciliar más recientes (sin filtro de fecha), se evalúan DTE / turnos extra y después las reglas. Si una regla exige revisión humana, el movimiento queda como sugerencia y sigue «Sin conciliar» hasta autorizar."
       )
     ) {
       return;
@@ -311,13 +318,59 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
       if (!res.ok || !json.success) throw new Error(json.error);
       const d = json.data ?? {};
       toast.success(
-        `Procesados ${(d.scanned ?? 0).toLocaleString("es-CL")} mov: ` +
-          `${d.matched ?? 0} conciliados · ${d.ruleMatched ?? 0} reconocidos por regla`
+        `Escaneados ${(d.scanned ?? 0).toLocaleString("es-CL")} mov · ` +
+          `${d.matched ?? 0} DTE · ${d.turnoExtraMatched ?? 0} TE · ` +
+          `${d.ruleMatched ?? 0} regla aplicada · ` +
+          `${d.ruleSuggested ?? 0} sugerencia`,
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error en re-evaluación");
     } finally {
       setRunningHistorical(false);
+    }
+  };
+
+  const handleRunHistoricalForRule = async (rule: Rule) => {
+    if (!rule.enabled) {
+      toast.error("Activá la regla antes de correrla en el histórico.");
+      return;
+    }
+    if (
+      !confirm(
+        `¿Aplicar solo la regla «${rule.name}» a los movimientos sin conciliar ` +
+          `de los últimos ${RULE_HISTORICAL_MONTHS_DEFAULT} meses (hasta 2.500, más recientes primero)?\n\n` +
+          `Igual corre DTE y turnos extra antes de evaluar esa regla. Las reglas con «Requiere revisión» dejan ` +
+          `sugerencias: el estado seguirá «Sin conciliar» hasta que autorices.`,
+      )
+    ) {
+      return;
+    }
+    setRunningRuleHistoricalId(rule.id);
+    try {
+      const res = await fetch(
+        "/api/finance/banking/automatch-rules/run-historical",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ruleId: rule.id,
+            monthsBack: RULE_HISTORICAL_MONTHS_DEFAULT,
+            includeSuggested: true,
+          }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error);
+      const d = json.data ?? {};
+      toast.success(
+        `«${rule.name}» · Escaneados ${(d.scanned ?? 0).toLocaleString("es-CL")} mov · ` +
+          `${d.matched ?? 0} DTE · ${d.turnoExtraMatched ?? 0} TE · ` +
+          `${d.ruleMatched ?? 0} regla aplicada · ${d.ruleSuggested ?? 0} sugerencias`,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error en re-evaluación");
+    } finally {
+      setRunningRuleHistoricalId(null);
     }
   };
 
@@ -531,6 +584,28 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
                         checked={rule.enabled}
                         onCheckedChange={() => handleToggle(rule)}
                       />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-9 w-10 p-0 sm:w-auto sm:px-2.5 shrink-0"
+                        title={`Histórico ${RULE_HISTORICAL_MONTHS_DEFAULT} meses (solo esta regla, tras DTE/TE)`}
+                        disabled={
+                          runningHistorical ||
+                          runningRuleHistoricalId !== null ||
+                          !rule.enabled
+                        }
+                        onClick={() => handleRunHistoricalForRule(rule)}
+                      >
+                        {runningRuleHistoricalId === rule.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" aria-hidden />
+                        ) : (
+                          <CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                        )}
+                        <span className="sr-only">
+                          Histórico {RULE_HISTORICAL_MONTHS_DEFAULT} meses, solo esta regla
+                        </span>
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -763,6 +838,7 @@ function RuleEditorSheet({
           body: JSON.stringify({
             ruleId: postCreatePrompt.ruleId,
             includeSuggested: false,
+            monthsBack: RULE_HISTORICAL_MONTHS_DEFAULT,
           }),
         },
       );
@@ -770,7 +846,7 @@ function RuleEditorSheet({
       if (res.ok && json.success) {
         const d = json.data;
         toast.success(
-          `${(d.ruleMatched ?? 0) + (d.matched ?? 0)} movimientos procesados.`,
+          `${(d.ruleMatched ?? 0) + (d.matched ?? 0)} conciliaciones · ${d.ruleSuggested ?? 0} sugerencias.`,
         );
       }
       // Cerrar prompt y avanzar — devolvemos un Rule-ish con id.
