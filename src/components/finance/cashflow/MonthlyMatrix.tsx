@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
-import { ChevronDown, ChevronUp, Pencil } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, Search } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
 import {
   Select,
@@ -27,12 +27,17 @@ import {
 import { ExpandableMatrixRow } from "./ExpandableMatrixRow";
 import { BankBalanceAdjustDrawer } from "./BankBalanceAdjustDrawer";
 import { CashflowLegend } from "./CashflowLegend";
+import { rowMatchesSearch } from "./cashflow-search";
 import { useHasCapability } from "@/lib/permissions-context";
 import { addMonths } from "date-fns";
 
 interface Props {
   defaultMonths: number;
   canManage: boolean;
+  /** Texto del buscador (Bloque 6 Fase 4). Filtra filas por categoría,
+   *  nombre de item, nickname, cliente CRM e instalación. Vive en
+   *  CashflowTabs para preservarse entre weekly/monthly. */
+  searchTerm?: string;
 }
 
 interface IpcPendingMarker {
@@ -43,7 +48,7 @@ interface IpcPendingMarker {
 // Horizonte: "rolling:N" = N meses desde hoy; "calendar:YYYY" = año Ene–Dic.
 type Horizon = `rolling:${number}` | `calendar:${number}`;
 
-export function MonthlyMatrix({ defaultMonths }: Props) {
+export function MonthlyMatrix({ defaultMonths, searchTerm = "" }: Props) {
   const [horizon, setHorizon] = useState<Horizon>(`rolling:${defaultMonths}`);
   const [projection, setProjection] = useState<ProjectionMatrix | null>(null);
   const [loading, setLoading] = useState(true);
@@ -255,14 +260,24 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
     );
   }
 
+  // Bloque 6 Fase 4: filtra rows por searchTerm contra categoría, nombre
+  // de item, nickname, cliente CRM e instalación. Si term es vacío, pasan
+  // todas las filas.
   const incomeRows = sortRowsForDisplay(
-    projection.rows.filter((r) => r.kind === "INCOME"),
+    projection.rows.filter(
+      (r) => r.kind === "INCOME" && rowMatchesSearch(r, searchTerm),
+    ),
     rowOrder,
   );
   const expenseRows = sortRowsForDisplay(
-    projection.rows.filter((r) => r.kind === "EXPENSE"),
+    projection.rows.filter(
+      (r) => r.kind === "EXPENSE" && rowMatchesSearch(r, searchTerm),
+    ),
     rowOrder,
   );
+  const hasSearchActive = searchTerm.trim().length > 0;
+  const noResults =
+    hasSearchActive && incomeRows.length === 0 && expenseRows.length === 0;
   const colCount = projection.buckets.length + 2;
 
   return (
@@ -318,6 +333,20 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
         </div>
       </div>
 
+      {noResults && (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Search className="h-8 w-8 text-ds-text-3 mb-3" />
+          <p className="text-sm text-ds-text-2">
+            No se encontraron filas con{" "}
+            <strong>&ldquo;{searchTerm}&rdquo;</strong>
+          </p>
+          <p className="text-xs text-ds-text-3 mt-1">
+            Probá con menos palabras o revisá la ortografía.
+          </p>
+        </div>
+      )}
+
+      {!noResults && (
       <div className="-mx-4 px-4 sm:mx-0 sm:px-0">
         <div className="relative overflow-auto max-h-[70vh] rounded-ds-md border border-border">
           <table className="text-[11px] sm:text-[12px] w-full border-collapse">
@@ -502,6 +531,7 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
           </table>
         </div>
       </div>
+      )}
 
       <BankBalanceAdjustDrawer
         open={bankAdjustOpen}

@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { Search, X } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { WeeklyMatrix } from "./WeeklyMatrix";
@@ -37,6 +38,43 @@ export function CashflowTabs({
   // el list view mobile-first. La detección es reactiva al resize porque
   // el usuario puede rotar el dispositivo o redimensionar la ventana.
   const [isMobile, setIsMobile] = useState(false);
+
+  // Bloque 6 Fase 4 — buscador de texto. El state vive acá (no en cada
+  // matrix) para que el filtro se preserve al cambiar entre weekly,
+  // monthly e items. Se pasa como prop a las 3 vistas que filtran rows.
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Atajos de teclado: "/" focusea el input desde cualquier lugar; ESC
+  // limpia el filtro y desfocusea cuando el input está activo. No
+  // dispara "/" si el usuario está escribiendo en otro input/textarea
+  // (typeahead normal en formularios).
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (
+        e.key === "/" &&
+        !(e.target instanceof HTMLInputElement) &&
+        !(e.target instanceof HTMLTextAreaElement) &&
+        !(e.target instanceof HTMLSelectElement) &&
+        !(
+          e.target instanceof HTMLElement && e.target.isContentEditable
+        )
+      ) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+      if (
+        e.key === "Escape" &&
+        document.activeElement === searchInputRef.current
+      ) {
+        setSearchTerm("");
+        searchInputRef.current?.blur();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -211,6 +249,7 @@ export function CashflowTabs({
             defaultWeeks={defaultWeeks}
             defaultMonths={defaultMonths}
             canManage={canManage}
+            searchTerm={searchTerm}
           />
         </MatrixDnDProvider>
         <QuickItemModal
@@ -254,11 +293,39 @@ export function CashflowTabs({
               <span className="hidden sm:inline">Movimientos proyectados</span>
             </TabsTrigger>
           </TabsList>
+          {/* Bloque 6 Fase 4 — buscador. ml-auto lo manda a la derecha si
+              no hay botón "+ Nuevo ítem rápido"; si hay botón, mantiene
+              el grow para empujar el botón al borde derecho. */}
+          <div className="relative ml-auto flex-1 max-w-sm shrink min-w-[140px]">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ds-text-3 pointer-events-none" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar cliente, contrato, categoría…  /"
+              className="w-full h-9 bg-ds-surface-1 border border-ds-border-default rounded-md pl-8 pr-8 text-[13px] placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary"
+              aria-label="Buscar en el flujo de caja"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm("");
+                  searchInputRef.current?.focus();
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-ds-text-3 hover:text-ds-text-1"
+                aria-label="Limpiar búsqueda"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
           {canManage && (
             <Button
               size="sm"
               variant="outline"
-              className="ml-auto shrink-0 h-9 text-[13px]"
+              className="shrink-0 h-9 text-[13px]"
               onClick={() => openQuickFor()}
             >
               + Nuevo ítem rápido
@@ -276,6 +343,7 @@ export function CashflowTabs({
               initialProjection={initialProjection}
               defaultWeeks={defaultWeeks}
               canManage={canManage}
+              searchTerm={searchTerm}
             />
           </MatrixDnDProvider>
         </TabsContent>
@@ -286,7 +354,11 @@ export function CashflowTabs({
               handleMoveVirtual(itemId, origDate, key, "monthly")
             }
           >
-            <MonthlyMatrix defaultMonths={defaultMonths} canManage={canManage} />
+            <MonthlyMatrix
+              defaultMonths={defaultMonths}
+              canManage={canManage}
+              searchTerm={searchTerm}
+            />
           </MatrixDnDProvider>
         </TabsContent>
         <TabsContent value="items" className="mt-4">

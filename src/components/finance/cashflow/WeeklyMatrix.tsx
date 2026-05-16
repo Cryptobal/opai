@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { ChevronDown, ChevronUp, Pencil } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, Search } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +26,7 @@ import { ExpandableMatrixRow } from "./ExpandableMatrixRow";
 import { BucketBankDrawer } from "./BucketBankDrawer";
 import { BankBalanceAdjustDrawer } from "./BankBalanceAdjustDrawer";
 import { CashflowLegend } from "./CashflowLegend";
+import { rowMatchesSearch } from "./cashflow-search";
 import { useHasCapability } from "@/lib/permissions-context";
 
 const MONTH_LABEL_SHORT = [
@@ -56,6 +57,10 @@ interface Props {
   initialProjection: ProjectionMatrix;
   defaultWeeks: number;
   canManage: boolean;
+  /** Texto del buscador (Bloque 6 Fase 4). Filtra filas por categoría,
+   *  nombre de item, nickname, cliente CRM e instalación. Vive en
+   *  CashflowTabs para preservarse entre weekly/monthly. */
+  searchTerm?: string;
 }
 
 interface IpcPendingMarker {
@@ -63,7 +68,12 @@ interface IpcPendingMarker {
   dueDate: string;
 }
 
-export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Props) {
+export function WeeklyMatrix({
+  initialProjection,
+  defaultWeeks,
+  canManage,
+  searchTerm = "",
+}: Props) {
   const [weeks, setWeeks] = useState<number>(defaultWeeks);
   // Semanas hacia ATRÁS desde hoy. 0 = solo futuro. Default 2 para que
   // siempre se vean las 2 últimas semanas + actual (donde caen los movs
@@ -167,14 +177,24 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
       .finally(() => setLoading(false));
   }, [weeks, defaultWeeks, fromDate, toDate, refreshKey, weeksBack]);
 
+  // Bloque 6 Fase 4: filtra rows por searchTerm contra categoría, nombre
+  // de item, nickname, cliente CRM e instalación. Si term es vacío, pasan
+  // todas las filas.
   const incomeRows = sortRowsForDisplay(
-    projection.rows.filter((r) => r.kind === "INCOME"),
+    projection.rows.filter(
+      (r) => r.kind === "INCOME" && rowMatchesSearch(r, searchTerm),
+    ),
     rowOrder,
   );
   const expenseRows = sortRowsForDisplay(
-    projection.rows.filter((r) => r.kind === "EXPENSE"),
+    projection.rows.filter(
+      (r) => r.kind === "EXPENSE" && rowMatchesSearch(r, searchTerm),
+    ),
     rowOrder,
   );
+  const hasSearchActive = searchTerm.trim().length > 0;
+  const noResults =
+    hasSearchActive && incomeRows.length === 0 && expenseRows.length === 0;
 
   // Carga los ajustes IPC pendientes y los indexa por `${itemId}_${bucketKey}`.
   // En weekly, el bucket.key tiene formato `YYYY-Www` o `WK-YYYYMMDD` según
@@ -455,9 +475,23 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
         </div>
       </div>
 
+      {noResults && (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Search className="h-8 w-8 text-ds-text-3 mb-3" />
+          <p className="text-sm text-ds-text-2">
+            No se encontraron filas con{" "}
+            <strong>&ldquo;{searchTerm}&rdquo;</strong>
+          </p>
+          <p className="text-xs text-ds-text-3 mt-1">
+            Probá con menos palabras o revisá la ortografía.
+          </p>
+        </div>
+      )}
+
       {/* Scroll container: bleed full-width on mobile (-mx-4 px-4), max-h
           for vertical scrolling so bottom totals can stay sticky.
           relative + overflow-auto is what enables sticky positioning. */}
+      {!noResults && (
       <div className="-mx-4 px-4 sm:mx-0 sm:px-0">
         <div
           ref={scrollContainerRef}
@@ -812,6 +846,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
           </table>
         </div>
       </div>
+      )}
       {loading && <p className="text-[12px] text-ds-text-3 mt-2">Recalculando...</p>}
       {matchResultMsg && (
         <p className="text-[12px] text-ds-text-2 mt-2">{matchResultMsg}</p>

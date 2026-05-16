@@ -14,6 +14,7 @@ import { CashflowDriftBanner } from "./CashflowDriftBanner";
 import { useHasCapability } from "@/lib/permissions-context";
 import { subMonths } from "date-fns";
 import { hydrateProjection } from "./cashflow-mobile-helpers";
+import { rowMatchesSearch } from "./cashflow-search";
 
 const MONTHS_BACK = 2;
 
@@ -24,6 +25,10 @@ interface Props {
   defaultWeeks: number;
   defaultMonths: number;
   canManage: boolean;
+  /** Texto del buscador (Bloque 6 Fase 4). Filtra filas por categoría,
+   *  nombre de item, nickname, cliente CRM e instalación. Vive en
+   *  CashflowTabs para preservarse entre vistas. */
+  searchTerm?: string;
 }
 
 export function CashflowMobileList({
@@ -31,6 +36,7 @@ export function CashflowMobileList({
   defaultWeeks,
   defaultMonths,
   canManage,
+  searchTerm = "",
 }: Props) {
   // defaultWeeks queda en la API por contrato con CashflowTabs. La proyección
   // semanal arranca con la ya hidratada del server.
@@ -142,13 +148,21 @@ export function CashflowMobileList({
     else gotoNext();
   };
 
+  // Bloque 6 Fase 4: filtra rows por searchTerm. Si el filtro es vacío
+  // pasan todas. Re-evaluamos con searchTerm en deps.
   const incomeRows = useMemo(
-    () => projection.rows.filter((r) => r.kind === "INCOME"),
-    [projection.rows],
+    () =>
+      projection.rows.filter(
+        (r) => r.kind === "INCOME" && rowMatchesSearch(r, searchTerm),
+      ),
+    [projection.rows, searchTerm],
   );
   const expenseRows = useMemo(
-    () => projection.rows.filter((r) => r.kind === "EXPENSE"),
-    [projection.rows],
+    () =>
+      projection.rows.filter(
+        (r) => r.kind === "EXPENSE" && rowMatchesSearch(r, searchTerm),
+      ),
+    [projection.rows, searchTerm],
   );
 
   const [drawerTarget, setDrawerTarget] = useState<DrawerItemTarget | null>(
