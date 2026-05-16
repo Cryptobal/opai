@@ -441,9 +441,8 @@ export async function bulkAutoMatchBankTransactions(
       // genéricas para que un pago a guardia quede correctamente
       // atribuido al item de planilla en vez de a una categoría contable
       // genérica. `no_candidate` cubre tanto ingresos sin DTE como
-      // egresos sin DTE RECEIVED candidato; `negative_amount` cubre respuestas
-      // legacy del matcher DTE.
-      if (r.reason === "negative_amount" || r.reason === "no_candidate") {
+      // egresos sin DTE RECEIVED candidato.
+      if (r.reason === "no_candidate") {
         const teResult = await tryAutoMatchBankTransactionToTurnoExtra(
           tenantId,
           id,
