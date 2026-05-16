@@ -115,7 +115,6 @@ export async function GET(
         mesFacturaRelativo: true,
         modoCobro: true,
         diasCobroDesdeFactura: true,
-        costoFactoringPct: true,
         ipcAdjustments: {
           where: { status: "PENDING" },
           orderBy: { dueDate: "asc" },
@@ -193,8 +192,6 @@ export async function GET(
           mesFacturaRelativo: cf.mesFacturaRelativo,
           modoCobro: cf.modoCobro,
           diasCobroDesdeFactura: cf.diasCobroDesdeFactura,
-          costoFactoringPct:
-            cf.costoFactoringPct != null ? Number(cf.costoFactoringPct) : null,
           pendingIpcAdjustments: cf.ipcAdjustments.map((a) => ({
             id: a.id,
             dueDate: a.dueDate.toISOString().slice(0, 10),

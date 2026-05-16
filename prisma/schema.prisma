@@ -7934,9 +7934,6 @@ model FinanceCashflowItem {
   /// DIRECTO: típicamente 30/45/60. FACTORING: típicamente 2-5.
   /// Default 0 = comportamiento legacy: cobra el día de la factura.
   diasCobroDesdeFactura       Int      @default(0)  @map("dias_cobro_desde_factura")
-  /// Costo del factoring en %. Solo aplica si `modoCobro=FACTORING`.
-  /// Reduce el monto que entra al banco: monto_neto = monto_bruto × (1 - pct/100).
-  costoFactoringPct           Decimal? @db.Decimal(5, 2) @map("costo_factoring_pct")
 
   createdBy String?  @map("created_by")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)

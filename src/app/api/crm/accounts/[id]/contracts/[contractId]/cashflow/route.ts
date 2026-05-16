@@ -71,7 +71,6 @@ const upsertSchema = z.object({
   mesFacturaRelativo: z.enum(["MISMO_MES", "MES_SIGUIENTE"]).optional(),
   modoCobro: z.enum(["DIRECTO", "FACTORING"]).optional(),
   diasCobroDesdeFactura: z.number().int().min(0).max(180).optional(),
-  costoFactoringPct: z.number().min(0).max(20).nullable().optional(),
 });
 
 async function loadContractAndCheck(
@@ -139,7 +138,6 @@ export async function GET(
       mesFacturaRelativo: true,
       modoCobro: true,
       diasCobroDesdeFactura: true,
-      costoFactoringPct: true,
     },
   });
 
@@ -175,8 +173,6 @@ export async function GET(
             mesFacturaRelativo: item.mesFacturaRelativo,
             modoCobro: item.modoCobro,
             diasCobroDesdeFactura: item.diasCobroDesdeFactura,
-            costoFactoringPct:
-              item.costoFactoringPct != null ? Number(item.costoFactoringPct) : null,
           }
         : null,
     },
@@ -334,9 +330,6 @@ export async function PUT(
     ...(data.modoCobro !== undefined && { modoCobro: data.modoCobro }),
     ...(data.diasCobroDesdeFactura !== undefined && {
       diasCobroDesdeFactura: data.diasCobroDesdeFactura,
-    }),
-    ...(data.costoFactoringPct !== undefined && {
-      costoFactoringPct: data.costoFactoringPct,
     }),
   };
 

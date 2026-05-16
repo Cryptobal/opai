@@ -75,7 +75,6 @@ interface CfItem {
   mesFacturaRelativo?: "MISMO_MES" | "MES_SIGUIENTE" | string;
   modoCobro?: "DIRECTO" | "FACTORING" | string;
   diasCobroDesdeFactura?: number;
-  costoFactoringPct?: number | null;
   pendingIpcAdjustments?: Array<{ id: string; dueDate: string }>;
 }
 
@@ -392,7 +391,6 @@ export function AccountContractsSection({
   );
   const [cfDiasCobroDesdeFactura, setCfDiasCobroDesdeFactura] =
     useState<string>("0");
-  const [cfCostoFactoringPct, setCfCostoFactoringPct] = useState<string>("");
 
   // Action loading states
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
@@ -1015,9 +1013,6 @@ export function AccountContractsSection({
           ? String(item.diasCobroDesdeFactura)
           : "0",
       );
-      setCfCostoFactoringPct(
-        item.costoFactoringPct != null ? String(item.costoFactoringPct) : "",
-      );
       // Fechas del propio item (puede diferir del contrato).
       setCfStartDate(item.startDate ?? contract.effectiveDate?.slice(0, 10) ?? todayISO());
       setCfEndDate(item.endDate ?? contract.expirationDate?.slice(0, 10) ?? "");
@@ -1035,7 +1030,6 @@ export function AccountContractsSection({
       setCfMesFacturaRelativo("MISMO_MES");
       setCfModoCobro("DIRECTO");
       setCfDiasCobroDesdeFactura("0");
-      setCfCostoFactoringPct("");
       setCfStartDate(contract.effectiveDate?.slice(0, 10) ?? todayISO());
       setCfEndDate(contract.expirationDate?.slice(0, 10) ?? "");
     }
@@ -1149,12 +1143,6 @@ export function AccountContractsSection({
     if (!Number.isFinite(diasCobro) || diasCobro < 0 || diasCobro > 180) {
       return "Días de cobro debe estar entre 0 y 180";
     }
-    if (cfModoCobro === "FACTORING") {
-      const pct = Number(cfCostoFactoringPct);
-      if (!Number.isFinite(pct) || pct < 0 || pct > 20) {
-        return "Costo factoring debe estar entre 0 y 20%";
-      }
-    }
     if (!cfStartDate) return "Indica la fecha de inicio";
     if (cfEndDate && cfEndDate < cfStartDate) {
       return "La fecha de fin no puede ser anterior al inicio";
@@ -1216,10 +1204,6 @@ export function AccountContractsSection({
             mesFacturaRelativo: cfMesFacturaRelativo,
             modoCobro: cfModoCobro,
             diasCobroDesdeFactura: Number.isFinite(diasCobro) ? diasCobro : 0,
-            costoFactoringPct:
-              cfModoCobro === "FACTORING" && cfCostoFactoringPct !== ""
-                ? Number(cfCostoFactoringPct)
-                : null,
           }),
         },
       );
@@ -3472,33 +3456,10 @@ export function AccountContractsSection({
                 />
                 <p className="text-[12px] text-ds-text-3">
                   {cfModoCobro === "FACTORING"
-                    ? "Factoring: típicamente 2–5 días."
-                    : "Directo: típicamente 30 / 45 / 60 días."}
+                    ? "Factoring: vendido al factor, el cobro entra acelerado (típicamente 2–5 días). El costo real del factoring se carga al momento de emitir cada factura."
+                    : "Directo: el cliente paga a la cuenta. Típicamente 30 / 45 / 60 días."}
                 </p>
               </div>
-
-              {cfModoCobro === "FACTORING" && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Costo del factoring (%)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={20}
-                    step={0.01}
-                    value={cfCostoFactoringPct}
-                    onChange={(e) => setCfCostoFactoringPct(e.target.value)}
-                    placeholder="1.80"
-                    className="h-10 sm:h-9 max-w-[120px] font-mono text-right"
-                  />
-                  <p className="text-[12px] text-ds-text-3">
-                    Reduce el monto que entra al banco:{" "}
-                    <code className="font-mono">
-                      neto = bruto × (1 − pct/100)
-                    </code>
-                    .
-                  </p>
-                </div>
-              )}
             </div>
 
             {/* ── Ajuste IPC — sólo CLP ──────────────────────────── */}
