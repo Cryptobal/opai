@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 /**
  * Tabla editable masiva del contrato + calendario de cobro.
@@ -15,11 +16,20 @@ import { Button } from "@/components/ui/button";
  * backend.
  *
  * Columnas (Bloque 6 Fase 2):
- *  - Contrato/Cliente (read-only, identificación)
+ *  - Contrato/Cliente (read-only, identificación + ícono de problemas)
  *  - Monto · Moneda · Inicio · Fin · Duración (derivada) · IPC ·
  *    IPC meses · IPC desde
  *  - Nickname · Proforma · Día prof. · Días→factura · Día factura ·
  *    Mes fact. · Modo cobro · Días cobro
+ *
+ * UX para 25-30 contratos (Bloque 6 Fase 3):
+ *  - Validación in-place por fila (errors vs warnings).
+ *  - Banner global contador con toggle "Ver solo estos".
+ *  - Ícono de alerta junto al nombre con tooltip detallado.
+ *  - Sticky header vertical + sticky primera columna horizontal.
+ *  - Copy-down (↓) en columnas batch típicas (días cobro, mes factura,
+ *    modo cobro, IPC).
+ *  - Guardar bloqueado si hay errores (warnings sí dejan guardar).
  *
  * Semántica de proforma (FIX 2 de Fase 3): cuando un item tiene
  * `emiteProforma=true`, los inputs "Día factura" y "Mes fact." quedan
@@ -59,9 +69,14 @@ type Row = {
   diasCobroDesdeFactura: number;
 };
 
+type RowProblem = {
+  severity: "warning" | "error";
+  message: string;
+};
+
 /**
- * Calcula la duración en meses (entero, redondeado al más cercano) entre
- * startDate y endDate. Si endDate es null, retorna null ("indefinido").
+ * Calcula la duración en meses (entero) entre startDate y endDate.
+ * Si endDate es null, retorna null ("indefinido").
  */
 function calcularDuracionMeses(
   startISO: string,
@@ -99,10 +114,73 @@ function pedirConfirmacionCambioMoneda(
   );
 }
 
+/**
+ * Detecta problemas de configuración en una fila. Solo retorna errores
+ * "bloqueantes" (que harían fallar el save) y warnings de "información
+ * incompleta" (que no rompen pero conviene completar).
+ */
+function detectarProblemas(r: Row): RowProblem[] {
+  const problemas: RowProblem[] = [];
+
+  // ── Errores (impiden guardar) ──
+  if (!r.amount || r.amount <= 0) {
+    problemas.push({ severity: "error", message: "Monto debe ser > 0" });
+  }
+  if (!r.startDate) {
+    problemas.push({ severity: "error", message: "Falta fecha de inicio" });
+  }
+  if (r.endDate && r.endDate < r.startDate) {
+    problemas.push({
+      severity: "error",
+      message: "Fecha fin antes de inicio",
+    });
+  }
+  if (r.emiteProforma) {
+    if (r.diaEmisionProforma == null) {
+      problemas.push({
+        severity: "error",
+        message: "Falta día de proforma",
+      });
+    }
+    if (r.diasFacturaDesdeProforma == null) {
+      problemas.push({
+        severity: "error",
+        message: "Faltan días hasta factura",
+      });
+    }
+  } else if (r.diaEmisionFactura == null) {
+    problemas.push({
+      severity: "error",
+      message: "Falta día de emisión factura",
+    });
+  }
+  if (r.hasIpcAdjustment && r.ipcAdjustmentMonths == null) {
+    problemas.push({ severity: "error", message: "Falta frecuencia IPC" });
+  }
+
+  // ── Warnings (no impiden guardar, pero recomendable) ──
+  if (!r.endDate) {
+    problemas.push({
+      severity: "warning",
+      message: "Sin fecha de fin (contrato indefinido)",
+    });
+  }
+  if (r.diasCobroDesdeFactura === 0) {
+    problemas.push({
+      severity: "warning",
+      message:
+        "Calendario no configurado (legacy: cobro mismo día que factura)",
+    });
+  }
+
+  return problemas;
+}
+
 export function ContractsCobroBatchTable() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [filtroSoloProblemas, setFiltroSoloProblemas] = useState(false);
 
   async function load() {
     try {
@@ -147,6 +225,48 @@ export function ContractsCobroBatchTable() {
       nextSet.add(id);
       return nextSet;
     });
+  }
+
+  /**
+   * Copy down: replica el valor de `field` de la fila `rowId` a TODAS
+   * las filas debajo (siguientes en el array visible). Útil cuando
+   * varios contratos comparten configuración (típico: "todos cobran
+   * 45 días", "todos emiten factura el día 1 del mes siguiente").
+   *
+   * Pide confirmación porque el cambio puede afectar 20+ filas y no
+   * es trivial de revertir manualmente (aunque sí se puede recargando
+   * antes de guardar).
+   */
+  function handleCopyDown<K extends keyof Row>(rowId: string, field: K) {
+    if (!rows) return;
+    const sourceIndex = rows.findIndex((r) => r.id === rowId);
+    if (sourceIndex === -1) return;
+    const value = rows[sourceIndex][field];
+    const targetIds = rows.slice(sourceIndex + 1).map((r) => r.id);
+    if (targetIds.length === 0) {
+      toast.info("No hay filas debajo para copiar");
+      return;
+    }
+    if (
+      !window.confirm(
+        `¿Replicar este valor a las ${targetIds.length} filas debajo? ` +
+          `Podés cancelar antes de guardar.`,
+      )
+    ) {
+      return;
+    }
+    const targetSet = new Set(targetIds);
+    setRows((prev) =>
+      prev
+        ? prev.map((r) => (targetSet.has(r.id) ? { ...r, [field]: value } : r))
+        : prev,
+    );
+    setDirty((prev) => {
+      const next = new Set(prev);
+      targetIds.forEach((id) => next.add(id));
+      return next;
+    });
+    toast.success(`Valor replicado a ${targetIds.length} filas`);
   }
 
   async function handleSave() {
@@ -214,13 +334,36 @@ export function ContractsCobroBatchTable() {
     );
   }
 
+  const rowsConProblemas = rows.map((r) => ({
+    ...r,
+    _problems: detectarProblemas(r),
+  }));
+  const rowsVisibles = filtroSoloProblemas
+    ? rowsConProblemas.filter((r) => r._problems.length > 0)
+    : rowsConProblemas;
+  const totalConProblemas = rowsConProblemas.filter(
+    (r) => r._problems.length > 0,
+  ).length;
+  const totalConErrores = rowsConProblemas.filter((r) =>
+    r._problems.some((p) => p.severity === "error"),
+  ).length;
+  const saveDisabled = saving || dirty.size === 0 || totalConErrores > 0;
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-sm text-ds-text-3">
           {rows.length} contratos · {dirty.size} con cambios sin guardar
         </p>
-        <Button onClick={handleSave} disabled={saving || dirty.size === 0}>
+        <Button
+          onClick={handleSave}
+          disabled={saveDisabled}
+          title={
+            totalConErrores > 0
+              ? `${totalConErrores} contrato(s) tienen errores que impiden guardar`
+              : undefined
+          }
+        >
           {saving ? (
             <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
           ) : (
@@ -230,11 +373,51 @@ export function ContractsCobroBatchTable() {
         </Button>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-ds-border-default">
+      {totalConProblemas > 0 && (
+        <div
+          className={cn(
+            "rounded-md px-3 py-2 text-sm flex items-center justify-between gap-3 border",
+            totalConErrores > 0
+              ? "bg-status-danger-soft text-status-danger-fg border-status-danger-border"
+              : "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>
+              {totalConErrores > 0
+                ? `${totalConErrores} contrato${
+                    totalConErrores === 1 ? "" : "s"
+                  } con errores que impiden guardar.`
+                : `${totalConProblemas} contrato${
+                    totalConProblemas === 1 ? "" : "s"
+                  } con información incompleta.`}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFiltroSoloProblemas((v) => !v)}
+            className="text-xs underline hover:no-underline shrink-0"
+          >
+            {filtroSoloProblemas ? "Ver todos" : "Ver solo estos"}
+          </button>
+        </div>
+      )}
+
+      <div className="overflow-auto max-h-[calc(100vh-280px)] rounded-lg border border-ds-border-default">
         <table className="w-full text-sm">
-          <thead className="bg-ds-surface-2 text-ds-text-3 text-[12px] uppercase tracking-wide">
+          {/* sticky top-0 mantiene el header visible al scrollear vertical.
+              El z-index acá es 30 para quedar por encima del primer <td>
+              sticky-left (z-10) y de su intersección con la primera celda
+              del header (z-40, ver más abajo). */}
+          <thead className="bg-ds-surface-2 text-ds-text-3 text-[12px] uppercase tracking-wide sticky top-0 z-30">
             <tr>
-              <th className="px-2 py-2 text-left">Contrato / Cliente</th>
+              {/* Sticky en AMBOS ejes — z-40 para ganar por encima de las
+                  celdas sticky-left (z-10) de las filas y del resto del
+                  thead sticky (z-30). */}
+              <th className="px-2 py-2 text-left sticky left-0 bg-ds-surface-2 z-40 min-w-[200px]">
+                Contrato / Cliente
+              </th>
               {/* Bloque 6 Fase 2 — campos del contrato */}
               <th className="px-2 py-2 text-left">Monto</th>
               <th className="px-2 py-2 text-left">Moneda</th>
@@ -256,25 +439,67 @@ export function ContractsCobroBatchTable() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => {
+            {rowsVisibles.map((r) => {
               // Si emite proforma, los campos diaFactura y mesFactura no
               // aplican (la fecha sale de proforma + días). Los deshabilitamos
               // visualmente para evitar inputs sin efecto.
               const facturaCamposDisabled = r.emiteProforma;
               const rowDirty = dirty.has(r.id);
+              const hasError = r._problems.some(
+                (p) => p.severity === "error",
+              );
+              const hasWarn = r._problems.length > 0 && !hasError;
+              // El bg de la primera celda sticky tiene que ser opaco para que
+              // tape el contenido al scrollear; matcheamos el bg del row.
+              const stickyCellBg = rowDirty
+                ? "bg-status-info-soft"
+                : "bg-ds-surface-1";
               return (
                 <tr
                   key={r.id}
-                  className={`border-t border-ds-border-default ${
-                    rowDirty ? "bg-status-info-soft/30" : ""
-                  }`}
+                  className={cn(
+                    "border-t border-ds-border-default",
+                    rowDirty && "bg-status-info-soft/30",
+                  )}
                 >
-                  <td className="px-2 py-1.5">
-                    <div className="text-ds-text-1 font-medium text-xs">
-                      {r.accountName ?? r.name}
-                    </div>
-                    <div className="text-ds-text-3 text-[12px]">
-                      {r.installationName ?? "—"}
+                  <td
+                    className={cn(
+                      "px-2 py-1.5 sticky left-0 z-10 min-w-[200px] border-r border-ds-border-default",
+                      stickyCellBg,
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {r._problems.length > 0 && (
+                        <span
+                          title={r._problems
+                            .map(
+                              (p) =>
+                                `${p.severity === "error" ? "✗" : "⚠"} ${p.message}`,
+                            )
+                            .join("\n")}
+                          className={cn(
+                            "shrink-0",
+                            hasError
+                              ? "text-status-danger-fg"
+                              : "text-status-warn-fg",
+                          )}
+                          aria-label={
+                            hasError
+                              ? `${r._problems.length} problema(s) — incluye errores`
+                              : `${r._problems.length} aviso(s)`
+                          }
+                        >
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                        </span>
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-ds-text-1 font-medium text-xs truncate">
+                          {r.accountName ?? r.name}
+                        </div>
+                        <div className="text-ds-text-3 text-[12px] truncate">
+                          {r.installationName ?? "—"}
+                        </div>
+                      </div>
                     </div>
                   </td>
                   {/* Bloque 6 Fase 2 — Monto */}
@@ -343,42 +568,66 @@ export function ContractsCobroBatchTable() {
                   </td>
                   {/* IPC checkbox */}
                   <td className="px-2 py-1.5 text-center">
-                    <input
-                      type="checkbox"
-                      checked={r.hasIpcAdjustment}
-                      onChange={(e) =>
-                        updateRow(
-                          r.id,
-                          "hasIpcAdjustment",
-                          e.target.checked,
-                        )
-                      }
-                      className="cursor-pointer"
-                    />
+                    <div className="flex items-center justify-center gap-0.5">
+                      <input
+                        type="checkbox"
+                        checked={r.hasIpcAdjustment}
+                        onChange={(e) =>
+                          updateRow(
+                            r.id,
+                            "hasIpcAdjustment",
+                            e.target.checked,
+                          )
+                        }
+                        className="cursor-pointer"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCopyDown(r.id, "hasIpcAdjustment")
+                        }
+                        title="Replicar este valor a todas las filas debajo"
+                        className="text-ds-text-3 hover:text-ds-text-1 opacity-30 hover:opacity-100 text-[10px] px-1"
+                      >
+                        ↓
+                      </button>
+                    </div>
                   </td>
                   {/* IPC meses */}
                   <td className="px-2 py-1.5">
-                    <input
-                      type="number"
-                      min={1}
-                      max={60}
-                      value={r.ipcAdjustmentMonths ?? ""}
-                      onChange={(e) =>
-                        updateRow(
-                          r.id,
-                          "ipcAdjustmentMonths",
-                          e.target.value ? Number(e.target.value) : null,
-                        )
-                      }
-                      disabled={!r.hasIpcAdjustment}
-                      placeholder="12"
-                      title={
-                        !r.hasIpcAdjustment
-                          ? "Marcá IPC para habilitar"
-                          : "Frecuencia del ajuste (1-60 meses)"
-                      }
-                      className="w-14 bg-ds-surface-1 border border-ds-border-default rounded px-1.5 py-1 text-xs disabled:opacity-40"
-                    />
+                    <div className="flex items-center gap-0.5">
+                      <input
+                        type="number"
+                        min={1}
+                        max={60}
+                        value={r.ipcAdjustmentMonths ?? ""}
+                        onChange={(e) =>
+                          updateRow(
+                            r.id,
+                            "ipcAdjustmentMonths",
+                            e.target.value ? Number(e.target.value) : null,
+                          )
+                        }
+                        disabled={!r.hasIpcAdjustment}
+                        placeholder="12"
+                        title={
+                          !r.hasIpcAdjustment
+                            ? "Marcá IPC para habilitar"
+                            : "Frecuencia del ajuste (1-60 meses)"
+                        }
+                        className="w-14 bg-ds-surface-1 border border-ds-border-default rounded px-1.5 py-1 text-xs disabled:opacity-40"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCopyDown(r.id, "ipcAdjustmentMonths")
+                        }
+                        title="Replicar este valor a todas las filas debajo"
+                        className="text-ds-text-3 hover:text-ds-text-1 opacity-30 hover:opacity-100 text-[10px] px-1"
+                      >
+                        ↓
+                      </button>
+                    </div>
                   </td>
                   {/* IPC fecha desde */}
                   <td className="px-2 py-1.5">
@@ -491,58 +740,98 @@ export function ContractsCobroBatchTable() {
                     />
                   </td>
                   <td className="px-2 py-1.5">
-                    <select
-                      value={r.mesFacturaRelativo}
-                      onChange={(e) =>
-                        updateRow(
-                          r.id,
-                          "mesFacturaRelativo",
-                          e.target.value as Row["mesFacturaRelativo"],
-                        )
-                      }
-                      disabled={facturaCamposDisabled}
-                      title={
-                        facturaCamposDisabled
-                          ? "No aplica: con proforma el mes sale natural"
-                          : ""
-                      }
-                      className="bg-ds-surface-1 border border-ds-border-default rounded px-1.5 py-1 text-xs disabled:opacity-40"
-                    >
-                      <option value="MISMO_MES">Mismo</option>
-                      <option value="MES_SIGUIENTE">Siguiente</option>
-                    </select>
+                    <div className="flex items-center gap-0.5">
+                      <select
+                        value={r.mesFacturaRelativo}
+                        onChange={(e) =>
+                          updateRow(
+                            r.id,
+                            "mesFacturaRelativo",
+                            e.target.value as Row["mesFacturaRelativo"],
+                          )
+                        }
+                        disabled={facturaCamposDisabled}
+                        title={
+                          facturaCamposDisabled
+                            ? "No aplica: con proforma el mes sale natural"
+                            : ""
+                        }
+                        className="bg-ds-surface-1 border border-ds-border-default rounded px-1.5 py-1 text-xs disabled:opacity-40"
+                      >
+                        <option value="MISMO_MES">Mismo</option>
+                        <option value="MES_SIGUIENTE">Siguiente</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCopyDown(r.id, "mesFacturaRelativo")
+                        }
+                        title="Replicar este valor a todas las filas debajo"
+                        disabled={facturaCamposDisabled}
+                        className="text-ds-text-3 hover:text-ds-text-1 opacity-30 hover:opacity-100 text-[10px] px-1 disabled:opacity-20 disabled:hover:opacity-20"
+                      >
+                        ↓
+                      </button>
+                    </div>
                   </td>
                   <td className="px-2 py-1.5">
-                    <select
-                      value={r.modoCobro}
-                      onChange={(e) =>
-                        updateRow(
-                          r.id,
-                          "modoCobro",
-                          e.target.value as Row["modoCobro"],
-                        )
-                      }
-                      className="bg-ds-surface-1 border border-ds-border-default rounded px-1.5 py-1 text-xs"
-                    >
-                      <option value="DIRECTO">Directo</option>
-                      <option value="FACTORING">Factoring</option>
-                    </select>
+                    <div className="flex items-center gap-0.5">
+                      <select
+                        value={r.modoCobro}
+                        onChange={(e) =>
+                          updateRow(
+                            r.id,
+                            "modoCobro",
+                            e.target.value as Row["modoCobro"],
+                          )
+                        }
+                        className="bg-ds-surface-1 border border-ds-border-default rounded px-1.5 py-1 text-xs"
+                      >
+                        <option value="DIRECTO">Directo</option>
+                        <option value="FACTORING">Factoring</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyDown(r.id, "modoCobro")}
+                        title="Replicar este valor a todas las filas debajo"
+                        className="text-ds-text-3 hover:text-ds-text-1 opacity-30 hover:opacity-100 text-[10px] px-1"
+                      >
+                        ↓
+                      </button>
+                    </div>
                   </td>
                   <td className="px-2 py-1.5">
-                    <input
-                      type="number"
-                      min={0}
-                      max={180}
-                      value={r.diasCobroDesdeFactura}
-                      onChange={(e) =>
-                        updateRow(
-                          r.id,
-                          "diasCobroDesdeFactura",
-                          Number(e.target.value),
-                        )
-                      }
-                      className="w-14 bg-ds-surface-1 border border-ds-border-default rounded px-1.5 py-1 text-xs"
-                    />
+                    <div className="flex items-center gap-0.5">
+                      <input
+                        type="number"
+                        min={0}
+                        max={180}
+                        value={r.diasCobroDesdeFactura}
+                        onChange={(e) =>
+                          updateRow(
+                            r.id,
+                            "diasCobroDesdeFactura",
+                            Number(e.target.value),
+                          )
+                        }
+                        className={cn(
+                          "w-14 bg-ds-surface-1 border border-ds-border-default rounded px-1.5 py-1 text-xs",
+                          hasWarn &&
+                            r.diasCobroDesdeFactura === 0 &&
+                            "border-status-warn-border",
+                        )}
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCopyDown(r.id, "diasCobroDesdeFactura")
+                        }
+                        title="Replicar este valor a todas las filas debajo"
+                        className="text-ds-text-3 hover:text-ds-text-1 opacity-30 hover:opacity-100 text-[10px] px-1"
+                      >
+                        ↓
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
