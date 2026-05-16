@@ -27,7 +27,7 @@ import {
 import { ExpandableMatrixRow } from "./ExpandableMatrixRow";
 import { BankBalanceAdjustDrawer } from "./BankBalanceAdjustDrawer";
 import { CashflowLegend } from "./CashflowLegend";
-import { rowMatchesSearch } from "./cashflow-search";
+import { filterRowBySearch } from "./cashflow-search";
 import { useHasCapability } from "@/lib/permissions-context";
 import { addMonths } from "date-fns";
 
@@ -261,18 +261,23 @@ export function MonthlyMatrix({ defaultMonths, searchTerm = "" }: Props) {
   }
 
   // Bloque 6 Fase 4: filtra rows por searchTerm contra categoría, nombre
-  // de item, nickname, cliente CRM e instalación. Si term es vacío, pasan
-  // todas las filas.
+  // de item, nickname, cliente CRM e instalación. filterRowBySearch además
+  // recorta los `items` dentro de cada row para que solo se rendericen
+  // los que matchean (ej. buscar "el bosque" muestra solo ese contrato
+  // dentro de Polpaico, no los 4). Si term es vacío, pasan todas las
+  // filas sin recortes.
   const incomeRows = sortRowsForDisplay(
-    projection.rows.filter(
-      (r) => r.kind === "INCOME" && rowMatchesSearch(r, searchTerm),
-    ),
+    projection.rows
+      .filter((r) => r.kind === "INCOME")
+      .map((r) => filterRowBySearch(r, searchTerm))
+      .filter((r): r is NonNullable<typeof r> => r !== null),
     rowOrder,
   );
   const expenseRows = sortRowsForDisplay(
-    projection.rows.filter(
-      (r) => r.kind === "EXPENSE" && rowMatchesSearch(r, searchTerm),
-    ),
+    projection.rows
+      .filter((r) => r.kind === "EXPENSE")
+      .map((r) => filterRowBySearch(r, searchTerm))
+      .filter((r): r is NonNullable<typeof r> => r !== null),
     rowOrder,
   );
   const hasSearchActive = searchTerm.trim().length > 0;

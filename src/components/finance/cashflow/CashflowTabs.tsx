@@ -303,7 +303,7 @@ export function CashflowTabs({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar cliente, contrato, categoría…  /"
+              placeholder="Buscar cliente, contrato, instalación, categoría…  /"
               className="w-full h-9 bg-ds-surface-1 border border-ds-border-default rounded-md pl-8 pr-8 text-[13px] placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary"
               aria-label="Buscar en el flujo de caja"
             />

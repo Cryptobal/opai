@@ -14,7 +14,7 @@ import { CashflowDriftBanner } from "./CashflowDriftBanner";
 import { useHasCapability } from "@/lib/permissions-context";
 import { subMonths } from "date-fns";
 import { hydrateProjection } from "./cashflow-mobile-helpers";
-import { rowMatchesSearch } from "./cashflow-search";
+import { filterRowBySearch } from "./cashflow-search";
 
 const MONTHS_BACK = 2;
 
@@ -148,20 +148,23 @@ export function CashflowMobileList({
     else gotoNext();
   };
 
-  // Bloque 6 Fase 4: filtra rows por searchTerm. Si el filtro es vacío
-  // pasan todas. Re-evaluamos con searchTerm en deps.
+  // Bloque 6 Fase 4: filtra rows por searchTerm + recorta items por
+  // cliente/instalación/contrato. Si el filtro es vacío, pasan todas
+  // sin recortes. Re-evaluamos con searchTerm en deps.
   const incomeRows = useMemo(
     () =>
-      projection.rows.filter(
-        (r) => r.kind === "INCOME" && rowMatchesSearch(r, searchTerm),
-      ),
+      projection.rows
+        .filter((r) => r.kind === "INCOME")
+        .map((r) => filterRowBySearch(r, searchTerm))
+        .filter((r): r is NonNullable<typeof r> => r !== null),
     [projection.rows, searchTerm],
   );
   const expenseRows = useMemo(
     () =>
-      projection.rows.filter(
-        (r) => r.kind === "EXPENSE" && rowMatchesSearch(r, searchTerm),
-      ),
+      projection.rows
+        .filter((r) => r.kind === "EXPENSE")
+        .map((r) => filterRowBySearch(r, searchTerm))
+        .filter((r): r is NonNullable<typeof r> => r !== null),
     [projection.rows, searchTerm],
   );
 
