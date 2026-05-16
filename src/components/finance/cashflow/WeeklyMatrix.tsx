@@ -493,6 +493,26 @@ export function WeeklyMatrix({
         </div>
       )}
 
+      {/* Banner del anchor activo. Permite al usuario entender por qué los
+          buckets pre-anchor se ven atenuados y desde qué saldo parte la
+          proyección hacia adelante. */}
+      {projection.anchor && (
+        <div className="flex items-center gap-2 px-3 py-2 mb-2 bg-status-info-soft border border-status-info-border rounded-md text-[12px]">
+          <Lock className="h-3.5 w-3.5 text-status-info-fg shrink-0" />
+          <span className="text-status-info-fg">
+            Proyección anclada a{" "}
+            <strong>{fmt.format(projection.anchor.bankBalanceClp)}</strong> al
+            cierre del{" "}
+            {new Date(projection.anchor.weekEndDate).toLocaleDateString("es-CL", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
+            .
+          </span>
+        </div>
+      )}
+
       {/* Scroll container: bleed full-width on mobile (-mx-4 px-4), max-h
           for vertical scrolling so bottom totals can stay sticky.
           relative + overflow-auto is what enables sticky positioning. */}
@@ -535,20 +555,31 @@ export function WeeklyMatrix({
                     !prevBucket ||
                     prevBucket.start.getMonth() !== b.start.getMonth() ||
                     prevBucket.start.getFullYear() !== b.start.getFullYear();
+                  const isPreAnchor =
+                    projection.anchor !== null &&
+                    b.end.getTime() <= new Date(projection.anchor.weekEndDate).getTime();
                   return (
                     <th
                       key={b.key}
                       className={`p-2 text-right min-w-[80px] border-b whitespace-nowrap font-mono ${
                         isCurrent
                           ? "bg-status-info-soft text-status-info-fg border-x-2 border-x-status-info-fg ring-1 ring-status-info-fg/40"
-                          : "bg-background text-ds-text-3 border-border"
+                          : isPreAnchor
+                            ? "bg-background text-ds-text-3 border-border opacity-60"
+                            : "bg-background text-ds-text-3 border-border"
                       } ${showMonth && !isCurrent ? "border-l border-l-border" : ""}`}
                     >
                       <div className="flex flex-col items-end leading-tight">
                         <span className="text-[10px] uppercase tracking-wider opacity-70">
                           {isCurrent ? "Hoy" : showMonth ? monthYearShort(b.start) : "·"}
                         </span>
-                        <span className={isCurrent ? "font-bold" : ""}>
+                        <span className={`inline-flex items-center gap-0.5 ${isCurrent ? "font-bold" : ""}`}>
+                          {isPreAnchor && (
+                            <Lock
+                              className="h-2.5 w-2.5 opacity-50"
+                              aria-label="Semana anclada al cierre"
+                            />
+                          )}
                           {b.label}
                         </span>
                         <span className="text-[10px] opacity-60">
