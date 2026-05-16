@@ -48,8 +48,18 @@ import {
   AlertCircle,
   RefreshCw,
   BookMarked,
+  HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AccountPlanCombobox } from "./AccountPlanCombobox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 // ── Tipos ──
 
@@ -597,12 +607,20 @@ function RuleEditorSheet({
 }: RuleEditorSheetProps) {
   const [draft, setDraft] = useState(EMPTY_RULE);
   const [saving, setSaving] = useState(false);
-  const [previewing, setPreviewing] = useState(false);
-  const [previewResult, setPreviewResult] = useState<{
-    totalScanned: number;
-    wouldMatch: number;
-    sample: { amount: number; description: string; reference: string | null }[];
+  const [showPriorityHelp, setShowPriorityHelp] = useState(false);
+  // Live preview result count + total (alimentado por LivePreviewPanel).
+  const [livePreview, setLivePreview] = useState<{
+    count: number;
+    total: number;
   } | null>(null);
+  // Post-creación: si la regla recién creada matchearía histórico, ofrecer
+  // correrla con 3 opciones (solo futuros / sugerir / aplicar directo).
+  const [postCreatePrompt, setPostCreatePrompt] = useState<{
+    ruleId: string;
+    ruleName: string;
+    matchCount: number;
+  } | null>(null);
+  const [runningPostCreate, setRunningPostCreate] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -618,7 +636,8 @@ function RuleEditorSheet({
       } else {
         setDraft(EMPTY_RULE);
       }
-      setPreviewResult(null);
+      setLivePreview(null);
+      setPostCreatePrompt(null);
     }
   }, [open, rule]);
 
@@ -657,29 +676,6 @@ function RuleEditorSheet({
     }));
   };
 
-  const handlePreview = async () => {
-    setPreviewing(true);
-    setPreviewResult(null);
-    try {
-      const res = await fetch("/api/finance/banking/automatch-rules/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          appliesTo: draft.appliesTo,
-          conditions: draft.conditions,
-          daysBack: 30,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error);
-      setPreviewResult(json.data);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al probar");
-    } finally {
-      setPreviewing(false);
-    }
-  };
-
   const handleSave = async () => {
     if (!draft.name.trim()) {
       toast.error("Asigná un nombre");
@@ -710,11 +706,83 @@ function RuleEditorSheet({
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error);
       toast.success(rule ? "Regla actualizada" : "Regla creada");
-      onSaved(json.data);
+
+      // Post-creación: si era CREATE (no EDIT) y la regla matchearía algo
+      // en histórico, ofrecer ejecutarla.
+      if (!rule && livePreview && livePreview.count > 0) {
+        setPostCreatePrompt({
+          ruleId: json.data.id,
+          ruleName: json.data.name,
+          matchCount: livePreview.count,
+        });
+        // No cerramos el sheet todavía.
+      } else {
+        onSaved(json.data);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al guardar");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const runHistoricalFromPrompt = async (forceApply: boolean) => {
+    if (!postCreatePrompt) return;
+    setRunningPostCreate(true);
+    try {
+      if (forceApply) {
+        // Forzar requiresReview=false antes de correr histórico.
+        await fetch(
+          `/api/finance/banking/automatch-rules/${postCreatePrompt.ruleId}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: { ...draft.action, requiresReview: false },
+            }),
+          },
+        );
+      }
+      const res = await fetch(
+        "/api/finance/banking/automatch-rules/run-historical",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ruleId: postCreatePrompt.ruleId,
+            includeSuggested: false,
+          }),
+        },
+      );
+      const json = await res.json();
+      if (res.ok && json.success) {
+        const d = json.data;
+        toast.success(
+          `${(d.ruleMatched ?? 0) + (d.matched ?? 0)} movimientos procesados.`,
+        );
+      }
+      // Cerrar prompt y avanzar — devolvemos un Rule-ish con id.
+      const ruleId = postCreatePrompt.ruleId;
+      setPostCreatePrompt(null);
+      onSaved({
+        id: ruleId,
+        name: draft.name,
+        enabled: draft.enabled,
+        priority: draft.priority,
+        appliesTo: draft.appliesTo,
+        conditions: draft.conditions,
+        action: forceApply
+          ? { ...draft.action, requiresReview: false }
+          : draft.action,
+        timesMatched: 0,
+        lastMatchedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al correr histórico");
+    } finally {
+      setRunningPostCreate(false);
     }
   };
 
@@ -751,17 +819,41 @@ function RuleEditorSheet({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="rule-prio">Prioridad</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="rule-prio">Prioridad</Label>
+                  <button
+                    type="button"
+                    className="text-[12px] text-ds-text-3 hover:text-ds-text-2 inline-flex items-center gap-1"
+                    onClick={() => setShowPriorityHelp((s) => !s)}
+                  >
+                    <HelpCircle className="h-3 w-3" />
+                    ¿Qué es?
+                  </button>
+                </div>
                 <Input
                   id="rule-prio"
                   type="number"
+                  inputMode="numeric"
                   value={draft.priority}
                   onChange={(e) =>
                     setDraft((d) => ({ ...d, priority: Number(e.target.value) || 100 }))
                   }
                   min={0}
                   max={9999}
+                  className="h-10 sm:h-9 font-mono"
                 />
+                {showPriorityHelp && (
+                  <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-2 text-[12px] text-ds-text-2 mt-1.5">
+                    <p>
+                      Cuando varias reglas matchean el mismo movimiento, gana la de
+                      prioridad <b>menor</b>. Default <span className="font-mono">100</span>.
+                    </p>
+                    <p className="text-ds-text-3 mt-1">
+                      Usá números bajos (10, 20) para reglas más específicas que deban
+                      ganar sobre las genéricas.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
@@ -874,33 +966,18 @@ function RuleEditorSheet({
             </div>
             <div className="space-y-1.5">
               <Label>Cuenta contable</Label>
-              <Select
+              <AccountPlanCombobox
+                items={groupAccounts(accountPlans).flatMap((g) => g.items)}
                 value={draft.action.accountPlanId ?? ""}
-                onValueChange={(v) =>
+                onChange={(id) =>
                   setDraft((d) => ({
                     ...d,
-                    action: { ...d.action, accountPlanId: v || null },
+                    action: { ...d.action, accountPlanId: id || null },
                   }))
                 }
-              >
-                <SelectTrigger className="h-10 sm:h-9">
-                  <SelectValue placeholder="Seleccionar cuenta" />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {groupAccounts(accountPlans).map((g) => (
-                    <SelectGroup key={g.type}>
-                      <SelectLabel className="text-[11px] font-mono uppercase tracking-[0.08em] text-muted-foreground">
-                        {g.label}
-                      </SelectLabel>
-                      {g.items.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.code} {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Buscar por código o nombre…"
+                emptyLabel="Seleccionar cuenta"
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="rule-rut">RUT contraparte (opcional)</Label>
@@ -935,46 +1012,13 @@ function RuleEditorSheet({
             </Label>
           </div>
 
-          {/* Bloque 4: Probar regla */}
-          <div className="space-y-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePreview}
-              disabled={previewing}
-            >
-              {previewing ? (
-                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-              ) : (
-                <PlayCircle className="h-4 w-4 mr-1.5" />
-              )}
-              Probar contra últimos 30 días
-            </Button>
-            {previewResult && (
-              <div className="rounded-md border border-border bg-card p-3 text-sm space-y-1">
-                <p>
-                  Habría matcheado{" "}
-                  <span className="font-medium text-status-ok-fg">
-                    {previewResult.wouldMatch}
-                  </span>{" "}
-                  de {previewResult.totalScanned.toLocaleString("es-CL")} mov.
-                </p>
-                {previewResult.sample.length > 0 && (
-                  <ul className="text-xs text-muted-foreground space-y-0.5 mt-2">
-                    {previewResult.sample.slice(0, 5).map((s, i) => (
-                      <li key={i} className="truncate">
-                        · {s.description} ($
-                        {Math.abs(s.amount).toLocaleString("es-CL")})
-                      </li>
-                    ))}
-                    {previewResult.sample.length > 5 && (
-                      <li>… y {previewResult.sample.length - 5} más</li>
-                    )}
-                  </ul>
-                )}
-              </div>
-            )}
-          </div>
+          {/* Bloque 4: Preview en vivo (debounce) */}
+          <LivePreviewPanel
+            draft={draft}
+            onPreviewMatchCount={(count, total) =>
+              setLivePreview({ count, total })
+            }
+          />
 
         </div>
 
@@ -994,8 +1038,202 @@ function RuleEditorSheet({
             Cancelar
           </Button>
         </div>
+        {postCreatePrompt && (
+          <Dialog
+            open={true}
+            onOpenChange={(v) => {
+              if (!v && !runningPostCreate) setPostCreatePrompt(null);
+            }}
+          >
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>¿Aplicar también a movimientos pasados?</DialogTitle>
+                <DialogDescription>
+                  La regla "{postCreatePrompt.ruleName}" matchearía aproximadamente{" "}
+                  <b>{postCreatePrompt.matchCount}</b> movimiento
+                  {postCreatePrompt.matchCount === 1 ? "" : "s"} de los últimos 30 días.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2 text-[13px]">
+                <p className="text-ds-text-2">Tres opciones:</p>
+                <ul className="space-y-2 text-ds-text-3">
+                  <li className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-2.5">
+                    <b className="text-ds-text-1">Solo futuros:</b> la regla aplica desde ahora, no toca histórico.
+                  </li>
+                  <li className="rounded-md border border-status-warn-border bg-status-warn-soft p-2.5">
+                    <b className="text-status-warn-fg">Sugerir en históricos:</b> los movimientos pasados quedan en "Reconocidos" para que vos revises y autorices uno por uno.
+                  </li>
+                  <li className="rounded-md border border-status-ok-border bg-status-ok-soft p-2.5">
+                    <b className="text-status-ok-fg">Aplicar directamente:</b> conciliar todos los movimientos pasados automáticamente. Solo si confías 100% en los criterios.
+                  </li>
+                </ul>
+              </div>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    const ruleId = postCreatePrompt.ruleId;
+                    setPostCreatePrompt(null);
+                    onSaved({
+                      id: ruleId,
+                      name: draft.name,
+                      enabled: draft.enabled,
+                      priority: draft.priority,
+                      appliesTo: draft.appliesTo,
+                      conditions: draft.conditions,
+                      action: draft.action,
+                      timesMatched: 0,
+                      lastMatchedAt: null,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    });
+                  }}
+                  disabled={runningPostCreate}
+                  className="h-10 sm:h-9 w-full sm:w-auto"
+                >
+                  Solo futuros
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => runHistoricalFromPrompt(false)}
+                  disabled={runningPostCreate}
+                  className="h-10 sm:h-9 w-full sm:w-auto"
+                >
+                  {runningPostCreate && (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  )}
+                  Sugerir
+                </Button>
+                <Button
+                  onClick={() => runHistoricalFromPrompt(true)}
+                  disabled={runningPostCreate}
+                  className="h-10 sm:h-9 w-full sm:w-auto"
+                >
+                  {runningPostCreate && (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  )}
+                  Aplicar directo
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+// ─── Live Preview Panel ───
+
+interface LivePreviewProps {
+  draft: typeof EMPTY_RULE;
+  onPreviewMatchCount: (count: number, total: number) => void;
+}
+
+/**
+ * Cuenta matches en últimos 30 días con debounce de 800ms cada vez que el
+ * draft cambia. Reemplaza al botón "Probar regla" — el feedback es continuo.
+ */
+function LivePreviewPanel({ draft, onPreviewMatchCount }: LivePreviewProps) {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{
+    totalScanned: number;
+    wouldMatch: number;
+    sample: { amount: number; description: string; reference: string | null }[];
+  } | null>(null);
+
+  useEffect(() => {
+    if (draft.conditions.items.length === 0) {
+      setResult(null);
+      return;
+    }
+    const someValid = draft.conditions.items.some((c) => {
+      if (c.operator === "IS_EMPTY") return true;
+      if (c.operator === "AMOUNT_BETWEEN") {
+        const v = c.value as { min?: number; max?: number } | null;
+        return v?.min != null || v?.max != null;
+      }
+      return c.value !== null && c.value !== undefined && c.value !== "";
+    });
+    if (!someValid) {
+      setResult(null);
+      return;
+    }
+    const t = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(
+          "/api/finance/banking/automatch-rules/preview",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              appliesTo: draft.appliesTo,
+              conditions: draft.conditions,
+              daysBack: 30,
+            }),
+          },
+        );
+        const json = await res.json();
+        if (res.ok && json.success) {
+          setResult(json.data);
+          onPreviewMatchCount(json.data.wouldMatch, json.data.totalScanned);
+        }
+      } catch {
+        /* silencioso */
+      } finally {
+        setLoading(false);
+      }
+    }, 800);
+    return () => clearTimeout(t);
+  }, [draft, onPreviewMatchCount]);
+
+  return (
+    <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 text-[12.5px]">
+      <div className="flex items-center gap-2 mb-1.5">
+        <PlayCircle className="h-3.5 w-3.5 text-ds-text-3" />
+        <span className="font-medium text-ds-text-2">
+          Vista previa últimos 30 días
+        </span>
+        {loading && (
+          <Loader2 className="h-3 w-3 animate-spin text-ds-text-3" />
+        )}
+      </div>
+      {result ? (
+        <>
+          <p className="text-ds-text-2">
+            Matchearía{" "}
+            <span className="font-semibold text-status-ok-fg font-mono tabular-nums">
+              {result.wouldMatch}
+            </span>{" "}
+            de{" "}
+            <span className="font-mono tabular-nums">
+              {result.totalScanned.toLocaleString("es-CL")}
+            </span>{" "}
+            movimientos.
+          </p>
+          {result.sample.length > 0 && (
+            <ul className="text-[12px] text-ds-text-3 space-y-0.5 mt-2">
+              {result.sample.slice(0, 3).map((s, i) => (
+                <li key={i} className="truncate font-mono">
+                  · {s.description} · $
+                  {Math.abs(s.amount).toLocaleString("es-CL")}
+                </li>
+              ))}
+              {result.sample.length > 3 && (
+                <li className="text-ds-text-4">
+                  … y {result.sample.length - 3} más
+                </li>
+              )}
+            </ul>
+          )}
+        </>
+      ) : (
+        <p className="text-ds-text-3">
+          Completá un criterio para ver cuántos movimientos matchearía.
+        </p>
+      )}
+    </div>
   );
 }
 

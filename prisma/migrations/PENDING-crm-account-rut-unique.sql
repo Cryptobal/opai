@@ -1,0 +1,36 @@
+-- ============================================================================
+-- PENDING MIGRATION — NO EJECUTAR HASTA QUE CARLOS LIMPIE DUPLICADOS
+-- ============================================================================
+--
+-- Esta migración agrega el constraint unique (tenant_id, rut) a CrmAccount.
+--
+-- PRE-REQUISITO: ejecutar primero esta query para detectar duplicados:
+--
+-- SELECT tenant_id, rut, COUNT(*) AS dup_count, ARRAY_AGG(id) AS ids, ARRAY_AGG(name) AS names
+-- FROM crm.accounts
+-- WHERE rut IS NOT NULL
+-- GROUP BY tenant_id, rut
+-- HAVING COUNT(*) > 1;
+--
+-- Si hay filas en el resultado: revisarlas desde la UI admin
+-- (/finanzas/admin/rut-duplicates), decidir cuál mantener, y mergear/borrar
+-- las demás. Solo cuando esa query devuelva 0 filas, ejecutar:
+--
+-- ALTER TABLE crm.accounts
+--   ADD CONSTRAINT uq_crm_accounts_tenant_rut
+--   UNIQUE NULLS NOT DISTINCT (tenant_id, rut);
+--
+-- (Requiere PostgreSQL 15+.) Si está corriendo PG14:
+--
+-- CREATE UNIQUE INDEX uq_crm_accounts_tenant_rut
+--   ON crm.accounts (tenant_id, rut)
+--   WHERE rut IS NOT NULL;
+--
+-- Luego en schema.prisma agregar a CrmAccount:
+--
+--   @@unique([tenantId, rut], map: "uq_crm_accounts_tenant_rut")
+--
+-- y correr `npx prisma db pull` para sincronizar.
+--
+-- IMPORTANTE: No mover este archivo a migrations/ hasta resolver duplicados.
+-- ============================================================================

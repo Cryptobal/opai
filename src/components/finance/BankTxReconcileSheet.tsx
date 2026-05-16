@@ -55,9 +55,14 @@ import {
   Pencil,
   Link2Off,
   ExternalLink,
+  Plus,
+  AlertTriangle,
+  AlertCircle,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CategoryMappingDialog } from "./cashflow/CategoryMappingDialog";
+import { SaveAsRuleModal } from "./SaveAsRuleModal";
 import { Tag } from "@/components/opai-ds";
 
 const FACTORING_SIGNAL_LABELS: Record<string, string> = {
@@ -315,7 +320,6 @@ export function BankTxReconcileSheet({
   const [links, setLinks] = useState<LocalLink[]>([]);
   const [saving, setSaving] = useState(false);
   // Form de "categorizar manual"
-  const [manualAccountType, setManualAccountType] = useState<string>("");
   const [manualAccountId, setManualAccountId] = useState<string>("");
   const [manualAmount, setManualAmount] = useState<string>("");
   const [manualNote, setManualNote] = useState("");
@@ -335,6 +339,13 @@ export function BankTxReconcileSheet({
   const [unmappedQueue, setUnmappedQueue] = useState<
     Array<{ id: string; code: string; name: string }>
   >([]);
+  // Modal "Guardar como regla" (wizard pre-llenado con datos de la tx).
+  const [saveAsRuleOpen, setSaveAsRuleOpen] = useState(false);
+  // Ocupantes del RUT detectado en la tx (cliente / guardia / proveedor /
+  // factoring). Si hay más de uno, mostramos banner de aviso.
+  const [rutConflicts, setRutConflicts] = useState<
+    Array<{ kind: string; entityId: string; entityName: string }> | null
+  >(null);
   const factoringPrefillAppliedRef = useRef<string | null>(null);
 
   // Para el lote (1..N movs) la "tx amount abs" pasa a ser la suma. La
@@ -403,6 +414,35 @@ export function BankTxReconcileSheet({
     factoringPrefillAppliedRef.current = null;
   }, [tx?.id]);
 
+  // Detectar RUTs ocupantes para mostrar banner de aviso cuando hay duplicados
+  // cross-tabla (mismo RUT en cliente + guardia, etc.).
+  useEffect(() => {
+    if (!tx) {
+      setRutConflicts(null);
+      return;
+    }
+    const extractRut = (text: string | null): string | null => {
+      if (!text) return null;
+      const m = text.match(/\d{1,2}\.?\d{3}\.?\d{3}-?[\dKk]/);
+      return m ? m[0] : null;
+    };
+    const rut = extractRut(tx.description) ?? extractRut(tx.reference);
+    if (!rut) {
+      setRutConflicts(null);
+      return;
+    }
+    const ctrl = new AbortController();
+    fetch(`/api/finance/banking/rut-occupants?rut=${encodeURIComponent(rut)}`, {
+      signal: ctrl.signal,
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.success) setRutConflicts(j.data);
+      })
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, [tx]);
+
   /** Una sola cesión sugerida (≥90%) en modo crear → pre-selección sin guardar. */
   useEffect(() => {
     if (!open || !tx || mode !== "create" || loadingCandidates) return;
@@ -448,7 +488,6 @@ export function BankTxReconcileSheet({
     setExistingPaymentRecord(null);
     setTab("compare");
     setLinks([]);
-    setManualAccountType("");
     setManualAccountId("");
     setManualAmount(formatCLPInput(String(Math.abs(tx.amount))));
     setManualNote("");
@@ -918,6 +957,50 @@ export function BankTxReconcileSheet({
         <SheetHeader>
           <SheetTitle>{sheetTitle}</SheetTitle>
         </SheetHeader>
+
+        {rutConflicts && rutConflicts.length > 1 && (
+          <div className="mt-3 rounded-md border border-status-warn-border bg-status-warn-soft p-2.5 text-[12px]">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-3.5 w-3.5 text-status-warn-fg shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-status-warn-fg font-medium">
+                  RUT registrado en más de una entidad
+                </p>
+                <ul className="text-status-warn-fg/80 text-[12px] mt-1 space-y-0.5">
+                  {rutConflicts.map((o, i) => (
+                    <li key={i}>
+                      ·{" "}
+                      <b>
+                        {o.kind === "client"
+                          ? "Cliente"
+                          : o.kind === "guardia"
+                            ? "Guardia"
+                            : o.kind === "supplier"
+                              ? "Proveedor"
+                              : "Factoring"}
+                        :
+                      </b>{" "}
+                      {o.entityName}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-status-warn-fg/80 text-[12px] mt-1.5">
+                  El sistema usó{" "}
+                  <b>
+                    {rutConflicts[0].kind === "client"
+                      ? "Cliente"
+                      : rutConflicts[0].kind === "guardia"
+                        ? "Guardia"
+                        : rutConflicts[0].kind === "supplier"
+                          ? "Proveedor"
+                          : "Factoring"}
+                  </b>
+                  . Si es incorrecto, categorizá manualmente.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Header de cola (post 2026-05): cuando el usuario abrió el sheet
             en modo cola desde la barra masiva, mostramos el progreso y
@@ -1986,56 +2069,18 @@ export function BankTxReconcileSheet({
               Categorizá este movimiento sin vincular a una factura. Útil para
               comisiones, intereses, transferencias entre cuentas, etc.
             </p>
-            {/* Step 1: tipo contable. Step 2: cuenta filtrada por tipo.
-                Esto baja el ruido cuando el plan tiene muchas cuentas. */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Tipo *</Label>
-                <Select
-                  value={manualAccountType}
-                  onValueChange={(v) => {
-                    setManualAccountType(v);
-                    setManualAccountId(""); // reset al cambiar tipo
-                  }}
-                >
-                  <SelectTrigger className="h-10 sm:h-9">
-                    <SelectValue placeholder="Seleccionar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {groupAccounts(
-                      accountPlans,
-                      tx && tx.amount > 0 ? "income" : "expense"
-                    ).map((g) => (
-                      <SelectItem key={g.type} value={g.type}>
-                        {g.label}{" "}
-                        <span className="text-muted-foreground text-xs">
-                          ({g.items.length})
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Cuenta contable *</Label>
-                <AccountPlanCombobox
-                  items={
-                    groupAccounts(
-                      accountPlans,
-                      tx && tx.amount > 0 ? "income" : "expense"
-                    ).find((g) => g.type === manualAccountType)?.items ?? []
-                  }
-                  value={manualAccountId}
-                  onChange={setManualAccountId}
-                  disabled={!manualAccountType}
-                  placeholder="Buscar por código o nombre…"
-                  emptyLabel={
-                    manualAccountType
-                      ? "Seleccionar cuenta"
-                      : "Elige el tipo primero"
-                  }
-                />
-              </div>
+            <div className="space-y-1.5">
+              <Label>Cuenta contable *</Label>
+              <AccountPlanCombobox
+                items={groupAccounts(
+                  accountPlans,
+                  tx && tx.amount > 0 ? "income" : "expense"
+                ).flatMap((g) => g.items)}
+                value={manualAccountId}
+                onChange={setManualAccountId}
+                placeholder="Buscar por código o nombre…"
+                emptyLabel="Seleccionar cuenta"
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -2078,9 +2123,32 @@ export function BankTxReconcileSheet({
                 className="h-10 sm:h-9"
               />
             </div>
-            <Button onClick={handleAddManualLine} size="sm">
-              Agregar a vínculos
-            </Button>
+            <CashflowImpactIndicator
+              accountPlanId={manualAccountId || null}
+              amount={tx?.amount ?? 0}
+              transactionDate={manualDate}
+            />
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <Button
+                onClick={handleAddManualLine}
+                size="sm"
+                className="h-10 sm:h-9 w-full sm:w-auto"
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                Agregar línea
+              </Button>
+              {manualAccountId && tx && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSaveAsRuleOpen(true)}
+                  className="h-10 sm:h-9 w-full sm:w-auto"
+                >
+                  <Sparkles className="h-4 w-4 mr-1.5" />
+                  Guardar como regla
+                </Button>
+              )}
+            </div>
           </div>
         )}
         </>
@@ -2114,7 +2182,155 @@ export function BankTxReconcileSheet({
             }}
           />
         )}
+        {tx && (
+          <SaveAsRuleModal
+            open={saveAsRuleOpen}
+            onOpenChange={setSaveAsRuleOpen}
+            sourceTx={{
+              id: tx.id,
+              description: tx.description,
+              reference: tx.reference,
+              amount: tx.amount,
+            }}
+            accountPlans={accountPlans}
+            preselectedAccountId={manualAccountId || null}
+            detectedRut={
+              // Extracción local rápida del RUT visible en la descripción/ref.
+              ((): string | null => {
+                const extract = (text: string | null): string | null => {
+                  if (!text) return null;
+                  const m = text.match(/\d{1,2}\.?\d{3}\.?\d{3}-?[\dKk]/);
+                  return m ? m[0] : null;
+                };
+                return extract(tx.description) ?? extract(tx.reference);
+              })()
+            }
+            onCreated={(_ruleId, ruleName, historicalCount) => {
+              toast.success(
+                `Regla "${ruleName}" creada${
+                  historicalCount > 0
+                    ? ` · ${historicalCount} movimientos históricos procesados`
+                    : ""
+                }`,
+              );
+            }}
+          />
+        )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+interface CashflowImpactProps {
+  accountPlanId: string | null;
+  /** Monto con signo (positivo = ingreso, negativo = egreso). */
+  amount: number;
+  /** YYYY-MM-DD. */
+  transactionDate: string;
+}
+
+/**
+ * Indicador en vivo: muestra cómo impactará la conciliación manual sobre el
+ * flujo de caja. Cuatro estados:
+ *   - DTE_PAID: el pago aparecerá vinculado al DTE proyectado.
+ *   - MATCHED_OCCURRENCE: se vinculará a un item proyectado existente.
+ *   - REALIZED_AGGREGATE: se categoriza pero no calza con item proyectado,
+ *     queda como realizado agregado del mes.
+ *   - UNMAPPED: la cuenta no tiene mapping a categoría → se preguntará al
+ *     guardar.
+ */
+function CashflowImpactIndicator({
+  accountPlanId,
+  amount,
+  transactionDate,
+}: CashflowImpactProps) {
+  const [loading, setLoading] = useState(false);
+  const [impact, setImpact] = useState<{
+    status: "DTE_PAID" | "MATCHED_OCCURRENCE" | "REALIZED_AGGREGATE" | "UNMAPPED";
+    categoryCode: string | null;
+    categoryName: string | null;
+    matchedOccurrenceDate: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!accountPlanId) {
+      setImpact(null);
+      return;
+    }
+    setLoading(true);
+    const ctrl = new AbortController();
+    fetch(`/api/finance/banking/cashflow-preview`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: ctrl.signal,
+      body: JSON.stringify({ accountPlanId, amount, transactionDate }),
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.success) setImpact(j.data);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+    return () => ctrl.abort();
+  }, [accountPlanId, amount, transactionDate]);
+
+  if (!accountPlanId) return null;
+  if (loading) {
+    return (
+      <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 px-3 py-2 text-[12px] text-ds-text-3 flex items-center gap-2">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Calculando impacto en flujo de caja…
+      </div>
+    );
+  }
+  if (!impact) return null;
+
+  const isOk =
+    impact.status === "DTE_PAID" || impact.status === "MATCHED_OCCURRENCE";
+  const isWarn = impact.status === "REALIZED_AGGREGATE";
+  const isDanger = impact.status === "UNMAPPED";
+
+  return (
+    <div
+      className={cn(
+        "rounded-md border px-3 py-2 text-[12.5px] flex items-start gap-2",
+        isOk &&
+          "border-status-ok-border bg-status-ok-soft text-status-ok-fg",
+        isWarn &&
+          "border-status-warn-border bg-status-warn-soft text-status-warn-fg",
+        isDanger &&
+          "border-status-danger-border bg-status-danger-soft text-status-danger-fg",
+      )}
+    >
+      {isOk && <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />}
+      {isWarn && <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />}
+      {isDanger && <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />}
+      <div className="min-w-0 flex-1">
+        {impact.status === "DTE_PAID" && (
+          <span>Aparecerá en flujo de caja como pago de la factura vinculada.</span>
+        )}
+        {impact.status === "MATCHED_OCCURRENCE" && (
+          <span>
+            Se vinculará al item proyectado en <b>{impact.categoryName}</b>
+            {impact.matchedOccurrenceDate &&
+              ` del ${impact.matchedOccurrenceDate}`}
+            .
+          </span>
+        )}
+        {impact.status === "REALIZED_AGGREGATE" && (
+          <span>
+            Se categorizará como <b>{impact.categoryName}</b>, pero no hay un
+            ítem proyectado en esa fecha. Quedará sumado al realizado del mes
+            sin aparecer como ítem individual.
+          </span>
+        )}
+        {impact.status === "UNMAPPED" && (
+          <span>
+            La cuenta seleccionada no está mapeada a una categoría de flujo de
+            caja. Se te preguntará al guardar.
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
