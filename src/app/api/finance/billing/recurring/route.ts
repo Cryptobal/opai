@@ -42,7 +42,9 @@ export async function GET(_request: NextRequest) {
       ),
     );
 
-    const [accounts, installations] = await Promise.all([
+    const templateIds = templates.map((t) => t.id);
+
+    const [accounts, installations, lastRuns] = await Promise.all([
       accountIds.length > 0
         ? prisma.crmAccount.findMany({
             where: { id: { in: accountIds }, tenantId: ctx.tenantId },
@@ -55,20 +57,38 @@ export async function GET(_request: NextRequest) {
             select: { id: true, name: true, commune: true },
           })
         : Promise.resolve([]),
+      templateIds.length > 0
+        ? prisma.$queryRaw<Array<{ template_id: string; dte_id: string | null; auto_send_issues: unknown; ran_at: Date }>>`
+            SELECT DISTINCT ON (template_id)
+              template_id, dte_id, auto_send_issues, ran_at
+            FROM finance.finance_dte_recurring_runs
+            WHERE template_id = ANY(${templateIds}::uuid[])
+              AND tenant_id = ${ctx.tenantId}
+            ORDER BY template_id, ran_at DESC
+          `
+        : Promise.resolve([]),
     ]);
 
     const accountById = new Map(accounts.map((a) => [a.id, a]));
     const installationById = new Map(installations.map((i) => [i.id, i]));
+    const lastRunByTemplateId = new Map(
+      lastRuns.map((r) => [r.template_id, r]),
+    );
 
-    const enriched = templates.map((t) => ({
-      ...t,
-      crmAccount: t.crmAccountId
-        ? accountById.get(t.crmAccountId) ?? null
-        : null,
-      installation: t.installationId
-        ? installationById.get(t.installationId) ?? null
-        : null,
-    }));
+    const enriched = templates.map((t) => {
+      const lr = lastRunByTemplateId.get(t.id);
+      return {
+        ...t,
+        crmAccount: t.crmAccountId
+          ? (accountById.get(t.crmAccountId) ?? null)
+          : null,
+        installation: t.installationId
+          ? (installationById.get(t.installationId) ?? null)
+          : null,
+        lastRunIssues: lr?.auto_send_issues ?? null,
+        lastRunDteId: lr?.dte_id ?? null,
+      };
+    });
 
     return NextResponse.json({ success: true, data: { templates: enriched } });
   } catch (error) {
