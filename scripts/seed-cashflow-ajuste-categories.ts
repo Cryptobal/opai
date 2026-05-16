@@ -1,9 +1,18 @@
 /**
+ * ⚠️ DEPRECADO desde 2026-05-16 — esta lógica ahora vive en la migración
+ * Prisma `seed_cashflow_adjustment_categories` que corre automáticamente
+ * en cada deploy. Este script se mantiene solo por compatibilidad
+ * histórica y NO debe correrse manualmente — la migración hace lo mismo
+ * de forma idempotente (y además marca isTaxExempt=true).
+ *
+ * Si necesitas resembrar categorías para un tenant, corré la migración
+ * o ejecutá los INSERTs del SQL directamente.
+ *
  * Idempotente: crea las dos categorías sistema de ajuste de conciliación
  * para TODOS los tenants que tengan FinanceCashflowConfig. Si ya existen,
  * no hace nada.
  *
- * Ejecutar: npx tsx scripts/seed-cashflow-ajuste-categories.ts
+ * Ejecutar (NO recomendado): npx tsx scripts/seed-cashflow-ajuste-categories.ts
  */
 import { PrismaClient } from "@prisma/client";
 
