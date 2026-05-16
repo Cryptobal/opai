@@ -56,6 +56,15 @@ export interface VirtualOccurrence {
   ipcAdjustmentMonths: number | null;
   /** DTE vinculado a la occurrence materializada (null si proyectada o sin vínculo). */
   dteId: string | null;
+  /** Alias visible del contrato. Permite distinguir varios contratos del
+   *  mismo cliente con la misma instalación (ej. "Ciclo proforma" vs
+   *  "Facturación directa" en Transmat). null = usar nombre técnico. */
+  nickname: string | null;
+  /** Patrón de cobro del contrato. DIRECTO = cliente paga a la cuenta del
+   *  tenant (default). FACTORING = factura cedida al factor (cobro
+   *  acelerado, descontado al emitir cada factura). Default DIRECTO para
+   *  occurrences sintéticas / huérfanas que no tienen item asociado. */
+  modoCobro: "DIRECTO" | "FACTORING";
 }
 
 export interface ProjectionRange {
@@ -181,6 +190,18 @@ export interface ProjectionRowItemDetail {
    *  OpsPuestoOperativo activos). 0 si el item no tiene instalación o si
    *  la instalación no tiene puestos. */
   headcount: number;
+  /** Alias visible del contrato (BLOQUE 5 / Fase 6). Cuando está seteado,
+   *  la fila del item muestra este nombre en lugar del nombre técnico
+   *  para distinguir varios contratos del mismo cliente con la misma
+   *  instalación (ej. "Ciclo proforma" vs "Facturación directa").
+   *  null = usar nombre técnico. */
+  nickname: string | null;
+  /** Patrón de cobro del contrato (BLOQUE 5 / Fase 6). DIRECTO = cliente
+   *  paga a la cuenta del tenant. FACTORING = factura cedida al factor
+   *  (cobro acelerado). La UI muestra un badge "F" en cada celda cuando
+   *  modoCobro=FACTORING para señalar el patrón visualmente. Default
+   *  DIRECTO para occurrences sintéticas / huérfanas. */
+  modoCobro: "DIRECTO" | "FACTORING";
   values: ProjectionRowItemValue[];
   total: number;
   totalActual: number;

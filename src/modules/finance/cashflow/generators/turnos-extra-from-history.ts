@@ -79,6 +79,8 @@ export async function projectTurnosExtraFromHistory(
           hasIpcAdjustment: false,
           ipcAdjustmentMonths: null,
           dteId: null,
+          nickname: null,
+          modoCobro: "DIRECTO",
         });
       }
     }

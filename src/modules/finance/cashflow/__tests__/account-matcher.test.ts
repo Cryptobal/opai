@@ -31,6 +31,8 @@ function makeOccurrence(overrides: Partial<VirtualOccurrence>): VirtualOccurrenc
     ipcAdjustmentMonths: null,
     crmAccountId: null,
     dteId: null,
+    nickname: null,
+    modoCobro: "DIRECTO",
     ...overrides,
   };
 }

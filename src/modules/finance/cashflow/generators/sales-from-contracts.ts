@@ -137,6 +137,8 @@ export async function projectSalesFromContracts(
         hasIpcAdjustment: false,
         ipcAdjustmentMonths: null,
         dteId: null,
+        nickname: null,
+        modoCobro: "DIRECTO",
       });
 
       monthCursor = addMonths(monthCursor, 1);

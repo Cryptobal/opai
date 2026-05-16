@@ -53,6 +53,7 @@ export function CellAmount({
   daysOverdue,
   dteFolio,
   dtes,
+  modoCobro,
 }: {
   projected: number;
   actual: number | null;
@@ -66,6 +67,12 @@ export function CellAmount({
    *  sin tener que abrir el popover (caso típico: pago extra + factura
    *  regular del mismo cliente en la misma semana). */
   dtes?: CellDteSummary[];
+  /** Patrón de cobro del contrato (BLOQUE 5 / Fase 6). Cuando es FACTORING
+   *  pintamos un mini-badge "F" en la esquina y agregamos una línea al
+   *  tooltip ("Factoring · cobro acelerado"). El monto en la celda es el
+   *  bruto; el descuento real del factoring se aplica al emitir cada
+   *  factura puntual (modal aparte), no en la proyección. */
+  modoCobro?: "DIRECTO" | "FACTORING";
 }) {
   const hasBadge = cellStatus && cellStatus !== "PROJECTED";
   const overdueWarn =
@@ -95,6 +102,12 @@ export function CellAmount({
         : `${statusLabel}${suffix}`,
     );
   }
+  // BLOQUE 5 / Fase 6: marcar el patrón factoring del contrato en el
+  // tooltip cuando la celda tiene proyección. Aclaramos que el monto
+  // mostrado es bruto — el descuento real ocurre al emitir cada factura.
+  if (modoCobro === "FACTORING" && projected > 0) {
+    tooltipLines.push("Factoring · cobro acelerado");
+  }
 
   const dot = hasBadge ? (
     <span className="absolute -top-1 -right-1 inline-flex items-center gap-0.5">
@@ -113,17 +126,35 @@ export function CellAmount({
     </span>
   ) : null;
 
+  // BLOQUE 5 / Fase 6: badge "F" en la esquina superior izquierda cuando
+  // el contrato cobra vía factoring. Solo lo pintamos si la celda tiene
+  // monto proyectado (sin proyección la esquina queda vacía y el badge
+  // colgaría sobre un guión "—" sin sentido). No interfiere con el dot
+  // de cellStatus (esquina opuesta).
+  const factoringBadge =
+    modoCobro === "FACTORING" && projected > 0 ? (
+      <span
+        className="absolute -top-1 -left-1 text-[8px] font-bold leading-none text-purple-400 dark:text-purple-300"
+        title="Factoring"
+        aria-label="Factoring"
+      >
+        F
+      </span>
+    ) : null;
+
   const body =
     actual === null || variance === null ? (
       <span className="relative inline-block">
         <span className="font-mono text-[12px]">
           {projected > 0 ? fmt.format(projected) : "—"}
         </span>
+        {factoringBadge}
         {dot}
       </span>
     ) : variance === 0 ? (
       <span className="relative inline-block">
         <span className="font-mono text-[12px]">{fmt.format(actual)}</span>
+        {factoringBadge}
         {dot}
       </span>
     ) : (
@@ -146,6 +177,7 @@ export function CellAmount({
             {fmt.format(variance)}
           </div>
         </div>
+        {factoringBadge}
         {dot}
       </span>
     );

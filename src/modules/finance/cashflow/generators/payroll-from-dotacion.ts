@@ -107,6 +107,8 @@ export async function projectPayrollFromDotacion(
           hasIpcAdjustment: false,
           ipcAdjustmentMonths: null,
           dteId: null,
+          nickname: null,
+          modoCobro: "DIRECTO",
         });
       }
     }

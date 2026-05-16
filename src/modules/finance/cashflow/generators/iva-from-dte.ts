@@ -93,6 +93,8 @@ export async function projectIvaFromDte(
           hasIpcAdjustment: false,
           ipcAdjustmentMonths: null,
           dteId: null,
+          nickname: null,
+          modoCobro: "DIRECTO",
         });
       }
     }

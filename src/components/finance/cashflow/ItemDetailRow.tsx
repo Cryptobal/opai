@@ -130,7 +130,12 @@ export function ItemDetailRow({
 }: Props) {
   const badge = SOURCE_BADGE[item.source];
   const link = sourceLink(item.source, item);
-  const display = item.installationName ?? item.itemName;
+  // BLOQUE 5 / Fase 6: el nickname (alias visible del contrato) tiene
+  // prioridad sobre installationName e itemName cuando está configurado.
+  // Permite distinguir varios contratos del mismo cliente con la misma
+  // instalación (ej. "Ciclo proforma" vs "Facturación directa" en
+  // Transmat). Fallback al patrón histórico si está vacío.
+  const display = item.nickname ?? item.installationName ?? item.itemName;
   // Si el item está dentro de un grupo por cliente, ocultamos el prefix
   // del cliente porque el sub-header ya lo dice. En items planos
   // mantenemos el prefix sólo cuando el cliente no está ya en el nombre.
@@ -227,6 +232,7 @@ export function ItemDetailRow({
               daysOverdue={v.daysOverdue}
               dteFolio={v.dteFolio ?? null}
               dtes={v.dtes}
+              modoCobro={item.modoCobro}
             />
           </span>
         );

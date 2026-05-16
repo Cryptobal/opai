@@ -62,6 +62,9 @@ function makeRow(items: number = 2): ProjectionRow {
       sourceRefCode: null,
       hasIpcAdjustment: false,
       ipcAdjustmentMonths: null,
+      headcount: 0,
+      nickname: null,
+      modoCobro: "DIRECTO" as const,
       values: [
         {
           bucketKey: "2026-W19",

@@ -74,6 +74,9 @@ export function makeMobileProjection(): ProjectionMatrix {
             sourceRefCode: null,
             hasIpcAdjustment: false,
             ipcAdjustmentMonths: null,
+            headcount: 0,
+            nickname: null,
+            modoCobro: "DIRECTO",
             values: [
               { bucketKey: "2026-W19", amount: 1_000_000, actualAmount: null, occurrenceId: "occ-1", scheduledDate: "2026-05-05" },
               { bucketKey: "2026-W20", amount: 1_500_000, actualAmount: null, occurrenceId: "occ-2", scheduledDate: "2026-05-12" },
@@ -107,6 +110,9 @@ export function makeMobileProjection(): ProjectionMatrix {
             sourceRefCode: null,
             hasIpcAdjustment: false,
             ipcAdjustmentMonths: null,
+            headcount: 0,
+            nickname: null,
+            modoCobro: "DIRECTO",
             values: [
               { bucketKey: "2026-W19", amount: 400_000, actualAmount: null, occurrenceId: null, scheduledDate: "2026-05-05" },
               { bucketKey: "2026-W20", amount: 500_000, actualAmount: null, occurrenceId: null, scheduledDate: "2026-05-12" },

@@ -239,7 +239,9 @@ const ItemRow = memo(function ItemRow({
   const v = item.values.find((x) => x.bucketKey === bucketKey);
   const amount = v?.amount ?? 0;
   const actual = v?.actualAmount ?? null;
-  const display = item.installationName ?? item.itemName;
+  // BLOQUE 5 / Fase 6: nickname tiene prioridad sobre installationName /
+  // itemName cuando está configurado, igual que en ItemDetailRow desktop.
+  const display = item.nickname ?? item.installationName ?? item.itemName;
   const badge = SOURCE_BADGE[item.source];
 
   const handleClick = useCallback(() => {

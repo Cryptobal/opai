@@ -737,6 +737,9 @@ export async function buildProjection(
         hasIpcAdjustment: !!item.hasIpcAdjustment,
         ipcAdjustmentMonths: item.ipcAdjustmentMonths ?? null,
         dteId: mat?.dteId ?? null,
+        nickname: item.nickname ?? null,
+        modoCobro:
+          (item.modoCobro as "DIRECTO" | "FACTORING" | undefined) ?? "DIRECTO",
       });
     }
   }
@@ -1013,6 +1016,10 @@ export async function buildProjection(
             hasIpcAdjustment: false,
             ipcAdjustmentMonths: null,
             dteId: agg.dteId,
+            nickname: chosenItem.nickname ?? null,
+            modoCobro:
+              (chosenItem.modoCobro as "DIRECTO" | "FACTORING" | undefined) ??
+              "DIRECTO",
           });
           for (const tx of agg.bankTxs) consumedBankTxIds.add(tx.id);
         }
@@ -1169,6 +1176,12 @@ export async function buildProjection(
           hasIpcAdjustment: false,
           ipcAdjustmentMonths: null,
           dteId: dte.id,                     // ← cell.dtes[] lo va a listar
+          nickname: contractItem.nickname ?? null,
+          modoCobro:
+            (contractItem.modoCobro as
+              | "DIRECTO"
+              | "FACTORING"
+              | undefined) ?? "DIRECTO",
         });
         continue;                            // ← skip fallback
       }
@@ -1219,6 +1232,10 @@ export async function buildProjection(
       hasIpcAdjustment: false,
       ipcAdjustmentMonths: null,
       dteId: dte.id,
+      // DTE huérfano sin item de contrato → no hay nickname ni modo de
+      // cobro asociado; default DIRECTO para no inventar factoring.
+      nickname: null,
+      modoCobro: "DIRECTO",
     });
   }
 
@@ -1260,6 +1277,9 @@ export async function buildProjection(
       hasIpcAdjustment: false,
       ipcAdjustmentMonths: null,
       dteId: null,
+      // Bank-link sintético sin contrato → DIRECTO por default.
+      nickname: null,
+      modoCobro: "DIRECTO",
     });
   }
 
@@ -1648,6 +1668,8 @@ function buildRows(
           headcount: o.installationId
             ? (headcountByInstallation.get(o.installationId) ?? 0)
             : 0,
+          nickname: o.nickname ?? null,
+          modoCobro: o.modoCobro ?? "DIRECTO",
           values: buckets.map((b) => ({
             bucketKey: b.key,
             amount: 0,

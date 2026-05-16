@@ -99,6 +99,8 @@ export async function projectRecurringDtes(
           hasIpcAdjustment: false,
           ipcAdjustmentMonths: null,
           dteId: null,
+          nickname: null,
+          modoCobro: "DIRECTO",
         });
       }
       switch (t.frequency) {
