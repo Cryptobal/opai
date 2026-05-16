@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { ChevronDown, ChevronUp, Lock, Search } from "lucide-react";
+import { ChevronDown, ChevronUp, Eye, EyeOff, Lock, Search } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import {
@@ -387,6 +387,23 @@ export function WeeklyMatrix({
     });
   }
 
+  // Vista resumen: los 3 estados están colapsados → solo se ven Total ingresos,
+  // Total egresos y Saldo acumulado. Cualquier otra combinación = vista detalle.
+  const isSummaryView = !ingresosExpanded && !egresosExpanded && !footerExpanded;
+
+  function toggleViewMode() {
+    // Si está en resumen, abrir todo. Si está en cualquier otro estado, colapsar todo.
+    const next = isSummaryView; // true = expandir, false = colapsar
+    setIngresosExpanded(next);
+    setEgresosExpanded(next);
+    setFooterExpanded(next);
+    try {
+      window.localStorage.setItem("cashflow.ingresos.expanded", next ? "1" : "0");
+      window.localStorage.setItem("cashflow.egresos.expanded", next ? "1" : "0");
+      window.localStorage.setItem("cashflow.footer.expanded", next ? "1" : "0");
+    } catch {}
+  }
+
   async function handleAutoMatch() {
     setMatching(true);
     setMatchResultMsg(null);
@@ -476,6 +493,26 @@ export function WeeklyMatrix({
               {matching ? "Vinculando..." : "Auto-match con cartola"}
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={toggleViewMode}
+            className="h-10 sm:h-9 w-full sm:w-auto gap-1.5"
+            title={isSummaryView ? "Expandir todas las secciones" : "Colapsar a vista resumen (solo totales)"}
+            aria-pressed={isSummaryView}
+          >
+            {isSummaryView ? (
+              <>
+                <Eye className="h-3.5 w-3.5" />
+                Vista detalle
+              </>
+            ) : (
+              <>
+                <EyeOff className="h-3.5 w-3.5" />
+                Vista resumen
+              </>
+            )}
+          </Button>
           <CashflowLegend className="w-full sm:w-auto justify-center" />
         </div>
       </div>
@@ -782,14 +819,16 @@ export function WeeklyMatrix({
               )}
 
               {/* Saldo acumulado: SIEMPRE visible. La celda sticky-left tiene
-                  el toggle para mostrar/ocultar las 4 filas de arriba. */}
+                  el toggle para mostrar/ocultar las 6 filas de arriba (Neto
+                  semanal, Real banco ing/eg, Δ vs proyectado, Saldo banco
+                  real, Δ banco vs proyectado). */}
               <tr className="bg-muted font-semibold">
                 <td className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap border-r border-border/50">
                   <button
                     type="button"
                     onClick={toggleFooter}
                     className="flex items-center gap-1.5 w-full text-left"
-                    title={footerExpanded ? "Ocultar detalles (Neto/Real/Δ)" : "Mostrar detalles"}
+                    title={footerExpanded ? "Ocultar detalle (Neto, Real banco, Δ)" : "Mostrar detalle del flujo"}
                     aria-expanded={footerExpanded}
                   >
                     {footerExpanded ? (
@@ -813,10 +852,11 @@ export function WeeklyMatrix({
                 <td className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap border-l border-border/50">—</td>
               </tr>
 
-              {/* Saldo banco real acumulado — SIEMPRE visible. Buckets
-                  futuros muestran "—". La celda del bucket actual es
+              {/* Saldo banco real acumulado — parte del detalle del footer.
+                  Buckets futuros muestran "—". La celda del bucket actual es
                   tappable para abrir el drawer de ajuste manual cuando
                   el usuario tiene banking_manage. */}
+              {footerExpanded && (
               <tr className="bg-card border-t border-border/40">
                 <td className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap text-[12px] text-ds-text-2 border-r border-border/50">
                   Saldo banco real
@@ -854,8 +894,10 @@ export function WeeklyMatrix({
                 })}
                 <td className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap border-l border-border/50">—</td>
               </tr>
+              )}
 
               {/* Δ banco vs proyectado — drift acumulado por bucket. */}
+              {footerExpanded && (
               <tr className="bg-card border-t border-border/40">
                 <td
                   className="sticky left-0 z-40 bg-card p-2 whitespace-nowrap text-[12px] text-ds-text-2 border-r border-border/50"
@@ -878,6 +920,7 @@ export function WeeklyMatrix({
                 })}
                 <td className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right font-mono bg-card whitespace-nowrap border-l border-border/50">—</td>
               </tr>
+              )}
             </tfoot>
           </table>
         </div>
