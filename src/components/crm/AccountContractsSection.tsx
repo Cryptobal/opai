@@ -992,21 +992,32 @@ export function AccountContractsSection({
           ? String(item.diasFacturaDesdeProforma)
           : "",
       );
-      // Si el item ya tenía diaEmisionFactura, lo usamos. Si no, caemos
-      // al dayOfMonth legacy (paymentDay) para mantener consistencia con
-      // los items creados antes de la fase 1.
-      setCfDiaEmisionFactura(
-        item.diaEmisionFactura != null
-          ? String(item.diaEmisionFactura)
-          : item.dayOfMonth != null
-            ? String(item.dayOfMonth)
-            : "5",
-      );
-      setCfMesFacturaRelativo(
-        item.mesFacturaRelativo === "MES_SIGUIENTE"
-          ? "MES_SIGUIENTE"
-          : "MISMO_MES",
-      );
+      // Si el item ya tiene proforma activa, ignoramos diaEmisionFactura
+      // y mesFacturaRelativo guardados (son derivados — FIX 2 de Fase 3).
+      // Esto limpia datos contaminados de versiones previas del form
+      // donde el usuario los seteaba manualmente para "compensar" el
+      // clampeo a 31. Sin esta limpieza, al recargar un item viejo el
+      // state quedaría con valores que nunca se renderizan pero igual
+      // se persistirían en el próximo save.
+      if (item.emiteProforma) {
+        setCfDiaEmisionFactura("");
+        setCfMesFacturaRelativo("MISMO_MES");
+      } else {
+        // Sin proforma: usamos diaEmisionFactura del item, o el
+        // dayOfMonth legacy como fallback para items pre-Fase-1.
+        setCfDiaEmisionFactura(
+          item.diaEmisionFactura != null
+            ? String(item.diaEmisionFactura)
+            : item.dayOfMonth != null
+              ? String(item.dayOfMonth)
+              : "5",
+        );
+        setCfMesFacturaRelativo(
+          item.mesFacturaRelativo === "MES_SIGUIENTE"
+            ? "MES_SIGUIENTE"
+            : "MISMO_MES",
+        );
+      }
       setCfModoCobro(item.modoCobro === "FACTORING" ? "FACTORING" : "DIRECTO");
       setCfDiasCobroDesdeFactura(
         item.diasCobroDesdeFactura != null
@@ -1035,20 +1046,21 @@ export function AccountContractsSection({
     }
   };
 
-  // ── Bloque 5 Fase 3 — Auto-calc del día de emisión de factura cuando
-  // hay proforma. El usuario configura "día proforma" + "días desde
-  // proforma hasta factura"; nosotros derivamos el día de factura.
-  // Si pasa de 31, lo clampeamos a 31 (el generador de cuotas hace el
-  // ajuste real al último día del mes correspondiente).
+  // Cuando hay proforma, diaEmisionFactura y mesFacturaRelativo son
+  // derivados. El backend (proyección) calcula la fecha real usando
+  // setUTCDate(diaProf + diasGap), que rola automáticamente al mes
+  // siguiente si la suma pasa del último día del mes.
+  //
+  // Por eso, en este caso NO debemos clampear ni dejar que el usuario
+  // elija. Forzamos valores neutros que el backend ignora. (Fase 3 FIX 2.)
   useEffect(() => {
     if (!cfDialog) return;
     if (!cfEmiteProforma) return;
-    const dia = Number(cfDiaEmisionProforma);
-    const diasGap = Number(cfDiasFacturaDesdeProforma);
-    if (!Number.isFinite(dia) || dia < 1 || dia > 31) return;
-    if (!Number.isFinite(diasGap) || diasGap < 0) return;
-    const calc = Math.min(dia + diasGap, 31);
-    setCfDiaEmisionFactura(String(calc));
+    // Limpieza: cuando hay proforma, no se usa el campo "día emisión
+    // factura" ni el "mes factura relativo". Se dejan en valores
+    // neutros para no contaminar la persistencia.
+    setCfDiaEmisionFactura("");
+    setCfMesFacturaRelativo("MISMO_MES");
   }, [
     cfDialog,
     cfEmiteProforma,
@@ -1090,7 +1102,10 @@ export function AccountContractsSection({
       fechaFactura = new Date(Date.UTC(year, month, diaFac));
     }
 
-    if (cfMesFacturaRelativo === "MES_SIGUIENTE") {
+    // Solo aplicar mesFacturaRelativo cuando NO hay proforma. Con
+    // proforma, el rollover ya está implícito en el setUTCDate(diaProf
+    // + diasGap) anterior — sumarlo otra vez sería doble salto.
+    if (!cfEmiteProforma && cfMesFacturaRelativo === "MES_SIGUIENTE") {
       fechaFactura.setUTCMonth(fechaFactura.getUTCMonth() + 1);
     }
 
@@ -1200,8 +1215,17 @@ export function AccountContractsSection({
             diasFacturaDesdeProforma: cfEmiteProforma
               ? Number(cfDiasFacturaDesdeProforma)
               : null,
-            diaEmisionFactura: Number.isFinite(diaFac) ? diaFac : null,
-            mesFacturaRelativo: cfMesFacturaRelativo,
+            // Cuando hay proforma, estos campos son derivados (los
+            // calcula el backend a partir de proforma + días). Se
+            // guardan como neutros para no contaminar la persistencia.
+            diaEmisionFactura: cfEmiteProforma
+              ? null
+              : Number.isFinite(diaFac)
+                ? diaFac
+                : null,
+            mesFacturaRelativo: cfEmiteProforma
+              ? "MISMO_MES"
+              : cfMesFacturaRelativo,
             modoCobro: cfModoCobro,
             diasCobroDesdeFactura: Number.isFinite(diasCobro) ? diasCobro : 0,
           }),
@@ -3367,52 +3391,69 @@ export function AccountContractsSection({
                 </div>
               )}
 
-              <div className="space-y-1">
-                <Label className="text-xs">
-                  Día de emisión factura
-                  {cfEmiteProforma && (
-                    <span className="ml-2 text-[12px] text-ds-text-3 font-normal">
-                      (autocalculado desde la proforma)
-                    </span>
-                  )}
-                </Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={31}
-                  value={cfDiaEmisionFactura}
-                  onChange={(e) => setCfDiaEmisionFactura(e.target.value)}
-                  readOnly={cfEmiteProforma}
-                  className={cn(
-                    "h-10 sm:h-9 max-w-[120px]",
-                    cfEmiteProforma && "bg-ds-surface-2 text-ds-text-3",
-                  )}
-                />
-              </div>
+              {/* Con proforma, el día de emisión factura y el mes
+                  relativo son derivados (los calcula el backend desde
+                  proforma + días). Los inputs se ocultan y mostramos
+                  un bloque informativo. */}
+              {!cfEmiteProforma && (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Día de emisión factura</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={cfDiaEmisionFactura}
+                      onChange={(e) => setCfDiaEmisionFactura(e.target.value)}
+                      className="h-10 sm:h-9 max-w-[120px]"
+                    />
+                  </div>
 
-              <div className="space-y-1">
-                <Label className="text-xs">La factura se emite en</Label>
-                <Select
-                  value={cfMesFacturaRelativo}
-                  onValueChange={(v) =>
-                    setCfMesFacturaRelativo(
-                      v === "MES_SIGUIENTE" ? "MES_SIGUIENTE" : "MISMO_MES",
-                    )
-                  }
-                >
-                  <SelectTrigger className="h-10 sm:h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="MISMO_MES">
-                      Mismo mes del servicio
-                    </SelectItem>
-                    <SelectItem value="MES_SIGUIENTE">
-                      Mes siguiente
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">La factura se emite en</Label>
+                    <Select
+                      value={cfMesFacturaRelativo}
+                      onValueChange={(v) =>
+                        setCfMesFacturaRelativo(
+                          v === "MES_SIGUIENTE" ? "MES_SIGUIENTE" : "MISMO_MES",
+                        )
+                      }
+                    >
+                      <SelectTrigger className="h-10 sm:h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="MISMO_MES">
+                          Mismo mes del servicio
+                        </SelectItem>
+                        <SelectItem value="MES_SIGUIENTE">
+                          Mes siguiente
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+
+              {cfEmiteProforma && (
+                <div className="rounded-md border border-ds-border-default bg-ds-surface-2 px-3 py-2 text-xs text-ds-text-2 space-y-0.5">
+                  <p className="font-medium text-ds-text-1">
+                    Fecha de factura derivada
+                  </p>
+                  <p>
+                    La factura se emite{" "}
+                    <span className="font-mono font-medium">
+                      {cfDiasFacturaDesdeProforma || "—"} días
+                    </span>{" "}
+                    después de la proforma (día{" "}
+                    <span className="font-mono">
+                      {cfDiaEmisionProforma || "—"}
+                    </span>
+                    ). Si la suma supera el fin de mes, cae automáticamente
+                    en el mes siguiente.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* ── Ciclo de cobro ───────────────────────────────────── */}
