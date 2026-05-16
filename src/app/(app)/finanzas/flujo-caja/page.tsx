@@ -10,6 +10,7 @@ import { addWeeks, subWeeks } from "date-fns";
 import { CashflowTabs } from "@/components/finance/cashflow/CashflowTabs";
 import { CashflowKpis, type KpiData } from "@/components/finance/cashflow/CashflowKpis";
 import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
+import { OpeningAnchorCard } from "@/components/finance/cashflow/OpeningAnchorCard";
 
 export default async function FlujoCajaPage({
   searchParams,
@@ -138,6 +139,8 @@ export default async function FlujoCajaPage({
           ) : null}
         </div>
       </div>
+
+      <OpeningAnchorCard />
 
       <CashflowKpis kpis={kpis} />
 
