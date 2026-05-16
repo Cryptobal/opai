@@ -705,7 +705,19 @@ function RuleEditorSheet({
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error);
-      toast.success(rule ? "Regla actualizada" : "Regla creada");
+      const hr = json.data?.historicalResult as
+        | { suggested: number; autoMatched: number }
+        | null
+        | undefined;
+      if (hr && (hr.suggested > 0 || hr.autoMatched > 0)) {
+        const parts = [`${hr.suggested} en "Reconocidos"`];
+        if (hr.autoMatched > 0) parts.push(`${hr.autoMatched} auto-conciliadas`);
+        toast.success(
+          `${rule ? "Regla actualizada" : "Regla creada"} · ${parts.join(" · ")}`,
+        );
+      } else {
+        toast.success(rule ? "Regla actualizada" : "Regla creada");
+      }
 
       // Post-creación: si era CREATE (no EDIT) y la regla matchearía algo
       // en histórico, ofrecer ejecutarla.

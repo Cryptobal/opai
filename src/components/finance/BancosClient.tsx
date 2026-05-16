@@ -63,6 +63,7 @@ import {
   History,
   CheckCircle,
   Zap,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -897,6 +898,10 @@ function TransactionsTab({
   // agrega un matcher nuevo (p.ej. turnos extras) y queremos pasarlo
   // por encima del histórico sin re-importar la cartola.
   const [runningAutoMatch, setRunningAutoMatch] = useState(false);
+  // Variante rápida: solo motor de reglas (sin DTE/turno extra). Para
+  // procesar tx pre-existentes después de crear/editar reglas.
+  const [runningRulesOnly, setRunningRulesOnly] = useState(false);
+  const [activeRulesCount, setActiveRulesCount] = useState<number>(0);
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -1074,6 +1079,24 @@ function TransactionsTab({
     loadCounts();
   }, [loadCounts, transactions]);
 
+  // Conteo de reglas activas — alimenta el banner "tenés N tx sin reconocer
+  // y M reglas activas" en sub-tab "Sin reconocer".
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/finance/banking/automatch-rules?enabled=true&countOnly=1")
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return;
+        if (j?.success && typeof j.data?.count === "number") {
+          setActiveRulesCount(j.data.count);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAccount]);
+
   // Deep-link cross-módulo: cuando un DTE pagado linkea a `?txId=...` o
   // `?openTx=...`, auto-abrimos el drawer de conciliación de esa tx.
   // Si la tx no está cargada todavía (por filtros/paginación), hacemos
@@ -1234,6 +1257,34 @@ function TransactionsTab({
       toast.error(err instanceof Error ? err.message : "Error en autorización masiva");
     } finally {
       setBulkAuthorizing(false);
+    }
+  };
+
+  const runRulesOnly = async () => {
+    if (!selectedAccount || runningRulesOnly) return;
+    setRunningRulesOnly(true);
+    try {
+      const res = await fetch(
+        "/api/finance/banking/automatch-rules/run-rules-only",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bankAccountId: selectedAccount }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error ?? "Error");
+      const { suggested, autoMatched, scanned, reachedCap } = json.data ?? {};
+      toast.success(
+        `${scanned ?? 0} mov. revisados · ${suggested ?? 0} reconocidos · ${autoMatched ?? 0} conciliados` +
+          (reachedCap ? ` · cap 2000 alcanzado, corré de nuevo` : ""),
+      );
+      await loadTransactions();
+      await loadCounts();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error");
+    } finally {
+      setRunningRulesOnly(false);
     }
   };
 
@@ -1435,6 +1486,12 @@ function TransactionsTab({
                     </Tag>
                   ) : null}
                 </span>
+              ) : rr?.rut && row.suggestedRuleId ? (
+                <span title="RUT detectado: cubierto por una regla auto-match">
+                  <Tag variant="info" size="sm">
+                    RUT reglado
+                  </Tag>
+                </span>
               ) : rr?.rut ? (
                 <span
                   title="RUT detectado en la cartola pero sin contraparte en el ERP"
@@ -1451,11 +1508,18 @@ function TransactionsTab({
       {
         id: "reference",
         header: "Referencia",
-        cell: (row) => (
-          <span className="text-xs text-muted-foreground font-mono">
-            {row.reference ?? "—"}
-          </span>
-        ),
+        cell: (row) => {
+          const ref = row.reference ?? "";
+          if (!ref) return <span className="text-xs text-muted-foreground">—</span>;
+          return (
+            <span
+              className="text-xs text-muted-foreground font-mono truncate inline-block max-w-[140px] align-bottom"
+              title={ref}
+            >
+              {ref}
+            </span>
+          );
+        },
       },
       {
         id: "amount",
@@ -1820,24 +1884,66 @@ function TransactionsTab({
           {(subTab === "all" || subTab === "unrecognized") &&
             canManage &&
             selectedAccount && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={runHistoricalAutoMatch}
-                disabled={runningAutoMatch}
-                className="h-8 shrink-0"
-                title="Corre el matcher contra DTEs, turnos extras y reglas activas para los movimientos visibles. Tip: usá los filtros antes para limitar el alcance."
-              >
-                {runningAutoMatch ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                ) : (
-                  <Zap className="h-3.5 w-3.5 mr-1.5" />
-                )}
-                Auto-conciliar visible
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={runRulesOnly}
+                  disabled={runningRulesOnly}
+                  className="h-8 shrink-0"
+                  title="Aplica solo las reglas configuradas (no busca DTEs ni turnos extras). Más rápido."
+                >
+                  {runningRulesOnly ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  Re-evaluar reglas
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={runHistoricalAutoMatch}
+                  disabled={runningAutoMatch}
+                  className="h-8 shrink-0"
+                  title="Corre el matcher contra DTEs, turnos extras y reglas activas para los movimientos visibles. Tip: usá los filtros antes para limitar el alcance."
+                >
+                  {runningAutoMatch ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <Zap className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  Auto-conciliar visible
+                </Button>
+              </>
             )}
         </div>
       )}
+
+      {/* Banner: en sub-tab "Sin reconocer" cuando hay reglas activas y tx
+          UNMATCHED. Recordatorio de que las reglas no son retroactivas
+          automáticas y hay que pulsar "Re-evaluar reglas". */}
+      {subTab === "unrecognized" &&
+        tabCounts &&
+        tabCounts.unrecognized > 0 &&
+        activeRulesCount > 0 && (
+          <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 flex items-start gap-2.5">
+            <Sparkles className="h-4 w-4 text-status-info-fg shrink-0 mt-0.5" />
+            <div className="min-w-0 flex-1 text-[12.5px]">
+              <p className="text-status-info-fg font-medium">
+                Tenés {tabCounts.unrecognized} movimientos sin reconocer y{" "}
+                {activeRulesCount} regla
+                {activeRulesCount === 1 ? "" : "s"} activa
+                {activeRulesCount === 1 ? "" : "s"}.
+              </p>
+              <p className="text-status-info-fg/80 mt-0.5">
+                Las reglas no se aplican automáticamente a movimientos
+                importados antes de su creación. Pulsá{" "}
+                <b>"Re-evaluar reglas"</b> arriba para procesar el histórico.
+              </p>
+            </div>
+          </div>
+        )}
 
       {/* Mobile hint: pendientes de autorizar en sub-tab Reconocidos. */}
       {!showHidden &&
@@ -2551,6 +2657,11 @@ function ImportTab({
             : ""
         }`,
       );
+      if (data.reachedAutoMatchCap) {
+        toast.warning(
+          "Procesadas las primeras 500 transacciones para auto-match. Pulsá 'Re-evaluar reglas' en la pestaña Movimientos para procesar el resto.",
+        );
+      }
       resetFlow();
       setHistoryKey((k) => k + 1);
       router.refresh();

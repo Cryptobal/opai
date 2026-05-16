@@ -13,6 +13,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { Decimal } from "@prisma/client/runtime/library";
 import type {
   FinanceAutoMatchRule,
   FinanceAutoMatchScope,
@@ -272,9 +273,15 @@ export interface CreateRuleInput {
   action: RuleAction;
 }
 
-export async function listRules(tenantId: string) {
+export async function listRules(
+  tenantId: string,
+  filters?: { enabled?: boolean },
+) {
   return prisma.financeAutoMatchRule.findMany({
-    where: { tenantId },
+    where: {
+      tenantId,
+      ...(filters?.enabled !== undefined ? { enabled: filters.enabled } : {}),
+    },
     orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
   });
 }
@@ -329,6 +336,92 @@ export async function updateRule(
         : {}),
     },
   });
+}
+
+/**
+ * Evalúa una regla específica contra el histórico UNMATCHED del tenant
+ * (cap 500). Las tx que matchean reciben sugerencia (si requiresReview)
+ * o quedan auto-conciliadas (link + MATCHED). Devuelve null si algo falla
+ * para no romper el caller (creación/edición de la regla).
+ *
+ * Compartido por POST (crear regla) y PATCH (editar) — arregla el bug de
+ * "regla creada pero histórico no se vuelve a evaluar".
+ */
+export async function runHistoricalForRule(
+  tenantId: string,
+  userId: string,
+  ruleId: string,
+): Promise<{ suggested: number; autoMatched: number } | null> {
+  try {
+    const txs = await prisma.financeBankTransaction.findMany({
+      where: {
+        tenantId,
+        reconciliationStatus: "UNMATCHED",
+        hiddenAt: null,
+        suggestedRuleId: null,
+      },
+      select: { id: true, amount: true, description: true, reference: true },
+      take: 500,
+    });
+    let suggested = 0;
+    let autoMatched = 0;
+    for (const tx of txs) {
+      const evaluation = await findMatchingRule(tenantId, {
+        amount: tx.amount.toNumber(),
+        description: tx.description,
+        reference: tx.reference,
+      });
+      if (!evaluation || evaluation.ruleId !== ruleId) continue;
+      if (!evaluation.action.accountPlanId) continue;
+      if (evaluation.action.requiresReview) {
+        await prisma.financeBankTransaction.update({
+          where: { id: tx.id },
+          data: {
+            suggestedRuleId: evaluation.ruleId,
+            suggestedAccountPlanId: evaluation.action.accountPlanId,
+          },
+        });
+        suggested++;
+      } else {
+        const isIncome = tx.amount.toNumber() > 0;
+        const amountAbs = Math.abs(tx.amount.toNumber());
+        await prisma.$transaction([
+          prisma.financeBankTransactionLink.create({
+            data: {
+              tenantId,
+              bankTransactionId: tx.id,
+              targetType: isIncome ? "INCOME" : "EXPENSE",
+              targetId: null,
+              amount: new Decimal(amountAbs),
+              accountPlanId: evaluation.action.accountPlanId,
+              note: `Auto-aplicado al crear/editar regla: ${evaluation.ruleName}`,
+              createdById: userId,
+            },
+          }),
+          prisma.financeBankTransaction.update({
+            where: { id: tx.id },
+            data: { reconciliationStatus: "MATCHED" },
+          }),
+          prisma.financeAutoMatchRule.update({
+            where: { id: evaluation.ruleId },
+            data: {
+              timesMatched: { increment: 1 },
+              lastMatchedAt: new Date(),
+            },
+          }),
+        ]);
+        autoMatched++;
+      }
+    }
+    return { suggested, autoMatched };
+  } catch (e) {
+    console.warn(
+      "[Finance/Banking/Rules] auto-historical failed for rule",
+      ruleId,
+      e,
+    );
+    return null;
+  }
 }
 
 export async function deleteRule(tenantId: string, id: string): Promise<void> {

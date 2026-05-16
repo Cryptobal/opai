@@ -41,14 +41,12 @@ export interface AutoMatchResult {
   /**
    * Razón del NO-match. Solo presente cuando matched=false.
    *   - already_matched: la bank tx ya estaba conciliada.
-   *   - negative_amount: bank tx es egreso, no entrada de cobro.
-   *   - no_candidate: ningún DTE pendiente con ese monto.
+   *   - no_candidate: ningún DTE pendiente con ese monto/dirección.
    *   - ambiguous: múltiples DTEs candidatos con el mismo monto.
    *   - skipped_test_amount: monto $0, ignorado por seguridad.
    */
   reason?:
     | "already_matched"
-    | "negative_amount"
     | "no_candidate"
     | "ambiguous"
     | "skipped_test_amount";
@@ -429,13 +427,13 @@ export async function bulkAutoMatchBankTransactions(
         continue;
       }
 
-      // Fallback 1: pagos a guardia por turno extra. El matcher de DTE
-      // sale temprano para egresos (negative_amount) y para ingresos sin
-      // candidato; el de turnos extras solo aplica a egresos contra
-      // OpsPagoTeItem pendiente. Intentar antes de reglas genéricas para
-      // que un pago a guardia quede correctamente atribuido al item de
-      // planilla en vez de a una categoría contable genérica.
-      if (r.reason === "negative_amount" || r.reason === "no_candidate") {
+      // Fallback 1: pagos a guardia por turno extra. Solo aplica a
+      // egresos contra OpsPagoTeItem pendiente. Intentar antes de reglas
+      // genéricas para que un pago a guardia quede correctamente
+      // atribuido al item de planilla en vez de a una categoría contable
+      // genérica. `no_candidate` cubre tanto ingresos sin DTE como
+      // egresos sin DTE RECEIVED candidato.
+      if (r.reason === "no_candidate") {
         const teResult = await tryAutoMatchBankTransactionToTurnoExtra(
           tenantId,
           id,
