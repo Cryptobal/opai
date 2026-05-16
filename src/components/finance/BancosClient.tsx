@@ -63,7 +63,6 @@ import {
   History,
   CheckCircle,
   Zap,
-  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -1860,54 +1859,36 @@ function TransactionsTab({
           </div>
         )}
 
-      {canManage && !showHidden && (
+      {/* Acción de conciliación batch — solo cuando el usuario ya marcó filas.
+          Antes había acá un banner explicativo permanente ("Conciliar varios
+          movimientos (lote) · Marcá filas en la primera columna…"); se eliminó
+          para reducir ruido visual una vez que el patrón está internalizado.
+          La acción sigue accesible: aparece sticky-style apenas hay selección. */}
+      {canManage && !showHidden && selectedTxIds.size > 0 && (
         <div className="rounded-lg border border-ds-border-default bg-ds-surface-2 px-3 py-2.5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-2 min-w-0">
-              <Layers className="h-[18px] w-[18px] text-ds-text-3 shrink-0 mt-0.5" />
-              <div className="min-w-0 space-y-0.5">
-                <p className="text-[13px] font-medium text-ds-text-2 leading-snug">
-                  Conciliar varios movimientos (lote)
-                </p>
-                <p className="text-[13px] text-ds-text-3 leading-snug">
-                  Marcá filas en la primera columna. Cuando termines, pulsa{" "}
-                  <span className="font-medium text-ds-text-2">
-                    Conciliar selección
-                  </span>{" "}
-                  para abrir el panel con la{" "}
-                  <span className="font-medium text-ds-text-2">
-                    suma de los montos
-                  </span>
-                  . Un solo movimiento: también podés hacer clic en la fila.
-                </p>
-              </div>
-            </div>
-            {selectedTxIds.size > 0 ? (
-              <div className="flex flex-wrap items-center gap-2 sm:justify-end shrink-0">
-                <span className="text-[13px] text-ds-text-2 whitespace-nowrap">
-                  <span className="font-semibold">{selectedTxIds.size}</span>{" "}
-                  seleccionados ·{" "}
-                  <span
-                    className={cn(
-                      "font-mono tabular-nums",
-                      selectedBulkSum >= 0
-                        ? "text-status-ok-fg"
-                        : "text-status-danger-fg",
-                    )}
-                  >
-                    {fmtCLP.format(selectedBulkSum)}
-                  </span>
-                </span>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-10 sm:h-9"
-                  onClick={openBulkReconcilePanel}
-                >
-                  Conciliar selección
-                </Button>
-              </div>
-            ) : null}
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            <span className="text-[13px] text-ds-text-2 whitespace-nowrap mr-auto">
+              <span className="font-semibold">{selectedTxIds.size}</span>{" "}
+              seleccionados ·{" "}
+              <span
+                className={cn(
+                  "font-mono tabular-nums",
+                  selectedBulkSum >= 0
+                    ? "text-status-ok-fg"
+                    : "text-status-danger-fg",
+                )}
+              >
+                {fmtCLP.format(selectedBulkSum)}
+              </span>
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              className="h-10 sm:h-9"
+              onClick={openBulkReconcilePanel}
+            >
+              Conciliar selección
+            </Button>
           </div>
         </div>
       )}
