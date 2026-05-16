@@ -125,18 +125,25 @@ export function CashflowTabs({
     }
 
     const wantedKind: "INCOME" | "EXPENSE" = amount > 0 ? "INCOME" : "EXPENSE";
-    const match = quickCategories.find((c) => {
-      if (c.kind !== wantedKind) return false;
-      const haystack = `${c.name} ${c.code}`.toLowerCase();
-      return haystack.includes("ajuste") && haystack.includes("saldo");
-    });
+    // Match por code (estable, system-defined) en vez de fuzzy keywords. Los
+    // nombres pueden cambiar (refactor "Ajuste de saldo" → "Ajuste de
+    // conciliación"), pero los codes ING/EGR_AJUSTE_CONCILIACION son contrato
+    // del seed (migración seed_cashflow_adjustment_categories) y de
+    // ajuste.service.ts.
+    const ADJUSTMENT_CODES = new Set([
+      "ING_AJUSTE_CONCILIACION",
+      "EGR_AJUSTE_CONCILIACION",
+    ]);
+    const match = quickCategories.find(
+      (c) => c.kind === wantedKind && ADJUSTMENT_CODES.has(c.code),
+    );
 
     setQuickDefaultAmount(Math.abs(amount));
     setQuickDefaultCategoryId(match?.id);
     setQuickHint(
       match
-        ? `Ajuste de cuadratura: ${amount > 0 ? "ingreso" : "egreso"} para alinear el saldo real con la proyección.`
-        : `No encontré una categoría con "ajuste" y "saldo" (${wantedKind === "INCOME" ? "ingreso" : "egreso"}). Crea una en /finanzas/flujo-caja/configurar o selecciona otra.`,
+        ? `Ajuste de conciliación: ${amount > 0 ? "ingreso" : "egreso"} para alinear el saldo real con la proyección.`
+        : `Falta la categoría sistema ${wantedKind === "INCOME" ? "ING" : "EGR"}_AJUSTE_CONCILIACION. Reportar a Soporte.`,
     );
     setQuickDay(undefined);
     setQuickOpen(true);
