@@ -25,6 +25,7 @@ import {
 import { ExpandableMatrixRow } from "./ExpandableMatrixRow";
 import { BucketBankDrawer } from "./BucketBankDrawer";
 import { BankBalanceAdjustDrawer } from "./BankBalanceAdjustDrawer";
+import { CashflowLegend } from "./CashflowLegend";
 import { useHasCapability } from "@/lib/permissions-context";
 
 const MONTH_LABEL_SHORT = [
@@ -450,6 +451,7 @@ export function WeeklyMatrix({ initialProjection, defaultWeeks, canManage }: Pro
               {matching ? "Vinculando..." : "Auto-match con cartola"}
             </Button>
           )}
+          <CashflowLegend className="w-full sm:w-auto justify-center" />
         </div>
       </div>
 

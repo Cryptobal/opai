@@ -26,6 +26,7 @@ import {
 } from "./MatrixHelpers";
 import { ExpandableMatrixRow } from "./ExpandableMatrixRow";
 import { BankBalanceAdjustDrawer } from "./BankBalanceAdjustDrawer";
+import { CashflowLegend } from "./CashflowLegend";
 import { useHasCapability } from "@/lib/permissions-context";
 import { addMonths } from "date-fns";
 
@@ -313,6 +314,7 @@ export function MonthlyMatrix({ defaultMonths }: Props) {
               </SelectGroup>
             </SelectContent>
           </Select>
+          <CashflowLegend />
         </div>
       </div>
 
