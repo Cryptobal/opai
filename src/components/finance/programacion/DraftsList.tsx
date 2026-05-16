@@ -6,6 +6,7 @@ import { es } from "date-fns/locale";
 import { toast } from "sonner";
 import { FileText, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { fmtCLP } from "@/components/finance/dtes/shared/constants";
 
 type DraftRow = {
@@ -21,6 +22,7 @@ type DraftRow = {
 export function DraftsList({ canIssue }: { canIssue: boolean }) {
   const [drafts, setDrafts] = useState<DraftRow[] | null>(null);
   const [issuing, setIssuing] = useState<string | null>(null);
+  const [confirmingDraft, setConfirmingDraft] = useState<DraftRow | null>(null);
 
   async function loadDrafts() {
     try {
@@ -49,20 +51,25 @@ export function DraftsList({ canIssue }: { canIssue: boolean }) {
     if (!canIssue) return;
     setIssuing(id);
     try {
-      const res = await fetch(`/api/finance/billing/drafts/${id}/issue`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const json = await res.json();
-      if (json.success) {
-        toast.success("Borrador emitido al SII");
-        await loadDrafts();
-      } else {
-        toast.error(json.error ?? "Error emitiendo");
+      let json: { success?: boolean; error?: string };
+      try {
+        const res = await fetch(`/api/finance/billing/drafts/${id}/issue`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        json = await res.json();
+      } catch (err) {
+        toast.error("Error de conexión");
+        throw err;
       }
-    } catch {
-      toast.error("Error de conexión");
+      if (!json.success) {
+        const msg = json.error ?? "Error emitiendo";
+        toast.error(msg);
+        throw new Error(msg);
+      }
+      toast.success("Borrador emitido al SII");
+      await loadDrafts();
     } finally {
       setIssuing(null);
     }
@@ -126,7 +133,7 @@ export function DraftsList({ canIssue }: { canIssue: boolean }) {
                     size="sm"
                     variant="default"
                     disabled={issuing === d.id}
-                    onClick={() => handleIssue(d.id)}
+                    onClick={() => setConfirmingDraft(d)}
                   >
                     {issuing === d.id ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
@@ -145,6 +152,45 @@ export function DraftsList({ canIssue }: { canIssue: boolean }) {
           ))}
         </tbody>
       </table>
+
+      <ConfirmDialog
+        open={!!confirmingDraft}
+        onOpenChange={(open) => {
+          if (!open && !issuing) setConfirmingDraft(null);
+        }}
+        title="¿Emitir borrador al SII?"
+        description={
+          confirmingDraft ? (
+            <>
+              Vas a emitir el borrador para{" "}
+              <strong>{confirmingDraft.receiverName ?? "Sin cliente"}</strong>{" "}
+              por{" "}
+              <strong>
+                {fmtCLP.format(Number(confirmingDraft.totalAmount))}
+              </strong>{" "}
+              al SII. Esta acción asigna un folio y no se puede deshacer (solo
+              con NC).
+            </>
+          ) : (
+            ""
+          )
+        }
+        confirmLabel="Emitir al SII"
+        cancelLabel="Cancelar"
+        variant="default"
+        loading={!!confirmingDraft && issuing === confirmingDraft.id}
+        loadingLabel="Emitiendo..."
+        onConfirm={async () => {
+          if (!confirmingDraft) return;
+          try {
+            await handleIssue(confirmingDraft.id);
+            setConfirmingDraft(null);
+          } catch {
+            // Mantener modal abierto si falla; el toast del error ya se mostró
+            // dentro de handleIssue.
+          }
+        }}
+      />
     </div>
   );
 }
