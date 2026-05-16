@@ -142,12 +142,40 @@ export function CellAmount({
       </span>
     ) : null;
 
+  // Cuando la celda no tiene proyección propia (amountClp=0) ni monto
+  // real bancario (actualAmount=null) pero sí tiene DTE(s) enganchado(s),
+  // mostramos el monto bruto del/los DTE(s) en lugar de "—".
+  //
+  // Caso típico: factura emitida en una semana distinta a la cuota
+  // proyectada del contrato. El matcher de orphans crea una occurrence
+  // sintética con amountClp=0 para no inflar la proyección, pero la
+  // factura es real y el usuario necesita verla.
+  //
+  // Si hay múltiples DTEs en la misma celda (varias facturas del mismo
+  // cliente en la misma semana), sumamos los totalAmount.
+  const hasDtesWithAmount =
+    (dtes?.length ?? 0) > 0 && dtes!.some((d) => d.totalAmount > 0);
+  const dteFallbackAmount = hasDtesWithAmount
+    ? dtes!.reduce((sum, d) => sum + (d.totalAmount ?? 0), 0)
+    : 0;
+  const useDteFallback =
+    actual === null && projected === 0 && hasDtesWithAmount;
+
   const body =
     actual === null || variance === null ? (
       <span className="relative inline-block">
-        <span className="font-mono text-[12px]">
-          {projected > 0 ? fmt.format(projected) : "—"}
-        </span>
+        {useDteFallback ? (
+          <span
+            className="font-mono text-[12px] italic text-ds-text-2"
+            title="Monto de factura emitida (sin proyección en esta celda)"
+          >
+            {fmt.format(dteFallbackAmount)}
+          </span>
+        ) : (
+          <span className="font-mono text-[12px]">
+            {projected > 0 ? fmt.format(projected) : "—"}
+          </span>
+        )}
         {factoringBadge}
         {dot}
       </span>
