@@ -8024,6 +8024,8 @@ model FinanceCashflowWeeklyClose {
   closedBy                String?  @map("closed_by")
   closedAt                DateTime @default(now()) @map("closed_at") @db.Timestamptz(6)
   notes                   String?
+  isAnchor                Boolean  @default(false) @map("is_anchor")
+  varianceResolution      String?  @map("variance_resolution") @db.VarChar(20)
 
   @@unique([tenantId, weekEndDate], map: "uq_cashflow_weekly_close")
   @@index([tenantId, weekEndDate(sort: Desc)], map: "idx_cashflow_weekly_close_tenant_date")
