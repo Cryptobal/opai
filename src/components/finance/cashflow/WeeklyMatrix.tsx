@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { ChevronDown, ChevronUp, Pencil, Search } from "lucide-react";
+import { ChevronDown, ChevronUp, Lock, Search } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,7 +24,7 @@ import {
 } from "./MatrixHelpers";
 import { ExpandableMatrixRow } from "./ExpandableMatrixRow";
 import { BucketBankDrawer } from "./BucketBankDrawer";
-import { BankBalanceAdjustDrawer } from "./BankBalanceAdjustDrawer";
+import { WeekCloseDrawer } from "./week-close/WeekCloseDrawer";
 import { CashflowLegend } from "./CashflowLegend";
 import { filterRowBySearch } from "./cashflow-search";
 import { useHasCapability } from "@/lib/permissions-context";
@@ -85,7 +85,7 @@ export function WeeklyMatrix({
   const [matching, setMatching] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [drawerBucket, setDrawerBucket] = useState<string | null>(null);
-  const [bankAdjustOpen, setBankAdjustOpen] = useState(false);
+  const [weekCloseOpen, setWeekCloseOpen] = useState(false);
   const [rowOrder, setRowOrder] = useState<RowOrder>("default");
   const canEditBalance = useHasCapability("banking_manage");
 
@@ -808,11 +808,11 @@ export function WeeklyMatrix({
                       {isCurrent && canEditBalance ? (
                         <button
                           type="button"
-                          onClick={() => setBankAdjustOpen(true)}
+                          onClick={() => setWeekCloseOpen(true)}
                           className="inline-flex items-center gap-1 hover:underline underline-offset-2 decoration-dotted cursor-pointer"
-                          title="Ajustar saldo del banco"
+                          title="Cerrar semana y anclar proyección"
                         >
-                          <Pencil className="h-3 w-3 opacity-70" aria-hidden="true" />
+                          <Lock className="h-3 w-3 opacity-70" aria-hidden="true" />
                           {content}
                         </button>
                       ) : (
@@ -866,10 +866,15 @@ export function WeeklyMatrix({
         granularity="weekly"
       />
 
-      <BankBalanceAdjustDrawer
-        open={bankAdjustOpen}
-        onClose={() => setBankAdjustOpen(false)}
-        onSaved={() => setRefreshKey((k) => k + 1)}
+      <WeekCloseDrawer
+        open={weekCloseOpen}
+        onClose={() => setWeekCloseOpen(false)}
+        onCommitted={() => setRefreshKey((k) => k + 1)}
+        weekEndIso={
+          currentBucketIdx >= 0
+            ? projection.buckets[currentBucketIdx].end.toISOString()
+            : new Date().toISOString()
+        }
       />
     </Surface>
   );
