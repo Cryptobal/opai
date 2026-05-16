@@ -446,6 +446,8 @@ export async function importBankTransactions(
   duplicateCount: number;
   importId: string | null;
   autoMatch?: BulkAutoMatchSummary;
+  /** True si el auto-match alcanzó el cap defensivo de 500 — puede haber tx sin procesar. */
+  reachedAutoMatchCap?: boolean;
 }> {
   // Verify bank account exists and belongs to tenant
   const bankAccount = await prisma.financeBankAccount.findFirst({
@@ -578,6 +580,7 @@ export async function importBankTransactions(
   // bankAccount + tenant + status UNMATCHED que es nuevo). Para evitar
   // tocar transacciones viejas, filtramos por createdAt ≥ start.
   let autoMatch: BulkAutoMatchSummary | undefined = undefined;
+  let reachedAutoMatchCap = false;
   if (userId && result.count > 0) {
     // Tomamos las UNMATCHED de esta cuenta como targets del bulk match.
     // En la práctica, el bulk insert recién las creó; las que ya estaban
@@ -601,6 +604,7 @@ export async function importBankTransactions(
       fresh.map((t) => t.id),
       userId,
     );
+    reachedAutoMatchCap = fresh.length === 500;
   }
 
   return {
@@ -608,6 +612,7 @@ export async function importBankTransactions(
     duplicateCount,
     importId,
     autoMatch,
+    reachedAutoMatchCap,
   };
 }
 

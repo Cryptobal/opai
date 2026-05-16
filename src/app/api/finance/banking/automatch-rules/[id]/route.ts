@@ -11,6 +11,7 @@ import {
   getRule,
   updateRule,
   deleteRule,
+  runHistoricalForRule,
   type RuleAction,
   type RuleConditions,
 } from "@/modules/finance/banking/automatch-rule.service";
@@ -118,7 +119,24 @@ export async function PATCH(
       conditions: parsed.data.conditions as RuleConditions | undefined,
       action: parsed.data.action as RuleAction | undefined,
     });
-    return NextResponse.json({ success: true, data: rule });
+
+    // Si la edición pudo afectar el matching (regla habilitada, cambio de
+    // condiciones o de acción), reevaluar contra histórico. Cambios no
+    // materiales (priority, name) no disparan re-evaluación.
+    const skipHistorical = request.headers.get("x-skip-historical") === "1";
+    const shouldReRun =
+      parsed.data.enabled === true ||
+      parsed.data.conditions !== undefined ||
+      parsed.data.action !== undefined;
+    const historicalResult =
+      !skipHistorical && shouldReRun
+        ? await runHistoricalForRule(ctx.tenantId, ctx.userId, rule.id)
+        : null;
+
+    return NextResponse.json({
+      success: true,
+      data: { ...rule, historicalResult },
+    });
   } catch (error) {
     console.error("[Finance/Banking/Rules] PATCH error:", error);
     const message =

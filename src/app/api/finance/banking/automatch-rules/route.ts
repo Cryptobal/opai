@@ -7,9 +7,11 @@ import {
   parseBody,
 } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 import {
   listRules,
   createRule,
+  runHistoricalForRule,
   type RuleAction,
   type RuleConditions,
 } from "@/modules/finance/banking/automatch-rule.service";
@@ -60,7 +62,7 @@ const createRuleSchema = z.object({
   }),
 });
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
@@ -71,7 +73,31 @@ export async function GET(_request: NextRequest) {
         { status: 403 }
       );
     }
-    const rules = await listRules(ctx.tenantId);
+    const { searchParams } = new URL(request.url);
+    const enabledFilter = searchParams.get("enabled");
+    const countOnly = searchParams.get("countOnly") === "1";
+
+    const enabled =
+      enabledFilter === "true"
+        ? true
+        : enabledFilter === "false"
+          ? false
+          : undefined;
+
+    if (countOnly) {
+      const count = await prisma.financeAutoMatchRule.count({
+        where: {
+          tenantId: ctx.tenantId,
+          ...(enabled !== undefined ? { enabled } : {}),
+        },
+      });
+      return NextResponse.json(
+        { success: true, data: { count } },
+        { headers: { "Cache-Control": "no-store, max-age=0, must-revalidate" } },
+      );
+    }
+
+    const rules = await listRules(ctx.tenantId, { enabled });
     return NextResponse.json(
       { success: true, data: rules },
       { headers: { "Cache-Control": "no-store, max-age=0, must-revalidate" } }
@@ -103,7 +129,19 @@ export async function POST(request: NextRequest) {
       conditions: parsed.data.conditions as RuleConditions,
       action: parsed.data.action as RuleAction,
     });
-    return NextResponse.json({ success: true, data: rule }, { status: 201 });
+
+    // Auto-evaluar la regla recién creada contra el histórico. No bloqueante:
+    // si falla, la regla queda creada igual y el usuario puede correr a mano.
+    // El header `x-skip-historical: 1` desactiva el auto-run (tests/scripts).
+    const skipHistorical = request.headers.get("x-skip-historical") === "1";
+    const historicalResult = skipHistorical
+      ? null
+      : await runHistoricalForRule(ctx.tenantId, ctx.userId, rule.id);
+
+    return NextResponse.json(
+      { success: true, data: { ...rule, historicalResult } },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("[Finance/Banking/Rules] POST error:", error);
     const message =
@@ -114,3 +152,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

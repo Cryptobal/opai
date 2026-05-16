@@ -164,7 +164,11 @@ describe("tryAutoMatchBankTransactionToDte", () => {
     expect(prisma.financeDte.findMany).not.toHaveBeenCalled();
   });
 
-  it("retorna negative_amount si la bank tx es egreso", async () => {
+  it("retorna no_candidate si la bank tx es egreso y no hay DTE RECEIVED", async () => {
+    // Antes el matcher salía temprano con "negative_amount" para egresos.
+    // Ahora también busca DTEs RECEIVED (pagos a proveedor). Si no hay
+    // candidato, devuelve "no_candidate" — sigue cubriendo la intención
+    // original ("egreso sin DTE candidato no se matchea").
     mockTransactionRunsCallback();
     (prisma.financeBankTransaction.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "tx-1",
@@ -175,11 +179,12 @@ describe("tryAutoMatchBankTransactionToDte", () => {
       amount: dec(-500_000),
       reconciliationStatus: "UNMATCHED",
     });
+    (prisma.financeDte.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
     const r = await tryAutoMatchBankTransactionToDte("tenant-A", "tx-1", "user-A");
 
     expect(r.matched).toBe(false);
-    expect(r.reason).toBe("negative_amount");
+    expect(r.reason).toBe("no_candidate");
   });
 
   it("retorna no_candidate si no hay DTE con monto exacto", async () => {

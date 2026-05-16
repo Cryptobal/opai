@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
           // "X transacciones importadas, Y conciliadas automáticamente,
           // Z requieren revisión manual".
           autoMatch: result.autoMatch ?? null,
+          reachedAutoMatchCap: result.reachedAutoMatchCap ?? false,
         },
       },
       { status: 201 }

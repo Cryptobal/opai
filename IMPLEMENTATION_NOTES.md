@@ -21,6 +21,28 @@ Sin impacto en el contenido — todos los cambios se commitearon ahí.
    `prisma/migrations/PENDING-crm-account-rut-unique.sql` para los pasos
    manuales.
 
+8. ✅ Auto-aplicar reglas al crear/editar regla (fix bug "tx fantasma")
+   - Endpoint nuevo `POST /api/finance/banking/automatch-rules/run-rules-only`
+   - POST/PATCH de regla ahora corre evaluación contra histórico (cap 500,
+     header `x-skip-historical: 1` para desactivar en tests/scripts).
+   - Botón "Re-evaluar reglas" en pestaña Movimientos (más rápido que
+     "Auto-conciliar visible": no consulta DTE ni turno extra).
+   - Banner informativo en sub-tab "Sin reconocer" cuando hay reglas
+     activas y tx UNMATCHED.
+   - GET `/automatch-rules` ahora acepta `?enabled=true&countOnly=1`.
+
+9. ✅ Fixes UX adicionales en lista de movimientos
+   - Badge "RUT no reconocido" → "RUT reglado" cuando hay regla aplicable.
+   - Columna Referencia con `truncate` + tooltip (max-w-[140px]).
+   - Warning si el hard cap de 500 deja tx sin procesar al importar.
+
+10. ✅ Limpieza de código
+    - Eliminado reason "negative_amount" en `auto-match-payment.service.ts`
+      (estaba en comentario/type/branch pero nunca se retornaba — el
+      matcher pasó a buscar DTEs RECEIVED para egresos hace iteraciones).
+    - Test actualizado para reflejar comportamiento real (egreso sin DTE
+      RECEIVED candidato devuelve `no_candidate`, no `negative_amount`).
+
 ## Endpoints nuevos
 
 - `POST /api/finance/banking/cashflow-preview` — predice impacto en flujo
