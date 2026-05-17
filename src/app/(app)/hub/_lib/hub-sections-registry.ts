@@ -12,7 +12,6 @@ import {
   Banknote,
   History,
   BarChart3,
-  Target,
 } from "lucide-react";
 import type {
   HubPerms,
@@ -34,7 +33,6 @@ import type {
  */
 export const HUB_SECTION_KEYS = [
   "executive_kpis",
-  "pulso_cierre",
   "crm",
   "contratos_cliente",
   "ops",
@@ -74,29 +72,9 @@ export interface HubSectionMeta {
 export const HUB_SECTIONS: HubSectionMeta[] = [
   {
     key: "executive_kpis",
-    label: "KPIs ejecutivos",
+    label: "Pulso del negocio",
     icon: BarChart3,
     isAvailable: () => true,
-  },
-  {
-    key: "pulso_cierre",
-    label: "Pulso de cierre",
-    icon: Target,
-    // La sección es visible si AL MENOS UNA card del bloque es visible.
-    // Server-side ya gateó los datos (financeMetrics solo se calcula con
-    // hasFinance; caja/dteMes/porCobrar solo si hay caps). Acá replicamos
-    // la lógica de visibilidad por card.
-    isAvailable: (perms, data) => {
-      const hasFinanceCard =
-        data.financeMetrics != null &&
-        (data.financeMetrics.caja != null ||
-          data.financeMetrics.dteMes != null ||
-          data.financeMetrics.porCobrar != null);
-      const hasCrmCard =
-        data.closingData != null &&
-        (perms.canOpenLeads || perms.canOpenQuotes || perms.canOpenDeals);
-      return hasFinanceCard || hasCrmCard;
-    },
   },
   {
     key: "crm",
