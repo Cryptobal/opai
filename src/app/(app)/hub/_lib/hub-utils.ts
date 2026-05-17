@@ -68,6 +68,37 @@ export function formatCLP(amount: number): string {
 }
 
 /**
+ * Formato compacto CLP para cards estrechas (móvil 3 columnas).
+ *
+ *   124        → $124
+ *   1_500      → $1.5K
+ *   124_500    → $125K
+ *   1_245_000  → $1.2M
+ *   124_500_000 → $125M
+ *   1_245_000_000 → $1.2B
+ *
+ * Devuelve siempre con prefijo `$`. Para 0 retorna `$0`. Negativos
+ * mantienen el signo (`-$1.2M`).
+ */
+export function formatCompactCLP(amount: number): string {
+  if (amount === 0) return '$0';
+  const sign = amount < 0 ? '-' : '';
+  const abs = Math.abs(amount);
+
+  if (abs < 1_000) return `${sign}$${Math.round(abs)}`;
+  if (abs < 1_000_000) {
+    const value = abs / 1_000;
+    return `${sign}$${value < 10 ? value.toFixed(1) : Math.round(value)}K`;
+  }
+  if (abs < 1_000_000_000) {
+    const value = abs / 1_000_000;
+    return `${sign}$${value < 10 ? value.toFixed(1) : Math.round(value)}M`;
+  }
+  const value = abs / 1_000_000_000;
+  return `${sign}$${value < 10 ? value.toFixed(1) : Math.round(value)}B`;
+}
+
+/**
  * Returns today's date string in Chile timezone (YYYY-MM-DD).
  * Used for day-boundary queries (attendance, rounds, etc.)
  */

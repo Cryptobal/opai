@@ -13,6 +13,7 @@ import { HubGreeting } from './HubGreeting';
 import { HubQuickActions } from './HubQuickActions';
 import { HubAlertsBanner } from './HubAlertsBanner';
 import { HubExecutiveKpis } from './HubExecutiveKpis';
+import { HubPulsoCierre } from './HubPulsoCierre';
 import { HubCrmSection } from './HubCrmSection';
 import { HubContratosClienteSection } from './HubContratosClienteSection';
 import { HubOperationsSection } from './HubOperationsSection';
@@ -112,11 +113,22 @@ export function HubClientWrapper({
         return (
           <HubExecutiveKpis
             key={section.key}
+            hubPerms={hubPerms}
             closingData={closingData}
             opsMetrics={opsMetrics}
             financeMetrics={financeMetrics}
             ticketMetrics={ticketMetrics}
             installationsActivas={installationsActivas}
+          />
+        );
+      case 'pulso_cierre':
+        return (
+          <HubPulsoCierre
+            key={section.key}
+            closingData={closingData}
+            financeMetrics={financeMetrics}
+            financeCaps={financeCaps}
+            hubPerms={hubPerms}
           />
         );
       case 'crm':
