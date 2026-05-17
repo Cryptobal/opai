@@ -115,11 +115,6 @@ export default async function HubPage() {
 
   const firstName = session.user.name?.split(' ')[0] || 'Usuario';
 
-  // Nuevo: contar instalaciones activas (KPI ejecutivo)
-  const installationsActivas = await prisma.crmInstallation.count({
-    where: { tenantId, status: 'active' },
-  });
-
   // Preferencias de personalización del Hub (orden y secciones ocultas).
   // Server-side para evitar flicker post-hidratación. Si el usuario nunca
   // personalizó, ambos arrays vacíos → wrapper aplica orden default.
@@ -147,7 +142,6 @@ export default async function HubPage() {
       atsMetrics={atsMetrics}
       payrollMetrics={payrollMetrics}
       personasMetrics={personasMetrics}
-      installationsActivas={installationsActivas}
       hubOrder={hubOrder}
       hubHidden={hubHidden}
     />
