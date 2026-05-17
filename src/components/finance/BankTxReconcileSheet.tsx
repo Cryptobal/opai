@@ -61,6 +61,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import { CategoryMappingDialog } from "./cashflow/CategoryMappingDialog";
 import { SaveAsRuleModal } from "./SaveAsRuleModal";
 import { Tag } from "@/components/opai-ds";
@@ -283,6 +284,7 @@ export function BankTxReconcileSheet({
   onSaved,
   queueInfo,
 }: BankTxReconcileSheetProps) {
+  const isMobile = useIsMobileViewport();
   // Lote efectivo. Mantiene compatibilidad con call sites legacy que solo
   // pasan `tx`: si no viene `txs`, derivamos `[tx]` (o `[]` si null).
   const txs = useMemo<Tx[]>(() => {
@@ -953,7 +955,15 @@ export function BankTxReconcileSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+      <SheetContent
+        side={isMobile ? "bottom" : "right"}
+        className={cn(
+          "overflow-y-auto",
+          isMobile
+            ? "w-full max-h-[92dvh] rounded-t-2xl"
+            : "w-full sm:max-w-2xl",
+        )}
+      >
         <SheetHeader>
           <SheetTitle>{sheetTitle}</SheetTitle>
         </SheetHeader>
@@ -1576,7 +1586,7 @@ export function BankTxReconcileSheet({
                               ? "Nota del asiento (ej. 'Comisión factoring AMIFACTOR')"
                               : "Nota del asiento (ej. 'Descuento proveedor')"
                           }
-                          className="h-9 text-sm"
+                          className="h-11 sm:h-9 text-base sm:text-sm"
                         />
                       </div>
                     )}
@@ -1603,7 +1613,7 @@ export function BankTxReconcileSheet({
                           setRestAccountId("");
                         }}
                       >
-                        <SelectTrigger className="h-10 sm:h-9">
+                        <SelectTrigger className="h-11 sm:h-9">
                           <SelectValue placeholder="Tipo" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1779,7 +1789,7 @@ export function BankTxReconcileSheet({
                   placeholder="Buscar por folio, cliente o RUT…"
                   value={filterText}
                   onChange={(e) => setFilterText(e.target.value)}
-                  className="h-9 pl-8 text-sm"
+                  className="h-11 sm:h-9 pl-8 text-base sm:text-sm"
                 />
               </div>
 
@@ -1824,13 +1834,13 @@ export function BankTxReconcileSheet({
                       type="date"
                       value={filterDateFrom}
                       onChange={(e) => setFilterDateFrom(e.target.value)}
-                      className="h-9 text-sm"
+                      className="h-11 sm:h-9 text-sm"
                     />
                     <Input
                       type="date"
                       value={filterDateTo}
                       onChange={(e) => setFilterDateTo(e.target.value)}
-                      className="h-9 text-sm"
+                      className="h-11 sm:h-9 text-sm"
                     />
                   </div>
                   <Select
@@ -1839,7 +1849,7 @@ export function BankTxReconcileSheet({
                       setFilterDirection(v as "all" | "ISSUED" | "RECEIVED")
                     }
                   >
-                    <SelectTrigger className="h-9 text-sm">
+                    <SelectTrigger className="h-11 sm:h-9 text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -2090,7 +2100,7 @@ export function BankTxReconcileSheet({
                   type="date"
                   value={manualDate}
                   onChange={(e) => setManualDate(e.target.value)}
-                  className="h-10 sm:h-9"
+                  className="h-11 sm:h-9"
                 />
               </div>
               <div className="space-y-1.5">
@@ -2107,7 +2117,8 @@ export function BankTxReconcileSheet({
                     onChange={(e) =>
                       setManualAmount(formatCLPInput(e.target.value))
                     }
-                    className="font-mono h-10 sm:h-9 pl-5"
+                    className="font-mono h-11 sm:h-9 pl-5"
+                    style={{ fontSize: 16 }}
                   />
                 </div>
               </div>
@@ -2120,7 +2131,7 @@ export function BankTxReconcileSheet({
                 onChange={(e) => setManualNote(e.target.value)}
                 placeholder="Ej. Comisión bancaria mensual"
                 maxLength={300}
-                className="h-10 sm:h-9"
+                className="h-11 sm:h-9 text-base sm:text-sm"
               />
             </div>
             <CashflowImpactIndicator

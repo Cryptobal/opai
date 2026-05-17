@@ -1674,11 +1674,11 @@ function TransactionsTab({
     <div className="space-y-4">
       {/* Filters — compactos en mobile (resumen + chevron), inline en desktop */}
       {isMobile && (
-        <div className="rounded-lg border border-border bg-card/50 px-3 py-2 flex items-center gap-2">
+        <div className="rounded-lg border border-border bg-card/50 px-3 flex items-center gap-2 min-h-[48px]">
           <button
             type="button"
             onClick={() => setFiltersOpenMobile((v) => !v)}
-            className="flex items-center gap-2 flex-1 min-w-0 text-left"
+            className="flex items-center gap-2 flex-1 min-w-0 text-left min-h-[48px] py-2"
             aria-expanded={filtersOpenMobile}
           >
             <SlidersHorizontal className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -1723,7 +1723,7 @@ function TransactionsTab({
           <Input
             id="tx-from"
             type="date"
-            className="h-9 sm:w-40 w-full"
+            className="h-11 sm:h-9 sm:w-40 w-full"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
           />
@@ -1733,7 +1733,7 @@ function TransactionsTab({
           <Input
             id="tx-to"
             type="date"
-            className="h-9 sm:w-40 w-full"
+            className="h-11 sm:h-9 sm:w-40 w-full"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
           />
@@ -1746,7 +1746,8 @@ function TransactionsTab({
               id="tx-search"
               type="text"
               placeholder="Descripción o referencia…"
-              className="h-9 pl-8"
+              className="h-11 sm:h-9 pl-8"
+              style={{ fontSize: 16 }}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -1818,7 +1819,7 @@ function TransactionsTab({
               type="button"
               variant="ghost"
               size="sm"
-              className="h-9"
+              className="h-11 sm:h-9"
               onClick={() => setFiltersOpenMobile(false)}
             >
               <X className="h-3.5 w-3.5 mr-1.5" />
@@ -1827,6 +1828,49 @@ function TransactionsTab({
           )}
         </div>
       </div>
+
+      {/* Mobile-only quick toggle Ingresos/Egresos: 1-tap, sin abrir el drawer.
+          Comparte state (`direction`) con el control desktop dentro del drawer. */}
+      {isMobile && (
+        <div className="flex h-11 rounded-md border border-input overflow-hidden text-[13px] -mt-1">
+          <button
+            type="button"
+            onClick={() => setDirection("all")}
+            className={cn(
+              "flex-1 font-medium transition-colors min-h-[44px]",
+              direction === "all"
+                ? "bg-primary/15 text-primary"
+                : "bg-background text-muted-foreground active:bg-muted/40",
+            )}
+          >
+            Todos
+          </button>
+          <button
+            type="button"
+            onClick={() => setDirection("inflow")}
+            className={cn(
+              "flex-1 font-medium transition-colors border-l border-input min-h-[44px]",
+              direction === "inflow"
+                ? "bg-status-ok-soft text-status-ok-fg"
+                : "bg-background text-muted-foreground active:bg-muted/40",
+            )}
+          >
+            ↑ Ingresos
+          </button>
+          <button
+            type="button"
+            onClick={() => setDirection("outflow")}
+            className={cn(
+              "flex-1 font-medium transition-colors border-l border-input min-h-[44px]",
+              direction === "outflow"
+                ? "bg-status-danger-soft text-status-danger-fg"
+                : "bg-background text-muted-foreground active:bg-muted/40",
+            )}
+          >
+            ↓ Egresos
+          </button>
+        </div>
+      )}
 
       {/* Sub-pills + bulk action */}
       {!showHidden && (
