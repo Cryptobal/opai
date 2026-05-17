@@ -14,6 +14,7 @@ import { formatCurrency, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { prisma } from "@/lib/prisma";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 import { generateProposalAIContent } from "@/lib/pdf/templates/proposal/proposal-ai";
 import {
   computeLeadPositionCostsFromPayroll,
@@ -364,7 +365,7 @@ export async function POST(
 
     /* ── Company config ── */
     const companyConfig = await getTenantCompanyConfig(ctx.tenantId);
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+    const baseUrl = getCanonicalSiteUrl();
     const abs = (url: string | undefined | null): string => {
       if (!url) return "";
       if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;

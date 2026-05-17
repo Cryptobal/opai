@@ -17,6 +17,7 @@ import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { Resend } from 'resend';
 import { getTenantCompanyConfig } from '@/lib/tenant-config';
+import { buildEmailUrl } from '@/lib/emails/site-url';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -83,7 +84,11 @@ export async function inviteUser(email: string, roleTemplateSlug: string) {
     },
   });
 
-  const activationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/activate?token=${token}`;
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: session.user.tenantId },
+    select: { slug: true },
+  });
+  const activationUrl = buildEmailUrl(`/activate?token=${token}`, tenant?.slug ?? null);
   const cfg = await getTenantCompanyConfig(session.user.tenantId);
 
   try {

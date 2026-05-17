@@ -11,6 +11,7 @@ import QRCode from "qrcode";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { resolveDocumentContentForDisplay } from "@/lib/docs/resolve-document-content";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -464,7 +465,7 @@ export async function GET(
     const signedAt = fmtDate(completedRequest.completedAt ?? document.signedAt ?? new Date());
     const contentHash = createHash("sha256").update(JSON.stringify(resolvedContent)).digest("hex");
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "";
+    const siteUrl = getCanonicalSiteUrl();
     const verificationUrl = document.signedViewToken
       ? `${siteUrl}/signed/${document.id}/${document.signedViewToken}`
       : `${siteUrl}/opai/documentos/${document.id}`;

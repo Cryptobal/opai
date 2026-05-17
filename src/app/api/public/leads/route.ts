@@ -15,6 +15,7 @@ import { resend } from "@/lib/resend";
 import { getWaTemplate } from "@/lib/whatsapp-templates";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import type { EntityData } from "@/lib/docs/token-resolver";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 
 // CORS headers for cross-origin requests from the website
 const corsHeaders = {
@@ -247,7 +248,7 @@ export async function POST(request: NextRequest) {
           </table>`
         : "";
 
-      const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl";
+      const baseUrl = getCanonicalSiteUrl();
       // PNG para que el logo se vea en clientes de correo (muchos bloquean SVG)
       const logoUrl = tenantCfg.logoUrl || `${baseUrl}/Logo%20Gard%20Blanco.png`;
       const headerBg = "#0f2847"; // azul oscuro Gard

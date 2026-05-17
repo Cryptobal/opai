@@ -1,25 +1,24 @@
 import { prisma } from "@/lib/prisma";
-
-function portalClienteBasePath(): string {
-  return `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || ""}/portal/cliente`;
-}
+import { buildEmailUrl } from "@/lib/emails/site-url";
 
 /**
- * URL del portal cliente con `email` y `t` (slug del tenant) para que crawlers (p. ej. WhatsApp)
- * puedan resolver Open Graph con el logo del tenant sin sesión.
+ * URL del portal cliente con `email` para pre-llenar el campo de login.
+ * `buildEmailUrl` se encarga de prefijar el dominio canónico y anexar
+ * `?tenant={slug}&t={slug}` (alias legacy) para que el tenant-resolver
+ * y los OG crawlers (p. ej. WhatsApp) puedan resolver sin sesión.
  */
 export async function buildPortalClienteInviteUrl(opts: {
   email?: string | null;
   tenantId: string;
 }): Promise<string> {
-  const qs = new URLSearchParams();
-  if (opts.email?.trim()) qs.set("email", opts.email.trim());
   const row = await prisma.tenant.findUnique({
     where: { id: opts.tenantId },
     select: { slug: true },
   });
-  if (row?.slug) qs.set("t", row.slug);
-  const q = qs.toString();
-  const b = portalClienteBasePath();
-  return q ? `${b}?${q}` : b;
+  const slug = row?.slug ?? null;
+  const email = opts.email?.trim();
+  const path = email
+    ? `/portal/cliente?email=${encodeURIComponent(email)}`
+    : "/portal/cliente";
+  return buildEmailUrl(path, slug);
 }

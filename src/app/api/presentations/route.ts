@@ -23,6 +23,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, unauthorized, ensureModuleAccess } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
 import { nanoid } from 'nanoid';
+import { buildEmailUrl } from '@/lib/emails/site-url';
 
 // GET /api/presentations
 export async function GET(request: NextRequest) {
@@ -142,10 +143,14 @@ export async function POST(request: NextRequest) {
       data: { usageCount: { increment: 1 } },
     });
 
+    const tenantRow = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { slug: true },
+    });
     return NextResponse.json({
       success: true,
       data: presentation,
-      url: `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || ''}/p/${uniqueId}`,
+      url: buildEmailUrl(`/p/${uniqueId}`, tenantRow?.slug ?? null),
     }, { status: 201 });
   } catch (error) {
     console.error('Error creating presentation:', error);

@@ -18,6 +18,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
 import { canDelete } from "@/lib/permissions";
 import { sendContractReviewRequestEmail } from "@/lib/docs-signature-email";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 
 function forbidden() {
   return NextResponse.json(
@@ -31,12 +32,7 @@ function buildToken() {
 }
 
 function getSiteUrl() {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.SITE_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    ""
-  );
+  return getCanonicalSiteUrl();
 }
 
 export async function POST(

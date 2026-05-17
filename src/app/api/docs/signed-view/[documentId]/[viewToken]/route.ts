@@ -7,6 +7,7 @@
 import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 
 function formatSignDate(d: Date | null): string {
   if (!d) return "—";
@@ -111,7 +112,7 @@ export async function GET(
         })),
         completedAt: request?.completedAt ?? doc.signedAt,
         contentHash,
-        verificationUrl: `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || ""}/signed/${documentId}/${viewToken}`,
+        verificationUrl: `${getCanonicalSiteUrl()}/signed/${documentId}/${viewToken}`,
       },
     });
   } catch (error) {

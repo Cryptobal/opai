@@ -8,6 +8,7 @@ import { resend } from "@/lib/resend";
 import { render } from "@react-email/render";
 import { VisitaTecnicaSupervisorEmail } from "@/emails/VisitaTecnicaSupervisorEmail";
 import { requireTenantModule } from '@/lib/require-module';
+import { buildEmailUrl } from "@/lib/emails/site-url";
 
 export async function POST(
   request: NextRequest,
@@ -143,7 +144,7 @@ export async function POST(
         ? `https://www.google.com/maps?q=${installation.lat},${installation.lng}`
         : null;
 
-    const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || ""}/ops/supervision/mis-visitas`;
+    const portalUrl = buildEmailUrl("/ops/supervision/mis-visitas");
 
     // Enviar email a todos los supervisores seleccionados
     const emailConfig = await getTenantEmailConfig(ctx.tenantId);

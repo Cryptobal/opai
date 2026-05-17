@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { buildPostulacionPublicPath, getPostulacionToken } from "@/lib/postulacion-token";
+import { buildEmailUrl } from "@/lib/emails/site-url";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
@@ -12,14 +14,18 @@ export async function GET() {
 
     const token = getPostulacionToken();
     const path = buildPostulacionPublicPath(token);
-    const absoluteUrl = `${process.env.NEXT_PUBLIC_APP_URL || ""}${path}`;
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: ctx.tenantId },
+      select: { slug: true },
+    });
+    const absoluteUrl = buildEmailUrl(path, tenant?.slug ?? null);
 
     return NextResponse.json({
       success: true,
       data: {
         path,
         token,
-        url: absoluteUrl || path,
+        url: absoluteUrl,
       },
     });
   } catch (error) {

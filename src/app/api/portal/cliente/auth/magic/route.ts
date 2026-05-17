@@ -16,13 +16,10 @@ import { buildClienteSessionCookie } from "@/lib/portal-cliente-session";
 import { verifyPortalMagicToken } from "@/lib/portal-cliente-magic-link";
 import { DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente-types";
 import type { ClienteSession, PortalConfig } from "@/lib/portal-cliente-types";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 
 export async function GET(request: NextRequest) {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.NEXTAUTH_URL ||
-    "";
+  const baseUrl = getCanonicalSiteUrl();
   const portalHome = `${baseUrl}/portal/cliente`;
 
   const token = request.nextUrl.searchParams.get("k");

@@ -12,6 +12,7 @@ import { prisma } from '@/lib/prisma';
 import { getDefaultTenantId } from '@/lib/tenant';
 import { nanoid } from 'nanoid';
 import { createHmac } from 'crypto';
+import { getCanonicalSiteUrl } from '@/lib/emails/site-url';
 
 /**
  * Verifica HMAC signature del webhook
@@ -169,21 +170,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // 7. Construir URL de preview
-    // Prioridad: SITE_URL > dominio hardcoded
-    // En producción usar opai.gard.cl
-    let baseUrl: string;
-    
-    if (process.env.SITE_URL) {
-      baseUrl = process.env.SITE_URL;
-    } else if (process.env.VERCEL_ENV === 'production') {
-      baseUrl = 'https://opai.gard.cl';
-    } else if (process.env.NEXT_PUBLIC_SITE_URL) {
-      baseUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    } else {
-      baseUrl = 'https://opai.gard.cl';
-    }
-    
+    // 7. Construir URL de preview (siempre canónica; opai.gard.cl está retirado).
+    const baseUrl = getCanonicalSiteUrl();
     const previewUrl = `${baseUrl}/preview/${sessionId}`;
 
     // 8. Log de éxito

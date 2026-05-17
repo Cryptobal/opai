@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveTenantFromSlug } from "@/lib/tenant";
 import { resend } from "@/lib/resend";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -236,8 +237,8 @@ export async function POST(
       ? `<p style="margin-top: 12px;"><a href="${data.fileUrl}" style="color: #0d9488;">📎 Ver archivo adjunto${data.fileName ? ` (${data.fileName})` : ""}</a></p>`
       : "";
 
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
-    const logoUrl = tenantCfg.logoUrl || tenantCfg.brandingLogoWhite || (baseUrl ? `${baseUrl}/logo.png` : "");
+    const baseUrl = getCanonicalSiteUrl();
+    const logoUrl = tenantCfg.logoUrl || tenantCfg.brandingLogoWhite || `${baseUrl}/logo.png`;
     const headerBg = "#0f2847";
 
     await resend.emails.send({

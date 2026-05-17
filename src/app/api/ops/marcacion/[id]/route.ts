@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess, createOpsAuditLog } from "@/lib/ops";
 import { sendAvisoModificacionMarcacion } from "@/lib/marcacion-email";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 import { z } from "zod";
 
 const deleteSchema = z.object({
@@ -118,8 +119,7 @@ export async function PATCH(
 
     // Generar token de oposición único para esta modificación
     const oppositionToken = crypto.randomUUID();
-    const baseUrl = process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
-    const oppositionUrl = `${baseUrl}/marcacion/oposicion/${oppositionToken}`;
+    const oppositionUrl = `${getCanonicalSiteUrl()}/marcacion/oposicion/${oppositionToken}`;
 
     const updateData: Record<string, unknown> = {
       modifiedAt: new Date(),

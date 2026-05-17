@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PortalConfig, DEFAULT_PORTAL_CONFIG, ClienteSession } from "@/lib/portal-cliente-types";
 import { verifyCookie } from "@/lib/cookie-signature";
+import { buildEmailUrl } from "@/lib/emails/site-url";
 
 export type { PortalConfig, ClienteSession };
 export { DEFAULT_PORTAL_CONFIG };
@@ -320,7 +321,11 @@ export async function validateClienteSession(email: string, pin: string, ip?: st
 
       let commercialPresentationUrl: string | null = null
       try {
-        const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || ''
+        const tenantRow = await prisma.tenant.findUnique({
+          where: { id: contact.tenantId },
+          select: { slug: true },
+        })
+        const tenantSlug = tenantRow?.slug ?? null
 
         // First: try by recipientEmail (direct match)
         if (contact.email) {
@@ -334,7 +339,7 @@ export async function validateClienteSession(email: string, pin: string, ip?: st
             orderBy: { createdAt: 'desc' },
           })
           if (byEmail) {
-            commercialPresentationUrl = `${siteUrl}/p/${byEmail.uniqueId}?mode=commercial`
+            commercialPresentationUrl = buildEmailUrl(`/p/${byEmail.uniqueId}?mode=commercial`, tenantSlug)
           }
         }
 
@@ -352,7 +357,7 @@ export async function validateClienteSession(email: string, pin: string, ip?: st
               orderBy: { createdAt: 'desc' },
             })
             if (byQuote) {
-              commercialPresentationUrl = `${siteUrl}/p/${byQuote.uniqueId}?mode=commercial`
+              commercialPresentationUrl = buildEmailUrl(`/p/${byQuote.uniqueId}?mode=commercial`, tenantSlug)
             }
           }
         }
