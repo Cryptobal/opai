@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, unauthorized } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
 import { resend } from '@/lib/resend';
+import { buildEmailUrl } from '@/lib/emails/site-url';
 
 export async function POST(request: NextRequest) {
   const ctx = await requireAuth();
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
       ${message ? `<p><strong>Mensaje:</strong> ${message}</p>` : ''}
       <p><strong>Solicitado por:</strong> ${userEmail}</p>
       <hr>
-      <p><a href="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.opai.cl'}/platform/tenants/${tenantId}">Ver tenant en Platform Admin</a></p>
+      <p><a href="${buildEmailUrl(`/platform/tenants/${tenantId}`)}">Ver tenant en Platform Admin</a></p>
     `,
   });
 

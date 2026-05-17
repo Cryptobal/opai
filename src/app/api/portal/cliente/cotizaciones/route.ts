@@ -6,6 +6,7 @@ import { getUfValue } from "@/lib/uf";
 import { clpToUf } from "@/lib/uf-utils";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
+import { buildEmailUrl } from "@/lib/emails/site-url";
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -50,10 +51,14 @@ export async function GET() {
       select: { quoteId: true, uniqueId: true, createdAt: true },
       orderBy: { createdAt: "desc" },
     });
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+    const tenantRow = await prisma.tenant.findUnique({
+      where: { id: session.tenantId },
+      select: { slug: true },
+    });
+    const tenantSlug = tenantRow?.slug ?? null;
     for (const p of presentations) {
       if (p.quoteId && !presentationMap.has(p.quoteId)) {
-        presentationMap.set(p.quoteId, `${siteUrl}/p/${p.uniqueId}`);
+        presentationMap.set(p.quoteId, buildEmailUrl(`/p/${p.uniqueId}`, tenantSlug));
       }
     }
   } catch {}

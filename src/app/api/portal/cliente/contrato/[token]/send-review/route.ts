@@ -143,10 +143,8 @@ export async function POST(
       if (admins.length > 0) {
         const { resend, getTenantEmailConfig } = await import("@/lib/resend");
         const emailConfig = await getTenantEmailConfig(document.tenantId);
-        const siteUrl =
-          process.env.NEXT_PUBLIC_SITE_URL ||
-          process.env.NEXT_PUBLIC_APP_URL ||
-          "";
+        const { getCanonicalSiteUrl } = await import("@/lib/emails/site-url");
+        const siteUrl = getCanonicalSiteUrl();
 
         const escapeHtml = (s: string) =>
           s

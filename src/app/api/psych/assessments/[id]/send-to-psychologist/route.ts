@@ -17,6 +17,7 @@ import { logAudit } from "@/lib/audit";
 import { guardPsych } from "@/lib/psych/api-guard";
 import { signPsychReviewToken } from "@/lib/psych/review-token";
 import { resend, getTenantEmailConfig } from "@/lib/resend";
+import { buildEmailUrl } from "@/lib/emails/site-url";
 
 interface Ctx {
   params: Promise<{ id: string }>;
@@ -73,8 +74,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   });
 
   const emailCfg = await getTenantEmailConfig(ctx.tenantId);
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
-  const reviewUrl = `${base}/t/psych-review/${token}`;
+  const reviewUrl = buildEmailUrl(`/t/psych-review/${token}`);
   const tenant = await prisma.tenant.findUnique({
     where: { id: ctx.tenantId },
     select: { name: true },

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 
 function firstString(v: string | string[] | undefined): string | undefined {
   if (v === undefined) return undefined;
@@ -19,11 +20,7 @@ function resolveAbsoluteOgImageUrl(raw: string | undefined, siteBase: string): s
 }
 
 function defaultSiteBase(): string {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    "https://www.opai.cl"
-  ).replace(/\/$/, "");
+  return getCanonicalSiteUrl();
 }
 
 /**

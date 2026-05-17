@@ -14,6 +14,7 @@ import { PresentationEmail } from '@/emails/PresentationEmail';
 import { nanoid } from 'nanoid';
 import { render } from '@react-email/render';
 import { syncLeadOnProposalSent } from '@/lib/crm/sync-lead-on-proposal-sent';
+import { buildEmailUrl } from '@/lib/emails/site-url';
 
 export async function POST(req: NextRequest) {
   try {
@@ -74,7 +75,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://opai.gard.cl';
     // Use the tenantId from the webhook session (set during create-draft with auth context)
     // instead of getDefaultTenantId() which returns a hardcoded value and causes tenant mismatch
     const tenantId = webhookSession.tenantId || await getDefaultTenantId();
@@ -95,7 +95,11 @@ export async function POST(req: NextRequest) {
       : null;
 
     const uniqueId = existingDraftPresentation?.uniqueId ?? nanoid(12);
-    const presentationUrl = `${siteUrl}/p/${uniqueId}`;
+    const tenantRow = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { slug: true },
+    });
+    const presentationUrl = buildEmailUrl(`/p/${uniqueId}`, tenantRow?.slug ?? null);
 
     // 5. Obtener template (commercial por defecto, tenant actual)
     const template = await prisma.template.findFirst({

@@ -9,6 +9,7 @@ import { aiService } from "@/lib/ai-service";
 import { AIError } from "@/lib/ai-errors";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { buildEmailUrl } from "@/lib/emails/site-url";
 
 export async function POST(request: NextRequest) {
   try {
@@ -83,8 +84,11 @@ export async function POST(request: NextRequest) {
 
     // Company config
     const companyConfig = await getTenantCompanyConfig(ctx.tenantId);
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
-    const portalUrl = `${baseUrl}/portal/cliente`;
+    const tenantRow = await prisma.tenant.findUnique({
+      where: { id: ctx.tenantId },
+      select: { slug: true },
+    });
+    const portalUrl = buildEmailUrl("/portal/cliente", tenantRow?.slug ?? null);
 
     // Positions summary
     const totalGuards = quote.positions.reduce(

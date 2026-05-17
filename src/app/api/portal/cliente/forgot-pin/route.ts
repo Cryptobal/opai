@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resend, EMAIL_CONFIG } from '@/lib/resend'
 import { getTenantCompanyConfig } from '@/lib/tenant-config'
+import { buildEmailUrl } from '@/lib/emails/site-url'
 import crypto from 'crypto'
 
 export async function POST(req: NextRequest) {
@@ -37,8 +38,11 @@ export async function POST(req: NextRequest) {
       data: { portalMagicToken: token, portalMagicTokenExp: exp },
     })
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? ""
-    const setupUrl = `${baseUrl}/portal/cliente/setup?token=${token}`
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: contact.tenantId },
+      select: { slug: true },
+    })
+    const setupUrl = buildEmailUrl(`/portal/cliente/setup?token=${token}`, tenant?.slug ?? null)
     const cfg = await getTenantCompanyConfig(contact.tenantId)
 
     const emailResult = await resend.emails.send({

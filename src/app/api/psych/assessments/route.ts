@@ -16,6 +16,7 @@ import { signPsychInvitation } from "@/lib/psych/invitation-token";
 import { guardPsych } from "@/lib/psych/api-guard";
 import { resolveTenantPsychConfig } from "@/lib/psych/scoring/config";
 import { resolveAssessmentTarget } from "@/lib/psych/resolve-target";
+import { buildEmailUrl } from "@/lib/emails/site-url";
 
 const CreateSchema = z.object({
   targetName: z.string().min(2).max(200),
@@ -99,12 +100,11 @@ export async function POST(req: NextRequest) {
     request: req,
   });
 
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
   return NextResponse.json({
     success: true,
     assessmentId: assessment.id,
     token,
-    url: `${base}/t/psicotest/${token}`,
+    url: buildEmailUrl(`/t/psicotest/${token}`),
     expiresAt,
   });
 }

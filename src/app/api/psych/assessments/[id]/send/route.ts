@@ -19,6 +19,7 @@ import {
   type ChannelResult,
   type SendConfig,
 } from "@/lib/psych/send-channels";
+import { buildEmailUrl } from "@/lib/emails/site-url";
 
 interface Ctx {
   params: Promise<{ id: string }>;
@@ -70,10 +71,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     }),
   ]);
 
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
   const tokenCtx: MessageTokenContext = {
     nombre: a.targetName,
-    link: `${base}/t/psicotest/${a.invitationToken}`,
+    link: buildEmailUrl(`/t/psicotest/${a.invitationToken}`),
     expira: a.expiresAt,
     tenant: tenantRow?.name ?? "Opai",
   };

@@ -5,6 +5,7 @@ import { validateClienteSession, parsePortalClienteSessionCookie } from "@/lib/p
 import { DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente-types";
 import type { ClienteSession, PortalConfig } from "@/lib/portal-cliente-types";
 import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
+import { buildEmailUrl } from "@/lib/emails/site-url";
 import {
   buildClienteSessionCookie,
   buildClienteSessionToken,
@@ -130,7 +131,11 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+      const tenantRow = await prisma.tenant.findUnique({
+        where: { id: session.tenantId },
+        select: { slug: true },
+      });
+      const tenantSlug = tenantRow?.slug ?? null;
       let freshUrl: string | null = null;
 
       if (contact.email) {
@@ -143,7 +148,7 @@ export async function GET(request: NextRequest) {
           select: { uniqueId: true },
           orderBy: { createdAt: 'desc' },
         });
-        if (byEmail) freshUrl = `${siteUrl}/p/${byEmail.uniqueId}?mode=commercial`;
+        if (byEmail) freshUrl = buildEmailUrl(`/p/${byEmail.uniqueId}?mode=commercial`, tenantSlug);
       }
 
       if (!freshUrl && session.accountId) {
@@ -162,7 +167,7 @@ export async function GET(request: NextRequest) {
             select: { uniqueId: true },
             orderBy: { createdAt: 'desc' },
           });
-          if (byQuote) freshUrl = `${siteUrl}/p/${byQuote.uniqueId}?mode=commercial`;
+          if (byQuote) freshUrl = buildEmailUrl(`/p/${byQuote.uniqueId}?mode=commercial`, tenantSlug);
         }
       }
 

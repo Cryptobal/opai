@@ -9,6 +9,7 @@ import { logAudit } from "@/lib/audit";
 import { guardPsych } from "@/lib/psych/api-guard";
 import { signPsychInvitation } from "@/lib/psych/invitation-token";
 import { resolveTenantPsychConfig } from "@/lib/psych/scoring/config";
+import { buildEmailUrl } from "@/lib/emails/site-url";
 
 interface Ctx {
   params: Promise<{ id: string }>;
@@ -63,11 +64,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     request: req,
   });
 
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
   return NextResponse.json({
     success: true,
     token,
     expiresAt,
-    url: `${base}/t/psicotest/${token}`,
+    url: buildEmailUrl(`/t/psicotest/${token}`),
   });
 }

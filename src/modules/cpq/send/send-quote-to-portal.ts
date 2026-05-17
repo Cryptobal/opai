@@ -25,6 +25,7 @@ import {
 } from "@/lib/cpq-portal-email-subject";
 import { buildPortalClienteInviteUrl } from "@/lib/portal-cliente-url";
 import { getWaTemplate } from "@/lib/whatsapp-templates";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 
 export interface SendQuoteToPortalOptions {
   quoteId: string;
@@ -197,7 +198,7 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   // Generate Presentation
   let presentationUniqueId: string | null = null;
   try {
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+    const siteUrl = getCanonicalSiteUrl();
     const existingPresentation = await prisma.presentation.findFirst({
       where: { quoteId, status: "sent" },
       select: { uniqueId: true },

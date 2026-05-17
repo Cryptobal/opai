@@ -1,3 +1,5 @@
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
+
 type IntentLink = {
   label: string;
   path: string;
@@ -1022,7 +1024,7 @@ function isInstallHomeScreenQuestion(message: string): boolean {
 }
 
 function buildInstallHomeScreenAnswer(): string {
-  const url = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+  const url = getCanonicalSiteUrl();
   const displayUrl = url.replace(/^https?:\/\//, "");
   return [
     "Si quieres, lo hacemos altiro. Primero dime:",

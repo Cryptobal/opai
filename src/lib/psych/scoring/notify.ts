@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { resend, getTenantEmailConfig } from "@/lib/resend";
+import { buildEmailUrl } from "@/lib/emails/site-url";
 
 export async function notifyCreatorOfScored(
   assessmentId: string,
@@ -28,8 +29,7 @@ export async function notifyCreatorOfScored(
   if (!creator?.email) return;
 
   const emailCfg = await getTenantEmailConfig(a.tenantId);
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
-  const detailUrl = `${base}/personas/psicolaboral/${a.id}`;
+  const detailUrl = buildEmailUrl(`/personas/psicolaboral/${a.id}`);
   const band = a.result?.band ?? "—";
   const score = a.result?.globalScore?.toFixed(1) ?? "—";
 

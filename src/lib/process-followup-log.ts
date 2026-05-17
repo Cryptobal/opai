@@ -11,6 +11,7 @@ import { getWaTemplate } from "@/lib/whatsapp-templates";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { buildPortalClienteMagicLinkUrl } from "@/lib/portal-cliente-magic-link";
 import { renderFollowUpEmailHtml } from "@/lib/followup-email-layout";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 
 function tiptapJsonToHtml(doc: unknown): string {
   const d = doc as { content?: unknown[] } | null;
@@ -215,10 +216,7 @@ export async function processFollowUpLog(
     where: { id: followUp.tenantId },
     select: { slug: true },
   });
-  const siteUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "";
+  const siteUrl = getCanonicalSiteUrl();
 
   // Magic-link autologin generado al momento del envío (expira en 30 días).
   // Reemplaza `deal.proposalLink` en el render de la plantilla para que el

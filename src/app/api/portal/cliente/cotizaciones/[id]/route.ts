@@ -7,6 +7,7 @@ import { clpToUf } from "@/lib/uf-utils";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 import type { QuoteBreakdownData, PositionBreakdownItem } from "@/types/cpq-breakdown";
 import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
+import { buildEmailUrl } from "@/lib/emails/site-url";
 
 export async function GET(
   _request: Request,
@@ -99,8 +100,11 @@ export async function GET(
       orderBy: { createdAt: "desc" },
     });
     if (presentation) {
-      const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
-      proposalLink = `${siteUrl}/p/${presentation.uniqueId}`;
+      const tenantRow = await prisma.tenant.findUnique({
+        where: { id: session.tenantId },
+        select: { slug: true },
+      });
+      proposalLink = buildEmailUrl(`/p/${presentation.uniqueId}`, tenantRow?.slug ?? null);
     }
   } catch {}
   if (!proposalLink && quote.dealId) {
