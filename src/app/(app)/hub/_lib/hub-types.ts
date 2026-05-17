@@ -325,11 +325,6 @@ export interface HubCrmSectionProps {
   financeMetrics: FinanceMetrics | null;
 }
 
-export interface HubFinanceSectionProps {
-  financeMetrics: FinanceMetrics;
-  opsMetrics: OpsMetrics | null;
-}
-
 export interface HubActividadRecienteProps {
   activities: ActivityEntry[];
 }

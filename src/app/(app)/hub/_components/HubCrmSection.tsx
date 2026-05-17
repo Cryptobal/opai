@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { Flame } from 'lucide-react';
 import { ChipTabs } from '@/components/ui/chip-tabs';
 import { HubCollapsibleSection } from './HubCollapsibleSection';
-import { HubClosingKpis } from './HubClosingKpis';
 import { HubHotDealsTable } from './HubHotDealsTable';
 import { HubHotDealsMobile } from './HubHotDealsMobile';
 import { HubStaleDeals } from './HubStaleDeals';
@@ -83,13 +82,6 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
       }
       defaultOpen
     >
-      {/* KPIs — always visible */}
-      <HubClosingKpis
-        kpis={kpis}
-        leadsTrend7d={closingData.leadsTrend7d}
-        dealsTrend7d={closingData.dealsTrend7d}
-      />
-
       {/* Tabs — unified for mobile and desktop */}
       <div className="space-y-3 mt-2">
         <ChipTabs
