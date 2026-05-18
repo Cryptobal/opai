@@ -14,7 +14,22 @@ interface Props {
   result: RutValidationResult;
   rut: string;
   fullName?: string;
-  config?: { useWhitelist: boolean; useBlacklist: boolean };
+  /**
+   * Config legacy + granular. `whitelistRecordTypes` y `blacklistRecordTypes`
+   * son la fuente de verdad: si están definidos, se valida que `selectedType`
+   * esté presente antes de mostrar el aviso. `useWhitelist`/`useBlacklist`
+   * solo se usan como fallback cuando los arrays están ausentes (config
+   * antigua sin migrar).
+   */
+  config?: {
+    useWhitelist: boolean;
+    useBlacklist: boolean;
+    whitelistRecordTypes?: string[];
+    blacklistRecordTypes?: string[];
+  };
+  /** Tipo de formulario seleccionado por el guardia. Determina si la
+   *  whitelist/blacklist aplica a este ingreso. */
+  selectedType?: string;
   onContinue: () => void;
   onBack: () => void;
   onDeniedAttempt?: () => void;
@@ -25,10 +40,23 @@ export function ListValidationResult({
   rut,
   fullName,
   config,
+  selectedType,
   onContinue,
   onBack,
   onDeniedAttempt,
 }: Props) {
+  // Resolución de "¿la whitelist aplica a este tipo de formulario?"
+  // Prioridad:
+  //   1) Si whitelistRecordTypes está definido (config nueva): solo aplica
+  //      si selectedType está en el array.
+  //   2) Fallback: useWhitelist legacy (aplica a todos los tipos).
+  const whitelistAppliesToType = (() => {
+    const arr = config?.whitelistRecordTypes;
+    if (Array.isArray(arr)) {
+      return selectedType ? arr.includes(selectedType) : false;
+    }
+    return Boolean(config?.useWhitelist);
+  })();
   // ── BLACKLIST: Full red screen ──
   if (result.listMatch === "blacklist") {
     return (
@@ -64,9 +92,9 @@ export function ListValidationResult({
     );
   }
 
-  // ── WHITELIST ACTIVA y persona NO está en whitelist (y no es preregistro) ──
+  // ── WHITELIST aplica a este tipo y persona NO está en whitelist (y no es preregistro) ──
   if (
-    config?.useWhitelist &&
+    whitelistAppliesToType &&
     result.listMatch !== "whitelist" &&
     result.listMatch !== "blacklist" &&
     !result.preregistration

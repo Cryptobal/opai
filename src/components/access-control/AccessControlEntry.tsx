@@ -147,7 +147,11 @@ export function AccessControlEntry({
       const res = await fetch("/api/access-control/validate-rut", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rut: rutValue, installationId }),
+        body: JSON.stringify({
+          rut: rutValue,
+          installationId,
+          recordType: selectedType ?? undefined,
+        }),
       });
       const json = await res.json();
       if (json.success) {
@@ -192,13 +196,30 @@ export function AccessControlEntry({
   // ── Validate plate against lists ──
   const validatePlateAgainstLists = useCallback(async (plateValue: string) => {
     if (!validateChileanPlate(plateValue).valid) return;
-    if (!config.useWhitelist && !config.useBlacklist) return;
+
+    // Solo validar si el tipo seleccionado tiene lista aplicada. Prioriza
+    // la config granular (whitelistRecordTypes/blacklistRecordTypes); si no
+    // está, cae a los flags legacy para back-compat.
+    const wlTypes = config.whitelistRecordTypes;
+    const blTypes = config.blacklistRecordTypes;
+    const wlApplies = Array.isArray(wlTypes)
+      ? Boolean(selectedType && wlTypes.includes(selectedType))
+      : Boolean(config.useWhitelist);
+    const blApplies = Array.isArray(blTypes)
+      ? Boolean(selectedType && blTypes.includes(selectedType))
+      : Boolean(config.useBlacklist);
+    if (!wlApplies && !blApplies) return;
+
     setValidating(true);
     try {
       const res = await fetch("/api/access-control/validate-plate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vehiclePlate: plateValue, installationId }),
+        body: JSON.stringify({
+          vehiclePlate: plateValue,
+          installationId,
+          recordType: selectedType ?? undefined,
+        }),
       });
       const json = await res.json();
       if (json.success && (json.data.listMatch === "blacklist" || json.data.listMatch === "whitelist")) {
@@ -219,7 +240,14 @@ export function AccessControlEntry({
     } finally {
       setValidating(false);
     }
-  }, [installationId, config.useWhitelist, config.useBlacklist]);
+  }, [
+    installationId,
+    selectedType,
+    config.useWhitelist,
+    config.useBlacklist,
+    config.whitelistRecordTypes,
+    config.blacklistRecordTypes,
+  ]);
 
   // ── Step 3: Continue from validation ──
   const handleContinueFromValidation = () => {
@@ -481,7 +509,13 @@ export function AccessControlEntry({
             result={validationResult}
             rut={rut}
             fullName={formData.full_name as string | undefined}
-            config={{ useWhitelist: config.useWhitelist, useBlacklist: config.useBlacklist }}
+            config={{
+              useWhitelist: config.useWhitelist,
+              useBlacklist: config.useBlacklist,
+              whitelistRecordTypes: config.whitelistRecordTypes,
+              blacklistRecordTypes: config.blacklistRecordTypes,
+            }}
+            selectedType={selectedType ?? undefined}
             onContinue={handleContinueFromValidation}
             onBack={onClose}
             onDeniedAttempt={() => {
