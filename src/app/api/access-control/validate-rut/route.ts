@@ -113,10 +113,18 @@ export async function POST(request: NextRequest) {
         )
       : null;
 
+    // Para entries accedidas vía GRUPO, el grupo dicta los recordTypes.
+    // El query de groupedBlacklistEntry ya filtró por group.recordTypes ∋ effectiveType
+    // (ver where.group.OR arriba). Si el listEntry tiene un override explícito vía
+    // recordTypes[] (length > 0), lo respetamos como restricción per-persona.
+    // Si no, hereda del grupo — el campo legacy recordType (default "visit") NO
+    // se usa para gating cuando la entrada llega vía grupo, de lo contrario todas
+    // las entries de bulk-import o portal cliente (que quedan con recordType="visit"
+    // por default del schema) fallarían para staff/provider/vehicle/delivery.
     const groupedBlacklistMatchesType = groupedBlacklistEntry
       ? ((groupedBlacklistEntry.listEntry.recordTypes ?? []).length > 0
           ? (groupedBlacklistEntry.listEntry.recordTypes ?? []).includes(effectiveType)
-          : (groupedBlacklistEntry.listEntry.recordType ?? "visit") === effectiveType)
+          : true)
       : false;
 
     const blacklistEntry = directBlacklistMatchesType
@@ -191,10 +199,13 @@ export async function POST(request: NextRequest) {
         )
       : null;
 
+    // Ver comentario análogo en groupedBlacklistMatchesType. El grupo dicta los
+    // recordTypes; el listEntry.recordTypes[] (no vacío) sólo se usa como override
+    // per-persona. Sin override, hereda del grupo.
     const groupedWhitelistMatchesType = groupedWhitelistEntry
       ? ((groupedWhitelistEntry.listEntry.recordTypes ?? []).length > 0
           ? (groupedWhitelistEntry.listEntry.recordTypes ?? []).includes(effectiveType)
-          : (groupedWhitelistEntry.listEntry.recordType ?? "visit") === effectiveType)
+          : true)
       : false;
 
     const whitelistEntry = directWhitelistMatchesType

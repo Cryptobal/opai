@@ -126,10 +126,13 @@ export async function POST(request: NextRequest) {
         )
       : null;
 
+    // Para entries accedidas vía GRUPO, el grupo dicta los recordTypes.
+    // recordTypes[] (no vacío) en listEntry = override per-persona;
+    // vacío = hereda del grupo (ya filtrado en el query).
     const groupedBlacklistMatchesType = groupedBlacklistEntry
       ? ((groupedBlacklistEntry.listEntry.recordTypes ?? []).length > 0
           ? (groupedBlacklistEntry.listEntry.recordTypes ?? []).includes(effectiveType)
-          : (groupedBlacklistEntry.listEntry.recordType ?? "visit") === effectiveType)
+          : true)
       : false;
 
     const blacklistEntry = directBlacklistMatchesType
@@ -204,10 +207,11 @@ export async function POST(request: NextRequest) {
         )
       : null;
 
+    // Ver comentario análogo en groupedBlacklistMatchesType.
     const groupedWhitelistMatchesType = groupedWhitelistEntry
       ? ((groupedWhitelistEntry.listEntry.recordTypes ?? []).length > 0
           ? (groupedWhitelistEntry.listEntry.recordTypes ?? []).includes(effectiveType)
-          : (groupedWhitelistEntry.listEntry.recordType ?? "visit") === effectiveType)
+          : true)
       : false;
 
     const whitelistEntry = directWhitelistMatchesType

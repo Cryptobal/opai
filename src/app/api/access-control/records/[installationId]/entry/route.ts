@@ -114,11 +114,16 @@ export async function POST(
             })
           : null;
 
+        // Para entries vía GRUPO, el grupo dicta los recordTypes (ya filtrado en
+        // el query de groupedCandidate). El listEntry.recordTypes[] sólo aplica
+        // como override per-persona si está poblado; vacío → hereda del grupo.
+        // El campo legacy listEntry.recordType (default "visit") NO se usa
+        // para gating en este branch.
         const groupedMatchesType = (() => {
           if (!groupedCandidate) return false;
           const arr = groupedCandidate.listEntry.recordTypes ?? [];
           if (arr.length > 0) return arr.includes(recordType);
-          return (groupedCandidate.listEntry.recordType ?? "visit") === recordType;
+          return true;
         })();
 
         const candidate = directMatchesType
@@ -203,11 +208,12 @@ export async function POST(
             })
           : null;
 
+        // Ver comentario análogo en groupedMatchesType (blacklist).
         const groupedWhitelistMatches = (() => {
           if (!groupedCandidate) return false;
           const arr = groupedCandidate.listEntry.recordTypes ?? [];
           if (arr.length > 0) return arr.includes(recordType);
-          return (groupedCandidate.listEntry.recordType ?? "visit") === recordType;
+          return true;
         })();
 
         const candidate = directWhitelistMatches
