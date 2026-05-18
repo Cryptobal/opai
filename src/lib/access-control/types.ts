@@ -55,6 +55,15 @@ export const SCAN_MODES = ["plate", "rut", "none"] as const;
 //  CONFIGURATION
 // ═══════════════════════════════════════════════════════════════
 
+/** Fase del registro en la que el campo se solicita al guardia.
+ *  - "entry": solo a la entrada (default — back-compat).
+ *  - "exit":  solo a la salida.
+ *  - "both":  se pide en ambas; el form de salida pre-rellena con el valor
+ *             capturado a la entrada y permite editarlo. El valor final de
+ *             la salida se persiste en exitCustomFields, conservando el
+ *             original de entrada en customFields. */
+export type FormFieldPhase = "entry" | "exit" | "both";
+
 export interface FormFieldConfig {
   field: string;
   label: string;
@@ -74,6 +83,10 @@ export interface FormFieldConfig {
    *  documentSerial). El admin puede renombrarlo pero no cambiar el type ni
    *  borrarlo desde el ConfigTab. */
   systemField?: boolean;
+  /** Fase del registro en la que aplica este campo. Si ausente → "entry"
+   *  (back-compat). Los system fields siempre operan como "entry" sin
+   *  importar el valor de esta prop. */
+  appliesTo?: FormFieldPhase;
 }
 
 /** Form fields per record type. Keyed by record type id — the 5 default
@@ -270,6 +283,9 @@ export interface EntryFormData {
   eppVerified?: boolean;
   observations?: string;
   customFields?: Record<string, unknown>;
+  /** Custom fields capturados a la salida. Llegan al endpoint exit, no al
+   *  endpoint entry. Se persisten en AccessControlRecord.exitCustomFields. */
+  exitCustomFields?: Record<string, unknown>;
   // Meta
   qrSource?: QrSource;
   documentSerial?: string;
@@ -621,4 +637,33 @@ export const SYSTEM_FIELD_KEYS = new Set([
 
 export function isSystemFieldKey(field: string): boolean {
   return SYSTEM_FIELD_KEYS.has(field);
+}
+
+/** Devuelve los fields del config aplicables a una fase específica.
+ *  Reglas:
+ *    - Un field sin appliesTo se comporta como "entry" (back-compat).
+ *    - Los system fields (rut, vehicle_plate, documentSerial) siempre
+ *      cuentan como "entry" sin importar lo que diga su appliesTo: son
+ *      auto-llenados por el wizard al entrar y no tiene sentido pedirlos
+ *      al salir (la persona ya está identificada vía recordId).
+ *    - "both" matchea tanto "entry" como "exit". */
+export function getFieldsForPhase(
+  fields: FormFieldConfig[],
+  phase: "entry" | "exit",
+): FormFieldConfig[] {
+  return fields.filter((f) => {
+    if (isSystemFieldKey(f.field) || f.systemField) return phase === "entry";
+    const applies = f.appliesTo ?? "entry";
+    if (applies === "both") return true;
+    return applies === phase;
+  });
+}
+
+/** Etiqueta corta para mostrar la fase en el admin / badges. */
+export function phaseLabel(phase: FormFieldPhase | undefined): string {
+  switch (phase ?? "entry") {
+    case "entry": return "Entrada";
+    case "exit":  return "Salida";
+    case "both":  return "Ambas";
+  }
 }

@@ -87,6 +87,7 @@ export default function RegistroTab({
       <AccessControlExit
         installationId={installationId}
         guardId={guardId}
+        config={config}
         onClose={() => {
           setActiveFlow("none");
           onEntryRegistered?.();

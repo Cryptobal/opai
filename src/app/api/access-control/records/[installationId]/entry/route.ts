@@ -289,6 +289,10 @@ export async function POST(
         visitorPhotoUrl: body.visitorPhotoUrl || null,
         credentialPhotoUrl: body.credentialPhotoUrl || null,
         entrySignatureUrl: body.entrySignatureUrl || null,
+        // customFields: el frontend ya filtra a fields cuya phase incluye
+        // "entry" (ver getFieldsForPhase en types.ts). El backend acepta
+        // lo que llegue sin filtrar para no romper sincronización offline
+        // (records pendientes pueden traer payloads previos al cambio).
         customFields: (body.customFields || {}) as Prisma.InputJsonValue,
         qrSource: body.qrSource || null,
         idValidationStatus: body.idValidationStatus || "not_checked",

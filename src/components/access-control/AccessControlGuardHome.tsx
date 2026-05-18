@@ -106,11 +106,12 @@ export function AccessControlGuardHome({
     );
   }
 
-  if (showExit) {
+  if (showExit && config) {
     return (
       <AccessControlExit
         installationId={installationId}
         guardId={guardId}
+        config={config}
         onClose={() => { setShowExit(false); fetchInSiteCount(); }}
       />
     );

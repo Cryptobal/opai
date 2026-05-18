@@ -36,6 +36,7 @@ interface RecordDetail {
   credentialPhotoUrl: string | null;
   entrySignatureUrl: string | null;
   customFields: Record<string, unknown> | null;
+  exitCustomFields: Record<string, unknown> | null;
   qrSource: QrSource | null;
   idValidationStatus: string | null;
   listMatch: ListMatch | null;
@@ -242,8 +243,16 @@ export function AccessControlRecordDetailSheet({ recordId, onClose }: Props) {
             )}
 
             {data.customFields && Object.keys(data.customFields).length > 0 && (
-              <Section title="Campos adicionales">
+              <Section title="Capturado a la entrada">
                 {Object.entries(data.customFields).map(([k, v]) => (
+                  <Row key={k} label={k} value={String(v ?? "—")} />
+                ))}
+              </Section>
+            )}
+
+            {data.exitCustomFields && Object.keys(data.exitCustomFields).length > 0 && (
+              <Section title="Capturado a la salida">
+                {Object.entries(data.exitCustomFields).map(([k, v]) => (
                   <Row key={k} label={k} value={String(v ?? "—")} />
                 ))}
               </Section>

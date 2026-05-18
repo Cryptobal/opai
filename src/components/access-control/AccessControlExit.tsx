@@ -3,15 +3,24 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Search, LogOut, QrCode, Loader2, Check,
-  User, Car, Clock,
+  ArrowLeft, Search, LogOut, Loader2, Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { RECORD_TYPE_CONFIG } from "@/lib/access-control/types";
+import { DynamicFormRenderer } from "./DynamicFormRenderer";
+import {
+  RECORD_TYPE_CONFIG,
+  DEFAULT_FORM_FIELDS,
+  isDefaultRecordType,
+  getFieldsForPhase,
+} from "@/lib/access-control/types";
 import { formatRut, formatDuration, elapsedMinutes } from "@/lib/access-control/utils";
-import type { AccessRecordType } from "@/lib/access-control/types";
+import type {
+  AccessRecordType,
+  AccessControlConfigData,
+  FormFieldConfig,
+} from "@/lib/access-control/types";
 
 interface InSiteRecord {
   id: string;
@@ -21,20 +30,26 @@ interface InSiteRecord {
   company: string | null;
   entryAt: string;
   vehiclePlate: string | null;
+  customFields?: Record<string, unknown> | null;
 }
 
 interface Props {
   installationId: string;
   guardId: string;
+  config: AccessControlConfigData;
   onClose: () => void;
 }
 
-export function AccessControlExit({ installationId, guardId, onClose }: Props) {
+type ExitStep = "list" | "form";
+
+export function AccessControlExit({ installationId, guardId, config, onClose }: Props) {
   const [search, setSearch] = useState("");
   const [records, setRecords] = useState<InSiteRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [exitingId, setExitingId] = useState<string | null>(null);
-  const [exitObservations, setExitObservations] = useState("");
+  const [step, setStep] = useState<ExitStep>("list");
+  const [selectedRecord, setSelectedRecord] = useState<InSiteRecord | null>(null);
+  const [exitFields, setExitFields] = useState<FormFieldConfig[]>([]);
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
@@ -57,8 +72,43 @@ export function AccessControlExit({ installationId, guardId, onClose }: Props) {
     fetchRecords();
   }, [fetchRecords]);
 
-  const handleExit = async (recordId: string) => {
-    setExitingId(recordId);
+  /** Resuelve los fields configurados para el recordType del record en sitio,
+   *  filtrados a fase "exit" (incluye "both"). Mismo árbol de resolución que
+   *  AccessControlEntry.getFields(). */
+  const resolveExitFields = useCallback(
+    (recordType: AccessRecordType): FormFieldConfig[] => {
+      const formConfig = config.formConfig as Record<string, FormFieldConfig[] | undefined>;
+      let all: FormFieldConfig[];
+      if (formConfig[recordType]) {
+        all = formConfig[recordType] ?? [];
+      } else if (isDefaultRecordType(recordType)) {
+        all = DEFAULT_FORM_FIELDS[recordType] ?? [];
+      } else {
+        const custom = config.customRecordTypes?.find((c) => c.key === recordType);
+        all = custom?.defaultFields ?? [];
+      }
+      return getFieldsForPhase(all, "exit");
+    },
+    [config],
+  );
+
+  /** Cuando el guardia tap "Salida" en un record:
+   *  - Si NO hay fields exit/both configurados → ejecutar exit directo
+   *    (preserva UX one-tap actual con solo observaciones, vacías).
+   *  - Si hay fields → abrir step "form" para capturarlos. */
+  const handleStartExit = (record: InSiteRecord) => {
+    const fields = resolveExitFields(record.recordType);
+    if (fields.length === 0) {
+      void doExit(record, {});
+      return;
+    }
+    setSelectedRecord(record);
+    setExitFields(fields);
+    setStep("form");
+  };
+
+  const doExit = async (record: InSiteRecord, exitCustomFields: Record<string, unknown>) => {
+    setExitingId(record.id);
     try {
       const gps = await new Promise<{ lat: number; lng: number } | null>((resolve) => {
         navigator.geolocation?.getCurrentPosition(
@@ -68,32 +118,115 @@ export function AccessControlExit({ installationId, guardId, onClose }: Props) {
         );
       });
 
-      const res = await fetch(`/api/access-control/records/item/${recordId}/exit`, {
+      // exitObservations: si el form tenía un field "observations" lo
+      // extraemos al campo dedicado (mantiene back-compat con queries que
+      // leen exitObservations). El resto va a exitCustomFields.
+      const observations =
+        typeof exitCustomFields.observations === "string"
+          ? exitCustomFields.observations
+          : null;
+
+      const res = await fetch(`/api/access-control/records/item/${record.id}/exit`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           exitGuardId: guardId,
           gpsLat: gps?.lat,
           gpsLng: gps?.lng,
-          exitObservations: exitObservations || null,
+          exitObservations: observations,
+          exitCustomFields,
         }),
       });
 
       const json = await res.json();
       if (json.success) {
         toast.success("Salida registrada");
+        setStep("list");
+        setSelectedRecord(null);
+        setExitFields([]);
         fetchRecords();
       } else {
-        toast.error(json.error);
+        toast.error(json.error || "Error al registrar salida");
       }
     } catch {
       toast.error("Error al registrar salida");
     } finally {
       setExitingId(null);
-      setExitObservations("");
     }
   };
 
+  /** Pre-rellena el form de salida con los valores capturados a la entrada
+   *  para los fields tipo "both", de modo que el guardia solo confirma o edita
+   *  en lugar de re-escribir desde cero. */
+  const buildInitialFormData = (record: InSiteRecord, fields: FormFieldConfig[]): Record<string, unknown> => {
+    const entry = (record.customFields ?? {}) as Record<string, unknown>;
+    const initial: Record<string, unknown> = {};
+    for (const f of fields) {
+      // Solo prellenar fields "both"; los "exit" puros nacen vacíos.
+      if (f.appliesTo === "both" && entry[f.field] !== undefined) {
+        initial[f.field] = entry[f.field];
+      }
+    }
+    return initial;
+  };
+
+  // ── Step: form de salida ──
+  if (step === "form" && selectedRecord) {
+    const tc = RECORD_TYPE_CONFIG[selectedRecord.recordType] ?? {
+      label: selectedRecord.recordType,
+      icon: "UserPlus",
+      color: "blue",
+    };
+    return (
+      <div className="flex flex-col h-full bg-zinc-950">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800 shrink-0">
+          <button
+            onClick={() => {
+              setStep("list");
+              setSelectedRecord(null);
+              setExitFields([]);
+            }}
+            className="text-zinc-400 hover:text-zinc-200"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h3 className="text-base font-semibold text-zinc-100">Datos de Salida</h3>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+          <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-3 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="text-xs border-zinc-600">
+                {tc.label}
+              </Badge>
+              <span className="text-sm font-medium text-zinc-200 break-words">
+                {selectedRecord.fullName || selectedRecord.vehiclePlate || "Sin identificar"}
+              </span>
+            </div>
+            <div className="text-xs text-zinc-500 space-x-3">
+              {selectedRecord.rut && <span>{formatRut(selectedRecord.rut)}</span>}
+              {selectedRecord.vehiclePlate && <span>{selectedRecord.vehiclePlate}</span>}
+              {selectedRecord.company && <span>{selectedRecord.company}</span>}
+            </div>
+          </div>
+
+          <DynamicFormRenderer
+            fields={exitFields}
+            initialData={buildInitialFormData(selectedRecord, exitFields)}
+            onSubmit={(data) => void doExit(selectedRecord, data)}
+          />
+
+          {exitingId === selectedRecord.id && (
+            <div className="flex items-center justify-center gap-2 py-2 text-sm text-zinc-400">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Registrando salida...
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step: lista en sitio ──
   return (
     <div className="flex flex-col h-full bg-zinc-950">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800 shrink-0">
@@ -129,7 +262,6 @@ export function AccessControlExit({ installationId, guardId, onClose }: Props) {
             {records.map((record) => {
               const elapsed = elapsedMinutes(record.entryAt);
               const tc = RECORD_TYPE_CONFIG[record.recordType] ?? { label: record.recordType, icon: "UserPlus", color: "blue" };
-
               return (
                 <div
                   key={record.id}
@@ -159,7 +291,7 @@ export function AccessControlExit({ installationId, guardId, onClose }: Props) {
                       size="sm"
                       variant="outline"
                       className="ml-2 border-zinc-600 text-zinc-300 hover:bg-status-danger-soft hover:text-status-danger-fg hover:border-status-danger-border"
-                      onClick={() => handleExit(record.id)}
+                      onClick={() => handleStartExit(record)}
                       disabled={exitingId === record.id}
                     >
                       {exitingId === record.id ? (

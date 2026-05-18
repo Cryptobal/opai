@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isTableMissingError } from "@/lib/access-control/safe-query";
+import type { Prisma } from "@prisma/client";
 
 export async function PUT(
   request: NextRequest,
@@ -28,6 +29,14 @@ export async function PUT(
       );
     }
 
+    // exitCustomFields: persistir solo si llega no-vacío. Si llega `null` o
+    // `{}` no sobreescribimos (defensive, evita borrar info en re-tries
+    // o en clientes viejos que no envían la prop).
+    const exitCustomFields =
+      body.exitCustomFields && typeof body.exitCustomFields === "object"
+        ? (body.exitCustomFields as Prisma.InputJsonValue)
+        : undefined;
+
     const record = await prisma.accessControlRecord.update({
       where: { id },
       data: {
@@ -36,6 +45,7 @@ export async function PUT(
         exitGpsLat: body.gpsLat ?? null,
         exitGpsLng: body.gpsLng ?? null,
         exitObservations: body.exitObservations || null,
+        ...(exitCustomFields !== undefined ? { exitCustomFields } : {}),
       },
     });
 
