@@ -327,7 +327,6 @@ export function BankTxReconcileSheet({
   const [manualNote, setManualNote] = useState("");
   const [manualDate, setManualDate] = useState<string>("");
   // Cuenta contable de "resto" cuando la suma de DTEs no cubre el total
-  const [restAccountType, setRestAccountType] = useState<string>("");
   const [restAccountId, setRestAccountId] = useState<string>("");
   const [restNote, setRestNote] = useState("");
   // Diff/shortfall: cuando sum(DTEs seleccionados) > banco (típico factoring).
@@ -380,10 +379,12 @@ export function BankTxReconcileSheet({
         l.targetType === "DTE_RECEIVED" ||
         l.targetType === "FACTORING_OPERATION",
     );
-  // Sentido contable de la cuenta para el shortfall: ingreso → costo/gasto;
-  // egreso → ingreso/pasivo (descuento). Mismo criterio que el bulk modal.
-  // El signo del lote: todos los movs deben tener mismo signo (validado
-  // por el endpoint bulk). Usamos la suma firmada para inferirlo.
+  // Sentido contable de la cuenta para el SHORTFALL (banco < facturas):
+  //   - tx income → diferencia es un GASTO (comisión, descuento) → EXPENSE/COST
+  //   - tx expense → diferencia es un INGRESO (descuento proveedor) → REVENUE/LIABILITY/INCOME
+  // El signo del lote: todos los movs deben tener mismo signo (validado por
+  // el endpoint bulk). Usamos la suma firmada para inferirlo.
+  // Ver `eligibleRemainderAccounts` para el caso simétrico (banco > facturas).
   const isIncomeTx = totalAmountSigned > 0;
   const eligibleShortfallAccounts = useMemo(() => {
     if (!accountPlans.length) return [];
@@ -391,6 +392,23 @@ export function BankTxReconcileSheet({
       if (!ap.type) return true;
       if (isIncomeTx) return ["EXPENSE", "COST"].includes(ap.type);
       return ["REVENUE", "LIABILITY", "INCOME"].includes(ap.type);
+    });
+  }, [accountPlans, isIncomeTx]);
+  // Cuentas elegibles cuando hay REMAINDER (banco > facturas, sobra plata
+  // sin asignar). Simétrico a eligibleShortfallAccounts:
+  //   - tx income + remainder → cliente pagó de más → es un INGRESO
+  //     (otros ingresos, anticipo cliente). Cuentas REVENUE/LIABILITY/INCOME.
+  //   - tx expense + remainder → pagué de más → es un GASTO (cargo
+  //     bancario, anticipo proveedor). Cuentas EXPENSE/COST/ASSET.
+  // El handler de save (líneas ~884-904) crea el link con targetType
+  // INCOME/EXPENSE basado en tx.amount, así que la cuenta elegida acá
+  // debe ser coherente con esa dirección.
+  const eligibleRemainderAccounts = useMemo(() => {
+    if (!accountPlans.length) return [];
+    return accountPlans.filter((ap) => {
+      if (!ap.type) return true;
+      if (isIncomeTx) return ["REVENUE", "LIABILITY", "INCOME"].includes(ap.type);
+      return ["EXPENSE", "COST", "ASSET"].includes(ap.type);
     });
   }, [accountPlans, isIncomeTx]);
 
@@ -494,7 +512,6 @@ export function BankTxReconcileSheet({
     setManualAmount(formatCLPInput(String(Math.abs(tx.amount))));
     setManualNote("");
     setManualDate(tx.transactionDate.slice(0, 10));
-    setRestAccountType("");
     setRestAccountId("");
     setRestNote("");
     setDiffMode("prorate");
@@ -1600,57 +1617,43 @@ export function BankTxReconcileSheet({
                   </p>
                 )}
                 {remaining > 0.01 && (
-                  <div className="space-y-2 pt-2 border-t border-border">
-                    <p className="text-xs text-muted-foreground">
-                      Asigná el resto a una cuenta contable (ej. costos
-                      factoring, comisión, gastos varios):
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Select
-                        value={restAccountType}
-                        onValueChange={(v) => {
-                          setRestAccountType(v);
-                          setRestAccountId("");
-                        }}
-                      >
-                        <SelectTrigger className="h-11 sm:h-9">
-                          <SelectValue placeholder="Tipo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {groupAccounts(
-                            accountPlans,
-                            tx && tx.amount > 0 ? "income" : "expense"
-                          ).map((g) => (
-                            <SelectItem key={g.type} value={g.type}>
-                              {g.label}{" "}
-                              <span className="text-muted-foreground text-xs">
-                                ({g.items.length})
-                              </span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <AccountPlanCombobox
-                        items={
-                          groupAccounts(
-                            accountPlans,
-                            tx && tx.amount > 0 ? "income" : "expense"
-                          ).find((g) => g.type === restAccountType)?.items ?? []
-                        }
-                        value={restAccountId}
-                        onChange={setRestAccountId}
-                        disabled={!restAccountType}
-                        placeholder="Buscar por código o nombre…"
-                        emptyLabel={
-                          restAccountType ? "Seleccionar cuenta" : "Tipo primero"
-                        }
-                      />
+                  <div className="rounded-lg border border-status-info-border bg-status-info-soft/10 p-3 space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">
+                        {isIncomeTx ? "Sobra " : "Falta cubrir "}
+                        <span className="font-mono tabular-nums">
+                          {fmtCLP.format(remaining)}
+                        </span>
+                        {isIncomeTx ? " del depósito" : " del egreso"}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {isIncomeTx
+                          ? "El banco trajo más que el total de facturas asignadas. Probablemente: anticipo, pago duplicado, o ingreso no facturado."
+                          : "El egreso bancario supera el total de facturas/pagos asignados. Probablemente: cargo bancario, comisión, o pago no documentado."}
+                      </p>
                     </div>
+                    <AccountPlanCombobox
+                      items={eligibleRemainderAccounts}
+                      value={restAccountId}
+                      onChange={setRestAccountId}
+                      placeholder={
+                        isIncomeTx
+                          ? "Buscar cuenta de ingreso…"
+                          : "Buscar cuenta de gasto…"
+                      }
+                      emptyLabel="Seleccionar cuenta"
+                      triggerClassName="w-full"
+                    />
                     <Input
-                      placeholder="Nota (opcional)"
+                      placeholder={
+                        isIncomeTx
+                          ? "Nota del asiento (ej. 'Anticipo cliente RUT 12345678-9')"
+                          : "Nota del asiento (ej. 'Cargo bancario por mantención')"
+                      }
                       value={restNote}
                       onChange={(e) => setRestNote(e.target.value)}
                       maxLength={300}
+                      className="h-11 sm:h-9 text-base sm:text-sm"
                     />
                   </div>
                 )}
