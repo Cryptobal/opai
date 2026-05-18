@@ -1874,7 +1874,7 @@ function TransactionsTab({
 
       {/* Sub-pills + bulk action */}
       {!showHidden && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-stretch sm:items-center gap-2">
           <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide flex-1 min-w-0">
             {TX_SUB_TABS.map((t) => {
               const isActive = subTab === t.id;
@@ -1915,14 +1915,15 @@ function TransactionsTab({
               size="sm"
               onClick={authorizeAll}
               disabled={bulkAuthorizing}
-              className="h-8 shrink-0"
+              className="h-9 w-9 p-0 shrink-0 sm:h-8 sm:w-auto sm:px-3"
+              aria-label="Autorizar todos los movimientos reconocidos"
             >
               {bulkAuthorizing ? (
-                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
               ) : (
-                <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                <CheckCircle2 className="h-3.5 w-3.5 sm:mr-1.5" />
               )}
-              Autorizar todos
+              <span className="hidden sm:inline">Autorizar todos</span>
             </Button>
           )}
           {(subTab === "all" || subTab === "unrecognized") &&
@@ -1934,30 +1935,32 @@ function TransactionsTab({
                   variant="outline"
                   onClick={runRulesOnly}
                   disabled={runningRulesOnly}
-                  className="h-8 shrink-0"
+                  className="h-9 w-9 p-0 shrink-0 sm:h-8 sm:w-auto sm:px-3"
                   title="Aplica solo las reglas configuradas (no busca DTEs ni turnos extras). Más rápido."
+                  aria-label="Re-evaluar reglas"
                 >
                   {runningRulesOnly ? (
-                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
                   ) : (
-                    <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                    <Sparkles className="h-3.5 w-3.5 sm:mr-1.5" />
                   )}
-                  Re-evaluar reglas
+                  <span className="hidden sm:inline">Re-evaluar reglas</span>
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={runHistoricalAutoMatch}
                   disabled={runningAutoMatch}
-                  className="h-8 shrink-0"
+                  className="h-9 w-9 p-0 shrink-0 sm:h-8 sm:w-auto sm:px-3"
                   title="Corre el matcher contra DTEs, turnos extras y reglas activas para los movimientos visibles. Tip: usá los filtros antes para limitar el alcance."
+                  aria-label="Auto-conciliar movimientos visibles"
                 >
                   {runningAutoMatch ? (
-                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
                   ) : (
-                    <Zap className="h-3.5 w-3.5 mr-1.5" />
+                    <Zap className="h-3.5 w-3.5 sm:mr-1.5" />
                   )}
-                  Auto-conciliar visible
+                  <span className="hidden sm:inline">Auto-conciliar visible</span>
                 </Button>
               </>
             )}

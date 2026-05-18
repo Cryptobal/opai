@@ -8,12 +8,11 @@
  * código (`6.1.02`) o del nombre (`combustible`) y matchea ambos.
  *
  * Desktop: `<Popover>` anclado al trigger.
- * Mobile: bottom sheet en portal con search sticky y scroll dedicado, para
- * evitar el bug de touch-scroll dentro de un Sheet padre.
+ * Mobile: `<Sheet side="bottom">` de Radix, con scroll lock anidado para
+ * evitar scroll-bleed cuando el componente vive dentro de otro Sheet padre.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Check, ChevronsUpDown, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +21,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import { cn } from "@/lib/utils";
 
@@ -128,105 +134,95 @@ export function AccountPlanCombobox({
     </ul>
   );
 
-  // Mobile: bottom sheet en portal. NO usamos PopoverContent porque la lista
-  // queda atrapada en scroll dentro de Sheets padres (ver BankTxReconcileSheet).
-  const mobileSheet =
-    open && isMobile && typeof document !== "undefined"
-      ? createPortal(
-          <>
-            <div
-              aria-hidden
-              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm animate-in fade-in-0 duration-150"
-              onClick={() => setOpen(false)}
-            />
-            <div
-              role="dialog"
-              aria-modal="true"
-              className={cn(
-                "fixed inset-x-0 bottom-0 z-50 flex flex-col",
-                "bg-popover border-t border-border/80 rounded-t-2xl shadow-xl",
-                "animate-in slide-in-from-bottom duration-200",
-                "max-h-[85dvh]",
-              )}
-              style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
-            >
-              <div
-                aria-hidden
-                className="mx-auto mt-2 mb-1 h-1 w-9 rounded-full bg-muted-foreground/30"
-              />
-              <div className="px-4 pt-1 pb-2">
-                <div className="text-sm font-semibold text-foreground">
-                  {emptyLabel}
-                </div>
-              </div>
-              <div className="border-b border-border px-3 pb-2">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    autoFocus
-                    placeholder={placeholder}
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    className="h-11 pl-9"
-                    style={{ fontSize: 16 }}
-                  />
-                </div>
-              </div>
-              {renderList("min-h-[48px] px-4")}
-              <div className="border-t border-border/60 px-3 py-2">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="w-full h-11 rounded-lg bg-muted text-sm font-medium text-foreground hover:bg-muted/80 active:bg-muted transition-colors"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </>,
-          document.body,
-        )
-      : null;
+  const triggerButton = (
+    <Button
+      type="button"
+      variant="outline"
+      role="combobox"
+      aria-expanded={open}
+      disabled={disabled}
+      className={cn(
+        "h-11 sm:h-9 w-full justify-between font-normal text-sm",
+        !selected && "text-muted-foreground",
+        triggerClassName,
+      )}
+    >
+      <span className="truncate">{triggerLabel}</span>
+      <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50 ml-2" />
+    </Button>
+  );
 
-  return (
-    <>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            disabled={disabled}
-            className={cn(
-              "h-11 sm:h-9 w-full justify-between font-normal text-sm",
-              !selected && "text-muted-foreground",
-              triggerClassName,
-            )}
-          >
-            <span className="truncate">{triggerLabel}</span>
-            <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50 ml-2" />
-          </Button>
-        </PopoverTrigger>
-        {!isMobile && (
-          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-            <div className="border-b border-border p-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  ref={inputRef}
-                  placeholder={placeholder}
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  className="h-8 pl-8 text-sm"
-                />
-              </div>
+  // Mobile: Radix Sheet bottom. Maneja scroll lock del body con counter (anida
+  // correctamente cuando el componente vive dentro de otro Sheet padre, ej.
+  // BankTxReconcileSheet). Esto resuelve el bug de scroll-bleed que tenía
+  // el portal manual anterior.
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger asChild>{triggerButton}</SheetTrigger>
+        <SheetContent
+          side="bottom"
+          className="p-0 gap-0 flex flex-col max-h-[85dvh] rounded-t-2xl"
+        >
+          <div
+            aria-hidden
+            className="mx-auto mt-2 h-1 w-9 rounded-full bg-muted-foreground/30 shrink-0"
+          />
+          <SheetHeader className="px-4 pt-2 pb-2 text-left shrink-0">
+            <SheetTitle className="text-sm font-semibold">
+              {emptyLabel}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="border-b border-border px-3 pb-2 shrink-0">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                autoFocus
+                placeholder={placeholder}
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="h-11 pl-9"
+                style={{ fontSize: 16 }}
+              />
             </div>
-            <div className="max-h-72 flex flex-col">{renderList()}</div>
-          </PopoverContent>
-        )}
-      </Popover>
-      {mobileSheet}
-    </>
+          </div>
+          {renderList("min-h-[48px] px-4")}
+          <div className="border-t border-border/60 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shrink-0">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="w-full h-11 rounded-lg bg-muted text-sm font-medium text-foreground hover:bg-muted/80 active:bg-muted transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  // Desktop: Popover anclado.
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{triggerButton}</PopoverTrigger>
+      <PopoverContent
+        className="w-[var(--radix-popover-trigger-width)] p-0"
+        align="start"
+      >
+        <div className="border-b border-border p-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              ref={inputRef}
+              placeholder={placeholder}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="h-8 pl-8 text-sm"
+            />
+          </div>
+        </div>
+        <div className="max-h-72 flex flex-col">{renderList()}</div>
+      </PopoverContent>
+    </Popover>
   );
 }
