@@ -22,7 +22,7 @@ import type {
 } from "@/lib/access-control/types";
 import {
   DEFAULT_FORM_FIELDS, getRecordTypeLabel, isDefaultRecordType,
-  getRecordTypeScanModes,
+  getRecordTypeScanModes, getFieldsForPhase,
 } from "@/lib/access-control/types";
 import { RecordTypeIcon } from "@/lib/access-control/record-type-icon";
 import { validateRut, formatRut, cleanRut, formatRutDash, computeRutDv, cleanPlate, validateChileanPlate } from "@/lib/access-control/utils";
@@ -338,15 +338,27 @@ export function AccessControlEntry({
   const getFields = (): FormFieldConfig[] => {
     if (!selectedType) return [];
     const configFields = (config.formConfig as Record<string, FormFieldConfig[] | undefined>)[selectedType];
-    if (configFields) return configFields;
-    if (isDefaultRecordType(selectedType)) return DEFAULT_FORM_FIELDS[selectedType] ?? [];
-    const custom = config.customRecordTypes?.find((c) => c.key === selectedType);
-    if (custom) return custom.defaultFields ?? [];
-    // Zombie: defensa en profundidad.
-    if (typeof console !== "undefined") {
-      console.warn(`[AccessControl] zombie record type detected in entry: ${selectedType}`);
+    let all: FormFieldConfig[];
+    if (configFields) {
+      all = configFields;
+    } else if (isDefaultRecordType(selectedType)) {
+      all = DEFAULT_FORM_FIELDS[selectedType] ?? [];
+    } else {
+      const custom = config.customRecordTypes?.find((c) => c.key === selectedType);
+      if (custom) {
+        all = custom.defaultFields ?? [];
+      } else {
+        // Zombie: defensa en profundidad.
+        if (typeof console !== "undefined") {
+          console.warn(`[AccessControl] zombie record type detected in entry: ${selectedType}`);
+        }
+        all = [];
+      }
     }
-    return [];
+    // Filtrar a fields que aplican a la fase "entry" (incluye "both").
+    // Los system fields (rut, vehicle_plate, documentSerial) siempre cuentan
+    // como entry vía getFieldsForPhase, así que se respeta el wizard QR/OCR.
+    return getFieldsForPhase(all, "entry");
   };
 
   return (

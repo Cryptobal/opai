@@ -23,7 +23,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import type {
   AccessRecordType, AccessControlFormConfig, FormFieldConfig, AutoReportSchedule,
-  CustomRecordType, ScanMode,
+  CustomRecordType, ScanMode, FormFieldPhase,
 } from "@/lib/access-control/types";
 import {
   RECORD_TYPE_CONFIG, DEFAULT_FORM_FIELDS, DEFAULT_RECORD_TYPE_IDS,
@@ -962,6 +962,9 @@ export function AccessControlConfigTab({ installationId, apiBase }: Props) {
 
                   {isExpanded && (
                     <div className="border-t border-zinc-700 p-3 space-y-2">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-500 px-1 pb-1">
+                        Cada campo: etiqueta · tipo · <span className="text-status-info-fg">fase</span> · requerido
+                      </p>
                       <DndContext
                         sensors={sensors}
                         collisionDetection={closestCenter}
@@ -978,6 +981,7 @@ export function AccessControlConfigTab({ installationId, apiBase }: Props) {
                               onLabelChange={(label) => updateField(type, idx, { label })}
                               onTypeChange={(t) => updateField(type, idx, { type: t })}
                               onRequiredChange={(req) => updateField(type, idx, { required: req })}
+                              onPhaseChange={(appliesTo) => updateField(type, idx, { appliesTo })}
                               onRemove={() => removeField(type, idx)}
                             />
                           ))}
@@ -1168,6 +1172,7 @@ interface SortableFieldRowProps {
   onLabelChange: (label: string) => void;
   onTypeChange: (type: FormFieldConfig["type"]) => void;
   onRequiredChange: (required: boolean) => void;
+  onPhaseChange: (phase: FormFieldPhase) => void;
   onRemove: () => void;
 }
 
@@ -1176,6 +1181,7 @@ function SortableFieldRow({
   onLabelChange,
   onTypeChange,
   onRequiredChange,
+  onPhaseChange,
   onRemove,
 }: SortableFieldRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -1241,6 +1247,21 @@ function SortableFieldRow({
           Auto
         </Badge>
       )}
+      <select
+        value={field.appliesTo ?? "entry"}
+        onChange={(e) => onPhaseChange(e.target.value as FormFieldPhase)}
+        disabled={isSystem}
+        title={
+          isSystem
+            ? "Los campos del sistema solo aplican a la Entrada"
+            : "Fase en la que se solicita este campo al guardia"
+        }
+        className="h-8 rounded-md border border-zinc-600 bg-zinc-700 px-2 text-xs text-zinc-200 disabled:opacity-60"
+      >
+        <option value="entry">↓ Entrada</option>
+        <option value="exit">↑ Salida</option>
+        <option value="both">↕ Ambas</option>
+      </select>
       <label className="flex items-center gap-1 text-xs text-zinc-400">
         <input
           type="checkbox"
