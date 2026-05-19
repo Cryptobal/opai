@@ -269,6 +269,7 @@ const ItemRow = memo(function ItemRow({
       canManage,
       cellStatus: v?.cellStatus,
       dteId: v?.dteId ?? null,
+      dteFolio: v?.dteFolio ?? null,
       daysOverdue: v?.daysOverdue,
     });
   }, [item, v, bucketKey, amount, actual, row.categoryName, kind, canManage, onOpenItem]);

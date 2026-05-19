@@ -49,6 +49,9 @@ export interface DrawerItemTarget {
   cellStatus?: CashflowCellStatus;
   /** dteId vinculado (si existe) para deep-link al DTE. */
   dteId?: string | null;
+  /** Folio del DTE vinculado, si existe. Mostrado inline con "Estado factura"
+   *  en mobile, ya que el tooltip de la celda no se ve en touch. */
+  dteFolio?: number | null;
   /** Días de mora (solo INVOICED). */
   daysOverdue?: number;
 }
@@ -201,6 +204,11 @@ export function CashflowItemDrawer({
               <div className="flex flex-col gap-0.5">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-ds-text-3">
                   Estado factura
+                  {target.dteFolio ? (
+                    <span className="ml-1 normal-case tracking-normal text-ds-text-2">
+                      · N° {target.dteFolio}
+                    </span>
+                  ) : null}
                 </span>
                 {target.cellStatus === "INVOICED" &&
                   target.daysOverdue !== undefined &&
