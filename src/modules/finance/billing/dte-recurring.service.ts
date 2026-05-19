@@ -87,19 +87,34 @@ function lastDayOfMonth(year: number, monthZeroIdx: number): number {
 /**
  * Calcula el próximo nextRunAt según frequency. Si endDate está y
  * el resultado supera endDate → null (template completado).
+ *
+ * SEMÁNTICA DE fromDate:
+ *  - Si NO se pasa fromDate y template.lastRunAt es null → es el primer
+ *    schedule de la plantilla; usamos startDate como ancla y NO avanzamos.
+ *  - Si SE pasa fromDate explícitamente → semánticamente "ya hubo un run
+ *    el fromDate, calculá el siguiente desde ahí" (avanzamos un ciclo).
+ *    Útil tras un run para evitar el bug histórico de stale lastRunAt.
+ *  - Si template.lastRunAt no es null → avanzamos un ciclo desde lastRunAt.
  */
 export function computeNextRunAt(template: ComputeInput, fromDate?: Date): Date | null {
+  const explicitFromDate = fromDate != null;
   const base = fromDate ?? template.lastRunAt ?? template.startDate;
   const ref = new Date(base);
   ref.setHours(0, 0, 0, 0);
-  // Si nunca ha corrido, partimos de startDate (incluido).
-  const isFirst = !template.lastRunAt;
+  // isFirst SOLO si nunca corrió Y no se nos pidió avanzar explícitamente.
+  const isFirst = !explicitFromDate && !template.lastRunAt;
   let next: Date;
 
   switch (template.frequency as Frequency) {
     case "monthly": {
       next = new Date(ref);
-      if (!isFirst) next.setMonth(next.getMonth() + 1);
+      if (!isFirst) {
+        // FIX overflow: setDate(1) ANTES de setMonth para evitar que JS
+        // saltee abril cuando el día actual es 31 (31/mar + 1 mes = 1/may
+        // en lugar de 30/abr). Después clampeamos al día efectivo.
+        next.setDate(1);
+        next.setMonth(next.getMonth() + 1);
+      }
       const dom = template.dayOfMonth ?? 1;
       const lastDay = lastDayOfMonth(next.getFullYear(), next.getMonth());
       next.setDate(dom === -1 ? lastDay : Math.min(dom, lastDay));
@@ -107,7 +122,10 @@ export function computeNextRunAt(template: ComputeInput, fromDate?: Date): Date 
     }
     case "yearly": {
       next = new Date(ref);
-      if (!isFirst) next.setFullYear(next.getFullYear() + 1);
+      if (!isFirst) {
+        next.setDate(1); // mismo guard de overflow para feb 29 → mar 1
+        next.setFullYear(next.getFullYear() + 1);
+      }
       const moy = (template.monthOfYear ?? 1) - 1;
       next.setMonth(moy);
       const dom = template.dayOfMonth ?? 1;
@@ -563,13 +581,43 @@ export async function runTemplate(tenantId: string, templateId: string) {
       }
     }
 
-    const next = computeNextRunAt(template);
+    // Anclamos el cálculo del próximo run a HOY (no a template.lastRunAt
+    // stale). Esto evita el bug histórico donde el primer run dejaba
+    // nextRunAt = startDate porque template.lastRunAt aún era null al
+    // momento de calcular.
+    const runDate = new Date();
+    runDate.setHours(0, 0, 0, 0);
+    let next = computeNextRunAt(template, runDate);
+
+    // Defense-in-depth: si next quedó <= hoy por cualquier razón
+    // (configuración rara, edge case no cubierto), avanzar hasta superarlo.
+    // Tope de 24 iteraciones para no loopear infinito en bug futuro.
+    let safety = 0;
+    while (next != null && next <= runDate && safety < 24) {
+      next = computeNextRunAt({ ...template, lastRunAt: next }, undefined);
+      safety += 1;
+    }
+    if (safety >= 24) {
+      console.error(
+        `[finance/recurring] computeNextRunAt safety loop hit 24 iterations ` +
+          `for template ${templateId} (frequency=${template.frequency}). ` +
+          `Marking as null to prevent runaway re-execution.`,
+      );
+      next = null;
+    }
+
+    // Si next quedó null porque pasó endDate, desactivar la plantilla
+    // automáticamente. Antes el filtro confundía null con "nueva" y la
+    // plantilla seguía corriendo todos los días.
+    const shouldDeactivate = next == null;
+
     await prisma.financeDteRecurringTemplate.update({
       where: { id: templateId },
       data: {
         lastRunAt: new Date(),
         nextRunAt: next,
         runCount: { increment: 1 },
+        ...(shouldDeactivate ? { isActive: false } : {}),
       },
     });
 
@@ -595,20 +643,34 @@ export async function runTemplate(tenantId: string, templateId: string) {
 
 /**
  * Procesa todos los templates activos cuyo nextRunAt <= today para un
- * tenant. Idempotente: si lastRunAt = today, los salta.
+ * tenant. Idempotente: si lastRunAt = today o la plantilla ya corrió
+ * dentro del mismo período mensual (para frecuencia monthly), se salta.
+ *
+ * NOTA: el filtro distingue "nueva sin schedule" (lastRunAt=null Y
+ * nextRunAt=null) de "terminada" (lastRunAt!=null Y nextRunAt=null).
+ * Las terminadas NO entran a este filtro (deben venir como isActive=false
+ * desde runTemplate, pero defendemos igual).
  */
 export async function processDueTemplates(
   tenantId: string,
   today?: Date,
 ): Promise<{ successCount: number; failedCount: number; skippedCount: number }> {
-  const now = today ?? new Date();
-  now.setHours(23, 59, 59, 999);
+  // Copiamos para no mutar el argumento del caller.
+  const nowEod = today ? new Date(today) : new Date();
+  nowEod.setHours(23, 59, 59, 999);
+  const nowFloor = new Date(nowEod);
+  nowFloor.setHours(0, 0, 0, 0);
 
   const templates = await prisma.financeDteRecurringTemplate.findMany({
     where: {
       tenantId,
       isActive: true,
-      OR: [{ nextRunAt: null }, { nextRunAt: { lte: now } }],
+      OR: [
+        // Plantilla nueva sin schedule (recién creada, edge case).
+        { AND: [{ lastRunAt: null }, { nextRunAt: null }] },
+        // Plantilla con nextRunAt vencido.
+        { nextRunAt: { lte: nowEod } },
+      ],
     },
   });
 
@@ -617,18 +679,35 @@ export async function processDueTemplates(
   let skippedCount = 0;
 
   for (const t of templates) {
-    // Idempotency guard: si lastRunAt y nextRunAt ya están sincronizados
-    // (lastRunAt = today o futuro), saltamos.
+    // Idempotencia diaria: si ya corrió hoy, skip.
     if (t.lastRunAt) {
-      const last = new Date(t.lastRunAt);
-      last.setHours(0, 0, 0, 0);
-      const nowFloor = new Date(now);
-      nowFloor.setHours(0, 0, 0, 0);
-      if (last.getTime() === nowFloor.getTime()) {
+      const lastFloor = new Date(t.lastRunAt);
+      lastFloor.setHours(0, 0, 0, 0);
+      if (lastFloor.getTime() === nowFloor.getTime()) {
         skippedCount += 1;
         continue;
       }
     }
+
+    // Idempotencia mensual (defense-in-depth para frequency=monthly):
+    // si ya hay un run "success" en el mismo período mensual que today,
+    // skip. Esto protege contra bugs futuros en computeNextRunAt.
+    if (t.frequency === "monthly" && t.lastRunAt) {
+      const last = new Date(t.lastRunAt);
+      const sameYearMonth =
+        last.getUTCFullYear() === nowFloor.getUTCFullYear() &&
+        last.getUTCMonth() === nowFloor.getUTCMonth();
+      if (sameYearMonth) {
+        console.warn(
+          `[finance/recurring] template ${t.id} (${t.name}) skipped: ` +
+            `already ran this month (${last.toISOString().slice(0, 10)}). ` +
+            `This is defense-in-depth — check nextRunAt logic if frequent.`,
+        );
+        skippedCount += 1;
+        continue;
+      }
+    }
+
     const run = await runTemplate(tenantId, t.id);
     if (run.status === "success") successCount += 1;
     else if (run.status === "failed") failedCount += 1;
