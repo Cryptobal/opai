@@ -3,10 +3,11 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Search, LogOut, Loader2, Clock,
+  ArrowLeft, Search, LogOut, Loader2, Clock, Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { DynamicFormRenderer } from "./DynamicFormRenderer";
 import {
@@ -50,6 +51,9 @@ export function AccessControlExit({ installationId, guardId, config, onClose }: 
   const [step, setStep] = useState<ExitStep>("list");
   const [selectedRecord, setSelectedRecord] = useState<InSiteRecord | null>(null);
   const [exitFields, setExitFields] = useState<FormFieldConfig[]>([]);
+  // Observaciones del empty-state (cuando no hay fields exit configurados).
+  // Se reinicia cada vez que se abre el form para un record distinto.
+  const [emptyStateObservations, setEmptyStateObservations] = useState("");
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
@@ -102,6 +106,7 @@ export function AccessControlExit({ installationId, guardId, config, onClose }: 
     const fields = resolveExitFields(record.recordType);
     setSelectedRecord(record);
     setExitFields(fields);
+    setEmptyStateObservations("");
     setStep("form");
   };
 
@@ -183,6 +188,7 @@ export function AccessControlExit({ installationId, guardId, config, onClose }: 
               setStep("list");
               setSelectedRecord(null);
               setExitFields([]);
+              setEmptyStateObservations("");
             }}
             className="text-zinc-400 hover:text-zinc-200"
           >
