@@ -867,6 +867,31 @@ function AccountsTab({
 type TxSortField = "transactionDate" | "description" | "amount";
 type TxSortDir = "asc" | "desc";
 
+/**
+ * Normaliza una transacción cruda del API a `TransactionRow`.
+ *
+ * Prisma serializa `Decimal` como string en JSON, pero el resto del
+ * componente (sumas, comparaciones de signo, formateo CLP) asume `number`.
+ * Sin esta conversión:
+ *   - `selectedBulkSum` concatena strings → "0" + "721353" + "2000000" = "07213532000000"
+ *     que `fmtCLP.format` interpreta como 7.213.532.000.000.
+ *   - `BankTxReconcileSheet` tiene el mismo bug en `totalAmountSigned`.
+ * Centralizar acá garantiza que cualquier lugar que reciba un `TransactionRow`
+ * desde este componente trabaje con números reales.
+ */
+function normalizeTransaction(raw: any): TransactionRow {
+  return {
+    ...raw,
+    amount: typeof raw.amount === "string" ? Number(raw.amount) : raw.amount,
+    balance:
+      raw.balance == null
+        ? null
+        : typeof raw.balance === "string"
+          ? Number(raw.balance)
+          : raw.balance,
+  };
+}
+
 function TransactionsTab({
   accounts,
   canManage,
@@ -955,7 +980,7 @@ function TransactionsTab({
     [transactions, selectedTxIds],
   );
   const selectedBulkSum = useMemo(
-    () => selectedBulkTransactions.reduce((acc, t) => acc + t.amount, 0),
+    () => selectedBulkTransactions.reduce((acc, t) => acc + Number(t.amount), 0),
     [selectedBulkTransactions],
   );
 
@@ -1013,7 +1038,9 @@ function TransactionsTab({
       const json = await res.json();
       // El endpoint retorna { success, data: { transactions, total, page, ... } }
       const list = Array.isArray(json.data) ? json.data : json.data?.transactions;
-      setTransactions(Array.isArray(list) ? list : []);
+      setTransactions(
+        Array.isArray(list) ? list.map(normalizeTransaction) : [],
+      );
       setTotal(typeof json.data?.total === "number" ? json.data.total : 0);
     } catch {
       toast.error("Error al cargar movimientos");
@@ -1147,7 +1174,7 @@ function TransactionsTab({
         const json = await res.json();
         if (cancelled || !json?.success || !json.data) return;
         setBulkReconcileTxs(null);
-        setReconcileTx(json.data as TransactionRow);
+        setReconcileTx(normalizeTransaction(json.data));
         clearQuery();
       } catch {
         // silencioso: si la tx no existe, no abrimos nada
@@ -1386,10 +1413,16 @@ function TransactionsTab({
   );
 
   // Estado tri-state del checkbox header (todos / parcial / ninguno).
-  const visibleTxIds = transactions.map((t) => t.id);
-  const visibleSelectedCount = visibleTxIds.filter((id) =>
-    selectedTxIds.has(id),
-  ).length;
+  // Memoizado para no invalidar `toggleAllVisible` (useCallback con esta dep)
+  // ni `transactionColumns` (useMemo que depende transitivamente) en cada render.
+  const visibleTxIds = useMemo(
+    () => transactions.map((t) => t.id),
+    [transactions],
+  );
+  const visibleSelectedCount = useMemo(
+    () => visibleTxIds.filter((id) => selectedTxIds.has(id)).length,
+    [visibleTxIds, selectedTxIds],
+  );
   const headerCheckboxState: "all" | "some" | "none" =
     visibleSelectedCount === 0
       ? "none"
@@ -1416,30 +1449,42 @@ function TransactionsTab({
       {
         // Checkbox de selección (post 2026-05): antes solo existía en
         // mobile, lo que impedía conciliación masiva desde desktop.
+        // El wrapper <label> hace que TODA la celda sea zona de toggle,
+        // no solo el cuadradito de 16px. stopPropagation evita que el
+        // click se propague al onRowClick del <tr> y abra el modal
+        // individual perdiendo la selección.
         id: "_select",
         header: (
-          <input
-            type="checkbox"
-            aria-label="Seleccionar todos los visibles"
-            checked={headerCheckboxState === "all"}
-            ref={(el) => {
-              if (el) el.indeterminate = headerCheckboxState === "some";
-            }}
-            onChange={toggleAllVisible}
+          <label
+            className="flex h-full w-full items-center justify-center cursor-pointer"
             onClick={(e) => e.stopPropagation()}
-            className="h-4 w-4 rounded border-ds-border-default bg-ds-surface-2 text-primary cursor-pointer"
-          />
+          >
+            <input
+              type="checkbox"
+              aria-label="Seleccionar todos los visibles"
+              checked={headerCheckboxState === "all"}
+              ref={(el) => {
+                if (el) el.indeterminate = headerCheckboxState === "some";
+              }}
+              onChange={toggleAllVisible}
+              className="h-4 w-4 rounded border-ds-border-default bg-ds-surface-2 text-primary cursor-pointer"
+            />
+          </label>
         ),
         width: "w-10",
         cell: (row) => (
-          <input
-            type="checkbox"
-            aria-label={`Seleccionar mov ${row.id}`}
-            checked={selectedTxIds.has(row.id)}
-            onChange={() => toggleSelectTx(row.id)}
+          <label
+            className="flex h-full w-full items-center justify-center cursor-pointer -m-3.5 px-3.5 py-3"
             onClick={(e) => e.stopPropagation()}
-            className="h-4 w-4 rounded border-ds-border-default bg-ds-surface-2 text-primary cursor-pointer"
-          />
+          >
+            <input
+              type="checkbox"
+              aria-label={`Seleccionar mov ${row.id}`}
+              checked={selectedTxIds.has(row.id)}
+              onChange={() => toggleSelectTx(row.id)}
+              className="h-4 w-4 rounded border-ds-border-default bg-ds-surface-2 text-primary cursor-pointer"
+            />
+          </label>
         ),
       },
       {
@@ -1671,7 +1716,7 @@ function TransactionsTab({
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-24">
       {/* Filters — compactos en mobile (resumen + chevron), inline en desktop */}
       {isMobile && (
         <div className="rounded-lg border border-border bg-card/50 px-3 flex items-center gap-2 min-h-[48px]">
@@ -2012,39 +2057,12 @@ function TransactionsTab({
           </div>
         )}
 
-      {/* Acción de conciliación batch — solo cuando el usuario ya marcó filas.
-          Antes había acá un banner explicativo permanente ("Conciliar varios
-          movimientos (lote) · Marcá filas en la primera columna…"); se eliminó
-          para reducir ruido visual una vez que el patrón está internalizado.
-          La acción sigue accesible: aparece sticky-style apenas hay selección. */}
-      {canManage && !showHidden && selectedTxIds.size > 0 && (
-        <div className="rounded-lg border border-ds-border-default bg-ds-surface-2 px-3 py-2.5">
-          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            <span className="text-[13px] text-ds-text-2 whitespace-nowrap mr-auto">
-              <span className="font-semibold">{selectedTxIds.size}</span>{" "}
-              seleccionados ·{" "}
-              <span
-                className={cn(
-                  "font-mono tabular-nums",
-                  selectedBulkSum >= 0
-                    ? "text-status-ok-fg"
-                    : "text-status-danger-fg",
-                )}
-              >
-                {fmtCLP.format(selectedBulkSum)}
-              </span>
-            </span>
-            <Button
-              type="button"
-              size="sm"
-              className="h-10 sm:h-9"
-              onClick={openBulkReconcilePanel}
-            >
-              Conciliar selección
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* La barra de acciones bulk vive solo como pill flotante inferior
+          (ver bloque "Barra flotante: conciliar el lote y acciones secundarias"
+          más abajo). Antes había acá una barra estática redundante que causaba
+          layout shift al aparecer/desaparecer con la selección. La pill inferior
+          ya muestra count, sumatoria, y todas las acciones (Conciliar/Asignar/
+          Ocultar/Limpiar) sin empujar contenido. */}
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -2074,7 +2092,11 @@ function TransactionsTab({
                 canManage
                   ? (row) => {
                       if (!row.hiddenAt) {
-                        clearSelection();
+                        // No limpiar `selectedTxIds`: el modal individual
+                        // y la selección masiva son flujos ortogonales.
+                        // Si el usuario tenía 3 movimientos marcados y abre
+                        // uno para inspección, la pill flotante sigue
+                        // mostrando "3 seleccionados" al cerrar el modal.
                         setBulkReconcileTxs(null);
                         setReconcileTx(row);
                       }
@@ -2103,10 +2125,11 @@ function TransactionsTab({
                   onClick={
                     canManage && !tx.hiddenAt
                       ? (e) => {
-                          // No abrir el sheet si el click fue sobre el checkbox o sus children
+                          // No abrir el sheet si el click fue sobre el
+                          // checkbox o sus children. La selección bulk
+                          // se preserva: son flujos ortogonales.
                           const target = e.target as HTMLElement;
                           if (target.closest("[data-bulk-checkbox]")) return;
-                          clearSelection();
                           setBulkReconcileTxs(null);
                           setReconcileTx(tx);
                         }
@@ -2116,9 +2139,9 @@ function TransactionsTab({
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
                       {canManage && !tx.hiddenAt && (
-                        <div
+                        <label
                           data-bulk-checkbox
-                          className="pt-0.5"
+                          className="flex items-center justify-center min-h-[44px] min-w-[44px] -ml-2 -mt-2 -mb-2 cursor-pointer touch-manipulation"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <Checkbox
@@ -2126,7 +2149,7 @@ function TransactionsTab({
                             onCheckedChange={() => toggleSelectTx(tx.id)}
                             aria-label="Seleccionar movimiento"
                           />
-                        </div>
+                        </label>
                       )}
                       <div className="flex items-start justify-between gap-2 flex-1 min-w-0">
                       <div className="min-w-0 flex-1">
