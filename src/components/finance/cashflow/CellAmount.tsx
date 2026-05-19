@@ -54,6 +54,7 @@ export function CellAmount({
   dteFolio,
   dtes,
   modoCobro,
+  writeOffAmount,
 }: {
   projected: number;
   actual: number | null;
@@ -73,6 +74,10 @@ export function CellAmount({
    *  bruto; el descuento real del factoring se aplica al emitir cada
    *  factura puntual (modal aparte), no en la proyección. */
   modoCobro?: "DIRECTO" | "FACTORING";
+  /** Monto del ajuste contable (write-off) aplicado al DTE de la celda.
+   *  Positivo = diferencia en contra (pérdida); negativo = a favor
+   *  (ganancia). Render: badge "Δ" debajo del monto con tooltip. */
+  writeOffAmount?: number | null;
 }) {
   const hasBadge = cellStatus && cellStatus !== "PROJECTED";
   const overdueWarn =
@@ -107,6 +112,14 @@ export function CellAmount({
   // mostrado es bruto — el descuento real ocurre al emitir cada factura.
   if (modoCobro === "FACTORING" && projected > 0) {
     tooltipLines.push("Factoring · cobro acelerado");
+  }
+  if (writeOffAmount && writeOffAmount !== 0) {
+    const absWo = Math.abs(writeOffAmount);
+    tooltipLines.push(
+      writeOffAmount > 0
+        ? `Δ -${fmt.format(absWo)} → ajuste a "Diferencias en cobranza" (pérdida)`
+        : `Δ +${fmt.format(absWo)} → ajuste a "Diferencias en cobranza" (ganancia)`,
+    );
   }
 
   const dot = hasBadge ? (
@@ -182,6 +195,12 @@ export function CellAmount({
     ) : variance === 0 ? (
       <span className="relative inline-block">
         <span className="font-mono text-[12px]">{fmt.format(actual)}</span>
+        {writeOffAmount && writeOffAmount !== 0 ? (
+          <div className="font-mono text-[10px] text-status-info-fg">
+            Δ {writeOffAmount > 0 ? "-" : "+"}
+            {fmt.format(Math.abs(writeOffAmount))} ajuste
+          </div>
+        ) : null}
         {factoringBadge}
         {dot}
       </span>
@@ -204,6 +223,12 @@ export function CellAmount({
             {variance > 0 ? "+" : ""}
             {fmt.format(variance)}
           </div>
+          {writeOffAmount && writeOffAmount !== 0 ? (
+            <div className="font-mono text-[10px] text-status-info-fg">
+              Δ {writeOffAmount > 0 ? "-" : "+"}
+              {fmt.format(Math.abs(writeOffAmount))} ajuste
+            </div>
+          ) : null}
         </div>
         {factoringBadge}
         {dot}

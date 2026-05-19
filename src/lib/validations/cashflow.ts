@@ -30,6 +30,12 @@ export const updateCashflowConfigSchema = z.object({
   // % sobre líquidos cuando quincenaMode=PCT_LIQUIDO. Fracción 0–0.5.
   quincenaPctLiquido: z.number().min(0).max(0.5).optional(),
   quincenaPayDay: z.number().int().min(1).max(28).optional(),
+  writeOffAutoEnabled: z.boolean().optional(),
+  writeOffMaxAmountClp: z.number().int().min(0).max(10_000_000).optional(),
+  // Fracción 0–0.1 (0% a 10%). Default 0.005 = 0,5%.
+  writeOffMaxPercent: z.number().min(0).max(0.1).optional(),
+  writeOffShortPaymentAccountId: z.string().uuid().nullable().optional(),
+  writeOffOverPaymentAccountId: z.string().uuid().nullable().optional(),
 });
 
 export const createCashflowCategorySchema = z.object({

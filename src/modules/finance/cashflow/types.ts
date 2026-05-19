@@ -143,6 +143,12 @@ export interface ProjectionRowItemValue {
    *  el botón "Igualar" suma los totales en lugar de matchear contra una
    *  sola. Vacío o ausente = celda proyectada sin conciliar. */
   dtes?: CellDteSummary[];
+  /** Monto del ajuste contable (write-off) imputado a esta celda. Presente
+   *  cuando el DTE vinculado tuvo un FinanceJournalEntry con sourceType=
+   *  RECONCILIATION. Positivo = diferencia en contra (pérdida); negativo =
+   *  diferencia a favor (ganancia). Sirve para mostrar un badge "Δ" en la
+   *  celda y un tooltip extendido con el detalle del ajuste. */
+  writeOffAmount?: number | null;
 }
 
 /** Resumen mínimo de un DTE conciliado a una celda del cashflow. Permite

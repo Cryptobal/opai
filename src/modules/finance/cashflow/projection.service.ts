@@ -1378,8 +1378,12 @@ export async function buildProjection(
   const dteGrossById = new Map<string, number>();
   const dteIssueDateById = new Map<string, string>();
   const activeFactoringDteIds = new Set<string>();
+  /** Suma del write-off (totalDebit) por DTE. Positivo = SHORT (pérdida),
+   *  negativo = OVER (ganancia). Cargado del FinanceJournalEntry con
+   *  sourceType=RECONCILIATION y sourceId=dteId. */
+  const writeOffByDteId = new Map<string, number>();
   if (dteIds.length > 0) {
-    const [dtes, factoringOps] = await Promise.all([
+    const [dtes, factoringOps, writeOffEntries] = await Promise.all([
       prisma.financeDte.findMany({
         where: { tenantId, id: { in: dteIds } },
         select: {
@@ -1401,6 +1405,19 @@ export async function buildProjection(
         },
         select: { dteId: true },
       }),
+      prisma.financeJournalEntry.findMany({
+        where: {
+          tenantId,
+          sourceType: "RECONCILIATION",
+          sourceId: { in: dteIds },
+          status: "POSTED",
+        },
+        select: {
+          sourceId: true,
+          totalDebit: true,
+          description: true,
+        },
+      }),
     ]);
     for (const d of dtes) {
       dteStatusById.set(d.id, {
@@ -1415,6 +1432,20 @@ export async function buildProjection(
     }
     for (const f of factoringOps) {
       if (f.dteId) activeFactoringDteIds.add(f.dteId);
+    }
+    for (const e of writeOffEntries) {
+      if (!e.sourceId) continue;
+      const amount = Number(e.totalDebit);
+      // El signo (SHORT vs OVER) se infiere del descripción del asiento:
+      // si contiene "excedente" es OVER (negativo, ganancia); en otro
+      // caso asumimos SHORT (positivo, pérdida). Es heurística — el
+      // dato semántico vive en el detalle del asiento.
+      const isOver = (e.description ?? "").toLowerCase().includes("excedente");
+      const signed = isOver ? -amount : amount;
+      writeOffByDteId.set(
+        e.sourceId,
+        (writeOffByDteId.get(e.sourceId) ?? 0) + signed,
+      );
     }
   }
   const cellStatusByDteId = new Map<
@@ -1445,6 +1476,7 @@ export async function buildProjection(
     dteGrossById,
     dteIssueDateById,
     activeFactoringDteIds,
+    writeOffByDteId,
   );
 
   const openingBreakdown = await resolveOpeningBalance(tenantId);
@@ -1672,6 +1704,7 @@ function buildRows(
   dteGrossById: Map<string, number>,
   dteIssueDateById: Map<string, string>,
   activeFactoringDteIds: Set<string>,
+  writeOffByDteId: Map<string, number>,
 ): ProjectionRow[] {
   const rows: ProjectionRow[] = [];
   for (const cat of categories) {
@@ -1768,8 +1801,20 @@ function buildRows(
         if (derived) {
           const cell = detail.values[bIdx];
           const current = cell.cellStatus ?? "PROJECTED";
-          if (CELL_STATUS_RANK[derived.status] > CELL_STATUS_RANK[current]) {
-            cell.cellStatus = derived.status;
+          // Si la occurrence ya está PAID y matched al banco, el cellStatus
+          // visual debe ser PAID independiente del paymentStatus del DTE
+          // (que puede quedar PARTIAL por varianza UF/redondeo dentro de la
+          // tolerancia mínima de $5 CLP en recomputeDtePaymentAggregate).
+          const isOccurrencePaid =
+            o.status === "PAID" && o.bankTransactionId !== null;
+          const effectiveStatus: CashflowCellStatus = isOccurrencePaid
+            ? "PAID"
+            : derived.status;
+          const effectiveDaysOverdue = isOccurrencePaid
+            ? 0
+            : derived.daysOverdue;
+          if (CELL_STATUS_RANK[effectiveStatus] > CELL_STATUS_RANK[current]) {
+            cell.cellStatus = effectiveStatus;
             cell.dteId = derived.dteId;
             cell.dteFolio = derived.dteId
               ? (dteFolioById.get(derived.dteId) ?? null)
@@ -1777,19 +1822,18 @@ function buildRows(
             cell.dteGrossAmount = derived.dteId
               ? (dteGrossById.get(derived.dteId) ?? null)
               : null;
-            cell.daysOverdue = derived.daysOverdue;
+            cell.daysOverdue = effectiveDaysOverdue;
           } else if (
-            derived.status === "INVOICED" &&
+            effectiveStatus === "INVOICED" &&
             current === "INVOICED" &&
-            (derived.daysOverdue ?? 0) > (cell.daysOverdue ?? 0)
+            (effectiveDaysOverdue ?? 0) > (cell.daysOverdue ?? 0)
           ) {
-            cell.daysOverdue = derived.daysOverdue;
+            cell.daysOverdue = effectiveDaysOverdue;
           }
           // Acumular el DTE en el array de facturas conciliadas (dedup por id).
-          // Esto permite al popover listar TODAS las facturas que caen en la
-          // celda — no solo la "más informativa" — para que el usuario pueda
-          // verlas individualmente, distinguir facturas antiguas cobradas hoy
-          // (issueDate vs scheduledDate), y sumar al "Igualar al total real".
+          // El item del array refleja el estado real de ESTA occurrence (no el
+          // del DTE global) — si está PAID con banco, el popover lo lista como
+          // pagada, aunque el DTE en BD siga en PARTIAL por varianza.
           const dtes = cell.dtes ?? [];
           if (!dtes.some((d) => d.id === o.dteId)) {
             dtes.push({
@@ -1798,10 +1842,18 @@ function buildRows(
               totalAmount: dteGrossById.get(o.dteId) ?? 0,
               issueDate: dteIssueDateById.get(o.dteId) ?? "",
               hasFactoring: activeFactoringDteIds.has(o.dteId),
-              cellStatus: derived.status,
-              daysOverdue: derived.daysOverdue,
+              cellStatus: effectiveStatus,
+              daysOverdue: effectiveDaysOverdue,
             });
             cell.dtes = dtes;
+          }
+          // Si el DTE tuvo un write-off (auto o manual), exponemos el monto
+          // para que la celda muestre el badge "Δ". Suma del totalDebit de
+          // todos los asientos RECONCILIATION asociados al DTE — típicamente
+          // hay uno solo, pero si hubo varias conciliaciones acumulamos.
+          const wo = writeOffByDteId.get(o.dteId);
+          if (wo !== undefined && wo !== 0) {
+            cell.writeOffAmount = (cell.writeOffAmount ?? 0) + wo;
           }
         }
         // Si aún no hay folio capturado y este DTE tiene uno conocido, lo

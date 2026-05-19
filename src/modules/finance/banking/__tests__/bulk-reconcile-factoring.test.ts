@@ -36,7 +36,7 @@ vi.mock("@/lib/prisma", () => {
     create: vi.fn(),
     findFirst: vi.fn(),
   };
-  const financeBankAccount = { findFirst: vi.fn() };
+  const financeBankAccount = { findFirst: vi.fn(), findUnique: vi.fn() };
   const financeCashflowOccurrence = {
     findFirst: vi.fn(),
     update: vi.fn(),
