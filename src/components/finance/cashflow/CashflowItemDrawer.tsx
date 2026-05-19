@@ -218,7 +218,7 @@ export function CashflowItemDrawer({
                 />
                 {target.dteId && (
                   <a
-                    href={`/finanzas/facturacion/dtes/${target.dteId}`}
+                    href={`/finanzas/facturacion/dtes?openDteId=${target.dteId}`}
                     className="inline-flex items-center gap-1 text-[12px] text-primary hover:underline"
                   >
                     Ver DTE

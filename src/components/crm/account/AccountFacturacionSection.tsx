@@ -96,7 +96,7 @@ function DteCard({
       title={`${resolvedPrefix} N° ${dte.folio}`}
       subtitle={`${formatDate(dte.date)} · ${formatCLP(dte.totalAmount)}`}
       badge={badgeFor(dte.paymentStatus)}
-      href={`/finanzas/facturacion/dtes/${dte.id}`}
+      href={`/finanzas/facturacion/dtes?openDteId=${dte.id}`}
     />
   );
 }
