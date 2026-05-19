@@ -27,6 +27,11 @@ import type {
 import { createManualEntry } from "../accounting/journal-entry.service";
 import { normalizeRutForMatch } from "./auto-match-payment.service";
 import { extractCanonicalRutFromBankText } from "./rut-recognition.service";
+import {
+  evaluateWriteOff,
+  applyAutoWriteOff,
+  resolveCounterpartyAccountId,
+} from "./write-off.service";
 
 // ── Helpers internos ──
 
@@ -56,7 +61,17 @@ async function nextPaymentRecordCode(
  */
 async function recomputeDtePaymentAggregate(
   txClient: Prisma.TransactionClient,
-  dteId: string
+  dteId: string,
+  opts?: {
+    /** Tenant del DTE — si se pasa, intenta write-off automático. */
+    tenantId?: string;
+    /** Fecha del pago disparador (para period lookup del journal entry). */
+    paymentDate?: Date;
+    /** Cuenta contable del banco que recibió/emitió el pago (para OVER). */
+    bankAccountPlanId?: string | null;
+    /** Usuario que disparó la conciliación. */
+    userId?: string | null;
+  }
 ): Promise<void> {
   const dte = await txClient.financeDte.findUnique({
     where: { id: dteId },
@@ -89,25 +104,99 @@ async function recomputeDtePaymentAggregate(
     dte.amountPaid.toNumber() + 0.01 >= total;
   if (manualPaidStanding) return;
 
-  const pending = Math.max(0, total - paid);
   let status: "PAID" | "PARTIAL" | "UNPAID" | "OVERDUE";
+  let writeOffApplied = false;
+
   if (paid <= 0) {
     const overdue = dte.dueDate ? dte.dueDate.getTime() < Date.now() : false;
     status = overdue ? "OVERDUE" : "UNPAID";
   } else if (paid + 5 >= total) {
-    // Tolerancia de $5 CLP para absorber residuos de redondeo cuando un
-    // pago se reparte entre N movimientos (bulk reconcile N→M). El
+    // Tolerancia mínima de $5 CLP para absorber residuos de redondeo cuando
+    // un pago se reparte entre N movimientos (bulk reconcile N→M). El
     // redondeo a entero CLP por mov puede dejar al DTE por debajo de su
     // totalAmount por algunos pesos sin que sea realmente un cobro parcial.
     status = "PAID";
   } else {
     status = "PARTIAL";
+
+    // El pago no cubre el total con la tolerancia mínima. Antes de marcar
+    // PARTIAL, intentar write-off automático: si la diferencia cae dentro
+    // del umbral configurado por el tenant, cerrar el DTE como PAID y
+    // crear un asiento contable de ajuste.
+    if (opts?.tenantId && opts.paymentDate) {
+      const config = await txClient.financeCashflowConfig.findUnique({
+        where: { tenantId: opts.tenantId },
+        select: {
+          writeOffAutoEnabled: true,
+          writeOffMaxAmountClp: true,
+          writeOffMaxPercent: true,
+          writeOffShortPaymentAccountId: true,
+          writeOffOverPaymentAccountId: true,
+        },
+      });
+
+      if (config) {
+        const decision = evaluateWriteOff(total, paid, config);
+        if (decision.shouldApply && decision.accountId && decision.direction) {
+          const dteFull = await txClient.financeDte.findUnique({
+            where: { id: dteId },
+            select: {
+              folio: true,
+              direction: true,
+              supplierId: true,
+              receiverName: true,
+              issuerName: true,
+            },
+          });
+
+          const counterpartyAccountId = dteFull
+            ? await resolveCounterpartyAccountId(txClient, opts.tenantId, {
+                direction: dteFull.direction === "ISSUED" ? "ISSUED" : "RECEIVED",
+                supplierId: dteFull.supplierId,
+              })
+            : null;
+          const counterpartyName =
+            dteFull?.direction === "ISSUED"
+              ? (dteFull.receiverName ?? "Cliente")
+              : (dteFull?.issuerName ?? "Proveedor");
+
+          try {
+            await applyAutoWriteOff(txClient, {
+              tenantId: opts.tenantId,
+              dteId,
+              dteFolio: dteFull?.folio ?? null,
+              dteCustomerName: counterpartyName,
+              variance: total - paid,
+              direction: decision.direction,
+              adjustmentAccountId: decision.accountId,
+              counterpartyAccountId,
+              bankAccountPlanId: opts.bankAccountPlanId ?? null,
+              paymentDate: opts.paymentDate,
+              createdBy: opts.userId ?? "system",
+            });
+            status = "PAID";
+            writeOffApplied = true;
+          } catch (err) {
+            console.error(
+              `[write-off] No se pudo aplicar write-off automático al DTE ${dteId}:`,
+              err instanceof Error ? err.message : err,
+            );
+          }
+        }
+      }
+    }
   }
+
+  // Si se aplicó write-off, el `amountPaid` del DTE se completa al total
+  // (el saldo se cerró contablemente). Si no, se queda con `paid` real.
+  const finalAmountPaid = writeOffApplied ? total : paid;
+  const finalAmountPending = Math.max(0, total - finalAmountPaid);
+
   await txClient.financeDte.update({
     where: { id: dteId },
     data: {
-      amountPaid: new Decimal(paid),
-      amountPending: new Decimal(pending),
+      amountPaid: new Decimal(finalAmountPaid),
+      amountPending: new Decimal(finalAmountPending),
       paymentStatus: status,
     },
   });
@@ -1068,8 +1157,17 @@ export async function setTransactionLinks(
 
     // 4. Recomputar payment aggregate de cada DTE tocado (los que perdieron
     //    allocation por la reversión + los que ganaron por los nuevos links).
+    const bankAccForWriteOff = await tx2.financeBankAccount.findUnique({
+      where: { id: tx.bankAccountId },
+      select: { accountPlanId: true },
+    });
     for (const dteId of Array.from(dteIdsToRecompute)) {
-      await recomputeDtePaymentAggregate(tx2, dteId);
+      await recomputeDtePaymentAggregate(tx2, dteId, {
+        tenantId,
+        paymentDate: tx.transactionDate,
+        bankAccountPlanId: bankAccForWriteOff?.accountPlanId ?? null,
+        userId,
+      });
     }
 
     // 4b. Sincronizar reconciledAt en los DTEs. Estado de conciliación es
@@ -1328,7 +1426,21 @@ export async function bulkReconcileToDte(
         data: { reconciliationStatus: "MATCHED" },
       });
     }
-    await recomputeDtePaymentAggregate(tx2, dte.id);
+    const primaryTx = [...txs].sort(
+      (a, b) => a.transactionDate.getTime() - b.transactionDate.getTime(),
+    )[0];
+    const bankAccForWriteOff = primaryTx
+      ? await tx2.financeBankAccount.findUnique({
+          where: { id: primaryTx.bankAccountId },
+          select: { accountPlanId: true },
+        })
+      : null;
+    await recomputeDtePaymentAggregate(tx2, dte.id, {
+      tenantId,
+      paymentDate: primaryTx?.transactionDate,
+      bankAccountPlanId: bankAccForWriteOff?.accountPlanId ?? null,
+      userId,
+    });
   });
 
   // Vincular la occurrence proyectada del flujo de caja al pago, igual que
@@ -1847,8 +1959,22 @@ export async function bulkReconcileToDtes(
     // Recompute solo para DTEs: las cesiones no tienen amountPaid
     // derivado de allocations, se manejan vía status/fundedAt fuera de
     // la transacción.
+    const primaryTxForWriteOff = [...txs].sort(
+      (a, b) => a.transactionDate.getTime() - b.transactionDate.getTime(),
+    )[0];
+    const bankAccForWriteOff = primaryTxForWriteOff
+      ? await tx2.financeBankAccount.findUnique({
+          where: { id: primaryTxForWriteOff.bankAccountId },
+          select: { accountPlanId: true },
+        })
+      : null;
     for (const a of dteAllocs) {
-      await recomputeDtePaymentAggregate(tx2, a.dteId);
+      await recomputeDtePaymentAggregate(tx2, a.dteId, {
+        tenantId,
+        paymentDate: primaryTxForWriteOff?.transactionDate,
+        bankAccountPlanId: bankAccForWriteOff?.accountPlanId ?? null,
+        userId,
+      });
     }
     // Cesiones: marcar `fundedAt` con la fecha del primer mov del lote
     // (los lotes con varios movs son típicos de batches factoring). La

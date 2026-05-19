@@ -7813,6 +7813,23 @@ model FinanceCashflowConfig {
   quincenaPctLiquido             Decimal                @default(0.10) @map("quincena_pct_liquido") @db.Decimal(6, 4)
   /// Día del mes en que se paga la quincena. Default 15.
   quincenaPayDay                 Int                    @default(15) @map("quincena_pay_day")
+  /// Activa el write-off automático de diferencias menores al conciliar
+  /// movimientos bancarios contra DTEs. Cuando |variance| <= min(absoluto,
+  /// total × pct), el DTE se cierra como PAID y la diferencia se imputa
+  /// automáticamente a la cuenta contable configurada. Default true.
+  writeOffAutoEnabled            Boolean                @default(true) @map("write_off_auto_enabled")
+  /// Umbral absoluto en CLP. Default 10.000. La regla efectiva es el MENOR
+  /// entre este valor y `total × writeOffMaxPercent`.
+  writeOffMaxAmountClp           Int                    @default(10000) @map("write_off_max_amount_clp")
+  /// Umbral relativo (fracción, 0–1). Default 0.005 = 0,5%. La regla
+  /// efectiva es el MENOR entre `total × este` y `writeOffMaxAmountClp`.
+  writeOffMaxPercent             Decimal                @default(0.005) @map("write_off_max_percent") @db.Decimal(6, 4)
+  /// FK a FinanceAccountPlan — cuenta usada cuando el cliente pagó MENOS
+  /// que lo facturado (shortfall, gasto/pérdida para el tenant).
+  writeOffShortPaymentAccountId  String?                @map("write_off_short_payment_account_id") @db.Uuid
+  /// FK a FinanceAccountPlan — cuenta usada cuando el cliente pagó MÁS
+  /// que lo facturado (surplus, ingreso/ganancia para el tenant).
+  writeOffOverPaymentAccountId   String?                @map("write_off_over_payment_account_id") @db.Uuid
   createdAt                      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 

@@ -1768,8 +1768,20 @@ function buildRows(
         if (derived) {
           const cell = detail.values[bIdx];
           const current = cell.cellStatus ?? "PROJECTED";
-          if (CELL_STATUS_RANK[derived.status] > CELL_STATUS_RANK[current]) {
-            cell.cellStatus = derived.status;
+          // Si la occurrence ya está PAID y matched al banco, el cellStatus
+          // visual debe ser PAID independiente del paymentStatus del DTE
+          // (que puede quedar PARTIAL por varianza UF/redondeo dentro de la
+          // tolerancia mínima de $5 CLP en recomputeDtePaymentAggregate).
+          const isOccurrencePaid =
+            o.status === "PAID" && o.bankTransactionId !== null;
+          const effectiveStatus: CashflowCellStatus = isOccurrencePaid
+            ? "PAID"
+            : derived.status;
+          const effectiveDaysOverdue = isOccurrencePaid
+            ? 0
+            : derived.daysOverdue;
+          if (CELL_STATUS_RANK[effectiveStatus] > CELL_STATUS_RANK[current]) {
+            cell.cellStatus = effectiveStatus;
             cell.dteId = derived.dteId;
             cell.dteFolio = derived.dteId
               ? (dteFolioById.get(derived.dteId) ?? null)
@@ -1777,19 +1789,18 @@ function buildRows(
             cell.dteGrossAmount = derived.dteId
               ? (dteGrossById.get(derived.dteId) ?? null)
               : null;
-            cell.daysOverdue = derived.daysOverdue;
+            cell.daysOverdue = effectiveDaysOverdue;
           } else if (
-            derived.status === "INVOICED" &&
+            effectiveStatus === "INVOICED" &&
             current === "INVOICED" &&
-            (derived.daysOverdue ?? 0) > (cell.daysOverdue ?? 0)
+            (effectiveDaysOverdue ?? 0) > (cell.daysOverdue ?? 0)
           ) {
-            cell.daysOverdue = derived.daysOverdue;
+            cell.daysOverdue = effectiveDaysOverdue;
           }
           // Acumular el DTE en el array de facturas conciliadas (dedup por id).
-          // Esto permite al popover listar TODAS las facturas que caen en la
-          // celda — no solo la "más informativa" — para que el usuario pueda
-          // verlas individualmente, distinguir facturas antiguas cobradas hoy
-          // (issueDate vs scheduledDate), y sumar al "Igualar al total real".
+          // El item del array refleja el estado real de ESTA occurrence (no el
+          // del DTE global) — si está PAID con banco, el popover lo lista como
+          // pagada, aunque el DTE en BD siga en PARTIAL por varianza.
           const dtes = cell.dtes ?? [];
           if (!dtes.some((d) => d.id === o.dteId)) {
             dtes.push({
@@ -1798,8 +1809,8 @@ function buildRows(
               totalAmount: dteGrossById.get(o.dteId) ?? 0,
               issueDate: dteIssueDateById.get(o.dteId) ?? "",
               hasFactoring: activeFactoringDteIds.has(o.dteId),
-              cellStatus: derived.status,
-              daysOverdue: derived.daysOverdue,
+              cellStatus: effectiveStatus,
+              daysOverdue: effectiveDaysOverdue,
             });
             cell.dtes = dtes;
           }
