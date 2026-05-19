@@ -47,6 +47,12 @@ interface CashflowConfig {
   /** % sobre líquidos cuando quincenaMode=PCT_LIQUIDO (0–1). */
   quincenaPctLiquido: number;
   quincenaPayDay: number;
+  writeOffAutoEnabled: boolean;
+  writeOffMaxAmountClp: number;
+  /** Fracción 0–0.1 (0,5% default = 0.005). */
+  writeOffMaxPercent: number;
+  writeOffShortPaymentAccountId: string | null;
+  writeOffOverPaymentAccountId: string | null;
 }
 
 /** Prisma serializa campos Decimal como string en JSON; esta interfaz refleja esa realidad. */
@@ -58,6 +64,7 @@ type RawCashflowConfig = Omit<
   | "turnosExtraPreviRedDiscountPct"
   | "retiroSocioPctVentas"
   | "quincenaPctLiquido"
+  | "writeOffMaxPercent"
 > & {
   ufMonthlyGrowthPct?: number | string;
   turnosExtraPercentage: number | string;
@@ -65,6 +72,7 @@ type RawCashflowConfig = Omit<
   turnosExtraPreviRedDiscountPct: number | string;
   retiroSocioPctVentas: number | string;
   quincenaPctLiquido: number | string;
+  writeOffMaxPercent: number | string;
 };
 
 interface Category {
@@ -130,6 +138,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
     turnosExtraPreviRedDiscountPct: Number(initialConfig.turnosExtraPreviRedDiscountPct),
     retiroSocioPctVentas: Number(initialConfig.retiroSocioPctVentas ?? 0),
     quincenaPctLiquido: Number(initialConfig.quincenaPctLiquido ?? 0.1),
+    writeOffMaxPercent: Number(initialConfig.writeOffMaxPercent ?? 0.005),
   });
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [savingConfig, setSavingConfig] = useState(false);
@@ -587,6 +596,133 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
             className="w-full sm:w-auto h-10 sm:h-9"
           >
             {savingConfig ? "Guardando..." : "Guardar parámetros"}
+          </Button>
+        </div>
+      </Surface>
+
+      {/* Sección: Diferencias en cobranza (write-off automático) */}
+      <Surface elevation={1} padding="md">
+        <h2 className="font-semibold mb-1">Diferencias en cobranza</h2>
+        <p className="text-[12px] text-ds-text-3 mb-3">
+          Cuando un cobro/pago concilia contra una factura con diferencia menor
+          al umbral, el DTE se cierra como PAID y la diferencia se imputa
+          automáticamente a la cuenta contable elegida (asiento POSTED). Se
+          aplica el MENOR entre el umbral absoluto y el relativo. Si la
+          diferencia excede ambos, el DTE queda PARTIAL y requiere decisión
+          manual.
+        </p>
+        <div className="flex items-start justify-between gap-3 p-3 rounded-ds-md bg-muted/20 mb-3">
+          <div className="min-w-0">
+            <p className="font-medium text-[13px]">Cerrar diferencias automáticamente</p>
+            <p className="text-[12px] text-ds-text-3">
+              Activá el motor de write-off automático para cerrar diferencias
+              menores sin intervención.
+            </p>
+          </div>
+          <Switch
+            checked={config.writeOffAutoEnabled}
+            onCheckedChange={(v) => setField("writeOffAutoEnabled", v)}
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Label>Umbral absoluto (CLP)</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="number"
+              min={0}
+              max={10_000_000}
+              step={1000}
+              value={config.writeOffMaxAmountClp}
+              onChange={(e) =>
+                setField("writeOffMaxAmountClp", Number(e.target.value))
+              }
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Default <strong>$10.000</strong>. Diferencias mayores requieren
+              cierre manual.
+            </p>
+          </div>
+          <div>
+            <Label>Umbral relativo (%)</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="number"
+              min={0}
+              max={10}
+              step={0.05}
+              value={(config.writeOffMaxPercent * 100).toFixed(3)}
+              onChange={(e) =>
+                setField("writeOffMaxPercent", Number(e.target.value) / 100)
+              }
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Default <strong>0,5%</strong> del total. Protege facturas chicas
+              de tolerancias desproporcionadas.
+            </p>
+          </div>
+          <div>
+            <Label>Cuenta para diferencias en contra (cliente pagó menos)</Label>
+            <Select
+              value={config.writeOffShortPaymentAccountId ?? "__none__"}
+              onValueChange={(v) =>
+                setField(
+                  "writeOffShortPaymentAccountId",
+                  v === "__none__" ? null : v,
+                )
+              }
+            >
+              <SelectTrigger className="h-10 sm:h-9">
+                <SelectValue placeholder="Seleccionar cuenta…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— sin asignar —</SelectItem>
+                {accountOptions.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.code} · {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Típicamente <strong>4.4.95.001 Diferencias en cobranza - pérdida</strong>.
+            </p>
+          </div>
+          <div>
+            <Label>Cuenta para diferencias a favor (cliente pagó más)</Label>
+            <Select
+              value={config.writeOffOverPaymentAccountId ?? "__none__"}
+              onValueChange={(v) =>
+                setField(
+                  "writeOffOverPaymentAccountId",
+                  v === "__none__" ? null : v,
+                )
+              }
+            >
+              <SelectTrigger className="h-10 sm:h-9">
+                <SelectValue placeholder="Seleccionar cuenta…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— sin asignar —</SelectItem>
+                {accountOptions.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.code} · {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Típicamente <strong>3.3.95.001 Diferencias en cobranza - ganancia</strong>.
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 sm:flex sm:justify-end">
+          <Button
+            onClick={saveConfig}
+            disabled={savingConfig}
+            className="w-full sm:w-auto h-10 sm:h-9"
+          >
+            {savingConfig ? "Guardando..." : "Guardar configuración"}
           </Button>
         </div>
       </Surface>

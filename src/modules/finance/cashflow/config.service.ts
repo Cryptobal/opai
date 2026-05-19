@@ -38,6 +38,11 @@ export async function updateCashflowConfig(
     quincenaMode: "FICHA" | "PCT_LIQUIDO";
     quincenaPctLiquido: number;
     quincenaPayDay: number;
+    writeOffAutoEnabled: boolean;
+    writeOffMaxAmountClp: number;
+    writeOffMaxPercent: number;
+    writeOffShortPaymentAccountId: string | null;
+    writeOffOverPaymentAccountId: string | null;
   }>,
 ): Promise<FinanceCashflowConfig> {
   await getOrCreateCashflowConfig(tenantId);

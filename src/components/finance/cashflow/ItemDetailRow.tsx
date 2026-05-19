@@ -233,6 +233,7 @@ export function ItemDetailRow({
               dteFolio={v.dteFolio ?? null}
               dtes={v.dtes}
               modoCobro={item.modoCobro}
+              writeOffAmount={v.writeOffAmount ?? null}
             />
           </span>
         );

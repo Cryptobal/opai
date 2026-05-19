@@ -1378,8 +1378,12 @@ export async function buildProjection(
   const dteGrossById = new Map<string, number>();
   const dteIssueDateById = new Map<string, string>();
   const activeFactoringDteIds = new Set<string>();
+  /** Suma del write-off (totalDebit) por DTE. Positivo = SHORT (pérdida),
+   *  negativo = OVER (ganancia). Cargado del FinanceJournalEntry con
+   *  sourceType=RECONCILIATION y sourceId=dteId. */
+  const writeOffByDteId = new Map<string, number>();
   if (dteIds.length > 0) {
-    const [dtes, factoringOps] = await Promise.all([
+    const [dtes, factoringOps, writeOffEntries] = await Promise.all([
       prisma.financeDte.findMany({
         where: { tenantId, id: { in: dteIds } },
         select: {
@@ -1401,6 +1405,19 @@ export async function buildProjection(
         },
         select: { dteId: true },
       }),
+      prisma.financeJournalEntry.findMany({
+        where: {
+          tenantId,
+          sourceType: "RECONCILIATION",
+          sourceId: { in: dteIds },
+          status: "POSTED",
+        },
+        select: {
+          sourceId: true,
+          totalDebit: true,
+          description: true,
+        },
+      }),
     ]);
     for (const d of dtes) {
       dteStatusById.set(d.id, {
@@ -1415,6 +1432,20 @@ export async function buildProjection(
     }
     for (const f of factoringOps) {
       if (f.dteId) activeFactoringDteIds.add(f.dteId);
+    }
+    for (const e of writeOffEntries) {
+      if (!e.sourceId) continue;
+      const amount = Number(e.totalDebit);
+      // El signo (SHORT vs OVER) se infiere del descripción del asiento:
+      // si contiene "excedente" es OVER (negativo, ganancia); en otro
+      // caso asumimos SHORT (positivo, pérdida). Es heurística — el
+      // dato semántico vive en el detalle del asiento.
+      const isOver = (e.description ?? "").toLowerCase().includes("excedente");
+      const signed = isOver ? -amount : amount;
+      writeOffByDteId.set(
+        e.sourceId,
+        (writeOffByDteId.get(e.sourceId) ?? 0) + signed,
+      );
     }
   }
   const cellStatusByDteId = new Map<
@@ -1445,6 +1476,7 @@ export async function buildProjection(
     dteGrossById,
     dteIssueDateById,
     activeFactoringDteIds,
+    writeOffByDteId,
   );
 
   const openingBreakdown = await resolveOpeningBalance(tenantId);
@@ -1672,6 +1704,7 @@ function buildRows(
   dteGrossById: Map<string, number>,
   dteIssueDateById: Map<string, string>,
   activeFactoringDteIds: Set<string>,
+  writeOffByDteId: Map<string, number>,
 ): ProjectionRow[] {
   const rows: ProjectionRow[] = [];
   for (const cat of categories) {
@@ -1813,6 +1846,14 @@ function buildRows(
               daysOverdue: effectiveDaysOverdue,
             });
             cell.dtes = dtes;
+          }
+          // Si el DTE tuvo un write-off (auto o manual), exponemos el monto
+          // para que la celda muestre el badge "Δ". Suma del totalDebit de
+          // todos los asientos RECONCILIATION asociados al DTE — típicamente
+          // hay uno solo, pero si hubo varias conciliaciones acumulamos.
+          const wo = writeOffByDteId.get(o.dteId);
+          if (wo !== undefined && wo !== 0) {
+            cell.writeOffAmount = (cell.writeOffAmount ?? 0) + wo;
           }
         }
         // Si aún no hay folio capturado y este DTE tiene uno conocido, lo
