@@ -659,6 +659,52 @@ export function getFieldsForPhase(
   });
 }
 
+/** Filtra los fields que serían capturados automáticamente por el wizard
+ *  según el scan mode que eligió el guardia, evitando duplicar inputs en
+ *  el form dinámico.
+ *
+ *  Reglas:
+ *  - chosenScanMode === "plate": el VehiclePlateOCR captura `vehicle_plate`.
+ *    Se omiten del form los fields cuyo `field` sea "vehicle_plate" y los
+ *    de `type` "photo_plate". Los systemFields de cédula (rut,
+ *    documentSerial) también se omiten porque el guardia no pasará por
+ *    el wizard de cédula en este flujo; si el admin quiere RUT manual en
+ *    este modo debe crear un custom field con otra key.
+ *  - chosenScanMode === "rut": el CedulaQRScanner / RUT manual capturan
+ *    `rut` y `documentSerial`. Se omiten esos fields y los de `type`
+ *    "photo_id" o "qr_cedula". `vehicle_plate` también se omite — si el
+ *    admin lo configuró como systemField AUTO, no se captura en este
+ *    flujo. Para pedir patente manual en flujo de cédula, crear custom
+ *    field con otra key.
+ *  - chosenScanMode === "none" o null: no filtra (form completo).
+ *
+ *  Custom fields (sin `systemField: true` y con `field` fuera de
+ *  SYSTEM_FIELD_KEYS) NUNCA se filtran — son configuración explícita del
+ *  admin y deben respetarse siempre.
+ */
+export function filterFieldsByScanMode(
+  fields: FormFieldConfig[],
+  chosenScanMode: ScanMode | null,
+): FormFieldConfig[] {
+  if (chosenScanMode === null || chosenScanMode === "none") return fields;
+  return fields.filter((f) => {
+    const isSystem = f.systemField === true || isSystemFieldKey(f.field);
+    if (chosenScanMode === "plate") {
+      // Wizard captura patente. Omitir systemFields y captures equivalentes.
+      if (isSystem) return false;
+      if (f.type === "photo_plate") return false;
+      return true;
+    }
+    if (chosenScanMode === "rut") {
+      // Wizard captura cédula. Omitir systemFields y captures equivalentes.
+      if (isSystem) return false;
+      if (f.type === "photo_id" || f.type === "qr_cedula") return false;
+      return true;
+    }
+    return true;
+  });
+}
+
 /** Etiqueta corta para mostrar la fase en el admin / badges. */
 export function phaseLabel(phase: FormFieldPhase | undefined): string {
   switch (phase ?? "entry") {

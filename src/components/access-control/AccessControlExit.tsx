@@ -3,10 +3,11 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Search, LogOut, Loader2, Clock,
+  ArrowLeft, Search, LogOut, Loader2, Clock, Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { DynamicFormRenderer } from "./DynamicFormRenderer";
 import {
@@ -50,6 +51,9 @@ export function AccessControlExit({ installationId, guardId, config, onClose }: 
   const [step, setStep] = useState<ExitStep>("list");
   const [selectedRecord, setSelectedRecord] = useState<InSiteRecord | null>(null);
   const [exitFields, setExitFields] = useState<FormFieldConfig[]>([]);
+  // Observaciones del empty-state (cuando no hay fields exit configurados).
+  // Se reinicia cada vez que se abre el form para un record distinto.
+  const [emptyStateObservations, setEmptyStateObservations] = useState("");
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
@@ -92,18 +96,17 @@ export function AccessControlExit({ installationId, guardId, config, onClose }: 
     [config],
   );
 
-  /** Cuando el guardia tap "Salida" en un record:
-   *  - Si NO hay fields exit/both configurados → ejecutar exit directo
-   *    (preserva UX one-tap actual con solo observaciones, vacías).
-   *  - Si hay fields → abrir step "form" para capturarlos. */
+  /** Cuando el guardia tap "Salida" en un record SIEMPRE abre el step
+   *  "form", aunque no haya fields exit/both configurados. En ese caso
+   *  el form renderiza un empty-state con observaciones opcionales y un
+   *  botón "Confirmar Salida", evitando salidas silenciosas accidentales.
+   *  El admin puede agregar fields appliesTo: "exit"/"both" desde el
+   *  ConfigTab para enriquecer la captura. */
   const handleStartExit = (record: InSiteRecord) => {
     const fields = resolveExitFields(record.recordType);
-    if (fields.length === 0) {
-      void doExit(record, {});
-      return;
-    }
     setSelectedRecord(record);
     setExitFields(fields);
+    setEmptyStateObservations("");
     setStep("form");
   };
 
@@ -185,6 +188,7 @@ export function AccessControlExit({ installationId, guardId, config, onClose }: 
               setStep("list");
               setSelectedRecord(null);
               setExitFields([]);
+              setEmptyStateObservations("");
             }}
             className="text-zinc-400 hover:text-zinc-200"
           >
@@ -209,13 +213,52 @@ export function AccessControlExit({ installationId, guardId, config, onClose }: 
             </div>
           </div>
 
-          <DynamicFormRenderer
-            fields={exitFields}
-            initialData={buildInitialFormData(selectedRecord, exitFields)}
-            onSubmit={(data) => void doExit(selectedRecord, data)}
-          />
+          {exitFields.length > 0 ? (
+            <DynamicFormRenderer
+              fields={exitFields}
+              initialData={buildInitialFormData(selectedRecord, exitFields)}
+              onSubmit={(data) => void doExit(selectedRecord, data)}
+            />
+          ) : (
+            // Empty-state: el admin no configuró fields appliesTo "exit"/"both".
+            // Ofrecemos al menos un input de observaciones y un confirm explícito
+            // para que el guardia confirme la salida intencionalmente.
+            <div className="space-y-3">
+              <p className="text-xs text-zinc-500">
+                No hay campos adicionales configurados para la salida.
+                Si quieres dejar una nota, agrégala abajo y confirma.
+              </p>
+              <div className="space-y-1">
+                <Label className="text-zinc-400">Observaciones (opcional)</Label>
+                <textarea
+                  value={emptyStateObservations}
+                  onChange={(e) => setEmptyStateObservations(e.target.value)}
+                  placeholder="Notas de la salida..."
+                  rows={3}
+                  className="w-full rounded-md border bg-zinc-800 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 border-zinc-600"
+                />
+              </div>
+              <Button
+                onClick={() => {
+                  const payload: Record<string, unknown> = {};
+                  const trimmed = emptyStateObservations.trim();
+                  if (trimmed.length > 0) payload.observations = trimmed;
+                  void doExit(selectedRecord, payload);
+                }}
+                disabled={exitingId === selectedRecord.id}
+                className="w-full h-12 bg-status-danger hover:bg-status-danger text-white text-base"
+              >
+                {exitingId === selectedRecord.id ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : (
+                  <Check className="mr-2 h-5 w-5" />
+                )}
+                Confirmar Salida
+              </Button>
+            </div>
+          )}
 
-          {exitingId === selectedRecord.id && (
+          {exitingId === selectedRecord.id && exitFields.length > 0 && (
             <div className="flex items-center justify-center gap-2 py-2 text-sm text-zinc-400">
               <Loader2 className="h-4 w-4 animate-spin" />
               Registrando salida...

@@ -22,7 +22,7 @@ import type {
 } from "@/lib/access-control/types";
 import {
   DEFAULT_FORM_FIELDS, getRecordTypeLabel, isDefaultRecordType,
-  getRecordTypeScanModes, getFieldsForPhase,
+  getRecordTypeScanModes, getFieldsForPhase, filterFieldsByScanMode,
 } from "@/lib/access-control/types";
 import { RecordTypeIcon } from "@/lib/access-control/record-type-icon";
 import { validateRut, formatRut, cleanRut, formatRutDash, computeRutDv, cleanPlate, validateChileanPlate } from "@/lib/access-control/utils";
@@ -355,10 +355,13 @@ export function AccessControlEntry({
         all = [];
       }
     }
-    // Filtrar a fields que aplican a la fase "entry" (incluye "both").
-    // Los system fields (rut, vehicle_plate, documentSerial) siempre cuentan
-    // como entry vía getFieldsForPhase, así que se respeta el wizard QR/OCR.
-    return getFieldsForPhase(all, "entry");
+    // 1) Filtrar por fase "entry" (incluye "both"). Los system fields
+    //    siempre cuentan como entry vía getFieldsForPhase.
+    const entryFields = getFieldsForPhase(all, "entry");
+    // 2) Filtrar duplicados con el wizard: si el guardia eligió "plate"
+    //    el OCR captura la patente; si eligió "rut" el QR/MRZ captura
+    //    la cédula. No re-pedirlos en el form.
+    return filterFieldsByScanMode(entryFields, chosenScanMode);
   };
 
   return (
