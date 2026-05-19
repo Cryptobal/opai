@@ -92,16 +92,14 @@ export function AccessControlExit({ installationId, guardId, config, onClose }: 
     [config],
   );
 
-  /** Cuando el guardia tap "Salida" en un record:
-   *  - Si NO hay fields exit/both configurados → ejecutar exit directo
-   *    (preserva UX one-tap actual con solo observaciones, vacías).
-   *  - Si hay fields → abrir step "form" para capturarlos. */
+  /** Cuando el guardia tap "Salida" en un record SIEMPRE abre el step
+   *  "form", aunque no haya fields exit/both configurados. En ese caso
+   *  el form renderiza un empty-state con observaciones opcionales y un
+   *  botón "Confirmar Salida", evitando salidas silenciosas accidentales.
+   *  El admin puede agregar fields appliesTo: "exit"/"both" desde el
+   *  ConfigTab para enriquecer la captura. */
   const handleStartExit = (record: InSiteRecord) => {
     const fields = resolveExitFields(record.recordType);
-    if (fields.length === 0) {
-      void doExit(record, {});
-      return;
-    }
     setSelectedRecord(record);
     setExitFields(fields);
     setStep("form");
