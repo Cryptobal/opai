@@ -87,19 +87,34 @@ function lastDayOfMonth(year: number, monthZeroIdx: number): number {
 /**
  * Calcula el próximo nextRunAt según frequency. Si endDate está y
  * el resultado supera endDate → null (template completado).
+ *
+ * SEMÁNTICA DE fromDate:
+ *  - Si NO se pasa fromDate y template.lastRunAt es null → es el primer
+ *    schedule de la plantilla; usamos startDate como ancla y NO avanzamos.
+ *  - Si SE pasa fromDate explícitamente → semánticamente "ya hubo un run
+ *    el fromDate, calculá el siguiente desde ahí" (avanzamos un ciclo).
+ *    Útil tras un run para evitar el bug histórico de stale lastRunAt.
+ *  - Si template.lastRunAt no es null → avanzamos un ciclo desde lastRunAt.
  */
 export function computeNextRunAt(template: ComputeInput, fromDate?: Date): Date | null {
+  const explicitFromDate = fromDate != null;
   const base = fromDate ?? template.lastRunAt ?? template.startDate;
   const ref = new Date(base);
   ref.setHours(0, 0, 0, 0);
-  // Si nunca ha corrido, partimos de startDate (incluido).
-  const isFirst = !template.lastRunAt;
+  // isFirst SOLO si nunca corrió Y no se nos pidió avanzar explícitamente.
+  const isFirst = !explicitFromDate && !template.lastRunAt;
   let next: Date;
 
   switch (template.frequency as Frequency) {
     case "monthly": {
       next = new Date(ref);
-      if (!isFirst) next.setMonth(next.getMonth() + 1);
+      if (!isFirst) {
+        // FIX overflow: setDate(1) ANTES de setMonth para evitar que JS
+        // saltee abril cuando el día actual es 31 (31/mar + 1 mes = 1/may
+        // en lugar de 30/abr). Después clampeamos al día efectivo.
+        next.setDate(1);
+        next.setMonth(next.getMonth() + 1);
+      }
       const dom = template.dayOfMonth ?? 1;
       const lastDay = lastDayOfMonth(next.getFullYear(), next.getMonth());
       next.setDate(dom === -1 ? lastDay : Math.min(dom, lastDay));
@@ -107,7 +122,10 @@ export function computeNextRunAt(template: ComputeInput, fromDate?: Date): Date 
     }
     case "yearly": {
       next = new Date(ref);
-      if (!isFirst) next.setFullYear(next.getFullYear() + 1);
+      if (!isFirst) {
+        next.setDate(1); // mismo guard de overflow para feb 29 → mar 1
+        next.setFullYear(next.getFullYear() + 1);
+      }
       const moy = (template.monthOfYear ?? 1) - 1;
       next.setMonth(moy);
       const dom = template.dayOfMonth ?? 1;
