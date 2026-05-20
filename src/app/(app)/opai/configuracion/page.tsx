@@ -62,6 +62,7 @@ const CONFIG_SECTIONS: ConfigSection[] = [
     title: "Correos y Documentos",
     items: [
       { submodule: "firmas", href: "/opai/configuracion/firmas", title: "Firmas", description: "Firmas para correos salientes", icon: "pen-line" },
+      { submodule: "empresa", href: "/opai/configuracion/correos-automaticos", title: "Correos automáticos", description: "Activa o desactiva los correos transaccionales que OPAI envía desde tu empresa", icon: "bell", adminOnly: true },
       { submodule: "categorias", href: "/opai/configuracion/categorias-plantillas", title: "Categorías de plantillas", description: "Categorías por módulo para Gestión Documental", icon: "folder-tree" },
       { submodule: "categorias", href: "/opai/documentos/templates?module=whatsapp", title: "Mensajes WhatsApp", description: "Edita las plantillas de WhatsApp que se envían desde el CRM, CPQ, Operaciones y Portal Cliente", icon: "message-circle" },
     ],

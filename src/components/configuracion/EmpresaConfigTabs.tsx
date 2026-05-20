@@ -2,12 +2,20 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Building, FileSignature, Globe, Loader2, Mail, Paintbrush, Phone, Save, Smartphone, Upload, X } from "lucide-react";
+import { Building, Copy, FileSignature, Globe, Loader2, Mail, Paintbrush, Phone, Save, Smartphone, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { SignatureCanvas } from "@/components/docs/SignatureCanvas";
 import { ConfigTabs } from "@/components/configuracion/ConfigTabs";
+
+const CCO_MODULES: Array<{ module: "commercial" | "operations" | "finance" | "system"; label: string; help: string }> = [
+  { module: "commercial", label: "Comercial", help: "CRM, cotizaciones, presentaciones, portal cliente." },
+  { module: "operations", label: "Operaciones", help: "Tickets, rondas, asistencia, cobertura, supervisión." },
+  { module: "finance", label: "Finanzas", help: "Facturas, notas de crédito, órdenes de compra, cobranza, estados de pago." },
+  { module: "system", label: "Sistema", help: "Onboarding, recuperación de contraseña, alertas de plataforma." },
+];
 
 const FIELDS = [
   { key: "empresa.razonSocial", label: "Razón Social", placeholder: "Ej: Mi Empresa Seguridad Ltda." },
@@ -34,6 +42,7 @@ const BRAND_FIELDS = [
 const CONTACT_FIELDS = [
   { key: "empresa.email", label: "Email comercial principal", placeholder: "Ej: comercial@miempresa.cl", help: "Email principal que se muestra en presentaciones y PDFs." },
   { key: "empresa.emailOps", label: "Email operaciones", placeholder: "Ej: operaciones@miempresa.cl", help: "Recibe reportes de control nocturno y alertas operacionales." },
+  { key: "empresa.emailFinance", label: "Email finanzas", placeholder: "Ej: finanzas@miempresa.cl", help: "Recibe documentos tributarios, órdenes de compra, notas de crédito y cobranza interna." },
   { key: "empresa.emailContact", label: "Email contacto / general", placeholder: "Ej: contacto@miempresa.cl", help: "Email genérico para footer de cotizaciones." },
   { key: "empresa.phone", label: "Teléfono comercial", placeholder: "Ej: +56 9 1234 5678", help: "Con formato, para mostrar en documentos." },
   { key: "empresa.phoneRaw", label: "Teléfono WhatsApp (sin formato)", placeholder: "Ej: 56912345678", help: "Sin +, espacios ni guiones. Para links wa.me." },
@@ -248,7 +257,7 @@ export function EmpresaConfigTabs() {
   );
 
   const correoTab = (
-    <div className="max-w-2xl">
+    <div className="max-w-2xl space-y-6">
       <div className="rounded-lg border border-border p-6 space-y-4">
         <div>
           <div className="flex items-center gap-2">
@@ -284,6 +293,64 @@ export function EmpresaConfigTabs() {
             Responder a: <span className="text-foreground font-mono">{form["empresa.emailReplyTo"] || "correo@miempresa.cl"}</span>
           </p>
         </div>
+      </div>
+
+      <div className="rounded-lg border border-border p-6 space-y-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <Copy className="h-5 w-5 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">Copias ocultas automáticas por módulo</h3>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Cuando OPAI envía un correo a un cliente o externo, opcionalmente puede copiar en oculto (CCO) a una casilla interna del tenant para auditar el envío. Configurable por módulo.
+          </p>
+        </div>
+
+        {CCO_MODULES.map(({ module, label, help }) => {
+          const enabledKey = `empresa.cco.${module}.enabled`;
+          const emailsKey = `empresa.cco.${module}.emails`;
+          const replyKey = `empresa.cco.${module}.replyTo`;
+          const enabled = form[enabledKey] !== "false";
+          return (
+            <div key={module} className="rounded-md border border-border/60 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">{label}</p>
+                  <p className="text-[11px] text-muted-foreground">{help}</p>
+                </div>
+                <Switch
+                  checked={enabled}
+                  onCheckedChange={(v) => setForm((p) => ({ ...p, [enabledKey]: v ? "true" : "false" }))}
+                />
+              </div>
+              {enabled && (
+                <>
+                  <div>
+                    <Label className="text-xs mb-1.5">CCO automático (separar con coma)</Label>
+                    <Input
+                      value={form[emailsKey] ?? ""}
+                      onChange={(e) => setForm((p) => ({ ...p, [emailsKey]: e.target.value }))}
+                      placeholder="Ej: contabilidad@miempresa.cl, gerencia@miempresa.cl"
+                      className="text-sm"
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Si lo dejas vacío, se usará el primer email del módulo configurado en el tab &quot;Contacto&quot;.
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs mb-1.5">Reply-To específico de este módulo (opcional)</Label>
+                    <Input
+                      value={form[replyKey] ?? ""}
+                      onChange={(e) => setForm((p) => ({ ...p, [replyKey]: e.target.value }))}
+                      placeholder="Opcional. Si lo dejas vacío, se usa el Reply-To global."
+                      className="text-sm"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })}
 
         <div className="pt-2">
           <Button onClick={handleSave} disabled={saving} className="gap-1.5">

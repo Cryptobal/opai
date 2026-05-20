@@ -59,11 +59,13 @@ const CACHE_TTL = 5 * 60 * 1000;
 
 export function clearTenantEmailConfigCache(tenantId: string): void {
   tenantEmailCache.delete(tenantId);
+  routingCache.delete(tenantId);
 }
 
 /** Alias semántico de clearTenantEmailConfigCache para callers de config update. */
 export function invalidateTenantEmailCache(tenantId: string): void {
   tenantEmailCache.delete(tenantId);
+  routingCache.delete(tenantId);
 }
 
 /**
@@ -124,4 +126,139 @@ export async function getTenantEmailConfig(tenantId: string): Promise<TenantEmai
       alwaysBcc: [],
     };
   }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Per-module routing                                                 */
+/* ------------------------------------------------------------------ */
+
+export type EmailModule = "commercial" | "operations" | "finance" | "system";
+
+export interface ModuleRouting {
+  /** Emails que reciben CCO automático. Vacío si el módulo no tiene CCO configurado o está disabled. */
+  bcc: string[];
+  /** Reply-to específico del módulo si se configuró, sino el global. Nunca vacío si el tenant tiene replyTo global. */
+  replyTo: string;
+}
+
+export interface TenantEmailRouting {
+  /** From base (display + address) — mismo para todos los módulos. */
+  from: string;
+  /** Reply-to global del tenant — fallback para módulos sin override. */
+  replyToGlobal: string;
+  /** Slug para construir URLs absolutas. */
+  tenantSlug: string | null;
+  /** BCC permanente histórico de DTE — preservado por compatibilidad. */
+  legacyDteAlwaysBcc: string[];
+  modules: Record<EmailModule, ModuleRouting>;
+}
+
+const routingCache = new Map<string, { routing: TenantEmailRouting; ts: number }>();
+
+export function clearTenantEmailRoutingCache(tenantId: string): void {
+  routingCache.delete(tenantId);
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function parseEmailList(csv: string): string[] {
+  return csv
+    .split(/[,;\n]/)
+    .map((e) => e.trim())
+    .filter((e) => e.length > 0 && EMAIL_RE.test(e));
+}
+
+/**
+ * Resuelve el routing de correos por módulo para un tenant.
+ * Aplica cascada de fallback en cada módulo.
+ *
+ * IMPORTANTE: Esta función SIEMPRE retorna un objeto válido.
+ * Si el tenant no tiene nada configurado, cada módulo retorna { bcc: [], replyTo: global || "" }.
+ */
+export async function getTenantEmailRouting(tenantId: string): Promise<TenantEmailRouting> {
+  const cached = routingCache.get(tenantId);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.routing;
+
+  const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
+  const { prisma } = await import("@/lib/prisma");
+  const cfg = await getTenantCompanyConfig(tenantId);
+
+  const [tenant, dteCfg] = await Promise.all([
+    prisma.tenant.findUnique({ where: { id: tenantId }, select: { slug: true } }),
+    prisma.tenantDteConfig.findUnique({
+      where: { tenantId },
+      select: { alwaysBcc: true, fromName: true, replyTo: true },
+    }),
+  ]);
+
+  let from = cfg.emailFrom;
+  if (dteCfg?.fromName && dteCfg.fromName.trim().length > 0) {
+    const match = cfg.emailFrom.match(/<([^>]+)>/);
+    const address = match?.[1] ?? cfg.emailFrom;
+    from = `${dteCfg.fromName.trim()} <${address}>`;
+  }
+
+  const replyToGlobal = (dteCfg?.replyTo?.trim() || cfg.emailReplyTo || "").trim();
+  const legacyDteAlwaysBcc = (dteCfg?.alwaysBcc ?? [])
+    .map((e) => e?.trim() ?? "")
+    .filter((e) => EMAIL_RE.test(e));
+
+  function resolveModule(
+    enabled: string,
+    explicitEmails: string,
+    replyToOverride: string,
+    fallbackEmails: string[],
+  ): ModuleRouting {
+    const isEnabled = enabled !== "false"; // default true si nunca se configuró
+    let bcc: string[] = [];
+    if (isEnabled) {
+      const explicit = parseEmailList(explicitEmails);
+      if (explicit.length > 0) {
+        bcc = explicit;
+      } else {
+        const firstNonEmpty = fallbackEmails.find((e) => e && EMAIL_RE.test(e));
+        if (firstNonEmpty) bcc = [firstNonEmpty];
+      }
+    }
+    const replyTo = replyToOverride.trim() || replyToGlobal;
+    return { bcc, replyTo };
+  }
+
+  const modules: Record<EmailModule, ModuleRouting> = {
+    commercial: resolveModule(
+      cfg.ccoCommercialEnabled,
+      cfg.ccoCommercialEmails,
+      cfg.ccoCommercialReplyTo,
+      [cfg.email, cfg.emailReplyTo],
+    ),
+    operations: resolveModule(
+      cfg.ccoOperationsEnabled,
+      cfg.ccoOperationsEmails,
+      cfg.ccoOperationsReplyTo,
+      [cfg.emailOps, cfg.email, cfg.emailReplyTo],
+    ),
+    finance: resolveModule(
+      cfg.ccoFinanceEnabled,
+      cfg.ccoFinanceEmails,
+      cfg.ccoFinanceReplyTo,
+      [...legacyDteAlwaysBcc, cfg.emailFinance, cfg.emailReplyTo],
+    ),
+    system: resolveModule(
+      cfg.ccoSystemEnabled,
+      cfg.ccoSystemEmails,
+      cfg.ccoSystemReplyTo,
+      [cfg.emailContact, cfg.email, cfg.emailReplyTo],
+    ),
+  };
+
+  const routing: TenantEmailRouting = {
+    from,
+    replyToGlobal,
+    tenantSlug: tenant?.slug ?? null,
+    legacyDteAlwaysBcc,
+    modules,
+  };
+
+  routingCache.set(tenantId, { routing, ts: Date.now() });
+  return routing;
 }

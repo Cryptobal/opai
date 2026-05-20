@@ -10904,6 +10904,55 @@ model TenantDteConfig {
   @@schema("public")
 }
 
+/// Toggle per-tenant para cada `kind` del catálogo de correos
+/// transaccionales (src/lib/email/transactional-catalog.ts). Si no hay
+/// fila para un kind dado, se asume enabled=true (compat hacia atrás).
+/// Kinds marcados `required: true` en el catálogo no pueden desactivarse.
+model TenantTransactionalEmailConfig {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  kind      String
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy String?  @map("updated_by")
+
+  @@unique([tenantId, kind], map: "uq_tenant_tx_email_kind")
+  @@index([tenantId], map: "idx_tenant_tx_email_tenant")
+  @@map("tenant_transactional_email_config")
+  @@schema("public")
+}
+
+/// Log unificado de envíos del wrapper `sendTenantEmail`. Convive con
+/// FinanceDteEmailLog, OpsEmailLog y CrmEmailMessage. Útil para auditar
+/// todo lo que sale por el wrapper y, en una iteración futura, reconciliar
+/// estados de Resend (delivered/opened/bounced) vía webhook.
+model TenantEmailLog {
+  id           String    @id @default(cuid())
+  tenantId     String    @map("tenant_id")
+  module       String
+  kind         String
+  toAddresses  String[]  @default([]) @map("to_addresses")
+  ccAddresses  String[]  @default([]) @map("cc_addresses")
+  bccAddresses String[]  @default([]) @map("bcc_addresses")
+  fromAddress  String    @map("from_address")
+  replyTo      String?   @map("reply_to")
+  subject      String
+  resendId     String?   @unique(map: "uq_tenant_email_log_resend") @map("resend_id")
+  status       String    @default("SENT")
+  errorMessage String?   @map("error_message")
+  sentAt       DateTime  @default(now()) @map("sent_at") @db.Timestamptz(6)
+  deliveredAt  DateTime? @map("delivered_at") @db.Timestamptz(6)
+  openedAt     DateTime? @map("opened_at") @db.Timestamptz(6)
+  openCount    Int       @default(0) @map("open_count")
+  bouncedAt    DateTime? @map("bounced_at") @db.Timestamptz(6)
+  complainedAt DateTime? @map("complained_at") @db.Timestamptz(6)
+
+  @@index([tenantId, sentAt(sort: Desc)], map: "idx_tenant_email_log_tenant_sent")
+  @@index([tenantId, module, kind], map: "idx_tenant_email_log_tenant_module_kind")
+  @@map("tenant_email_log")
+  @@schema("public")
+}
+
 model TenantDteCertificate {
   id            String   @id @default(cuid())
   tenantId      String   @unique @map("tenant_id")

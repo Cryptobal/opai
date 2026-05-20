@@ -50,6 +50,7 @@ export interface TenantCompanyConfig {
   /* Contacto comercial */
   email: string;             // comercial@miempresa.cl
   emailOps: string;          // operaciones@miempresa.cl
+  emailFinance: string;      // finanzas@miempresa.cl
   emailContact: string;      // contacto@miempresa.cl
   phone: string;             // "+56 9 1234 5678"
   phoneRaw: string;          // "56912345678" (sin formato, para wa.me links)
@@ -60,6 +61,20 @@ export interface TenantCompanyConfig {
   emailFromName: string;     // "OPAI"
   emailFromAddress: string;  // "noreply@miempresa.cl"
   emailReplyTo: string;      // "comercial@miempresa.cl"
+
+  /* Routing por módulo */
+  ccoCommercialEnabled: string;   // "true" | "false" (Setting es string)
+  ccoCommercialEmails: string;    // CSV: "a@x.cl,b@x.cl"
+  ccoCommercialReplyTo: string;   // opcional, "" si no override
+  ccoOperationsEnabled: string;
+  ccoOperationsEmails: string;
+  ccoOperationsReplyTo: string;
+  ccoFinanceEnabled: string;
+  ccoFinanceEmails: string;
+  ccoFinanceReplyTo: string;
+  ccoSystemEnabled: string;
+  ccoSystemEmails: string;
+  ccoSystemReplyTo: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -97,6 +112,7 @@ const DEFAULTS: TenantCompanyConfig = {
 
   email: "",
   emailOps: "",
+  emailFinance: "",
   emailContact: "",
   phone: "",
   phoneRaw: "",
@@ -106,6 +122,19 @@ const DEFAULTS: TenantCompanyConfig = {
   emailFromName: "OPAI",
   emailFrom: process.env.EMAIL_FROM || "OPAI <noreply@opai.cl>",
   emailReplyTo: process.env.EMAIL_REPLY_TO || "",
+
+  ccoCommercialEnabled: "",
+  ccoCommercialEmails: "",
+  ccoCommercialReplyTo: "",
+  ccoOperationsEnabled: "",
+  ccoOperationsEmails: "",
+  ccoOperationsReplyTo: "",
+  ccoFinanceEnabled: "",
+  ccoFinanceEmails: "",
+  ccoFinanceReplyTo: "",
+  ccoSystemEnabled: "",
+  ccoSystemEmails: "",
+  ccoSystemReplyTo: "",
 };
 
 /* ------------------------------------------------------------------ */
@@ -147,6 +176,7 @@ const KEY_MAP: Record<string, keyof TenantCompanyConfig> = {
 
   "empresa.email": "email",
   "empresa.emailOps": "emailOps",
+  "empresa.emailFinance": "emailFinance",
   "empresa.emailContact": "emailContact",
   "empresa.phone": "phone",
   "empresa.phoneRaw": "phoneRaw",
@@ -155,6 +185,19 @@ const KEY_MAP: Record<string, keyof TenantCompanyConfig> = {
   "empresa.emailFrom": "emailFromAddress",
   "empresa.emailFromName": "emailFromName",
   "empresa.emailReplyTo": "emailReplyTo",
+
+  "empresa.cco.commercial.enabled": "ccoCommercialEnabled",
+  "empresa.cco.commercial.emails": "ccoCommercialEmails",
+  "empresa.cco.commercial.replyTo": "ccoCommercialReplyTo",
+  "empresa.cco.operations.enabled": "ccoOperationsEnabled",
+  "empresa.cco.operations.emails": "ccoOperationsEmails",
+  "empresa.cco.operations.replyTo": "ccoOperationsReplyTo",
+  "empresa.cco.finance.enabled": "ccoFinanceEnabled",
+  "empresa.cco.finance.emails": "ccoFinanceEmails",
+  "empresa.cco.finance.replyTo": "ccoFinanceReplyTo",
+  "empresa.cco.system.enabled": "ccoSystemEnabled",
+  "empresa.cco.system.emails": "ccoSystemEmails",
+  "empresa.cco.system.replyTo": "ccoSystemReplyTo",
 };
 
 const ALL_KEYS = Object.keys(KEY_MAP);

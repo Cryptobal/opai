@@ -6,7 +6,7 @@
 
 import { render } from "@react-email/render";
 import { prisma } from "@/lib/prisma";
-import { resend, EMAIL_CONFIG, buildDeliverabilityHeaders } from "@/lib/resend";
+import { sendTenantEmail } from "@/lib/email/send-tenant-email";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 import { mapCpqDataToPresentation } from "@/lib/cpq-mapper";
 import { getUfValue } from "@/lib/uf";
@@ -453,19 +453,23 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     }
   }
 
-  const emailResult = await resend.emails.send({
-    from: EMAIL_CONFIG.from,
+  const sendResult = await sendTenantEmail({
+    tenantId,
+    module: "commercial",
+    kind: "cpq_portal_invite",
     to: contact.email,
-    cc: [...new Set([tenantConfig.email, ...mergedCcEmails])],
-    bcc: bccEmails.length ? bccEmails : undefined,
-    replyTo: tenantConfig.emailReplyTo || EMAIL_CONFIG.replyTo,
+    cc: [...new Set([tenantConfig.email, ...mergedCcEmails].filter(Boolean))],
+    bcc: bccEmails,
     subject: emailSubject,
     html: emailHtml,
     text: emailText,
-    headers: buildDeliverabilityHeaders(tenantConfig.emailReplyTo || EMAIL_CONFIG.replyTo),
-    ...(attachments.length > 0 && { attachments }),
-    tags: [{ name: "type", value: "portal-prospecto-invite" }, { name: "quote", value: quote.code }],
+    attachments: attachments.length > 0 ? attachments : undefined,
+    tags: [
+      { name: "type", value: "portal-prospecto-invite" },
+      { name: "quote", value: quote.code },
+    ],
   });
+  const emailResult = { data: { id: sendResult.resendId } };
 
   await prisma.crmContact.updateMany({
     where: { id: contact.id, tenantId },
