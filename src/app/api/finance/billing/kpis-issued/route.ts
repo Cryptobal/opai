@@ -101,7 +101,19 @@ export async function GET(request: NextRequest) {
         select: { folio: true, date: true },
       }),
       prisma.financeDte.aggregate({
-        where: { ...baseWhere, siiStatus: "ANNULLED" },
+        where: {
+          ...baseWhere,
+          // "Anulado" en el sentido tributario chileno = factura cancelada,
+          // sea por estado SII directo (ANNULLED) o por NC con CodRef=1
+          // (voidedByCreditNoteId != null).
+          OR: [
+            { siiStatus: "ANNULLED" },
+            { voidedByCreditNoteId: { not: null } },
+          ],
+          // Excluir NCs del propio cómputo: una NC anulada en sí no es
+          // una factura anulada del flujo de ventas.
+          dteType: { notIn: [61] },
+        },
         _sum: { totalAmount: true },
         _count: { _all: true },
       }),
