@@ -138,7 +138,51 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (!presentation && !crmMessage && !opsEmailLog) {
+    // ── 4. Buscar en FinanceDteEmailLog (Proforma/EP/DTE) ──
+    // Soporta tracking de entregas, aperturas, bounces para emails de
+    // finanzas. openCount se incrementa en CADA email.opened para que la
+    // UI pueda mostrar "vista 3 veces" en cobranza.
+    const financeLog = await prisma.financeDteEmailLog.findFirst({
+      where: { resendId: emailId },
+      select: { id: true },
+    });
+    if (financeLog) {
+      try {
+        switch (type) {
+          case 'email.delivered':
+            await prisma.financeDteEmailLog.update({
+              where: { id: financeLog.id },
+              data: { deliveredAt: new Date(), status: 'DELIVERED' },
+            });
+            break;
+          case 'email.opened':
+            await prisma.financeDteEmailLog.update({
+              where: { id: financeLog.id },
+              data: {
+                openedAt: new Date(), // overwrite con última apertura
+                openCount: { increment: 1 },
+              },
+            });
+            break;
+          case 'email.bounced':
+            await prisma.financeDteEmailLog.update({
+              where: { id: financeLog.id },
+              data: { bouncedAt: new Date(), status: 'BOUNCED' },
+            });
+            break;
+          case 'email.complained':
+            await prisma.financeDteEmailLog.update({
+              where: { id: financeLog.id },
+              data: { complainedAt: new Date() },
+            });
+            break;
+        }
+      } catch (err) {
+        console.error('⚠️ Error actualizando FinanceDteEmailLog:', err);
+      }
+    }
+
+    if (!presentation && !crmMessage && !opsEmailLog && !financeLog) {
       console.warn('⚠️ Ninguna entidad encontrada para emailId:', emailId);
     }
 

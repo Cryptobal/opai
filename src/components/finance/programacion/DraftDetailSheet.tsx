@@ -367,7 +367,11 @@ export function DraftDetailSheet({
                                 at={log.deliveredAt}
                               />
                               <EmailDeliveryDot
-                                label="Vista"
+                                label={
+                                  log.openCount && log.openCount > 1
+                                    ? `Vista ${log.openCount}×`
+                                    : "Vista"
+                                }
                                 at={log.openedAt}
                                 icon={<Eye className="h-3 w-3" />}
                               />

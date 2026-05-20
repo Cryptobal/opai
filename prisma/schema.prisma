@@ -7020,6 +7020,10 @@ model FinanceDteEmailLog {
   sentAt       DateTime  @default(now()) @map("sent_at") @db.Timestamptz(6)
   deliveredAt  DateTime? @map("delivered_at") @db.Timestamptz(6)
   openedAt     DateTime? @map("opened_at") @db.Timestamptz(6)
+  /// Cantidad de aperturas registradas (cada email.opened de Resend
+  /// suma 1). Útil para diferenciar "lo abrió 1 vez" vs "lo abrió 5
+  /// veces" en el seguimiento de cobranza.
+  openCount    Int       @default(0) @map("open_count")
   bouncedAt    DateTime? @map("bounced_at") @db.Timestamptz(6)
   complainedAt DateTime? @map("complained_at") @db.Timestamptz(6)
   /// userId que disparó el reenvío manual; null para auto.

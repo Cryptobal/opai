@@ -245,7 +245,12 @@ export async function sendBillingDocument(
       tenantId,
       input.dteId,
       input.variant,
-      { signerOverrideIds: input.signerOverrides },
+      {
+        signerOverrideIds: input.signerOverrides,
+        // Que la salutación + contactName usen el contacto del "Para:",
+        // no el contactoEstadoPago default del account.
+        primaryRecipientEmail: primary,
+      },
     );
     pdfBuffer = await renderBillingDocPdf(billingProps);
   } catch (err) {

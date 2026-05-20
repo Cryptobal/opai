@@ -395,6 +395,13 @@ export async function renderBillingDocPdf(
                   `N° Orden: ${props.document.numeroOrdenContrato}`,
                 )
               : null,
+            ...props.document.additionalReferences.map((r) =>
+              e(
+                Text,
+                { style: { fontSize: 8, color: "#FFFFFF", marginTop: 2 } },
+                `${r.label}: ${r.folio}${r.reason ? ` — ${r.reason}` : ""}`,
+              ),
+            ),
           ),
         ),
         e(View, { style: sProforma.accentBar }),
@@ -826,6 +833,18 @@ export async function renderBillingDocPdf(
                 e(Text, { style: sEP.metaValue }, props.document.numeroOrdenContrato),
               )
             : null,
+          ...props.document.additionalReferences.map((r) =>
+            e(
+              View,
+              { style: sEP.metaRow },
+              e(Text, { style: sEP.metaLabel }, `${r.label}:`),
+              e(
+                Text,
+                { style: sEP.metaValue },
+                `${r.folio}${r.reason ? ` — ${r.reason}` : ""}`,
+              ),
+            ),
+          ),
           e(
             View,
             { style: sEP.metaRow },

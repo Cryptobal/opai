@@ -93,13 +93,33 @@ interface OcChipProps {
   references: DraftAdditionalReference[] | null;
 }
 
+/** Etiqueta corta para cada tipo de referencia visible en el chip. */
+const REF_LABELS: Record<string, string> = {
+  "801": "OC",
+  "802": "Pedido",
+  "803": "Contrato",
+  HES: "HES",
+};
+
 export function OcReferenceChip({ references }: OcChipProps) {
   if (!references || references.length === 0) return null;
-  const ocs = references.filter((r) => r.tipoDocRef === "801");
-  if (ocs.length === 0) return null;
-  const label = ocs.length === 1 ? `OC #${ocs[0].folioRef}` : `${ocs.length} OCs`;
-  const title = ocs
-    .map((o) => `OC ${o.folioRef}${o.razonRef ? ` — ${o.razonRef}` : ""}`)
+  // Solo refs OC/HES con folio cargado. Si está vacío, el chip mostraría
+  // "OC #" o "HES #" sin número y eso confunde al usuario.
+  const visible = references.filter(
+    (r) =>
+      (r.tipoDocRef === "801" || r.tipoDocRef === "HES") &&
+      (r.folioRef ?? "").trim().length > 0,
+  );
+  if (visible.length === 0) return null;
+  const label =
+    visible.length === 1
+      ? `${REF_LABELS[visible[0].tipoDocRef] ?? "Ref"} #${visible[0].folioRef}`
+      : `${visible.length} refs`;
+  const title = visible
+    .map(
+      (r) =>
+        `${REF_LABELS[r.tipoDocRef] ?? r.tipoDocRef} ${r.folioRef}${r.razonRef ? ` — ${r.razonRef}` : ""}`,
+    )
     .join("\n");
   return (
     <span

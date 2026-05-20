@@ -108,6 +108,16 @@ export interface BillingDocProps {
     periodoLabel: string;
     /** Código de verificación renderizado (para Estado de Pago). */
     verificationCode: string;
+    /**
+     * Referencias adicionales cargadas en el DTE (OC, HES, Contrato, etc).
+     * Vienen de FinanceDte.additionalReferences (JSON). Solo se incluyen
+     * las que tienen folio cargado para no imprimir filas con "#" vacío.
+     */
+    additionalReferences: Array<{
+      label: string;
+      folio: string;
+      reason: string | null;
+    }>;
   };
 
   lines: BillingDocLine[];
@@ -214,6 +224,13 @@ export interface BuildBillingDocPropsOptions {
    * (estadoPagoRecipientContactIds).
    */
   clientSignerContactIdsOverride?: string[];
+  /**
+   * Email del destinatario primario que va al "Para:" del envío. Si se
+   * provee, la salutación del email + el contactName del documento usan
+   * el CrmContact que matchea este email (no el contactoEstadoPago
+   * default del account, que puede ser otra persona).
+   */
+  primaryRecipientEmail?: string | null;
 }
 
 export async function buildBillingDocProps(
@@ -300,9 +317,23 @@ export async function buildBillingDocProps(
     }
   }
 
-  // Contacto: contactoEstadoPago si existe; si no, primer contacto activo.
+  // Contacto para salutación/contactName del documento:
+  // 1) Si el caller pasó `primaryRecipientEmail` (el "Para:" del envío),
+  //    buscamos el CrmContact del account que coincide con ese email
+  //    — es el que realmente está leyendo el correo y aparece en "Para:".
+  // 2) Fallback al contactoEstadoPago default del account.
+  // 3) Fallback al primer contacto del account.
+  const primaryEmailLower = opts.primaryRecipientEmail?.trim().toLowerCase();
+  const primaryRecipientContact = primaryEmailLower
+    ? (account?.contacts ?? []).find(
+        (c) => (c.email ?? "").toLowerCase() === primaryEmailLower,
+      ) ?? null
+    : null;
   const contactoEP =
-    account?.contactoEstadoPago ?? account?.contacts?.[0] ?? null;
+    primaryRecipientContact ??
+    account?.contactoEstadoPago ??
+    account?.contacts?.[0] ??
+    null;
 
   // Periodo: del campo `date` del DTE.
   const date = new Date(dte.date);
@@ -362,6 +393,30 @@ export async function buildBillingDocProps(
       installationName: installation?.name ?? null,
       periodoLabel: periodoLabel(date),
       verificationCode,
+      additionalReferences: (() => {
+        const refs = (dte.additionalReferences ?? []) as Array<{
+          tipoDocRef?: string;
+          folioRef?: string;
+          razonRef?: string;
+        }>;
+        const labelMap: Record<string, string> = {
+          "801": "Orden de Compra",
+          "802": "Nota de Pedido",
+          "803": "Contrato",
+          "804": "Resolución",
+          HES: "HES",
+          GD: "Guía Despacho",
+          "52": "Guía Despacho",
+        };
+        return refs
+          .filter((r) => (r.folioRef ?? "").trim().length > 0)
+          .map((r) => ({
+            label:
+              labelMap[r.tipoDocRef ?? ""] ?? `Ref ${r.tipoDocRef ?? ""}`.trim(),
+            folio: String(r.folioRef ?? "").trim(),
+            reason: (r.razonRef ?? "").trim() || null,
+          }));
+      })(),
     },
 
     lines: dte.lines.map((l) => ({

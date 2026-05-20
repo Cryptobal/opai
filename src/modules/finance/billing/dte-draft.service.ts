@@ -553,6 +553,8 @@ export type DraftEmailLogItem = {
   sentAt: string;
   deliveredAt: string | null;
   openedAt: string | null;
+  /** Cantidad de aperturas registradas (Resend email.opened). */
+  openCount: number;
   bouncedAt: string | null;
   complainedAt: string | null;
   errorMessage: string | null;
@@ -812,6 +814,7 @@ export async function getDraftDteById(
           sentAt: true,
           deliveredAt: true,
           openedAt: true,
+          openCount: true,
           bouncedAt: true,
           complainedAt: true,
           errorMessage: true,
@@ -848,6 +851,7 @@ export async function getDraftDteById(
       sentAt: log.sentAt.toISOString(),
       deliveredAt: log.deliveredAt ? log.deliveredAt.toISOString() : null,
       openedAt: log.openedAt ? log.openedAt.toISOString() : null,
+      openCount: log.openCount,
       bouncedAt: log.bouncedAt ? log.bouncedAt.toISOString() : null,
       complainedAt: log.complainedAt ? log.complainedAt.toISOString() : null,
       errorMessage: log.errorMessage,
