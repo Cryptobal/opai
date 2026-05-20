@@ -85,7 +85,10 @@ export async function GET(_request: NextRequest) {
         installation: t.installationId
           ? (installationById.get(t.installationId) ?? null)
           : null,
-        lastRunIssues: lr?.auto_send_issues ?? null,
+        // Si el draft del run ya no existe (dte_id null por SetNull al
+        // borrar el draft manualmente), ignoramos los issues — el usuario
+        // tomó acción explícita, no queremos seguir mostrando el banner.
+        lastRunIssues: lr?.dte_id != null ? (lr.auto_send_issues ?? null) : null,
         lastRunDteId: lr?.dte_id ?? null,
       };
     });

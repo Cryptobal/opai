@@ -343,7 +343,28 @@ export async function deleteDraftDte(tenantId: string, draftId: string) {
     select: { id: true },
   });
   if (!existing) throw new Error("Borrador no encontrado o ya emitido");
-  await prisma.financeDte.delete({ where: { id: draftId } });
+
+  await prisma.$transaction(async (tx) => {
+    // 1. Localizar runs asociados al draft.
+    const runs = await tx.financeDteRecurringRun.findMany({
+      where: { tenantId, dteId: draftId },
+      select: { id: true },
+    });
+
+    // 2. Limpiar autoSendIssues y anotar la eliminación en `error` para auditoría.
+    if (runs.length > 0) {
+      await tx.financeDteRecurringRun.updateMany({
+        where: { id: { in: runs.map((r) => r.id) } },
+        data: {
+          autoSendIssues: Prisma.DbNull,
+          error: `Borrador eliminado manualmente el ${new Date().toISOString().slice(0, 10)}`,
+        },
+      });
+    }
+
+    // 3. Eliminar el draft. El `dteId` del run queda null por SetNull (definido en schema).
+    await tx.financeDte.delete({ where: { id: draftId } });
+  });
 }
 
 /**
