@@ -111,6 +111,12 @@ export interface DteFilters {
   types: number[];                // multi-select por dteType
   siiStatuses: string[];          // multi-select por siiStatus
   paymentStatuses: string[];      // UNPAID | PARTIAL | OVERDUE | PAID
+  /**
+   * Selector único del Quick Filter de la página de DTEs Emitidos.
+   * Reemplaza la UI multi-select previa: Carlos pidió solo uno a la vez,
+   * sin botón "Limpiar". DRAFT corresponde a siiStatus=DRAFT.
+   */
+  quickFilter: "ALL" | "UNPAID" | "PARTIAL" | "PAID" | "OVERDUE" | "DRAFT";
   periodo: string;                // "ALL" | "CURRENT_MONTH" | "YYYY-MM"
   accountId: string;              // "ALL" | "NONE" | uuid
   installationId: string;         // "ALL" | "NONE" | uuid
@@ -128,6 +134,7 @@ export const EMPTY_DTE_FILTERS: DteFilters = {
   types: [],
   siiStatuses: [],
   paymentStatuses: [],
+  quickFilter: "ALL",
   periodo: "ALL",
   accountId: "ALL",
   installationId: "ALL",

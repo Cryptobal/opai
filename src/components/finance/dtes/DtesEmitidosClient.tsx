@@ -50,6 +50,7 @@ import type {
   DteRow,
   CostCenterOption,
   InstallationOption,
+  DteFilters,
 } from "./shared/types";
 
 interface Props {
@@ -75,6 +76,7 @@ export function DtesEmitidosClient({
     update,
     reset,
     removeOne,
+    setQuickFilter,
     activeCount,
     debouncedSearch,
   } = useDteFilters({
@@ -290,8 +292,12 @@ export function DtesEmitidosClient({
           params.set("dteType", filters.types.join(","));
         if (filters.siiStatuses.length > 0)
           params.set("siiStatus", filters.siiStatuses.join(","));
-        if (filters.paymentStatuses.length > 0)
-          params.set("paymentStatus", filters.paymentStatuses.join(","));
+        if (filters.quickFilter === "DRAFT") {
+          params.set("status", "draft");
+        } else if (filters.quickFilter !== "ALL") {
+          params.set("paymentStatus", filters.quickFilter);
+          params.set("status", "issued");
+        }
         if (filters.amountMin != null)
           params.set("amountMin", String(filters.amountMin));
         if (filters.amountMax != null)
@@ -925,31 +931,26 @@ export function DtesEmitidosClient({
         exportDisabled={filtered.length === 0}
       />
 
-      {/* Quick filter: estado de pago. Acceso inmediato sin abrir el
-          drawer de filtros. Acción más frecuente en cuentas por cobrar. */}
+      {/* Quick filter: estado de pago + borradores. Radio (solo uno
+          activo a la vez). 'Todos' es el reset. */}
       <div className="flex flex-wrap items-center gap-1.5 -mt-1">
         <span className="text-xs font-mono uppercase tracking-wide text-ds-text-4 mr-1">
-          Pago:
+          Vista:
         </span>
         {[
-          { value: "UNPAID", label: "Pendiente", tone: "neutral" },
+          { value: "ALL", label: "Todos", tone: "neutral" },
+          { value: "UNPAID", label: "Por cobrar", tone: "neutral" },
           { value: "PARTIAL", label: "Parcial", tone: "warn" },
           { value: "PAID", label: "Pagado", tone: "ok" },
           { value: "OVERDUE", label: "Vencido", tone: "danger" },
+          { value: "DRAFT", label: "Borradores", tone: "info" },
         ].map((opt) => {
-          const active = filters.paymentStatuses.includes(opt.value);
+          const active = filters.quickFilter === opt.value;
           return (
             <button
               key={opt.value}
               type="button"
-              onClick={() => {
-                update(
-                  "paymentStatuses",
-                  active
-                    ? filters.paymentStatuses.filter((s) => s !== opt.value)
-                    : [...filters.paymentStatuses, opt.value],
-                );
-              }}
+              onClick={() => setQuickFilter(opt.value as DteFilters["quickFilter"])}
               className={[
                 "h-7 px-2.5 rounded-full border text-xs font-medium transition-colors",
                 active
@@ -959,23 +960,17 @@ export function DtesEmitidosClient({
                       ? "bg-status-danger-soft border-status-danger-border text-status-danger-fg"
                       : opt.tone === "warn"
                         ? "bg-status-warn-soft border-status-warn-border text-status-warn-fg"
-                        : "bg-ds-surface-3 border-ds-border-default text-ds-text-1"
+                        : opt.tone === "info"
+                          ? "bg-status-info-soft border-status-info-border text-status-info-fg"
+                          : "bg-ds-surface-3 border-ds-border-default text-ds-text-1"
                   : "bg-ds-surface-2 border-ds-border-default text-ds-text-3 hover:bg-ds-surface-3",
               ].join(" ")}
+              aria-pressed={active}
             >
               {opt.label}
             </button>
           );
         })}
-        {filters.paymentStatuses.length > 0 && (
-          <button
-            type="button"
-            onClick={() => update("paymentStatuses", [])}
-            className="h-7 px-2.5 rounded-full border border-ds-border-subtle text-xs text-ds-text-4 hover:bg-ds-surface-2 transition-colors"
-          >
-            Limpiar
-          </button>
-        )}
       </div>
 
       <ActiveFilterChips

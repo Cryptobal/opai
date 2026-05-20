@@ -23,7 +23,13 @@ export function useDteFilters(args: Args = {}) {
   const [filters, setFilters] = useState<DteFilters>(() => {
     const init = { ...EMPTY_DTE_FILTERS };
     if (args.forcedSiiStatus) init.siiStatuses = [args.forcedSiiStatus];
-    if (args.forcedPaymentStatus) init.paymentStatuses = [args.forcedPaymentStatus];
+    if (args.forcedPaymentStatus) {
+      init.paymentStatuses = [args.forcedPaymentStatus];
+      const known = ["UNPAID", "PARTIAL", "PAID", "OVERDUE"] as const;
+      if ((known as readonly string[]).includes(args.forcedPaymentStatus)) {
+        init.quickFilter = args.forcedPaymentStatus as DteFilters["quickFilter"];
+      }
+    }
     return init;
   });
 
@@ -60,6 +66,26 @@ export function useDteFilters(args: Args = {}) {
     [],
   );
 
+  const setQuickFilter = useCallback(
+    (value: DteFilters["quickFilter"]) => {
+      setFilters((prev) => {
+        const next: DteFilters = { ...prev, quickFilter: value };
+        if (value === "ALL") {
+          next.paymentStatuses = [];
+          next.siiStatuses = prev.siiStatuses.filter((s) => s !== "DRAFT");
+        } else if (value === "DRAFT") {
+          next.paymentStatuses = [];
+          next.siiStatuses = ["DRAFT"];
+        } else {
+          next.paymentStatuses = [value];
+          next.siiStatuses = prev.siiStatuses.filter((s) => s !== "DRAFT");
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
   const removeOne = useCallback((chipKey: string) => {
     setFilters((prev) => {
       const next = { ...prev };
@@ -69,8 +95,15 @@ export function useDteFilters(args: Args = {}) {
         next.types = prev.types.filter((t) => String(t) !== value);
       } else if (field === "siiStatuses" && value) {
         next.siiStatuses = prev.siiStatuses.filter((s) => s !== value);
+        // Quick filter "Borradores" se sincroniza con siiStatuses=["DRAFT"].
+        if (value === "DRAFT" && prev.quickFilter === "DRAFT") {
+          next.quickFilter = "ALL";
+        }
       } else if (field === "paymentStatuses" && value) {
         next.paymentStatuses = prev.paymentStatuses.filter((s) => s !== value);
+        if (prev.quickFilter === value) {
+          next.quickFilter = "ALL";
+        }
       } else if (field === "periodo") {
         next.periodo = "ALL";
       } else if (field === "accountId") {
@@ -94,6 +127,7 @@ export function useDteFilters(args: Args = {}) {
     update,
     reset,
     removeOne,
+    setQuickFilter,
     activeCount,
     debouncedSearch,
   };

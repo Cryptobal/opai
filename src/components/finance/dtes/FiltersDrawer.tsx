@@ -31,13 +31,6 @@ import type {
   InstallationOption,
 } from "./shared/types";
 
-const PAYMENT_OPTIONS: { value: string; label: string }[] = [
-  { value: "UNPAID", label: "Por cobrar" },
-  { value: "PARTIAL", label: "Parcial" },
-  { value: "PAID", label: "Pagado" },
-  { value: "OVERDUE", label: "Vencido" },
-];
-
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -115,15 +108,6 @@ export function FiltersDrawer({
         : [...filters.siiStatuses, s],
     );
   };
-  const togglePayment = (s: string) => {
-    update(
-      "paymentStatuses",
-      filters.paymentStatuses.includes(s)
-        ? filters.paymentStatuses.filter((x) => x !== s)
-        : [...filters.paymentStatuses, s],
-    );
-  };
-
   const minMaxInvalid =
     filters.amountMin != null &&
     filters.amountMax != null &&
@@ -260,33 +244,6 @@ export function FiltersDrawer({
                 ))}
               </SelectContent>
             </Select>
-          </section>
-
-          {/* Estado de pago */}
-          <section className="space-y-2">
-            <Label className="text-xs font-mono uppercase tracking-wider text-ds-text-4">
-              Estado de pago
-            </Label>
-            <div className="flex flex-wrap gap-1.5">
-              {PAYMENT_OPTIONS.map((opt) => (
-                <TogglePill
-                  key={opt.value}
-                  active={filters.paymentStatuses.includes(opt.value)}
-                  onClick={() => togglePayment(opt.value)}
-                  variant={
-                    opt.value === "PAID"
-                      ? "ok"
-                      : opt.value === "OVERDUE"
-                        ? "danger"
-                        : opt.value === "PARTIAL"
-                          ? "warn"
-                          : "neutral"
-                  }
-                >
-                  {opt.label}
-                </TogglePill>
-              ))}
-            </div>
           </section>
 
           {/* Rango de monto */}
