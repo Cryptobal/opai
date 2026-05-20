@@ -91,10 +91,9 @@ export function DocStatusIcon({
 
 interface OcChipProps {
   references: DraftAdditionalReference[] | null;
-  className?: string;
 }
 
-export function OcReferenceChip({ references, className }: OcChipProps) {
+export function OcReferenceChip({ references }: OcChipProps) {
   if (!references || references.length === 0) return null;
   const ocs = references.filter((r) => r.tipoDocRef === "801");
   if (ocs.length === 0) return null;
@@ -104,10 +103,7 @@ export function OcReferenceChip({ references, className }: OcChipProps) {
     .join("\n");
   return (
     <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-md border border-ds-border-subtle bg-ds-surface-2 px-1.5 py-0.5 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-2",
-        className,
-      )}
+      className="inline-flex items-center gap-1 rounded-md border border-ds-border-subtle bg-ds-surface-2 px-1.5 py-0.5 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-2"
       title={title}
       aria-label={title}
     >
