@@ -359,8 +359,19 @@ export async function sendBillingDocument(
       ccCandidates.filter((e) => e && e.trim() && e !== primary),
     ),
   );
-  const bccList = (input.bccEmails ?? []).filter(
-    (e) => e && e.trim() && e !== primary,
+  // Merge BCC manuales (UI) + alwaysBcc configurado del tenant (config global).
+  // Dedupear y excluir el primary destinatario + cualquiera ya en CC para no duplicar.
+  const manualBcc = input.bccEmails ?? [];
+  const tenantBcc = emailCfg.alwaysBcc ?? [];
+  const ccLower = ccList.map((c) => c.toLowerCase());
+  const bccList = Array.from(
+    new Set(
+      [...manualBcc, ...tenantBcc]
+        .map((e) => e?.trim())
+        .filter((e): e is string => !!e && e.length > 0)
+        .filter((e) => e.toLowerCase() !== primary.toLowerCase())
+        .filter((e) => !ccLower.includes(e.toLowerCase())),
+    ),
   );
 
   // Filename.

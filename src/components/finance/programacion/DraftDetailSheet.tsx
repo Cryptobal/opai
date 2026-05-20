@@ -343,6 +343,24 @@ export function DraftDetailSheet({
                             <p className="text-sm text-ds-text-1 mt-1 truncate">
                               → {log.to.join(", ")}
                             </p>
+                            {log.cc && log.cc.length > 0 && (
+                              <p
+                                className="text-[12px] text-ds-text-3 truncate mt-0.5"
+                                title={log.cc.join(", ")}
+                              >
+                                <span className="opacity-60">CC:</span>{" "}
+                                {log.cc.join(", ")}
+                              </p>
+                            )}
+                            {log.bcc && log.bcc.length > 0 && (
+                              <p
+                                className="text-[12px] text-ds-text-3 truncate mt-0.5"
+                                title={`Copia oculta — ${log.bcc.join(", ")}`}
+                              >
+                                <span className="opacity-60">BCC:</span>{" "}
+                                {log.bcc.join(", ")}
+                              </p>
+                            )}
                             <div className="flex flex-wrap items-center gap-3 text-[12px] mt-1.5 text-ds-text-3">
                               <EmailDeliveryDot
                                 label="Entregada"

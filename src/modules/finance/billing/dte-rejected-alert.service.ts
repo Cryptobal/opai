@@ -123,11 +123,22 @@ export async function sendDteRejectedAlert(
   </body>
 </html>`;
 
+  // Aplicar alwaysBcc del tenant — recibe copia de cada alerta de rechazo,
+  // útil para que el supervisor reciba siempre la notificación aunque su
+  // email no esté en alertEmails. Filtramos duplicados con recipients.
+  const recipientsLower = recipients.map((r) => r.toLowerCase());
+  const tenantBcc = (emailCfg.alwaysBcc ?? [])
+    .map((e) => e?.trim())
+    .filter((e): e is string => !!e && e.includes("@"))
+    .filter((e) => !recipientsLower.includes(e.toLowerCase()))
+    .filter((e, idx, arr) => arr.findIndex((x) => x.toLowerCase() === e.toLowerCase()) === idx);
+
   try {
     const result = await resend.emails.send({
       from: emailCfg.from,
       replyTo: emailCfg.replyTo || undefined,
       to: recipients,
+      bcc: tenantBcc.length > 0 ? tenantBcc : undefined,
       subject,
       html,
     });

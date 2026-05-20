@@ -19,6 +19,7 @@ import {
   type EntityData,
 } from "@/lib/docs/token-resolver";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { getTenantEmailConfig } from "@/lib/resend";
 
 const SUBJECT_BY_SLUG = {
   cobranza_amable: "Recordatorio de pago — Factura {folio}",
@@ -175,9 +176,20 @@ export async function sendCobranzaEmail(input: SendCobranzaEmailInput): Promise<
     String(dte.folio),
   );
 
+  // Aplicar alwaysBcc del tenant para que el equipo interno (contabilidad,
+  // supervisor) reciba copia automática de cada recordatorio de cobranza.
+  const tenantEmailCfg = await getTenantEmailConfig(input.tenantId);
+  const primaryLower = contact.email.toLowerCase();
+  const tenantBcc = (tenantEmailCfg.alwaysBcc ?? [])
+    .map((e) => e?.trim())
+    .filter((e): e is string => !!e && e.includes("@"))
+    .filter((e) => e.toLowerCase() !== primaryLower)
+    .filter((e, idx, arr) => arr.findIndex((x) => x.toLowerCase() === e.toLowerCase()) === idx);
+
   await resend.emails.send({
     from: FROM_COBRANZA,
     to: contact.email,
+    bcc: tenantBcc.length > 0 ? tenantBcc : undefined,
     subject,
     text: body,
   });
