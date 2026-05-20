@@ -103,6 +103,17 @@ export async function GET(request: NextRequest) {
     // en banca). Lo detectamos vía `paymentAllocations.none.payment.bankTransactionId IS NOT NULL`.
     const includePaidUnreconciled = flag("includePaidUnreconciled");
     if (paymentStatuses.length > 0) {
+      // Cuando el usuario filtra por estado de pago, TODAS las NCs y
+      // facturas fuera del flujo de cobranza deben quedar fuera. Mismo
+      // criterio que cobranzas-aggregator y projection.service.
+      const prevDteType = where.dteType as { notIn?: number[] } | undefined;
+      const prevNotIn = Array.isArray(prevDteType?.notIn) ? prevDteType!.notIn : [];
+      where.dteType = {
+        ...(prevDteType ?? {}),
+        notIn: Array.from(new Set([...prevNotIn, 61])),
+      };
+      where.voidedByCreditNoteId = null;
+      where.creditedNetAmount = 0;
       if (includePaidUnreconciled && !paymentStatuses.includes("PAID")) {
         where.OR = [
           { paymentStatus: { in: paymentStatuses } },
@@ -122,7 +133,14 @@ export async function GET(request: NextRequest) {
       };
     }
     if (dteTypes.length > 0) {
-      where.dteType = { in: dteTypes };
+      // Si paymentStatuses ya seteó { notIn: [61] }, lo combinamos con AND
+      // para no perder la exclusión de NCs del filtro de cobranza.
+      const prevDteType = where.dteType as { notIn?: number[] } | undefined;
+      const prevNotIn = Array.isArray(prevDteType?.notIn) ? prevDteType!.notIn : [];
+      const filtered = dteTypes.filter((t) => !prevNotIn.includes(t));
+      where.dteType = prevNotIn.length > 0
+        ? { in: filtered, notIn: prevNotIn }
+        : { in: dteTypes };
     }
     if (siiStatuses.length > 0) {
       // Si ya hay un filtro de siiStatus por statusFilter, lo combinamos
