@@ -10,6 +10,7 @@ import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import { CalendarDays } from "lucide-react";
 import { BorradoresTab } from "@/components/finance/BorradoresTab";
 import { DraftsMobileList } from "@/components/finance/programacion/DraftsMobileList";
+import { PendingSendsBannerWrapper } from "@/components/finance/programacion/PendingSendsBannerWrapper";
 
 export default async function ProgramacionPage() {
   const session = await auth();
@@ -39,8 +40,9 @@ export default async function ProgramacionPage() {
       />
       <FinanceN3Chips submoduleKey="finance-compras-ventas" />
 
-      <section>
-        <h2 className="text-lg font-medium text-ds-text-1 mb-3">
+      <section className="space-y-3">
+        <PendingSendsBannerWrapper />
+        <h2 className="text-lg font-medium text-ds-text-1">
           Borradores pendientes
         </h2>
         <DraftsMobileList
