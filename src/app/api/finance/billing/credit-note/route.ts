@@ -179,6 +179,11 @@ export async function POST(request: NextRequest) {
           data: {
             voidedByCreditNoteId: result.id,
             voidedAt: new Date(),
+            // Cancelada por NC: limpiar saldo pendiente para que NO siga
+            // apareciendo en filtros de Pendiente/Vencido.
+            paymentStatus: "PAID",
+            amountPaid: originalDte.totalAmount,
+            amountPending: 0,
           },
         });
       } else if (code === 3) {
@@ -189,10 +194,39 @@ export async function POST(request: NextRequest) {
             0,
           ),
         );
+        // Prorratear IVA usando ratio total/net del original.
+        const origNet = Number(originalDte.netAmount ?? 0);
+        const origTotal = Number(originalDte.totalAmount ?? 0);
+        const ratio = origNet > 0 ? origTotal / origNet : 1;
+        const ncTotalGross = Math.round(ncTotalNet * ratio);
+        // Lee fresh para no pisar conciliaciones intermedias.
+        const fresh = await prisma.financeDte.findUnique({
+          where: { id: originalDte.id },
+          select: {
+            totalAmount: true,
+            creditedNetAmount: true,
+            amountPaid: true,
+            paymentStatus: true,
+          },
+        });
+        if (!fresh) throw new Error("DTE original desapareció");
+        const newCreditedNet = Number(fresh.creditedNetAmount ?? 0) + ncTotalNet;
+        const newAmountPending = Math.max(
+          0,
+          Number(fresh.totalAmount) - Number(fresh.amountPaid ?? 0) - ncTotalGross,
+        );
+        const newStatus: "PAID" | "PARTIAL" | "UNPAID" =
+          newAmountPending === 0
+            ? "PAID"
+            : Number(fresh.amountPaid ?? 0) > 0
+              ? "PARTIAL"
+              : (fresh.paymentStatus as "UNPAID") ?? "UNPAID";
         await prisma.financeDte.update({
           where: { id: originalDte.id },
           data: {
-            creditedNetAmount: { increment: ncTotalNet },
+            creditedNetAmount: newCreditedNet,
+            amountPending: newAmountPending,
+            paymentStatus: newStatus,
           },
         });
       }
