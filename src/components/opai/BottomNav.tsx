@@ -209,6 +209,7 @@ export function BottomNav({ userRole }: BottomNavProps) {
           : "border-t border-border/30 bg-background/95 backdrop-blur-xl",
       )}
       style={{
+        bottom: 0,
         paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)",
       }}
     >

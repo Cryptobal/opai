@@ -13,6 +13,7 @@ import { AiHelpChatWidgetV2 as AiHelpChatWidget } from './AiHelpChatWidgetV2';
 import { ChatPageContextProvider } from './ChatPageContextProvider';
 import { SimulationBanner } from '@/components/navbar/SimulationBanner';
 import { BottomNav } from './BottomNav';
+import { BottomNavPortal } from './BottomNavPortal';
 import { useChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
 import { ChatSidePanel } from '@/components/chat/ChatSidePanel';
 import { useNotificationSidePanelContext } from '@/components/notifications/NotificationSidePanelContext';
@@ -240,7 +241,12 @@ function AppShellInner({
       </div>
 
       {/* ── Bottom Nav and Side Panels (outside overflow-x-hidden to avoid fixed clipping on iOS) ── */}
-      <BottomNav userRole={userRole} />
+      {/* BottomNav goes through a portal to body to bypass any ancestor that
+          creates a containing block (transform/filter/backdrop-filter) and
+          breaks `position: fixed`. */}
+      <BottomNavPortal>
+        <BottomNav userRole={userRole} />
+      </BottomNavPortal>
       <ChatSidePanel userRole={userRole} />
       <NotificationSidePanel />
     </>
