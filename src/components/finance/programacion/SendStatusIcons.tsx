@@ -105,7 +105,7 @@ export function OcReferenceChip({ references, className }: OcChipProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-md border border-ds-border-subtle bg-ds-surface-2 px-1.5 py-0.5 text-[10px] font-mono text-ds-text-2",
+        "inline-flex items-center gap-1 rounded-md border border-ds-border-subtle bg-ds-surface-2 px-1.5 py-0.5 text-[11px] font-mono uppercase tracking-[0.06em] text-ds-text-2",
         className,
       )}
       title={title}

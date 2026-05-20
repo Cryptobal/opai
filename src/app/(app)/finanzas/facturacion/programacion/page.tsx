@@ -8,8 +8,8 @@ import {
 import { PageHero } from "@/components/opai-ds";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import { CalendarDays } from "lucide-react";
-import { FacturacionClient } from "@/components/finance/FacturacionClient";
-import { DraftsList } from "@/components/finance/programacion/DraftsList";
+import { BorradoresTab } from "@/components/finance/BorradoresTab";
+import { DraftsMobileList } from "@/components/finance/programacion/DraftsMobileList";
 
 export default async function ProgramacionPage() {
   const session = await auth();
@@ -29,17 +29,6 @@ export default async function ProgramacionPage() {
     hasFacturacionCapability(perms, "facturacion_resend_email") ||
     hasFacturacionCapability(perms, "facturacion_configure");
 
-  const initialKpis = {
-    ventasMes: 0,
-    ivaDebitoMes: 0,
-    pendientesSii: 0,
-    facturasMes: 0,
-    foliosDisponibles: 0,
-    foliosLowCount: 0,
-    comparison: { vs: "vs mes anterior", pct: 0 },
-    periodLabel: "",
-  };
-
   return (
     <div className="space-y-6 min-w-0">
       <PageHero
@@ -50,22 +39,19 @@ export default async function ProgramacionPage() {
       />
       <FinanceN3Chips submoduleKey="finance-compras-ventas" />
 
-      <div>
+      <section>
         <h2 className="text-lg font-medium text-ds-text-1 mb-3">
           Borradores pendientes
         </h2>
-        <DraftsList
+        <DraftsMobileList
           canIssue={hasFacturacionCapability(perms, "facturacion_issue")}
+          canManage={canManage}
         />
-      </div>
+      </section>
 
-      <FacturacionClient
-        dtes={[]}
-        issuedTotal={0}
-        canManage={canManage}
-        initialKpis={initialKpis}
-        view="programacion"
-      />
+      <section>
+        <BorradoresTab canManage={canManage} />
+      </section>
     </div>
   );
 }
