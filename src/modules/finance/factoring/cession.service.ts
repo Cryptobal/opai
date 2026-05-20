@@ -132,7 +132,7 @@ function round2(n: number): number {
 
 /**
  * El SII/AppOCTAVA espera RUT chileno sin puntos y con guion antes del DV
- * (ej: 76083507-2). Nuestro catálogo guarda algunos RUTs limpios sin guion.
+ * (ej: 12345678-9). Nuestro catálogo guarda algunos RUTs limpios sin guion.
  */
 function formatRutForSii(raw: string): string {
   const clean = raw.replace(/[.\-\s]/g, "").toUpperCase();
@@ -645,10 +645,23 @@ async function sendCesionNotificacionEmail(p: CesionEmailPayload): Promise<void>
     }),
   );
 
+  // BCC al `emailReplyTo` del tenant — mismo patrón que dte-email.service:
+  // el equipo interno recibe copia oculta automática de cada notificación
+  // de cesión al cesionario (factoring).
+  const adminBcc = (emailCfg.replyTo ?? "").trim();
+  const cesionarioLower = p.cesionarioEmail.toLowerCase();
+  const bccList =
+    adminBcc &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminBcc) &&
+    adminBcc.toLowerCase() !== cesionarioLower
+      ? [adminBcc]
+      : undefined;
+
   await resend.emails.send({
     from: emailCfg.from,
     replyTo: emailCfg.replyTo || undefined,
     to: [p.cesionarioEmail],
+    bcc: bccList,
     subject: `Cesión electrónica ${p.operationCode} — ${montoCesionFmt} registrada en SII`,
     html,
   });

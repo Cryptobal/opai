@@ -359,8 +359,23 @@ export async function sendBillingDocument(
       ccCandidates.filter((e) => e && e.trim() && e !== primary),
     ),
   );
-  const bccList = (input.bccEmails ?? []).filter(
-    (e) => e && e.trim() && e !== primary,
+  // BCC: empieza con lo que mandó el caller (modal de envío) y agrega
+  // el `emailReplyTo` del tenant (Configuración → Empresa) como copia
+  // oculta de auditoría — mismo patrón que dte-email.service ya usa
+  // para los DTE. Dedup contra primary y CC (case-insensitive).
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const adminBcc = (emailCfg.replyTo ?? "").trim();
+  const rawBcc = [...(input.bccEmails ?? [])];
+  if (adminBcc && EMAIL_RE.test(adminBcc)) rawBcc.push(adminBcc);
+  const ccLower = ccList.map((c) => c.toLowerCase());
+  const bccList = Array.from(
+    new Set(
+      rawBcc
+        .map((e) => e?.trim())
+        .filter((e): e is string => !!e && e.length > 0)
+        .filter((e) => e.toLowerCase() !== primary.toLowerCase())
+        .filter((e) => !ccLower.includes(e.toLowerCase())),
+    ),
   );
 
   // Filename.
