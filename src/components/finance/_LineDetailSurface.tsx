@@ -210,6 +210,10 @@ export function LineDetailSurface({
           ref={nameRef}
           value={value.itemName}
           onChange={(e) => onChange({ itemName: e.target.value })}
+          onFocus={(e) => {
+            // Asegurar que el input enfocado quede al centro de la viewport del modal
+            setTimeout(() => e.currentTarget?.scrollIntoView?.({ behavior: "smooth", block: "center" }), 250);
+          }}
           className="h-10 sm:h-9 text-sm"
           placeholder="Ej: Servicio de Seguridad — Algarrobo 111"
           autoComplete="off"
@@ -259,6 +263,9 @@ export function LineDetailSurface({
               ref={descRef}
               value={value.description}
               onChange={(e) => onChange({ description: e.target.value })}
+              onFocus={(e) => {
+                setTimeout(() => e.currentTarget?.scrollIntoView?.({ behavior: "smooth", block: "center" }), 250);
+              }}
               maxLength={1000}
               rows={3}
               className="text-sm resize-y min-h-[72px] max-h-[240px]"
