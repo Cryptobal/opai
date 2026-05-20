@@ -237,6 +237,11 @@ export function RecurringClient({
   const [reloading, setReloading] = React.useState(false);
   // Modal: null = cerrado, "" = crear nueva, "<id>" = editar existente.
   const [editingId, setEditingId] = React.useState<string | null>(null);
+  // Hint opcional para scrollear a una sección al abrir el form (ej. cuando
+  // el usuario clickea "Corregir destinatarios" desde el modal de errores).
+  const [editingScrollTo, setEditingScrollTo] = React.useState<
+    "recipients" | null
+  >(null);
   // Bottom-sheet de acciones por fila (mobile).
   const [actionFor, setActionFor] = React.useState<string | null>(null);
 
@@ -248,6 +253,7 @@ export function RecurringClient({
 
   // ── Modal de detalle de errores de auto-send ──
   const [issueDetailFor, setIssueDetailFor] = React.useState<{
+    templateId: string;
     templateName: string;
     receiverName: string;
     issues: AutoSendIssue[];
@@ -701,6 +707,7 @@ export function RecurringClient({
             onClick={(e) => {
               e.stopPropagation();
               setIssueDetailFor({
+                templateId: t.id,
                 templateName: t.name,
                 receiverName: t.receiverName,
                 issues,
@@ -1144,6 +1151,7 @@ export function RecurringClient({
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setIssueDetailFor({
+                                  templateId: t.id,
                                   templateName: t.name,
                                   receiverName: t.receiverName,
                                   issues,
@@ -1245,9 +1253,14 @@ export function RecurringClient({
         key={editingId ?? "new"}
         open={editingId !== null}
         templateId={editingId || null}
-        onClose={() => setEditingId(null)}
+        initialScrollTo={editingScrollTo}
+        onClose={() => {
+          setEditingId(null);
+          setEditingScrollTo(null);
+        }}
         onSaved={() => {
           setEditingId(null);
+          setEditingScrollTo(null);
           reload();
           router.refresh();
         }}
@@ -1310,6 +1323,19 @@ export function RecurringClient({
                 </li>
               ))}
             </ul>
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingScrollTo("recipients");
+                  setEditingId(issueDetailFor.templateId);
+                  setIssueDetailFor(null);
+                }}
+                className="text-xs text-status-warn-fg underline whitespace-nowrap hover:opacity-80"
+              >
+                Corregir destinatarios →
+              </button>
+            </div>
             {issueDetailFor.dteId && (
               <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-ds-border-subtle">
                 <p className="text-xs text-ds-text-3 flex-1">

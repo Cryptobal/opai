@@ -95,6 +95,12 @@ interface Props {
   open: boolean;
   /** Si viene un id, el form opera en modo edición. */
   templateId?: string | null;
+  /**
+   * Si se setea, al terminar la carga inicial el form scrollea suavemente a
+   * la sección indicada. Útil para deep-linkear desde el banner de errores
+   * de auto-envío ("Corregir destinatarios").
+   */
+  initialScrollTo?: "recipients" | null;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -102,6 +108,7 @@ interface Props {
 export function RecurringTemplateForm({
   open,
   templateId,
+  initialScrollTo,
   onClose,
   onSaved,
 }: Props) {
@@ -384,6 +391,20 @@ export function RecurringTemplateForm({
       .finally(() => setLoading(false));
     return () => ctrl.abort();
   }, [open, templateId]);
+
+  // Si el caller pidió scrollear a una sección, lo hacemos cuando la carga
+  // inicial termina y el DOM está pintado. Pequeño delay para que el modal
+  // termine la animación de entrada antes de medir offset.
+  React.useEffect(() => {
+    if (!open || loading || !initialScrollTo) return;
+    const id = `section-${initialScrollTo}`;
+    const handle = window.setTimeout(() => {
+      document
+        .getElementById(id)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 250);
+    return () => window.clearTimeout(handle);
+  }, [open, loading, initialScrollTo]);
 
   // Auto-fill direccion/comuna/ciudad/giro/email desde el customer
   // seleccionado. Para el giro caemos al `industry` del CRM cuando
@@ -1562,7 +1583,10 @@ export function RecurringTemplateForm({
                 </label>
 
                 {(autoSendProforma || autoSendPaymentStatement) && (
-                  <div className="rounded-md border border-ds-border-default bg-ds-surface-2 p-3 space-y-2">
+                  <div
+                    id="section-recipients"
+                    className="rounded-md border border-ds-border-default bg-ds-surface-2 p-3 space-y-2 scroll-mt-4"
+                  >
                     <div className="text-[13px] font-medium text-ds-text-1">
                       Destinatarios de proforma y estado de pago
                     </div>
