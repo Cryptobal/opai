@@ -752,12 +752,12 @@ export function RecurringTemplateForm({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && !submitting && onClose()}>
-      <DialogContent className="sm:max-w-4xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-4xl max-h-[92vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? "Editar plantilla recurrente" : "Nueva plantilla recurrente"}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="break-words">
             La plantilla se comporta exactamente como una factura. Cada vez
             que el cron diario corra, generará un borrador con estos datos
             que podrás revisar antes de emitir al SII.
@@ -769,7 +769,7 @@ export function RecurringTemplateForm({
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="space-y-5 py-2">
+          <div className="space-y-5 py-2 min-w-0">
             {/* ── Nombre interno + tipo + moneda ── */}
             <Card>
               <CardContent className="pt-4 space-y-4">
