@@ -790,7 +790,7 @@ export function RecurringTemplateForm({
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="space-y-5 py-2 min-w-0">
+          <div className="space-y-5 py-2 min-w-0 scroll-pb-24">
             {/* ── Nombre interno + tipo + moneda ── */}
             <Card>
               <CardContent className="pt-4 space-y-4">

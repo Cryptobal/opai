@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
-import { FileText, Loader2, Send, RefreshCw, MapPin } from "lucide-react";
+import { FileText, Loader2, Send, RefreshCw, MapPin, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Surface, EmptyState } from "@/components/opai-ds";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -218,11 +218,21 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
                     </span>
                   </div>
                 )}
+                {d.templateName && (
+                  <div className="flex items-center gap-1.5 mt-1 text-xs text-tint-violet-fg min-w-0">
+                    <Repeat className="h-3 w-3 shrink-0" />
+                    <span className="truncate font-medium">{d.templateName}</span>
+                  </div>
+                )}
 
                 {/* Monto */}
-                <div className="mt-2">
+                <div className="mt-2 flex items-baseline gap-2 flex-wrap">
                   <span className="font-mono text-base font-semibold tabular-nums text-ds-text-1">
-                    {fmtCLP.format(d.totalAmount)}
+                    {fmtCLP.format(d.netAmount)}
+                    <span className="text-[10px] uppercase tracking-wider text-ds-text-3 ml-1.5 font-sans font-normal">neto</span>
+                  </span>
+                  <span className="font-mono text-xs tabular-nums text-ds-text-3">
+                    · {fmtCLP.format(d.totalAmount)} c/IVA
                   </span>
                 </div>
 

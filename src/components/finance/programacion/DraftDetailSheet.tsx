@@ -17,6 +17,7 @@ import {
   AlertCircle,
   MoreVertical,
   MapPin,
+  Repeat,
 } from "lucide-react";
 import {
   Sheet,
@@ -215,6 +216,12 @@ export function DraftDetailSheet({
                       </span>
                     </div>
                   )}
+                  {draft.templateName && (
+                    <div className="flex items-center gap-1.5 mt-1 text-xs text-tint-violet-fg">
+                      <Repeat className="h-3 w-3 shrink-0" />
+                      <span className="font-medium">{draft.templateName}</span>
+                    </div>
+                  )}
                 </div>
                 {canManage && (
                   <DropdownMenu>
@@ -258,9 +265,19 @@ export function DraftDetailSheet({
                 </span>
                 <OcReferenceChip references={draft.additionalReferences} />
               </div>
-              <p className="font-mono text-xl font-semibold tabular-nums text-ds-text-1">
-                {fmtCLP.format(draft.totalAmount)}
-              </p>
+              <div className="mt-2 space-y-0.5">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="font-mono text-xl font-semibold tabular-nums text-ds-text-1">
+                    {fmtCLP.format(draft.netAmount)}
+                  </span>
+                  <span className="text-xs uppercase tracking-wider text-ds-text-3">neto</span>
+                </div>
+                <div className="flex items-baseline gap-3 text-xs text-ds-text-3 font-mono tabular-nums">
+                  <span>IVA {fmtCLP.format(draft.taxAmount)}</span>
+                  <span>·</span>
+                  <span>Total c/IVA {fmtCLP.format(draft.totalAmount)}</span>
+                </div>
+              </div>
             </SheetHeader>
 
             <div className="flex-1 overflow-y-auto">
@@ -379,19 +396,19 @@ export function DraftDetailSheet({
                   </ul>
                   <div className="mt-4 space-y-1 text-sm">
                     <div className="flex justify-between text-ds-text-3">
-                      <span>Neto</span>
+                      <span>Subtotal neto</span>
                       <span className="font-mono tabular-nums">
                         {fmtCLP.format(draft.netAmount)}
                       </span>
                     </div>
                     <div className="flex justify-between text-ds-text-3">
-                      <span>IVA</span>
+                      <span>IVA (19%)</span>
                       <span className="font-mono tabular-nums">
                         {fmtCLP.format(draft.taxAmount)}
                       </span>
                     </div>
                     <div className="flex justify-between text-ds-text-1 font-semibold border-t border-ds-border-subtle pt-2 mt-2">
-                      <span>Total</span>
+                      <span>Total con IVA</span>
                       <span className="font-mono tabular-nums">
                         {fmtCLP.format(draft.totalAmount)}
                       </span>

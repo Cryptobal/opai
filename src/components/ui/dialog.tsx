@@ -37,13 +37,31 @@ function useKeyboardAwareMaxHeight() {
     const vv = typeof window !== 'undefined' ? window.visualViewport : null;
     if (!vv) return;
 
+    let scrollTimer: ReturnType<typeof setTimeout> | null = null;
+
     const handleResize = () => {
       const offset = window.innerHeight - vv.height;
-      setKeyboardOffset(offset > 50 ? offset : 0);
+      const newOffset = offset > 50 ? offset : 0;
+      setKeyboardOffset(newOffset);
+
+      // Cuando el teclado SE ABRE (offset crece), forzar scroll-into-view
+      // del input enfocado tras el reflow del DialogContent.
+      if (newOffset > 50) {
+        if (scrollTimer) clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(() => {
+          const active = document.activeElement as HTMLElement | null;
+          if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
+            active.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }, 150);
+      }
     };
 
     vv.addEventListener('resize', handleResize);
-    return () => vv.removeEventListener('resize', handleResize);
+    return () => {
+      vv.removeEventListener('resize', handleResize);
+      if (scrollTimer) clearTimeout(scrollTimer);
+    };
   }, []);
 
   return keyboardOffset;
@@ -83,7 +101,15 @@ const DialogContent = React.forwardRef<
           }
           onInteractOutside?.(e);
         }}
-        style={keyboardOffset > 0 ? { maxHeight: `calc(90vh - ${keyboardOffset}px)`, bottom: `${keyboardOffset}px` } : undefined}
+        style={
+          keyboardOffset > 0
+            ? {
+                maxHeight: `calc(90vh - ${keyboardOffset}px)`,
+                bottom: `${keyboardOffset}px`,
+                scrollPaddingBottom: `${keyboardOffset + 20}px`,
+              }
+            : { scrollPaddingBottom: "20px" }
+        }
         className={cn(
           // Mobile: bottom sheet style
           "fixed inset-x-0 bottom-0 z-50 grid w-full max-w-[100vw] gap-4 border-t border-border bg-card p-6 shadow-xl duration-300 rounded-t-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden overscroll-contain",

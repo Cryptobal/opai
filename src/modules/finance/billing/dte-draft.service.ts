@@ -343,7 +343,28 @@ export async function deleteDraftDte(tenantId: string, draftId: string) {
     select: { id: true },
   });
   if (!existing) throw new Error("Borrador no encontrado o ya emitido");
-  await prisma.financeDte.delete({ where: { id: draftId } });
+
+  await prisma.$transaction(async (tx) => {
+    // 1. Localizar runs asociados al draft.
+    const runs = await tx.financeDteRecurringRun.findMany({
+      where: { tenantId, dteId: draftId },
+      select: { id: true },
+    });
+
+    // 2. Limpiar autoSendIssues y anotar la eliminación en `error` para auditoría.
+    if (runs.length > 0) {
+      await tx.financeDteRecurringRun.updateMany({
+        where: { id: { in: runs.map((r) => r.id) } },
+        data: {
+          autoSendIssues: Prisma.DbNull,
+          error: `Borrador eliminado manualmente el ${new Date().toISOString().slice(0, 10)}`,
+        },
+      });
+    }
+
+    // 3. Eliminar el draft. El `dteId` del run queda null por SetNull (definido en schema).
+    await tx.financeDte.delete({ where: { id: draftId } });
+  });
 }
 
 /**
@@ -516,6 +537,8 @@ export type DraftListItem = {
   installationCommune: string | null;
   crmAccountId: string | null;
   crmAccountName: string | null;
+  templateId: string | null;
+  templateName: string | null;
   lines: DraftLineItem[];
 };
 
@@ -621,12 +644,15 @@ function serializeLine(l: RawDraftListRow["lines"][number]): DraftLineItem {
 type RefMaps = {
   installations: Map<string, { id: string; name: string; commune: string | null }>;
   accounts: Map<string, { id: string; name: string }>;
+  /** draftId → template that generated it (most recent run). */
+  templateByDraft: Map<string, { id: string; name: string }>;
 };
 
 function serializeDraftBase(d: RawDraftListRow, refs?: RefMaps): DraftListItem {
   const additionalRefs = d.additionalReferences as DraftAdditionalReference[] | null | undefined;
   const installation = d.installationId ? refs?.installations.get(d.installationId) ?? null : null;
   const account = d.crmAccountId ? refs?.accounts.get(d.crmAccountId) ?? null : null;
+  const template = refs?.templateByDraft.get(d.id) ?? null;
   return {
     id: d.id,
     date: d.date.toISOString(),
@@ -657,13 +683,15 @@ function serializeDraftBase(d: RawDraftListRow, refs?: RefMaps): DraftListItem {
     installationCommune: installation?.commune ?? null,
     crmAccountId: d.crmAccountId,
     crmAccountName: account?.name ?? null,
+    templateId: template?.id ?? null,
+    templateName: template?.name ?? null,
     lines: d.lines.map(serializeLine),
   };
 }
 
 async function resolveRefMaps(
   tenantId: string,
-  drafts: Array<{ installationId: string | null; crmAccountId: string | null }>,
+  drafts: Array<{ id: string; installationId: string | null; crmAccountId: string | null }>,
 ): Promise<RefMaps> {
   const installationIds = [
     ...new Set(drafts.map((d) => d.installationId).filter((x): x is string => Boolean(x))),
@@ -671,7 +699,8 @@ async function resolveRefMaps(
   const accountIds = [
     ...new Set(drafts.map((d) => d.crmAccountId).filter((x): x is string => Boolean(x))),
   ];
-  const [installations, accounts] = await Promise.all([
+  const draftIds = drafts.map((d) => d.id);
+  const [installations, accounts, runs] = await Promise.all([
     installationIds.length > 0
       ? prisma.crmInstallation.findMany({
           where: { tenantId, id: { in: installationIds } },
@@ -684,10 +713,28 @@ async function resolveRefMaps(
           select: { id: true, name: true },
         })
       : Promise.resolve([]),
+    draftIds.length > 0
+      ? prisma.financeDteRecurringRun.findMany({
+          where: { tenantId, dteId: { in: draftIds } },
+          orderBy: { ranAt: "desc" },
+          select: {
+            dteId: true,
+            template: { select: { id: true, name: true } },
+          },
+        })
+      : Promise.resolve([]),
   ]);
+  // Tomar el primer match (más reciente por orderBy desc) por draft.
+  const templateByDraft = new Map<string, { id: string; name: string }>();
+  for (const r of runs) {
+    if (r.dteId && !templateByDraft.has(r.dteId) && r.template) {
+      templateByDraft.set(r.dteId, r.template);
+    }
+  }
   return {
     installations: new Map(installations.map((i) => [i.id, i])),
     accounts: new Map(accounts.map((a) => [a.id, a])),
+    templateByDraft,
   };
 }
 
