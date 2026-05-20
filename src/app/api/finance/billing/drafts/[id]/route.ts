@@ -10,8 +10,8 @@ import { draftDteSchema } from "@/lib/validations/finance";
 import {
   updateDraftDte,
   deleteDraftDte,
+  getDraftDteById,
 } from "@/modules/finance/billing/dte-draft.service";
-import { prisma } from "@/lib/prisma";
 
 export async function GET(
   _request: NextRequest,
@@ -26,10 +26,7 @@ export async function GET(
     }
     const { id } = await params;
 
-    const draft = await prisma.financeDte.findFirst({
-      where: { id, tenantId: ctx.tenantId, siiStatus: "DRAFT" },
-      include: { lines: { orderBy: { lineNumber: "asc" } } },
-    });
+    const draft = await getDraftDteById(ctx.tenantId, id);
     if (!draft) {
       return NextResponse.json({ success: false, error: "Borrador no encontrado" }, { status: 404 });
     }
