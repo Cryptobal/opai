@@ -17,6 +17,7 @@ import {
   AlertCircle,
   MoreVertical,
   MapPin,
+  Repeat,
 } from "lucide-react";
 import {
   Sheet,
@@ -213,6 +214,12 @@ export function DraftDetailSheet({
                           </span>
                         )}
                       </span>
+                    </div>
+                  )}
+                  {draft.templateName && (
+                    <div className="flex items-center gap-1.5 mt-1 text-xs text-tint-violet-fg">
+                      <Repeat className="h-3 w-3 shrink-0" />
+                      <span className="font-medium">{draft.templateName}</span>
                     </div>
                   )}
                 </div>
