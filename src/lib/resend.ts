@@ -50,12 +50,19 @@ export interface TenantEmailConfig {
   companyName: string;
   /** Slug del tenant para construir URLs absolutas en emails (subdomain). */
   tenantSlug: string | null;
+  /** BCC permanente para TODOS los envíos finance de este tenant. */
+  alwaysBcc: string[];
 }
 
 const tenantEmailCache = new Map<string, { config: TenantEmailConfig; ts: number }>();
 const CACHE_TTL = 5 * 60 * 1000;
 
 export function clearTenantEmailConfigCache(tenantId: string): void {
+  tenantEmailCache.delete(tenantId);
+}
+
+/** Alias semántico de clearTenantEmailConfigCache para callers de config update. */
+export function invalidateTenantEmailCache(tenantId: string): void {
   tenantEmailCache.delete(tenantId);
 }
 
@@ -73,17 +80,36 @@ export async function getTenantEmailConfig(tenantId: string): Promise<TenantEmai
     const cfg = await getTenantCompanyConfig(tenantId);
 
     const { prisma } = await import("@/lib/prisma");
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { slug: true },
-    });
+    const [tenant, dteCfg] = await Promise.all([
+      prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { slug: true },
+      }),
+      prisma.tenantDteConfig.findUnique({
+        where: { tenantId },
+        select: { alwaysBcc: true, fromName: true, replyTo: true },
+      }),
+    ]);
+
+    // Override "from" name si TenantDteConfig.fromName está definido.
+    // El "from" base trae formato "Nombre <email@dominio>"; reemplazamos
+    // solo la parte del display name preservando el address.
+    let from = cfg.emailFrom;
+    if (dteCfg?.fromName && dteCfg.fromName.trim().length > 0) {
+      const match = cfg.emailFrom.match(/<([^>]+)>/);
+      const address = match?.[1] ?? cfg.emailFrom;
+      from = `${dteCfg.fromName.trim()} <${address}>`;
+    }
 
     const config: TenantEmailConfig = {
-      from: cfg.emailFrom,
-      replyTo: cfg.emailReplyTo,
+      from,
+      replyTo: dteCfg?.replyTo?.trim() || cfg.emailReplyTo,
       logoUrl: cfg.logoUrl || "",
       companyName: cfg.companyName || EMAIL_CONFIG.companyName,
       tenantSlug: tenant?.slug ?? null,
+      alwaysBcc: (dteCfg?.alwaysBcc ?? [])
+        .map((e) => e?.trim())
+        .filter((e): e is string => !!e && e.length > 0),
     };
 
     tenantEmailCache.set(tenantId, { config, ts: Date.now() });
@@ -95,6 +121,7 @@ export async function getTenantEmailConfig(tenantId: string): Promise<TenantEmai
       logoUrl: "",
       companyName: EMAIL_CONFIG.companyName,
       tenantSlug: null,
+      alwaysBcc: [],
     };
   }
 }
