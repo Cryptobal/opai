@@ -511,6 +511,11 @@ export type DraftListItem = {
   estadoPagoSentCount: number;
   estadoPagoLastRecipient: string | null;
   additionalReferences: DraftAdditionalReference[] | null;
+  installationId: string | null;
+  installationName: string | null;
+  installationCommune: string | null;
+  crmAccountId: string | null;
+  crmAccountName: string | null;
   lines: DraftLineItem[];
 };
 
@@ -534,8 +539,6 @@ export type DraftEmailLogItem = {
 export type DraftDetailItem = DraftListItem & {
   notes: string | null;
   accountId: string | null;
-  crmAccountId: string | null;
-  installationId: string | null;
   receiverEmailCc: string[];
   receiverGiro: string | null;
   receiverDireccion: string | null;
@@ -561,6 +564,8 @@ const DRAFT_LIST_SELECT = {
   netAmount: true,
   taxAmount: true,
   currency: true,
+  installationId: true,
+  crmAccountId: true,
   requireProforma: true,
   proformaStatus: true,
   proformaSentAt: true,
@@ -613,8 +618,15 @@ function serializeLine(l: RawDraftListRow["lines"][number]): DraftLineItem {
   };
 }
 
-function serializeDraftBase(d: RawDraftListRow): DraftListItem {
-  const refs = d.additionalReferences as DraftAdditionalReference[] | null | undefined;
+type RefMaps = {
+  installations: Map<string, { id: string; name: string; commune: string | null }>;
+  accounts: Map<string, { id: string; name: string }>;
+};
+
+function serializeDraftBase(d: RawDraftListRow, refs?: RefMaps): DraftListItem {
+  const additionalRefs = d.additionalReferences as DraftAdditionalReference[] | null | undefined;
+  const installation = d.installationId ? refs?.installations.get(d.installationId) ?? null : null;
+  const account = d.crmAccountId ? refs?.accounts.get(d.crmAccountId) ?? null : null;
   return {
     id: d.id,
     date: d.date.toISOString(),
@@ -639,8 +651,43 @@ function serializeDraftBase(d: RawDraftListRow): DraftListItem {
     estadoPagoSentAt: d.estadoPagoSentAt ? d.estadoPagoSentAt.toISOString() : null,
     estadoPagoSentCount: d.estadoPagoSentCount,
     estadoPagoLastRecipient: d.estadoPagoLastRecipient,
-    additionalReferences: Array.isArray(refs) && refs.length > 0 ? refs : null,
+    additionalReferences: Array.isArray(additionalRefs) && additionalRefs.length > 0 ? additionalRefs : null,
+    installationId: d.installationId,
+    installationName: installation?.name ?? null,
+    installationCommune: installation?.commune ?? null,
+    crmAccountId: d.crmAccountId,
+    crmAccountName: account?.name ?? null,
     lines: d.lines.map(serializeLine),
+  };
+}
+
+async function resolveRefMaps(
+  tenantId: string,
+  drafts: Array<{ installationId: string | null; crmAccountId: string | null }>,
+): Promise<RefMaps> {
+  const installationIds = [
+    ...new Set(drafts.map((d) => d.installationId).filter((x): x is string => Boolean(x))),
+  ];
+  const accountIds = [
+    ...new Set(drafts.map((d) => d.crmAccountId).filter((x): x is string => Boolean(x))),
+  ];
+  const [installations, accounts] = await Promise.all([
+    installationIds.length > 0
+      ? prisma.crmInstallation.findMany({
+          where: { tenantId, id: { in: installationIds } },
+          select: { id: true, name: true, commune: true },
+        })
+      : Promise.resolve([]),
+    accountIds.length > 0
+      ? prisma.crmAccount.findMany({
+          where: { tenantId, id: { in: accountIds } },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([]),
+  ]);
+  return {
+    installations: new Map(installations.map((i) => [i.id, i])),
+    accounts: new Map(accounts.map((a) => [a.id, a])),
   };
 }
 
@@ -671,7 +718,8 @@ export async function listDraftDtes(
     }),
     prisma.financeDte.count({ where }),
   ]);
-  return { drafts: drafts.map(serializeDraftBase), total };
+  const refs = await resolveRefMaps(tenantId, drafts);
+  return { drafts: drafts.map((d) => serializeDraftBase(d, refs)), total };
 }
 
 export async function getDraftDteById(
@@ -728,13 +776,12 @@ export async function getDraftDteById(
   });
   if (!draft) return null;
 
-  const base = serializeDraftBase(draft);
+  const refs = await resolveRefMaps(tenantId, [draft]);
+  const base = serializeDraftBase(draft, refs);
   return {
     ...base,
     notes: draft.notes,
     accountId: draft.accountId,
-    crmAccountId: draft.crmAccountId,
-    installationId: draft.installationId,
     receiverEmailCc: draft.receiverEmailCc,
     receiverGiro: draft.receiverGiro,
     receiverDireccion: draft.receiverDireccion,

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
-import { FileText, Loader2, Send, RefreshCw } from "lucide-react";
+import { FileText, Loader2, Send, RefreshCw, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Surface, EmptyState } from "@/components/opai-ds";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -203,6 +203,20 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
                   <p className="text-[12px] text-ds-text-4 font-mono">
                     {d.receiverRut}
                   </p>
+                )}
+                {(d.installationName || d.crmAccountName) && (
+                  <div className="flex items-center gap-1.5 mt-1 text-[12px] text-ds-text-3 min-w-0">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    <span className="truncate">
+                      {d.installationName ?? d.crmAccountName}
+                      {d.installationCommune && (
+                        <span className="text-ds-text-4">
+                          {" · "}
+                          {d.installationCommune}
+                        </span>
+                      )}
+                    </span>
+                  </div>
                 )}
 
                 {/* Monto */}

@@ -16,6 +16,7 @@ import {
   Eye,
   AlertCircle,
   MoreVertical,
+  MapPin,
 } from "lucide-react";
 import {
   Sheet,
@@ -199,6 +200,20 @@ export function DraftDetailSheet({
                     <SheetDescription className="text-[12px] text-ds-text-3 font-mono">
                       {draft.receiverRut}
                     </SheetDescription>
+                  )}
+                  {(draft.installationName || draft.crmAccountName) && (
+                    <div className="flex items-center gap-1.5 mt-1 text-sm text-ds-text-3 min-w-0">
+                      <MapPin className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">
+                        {draft.installationName ?? draft.crmAccountName}
+                        {draft.installationCommune && (
+                          <span className="text-ds-text-4">
+                            {" · "}
+                            {draft.installationCommune}
+                          </span>
+                        )}
+                      </span>
+                    </div>
                   )}
                 </div>
                 {canManage && (
