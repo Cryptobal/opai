@@ -106,7 +106,7 @@ export function TransactionalEmailMatrixClient() {
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium">{row.label}</p>
                       {row.required && (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[12px] font-medium text-amber-700 dark:text-amber-300">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-status-warn-soft px-2 py-0.5 text-[12px] font-medium text-status-warn-fg">
                           <Lock className="h-3 w-3" />
                           Crítico
                         </span>
