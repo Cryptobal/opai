@@ -50,6 +50,7 @@ export interface TenantCompanyConfig {
   /* Contacto comercial */
   email: string;             // comercial@miempresa.cl
   emailOps: string;          // operaciones@miempresa.cl
+  emailFinance: string;      // finanzas@miempresa.cl
   emailContact: string;      // contacto@miempresa.cl
   phone: string;             // "+56 9 1234 5678"
   phoneRaw: string;          // "56912345678" (sin formato, para wa.me links)
@@ -97,6 +98,7 @@ const DEFAULTS: TenantCompanyConfig = {
 
   email: "",
   emailOps: "",
+  emailFinance: "",
   emailContact: "",
   phone: "",
   phoneRaw: "",
@@ -147,6 +149,7 @@ const KEY_MAP: Record<string, keyof TenantCompanyConfig> = {
 
   "empresa.email": "email",
   "empresa.emailOps": "emailOps",
+  "empresa.emailFinance": "emailFinance",
   "empresa.emailContact": "emailContact",
   "empresa.phone": "phone",
   "empresa.phoneRaw": "phoneRaw",

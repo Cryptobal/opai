@@ -34,6 +34,7 @@ const BRAND_FIELDS = [
 const CONTACT_FIELDS = [
   { key: "empresa.email", label: "Email comercial principal", placeholder: "Ej: comercial@miempresa.cl", help: "Email principal que se muestra en presentaciones y PDFs." },
   { key: "empresa.emailOps", label: "Email operaciones", placeholder: "Ej: operaciones@miempresa.cl", help: "Recibe reportes de control nocturno y alertas operacionales." },
+  { key: "empresa.emailFinance", label: "Email finanzas", placeholder: "Ej: finanzas@miempresa.cl", help: "Recibe documentos tributarios, órdenes de compra, notas de crédito y cobranza interna." },
   { key: "empresa.emailContact", label: "Email contacto / general", placeholder: "Ej: contacto@miempresa.cl", help: "Email genérico para footer de cotizaciones." },
   { key: "empresa.phone", label: "Teléfono comercial", placeholder: "Ej: +56 9 1234 5678", help: "Con formato, para mostrar en documentos." },
   { key: "empresa.phoneRaw", label: "Teléfono WhatsApp (sin formato)", placeholder: "Ej: 56912345678", help: "Sin +, espacios ni guiones. Para links wa.me." },

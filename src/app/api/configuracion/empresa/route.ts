@@ -29,6 +29,7 @@ const EMPRESA_KEYS = [
   "empresa.logoUrl",
   "empresa.email",
   "empresa.emailOps",
+  "empresa.emailFinance",
   "empresa.emailContact",
   "empresa.phone",
   "empresa.phoneRaw",
