@@ -235,7 +235,7 @@ export function DraftDetailSheet({
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <DocumentTag dteType={draft.dteType} />
-                <span className="inline-flex items-center rounded-md border border-tint-violet-fg/30 bg-tint-violet/30 px-1.5 py-0.5 text-[11px] font-mono uppercase tracking-[0.06em] text-tint-violet-fg">
+                <span className="inline-flex items-center rounded-md border border-tint-violet-fg/30 bg-tint-violet/30 px-1.5 py-0.5 text-[11px] font-mono uppercase tracking-[0.08em] text-tint-violet-fg">
                   Borrador
                 </span>
                 <span className="font-mono text-[12px] text-ds-text-3 tabular-nums">
@@ -304,7 +304,7 @@ export function DraftDetailSheet({
                                   locale: es,
                                 })}
                               </span>
-                              <span className="text-[11px] font-mono uppercase tracking-[0.06em] text-ds-text-4">
+                              <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
                                 {humanizeKind(log.kind)}
                               </span>
                             </div>
@@ -398,7 +398,7 @@ export function DraftDetailSheet({
                           className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3"
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-[11px] font-mono uppercase tracking-[0.06em] text-ds-text-3">
+                            <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-3">
                               {humanizeRefType(ref.tipoDocRef)}
                             </span>
                             <span className="font-mono text-sm text-ds-text-1">
@@ -411,7 +411,7 @@ export function DraftDetailSheet({
                             </p>
                           )}
                           {ref.fchRef && (
-                            <p className="text-[11px] text-ds-text-4 font-mono mt-0.5">
+                            <p className="text-[12px] text-ds-text-4 font-mono mt-0.5 tabular-nums">
                               {ref.fchRef}
                             </p>
                           )}

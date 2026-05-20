@@ -475,8 +475,14 @@ export type DraftLineItem = {
   id: string;
   lineNumber: number;
   description: string;
+  itemName: string;
   quantity: number;
+  unit: string | null;
   unitPrice: number;
+  unitPriceUf: number | null;
+  discountPct: number;
+  isExempt: boolean;
+  accountId: string | null;
   lineTotal: number;
 };
 
@@ -529,6 +535,13 @@ export type DraftDetailItem = DraftListItem & {
   notes: string | null;
   accountId: string | null;
   crmAccountId: string | null;
+  installationId: string | null;
+  receiverEmailCc: string[];
+  receiverGiro: string | null;
+  receiverDireccion: string | null;
+  receiverComuna: string | null;
+  receiverCiudad: string | null;
+  ufValueAtIssue: number | null;
   proformaRecipientContactIds: string[];
   estadoPagoRecipientContactIds: string[];
   emailLogs: DraftEmailLogItem[];
@@ -566,7 +579,12 @@ const DRAFT_LIST_SELECT = {
       description: true,
       itemName: true,
       quantity: true,
+      unit: true,
       unitPrice: true,
+      unitPriceUf: true,
+      discountPct: true,
+      isExempt: true,
+      accountId: true,
       netAmount: true,
     },
     orderBy: { lineNumber: "asc" as const },
@@ -579,14 +597,18 @@ type RawDraftListRow = Prisma.FinanceDteGetPayload<{
 }>;
 
 function serializeLine(l: RawDraftListRow["lines"][number]): DraftLineItem {
-  const qty = Number(l.quantity);
-  const unitPrice = Number(l.unitPrice);
   return {
     id: l.id,
     lineNumber: l.lineNumber,
     description: l.description ?? l.itemName,
-    quantity: qty,
-    unitPrice,
+    itemName: l.itemName,
+    quantity: Number(l.quantity),
+    unit: l.unit,
+    unitPrice: Number(l.unitPrice),
+    unitPriceUf: l.unitPriceUf != null ? Number(l.unitPriceUf) : null,
+    discountPct: Number(l.discountPct),
+    isExempt: l.isExempt,
+    accountId: l.accountId,
     lineTotal: Number(l.netAmount),
   };
 }
@@ -663,6 +685,13 @@ export async function getDraftDteById(
       notes: true,
       accountId: true,
       crmAccountId: true,
+      installationId: true,
+      receiverEmailCc: true,
+      receiverGiro: true,
+      receiverDireccion: true,
+      receiverComuna: true,
+      receiverCiudad: true,
+      ufValueAtIssue: true,
       proformaRecipientContactIds: true,
       estadoPagoRecipientContactIds: true,
       emailLogs: {
@@ -705,6 +734,13 @@ export async function getDraftDteById(
     notes: draft.notes,
     accountId: draft.accountId,
     crmAccountId: draft.crmAccountId,
+    installationId: draft.installationId,
+    receiverEmailCc: draft.receiverEmailCc,
+    receiverGiro: draft.receiverGiro,
+    receiverDireccion: draft.receiverDireccion,
+    receiverComuna: draft.receiverComuna,
+    receiverCiudad: draft.receiverCiudad,
+    ufValueAtIssue: draft.ufValueAtIssue != null ? Number(draft.ufValueAtIssue) : null,
     proformaRecipientContactIds: draft.proformaRecipientContactIds,
     estadoPagoRecipientContactIds: draft.estadoPagoRecipientContactIds,
     emailLogs: draft.emailLogs.map((log) => ({

@@ -165,11 +165,11 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
                     {format(new Date(d.date), "dd MMM yyyy", { locale: es })}
                   </span>
                   <DocumentTag dteType={d.dteType} />
-                  <span className="inline-flex items-center rounded-md border border-tint-violet-fg/30 bg-tint-violet/30 px-1.5 py-0.5 text-[11px] font-mono uppercase tracking-[0.06em] text-tint-violet-fg">
+                  <span className="inline-flex items-center rounded-md border border-tint-violet-fg/30 bg-tint-violet/30 px-1.5 py-0.5 text-[11px] font-mono uppercase tracking-[0.08em] text-tint-violet-fg">
                     Borrador
                   </span>
                   <span
-                    className="text-[11px] font-mono text-ds-text-4"
+                    className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4"
                     title={`Creado hace ${ageLabel}`}
                   >
                     {ageLabel}
