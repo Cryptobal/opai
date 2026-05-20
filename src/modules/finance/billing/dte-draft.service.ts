@@ -453,10 +453,201 @@ export async function issueDraftDte(
   return issued;
 }
 
+// ── Shapes serializables expuestos a clientes ──
+// La capa de UI consume Number/string/null en vez de Decimal/Date para
+// evitar serializadores ad-hoc en cada consumidor.
+
+export type DraftProformaStatus =
+  | "NONE"
+  | "SENT"
+  | "VIEWED"
+  | "APPROVED"
+  | "REJECTED";
+
+export type DraftAdditionalReference = {
+  tipoDocRef: string;
+  folioRef: string;
+  fchRef?: string;
+  razonRef?: string;
+};
+
+export type DraftLineItem = {
+  id: string;
+  lineNumber: number;
+  description: string;
+  itemName: string;
+  quantity: number;
+  unit: string | null;
+  unitPrice: number;
+  unitPriceUf: number | null;
+  discountPct: number;
+  isExempt: boolean;
+  accountId: string | null;
+  lineTotal: number;
+};
+
+export type DraftListItem = {
+  id: string;
+  date: string;
+  dueDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+  dteType: number;
+  receiverName: string | null;
+  receiverRut: string | null;
+  receiverEmail: string | null;
+  totalAmount: number;
+  netAmount: number;
+  taxAmount: number;
+  currency: string;
+  requireProforma: boolean;
+  proformaStatus: DraftProformaStatus;
+  proformaSentAt: string | null;
+  proformaSentCount: number;
+  proformaLastRecipient: string | null;
+  requireEstadoPago: boolean;
+  estadoPagoStatus: DraftProformaStatus;
+  estadoPagoSentAt: string | null;
+  estadoPagoSentCount: number;
+  estadoPagoLastRecipient: string | null;
+  additionalReferences: DraftAdditionalReference[] | null;
+  lines: DraftLineItem[];
+};
+
+export type DraftEmailLogItem = {
+  id: string;
+  kind: string;
+  to: string[];
+  cc: string[];
+  bcc: string[];
+  subject: string;
+  status: string;
+  sentAt: string;
+  deliveredAt: string | null;
+  openedAt: string | null;
+  bouncedAt: string | null;
+  complainedAt: string | null;
+  errorMessage: string | null;
+  sentBy: string | null;
+};
+
+export type DraftDetailItem = DraftListItem & {
+  notes: string | null;
+  accountId: string | null;
+  crmAccountId: string | null;
+  installationId: string | null;
+  receiverEmailCc: string[];
+  receiverGiro: string | null;
+  receiverDireccion: string | null;
+  receiverComuna: string | null;
+  receiverCiudad: string | null;
+  ufValueAtIssue: number | null;
+  proformaRecipientContactIds: string[];
+  estadoPagoRecipientContactIds: string[];
+  emailLogs: DraftEmailLogItem[];
+};
+
+const DRAFT_LIST_SELECT = {
+  id: true,
+  date: true,
+  dueDate: true,
+  createdAt: true,
+  updatedAt: true,
+  dteType: true,
+  receiverName: true,
+  receiverRut: true,
+  receiverEmail: true,
+  totalAmount: true,
+  netAmount: true,
+  taxAmount: true,
+  currency: true,
+  requireProforma: true,
+  proformaStatus: true,
+  proformaSentAt: true,
+  proformaSentCount: true,
+  proformaLastRecipient: true,
+  requireEstadoPago: true,
+  estadoPagoStatus: true,
+  estadoPagoSentAt: true,
+  estadoPagoSentCount: true,
+  estadoPagoLastRecipient: true,
+  additionalReferences: true,
+  lines: {
+    select: {
+      id: true,
+      lineNumber: true,
+      description: true,
+      itemName: true,
+      quantity: true,
+      unit: true,
+      unitPrice: true,
+      unitPriceUf: true,
+      discountPct: true,
+      isExempt: true,
+      accountId: true,
+      netAmount: true,
+    },
+    orderBy: { lineNumber: "asc" as const },
+    take: 50,
+  },
+} satisfies Prisma.FinanceDteSelect;
+
+type RawDraftListRow = Prisma.FinanceDteGetPayload<{
+  select: typeof DRAFT_LIST_SELECT;
+}>;
+
+function serializeLine(l: RawDraftListRow["lines"][number]): DraftLineItem {
+  return {
+    id: l.id,
+    lineNumber: l.lineNumber,
+    description: l.description ?? l.itemName,
+    itemName: l.itemName,
+    quantity: Number(l.quantity),
+    unit: l.unit,
+    unitPrice: Number(l.unitPrice),
+    unitPriceUf: l.unitPriceUf != null ? Number(l.unitPriceUf) : null,
+    discountPct: Number(l.discountPct),
+    isExempt: l.isExempt,
+    accountId: l.accountId,
+    lineTotal: Number(l.netAmount),
+  };
+}
+
+function serializeDraftBase(d: RawDraftListRow): DraftListItem {
+  const refs = d.additionalReferences as DraftAdditionalReference[] | null | undefined;
+  return {
+    id: d.id,
+    date: d.date.toISOString(),
+    dueDate: d.dueDate ? d.dueDate.toISOString() : null,
+    createdAt: d.createdAt.toISOString(),
+    updatedAt: d.updatedAt.toISOString(),
+    dteType: d.dteType,
+    receiverName: d.receiverName || null,
+    receiverRut: d.receiverRut || null,
+    receiverEmail: d.receiverEmail,
+    totalAmount: Number(d.totalAmount),
+    netAmount: Number(d.netAmount),
+    taxAmount: Number(d.taxAmount),
+    currency: d.currency,
+    requireProforma: d.requireProforma,
+    proformaStatus: d.proformaStatus,
+    proformaSentAt: d.proformaSentAt ? d.proformaSentAt.toISOString() : null,
+    proformaSentCount: d.proformaSentCount,
+    proformaLastRecipient: d.proformaLastRecipient,
+    requireEstadoPago: d.requireEstadoPago,
+    estadoPagoStatus: d.estadoPagoStatus,
+    estadoPagoSentAt: d.estadoPagoSentAt ? d.estadoPagoSentAt.toISOString() : null,
+    estadoPagoSentCount: d.estadoPagoSentCount,
+    estadoPagoLastRecipient: d.estadoPagoLastRecipient,
+    additionalReferences: Array.isArray(refs) && refs.length > 0 ? refs : null,
+    lines: d.lines.map(serializeLine),
+  };
+}
+
 export async function listDraftDtes(
   tenantId: string,
   opts: { page: number; pageSize: number; search?: string },
-) {
+): Promise<{ drafts: DraftListItem[]; total: number }> {
   const where: Prisma.FinanceDteWhereInput = {
     tenantId,
     direction: "ISSUED",
@@ -476,10 +667,98 @@ export async function listDraftDtes(
       orderBy: { updatedAt: "desc" },
       take: opts.pageSize,
       skip: (opts.page - 1) * opts.pageSize,
-      include: { lines: true },
+      select: DRAFT_LIST_SELECT,
     }),
     prisma.financeDte.count({ where }),
   ]);
-  return { drafts, total };
+  return { drafts: drafts.map(serializeDraftBase), total };
+}
+
+export async function getDraftDteById(
+  tenantId: string,
+  draftId: string,
+): Promise<DraftDetailItem | null> {
+  const draft = await prisma.financeDte.findFirst({
+    where: { id: draftId, tenantId, siiStatus: "DRAFT" },
+    select: {
+      ...DRAFT_LIST_SELECT,
+      notes: true,
+      accountId: true,
+      crmAccountId: true,
+      installationId: true,
+      receiverEmailCc: true,
+      receiverGiro: true,
+      receiverDireccion: true,
+      receiverComuna: true,
+      receiverCiudad: true,
+      ufValueAtIssue: true,
+      proformaRecipientContactIds: true,
+      estadoPagoRecipientContactIds: true,
+      emailLogs: {
+        where: {
+          kind: {
+            in: [
+              "AUTO_PROFORMA",
+              "MANUAL_PROFORMA",
+              "AUTO_ESTADO_PAGO",
+              "MANUAL_ESTADO_PAGO",
+            ],
+          },
+        },
+        orderBy: { sentAt: "desc" },
+        select: {
+          id: true,
+          kind: true,
+          to: true,
+          cc: true,
+          bcc: true,
+          subject: true,
+          status: true,
+          sentAt: true,
+          deliveredAt: true,
+          openedAt: true,
+          bouncedAt: true,
+          complainedAt: true,
+          errorMessage: true,
+          sentBy: true,
+        },
+        take: 30,
+      },
+    },
+  });
+  if (!draft) return null;
+
+  const base = serializeDraftBase(draft);
+  return {
+    ...base,
+    notes: draft.notes,
+    accountId: draft.accountId,
+    crmAccountId: draft.crmAccountId,
+    installationId: draft.installationId,
+    receiverEmailCc: draft.receiverEmailCc,
+    receiverGiro: draft.receiverGiro,
+    receiverDireccion: draft.receiverDireccion,
+    receiverComuna: draft.receiverComuna,
+    receiverCiudad: draft.receiverCiudad,
+    ufValueAtIssue: draft.ufValueAtIssue != null ? Number(draft.ufValueAtIssue) : null,
+    proformaRecipientContactIds: draft.proformaRecipientContactIds,
+    estadoPagoRecipientContactIds: draft.estadoPagoRecipientContactIds,
+    emailLogs: draft.emailLogs.map((log) => ({
+      id: log.id,
+      kind: log.kind,
+      to: log.to,
+      cc: log.cc,
+      bcc: log.bcc,
+      subject: log.subject,
+      status: log.status,
+      sentAt: log.sentAt.toISOString(),
+      deliveredAt: log.deliveredAt ? log.deliveredAt.toISOString() : null,
+      openedAt: log.openedAt ? log.openedAt.toISOString() : null,
+      bouncedAt: log.bouncedAt ? log.bouncedAt.toISOString() : null,
+      complainedAt: log.complainedAt ? log.complainedAt.toISOString() : null,
+      errorMessage: log.errorMessage,
+      sentBy: log.sentBy,
+    })),
+  };
 }
 
