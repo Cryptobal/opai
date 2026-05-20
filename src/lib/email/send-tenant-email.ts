@@ -80,6 +80,36 @@ export async function sendTenantEmail(
     throw new Error("sendTenantEmail: debes pasar `html` o `text`.");
   }
 
+  // Consultar toggle del tenant para este kind. Kinds marcados `required`
+  // en el catálogo no se pueden desactivar — el toggle se ignora si existe.
+  const kindDef = (await import("./transactional-catalog")).getTransactionalKind(
+    input.kind,
+  );
+  if (kindDef && !kindDef.required) {
+    try {
+      const { prisma } = await import("@/lib/prisma");
+      const toggle = await prisma.tenantTransactionalEmailConfig.findUnique({
+        where: { tenantId_kind: { tenantId: input.tenantId, kind: input.kind } },
+      });
+      if (toggle && toggle.enabled === false) {
+        console.info(
+          `[sendTenantEmail] tenant=${input.tenantId} kind=${input.kind} skipped: toggle disabled`,
+        );
+        return {
+          resendId: null,
+          effectiveTo: [],
+          effectiveCc: [],
+          effectiveBcc: [],
+          effectiveFrom: "",
+          effectiveReplyTo: "",
+        };
+      }
+    } catch (toggleErr) {
+      // Si la consulta del toggle falla, no bloqueamos el envío.
+      console.error("[sendTenantEmail] toggle lookup failed:", toggleErr);
+    }
+  }
+
   const routing = await getTenantEmailRouting(input.tenantId);
   const mod = routing.modules[input.module];
 
@@ -163,7 +193,51 @@ export async function sendTenantEmail(
       `[sendTenantEmail] tenant=${input.tenantId} module=${input.module} kind=${input.kind} error:`,
       err,
     );
+    // Persistir log con status FAILED antes de relanzar.
+    try {
+      const { prisma } = await import("@/lib/prisma");
+      await prisma.tenantEmailLog.create({
+        data: {
+          tenantId: input.tenantId,
+          module: input.module,
+          kind: input.kind,
+          toAddresses: effectiveTo,
+          ccAddresses: effectiveCc,
+          bccAddresses: effectiveBcc,
+          fromAddress: effectiveFrom,
+          replyTo: effectiveReplyTo || null,
+          subject: input.subject,
+          resendId: null,
+          status: "FAILED",
+          errorMessage: err instanceof Error ? err.message : String(err),
+        },
+      });
+    } catch (logErr) {
+      console.error("[sendTenantEmail] failure log persist failed:", logErr);
+    }
     throw err;
+  }
+
+  // Persistir log del envío exitoso.
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    await prisma.tenantEmailLog.create({
+      data: {
+        tenantId: input.tenantId,
+        module: input.module,
+        kind: input.kind,
+        toAddresses: effectiveTo,
+        ccAddresses: effectiveCc,
+        bccAddresses: effectiveBcc,
+        fromAddress: effectiveFrom,
+        replyTo: effectiveReplyTo || null,
+        subject: input.subject,
+        resendId,
+        status: "SENT",
+      },
+    });
+  } catch (logErr) {
+    console.error("[sendTenantEmail] log persist failed (envío sí salió):", logErr);
   }
 
   return {

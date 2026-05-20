@@ -2,10 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { sendMock, routingMock } = vi.hoisted(() => ({
-  sendMock: vi.fn(),
-  routingMock: vi.fn(),
-}));
+const { sendMock, routingMock, toggleFindUniqueMock, logCreateMock } =
+  vi.hoisted(() => ({
+    sendMock: vi.fn(),
+    routingMock: vi.fn(),
+    toggleFindUniqueMock: vi.fn(),
+    logCreateMock: vi.fn(),
+  }));
 
 vi.mock("@/lib/resend", () => ({
   resend: { emails: { send: sendMock } },
@@ -14,6 +17,13 @@ vi.mock("@/lib/resend", () => ({
     "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
   })),
   getTenantEmailRouting: routingMock,
+}));
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    tenantTransactionalEmailConfig: { findUnique: toggleFindUniqueMock },
+    tenantEmailLog: { create: logCreateMock },
+  },
 }));
 
 import { sendTenantEmail } from "../send-tenant-email";
@@ -45,7 +55,11 @@ describe("sendTenantEmail", () => {
   beforeEach(() => {
     sendMock.mockReset();
     routingMock.mockReset();
+    toggleFindUniqueMock.mockReset();
+    logCreateMock.mockReset();
     sendMock.mockResolvedValue({ data: { id: "msg-1" } });
+    toggleFindUniqueMock.mockResolvedValue(null); // default: no toggle row → enabled
+    logCreateMock.mockResolvedValue({});
   });
 
   it("falla con error claro si el tenant no tiene from configurado", async () => {
@@ -204,5 +218,92 @@ describe("sendTenantEmail", () => {
     });
 
     expect(out.effectiveReplyTo).toBe("ad-hoc@x.cl");
+  });
+
+  it("salta el envío cuando el toggle del kind está disabled", async () => {
+    routingMock.mockResolvedValue(defaultRouting());
+    toggleFindUniqueMock.mockResolvedValue({ enabled: false });
+
+    const out = await sendTenantEmail({
+      tenantId: "t-1",
+      module: "commercial",
+      // Usar un kind real del catálogo para que la consulta del toggle aplique.
+      kind: "cpq_portal_invite",
+      to: "cliente@x.cl",
+      subject: "s",
+      text: "t",
+    });
+
+    expect(out.resendId).toBeNull();
+    expect(sendMock).not.toHaveBeenCalled();
+    expect(logCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("ignora el toggle si el kind está marcado required en el catálogo", async () => {
+    routingMock.mockResolvedValue(defaultRouting());
+    // El mock responde "disabled", pero como dte_invoice_sent es required, debe igual mandar.
+    toggleFindUniqueMock.mockResolvedValue({ enabled: false });
+
+    const out = await sendTenantEmail({
+      tenantId: "t-1",
+      module: "finance",
+      kind: "dte_invoice_sent",
+      to: "cliente@x.cl",
+      subject: "s",
+      text: "t",
+    });
+
+    expect(out.resendId).toBe("msg-1");
+    expect(sendMock).toHaveBeenCalledTimes(1);
+    // El toggle ni siquiera se debe consultar para kinds required.
+    expect(toggleFindUniqueMock).not.toHaveBeenCalled();
+  });
+
+  it("persiste log con status SENT cuando el envío sale bien", async () => {
+    routingMock.mockResolvedValue(defaultRouting());
+
+    await sendTenantEmail({
+      tenantId: "t-1",
+      module: "commercial",
+      kind: "cpq_portal_invite",
+      to: "cliente@x.cl",
+      subject: "Asunto",
+      text: "t",
+    });
+
+    expect(logCreateMock).toHaveBeenCalledTimes(1);
+    expect(logCreateMock.mock.calls[0]![0]!.data).toMatchObject({
+      tenantId: "t-1",
+      module: "commercial",
+      kind: "cpq_portal_invite",
+      subject: "Asunto",
+      resendId: "msg-1",
+      status: "SENT",
+    });
+  });
+
+  it("persiste log con status FAILED y relanza cuando Resend explota", async () => {
+    routingMock.mockResolvedValue(defaultRouting());
+    sendMock.mockRejectedValue(new Error("boom"));
+
+    await expect(
+      sendTenantEmail({
+        tenantId: "t-1",
+        module: "commercial",
+        kind: "cpq_portal_invite",
+        to: "cliente@x.cl",
+        subject: "Asunto",
+        text: "t",
+      }),
+    ).rejects.toThrow("boom");
+
+    expect(logCreateMock).toHaveBeenCalledTimes(1);
+    expect(logCreateMock.mock.calls[0]![0]!.data).toMatchObject({
+      tenantId: "t-1",
+      module: "commercial",
+      kind: "cpq_portal_invite",
+      status: "FAILED",
+      errorMessage: "boom",
+    });
   });
 });
