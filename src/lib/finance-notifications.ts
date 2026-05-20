@@ -1,22 +1,22 @@
 /**
  * Finance Notifications
  *
- * Email helpers for rendición lifecycle events using Resend.
+ * Email helpers for rendición lifecycle events. Uses sendTenantEmail so
+ * the FROM/Reply-To/BCC are resolved per tenant — no env-global FROM.
  * Each function is fire-and-forget safe — errors are logged but never thrown
  * so callers don't break if email delivery fails.
  */
 
-import { Resend } from "resend";
-import { getCanonicalSiteUrl, getNotificationPrefsUrl } from "@/lib/emails/site-url";
-
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
+import { sendTenantEmail } from "@/lib/email/send-tenant-email";
+import {
+  getCanonicalSiteUrl,
+  getNotificationPrefsUrl,
+} from "@/lib/emails/site-url";
 
 const SITE_URL = getCanonicalSiteUrl();
 const PREFS_URL = getNotificationPrefsUrl();
 
-const FROM = process.env.EMAIL_FROM || "OPAI <noreply@opai.cl>";
+const RESEND_AVAILABLE = Boolean(process.env.RESEND_API_KEY);
 
 function formatCLP(amount: number): string {
   return new Intl.NumberFormat("es-CL", {
@@ -29,19 +29,22 @@ function formatCLP(amount: number): string {
 // ── notifyRendicionSubmitted ────────────────────────────────────────────────
 
 export async function notifyRendicionSubmitted(data: {
+  tenantId: string;
   rendicionCode: string;
   submitterName: string;
   amount: number;
   approverEmails: string[];
 }) {
-  if (!resend) return;
+  if (!RESEND_AVAILABLE) return;
 
   const formattedAmount = formatCLP(data.amount);
 
   for (const email of data.approverEmails) {
     try {
-      await resend.emails.send({
-        from: FROM,
+      await sendTenantEmail({
+        tenantId: data.tenantId,
+        module: "finance",
+        kind: "rendicion_submitted",
         to: email,
         subject: `Rendición ${data.rendicionCode} pendiente de aprobación`,
         text: [
@@ -65,18 +68,21 @@ export async function notifyRendicionSubmitted(data: {
 // ── notifyRendicionApproved ─────────────────────────────────────────────────
 
 export async function notifyRendicionApproved(data: {
+  tenantId: string;
   rendicionCode: string;
   amount: number;
   submitterEmail: string;
   approverName: string;
 }) {
-  if (!resend) return;
+  if (!RESEND_AVAILABLE) return;
 
   const formattedAmount = formatCLP(data.amount);
 
   try {
-    await resend.emails.send({
-      from: FROM,
+    await sendTenantEmail({
+      tenantId: data.tenantId,
+      module: "finance",
+      kind: "rendicion_approved",
       to: data.submitterEmail,
       subject: `Tu rendición ${data.rendicionCode} fue aprobada`,
       text: [
@@ -101,19 +107,22 @@ export async function notifyRendicionApproved(data: {
 // ── notifyRendicionRejected ─────────────────────────────────────────────────
 
 export async function notifyRendicionRejected(data: {
+  tenantId: string;
   rendicionCode: string;
   amount: number;
   submitterEmail: string;
   rejectorName: string;
   reason: string;
 }) {
-  if (!resend) return;
+  if (!RESEND_AVAILABLE) return;
 
   const formattedAmount = formatCLP(data.amount);
 
   try {
-    await resend.emails.send({
-      from: FROM,
+    await sendTenantEmail({
+      tenantId: data.tenantId,
+      module: "finance",
+      kind: "rendicion_rejected",
       to: data.submitterEmail,
       subject: `Tu rendición ${data.rendicionCode} fue rechazada`,
       text: [
@@ -138,18 +147,21 @@ export async function notifyRendicionRejected(data: {
 // ── notifyRendicionPaid ─────────────────────────────────────────────────────
 
 export async function notifyRendicionPaid(data: {
+  tenantId: string;
   rendicionCode: string;
   amount: number;
   submitterEmail: string;
   paymentCode: string;
 }) {
-  if (!resend) return;
+  if (!RESEND_AVAILABLE) return;
 
   const formattedAmount = formatCLP(data.amount);
 
   try {
-    await resend.emails.send({
-      from: FROM,
+    await sendTenantEmail({
+      tenantId: data.tenantId,
+      module: "finance",
+      kind: "rendicion_paid",
       to: data.submitterEmail,
       subject: `Tu rendición ${data.rendicionCode} fue pagada`,
       text: [

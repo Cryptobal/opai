@@ -102,6 +102,7 @@ export async function POST(
       });
       if (submitter?.email) {
         notifyRendicionApproved({
+          tenantId: ctx.tenantId,
           rendicionCode: rendicion.code,
           amount: rendicion.amount,
           submitterEmail: submitter.email,

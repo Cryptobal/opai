@@ -178,6 +178,7 @@ export async function POST(request: NextRequest) {
       const submitterEmail = submitterMap.get(rendicion.submitterId);
       if (submitterEmail) {
         notifyRendicionPaid({
+          tenantId: ctx.tenantId,
           rendicionCode: rendicion.code,
           amount: rendicion.amount,
           submitterEmail,

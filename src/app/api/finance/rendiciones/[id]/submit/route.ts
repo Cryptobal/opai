@@ -120,6 +120,7 @@ export async function POST(
         select: { name: true },
       });
       notifyRendicionSubmitted({
+        tenantId: ctx.tenantId,
         rendicionCode: existing.code,
         submitterName: submitter?.name ?? ctx.userEmail,
         amount: existing.amount,
