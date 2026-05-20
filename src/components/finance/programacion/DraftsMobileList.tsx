@@ -220,9 +220,13 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
                 )}
 
                 {/* Monto */}
-                <div className="mt-2">
+                <div className="mt-2 flex items-baseline gap-2 flex-wrap">
                   <span className="font-mono text-base font-semibold tabular-nums text-ds-text-1">
-                    {fmtCLP.format(d.totalAmount)}
+                    {fmtCLP.format(d.netAmount)}
+                    <span className="text-[10px] uppercase tracking-wider text-ds-text-3 ml-1.5 font-sans font-normal">neto</span>
+                  </span>
+                  <span className="font-mono text-xs tabular-nums text-ds-text-3">
+                    · {fmtCLP.format(d.totalAmount)} c/IVA
                   </span>
                 </div>
 
