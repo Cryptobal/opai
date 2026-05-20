@@ -110,25 +110,27 @@ export async function sendDteEmail(
   );
 
   // BCC: empieza con lo que mandó el caller (manual override del dialog
-  // de reenvío). Después agregamos el `emailReplyTo` del tenant para que
-  // admin reciba siempre una copia oculta como auditoría (estándar pedido
-  // por el usuario 2026-05). Si está duplicado con primary/CC/BCC, se
-  // dedupea más abajo.
+  // de reenvío). Después agregamos el `alwaysBcc` del tenant. Si el tenant
+  // no configuró alwaysBcc, caemos al `emailReplyTo` como BCC implícito
+  // (compat hacia atrás, según schema TenantDteConfig.alwaysBcc).
   const tenantConfig = await prisma.tenantDteConfig.findUnique({ where: { tenantId } });
   if (!tenantConfig) return { success: false, error: "Tenant DTE config no existe" };
 
   const emailCfg = await getTenantEmailConfig(tenantId);
-  const adminBcc = (emailCfg.replyTo ?? "").trim();
-  const rawBcc = [...(bccOverride ?? [])];
-  if (adminBcc && EMAIL_RE.test(adminBcc)) rawBcc.push(adminBcc);
+  const tenantAlwaysBcc = (emailCfg.alwaysBcc ?? []).filter((e) => EMAIL_RE.test(e));
+  const rawBcc = [...(bccOverride ?? []), ...tenantAlwaysBcc];
+  if (tenantAlwaysBcc.length === 0) {
+    const adminBcc = (emailCfg.replyTo ?? "").trim();
+    if (adminBcc && EMAIL_RE.test(adminBcc)) rawBcc.push(adminBcc);
+  }
 
   const bccList = rawBcc.filter(
     (e, idx, arr) =>
       typeof e === "string" &&
       e.trim() &&
-      e !== primary &&
-      !ccList.includes(e) &&
-      arr.indexOf(e) === idx, // dedupe interno
+      e.toLowerCase() !== primary.toLowerCase() &&
+      !ccList.map((c) => c.toLowerCase()).includes(e.toLowerCase()) &&
+      arr.findIndex((x) => x.toLowerCase() === e.toLowerCase()) === idx, // dedupe case-insensitive
   );
 
   let xmlBuffer: Buffer;
@@ -332,13 +334,30 @@ export async function sendDteXmlToBackoffice(
 
   const dteFilenameBase = await buildDteAttachmentBaseName(tenantId, dte);
 
-  // Auto-BCC al `emailReplyTo` del tenant para auditoría — solo si no
-  // está ya como destinatario directo (evita duplicado en bandeja).
-  const adminBcc = (emailCfg.replyTo ?? "").trim();
-  const backofficeBccList =
-    adminBcc && EMAIL_RE.test(adminBcc) && !recipients.includes(adminBcc)
-      ? [adminBcc]
-      : undefined;
+  // Auto-BCC: priorizamos el alwaysBcc del tenant; si no hay, caemos al
+  // emailReplyTo como copia oculta de auditoría (compat hacia atrás).
+  // Filtramos duplicados con los recipients directos.
+  const recipientsLower = recipients.map((r) => r.toLowerCase());
+  const tenantAlwaysBcc = (emailCfg.alwaysBcc ?? []).filter((e) => EMAIL_RE.test(e));
+  let bccCandidates: string[] = [];
+  if (tenantAlwaysBcc.length > 0) {
+    bccCandidates = tenantAlwaysBcc;
+  } else {
+    const adminBcc = (emailCfg.replyTo ?? "").trim();
+    if (adminBcc && EMAIL_RE.test(adminBcc)) bccCandidates = [adminBcc];
+  }
+  const backofficeBccList = (() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const e of bccCandidates) {
+      const low = e.toLowerCase();
+      if (seen.has(low)) continue;
+      if (recipientsLower.includes(low)) continue;
+      seen.add(low);
+      out.push(e);
+    }
+    return out.length > 0 ? out : undefined;
+  })();
 
   try {
     const result = await resend.emails.send({
