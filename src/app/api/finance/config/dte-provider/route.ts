@@ -16,6 +16,7 @@ import {
 } from "@/lib/api-auth";
 import { canView, hasFacturacionCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { invalidateTenantEmailCache } from "@/lib/resend";
 
 /**
  * Schema Zod del body del PUT.
@@ -66,6 +67,10 @@ const updateConfigSchema = z
       .array(z.string().email("Email de alerta inválido"))
       .max(10, "Máximo 10 emails de alerta")
       .optional(),
+    alwaysBcc: z
+      .array(z.string().email("Email BCC inválido"))
+      .max(10, "Máximo 10 emails BCC")
+      .optional(),
     logoBase64: z
       .string()
       .max(800 * 1024, "Logo demasiado grande (máx 800KB en base64)")
@@ -95,6 +100,7 @@ const PERSISTABLE_KEYS = [
   "emisorEmail",
   "resolNumero",
   "alertEmails",
+  "alwaysBcc",
   "logoBase64",
   // Campos agregados por main (PR #419 — DTE draft management).
   // Persisten en TenantDteConfig desde la migration nivel-mundial.
@@ -206,6 +212,11 @@ export async function PUT(request: NextRequest) {
         ...(resolFechaDate !== undefined ? { resolFecha: resolFechaDate } : {}),
       },
     });
+
+    // El cache de TenantEmailConfig tiene TTL 5min. Sin invalidar aquí,
+    // los próximos envíos seguirían usando la config vieja (alwaysBcc,
+    // fromName, replyTo) hasta que expire el cache.
+    invalidateTenantEmailCache(ctx.tenantId);
 
     return NextResponse.json({ success: true, data: config });
   } catch (err) {

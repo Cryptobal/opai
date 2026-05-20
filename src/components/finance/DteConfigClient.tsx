@@ -64,6 +64,8 @@ interface ConfigData {
   /** Plantilla de email al receptor (placeholders {{razonSocial}}, etc). */
   emailTemplateSubject: string | null;
   emailTemplateBody: string | null;
+  /** BCC permanente: emails que reciben copia oculta en cada envío finance. */
+  alwaysBcc: string[];
 }
 
 interface CertData {
@@ -110,6 +112,7 @@ const DEFAULT_CONFIG: ConfigData = {
   defaultXmlRecipientAlwaysSend: false,
   emailTemplateSubject: null,
   emailTemplateBody: null,
+  alwaysBcc: [],
 };
 
 interface Props {
@@ -515,6 +518,58 @@ export function DteConfigClient({
                 {config.defaultXmlRecipientAlwaysSend
                   ? "Activo: el envío al backoffice es forzoso en cada emisión."
                   : "Si hay emails configurados, el checkbox aparecerá pre-marcado en cada emisión y el usuario puede desmarcarlo."}
+              </p>
+            </div>
+
+            {/* Copia oculta permanente (BCC) — equipo interno recibe copia de cada envío finance */}
+            <div className="pt-4 border-t border-ds-border-subtle space-y-2">
+              <div>
+                <Label>Copia oculta permanente (BCC)</Label>
+                <p className="text-[12px] text-ds-text-3 mt-0.5">
+                  Emails que reciben copia oculta en <strong>cada envío de finanzas</strong>:
+                  Proforma, Estado de Pago, factura emitida al receptor, alertas de rechazo SII,
+                  recordatorios de cobranza y notificaciones de cesión. El receptor NO ve estos
+                  correos. Útil para que el equipo interno (contabilidad, supervisor) tenga
+                  histórico automático sin estar en el &quot;Para&quot; / &quot;CC&quot;. Máximo 10 emails.
+                </p>
+              </div>
+              <Input
+                placeholder="contabilidad@empresa.cl, supervisor@empresa.cl"
+                value={config.alwaysBcc.join(", ")}
+                onChange={(e) => {
+                  const list = e.target.value
+                    .split(/[\s,;]+/)
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+                  setConfig((cfg) => ({ ...cfg, alwaysBcc: list }));
+                }}
+                className="h-10 sm:h-9"
+              />
+              {config.alwaysBcc.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {config.alwaysBcc.map((email) => {
+                    const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+                    return (
+                      <span
+                        key={email}
+                        className={
+                          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] " +
+                          (isValid
+                            ? "bg-status-ok-soft text-status-ok-fg border border-status-ok-border"
+                            : "bg-status-danger-soft text-status-danger-fg border border-status-danger-border")
+                        }
+                      >
+                        {email}
+                        {!isValid && <span className="ml-0.5">⚠</span>}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="text-[11px] text-ds-text-4">
+                {config.alwaysBcc.length} de 10 emails configurados.
+                {config.alwaysBcc.length === 0 &&
+                  " Si está vacío, no se aplica BCC adicional a los envíos finance."}
               </p>
             </div>
 

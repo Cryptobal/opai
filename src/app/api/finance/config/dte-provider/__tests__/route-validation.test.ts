@@ -49,6 +49,10 @@ const updateConfigSchema = z
       .array(z.string().email("Email de alerta inválido"))
       .max(10, "Máximo 10 emails de alerta")
       .optional(),
+    alwaysBcc: z
+      .array(z.string().email("Email BCC inválido"))
+      .max(10, "Máximo 10 emails BCC")
+      .optional(),
     logoBase64: z
       .string()
       .max(800 * 1024, "Logo demasiado grande (máx 800KB en base64)")
@@ -72,6 +76,7 @@ const PERSISTABLE_KEYS = [
   "emisorEmail",
   "resolNumero",
   "alertEmails",
+  "alwaysBcc",
   "logoBase64",
 ] as const;
 
@@ -187,6 +192,32 @@ describe("DteConfig PUT validation", () => {
     const r = updateConfigSchema.safeParse({
       alertEmails: ["valido@empresa.cl", "no-es-email"],
     });
+    expect(r.success).toBe(false);
+  });
+
+  it("acepta array de alwaysBcc con emails válidos y lo persiste", () => {
+    const r = updateConfigSchema.safeParse({
+      alwaysBcc: ["contabilidad@empresa.cl", "supervisor@empresa.cl"],
+    });
+    expect(r.success).toBe(true);
+    if (!r.success) return;
+    const persistable = pickPersistableFields(r.data);
+    expect(persistable.alwaysBcc).toEqual([
+      "contabilidad@empresa.cl",
+      "supervisor@empresa.cl",
+    ]);
+  });
+
+  it("rechaza array de alwaysBcc con un email inválido", () => {
+    const r = updateConfigSchema.safeParse({
+      alwaysBcc: ["valido@empresa.cl", "no-es-email"],
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rechaza alwaysBcc con más de 10 emails", () => {
+    const too_many = Array.from({ length: 11 }, (_, i) => `u${i}@empresa.cl`);
+    const r = updateConfigSchema.safeParse({ alwaysBcc: too_many });
     expect(r.success).toBe(false);
   });
 
