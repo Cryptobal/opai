@@ -367,6 +367,13 @@ export function DtesEmitidosClient({
                       primaryFolio: number;
                     }
                   | null) ?? null,
+              voidedByCreditNoteId:
+                (d.voidedByCreditNoteId as string | null) ?? null,
+              voidedAt: (d.voidedAt as string | null) ?? null,
+              creditedNetAmount:
+                d.creditedNetAmount != null
+                  ? Number(d.creditedNetAmount)
+                  : 0,
             }))
           : [];
         setDtes(list);
@@ -410,7 +417,20 @@ export function DtesEmitidosClient({
   const filtered = useMemo(() => sortDteRows(dtes, filters.sort), [dtes, filters.sort]);
 
   const filteredSumTotal = useMemo(
-    () => filtered.reduce((acc, d) => acc + d.totalAmount, 0),
+    () =>
+      filtered.reduce((acc, d) => {
+        // NCs: restan del total (contra-asiento contra facturas).
+        if (d.dteType === 61) return acc - d.totalAmount;
+        // Anuladas por NC total (CodRef=1): 0 al total.
+        if (d.voidedByCreditNoteId) return acc;
+        // Parcial por NC (CodRef=3): descontar el bruto acreditado.
+        const credited = Number(d.creditedNetAmount ?? 0);
+        if (credited > 0 && d.netAmount > 0) {
+          const ratio = d.totalAmount / d.netAmount;
+          return acc + (d.totalAmount - credited * ratio);
+        }
+        return acc + d.totalAmount;
+      }, 0),
     [filtered],
   );
 
