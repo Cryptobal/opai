@@ -367,9 +367,13 @@ export async function issueDte(
           siiTrackId: providerResult.trackId ?? null,
           pdfUrl: providerResult.pdfUrl ?? null,
           xmlUrl: providerResult.xmlUrl ?? null,
-          paymentStatus: "UNPAID",
-          amountPaid: 0,
-          amountPending: totalAmount,
+          // Las NCs (61) nacen fuera del flujo de cobranza: no se cobran
+          // (son contra-asiento de una factura ya emitida). Las marcamos
+          // PAID con saldo=0 para que NUNCA aparezcan en filtros de
+          // Pendiente/Vencido. Resto: estado normal UNPAID con saldo.
+          paymentStatus: input.dteType === 61 ? "PAID" : "UNPAID",
+          amountPaid: input.dteType === 61 ? totalAmount : 0,
+          amountPending: input.dteType === 61 ? 0 : totalAmount,
           accountId: input.accountId ?? null,
           createdBy,
           notes: input.notes ?? null,
