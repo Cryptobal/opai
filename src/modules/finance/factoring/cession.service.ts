@@ -645,12 +645,32 @@ async function sendCesionNotificacionEmail(p: CesionEmailPayload): Promise<void>
     }),
   );
 
-  // Aplicar alwaysBcc del tenant — el equipo interno recibe copia automática
-  // de la notificación de cesión al cesionario (factoring).
+  // BCC: alwaysBcc del tenant + cascada de fallback. Si alwaysBcc está
+  // vacío, usa el primer email configurado del tenant (replyTo →
+  // emisorEmail → empresa.email). Garantiza copia oculta al equipo
+  // interno aunque no haya config explícita.
   const primaryLower = p.cesionarioEmail.toLowerCase();
-  const tenantBcc = (emailCfg.alwaysBcc ?? [])
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const explicitBcc = (emailCfg.alwaysBcc ?? [])
     .map((e) => e?.trim())
-    .filter((e): e is string => !!e && e.includes("@"))
+    .filter((e): e is string => !!e && EMAIL_RE.test(e));
+  let bccCandidates = explicitBcc;
+  if (explicitBcc.length === 0) {
+    const { prisma: prismaClient } = await import("@/lib/prisma");
+    const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
+    const [dteCfg, companyCfg] = await Promise.all([
+      prismaClient.tenantDteConfig.findUnique({
+        where: { tenantId: p.tenantId },
+        select: { emisorEmail: true },
+      }),
+      getTenantCompanyConfig(p.tenantId),
+    ]);
+    const fallback = [emailCfg.replyTo, dteCfg?.emisorEmail ?? "", companyCfg.email]
+      .map((e) => (e ?? "").trim())
+      .find((e) => e.length > 0 && EMAIL_RE.test(e));
+    if (fallback) bccCandidates = [fallback];
+  }
+  const tenantBcc = bccCandidates
     .filter((e) => e.toLowerCase() !== primaryLower)
     .filter((e, idx, arr) => arr.findIndex((x) => x.toLowerCase() === e.toLowerCase()) === idx);
 

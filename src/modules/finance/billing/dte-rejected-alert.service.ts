@@ -123,13 +123,28 @@ export async function sendDteRejectedAlert(
   </body>
 </html>`;
 
-  // Aplicar alwaysBcc del tenant — recibe copia de cada alerta de rechazo,
-  // útil para que el supervisor reciba siempre la notificación aunque su
-  // email no esté en alertEmails. Filtramos duplicados con recipients.
+  // BCC: alwaysBcc del tenant + cascada de fallback si está vacío.
+  // Cubre supervisores que no editaron alwaysBcc pero igual deben recibir
+  // las alertas críticas.
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const recipientsLower = recipients.map((r) => r.toLowerCase());
-  const tenantBcc = (emailCfg.alwaysBcc ?? [])
+  const explicitBcc = (emailCfg.alwaysBcc ?? [])
     .map((e) => e?.trim())
-    .filter((e): e is string => !!e && e.includes("@"))
+    .filter((e): e is string => !!e && EMAIL_RE.test(e));
+  let bccCandidates = explicitBcc;
+  if (explicitBcc.length === 0) {
+    const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
+    const dteCfg = await prisma.tenantDteConfig.findUnique({
+      where: { tenantId },
+      select: { emisorEmail: true },
+    });
+    const companyCfg = await getTenantCompanyConfig(tenantId);
+    const fallback = [emailCfg.replyTo, dteCfg?.emisorEmail ?? "", companyCfg.email]
+      .map((e) => (e ?? "").trim())
+      .find((e) => e.length > 0 && EMAIL_RE.test(e));
+    if (fallback) bccCandidates = [fallback];
+  }
+  const tenantBcc = bccCandidates
     .filter((e) => !recipientsLower.includes(e.toLowerCase()))
     .filter((e, idx, arr) => arr.findIndex((x) => x.toLowerCase() === e.toLowerCase()) === idx);
 

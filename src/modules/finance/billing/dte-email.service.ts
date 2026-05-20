@@ -120,8 +120,14 @@ export async function sendDteEmail(
   const tenantAlwaysBcc = (emailCfg.alwaysBcc ?? []).filter((e) => EMAIL_RE.test(e));
   const rawBcc = [...(bccOverride ?? []), ...tenantAlwaysBcc];
   if (tenantAlwaysBcc.length === 0) {
-    const adminBcc = (emailCfg.replyTo ?? "").trim();
-    if (adminBcc && EMAIL_RE.test(adminBcc)) rawBcc.push(adminBcc);
+    // Cascada de fallback: replyTo → emisorEmail (DTE config) → empresa.email.
+    // Cubre tenants que nunca tocaron alwaysBcc pero igual quieren copia.
+    const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
+    const companyCfg = await getTenantCompanyConfig(tenantId);
+    const fallback = [emailCfg.replyTo, tenantConfig.emisorEmail ?? "", companyCfg.email]
+      .map((e) => (e ?? "").trim())
+      .find((e) => e.length > 0 && EMAIL_RE.test(e));
+    if (fallback) rawBcc.push(fallback);
   }
 
   const bccList = rawBcc.filter(
@@ -334,17 +340,21 @@ export async function sendDteXmlToBackoffice(
 
   const dteFilenameBase = await buildDteAttachmentBaseName(tenantId, dte);
 
-  // Auto-BCC: priorizamos el alwaysBcc del tenant; si no hay, caemos al
-  // emailReplyTo como copia oculta de auditoría (compat hacia atrás).
-  // Filtramos duplicados con los recipients directos.
+  // Auto-BCC: priorizamos el alwaysBcc del tenant; si está vacío,
+  // cascada de fallback (replyTo → emisorEmail → empresa.email) para
+  // cubrir tenants que no tocaron alwaysBcc.
   const recipientsLower = recipients.map((r) => r.toLowerCase());
   const tenantAlwaysBcc = (emailCfg.alwaysBcc ?? []).filter((e) => EMAIL_RE.test(e));
   let bccCandidates: string[] = [];
   if (tenantAlwaysBcc.length > 0) {
     bccCandidates = tenantAlwaysBcc;
   } else {
-    const adminBcc = (emailCfg.replyTo ?? "").trim();
-    if (adminBcc && EMAIL_RE.test(adminBcc)) bccCandidates = [adminBcc];
+    const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
+    const companyCfg = await getTenantCompanyConfig(tenantId);
+    const fallback = [emailCfg.replyTo, tenantConfig.emisorEmail ?? "", companyCfg.email]
+      .map((e) => (e ?? "").trim())
+      .find((e) => e.length > 0 && EMAIL_RE.test(e));
+    if (fallback) bccCandidates = [fallback];
   }
   const backofficeBccList = (() => {
     const seen = new Set<string>();

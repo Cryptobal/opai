@@ -359,14 +359,27 @@ export async function sendBillingDocument(
       ccCandidates.filter((e) => e && e.trim() && e !== primary),
     ),
   );
-  // Merge BCC manuales (UI) + alwaysBcc configurado del tenant (config global).
-  // Dedupear y excluir el primary destinatario + cualquiera ya en CC para no duplicar.
+  // Merge BCC manuales (UI) + alwaysBcc configurado del tenant.
+  // Si alwaysBcc está vacío, caemos en cascada al primer email del tenant
+  // que esté configurado (cubre tenants que nunca tocaron alwaysBcc):
+  //   1) empresa.emailReplyTo
+  //   2) TenantDteConfig.emisorEmail (Email del emisor — siempre seteado)
+  //   3) empresa.email comercial principal
+  // Dedupear case-insensitive y excluir primary + CC para no duplicar.
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const manualBcc = input.bccEmails ?? [];
-  const tenantBcc = emailCfg.alwaysBcc ?? [];
+  const tenantBcc = (emailCfg.alwaysBcc ?? []).filter((e) => e && e.trim());
+  const fallbackBccCandidates: string[] =
+    tenantBcc.length === 0
+      ? [emailCfg.replyTo, tenantConfig?.emisorEmail ?? "", company.email]
+          .map((e) => (e ?? "").trim())
+          .filter((e) => e.length > 0 && EMAIL_RE.test(e))
+          .slice(0, 1)
+      : [];
   const ccLower = ccList.map((c) => c.toLowerCase());
   const bccList = Array.from(
     new Set(
-      [...manualBcc, ...tenantBcc]
+      [...manualBcc, ...tenantBcc, ...fallbackBccCandidates]
         .map((e) => e?.trim())
         .filter((e): e is string => !!e && e.length > 0)
         .filter((e) => e.toLowerCase() !== primary.toLowerCase())

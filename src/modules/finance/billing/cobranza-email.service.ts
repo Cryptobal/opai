@@ -176,13 +176,28 @@ export async function sendCobranzaEmail(input: SendCobranzaEmailInput): Promise<
     String(dte.folio),
   );
 
-  // Aplicar alwaysBcc del tenant para que el equipo interno (contabilidad,
-  // supervisor) reciba copia automática de cada recordatorio de cobranza.
+  // BCC: alwaysBcc del tenant + cascada de fallback. Si alwaysBcc está
+  // vacío, usa el primer email configurado del tenant (replyTo →
+  // emisorEmail → empresa.email). Garantiza copia oculta al equipo
+  // interno sin requerir config explícita.
   const tenantEmailCfg = await getTenantEmailConfig(input.tenantId);
   const primaryLower = contact.email.toLowerCase();
-  const tenantBcc = (tenantEmailCfg.alwaysBcc ?? [])
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const explicitBcc = (tenantEmailCfg.alwaysBcc ?? [])
     .map((e) => e?.trim())
-    .filter((e): e is string => !!e && e.includes("@"))
+    .filter((e): e is string => !!e && EMAIL_RE.test(e));
+  let bccCandidates = explicitBcc;
+  if (explicitBcc.length === 0) {
+    const dteCfg = await prisma.tenantDteConfig.findUnique({
+      where: { tenantId: input.tenantId },
+      select: { emisorEmail: true },
+    });
+    const fallback = [tenantEmailCfg.replyTo, dteCfg?.emisorEmail ?? "", tenantCfg.email]
+      .map((e) => (e ?? "").trim())
+      .find((e) => e.length > 0 && EMAIL_RE.test(e));
+    if (fallback) bccCandidates = [fallback];
+  }
+  const tenantBcc = bccCandidates
     .filter((e) => e.toLowerCase() !== primaryLower)
     .filter((e, idx, arr) => arr.findIndex((x) => x.toLowerCase() === e.toLowerCase()) === idx);
 
