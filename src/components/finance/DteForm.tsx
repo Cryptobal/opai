@@ -462,7 +462,12 @@ export function DteForm({ availableTypes, accounts }: Props) {
         if (j?.success && Array.isArray(j.data)) setInstallations(j.data);
       })
       .catch(() => {});
-    setInstallationId("");
+    // Solo limpiar la selección si el cambio de customer es manual.
+    // Durante la carga inicial del draft, `skipCustomerAutofillRef`
+    // está encendido y conservamos el installationId restaurado del DTE.
+    if (!skipCustomerAutofillRef.current) {
+      setInstallationId("");
+    }
     return () => ctrl.abort();
   }, [customer]);
 

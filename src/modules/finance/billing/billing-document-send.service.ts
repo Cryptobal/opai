@@ -360,13 +360,24 @@ export async function sendBillingDocument(
     ),
   );
   // BCC: empieza con lo que mandó el caller (modal de envío) y agrega
-  // el `emailReplyTo` del tenant (Configuración → Empresa) como copia
-  // oculta de auditoría — mismo patrón que dte-email.service ya usa
-  // para los DTE. Dedup contra primary y CC (case-insensitive).
+  // como copia oculta de auditoría el primer email del tenant que
+  // exista (cascada de fallbacks para cubrir tenants que solo configuraron
+  // un campo u otro):
+  //   1. empresa.emailReplyTo (Configuración → Empresa → Correo)
+  //   2. TenantDteConfig.emisorEmail (Configuración → Facturación → DTE → "Email del emisor")
+  //   3. empresa.email comercial principal
+  // Dedup contra primary y CC (case-insensitive).
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const adminBcc = (emailCfg.replyTo ?? "").trim();
+  const adminBccCandidates = [
+    emailCfg.replyTo,
+    tenantConfig?.emisorEmail ?? null,
+    company.email,
+  ];
+  const adminBcc = adminBccCandidates
+    .map((e) => (e ?? "").trim())
+    .find((e) => e.length > 0 && EMAIL_RE.test(e));
   const rawBcc = [...(input.bccEmails ?? [])];
-  if (adminBcc && EMAIL_RE.test(adminBcc)) rawBcc.push(adminBcc);
+  if (adminBcc) rawBcc.push(adminBcc);
   const ccLower = ccList.map((c) => c.toLowerCase());
   const bccList = Array.from(
     new Set(

@@ -645,15 +645,25 @@ async function sendCesionNotificacionEmail(p: CesionEmailPayload): Promise<void>
     }),
   );
 
-  // BCC al `emailReplyTo` del tenant — mismo patrón que dte-email.service:
-  // el equipo interno recibe copia oculta automática de cada notificación
-  // de cesión al cesionario (factoring).
-  const adminBcc = (emailCfg.replyTo ?? "").trim();
+  // BCC al primer email del tenant que esté configurado (cascada): el
+  // equipo interno recibe copia oculta automática de cada notificación
+  // de cesión. Cubre tenants que solo configuraron un campo u otro.
+  const { prisma: prismaClient } = await import("@/lib/prisma");
+  const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
+  const [dteCfg, companyCfg] = await Promise.all([
+    prismaClient.tenantDteConfig.findUnique({
+      where: { tenantId: p.tenantId },
+      select: { emisorEmail: true },
+    }),
+    getTenantCompanyConfig(p.tenantId),
+  ]);
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const adminBcc = [emailCfg.replyTo, dteCfg?.emisorEmail ?? null, companyCfg.email]
+    .map((e) => (e ?? "").trim())
+    .find((e) => e.length > 0 && EMAIL_RE.test(e));
   const cesionarioLower = p.cesionarioEmail.toLowerCase();
   const bccList =
-    adminBcc &&
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminBcc) &&
-    adminBcc.toLowerCase() !== cesionarioLower
+    adminBcc && adminBcc.toLowerCase() !== cesionarioLower
       ? [adminBcc]
       : undefined;
 

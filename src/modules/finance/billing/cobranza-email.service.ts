@@ -176,19 +176,21 @@ export async function sendCobranzaEmail(input: SendCobranzaEmailInput): Promise<
     String(dte.folio),
   );
 
-  // BCC al `emailReplyTo` del tenant (Configuración → Empresa) — mismo
-  // patrón que dte-email.service: el equipo interno recibe copia oculta
-  // automática de cada recordatorio de cobranza. Sin duplicar con el
-  // destinatario primario.
+  // BCC al primer email del tenant que esté configurado (cascada): el
+  // equipo interno recibe copia oculta automática de cada recordatorio
+  // de cobranza. Cubre tenants que solo configuraron un campo u otro.
   const emailCfg = await getTenantEmailConfig(input.tenantId);
-  const adminBcc = (emailCfg.replyTo ?? "").trim();
+  const dteCfg = await prisma.tenantDteConfig.findUnique({
+    where: { tenantId: input.tenantId },
+    select: { emisorEmail: true },
+  });
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const adminBcc = [emailCfg.replyTo, dteCfg?.emisorEmail ?? null, tenantCfg.email]
+    .map((e) => (e ?? "").trim())
+    .find((e) => e.length > 0 && EMAIL_RE.test(e));
   const primaryLower = contact.email.toLowerCase();
   const bccList =
-    adminBcc &&
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminBcc) &&
-    adminBcc.toLowerCase() !== primaryLower
-      ? [adminBcc]
-      : undefined;
+    adminBcc && adminBcc.toLowerCase() !== primaryLower ? [adminBcc] : undefined;
 
   await resend.emails.send({
     from: FROM_COBRANZA,
