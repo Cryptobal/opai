@@ -61,6 +61,20 @@ export interface TenantCompanyConfig {
   emailFromName: string;     // "OPAI"
   emailFromAddress: string;  // "noreply@miempresa.cl"
   emailReplyTo: string;      // "comercial@miempresa.cl"
+
+  /* Routing por módulo */
+  ccoCommercialEnabled: string;   // "true" | "false" (Setting es string)
+  ccoCommercialEmails: string;    // CSV: "a@x.cl,b@x.cl"
+  ccoCommercialReplyTo: string;   // opcional, "" si no override
+  ccoOperationsEnabled: string;
+  ccoOperationsEmails: string;
+  ccoOperationsReplyTo: string;
+  ccoFinanceEnabled: string;
+  ccoFinanceEmails: string;
+  ccoFinanceReplyTo: string;
+  ccoSystemEnabled: string;
+  ccoSystemEmails: string;
+  ccoSystemReplyTo: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -108,6 +122,19 @@ const DEFAULTS: TenantCompanyConfig = {
   emailFromName: "OPAI",
   emailFrom: process.env.EMAIL_FROM || "OPAI <noreply@opai.cl>",
   emailReplyTo: process.env.EMAIL_REPLY_TO || "",
+
+  ccoCommercialEnabled: "",
+  ccoCommercialEmails: "",
+  ccoCommercialReplyTo: "",
+  ccoOperationsEnabled: "",
+  ccoOperationsEmails: "",
+  ccoOperationsReplyTo: "",
+  ccoFinanceEnabled: "",
+  ccoFinanceEmails: "",
+  ccoFinanceReplyTo: "",
+  ccoSystemEnabled: "",
+  ccoSystemEmails: "",
+  ccoSystemReplyTo: "",
 };
 
 /* ------------------------------------------------------------------ */
@@ -158,6 +185,19 @@ const KEY_MAP: Record<string, keyof TenantCompanyConfig> = {
   "empresa.emailFrom": "emailFromAddress",
   "empresa.emailFromName": "emailFromName",
   "empresa.emailReplyTo": "emailReplyTo",
+
+  "empresa.cco.commercial.enabled": "ccoCommercialEnabled",
+  "empresa.cco.commercial.emails": "ccoCommercialEmails",
+  "empresa.cco.commercial.replyTo": "ccoCommercialReplyTo",
+  "empresa.cco.operations.enabled": "ccoOperationsEnabled",
+  "empresa.cco.operations.emails": "ccoOperationsEmails",
+  "empresa.cco.operations.replyTo": "ccoOperationsReplyTo",
+  "empresa.cco.finance.enabled": "ccoFinanceEnabled",
+  "empresa.cco.finance.emails": "ccoFinanceEmails",
+  "empresa.cco.finance.replyTo": "ccoFinanceReplyTo",
+  "empresa.cco.system.enabled": "ccoSystemEnabled",
+  "empresa.cco.system.emails": "ccoSystemEmails",
+  "empresa.cco.system.replyTo": "ccoSystemReplyTo",
 };
 
 const ALL_KEYS = Object.keys(KEY_MAP);

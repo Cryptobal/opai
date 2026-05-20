@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
-import { clearTenantEmailConfigCache } from "@/lib/resend";
+import { clearTenantEmailConfigCache, clearTenantEmailRoutingCache } from "@/lib/resend";
 import { clearTenantCompanyConfigCache } from "@/lib/tenant-config";
 
 const EMPRESA_KEYS = [
@@ -36,6 +36,19 @@ const EMPRESA_KEYS = [
   "empresa.whatsappLink",
   // Portales (rondas/acceso)
   "portales.logoutPin",
+  // Routing CCO por módulo
+  "empresa.cco.commercial.enabled",
+  "empresa.cco.commercial.emails",
+  "empresa.cco.commercial.replyTo",
+  "empresa.cco.operations.enabled",
+  "empresa.cco.operations.emails",
+  "empresa.cco.operations.replyTo",
+  "empresa.cco.finance.enabled",
+  "empresa.cco.finance.emails",
+  "empresa.cco.finance.replyTo",
+  "empresa.cco.system.enabled",
+  "empresa.cco.system.emails",
+  "empresa.cco.system.replyTo",
   // Branding / Imagen corporativa
   "empresa.branding.logoFull",
   "empresa.branding.logoIcon",
@@ -135,6 +148,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     clearTenantEmailConfigCache(ctx.tenantId);
+    clearTenantEmailRoutingCache(ctx.tenantId);
     clearTenantCompanyConfigCache(ctx.tenantId);
 
     return NextResponse.json({ success: true });
