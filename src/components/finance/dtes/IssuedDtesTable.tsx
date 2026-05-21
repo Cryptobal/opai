@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Building, MapPin, Mail, MailX, Eye } from "lucide-react";
+import { Building, MapPin, Mail, MailX } from "lucide-react";
 import { DataTable, EmptyState, Tag, type DataTableColumn } from "@/components/opai-ds";
 import { FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -212,31 +212,47 @@ export function IssuedDtesTable({
     {
       id: "receiverName",
       header: "Receptor",
-      width: "w-[236px]",
+      width: "w-[260px]",
       cell: (row) => {
-        // Receptor: nombre de fantasía (CRM) primero, razón social después,
-        // RUT al pie. Cuando no hay nombre de fantasía o coincide con la
-        // razón social, mostramos solo la razón social como `primary`.
-        const fantasyName = row.crmAccount?.name?.trim() || null;
+        const accountName = row.crmAccount?.name?.trim() || null;
         const legalName = row.receiverName?.trim() || "";
+        const installationName = row.installation?.name?.trim() || null;
         const sameName =
-          fantasyName && fantasyName.toLowerCase() === legalName.toLowerCase();
-        const primary = fantasyName && !sameName ? fantasyName : legalName;
-        const secondary = fantasyName && !sameName ? legalName : null;
+          accountName && accountName.toLowerCase() === legalName.toLowerCase();
+        const primary = accountName && !sameName ? accountName : legalName;
         return (
           <div className="min-w-0">
-            <div
-              className="text-sm font-medium text-ds-text-1 truncate"
-              title={primary}
-            >
-              {primary}
+            <div className="flex items-center gap-1 min-w-0">
+              <Building className="h-3 w-3 shrink-0 text-ds-text-4" />
+              {row.crmAccount ? (
+                <Link
+                  href={`/crm/accounts/${row.crmAccount.id}?tab=contracts`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-sm font-medium text-ds-text-1 truncate hover:underline focus-visible:underline outline-none"
+                  title={
+                    accountName && !sameName
+                      ? `${primary} · ${legalName}`
+                      : primary
+                  }
+                >
+                  {primary}
+                </Link>
+              ) : (
+                <span
+                  className="text-sm font-medium text-ds-text-1 truncate"
+                  title={primary}
+                >
+                  {primary}
+                </span>
+              )}
             </div>
-            {secondary && (
+            {installationName && (
               <div
-                className="text-xs text-ds-text-3 truncate"
-                title={secondary}
+                className="flex items-center gap-1 min-w-0 text-xs text-ds-text-3"
+                title={installationName}
               >
-                {secondary}
+                <MapPin className="h-3 w-3 shrink-0 text-ds-text-4" />
+                <span className="truncate">{installationName}</span>
               </div>
             )}
             <div className="text-xs text-ds-text-4 font-mono tabular-nums truncate">
@@ -357,53 +373,9 @@ export function IssuedDtesTable({
       },
     },
     {
-      // Lo que mostramos acá ES el cliente CRM + la instalación a la que
-      // pertenece el DTE. "Centro de costo" confundía al usuario porque
-      // parecía un campo extra que tenía que llenar a mano — en realidad
-      // se deriva de la cuenta y la instalación asociadas al emitir.
-      id: "centroCosto",
-      header: "Cliente / Instalación",
-      width: "w-[176px]",
-      cell: (row) => {
-        if (!row.crmAccount) {
-          return (
-            <span className="text-xs text-ds-text-4 italic">Sin asignar</span>
-          );
-        }
-        // El nombre de la cuenta es un link a la ficha del cliente,
-        // pestaña "Contratos" — desde DTEs típicamente se quiere revisar
-        // el contrato asociado. stopPropagation evita disparar el click
-        // del row si el contenedor lo tuviera más adelante.
-        return (
-          <div className="min-w-0 text-xs space-y-0.5">
-            <Link
-              href={`/crm/accounts/${row.crmAccount.id}?tab=contracts`}
-              onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1 min-w-0 hover:underline focus-visible:underline outline-none"
-              title={`Ver ficha de ${row.crmAccount.name}`}
-            >
-              <Building className="h-3 w-3 shrink-0 text-ds-text-4" />
-              <span className="truncate font-medium">
-                {row.crmAccount.name}
-              </span>
-            </Link>
-            {row.installation && (
-              <div
-                className="flex items-center gap-1 min-w-0 text-ds-text-3"
-                title={row.installation.name}
-              >
-                <MapPin className="h-3 w-3 shrink-0 text-ds-text-4" />
-                <span className="truncate">{row.installation.name}</span>
-              </div>
-            )}
-          </div>
-        );
-      },
-    },
-    {
       id: "_actions",
       header: "",
-      width: "w-[84px]",
+      width: "w-[48px]",
       // Sticky right: las acciones (ver, menú) deben quedar siempre
       // accesibles aunque la tabla haga scroll horizontal en viewports
       // medianos. Sin esto, los iconos se cortan al borde derecho del
@@ -411,17 +383,6 @@ export function IssuedDtesTable({
       sticky: "right",
       cell: (row) => (
         <div className="flex items-center justify-end gap-1">
-          <button
-            type="button"
-            aria-label="Ver detalle"
-            onClick={(e) => {
-              e.stopPropagation();
-              onViewDetail(row.id);
-            }}
-            className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-ds-surface-2 text-ds-text-3 hover:text-ds-text-1 transition-colors"
-          >
-            <Eye className="h-4 w-4" />
-          </button>
           <DteActionsMenu
             row={{
               ...row,
@@ -455,7 +416,7 @@ export function IssuedDtesTable({
             onMarkUnpaid={
               onMarkUnpaid ? () => onMarkUnpaid(row.id) : undefined
             }
-            hideViewDetail
+            hideViewDetail={false}
           />
         </div>
       ),

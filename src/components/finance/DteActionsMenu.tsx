@@ -369,8 +369,53 @@ export function DteActionsMenu({
             </>
           )}
 
-          {/* Acciones financieras */}
-          {showFinancialSep && <DropdownMenuSeparator />}
+          {/* Acciones (reversibles + duplicar) */}
+          {canManage &&
+            (onCloneDraft ||
+              (row.hasBankReconciliation && onUnreconcile) ||
+              (row.paymentStatus === "PAID" && onMarkUnpaid)) && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className={SECTION_LABEL}>
+                  Acciones
+                </DropdownMenuLabel>
+                {onCloneDraft && (
+                  <DropdownMenuItem
+                    onClick={onCloneDraft}
+                    disabled={cloningDraft === row.id}
+                  >
+                    {cloningDraft === row.id ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Copy className="h-4 w-4 mr-2" />
+                    )}
+                    Duplicar como borrador
+                  </DropdownMenuItem>
+                )}
+                {row.hasBankReconciliation && onUnreconcile && (
+                  <DropdownMenuItem onClick={onUnreconcile}>
+                    <Unlink className="h-4 w-4 mr-2" />
+                    Desconciliar (mantener pagada)
+                  </DropdownMenuItem>
+                )}
+                {row.paymentStatus === "PAID" && onMarkUnpaid && (
+                  <DropdownMenuItem onClick={onMarkUnpaid}>
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Marcar como no pagada
+                  </DropdownMenuItem>
+                )}
+              </>
+            )}
+
+          {/* Financieras */}
+          {showFinancialSep && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className={SECTION_LABEL}>
+                Financieras
+              </DropdownMenuLabel>
+            </>
+          )}
           {canManage && canCreditNote && (
             <DropdownMenuItem
               onClick={onCreditNote}
@@ -401,33 +446,6 @@ export function DteActionsMenu({
               Ceder a factoring
             </DropdownMenuItem>
           )}
-
-          {/* Conciliación / Estado de pago — acciones reversibles */}
-          {canManage && row.hasBankReconciliation && onUnreconcile && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel className={SECTION_LABEL}>
-                Conciliación
-              </DropdownMenuLabel>
-              <DropdownMenuItem onClick={onUnreconcile}>
-                <Unlink className="h-4 w-4 mr-2" />
-                Desconciliar (mantener pagada)
-              </DropdownMenuItem>
-            </>
-          )}
-          {canManage &&
-            (row.paymentStatus === "PAID" ||
-              row.paymentStatus === "PARTIAL") &&
-            !row.hasBankReconciliation &&
-            onMarkUnpaid && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onMarkUnpaid}>
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Desmarcar como pagada
-                </DropdownMenuItem>
-              </>
-            )}
 
           {/* Anular (destructivo, al final) */}
           {canManage && canAnular && (

@@ -25,7 +25,6 @@ import {
   Coins,
   Download,
   ExternalLink,
-  Eye,
   FileCode,
   FileEdit,
   FileMinus,
@@ -432,7 +431,11 @@ export function IssuedDtesMobileList({
                         href={`/crm/accounts/${d.crmAccount?.id}?tab=contracts`}
                         onClick={(e) => e.stopPropagation()}
                         className="block text-sm font-medium text-ds-text-1 truncate hover:underline focus-visible:underline outline-none"
-                        title={`Ver ficha de ${primaryName}`}
+                        title={
+                          secondaryName
+                            ? `${primaryName} · ${secondaryName}`
+                            : primaryName
+                        }
                       >
                         {primaryName}
                       </Link>
@@ -441,9 +444,12 @@ export function IssuedDtesMobileList({
                         {primaryName}
                       </p>
                     )}
-                    {secondaryName && (
-                      <p className="text-xs text-ds-text-3 truncate">
-                        {secondaryName}
+                    {d.installation?.name && (
+                      <p
+                        className="text-xs text-ds-text-3 truncate"
+                        title={d.installation.name}
+                      >
+                        {d.installation.name}
                       </p>
                     )}
                     <p className="text-xs text-ds-text-4 font-mono tabular-nums">
@@ -487,15 +493,7 @@ export function IssuedDtesMobileList({
                       Editar
                     </Button>
                   ) : (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onViewDetail(d.id)}
-                      className="flex-1 justify-center h-11"
-                    >
-                      <Eye className="h-3.5 w-3.5 mr-1.5" />
-                      Detalle
-                    </Button>
+                    <span className="flex-1" />
                   )}
                   <Button
                     variant="ghost"

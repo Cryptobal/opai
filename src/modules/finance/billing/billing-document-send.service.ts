@@ -296,6 +296,10 @@ export async function sendBillingDocument(
       billingProps.receptor.contactName ?? dte.receiverName,
     numeroOrdenContrato: billingProps.document.numeroOrdenContrato ?? "",
     periodo: billingProps.document.periodoLabel,
+    instalacion: billingProps.document.installationName ?? "",
+    nombreCuenta: dte.receiverName,
+    mes: billingProps.document.periodoLabel.split(" ")[0] ?? "",
+    anio: billingProps.document.periodoLabel.split(" ")[1] ?? "",
   };
 
   // Subject.
