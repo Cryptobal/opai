@@ -10,6 +10,10 @@
 
 import { prisma } from "@/lib/prisma";
 import { sendTenantEmail } from "@/lib/email/send-tenant-email";
+import {
+  buildCommonSubjectTokens,
+  sanitizeSubject,
+} from "@/lib/email/subject-tokens";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { buildBillingDocProps } from "@/lib/pdf/templates/billing-doc/build-billing-doc-props";
 import { renderBillingDocPdf } from "@/lib/pdf/templates/billing-doc/render-billing-doc";
@@ -55,9 +59,10 @@ export interface SendBillingDocumentResult {
   pdfBytes?: number;
 }
 
-const DEFAULT_PROFORMA_SUBJECT = "Proforma {{folio}} - {{razonSocial}}";
+const DEFAULT_PROFORMA_SUBJECT =
+  "Proforma - {{cliente}} - {{instalacion}} - {{mes}}";
 const DEFAULT_ESTADO_PAGO_SUBJECT =
-  "Estado de Pago {{periodo}} - {{razonSocial}}";
+  "Estado de Pago - {{cliente}} - {{instalacion}} - {{mes}}";
 
 function renderTemplate(
   template: string,
@@ -286,12 +291,16 @@ export async function sendBillingDocument(
           currency: "CLP",
           minimumFractionDigits: 0,
         }).format(n);
+  const commonTokens = buildCommonSubjectTokens({
+    receiverName: dte.receiverName,
+    installationName: billingProps.document.installationName,
+    date: new Date(dte.date),
+  });
   const tokenVars: Record<string, string> = {
-    razonSocial: dte.receiverName,
+    ...commonTokens,
     folio: dte.folio > 0 ? String(dte.folio) : billingProps.document.folio,
     tipo: billingProps.document.dteTypeName,
     total: fmtCurrency(billingProps.totals.totalAmount),
-    fecha: billingProps.document.dateFormatted,
     receiverName:
       billingProps.receptor.contactName ?? dte.receiverName,
     numeroOrdenContrato: billingProps.document.numeroOrdenContrato ?? "",
@@ -304,7 +313,7 @@ export async function sendBillingDocument(
     (input.variant === "PROFORMA"
       ? tenantConfig?.proformaEmailSubject || DEFAULT_PROFORMA_SUBJECT
       : tenantConfig?.estadoPagoEmailSubject || DEFAULT_ESTADO_PAGO_SUBJECT);
-  const subject = renderTemplate(subjectTemplate, tokenVars);
+  const subject = sanitizeSubject(renderTemplate(subjectTemplate, tokenVars));
 
   // Intro HTML.
   const rawIntro = input.customIntroHtml ?? null;

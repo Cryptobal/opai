@@ -14,7 +14,9 @@
  * del DS v3 (tokens semánticos, sin colores hardcoded).
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { PlaceholderChips } from "@/components/finance/email-subject-placeholders";
+import { DTE_EMITIDO_TOKENS } from "@/lib/email/subject-tokens";
 import {
   Tabs,
   TabsContent,
@@ -141,6 +143,8 @@ export function DteConfigClient({
   const [cafs, setCafs] = useState<CafData[]>(initialCafs);
   const [savingConfig, setSavingConfig] = useState(false);
   const [testing, setTesting] = useState(false);
+  const dteSubjectRef = useRef<HTMLInputElement>(null);
+  const dteBodyRef = useRef<HTMLTextAreaElement>(null);
 
   async function saveConfig() {
     setSavingConfig(true);
@@ -579,35 +583,63 @@ export function DteConfigClient({
                 <Label>Plantilla email al receptor (opcional)</Label>
                 <p className="text-[12px] text-ds-text-3 mt-0.5">
                   Personaliza el asunto y cuerpo del email que se envía al cliente. Si quedan vacíos,
-                  Opai usa el default. Placeholders disponibles:{" "}
-                  <code>{"{{razonSocial}}"}</code>, <code>{"{{folio}}"}</code>, <code>{"{{tipo}}"}</code>,
-                  <code>{"{{total}}"}</code>, <code>{"{{fecha}}"}</code>,{" "}
-                  <code>{"{{receiverName}}"}</code>.
+                  Opai usa el default. Click un chip para insertar el placeholder en el cursor;
+                  los separadores feos (ej: si la instalación es vacía) se limpian automáticamente.
                 </p>
               </div>
-              <Input
-                placeholder="{{tipo}} N° {{folio}} - {{razonSocial}}"
-                value={config.emailTemplateSubject ?? ""}
-                onChange={(e) =>
-                  setConfig((cfg) => ({
-                    ...cfg,
-                    emailTemplateSubject: e.target.value || null,
-                  }))
-                }
-                className="h-10 sm:h-9"
-              />
-              <textarea
-                placeholder="<p>Estimado/a {{receiverName}}, adjunto la {{tipo}} N° {{folio}}...</p>"
-                value={config.emailTemplateBody ?? ""}
-                onChange={(e) =>
-                  setConfig((cfg) => ({
-                    ...cfg,
-                    emailTemplateBody: e.target.value || null,
-                  }))
-                }
-                rows={6}
-                className="w-full rounded-md border border-ds-border-subtle px-3 py-2 text-[13px] font-mono"
-              />
+              <div className="space-y-1.5">
+                <Label className="text-[11px] text-ds-text-3">Asunto</Label>
+                <PlaceholderChips
+                  tokens={DTE_EMITIDO_TOKENS}
+                  inputRef={dteSubjectRef}
+                  value={config.emailTemplateSubject ?? ""}
+                  onChange={(v) =>
+                    setConfig((cfg) => ({
+                      ...cfg,
+                      emailTemplateSubject: v || null,
+                    }))
+                  }
+                />
+                <Input
+                  ref={dteSubjectRef}
+                  placeholder="{{tipo}} N°{{folio}} - {{cliente}} - {{instalacion}} - {{mes}}"
+                  value={config.emailTemplateSubject ?? ""}
+                  onChange={(e) =>
+                    setConfig((cfg) => ({
+                      ...cfg,
+                      emailTemplateSubject: e.target.value || null,
+                    }))
+                  }
+                  className="h-10 sm:h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] text-ds-text-3">Cuerpo HTML</Label>
+                <PlaceholderChips
+                  tokens={DTE_EMITIDO_TOKENS}
+                  inputRef={dteBodyRef}
+                  value={config.emailTemplateBody ?? ""}
+                  onChange={(v) =>
+                    setConfig((cfg) => ({
+                      ...cfg,
+                      emailTemplateBody: v || null,
+                    }))
+                  }
+                />
+                <textarea
+                  ref={dteBodyRef}
+                  placeholder="<p>Estimado/a {{receiverName}}, adjunto la {{tipo}} N° {{folio}}...</p>"
+                  value={config.emailTemplateBody ?? ""}
+                  onChange={(e) =>
+                    setConfig((cfg) => ({
+                      ...cfg,
+                      emailTemplateBody: e.target.value || null,
+                    }))
+                  }
+                  rows={6}
+                  className="w-full rounded-md border border-ds-border-subtle px-3 py-2 text-[13px] font-mono"
+                />
+              </div>
             </div>
 
             <div className="flex items-center gap-3 pt-4 border-t border-ds-border-subtle">

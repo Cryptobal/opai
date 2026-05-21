@@ -1,10 +1,15 @@
 /**
- * Template de email al receptor con placeholders {{razonSocial}},
- * {{folio}}, {{tipo}}, {{total}}, {{fecha}}, {{receiverName}}.
+ * Template de email al receptor con placeholders.
+ *
+ * Tokens soportados:
+ *   {{cliente}} (alias {{razonSocial}}), {{instalacion}}, {{mes}}, {{folio}},
+ *   {{tipo}}, {{total}}, {{fecha}}, {{receiverName}}.
  *
  * Si el tenant no configura plantilla custom (TenantDteConfig.emailTemplate*),
  * se usa el default razonable definido aquí.
  */
+import { sanitizeSubject } from "@/lib/email/subject-tokens";
+
 type Vars = {
   razonSocial: string;
   folio: string;
@@ -12,9 +17,12 @@ type Vars = {
   total: string;
   fecha: string;
   receiverName: string;
+  cliente: string;
+  instalacion: string;
+  mes: string;
 };
 
-const DEFAULT_SUBJECT = `{{tipo}} N° {{folio}} - {{razonSocial}}`;
+const DEFAULT_SUBJECT = `{{tipo}} N°{{folio}} - {{cliente}} - {{instalacion}} - {{mes}}`;
 
 const DEFAULT_BODY = `<!DOCTYPE html>
 <html><body style="font-family: -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -38,7 +46,7 @@ function applyTemplate(template: string, vars: Vars): string {
 }
 
 export function renderDteEmailSubject(template: string | null, vars: Vars): string {
-  return applyTemplate(template?.trim() || DEFAULT_SUBJECT, vars);
+  return sanitizeSubject(applyTemplate(template?.trim() || DEFAULT_SUBJECT, vars));
 }
 
 export function renderDteEmailHtml(template: string | null, vars: Vars): string {

@@ -8,7 +8,7 @@
  * Incluye preview en vivo de la plantilla del código de verificación.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, Save } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { PlaceholderChips } from "@/components/finance/email-subject-placeholders";
+import { BILLING_DOC_TOKENS } from "@/lib/email/subject-tokens";
 
 interface DocConfig {
   proformaEmailSubject: string | null;
@@ -58,6 +60,10 @@ export function BillingDocConfigForm() {
   const [cfg, setCfg] = useState<DocConfig>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const proformaSubjectRef = useRef<HTMLInputElement>(null);
+  const proformaIntroRef = useRef<HTMLTextAreaElement>(null);
+  const epSubjectRef = useRef<HTMLInputElement>(null);
+  const epIntroRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -117,7 +123,19 @@ export function BillingDocConfigForm() {
           <h3 className="text-sm font-semibold">Email de Proforma</h3>
           <div className="space-y-1.5">
             <Label>Asunto</Label>
+            <PlaceholderChips
+              tokens={BILLING_DOC_TOKENS}
+              inputRef={proformaSubjectRef}
+              value={cfg.proformaEmailSubject ?? ""}
+              onChange={(v) =>
+                setCfg((c) => ({
+                  ...c,
+                  proformaEmailSubject: v || null,
+                }))
+              }
+            />
             <Input
+              ref={proformaSubjectRef}
               className="h-10 sm:h-9"
               value={cfg.proformaEmailSubject ?? ""}
               onChange={(e) =>
@@ -126,12 +144,24 @@ export function BillingDocConfigForm() {
                   proformaEmailSubject: e.target.value || null,
                 }))
               }
-              placeholder="Proforma {{folio}} - {{razonSocial}}"
+              placeholder="Proforma - {{cliente}} - {{instalacion}} - {{mes}}"
             />
           </div>
           <div className="space-y-1.5">
             <Label>Texto introductorio</Label>
+            <PlaceholderChips
+              tokens={BILLING_DOC_TOKENS}
+              inputRef={proformaIntroRef}
+              value={cfg.proformaEmailIntro ?? ""}
+              onChange={(v) =>
+                setCfg((c) => ({
+                  ...c,
+                  proformaEmailIntro: v || null,
+                }))
+              }
+            />
             <Textarea
+              ref={proformaIntroRef}
               rows={4}
               value={cfg.proformaEmailIntro ?? ""}
               onChange={(e) =>
@@ -143,9 +173,9 @@ export function BillingDocConfigForm() {
               placeholder="Estimado/a {{receiverName}}, adjunto encontrará la proforma..."
             />
             <p className="text-[10px] text-muted-foreground/80">
-              Tokens: {"{{razonSocial}}"} {"{{folio}}"} {"{{tipo}}"}{" "}
-              {"{{total}}"} {"{{fecha}}"} {"{{receiverName}}"}{" "}
-              {"{{numeroOrdenContrato}}"} {"{{periodo}}"}.
+              Click un chip arriba para insertar el placeholder en el cursor.
+              Si el token resuelve a vacío (ej: instalación), los separadores
+              se limpian automáticamente.
             </p>
           </div>
         </section>
@@ -155,7 +185,19 @@ export function BillingDocConfigForm() {
           <h3 className="text-sm font-semibold">Email de Estado de Pago</h3>
           <div className="space-y-1.5">
             <Label>Asunto</Label>
+            <PlaceholderChips
+              tokens={BILLING_DOC_TOKENS}
+              inputRef={epSubjectRef}
+              value={cfg.estadoPagoEmailSubject ?? ""}
+              onChange={(v) =>
+                setCfg((c) => ({
+                  ...c,
+                  estadoPagoEmailSubject: v || null,
+                }))
+              }
+            />
             <Input
+              ref={epSubjectRef}
               className="h-10 sm:h-9"
               value={cfg.estadoPagoEmailSubject ?? ""}
               onChange={(e) =>
@@ -164,12 +206,24 @@ export function BillingDocConfigForm() {
                   estadoPagoEmailSubject: e.target.value || null,
                 }))
               }
-              placeholder="Estado de Pago {{periodo}} - {{razonSocial}}"
+              placeholder="Estado de Pago - {{cliente}} - {{instalacion}} - {{mes}}"
             />
           </div>
           <div className="space-y-1.5">
             <Label>Texto introductorio</Label>
+            <PlaceholderChips
+              tokens={BILLING_DOC_TOKENS}
+              inputRef={epIntroRef}
+              value={cfg.estadoPagoEmailIntro ?? ""}
+              onChange={(v) =>
+                setCfg((c) => ({
+                  ...c,
+                  estadoPagoEmailIntro: v || null,
+                }))
+              }
+            />
             <Textarea
+              ref={epIntroRef}
               rows={4}
               value={cfg.estadoPagoEmailIntro ?? ""}
               onChange={(e) =>

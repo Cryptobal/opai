@@ -16,6 +16,7 @@ import { getDteTypeName as dteTypeName } from "../shared/constants/dte-types";
 import { renderDteEmailHtml, renderDteEmailSubject } from "./dte-email-template";
 import { getFileBuffer } from "@/lib/storage";
 import { buildDteAttachmentBaseName } from "./dte-filename";
+import { buildCommonSubjectTokens } from "@/lib/email/subject-tokens";
 
 /**
  * Resuelve el kind del catálogo transaccional según el tipo de DTE.
@@ -180,12 +181,27 @@ export async function sendDteEmail(
 
   const razonSocial = tenantConfig.emisorRazonSocial ?? emailCfg.companyName;
   const tipoNombre = dteTypeName(dte.dteType);
+  // Cargar nombre de instalación (si el DTE está vinculado a una) — usado
+  // por el token {{instalacion}} en subject/body.
+  const installationName = dte.installationId
+    ? (
+        await prisma.crmInstallation.findFirst({
+          where: { id: dte.installationId, tenantId },
+          select: { name: true },
+        })
+      )?.name ?? null
+    : null;
+  const commonTokens = buildCommonSubjectTokens({
+    receiverName: dte.receiverName,
+    installationName,
+    date: dte.date,
+  });
   const vars = {
+    ...commonTokens,
     razonSocial,
     folio: String(dte.folio),
     tipo: tipoNombre,
     total: Number(dte.totalAmount).toLocaleString("es-CL"),
-    fecha: dte.date.toISOString().split("T")[0],
     receiverName: dte.receiverName,
   };
   const subject = renderDteEmailSubject(tenantConfig.emailTemplateSubject, vars);
