@@ -155,6 +155,25 @@ export function CellAmount({
       </span>
     ) : null;
 
+  // Badge "+N" cuando hay >1 DTE conciliado a la misma celda. Antes
+  // solo se veía en el tooltip ("Facturas N° X, Y, Z") — el usuario
+  // no notaba que había varias facturas hasta abrir el popover. El
+  // badge da visibilidad inmediata.
+  const multiDteBadge =
+    (dtes?.length ?? 0) > 1 ? (
+      <span
+        className="absolute -bottom-1 -left-1 text-[8px] font-bold leading-none text-status-info-fg"
+        title={`${dtes!.length} facturas en esta celda${
+          visibleDtes.length > 0
+            ? ` (${visibleDtes.map((d) => `#${d.folio}`).join(", ")})`
+            : ""
+        }`}
+        aria-label={`${dtes!.length} facturas`}
+      >
+        +{dtes!.length - 1}
+      </span>
+    ) : null;
+
   // Cuando la celda no tiene proyección propia (amountClp=0) ni monto
   // real bancario (actualAmount=null) pero sí tiene DTE(s) enganchado(s),
   // mostramos el monto bruto del/los DTE(s) en lugar de "—".
@@ -190,6 +209,7 @@ export function CellAmount({
           </span>
         )}
         {factoringBadge}
+        {multiDteBadge}
         {dot}
       </span>
     ) : variance === 0 ? (
@@ -202,6 +222,7 @@ export function CellAmount({
           </div>
         ) : null}
         {factoringBadge}
+        {multiDteBadge}
         {dot}
       </span>
     ) : (
@@ -231,6 +252,7 @@ export function CellAmount({
           ) : null}
         </div>
         {factoringBadge}
+        {multiDteBadge}
         {dot}
       </span>
     );
