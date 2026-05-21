@@ -1,6 +1,14 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { ChevronDown, ChevronUp, Eye, EyeOff, Lock, Search } from "lucide-react";
+import { ChevronDown, ChevronUp, Eye, EyeOff, Lock, MoreHorizontal, Search } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Surface } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import {
@@ -441,25 +449,8 @@ export function WeeklyMatrix({
           {projection.buckets.length} semanas · saldo inicial {fmt.format(projection.openingBalanceClp)}
         </p>
         <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-          <Select
-            value={rowOrder}
-            onValueChange={(v) => {
-              const next = v as RowOrder;
-              setRowOrder(next);
-              saveRowOrder(next);
-            }}
-          >
-            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[170px] text-[13px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">Orden por defecto</SelectItem>
-              <SelectItem value="alpha">Alfabético</SelectItem>
-              <SelectItem value="amount_desc">Mayor monto</SelectItem>
-            </SelectContent>
-          </Select>
           <Select value={String(weeksBack)} onValueChange={(v) => setWeeksBack(Number(v))}>
-            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[150px] text-[13px]">
+            <SelectTrigger className="h-9 sm:h-8 w-full sm:w-[140px] text-[12px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -471,7 +462,7 @@ export function WeeklyMatrix({
             </SelectContent>
           </Select>
           <Select value={String(weeks)} onValueChange={(v) => setWeeks(Number(v))}>
-            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[140px] text-[13px]">
+            <SelectTrigger className="h-9 sm:h-8 w-full sm:w-[130px] text-[12px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -482,38 +473,73 @@ export function WeeklyMatrix({
               ))}
             </SelectContent>
           </Select>
-          {canManage && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleAutoMatch}
-              disabled={matching}
-              className="h-10 sm:h-9 w-full sm:w-auto"
-            >
-              {matching ? "Vinculando..." : "Auto-match con cartola"}
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={toggleViewMode}
-            className="h-10 sm:h-9 w-full sm:w-auto gap-1.5"
-            title={isSummaryView ? "Expandir todas las secciones" : "Colapsar a vista resumen (solo totales)"}
-            aria-pressed={isSummaryView}
-          >
-            {isSummaryView ? (
-              <>
-                <Eye className="h-3.5 w-3.5" />
-                Vista detalle
-              </>
-            ) : (
-              <>
-                <EyeOff className="h-3.5 w-3.5" />
-                Vista resumen
-              </>
-            )}
-          </Button>
-          <CashflowLegend className="w-full sm:w-auto justify-center" />
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9 sm:h-8 w-full sm:w-auto gap-1.5"
+                aria-label="Más opciones"
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-[12px]">Más</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-ds-text-3">
+                Ordenar filas por
+              </DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={() => {
+                  setRowOrder("default");
+                  saveRowOrder("default");
+                }}
+                className={rowOrder === "default" ? "font-semibold" : ""}
+              >
+                Orden por defecto
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setRowOrder("alpha");
+                  saveRowOrder("alpha");
+                }}
+                className={rowOrder === "alpha" ? "font-semibold" : ""}
+              >
+                Alfabético
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setRowOrder("amount_desc");
+                  saveRowOrder("amount_desc");
+                }}
+                className={rowOrder === "amount_desc" ? "font-semibold" : ""}
+              >
+                Mayor monto
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={toggleViewMode}>
+                {isSummaryView ? (
+                  <>
+                    <Eye className="h-3.5 w-3.5 mr-2" />
+                    Vista detalle
+                  </>
+                ) : (
+                  <>
+                    <EyeOff className="h-3.5 w-3.5 mr-2" />
+                    Vista resumen
+                  </>
+                )}
+              </DropdownMenuItem>
+              {canManage && (
+                <DropdownMenuItem onClick={handleAutoMatch} disabled={matching}>
+                  {matching ? "Vinculando…" : "Auto-match con cartola"}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <CashflowLegend className="hidden sm:inline-flex" />
         </div>
       </div>
 

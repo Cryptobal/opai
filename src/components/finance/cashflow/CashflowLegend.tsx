@@ -170,13 +170,13 @@ export function CashflowLegend({ className }: { className?: string }) {
         <button
           type="button"
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-md border border-ds-border-default px-2.5 h-10 sm:h-9 text-[13px] sm:text-[12px] text-ds-text-2 hover:text-ds-text-1 hover:bg-ds-surface-2 transition-colors",
+            "inline-flex items-center justify-center rounded-md border border-ds-border-default h-9 sm:h-8 w-9 sm:w-8 text-ds-text-3 hover:text-ds-text-1 hover:bg-ds-surface-2 transition-colors",
             className,
           )}
           aria-label="Leyenda de íconos"
+          title="Leyenda de íconos"
         >
           <HelpCircle className="h-3.5 w-3.5" />
-          Leyenda
         </button>
       </PopoverTrigger>
       {/* IMPORTANTE: el PopoverContent shadcn (src/components/ui/popover.tsx)
