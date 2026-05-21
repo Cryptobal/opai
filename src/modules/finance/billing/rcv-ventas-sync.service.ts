@@ -439,9 +439,14 @@ async function upsertIssuedDteFromRcv(
       // Prisma requiere un valor del enum, usamos PENDING_REVIEW pero
       // semánticamente no aplica.
       receptionStatus: "PENDING_REVIEW",
-      paymentStatus: "UNPAID",
-      amountPaid: 0,
-      amountPending: totalAmount,
+      // NCs (61) y NDs (56) emitidas no se "cobran" — son ajustes al DTE
+      // original. Las marcamos PAID al sincronizar para que no aparezcan
+      // como pendientes en cobranza, flujo de caja ni candidatos de
+      // conciliación. Si el negocio necesita cobrar una ND en el futuro,
+      // se puede revertir manualmente vía mark-unpaid endpoint.
+      paymentStatus: (doc.tipoDte === 61 || doc.tipoDte === 56) ? "PAID" : "UNPAID",
+      amountPaid: (doc.tipoDte === 61 || doc.tipoDte === 56) ? totalAmount : 0,
+      amountPending: (doc.tipoDte === 61 || doc.tipoDte === 56) ? 0 : totalAmount,
       createdBy: "system:rcv-ventas-sync",
     },
     select: {
