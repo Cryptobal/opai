@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { bucketKeyFor } from "./bucket-matcher";
 
 export interface MatchDraftToOccurrenceInput {
   tenantId: string;
@@ -85,29 +86,12 @@ export async function matchDraftToOccurrence(
   });
   if (items.length === 0) return null;
 
-  // Ventana en días según recurrencia del item. Se aplica como filtro
-  // en memoria luego de la query amplia.
-  function windowDaysFor(recurrence: string): number {
-    switch (recurrence) {
-      case "WEEKLY":
-        return 14;
-      case "BIWEEKLY":
-        return 21;
-      case "MONTHLY":
-        return 45;
-      case "QUARTERLY":
-        return 90;
-      case "YEARLY":
-        return 180;
-      // ONCE u otros: ventana intermedia razonable.
-      default:
-        return 60;
-    }
-  }
-  const windowByItemId = new Map<string, number>();
-  for (const it of items) {
-    windowByItemId.set(it.id, windowDaysFor(it.recurrence));
-  }
+  // Matching por bucket: la occurrence candidata debe caer en el mismo
+  // bucket (mes/semana/trimestre/año) que la fecha del DTE. Reemplaza
+  // la ventana ±N días previa que tenía tolerancias inconsistentes con
+  // los otros matchers.
+  const recurrenceByItemId = new Map<string, string>();
+  for (const it of items) recurrenceByItemId.set(it.id, it.recurrence);
 
   const candidatesRaw = await prisma.financeCashflowOccurrence.findMany({
     where: {
@@ -119,11 +103,9 @@ export async function matchDraftToOccurrence(
     },
     select: { id: true, scheduledDate: true, amountClp: true, itemId: true },
   });
-  // Filtrar por ventana del item correspondiente.
   const candidates = candidatesRaw.filter((c) => {
-    const win = windowByItemId.get(c.itemId ?? "") ?? 60;
-    const distDays = Math.abs(c.scheduledDate.getTime() - expectedMs) / 86_400_000;
-    return distDays <= win;
+    const rec = recurrenceByItemId.get(c.itemId ?? "") ?? "MONTHLY";
+    return bucketKeyFor(c.scheduledDate, rec) === bucketKeyFor(input.expectedDate, rec);
   });
   if (candidates.length === 0) return null;
 
