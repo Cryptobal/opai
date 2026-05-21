@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Eye, EyeOff, Lock, MoreHorizontal, Search } from "lucide-react";
 import {
   DropdownMenu,
@@ -92,6 +93,7 @@ export function WeeklyMatrix({
   const [loading, setLoading] = useState(false);
   const [matching, setMatching] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const router = useRouter();
   const [drawerBucket, setDrawerBucket] = useState<string | null>(null);
   const [weekCloseOpen, setWeekCloseOpen] = useState(false);
   const [rowOrder, setRowOrder] = useState<RowOrder>("default");
@@ -430,6 +432,7 @@ export function WeeklyMatrix({
         );
         // Refrescar la matriz pero sin perder el mensaje.
         setRefreshKey((k) => k + 1);
+        router.refresh();
       } else {
         setMatchResultMsg(j?.error ?? "Error en auto-match");
       }
@@ -769,7 +772,10 @@ export function WeeklyMatrix({
                     buckets={projection.buckets}
                     granularity="weekly"
                     rowOrder={rowOrder}
-                    onActionDone={() => setRefreshKey((k) => k + 1)}
+                    onActionDone={() => {
+                      setRefreshKey((k) => k + 1);
+                      router.refresh();
+                    }}
                   />
                 ))}
               <SubtotalRow label="Total ingresos" rows={incomeRows} buckets={projection.buckets} tone="ok" />
@@ -791,7 +797,10 @@ export function WeeklyMatrix({
                     buckets={projection.buckets}
                     granularity="weekly"
                     rowOrder={rowOrder}
-                    onActionDone={() => setRefreshKey((k) => k + 1)}
+                    onActionDone={() => {
+                      setRefreshKey((k) => k + 1);
+                      router.refresh();
+                    }}
                   />
                 ))}
               <SubtotalRow label="Total egresos" rows={expenseRows} buckets={projection.buckets} tone="warn" />
@@ -1063,7 +1072,10 @@ export function WeeklyMatrix({
       <WeekCloseDrawer
         open={weekCloseOpen}
         onClose={() => setWeekCloseOpen(false)}
-        onCommitted={() => setRefreshKey((k) => k + 1)}
+        onCommitted={() => {
+          setRefreshKey((k) => k + 1);
+          router.refresh();
+        }}
         weekEndIso={
           currentBucketIdx >= 0
             ? projection.buckets[currentBucketIdx].end.toISOString()
