@@ -759,15 +759,30 @@ export async function hideTransaction(
   if (!tx) throw new Error("Movimiento no encontrado");
   if (tx.hiddenAt) return; // ya oculto, idempotente
 
-  await prisma.financeBankTransaction.update({
-    where: { id: txId },
-    data: {
-      hiddenAt: new Date(),
-      hiddenById: userId ?? null,
-      hiddenReason: reason.trim().slice(0, 500),
-      reconciliationStatus: "UNMATCHED",
-      reconciliationId: null,
-    },
+  await prisma.$transaction(async (tx2) => {
+    // Desvincular occurrences de cashflow antes de ocultar el tx.
+    // Sin esto quedan zombi: status=PAID + bankTransactionId que el
+    // render filtra por hiddenAt=null pero la occurrence sigue
+    // creyendo que está cobrada.
+    await tx2.financeCashflowOccurrence.updateMany({
+      where: { tenantId, bankTransactionId: txId },
+      data: {
+        bankTransactionId: null,
+        matchedAt: null,
+        matchedBy: null,
+        status: "PROJECTED",
+      },
+    });
+    await tx2.financeBankTransaction.update({
+      where: { id: txId },
+      data: {
+        hiddenAt: new Date(),
+        hiddenById: userId ?? null,
+        hiddenReason: reason.trim().slice(0, 500),
+        reconciliationStatus: "UNMATCHED",
+        reconciliationId: null,
+      },
+    });
   });
 }
 
@@ -786,15 +801,27 @@ export async function bulkHideTransactions(
   const trimmedReason = reason.trim().slice(0, 500);
   if (!trimmedReason) throw new Error("Motivo requerido");
 
-  const result = await prisma.financeBankTransaction.updateMany({
-    where: { tenantId, id: { in: txIds }, hiddenAt: null },
-    data: {
-      hiddenAt: new Date(),
-      hiddenById: userId ?? null,
-      hiddenReason: trimmedReason,
-      reconciliationStatus: "UNMATCHED",
-      reconciliationId: null,
-    },
+  const result = await prisma.$transaction(async (tx2) => {
+    // Desvincular occurrences asociadas a estos txs.
+    await tx2.financeCashflowOccurrence.updateMany({
+      where: { tenantId, bankTransactionId: { in: txIds } },
+      data: {
+        bankTransactionId: null,
+        matchedAt: null,
+        matchedBy: null,
+        status: "PROJECTED",
+      },
+    });
+    return tx2.financeBankTransaction.updateMany({
+      where: { tenantId, id: { in: txIds }, hiddenAt: null },
+      data: {
+        hiddenAt: new Date(),
+        hiddenById: userId ?? null,
+        hiddenReason: trimmedReason,
+        reconciliationStatus: "UNMATCHED",
+        reconciliationId: null,
+      },
+    });
   });
   return result.count;
 }
