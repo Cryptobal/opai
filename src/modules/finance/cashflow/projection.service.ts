@@ -102,33 +102,6 @@ function deriveCellStatus(opts: {
   return { status: "PROJECTED", daysOverdue: 0, dteId: id };
 }
 
-/**
- * Tolerancia (en días) para asociar una `FinanceCashflowOccurrence` ya
- * materializada con su cuota virtual del mismo período. Cuando el usuario
- * mueve una cuota MONTHLY del día 15 al día 22, la materialized cae fuera
- * del set de fechas virtuales (que sigue siendo el día 15). Sin esta
- * tolerancia, el proyector "olvida" la materialized en la nueva fecha y
- * vuelve a renderizar la virtual en la fecha original — visualmente, la
- * cuota "no se mueve".
- */
-function recurrenceMatchToleranceDays(rec: string): number {
-  switch (rec) {
-    case "WEEKLY":
-      return 3;
-    case "BIWEEKLY":
-      return 7;
-    case "MONTHLY":
-      return 15;
-    case "QUARTERLY":
-      return 45;
-    case "YEARLY":
-      return 180;
-    case "ONCE":
-    default:
-      return 0;
-  }
-}
-
 /** Información sobre links que no pudieron resolverse a una categoría de
  *  cashflow — se expone en la respuesta de la proyección para que la UI
  *  pueda alertar al usuario y guiarlo a configurar mappings o regenerar
@@ -578,7 +551,6 @@ export async function buildProjection(
   for (const item of items) {
     const virtualDates = expandRecurrence(item, range.from, range.to);
     const itemMats = matsByItem.get(item.id) ?? [];
-    const tolerance = recurrenceMatchToleranceDays(item.recurrence);
 
     // Cada slot representa una cuota a renderizar: combina una fecha
     // efectiva (la de la materialized si existe, si no la virtual) con la
@@ -602,31 +574,57 @@ export async function buildProjection(
       }
     }
 
-    // Pasada 2 — match tolerante: la materialized está dentro de la
-    // ventana de tolerancia de una virtual no reclamada. Esto cubre el
-    // caso típico "moví la cuota del 15 al 22 del mismo mes".
+    // Pasada 2 — match por BUCKET (mes/semana/trimestre/año) según la
+    // recurrencia del item. Reemplaza el match por delta-días previo,
+    // que dejaba slots virtuales fantasma cuando el usuario movía una
+    // cuota >tolerance días del dayOfMonth configurado (ej: Berlintex
+    // sem 21 → sem 23 con dayOfMonth=4 quedaba doble).
+    //
+    // La lógica: si la materialized cae dentro del mismo mes/semana
+    // que una virtual no reclamada, claima el slot. Esto cubre TODO
+    // movimiento dentro del bucket natural, independiente del día
+    // específico al que se movió.
+    const bucketKeyOf = (d: Date): string => {
+      // Para MONTHLY: YYYY-MM. Para WEEKLY/BIWEEKLY: año + número de
+      // semana ISO. Para QUARTERLY: año + Q1-4. YEARLY: año. ONCE: la
+      // fecha completa (no aplica tolerancia).
+      const y = d.getUTCFullYear();
+      switch (item.recurrence as string) {
+        case "MONTHLY":
+          return `${y}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+        case "WEEKLY":
+        case "BIWEEKLY": {
+          // Semana ISO aproximada: día del año / 7
+          const start = new Date(Date.UTC(y, 0, 1));
+          const week = Math.floor(
+            (d.getTime() - start.getTime()) / (7 * 86_400_000),
+          );
+          return `${y}-W${week}`;
+        }
+        case "QUARTERLY":
+          return `${y}-Q${Math.floor(d.getUTCMonth() / 3) + 1}`;
+        case "YEARLY":
+          return `${y}`;
+        case "ONCE":
+        default:
+          return d.toISOString().slice(0, 10);
+      }
+    };
     for (const m of itemMats) {
       if (claimedMatIds.has(m.id)) continue;
-      let bestIdx = -1;
-      let bestDelta = Infinity;
-      for (let i = 0; i < slots.length; i++) {
-        if (claimedSlotIdx.has(i)) continue;
-        const deltaDays =
-          Math.abs(slots[i].d.getTime() - m.scheduledDate.getTime()) /
-          86_400_000;
-        if (deltaDays <= tolerance && deltaDays < bestDelta) {
-          bestDelta = deltaDays;
-          bestIdx = i;
-        }
-      }
-      if (bestIdx !== -1) {
-        slots[bestIdx] = { d: m.scheduledDate, mat: m };
-        claimedSlotIdx.add(bestIdx);
+      const matBucket = bucketKeyOf(m.scheduledDate);
+      const idx = slots.findIndex(
+        (s, i) => !claimedSlotIdx.has(i) && bucketKeyOf(s.d) === matBucket,
+      );
+      if (idx !== -1) {
+        slots[idx] = { d: m.scheduledDate, mat: m };
+        claimedSlotIdx.add(idx);
         claimedMatIds.add(m.id);
       } else {
-        // Materialized fuera de cualquier ventana virtual (caso raro:
-        // cuota movida muy lejos de su período original). La incluimos
-        // igual como slot extra para no perderla.
+        // Materialized fuera de cualquier bucket virtual (caso raro:
+        // cuota movida a un mes donde el item no tenía proyección
+        // recurrente, ej fuera del rango startDate-endDate). La
+        // incluimos como slot extra para no perderla.
         slots.push({ d: m.scheduledDate, mat: m });
         claimedMatIds.add(m.id);
       }
