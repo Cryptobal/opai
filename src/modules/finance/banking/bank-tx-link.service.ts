@@ -2765,6 +2765,21 @@ export async function clearTransactionLinks(
       where: { tenantId, bankTransactionId: bankTxId },
     });
 
+    // 2.5. Desvincular occurrences de cashflow que referenciaban este tx.
+    //      Sin esto, las occurrences quedan zombi: status=PAID +
+    //      bankTransactionId obsoleto. El render del flujo las muestra
+    //      como "Pagada" aunque el DTE haya vuelto a UNPAID por el
+    //      recompute del paso 3. Causa raíz del bug 1701.
+    await tx2.financeCashflowOccurrence.updateMany({
+      where: { tenantId, bankTransactionId: bankTxId },
+      data: {
+        bankTransactionId: null,
+        matchedAt: null,
+        matchedBy: null,
+        status: "PROJECTED",
+      },
+    });
+
     // 3. Recomputar payment aggregate de los DTEs afectados.
     for (const dteId of Array.from(dteIdsToRecompute)) {
       await recomputeDtePaymentAggregate(tx2, dteId);
