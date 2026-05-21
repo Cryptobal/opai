@@ -15,10 +15,20 @@
  */
 
 import { useEffect, useState } from "react";
-import { Loader2, FileText, FileSignature } from "lucide-react";
+import { Loader2, FileText, FileSignature, UserPlus } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 interface ContactOption {
   id: string;
@@ -51,6 +61,79 @@ export function BillingPlanSection({
 }: Props) {
   const [contacts, setContacts] = useState<ContactOption[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newContact, setNewContact] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+  });
+
+  async function handleCreateContact() {
+    if (!accountId) return;
+    if (!newContact.firstName.trim() || !newContact.email.trim()) {
+      toast.error("Nombre y email son obligatorios");
+      return;
+    }
+    setCreating(true);
+    try {
+      const res = await fetch("/api/crm/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountId,
+          firstName: newContact.firstName.trim(),
+          lastName: newContact.lastName.trim(),
+          email: newContact.email.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        toast.error(data.error ?? "No se pudo crear el contacto");
+        return;
+      }
+      const created = data.data;
+      const createdId = String(created.id);
+      setContacts((prev) =>
+        prev.some((c) => c.id === createdId)
+          ? prev
+          : [
+              ...prev,
+              {
+                id: createdId,
+                firstName: String(created.firstName ?? ""),
+                lastName: String(created.lastName ?? ""),
+                email: (created.email as string | null) ?? null,
+                roleTitle: (created.roleTitle as string | null) ?? null,
+              },
+            ],
+      );
+      // Auto-marcar como destinatario en variantes activas.
+      const nextProforma = value.proformaRecipientContactIds.includes(createdId)
+        ? value.proformaRecipientContactIds
+        : [...value.proformaRecipientContactIds, createdId];
+      const nextEp = value.estadoPagoRecipientContactIds.includes(createdId)
+        ? value.estadoPagoRecipientContactIds
+        : [...value.estadoPagoRecipientContactIds, createdId];
+      onChange({
+        ...value,
+        proformaRecipientContactIds: value.requireProforma
+          ? nextProforma
+          : value.proformaRecipientContactIds,
+        estadoPagoRecipientContactIds: value.requireEstadoPago
+          ? nextEp
+          : value.estadoPagoRecipientContactIds,
+      });
+      setCreateOpen(false);
+      setNewContact({ firstName: "", lastName: "", email: "" });
+      toast.success("Contacto creado y marcado como destinatario");
+    } catch {
+      toast.error("Error de red al crear el contacto");
+    } finally {
+      setCreating(false);
+    }
+  }
 
   useEffect(() => {
     if (!accountId) {
@@ -144,9 +227,20 @@ export function BillingPlanSection({
                     <Loader2 className="h-3 w-3 animate-spin" /> Cargando contactos…
                   </div>
                 ) : contacts.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">
-                    Este cliente no tiene contactos cargados en el CRM.
-                  </p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-xs text-muted-foreground italic flex-1 min-w-0">
+                      Este cliente no tiene contactos cargados en el CRM.
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setCreateOpen(true)}
+                    >
+                      <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+                      Agregar contacto
+                    </Button>
+                  </div>
                 ) : (
                   <div className="space-y-1">
                     {contacts.map((c) => (
@@ -173,6 +267,16 @@ export function BillingPlanSection({
                         )}
                       </label>
                     ))}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs h-7 px-2 mt-1"
+                      onClick={() => setCreateOpen(true)}
+                    >
+                      <UserPlus className="h-3 w-3 mr-1" />
+                      Agregar otro contacto
+                    </Button>
                   </div>
                 )}
               </div>
@@ -211,9 +315,20 @@ export function BillingPlanSection({
                     <Loader2 className="h-3 w-3 animate-spin" /> Cargando contactos…
                   </div>
                 ) : contacts.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">
-                    Este cliente no tiene contactos cargados en el CRM.
-                  </p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-xs text-muted-foreground italic flex-1 min-w-0">
+                      Este cliente no tiene contactos cargados en el CRM.
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setCreateOpen(true)}
+                    >
+                      <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+                      Agregar contacto
+                    </Button>
+                  </div>
                 ) : (
                   <div className="space-y-1">
                     {contacts.map((c) => (
@@ -240,6 +355,16 @@ export function BillingPlanSection({
                         )}
                       </label>
                     ))}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs h-7 px-2 mt-1"
+                      onClick={() => setCreateOpen(true)}
+                    >
+                      <UserPlus className="h-3 w-3 mr-1" />
+                      Agregar otro contacto
+                    </Button>
                   </div>
                 )}
                 <p className="text-[10px] text-muted-foreground/80 mt-1">
@@ -251,6 +376,54 @@ export function BillingPlanSection({
           </div>
         </div>
       )}
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Agregar contacto al cliente</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="bp-fn" className="text-xs">Nombre *</Label>
+                <Input
+                  id="bp-fn"
+                  value={newContact.firstName}
+                  onChange={(e) => setNewContact({ ...newContact, firstName: e.target.value })}
+                  disabled={creating}
+                />
+              </div>
+              <div>
+                <Label htmlFor="bp-ln" className="text-xs">Apellido</Label>
+                <Input
+                  id="bp-ln"
+                  value={newContact.lastName}
+                  onChange={(e) => setNewContact({ ...newContact, lastName: e.target.value })}
+                  disabled={creating}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="bp-em" className="text-xs">Email *</Label>
+              <Input
+                id="bp-em"
+                type="email"
+                value={newContact.email}
+                onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
+                disabled={creating}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateContact} disabled={creating}>
+              {creating ? "Creando..." : "Crear y agregar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
