@@ -1791,7 +1791,26 @@ function buildRows(
         (b) => placementDate >= b.start && placementDate <= b.end,
       );
       if (bIdx === -1) continue;
-      detail.values[bIdx].amount += o.amountClp;
+
+      // Si la occurrence tiene un DTE DRAFT vinculado, el monto a sumar
+      // a la celda es el del DTE (no el del item proyectado). El
+      // borrador refleja la intención real del usuario, no la proyección
+      // automática. Sin este override la celda muestra el monto del item
+      // (ej: 117 UF) aunque el usuario haya creado un borrador con otro
+      // monto (ej: 100 UF) — el flujo "miente" hasta que se emite el DTE.
+      let amountForBucket = o.amountClp;
+      if (o.dteId) {
+        const dteInfo = dteStatusById.get(o.dteId);
+        const dteGross = dteGrossById.get(o.dteId);
+        if (
+          dteInfo?.siiStatus === "DRAFT" &&
+          dteGross !== undefined &&
+          Math.abs(dteGross - o.amountClp) > 1
+        ) {
+          amountForBucket = dteGross;
+        }
+      }
+      detail.values[bIdx].amount += amountForBucket;
       // Guardamos la fecha original de la primera ocurrencia que aporta al
       // bucket. Sirve como identificador estable para materializar la cuota
       // al primer move/amount aunque la occurrence aún no exista en DB.
@@ -1806,7 +1825,7 @@ function buildRows(
       if (o.id && !detail.values[bIdx].occurrenceId && o.status !== "PAID") {
         detail.values[bIdx].occurrenceId = o.id;
       }
-      detail.total += o.amountClp;
+      detail.total += amountForBucket;
       // cellStatus: si la occurrence tiene DTE vinculado, derivamos el estado
       // y lo mergeamos con el actual de la celda. Precedencia: PAID > CEDED >
       // DRAFT > INVOICED > PROJECTED. Mostramos el "más informativo" si caen
