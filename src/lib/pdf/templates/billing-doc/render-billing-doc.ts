@@ -328,45 +328,102 @@ export async function renderBillingDocPdf(
       },
     });
 
-    const buildLineRows = () =>
-      props.lines.map((l: BillingDocLine, i: number) =>
+    const renderProformaLine = (l: BillingDocLine, zebraIdx: number) =>
+      e(
+        View,
+        { key: `line-${l.lineNumber}`, style: zebraIdx % 2 === 0 ? sProforma.tr : sProforma.trZebra },
+        e(Text, { style: [sProforma.td, sProforma.colCode] }, l.itemCode ?? ""),
         e(
           View,
-          { key: l.lineNumber, style: i % 2 === 0 ? sProforma.tr : sProforma.trZebra },
-          e(Text, { style: [sProforma.td, sProforma.colCode] }, l.itemCode ?? ""),
-          e(
-            View,
-            { style: sProforma.colDesc },
-            e(Text, { style: { fontSize: 8, color: C.ink, fontWeight: 500 } }, l.itemName),
-            l.description
-              ? e(
-                  Text,
-                  { style: { fontSize: 7, color: C.muted, marginTop: 1 } },
-                  l.description,
-                )
-              : null,
-          ),
-          e(Text, { style: [sProforma.td, sProforma.colQty] }, fmtNumber(l.quantity, 2)),
-          e(Text, { style: [sProforma.td, sProforma.colUnit] }, l.unit ?? ""),
-          e(
-            Text,
-            { style: [sProforma.td, sProforma.colPrice] },
-            l.unitPriceUf
-              ? `${fmtNumber(l.unitPriceUf, 2)} UF`
-              : fmtCLP(l.unitPrice),
-          ),
-          e(
-            Text,
-            { style: [sProforma.td, sProforma.colDisc] },
-            l.discountPct ? `${fmtNumber(l.discountPct, 2)}%` : "—",
-          ),
-          e(
-            Text,
-            { style: [sProforma.td, sProforma.colNet] },
-            fmtAmount(l.netAmount, props.totals.currency),
-          ),
+          { style: sProforma.colDesc },
+          e(Text, { style: { fontSize: 8, color: C.ink, fontWeight: 500 } }, l.itemName),
+          l.description
+            ? e(
+                Text,
+                { style: { fontSize: 7, color: C.muted, marginTop: 1 } },
+                l.description,
+              )
+            : null,
+        ),
+        e(Text, { style: [sProforma.td, sProforma.colQty] }, fmtNumber(l.quantity, 2)),
+        e(Text, { style: [sProforma.td, sProforma.colUnit] }, l.unit ?? ""),
+        e(
+          Text,
+          { style: [sProforma.td, sProforma.colPrice] },
+          l.unitPriceUf
+            ? `${fmtNumber(l.unitPriceUf, 2)} UF`
+            : fmtCLP(l.unitPrice),
+        ),
+        e(
+          Text,
+          { style: [sProforma.td, sProforma.colDisc] },
+          l.discountPct ? `${fmtNumber(l.discountPct, 2)}%` : "—",
+        ),
+        e(
+          Text,
+          { style: [sProforma.td, sProforma.colNet] },
+          fmtAmount(l.netAmount, props.totals.currency),
         ),
       );
+
+    const buildLineRows = () => {
+      // Modo multi-instalacion: agrupar con subheader + subtotal por grupo.
+      // Si solo hay 0 o 1 grupo, rendereamos tabla plana clasica.
+      const groups = props.installationGroups;
+      if (groups && groups.length >= 2) {
+        const out: unknown[] = [];
+        let zebra = 0;
+        for (const g of groups) {
+          out.push(
+            e(
+              View,
+              {
+                key: `grp-h-${g.installationName}`,
+                style: {
+                  backgroundColor: C.bgAlt,
+                  paddingHorizontal: 6,
+                  paddingVertical: 4,
+                  borderTop: `0.5 solid ${C.rule}`,
+                },
+              },
+              e(
+                Text,
+                { style: { fontSize: 8, fontWeight: 700, color: C.ink } },
+                `Instalacion: ${g.installationName}`,
+              ),
+            ),
+          );
+          for (const idx of g.lineIndexes) {
+            out.push(renderProformaLine(props.lines[idx], zebra++));
+          }
+          out.push(
+            e(
+              View,
+              {
+                key: `grp-s-${g.installationName}`,
+                style: {
+                  flexDirection: "row",
+                  justifyContent: "flex-end",
+                  paddingHorizontal: 6,
+                  paddingVertical: 3,
+                  borderBottom: `0.5 solid ${C.rule}`,
+                },
+              },
+              e(Text, { style: { fontSize: 8, color: C.muted } }, "Subtotal: "),
+              e(
+                Text,
+                { style: { fontSize: 8, fontWeight: 700, color: C.ink, marginLeft: 4 } },
+                fmtAmount(g.subtotalNet, props.totals.currency),
+              ),
+            ),
+          );
+        }
+        return out;
+      }
+      return props.lines.map((l: BillingDocLine, i: number) =>
+        renderProformaLine(l, i),
+      );
+    };
 
     const proformaDoc = e(
       Document,
@@ -714,7 +771,7 @@ export async function renderBillingDocPdf(
         { key: l.lineNumber, style: i % 2 === 0 ? sEP.tr : sEP.trZebra },
         e(Text, { style: [sEP.td, sEP.cCodigo] }, l.itemCode ?? ""),
         e(Text, { style: [sEP.td, sEP.cDesc] }, l.description ?? l.itemName),
-        e(Text, { style: [sEP.td, sEP.cInst] }, props.document.installationName ?? ""),
+        e(Text, { style: [sEP.td, sEP.cInst] }, l.installationName ?? props.document.installationName ?? ""),
         e(Text, { style: [sEP.td, sEP.cActividad] }, l.itemName),
         e(Text, { style: [sEP.td, sEP.cOrdMensual] }, ""),
         e(Text, { style: [sEP.td, sEP.cOrdTrabajo] }, ""),

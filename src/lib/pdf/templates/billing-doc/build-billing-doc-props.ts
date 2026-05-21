@@ -57,6 +57,12 @@ export interface BillingDocLine {
     fechaReporteTrabajo?: string;
     fechaInformeTecnico?: string;
   } | null;
+  /**
+   * Nombre de la instalación de la línea (resuelto desde costCenter →
+   * installation). Solo presente cuando hay multi-instalación; sino null
+   * y el renderer cae al `document.installationName` de cabecera.
+   */
+  installationName: string | null;
 }
 
 export interface BillingDocProps {
@@ -144,6 +150,17 @@ export interface BillingDocProps {
   };
 
   notes: string | null;
+
+  /**
+   * Agrupación de líneas por instalación. Undefined si todas las líneas
+   * comparten instalación (renderizar como tabla plana). Si tiene 2+
+   * grupos, el render usa subheaders por instalación.
+   */
+  installationGroups?: Array<{
+    installationName: string;
+    lineIndexes: number[];
+    subtotalNet: number;
+  }>;
 }
 
 const DTE_TYPE_NAMES: Record<number, string> = {
@@ -340,6 +357,80 @@ export async function buildBillingDocProps(
     account?.contacts?.[0] ??
     null;
 
+  // Resolver nombres de instalacion por linea (via cost center). Si hay
+  // 2+ instalaciones distintas, computamos installationGroups para
+  // subheaders en el PDF. Si todas comparten, dejamos groups=undefined
+  // (render plano) y los nombres por linea quedan null.
+  const ccIdsPresent = Array.from(
+    new Set(
+      dte.lines
+        .map((l) => l.costCenterId)
+        .filter((x): x is string => Boolean(x)),
+    ),
+  );
+  const ccNameMap = new Map<string, string>();
+  if (ccIdsPresent.length > 0) {
+    const ccRows = await prisma.financeCostCenter.findMany({
+      where: { tenantId, id: { in: ccIdsPresent } },
+      select: { id: true, name: true, installationId: true },
+    });
+    const installationIds = ccRows
+      .map((r) => r.installationId)
+      .filter((x): x is string => Boolean(x));
+    const installationsByCc = installationIds.length
+      ? await prisma.crmInstallation.findMany({
+          where: { tenantId, id: { in: installationIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const instNameById = new Map(installationsByCc.map((i) => [i.id, i.name]));
+    for (const cc of ccRows) {
+      const name =
+        (cc.installationId && instNameById.get(cc.installationId)) || cc.name;
+      ccNameMap.set(cc.id, name);
+    }
+  }
+
+  const lineInstallationName = (costCenterId: string | null): string | null => {
+    if (!costCenterId) return null;
+    return ccNameMap.get(costCenterId) ?? null;
+  };
+
+  let installationGroups: BillingDocProps["installationGroups"] = undefined;
+  if (ccIdsPresent.length >= 2) {
+    const groupsByCc = new Map<
+      string,
+      { name: string; idx: number[]; subtotal: number }
+    >();
+    for (let i = 0; i < dte.lines.length; i++) {
+      const line = dte.lines[i];
+      const key = line.costCenterId ?? "__header__";
+      const name =
+        key === "__header__"
+          ? (installation?.name ?? "Cabecera")
+          : (ccNameMap.get(key) ?? "Sin instalacion");
+      const existing = groupsByCc.get(key) ?? {
+        name,
+        idx: [],
+        subtotal: 0,
+      };
+      existing.idx.push(i);
+      existing.subtotal += Number(line.netAmount);
+      groupsByCc.set(key, existing);
+    }
+    installationGroups = Array.from(groupsByCc.values()).map((g) => ({
+      installationName: g.name,
+      lineIndexes: g.idx,
+      subtotalNet: g.subtotal,
+    }));
+  }
+
+  // Header del documento: si hay multi, decimos "Multiples instalaciones".
+  const headerInstallationName =
+    installationGroups && installationGroups.length >= 2
+      ? "Multiples instalaciones"
+      : (installation?.name ?? null);
+
   // Periodo: del campo `date` del DTE.
   const date = new Date(dte.date);
 
@@ -395,7 +486,7 @@ export async function buildBillingDocProps(
       dateFormatted: formatDate(date),
       dateIso: date.toISOString().slice(0, 10),
       numeroOrdenContrato: account?.numeroOrdenContrato ?? null,
-      installationName: installation?.name ?? null,
+      installationName: headerInstallationName,
       periodoLabel: periodoLabel(date),
       verificationCode,
       additionalReferences: (() => {
@@ -437,6 +528,7 @@ export async function buildBillingDocProps(
       netAmount: Number(l.netAmount),
       isExempt: l.isExempt,
       estadoPagoMeta: (l.estadoPagoMeta as BillingDocLine["estadoPagoMeta"]) ?? null,
+      installationName: lineInstallationName(l.costCenterId),
     })),
 
     totals: {
@@ -458,5 +550,7 @@ export async function buildBillingDocProps(
     },
 
     notes: dte.notes,
+
+    installationGroups,
   };
 }
