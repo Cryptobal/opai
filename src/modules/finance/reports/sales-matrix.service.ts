@@ -48,6 +48,23 @@ export async function getSalesMatrix(
   const fromDate = parseISODate(period.from);
   const toDate = parseISODate(period.to);
 
+  // Cuando se filtra por instalacion: ademas del installationId de cabecera,
+  // tambien matchear lineas cuyo costCenter este vinculado a esas instalaciones
+  // (caso multi-instalacion por DTE). Pre-resolvemos los costCenterIds porque
+  // FinanceDteLine.costCenter no esta como relacion en el schema, solo el FK.
+  const installationCostCenterIds =
+    filters.installationIds?.length
+      ? (
+          await prisma.financeCostCenter.findMany({
+            where: {
+              tenantId,
+              installationId: { in: filters.installationIds },
+            },
+            select: { id: true },
+          })
+        ).map((cc) => cc.id)
+      : [];
+
   const dtes = await prisma.financeDte.findMany({
     where: {
       tenantId,
@@ -56,7 +73,22 @@ export async function getSalesMatrix(
       date: { gte: fromDate, lte: toDate },
       ...(filters.crmAccountIds?.length ? { crmAccountId: { in: filters.crmAccountIds } } : {}),
       ...(filters.installationIds?.length
-        ? { installationId: { in: filters.installationIds } }
+        ? {
+            OR: [
+              { installationId: { in: filters.installationIds } },
+              ...(installationCostCenterIds.length
+                ? [
+                    {
+                      lines: {
+                        some: {
+                          costCenterId: { in: installationCostCenterIds },
+                        },
+                      },
+                    },
+                  ]
+                : []),
+            ],
+          }
         : {}),
     },
     select: {
