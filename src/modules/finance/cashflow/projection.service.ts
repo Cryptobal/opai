@@ -1508,6 +1508,7 @@ export async function buildProjection(
     allOccurrences,
     crmAccountNameById,
     cellStatusByDteId,
+    dteStatusById,
     headcountByInstallation,
     dteFolioById,
     dteGrossById,
@@ -1736,6 +1737,7 @@ function buildRows(
     string,
     { status: CashflowCellStatus; daysOverdue: number; dteId: string | null }
   >,
+  dteStatusById: Map<string, DteStatusSlim>,
   headcountByInstallation: Map<string, number>,
   dteFolioById: Map<string, number | null>,
   dteGrossById: Map<string, number>,
@@ -1838,12 +1840,22 @@ function buildRows(
         if (derived) {
           const cell = detail.values[bIdx];
           const current = cell.cellStatus ?? "PROJECTED";
-          // Si la occurrence ya está PAID y matched al banco, el cellStatus
-          // visual debe ser PAID independiente del paymentStatus del DTE
-          // (que puede quedar PARTIAL por varianza UF/redondeo dentro de la
-          // tolerancia mínima de $5 CLP en recomputeDtePaymentAggregate).
+          // Override de cellStatus a PAID: solo aplicamos cuando la
+          // occurrence está PAID + bank-matched Y el DTE en BD reporta
+          // PAID o PARTIAL. Antes este override disparaba también
+          // para DTEs UNPAID/OVERDUE — eso era un bug (factura 1701):
+          // ocurrencias stale con bankTransactionId obsoleto fingían
+          // PAID en la matriz aunque el DTE NO estuviera cobrado.
+          //
+          // Si el DTE está UNPAID/OVERDUE, confiamos en el DTE como
+          // fuente de verdad y mostramos INVOICED/OVERDUE.
+          const dtePaymentStatus = dteStatusById.get(o.dteId)?.paymentStatus;
+          const dteIsCollected =
+            dtePaymentStatus === "PAID" || dtePaymentStatus === "PARTIAL";
           const isOccurrencePaid =
-            o.status === "PAID" && o.bankTransactionId !== null;
+            o.status === "PAID" &&
+            o.bankTransactionId !== null &&
+            dteIsCollected;
           const effectiveStatus: CashflowCellStatus = isOccurrencePaid
             ? "PAID"
             : derived.status;
