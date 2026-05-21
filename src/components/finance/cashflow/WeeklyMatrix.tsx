@@ -591,41 +591,106 @@ export function WeeklyMatrix({
                 su propio bg, así no se ven afectadas. */}
             <colgroup>
               <col />
-              {projection.buckets.map((b) => {
-                const isCurrent = b.key === currentBucketKey.current;
-                // monthBand: alternancia sutil por mes para distinguir
-                // visualmente el cambio de mes en la matriz.
-                const monthBand = b.start.getMonth() % 2;
-                return (
-                  <col
-                    key={b.key}
-                    className={
-                      isCurrent
-                        ? "bg-status-info-soft/15"
-                        : monthBand === 0
-                          ? undefined
-                          : "bg-ds-surface-2/30"
-                    }
-                  />
-                );
-              })}
+              {(() => {
+                // Mismo agrupamiento que la fila de meses para que el
+                // banding pinte columnas enteras alternando mes a mes.
+                const colEls: React.ReactNode[] = [];
+                let lastMonthKey: string | null = null;
+                let bandCounter = -1;
+                for (const b of projection.buckets) {
+                  const monthKey = `${b.start.getUTCFullYear()}-${b.start.getUTCMonth()}`;
+                  if (monthKey !== lastMonthKey) {
+                    bandCounter += 1;
+                    lastMonthKey = monthKey;
+                  }
+                  const isCurrent = b.key === currentBucketKey.current;
+                  const bandIdx = bandCounter % 2;
+                  colEls.push(
+                    <col
+                      key={b.key}
+                      className={
+                        isCurrent
+                          ? "bg-status-info-soft/15"
+                          : bandIdx === 0
+                            ? "bg-ds-surface-2/15"
+                            : "bg-ds-surface-3/10"
+                      }
+                    />,
+                  );
+                }
+                return colEls;
+              })()}
               <col />
             </colgroup>
             <thead className="sticky top-0 z-30 bg-background">
+              {/* Fila 1: nombre del mes centrado sobre las semanas del mes */}
               <tr>
-                <th className="sticky left-0 z-40 bg-background text-left p-2 min-w-[140px] max-w-[200px] sm:min-w-[180px] sm:max-w-[260px] border-b border-border">
+                <th
+                  rowSpan={2}
+                  className="sticky left-0 z-40 bg-background text-left p-2 min-w-[140px] max-w-[200px] sm:min-w-[180px] sm:max-w-[260px] border-b border-border align-bottom"
+                >
                   Categoría
                 </th>
+                {(() => {
+                  // Agrupar buckets por mes contiguo. Cada grupo emite un
+                  // <th colSpan={N}> con el nombre del mes centrado.
+                  const groups: {
+                    monthKey: string;
+                    label: string;
+                    span: number;
+                    isCurrent: boolean;
+                    bandIdx: number; // 0 o 1 para alternancia
+                  }[] = [];
+                  let bandCounter = 0;
+                  for (const b of projection.buckets) {
+                    const monthKey = `${b.start.getUTCFullYear()}-${b.start.getUTCMonth()}`;
+                    const last = groups[groups.length - 1];
+                    if (last && last.monthKey === monthKey) {
+                      last.span += 1;
+                      if (b.key === currentBucketKey.current) last.isCurrent = true;
+                    } else {
+                      groups.push({
+                        monthKey,
+                        label: monthYearShort(b.start),
+                        span: 1,
+                        isCurrent: b.key === currentBucketKey.current,
+                        bandIdx: bandCounter % 2,
+                      });
+                      bandCounter += 1;
+                    }
+                  }
+                  return groups.map((g) => (
+                    <th
+                      key={g.monthKey}
+                      colSpan={g.span}
+                      className={`p-1.5 text-center font-mono text-[11px] uppercase tracking-wider whitespace-nowrap border-b ${
+                        g.isCurrent
+                          ? "bg-status-info-soft text-status-info-fg font-bold border-status-info-fg/40"
+                          : g.bandIdx === 0
+                            ? "bg-ds-surface-2/40 text-ds-text-2 border-border"
+                            : "bg-ds-surface-3/30 text-ds-text-3 border-border"
+                      }`}
+                    >
+                      {g.label}
+                    </th>
+                  ));
+                })()}
+                <th
+                  rowSpan={2}
+                  className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right min-w-[100px] border-b border-l border-border bg-card whitespace-nowrap align-bottom"
+                >
+                  Total
+                </th>
+              </tr>
+              {/* Fila 2: número de semana + día lunes */}
+              <tr>
                 {projection.buckets.map((b, idx) => {
                   const isCurrent = b.key === currentBucketKey.current;
                   const prevBucket = idx > 0 ? projection.buckets[idx - 1] : null;
-                  // Mostrar el mes solo cuando cambia respecto al bucket
-                  // anterior (evita repetir "may '26" cuatro veces). En el
-                  // primer bucket siempre.
-                  const showMonth =
+                  const newMonth =
                     !prevBucket ||
-                    prevBucket.start.getMonth() !== b.start.getMonth() ||
-                    prevBucket.start.getFullYear() !== b.start.getFullYear();
+                    prevBucket.start.getUTCMonth() !== b.start.getUTCMonth() ||
+                    prevBucket.start.getUTCFullYear() !== b.start.getUTCFullYear();
                   const isPreAnchor =
                     projection.anchor !== null &&
                     b.end.getTime() <= new Date(projection.anchor.weekEndDate).getTime();
@@ -638,18 +703,12 @@ export function WeeklyMatrix({
                           : isPreAnchor
                             ? "bg-background text-ds-text-3 border-border opacity-60"
                             : "bg-background text-ds-text-3 border-border"
-                      } ${showMonth && !isCurrent && idx > 0 ? "border-l-2 border-l-ds-text-4/30" : ""}`}
+                      } ${newMonth && !isCurrent && idx > 0 ? "border-l-2 border-l-ds-text-4/40" : ""}`}
                     >
                       <div className="flex flex-col items-end leading-tight">
-                        <span className="text-[10px] uppercase tracking-wider opacity-70">
-                          {isCurrent ? "Hoy" : showMonth ? monthYearShort(b.start) : "·"}
-                        </span>
                         <span className={`inline-flex items-center gap-0.5 ${isCurrent ? "font-bold" : ""}`}>
                           {isPreAnchor && (
-                            <Lock
-                              className="h-2.5 w-2.5 opacity-50"
-                              aria-label="Semana anclada al cierre"
-                            />
+                            <Lock className="h-2.5 w-2.5 opacity-50" aria-label="Semana anclada al cierre" />
                           )}
                           {b.label}
                         </span>
@@ -660,9 +719,6 @@ export function WeeklyMatrix({
                     </th>
                   );
                 })}
-                <th className="hidden sm:table-cell sticky right-0 z-40 p-2 text-right min-w-[100px] border-b border-l border-border bg-card whitespace-nowrap">
-                  Total
-                </th>
               </tr>
             </thead>
             <tbody>
