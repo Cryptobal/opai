@@ -1014,8 +1014,12 @@ export function DtesEmitidosClient({
         />
       ) : (
         <>
-          {/* Tablet/iPad: lista tipo tarjeta (evita tabla aplastada). Desktop lg+: tabla. */}
-          <div className="hidden lg:block">
+          {/* Tabla solo en pantallas xl+ (≥1280px). En md/lg (tablet y laptops
+              13") la tabla con todas sus columnas (~1340px contenido + paddings)
+              hace overflow horizontal y los iconos del extremo derecho se
+              cortan. La lista mobile (cards) cabe a partir de mobile chico y
+              es la opción legible hasta xl. */}
+          <div className="hidden xl:block">
             <IssuedDtesTable
               rows={filtered}
               selectedIds={selectedIds}
@@ -1049,7 +1053,7 @@ export function DtesEmitidosClient({
               onMarkUnpaid={handleMarkUnpaid}
             />
           </div>
-          <div className="lg:hidden">
+          <div className="xl:hidden">
             <IssuedDtesMobileList
               rows={filtered}
               selectedIds={selectedIds}

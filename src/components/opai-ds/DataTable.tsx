@@ -32,6 +32,13 @@ export interface DataTableColumn<T> {
   width?: string;
   /** Esconder en mobile. */
   hideOnMobile?: boolean;
+  /**
+   * Si "right", esta columna queda fija al borde derecho cuando la tabla
+   * tiene overflow horizontal. Útil para acciones (papelera, menú) que
+   * deben quedar siempre accesibles aunque el resto haga scroll.
+   * Renderiza con sombra sutil hacia la izquierda para indicar el corte.
+   */
+  sticky?: "right";
 }
 
 export interface DataTableProps<T> {
@@ -113,6 +120,11 @@ export function DataTable<T>({
                     "text-left",
                     c.width,
                     c.hideOnMobile && "hidden sm:table-cell",
+                    // Sticky right: la columna queda pegada al borde derecho
+                    // mientras el resto hace scroll horizontal. La sombra
+                    // izquierda da el corte visual entre stick y scrolling.
+                    c.sticky === "right" &&
+                      "sticky right-0 z-10 bg-ds-surface-3 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.35)]",
                   )}
                 >
                   {c.header}
@@ -144,6 +156,13 @@ export function DataTable<T>({
                         c.align === "center" ? "text-center" :
                         "text-left",
                         c.hideOnMobile && "hidden sm:table-cell",
+                        // Sticky right: la celda debe heredar el background
+                        // del rowVariant para no dejar transparente el contenido
+                        // que pasa por debajo. Usamos bg-inherit y dejamos que
+                        // el `bg-*` del rowVariant en el <tr> lo cubra cuando
+                        // existe.
+                        c.sticky === "right" &&
+                          "sticky right-0 z-[1] bg-inherit shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.35)]",
                       )}
                     >
                       {c.cell(row, i)}

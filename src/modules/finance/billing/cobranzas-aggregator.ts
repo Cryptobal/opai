@@ -135,11 +135,13 @@ async function computeAgingForPeriod(
       date: { gte: range.from, lt: range.to },
       // Excluir NCs: las NCs no se "cobran".
       dteType: { notIn: [61] },
-      // Excluir facturas anuladas o con NC parcial — el saldo nominal
-      // ya no representa una deuda real. Mismo criterio que el flujo
-      // de caja en projection.service.
+      // Excluir anulaciones TOTAL (NC CodRef=1): saldo cero por definición.
+      // NO excluir NCs PARCIALES (CodRef=3, creditedNetAmount > 0): el
+      // endpoint /api/finance/billing/credit-note ya actualiza amountPending
+      // restando ncTotalGross, así que el saldo aquí refleja la deuda real
+      // post-NC. El filtro paymentStatus IN [UNPAID, PARTIAL, OVERDUE] saca
+      // automáticamente las que quedaron en PAID (NC cubrió todo el saldo).
       voidedByCreditNoteId: null,
-      creditedNetAmount: 0,
     },
     select: {
       id: true,
@@ -232,9 +234,10 @@ async function computeTopDebtorsForTenant(
       siiStatus: "ACCEPTED",
       paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE"] },
       dteType: { notIn: [61] },
-      // Excluir anuladas o con NC parcial — saldo nominal no es deuda real.
+      // Excluir anuladas TOTAL (CodRef=1); NCs parciales (CodRef=3)
+      // permanecen porque amountPending ya refleja el saldo post-NC
+      // y el filtro paymentStatus saca las que quedaron en PAID.
       voidedByCreditNoteId: null,
-      creditedNetAmount: 0,
     },
     select: {
       crmAccountId: true,

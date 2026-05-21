@@ -404,6 +404,11 @@ export function IssuedDtesTable({
       id: "_actions",
       header: "",
       width: "w-[84px]",
+      // Sticky right: las acciones (ver, menú) deben quedar siempre
+      // accesibles aunque la tabla haga scroll horizontal en viewports
+      // medianos. Sin esto, los iconos se cortan al borde derecho del
+      // contenedor y obligan al usuario a scrollear para llegar a ellas.
+      sticky: "right",
       cell: (row) => (
         <div className="flex items-center justify-end gap-1">
           <button
