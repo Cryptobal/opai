@@ -9,7 +9,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { resend, getTenantEmailConfig } from "@/lib/resend";
+import { sendTenantEmail } from "@/lib/email/send-tenant-email";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { buildBillingDocProps } from "@/lib/pdf/templates/billing-doc/build-billing-doc-props";
 import { renderBillingDocPdf } from "@/lib/pdf/templates/billing-doc/render-billing-doc";
@@ -276,7 +276,6 @@ export async function sendBillingDocument(
   });
   const company = await getTenantCompanyConfig(tenantId);
   const colors = await resolveBrandColors(tenantId);
-  const emailCfg = await getTenantEmailConfig(tenantId);
 
   // Variables comunes para tokens.
   const fmtCurrency = (n: number) =>
@@ -364,35 +363,7 @@ export async function sendBillingDocument(
       ccCandidates.filter((e) => e && e.trim() && e !== primary),
     ),
   );
-  // Merge BCC manuales (UI) + alwaysBcc configurado del tenant.
-  // Si alwaysBcc está vacío, caemos en cascada al primer email del tenant
-  // que esté configurado (cubre tenants que nunca tocaron alwaysBcc):
-  //   1) empresa.emailReplyTo
-  //   2) TenantDteConfig.emisorEmail (Email del emisor — siempre seteado)
-  //   3) empresa.email comercial principal
-  // Dedupear case-insensitive y excluir primary + CC para no duplicar.
-  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const manualBcc = input.bccEmails ?? [];
-  const tenantBcc = (emailCfg.alwaysBcc ?? []).filter((e) => e && e.trim());
-  const fallbackBccCandidates: string[] =
-    tenantBcc.length === 0
-      ? [emailCfg.replyTo, tenantConfig?.emisorEmail ?? "", company.email]
-          .map((e) => (e ?? "").trim())
-          .filter((e) => e.length > 0 && EMAIL_RE.test(e))
-          .slice(0, 1)
-      : [];
-  const ccLower = ccList.map((c) => c.toLowerCase());
-  const bccList = Array.from(
-    new Set(
-      [...manualBcc, ...tenantBcc, ...fallbackBccCandidates]
-        .map((e) => e?.trim())
-        .filter((e): e is string => !!e && e.length > 0)
-        .filter((e) => e.toLowerCase() !== primary.toLowerCase())
-        .filter((e) => !ccLower.includes(e.toLowerCase())),
-    ),
-  );
-
-  // Filename.
+  // Filename del PDF adjunto.
   const filename =
     input.variant === "PROFORMA"
       ? `proforma-${dte.folio > 0 ? dte.folio : "draft"}.pdf`
@@ -400,31 +371,52 @@ export async function sendBillingDocument(
 
   const { successKind, failKind } = variantToKinds(input.variant);
 
+  // Kind del catálogo transaccional — determina toggles + routing por módulo.
+  const transactionalKind =
+    input.variant === "PROFORMA" ? "dte_proforma_sent" : "dte_payment_statement_sent";
+
   try {
-    const result = await resend.emails.send({
-      from: emailCfg.from,
-      replyTo: emailCfg.replyTo || undefined,
-      to: [primary],
-      cc: ccList.length > 0 ? ccList : undefined,
-      bcc: bccList.length > 0 ? bccList : undefined,
+    const result = await sendTenantEmail({
+      tenantId,
+      module: "finance",
+      kind: transactionalKind,
+      to: primary,
+      cc: ccList,
+      // Pasar SOLO los BCC manuales explícitos del input. El helper
+      // mergea automáticamente con los CCO del módulo Finanzas
+      // (empresa.cco.finance.emails). Eliminamos el fallback legacy
+      // que terminaba enviando copia a comercial@... cuando finanzas
+      // tenía su propio CCO configurado.
+      bcc: input.bccEmails ?? [],
       subject,
       html,
-      attachments: [{ filename, content: pdfBuffer.toString("base64") }],
+      attachments: [
+        { filename, content: pdfBuffer.toString("base64") },
+      ],
     });
 
-    if (result.error) {
+    // Si el toggle del tenant tenía este kind desactivado, el helper
+    // skipea silenciosamente y devuelve resendId=null. Lo tratamos como
+    // fallo explícito y persistimos el log para que el usuario vea por
+    // qué su envío "no salió".
+    if (!result.resendId) {
       await logEmail(tenantId, input.dteId, {
         kind: failKind,
         isAutoFromCron: input.isAutoFromCron ?? false,
-        to: [primary],
-        cc: ccList,
-        bcc: bccList,
+        to: result.effectiveTo,
+        cc: result.effectiveCc,
+        bcc: result.effectiveBcc,
         subject,
         status: "failed",
-        errorMessage: result.error.message,
+        errorMessage:
+          "Envío skipeado: el toggle de este tipo de correo está desactivado en Configuración → Correo transaccional.",
         sentBy: input.triggeredBy,
       });
-      return { success: false, error: result.error.message };
+      return {
+        success: false,
+        error:
+          "Envío skipeado: el toggle de este tipo de correo está desactivado.",
+      };
     }
 
     // Tracking separado por variante: proformaStatus aplica a Proforma,
@@ -452,18 +444,18 @@ export async function sendBillingDocument(
     await logEmail(tenantId, input.dteId, {
       kind: successKind,
       isAutoFromCron: input.isAutoFromCron ?? false,
-      to: [primary],
-      cc: ccList,
-      bcc: bccList,
+      to: result.effectiveTo,
+      cc: result.effectiveCc,
+      bcc: result.effectiveBcc,
       subject,
-      resendId: result.data?.id ?? null,
+      resendId: result.resendId,
       status: "sent",
       sentBy: input.triggeredBy,
     });
 
     return {
       success: true,
-      messageId: result.data?.id,
+      messageId: result.resendId,
       pdfBytes: pdfBuffer.byteLength,
     };
   } catch (err) {
@@ -473,7 +465,7 @@ export async function sendBillingDocument(
       isAutoFromCron: input.isAutoFromCron ?? false,
       to: [primary],
       cc: ccList,
-      bcc: bccList,
+      bcc: [],
       subject,
       status: "failed",
       errorMessage: message,

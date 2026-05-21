@@ -9,14 +9,29 @@
  * envíos son externos y no afectan el XML.
  */
 import { prisma } from "@/lib/prisma";
-import { resend, getTenantEmailConfig } from "@/lib/resend";
+import { getTenantEmailConfig } from "@/lib/resend";
+import { sendTenantEmail } from "@/lib/email/send-tenant-email";
 import { getDteProvider } from "../shared/adapters/dte-provider.adapter";
 import { getDteTypeName as dteTypeName } from "../shared/constants/dte-types";
 import { renderDteEmailHtml, renderDteEmailSubject } from "./dte-email-template";
 import { getFileBuffer } from "@/lib/storage";
 import { buildDteAttachmentBaseName } from "./dte-filename";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/**
+ * Resuelve el kind del catálogo transaccional según el tipo de DTE.
+ * Los 3 kinds (invoice/credit_note/debit_note) están marcados como
+ * `required: true` en el catálogo: nunca se skipean por toggle del tenant.
+ */
+function dteKindForType(
+  dteType: number,
+): "dte_invoice_sent" | "dte_credit_note_sent" | "dte_debit_note_sent" {
+  if (dteType === 61) return "dte_credit_note_sent";
+  if (dteType === 56) return "dte_debit_note_sent";
+  // Factura electrónica (33), Factura exenta (34), Boleta (39),
+  // Boleta exenta (41), Guía despacho (52), Factura compra (46),
+  // Factura exportación (110), etc. → todos van como "invoice".
+  return "dte_invoice_sent";
+}
 
 export interface SendDteEmailResult {
   success: boolean;
@@ -109,35 +124,13 @@ export async function sendDteEmail(
     (e) => typeof e === "string" && e.trim() && e !== primary,
   );
 
-  // BCC: empieza con lo que mandó el caller (manual override del dialog
-  // de reenvío). Después agregamos el `alwaysBcc` del tenant. Si el tenant
-  // no configuró alwaysBcc, caemos al `emailReplyTo` como BCC implícito
-  // (compat hacia atrás, según schema TenantDteConfig.alwaysBcc).
   const tenantConfig = await prisma.tenantDteConfig.findUnique({ where: { tenantId } });
   if (!tenantConfig) return { success: false, error: "Tenant DTE config no existe" };
 
+  // Email config: solo usado abajo para resolver `companyName` en los vars
+  // del template y para el subject. El routing (from / replyTo / bcc) lo
+  // resuelve `sendTenantEmail` consultando `getTenantEmailRouting()`.
   const emailCfg = await getTenantEmailConfig(tenantId);
-  const tenantAlwaysBcc = (emailCfg.alwaysBcc ?? []).filter((e) => EMAIL_RE.test(e));
-  const rawBcc = [...(bccOverride ?? []), ...tenantAlwaysBcc];
-  if (tenantAlwaysBcc.length === 0) {
-    // Cascada de fallback: replyTo → emisorEmail (DTE config) → empresa.email.
-    // Cubre tenants que nunca tocaron alwaysBcc pero igual quieren copia.
-    const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
-    const companyCfg = await getTenantCompanyConfig(tenantId);
-    const fallback = [emailCfg.replyTo, tenantConfig.emisorEmail ?? "", companyCfg.email]
-      .map((e) => (e ?? "").trim())
-      .find((e) => e.length > 0 && EMAIL_RE.test(e));
-    if (fallback) rawBcc.push(fallback);
-  }
-
-  const bccList = rawBcc.filter(
-    (e, idx, arr) =>
-      typeof e === "string" &&
-      e.trim() &&
-      e.toLowerCase() !== primary.toLowerCase() &&
-      !ccList.map((c) => c.toLowerCase()).includes(e.toLowerCase()) &&
-      arr.findIndex((x) => x.toLowerCase() === e.toLowerCase()) === idx, // dedupe case-insensitive
-  );
 
   let xmlBuffer: Buffer;
   let pdfBuffer: Buffer;
@@ -205,12 +198,14 @@ export async function sendDteEmail(
   const dteFilenameBase = await buildDteAttachmentBaseName(tenantId, dte);
 
   try {
-    const result = await resend.emails.send({
-      from: emailCfg.from,
-      replyTo: emailCfg.replyTo || undefined,
-      to: [primary],
-      cc: ccList.length > 0 ? ccList : undefined,
-      bcc: bccList.length > 0 ? bccList : undefined,
+    const result = await sendTenantEmail({
+      tenantId,
+      module: "finance",
+      kind: dteKindForType(dte.dteType),
+      to: primary,
+      cc: ccList,
+      // Solo BCC manual del caller. El helper mergea con CCO Finanzas.
+      bcc: bccOverride ?? [],
       subject,
       html,
       attachments: [
@@ -220,41 +215,24 @@ export async function sendDteEmail(
       ],
     });
 
-    if (result.error) {
-      await prisma.financeDte.update({
-        where: { id: dteId },
-        data: { emailStatus: "FAILED" },
-      });
-      await logEmail(tenantId, dteId, {
-        kind,
-        to: [primary],
-        cc: ccList,
-        bcc: bccList,
-        subject,
-        attachments: "PDF_XML",
-        status: "FAILED",
-        errorMessage: result.error.message,
-        sentBy: triggeredBy ?? null,
-      });
-      return { success: false, error: result.error.message };
-    }
-
+    // Los 3 kinds de DTE son `required` en el catálogo → siempre devuelve
+    // resendId si llegó a Resend. Si no, fue por excepción y caemos al catch.
     await prisma.financeDte.update({
       where: { id: dteId },
       data: { emailSentAt: new Date(), emailStatus: "SENT" },
     });
     await logEmail(tenantId, dteId, {
       kind,
-      to: [primary],
-      cc: ccList,
-      bcc: bccList,
+      to: result.effectiveTo,
+      cc: result.effectiveCc,
+      bcc: result.effectiveBcc,
       subject,
       attachments: "PDF_XML",
       status: "SENT",
-      resendId: result.data?.id,
+      resendId: result.resendId ?? undefined,
       sentBy: triggeredBy ?? null,
     });
-    return { success: true, messageId: result.data?.id };
+    return { success: true, messageId: result.resendId ?? undefined };
   } catch (err) {
     const message = (err as Error).message;
     await prisma.financeDte.update({
@@ -265,7 +243,7 @@ export async function sendDteEmail(
       kind,
       to: [primary],
       cc: ccList,
-      bcc: bccList,
+      bcc: [],
       subject,
       attachments: "PDF_XML",
       status: "FAILED",
@@ -340,80 +318,61 @@ export async function sendDteXmlToBackoffice(
 
   const dteFilenameBase = await buildDteAttachmentBaseName(tenantId, dte);
 
-  // Auto-BCC: priorizamos el alwaysBcc del tenant; si está vacío,
-  // cascada de fallback (replyTo → emisorEmail → empresa.email) para
-  // cubrir tenants que no tocaron alwaysBcc.
-  const recipientsLower = recipients.map((r) => r.toLowerCase());
-  const tenantAlwaysBcc = (emailCfg.alwaysBcc ?? []).filter((e) => EMAIL_RE.test(e));
-  let bccCandidates: string[] = [];
-  if (tenantAlwaysBcc.length > 0) {
-    bccCandidates = tenantAlwaysBcc;
-  } else {
-    const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
-    const companyCfg = await getTenantCompanyConfig(tenantId);
-    const fallback = [emailCfg.replyTo, tenantConfig.emisorEmail ?? "", companyCfg.email]
-      .map((e) => (e ?? "").trim())
-      .find((e) => e.length > 0 && EMAIL_RE.test(e));
-    if (fallback) bccCandidates = [fallback];
-  }
-  const backofficeBccList = (() => {
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const e of bccCandidates) {
-      const low = e.toLowerCase();
-      if (seen.has(low)) continue;
-      if (recipientsLower.includes(low)) continue;
-      seen.add(low);
-      out.push(e);
-    }
-    return out.length > 0 ? out : undefined;
-  })();
-
   try {
-    const result = await resend.emails.send({
-      from: emailCfg.from,
-      replyTo: emailCfg.replyTo || undefined,
+    const result = await sendTenantEmail({
+      tenantId,
+      module: "finance",
+      kind: "dte_backoffice_copy",
       to: recipients,
-      bcc: backofficeBccList,
+      // El BCC automático del módulo Finanzas se mergea dentro del helper.
+      // No pasamos BCCs manuales para esta copia interna.
+      bcc: [],
       subject,
       html,
-      attachments: [{ filename: `${dteFilenameBase}.xml`, content: xmlBuffer.toString("base64") }],
+      attachments: [
+        { filename: `${dteFilenameBase}.xml`, content: xmlBuffer.toString("base64") },
+      ],
     });
 
-    if (result.error) {
+    if (!result.resendId) {
+      // Toggle del tenant desactivado para `dte_backoffice_copy`.
       await logEmail(tenantId, dteId, {
         kind,
-        to: recipients,
+        to: result.effectiveTo,
         cc: [],
-        bcc: backofficeBccList ?? [],
+        bcc: result.effectiveBcc,
         subject,
         attachments: "XML_ONLY",
         status: "FAILED",
-        errorMessage: result.error.message,
+        errorMessage:
+          "Envío skipeado: el toggle de 'Copia XML al backoffice' está desactivado.",
         sentBy: opts?.triggeredBy ?? null,
       });
-      return { success: false, error: result.error.message };
+      return {
+        success: false,
+        error: "Envío skipeado: toggle desactivado.",
+      };
     }
 
     await logEmail(tenantId, dteId, {
       kind,
-      to: recipients,
+      to: result.effectiveTo,
       cc: [],
-      bcc: backofficeBccList ?? [],
+      bcc: result.effectiveBcc,
       subject,
       attachments: "XML_ONLY",
       status: "SENT",
-      resendId: result.data?.id,
+      resendId: result.resendId,
       sentBy: opts?.triggeredBy ?? null,
     });
-    return { success: true, messageId: result.data?.id };
+    return { success: true, messageId: result.resendId };
   } catch (err) {
     const message = (err as Error).message;
     await logEmail(tenantId, dteId, {
       kind,
       to: recipients,
       cc: [],
-      bcc: backofficeBccList ?? [],
+      bcc: [],
       subject,
       attachments: "XML_ONLY",
       status: "FAILED",

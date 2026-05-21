@@ -317,18 +317,23 @@ export async function buildBillingDocProps(
     }
   }
 
-  // Contacto para salutación/contactName del documento:
-  // 1) Si el caller pasó `primaryRecipientEmail` (el "Para:" del envío),
-  //    buscamos el CrmContact del account que coincide con ese email
-  //    — es el que realmente está leyendo el correo y aparece en "Para:".
-  // 2) Fallback al contactoEstadoPago default del account.
-  // 3) Fallback al primer contacto del account.
+  // Resolver el contacto del destinatario primario con un query separado:
+  // el include de `account.contacts` está acotado a `take: 1` (el isPrimary
+  // del account) para otros usos, pero el destinatario seleccionado por el
+  // usuario puede ser CUALQUIER contacto del account. Si lo buscáramos en
+  // `account.contacts` lo perderíamos casi siempre y caeríamos al fallback
+  // `contactoEstadoPago`, que es otro contacto distinto.
   const primaryEmailLower = opts.primaryRecipientEmail?.trim().toLowerCase();
-  const primaryRecipientContact = primaryEmailLower
-    ? (account?.contacts ?? []).find(
-        (c) => (c.email ?? "").toLowerCase() === primaryEmailLower,
-      ) ?? null
-    : null;
+  const primaryRecipientContact =
+    primaryEmailLower && account
+      ? await prisma.crmContact.findFirst({
+          where: {
+            tenantId,
+            accountId: account.id,
+            email: { equals: primaryEmailLower, mode: "insensitive" },
+          },
+        })
+      : null;
   const contactoEP =
     primaryRecipientContact ??
     account?.contactoEstadoPago ??
