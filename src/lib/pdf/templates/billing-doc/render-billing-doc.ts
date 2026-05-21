@@ -71,12 +71,21 @@ export async function renderBillingDocPdf(
   const path = nodeRequire("path");
   const { Font } = pdf;
   const fontsDir = path.join(process.cwd(), "public", "fonts");
-  const registered = (globalThis as Record<string, unknown>).__pdfFontsRegistered;
+  // Versionar el flag para invalidar el cache si cambia el set de fuentes.
+  const FONT_REGISTRY_VERSION = "v2-with-italic";
+  const flagKey = `__pdfFontsRegistered_${FONT_REGISTRY_VERSION}`;
+  const registered = (globalThis as Record<string, unknown>)[flagKey];
   if (!registered) {
     Font.register({
       family: "PlusJakartaSans",
       fonts: [
         { src: path.join(fontsDir, "PlusJakartaSans-Regular.ttf"), fontWeight: 400 },
+        // No tenemos .ttf italic en public/fonts. Apuntar al Regular hace
+        // que @react-pdf/renderer aplique skew sintético. Mismo patrón
+        // que src/lib/pdf/core/register-fonts.ts. Sin esta línea, cualquier
+        // estilo con fontStyle:"italic" tira "Could not resolve font ..."
+        // y rompe la generación del PDF entero.
+        { src: path.join(fontsDir, "PlusJakartaSans-Regular.ttf"), fontWeight: 400, fontStyle: "italic" },
         { src: path.join(fontsDir, "PlusJakartaSans-Medium.ttf"), fontWeight: 500 },
         { src: path.join(fontsDir, "PlusJakartaSans-SemiBold.ttf"), fontWeight: 600 },
         { src: path.join(fontsDir, "PlusJakartaSans-Bold.ttf"), fontWeight: 700 },
@@ -90,7 +99,7 @@ export async function renderBillingDocPdf(
         { src: path.join(fontsDir, "JetBrainsMono-Medium.ttf"), fontWeight: 500 },
       ],
     });
-    (globalThis as Record<string, unknown>).__pdfFontsRegistered = true;
+    (globalThis as Record<string, unknown>)[flagKey] = true;
   }
 
   const e = React.createElement;
