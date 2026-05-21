@@ -126,7 +126,7 @@ export function BillingDocConfigForm() {
                   proformaEmailSubject: e.target.value || null,
                 }))
               }
-              placeholder="Proforma {{folio}} - {{razonSocial}}"
+              placeholder="Proforma - {{nombreCuenta}} - {{instalacion}} - {{periodo}}"
             />
           </div>
           <div className="space-y-1.5">
@@ -143,9 +143,10 @@ export function BillingDocConfigForm() {
               placeholder="Estimado/a {{receiverName}}, adjunto encontrará la proforma..."
             />
             <p className="text-[10px] text-muted-foreground/80">
-              Tokens: {"{{razonSocial}}"} {"{{folio}}"} {"{{tipo}}"}{" "}
-              {"{{total}}"} {"{{fecha}}"} {"{{receiverName}}"}{" "}
-              {"{{numeroOrdenContrato}}"} {"{{periodo}}"}.
+              Tokens: {"{{nombreCuenta}}"} {"{{razonSocial}}"} {"{{instalacion}}"}{" "}
+              {"{{folio}}"} {"{{tipo}}"} {"{{total}}"} {"{{fecha}}"}{" "}
+              {"{{receiverName}}"} {"{{numeroOrdenContrato}}"}{" "}
+              {"{{periodo}}"} {"{{mes}}"} {"{{anio}}"}.
             </p>
           </div>
         </section>
@@ -164,7 +165,7 @@ export function BillingDocConfigForm() {
                   estadoPagoEmailSubject: e.target.value || null,
                 }))
               }
-              placeholder="Estado de Pago {{periodo}} - {{razonSocial}}"
+              placeholder="Estado de Pago - {{nombreCuenta}} - {{instalacion}} - {{periodo}}"
             />
           </div>
           <div className="space-y-1.5">
