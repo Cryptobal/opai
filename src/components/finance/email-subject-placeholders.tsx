@@ -59,7 +59,7 @@ export function PlaceholderChips({ tokens, inputRef, value, onChange }: Props) {
           key={t}
           type="button"
           onClick={() => insertToken(t)}
-          className="inline-flex items-center rounded-full border border-ds-border-subtle bg-muted/40 px-2 py-0.5 text-[10px] font-mono text-ds-text-2 transition hover:bg-muted hover:text-ds-text-1"
+          className="inline-flex items-center rounded-full border border-ds-border-subtle bg-muted/40 px-2 py-0.5 text-[12px] font-mono text-ds-text-2 transition hover:bg-muted hover:text-ds-text-1"
           title={`Insertar {{${t}}}`}
         >
           + {t}

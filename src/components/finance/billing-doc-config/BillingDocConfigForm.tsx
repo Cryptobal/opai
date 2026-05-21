@@ -172,7 +172,7 @@ export function BillingDocConfigForm() {
               }
               placeholder="Estimado/a {{receiverName}}, adjunto encontrará la proforma..."
             />
-            <p className="text-[10px] text-muted-foreground/80">
+            <p className="text-[12px] text-muted-foreground/80">
               Click un chip arriba para insertar el placeholder en el cursor.
               Si el token resuelve a vacío (ej: instalación), los separadores
               se limpian automáticamente.

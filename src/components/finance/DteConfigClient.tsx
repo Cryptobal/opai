@@ -588,7 +588,7 @@ export function DteConfigClient({
                 </p>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] text-ds-text-3">Asunto</Label>
+                <Label className="text-[12px] text-ds-text-3">Asunto</Label>
                 <PlaceholderChips
                   tokens={DTE_EMITIDO_TOKENS}
                   inputRef={dteSubjectRef}
@@ -614,7 +614,7 @@ export function DteConfigClient({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] text-ds-text-3">Cuerpo HTML</Label>
+                <Label className="text-[12px] text-ds-text-3">Cuerpo HTML</Label>
                 <PlaceholderChips
                   tokens={DTE_EMITIDO_TOKENS}
                   inputRef={dteBodyRef}
