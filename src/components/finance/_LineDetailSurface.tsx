@@ -56,6 +56,14 @@ export interface LineDetailValue {
    * moneda viaja a nivel DTE y este campo queda undefined.
    */
   priceCurrency?: LinePriceCurrency;
+  /**
+   * Centro de costo financiero de la línea (resuelto desde instalación CRM
+   * via /api/finance/cost-centers/by-installation). Solo se usa cuando el
+   * caller pasa `installationOptions` y el usuario activa multi-instalación.
+   * En modo cabecera, queda undefined y el back resuelve desde el
+   * installationId de cabecera del DTE.
+   */
+  costCenterId?: string | null;
 }
 
 interface Props {
@@ -95,6 +103,17 @@ interface Props {
   showExempt?: boolean;
   /** Subtotal calculado (formateado por el caller). */
   subtotalFormatted: string;
+  /**
+   * Si se pasan, habilita el selector "Instalación" por línea. Cada item
+   * vincula installationId → costCenterId. Si no se pasa o está vacío,
+   * el selector queda oculto (modo cabecera tradicional).
+   */
+  installationOptions?: Array<{
+    installationId: string;
+    installationName: string;
+    commune: string | null;
+    costCenterId: string;
+  }>;
 }
 
 const fmtClpQuick = new Intl.NumberFormat("es-CL", {
@@ -115,6 +134,7 @@ export function LineDetailSurface({
   placeholderContext,
   showExempt = false,
   subtotalFormatted,
+  installationOptions,
 }: Props) {
   // Moneda efectiva de la línea. Cuando el caller habilita
   // `allowPerLineCurrency`, la línea decide (CLP por default). En modo
@@ -463,6 +483,37 @@ export function LineDetailSurface({
           </div>
         </div>
       </div>
+
+      {/* Instalación por línea (opcional, modo multi). */}
+      {installationOptions && installationOptions.length > 0 && (
+        <div className="space-y-1">
+          <label
+            className="text-[12px] uppercase tracking-wide text-ds-text-3"
+            htmlFor={`line-inst-${index}`}
+          >
+            Instalación
+          </label>
+          <Select
+            value={value.costCenterId ?? "NONE"}
+            onValueChange={(v) =>
+              onChange({ costCenterId: v === "NONE" ? null : v })
+            }
+          >
+            <SelectTrigger id={`line-inst-${index}`} className="h-10 sm:h-9 text-sm">
+              <SelectValue placeholder="Misma que cabecera" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="NONE">Misma que cabecera</SelectItem>
+              {installationOptions.map((o) => (
+                <SelectItem key={o.costCenterId} value={o.costCenterId}>
+                  {o.installationName}
+                  {o.commune ? ` · ${o.commune}` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Subtotal + checkbox exenta */}
       <div className="flex items-center justify-between gap-3 pt-1">

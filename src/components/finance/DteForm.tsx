@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -181,6 +182,19 @@ export function DteForm({ availableTypes, accounts }: Props) {
   const [installations, setInstallations] = useState<
     { id: string; name: string; address: string | null; commune: string | null }[]
   >([]);
+  // Lookup instalación → costCenterId. Se hidrata al elegir customer.
+  const [installationLookup, setInstallationLookup] = useState<
+    Array<{
+      installationId: string;
+      installationName: string;
+      commune: string | null;
+      costCenterId: string;
+    }>
+  >([]);
+  // Toggle: si está ON, cada línea puede elegir su propia instalación
+  // (=> costCenterId). Default: detectar automáticamente si el draft
+  // existente ya tiene líneas con costCenterId distinto al de cabecera.
+  const [multiInstallation, setMultiInstallation] = useState(false);
   /**
    * Destinatarios del envío externo (PDF/XML). El TO sale al XML SII como
    * <CorreoRecep>; CC/BCC son solo para la copia que envía OPAI vía
@@ -349,9 +363,19 @@ export function DteForm({ availableTypes, accounts }: Props) {
             discountValue: String(l.discountPct ?? "0"),
             isExempt: !!l.isExempt,
             accountId: String(l.accountId ?? ""),
+            costCenterId:
+              typeof l.costCenterId === "string" ? l.costCenterId : null,
           }),
         );
         if (draftLines.length > 0) setLines(draftLines);
+        // Auto-detectar multi-instalación: si las líneas vienen con
+        // costCenterIds distintos, encender el toggle.
+        {
+          const ccIds = draftLines
+            .map((l) => l.costCenterId ?? null)
+            .filter((x): x is string => Boolean(x));
+          if (new Set(ccIds).size > 1) setMultiInstallation(true);
+        }
         // Cargar plan de Documento de Cobro persistido.
         setBillingPlan({
           requireProforma: !!d.requireProforma,
@@ -472,6 +496,25 @@ export function DteForm({ availableTypes, accounts }: Props) {
     }
     return () => ctrl.abort();
   }, [customer]);
+
+  // Lookup instalación → costCenterId para soportar multi-instalación por línea.
+  useEffect(() => {
+    if (!customer?.id) {
+      setInstallationLookup([]);
+      return;
+    }
+    const ctrl = new AbortController();
+    fetch(
+      `/api/finance/cost-centers/by-installation?accountId=${customer.id}`,
+      { signal: ctrl.signal },
+    )
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.success && Array.isArray(j.data)) setInstallationLookup(j.data);
+      })
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, [customer?.id]);
 
   // Trigger fetch a /receiver-suggestions para mostrar contactos CC del CRM.
   // Usa el RUT efectivo (customer del CRM si está seleccionado, sino manual).
@@ -821,6 +864,9 @@ export function DteForm({ availableTypes, accounts }: Props) {
           isExempt: isExenta || (l.isExempt ?? false),
           accountId: l.accountId || null,
           refuerzoSolicitudId: l.refuerzoSolicitudId || null,
+          // Si multi-instalación está OFF, cada línea hereda la instalación
+          // de cabecera (resuelta server-side). Si ON, mandamos el CC explícito.
+          costCenterId: multiInstallation ? (l.costCenterId ?? null) : null,
         };
       }),
     };
@@ -945,6 +991,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
             currency === "UF" ? parseFloat(l.unitPrice) || 0 : undefined,
           discountPct: lineDiscountToPct(l),
           isExempt: l.isExempt ?? false,
+          costCenterId: multiInstallation ? (l.costCenterId ?? null) : null,
         })),
         references: additionalRefs
           .filter((r) => r.tipoDocRef.trim())
@@ -1392,6 +1439,22 @@ export function DteForm({ availableTypes, accounts }: Props) {
                       ingresos/gastos por centro de costo.
                     </p>
                   )}
+                  {installationLookup.length > 1 && (
+                    <div className="flex items-center justify-between gap-2 mt-2 px-3 py-2 rounded-lg bg-muted/30">
+                      <div className="min-w-0">
+                        <Label className="text-xs font-medium">
+                          Instalaciones por línea
+                        </Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Permite asignar instalación distinta en cada línea.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={multiInstallation}
+                        onCheckedChange={setMultiInstallation}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1451,6 +1514,11 @@ export function DteForm({ availableTypes, accounts }: Props) {
                 placeholderContext={placeholderCtx}
                 showExempt={!isExenta}
                 subtotalFormatted={subtotalFormatted}
+                installationOptions={
+                  multiInstallation && installationLookup.length > 0
+                    ? installationLookup
+                    : undefined
+                }
               />
             );
           })}
