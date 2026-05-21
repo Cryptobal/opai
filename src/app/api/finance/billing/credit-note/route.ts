@@ -215,12 +215,19 @@ export async function POST(request: NextRequest) {
           0,
           Number(fresh.totalAmount) - Number(fresh.amountPaid ?? 0) - ncTotalGross,
         );
-        const newStatus: "PAID" | "PARTIAL" | "UNPAID" =
-          newAmountPending === 0
-            ? "PAID"
-            : Number(fresh.amountPaid ?? 0) > 0
-              ? "PARTIAL"
-              : (fresh.paymentStatus as "UNPAID") ?? "UNPAID";
+        const newStatus: "PAID" | "PARTIAL" | "UNPAID" | "OVERDUE" = (() => {
+          const paid = Number(fresh.amountPaid ?? 0);
+          // Solo es PAID si hay pago real que cubre el saldo post-NC.
+          if (newAmountPending === 0 && paid > 0) return "PAID";
+          if (paid > 0) return "PARTIAL";
+          // Sin pagos reales: la NC parcial reduce el monto cobrable pero
+          // NO marca la factura como pagada. Mantenemos el estado original.
+          return (fresh.paymentStatus as
+            | "UNPAID"
+            | "OVERDUE"
+            | "PARTIAL"
+            | "PAID") ?? "UNPAID";
+        })();
         await prisma.financeDte.update({
           where: { id: originalDte.id },
           data: {
