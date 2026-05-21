@@ -64,19 +64,18 @@ export async function POST(request: NextRequest) {
 
     const emailNormalized = body.email?.trim().toLowerCase();
     if (emailNormalized) {
-      const existing = await prisma.crmContact.findFirst({
+      // Bloquear solo duplicados en la MISMA cuenta. Multi-cuenta permitido.
+      const existingInSameAccount = await prisma.crmContact.findFirst({
         where: {
           tenantId: ctx.tenantId,
+          accountId,
           email: { equals: emailNormalized, mode: "insensitive" },
         },
       });
-      if (existing) {
+      if (existingInSameAccount) {
         return NextResponse.json(
-          {
-            success: false,
-            error: "Ya existe un contacto con este email. Use el mismo para evitar duplicados.",
-          },
-          { status: 409 }
+          { success: true, data: existingInSameAccount },
+          { status: 200 },
         );
       }
     }

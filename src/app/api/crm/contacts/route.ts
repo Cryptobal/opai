@@ -81,22 +81,22 @@ export async function POST(request: NextRequest) {
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
+    // Un contacto puede pertenecer a varias cuentas CRM (gerente que
+    // trabaja para varias empresas-cliente). La unicidad solo aplica
+    // dentro de la MISMA cuenta para evitar duplicados accidentales.
+    // No hay constraint UNIQUE en el modelo Prisma, asi que relajar es seguro.
     const emailNormalized = body.email.trim().toLowerCase();
-    const existing = await prisma.crmContact.findFirst({
+    const existingInSameAccount = await prisma.crmContact.findFirst({
       where: {
         tenantId: ctx.tenantId,
+        accountId: body.accountId,
         email: { equals: emailNormalized, mode: "insensitive" },
       },
       include: { account: true },
     });
-    if (existing) {
-      if (existing.accountId === body.accountId) {
-        return NextResponse.json({ success: true, data: existing }, { status: 200 });
-      }
-      return NextResponse.json(
-        { success: false, error: "Ya existe un contacto con este email en otra cuenta. Use el mismo para evitar duplicados." },
-        { status: 409 }
-      );
+    if (existingInSameAccount) {
+      // Idempotencia: ya existe en esta cuenta → devolverlo sin error.
+      return NextResponse.json({ success: true, data: existingInSameAccount }, { status: 200 });
     }
 
     // Un solo contacto principal por cuenta: si marcamos este como principal, quitar principal a los demás

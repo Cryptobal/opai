@@ -220,7 +220,14 @@ export async function getTenantEmailRouting(tenantId: string): Promise<TenantEma
         if (firstNonEmpty) bcc = [firstNonEmpty];
       }
     }
-    const replyTo = replyToOverride.trim() || replyToGlobal;
+    // Cascada de reply-to del modulo:
+    //   1. Override explicito (`ccoXxxReplyTo`)
+    //   2. Primer email del CCO del modulo — si finanzas tiene su buzon
+    //      configurado, el cliente que responde una proforma escribe al
+    //      equipo de finanzas, no al global comercial.
+    //   3. Reply-to global del tenant.
+    // Cero regresion: si bcc=[] (modulo sin CCO), cae al global igual que antes.
+    const replyTo = replyToOverride.trim() || bcc[0] || replyToGlobal;
     return { bcc, replyTo };
   }
 
