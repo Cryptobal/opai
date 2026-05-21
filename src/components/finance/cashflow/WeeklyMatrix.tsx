@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { ChevronDown, ChevronUp, Eye, EyeOff, Lock, MoreHorizontal, Search } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Eye, EyeOff, Lock, MoreHorizontal, Search } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -449,18 +449,48 @@ export function WeeklyMatrix({
           {projection.buckets.length} semanas · saldo inicial {fmt.format(projection.openingBalanceClp)}
         </p>
         <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-          <Select value={String(weeksBack)} onValueChange={(v) => setWeeksBack(Number(v))}>
-            <SelectTrigger className="h-9 sm:h-8 w-full sm:w-[140px] text-[12px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[0, 4, 8, 13, 26, 52].map((w) => (
-                <SelectItem key={w} value={String(w)}>
-                  {w === 0 ? "Solo futuro" : `+ ${w} sem. atrás`}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-1 w-full sm:w-auto">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const next = weeksBack === 0 ? 4 : weeksBack <= 4 ? 8 : weeksBack <= 8 ? 13 : weeksBack <= 13 ? 26 : 52;
+                setWeeksBack(next);
+              }}
+              disabled={weeksBack >= 52}
+              className="h-9 sm:h-8 w-9 sm:w-8 shrink-0 p-0"
+              title="Retroceder 1 preset (más semanas hacia atrás)"
+              aria-label="Retroceder semanas"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <Select value={String(weeksBack)} onValueChange={(v) => setWeeksBack(Number(v))}>
+              <SelectTrigger className="h-9 sm:h-8 flex-1 sm:w-[140px] text-[12px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[0, 4, 8, 13, 26, 52].map((w) => (
+                  <SelectItem key={w} value={String(w)}>
+                    {w === 0 ? "Solo futuro" : `+ ${w} sem. atrás`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const next = weeksBack === 52 ? 26 : weeksBack > 26 ? 26 : weeksBack > 13 ? 13 : weeksBack > 8 ? 8 : weeksBack > 4 ? 4 : 0;
+                setWeeksBack(next);
+              }}
+              disabled={weeksBack === 0}
+              className="h-9 sm:h-8 w-9 sm:w-8 shrink-0 p-0"
+              title="Avanzar 1 preset (menos semanas hacia atrás)"
+              aria-label="Avanzar semanas"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
           <Select value={String(weeks)} onValueChange={(v) => setWeeks(Number(v))}>
             <SelectTrigger className="h-9 sm:h-8 w-full sm:w-[130px] text-[12px]">
               <SelectValue />
