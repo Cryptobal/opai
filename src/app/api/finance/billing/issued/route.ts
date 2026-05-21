@@ -247,6 +247,23 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // Búsqueda por nombre de instalación CRM. installationId es FK
+      // lógica (sin @relation), por eso resolvemos los matching IDs
+      // en una sub-query y los inyectamos al OR.
+      const matchingInstallations = await prisma.crmInstallation.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          name: { contains: search, mode: "insensitive" },
+        },
+        select: { id: true },
+        take: 500,
+      });
+      if (matchingInstallations.length > 0) {
+        orClauses.push({
+          installationId: { in: matchingInstallations.map((i) => i.id) },
+        });
+      }
+
       // Folio exacto si el input es íntegro (sin punto, sin guión, sin comas).
       if (/^\d+$/.test(search.trim())) {
         const folioNum = parseInt(search.trim(), 10);

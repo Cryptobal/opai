@@ -53,7 +53,7 @@ export function DtesToolbar({
       <div className="relative flex-1 min-w-[220px]">
         <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ds-text-4" />
         <Input
-          placeholder="Buscar por folio, RUT, cliente o monto…"
+          placeholder="Buscar por folio, RUT, cliente, instalación o monto…"
           value={filters.search}
           onChange={(e) => update("search", e.target.value)}
           className="pl-10 h-10"
