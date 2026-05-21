@@ -104,8 +104,10 @@ export async function GET(request: NextRequest) {
     const includePaidUnreconciled = flag("includePaidUnreconciled");
     if (paymentStatuses.length > 0) {
       // Cuando el usuario filtra por estado de pago, TODAS las NCs y
-      // facturas fuera del flujo de cobranza deben quedar fuera. Mismo
-      // criterio que cobranzas-aggregator y projection.service.
+      // facturas anuladas TOTAL deben quedar fuera. Las facturas con NC
+      // parcial (CodRef=3, creditedNetAmount > 0) permanecen porque su
+      // amountPending ya refleja el saldo post-NC y el filtro de estado
+      // saca naturalmente las que quedaron en PAID por cobertura total.
       const prevDteType = where.dteType as { notIn?: number[] } | undefined;
       const prevNotIn = Array.isArray(prevDteType?.notIn) ? prevDteType!.notIn : [];
       where.dteType = {
@@ -113,7 +115,6 @@ export async function GET(request: NextRequest) {
         notIn: Array.from(new Set([...prevNotIn, 61])),
       };
       where.voidedByCreditNoteId = null;
-      where.creditedNetAmount = 0;
       if (includePaidUnreconciled && !paymentStatuses.includes("PAID")) {
         where.OR = [
           { paymentStatus: { in: paymentStatuses } },

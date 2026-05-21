@@ -27,6 +27,7 @@ import {
   type BalanceSnapshot,
   type BalanceTx,
 } from "./real-balance.helper";
+import { computeCreditNoteImpact } from "../billing/credit-note-impact.helper";
 
 type CategoryLite = Pick<
   FinanceCashflowCategory,
@@ -1092,13 +1093,15 @@ export async function buildProjection(
       // Excluimos NC/ND (56/61): ajustan al DTE original, no son flujo
       // independiente (mismo criterio que dte-issuer al llamar al matcher).
       dteType: { notIn: [56, 61] },
-      // Excluir facturas con NC viva sobre ellas: si fueron anuladas
-      // (CodRef=1) o acreditadas parcial (CodRef=3), salen del flujo.
-      // El usuario emite manualmente una factura nueva por el saldo
-      // si quiere reflejar el resto. Estado de resultados / libro IVA
-      // siguen viendo el original con la NC restando vía sales-aggregator.
+      // Excluir SOLO facturas anuladas TOTAL (NC CodRef=1): salen del flujo
+      // porque ya no representan ningún ingreso/egreso.
+      // Las facturas con NC PARCIAL (CodRef=3, creditedNetAmount > 0) SÍ
+      // permanecen en el flujo con monto ajustado — se calcula post-fetch
+      // con computeCreditNoteImpact() y se descartan solo si el bruto
+      // remanente queda en 0 (NC parcial que cubre el total).
+      // Estado de resultados / libro IVA usan la fórmula F29 del
+      // sales-aggregator (bruto + ND − NC) independientemente.
       voidedByCreditNoteId: null,
-      creditedNetAmount: 0,
       id: linkedDteIds.size > 0 ? { notIn: Array.from(linkedDteIds) } : undefined,
     },
     select: {
@@ -1106,6 +1109,8 @@ export async function buildProjection(
       direction: true,
       date: true,
       totalAmount: true,
+      netAmount: true,
+      creditedNetAmount: true,
       amountPaid: true,
       folio: true,
       siiStatus: true,
@@ -1119,6 +1124,19 @@ export async function buildProjection(
   });
   for (const dte of orphanDtes) {
     const isIncome = dte.direction === "ISSUED";
+
+    // Calcular el impacto de NC parciales (CodRef=3) sobre este DTE.
+    // Cuando creditedNetAmount > 0, descontamos el bruto proporcional
+    // (prorrateado con el ratio total/net del DTE) para reflejar el
+    // saldo real que va a entrar a caja. Si la NC parcial cubre el
+    // 100% del bruto (caso raro: equivale a anulación vía CodRef=3),
+    // skipeamos el DTE — no aporta flujo.
+    const ncImpact = computeCreditNoteImpact({
+      totalAmount: Number(dte.totalAmount),
+      netAmount: Number(dte.netAmount),
+      creditedNetAmount: Number(dte.creditedNetAmount),
+    });
+    if (ncImpact.isFullyCredited) continue;
 
     // Path 1 (NUEVO): si es INCOME y existe item de contrato del mismo
     // cliente/instalación, ENGANCHAR al item (no crear fila propia).
@@ -1192,7 +1210,10 @@ export async function buildProjection(
     // (itemId=null). Caso legítimo: factura suelta sin contrato.
     let cat = isIncome ? fallbackIncomeCat : fallbackExpenseCat;
     if (!cat) continue; // tenant sin las categorías fallback configuradas
-    const gross = Number(dte.totalAmount);
+    // grossPostNc descuenta NCs parciales del totalAmount nominal. Sin
+    // NC parcial es igual a totalAmount; con NC parcial proyecta solo
+    // el saldo remanente que va a entrar a caja.
+    const gross = ncImpact.grossPostNc;
     const paid = Number(dte.amountPaid);
     const status =
       dte.paymentStatus === "PAID"
@@ -1395,6 +1416,13 @@ export async function buildProjection(
           folio: true,
           dteType: true,
           totalAmount: true,
+          // Necesarios para descontar NCs parciales (CodRef=3) del bruto
+          // que se muestra en el popover de celda y se usa para el botón
+          // "Igualar a factura". Sin esto, la celda muestra el nominal
+          // y el botón intenta cuadrar a un monto que el cliente no va
+          // a pagar (paga el saldo post-NC).
+          netAmount: true,
+          creditedNetAmount: true,
         },
       }),
       prisma.financeFactoringOperation.findMany({
@@ -1427,7 +1455,16 @@ export async function buildProjection(
         dueDate: d.dueDate,
       });
       dteFolioById.set(d.id, d.folio ?? null);
-      dteGrossById.set(d.id, Number(d.totalAmount));
+      // Bruto post-NC: si el DTE tiene NC parcial (CodRef=3), el bruto
+      // mostrado en la celda es el saldo remanente (total − NC × ratio).
+      // Sin NC parcial, equivale a totalAmount. Garantiza consistencia
+      // entre el saldo cobrable y lo que se ve en el popover/badge.
+      const grossPostNc = computeCreditNoteImpact({
+        totalAmount: Number(d.totalAmount),
+        netAmount: Number(d.netAmount),
+        creditedNetAmount: Number(d.creditedNetAmount),
+      }).grossPostNc;
+      dteGrossById.set(d.id, grossPostNc);
       dteIssueDateById.set(d.id, d.date.toISOString().slice(0, 10));
     }
     for (const f of factoringOps) {
