@@ -65,6 +65,7 @@ import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import { CategoryMappingDialog } from "./cashflow/CategoryMappingDialog";
 import { SaveAsRuleModal } from "./SaveAsRuleModal";
 import { Tag } from "@/components/opai-ds";
+import { DTE_TYPE_SHORT_LABELS } from "@/components/finance/dtes/shared/constants";
 
 const FACTORING_SIGNAL_LABELS: Record<string, string> = {
   monto_simulacion: "Monto simulación",
@@ -88,6 +89,8 @@ interface Candidate {
   id: string;
   direction: "ISSUED" | "RECEIVED";
   documentType: string;
+  /** Tipo SII para mostrar etiqueta corta vía DTE_TYPE_SHORT_LABELS. */
+  dteType: number;
   folio: number | null;
   issuerName: string;
   receiverName: string;
@@ -275,6 +278,11 @@ const fmtCLP = new Intl.NumberFormat("es-CL", {
   minimumFractionDigits: 0,
 });
 
+function dteShortLabel(dteType: number, folio: number | null): string {
+  const tipo = DTE_TYPE_SHORT_LABELS[dteType] ?? "Doc.";
+  return folio != null ? `${tipo} ${folio}` : tipo;
+}
+
 export function BankTxReconcileSheet({
   open,
   onOpenChange,
@@ -319,6 +327,7 @@ export function BankTxReconcileSheet({
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [filterDirection, setFilterDirection] = useState<"all" | "ISSUED" | "RECEIVED">("all");
+  const [filterIncludePaid, setFilterIncludePaid] = useState(false);
   const [links, setLinks] = useState<LocalLink[]>([]);
   const [saving, setSaving] = useState(false);
   // Form de "categorizar manual"
@@ -413,12 +422,22 @@ export function BankTxReconcileSheet({
   }, [accountPlans, isIncomeTx]);
 
   const loadCandidates = useCallback(async () => {
-    if (!tx) return;
+    if (!tx || txs.length === 0) return;
     setLoadingCandidates(true);
     try {
-      const res = await fetch(
-        `/api/finance/banking/transactions/${tx.id}/candidates`
-      );
+      const res =
+        txs.length > 1
+          ? await fetch(
+              "/api/finance/banking/transactions/candidates-bulk",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ bankTxIds: txs.map((t) => t.id) }),
+              },
+            )
+          : await fetch(
+              `/api/finance/banking/transactions/${tx.id}/candidates`,
+            );
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error);
       setCandidates(json.data ?? []);
@@ -428,7 +447,7 @@ export function BankTxReconcileSheet({
     } finally {
       setLoadingCandidates(false);
     }
-  }, [tx]);
+  }, [tx, txs]);
 
   useEffect(() => {
     factoringPrefillAppliedRef.current = null;
@@ -523,6 +542,7 @@ export function BankTxReconcileSheet({
     setFilterDateFrom("");
     setFilterDateTo("");
     setFilterDirection("all");
+    setFilterIncludePaid(false);
     setShowFilters(false);
     setCandidates([]);
     setFactoringCandidates([]);
@@ -644,12 +664,16 @@ export function BankTxReconcileSheet({
   // permiten al usuario afinar (ej. ver solo emitidos, expandir el rango).
   const filteredCandidates = useMemo(() => {
     return candidates.filter((c) => {
+      // Por defecto ocultamos PAID (son ruido cuando hay match exacto
+      // con UNPAID/PARTIAL). El usuario puede mostrarlas con el toggle.
+      if (!filterIncludePaid && c.paymentStatus === "PAID") return false;
       if (filterDirection !== "all" && c.direction !== filterDirection)
         return false;
       if (filterText.trim()) {
         const q = filterText.trim().toLowerCase();
         const txt = [
           c.documentType,
+          dteShortLabel(c.dteType, c.folio),
           String(c.folio ?? ""),
           c.issuerName,
           c.receiverName,
@@ -684,6 +708,7 @@ export function BankTxReconcileSheet({
     filterDateFrom,
     filterDateTo,
     filterDirection,
+    filterIncludePaid,
   ]);
 
   const toggleCandidate = (c: Candidate) => {
@@ -1861,6 +1886,15 @@ export function BankTxReconcileSheet({
                       <SelectItem value="RECEIVED">Solo compras</SelectItem>
                     </SelectContent>
                   </Select>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={filterIncludePaid}
+                      onChange={(e) => setFilterIncludePaid(e.target.checked)}
+                      className="h-4 w-4 rounded border-border accent-primary"
+                    />
+                    <span>Incluir facturas ya pagadas</span>
+                  </label>
                   <p className="text-xs text-muted-foreground">
                     {filteredCandidates.length} de {candidates.length} candidatos
                   </p>
@@ -1977,9 +2011,18 @@ export function BankTxReconcileSheet({
                 <ul className="space-y-2">
                   {filteredCandidates.map((c) => {
                     const selected = links.some((l) => l.key === c.id);
-                    const txAmountAbs = tx ? Math.abs(tx.amount) : 0;
-                    const delta = c.amountPending - txAmountAbs;
-                    const deltaPct = txAmountAbs > 0 ? Math.abs(delta) / txAmountAbs : 0;
+                    // En modo multi-tx (2+ movimientos seleccionados) el monto
+                    // de referencia es la SUMA absoluta del lote. El delta y
+                    // el badge "Match exacto" deben calcularse contra esa suma.
+                    const refAmountAbs = isMulti ? totalAmountAbs : (tx ? Math.abs(tx.amount) : 0);
+                    // Para PAID, el "pendiente" es 0 pero el match relevante es
+                    // contra el total: tomamos el menor delta entre pending y total.
+                    const deltaPending = c.amountPending - refAmountAbs;
+                    const deltaTotal = c.total - refAmountAbs;
+                    const delta = Math.abs(deltaPending) <= Math.abs(deltaTotal)
+                      ? deltaPending
+                      : deltaTotal;
+                    const deltaPct = refAmountAbs > 0 ? Math.abs(delta) / refAmountAbs : 0;
                     const isExact = Math.abs(delta) <= 1;
                     const isFactoringLike = !isExact && delta > 0 && deltaPct <= 0.3;
                     return (
@@ -2005,7 +2048,7 @@ export function BankTxReconcileSheet({
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-medium">
-                              {c.documentType} {c.folio ?? ""}
+                              {dteShortLabel(c.dteType, c.folio)}
                             </span>
                             <Badge variant="outline" className="text-xs">
                               {c.direction === "ISSUED"
@@ -2055,13 +2098,26 @@ export function BankTxReconcileSheet({
                               })}
                             </span>
                             <div className="text-right">
-                              <p className="font-mono text-sm font-medium">
-                                {fmtCLP.format(c.amountPending)}
-                              </p>
-                              {c.amountPending !== c.total && (
-                                <p className="text-[11px] text-muted-foreground">
-                                  de {fmtCLP.format(c.total)}
-                                </p>
+                              {c.paymentStatus === "PAID" ? (
+                                <>
+                                  <p className="font-mono text-sm font-medium">
+                                    {fmtCLP.format(c.total)}
+                                  </p>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    ya pagada
+                                  </p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="font-mono text-sm font-medium">
+                                    {fmtCLP.format(c.amountPending)}
+                                  </p>
+                                  {c.amountPending !== c.total && (
+                                    <p className="text-[11px] text-muted-foreground">
+                                      de {fmtCLP.format(c.total)}
+                                    </p>
+                                  )}
+                                </>
                               )}
                             </div>
                           </div>

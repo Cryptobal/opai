@@ -216,6 +216,9 @@ export interface CandidateDte {
   id: string;
   direction: "ISSUED" | "RECEIVED";
   documentType: string;
+  /** Tipo SII (33=Factura, 34=Exenta, 39=Boleta, 56=ND, 61=NC, etc.).
+   *  Usado por la UI para mostrar etiqueta corta sin parsear `documentType`. */
+  dteType: number;
   folio: number;
   issuerName: string;
   receiverName: string;
@@ -546,6 +549,117 @@ export async function findDteCandidates(
     id: d.id,
     direction: d.direction as "ISSUED" | "RECEIVED",
     documentType: d.code,
+    dteType: d.dteType,
+    folio: d.folio,
+    issuerName: d.issuerName ?? "",
+    receiverName: d.receiverName ?? "",
+    receiverRut: d.receiverRut ?? null,
+    issuerRut: d.issuerRut ?? null,
+    total: d.totalAmount.toNumber(),
+    amountPaid: d.amountPaid.toNumber(),
+    amountPending: d.amountPending.toNumber(),
+    issuedAt: d.date.toISOString(),
+    paymentStatus: d.paymentStatus,
+  }));
+}
+
+/**
+ * Versión bulk de `findDteCandidates`. Recibe N bankTxIds (selección
+ * múltiple del usuario) y devuelve DTEs candidatos ordenados por
+ * afinidad al MONTO TOTAL ABSOLUTO de los movimientos.
+ *
+ * - La dirección (ISSUED/RECEIVED) se decide por el signo de la SUMA:
+ *   suma > 0 → ingreso → buscamos ventas (ISSUED).
+ *   suma < 0 → egreso  → buscamos compras (RECEIVED).
+ * - La ventana de fecha se calcula desde min/max de las
+ *   `transactionDate` de los movimientos.
+ * - No detectamos factoring en modo bulk (factoring es per-tx).
+ * - Excluye DTEs ya conciliados con CUALQUIERA de los bankTxIds.
+ */
+export async function findDteCandidatesForBulk(
+  tenantId: string,
+  bankTxIds: string[],
+): Promise<CandidateDte[]> {
+  if (bankTxIds.length === 0) return [];
+  if (bankTxIds.length === 1) {
+    return findDteCandidates(tenantId, bankTxIds[0]);
+  }
+
+  const txs = await prisma.financeBankTransaction.findMany({
+    where: { id: { in: bankTxIds }, tenantId },
+    select: { id: true, amount: true, transactionDate: true },
+  });
+  if (txs.length === 0) return [];
+
+  const totalSigned = txs.reduce((s, t) => s + t.amount.toNumber(), 0);
+  const totalAbs = Math.abs(totalSigned);
+  if (totalAbs === 0) return [];
+
+  const isIncome = totalSigned > 0;
+  const direction = isIncome ? "ISSUED" : "RECEIVED";
+
+  const dates = txs.map((t) => t.transactionDate.getTime());
+  const minDate = new Date(Math.min(...dates));
+  minDate.setDate(minDate.getDate() - 90);
+  const maxDate = new Date(Math.max(...dates));
+  maxDate.setDate(maxDate.getDate() + 30);
+
+  const dtes = await prisma.financeDte.findMany({
+    where: {
+      tenantId,
+      direction,
+      OR: [
+        {
+          paymentStatus: {
+            in: ["UNPAID", "PARTIAL", "OVERDUE"] as Prisma.EnumFinancePaymentStatusFilter["in"],
+          },
+          amountPending: { gt: 0 },
+        },
+        {
+          paymentStatus: "PAID" as const,
+          reconciledAt: null,
+        },
+      ],
+      date: { gte: minDate, lte: maxDate },
+    },
+    orderBy: { date: "desc" },
+    take: 200,
+  });
+
+  let filtered = dtes;
+  if (dtes.length > 0) {
+    const dteIds = dtes.map((d) => d.id);
+    const linked = await prisma.financeBankTransactionLink.findMany({
+      where: {
+        tenantId,
+        targetType: { in: ["DTE_ISSUED", "DTE_RECEIVED"] },
+        targetId: { in: dteIds },
+      },
+      select: { targetId: true },
+    });
+    const linkedSet = new Set(
+      linked.map((l) => l.targetId).filter((x): x is string => !!x),
+    );
+    filtered = dtes.filter((d) => !linkedSet.has(d.id));
+  }
+
+  const sorted = [...filtered].sort((a, b) => {
+    const da = Math.min(
+      Math.abs(a.amountPending.toNumber() - totalAbs),
+      Math.abs(a.totalAmount.toNumber() - totalAbs),
+    );
+    const db = Math.min(
+      Math.abs(b.amountPending.toNumber() - totalAbs),
+      Math.abs(b.totalAmount.toNumber() - totalAbs),
+    );
+    return da - db;
+  });
+
+  return sorted.map((d) => ({
+    id: d.id,
+    direction: d.direction as "ISSUED" | "RECEIVED",
+    documentType: d.code,
+    dteType: d.dteType,
     folio: d.folio,
     issuerName: d.issuerName ?? "",
     receiverName: d.receiverName ?? "",
