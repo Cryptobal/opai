@@ -792,7 +792,7 @@ function DtesSection({
               </div>
             </div>
             <a
-              href={`/finanzas/facturacion/dtes?folio=${d.folio ?? ""}`}
+              href={`/finanzas/facturacion/dtes?openDteId=${d.id}`}
               target="_blank"
               rel="noreferrer"
               className="p-1.5 rounded-ds-sm text-ds-text-3 hover:text-ds-text-1 hover:bg-muted/60 shrink-0"
