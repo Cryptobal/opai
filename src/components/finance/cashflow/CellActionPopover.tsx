@@ -77,10 +77,8 @@ interface Props {
 }
 
 const SHIFT_OPTIONS: { label: string; days: number }[] = [
-  { label: "1 día", days: 1 },
   { label: "1 sem", days: 7 },
   { label: "2 sem", days: 14 },
-  { label: "1 mes", days: 30 },
 ];
 
 export function CellActionPopover({
@@ -372,19 +370,16 @@ export function CellActionPopover({
         // Mobile-first: el popover ocupa casi todo el ancho del viewport con
         // un padding de seguridad. En desktop se limita a 360px. Border y
         // shadow fuertes garantizan contraste sobre el dashboard oscuro.
-        className="w-[calc(100vw-1rem)] max-w-[360px] sm:w-[360px] p-0 bg-popover border-2 border-border shadow-2xl rounded-ds-lg overflow-hidden"
+        className="w-[calc(100vw-1rem)] max-w-[320px] sm:w-[320px] p-0 bg-popover border border-border shadow-xl rounded-ds-lg overflow-hidden"
       >
         {/* Header con monto/fecha actuales y botón cerrar */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/20">
           <div className="min-w-0">
-            <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-3">
-              Cuota
+            <p className="text-[10px] font-mono uppercase tracking-[0.06em] text-ds-text-3">
+              Cuota · {formatDateLabel(target.originalDate)}
             </p>
-            <p className="text-[14px] font-semibold text-ds-text-1 tabular-nums">
+            <p className="text-[13px] font-semibold text-ds-text-1 tabular-nums">
               ${fmt.format(target.amountClp)}
-            </p>
-            <p className="text-[11px] text-ds-text-3 truncate">
-              {formatDateLabel(target.originalDate)}
             </p>
           </div>
           <button
@@ -397,7 +392,7 @@ export function CellActionPopover({
           </button>
         </div>
 
-        <div className="p-3">
+        <div className="p-2.5">
           {/* SUCCESS banner — visible 0.9s antes de cerrar */}
           {success && (
             <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-ds-md bg-status-ok-soft border border-status-ok-fg/20">
@@ -633,29 +628,29 @@ export function CellActionPopover({
               <p className="text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-3 px-1">
                 Mover ocurrencia
               </p>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {SHIFT_OPTIONS.map(({ label, days }) => (
                   <div
                     key={label}
-                    className="grid grid-cols-[1fr_72px_1fr] items-center gap-2"
+                    className="grid grid-cols-[1fr_72px_1fr] items-center gap-1.5"
                   >
                     <Button
                       variant="outline"
                       onClick={() => shiftDays(-days)}
                       disabled={busy !== null}
-                      className="h-11 sm:h-10"
+                      className="h-9 sm:h-8"
                       aria-label={`Mover ${label} hacia atrás`}
                     >
                       <ChevronLeft className="h-5 w-5" />
                     </Button>
-                    <span className="text-[14px] text-ds-text-1 text-center font-semibold tabular-nums">
+                    <span className="text-[12px] text-ds-text-1 text-center font-semibold tabular-nums">
                       {label}
                     </span>
                     <Button
                       variant="outline"
                       onClick={() => shiftDays(days)}
                       disabled={busy !== null}
-                      className="h-11 sm:h-10"
+                      className="h-9 sm:h-8"
                       aria-label={`Mover ${label} hacia adelante`}
                     >
                       <ChevronRight className="h-5 w-5" />
@@ -663,14 +658,14 @@ export function CellActionPopover({
                   </div>
                 ))}
               </div>
-              <div className="pt-2 space-y-2 border-t border-border">
+              <div className="pt-2 space-y-1.5 border-t border-border">
                 <Button
                   variant="outline"
                   onClick={() => setPickingDate(true)}
                   disabled={busy !== null}
-                  className="w-full h-11 sm:h-10 text-[13px] justify-start"
+                  className="w-full h-9 sm:h-8 text-[12px] justify-start"
                 >
-                  <CalendarIcon className="h-4 w-4 mr-2" /> Mover a fecha exacta…
+                  <CalendarIcon className="h-3.5 w-3.5 mr-2" /> Mover a fecha exacta…
                 </Button>
                 <Button
                   variant="outline"
@@ -679,34 +674,34 @@ export function CellActionPopover({
                     setEditing(true);
                   }}
                   disabled={busy !== null}
-                  className="w-full h-11 sm:h-10 text-[13px] justify-start"
+                  className="w-full h-9 sm:h-8 text-[12px] justify-start"
                 >
-                  <Pencil className="h-4 w-4 mr-2" /> Editar monto
+                  <Pencil className="h-3.5 w-3.5 mr-2" /> Editar monto
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => setConfirmingCancel(true)}
                   disabled={busy !== null}
-                  className="w-full h-11 sm:h-10 text-[13px] justify-start text-status-error-fg hover:bg-status-error-soft"
+                  className="w-full h-9 sm:h-8 text-[12px] justify-start text-status-error-fg hover:bg-status-error-soft"
                 >
-                  <Trash2 className="h-4 w-4 mr-2" /> Eliminar este monto…
+                  <Trash2 className="h-3.5 w-3.5 mr-2" /> Eliminar este monto…
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => setConfirmingEnd(true)}
                   disabled={busy !== null}
-                  className="w-full h-11 sm:h-10 text-[13px] justify-start text-status-warn-fg hover:bg-status-warn-soft"
+                  className="w-full h-9 sm:h-8 text-[12px] justify-start text-status-warn-fg hover:bg-status-warn-soft"
                 >
-                  <CircleSlash className="h-4 w-4 mr-2" /> Terminar desde aquí…
+                  <CircleSlash className="h-3.5 w-3.5 mr-2" /> Terminar desde aquí…
                 </Button>
                 {canSendCobranza && (
                   <Button
                     variant="outline"
                     onClick={() => setCobranzaOpen(true)}
                     disabled={busy !== null}
-                    className="w-full h-11 sm:h-10 text-[13px] justify-start text-status-info-fg hover:bg-status-info-soft"
+                    className="w-full h-9 sm:h-8 text-[12px] justify-start text-status-info-fg hover:bg-status-info-soft"
                   >
-                    <Send className="h-4 w-4 mr-2" /> Enviar cobranza…
+                    <Send className="h-3.5 w-3.5 mr-2" /> Enviar cobranza…
                   </Button>
                 )}
               </div>
@@ -773,7 +768,7 @@ function DtesSection({
         {dtes.map((d) => (
           <li
             key={d.id}
-            className="flex items-center gap-2 rounded-ds-sm bg-muted/30 px-2 py-1.5"
+            className="flex items-center gap-2 rounded-ds-sm bg-muted/30 px-2 py-1"
           >
             <Banknote className="h-4 w-4 shrink-0 text-ds-text-3" />
             <div className="min-w-0 flex-1">
@@ -820,7 +815,7 @@ function DtesSection({
         <Button
           onClick={() => onIgualar(grossTotal)}
           disabled={busy}
-          className="w-full h-11 sm:h-10 text-[13px] justify-start"
+          className="w-full h-9 sm:h-8 text-[12px] justify-start"
         >
           {busy ? (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
