@@ -7290,9 +7290,10 @@ model FinanceBankTransaction {
   suggestedRuleId        String? @map("suggested_rule_id") @db.Uuid
   suggestedAccountPlanId String? @map("suggested_account_plan_id") @db.Uuid
 
-  reconcMatch    FinanceReconciliationMatch?
-  links          FinanceBankTransactionLink[]
-  paymentRecords FinancePaymentRecord[]
+  reconcMatch         FinanceReconciliationMatch?
+  links               FinanceBankTransactionLink[]
+  paymentRecords      FinancePaymentRecord[]
+  cashflowOccurrences FinanceCashflowOccurrence[]  @relation("OccurrenceToBankTx")
 
   // Cartola desde la que se importó esta transacción. NULL para movimientos
   // creados manualmente o anteriores a la introducción del historial.
@@ -7999,6 +8000,7 @@ model FinanceCashflowOccurrence {
   amountClp         Decimal                         @map("amount_clp") @db.Decimal(14, 2)
   status            FinanceCashflowOccurrenceStatus @default(PROJECTED)
   bankTransactionId String?                         @map("bank_transaction_id") @db.Uuid
+  bankTransaction   FinanceBankTransaction?         @relation("OccurrenceToBankTx", fields: [bankTransactionId], references: [id], onDelete: SetNull)
   dteId             String?                         @map("dte_id") @db.Uuid
   dte               FinanceDte?                     @relation("OccurrenceToDte", fields: [dteId], references: [id], onDelete: SetNull)
   matchedAt         DateTime?                       @map("matched_at") @db.Timestamptz(6)
