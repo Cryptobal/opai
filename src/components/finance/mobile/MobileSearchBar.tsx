@@ -64,7 +64,8 @@ export function MobileSearchBar({
           }
           placeholder={placeholder}
           aria-label={placeholder}
-          className="h-11 w-full rounded-ds-md border border-border bg-ds-surface-1 pl-9 pr-3 text-[15px] text-ds-text-1 placeholder:text-ds-text-4 focus:outline-none focus:ring-2 focus:ring-primary/40"
+          // text-base (16px) evita el zoom de iOS al enfocar el input.
+          className="h-11 w-full rounded-ds-md border border-border bg-ds-surface-1 pl-9 pr-3 text-base text-ds-text-1 placeholder:text-ds-text-4 focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
         {trailing ? (
           <span className="absolute right-2 top-1/2 -translate-y-1/2">

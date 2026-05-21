@@ -5,6 +5,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { useKeyboardOffset } from "@/hooks/useKeyboardOffset"
 
 const Dialog = DialogPrimitive.Root
 
@@ -29,49 +30,11 @@ const DialogOverlay = React.forwardRef<
 ))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
-/** Hook to adjust dialog max-height when virtual keyboard is open on mobile */
-function useKeyboardAwareMaxHeight() {
-  const [keyboardOffset, setKeyboardOffset] = React.useState(0);
-
-  React.useEffect(() => {
-    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
-    if (!vv) return;
-
-    let scrollTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const handleResize = () => {
-      const offset = window.innerHeight - vv.height;
-      const newOffset = offset > 50 ? offset : 0;
-      setKeyboardOffset(newOffset);
-
-      // Cuando el teclado SE ABRE (offset crece), forzar scroll-into-view
-      // del input enfocado tras el reflow del DialogContent.
-      if (newOffset > 50) {
-        if (scrollTimer) clearTimeout(scrollTimer);
-        scrollTimer = setTimeout(() => {
-          const active = document.activeElement as HTMLElement | null;
-          if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
-            active.scrollIntoView({ behavior: "smooth", block: "center" });
-          }
-        }, 150);
-      }
-    };
-
-    vv.addEventListener('resize', handleResize);
-    return () => {
-      vv.removeEventListener('resize', handleResize);
-      if (scrollTimer) clearTimeout(scrollTimer);
-    };
-  }, []);
-
-  return keyboardOffset;
-}
-
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, onPointerDownOutside, onInteractOutside, ...props }, ref) => {
-  const keyboardOffset = useKeyboardAwareMaxHeight();
+  const keyboardOffset = useKeyboardOffset();
 
   return (
     <DialogPortal>

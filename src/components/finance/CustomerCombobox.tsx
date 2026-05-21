@@ -199,7 +199,7 @@ export function CustomerCombobox({
               value={manualRut}
               onChange={(e) => onManualChange?.("rut", e.target.value)}
               placeholder="12.345.678-9"
-              className="w-full bg-ds-surface-2 border border-ds-border-default hover:border-ds-border-strong focus:border-status-ok-border outline-none rounded-lg h-10 sm:h-9 px-3 text-sm text-ds-text-1"
+              className="w-full bg-ds-surface-2 border border-ds-border-default hover:border-ds-border-strong focus:border-status-ok-border outline-none rounded-lg h-10 sm:h-9 px-3 text-base sm:text-sm text-ds-text-1"
             />
           </div>
           <div>
@@ -209,7 +209,7 @@ export function CustomerCombobox({
             <input
               value={manualName}
               onChange={(e) => onManualChange?.("name", e.target.value)}
-              className="w-full bg-ds-surface-2 border border-ds-border-default hover:border-ds-border-strong focus:border-status-ok-border outline-none rounded-lg h-10 sm:h-9 px-3 text-sm text-ds-text-1"
+              className="w-full bg-ds-surface-2 border border-ds-border-default hover:border-ds-border-strong focus:border-status-ok-border outline-none rounded-lg h-10 sm:h-9 px-3 text-base sm:text-sm text-ds-text-1"
             />
           </div>
           <div>
@@ -218,7 +218,7 @@ export function CustomerCombobox({
               type="email"
               value={manualEmail}
               onChange={(e) => onManualChange?.("email", e.target.value)}
-              className="w-full bg-ds-surface-2 border border-ds-border-default hover:border-ds-border-strong focus:border-status-ok-border outline-none rounded-lg h-10 sm:h-9 px-3 text-sm text-ds-text-1"
+              className="w-full bg-ds-surface-2 border border-ds-border-default hover:border-ds-border-strong focus:border-status-ok-border outline-none rounded-lg h-10 sm:h-9 px-3 text-base sm:text-sm text-ds-text-1"
             />
           </div>
         </div>
@@ -273,7 +273,8 @@ export function CustomerCombobox({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Buscar por nombre o RUT…"
-                className="flex-1 bg-transparent outline-none text-sm text-ds-text-1 placeholder:text-ds-text-4"
+                // text-base sm:text-sm → 16px en mobile para evitar zoom de iOS.
+                className="flex-1 bg-transparent outline-none text-base sm:text-sm text-ds-text-1 placeholder:text-ds-text-4"
               />
               {loading && (
                 <Loader2 className="h-3.5 w-3.5 text-ds-text-3 animate-spin" />

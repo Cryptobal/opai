@@ -6,6 +6,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { useKeyboardOffset } from "@/hooks/useKeyboardOffset"
 
 const Sheet = SheetPrimitive.Root
 
@@ -59,25 +60,44 @@ interface SheetContentProps
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(({ side = "right", className, children, ...props }, ref) => (
-  <SheetPortal>
-    <SheetOverlay />
-    <SheetPrimitive.Content
-      ref={ref}
-      className={cn(sheetVariants({ side }), className)}
-      {...props}
-    >
-      {children}
-      <SheetPrimitive.Close
-        className="absolute right-2 sm:right-4 inline-flex h-10 w-10 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-background/80 backdrop-blur border border-border/40 opacity-90 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary"
-        style={{ top: "max(env(safe-area-inset-top, 0px), 0.75rem)" }}
+>(({ side = "right", className, children, style, ...props }, ref) => {
+  // Sólo para Sheets que pegan al fondo (mobile-first) hay que ajustar el
+  // posicionamiento cuando se abre el teclado virtual. Otros lados (top/
+  // left/right) no se ven afectados visualmente por el teclado.
+  const keyboardOffset = useKeyboardOffset();
+  const isBottomSheet = side === "bottom";
+  const keyboardStyle: React.CSSProperties | undefined =
+    isBottomSheet && keyboardOffset > 0
+      ? {
+          bottom: `${keyboardOffset}px`,
+          maxHeight: `calc(100dvh - ${keyboardOffset}px)`,
+          scrollPaddingBottom: `${keyboardOffset + 20}px`,
+        }
+      : isBottomSheet
+        ? { scrollPaddingBottom: "20px" }
+        : undefined;
+
+  return (
+    <SheetPortal>
+      <SheetOverlay />
+      <SheetPrimitive.Content
+        ref={ref}
+        className={cn(sheetVariants({ side }), className)}
+        style={{ ...keyboardStyle, ...style }}
+        {...props}
       >
-        <X className="h-5 w-5 sm:h-4 sm:w-4" />
-        <span className="sr-only">Cerrar</span>
-      </SheetPrimitive.Close>
-    </SheetPrimitive.Content>
-  </SheetPortal>
-))
+        {children}
+        <SheetPrimitive.Close
+          className="absolute right-2 sm:right-4 inline-flex h-10 w-10 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-background/80 backdrop-blur border border-border/40 opacity-90 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary"
+          style={{ top: "max(env(safe-area-inset-top, 0px), 0.75rem)" }}
+        >
+          <X className="h-5 w-5 sm:h-4 sm:w-4" />
+          <span className="sr-only">Cerrar</span>
+        </SheetPrimitive.Close>
+      </SheetPrimitive.Content>
+    </SheetPortal>
+  );
+})
 SheetContent.displayName = SheetPrimitive.Content.displayName
 
 const SheetHeader = ({

@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useKeyboardOffset } from "@/hooks/useKeyboardOffset";
 
 function normalizeText(s: string): string {
   return s
@@ -79,6 +80,7 @@ export function SearchableSelect({
   const searchRef = useRef<HTMLInputElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const isMobile = useIsMobileViewport();
+  const keyboardOffset = useKeyboardOffset();
 
   const updatePortalRect = useCallback(() => {
     const trigger = triggerRef.current;
@@ -401,7 +403,15 @@ export function SearchableSelect({
                   "animate-in slide-in-from-bottom duration-200",
                   "max-h-[85dvh]",
                 )}
-                style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+                style={
+                  keyboardOffset > 0
+                    ? {
+                        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+                        bottom: `${keyboardOffset}px`,
+                        maxHeight: `calc(85dvh - ${keyboardOffset}px)`,
+                      }
+                    : { paddingBottom: "env(safe-area-inset-bottom, 0px)" }
+                }
               >
                 <div
                   aria-hidden

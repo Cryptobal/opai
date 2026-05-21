@@ -311,7 +311,9 @@ export function CashflowTabs({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar cliente, contrato, instalación, categoría…  /"
-              className="w-full h-9 bg-ds-surface-1 border border-ds-border-default rounded-md pl-8 pr-8 text-[13px] placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary"
+              // text-base (16px) en mobile evita el zoom de iOS al enfocar.
+              // En sm+ volvemos al tamaño compacto (13px).
+              className="w-full h-9 bg-ds-surface-1 border border-ds-border-default rounded-md pl-8 pr-8 text-base sm:text-[13px] placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary"
               aria-label="Buscar en el flujo de caja"
             />
             {searchTerm && (

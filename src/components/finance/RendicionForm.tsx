@@ -1058,7 +1058,7 @@ export function RendicionForm({
               placeholder="Detalle del gasto..."
               rows={3}
               className={cn(
-                "mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none",
+                "mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-base sm:text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none",
                 errors.description && "border-status-danger-border"
               )}
             />

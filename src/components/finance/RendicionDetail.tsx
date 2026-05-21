@@ -871,7 +871,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="Describe por qué se rechaza esta rendición..."
                 rows={3}
-                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-base sm:text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
               />
             </div>
             <div className="flex justify-end gap-2">
@@ -968,7 +968,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
                 rows={3}
                 maxLength={500}
                 placeholder="Explica por qué se está revirtiendo esta rendición..."
-                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-base sm:text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
               />
               <p className="mt-1 text-[10px] text-muted-foreground">
                 {revertReason.trim().length} / 500
