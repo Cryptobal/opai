@@ -1099,6 +1099,22 @@ export function IssuedDteDetailDialog({
                           Consultar estado SII
                         </DropdownMenuItem>
                       )}
+                      {showSiiLink && (
+                        <DropdownMenuItem
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            window.open(
+                              "https://www4.sii.cl/consdcvinternetui/#/index",
+                              "_blank",
+                              "noopener,noreferrer",
+                            );
+                          }}
+                        >
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Ver en portal SII
+                        </DropdownMenuItem>
+                      )}
+                      {canManage && <DropdownMenuSeparator />}
                       {canManage && (
                         <DropdownMenuItem
                           onSelect={(e) => {
@@ -1110,7 +1126,7 @@ export function IssuedDteDetailDialog({
                           Duplicar como borrador
                         </DropdownMenuItem>
                       )}
-                      {(showCreditNote || showDebitNote) && <DropdownMenuSeparator />}
+                      {(showCreditNote || showDebitNote || showCede) && <DropdownMenuSeparator />}
                       {showCreditNote && (
                         <DropdownMenuItem
                           onSelect={(e) => {
@@ -1140,7 +1156,6 @@ export function IssuedDteDetailDialog({
                           Nota de Débito
                         </DropdownMenuItem>
                       )}
-                      {(showCede || showSiiLink) && <DropdownMenuSeparator />}
                       {showCede && (
                         <DropdownMenuItem
                           onSelect={(e) => {
@@ -1155,21 +1170,6 @@ export function IssuedDteDetailDialog({
                         >
                           <Coins className="h-4 w-4 mr-2" />
                           Ceder a factoring
-                        </DropdownMenuItem>
-                      )}
-                      {showSiiLink && (
-                        <DropdownMenuItem
-                          onSelect={(e) => {
-                            e.preventDefault();
-                            window.open(
-                              "https://www4.sii.cl/consdcvinternetui/#/index",
-                              "_blank",
-                              "noopener,noreferrer",
-                            );
-                          }}
-                        >
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Ver en portal SII
                         </DropdownMenuItem>
                       )}
                     </DropdownMenuContent>
