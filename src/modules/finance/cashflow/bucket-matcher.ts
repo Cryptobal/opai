@@ -12,7 +12,7 @@ import "server-only";
  *     31 del mismo mes comparten bucket MONTHLY)
  *   - Determinista: la misma fecha siempre genera el mismo key
  */
-export function bucketKeyFor(
+export function occurrenceBucketKey(
   date: Date,
   recurrence: string,
 ): string {
@@ -44,13 +44,13 @@ export function bucketKeyFor(
  * 0 = mismo bucket. Útil para sort de candidatos cuando hay varias
  * occurrences en buckets vecinos (preferir el más cercano).
  */
-export function bucketDistance(
+export function occurrenceBucketDistance(
   a: Date,
   b: Date,
   recurrence: string,
 ): number {
-  const ka = bucketKeyFor(a, recurrence);
-  const kb = bucketKeyFor(b, recurrence);
+  const ka = occurrenceBucketKey(a, recurrence);
+  const kb = occurrenceBucketKey(b, recurrence);
   if (ka === kb) return 0;
   switch (recurrence) {
     case "MONTHLY": {

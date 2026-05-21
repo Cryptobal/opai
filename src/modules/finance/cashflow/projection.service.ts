@@ -5,6 +5,7 @@ import { listMaterializedOccurrences } from "./occurrence.service";
 import { listCategories } from "./category.service";
 import { getOrCreateCashflowConfig } from "./config.service";
 import { expandRecurrence, bucketKeyFor, bucketBoundsFor } from "./recurrence-engine";
+import { occurrenceBucketKey } from "./bucket-matcher";
 import { resolveUfForOccurrence } from "./uf-resolver";
 import type {
   ProjectionMatrix,
@@ -580,41 +581,18 @@ export async function buildProjection(
     // cuota >tolerance días del dayOfMonth configurado (ej: Berlintex
     // sem 21 → sem 23 con dayOfMonth=4 quedaba doble).
     //
-    // La lógica: si la materialized cae dentro del mismo mes/semana
-    // que una virtual no reclamada, claima el slot. Esto cubre TODO
-    // movimiento dentro del bucket natural, independiente del día
-    // específico al que se movió.
-    const bucketKeyOf = (d: Date): string => {
-      // Para MONTHLY: YYYY-MM. Para WEEKLY/BIWEEKLY: año + número de
-      // semana ISO. Para QUARTERLY: año + Q1-4. YEARLY: año. ONCE: la
-      // fecha completa (no aplica tolerancia).
-      const y = d.getUTCFullYear();
-      switch (item.recurrence as string) {
-        case "MONTHLY":
-          return `${y}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-        case "WEEKLY":
-        case "BIWEEKLY": {
-          // Semana ISO aproximada: día del año / 7
-          const start = new Date(Date.UTC(y, 0, 1));
-          const week = Math.floor(
-            (d.getTime() - start.getTime()) / (7 * 86_400_000),
-          );
-          return `${y}-W${week}`;
-        }
-        case "QUARTERLY":
-          return `${y}-Q${Math.floor(d.getUTCMonth() / 3) + 1}`;
-        case "YEARLY":
-          return `${y}`;
-        case "ONCE":
-        default:
-          return d.toISOString().slice(0, 10);
-      }
-    };
+    // Usa occurrenceBucketKey del helper compartido (bucket-matcher.ts).
+    // Antes había una copia local de la lógica acá; ahora es la misma
+    // función que usa draft-occurrence-matcher para evitar drift entre
+    // matchers.
+    const recurrence = item.recurrence as string;
     for (const m of itemMats) {
       if (claimedMatIds.has(m.id)) continue;
-      const matBucket = bucketKeyOf(m.scheduledDate);
+      const matBucket = occurrenceBucketKey(m.scheduledDate, recurrence);
       const idx = slots.findIndex(
-        (s, i) => !claimedSlotIdx.has(i) && bucketKeyOf(s.d) === matBucket,
+        (s, i) =>
+          !claimedSlotIdx.has(i) &&
+          occurrenceBucketKey(s.d, recurrence) === matBucket,
       );
       if (idx !== -1) {
         slots[idx] = { d: m.scheduledDate, mat: m };

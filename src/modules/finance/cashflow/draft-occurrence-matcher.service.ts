@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { bucketKeyFor } from "./bucket-matcher";
+import { occurrenceBucketKey } from "./bucket-matcher";
 
 export interface MatchDraftToOccurrenceInput {
   tenantId: string;
@@ -105,7 +105,7 @@ export async function matchDraftToOccurrence(
   });
   const candidates = candidatesRaw.filter((c) => {
     const rec = recurrenceByItemId.get(c.itemId ?? "") ?? "MONTHLY";
-    return bucketKeyFor(c.scheduledDate, rec) === bucketKeyFor(input.expectedDate, rec);
+    return occurrenceBucketKey(c.scheduledDate, rec) === occurrenceBucketKey(input.expectedDate, rec);
   });
   if (candidates.length === 0) return null;
 
