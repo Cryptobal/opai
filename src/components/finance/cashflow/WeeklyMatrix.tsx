@@ -591,16 +591,24 @@ export function WeeklyMatrix({
                 su propio bg, así no se ven afectadas. */}
             <colgroup>
               <col />
-              {projection.buckets.map((b) => (
-                <col
-                  key={b.key}
-                  className={
-                    b.key === currentBucketKey.current
-                      ? "bg-status-info-soft/15"
-                      : undefined
-                  }
-                />
-              ))}
+              {projection.buckets.map((b) => {
+                const isCurrent = b.key === currentBucketKey.current;
+                // monthBand: alternancia sutil por mes para distinguir
+                // visualmente el cambio de mes en la matriz.
+                const monthBand = b.start.getMonth() % 2;
+                return (
+                  <col
+                    key={b.key}
+                    className={
+                      isCurrent
+                        ? "bg-status-info-soft/15"
+                        : monthBand === 0
+                          ? undefined
+                          : "bg-ds-surface-2/30"
+                    }
+                  />
+                );
+              })}
               <col />
             </colgroup>
             <thead className="sticky top-0 z-30 bg-background">
@@ -630,7 +638,7 @@ export function WeeklyMatrix({
                           : isPreAnchor
                             ? "bg-background text-ds-text-3 border-border opacity-60"
                             : "bg-background text-ds-text-3 border-border"
-                      } ${showMonth && !isCurrent ? "border-l border-l-border" : ""}`}
+                      } ${showMonth && !isCurrent && idx > 0 ? "border-l-2 border-l-ds-text-4/30" : ""}`}
                     >
                       <div className="flex flex-col items-end leading-tight">
                         <span className="text-[10px] uppercase tracking-wider opacity-70">
