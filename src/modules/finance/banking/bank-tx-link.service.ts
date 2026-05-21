@@ -480,28 +480,24 @@ export async function findDteCandidates(
     where: {
       tenantId,
       direction,
+      // Excluir NCs (61) y NDs (56) — no son documentos cobrables, son
+      // ajustes al DTE original. Cuando aparece un mov bancario, debe
+      // matchearse contra la factura original, no contra la NC/ND.
+      // Las NCs/NDs se vinculan al DTE original vía
+      // recomputeDtePaymentAggregate, no por candidato directo.
+      dteType: { notIn: [56, 61] },
       ...(isFactoring
         ? {}
         : {
-            // Estado de pago y estado de conciliación son independientes:
-            // - Pendientes (UNPAID/PARTIAL/OVERDUE) con saldo > 0, O
-            // - PAID por marca manual (bulk-mark-paid) que aún no se conciliaron
-            //   con un movimiento bancario (reconciledAt = null).
-            // En ambos casos excluimos las que YA tienen link bancario
-            // de tipo DTE_ISSUED/DTE_RECEIVED (defensa contra doble conciliación)
-            // — ese filtro lo aplicamos en memoria después del findMany.
-            OR: [
-              {
-                paymentStatus: {
-                  in: ["UNPAID", "PARTIAL", "OVERDUE"] as Prisma.EnumFinancePaymentStatusFilter["in"],
-                },
-                amountPending: { gt: 0 },
-              },
-              {
-                paymentStatus: "PAID" as const,
-                reconciledAt: null,
-              },
-            ],
+            // Solo facturas realmente pendientes con saldo > 0.
+            // ELIMINAMOS la rama "PAID + reconciledAt=null" porque generaba
+            // ruido: facturas marcadas PAID manualmente (bulk-mark-paid) NO
+            // deberían ofrecerse como candidatas — el usuario ya las cerró
+            // contablemente; si quiere conciliarlas, debe primero desmarcar.
+            paymentStatus: {
+              in: ["UNPAID", "PARTIAL", "OVERDUE"] as Prisma.EnumFinancePaymentStatusFilter["in"],
+            },
+            amountPending: { gt: 0 },
           }),
       date: { gte: minDate, lte: maxDate },
     },
@@ -608,18 +604,12 @@ export async function findDteCandidatesForBulk(
     where: {
       tenantId,
       direction,
-      OR: [
-        {
-          paymentStatus: {
-            in: ["UNPAID", "PARTIAL", "OVERDUE"] as Prisma.EnumFinancePaymentStatusFilter["in"],
-          },
-          amountPending: { gt: 0 },
-        },
-        {
-          paymentStatus: "PAID" as const,
-          reconciledAt: null,
-        },
-      ],
+      // Excluir NCs (61) y NDs (56) — no son documentos cobrables.
+      dteType: { notIn: [56, 61] },
+      paymentStatus: {
+        in: ["UNPAID", "PARTIAL", "OVERDUE"] as Prisma.EnumFinancePaymentStatusFilter["in"],
+      },
+      amountPending: { gt: 0 },
       date: { gte: minDate, lte: maxDate },
     },
     orderBy: { date: "desc" },
