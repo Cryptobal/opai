@@ -59,7 +59,7 @@ const MONTH_LABEL_SHORT = [
  * a qué mes pertenece cada columna sin tener que contar semanas.
  */
 function monthYearShort(d: Date): string {
-  return `${MONTH_LABEL_SHORT[d.getMonth()]} '${String(d.getFullYear()).slice(-2)}`;
+  return `${MONTH_LABEL_SHORT[d.getUTCMonth()]} '${String(d.getUTCFullYear()).slice(-2)}`;
 }
 
 interface Props {
@@ -754,7 +754,7 @@ export function WeeklyMatrix({
                           {b.label}
                         </span>
                         <span className="text-[10px] opacity-60">
-                          Lun {b.start.getDate()}
+                          Lun {b.start.getUTCDate()}
                         </span>
                       </div>
                     </th>

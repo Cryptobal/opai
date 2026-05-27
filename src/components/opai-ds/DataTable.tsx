@@ -62,6 +62,8 @@ export interface DataTableProps<T> {
   /** Contenido cuando rows.length === 0 y !loading. */
   empty?: ReactNode;
   className?: string;
+  stickyHeader?: boolean;
+  stickyHeaderTopClass?: string;
 }
 
 const ROW_VARIANT_BG = {
@@ -81,6 +83,8 @@ export function DataTable<T>({
   loading = false,
   empty,
   className,
+  stickyHeader = false,
+  stickyHeaderTopClass = "top-12",
 }: DataTableProps<T>) {
   if (loading) {
     return (
@@ -100,7 +104,8 @@ export function DataTable<T>({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-ds-lg border border-ds-border-default bg-ds-surface-1",
+        "rounded-ds-lg border border-ds-border-default bg-ds-surface-1",
+        !stickyHeader && "overflow-hidden",
         className,
       )}
     >
@@ -108,7 +113,13 @@ export function DataTable<T>({
         <table
           className={cn("w-full text-sm", layout === "fixed" && "table-fixed")}
         >
-          <thead className="bg-ds-surface-3 border-b border-ds-border-subtle">
+          <thead
+            className={cn(
+              "bg-ds-surface-3 border-b border-ds-border-subtle",
+              stickyHeader && "sticky z-20",
+              stickyHeader && stickyHeaderTopClass,
+            )}
+          >
             <tr>
               {columns.map((c) => (
                 <th

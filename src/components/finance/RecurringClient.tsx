@@ -1210,6 +1210,7 @@ export function RecurringClient({
               rows={filtered}
               layout="fixed"
               rowKey={(t) => t.id}
+              stickyHeader
               onRowClick={
                 canManage ? (t) => setEditingId(t.id) : undefined
               }

@@ -6901,9 +6901,10 @@ model FinanceDteRecurringTemplate {
   runCount  Int       @default(0) @map("run_count")
 
   /// Auto-envío del DTE al receptor cuando el USUARIO emita al SII el borrador
-  /// generado por esta plantilla. NO controla envíos durante la generación del
-  /// borrador por el cron — para eso usar autoSendProforma /
-  /// autoSendPaymentStatement, que se procesan en runTemplate al crear el draft.
+  /// generado por esta plantilla (el cron NUNCA emite al SII, solo crea el
+  /// borrador). NO controla envíos durante la generación del borrador por el
+  /// cron — para eso usar autoSendProforma / autoSendPaymentStatement, que se
+  /// procesan en runTemplate al crear el draft.
   autoSendEmail Boolean @default(true) @map("auto_send_email")
 
   /// Si está activo, al generar el borrador el cron dispara automáticamente

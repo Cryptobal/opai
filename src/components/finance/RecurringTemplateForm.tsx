@@ -1548,9 +1548,10 @@ export function RecurringTemplateForm({
                   />
                   <span>
                     Enviar el DTE al receptor por email{" "}
-                    <strong>cuando emitas el borrador al SII</strong>{" "}
-                    (no se envía al generar el borrador desde el cron; podés
-                    desmarcarlo manualmente en cada emisión).
+                    <strong>al emitirlo al SII</strong>{" "}
+                    (el cron solo genera el borrador; el email al receptor se
+                    manda recién cuando vos emitís manualmente. Podés
+                    desmarcarlo por emisión).
                   </span>
                 </label>
 

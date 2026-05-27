@@ -2923,9 +2923,10 @@ export function AccountContractsSection({
                             Auto-enviar el DTE al receptor por email
                           </span>
                           <p className="text-xs text-muted-foreground">
-                            Cuando emites el borrador al SII, OPAI envía
-                            el PDF/XML al email receptor. Si lo
-                            desactivas, el envío queda manual.
+                            Al emitir el DTE al SII desde el borrador
+                            recurrente, OPAI envía el PDF/XML al email
+                            receptor. Si lo desactivas, el envío queda
+                            manual.
                           </p>
                         </div>
                       </label>

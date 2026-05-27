@@ -505,12 +505,13 @@ export function DraftDetailSheet({
             <ConfirmDialog
               open={confirmingIssue}
               onOpenChange={(o) => !issuing && setConfirmingIssue(o)}
-              title="¿Emitir borrador al SII?"
+              title="¿Emitir al SII?"
               description={
                 <>
-                  Vas a emitir <strong>{draft.receiverName ?? "Sin cliente"}</strong>{" "}
-                  por <strong>{fmtCLP.format(draft.totalAmount)}</strong>. Esta
-                  acción asigna folio y no se puede deshacer (solo con NC).
+                  Vas a emitir al SII el DTE para{" "}
+                  <strong>{draft.receiverName ?? "Sin cliente"}</strong>{" "}
+                  por <strong>{fmtCLP.format(draft.totalAmount)}</strong>.
+                  Esta acción asigna folio y no se puede deshacer (solo con NC).
                 </>
               }
               confirmLabel="Emitir al SII"
