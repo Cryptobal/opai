@@ -11,6 +11,7 @@ import {
 } from "./CashflowMobileBucketHeader";
 import { BankBalanceAdjustDrawer } from "./BankBalanceAdjustDrawer";
 import { CashflowDriftBanner } from "./CashflowDriftBanner";
+import { CashflowMobileBucketMini } from "./CashflowMobileBucketMini";
 import { useHasCapability } from "@/lib/permissions-context";
 import { subMonths } from "date-fns";
 import { hydrateProjection } from "./cashflow-mobile-helpers";
@@ -175,6 +176,60 @@ export function CashflowMobileList({
   const canEditBalance = useHasCapability("banking_manage");
   const isActiveBucketCurrent = activeIdx >= 0 && activeIdx === currentBucketIdx;
 
+  const prevBucket = useMemo(
+    () => (activeIdx > 0 ? projection.buckets[activeIdx - 1] : null),
+    [projection.buckets, activeIdx],
+  );
+  const nextBucket = useMemo(
+    () =>
+      activeIdx >= 0 && activeIdx < projection.buckets.length - 1
+        ? projection.buckets[activeIdx + 1]
+        : null,
+    [projection.buckets, activeIdx],
+  );
+
+  const countMovementsForBucket = useMemo(() => {
+    return (bucketKey: string): number => {
+      let count = 0;
+      for (const row of projection.rows) {
+        for (const item of row.items ?? []) {
+          const v = item.values.find((vv) => vv.bucketKey === bucketKey);
+          if (v && Math.abs(v.amount) > 0) count++;
+        }
+      }
+      return count;
+    };
+  }, [projection.rows]);
+
+  const countOverdueForBucket = useMemo(() => {
+    return (bucketKey: string): number => {
+      let count = 0;
+      for (const row of projection.rows) {
+        for (const item of row.items ?? []) {
+          const v = item.values.find((vv) => vv.bucketKey === bucketKey);
+          if (!v?.dtes) continue;
+          for (const d of v.dtes) {
+            if ((d.daysOverdue ?? 0) > 0 && d.cellStatus !== "PAID") count++;
+          }
+        }
+      }
+      return count;
+    };
+  }, [projection.rows]);
+
+  const prevOverdueCount = useMemo(
+    () => (prevBucket ? countOverdueForBucket(prevBucket.key) : 0),
+    [prevBucket, countOverdueForBucket],
+  );
+  const prevMovementCount = useMemo(
+    () => (prevBucket ? countMovementsForBucket(prevBucket.key) : 0),
+    [prevBucket, countMovementsForBucket],
+  );
+  const nextMovementCount = useMemo(
+    () => (nextBucket ? countMovementsForBucket(nextBucket.key) : 0),
+    [nextBucket, countMovementsForBucket],
+  );
+
   // Acordeón mutuamente exclusivo: solo una sección abierta a la vez.
   const [openSection, setOpenSection] = useState<"income" | "expense" | null>(
     "income",
@@ -241,18 +296,30 @@ export function CashflowMobileList({
           </button>
         </div>
 
-        {activeBucket && (
-          <CashflowMobileBucketHeader
-            bucket={activeBucket}
-            granularity={granularity}
-            hasPrev={activeIdx > 0}
-            hasNext={activeIdx >= 0 && activeIdx < projection.buckets.length - 1}
-            isCurrent={isActiveBucketCurrent}
-            onPrev={gotoPrev}
-            onNext={gotoNext}
-            onTouchStart={onTouchStart}
-            onTouchEnd={onTouchEnd}
+        {prevBucket && granularity === "weekly" && (
+          <CashflowMobileBucketMini
+            bucket={prevBucket}
+            direction="prev"
+            overdueCount={prevOverdueCount}
+            movementCount={prevMovementCount}
+            onTap={() => setActiveBucketKey(prevBucket.key)}
           />
+        )}
+
+        {activeBucket && (
+          <div className={granularity === "weekly" ? "ring-2 ring-status-info-fg/30 rounded-ds-lg" : ""}>
+            <CashflowMobileBucketHeader
+              bucket={activeBucket}
+              granularity={granularity}
+              hasPrev={activeIdx > 0}
+              hasNext={activeIdx >= 0 && activeIdx < projection.buckets.length - 1}
+              isCurrent={isActiveBucketCurrent}
+              onPrev={gotoPrev}
+              onNext={gotoNext}
+              onTouchStart={onTouchStart}
+              onTouchEnd={onTouchEnd}
+            />
+          </div>
         )}
       </div>
 
@@ -307,6 +374,16 @@ export function CashflowMobileList({
                 : undefined
             }
           />
+
+          {nextBucket && granularity === "weekly" && (
+            <CashflowMobileBucketMini
+              bucket={nextBucket}
+              direction="next"
+              overdueCount={0}
+              movementCount={nextMovementCount}
+              onTap={() => setActiveBucketKey(nextBucket.key)}
+            />
+          )}
         </>
       )}
 
