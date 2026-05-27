@@ -401,6 +401,22 @@ export async function issueDraftDte(
     }
   }
 
+  // Resolve autoSendEmail from the originating recurring template when
+  // the caller didn't pass an explicit override. Without this, the
+  // template's flag was dead code: FinanceDte has no autoSendEmail
+  // column, so the value was lost after draft creation.
+  let resolvedAutoSendEmail = overrides?.autoSendEmail;
+  if (resolvedAutoSendEmail === undefined) {
+    const lastRun = await prisma.financeDteRecurringRun.findFirst({
+      where: { tenantId, dteId: draftId, status: "success" },
+      orderBy: { ranAt: "desc" },
+      select: { template: { select: { autoSendEmail: true } } },
+    });
+    if (lastRun?.template) {
+      resolvedAutoSendEmail = lastRun.template.autoSendEmail;
+    }
+  }
+
   const input: IssueDteInput = {
     issueDate: formatDateOnlyUtcYmd(draft.date),
     dteType: draft.dteType,
@@ -417,7 +433,7 @@ export async function issueDraftDte(
     currency: draft.currency,
     notes: draft.notes ?? undefined,
     accountId: draft.accountId ?? undefined,
-    autoSendEmail: overrides?.autoSendEmail,
+    autoSendEmail: resolvedAutoSendEmail,
     sendXmlToBackoffice: overrides?.sendXmlToBackoffice,
     backofficeEmailsOverride: overrides?.backofficeEmailsOverride,
     lines: draft.lines.map((l) => ({

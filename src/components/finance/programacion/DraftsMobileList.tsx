@@ -6,7 +6,7 @@ import { es } from "date-fns/locale";
 import { toast } from "sonner";
 import { FileText, Loader2, Send, RefreshCw, MapPin, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Surface, EmptyState } from "@/components/opai-ds";
+import { Surface, EmptyState, DataTable, type DataTableColumn } from "@/components/opai-ds";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { fmtCLP } from "@/components/finance/dtes/shared/constants";
 import { DocumentTag } from "@/components/finance/dtes/DocumentTag";
@@ -80,24 +80,173 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
     };
   }, [drafts]);
 
+  const draftColumns: DataTableColumn<DraftListItem>[] = [
+    {
+      id: "date",
+      header: "Fecha",
+      width: "w-[100px]",
+      cell: (d) => (
+        <span className="font-mono text-xs tabular-nums">
+          {format(new Date(d.date), "dd MMM yyyy", { locale: es })}
+        </span>
+      ),
+    },
+    {
+      id: "type",
+      header: "Tipo",
+      width: "w-[88px]",
+      cell: (d) => <DocumentTag dteType={d.dteType} />,
+    },
+    {
+      id: "receptor",
+      header: "Receptor",
+      cell: (d) => (
+        <div className="min-w-0">
+          <div className="text-sm font-medium text-ds-text-1 truncate">
+            {d.receiverName ?? "Sin cliente"}
+          </div>
+          {d.receiverRut && (
+            <div className="text-xs text-ds-text-4 font-mono tabular-nums truncate">
+              {d.receiverRut}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "installation",
+      header: "Instalación",
+      width: "w-[180px]",
+      cell: (d) =>
+        d.installationName || d.crmAccountName ? (
+          <div className="flex items-center gap-1 min-w-0 text-xs text-ds-text-3">
+            <MapPin className="h-3 w-3 shrink-0 text-ds-text-4" />
+            <span className="truncate">
+              {d.installationName ?? d.crmAccountName}
+              {d.installationCommune && (
+                <span className="text-ds-text-4">{" · "}{d.installationCommune}</span>
+              )}
+            </span>
+          </div>
+        ) : null,
+    },
+    {
+      id: "template",
+      header: "Plantilla",
+      width: "w-[140px]",
+      cell: (d) =>
+        d.templateName ? (
+          <div className="flex items-center gap-1 min-w-0 text-xs text-tint-violet-fg">
+            <Repeat className="h-3 w-3 shrink-0" />
+            <span className="truncate font-medium">{d.templateName}</span>
+          </div>
+        ) : (
+          <span className="text-ds-text-4">—</span>
+        ),
+    },
+    {
+      id: "amount",
+      header: "Monto",
+      width: "w-[160px]",
+      align: "right",
+      cell: (d) => (
+        <div className="min-w-0">
+          <div className="text-sm font-mono tabular-nums">{fmtCLP.format(d.netAmount)}</div>
+          <div className="text-[11px] font-mono tabular-nums text-ds-text-3">
+            {fmtCLP.format(d.totalAmount)} c/IVA
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "docs",
+      header: "Docs",
+      width: "w-[80px]",
+      align: "center",
+      cell: (d) => (
+        <div className="flex items-center justify-center gap-1">
+          <DocStatusIcon
+            variant="PROFORMA"
+            required={d.requireProforma}
+            status={d.proformaStatus}
+            sentAt={d.proformaSentAt}
+            sentCount={d.proformaSentCount}
+            lastRecipient={d.proformaLastRecipient}
+          />
+          <DocStatusIcon
+            variant="ESTADO_DE_PAGO"
+            required={d.requireEstadoPago}
+            status={d.estadoPagoStatus}
+            sentAt={d.estadoPagoSentAt}
+            sentCount={d.estadoPagoSentCount}
+            lastRecipient={d.estadoPagoLastRecipient}
+          />
+          <OcReferenceChip references={d.additionalReferences} />
+        </div>
+      ),
+    },
+    ...(canIssue
+      ? [
+          {
+            id: "actions",
+            header: "",
+            width: "w-[120px]",
+            align: "right" as const,
+            sticky: "right" as const,
+            cell: (d: DraftListItem) => (
+              <Button
+                variant="default"
+                size="sm"
+                className="h-8 px-2.5 text-xs"
+                disabled={issuing === d.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setConfirmingDraft(d);
+                }}
+              >
+                {issuing === d.id ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <>
+                    <Send className="h-3 w-3 mr-1" />
+                    Emitir
+                  </>
+                )}
+              </Button>
+            ),
+          },
+        ]
+      : []),
+  ];
+
   if (drafts === null) {
     return (
-      <ul className="space-y-2" aria-busy="true">
-        {[0, 1, 2].map((i) => (
-          <li key={i}>
-            <Surface elevation={1} padding="sm" className="animate-pulse">
-              <div className="flex gap-2 mb-2">
-                <div className="h-3 w-16 rounded bg-ds-surface-3" />
-                <div className="h-3 w-12 rounded bg-ds-surface-3" />
-                <div className="h-3 w-12 rounded bg-ds-surface-3" />
-              </div>
-              <div className="h-4 w-48 rounded bg-ds-surface-3 mb-1.5" />
-              <div className="h-3 w-24 rounded bg-ds-surface-3 mb-3" />
-              <div className="h-5 w-32 rounded bg-ds-surface-3" />
-            </Surface>
-          </li>
-        ))}
-      </ul>
+      <>
+        <ul className="lg:hidden space-y-2" aria-busy="true">
+          {[0, 1, 2].map((i) => (
+            <li key={i}>
+              <Surface elevation={1} padding="sm" className="animate-pulse">
+                <div className="flex gap-2 mb-2">
+                  <div className="h-3 w-16 rounded bg-ds-surface-3" />
+                  <div className="h-3 w-12 rounded bg-ds-surface-3" />
+                  <div className="h-3 w-12 rounded bg-ds-surface-3" />
+                </div>
+                <div className="h-4 w-48 rounded bg-ds-surface-3 mb-1.5" />
+                <div className="h-3 w-24 rounded bg-ds-surface-3 mb-3" />
+                <div className="h-5 w-32 rounded bg-ds-surface-3" />
+              </Surface>
+            </li>
+          ))}
+        </ul>
+        <div className="hidden lg:block">
+          <DataTable<DraftListItem>
+            columns={draftColumns}
+            rows={[]}
+            rowKey={(d) => d.id}
+            loading
+          />
+        </div>
+      </>
     );
   }
   if (drafts.length === 0) {
@@ -135,7 +284,8 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
         </Button>
       </div>
 
-      <ul className="space-y-2 ds-list-cascade">
+      {/* Mobile: cards apiladas */}
+      <ul className="lg:hidden space-y-2 ds-list-cascade">
         {drafts.map((d) => {
           const ageLabel = formatDistanceToNowStrict(new Date(d.createdAt), {
             locale: es,
@@ -275,6 +425,26 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
         })}
       </ul>
 
+      {/* Desktop: tabla compacta */}
+      <div className="hidden lg:block">
+        <DataTable<DraftListItem>
+          columns={draftColumns}
+          rows={drafts}
+          layout="fixed"
+          rowKey={(d) => d.id}
+          stickyHeader
+          onRowClick={(d) => setOpenDetailId(d.id)}
+          empty={
+            <EmptyState
+              icon={FileText}
+              tone="neutral"
+              compact
+              title="Sin borradores pendientes"
+            />
+          }
+        />
+      </div>
+
       {openDetailId && (
         <DraftDetailSheet
           draftId={openDetailId}
@@ -291,11 +461,11 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
         onOpenChange={(open) => {
           if (!open && !issuing) setConfirmingDraft(null);
         }}
-        title="¿Emitir borrador al SII?"
+        title="¿Emitir al SII?"
         description={
           confirmingDraft ? (
             <>
-              Vas a emitir el borrador para{" "}
+              Vas a emitir al SII el DTE para{" "}
               <strong>{confirmingDraft.receiverName ?? "Sin cliente"}</strong>{" "}
               por{" "}
               <strong>{fmtCLP.format(confirmingDraft.totalAmount)}</strong>.

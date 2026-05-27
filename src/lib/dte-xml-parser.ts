@@ -28,6 +28,22 @@
 
 import { XMLParser } from "fast-xml-parser";
 
+/**
+ * Decodifica un Buffer XML respetando el encoding declarado en la
+ * declaración XML. SII usa ISO-8859-1; si lo leemos como UTF-8 los
+ * bytes >0x7F (Ñ, acentos) caen en secuencias inválidas y Node los
+ * reemplaza por U+FFFD, que luego revienta pdf-lib WinAnsi.
+ */
+function decodeXmlBuffer(xmlBuffer: Buffer): string {
+  const header = xmlBuffer.subarray(0, 200).toString("ascii");
+  const match = header.match(/<\?xml[^>]*encoding=["']([^"']+)["']/i);
+  const declared = match?.[1]?.toLowerCase() ?? "";
+  if (declared === "utf-8" || declared === "utf8") {
+    return xmlBuffer.toString("utf-8");
+  }
+  return xmlBuffer.toString("latin1");
+}
+
 export interface DteParsed {
   documentId: string;
 
@@ -133,7 +149,7 @@ function findDteNodes(parsed: any): any[] {
  * el XML no tiene la estructura esperada del SII.
  */
 export function parseDteXml(xmlBuffer: Buffer): DteParsed {
-  const xml = xmlBuffer.toString("utf-8");
+  const xml = decodeXmlBuffer(xmlBuffer);
 
   const parser = new XMLParser({
     ignoreAttributes: false,
@@ -317,7 +333,7 @@ export interface DteLineFromXml {
 }
 
 export function extractDteLines(xmlBuffer: Buffer): DteLineFromXml[] {
-  const xml = xmlBuffer.toString("utf-8");
+  const xml = decodeXmlBuffer(xmlBuffer);
   const parser = new XMLParser({
     ignoreAttributes: false,
     parseAttributeValue: false,
@@ -369,7 +385,7 @@ export function extractDteLines(xmlBuffer: Buffer): DteLineFromXml[] {
 }
 
 export function extractDteIdentity(xmlBuffer: Buffer): DteIdentity {
-  const xml = xmlBuffer.toString("utf-8");
+  const xml = decodeXmlBuffer(xmlBuffer);
   const parser = new XMLParser({
     ignoreAttributes: false,
     parseAttributeValue: false,
