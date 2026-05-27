@@ -377,28 +377,28 @@ const INTENTS: IntentDefinition[] = [
     ],
     purpose: "Gestionar registro, aprobacion y seguimiento de turnos extra.",
     mainLinks: [
-      { label: "Registro TE", path: "/te/registro" },
-      { label: "Aprobaciones TE", path: "/te/aprobaciones" },
-      { label: "Lotes TE", path: "/te/lotes" },
-      { label: "Pagos TE", path: "/te/pagos" },
+      { label: "Registro TE", path: "/ops/turnos-extra/registro" },
+      { label: "Aprobaciones TE", path: "/ops/turnos-extra/aprobaciones" },
+      { label: "Lotes TE", path: "/ops/turnos-extra/lotes" },
+      { label: "Pagos TE", path: "/ops/turnos-extra/pagos" },
     ],
     steps: [
       {
         action: "Registra el turno extra con instalacion y guardia.",
         outcome: "El evento queda pendiente de control.",
-        links: [{ label: "Registro TE", path: "/te/registro" }],
+        links: [{ label: "Registro TE", path: "/ops/turnos-extra/registro" }],
       },
       {
         action: "Gestiona aprobacion del TE.",
         outcome: "Se valida administrativamente el turno.",
-        links: [{ label: "Aprobaciones TE", path: "/te/aprobaciones" }],
+        links: [{ label: "Aprobaciones TE", path: "/ops/turnos-extra/aprobaciones" }],
       },
       {
         action: "Consolida lotes y pagos.",
         outcome: "El proceso queda listo para cierre administrativo.",
         links: [
-          { label: "Lotes TE", path: "/te/lotes" },
-          { label: "Pagos TE", path: "/te/pagos" },
+          { label: "Lotes TE", path: "/ops/turnos-extra/lotes" },
+          { label: "Pagos TE", path: "/ops/turnos-extra/pagos" },
         ],
       },
     ],
@@ -990,7 +990,7 @@ function buildTurnosAmbiguousAnswer(appBaseUrl: string): string {
     "   - Sirve para registrar presentes, ausentes y reemplazos.",
     "",
     "Si te refieres a horas adicionales o reemplazos pagables, usa **Turnos Extra**:",
-    `- Ingresa aca: ${go("/te/registro", appBaseUrl)}`,
+    `- Ingresa aca: ${go("/ops/turnos-extra/registro", appBaseUrl)}`,
   ].join("\n");
 }
 

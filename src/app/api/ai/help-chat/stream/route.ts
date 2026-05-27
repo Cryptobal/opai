@@ -118,7 +118,7 @@ function describeModule(pathname: string): string {
   if (p.startsWith("/portales")) return "Portales externos";
   if (p.startsWith("/reportes")) return "Reportes y analítica";
   if (p.startsWith("/fiscalizacion")) return "Fiscalización";
-  if (p.startsWith("/te")) return "Turnos extra";
+  if (p.startsWith("/ops/turnos-extra")) return "Turnos extra";
   return `ruta ${pathname}`;
 }
 
