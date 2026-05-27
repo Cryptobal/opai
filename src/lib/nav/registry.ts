@@ -414,11 +414,25 @@ export const NAV_MODULES: NavNode[] = [
         children: [
           { key: "pautas-mensual", href: "/ops/pauta-mensual", label: "Mensual", icon: CalendarDays, module: "ops", submodule: "pauta_mensual" },
           { key: "pautas-diaria", href: "/ops/pauta-diaria", label: "Diaria", icon: UserRoundCheck, module: "ops", submodule: "pauta_diaria" },
-          { key: "pautas-te", href: "/ops/turnos-extra", label: "Turnos Extra", icon: Clock3, module: "ops", submodule: "turnos_extra" },
           { key: "pautas-ppc", href: "/ops/ppc", label: "PPC", icon: ShieldAlert, module: "ops", submodule: "ppc" },
           { key: "pautas-refuerzos", href: "/ops/refuerzos", label: "Refuerzos", icon: Shield, module: "ops", submodule: "turnos_extra" },
           { key: "pautas-marcaciones", href: "/ops/marcaciones", label: "Marcaciones", icon: Fingerprint, module: "ops", submodule: "marcaciones" },
           { key: "pautas-auditoria", href: "/ops/audit-pautas", label: "Auditoría", icon: ClipboardList, module: "ops", submodule: "pauta_mensual" },
+        ],
+      },
+      // Turnos Extra (sub-módulo con N3: Registro, Aprobaciones, Lotes, Pagos)
+      {
+        key: "ops-turnos-extra",
+        href: "/ops/turnos-extra/registro",
+        label: "Turnos Extra",
+        icon: Clock3,
+        module: "ops",
+        submodule: "turnos_extra",
+        children: [
+          { key: "te-registro", href: "/ops/turnos-extra/registro", label: "Registro", icon: ClipboardList, module: "ops", submodule: "turnos_extra" },
+          { key: "te-aprobaciones", href: "/ops/turnos-extra/aprobaciones", label: "Aprobaciones", icon: CheckCircle2, module: "ops", submodule: "turnos_extra" },
+          { key: "te-lotes", href: "/ops/turnos-extra/lotes", label: "Lotes", icon: Layers, module: "ops", submodule: "turnos_extra" },
+          { key: "te-pagos", href: "/ops/turnos-extra/pagos", label: "Pagos", icon: Banknote, module: "ops", submodule: "turnos_extra" },
         ],
       },
       // Instalaciones — vive bajo /crm/installations pero se navega desde Ops también
@@ -576,22 +590,6 @@ export const NAV_MODULES: NavNode[] = [
       { key: "docs-gestion", href: "/opai/documentos", label: "Gestión", icon: FolderOpen, module: "docs", submodule: "gestion", badge: { notesKey: "document" }, exactMatch: true },
       { key: "docs-operativos", href: "/opai/documentos-operativos", label: "Operativos", icon: ClipboardCheck, module: "docs", submodule: "operativos" },
       { key: "docs-templates", href: "/opai/documentos/templates", label: "Templates", icon: LayoutTemplate, module: "docs", submodule: "plantillas" },
-    ],
-  },
-
-  // ═════════════════════════════════════════════════════════
-  // TURNOS EXTRA (TE) — módulo aparte
-  // ═════════════════════════════════════════════════════════
-  {
-    key: "te",
-    href: "/te/registro",
-    label: "Turnos Extra",
-    icon: Clock3,
-    children: [
-      { key: "te-registro", href: "/te/registro", label: "Registro", icon: ClipboardList },
-      { key: "te-aprobaciones", href: "/te/aprobaciones", label: "Aprobaciones", icon: CheckCircle2 },
-      { key: "te-lotes", href: "/te/lotes", label: "Lotes", icon: Layers },
-      { key: "te-pagos", href: "/te/pagos", label: "Pagos", icon: Banknote },
     ],
   },
 
@@ -768,7 +766,6 @@ export function findN3Parent(pathname: string): NavNode | undefined {
 const PAUTAS_ROUTES = [
   "/ops/pauta-mensual",
   "/ops/pauta-diaria",
-  "/ops/turnos-extra",
   "/ops/refuerzos",
   "/ops/ppc",
   "/ops/marcaciones",
@@ -787,6 +784,13 @@ export function getContextualBottomNavNodes(pathname: string): NavNode[] {
     const opsModule = getModule("ops");
     const pautas = opsModule?.children?.find((c) => c.key === "ops-pautas");
     if (pautas?.children) return pautas.children;
+  }
+
+  // Turnos Extra
+  if (pathname === "/ops/turnos-extra" || pathname.startsWith("/ops/turnos-extra/")) {
+    const opsModule = getModule("ops");
+    const te = opsModule?.children?.find((c) => c.key === "ops-turnos-extra");
+    if (te?.children) return te.children;
   }
 
   // Rondas
