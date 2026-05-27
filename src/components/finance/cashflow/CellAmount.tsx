@@ -18,6 +18,7 @@ const DOT_TONE: Record<Exclude<CashflowCellStatus, "PROJECTED">, string> = {
   INVOICED: "bg-status-info-fg",
   CEDED: "bg-purple-500 dark:bg-purple-400",
   PAID: "bg-status-ok-fg",
+  VOIDED: "bg-pink-500 dark:bg-pink-400",
 };
 
 const STATUS_TITLE: Record<Exclude<CashflowCellStatus, "PROJECTED">, string> = {
@@ -25,6 +26,7 @@ const STATUS_TITLE: Record<Exclude<CashflowCellStatus, "PROJECTED">, string> = {
   INVOICED: "Facturada",
   CEDED: "Cedida",
   PAID: "Pagada",
+  VOIDED: "Anulada",
 };
 
 /**

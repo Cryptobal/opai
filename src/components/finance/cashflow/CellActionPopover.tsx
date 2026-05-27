@@ -21,11 +21,11 @@ import {
   Trash2,
   Send,
   ExternalLink,
-  Banknote,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { CashflowCellStatus, CellDteSummary } from "@/modules/finance/cashflow/types";
+import { CellStatusPill, pillVariantFor } from "./CellStatusPill";
 import { CobranzaSendDialog } from "./CobranzaSendDialog";
 
 const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
@@ -343,6 +343,50 @@ export function CellActionPopover({
     }
   }
 
+  async function moveDteCashflow(dteId: string, days: number) {
+    setBusy("shift");
+    setError(null);
+    try {
+      const r = await fetch(`/api/finance/cashflow/dtes/${dteId}/move-cashflow`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ daysFromCurrent: days }),
+      });
+      const j = await r.json();
+      if (j?.success) {
+        flashSuccessAndClose(`Factura movida ${days > 0 ? "+" : ""}${days / 7} sem`);
+      } else {
+        setError(j?.error ?? "No se pudo mover");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error de red");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function restoreDteCashflow(dteId: string) {
+    setBusy("shift");
+    setError(null);
+    try {
+      const r = await fetch(`/api/finance/cashflow/dtes/${dteId}/move-cashflow`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ restore: true }),
+      });
+      const j = await r.json();
+      if (j?.success) {
+        flashSuccessAndClose("Fecha restaurada al original");
+      } else {
+        setError(j?.error ?? "No se pudo restaurar");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error de red");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   void granularity;
 
   return (
@@ -495,7 +539,7 @@ export function CellActionPopover({
                 <Trash2 className="h-5 w-5 text-status-error-fg shrink-0 mt-0.5" />
                 <div>
                   <p className="text-[13px] font-semibold text-ds-text-1">
-                    Eliminar solo este monto
+                    Ocultar del flujo
                   </p>
                   <p className="text-[12px] text-ds-text-3 mt-0.5">
                     La cuota de {formatDateLabel(target.originalDate)} dejará
@@ -621,12 +665,17 @@ export function CellActionPopover({
                 <DtesSection
                   dtes={target.dtes}
                   cellAmountClp={target.amountClp}
-                  busy={busy === "amount"}
+                  busy={busy === "amount" || busy === "shift"}
                   onIgualar={(total) => persistAmount(total)}
+                  onMoveDte={moveDteCashflow}
+                  onRestoreDte={restoreDteCashflow}
                 />
               )}
               <p className="text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-3 px-1">
                 Mover ocurrencia
+              </p>
+              <p className="text-[11px] text-ds-text-3 px-1 -mt-1">
+                Mueve toda la celda en el flujo de caja. No afecta el DTE original.
               </p>
               <div className="space-y-1.5">
                 {SHIFT_OPTIONS.map(({ label, days }) => (
@@ -684,7 +733,7 @@ export function CellActionPopover({
                   disabled={busy !== null}
                   className="w-full h-9 sm:h-8 text-[12px] justify-start text-status-error-fg hover:bg-status-error-soft"
                 >
-                  <Trash2 className="h-3.5 w-3.5 mr-2" /> Eliminar este monto…
+                  <Trash2 className="h-3.5 w-3.5 mr-2" /> Ocultar este monto del flujo…
                 </Button>
                 <Button
                   variant="outline"
@@ -735,80 +784,138 @@ function formatShortDate(iso: string): string {
   return format(new Date(y, m - 1, d), "d MMM yy", { locale: es });
 }
 
-/**
- * Sección de facturas conciliadas con la celda. Muestra cada DTE con folio,
- * fecha de emisión, monto y link al detalle. El botón "Igualar" suma los
- * totales cuando hay >1 factura, y solo aparece si el bruto total difiere
- * del proyectado actual de la celda.
- */
 function DtesSection({
   dtes,
   cellAmountClp,
   busy,
   onIgualar,
+  onMoveDte,
+  onRestoreDte,
 }: {
   dtes: CellDteSummary[];
   cellAmountClp: number;
   busy: boolean;
   onIgualar: (total: number) => void;
+  onMoveDte?: (dteId: string, days: number) => void;
+  onRestoreDte?: (dteId: string) => void;
 }) {
-  const grossTotal = dtes.reduce((s, d) => s + d.totalAmount, 0);
-  const hasFactoring = dtes.some((d) => d.hasFactoring);
-  // Solo mostramos el botón si el total real ≠ proyectado (sino no hay
-  // nada que igualar). Tolerancia 1 CLP para evitar disparos por redondeo.
-  const showIgualar = Math.abs(grossTotal - cellAmountClp) > 1;
+  const liveDtes = dtes.filter((d) => !d.voidedByCreditNoteId);
+  const grossTotal = liveDtes.reduce((s, d) => s + d.totalAmount, 0);
+  const hasFactoring = liveDtes.some((d) => d.hasFactoring);
+  const showIgualar = liveDtes.length > 0 && Math.abs(grossTotal - cellAmountClp) > 1;
   const isMulti = dtes.length > 1;
+  const voidedCount = dtes.length - liveDtes.length;
 
   return (
     <div className="space-y-2">
       <p className="text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-3 px-1">
-        {isMulti ? `Facturas conciliadas (${dtes.length})` : "Factura conciliada"}
+        {isMulti ? `Facturas (${dtes.length})` : "Factura"}
+        {voidedCount > 0 && (
+          <span className="ml-1 text-pink-300">· {voidedCount} anulada{voidedCount === 1 ? "" : "s"}</span>
+        )}
       </p>
       <ul className="space-y-1.5">
-        {dtes.map((d) => (
-          <li
-            key={d.id}
-            className="flex items-center gap-2 rounded-ds-sm bg-muted/30 px-2 py-1"
-          >
-            <Banknote className="h-4 w-4 shrink-0 text-ds-text-3" />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-baseline gap-2">
-                <span className="text-[13px] font-semibold text-ds-text-1 truncate">
-                  {d.folio ? `#${d.folio}` : "(sin folio)"}
+        {dtes.map((d) => {
+          const variant = pillVariantFor({
+            cellStatus: d.cellStatus,
+            hasFactoring: d.hasFactoring,
+            daysOverdue: d.daysOverdue,
+            voided: !!d.voidedByCreditNoteId,
+          });
+          const reconciledLabel = d.reconciledAt
+            ? formatShortDate(d.reconciledAt.slice(0, 10))
+            : null;
+          return (
+            <li
+              key={d.id}
+              className={`rounded-ds-sm bg-muted/30 px-2 py-1.5 ${
+                d.voidedByCreditNoteId ? "opacity-60" : ""
+              }`}
+            >
+              <div className="flex items-baseline gap-2 mb-0.5">
+                <span className="text-[13px] font-semibold text-ds-text-1">
+                  {d.folio ? `#${d.folio}` : "(borrador sin folio)"}
                 </span>
-                <span className="text-[12px] text-ds-text-3">
-                  {formatShortDate(d.issueDate)}
-                </span>
+                <CellStatusPill variant={variant} compact />
+                {d.creditedNetAmount > 0 && !d.voidedByCreditNoteId && (
+                  <span className="text-[10px] font-mono px-1 py-0.5 rounded-ds-sm bg-pink-500/10 text-pink-300">
+                    NC PARCIAL
+                  </span>
+                )}
+                <a
+                  href={`/finanzas/facturacion/dtes?openDteId=${d.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ml-auto p-1 -my-1 rounded-ds-sm text-ds-text-3 hover:text-ds-text-1 hover:bg-muted/60"
+                  aria-label="Abrir factura"
+                  title="Abrir factura"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
               </div>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="text-[12px] font-mono tabular-nums text-ds-text-2">
-                  ${fmt.format(d.totalAmount)}
-                </span>
-                {d.hasFactoring && (
-                  <span className="text-[11px] font-mono uppercase tracking-[0.06em] px-1 py-0.5 rounded-ds-sm bg-purple-500/15 text-purple-300">
-                    Factoring
+              <div className="text-[11px] text-ds-text-3 leading-relaxed">
+                Emitida {formatShortDate(d.issueDate)}
+                {d.dueDate && <> · Vence {formatShortDate(d.dueDate)}</>}
+                {reconciledLabel && (
+                  <>
+                    {" · "}
+                    <span className="text-ds-text-1 font-medium">
+                      Conciliada {reconciledLabel}
+                    </span>
+                  </>
+                )}
+              </div>
+              <div className="text-[11px] font-mono tabular-nums text-ds-text-2 mt-0.5">
+                ${fmt.format(d.totalAmount)}
+                {d.amountPaid > 0 && d.paymentStatus !== "PAID" && (
+                  <span className="text-ds-text-3">
+                    {" "}· cobrado ${fmt.format(d.amountPaid)} · pend ${fmt.format(d.amountPending)}
                   </span>
                 )}
               </div>
-            </div>
-            <a
-              href={`/finanzas/facturacion/dtes?openDteId=${d.id}`}
-              target="_blank"
-              rel="noreferrer"
-              className="p-1.5 rounded-ds-sm text-ds-text-3 hover:text-ds-text-1 hover:bg-muted/60 shrink-0"
-              aria-label="Abrir factura"
-              title="Abrir factura"
-            >
-              <ExternalLink className="h-4 w-4" />
-            </a>
-          </li>
-        ))}
+              {!d.voidedByCreditNoteId && onMoveDte && (
+                <div className="mt-1.5 flex items-center gap-1">
+                  <span className="text-[10px] text-ds-text-3 mr-1">Mover en flujo:</span>
+                  <button
+                    type="button"
+                    onClick={() => onMoveDte(d.id, -7)}
+                    disabled={busy}
+                    className="h-6 px-1.5 text-[10px] rounded-ds-sm border border-border bg-popover hover:bg-muted/60 disabled:opacity-50"
+                    aria-label="Mover 1 semana atrás"
+                  >−1s</button>
+                  <button
+                    type="button"
+                    onClick={() => onMoveDte(d.id, 7)}
+                    disabled={busy}
+                    className="h-6 px-1.5 text-[10px] rounded-ds-sm border border-border bg-popover hover:bg-muted/60 disabled:opacity-50"
+                    aria-label="Mover 1 semana adelante"
+                  >+1s</button>
+                  <button
+                    type="button"
+                    onClick={() => onMoveDte(d.id, 14)}
+                    disabled={busy}
+                    className="h-6 px-1.5 text-[10px] rounded-ds-sm border border-border bg-popover hover:bg-muted/60 disabled:opacity-50"
+                    aria-label="Mover 2 semanas adelante"
+                  >+2s</button>
+                  {d.hasDateOverride && onRestoreDte && (
+                    <button
+                      type="button"
+                      onClick={() => onRestoreDte(d.id)}
+                      disabled={busy}
+                      className="h-6 px-1.5 text-[10px] rounded-ds-sm border border-border bg-popover hover:bg-muted/60 text-status-info-fg ml-auto"
+                      title={`Restaurar a ${formatShortDate(d.originalDate)}`}
+                    >Restaurar</button>
+                  )}
+                </div>
+              )}
+            </li>
+          );
+        })}
       </ul>
       {hasFactoring && (
-        <p className="text-[12px] text-ds-text-3 px-1">
-          ℹ️ El costo de factoring aparece en la categoría{" "}
-          <span className="font-medium text-ds-text-2">Costo Factoring</span>{" "}
-          (no se duplica desde aquí).
+        <p className="text-[11px] text-ds-text-3 px-1">
+          ℹ️ Costo de factoring en categoría{" "}
+          <span className="font-medium text-ds-text-2">Costo Factoring</span>.
         </p>
       )}
       {showIgualar && (
@@ -823,9 +930,9 @@ function DtesSection({
             <CheckCircle2 className="h-4 w-4 mr-2" />
           )}
           <span className="truncate">
-            {isMulti
-              ? `Igualar al total real ($${fmt.format(grossTotal)} · ${dtes.length} facturas)`
-              : `Igualar a factura${dtes[0].folio ? ` #${dtes[0].folio}` : ""} ($${fmt.format(grossTotal)})`}
+            {liveDtes.length > 1
+              ? `Igualar al total real ($${fmt.format(grossTotal)} · ${liveDtes.length} facturas)`
+              : `Igualar a factura${liveDtes[0]?.folio ? ` #${liveDtes[0].folio}` : ""} ($${fmt.format(grossTotal)})`}
           </span>
         </Button>
       )}

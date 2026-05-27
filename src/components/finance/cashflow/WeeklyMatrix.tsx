@@ -781,6 +781,7 @@ export function WeeklyMatrix({
                     granularity="weekly"
                     rowOrder={rowOrder}
                     onActionDone={() => {
+                      setOverride(null);
                       setRefreshKey((k) => k + 1);
                       router.refresh();
                     }}
@@ -806,6 +807,7 @@ export function WeeklyMatrix({
                     granularity="weekly"
                     rowOrder={rowOrder}
                     onActionDone={() => {
+                      setOverride(null);
                       setRefreshKey((k) => k + 1);
                       router.refresh();
                     }}
