@@ -1,13 +1,14 @@
 "use client";
 import type React from "react";
-import { useEffect, useState, useCallback } from "react";
-import { ChevronDown, ChevronRight as ChevronRightIcon, Building2, TrendingUp } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, ChevronRight as ChevronRightIcon, TrendingUp } from "lucide-react";
 import type {
   ProjectionRow,
   ProjectionBucket,
 } from "@/modules/finance/cashflow/types";
 import { useDroppable } from "@dnd-kit/core";
 import { ItemDetailRow } from "./ItemDetailRow";
+import { ClientGroupHeader } from "./ClientGroupHeader";
 
 const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
 
@@ -186,10 +187,6 @@ export function ExpandableMatrixRow({
 
       {expanded &&
         (() => {
-          // Agrupamos SIEMPRE por cliente (crmAccountName): cada cuenta CRM
-          // tiene su header con ícono de edificio y es colapsable. Items sin
-          // cuenta (huérfanos / manuales sin vincular) van planos en el grupo
-          // "—" sin sub-header.
           type Item = (typeof row.items)[number];
           const groups: Array<{ name: string; items: Item[]; total: number }> = [];
           const order: string[] = [];
@@ -210,18 +207,15 @@ export function ExpandableMatrixRow({
               total: items.reduce((s, it) => s + it.total, 0),
             });
           }
-          // Si el usuario eligió "Mayor monto", reordenamos los grupos por
-          // cliente (descendente por total). Los items dentro de cada grupo
-          // se reordenan por su total individual.
           if (rowOrder === "amount_desc") {
             groups.sort((a, b) => b.total - a.total);
             for (const g of groups) {
               g.items = [...g.items].sort((a, b) => b.total - a.total);
             }
           }
+          const colSpan = buckets.length + 2;
           const out: React.ReactNode[] = [];
           for (const g of groups) {
-            // "—" = items sin cuenta CRM: van directos sin sub-header.
             if (g.name === "—") {
               for (const it of g.items) {
                 out.push(
@@ -238,31 +232,45 @@ export function ExpandableMatrixRow({
               }
               continue;
             }
-            // Cuenta CRM (1+ contratos): sub-header colapsable con total agregado.
-            const groupTotalsByBucket = new Map<string, number>();
+            const baseByCurrency: Record<string, number> = {};
             for (const it of g.items) {
-              for (const v of it.values) {
-                groupTotalsByBucket.set(
-                  v.bucketKey,
-                  (groupTotalsByBucket.get(v.bucketKey) ?? 0) + v.amount,
-                );
+              if (it.baseAmount > 0) {
+                baseByCurrency[it.currency] =
+                  (baseByCurrency[it.currency] ?? 0) + it.baseAmount;
               }
             }
+            const fmtLocal = new Intl.NumberFormat("es-CL", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            });
+            const parts: string[] = [];
+            if (baseByCurrency.UF) parts.push(`UF ${fmtLocal.format(baseByCurrency.UF)}/mes`);
+            if (baseByCurrency.CLP) parts.push(`$${fmt.format(baseByCurrency.CLP)}/mes`);
+            const monthlyLabel = parts.length > 0 ? parts.join(" + ") : null;
+
             out.push(
-              <ClientGroup
+              <ClientGroupHeader
                 key={`grp-${row.categoryCode}-${g.name}`}
-                categoryCode={row.categoryCode}
-                name={g.name}
-                items={g.items}
-                totalsByBucket={groupTotalsByBucket}
-                buckets={buckets}
-                grandTotal={g.total}
-                granularity={granularity}
-                kind={row.kind as "INCOME" | "EXPENSE"}
-                ipcPending={ipcPending}
-                onActionDone={onActionDoneSafe}
+                clientName={g.name}
+                installationCount={g.items.length}
+                monthlyAmountLabel={monthlyLabel}
+                colSpan={colSpan}
               />,
             );
+            for (const it of g.items) {
+              out.push(
+                <ItemDetailRow
+                  key={it.itemId}
+                  item={it}
+                  buckets={buckets}
+                  granularity={granularity}
+                  kind={row.kind as "INCOME" | "EXPENSE"}
+                  ipcPending={ipcPending}
+                  onActionDone={onActionDoneSafe}
+                  inGroup
+                />,
+              );
+            }
           }
           return out;
         })()}
@@ -270,217 +278,4 @@ export function ExpandableMatrixRow({
   );
 }
 
-const GROUP_STORAGE_PREFIX = "cashflow.group.collapsed.";
 
-function isGroupCollapsed(categoryCode: string, name: string): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return (
-      window.localStorage.getItem(
-        `${GROUP_STORAGE_PREFIX}${categoryCode}.${name}`,
-      ) === "1"
-    );
-  } catch {
-    return false;
-  }
-}
-
-function setGroupCollapsed(
-  categoryCode: string,
-  name: string,
-  collapsed: boolean,
-) {
-  if (typeof window === "undefined") return;
-  try {
-    const key = `${GROUP_STORAGE_PREFIX}${categoryCode}.${name}`;
-    if (collapsed) {
-      window.localStorage.setItem(key, "1");
-    } else {
-      window.localStorage.removeItem(key);
-    }
-  } catch {
-    // ignore
-  }
-}
-
-/**
- * Header colapsable + items de una cuenta CRM. Default expandido (muestra
- * todas las instalaciones); el usuario puede colapsar y solo ve el header
- * con el total agregado por bucket. Estado persiste en localStorage por
- * (categoryCode, accountName).
- */
-function ClientGroup({
-  categoryCode,
-  name,
-  items,
-  totalsByBucket,
-  buckets,
-  grandTotal,
-  granularity,
-  kind,
-  ipcPending,
-  onActionDone,
-}: {
-  categoryCode: string;
-  name: string;
-  items: import("@/modules/finance/cashflow/types").ProjectionRowItemDetail[];
-  totalsByBucket: Map<string, number>;
-  buckets: ProjectionBucket[];
-  grandTotal: number;
-  granularity: "weekly" | "monthly";
-  kind: "INCOME" | "EXPENSE";
-  ipcPending?: Map<string, Array<{ id: string; dueDate: string }>>;
-  onActionDone: () => void;
-}) {
-  const [collapsed, setCollapsed] = useState(false);
-
-  useEffect(() => {
-    setCollapsed(isGroupCollapsed(categoryCode, name));
-  }, [categoryCode, name]);
-
-  const toggle = useCallback(() => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      setGroupCollapsed(categoryCode, name, next);
-      return next;
-    });
-  }, [categoryCode, name]);
-
-  const count = items.length;
-  const label = count === 1 ? "1 contrato" : `${count} contratos`;
-
-  // Suma del monto base por moneda. En la práctica un cliente tiene todos
-  // sus contratos en UF o todos en CLP (mezcla es rarísima), pero si pasa
-  // mostramos ambos para no esconder valor.
-  const baseByCurrency: Record<string, number> = {};
-  for (const it of items) {
-    if (it.baseAmount > 0) {
-      baseByCurrency[it.currency] =
-        (baseByCurrency[it.currency] ?? 0) + it.baseAmount;
-    }
-  }
-  const baseLabel = (() => {
-    const parts: string[] = [];
-    if (baseByCurrency.UF) {
-      parts.push(
-        `UF ${new Intl.NumberFormat("es-CL", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }).format(baseByCurrency.UF)}/mes`,
-      );
-    }
-    if (baseByCurrency.CLP) {
-      parts.push(`$${fmt.format(baseByCurrency.CLP)}/mes`);
-    }
-    return parts.join(" + ");
-  })();
-
-  // Dotación total: sumamos por instalación ÚNICA. Si dos contratos del
-  // mismo cliente comparten instalación, la dotación de esa instalación
-  // se cuenta una sola vez (no es por contrato, es por instalación
-  // física). Items sin installationId no aportan.
-  const headcountByInstallation = new Map<string, number>();
-  for (const it of items) {
-    if (it.installationId && it.headcount > 0) {
-      headcountByInstallation.set(it.installationId, it.headcount);
-    }
-  }
-  let totalHeadcount = 0;
-  for (const h of headcountByInstallation.values()) totalHeadcount += h;
-
-  // Metadata de la 2da línea: base por moneda + dotación, separadas con "·".
-  // Se ensambla aparte para mantener limpio el JSX y permitir omitirla cuando
-  // no hay datos.
-  const metaParts: string[] = [];
-  if (baseLabel) metaParts.push(baseLabel);
-  if (totalHeadcount > 0) {
-    metaParts.push(
-      `${totalHeadcount} ${totalHeadcount === 1 ? "persona" : "personas"}`,
-    );
-  }
-  const metaLine = metaParts.join(" · ");
-
-  return (
-    <>
-      <tr className="bg-primary/5 border-t-2 border-primary/30">
-        <td className="sticky left-0 z-20 bg-card p-2 min-w-[140px] max-w-[160px] sm:min-w-[180px] sm:max-w-[260px] border-r border-border/50">
-          <button
-            type="button"
-            onClick={toggle}
-            className="flex flex-col w-full text-left pl-3 min-h-[32px] gap-0.5"
-            title={collapsed ? "Expandir" : "Colapsar"}
-          >
-            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
-              {collapsed ? (
-                <ChevronRightIcon className="h-3.5 w-3.5 text-ds-text-3 shrink-0 mt-0.5" />
-              ) : (
-                <ChevronDown className="h-3.5 w-3.5 text-ds-text-3 shrink-0 mt-0.5" />
-              )}
-              <Building2 className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-              <span
-                className="text-[12px] font-semibold text-ds-text-1 line-clamp-2 break-words"
-                title={name}
-              >
-                {name}
-              </span>
-              <span className="text-[10px] font-mono uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-ds-sm bg-primary/15 text-primary shrink-0">
-                {label}
-              </span>
-            </div>
-            {metaLine ? (
-              <span
-                className="text-[11px] font-mono tabular-nums text-ds-text-3 truncate pl-[18px]"
-                title={metaLine}
-              >
-                {metaLine}
-              </span>
-            ) : null}
-          </button>
-        </td>
-        {buckets.map((b) => {
-          const amount = totalsByBucket.get(b.key) ?? 0;
-          const hasIpc =
-            ipcPending && ipcPending.size > 0
-              ? items.some((it) => ipcPending.has(`${it.itemId}_${b.key}`))
-              : false;
-          return (
-            <td
-              key={b.key}
-              className={`p-2 text-right font-mono text-[12px] tabular-nums text-ds-text-2 whitespace-nowrap ${
-                hasIpc
-                  ? "bg-status-warn-soft ring-1 ring-status-warn-border"
-                  : ""
-              }`}
-            >
-              <span className="inline-flex items-center justify-end gap-1">
-                {hasIpc && (
-                  <TrendingUp
-                    className="h-3 w-3 text-status-warn-fg"
-                    aria-label="Reajuste IPC pendiente este mes"
-                  />
-                )}
-                {amount > 0 ? fmt.format(amount) : "—"}
-              </span>
-            </td>
-          );
-        })}
-        <td className="hidden sm:table-cell sticky right-0 z-20 p-2 text-right font-mono text-[12px] font-semibold tabular-nums bg-card whitespace-nowrap border-l border-border/50">
-          {fmt.format(grandTotal)}
-        </td>
-      </tr>
-      {!collapsed &&
-        items.map((it) => (
-          <ItemDetailRow
-            key={it.itemId}
-            item={it}
-            buckets={buckets}
-            granularity={granularity}
-            kind={kind}
-            ipcPending={ipcPending}
-            onActionDone={onActionDone}
-            inGroup
-          />
-        ))}
-    </>
-  );
-}
