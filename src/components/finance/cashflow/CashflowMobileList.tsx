@@ -11,7 +11,9 @@ import {
 } from "./CashflowMobileBucketHeader";
 import { BankBalanceAdjustDrawer } from "./BankBalanceAdjustDrawer";
 import { CashflowDriftBanner } from "./CashflowDriftBanner";
-import { CashflowMobileBucketMini } from "./CashflowMobileBucketMini";
+import { CashflowMobileWeeklyNav } from "./CashflowMobileWeeklyNav";
+import { CashflowMobileWeeklyTable } from "./CashflowMobileWeeklyTable";
+import { findTodayBucketIdx } from "./cashflow-mobile-3w-helpers";
 import { useHasCapability } from "@/lib/permissions-context";
 import { subMonths } from "date-fns";
 import { hydrateProjection } from "./cashflow-mobile-helpers";
@@ -133,6 +135,10 @@ export function CashflowMobileList({
       setActiveBucketKey(projection.buckets[activeIdx + 1].key);
     }
   }
+  function gotoToday() {
+    const idx = findTodayBucketIdx(projection.buckets);
+    if (projection.buckets[idx]) setActiveBucketKey(projection.buckets[idx].key);
+  }
 
   // Swipe gesture en el card del bucket: > 60px de delta → cambia bucket.
   const touchStartX = useRef<number | null>(null);
@@ -169,66 +175,20 @@ export function CashflowMobileList({
     [projection.rows, searchTerm],
   );
 
+  const filteredProjection = useMemo((): ProjectionMatrix => {
+    if (!searchTerm) return projection;
+    const filteredRows = projection.rows
+      .map((r) => filterRowBySearch(r, searchTerm))
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+    return { ...projection, rows: filteredRows };
+  }, [projection, searchTerm]);
+
   const [drawerTarget, setDrawerTarget] = useState<DrawerItemTarget | null>(
     null,
   );
   const [bankAdjustOpen, setBankAdjustOpen] = useState(false);
   const canEditBalance = useHasCapability("banking_manage");
   const isActiveBucketCurrent = activeIdx >= 0 && activeIdx === currentBucketIdx;
-
-  const prevBucket = useMemo(
-    () => (activeIdx > 0 ? projection.buckets[activeIdx - 1] : null),
-    [projection.buckets, activeIdx],
-  );
-  const nextBucket = useMemo(
-    () =>
-      activeIdx >= 0 && activeIdx < projection.buckets.length - 1
-        ? projection.buckets[activeIdx + 1]
-        : null,
-    [projection.buckets, activeIdx],
-  );
-
-  const countMovementsForBucket = useMemo(() => {
-    return (bucketKey: string): number => {
-      let count = 0;
-      for (const row of projection.rows) {
-        for (const item of row.items ?? []) {
-          const v = item.values.find((vv) => vv.bucketKey === bucketKey);
-          if (v && Math.abs(v.amount) > 0) count++;
-        }
-      }
-      return count;
-    };
-  }, [projection.rows]);
-
-  const countOverdueForBucket = useMemo(() => {
-    return (bucketKey: string): number => {
-      let count = 0;
-      for (const row of projection.rows) {
-        for (const item of row.items ?? []) {
-          const v = item.values.find((vv) => vv.bucketKey === bucketKey);
-          if (!v?.dtes) continue;
-          for (const d of v.dtes) {
-            if ((d.daysOverdue ?? 0) > 0 && d.cellStatus !== "PAID") count++;
-          }
-        }
-      }
-      return count;
-    };
-  }, [projection.rows]);
-
-  const prevOverdueCount = useMemo(
-    () => (prevBucket ? countOverdueForBucket(prevBucket.key) : 0),
-    [prevBucket, countOverdueForBucket],
-  );
-  const prevMovementCount = useMemo(
-    () => (prevBucket ? countMovementsForBucket(prevBucket.key) : 0),
-    [prevBucket, countMovementsForBucket],
-  );
-  const nextMovementCount = useMemo(
-    () => (nextBucket ? countMovementsForBucket(nextBucket.key) : 0),
-    [nextBucket, countMovementsForBucket],
-  );
 
   // Acordeón mutuamente exclusivo: solo una sección abierta a la vez.
   const [openSection, setOpenSection] = useState<"income" | "expense" | null>(
@@ -296,30 +256,18 @@ export function CashflowMobileList({
           </button>
         </div>
 
-        {prevBucket && granularity === "weekly" && (
-          <CashflowMobileBucketMini
-            bucket={prevBucket}
-            direction="prev"
-            overdueCount={prevOverdueCount}
-            movementCount={prevMovementCount}
-            onTap={() => setActiveBucketKey(prevBucket.key)}
+        {granularity === "monthly" && activeBucket && (
+          <CashflowMobileBucketHeader
+            bucket={activeBucket}
+            granularity={granularity}
+            hasPrev={activeIdx > 0}
+            hasNext={activeIdx >= 0 && activeIdx < projection.buckets.length - 1}
+            isCurrent={isActiveBucketCurrent}
+            onPrev={gotoPrev}
+            onNext={gotoNext}
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
           />
-        )}
-
-        {activeBucket && (
-          <div className={granularity === "weekly" ? "ring-2 ring-status-info-fg/30 rounded-ds-lg" : ""}>
-            <CashflowMobileBucketHeader
-              bucket={activeBucket}
-              granularity={granularity}
-              hasPrev={activeIdx > 0}
-              hasNext={activeIdx >= 0 && activeIdx < projection.buckets.length - 1}
-              isCurrent={isActiveBucketCurrent}
-              onPrev={gotoPrev}
-              onNext={gotoNext}
-              onTouchStart={onTouchStart}
-              onTouchEnd={onTouchEnd}
-            />
-          </div>
         )}
       </div>
 
@@ -327,14 +275,44 @@ export function CashflowMobileList({
         <p className="text-[12px] text-ds-text-3">Cargando proyección…</p>
       )}
 
-      {activeBucket && (
+      {granularity === "weekly" && activeBucket && (
         <>
           {isActiveBucketCurrent && cumulativePoint && (
             <CashflowDriftBanner
               driftClp={cumulativePoint.cumulativeBankVarianceClp}
               onCreateAdjustment={(amount) => {
-                // Pre-pobla el modal de nuevo ítem rápido vía URL params.
-                // El handler de los params vive en CashflowTabs (parent).
+                router.push(
+                  `/finanzas/flujo-caja?quick=adjustment&amount=${Math.round(amount)}`,
+                );
+              }}
+            />
+          )}
+
+          <CashflowMobileWeeklyNav
+            activeBucket={activeBucket}
+            isCurrent={isActiveBucketCurrent}
+            hasPrev={activeIdx > 0}
+            hasNext={activeIdx >= 0 && activeIdx < projection.buckets.length - 1}
+            onPrev={gotoPrev}
+            onNext={gotoNext}
+            onToday={gotoToday}
+          />
+
+          <CashflowMobileWeeklyTable
+            projection={filteredProjection}
+            activeBucketKey={activeBucketKey}
+            canManage={canManage}
+            onTapCell={setDrawerTarget}
+          />
+        </>
+      )}
+
+      {granularity === "monthly" && activeBucket && (
+        <>
+          {isActiveBucketCurrent && cumulativePoint && (
+            <CashflowDriftBanner
+              driftClp={cumulativePoint.cumulativeBankVarianceClp}
+              onCreateAdjustment={(amount) => {
                 router.push(
                   `/finanzas/flujo-caja?quick=adjustment&amount=${Math.round(amount)}`,
                 );
@@ -374,16 +352,6 @@ export function CashflowMobileList({
                 : undefined
             }
           />
-
-          {nextBucket && granularity === "weekly" && (
-            <CashflowMobileBucketMini
-              bucket={nextBucket}
-              direction="next"
-              overdueCount={0}
-              movementCount={nextMovementCount}
-              onTap={() => setActiveBucketKey(nextBucket.key)}
-            />
-          )}
         </>
       )}
 
