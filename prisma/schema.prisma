@@ -6693,7 +6693,8 @@ model FinanceDte {
   attachments         FinanceDteAttachment[]
   emailLogs           FinanceDteEmailLog[]
   recurringRuns       FinanceDteRecurringRun[]
-  cashflowOccurrences FinanceCashflowOccurrence[] @relation("OccurrenceToDte")
+  cashflowOccurrences   FinanceCashflowOccurrence[]        @relation("OccurrenceToDte")
+  cashflowDateOverrides FinanceCashflowDteDateOverride[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -8016,6 +8017,24 @@ model FinanceCashflowOccurrence {
   @@index([bankTransactionId], map: "idx_cashflow_occ_bank_tx")
   @@index([tenantId, dteId], map: "idx_cashflow_occ_dte")
   @@map("finance_cashflow_occurrences")
+  @@schema("finance")
+}
+
+model FinanceCashflowDteDateOverride {
+  id           String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId     String     @map("tenant_id")
+  dteId        String     @map("dte_id") @db.Uuid
+  dte          FinanceDte @relation(fields: [dteId], references: [id], onDelete: Cascade)
+  originalDate DateTime   @map("original_date") @db.Date
+  customDate   DateTime   @map("custom_date") @db.Date
+  reason       String?
+  createdBy    String     @map("created_by")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, dteId], map: "uq_cashflow_dte_date_override")
+  @@index([tenantId, customDate], map: "idx_cashflow_dte_date_override_custom")
+  @@map("finance_cashflow_dte_date_overrides")
   @@schema("finance")
 }
 

@@ -112,7 +112,8 @@ export type CashflowCellStatus =
   | "DRAFT"
   | "INVOICED"
   | "CEDED"
-  | "PAID";
+  | "PAID"
+  | "VOIDED";
 
 export interface ProjectionRowItemValue {
   bucketKey: string;
@@ -151,22 +152,24 @@ export interface ProjectionRowItemValue {
   writeOffAmount?: number | null;
 }
 
-/** Resumen mínimo de un DTE conciliado a una celda del cashflow. Permite
- *  listar facturas asociadas, mostrar fecha de emisión (útil para detectar
- *  "factura antigua cobrada hoy") y linkear a la factura origen. */
 export interface CellDteSummary {
   id: string;
   folio: number | null;
-  /** Monto bruto del DTE (totalAmount) en CLP. */
   totalAmount: number;
-  /** Fecha de emisión yyyy-MM-dd. */
   issueDate: string;
-  /** True si hay un FactoringOperation activo asociado al DTE. */
+  dueDate: string | null;
+  reconciledAt: string | null;
+  paymentStatus: string;
+  amountPaid: number;
+  amountPending: number;
   hasFactoring: boolean;
-  /** Estado derivado para este DTE (PAID/CEDED/INVOICED/DRAFT). */
+  voidedByCreditNoteId: string | null;
+  voidedAt: string | null;
+  creditedNetAmount: number;
   cellStatus: CashflowCellStatus;
-  /** Días de mora (positivo = vencido, 0 = al día). */
   daysOverdue: number;
+  hasDateOverride: boolean;
+  originalDate: string;
 }
 
 export interface ProjectionRowItemDetail {

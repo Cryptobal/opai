@@ -29,6 +29,7 @@ import {
   type BalanceTx,
 } from "./real-balance.helper";
 import { computeCreditNoteImpact } from "../billing/credit-note-impact.helper";
+import { loadDteDateOverrides } from "./dte-date-override.service";
 
 type CategoryLite = Pick<
   FinanceCashflowCategory,
@@ -47,6 +48,8 @@ interface DteStatusSlim {
   siiStatus: string;
   paymentStatus: string;
   dueDate: Date | null;
+  voidedByCreditNoteId: string | null;
+  creditedNetAmount: number;
 }
 
 /**
@@ -60,6 +63,7 @@ const CELL_STATUS_RANK: Record<CashflowCellStatus, number> = {
   DRAFT: 2,
   CEDED: 3,
   PAID: 4,
+  VOIDED: 5,
 };
 
 /**
@@ -73,6 +77,10 @@ function deriveCellStatus(opts: {
 }): { status: CashflowCellStatus; daysOverdue: number; dteId: string | null } {
   if (!opts.dte) return { status: "PROJECTED", daysOverdue: 0, dteId: null };
   const { id, siiStatus, paymentStatus, dueDate } = opts.dte;
+
+  if (opts.dte.voidedByCreditNoteId) {
+    return { status: "VOIDED", daysOverdue: 0, dteId: id };
+  }
 
   if (paymentStatus === "PAID") return { status: "PAID", daysOverdue: 0, dteId: id };
   if (paymentStatus === "CEDED" || opts.hasFactoring) {
@@ -1098,6 +1106,9 @@ export async function buildProjection(
       issuerName: true,
     },
   });
+  const orphanDteIds = orphanDtes.map((d) => d.id);
+  const dteDateOverrideByIdEarly = await loadDteDateOverrides(tenantId, orphanDteIds);
+
   for (const dte of orphanDtes) {
     const isIncome = dte.direction === "ISSUED";
 
@@ -1138,6 +1149,10 @@ export async function buildProjection(
             ? ("PAID" as const)
             : ("PROJECTED" as const);
         const cat = categoryMap.get(contractItem.categoryId);
+        const p1OverrideDate = dteDateOverrideByIdEarly.get(dte.id);
+        const p1EffectiveDteDate = p1OverrideDate
+          ? new Date(p1OverrideDate + "T00:00:00")
+          : dte.date;
         allOccurrences.push({
           id: null,
           itemId: contractItem.id,           // ← clave: engancha al item
@@ -1148,8 +1163,8 @@ export async function buildProjection(
           kind: contractItem.kind,
           name: contractItem.name,           // ← nombre del item, no del DTE
           description: null,
-          scheduledDate: dte.date,
-          effectiveDate: dte.paymentStatus === "PAID" ? dte.date : null,
+          scheduledDate: p1EffectiveDteDate,
+          effectiveDate: dte.paymentStatus === "PAID" ? p1EffectiveDteDate : null,
           // amountClp=0 para NO inflar la proyección (el item ya proyecta
           // sus propias Occurrences). actualAmountClp solo si está PAID.
           amountClp: 0,
@@ -1195,6 +1210,10 @@ export async function buildProjection(
       dte.paymentStatus === "PAID"
         ? ("PAID" as const)
         : ("PROJECTED" as const);
+    const p2OverrideDate = dteDateOverrideByIdEarly.get(dte.id);
+    const p2EffectiveDteDate = p2OverrideDate
+      ? new Date(p2OverrideDate + "T00:00:00")
+      : dte.date;
     allOccurrences.push({
       id: null,
       itemId: null,
@@ -1207,8 +1226,8 @@ export async function buildProjection(
         ? `${isIncome ? "Factura" : "Recibida"} #${dte.folio} · ${isIncome ? dte.receiverName : dte.issuerName}`
         : `Borrador · ${isIncome ? dte.receiverName : dte.issuerName}`,
       description: null,
-      scheduledDate: dte.date,
-      effectiveDate: dte.date,
+      scheduledDate: p2EffectiveDteDate,
+      effectiveDate: p2EffectiveDteDate,
       amountClp: gross,
       amountOriginal: gross,
       currency: "CLP",
@@ -1374,6 +1393,14 @@ export async function buildProjection(
   const dteFolioById = new Map<string, number | null>();
   const dteGrossById = new Map<string, number>();
   const dteIssueDateById = new Map<string, string>();
+  const dteDueDateById = new Map<string, string | null>();
+  const dteReconciledAtById = new Map<string, string | null>();
+  const dtePaymentStatusById = new Map<string, string>();
+  const dteAmountPaidById = new Map<string, number>();
+  const dteAmountPendingById = new Map<string, number>();
+  const dteVoidedByCreditNoteById = new Map<string, string | null>();
+  const dteVoidedAtById = new Map<string, string | null>();
+  const dteCreditedNetAmountById = new Map<string, number>();
   const activeFactoringDteIds = new Set<string>();
   /** Suma del write-off (totalDebit) por DTE. Positivo = SHORT (pérdida),
    *  negativo = OVER (ganancia). Cargado del FinanceJournalEntry con
@@ -1392,13 +1419,13 @@ export async function buildProjection(
           folio: true,
           dteType: true,
           totalAmount: true,
-          // Necesarios para descontar NCs parciales (CodRef=3) del bruto
-          // que se muestra en el popover de celda y se usa para el botón
-          // "Igualar a factura". Sin esto, la celda muestra el nominal
-          // y el botón intenta cuadrar a un monto que el cliente no va
-          // a pagar (paga el saldo post-NC).
           netAmount: true,
           creditedNetAmount: true,
+          voidedByCreditNoteId: true,
+          voidedAt: true,
+          amountPaid: true,
+          amountPending: true,
+          reconciledAt: true,
         },
       }),
       prisma.financeFactoringOperation.findMany({
@@ -1429,12 +1456,10 @@ export async function buildProjection(
         siiStatus: d.siiStatus,
         paymentStatus: d.paymentStatus,
         dueDate: d.dueDate,
+        voidedByCreditNoteId: d.voidedByCreditNoteId,
+        creditedNetAmount: Number(d.creditedNetAmount),
       });
       dteFolioById.set(d.id, d.folio ?? null);
-      // Bruto post-NC: si el DTE tiene NC parcial (CodRef=3), el bruto
-      // mostrado en la celda es el saldo remanente (total − NC × ratio).
-      // Sin NC parcial, equivale a totalAmount. Garantiza consistencia
-      // entre el saldo cobrable y lo que se ve en el popover/badge.
       const grossPostNc = computeCreditNoteImpact({
         totalAmount: Number(d.totalAmount),
         netAmount: Number(d.netAmount),
@@ -1442,6 +1467,14 @@ export async function buildProjection(
       }).grossPostNc;
       dteGrossById.set(d.id, grossPostNc);
       dteIssueDateById.set(d.id, d.date.toISOString().slice(0, 10));
+      dteDueDateById.set(d.id, d.dueDate ? d.dueDate.toISOString().slice(0, 10) : null);
+      dteReconciledAtById.set(d.id, d.reconciledAt ? d.reconciledAt.toISOString() : null);
+      dtePaymentStatusById.set(d.id, d.paymentStatus);
+      dteAmountPaidById.set(d.id, Number(d.amountPaid));
+      dteAmountPendingById.set(d.id, Number(d.amountPending));
+      dteVoidedByCreditNoteById.set(d.id, d.voidedByCreditNoteId);
+      dteVoidedAtById.set(d.id, d.voidedAt ? d.voidedAt.toISOString() : null);
+      dteCreditedNetAmountById.set(d.id, Number(d.creditedNetAmount));
     }
     for (const f of factoringOps) {
       if (f.dteId) activeFactoringDteIds.add(f.dteId);
@@ -1461,6 +1494,15 @@ export async function buildProjection(
       );
     }
   }
+  const dteDateOverrideByIdLater = await loadDteDateOverrides(
+    tenantId,
+    dteIds.filter((id) => !dteDateOverrideByIdEarly.has(id)),
+  );
+  const dteDateOverrideById = new Map([
+    ...dteDateOverrideByIdEarly,
+    ...dteDateOverrideByIdLater,
+  ]);
+
   const cellStatusByDteId = new Map<
     string,
     { status: CashflowCellStatus; daysOverdue: number; dteId: string | null }
@@ -1491,6 +1533,15 @@ export async function buildProjection(
     dteIssueDateById,
     activeFactoringDteIds,
     writeOffByDteId,
+    dteDueDateById,
+    dteReconciledAtById,
+    dtePaymentStatusById,
+    dteAmountPaidById,
+    dteAmountPendingById,
+    dteVoidedByCreditNoteById,
+    dteVoidedAtById,
+    dteCreditedNetAmountById,
+    dteDateOverrideById,
   );
 
   const openingBreakdown = await resolveOpeningBalance(tenantId);
@@ -1720,6 +1771,15 @@ function buildRows(
   dteIssueDateById: Map<string, string>,
   activeFactoringDteIds: Set<string>,
   writeOffByDteId: Map<string, number>,
+  dteDueDateById: Map<string, string | null>,
+  dteReconciledAtById: Map<string, string | null>,
+  dtePaymentStatusById: Map<string, string>,
+  dteAmountPaidById: Map<string, number>,
+  dteAmountPendingById: Map<string, number>,
+  dteVoidedByCreditNoteById: Map<string, string | null>,
+  dteVoidedAtById: Map<string, string | null>,
+  dteCreditedNetAmountById: Map<string, number>,
+  dteDateOverrideById: Map<string, string>,
 ): ProjectionRow[] {
   const rows: ProjectionRow[] = [];
   for (const cat of categories) {
@@ -1880,14 +1940,26 @@ function buildRows(
           // pagada, aunque el DTE en BD siga en PARTIAL por varianza.
           const dtes = cell.dtes ?? [];
           if (!dtes.some((d) => d.id === o.dteId)) {
+            const issueDateStr = dteIssueDateById.get(o.dteId) ?? "";
+            const overrideDateStr = dteDateOverrideById.get(o.dteId);
             dtes.push({
               id: o.dteId,
               folio: dteFolioById.get(o.dteId) ?? null,
               totalAmount: dteGrossById.get(o.dteId) ?? 0,
-              issueDate: dteIssueDateById.get(o.dteId) ?? "",
+              issueDate: issueDateStr,
+              dueDate: dteDueDateById.get(o.dteId) ?? null,
+              reconciledAt: dteReconciledAtById.get(o.dteId) ?? null,
+              paymentStatus: dtePaymentStatusById.get(o.dteId) ?? "UNPAID",
+              amountPaid: dteAmountPaidById.get(o.dteId) ?? 0,
+              amountPending: dteAmountPendingById.get(o.dteId) ?? 0,
               hasFactoring: activeFactoringDteIds.has(o.dteId),
+              voidedByCreditNoteId: dteVoidedByCreditNoteById.get(o.dteId) ?? null,
+              voidedAt: dteVoidedAtById.get(o.dteId) ?? null,
+              creditedNetAmount: dteCreditedNetAmountById.get(o.dteId) ?? 0,
               cellStatus: effectiveStatus,
               daysOverdue: effectiveDaysOverdue,
+              hasDateOverride: !!overrideDateStr && overrideDateStr !== issueDateStr,
+              originalDate: issueDateStr,
             });
             cell.dtes = dtes;
           }

@@ -85,6 +85,7 @@ const STATUS_LABEL: Record<CashflowCellStatus, string | null> = {
   INVOICED: "Facturada",
   CEDED: "Cedida",
   PAID: "Pagada",
+  VOIDED: "Anulada",
   PROJECTED: null,
 };
 
@@ -94,6 +95,7 @@ const STATUS_CLASS: Record<CashflowCellStatus, string> = {
   CEDED:
     "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
   PAID: "bg-status-ok-soft text-status-ok-fg",
+  VOIDED: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300",
   PROJECTED: "",
 };
 
