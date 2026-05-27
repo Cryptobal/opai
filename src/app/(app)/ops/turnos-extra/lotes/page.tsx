@@ -3,13 +3,13 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { PageHero } from "@/components/opai-ds";
-import { Banknote } from "lucide-react";
+import { Package } from "lucide-react";
 import { TeLotesClient } from "@/components/ops";
 
-export default async function TePagosPage() {
+export default async function OpsTurnosExtraLotesPage() {
   const session = await auth();
   if (!session?.user) {
-    redirect("/opai/login?callbackUrl=/te/pagos");
+    redirect("/opai/login?callbackUrl=/ops/turnos-extra/lotes");
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "ops", "turnos_extra")) {
@@ -18,10 +18,7 @@ export default async function TePagosPage() {
 
   const tenantId = session.user.tenantId;
   const lotes = await prisma.opsPagoTeLote.findMany({
-    where: {
-      tenantId,
-      status: "paid",
-    },
+    where: { tenantId },
     include: {
       items: {
         select: {
@@ -33,22 +30,19 @@ export default async function TePagosPage() {
         },
       },
     },
-    orderBy: { paidAt: "desc" },
+    orderBy: { createdAt: "desc" },
   });
 
   return (
     <div className="space-y-6 min-w-0">
-<PageHero
-        icon={<Banknote />}
+      <PageHero
+        icon={<Package />}
         iconTone="amber"
-        title="Pagos TE"
-        subtitle="liquidación al equipo"
-        description="Historial de lotes pagados y exportables."
+        title="Lotes de TE"
+        subtitle="agrupación para pago"
+        description="Agrupa turnos aprobados para pago semanal."
       />
-      <TeLotesClient
-        initialLotes={JSON.parse(JSON.stringify(lotes))}
-        defaultStatusFilter="paid"
-      />
+      <TeLotesClient initialLotes={JSON.parse(JSON.stringify(lotes))} />
     </div>
   );
 }

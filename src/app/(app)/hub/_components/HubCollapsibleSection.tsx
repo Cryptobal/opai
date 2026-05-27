@@ -32,8 +32,10 @@ export function HubCollapsibleSection({
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           {icon}
         </span>
-        <span className="min-w-0 flex-1 text-base font-semibold">{title}</span>
-        {badge && <span className="shrink-0">{badge}</span>}
+        <div className="min-w-0 flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-3">
+          <span className="text-base font-semibold truncate">{title}</span>
+          {badge && <span className="shrink-0 text-xs sm:text-sm">{badge}</span>}
+        </div>
         <ChevronDown
           className={cn(
             'h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300',

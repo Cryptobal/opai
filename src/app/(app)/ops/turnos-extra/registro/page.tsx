@@ -6,10 +6,10 @@ import { PageHero } from "@/components/opai-ds";
 import { ClipboardClock } from "lucide-react";
 import { TeTurnosClient } from "@/components/ops";
 
-export default async function TeRegistroPage() {
+export default async function OpsTurnosExtraRegistroPage() {
   const session = await auth();
   if (!session?.user) {
-    redirect("/opai/login?callbackUrl=/te/registro");
+    redirect("/opai/login?callbackUrl=/ops/turnos-extra/registro");
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "ops", "turnos_extra")) {
@@ -35,7 +35,7 @@ export default async function TeRegistroPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-<PageHero
+      <PageHero
         icon={<ClipboardClock />}
         iconTone="amber"
         title="Registro de TE"

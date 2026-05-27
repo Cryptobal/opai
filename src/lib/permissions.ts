@@ -1059,9 +1059,6 @@ export function pathToPermission(
     return { module: "ops", submodule: "guardias" };
   if (pathname === "/ops" || pathname.startsWith("/ops/")) return { module: "ops" };
 
-  // TE → submódulo de ops
-  if (pathname.startsWith("/te/")) return { module: "ops", submodule: "turnos_extra" };
-
   // CRM submodules
   if (pathname.startsWith("/crm/leads")) return { module: "crm", submodule: "leads" };
   if (pathname.startsWith("/crm/accounts")) return { module: "crm", submodule: "accounts" };

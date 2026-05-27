@@ -152,7 +152,6 @@ function getActiveModule(pathname: string): string | null {
   if (pathname.startsWith("/finanzas")) return "finanzas";
   if (pathname.startsWith("/opai/configuracion")) return "config";
   if (pathname.startsWith("/opai/documentos") || pathname.startsWith("/opai/documentos-operativos")) return "docs";
-  if (pathname.startsWith("/te")) return "te";
   if (pathname.startsWith("/reportes/dt")) return "reportes_dt";
   return null;
 }

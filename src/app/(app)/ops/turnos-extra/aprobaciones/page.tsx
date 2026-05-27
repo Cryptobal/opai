@@ -6,10 +6,10 @@ import { PageHero } from "@/components/opai-ds";
 import { CheckCircle2 } from "lucide-react";
 import { TeTurnosClient } from "@/components/ops";
 
-export default async function TeAprobacionesPage() {
+export default async function OpsTurnosExtraAprobacionesPage() {
   const session = await auth();
   if (!session?.user) {
-    redirect("/opai/login?callbackUrl=/te/aprobaciones");
+    redirect("/opai/login?callbackUrl=/ops/turnos-extra/aprobaciones");
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "ops", "turnos_extra")) {
@@ -38,7 +38,7 @@ export default async function TeAprobacionesPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-<PageHero
+      <PageHero
         icon={<CheckCircle2 />}
         iconTone="amber"
         title="Aprobaciones RRHH"
