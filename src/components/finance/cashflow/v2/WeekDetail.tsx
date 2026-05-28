@@ -25,11 +25,19 @@ interface Props {
   /** Filtro de texto opcional sobre las occurrences (cliente/contrato/instalación). */
   searchTerm?: string;
   onMove?: (occurrence: VirtualOccurrence) => void;
+  onOpenDetail?: (occurrence: VirtualOccurrence, meta?: OccMeta) => void;
 }
 
 /** Detalle de la semana seleccionada: Entra (INCOME) / Sale (EXPENSE), cada
  *  sección colapsable con subtotal. */
-export function WeekDetail({ bucket, meta, canManage, searchTerm, onMove }: Props) {
+export function WeekDetail({
+  bucket,
+  meta,
+  canManage,
+  searchTerm,
+  onMove,
+  onOpenDetail,
+}: Props) {
   const term = (searchTerm ?? "").trim().toLowerCase();
   const matches = (o: VirtualOccurrence) =>
     !term ||
@@ -49,6 +57,7 @@ export function WeekDetail({ bucket, meta, canManage, searchTerm, onMove }: Prop
         meta={meta}
         canManage={canManage}
         onMove={onMove}
+        onOpenDetail={onOpenDetail}
       />
       <Section
         title="Sale"
@@ -58,6 +67,7 @@ export function WeekDetail({ bucket, meta, canManage, searchTerm, onMove }: Prop
         meta={meta}
         canManage={canManage}
         onMove={onMove}
+        onOpenDetail={onOpenDetail}
       />
     </div>
   );
@@ -71,6 +81,7 @@ interface SectionProps {
   meta: Map<string, OccMeta>;
   canManage: boolean;
   onMove?: (occurrence: VirtualOccurrence) => void;
+  onOpenDetail?: (occurrence: VirtualOccurrence, meta?: OccMeta) => void;
 }
 
 function Section({
@@ -81,6 +92,7 @@ function Section({
   meta,
   canManage,
   onMove,
+  onOpenDetail,
 }: SectionProps) {
   const [open, setOpen] = useState(true);
   const [showZero, setShowZero] = useState(false);
@@ -128,6 +140,7 @@ function Section({
                     meta={meta}
                     canManage={canManage}
                     onMove={onMove}
+                    onOpenDetail={onOpenDetail}
                   />
                 ) : (
                   <MovementRow
@@ -136,6 +149,7 @@ function Section({
                     meta={r.occ.id ? meta.get(r.occ.id) : undefined}
                     canManage={canManage}
                     onMove={onMove}
+                    onOpenDetail={onOpenDetail}
                   />
                 ),
               )}
@@ -159,6 +173,7 @@ function Section({
                         meta={o.id ? meta.get(o.id) : undefined}
                         canManage={canManage}
                         onMove={onMove}
+                        onOpenDetail={onOpenDetail}
                       />
                     ))}
                   </div>

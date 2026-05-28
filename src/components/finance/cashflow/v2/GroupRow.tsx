@@ -16,6 +16,7 @@ interface Props {
   meta: Map<string, OccMeta>;
   canManage: boolean;
   onMove?: (occurrence: VirtualOccurrence) => void;
+  onOpenDetail?: (occurrence: VirtualOccurrence, meta?: OccMeta) => void;
 }
 
 /**
@@ -31,6 +32,7 @@ export function GroupRow({
   meta,
   canManage,
   onMove,
+  onOpenDetail,
 }: Props) {
   const [open, setOpen] = useState(false);
   return (
@@ -71,6 +73,7 @@ export function GroupRow({
               meta={o.id ? meta.get(o.id) : undefined}
               canManage={canManage}
               onMove={onMove}
+              onOpenDetail={onOpenDetail}
             />
           ))}
         </div>
