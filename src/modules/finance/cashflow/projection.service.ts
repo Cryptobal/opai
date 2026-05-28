@@ -1125,6 +1125,12 @@ export async function buildProjection(
     });
     if (ncImpact.isFullyCredited) continue;
 
+    // Facturas de proveedor (DTEs recibidos) NO entran al flujo de caja
+    // por su mera recepción. Solo aparecen cuando hay un bank-link real
+    // (DTE_RECEIVED) — en ese caso entran por el loop de bank-links
+    // huérfanos más abajo con status=PAID y amountClp=monto banco real.
+    if (!isIncome) continue;
+
     // Path 1 (NUEVO): si es INCOME y existe item de contrato del mismo
     // cliente/instalación, ENGANCHAR al item (no crear fila propia).
     // El DTE se va a renderizar dentro de la celda del contrato como
@@ -1302,6 +1308,30 @@ export async function buildProjection(
   const buckets = buildBuckets(range);
   const bucketIndex = new Map(buckets.map((b, i) => [b.key, i]));
 
+  // Pre-cálculo: occurrences proyectadas ocultas porque conviven con una
+  // conciliada en la misma celda (categoryId, bucketKey). Sin esto los
+  // totales del bucket quedan inconsistentes con las celdas visuales.
+  const hiddenOccurrenceIds = new Set<VirtualOccurrence>();
+  {
+    const groupedByCellKey = new Map<string, VirtualOccurrence[]>();
+    for (const occ of allOccurrences) {
+      const placementDate = occ.effectiveDate ?? occ.scheduledDate;
+      const bKey = bucketKeyFor(placementDate, range.granularity);
+      const cellKey = `${occ.categoryId}::${bKey}`;
+      const arr = groupedByCellKey.get(cellKey) ?? [];
+      arr.push(occ);
+      groupedByCellKey.set(cellKey, arr);
+    }
+    for (const [, occs] of groupedByCellKey) {
+      const visible = filterOccurrencesWithConciliationPriority(occs);
+      if (visible.length === occs.length) continue;
+      const visibleSet = new Set(visible);
+      for (const occ of occs) {
+        if (!visibleSet.has(occ)) hiddenOccurrenceIds.add(occ);
+      }
+    }
+  }
+
   for (const occ of allOccurrences) {
     // Usamos effectiveDate cuando existe — refleja la fecha REAL en que la
     // cuota se ejecutó (rebalanceada al conciliar), no la fecha programada
@@ -1311,6 +1341,14 @@ export async function buildProjection(
     const idx = bucketIndex.get(key);
     if (idx === undefined) continue;
     const b = buckets[idx];
+
+    // Si esta occurrence quedó "oculta" por la regla de conciliación
+    // (hay una conciliada en su celda), no suma al bucket.
+    if (hiddenOccurrenceIds.has(occ)) {
+      b.occurrences.push(occ);
+      continue;
+    }
+
     // ¿Esta occurrence ya está "explicada" por el banco real? Eso ocurre
     // cuando matchOccurrencesToBankLinks la marcó PAID con un
     // bankTransactionId — la plata YA está sumada en
@@ -1755,6 +1793,20 @@ function buildBuckets(range: ProjectionRange): ProjectionBucket[] {
   return buckets.sort((a, b) => a.start.getTime() - b.start.getTime());
 }
 
+/**
+ * Filtro por celda: cuando hay al menos una occurrence conciliada
+ * (bankTransactionId !== null), se descartan todas las proyectadas.
+ * Las conciliaciones múltiples se suman entre sí.
+ */
+function filterOccurrencesWithConciliationPriority(
+  occurrences: VirtualOccurrence[],
+): VirtualOccurrence[] {
+  if (occurrences.length === 0) return occurrences;
+  const hasConciliation = occurrences.some((o) => o.bankTransactionId !== null);
+  if (!hasConciliation) return occurrences;
+  return occurrences.filter((o) => o.bankTransactionId !== null);
+}
+
 function buildRows(
   buckets: ProjectionBucket[],
   categories: FinanceCashflowCategory[],
@@ -1790,14 +1842,32 @@ function buildRows(
     // flujo de caja y agregar movimientos a categorías vacías sin tener
     // que volver a la configuración para confirmar que existen.
     const values = buckets.map((b) => {
-      const amount = filtered
-        .filter((o) => {
-          const d = o.effectiveDate ?? o.scheduledDate;
-          return d >= b.start && d <= b.end;
-        })
-        .reduce((s, o) => s + o.amountClp, 0);
+      const inBucket = filtered.filter((o) => {
+        const d = o.effectiveDate ?? o.scheduledDate;
+        return d >= b.start && d <= b.end;
+      });
+      const visible = filterOccurrencesWithConciliationPriority(inBucket);
+      const amount = visible.reduce((s, o) => {
+        const isReconciled = o.bankTransactionId !== null;
+        const displayAmount = isReconciled
+          ? (o.actualAmountClp ?? o.amountClp)
+          : o.amountClp;
+        return s + displayAmount;
+      }, 0);
       return { bucketKey: b.key, amount };
     });
+
+    // Pre-cálculo: para cada bucket, qué occurrences son visibles según la
+    // regla "conciliación reemplaza proyección".
+    const visibleByBucket = new Map<string, Set<VirtualOccurrence>>();
+    for (const b of buckets) {
+      const inBucket = filtered.filter((o) => {
+        const d = o.effectiveDate ?? o.scheduledDate;
+        return d >= b.start && d <= b.end;
+      });
+      const visible = filterOccurrencesWithConciliationPriority(inBucket);
+      visibleByBucket.set(b.key, new Set(visible));
+    }
 
     // Desglose por item — una sub-fila por (itemId | _dte:<id> | _orphan).
     // Los DTE huérfanos (itemId=null, dteId seteado) reciben sub-fila propia
@@ -1852,22 +1922,28 @@ function buildRows(
       );
       if (bIdx === -1) continue;
 
-      // Si la occurrence tiene un DTE DRAFT vinculado, el monto a sumar
-      // a la celda es el del DTE (no el del item proyectado). El
-      // borrador refleja la intención real del usuario, no la proyección
-      // automática. Sin este override la celda muestra el monto del item
-      // (ej: 117 UF) aunque el usuario haya creado un borrador con otro
-      // monto (ej: 100 UF) — el flujo "miente" hasta que se emite el DTE.
-      let amountForBucket = o.amountClp;
-      if (o.dteId) {
-        const dteInfo = dteStatusById.get(o.dteId);
-        const dteGross = dteGrossById.get(o.dteId);
-        if (
-          dteInfo?.siiStatus === "DRAFT" &&
-          dteGross !== undefined &&
-          Math.abs(dteGross - o.amountClp) > 1
-        ) {
-          amountForBucket = dteGross;
+      // Regla "conciliación reemplaza proyección": si esta occurrence cae
+      // en un bucket donde hay alguna conciliada y ella misma es proyectada,
+      // se omite — la conciliación es soberana.
+      const visibleSet = visibleByBucket.get(buckets[bIdx].key);
+      if (visibleSet && !visibleSet.has(o)) continue;
+
+      let amountForBucket: number;
+      const isReconciled = o.bankTransactionId !== null;
+      if (isReconciled) {
+        amountForBucket = o.actualAmountClp ?? o.amountClp;
+      } else {
+        amountForBucket = o.amountClp;
+        if (o.dteId) {
+          const dteInfo = dteStatusById.get(o.dteId);
+          const dteGross = dteGrossById.get(o.dteId);
+          if (
+            dteInfo?.siiStatus === "DRAFT" &&
+            dteGross !== undefined &&
+            Math.abs(dteGross - o.amountClp) > 1
+          ) {
+            amountForBucket = dteGross;
+          }
         }
       }
       detail.values[bIdx].amount += amountForBucket;
