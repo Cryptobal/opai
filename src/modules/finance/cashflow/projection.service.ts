@@ -1125,6 +1125,12 @@ export async function buildProjection(
     });
     if (ncImpact.isFullyCredited) continue;
 
+    // Facturas de proveedor (DTEs recibidos) NO entran al flujo de caja
+    // por su mera recepción. Solo aparecen cuando hay un bank-link real
+    // (DTE_RECEIVED) — en ese caso entran por el loop de bank-links
+    // huérfanos más abajo con status=PAID y amountClp=monto banco real.
+    if (!isIncome) continue;
+
     // Path 1 (NUEVO): si es INCOME y existe item de contrato del mismo
     // cliente/instalación, ENGANCHAR al item (no crear fila propia).
     // El DTE se va a renderizar dentro de la celda del contrato como
