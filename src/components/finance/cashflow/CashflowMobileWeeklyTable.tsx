@@ -50,14 +50,17 @@ export function CashflowMobileWeeklyTable({
   projection, activeBucketKey, canManage, onTapCell,
 }: Props) {
   const { prev, active, next } = getTriplet(projection.buckets, activeBucketKey);
+  // Estado: set de keys de categorías abiertas. Default vacío = todas
+  // contraídas. El usuario expande manualmente las que le interesan
+  // — coherente con el comportamiento del desktop (ExpandableMatrixRow
+  // con `useState(false)` por categoría).
   const [openCats, setOpenCats] = useState<Set<string>>(new Set());
-  const isOpen = (k: string) => openCats.size === 0 || openCats.has(k);
+  const isOpen = (k: string) => openCats.has(k);
   function toggleCat(k: string) {
     setOpenCats((s) => {
-      const n = s.size === 0
-        ? new Set(projection.rows.map((r) => `${r.kind}:${r.categoryCode}`))
-        : new Set(s);
-      n.has(k) ? n.delete(k) : n.add(k);
+      const n = new Set(s);
+      if (n.has(k)) n.delete(k);
+      else n.add(k);
       return n;
     });
   }
