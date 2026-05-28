@@ -5,6 +5,7 @@ import type {
   ProjectionMatrix,
   ProjectionAnchorInfo,
 } from "@/modules/finance/cashflow/types";
+import { HealthHeader } from "./HealthHeader";
 
 export interface CashflowV2ShellProps {
   /** Proyección semanal ya construida en el server (serializada a JSON:
@@ -27,6 +28,7 @@ export function CashflowV2Shell({ projection, canManage }: CashflowV2ShellProps)
   return (
     <div className="space-y-4 min-w-0">
       <BancaTabsHeader active="cashflow" />
+      <HealthHeader projection={projection} />
       <div className="rounded-ds-lg border border-dashed border-ds-border-default bg-ds-surface-1 p-6 text-center text-sm text-ds-text-3">
         Flujo de Caja v2 — en construcción ({projection.buckets.length} buckets)
       </div>
