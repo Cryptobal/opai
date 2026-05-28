@@ -11,11 +11,12 @@ import { CashflowTabs } from "@/components/finance/cashflow/CashflowTabs";
 import { CashflowKpis, type KpiData } from "@/components/finance/cashflow/CashflowKpis";
 import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
 import { OpeningAnchorCard } from "@/components/finance/cashflow/OpeningAnchorCard";
+import { CashflowV2Shell } from "@/components/finance/cashflow/v2/CashflowV2Shell";
 
 export default async function FlujoCajaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; weeks?: string; weeksBack?: string }>;
+  searchParams: Promise<{ tab?: string; weeks?: string; weeksBack?: string; v?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/opai/login?callbackUrl=/finanzas/flujo-caja");
@@ -109,6 +110,22 @@ export default async function FlujoCajaPage({
           : "banco < proyectado",
       href: "/finanzas/flujo-caja/cuadratura",
     });
+  }
+
+  // Gate Flujo de Caja v2 (riesgo cero): solo con ?v=2 se monta la pantalla
+  // nueva sobre la MISMA proyección. Sin el flag, la página renderiza
+  // exactamente lo de hoy. La serialización JSON convierte las fechas a ISO
+  // string (el shell las consume con new Date()), igual que CashflowTabs.
+  if (sp.v === "2") {
+    return (
+      <div className="space-y-4 min-w-0">
+        <CashflowV2Shell
+          projection={JSON.parse(JSON.stringify(projection))}
+          canManage={canManage}
+          anchor={projection.anchor}
+        />
+      </div>
+    );
   }
 
   return (
