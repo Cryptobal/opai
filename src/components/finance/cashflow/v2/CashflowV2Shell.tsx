@@ -4,15 +4,19 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addMonths } from "date-fns";
 import { toast } from "sonner";
+import { Lock } from "lucide-react";
 import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
+import { Button } from "@/components/ui/button";
 import type {
   ProjectionMatrix,
   ProjectionAnchorInfo,
   VirtualOccurrence,
 } from "@/modules/finance/cashflow/types";
 import { HealthHeader } from "./HealthHeader";
+import { AnchorBanner } from "./AnchorBanner";
 import { WeekStrip } from "./WeekStrip";
 import { WeekDetail } from "./WeekDetail";
+import { ReconcileBand } from "./ReconcileBand";
 import { MovePicker } from "./MovePicker";
 import { ClosedWeekModal } from "./ClosedWeekModal";
 import { GranularityToggle, type Granularity } from "./GranularityToggle";
@@ -20,6 +24,7 @@ import {
   currentBucketIndex,
   buildOccurrenceMeta,
   isBucketClosed,
+  isCurrentOrPast,
 } from "./projection-helpers";
 import { toDate } from "./format";
 
@@ -61,6 +66,13 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
   const selectedBucket =
     active.buckets.find((b) => b.key === effectiveKey) ?? null;
   const occMeta = useMemo(() => buildOccurrenceMeta(active), [active]);
+  // Cerrar/conciliar son conceptos semanales y solo aplican a una semana que
+  // ya empezó y sigue abierta (sin anchor que la selle).
+  const bucketActionable =
+    !!selectedBucket &&
+    granularity === "weekly" &&
+    isCurrentOrPast(selectedBucket) &&
+    !isBucketClosed(selectedBucket, anchor);
 
   async function handleGranularity(g: Granularity) {
     setSelectedKey(null);
@@ -169,10 +181,37 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
     }
   }
 
+  async function handleCloseWeek() {
+    if (!selectedBucket) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/finance/cashflow/weekly-close`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          weekEnd: toDate(selectedBucket.end).toISOString(),
+          anchor: true,
+        }),
+      });
+      const j = await res.json();
+      if (!j?.success) {
+        toast.error(j?.error ?? "No se pudo cerrar la semana");
+        return;
+      }
+      toast.success("Semana cerrada y proyección anclada");
+      router.refresh();
+    } catch {
+      toast.error("Error al cerrar la semana");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div className="space-y-4 min-w-0">
       <BancaTabsHeader active="cashflow" />
       <HealthHeader projection={projection} />
+      <AnchorBanner anchor={anchor} />
 
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-ds-text-1">Línea de tiempo</h2>
@@ -192,12 +231,31 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
       />
 
       {selectedBucket ? (
-        <WeekDetail
-          bucket={selectedBucket}
-          meta={occMeta}
-          canManage={canManage}
-          onMove={setMoveOcc}
-        />
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-ds-text-1">
+              {selectedBucket.label}
+            </h2>
+            {bucketActionable && canManage && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-[12px]"
+                disabled={submitting}
+                onClick={handleCloseWeek}
+              >
+                <Lock className="mr-1 h-3.5 w-3.5" /> Cerrar semana
+              </Button>
+            )}
+          </div>
+          <WeekDetail
+            bucket={selectedBucket}
+            meta={occMeta}
+            canManage={canManage}
+            onMove={setMoveOcc}
+          />
+          {bucketActionable && <ReconcileBand bucket={selectedBucket} />}
+        </div>
       ) : (
         <div className="rounded-ds-lg border border-dashed border-ds-border-default bg-ds-surface-1 p-6 text-center text-sm text-ds-text-3">
           Sin bucket seleccionado

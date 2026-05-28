@@ -62,6 +62,11 @@ export function isBucketClosed(
   return toDate(bucket.end).getTime() <= toDate(anchor.weekEndDate).getTime();
 }
 
+/** True si el bucket ya empezó (semana actual o pasada). */
+export function isCurrentOrPast(bucket: ProjectionBucket): boolean {
+  return toDate(bucket.start).getTime() <= Date.now();
+}
+
 /** True si el bucket es exactamente la semana anclada (mismo día calendario). */
 export function isAnchorBucket(
   bucket: ProjectionBucket,
