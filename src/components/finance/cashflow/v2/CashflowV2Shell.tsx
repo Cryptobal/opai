@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Lock } from "lucide-react";
 import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type {
   ProjectionMatrix,
   ProjectionAnchorInfo,
@@ -17,6 +18,7 @@ import { AnchorBanner } from "./AnchorBanner";
 import { WeekStrip } from "./WeekStrip";
 import { WeekDetail } from "./WeekDetail";
 import { ReconcileBand } from "./ReconcileBand";
+import { Legend } from "./Legend";
 import { MovePicker } from "./MovePicker";
 import { ClosedWeekModal } from "./ClosedWeekModal";
 import { GranularityToggle, type Granularity } from "./GranularityToggle";
@@ -50,6 +52,7 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
   const [monthly, setMonthly] = useState<ProjectionMatrix | null>(null);
   const [loadingMonthly, setLoadingMonthly] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const [moveOcc, setMoveOcc] = useState<VirtualOccurrence | null>(null);
   const [pendingMove, setPendingMove] = useState<{
     occ: VirtualOccurrence;
@@ -231,36 +234,63 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
       />
 
       {selectedBucket ? (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-ds-text-1">
-              {selectedBucket.label}
-            </h2>
-            {bucketActionable && canManage && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 text-[12px]"
-                disabled={submitting}
-                onClick={handleCloseWeek}
-              >
-                <Lock className="mr-1 h-3.5 w-3.5" /> Cerrar semana
-              </Button>
+        // Móvil = 1 columna (detalle → conciliación). lg+ = split: detalle a la
+        // izquierda (col-span-3) y conciliación a la derecha (col-span-2). Si la
+        // semana no es accionable (futura/cerrada) el detalle ocupa todo el ancho.
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+          <div
+            className={cn(
+              "min-w-0 space-y-3",
+              bucketActionable ? "lg:col-span-3" : "lg:col-span-5",
             )}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold text-ds-text-1">
+                {selectedBucket.label}
+              </h2>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar…"
+                  aria-label="Buscar en el detalle de la semana"
+                  className="h-9 w-36 rounded-ds-md border border-ds-border-default bg-ds-surface-1 px-2.5 text-base placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary sm:w-44 sm:text-[13px]"
+                />
+                {bucketActionable && canManage && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-9 text-[12px]"
+                    disabled={submitting}
+                    onClick={handleCloseWeek}
+                  >
+                    <Lock className="mr-1 h-3.5 w-3.5" /> Cerrar semana
+                  </Button>
+                )}
+              </div>
+            </div>
+            <WeekDetail
+              bucket={selectedBucket}
+              meta={occMeta}
+              canManage={canManage}
+              searchTerm={searchTerm}
+              onMove={setMoveOcc}
+            />
           </div>
-          <WeekDetail
-            bucket={selectedBucket}
-            meta={occMeta}
-            canManage={canManage}
-            onMove={setMoveOcc}
-          />
-          {bucketActionable && <ReconcileBand bucket={selectedBucket} />}
+          {bucketActionable && (
+            <div className="min-w-0 lg:col-span-2">
+              <ReconcileBand bucket={selectedBucket} />
+            </div>
+          )}
         </div>
       ) : (
         <div className="rounded-ds-lg border border-dashed border-ds-border-default bg-ds-surface-1 p-6 text-center text-sm text-ds-text-3">
           Sin bucket seleccionado
         </div>
       )}
+
+      <Legend />
 
       <MovePicker
         open={moveOcc != null}

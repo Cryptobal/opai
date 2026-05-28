@@ -190,7 +190,7 @@ export function ReconcileBand({ bucket }: { bucket: ProjectionBucket }) {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-6 shrink-0 text-[11px]"
+                          className="h-7 shrink-0 text-[12px]"
                           disabled={c.occurrenceId == null || confirming === t.id}
                           onClick={() => c.occurrenceId && confirm(t.id, c.occurrenceId)}
                         >

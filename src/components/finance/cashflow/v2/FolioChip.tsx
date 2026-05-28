@@ -21,7 +21,7 @@ export function FolioChip({ folio, dteId, isDraft, className }: Props) {
     const chip = (
       <span
         className={cn(
-          "inline-flex items-center gap-1 rounded-ds-sm border border-primary/30 px-1.5 py-0.5 font-mono text-[11px] text-primary",
+          "inline-flex items-center gap-1 rounded-ds-sm border border-primary/30 px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.04em] text-primary",
           dteId && "cursor-pointer hover:bg-primary/10",
           className,
         )}
@@ -47,7 +47,7 @@ export function FolioChip({ folio, dteId, isDraft, className }: Props) {
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1 rounded-ds-sm border border-status-warn-border bg-status-warn-soft px-1.5 py-0.5 font-mono text-[11px] text-status-warn-fg",
+          "inline-flex items-center gap-1 rounded-ds-sm border border-status-warn-border bg-status-warn-soft px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.04em] text-status-warn-fg",
           className,
         )}
       >

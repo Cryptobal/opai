@@ -37,17 +37,17 @@ export function MovementRow({ occurrence: occ, meta, canManage, onMove }: Props)
   });
 
   return (
-    <div className="flex items-center gap-2 py-1.5">
+    <div className="flex min-h-[44px] items-center gap-2 py-1.5">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="truncate text-[13px] text-ds-text-1">{title}</span>
           {factoring && (
-            <span className="rounded-ds-sm bg-purple-500/15 px-1.5 py-0.5 font-mono text-[10px] font-medium text-purple-300">
+            <span className="rounded-ds-sm bg-purple-500/15 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-purple-300">
               F
             </span>
           )}
           {isUf && (
-            <span className="rounded-ds-sm bg-ds-surface-3 px-1.5 py-0.5 font-mono text-[10px] font-medium text-ds-text-2">
+            <span className="rounded-ds-sm bg-ds-surface-3 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-ds-text-2">
               UF
             </span>
           )}
@@ -75,7 +75,7 @@ export function MovementRow({ occurrence: occ, meta, canManage, onMove }: Props)
             onClick={() => onMove?.(occ)}
             aria-label="Mover a otra semana"
             className={cn(
-              "inline-flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-3",
+              "inline-flex h-9 w-9 items-center justify-center rounded-ds-sm text-ds-text-3",
               "hover:bg-ds-surface-3 hover:text-ds-text-1",
             )}
           >

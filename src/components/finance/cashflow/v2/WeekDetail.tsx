@@ -21,14 +21,23 @@ interface Props {
   bucket: ProjectionBucket;
   meta: Map<string, OccMeta>;
   canManage: boolean;
+  /** Filtro de texto opcional sobre las occurrences (cliente/contrato/instalación). */
+  searchTerm?: string;
   onMove?: (occurrence: VirtualOccurrence) => void;
 }
 
 /** Detalle de la semana seleccionada: Entra (INCOME) / Sale (EXPENSE), cada
  *  sección colapsable con subtotal. */
-export function WeekDetail({ bucket, meta, canManage, onMove }: Props) {
-  const income = bucket.occurrences.filter((o) => o.kind === "INCOME");
-  const expense = bucket.occurrences.filter((o) => o.kind === "EXPENSE");
+export function WeekDetail({ bucket, meta, canManage, searchTerm, onMove }: Props) {
+  const term = (searchTerm ?? "").trim().toLowerCase();
+  const matches = (o: VirtualOccurrence) =>
+    !term ||
+    [o.name, o.nickname, o.installationName, o.categoryName].some((s) =>
+      (s ?? "").toLowerCase().includes(term),
+    );
+  const visible = bucket.occurrences.filter(matches);
+  const income = visible.filter((o) => o.kind === "INCOME");
+  const expense = visible.filter((o) => o.kind === "EXPENSE");
   return (
     <div className="space-y-3">
       <Section
