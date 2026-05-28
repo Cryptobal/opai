@@ -146,7 +146,9 @@ function Section({
   onOpenDetail,
   onMutate,
 }: SectionProps) {
-  const [open, setOpen] = useState(true);
+  // Mobile-first: secciones Entra/Sale arrancan contraídas para que el saldo
+  // de la semana sea lo primero que se vea. Carlos las expande on-demand.
+  const [open, setOpen] = useState(false);
   const [showZero, setShowZero] = useState(false);
   const { rows, zeroCount } = buildDetailRows(occurrences, { isCurrent, todayIso });
   const subtotal = rows.reduce((s, r) => s + detailRowAmount(r), 0);
