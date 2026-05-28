@@ -14,8 +14,9 @@ import type {
   VirtualOccurrence,
 } from "@/modules/finance/cashflow/types";
 import { fmtCLP } from "./format";
-import type { OccMeta } from "./projection-helpers";
+import { buildDetailRows, type OccMeta } from "./projection-helpers";
 import { MovementRow } from "./MovementRow";
+import { GroupRow } from "./GroupRow";
 
 interface Props {
   bucket: ProjectionBucket;
@@ -82,7 +83,13 @@ function Section({
   onMove,
 }: SectionProps) {
   const [open, setOpen] = useState(true);
-  const subtotal = occurrences.reduce((s, o) => s + o.amountClp, 0);
+  const [showZero, setShowZero] = useState(false);
+  const { rows, zeroCount } = buildDetailRows(occurrences);
+  const subtotal = rows.reduce(
+    (s, r) => s + (r.type === "group" ? r.totalClp : r.occ.amountClp),
+    0,
+  );
+  const zeroOccs = occurrences.filter((o) => o.amountClp === 0);
   const toneFg = tone === "ok" ? "text-status-ok-fg" : "text-status-danger-fg";
   return (
     <Surface padding="sm">
@@ -101,26 +108,63 @@ function Section({
           />
           <Icon className={cn("h-4 w-4", toneFg)} />
           <span className="text-[13px] font-semibold text-ds-text-1">{title}</span>
-          <span className="font-mono text-[12px] text-ds-text-3">
-            {occurrences.length}
-          </span>
+          <span className="font-mono text-[12px] text-ds-text-3">{rows.length}</span>
         </span>
         <span className={cn("font-mono text-[13px] tabular-nums", toneFg)}>
           {fmtCLP.format(subtotal)}
         </span>
       </button>
       {open &&
-        (occurrences.length > 0 ? (
-          <div className="mt-1 divide-y divide-ds-border-subtle border-t border-ds-border-subtle">
-            {occurrences.map((o, i) => (
-              <MovementRow
-                key={o.id ?? `v-${i}`}
-                occurrence={o}
-                meta={o.id ? meta.get(o.id) : undefined}
-                canManage={canManage}
-                onMove={onMove}
-              />
-            ))}
+        (rows.length > 0 || zeroCount > 0 ? (
+          <div className="mt-1 border-t border-ds-border-subtle">
+            <div className="divide-y divide-ds-border-subtle">
+              {rows.map((r, i) =>
+                r.type === "group" ? (
+                  <GroupRow
+                    key={`grp-${r.label}`}
+                    label={r.label}
+                    totalClp={r.totalClp}
+                    items={r.items}
+                    meta={meta}
+                    canManage={canManage}
+                    onMove={onMove}
+                  />
+                ) : (
+                  <MovementRow
+                    key={r.occ.id ?? `s-${i}`}
+                    occurrence={r.occ}
+                    meta={r.occ.id ? meta.get(r.occ.id) : undefined}
+                    canManage={canManage}
+                    onMove={onMove}
+                  />
+                ),
+              )}
+            </div>
+            {zeroCount > 0 && (
+              <div className="pt-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowZero((v) => !v)}
+                  aria-expanded={showZero}
+                  className="flex min-h-[36px] items-center text-[12px] text-ds-text-3 hover:text-ds-text-2"
+                >
+                  {showZero ? "Ocultar sin monto" : `+${zeroCount} sin monto esta semana`}
+                </button>
+                {showZero && (
+                  <div className="divide-y divide-ds-border-subtle border-t border-ds-border-subtle">
+                    {zeroOccs.map((o, i) => (
+                      <MovementRow
+                        key={o.id ?? `z-${i}`}
+                        occurrence={o}
+                        meta={o.id ? meta.get(o.id) : undefined}
+                        canManage={canManage}
+                        onMove={onMove}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <p className="mt-2 text-[12px] text-ds-text-3">Sin movimientos.</p>
