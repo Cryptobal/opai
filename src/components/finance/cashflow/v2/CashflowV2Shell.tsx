@@ -21,7 +21,6 @@ import { WeekStrip } from "./WeekStrip";
 import { WeekDetail } from "./WeekDetail";
 import { WeekKanban } from "./WeekKanban";
 import { Sparkline, type SparkPoint } from "./Sparkline";
-import { TodayButton } from "./TodayButton";
 import { UndoToast, type UndoPayload } from "./UndoToast";
 import { MovementDetailSheet } from "./MovementDetailSheet";
 import { CuadraturaModal } from "./CuadraturaModal";
@@ -113,7 +112,6 @@ export function CashflowV2Shell({
     });
   }, [active, currentIndex]);
 
-  const isOnToday = effectiveKey === active.buckets[currentIndex]?.key;
   const selIdx = active.buckets.findIndex((b) => b.key === effectiveKey);
   const mobileCanLeft = selIdx > 0;
   const mobileCanRight = selIdx >= 0 && selIdx < active.buckets.length - 1;
@@ -254,11 +252,6 @@ export function CashflowV2Shell({
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-ds-text-1">Línea de tiempo</h2>
         <div className="flex items-center gap-2">
-          <TodayButton
-            visible={!isOnToday}
-            onClick={() => setSelectedKey(null)}
-            variant="desktop-inline"
-          />
           <GranularityToggle
             value={granularity}
             onChange={handleGranularity}
@@ -369,11 +362,6 @@ export function CashflowV2Shell({
         bucket={cuadraturaFor}
         canManage={canManage}
         onClose={() => setCuadraturaFor(null)}
-      />
-      <TodayButton
-        visible={!isOnToday}
-        onClick={() => setSelectedKey(null)}
-        variant="mobile-fab"
       />
       <UndoToast payload={undoPayload} onDismiss={() => setUndoPayload(null)} />
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { fmtCLP } from "./format";
 
 export interface SparkPoint {
@@ -17,25 +17,36 @@ interface Props {
   height?: number;
 }
 
-/**
- * Mini-gráfica SVG (sin librería) de los cierres proyectados alrededor de la
- * semana actual. Punto azul = semana actual, rojo = saldo negativo, verde = ok.
- * Línea punteada en y=0. Si onJump está definido, los puntos saltan a esa
- * semana. Ancho responsive (100% del contenedor).
- */
+/** Mini-gráfica SVG responsive (sin librería) de los cierres proyectados.
+ *  Mide el ancho real del contenedor con ResizeObserver y usa coordenadas
+ *  reales para que los círculos NO se deformen en elipses. */
 export function Sparkline({ points, onJump, height = 64 }: Props) {
   const gradientId = useId();
-  if (points.length < 2) return null;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(400);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const el = containerRef.current;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 400;
+      if (w > 0) setWidth(Math.round(w));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  if (points.length < 2) return <div ref={containerRef} style={{ height }} />;
 
   const PAD_X = 12;
-  const PAD_Y = 16;
-  const W = 1000; // viewBox width; el SVG escala al 100% del contenedor
+  const PAD_Y = 14;
+  const W = width;
   const H = height;
   const values = points.map((p) => p.balanceClp);
   const min = Math.min(...values, 0);
   const max = Math.max(...values, 0);
   const span = max - min || 1;
-  const innerW = W - PAD_X * 2;
+  const innerW = Math.max(W - PAD_X * 2, 1);
   const innerH = H - PAD_Y * 2;
 
   const x = (i: number) =>
@@ -48,18 +59,21 @@ export function Sparkline({ points, onJump, height = 64 }: Props) {
   const zeroY = y(0);
 
   return (
-    <div className="rounded-ds-lg border border-ds-border-default bg-ds-surface-1 px-2 py-1.5">
+    <div
+      ref={containerRef}
+      className="rounded-ds-lg border border-ds-border-default bg-ds-surface-1 px-2 py-1.5"
+    >
       <svg
-        viewBox={`0 0 ${W} ${H}`}
-        width="100%"
+        width={W}
         height={H}
-        preserveAspectRatio="none"
+        viewBox={`0 0 ${W} ${H}`}
         role="img"
         aria-label="Proyección de saldos de las próximas semanas"
+        style={{ display: "block" }}
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.12" />
+            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.14" />
             <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
           </linearGradient>
         </defs>
@@ -81,7 +95,14 @@ export function Sparkline({ points, onJump, height = 64 }: Props) {
           strokeDasharray="4 4"
         />
         {/* Línea de saldos */}
-        <path d={linePath} fill="none" stroke="var(--ds-text-2)" strokeWidth={1.5} />
+        <path
+          d={linePath}
+          fill="none"
+          stroke="var(--ds-text-2)"
+          strokeWidth={1.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
         {/* Puntos */}
         {points.map((p, i) => {
           const color = p.isCurrent
@@ -91,14 +112,17 @@ export function Sparkline({ points, onJump, height = 64 }: Props) {
               : "var(--ds-ok)";
           const cx = x(i);
           const cy = y(p.balanceClp);
+          const r = p.isCurrent ? 4.5 : 3.5;
           return (
             <g key={p.key}>
-              <circle cx={cx} cy={cy} r={5.5} fill="var(--ds-surface-1)" />
+              <circle cx={cx} cy={cy} r={r + 1.5} fill="var(--ds-surface-1)" />
               <circle
                 cx={cx}
                 cy={cy}
-                r={p.isCurrent ? 4.5 : 3.5}
+                r={r}
                 fill={color}
+                stroke={p.isCurrent ? "#fff" : "none"}
+                strokeWidth={p.isCurrent ? 1.5 : 0}
                 style={onJump ? { cursor: "pointer" } : undefined}
                 onClick={onJump ? () => onJump(p.key) : undefined}
               >
