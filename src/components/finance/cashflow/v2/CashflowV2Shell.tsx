@@ -17,6 +17,7 @@ import { HealthHeader } from "./HealthHeader";
 import { AnchorBanner } from "./AnchorBanner";
 import { WeekStrip } from "./WeekStrip";
 import { WeekDetail } from "./WeekDetail";
+import { MovementDetailSheet } from "./MovementDetailSheet";
 import { ReconcileBand } from "./ReconcileBand";
 import { Legend } from "./Legend";
 import { MovePicker } from "./MovePicker";
@@ -27,6 +28,7 @@ import {
   buildOccurrenceMeta,
   isBucketClosed,
   isCurrentOrPast,
+  type OccMeta,
 } from "./projection-helpers";
 import { toDate } from "./format";
 
@@ -54,6 +56,10 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [moveOcc, setMoveOcc] = useState<VirtualOccurrence | null>(null);
+  const [detail, setDetail] = useState<{
+    occ: VirtualOccurrence;
+    meta?: OccMeta;
+  } | null>(null);
   const [pendingMove, setPendingMove] = useState<{
     occ: VirtualOccurrence;
     destKey: string;
@@ -276,6 +282,7 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
               canManage={canManage}
               searchTerm={searchTerm}
               onMove={setMoveOcc}
+              onOpenDetail={(occ, meta) => setDetail({ occ, meta })}
             />
           </div>
           {bucketActionable && (
@@ -307,6 +314,11 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
         submitting={submitting}
         onCancel={() => setPendingMove(null)}
         onReopen={handleReopen}
+      />
+      <MovementDetailSheet
+        occ={detail?.occ ?? null}
+        meta={detail?.meta}
+        onClose={() => setDetail(null)}
       />
     </div>
   );

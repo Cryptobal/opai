@@ -1,5 +1,6 @@
 "use client";
 
+import type { KeyboardEvent } from "react";
 import { Lock, MoveHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -17,14 +18,25 @@ interface Props {
   canManage: boolean;
   /** Abre el selector de bucket destino. Wired en el bloque 0.4. */
   onMove?: (occurrence: VirtualOccurrence) => void;
+  /** Abre el detalle "qué es esto" de la fila. Si está definido, la fila es
+   *  tappable (los botones internos hacen stopPropagation). */
+  onOpenDetail?: (occurrence: VirtualOccurrence, meta?: OccMeta) => void;
 }
 
 /**
  * Fila de un movimiento del detalle de la semana. Conciliado (bankTransactionId
  * != null) ⇒ candado (fijo). Proyectado/borrador ⇒ botón mover. Muestra chips
- * de factoring/UF, folio de factura y el pill de estado.
+ * de factoring/UF, folio de factura y el pill de estado. Las facturas reales
+ * (pagada/emitida/con folio) se resaltan; las proyecciones/borradores se
+ * atenúan. La fila completa abre el detalle al tocarla.
  */
-export function MovementRow({ occurrence: occ, meta, canManage, onMove }: Props) {
+export function MovementRow({
+  occurrence: occ,
+  meta,
+  canManage,
+  onMove,
+  onOpenDetail,
+}: Props) {
   const reconciled = occ.bankTransactionId != null;
   const title = occ.nickname || occ.name || occ.installationName || "Sin nombre";
   const factoring = occ.modoCobro === "FACTORING";
@@ -35,12 +47,42 @@ export function MovementRow({ occurrence: occ, meta, canManage, onMove }: Props)
     hasFactoring: factoring,
     daysOverdue: meta?.daysOverdue,
   });
+  // Real = ya existe como hecho (conciliada, pagada, emitida, o con folio). El
+  // resto (proyección/borrador) se atenúa para distinguir lo cierto de lo
+  // estimado de un vistazo.
+  const isReal =
+    reconciled ||
+    cellStatus === "PAID" ||
+    cellStatus === "INVOICED" ||
+    meta?.dteFolio != null;
+  const emphasis = isReal ? "text-ds-text-1" : "text-ds-text-2";
+  const tappable = !!onOpenDetail;
+  const open = () => onOpenDetail?.(occ, meta);
 
   return (
-    <div className="flex min-h-[44px] items-center gap-2 py-1.5">
+    <div
+      className={cn(
+        "flex min-h-[44px] items-center gap-2 py-1.5",
+        tappable &&
+          "cursor-pointer rounded-ds-sm transition-colors hover:bg-ds-surface-2",
+      )}
+      {...(tappable
+        ? {
+            role: "button" as const,
+            tabIndex: 0,
+            onClick: open,
+            onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                open();
+              }
+            },
+          }
+        : {})}
+    >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="truncate text-[13px] text-ds-text-1">{title}</span>
+          <span className={cn("truncate text-[13px]", emphasis)}>{title}</span>
           {factoring && (
             <span className="rounded-ds-sm bg-purple-500/15 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-purple-300">
               F
@@ -60,7 +102,7 @@ export function MovementRow({ occurrence: occ, meta, canManage, onMove }: Props)
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        <span className="font-mono text-[13px] tabular-nums text-ds-text-1">
+        <span className={cn("font-mono text-[13px] tabular-nums", emphasis)}>
           {fmtCLP.format(occ.amountClp)}
         </span>
         <CellStatusPill variant={variant} compact />
@@ -72,7 +114,10 @@ export function MovementRow({ occurrence: occ, meta, canManage, onMove }: Props)
         ) : canManage ? (
           <button
             type="button"
-            onClick={() => onMove?.(occ)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onMove?.(occ);
+            }}
             aria-label="Mover a otra semana"
             className={cn(
               "inline-flex h-9 w-9 items-center justify-center rounded-ds-sm text-ds-text-3",
