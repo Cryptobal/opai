@@ -251,8 +251,13 @@ export interface CumulativeBalancePoint {
 export interface ProjectionAnchorInfo {
   /** ISO datetime del cierre semanal anclado (weekEndDate). */
   weekEndDate: string;
-  /** Saldo banco real al cierre, usado como base de la proyección. */
+  /** Saldo base de la proyección: forcedBalanceClp si el cierre fue manual,
+   *  si no el saldo banco real calculado al cierre. */
   bankBalanceClp: number;
+  /** El cierre anclado fue manual (saldo forzado con motivo). */
+  isManual: boolean;
+  /** Motivo del cierre manual (null si fue cierre real). */
+  manualReason: string | null;
 }
 
 /** Link bancario conciliado que no se pudo atribuir a una categoría

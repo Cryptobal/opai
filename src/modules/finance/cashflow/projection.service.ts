@@ -1596,9 +1596,24 @@ export async function buildProjection(
   const anchorClose = await prisma.financeCashflowWeeklyClose.findFirst({
     where: { tenantId, isAnchor: true },
     orderBy: { weekEndDate: "desc" },
-    select: { weekEndDate: true, bankBalanceClp: true },
+    select: {
+      weekEndDate: true,
+      bankBalanceClp: true,
+      isManual: true,
+      forcedBalanceClp: true,
+      manualReason: true,
+    },
   });
-  const anchorBalance = anchorClose ? Number(anchorClose.bankBalanceClp) : null;
+  // Para cierres manuales la base de la proyección es el saldo forzado, no el
+  // banco calculado — así la apertura de las semanas siguientes parte del valor
+  // que el usuario selló con motivo.
+  const anchorBalance = anchorClose
+    ? Number(
+        anchorClose.isManual && anchorClose.forcedBalanceClp != null
+          ? anchorClose.forcedBalanceClp
+          : anchorClose.bankBalanceClp,
+      )
+    : null;
   const anchorDate = anchorClose?.weekEndDate ?? null;
 
   // Snapshots de saldo: necesarios para calcular el saldo real por bucket de
@@ -1757,7 +1772,9 @@ export async function buildProjection(
     anchor: anchorClose
       ? {
           weekEndDate: anchorClose.weekEndDate.toISOString(),
-          bankBalanceClp: Number(anchorClose.bankBalanceClp),
+          bankBalanceClp: anchorBalance ?? Number(anchorClose.bankBalanceClp),
+          isManual: anchorClose.isManual,
+          manualReason: anchorClose.manualReason,
         }
       : null,
   };

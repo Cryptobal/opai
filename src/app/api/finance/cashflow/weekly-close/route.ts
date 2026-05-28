@@ -8,6 +8,7 @@ import {
   nextWeekClosingDate,
   listRecentCloses,
 } from "@/modules/finance/cashflow/weekly-close.service";
+import { isBankConnected } from "@/modules/finance/cashflow/bank-connection.service";
 
 export async function GET(request: NextRequest) {
   const ctx = await requireAuth();
@@ -23,16 +24,25 @@ export async function GET(request: NextRequest) {
 
   const snapshot = await computeWeeklyCloseSnapshot(ctx.tenantId, weekEnd);
   const history = includeHistory ? await listRecentCloses(ctx.tenantId) : undefined;
+  const bankConnected = await isBankConnected(ctx.tenantId);
 
-  return NextResponse.json({ success: true, data: { snapshot, history } });
+  return NextResponse.json({ success: true, data: { snapshot, history, bankConnected } });
 }
 
-const postSchema = z.object({
-  weekEnd: z.coerce.date(),
-  notes: z.string().max(1000).optional(),
-  anchor: z.boolean().optional().default(false),
-  varianceResolution: z.enum(["ADJUSTED", "ACCEPTED", "PENDING"]).optional(),
-});
+const postSchema = z
+  .object({
+    weekEnd: z.coerce.date(),
+    notes: z.string().max(1000).optional(),
+    anchor: z.boolean().optional().default(false),
+    varianceResolution: z.enum(["ADJUSTED", "ACCEPTED", "PENDING"]).optional(),
+    mode: z.enum(["real", "manual"]).optional().default("real"),
+    forcedBalanceClp: z.number().int().optional(),
+    manualReason: z.string().min(5).max(500).optional(),
+  })
+  .refine(
+    (d) => d.mode !== "manual" || (d.forcedBalanceClp != null && d.manualReason != null),
+    { message: "mode=manual requiere forcedBalanceClp y manualReason" },
+  );
 
 export async function POST(request: NextRequest) {
   const ctx = await requireAuth();
@@ -49,8 +59,16 @@ export async function POST(request: NextRequest) {
       notes: parsed.data.notes,
       anchor: parsed.data.anchor,
       varianceResolution: parsed.data.varianceResolution,
+      mode: parsed.data.mode,
+      forcedBalanceClp: parsed.data.forcedBalanceClp,
+      manualReason: parsed.data.manualReason,
     });
-    return NextResponse.json({ success: true, data: closed });
+    return NextResponse.json({
+      success: true,
+      data: closed,
+      mode: parsed.data.mode,
+      adjustCreated: closed.adjustOccurrenceId != null,
+    });
   } catch (e) {
     return NextResponse.json(
       { success: false, error: e instanceof Error ? e.message : "Error" },

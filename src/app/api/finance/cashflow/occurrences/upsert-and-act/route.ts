@@ -3,6 +3,7 @@ import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api
 import { hasCapability } from "@/lib/permissions";
 import {
   materializeAndAct,
+  createManualOccurrence,
   OccurrenceCollisionError,
 } from "@/modules/finance/cashflow/occurrence.service";
 import { upsertAndActSchema } from "@/lib/validations/cashflow";
@@ -25,6 +26,16 @@ export async function POST(request: NextRequest) {
     const parsed = await parseBody(request, upsertAndActSchema);
     if (parsed.error) return parsed.error;
     try {
+      if (parsed.data.action === "create") {
+        const occ = await createManualOccurrence(ctx.tenantId, ctx.userId, {
+          kind: parsed.data.kind,
+          name: parsed.data.name,
+          amountClp: parsed.data.amountClp,
+          scheduledDate: parsed.data.scheduledDate,
+          categoryId: parsed.data.categoryId ?? null,
+        });
+        return NextResponse.json({ success: true, data: { id: occ.id } });
+      }
       const result = await materializeAndAct(ctx.tenantId, parsed.data);
       return NextResponse.json({ success: true, data: { id: result.id } });
     } catch (e) {

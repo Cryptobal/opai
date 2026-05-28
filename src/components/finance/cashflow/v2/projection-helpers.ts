@@ -69,6 +69,35 @@ export function isCurrentOrPast(bucket: ProjectionBucket): boolean {
   return toDate(bucket.start).getTime() <= Date.now();
 }
 
+/** True si "hoy" cae dentro del bucket (start ≤ now ≤ end). */
+export function isCurrentBucket(bucket: ProjectionBucket): boolean {
+  const now = Date.now();
+  return toDate(bucket.start).getTime() <= now && now <= toDate(bucket.end).getTime();
+}
+
+/**
+ * True si el bucket cuenta como "cerrado manual": hay un anchor activo manual
+ * y el bucket termina en o antes de la semana anclada. Simplificación: solo
+ * conocemos el anchor activo, no el cierre puntual de cada semana, así que
+ * todos los buckets ≤ anchor manual se pintan como cerrados manual.
+ */
+export function isBucketManualClose(
+  bucket: ProjectionBucket,
+  anchor: ProjectionAnchorInfo | null,
+): boolean {
+  if (!anchor || !anchor.isManual) return false;
+  return toDate(bucket.end).getTime() <= toDate(anchor.weekEndDate).getTime();
+}
+
+/** Motivo del cierre manual aplicable al bucket (null si no es manual-cerrado). */
+export function manualReasonFor(
+  bucket: ProjectionBucket,
+  anchor: ProjectionAnchorInfo | null,
+): string | null {
+  if (!isBucketManualClose(bucket, anchor)) return null;
+  return anchor?.manualReason ?? null;
+}
+
 /** True si el bucket es exactamente la semana anclada (mismo día calendario). */
 export function isAnchorBucket(
   bucket: ProjectionBucket,
@@ -128,7 +157,8 @@ export function groupKeyFor(o: VirtualOccurrence): string | null {
   return GROUP_LABELS[o.source] ?? null;
 }
 
-/** Fila del detalle: grupo consolidado (con desglose) o movimiento individual. */
+/** Fila del detalle: grupo consolidado (con desglose), movimiento individual,
+ *  o separador visual ("lo que viene" en la semana actual). */
 export type DetailRow =
   | {
       type: "group";
@@ -137,10 +167,28 @@ export type DetailRow =
       totalClp: number;
       items: VirtualOccurrence[];
     }
-  | { type: "single"; occ: VirtualOccurrence };
+  | { type: "single"; occ: VirtualOccurrence }
+  | { type: "separator"; label: string };
 
 function rowAmount(r: DetailRow): number {
+  if (r.type === "separator") return 0;
   return Math.abs(r.type === "group" ? r.totalClp : r.occ.amountClp);
+}
+
+/** Suma de montos de una fila (0 para separadores). */
+export function detailRowAmount(r: DetailRow): number {
+  if (r.type === "separator") return 0;
+  return r.type === "group" ? r.totalClp : r.occ.amountClp;
+}
+
+/** Cuenta de movimientos reales de una fila (groups cuentan su tamaño). */
+export function detailRowCount(r: DetailRow): number {
+  if (r.type === "separator") return 0;
+  return r.type === "group" ? r.items.length : 1;
+}
+
+function occIso(o: VirtualOccurrence): string {
+  return toDate(o.scheduledDate).toISOString().slice(0, 10);
 }
 
 /**
@@ -150,7 +198,10 @@ function rowAmount(r: DetailRow): number {
  * `zeroCount` para el botón "+N sin monto"). Filas y desgloses van por monto
  * absoluto desc; el sort estable mantiene el orden de inserción ante empates.
  */
-export function buildDetailRows(occurrences: VirtualOccurrence[]): {
+export function buildDetailRows(
+  occurrences: VirtualOccurrence[],
+  ctx?: { isCurrent?: boolean; todayIso?: string },
+): {
   rows: DetailRow[];
   zeroCount: number;
 } {
@@ -190,21 +241,42 @@ export function buildDetailRows(occurrences: VirtualOccurrence[]): {
     }
   }
 
+  const groupRows: DetailRow[] = [...groups.values()].map(
+    (g): DetailRow => ({
+      type: "group",
+      label: g.label,
+      source: g.source,
+      totalClp: g.totalClp,
+      items: [...g.items].sort(
+        (a, b) => Math.abs(b.amountClp) - Math.abs(a.amountClp),
+      ),
+    }),
+  );
+
+  // En la semana actual ordenamos las filas individuales cronológicamente e
+  // inyectamos el separador "lo que viene" entre lo de hoy/pasado y lo futuro.
+  // En el resto de buckets mantenemos el orden por monto absoluto desc.
+  if (ctx?.isCurrent && ctx.todayIso) {
+    groupRows.sort((a, b) => rowAmount(b) - rowAmount(a));
+    const sorted = [...singles].sort(
+      (a, b) => toDate(a.scheduledDate).getTime() - toDate(b.scheduledDate).getTime(),
+    );
+    const singleRows: DetailRow[] = [];
+    let inserted = false;
+    for (const o of sorted) {
+      if (!inserted && occIso(o) > ctx.todayIso) {
+        singleRows.push({ type: "separator", label: "lo que viene" });
+        inserted = true;
+      }
+      singleRows.push({ type: "single", occ: o });
+    }
+    return { rows: [...groupRows, ...singleRows], zeroCount };
+  }
+
   const rows: DetailRow[] = [
-    ...[...groups.values()].map(
-      (g): DetailRow => ({
-        type: "group",
-        label: g.label,
-        source: g.source,
-        totalClp: g.totalClp,
-        items: [...g.items].sort(
-          (a, b) => Math.abs(b.amountClp) - Math.abs(a.amountClp),
-        ),
-      }),
-    ),
+    ...groupRows,
     ...singles.map((occ): DetailRow => ({ type: "single", occ })),
   ];
-
   rows.sort((a, b) => rowAmount(b) - rowAmount(a));
   return { rows, zeroCount };
 }

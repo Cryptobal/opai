@@ -5,6 +5,7 @@ import { Settings, ArrowLeftRight } from "lucide-react";
 import Link from "next/link";
 import { getOrCreateCashflowConfig } from "@/modules/finance/cashflow/config.service";
 import { buildProjection } from "@/modules/finance/cashflow/projection.service";
+import { listRecentCloses } from "@/modules/finance/cashflow/weekly-close.service";
 import { ensureCashflowSynced } from "@/modules/finance/cashflow/auto-sync";
 import { addWeeks, subWeeks } from "date-fns";
 import { CashflowTabs } from "@/components/finance/cashflow/CashflowTabs";
@@ -108,7 +109,8 @@ export default async function FlujoCajaPage({
         : drift > 0
           ? "banco > proyectado"
           : "banco < proyectado",
-      href: "/finanzas/flujo-caja/cuadratura",
+      // La cuadratura ahora se abre como modal desde la grilla principal.
+      href: "/finanzas/flujo-caja",
     });
   }
 
@@ -117,12 +119,14 @@ export default async function FlujoCajaPage({
   // MISMA proyección; la serialización JSON convierte las fechas a ISO string
   // (el shell las consume con new Date()), igual que CashflowTabs.
   if (sp.v !== "1") {
+    const recentCloses = await listRecentCloses(tenantId, 6);
     return (
       <div className="space-y-4 min-w-0">
         <CashflowV2Shell
           projection={JSON.parse(JSON.stringify(projection))}
           canManage={canManage}
           anchor={projection.anchor}
+          recentCloses={JSON.parse(JSON.stringify(recentCloses))}
         />
       </div>
     );

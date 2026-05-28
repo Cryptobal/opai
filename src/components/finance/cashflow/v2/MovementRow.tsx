@@ -1,7 +1,7 @@
 "use client";
 
 import type { KeyboardEvent } from "react";
-import { Lock, MoveHorizontal } from "lucide-react";
+import { ArrowLeft, ArrowRight, Lock, MoveHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   CellStatusPill,
@@ -16,8 +16,13 @@ interface Props {
   occurrence: VirtualOccurrence;
   meta?: OccMeta;
   canManage: boolean;
-  /** Abre el selector de bucket destino. Wired en el bloque 0.4. */
+  /** Legacy: abre el selector de bucket destino (fallback si no hay onMoveDir). */
   onMove?: (occurrence: VirtualOccurrence) => void;
+  /** Mueve la occurrence al bucket vecino (anterior/siguiente). Si está
+   *  definido, reemplaza a onMove con flechas ← →. */
+  onMoveDir?: (occurrence: VirtualOccurrence, dir: "left" | "right") => void;
+  canMoveLeft?: boolean;
+  canMoveRight?: boolean;
   /** Abre el detalle "qué es esto" de la fila. Si está definido, la fila es
    *  tappable (los botones internos hacen stopPropagation). */
   onOpenDetail?: (occurrence: VirtualOccurrence, meta?: OccMeta) => void;
@@ -35,6 +40,9 @@ export function MovementRow({
   meta,
   canManage,
   onMove,
+  onMoveDir,
+  canMoveLeft,
+  canMoveRight,
   onOpenDetail,
 }: Props) {
   const reconciled = occ.bankTransactionId != null;
@@ -111,12 +119,49 @@ export function MovementRow({
             className="h-3.5 w-3.5 text-ds-text-3"
             aria-label="conciliado (fijo)"
           />
-        ) : canManage ? (
+        ) : canManage && onMoveDir ? (
+          <div className="flex items-center">
+            <button
+              type="button"
+              disabled={!canMoveLeft}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveDir(occ, "left");
+              }}
+              aria-label="Mover a la semana anterior"
+              className={cn(
+                "inline-flex h-9 w-8 items-center justify-center rounded-ds-sm text-ds-text-3 transition-all",
+                canMoveLeft
+                  ? "hover:bg-ds-surface-3 hover:text-ds-text-1 active:scale-90"
+                  : "opacity-25",
+              )}
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              disabled={!canMoveRight}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveDir(occ, "right");
+              }}
+              aria-label="Mover a la semana siguiente"
+              className={cn(
+                "inline-flex h-9 w-8 items-center justify-center rounded-ds-sm text-ds-text-3 transition-all",
+                canMoveRight
+                  ? "hover:bg-ds-surface-3 hover:text-ds-text-1 active:scale-90"
+                  : "opacity-25",
+              )}
+            >
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : canManage && onMove ? (
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onMove?.(occ);
+              onMove(occ);
             }}
             aria-label="Mover a otra semana"
             className={cn(

@@ -10,6 +10,8 @@ import type {
 import { fmtCLP } from "./format";
 import {
   isBucketClosed,
+  isBucketManualClose,
+  manualReasonFor,
   isAnchorBucket,
   bucketHealthKind,
 } from "./projection-helpers";
@@ -42,6 +44,8 @@ export function WeekStrip({
           const point = projection.cumulativePoints[i];
           const projected = point?.projectedClp ?? 0;
           const closed = isBucketClosed(b, anchor);
+          const manualClosed = isBucketManualClose(b, anchor);
+          const manualReason = manualReasonFor(b, anchor);
           const anchored = isAnchorBucket(b, anchor);
           const isCurrent = i === currentIndex;
           const isSelected = b.key === selectedKey;
@@ -68,10 +72,15 @@ export function WeekStrip({
                   <span className="truncate">{b.label}</span>
                 </span>
                 {closed && (
-                  <Lock
-                    className="h-3 w-3 shrink-0 text-ds-text-3"
-                    aria-label="semana cerrada"
-                  />
+                  <span title={manualReason ?? undefined} className="shrink-0">
+                    <Lock
+                      className={cn(
+                        "h-3 w-3",
+                        manualClosed ? "text-status-warn-fg" : "text-ds-text-3",
+                      )}
+                      aria-label={manualClosed ? "semana cerrada manual" : "semana cerrada"}
+                    />
+                  </span>
                 )}
               </div>
               <span

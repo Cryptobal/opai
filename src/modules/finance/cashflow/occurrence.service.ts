@@ -305,6 +305,171 @@ export async function setOccurrenceAmountOverride(
   });
 }
 
+/** Resuelve la categoría sistema por defecto del kind (ING_OTRO / EGR_OTRO),
+ *  cayendo a la primera categoría activa del kind. Multi-tenant. */
+async function resolveDefaultCategoryId(
+  tenantId: string,
+  kind: "INCOME" | "EXPENSE",
+): Promise<string> {
+  const defaultCode = kind === "INCOME" ? "ING_OTRO" : "EGR_OTRO";
+  const preferred = await prisma.financeCashflowCategory.findFirst({
+    where: { tenantId, code: defaultCode, kind, isActive: true },
+    select: { id: true },
+  });
+  const fallback =
+    preferred ??
+    (await prisma.financeCashflowCategory.findFirst({
+      where: { tenantId, kind, isActive: true },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true },
+    }));
+  if (!fallback) {
+    throw new Error(`No hay categoría ${kind} disponible para el tenant`);
+  }
+  return fallback.id;
+}
+
+/** Normaliza una fecha a medianoche UTC (las columnas del schema son @db.Date). */
+function toUtcDate(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+export interface CreateManualOccurrenceInput {
+  kind: "INCOME" | "EXPENSE";
+  name: string;
+  amountClp: number;
+  scheduledDate: Date;
+  categoryId?: string | null;
+}
+
+/**
+ * Quick-add: crea un FinanceCashflowItem MANUAL (recurrence=ONCE) + su
+ * occurrence PROJECTED en la fecha indicada, en una sola transacción. Si no se
+ * pasa categoryId, resuelve la categoría sistema por defecto del kind
+ * (ING_OTRO / EGR_OTRO) y cae a la primera categoría activa del kind si esas
+ * no existen. Multi-tenant: valida que la categoría pertenezca al tenant.
+ */
+export async function createManualOccurrence(
+  tenantId: string,
+  userId: string | null,
+  input: CreateManualOccurrenceInput,
+): Promise<FinanceCashflowOccurrence> {
+  const name = input.name.trim();
+  if (!name) throw new Error("El concepto es obligatorio");
+  if (!Number.isFinite(input.amountClp) || input.amountClp <= 0) {
+    throw new Error("El monto debe ser mayor a 0");
+  }
+
+  let categoryId = input.categoryId ?? null;
+  if (categoryId) {
+    const cat = await prisma.financeCashflowCategory.findFirst({
+      where: { id: categoryId, tenantId, kind: input.kind, isActive: true },
+      select: { id: true },
+    });
+    if (!cat) throw new Error("Categoría no encontrada para el tenant");
+  } else {
+    categoryId = await resolveDefaultCategoryId(tenantId, input.kind);
+  }
+
+  const scheduledDate = toUtcDate(input.scheduledDate);
+
+  return prisma.$transaction(async (tx) => {
+    const item = await tx.financeCashflowItem.create({
+      data: {
+        tenantId,
+        categoryId: categoryId!,
+        kind: input.kind,
+        source: "MANUAL",
+        name,
+        amount: input.amountClp,
+        currency: "CLP",
+        recurrence: "ONCE",
+        startDate: scheduledDate,
+        isActive: true,
+        createdBy: userId ?? undefined,
+      },
+    });
+    return tx.financeCashflowOccurrence.create({
+      data: {
+        tenantId,
+        itemId: item.id,
+        scheduledDate,
+        amountClp: input.amountClp,
+        status: "PROJECTED",
+      },
+    });
+  });
+}
+
+/**
+ * "+ Manual" desde el modal de cuadratura: registra un bank tx pendiente en el
+ * flujo creando un item MANUAL (ONCE) + occurrence PAID conciliada en la fecha
+ * del tx, y marca el tx como MATCHED. Sin formulario: kind/categoría/monto se
+ * derivan del propio movimiento. Multi-tenant + idempotencia básica (rechaza
+ * tx ya vinculado).
+ */
+export async function createManualOccurrenceFromBankTx(
+  tenantId: string,
+  userId: string | null,
+  bankTransactionId: string,
+  nameOverride?: string,
+): Promise<FinanceCashflowOccurrence> {
+  const tx = await prisma.financeBankTransaction.findFirst({
+    where: { id: bankTransactionId, tenantId, hiddenAt: null },
+    select: { id: true, amount: true, transactionDate: true, description: true },
+  });
+  if (!tx) throw new Error("Movimiento bancario no encontrado");
+
+  const used = await prisma.financeCashflowOccurrence.findFirst({
+    where: { tenantId, bankTransactionId },
+    select: { id: true },
+  });
+  if (used) throw new Error("Ese movimiento ya está vinculado a otra ocurrencia");
+
+  const amt = Number(tx.amount);
+  const kind: "INCOME" | "EXPENSE" = amt >= 0 ? "INCOME" : "EXPENSE";
+  const abs = Math.abs(amt);
+  const categoryId = await resolveDefaultCategoryId(tenantId, kind);
+  const scheduledDate = toUtcDate(tx.transactionDate);
+  const name = (nameOverride ?? tx.description ?? "Movimiento manual").slice(0, 200);
+
+  return prisma.$transaction(async (db) => {
+    const item = await db.financeCashflowItem.create({
+      data: {
+        tenantId,
+        categoryId,
+        kind,
+        source: "MANUAL",
+        name,
+        amount: abs,
+        currency: "CLP",
+        recurrence: "ONCE",
+        startDate: scheduledDate,
+        isActive: true,
+        createdBy: userId ?? undefined,
+      },
+    });
+    const occ = await db.financeCashflowOccurrence.create({
+      data: {
+        tenantId,
+        itemId: item.id,
+        scheduledDate,
+        effectiveDate: scheduledDate,
+        amountClp: abs,
+        status: "PAID",
+        bankTransactionId,
+        matchedAt: new Date(),
+        matchedBy: userId ?? undefined,
+      },
+    });
+    await db.financeBankTransaction.update({
+      where: { id: bankTransactionId },
+      data: { reconciliationStatus: "MATCHED" },
+    });
+    return occ;
+  });
+}
+
 export type MaterializeAndActInput =
   | {
       itemId: string;

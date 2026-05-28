@@ -11,16 +11,21 @@ import { cn } from "@/lib/utils";
 import type {
   ProjectionMatrix,
   ProjectionAnchorInfo,
+  ProjectionBucket,
   VirtualOccurrence,
 } from "@/modules/finance/cashflow/types";
 import { HealthHeader } from "./HealthHeader";
 import { AnchorBanner } from "./AnchorBanner";
+import { ManualCloseStreakBanner, type CloseLite } from "./ManualCloseStreakBanner";
 import { WeekStrip } from "./WeekStrip";
 import { WeekDetail } from "./WeekDetail";
+import { WeekKanban } from "./WeekKanban";
+import { Sparkline, type SparkPoint } from "./Sparkline";
+import { TodayButton } from "./TodayButton";
+import { UndoToast, type UndoPayload } from "./UndoToast";
 import { MovementDetailSheet } from "./MovementDetailSheet";
-import { ReconcileBand } from "./ReconcileBand";
+import { CuadraturaModal } from "./CuadraturaModal";
 import { Legend } from "./Legend";
-import { MovePicker } from "./MovePicker";
 import { ClosedWeekModal } from "./ClosedWeekModal";
 import { GranularityToggle, type Granularity } from "./GranularityToggle";
 import {
@@ -39,23 +44,29 @@ export interface CashflowV2ShellProps {
   canManage: boolean;
   /** Anchor activo del cierre semanal (null si no hay). */
   anchor: ProjectionAnchorInfo | null;
+  /** Últimos cierres semanales (para el banner de manuales consecutivos). */
+  recentCloses?: CloseLite[];
 }
 
 /**
  * Flujo de Caja v2 — "la semana es el centro de comando".
  *
- * Orquesta el estado de la pantalla (granularidad, bucket seleccionado, cache
- * de la proyección mensual) y ensambla los bloques sobre la MISMA proyección
- * que ya construye el server. Solo lee endpoints/services existentes.
+ * Desktop: kanban paralelo de 4 columnas. Mobile: strip + detalle de la semana
+ * seleccionada. Sparkline de 13 semanas arriba, flechas ← → por fila para mover
+ * con undo de 5s, y quick-add manual en cada sección.
  */
-export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2ShellProps) {
+export function CashflowV2Shell({
+  projection,
+  canManage,
+  anchor,
+  recentCloses,
+}: CashflowV2ShellProps) {
   const router = useRouter();
   const [granularity, setGranularity] = useState<Granularity>("weekly");
   const [monthly, setMonthly] = useState<ProjectionMatrix | null>(null);
   const [loadingMonthly, setLoadingMonthly] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [moveOcc, setMoveOcc] = useState<VirtualOccurrence | null>(null);
   const [detail, setDetail] = useState<{
     occ: VirtualOccurrence;
     meta?: OccMeta;
@@ -64,6 +75,8 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
     occ: VirtualOccurrence;
     destKey: string;
   } | null>(null);
+  const [undoPayload, setUndoPayload] = useState<UndoPayload | null>(null);
+  const [cuadraturaFor, setCuadraturaFor] = useState<ProjectionBucket | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const active = granularity === "monthly" && monthly ? monthly : projection;
@@ -82,6 +95,28 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
     granularity === "weekly" &&
     isCurrentOrPast(selectedBucket) &&
     !isBucketClosed(selectedBucket, anchor);
+
+  const sparkPoints = useMemo<SparkPoint[]>(() => {
+    const ci = currentIndex >= 0 ? currentIndex : 0;
+    const pts = active.cumulativePoints;
+    const slice = pts.slice(Math.max(0, ci - 3), Math.min(pts.length, ci + 10));
+    const currentKey = active.buckets[ci]?.key;
+    return slice.map((p) => {
+      const b = active.buckets.find((x) => x.key === p.bucketKey);
+      return {
+        key: p.bucketKey,
+        label: b?.label ?? p.bucketKey,
+        balanceClp: p.projectedClp,
+        isCurrent: p.bucketKey === currentKey,
+        isDeficit: p.projectedClp < 0,
+      };
+    });
+  }, [active, currentIndex]);
+
+  const isOnToday = effectiveKey === active.buckets[currentIndex]?.key;
+  const selIdx = active.buckets.findIndex((b) => b.key === effectiveKey);
+  const mobileCanLeft = selIdx > 0;
+  const mobileCanRight = selIdx >= 0 && selIdx < active.buckets.length - 1;
 
   async function handleGranularity(g: Granularity) {
     setSelectedKey(null);
@@ -151,16 +186,34 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
     }
   }
 
-  function handleChooseDest(destKey: string) {
-    const occ = moveOcc;
-    if (!occ) return;
-    setMoveOcc(null);
-    // Si el bucket origen está cerrado, primero hay que confirmar la reapertura.
-    if (selectedBucket && isBucketClosed(selectedBucket, anchor)) {
-      setPendingMove({ occ, destKey });
-    } else {
-      void performMove(occ, destKey);
+  async function handleMoveDir(
+    occ: VirtualOccurrence,
+    fromKey: string,
+    dir: "left" | "right",
+  ) {
+    const fromIdx = active.buckets.findIndex((b) => b.key === fromKey);
+    if (fromIdx < 0) return;
+    const toIdx = dir === "left" ? fromIdx - 1 : fromIdx + 1;
+    const dest = active.buckets[toIdx];
+    const fromBucket = active.buckets[fromIdx];
+    if (!dest) return;
+    // Mover desde una semana cerrada exige confirmar la reapertura (sin undo).
+    if (fromBucket && isBucketClosed(fromBucket, anchor)) {
+      setPendingMove({ occ, destKey: dest.key });
+      return;
     }
+    await performMove(occ, dest.key);
+    // El undo reposiciona la cuota en su semana original. Tras el move la
+    // occurrence quedó en dest.start, así que el reverse usa esa fecha como
+    // origen (válido tanto para occurrences materializadas como virtuales).
+    const movedOcc: VirtualOccurrence = { ...occ, scheduledDate: toDate(dest.start) };
+    setUndoPayload({
+      occurrenceName: occ.nickname ?? occ.name,
+      destLabel: dest.label,
+      undo: async () => {
+        await performMove(movedOcc, fromKey);
+      },
+    });
   }
 
   async function handleReopen() {
@@ -190,66 +243,63 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
     }
   }
 
-  async function handleCloseWeek() {
-    if (!selectedBucket) return;
-    setSubmitting(true);
-    try {
-      const res = await fetch(`/api/finance/cashflow/weekly-close`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          weekEnd: toDate(selectedBucket.end).toISOString(),
-          anchor: true,
-        }),
-      });
-      const j = await res.json();
-      if (!j?.success) {
-        toast.error(j?.error ?? "No se pudo cerrar la semana");
-        return;
-      }
-      toast.success("Semana cerrada y proyección anclada");
-      router.refresh();
-    } catch {
-      toast.error("Error al cerrar la semana");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   return (
-    <div className="space-y-4 min-w-0">
+    <div className="min-w-0 space-y-4">
       <BancaTabsHeader active="cashflow" />
+      {recentCloses && <ManualCloseStreakBanner recentCloses={recentCloses} />}
       <HealthHeader projection={projection} />
+      <Sparkline points={sparkPoints} onJump={(key) => setSelectedKey(key)} />
       <AnchorBanner anchor={anchor} />
 
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-ds-text-1">Línea de tiempo</h2>
-        <GranularityToggle
-          value={granularity}
-          onChange={handleGranularity}
-          loading={loadingMonthly}
-        />
+        <div className="flex items-center gap-2">
+          <TodayButton
+            visible={!isOnToday}
+            onClick={() => setSelectedKey(null)}
+            variant="desktop-inline"
+          />
+          <GranularityToggle
+            value={granularity}
+            onChange={handleGranularity}
+            loading={loadingMonthly}
+          />
+        </div>
       </div>
 
-      <WeekStrip
-        projection={active}
-        anchor={anchor}
-        currentIndex={currentIndex}
-        selectedKey={effectiveKey}
-        onSelect={setSelectedKey}
-      />
+      {/* Desktop (lg+) — kanban paralelo de columnas */}
+      {granularity === "weekly" ? (
+        <div className="hidden lg:block">
+          <WeekKanban
+            projection={active}
+            anchor={anchor}
+            meta={occMeta}
+            canManage={canManage}
+            visibleCount={4}
+            searchTerm={searchTerm}
+            onMoveDir={handleMoveDir}
+            onOpenDetail={(occ, meta) => setDetail({ occ, meta })}
+            onCloseWeek={(key) => {
+              const b = active.buckets.find((x) => x.key === key) ?? null;
+              if (b) setCuadraturaFor(b);
+            }}
+            onMutate={() => router.refresh()}
+          />
+        </div>
+      ) : null}
 
-      {selectedBucket ? (
-        // Móvil = 1 columna (detalle → conciliación). lg+ = split: detalle a la
-        // izquierda (col-span-3) y conciliación a la derecha (col-span-2). Si la
-        // semana no es accionable (futura/cerrada) el detalle ocupa todo el ancho.
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-          <div
-            className={cn(
-              "min-w-0 space-y-3",
-              bucketActionable ? "lg:col-span-3" : "lg:col-span-5",
-            )}
-          >
+      {/* Mobile (lg-) — strip + detalle de la semana seleccionada */}
+      <div className={cn(granularity === "weekly" && "lg:hidden")}>
+        <WeekStrip
+          projection={active}
+          anchor={anchor}
+          currentIndex={currentIndex}
+          selectedKey={effectiveKey}
+          onSelect={setSelectedKey}
+        />
+
+        {selectedBucket ? (
+          <div className="mt-3 min-w-0 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-semibold text-ds-text-1">
                 {selectedBucket.label}
@@ -269,9 +319,9 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
                     variant="outline"
                     className="h-9 text-[12px]"
                     disabled={submitting}
-                    onClick={handleCloseWeek}
+                    onClick={() => setCuadraturaFor(selectedBucket)}
                   >
-                    <Lock className="mr-1 h-3.5 w-3.5" /> Cerrar semana
+                    <Lock className="mr-1 h-3.5 w-3.5" /> Cuadrar y cerrar
                   </Button>
                 )}
               </div>
@@ -281,32 +331,26 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
               meta={occMeta}
               canManage={canManage}
               searchTerm={searchTerm}
-              onMove={setMoveOcc}
+              onMoveDir={
+                effectiveKey
+                  ? (occ, dir) => handleMoveDir(occ, effectiveKey, dir)
+                  : undefined
+              }
+              canMoveLeft={mobileCanLeft}
+              canMoveRight={mobileCanRight}
               onOpenDetail={(occ, meta) => setDetail({ occ, meta })}
+              onMutate={() => router.refresh()}
             />
           </div>
-          {bucketActionable && (
-            <div className="min-w-0 lg:col-span-2">
-              <ReconcileBand bucket={selectedBucket} />
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="rounded-ds-lg border border-dashed border-ds-border-default bg-ds-surface-1 p-6 text-center text-sm text-ds-text-3">
-          Sin bucket seleccionado
-        </div>
-      )}
+        ) : (
+          <div className="mt-3 rounded-ds-lg border border-dashed border-ds-border-default bg-ds-surface-1 p-6 text-center text-sm text-ds-text-3">
+            Sin bucket seleccionado
+          </div>
+        )}
+      </div>
 
       <Legend />
 
-      <MovePicker
-        open={moveOcc != null}
-        projection={active}
-        anchor={anchor}
-        excludeKey={effectiveKey}
-        onChoose={handleChooseDest}
-        onClose={() => setMoveOcc(null)}
-      />
       <ClosedWeekModal
         open={pendingMove != null}
         weekEndDate={anchor?.weekEndDate ?? null}
@@ -320,6 +364,18 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
         meta={detail?.meta}
         onClose={() => setDetail(null)}
       />
+      <CuadraturaModal
+        open={cuadraturaFor != null}
+        bucket={cuadraturaFor}
+        canManage={canManage}
+        onClose={() => setCuadraturaFor(null)}
+      />
+      <TodayButton
+        visible={!isOnToday}
+        onClick={() => setSelectedKey(null)}
+        variant="mobile-fab"
+      />
+      <UndoToast payload={undoPayload} onDismiss={() => setUndoPayload(null)} />
     </div>
   );
 }

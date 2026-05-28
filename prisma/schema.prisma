@@ -7285,6 +7285,15 @@ model FinanceBankTransaction {
   hiddenById   String?   @map("hidden_by")
   hiddenReason String?   @map("hidden_reason")
 
+  // Exclusión automática del cómputo de saldo real para cuadratura.
+  // "interna"        = transferencia entre cuentas propias del tenant
+  // "comision"       = cargo bancario bajo umbral configurable
+  // "manual_override"= usuario lo marcó explícitamente como excluido
+  // NULL = no excluido (entra al cómputo del banco real).
+  excludedReason String?   @map("excluded_reason") @db.VarChar(20)
+  excludedAt     DateTime? @map("excluded_at") @db.Timestamptz(6)
+  excludedBy     String?   @map("excluded_by")
+
   // Sugerencia automática del motor de reglas. Cuando una regla matchea
   // con `requiresReview=true`, en vez de crear el link directamente
   // guardamos la propuesta acá. La UI muestra un sub-tab "Reconocidos"
@@ -7311,6 +7320,7 @@ model FinanceBankTransaction {
   @@index([hiddenAt], map: "idx_finance_bank_tx_hidden")
   @@index([suggestedRuleId], map: "idx_finance_bank_tx_suggestion")
   @@index([importId], map: "idx_finance_bank_tx_import")
+  @@index([tenantId, excludedReason], map: "idx_finance_bank_tx_excluded")
   @@map("finance_bank_transactions")
   @@schema("finance")
 }
@@ -7837,6 +7847,9 @@ model FinanceCashflowConfig {
   /// FK a FinanceAccountPlan — cuenta usada cuando el cliente pagó MÁS
   /// que lo facturado (surplus, ingreso/ganancia para el tenant).
   writeOffOverPaymentAccountId   String?                @map("write_off_over_payment_account_id") @db.Uuid
+  /// Umbral en CLP para auto-excluir comisiones bancarias del cómputo de
+  /// cuadratura. Default 10.000 = comisiones bajo este monto son ruido.
+  bankCommissionThresholdClp     Int                    @default(10000) @map("bank_commission_threshold_clp")
   createdAt                      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -8008,6 +8021,10 @@ model FinanceCashflowOccurrence {
   matchedAt         DateTime?                       @map("matched_at") @db.Timestamptz(6)
   matchedBy         String?                         @map("matched_by")
   notes             String?
+  // Occurrence creada automáticamente como ajuste de un cierre manual. La UI
+  // la pinta ámbar y no permite editarla/borrarla por el flujo normal — solo
+  // se borra al reabrir la semana del cierre que la creó.
+  isClosingAdjust   Boolean                         @default(false) @map("is_closing_adjust")
   createdAt         DateTime                        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime                        @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -8016,6 +8033,7 @@ model FinanceCashflowOccurrence {
   @@index([tenantId, status], map: "idx_cashflow_occ_tenant_status")
   @@index([bankTransactionId], map: "idx_cashflow_occ_bank_tx")
   @@index([tenantId, dteId], map: "idx_cashflow_occ_dte")
+  @@index([tenantId, isClosingAdjust], map: "idx_cashflow_occ_closing_adjust")
   @@map("finance_cashflow_occurrences")
   @@schema("finance")
 }
@@ -8084,6 +8102,15 @@ model FinanceCashflowWeeklyClose {
   notes                   String?
   isAnchor                Boolean  @default(false) @map("is_anchor")
   varianceResolution      String?  @map("variance_resolution") @db.VarChar(20)
+
+  // Cierre manual: escape al saldo del banco. Cuando isManual=true,
+  // closedBalanceClp = forcedBalanceClp, manualReason es obligatorio, y
+  // adjustOccurrenceId apunta a la occurrence creada para que la fórmula
+  // apertura + entra − sale = cierre siga cuadrada.
+  isManual           Boolean   @default(false) @map("is_manual")
+  forcedBalanceClp   Decimal?  @map("forced_balance_clp") @db.Decimal(14, 2)
+  manualReason       String?   @map("manual_reason")
+  adjustOccurrenceId String?   @map("adjust_occurrence_id") @db.Uuid
 
   @@unique([tenantId, weekEndDate], map: "uq_cashflow_weekly_close")
   @@index([tenantId, weekEndDate(sort: Desc)], map: "idx_cashflow_weekly_close_tenant_date")
