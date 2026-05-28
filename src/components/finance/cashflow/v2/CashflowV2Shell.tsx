@@ -9,8 +9,9 @@ import type {
 } from "@/modules/finance/cashflow/types";
 import { HealthHeader } from "./HealthHeader";
 import { WeekStrip } from "./WeekStrip";
+import { WeekDetail } from "./WeekDetail";
 import { GranularityToggle, type Granularity } from "./GranularityToggle";
-import { currentBucketIndex } from "./projection-helpers";
+import { currentBucketIndex, buildOccurrenceMeta } from "./projection-helpers";
 
 export interface CashflowV2ShellProps {
   /** Proyección semanal ya construida en el server (serializada a JSON:
@@ -29,7 +30,6 @@ export interface CashflowV2ShellProps {
  * que ya construye el server. Solo lee endpoints/services existentes.
  */
 export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2ShellProps) {
-  void canManage;
   const [granularity, setGranularity] = useState<Granularity>("weekly");
   const [monthly, setMonthly] = useState<ProjectionMatrix | null>(null);
   const [loadingMonthly, setLoadingMonthly] = useState(false);
@@ -43,6 +43,7 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
     null;
   const selectedBucket =
     active.buckets.find((b) => b.key === effectiveKey) ?? null;
+  const occMeta = useMemo(() => buildOccurrenceMeta(active), [active]);
 
   async function handleGranularity(g: Granularity) {
     setSelectedKey(null);
@@ -92,11 +93,17 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
         onSelect={setSelectedKey}
       />
 
-      <div className="rounded-ds-lg border border-dashed border-ds-border-default bg-ds-surface-1 p-6 text-center text-sm text-ds-text-3">
-        {selectedBucket
-          ? `Detalle de ${selectedBucket.label} — en construcción`
-          : "Sin bucket seleccionado"}
-      </div>
+      {selectedBucket ? (
+        <WeekDetail
+          bucket={selectedBucket}
+          meta={occMeta}
+          canManage={canManage}
+        />
+      ) : (
+        <div className="rounded-ds-lg border border-dashed border-ds-border-default bg-ds-surface-1 p-6 text-center text-sm text-ds-text-3">
+          Sin bucket seleccionado
+        </div>
+      )}
     </div>
   );
 }

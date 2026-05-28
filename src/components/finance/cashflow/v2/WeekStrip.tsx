@@ -63,7 +63,7 @@ export function WeekStrip({
               )}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-ds-text-2">
+                <span className="flex min-w-0 items-center gap-1.5 text-[12px] font-medium text-ds-text-2">
                   <StatusDot kind={kind} />
                   <span className="truncate">{b.label}</span>
                 </span>
