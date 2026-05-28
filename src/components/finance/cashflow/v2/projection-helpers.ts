@@ -3,6 +3,8 @@ import type {
   ProjectionAnchorInfo,
   ProjectionMatrix,
   CashflowCellStatus,
+  FinanceCashflowItemSource,
+  VirtualOccurrence,
 } from "@/modules/finance/cashflow/types";
 import type { StatusKind } from "@/components/opai-ds";
 import { toDate } from "./format";
@@ -96,4 +98,113 @@ export function bucketHealthKind(
   const buffer = Math.max(openingClp * 0.15, 1_000_000);
   if (projectedClp < buffer) return "warn";
   return "ok";
+}
+
+/** Sources que se reparten por instalación/guardia: una occurrence por entidad,
+ *  decenas de filas por semana. En el detalle se consolidan en una sola línea
+ *  con total y desglose expandible. El resto (CONTRACT, SUPPLIER, MANUAL, IVA…)
+ *  representa una entidad relevante por línea ⇒ se dejan individuales. */
+export const CONSOLIDATED_SOURCES = new Set<FinanceCashflowItemSource>([
+  "TURNOS_EXTRA",
+  "PAYROLL",
+  "PAYROLL_LIQUIDO",
+  "PAYROLL_PREVIRED",
+  "QUINCENA",
+]);
+
+/** Etiqueta estable de consolidación por source. PAYROLL y PAYROLL_LIQUIDO
+ *  caen en la misma línea "Remuneraciones". */
+const GROUP_LABELS: Partial<Record<FinanceCashflowItemSource, string>> = {
+  TURNOS_EXTRA: "Turnos extra",
+  PAYROLL: "Remuneraciones",
+  PAYROLL_LIQUIDO: "Remuneraciones",
+  PAYROLL_PREVIRED: "Previred",
+  QUINCENA: "Quincena (anticipos)",
+};
+
+/** Clave/etiqueta de consolidación de una occurrence, o null si va individual. */
+export function groupKeyFor(o: VirtualOccurrence): string | null {
+  if (!CONSOLIDATED_SOURCES.has(o.source)) return null;
+  return GROUP_LABELS[o.source] ?? null;
+}
+
+/** Fila del detalle: grupo consolidado (con desglose) o movimiento individual. */
+export type DetailRow =
+  | {
+      type: "group";
+      label: string;
+      source: FinanceCashflowItemSource;
+      totalClp: number;
+      items: VirtualOccurrence[];
+    }
+  | { type: "single"; occ: VirtualOccurrence };
+
+function rowAmount(r: DetailRow): number {
+  return Math.abs(r.type === "group" ? r.totalClp : r.occ.amountClp);
+}
+
+/**
+ * Transforma las occurrences de una sección (Entra/Sale) en filas para el
+ * detalle: las consolidables se agrupan en una línea con total y desglose; las
+ * individuales pasan tal cual; las de monto 0 quedan fuera (cuentan en
+ * `zeroCount` para el botón "+N sin monto"). Filas y desgloses van por monto
+ * absoluto desc; el sort estable mantiene el orden de inserción ante empates.
+ */
+export function buildDetailRows(occurrences: VirtualOccurrence[]): {
+  rows: DetailRow[];
+  zeroCount: number;
+} {
+  let zeroCount = 0;
+  const groups = new Map<
+    string,
+    {
+      label: string;
+      source: FinanceCashflowItemSource;
+      totalClp: number;
+      items: VirtualOccurrence[];
+    }
+  >();
+  const singles: VirtualOccurrence[] = [];
+
+  for (const o of occurrences) {
+    if (o.amountClp === 0) {
+      zeroCount += 1;
+      continue;
+    }
+    const key = groupKeyFor(o);
+    if (key == null) {
+      singles.push(o);
+      continue;
+    }
+    const g = groups.get(key);
+    if (g) {
+      g.totalClp += o.amountClp;
+      g.items.push(o);
+    } else {
+      groups.set(key, {
+        label: key,
+        source: o.source,
+        totalClp: o.amountClp,
+        items: [o],
+      });
+    }
+  }
+
+  const rows: DetailRow[] = [
+    ...[...groups.values()].map(
+      (g): DetailRow => ({
+        type: "group",
+        label: g.label,
+        source: g.source,
+        totalClp: g.totalClp,
+        items: [...g.items].sort(
+          (a, b) => Math.abs(b.amountClp) - Math.abs(a.amountClp),
+        ),
+      }),
+    ),
+    ...singles.map((occ): DetailRow => ({ type: "single", occ })),
+  ];
+
+  rows.sort((a, b) => rowAmount(b) - rowAmount(a));
+  return { rows, zeroCount };
 }
