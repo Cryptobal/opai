@@ -110,7 +110,15 @@ export function CashflowItemDrawer({
   }, [open]);
 
   useEffect(() => {
-    if (!target || target.itemId === "_orphan") {
+    // Sin item real en DB no hay config de recurrencia que cargar: huérfanos
+    // (_orphan) y agregados periódicos (_periodic:SOURCE). Para estos últimos
+    // el fetch a /items/_periodic:... daría 404 — los items individuales por
+    // mes están agrupados en una sola sub-fila sintética.
+    if (
+      !target ||
+      target.itemId === "_orphan" ||
+      target.itemId.startsWith("_periodic:")
+    ) {
       setRecurrence(null);
       return;
     }

@@ -248,6 +248,7 @@ export function ItemDetailRow({
         const hasLinkedDtes = (v.dtes ?? []).length > 0;
         const target =
           item.itemId !== "_orphan" &&
+          !item.itemId.startsWith("_periodic:") &&
           (v.amount > 0 || v.occurrenceId || hasLinkedDtes)
             ? {
                 id: v.occurrenceId,

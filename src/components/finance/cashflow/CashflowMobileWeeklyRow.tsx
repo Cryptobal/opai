@@ -113,7 +113,16 @@ export function CashflowMobileWeeklyRow({ item, row, kind, canManage, buckets, o
 
   const tapForBucket = useCallback(
     (bucket: ProjectionBucket | null) => {
-      if (!bucket || item.itemId === "_orphan") return;
+      if (!bucket) return;
+      // Sub-filas sintéticas (sin item real en DB) no abren drawer: el
+      // tap no tiene una occurrence concreta que editar. Aplica a items
+      // huérfanos (_orphan) y a agregados periódicos (_periodic:SOURCE,
+      // ej. Retiro socios / IVA F29 — los items individuales por mes
+      // están agrupados en una sola sub-fila).
+      if (
+        item.itemId === "_orphan" ||
+        item.itemId.startsWith("_periodic:")
+      ) return;
       const v = valuesByKey.get(bucket.key);
       onTapCell(buildTarget(item, row, kind, canManage, bucket, v));
     },
