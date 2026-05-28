@@ -245,7 +245,10 @@ const ItemRow = memo(function ItemRow({
   const badge = SOURCE_BADGE[item.source];
 
   const handleClick = useCallback(() => {
-    if (item.itemId === "_orphan") return;
+    // Sub-filas sintéticas (sin item real en DB) no abren drawer: huérfanos
+    // (_orphan) y agregados periódicos (_periodic:SOURCE, ej. Retiro socios /
+    // IVA F29, que agrupan N items por mes en una sola sub-fila).
+    if (item.itemId === "_orphan" || item.itemId.startsWith("_periodic:")) return;
     onOpenItem({
       itemId: item.itemId,
       itemName: item.itemName,

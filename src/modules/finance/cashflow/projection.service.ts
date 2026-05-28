@@ -1807,6 +1807,39 @@ function filterOccurrencesWithConciliationPriority(
   return occurrences.filter((o) => o.bankTransactionId !== null);
 }
 
+/**
+ * Sources que generan 1 item por período (mes/quincena/año) — su monto
+ * varía por bucket porque depende de un cálculo periódico (% de ventas
+ * netas del mes, F29 del período, etc.). En la UI los queremos colapsados
+ * en una sola sub-fila por categoría con valores por bucket, en vez de
+ * una sub-fila por cada período.
+ *
+ * Ejemplo: `RETIRO_SOCIO` produce items "Retiro socios 2026-04",
+ * "Retiro socios 2026-05", … "Retiro socios 2027-03". Sin agrupamiento,
+ * la categoría "Retiros socios / dividendos" muestra 12+ sub-filas
+ * verticales con montos en distintos buckets. Con agrupamiento, una
+ * sola sub-fila "Retiro socios" con los montos repartidos por bucket.
+ *
+ * Solo aplican sources cuyos items SON intercambiables a nivel UI
+ * (mismo cálculo, mismo significado, distinto período). NO agregar acá
+ * sources donde cada item representa una entidad distinta (CONTRACT
+ * por instalación, PAYROLL_LIQUIDO por puesto, etc.).
+ */
+const PERIODIC_AGGREGATE_SOURCES = new Set<string>([
+  "RETIRO_SOCIO",
+  "IVA",
+]);
+
+/**
+ * Nombre visible para la sub-fila agregada por source periódico.
+ * Reemplaza el `itemName` original ("Retiro socios 2026-04", "IVA F29
+ * 2026-05", etc.) por una etiqueta estable independiente del período.
+ */
+const PERIODIC_DISPLAY_NAMES: Record<string, string> = {
+  RETIRO_SOCIO: "Retiro socios",
+  IVA: "IVA F29",
+};
+
 function buildRows(
   buckets: ProjectionBucket[],
   categories: FinanceCashflowCategory[],
@@ -1875,28 +1908,43 @@ function buildRows(
     // sin esto colapsarían bajo "_orphan" junto a bank-links sintéticos.
     const byItem = new Map<string, import("./types").ProjectionRowItemDetail>();
     for (const o of filtered) {
-      const key = o.itemId ?? (o.dteId ? `_dte:${o.dteId}` : "_orphan");
+      // Agrupamiento de items periódicos (1 item por mes con monto variable
+      // por período → 1 sub-fila visual con valores por bucket). Para esos
+      // sources, todas las occurrences caen en la misma entrada del map.
+      const isPeriodicGroup =
+        !!o.itemId && PERIODIC_AGGREGATE_SOURCES.has(o.source);
+      const key = isPeriodicGroup
+        ? `_periodic:${o.source}`
+        : (o.itemId ?? (o.dteId ? `_dte:${o.dteId}` : "_orphan"));
+
       let detail = byItem.get(key);
       if (!detail) {
         detail = {
           itemId: key,
-          itemName: o.name,
-          installationId: o.installationId,
-          installationName: o.installationName,
-          crmAccountId: o.crmAccountId,
-          crmAccountName: o.crmAccountId
-            ? (crmAccountNameById.get(o.crmAccountId) ?? null)
-            : null,
-          baseAmount: o.amountOriginal ?? o.amountClp,
+          itemName: isPeriodicGroup
+            ? (PERIODIC_DISPLAY_NAMES[o.source] ?? o.name)
+            : o.name,
+          installationId: isPeriodicGroup ? null : o.installationId,
+          installationName: isPeriodicGroup ? null : o.installationName,
+          crmAccountId: isPeriodicGroup ? null : o.crmAccountId,
+          crmAccountName:
+            !isPeriodicGroup && o.crmAccountId
+              ? (crmAccountNameById.get(o.crmAccountId) ?? null)
+              : null,
+          // baseAmount no aplica al agregado periódico — distintos meses
+          // tienen distintos montos. Lo dejamos en 0 para que la UI no
+          // muestre un "$/mes" engañoso al lado del nombre.
+          baseAmount: isPeriodicGroup ? 0 : (o.amountOriginal ?? o.amountClp),
           currency: o.currency,
           source: o.source,
           sourceRefCode: null,
-          hasIpcAdjustment: o.hasIpcAdjustment,
-          ipcAdjustmentMonths: o.ipcAdjustmentMonths,
-          headcount: o.installationId
-            ? (headcountByInstallation.get(o.installationId) ?? 0)
-            : 0,
-          nickname: o.nickname ?? null,
+          hasIpcAdjustment: isPeriodicGroup ? false : o.hasIpcAdjustment,
+          ipcAdjustmentMonths: isPeriodicGroup ? null : o.ipcAdjustmentMonths,
+          headcount:
+            !isPeriodicGroup && o.installationId
+              ? (headcountByInstallation.get(o.installationId) ?? 0)
+              : 0,
+          nickname: isPeriodicGroup ? null : (o.nickname ?? null),
           modoCobro: o.modoCobro ?? "DIRECTO",
           values: buckets.map((b) => ({
             bucketKey: b.key,
