@@ -136,6 +136,18 @@ export function CuadraturaModal({ open, bucket, canManage, onClose }: Props) {
   const vExcluded = visible.filter((t) => stateOf(t) === "excluded");
   const matchedByBatch = useMemo(() => groupByBatch(vMatched), [vMatched]);
 
+  const counts = useMemo(
+    () => ({
+      total: allBank.length,
+      income: allBank.filter((t) => t.amount > 0).length,
+      expense: allBank.filter((t) => t.amount < 0).length,
+      pending: allBank.filter((t) => stateOf(t) === "pending").length,
+      matched: allBank.filter((t) => stateOf(t) === "matched").length,
+      excluded: allBank.filter((t) => stateOf(t) === "excluded").length,
+    }),
+    [allBank],
+  );
+
   async function handleAccept(txId: string, occurrenceId: string) {
     setSubmitting(true);
     try {
@@ -298,7 +310,29 @@ export function CuadraturaModal({ open, bucket, canManage, onClose }: Props) {
                 </div>
               )}
 
-              {bankConnected && (
+              {allBank.length === 0 && (
+                <div className="rounded-ds-lg border border-dashed border-ds-border-default bg-ds-surface-2 p-4 text-center">
+                  <div className="text-[13px] font-semibold text-ds-text-1">
+                    Sin movimientos bancarios cargados esta semana
+                  </div>
+                  <div className="mt-1.5 text-[11px] leading-relaxed text-ds-text-2">
+                    El <b>Banco Real</b> que ves arriba (
+                    <span className="tabular-nums">
+                      {fmtCLP.format(snapshot.bankBalanceClp)}
+                    </span>
+                    ) es el saldo consolidado de tus cuentas al día de hoy — no la suma de
+                    los movimientos de esta semana. Cuando se carguen movimientos (vía sync
+                    automático o import manual), van a aparecer acá para conciliar.
+                  </div>
+                  {!bankConnected && (
+                    <div className="mt-3 inline-flex items-center gap-1.5 rounded-ds-md bg-ds-warn/10 px-2.5 py-1 text-[11px] text-ds-warn">
+                      ⚠ Banco no conectado · usá el cierre manual al pie
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {bankConnected && allBank.length > 0 && (
                 <>
                   <CuadraturaFilters
                     search={search}
@@ -307,8 +341,8 @@ export function CuadraturaModal({ open, bucket, canManage, onClose }: Props) {
                     setFType={setFType}
                     fState={fState}
                     setFState={setFState}
+                    counts={counts}
                     visibleCount={visible.length}
-                    totalCount={allBank.length}
                   />
 
                   {vPending.length > 0 && (
