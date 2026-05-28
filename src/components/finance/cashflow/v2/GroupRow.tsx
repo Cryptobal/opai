@@ -16,6 +16,9 @@ interface Props {
   meta: Map<string, OccMeta>;
   canManage: boolean;
   onMove?: (occurrence: VirtualOccurrence) => void;
+  onMoveDir?: (occurrence: VirtualOccurrence, dir: "left" | "right") => void;
+  canMoveLeft?: boolean;
+  canMoveRight?: boolean;
   onOpenDetail?: (occurrence: VirtualOccurrence, meta?: OccMeta) => void;
 }
 
@@ -32,6 +35,9 @@ export function GroupRow({
   meta,
   canManage,
   onMove,
+  onMoveDir,
+  canMoveLeft,
+  canMoveRight,
   onOpenDetail,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -73,6 +79,9 @@ export function GroupRow({
               meta={o.id ? meta.get(o.id) : undefined}
               canManage={canManage}
               onMove={onMove}
+              onMoveDir={onMoveDir}
+              canMoveLeft={canMoveLeft}
+              canMoveRight={canMoveRight}
               onOpenDetail={onOpenDetail}
             />
           ))}

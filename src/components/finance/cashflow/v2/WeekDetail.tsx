@@ -14,9 +14,16 @@ import type {
   VirtualOccurrence,
 } from "@/modules/finance/cashflow/types";
 import { fmtCLP } from "./format";
-import { buildDetailRows, type OccMeta } from "./projection-helpers";
+import {
+  buildDetailRows,
+  detailRowAmount,
+  detailRowCount,
+  isCurrentBucket,
+  type OccMeta,
+} from "./projection-helpers";
 import { MovementRow } from "./MovementRow";
 import { GroupRow } from "./GroupRow";
+import { QuickAddInline } from "./QuickAddInline";
 
 interface Props {
   bucket: ProjectionBucket;
@@ -25,7 +32,14 @@ interface Props {
   /** Filtro de texto opcional sobre las occurrences (cliente/contrato/instalación). */
   searchTerm?: string;
   onMove?: (occurrence: VirtualOccurrence) => void;
+  /** Mueve la occurrence al bucket vecino. Si está definido, MovementRow
+   *  muestra flechas ← → en lugar del picker. */
+  onMoveDir?: (occurrence: VirtualOccurrence, dir: "left" | "right") => void;
+  canMoveLeft?: boolean;
+  canMoveRight?: boolean;
   onOpenDetail?: (occurrence: VirtualOccurrence, meta?: OccMeta) => void;
+  /** Callback tras agregar/mutar (router.refresh()). */
+  onMutate?: () => void;
 }
 
 /** Detalle de la semana seleccionada: Entra (INCOME) / Sale (EXPENSE), cada
@@ -36,7 +50,11 @@ export function WeekDetail({
   canManage,
   searchTerm,
   onMove,
+  onMoveDir,
+  canMoveLeft,
+  canMoveRight,
   onOpenDetail,
+  onMutate,
 }: Props) {
   const term = (searchTerm ?? "").trim().toLowerCase();
   const matches = (o: VirtualOccurrence) =>
@@ -47,27 +65,45 @@ export function WeekDetail({
   const visible = bucket.occurrences.filter(matches);
   const income = visible.filter((o) => o.kind === "INCOME");
   const expense = visible.filter((o) => o.kind === "EXPENSE");
+  const current = isCurrentBucket(bucket);
+  const todayIso = new Date().toISOString().slice(0, 10);
   return (
     <div className="space-y-3">
       <Section
         title="Entra"
+        kind="INCOME"
         tone="ok"
         icon={ArrowDownLeft}
+        bucket={bucket}
+        isCurrent={current}
+        todayIso={todayIso}
         occurrences={income}
         meta={meta}
         canManage={canManage}
         onMove={onMove}
+        onMoveDir={onMoveDir}
+        canMoveLeft={canMoveLeft}
+        canMoveRight={canMoveRight}
         onOpenDetail={onOpenDetail}
+        onMutate={onMutate}
       />
       <Section
         title="Sale"
+        kind="EXPENSE"
         tone="danger"
         icon={ArrowUpRight}
+        bucket={bucket}
+        isCurrent={current}
+        todayIso={todayIso}
         occurrences={expense}
         meta={meta}
         canManage={canManage}
         onMove={onMove}
+        onMoveDir={onMoveDir}
+        canMoveLeft={canMoveLeft}
+        canMoveRight={canMoveRight}
         onOpenDetail={onOpenDetail}
+        onMutate={onMutate}
       />
     </div>
   );
@@ -75,43 +111,57 @@ export function WeekDetail({
 
 interface SectionProps {
   title: string;
+  kind: "INCOME" | "EXPENSE";
   tone: "ok" | "danger";
   icon: LucideIcon;
+  bucket: ProjectionBucket;
+  isCurrent: boolean;
+  todayIso: string;
   occurrences: VirtualOccurrence[];
   meta: Map<string, OccMeta>;
   canManage: boolean;
   onMove?: (occurrence: VirtualOccurrence) => void;
+  onMoveDir?: (occurrence: VirtualOccurrence, dir: "left" | "right") => void;
+  canMoveLeft?: boolean;
+  canMoveRight?: boolean;
   onOpenDetail?: (occurrence: VirtualOccurrence, meta?: OccMeta) => void;
+  onMutate?: () => void;
 }
 
 function Section({
   title,
+  kind,
   tone,
   icon: Icon,
+  bucket,
+  isCurrent,
+  todayIso,
   occurrences,
   meta,
   canManage,
   onMove,
+  onMoveDir,
+  canMoveLeft,
+  canMoveRight,
   onOpenDetail,
+  onMutate,
 }: SectionProps) {
   const [open, setOpen] = useState(true);
   const [showZero, setShowZero] = useState(false);
-  const { rows, zeroCount } = buildDetailRows(occurrences);
-  const subtotal = rows.reduce(
-    (s, r) => s + (r.type === "group" ? r.totalClp : r.occ.amountClp),
-    0,
-  );
+  const { rows, zeroCount } = buildDetailRows(occurrences, { isCurrent, todayIso });
+  const subtotal = rows.reduce((s, r) => s + detailRowAmount(r), 0);
+  const count = rows.reduce((s, r) => s + detailRowCount(r), 0);
   const zeroOccs = occurrences.filter((o) => o.amountClp === 0);
   const toneFg = tone === "ok" ? "text-status-ok-fg" : "text-status-danger-fg";
   return (
     <Surface padding="sm">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="flex min-h-[44px] w-full items-center justify-between gap-2"
-      >
-        <span className="flex items-center gap-2">
+      <div className="flex min-h-[44px] w-full items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex flex-1 items-center gap-2 text-left"
+        >
           <ChevronDown
             className={cn(
               "h-4 w-4 text-ds-text-3 transition-transform",
@@ -120,18 +170,38 @@ function Section({
           />
           <Icon className={cn("h-4 w-4", toneFg)} />
           <span className="text-[13px] font-semibold text-ds-text-1">{title}</span>
-          <span className="font-mono text-[12px] text-ds-text-3">{rows.length}</span>
+          <span className="font-mono text-[12px] text-ds-text-3">{count}</span>
+        </button>
+        <span className="flex items-center gap-2">
+          <span className={cn("font-mono text-[13px] tabular-nums", toneFg)}>
+            {fmtCLP.format(subtotal)}
+          </span>
+          {canManage && (
+            <QuickAddInline
+              kind={kind}
+              bucketStart={bucket.start}
+              onAdded={onMutate}
+            />
+          )}
         </span>
-        <span className={cn("font-mono text-[13px] tabular-nums", toneFg)}>
-          {fmtCLP.format(subtotal)}
-        </span>
-      </button>
+      </div>
       {open &&
         (rows.length > 0 || zeroCount > 0 ? (
           <div className="mt-1 border-t border-ds-border-subtle">
             <div className="divide-y divide-ds-border-subtle">
               {rows.map((r, i) =>
-                r.type === "group" ? (
+                r.type === "separator" ? (
+                  <div
+                    key={`sep-${i}`}
+                    className="flex items-center gap-2 px-1 py-1.5"
+                  >
+                    <div className="h-px flex-1 bg-ds-border-strong" />
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-ds-text-3">
+                      {r.label}
+                    </span>
+                    <div className="h-px flex-1 bg-ds-border-strong" />
+                  </div>
+                ) : r.type === "group" ? (
                   <GroupRow
                     key={`grp-${r.label}`}
                     label={r.label}
@@ -140,6 +210,9 @@ function Section({
                     meta={meta}
                     canManage={canManage}
                     onMove={onMove}
+                    onMoveDir={onMoveDir}
+                    canMoveLeft={canMoveLeft}
+                    canMoveRight={canMoveRight}
                     onOpenDetail={onOpenDetail}
                   />
                 ) : (
@@ -149,6 +222,9 @@ function Section({
                     meta={r.occ.id ? meta.get(r.occ.id) : undefined}
                     canManage={canManage}
                     onMove={onMove}
+                    onMoveDir={onMoveDir}
+                    canMoveLeft={canMoveLeft}
+                    canMoveRight={canMoveRight}
                     onOpenDetail={onOpenDetail}
                   />
                 ),
@@ -173,6 +249,9 @@ function Section({
                         meta={o.id ? meta.get(o.id) : undefined}
                         canManage={canManage}
                         onMove={onMove}
+                        onMoveDir={onMoveDir}
+                        canMoveLeft={canMoveLeft}
+                        canMoveRight={canMoveRight}
                         onOpenDetail={onOpenDetail}
                       />
                     ))}

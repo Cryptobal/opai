@@ -161,4 +161,14 @@ export const upsertAndActSchema = z.discriminatedUnion("action", [
     itemId: z.string().uuid(),
     originalDate: z.coerce.date(),
   }),
+  // Quick-add manual: crea un item MANUAL + occurrence en la fecha indicada.
+  z.object({
+    action: z.literal("create"),
+    kind: z.enum(["INCOME", "EXPENSE"]),
+    name: z.string().min(1).max(200),
+    amountClp: z.number().int().positive(),
+    scheduledDate: z.coerce.date(),
+    source: z.literal("MANUAL"),
+    categoryId: z.string().uuid().optional(),
+  }),
 ]);

@@ -305,6 +305,92 @@ export async function setOccurrenceAmountOverride(
   });
 }
 
+export interface CreateManualOccurrenceInput {
+  kind: "INCOME" | "EXPENSE";
+  name: string;
+  amountClp: number;
+  scheduledDate: Date;
+  categoryId?: string | null;
+}
+
+/**
+ * Quick-add: crea un FinanceCashflowItem MANUAL (recurrence=ONCE) + su
+ * occurrence PROJECTED en la fecha indicada, en una sola transacción. Si no se
+ * pasa categoryId, resuelve la categoría sistema por defecto del kind
+ * (ING_OTRO / EGR_OTRO) y cae a la primera categoría activa del kind si esas
+ * no existen. Multi-tenant: valida que la categoría pertenezca al tenant.
+ */
+export async function createManualOccurrence(
+  tenantId: string,
+  userId: string | null,
+  input: CreateManualOccurrenceInput,
+): Promise<FinanceCashflowOccurrence> {
+  const name = input.name.trim();
+  if (!name) throw new Error("El concepto es obligatorio");
+  if (!Number.isFinite(input.amountClp) || input.amountClp <= 0) {
+    throw new Error("El monto debe ser mayor a 0");
+  }
+
+  let categoryId = input.categoryId ?? null;
+  if (categoryId) {
+    const cat = await prisma.financeCashflowCategory.findFirst({
+      where: { id: categoryId, tenantId, kind: input.kind, isActive: true },
+      select: { id: true },
+    });
+    if (!cat) throw new Error("Categoría no encontrada para el tenant");
+  } else {
+    const defaultCode = input.kind === "INCOME" ? "ING_OTRO" : "EGR_OTRO";
+    const preferred = await prisma.financeCashflowCategory.findFirst({
+      where: { tenantId, code: defaultCode, kind: input.kind, isActive: true },
+      select: { id: true },
+    });
+    const fallback =
+      preferred ??
+      (await prisma.financeCashflowCategory.findFirst({
+        where: { tenantId, kind: input.kind, isActive: true },
+        orderBy: { sortOrder: "asc" },
+        select: { id: true },
+      }));
+    if (!fallback) {
+      throw new Error(`No hay categoría ${input.kind} disponible para el tenant`);
+    }
+    categoryId = fallback.id;
+  }
+
+  // Normaliza a medianoche UTC (las fechas del schema son @db.Date).
+  const sd = input.scheduledDate;
+  const scheduledDate = new Date(
+    Date.UTC(sd.getUTCFullYear(), sd.getUTCMonth(), sd.getUTCDate()),
+  );
+
+  return prisma.$transaction(async (tx) => {
+    const item = await tx.financeCashflowItem.create({
+      data: {
+        tenantId,
+        categoryId: categoryId!,
+        kind: input.kind,
+        source: "MANUAL",
+        name,
+        amount: input.amountClp,
+        currency: "CLP",
+        recurrence: "ONCE",
+        startDate: scheduledDate,
+        isActive: true,
+        createdBy: userId ?? undefined,
+      },
+    });
+    return tx.financeCashflowOccurrence.create({
+      data: {
+        tenantId,
+        itemId: item.id,
+        scheduledDate,
+        amountClp: input.amountClp,
+        status: "PROJECTED",
+      },
+    });
+  });
+}
+
 export type MaterializeAndActInput =
   | {
       itemId: string;
