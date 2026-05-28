@@ -4,7 +4,7 @@
  * OPAI DS v3 — DataTable
  *
  * Tabla unificada con:
- *  - Header sticky en desktop con tipografía ds-text-4 mono uppercase 11px
+ *  - Header con tipografía ds-text-3 mono uppercase 11px (legible en dark)
  *  - Filas con border-subtle, hover ds-surface-2, transición 120ms
  *  - Padding p-3 mobile / p-3.5 desktop (no p-2.5 apretado)
  *  - Mobile: oculta automático (debe complementarse con render alternativo)
@@ -104,87 +104,80 @@ export function DataTable<T>({
   return (
     <div
       className={cn(
-        "rounded-ds-lg border border-ds-border-default bg-ds-surface-1",
-        !stickyHeader && "overflow-hidden",
+        // overflow-x-auto (no overflow-hidden): overflow-hidden recortaba los
+        // labels del thead en dark mode y hacía que la 1ª fila pareciera
+        // quedar "detrás" de los índices de columna.
+        "rounded-ds-lg border border-ds-border-default bg-ds-surface-1 ds-scroll-x overflow-x-auto",
         className,
       )}
     >
-      <div className="ds-scroll-x">
-        <table
-          className={cn("w-full text-sm", layout === "fixed" && "table-fixed")}
+      <table
+        className={cn("w-full text-sm", layout === "fixed" && "table-fixed")}
+      >
+        <thead
+          className={cn(
+            "bg-ds-surface-3 border-b border-ds-border-subtle",
+            stickyHeader ? "sticky z-20" : "relative z-10",
+            stickyHeader && stickyHeaderTopClass,
+          )}
         >
-          <thead
-            className={cn(
-              "bg-ds-surface-3 border-b border-ds-border-subtle",
-              stickyHeader && "sticky z-20",
-              stickyHeader && stickyHeaderTopClass,
-            )}
-          >
-            <tr>
-              {columns.map((c) => (
-                <th
-                  key={c.id}
-                  className={cn(
-                    "px-3.5 py-2.5 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4 font-medium",
-                    c.align === "right" ? "text-right" :
-                    c.align === "center" ? "text-center" :
-                    "text-left",
-                    c.width,
-                    c.hideOnMobile && "hidden sm:table-cell",
-                    // Sticky right: la columna queda pegada al borde derecho
-                    // mientras el resto hace scroll horizontal. La sombra
-                    // izquierda da el corte visual entre stick y scrolling.
-                    c.sticky === "right" &&
-                      "sticky right-0 z-10 bg-ds-surface-3 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.35)]",
-                  )}
-                >
-                  {c.header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => {
-              const variant = rowVariant ? rowVariant(row) : "default";
-              return (
-                <tr
-                  key={rowKey(row, i)}
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  className={cn(
-                    "border-b border-ds-border-subtle last:border-b-0 transition-colors",
-                    ROW_VARIANT_BG[variant],
-                    onRowClick && "cursor-pointer hover:bg-ds-surface-2",
-                  )}
-                >
-                  {columns.map((c) => (
-                    <td
-                      key={c.id}
-                      className={cn(
-                        // Filas altas alineadas arriba; min-w-0 + overflow-x-hidden
-                        // evitan que contenido nowrap/flex invada la celda siguiente en `table-fixed`.
-                        "px-3.5 py-3 text-ds-text-1 align-top min-w-0 overflow-x-hidden",
-                        c.align === "right" ? "text-right ds-num" :
-                        c.align === "center" ? "text-center" :
-                        "text-left",
-                        c.hideOnMobile && "hidden sm:table-cell",
-                        // Sticky right: la celda debe heredar el background
-                        // del rowVariant para no dejar transparente el contenido
-                        // que pasa por debajo. Usamos bg-inherit y dejamos que
-                        // el `bg-*` del rowVariant en el <tr> lo cubra cuando
-                        // existe.
-                        c.sticky === "right" &&
-                          "sticky right-0 z-[1] bg-inherit shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.35)]",
-                      )}
-                    >
-                      {c.cell(row, i)}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+          <tr>
+            {columns.map((c) => (
+              <th
+                key={c.id}
+                scope="col"
+                className={cn(
+                  "px-3.5 py-3 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-3 font-medium leading-snug whitespace-nowrap",
+                  c.align === "right" ? "text-right" :
+                  c.align === "center" ? "text-center" :
+                  "text-left",
+                  c.width,
+                  c.hideOnMobile && "hidden sm:table-cell",
+                  c.sticky === "right" &&
+                    "sticky right-0 z-10 bg-ds-surface-3 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.35)]",
+                )}
+              >
+                {c.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="relative z-0 bg-ds-surface-1">
+          {rows.map((row, i) => {
+            const variant = rowVariant ? rowVariant(row) : "default";
+            return (
+              <tr
+                key={rowKey(row, i)}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                className={cn(
+                  "border-b border-ds-border-subtle last:border-b-0 transition-colors",
+                  ROW_VARIANT_BG[variant],
+                  onRowClick && "cursor-pointer hover:bg-ds-surface-2",
+                )}
+              >
+                {columns.map((c) => (
+                  <td
+                    key={c.id}
+                    className={cn(
+                      // Filas altas alineadas arriba; min-w-0 + overflow-x-hidden
+                      // evitan que contenido nowrap/flex invada la celda siguiente en `table-fixed`.
+                      "px-3.5 py-3 text-ds-text-1 align-top min-w-0 overflow-x-hidden",
+                      c.align === "right" ? "text-right ds-num" :
+                      c.align === "center" ? "text-center" :
+                      "text-left",
+                      c.hideOnMobile && "hidden sm:table-cell",
+                      c.sticky === "right" &&
+                        "sticky right-0 z-[1] bg-inherit shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.35)]",
+                    )}
+                  >
+                    {c.cell(row, i)}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
