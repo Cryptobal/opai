@@ -305,6 +305,35 @@ export async function setOccurrenceAmountOverride(
   });
 }
 
+/** Resuelve la categoría sistema por defecto del kind (ING_OTRO / EGR_OTRO),
+ *  cayendo a la primera categoría activa del kind. Multi-tenant. */
+async function resolveDefaultCategoryId(
+  tenantId: string,
+  kind: "INCOME" | "EXPENSE",
+): Promise<string> {
+  const defaultCode = kind === "INCOME" ? "ING_OTRO" : "EGR_OTRO";
+  const preferred = await prisma.financeCashflowCategory.findFirst({
+    where: { tenantId, code: defaultCode, kind, isActive: true },
+    select: { id: true },
+  });
+  const fallback =
+    preferred ??
+    (await prisma.financeCashflowCategory.findFirst({
+      where: { tenantId, kind, isActive: true },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true },
+    }));
+  if (!fallback) {
+    throw new Error(`No hay categoría ${kind} disponible para el tenant`);
+  }
+  return fallback.id;
+}
+
+/** Normaliza una fecha a medianoche UTC (las columnas del schema son @db.Date). */
+function toUtcDate(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
 export interface CreateManualOccurrenceInput {
   kind: "INCOME" | "EXPENSE";
   name: string;
@@ -339,29 +368,10 @@ export async function createManualOccurrence(
     });
     if (!cat) throw new Error("Categoría no encontrada para el tenant");
   } else {
-    const defaultCode = input.kind === "INCOME" ? "ING_OTRO" : "EGR_OTRO";
-    const preferred = await prisma.financeCashflowCategory.findFirst({
-      where: { tenantId, code: defaultCode, kind: input.kind, isActive: true },
-      select: { id: true },
-    });
-    const fallback =
-      preferred ??
-      (await prisma.financeCashflowCategory.findFirst({
-        where: { tenantId, kind: input.kind, isActive: true },
-        orderBy: { sortOrder: "asc" },
-        select: { id: true },
-      }));
-    if (!fallback) {
-      throw new Error(`No hay categoría ${input.kind} disponible para el tenant`);
-    }
-    categoryId = fallback.id;
+    categoryId = await resolveDefaultCategoryId(tenantId, input.kind);
   }
 
-  // Normaliza a medianoche UTC (las fechas del schema son @db.Date).
-  const sd = input.scheduledDate;
-  const scheduledDate = new Date(
-    Date.UTC(sd.getUTCFullYear(), sd.getUTCMonth(), sd.getUTCDate()),
-  );
+  const scheduledDate = toUtcDate(input.scheduledDate);
 
   return prisma.$transaction(async (tx) => {
     const item = await tx.financeCashflowItem.create({
@@ -388,6 +398,75 @@ export async function createManualOccurrence(
         status: "PROJECTED",
       },
     });
+  });
+}
+
+/**
+ * "+ Manual" desde el modal de cuadratura: registra un bank tx pendiente en el
+ * flujo creando un item MANUAL (ONCE) + occurrence PAID conciliada en la fecha
+ * del tx, y marca el tx como MATCHED. Sin formulario: kind/categoría/monto se
+ * derivan del propio movimiento. Multi-tenant + idempotencia básica (rechaza
+ * tx ya vinculado).
+ */
+export async function createManualOccurrenceFromBankTx(
+  tenantId: string,
+  userId: string | null,
+  bankTransactionId: string,
+  nameOverride?: string,
+): Promise<FinanceCashflowOccurrence> {
+  const tx = await prisma.financeBankTransaction.findFirst({
+    where: { id: bankTransactionId, tenantId, hiddenAt: null },
+    select: { id: true, amount: true, transactionDate: true, description: true },
+  });
+  if (!tx) throw new Error("Movimiento bancario no encontrado");
+
+  const used = await prisma.financeCashflowOccurrence.findFirst({
+    where: { tenantId, bankTransactionId },
+    select: { id: true },
+  });
+  if (used) throw new Error("Ese movimiento ya está vinculado a otra ocurrencia");
+
+  const amt = Number(tx.amount);
+  const kind: "INCOME" | "EXPENSE" = amt >= 0 ? "INCOME" : "EXPENSE";
+  const abs = Math.abs(amt);
+  const categoryId = await resolveDefaultCategoryId(tenantId, kind);
+  const scheduledDate = toUtcDate(tx.transactionDate);
+  const name = (nameOverride ?? tx.description ?? "Movimiento manual").slice(0, 200);
+
+  return prisma.$transaction(async (db) => {
+    const item = await db.financeCashflowItem.create({
+      data: {
+        tenantId,
+        categoryId,
+        kind,
+        source: "MANUAL",
+        name,
+        amount: abs,
+        currency: "CLP",
+        recurrence: "ONCE",
+        startDate: scheduledDate,
+        isActive: true,
+        createdBy: userId ?? undefined,
+      },
+    });
+    const occ = await db.financeCashflowOccurrence.create({
+      data: {
+        tenantId,
+        itemId: item.id,
+        scheduledDate,
+        effectiveDate: scheduledDate,
+        amountClp: abs,
+        status: "PAID",
+        bankTransactionId,
+        matchedAt: new Date(),
+        matchedBy: userId ?? undefined,
+      },
+    });
+    await db.financeBankTransaction.update({
+      where: { id: bankTransactionId },
+      data: { reconciliationStatus: "MATCHED" },
+    });
+    return occ;
   });
 }
 

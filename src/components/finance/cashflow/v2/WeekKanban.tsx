@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Lock } from "lucide-react";
+import { Lock, Pencil } from "lucide-react";
 import type {
   ProjectionMatrix,
   ProjectionAnchorInfo,
@@ -13,6 +13,8 @@ import { WeekDetail } from "./WeekDetail";
 import { fmtCLP } from "./format";
 import {
   isBucketClosed,
+  isBucketManualClose,
+  manualReasonFor,
   currentBucketIndex,
   type OccMeta,
 } from "./projection-helpers";
@@ -72,6 +74,8 @@ export function WeekKanban({
       {buckets.map((b) => {
         const idx = projection.buckets.indexOf(b);
         const closed = isBucketClosed(b, anchor);
+        const manualClosed = isBucketManualClose(b, anchor);
+        const manualReason = manualReasonFor(b, anchor);
         const isCurrent = idx === currentIdx;
         const isPast = currentIdx >= 0 && idx < currentIdx;
         const canCloseHere = !closed && (isCurrent || isPast);
@@ -97,9 +101,28 @@ export function WeekKanban({
               <div className="flex items-center justify-between">
                 <span className="text-[12px] font-bold text-ds-text-1">{b.label}</span>
                 {closed && (
-                  <Lock className="h-3 w-3 text-status-ok-fg" aria-label="semana cerrada" />
+                  <span title={manualReason ?? undefined}>
+                    <Lock
+                      className={cn(
+                        "h-3 w-3",
+                        manualClosed ? "text-status-warn-fg" : "text-status-ok-fg",
+                      )}
+                      aria-label={manualClosed ? "semana cerrada manual" : "semana cerrada"}
+                    />
+                  </span>
                 )}
               </div>
+              {closed && manualClosed && (
+                <div className="mt-0.5 flex items-center gap-1 text-[9px] text-status-warn-fg">
+                  <Pencil className="h-2.5 w-2.5" />
+                  cerrada manual
+                  {manualReason && (
+                    <span className="ml-1 max-w-[140px] truncate italic" title={manualReason}>
+                      «{manualReason}»
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="mt-0.5 text-[10px] text-ds-text-3">cierre proy.</div>
               <div
                 className="font-mono text-base font-bold tabular-nums"

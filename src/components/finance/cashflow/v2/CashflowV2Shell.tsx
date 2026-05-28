@@ -16,6 +16,7 @@ import type {
 } from "@/modules/finance/cashflow/types";
 import { HealthHeader } from "./HealthHeader";
 import { AnchorBanner } from "./AnchorBanner";
+import { ManualCloseStreakBanner, type CloseLite } from "./ManualCloseStreakBanner";
 import { WeekStrip } from "./WeekStrip";
 import { WeekDetail } from "./WeekDetail";
 import { WeekKanban } from "./WeekKanban";
@@ -23,7 +24,7 @@ import { Sparkline, type SparkPoint } from "./Sparkline";
 import { TodayButton } from "./TodayButton";
 import { UndoToast, type UndoPayload } from "./UndoToast";
 import { MovementDetailSheet } from "./MovementDetailSheet";
-import { ReconcileBand } from "./ReconcileBand";
+import { CuadraturaModal } from "./CuadraturaModal";
 import { Legend } from "./Legend";
 import { ClosedWeekModal } from "./ClosedWeekModal";
 import { GranularityToggle, type Granularity } from "./GranularityToggle";
@@ -43,6 +44,8 @@ export interface CashflowV2ShellProps {
   canManage: boolean;
   /** Anchor activo del cierre semanal (null si no hay). */
   anchor: ProjectionAnchorInfo | null;
+  /** Últimos cierres semanales (para el banner de manuales consecutivos). */
+  recentCloses?: CloseLite[];
 }
 
 /**
@@ -52,7 +55,12 @@ export interface CashflowV2ShellProps {
  * seleccionada. Sparkline de 13 semanas arriba, flechas ← → por fila para mover
  * con undo de 5s, y quick-add manual en cada sección.
  */
-export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2ShellProps) {
+export function CashflowV2Shell({
+  projection,
+  canManage,
+  anchor,
+  recentCloses,
+}: CashflowV2ShellProps) {
   const router = useRouter();
   const [granularity, setGranularity] = useState<Granularity>("weekly");
   const [monthly, setMonthly] = useState<ProjectionMatrix | null>(null);
@@ -68,6 +76,7 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
     destKey: string;
   } | null>(null);
   const [undoPayload, setUndoPayload] = useState<UndoPayload | null>(null);
+  const [cuadraturaFor, setCuadraturaFor] = useState<ProjectionBucket | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const active = granularity === "monthly" && monthly ? monthly : projection;
@@ -234,35 +243,10 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
     }
   }
 
-  async function handleCloseWeek(bucket: ProjectionBucket | null = selectedBucket) {
-    if (!bucket) return;
-    setSubmitting(true);
-    try {
-      const res = await fetch(`/api/finance/cashflow/weekly-close`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          weekEnd: toDate(bucket.end).toISOString(),
-          anchor: true,
-        }),
-      });
-      const j = await res.json();
-      if (!j?.success) {
-        toast.error(j?.error ?? "No se pudo cerrar la semana");
-        return;
-      }
-      toast.success("Semana cerrada y proyección anclada");
-      router.refresh();
-    } catch {
-      toast.error("Error al cerrar la semana");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   return (
     <div className="min-w-0 space-y-4">
       <BancaTabsHeader active="cashflow" />
+      {recentCloses && <ManualCloseStreakBanner recentCloses={recentCloses} />}
       <HealthHeader projection={projection} />
       <Sparkline points={sparkPoints} onJump={(key) => setSelectedKey(key)} />
       <AnchorBanner anchor={anchor} />
@@ -297,7 +281,7 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
             onOpenDetail={(occ, meta) => setDetail({ occ, meta })}
             onCloseWeek={(key) => {
               const b = active.buckets.find((x) => x.key === key) ?? null;
-              void handleCloseWeek(b);
+              if (b) setCuadraturaFor(b);
             }}
             onMutate={() => router.refresh()}
           />
@@ -315,60 +299,48 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
         />
 
         {selectedBucket ? (
-          <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-5">
-            <div
-              className={cn(
-                "min-w-0 space-y-3",
-                bucketActionable ? "lg:col-span-3" : "lg:col-span-5",
-              )}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-sm font-semibold text-ds-text-1">
-                  {selectedBucket.label}
-                </h2>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Buscar…"
-                    aria-label="Buscar en el detalle de la semana"
-                    className="h-9 w-36 rounded-ds-md border border-ds-border-default bg-ds-surface-1 px-2.5 text-base placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary sm:w-44 sm:text-[13px]"
-                  />
-                  {bucketActionable && canManage && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-9 text-[12px]"
-                      disabled={submitting}
-                      onClick={() => handleCloseWeek()}
-                    >
-                      <Lock className="mr-1 h-3.5 w-3.5" /> Cerrar semana
-                    </Button>
-                  )}
-                </div>
+          <div className="mt-3 min-w-0 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold text-ds-text-1">
+                {selectedBucket.label}
+              </h2>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar…"
+                  aria-label="Buscar en el detalle de la semana"
+                  className="h-9 w-36 rounded-ds-md border border-ds-border-default bg-ds-surface-1 px-2.5 text-base placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary sm:w-44 sm:text-[13px]"
+                />
+                {bucketActionable && canManage && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-9 text-[12px]"
+                    disabled={submitting}
+                    onClick={() => setCuadraturaFor(selectedBucket)}
+                  >
+                    <Lock className="mr-1 h-3.5 w-3.5" /> Cuadrar y cerrar
+                  </Button>
+                )}
               </div>
-              <WeekDetail
-                bucket={selectedBucket}
-                meta={occMeta}
-                canManage={canManage}
-                searchTerm={searchTerm}
-                onMoveDir={
-                  effectiveKey
-                    ? (occ, dir) => handleMoveDir(occ, effectiveKey, dir)
-                    : undefined
-                }
-                canMoveLeft={mobileCanLeft}
-                canMoveRight={mobileCanRight}
-                onOpenDetail={(occ, meta) => setDetail({ occ, meta })}
-                onMutate={() => router.refresh()}
-              />
             </div>
-            {bucketActionable && (
-              <div className="min-w-0 lg:col-span-2">
-                <ReconcileBand bucket={selectedBucket} />
-              </div>
-            )}
+            <WeekDetail
+              bucket={selectedBucket}
+              meta={occMeta}
+              canManage={canManage}
+              searchTerm={searchTerm}
+              onMoveDir={
+                effectiveKey
+                  ? (occ, dir) => handleMoveDir(occ, effectiveKey, dir)
+                  : undefined
+              }
+              canMoveLeft={mobileCanLeft}
+              canMoveRight={mobileCanRight}
+              onOpenDetail={(occ, meta) => setDetail({ occ, meta })}
+              onMutate={() => router.refresh()}
+            />
           </div>
         ) : (
           <div className="mt-3 rounded-ds-lg border border-dashed border-ds-border-default bg-ds-surface-1 p-6 text-center text-sm text-ds-text-3">
@@ -391,6 +363,12 @@ export function CashflowV2Shell({ projection, canManage, anchor }: CashflowV2She
         occ={detail?.occ ?? null}
         meta={detail?.meta}
         onClose={() => setDetail(null)}
+      />
+      <CuadraturaModal
+        open={cuadraturaFor != null}
+        bucket={cuadraturaFor}
+        canManage={canManage}
+        onClose={() => setCuadraturaFor(null)}
       />
       <TodayButton
         visible={!isOnToday}

@@ -75,6 +75,29 @@ export function isCurrentBucket(bucket: ProjectionBucket): boolean {
   return toDate(bucket.start).getTime() <= now && now <= toDate(bucket.end).getTime();
 }
 
+/**
+ * True si el bucket cuenta como "cerrado manual": hay un anchor activo manual
+ * y el bucket termina en o antes de la semana anclada. Simplificación: solo
+ * conocemos el anchor activo, no el cierre puntual de cada semana, así que
+ * todos los buckets ≤ anchor manual se pintan como cerrados manual.
+ */
+export function isBucketManualClose(
+  bucket: ProjectionBucket,
+  anchor: ProjectionAnchorInfo | null,
+): boolean {
+  if (!anchor || !anchor.isManual) return false;
+  return toDate(bucket.end).getTime() <= toDate(anchor.weekEndDate).getTime();
+}
+
+/** Motivo del cierre manual aplicable al bucket (null si no es manual-cerrado). */
+export function manualReasonFor(
+  bucket: ProjectionBucket,
+  anchor: ProjectionAnchorInfo | null,
+): string | null {
+  if (!isBucketManualClose(bucket, anchor)) return null;
+  return anchor?.manualReason ?? null;
+}
+
 /** True si el bucket es exactamente la semana anclada (mismo día calendario). */
 export function isAnchorBucket(
   bucket: ProjectionBucket,
