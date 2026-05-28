@@ -95,11 +95,16 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
       id: "type",
       header: "Tipo",
       width: "w-[88px]",
-      cell: (d) => <DocumentTag dteType={d.dteType} />,
+      cell: (d) => (
+        <div className="min-w-0 max-w-full overflow-hidden">
+          <DocumentTag dteType={d.dteType} />
+        </div>
+      ),
     },
     {
       id: "receptor",
       header: "Receptor",
+      width: "w-[200px]",
       cell: (d) => (
         <div className="min-w-0">
           <div className="text-sm font-medium text-ds-text-1 truncate">
@@ -432,7 +437,6 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
           rows={drafts}
           layout="fixed"
           rowKey={(d) => d.id}
-          stickyHeader
           onRowClick={(d) => setOpenDetailId(d.id)}
           empty={
             <EmptyState

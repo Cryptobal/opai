@@ -112,12 +112,22 @@ export function DataTable<T>({
       )}
     >
       <table
-        className={cn("w-full text-sm", layout === "fixed" && "table-fixed")}
+        className={cn(
+          "w-full text-sm border-separate border-spacing-0",
+          layout === "fixed" && "table-fixed",
+        )}
       >
+        {layout === "fixed" && (
+          <colgroup>
+            {columns.map((c) => (
+              <col key={c.id} className={c.width} />
+            ))}
+          </colgroup>
+        )}
         <thead
           className={cn(
             "bg-ds-surface-3 border-b border-ds-border-subtle",
-            stickyHeader ? "sticky z-20" : "relative z-10",
+            stickyHeader ? "sticky z-20 shadow-[0_1px_0_0_hsl(var(--ds-border-subtle))]" : "relative z-10",
             stickyHeader && stickyHeaderTopClass,
           )}
         >
@@ -128,6 +138,7 @@ export function DataTable<T>({
                 scope="col"
                 className={cn(
                   "px-3.5 py-3 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-3 font-medium leading-snug whitespace-nowrap",
+                  layout === "fixed" && c.sticky !== "right" && "max-w-0 overflow-hidden",
                   c.align === "right" ? "text-right" :
                   c.align === "center" ? "text-center" :
                   "text-left",
@@ -159,9 +170,10 @@ export function DataTable<T>({
                   <td
                     key={c.id}
                     className={cn(
-                      // Filas altas alineadas arriba; min-w-0 + overflow-x-hidden
-                      // evitan que contenido nowrap/flex invada la celda siguiente en `table-fixed`.
-                      "px-3.5 py-3 text-ds-text-1 align-top min-w-0 overflow-x-hidden",
+                      // table-fixed: max-w-0 + overflow-hidden evita que el
+                      // contenido invada la columna vecina (ej. Receptor → Tipo).
+                      "px-3.5 py-3 text-ds-text-1 align-top min-w-0 overflow-hidden",
+                      layout === "fixed" && c.sticky !== "right" && "max-w-0",
                       c.align === "right" ? "text-right ds-num" :
                       c.align === "center" ? "text-center" :
                       "text-left",
