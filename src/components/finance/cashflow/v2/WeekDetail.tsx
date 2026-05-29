@@ -35,6 +35,7 @@ interface Props {
   /** Mueve la occurrence al bucket vecino. Si está definido, MovementRow
    *  muestra flechas ← → en lugar del picker. */
   onMoveDir?: (occurrence: VirtualOccurrence, dir: "left" | "right") => void;
+  onDelete?: (occurrence: VirtualOccurrence) => void;
   canMoveLeft?: boolean;
   canMoveRight?: boolean;
   onOpenDetail?: (occurrence: VirtualOccurrence, meta?: OccMeta) => void;
@@ -51,6 +52,7 @@ export function WeekDetail({
   searchTerm,
   onMove,
   onMoveDir,
+  onDelete,
   canMoveLeft,
   canMoveRight,
   onOpenDetail,
@@ -82,6 +84,7 @@ export function WeekDetail({
         canManage={canManage}
         onMove={onMove}
         onMoveDir={onMoveDir}
+        onDelete={onDelete}
         canMoveLeft={canMoveLeft}
         canMoveRight={canMoveRight}
         onOpenDetail={onOpenDetail}
@@ -100,6 +103,7 @@ export function WeekDetail({
         canManage={canManage}
         onMove={onMove}
         onMoveDir={onMoveDir}
+        onDelete={onDelete}
         canMoveLeft={canMoveLeft}
         canMoveRight={canMoveRight}
         onOpenDetail={onOpenDetail}
@@ -122,6 +126,7 @@ interface SectionProps {
   canManage: boolean;
   onMove?: (occurrence: VirtualOccurrence) => void;
   onMoveDir?: (occurrence: VirtualOccurrence, dir: "left" | "right") => void;
+  onDelete?: (occurrence: VirtualOccurrence) => void;
   canMoveLeft?: boolean;
   canMoveRight?: boolean;
   onOpenDetail?: (occurrence: VirtualOccurrence, meta?: OccMeta) => void;
@@ -141,6 +146,7 @@ function Section({
   canManage,
   onMove,
   onMoveDir,
+  onDelete,
   canMoveLeft,
   canMoveRight,
   onOpenDetail,
@@ -213,6 +219,7 @@ function Section({
                     canManage={canManage}
                     onMove={onMove}
                     onMoveDir={onMoveDir}
+                    onDelete={onDelete}
                     canMoveLeft={canMoveLeft}
                     canMoveRight={canMoveRight}
                     onOpenDetail={onOpenDetail}
@@ -225,6 +232,7 @@ function Section({
                     canManage={canManage}
                     onMove={onMove}
                     onMoveDir={onMoveDir}
+                    onDelete={onDelete}
                     canMoveLeft={canMoveLeft}
                     canMoveRight={canMoveRight}
                     onOpenDetail={onOpenDetail}
@@ -252,6 +260,7 @@ function Section({
                         canManage={canManage}
                         onMove={onMove}
                         onMoveDir={onMoveDir}
+                        onDelete={onDelete}
                         canMoveLeft={canMoveLeft}
                         canMoveRight={canMoveRight}
                         onOpenDetail={onOpenDetail}

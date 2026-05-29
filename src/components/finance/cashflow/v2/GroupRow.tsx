@@ -17,6 +17,7 @@ interface Props {
   canManage: boolean;
   onMove?: (occurrence: VirtualOccurrence) => void;
   onMoveDir?: (occurrence: VirtualOccurrence, dir: "left" | "right") => void;
+  onDelete?: (occurrence: VirtualOccurrence) => void;
   canMoveLeft?: boolean;
   canMoveRight?: boolean;
   onOpenDetail?: (occurrence: VirtualOccurrence, meta?: OccMeta) => void;
@@ -36,6 +37,7 @@ export function GroupRow({
   canManage,
   onMove,
   onMoveDir,
+  onDelete,
   canMoveLeft,
   canMoveRight,
   onOpenDetail,
@@ -80,6 +82,7 @@ export function GroupRow({
               canManage={canManage}
               onMove={onMove}
               onMoveDir={onMoveDir}
+              onDelete={onDelete}
               canMoveLeft={canMoveLeft}
               canMoveRight={canMoveRight}
               onOpenDetail={onOpenDetail}

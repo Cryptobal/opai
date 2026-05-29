@@ -31,6 +31,7 @@ interface Props {
   searchTerm?: string;
   onMove?: (occurrence: VirtualOccurrence) => void;
   onMoveDir?: (occurrence: VirtualOccurrence, fromKey: string, dir: "left" | "right") => void;
+  onDelete?: (occurrence: VirtualOccurrence) => void;
   onOpenDetail?: (occurrence: VirtualOccurrence, meta?: OccMeta) => void;
   onCloseWeek?: (bucketKey: string) => void;
   onMutate?: () => void;
@@ -52,6 +53,7 @@ export function WeekKanban({
   searchTerm,
   onMove,
   onMoveDir,
+  onDelete,
   onOpenDetail,
   onCloseWeek,
   onMutate,
@@ -158,6 +160,7 @@ export function WeekKanban({
                 onMoveDir={
                   onMoveDir ? (occ, dir) => onMoveDir(occ, b.key, dir) : undefined
                 }
+                onDelete={onDelete}
                 canMoveLeft={canLeft}
                 canMoveRight={canRight}
                 onOpenDetail={onOpenDetail}
