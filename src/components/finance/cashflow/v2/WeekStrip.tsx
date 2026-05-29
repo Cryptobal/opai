@@ -7,7 +7,7 @@ import type {
   ProjectionMatrix,
   ProjectionAnchorInfo,
 } from "@/modules/finance/cashflow/types";
-import { fmtCLP } from "./format";
+import { fmtCLP, fmtBucketRange } from "./format";
 import {
   isBucketClosed,
   isBucketManualClose,
@@ -83,6 +83,9 @@ export function WeekStrip({
                   </span>
                 )}
               </div>
+              <span className="text-[9px] text-ds-text-3 font-normal -mt-0.5">
+                {fmtBucketRange(b.start, b.end)}
+              </span>
               <span
                 className={cn(
                   "font-mono text-sm tabular-nums",
