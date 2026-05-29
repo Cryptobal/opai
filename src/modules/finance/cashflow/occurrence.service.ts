@@ -416,6 +416,7 @@ export interface CreateManualOccurrenceInput {
   amountClp: number;
   scheduledDate: Date;
   categoryId?: string | null;
+  notes?: string | null;
 }
 
 /**
@@ -472,6 +473,7 @@ export async function createManualOccurrence(
         scheduledDate,
         amountClp: input.amountClp,
         status: "PROJECTED",
+        notes: input.notes?.trim() || null,
       },
     });
   });
