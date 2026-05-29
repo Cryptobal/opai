@@ -25,7 +25,7 @@ export async function DELETE(
       where: { id, tenantId: ctx.tenantId },
       select: {
         id: true, status: true, dteId: true, bankTransactionId: true,
-        isClosingAdjust: true, item: { select: { name: true } },
+        isClosingAdjust: true, item: { select: { name: true, source: true } },
       },
     });
     if (!occ) {
@@ -54,6 +54,18 @@ export async function DELETE(
     if (occ.status === "PAID" || occ.status === "CONFIRMED") {
       return NextResponse.json(
         { success: false, error: "Solo se pueden borrar proyecciones pendientes." },
+        { status: 403 },
+      );
+    }
+    // Política A: solo source=MANUAL. Las proyecciones de contratos / recurring
+    // DTE / payroll las regenera el cron, así que borrarlas a mano no tiene
+    // sentido — hay que ir a la fuente (contrato, template DTE, configuración).
+    if (occ.item?.source !== "MANUAL") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Solo se pueden borrar movimientos manuales. Las proyecciones de contratos y recurrentes vienen del sistema — para sacarlas, edita el contrato o template origen.",
+        },
         { status: 403 },
       );
     }

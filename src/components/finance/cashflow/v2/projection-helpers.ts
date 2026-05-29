@@ -301,6 +301,10 @@ export function occurrenceLevel(occ: {
 /** ¿Esta occurrence puede borrarse desde el flujo? Solo proyecciones puras
  *  (weak) que no sean ajustes automáticos de cierre. */
 export function canDeleteOccurrence(occ: VirtualOccurrence & { isClosingAdjust?: boolean }): boolean {
+  // Política A: solo manuales se borran desde el flujo. Para contratos /
+  // recurring DTE / payroll / quincenas / etc., el cron las regenera; hay
+  // que ir a la fuente (contrato, template DTE, configuración) para sacarlas.
+  if (occ.source !== "MANUAL") return false;
   if (occurrenceLevel(occ) !== "weak") return false;
   if ((occ as { isClosingAdjust?: boolean }).isClosingAdjust) return false;
   if (!occ.id) return false; // virtuales no se pueden borrar (no existen en DB)
