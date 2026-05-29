@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CellStatusPill } from "@/components/finance/cashflow/CellStatusPill";
@@ -21,6 +21,9 @@ interface Props {
   canMoveLeft?: boolean;
   canMoveRight?: boolean;
   onOpenDetail?: (occurrence: VirtualOccurrence, meta?: OccMeta) => void;
+  /** Clave única estable para persistir el estado abierto/cerrado del grupo
+   *  (típicamente: `${bucketKey}:${label}`). */
+  storageKey?: string;
 }
 
 /**
@@ -41,8 +44,18 @@ export function GroupRow({
   canMoveLeft,
   canMoveRight,
   onOpenDetail,
+  storageKey,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined" || !storageKey) return false;
+    return window.localStorage.getItem(`opai-cf-group:${storageKey}`) === "1";
+  });
+  useEffect(() => {
+    if (typeof window === "undefined" || !storageKey) return;
+    const key = `opai-cf-group:${storageKey}`;
+    if (open) window.localStorage.setItem(key, "1");
+    else window.localStorage.removeItem(key);
+  }, [open, storageKey]);
   return (
     <div>
       <button
