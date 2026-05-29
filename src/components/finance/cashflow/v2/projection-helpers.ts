@@ -139,6 +139,7 @@ export const CONSOLIDATED_SOURCES = new Set<FinanceCashflowItemSource>([
   "PAYROLL_LIQUIDO",
   "PAYROLL_PREVIRED",
   "QUINCENA",
+  "MANUAL",
 ]);
 
 /** Etiqueta estable de consolidación por source. PAYROLL y PAYROLL_LIQUIDO
@@ -154,6 +155,9 @@ const GROUP_LABELS: Partial<Record<FinanceCashflowItemSource, string>> = {
 /** Clave/etiqueta de consolidación de una occurrence, o null si va individual. */
 export function groupKeyFor(o: VirtualOccurrence): string | null {
   if (!CONSOLIDATED_SOURCES.has(o.source)) return null;
+  if (o.source === "MANUAL") {
+    return o.kind === "INCOME" ? "Ingresos manuales" : "Egresos manuales";
+  }
   return GROUP_LABELS[o.source] ?? null;
 }
 
@@ -238,6 +242,17 @@ export function buildDetailRows(
         totalClp: o.amountClp,
         items: [o],
       });
+    }
+  }
+
+  // Desconsolidar grupos MANUAL con un solo item (cuando hay solo 1 ingreso/egreso
+  // manual, mostrarlo con su concepto real, no como "Ingresos manuales · 1").
+  // Los otros sources (PAYROLL, TURNOS_EXTRA, etc.) siempre se consolidan,
+  // incluso con 1 item, porque su label es un concepto agregado por diseño.
+  for (const [key, g] of [...groups.entries()]) {
+    if (g.source === "MANUAL" && g.items.length === 1) {
+      singles.push(g.items[0]);
+      groups.delete(key);
     }
   }
 

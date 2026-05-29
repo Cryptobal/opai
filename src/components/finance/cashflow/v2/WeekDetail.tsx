@@ -223,6 +223,7 @@ function Section({
                     canMoveLeft={canMoveLeft}
                     canMoveRight={canMoveRight}
                     onOpenDetail={onOpenDetail}
+                    storageKey={`${bucket.key}:${r.label}`}
                   />
                 ) : (
                   <MovementRow
