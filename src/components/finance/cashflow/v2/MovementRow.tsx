@@ -1,7 +1,7 @@
 "use client";
 
 import type { KeyboardEvent } from "react";
-import { ArrowLeft, ArrowRight, Lock, MoveHorizontal } from "lucide-react";
+import { ArrowLeft, ArrowRight, Lock, MoveHorizontal, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   CellStatusPill,
@@ -9,7 +9,7 @@ import {
 } from "@/components/finance/cashflow/CellStatusPill";
 import type { VirtualOccurrence } from "@/modules/finance/cashflow/types";
 import { fmtCLP } from "./format";
-import type { OccMeta } from "./projection-helpers";
+import { canDeleteOccurrence, type OccMeta } from "./projection-helpers";
 import { FolioChip } from "./FolioChip";
 
 interface Props {
@@ -26,6 +26,9 @@ interface Props {
   /** Abre el detalle "qué es esto" de la fila. Si está definido, la fila es
    *  tappable (los botones internos hacen stopPropagation). */
   onOpenDetail?: (occurrence: VirtualOccurrence, meta?: OccMeta) => void;
+  /** Borra la occurrence (solo si es weak: proyección sin DTE ni bank tx).
+   *  Si no se define, el botón borrar no se muestra. */
+  onDelete?: (occurrence: VirtualOccurrence) => void;
 }
 
 /**
@@ -44,6 +47,7 @@ export function MovementRow({
   canMoveLeft,
   canMoveRight,
   onOpenDetail,
+  onDelete,
 }: Props) {
   const reconciled = occ.bankTransactionId != null;
   const title = occ.nickname || occ.name || occ.installationName || "Sin nombre";
@@ -172,6 +176,17 @@ export function MovementRow({
             <MoveHorizontal className="h-3.5 w-3.5" />
           </button>
         ) : null}
+        {onDelete && canManage && canDeleteOccurrence(occ) && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onDelete(occ); }}
+            className="rounded-md p-1.5 transition-all hover:bg-status-danger-soft active:scale-90"
+            aria-label="Borrar proyección"
+            title="Borrar esta proyección"
+          >
+            <Trash2 className="h-3.5 w-3.5 text-status-danger-fg/70 hover:text-status-danger-fg" />
+          </button>
+        )}
       </div>
     </div>
   );
