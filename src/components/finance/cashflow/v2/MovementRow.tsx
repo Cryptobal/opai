@@ -1,7 +1,7 @@
 "use client";
 
 import type { KeyboardEvent } from "react";
-import { ArrowLeft, ArrowRight, Lock, MoveHorizontal, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Lock, MoveHorizontal, StickyNote, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   CellStatusPill,
@@ -95,6 +95,15 @@ export function MovementRow({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className={cn("truncate text-[13px]", emphasis)}>{title}</span>
+          {occ.notes && (
+            <span
+              title={occ.notes}
+              className="inline-flex shrink-0 items-center justify-center rounded-md bg-status-warn-soft p-0.5 text-status-warn-fg"
+              aria-label="Tiene notas"
+            >
+              <StickyNote className="h-2.5 w-2.5" />
+            </span>
+          )}
           {factoring && (
             <span className="rounded-ds-sm bg-purple-500/15 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-purple-300">
               F
