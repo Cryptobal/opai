@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -22,26 +22,6 @@ export function QuickAddInline({ kind, bucketStart, onAdded }: Props) {
   const [amount, setAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const popoutRef = useRef<HTMLDivElement>(null);
-
-  // Tap fuera del pop-out (desktop / landscape) cierra. En mobile el cierre por
-  // tap-fuera lo maneja el onClick del backdrop. Pequeño delay para no atrapar
-  // el mismo click que abrió el panel.
-  useEffect(() => {
-    if (!open) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (popoutRef.current && !popoutRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    const t = setTimeout(() => {
-      document.addEventListener("mousedown", handleClickOutside);
-    }, 50);
-    return () => {
-      clearTimeout(t);
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [open]);
 
   function reset() {
     setName("");
@@ -182,9 +162,15 @@ export function QuickAddInline({ kind, bucketStart, onAdded }: Props) {
         </div>
       </div>
 
-      {/* Desktop / mobile landscape: pop-out inline al lado del "+". */}
+      {/* Desktop / mobile landscape: backdrop transparente fixed que captura
+          clicks fuera del pop-out (mismo patrón que mobile, sin listeners
+          globales) + pop-out inline al lado del "+". */}
       <div
-        ref={popoutRef}
+        className="fixed inset-0 z-30 hidden md:block"
+        onClick={() => setOpen(false)}
+        aria-hidden="true"
+      />
+      <div
         className="absolute right-0 top-full z-30 mt-2 hidden w-[320px] rounded-ds-lg border border-ds-border-strong bg-ds-surface-2 p-3 text-left shadow-xl md:block"
         onClick={(e) => e.stopPropagation()}
       >
