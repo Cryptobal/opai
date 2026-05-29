@@ -246,8 +246,10 @@ export function CashflowV2Shell({
       <BancaTabsHeader active="cashflow" />
       {recentCloses && <ManualCloseStreakBanner recentCloses={recentCloses} />}
       <HealthHeader projection={projection} />
-      <Sparkline points={sparkPoints} onJump={(key) => setSelectedKey(key)} />
-      <AnchorBanner anchor={anchor} />
+      <div className="hidden md:block">
+        <Sparkline points={sparkPoints} onJump={(key) => setSelectedKey(key)} />
+      </div>
+      <AnchorBanner anchor={anchor} currentOpening={projection.openingBalanceClp} />
 
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-ds-text-1">Línea de tiempo</h2>
