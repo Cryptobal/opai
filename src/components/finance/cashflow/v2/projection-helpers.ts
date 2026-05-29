@@ -280,3 +280,29 @@ export function buildDetailRows(
   rows.sort((a, b) => rowAmount(b) - rowAmount(a));
   return { rows, zeroCount };
 }
+
+/** Nivel "fuerza" de una occurrence:
+ *  - "weak"   = proyección pura, sin DTE ni bank tx. Regenerable por cron.
+ *  - "strong" = tiene DTE (borrador o emitido) o ya está conciliada con banco.
+ *               Representa un hecho real, no una predicción. */
+export type OccurrenceLevel = "weak" | "strong";
+
+export function occurrenceLevel(occ: {
+  dteId: string | null;
+  bankTransactionId: string | null;
+  status?: string | null;
+}): OccurrenceLevel {
+  if (occ.dteId != null) return "strong";
+  if (occ.bankTransactionId != null) return "strong";
+  if (occ.status === "PAID" || occ.status === "CONFIRMED") return "strong";
+  return "weak";
+}
+
+/** ¿Esta occurrence puede borrarse desde el flujo? Solo proyecciones puras
+ *  (weak) que no sean ajustes automáticos de cierre. */
+export function canDeleteOccurrence(occ: VirtualOccurrence & { isClosingAdjust?: boolean }): boolean {
+  if (occurrenceLevel(occ) !== "weak") return false;
+  if ((occ as { isClosingAdjust?: boolean }).isClosingAdjust) return false;
+  if (!occ.id) return false; // virtuales no se pueden borrar (no existen en DB)
+  return true;
+}
