@@ -37,7 +37,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, data: { id: occ.id } });
       }
       const result = await materializeAndAct(ctx.tenantId, parsed.data);
-      return NextResponse.json({ success: true, data: { id: result.id } });
+      return NextResponse.json({
+        success: true,
+        data: { id: result.id },
+        overwrote: result.overwrote ?? null,
+      });
     } catch (e) {
       if (e instanceof OccurrenceCollisionError) {
         return NextResponse.json(
