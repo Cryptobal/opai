@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { toDate } from "./format";
 
 interface Props {
@@ -13,14 +12,42 @@ interface Props {
   onAdded?: () => void;
 }
 
-/** Mini-form inline para agregar una occurrence manual rápida (concepto +
- *  monto) en la fecha de inicio del bucket. Llama a upsert-and-act
+/** Quick-add manual: en mobile vertical es un bottom-sheet con backdrop;
+ *  en desktop/landscape es un pop-out inline al lado del "+". Tap fuera cierra.
+ *  Acepta Concepto + Monto + Nota (opcional). Llama a upsert-and-act
  *  action=create. */
 export function QuickAddInline({ kind, bucketStart, onAdded }: Props) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
+  const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const popoutRef = useRef<HTMLDivElement>(null);
+
+  // Tap fuera del pop-out (desktop / landscape) cierra. En mobile el cierre por
+  // tap-fuera lo maneja el onClick del backdrop. Pequeño delay para no atrapar
+  // el mismo click que abrió el panel.
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (popoutRef.current && !popoutRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    const t = setTimeout(() => {
+      document.addEventListener("mousedown", handleClickOutside);
+    }, 50);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [open]);
+
+  function reset() {
+    setName("");
+    setAmount("");
+    setNotes("");
+  }
 
   async function submit() {
     const n = name.trim();
@@ -41,12 +68,12 @@ export function QuickAddInline({ kind, bucketStart, onAdded }: Props) {
           amountClp: a,
           scheduledDate: toDate(bucketStart).toISOString().slice(0, 10),
           source: "MANUAL",
+          notes: notes.trim() || null,
         }),
       });
       const j = await res.json();
       if (j?.success) {
-        setName("");
-        setAmount("");
+        reset();
         setOpen(false);
         toast.success("Movimiento agregado");
         onAdded?.();
@@ -60,65 +87,109 @@ export function QuickAddInline({ kind, bucketStart, onAdded }: Props) {
     }
   }
 
+  const trigger = (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        setOpen(true);
+      }}
+      className="inline-flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-3 hover:bg-ds-surface-3 hover:text-ds-text-1 active:scale-95"
+      aria-label={`Agregar ${kind === "INCOME" ? "ingreso" : "egreso"} manual`}
+    >
+      <Plus className="h-3.5 w-3.5" />
+    </button>
+  );
+
   if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen(true);
-        }}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-3 hover:bg-ds-surface-3 hover:text-ds-text-1 active:scale-95"
-        aria-label={`Agregar ${kind === "INCOME" ? "ingreso" : "egreso"} manual`}
-      >
-        <Plus className="h-3.5 w-3.5" />
-      </button>
-    );
+    return trigger;
   }
 
-  return (
-    <div
-      className="my-1.5 rounded-ds-md border border-dashed border-ds-border-strong bg-ds-surface-2 px-2 pb-1 pt-2"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div className="mb-1.5 flex items-center gap-1.5">
-        <Plus className="h-3 w-3 text-primary" />
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+  // Form que va dentro del sheet/popout (mismo markup en ambos contextos).
+  const formMarkup = (
+    <>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
+          <Plus className="h-3 w-3" />
           Nuevo {kind === "INCOME" ? "ingreso" : "egreso"} manual
         </span>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="rounded-ds-md p-1.5 text-ds-text-3 hover:bg-ds-surface-3 hover:text-ds-text-1"
+          aria-label="Cerrar"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Concepto"
-        className="mb-1.5 w-full rounded-ds-md border border-ds-border-default bg-ds-surface-3 px-2 py-1.5 text-[12px] text-ds-text-1 placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary"
-      />
-      <div className="flex gap-1.5">
+      <div className="space-y-2">
+        <input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Concepto"
+          className="w-full rounded-ds-md border border-ds-border-default bg-ds-surface-3 px-2.5 py-2 text-[13px] text-ds-text-1 placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary"
+        />
         <input
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           placeholder="Monto $"
+          type="text"
           inputMode="numeric"
-          className="flex-1 rounded-ds-md border border-ds-border-default bg-ds-surface-3 px-2 py-1.5 text-[12px] tabular-nums text-ds-text-1 placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full rounded-ds-md border border-ds-border-default bg-ds-surface-3 px-2.5 py-2 text-[13px] tabular-nums text-ds-text-1 placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary"
           onKeyDown={(e) => {
-            if (e.key === "Enter") void submit();
+            if (e.key === "Enter" && !e.shiftKey) void submit();
           }}
         />
-        <Button size="sm" onClick={submit} disabled={submitting} className="h-8 text-[11px]">
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Nota (opcional)"
+          rows={2}
+          className="w-full resize-none rounded-ds-md border border-ds-border-default bg-ds-surface-3 px-2.5 py-2 text-[12px] text-ds-text-1 placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+      </div>
+      <div className="mt-3 flex gap-2">
+        <Button
+          size="sm"
+          onClick={submit}
+          disabled={submitting || !name.trim() || !amount}
+          className="flex-1"
+        >
           Agregar
         </Button>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className={cn(
-            "inline-flex h-8 w-8 items-center justify-center rounded-ds-md text-ds-text-3",
-            "hover:bg-ds-surface-3 hover:text-ds-text-1",
-          )}
-          aria-label="Cancelar"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
+        <Button size="sm" variant="outline" onClick={() => setOpen(false)} disabled={submitting}>
+          Cancelar
+        </Button>
       </div>
-    </div>
+    </>
+  );
+
+  return (
+    <span className="relative inline-flex">
+      {trigger}
+
+      {/* Mobile vertical (md-): bottom-sheet con backdrop. Tap en el backdrop cierra. */}
+      <div
+        className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 md:hidden"
+        onClick={() => setOpen(false)}
+      >
+        <div
+          className="max-h-[80vh] w-full overflow-y-auto rounded-t-2xl border-x border-t border-ds-border-strong bg-ds-surface-1 px-4 pb-5 pt-3"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {formMarkup}
+        </div>
+      </div>
+
+      {/* Desktop / mobile landscape: pop-out inline al lado del "+". */}
+      <div
+        ref={popoutRef}
+        className="absolute right-0 top-full z-30 mt-2 hidden w-[320px] rounded-ds-lg border border-ds-border-strong bg-ds-surface-2 p-3 text-left shadow-xl md:block"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {formMarkup}
+      </div>
+    </span>
   );
 }
