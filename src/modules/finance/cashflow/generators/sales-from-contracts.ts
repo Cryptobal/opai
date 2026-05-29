@@ -119,6 +119,7 @@ export async function projectSalesFromContracts(
         kind: "INCOME",
         name: q.installation?.name ?? q.clientName ?? q.name ?? "Contrato",
         description: `Cotización ${q.id.slice(0, 8)} · ${q.currency} ${amount.toFixed(2)}/mes`,
+        notes: null,
         scheduledDate,
         effectiveDate: null,
         amountClp,

@@ -697,6 +697,7 @@ export async function buildProjection(
         kind: item.kind,
         name: item.name,
         description: item.description,
+        notes: mat?.notes ?? null,
         scheduledDate: d,
         effectiveDate: mat?.effectiveDate ?? null,
         amountClp,
@@ -981,6 +982,7 @@ export async function buildProjection(
             kind: chosenItem.kind,
             name: chosenItem.name,
             description: chosenItem.description,
+            notes: null,
             scheduledDate: firstTx.date,
             effectiveDate: firstTx.date,
             amountClp: 0,
@@ -1169,6 +1171,7 @@ export async function buildProjection(
           kind: contractItem.kind,
           name: contractItem.name,           // ← nombre del item, no del DTE
           description: null,
+          notes: null,
           scheduledDate: p1EffectiveDteDate,
           effectiveDate: dte.paymentStatus === "PAID" ? p1EffectiveDteDate : null,
           // amountClp=0 para NO inflar la proyección (el item ya proyecta
@@ -1232,6 +1235,7 @@ export async function buildProjection(
         ? `${isIncome ? "Factura" : "Recibida"} #${dte.folio} · ${isIncome ? dte.receiverName : dte.issuerName}`
         : `Borrador · ${isIncome ? dte.receiverName : dte.issuerName}`,
       description: null,
+      notes: null,
       scheduledDate: p2EffectiveDteDate,
       effectiveDate: p2EffectiveDteDate,
       amountClp: gross,
@@ -1281,6 +1285,7 @@ export async function buildProjection(
       kind: cat.kind,
       name: `Conciliación · ${cat.name}`,
       description: null,
+      notes: null,
       scheduledDate: link.transactionDate,
       effectiveDate: link.transactionDate,
       amountClp: link.amountClp,

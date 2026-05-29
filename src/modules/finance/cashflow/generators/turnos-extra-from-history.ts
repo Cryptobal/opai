@@ -61,6 +61,7 @@ export async function projectTurnosExtraFromHistory(
           kind: "EXPENSE",
           name: `Turnos extra · ${info.name}`,
           description: `Promedio rolling 8 semanas (${info.count} TE históricos)`,
+          notes: null,
           scheduledDate: friday,
           effectiveDate: null,
           amountClp: weeklyAvg,

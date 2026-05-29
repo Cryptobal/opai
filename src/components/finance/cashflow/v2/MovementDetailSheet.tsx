@@ -1,7 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { FileText, ExternalLink, type LucideIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  FileText,
+  ExternalLink,
+  Pencil,
+  Save,
+  Trash2,
+  StickyNote,
+  type LucideIcon,
+} from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -13,6 +23,8 @@ import {
   pillVariantFor,
   type PillVariant,
 } from "@/components/finance/cashflow/CellStatusPill";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { VirtualOccurrence } from "@/modules/finance/cashflow/types";
 import { fmtCLP, toDate } from "./format";
@@ -71,6 +83,41 @@ export function MovementDetailSheet({ occ, meta, onClose }: Props) {
 }
 
 function DetailBody({ occ, meta }: { occ: VirtualOccurrence; meta?: OccMeta }) {
+  const router = useRouter();
+  const [notesValue, setNotesValue] = useState<string>(occ.notes ?? "");
+  const [editingNote, setEditingNote] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
+
+  async function saveNote(newValue: string | null) {
+    if (!occ.id) {
+      toast.error("Esta cuota no está materializada todavía");
+      return;
+    }
+    setSavingNote(true);
+    try {
+      const res = await fetch(
+        `/api/finance/cashflow/occurrences/${occ.id}/notes`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ notes: newValue }),
+        },
+      );
+      const j = await res.json();
+      if (!j?.success) {
+        toast.error(j?.error ?? "No se pudo guardar la nota");
+        return;
+      }
+      toast.success(newValue ? "Nota guardada" : "Nota eliminada");
+      setEditingNote(false);
+      router.refresh();
+    } catch {
+      toast.error("Error de red al guardar nota");
+    } finally {
+      setSavingNote(false);
+    }
+  }
+
   const reconciled = occ.bankTransactionId != null;
   const cellStatus = meta?.cellStatus ?? (reconciled ? "PAID" : "PROJECTED");
   const variant = pillVariantFor({
@@ -143,6 +190,83 @@ function DetailBody({ occ, meta }: { occ: VirtualOccurrence; meta?: OccMeta }) {
           )}
         </div>
       )}
+
+      {/* Sección NOTAS — editable para cualquier source (proyección, borrador, factura, conciliada, manual) */}
+      <div className="mt-4 rounded-ds-md border border-ds-border-default bg-ds-surface-2 p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-ds-text-3">
+            <StickyNote className="h-3 w-3" />
+            Notas
+          </span>
+          {!editingNote && (
+            <button
+              type="button"
+              onClick={() => setEditingNote(true)}
+              disabled={!occ.id}
+              title={!occ.id ? "Esta cuota no está materializada todavía" : undefined}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline disabled:opacity-50"
+            >
+              <Pencil className="h-3 w-3" />
+              {occ.notes ? "Editar" : "Agregar"}
+            </button>
+          )}
+        </div>
+
+        {editingNote ? (
+          <>
+            <textarea
+              value={notesValue}
+              onChange={(e) => setNotesValue(e.target.value)}
+              rows={3}
+              autoFocus
+              placeholder="Anotá contexto, observaciones, recordatorios…"
+              className="w-full resize-none rounded-ds-md border border-ds-border-default bg-ds-surface-3 px-2.5 py-2 text-[12px] text-ds-text-1 placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <Button
+                  size="sm"
+                  onClick={() => saveNote(notesValue.trim() || null)}
+                  disabled={savingNote}
+                >
+                  <Save className="mr-1 h-3 w-3" />
+                  Guardar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setNotesValue(occ.notes ?? "");
+                    setEditingNote(false);
+                  }}
+                  disabled={savingNote}
+                >
+                  Cancelar
+                </Button>
+              </div>
+              {occ.notes && (
+                <button
+                  type="button"
+                  onClick={() => saveNote(null)}
+                  disabled={savingNote}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-status-danger-fg hover:underline disabled:opacity-50"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Eliminar nota
+                </button>
+              )}
+            </div>
+          </>
+        ) : occ.notes ? (
+          <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-ds-text-1">
+            {occ.notes}
+          </p>
+        ) : (
+          <p className="text-[11px] italic text-ds-text-3">
+            Sin notas. Tocá &quot;Agregar&quot; para anotar contexto.
+          </p>
+        )}
+      </div>
     </>
   );
 }

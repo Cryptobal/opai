@@ -170,5 +170,6 @@ export const upsertAndActSchema = z.discriminatedUnion("action", [
     scheduledDate: z.coerce.date(),
     source: z.literal("MANUAL"),
     categoryId: z.string().uuid().optional(),
+    notes: z.string().max(2000).optional().nullable(),
   }),
 ]);

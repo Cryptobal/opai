@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
           amountClp: parsed.data.amountClp,
           scheduledDate: parsed.data.scheduledDate,
           categoryId: parsed.data.categoryId ?? null,
+          notes: parsed.data.notes ?? null,
         });
         return NextResponse.json({ success: true, data: { id: occ.id } });
       }
