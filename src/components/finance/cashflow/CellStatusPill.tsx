@@ -60,12 +60,17 @@ export function pillVariantFor(input: {
   daysOverdue?: number;
   voided?: boolean;
 }): PillVariant {
+  // El factoring NO es estado del DTE — se indica con el badge "F" violeta
+  // separado en MovementRow. Acá solo evaluamos el ciclo de vida del DTE
+  // (PROJECTED → DRAFT → INVOICED → PAID, con overdue/voided como modificadores).
   if (input.voided) return "VOIDED";
   if (input.cellStatus === "VOIDED") return "VOIDED";
   if ((input.daysOverdue ?? 0) > 0 && input.cellStatus !== "PAID") return "OVERDUE";
   if (input.cellStatus === "PAID") return "PAID";
-  if (input.cellStatus === "CEDED" || input.hasFactoring) return "FACTORING";
-  if (input.cellStatus === "DRAFT") return "DRAFT";
   if (input.cellStatus === "INVOICED") return "INVOICED";
+  if (input.cellStatus === "DRAFT") return "DRAFT";
+  // CEDED es un estado del flujo de factoring que ya cubrimos con el badge "F".
+  // Si la occurrence está cedida pero no tiene DTE emitido todavía, sigue
+  // siendo PROJECTED desde el punto de vista del flujo de caja.
   return "PROJECTED";
 }
