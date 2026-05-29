@@ -81,6 +81,7 @@ export async function projectRecurringDtes(
           kind: "INCOME",
           name: `DTE recurrente · ${t.name}`,
           description: `${t.receiverName} · ${t.currency}`,
+          notes: null,
           scheduledDate: new Date(cursor),
           effectiveDate: null,
           amountClp,

@@ -89,6 +89,7 @@ export async function projectPayrollFromDotacion(
           kind: "EXPENSE",
           name: `Sueldos · ${info.name}`,
           description: `Costo empleador estimado período ${cursor.toISOString().slice(0, 7)}`,
+          notes: null,
           scheduledDate,
           effectiveDate: null,
           amountClp: info.monthlyEmployerCost,

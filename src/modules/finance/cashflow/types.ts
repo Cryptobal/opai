@@ -28,6 +28,10 @@ export interface VirtualOccurrence {
   kind: FinanceCashflowItemKind;
   name: string;
   description: string | null;
+  /** Nota libre del usuario sobre esta cuota (contexto, recordatorios,
+   *  detalles que no caben en otros campos). Editable desde el detail sheet.
+   *  null = sin nota. */
+  notes: string | null;
   scheduledDate: Date;
   effectiveDate: Date | null;
   amountClp: number;

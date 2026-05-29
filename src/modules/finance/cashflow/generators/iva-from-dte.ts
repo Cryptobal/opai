@@ -75,6 +75,7 @@ export async function projectIvaFromDte(
           kind: "EXPENSE",
           name: `IVA F29 ${periodCursor.toISOString().slice(0, 7)}`,
           description: `Débito: ${debit.toLocaleString("es-CL")} − Crédito: ${credit.toLocaleString("es-CL")}`,
+          notes: null,
           scheduledDate,
           effectiveDate: null,
           amountClp: net,
