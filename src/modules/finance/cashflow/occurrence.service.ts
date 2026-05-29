@@ -9,6 +9,11 @@ import type {
 
 export type CollisionResolveStrategy = "replace" | "next_free";
 
+/** Razón por la que un move colisionó. */
+export type CollisionReason =
+  | "same_level"           // ambas occurrences son del mismo nivel (típico: dos proyecciones)
+  | "target_is_stronger";  // la del destino es de mayor nivel (factura/conciliada), no se sobrescribe
+
 /**
  * Lanzado cuando una operación de mover ocurrencia choca con otra existente
  * y el caller no especificó cómo resolverla. La API la convierte en una
@@ -20,9 +25,14 @@ export class OccurrenceCollisionError extends Error {
     existingOccurrenceId: string;
     targetDate: string;
     suggestedFreeDate: string;
+    reason: CollisionReason;
   };
   constructor(conflict: OccurrenceCollisionError["conflict"]) {
-    super("Ya existe una ocurrencia de este ítem en esa fecha");
+    super(
+      conflict.reason === "target_is_stronger"
+        ? "No se puede mover encima de una occurrence con factura o conciliada"
+        : "Ya existe otra cuota del mismo ítem en esa fecha",
+    );
     this.name = "OccurrenceCollisionError";
     this.conflict = conflict;
   }
@@ -191,7 +201,7 @@ export async function moveOccurrence(
     daysFromCurrent: number | null;
     resolveStrategy?: CollisionResolveStrategy;
   },
-): Promise<void> {
+): Promise<ResolveCollisionResult> {
   const existing = await prisma.financeCashflowOccurrence.findFirst({
     where: { id, tenantId },
     select: { id: true, itemId: true, scheduledDate: true, status: true },
@@ -213,7 +223,7 @@ export async function moveOccurrence(
     throw new Error("Se requiere newDate o daysFromCurrent");
   }
 
-  await resolveCollisionAndMove({
+  return resolveCollisionAndMove({
     tenantId,
     itemId: existing.itemId,
     occurrenceId: id,
@@ -223,10 +233,31 @@ export async function moveOccurrence(
   });
 }
 
+/** Helper: nivel de una occurrence DB. weak = sin DTE ni bank tx ni status fuerte. */
+async function levelOfOccurrence(
+  tx: Prisma.TransactionClient | typeof prisma,
+  occurrenceId: string,
+): Promise<"weak" | "strong"> {
+  const o = await tx.financeCashflowOccurrence.findUnique({
+    where: { id: occurrenceId },
+    select: { dteId: true, bankTransactionId: true, status: true },
+  });
+  if (!o) return "weak";
+  if (o.dteId != null) return "strong";
+  if (o.bankTransactionId != null) return "strong";
+  if (o.status === "PAID" || o.status === "CONFIRMED") return "strong";
+  return "weak";
+}
+
+interface ResolveCollisionResult {
+  overwrote?: { occurrenceId: string; itemName: string };
+}
+
 /**
  * Núcleo compartido por moveOccurrence y materializeAndAct: resuelve la
- * eventual colisión con [itemId, target] según strategy y aplica el update
- * en la ocurrencia indicada.
+ * eventual colisión con [itemId, target] aplicando la política de jerarquía
+ * (weak/strong) y, si corresponde, la strategy manual, y aplica el update en
+ * la ocurrencia indicada.
  */
 async function resolveCollisionAndMove(args: {
   tenantId: string;
@@ -235,36 +266,79 @@ async function resolveCollisionAndMove(args: {
   target: Date;
   resolveStrategy?: CollisionResolveStrategy;
   direction: 1 | -1;
-}): Promise<void> {
+}): Promise<ResolveCollisionResult> {
   const { tenantId, itemId, occurrenceId, resolveStrategy, direction } = args;
   let target = args.target;
+  const out: ResolveCollisionResult = {};
 
   const collision = await prisma.financeCashflowOccurrence.findFirst({
     where: { tenantId, itemId, scheduledDate: target },
-    select: { id: true, status: true },
+    select: {
+      id: true, status: true, dteId: true, bankTransactionId: true,
+      item: { select: { name: true } },
+    },
   });
 
   if (collision && collision.id !== occurrenceId) {
-    if (!resolveStrategy) {
-      // Calcular sugerencia de próxima fecha libre para la UI.
-      const probe = new Date(target);
-      probe.setDate(probe.getDate() + direction);
-      const suggested = await findFreeDate(tenantId, itemId, probe, occurrenceId, direction);
+    // Resolver según jerarquía: comparar nivel de source vs nivel del que está en destino
+    const sourceLevel = await levelOfOccurrence(prisma, occurrenceId);
+    const targetIsStrong =
+      collision.dteId != null ||
+      collision.bankTransactionId != null ||
+      collision.status === "PAID" ||
+      collision.status === "CONFIRMED";
+
+    // Caso 1: source strong, target weak → sobrescribir automáticamente
+    if (sourceLevel === "strong" && !targetIsStrong) {
+      // Si la occurrence target es un ajuste de cierre, NO sobrescribir aunque sea weak
+      const tgt = await prisma.financeCashflowOccurrence.findUnique({
+        where: { id: collision.id },
+        select: { isClosingAdjust: true },
+      });
+      if (tgt?.isClosingAdjust) {
+        throw new OccurrenceCollisionError({
+          existingOccurrenceId: collision.id,
+          targetDate: target.toISOString().slice(0, 10),
+          suggestedFreeDate: target.toISOString().slice(0, 10),
+          reason: "target_is_stronger",
+        });
+      }
+      await prisma.financeCashflowOccurrence.delete({ where: { id: collision.id } });
+      out.overwrote = { occurrenceId: collision.id, itemName: collision.item?.name ?? "proyección" };
+    }
+    // Caso 2: source weak, target strong → bloqueo absoluto
+    else if (sourceLevel === "weak" && targetIsStrong) {
       throw new OccurrenceCollisionError({
         existingOccurrenceId: collision.id,
         targetDate: target.toISOString().slice(0, 10),
-        suggestedFreeDate: suggested.toISOString().slice(0, 10),
+        suggestedFreeDate: target.toISOString().slice(0, 10),
+        reason: "target_is_stronger",
       });
     }
-    if (resolveStrategy === "replace") {
-      if (collision.status === "PAID") {
-        throw new Error("No se puede reemplazar una ocurrencia ya conciliada");
+    // Caso 3: mismo nivel (ambos weak o ambos strong) → seguir flujo de resolveStrategy
+    else {
+      if (!resolveStrategy) {
+        const probe = new Date(target);
+        probe.setDate(probe.getDate() + direction);
+        const suggested = await findFreeDate(tenantId, itemId, probe, occurrenceId, direction);
+        throw new OccurrenceCollisionError({
+          existingOccurrenceId: collision.id,
+          targetDate: target.toISOString().slice(0, 10),
+          suggestedFreeDate: suggested.toISOString().slice(0, 10),
+          reason: "same_level",
+        });
       }
-      await prisma.financeCashflowOccurrence.delete({ where: { id: collision.id } });
-    } else if (resolveStrategy === "next_free") {
-      const probe = new Date(target);
-      probe.setDate(probe.getDate() + direction);
-      target = await findFreeDate(tenantId, itemId, probe, occurrenceId, direction);
+      if (resolveStrategy === "replace") {
+        if (collision.status === "PAID") {
+          throw new Error("No se puede reemplazar una ocurrencia ya conciliada");
+        }
+        await prisma.financeCashflowOccurrence.delete({ where: { id: collision.id } });
+        out.overwrote = { occurrenceId: collision.id, itemName: collision.item?.name ?? "proyección" };
+      } else if (resolveStrategy === "next_free") {
+        const probe = new Date(target);
+        probe.setDate(probe.getDate() + direction);
+        target = await findFreeDate(tenantId, itemId, probe, occurrenceId, direction);
+      }
     }
   }
 
@@ -272,6 +346,8 @@ async function resolveCollisionAndMove(args: {
     where: { id: occurrenceId },
     data: { scheduledDate: target, effectiveDate: target },
   });
+
+  return out;
 }
 
 /**
@@ -491,7 +567,7 @@ export type MaterializeAndActInput =
 export async function materializeAndAct(
   tenantId: string,
   input: MaterializeAndActInput,
-): Promise<FinanceCashflowOccurrence> {
+): Promise<FinanceCashflowOccurrence & { overwrote?: { occurrenceId: string; itemName: string } }> {
   const item = await prisma.financeCashflowItem.findFirst({
     where: { id: input.itemId, tenantId, isActive: true },
     select: {
@@ -563,8 +639,9 @@ export async function materializeAndAct(
     const sameDay =
       target.toISOString().slice(0, 10) ===
       existing.scheduledDate.toISOString().slice(0, 10);
+    let moveResult: ResolveCollisionResult = {};
     if (!sameDay) {
-      await resolveCollisionAndMove({
+      moveResult = await resolveCollisionAndMove({
         tenantId,
         itemId: item.id,
         occurrenceId: existing.id,
@@ -573,9 +650,10 @@ export async function materializeAndAct(
         direction: input.daysFromCurrent && input.daysFromCurrent < 0 ? -1 : 1,
       });
     }
-    return prisma.financeCashflowOccurrence.findUniqueOrThrow({
+    const moved = await prisma.financeCashflowOccurrence.findUniqueOrThrow({
       where: { id: existing.id },
     });
+    return moveResult.overwrote ? { ...moved, overwrote: moveResult.overwrote } : moved;
   }
 
   // input.action === "amount" (única alternativa restante por el discriminated union)

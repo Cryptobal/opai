@@ -33,12 +33,15 @@ export async function POST(
     const parsed = await parseBody(request, moveSchema);
     if (parsed.error) return parsed.error;
     try {
-      await moveOccurrence(ctx.tenantId, id, {
+      const result = await moveOccurrence(ctx.tenantId, id, {
         newDate: parsed.data.newDate ?? null,
         daysFromCurrent: parsed.data.daysFromCurrent ?? null,
         resolveStrategy: parsed.data.resolveStrategy,
       });
-      return NextResponse.json({ success: true });
+      return NextResponse.json({
+        success: true,
+        overwrote: result?.overwrote ?? null,
+      });
     } catch (e) {
       if (e instanceof OccurrenceCollisionError) {
         return NextResponse.json(

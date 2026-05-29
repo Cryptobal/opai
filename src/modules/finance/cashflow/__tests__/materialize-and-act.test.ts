@@ -12,7 +12,10 @@ vi.mock("@/lib/prisma", () => ({
     financeCashflowOccurrence: {
       upsert: vi.fn(),
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
+      delete: vi.fn(),
     },
   },
 }));
@@ -196,7 +199,9 @@ describe("materializeAndAct", () => {
   it("colisión rechazada: otra occurrence del mismo item ya existe en la fecha destino", async () => {
     setItem();
     setExistingOccurrence();
-    (prisma.financeCashflowOccurrence.findFirst as Mock).mockResolvedValue({
+    // Colisión solo en la fecha destino; las sondas posteriores (búsqueda de
+    // fecha libre para la sugerencia) caen al default null del beforeEach.
+    (prisma.financeCashflowOccurrence.findFirst as Mock).mockResolvedValueOnce({
       id: "occ-other",
     });
     await expect(

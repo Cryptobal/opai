@@ -36,6 +36,17 @@ import {
 } from "./projection-helpers";
 import { toDate } from "./format";
 
+type MoveConflict = {
+  existingOccurrenceId: string;
+  targetDate: string;
+  suggestedFreeDate: string;
+  reason: "same_level" | "target_is_stronger";
+};
+
+type MoveResult =
+  | { ok: true; overwrote?: { occurrenceId: string; itemName: string } | null }
+  | { ok: false; conflict?: MoveConflict; error?: string };
+
 export interface CashflowV2ShellProps {
   /** Proyección semanal ya construida en el server (serializada a JSON:
    *  las fechas viajan como ISO string — usar new Date() al consumirlas). */
@@ -142,9 +153,13 @@ export function CashflowV2Shell({
     }
   }
 
-  async function performMove(occ: VirtualOccurrence, destKey: string) {
+  async function performMove(
+    occ: VirtualOccurrence,
+    destKey: string,
+    opts?: { silent?: boolean },
+  ): Promise<MoveResult> {
     const dest = active.buckets.find((b) => b.key === destKey);
-    if (!dest) return;
+    if (!dest) return { ok: false };
     const newDate = toDate(dest.start).toISOString().slice(0, 10);
     setSubmitting(true);
     try {
@@ -168,17 +183,24 @@ export function CashflowV2Shell({
         });
       } else {
         toast.error("Este movimiento no se puede mover");
-        return;
+        return { ok: false };
       }
       const j = await res.json();
-      if (!j?.success) {
-        toast.error(j?.error ?? "No se pudo mover");
-        return;
+      if (j?.success) {
+        if (!opts?.silent) toast.success(`Movido a ${dest.label}`);
+        router.refresh();
+        return { ok: true, overwrote: j.overwrote ?? null };
       }
-      toast.success(`Movido a ${dest.label}`);
-      router.refresh();
+      // Colisión por jerarquía o por mismo nivel: mensaje de bloqueo claro.
+      if (res.status === 409 && j?.conflict) {
+        toast.error(j?.error ?? "No se puede mover a esa semana");
+        return { ok: false, conflict: j.conflict as MoveConflict, error: j?.error };
+      }
+      toast.error(j?.error ?? "No se pudo mover");
+      return { ok: false, error: j?.error };
     } catch {
       toast.error("Error de red al mover");
+      return { ok: false, error: "Error de red al mover" };
     } finally {
       setSubmitting(false);
     }
@@ -200,7 +222,17 @@ export function CashflowV2Shell({
       setPendingMove({ occ, destKey: dest.key });
       return;
     }
-    await performMove(occ, dest.key);
+    const result = await performMove(occ, dest.key);
+    // Si la colisión bloqueó el move (mismo nivel o destino más fuerte), o hubo
+    // cualquier otro error, performMove ya mostró el toast: no se arma undo.
+    if (!result.ok) return;
+    // Toast informativo si se sobrescribió una proyección débil.
+    if (result.overwrote) {
+      toast.info(
+        `Sobrescribió la proyección de ${result.overwrote.itemName} en ${dest.label}`,
+        { duration: 4000 },
+      );
+    }
     // El undo reposiciona la cuota en su semana original. Tras el move la
     // occurrence quedó en dest.start, así que el reverse usa esa fecha como
     // origen (válido tanto para occurrences materializadas como virtuales).
@@ -212,6 +244,28 @@ export function CashflowV2Shell({
         await performMove(movedOcc, fromKey);
       },
     });
+  }
+
+  async function handleDelete(occ: VirtualOccurrence) {
+    if (!occ.id) return;
+    const name = occ.nickname ?? occ.name;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/finance/cashflow/occurrences/${occ.id}`, {
+        method: "DELETE",
+      });
+      const j = await res.json();
+      if (!j?.success) {
+        toast.error(j?.error ?? "No se pudo borrar");
+        return;
+      }
+      toast.success(`Borrada la proyección "${name}"`);
+      router.refresh();
+    } catch {
+      toast.error("Error de red al borrar");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function handleReopen() {
@@ -273,6 +327,7 @@ export function CashflowV2Shell({
             visibleCount={4}
             searchTerm={searchTerm}
             onMoveDir={handleMoveDir}
+            onDelete={handleDelete}
             onOpenDetail={(occ, meta) => setDetail({ occ, meta })}
             onCloseWeek={(key) => {
               const b = active.buckets.find((x) => x.key === key) ?? null;
@@ -333,6 +388,7 @@ export function CashflowV2Shell({
               }
               canMoveLeft={mobileCanLeft}
               canMoveRight={mobileCanRight}
+              onDelete={handleDelete}
               onOpenDetail={(occ, meta) => setDetail({ occ, meta })}
               onMutate={() => router.refresh()}
             />
