@@ -12,6 +12,22 @@ interface Props {
   onAdded?: () => void;
 }
 
+/** Formatea un string numérico con separadores de miles (formato chileno).
+ *  Conserva el cursor cerca del final — el usuario escribe a la derecha. */
+function formatThousands(raw: string): string {
+  // Quitar todo lo que no sea dígito
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  // Insertar puntos cada 3 dígitos desde la derecha
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+/** Convierte un string con separadores ("10.000") a número (10000). */
+function parseAmount(formatted: string): number {
+  const digits = formatted.replace(/\D/g, "");
+  return digits ? parseInt(digits, 10) : 0;
+}
+
 /** Quick-add manual: en mobile vertical es un bottom-sheet con backdrop;
  *  en desktop/landscape es un pop-out inline al lado del "+". Tap fuera cierra.
  *  Acepta Concepto + Monto + Nota (opcional). Llama a upsert-and-act
@@ -29,10 +45,14 @@ export function QuickAddInline({ kind, bucketStart, onAdded }: Props) {
     setNotes("");
   }
 
+  function close() {
+    setOpen(false);
+  }
+
   async function submit() {
     const n = name.trim();
-    const a = parseInt(amount.replace(/[^\d]/g, ""), 10);
-    if (!n || !Number.isFinite(a) || a <= 0) {
+    const a = parseAmount(amount);
+    if (!n || !a || a <= 0) {
       toast.error("Indica un concepto y un monto válido");
       return;
     }
@@ -112,7 +132,7 @@ export function QuickAddInline({ kind, bucketStart, onAdded }: Props) {
         />
         <input
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={(e) => setAmount(formatThousands(e.target.value))}
           placeholder="Monto $"
           type="text"
           inputMode="numeric"
@@ -149,16 +169,85 @@ export function QuickAddInline({ kind, bucketStart, onAdded }: Props) {
     <span className="relative inline-flex">
       {trigger}
 
-      {/* Mobile vertical (md-): bottom-sheet con backdrop. Tap en el backdrop cierra. */}
+      {/* Mobile vertical: bottom-sheet con sticky footer + safe-area inset */}
       <div
         className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 md:hidden"
-        onClick={() => setOpen(false)}
+        onClick={close}
+        role="dialog"
+        aria-modal="true"
       >
         <div
-          className="max-h-[80vh] w-full overflow-y-auto rounded-t-2xl border-x border-t border-ds-border-strong bg-ds-surface-1 px-4 pb-5 pt-3"
           onClick={(e) => e.stopPropagation()}
+          className="flex max-h-[85vh] w-full flex-col rounded-t-2xl border-x border-t border-ds-border-strong bg-ds-surface-1"
         >
-          {formMarkup}
+          {/* Header */}
+          <div className="flex items-center justify-between gap-2 border-b border-ds-border-default px-4 pb-2 pt-3">
+            <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
+              <Plus className="h-3 w-3" />
+              Nuevo {kind === "INCOME" ? "ingreso" : "egreso"} manual
+            </span>
+            <button
+              type="button"
+              onClick={close}
+              className="rounded-md p-1.5 hover:bg-ds-surface-3 active:scale-95"
+              aria-label="Cerrar"
+            >
+              <X className="h-4 w-4 text-ds-text-2" />
+            </button>
+          </div>
+
+          {/* Body scrolleable */}
+          <div className="flex-1 space-y-2 overflow-y-auto px-4 py-3">
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Concepto"
+              className="w-full rounded-md border border-ds-border-default bg-ds-surface-3 px-2.5 py-2 text-[13px] text-ds-text-1 outline-none focus:border-primary"
+            />
+            <input
+              value={amount}
+              onChange={(e) => setAmount(formatThousands(e.target.value))}
+              placeholder="Monto $"
+              type="text"
+              inputMode="numeric"
+              className="w-full rounded-md border border-ds-border-default bg-ds-surface-3 px-2.5 py-2 text-[13px] tabular-nums text-ds-text-1 outline-none focus:border-primary"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) void submit();
+              }}
+            />
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Nota (opcional)"
+              rows={2}
+              className="w-full resize-none rounded-md border border-ds-border-default bg-ds-surface-3 px-2.5 py-2 text-[12px] text-ds-text-1 outline-none focus:border-primary"
+            />
+          </div>
+
+          {/* Sticky footer con safe-area-inset */}
+          <div
+            className="flex gap-2 border-t border-ds-border-default bg-ds-surface-1 px-4 pt-3"
+            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          >
+            <Button
+              size="default"
+              onClick={submit}
+              disabled={submitting || !name.trim() || !amount}
+              className="h-11 flex-1"
+            >
+              Agregar
+            </Button>
+            <Button
+              size="default"
+              variant="outline"
+              onClick={close}
+              disabled={submitting}
+              className="h-11"
+            >
+              Cancelar
+            </Button>
+          </div>
         </div>
       </div>
 
