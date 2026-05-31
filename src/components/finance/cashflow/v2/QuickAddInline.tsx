@@ -171,7 +171,7 @@ export function QuickAddInline({ kind, bucketStart, onAdded }: Props) {
 
       {/* Mobile vertical: bottom-sheet con sticky footer + safe-area inset */}
       <div
-        className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 md:hidden"
+        className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 md:hidden"
         onClick={close}
         role="dialog"
         aria-modal="true"
@@ -255,12 +255,12 @@ export function QuickAddInline({ kind, bucketStart, onAdded }: Props) {
           clicks fuera del pop-out (mismo patrón que mobile, sin listeners
           globales) + pop-out inline al lado del "+". */}
       <div
-        className="fixed inset-0 z-30 hidden md:block"
+        className="fixed inset-0 z-50 hidden md:block"
         onClick={() => setOpen(false)}
         aria-hidden="true"
       />
       <div
-        className="absolute right-0 top-full z-30 mt-2 hidden w-[320px] rounded-ds-lg border border-ds-border-strong bg-ds-surface-2 p-3 text-left shadow-xl md:block"
+        className="absolute right-0 top-full z-50 mt-2 hidden w-[320px] rounded-ds-lg border border-ds-border-strong bg-ds-surface-2 p-3 text-left shadow-xl md:block"
         onClick={(e) => e.stopPropagation()}
       >
         {formMarkup}
