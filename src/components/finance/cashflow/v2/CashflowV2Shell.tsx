@@ -20,7 +20,6 @@ import { ManualCloseStreakBanner, type CloseLite } from "./ManualCloseStreakBann
 import { WeekStrip } from "./WeekStrip";
 import { WeekDetail } from "./WeekDetail";
 import { WeekKanban } from "./WeekKanban";
-import { Sparkline, type SparkPoint } from "./Sparkline";
 import { UndoToast, type UndoPayload } from "./UndoToast";
 import { MovementDetailSheet } from "./MovementDetailSheet";
 import { CuadraturaModal } from "./CuadraturaModal";
@@ -105,23 +104,6 @@ export function CashflowV2Shell({
     granularity === "weekly" &&
     isCurrentOrPast(selectedBucket) &&
     !isBucketClosed(selectedBucket, anchor);
-
-  const sparkPoints = useMemo<SparkPoint[]>(() => {
-    const ci = currentIndex >= 0 ? currentIndex : 0;
-    const pts = active.cumulativePoints;
-    const slice = pts.slice(Math.max(0, ci - 3), Math.min(pts.length, ci + 10));
-    const currentKey = active.buckets[ci]?.key;
-    return slice.map((p) => {
-      const b = active.buckets.find((x) => x.key === p.bucketKey);
-      return {
-        key: p.bucketKey,
-        label: b?.label ?? p.bucketKey,
-        balanceClp: p.projectedClp,
-        isCurrent: p.bucketKey === currentKey,
-        isDeficit: p.projectedClp < 0,
-      };
-    });
-  }, [active, currentIndex]);
 
   const selIdx = active.buckets.findIndex((b) => b.key === effectiveKey);
   const mobileCanLeft = selIdx > 0;
@@ -305,9 +287,6 @@ export function CashflowV2Shell({
       <BancaTabsHeader active="cashflow" />
       {recentCloses && <ManualCloseStreakBanner recentCloses={recentCloses} />}
       <HealthHeader projection={projection} />
-      <div className="hidden md:block">
-        <Sparkline points={sparkPoints} onJump={(key) => setSelectedKey(key)} />
-      </div>
       <AnchorBanner anchor={anchor} currentOpening={projection.openingBalanceClp} />
 
       <div className="flex items-center justify-between gap-3">
