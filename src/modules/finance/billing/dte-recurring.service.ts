@@ -331,6 +331,9 @@ function templateToDraftInput(
     // pueden separar manualmente en el form de DTE).
     proformaRecipientContactIds: t.recipientContactIds ?? [],
     estadoPagoRecipientContactIds: t.recipientContactIds ?? [],
+    // El EP recurrente cierra el mes de servicio: se emite al inicio del mes
+    // siguiente, así que el periodo rotulado es el mes anterior a la emisión.
+    estadoPagoPeriodoMode: "PREVIOUS",
   };
 }
 

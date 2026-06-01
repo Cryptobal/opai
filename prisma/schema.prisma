@@ -6680,6 +6680,11 @@ model FinanceDte {
   /// del tenant (TenantBillingSigner).
   estadoPagoRecipientContactIds String[]              @default([]) @map("estado_pago_recipient_contact_ids") @db.Uuid
   estadoPagoStatus              FinanceProformaStatus @default(NONE) @map("estado_pago_status")
+  /// Periodo que rotula el Estado de Pago, relativo a la fecha de emisión del
+  /// DTE (`date`): "PREVIOUS" = mes anterior (default — el EP se emite al cierre
+  /// del mes de servicio: ej. factura de junio por servicio de mayo);
+  /// "CURRENT" = mismo mes de emisión. Solo afecta el rótulo del EP.
+  estadoPagoPeriodoMode         String                @default("PREVIOUS") @map("estado_pago_periodo_mode")
   estadoPagoSentAt              DateTime?             @map("estado_pago_sent_at") @db.Timestamptz(6)
   estadoPagoSentCount           Int                   @default(0) @map("estado_pago_sent_count")
   estadoPagoLastRecipient       String?               @map("estado_pago_last_recipient")

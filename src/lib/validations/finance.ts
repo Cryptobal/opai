@@ -373,6 +373,9 @@ export const draftDteSchema = issueDteSchema.extend({
   proformaRecipientContactIds: z.array(z.string().uuid()).max(20).optional(),
   requireEstadoPago: z.boolean().optional(),
   estadoPagoRecipientContactIds: z.array(z.string().uuid()).max(20).optional(),
+  // Periodo del Estado de Pago relativo a la fecha de emisión del DTE:
+  // "CURRENT" = mes de emisión, "PREVIOUS" = mes anterior (servicio atrasado).
+  estadoPagoPeriodoMode: z.enum(["CURRENT", "PREVIOUS"]).optional(),
 });
 
 export const dteCreditNoteSchema = z.object({

@@ -171,11 +171,13 @@ export function DteForm({ availableTypes, accounts }: Props) {
     proformaRecipientContactIds: string[];
     requireEstadoPago: boolean;
     estadoPagoRecipientContactIds: string[];
+    estadoPagoPeriodoMode: "CURRENT" | "PREVIOUS";
   }>({
     requireProforma: false,
     proformaRecipientContactIds: [],
     requireEstadoPago: false,
     estadoPagoRecipientContactIds: [],
+    estadoPagoPeriodoMode: "PREVIOUS",
   });
 
   /** Contactos CRM del cliente (con email), levantados desde BillingPlanSection
@@ -410,6 +412,8 @@ export function DteForm({ availableTypes, accounts }: Props) {
           )
             ? (d.estadoPagoRecipientContactIds as string[])
             : [],
+          estadoPagoPeriodoMode:
+            d.estadoPagoPeriodoMode === "PREVIOUS" ? "PREVIOUS" : "CURRENT",
         });
         // Reconstruir el `customer` (CustomerOption) del CRM cuando el draft
         // tiene crmAccountId. Sin esto el combobox queda vacío y, peor, la
@@ -862,6 +866,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
       requireEstadoPago: billingPlan.requireEstadoPago,
       estadoPagoRecipientContactIds:
         billingPlan.estadoPagoRecipientContactIds,
+      estadoPagoPeriodoMode: billingPlan.estadoPagoPeriodoMode,
       notes: notes.trim() || null,
       autoSendEmail: overrides?.autoSendEmail ?? autoSendEmail,
       sendXmlToBackoffice: overrides?.sendXmlToBackoffice,
@@ -1723,6 +1728,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
         onChange={setBillingPlan}
         isDraftSaved={!!draftIdParam}
         onContactsLoaded={setPlanContacts}
+        issueDate={issueDate}
       />
 
       {/* Adjuntos del DTE: solo disponibles cuando ya existe un draft (necesita id).

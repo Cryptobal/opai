@@ -431,15 +431,24 @@ export async function buildBillingDocProps(
       ? "Multiples instalaciones"
       : (installation?.name ?? null);
 
-  // Periodo: del campo `date` del DTE.
+  // Fecha de emisión del DTE (lo que se rotula como "FECHA EMISIÓN").
   const date = new Date(dte.date);
 
-  // Código verificación: solo se imprime en Estado de Pago.
+  // Periodo del Estado de Pago: por defecto el mes de emisión, pero si el
+  // borrador marca "PREVIOUS" (servicio facturado en arriendo/atrasado), el
+  // rótulo del EP refleja el mes anterior a la emisión. Solo aplica al EP.
+  const periodoDate = new Date(date);
+  if (variant === "ESTADO_DE_PAGO" && dte.estadoPagoPeriodoMode === "PREVIOUS") {
+    periodoDate.setUTCMonth(periodoDate.getUTCMonth() - 1);
+  }
+
+  // Código verificación: solo se imprime en Estado de Pago. Usa el periodo del
+  // EP (no la fecha de emisión) para que el código coincida con el mes rotulado.
   const verifTemplate =
     tenantConfig?.verificationCodeTemplate || "EP-{{year}}{{month}}-{{folio}}";
   const verificationCode = renderVerificationCode(verifTemplate, {
-    year: date.getUTCFullYear(),
-    month: String(date.getUTCMonth() + 1).padStart(2, "0"),
+    year: periodoDate.getUTCFullYear(),
+    month: String(periodoDate.getUTCMonth() + 1).padStart(2, "0"),
     folio: dte.folio || "DRAFT",
     accountSlug: account ? slugify(account.name) : undefined,
     installationSlug: installation ? slugify(installation.name) : undefined,
@@ -487,7 +496,7 @@ export async function buildBillingDocProps(
       dateIso: date.toISOString().slice(0, 10),
       numeroOrdenContrato: account?.numeroOrdenContrato ?? null,
       installationName: headerInstallationName,
-      periodoLabel: periodoLabel(date),
+      periodoLabel: periodoLabel(periodoDate),
       verificationCode,
       additionalReferences: (() => {
         const refs = (dte.additionalReferences ?? []) as Array<{

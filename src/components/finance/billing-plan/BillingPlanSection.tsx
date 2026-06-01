@@ -43,6 +43,45 @@ export interface BillingPlanValue {
   proformaRecipientContactIds: string[];
   requireEstadoPago: boolean;
   estadoPagoRecipientContactIds: string[];
+  /** Periodo que rotula el EP: mes de emisión ("CURRENT") o mes anterior
+   *  ("PREVIOUS", servicio facturado atrasado). */
+  estadoPagoPeriodoMode: "CURRENT" | "PREVIOUS";
+}
+
+const MONTHS_ES = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+
+/** Rótulos de mes (actual y anterior) a partir de la fecha de emisión
+ *  "YYYY-MM-DD" del borrador, sin construir Date (evita corrimientos TZ). */
+function periodoLabels(issueDate?: string): { current: string; previous: string } {
+  let year: number;
+  let month: number; // 0-based
+  if (issueDate && /^\d{4}-\d{2}-\d{2}/.test(issueDate)) {
+    year = parseInt(issueDate.slice(0, 4), 10);
+    month = parseInt(issueDate.slice(5, 7), 10) - 1;
+  } else {
+    const now = new Date();
+    year = now.getFullYear();
+    month = now.getMonth();
+  }
+  const prevMonth = month === 0 ? 11 : month - 1;
+  const prevYear = month === 0 ? year - 1 : year;
+  return {
+    current: `${MONTHS_ES[month]} ${year}`,
+    previous: `${MONTHS_ES[prevMonth]} ${prevYear}`,
+  };
 }
 
 interface Props {
@@ -52,6 +91,9 @@ interface Props {
   onChange: (next: BillingPlanValue) => void;
   /** Para el caller: indica si el draft ya está guardado (puede mandar). */
   isDraftSaved?: boolean;
+  /** Fecha de emisión del DTE ("YYYY-MM-DD") — define los rótulos de mes
+   *  (en curso / anterior) que se muestran en el selector de periodo del EP. */
+  issueDate?: string;
   /** Notifica al padre los contactos cargados (con email) para que pueda
    *  resolver el destinatario sugerido del modal de envío a partir de los
    *  IDs seleccionados del plan. */
@@ -63,7 +105,9 @@ export function BillingPlanSection({
   value,
   onChange,
   onContactsLoaded,
+  issueDate,
 }: Props) {
+  const epPeriodos = periodoLabels(issueDate);
   const [contacts, setContacts] = useState<ContactOption[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -315,7 +359,51 @@ export function BillingPlanSection({
             </div>
 
             {value.requireEstadoPago && (
-              <div className="pl-6 space-y-1.5">
+              <div className="pl-6 space-y-3">
+                {/* Periodo del EP: mes en curso vs mes anterior de la fecha de
+                    emisión. Ej: factura emitida en junio por servicio de mayo. */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Periodo del Estado de Pago</Label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onChange({ ...value, estadoPagoPeriodoMode: "CURRENT" })
+                      }
+                      className={`rounded-lg border px-3 py-2 text-left transition ${
+                        value.estadoPagoPeriodoMode !== "PREVIOUS"
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:bg-muted/50"
+                      }`}
+                    >
+                      <div className="text-xs font-medium">Mes en curso</div>
+                      <div className="text-[11px] text-muted-foreground capitalize">
+                        {epPeriodos.current}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onChange({ ...value, estadoPagoPeriodoMode: "PREVIOUS" })
+                      }
+                      className={`rounded-lg border px-3 py-2 text-left transition ${
+                        value.estadoPagoPeriodoMode === "PREVIOUS"
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:bg-muted/50"
+                      }`}
+                    >
+                      <div className="text-xs font-medium">Mes anterior</div>
+                      <div className="text-[11px] text-muted-foreground capitalize">
+                        {epPeriodos.previous}
+                      </div>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/80">
+                    Rótulo que aparece bajo el título del Estado de Pago. La
+                    fecha de emisión del DTE no cambia.
+                  </p>
+                </div>
+
                 <Label className="text-xs">
                   Destinatarios y firmantes (contactos del cliente)
                 </Label>

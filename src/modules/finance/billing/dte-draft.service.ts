@@ -41,6 +41,8 @@ export type DraftDteInput = Omit<IssueDteInput, "receiverRut" | "receiverName"> 
   proformaRecipientContactIds?: string[];
   requireEstadoPago?: boolean;
   estadoPagoRecipientContactIds?: string[];
+  /** Periodo del Estado de Pago relativo a la fecha de emisión. */
+  estadoPagoPeriodoMode?: "CURRENT" | "PREVIOUS";
 };
 
 /**
@@ -125,6 +127,7 @@ export async function createDraftDte(
       proformaRecipientContactIds: input.proformaRecipientContactIds ?? [],
       requireEstadoPago: input.requireEstadoPago ?? false,
       estadoPagoRecipientContactIds: input.estadoPagoRecipientContactIds ?? [],
+      estadoPagoPeriodoMode: input.estadoPagoPeriodoMode ?? "PREVIOUS",
       lines: {
         create: calc.lines.map((l, i) => ({
           lineNumber: i + 1,
@@ -313,6 +316,7 @@ export async function updateDraftDte(
         proformaRecipientContactIds: input.proformaRecipientContactIds ?? [],
         requireEstadoPago: input.requireEstadoPago ?? false,
         estadoPagoRecipientContactIds: input.estadoPagoRecipientContactIds ?? [],
+        estadoPagoPeriodoMode: input.estadoPagoPeriodoMode ?? "PREVIOUS",
         lines: {
           create: calc.lines.map((l, i) => ({
             lineNumber: i + 1,
@@ -588,6 +592,7 @@ export type DraftDetailItem = DraftListItem & {
   ufValueAtIssue: number | null;
   proformaRecipientContactIds: string[];
   estadoPagoRecipientContactIds: string[];
+  estadoPagoPeriodoMode: "CURRENT" | "PREVIOUS";
   emailLogs: DraftEmailLogItem[];
 };
 
@@ -807,6 +812,7 @@ export async function getDraftDteById(
       ufValueAtIssue: true,
       proformaRecipientContactIds: true,
       estadoPagoRecipientContactIds: true,
+      estadoPagoPeriodoMode: true,
       emailLogs: {
         where: {
           kind: {
@@ -856,6 +862,8 @@ export async function getDraftDteById(
     ufValueAtIssue: draft.ufValueAtIssue != null ? Number(draft.ufValueAtIssue) : null,
     proformaRecipientContactIds: draft.proformaRecipientContactIds,
     estadoPagoRecipientContactIds: draft.estadoPagoRecipientContactIds,
+    estadoPagoPeriodoMode:
+      draft.estadoPagoPeriodoMode === "PREVIOUS" ? "PREVIOUS" : "CURRENT",
     emailLogs: draft.emailLogs.map((log) => ({
       id: log.id,
       kind: log.kind,
