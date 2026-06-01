@@ -33,6 +33,7 @@ import {
   Copy,
   Mail,
   MailX,
+  MessageCircle,
   MoreHorizontal,
   RefreshCw,
   Send,
@@ -70,6 +71,7 @@ interface Props {
   onDownloadPdf: (id: string, folio: number) => void;
   onDownloadXml: (id: string, folio: number) => void;
   onResendEmail: (id: string) => void;
+  onSendCobranza: (id: string) => void;
   onCheckStatus: (id: string, folio: number) => void;
   onVoid: (id: string) => void;
   onCede: (id: string) => void;
@@ -98,6 +100,7 @@ function buildActionItems(
     onDownloadPdf: () => void;
     onDownloadXml: () => void;
     onResendEmail: () => void;
+    onSendCobranza: () => void;
     onCheckStatus: () => void;
     onVoid: () => void;
     onCede: () => void;
@@ -215,6 +218,16 @@ function buildActionItems(
     });
   }
 
+  // Cobranza por WhatsApp — no depende del email del receptor.
+  if (canManage) {
+    items.push({
+      key: "cobranza-wa",
+      label: "Cobranza por WhatsApp",
+      icon: <MessageCircle className="h-4 w-4" />,
+      onSelect: handlers.onSendCobranza,
+    });
+  }
+
   if (canCheckStatus) {
     items.push({
       key: "sii-status",
@@ -292,6 +305,7 @@ export function IssuedDtesMobileList({
   onDownloadPdf,
   onDownloadXml,
   onResendEmail,
+  onSendCobranza,
   onCheckStatus,
   onVoid,
   onCede,
@@ -540,6 +554,7 @@ export function IssuedDtesMobileList({
                   onDownloadXml: () =>
                     onDownloadXml(actionRow.id, actionRow.folio),
                   onResendEmail: () => onResendEmail(actionRow.id),
+                  onSendCobranza: () => onSendCobranza(actionRow.id),
                   onCheckStatus: () =>
                     onCheckStatus(actionRow.id, actionRow.folio),
                   onVoid: () => onVoid(actionRow.id),
