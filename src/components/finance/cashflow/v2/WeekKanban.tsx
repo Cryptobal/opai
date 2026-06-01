@@ -150,11 +150,15 @@ export function WeekKanban({
                 </Button>
               )}
             </div>
-            <div className="flex-1 overflow-y-auto p-2" style={{ maxHeight: 560 }}>
+            <div
+              className="flex-1 overflow-y-auto p-2"
+              style={{ maxHeight: "max(560px, calc(100vh - 320px))" }}
+            >
               <WeekDetail
                 bucket={b}
                 meta={meta}
                 canManage={canManage}
+                incomeDefaultOpen
                 searchTerm={searchTerm}
                 onMove={onMove}
                 onMoveDir={

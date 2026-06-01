@@ -17,7 +17,9 @@ interface Props {
  * En borrador sin folio → chip ámbar. Sin DTE → no renderiza nada.
  */
 export function FolioChip({ folio, dteId, isDraft, className }: Props) {
-  if (folio != null) {
+  // folio > 0 = factura real con folio asignado. folio 0 (o null) = borrador
+  // sin folio: no mostramos "N° 0" (la pill de estado ya indica BOR/borrador).
+  if (folio != null && folio > 0) {
     const chip = (
       <span
         className={cn(

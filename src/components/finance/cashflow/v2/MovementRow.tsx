@@ -50,7 +50,16 @@ export function MovementRow({
   onDelete,
 }: Props) {
   const reconciled = occ.bankTransactionId != null;
-  const title = occ.nickname || occ.name || occ.installationName || "Sin nombre";
+  // Título "Cuenta / Nombre": primero el cliente CRM (crmAccountName), luego el
+  // nombre manual del contrato (nickname) o, si no hay, la instalación. Antes el
+  // nickname iba solo y tapaba la cuenta. Si el nombre coincide con la cuenta
+  // (ej. "Pine / Pine") o no hay cuenta, se muestra solo lo disponible.
+  const account = occ.crmAccountName?.trim();
+  const loc = (occ.nickname || occ.installationName || "").trim();
+  const title =
+    account && loc && loc.toLowerCase() !== account.toLowerCase()
+      ? `${account} / ${loc}`
+      : account || loc || occ.name || "Sin nombre";
   const factoring = occ.modoCobro === "FACTORING";
   const isUf = occ.currency === "UF";
   const cellStatus = meta?.cellStatus ?? (reconciled ? "PAID" : "PROJECTED");
@@ -74,7 +83,11 @@ export function MovementRow({
   return (
     <div
       className={cn(
-        "flex min-h-[44px] items-center gap-2 py-1.5",
+        // Dos líneas para que el nombre largo "Cuenta / Nombre" no pelee espacio
+        // con el monto y las flechas en columnas angostas (kanban desktop):
+        //   Línea 1 = nombre (truncate) + monto, lo importante junto.
+        //   Línea 2 = chips (F/UF/folio) + estado + acciones, atenuado.
+        "flex min-h-[44px] flex-col gap-0.5 py-2",
         tappable &&
           "cursor-pointer rounded-ds-sm transition-colors hover:bg-ds-surface-2",
       )}
@@ -92,40 +105,39 @@ export function MovementRow({
           }
         : {})}
     >
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className={cn("truncate text-[13px]", emphasis)}>{title}</span>
-          {occ.notes && (
-            <span
-              title={occ.notes}
-              className="inline-flex shrink-0 items-center justify-center rounded-md bg-status-warn-soft p-0.5 text-status-warn-fg"
-              aria-label="Tiene notas"
-            >
-              <StickyNote className="h-2.5 w-2.5" />
-            </span>
-          )}
-          {factoring && (
-            <span className="rounded-ds-sm bg-purple-500/15 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-purple-300">
-              F
-            </span>
-          )}
-          {isUf && (
-            <span className="rounded-ds-sm bg-ds-surface-3 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-ds-text-2">
-              UF
-            </span>
-          )}
-          <FolioChip
-            folio={meta?.dteFolio}
-            dteId={meta?.dteId}
-            isDraft={cellStatus === "DRAFT"}
-          />
-        </div>
-      </div>
-
-      <div className="flex shrink-0 items-center gap-2">
-        <span className={cn("font-mono text-[13px] tabular-nums", emphasis)}>
+      {/* Línea 1: Cuenta / Nombre + monto */}
+      <div className="flex items-center gap-2">
+        <span className={cn("min-w-0 flex-1 truncate text-[13px]", emphasis)}>
+          {title}
+        </span>
+        {occ.notes && (
+          <span
+            title={occ.notes}
+            className="inline-flex shrink-0 items-center justify-center rounded-md bg-status-warn-soft p-0.5 text-status-warn-fg"
+            aria-label="Tiene notas"
+          >
+            <StickyNote className="h-2.5 w-2.5" />
+          </span>
+        )}
+        <span className={cn("shrink-0 font-mono text-[13px] tabular-nums", emphasis)}>
           {fmtCLP.format(occ.amountClp)}
         </span>
+      </div>
+
+      {/* Línea 2: chips (izq) · estado + acciones (der) */}
+      <div className="flex items-center gap-1.5">
+        {factoring && (
+          <span className="rounded-ds-sm bg-purple-500/15 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-purple-300">
+            F
+          </span>
+        )}
+        {isUf && (
+          <span className="rounded-ds-sm bg-ds-surface-3 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-ds-text-2">
+            UF
+          </span>
+        )}
+        <FolioChip folio={meta?.dteFolio} dteId={meta?.dteId} />
+        <div className="ml-auto flex items-center gap-1">
         <CellStatusPill variant={variant} compact />
         {reconciled ? (
           <Lock
@@ -196,6 +208,7 @@ export function MovementRow({
             <Trash2 className="h-3.5 w-3.5 text-status-danger-fg/70 hover:text-status-danger-fg" />
           </button>
         )}
+        </div>
       </div>
     </div>
   );

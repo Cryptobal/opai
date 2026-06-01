@@ -1323,6 +1323,16 @@ export async function buildProjection(
     });
   }
 
+  // Enriquecer cada occurrence con el nombre de la cuenta CRM (cliente). El map
+  // crmAccountNameById ya se cargó arriba a partir de los items. Esto habilita
+  // que la UI muestre "Cuenta – Instalación" y ordene por cliente sin tener que
+  // setear el campo en cada uno de los ~5 push sites (incl. DTEs huérfanos).
+  for (const occ of allOccurrences) {
+    occ.crmAccountName = occ.crmAccountId
+      ? (crmAccountNameById.get(occ.crmAccountId) ?? null)
+      : null;
+  }
+
   const buckets = buildBuckets(range);
   const bucketIndex = new Map(buckets.map((b, i) => [b.key, i]));
 
