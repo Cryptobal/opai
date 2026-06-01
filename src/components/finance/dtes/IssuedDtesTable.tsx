@@ -35,6 +35,7 @@ interface Props {
   onDownloadPdf: (id: string, folio: number) => void;
   onDownloadXml: (id: string, folio: number) => void;
   onResendEmail: (id: string) => void;
+  onSendCobranza: (id: string) => void;
   onCheckStatus: (id: string, folio: number) => void;
   onVoid: (id: string) => void;
   onCede: (id: string) => void;
@@ -89,6 +90,7 @@ export function IssuedDtesTable({
   onDownloadPdf,
   onDownloadXml,
   onResendEmail,
+  onSendCobranza,
   onCheckStatus,
   onVoid,
   onCede,
@@ -401,6 +403,7 @@ export function IssuedDtesTable({
             onDownloadPdf={() => onDownloadPdf(row.id, row.folio)}
             onDownloadXml={() => onDownloadXml(row.id, row.folio)}
             onResendEmail={() => onResendEmail(row.id)}
+            onSendCobranza={() => onSendCobranza(row.id)}
             onCheckStatus={() => onCheckStatus(row.id, row.folio)}
             onVoid={() => onVoid(row.id)}
             onCede={() => onCede(row.id)}
