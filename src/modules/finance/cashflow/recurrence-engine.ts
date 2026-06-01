@@ -221,6 +221,21 @@ export function weekStartForClosing(date: Date, closingDow = 5): Date {
   return start;
 }
 
+/**
+ * Normaliza una fecha a su "día calendario UTC" expresado como fecha local.
+ * Las fechas del dominio (cuotas, DTEs) se guardan como UTC-medianoche = día
+ * calendario. date-fns (getISOWeek, getMonth, startOfISOWeek…) opera en hora
+ * LOCAL, así que en timezones negativas (ej. Chile UTC-4) una fecha
+ * UTC-medianoche se interpreta como el día ANTERIOR y cae en la semana/mes
+ * equivocado — p.ej. 2026-06-01T00:00Z → 31-may 20:00 local → semana 22 en vez
+ * de la 23. Esto provocaba que la cuota de junio apareciera en la semana de
+ * mayo (duplicado visible en dev; en prod/UTC no ocurre). Normalizar acá hace
+ * el bucketing independiente del timezone del servidor.
+ */
+export function utcCalendarDay(d: Date): Date {
+  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
 export function bucketKeyFor(
   date: Date,
   granularity: "weekly" | "monthly",
@@ -234,11 +249,13 @@ export function bucketKeyFor(
       const d = String(end.getDate()).padStart(2, "0");
       return `WK-${y}${m}${d}`;
     }
-    const w = String(getISOWeek(date)).padStart(2, "0");
-    return `${getISOWeekYear(date)}-W${w}`;
+    const dd = utcCalendarDay(date);
+    const w = String(getISOWeek(dd)).padStart(2, "0");
+    return `${getISOWeekYear(dd)}-W${w}`;
   }
-  const m = String(getMonth(date) + 1).padStart(2, "0");
-  return `${getYear(date)}-${m}`;
+  const dd = utcCalendarDay(date);
+  const m = String(getMonth(dd) + 1).padStart(2, "0");
+  return `${getYear(dd)}-${m}`;
 }
 
 export function bucketBoundsFor(
@@ -255,13 +272,15 @@ export function bucketBoundsFor(
       const monthNum = String(end.getMonth() + 1).padStart(2, "0");
       return { start, end, label: `${closingDayLabel} ${dayNum}/${monthNum}` };
     }
-    const start = startOfISOWeek(date);
-    const end = endOfISOWeek(date);
-    const w = getISOWeek(date);
+    const dd = utcCalendarDay(date);
+    const start = startOfISOWeek(dd);
+    const end = endOfISOWeek(dd);
+    const w = getISOWeek(dd);
     return { start, end, label: `Sem ${w}` };
   }
-  const start = startOfMonth(date);
-  const end = endOfMonth(date);
+  const dd = utcCalendarDay(date);
+  const start = startOfMonth(dd);
+  const end = endOfMonth(dd);
   const monthNames = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-  return { start, end, label: `${monthNames[getMonth(date)]} ${getYear(date)}` };
+  return { start, end, label: `${monthNames[getMonth(dd)]} ${getYear(dd)}` };
 }

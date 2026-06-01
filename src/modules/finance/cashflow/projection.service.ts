@@ -4,7 +4,7 @@ import { listItems } from "./item.service";
 import { listMaterializedOccurrences } from "./occurrence.service";
 import { listCategories } from "./category.service";
 import { getOrCreateCashflowConfig } from "./config.service";
-import { expandRecurrence, bucketKeyFor, bucketBoundsFor } from "./recurrence-engine";
+import { expandRecurrence, bucketKeyFor, bucketBoundsFor, utcCalendarDay } from "./recurrence-engine";
 import { occurrenceBucketKey } from "./bucket-matcher";
 import { resolveUfForOccurrence } from "./uf-resolver";
 import type {
@@ -1921,7 +1921,9 @@ function buildRows(
     // que volver a la configuración para confirmar que existen.
     const values = buckets.map((b) => {
       const inBucket = filtered.filter((o) => {
-        const d = o.effectiveDate ?? o.scheduledDate;
+        // utcCalendarDay: alinea con bucketBoundsFor (que normaliza a día UTC),
+        // para que la membresía no dependa del timezone del servidor.
+        const d = utcCalendarDay(o.effectiveDate ?? o.scheduledDate);
         return d >= b.start && d <= b.end;
       });
       const visible = filterOccurrencesWithConciliationPriority(inBucket);
@@ -1940,7 +1942,9 @@ function buildRows(
     const visibleByBucket = new Map<string, Set<VirtualOccurrence>>();
     for (const b of buckets) {
       const inBucket = filtered.filter((o) => {
-        const d = o.effectiveDate ?? o.scheduledDate;
+        // utcCalendarDay: alinea con bucketBoundsFor (que normaliza a día UTC),
+        // para que la membresía no dependa del timezone del servidor.
+        const d = utcCalendarDay(o.effectiveDate ?? o.scheduledDate);
         return d >= b.start && d <= b.end;
       });
       const visible = filterOccurrencesWithConciliationPriority(inBucket);
