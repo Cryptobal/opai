@@ -44,6 +44,7 @@ import { IssuedDtesMobileList } from "./IssuedDtesMobileList";
 import { BulkActionBar } from "./BulkActionBar";
 import { BillingDocSendModal } from "@/components/finance/billing-doc-send/BillingDocSendModal";
 import { IssuedDteSlideOver } from "./IssuedDteSlideOver";
+import { CobranzaSendDialog } from "@/components/finance/cashflow/CobranzaSendDialog";
 import { useDteFilters } from "./hooks/useDteFilters";
 import { fmtCLP, sortDteRows } from "./shared/constants";
 import type {
@@ -59,6 +60,15 @@ interface Props {
   canManage: boolean;
   forcedSiiStatus?: string | null;
   forcedPaymentStatus?: string | null;
+}
+
+/** Días de mora desde dueDate hasta hoy. 0 si no hay dueDate o no está vencida. */
+function calcDaysOverdue(dueDate?: string | null): number {
+  if (!dueDate) return 0;
+  const due = new Date(dueDate);
+  if (Number.isNaN(due.getTime())) return 0;
+  const ms = Date.now() - due.getTime();
+  return ms <= 0 ? 0 : Math.floor(ms / 86_400_000);
 }
 
 export function DtesEmitidosClient({
@@ -122,6 +132,7 @@ export function DtesEmitidosClient({
   const [bulkCedeOpen, setBulkCedeOpen] = useState(false);
   const [previewDteId, setPreviewDteId] = useState<string | null>(null);
   const [emailDteId, setEmailDteId] = useState<string | null>(null);
+  const [cobranzaDteId, setCobranzaDteId] = useState<string | null>(null);
   // ── "Enviar como…" (Proforma / Estado de Pago) ──
   const [sendAsModal, setSendAsModal] = useState<{
     dteId: string;
@@ -907,6 +918,9 @@ export function DtesEmitidosClient({
     ? dtes.find((d) => d.id === previewDteId)
     : null;
   const emailDte = emailDteId ? dtes.find((d) => d.id === emailDteId) : null;
+  const cobranzaDte = cobranzaDteId
+    ? dtes.find((d) => d.id === cobranzaDteId)
+    : null;
 
   return (
     <div className="space-y-4 pb-24 md:pb-4">
@@ -1036,6 +1050,7 @@ export function DtesEmitidosClient({
               onDownloadPdf={handleDownloadPdf}
               onDownloadXml={handleDownloadXml}
               onResendEmail={handleResendEmail}
+              onSendCobranza={(id) => setCobranzaDteId(id)}
               onCheckStatus={handleCheckStatus}
               onVoid={handleVoid}
               onCede={(id) => setCedeModalDteId(id)}
@@ -1069,6 +1084,7 @@ export function DtesEmitidosClient({
               onDownloadPdf={handleDownloadPdf}
               onDownloadXml={handleDownloadXml}
               onResendEmail={handleResendEmail}
+              onSendCobranza={(id) => setCobranzaDteId(id)}
               onCheckStatus={handleCheckStatus}
               onVoid={handleVoid}
               onCede={(id) => setCedeModalDteId(id)}
@@ -1235,6 +1251,16 @@ export function DtesEmitidosClient({
           crmAccountId={emailDte.crmAccountId}
           receiverRut={emailDte.receiverRut}
           onSent={() => router.refresh()}
+        />
+      )}
+
+      {cobranzaDte && (
+        <CobranzaSendDialog
+          open={cobranzaDteId !== null}
+          onClose={() => setCobranzaDteId(null)}
+          dteId={cobranzaDte.id}
+          crmAccountId={cobranzaDte.crmAccountId ?? null}
+          daysOverdue={calcDaysOverdue(cobranzaDte.dueDate)}
         />
       )}
 
