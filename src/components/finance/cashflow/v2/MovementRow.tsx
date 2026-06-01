@@ -62,11 +62,16 @@ export function MovementRow({
       : account || loc || occ.name || "Sin nombre";
   const factoring = occ.modoCobro === "FACTORING";
   const isUf = occ.currency === "UF";
-  const cellStatus = meta?.cellStatus ?? (reconciled ? "PAID" : "PROJECTED");
+  // Etapa: el motor stampa cellStatus/dteFolio en la occurrence a nivel de celda
+  // (refleja el DTE de la celda aunque la fila visible sea la proyección). meta
+  // queda como fallback para vistas que no pasan la occurrence enriquecida.
+  const cellStatus =
+    occ.cellStatus ?? meta?.cellStatus ?? (reconciled ? "PAID" : "PROJECTED");
+  const folio = occ.dteFolio ?? meta?.dteFolio;
   const variant = pillVariantFor({
     cellStatus,
     hasFactoring: factoring,
-    daysOverdue: meta?.daysOverdue,
+    daysOverdue: occ.daysOverdue ?? meta?.daysOverdue,
   });
   // Real = ya existe como hecho (conciliada, pagada, emitida, o con folio). El
   // resto (proyección/borrador) se atenúa para distinguir lo cierto de lo
@@ -75,7 +80,8 @@ export function MovementRow({
     reconciled ||
     cellStatus === "PAID" ||
     cellStatus === "INVOICED" ||
-    meta?.dteFolio != null;
+    cellStatus === "CEDED" ||
+    folio != null;
   const emphasis = isReal ? "text-ds-text-1" : "text-ds-text-2";
   const tappable = !!onOpenDetail;
   const open = () => onOpenDetail?.(occ, meta);
@@ -129,7 +135,7 @@ export function MovementRow({
           como etapa "Factorizada" en el pill. */}
       <div className="flex items-center gap-1.5">
         <CellStatusPill variant={variant} />
-        <FolioChip folio={meta?.dteFolio} dteId={meta?.dteId} />
+        <FolioChip folio={folio} dteId={occ.dteId ?? meta?.dteId} />
         {isUf && (
           <span className="rounded-ds-sm bg-ds-surface-3 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-ds-text-2">
             UF

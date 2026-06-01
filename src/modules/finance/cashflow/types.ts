@@ -75,6 +75,17 @@ export interface VirtualOccurrence {
    *  acelerado, descontado al emitir cada factura). Default DIRECTO para
    *  occurrences sintéticas / huérfanas que no tienen item asociado. */
   modoCobro: "DIRECTO" | "FACTORING";
+  /** Etapa del ciclo resuelta a nivel de CELDA (item+bucket) desde el DTE
+   *  vinculado: PROJECTED(Programada)/DRAFT(Borrador)/INVOICED(Facturada)/
+   *  CEDED(Factorizada)/PAID(Pagada). El motor la stampa en TODAS las
+   *  occurrences de la celda (incl. la proyección del contrato) para que la fila
+   *  del flujo muestre la etapa real aunque el DTE viva en una occurrence
+   *  hermana (sombra). undefined = aún sin DTE en la celda → Programada. */
+  cellStatus?: CashflowCellStatus;
+  /** Folio del DTE de la celda (si está facturada). null/undefined = sin folio. */
+  dteFolio?: number | null;
+  /** Días de mora de la celda (si está vencida). */
+  daysOverdue?: number;
 }
 
 export interface ProjectionRange {

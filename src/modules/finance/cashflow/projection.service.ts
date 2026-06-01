@@ -1610,6 +1610,46 @@ export async function buildProjection(
     dteDateOverrideById,
   );
 
+  // ── Etapa del ciclo por CELDA (item+bucket), stampada en las occurrences ──
+  // Si CUALQUIER occurrence de una celda tiene DTE (incl. la sombra $0 que
+  // carga el folio), reflejamos esa etapa (Borrador/Facturada/Factorizada/
+  // Pagada) en TODAS las occurrences de la celda. Así la fila del flujo muestra
+  // la etapa real aunque la occurrence visible sea la proyección del contrato
+  // (sin dteId) y el DTE viva en una occurrence hermana. Sin esto el flujo
+  // mostraba todo como "Programada".
+  const STAGE_RANK: Record<string, number> = {
+    PROJECTED: 0, DRAFT: 1, INVOICED: 2, CEDED: 3, PAID: 4, VOIDED: 5,
+  };
+  const cellStageByKey = new Map<
+    string,
+    { status: CashflowCellStatus; folio: number | null; daysOverdue: number; dteId: string }
+  >();
+  const cellKeyOf = (o: VirtualOccurrence) =>
+    `${o.itemId ?? `dte:${o.dteId}`}::${bucketKeyFor(o.effectiveDate ?? o.scheduledDate, range.granularity)}`;
+  for (const o of allOccurrences) {
+    if (!o.dteId) continue;
+    const cs = cellStatusByDteId.get(o.dteId);
+    if (!cs) continue;
+    const key = cellKeyOf(o);
+    const prev = cellStageByKey.get(key);
+    if (!prev || (STAGE_RANK[cs.status] ?? 0) >= (STAGE_RANK[prev.status] ?? 0)) {
+      cellStageByKey.set(key, {
+        status: cs.status,
+        folio: dteFolioById.get(o.dteId) ?? null,
+        daysOverdue: cs.daysOverdue,
+        dteId: o.dteId,
+      });
+    }
+  }
+  for (const o of allOccurrences) {
+    const cell = cellStageByKey.get(cellKeyOf(o));
+    if (!cell) continue;
+    o.cellStatus = cell.status;
+    o.dteFolio = cell.folio;
+    o.daysOverdue = cell.daysOverdue;
+    if (!o.dteId) o.dteId = cell.dteId; // habilita el deep-link del folio en la fila
+  }
+
   const openingBreakdown = await resolveOpeningBalance(tenantId);
   const opening = openingBreakdown.totalClp;
 
