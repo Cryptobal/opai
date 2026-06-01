@@ -76,13 +76,18 @@ export async function matchDraftToOccurrence(
     where: {
       tenantId: input.tenantId,
       isActive: true,
-      source: "CONTRACT",
+      // La programación soberana puede venir de un contrato CRM (CONTRACT)
+      // o de una plantilla de facturación recurrente (RECURRING_DTE). Ambas
+      // son "una cuota por período por instalación" y el DTE emitido debe
+      // engancharse a la que corresponda. Antes solo se miraba CONTRACT, por
+      // eso los DTE de plantillas recurrentes quedaban huérfanos.
+      source: { in: ["CONTRACT", "RECURRING_DTE"] },
       OR: [
         input.installationId ? { installationId: input.installationId } : null,
         input.crmAccountId ? { crmAccountId: input.crmAccountId } : null,
       ].filter(Boolean) as object[],
     },
-    select: { id: true, recurrence: true },
+    select: { id: true, recurrence: true, installationId: true },
   });
   if (items.length === 0) return null;
 
@@ -107,7 +112,42 @@ export async function matchDraftToOccurrence(
     const rec = recurrenceByItemId.get(c.itemId ?? "") ?? "MONTHLY";
     return occurrenceBucketKey(c.scheduledDate, rec) === occurrenceBucketKey(input.expectedDate, rec);
   });
-  if (candidates.length === 0) return null;
+
+  // Si no hay occurrence materializada candidata pero SÍ existe una programación
+  // (item) cuyo bucket coincide con el DTE, materializamos la cuota de esa
+  // programación en su fecha teórica y la vinculamos. Así el ciclo
+  // Programada→Borrador→Facturada vive en UNA sola celda, sin huérfanos. Las
+  // occurrences de programación son virtuales (se expanden en vuelo); solo se
+  // materializan en DB al mover/editar, por eso muchas veces no hay candidata.
+  if (candidates.length === 0) {
+    // Elegir la programación (item) del mismo cliente/instalación. Preferir
+    // la que matchea installationId; si no, la primera. El bucket de la cuota
+    // teórica = bucket del DTE por construcción (misma fecha normalizada).
+    const itemForBucket =
+      items.find((it) => input.installationId && it.installationId === input.installationId) ??
+      items[0];
+    if (!itemForBucket) return null;
+    const scheduledDate = new Date(Date.UTC(
+      input.expectedDate.getUTCFullYear(),
+      input.expectedDate.getUTCMonth(),
+      input.expectedDate.getUTCDate(),
+    ));
+    // Idempotente vía unique [itemId, scheduledDate].
+    const created = await prisma.financeCashflowOccurrence.upsert({
+      where: { itemId_scheduledDate: { itemId: itemForBucket.id, scheduledDate } },
+      create: {
+        tenantId: input.tenantId,
+        itemId: itemForBucket.id,
+        scheduledDate,
+        amountClp: input.amountClp,
+        status: "PROJECTED",
+        dteId: input.dteId,
+      },
+      update: { dteId: input.dteId },
+      select: { id: true },
+    });
+    return { occurrenceId: created.id };
+  }
 
   // Ganador: menor distancia en días al DTE. Empate por fecha -> monto
   // más cercano al del DTE. Antes era "primera posterior cronológica";
