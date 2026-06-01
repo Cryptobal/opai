@@ -1986,13 +1986,37 @@ function buildBuckets(range: ProjectionRange): ProjectionBucket[] {
  * (bankTransactionId !== null), se descartan todas las proyectadas.
  * Las conciliaciones múltiples se suman entre sí.
  */
+/**
+ * "La programación manda, el DTE le pinta el estado": dentro de un conjunto de
+ * occurrences del MISMO bucket, si un itemId ya tiene una occurrence con DTE
+ * real, se descartan las proyecciones puras (dteId=null) de ESE itemId. Mata
+ * la sombra (doble conteo + colisión al mover). Las occurrences sin itemId
+ * (huérfanas verdaderas) no se tocan acá.
+ */
+function filterShadowProjectionsWithDtePriority(
+  occurrences: VirtualOccurrence[],
+): VirtualOccurrence[] {
+  if (occurrences.length === 0) return occurrences;
+  const itemIdsWithDte = new Set<string>();
+  for (const o of occurrences) {
+    if (o.itemId && o.dteId) itemIdsWithDte.add(o.itemId);
+  }
+  if (itemIdsWithDte.size === 0) return occurrences;
+  return occurrences.filter(
+    (o) => !(o.itemId && !o.dteId && itemIdsWithDte.has(o.itemId)),
+  );
+}
+
 function filterOccurrencesWithConciliationPriority(
   occurrences: VirtualOccurrence[],
 ): VirtualOccurrence[] {
   if (occurrences.length === 0) return occurrences;
-  const hasConciliation = occurrences.some((o) => o.bankTransactionId !== null);
-  if (!hasConciliation) return occurrences;
-  return occurrences.filter((o) => o.bankTransactionId !== null);
+  // 1) La programación manda: ocultar proyección-sombra cuando su celda tiene DTE.
+  const afterShadow = filterShadowProjectionsWithDtePriority(occurrences);
+  // 2) Conciliación bancaria reemplaza lo proyectado (regla más fuerte).
+  const hasConciliation = afterShadow.some((o) => o.bankTransactionId !== null);
+  if (!hasConciliation) return afterShadow;
+  return afterShadow.filter((o) => o.bankTransactionId !== null);
 }
 
 /**
