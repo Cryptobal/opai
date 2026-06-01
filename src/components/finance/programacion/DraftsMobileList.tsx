@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { format, formatDistanceToNowStrict } from "date-fns";
+import { formatDistanceToNowStrict } from "date-fns";
 import { es } from "date-fns/locale";
+import { formatCalendarDateDisplay } from "@/lib/fx-date";
 import { toast } from "sonner";
 import { FileText, Loader2, Send, RefreshCw, MapPin, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,11 +13,50 @@ import { fmtCLP } from "@/components/finance/dtes/shared/constants";
 import { DocumentTag } from "@/components/finance/dtes/DocumentTag";
 import { DocStatusIcon, OcReferenceChip } from "./SendStatusIcons";
 import { DraftDetailSheet } from "./DraftDetailSheet";
+import {
+  SortableColumnHeader,
+  toggleTableSort,
+  type TableSortDir,
+} from "./SortableColumnHeader";
 import type { DraftListItem } from "@/modules/finance/billing/dte-draft.service";
 
 interface Props {
   canIssue: boolean;
   canManage: boolean;
+}
+
+type DraftSortField =
+  | "date"
+  | "type"
+  | "receptor"
+  | "installation"
+  | "template"
+  | "amount";
+
+function defaultDraftSortDir(field: DraftSortField): TableSortDir {
+  return field === "amount" ? "desc" : "asc";
+}
+
+function compareDrafts(a: DraftListItem, b: DraftListItem, field: DraftSortField): number {
+  switch (field) {
+    case "date":
+      return a.date.localeCompare(b.date);
+    case "type":
+      return a.dteType - b.dteType;
+    case "receptor":
+      return (a.receiverName ?? "").localeCompare(b.receiverName ?? "", "es");
+    case "installation":
+      return (a.installationName ?? a.crmAccountName ?? "").localeCompare(
+        b.installationName ?? b.crmAccountName ?? "",
+        "es",
+      );
+    case "template":
+      return (a.templateName ?? "").localeCompare(b.templateName ?? "", "es");
+    case "amount":
+      return a.totalAmount - b.totalAmount;
+    default:
+      return 0;
+  }
 }
 
 export function DraftsMobileList({ canIssue, canManage }: Props) {
@@ -25,6 +65,14 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
   const [openDetailId, setOpenDetailId] = useState<string | null>(null);
   const [issuing, setIssuing] = useState<string | null>(null);
   const [confirmingDraft, setConfirmingDraft] = useState<DraftListItem | null>(null);
+  const [sortField, setSortField] = useState<DraftSortField>("date");
+  const [sortDir, setSortDir] = useState<TableSortDir>("asc");
+
+  const handleSort = useCallback((field: DraftSortField) => {
+    const next = toggleTableSort(field, sortField, sortDir, defaultDraftSortDir);
+    setSortField(next.field);
+    setSortDir(next.dir);
+  }, [sortField, sortDir]);
 
   const loadDrafts = useCallback(async () => {
     setRefreshing(true);
@@ -80,20 +128,44 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
     };
   }, [drafts]);
 
-  const draftColumns: DataTableColumn<DraftListItem>[] = [
+  const sortedDrafts = useMemo(() => {
+    if (!drafts) return null;
+    const rows = [...drafts];
+    const dir = sortDir === "asc" ? 1 : -1;
+    rows.sort((a, b) => compareDrafts(a, b, sortField) * dir);
+    return rows;
+  }, [drafts, sortField, sortDir]);
+
+  const draftColumns: DataTableColumn<DraftListItem>[] = useMemo(() => [
     {
       id: "date",
-      header: "Fecha",
+      header: (
+        <SortableColumnHeader
+          label="Fecha"
+          field="date"
+          sortField={sortField}
+          sortDir={sortDir}
+          onSort={handleSort}
+        />
+      ),
       width: "w-[100px]",
       cell: (d) => (
         <span className="font-mono text-xs tabular-nums">
-          {format(new Date(d.date), "dd MMM yyyy", { locale: es })}
+          {formatCalendarDateDisplay(d.date, "dd MMM yyyy", es)}
         </span>
       ),
     },
     {
       id: "type",
-      header: "Tipo",
+      header: (
+        <SortableColumnHeader
+          label="Tipo"
+          field="type"
+          sortField={sortField}
+          sortDir={sortDir}
+          onSort={handleSort}
+        />
+      ),
       width: "w-[88px]",
       cell: (d) => (
         <div className="min-w-0 max-w-full overflow-hidden">
@@ -103,7 +175,15 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
     },
     {
       id: "receptor",
-      header: "Receptor",
+      header: (
+        <SortableColumnHeader
+          label="Receptor"
+          field="receptor"
+          sortField={sortField}
+          sortDir={sortDir}
+          onSort={handleSort}
+        />
+      ),
       width: "w-[200px]",
       cell: (d) => (
         <div className="min-w-0">
@@ -120,7 +200,15 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
     },
     {
       id: "installation",
-      header: "Instalación",
+      header: (
+        <SortableColumnHeader
+          label="Instalación"
+          field="installation"
+          sortField={sortField}
+          sortDir={sortDir}
+          onSort={handleSort}
+        />
+      ),
       width: "w-[180px]",
       cell: (d) =>
         d.installationName || d.crmAccountName ? (
@@ -137,7 +225,15 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
     },
     {
       id: "template",
-      header: "Plantilla",
+      header: (
+        <SortableColumnHeader
+          label="Plantilla"
+          field="template"
+          sortField={sortField}
+          sortDir={sortDir}
+          onSort={handleSort}
+        />
+      ),
       width: "w-[140px]",
       cell: (d) =>
         d.templateName ? (
@@ -151,7 +247,16 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
     },
     {
       id: "amount",
-      header: "Monto",
+      header: (
+        <SortableColumnHeader
+          label="Monto"
+          field="amount"
+          sortField={sortField}
+          sortDir={sortDir}
+          onSort={handleSort}
+          align="right"
+        />
+      ),
       width: "w-[160px]",
       align: "right",
       cell: (d) => (
@@ -222,9 +327,9 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
           },
         ]
       : []),
-  ];
+  ], [canIssue, handleSort, issuing, sortDir, sortField]);
 
-  if (drafts === null) {
+  if (drafts === null || sortedDrafts === null) {
     return (
       <>
         <ul className="lg:hidden space-y-2" aria-busy="true">
@@ -291,7 +396,7 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
 
       {/* Mobile: cards apiladas */}
       <ul className="lg:hidden space-y-2 ds-list-cascade">
-        {drafts.map((d) => {
+        {sortedDrafts.map((d) => {
           const ageLabel = formatDistanceToNowStrict(new Date(d.createdAt), {
             locale: es,
             addSuffix: false,
@@ -317,7 +422,7 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
                 {/* Header chips */}
                 <div className="flex flex-wrap items-center gap-2 mb-2">
                   <span className="font-mono text-[12px] text-ds-text-3 tabular-nums shrink-0">
-                    {format(new Date(d.date), "dd MMM yyyy", { locale: es })}
+                    {formatCalendarDateDisplay(d.date, "dd MMM yyyy", es)}
                   </span>
                   <DocumentTag dteType={d.dteType} />
                   <span className="inline-flex items-center rounded-md border border-tint-violet-fg/30 bg-tint-violet/30 px-1.5 py-0.5 text-[11px] font-mono uppercase tracking-[0.08em] text-tint-violet-fg">
@@ -434,7 +539,7 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
       <div className="hidden lg:block">
         <DataTable<DraftListItem>
           columns={draftColumns}
-          rows={drafts}
+          rows={sortedDrafts}
           layout="fixed"
           rowKey={(d) => d.id}
           onRowClick={(d) => setOpenDetailId(d.id)}

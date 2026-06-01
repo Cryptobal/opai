@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { formatCalendarDateDisplay } from "@/lib/fx-date";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -261,7 +262,7 @@ export function DraftDetailSheet({
                   Borrador
                 </span>
                 <span className="font-mono text-[12px] text-ds-text-3 tabular-nums">
-                  {format(new Date(draft.date), "dd MMM yyyy", { locale: es })}
+                  {formatCalendarDateDisplay(draft.date, "dd MMM yyyy", es)}
                 </span>
                 <OcReferenceChip references={draft.additionalReferences} />
               </div>

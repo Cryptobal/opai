@@ -776,7 +776,7 @@ export async function listDraftDtes(
   const [drafts, total] = await Promise.all([
     prisma.financeDte.findMany({
       where,
-      orderBy: { updatedAt: "desc" },
+      orderBy: [{ date: "asc" }, { createdAt: "asc" }],
       take: opts.pageSize,
       skip: (opts.page - 1) * opts.pageSize,
       select: DRAFT_LIST_SELECT,

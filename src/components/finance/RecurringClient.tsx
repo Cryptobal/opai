@@ -6,7 +6,8 @@
  * módulo Facturación.
  *
  * Diseño alineado con DTE Emitidos / Recibidos:
- *   - Toolbar: buscador amplio + filtro de estado en chips + sort.
+ *   - Toolbar: buscador amplio + filtro de estado en chips.
+ *   - Orden por click en headers de columna (desktop).
  *   - Listado mobile-first (cards Surface) hasta `lg`; tabla DS en desktop.
  *   - Acciones por fila concentradas en un MobileActionSheet en mobile;
  *     en desktop, icon-buttons compactos + dropdown de acciones.
@@ -33,7 +34,6 @@ import {
   Building2,
   MapPin,
   FileText,
-  ArrowUpDown,
   MoreHorizontal,
   Link2,
   Mail,
@@ -45,13 +45,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   DataTable,
@@ -73,6 +66,10 @@ import {
   BillingDocSendModal,
   type BillingDocVariant as BillingDocVariantModal,
 } from "@/components/finance/billing-doc-send/BillingDocSendModal";
+import {
+  SortableColumnHeader,
+  type TableSortDir,
+} from "@/components/finance/programacion/SortableColumnHeader";
 
 const FREQ_LABELS: Record<string, string> = {
   monthly: "Mensual",
@@ -190,40 +187,81 @@ interface Props {
 }
 
 type StatusFilter = "ALL" | "ACTIVE" | "PAUSED";
-type SortKey = "next_asc" | "next_desc" | "name_asc" | "last_desc";
+type RecurringSortField =
+  | "name"
+  | "client"
+  | "type"
+  | "frequency"
+  | "nextRun"
+  | "lastRun"
+  | "runCount"
+  | "status";
 
 type AutoSendIssue = { variant: string; error: string; threw: boolean };
 
-const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: "next_asc", label: "Próxima ejecución ↑" },
-  { value: "next_desc", label: "Próxima ejecución ↓" },
-  { value: "name_asc", label: "Nombre A-Z" },
-  { value: "last_desc", label: "Última ejecución" },
-];
+function cmpDateAsc(a: string | null, b: string | null): number {
+  if (a === b) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return a < b ? -1 : 1;
+}
 
-function sortTemplates(
+function defaultRecurringSortDir(field: RecurringSortField): TableSortDir {
+  switch (field) {
+    case "lastRun":
+    case "runCount":
+      return "desc";
+    default:
+      return "asc";
+  }
+}
+
+function compareRecurringTemplates(
+  a: RecurringTemplateRow,
+  b: RecurringTemplateRow,
+  field: RecurringSortField,
+): number {
+  switch (field) {
+    case "name":
+      return a.name.localeCompare(b.name, "es");
+    case "client": {
+      const aLabel =
+        a.crmAccount?.legalName ??
+        a.crmAccount?.name ??
+        a.installation?.name ??
+        a.receiverName;
+      const bLabel =
+        b.crmAccount?.legalName ??
+        b.crmAccount?.name ??
+        b.installation?.name ??
+        b.receiverName;
+      return aLabel.localeCompare(bLabel, "es");
+    }
+    case "type":
+      return a.dteType - b.dteType || a.currency.localeCompare(b.currency, "es");
+    case "frequency":
+      return formatFrequency(a).localeCompare(formatFrequency(b), "es");
+    case "nextRun":
+      return cmpDateAsc(a.nextRunAt, b.nextRunAt);
+    case "lastRun":
+      return cmpDateAsc(a.lastRunAt, b.lastRunAt);
+    case "runCount":
+      return a.runCount - b.runCount;
+    case "status":
+      return Number(a.isActive) - Number(b.isActive);
+    default:
+      return 0;
+  }
+}
+
+function sortRecurringTemplates(
   rows: RecurringTemplateRow[],
-  sort: SortKey,
+  field: RecurringSortField,
+  dir: TableSortDir,
 ): RecurringTemplateRow[] {
   const sorted = [...rows];
-  const cmpDateAsc = (a: string | null, b: string | null) => {
-    if (a === b) return 0;
-    if (a === null) return 1;
-    if (b === null) return -1;
-    return a < b ? -1 : 1;
-  };
-  switch (sort) {
-    case "next_asc":
-      return sorted.sort((a, b) => cmpDateAsc(a.nextRunAt, b.nextRunAt));
-    case "next_desc":
-      return sorted.sort((a, b) => -cmpDateAsc(a.nextRunAt, b.nextRunAt));
-    case "name_asc":
-      return sorted.sort((a, b) => a.name.localeCompare(b.name, "es"));
-    case "last_desc":
-      return sorted.sort((a, b) => -cmpDateAsc(a.lastRunAt, b.lastRunAt));
-    default:
-      return sorted;
-  }
+  const mult = dir === "asc" ? 1 : -1;
+  return sorted.sort((a, b) => compareRecurringTemplates(a, b, field) * mult);
 }
 
 export function RecurringClient({
@@ -248,8 +286,20 @@ export function RecurringClient({
   // ── Filtros + buscador ──
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("ALL");
-  const [sort, setSort] = React.useState<SortKey>("next_asc");
+  const [sortField, setSortField] = React.useState<RecurringSortField>("nextRun");
+  const [sortDir, setSortDir] = React.useState<TableSortDir>("asc");
   const [autoSendErrorsOnly, setAutoSendErrorsOnly] = React.useState(false);
+
+  const handleSort = React.useCallback((field: RecurringSortField) => {
+    setSortField((prevField) => {
+      if (prevField === field) {
+        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        return field;
+      }
+      setSortDir(defaultRecurringSortDir(field));
+      return field;
+    });
+  }, []);
 
   // ── Modal de detalle de errores de auto-send ──
   const [issueDetailFor, setIssueDetailFor] = React.useState<{
@@ -421,8 +471,8 @@ export function RecurringClient({
         (t.installation?.commune ?? "").toLowerCase().includes(q);
       return hay;
     });
-    return sortTemplates(rows, sort);
-  }, [templates, search, statusFilter, sort, autoSendErrorsOnly]);
+    return sortRecurringTemplates(rows, sortField, sortDir);
+  }, [templates, search, statusFilter, sortField, sortDir, autoSendErrorsOnly]);
 
   const hasActiveFilters =
     !!search.trim() || statusFilter !== "ALL" || autoSendErrorsOnly;
@@ -489,7 +539,15 @@ export function RecurringClient({
   const columns: DataTableColumn<RecurringTemplateRow>[] = [
     {
       id: "name",
-      header: "Plantilla",
+      header: (
+        <SortableColumnHeader
+          label="Plantilla"
+          field="name"
+          sortField={sortField}
+          sortDir={sortDir}
+          onSort={handleSort}
+        />
+      ),
       width: "w-[224px]",
       cell: (t) => (
         <div className="min-w-0">
@@ -511,7 +569,15 @@ export function RecurringClient({
     },
     {
       id: "client",
-      header: "Cliente / Instalación",
+      header: (
+        <SortableColumnHeader
+          label="Cliente / Instalación"
+          field="client"
+          sortField={sortField}
+          sortDir={sortDir}
+          onSort={handleSort}
+        />
+      ),
       width: "w-[200px]",
       cell: (t) => (
         <div className="min-w-0 text-xs space-y-0.5">
@@ -545,7 +611,15 @@ export function RecurringClient({
     },
     {
       id: "type",
-      header: "Tipo",
+      header: (
+        <SortableColumnHeader
+          label="Tipo"
+          field="type"
+          sortField={sortField}
+          sortDir={sortDir}
+          onSort={handleSort}
+        />
+      ),
       width: "w-[136px]",
       cell: (t) => {
         const ufText = ufPolicyText(t);
@@ -565,7 +639,15 @@ export function RecurringClient({
     },
     {
       id: "frequency",
-      header: "Frecuencia",
+      header: (
+        <SortableColumnHeader
+          label="Frecuencia"
+          field="frequency"
+          sortField={sortField}
+          sortDir={sortDir}
+          onSort={handleSort}
+        />
+      ),
       width: "w-[144px]",
       cell: (t) => (
         <span className="text-xs">{formatFrequency(t)}</span>
@@ -573,7 +655,15 @@ export function RecurringClient({
     },
     {
       id: "nextRun",
-      header: "Próxima",
+      header: (
+        <SortableColumnHeader
+          label="Próxima"
+          field="nextRun"
+          sortField={sortField}
+          sortDir={sortDir}
+          onSort={handleSort}
+        />
+      ),
       width: "w-[112px]",
       cell: (t) => (
         <span
@@ -588,7 +678,15 @@ export function RecurringClient({
     },
     {
       id: "lastRun",
-      header: "Última",
+      header: (
+        <SortableColumnHeader
+          label="Última"
+          field="lastRun"
+          sortField={sortField}
+          sortDir={sortDir}
+          onSort={handleSort}
+        />
+      ),
       width: "w-[112px]",
       cell: (t) => (
         <span
@@ -724,7 +822,16 @@ export function RecurringClient({
     },
     {
       id: "runCount",
-      header: "Corridas",
+      header: (
+        <SortableColumnHeader
+          label="Corridas"
+          field="runCount"
+          sortField={sortField}
+          sortDir={sortDir}
+          onSort={handleSort}
+          align="right"
+        />
+      ),
       align: "right",
       width: "w-[80px]",
       cell: (t) => (
@@ -733,7 +840,15 @@ export function RecurringClient({
     },
     {
       id: "status",
-      header: "Estado",
+      header: (
+        <SortableColumnHeader
+          label="Estado"
+          field="status"
+          sortField={sortField}
+          sortDir={sortDir}
+          onSort={handleSort}
+        />
+      ),
       width: "w-[88px]",
       cell: (t) =>
         t.isActive ? (
@@ -840,7 +955,7 @@ export function RecurringClient({
 
   return (
     <div className="space-y-4 pb-24 lg:pb-4">
-      {/* Toolbar: search (flex-1), filtros como chips, sort y refresh */}
+      {/* Toolbar: search (flex-1), filtros como chips y refresh */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ds-text-4" />
@@ -861,26 +976,6 @@ export function RecurringClient({
               <X className="h-3.5 w-3.5" />
             </button>
           )}
-        </div>
-
-        {/* Sort (desktop). En mobile el orden por "Próxima" es el default
-            y rara vez se cambia, así que ocultamos para reducir clutter. */}
-        <div className="hidden md:block">
-          <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
-            <SelectTrigger className="w-48 h-10">
-              <span className="inline-flex items-center gap-1.5">
-                <ArrowUpDown className="h-3.5 w-3.5 text-ds-text-4" />
-                <SelectValue />
-              </span>
-            </SelectTrigger>
-            <SelectContent>
-              {SORT_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
         <Button
