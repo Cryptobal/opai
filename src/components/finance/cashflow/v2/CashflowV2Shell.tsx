@@ -163,6 +163,14 @@ export function CashflowV2Shell({
             newDate,
           }),
         });
+      } else if (occ.dteId) {
+        // DTE huérfano sin programación: mover = override de fecha de
+        // visibilidad. No toca el DTE.
+        res = await fetch(`/api/finance/cashflow/dtes/${occ.dteId}/move`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ newDate }),
+        });
       } else {
         toast.error("Este movimiento no se puede mover");
         return { ok: false };
