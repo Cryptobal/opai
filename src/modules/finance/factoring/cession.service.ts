@@ -570,6 +570,7 @@ export async function cedeDte(
     operationCode: op.code,
     cesionarioRazonSocial: company.razonSocial,
     cesionarioEmail: company.email ?? null,
+    cesionarioContactEmail: company.contactEmail ?? null,
     cedenteRazonSocial: dteCfg.emisorRazonSocial ?? "",
     dteType: dte.dteType,
     dteFolio: dte.folio,
@@ -595,7 +596,10 @@ interface CesionEmailPayload {
   tenantId: string;
   operationCode: string;
   cesionarioRazonSocial: string;
+  /** Email general del factoring (catálogo). */
   cesionarioEmail: string | null;
+  /** Email de contacto del factoring (catálogo). */
+  cesionarioContactEmail?: string | null;
   cedenteRazonSocial: string;
   dteType: number;
   dteFolio: number;
@@ -606,8 +610,32 @@ interface CesionEmailPayload {
   estadoSii?: string | null;
 }
 
+const CESION_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Destinatarios To: email general + contacto, sin duplicar (case-insensitive). */
+function collectCesionarioNotificationEmails(
+  generalEmail: string | null | undefined,
+  contactEmail: string | null | undefined,
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of [generalEmail, contactEmail]) {
+    const e = (raw ?? "").trim();
+    if (!e || !CESION_EMAIL_RE.test(e)) continue;
+    const key = e.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(e);
+  }
+  return out;
+}
+
 async function sendCesionNotificacionEmail(p: CesionEmailPayload): Promise<void> {
-  if (!p.cesionarioEmail) return;
+  const cesionarioRecipients = collectCesionarioNotificationEmails(
+    p.cesionarioEmail,
+    p.cesionarioContactEmail,
+  );
+  if (cesionarioRecipients.length === 0) return;
 
   const { resend, getTenantEmailConfig } = await import("@/lib/resend");
   const { render } = await import("@react-email/render");
@@ -649,11 +677,12 @@ async function sendCesionNotificacionEmail(p: CesionEmailPayload): Promise<void>
   // vacío, usa el primer email configurado del tenant (replyTo →
   // emisorEmail → empresa.email). Garantiza copia oculta al equipo
   // interno aunque no haya config explícita.
-  const primaryLower = p.cesionarioEmail.toLowerCase();
-  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const primaryLowerSet = new Set(
+    cesionarioRecipients.map((e) => e.toLowerCase()),
+  );
   const explicitBcc = (emailCfg.alwaysBcc ?? [])
     .map((e) => e?.trim())
-    .filter((e): e is string => !!e && EMAIL_RE.test(e));
+    .filter((e): e is string => !!e && CESION_EMAIL_RE.test(e));
   let bccCandidates = explicitBcc;
   if (explicitBcc.length === 0) {
     const { prisma: prismaClient } = await import("@/lib/prisma");
@@ -667,17 +696,17 @@ async function sendCesionNotificacionEmail(p: CesionEmailPayload): Promise<void>
     ]);
     const fallback = [emailCfg.replyTo, dteCfg?.emisorEmail ?? "", companyCfg.email]
       .map((e) => (e ?? "").trim())
-      .find((e) => e.length > 0 && EMAIL_RE.test(e));
+      .find((e) => e.length > 0 && CESION_EMAIL_RE.test(e));
     if (fallback) bccCandidates = [fallback];
   }
   const tenantBcc = bccCandidates
-    .filter((e) => e.toLowerCase() !== primaryLower)
+    .filter((e) => !primaryLowerSet.has(e.toLowerCase()))
     .filter((e, idx, arr) => arr.findIndex((x) => x.toLowerCase() === e.toLowerCase()) === idx);
 
   await resend.emails.send({
     from: emailCfg.from,
     replyTo: emailCfg.replyTo || undefined,
-    to: [p.cesionarioEmail],
+    to: cesionarioRecipients,
     bcc: tenantBcc.length > 0 ? tenantBcc : undefined,
     subject: `Cesión electrónica ${p.operationCode} — ${montoCesionFmt} registrada en SII`,
     html,
