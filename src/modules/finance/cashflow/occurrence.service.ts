@@ -223,6 +223,30 @@ export async function moveOccurrence(
     throw new Error("Se requiere newDate o daysFromCurrent");
   }
 
+  // Validar que la semana destino no esté cerrada (isAnchor). Mover un
+  // movimiento a una semana anclada invalidaría su conciliación bancaria.
+  const targetDateOnly = new Date(
+    Date.UTC(
+      target.getUTCFullYear(),
+      target.getUTCMonth(),
+      target.getUTCDate(),
+    ),
+  );
+  const weekClosed = await prisma.financeCashflowWeeklyClose.findFirst({
+    where: {
+      tenantId,
+      isAnchor: true,
+      weekStartDate: { lte: targetDateOnly },
+      weekEndDate: { gte: targetDateOnly },
+    },
+    select: { id: true },
+  });
+  if (weekClosed) {
+    throw new Error(
+      "La semana destino está cerrada. Reabrila primero desde el flujo de caja para poder mover movimientos a esa fecha.",
+    );
+  }
+
   return resolveCollisionAndMove({
     tenantId,
     itemId: existing.itemId,
