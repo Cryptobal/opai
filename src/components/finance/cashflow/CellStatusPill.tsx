@@ -31,13 +31,13 @@ const META: Record<PillVariant, {
   bg: string;
   fg: string;
 }> = {
-  PAID:       { label: "Pagada",     short: "PAG",  icon: Check,          bg: "bg-emerald-500/15",  fg: "text-emerald-300" },
-  FACTORING:  { label: "Factoring",  short: "FACT", icon: ArrowUpRight,   bg: "bg-purple-500/15",   fg: "text-purple-300" },
-  INVOICED:   { label: "Emitida",    short: "EMI",  icon: FileText,       bg: "bg-blue-500/15",     fg: "text-blue-300" },
-  DRAFT:      { label: "Borrador",   short: "BOR",  icon: Pencil,         bg: "bg-amber-500/15",    fg: "text-amber-300" },
-  PROJECTED:  { label: "Proyectada", short: "PRO",  icon: Calendar,       bg: "bg-muted/40",        fg: "text-ds-text-3" },
-  OVERDUE:    { label: "Vencida",    short: "VEN",  icon: AlertTriangle,  bg: "bg-red-500/15",      fg: "text-red-300" },
-  VOIDED:     { label: "Anulada",    short: "NC",   icon: Ban,            bg: "bg-pink-500/15",     fg: "text-pink-300 line-through" },
+  PAID:       { label: "Pagada",      short: "PAG",  icon: Check,          bg: "bg-emerald-500/15",  fg: "text-emerald-300" },
+  FACTORING:  { label: "Factorizada", short: "FACT", icon: ArrowUpRight,   bg: "bg-purple-500/15",   fg: "text-purple-300" },
+  INVOICED:   { label: "Facturada",   short: "FAC",  icon: FileText,       bg: "bg-blue-500/15",     fg: "text-blue-300" },
+  DRAFT:      { label: "Borrador",    short: "BOR",  icon: Pencil,         bg: "bg-amber-500/15",    fg: "text-amber-300" },
+  PROJECTED:  { label: "Programada",  short: "PROG", icon: Calendar,       bg: "bg-muted/40",        fg: "text-ds-text-3" },
+  OVERDUE:    { label: "Vencida",     short: "VEN",  icon: AlertTriangle,  bg: "bg-red-500/15",      fg: "text-red-300" },
+  VOIDED:     { label: "Anulada",     short: "NC",   icon: Ban,            bg: "bg-pink-500/15",     fg: "text-pink-300 line-through" },
 };
 
 export function CellStatusPill({ variant, compact = false, className = "" }: Props) {
@@ -60,17 +60,23 @@ export function pillVariantFor(input: {
   daysOverdue?: number;
   voided?: boolean;
 }): PillVariant {
-  // El factoring NO es estado del DTE — se indica con el badge "F" violeta
-  // separado en MovementRow. Acá solo evaluamos el ciclo de vida del DTE
-  // (PROJECTED → DRAFT → INVOICED → PAID, con overdue/voided como modificadores).
+  // Ciclo de vida de una factura, como UNA sola etapa visible:
+  //   Programada → Borrador → Facturada → Factorizada (factoring, opcional)
+  //   con Pagada como terminal y Vencida/Anulada como modificadores.
+  // El factoring se integra como etapa (Factorizada) en vez de un badge "F"
+  // suelto: en este negocio un contrato factoring se cede al emitir cada
+  // factura, así que una factura emitida con modoCobro FACTORING (o cellStatus
+  // CEDED) ya está factorizada.
   if (input.voided) return "VOIDED";
   if (input.cellStatus === "VOIDED") return "VOIDED";
   if ((input.daysOverdue ?? 0) > 0 && input.cellStatus !== "PAID") return "OVERDUE";
   if (input.cellStatus === "PAID") return "PAID";
-  if (input.cellStatus === "INVOICED") return "INVOICED";
+  if (input.cellStatus === "CEDED") return "FACTORING";
+  if (input.cellStatus === "INVOICED") {
+    return input.hasFactoring ? "FACTORING" : "INVOICED";
+  }
   if (input.cellStatus === "DRAFT") return "DRAFT";
-  // CEDED es un estado del flujo de factoring que ya cubrimos con el badge "F".
-  // Si la occurrence está cedida pero no tiene DTE emitido todavía, sigue
-  // siendo PROJECTED desde el punto de vista del flujo de caja.
+  // Aún sin DTE: programada (proyección recurrente/contrato). El factoring
+  // recién se marca cuando hay emisión/cesión, no en la proyección.
   return "PROJECTED";
 }

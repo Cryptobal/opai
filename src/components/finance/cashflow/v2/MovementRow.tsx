@@ -124,21 +124,18 @@ export function MovementRow({
         </span>
       </div>
 
-      {/* Línea 2: chips (izq) · estado + acciones (der) */}
+      {/* Línea 2: etapa del ciclo (Programada/Borrador/Facturada/Factorizada) +
+          folio · UF · acciones. El factoring ya no es un chip suelto: se integra
+          como etapa "Factorizada" en el pill. */}
       <div className="flex items-center gap-1.5">
-        {factoring && (
-          <span className="rounded-ds-sm bg-purple-500/15 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-purple-300">
-            F
-          </span>
-        )}
+        <CellStatusPill variant={variant} />
+        <FolioChip folio={meta?.dteFolio} dteId={meta?.dteId} />
         {isUf && (
           <span className="rounded-ds-sm bg-ds-surface-3 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-ds-text-2">
             UF
           </span>
         )}
-        <FolioChip folio={meta?.dteFolio} dteId={meta?.dteId} />
         <div className="ml-auto flex items-center gap-1">
-        <CellStatusPill variant={variant} compact />
         {reconciled ? (
           <Lock
             className="h-3.5 w-3.5 text-ds-text-3"
