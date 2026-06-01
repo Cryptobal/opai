@@ -196,8 +196,13 @@ export function CashflowV2Shell({
         toast.error(j?.error ?? "No se puede mover a esa semana");
         return { ok: false, conflict: j.conflict as MoveConflict, error: j?.error };
       }
-      toast.error(j?.error ?? "No se pudo mover");
-      return { ok: false, error: j?.error };
+      const errMsg = j?.error ?? "No se pudo mover";
+      // Semana cerrada: mensaje más persistente (6s) para que el usuario
+      // alcance a leer la instrucción de reabrir antes de que desaparezca.
+      toast.error(errMsg, {
+        duration: errMsg.toLowerCase().includes("cerrada") ? 6000 : 4000,
+      });
+      return { ok: false, error: errMsg };
     } catch {
       toast.error("Error de red al mover");
       return { ok: false, error: "Error de red al mover" };
