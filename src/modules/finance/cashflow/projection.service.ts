@@ -271,6 +271,64 @@ async function loadResolvedBankLinks(
   return { resolved, unresolved };
 }
 
+/**
+ * Consolida los INGRESOS a UNA occurrence por facturación, según el modelo:
+ * "el flujo muestra el DOCUMENTO (programación → borrador → factura), una sola
+ * vez". Si un período ya tiene DTE (borrador/factura), ese DTE manda con su
+ * monto real; la proyección estimada del contrato para ese mismo cobro se
+ * descarta (no se duplica). Los períodos futuros sin DTE quedan como proyección
+ * (Programada).
+ *
+ * Pasos:
+ *  1. Una occurrence por `dteId`: el materializado y la "sombra $0" del MISMO
+ *     DTE colapsan en una; la sombra se resuelve al BRUTO real del DTE.
+ *  2. Las proyecciones puras (sin dteId) cubiertas por un DTE de la misma
+ *     cuenta+instalación dentro de ±20 días se descartan (ya están facturadas).
+ *
+ * Egresos y demás (no INCOME) pasan sin tocar.
+ */
+function consolidateIncomeOccurrences(
+  occs: VirtualOccurrence[],
+  grossByDteId: Map<string, number>,
+): VirtualOccurrence[] {
+  const income = occs.filter((o) => o.kind === "INCOME");
+  const other = occs.filter((o) => o.kind !== "INCOME");
+
+  const byDte = new Map<string, VirtualOccurrence>();
+  const projections: VirtualOccurrence[] = [];
+  for (const o of income) {
+    if (!o.dteId) {
+      projections.push(o);
+      continue;
+    }
+    const gross = grossByDteId.get(o.dteId) ?? 0;
+    // Sombra $0 → bruto real del DTE; materializado → su propio monto.
+    const amt = o.amountClp !== 0 ? o.amountClp : gross;
+    const prev = byDte.get(o.dteId);
+    if (!prev || Math.abs(amt) > Math.abs(prev.amountClp)) {
+      byDte.set(o.dteId, { ...o, amountClp: amt, amountOriginal: amt });
+    }
+  }
+  const dteOccs = [...byDte.values()];
+
+  const TOL_MS = 20 * 24 * 60 * 60 * 1000;
+  const dteDatesByKey = new Map<string, number[]>();
+  for (const d of dteOccs) {
+    const k = `${d.crmAccountId ?? ""}|${d.installationId ?? ""}`;
+    const arr = dteDatesByKey.get(k) ?? [];
+    arr.push((d.effectiveDate ?? d.scheduledDate).getTime());
+    dteDatesByKey.set(k, arr);
+  }
+  const keptProjections = projections.filter((p) => {
+    const dates = dteDatesByKey.get(`${p.crmAccountId ?? ""}|${p.installationId ?? ""}`);
+    if (!dates) return true;
+    const t = (p.effectiveDate ?? p.scheduledDate).getTime();
+    return !dates.some((d) => Math.abs(d - t) <= TOL_MS);
+  });
+
+  return [...other, ...dteOccs, ...keptProjections];
+}
+
 export async function buildProjection(
   tenantId: string,
   range: ProjectionRange,
@@ -1156,10 +1214,16 @@ export async function buildProjection(
     // Cuando hay match, hacemos `continue` para no caer al path
     // fallback de fila propia.
     if (isIncome) {
-      const contractItem =
-        (dte.installationId && contractItemByInstallation.get(dte.installationId)) ||
-        (dte.crmAccountId && contractItemByCrmAccount.get(dte.crmAccountId)) ||
-        undefined;
+      // Match estricto: si el DTE tiene instalación, SOLO engancha al item de
+      // esa instalación. Sin fallback a crmAccount, que en cuentas con varias
+      // instalaciones (ej. Polpaico) enganchaba todos los DTEs al primer item
+      // (Coronel) → factura de El Bosque aparecía como Coronel duplicado. Si no
+      // hay item de esa instalación, cae al Path 2 (fila propia del DTE).
+      const contractItem = dte.installationId
+        ? contractItemByInstallation.get(dte.installationId)
+        : dte.crmAccountId
+          ? contractItemByCrmAccount.get(dte.crmAccountId)
+          : undefined;
       if (contractItem) {
         const paidInner = Number(dte.amountPaid);
         // Status derivado: PAID si paymentStatus es PAID, sino PROJECTED
@@ -1333,6 +1397,33 @@ export async function buildProjection(
       : null;
   }
 
+  // ── Consolidación de ingresos: una occurrence por facturación ──
+  // Carga el bruto real de cada DTE referenciado y colapsa los ingresos para
+  // que cada cobro aparezca UNA vez (DTE si existe → monto real + etapa; si no,
+  // la proyección). A partir de acá el pipeline (buckets, sumas, rows) opera
+  // sobre el set consolidado, no sobre allOccurrences.
+  const incomeDteIds = Array.from(
+    new Set(allOccurrences.map((o) => o.dteId).filter((x): x is string => !!x)),
+  );
+  const grossByDteId = new Map<string, number>();
+  if (incomeDteIds.length > 0) {
+    const dtesForGross = await prisma.financeDte.findMany({
+      where: { tenantId, id: { in: incomeDteIds } },
+      select: { id: true, totalAmount: true, netAmount: true, creditedNetAmount: true },
+    });
+    for (const d of dtesForGross) {
+      grossByDteId.set(
+        d.id,
+        computeCreditNoteImpact({
+          totalAmount: Number(d.totalAmount),
+          netAmount: Number(d.netAmount),
+          creditedNetAmount: Number(d.creditedNetAmount),
+        }).grossPostNc,
+      );
+    }
+  }
+  const occurrences = consolidateIncomeOccurrences(allOccurrences, grossByDteId);
+
   const buckets = buildBuckets(range);
   const bucketIndex = new Map(buckets.map((b, i) => [b.key, i]));
 
@@ -1342,7 +1433,7 @@ export async function buildProjection(
   const hiddenOccurrenceIds = new Set<VirtualOccurrence>();
   {
     const groupedByCellKey = new Map<string, VirtualOccurrence[]>();
-    for (const occ of allOccurrences) {
+    for (const occ of occurrences) {
       const placementDate = occ.effectiveDate ?? occ.scheduledDate;
       const bKey = bucketKeyFor(placementDate, range.granularity);
       const cellKey = `${occ.categoryId}::${bKey}`;
@@ -1360,7 +1451,7 @@ export async function buildProjection(
     }
   }
 
-  for (const occ of allOccurrences) {
+  for (const occ of occurrences) {
     // Usamos effectiveDate cuando existe — refleja la fecha REAL en que la
     // cuota se ejecutó (rebalanceada al conciliar), no la fecha programada
     // original. Esto hace que la matriz "siga al banco" cuando hay atrasos.
@@ -1450,7 +1541,7 @@ export async function buildProjection(
   // tienen vínculo). Si no hay ninguno, saltamos las consultas.
   const dteIds = Array.from(
     new Set(
-      allOccurrences
+      occurrences
         .map((o) => o.dteId)
         .filter((x): x is string => !!x),
     ),
@@ -1589,7 +1680,7 @@ export async function buildProjection(
   const rows = buildRows(
     buckets,
     categories,
-    allOccurrences,
+    occurrences,
     crmAccountNameById,
     cellStatusByDteId,
     dteStatusById,
@@ -1626,7 +1717,7 @@ export async function buildProjection(
   >();
   const cellKeyOf = (o: VirtualOccurrence) =>
     `${o.itemId ?? `dte:${o.dteId}`}::${bucketKeyFor(o.effectiveDate ?? o.scheduledDate, range.granularity)}`;
-  for (const o of allOccurrences) {
+  for (const o of occurrences) {
     if (!o.dteId) continue;
     const cs = cellStatusByDteId.get(o.dteId);
     if (!cs) continue;
@@ -1641,13 +1732,25 @@ export async function buildProjection(
       });
     }
   }
-  for (const o of allOccurrences) {
+  for (const o of occurrences) {
+    if (o.dteId) {
+      // Tiene DTE propio → lleva SU estado/folio (no el de un hermano de la
+      // celda; si no, dos facturas de la misma instalación se pisarían el folio).
+      const cs = cellStatusByDteId.get(o.dteId);
+      if (cs) {
+        o.cellStatus = cs.status;
+        o.daysOverdue = cs.daysOverdue;
+      }
+      o.dteFolio = dteFolioById.get(o.dteId) ?? null;
+      continue;
+    }
+    // Proyección pura → toma el estado del DTE de su celda (si lo hay).
     const cell = cellStageByKey.get(cellKeyOf(o));
     if (!cell) continue;
     o.cellStatus = cell.status;
     o.dteFolio = cell.folio;
     o.daysOverdue = cell.daysOverdue;
-    if (!o.dteId) o.dteId = cell.dteId; // habilita el deep-link del folio en la fila
+    o.dteId = cell.dteId; // habilita el deep-link del folio en la fila
   }
 
   const openingBreakdown = await resolveOpeningBalance(tenantId);
