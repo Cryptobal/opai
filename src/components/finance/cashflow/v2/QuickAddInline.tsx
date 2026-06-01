@@ -203,7 +203,7 @@ export function QuickAddInline({ kind, bucketStart, onAdded }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Concepto"
-              className="w-full rounded-md border border-ds-border-default bg-ds-surface-3 px-2.5 py-2 text-[13px] text-ds-text-1 outline-none focus:border-primary"
+              className="w-full rounded-md border border-ds-border-default bg-ds-surface-3 px-2.5 py-2 text-[13px] text-ds-text-1 outline-none focus:border-primary focus:ring-2 focus:ring-primary/40 transition-shadow"
             />
             <input
               value={amount}
@@ -211,7 +211,7 @@ export function QuickAddInline({ kind, bucketStart, onAdded }: Props) {
               placeholder="Monto $"
               type="text"
               inputMode="numeric"
-              className="w-full rounded-md border border-ds-border-default bg-ds-surface-3 px-2.5 py-2 text-[13px] tabular-nums text-ds-text-1 outline-none focus:border-primary"
+              className="w-full rounded-md border border-ds-border-default bg-ds-surface-3 px-2.5 py-2 text-[13px] tabular-nums text-ds-text-1 outline-none focus:border-primary focus:ring-2 focus:ring-primary/40 transition-shadow"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) void submit();
               }}
@@ -221,7 +221,7 @@ export function QuickAddInline({ kind, bucketStart, onAdded }: Props) {
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Nota (opcional)"
               rows={2}
-              className="w-full resize-none rounded-md border border-ds-border-default bg-ds-surface-3 px-2.5 py-2 text-[12px] text-ds-text-1 outline-none focus:border-primary"
+              className="w-full resize-none rounded-md border border-ds-border-default bg-ds-surface-3 px-2.5 py-2 text-[12px] text-ds-text-1 outline-none focus:border-primary focus:ring-2 focus:ring-primary/40 transition-shadow"
             />
           </div>
 

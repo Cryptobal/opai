@@ -70,11 +70,39 @@ export async function DELETE(
       );
     }
 
-    await prisma.financeCashflowOccurrence.delete({ where: { id } });
+    // Borrar occurrence + posiblemente el item huérfano (si es MANUAL y queda
+    // sin otras occurrences). Es atómico para que si el item NO se puede borrar
+    // (porque otra request creó otra occurrence en paralelo), la occurrence
+    // tampoco se borre y no quede inconsistencia.
+    const result = await prisma.$transaction(async (tx) => {
+      // Necesitamos el itemId para chequear orfandad después del delete
+      const occBeforeDelete = await tx.financeCashflowOccurrence.findUnique({
+        where: { id },
+        select: { itemId: true },
+      });
+      await tx.financeCashflowOccurrence.delete({ where: { id } });
+
+      // Si era MANUAL: chequear si quedan otras occurrences del mismo item.
+      // Si no quedan, borrar el item también para evitar regeneración virtual.
+      let itemDeleted = false;
+      if (occ.item?.source === "MANUAL" && occBeforeDelete?.itemId) {
+        const remaining = await tx.financeCashflowOccurrence.count({
+          where: { itemId: occBeforeDelete.itemId },
+        });
+        if (remaining === 0) {
+          await tx.financeCashflowItem.delete({
+            where: { id: occBeforeDelete.itemId },
+          });
+          itemDeleted = true;
+        }
+      }
+      return { itemDeleted };
+    });
 
     return NextResponse.json({
       success: true,
       deletedItemName: occ.item?.name ?? null,
+      itemDeleted: result.itemDeleted,
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Error interno";
