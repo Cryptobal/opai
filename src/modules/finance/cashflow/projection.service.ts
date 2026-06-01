@@ -569,6 +569,19 @@ export async function buildProjection(
     const claimedSlotIdx = new Set<number>();
     const claimedMatIds = new Set<string>();
 
+    // Pasada 0 — items ONCE: match 1-a-1 por itemId (independiente de fecha).
+    // Una cuota ONCE tiene exactamente 1 slot virtual (en startDate) y a lo
+    // sumo 1 occurrence materializada. Si la mat fue movida, su fecha ya no
+    // coincide con el slot virtual, y las pasadas por fecha/bucket dejarían
+    // el slot virtual sin reclamar (fantasma id=null) + la mat como slot
+    // extra. Acá el match es trivial: el slot único reclama la mat única.
+    if (item.recurrence === "ONCE" && slots.length > 0 && itemMats.length > 0) {
+      const m = itemMats[0];
+      slots[0] = { d: m.scheduledDate, mat: m };
+      claimedSlotIdx.add(0);
+      claimedMatIds.add(m.id);
+    }
+
     // Pasada 1 — match exacto por fecha (fast path para cuotas no movidas).
     for (const m of itemMats) {
       const key = m.scheduledDate.toISOString().slice(0, 10);
