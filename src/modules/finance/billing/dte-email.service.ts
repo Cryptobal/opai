@@ -116,11 +116,24 @@ export async function sendDteEmail(
     return { success: false, error: "No se puede enviar email de un borrador" };
   }
 
-  const primary = recipientEmail ?? dte.receiverEmail ?? null;
-  if (!primary) return { success: false, error: "Receptor no tiene email" };
+  // Primario (TO): receptor explícito > receiverEmail del DTE. Si el DTE no
+  // tiene receiverEmail pero SÍ tiene CC (caso típico: cliente sin email
+  // primario guardado pero con contactos CRM cargados como CC), promovemos el
+  // primer CC válido a TO para que el correo igual salga. Regla: el envío
+  // nunca queda mudo si existe AL MENOS un destinatario válido.
+  let primary = recipientEmail ?? dte.receiverEmail ?? null;
+  let ccSource = ccOverride ?? dte.receiverEmailCc ?? [];
+  if (!primary?.trim()) {
+    const firstCc = ccSource.find((e) => typeof e === "string" && e.trim());
+    if (firstCc) {
+      primary = firstCc;
+      ccSource = ccSource.filter((e) => e !== firstCc);
+    }
+  }
+  if (!primary?.trim()) return { success: false, error: "Receptor no tiene email" };
 
   // CC real: filtrar duplicados con el primario y emails inválidos.
-  const ccList = (ccOverride ?? dte.receiverEmailCc ?? []).filter(
+  const ccList = ccSource.filter(
     (e) => typeof e === "string" && e.trim() && e !== primary,
   );
 

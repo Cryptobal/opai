@@ -49,8 +49,15 @@ interface Props {
   target: BillingDocTarget;
   /** Default variant a enviar. El usuario puede cambiarla solo si target=draft. */
   defaultVariant: BillingDocVariant;
-  /** Email primario sugerido (contacto Estado de Pago o receptor). */
+  /** Email primario sugerido genérico (fallback: receptor del DTE). */
   defaultRecipientEmail: string | null;
+  /** Emails de los contactos seleccionados para Proforma en el plan, en orden.
+   *  El primero se usa como TO y el resto como CC. Tiene prioridad sobre
+   *  defaultRecipientEmail cuando la variante es PROFORMA. */
+  proformaRecipientEmails?: string[];
+  /** Emails de los contactos seleccionados para Estado de Pago, en orden.
+   *  Primero = TO, resto = CC. Prioridad cuando la variante es ESTADO_DE_PAGO. */
+  estadoPagoRecipientEmails?: string[];
   /** Nombre del receptor para el preview/heading. */
   receiverName: string;
   /** Callback cuando el envío se completa con éxito. */
@@ -64,11 +71,28 @@ export function BillingDocSendModal({
   target,
   defaultVariant,
   defaultRecipientEmail,
+  proformaRecipientEmails,
+  estadoPagoRecipientEmails,
   receiverName,
   onSent,
 }: Props) {
+  // Destinatarios sugeridos según la variante: los contactos seleccionados del
+  // plan (Proforma vs Estado de Pago) — primero como TO, resto como CC. Si no
+  // hay, cae al receptor genérico del DTE. Antes el modal usaba siempre el
+  // receptor del DTE, ignorando los contactos que el usuario marcó.
+  const recipientsForVariant = (
+    v: BillingDocVariant,
+  ): { to: string; cc: string[] } => {
+    const list =
+      v === "ESTADO_DE_PAGO" ? estadoPagoRecipientEmails : proformaRecipientEmails;
+    if (list && list.length > 0) {
+      return { to: list[0], cc: list.slice(1) };
+    }
+    return { to: defaultRecipientEmail ?? "", cc: [] };
+  };
+  const initial = recipientsForVariant(defaultVariant);
   const [variant, setVariant] = useState<BillingDocVariant>(defaultVariant);
-  const [recipient, setRecipient] = useState(defaultRecipientEmail ?? "");
+  const [recipient, setRecipient] = useState(initial.to);
   const [ccText, setCcText] = useState("");
   const [bccText, setBccText] = useState("");
   const [showCcBcc, setShowCcBcc] = useState(false);
@@ -84,11 +108,12 @@ export function BillingDocSendModal({
 
   useEffect(() => {
     if (!open) return;
+    const r = recipientsForVariant(defaultVariant);
     setVariant(defaultVariant);
-    setRecipient(defaultRecipientEmail ?? "");
-    setCcText("");
+    setRecipient(r.to);
+    setCcText(r.cc.join(", "));
     setBccText("");
-    setShowCcBcc(false);
+    setShowCcBcc(r.cc.length > 0);
     setOverrideContent(false);
     setCustomSubject("");
     setCustomIntro("");
@@ -109,6 +134,17 @@ export function BillingDocSendModal({
       }
     })();
   }, [open, defaultVariant, defaultRecipientEmail]);
+
+  // Cambiar de variante re-sugiere el destinatario del contacto seleccionado
+  // de ESA variante. Si el usuario ya editó el correo, lo sobreescribe a
+  // propósito (el destinatario natural de Proforma puede diferir del de EP).
+  function selectVariant(v: BillingDocVariant) {
+    const r = recipientsForVariant(v);
+    setVariant(v);
+    setRecipient(r.to);
+    setCcText(r.cc.join(", "));
+    if (r.cc.length > 0) setShowCcBcc(true);
+  }
 
   function toggleSigner(id: string) {
     setSelectedSignerIds((prev) => {
@@ -227,14 +263,14 @@ export function BillingDocSendModal({
               <Button
                 variant={variant === "PROFORMA" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setVariant("PROFORMA")}
+                onClick={() => selectVariant("PROFORMA")}
               >
                 Proforma
               </Button>
               <Button
                 variant={variant === "ESTADO_DE_PAGO" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setVariant("ESTADO_DE_PAGO")}
+                onClick={() => selectVariant("ESTADO_DE_PAGO")}
               >
                 Estado de Pago
               </Button>

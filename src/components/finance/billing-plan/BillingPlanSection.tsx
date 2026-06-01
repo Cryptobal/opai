@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
-interface ContactOption {
+export interface ContactOption {
   id: string;
   firstName: string;
   lastName: string;
@@ -52,12 +52,17 @@ interface Props {
   onChange: (next: BillingPlanValue) => void;
   /** Para el caller: indica si el draft ya está guardado (puede mandar). */
   isDraftSaved?: boolean;
+  /** Notifica al padre los contactos cargados (con email) para que pueda
+   *  resolver el destinatario sugerido del modal de envío a partir de los
+   *  IDs seleccionados del plan. */
+  onContactsLoaded?: (contacts: ContactOption[]) => void;
 }
 
 export function BillingPlanSection({
   accountId,
   value,
   onChange,
+  onContactsLoaded,
 }: Props) {
   const [contacts, setContacts] = useState<ContactOption[]>([]);
   const [loading, setLoading] = useState(false);
@@ -145,19 +150,23 @@ export function BillingPlanSection({
       .then((r) => r.json())
       .then((j) => {
         if (j.success && Array.isArray(j.data)) {
-          setContacts(
-            j.data.map((c: Record<string, unknown>) => ({
+          const mapped: ContactOption[] = j.data.map(
+            (c: Record<string, unknown>) => ({
               id: String(c.id),
               firstName: String(c.firstName ?? ""),
               lastName: String(c.lastName ?? ""),
               email: (c.email as string | null) ?? null,
               roleTitle: (c.roleTitle as string | null) ?? null,
-            })),
+            }),
           );
+          setContacts(mapped);
+          onContactsLoaded?.(mapped);
         }
       })
       .catch(() => setContacts([]))
       .finally(() => setLoading(false));
+    // onContactsLoaded es estable (setState) — no lo incluimos para no refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId]);
 
   function toggleProformaContact(id: string) {

@@ -484,9 +484,16 @@ export async function issueDte(
   // `emailStatus` / `emailError` para que la UI muestre un toast acorde.
   let emailStatus: "sent" | "failed" | "no_receiver" | "skipped" = "skipped";
   let emailError: string | null = null;
+  // Hay destinatario si el DTE tiene receiverEmail (TO) O al menos un CC
+  // válido. sendDteEmail promueve el primer CC a TO cuando no hay receiverEmail,
+  // así que con sólo CC el correo igual sale. No marcamos no_receiver en ese caso.
+  const effectiveCc = input.receiverEmailCc ?? dte.receiverEmailCc ?? [];
+  const hasAnyRecipient =
+    !!dte.receiverEmail?.trim() ||
+    effectiveCc.some((e) => typeof e === "string" && e.trim());
   if (input.autoSendEmail === false) {
     emailStatus = "skipped";
-  } else if (!dte.receiverEmail) {
+  } else if (!hasAnyRecipient) {
     emailStatus = "no_receiver";
   } else {
     try {

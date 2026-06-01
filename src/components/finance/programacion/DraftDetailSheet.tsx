@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { formatCalendarDateDisplay } from "@/lib/fx-date";
 import { toast } from "sonner";
+import { notifyEmitResult } from "./emit-toast";
 import {
   Loader2,
   FileEdit,
@@ -138,7 +139,7 @@ export function DraftDetailSheet({
         toast.error(json.error ?? "Error emitiendo");
         return;
       }
-      toast.success("Borrador emitido al SII");
+      notifyEmitResult(json.data);
       onAfterMutation();
       onOpenChange(false);
     } finally {

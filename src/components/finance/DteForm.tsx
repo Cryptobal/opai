@@ -25,7 +25,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CustomerCombobox, type CustomerOption } from "./CustomerCombobox";
-import { BillingPlanSection } from "@/components/finance/billing-plan/BillingPlanSection";
+import {
+  BillingPlanSection,
+  type ContactOption as BillingPlanContact,
+} from "@/components/finance/billing-plan/BillingPlanSection";
 import { BillingDocSendModal } from "@/components/finance/billing-doc-send/BillingDocSendModal";
 import { DteAttachmentsCard } from "./DteAttachmentsCard";
 import {
@@ -174,6 +177,23 @@ export function DteForm({ availableTypes, accounts }: Props) {
     requireEstadoPago: false,
     estadoPagoRecipientContactIds: [],
   });
+
+  /** Contactos CRM del cliente (con email), levantados desde BillingPlanSection
+   *  para resolver el destinatario sugerido del modal de envío a partir de los
+   *  IDs seleccionados en el plan. */
+  const [planContacts, setPlanContacts] = useState<BillingPlanContact[]>([]);
+
+  /** Emails (con @) de los contactos seleccionados, en orden. El modal usa el
+   *  primero como TO y el resto como CC, para que TODOS los firmantes/contactos
+   *  marcados reciban el documento (antes solo iba el receptor del DTE). */
+  const selectedContactEmails = (ids: string[]): string[] => {
+    const out: string[] = [];
+    for (const id of ids) {
+      const email = planContacts.find((x) => x.id === id)?.email?.trim();
+      if (email && !out.includes(email)) out.push(email);
+    }
+    return out;
+  };
 
   /** Modal para enviar Proforma / Estado de Pago al cliente. */
   const [sendAsVariant, setSendAsVariant] = useState<
@@ -1702,6 +1722,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
         value={billingPlan}
         onChange={setBillingPlan}
         isDraftSaved={!!draftIdParam}
+        onContactsLoaded={setPlanContacts}
       />
 
       {/* Adjuntos del DTE: solo disponibles cuando ya existe un draft (necesita id).
@@ -1761,6 +1782,12 @@ export function DteForm({ availableTypes, accounts }: Props) {
           target="draft"
           defaultVariant={sendAsVariant}
           defaultRecipientEmail={(customer?.email || receiverEmail || "") || null}
+          proformaRecipientEmails={selectedContactEmails(
+            billingPlan.proformaRecipientContactIds,
+          )}
+          estadoPagoRecipientEmails={selectedContactEmails(
+            billingPlan.estadoPagoRecipientContactIds,
+          )}
           receiverName={(customer?.name || receiverName || "").trim() || "el cliente"}
           onSent={() => setSendAsVariant(null)}
         />

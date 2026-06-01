@@ -5,6 +5,7 @@ import { formatDistanceToNowStrict } from "date-fns";
 import { es } from "date-fns/locale";
 import { formatCalendarDateDisplay } from "@/lib/fx-date";
 import { toast } from "sonner";
+import { notifyEmitResult } from "./emit-toast";
 import { FileText, Loader2, Send, RefreshCw, MapPin, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Surface, EmptyState, DataTable, type DataTableColumn } from "@/components/opai-ds";
@@ -111,7 +112,7 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
           toast.error(json.error ?? "Error emitiendo");
           throw new Error(json.error);
         }
-        toast.success("Borrador emitido al SII");
+        notifyEmitResult(json.data);
         await loadDrafts();
       } finally {
         setIssuing(null);
