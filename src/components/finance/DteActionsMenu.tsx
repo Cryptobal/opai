@@ -36,6 +36,7 @@ import {
   FileSearch,
   Loader2,
   Mail,
+  MessageCircle,
   MoreHorizontal,
   RefreshCw,
   RotateCcw,
@@ -104,6 +105,8 @@ interface Props {
   onDownloadPdf: () => void;
   onDownloadXml: () => void;
   onResendEmail: () => void;
+  /** Abre el diálogo de cobranza por WhatsApp/email para este DTE. */
+  onSendCobranza?: () => void;
   onCheckStatus: () => void;
   onVoid: () => void;
   onCede: () => void;
@@ -142,6 +145,7 @@ export function DteActionsMenu({
   onDownloadPdf,
   onDownloadXml,
   onResendEmail,
+  onSendCobranza,
   onCheckStatus,
   onVoid,
   onCede,
@@ -347,6 +351,25 @@ export function DteActionsMenu({
                   <Mail className="h-4 w-4 mr-2" />
                 )}
                 {row.emailSentAt ? "Reenviar email" : "Enviar email"}
+              </DropdownMenuItem>
+            </>
+          )}
+
+          {/* Cobranza por WhatsApp — no depende del email del receptor. Si
+              no hay sección "Comunicación" (sin email reenviable), la creamos. */}
+          {canManage && onSendCobranza && (
+            <>
+              {!canResend && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className={SECTION_LABEL}>
+                    Comunicación
+                  </DropdownMenuLabel>
+                </>
+              )}
+              <DropdownMenuItem onClick={onSendCobranza}>
+                <MessageCircle className="h-4 w-4 mr-2" />
+                Cobranza por WhatsApp
               </DropdownMenuItem>
             </>
           )}
