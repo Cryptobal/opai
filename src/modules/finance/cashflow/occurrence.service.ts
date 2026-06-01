@@ -299,11 +299,35 @@ async function resolveCollisionAndMove(args: {
     where: { tenantId, itemId, scheduledDate: target },
     select: {
       id: true, status: true, dteId: true, bankTransactionId: true,
+      isClosingAdjust: true,
       item: { select: { name: true } },
     },
   });
 
   if (collision && collision.id !== occurrenceId) {
+    // CASO SOMBRA: la occurrence que movemos tiene DTE (factura real) y la del
+    // destino es una proyección pura del MISMO item (sin DTE/banco/cierre). Es
+    // la sombra que el motor ya oculta; al mover la factura encima, la
+    // consolidamos (borramos la sombra) en vez de bloquear.
+    const source = await prisma.financeCashflowOccurrence.findUnique({
+      where: { id: occurrenceId },
+      select: { dteId: true },
+    });
+    const sourceHasDte = source?.dteId != null;
+    const targetIsPureProjection =
+      collision.dteId == null &&
+      collision.bankTransactionId == null &&
+      !collision.isClosingAdjust &&
+      collision.status !== "PAID" &&
+      collision.status !== "CONFIRMED";
+    if (sourceHasDte && targetIsPureProjection) {
+      await prisma.financeCashflowOccurrence.delete({ where: { id: collision.id } });
+      out.overwrote = {
+        occurrenceId: collision.id,
+        itemName: collision.item?.name ?? "proyección",
+      };
+      // cae al update final sin lanzar OccurrenceCollisionError
+    } else {
     // Resolver según jerarquía: comparar nivel de source vs nivel del que está en destino
     const sourceLevel = await levelOfOccurrence(prisma, occurrenceId);
     const targetIsStrong =
@@ -363,6 +387,7 @@ async function resolveCollisionAndMove(args: {
         probe.setDate(probe.getDate() + direction);
         target = await findFreeDate(tenantId, itemId, probe, occurrenceId, direction);
       }
+    }
     }
   }
 
