@@ -17,6 +17,8 @@ interface Contact {
   lastName: string;
   email: string | null;
   phone: string | null;
+  recibeCobranza: boolean; // ← contacto marcado para cobranza en CRM
+  isPrimary: boolean; // ← contacto principal de la cuenta
 }
 
 interface Props {
@@ -78,23 +80,44 @@ export function CobranzaSendDialog({
       .then((r) => r.json())
       .then((j) => {
         if (j?.success && Array.isArray(j.data)) {
-          setContacts(
-            j.data.map(
-              (c: {
-                id: string;
-                firstName: string;
-                lastName: string;
-                email: string | null;
-                phone: string | null;
-              }) => ({
-                id: c.id,
-                firstName: c.firstName,
-                lastName: c.lastName,
-                email: c.email ?? null,
-                phone: c.phone ?? null,
-              }),
-            ),
+          const mapped: Contact[] = j.data.map(
+            (c: {
+              id: string;
+              firstName: string;
+              lastName: string;
+              email: string | null;
+              phone: string | null;
+              recibeCobranza?: boolean;
+              isPrimary?: boolean;
+            }) => ({
+              id: c.id,
+              firstName: c.firstName,
+              lastName: c.lastName,
+              email: c.email ?? null,
+              phone: c.phone ?? null,
+              recibeCobranza: c.recibeCobranza === true,
+              isPrimary: c.isPrimary === true,
+            }),
           );
+          // Orden: contactos de cobranza primero, luego principal, luego alfabético.
+          const sorted = mapped.sort((a, b) => {
+            if (a.recibeCobranza !== b.recibeCobranza)
+              return a.recibeCobranza ? -1 : 1;
+            if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
+            return `${a.firstName} ${a.lastName}`.localeCompare(
+              `${b.firstName} ${b.lastName}`,
+            );
+          });
+          setContacts(sorted);
+          // Default inteligente: pre-marcar al contacto de cobranza con teléfono.
+          const defaultContact =
+            sorted.find((c) => c.recibeCobranza && c.phone) ??
+            sorted.find((c) => c.isPrimary && c.phone) ??
+            sorted.find((c) => c.phone) ??
+            null;
+          if (defaultContact) {
+            setSelected(new Set([defaultContact.id]));
+          }
         }
       })
       .catch(() => {
@@ -253,15 +276,24 @@ export function CobranzaSendDialog({
                       });
                     }}
                   />
-                  <span className="flex-1 truncate">
-                    {c.firstName} {c.lastName}
+                  <span className="flex-1 truncate flex items-center gap-1.5">
+                    <span className="truncate">
+                      {c.firstName} {c.lastName}
+                    </span>
+                    {c.recibeCobranza && (
+                      <span className="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/30 shrink-0">
+                        Cobranza
+                      </span>
+                    )}
                   </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {channel !== "email" && hasPhone
-                      ? "WA"
-                      : channel !== "whatsapp" && hasEmail
-                        ? "Mail"
-                        : "·"}
+                  <span className="text-[10px] text-muted-foreground shrink-0">
+                    {channel !== "email" && !hasPhone
+                      ? "sin teléfono"
+                      : channel !== "email" && hasPhone
+                        ? "WA"
+                        : channel !== "whatsapp" && hasEmail
+                          ? "Mail"
+                          : "·"}
                   </span>
                 </label>
               );
