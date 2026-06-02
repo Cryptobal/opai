@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { addMonths } from "date-fns";
+import { addMonths, subWeeks } from "date-fns";
 import { toast } from "sonner";
 import { Lock, ChevronLeft, ChevronRight } from "lucide-react";
 import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
@@ -89,8 +89,18 @@ export function CashflowV2Shell({
   // Ventana de 4 semanas en el kanban desktop. weekOffset corre la ventana
   // hacia adelante/atrás sobre los buckets ya proyectados (sin re-fetch).
   const [weekOffset, setWeekOffset] = useState(0);
+  // Historia extendida hacia atrás: al llegar al inicio, el ◀ trae más semanas
+  // (load-as-you-go) re-proyectando con un `from` más temprano. Reemplaza a
+  // `projection` mientras esté cargada. Cap a 52 semanas atrás.
+  const [weeklyExtended, setWeeklyExtended] = useState<ProjectionMatrix | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const extendedRangeRef = useRef<{ from: string; to: string } | null>(null);
+  const HISTORY_CAP_WEEKS = 52;
 
-  const active = granularity === "monthly" && monthly ? monthly : projection;
+  const active =
+    granularity === "monthly" && monthly
+      ? monthly
+      : (weeklyExtended ?? projection);
   const currentIndex = useMemo(() => currentBucketIndex(active.buckets), [active]);
   const VISIBLE_WEEKS = 4;
   const baseStart = Math.max(0, currentIndex - 1);
@@ -98,12 +108,82 @@ export function CashflowV2Shell({
   const weekStartIdx = Math.min(Math.max(0, baseStart + weekOffset), maxStart);
   const canPrevWeeks = weekStartIdx > 0;
   const canNextWeeks = weekStartIdx < maxStart;
+  // ¿Hay margen para traer más historia? Cap a HISTORY_CAP_WEEKS desde la
+  // semana más vieja ya cargada.
+  const firstBucketStart = active.buckets[0]
+    ? toDate(active.buckets[0].start).getTime()
+    : Date.now();
+  const weeksOfHistory = Math.round((Date.now() - firstBucketStart) / 604_800_000);
+  const canLoadMoreHistory =
+    granularity === "weekly" && !loadingHistory && weeksOfHistory < HISTORY_CAP_WEEKS;
   // Clampa el offset al mover para que no se acumule fuera de rango.
   const shiftWeeks = (d: number) =>
     setWeekOffset((o) => {
       const next = Math.min(Math.max(0, baseStart + o + d), maxStart);
       return next - baseStart;
     });
+
+  async function fetchWeeklyRange(
+    from: Date,
+    to: Date,
+  ): Promise<ProjectionMatrix | null> {
+    const qs = new URLSearchParams({
+      from: from.toISOString(),
+      to: to.toISOString(),
+      granularity: "weekly",
+    });
+    const r = await fetch(`/api/finance/cashflow/projection?${qs.toString()}`);
+    const j = await r.json();
+    return j?.success ? (j.data as ProjectionMatrix) : null;
+  }
+
+  // ◀ al inicio: trae 8 semanas más de historia y posiciona la ventana en las
+  // recién reveladas (terminando donde estaba el inicio anterior, para scroll
+  // continuo).
+  async function loadMoreHistoryWeekly() {
+    if (loadingHistory) return;
+    setLoadingHistory(true);
+    try {
+      const cur = weeklyExtended ?? projection;
+      const fromDate = subWeeks(toDate(cur.buckets[0].start), 8);
+      const toDateEnd = toDate(cur.buckets[cur.buckets.length - 1].end);
+      const next = await fetchWeeklyRange(fromDate, toDateEnd);
+      if (!next) {
+        toast.error("No se pudo cargar más historia");
+        return;
+      }
+      const added = next.buckets.length - cur.buckets.length;
+      extendedRangeRef.current = {
+        from: fromDate.toISOString(),
+        to: toDateEnd.toISOString(),
+      };
+      setWeeklyExtended(next);
+      const newBaseStart = Math.max(0, currentBucketIndex(next.buckets) - 1);
+      const targetStart = Math.max(0, added - (VISIBLE_WEEKS - 1));
+      setWeekOffset(targetStart - newBaseStart);
+    } catch {
+      toast.error("Error al cargar más semanas");
+    } finally {
+      setLoadingHistory(false);
+    }
+  }
+
+  // Si el server refresca la proyección (router.refresh tras un cambio) y hay
+  // historia extendida cargada, re-traemos el mismo rango para no mostrar datos
+  // viejos. No toca weekOffset (la ventana queda donde está).
+  useEffect(() => {
+    const range = extendedRangeRef.current;
+    if (!range) return;
+    let cancel = false;
+    fetchWeeklyRange(new Date(range.from), new Date(range.to)).then((next) => {
+      if (!cancel && next) setWeeklyExtended(next);
+    });
+    return () => {
+      cancel = true;
+    };
+    // Re-fetch solo cuando cambia la proyección del server (no en cada render).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projection]);
   const effectiveKey =
     selectedKey ??
     active.buckets[currentIndex >= 0 ? currentIndex : 0]?.key ??
@@ -322,17 +402,27 @@ export function CashflowV2Shell({
             <div className="hidden items-center gap-1 lg:flex">
               <button
                 type="button"
-                onClick={() => shiftWeeks(-1)}
-                disabled={!canPrevWeeks}
+                onClick={() => {
+                  if (canPrevWeeks) shiftWeeks(-1);
+                  else if (canLoadMoreHistory) loadMoreHistoryWeekly();
+                }}
+                disabled={(!canPrevWeeks && !canLoadMoreHistory) || loadingHistory}
                 aria-label="Semanas anteriores"
+                title={
+                  !canPrevWeeks && canLoadMoreHistory
+                    ? "Cargar semanas anteriores"
+                    : "Semanas anteriores"
+                }
                 className={cn(
                   "inline-flex h-8 w-8 items-center justify-center rounded-ds-md border border-ds-border-default text-ds-text-2 transition-colors",
-                  canPrevWeeks
+                  (canPrevWeeks || canLoadMoreHistory) && !loadingHistory
                     ? "hover:bg-ds-surface-2 hover:text-ds-text-1"
                     : "opacity-30",
                 )}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft
+                  className={cn("h-4 w-4", loadingHistory && "animate-pulse")}
+                />
               </button>
               <button
                 type="button"
