@@ -6528,6 +6528,14 @@ model FinanceDte {
   date      DateTime            @db.Date
   dueDate   DateTime?           @map("due_date") @db.Date
 
+  // Vínculo con la programación recurrente (template) y el PERÍODO que factura
+  // (YYYY-MM). Se declara al crear el borrador (obligatorio en la UI) y es la
+  // base para que el flujo de caja dedupee por (programación, período) en vez
+  // de por proximidad de fechas: una cuota adelantada/chuteada no anula la del
+  // mes siguiente. Ambos NULL = factura "extra" (no ocupa ninguna cuota, suma).
+  recurringTemplateId String? @map("recurring_template_id") @db.Uuid
+  billingPeriod       String? @map("billing_period")
+
   issuerRut       String   @map("issuer_rut")
   issuerName      String   @map("issuer_name")
   receiverRut     String   @map("receiver_rut")
