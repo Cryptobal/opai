@@ -878,6 +878,8 @@ export async function getDraftDteById(
     estadoPagoRecipientContactIds: draft.estadoPagoRecipientContactIds,
     estadoPagoPeriodoMode:
       draft.estadoPagoPeriodoMode === "PREVIOUS" ? "PREVIOUS" : "CURRENT",
+    recurringTemplateId: draft.recurringTemplateId,
+    billingPeriod: draft.billingPeriod,
     emailLogs: draft.emailLogs.map((log) => ({
       id: log.id,
       kind: log.kind,
