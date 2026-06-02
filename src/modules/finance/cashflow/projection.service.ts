@@ -434,10 +434,26 @@ export async function buildProjection(
       contractKeys.add(`${it.crmAccountId}|${it.installationId ?? ""}`);
     }
   }
+  // Conteo de recurrentes por instalación: si hay 2+, son cobros múltiples
+  // intencionales (ej. Transmat factura 2x/mes) y NO deben colapsarse contra
+  // el item CONTRACT. La dedupe 1-a-1 (contrato espejado por UNA recurrente)
+  // se mantiene.
+  const recurringCountByKey = new Map<string, number>();
+  for (const it of itemsAfterRecurringSanity) {
+    if (it.source !== "RECURRING_DTE" || !it.crmAccountId) continue;
+    const k = `${it.crmAccountId}|${it.installationId ?? ""}`;
+    recurringCountByKey.set(k, (recurringCountByKey.get(k) ?? 0) + 1);
+  }
   const items = itemsAfterRecurringSanity.filter((i) => {
     if (i.source !== "RECURRING_DTE") return true;
     if (!i.crmAccountId) return true;
-    return !contractKeys.has(`${i.crmAccountId}|${i.installationId ?? ""}`);
+    const k = `${i.crmAccountId}|${i.installationId ?? ""}`;
+    // Si hay 2+ recurrentes en esta instalación, son cobros múltiples
+    // intencionales: NO dedupe contra CONTRACT (se mostrarían todas y el
+    // matcher por monto engancha cada factura a su cuota correcta).
+    if ((recurringCountByKey.get(k) ?? 0) >= 2) return true;
+    // Caso 1-a-1: una sola recurrente que espeja un contrato → dedupe.
+    return !contractKeys.has(k);
   });
   // FinanceCashflowItem.installationId no tiene @relation, así que resolvemos
   // los nombres en un lookup batch por tenant. Pick mínimo para no traer overhead.
