@@ -3,6 +3,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { clearTenantEmailConfigCache, clearTenantEmailRoutingCache } from "@/lib/resend";
 import { clearTenantCompanyConfigCache } from "@/lib/tenant-config";
+import { clearTenantPresentationCache } from "@/lib/tenant-presentation";
 
 const EMPRESA_KEYS = [
   "empresa.razonSocial",
@@ -60,6 +61,11 @@ const EMPRESA_KEYS = [
   "empresa.branding.accentColor",
   "empresa.branding.appName",
   "empresa.branding.tagline",
+  // Presentación de empresa (portal). stats/sections/serviceIncludes = JSON.
+  "empresa.presentacion.valueProp",
+  "empresa.presentacion.stats",
+  "empresa.presentacion.sections",
+  "empresa.presentacion.serviceIncludes",
 ];
 
 function settingKey(tenantId: string, key: string): string {
@@ -150,6 +156,7 @@ export async function PATCH(request: NextRequest) {
     clearTenantEmailConfigCache(ctx.tenantId);
     clearTenantEmailRoutingCache(ctx.tenantId);
     clearTenantCompanyConfigCache(ctx.tenantId);
+    clearTenantPresentationCache(ctx.tenantId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

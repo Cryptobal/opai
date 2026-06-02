@@ -817,6 +817,13 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   const [rejectEmailSubject, setRejectEmailSubject] = useState("");
   const [rejectEmailBody, setRejectEmailBody] = useState("");
 
+  // ─── Send company presentation modal state ───
+  const [sendPresentationOpen, setSendPresentationOpen] = useState(false);
+  const [sendingPresentation, setSendingPresentation] = useState(false);
+  const [presentationCc, setPresentationCc] = useState("");
+  const [presentationBcc, setPresentationBcc] = useState("");
+  const [presentationMessage, setPresentationMessage] = useState("");
+
   // ─── Converted entities (for approved leads) ───
   const [convertedEntities, setConvertedEntities] = useState<{
     account: { id: string; name: string } | null;
@@ -1654,6 +1661,53 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   };
 
   const canConfirmReject = !rejectSendEmail || (rejectEmailSubject.trim().length > 0 && rejectEmailBody.trim().length > 0);
+
+  // ─── Send company presentation ───
+  const splitEmails = (raw: string): string[] =>
+    raw
+      .split(/[,;\s]+/)
+      .map((e) => e.trim())
+      .filter(Boolean);
+
+  const openSendPresentation = () => {
+    setPresentationCc("");
+    setPresentationBcc("");
+    setPresentationMessage("");
+    setSendPresentationOpen(true);
+  };
+
+  const sendPresentation = async () => {
+    if (!lead.email?.trim()) {
+      toast.error("El lead no tiene email; agrégalo antes de enviar la presentación.");
+      return;
+    }
+    setSendingPresentation(true);
+    try {
+      const response = await fetch(`/api/crm/leads/${lead.id}/send-presentation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notes: presentationMessage.trim() || undefined,
+          cc: splitEmails(presentationCc),
+          bcc: splitEmails(presentationBcc),
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload?.error || "No se pudo enviar la presentación");
+      }
+      const ccCount = Array.isArray(payload.cc) ? payload.cc.length : 0;
+      toast.success(
+        `Presentación enviada a ${payload.sentTo}${ccCount > 0 ? ` (+${ccCount} en copia)` : ""}`,
+      );
+      setSendPresentationOpen(false);
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "No se pudo enviar la presentación.");
+    } finally {
+      setSendingPresentation(false);
+    }
+  };
 
   // ─── Metadata helpers ───
   const meta = lead.metadata as Record<string, unknown> | undefined;
@@ -2601,6 +2655,21 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             <XCircle className="h-3.5 w-3.5" aria-hidden />
             Rechazar
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={openSendPresentation}
+            disabled={approving || savingLead || !lead.email}
+            className="h-8 flex-1 gap-1.5 px-2.5 text-xs sm:flex-initial sm:px-3"
+            title={
+              lead.email
+                ? "Enviar la presentación de empresa al lead y darle acceso al portal del cliente"
+                : "El lead no tiene email; agrégalo para enviar la presentación"
+            }
+          >
+            <Mailbox className="h-3.5 w-3.5" aria-hidden />
+            <span>Presentación</span>
+          </Button>
         </div>
         <div className="flex gap-1.5 sm:ml-auto sm:gap-2">
           <Button
@@ -2960,6 +3029,78 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             <Button variant="destructive" onClick={rejectLead} disabled={rejecting || !canConfirmReject}>
               {rejecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Confirmar rechazo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Send company presentation ── */}
+      <Dialog open={sendPresentationOpen} onOpenChange={setSendPresentationOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enviar presentación de empresa</DialogTitle>
+            <DialogDescription>
+              Se enviará la presentación institucional al lead y se le habilitará el acceso al
+              portal del cliente (con un PIN) para que viva el onboarding.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Destinatario</Label>
+              <Input value={lead.email || ""} disabled readOnly />
+              {!lead.email && (
+                <p className="text-[11px] text-destructive">
+                  El lead no tiene email. Agrégalo en los datos del contacto para poder enviar.
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Con copia (CC)</Label>
+                <Input
+                  value={presentationCc}
+                  onChange={(e) => setPresentationCc(e.target.value)}
+                  placeholder="correo@empresa.cl, otro@..."
+                  disabled={sendingPresentation}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Copia oculta (CCO)</Label>
+                <Input
+                  value={presentationBcc}
+                  onChange={(e) => setPresentationBcc(e.target.value)}
+                  placeholder="correo@empresa.cl, otro@..."
+                  disabled={sendingPresentation}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Mensaje del ejecutivo (opcional)</Label>
+              <textarea
+                value={presentationMessage}
+                onChange={(e) => setPresentationMessage(e.target.value)}
+                placeholder="Un mensaje breve y personal para el cliente…"
+                rows={4}
+                disabled={sendingPresentation}
+                className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSendPresentationOpen(false)}
+              disabled={sendingPresentation}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={sendPresentation} disabled={sendingPresentation || !lead.email}>
+              {sendingPresentation ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Mailbox className="mr-2 h-4 w-4" />
+              )}
+              Enviar presentación
             </Button>
           </DialogFooter>
         </DialogContent>

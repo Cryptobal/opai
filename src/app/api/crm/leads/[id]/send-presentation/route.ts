@@ -1,7 +1,20 @@
+/**
+ * POST /api/crm/leads/[id]/send-presentation
+ *
+ * Envía la Presentación de Empresa del tenant a un LEAD (pre-aprobación).
+ * Crea un prospecto liviano (cuenta prospect + contacto, sin deal/cotización)
+ * y le habilita el acceso al portal del cliente para que viva el onboarding.
+ *
+ * Body: { notes?: string, cc?: string[], bcc?: string[] }
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { requireTenantModule } from "@/lib/require-module";
+import {
+  ensureProspectFromLead,
+  EnsureProspectError,
+} from "@/modules/crm/leads/ensure-prospect-from-lead";
 import {
   sendCompanyPresentation,
   SendPresentationError,
@@ -23,33 +36,51 @@ export async function POST(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await requireCrmEdit(ctx, "contacts");
+    const forbidden = await requireCrmEdit(ctx, "leads");
     if (forbidden) return forbidden;
 
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
     const notes = typeof body.notes === "string" ? body.notes.trim() || undefined : undefined;
 
+    // 1. Prospecto liviano (idempotente): cuenta prospect + contacto.
+    const prospect = await ensureProspectFromLead({
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+      leadId: id,
+    });
+
+    // 2. Enviar presentación al contacto del prospecto.
     const result = await sendCompanyPresentation({
       tenantId: ctx.tenantId,
       userId: ctx.userId,
-      contactId: id,
+      contactId: prospect.contactId,
       notes,
       cc: asEmailArray(body.cc),
       bcc: asEmailArray(body.bcc),
     });
 
-    return NextResponse.json({ success: true, ...result });
+    return NextResponse.json({
+      success: true,
+      accountId: prospect.accountId,
+      contactId: prospect.contactId,
+      ...result,
+    });
   } catch (error) {
+    if (error instanceof EnsureProspectError) {
+      const status = error.code === "lead_not_found" ? 404 : 400;
+      return NextResponse.json({ success: false, error: error.message }, { status });
+    }
     if (error instanceof SendPresentationError) {
-      const status = error.code === "contact_not_found" ? 404 : error.code === "missing_email" ? 400 : 500;
+      const status =
+        error.code === "contact_not_found" ? 404 : error.code === "missing_email" ? 400 : 500;
       const dev = process.env.NODE_ENV === "development";
       return NextResponse.json(
         { success: false, error: dev || status !== 500 ? error.message : "Error enviando presentación" },
         { status },
       );
     }
-    console.error("[CRM] send-presentation:", error);
+    console.error("[CRM] leads/send-presentation:", error);
     const errMsg = error instanceof Error ? error.message : "Error desconocido";
     return NextResponse.json(
       {

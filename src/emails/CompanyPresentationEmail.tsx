@@ -22,6 +22,30 @@ import {
 } from "@react-email/components";
 import * as React from "react";
 
+export interface PresentationEmailBenefit {
+  icon: string;
+  name: string;
+  desc: string;
+}
+
+const DEFAULT_BENEFITS: PresentationEmailBenefit[] = [
+  {
+    icon: "🛡️",
+    name: "Servicios de seguridad",
+    desc: "Guardias certificados, seguridad electrónica, monitoreo 24/7 y más.",
+  },
+  {
+    icon: "🏆",
+    name: "Certificaciones",
+    desc: "OS-10, Ley 21.659, D.S. 44 y todo nuestro marco normativo.",
+  },
+  {
+    icon: "💻",
+    name: "Tecnología propia",
+    desc: "Plataforma con rondas GPS, portal de cliente, reportería automatizada y más.",
+  },
+];
+
 interface CompanyPresentationEmailProps {
   contactName: string;
   companyName: string;
@@ -32,6 +56,8 @@ interface CompanyPresentationEmailProps {
   notes?: string;
   brandName?: string;
   logoUrl?: string;
+  /** Bullets de "¿qué encontrarás?" tenant-driven. Si se omite, usa defaults. */
+  benefits?: PresentationEmailBenefit[];
 }
 
 export const CompanyPresentationEmail = ({
@@ -44,7 +70,10 @@ export const CompanyPresentationEmail = ({
   notes,
   brandName = "OPAI",
   logoUrl = "",
+  benefits,
 }: CompanyPresentationEmailProps) => {
+  const benefitItems =
+    benefits && benefits.length > 0 ? benefits : DEFAULT_BENEFITS;
   const previewText = `${companyName} — Presentación de servicios de ${brandName}`;
 
   return (
@@ -126,49 +155,19 @@ export const CompanyPresentationEmail = ({
               ¿Qué encontrarás en la presentación?
             </Text>
 
-            <Section style={benefitItem}>
-              <Row>
-                <Column style={benefitIconCol}>
-                  <Text style={benefitIcon}>🛡️</Text>
-                </Column>
-                <Column>
-                  <Text style={benefitName}>Servicios de seguridad</Text>
-                  <Text style={benefitDesc}>
-                    Guardias certificados, seguridad electrónica, monitoreo 24/7
-                    y más.
-                  </Text>
-                </Column>
-              </Row>
-            </Section>
-
-            <Section style={benefitItem}>
-              <Row>
-                <Column style={benefitIconCol}>
-                  <Text style={benefitIcon}>🏆</Text>
-                </Column>
-                <Column>
-                  <Text style={benefitName}>Certificaciones</Text>
-                  <Text style={benefitDesc}>
-                    OS-10, Ley 21.659, D.S. 44 y todo nuestro marco normativo.
-                  </Text>
-                </Column>
-              </Row>
-            </Section>
-
-            <Section style={benefitItem}>
-              <Row>
-                <Column style={benefitIconCol}>
-                  <Text style={benefitIcon}>💻</Text>
-                </Column>
-                <Column>
-                  <Text style={benefitName}>Tecnología OPAI</Text>
-                  <Text style={benefitDesc}>
-                    Plataforma propia con rondas GPS, portal de cliente,
-                    reportería automatizada y más.
-                  </Text>
-                </Column>
-              </Row>
-            </Section>
+            {benefitItems.map((b, i) => (
+              <Section style={benefitItem} key={i}>
+                <Row>
+                  <Column style={benefitIconCol}>
+                    <Text style={benefitIcon}>{b.icon}</Text>
+                  </Column>
+                  <Column>
+                    <Text style={benefitName}>{b.name}</Text>
+                    <Text style={benefitDesc}>{b.desc}</Text>
+                  </Column>
+                </Row>
+              </Section>
+            ))}
           </Section>
 
           <Hr style={divider} />

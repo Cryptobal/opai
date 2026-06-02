@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Building, Copy, FileSignature, Globe, Loader2, Mail, Paintbrush, Phone, Save, Smartphone, Upload, X } from "lucide-react";
+import { Building, Copy, FileSignature, Globe, Loader2, Mail, Paintbrush, Phone, Save, Smartphone, Sparkles, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { SignatureCanvas } from "@/components/docs/SignatureCanvas";
 import { ConfigTabs } from "@/components/configuracion/ConfigTabs";
+import { PresentacionConfigSection } from "@/components/configuracion/PresentacionConfigSection";
 
 const CCO_MODULES: Array<{ module: "commercial" | "operations" | "finance" | "system"; label: string; help: string }> = [
   { module: "commercial", label: "Comercial", help: "CRM, cotizaciones, presentaciones, portal cliente." },
@@ -698,6 +699,12 @@ export function EmpresaConfigTabs() {
       label: "Portales",
       icon: Smartphone,
       content: portalesTab,
+    },
+    {
+      id: "presentacion",
+      label: "Presentación",
+      icon: Sparkles,
+      content: <PresentacionConfigSection />,
     },
   ];
 

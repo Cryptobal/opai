@@ -1,98 +1,69 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
-  Shield, Cpu, Scale, Award, BadgeCheck, Monitor,
+  Shield, Cpu, Scale, Award, BadgeCheck, Monitor, Sparkles,
+  LayoutDashboard, ArrowRight, Check, Loader2, type LucideIcon,
 } from 'lucide-react'
 import { useBranding } from '@/lib/branding/useBranding'
+import { GardServiceIncludes } from '@/components/portal/cliente/cotizaciones/GardServiceIncludes'
+import { GARD_PRESENTATION_CONTENT } from '@/lib/tenant-presentation-defaults'
+import type { PresentationContent } from '@/lib/tenant-presentation'
 
-const SECTIONS = [
-  {
+/**
+ * Paleta + ícono por `key` de sección. El contenido (texto) llega tenant-driven
+ * desde la BD; el estilo se asocia acá para mantener consistencia visual y
+ * porque un componente React no puede serializarse en JSON.
+ * Las keys desconocidas caen al estilo neutro `DEFAULT_STYLE`.
+ */
+const SECTION_STYLES: Record<
+  string,
+  { icon: LucideIcon; color: string; bg: string; border: string }
+> = {
+  seguridad: {
     icon: Shield,
-    title: 'Seguridad Integral',
     color: 'text-status-info-fg',
     bg: 'bg-status-info-soft',
     border: 'border-status-info-border',
-    items: [
-      'Guardias seleccionados con evaluación psicométrica y verificación de antecedentes',
-      'Protocolos operativos diseñados para cada tipo de instalación',
-      'Supervisión presencial + remota con verificación GPS',
-      'Cobertura 24/7 con planes de contingencia activos',
-    ],
   },
-  {
+  tecnologia: {
     icon: Cpu,
-    title: 'Tecnología OPAI',
     color: 'text-violet-400',
     bg: 'bg-violet-500/10',
     border: 'border-violet-500/15',
-    items: [
-      'Plataforma propia — no usamos software genérico',
-      'Rondas GPS con geofencing y verificación en tiempo real',
-      'Trust Score: evaluación objetiva de cada guardia basada en datos',
-      'IA predictiva para detección de patrones y anomalías',
-    ],
   },
-  {
+  cumplimiento: {
     icon: Scale,
-    title: 'Cumplimiento Normativo',
     color: 'text-status-info-fg',
     bg: 'bg-status-info-soft',
     border: 'border-status-info-border',
-    items: [
-      'OS-10 y documentación actualizada de todos los guardias',
-      'Contratos laborales al día con fiscalización interna',
-      'Cumplimiento de normativa de seguridad privada vigente',
-      'Auditorías internas periódicas con reporte al cliente',
-    ],
   },
-  {
+  diferenciadores: {
     icon: Award,
-    title: 'Diferenciadores',
     color: 'text-status-warn-fg',
     bg: 'bg-status-warn-soft',
     border: 'border-status-warn-border',
-    items: [
-      'Única empresa en Chile con sistema operativo propio de seguridad',
-      'Transparencia total: el cliente ve todo en tiempo real',
-      'Sin subcontratación — todos los guardias son nuestros',
-      'Modelo de mejora continua basado en datos operacionales',
-    ],
   },
-  {
+  certificaciones: {
     icon: BadgeCheck,
-    title: 'Certificaciones',
     color: 'text-status-ok-fg',
     bg: 'bg-status-ok-soft',
     border: 'border-status-ok-border',
-    items: [
-      'Empresa de seguridad autorizada por OS-10 de Carabineros',
-      'Procesos alineados con estándares ISO 9001',
-      'Personal certificado en primeros auxilios y emergencias',
-      'Capacitación continua con evaluación de desempeño',
-    ],
   },
-  {
+  portal: {
     icon: Monitor,
-    title: 'Portal del Cliente',
     color: 'text-status-info-fg',
     bg: 'bg-status-info-soft',
     border: 'border-status-info-border',
-    items: [
-      'Acceso 24/7 a métricas, reportes y documentación',
-      'Chat directo con tu ejecutivo sin intermediarios',
-      'Control de acceso digital con registro de visitas',
-      'Encuestas de satisfacción y sistema de tickets',
-    ],
   },
-]
+}
 
-const STATS = [
-  { value: '12+', label: 'Años de experiencia' },
-  { value: '150+', label: 'Clientes activos' },
-  { value: '2.500+', label: 'Guardias operando' },
-  { value: '97%', label: 'Retención de clientes' },
-]
+const DEFAULT_STYLE = {
+  icon: Sparkles,
+  color: 'text-status-info-fg',
+  bg: 'bg-status-info-soft',
+  border: 'border-status-info-border',
+}
 
 interface Props {
   contactId?: string
@@ -100,6 +71,11 @@ interface Props {
 
 export function CompanyPresentationView({ contactId }: Props) {
   const { branding } = useBranding()
+  const [content, setContent] = useState<PresentationContent>(GARD_PRESENTATION_CONTENT)
+  const [requesting, setRequesting] = useState(false)
+  const [requested, setRequested] = useState(false)
+
+  // Registrar la vista (analytics) — comportamiento existente
   useEffect(() => {
     if (!contactId) return
     fetch('/api/portal/cliente/presentation-view', {
@@ -109,61 +85,131 @@ export function CompanyPresentationView({ contactId }: Props) {
     }).catch(() => {})
   }, [contactId])
 
+  // Cargar contenido del tenant (fallback a defaults Gard mientras llega)
+  useEffect(() => {
+    let active = true
+    fetch('/api/portal/cliente/presentation-content')
+      .then((r) => r.json())
+      .then((json) => {
+        if (active && json?.success && json.data) {
+          setContent(json.data as PresentationContent)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const requestProposal = async () => {
+    if (requesting || requested) return
+    setRequesting(true)
+    try {
+      const res = await fetch('/api/portal/cliente/solicitar-propuesta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (res.ok && json?.success) {
+        setRequested(true)
+      }
+    } catch {
+      /* silencioso: el cliente puede reintentar */
+    } finally {
+      setRequesting(false)
+    }
+  }
+
   return (
     <div className="px-4 py-6 pb-24 max-w-4xl mx-auto w-full space-y-8">
       {/* Hero */}
-      <div className="text-center space-y-3">
+      <div
+        className="relative overflow-hidden rounded-2xl border border-white/[0.06] p-8 text-center"
+        style={{
+          background:
+            'radial-gradient(120% 120% at 50% 0%, rgba(20,184,166,0.12), rgba(15,23,42,0) 60%), linear-gradient(180deg, rgba(30,41,59,0.6), rgba(15,23,42,0.6))',
+        }}
+      >
         {branding.logoWhite && (
           <img
             src={branding.logoWhite}
             alt={branding.companyName}
-            className="h-10 mx-auto opacity-90"
+            className="h-10 mx-auto opacity-90 mb-4"
           />
         )}
+        <p className="text-[11px] font-semibold uppercase tracking-[2px] text-teal-400 mb-3">
+          Presentación de empresa
+        </p>
         <h1
           className="text-2xl sm:text-3xl font-bold text-white"
           style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}
         >
           {branding.companyName}
         </h1>
-        <p className="text-sm text-zinc-400 max-w-md mx-auto leading-relaxed">
-          Seguridad privada con tecnología propia. El único sistema operativo integral
-          de seguridad en Chile.
+        <p className="mt-3 text-sm text-zinc-300/90 max-w-lg mx-auto leading-relaxed">
+          {content.valueProp}
         </p>
+        <div className="mt-6">
+          <ProposalCta
+            requesting={requesting}
+            requested={requested}
+            onClick={requestProposal}
+          />
+        </div>
+      </div>
+
+      {/* Banner: el medio es el mensaje */}
+      <div className="flex items-start gap-3 rounded-xl border border-teal-500/20 bg-teal-500/[0.07] p-4">
+        <div className="w-9 h-9 rounded-lg bg-teal-500/15 flex items-center justify-center shrink-0">
+          <LayoutDashboard className="w-5 h-5 text-teal-300" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-white">
+            Esto que estás usando ahora mismo es nuestro portal de cliente
+          </p>
+          <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+            Así de claras y en tiempo real verás tus operaciones, rondas, reportes y documentos
+            cuando trabajemos juntos. Sin llamadas para pedir información: todo, siempre, a un clic.
+          </p>
+        </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {STATS.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-center"
-          >
-            <p className="text-2xl font-bold text-status-info-fg tabular-nums">{stat.value}</p>
-            <p className="text-[11px] text-zinc-400 mt-1">{stat.label}</p>
-          </div>
-        ))}
-      </div>
+      {content.stats.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {content.stats.map((stat) => (
+            <div
+              key={stat.label}
+              className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-center"
+            >
+              <p className="text-2xl font-bold text-status-info-fg tabular-nums">{stat.value}</p>
+              <p className="text-[11px] text-zinc-400 mt-1">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Sections */}
       <div className="space-y-4">
-        {SECTIONS.map((section) => {
-          const Icon = section.icon
+        {content.sections.map((section) => {
+          const style = SECTION_STYLES[section.key] ?? DEFAULT_STYLE
+          const Icon = style.icon
           return (
             <div
-              key={section.title}
-              className={`rounded-xl border ${section.border} bg-white/[0.02] p-5`}
+              key={section.key}
+              className={`rounded-xl border ${style.border} bg-white/[0.02] p-5`}
             >
               <div className="flex items-center gap-3 mb-4">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${section.bg}`}>
-                  <Icon className={`w-5 h-5 ${section.color}`} />
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${style.bg}`}>
+                  <Icon className={`w-5 h-5 ${style.color}`} />
                 </div>
                 <h3 className="text-base font-semibold text-white">{section.title}</h3>
               </div>
               <ul className="space-y-2">
                 {section.items.map((item, i) => (
                   <li key={i} className="flex items-start gap-2.5 text-sm text-zinc-300 leading-relaxed">
-                    <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${section.bg} ${section.color}`} />
+                    <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${style.bg} ${style.color}`} />
                     {item}
                   </li>
                 ))}
@@ -173,24 +219,81 @@ export function CompanyPresentationView({ contactId }: Props) {
         })}
       </div>
 
-      {/* Footer */}
+      {/* Qué incluye el servicio (tenant-driven) */}
+      {content.serviceIncludes.length > 0 && (
+        <GardServiceIncludes
+          items={content.serviceIncludes}
+          brandName={branding.companyName}
+        />
+      )}
+
+      {/* CTA de cierre */}
       <div
-        className="rounded-2xl border border-white/[0.06] p-6 text-center"
-        style={{ background: 'linear-gradient(145deg, rgba(30,41,59,0.8), rgba(26,35,50,0.8))' }}
+        className="rounded-2xl border border-white/[0.06] p-6 sm:p-8 text-center"
+        style={{ background: 'linear-gradient(145deg, rgba(20,184,166,0.10), rgba(26,35,50,0.85))' }}
       >
-        <p className="text-xs text-zinc-400 leading-relaxed">
+        <h3 className="text-lg font-semibold text-white">¿Listo para avanzar?</h3>
+        <p className="mt-2 text-sm text-zinc-300/90 max-w-md mx-auto leading-relaxed">
+          Te preparamos una propuesta a la medida de tu operación, con todo lo que viste acá
+          aplicado a tus instalaciones.
+        </p>
+        <div className="mt-5 flex justify-center">
+          <ProposalCta
+            requesting={requesting}
+            requested={requested}
+            onClick={requestProposal}
+          />
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="text-center">
+        <p className="text-xs text-zinc-500 leading-relaxed">
           {branding.companyName} · Plataforma{' '}
-          <span className="font-medium text-zinc-300">OPAI</span> · Desarrollado por{' '}
+          <span className="font-medium text-zinc-400">OPAI</span> · Desarrollado por{' '}
           <a
             href="https://lx3.ai"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline underline-offset-2 hover:text-zinc-200 transition-colors"
+            className="underline underline-offset-2 hover:text-zinc-300 transition-colors"
           >
             LX3.ai
           </a>
         </p>
       </div>
     </div>
+  )
+}
+
+function ProposalCta({
+  requesting,
+  requested,
+  onClick,
+}: {
+  requesting: boolean
+  requested: boolean
+  onClick: () => void
+}) {
+  if (requested) {
+    return (
+      <div className="inline-flex items-center gap-2 rounded-lg border border-status-ok-border bg-status-ok-soft px-4 py-2.5 text-sm font-medium text-status-ok-fg">
+        <Check className="w-4 h-4" />
+        ¡Listo! Tu ejecutivo fue notificado y te contactará pronto.
+      </div>
+    )
+  }
+  return (
+    <button
+      onClick={onClick}
+      disabled={requesting}
+      className="inline-flex items-center gap-2 rounded-lg bg-teal-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-teal-400 disabled:opacity-60"
+    >
+      {requesting ? (
+        <Loader2 className="w-4 h-4 animate-spin" />
+      ) : (
+        <ArrowRight className="w-4 h-4" />
+      )}
+      Solicitar mi propuesta personalizada
+    </button>
   )
 }

@@ -66,6 +66,12 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     module: 'crm', submodule: 'leads', category: 'CRM - Leads',
     audiences: ['admin'], defaults: { admin: adminBell(true) },
   },
+  {
+    key: 'proposal_requested', label: 'Propuesta solicitada',
+    description: 'Un prospecto pidió su propuesta desde la presentación en el portal',
+    module: 'crm', submodule: 'leads', category: 'CRM - Leads',
+    audiences: ['admin'], defaults: { admin: adminBell(true) },
+  },
 
   // ── CRM - Notas ──
   {
