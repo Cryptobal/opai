@@ -52,6 +52,7 @@ import type {
   DteCedeRequest,
   DteCedeResponse,
 } from "./dte-provider.adapter";
+import { toSiiRut } from "@/lib/chile-rut";
 
 /**
  * Overrides inyectados por el factory desde PlatformDteProvider.
@@ -353,7 +354,7 @@ export class SimpleApiProvider implements DteProviderAdapter {
     const isBoleta = request.dteType === 39 || request.dteType === 41;
 
     const emisor: Record<string, unknown> = {
-      Rut: ctx.config.emisorRut,
+      Rut: toSiiRut(ctx.config.emisorRut),
       DireccionOrigen: ctx.config.emisorDireccion,
       ComunaOrigen: ctx.config.emisorComuna,
       CiudadOrigen: ctx.config.emisorCiudad,
@@ -375,7 +376,7 @@ export class SimpleApiProvider implements DteProviderAdapter {
     }
 
     const receptor: Record<string, unknown> = {
-      Rut: request.receiverRut,
+      Rut: toSiiRut(request.receiverRut),
       RazonSocial: request.receiverName,
       // SII rechaza si Giro/Direccion/Comuna van vacíos en facturas (no boletas).
       // Si el caller proveyó datos reales (autocompletados del CRM o
@@ -548,10 +549,10 @@ export class SimpleApiProvider implements DteProviderAdapter {
       Tipo: envioTipoFromDte(request.dteType),
       Ambiente: ambiente,
       Caratula: {
-        RutEmisor: ctx.config.emisorRut,
+        RutEmisor: toSiiRut(ctx.config.emisorRut),
         // RutEnvia es OBLIGATORIO en la carátula firmada del sobre.
         // Sin él el SII rechaza el upload con RUTSENDER 0-0 STATUS=5.
-        RutEnvia: ctx.certificate.rutTitular,
+        RutEnvia: toSiiRut(ctx.certificate.rutTitular),
         RutReceptor: RUT_SII,
         FechaResolucion: fechaResolucion.toISOString().split("T")[0],
         NumeroResolucion: numeroResolucion,

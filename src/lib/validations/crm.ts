@@ -3,6 +3,16 @@
  */
 
 import { z } from "zod";
+import { toSiiRut } from "@/lib/chile-rut";
+
+/**
+ * Normaliza un RUT al formato canónico SII (`11111111-1`, sin puntos) al
+ * persistir. Mantiene null/undefined/"" intactos. Garantiza que CRM, DTE y
+ * cesiones comparen y guarden el RUT en un único formato — sin puntos, que
+ * además es el que el SII acepta en el XML (máx 10 chars).
+ */
+const normalizeRutValue = <T extends string | null | undefined>(v: T): T =>
+  (v && v.trim() ? (toSiiRut(v) as T) : v);
 
 // ── Lead ──
 export const createLeadSchema = z.object({
@@ -35,10 +45,10 @@ export const approveLeadSchema = z.object({
   email: z.string().trim().email("Email inválido").max(200).optional().or(z.literal("")),
   phone: z.string().trim().max(30).optional(),
   dealTitle: z.string().trim().max(200).optional(),
-  rut: z.string().trim().max(20).optional(),
+  rut: z.string().trim().max(20).optional().transform(normalizeRutValue),
   legalName: z.string().trim().max(200).optional(),
   legalRepresentativeName: z.string().trim().max(200).optional(),
-  legalRepresentativeRut: z.string().trim().max(20).optional(),
+  legalRepresentativeRut: z.string().trim().max(20).optional().transform(normalizeRutValue),
   industry: z.string().trim().max(100).optional(),
   segment: z.string().trim().max(100).optional(),
   website: z
@@ -78,10 +88,10 @@ export const rejectLeadSchema = z.object({
 export const createAccountSchema = z.object({
   name: z.string().trim().min(1, "Nombre es requerido").max(200),
   type: z.enum(["prospect", "client"]).default("prospect"),
-  rut: z.string().trim().max(20).optional().nullable(),
+  rut: z.string().trim().max(20).optional().nullable().transform(normalizeRutValue),
   legalName: z.string().trim().max(200).optional().nullable(),
   legalRepresentativeName: z.string().trim().max(200).optional().nullable(),
-  legalRepresentativeRut: z.string().trim().max(20).optional().nullable(),
+  legalRepresentativeRut: z.string().trim().max(20).optional().nullable().transform(normalizeRutValue),
   industry: z.string().trim().max(100).optional().nullable(),
   // Giro / actividad económica formal SII (ej: "Servicios de seguridad
   // y vigilancia"). Distinto a `industry` (segmento comercial interno).
@@ -120,10 +130,10 @@ export const createAccountSchema = z.object({
 export const updateAccountSchema = z.object({
   name: z.string().trim().min(1, "Nombre es requerido").max(200).optional(),
   type: z.enum(["prospect", "client"]).optional(),
-  rut: z.string().trim().max(20).optional().nullable(),
+  rut: z.string().trim().max(20).optional().nullable().transform(normalizeRutValue),
   legalName: z.string().trim().max(200).optional().nullable(),
   legalRepresentativeName: z.string().trim().max(200).optional().nullable(),
-  legalRepresentativeRut: z.string().trim().max(20).optional().nullable(),
+  legalRepresentativeRut: z.string().trim().max(20).optional().nullable().transform(normalizeRutValue),
   industry: z.string().trim().max(100).optional().nullable(),
   // Giro / actividad económica formal SII (autocompleta receptor en DTE).
   giro: z.string().trim().max(200).optional().nullable(),

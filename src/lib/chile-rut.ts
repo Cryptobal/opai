@@ -11,6 +11,18 @@ export function formatRut(rut: string): string {
   return `${bodyFormatted}-${dv}`;
 }
 
+/**
+ * Normaliza un RUT al formato que exige el SII en el XML del DTE:
+ * `<cuerpo>-<dv>` SIN puntos (máx 10 chars). El SII/SimpleAPI rechazan
+ * por schema (LSX-00222 "is too long") cualquier RUT con puntos
+ * (`11.111.111-1` = 13 chars). Usar SIEMPRE en el borde de envío al SII.
+ */
+export function toSiiRut(rut: string): string {
+  const clean = cleanRut(rut);
+  if (clean.length < 2) return clean;
+  return `${clean.slice(0, -1)}-${clean.slice(-1)}`;
+}
+
 export function isValidRut(rut: string): boolean {
   const clean = cleanRut(rut);
   if (!/^\d{7,8}[\dK]$/.test(clean)) return false;

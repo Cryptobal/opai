@@ -12,6 +12,7 @@ import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
 import { createContactSchema, updateContactSchema } from "@/lib/validations/crm";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 import { requireTenantModule } from '@/lib/require-module';
+import { cleanRut, toSiiRut, formatRut } from "@/lib/chile-rut";
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,13 +32,30 @@ export async function GET(request: NextRequest) {
     // Caso de uso: DTEs viejos sin crmAccountId asignado pero con receiverRut
     // que coincide con una cuenta CRM existente — queremos poder traer sus
     // contactos sin que el caller tenga que hacer un lookup previo.
+    //
+    // El lookup es TOLERANTE AL FORMATO: el receiverRut del DTE puede venir
+    // con puntos (`11.111.111-1`) mientras la cuenta CRM lo guarda sin puntos
+    // (`11111111-1`) o viceversa. Comparamos contra las variantes canónicas.
     let accountId = accountIdParam;
-    if (!accountId && rutParam) {
+    if (!accountId && rutParam && cleanRut(rutParam).length >= 2) {
+      const variants = Array.from(
+        new Set([rutParam, toSiiRut(rutParam), formatRut(rutParam)]),
+      );
       const account = await prisma.crmAccount.findFirst({
-        where: { tenantId: ctx.tenantId, rut: rutParam },
+        where: { tenantId: ctx.tenantId, rut: { in: variants } },
         select: { id: true },
       });
-      if (account) accountId = account.id;
+      accountId = account?.id;
+    }
+
+    // GUARD CRÍTICO: si el caller pidió por cuenta o RUT pero no se resolvió
+    // a una cuenta, devolvemos VACÍO — NUNCA todos los contactos del tenant.
+    // El bug previo dejaba caer el filtro `accountId` y el findMany retornaba
+    // TODA la libreta del tenant, que luego se pre-marcaba como CC del DTE/NC
+    // (fuga de datos masiva + envío de miles de correos a terceros).
+    const scopedByParam = !!accountIdParam || !!rutParam;
+    if (scopedByParam && !accountId) {
+      return NextResponse.json({ success: true, data: [] });
     }
 
     const contacts = await prisma.crmContact.findMany({
