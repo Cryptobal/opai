@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addMonths } from "date-fns";
 import { toast } from "sonner";
-import { Lock } from "lucide-react";
+import { Lock, ChevronLeft, ChevronRight } from "lucide-react";
 import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,6 @@ import type {
   VirtualOccurrence,
 } from "@/modules/finance/cashflow/types";
 import { HealthHeader } from "./HealthHeader";
-import { AnchorBanner } from "./AnchorBanner";
 import { ManualCloseStreakBanner, type CloseLite } from "./ManualCloseStreakBanner";
 import { WeekStrip } from "./WeekStrip";
 import { WeekDetail } from "./WeekDetail";
@@ -87,9 +86,24 @@ export function CashflowV2Shell({
   const [undoPayload, setUndoPayload] = useState<UndoPayload | null>(null);
   const [cuadraturaFor, setCuadraturaFor] = useState<ProjectionBucket | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Ventana de 4 semanas en el kanban desktop. weekOffset corre la ventana
+  // hacia adelante/atrás sobre los buckets ya proyectados (sin re-fetch).
+  const [weekOffset, setWeekOffset] = useState(0);
 
   const active = granularity === "monthly" && monthly ? monthly : projection;
   const currentIndex = useMemo(() => currentBucketIndex(active.buckets), [active]);
+  const VISIBLE_WEEKS = 4;
+  const baseStart = Math.max(0, currentIndex - 1);
+  const maxStart = Math.max(0, active.buckets.length - VISIBLE_WEEKS);
+  const weekStartIdx = Math.min(Math.max(0, baseStart + weekOffset), maxStart);
+  const canPrevWeeks = weekStartIdx > 0;
+  const canNextWeeks = weekStartIdx < maxStart;
+  // Clampa el offset al mover para que no se acumule fuera de rango.
+  const shiftWeeks = (d: number) =>
+    setWeekOffset((o) => {
+      const next = Math.min(Math.max(0, baseStart + o + d), maxStart);
+      return next - baseStart;
+    });
   const effectiveKey =
     selectedKey ??
     active.buckets[currentIndex >= 0 ? currentIndex : 0]?.key ??
@@ -300,11 +314,42 @@ export function CashflowV2Shell({
       <BancaTabsHeader active="cashflow" />
       {recentCloses && <ManualCloseStreakBanner recentCloses={recentCloses} />}
       <HealthHeader projection={projection} />
-      <AnchorBanner anchor={anchor} currentOpening={projection.openingBalanceClp} />
 
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-ds-text-1">Línea de tiempo</h2>
         <div className="flex items-center gap-2">
+          {granularity === "weekly" && (
+            <div className="hidden items-center gap-1 lg:flex">
+              <button
+                type="button"
+                onClick={() => shiftWeeks(-1)}
+                disabled={!canPrevWeeks}
+                aria-label="Semanas anteriores"
+                className={cn(
+                  "inline-flex h-8 w-8 items-center justify-center rounded-ds-md border border-ds-border-default text-ds-text-2 transition-colors",
+                  canPrevWeeks
+                    ? "hover:bg-ds-surface-2 hover:text-ds-text-1"
+                    : "opacity-30",
+                )}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => shiftWeeks(1)}
+                disabled={!canNextWeeks}
+                aria-label="Semanas siguientes"
+                className={cn(
+                  "inline-flex h-8 w-8 items-center justify-center rounded-ds-md border border-ds-border-default text-ds-text-2 transition-colors",
+                  canNextWeeks
+                    ? "hover:bg-ds-surface-2 hover:text-ds-text-1"
+                    : "opacity-30",
+                )}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           <GranularityToggle
             value={granularity}
             onChange={handleGranularity}
@@ -321,7 +366,8 @@ export function CashflowV2Shell({
             anchor={anchor}
             meta={occMeta}
             canManage={canManage}
-            visibleCount={4}
+            visibleCount={VISIBLE_WEEKS}
+            startIndex={weekStartIdx}
             searchTerm={searchTerm}
             onMoveDir={handleMoveDir}
             onDelete={handleDelete}

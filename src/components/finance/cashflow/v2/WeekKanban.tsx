@@ -10,7 +10,17 @@ import type {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { WeekDetail } from "./WeekDetail";
-import { fmtCLP } from "./format";
+import { fmtCLP, toDate } from "./format";
+
+/** Etiqueta de mes (es-CL, UTC para no correrse de día) de un bucket semanal.
+ *  Si la semana cruza de mes, muestra "may–jun". */
+function monthLabelFor(start: Date | string, end: Date | string): string {
+  const fmt = (d: Date) =>
+    d.toLocaleDateString("es-CL", { month: "short", timeZone: "UTC" }).replace(".", "");
+  const sm = fmt(toDate(start));
+  const em = fmt(toDate(end));
+  return sm === em ? sm : `${sm}–${em}`;
+}
 import {
   isBucketClosed,
   isBucketManualClose,
@@ -26,6 +36,9 @@ interface Props {
   canManage: boolean;
   /** Cantidad de columnas visibles (default 4). */
   visibleCount?: number;
+  /** Índice de inicio de la ventana (controlado por el shell para navegar
+   *  semanas). Si se pasa, anula a centerOnCurrent. */
+  startIndex?: number;
   /** Si true, centra la ventana mostrando 1 semana atrás + las siguientes. */
   centerOnCurrent?: boolean;
   searchTerm?: string;
@@ -49,6 +62,7 @@ export function WeekKanban({
   meta,
   canManage,
   visibleCount = 4,
+  startIndex,
   centerOnCurrent = true,
   searchTerm,
   onMove,
@@ -65,7 +79,8 @@ export function WeekKanban({
     return m;
   }, [projection.cumulativePoints]);
 
-  const startIdx = centerOnCurrent ? Math.max(0, currentIdx - 1) : 0;
+  const startIdx =
+    startIndex ?? (centerOnCurrent ? Math.max(0, currentIdx - 1) : 0);
   const buckets = projection.buckets.slice(startIdx, startIdx + visibleCount);
 
   return (
@@ -101,7 +116,12 @@ export function WeekKanban({
               )}
             >
               <div className="flex items-center justify-between">
-                <span className="text-[12px] font-bold text-ds-text-1">{b.label}</span>
+                <span className="text-[12px] font-bold text-ds-text-1">
+                  {b.label}
+                  <span className="ml-1.5 font-normal capitalize text-ds-text-3">
+                    {monthLabelFor(b.start, b.end)}
+                  </span>
+                </span>
                 {closed && (
                   <span title={manualReason ?? undefined}>
                     <Lock
