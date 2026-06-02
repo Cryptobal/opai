@@ -15,8 +15,14 @@ vi.mock("@/lib/prisma", () => ({
       findMany: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
+      upsert: vi.fn(),
     },
   },
+}));
+
+// UF fija para los tests de desambiguación por monto (items en UF → CLP).
+vi.mock("../uf-resolver", () => ({
+  resolveUfForOccurrence: vi.fn().mockResolvedValue(39_000),
 }));
 
 import { prisma } from "@/lib/prisma";
@@ -38,6 +44,9 @@ beforeEach(() => {
   (prisma.financeCashflowOccurrence.findFirst as Mock).mockResolvedValue(null);
   (prisma.financeCashflowOccurrence.update as Mock).mockResolvedValue({ id: "occ-1" });
   (prisma.financeCashflowOccurrence.updateMany as Mock).mockResolvedValue({ count: 0 });
+  // Materialize-when-missing (#548): si no hay candidata, el matcher crea la
+  // cuota de la programación y la vincula. Mock devuelve la fila creada.
+  (prisma.financeCashflowOccurrence.upsert as Mock).mockResolvedValue({ id: "occ-created" });
 });
 
 describe("matchDraftToOccurrence", () => {
@@ -111,9 +120,9 @@ describe("matchDraftToOccurrence", () => {
     expect(prisma.financeCashflowOccurrence.update).not.toHaveBeenCalled();
   });
 
-  it("devuelve null cuando no hay candidatas proyectadas en la ventana", async () => {
+  it("sin candidatas materializa la cuota de la programación y la vincula (#548)", async () => {
     (prisma.financeCashflowItem.findMany as Mock).mockResolvedValue([
-      { id: "item-1", recurrence: "MONTHLY" },
+      { id: "item-1", recurrence: "MONTHLY", installationId: null, amount: 1_000_000, currency: "CLP" },
     ]);
     (prisma.financeCashflowOccurrence.findMany as Mock).mockResolvedValue([]);
 
@@ -126,8 +135,12 @@ describe("matchDraftToOccurrence", () => {
       amountClp: 1_000_000,
     });
 
-    expect(result).toBeNull();
-    expect(prisma.financeCashflowOccurrence.update).not.toHaveBeenCalled();
+    // Ya no devuelve null: crea la cuota del item para ese bucket con el dteId.
+    expect(result).toEqual({ occurrenceId: "occ-created" });
+    const upsertArg = (prisma.financeCashflowOccurrence.upsert as Mock).mock.calls[0][0];
+    expect(upsertArg.create.itemId).toBe("item-1");
+    expect(upsertArg.create.dteId).toBe(DTE_ID);
+    expect(upsertArg.update.dteId).toBe(DTE_ID);
   });
 
   it("devuelve null cuando no hay crmAccountId ni installationId", async () => {
@@ -213,7 +226,7 @@ describe("matchDraftToOccurrence", () => {
 
   it("consulta con ventana amplia ±180 días en SQL y filtra por recurrencia en memoria", async () => {
     (prisma.financeCashflowItem.findMany as Mock).mockResolvedValue([
-      { id: "item-1", recurrence: "WEEKLY" },
+      { id: "item-1", recurrence: "WEEKLY", installationId: null, amount: 1_000_000, currency: "CLP" },
     ]);
     (prisma.financeCashflowOccurrence.findMany as Mock).mockResolvedValue([
       {
@@ -233,7 +246,10 @@ describe("matchDraftToOccurrence", () => {
       amountClp: 1_000_000,
     });
 
-    expect(result).toBeNull();
+    // La occ a 30 días queda fuera de la ventana WEEKLY → no se elige esa;
+    // como no hay candidata en bucket, se materializa la cuota nueva (#548).
+    expect(result).toEqual({ occurrenceId: "occ-created" });
+    expect((prisma.financeCashflowOccurrence.update as Mock)).not.toHaveBeenCalled();
     const findManyCall = (prisma.financeCashflowOccurrence.findMany as Mock).mock
       .calls[0]?.[0];
     expect(findManyCall).toBeDefined();
@@ -351,16 +367,16 @@ describe("matchDraftToOccurrence", () => {
     });
   });
 
-  it("respeta ventana WEEKLY de ±14 días (no matchea más allá)", async () => {
+  it("respeta ventana WEEKLY de ±14 días (no engancha la occ lejana; materializa nueva)", async () => {
     (prisma.financeDte.findUnique as Mock).mockResolvedValue({ dteType: 33 });
     (prisma.financeCashflowOccurrence.findFirst as Mock).mockResolvedValue(null);
     (prisma.financeCashflowItem.findMany as Mock).mockResolvedValue([
-      { id: "item-weekly", recurrence: "WEEKLY" },
+      { id: "item-weekly", recurrence: "WEEKLY", installationId: null, amount: 100_000, currency: "CLP" },
     ]);
     (prisma.financeCashflowOccurrence.findMany as Mock).mockResolvedValue([
       {
         id: "occ-lejos",
-        scheduledDate: new Date("2026-04-15"), // 30 días antes
+        scheduledDate: new Date("2026-04-15"), // 30 días antes: fuera de WEEKLY
         amountClp: 100_000,
         itemId: "item-weekly",
       },
@@ -375,7 +391,35 @@ describe("matchDraftToOccurrence", () => {
       amountClp: 100_000,
     });
 
-    expect(result).toBeNull();
+    // No engancha la occ a 30 días (fuera de ventana); materializa la cuota
+    // del bucket del DTE en vez de devolver null (#548).
+    expect(result).toEqual({ occurrenceId: "occ-created" });
+    expect((prisma.financeCashflowOccurrence.update as Mock)).not.toHaveBeenCalled();
+  });
+
+  it("desambigua por monto entre items del mismo installation (Transmat 80% vs 20%)", async () => {
+    // Cobro partido: dos programaciones UF en la misma instalación. El DTE de
+    // $5.5M debe enganchar al item de 141 UF (≈5.5M), NO al de 34 UF (≈1.3M),
+    // aunque el de 34 UF venga primero en la lista. Sin candidatas materializadas.
+    (prisma.financeCashflowItem.findMany as Mock).mockResolvedValue([
+      { id: "item-20", recurrence: "MONTHLY", installationId: "inst-trans", amount: 34, currency: "UF" },
+      { id: "item-80", recurrence: "MONTHLY", installationId: "inst-trans", amount: 141, currency: "UF" },
+    ]);
+    (prisma.financeCashflowOccurrence.findMany as Mock).mockResolvedValue([]);
+
+    const result = await matchDraftToOccurrence({
+      tenantId: TENANT,
+      dteId: DTE_ID,
+      crmAccountId: "acc-trans",
+      installationId: "inst-trans",
+      expectedDate: new Date("2026-06-01"),
+      amountClp: 5_509_247,
+    });
+
+    expect(result).toEqual({ occurrenceId: "occ-created" });
+    const upsertArg = (prisma.financeCashflowOccurrence.upsert as Mock).mock.calls[0][0];
+    // 141 UF * 39.000 = 5.499.000 ≈ 5.509.247 → gana item-80, no item-20.
+    expect(upsertArg.create.itemId).toBe("item-80");
   });
 
   it("gana el candidato MÁS CERCANO en días, no el primero cronológico", async () => {

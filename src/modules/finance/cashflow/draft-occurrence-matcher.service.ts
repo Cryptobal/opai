@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { occurrenceBucketKey } from "./bucket-matcher";
+import { resolveUfForOccurrence } from "./uf-resolver";
 
 export interface MatchDraftToOccurrenceInput {
   tenantId: string;
@@ -87,7 +88,12 @@ export async function matchDraftToOccurrence(
         input.crmAccountId ? { crmAccountId: input.crmAccountId } : null,
       ].filter(Boolean) as object[],
     },
-    select: { id: true, recurrence: true, installationId: true },
+    select: {
+      id: true, recurrence: true, installationId: true,
+      // amount/currency/UF: para desambiguar por MONTO cuando una instalación
+      // tiene cobro partido en varios items (ej. Transmat 80% / 20%).
+      amount: true, currency: true, ufFixingPolicy: true, ufFixingDay: true,
+    },
   });
   if (items.length === 0) return null;
 
@@ -120,12 +126,31 @@ export async function matchDraftToOccurrence(
   // occurrences de programación son virtuales (se expanden en vuelo); solo se
   // materializan en DB al mover/editar, por eso muchas veces no hay candidata.
   if (candidates.length === 0) {
-    // Elegir la programación (item) del mismo cliente/instalación. Preferir
-    // la que matchea installationId; si no, la primera. El bucket de la cuota
-    // teórica = bucket del DTE por construcción (misma fecha normalizada).
-    const itemForBucket =
-      items.find((it) => input.installationId && it.installationId === input.installationId) ??
-      items[0];
+    // Elegir la programación (item) del mismo cliente/instalación. Cuando una
+    // instalación tiene cobro partido en varios items (ej. Transmat 80% / 20%),
+    // NO basta con la primera: hay que elegir la que mejor calza por MONTO con
+    // el DTE, o la factura cae en la cuota equivocada (80↔20 cruzados). Los
+    // items en UF se convierten a CLP con el valor de la fecha del DTE.
+    const instMatches = input.installationId
+      ? items.filter((it) => it.installationId === input.installationId)
+      : [];
+    const pool = instMatches.length > 0 ? instMatches : items;
+    let itemForBucket = pool[0];
+    if (pool.length > 1) {
+      let bestDiff = Infinity;
+      for (const it of pool) {
+        const clp =
+          it.currency === "UF"
+            ? Number(it.amount) *
+              (await resolveUfForOccurrence(it.ufFixingPolicy, it.ufFixingDay, input.expectedDate))
+            : Number(it.amount);
+        const diff = Math.abs(clp - input.amountClp);
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          itemForBucket = it;
+        }
+      }
+    }
     if (!itemForBucket) return null;
     const scheduledDate = new Date(Date.UTC(
       input.expectedDate.getUTCFullYear(),
