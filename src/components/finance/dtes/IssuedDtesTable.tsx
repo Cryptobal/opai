@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Building, MapPin, Mail, MailX } from "lucide-react";
+import { Building, MapPin, Mail, MailX, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { DataTable, EmptyState, Tag, type DataTableColumn } from "@/components/opai-ds";
 import { FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,7 +17,43 @@ import { LinkedNoteBadge } from "./LinkedNoteBadge";
 import { RelationRow } from "./RelationRow";
 import { fmtCLP } from "./shared/constants";
 import { formatCalendarDateDisplay } from "@/lib/fx-date";
-import type { DteRow } from "./shared/types";
+import type { DteRow, DteSortKey } from "./shared/types";
+
+/** Header clickeable que ordena por su columna. Toggle desc→asc→desc; muestra
+ *  flecha activa. Si no se pasa onSortChange, cae a un header plano. */
+function SortHeader({
+  label,
+  col,
+  sort,
+  onSortChange,
+}: {
+  label: string;
+  col: "date" | "tipo" | "folio" | "total";
+  sort?: DteSortKey;
+  onSortChange?: (key: DteSortKey) => void;
+}) {
+  if (!onSortChange) return <>{label}</>;
+  const activeDesc = sort === `${col}_desc`;
+  const activeAsc = sort === `${col}_asc`;
+  const next: DteSortKey = activeDesc ? `${col}_asc` : `${col}_desc`;
+  return (
+    <button
+      type="button"
+      onClick={() => onSortChange(next)}
+      className="inline-flex items-center gap-1 hover:text-ds-text-1 transition-colors"
+      title={`Ordenar por ${label.toLowerCase()}`}
+    >
+      {label}
+      {activeDesc ? (
+        <ChevronDown className="h-3 w-3" />
+      ) : activeAsc ? (
+        <ChevronUp className="h-3 w-3" />
+      ) : (
+        <ChevronsUpDown className="h-3 w-3 opacity-40" />
+      )}
+    </button>
+  );
+}
 
 interface Props {
   rows: DteRow[];
@@ -47,6 +83,9 @@ interface Props {
   onCloneDraft: (id: string) => void;
   onUnreconcile?: (id: string) => void;
   onMarkUnpaid?: (id: string) => void;
+  /** Sort actual + callback para headers clickeables (fecha/tipo/folio/monto). */
+  sort?: DteSortKey;
+  onSortChange?: (key: DteSortKey) => void;
 }
 
 /** Tri-state checkbox: indeterminate cuando hay selección parcial. */
@@ -102,6 +141,8 @@ export function IssuedDtesTable({
   onCloneDraft,
   onUnreconcile,
   onMarkUnpaid,
+  sort,
+  onSortChange,
 }: Props) {
   const visibleIds = rows.map((r) => r.id);
   const selectedVisible = visibleIds.filter((id) => selectedIds.has(id));
@@ -136,7 +177,7 @@ export function IssuedDtesTable({
     },
     {
       id: "date",
-      header: "Fecha",
+      header: <SortHeader label="Fecha" col="date" sort={sort} onSortChange={onSortChange} />,
       width: "w-[112px]",
       cell: (row) => {
         // Para DRAFT: mostrar dos fechas — la del documento (teórica) y
@@ -169,18 +210,25 @@ export function IssuedDtesTable({
     },
     {
       id: "dteType",
-      header: "Tipo",
+      header: <SortHeader label="Tipo" col="tipo" sort={sort} onSortChange={onSortChange} />,
       width: "w-[96px]",
       cell: (row) => <DocumentTag dteType={row.dteType} />,
     },
     {
       id: "folio",
-      header: "Folio",
+      header: <SortHeader label="Folio" col="folio" sort={sort} onSortChange={onSortChange} />,
       width: "min-w-0 w-[172px]",
       cell: (row) => (
         <div className="min-w-0 max-w-full overflow-hidden space-y-1">
           <div className="font-mono tabular-nums text-xs">
-            {row.siiStatus === "DRAFT" ? "—" : row.folio}
+            {/* El borrador es una etapa del documento (aún sin folio), no un
+                estado SII. Lo mostramos acá, en la identidad del doc, en vez de
+                la columna Estado SII. Pasa a folio real al emitirse. */}
+            {row.siiStatus === "DRAFT" ? (
+              <SiiStatusPill siiStatus="DRAFT" size="sm" />
+            ) : (
+              row.folio
+            )}
           </div>
           {(row.activeCession || row.linkedCreditNote) && (
             <div className="flex flex-col items-start gap-1 min-w-0 max-w-full">
@@ -266,7 +314,7 @@ export function IssuedDtesTable({
     },
     {
       id: "totalAmount",
-      header: "Total",
+      header: <SortHeader label="Total" col="total" sort={sort} onSortChange={onSortChange} />,
       align: "right",
       width: "min-w-0 w-[128px]",
       cell: (row) => {
@@ -314,6 +362,11 @@ export function IssuedDtesTable({
         const isVoidedByNc = !!row.voidedByCreditNoteId;
         const partiallyCredited =
           !isVoidedByNc && Number(row.creditedNetAmount ?? 0) > 0;
+        // Un borrador todavía NO se envió al SII → no tiene estado SII. La etapa
+        // "Borrador" se muestra en la columna Folio (identidad del doc), no acá.
+        if (row.siiStatus === "DRAFT") {
+          return <span className="text-ds-text-4 text-xs">—</span>;
+        }
         return (
           <div className="flex flex-col items-start gap-1 min-w-0 max-w-full">
             <SiiStatusPill siiStatus={row.siiStatus} />

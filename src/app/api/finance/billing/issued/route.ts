@@ -569,6 +569,14 @@ function getDteOrderBy(sort: string): Record<string, "asc" | "desc">[] {
       return [{ totalAmount: "desc" }, { date: "desc" }];
     case "total_asc":
       return [{ totalAmount: "asc" }, { date: "desc" }];
+    case "folio_desc":
+      return [{ folio: "desc" }, { date: "desc" }];
+    case "folio_asc":
+      return [{ folio: "asc" }, { date: "desc" }];
+    case "tipo_desc":
+      return [{ dteType: "desc" }, { date: "desc" }];
+    case "tipo_asc":
+      return [{ dteType: "asc" }, { date: "desc" }];
     case "date_desc":
     default:
       return [{ date: "desc" }, { folio: "desc" }];

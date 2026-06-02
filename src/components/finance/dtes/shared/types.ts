@@ -103,7 +103,11 @@ export type DteSortKey =
   | "created_desc"
   | "created_asc"
   | "total_desc"
-  | "total_asc";
+  | "total_asc"
+  | "folio_desc"
+  | "folio_asc"
+  | "tipo_desc"
+  | "tipo_asc";
 
 /** Filtros aplicados a la lista de DTEs Emitidos. Persistidos en URL. */
 export interface DteFilters {

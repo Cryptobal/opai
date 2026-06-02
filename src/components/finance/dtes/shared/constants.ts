@@ -116,7 +116,13 @@ export const DTE_SORT_OPTIONS: { value: DteSortKey; label: string }[] = [
 ];
 
 export function sortDteRows<
-  T extends { date?: string; createdAt?: string; totalAmount: number; folio: number },
+  T extends {
+    date?: string;
+    createdAt?: string;
+    totalAmount: number;
+    folio: number;
+    dteType?: number;
+  },
 >(rows: T[], sort: DteSortKey): T[] {
   const value = (row: T) => {
     switch (sort) {
@@ -126,6 +132,12 @@ export function sortDteRows<
       case "total_desc":
       case "total_asc":
         return row.totalAmount;
+      case "folio_desc":
+      case "folio_asc":
+        return row.folio;
+      case "tipo_desc":
+      case "tipo_asc":
+        return row.dteType ?? 0;
       case "date_asc":
       case "date_desc":
       default:

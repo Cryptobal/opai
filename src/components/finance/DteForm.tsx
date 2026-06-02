@@ -133,6 +133,20 @@ export function DteForm({ availableTypes, accounts }: Props) {
   const [dteType, setDteType] = useState(String(availableTypes[0] ?? 33));
   /** YYYY-MM-DD — va al XML SII como fecha de emisión y se persiste en el borrador. */
   const [issueDate, setIssueDate] = useState<string>(() => todayChileStr());
+  // Período (cuota) que factura esta DTE en el flujo de caja: "YYYY-MM". Por
+  // defecto el mes de emisión; si facturás el servicio del mes pasado, lo bajás
+  // un mes. Independiente de la fecha SII. Es la base para que el flujo dedupee
+  // por (programación, período) y un adelanto/atraso no anule la cuota vecina.
+  const [billingPeriod, setBillingPeriod] = useState<string>(() =>
+    todayChileStr().slice(0, 7),
+  );
+  /** Resta un mes a un "YYYY-MM" en UTC (sin correrse de año). */
+  const prevYm = (ym: string) => {
+    const [y, m] = ym.split("-").map(Number);
+    const d = new Date(Date.UTC(y, m - 1, 1));
+    d.setUTCMonth(d.getUTCMonth() - 1);
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  };
   // Cliente seleccionado del CRM (vía CustomerCombobox). Si está null, el
   // usuario está ingresando manualmente los datos del receptor.
   const [customer, setCustomer] = useState<CustomerOption | null>(null);
@@ -415,6 +429,9 @@ export function DteForm({ availableTypes, accounts }: Props) {
           estadoPagoPeriodoMode:
             d.estadoPagoPeriodoMode === "PREVIOUS" ? "PREVIOUS" : "CURRENT",
         });
+        if (typeof d.billingPeriod === "string" && d.billingPeriod) {
+          setBillingPeriod(d.billingPeriod);
+        }
         // Reconstruir el `customer` (CustomerOption) del CRM cuando el draft
         // tiene crmAccountId. Sin esto el combobox queda vacío y, peor, la
         // BillingPlanSection cree que no hay cliente y deshabilita el plan.
@@ -867,6 +884,8 @@ export function DteForm({ availableTypes, accounts }: Props) {
       estadoPagoRecipientContactIds:
         billingPlan.estadoPagoRecipientContactIds,
       estadoPagoPeriodoMode: billingPlan.estadoPagoPeriodoMode,
+      // Período (cuota) que ocupa esta factura en el flujo de caja.
+      billingPeriod: billingPeriod || null,
       notes: notes.trim() || null,
       autoSendEmail: overrides?.autoSendEmail ?? autoSendEmail,
       sendXmlToBackoffice: overrides?.sendXmlToBackoffice,
@@ -1240,6 +1259,44 @@ export function DteForm({ availableTypes, accounts }: Props) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 mt-4">
+            <div className="space-y-1.5 md:col-span-2">
+              <Label htmlFor="dte-billing-period">Período facturado *</Label>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Input
+                  id="dte-billing-period"
+                  type="month"
+                  value={billingPeriod}
+                  onChange={(e) => setBillingPeriod(e.target.value)}
+                  className="h-10 sm:h-9 max-w-[180px]"
+                />
+                <Button
+                  type="button"
+                  variant={billingPeriod === issueDate.slice(0, 7) ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setBillingPeriod(issueDate.slice(0, 7))}
+                >
+                  Mes de emisión
+                </Button>
+                <Button
+                  type="button"
+                  variant={billingPeriod === prevYm(issueDate.slice(0, 7)) ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setBillingPeriod(prevYm(issueDate.slice(0, 7)))}
+                >
+                  Mes anterior
+                </Button>
+              </div>
+              <p className="text-xs text-ds-text-3">
+                Mes (cuota) al que corresponde esta factura en el flujo de caja.
+                Por defecto el mes de emisión; si facturás el servicio del mes
+                pasado, elegí "Mes anterior". No cambia la fecha SII.
+              </p>
             </div>
           </div>
 
