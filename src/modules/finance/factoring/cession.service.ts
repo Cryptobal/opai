@@ -43,6 +43,10 @@ export interface CedeDteInput {
    *  o se ingresa manualmente en el modal de cesión. */
   commissionAmount: number;
   emailDeudor?: string;
+  /** Lista ordenada de correos del deudor. El PRIMERO va al AEC
+   *  (<eMailDeudor>); a TODOS les llega el aviso de cesión por correo.
+   *  Si viene, tiene prioridad sobre `emailDeudor`. */
+  deudorEmails?: string[];
   notes?: string;
   contactNombre?: string;
   contactFono?: string;
@@ -361,8 +365,19 @@ export async function cedeDte(
   // 20260808000000). El adapter directo construye/firma/envía el AEC
   // sin pasar por SimpleAPI; el legacy SIMPLEAPI sigue disponible para
   // tenants que tengan ese módulo en su plan.
-  const emailDeudorTrimmed =
-    input.emailDeudor?.trim() || dte.receiverEmail?.trim() || "";
+  // Lista ordenada de correos del deudor. El PRIMERO se embebe en el AEC
+  // (<eMailDeudor>, único que admite el SII); a TODOS se les manda el aviso
+  // de cesión por correo. Dedup case-insensitive.
+  //
+  // Si el modal mandó `deudorEmails` (siempre lo hace, aunque sea []), esa
+  // lista es la fuente de verdad — incluyendo vacía = "no notificar a
+  // nadie". Sólo para callers legacy (sin el campo) caemos al fallback
+  // `emailDeudor` → email del receptor del DTE.
+  const deudorEmailList =
+    input.deudorEmails !== undefined
+      ? normalizeDeudorEmailList(input.deudorEmails)
+      : normalizeDeudorEmailList([input.emailDeudor ?? "", dte.receiverEmail ?? ""]);
+  const emailDeudorTrimmed = deudorEmailList[0] ?? "";
   const emailDeudor = emailDeudorTrimmed || undefined;
 
   const cessionProvider = dteCfg.cessionProvider ?? "SII_DIRECT";
@@ -583,6 +598,27 @@ export async function cedeDte(
     console.error("[cession] Error enviando email al cesionario:", err);
   });
 
+  // Avisar al DEUDOR (receptor del DTE) de la cesión por correo. Se manda
+  // a TODOS los correos elegidos en el modal (el primero además va en el
+  // AEC al SII). Fire-and-forget: si falla no aborta la operación.
+  if (deudorEmailList.length > 0) {
+    sendCesionDeudorNotificacionEmail({
+      tenantId: ctx.tenantId,
+      recipients: deudorEmailList,
+      operationCode: op.code,
+      deudorRazonSocial: dte.receiverName ?? "",
+      cedenteRazonSocial: dteCfg.emisorRazonSocial ?? "",
+      cesionarioRazonSocial: company.razonSocial,
+      dteType: dte.dteType,
+      dteFolio: dte.folio,
+      montoCesion: rpetcAligned.montoCesion,
+      fechaCesion: input.fechaCesion,
+      fechaVencimiento: input.fechaVencimiento,
+    }).catch((err: unknown) => {
+      console.error("[cession] Error enviando aviso al deudor:", err);
+    });
+  }
+
   return {
     operationId: op.id,
     code: op.code,
@@ -611,6 +647,22 @@ interface CesionEmailPayload {
 }
 
 const CESION_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Limpia, valida y deduplica (case-insensitive) una lista de correos
+ *  preservando el orden de aparición. El primero queda como principal. */
+function normalizeDeudorEmailList(raw: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of raw) {
+    const e = (item ?? "").trim();
+    if (!e || !CESION_EMAIL_RE.test(e)) continue;
+    const key = e.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(e);
+  }
+  return out;
+}
 
 /** Destinatarios To: email general + contacto, sin duplicar (case-insensitive). */
 function collectCesionarioNotificationEmails(
@@ -709,6 +761,88 @@ async function sendCesionNotificacionEmail(p: CesionEmailPayload): Promise<void>
     to: cesionarioRecipients,
     bcc: tenantBcc.length > 0 ? tenantBcc : undefined,
     subject: `Cesión electrónica ${p.operationCode} — ${montoCesionFmt} registrada en SII`,
+    html,
+  });
+}
+
+// ── Aviso al deudor (receptor del DTE) ────────────────────────────────────────
+
+interface CesionDeudorEmailPayload {
+  tenantId: string;
+  /** Correos del deudor a notificar (ya validados/deduplicados). */
+  recipients: string[];
+  operationCode: string;
+  /** Razón social del deudor (receptor del DTE). */
+  deudorRazonSocial: string;
+  /** Razón social del cedente (quien emitió la factura = tenant). */
+  cedenteRazonSocial: string;
+  /** Razón social del cesionario (factoring) a quien ahora se paga. */
+  cesionarioRazonSocial: string;
+  dteType: number;
+  dteFolio: number;
+  montoCesion: number;
+  fechaCesion: string;
+  fechaVencimiento: string;
+}
+
+/** Notifica al deudor que su factura fue cedida a un factoring (Ley 19.983).
+ *  Tono y contenido distintos al aviso al cesionario: le indica que el pago
+ *  en adelante se realiza al cesionario. Fire-and-forget desde cedeDte. */
+async function sendCesionDeudorNotificacionEmail(
+  p: CesionDeudorEmailPayload,
+): Promise<void> {
+  const recipients = normalizeDeudorEmailList(p.recipients);
+  if (recipients.length === 0) return;
+
+  const { resend, getTenantEmailConfig } = await import("@/lib/resend");
+  const { render } = await import("@react-email/render");
+  const { CesionDeudorNotificacionEmail } = await import(
+    "@/emails/CesionDeudorNotificacionEmail"
+  );
+
+  const emailCfg = await getTenantEmailConfig(p.tenantId);
+
+  const montoCesionFmt = `$${Math.round(p.montoCesion).toLocaleString("es-CL")}`;
+  const dteDesc = `Factura tipo ${p.dteType} / Folio ${p.dteFolio}`;
+  const fechaCesionFmt = new Date(`${p.fechaCesion}T12:00:00Z`).toLocaleDateString(
+    "es-CL",
+    { day: "2-digit", month: "2-digit", year: "numeric" },
+  );
+  const fechaVencFmt = new Date(`${p.fechaVencimiento}T12:00:00Z`).toLocaleDateString(
+    "es-CL",
+    { day: "2-digit", month: "2-digit", year: "numeric" },
+  );
+
+  const html = await render(
+    CesionDeudorNotificacionEmail({
+      deudorRazonSocial: p.deudorRazonSocial || undefined,
+      operationCode: p.operationCode,
+      montoCesion: montoCesionFmt,
+      fechaCesion: fechaCesionFmt,
+      fechaVencimiento: fechaVencFmt,
+      dteDescripcion: dteDesc,
+      cedenteRazonSocial: p.cedenteRazonSocial,
+      cesionarioRazonSocial: p.cesionarioRazonSocial,
+      brandName: emailCfg.companyName,
+      logoUrl: emailCfg.logoUrl,
+      emailContacto: emailCfg.replyTo || emailCfg.from,
+    }),
+  );
+
+  // BCC al equipo interno: alwaysBcc del tenant, sin duplicar destinatarios.
+  const recipientLowerSet = new Set(recipients.map((e) => e.toLowerCase()));
+  const tenantBcc = (emailCfg.alwaysBcc ?? [])
+    .map((e) => e?.trim())
+    .filter((e): e is string => !!e && CESION_EMAIL_RE.test(e))
+    .filter((e) => !recipientLowerSet.has(e.toLowerCase()))
+    .filter((e, idx, arr) => arr.findIndex((x) => x.toLowerCase() === e.toLowerCase()) === idx);
+
+  await resend.emails.send({
+    from: emailCfg.from,
+    replyTo: emailCfg.replyTo || undefined,
+    to: recipients,
+    bcc: tenantBcc.length > 0 ? tenantBcc : undefined,
+    subject: `Aviso de cesión de la ${dteDesc} — ${p.cedenteRazonSocial}`,
     html,
   });
 }

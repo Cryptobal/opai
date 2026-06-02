@@ -46,6 +46,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         interestRate: parsed.data.interestRate,
         commissionAmount: parsed.data.commissionAmount,
         emailDeudor: parsed.data.emailDeudor || undefined,
+        deudorEmails: parsed.data.deudorEmails,
         notes: parsed.data.notes,
         contactNombre: parsed.data.contactNombre,
         contactFono: parsed.data.contactFono,

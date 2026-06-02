@@ -4,12 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  Check,
   Coins,
   ExternalLink,
   Loader2,
   Lock,
   Paperclip,
   FileText,
+  Plus,
   Sparkles,
   X,
 } from "lucide-react";
@@ -114,6 +116,8 @@ function formatDayMonth(iso: string | undefined): string | null {
   });
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function normalizeEmailKey(s: string): string {
   return s.trim().toLowerCase();
 }
@@ -145,11 +149,11 @@ function defaultDeudorEmailFromDte(
   return list[0] ?? "";
 }
 
-function labelDeudorEmailOption(email: string, primary?: string | null): string {
+/** "Principal" si coincide con el email principal del DTE; sino "CC". */
+function deudorEmailTag(email: string, primary?: string | null): string {
   const p = primary?.trim().toLowerCase();
   const e = email.trim().toLowerCase();
-  const tag = p && e === p ? "Principal" : "Copia (CC)";
-  return `${email} · ${tag}`;
+  return p && e === p ? "Principal" : "CC";
 }
 
 export function CederDteDialog({ open, onOpenChange, dte }: Props) {
@@ -182,7 +186,12 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
   const [difPrecioAmount, setDifPrecioAmount] = useState<string>("0");
   const [ivaAmount, setIvaAmount] = useState<string>("0");
   const [montoAGirarAmount, setMontoAGirarAmount] = useState<string>("");
-  const [emailDeudor, setEmailDeudor] = useState("");
+  // Correos del deudor para la cesión. Lista ORDENADA: el primero se
+  // embebe en el AEC como <eMailDeudor> (el SII admite uno solo); a TODOS
+  // los de la lista les llega además un aviso de cesión por correo. Puede
+  // quedar vacía (SII_DIRECT); App Octava exige al menos uno.
+  const [deudorEmails, setDeudorEmails] = useState<string[]>([]);
+  const [customEmailDraft, setCustomEmailDraft] = useState("");
   const [notes, setNotes] = useState("");
 
   // ── Simulación del cesionario (Fase 1) ─────────────────────────
@@ -190,10 +199,13 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
   const [simulationUploading, setSimulationUploading] = useState(false);
   const [simulationDragOver, setSimulationDragOver] = useState(false);
 
-  // Anteponer email del receptor del DTE al abrir (Octava exige email del deudor).
+  // Pre-seleccionar el email principal del receptor del DTE al abrir
+  // (Octava exige al menos uno). El usuario puede sumar/quitar más.
   useEffect(() => {
     if (!open) return;
-    setEmailDeudor(defaultDeudorEmailFromDte(dte));
+    const first = defaultDeudorEmailFromDte(dte);
+    setDeudorEmails(first ? [first] : []);
+    setCustomEmailDraft("");
   }, [open, dte.id, dte.receiverEmail, dte.receiverEmailCc]);
 
   useEffect(() => {
@@ -217,15 +229,49 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
     [dte.receiverEmail, dte.receiverEmailCc],
   );
 
-  const deudorEmailPresetValue = useMemo(() => {
-    if (deudorEmailCandidates.length === 0) return "__custom__";
-    const cur = emailDeudor.trim();
-    if (!cur) return "__custom__";
-    const match = deudorEmailCandidates.find(
-      (e) => normalizeEmailKey(e) === normalizeEmailKey(cur),
+  const selectedDeudorKeys = useMemo(
+    () => new Set(deudorEmails.map(normalizeEmailKey)),
+    [deudorEmails],
+  );
+
+  // Togglear un correo dentro/fuera de la lista (case-insensitive).
+  function toggleDeudorEmail(email: string) {
+    const key = normalizeEmailKey(email);
+    setDeudorEmails((prev) =>
+      prev.some((e) => normalizeEmailKey(e) === key)
+        ? prev.filter((e) => normalizeEmailKey(e) !== key)
+        : [...prev, email.trim()],
     );
-    return match ?? "__custom__";
-  }, [deudorEmailCandidates, emailDeudor]);
+  }
+
+  function removeDeudorEmail(email: string) {
+    const key = normalizeEmailKey(email);
+    setDeudorEmails((prev) => prev.filter((e) => normalizeEmailKey(e) !== key));
+  }
+
+  // Mueve un correo al frente: el primero es el que va al AEC del SII.
+  function makeDeudorEmailPrimary(email: string) {
+    const key = normalizeEmailKey(email);
+    setDeudorEmails((prev) => {
+      const found = prev.find((e) => normalizeEmailKey(e) === key);
+      if (!found) return prev;
+      return [found, ...prev.filter((e) => normalizeEmailKey(e) !== key)];
+    });
+  }
+
+  function addCustomDeudorEmail() {
+    const raw = customEmailDraft.trim();
+    if (!raw) return;
+    if (!EMAIL_RE.test(raw)) {
+      toast.error("Correo inválido");
+      return;
+    }
+    const key = normalizeEmailKey(raw);
+    setDeudorEmails((prev) =>
+      prev.some((e) => normalizeEmailKey(e) === key) ? prev : [...prev, raw],
+    );
+    setCustomEmailDraft("");
+  }
 
   // Reset estado simulación cuando se cierra el modal.
   useEffect(() => {
@@ -413,7 +459,11 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
           // interestRate` no quede en 0 cuando hay datos reales.
           interestRate: calc.effectiveMonthlyRate ?? 0,
           commissionAmount: calc.commission,
-          emailDeudor: emailDeudor.trim() || undefined,
+          // El primero va al AEC (<eMailDeudor>); la lista completa recibe
+          // el aviso de cesión por correo. `emailDeudor` se mantiene por
+          // compatibilidad con clientes/legacy del schema.
+          emailDeudor: deudorEmails[0]?.trim() || undefined,
+          deudorEmails,
           notes: notes.trim() || undefined,
           simulation: simPayload,
         }),
@@ -773,39 +823,129 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
             </p>
           </div>
           <div className="sm:col-span-2 space-y-2">
-            <Label htmlFor="emailDeudor">Correo del deudor para la cesión</Label>
+            <Label>Correos del deudor para la cesión</Label>
+
+            {/* Candidatos del DTE: marcar/desmarcar con un clic. */}
             {deudorEmailCandidates.length > 0 ? (
-              <Select
-                value={deudorEmailPresetValue}
-                onValueChange={(v) => {
-                  if (v !== "__custom__") setEmailDeudor(v);
-                }}
-              >
-                <SelectTrigger id="emailDeudorPreset" className="h-10 sm:h-9 w-full">
-                  <SelectValue placeholder="Elegir entre los correos del DTE…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {deudorEmailCandidates.map((e, i) => (
-                    <SelectItem key={`${e}-${i}`} value={e}>
-                      {labelDeudorEmailOption(e, dte.receiverEmail)}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="__custom__">Otro correo (editar abajo)</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex flex-wrap gap-1.5">
+                {deudorEmailCandidates.map((e, i) => {
+                  const active = selectedDeudorKeys.has(normalizeEmailKey(e));
+                  return (
+                    <button
+                      key={`cand-${e}-${i}`}
+                      type="button"
+                      onClick={() => toggleDeudorEmail(e)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
+                        active
+                          ? "border-primary bg-primary/10 text-ds-text-1"
+                          : "border-ds-border-subtle text-ds-text-2 hover:border-muted-foreground/50",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "flex h-3.5 w-3.5 items-center justify-center rounded-[3px] border",
+                          active
+                            ? "border-primary bg-primary text-white"
+                            : "border-muted-foreground/40",
+                        )}
+                      >
+                        {active ? <Check className="h-2.5 w-2.5" /> : null}
+                      </span>
+                      {e}
+                      <span className="text-ds-text-3">
+                        · {deudorEmailTag(e, dte.receiverEmail)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             ) : null}
-            <Input
-              id="emailDeudor"
-              type="email"
-              value={emailDeudor}
-              onChange={(e) => setEmailDeudor(e.target.value)}
-              className="h-10 sm:h-9"
-              placeholder="facturacion@cliente.cl"
-            />
+
+            {/* Agregar cualquier otro correo a mano. */}
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                value={customEmailDraft}
+                onChange={(e) => setCustomEmailDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addCustomDeudorEmail();
+                  }
+                }}
+                className="h-10 sm:h-9"
+                placeholder="Agregar otro correo…"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addCustomDeudorEmail}
+                disabled={!customEmailDraft.trim()}
+                className="h-10 sm:h-9 shrink-0"
+              >
+                <Plus className="h-4 w-4 mr-1" /> Agregar
+              </Button>
+            </div>
+
+            {/* Lista ordenada de seleccionados: el 1º → AEC del SII. */}
+            {deudorEmails.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {deudorEmails.map((e, i) => (
+                  <span
+                    key={`sel-${e}-${i}`}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-ds-border-subtle bg-ds-surface-2 px-2 py-1 text-xs"
+                  >
+                    <span
+                      className={cn(
+                        "rounded px-1 py-0.5 text-[9px] font-medium uppercase tracking-wide",
+                        i === 0
+                          ? "bg-primary/15 text-primary"
+                          : "bg-ds-surface-3 text-ds-text-3",
+                      )}
+                      title={
+                        i === 0
+                          ? "Va en el documento de cesión enviado al SII (AEC)"
+                          : "Recibe el aviso de cesión por correo"
+                      }
+                    >
+                      {i === 0 ? "→ SII" : "Aviso"}
+                    </span>
+                    <span className="text-ds-text-1">{e}</span>
+                    {i !== 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => makeDeudorEmailPrimary(e)}
+                        className="text-ds-text-3 hover:text-primary"
+                        title="Usar este en el SII (mover al primer lugar)"
+                      >
+                        ↑ SII
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => removeDeudorEmail(e)}
+                      className="text-ds-text-3 hover:text-ds-text-1"
+                      title="Quitar"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-status-warn-fg">
+                Sin correos: no se notifica al deudor. La cesión con App Octava
+                <strong> exige</strong> al menos un correo del deudor.
+              </p>
+            )}
+
             <p className="text-xs text-ds-text-3">
-              Es el contacto del receptor de la factura (tu cliente), no el del factoring. Obligatorio
-              con App Octava. En el detalle del DTE los correos son solo lectura; la cesión se completa
-              acá. Si hay varios (principal y CC), elegí uno en la lista o escribí otro.
+              Es el contacto del receptor de la factura (tu cliente), no el del
+              factoring. El <strong>primero</strong> (→ SII) se incluye en el
+              documento de cesión (AEC) enviado al SII; a <strong>todos</strong>{" "}
+              les llega además un aviso de cesión por correo. Marcá los del DTE,
+              agregá otros, elegí cuál va al SII, o dejá la lista vacía.
             </p>
           </div>
           <div className="sm:col-span-2">

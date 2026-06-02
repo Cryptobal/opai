@@ -79,6 +79,13 @@ export const cedeDteSchema = z.object({
   interestRate: z.number().min(0).max(100),
   commissionAmount: z.number().min(0),
   emailDeudor: z.string().email("Email deudor inválido").optional().or(z.literal("")),
+  /** Lista ordenada de correos del deudor. El PRIMERO se embebe en el AEC
+   *  (<eMailDeudor> — el SII admite uno solo); a TODOS les llega el aviso
+   *  de cesión por correo. Puede ir vacía (SII_DIRECT). */
+  deudorEmails: z
+    .array(z.string().email("Email deudor inválido"))
+    .max(20, "Máximo 20 correos de deudor")
+    .optional(),
   notes: z.string().optional(),
   contactNombre: z.string().optional(),
   contactFono: z.string().optional(),
