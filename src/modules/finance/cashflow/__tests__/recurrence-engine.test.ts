@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { expandRecurrence, bucketKeyFor } from "../recurrence-engine";
+import {
+  expandRecurrence,
+  bucketKeyFor,
+  calcularFechaEmisionProyectada,
+} from "../recurrence-engine";
 import type { FinanceCashflowItem } from "@prisma/client";
 
 type Item = Pick<
@@ -127,5 +131,59 @@ describe("bucketKeyFor", () => {
   it("weekly format YYYY-Www", () => {
     const k = bucketKeyFor(new Date("2026-01-15"), "weekly");
     expect(k).toMatch(/^\d{4}-W\d{2}$/);
+  });
+});
+
+describe("calcularFechaEmisionProyectada — placement = emisión, NO cobro", () => {
+  // Regla de producto: el flujo de caja ubica el ingreso recurrente en la
+  // fecha de EMISIÓN del borrador (día de la programación), no en la fecha de
+  // cobro. `diasCobroDesdeFactura` ya no desplaza la celda. Asserts en UTC
+  // (la función retorna fechas UTC) para no depender del timezone del runner.
+  const cal = (over: Record<string, unknown> = {}) => ({
+    diasCobroDesdeFactura: 0,
+    emiteProforma: false,
+    diaEmisionProforma: null,
+    diasFacturaDesdeProforma: null,
+    diaEmisionFactura: null,
+    mesFacturaRelativo: "MISMO_MES",
+    dayOfMonth: null,
+    ...over,
+  });
+
+  it("factura directa día 20 con lag de cobro=20: ubica el 20 jun, no el 10 jul", () => {
+    const d = calcularFechaEmisionProyectada(
+      cal({ diasCobroDesdeFactura: 20, diaEmisionFactura: 20, dayOfMonth: 20 }),
+      2026,
+      5, // junio (0-based)
+    );
+    expect(d).not.toBeNull();
+    expect(d!.getUTCFullYear()).toBe(2026);
+    expect(d!.getUTCMonth()).toBe(5);
+    expect(d!.getUTCDate()).toBe(20);
+  });
+
+  it("legacy (diasCobroDesdeFactura=0): retorna null → caller usa dayOfMonth", () => {
+    const d = calcularFechaEmisionProyectada(
+      cal({ diasCobroDesdeFactura: 0, dayOfMonth: 20 }),
+      2026,
+      5,
+    );
+    expect(d).toBeNull();
+  });
+
+  it("proforma→factura: ubica en la fecha de factura (emisión), sin sumar cobro", () => {
+    // proforma día 1 + 5 días = factura día 6; el cobro a 30 días NO se suma.
+    const d = calcularFechaEmisionProyectada(
+      cal({
+        diasCobroDesdeFactura: 30,
+        emiteProforma: true,
+        diaEmisionProforma: 1,
+        diasFacturaDesdeProforma: 5,
+      }),
+      2026,
+      5,
+    );
+    expect(d!.getUTCMonth()).toBe(5);
+    expect(d!.getUTCDate()).toBe(6);
   });
 });

@@ -10,12 +10,17 @@ import {
 } from "date-fns";
 
 /**
- * Calcula la fecha de cobro proyectada de una cuota mensual a partir
- * del calendario configurado del contrato:
+ * Calcula la fecha de EMISIÓN proyectada de una cuota mensual a partir
+ * del calendario configurado del contrato. El flujo de caja ubica el
+ * ingreso recurrente en esta fecha (el día de la programación: 20, 1, etc.),
+ * NO en la fecha de cobro: manda el DTE emitido, la programación es el
+ * último recurso. `diasCobroDesdeFactura` ya no desplaza la celda.
  *
- *   - Si `diasCobroDesdeFactura > 0`: usa el ciclo proforma → factura → cobro.
+ *   - Si `diasCobroDesdeFactura > 0`: usa el ciclo proforma → factura para
+ *     resolver el día de emisión (sin sumar el lag de cobro).
  *   - Si es 0 (default legacy): retorna null, el caller usa el comportamiento
- *     legacy (`dayOfMonth` del mes del servicio).
+ *     legacy (`dayOfMonth` del mes del servicio) — que también es el día de
+ *     emisión.
  *
  * Regla clave (alineada con FIX 2): cuando `emiteProforma=true`, el
  * rollover al mes siguiente está implícito en `setUTCDate(diaProf +
@@ -24,7 +29,7 @@ import {
  * `mesFacturaRelativo` solo aplica al caso de factura directa (sin
  * proforma).
  */
-export function calcularFechaCobroProyectada(
+export function calcularFechaEmisionProyectada(
   item: {
     diasCobroDesdeFactura: number;
     emiteProforma: boolean;
@@ -74,12 +79,11 @@ export function calcularFechaCobroProyectada(
     }
   }
 
-  const fechaCobro = new Date(fechaFactura);
-  fechaCobro.setUTCDate(
-    fechaFactura.getUTCDate() + item.diasCobroDesdeFactura,
-  );
-
-  return fechaCobro;
+  // El flujo de caja ubica el ingreso recurrente en la fecha de EMISIÓN del
+  // borrador (el día de la programación: 20, 1, etc.), NO en la fecha de cobro.
+  // Regla de producto: manda el DTE emitido; la programación es el último
+  // recurso. `diasCobroDesdeFactura` ya NO desplaza la celda del flujo.
+  return fechaFactura;
 }
 
 type ExpandRecurrenceItem = Pick<
@@ -167,15 +171,15 @@ export function expandRecurrence(
             ? targetMonth - 1
             : getMonth(cursor);
 
-        const fechaCobro = calcularFechaCobroProyectada(
+        const fechaEmision = calcularFechaEmisionProyectada(
           calendarItem,
           servicioYear,
           servicioMonth,
         );
 
         let d: Date;
-        if (fechaCobro) {
-          d = fechaCobro;
+        if (fechaEmision) {
+          d = fechaEmision;
         } else {
           d = new Date(servicioYear, servicioMonth, 1);
           if (dom === -1) {
