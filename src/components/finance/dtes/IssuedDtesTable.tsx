@@ -32,7 +32,7 @@ function SortHeader({
   sort?: DteSortKey;
   onSortChange?: (key: DteSortKey) => void;
 }) {
-  if (!onSortChange) return <>{label}</>;
+  if (!onSortChange) return <span>{label}</span>;
   const activeDesc = sort === `${col}_desc`;
   const activeAsc = sort === `${col}_asc`;
   const next: DteSortKey = activeDesc ? `${col}_asc` : `${col}_desc`;
