@@ -376,6 +376,17 @@ export const draftDteSchema = issueDteSchema.extend({
   // Periodo del Estado de Pago relativo a la fecha de emisión del DTE:
   // "CURRENT" = mes de emisión, "PREVIOUS" = mes anterior (servicio atrasado).
   estadoPagoPeriodoMode: z.enum(["CURRENT", "PREVIOUS"]).optional(),
+  // ── Vínculo con la programación (para dedupe period-aware del flujo) ──
+  // recurringTemplateId = la programación que esta factura factura; billingPeriod
+  // = el período ocupado ("YYYY-MM"). Ambos null/ausentes = factura EXTRA (suma,
+  // no ocupa cuota). Nullable (no solo optional) para poder mandar "extra"
+  // explícito desde la UI.
+  recurringTemplateId: z.string().uuid().nullable().optional(),
+  billingPeriod: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/, "Período debe ser YYYY-MM")
+    .nullable()
+    .optional(),
 });
 
 export const dteCreditNoteSchema = z.object({

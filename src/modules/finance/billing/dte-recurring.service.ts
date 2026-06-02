@@ -7,6 +7,7 @@
  * nuevo). Idempotencia: si lastRunAt = today, no duplica.
  */
 import { prisma } from "@/lib/prisma";
+import { todayChileStr } from "@/lib/fx-date";
 import { Prisma } from "@prisma/client";
 import type { FinanceDteRecurringTemplate } from "@prisma/client";
 import { createDraftDte, type DraftDteInput } from "./dte-draft.service";
@@ -285,7 +286,7 @@ function templateLineToDraftLine(
 function templateToDraftInput(
   t: FinanceDteRecurringTemplate,
   ctx: PlaceholderContext,
-  opts: { ufValue: number | null },
+  opts: { ufValue: number | null; billingPeriod: string },
 ): DraftDteInput {
   const rawLines = (t.lines as TemplateLine[] | null) ?? [];
   const lines = rawLines.map((l) =>
@@ -334,6 +335,12 @@ function templateToDraftInput(
     // El EP recurrente cierra el mes de servicio: se emite al inicio del mes
     // siguiente, así que el periodo rotulado es el mes anterior a la emisión.
     estadoPagoPeriodoMode: "PREVIOUS",
+    // Estampado automático para la dedupe period-aware del flujo: esta cuota
+    // viene de ESTA programación y ocupa el período del run (mes de caja). El
+    // adelanto/atraso manual se hace en el editor, no acá (el cron es la cuota
+    // normal del mes).
+    recurringTemplateId: t.id,
+    billingPeriod: opts.billingPeriod,
   };
 }
 
@@ -508,10 +515,17 @@ export async function runTemplate(tenantId: string, templateId: string) {
     // pesos. Por eso no pasamos `ufOverride` — `computeDteAmounts` ve
     // currency=CLP y no intenta resolver UF (no hay UF "global" en este
     // modelo).
+    // Período de caja de esta cuota = mes de emisión (Chile), igual que la
+    // DTE.date que pone createDraftDte. Es la cuota "normal" del mes; adelantos
+    // se hacen manualmente desde el editor.
+    const billingPeriod = todayChileStr().slice(0, 7);
     const draft = await createDraftDte(
       tenantId,
       template.createdBy,
-      templateToDraftInput(template, ctx, { ufValue: ufContextValue }),
+      templateToDraftInput(template, ctx, {
+        ufValue: ufContextValue,
+        billingPeriod,
+      }),
     );
 
     // Copiar adjuntos del template al borrador. Hacemos copy real en R2

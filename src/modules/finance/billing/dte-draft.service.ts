@@ -43,6 +43,11 @@ export type DraftDteInput = Omit<IssueDteInput, "receiverRut" | "receiverName"> 
   estadoPagoRecipientContactIds?: string[];
   /** Periodo del Estado de Pago relativo a la fecha de emisión. */
   estadoPagoPeriodoMode?: "CURRENT" | "PREVIOUS";
+  // Vínculo con la programación (template) + período facturado (YYYY-MM). Define
+  // si la factura OCUPA una cuota proyectada (atada) o es ingreso EXTRA que suma
+  // (ambos undefined/null). Obligatorio declararlo en la UI; el cron lo autoseta.
+  recurringTemplateId?: string | null;
+  billingPeriod?: string | null;
 };
 
 /**
@@ -128,6 +133,9 @@ export async function createDraftDte(
       requireEstadoPago: input.requireEstadoPago ?? false,
       estadoPagoRecipientContactIds: input.estadoPagoRecipientContactIds ?? [],
       estadoPagoPeriodoMode: input.estadoPagoPeriodoMode ?? "PREVIOUS",
+      // Vínculo programación + período (capa para dedupe period-aware del flujo).
+      recurringTemplateId: input.recurringTemplateId ?? null,
+      billingPeriod: input.billingPeriod ?? null,
       lines: {
         create: calc.lines.map((l, i) => ({
           lineNumber: i + 1,
@@ -317,6 +325,8 @@ export async function updateDraftDte(
         requireEstadoPago: input.requireEstadoPago ?? false,
         estadoPagoRecipientContactIds: input.estadoPagoRecipientContactIds ?? [],
         estadoPagoPeriodoMode: input.estadoPagoPeriodoMode ?? "PREVIOUS",
+        recurringTemplateId: input.recurringTemplateId ?? null,
+        billingPeriod: input.billingPeriod ?? null,
         lines: {
           create: calc.lines.map((l, i) => ({
             lineNumber: i + 1,
@@ -593,6 +603,8 @@ export type DraftDetailItem = DraftListItem & {
   proformaRecipientContactIds: string[];
   estadoPagoRecipientContactIds: string[];
   estadoPagoPeriodoMode: "CURRENT" | "PREVIOUS";
+  recurringTemplateId: string | null;
+  billingPeriod: string | null;
   emailLogs: DraftEmailLogItem[];
 };
 
@@ -813,6 +825,8 @@ export async function getDraftDteById(
       proformaRecipientContactIds: true,
       estadoPagoRecipientContactIds: true,
       estadoPagoPeriodoMode: true,
+      recurringTemplateId: true,
+      billingPeriod: true,
       emailLogs: {
         where: {
           kind: {

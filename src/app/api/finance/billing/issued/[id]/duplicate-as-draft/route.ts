@@ -56,6 +56,12 @@ export async function POST(
       installationId: original.installationId ?? undefined,
       currency: original.currency,
       notes: original.notes ?? undefined,
+      // Reemisión (típico tras NC): hereda la cuota (programación, período) del
+      // original, así la factura rehecha ocupa el MISMO período y no duplica ni
+      // libera la proyección. Si es una factura ad-hoc distinta, el usuario lo
+      // cambia en el editor (el control es obligatorio).
+      recurringTemplateId: original.recurringTemplateId ?? undefined,
+      billingPeriod: original.billingPeriod ?? undefined,
       lines: original.lines.map((l) => ({
         itemCode: l.itemCode ?? undefined,
         itemName: l.itemName,
