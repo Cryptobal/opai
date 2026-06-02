@@ -12,7 +12,7 @@
  * Doc: https://resend.com/docs/dashboard/inbound/introduction
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { Webhook } from "svix";
 import { resend } from "@/lib/resend";
 import { prisma } from "@/lib/prisma";
@@ -331,6 +331,12 @@ export async function POST(request: NextRequest) {
           },
         },
       },
+    });
+
+    // Auto-enriquecer desde el sitio web (background, no bloquea el webhook).
+    after(async () => {
+      const { enrichLeadFromWebsite } = await import("@/lib/crm/enrich-lead");
+      await enrichLeadFromWebsite(lead.id, tenantId);
     });
 
     for (const att of attachments) {

@@ -964,10 +964,14 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       industry: str(draft, "industry") || str(companyEnrichment, "industry") || lead.industry || "",
       segment: str(draft, "segment") || str(companyEnrichment, "segment") || "",
       roleTitle: str(draft, "roleTitle") || str(emailExtracted, "contactRole") || "",
-      website: (lead as any).website || extractWebsiteFromEmail(lead.email || ""),
-      companyInfo: str(draft, "companyInfo") || "",
+      website: (lead as any).website || str(companyEnrichment, "website") || extractWebsiteFromEmail(lead.email || ""),
+      companyInfo: str(draft, "companyInfo") || str(companyEnrichment, "accountNotes") || "",
       notes: lead.notes || "",
     });
+
+    // Logo detectado por el enriquecimiento automático (al crear el lead).
+    const enrichLogo = str(companyEnrichment, "accountLogoUrl");
+    if (enrichLogo) setDetectedCompanyLogoUrl((prev) => prev || enrichLogo);
 
     const draftCostGroups = draft?.selectedCostGroups;
     setSelectedCostGroups(
@@ -1091,13 +1095,14 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   // ─── Enrich company info ───
   const enrichCompanyInfoFromWebsite = async () => {
     const website = approveForm.website.trim();
-    if (!website) { toast.error("Primero ingresa la página web de la empresa."); return; }
+    const companyName = approveForm.accountName.trim();
+    if (!website && !companyName) { toast.error("Ingresa la página web o el nombre de la empresa."); return; }
     setEnrichingCompanyInfo(true);
     try {
       const response = await fetch("/api/crm/company-enrich", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ website, companyName: approveForm.accountName }),
+        body: JSON.stringify({ website, companyName }),
       });
       const payload = await response.json();
       if (!response.ok || !payload?.success) throw new Error(payload?.error || "No se pudo obtener información del sitio.");
@@ -2167,7 +2172,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               <div className="flex items-center justify-between gap-2">
                 <Label>Página web</Label>
                 <div className="flex items-center gap-2">
-                  <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={enrichCompanyInfoFromWebsite} disabled={enrichingCompanyInfo || !approveForm.website.trim()}>
+                  <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={enrichCompanyInfoFromWebsite} disabled={enrichingCompanyInfo || (!approveForm.website.trim() && !approveForm.accountName.trim())}>
                     {enrichingCompanyInfo && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                     Traer datos web
                   </Button>

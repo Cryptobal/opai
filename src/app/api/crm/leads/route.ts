@@ -4,7 +4,7 @@
  * POST - Crear prospecto
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
@@ -133,6 +133,12 @@ export async function POST(request: NextRequest) {
         }).catch(() => {});
       }
     }
+
+    // Auto-enriquecer desde el sitio web (background, no bloquea la respuesta).
+    after(async () => {
+      const { enrichLeadFromWebsite } = await import("@/lib/crm/enrich-lead");
+      await enrichLeadFromWebsite(lead.id, ctx.tenantId);
+    });
 
     return NextResponse.json({ success: true, data: lead }, { status: 201 });
   } catch (error) {

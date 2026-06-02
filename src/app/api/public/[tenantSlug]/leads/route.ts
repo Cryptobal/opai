@@ -7,7 +7,7 @@
  * Crea un lead en el CRM, genera una notificación y envía un email.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { resolveTenantFromSlug } from "@/lib/tenant";
@@ -178,6 +178,12 @@ export async function POST(
       leadId = lead.id;
 
       // Cuenta, contacto e instalaciones se crean solo al "Revisar y aprobar" el lead en el CRM.
+
+      // Auto-enriquecer desde el sitio web (background, no bloquea la respuesta).
+      after(async () => {
+        const { enrichLeadFromWebsite } = await import("@/lib/crm/enrich-lead");
+        await enrichLeadFromWebsite(lead.id, tenantId);
+      });
 
       try {
         const { notify } = await import("@/lib/notifications/notify");

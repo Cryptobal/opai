@@ -120,6 +120,77 @@ async function hintsFromTavily(name: string, website: string): Promise<string[]>
   return lines.slice(0, 14);
 }
 
+function extractHostFromText(raw: string): string | null {
+  if (!raw) return null;
+  // 1) URL explícita
+  const urlMatch = raw.match(/https?:\/\/[^\s"'<>)\]]+/i);
+  if (urlMatch?.[0]) {
+    try {
+      return new URL(urlMatch[0]).hostname.replace(/^www\./i, "");
+    } catch {
+      /* sigue */
+    }
+  }
+  // 2) Dominio suelto (ej: "enap.cl", "www.empresa.com")
+  const hostMatch = raw.match(/\b((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,})\b/i);
+  if (hostMatch?.[1]) return hostMatch[1].replace(/^www\./i, "").toLowerCase();
+  return null;
+}
+
+/**
+ * Descubre el dominio oficial de una empresa por búsqueda web real cuando la
+ * URL ingresada no resuelve (o no se ingresó ninguna). Devuelve solo el host
+ * (ej: "enap.cl") o null. Prueba Responses web_search y luego Tavily.
+ */
+export async function discoverCompanyWebsite(companyName: string): Promise<string | null> {
+  const name = companyName.trim();
+  if (!name) return null;
+
+  // 1) OpenAI Responses web_search — pide SOLO el dominio oficial.
+  if (isUsableApiKey()) {
+    const model = process.env.COMPANY_ENRICH_WEBSEARCH_MODEL?.trim() || "gpt-4.1-mini";
+    try {
+      const response = await openai.responses.create(
+        {
+          model,
+          tool_choice: "required",
+          tools: [
+            {
+              type: "web_search",
+              search_context_size: "low",
+              user_location: { type: "approximate", country: "CL" },
+            },
+          ],
+          instructions:
+            "Encuentras el sitio web oficial de empresas en Chile. Solo fuentes públicas.",
+          input:
+            `¿Cuál es el dominio del sitio web oficial de la empresa "${name}" (Chile)?` +
+            ` Responde EXCLUSIVAMENTE con el dominio, sin protocolo ni rutas (ej: "empresa.cl").` +
+            ` Si no estás seguro, responde "ninguno".`,
+          max_output_tokens: 120,
+        },
+        { timeout: 60_000 },
+      );
+      const host = extractHostFromText(unpackResponsesText(response));
+      if (host) return host;
+    } catch (err) {
+      console.warn("[company-web-hints] discover dominio (Responses) falló:", err);
+    }
+  }
+
+  // 2) Tavily — primer resultado con dominio plausible.
+  try {
+    const snips = await webSearchSnippets(`${name} sitio web oficial Chile`, 6);
+    for (const s of snips) {
+      const host = extractHostFromText(s.url || "") || extractHostFromText(s.content || "");
+      if (host) return host;
+    }
+  } catch (err) {
+    console.warn("[company-web-hints] discover dominio (Tavily) falló:", err);
+  }
+  return null;
+}
+
 /**
  * Obtiene párrafos cortos públicos desde búsqueda web real (Responses + Tavily de respaldo).
  */
