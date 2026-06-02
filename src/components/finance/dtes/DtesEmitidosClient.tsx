@@ -1067,7 +1067,7 @@ export function DtesEmitidosClient({
               onUnreconcile={handleUnreconcile}
               onMarkUnpaid={handleMarkUnpaid}
               sort={filters.sort}
-              onSortChange={(key) => update({ sort: key })}
+              onSortChange={(key) => update("sort", key)}
             />
           </div>
           <div className="xl:hidden">
