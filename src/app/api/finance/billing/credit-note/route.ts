@@ -41,6 +41,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Guard 0: la factura referenciada debe existir ANTE EL SII. Si el SII la
+    // rechazó (REJECTED), tributariamente NO existe → una NC que la referencia
+    // será rechazada con (REF-3-750) "DTE Referenciado no recibido en el SII",
+    // pero el correo al cliente ya salió en la emisión (auto-send). Una factura
+    // rechazada no se anula: se RE-EMITE con folio nuevo. Bloqueamos acá con
+    // mensaje claro para no generar NCs muertas ni mandar docs inválidos.
+    if (originalDte.siiStatus === "REJECTED") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `La factura de referencia (folio ${originalDte.folio}) fue RECHAZADA por el SII, así que no existe ante el SII y no se puede anular con una Nota de Crédito (el SII rechazaría la NC con REF-3-750). No requiere NC: re-emití la factura con un folio nuevo.`,
+        },
+        { status: 409 },
+      );
+    }
+
     if (!body.lines || body.lines.length === 0) {
       return NextResponse.json(
         { success: false, error: "Debe incluir al menos una linea en la nota de crédito" },
