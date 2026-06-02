@@ -73,7 +73,11 @@ export function pillVariantFor(input: {
   if (input.cellStatus === "PAID") return "PAID";
   if (input.cellStatus === "CEDED") return "FACTORING";
   if (input.cellStatus === "INVOICED") {
-    return input.hasFactoring ? "FACTORING" : "INVOICED";
+    // Facturada. "Factorizada" se reserva para cuando la factura se CEDIÓ de
+    // verdad (cellStatus=CEDED), NO por el modoCobro del contrato: una factura
+    // recién emitida en un contrato factoring todavía no está cedida, así que
+    // mostrarla como "Factorizada" es incorrecto (ej. Ametel 1717).
+    return "INVOICED";
   }
   if (input.cellStatus === "DRAFT") return "DRAFT";
   // Aún sin DTE: programada (proyección recurrente/contrato). El factoring

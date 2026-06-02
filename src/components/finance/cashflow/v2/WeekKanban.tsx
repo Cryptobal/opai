@@ -12,14 +12,25 @@ import { cn } from "@/lib/utils";
 import { WeekDetail } from "./WeekDetail";
 import { fmtCLP, toDate } from "./format";
 
-/** Etiqueta de mes (es-CL, UTC para no correrse de día) de un bucket semanal.
- *  Si la semana cruza de mes, muestra "may–jun". */
-function monthLabelFor(start: Date | string, end: Date | string): string {
-  const fmt = (d: Date) =>
-    d.toLocaleDateString("es-CL", { month: "short", timeZone: "UTC" }).replace(".", "");
-  const sm = fmt(toDate(start));
-  const em = fmt(toDate(end));
-  return sm === em ? sm : `${sm}–${em}`;
+/** Rango de fechas del bucket semanal (lun → dom), es-CL, UTC para no correrse
+ *  de día. Ej. "1–7 jun" (mismo mes) o "29 jun–5 jul" (cruza de mes). Así el
+ *  usuario sabe el lunes con que arranca cada columna. */
+function weekRangeLabel(start: Date | string, end: Date | string): string {
+  const s = toDate(start);
+  const e = toDate(end);
+  const fmt = (d: Date, withMonth: boolean) =>
+    d
+      .toLocaleDateString(
+        "es-CL",
+        withMonth
+          ? { day: "numeric", month: "short", timeZone: "UTC" }
+          : { day: "numeric", timeZone: "UTC" },
+      )
+      .replace(".", "");
+  const sameMonth = s.getUTCMonth() === e.getUTCMonth();
+  return sameMonth
+    ? `${fmt(s, false)}–${fmt(e, true)}`
+    : `${fmt(s, true)}–${fmt(e, true)}`;
 }
 import {
   isBucketClosed,
@@ -116,10 +127,12 @@ export function WeekKanban({
               )}
             >
               <div className="flex items-center justify-between">
-                <span className="text-[12px] font-bold text-ds-text-1">
-                  {b.label}
-                  <span className="ml-1.5 font-normal capitalize text-ds-text-3">
-                    {monthLabelFor(b.start, b.end)}
+                <span className="flex min-w-0 items-baseline gap-1.5">
+                  <span className="text-[12px] font-bold text-ds-text-1">
+                    {b.label}
+                  </span>
+                  <span className="truncate text-[10px] font-normal text-ds-text-3">
+                    {weekRangeLabel(b.start, b.end)}
                   </span>
                 </span>
                 {closed && (

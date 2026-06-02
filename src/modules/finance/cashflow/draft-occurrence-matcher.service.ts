@@ -114,10 +114,27 @@ export async function matchDraftToOccurrence(
     },
     select: { id: true, scheduledDate: true, amountClp: true, itemId: true },
   });
-  const candidates = candidatesRaw.filter((c) => {
+  let candidates = candidatesRaw.filter((c) => {
     const rec = recurrenceByItemId.get(c.itemId ?? "") ?? "MONTHLY";
     return occurrenceBucketKey(c.scheduledDate, rec) === occurrenceBucketKey(input.expectedDate, rec);
   });
+  // Prioridad de instalación EXACTA: si el DTE trae installationId y existe al
+  // menos un item de esa instalación, las candidatas se restringen a ESA
+  // instalación. Sin esto, una factura de Peñablanca podía engancharse a la
+  // cuota de Algarrobo (misma cuenta Ametel) solo porque Algarrobo tenía
+  // candidata materializada y Peñablanca no. Si la instalación correcta no
+  // tiene candidata, candidates queda vacío y cae al materialize-when-missing
+  // (abajo), que crea la cuota en el item correcto por instalación.
+  if (input.installationId) {
+    const instItemIds = new Set(
+      items
+        .filter((it) => it.installationId === input.installationId)
+        .map((it) => it.id),
+    );
+    if (instItemIds.size > 0) {
+      candidates = candidates.filter((c) => c.itemId && instItemIds.has(c.itemId));
+    }
+  }
 
   // Si no hay occurrence materializada candidata pero SÍ existe una programación
   // (item) cuyo bucket coincide con el DTE, materializamos la cuota de esa
