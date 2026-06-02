@@ -15,13 +15,11 @@ async function main() {
   // 1) DTEs por folio + borradores (folio null) de los clientes citados.
   const dtes = await prisma.financeDte.findMany({
     where: {
+      direction: "ISSUED",
       OR: [
         { folio: { in: FOLIOS } },
-        {
-          folio: null,
-          direction: "ISSUED",
-          receiverName: { in: ["Transmat", "Ametel", "Fapama"] },
-        },
+        // Borradores (sin folio o folio bajo): los pescamos por receptor.
+        { receiverName: { in: ["Transmat", "Ametel", "Fapama", "Pine"] } },
       ],
     },
     select: {
