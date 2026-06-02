@@ -1121,22 +1121,62 @@ export async function buildProjection(
   // "$/mes" del header. Con esto, se mete dentro de la celda del
   // contrato vía cell.dtes[].
   type ContractItem = (typeof items)[number];
-  const contractItemByCrmAccount = new Map<string, ContractItem>();
-  const contractItemByInstallation = new Map<string, ContractItem>();
+  // Multi-item por instalación/cuenta: una instalación puede tener cobro
+  // partido en varios items (ej. Transmat 80% / 20%). Guardamos la LISTA y
+  // elegimos por monto al enganchar el DTE (abajo). Incluye RECURRING_DTE
+  // además de CONTRACT: las facturas de plantilla recurrente (ej. Pine) también
+  // son programación soberana y deben enganchar a su item, no quedar huérfanas
+  // mostrándose como "Programada" mientras la factura ya existe.
+  const contractItemsByCrmAccount = new Map<string, ContractItem[]>();
+  const contractItemsByInstallation = new Map<string, ContractItem[]>();
   for (const it of items) {
-    if (it.source !== "CONTRACT") continue;
-    if (it.crmAccountId && !contractCategoryByCrmAccount.has(it.crmAccountId)) {
-      contractCategoryByCrmAccount.set(it.crmAccountId, it.categoryId);
+    if (it.source !== "CONTRACT" && it.source !== "RECURRING_DTE") continue;
+    // Categoría preferida: solo desde CONTRACT (comportamiento previo).
+    if (it.source === "CONTRACT") {
+      if (it.crmAccountId && !contractCategoryByCrmAccount.has(it.crmAccountId)) {
+        contractCategoryByCrmAccount.set(it.crmAccountId, it.categoryId);
+      }
+      if (it.installationId && !contractCategoryByInstallation.has(it.installationId)) {
+        contractCategoryByInstallation.set(it.installationId, it.categoryId);
+      }
     }
-    if (it.installationId && !contractCategoryByInstallation.has(it.installationId)) {
-      contractCategoryByInstallation.set(it.installationId, it.categoryId);
+    if (it.crmAccountId) {
+      const arr = contractItemsByCrmAccount.get(it.crmAccountId) ?? [];
+      arr.push(it);
+      contractItemsByCrmAccount.set(it.crmAccountId, arr);
     }
-    if (it.crmAccountId && !contractItemByCrmAccount.has(it.crmAccountId)) {
-      contractItemByCrmAccount.set(it.crmAccountId, it);
+    if (it.installationId) {
+      const arr = contractItemsByInstallation.get(it.installationId) ?? [];
+      arr.push(it);
+      contractItemsByInstallation.set(it.installationId, arr);
     }
-    if (it.installationId && !contractItemByInstallation.has(it.installationId)) {
-      contractItemByInstallation.set(it.installationId, it);
+  }
+  // Entre varias programaciones de la misma instalación/cuenta, elige la que
+  // mejor calza por MONTO con el DTE (UF→CLP al valor de la fecha del DTE).
+  // Sin esto, con cobro partido (Transmat 80% / 20%) la factura caía en la
+  // cuota equivocada (80↔20 cruzados).
+  async function pickProgramacionByAmount(
+    candidates: ContractItem[] | undefined,
+    grossClp: number,
+    atDate: Date,
+  ): Promise<ContractItem | undefined> {
+    if (!candidates || candidates.length === 0) return undefined;
+    if (candidates.length === 1) return candidates[0];
+    let best = candidates[0];
+    let bestDiff = Infinity;
+    for (const it of candidates) {
+      const clp =
+        it.currency === "UF"
+          ? Number(it.amount) *
+            (await resolveUfForOccurrence(it.ufFixingPolicy, it.ufFixingDay, atDate))
+          : Number(it.amount);
+      const diff = Math.abs(clp - grossClp);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        best = it;
+      }
     }
+    return best;
   }
   const linkedDteIds = new Set(
     allOccurrences.map((o) => o.dteId).filter((x): x is string => !!x),
@@ -1214,16 +1254,23 @@ export async function buildProjection(
     // Cuando hay match, hacemos `continue` para no caer al path
     // fallback de fila propia.
     if (isIncome) {
-      // Match estricto: si el DTE tiene instalación, SOLO engancha al item de
+      // Match estricto: si el DTE tiene instalación, SOLO engancha a items de
       // esa instalación. Sin fallback a crmAccount, que en cuentas con varias
       // instalaciones (ej. Polpaico) enganchaba todos los DTEs al primer item
       // (Coronel) → factura de El Bosque aparecía como Coronel duplicado. Si no
       // hay item de esa instalación, cae al Path 2 (fila propia del DTE).
-      const contractItem = dte.installationId
-        ? contractItemByInstallation.get(dte.installationId)
+      // Entre los items de esa instalación/cuenta, se elige por monto: corrige
+      // el cruce 80↔20 cuando la instalación tiene cobro partido (Transmat).
+      const candidateItems = dte.installationId
+        ? contractItemsByInstallation.get(dte.installationId)
         : dte.crmAccountId
-          ? contractItemByCrmAccount.get(dte.crmAccountId)
+          ? contractItemsByCrmAccount.get(dte.crmAccountId)
           : undefined;
+      const contractItem = await pickProgramacionByAmount(
+        candidateItems,
+        ncImpact.grossPostNc,
+        dte.date,
+      );
       if (contractItem) {
         const paidInner = Number(dte.amountPaid);
         // Status derivado: PAID si paymentStatus es PAID, sino PROJECTED
