@@ -72,6 +72,7 @@ interface Props {
 export function CompanyPresentationView({ contactId }: Props) {
   const { branding } = useBranding()
   const [content, setContent] = useState<PresentationContent>(GARD_PRESENTATION_CONTENT)
+  const [clients, setClients] = useState<{ name: string; logoUrl: string }[]>([])
   const [requesting, setRequesting] = useState(false)
   const [requested, setRequested] = useState(false)
 
@@ -93,6 +94,22 @@ export function CompanyPresentationView({ contactId }: Props) {
       .then((json) => {
         if (active && json?.success && json.data) {
           setContent(json.data as PresentationContent)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
+
+  // Muro de clientes (prueba social) — solo nombre + logo
+  useEffect(() => {
+    let active = true
+    fetch('/api/portal/cliente/clientes-destacados')
+      .then((r) => r.json())
+      .then((json) => {
+        if (active && json?.success && Array.isArray(json.data)) {
+          setClients(json.data)
         }
       })
       .catch(() => {})
@@ -187,6 +204,32 @@ export function CompanyPresentationView({ contactId }: Props) {
               <p className="text-[11px] text-zinc-400 mt-1">{stat.label}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Muro de clientes (prueba social) */}
+      {clients.length > 0 && (
+        <div className="space-y-4">
+          <div className="text-center">
+            <p className="text-[12px] font-semibold uppercase tracking-[2px] text-teal-400">
+              Empresas que confían en nosotros
+            </p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {clients.map((client) => (
+              <div
+                key={client.name}
+                title={client.name}
+                className="flex items-center justify-center rounded-xl border border-white/[0.06] bg-white/90 p-3 h-20"
+              >
+                <img
+                  src={client.logoUrl}
+                  alt={client.name}
+                  className="max-h-full max-w-full object-contain"
+                />
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
