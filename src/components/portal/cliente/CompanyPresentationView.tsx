@@ -240,17 +240,17 @@ export function CompanyPresentationView({ contactId }: Props) {
               {clients.map((client, i) => (
                 <Tooltip key={`${client.name}-${i}`}>
                   <TooltipTrigger asChild>
-                    <div className="group flex h-24 cursor-default items-center justify-center rounded-xl border border-white/[0.06] bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/30">
+                    <div className="group flex h-28 cursor-default items-center justify-center rounded-xl border border-white/[0.06] bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/30">
                       {client.logoUrl ? (
                         <img
                           src={client.logoUrl}
                           alt={client.name}
                           loading="lazy"
-                          className="max-h-12 max-w-full object-contain transition-transform duration-200 group-hover:scale-105"
+                          className="max-h-full max-w-full object-contain transition-transform duration-200 group-hover:scale-105"
                         />
                       ) : (
                         <div
-                          className="flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-bold text-white shadow-sm"
+                          className="flex h-16 w-16 items-center justify-center rounded-2xl text-xl font-bold text-white shadow-sm"
                           style={{ backgroundColor: monogramColor(client.name) }}
                         >
                           {clientInitials(client.name)}
