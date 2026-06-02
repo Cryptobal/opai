@@ -1261,11 +1261,17 @@ export async function buildProjection(
       // hay item de esa instalación, cae al Path 2 (fila propia del DTE).
       // Entre los items de esa instalación/cuenta, se elige por monto: corrige
       // el cruce 80↔20 cuando la instalación tiene cobro partido (Transmat).
-      const candidateItems = dte.installationId
+      // Fallback a crmAccount: si el DTE trae installationId pero NINGÚN item
+      // la tiene (ej. Pine: la factura tiene instalación pero el item de
+      // contrato quedó solo con crmAccount), enganchamos por cuenta en vez de
+      // dejar la factura huérfana mostrándose como "Programada". La
+      // desambiguación por monto evita cruces entre instalaciones de la cuenta.
+      let candidateItems = dte.installationId
         ? contractItemsByInstallation.get(dte.installationId)
-        : dte.crmAccountId
-          ? contractItemsByCrmAccount.get(dte.crmAccountId)
-          : undefined;
+        : undefined;
+      if ((!candidateItems || candidateItems.length === 0) && dte.crmAccountId) {
+        candidateItems = contractItemsByCrmAccount.get(dte.crmAccountId);
+      }
       const contractItem = await pickProgramacionByAmount(
         candidateItems,
         ncImpact.grossPostNc,
