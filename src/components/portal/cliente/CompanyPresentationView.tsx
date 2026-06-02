@@ -7,8 +7,28 @@ import {
 } from 'lucide-react'
 import { useBranding } from '@/lib/branding/useBranding'
 import { GardServiceIncludes } from '@/components/portal/cliente/cotizaciones/GardServiceIncludes'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { GARD_PRESENTATION_CONTENT } from '@/lib/tenant-presentation-defaults'
 import type { PresentationContent } from '@/lib/tenant-presentation'
+
+/** Iniciales (1-2 letras) para el monograma de clientes sin logo. */
+function clientInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean)
+  const letters = words.slice(0, 2).map((w) => w[0]).join('')
+  return (letters || name.slice(0, 2)).toUpperCase()
+}
+
+const MONOGRAM_COLORS = [
+  '#0d9488', '#4f46e5', '#db2777', '#d97706',
+  '#7c3aed', '#059669', '#0284c7', '#e11d48',
+]
+
+/** Color determinístico del monograma a partir del nombre. */
+function monogramColor(name: string): string {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+  return MONOGRAM_COLORS[h % MONOGRAM_COLORS.length]
+}
 
 /**
  * Paleta + ícono por `key` de sección. El contenido (texto) llega tenant-driven
@@ -72,7 +92,7 @@ interface Props {
 export function CompanyPresentationView({ contactId }: Props) {
   const { branding } = useBranding()
   const [content, setContent] = useState<PresentationContent>(GARD_PRESENTATION_CONTENT)
-  const [clients, setClients] = useState<{ name: string; logoUrl: string }[]>([])
+  const [clients, setClients] = useState<{ name: string; logoUrl: string | null }[]>([])
   const [requesting, setRequesting] = useState(false)
   const [requested, setRequested] = useState(false)
 
@@ -215,21 +235,36 @@ export function CompanyPresentationView({ contactId }: Props) {
               Empresas que confían en nosotros
             </p>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {clients.map((client) => (
-              <div
-                key={client.name}
-                title={client.name}
-                className="flex items-center justify-center rounded-xl border border-white/[0.06] bg-white/90 p-3 h-20"
-              >
-                <img
-                  src={client.logoUrl}
-                  alt={client.name}
-                  className="max-h-full max-w-full object-contain"
-                />
-              </div>
-            ))}
-          </div>
+          <TooltipProvider delayDuration={120}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {clients.map((client, i) => (
+                <Tooltip key={`${client.name}-${i}`}>
+                  <TooltipTrigger asChild>
+                    <div className="group flex h-24 cursor-default items-center justify-center rounded-xl border border-white/[0.06] bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/30">
+                      {client.logoUrl ? (
+                        <img
+                          src={client.logoUrl}
+                          alt={client.name}
+                          loading="lazy"
+                          className="max-h-12 max-w-full object-contain transition-transform duration-200 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div
+                          className="flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-bold text-white shadow-sm"
+                          style={{ backgroundColor: monogramColor(client.name) }}
+                        >
+                          {clientInitials(client.name)}
+                        </div>
+                      )}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="border-white/10 bg-zinc-900 font-medium text-white">
+                    {client.name}
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+          </TooltipProvider>
         </div>
       )}
 

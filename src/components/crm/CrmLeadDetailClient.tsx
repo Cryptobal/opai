@@ -1709,6 +1709,40 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     }
   };
 
+  const sendPresentationWhatsApp = async () => {
+    if (!lead.email?.trim()) {
+      toast.error("El lead no tiene email; agrégalo antes de generar el WhatsApp.");
+      return;
+    }
+    setSendingPresentation(true);
+    try {
+      const response = await fetch(`/api/crm/leads/${lead.id}/send-presentation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notes: presentationMessage.trim() || undefined,
+          channel: "whatsapp",
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload?.error || "No se pudo preparar el WhatsApp");
+      }
+      if (!payload.whatsappUrl) {
+        toast.error("El lead no tiene teléfono válido para WhatsApp.");
+        return;
+      }
+      window.open(payload.whatsappUrl, "_blank", "noopener,noreferrer");
+      toast.success("Acceso al portal habilitado — abre WhatsApp para enviar el mensaje.");
+      setSendPresentationOpen(false);
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "No se pudo preparar el WhatsApp.");
+    } finally {
+      setSendingPresentation(false);
+    }
+  };
+
   // ─── Metadata helpers ───
   const meta = lead.metadata as Record<string, unknown> | undefined;
   const dotacion = (meta?.dotacion as { puesto: string; cantidad: number; numPuestos?: number; dias?: string[]; horaInicio?: string; horaFin?: string }[] | undefined);
@@ -3086,13 +3120,32 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-2">
             <Button
               variant="outline"
               onClick={() => setSendPresentationOpen(false)}
               disabled={sendingPresentation}
+              className="sm:mr-auto"
             >
               Cancelar
+            </Button>
+            <Button
+              variant="outline"
+              onClick={sendPresentationWhatsApp}
+              disabled={sendingPresentation || !lead.email || !lead.phone}
+              className="gap-1.5 border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600 dark:text-emerald-400"
+              title={
+                !lead.phone
+                  ? "El lead no tiene teléfono"
+                  : "Habilita el portal y abre WhatsApp con el mensaje prellenado"
+              }
+            >
+              {sendingPresentation ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <MessageCircle className="h-4 w-4" />
+              )}
+              WhatsApp
             </Button>
             <Button onClick={sendPresentation} disabled={sendingPresentation || !lead.email}>
               {sendingPresentation ? (
@@ -3100,7 +3153,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               ) : (
                 <Mailbox className="mr-2 h-4 w-4" />
               )}
-              Enviar presentación
+              Enviar por correo
             </Button>
           </DialogFooter>
         </DialogContent>

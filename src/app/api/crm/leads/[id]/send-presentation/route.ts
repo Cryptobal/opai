@@ -42,6 +42,9 @@ export async function POST(
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
     const notes = typeof body.notes === "string" ? body.notes.trim() || undefined : undefined;
+    // channel: "email" (default, manda el correo) | "whatsapp" (solo habilita
+    // portal/PIN y devuelve el link wa.me con texto prellenado).
+    const channel = body.channel === "whatsapp" ? "whatsapp" : "email";
 
     // 1. Prospecto liviano (idempotente): cuenta prospect + contacto.
     const prospect = await ensureProspectFromLead({
@@ -58,6 +61,7 @@ export async function POST(
       notes,
       cc: asEmailArray(body.cc),
       bcc: asEmailArray(body.bcc),
+      sendEmail: channel === "email",
     });
 
     return NextResponse.json({

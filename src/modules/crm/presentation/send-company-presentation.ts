@@ -25,6 +25,7 @@ import { buildEmailUrl } from "@/lib/emails/site-url";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { getTenantPresentationContent } from "@/lib/tenant-presentation";
 import { normalizeEmailList, normalizeEmailAddress } from "@/lib/email-address";
+import { formatChileanPhone } from "@/lib/text-format";
 
 /** Emoji por `key` de sección para los beneficios del email. */
 const SECTION_EMOJI: Record<string, string> = {
@@ -59,6 +60,8 @@ export interface SendCompanyPresentationInput {
   cc?: string[];
   /** Emails en copia oculta (CCO/BCC). */
   bcc?: string[];
+  /** Si false, NO envía el email (solo habilita portal/PIN y arma el WhatsApp). */
+  sendEmail?: boolean;
 }
 
 export interface SendCompanyPresentationResult {
@@ -67,6 +70,32 @@ export interface SendCompanyPresentationResult {
   bcc: string[];
   emailId: string | null;
   pinGenerated: boolean;
+  /** Si se envió el email (false en modo solo-WhatsApp). */
+  emailSent: boolean;
+  /** Link wa.me con texto prellenado (saludo + credenciales + portal); null si el contacto no tiene teléfono. */
+  whatsappUrl: string | null;
+}
+
+/** Mensaje de WhatsApp con saludo, credenciales y link al portal/presentación. */
+function buildWhatsAppMessage(opts: {
+  firstName: string;
+  brandName: string;
+  email: string;
+  pin: string | null;
+  portalUrl: string;
+}): string {
+  const { firstName, brandName, email, pin, portalUrl } = opts;
+  const lines = [
+    `Hola ${firstName} 👋`,
+    "",
+    `Te comparto la presentación de ${brandName}. La puedes ver en nuestro portal de cliente, donde además vivirás OPAI, nuestro sistema operativo de seguridad: rondas GPS, reportes y todo en tiempo real.`,
+    "",
+    "🔐 Tu acceso:",
+    `Correo: ${email}`,
+  ];
+  if (pin) lines.push(`PIN: ${pin}`);
+  lines.push("", `👉 ${portalUrl}`, "", "Cualquier duda, quedo atento.");
+  return lines.join("\n");
 }
 
 /**
@@ -96,6 +125,8 @@ export async function sendCompanyPresentation(
   input: SendCompanyPresentationInput,
 ): Promise<SendCompanyPresentationResult> {
   const { tenantId, userId, contactId, notes } = input;
+
+  const sendEmail = input.sendEmail !== false;
 
   const contact = await prisma.crmContact.findFirst({
     where: { id: contactId, tenantId },
@@ -140,16 +171,30 @@ export async function sendCompanyPresentation(
     prisma.admin.findUnique({ where: { id: userId }, select: { name: true } }),
   ]);
 
-  // Deep-link a la sección Presentación: el prospecto aterriza viviendo el
-  // onboarding directamente en la presentación de empresa, no en el dashboard.
+  // Deep-link a la sección Presentación + email prellenado: el prospecto
+  // aterriza en la presentación con su correo ya cargado (solo escribe el PIN).
   const portalUrl = buildEmailUrl(
-    "/portal/cliente?section=presentacion",
+    `/portal/cliente?section=presentacion&email=${encodeURIComponent(toEmail)}`,
     tenantRow?.slug ?? null,
   );
   const ejecutivoName = ejecutivo?.name || "Ejecutivo comercial";
   const contactFullName =
     `${contact.firstName} ${contact.lastName}`.trim() || contact.firstName || "Cliente";
   const benefits = buildBenefitsFromContent(content.sections);
+
+  // WhatsApp: link wa.me con texto prellenado (si el contacto tiene teléfono).
+  const waPhone = formatChileanPhone(contact.phone)?.replace("+", "") ?? null;
+  const whatsappUrl = waPhone
+    ? `https://wa.me/${waPhone}?text=${encodeURIComponent(
+        buildWhatsAppMessage({
+          firstName: contact.firstName || contactFullName,
+          brandName: tenantCfg.commercialName,
+          email: toEmail,
+          pin: portalPinPlain,
+          portalUrl,
+        }),
+      )}`
+    : null;
 
   // 3. CC / BCC saneados (sin duplicar el destinatario).
   const toNorm = normalizeEmailAddress(toEmail);
@@ -158,38 +203,42 @@ export async function sendCompanyPresentation(
     (e) => e !== toNorm && !cc.includes(e),
   );
 
-  const html = await render(
-    CompanyPresentationEmail({
-      contactName: contactFullName,
-      companyName: contact.account.name,
-      email: toEmail,
-      pin: portalPinPlain ?? undefined,
-      portalUrl,
-      ejecutivoName,
-      notes,
-      brandName: tenantCfg.commercialName,
-      logoUrl: tenantCfg.logoUrl || tenantCfg.brandingLogoWhite || "",
-      benefits,
-    }),
-  );
-
-  const emailCfg = await getTenantEmailConfig(tenantId);
-  const emailResult = await resend.emails.send({
-    from: emailCfg.from,
-    replyTo: emailCfg.replyTo,
-    to: toEmail,
-    cc: cc.length > 0 ? cc : undefined,
-    bcc: bcc.length > 0 ? bcc : undefined,
-    subject: `Presentación institucional — ${tenantCfg.commercialName} · ${contact.account.name}`,
-    html,
-  });
-
-  if (emailResult.error) {
-    console.error("[CRM] sendCompanyPresentation Resend:", emailResult.error);
-    throw new SendPresentationError(
-      emailResult.error.message || "Resend rechazó el envío",
-      "email_failed",
+  let emailId: string | null = null;
+  if (sendEmail) {
+    const html = await render(
+      CompanyPresentationEmail({
+        contactName: contactFullName,
+        companyName: contact.account.name,
+        email: toEmail,
+        pin: portalPinPlain ?? undefined,
+        portalUrl,
+        ejecutivoName,
+        notes,
+        brandName: tenantCfg.commercialName,
+        logoUrl: tenantCfg.logoUrl || tenantCfg.brandingLogoWhite || "",
+        benefits,
+      }),
     );
+
+    const emailCfg = await getTenantEmailConfig(tenantId);
+    const emailResult = await resend.emails.send({
+      from: emailCfg.from,
+      replyTo: emailCfg.replyTo,
+      to: toEmail,
+      cc: cc.length > 0 ? cc : undefined,
+      bcc: bcc.length > 0 ? bcc : undefined,
+      subject: `Presentación institucional — ${tenantCfg.commercialName} · ${contact.account.name}`,
+      html,
+    });
+
+    if (emailResult.error) {
+      console.error("[CRM] sendCompanyPresentation Resend:", emailResult.error);
+      throw new SendPresentationError(
+        emailResult.error.message || "Resend rechazó el envío",
+        "email_failed",
+      );
+    }
+    emailId = emailResult.data?.id ?? null;
   }
 
   // 4. Tracking + fecha de invitación.
@@ -221,7 +270,9 @@ export async function sendCompanyPresentation(
     sentTo: toEmail,
     cc,
     bcc,
-    emailId: emailResult.data?.id ?? null,
+    emailId,
     pinGenerated,
+    emailSent: sendEmail,
+    whatsappUrl,
   };
 }

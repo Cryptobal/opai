@@ -6,11 +6,12 @@ import { resolveAccountLogo } from "@/lib/crm/account-logo";
 /**
  * GET /api/portal/cliente/clientes-destacados
  *
- * Muro de prueba social para la Presentación de Empresa: logos de las cuentas
- * activas del tenant que tengan logo. SOLO nombre + logo — NUNCA datos de
- * contacto (mail/teléfono) de terceros. Tenant resuelto desde la cookie.
+ * Muro de prueba social para la Presentación de Empresa: cuentas activas del
+ * tenant. Devuelve nombre + logo (logo = null si la cuenta no tiene; el front
+ * muestra un monograma). SOLO nombre + logo — NUNCA datos de contacto
+ * (mail/teléfono) de terceros. Tenant resuelto desde la cookie.
  */
-const MAX_LOGOS = 30;
+const MAX_CLIENTS = 60;
 
 export async function GET(request: NextRequest) {
   const auth = await requirePortalClienteAuth(request);
@@ -30,9 +31,13 @@ export async function GET(request: NextRequest) {
     });
 
     const clients = accounts
-      .map((a) => ({ name: a.name, logoUrl: resolveAccountLogo(a) }))
-      .filter((c): c is { name: string; logoUrl: string } => Boolean(c.logoUrl))
-      .slice(0, MAX_LOGOS);
+      .map((a) => ({ name: a.name, logoUrl: resolveAccountLogo(a) ?? null }))
+      // Logos primero (el muro arranca fuerte), luego los monogramas; alfabético dentro de cada grupo.
+      .sort((a, b) => {
+        const byLogo = Number(Boolean(b.logoUrl)) - Number(Boolean(a.logoUrl));
+        return byLogo !== 0 ? byLogo : a.name.localeCompare(b.name);
+      })
+      .slice(0, MAX_CLIENTS);
 
     return NextResponse.json({ success: true, data: clients });
   } catch (error) {
