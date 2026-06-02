@@ -142,6 +142,11 @@ export const upsertAndActSchema = z.discriminatedUnion("action", [
       newDate: z.coerce.date().optional(),
       daysFromCurrent: z.number().int().optional(),
       resolveStrategy: z.enum(["replace", "next_free"]).optional(),
+      // dteId de la fila movida (factura/borrador enganchado a la programación).
+      // Marca la cuota materializada como "fuerte" para que, en el destino, la
+      // factura sobrescriba la proyección-sombra débil del mismo item en vez de
+      // chocar con un 409 (lo consume resolveCollisionAndMove, caso sombra).
+      dteId: z.string().uuid().optional(),
     })
     .refine(
       (v) => v.newDate !== undefined || v.daysFromCurrent !== undefined,

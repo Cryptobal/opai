@@ -161,6 +161,11 @@ export function CashflowV2Shell({
             itemId: occ.itemId,
             originalDate: toDate(occ.scheduledDate).toISOString().slice(0, 10),
             newDate,
+            // Si la fila viene de una factura/borrador enganchado a su
+            // programación, mandamos el dteId para que la cuota materializada
+            // quede "fuerte": así resolveCollisionAndMove consolida la sombra
+            // del destino (la factura manda) en vez de devolver 409.
+            dteId: occ.dteId ?? undefined,
           }),
         });
       } else if (occ.dteId) {

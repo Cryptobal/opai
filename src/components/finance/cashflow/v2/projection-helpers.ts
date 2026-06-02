@@ -156,6 +156,13 @@ const GROUP_LABELS: Partial<Record<FinanceCashflowItemSource, string>> = {
 export function groupKeyFor(o: VirtualOccurrence): string | null {
   if (!CONSOLIDATED_SOURCES.has(o.source)) return null;
   if (o.source === "MANUAL") {
+    // Las facturas/borradores reales (con DTE) NO son ingresos "manuales":
+    // caen en source MANUAL sólo por ser DTEs huérfanos sin item de contrato
+    // del cliente (p. ej. Fapama Quinta Normal / Reñaca, facturadas con folio).
+    // Consolidarlas bajo "Ingresos manuales" las esconde; se muestran
+    // individuales con su cliente y badge de folio. Lo verdaderamente manual
+    // (sin DTE) sí consolida.
+    if (o.dteId) return null;
     return o.kind === "INCOME" ? "Ingresos manuales" : "Egresos manuales";
   }
   return GROUP_LABELS[o.source] ?? null;

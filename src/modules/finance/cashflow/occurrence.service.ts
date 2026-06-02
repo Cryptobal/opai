@@ -605,6 +605,9 @@ export type MaterializeAndActInput =
       newDate?: Date;
       daysFromCurrent?: number;
       resolveStrategy?: CollisionResolveStrategy;
+      /** DTE de la fila movida: vincula la cuota materializada para volverla
+       *  "fuerte" (la factura manda sobre la sombra débil del destino). */
+      dteId?: string;
     }
   | { itemId: string; originalDate: Date; action: "amount"; amountClp: number }
   | { itemId: string; originalDate: Date; action: "cancel" };
@@ -645,6 +648,11 @@ export async function materializeAndAct(
     amountClpBase = itemAmount;
   }
 
+  // Si la fila movida viene de un DTE, vinculamos la cuota materializada a él.
+  // Esto la vuelve "fuerte" en resolveCollisionAndMove (caso sombra: la factura
+  // manda sobre la proyección débil del destino) y hace que la celda muestre el
+  // folio. Solo aplica a "move"; las demás acciones no traen dteId.
+  const linkDteId = input.action === "move" ? input.dteId : undefined;
   const existing = await prisma.financeCashflowOccurrence.upsert({
     where: { itemId_scheduledDate: { itemId: item.id, scheduledDate: input.originalDate } },
     create: {
@@ -654,8 +662,9 @@ export async function materializeAndAct(
       amountClp: amountClpBase,
       ufValueUsed: ufValue ?? undefined,
       status: "PROJECTED",
+      ...(linkDteId ? { dteId: linkDteId } : {}),
     },
-    update: {},
+    update: linkDteId ? { dteId: linkDteId } : {},
   });
 
   if (existing.status === "PAID") {
