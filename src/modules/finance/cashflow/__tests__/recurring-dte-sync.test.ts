@@ -66,7 +66,7 @@ beforeEach(() => {
 });
 
 describe("syncRecurringDteItem", () => {
-  it("crea item con monto = subtotal × 1.19", async () => {
+  it("crea item con monto NETO (= subtotal sin IVA)", async () => {
     (prisma.financeDteRecurringTemplate.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(
       makeTpl(),
     );
@@ -76,12 +76,29 @@ describe("syncRecurringDteItem", () => {
     const r = await syncRecurringDteItem(TENANT, "tpl-1");
     expect(r.action).toBe("created");
     const call = (prisma.financeCashflowItem.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(call.data.amount).toBe(119_000);
+    // NETO: la proyección aplica IVA por categoría (×1.19), no acá.
+    expect(call.data.amount).toBe(100_000);
     expect(call.data.source).toBe("RECURRING_DTE");
     expect(call.data.sourceRefId).toBe("tpl-1");
     expect(call.data.kind).toBe("INCOME");
     expect(call.data.recurrence).toBe("MONTHLY");
     expect(call.data.dayOfMonth).toBe(5);
+  });
+
+  it("plantilla UF: amount en UF neto vía unitPriceUf (no mezcla con unitPrice CLP)", async () => {
+    (prisma.financeDteRecurringTemplate.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(
+      makeTpl({
+        currency: "UF",
+        lines: [{ quantity: 1, unitPriceUf: 141, unitPrice: 0, discountPct: 0 }],
+      }),
+    );
+    (prisma.financeCashflowItem.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.financeCashflowItem.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "x" });
+
+    await syncRecurringDteItem(TENANT, "tpl-uf");
+    const call = (prisma.financeCashflowItem.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.data.amount).toBe(141);
+    expect(call.data.currency).toBe("UF");
   });
 
   it("frequency=weekly mapea a recurrence=WEEKLY con dayOfWeek", async () => {

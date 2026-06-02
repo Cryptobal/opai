@@ -11,6 +11,19 @@ interface RecurringLine {
   unitPrice?: number | string;
   unitPriceUf?: number | string;
   discountPct?: number | string;
+  priceCurrency?: "CLP" | "UF";
+}
+
+/** Mismo criterio que `resolveLinePriceCurrency` en dte-recurring.service.ts */
+function resolveLinePriceCurrency(
+  line: RecurringLine,
+  templateCurrency: string,
+): "CLP" | "UF" {
+  if (line.priceCurrency === "UF" || line.priceCurrency === "CLP") {
+    return line.priceCurrency;
+  }
+  if (templateCurrency === "UF" || line.unitPriceUf != null) return "UF";
+  return "CLP";
 }
 
 const FREQUENCY_TO_RECURRENCE: Record<
@@ -89,18 +102,26 @@ export async function syncRecurringDteItem(
   if (!cat) return { action: "noop" };
 
   const lines = (tpl.lines as RecurringLine[] | null) ?? [];
+  // El subtotal se calcula en la UNIDAD del item (CLP o UF), en NETO.
+  // Para líneas UF usamos unitPriceUf; para CLP usamos unitPrice. No
+  // mezclar: el ?? unitPrice ?? unitPriceUf tomaba UF como pesos.
+  const itemCurrency: "CLP" | "UF" = tpl.currency === "UF" ? "UF" : "CLP";
   const subtotal = lines.reduce((s, l) => {
+    const linePc = resolveLinePriceCurrency(l, tpl.currency);
+    if (linePc !== itemCurrency) return s;
     const qty = Number(l.quantity ?? 1);
-    const price = Number(l.unitPrice ?? l.unitPriceUf ?? 0);
+    const price =
+      linePc === "UF"
+        ? Number(l.unitPriceUf ?? 0)
+        : Number(l.unitPrice ?? 0);
     const disc = Number(l.discountPct ?? 0) / 100;
     return s + qty * price * (1 - disc);
   }, 0);
 
-  // El total a cobrar al cliente es subtotal + IVA 19% (en CLP).
-  // Para UF, se aplica IVA al monto convertido en runtime (lo hace el
-  // recurrence-engine al expandir? no — engine no aplica IVA. Guardamos
-  // el monto facturable directo).
-  const amount = tpl.currency === "CLP" ? subtotal * 1.19 : subtotal * 1.19;
+  // amount se guarda en NETO (CLP neto o UF neto). El IVA lo aplica
+  // projection.service por categoría no-exenta; pre-multiplicar acá causaba
+  // doble IVA (×1.19 acá + ×1.19 en proyección = ×1.4161).
+  const amount = subtotal;
   const amountActive = tpl.isActive && subtotal > 0;
 
   const existing = await prisma.financeCashflowItem.findFirst({
