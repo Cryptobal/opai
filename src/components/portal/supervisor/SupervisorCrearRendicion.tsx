@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Camera, Loader2, MapPin, Search, Send, X } from "lucide-react";
+import { ArrowLeft, Building2, Camera, Loader2, MapPin, Navigation, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
 
@@ -17,19 +17,28 @@ type RendType = "PURCHASE" | "MILEAGE";
 interface GeolocationData {
   lat: number;
   lng: number;
+  address?: string;
   timestamp: number;
+}
+
+type LocationMode = "gps" | "installation";
+
+interface TripEstimate {
+  distanceKm: number;
+  liters: number;
+  fuelCost: number;
+  vehicleFee: number;
+  subtotal: number;
+  tollAmount: number;
+  totalAmount: number;
+  source: "google" | "haversine";
+  vehicleFeePct: number;
 }
 
 interface RoutePoint {
   lat: number;
   lng: number;
   ts: number;
-}
-
-interface KmConfig {
-  kmPerLiter: number;
-  fuelPricePerLiter: number;
-  vehicleFeePct: number;
 }
 
 const fmtCLP = (n: number) =>
@@ -82,27 +91,24 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
   const [endLocation, setEndLocation] = useState<GeolocationData | null>(null);
   const [locatingStart, setLocatingStart] = useState(false);
   const [locatingEnd, setLocatingEnd] = useState(false);
+  const [startMode, setStartMode] = useState<LocationMode>("gps");
+  const [endMode, setEndMode] = useState<LocationMode>("gps");
   const [tollAmount, setTollAmount] = useState("0");
-  const [kmConfig, setKmConfig] = useState<KmConfig | null>(null);
   const [routePoints, setRoutePoints] = useState<RoutePoint[]>([]);
+  const [estimate, setEstimate] = useState<TripEstimate | null>(null);
+  const [estimating, setEstimating] = useState(false);
+  const estimateAbortRef = useRef<AbortController | null>(null);
+
+  // Instalaciones activas con GPS (de props)
+  const geoInstallations = useMemo(
+    () =>
+      installations.filter(
+        (i) => typeof i.lat === "number" && typeof i.lng === "number",
+      ),
+    [installations],
+  );
   const watchIdRef = useRef<number | null>(null);
   const lastPointRef = useRef<{ lat: number; lng: number } | null>(null);
-
-  // Fetch km config on mount
-  useEffect(() => {
-    fetch("/api/finance/config")
-      .then((r) => r.json())
-      .then((json) => {
-        if (json.success && json.data) {
-          setKmConfig({
-            kmPerLiter: Number(json.data.kmPerLiter) || 10,
-            fuelPricePerLiter: Number(json.data.fuelPricePerLiter) || 1500,
-            vehicleFeePct: Number(json.data.vehicleFeePct) || 10,
-          });
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   // Start background route tracking
   const startTracking = useCallback(() => {
@@ -157,6 +163,17 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
         };
         setLocation(loc);
         setLocating(false);
+        // Reverse-geocode para mostrar/guardar la dirección legible
+        fetch(`/api/finance/geocode/reverse?lat=${loc.lat}&lng=${loc.lng}`)
+          .then((r) => r.json())
+          .then((j) => {
+            if (j?.success && j.data?.address) {
+              setLocation((prev) =>
+                prev ? { ...prev, address: j.data.address } : prev,
+              );
+            }
+          })
+          .catch(() => {});
         if (target === "start") {
           lastPointRef.current = { lat: loc.lat, lng: loc.lng };
           setRoutePoints([{ lat: loc.lat, lng: loc.lng, ts: loc.timestamp }]);
@@ -175,31 +192,42 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
     );
   }, [startTracking, stopTracking]);
 
-  // Haversine distance
-  const estimatedDistance = useMemo(() => {
-    if (!startLocation || !endLocation) return null;
-    const R = 6371;
-    const dLat = ((endLocation.lat - startLocation.lat) * Math.PI) / 180;
-    const dLng = ((endLocation.lng - startLocation.lng) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos((startLocation.lat * Math.PI) / 180) *
-        Math.cos((endLocation.lat * Math.PI) / 180) *
-        Math.sin(dLng / 2) ** 2;
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return Math.round(R * c * 100) / 100;
-  }, [startLocation, endLocation]);
-
-  // Cost breakdown
-  const mileageCost = useMemo(() => {
-    if (!estimatedDistance || !kmConfig) return null;
-    const liters = estimatedDistance / kmConfig.kmPerLiter;
-    const fuelCost = Math.round(liters * kmConfig.fuelPricePerLiter);
-    const vehicleFee = Math.round(fuelCost * (kmConfig.vehicleFeePct / 100));
-    const toll = parseInt(tollAmount) || 0;
-    const total = fuelCost + vehicleFee + toll;
-    return { liters: Math.round(liters * 100) / 100, fuelCost, vehicleFee, toll, total };
-  }, [estimatedDistance, kmConfig, tollAmount]);
+  // Estimate vía /estimate (distancia por carretera = lo que se guardará)
+  useEffect(() => {
+    if (type !== "MILEAGE" || !startLocation || !endLocation) {
+      setEstimate(null);
+      return;
+    }
+    const toll = parseInt(tollAmount.replace(/[^\d]/g, "")) || 0;
+    estimateAbortRef.current?.abort();
+    const ac = new AbortController();
+    estimateAbortRef.current = ac;
+    setEstimating(true);
+    const t = setTimeout(() => {
+      fetch("/api/finance/trips/estimate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startLat: startLocation.lat,
+          startLng: startLocation.lng,
+          endLat: endLocation.lat,
+          endLng: endLocation.lng,
+          tollAmount: toll,
+        }),
+        signal: ac.signal,
+      })
+        .then((r) => r.json())
+        .then((json) => {
+          if (json?.success && json.data) setEstimate(json.data);
+        })
+        .catch(() => {})
+        .finally(() => setEstimating(false));
+    }, 400);
+    return () => {
+      clearTimeout(t);
+      ac.abort();
+    };
+  }, [type, startLocation, endLocation, tollAmount]);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -234,6 +262,7 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
           body: JSON.stringify({
             startLat: startLocation.lat,
             startLng: startLocation.lng,
+            startAddress: startLocation.address?.trim() || undefined,
           }),
         });
         const tripStartData = await tripStartRes.json();
@@ -248,6 +277,7 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
           body: JSON.stringify({
             endLat: endLocation.lat,
             endLng: endLocation.lng,
+            endAddress: endLocation.address?.trim() || undefined,
             tollAmount: parseInt(tollAmount.replace(/[^\d]/g, "")) || 0,
             routePoints: routePoints.length > 0 ? routePoints : undefined,
           }),
@@ -389,50 +419,31 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
       {/* Mileage GPS fields */}
       {type === "MILEAGE" && (
         <>
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="Punto de inicio">
-              <button
-                onClick={() => captureLocation("start")}
-                disabled={locatingStart}
-                className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-xs font-medium transition-colors ${
-                  startLocation
-                    ? "bg-emerald-600/20 border border-emerald-500/40 text-emerald-400"
-                    : "bg-emerald-600 text-white"
-                }`}
-              >
-                {locatingStart ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <MapPin size={14} />
-                )}
-                {startLocation
-                  ? `${startLocation.lat.toFixed(4)}, ${startLocation.lng.toFixed(4)}`
-                  : "Capturar inicio"}
-              </button>
-            </Field>
-            <Field label="Punto de fin">
-              <button
-                onClick={() => captureLocation("end")}
-                disabled={locatingEnd}
-                className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-xs font-medium transition-colors ${
-                  endLocation
-                    ? "bg-emerald-600/20 border border-emerald-500/40 text-emerald-400"
-                    : "bg-emerald-600 text-white"
-                }`}
-              >
-                {locatingEnd ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <MapPin size={14} />
-                )}
-                {endLocation
-                  ? `${endLocation.lat.toFixed(4)}, ${endLocation.lng.toFixed(4)}`
-                  : "Capturar fin"}
-              </button>
-            </Field>
-          </div>
+          <LocationField
+            label="Punto de inicio (¿dónde estoy?)"
+            mode={startMode}
+            setMode={setStartMode}
+            location={startLocation}
+            locating={locatingStart}
+            onCapture={() => captureLocation("start")}
+            installations={geoInstallations}
+            onPickInstallation={(loc) => setStartLocation(loc)}
+            captureLabel="Capturar inicio"
+          />
 
-          <Field label="Peaje (CLP)">
+          <LocationField
+            label="Punto de fin (¿a qué instalación voy?)"
+            mode={endMode}
+            setMode={setEndMode}
+            location={endLocation}
+            locating={locatingEnd}
+            onCapture={() => captureLocation("end")}
+            installations={geoInstallations}
+            onPickInstallation={(loc) => setEndLocation(loc)}
+            captureLabel="Capturar fin"
+          />
+
+          <Field label="Peaje / TAG (CLP)">
             <input
               type="number"
               min="0"
@@ -441,27 +452,36 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
               placeholder="0"
               className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
             />
+            <p className="text-[10px] text-zinc-500 mt-1">Costo de peajes/TAG. Se suma al total.</p>
           </Field>
 
           {/* Cost breakdown */}
-          {estimatedDistance !== null && mileageCost && (
+          {(estimating || estimate) && startLocation && endLocation && (
             <div className="rounded-lg bg-zinc-900 border border-zinc-800 p-3 space-y-1.5">
-              <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+              <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
                 Cálculo estimado
+                {estimating && <Loader2 size={11} className="animate-spin" />}
               </p>
-              <div className="space-y-1 text-xs">
-                <Row label="Distancia" value={`${estimatedDistance} km`} />
-                <Row label="Litros" value={`${mileageCost.liters} L`} />
-                <Row label="Combustible" value={fmtCLP(mileageCost.fuelCost)} />
-                <Row label={`Vehículo (${kmConfig?.vehicleFeePct}%)`} value={fmtCLP(mileageCost.vehicleFee)} />
-                {mileageCost.toll > 0 && (
-                  <Row label="Peaje" value={fmtCLP(mileageCost.toll)} />
-                )}
-                <div className="flex justify-between border-t border-zinc-700 pt-1 font-medium text-sm">
-                  <span className="text-white">Total</span>
-                  <span className="text-emerald-400">{fmtCLP(mileageCost.total)}</span>
+              {estimate && (
+                <div className="space-y-1 text-xs">
+                  <Row label="Distancia" value={`${estimate.distanceKm} km`} />
+                  <Row label="Litros" value={`${estimate.liters} L`} />
+                  <Row label="Combustible" value={fmtCLP(estimate.fuelCost)} />
+                  <Row label={`Vehículo (${estimate.vehicleFeePct}%)`} value={fmtCLP(estimate.vehicleFee)} />
+                  {estimate.tollAmount > 0 && (
+                    <Row label="Peaje / TAG" value={fmtCLP(estimate.tollAmount)} />
+                  )}
+                  <div className="flex justify-between border-t border-zinc-700 pt-1 font-medium text-sm">
+                    <span className="text-white">Total</span>
+                    <span className="text-emerald-400">{fmtCLP(estimate.totalAmount)}</span>
+                  </div>
+                  {estimate.source === "haversine" && (
+                    <p className="text-[10px] text-amber-400 pt-0.5">
+                      Distancia aproximada en línea recta (no se pudo calcular la ruta).
+                    </p>
+                  )}
                 </div>
-              </div>
+              )}
             </div>
           )}
         </>
@@ -639,5 +659,107 @@ function Row({ label, value }: { label: string; value: string }) {
       <span className="text-zinc-500">{label}</span>
       <span className="text-zinc-300">{value}</span>
     </div>
+  );
+}
+
+function LocationField({
+  label,
+  mode,
+  setMode,
+  location,
+  locating,
+  onCapture,
+  installations,
+  onPickInstallation,
+  captureLabel,
+}: {
+  label: string;
+  mode: LocationMode;
+  setMode: (m: LocationMode) => void;
+  location: GeolocationData | null;
+  locating: boolean;
+  onCapture: () => void;
+  installations: SupervisorInstallation[];
+  onPickInstallation: (loc: GeolocationData) => void;
+  captureLabel: string;
+}) {
+  return (
+    <Field label={label}>
+      <div className="flex gap-1.5 mb-1.5">
+        <button
+          onClick={() => setMode("gps")}
+          className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+            mode === "gps"
+              ? "bg-emerald-600 text-white"
+              : "bg-zinc-900 border border-zinc-800 text-zinc-400"
+          }`}
+        >
+          <Navigation size={12} />
+          GPS
+        </button>
+        <button
+          onClick={() => setMode("installation")}
+          className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+            mode === "installation"
+              ? "bg-emerald-600 text-white"
+              : "bg-zinc-900 border border-zinc-800 text-zinc-400"
+          }`}
+        >
+          <Building2 size={12} />
+          Instalación
+        </button>
+      </div>
+
+      {mode === "gps" ? (
+        <button
+          onClick={onCapture}
+          disabled={locating}
+          className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-xs font-medium transition-colors ${
+            location
+              ? "bg-emerald-600/20 border border-emerald-500/40 text-emerald-400"
+              : "bg-emerald-600 text-white"
+          }`}
+        >
+          {locating ? <Loader2 size={14} className="animate-spin" /> : <MapPin size={14} />}
+          {location
+            ? location.address || `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
+            : captureLabel}
+        </button>
+      ) : (
+        <select
+          value=""
+          onChange={(e) => {
+            const inst = installations.find((i) => i.id === e.target.value);
+            if (inst && typeof inst.lat === "number" && typeof inst.lng === "number") {
+              onPickInstallation({
+                lat: inst.lat,
+                lng: inst.lng,
+                address: inst.address ? `${inst.name} · ${inst.address}` : inst.name,
+                timestamp: Date.now(),
+              });
+            }
+          }}
+          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        >
+          <option value="">
+            {installations.length === 0
+              ? "Sin instalaciones con GPS"
+              : "Seleccionar instalación..."}
+          </option>
+          {installations.map((inst) => (
+            <option key={inst.id} value={inst.id}>
+              {inst.name}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {mode === "installation" && location?.address && (
+        <p className="text-[11px] text-zinc-400 mt-1 flex items-center gap-1">
+          <Building2 size={11} />
+          {location.address}
+        </p>
+      )}
+    </Field>
   );
 }

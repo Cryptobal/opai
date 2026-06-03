@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
 import { z } from "zod";
+import { roadDistanceKm, mileageBreakdown } from "@/lib/finance/mileage";
 
 type Params = { id: string };
 
@@ -62,40 +63,35 @@ export async function POST(
       );
     }
 
-    // Calculate distance using Google Maps Directions API
+    // Distancia por carretera (cae a línea recta si Google falla — nunca 0 silencioso)
     const startLat = Number(trip.startLat);
     const startLng = Number(trip.startLng);
     const { endLat, endLng } = body;
 
-    let distanceKm = 0;
-    try {
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-      if (!apiKey) throw new Error("Google Maps API key not configured");
+    const { distanceKm } = await roadDistanceKm(startLat, startLng, endLat, endLng);
 
-      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${startLat},${startLng}&destination=${endLat},${endLng}&key=${apiKey}`;
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (data.routes?.[0]?.legs?.[0]?.distance?.value) {
-        distanceKm = data.routes[0].legs[0].distance.value / 1000;
-      }
-    } catch (err) {
-      console.error("[Finance] Error fetching distance from Google Maps:", err);
-      // Fall back to straight-line distance (Haversine)
-      distanceKm = haversineDistance(startLat, startLng, endLat, endLng);
-    }
-
-    // Calculate costs
+    // Cálculo de costos — misma fórmula que el preview (/estimate)
     const snapshotKmPerLiter = Number(trip.snapshotKmPerLiter ?? 10);
     const snapshotFuelPrice = trip.snapshotFuelPrice ?? 1500;
     const snapshotFeePct = Number(trip.snapshotFeePct ?? 10);
     const tollAmount = body.tollAmount ?? trip.tollAmount ?? 0;
 
-    const litersConsumed = snapshotKmPerLiter > 0 ? distanceKm / snapshotKmPerLiter : 0;
-    const fuelCost = Math.round(litersConsumed * snapshotFuelPrice);
-    const vehicleFee = Math.round(fuelCost * snapshotFeePct / 100);
-    const subtotal = fuelCost + vehicleFee;
-    const totalAmount = subtotal + tollAmount;
+    const { litersConsumed, fuelCost, vehicleFee, subtotal, totalAmount } = (() => {
+      const b = mileageBreakdown({
+        distanceKm,
+        kmPerLiter: snapshotKmPerLiter,
+        fuelPricePerLiter: snapshotFuelPrice,
+        vehicleFeePct: snapshotFeePct,
+        tollAmount,
+      });
+      return {
+        litersConsumed: b.liters,
+        fuelCost: b.fuelCost,
+        vehicleFee: b.vehicleFee,
+        subtotal: b.subtotal,
+        totalAmount: b.totalAmount,
+      };
+    })();
 
     // Generate rendicion code
     const year = new Date().getFullYear();
@@ -171,22 +167,4 @@ export async function POST(
       { status: 500 },
     );
   }
-}
-
-/** Haversine distance in km (fallback) */
-function haversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }

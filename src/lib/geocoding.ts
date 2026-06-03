@@ -25,3 +25,28 @@ export async function geocodeAddress(
     return null;
   }
 }
+
+/**
+ * Reverse-geocode lat/lng to a human-readable address using the Google
+ * Geocoding API. Returns null if the key is missing or no result is found.
+ */
+export async function reverseGeocode(
+  lat: number,
+  lng: number,
+): Promise<string | null> {
+  if (!GOOGLE_MAPS_API_KEY) return null;
+
+  try {
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=es&region=CL&key=${GOOGLE_MAPS_API_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (data.status === "OK" && data.results.length > 0) {
+      return data.results[0].formatted_address as string;
+    }
+    return null;
+  } catch (error) {
+    console.error("[Geocoding] Reverse error:", error);
+    return null;
+  }
+}

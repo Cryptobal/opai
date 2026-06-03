@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,6 +28,7 @@ import {
   Image as ImageIcon,
   Users,
   Navigation,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -80,6 +81,29 @@ interface GeolocationData {
   timestamp: number;
 }
 
+interface InstallationGeo {
+  id: string;
+  name: string;
+  address: string | null;
+  commune: string | null;
+  lat: number;
+  lng: number;
+}
+
+type LocationMode = "gps" | "manual" | "installation";
+
+interface TripEstimate {
+  distanceKm: number;
+  liters: number;
+  fuelCost: number;
+  vehicleFee: number;
+  subtotal: number;
+  tollAmount: number;
+  totalAmount: number;
+  source: "google" | "haversine";
+  vehicleFeePct: number;
+}
+
 interface AttachmentPreview {
   file: File;
   previewUrl: string;
@@ -97,6 +121,122 @@ const fmtCLP = new Intl.NumberFormat("es-CL", {
   currency: "CLP",
   minimumFractionDigits: 0,
 });
+
+/* ── Installation search (origen/destino desde instalaciones activas con GPS) ── */
+
+function InstallationSearch({
+  selected,
+  onPick,
+  hasError,
+}: {
+  selected: GeolocationData | null;
+  onPick: (loc: GeolocationData) => void;
+  hasError?: boolean;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<InstallationGeo[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const fetchInstallations = useCallback(async (q: string) => {
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `/api/finance/installations-geo${q ? `?q=${encodeURIComponent(q)}` : ""}`,
+        { signal: abortRef.current.signal },
+      );
+      const json = await res.json();
+      if (res.ok && json.success && Array.isArray(json.data)) {
+        setResults(json.data);
+        setOpen(true);
+      }
+    } catch {
+      /* aborted */
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  return (
+    <div className="relative">
+      <Input
+        value={query}
+        onFocus={() => {
+          if (results.length === 0) fetchInstallations("");
+          else setOpen(true);
+        }}
+        onChange={(e) => {
+          const v = e.target.value;
+          setQuery(v);
+          if (debounceRef.current) clearTimeout(debounceRef.current);
+          debounceRef.current = setTimeout(() => fetchInstallations(v), 250);
+        }}
+        placeholder="Buscar instalación activa..."
+        className={cn(hasError && "border-status-danger-border")}
+      />
+      {loading && (
+        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+      )}
+      {open && results.length > 0 && (
+        <ul className="absolute left-0 right-0 z-50 mt-1 max-h-56 overflow-auto rounded-lg border border-border bg-popover py-1 text-sm shadow-xl">
+          {results.map((inst) => (
+            <li
+              key={inst.id}
+              className="cursor-pointer px-3 py-2 hover:bg-accent/60"
+              onClick={() => {
+                onPick({
+                  lat: inst.lat,
+                  lng: inst.lng,
+                  address: inst.address
+                    ? `${inst.name} · ${inst.address}`
+                    : inst.name,
+                  timestamp: Date.now(),
+                });
+                setQuery(inst.name);
+                setOpen(false);
+              }}
+            >
+              <div className="flex items-center gap-1.5 font-medium">
+                <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                {inst.name}
+              </div>
+              {(inst.address || inst.commune) && (
+                <p className="text-xs text-muted-foreground ml-5">
+                  {[inst.address, inst.commune].filter(Boolean).join(", ")}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {open && !loading && results.length === 0 && (
+        <p className="absolute left-0 right-0 z-50 mt-1 rounded-lg border border-border bg-popover px-3 py-2 text-xs text-muted-foreground shadow-xl">
+          No hay instalaciones activas con GPS.
+        </p>
+      )}
+      {selected && (
+        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+          <Building2 className="h-3 w-3" />
+          {selected.address ||
+            `${selected.lat.toFixed(5)}, ${selected.lng.toFixed(5)}`}
+        </p>
+      )}
+    </div>
+  );
+}
 
 /* ── Component ── */
 
@@ -161,9 +301,14 @@ export function RendicionForm({
   const [endLocation, setEndLocation] = useState<GeolocationData | null>(null);
   const [locatingStart, setLocatingStart] = useState(false);
   const [locatingEnd, setLocatingEnd] = useState(false);
-  const [startMode, setStartMode] = useState<"gps" | "manual">("gps");
-  const [endMode, setEndMode] = useState<"gps" | "manual">("gps");
+  const [startMode, setStartMode] = useState<LocationMode>("gps");
+  const [endMode, setEndMode] = useState<LocationMode>("gps");
   const [tollAmount, setTollAmount] = useState("0");
+
+  // Trip estimate (preview = exactamente lo que se guardará, vía /estimate)
+  const [estimate, setEstimate] = useState<TripEstimate | null>(null);
+  const [estimating, setEstimating] = useState(false);
+  const estimateAbortRef = useRef<AbortController | null>(null);
 
   // Route tracking
   const [routePoints, setRoutePoints] = useState<Array<{lat: number; lng: number; ts: number}>>([]);
@@ -267,6 +412,17 @@ export function RendicionForm({
           };
           setLocation(loc);
           setLocating(false);
+          // Reverse-geocode para mostrar/guardar la dirección legible
+          fetch(`/api/finance/geocode/reverse?lat=${loc.lat}&lng=${loc.lng}`)
+            .then((r) => r.json())
+            .then((j) => {
+              if (j?.success && j.data?.address) {
+                setLocation((prev) =>
+                  prev ? { ...prev, address: j.data.address } : prev,
+                );
+              }
+            })
+            .catch(() => {});
           if (target === "start") {
             lastPointRef.current = { lat: loc.lat, lng: loc.lng };
             setRoutePoints([{ lat: loc.lat, lng: loc.lng, ts: loc.timestamp }]);
@@ -287,32 +443,43 @@ export function RendicionForm({
     [startTracking, stopTracking]
   );
 
-  /* ── Mileage calculation ── */
+  /* ── Mileage calculation (vía /estimate: distancia por carretera) ── */
 
-  const estimatedDistance = useMemo(() => {
-    if (!startLocation || !endLocation) return null;
-    // Haversine formula
-    const R = 6371;
-    const dLat = ((endLocation.lat - startLocation.lat) * Math.PI) / 180;
-    const dLng = ((endLocation.lng - startLocation.lng) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos((startLocation.lat * Math.PI) / 180) *
-        Math.cos((endLocation.lat * Math.PI) / 180) *
-        Math.sin(dLng / 2) ** 2;
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return Math.round(R * c * 100) / 100;
-  }, [startLocation, endLocation]);
-
-  const mileageCost = useMemo(() => {
-    if (!estimatedDistance || !config) return null;
-    const liters = estimatedDistance / config.kmPerLiter;
-    const fuelCost = Math.round(liters * config.fuelPricePerLiter);
-    const vehicleFee = Math.round(fuelCost * (config.vehicleFeePct / 100));
-    const toll = parseInt(tollAmount) || 0;
-    const total = fuelCost + vehicleFee + toll;
-    return { liters: Math.round(liters * 100) / 100, fuelCost, vehicleFee, toll, total };
-  }, [estimatedDistance, config, tollAmount]);
+  useEffect(() => {
+    if (type !== "MILEAGE" || !startLocation || !endLocation) {
+      setEstimate(null);
+      return;
+    }
+    const toll = parseInt(tollAmount.replace(/[^\d]/g, "")) || 0;
+    estimateAbortRef.current?.abort();
+    const ac = new AbortController();
+    estimateAbortRef.current = ac;
+    setEstimating(true);
+    const t = setTimeout(() => {
+      fetch("/api/finance/trips/estimate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startLat: startLocation.lat,
+          startLng: startLocation.lng,
+          endLat: endLocation.lat,
+          endLng: endLocation.lng,
+          tollAmount: toll,
+        }),
+        signal: ac.signal,
+      })
+        .then((r) => r.json())
+        .then((json) => {
+          if (json?.success && json.data) setEstimate(json.data);
+        })
+        .catch(() => {})
+        .finally(() => setEstimating(false));
+    }, 400);
+    return () => {
+      clearTimeout(t);
+      ac.abort();
+    };
+  }, [type, startLocation, endLocation, tollAmount]);
 
   /* ── File handling ── */
 
@@ -542,7 +709,6 @@ export function RendicionForm({
       endLocation,
       tollAmount,
       routePoints,
-      mileageCost,
       initialData,
       router,
       beneficiaryGuardiaId,
@@ -686,7 +852,7 @@ export function RendicionForm({
               {/* Punto de inicio */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <Label>Punto de inicio</Label>
+                  <Label>Punto de inicio (¿dónde estoy?)</Label>
                   <div className="flex rounded-md overflow-hidden border border-border text-xs">
                     <button
                       type="button"
@@ -695,6 +861,14 @@ export function RendicionForm({
                     >
                       <Navigation className="h-3 w-3" />
                       GPS
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStartMode("installation")}
+                      className={cn("px-2.5 py-1 flex items-center gap-1 transition-colors border-l border-border", startMode === "installation" ? "bg-status-info-soft text-status-info-fg" : "text-muted-foreground hover:text-foreground")}
+                    >
+                      <Building2 className="h-3 w-3" />
+                      Instalación
                     </button>
                     <button
                       type="button"
@@ -726,6 +900,12 @@ export function RendicionForm({
                       ? `${startLocation.lat.toFixed(5)}, ${startLocation.lng.toFixed(5)}`
                       : "Capturar inicio (ubicación actual)"}
                   </Button>
+                ) : startMode === "installation" ? (
+                  <InstallationSearch
+                    selected={startLocation}
+                    hasError={!!errors.startLocation}
+                    onPick={(loc) => setStartLocation(loc)}
+                  />
                 ) : (
                   <AddressAutocomplete
                     value={startLocation?.address ?? ""}
@@ -754,7 +934,7 @@ export function RendicionForm({
               {/* Punto de fin */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <Label>Punto de fin</Label>
+                  <Label>Punto de fin (¿a qué instalación voy?)</Label>
                   <div className="flex rounded-md overflow-hidden border border-border text-xs">
                     <button
                       type="button"
@@ -763,6 +943,14 @@ export function RendicionForm({
                     >
                       <Navigation className="h-3 w-3" />
                       GPS
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEndMode("installation")}
+                      className={cn("px-2.5 py-1 flex items-center gap-1 transition-colors border-l border-border", endMode === "installation" ? "bg-status-info-soft text-status-info-fg" : "text-muted-foreground hover:text-foreground")}
+                    >
+                      <Building2 className="h-3 w-3" />
+                      Instalación
                     </button>
                     <button
                       type="button"
@@ -794,6 +982,12 @@ export function RendicionForm({
                       ? `${endLocation.lat.toFixed(5)}, ${endLocation.lng.toFixed(5)}`
                       : "Capturar fin (ubicación actual)"}
                   </Button>
+                ) : endMode === "installation" ? (
+                  <InstallationSearch
+                    selected={endLocation}
+                    hasError={!!errors.endLocation}
+                    onPick={(loc) => setEndLocation(loc)}
+                  />
                 ) : (
                   <AddressAutocomplete
                     value={endLocation?.address ?? ""}
@@ -819,64 +1013,69 @@ export function RendicionForm({
                 )}
               </div>
 
-              {/* Toll amount */}
+              {/* Toll amount (TAG / peajes) */}
               <div>
-                <Label htmlFor="tollAmount">Peaje (CLP)</Label>
+                <Label htmlFor="tollAmount">Peaje / TAG (CLP)</Label>
                 <Input
                   id="tollAmount"
                   inputMode="numeric"
-                  value={tollAmount}
+                  value={tollAmount ? Number(tollAmount).toLocaleString("es-CL") : ""}
                   onChange={(e) => setTollAmount(e.target.value.replace(/[^\d]/g, ""))}
                   placeholder="0"
                   className="mt-1"
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Costo de peajes/TAG del trayecto. Se suma al total.
+                </p>
               </div>
 
               {/* Mileage cost breakdown */}
-              {estimatedDistance !== null && mileageCost && (
+              {(estimating || estimate) && startLocation && endLocation && (
                 <Card className="bg-muted/30">
                   <CardContent className="pt-4">
-                    <p className="text-xs font-medium text-muted-foreground mb-2">
+                    <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
                       Cálculo estimado
+                      {estimating && <Loader2 className="h-3 w-3 animate-spin" />}
                     </p>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Distancia
-                        </span>
-                        <span>{estimatedDistance} km</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Litros consumidos
-                        </span>
-                        <span>{mileageCost.liters} L</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Costo combustible
-                        </span>
-                        <span>{fmtCLP.format(mileageCost.fuelCost)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Fee vehículo ({config?.vehicleFeePct}%)
-                        </span>
-                        <span>{fmtCLP.format(mileageCost.vehicleFee)}</span>
-                      </div>
-                      {mileageCost.toll > 0 && (
+                    {estimate && (
+                      <div className="space-y-1 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Peaje</span>
-                          <span>{fmtCLP.format(mileageCost.toll)}</span>
+                          <span className="text-muted-foreground">Distancia</span>
+                          <span>{estimate.distanceKm} km</span>
                         </div>
-                      )}
-                      <div className="flex justify-between border-t border-border pt-1 font-medium">
-                        <span>Total</span>
-                        <span className="text-status-ok-fg">
-                          {fmtCLP.format(mileageCost.total)}
-                        </span>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Litros consumidos</span>
+                          <span>{estimate.liters} L</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Costo combustible</span>
+                          <span>{fmtCLP.format(estimate.fuelCost)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">
+                            Fee vehículo ({estimate.vehicleFeePct}%)
+                          </span>
+                          <span>{fmtCLP.format(estimate.vehicleFee)}</span>
+                        </div>
+                        {estimate.tollAmount > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Peaje / TAG</span>
+                            <span>{fmtCLP.format(estimate.tollAmount)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-t border-border pt-1 font-medium">
+                          <span>Total</span>
+                          <span className="text-status-ok-fg">
+                            {fmtCLP.format(estimate.totalAmount)}
+                          </span>
+                        </div>
+                        {estimate.source === "haversine" && (
+                          <p className="text-[11px] text-status-warn-fg pt-1">
+                            Distancia aproximada en línea recta (no se pudo calcular la ruta).
+                          </p>
+                        )}
                       </div>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
