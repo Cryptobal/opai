@@ -3,6 +3,7 @@ import {
   expandRecurrence,
   bucketKeyFor,
   calcularFechaEmisionProyectada,
+  itemForRecurrenceExpansion,
 } from "../recurrence-engine";
 import type { FinanceCashflowItem } from "@prisma/client";
 
@@ -131,6 +132,27 @@ describe("bucketKeyFor", () => {
   it("weekly format YYYY-Www", () => {
     const k = bucketKeyFor(new Date("2026-01-15"), "weekly");
     expect(k).toMatch(/^\d{4}-W\d{2}$/);
+  });
+});
+
+describe("itemForRecurrenceExpansion", () => {
+  it("CONTRACT: ignora calendario Bloque 5 y usa dayOfMonth legacy", () => {
+    const base = build({ dayOfMonth: 20, startDate: new Date("2026-01-01") });
+    const normalized = itemForRecurrenceExpansion({
+      ...base,
+      source: "CONTRACT",
+      sourceRefId: "doc-1",
+      diasCobroDesdeFactura: 30,
+      emiteProforma: true,
+      diaEmisionProforma: 1,
+      diasFacturaDesdeProforma: 5,
+    });
+    const dates = expandRecurrence(
+      normalized,
+      new Date("2026-06-01"),
+      new Date("2026-06-30"),
+    );
+    expect(dates.map((d) => d.getDate())).toEqual([20]);
   });
 });
 

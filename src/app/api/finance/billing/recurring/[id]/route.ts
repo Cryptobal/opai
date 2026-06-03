@@ -9,7 +9,10 @@ import { hasFacturacionCapability } from "@/lib/permissions";
 import { recurringTemplateSchema } from "@/lib/validations/finance";
 import { computeNextRunAt } from "@/modules/finance/billing/dte-recurring.service";
 import { prisma } from "@/lib/prisma";
-import { deactivateRecurringDteMirrorsForTemplateIds } from "@/modules/finance/cashflow/generators/recurring-dte-sync";
+import {
+  deactivateRecurringDteMirrorsForTemplateIds,
+  syncRecurringDteItem,
+} from "@/modules/finance/cashflow/generators/recurring-dte-sync";
 
 export async function GET(
   _request: NextRequest,
@@ -165,6 +168,7 @@ export async function PATCH(
         periodPolicy: body.periodPolicy,
       },
     });
+    await syncRecurringDteItem(ctx.tenantId, updated.id);
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     console.error("[Finance/Recurring] Update error:", error);

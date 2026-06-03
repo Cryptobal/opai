@@ -76,16 +76,13 @@ export async function ensureCashflowSynced(tenantId: string): Promise<{
       await recomputePayrollAmounts(tenantId);
     }
 
-    // ── DTE recurrentes: mirror 1:1 con templates activos ──
-    const [activeTemplates, dteItems] = await Promise.all([
-      prisma.financeDteRecurringTemplate.count({
-        where: { tenantId, isActive: true },
-      }),
-      prisma.financeCashflowItem.count({
-        where: { tenantId, source: "RECURRING_DTE", isActive: true },
-      }),
-    ]);
-    if (activeTemplates > 0 && dteItems < activeTemplates) {
+    // ── DTE recurrentes: mirror 1:1 con plantillas (activas e inactivas) ──
+    // Idempotente: actualiza dayOfMonth/montos si el usuario editó la plantilla
+    // sin pasar por un backfill explícito. Incluye inactivas para apagar espejos.
+    const templateCount = await prisma.financeDteRecurringTemplate.count({
+      where: { tenantId },
+    });
+    if (templateCount > 0) {
       triggered.recurringDte = true;
       await backfillRecurringDteItems(tenantId);
     }

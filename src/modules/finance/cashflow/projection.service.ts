@@ -4,7 +4,14 @@ import { listItems } from "./item.service";
 import { listMaterializedOccurrences } from "./occurrence.service";
 import { listCategories } from "./category.service";
 import { getOrCreateCashflowConfig } from "./config.service";
-import { expandRecurrence, bucketKeyFor, bucketBoundsFor, utcCalendarDay } from "./recurrence-engine";
+import {
+  expandRecurrence,
+  itemForRecurrenceExpansion,
+  bucketKeyFor,
+  bucketBoundsFor,
+  utcCalendarDay,
+} from "./recurrence-engine";
+import { filterCashflowItemsForProjection } from "./projection-item-filter";
 import { occurrenceBucketKey } from "./bucket-matcher";
 import { resolveUfForOccurrence } from "./uf-resolver";
 import type {
@@ -410,51 +417,9 @@ export async function buildProjection(
     });
   }
 
-  // Deduplicación CONTRACT ↔ RECURRING_DTE: el flujo de caja se alimenta
-  // desde el tab Contratos de la ficha de cuenta CRM. Cuando un contrato
-  // ya emite un item `source=CONTRACT`, una plantilla DTE recurrente
-  // (`source=RECURRING_DTE`) del mismo cliente+instalación es duplicado:
-  // probablemente se creó al integrar contrato → factura recurrente SII y
-  // queda viva en `FinanceDteRecurringTemplate` para timbraje, pero NO
-  // debe sumar ingreso paralelo en la proyección. La clave de dedup es
-  // (crmAccountId, installationId): cubre el caso típico de un cliente
-  // con contrato + plantilla para la misma instalación.
-  //
-  // Incluimos source=OTHER cuando tiene sourceRefId (contratos migrados /
-  // asociados a Document): si sólo mirábamos CONTRACT, al tener el ítem
-  // como OTHER la dedupe no aplicaba y el RECURRING_DTE volvía a sumar tras
-  // quirks de datos o migración.
-  const contractKeys = new Set<string>();
-  for (const it of itemsAfterRecurringSanity) {
-    if (
-      it.crmAccountId &&
-      (it.source === "CONTRACT" ||
-        (it.source === "OTHER" && it.sourceRefId != null))
-    ) {
-      contractKeys.add(`${it.crmAccountId}|${it.installationId ?? ""}`);
-    }
-  }
-  // Conteo de recurrentes por instalación: si hay 2+, son cobros múltiples
-  // intencionales (ej. Transmat factura 2x/mes) y NO deben colapsarse contra
-  // el item CONTRACT. La dedupe 1-a-1 (contrato espejado por UNA recurrente)
-  // se mantiene.
-  const recurringCountByKey = new Map<string, number>();
-  for (const it of itemsAfterRecurringSanity) {
-    if (it.source !== "RECURRING_DTE" || !it.crmAccountId) continue;
-    const k = `${it.crmAccountId}|${it.installationId ?? ""}`;
-    recurringCountByKey.set(k, (recurringCountByKey.get(k) ?? 0) + 1);
-  }
-  const items = itemsAfterRecurringSanity.filter((i) => {
-    if (i.source !== "RECURRING_DTE") return true;
-    if (!i.crmAccountId) return true;
-    const k = `${i.crmAccountId}|${i.installationId ?? ""}`;
-    // Si hay 2+ recurrentes en esta instalación, son cobros múltiples
-    // intencionales: NO dedupe contra CONTRACT (se mostrarían todas y el
-    // matcher por monto engancha cada factura a su cuota correcta).
-    if ((recurringCountByKey.get(k) ?? 0) >= 2) return true;
-    // Caso 1-a-1: una sola recurrente que espeja un contrato → dedupe.
-    return !contractKeys.has(k);
-  });
+  // Programación recurrente (RECURRING_DTE) manda el placement; CONTRACT se
+  // oculta cuando hay espejo recurrente para la misma cuenta+instalación.
+  const items = filterCashflowItemsForProjection(itemsAfterRecurringSanity);
   // FinanceCashflowItem.installationId no tiene @relation, así que resolvemos
   // los nombres en un lookup batch por tenant. Pick mínimo para no traer overhead.
   const installationIds = Array.from(
@@ -632,7 +597,11 @@ export async function buildProjection(
   const allOccurrences: VirtualOccurrence[] = [];
 
   for (const item of items) {
-    const virtualDates = expandRecurrence(item, range.from, range.to);
+    const virtualDates = expandRecurrence(
+      itemForRecurrenceExpansion(item),
+      range.from,
+      range.to,
+    );
     const itemMats = matsByItem.get(item.id) ?? [];
 
     // Cada slot representa una cuota a renderizar: combina una fecha

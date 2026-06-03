@@ -86,7 +86,7 @@ export function calcularFechaEmisionProyectada(
   return fechaFactura;
 }
 
-type ExpandRecurrenceItem = Pick<
+export type ExpandRecurrenceItem = Pick<
   FinanceCashflowItem,
   "recurrence" | "startDate" | "endDate" | "dayOfMonth" | "dayOfWeek" | "monthOfYear"
 > &
@@ -101,6 +101,36 @@ type ExpandRecurrenceItem = Pick<
       | "diasCobroDesdeFactura"
     >
   >;
+
+type RecurrenceExpansionSource = Pick<
+  FinanceCashflowItem,
+  "source" | "sourceRefId"
+>;
+
+/**
+ * Ítems CONTRACT/OTHER del CRM: el calendario Bloque 5 (proforma/cobro) ya no
+ * mueve la celda del flujo — solo `dayOfMonth` (día de pago del contrato).
+ * RECURRING_DTE ya usa dayOfMonth de la plantilla vía el espejo.
+ */
+export function itemForRecurrenceExpansion(
+  item: ExpandRecurrenceItem & RecurrenceExpansionSource,
+): ExpandRecurrenceItem {
+  if (
+    item.source === "CONTRACT" ||
+    (item.source === "OTHER" && item.sourceRefId != null)
+  ) {
+    return {
+      ...item,
+      diasCobroDesdeFactura: 0,
+      emiteProforma: false,
+      diaEmisionProforma: null,
+      diasFacturaDesdeProforma: null,
+      diaEmisionFactura: null,
+      mesFacturaRelativo: "MISMO_MES",
+    };
+  }
+  return item;
+}
 
 export function expandRecurrence(
   item: ExpandRecurrenceItem,

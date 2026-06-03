@@ -170,6 +170,24 @@ export async function syncRecurringDteItem(
   };
 
   if (existing) {
+    const scheduleChanged =
+      existing.recurrence !== data.recurrence ||
+      existing.dayOfMonth !== data.dayOfMonth ||
+      existing.dayOfWeek !== data.dayOfWeek ||
+      existing.monthOfYear !== data.monthOfYear ||
+      existing.startDate.getTime() !== data.startDate.getTime() ||
+      (existing.endDate?.getTime() ?? null) !== (data.endDate?.getTime() ?? null);
+    if (scheduleChanged) {
+      await prisma.financeCashflowOccurrence.deleteMany({
+        where: {
+          tenantId,
+          itemId: existing.id,
+          status: "PROJECTED",
+          dteId: null,
+          bankTransactionId: null,
+        },
+      });
+    }
     await prisma.financeCashflowItem.update({ where: { id: existing.id }, data });
     return { action: existing.isActive ? "updated" : "reactivated" };
   }

@@ -8,6 +8,7 @@ import {
 import { hasFacturacionCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { computeNextRunAt } from "@/modules/finance/billing/dte-recurring.service";
+import { syncRecurringDteItem } from "@/modules/finance/cashflow/generators/recurring-dte-sync";
 
 /**
  * POST /api/finance/billing/recurring/[id]/duplicate
@@ -101,6 +102,7 @@ export async function POST(
       },
     });
 
+    await syncRecurringDteItem(ctx.tenantId, created.id);
     return NextResponse.json({ success: true, data: created }, { status: 201 });
   } catch (error) {
     console.error("[Finance/Recurring] Duplicate error:", error);
