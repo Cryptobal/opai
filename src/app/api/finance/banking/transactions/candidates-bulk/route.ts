@@ -5,14 +5,18 @@ import {
   resolveApiPerms,
 } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
-import { findDteCandidatesForBulk } from "@/modules/finance/banking/bank-tx-link.service";
+import {
+  findDteCandidatesForBulk,
+  findFactoringCandidatesForBulk,
+} from "@/modules/finance/banking/bank-tx-link.service";
 
 /**
  * POST /api/finance/banking/transactions/candidates-bulk
  * Body: { bankTxIds: string[] }
- * Devuelve DTEs candidatos para conciliar contra la SUMA de los
- * movimientos seleccionados. Pensado para el sheet de conciliación
- * cuando hay 2+ tx marcadas.
+ * Devuelve DTEs Y cesiones a factoring candidatas para conciliar contra la
+ * SUMA de los movimientos seleccionados. Pensado para el sheet de conciliación
+ * cuando hay 2+ tx marcadas — homologado con el endpoint single-tx para que
+ * ambos sidebars ofrezcan las mismas opciones (facturas + cedidas).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -33,14 +37,14 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-    const dtes = await findDteCandidatesForBulk(
-      ctx.tenantId,
-      ids as string[],
-    );
+    const [dtes, factoring] = await Promise.all([
+      findDteCandidatesForBulk(ctx.tenantId, ids as string[]),
+      findFactoringCandidatesForBulk(ctx.tenantId, ids as string[]),
+    ]);
     return NextResponse.json({
       success: true,
       data: dtes,
-      factoring: [],
+      factoring,
     });
   } catch (error) {
     console.error("[Finance/Banking/CandidatesBulk] error:", error);

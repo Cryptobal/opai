@@ -229,6 +229,9 @@ export interface CandidateDte {
   amountPending: number;
   issuedAt: string;
   paymentStatus: string;
+  /** Nombre de la instalación asociada al DTE (de su creación/programación).
+   *  Null si el DTE no tiene installationId o la instalación fue borrada. */
+  installationName: string | null;
 }
 
 /** Candidato de cesión a factoring (Fase 4). El monto a matchear es
@@ -248,10 +251,31 @@ export interface CandidateFactoring {
   status: string;
   dteFolio: number | null;
   dteReceiverName: string | null;
+  /** Nombre de la instalación del DTE cedido (de su creación/programación). */
+  installationName: string | null;
   /** 0–100: combinación de monto, fecha, folio en glosa, catálogo factoring, banda bruta. */
   confidence: number;
   matchSignals: string[];
   isSuggested: boolean;
+}
+
+/**
+ * Resuelve nombres de instalación en lote a partir de sus ids.
+ * `FinanceDte.installationId` es un campo escalar (sin relación Prisma),
+ * así que hacemos un único query por todo el set de candidatos en vez de
+ * un include por fila. Devuelve un Map id→name para mapear barato.
+ */
+async function fetchInstallationNames(
+  tenantId: string,
+  ids: Array<string | null | undefined>,
+): Promise<Map<string, string>> {
+  const unique = [...new Set(ids.filter((x): x is string => !!x))];
+  if (unique.length === 0) return new Map();
+  const rows = await prisma.crmInstallation.findMany({
+    where: { id: { in: unique }, tenantId },
+    select: { id: true, name: true },
+  });
+  return new Map(rows.map((r) => [r.id, r.name]));
 }
 
 // ── Candidatos sugeridos ──
@@ -541,6 +565,11 @@ export async function findDteCandidates(
     return da - db;
   });
 
+  const instNames = await fetchInstallationNames(
+    tenantId,
+    sorted.map((d) => d.installationId),
+  );
+
   return sorted.map((d) => ({
     id: d.id,
     direction: d.direction as "ISSUED" | "RECEIVED",
@@ -556,6 +585,9 @@ export async function findDteCandidates(
     amountPending: d.amountPending.toNumber(),
     issuedAt: d.date.toISOString(),
     paymentStatus: d.paymentStatus,
+    installationName: d.installationId
+      ? instNames.get(d.installationId) ?? null
+      : null,
   }));
 }
 
@@ -645,6 +677,11 @@ export async function findDteCandidatesForBulk(
     return da - db;
   });
 
+  const instNames = await fetchInstallationNames(
+    tenantId,
+    sorted.map((d) => d.installationId),
+  );
+
   return sorted.map((d) => ({
     id: d.id,
     direction: d.direction as "ISSUED" | "RECEIVED",
@@ -660,6 +697,9 @@ export async function findDteCandidatesForBulk(
     amountPending: d.amountPending.toNumber(),
     issuedAt: d.date.toISOString(),
     paymentStatus: d.paymentStatus,
+    installationName: d.installationId
+      ? instNames.get(d.installationId) ?? null
+      : null,
   }));
 }
 
@@ -745,11 +785,18 @@ export async function findFactoringCandidates(
       simMontoAGirar: true,
       netAdvance: true,
       status: true,
-      dte: { select: { folio: true, receiverName: true } },
+      dte: {
+        select: { folio: true, receiverName: true, installationId: true },
+      },
     },
     orderBy: { fechaCesion: "desc" },
     take: 100,
   });
+
+  const instNames = await fetchInstallationNames(
+    tenantId,
+    ops.map((op) => op.dte?.installationId),
+  );
 
   const txDate =
     tx.transactionDate instanceof Date
@@ -791,6 +838,9 @@ export async function findFactoringCandidates(
       status: op.status,
       dteFolio: op.dte?.folio ?? null,
       dteReceiverName: op.dte?.receiverName ?? null,
+      installationName: op.dte?.installationId
+        ? instNames.get(op.dte.installationId) ?? null
+        : null,
       confidence,
       matchSignals,
       isSuggested: confidence >= 90,
@@ -799,6 +849,36 @@ export async function findFactoringCandidates(
 
   mapped.sort((a, b) => b.confidence - a.confidence);
   return mapped.slice(0, 25);
+}
+
+/**
+ * Versión bulk de `findFactoringCandidates`. La detección de factoring es
+ * per-tx (depende de la glosa/monto de cada movimiento), así que corremos la
+ * búsqueda por cada bankTxId y unimos las cesiones por id de operación,
+ * conservando la mayor confianza. Caso típico: N depósitos del mismo factoring
+ * (ej. 3×$7.000.000 de "SCF SERVICIOS") → las mismas cesiones candidatas.
+ */
+export async function findFactoringCandidatesForBulk(
+  tenantId: string,
+  bankTxIds: string[],
+): Promise<CandidateFactoring[]> {
+  if (bankTxIds.length === 0) return [];
+  if (bankTxIds.length === 1) {
+    return findFactoringCandidates(tenantId, bankTxIds[0]);
+  }
+  const perTx = await Promise.all(
+    bankTxIds.map((id) => findFactoringCandidates(tenantId, id)),
+  );
+  const byId = new Map<string, CandidateFactoring>();
+  for (const list of perTx) {
+    for (const c of list) {
+      const prev = byId.get(c.id);
+      if (!prev || c.confidence > prev.confidence) byId.set(c.id, c);
+    }
+  }
+  return [...byId.values()]
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 25);
 }
 
 // ── Listar links existentes de una tx ──

@@ -101,6 +101,7 @@ interface Candidate {
   amountPending: number;
   issuedAt: string;
   paymentStatus: string;
+  installationName: string | null;
 }
 
 type LocalLinkType =
@@ -123,6 +124,7 @@ interface FactoringCandidate {
   status: string;
   dteFolio: number | null;
   dteReceiverName: string | null;
+  installationName: string | null;
   confidence: number;
   matchSignals: string[];
   isSuggested: boolean;
@@ -679,6 +681,7 @@ export function BankTxReconcileSheet({
           c.receiverName,
           c.issuerRut ?? "",
           c.receiverRut ?? "",
+          c.installationName ?? "",
         ]
           .join(" ")
           .toLowerCase();
@@ -709,6 +712,52 @@ export function BankTxReconcileSheet({
     filterDateTo,
     filterDirection,
     filterIncludePaid,
+  ]);
+
+  // Mismo filtro de texto/monto/fecha aplicado a las cesiones a factoring, para
+  // que el buscador "Buscar por folio, cliente o RUT…" filtre AMBAS listas. Sin
+  // esto la sección de cesiones quedaba siempre completa (se sentía como que el
+  // buscador no funcionaba). El filtro de dirección no aplica (las cesiones son
+  // siempre ingresos) y no ocultamos por "ya pagada" (las cedidas pueden estar
+  // marcadas PAID al ceder y aun así se concilian).
+  const filteredFactoring = useMemo(() => {
+    return factoringCandidates.filter((c) => {
+      if (filterText.trim()) {
+        const q = filterText.trim().toLowerCase();
+        const txt = [
+          c.code,
+          c.factoringCompanyName,
+          String(c.dteFolio ?? ""),
+          c.dteReceiverName ?? "",
+          c.installationName ?? "",
+        ]
+          .join(" ")
+          .toLowerCase();
+        if (!txt.includes(q)) return false;
+      }
+      if (filterMinAmount) {
+        const min = parseCLPInput(filterMinAmount);
+        if (min != null && c.expectedDeposit < min) return false;
+      }
+      if (filterMaxAmount) {
+        const max = parseCLPInput(filterMaxAmount);
+        if (max != null && c.expectedDeposit > max) return false;
+      }
+      if (filterDateFrom) {
+        if ((c.fechaCesion || "").slice(0, 10) < filterDateFrom) return false;
+      }
+      if (filterDateTo) {
+        if ((c.fechaCesion || "").slice(0, 10) > filterDateTo) return false;
+      }
+      return true;
+    });
+  }, [
+    factoringCandidates,
+    filterText,
+    filterMinAmount,
+    filterMaxAmount,
+    filterDateFrom,
+    filterDateTo,
   ]);
 
   const toggleCandidate = (c: Candidate) => {
@@ -1814,7 +1863,7 @@ export function BankTxReconcileSheet({
               <div className="relative mb-3">
                 <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por folio, cliente o RUT…"
+                  placeholder="Buscar por folio, cliente, RUT o instalación…"
                   value={filterText}
                   onChange={(e) => setFilterText(e.target.value)}
                   className="h-11 sm:h-9 pl-8 text-base sm:text-sm"
@@ -1896,23 +1945,31 @@ export function BankTxReconcileSheet({
                     <span>Incluir facturas ya pagadas</span>
                   </label>
                   <p className="text-xs text-muted-foreground">
-                    {filteredCandidates.length} de {candidates.length} candidatos
+                    {filteredCandidates.length + filteredFactoring.length} de{" "}
+                    {candidates.length + factoringCandidates.length} candidatos
                   </p>
                 </div>
               )}
 
-              {/* Cesiones a factoring (Fase 4 — conciliación con monto a girar) */}
-              {factoringCandidates.length > 0 && (
+              {/* Cesiones a factoring (Fase 4 — conciliación con monto a girar).
+                  Se filtran con el mismo buscador que las facturas. */}
+              {filteredFactoring.length > 0 && (
                 <div className="mb-4 space-y-2">
                   <p className="text-xs font-mono uppercase tracking-wide text-primary">
-                    Cesiones a factoring ({factoringCandidates.length})
+                    Cesiones a factoring ({filteredFactoring.length})
                   </p>
                   <ul className="space-y-2">
-                    {factoringCandidates.map((c) => {
+                    {filteredFactoring.map((c) => {
                       const selected = links.some((l) => l.key === c.id);
                       const suggested = c.isSuggested ?? false;
                       const confidence = c.confidence ?? 0;
                       const signals = c.matchSignals ?? [];
+                      // Título prominente = la factura cedida (folio + cliente),
+                      // homologado con las tarjetas de factura. El código de la
+                      // cesión pasa a ser un badge secundario.
+                      const title = c.dteFolio
+                        ? `Factura ${c.dteFolio}`
+                        : `Cesión ${c.code}`;
                       return (
                         <li
                           key={c.id}
@@ -1936,8 +1993,14 @@ export function BankTxReconcileSheet({
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-sm font-medium">
-                                Cesión {c.code}
+                                {title}
                               </span>
+                              <Badge
+                                variant="outline"
+                                className="text-xs bg-primary/5 text-primary border-primary/30"
+                              >
+                                Cesión {c.code}
+                              </Badge>
                               <Badge variant="outline" className="text-xs">
                                 {c.factoringCompanyName}
                               </Badge>
@@ -1964,6 +2027,16 @@ export function BankTxReconcileSheet({
                                 </Badge>
                               )}
                             </div>
+                            {c.dteReceiverName ? (
+                              <p className="text-sm text-muted-foreground mt-0.5 truncate">
+                                {c.dteReceiverName}
+                              </p>
+                            ) : null}
+                            {c.installationName ? (
+                              <p className="text-xs text-muted-foreground/80 mt-0.5 truncate">
+                                📍 {c.installationName}
+                              </p>
+                            ) : null}
                             {signals.length > 0 ? (
                               <div className="flex flex-wrap gap-1 mt-1.5">
                                 {signals.map((sig) => (
@@ -1972,11 +2045,6 @@ export function BankTxReconcileSheet({
                                   </Tag>
                                 ))}
                               </div>
-                            ) : null}
-                            {c.dteFolio ? (
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                Factura {c.dteFolio} · {c.dteReceiverName}
-                              </p>
                             ) : null}
                             <div className="flex items-center justify-between mt-1.5">
                               <span className="text-xs text-muted-foreground">
@@ -2001,13 +2069,14 @@ export function BankTxReconcileSheet({
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
-              ) : filteredCandidates.length === 0 ? (
+              ) : filteredCandidates.length === 0 &&
+                filteredFactoring.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4">
                   {candidates.length === 0 && factoringCandidates.length === 0
                     ? "No se encontraron facturas candidatas. Probá con “Categorizar manual” o ajustá la fecha."
                     : "Ninguno de los candidatos coincide con tus filtros. Limpiá los filtros para ver todos."}
                 </p>
-              ) : (
+              ) : filteredCandidates.length === 0 ? null : (
                 <ul className="space-y-2">
                   {filteredCandidates.map((c) => {
                     const selected = links.some((l) => l.key === c.id);
@@ -2091,6 +2160,11 @@ export function BankTxReconcileSheet({
                               ? c.receiverName
                               : c.issuerName}
                           </p>
+                          {c.installationName ? (
+                            <p className="text-xs text-muted-foreground/80 mt-0.5 truncate">
+                              📍 {c.installationName}
+                            </p>
+                          ) : null}
                           <div className="flex items-center justify-between mt-1.5">
                             <span className="text-xs text-muted-foreground">
                               {format(new Date(c.issuedAt), "dd MMM yyyy", {
