@@ -289,14 +289,18 @@ async function loadResolvedBankLinks(
  * Pasos:
  *  1. Una occurrence por `dteId`: el materializado y la "sombra $0" del MISMO
  *     DTE colapsan en una; la sombra se resuelve al BRUTO real del DTE.
- *  2. Las proyecciones puras (sin dteId) cubiertas por un DTE de la misma
- *     cuenta+instalación dentro de ±20 días se descartan (ya están facturadas).
+ *  2. Las proyecciones puras (sin dteId) del mismo cliente+instalación se
+ *     descartan solo si un DTE cae en el MISMO bucket semanal/mensual que la
+ *     cuota programada (no ±20 días sueltos). Antes ±20d ocultaba la PROGRAMADA
+ *     del día 20 en sem 25 si existía un borrador del 1–10 jun en otra semana.
  *
  * Egresos y demás (no INCOME) pasan sin tocar.
  */
 function consolidateIncomeOccurrences(
   occs: VirtualOccurrence[],
   grossByDteId: Map<string, number>,
+  granularity: ProjectionRange["granularity"],
+  weekClosingDow?: number,
 ): VirtualOccurrence[] {
   const income = occs.filter((o) => o.kind === "INCOME");
   const other = occs.filter((o) => o.kind !== "INCOME");
@@ -318,19 +322,22 @@ function consolidateIncomeOccurrences(
   }
   const dteOccs = [...byDte.values()];
 
-  const TOL_MS = 20 * 24 * 60 * 60 * 1000;
-  const dteDatesByKey = new Map<string, number[]>();
+  const dteBucketKeysByInstall = new Map<string, Set<string>>();
   for (const d of dteOccs) {
     const k = `${d.crmAccountId ?? ""}|${d.installationId ?? ""}`;
-    const arr = dteDatesByKey.get(k) ?? [];
-    arr.push((d.effectiveDate ?? d.scheduledDate).getTime());
-    dteDatesByKey.set(k, arr);
+    const placement = d.effectiveDate ?? d.scheduledDate;
+    const bKey = bucketKeyFor(placement, granularity, weekClosingDow);
+    const set = dteBucketKeysByInstall.get(k) ?? new Set<string>();
+    set.add(bKey);
+    dteBucketKeysByInstall.set(k, set);
   }
   const keptProjections = projections.filter((p) => {
-    const dates = dteDatesByKey.get(`${p.crmAccountId ?? ""}|${p.installationId ?? ""}`);
-    if (!dates) return true;
-    const t = (p.effectiveDate ?? p.scheduledDate).getTime();
-    return !dates.some((d) => Math.abs(d - t) <= TOL_MS);
+    const installKey = `${p.crmAccountId ?? ""}|${p.installationId ?? ""}`;
+    const dteBuckets = dteBucketKeysByInstall.get(installKey);
+    if (!dteBuckets || dteBuckets.size === 0) return true;
+    const placement = p.effectiveDate ?? p.scheduledDate;
+    const pBucket = bucketKeyFor(placement, granularity, weekClosingDow);
+    return !dteBuckets.has(pBucket);
   });
 
   return [...other, ...dteOccs, ...keptProjections];
@@ -1460,7 +1467,14 @@ export async function buildProjection(
       );
     }
   }
-  const occurrences = consolidateIncomeOccurrences(allOccurrences, grossByDteId);
+  // Mismo criterio de bucket que placement (ISO semanal). weekClosingDow del
+  // config aplica al cierre manual, no aún a buildBuckets/ placement.
+  const occurrences = consolidateIncomeOccurrences(
+    allOccurrences,
+    grossByDteId,
+    range.granularity,
+    undefined,
+  );
 
   const buckets = buildBuckets(range);
   const bucketIndex = new Map(buckets.map((b, i) => [b.key, i]));
