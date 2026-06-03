@@ -6,6 +6,7 @@ import { canView, canEdit } from "@/lib/permissions";
 import {
   executeAsignar,
   executeDesasignar,
+  executeEditDates,
   executeCheck,
   listAsignaciones,
 } from "@/lib/ops/asignaciones-logic";
@@ -110,10 +111,21 @@ export async function POST(
       return NextResponse.json({ success: true, data: result.data });
     }
 
+    if (bodyAction === "editar_fechas") {
+      const result = await executeEditDates(ctx, rawBody);
+      if (!result.success) {
+        return NextResponse.json({ success: false, error: result.error }, { status: result.status });
+      }
+      return NextResponse.json({ success: true, data: result.data });
+    }
+
     // Default: asignar
     const result = await executeAsignar(ctx, rawBody);
     if (!result.success) {
-      return NextResponse.json({ success: false, error: result.error }, { status: result.status });
+      return NextResponse.json(
+        { success: false, error: result.error, code: result.code, meta: result.meta },
+        { status: result.status }
+      );
     }
     return NextResponse.json({ success: true, data: result.data }, { status: 201 });
   } catch (error) {

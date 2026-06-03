@@ -115,6 +115,7 @@ export const SUBMODULE_KEYS = {
     "ats",
     "psicolaboral",
     "conocimiento",
+    "informes_vulnerabilidad",
   ] as const,
   finance: [
     "rendiciones",
@@ -287,6 +288,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "ops.installations", module: "ops", submodule: "installations", label: "Instalaciones", href: "/crm/installations" },
   { key: "ops.alertas_cobertura", module: "ops", submodule: "alertas_cobertura", label: "Alertas de cobertura", href: "/ops/alertas-cobertura" },
   { key: "ops.ats", module: "ops", submodule: "ats", label: "ATS — Reclutamiento", href: "/ops/ats" },
+  { key: "ops.ats_config", module: "ops", submodule: "ats_config", label: "ATS — Configuración", href: "/ops/ats" },
   // ── CRM ──
   { key: "crm.leads", module: "crm", submodule: "leads", label: "Leads", href: "/crm/leads" },
   { key: "crm.accounts", module: "crm", submodule: "accounts", label: "Cuentas", href: "/crm/accounts" },
@@ -312,6 +314,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "finance.contabilidad", module: "finance", submodule: "contabilidad", label: "Contabilidad", href: "/finanzas/contabilidad" },
   { key: "finance.facturacion", module: "finance", submodule: "facturacion", label: "Facturación", href: "/finanzas/facturacion" },
   { key: "finance.proveedores", module: "finance", submodule: "proveedores", label: "Proveedores", href: "/finanzas/proveedores" },
+  { key: "finance.cashflow", module: "finance", submodule: "cashflow", label: "Flujo de caja", href: "/finanzas/flujo-caja" },
   // ── Config ──
   { key: "config.usuarios", module: "config", submodule: "usuarios", label: "Usuarios", href: "/opai/configuracion/usuarios" },
   { key: "config.empresa", module: "config", submodule: "empresa", label: "Empresa", href: "/opai/configuracion/empresa" },
@@ -334,6 +337,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "config.ops", module: "config", submodule: "ops", label: "Operaciones", href: "/opai/configuracion/ops" },
   { key: "config.tipos_ticket", module: "config", submodule: "tipos_ticket", label: "Tipos de ticket", href: "/opai/configuracion/tipos-ticket" },
   { key: "config.finanzas", module: "config", submodule: "finanzas", label: "Finanzas", href: "/opai/configuracion/finanzas" },
+  { key: "config.ats", module: "config", submodule: "ats", label: "ATS", href: "/opai/configuracion/ats" },
   { key: "config.inteligencia_artificial", module: "config", submodule: "inteligencia_artificial", label: "Inteligencia Artificial", href: "/opai/configuracion/inteligencia-artificial" },
   { key: "config.alertas_cobertura", module: "config", submodule: "alertas_cobertura", label: "Alertas Cobertura", href: "/opai/configuracion/alertas-cobertura" },
   { key: "config.psicolaboral", module: "config", submodule: "psicolaboral", label: "Psicolaboral", href: "/opai/configuracion/psicolaboral" },

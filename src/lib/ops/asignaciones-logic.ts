@@ -16,6 +16,9 @@ export const asignarSchema = z.object({
   slotNumber: z.number().int().min(1).max(20),
   startDate: z.string().regex(dateRegex).optional(),
   endDatePrevious: z.string().regex(dateRegex).optional(),
+  // Cuando el slot tenía un guardia anterior que terminó en/después de startDate,
+  // este flag autoriza recortar su fecha de término al día previo al nuevo ingreso.
+  adjustPreviousEndDate: z.boolean().optional(),
   reason: z.string().max(500).optional().nullable(),
 });
 
@@ -27,6 +30,15 @@ export const desasignarSchema = z.object({
 
 export const checkSchema = z.object({
   guardiaId: z.string().uuid(),
+});
+
+export const editDatesSchema = z.object({
+  asignacionId: z.string().uuid(),
+  // startDate opcional: si no viene, se conserva la actual.
+  startDate: z.string().regex(dateRegex).optional(),
+  // endDate: omitido = conservar, null = quitar (reabrir asignación), string = fijar.
+  endDate: z.string().regex(dateRegex).nullable().optional(),
+  reason: z.string().max(500).optional().nullable(),
 });
 
 /**
@@ -70,6 +82,8 @@ export type AsignarResult = {
   success: false;
   error: string;
   status: number;
+  code?: string;
+  meta?: Record<string, unknown>;
 };
 
 /**
@@ -152,11 +166,42 @@ export async function executeAsignar(
 
   if (previousSlotAssignment?.endDate && startDate <= previousSlotAssignment.endDate) {
     const endStr = previousSlotAssignment.endDate.toISOString().slice(0, 10).split("-").reverse().join("/");
-    return {
-      success: false,
-      error: `La fecha de inicio no puede ser anterior o igual al ${endStr} (fecha de término del guardia anterior en este puesto)`,
-      status: 400,
-    };
+    if (body.adjustPreviousEndDate) {
+      // Recortar el término del guardia anterior al día previo al nuevo ingreso.
+      const adjustedEnd = new Date(startDate);
+      adjustedEnd.setUTCDate(adjustedEnd.getUTCDate() - 1);
+      await prisma.opsAsignacionGuardia.update({
+        where: { id: previousSlotAssignment.id },
+        data: { endDate: adjustedEnd },
+      });
+      // Limpiar de la pauta las celdas del guardia anterior desde el nuevo inicio en adelante.
+      await cleanPautaFromDate(
+        ctx.tenantId,
+        previousSlotAssignment.puestoId,
+        previousSlotAssignment.slotNumber,
+        previousSlotAssignment.guardiaId,
+        startDate,
+        "ajuste_ingreso_anterior"
+      );
+    } else {
+      const prevName = previousSlotAssignment.guardiaId;
+      return {
+        success: false,
+        error: `La fecha de inicio (${startDate.toISOString().slice(0, 10).split("-").reverse().join("/")}) es anterior o igual al término del guardia anterior en este puesto (${endStr}).`,
+        status: 409,
+        code: "PREVIOUS_SLOT_OVERLAP",
+        meta: {
+          previousAssignmentId: previousSlotAssignment.id,
+          previousGuardiaId: prevName,
+          previousEndDate: previousSlotAssignment.endDate.toISOString().slice(0, 10),
+          proposedPreviousEndDate: (() => {
+            const d = new Date(startDate);
+            d.setUTCDate(d.getUTCDate() - 1);
+            return d.toISOString().slice(0, 10);
+          })(),
+        },
+      };
+    }
   }
 
   // 1. If guardia already has active assignment → close it + clean pauta
@@ -479,6 +524,181 @@ export async function executeDesasignar(
   return {
     success: true,
     data: { ...updated, pautaCleaned: cleanedCount } as unknown as Record<string, unknown>,
+    status: 200,
+  };
+}
+
+export type EditDatesResult = {
+  success: true;
+  data: Record<string, unknown>;
+  status: 200;
+} | {
+  success: false;
+  error: string;
+  status: number;
+};
+
+/**
+ * Corrige las fechas de inicio/término de una asignación existente.
+ * - Valida que el término no sea anterior al inicio.
+ * - Valida que el nuevo rango no se solape con otra asignación del mismo slot.
+ * - Re-sincroniza la pauta del slot para ese guardia dentro del nuevo rango.
+ *
+ * Permite el caso del usuario: corregir la fecha de término del guardia anterior
+ * para poder ingresar a otro con fecha previa, sin tener que reasignar todo.
+ */
+export async function executeEditDates(
+  ctx: AuthContext,
+  rawBody: unknown,
+): Promise<EditDatesResult> {
+  const parsed = editDatesSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message || "Datos inválidos",
+      status: 400,
+    };
+  }
+  const body = parsed.data;
+
+  const asignacion = await prisma.opsAsignacionGuardia.findFirst({
+    where: { id: body.asignacionId, tenantId: ctx.tenantId },
+  });
+  if (!asignacion) {
+    return { success: false, error: "Asignación no encontrada", status: 404 };
+  }
+
+  const newStart = body.startDate ? parseDateOnly(body.startDate) : asignacion.startDate;
+  const newEnd =
+    body.endDate === undefined
+      ? asignacion.endDate
+      : body.endDate === null
+        ? null
+        : parseDateOnly(body.endDate);
+
+  if (newEnd && newEnd < newStart) {
+    return {
+      success: false,
+      error: "La fecha de término no puede ser anterior a la fecha de inicio",
+      status: 400,
+    };
+  }
+
+  // Validar solape con otras asignaciones del mismo slot.
+  const others = await prisma.opsAsignacionGuardia.findMany({
+    where: {
+      puestoId: asignacion.puestoId,
+      slotNumber: asignacion.slotNumber,
+      tenantId: ctx.tenantId,
+      id: { not: asignacion.id },
+    },
+    include: {
+      guardia: { select: { code: true, persona: { select: { firstName: true, lastName: true } } } },
+    },
+  });
+  for (const o of others) {
+    // Rango abierto (endDate null) = hasta el infinito.
+    const overlaps =
+      (o.endDate === null || o.endDate >= newStart) &&
+      (newEnd === null || newEnd >= o.startDate);
+    if (overlaps) {
+      const name = `${o.guardia.persona.firstName} ${o.guardia.persona.lastName}`.trim();
+      const oStart = o.startDate.toISOString().slice(0, 10).split("-").reverse().join("/");
+      const oEnd = o.endDate
+        ? o.endDate.toISOString().slice(0, 10).split("-").reverse().join("/")
+        : "actualidad";
+      return {
+        success: false,
+        error: `El rango se solapa con ${name} (${oStart} → ${oEnd}) en este puesto. Ajusta primero sus fechas.`,
+        status: 409,
+      };
+    }
+  }
+
+  const isActive = newEnd === null;
+
+  const updated = await prisma.opsAsignacionGuardia.update({
+    where: { id: asignacion.id },
+    data: {
+      startDate: newStart,
+      endDate: newEnd,
+      isActive,
+      ...(body.reason !== undefined ? { reason: normalizeNullable(body.reason) } : {}),
+    },
+  });
+
+  // ── Re-sincronizar la pauta del slot para este guardia ──
+  // 1. Sacar al guardia de las celdas que quedaron fuera del nuevo rango.
+  await prisma.opsPautaMensual.updateMany({
+    where: {
+      tenantId: ctx.tenantId,
+      puestoId: asignacion.puestoId,
+      slotNumber: asignacion.slotNumber,
+      plannedGuardiaId: asignacion.guardiaId,
+      OR: [
+        { date: { lt: newStart } },
+        ...(newEnd ? [{ date: { gt: newEnd } }] : []),
+      ],
+    },
+    data: {
+      previousGuardiaId: asignacion.guardiaId,
+      plannedGuardiaId: null,
+      unassignedAt: new Date(),
+      unassignedReason: "edicion_fechas",
+    },
+  });
+
+  // 2. Pintar al guardia en las celdas de trabajo dentro del nuevo rango que
+  //    estén libres o que ya eran suyas (resucitar marcas previas).
+  await prisma.opsPautaMensual.updateMany({
+    where: {
+      tenantId: ctx.tenantId,
+      puestoId: asignacion.puestoId,
+      slotNumber: asignacion.slotNumber,
+      shiftCode: "T",
+      date: { gte: newStart, ...(newEnd ? { lte: newEnd } : {}) },
+      OR: [
+        { plannedGuardiaId: null },
+        { previousGuardiaId: asignacion.guardiaId },
+      ],
+    },
+    data: {
+      plannedGuardiaId: asignacion.guardiaId,
+      previousGuardiaId: null,
+      unassignedAt: null,
+      unassignedReason: null,
+    },
+  });
+
+  // ── Sincronizar currentInstallationId del guardia ──
+  if (isActive) {
+    await prisma.opsGuardia.update({
+      where: { id: asignacion.guardiaId },
+      data: { currentInstallationId: asignacion.installationId },
+    });
+  } else {
+    const otherActive = await prisma.opsAsignacionGuardia.findFirst({
+      where: { guardiaId: asignacion.guardiaId, tenantId: ctx.tenantId, isActive: true },
+    });
+    if (!otherActive) {
+      await prisma.opsGuardia.update({
+        where: { id: asignacion.guardiaId },
+        data: { currentInstallationId: null },
+      });
+    }
+  }
+
+  await createOpsAuditLog(ctx, "ops.asignacion.dates_edited", "ops_asignacion", asignacion.id, {
+    guardiaId: asignacion.guardiaId,
+    puestoId: asignacion.puestoId,
+    slotNumber: asignacion.slotNumber,
+    startDate: toISODate(newStart),
+    endDate: newEnd ? toISODate(newEnd) : null,
+  });
+
+  return {
+    success: true,
+    data: updated as unknown as Record<string, unknown>,
     status: 200,
   };
 }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess, parseDateOnly, toISODate } from "@/lib/ops";
 import { computeAttendanceMetrics } from "@/lib/ops-attendance";
+import { EVENT_SUBTYPES } from "@/lib/guard-events";
 
 export async function GET(request: NextRequest) {
   try {
@@ -48,6 +49,56 @@ export async function GET(request: NextRequest) {
         },
       },
     });
+
+    // Overlay de ausencias aprobadas como fuente de verdad.
+    // La pauta mensual puede NO haberse repintado (V/L/PCG/PSG) si el evento se
+    // aprobó antes de generar la pauta del mes o si la serie se regeneró luego.
+    // En vez de depender solo del shiftCode pintado, consultamos los eventos de
+    // ausencia aprobados que cubren la fecha y los superponemos sobre la pauta:
+    // así un guardia con permiso/licencia ese día siempre genera PPC aunque su
+    // celda haya quedado en "T".
+    const plannedGuardiaIds = [
+      ...new Set(
+        pauta
+          .map((p) => p.plannedGuardiaId)
+          .filter((id): id is string => id != null)
+      ),
+    ];
+    const approvedAbsences =
+      plannedGuardiaIds.length > 0
+        ? await prisma.opsGuardEvent.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            guardiaId: { in: plannedGuardiaIds },
+            category: "ausencia",
+            status: "approved",
+            startDate: { lte: date },
+            endDate: { gte: date },
+          },
+          select: { guardiaId: true, subtype: true },
+        })
+        : [];
+    const subtypeToShiftCode = new Map(
+      EVENT_SUBTYPES.ausencia
+        .filter((s) => s.shiftCode)
+        .map((s) => [s.value as string, s.shiftCode as string])
+    );
+    const absenceCodeByGuardia = new Map<string, string>();
+    for (const a of approvedAbsences) {
+      const code = subtypeToShiftCode.get(a.subtype);
+      if (code) absenceCodeByGuardia.set(a.guardiaId, code);
+    }
+    // Código de turno efectivo: superpone la ausencia aprobada sobre la celda planificada.
+    const effectiveShiftCode = (item: {
+      plannedGuardiaId: string | null;
+      shiftCode: string | null;
+    }): string | null => {
+      if (item.plannedGuardiaId) {
+        const overlay = absenceCodeByGuardia.get(item.plannedGuardiaId);
+        if (overlay) return overlay;
+      }
+      return item.shiftCode;
+    };
 
     // Limpiar asistencias huérfanas de puestos inactivos (no bloqueadas, sin reemplazo/TE)
     // Nunca borrar filas con replacementGuardiaId: tienen TE asignado y deben persistir
@@ -117,7 +168,7 @@ export async function GET(request: NextRequest) {
     if (pauta.length > 0) {
       await prisma.opsAsistenciaDiaria.createMany({
         data: pauta.map((item) => {
-          const isAbsence = ABSENCE_CODES.includes(item.shiftCode ?? "");
+          const isAbsence = ABSENCE_CODES.includes(effectiveShiftCode(item) ?? "");
           // For absences with replacement, the replacement becomes the effective planned guardia.
           // For absences without replacement, keep original guard so their name shows, but status = ppc.
           const effectiveGuardiaId = isAbsence
@@ -154,7 +205,7 @@ export async function GET(request: NextRequest) {
       // antes de pintar la serie, o pueden tener estados viejos (asistio/reemplazo) de cuando
       // había guardia y luego se desasignó. Actualizamos plannedGuardiaId y alineamos estado.
       for (const item of pauta) {
-        const isAbsence = ABSENCE_CODES.includes(item.shiftCode ?? "");
+        const isAbsence = ABSENCE_CODES.includes(effectiveShiftCode(item) ?? "");
         const effectiveGuardiaId = item.replacementGuardiaId ?? item.plannedGuardiaId;
         await prisma.opsAsistenciaDiaria.updateMany({
           where: {
@@ -366,10 +417,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Build absence code lookup from pauta (puestoId|slotNumber → shiftCode)
+    // Usa el código efectivo (overlay de ausencias aprobadas) para que el motivo
+    // se muestre aunque la celda de la pauta no se haya repintado.
     const absenceBySlot = new Map<string, string>();
     for (const p of pauta) {
-      if (p.shiftCode && ABSENCE_CODES.includes(p.shiftCode)) {
-        absenceBySlot.set(`${p.puestoId}|${p.slotNumber}`, p.shiftCode);
+      const code = effectiveShiftCode(p);
+      if (code && ABSENCE_CODES.includes(code)) {
+        absenceBySlot.set(`${p.puestoId}|${p.slotNumber}`, code);
       }
     }
 

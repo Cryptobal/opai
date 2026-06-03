@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Sheet,
@@ -45,6 +46,15 @@ export function SheetBuscarGuardia({
 
   const content = (
     <div className="space-y-3">
+      <a
+        href="/personas/guardias/ingreso-te"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Ingresar guardia Turno Extra
+      </a>
       <Input
         placeholder="Nombre, código, RUT…"
         value={search}

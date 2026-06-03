@@ -66,6 +66,16 @@ const SHIFT_COLORS: Record<string, string> = {
   TE:  "bg-tint-sky text-tint-sky-fg border-tint-sky-fg/20",
 };
 
+// Mapea el subtype del evento de ausencia a su código/etiqueta de turno, para
+// poder superponer la ausencia (licencia/vacaciones/permiso) sobre los días
+// libres del guardia en la grilla.
+const ABSENCE_SUBTYPE_TO_CODE: Record<string, { code: string; label: string }> = {
+  vacaciones:       { code: "V",   label: "Vacaciones" },
+  licencia_medica:  { code: "L",   label: "Licencia médica" },
+  permiso_con_goce: { code: "PCG", label: "Permiso con goce" },
+  permiso_sin_goce: { code: "PSG", label: "Permiso sin goce" },
+};
+
 /* ── types ─────────────────────────────────────── */
 
 type ClientOption = {
@@ -747,6 +757,26 @@ export function OpsPautaMensualClient({
     }
     return bySlot;
   }, [slotAsignaciones]);
+
+  /**
+   * Devuelve la ausencia aprobada (código/etiqueta) que cubre `dateKey` para un
+   * guardia, o null. Se usa para mostrar la licencia/permiso/vacaciones también
+   * en los días libres ("-"), no solo en los días con turno pintado.
+   */
+  const getAbsenceOverlay = useCallback(
+    (guardiaId: string | null | undefined, dateKey: string): { code: string; label: string } | null => {
+      if (!guardiaId) return null;
+      const list = absencesByGuardia[guardiaId];
+      if (!list?.length) return null;
+      for (const a of list) {
+        if (dateKey >= a.startDate.slice(0, 10) && dateKey <= a.endDate.slice(0, 10)) {
+          return ABSENCE_SUBTYPE_TO_CODE[a.subtype] ?? { code: "L", label: a.subtype.replace(/_/g, " ") };
+        }
+      }
+      return null;
+    },
+    [absencesByGuardia]
+  );
 
   /** Agrupar por tipo de turno (día/noche/rotativo) y luego por puesto */
   const groupedByShiftType = useMemo(() => {
@@ -2083,6 +2113,12 @@ export function OpsPautaMensualClient({
                                       : (cell?.shiftCode ?? "");
                                     const isEmpty = !hasCell || !code;
                                     const isTrabajo = isRotativoRow ? (code === "Td" || code === "Tn") : code === "T";
+                                    // Overlay de ausencia en días libres: si la celda es descanso ("-")
+                                    // pero el guardia tiene una ausencia aprobada que cubre ese día,
+                                    // mostramos el código (L/V/PCG/PSG) con estilo de "libre con licencia".
+                                    const restAbsenceOverlay = (code === "-" && !cell?.replacementGuardiaId)
+                                      ? getAbsenceOverlay(cell?.plannedGuardiaId ?? guardiaBySlotKey.get(`${row.puestoId}|${row.slotNumber}`), dateKey)
+                                      : null;
                                     const trabajoClass = isRotativoRow
                                       ? (code === "Tn"
                                         ? "bg-status-info-soft text-status-info-fg border-status-info-border"
@@ -2090,7 +2126,9 @@ export function OpsPautaMensualClient({
                                       : (group.shiftType === "night"
                                         ? "bg-status-info-soft text-status-info-fg border-status-info-border"
                                         : "bg-status-warn-soft text-status-warn-fg border-status-warn-border");
-                                    const colorClass = isTrabajo ? trabajoClass : (SHIFT_COLORS[code] ?? SHIFT_COLORS["-"] ?? "");
+                                    const colorClass = restAbsenceOverlay
+                                      ? `${SHIFT_COLORS[restAbsenceOverlay.code] ?? SHIFT_COLORS["-"]} border-dashed opacity-80`
+                                      : isTrabajo ? trabajoClass : (SHIFT_COLORS[code] ?? SHIFT_COLORS["-"] ?? "");
                                     const executionBadge =
                                       execution?.state === "te"
                                         ? "TE"
@@ -2115,9 +2153,11 @@ export function OpsPautaMensualClient({
                                     const clickPuestoId = row.puestoId;
                                     const clickSlotNumber = row.slotNumber;
                                     const clickGuardiaId = guardiaBySlotKey.get(`${clickPuestoId}|${clickSlotNumber}`);
-                                    const displayCode = isRotativoRow
-                                      ? (code || "·")
-                                      : (isTrabajo ? "T" : (code || "·"));
+                                    const displayCode = restAbsenceOverlay
+                                      ? restAbsenceOverlay.code
+                                      : isRotativoRow
+                                        ? (code || "·")
+                                        : (isTrabajo ? "T" : (code || "·"));
                                     const displayBadge = isRotativoRow ? null : (isTrabajo ? (group.shiftType === "night" ? "N" : "D") : null);
 
                                     const isGuardiaFiniquitado = cell?.plannedGuardia?.lifecycleStatus === "inactivo"
@@ -2168,7 +2208,9 @@ export function OpsPautaMensualClient({
                                             title={
                                               previousGhostTooltip
                                                 ? previousGhostTooltip
-                                                : showAsPpc
+                                                : restAbsenceOverlay
+                                                  ? `Día libre — ${restAbsenceOverlay.label}`
+                                                  : showAsPpc
                                                   ? "Puesto por cubrir (PPC)"
                                                   : cell?.replacementGuardia
                                                     ? `Reemplazo: ${formatPersonName(cell.replacementGuardia.persona.firstName, cell.replacementGuardia.persona.lastName)}`

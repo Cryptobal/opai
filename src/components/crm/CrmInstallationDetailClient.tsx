@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldAlert, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power, Wallet, Ticket as TicketIcon } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldAlert, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power, Wallet, CalendarClock, Ticket as TicketIcon } from "lucide-react";
 import { InstalacionRondasTab } from "./InstalacionRondasTab";
 import { InstalacionMarcacionesTab } from "@/components/ops/InstalacionMarcacionesTab";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
@@ -119,6 +119,7 @@ export type InstallationDetail = {
     puestoId: string;
     slotNumber: number;
     startDate: string;
+    endDate?: string | null;
     guardia: {
       id: string;
       code?: string | null;
@@ -426,6 +427,11 @@ function MarcacionRondasSection({ installation }: { installation: InstallationDe
 /* ── Dotación Section (interactive guard assignment) ── */
 
 function toDateInput(d: Date): string { return d.toISOString().slice(0, 10); }
+function formatDateDDMMYYYY(iso: string): string {
+  const s = String(iso).slice(0, 10);
+  const [y, m, d] = s.split("-");
+  return y && m && d ? `${d}/${m}/${y}` : s;
+}
 
 type GuardiaOption = {
   id: string;
@@ -469,6 +475,20 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
   const [unassignTarget, setUnassignTarget] = useState<{ asignacionId: string; guardiaName: string } | null>(null);
   const [unassignDate, setUnassignDate] = useState(toDateInput(new Date()));
   const [unassignSaving, setUnassignSaving] = useState(false);
+
+  /* ── edit-dates modal state ── */
+  const [editDatesOpen, setEditDatesOpen] = useState(false);
+  const [editDatesTarget, setEditDatesTarget] = useState<{ asignacionId: string; guardiaName: string } | null>(null);
+  const [editStartDate, setEditStartDate] = useState("");
+  const [editEndDate, setEditEndDate] = useState("");
+  const [editDatesSaving, setEditDatesSaving] = useState(false);
+
+  /* ── previous-slot overlap confirm state (smart adjust on assign) ── */
+  const [overlapConfirm, setOverlapConfirm] = useState<{
+    proposedPreviousEndDate: string;
+    previousEndDate: string;
+  } | null>(null);
+  const [overlapSaving, setOverlapSaving] = useState(false);
 
   const assignedGuardiaIds = useMemo(
     () => new Set(asignaciones.map((a) => a.guardia.id)),
@@ -558,27 +578,45 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
     });
   }, [guardias, assignSearch]);
 
+  /* ── Submit assign (shared by normal flow and overlap-confirm retry) ── */
+  const submitAssign = async (opts?: { adjustPreviousEndDate?: boolean }): Promise<{ ok: boolean; payload?: { success?: boolean; error?: string; code?: string; meta?: Record<string, unknown> } }> => {
+    if (!assignTarget || !assignGuardiaId) { toast.error("Selecciona un guardia"); return { ok: false }; }
+    const body: Record<string, unknown> = {
+      guardiaId: assignGuardiaId,
+      puestoId: assignTarget.puestoId,
+      slotNumber: assignTarget.slotNumber,
+      startDate: assignDate,
+    };
+    if (assignWarning && !assignEndDateSameAsStart) {
+      body.endDatePrevious = assignEndDatePrevious;
+    }
+    if (opts?.adjustPreviousEndDate) body.adjustPreviousEndDate = true;
+    const res = await fetch(`/api/crm/installations/${installation.id}/asignaciones`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const payload = await res.json();
+    return { ok: res.ok && payload.success, payload };
+  };
+
   /* ── Handle assign ── */
   const handleAssign = async () => {
     if (!assignTarget || !assignGuardiaId) { toast.error("Selecciona un guardia"); return; }
     setAssignSaving(true);
     try {
-      const body: Record<string, unknown> = {
-        guardiaId: assignGuardiaId,
-        puestoId: assignTarget.puestoId,
-        slotNumber: assignTarget.slotNumber,
-        startDate: assignDate,
-      };
-      if (assignWarning && !assignEndDateSameAsStart) {
-        body.endDatePrevious = assignEndDatePrevious;
+      const { ok, payload } = await submitAssign();
+      if (!ok) {
+        // El slot tenía un guardia anterior cuyo término solapa: ofrecer ajuste.
+        if (payload?.code === "PREVIOUS_SLOT_OVERLAP" && payload?.meta) {
+          setOverlapConfirm({
+            proposedPreviousEndDate: String(payload.meta.proposedPreviousEndDate),
+            previousEndDate: String(payload.meta.previousEndDate),
+          });
+          return;
+        }
+        throw new Error(payload?.error || "Error");
       }
-      const res = await fetch(`/api/crm/installations/${installation.id}/asignaciones`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const payload = await res.json();
-      if (!res.ok || !payload.success) throw new Error(payload.error || "Error");
       toast.success("Guardia asignado correctamente");
       setAssignOpen(false);
       await refreshAsignaciones();
@@ -586,6 +624,64 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : "No se pudo asignar");
     } finally { setAssignSaving(false); }
+  };
+
+  /* ── Confirm the smart adjust of the previous guard's end date ── */
+  const handleConfirmOverlapAdjust = async () => {
+    setOverlapSaving(true);
+    try {
+      const { ok, payload } = await submitAssign({ adjustPreviousEndDate: true });
+      if (!ok) throw new Error(payload?.error || "Error");
+      toast.success("Guardia asignado · término del anterior ajustado");
+      setOverlapConfirm(null);
+      setAssignOpen(false);
+      await refreshAsignaciones();
+      router.refresh();
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "No se pudo asignar");
+    } finally { setOverlapSaving(false); }
+  };
+
+  /* ── Open edit-dates modal ── */
+  const openEditDates = (asignacionId: string, guardiaName: string, startDate: string | Date, endDate?: string | Date | null) => {
+    const toInputDate = (x: string | Date | null | undefined): string => {
+      if (!x) return "";
+      const d = new Date(x);
+      return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+    };
+    setEditDatesTarget({ asignacionId, guardiaName });
+    setEditStartDate(toInputDate(startDate));
+    setEditEndDate(toInputDate(endDate));
+    setEditDatesOpen(true);
+  };
+
+  /* ── Handle edit-dates ── */
+  const handleEditDates = async () => {
+    if (!editDatesTarget) return;
+    if (!editStartDate) { toast.error("La fecha de inicio es obligatoria"); return; }
+    if (editEndDate && editEndDate < editStartDate) { toast.error("El término no puede ser anterior al inicio"); return; }
+    setEditDatesSaving(true);
+    try {
+      const res = await fetch(`/api/crm/installations/${installation.id}/asignaciones`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "editar_fechas",
+          asignacionId: editDatesTarget.asignacionId,
+          startDate: editStartDate,
+          endDate: editEndDate || null,
+          reason: "Corrección de fechas desde dotación",
+        }),
+      });
+      const payload = await res.json();
+      if (!res.ok || !payload.success) throw new Error(payload.error || "Error");
+      toast.success("Fechas actualizadas");
+      setEditDatesOpen(false);
+      await refreshAsignaciones();
+      router.refresh();
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "No se pudieron actualizar las fechas");
+    } finally { setEditDatesSaving(false); }
   };
 
   /* ── Open unassign modal ── */
@@ -709,6 +805,19 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                           )}
                           {canEditProp && (
                             <div className="ml-auto shrink-0 flex items-center gap-0.5">
+                              <button
+                                type="button"
+                                onClick={() => openEditDates(
+                                  assignment.id,
+                                  formatPersonName(assignment.guardia.persona.firstName, assignment.guardia.persona.lastName),
+                                  assignment.startDate,
+                                  assignment.endDate
+                                )}
+                                className="rounded p-1 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                title="Editar fechas de asignación"
+                              >
+                                <CalendarClock className="h-3.5 w-3.5" />
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => openAssign(puesto.id, slotNum, puesto.name)}
@@ -954,6 +1063,95 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                 </>
               ) : (
                 "Desasignar"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Dates Modal ── */}
+      <Dialog open={editDatesOpen} onOpenChange={setEditDatesOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Editar fechas de asignación</DialogTitle>
+            <DialogDescription>
+              {editDatesTarget?.guardiaName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <CalendarDays className="h-3.5 w-3.5 text-white" />
+                Fecha de inicio
+              </Label>
+              <input
+                type="date"
+                value={editStartDate}
+                onChange={(e) => setEditStartDate(e.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <CalendarClock className="h-3.5 w-3.5 text-white" />
+                Fecha de término
+                <span className="text-[10px] text-muted-foreground font-normal">(vacío = sigue activo)</span>
+              </Label>
+              <input
+                type="date"
+                value={editEndDate}
+                min={editStartDate || undefined}
+                onChange={(e) => setEditEndDate(e.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Ajustar las fechas re-sincroniza la pauta del puesto para este guardia dentro del nuevo rango.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDatesOpen(false)} disabled={editDatesSaving}>Cancelar</Button>
+            <Button onClick={handleEditDates} disabled={editDatesSaving}>
+              {editDatesSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Guardando…
+                </>
+              ) : (
+                "Guardar fechas"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Previous-slot Overlap Confirm ── */}
+      <Dialog open={!!overlapConfirm} onOpenChange={(o) => { if (!o) setOverlapConfirm(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>El puesto ya estaba ocupado</DialogTitle>
+            <DialogDescription>
+              Otro guardia tuvo este slot hasta el{" "}
+              {overlapConfirm ? formatDateDDMMYYYY(overlapConfirm.previousEndDate) : ""}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2 text-sm text-muted-foreground">
+            Para ingresar al nuevo guardia el {formatDateDDMMYYYY(assignDate)}, se ajustará la
+            fecha de término del guardia anterior al{" "}
+            <span className="font-medium text-foreground">
+              {overlapConfirm ? formatDateDDMMYYYY(overlapConfirm.proposedPreviousEndDate) : ""}
+            </span>. ¿Continuar?
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOverlapConfirm(null)} disabled={overlapSaving}>Cancelar</Button>
+            <Button onClick={handleConfirmOverlapAdjust} disabled={overlapSaving}>
+              {overlapSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Ajustando…
+                </>
+              ) : (
+                "Ajustar y asignar"
               )}
             </Button>
           </DialogFooter>
