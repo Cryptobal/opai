@@ -26,6 +26,30 @@ function resolveLinePriceCurrency(
   return "CLP";
 }
 
+/** Moneda del ítem FC cuando el template dice CLP pero las líneas facturan en UF. */
+function inferRecurringItemCurrency(
+  templateCurrency: string,
+  lines: RecurringLine[],
+): "CLP" | "UF" {
+  if (templateCurrency === "UF") return "UF";
+  if (lines.length === 0) return "CLP";
+
+  let clpSub = 0;
+  let ufSub = 0;
+  for (const l of lines) {
+    const linePc = resolveLinePriceCurrency(l, templateCurrency);
+    const qty = Number(l.quantity ?? 1);
+    const disc = Number(l.discountPct ?? 0) / 100;
+    if (linePc === "UF") {
+      ufSub += qty * Number(l.unitPriceUf ?? 0) * (1 - disc);
+    } else {
+      clpSub += qty * Number(l.unitPrice ?? 0) * (1 - disc);
+    }
+  }
+  if (ufSub > 0 && clpSub <= 0) return "UF";
+  return "CLP";
+}
+
 const FREQUENCY_TO_RECURRENCE: Record<
   string,
   "MONTHLY" | "BIWEEKLY" | "WEEKLY" | "YEARLY"
@@ -103,9 +127,9 @@ export async function syncRecurringDteItem(
 
   const lines = (tpl.lines as RecurringLine[] | null) ?? [];
   // El subtotal se calcula en la UNIDAD del item (CLP o UF), en NETO.
-  // Para líneas UF usamos unitPriceUf; para CLP usamos unitPrice. No
-  // mezclar: el ?? unitPrice ?? unitPriceUf tomaba UF como pesos.
-  const itemCurrency: "CLP" | "UF" = tpl.currency === "UF" ? "UF" : "CLP";
+  // Muchas plantillas tienen `currency: CLP` a nivel template pero líneas con
+  // priceCurrency UF + unitPriceUf; inferir la unidad desde las líneas.
+  const itemCurrency = inferRecurringItemCurrency(tpl.currency, lines);
   const subtotal = lines.reduce((s, l) => {
     const linePc = resolveLinePriceCurrency(l, tpl.currency);
     if (linePc !== itemCurrency) return s;
@@ -149,7 +173,7 @@ export async function syncRecurringDteItem(
     name: `DTE recurrente · ${tpl.name}`,
     description: `${tpl.receiverName} · ${tpl.currency}`,
     amount: Math.round(amount * 100) / 100,
-    currency: tpl.currency,
+    currency: itemCurrency,
     ufFixingPolicy: tpl.ufFixingPolicy,
     ufFixingDay: tpl.ufFixingDay,
     recurrence,

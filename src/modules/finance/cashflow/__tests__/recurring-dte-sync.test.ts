@@ -85,6 +85,30 @@ describe("syncRecurringDteItem", () => {
     expect(call.data.dayOfMonth).toBe(5);
   });
 
+  it("template currency CLP pero líneas UF: crea ítem en UF con unitPriceUf", async () => {
+    (prisma.financeDteRecurringTemplate.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(
+      makeTpl({
+        currency: "CLP",
+        lines: [
+          {
+            quantity: 1,
+            unitPrice: 0,
+            unitPriceUf: 435,
+            priceCurrency: "UF",
+            discountPct: 0,
+          },
+        ],
+      }),
+    );
+    (prisma.financeCashflowItem.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.financeCashflowItem.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "x" });
+
+    await syncRecurringDteItem(TENANT, "tpl-clp-uf-lines");
+    const call = (prisma.financeCashflowItem.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.data.amount).toBe(435);
+    expect(call.data.currency).toBe("UF");
+  });
+
   it("plantilla UF: amount en UF neto vía unitPriceUf (no mezcla con unitPrice CLP)", async () => {
     (prisma.financeDteRecurringTemplate.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(
       makeTpl({
