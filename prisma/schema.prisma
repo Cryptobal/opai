@@ -6958,6 +6958,22 @@ model FinanceDteRecurringTemplate {
   ///   - NEXT_MONTH: mes siguiente al run. Casos especiales.
   periodPolicy String @default("CURRENT_MONTH") @map("period_policy")
 
+  // ── Ajuste de IPC (modo manual con alerta) ──
+  /// Indica que esta programación tiene reajuste periódico de IPC. NO modifica
+  /// montos automáticamente: solo dispara un AVISO cuando se acerca la fecha de
+  /// reajuste para que el usuario ingrese el % real al emitir / editar la
+  /// plantilla. Reemplaza el IPC que antes vivía en FinanceCashflowItem.
+  hasIpcAdjustment    Boolean   @default(false) @map("has_ipc_adjustment")
+  /// Frecuencia del reajuste en meses (típicamente 6 ó 12). null si no aplica.
+  ipcAdjustmentMonths Int?      @map("ipc_adjustment_months")
+  /// Fecha ancla desde la cual empieza el calendario de avisos de reajuste IPC.
+  /// Si es null se usa `startDate` de la plantilla. Independiente del inicio del
+  /// contrato — útil cuando una programación vigente configura IPC desde hoy.
+  ipcStartDate        DateTime? @map("ipc_start_date") @db.Date
+  /// Fecha del próximo aviso de reajuste IPC ya notificado (anti-duplicado del
+  /// cron). null = todavía no se ha avisado por el ciclo en curso.
+  ipcLastAlertedFor   DateTime? @map("ipc_last_alerted_for") @db.Date
+
   createdBy String   @map("created_by")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -6968,6 +6984,7 @@ model FinanceDteRecurringTemplate {
   @@index([tenantId, isActive], map: "idx_dte_recurring_tenant_active")
   @@index([nextRunAt], map: "idx_dte_recurring_next_run")
   @@index([contractDocumentId], map: "idx_dte_recurring_contract_doc")
+  @@index([tenantId, hasIpcAdjustment], map: "idx_dte_recurring_ipc")
   @@map("finance_dte_recurring_templates")
   @@schema("finance")
 }
@@ -7954,15 +7971,16 @@ model FinanceCashflowItem {
   isActive Boolean @default(true) @map("is_active")
   notes    String?
 
-  // ── Ajuste de IPC (Fase E) ──
-  /// Indica que el item CLP tiene ajuste periódico de IPC.
+  // ── Ajuste de IPC (Fase E) — DEPRECADO ──
+  /// @deprecated El IPC se migró a FinanceDteRecurringTemplate (modo manual con
+  /// alerta). Estos campos se conservan solo para la migración de datos y
+  /// compatibilidad histórica; ya no se leen en la proyección. No configurar
+  /// IPC nuevo acá. Eliminar las columnas en una migración posterior una vez
+  /// migrados todos los tenants.
   hasIpcAdjustment    Boolean   @default(false) @map("has_ipc_adjustment")
-  /// Frecuencia del ajuste en meses (típicamente 6 ó 12).
+  /// @deprecated Ver `hasIpcAdjustment`. Frecuencia del ajuste en meses.
   ipcAdjustmentMonths Int?      @map("ipc_adjustment_months")
-  /// Fecha desde la cual empieza el calendario de reajustes IPC. Si es
-  /// null, se usa `startDate` del item como ancla (compat retroactiva).
-  /// Independiente de la fecha de inicio del contrato — útil cuando un
-  /// contrato vigente desde hace años se configura IPC desde hoy.
+  /// @deprecated Ver `hasIpcAdjustment`. Fecha ancla del calendario de reajustes.
   ipcStartDate        DateTime? @map("ipc_start_date") @db.Date
 
   // ── Calendario de cobro por contrato (Bloque 5) ──
