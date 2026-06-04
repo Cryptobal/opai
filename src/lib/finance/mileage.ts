@@ -13,6 +13,16 @@ const MAPS_KEY =
 
 export type DistanceSource = "google" | "haversine";
 
+// Resultado de la distancia por carretera. `fallbackReason` queda informado SOLO
+// cuando source === "haversine", para que la causa del fallback (falta de key,
+// REQUEST_DENIED por restricción de referrer, ZERO_RESULTS, error de red, etc.)
+// quede visible en los logs de Vercel y, opcionalmente, en diagnóstico de UI.
+export interface RoadDistanceResult {
+  distanceKm: number;
+  source: DistanceSource;
+  fallbackReason?: string;
+}
+
 /** Distancia en línea recta (Haversine) en km. */
 export function haversineKm(
   lat1: number,
@@ -41,13 +51,28 @@ export async function roadDistanceKm(
   startLng: number,
   endLat: number,
   endLng: number,
-): Promise<{ distanceKm: number; source: DistanceSource }> {
-  const fallback = {
+): Promise<RoadDistanceResult> {
+  // Helper para construir el fallback en línea recta con la razón explícita.
+  const haversineFallback = (fallbackReason: string): RoadDistanceResult => ({
     distanceKm: haversineKm(startLat, startLng, endLat, endLng),
-    source: "haversine" as DistanceSource,
-  };
+    source: "haversine",
+    fallbackReason,
+  });
 
-  if (!MAPS_KEY) return fallback;
+  if (!MAPS_KEY) {
+    console.warn(
+      "[Finance] roadDistanceKm: falta GOOGLE_MAPS_API_KEY server-side, usando línea recta",
+    );
+    return haversineFallback("no_key");
+  }
+
+  // Deja trazabilidad de qué key se está usando, sin exponer su valor.
+  console.log(
+    "[Finance] roadDistanceKm usando key:",
+    process.env.GOOGLE_MAPS_API_KEY
+      ? "server (GOOGLE_MAPS_API_KEY)"
+      : "publica (NEXT_PUBLIC_*)",
+  );
 
   try {
     const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${startLat},${startLng}&destination=${endLat},${endLng}&mode=driving&region=cl&key=${MAPS_KEY}`;
@@ -59,15 +84,19 @@ export async function roadDistanceKm(
       return { distanceKm: meters / 1000, source: "google" };
     }
 
+    const status = data?.status ?? "UNKNOWN";
+    const errorMessage = data?.error_message ?? "";
     console.warn(
       "[Finance] Directions sin ruta válida, usando línea recta:",
-      data?.status,
-      data?.error_message ?? "",
+      status,
+      errorMessage,
     );
-    return fallback;
+    return haversineFallback(
+      errorMessage ? `${status}: ${errorMessage}` : status,
+    );
   } catch (err) {
     console.error("[Finance] Error Directions API:", err);
-    return fallback;
+    return haversineFallback("network_error");
   }
 }
 
