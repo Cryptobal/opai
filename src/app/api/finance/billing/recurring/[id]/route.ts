@@ -128,6 +128,21 @@ export async function PATCH(
         })
       : existing.nextRunAt;
 
+    // El calendario de avisos IPC cambió si se togglea, cambia la frecuencia
+    // en meses o la fecha ancla. En ese caso reseteamos ipcLastAlertedFor.
+    const newIpcMonths = body.hasIpcAdjustment
+      ? (body.ipcAdjustmentMonths ?? null)
+      : null;
+    const newIpcStart =
+      body.hasIpcAdjustment && body.ipcStartDate ? body.ipcStartDate : null;
+    const existingIpcStart = existing.ipcStartDate
+      ? existing.ipcStartDate.toISOString().split("T")[0]
+      : null;
+    const ipcScheduleChanged =
+      (body.hasIpcAdjustment ?? false) !== existing.hasIpcAdjustment ||
+      newIpcMonths !== existing.ipcAdjustmentMonths ||
+      newIpcStart !== existingIpcStart;
+
     const updated = await prisma.financeDteRecurringTemplate.update({
       where: { id },
       data: {
@@ -166,6 +181,17 @@ export async function PATCH(
             ? (body.ufFixingDay ?? null)
             : null,
         periodPolicy: body.periodPolicy,
+        hasIpcAdjustment: body.hasIpcAdjustment ?? false,
+        ipcAdjustmentMonths: body.hasIpcAdjustment
+          ? (body.ipcAdjustmentMonths ?? null)
+          : null,
+        ipcStartDate:
+          body.hasIpcAdjustment && body.ipcStartDate
+            ? new Date(body.ipcStartDate)
+            : null,
+        // Si cambia el calendario de reajuste (toggle, frecuencia o ancla),
+        // reseteamos el anti-duplicado para que el cron re-evalúe la alerta.
+        ipcLastAlertedFor: ipcScheduleChanged ? null : existing.ipcLastAlertedFor,
       },
     });
     await syncRecurringDteItem(ctx.tenantId, updated.id);

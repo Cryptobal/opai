@@ -198,6 +198,14 @@ export async function POST(request: NextRequest) {
             ? (body.ufFixingDay ?? null)
             : null,
         periodPolicy: body.periodPolicy,
+        hasIpcAdjustment: body.hasIpcAdjustment ?? false,
+        ipcAdjustmentMonths: body.hasIpcAdjustment
+          ? (body.ipcAdjustmentMonths ?? null)
+          : null,
+        ipcStartDate:
+          body.hasIpcAdjustment && body.ipcStartDate
+            ? new Date(body.ipcStartDate)
+            : null,
         createdBy: ctx.userId,
       },
     });

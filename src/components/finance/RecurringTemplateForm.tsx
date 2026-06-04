@@ -198,6 +198,13 @@ export function RecurringTemplateForm({
     "CURRENT_MONTH" | "PREVIOUS_MONTH" | "NEXT_MONTH"
   >("CURRENT_MONTH");
 
+  // ── Reajuste IPC (modo manual con alerta) ──
+  // No modifica montos: el cron solo AVISA cuando se acerca la fecha de
+  // reajuste para que el usuario ingrese el % real editando la plantilla.
+  const [hasIpcAdjustment, setHasIpcAdjustment] = React.useState(false);
+  const [ipcAdjustmentMonths, setIpcAdjustmentMonths] = React.useState("12");
+  const [ipcStartDate, setIpcStartDate] = React.useState("");
+
   // UF actual (informativa) — solo para mostrar la previsualización de
   // {{uf_valor}} en el picker. La UF real al run la define
   // `ufFixingPolicy`. Carga lazy cuando hay al menos una línea UF;
@@ -384,6 +391,13 @@ export function RecurringTemplateForm({
         setUfFixingPolicy(t.ufFixingPolicy ?? "LAST_DAY_PREV_MONTH");
         setUfFixingDay(t.ufFixingDay != null ? String(t.ufFixingDay) : "1");
         setPeriodPolicy(t.periodPolicy ?? "CURRENT_MONTH");
+        setHasIpcAdjustment(!!t.hasIpcAdjustment);
+        setIpcAdjustmentMonths(
+          t.ipcAdjustmentMonths != null ? String(t.ipcAdjustmentMonths) : "12",
+        );
+        setIpcStartDate(
+          t.ipcStartDate ? String(t.ipcStartDate).split("T")[0] : "",
+        );
       })
       .catch(() => {
         toast.error("Error al cargar la plantilla");
@@ -745,6 +759,11 @@ export function RecurringTemplateForm({
           ? parseInt(ufFixingDay, 10)
           : null,
       periodPolicy,
+      hasIpcAdjustment,
+      ipcAdjustmentMonths: hasIpcAdjustment
+        ? parseInt(ipcAdjustmentMonths, 10)
+        : null,
+      ipcStartDate: hasIpcAdjustment ? ipcStartDate || null : null,
     };
 
     setSubmitting(true);
@@ -1524,6 +1543,70 @@ export function RecurringTemplateForm({
                       </SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                {/* Reajuste IPC (modo manual con alerta). El cron NO modifica
+                    montos: solo avisa cuando se acerca la fecha de reajuste para
+                    que ingreses el % real editando las líneas de la plantilla. */}
+                <div className="rounded-md border border-ds-border-subtle p-3 space-y-3">
+                  <label className="flex items-start gap-2 text-[13px]">
+                    <input
+                      type="checkbox"
+                      checked={hasIpcAdjustment}
+                      onChange={(e) => setHasIpcAdjustment(e.target.checked)}
+                      className="mt-0.5 size-4"
+                    />
+                    <span>
+                      <span className="font-medium">Tiene reajuste de IPC</span>
+                      <span className="block text-[12px] text-muted-foreground">
+                        Te avisamos cuando se acerque la fecha de reajuste para
+                        que actualices el monto de las líneas. No modifica montos
+                        automáticamente.
+                      </span>
+                    </span>
+                  </label>
+
+                  {hasIpcAdjustment && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-6">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="t-ipc-months">
+                          Cada cuántos meses se reajusta
+                        </Label>
+                        <Input
+                          id="t-ipc-months"
+                          type="number"
+                          min={1}
+                          max={36}
+                          inputMode="numeric"
+                          value={ipcAdjustmentMonths}
+                          onChange={(e) => setIpcAdjustmentMonths(e.target.value)}
+                          className="h-10 sm:h-9 bg-background"
+                          autoComplete="off"
+                        />
+                        <p className="text-[12px] text-muted-foreground">
+                          Típico: <strong>12</strong> (anual), <strong>6</strong>{" "}
+                          (semestral) o <strong>2</strong> (bimensual). Solo se usa
+                          para la alerta — el % real lo aplicás vos al editar.
+                        </p>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="t-ipc-start">
+                          Fecha ancla del reajuste (opcional)
+                        </Label>
+                        <Input
+                          id="t-ipc-start"
+                          type="date"
+                          value={ipcStartDate}
+                          onChange={(e) => setIpcStartDate(e.target.value)}
+                          className="h-10 sm:h-9 bg-background"
+                        />
+                        <p className="text-[12px] text-muted-foreground">
+                          Desde cuándo empieza a contar el calendario de avisos. Si
+                          la dejás vacía, se usa la fecha de inicio de la plantilla.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <label className="flex items-start gap-2 text-[13px]">

@@ -340,6 +340,12 @@ export const recurringTemplateSchema = z.object({
   periodPolicy: z
     .enum(["CURRENT_MONTH", "PREVIOUS_MONTH", "NEXT_MONTH"])
     .default("CURRENT_MONTH"),
+  // Reajuste IPC (modo manual con alerta). El cron NO modifica montos:
+  // solo avisa cuando se acerca la fecha de reajuste para que el usuario
+  // ingrese el % real editando las líneas. Ver cron ipc-alerts-recurring.
+  hasIpcAdjustment: z.boolean().default(false),
+  ipcAdjustmentMonths: optNull(z.number().int().min(1).max(36)),
+  ipcStartDate: optNull(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
 }).superRefine((data, ctx) => {
   // Si está activado el auto-envío de proforma o estado de pago, debe
   // haber al menos un destinatario. Sin esto el cron crea el borrador
@@ -353,6 +359,15 @@ export const recurringTemplateSchema = z.object({
       path: ["recipientContactIds"],
       message:
         "Debés seleccionar al menos un contacto del cliente cuando activás envío automático de proforma o estado de pago.",
+    });
+  }
+  // Si activa el reajuste IPC, la frecuencia en meses es obligatoria (la usa
+  // el cron para calcular cuándo avisar).
+  if (data.hasIpcAdjustment && data.ipcAdjustmentMonths == null) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["ipcAdjustmentMonths"],
+      message: "Indicá cada cuántos meses se reajusta el IPC.",
     });
   }
 });
