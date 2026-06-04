@@ -55,6 +55,18 @@ import {
   type ContractCategory,
 } from "@/lib/validations/docs";
 
+/**
+ * Fase 4 — La tarjeta de contrato deja de mostrar/gestionar el flujo de caja:
+ * el cobro, la emisión y el reajuste IPC viven ahora en Programación / Flujo de
+ * Caja (módulo Finanzas). Acá solo se manejan los TÉRMINOS del contrato (estado,
+ * fechas, vencimiento, alerta, instalaciones).
+ *
+ * Se deja como flag (no se borra el código) para poder re-encender la gestión
+ * antigua al instante si la migración de datos a Programación revela algo. Una
+ * vez confirmada la migración en prod, este bloque y su UI se eliminan.
+ */
+const SHOW_CONTRACT_CASHFLOW: boolean = false;
+
 interface CfItem {
   itemId: string;
   installationId: string | null;
@@ -1481,17 +1493,19 @@ export function AccountContractsSection({
       {/* Alternativa: agregar el ingreso al flujo de caja sin haber recibido
           aún el PDF firmado. Crea un Document con pdfUrl=null y
           status="pending_signature". */}
-      <div className="flex items-center justify-center">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={openPendingSignatureDialog}
-          className="text-xs text-muted-foreground hover:text-foreground gap-1.5"
-        >
-          <Wallet className="h-3.5 w-3.5" />
-          ¿Aún no tienes el contrato firmado? Agregar al flujo de caja como pendiente
-        </Button>
-      </div>
+      {SHOW_CONTRACT_CASHFLOW && (
+        <div className="flex items-center justify-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={openPendingSignatureDialog}
+            className="text-xs text-muted-foreground hover:text-foreground gap-1.5"
+          >
+            <Wallet className="h-3.5 w-3.5" />
+            ¿Aún no tienes el contrato firmado? Agregar al flujo de caja como pendiente
+          </Button>
+        </div>
+      )}
 
       {/* Contract list */}
       {loading ? (
@@ -1546,7 +1560,7 @@ export function AccountContractsSection({
                         Sin contrato subido
                       </Badge>
                     )}
-                    {c.cashflowItems.length > 0 && (
+                    {SHOW_CONTRACT_CASHFLOW && c.cashflowItems.length > 0 && (
                       <Badge
                         variant="outline"
                         className="text-[10px] px-1.5 py-0 bg-status-ok-soft text-status-ok-fg border-status-ok-fg/30"
@@ -1625,8 +1639,9 @@ export function AccountContractsSection({
                       {CONTRACT_CATEGORY_LABELS[c.category as ContractCategory] ?? c.category}
                     </span>
                   </div>
-                  {/* ── Flujo de Caja por instalación ── */}
-                  {(() => {
+                  {/* ── Flujo de Caja por instalación (Fase 4: oculto — se
+                      gestiona desde Programación / Flujo de Caja) ── */}
+                  {SHOW_CONTRACT_CASHFLOW && (() => {
                     // Detección de items "huérfanos": si el contrato tiene
                     // items por instalación + items globales (sin installationId),
                     // los globales muy probablemente sean el monto antiguo
