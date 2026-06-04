@@ -50,6 +50,18 @@ type CategoryLite = Pick<
  *  no aplican IVA porque sus montos ya son valor de caja directo. */
 const IVA_RATE = 0.19;
 
+/**
+ * Fase 4 — El flujo de caja ya NO auto-proyecta el reajuste IPC esperado hacia
+ * el futuro. El reajuste se gestiona manualmente desde Programación (el cron
+ * solo avisa). Mantenemos el tramo histórico real (ajustes APPLIED) para no
+ * falsear la varianza de períodos pasados, pero los montos futuros quedan
+ * planos hasta que el usuario los actualice en la plantilla.
+ *
+ * Flag (no se borra el código) por si hay que re-encender la proyección
+ * mientras se migran los datos. Se elimina una vez confirmada la migración.
+ */
+const PROJECT_IPC_FORWARD: boolean = false;
+
 interface DteStatusSlim {
   id: string;
   siiStatus: string;
@@ -583,6 +595,8 @@ export async function buildProjection(
 
     // Proyección futura por IPC esperado: sólo aplica si la cuota está
     // adelante del tramo activo y hay tasa anual configurada.
+    // Fase 4: desactivada — el reajuste futuro se gestiona en Programación.
+    if (!PROJECT_IPC_FORWARD) return base;
     if (!ipcAnnualPct || ipcAnnualPct <= 0) return base;
     const cycleMonths = Number(item.ipcAdjustmentMonths ?? 12);
     if (cycleMonths <= 0) return base;
