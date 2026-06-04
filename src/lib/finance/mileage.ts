@@ -203,6 +203,120 @@ export async function roadDistanceKm(
   return haversineFallback(reason);
 }
 
+/**
+ * Decodifica una polyline codificada de Google (Encoded Polyline Algorithm) a un
+ * arreglo de coordenadas. Es el mismo formato que devuelven Routes API y la
+ * Directions legacy en `polyline.encodedPolyline` / `overview_polyline.points`.
+ */
+function decodePolyline(encoded: string): { lat: number; lng: number }[] {
+  const points: { lat: number; lng: number }[] = [];
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
+
+  while (index < encoded.length) {
+    let shift = 0;
+    let result = 0;
+    let byte: number;
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    lat += result & 1 ? ~(result >> 1) : result >> 1;
+
+    shift = 0;
+    result = 0;
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    lng += result & 1 ? ~(result >> 1) : result >> 1;
+
+    points.push({ lat: lat / 1e5, lng: lng / 1e5 });
+  }
+
+  return points;
+}
+
+export interface RoadRouteResult {
+  /** Coordenadas de la ruta real por calles. Vacío si se cayó a fallback. */
+  path: { lat: number; lng: number }[];
+  source: DistanceSource;
+  fallbackReason?: string;
+}
+
+/**
+ * Geometría de la ruta por carretera vía Google Routes API (computeRoutes),
+ * pidiendo la polyline codificada y devolviéndola decodificada para dibujarla en
+ * el mapa. Si falla, devuelve `path: []` con la razón — el llamador decide si cae
+ * a la línea recta entre inicio y fin.
+ *
+ * IMPORTANTE: requiere la "Routes API" habilitada en Google Cloud y una key
+ * server-side SIN restricción de referrer (igual que `roadDistanceKm`).
+ */
+export async function roadRouteGeometry(
+  startLat: number,
+  startLng: number,
+  endLat: number,
+  endLng: number,
+): Promise<RoadRouteResult> {
+  const fallback = (fallbackReason: string): RoadRouteResult => ({
+    path: [],
+    source: "haversine",
+    fallbackReason,
+  });
+
+  if (!MAPS_KEY) return fallback("no_key");
+
+  try {
+    const res = await fetch(
+      "https://routes.googleapis.com/directions/v2:computeRoutes",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": MAPS_KEY,
+          "X-Goog-FieldMask": "routes.polyline.encodedPolyline",
+        },
+        body: JSON.stringify({
+          origin: {
+            location: { latLng: { latitude: startLat, longitude: startLng } },
+          },
+          destination: {
+            location: { latLng: { latitude: endLat, longitude: endLng } },
+          },
+          travelMode: "DRIVE",
+          routingPreference: "TRAFFIC_UNAWARE",
+          units: "METRIC",
+          regionCode: "CL",
+        }),
+      },
+    );
+
+    const data = await res.json();
+
+    if (!res.ok || data?.error) {
+      const status = data?.error?.status ?? `HTTP_${res.status}`;
+      const message = data?.error?.message ?? "";
+      const reason = message ? `${status}: ${message}` : status;
+      console.warn("[Finance] roadRouteGeometry sin ruta, usando recta:", reason);
+      return fallback(reason);
+    }
+
+    const encoded = data?.routes?.[0]?.polyline?.encodedPolyline;
+    if (typeof encoded === "string" && encoded.length > 0) {
+      return { path: decodePolyline(encoded), source: "google" };
+    }
+
+    return fallback("ROUTES_ZERO_RESULTS");
+  } catch (err) {
+    console.error("[Finance] Error roadRouteGeometry:", err);
+    return fallback("network_error");
+  }
+}
+
 export interface MileageParams {
   distanceKm: number;
   kmPerLiter: number;

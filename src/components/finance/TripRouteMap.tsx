@@ -52,24 +52,58 @@ export function TripRouteMap({
 
       const bounds: L.LatLngExpression[] = [];
 
-      // Build route coordinates
-      const routeCoords: L.LatLngExpression[] = [];
-      routeCoords.push([startLat, startLng]);
-      if (routePoints && routePoints.length > 0) {
-        for (const p of routePoints) {
-          routeCoords.push([p.lat, p.lng]);
+      // Construye la ruta a dibujar. Prioridad:
+      // 1) routePoints (breadcrumbs GPS reales del viaje, si los hay)
+      // 2) geometría de la ruta por carretera de Google (se carga async abajo)
+      // 3) línea recta inicio→fin como último recurso
+      const buildBaseCoords = (): L.LatLngExpression[] => {
+        const coords: L.LatLngExpression[] = [[startLat, startLng]];
+        if (routePoints && routePoints.length > 0) {
+          for (const p of routePoints) coords.push([p.lat, p.lng]);
         }
-      }
-      routeCoords.push([endLat, endLng]);
+        coords.push([endLat, endLng]);
+        return coords;
+      };
 
-      // Draw route polyline
+      const routeCoords = buildBaseCoords();
+      const hasGpsTrack = !!(routePoints && routePoints.length > 0);
+
+      // Polyline inicial (recta o GPS). Se reemplaza por la ruta de calles si
+      // Google responde y no hay track GPS propio.
+      let routeLine: L.Polyline | null = null;
       if (routeCoords.length >= 2) {
-        L.polyline(routeCoords, {
+        routeLine = L.polyline(routeCoords, {
           color: "#10B981",
           weight: 4,
           opacity: 0.85,
         }).addTo(map);
         bounds.push(...routeCoords);
+      }
+
+      // Si no hay track GPS, pide a Google la geometría real de la ruta por
+      // carretera y reemplaza la línea recta por el trayecto en auto.
+      if (!hasGpsTrack) {
+        fetch("/api/finance/trips/route-geometry", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ startLat, startLng, endLat, endLng }),
+        })
+          .then((r) => r.json())
+          .then((res) => {
+            const path: { lat: number; lng: number }[] = res?.data?.path ?? [];
+            if (!mapInstanceRef.current || path.length < 2) return;
+            const roadCoords: L.LatLngExpression[] = path.map((p) => [p.lat, p.lng]);
+            if (routeLine) routeLine.remove();
+            L.polyline(roadCoords, {
+              color: "#10B981",
+              weight: 4,
+              opacity: 0.85,
+            }).addTo(map);
+            map.fitBounds(L.latLngBounds(roadCoords), { padding: [50, 50] });
+          })
+          .catch(() => {
+            // Silencioso: queda la línea recta ya dibujada.
+          });
       }
 
       // Start marker (green)
