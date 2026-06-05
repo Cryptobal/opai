@@ -52,6 +52,8 @@ export default async function VisitaSupervisionDetailPage({
   const canViewAll = hasCapability(perms, "supervision_view_all");
   const userCanEdit = canEdit(perms, "ops", "supervision");
   const userCanDelete = canDelete(perms, "ops", "supervision") || canViewAll;
+  // Reabrir el wizard requiere la misma capability que iniciar una visita (check-in).
+  const userCanResume = userCanEdit && hasCapability(perms, "supervision_checkin");
 
   // Try with full includes (new supervision tables). Fall back to safe
   // select-only query if migration 20260401000000_supervision_module_refactor
@@ -167,6 +169,7 @@ export default async function VisitaSupervisionDetailPage({
               status={visit.status}
               canEdit={userCanEdit}
               canDelete={userCanDelete}
+              canResume={userCanResume}
             />
           </>
         }

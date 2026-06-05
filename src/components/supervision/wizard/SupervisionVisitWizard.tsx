@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { WizardProgress } from "./WizardProgress";
@@ -29,7 +29,8 @@ import type {
 export function SupervisionVisitWizard({
   onComplete,
   mode = "regular",
-}: { onComplete?: () => void; mode?: "regular" | "vra" } = {}) {
+  resumeVisitId,
+}: { onComplete?: () => void; mode?: "regular" | "vra"; resumeVisitId?: string } = {}) {
   const router = useRouter();
   const isVraMode = mode === "vra";
 
@@ -38,6 +39,9 @@ export function SupervisionVisitWizard({
   const [maxReachedStep, setMaxReachedStep] = useState<WizardStep>(1);
   const [saving, setSaving] = useState(false);
   const [verificacionesSaved, setVerificacionesSaved] = useState(false);
+  // Cuando llegamos con ?continuar=<id>, rehidratamos la visita antes de pintar pasos.
+  const [bootstrapping, setBootstrapping] = useState<boolean>(Boolean(resumeVisitId));
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
   // Visit data
   const [visit, setVisit] = useState<VisitData | null>(null);
@@ -97,6 +101,190 @@ export function SupervisionVisitWizard({
   // Estado del dialog post-checkout en modo VRA
   const [showVraGenerateDialog, setShowVraGenerateDialog] = useState(false);
   const [creatingVraReport, setCreatingVraReport] = useState(false);
+
+  // Reanudar una visita en progreso: rehidrata todo el estado persistido y
+  // aterriza en el paso guardado (wizardStep). Solo corre con ?continuar=<id>.
+  useEffect(() => {
+    if (!resumeVisitId) return;
+    let cancelled = false;
+
+    async function bootstrapResume(visitId: string) {
+      try {
+        const res = await fetch(`/api/ops/supervision/${visitId}`);
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.error ?? "No se pudo cargar la visita");
+        }
+        if (cancelled) return;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const v: any = json.data;
+
+        if (v.status !== "in_progress") {
+          toast.error("Esta visita ya no está en progreso");
+          router.replace(`/ops/supervision/${visitId}`);
+          return;
+        }
+
+        const bookDate = v.bookLastEntryDate ? String(v.bookLastEntryDate).slice(0, 10) : null;
+
+        const visitData: VisitData = {
+          id: v.id,
+          installationId: v.installationId,
+          status: v.status,
+          wizardStep: v.wizardStep ?? 2,
+          checkInAt: v.checkInAt,
+          guardsExpected: v.guardsExpected ?? null,
+          guardsFound: v.guardsFound ?? null,
+          installationState: v.installationState ?? null,
+          installationStateNotes: v.installationStateNotes ?? null,
+          generalComments: v.generalComments ?? null,
+          bookUpToDate: v.bookUpToDate ?? null,
+          bookLastEntryDate: bookDate,
+          bookNotes: v.bookNotes ?? null,
+          clientContacted: v.clientContacted ?? false,
+          clientContactName: v.clientContactName ?? null,
+          clientSatisfaction: v.clientSatisfaction ?? null,
+          clientComment: v.clientComment ?? null,
+          draftData: v.draftData ?? null,
+        };
+        setVisit(visitData);
+
+        // Reconstruye la dotación desde las evaluaciones guardadas (lo más fiel:
+        // son exactamente los guardias que se estaban evaluando).
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const savedEvals: any[] = Array.isArray(v.guardEvaluations) ? v.guardEvaluations : [];
+        const reconstructedGuards: DotacionGuard[] = savedEvals
+          .filter((e) => e.guardId)
+          .map((e) => ({
+            id: e.guardId as string,
+            type: e.isReinforcement ? "reinforcement" : "regular",
+            guardId: e.guardId as string,
+            guardName: e.guardName,
+            guardRut: e.guardRut ?? null,
+            puestoName: "",
+            slotNumber: null,
+            shiftStart: null,
+            shiftEnd: null,
+          }));
+        setGuards(reconstructedGuards);
+
+        if (savedEvals.length > 0) {
+          setEvaluations(
+            savedEvals.map((e) => ({
+              guardId: e.guardId ?? null,
+              guardName: e.guardName,
+              isReinforcement: e.isReinforcement ?? false,
+              presentationScore: e.presentationScore ?? null,
+              orderScore: e.orderScore ?? null,
+              protocolScore: e.protocolScore ?? null,
+              observation: e.observation ?? "",
+            })),
+          );
+        }
+
+        // Escalares de pasos 2/3/5
+        setInstallationState(v.installationState ?? "normal");
+        setInstallationStateNotes(v.installationStateNotes ?? "");
+        setGeneralComments(v.generalComments ?? "");
+        setBookUpToDate(v.bookUpToDate ?? null);
+        setBookLastEntryDate(bookDate ?? "");
+        setBookNotes(v.bookNotes ?? "");
+        setClientContacted(v.clientContacted ?? false);
+        setClientContactName(v.clientContactName ?? "");
+
+        // Checklist persistido
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const savedChecklist: any[] = Array.isArray(v.checklistResults) ? v.checklistResults : [];
+        if (savedChecklist.length > 0) {
+          setChecklistResults(
+            savedChecklist.map((r) => ({
+              checklistItemId: r.checklistItemId,
+              isChecked: r.isChecked ?? false,
+              findingId: r.findingId ?? null,
+            })),
+          );
+        }
+
+        // Hallazgos ya creados
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const savedFindings: any[] = Array.isArray(v.findings) ? v.findings : [];
+        if (savedFindings.length > 0) {
+          setFindings(
+            savedFindings.map((f) => ({
+              id: f.id,
+              category: f.category,
+              severity: f.severity,
+              description: f.description,
+              status: f.status,
+              guardId: f.guardId ?? null,
+              photoUrl: f.photoUrl ?? null,
+              createdAt:
+                typeof f.createdAt === "string" ? f.createdAt : new Date(f.createdAt).toISOString(),
+              ticketCode: f.ticketCode ?? null,
+              tipoDocId: f.tipoDocId ?? null,
+              guardiaDocCode: f.guardiaDocCode ?? null,
+            })),
+          );
+        }
+
+        // Fotos ya subidas → marcadas como uploaded para no re-subirlas
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const savedPhotos: any[] = Array.isArray(v.photos) ? v.photos : [];
+        if (savedPhotos.length > 0) {
+          setCapturedPhotos(
+            savedPhotos.map((p) => ({
+              categoryId: p.categoryId ?? null,
+              categoryName: p.categoryName ?? "Evidencia",
+              file: new File([], p.photoUrl ?? "foto"),
+              previewUrl: p.photoUrl,
+              uploaded: true,
+              uploadedId: p.id,
+            })),
+          );
+        }
+
+        // Hallazgos diferidos (pendientes) guardados en el borrador
+        const draftPending = (v.draftData as { pendingFindings?: PendingFinding[] } | null)
+          ?.pendingFindings;
+        if (Array.isArray(draftPending) && draftPending.length > 0) {
+          setPendingFindings(draftPending);
+        }
+
+        // Re-fetch de configuración (igual que un inicio fresco), con overlay
+        // del estado persistido donde aplica.
+        const documentChecklist =
+          (v.documentChecklist as Record<string, boolean> | null) ?? null;
+        await Promise.all([
+          fetchChecklistItems(v.installationId),
+          fetchPhotoCategories(v.installationId),
+          fetchOpenFindings(v.installationId),
+          fetchDocumentTypes(documentChecklist),
+          fetchGlobalDocTypes(),
+          fetchGuardDocTypes(reconstructedGuards),
+        ]);
+        if (cancelled) return;
+
+        // Aterriza en el paso guardado (nunca en el 1 — el check-in ya ocurrió)
+        const step = Math.min(Math.max(Number(v.wizardStep ?? 2), 2), 5) as WizardStep;
+        setCurrentStep(step);
+        setMaxReachedStep(step);
+        toast.success(`Visita reanudada — paso ${step} de 5`);
+      } catch (e) {
+        if (cancelled) return;
+        const message = e instanceof Error ? e.message : "No se pudo reanudar la visita";
+        setBootstrapError(message);
+        toast.error(message);
+      } finally {
+        if (!cancelled) setBootstrapping(false);
+      }
+    }
+
+    void bootstrapResume(resumeVisitId);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeVisitId]);
 
   // Step 1 callback: after check-in
   function handleCheckedIn(visitData: VisitData, dotacion: DotacionGuard[], guardsExpected: number) {
@@ -173,7 +361,7 @@ export function SupervisionVisitWizard({
     }
   }
 
-  async function fetchDocumentTypes() {
+  async function fetchDocumentTypes(checkedByLabel?: Record<string, boolean> | null) {
     try {
       const res = await fetch("/api/ops/supervision/document-types");
       const json = await res.json();
@@ -191,7 +379,8 @@ export function SupervisionVisitWizard({
         setDocumentResults(
           mapped.map((d) => ({
             code: d.code,
-            isChecked: false,
+            // Al reanudar, recupera el estado persistido en visit.documentChecklist (clave = label).
+            isChecked: checkedByLabel ? Boolean(checkedByLabel[d.label]) : false,
             lastEntryDate: null,
             photoFile: null,
             photoPreview: null,
@@ -945,6 +1134,8 @@ export function SupervisionVisitWizard({
 
   // Navigate to step (only if reachable)
   function goToStep(step: WizardStep) {
+    // Hecho el check-in, el paso 1 queda bloqueado: volver ahí iniciaría una visita duplicada.
+    if (visit && step === 1) return;
     if (step <= maxReachedStep) {
       setCurrentStep(step);
     }
@@ -970,6 +1161,35 @@ export function SupervisionVisitWizard({
       ).length;
       if (checked / checklistItems.length < 0.8) stepAlerts[3] = true;
     }
+  }
+
+  // Pantalla de carga mientras se rehidrata una visita reanudada
+  if (bootstrapping) {
+    return (
+      <div className="mx-auto max-w-lg">
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-border p-8 text-center">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary" />
+          <p className="text-sm text-muted-foreground">Reanudando visita…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (bootstrapError) {
+    return (
+      <div className="mx-auto max-w-lg">
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-status-danger-border bg-status-danger-soft p-8 text-center">
+          <p className="text-sm text-status-danger-fg">{bootstrapError}</p>
+          <button
+            type="button"
+            onClick={() => router.push("/ops/supervision/historial")}
+            className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted/50"
+          >
+            Volver al historial
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

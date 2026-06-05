@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, XCircle, Trash2 } from "lucide-react";
+import { CheckCircle2, XCircle, Trash2, PlayCircle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -11,9 +11,11 @@ type Props = {
   status: string;
   canEdit: boolean;
   canDelete: boolean;
+  /** El usuario puede reabrir el wizard para seguir trabajando la visita (requiere capability de check-in). */
+  canResume?: boolean;
 };
 
-export function VisitaDetailActions({ visitId, status, canEdit, canDelete }: Props) {
+export function VisitaDetailActions({ visitId, status, canEdit, canDelete, canResume = false }: Props) {
   const router = useRouter();
   const [updating, setUpdating] = useState(false);
 
@@ -62,10 +64,21 @@ export function VisitaDetailActions({ visitId, status, canEdit, canDelete }: Pro
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {canResume && status === "in_progress" && (
+        <Button
+          size="sm"
+          onClick={() => router.push(`/ops/supervision/nueva-visita?continuar=${visitId}`)}
+          disabled={updating}
+        >
+          <PlayCircle className="mr-2 h-4 w-4" />
+          Continuar visita
+        </Button>
+      )}
       {canEdit && status === "in_progress" && (
         <>
           <Button
             size="sm"
+            variant={canResume ? "outline" : "default"}
             onClick={() => updateStatus("completed")}
             disabled={updating}
           >
