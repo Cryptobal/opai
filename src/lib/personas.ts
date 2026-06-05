@@ -36,7 +36,7 @@ export function getLifecycleTransitions(currentStatus: string): GuardiaLifecycle
   const s = currentStatus.toLowerCase();
   if (s === "postulante") return ["seleccionado", "te", "inactivo", "contratado"];
   if (s === "seleccionado") return ["contratado", "inactivo", "te"];
-  if (s === "te") return ["contratado", "inactivo"];
+  if (s === "te") return ["seleccionado", "contratado", "inactivo"];
   if (s === "contratado") return []; // Solo vía finiquito → inactivo
   if (s === "inactivo") return ["contratado", "te"];
   return [];
