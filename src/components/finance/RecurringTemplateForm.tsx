@@ -189,7 +189,7 @@ export function RecurringTemplateForm({
   // ── UF policy (solo si currency=UF) ──
   const [ufFixingPolicy, setUfFixingPolicy] = React.useState<
     "RUN_DAY" | "LAST_DAY_PREV_MONTH" | "FIRST_DAY_MONTH" | "LAST_DAY_MONTH" | "CUSTOM_DAY"
-  >("LAST_DAY_PREV_MONTH");
+  >("LAST_DAY_MONTH");
   const [ufFixingDay, setUfFixingDay] = React.useState("1");
 
   // ── Period policy: cómo se resuelve {{periodo}} en cada run del cron.
@@ -258,7 +258,7 @@ export function RecurringTemplateForm({
     setAutoSendProforma(false);
     setAutoSendPaymentStatement(false);
     setRecipientContactIds([]);
-    setUfFixingPolicy("LAST_DAY_PREV_MONTH");
+    setUfFixingPolicy("LAST_DAY_MONTH");
     setUfFixingDay("1");
     setPeriodPolicy("CURRENT_MONTH");
   }, [open, templateId]);
@@ -388,7 +388,7 @@ export function RecurringTemplateForm({
         setRecipientContactIds(
           Array.isArray(t.recipientContactIds) ? t.recipientContactIds : [],
         );
-        setUfFixingPolicy(t.ufFixingPolicy ?? "LAST_DAY_PREV_MONTH");
+        setUfFixingPolicy(t.ufFixingPolicy ?? "LAST_DAY_MONTH");
         setUfFixingDay(t.ufFixingDay != null ? String(t.ufFixingDay) : "1");
         setPeriodPolicy(t.periodPolicy ?? "CURRENT_MONTH");
         setHasIpcAdjustment(!!t.hasIpcAdjustment);
@@ -1475,14 +1475,14 @@ export function RecurringTemplateForm({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="LAST_DAY_MONTH">
+                          UF del último día del mes en curso (recomendado)
+                        </SelectItem>
                         <SelectItem value="LAST_DAY_PREV_MONTH">
-                          UF del último día del mes anterior (recomendado)
+                          UF del último día del mes anterior
                         </SelectItem>
                         <SelectItem value="FIRST_DAY_MONTH">
                           UF del primer día del mes en curso
-                        </SelectItem>
-                        <SelectItem value="LAST_DAY_MONTH">
-                          UF del último día del mes en curso
                         </SelectItem>
                         <SelectItem value="RUN_DAY">UF del día de generación</SelectItem>
                         <SelectItem value="CUSTOM_DAY">UF de un día específico del mes</SelectItem>
