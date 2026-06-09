@@ -52,6 +52,18 @@ const MIN_AGE_MS = 5 * 60 * 1000; // 5 minutos
 /** Máximo edad de DTE para seguir consultando (después se asume rechazo silencioso). */
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
 
+export interface DteStatusPollOptions {
+  /**
+   * Backfill: ignora el cap de chequeos (MAX_CHECKS_PER_DTE), la ventana
+   * de 7 días y el throttle de 23h. Para re-consultar DTEs congelados en
+   * PENDING/SENT (ej. tras un fix del mapeo de estados). Sigue exigiendo
+   * trackId y respeta el rate limit de 1.1s entre consultas.
+   */
+  force?: boolean;
+  /** Tope de DTEs por ejecución (default 50; en force sube a 100). */
+  limit?: number;
+}
+
 export interface DteStatusPollResult {
   tenantId: string;
   candidates: number;
@@ -67,6 +79,7 @@ export interface DteStatusPollResult {
 
 export async function pollPendingDtesStatus(
   tenantId: string,
+  options: DteStatusPollOptions = {},
 ): Promise<DteStatusPollResult> {
   const result: DteStatusPollResult = {
     tenantId,
@@ -88,21 +101,26 @@ export async function pollPendingDtesStatus(
 
   // Candidatos: DTEs SENT/PENDING con trackId, edad entre 5min y 7d,
   // checkCount < MAX, y NO consultados en la última hora.
+  // En modo force (backfill) se ignoran caps/ventanas: solo trackId + estado.
   const candidates = await prisma.financeDte.findMany({
     where: {
       tenantId,
       direction: "ISSUED",
       siiStatus: { in: ["PENDING", "SENT"] },
       siiTrackId: { not: null },
-      createdAt: {
-        lte: minAgeCutoff,
-        gte: maxAgeCutoff,
-      },
-      OR: [
-        { siiLastStatusCheckAt: null },
-        { siiLastStatusCheckAt: { lte: checkCutoff } },
-      ],
-      siiStatusCheckCount: { lt: MAX_CHECKS_PER_DTE },
+      ...(options.force
+        ? { createdAt: { lte: minAgeCutoff } }
+        : {
+            createdAt: {
+              lte: minAgeCutoff,
+              gte: maxAgeCutoff,
+            },
+            OR: [
+              { siiLastStatusCheckAt: null },
+              { siiLastStatusCheckAt: { lte: checkCutoff } },
+            ],
+            siiStatusCheckCount: { lt: MAX_CHECKS_PER_DTE },
+          }),
     },
     select: {
       id: true,
@@ -112,7 +130,7 @@ export async function pollPendingDtesStatus(
       dteType: true,
     },
     orderBy: { createdAt: "asc" },
-    take: 50, // tope de seguridad
+    take: options.limit ?? (options.force ? 100 : 50), // tope de seguridad
   });
 
   result.candidates = candidates.length;
@@ -147,11 +165,12 @@ export async function pollPendingDtesStatus(
       const updateData: Record<string, unknown> = {
         siiLastStatusCheckAt: now,
         siiStatusCheckCount: dte.siiStatusCheckCount + 1,
+        // Persistir SIEMPRE la respuesta cruda (aunque siga pendiente):
+        // sin esto es imposible auditar qué devolvió SimpleAPI/SII.
+        siiResponse: (status.rawResponse as Record<string, unknown>) ?? null,
       };
-      // Solo actualizar siiStatus si cambió a algo definitivo (no SENT/PENDING).
       if (newStatus !== "PENDING" && newStatus !== "SENT") {
         updateData.siiStatus = newStatus;
-        updateData.siiResponse = (status.rawResponse as Record<string, unknown>) ?? null;
         if (newStatus === "ACCEPTED" || newStatus === "WITH_OBJECTIONS") {
           updateData.siiAcceptedAt = now;
         }
@@ -160,6 +179,9 @@ export async function pollPendingDtesStatus(
         else if (newStatus === "REJECTED") result.rejected++;
         else if (newStatus === "WITH_OBJECTIONS") result.withObjections++;
       } else {
+        // PENDING→SENT sigue siendo candidato de polling; reflejarlo
+        // igual en BD para que la UI muestre el avance real.
+        if (newStatus === "SENT") updateData.siiStatus = "SENT";
         result.stillPending++;
       }
 

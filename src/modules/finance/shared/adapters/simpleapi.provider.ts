@@ -844,10 +844,19 @@ export class SimpleApiProvider implements DteProviderAdapter {
       }
 
       const json = result.bodyJson as
-        | { Estado?: string; estado?: string; ResponseXml?: string }
+        | {
+            Estado?: string;
+            estado?: string;
+            Estados?: unknown;
+            estados?: unknown;
+            ResponseXml?: string;
+          }
         | null;
       const rawEstado = json?.Estado ?? json?.estado ?? "";
-      const status = mapSiiStatus(rawEstado);
+      const status = mapEnvelopeStatus(
+        rawEstado,
+        json?.Estados ?? json?.estados,
+      );
 
       return {
         status,
@@ -1002,4 +1011,48 @@ function mapSiiStatus(raw: unknown): DteStatusResponse["status"] {
   if (r.includes("ANUL") || r === "ANC") return "ANNULLED";
   if (r.includes("ENV") || r === "EPR") return "SENT";
   return "PENDING";
+}
+
+/**
+ * Resuelve el estado del DTE a partir de la respuesta de consulta/envio.
+ *
+ * `EPR` ("Envío Procesado") es el estado FINAL del sobre: el resultado por
+ * documento NO viene en el string `estado` sino en el desglose `estados[]`
+ * (`cantidadAceptados` / `cantidadRechazados` / `cantidadReparos`). Mapear
+ * EPR→SENT a secas dejaba todos los DTEs congelados en Pendiente aunque el
+ * SII ya los hubiera aceptado.
+ *
+ * Emitimos 1 documento por sobre, así que sumamos el desglose completo:
+ *   rechazados > 0 → REJECTED, reparos > 0 → WITH_OBJECTIONS,
+ *   aceptados > 0 → ACCEPTED. Sin desglose (sobre aún en proceso) cae al
+ *   mapeo por string.
+ */
+export function mapEnvelopeStatus(
+  rawEstado: unknown,
+  rawEstados: unknown,
+): DteStatusResponse["status"] {
+  const base = mapSiiStatus(rawEstado);
+  if (base !== "SENT" && base !== "PENDING") return base;
+
+  if (!Array.isArray(rawEstados)) return base;
+  let aceptados = 0;
+  let rechazados = 0;
+  let reparos = 0;
+  for (const item of rawEstados) {
+    if (typeof item !== "object" || item === null) continue;
+    const rec = item as Record<string, unknown>;
+    aceptados += toCount(rec.cantidadAceptados ?? rec.CantidadAceptados);
+    rechazados += toCount(rec.cantidadRechazados ?? rec.CantidadRechazados);
+    reparos += toCount(rec.cantidadReparos ?? rec.CantidadReparos);
+  }
+
+  if (rechazados > 0) return "REJECTED";
+  if (reparos > 0) return "WITH_OBJECTIONS";
+  if (aceptados > 0) return "ACCEPTED";
+  return base;
+}
+
+function toCount(value: unknown): number {
+  const n = typeof value === "string" ? Number(value) : value;
+  return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : 0;
 }

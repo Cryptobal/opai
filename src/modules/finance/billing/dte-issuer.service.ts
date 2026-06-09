@@ -610,12 +610,15 @@ export async function checkDteStatus(tenantId: string, dteId: string) {
 
   // Update status in DB
   const previousStatus = dte.siiStatus;
+  const isAccepted =
+    status.status === "ACCEPTED" || status.status === "WITH_OBJECTIONS";
   await prisma.financeDte.update({
     where: { id: dteId },
     data: {
       siiStatus: status.status as any,
       siiResponse: status.rawResponse as any ?? null,
-      siiAcceptedAt: status.status === "ACCEPTED" ? new Date() : null,
+      // No clobberear un siiAcceptedAt previo con null en re-consultas.
+      siiAcceptedAt: isAccepted ? (dte.siiAcceptedAt ?? new Date()) : dte.siiAcceptedAt,
       siiLastStatusCheckAt: new Date(),
       siiStatusCheckCount: { increment: 1 },
     },

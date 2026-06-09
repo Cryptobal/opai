@@ -52,6 +52,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // ?force=1 → backfill: re-consulta DTEs PENDING/SENT ignorando el cap
+  // de 7 chequeos y la ventana de 7 días (uso manual con CRON_SECRET,
+  // ej. tras corregir el mapeo de estados del sobre).
+  const force = request.nextUrl.searchParams.get("force") === "1";
+
   const startedAt = new Date();
   const configs = await prisma.tenantDteConfig.findMany({
     where: { isActive: true, provider: "SIMPLEAPI" },
@@ -61,7 +66,7 @@ export async function GET(request: NextRequest) {
   const results = [];
   for (const c of configs) {
     try {
-      const r = await pollPendingDtesStatus(c.tenantId);
+      const r = await pollPendingDtesStatus(c.tenantId, { force });
       if (r.apiKeyBlocked) {
         console.warn(
           `[finance-dte-status] APIKEY_BLOCKED tenant=${c.tenantId} rut=${c.emisorRut}`,

@@ -48,7 +48,9 @@ export const DTE_TYPE_TAG_VARIANT: Record<number, TagVariant> = {
 export const SII_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   DRAFT: { label: "Borrador", className: "bg-violet-500/15 text-violet-400 border-violet-500/30" },
   PENDING: { label: "Pendiente", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
+  SENT: { label: "Enviado", className: "bg-status-info-soft text-status-info-fg border-status-info-border" },
   ACCEPTED: { label: "Aceptado", className: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
+  WITH_OBJECTIONS: { label: "Aceptado con reparos", className: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
   REJECTED: { label: "Rechazado", className: "bg-status-danger-soft text-status-danger-fg border-status-danger-border" },
   ANNULLED: { label: "Anulado", className: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30" },
 };

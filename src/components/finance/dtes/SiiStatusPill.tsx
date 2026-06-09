@@ -6,7 +6,9 @@ import { SII_STATUS_CONFIG } from "./shared/constants";
 
 const VARIANT_BY_STATUS: Record<string, TagVariant> = {
   PENDING: "warn",
+  SENT: "info",
   ACCEPTED: "ok",
+  WITH_OBJECTIONS: "warn",
   REJECTED: "danger",
   ANNULLED: "neutral",
 };
