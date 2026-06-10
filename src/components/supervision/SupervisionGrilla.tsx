@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { SupervisionFindingsPanel } from "./SupervisionFindingsPanel";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -113,6 +114,12 @@ export function SupervisionGrilla({
   const [tooltip, setTooltip] = useState<{
     visit: DayVisit;
     rect: DOMRect;
+  } | null>(null);
+
+  // Findings side panel state
+  const [findingsPanel, setFindingsPanel] = useState<{
+    id: string;
+    name: string;
   } | null>(null);
 
   const fetchData = useCallback(async (y: number, m: number) => {
@@ -306,12 +313,21 @@ export function SupervisionGrilla({
                     })}
                     <td className="px-2 py-1.5 text-center">
                       {inst.openFindings > 0 ? (
-                        <Badge
-                          variant="destructive"
-                          className="h-5 min-w-[20px] justify-center px-1.5 text-[10px]"
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFindingsPanel({ id: inst.id, name: inst.name })
+                          }
+                          className="inline-flex items-center justify-center rounded-md p-1 -m-1 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          title={`Ver ${inst.openFindings} hallazgo${inst.openFindings > 1 ? "s" : ""} de ${inst.name}`}
                         >
-                          {inst.openFindings}
-                        </Badge>
+                          <Badge
+                            variant="destructive"
+                            className="h-5 min-w-[20px] cursor-pointer justify-center px-1.5 text-[10px]"
+                          >
+                            {inst.openFindings}
+                          </Badge>
+                        </button>
                       ) : (
                         <span className="text-muted-foreground/40">—</span>
                       )}
@@ -331,6 +347,13 @@ export function SupervisionGrilla({
       {tooltip && (
         <CellTooltip visit={tooltip.visit} anchorRect={tooltip.rect} />
       )}
+
+      {/* Findings side panel */}
+      <SupervisionFindingsPanel
+        installation={findingsPanel}
+        onClose={() => setFindingsPanel(null)}
+        onChanged={() => void fetchData(year, month)}
+      />
 
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">

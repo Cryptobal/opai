@@ -41,6 +41,22 @@ export async function GET(
               ? { status: { in: ["open", "in_progress"] } }
               : { status: statusFilter }),
         },
+        include: {
+          visit: {
+            select: {
+              id: true,
+              checkInAt: true,
+              supervisor: { select: { name: true } },
+            },
+          },
+          ticket: { select: { id: true, code: true, status: true } },
+          guard: {
+            select: {
+              persona: { select: { firstName: true, lastName: true } },
+            },
+          },
+          tipoDoc: { select: { id: true, nombre: true } },
+        },
         orderBy: { createdAt: "desc" },
         take: 50,
       });
