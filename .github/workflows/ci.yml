@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancelar runs anteriores del mismo PR al pushear nuevos commits
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # prisma generate (postinstall) requiere que la var exista; no se conecta a la DB.
+  # NUNCA usar la URL real de producción aquí: los tests mockean @/lib/prisma.
+  DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+  DIRECT_DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+
+jobs:
+  typecheck:
+    name: TypeScript (tsc --noEmit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        # El repo (~140k líneas) excede el heap default de Node; mismo ajuste que usa `npm run build`.
+        run: npx tsc --noEmit
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+
+  test:
+    name: Tests (vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npx vitest run
+
+  design-system:
+    name: Design System guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check design system
+        run: node scripts/check-design-system.mjs --all

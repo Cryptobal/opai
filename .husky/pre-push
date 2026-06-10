@@ -1,0 +1,2 @@
+echo "pre-push: tsc --noEmit (red local antes de CI)..."
+NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit
