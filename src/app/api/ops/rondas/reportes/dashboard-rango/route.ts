@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
 import { requireTenantModule } from '@/lib/require-module';
+import { onlyActiveInstallationEjecucion } from "@/lib/rondas/active-installation-filter";
 
 /**
  * GET /api/ops/rondas/reportes/dashboard-rango
@@ -59,6 +60,8 @@ export async function GET(request: NextRequest) {
       where: {
         tenantId: ctx.tenantId,
         scheduledAt: { gte: cycleStart, lt: cycleEnd },
+        // Ocultar ejecuciones de instalaciones inactivas (consistente con el selector)
+        ...onlyActiveInstallationEjecucion,
       },
       select: {
         id: true,

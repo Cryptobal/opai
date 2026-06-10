@@ -4,6 +4,7 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
 import { formatPersonName } from "@/lib/personas";
 import { requireTenantModule } from '@/lib/require-module';
+import { onlyActiveInstallationEjecucion } from "@/lib/rondas/active-installation-filter";
 
 export async function GET(request: NextRequest) {
   const modCheck = await requireTenantModule('ops_rondas');
@@ -30,6 +31,8 @@ export async function GET(request: NextRequest) {
     const where = {
       tenantId: ctx.tenantId,
       scheduledAt: { gte: cycleStart, lt: cycleEnd },
+      // Ocultar ejecuciones de instalaciones inactivas (consistente con el selector)
+      ...onlyActiveInstallationEjecucion,
     };
 
     const rows = await prisma.opsRondaEjecucion.findMany({

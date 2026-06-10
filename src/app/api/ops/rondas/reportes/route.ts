@@ -5,6 +5,7 @@ import { canView } from "@/lib/permissions";
 import { formatPersonName } from "@/lib/personas";
 import { asRouteSnapshot, asWalkRoute } from "@/lib/rondas/ejecucion-map-helpers";
 import { requireTenantModule } from '@/lib/require-module';
+import { onlyActiveInstallationEjecucion } from "@/lib/rondas/active-installation-filter";
 
 export async function GET(request: NextRequest) {
   const modCheck = await requireTenantModule('ops_rondas');
@@ -35,6 +36,8 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = {
       tenantId: ctx.tenantId,
       scheduledAt: { gte: dateFrom, lte: dateTo },
+      // Ocultar ejecuciones de instalaciones inactivas (consistente con el selector)
+      ...onlyActiveInstallationEjecucion,
     };
     if (installationId) {
       where.OR = [
