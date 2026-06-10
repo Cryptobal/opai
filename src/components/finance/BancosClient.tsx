@@ -1092,15 +1092,19 @@ function TransactionsTab({
   const loadCounts = useCallback(async () => {
     if (!selectedAccount) return;
     try {
+      // Los conteos deben respetar el filtro de dirección activo para que el
+      // número del tab coincida con lo que la lista realmente muestra.
+      const countParams = new URLSearchParams({ bankAccountId: selectedAccount });
+      if (direction !== "all") countParams.set("direction", direction);
       const res = await fetch(
-        `/api/finance/banking/transactions/counts?bankAccountId=${selectedAccount}`,
+        `/api/finance/banking/transactions/counts?${countParams}`,
       );
       const json = await res.json();
       if (json?.success) setTabCounts(json.data);
     } catch {
       /* silencioso */
     }
-  }, [selectedAccount]);
+  }, [selectedAccount, direction]);
 
   useEffect(() => {
     loadCounts();

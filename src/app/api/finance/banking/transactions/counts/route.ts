@@ -36,10 +36,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // El filtro de dirección (ingreso/egreso) debe aplicarse a TODOS los
+    // conteos: si no, el badge del tab (ej. "Reconocidos 8") cuenta ingresos
+    // + egresos mientras la lista filtra solo por el signo activo, dejando al
+    // usuario con "8 reconocidos" pero "Sin movimientos" en la lista. El signo
+    // se determina por el monto (>0 ingreso, <0 egreso), igual que en
+    // listBankTransactions.
+    const direction = searchParams.get("direction") ?? "all";
+    const amountFilter =
+      direction === "inflow"
+        ? { amount: { gt: 0 } }
+        : direction === "outflow"
+          ? { amount: { lt: 0 } }
+          : {};
+
     const base = {
       tenantId: ctx.tenantId,
       bankAccountId,
       hiddenAt: null,
+      ...amountFilter,
     } as const;
 
     const [all, recognized, unrecognized, matched] = await Promise.all([
