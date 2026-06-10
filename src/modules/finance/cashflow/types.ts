@@ -86,6 +86,11 @@ export interface VirtualOccurrence {
   dteFolio?: number | null;
   /** Días de mora de la celda (si está vencida). */
   daysOverdue?: number;
+  /** true cuando el DTE está cedido a factoring Y el depósito del cesionario
+   *  ya se concilió (FactoringOperation en FUNDED/COLLECTED). Permite mostrar
+   *  "Factorizada · cobrada" en vez de "Factorizada" plana: la plata ya entró
+   *  al banco aunque el DTE siga en CEDED (su cobro lo gestiona el factoring). */
+  factoringCollected?: boolean;
 }
 
 export interface ProjectionRange {
@@ -184,6 +189,8 @@ export interface CellDteSummary {
   amountPaid: number;
   amountPending: number;
   hasFactoring: boolean;
+  /** Cedido a factoring Y depósito ya conciliado (op en FUNDED/COLLECTED). */
+  factoringCollected?: boolean;
   voidedByCreditNoteId: string | null;
   voidedAt: string | null;
   creditedNetAmount: number;

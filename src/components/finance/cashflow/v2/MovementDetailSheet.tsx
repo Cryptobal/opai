@@ -123,6 +123,7 @@ function DetailBody({ occ, meta }: { occ: VirtualOccurrence; meta?: OccMeta }) {
   const variant = pillVariantFor({
     cellStatus,
     hasFactoring: occ.modoCobro === "FACTORING",
+    factoringCollected: occ.factoringCollected,
     daysOverdue: meta?.daysOverdue,
   });
   const dteId = meta?.dteId ?? occ.dteId;

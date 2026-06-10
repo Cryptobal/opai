@@ -819,6 +819,7 @@ function DtesSection({
           const variant = pillVariantFor({
             cellStatus: d.cellStatus,
             hasFactoring: d.hasFactoring,
+            factoringCollected: d.factoringCollected,
             daysOverdue: d.daysOverdue,
             voided: !!d.voidedByCreditNoteId,
           });

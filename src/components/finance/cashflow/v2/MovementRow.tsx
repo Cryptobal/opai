@@ -71,6 +71,7 @@ export function MovementRow({
   const variant = pillVariantFor({
     cellStatus,
     hasFactoring: factoring,
+    factoringCollected: occ.factoringCollected,
     daysOverdue: occ.daysOverdue ?? meta?.daysOverdue,
   });
   // Real = ya existe como hecho (conciliada, pagada, emitida, o con folio). El

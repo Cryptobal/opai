@@ -1,5 +1,6 @@
 import {
   Check,
+  CheckCheck,
   ArrowUpRight,
   FileText,
   Pencil,
@@ -12,6 +13,7 @@ import type { CashflowCellStatus } from "@/modules/finance/cashflow/types";
 export type PillVariant =
   | "PAID"
   | "FACTORING"
+  | "FACTORING_COLLECTED"
   | "INVOICED"
   | "DRAFT"
   | "PROJECTED"
@@ -33,6 +35,7 @@ const META: Record<PillVariant, {
 }> = {
   PAID:       { label: "Pagada",      short: "PAG",  icon: Check,          bg: "bg-emerald-500/15",  fg: "text-emerald-300" },
   FACTORING:  { label: "Factorizada", short: "FACT", icon: ArrowUpRight,   bg: "bg-purple-500/15",   fg: "text-purple-300" },
+  FACTORING_COLLECTED: { label: "Factorizada · cobrada", short: "FACT✓", icon: CheckCheck, bg: "bg-teal-500/15", fg: "text-teal-300" },
   INVOICED:   { label: "Facturada",   short: "FAC",  icon: FileText,       bg: "bg-blue-500/15",     fg: "text-blue-300" },
   DRAFT:      { label: "Borrador",    short: "BOR",  icon: Pencil,         bg: "bg-amber-500/15",    fg: "text-amber-300" },
   PROJECTED:  { label: "Programada",  short: "PROG", icon: Calendar,       bg: "bg-muted/40",        fg: "text-ds-text-3" },
@@ -57,6 +60,9 @@ export function CellStatusPill({ variant, compact = false, className = "" }: Pro
 export function pillVariantFor(input: {
   cellStatus: CashflowCellStatus;
   hasFactoring?: boolean;
+  /** Cedida a factoring y depósito ya conciliado (op FUNDED/COLLECTED): la
+   *  plata entró al banco → "Factorizada · cobrada" en vez de "Factorizada". */
+  factoringCollected?: boolean;
   daysOverdue?: number;
   voided?: boolean;
 }): PillVariant {
@@ -71,7 +77,11 @@ export function pillVariantFor(input: {
   if (input.cellStatus === "VOIDED") return "VOIDED";
   if ((input.daysOverdue ?? 0) > 0 && input.cellStatus !== "PAID") return "OVERDUE";
   if (input.cellStatus === "PAID") return "PAID";
-  if (input.cellStatus === "CEDED") return "FACTORING";
+  if (input.cellStatus === "CEDED") {
+    // Cedida + depósito ya conciliado → "Factorizada · cobrada" (la plata entró
+    // al banco aunque el DTE siga CEDED). Sin conciliar → "Factorizada" plana.
+    return input.factoringCollected ? "FACTORING_COLLECTED" : "FACTORING";
+  }
   if (input.cellStatus === "INVOICED") {
     // Facturada. "Factorizada" se reserva para cuando la factura se CEDIÓ de
     // verdad (cellStatus=CEDED), NO por el modoCobro del contrato: una factura

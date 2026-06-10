@@ -1625,6 +1625,9 @@ export async function buildProjection(
   const dteVoidedAtById = new Map<string, string | null>();
   const dteCreditedNetAmountById = new Map<string, number>();
   const activeFactoringDteIds = new Set<string>();
+  /** Subconjunto de activeFactoringDteIds cuya cesión ya fue girada/cobrada
+   *  (FactoringOperation en FUNDED/COLLECTED): la plata entró al banco. */
+  const collectedFactoringDteIds = new Set<string>();
   /** Suma del write-off (totalDebit) por DTE. Positivo = SHORT (pérdida),
    *  negativo = OVER (ganancia). Cargado del FinanceJournalEntry con
    *  sourceType=RECONCILIATION y sourceId=dteId. */
@@ -1657,7 +1660,7 @@ export async function buildProjection(
           dteId: { in: dteIds },
           status: { in: ["APPROVED", "FUNDED", "COLLECTED"] },
         },
-        select: { dteId: true },
+        select: { dteId: true, status: true },
       }),
       prisma.financeJournalEntry.findMany({
         where: {
@@ -1700,7 +1703,13 @@ export async function buildProjection(
       dteCreditedNetAmountById.set(d.id, Number(d.creditedNetAmount));
     }
     for (const f of factoringOps) {
-      if (f.dteId) activeFactoringDteIds.add(f.dteId);
+      if (!f.dteId) continue;
+      activeFactoringDteIds.add(f.dteId);
+      // FUNDED/COLLECTED = el depósito del cesionario ya entró/se concilió.
+      // APPROVED = cedida pero aún esperando el giro → sigue "Factorizada".
+      if (f.status === "FUNDED" || f.status === "COLLECTED") {
+        collectedFactoringDteIds.add(f.dteId);
+      }
     }
     for (const e of writeOffEntries) {
       if (!e.sourceId) continue;
@@ -1755,6 +1764,7 @@ export async function buildProjection(
     dteGrossById,
     dteIssueDateById,
     activeFactoringDteIds,
+    collectedFactoringDteIds,
     writeOffByDteId,
     dteDueDateById,
     dteReconciledAtById,
@@ -1779,7 +1789,7 @@ export async function buildProjection(
   };
   const cellStageByKey = new Map<
     string,
-    { status: CashflowCellStatus; folio: number | null; daysOverdue: number; dteId: string }
+    { status: CashflowCellStatus; folio: number | null; daysOverdue: number; dteId: string; factoringCollected: boolean }
   >();
   const cellKeyOf = (o: VirtualOccurrence) =>
     `${o.itemId ?? `dte:${o.dteId}`}::${bucketKeyFor(o.effectiveDate ?? o.scheduledDate, range.granularity)}`;
@@ -1795,6 +1805,7 @@ export async function buildProjection(
         folio: dteFolioById.get(o.dteId) ?? null,
         daysOverdue: cs.daysOverdue,
         dteId: o.dteId,
+        factoringCollected: collectedFactoringDteIds.has(o.dteId),
       });
     }
   }
@@ -1808,6 +1819,7 @@ export async function buildProjection(
         o.daysOverdue = cs.daysOverdue;
       }
       o.dteFolio = dteFolioById.get(o.dteId) ?? null;
+      o.factoringCollected = collectedFactoringDteIds.has(o.dteId);
       continue;
     }
     // Proyección pura → toma el estado del DTE de su celda (si lo hay).
@@ -1817,6 +1829,7 @@ export async function buildProjection(
     o.dteFolio = cell.folio;
     o.daysOverdue = cell.daysOverdue;
     o.dteId = cell.dteId; // habilita el deep-link del folio en la fila
+    o.factoringCollected = cell.factoringCollected;
   }
 
   const openingBreakdown = await resolveOpeningBalance(tenantId);
@@ -2133,6 +2146,7 @@ function buildRows(
   dteGrossById: Map<string, number>,
   dteIssueDateById: Map<string, string>,
   activeFactoringDteIds: Set<string>,
+  collectedFactoringDteIds: Set<string>,
   writeOffByDteId: Map<string, number>,
   dteDueDateById: Map<string, string | null>,
   dteReconciledAtById: Map<string, string | null>,
@@ -2359,6 +2373,7 @@ function buildRows(
               amountPaid: dteAmountPaidById.get(o.dteId) ?? 0,
               amountPending: dteAmountPendingById.get(o.dteId) ?? 0,
               hasFactoring: activeFactoringDteIds.has(o.dteId),
+              factoringCollected: collectedFactoringDteIds.has(o.dteId),
               voidedByCreditNoteId: dteVoidedByCreditNoteById.get(o.dteId) ?? null,
               voidedAt: dteVoidedAtById.get(o.dteId) ?? null,
               creditedNetAmount: dteCreditedNetAmountById.get(o.dteId) ?? 0,

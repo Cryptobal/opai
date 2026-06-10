@@ -48,6 +48,7 @@ function MobileCell({
     : dtes.slice(0, 2).map((d) => pillVariantFor({
         cellStatus: d.cellStatus,
         hasFactoring: d.hasFactoring,
+        factoringCollected: d.factoringCollected,
         daysOverdue: d.daysOverdue,
         voided: !!d.voidedByCreditNoteId,
       }));
