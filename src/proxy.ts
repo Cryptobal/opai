@@ -76,9 +76,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/api/auth')) return true;
   if (pathname.startsWith('/api/webhook')) return true;
   if (pathname.startsWith('/api/inbound')) return true; // Inbound mail webhooks (auth Svix in-route)
-  if (pathname.startsWith('/api/test')) return true;
   if (/^\/api\/presentations\/[^/]+\/track$/.test(pathname)) return true;
-  if (pathname.startsWith('/api/debug')) return true;
   if (pathname.startsWith('/api/pdf')) return true;
   if (pathname.startsWith('/api/cron')) return true; // Cron jobs (protegidos por CRON_SECRET)
   if (pathname.startsWith('/api/fx/sync')) return true; // FX sync cron (protegido por CRON_SECRET)
