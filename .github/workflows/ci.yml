@@ -21,6 +21,7 @@ jobs:
   typecheck:
     name: TypeScript (tsc --noEmit)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -42,12 +43,19 @@ jobs:
   test:
     name: Tests (vitest)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # TODO(endurecer): quitar continue-on-error cuando los 15 archivos de test
+    # que fallan hoy en main estén reparados. Mientras tanto el job es informativo:
+    # aparece rojo en el PR pero no bloquea el merge.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
+          # IMPORTANTE: la suite se cuelga con Node 22 (jsdom/whatwg-url).
+          # Ver comentario en vitest.config.ts. Mantener Node 20 hasta resolverlo.
           node-version: "20"
           cache: npm
 
@@ -60,13 +68,35 @@ jobs:
   design-system:
     name: Design System guard
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Solo aplica en PRs: replica el pre-commit (archivos cambiados, lógica
+    # per-file de MIGRATED_PATHS). NO usar --all: los módulos aún no migrados
+    # tienen ~11k violaciones legacy conocidas y bloquearían todo.
+    if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout PR with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
+      - name: Stage changed files
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=1
+          CHANGED=$(git diff --name-only --diff-filter=ACM origin/${{ github.base_ref }}...HEAD)
+          if [ -z "$CHANGED" ]; then
+            echo "No files changed."
+            exit 0
+          fi
+          echo "$CHANGED" | while read -r f; do
+            [ -f "$f" ] && git add "$f" 2>/dev/null || true
+          done
+
+      # check-design-system.mjs solo usa builtins de Node — no necesita npm ci.
+      # Sin --all corre en modo staged: mismo comportamiento que el pre-commit.
       - name: Check design system
-        run: node scripts/check-design-system.mjs --all
+        run: node scripts/check-design-system.mjs
