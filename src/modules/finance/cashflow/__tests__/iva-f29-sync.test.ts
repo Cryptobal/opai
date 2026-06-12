@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    financeDte: { aggregate: vi.fn() },
+    financeDte: { aggregate: vi.fn(), findMany: vi.fn() },
+    fxUtmRate: { findMany: vi.fn() },
     financeCashflowCategory: { findFirst: vi.fn() },
     financeCashflowConfig: { findUnique: vi.fn() },
     financeCashflowItem: {
@@ -24,6 +25,40 @@ import { recomputeIvaForPeriod } from "../generators/iva-f29-sync";
 
 const TENANT = "tenant-1";
 
+/** Decimal-like para los montos que el servicio F29 lee con .toNumber(). */
+const dec = (n: number) => ({ toNumber: () => n });
+
+/** DTE mínimo para el servicio F29. `periodKey` YYYY-MM → fecha día 15 UTC. */
+function dteDoc(
+  periodKey: string,
+  over: Partial<{
+    direction: "ISSUED" | "RECEIVED";
+    dteType: number;
+    taxAmount: number;
+    netAmount: number;
+    receptionStatus: string | null;
+  }> = {},
+) {
+  const [y, m] = periodKey.split("-").map(Number);
+  return {
+    id: `dte-${Math.random()}`,
+    direction: over.direction ?? "ISSUED",
+    dteType: over.dteType ?? 33,
+    folio: 1,
+    date: new Date(Date.UTC(y, m - 1, 15)),
+    issuerRut: "1-9",
+    issuerName: "Emisor",
+    receiverRut: "2-7",
+    receiverName: "Receptor",
+    netAmount: dec(over.netAmount ?? 0),
+    exemptAmount: dec(0),
+    taxAmount: dec(over.taxAmount ?? 0),
+    totalAmount: dec(0),
+    siiStatus: "ACCEPTED",
+    receptionStatus: over.receptionStatus ?? null,
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   (prisma.financeCashflowCategory.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -31,8 +66,11 @@ beforeEach(() => {
   });
   (prisma.financeCashflowConfig.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
     ivaPayDay: 12,
+    ppmRatePct: 0,
   });
   (prisma.financeCashflowItem.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  (prisma.financeDte.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  (prisma.fxUtmRate.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 });
 
 /**
@@ -55,13 +93,14 @@ function futurePeriodKey(): string {
 
 describe("recomputeIvaForPeriod — período cerrado (DTEs reales)", () => {
   it("crea item con net = débito − crédito y scheduled mes siguiente día 12", async () => {
-    (prisma.financeDte.aggregate as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce({ _sum: { taxAmount: 1_000_000 } }) // ISSUED
-      .mockResolvedValueOnce({ _sum: { taxAmount: 300_000 } }); // RECEIVED
+    const key = pastPeriodKey();
+    (prisma.financeDte.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      dteDoc(key, { direction: "ISSUED", dteType: 33, taxAmount: 1_000_000 }),
+      dteDoc(key, { direction: "RECEIVED", dteType: 33, taxAmount: 300_000 }),
+    ]);
     (prisma.financeCashflowItem.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.financeCashflowItem.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "x" });
 
-    const key = pastPeriodKey();
     const r = await recomputeIvaForPeriod(TENANT, key);
     expect(r.action).toBe("created");
     const call = (prisma.financeCashflowItem.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
@@ -72,39 +111,73 @@ describe("recomputeIvaForPeriod — período cerrado (DTEs reales)", () => {
   });
 
   it("desactiva item existente cuando net <= 0 (saldo a favor del contribuyente)", async () => {
-    (prisma.financeDte.aggregate as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce({ _sum: { taxAmount: 100_000 } })
-      .mockResolvedValueOnce({ _sum: { taxAmount: 500_000 } });
+    const key = pastPeriodKey();
+    (prisma.financeDte.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      dteDoc(key, { direction: "ISSUED", dteType: 33, taxAmount: 100_000 }),
+      dteDoc(key, { direction: "RECEIVED", dteType: 33, taxAmount: 500_000 }),
+    ]);
     (prisma.financeCashflowItem.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "i1",
       isActive: true,
     });
     (prisma.financeCashflowItem.update as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "x" });
 
-    const r = await recomputeIvaForPeriod(TENANT, pastPeriodKey());
+    const r = await recomputeIvaForPeriod(TENANT, key);
     expect(r.action).toBe("deactivated");
   });
 
   it("hace noop si periodKey inválido", async () => {
     const r = await recomputeIvaForPeriod(TENANT, "INVALID");
     expect(r.action).toBe("noop");
-    expect(prisma.financeDte.aggregate).not.toHaveBeenCalled();
+    expect(prisma.financeDte.findMany).not.toHaveBeenCalled();
   });
 
   it("actualiza monto cuando ya existe item", async () => {
-    (prisma.financeDte.aggregate as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce({ _sum: { taxAmount: 800_000 } })
-      .mockResolvedValueOnce({ _sum: { taxAmount: 100_000 } });
+    const key = pastPeriodKey();
+    (prisma.financeDte.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      dteDoc(key, { direction: "ISSUED", dteType: 33, taxAmount: 800_000 }),
+      dteDoc(key, { direction: "RECEIVED", dteType: 33, taxAmount: 100_000 }),
+    ]);
     (prisma.financeCashflowItem.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "i1",
       isActive: true,
     });
     (prisma.financeCashflowItem.update as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "x" });
 
-    const r = await recomputeIvaForPeriod(TENANT, pastPeriodKey());
+    const r = await recomputeIvaForPeriod(TENANT, key);
     expect(r.action).toBe("updated");
     const call = (prisma.financeCashflowItem.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(call.data.amount).toBe(700_000);
+  });
+
+  it("incluye NC recibidas restando crédito y PPM configurado en el total", async () => {
+    // débito 1.000.000; crédito = 200.000 − 50.000 (NC recibida) = 150.000.
+    // PPM 0,5% sobre neto ventas 5.000.000 = 25.000.
+    // Total = 850.000 + 25.000 = 875.000.
+    const key = pastPeriodKey();
+    (prisma.financeCashflowConfig.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ivaPayDay: 12,
+      ppmRatePct: 0.5,
+    });
+    (prisma.financeDte.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      dteDoc(key, {
+        direction: "ISSUED",
+        dteType: 33,
+        taxAmount: 1_000_000,
+        netAmount: 5_000_000,
+      }),
+      dteDoc(key, { direction: "RECEIVED", dteType: 33, taxAmount: 200_000 }),
+      dteDoc(key, { direction: "RECEIVED", dteType: 61, taxAmount: 50_000 }),
+      // Guía de despacho: NO debe sumar crédito.
+      dteDoc(key, { direction: "RECEIVED", dteType: 52, taxAmount: 30_000 }),
+    ]);
+    (prisma.financeCashflowItem.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (prisma.financeCashflowItem.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "x" });
+
+    const r = await recomputeIvaForPeriod(TENANT, key);
+    expect(r.action).toBe("created");
+    const call = (prisma.financeCashflowItem.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.data.amount).toBe(875_000);
   });
 });
 

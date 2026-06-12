@@ -3,43 +3,26 @@ import { prisma } from "@/lib/prisma";
 import { addMonths, startOfMonth, endOfMonth, lastDayOfMonth } from "date-fns";
 import { expandRecurrence } from "../recurrence-engine";
 import { getUfValueForDate } from "@/lib/uf";
+import { computeF29Period } from "@/modules/finance/billing/f29.service";
 
 const IVA_CATEGORY_CODE = "EGR_IVA_F29";
 const IVA_RATE = 0.19;
 
 type SyncAction = "created" | "updated" | "deactivated" | "reactivated" | "noop";
 
-/** Calcula débito − crédito del período YYYY-MM desde FinanceDte (datos reales). */
+/**
+ * Total a pagar del F29 del período (datos reales). Delegado al servicio
+ * canónico de Libro IVA: débito − crédito (con NC/ND y reclamados bien
+ * tratados) − remanente UTM-ajustado + PPM. Mismo número que muestra la
+ * página Finanzas → Libro IVA.
+ */
 async function computeIvaFromDte(
   tenantId: string,
   periodStart: Date,
 ): Promise<number> {
-  const periodEnd = endOfMonth(periodStart);
-  const [issued, received] = await Promise.all([
-    prisma.financeDte.aggregate({
-      where: {
-        tenantId,
-        direction: "ISSUED",
-        dteType: { in: [33, 39] },
-        date: { gte: periodStart, lte: periodEnd },
-        siiStatus: { in: ["ACCEPTED", "SENT"] },
-      },
-      _sum: { taxAmount: true },
-    }),
-    prisma.financeDte.aggregate({
-      where: {
-        tenantId,
-        direction: "RECEIVED",
-        dteType: { in: [33] },
-        date: { gte: periodStart, lte: periodEnd },
-        receptionStatus: { in: ["ACCEPTED"] },
-      },
-      _sum: { taxAmount: true },
-    }),
-  ]);
-  const debit = Number(issued._sum.taxAmount ?? 0);
-  const credit = Number(received._sum.taxAmount ?? 0);
-  return debit - credit;
+  const periodo = `${periodStart.getFullYear()}-${String(periodStart.getMonth() + 1).padStart(2, "0")}`;
+  const result = await computeF29Period(tenantId, periodo);
+  return result.f29.totalAPagar;
 }
 
 /**
@@ -59,6 +42,7 @@ async function computeIvaFromDte(
 async function computeIvaFromProjectedItems(
   tenantId: string,
   periodStart: Date,
+  ppmRatePct: number,
 ): Promise<number> {
   const periodEnd = endOfMonth(periodStart);
 
@@ -120,7 +104,9 @@ async function computeIvaFromProjectedItems(
 
   const debit = Math.round(netoIncome * IVA_RATE);
   const credit = Math.round(netoExpense * IVA_RATE);
-  return debit - credit;
+  // PPM proyectado sobre los ingresos brutos estimados del período.
+  const ppm = Math.round(netoIncome * (ppmRatePct / 100));
+  return debit - credit + ppm;
 }
 
 interface IvaComputation {
@@ -140,13 +126,17 @@ interface IvaComputation {
 async function computeIvaForPeriod(
   tenantId: string,
   periodStart: Date,
+  ppmRatePct: number,
 ): Promise<IvaComputation> {
   const periodEnd = endOfMonth(periodStart);
   const now = new Date();
   if (periodEnd.getTime() <= now.getTime()) {
     return { net: await computeIvaFromDte(tenantId, periodStart), isProjected: false };
   }
-  return { net: await computeIvaFromProjectedItems(tenantId, periodStart), isProjected: true };
+  return {
+    net: await computeIvaFromProjectedItems(tenantId, periodStart, ppmRatePct),
+    isProjected: true,
+  };
 }
 
 /**
@@ -168,9 +158,10 @@ export async function recomputeIvaForPeriod(
 
   const config = await prisma.financeCashflowConfig.findUnique({
     where: { tenantId },
-    select: { ivaPayDay: true },
+    select: { ivaPayDay: true, ppmRatePct: true },
   });
   const payDay = config?.ivaPayDay ?? 12;
+  const ppmRatePct = Number(config?.ppmRatePct ?? 0);
 
   const [yStr, mStr] = periodKey.split("-");
   const y = Number(yStr);
@@ -186,7 +177,11 @@ export async function recomputeIvaForPeriod(
   );
 
   const itemName = `IVA F29 ${periodKey}`;
-  const { net, isProjected } = await computeIvaForPeriod(tenantId, periodStart);
+  const { net, isProjected } = await computeIvaForPeriod(
+    tenantId,
+    periodStart,
+    ppmRatePct,
+  );
 
   const existing = await prisma.financeCashflowItem.findFirst({
     where: { tenantId, source: "IVA", name: itemName },
@@ -206,7 +201,7 @@ export async function recomputeIvaForPeriod(
 
   const description = isProjected
     ? `IVA F29 período ${periodKey} (estimado desde flujo afecto)`
-    : `IVA F29 período ${periodKey} (débito − crédito DTE)`;
+    : `IVA F29 período ${periodKey} (débito − crédito DTE, con remanente y PPM)`;
 
   const data = {
     tenantId,

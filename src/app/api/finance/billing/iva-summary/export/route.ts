@@ -42,12 +42,22 @@ export async function GET(request: NextRequest) {
   const start = new Date(Date.UTC(year, month - 1, 1));
   const end = new Date(Date.UTC(year, month, 1));
 
+  // Tipos que componen cada libro según el Registro de Compras y Ventas
+  // del SII. Las guías de despacho (52) no integran el libro de compras
+  // y los documentos reclamados no dan crédito fiscal.
+  const libroTypes =
+    direction === "ISSUED" ? [33, 34, 39, 41, 56, 61] : [33, 34, 46, 56, 61];
+
   const dtes = await prisma.financeDte.findMany({
     where: {
       tenantId: ctx.tenantId,
       direction,
+      dteType: { in: libroTypes },
       date: { gte: start, lt: end },
       siiStatus: { in: ["ACCEPTED", "PENDING", "SENT"] },
+      ...(direction === "RECEIVED"
+        ? { NOT: { receptionStatus: "CLAIMED" } }
+        : {}),
     },
     orderBy: [{ date: "asc" }, { folio: "asc" }],
   });
@@ -58,6 +68,7 @@ export async function GET(request: NextRequest) {
     "Fecha",
     "RUT",
     "Razon Social",
+    "Exento",
     "Neto",
     "IVA",
     "Total",
@@ -71,6 +82,7 @@ export async function GET(request: NextRequest) {
     d.date.toISOString().split("T")[0],
     direction === "ISSUED" ? d.receiverRut : d.issuerRut,
     escapeCsv(direction === "ISSUED" ? d.receiverName : d.issuerName),
+    d.exemptAmount.toString(),
     d.netAmount.toString(),
     d.taxAmount.toString(),
     d.totalAmount.toString(),

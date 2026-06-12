@@ -29,6 +29,8 @@ interface CashflowConfig {
   /** Día del mes para pagar PreviRed (imposiciones del mes anterior). */
   previRedPayDay: number;
   ivaPayDay: number;
+  /** Tasa PPM en % sobre ingresos brutos (0.125 = 0,125%). */
+  ppmRatePct: number;
   matchAmountToleranceClp: number;
   matchDaysTolerance: number;
   ufMonthlyGrowthPct?: number;
@@ -65,8 +67,10 @@ type RawCashflowConfig = Omit<
   | "retiroSocioPctVentas"
   | "quincenaPctLiquido"
   | "writeOffMaxPercent"
+  | "ppmRatePct"
 > & {
   ufMonthlyGrowthPct?: number | string;
+  ppmRatePct?: number | string;
   turnosExtraPercentage: number | string;
   turnosExtraLiquidoDiscountPct: number | string;
   turnosExtraPreviRedDiscountPct: number | string;
@@ -133,6 +137,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
   const [config, setConfig] = useState<CashflowConfig>({
     ...initialConfig,
     ufMonthlyGrowthPct: Number(initialConfig.ufMonthlyGrowthPct ?? 0),
+    ppmRatePct: Number(initialConfig.ppmRatePct ?? 0),
     turnosExtraPercentage: Number(initialConfig.turnosExtraPercentage ?? 0),
     turnosExtraLiquidoDiscountPct: Number(initialConfig.turnosExtraLiquidoDiscountPct),
     turnosExtraPreviRedDiscountPct: Number(initialConfig.turnosExtraPreviRedDiscountPct),
@@ -357,6 +362,23 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
             />
             <p className="mt-1 text-[12px] text-ds-text-3">
               Plazo legal: día 12 (papel) o 20 (electrónico) del mes siguiente.
+            </p>
+          </div>
+          <div>
+            <Label>Tasa PPM (% sobre ingresos brutos)</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="number"
+              min={0}
+              max={10}
+              step={0.001}
+              value={config.ppmRatePct}
+              onChange={(e) => setField("ppmRatePct", Number(e.target.value))}
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Pago Provisional Mensual obligatorio del F29 (ej. 0,125 = 0,125%).
+              Se suma al IVA determinado en el Libro IVA y en la proyección de
+              flujo de caja. 0 = no calcular.
             </p>
           </div>
           <div>

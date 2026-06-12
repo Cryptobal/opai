@@ -26,6 +26,7 @@ export async function updateCashflowConfig(
     payrollPayDay: number;
     previRedPayDay: number;
     ivaPayDay: number;
+    ppmRatePct: number;
     matchAmountToleranceClp: number;
     matchDaysTolerance: number;
     ufMonthlyGrowthPct: number;

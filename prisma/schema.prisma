@@ -7821,6 +7821,11 @@ model FinanceCashflowConfig {
   /// 10 = día 10 hábil del mes siguiente al período trabajado.
   previRedPayDay                 Int                    @default(10) @map("previred_pay_day")
   ivaPayDay                      Int                    @default(12) @map("iva_pay_day")
+  /// Tasa PPM (Pago Provisional Mensual obligatorio) en % sobre los
+  /// ingresos brutos del giro (ej. 0.125 = 0,125%; 1.0 = 1%). Se suma al
+  /// IVA determinado para componer el total a pagar del F29. Default 0 =
+  /// no calcular PPM.
+  ppmRatePct                     Decimal                @default(0) @map("ppm_rate_pct") @db.Decimal(6, 4)
   /// Cómo proyectar turnos extra. Default HISTORICAL (rolling 8 semanas).
   turnosExtraMode                FinanceTurnosExtraMode @default(HISTORICAL) @map("turnos_extra_mode")
   /// % de sueldos brutos cuando mode=PCT_PAYROLL (ej. 0.05 = 5%).
