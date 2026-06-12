@@ -402,11 +402,28 @@ async function copyTemplateAttachmentsToDraft(
 }
 
 /**
+ * Modo de agenda para una corrida:
+ *   - "advance": la corrida cuenta como la cuota del período — avanza
+ *     lastRunAt/nextRunAt un ciclo (comportamiento del cron y default).
+ *   - "keep": corrida EXTRA — genera el borrador (y auto-envíos) pero NO
+ *     toca lastRunAt/nextRunAt, así la corrida programada del período
+ *     sigue saliendo en su fecha. Caso real: usuario ejecuta manualmente
+ *     el 14 para mandar la proforma del mes anterior; sin esto, el run
+ *     manual "consumía" el cupo del mes y el cron del día 20 se saltaba.
+ */
+export type RunScheduleMode = "advance" | "keep";
+
+/**
  * Ejecuta una corrida del template: crea un borrador (FinanceDte DRAFT)
  * y registra el run. Si el cliente CRM fue eliminado, el run queda
  * status=failed y NO se crea borrador.
  */
-export async function runTemplate(tenantId: string, templateId: string) {
+export async function runTemplate(
+  tenantId: string,
+  templateId: string,
+  opts?: { scheduleMode?: RunScheduleMode },
+) {
+  const scheduleMode: RunScheduleMode = opts?.scheduleMode ?? "advance";
   const template = await prisma.financeDteRecurringTemplate.findFirst({
     where: { id: templateId, tenantId },
   });
@@ -598,45 +615,55 @@ export async function runTemplate(tenantId: string, templateId: string) {
       }
     }
 
-    // Anclamos el cálculo del próximo run a HOY (no a template.lastRunAt
-    // stale). Esto evita el bug histórico donde el primer run dejaba
-    // nextRunAt = startDate porque template.lastRunAt aún era null al
-    // momento de calcular.
-    const runDate = new Date();
-    runDate.setHours(0, 0, 0, 0);
-    let next = computeNextRunAt(template, runDate);
+    if (scheduleMode === "keep") {
+      // Corrida extra: la agenda queda intacta (lastRunAt/nextRunAt no se
+      // tocan) para que el cron del período corra igual en su fecha. Solo
+      // contamos la ejecución.
+      await prisma.financeDteRecurringTemplate.update({
+        where: { id: templateId },
+        data: { runCount: { increment: 1 } },
+      });
+    } else {
+      // Anclamos el cálculo del próximo run a HOY (no a template.lastRunAt
+      // stale). Esto evita el bug histórico donde el primer run dejaba
+      // nextRunAt = startDate porque template.lastRunAt aún era null al
+      // momento de calcular.
+      const runDate = new Date();
+      runDate.setHours(0, 0, 0, 0);
+      let next = computeNextRunAt(template, runDate);
 
-    // Defense-in-depth: si next quedó <= hoy por cualquier razón
-    // (configuración rara, edge case no cubierto), avanzar hasta superarlo.
-    // Tope de 24 iteraciones para no loopear infinito en bug futuro.
-    let safety = 0;
-    while (next != null && next <= runDate && safety < 24) {
-      next = computeNextRunAt({ ...template, lastRunAt: next }, undefined);
-      safety += 1;
+      // Defense-in-depth: si next quedó <= hoy por cualquier razón
+      // (configuración rara, edge case no cubierto), avanzar hasta superarlo.
+      // Tope de 24 iteraciones para no loopear infinito en bug futuro.
+      let safety = 0;
+      while (next != null && next <= runDate && safety < 24) {
+        next = computeNextRunAt({ ...template, lastRunAt: next }, undefined);
+        safety += 1;
+      }
+      if (safety >= 24) {
+        console.error(
+          `[finance/recurring] computeNextRunAt safety loop hit 24 iterations ` +
+            `for template ${templateId} (frequency=${template.frequency}). ` +
+            `Marking as null to prevent runaway re-execution.`,
+        );
+        next = null;
+      }
+
+      // Si next quedó null porque pasó endDate, desactivar la plantilla
+      // automáticamente. Antes el filtro confundía null con "nueva" y la
+      // plantilla seguía corriendo todos los días.
+      const shouldDeactivate = next == null;
+
+      await prisma.financeDteRecurringTemplate.update({
+        where: { id: templateId },
+        data: {
+          lastRunAt: new Date(),
+          nextRunAt: next,
+          runCount: { increment: 1 },
+          ...(shouldDeactivate ? { isActive: false } : {}),
+        },
+      });
     }
-    if (safety >= 24) {
-      console.error(
-        `[finance/recurring] computeNextRunAt safety loop hit 24 iterations ` +
-          `for template ${templateId} (frequency=${template.frequency}). ` +
-          `Marking as null to prevent runaway re-execution.`,
-      );
-      next = null;
-    }
-
-    // Si next quedó null porque pasó endDate, desactivar la plantilla
-    // automáticamente. Antes el filtro confundía null con "nueva" y la
-    // plantilla seguía corriendo todos los días.
-    const shouldDeactivate = next == null;
-
-    await prisma.financeDteRecurringTemplate.update({
-      where: { id: templateId },
-      data: {
-        lastRunAt: new Date(),
-        nextRunAt: next,
-        runCount: { increment: 1 },
-        ...(shouldDeactivate ? { isActive: false } : {}),
-      },
-    });
 
     return prisma.financeDteRecurringRun.create({
       data: {

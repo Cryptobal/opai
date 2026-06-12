@@ -55,7 +55,10 @@ export interface SendBillingDocumentResult {
   pdfBytes?: number;
 }
 
-const DEFAULT_PROFORMA_SUBJECT = "Proforma {{folio}} - {{razonSocial}}";
+// La proforma siempre se envía sobre un borrador SIN folio ({{folio}}
+// resolvía a "—" y el asunto salía "Proforma — - CLIENTE"). Usamos el
+// período, que siempre existe.
+const DEFAULT_PROFORMA_SUBJECT = "Proforma {{periodo}} - {{razonSocial}}";
 const DEFAULT_ESTADO_PAGO_SUBJECT =
   "Estado de Pago {{periodo}} - {{razonSocial}}";
 
