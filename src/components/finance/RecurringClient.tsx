@@ -293,7 +293,7 @@ export function RecurringClient({
   // ── Filtros + buscador ──
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("ALL");
-  const [sortField, setSortField] = React.useState<RecurringSortField>("nextRun");
+  const [sortField, setSortField] = React.useState<RecurringSortField>("name");
   const [sortDir, setSortDir] = React.useState<TableSortDir>("asc");
   const [autoSendErrorsOnly, setAutoSendErrorsOnly] = React.useState(false);
 

@@ -21,7 +21,7 @@ export async function GET(_request: NextRequest) {
     }
     const templates = await prisma.financeDteRecurringTemplate.findMany({
       where: { tenantId: ctx.tenantId },
-      orderBy: [{ isActive: "desc" }, { nextRunAt: "asc" }, { createdAt: "desc" }],
+      orderBy: { name: "asc" },
     });
 
     // Enriquecemos cada plantilla con el nombre del cliente CRM y de la
