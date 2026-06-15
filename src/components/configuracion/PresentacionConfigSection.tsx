@@ -46,6 +46,15 @@ export function PresentacionConfigSection() {
   const [sections, setSections] = useState<PresentationSection[]>([]);
   const [serviceIncludes, setServiceIncludes] = useState<string[]>([]);
 
+  // ── Propuesta Técnica (PDF) ──
+  const [proposalCfg, setProposalCfg] = useState<Record<string, string>>({});
+  const [excludedIds, setExcludedIds] = useState<string[]>([]);
+  const [clientAccounts, setClientAccounts] = useState<Array<{ id: string; name: string }>>([]);
+  const [clientSearch, setClientSearch] = useState("");
+
+  const setProp = (key: string, value: string) =>
+    setProposalCfg((prev) => ({ ...prev, [key]: value }));
+
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/configuracion/empresa");
@@ -58,6 +67,18 @@ export function PresentacionConfigSection() {
         setServiceIncludes(
           safeParseArray<string>(d["empresa.presentacion.serviceIncludes"]),
         );
+        setProposalCfg({
+          "empresa.proposal.yearsInOperation": d["empresa.proposal.yearsInOperation"] ?? "",
+          "empresa.proposal.activeGuards": d["empresa.proposal.activeGuards"] ?? "",
+          "empresa.proposal.protectedFacilities": d["empresa.proposal.protectedFacilities"] ?? "",
+          "empresa.proposal.regionsCount": d["empresa.proposal.regionsCount"] ?? "",
+          "empresa.proposal.metricIncidentReduction": d["empresa.proposal.metricIncidentReduction"] ?? "",
+          "empresa.proposal.metricRoundsCompliance": d["empresa.proposal.metricRoundsCompliance"] ?? "",
+          "empresa.proposal.metricDocumented": d["empresa.proposal.metricDocumented"] ?? "",
+          "empresa.proposal.metricRenewalRate": d["empresa.proposal.metricRenewalRate"] ?? "",
+          "empresa.proposal.metricSatisfaction": d["empresa.proposal.metricSatisfaction"] ?? "",
+        });
+        setExcludedIds(safeParseArray<string>(d["empresa.proposal.excludedAccountIds"]));
       }
     } catch {
       toast.error("Error al cargar la presentación");
@@ -66,9 +87,31 @@ export function PresentacionConfigSection() {
     }
   }, []);
 
+  // Cargar clientes activos para el selector de exclusión (misma lógica getLifecycle)
+  const loadClients = useCallback(async () => {
+    try {
+      const res = await fetch("/api/crm/accounts");
+      const data = await res.json();
+      const rows: Array<{ id: string; name: string; status?: string | null; isActive?: boolean }> =
+        data?.data ?? data?.accounts ?? [];
+      const isActive = (a: { status?: string | null; isActive?: boolean }) => {
+        if (a.status === "prospect") return false;
+        if (a.status === "client_active") return true;
+        if (a.status === "client_inactive") return false;
+        return a.isActive === true;
+      };
+      setClientAccounts(
+        rows.filter(isActive).map((a) => ({ id: a.id, name: a.name })),
+      );
+    } catch {
+      /* silencioso: el selector simplemente queda vacío */
+    }
+  }, []);
+
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadClients();
+  }, [load, loadClients]);
 
   const isEmpty =
     !valueProp.trim() &&
@@ -107,6 +150,11 @@ export function PresentacionConfigSection() {
         "empresa.presentacion.stats": JSON.stringify(cleanStats),
         "empresa.presentacion.sections": JSON.stringify(cleanSections),
         "empresa.presentacion.serviceIncludes": JSON.stringify(cleanIncludes),
+        // Propuesta Técnica
+        ...Object.fromEntries(
+          Object.entries(proposalCfg).map(([k, v]) => [k, (v ?? "").trim()]),
+        ),
+        "empresa.proposal.excludedAccountIds": JSON.stringify(excludedIds),
       };
 
       const res = await fetch("/api/configuracion/empresa", {
@@ -297,6 +345,101 @@ export function PresentacionConfigSection() {
           placeholder={"Rondas GPS en tiempo real\nPortal de cliente 24/7\n…"}
           rows={6}
         />
+      </div>
+
+      {/* Propuesta Técnica — cifras y métricas */}
+      <div className="rounded-lg border border-border p-6 space-y-4">
+        <div>
+          <h3 className="font-semibold text-sm">Propuesta Técnica · cifras y métricas</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Aparecen en la portada y en la sección «Resultados» del PDF. Si dejas un campo
+            vacío, esa cifra no se muestra (no inventamos datos).
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { key: "empresa.proposal.yearsInOperation", label: "Años operando", ph: "8" },
+            { key: "empresa.proposal.activeGuards", label: "Guardias activos", ph: "120+" },
+            { key: "empresa.proposal.protectedFacilities", label: "Instalaciones", ph: "45+" },
+            { key: "empresa.proposal.regionsCount", label: "Regiones", ph: "5" },
+          ].map((f) => (
+            <div key={f.key}>
+              <Label className="text-xs mb-1.5">{f.label}</Label>
+              <Input
+                value={proposalCfg[f.key] ?? ""}
+                onChange={(e) => setProp(f.key, e.target.value)}
+                placeholder={f.ph}
+                className="text-sm"
+              />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {[
+            { key: "empresa.proposal.metricIncidentReduction", label: "Reducción incidentes", ph: "67%" },
+            { key: "empresa.proposal.metricRoundsCompliance", label: "Cumplimiento rondas", ph: "96%" },
+            { key: "empresa.proposal.metricDocumented", label: "Documentado", ph: "100%" },
+            { key: "empresa.proposal.metricRenewalRate", label: "Tasa de renovación", ph: "94%" },
+            { key: "empresa.proposal.metricSatisfaction", label: "Satisfacción (de 5.0)", ph: "4.8" },
+          ].map((f) => (
+            <div key={f.key}>
+              <Label className="text-xs mb-1.5">{f.label}</Label>
+              <Input
+                value={proposalCfg[f.key] ?? ""}
+                onChange={(e) => setProp(f.key, e.target.value)}
+                placeholder={f.ph}
+                className="text-sm"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Propuesta Técnica — exclusión de clientes */}
+      <div className="rounded-lg border border-border p-6 space-y-3">
+        <div>
+          <h3 className="font-semibold text-sm">Clientes en la propuesta</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Por defecto se muestran todos los clientes activos en el muro «Clientes que confían
+            en nosotros». Oculta los que no quieras incluir (ej: cuentas internas).
+            {excludedIds.length > 0 ? ` ${excludedIds.length} oculto(s).` : ""}
+          </p>
+        </div>
+        <Input
+          value={clientSearch}
+          onChange={(e) => setClientSearch(e.target.value)}
+          placeholder="Buscar cliente…"
+          className="text-sm"
+        />
+        <div className="max-h-72 overflow-y-auto rounded-md border border-border/60 divide-y divide-border/50">
+          {clientAccounts.length === 0 && (
+            <p className="text-xs text-muted-foreground p-3">No hay clientes activos.</p>
+          )}
+          {clientAccounts
+            .filter((c) => c.name.toLowerCase().includes(clientSearch.toLowerCase()))
+            .map((c) => {
+              const hidden = excludedIds.includes(c.id);
+              return (
+                <div key={c.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                  <span className={hidden ? "text-sm text-muted-foreground line-through" : "text-sm"}>
+                    {c.name}
+                  </span>
+                  <Button
+                    variant={hidden ? "outline" : "ghost"}
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() =>
+                      setExcludedIds((prev) =>
+                        hidden ? prev.filter((x) => x !== c.id) : [...prev, c.id],
+                      )
+                    }
+                  >
+                    {hidden ? "Oculto" : "Visible"}
+                  </Button>
+                </div>
+              );
+            })}
+        </div>
       </div>
 
       {/* Guardar */}

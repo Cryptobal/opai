@@ -26,7 +26,10 @@ export interface ProposalProps {
 
   serviceType: string;
   installationName: string;
+  installationCity?: string;
   installationAddress: string;
+  /** Detalle de servicio curado por el ejecutivo (qué incluye) — se muestra textual */
+  serviceDetail?: string;
   coverageSchedule: string;
   staffingCount: number;
   staffingRegime: string;
@@ -74,6 +77,8 @@ export interface ProposalProps {
     protectedFacilities: string;
     regionsCount: string;
   };
+  /** Métricas de resultados configurables por tenant (vacío = se omiten, nunca inventar) */
+  proposalMetrics?: Array<{ value: string; label: string }>;
   regimeExplanation: string;
   breakdown?: QuoteBreakdownData;
   resourceBreakdown?: ResourceBreakdownCategory[];
@@ -270,15 +275,32 @@ export async function buildProposalProps(
   const opaiLogo = `${baseUrl}/opai-logo.png`;
   const lx3Logo = `${baseUrl}/lx3-logo.png`;
 
-  const clientesConLogo = await prisma.crmAccount.findMany({
-    where: {
-      tenantId,
-      status: 'client_active',
-      logoUrl: { not: null },
-    },
-    select: { name: true, logoUrl: true },
-    take: 20,
+  // Cliente activo = misma lógica que la UI de Cuentas (getLifecycle):
+  // status 'client_active', o (sin status canónico) isActive=true.
+  const allClientAccounts = await prisma.crmAccount.findMany({
+    where: { tenantId },
+    select: { id: true, name: true, logoUrl: true, status: true, isActive: true },
+    orderBy: { name: 'asc' },
   });
+  const isActiveClient = (a: { status: string | null; isActive: boolean }) => {
+    if (a.status === 'prospect') return false;
+    if (a.status === 'client_active') return true;
+    if (a.status === 'client_inactive') return false;
+    return a.isActive === true;
+  };
+  const excludedClientIds = new Set<string>(
+    (() => {
+      try {
+        const arr = JSON.parse(companyConfig.proposalExcludedAccountIds || '[]');
+        return Array.isArray(arr) ? arr.map((x) => String(x)) : [];
+      } catch {
+        return [];
+      }
+    })()
+  );
+  const clientesConLogo = allClientAccounts
+    .filter(isActiveClient)
+    .filter((c) => !excludedClientIds.has(c.id));
   const clientLogos: string[] = clientesConLogo
     .filter((c) => c.logoUrl)
     .map((c) => c.logoUrl!);
@@ -318,6 +340,7 @@ export async function buildProposalProps(
         specifications: i.specifications,
       })),
       existingAiDescription: quote.aiDescription ?? undefined,
+      existingServiceDetail: quote.serviceDetail ?? undefined,
       providerName: companyConfig.commercialName || undefined,
     }, tenantId);
 
@@ -689,7 +712,9 @@ export async function buildProposalProps(
 
     serviceType,
     installationName,
+    installationCity: installation?.city ?? undefined,
     installationAddress,
+    serviceDetail: quote.serviceDetail ?? undefined,
     coverageSchedule,
     staffingCount: totalGuards,
     staffingRegime,
@@ -721,15 +746,21 @@ export async function buildProposalProps(
       brandingLogoIcon: abs(companyConfig.brandingLogoIcon) || undefined,
     },
     clientLogosWithNames: clientesConLogo
-      .filter((c) => c.logoUrl)
-      .map((c) => ({ name: c.name, url: abs(c.logoUrl)! })),
+      .map((c) => ({ name: c.name, url: c.logoUrl ? abs(c.logoUrl)! : '' })),
 
     companyStats: {
-      yearsInOperation: '5+',
-      activeGuards: '50+',
-      protectedFacilities: '20+',
-      regionsCount: '3+',
+      yearsInOperation: companyConfig.proposalYearsInOperation || '',
+      activeGuards: companyConfig.proposalActiveGuards || '',
+      protectedFacilities: companyConfig.proposalProtectedFacilities || '',
+      regionsCount: companyConfig.proposalRegionsCount || '',
     },
+    proposalMetrics: [
+      { value: companyConfig.proposalMetricIncidentReduction, label: 'Reducción de incidentes' },
+      { value: companyConfig.proposalMetricRoundsCompliance, label: 'Cumplimiento de rondas' },
+      { value: companyConfig.proposalMetricDocumented, label: 'Documentado' },
+      { value: companyConfig.proposalMetricRenewalRate, label: 'Tasa de renovación' },
+      { value: companyConfig.proposalMetricSatisfaction, label: 'Satisfacción (de 5.0)' },
+    ].filter((m) => m.value && m.value.trim().length > 0),
     regimeExplanation,
     breakdown,
     resourceBreakdown,

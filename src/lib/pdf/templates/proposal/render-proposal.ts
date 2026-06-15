@@ -253,11 +253,18 @@ export async function renderProposalToBufferFromProps(
     photoImg: { width: '100%', height: 90, objectFit: 'cover' as const },
     photoLabel: { fontFamily: F.sans, fontSize: 7, color: C.textLight, textAlign: 'center' as const, paddingTop: 3, paddingBottom: 3, backgroundColor: C.bgAlt },
 
+    /* OPAI screenshots (anchas, mostrar pantalla completa) */
+    opaiShotGrid: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 10, marginTop: 8 },
+    opaiShotCell: { width: '48%', borderRadius: 6, overflow: 'hidden' as const, border: `0.5 solid ${C.border}` },
+    opaiShotImg: { width: '100%', height: 150, objectFit: 'contain' as const, backgroundColor: C.white },
+    opaiShotLabel: { fontFamily: F.sans, fontSize: 7, color: C.textLight, textAlign: 'center' as const, paddingTop: 4, paddingBottom: 4, backgroundColor: C.bgAlt },
+
     /* Logo grid */
     logoGrid: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8, marginTop: 8 },
     logoCell: { width: '30%', height: 50, backgroundColor: C.white, borderRadius: 4, border: `0.5 solid ${C.border}`, justifyContent: 'center' as const, alignItems: 'center' as const, padding: 6 },
     logoImg: { maxHeight: 30, maxWidth: 80, objectFit: 'contain' as const },
     logoName: { fontFamily: F.sans, fontSize: 6, color: C.textLighter, textAlign: 'center' as const, marginTop: 2 },
+    logoNameOnly: { fontFamily: F.sans, fontSize: 8, fontWeight: 600, color: C.navyLight, textAlign: 'center' as const, paddingHorizontal: 4 },
 
     /* Comparison table */
     compRow: { flexDirection: 'row' as const, borderBottom: `0.5 solid ${C.border}` },
@@ -312,24 +319,42 @@ export async function renderProposalToBufferFromProps(
   /* ─── Destructure props ─── */
   const {
     companyName, companyLogo, quotationCode, proposalDate, contactName, contactPosition,
-    ai, serviceType, installationName, installationAddress, coverageSchedule,
+    ai, serviceType, installationName, installationCity, installationAddress, serviceDetail, coverageSchedule,
     staffingCount, staffingRegime, supervisionFrequency,
     items, totalNetoFormatted, paymentTerms, regimeExplanation,
-    companyConfig, companyStats, clientLogosWithNames, providerLogo,
+    companyConfig, companyStats, proposalMetrics, clientLogosWithNames, providerLogo,
     breakdown, resourceBreakdown, includedItems,
   } = props;
 
-  const clientLogosData: { name: string; src: string }[] = await (async () => {
+  /* Métricas configurables por tenant (vacío = no se muestran, nunca inventar) */
+  const metrics = (proposalMetrics ?? []).filter((m) => m.value && m.value.trim().length > 0);
+  const hasStats = [
+    companyStats.yearsInOperation, companyStats.activeGuards,
+    companyStats.protectedFacilities, companyStats.regionsCount,
+  ].some((v) => v && v.trim().length > 0);
+
+  /* Capturas reales del sistema OPAI (drop-in en public/opai/*). Si no existen, se omiten. */
+  const opaiShots = [
+    { label: 'Portal de Clientes — visibilidad 24/7', file: 'opai/portal-clientes.jpg' },
+    { label: 'Rondas GPS con evidencia', file: 'opai/rondas.jpg' },
+    { label: 'Control de acceso digital', file: 'opai/control-acceso.jpg' },
+    { label: 'Centro de operaciones y KPIs en tiempo real', file: 'opai/operaciones.jpg' },
+    { label: 'App móvil del guardia', file: 'opai/app-guardias.jpg' },
+    { label: 'Gestión de incidentes', file: 'opai/incidentes.jpg' },
+  ].map((sh) => ({ label: sh.label, src: loadLocalImage(sh.file) }))
+   .filter((sh) => sh.src !== null) as { label: string; src: string }[];
+
+  const clientLogosData: { name: string; src: string | null }[] = await (async () => {
     if (clientLogosWithNames.length > 0) {
-      const resolved = await Promise.all(
+      // Incluir TODOS los clientes activos: con logo → imagen; sin logo → celda con nombre.
+      return Promise.all(
         clientLogosWithNames.map(async (cl) => {
-          const src = await fetchImageAsDataUri(cl.url);
-          return src ? { name: cl.name, src } : null;
+          const src = cl.url ? await fetchImageAsDataUri(cl.url) : null;
+          return { name: cl.name, src };
         }),
       );
-      return resolved.filter((x): x is { name: string; src: string } => x !== null);
     }
-    return STATIC_CLIENT_LOGOS;
+    return STATIC_CLIENT_LOGOS.map((c) => ({ name: c.name, src: c.src as string | null }));
   })();
 
   const providerLogoUri = providerLogo ? await fetchImageAsDataUri(providerLogo) : null;
@@ -393,15 +418,24 @@ export async function renderProposalToBufferFromProps(
       e(Text, { style: s.coverTitle }, 'PROPUESTA TÉCNICA'),
       e(Text, { style: s.coverSubtitle }, 'DE SERVICIO DE SEGURIDAD INTEGRAL'),
       e(Text, { style: s.coverCompany }, companyName),
+      (installationName && installationName !== '-') || installationCity
+        ? e(Text, { style: s.coverSubtitle },
+            [installationName && installationName !== '-' ? installationName : null, installationCity]
+              .filter(Boolean).join(' · '))
+        : null,
       ai.descripcionBreve
         ? e(Text, { style: s.coverAiDesc }, ai.descripcionBreve)
         : null,
-      e(View, { style: s.coverMetrics },
-        e(View, { style: s.coverMetricBadge }, e(Text, { style: s.coverMetricValue }, '67%'), e(Text, { style: s.coverMetricLabel }, 'Reducción incidentes')),
-        e(View, { style: s.coverMetricBadge }, e(Text, { style: s.coverMetricValue }, '96%'), e(Text, { style: s.coverMetricLabel }, 'Rondas cumplidas')),
-        e(View, { style: s.coverMetricBadge }, e(Text, { style: s.coverMetricValue }, '100%'), e(Text, { style: s.coverMetricLabel }, 'Documentado')),
-        e(View, { style: s.coverMetricBadge }, e(Text, { style: s.coverMetricValue }, '94%'), e(Text, { style: s.coverMetricLabel }, 'Renovación')),
-      ),
+      metrics.length > 0
+        ? e(View, { style: s.coverMetrics },
+            ...metrics.slice(0, 4).map((m, i) =>
+              e(View, { key: i, style: s.coverMetricBadge },
+                e(Text, { style: s.coverMetricValue }, m.value),
+                e(Text, { style: s.coverMetricLabel }, m.label),
+              ),
+            ),
+          )
+        : null,
     ),
     e(View, { style: s.coverFooter },
       e(Text, { style: s.coverFooterText }, `Preparada para: ${contactName}${contactPosition ? ` · ${contactPosition}` : ''}`),
@@ -452,13 +486,24 @@ export async function renderProposalToBufferFromProps(
           e(Text, { style: s.para }, 'Brazo tecnológico desarrollador de OPAI, la plataforma de inteligencia operacional que integra rondas GPS, control de acceso biométrico, reportes automáticos e inteligencia artificial para análisis predictivo de riesgos.'),
         ),
       ),
-      e(Text, { style: [s.sectionSubtitle, { marginTop: 12 }] }, `${companyConfig.commercialName} en números`),
-      e(View, { style: s.metricRow },
-        e(View, { style: s.metricBadge }, e(Text, { style: s.metricValue }, companyStats.yearsInOperation), e(Text, { style: s.metricLabel }, 'Años operando')),
-        e(View, { style: s.metricBadge }, e(Text, { style: s.metricValue }, companyStats.activeGuards), e(Text, { style: s.metricLabel }, 'Guardias activos')),
-        e(View, { style: s.metricBadge }, e(Text, { style: s.metricValue }, companyStats.protectedFacilities), e(Text, { style: s.metricLabel }, 'Instalaciones protegidas')),
-        e(View, { style: s.metricBadge }, e(Text, { style: s.metricValue }, companyStats.regionsCount), e(Text, { style: s.metricLabel }, 'Regiones')),
-      ),
+      hasStats
+        ? e(Text, { style: [s.sectionSubtitle, { marginTop: 12 }] }, `${companyConfig.commercialName} en números`)
+        : null,
+      hasStats
+        ? e(View, { style: s.metricRow },
+            ...[
+              { v: companyStats.yearsInOperation, l: 'Años operando' },
+              { v: companyStats.activeGuards, l: 'Guardias activos' },
+              { v: companyStats.protectedFacilities, l: 'Instalaciones protegidas' },
+              { v: companyStats.regionsCount, l: 'Regiones' },
+            ].filter((b) => b.v && b.v.trim().length > 0).map((b, i) =>
+              e(View, { key: i, style: s.metricBadge },
+                e(Text, { style: s.metricValue }, b.v),
+                e(Text, { style: s.metricLabel }, b.l),
+              ),
+            ),
+          )
+        : null,
     ),
   );
 
@@ -546,6 +591,24 @@ export async function renderProposalToBufferFromProps(
       ),
     ),
   );
+
+  /* ── 6b. OPAI en acción (capturas reales del sistema) ── */
+  if (opaiShots.length > 0) {
+    sections.push(
+      e(View, { key: 'secOpaiShots', wrap: false },
+        sectionTitle('OPAI en acción'),
+        e(Text, { style: s.para }, 'Así se ve la operación de su servicio en la plataforma: visibilidad en tiempo real, evidencia objetiva y reportes automáticos, no promesas en papel.'),
+        e(View, { style: s.opaiShotGrid },
+          ...opaiShots.map((sh, i) =>
+            e(View, { key: i, style: s.opaiShotCell },
+              e(PDFImage, { src: sh.src, style: s.opaiShotImg }),
+              e(Text, { style: s.opaiShotLabel }, sh.label),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   /* ── 7. Tecnología Incluida ── */
   const techItems = [
@@ -787,12 +850,16 @@ export async function renderProposalToBufferFromProps(
   sections.push(
     e(View, { key: 'sec16', break: true },
       sectionTitle('Resultados'),
-      e(View, { style: s.metricRow },
-        e(View, { style: s.metricBadge }, e(Text, { style: s.metricValue }, '67%'), e(Text, { style: s.metricLabel }, 'Reducción de incidentes')),
-        e(View, { style: s.metricBadge }, e(Text, { style: s.metricValue }, '96%'), e(Text, { style: s.metricLabel }, 'Cumplimiento de rondas')),
-        e(View, { style: s.metricBadge }, e(Text, { style: s.metricValue }, '94%'), e(Text, { style: s.metricLabel }, 'Tasa de renovación')),
-        e(View, { style: s.metricBadge }, e(Text, { style: s.metricValue }, '4.8'), e(Text, { style: s.metricLabel }, 'Satisfacción (de 5.0)')),
-      ),
+      metrics.length > 0
+        ? e(View, { style: s.metricRow },
+            ...metrics.slice(0, 4).map((m, i) =>
+              e(View, { key: i, style: s.metricBadge },
+                e(Text, { style: s.metricValue }, m.value),
+                e(Text, { style: s.metricLabel }, m.label),
+              ),
+            ),
+          )
+        : null,
       ai.sectoresRelevantes && ai.sectoresRelevantes.length > 0
         ? e(View, null,
             e(Text, { style: s.sectionSubtitle }, 'Sectores con experiencia relevante'),
@@ -807,11 +874,15 @@ export async function renderProposalToBufferFromProps(
         : null,
       sectionTitle('Clientes que Confían en Nosotros'),
       e(View, { style: s.logoGrid },
-        ...clientLogosData.slice(0, 12).map((cl, i) =>
-          e(View, { key: i, style: s.logoCell },
-            e(PDFImage, { src: cl.src, style: s.logoImg }),
-            e(Text, { style: s.logoName }, cl.name),
-          ),
+        ...clientLogosData.map((cl, i) =>
+          cl.src
+            ? e(View, { key: i, style: s.logoCell },
+                e(PDFImage, { src: cl.src, style: s.logoImg }),
+                e(Text, { style: s.logoName }, cl.name),
+              )
+            : e(View, { key: i, style: s.logoCell },
+                e(Text, { style: s.logoNameOnly }, cl.name),
+              ),
         ),
       ),
     ),
@@ -853,6 +924,23 @@ export async function renderProposalToBufferFromProps(
         : null,
     ),
   );
+
+  /* ── 18b. Qué incluye su servicio (detalle curado por el ejecutivo) ── */
+  if (serviceDetail && serviceDetail.trim().length > 0) {
+    const detailLines = serviceDetail.split('\n').map((l) => l.trim()).filter(Boolean);
+    sections.push(
+      e(View, { key: 'secIncluye', wrap: false },
+        sectionTitle('Qué incluye su servicio'),
+        ...detailLines.map((line, i) => {
+          const isBullet = /^[•\-\u25CF\u2022]/.test(line);
+          const clean = line.replace(/^[•\-\u25CF\u2022]\s*/, '');
+          return isBullet
+            ? bullet(clean, i)
+            : e(Text, { key: i, style: s.para }, clean);
+        }),
+      ),
+    );
+  }
 
   /* ── 19. Inversión Mensual ── */
   sections.push(
@@ -1195,10 +1283,52 @@ export async function renderProposalToBufferFromProps(
    * ASSEMBLE DOCUMENT
    * ═══════════════════════════════════════════ */
 
+  /* ─── Re-secuenciado: el contenido del cliente va primero, la prueba después ─── */
+  const sectionOrder = [
+    'sec1',         // Resumen Ejecutivo
+    'sec18',        // Propuesta Personalizada (análisis de necesidades)
+    'secIncluye',   // Qué incluye su servicio (detalle curado)
+    'sec19',        // Inversión Mensual
+    'sec20',        // Estructura de Costos
+    'sec20b',       // Desglose de Equipamiento y Recursos
+    'sec5',         // Plataforma OPAI
+    'secOpaiShots', // OPAI en acción (capturas reales)
+    'sec6',         // 6 Portales
+    'sec7',         // Tecnología Incluida
+    'sec8',         // Desarrollo a Medida
+    'sec9',         // Tabla Comparativa
+    'sec10',        // Pirámide de Valor
+    'sec11',        // 4 Pilares
+    'sec16',        // Resultados + Clientes
+    'sec2',         // Ecosistema
+    'sec3',         // Nuestra Gente
+    'sec4',         // Organigrama
+    'sec12',        // SLA + Escalamiento
+    'sec13',        // Reportabilidad
+    'sec14',        // Cumplimiento Legal
+    'sec15',        // Contingencia
+    'sec17',        // FAQ
+    'sec21',        // Implementación
+    'sec22',        // Términos + Garantía
+    'sec23',        // Próximos Pasos + Firmas
+  ];
+  const keyOf = (el: unknown): string | null =>
+    el && typeof el === 'object' && 'key' in el ? String((el as { key: unknown }).key) : null;
+  const orderedSections: unknown[] = [
+    ...sectionOrder
+      .map((k) => sections.find((sec) => keyOf(sec) === k))
+      .filter((sec) => sec !== undefined),
+    // Cualquier sección no listada (defensivo) se conserva al final
+    ...sections.filter((sec) => {
+      const k = keyOf(sec);
+      return !k || !sectionOrder.includes(k);
+    }),
+  ];
+
   const contentPage = e(
     Page, { key: 'content', size: 'A4', style: s.page, wrap: true },
     header,
-    e(View, { style: s.body }, ...sections),
+    e(View, { style: s.body }, ...orderedSections),
     pageFooter,
   );
 

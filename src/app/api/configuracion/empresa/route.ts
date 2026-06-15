@@ -66,6 +66,17 @@ const EMPRESA_KEYS = [
   "empresa.presentacion.stats",
   "empresa.presentacion.sections",
   "empresa.presentacion.serviceIncludes",
+  // Propuesta Técnica (PDF). Cifras/métricas (vacío = se omiten) + exclusión de clientes.
+  "empresa.proposal.yearsInOperation",
+  "empresa.proposal.activeGuards",
+  "empresa.proposal.protectedFacilities",
+  "empresa.proposal.regionsCount",
+  "empresa.proposal.metricIncidentReduction",
+  "empresa.proposal.metricRoundsCompliance",
+  "empresa.proposal.metricDocumented",
+  "empresa.proposal.metricRenewalRate",
+  "empresa.proposal.metricSatisfaction",
+  "empresa.proposal.excludedAccountIds", // JSON array de IDs de cuenta a ocultar
 ];
 
 function settingKey(tenantId: string, key: string): string {

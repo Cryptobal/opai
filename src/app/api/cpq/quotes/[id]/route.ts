@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCpqView, requireCpqEdit, requireCpqDelete } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 import { syncCrmDealQuoteLink } from "@/lib/crm-sync-quote-deal-link";
 import { requireTenantModule } from '@/lib/require-module';
@@ -91,6 +92,12 @@ export async function PATCH(
     if (body.currency !== undefined) updateData.currency = body.currency || "CLP";
     if (body.aiDescription !== undefined) updateData.aiDescription = body.aiDescription || null;
     if (body.serviceDetail !== undefined) updateData.serviceDetail = body.serviceDetail || null;
+    // Si cambia el contenido base de la propuesta, invalidar el cache de IA para
+    // que la Propuesta Técnica se regenere usando el texto actualizado.
+    if (body.aiDescription !== undefined || body.serviceDetail !== undefined) {
+      updateData.proposalAiContent = Prisma.DbNull;
+      updateData.proposalAiGeneratedAt = null;
+    }
     // Commercial conditions
     if (body.paymentTerms !== undefined) updateData.paymentTerms = body.paymentTerms || "contrafactura";
     if (body.serviceStartDays !== undefined) updateData.serviceStartDays = Number(body.serviceStartDays) || 5;

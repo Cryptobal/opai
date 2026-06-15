@@ -364,7 +364,9 @@ export function LeadInstallationCpq({
   const [aiError, setAiError] = useState<AiErrorPayload | null>(null);
   const aiAutoFailedRef = useRef(false);
 
-  const update = (patch: Partial<LeadCpqConfig>) => onChange({ ...config, ...patch });
+  // Usa configRef.current (no el config del closure) para evitar que dos updates
+  // secuenciales (ej: companyDescription + serviceDescription) se pisen entre sí.
+  const update = (patch: Partial<LeadCpqConfig>) => onChange({ ...configRef.current, ...patch });
 
   const currency = config.currency ?? DEFAULT_LEAD_CPQ_CURRENCY;
 
@@ -1271,9 +1273,13 @@ export function LeadInstallationCpq({
                         )}
                         onClick={() => {
                           const patch: Partial<LeadPositionItem> = { shiftType: "day", horaInicio: "08:00", horaFin: "20:00" };
-                          const allWeekdays = pos.dias?.length === 5 && !pos.dias.includes("sabado");
-                          if (allWeekdays) patch.baseSalary = 400000;
-                          else patch.baseSalary = 600000;
+                          // Solo sugerir sueldo si el actual es un valor automático (no editado por el usuario)
+                          const current = Number(pos.baseSalary) || 0;
+                          const isAutoValue = current === 0 || current === 400000 || current === 550000 || current === 600000;
+                          if (isAutoValue) {
+                            const allWeekdays = pos.dias?.length === 5 && !pos.dias.includes("sabado");
+                            patch.baseSalary = allWeekdays ? 400000 : 600000;
+                          }
                           updatePosition(idx, patch);
                         }}
                       >
@@ -1287,7 +1293,13 @@ export function LeadInstallationCpq({
                             ? "border-violet-500/50 bg-violet-500/10 text-violet-300"
                             : "border-violet-500/20 bg-card text-violet-300/60 hover:bg-violet-500/5"
                         )}
-                        onClick={() => updatePosition(idx, { shiftType: "night", horaInicio: "20:00", horaFin: "08:00", baseSalary: 600000 })}
+                        onClick={() => {
+                          const patch: Partial<LeadPositionItem> = { shiftType: "night", horaInicio: "20:00", horaFin: "08:00" };
+                          const current = Number(pos.baseSalary) || 0;
+                          const isAutoValue = current === 0 || current === 400000 || current === 550000 || current === 600000;
+                          if (isAutoValue) patch.baseSalary = 600000;
+                          updatePosition(idx, patch);
+                        }}
                       >
                         Noche
                       </button>
@@ -1342,7 +1354,31 @@ export function LeadInstallationCpq({
                   </div>
                 )}
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Días</Label>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Días</Label>
+                    <div className="flex items-center gap-1">
+                      {([
+                        { label: "L–V", dias: ["lunes", "martes", "miercoles", "jueves", "viernes"] },
+                        { label: "Fin de semana", dias: ["sabado", "domingo"] },
+                        { label: "Todos", dias: ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"] },
+                      ] as const).map((preset) => {
+                        const isActive = (pos.dias?.length ?? 0) === preset.dias.length && preset.dias.every((d) => pos.dias?.includes(d));
+                        return (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            className={cn(
+                              "h-6 rounded-md border px-2 text-[10px] font-semibold transition-colors",
+                              isActive ? "border-primary/40 bg-primary/15 text-primary" : "border-border/60 bg-card text-muted-foreground hover:bg-muted/40"
+                            )}
+                            onClick={() => updatePosition(idx, { dias: [...preset.dias] })}
+                          >
+                            {preset.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                   <div className="flex items-center gap-1 flex-wrap">
                   {["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"].map((d) => {
                     const active = pos.dias?.includes(d);

@@ -75,6 +75,22 @@ export interface TenantCompanyConfig {
   ccoSystemEnabled: string;
   ccoSystemEmails: string;
   ccoSystemReplyTo: string;
+
+  /* Propuesta Técnica — cifras de empresa (vacío = se omite, nunca inventar) */
+  proposalYearsInOperation: string;    // ej: "8"
+  proposalActiveGuards: string;        // ej: "120+"
+  proposalProtectedFacilities: string; // ej: "45+"
+  proposalRegionsCount: string;        // ej: "5"
+
+  /* Propuesta Técnica — métricas de resultados (vacío = se omite) */
+  proposalMetricIncidentReduction: string; // ej: "67%"
+  proposalMetricRoundsCompliance: string;  // ej: "96%"
+  proposalMetricDocumented: string;        // ej: "100%"
+  proposalMetricRenewalRate: string;       // ej: "94%"
+  proposalMetricSatisfaction: string;      // ej: "4.8"
+
+  /** JSON array (string) de IDs de cuenta a excluir del muro de clientes en la propuesta */
+  proposalExcludedAccountIds: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -135,6 +151,18 @@ const DEFAULTS: TenantCompanyConfig = {
   ccoSystemEnabled: "",
   ccoSystemEmails: "",
   ccoSystemReplyTo: "",
+
+  proposalYearsInOperation: "",
+  proposalActiveGuards: "",
+  proposalProtectedFacilities: "",
+  proposalRegionsCount: "",
+
+  proposalMetricIncidentReduction: "",
+  proposalMetricRoundsCompliance: "",
+  proposalMetricDocumented: "",
+  proposalMetricRenewalRate: "",
+  proposalMetricSatisfaction: "",
+  proposalExcludedAccountIds: "",
 };
 
 /* ------------------------------------------------------------------ */
@@ -198,6 +226,17 @@ const KEY_MAP: Record<string, keyof TenantCompanyConfig> = {
   "empresa.cco.system.enabled": "ccoSystemEnabled",
   "empresa.cco.system.emails": "ccoSystemEmails",
   "empresa.cco.system.replyTo": "ccoSystemReplyTo",
+
+  "empresa.proposal.yearsInOperation": "proposalYearsInOperation",
+  "empresa.proposal.activeGuards": "proposalActiveGuards",
+  "empresa.proposal.protectedFacilities": "proposalProtectedFacilities",
+  "empresa.proposal.regionsCount": "proposalRegionsCount",
+  "empresa.proposal.metricIncidentReduction": "proposalMetricIncidentReduction",
+  "empresa.proposal.metricRoundsCompliance": "proposalMetricRoundsCompliance",
+  "empresa.proposal.metricDocumented": "proposalMetricDocumented",
+  "empresa.proposal.metricRenewalRate": "proposalMetricRenewalRate",
+  "empresa.proposal.metricSatisfaction": "proposalMetricSatisfaction",
+  "empresa.proposal.excludedAccountIds": "proposalExcludedAccountIds",
 };
 
 const ALL_KEYS = Object.keys(KEY_MAP);

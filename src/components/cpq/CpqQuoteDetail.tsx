@@ -774,6 +774,20 @@ export function CpqQuoteDetail({
     } catch {}
   };
 
+  // Guardado con debounce por campo: evita disparar un PATCH por cada tecla y
+  // las carreras de red que pueden revertir lo recién escrito en otro campo.
+  const aiSaveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const saveQuoteFieldDebounced = (field: "aiDescription" | "serviceDetail", value: string) => {
+    if (aiSaveTimers.current[field]) clearTimeout(aiSaveTimers.current[field]);
+    aiSaveTimers.current[field] = setTimeout(() => {
+      fetch(`/api/cpq/quotes/${quoteId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: value }),
+      }).catch(() => {});
+    }, 600);
+  };
+
   const generateAiDescription = async () => {
     setGeneratingAi(true);
     try {
@@ -787,9 +801,7 @@ export function CpqQuoteDetail({
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      if (quote) {
-        setQuote({ ...quote, aiDescription: data.data.description });
-      }
+      setQuote((prev) => (prev ? { ...prev, aiDescription: data.data.description } : prev));
       toast.success(aiCustomInstruction.trim() ? "Descripcion refinada con AI" : "Descripcion generada con AI");
     } catch (error) {
       console.error(error);
@@ -812,15 +824,28 @@ export function CpqQuoteDetail({
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      if (quote) {
-        setQuote({ ...quote, serviceDetail: data.data.serviceDetail });
-      }
+      setQuote((prev) => (prev ? { ...prev, serviceDetail: data.data.serviceDetail } : prev));
       toast.success(serviceDetailInstruction.trim() ? "Detalle refinado con AI" : "Detalle de servicio generado con AI");
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : "No se pudo generar el detalle de servicio");
     } finally {
       setGeneratingServiceDetail(false);
+    }
+  };
+
+  const [regeneratingProposalAi, setRegeneratingProposalAi] = useState(false);
+  const regenerateProposalAi = async () => {
+    setRegeneratingProposalAi(true);
+    try {
+      const res = await fetch(`/api/cpq/quotes/${quoteId}/proposal-ai`, { method: "POST" });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      toast.success("Contenido IA de la propuesta reiniciado. Se regenerará al previsualizar el PDF.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo reiniciar el contenido IA");
+    } finally {
+      setRegeneratingProposalAi(false);
     }
   };
 
@@ -2872,12 +2897,8 @@ export function CpqQuoteDetail({
                 value={quote.aiDescription ?? ""}
                 onChange={(e) => {
                   const v = e.target.value;
-                  setQuote({ ...quote, aiDescription: v });
-                  fetch(`/api/cpq/quotes/${quoteId}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ aiDescription: v }),
-                  }).catch(() => {});
+                  setQuote((prev) => (prev ? { ...prev, aiDescription: v } : prev));
+                  saveQuoteFieldDebounced("aiDescription", v);
                 }}
                 placeholder="Clic en 'Generar' para crear una descripción profesional..."
                 className="w-full min-h-[160px] rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -2911,17 +2932,29 @@ export function CpqQuoteDetail({
                 value={quote.serviceDetail ?? ""}
                 onChange={(e) => {
                   const v = e.target.value;
-                  setQuote({ ...quote, serviceDetail: v });
-                  fetch(`/api/cpq/quotes/${quoteId}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ serviceDetail: v }),
-                  }).catch(() => {});
+                  setQuote((prev) => (prev ? { ...prev, serviceDetail: v } : prev));
+                  saveQuoteFieldDebounced("serviceDetail", v);
                 }}
                 placeholder="Clic en 'Generar' para detalle de servicios..."
                 className="w-full min-h-[160px] rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 rows={8}
               />
+            </div>
+
+            <div className="lg:col-span-2 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between rounded-md border border-dashed border-border/60 bg-muted/10 px-3 py-2">
+              <p className="text-[11px] text-muted-foreground">
+                La Propuesta Técnica usa estos textos como base. Si los editás, se regenera sola; o forzá la regeneración ahora.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1 text-xs shrink-0"
+                onClick={regenerateProposalAi}
+                disabled={regeneratingProposalAi}
+              >
+                {regeneratingProposalAi ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                {regeneratingProposalAi ? "Regenerando..." : "Regenerar propuesta"}
+              </Button>
             </div>
           </div>
         )}

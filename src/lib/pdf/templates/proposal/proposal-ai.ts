@@ -25,6 +25,8 @@ export interface ProposalAIInput {
     specifications?: string;
   }>;
   existingAiDescription?: string;
+  /** Detalle de servicio curado por el usuario (qué incluye el servicio) */
+  existingServiceDetail?: string;
   /** Nombre comercial del tenant para usar en el prompt (ej: "Mi Empresa Security") */
   providerName?: string;
 }
@@ -76,7 +78,8 @@ SERVICIO COTIZADO:
 
 ITEMS COTIZADOS:
 ${itemsText}
-${input.existingAiDescription ? `\nCONTEXTO ADICIONAL (descripción existente de la cotización):\n${input.existingAiDescription}` : ''}
+${input.existingAiDescription ? `\nDESCRIPCIÓN CURADA POR EL EJECUTIVO (es la base autorizada; respétala y mejórala sin contradecirla, no la reemplaces con texto genérico):\n${input.existingAiDescription}` : ''}
+${input.existingServiceDetail ? `\nDETALLE DE SERVICIO CURADO POR EL EJECUTIVO (qué incluye; úsalo como insumo principal para el análisis de necesidades y el resumen):\n${input.existingServiceDetail}` : ''}
 
 GENERA (en español chileno formal, directo, con autoridad pero sin ser pomposo):
 

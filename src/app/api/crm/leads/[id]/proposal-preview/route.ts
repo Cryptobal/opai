@@ -375,11 +375,30 @@ export async function POST(
     const companyLogo = abs(companyConfig.brandingLogoWhite) || abs(companyConfig.brandingLogoFull) || abs(companyConfig.logoUrl) || "";
 
     /* ── Client logos from DB ── */
-    const clientesConLogo = await prisma.crmAccount.findMany({
-      where: { tenantId: ctx.tenantId, status: "client_active", logoUrl: { not: null } },
-      select: { name: true, logoUrl: true },
-      take: 20,
+    const allClientAccounts = await prisma.crmAccount.findMany({
+      where: { tenantId: ctx.tenantId },
+      select: { id: true, name: true, logoUrl: true, status: true, isActive: true },
+      orderBy: { name: "asc" },
     });
+    const isActiveClient = (a: { status: string | null; isActive: boolean }) => {
+      if (a.status === "prospect") return false;
+      if (a.status === "client_active") return true;
+      if (a.status === "client_inactive") return false;
+      return a.isActive === true;
+    };
+    const excludedClientIds = new Set<string>(
+      (() => {
+        try {
+          const arr = JSON.parse(companyConfig.proposalExcludedAccountIds || "[]");
+          return Array.isArray(arr) ? arr.map((x) => String(x)) : [];
+        } catch {
+          return [];
+        }
+      })()
+    );
+    const clientesConLogo = allClientAccounts
+      .filter(isActiveClient)
+      .filter((c) => !excludedClientIds.has(c.id));
 
     /* ── AI content ── */
     let aiContent: ProposalAIContent;
@@ -392,7 +411,8 @@ export async function POST(
         coverageSchedule,
         monthlyTotal: grandTotal,
         installationName: installationName || undefined,
-        existingAiDescription: companyDescription || serviceDescription || undefined,
+        existingAiDescription: companyDescription || undefined,
+        existingServiceDetail: serviceDescription || undefined,
         items: items.map((i) => ({
           description: i.description,
           quantity: i.quantity,
@@ -481,7 +501,9 @@ export async function POST(
 
       serviceType,
       installationName: installationName || "-",
+      installationCity: typeof body.city === "string" ? body.city : undefined,
       installationAddress: "-",
+      serviceDetail: serviceDescription || undefined,
       coverageSchedule,
       staffingCount: totalGuards,
       staffingRegime,
@@ -513,15 +535,21 @@ export async function POST(
         brandingLogoIcon: companyConfig?.brandingLogoIcon || undefined,
       },
       clientLogosWithNames: clientesConLogo
-        .filter((c) => c.logoUrl)
-        .map((c) => ({ name: c.name, url: abs(c.logoUrl)! })),
+        .map((c) => ({ name: c.name, url: c.logoUrl ? abs(c.logoUrl)! : "" })),
 
       companyStats: {
-        yearsInOperation: "5+",
-        activeGuards: "50+",
-        protectedFacilities: "20+",
-        regionsCount: "3+",
+        yearsInOperation: companyConfig.proposalYearsInOperation || "",
+        activeGuards: companyConfig.proposalActiveGuards || "",
+        protectedFacilities: companyConfig.proposalProtectedFacilities || "",
+        regionsCount: companyConfig.proposalRegionsCount || "",
       },
+      proposalMetrics: [
+        { value: companyConfig.proposalMetricIncidentReduction, label: "Reducción de incidentes" },
+        { value: companyConfig.proposalMetricRoundsCompliance, label: "Cumplimiento de rondas" },
+        { value: companyConfig.proposalMetricDocumented, label: "Documentado" },
+        { value: companyConfig.proposalMetricRenewalRate, label: "Tasa de renovación" },
+        { value: companyConfig.proposalMetricSatisfaction, label: "Satisfacción (de 5.0)" },
+      ].filter((m) => m.value && m.value.trim().length > 0),
       regimeExplanation,
       breakdown,
       resourceBreakdown: resourceBreakdown.length > 0 ? resourceBreakdown : undefined,
