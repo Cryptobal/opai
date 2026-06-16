@@ -19,6 +19,10 @@ export interface CpqRol {
   name: string;
   description?: string | null;
   colorHex?: string | null;
+  patternWork?: number | null;
+  patternOff?: number | null;
+  /** Sueldo bruto sugerido (CLP) del rol/turno. */
+  salary?: number | null;
   active: boolean;
   createdAt: string;
   updatedAt: string;

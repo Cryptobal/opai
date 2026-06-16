@@ -5,10 +5,9 @@
  */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { makeServiceGroupKey } from "@/lib/crm/lead-service-group";
 import { normalizeWeekdays } from "@/lib/cpq/weekdays";
-import type { RolCargoSalaryMap } from "@/lib/cpq/rol-cargo-salary-shared";
 import type { LeadCpqConfig, LeadPositionItem } from "@/components/crm/LeadInstallationCpq";
 import { isNightShift } from "./shift-utils";
 import type {
@@ -40,14 +39,6 @@ export function usePositionMatrixLead(opts: Opts): PositionMatrixAdapter {
     payrollPreview, ufValue, currency,
   } = opts;
   const positions = config.positions;
-
-  const [salaryMap, setSalaryMap] = useState<RolCargoSalaryMap>({});
-  useEffect(() => {
-    fetch("/api/cpq/rol-cargo-salary")
-      .then((r) => r.json())
-      .then((d) => { if (d.success) setSalaryMap(d.data || {}); })
-      .catch(() => {});
-  }, []);
 
   const defaults = useMemo(
     () => ({
@@ -148,7 +139,6 @@ export function usePositionMatrixLead(opts: Opts): PositionMatrixAdapter {
     rows,
     groups,
     catalogs: { puestos: cpqPuestos, cargos: cpqCargos, roles: cpqRoles },
-    salaryMap,
     currency,
     ufValue,
     disableLivePreview: true,

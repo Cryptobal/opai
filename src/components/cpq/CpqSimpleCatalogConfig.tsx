@@ -28,6 +28,7 @@ type CatalogEntry = {
   colorHex?: string | null;
   patternWork?: number | null;
   patternOff?: number | null;
+  salary?: number | null;
   active: boolean;
   createdAt: string;
 };
@@ -38,6 +39,8 @@ interface CpqSimpleCatalogConfigProps {
   apiPath: string; // e.g. "/api/cpq/puestos"
   hasDescription?: boolean;
   hasPattern?: boolean;
+  /** Muestra un campo de sueldo bruto (CLP) — usado por Roles/Turnos. */
+  hasSalary?: boolean;
 }
 
 export function CpqSimpleCatalogConfig({
@@ -46,6 +49,7 @@ export function CpqSimpleCatalogConfig({
   apiPath,
   hasDescription = false,
   hasPattern = false,
+  hasSalary = false,
 }: CpqSimpleCatalogConfigProps) {
   const [items, setItems] = useState<CatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,12 +58,14 @@ export function CpqSimpleCatalogConfig({
   const [newColorHex, setNewColorHex] = useState("#64748b");
   const [newPatternWork, setNewPatternWork] = useState<string>("");
   const [newPatternOff, setNewPatternOff] = useState<string>("");
+  const [newSalary, setNewSalary] = useState<string>("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
   const [editColorHex, setEditColorHex] = useState("#64748b");
   const [editPatternWork, setEditPatternWork] = useState<string>("");
   const [editPatternOff, setEditPatternOff] = useState<string>("");
+  const [editSalary, setEditSalary] = useState<string>("");
   const [deleteConfirm, setDeleteConfirm] = useState<CatalogEntry | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -107,6 +113,7 @@ export function CpqSimpleCatalogConfig({
           ...(hasDescription ? { description: newDesc.trim() || null } : {}),
           ...(hasPattern && newPatternWork ? { patternWork: Number(newPatternWork) } : {}),
           ...(hasPattern && newPatternOff ? { patternOff: Number(newPatternOff) } : {}),
+          ...(hasSalary ? { salary: newSalary ? Number(newSalary) : 0 } : {}),
         }),
       });
       const data = await res.json();
@@ -117,6 +124,7 @@ export function CpqSimpleCatalogConfig({
         setNewColorHex("#64748b");
         setNewPatternWork("");
         setNewPatternOff("");
+        setNewSalary("");
         toast.success("Agregado correctamente");
       } else {
         toast.error(data.error || "Error al agregar");
@@ -141,6 +149,7 @@ export function CpqSimpleCatalogConfig({
           ...(hasDescription ? { description: editDesc.trim() || null } : {}),
           ...(hasPattern ? { patternWork: editPatternWork ? Number(editPatternWork) : null } : {}),
           ...(hasPattern ? { patternOff: editPatternOff ? Number(editPatternOff) : null } : {}),
+          ...(hasSalary ? { salary: editSalary ? Number(editSalary) : 0 } : {}),
         }),
       });
       const data = await res.json();
@@ -186,6 +195,7 @@ export function CpqSimpleCatalogConfig({
     setEditColorHex(item.colorHex || "#64748b");
     setEditPatternWork(item.patternWork != null ? String(item.patternWork) : "");
     setEditPatternOff(item.patternOff != null ? String(item.patternOff) : "");
+    setEditSalary(item.salary != null && item.salary > 0 ? String(item.salary) : "");
   };
 
   const cancelEdit = () => {
@@ -219,6 +229,17 @@ export function CpqSimpleCatalogConfig({
               placeholder="Descripción (opcional)"
               className={`${inputClass} flex-1`}
               onKeyDown={(e) => e.key === "Enter" && addItem()}
+            />
+          )}
+          {hasSalary && (
+            <Input
+              type="number"
+              min={0}
+              step={1000}
+              value={newSalary}
+              onChange={(e) => setNewSalary(e.target.value)}
+              placeholder="Sueldo bruto"
+              className={`${inputClass} w-32`}
             />
           )}
           {hasPattern && (
@@ -314,6 +335,21 @@ export function CpqSimpleCatalogConfig({
                         }}
                       />
                     )}
+                    {hasSalary && (
+                      <Input
+                        type="number"
+                        min={0}
+                        step={1000}
+                        value={editSalary}
+                        onChange={(e) => setEditSalary(e.target.value)}
+                        placeholder="Sueldo"
+                        className={`${inputClass} w-28`}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveEdit();
+                          if (e.key === "Escape") cancelEdit();
+                        }}
+                      />
+                    )}
                     {hasPattern && (
                       <>
                         <Input
@@ -367,6 +403,11 @@ export function CpqSimpleCatalogConfig({
                         {hasPattern && item.patternWork != null && item.patternOff != null && (
                           <span className="ml-2 text-xs text-muted-foreground">
                             ({item.patternWork} trabajo, {item.patternOff} descanso)
+                          </span>
+                        )}
+                        {hasSalary && item.salary != null && item.salary > 0 && (
+                          <span className="ml-2 text-xs font-mono text-status-ok-fg">
+                            ${item.salary.toLocaleString("es-CL")}
                           </span>
                         )}
                       </p>

@@ -5,12 +5,12 @@
  * adapter (CPQ vía API o Lead en memoria) que normaliza los datos a esta
  * forma única y traduce las mutaciones de vuelta a su modelo nativo.
  */
-import type { RolCargoSalaryMap } from "@/lib/cpq/rol-cargo-salary-shared";
-
 export interface CpqCatalogOption {
   id: string;
   name: string;
   colorHex?: string | null;
+  /** Sueldo bruto sugerido (CLP). Solo aplica a roles. */
+  salary?: number | null;
 }
 
 /** Turno normalizado — forma única compartida entre CPQ y Lead. */
@@ -70,7 +70,6 @@ export interface PositionMatrixAdapter {
     cargos: CpqCatalogOption[];
     roles: CpqCatalogOption[];
   };
-  salaryMap: RolCargoSalaryMap;
   currency: string;
   ufValue?: number | null;
   readOnly?: boolean;

@@ -68,6 +68,8 @@ export async function POST(request: NextRequest) {
 
     const patternWork = typeof body.patternWork === "number" ? body.patternWork : null;
     const patternOff = typeof body.patternOff === "number" ? body.patternOff : null;
+    const salary =
+      typeof body.salary === "number" && body.salary > 0 ? Math.round(body.salary) : 0;
 
     const rol = await prisma.cpqRol.create({
       data: {
@@ -77,6 +79,7 @@ export async function POST(request: NextRequest) {
         colorHex: normalizeColorHex(body.colorHex),
         patternWork,
         patternOff,
+        salary,
         active: body.active ?? true,
       },
     });

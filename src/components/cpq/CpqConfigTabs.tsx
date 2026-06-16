@@ -17,13 +17,11 @@ import { CpqSimpleCatalogConfig } from "@/components/cpq/CpqSimpleCatalogConfig"
 import { CpqTemplateConfig } from "@/components/cpq/CpqTemplateConfig";
 import { CpqCostCategoryConfig } from "@/components/cpq/CpqCostCategoryConfig";
 import { CpqDefaultsConfig } from "@/components/cpq/CpqDefaultsConfig";
-import { CpqRolCargoSalaryConfig } from "@/components/cpq/CpqRolCargoSalaryConfig";
 import {
   Package,
   Briefcase,
   Award,
   Users,
-  Coins,
   FileText,
   FolderTree,
   SlidersHorizontal,
@@ -52,13 +50,7 @@ const TABS = [
     id: "roles",
     label: "Roles / Turnos",
     icon: Users,
-    description: "Roles o turnos de trabajo",
-  },
-  {
-    id: "sueldos",
-    label: "Sueldos por Rol/Cargo",
-    icon: Coins,
-    description: "Sueldo bruto preconfigurado por cruce rol × cargo (día/noche)",
+    description: "Roles o turnos de trabajo, con sueldo bruto sugerido",
   },
   {
     id: "templates",
@@ -139,14 +131,13 @@ export function CpqConfigTabs() {
         {activeTab === "roles" && (
           <CpqSimpleCatalogConfig
             title="Roles / Turnos"
-            description="Define los roles o turnos de trabajo disponibles (ej: 4x4 = 4 trabajo, 4 descanso). Estos patrones se usan en la pauta mensual para pintar series."
+            description="Define los roles o turnos de trabajo disponibles (ej: 4x4 = 4 trabajo, 4 descanso). El sueldo bruto sugerido se autocompleta al elegir el rol en un turno."
             apiPath="/api/cpq/roles"
             hasDescription={true}
             hasPattern={true}
+            hasSalary={true}
           />
         )}
-
-        {activeTab === "sueldos" && <CpqRolCargoSalaryConfig />}
 
         {activeTab === "templates" && <CpqTemplateConfig />}
         {activeTab === "categorias" && <CpqCostCategoryConfig />}

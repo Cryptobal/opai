@@ -1,7 +1,7 @@
 /**
  * Editor inline de un turno (estado expandido). Un solo panel abierto a la vez.
- * Aplica sueldo preconfigurado al cambiar rol/cargo/turno y calcula líquido en
- * vivo al teclear el bruto.
+ * Al cambiar el rol autocompleta el sueldo bruto sugerido del rol y calcula
+ * el líquido en vivo al teclear el bruto.
  */
 "use client";
 
@@ -13,15 +13,13 @@ import { Copy, Trash2, Check, AlertTriangle } from "lucide-react";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import { toast } from "sonner";
-import { resolvePreconfSalary, type RolCargoSalaryMap } from "@/lib/cpq/rol-cargo-salary-shared";
-import { HOURS_24, WEEKDAY_ORDER, durHours, isNightShift } from "./shift-utils";
+import { HOURS_24, WEEKDAY_ORDER, durHours } from "./shift-utils";
 import { useLiquidoPreview } from "./useLiquidoPreview";
 import type { CpqCatalogOption, NormalizedShift, ShiftPatch } from "./types";
 
 interface Props {
   row: NormalizedShift;
   catalogs: { puestos: CpqCatalogOption[]; cargos: CpqCatalogOption[]; roles: CpqCatalogOption[] };
-  salaryMap: RolCargoSalaryMap;
   currency: string;
   ufValue?: number | null;
   disableLivePreview?: boolean;
@@ -42,7 +40,6 @@ const FIELD = "flex h-10 sm:h-9 w-full rounded-md border border-border bg-card p
 export function ShiftRowEditor({
   row,
   catalogs,
-  salaryMap,
   currency,
   ufValue,
   disableLivePreview,
@@ -67,12 +64,10 @@ export function ShiftRowEditor({
 
   const apply = (patch: Partial<Draft>) => {
     let next = { ...ref.current, ...patch };
-    const changedRolCargo = "rolId" in patch || "cargoId" in patch;
-    const nightFlipped =
-      patch.inicio !== undefined && isNightShift(patch.inicio) !== isNightShift(ref.current.inicio);
-    if (changedRolCargo || nightFlipped) {
-      const pre = resolvePreconfSalary(salaryMap, next.rolId, next.cargoId, isNightShift(next.inicio));
-      if (pre != null) next = { ...next, bruto: pre };
+    // Al cambiar el rol, autocompletar el sueldo bruto sugerido del rol.
+    if (patch.rolId !== undefined) {
+      const rolSalary = catalogs.roles.find((r) => r.id === next.rolId)?.salary;
+      if (rolSalary != null && rolSalary > 0) next = { ...next, bruto: rolSalary };
     }
     setDraft(next);
     onUpdate(next);

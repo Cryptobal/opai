@@ -1717,6 +1717,8 @@ model CpqRol {
   colorHex    String?  @map("color_hex")
   patternWork Int?     @map("pattern_work")
   patternOff  Int?     @map("pattern_off")
+  /// Sueldo bruto sugerido (CLP) del rol/turno. Lo consume el editor de puestos.
+  salary      Int      @default(0) @map("salary")
   active      Boolean  @default(true)
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)

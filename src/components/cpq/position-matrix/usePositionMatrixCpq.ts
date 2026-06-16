@@ -5,10 +5,9 @@
  */
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { normalizeWeekdays } from "@/lib/cpq/weekdays";
-import type { RolCargoSalaryMap } from "@/lib/cpq/rol-cargo-salary-shared";
 import { useCpqCatalogs } from "@/lib/cpq/use-cpq-catalogs";
 import type { CpqPosition, CpqServiceGroup } from "@/types/cpq";
 import type {
@@ -46,16 +45,8 @@ function patchToBody(patch: ShiftPatch): Record<string, unknown> {
 export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
   const { quoteId, positions, serviceGroups, refresh, currency, ufValue, readOnly } = opts;
   const { puestos, cargos, roles } = useCpqCatalogs();
-  const [salaryMap, setSalaryMap] = useState<RolCargoSalaryMap>({});
   const [savingRowId, setSavingRowId] = useState<string | null>(null);
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-
-  useEffect(() => {
-    fetch("/api/cpq/rol-cargo-salary")
-      .then((r) => r.json())
-      .then((d) => { if (d.success) setSalaryMap(d.data || {}); })
-      .catch(() => {});
-  }, []);
 
   const rows: NormalizedShift[] = useMemo(
     () =>
@@ -182,7 +173,6 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
 
   const onDeleteRow = useCallback(
     async (id: string) => {
-      if (!confirm("¿Eliminar este turno?")) return;
       try {
         await fetch(`/api/cpq/quotes/${quoteId}/positions/${id}`, { method: "DELETE" });
         refresh();
@@ -213,7 +203,6 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
 
   const onDeleteGroup = useCallback(
     async (groupKey: string) => {
-      if (!confirm("¿Eliminar este servicio? Los turnos quedarán sin agrupar.")) return;
       try {
         await fetch(`/api/cpq/quotes/${quoteId}/services/${groupKey}`, { method: "DELETE" });
         refresh();
@@ -251,7 +240,6 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
     rows,
     groups,
     catalogs: { puestos, cargos, roles },
-    salaryMap,
     currency,
     ufValue,
     readOnly,

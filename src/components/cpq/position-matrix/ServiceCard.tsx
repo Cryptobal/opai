@@ -8,12 +8,22 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ChevronDown, Plus, Pencil, Check, X, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import { ShiftRowSummary } from "./ShiftRowSummary";
 import { ShiftRowEditor } from "./ShiftRowEditor";
 import type { NormalizedGroup, NormalizedShift, PositionMatrixAdapter } from "./types";
+
+type DeleteTarget = { kind: "row"; id: string } | { kind: "group" } | null;
 
 interface Props {
   group: NormalizedGroup | null;
@@ -28,8 +38,16 @@ export function ServiceCard({ group, rows, adapter, totalCost, expandedRowId, on
   const [expanded, setExpanded] = useState(true);
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(group?.name ?? "");
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const readOnly = adapter.readOnly;
   const groupKey = group?.key ?? null;
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    if (deleteTarget.kind === "row") adapter.onDeleteRow(deleteTarget.id);
+    else if (group) adapter.onDeleteGroup?.(group.key);
+    setDeleteTarget(null);
+  };
 
   const groupCost = rows.reduce((s, r) => s + (r.costo ?? 0), 0);
   const totalGuards = rows.reduce((s, r) => s + r.guardias * (r.nPuestos || 1), 0);
@@ -101,7 +119,7 @@ export function ServiceCard({ group, rows, adapter, totalCost, expandedRowId, on
               <Pencil className="h-3.5 w-3.5" />
             </Button>
             {adapter.onDeleteGroup && (
-              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => adapter.onDeleteGroup?.(group.key)} title="Eliminar servicio">
+              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteTarget({ kind: "group" })} title="Eliminar servicio">
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             )}
@@ -132,13 +150,12 @@ export function ServiceCard({ group, rows, adapter, totalCost, expandedRowId, on
                   <ShiftRowEditor
                     row={row}
                     catalogs={adapter.catalogs}
-                    salaryMap={adapter.salaryMap}
                     currency={adapter.currency}
                     ufValue={adapter.ufValue}
                     disableLivePreview={adapter.disableLivePreview}
                     onUpdate={(patch) => adapter.onUpdateRow(row.id, patch)}
                     onClone={() => adapter.onCloneRow(row.id)}
-                    onDelete={() => adapter.onDeleteRow(row.id)}
+                    onDelete={() => setDeleteTarget({ kind: "row", id: row.id })}
                     onDone={() => onToggleRow(row.id)}
                   />
                 )}
@@ -152,6 +169,29 @@ export function ServiceCard({ group, rows, adapter, totalCost, expandedRowId, on
           )}
         </div>
       )}
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {deleteTarget?.kind === "group" ? "Eliminar servicio" : "Eliminar turno"}
+            </DialogTitle>
+            <DialogDescription>
+              {deleteTarget?.kind === "group"
+                ? `¿Eliminar el servicio "${group?.name ?? ""}"? Sus turnos quedarán sin agrupar.`
+                : "¿Eliminar este turno? Esta acción no se puede deshacer."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

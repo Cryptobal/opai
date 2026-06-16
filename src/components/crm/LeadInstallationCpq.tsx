@@ -94,6 +94,8 @@ export interface CpqCatalogOption {
   id: string;
   name: string;
   colorHex?: string | null;
+  /** Sueldo bruto sugerido (CLP). Solo aplica a roles. */
+  salary?: number | null;
 }
 
 interface LeadInstallationCpqProps {

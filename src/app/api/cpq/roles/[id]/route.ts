@@ -63,6 +63,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
     if (body.patternOff !== undefined) {
       data.patternOff = typeof body.patternOff === "number" ? body.patternOff : null;
     }
+    if (body.salary !== undefined) {
+      data.salary = typeof body.salary === "number" && body.salary > 0 ? Math.round(body.salary) : 0;
+    }
 
     const rol = await prisma.cpqRol.update({
       where: { id },
