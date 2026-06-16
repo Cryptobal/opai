@@ -4,16 +4,18 @@
  * Cada cruce (rolId, cargoId) puede tener un sueldo bruto distinto para turno
  * diurno y nocturno. El editor de puestos (PositionMatrix) usa estos montos
  * para auto-rellenar el bruto al elegir rol/cargo/turno.
+ *
+ * NOTA: este módulo importa Prisma (server-only). Los componentes cliente deben
+ * importar tipos y `resolvePreconfSalary` desde `./rol-cargo-salary-shared`.
  */
 import { prisma } from "@/lib/prisma";
+import type { RolCargoSalaryMap } from "./rol-cargo-salary-shared";
 
-export interface RolCargoSalaryEntry {
-  salaryDay: number;
-  salaryNight: number;
-}
-
-/** rolId → cargoId → { salaryDay, salaryNight } */
-export type RolCargoSalaryMap = Record<string, Record<string, RolCargoSalaryEntry>>;
+export {
+  resolvePreconfSalary,
+  type RolCargoSalaryEntry,
+  type RolCargoSalaryMap,
+} from "./rol-cargo-salary-shared";
 
 /**
  * Construye el mapa completo de sueldos preconfigurados de un tenant.
@@ -34,22 +36,4 @@ export async function getRolCargoSalaryMap(tenantId: string): Promise<RolCargoSa
     };
   }
   return map;
-}
-
-/**
- * Resuelve el sueldo bruto preconfigurado para un cruce rol×cargo y turno.
- * Devuelve `null` cuando no hay preconfig (cruce inexistente o monto 0),
- * para que el caller pueda decidir no sobreescribir el bruto actual.
- */
-export function resolvePreconfSalary(
-  map: RolCargoSalaryMap,
-  rolId: string | null | undefined,
-  cargoId: string | null | undefined,
-  isNight: boolean
-): number | null {
-  if (!rolId || !cargoId) return null;
-  const entry = map[rolId]?.[cargoId];
-  if (!entry) return null;
-  const value = isNight ? entry.salaryNight : entry.salaryDay;
-  return value && value > 0 ? value : null;
 }
