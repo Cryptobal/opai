@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { normalizeWeekdays } from "@/lib/cpq/weekdays";
-import type { RolCargoSalaryMap } from "@/lib/cpq/rol-cargo-salary";
+import type { RolCargoSalaryMap } from "@/lib/cpq/rol-cargo-salary-shared";
 import { useCpqCatalogs } from "@/lib/cpq/use-cpq-catalogs";
 import type { CpqPosition, CpqServiceGroup } from "@/types/cpq";
 import type {

@@ -13,7 +13,7 @@ import { Copy, Trash2, Check, AlertTriangle } from "lucide-react";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import { toast } from "sonner";
-import { resolvePreconfSalary, type RolCargoSalaryMap } from "@/lib/cpq/rol-cargo-salary";
+import { resolvePreconfSalary, type RolCargoSalaryMap } from "@/lib/cpq/rol-cargo-salary-shared";
 import { HOURS_24, WEEKDAY_ORDER, durHours, isNightShift } from "./shift-utils";
 import { useLiquidoPreview } from "./useLiquidoPreview";
 import type { CpqCatalogOption, NormalizedShift, ShiftPatch } from "./types";
