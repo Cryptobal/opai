@@ -1878,8 +1878,8 @@ function PdfPreviewSection({
       }}
       onGenerate={generatePreview}
       className="shadow-sm"
-      previewClassName={previewUrl ? "h-[400px] sm:h-[600px]" : "h-[200px] text-[11px]"}
-      emptyCotizacionText="Click en Generar PDF para ver la vista previa real"
+      previewClassName={previewUrl ? "h-[400px] sm:h-[600px]" : "h-[200px] text-[12px]"}
+      emptyCotizacionText="Click en Generar PDF para ver la vista previa de la cotización"
     />
   );
 }

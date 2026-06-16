@@ -326,6 +326,11 @@ export async function renderProposalToBufferFromProps(
     breakdown, resourceBreakdown, includedItems,
   } = props;
 
+  /* Variante institucional: presentación de empresa SIN valores comerciales ni
+   * características del servicio (dotación, horarios, inversión). */
+  const isInstitutional = props.variant === 'institutional';
+  const docLabel = isInstitutional ? 'PRESENTACIÓN' : 'PROPUESTA TÉCNICA';
+
   /* Métricas configurables por tenant (vacío = no se muestran, nunca inventar) */
   const metrics = (proposalMetrics ?? []).filter((m) => m.value && m.value.trim().length > 0);
   const hasStats = [
@@ -379,14 +384,14 @@ export async function renderProposalToBufferFromProps(
         headerLogo,
         e(Text, { style: s.headerBrandName }, companyConfig.brandNameUpper || ''),
       ),
-      e(Text, { style: s.headerRight }, `PROPUESTA TÉCNICA · ${companyName}`),
+      e(Text, { style: s.headerRight }, `${docLabel} · ${companyName}`),
     ),
     e(View, { style: s.accentLine }),
   );
 
   const pageFooter = e(
     View, { style: s.footer, fixed: true },
-    e(Text, { style: s.footerText }, `Confidencial · N° ${quotationCode}`),
+    e(Text, { style: s.footerText }, quotationCode ? `Confidencial · N° ${quotationCode}` : 'Presentación institucional'),
     e(Text, { style: s.footerText }, `${companyConfig.commercialName}${companyConfig.website ? ` · ${companyConfig.website}` : ''}`),
     e(Text, {
       style: s.footerText,
@@ -415,8 +420,8 @@ export async function renderProposalToBufferFromProps(
         ? e(PDFImage, { src: providerLogoUri, style: s.coverLogo })
         : e(Text, { style: { fontFamily: F.sans, fontSize: 24, fontWeight: 800, color: C.white, letterSpacing: 3 } }, companyConfig.brandNameUpper || ''),
       e(View, { style: s.coverAccentLine }),
-      e(Text, { style: s.coverTitle }, 'PROPUESTA TÉCNICA'),
-      e(Text, { style: s.coverSubtitle }, 'DE SERVICIO DE SEGURIDAD INTEGRAL'),
+      e(Text, { style: s.coverTitle }, isInstitutional ? 'PRESENTACIÓN' : 'PROPUESTA TÉCNICA'),
+      e(Text, { style: s.coverSubtitle }, isInstitutional ? 'DE EMPRESA' : 'DE SERVICIO DE SEGURIDAD INTEGRAL'),
       e(Text, { style: s.coverCompany }, companyName),
       (installationName && installationName !== '-') || installationCity
         ? e(Text, { style: s.coverSubtitle },
@@ -440,7 +445,7 @@ export async function renderProposalToBufferFromProps(
     e(View, { style: s.coverFooter },
       e(Text, { style: s.coverFooterText }, `Preparada para: ${contactName}${contactPosition ? ` · ${contactPosition}` : ''}`),
       e(View, { style: s.coverFooterRow },
-        e(Text, { style: s.coverFooterText }, `${proposalDate} · ${quotationCode}`),
+        e(Text, { style: s.coverFooterText }, quotationCode ? `${proposalDate} · ${quotationCode}` : proposalDate),
         companyLogoUri
           ? e(PDFImage, { src: companyLogoUri, style: s.coverClientLogo })
           : null,
@@ -461,11 +466,12 @@ export async function renderProposalToBufferFromProps(
       ...(ai.resumenEjecutivo || '').split('\n').filter(Boolean).map((p: string, i: number) =>
         e(Text, { key: i, style: s.para }, p),
       ),
-      e(View, { style: s.highlightRow },
+      // Highlights con datos del servicio + precio: solo en propuesta técnica.
+      isInstitutional ? null : e(View, { style: s.highlightRow },
         e(View, { style: s.highlightBox }, e(Text, { style: s.highlightLabel }, 'Servicio'), e(Text, { style: s.highlightValue }, serviceType)),
         e(View, { style: s.highlightBox }, e(Text, { style: s.highlightLabel }, 'Dotación'), e(Text, { style: s.highlightValue }, `${staffingCount} guardias`)),
       ),
-      e(View, { style: s.highlightRow },
+      isInstitutional ? null : e(View, { style: s.highlightRow },
         e(View, { style: s.highlightBox }, e(Text, { style: s.highlightLabel }, 'Cobertura'), e(Text, { style: s.highlightValue }, coverageSchedule)),
         e(View, { style: s.highlightBox }, e(Text, { style: s.highlightLabel }, 'Inversión Mensual'), e(Text, { style: s.highlightValue }, totalNetoFormatted)),
       ),
@@ -942,8 +948,8 @@ export async function renderProposalToBufferFromProps(
     );
   }
 
-  /* ── 19. Inversión Mensual ── */
-  sections.push(
+  /* ── 19. Inversión Mensual (omitida en presentación institucional) ── */
+  if (!isInstitutional) sections.push(
     e(View, { key: 'sec19', break: true },
       sectionTitle('Inversión Mensual'),
       e(View, { style: s.tblHeader },

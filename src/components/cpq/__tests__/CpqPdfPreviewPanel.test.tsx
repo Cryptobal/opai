@@ -17,7 +17,7 @@ describe("CpqPdfPreviewPanel", () => {
     );
 
     expect(screen.getByRole("button", { name: "Cotización" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Presentación" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Propuesta técnica" })).toBeInTheDocument();
     expect(screen.getByText("Formato de cotización")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Estándar" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Detallado" })).toBeInTheDocument();
@@ -38,7 +38,7 @@ describe("CpqPdfPreviewPanel", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Presentación" }));
+    fireEvent.click(screen.getByRole("button", { name: "Propuesta técnica" }));
 
     expect(onModeChange).toHaveBeenCalledWith("presentacion");
   });

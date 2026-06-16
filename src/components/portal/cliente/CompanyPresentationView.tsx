@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import {
   Shield, Cpu, Scale, Award, BadgeCheck, Monitor, Sparkles,
-  LayoutDashboard, ArrowRight, Check, Loader2, type LucideIcon,
+  LayoutDashboard, ArrowRight, Check, Loader2, Download, type LucideIcon,
 } from 'lucide-react'
 import { useBranding } from '@/lib/branding/useBranding'
 import { GardServiceIncludes } from '@/components/portal/cliente/cotizaciones/GardServiceIncludes'
@@ -95,6 +95,7 @@ export function CompanyPresentationView({ contactId }: Props) {
   const [clients, setClients] = useState<{ name: string; logoUrl: string | null }[]>([])
   const [requesting, setRequesting] = useState(false)
   const [requested, setRequested] = useState(false)
+  const [downloading, setDownloading] = useState(false)
 
   // Registrar la vista (analytics) — comportamiento existente
   useEffect(() => {
@@ -137,6 +138,28 @@ export function CompanyPresentationView({ contactId }: Props) {
       active = false
     }
   }, [])
+
+  const downloadPresentation = async () => {
+    if (downloading) return
+    setDownloading(true)
+    try {
+      const res = await fetch('/api/portal/cliente/presentation/pdf')
+      if (!res.ok) throw new Error(`Error ${res.status}`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Presentacion-${branding.companyName || 'empresa'}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      /* silencioso: el cliente puede reintentar */
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   const requestProposal = async () => {
     if (requesting || requested) return
@@ -187,12 +210,24 @@ export function CompanyPresentationView({ contactId }: Props) {
         <p className="mt-3 text-sm text-zinc-300/90 max-w-lg mx-auto leading-relaxed">
           {content.valueProp}
         </p>
-        <div className="mt-6">
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
           <ProposalCta
             requesting={requesting}
             requested={requested}
             onClick={requestProposal}
           />
+          <button
+            onClick={downloadPresentation}
+            disabled={downloading}
+            className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/[0.04] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/[0.08] disabled:opacity-60"
+          >
+            {downloading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            Descargar presentación (PDF)
+          </button>
         </div>
       </div>
 

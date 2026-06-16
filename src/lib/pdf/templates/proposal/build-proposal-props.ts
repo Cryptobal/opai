@@ -15,6 +15,14 @@ import type { ProposalAIContent } from './proposal-ai';
 import type { QuoteBreakdownData, PositionBreakdownItem, ResourceBreakdownCategory, ResourceBreakdownItem } from '@/types/cpq-breakdown';
 
 export interface ProposalProps {
+  /**
+   * Variante del documento:
+   * - 'technical' (default): Propuesta Técnica completa CON valores comerciales.
+   * - 'institutional': Presentación de empresa SIN valores comerciales ni
+   *   características del servicio (dotación, horarios, inversión). Mantiene
+   *   todo el contenido institucional + el nombre del cliente.
+   */
+  variant?: 'technical' | 'institutional';
   companyName: string;
   companyLogo?: string;
   quotationCode: string;

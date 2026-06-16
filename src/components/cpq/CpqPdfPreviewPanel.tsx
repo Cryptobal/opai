@@ -45,7 +45,7 @@ export function CpqPdfPreviewPanel({
   className,
   previewClassName,
   emptyCotizacionText = "Click en Generar PDF para ver la vista previa de la cotización",
-  emptyPresentacionText = "Click en Generar PDF para ver la presentación técnica",
+  emptyPresentacionText = "Click en Generar PDF para ver la vista previa de la propuesta técnica",
   footer,
 }: CpqPdfPreviewPanelProps) {
   return (
@@ -100,7 +100,7 @@ export function CpqPdfPreviewPanel({
                 : "border-transparent text-muted-foreground hover:bg-muted"
             )}
           >
-            Presentación
+            Propuesta técnica
           </button>
         </div>
       </div>
