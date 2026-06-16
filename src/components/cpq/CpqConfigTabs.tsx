@@ -17,11 +17,13 @@ import { CpqSimpleCatalogConfig } from "@/components/cpq/CpqSimpleCatalogConfig"
 import { CpqTemplateConfig } from "@/components/cpq/CpqTemplateConfig";
 import { CpqCostCategoryConfig } from "@/components/cpq/CpqCostCategoryConfig";
 import { CpqDefaultsConfig } from "@/components/cpq/CpqDefaultsConfig";
+import { CpqRolCargoSalaryConfig } from "@/components/cpq/CpqRolCargoSalaryConfig";
 import {
   Package,
   Briefcase,
   Award,
   Users,
+  Coins,
   FileText,
   FolderTree,
   SlidersHorizontal,
@@ -51,6 +53,12 @@ const TABS = [
     label: "Roles / Turnos",
     icon: Users,
     description: "Roles o turnos de trabajo",
+  },
+  {
+    id: "sueldos",
+    label: "Sueldos por Rol/Cargo",
+    icon: Coins,
+    description: "Sueldo bruto preconfigurado por cruce rol × cargo (día/noche)",
   },
   {
     id: "templates",
@@ -137,6 +145,8 @@ export function CpqConfigTabs() {
             hasPattern={true}
           />
         )}
+
+        {activeTab === "sueldos" && <CpqRolCargoSalaryConfig />}
 
         {activeTab === "templates" && <CpqTemplateConfig />}
         {activeTab === "categorias" && <CpqCostCategoryConfig />}

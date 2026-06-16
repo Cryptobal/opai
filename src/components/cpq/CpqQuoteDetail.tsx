@@ -19,6 +19,8 @@ import { CreatePositionModal } from "@/components/cpq/CreatePositionModal";
 import { CpqServiceGroupCard } from "@/components/cpq/CpqServiceGroupCard";
 import { CreateServiceModal } from "@/components/cpq/CreateServiceModal";
 import { CpqPositionCard } from "@/components/cpq/CpqPositionCard";
+import { PositionMatrix } from "@/components/cpq/position-matrix";
+import { usePositionMatrixCpq } from "@/components/cpq/position-matrix/usePositionMatrixCpq";
 import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
 import { SendPortalProposalModal } from "@/components/cpq/SendPortalProposalModal";
 import { formatCurrency } from "@/components/cpq/utils";
@@ -1374,6 +1376,16 @@ export function CpqQuoteDetail({
     return { map, ungrouped };
   }, [positions]);
 
+  const matrixAdapter = usePositionMatrixCpq({
+    quoteId,
+    positions,
+    serviceGroups,
+    refresh,
+    currency: crmContext.currency || "CLP",
+    ufValue,
+    readOnly: isLocked,
+  });
+
   const handleAutoGroup = useCallback(async () => {
     if (!confirm("¿Auto-agrupar los puestos sin agrupar por cargo/puesto?")) return;
     try {
@@ -2267,106 +2279,12 @@ export function CpqQuoteDetail({
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-              <CreateServiceModal quoteId={quoteId} onCreated={refresh} disabled={isLocked} />
-              <CreatePositionModal quoteId={quoteId} onCreated={refresh} disabled={isLocked} />
-            </div>
             <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secPuestos && "rotate-180")} />
           </div>
         </div>
         {secPuestos && (
           <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4" inert={isLocked ? true : undefined}>
-            {!isLocked && (
-              <div className="mb-3">
-                <ServiceTemplateButtons
-                  compact
-                  onSelect={handleApplyServiceTemplate}
-                  existingPositionsCount={positions.length}
-                />
-                {applyingTemplate && (
-                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                    <Loader2 className="h-3 w-3 animate-spin" /> Creando puestos...
-                  </p>
-                )}
-              </div>
-            )}
-            {positions.length === 0 ? (
-              <EmptyState
-                icon={Users}
-                title="Sin puestos"
-                description="Crea el primer servicio para comenzar (ej: Acceso Principal 24/7)."
-                compact
-              />
-            ) : (
-              <div className="space-y-3">
-                {serviceGroups
-                  .slice()
-                  .sort(
-                    (a, b) =>
-                      a.displayOrder - b.displayOrder || a.name.localeCompare(b.name)
-                  )
-                  .map((group) => (
-                    <CpqServiceGroupCard
-                      key={group.id}
-                      quoteId={quoteId}
-                      group={group}
-                      shifts={positionsByGroup.map.get(group.id) ?? []}
-                      onRefresh={refresh}
-                      readOnly={isLocked}
-                      displayCurrency={crmContext.currency || "CLP"}
-                      ufValue={ufValue}
-                      onAddShift={(gid) => {
-                        window.dispatchEvent(
-                          new CustomEvent("cpq:open-create-position", {
-                            detail: { serviceGroupId: gid },
-                          })
-                        );
-                      }}
-                    />
-                  ))}
-
-                {positionsByGroup.ungrouped.length > 0 && (
-                  <Card className="overflow-hidden border-dashed border-border/60 bg-muted/10">
-                    <div className="flex items-center justify-between px-3 py-2 border-b border-border/40">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          Sin agrupar
-                        </span>
-                        <Badge variant="outline" className="text-[10px]">
-                          {positionsByGroup.ungrouped.length}
-                        </Badge>
-                      </div>
-                      {!isLocked && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs"
-                          onClick={handleAutoGroup}
-                        >
-                          Auto-agrupar
-                        </Button>
-                      )}
-                    </div>
-                    <div className="p-2 space-y-2">
-                      {positionsByGroup.ungrouped.map((position) => (
-                        <CpqPositionCard
-                          key={position.id}
-                          position={position}
-                          quoteId={quoteId}
-                          onUpdated={refresh}
-                          readOnly={isLocked}
-                          salePriceMonthlyForPosition={positionSalePrices.get(position.id) ?? 0}
-                          clientHourlyRate={positionHourlyRates.get(position.id) ?? 0}
-                          displayCurrency={crmContext.currency || "CLP"}
-                          ufValue={ufValue}
-                        />
-                      ))}
-                    </div>
-                  </Card>
-                )}
-              </div>
-            )}
+            <PositionMatrix adapter={matrixAdapter} />
             {positions.length > 0 && (
               <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "px-3 py-2 border border-dashed border-border/60 rounded-lg mt-2 text-xs")}>
                 <div className="flex flex-wrap items-center gap-2 min-w-0">
