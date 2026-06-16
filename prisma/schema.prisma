@@ -1699,8 +1699,9 @@ model CpqCargo {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  positions  CpqPosition[]
-  opsPuestos OpsPuestoOperativo[]
+  positions        CpqPosition[]
+  opsPuestos       OpsPuestoOperativo[]
+  rolCargoSalaries CpqRolCargoSalary[]
 
   @@unique([tenantId, name], map: "uq_cpq_cargo_tenant_name")
   @@index([active], map: "idx_cpq_cargos_active")
@@ -1720,12 +1721,32 @@ model CpqRol {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  positions  CpqPosition[]
-  opsPuestos OpsPuestoOperativo[]
+  positions        CpqPosition[]
+  opsPuestos       OpsPuestoOperativo[]
+  rolCargoSalaries CpqRolCargoSalary[]
 
   @@unique([tenantId, name], map: "uq_cpq_rol_tenant_name")
   @@index([active], map: "idx_cpq_roles_active")
   @@map("roles")
+  @@schema("cpq")
+}
+
+model CpqRolCargoSalary {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String   @map("tenant_id")
+  rolId       String   @map("rol_id") @db.Uuid
+  cargoId     String   @map("cargo_id") @db.Uuid
+  salaryDay   Int      @default(0) @map("salary_day")
+  salaryNight Int      @default(0) @map("salary_night")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  rol   CpqRol   @relation(fields: [rolId], references: [id], onDelete: Cascade)
+  cargo CpqCargo @relation(fields: [cargoId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, rolId, cargoId], map: "uq_rol_cargo_salary")
+  @@index([tenantId], map: "idx_rol_cargo_salary_tenant")
+  @@map("rol_cargo_salary")
   @@schema("cpq")
 }
 
@@ -6700,13 +6721,13 @@ model FinanceDte {
   notes     String?
   createdBy String  @map("created_by")
 
-  lines               FinanceDteLine[]
-  paymentAllocations  FinancePaymentAllocation[]
-  factoringOps        FinanceFactoringOperation[]
-  attachments         FinanceDteAttachment[]
-  emailLogs           FinanceDteEmailLog[]
-  recurringRuns       FinanceDteRecurringRun[]
-  cashflowOccurrences   FinanceCashflowOccurrence[]        @relation("OccurrenceToDte")
+  lines                 FinanceDteLine[]
+  paymentAllocations    FinancePaymentAllocation[]
+  factoringOps          FinanceFactoringOperation[]
+  attachments           FinanceDteAttachment[]
+  emailLogs             FinanceDteEmailLog[]
+  recurringRuns         FinanceDteRecurringRun[]
+  cashflowOccurrences   FinanceCashflowOccurrence[]      @relation("OccurrenceToDte")
   cashflowDateOverrides FinanceCashflowDteDateOverride[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -8143,10 +8164,10 @@ model FinanceCashflowWeeklyClose {
   // closedBalanceClp = forcedBalanceClp, manualReason es obligatorio, y
   // adjustOccurrenceId apunta a la occurrence creada para que la fórmula
   // apertura + entra − sale = cierre siga cuadrada.
-  isManual           Boolean   @default(false) @map("is_manual")
-  forcedBalanceClp   Decimal?  @map("forced_balance_clp") @db.Decimal(14, 2)
-  manualReason       String?   @map("manual_reason")
-  adjustOccurrenceId String?   @map("adjust_occurrence_id") @db.Uuid
+  isManual           Boolean  @default(false) @map("is_manual")
+  forcedBalanceClp   Decimal? @map("forced_balance_clp") @db.Decimal(14, 2)
+  manualReason       String?  @map("manual_reason")
+  adjustOccurrenceId String?  @map("adjust_occurrence_id") @db.Uuid
 
   @@unique([tenantId, weekEndDate], map: "uq_cashflow_weekly_close")
   @@index([tenantId, weekEndDate(sort: Desc)], map: "idx_cashflow_weekly_close_tenant_date")
