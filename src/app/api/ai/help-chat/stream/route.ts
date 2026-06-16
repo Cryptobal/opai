@@ -399,8 +399,17 @@ REGLAS DE CONTEXTO DE MÓDULO:
             maxTokens: 2800,
           };
 
-          /* tool-calling loop (max 4 iterations) — always streaming */
-          for (let step = 0; step < 4; step += 1) {
+          /* tool-calling loop — always streaming.
+           * MAX_TOOL_STEPS cubre flujos multi-paso (crear cuenta → contacto →
+           * instalación → deal → cotización → varios puestos → margen). Antes
+           * el tope era 4: cuando un flujo necesitaba más rondas, el loop salía
+           * con tool_calls aún pendientes y fullText vacío, y el post-proceso
+           * caía al fallbackMessage ("No tengo datos específicos...") aunque las
+           * acciones SÍ se habían ejecutado. Ese era el bug del "bucle de
+           * fallback" en cotizaciones largas. */
+          const MAX_TOOL_STEPS = 12;
+          let exhaustedWithPendingTools = false;
+          for (let step = 0; step < MAX_TOOL_STEPS; step += 1) {
             let pendingToolCalls: ToolCallInfo[] = [];
             let hasToolCalls = false;
 
@@ -451,12 +460,37 @@ REGLAS DE CONTEXTO DE MÓDULO:
             // provocando el bug de "primero una respuesta, después otra rara".
             send("reset_stream", {});
             fullText = "";
+
+            // Si esta fue la última iteración permitida y el modelo todavía
+            // quería seguir llamando tools, marcamos para hacer un cierre
+            // SIN tools (abajo) en vez de caer al fallback.
+            if (step === MAX_TOOL_STEPS - 1) {
+              exhaustedWithPendingTools = true;
+            }
+          }
+
+          // Cierre cuando se agotó el presupuesto de tool-steps con acciones ya
+          // ejecutadas: pedimos al modelo que redacte el resumen final SIN
+          // tools (tool_choice queda en undefined cuando tools=[]), usando el
+          // historial que ya contiene todos los resultados ok:true. Así el
+          // usuario ve un cierre coherente ("Listo, creé X, Y, Z...") en lugar
+          // del fallback genérico.
+          if (exhaustedWithPendingTools && !fullText.trim()) {
+            for await (const event of createStreamingCompletion(configWithModel, {
+              ...completionParams,
+              tools: [],
+            })) {
+              if (event.type === "token") {
+                fullText += event.text;
+                send("token", { token: event.text });
+              }
+            }
           }
         }
 
         /* post-processing */
         let assistantText = normalizeAssistantLinks(fullText || fallbackMessage(userMessage), appBaseUrl);
-        const assistantUsedFallback = assistantText.includes("No tengo suficiente información para asegurar esto");
+        const assistantUsedFallback = assistantText.includes("No tengo datos específicos para responder eso con certeza");
 
         // Rescate post-stream: si el AI devolvió fallback y tenemos respuesta
         // inferida disponible, limpiamos la burbuja y streameamos la inferida.
