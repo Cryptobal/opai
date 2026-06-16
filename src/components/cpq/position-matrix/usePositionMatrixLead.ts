@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { makeServiceGroupKey } from "@/lib/crm/lead-service-group";
 import { normalizeWeekdays } from "@/lib/cpq/weekdays";
-import type { RolCargoSalaryMap } from "@/lib/cpq/rol-cargo-salary";
+import type { RolCargoSalaryMap } from "@/lib/cpq/rol-cargo-salary-shared";
 import type { LeadCpqConfig, LeadPositionItem } from "@/components/crm/LeadInstallationCpq";
 import { isNightShift } from "./shift-utils";
 import type {

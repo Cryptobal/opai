@@ -5,7 +5,7 @@
  * adapter (CPQ vía API o Lead en memoria) que normaliza los datos a esta
  * forma única y traduce las mutaciones de vuelta a su modelo nativo.
  */
-import type { RolCargoSalaryMap } from "@/lib/cpq/rol-cargo-salary";
+import type { RolCargoSalaryMap } from "@/lib/cpq/rol-cargo-salary-shared";
 
 export interface CpqCatalogOption {
   id: string;
