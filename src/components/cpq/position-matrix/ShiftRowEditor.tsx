@@ -32,7 +32,7 @@ interface Props {
 
 type Draft = Pick<
   NormalizedShift,
-  "puestoId" | "cargoId" | "rolId" | "inicio" | "fin" | "dias" | "guardias" | "nPuestos" | "bruto"
+  "customName" | "puestoId" | "cargoId" | "rolId" | "inicio" | "fin" | "dias" | "guardias" | "nPuestos" | "bruto"
 >;
 
 const LABEL = "text-xs font-medium uppercase tracking-wide text-muted-foreground";
@@ -50,6 +50,7 @@ export function ShiftRowEditor({
   onDone,
 }: Props) {
   const [draft, setDraft] = useState<Draft>(() => ({
+    customName: row.customName ?? "",
     puestoId: row.puestoId,
     cargoId: row.cargoId,
     rolId: row.rolId,
@@ -90,9 +91,19 @@ export function ShiftRowEditor({
   const perGuard = live?.employerPerGuard ?? row.costoPorGuardia ?? null;
   const costo = perGuard != null ? perGuard * totalGuards : row.costo ?? 0;
   const hours = durHours(draft.inicio, draft.fin);
+  const puestoName = catalogs.puestos.find((p) => p.id === draft.puestoId)?.name || "Puesto";
 
   return (
     <div className="space-y-3 rounded-lg border border-primary/40 bg-card p-3">
+      <Field label="Nombre del turno (opcional)">
+        <Input
+          value={draft.customName ?? ""}
+          placeholder={puestoName}
+          onChange={(e) => apply({ customName: e.target.value })}
+          className="h-10 sm:h-9"
+        />
+      </Field>
+
       <div className="grid grid-cols-3 gap-2">
         <Field label="Tipo de puesto">
           <CatalogPicker kind="puesto" value={draft.puestoId} onChange={(id) => apply({ puestoId: id })} triggerClassName="h-10 sm:h-9" />
