@@ -1057,7 +1057,7 @@ export function RondaActiva({
             : null;
 
           const needsQr = activeCheckpoint
-            ? rondaData.qrRequerido && (activeCheckpoint.verificationType === "QR" || activeCheckpoint.verificationType === "BOTH")
+            ? (activeCheckpoint.verificationType === "QR" || activeCheckpoint.verificationType === "BOTH")
             : false;
 
           const cardData = activeCheckpoint
