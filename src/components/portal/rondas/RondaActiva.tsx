@@ -418,14 +418,16 @@ export function RondaActiva({
         navigator.vibrate?.([100]);
       }
 
-      // Determine if this checkpoint can be auto-marked
+      // Determine if this checkpoint can be auto-marked.
+      // Solo puntos GEOFENCE puros se auto-marcan. Los "BOTH" (y "QR") exigen escaneo
+      // de QR, por lo que NUNCA se marcan solo por entrar a la geocerca — esto evita
+      // que un punto con QR quede marcado fantasma desde lejos.
       const canAutoMark =
         !inCooldown &&
         !autoMarkingRef.current.has(closest.id) &&
         !autoMarkedRef.current.has(closest.id) &&
-        (closest.verificationType === "GEOFENCE" || closest.verificationType === "BOTH") &&
-        !(closest.tasks && closest.tasks.length > 0 && closest.tasks.some((t) => t.required)) &&
-        !rondaData.qrRequerido;
+        closest.verificationType === "GEOFENCE" &&
+        !(closest.tasks && closest.tasks.length > 0 && closest.tasks.some((t) => t.required));
 
       if (canAutoMark) {
         // AUTO-MARK: fire request directly without opening bottom sheet
