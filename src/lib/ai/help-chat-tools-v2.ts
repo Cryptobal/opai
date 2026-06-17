@@ -3546,6 +3546,10 @@ async function toolUpdateAccount(
     await logAiAction({ tenantId, userId, toolName: "update_account", args, status: "validation_error", errorMessage: "Falta id", startedAt: t0 });
     return { ok: false, error: "Falta id de la cuenta. Usa search_accounts para obtenerlo." };
   }
+  if (!isUuid(id)) {
+    await logAiAction({ tenantId, userId, toolName: "update_account", args, status: "validation_error", errorMessage: "id con formato inválido", startedAt: t0 });
+    return { ok: false, error: "El ID indicado no tiene formato válido. Usa la búsqueda correspondiente para obtener el ID correcto." };
+  }
   const rest = { ...args };
   delete (rest as Record<string, unknown>).id;
   const parsed = updateAccountSchema.safeParse(rest);
@@ -3638,6 +3642,10 @@ async function toolUpdateContact(
   if (!id) {
     await logAiAction({ tenantId, userId, toolName: "update_contact", args, status: "validation_error", errorMessage: "Falta id", startedAt: t0 });
     return { ok: false, error: "Falta id del contacto. Usa search_contacts para obtenerlo." };
+  }
+  if (!isUuid(id)) {
+    await logAiAction({ tenantId, userId, toolName: "update_contact", args, status: "validation_error", errorMessage: "id con formato inválido", startedAt: t0 });
+    return { ok: false, error: "El ID indicado no tiene formato válido. Usa la búsqueda correspondiente para obtener el ID correcto." };
   }
   const rest = { ...args };
   delete (rest as Record<string, unknown>).id;
@@ -3733,6 +3741,10 @@ async function toolUpdateLead(
     await logAiAction({ tenantId, userId, toolName: "update_lead", args, status: "validation_error", errorMessage: "Falta id", startedAt: t0 });
     return { ok: false, error: "Falta id del lead. Usa search_all para obtenerlo." };
   }
+  if (!isUuid(id)) {
+    await logAiAction({ tenantId, userId, toolName: "update_lead", args, status: "validation_error", errorMessage: "id con formato inválido", startedAt: t0 });
+    return { ok: false, error: "El ID indicado no tiene formato válido. Usa la búsqueda correspondiente para obtener el ID correcto." };
+  }
   const rest = { ...args };
   delete (rest as Record<string, unknown>).id;
   const parsed = createLeadSchema.partial().safeParse(rest);
@@ -3822,6 +3834,10 @@ async function toolUpdateDeal(
   if (!id) {
     await logAiAction({ tenantId, userId, toolName: "update_deal", args, status: "validation_error", errorMessage: "Falta id", startedAt: t0 });
     return { ok: false, error: "Falta id del deal. Usa search_deals para obtenerlo." };
+  }
+  if (!isUuid(id)) {
+    await logAiAction({ tenantId, userId, toolName: "update_deal", args, status: "validation_error", errorMessage: "id con formato inválido", startedAt: t0 });
+    return { ok: false, error: "El ID indicado no tiene formato válido. Usa la búsqueda correspondiente para obtener el ID correcto." };
   }
   // Construir patch a partir de los campos soportados. Usamos validación
   // manual aquí porque createDealSchema.partial() permitiría sobreescribir
@@ -3953,6 +3969,10 @@ async function toolUpdateInstallation(
   if (!id) {
     await logAiAction({ tenantId, userId, toolName: "update_installation", args, status: "validation_error", errorMessage: "Falta id", startedAt: t0 });
     return { ok: false, error: "Falta id de la instalación. Usa search_installations para obtenerlo." };
+  }
+  if (!isUuid(id)) {
+    await logAiAction({ tenantId, userId, toolName: "update_installation", args, status: "validation_error", errorMessage: "id con formato inválido", startedAt: t0 });
+    return { ok: false, error: "El ID indicado no tiene formato válido. Usa la búsqueda correspondiente para obtener el ID correcto." };
   }
   const rest = { ...args };
   delete (rest as Record<string, unknown>).id;
