@@ -8,6 +8,7 @@
 import { useMemo } from "react";
 import { makeServiceGroupKey } from "@/lib/crm/lead-service-group";
 import { normalizeWeekdays } from "@/lib/cpq/weekdays";
+import { resolveSalaryFromRole, resolveTemplateRowCatalog } from "@/lib/cpq/resolve-cpq-role-from-shift-pattern";
 import type { LeadCpqConfig, LeadPositionItem } from "@/components/crm/LeadInstallationCpq";
 import { isNightShift } from "./shift-utils";
 import type {
@@ -112,12 +113,19 @@ export function usePositionMatrixLead(opts: Opts): PositionMatrixAdapter {
 
   const buildRow = (seed: TemplateRowSeed | undefined, group?: NormalizedGroup): LeadPositionItem => {
     const inicio = seed?.inicio ?? "08:00";
+    const patternForRol = seed?.rolShiftPattern ?? seed?.shiftPattern;
+    const { rolId, baseSalary } = patternForRol
+      ? resolveTemplateRowCatalog(patternForRol, cpqRoles, defaults.rolId, seed?.bruto ?? 550000)
+      : {
+          rolId: defaults.rolId,
+          baseSalary: resolveSalaryFromRole(defaults.rolId, cpqRoles, seed?.bruto ?? 550000),
+        };
     return {
       puestoTrabajoId: defaults.puestoTrabajoId,
       puesto: defaults.puesto,
       cargoId: defaults.cargoId,
-      rolId: defaults.rolId,
-      baseSalary: seed?.bruto ?? 550000,
+      rolId,
+      baseSalary,
       shiftType: isNightShift(inicio) ? "night" : "day",
       cantidad: seed?.guardias ?? 2,
       numPuestos: seed?.nPuestos ?? 1,

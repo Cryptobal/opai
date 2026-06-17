@@ -59,7 +59,10 @@ export interface TemplateRowSeed {
   dias: string[];
   guardias: number;
   nPuestos: number;
+  /** Bruto de respaldo si el rol CPQ no tiene salary configurado. */
   bruto: number;
+  shiftPattern?: string;
+  rolShiftPattern?: string;
 }
 
 export interface PositionMatrixAdapter {

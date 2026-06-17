@@ -13,6 +13,7 @@ import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-c
 import { buildCpqStyleEmployerCostInput } from "@/lib/cpq/cpq-employer-cost-input";
 import { refreshQuoteTotals } from "@/modules/cpq/costing/compute-quote-costs";
 import { normalizeWeekdays } from "@/lib/cpq/weekdays";
+import { resolveTemplateRowCatalog } from "@/lib/cpq/resolve-cpq-role-from-shift-pattern";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 
 const WEEKDAY_LONG_FROM_SHORT: Record<string, string> = {
@@ -140,13 +141,24 @@ export async function POST(
       });
 
       if (template && template.positions.length > 0) {
+        const roles = await tx.cpqRol.findMany({
+          where: { tenantId: ctx.tenantId, active: true },
+          select: { id: true, name: true, salary: true },
+        });
         const safeNumPuestos = Math.max(1, Number(numPuestos) || 1);
         for (const pos of template.positions) {
+          const patternForRol = pos.rolShiftPattern ?? pos.shiftPattern;
+          const { rolId: resolvedRolId, baseSalary: resolvedSalary } = resolveTemplateRowCatalog(
+            patternForRol,
+            roles,
+            rolId,
+            Number(baseSalary ?? pos.baseSalary)
+          );
           const weekdays = normalizeWeekdays(
             pos.daysOfWeek.map((d) => WEEKDAY_LONG_FROM_SHORT[d] ?? d.toLowerCase())
           );
           const payroll = await computeEmployerCost(
-            buildCpqStyleEmployerCostInput(Number(baseSalary ?? pos.baseSalary), {
+            buildCpqStyleEmployerCostInput(resolvedSalary, {
               afpName: "modelo",
               healthSystem: "fonasa",
               healthPlanPct: 0.07,
@@ -158,7 +170,7 @@ export async function POST(
               serviceGroupId: group.id,
               puestoTrabajoId,
               cargoId,
-              rolId,
+              rolId: resolvedRolId,
               customName: null,
               description: pos.description ?? null,
               weekdays,
@@ -166,7 +178,7 @@ export async function POST(
               endTime: pos.shiftEnd,
               numGuards: pos.guardsCount,
               numPuestos: safeNumPuestos,
-              baseSalary: Number(baseSalary ?? pos.baseSalary),
+              baseSalary: resolvedSalary,
               afpName: "modelo",
               healthSystem: "fonasa",
               healthPlanPct: 0.07,

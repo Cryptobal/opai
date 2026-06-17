@@ -73,7 +73,7 @@ import { CrmActivityTimeline } from "@/components/crm/CrmActivityTimeline";
 import { VisitaTecnicaSolicitudModal } from "@/components/cpq/VisitaTecnicaSolicitudModal";
 import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
 import type { ServiceTemplate } from "@/lib/cpq/service-templates";
-import { resolveRolIdFromShiftPattern } from "@/lib/cpq/resolve-cpq-role-from-shift-pattern";
+import { resolveTemplateRowCatalog } from "@/lib/cpq/resolve-cpq-role-from-shift-pattern";
 import { isCpqQuoteListedInClientPortal } from "@/lib/cpq-portal-visibility";
 import { buildDefaultPortalInviteEmailSubject } from "@/lib/cpq-portal-email-subject";
 import { useWaTemplate } from "@/lib/whatsapp/use-wa-template";
@@ -1118,7 +1118,7 @@ export function CpqQuoteDetail({
       const defaultPuesto = puestosRes?.data?.[0];
       const defaultCargo = cargosRes?.data?.[0];
       const defaultRol = rolesRes?.data?.[0];
-      const rolesList = (rolesRes?.data ?? []) as { id: string; name: string }[];
+      const rolesList = (rolesRes?.data ?? []) as { id: string; name: string; salary?: number | null }[];
 
       if (!defaultPuesto?.id || !defaultCargo?.id || !defaultRol?.id) {
         toast.error("Faltan configuraciones CPQ (puesto, cargo o rol).");
@@ -1129,8 +1129,12 @@ export function CpqQuoteDetail({
       let createdCount = 0;
       for (const pos of template.positions) {
         const patternForRol = pos.rolShiftPattern ?? pos.shiftPattern;
-        const rolId =
-          resolveRolIdFromShiftPattern(patternForRol, rolesList, defaultRol.id) ?? defaultRol.id;
+        const { rolId, baseSalary } = resolveTemplateRowCatalog(
+          patternForRol,
+          rolesList,
+          defaultRol.id,
+          pos.baseSalary
+        );
         const res = await fetch(`/api/cpq/quotes/${quoteId}/positions`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1144,7 +1148,7 @@ export function CpqQuoteDetail({
             numPuestos: 1,
             cargoId: defaultCargo.id,
             rolId,
-            baseSalary: pos.baseSalary,
+            baseSalary,
           }),
         });
         if (res.ok) createdCount++;

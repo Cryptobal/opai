@@ -9,6 +9,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { normalizeWeekdays } from "@/lib/cpq/weekdays";
 import { useCpqCatalogs } from "@/lib/cpq/use-cpq-catalogs";
+import { resolveSalaryFromRole, resolveTemplateRowCatalog } from "@/lib/cpq/resolve-cpq-role-from-shift-pattern";
 import type { CpqPosition, CpqServiceGroup } from "@/types/cpq";
 import type {
   NormalizedGroup,
@@ -99,24 +100,34 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
 
   const insertRow = useCallback(
     async (serviceGroupId: string | null, seed?: TemplateRowSeed) => {
+      const patternForRol = seed?.rolShiftPattern ?? seed?.shiftPattern;
+      const { rolId, baseSalary } = patternForRol
+        ? resolveTemplateRowCatalog(patternForRol, roles, defaults.rolId, seed?.bruto ?? 550000)
+        : {
+            rolId: defaults.rolId!,
+            baseSalary: resolveSalaryFromRole(defaults.rolId, roles, seed?.bruto ?? 550000),
+          };
+
       const res = await fetch(`/api/cpq/quotes/${quoteId}/positions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...defaults,
+          puestoTrabajoId: defaults.puestoTrabajoId,
+          cargoId: defaults.cargoId,
+          rolId,
           serviceGroupId,
           weekdays: seed?.dias ?? ["Lun", "Mar", "Mié", "Jue", "Vie"],
           startTime: seed?.inicio ?? "08:00",
           endTime: seed?.fin ?? "20:00",
           numGuards: seed?.guardias ?? 1,
           numPuestos: seed?.nPuestos ?? 1,
-          baseSalary: seed?.bruto ?? 550000,
+          baseSalary,
         }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error || "Error");
     },
-    [quoteId, defaults]
+    [quoteId, defaults, roles]
   );
 
   const onAddRow = useCallback(

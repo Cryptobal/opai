@@ -3,7 +3,7 @@
  * Usado al aplicar plantillas en Lead y CPQ para no fijar siempre el rol por defecto (p. ej. 4x4).
  */
 
-export type CpqRoleOption = { id: string; name: string };
+export type CpqRoleOption = { id: string; name: string; salary?: number | null };
 
 function normRoleName(s: string): string {
   return s
@@ -48,4 +48,36 @@ export function resolveRolIdFromShiftPattern(
   if (sub) return sub.id;
 
   return fallback;
+}
+
+/** Sueldo bruto sugerido del rol (CLP), o fallback si el rol no tiene salary configurado. */
+export function resolveSalaryFromRole(
+  rolId: string | undefined,
+  roles: CpqRoleOption[],
+  fallbackSalary = 550000
+): number {
+  if (!rolId) return fallbackSalary;
+  const salary = roles.find((r) => r.id === rolId)?.salary;
+  return salary != null && salary > 0 ? salary : fallbackSalary;
+}
+
+/**
+ * Resuelve rol y sueldo bruto al aplicar una plantilla de cobertura.
+ * Prioriza el salary configurado en CPQ > Roles/Turnos sobre el bruto hardcodeado de la plantilla.
+ */
+export function resolveTemplateRowCatalog(
+  shiftPattern: string | undefined,
+  roles: CpqRoleOption[],
+  fallbackRolId?: string,
+  templateBruto = 550000
+): { rolId: string; baseSalary: number } {
+  const rolId =
+    (shiftPattern
+      ? resolveRolIdFromShiftPattern(shiftPattern, roles, fallbackRolId)
+      : fallbackRolId) ??
+    fallbackRolId ??
+    roles[0]?.id ??
+    "";
+  const baseSalary = resolveSalaryFromRole(rolId, roles, templateBruto);
+  return { rolId, baseSalary };
 }

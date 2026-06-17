@@ -58,6 +58,8 @@ export function templateSeedsFor(
     guardias: pos.guardsCount,
     nPuestos: 1,
     bruto: pos.baseSalary,
+    shiftPattern: pos.shiftPattern,
+    rolShiftPattern: pos.rolShiftPattern,
   }));
   return { name: meta.label, seeds };
 }
