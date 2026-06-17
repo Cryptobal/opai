@@ -265,9 +265,9 @@ export function getContractEndDate(contract: GuardContract): string | null {
 }
 
 /**
- * Calcula los días calendario entre dos fechas (fecha2 - fecha1).
+ * Calcula los días calendario (corridos) entre dos fechas (fecha2 - fecha1).
  */
-function daysBetween(date1: string, date2: string): number {
+export function daysBetween(date1: string, date2: string): number {
   const d1 = new Date(date1);
   const d2 = new Date(date2);
   return Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
@@ -375,7 +375,7 @@ export function businessDaysBetween(date1: string, date2: string): number {
 
 /**
  * Verifica si se debe enviar alerta de vencimiento de contrato.
- * Retorna true si faltan exactamente N días hábiles para el vencimiento.
+ * Retorna true si faltan N o menos días corridos para el vencimiento.
  */
 export function shouldAlertContractExpiration(
   contract: GuardContract,
@@ -387,7 +387,7 @@ export function shouldAlertContractExpiration(
   const contractEnd = getContractEndDate(contract);
   if (!contractEnd) return false;
 
-  const bDays = businessDaysBetween(today, contractEnd);
+  const bDays = daysBetween(today, contractEnd);
   return bDays <= alertDaysBefore && bDays > 0;
 }
 
