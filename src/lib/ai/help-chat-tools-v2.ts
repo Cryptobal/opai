@@ -47,6 +47,7 @@ import {
 import { factoringCompanyInputSchema } from "@/lib/validations/factoring";
 import { createFactoringCompany } from "@/modules/finance/factoring/factoring-companies.service";
 import { toSentenceCase } from "@/lib/text-format";
+import { isUuid } from "@/lib/utils/uuid";
 import { formatWeekdaysShort } from "@/lib/cpq/weekdays";
 import type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
 import {
@@ -3545,6 +3546,10 @@ async function toolUpdateAccount(
     await logAiAction({ tenantId, userId, toolName: "update_account", args, status: "validation_error", errorMessage: "Falta id", startedAt: t0 });
     return { ok: false, error: "Falta id de la cuenta. Usa search_accounts para obtenerlo." };
   }
+  if (!isUuid(id)) {
+    await logAiAction({ tenantId, userId, toolName: "update_account", args, status: "validation_error", errorMessage: "id con formato inválido", startedAt: t0 });
+    return { ok: false, error: "El ID indicado no tiene formato válido. Usa la búsqueda correspondiente para obtener el ID correcto." };
+  }
   const rest = { ...args };
   delete (rest as Record<string, unknown>).id;
   const parsed = updateAccountSchema.safeParse(rest);
@@ -3637,6 +3642,10 @@ async function toolUpdateContact(
   if (!id) {
     await logAiAction({ tenantId, userId, toolName: "update_contact", args, status: "validation_error", errorMessage: "Falta id", startedAt: t0 });
     return { ok: false, error: "Falta id del contacto. Usa search_contacts para obtenerlo." };
+  }
+  if (!isUuid(id)) {
+    await logAiAction({ tenantId, userId, toolName: "update_contact", args, status: "validation_error", errorMessage: "id con formato inválido", startedAt: t0 });
+    return { ok: false, error: "El ID indicado no tiene formato válido. Usa la búsqueda correspondiente para obtener el ID correcto." };
   }
   const rest = { ...args };
   delete (rest as Record<string, unknown>).id;
@@ -3732,6 +3741,10 @@ async function toolUpdateLead(
     await logAiAction({ tenantId, userId, toolName: "update_lead", args, status: "validation_error", errorMessage: "Falta id", startedAt: t0 });
     return { ok: false, error: "Falta id del lead. Usa search_all para obtenerlo." };
   }
+  if (!isUuid(id)) {
+    await logAiAction({ tenantId, userId, toolName: "update_lead", args, status: "validation_error", errorMessage: "id con formato inválido", startedAt: t0 });
+    return { ok: false, error: "El ID indicado no tiene formato válido. Usa la búsqueda correspondiente para obtener el ID correcto." };
+  }
   const rest = { ...args };
   delete (rest as Record<string, unknown>).id;
   const parsed = createLeadSchema.partial().safeParse(rest);
@@ -3821,6 +3834,10 @@ async function toolUpdateDeal(
   if (!id) {
     await logAiAction({ tenantId, userId, toolName: "update_deal", args, status: "validation_error", errorMessage: "Falta id", startedAt: t0 });
     return { ok: false, error: "Falta id del deal. Usa search_deals para obtenerlo." };
+  }
+  if (!isUuid(id)) {
+    await logAiAction({ tenantId, userId, toolName: "update_deal", args, status: "validation_error", errorMessage: "id con formato inválido", startedAt: t0 });
+    return { ok: false, error: "El ID indicado no tiene formato válido. Usa la búsqueda correspondiente para obtener el ID correcto." };
   }
   // Construir patch a partir de los campos soportados. Usamos validación
   // manual aquí porque createDealSchema.partial() permitiría sobreescribir
@@ -3953,6 +3970,10 @@ async function toolUpdateInstallation(
     await logAiAction({ tenantId, userId, toolName: "update_installation", args, status: "validation_error", errorMessage: "Falta id", startedAt: t0 });
     return { ok: false, error: "Falta id de la instalación. Usa search_installations para obtenerlo." };
   }
+  if (!isUuid(id)) {
+    await logAiAction({ tenantId, userId, toolName: "update_installation", args, status: "validation_error", errorMessage: "id con formato inválido", startedAt: t0 });
+    return { ok: false, error: "El ID indicado no tiene formato válido. Usa la búsqueda correspondiente para obtener el ID correcto." };
+  }
   const rest = { ...args };
   delete (rest as Record<string, unknown>).id;
   const parsed = updateInstallationSchema.safeParse(rest);
@@ -4041,6 +4062,10 @@ async function toolCreateQuote(
     await logAiAction({ tenantId, userId, toolName: "create_quote", args, status: "validation_error", errorMessage: "Falta accountId", startedAt: t0 });
     return { ok: false, error: "Falta accountId. Usa search_accounts para obtenerlo." };
   }
+  if (!isUuid(accountId)) {
+    await logAiAction({ tenantId, userId, toolName: "create_quote", args, status: "validation_error", errorMessage: "accountId con formato inválido", startedAt: t0 });
+    return { ok: false, error: "El accountId no tiene formato válido. Usa search_accounts para obtener el ID correcto." };
+  }
 
   const account = await prisma.crmAccount.findFirst({
     where: { id: accountId, tenantId },
@@ -4052,6 +4077,10 @@ async function toolCreateQuote(
   }
 
   const dealId = typeof args.dealId === "string" && args.dealId.trim() ? args.dealId.trim() : null;
+  if (dealId && !isUuid(dealId)) {
+    await logAiAction({ tenantId, userId, toolName: "create_quote", args, status: "validation_error", errorMessage: "dealId con formato inválido", startedAt: t0 });
+    return { ok: false, error: "El dealId no tiene formato válido. Omítelo o usa search_deals." };
+  }
   if (dealId) {
     const dealExists = await prisma.crmDeal.findFirst({
       where: { id: dealId, tenantId },
@@ -4067,6 +4096,10 @@ async function toolCreateQuote(
     typeof args.installationId === "string" && args.installationId.trim()
       ? args.installationId.trim()
       : null;
+  if (installationId && !isUuid(installationId)) {
+    await logAiAction({ tenantId, userId, toolName: "create_quote", args, status: "validation_error", errorMessage: "installationId con formato inválido", startedAt: t0 });
+    return { ok: false, error: "El installationId no tiene formato válido. Omítelo o usa search_installations." };
+  }
   if (installationId) {
     const inst = await prisma.crmInstallation.findFirst({
       where: { id: installationId, tenantId },
