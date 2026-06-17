@@ -125,6 +125,8 @@ export interface QuoteDetail extends QuoteSummary {
   contractDuration?: number;
   includedItems?: string[];
   proposalLink: string | null;
+  /** Valor de la UF usado en la cotización (cuando currency === "UF") */
+  ufValue?: number;
   /** Full transparent cost breakdown for client display */
   costBreakdown?: import("@/types/cpq-breakdown").QuoteBreakdownData;
   templateSlug?: string;

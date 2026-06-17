@@ -225,6 +225,8 @@ export function CotizacionCard({
                 {detail.laborBreakdown && detail.laborBreakdown.positionDetails.length > 0 && (
                   <ProposalManoDeObra
                     laborBreakdown={detail.laborBreakdown}
+                    currency={detail.currency}
+                    ufValue={detail.ufValue ?? detail.costBreakdown?.ufValue}
                     sectionNumber={++sn}
                   />
                 )}
@@ -279,6 +281,7 @@ export function CotizacionCard({
                   <ProposalDesgloseRecursos
                     resourceBreakdown={detail.resourceBreakdown}
                     currency={detail.currency}
+                    ufValue={detail.ufValue ?? detail.costBreakdown?.ufValue}
                     sectionNumber={++sn}
                     defaultOpen={false}
                   />

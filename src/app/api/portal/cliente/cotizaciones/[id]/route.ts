@@ -552,6 +552,8 @@ export async function GET(
     success: true,
     data: {
       ...quote,
+      currency,
+      ufValue: ufValue > 0 ? ufValue : undefined,
       monthlyCost: convertCost(rawMonthly),
       proposalLink,
       positions: positionsWithPrice,
