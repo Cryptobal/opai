@@ -62,6 +62,8 @@ import {
   Loader2,
   GripVertical,
   ArrowLeftRight,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
@@ -76,6 +78,11 @@ const FIELD =
 /** Columnas no-servicio (12). El servicio es una celda rowspan aparte. */
 const REST_COLS = 12;
 
+/** Total de columnas de la tabla (servicio + 12). Usado por filas full-width. */
+const TOTAL_COLS = REST_COLS + 1;
+
+const COLLAPSE_STORAGE_KEY = "cpq-grid-collapsed";
+
 interface Props {
   adapter: PositionMatrixAdapter;
 }
@@ -89,6 +96,27 @@ export function PositionMatrixGrid({ adapter }: Props) {
   const readOnly = adapter.readOnly;
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(COLLAPSE_STORAGE_KEY);
+      if (saved) setCollapsed(JSON.parse(saved) as Record<string, boolean>);
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  const toggleCollapse = (key: string) =>
+    setCollapsed((p) => {
+      const next = { ...p, [key]: !p[key] };
+      try {
+        localStorage.setItem(COLLAPSE_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        /* noop */
+      }
+      return next;
+    });
 
   const { byGroup, ungrouped } = useMemo(() => {
     const map = new Map<string, NormalizedShift[]>();
@@ -219,6 +247,8 @@ export function PositionMatrixGrid({ adapter }: Props) {
             readOnly={readOnly}
             sortable={dndEnabled}
             dragging={activeId === group.key}
+            collapsed={!!collapsed[group.key]}
+            onToggleCollapse={() => toggleCollapse(group.key)}
             onRequestDeleteGroup={() => setDeleteTarget({ kind: "group", key: group.key, name: group.name })}
             onRequestDeleteRow={(id) => setDeleteTarget({ kind: "row", id })}
           />
@@ -233,6 +263,8 @@ export function PositionMatrixGrid({ adapter }: Props) {
             readOnly={readOnly}
             sortable={false}
             dragging={false}
+            collapsed={false}
+            onToggleCollapse={() => {}}
             onRequestDeleteGroup={() => {}}
             onRequestDeleteRow={(id) => setDeleteTarget({ kind: "row", id })}
           />
@@ -328,6 +360,8 @@ interface GroupBlockProps {
   readOnly?: boolean;
   sortable: boolean;
   dragging: boolean;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
   onRequestDeleteGroup: () => void;
   onRequestDeleteRow: (id: string) => void;
 }
@@ -340,6 +374,8 @@ function GroupBlock({
   readOnly,
   sortable,
   dragging,
+  collapsed,
+  onToggleCollapse,
   onRequestDeleteGroup,
   onRequestDeleteRow,
 }: GroupBlockProps) {
@@ -352,6 +388,7 @@ function GroupBlock({
   const [draftName, setDraftName] = useState(group?.name ?? "");
 
   const totalGuards = rows.reduce((s, r) => s + r.guardias * (r.nPuestos || 1), 0);
+  const totalPtos = rows.reduce((s, r) => s + (r.nPuestos || 1), 0);
   const groupKey = group?.key ?? null;
 
   const saveName = () => {
@@ -381,6 +418,17 @@ function GroupBlock({
               {...listeners}
             >
               <GripVertical className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {group && (
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+              title="Colapsar servicio"
+              aria-label="Colapsar servicio"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
             </button>
           )}
           <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden />
@@ -473,6 +521,46 @@ function GroupBlock({
     svcRendered = true;
     return serviceCell(refForFirst);
   };
+
+  // Servicio colapsado: una sola fila-resumen a todo el ancho.
+  if (collapsed && group) {
+    return (
+      <tr
+        className="border-b border-border hover:bg-muted/20"
+        style={{ borderLeft: `4px solid ${color}`, opacity: dragging ? 0.5 : undefined }}
+      >
+        <td ref={setNodeRef} colSpan={TOTAL_COLS} className="px-2 py-1.5">
+          <div className="flex items-center gap-1.5">
+            {sortable && (
+              <button
+                type="button"
+                className="cursor-grab touch-none text-muted-foreground/50 hover:text-muted-foreground active:cursor-grabbing"
+                aria-label="Arrastrar para reordenar servicio"
+                {...attributes}
+                {...listeners}
+              >
+                <GripVertical className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+              title="Expandir servicio"
+              aria-label="Expandir servicio"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden />
+            <span className="text-[13px] font-semibold text-foreground">{group.name}</span>
+            <span className="text-[11px] text-muted-foreground">
+              {rows.length} turno{rows.length !== 1 ? "s" : ""} · {totalGuards} gd · {totalPtos} pt
+            </span>
+          </div>
+        </td>
+      </tr>
+    );
+  }
 
   return (
     <>
