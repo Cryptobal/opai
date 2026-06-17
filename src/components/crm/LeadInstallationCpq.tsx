@@ -775,7 +775,124 @@ export function LeadInstallationCpq({
         )}
       </Card>
 
-      {/* ── Desglose (mismo QuoteBreakdownPanel que CPQ) ── */}
+      {/* ── Precio venta mensual (ancla visual; el desglose detallado vive más abajo) ── */}
+      {config.positions.length > 0 && (
+        <Card className="shadow-sm overflow-hidden border-status-ok-border bg-status-ok-soft">
+          <div className="px-3 py-3 text-center">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-status-ok-fg">
+              Precio Venta Mensual
+            </div>
+            <CpqDualCurrencyAmount
+              clp={estimate.precioVenta}
+              currency={currency}
+              ufValue={ufValue}
+              size="lg"
+              primaryClassName="text-foreground"
+              secondaryClassName="text-status-ok-fg/80"
+              align="center"
+            />
+            <div className="mt-2 flex items-center justify-center gap-3 text-xs text-muted-foreground">
+              <span>Margen {config.marginPercentage}%</span>
+              {config.financialCosts.financialEnabled && config.financialCosts.financialRatePct > 0 && (
+                <span>Financiero {config.financialCosts.financialRatePct}%</span>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* ── Puestos ── */}
+      <Card className="shadow-sm overflow-hidden">
+        <button type="button" onClick={() => setSecPuestos((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-sm font-bold shrink-0">Puestos</h2>
+            {!secPuestos && config.positions.length > 0 && (
+              <span className="text-[11px] text-muted-foreground">{config.positions.length} puestos · {totalGuards} guardias</span>
+            )}
+          </div>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secPuestos && "rotate-180")} />
+        </button>
+        {secPuestos && (
+          <div className="px-3 pb-3">
+            <PositionMatrix adapter={leadAdapter} />
+          </div>
+        )}
+      </Card>
+
+      {/* ── Costos adicionales (acordeón con ítems reales del catálogo) ── */}
+      <Card className="shadow-sm overflow-hidden">
+        <button type="button" onClick={() => setSecCostos((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-sm font-bold shrink-0">Costos adicionales</h2>
+            {!secCostos && costTotals.total > 0 && (
+              <span className="text-[11px] text-muted-foreground inline-flex items-baseline gap-1.5">
+                <CpqDualCurrencyAmount
+                  clp={costTotals.total}
+                  currency={currency}
+                  ufValue={ufValue}
+                  size="xs"
+                  inline
+                  primaryClassName="text-status-warn-fg font-semibold"
+                />
+              </span>
+            )}
+          </div>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secCostos && "rotate-180")} />
+        </button>
+        {secCostos && (
+          <div className="px-3 pb-3 space-y-1">
+            {/* DIRECTOS */}
+            <CostCategoryBlock
+              title="DIRECTOS"
+              total={costTotals.directos}
+              groups={groupedCostsDirect}
+              costItems={config.costItems}
+              catalogItems={catalogItems}
+              onToggleItem={toggleCostItem}
+              onPriceChange={updateCostItemPrice}
+              onTechnicalSpecsChange={updateCostItemSpecs}
+              displayCurrency={currency}
+              ufValue={ufValue}
+              groupMonthlyOverrides={{
+                "Uniformes": costTotals.monthlyUniforms,
+                "Exámenes": costTotals.monthlyExams,
+              }}
+              uniformCalcParams={{
+                uniformChangesPerYear: config.uniformChangesPerYear ?? 3,
+                totalGuards,
+                contractMonths: config.conditions?.contractDuration ?? 12,
+              }}
+            />
+            {/* INDIRECTOS */}
+            <CostCategoryBlock
+              title="INDIRECTOS"
+              total={costTotals.indirectos}
+              groups={groupedCostsIndirect}
+              costItems={config.costItems}
+              catalogItems={catalogItems}
+              onToggleItem={toggleCostItem}
+              onPriceChange={updateCostItemPrice}
+              onTechnicalSpecsChange={updateCostItemSpecs}
+              displayCurrency={currency}
+              ufValue={ufValue}
+            />
+            <div className={cn(CPQ_BREAKDOWN_ROW, "pt-1 border-t border-status-warn-border text-xs")}>
+              <span className="text-[11px] font-medium text-status-warn-fg break-words min-w-0">Total costos adicionales</span>
+              <div className={cpqBreakdownAmount()}>
+                <CpqDualCurrencyAmount
+                  clp={costTotals.total}
+                  currency={currency}
+                  ufValue={ufValue}
+                  size="sm"
+                  primaryClassName="text-status-warn-fg font-bold"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* ── Desglose detallado (mismo QuoteBreakdownPanel que CPQ) ── */}
       {config.positions.length > 0 && (() => {
         const monthlyHoursStandard = 180;
         const totalLaborCost = estimate.manoDeObra;
@@ -799,7 +916,11 @@ export function LeadInstallationCpq({
               const cName = cpqCargos.find(c => c.id === (pos.cargoId || catalogDefaults?.cargoId))?.name;
               const rName = cpqRoles.find(r => r.id === (pos.rolId || catalogDefaults?.rolId))?.name;
               const label = [pName, cName, rName].filter(Boolean).join(" · ");
-              return label || pos.puesto || `Posición ${idx + 1}`;
+              const base = label || pos.puesto || `Posición ${idx + 1}`;
+              // Nombre opcional del turno (customName): permite distinguir dos
+              // puestos iguales (ej: "Control de Acceso diurno" vs "nocturno") en
+              // el desglose "Por puesto".
+              return pos.customName?.trim() ? `${pos.customName.trim()} · ${base}` : base;
             })(),
             numGuards: pos.cantidad || 1,
             numPuestos: pos.numPuestos || 1,
@@ -894,97 +1015,6 @@ export function LeadInstallationCpq({
         );
       })()}
 
-      {/* ── Puestos ── */}
-      <Card className="shadow-sm overflow-hidden">
-        <button type="button" onClick={() => setSecPuestos((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
-          <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-sm font-bold shrink-0">Puestos</h2>
-            {!secPuestos && config.positions.length > 0 && (
-              <span className="text-[11px] text-muted-foreground">{config.positions.length} puestos · {totalGuards} guardias</span>
-            )}
-          </div>
-          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secPuestos && "rotate-180")} />
-        </button>
-        {secPuestos && (
-          <div className="px-3 pb-3">
-            <PositionMatrix adapter={leadAdapter} />
-          </div>
-        )}
-      </Card>
-
-      {/* ── Costos adicionales (acordeón con ítems reales del catálogo) ── */}
-      <Card className="shadow-sm overflow-hidden">
-        <button type="button" onClick={() => setSecCostos((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
-          <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-sm font-bold shrink-0">Costos adicionales</h2>
-            {!secCostos && costTotals.total > 0 && (
-              <span className="text-[11px] text-muted-foreground inline-flex items-baseline gap-1.5">
-                <CpqDualCurrencyAmount
-                  clp={costTotals.total}
-                  currency={currency}
-                  ufValue={ufValue}
-                  size="xs"
-                  inline
-                  primaryClassName="text-status-warn-fg font-semibold"
-                />
-              </span>
-            )}
-          </div>
-          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secCostos && "rotate-180")} />
-        </button>
-        {secCostos && (
-          <div className="px-3 pb-3 space-y-1">
-            {/* DIRECTOS */}
-            <CostCategoryBlock
-              title="DIRECTOS"
-              total={costTotals.directos}
-              groups={groupedCostsDirect}
-              costItems={config.costItems}
-              catalogItems={catalogItems}
-              onToggleItem={toggleCostItem}
-              onPriceChange={updateCostItemPrice}
-              onTechnicalSpecsChange={updateCostItemSpecs}
-              displayCurrency={currency}
-              ufValue={ufValue}
-              groupMonthlyOverrides={{
-                "Uniformes": costTotals.monthlyUniforms,
-                "Exámenes": costTotals.monthlyExams,
-              }}
-              uniformCalcParams={{
-                uniformChangesPerYear: config.uniformChangesPerYear ?? 3,
-                totalGuards,
-                contractMonths: config.conditions?.contractDuration ?? 12,
-              }}
-            />
-            {/* INDIRECTOS */}
-            <CostCategoryBlock
-              title="INDIRECTOS"
-              total={costTotals.indirectos}
-              groups={groupedCostsIndirect}
-              costItems={config.costItems}
-              catalogItems={catalogItems}
-              onToggleItem={toggleCostItem}
-              onPriceChange={updateCostItemPrice}
-              onTechnicalSpecsChange={updateCostItemSpecs}
-              displayCurrency={currency}
-              ufValue={ufValue}
-            />
-            <div className={cn(CPQ_BREAKDOWN_ROW, "pt-1 border-t border-status-warn-border text-xs")}>
-              <span className="text-[11px] font-medium text-status-warn-fg break-words min-w-0">Total costos adicionales</span>
-              <div className={cpqBreakdownAmount()}>
-                <CpqDualCurrencyAmount
-                  clp={costTotals.total}
-                  currency={currency}
-                  ufValue={ufValue}
-                  size="sm"
-                  primaryClassName="text-status-warn-fg font-bold"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </Card>
-
       {/* ── Líneas adicionales ── */}
       <Card className="shadow-sm overflow-hidden">
         <button type="button" onClick={() => setSecLineas((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
@@ -1023,44 +1053,47 @@ export function LeadInstallationCpq({
         )}
       </Card>
 
-      {/* ── Gastos financieros ── */}
-      <Card className="shadow-sm overflow-hidden">
-        <button type="button" onClick={() => setSecFinancieros((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
-          <h2 className="text-sm font-bold shrink-0">Gastos financieros</h2>
-          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secFinancieros && "rotate-180")} />
-        </button>
-        {secFinancieros && (
-          <div className="px-3 pb-3">
-            <FinancialCostsSection
-              value={config.financialCosts}
-              onChange={(fc) => update({ financialCosts: fc })}
-              calculatedBase={estimate.baseConMargen}
-            />
-          </div>
-        )}
-      </Card>
+      {/* ── Gastos financieros + Margen de venta (lado a lado en desktop) ── */}
+      <div className="grid grid-cols-1 items-start gap-2 md:grid-cols-2">
+        {/* ── Gastos financieros ── */}
+        <Card className="shadow-sm overflow-hidden">
+          <button type="button" onClick={() => setSecFinancieros((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
+            <h2 className="text-sm font-bold shrink-0">Gastos financieros</h2>
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secFinancieros && "rotate-180")} />
+          </button>
+          {secFinancieros && (
+            <div className="px-3 pb-3">
+              <FinancialCostsSection
+                value={config.financialCosts}
+                onChange={(fc) => update({ financialCosts: fc })}
+                calculatedBase={estimate.baseConMargen}
+              />
+            </div>
+          )}
+        </Card>
 
-      {/* ── Margen de venta ── */}
-      <Card className="shadow-sm overflow-hidden">
-        <button type="button" onClick={() => setSecMargen((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
-          <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-sm font-bold shrink-0">Margen de venta</h2>
-            {!secMargen && <span className="text-[11px] text-muted-foreground font-mono">{config.marginPercentage}%</span>}
-          </div>
-          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secMargen && "rotate-180")} />
-        </button>
-        {secMargen && (
-          <div className="px-3 pb-3">
-            <MarginSection
-              marginPct={config.marginPercentage}
-              onMarginChange={(m) => update({ marginPercentage: m })}
-              marginAmount={estimate.marginAmount}
-              marginMode={config.marginMode}
-              onMarginModeChange={(mode) => update({ marginMode: mode })}
-            />
-          </div>
-        )}
-      </Card>
+        {/* ── Margen de venta ── */}
+        <Card className="shadow-sm overflow-hidden">
+          <button type="button" onClick={() => setSecMargen((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-sm font-bold shrink-0">Margen de venta</h2>
+              {!secMargen && <span className="text-[11px] text-muted-foreground font-mono">{config.marginPercentage}%</span>}
+            </div>
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secMargen && "rotate-180")} />
+          </button>
+          {secMargen && (
+            <div className="px-3 pb-3">
+              <MarginSection
+                marginPct={config.marginPercentage}
+                onMarginChange={(m) => update({ marginPercentage: m })}
+                marginAmount={estimate.marginAmount}
+                marginMode={config.marginMode}
+                onMarginModeChange={(mode) => update({ marginMode: mode })}
+              />
+            </div>
+          )}
+        </Card>
+      </div>
 
       {/* ── Descripciones IA ── */}
       <Card className="shadow-sm overflow-hidden">

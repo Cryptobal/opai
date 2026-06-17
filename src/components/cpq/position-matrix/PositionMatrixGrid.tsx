@@ -62,19 +62,26 @@ import {
   Loader2,
   GripVertical,
   ArrowLeftRight,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import { HOURS_24, WEEKDAY_ORDER, isNightShift } from "./shift-utils";
-import { resolveServiceColor, hexToRgba, SERVICE_COLOR_PALETTE } from "./service-colors";
+import { resolveServiceColor, SERVICE_COLOR_PALETTE } from "./service-colors";
 import { CatalogPicker } from "./CatalogPicker";
 import type { NormalizedGroup, NormalizedShift, PositionMatrixAdapter, ShiftPatch } from "./types";
 
 const FIELD =
   "flex h-9 w-full rounded-md border border-border bg-card px-1.5 text-[13px] text-foreground";
 
-/** Columnas no-servicio (13). El servicio es una celda rowspan aparte. */
-const REST_COLS = 13;
+/** Columnas no-servicio (12). El servicio es una celda rowspan aparte. */
+const REST_COLS = 12;
+
+/** Total de columnas de la tabla (servicio + 12). Usado por filas full-width. */
+const TOTAL_COLS = REST_COLS + 1;
+
+const COLLAPSE_STORAGE_KEY = "cpq-grid-collapsed";
 
 interface Props {
   adapter: PositionMatrixAdapter;
@@ -89,6 +96,27 @@ export function PositionMatrixGrid({ adapter }: Props) {
   const readOnly = adapter.readOnly;
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(COLLAPSE_STORAGE_KEY);
+      if (saved) setCollapsed(JSON.parse(saved) as Record<string, boolean>);
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  const toggleCollapse = (key: string) =>
+    setCollapsed((p) => {
+      const next = { ...p, [key]: !p[key] };
+      try {
+        localStorage.setItem(COLLAPSE_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        /* noop */
+      }
+      return next;
+    });
 
   const { byGroup, ungrouped } = useMemo(() => {
     const map = new Map<string, NormalizedShift[]>();
@@ -177,14 +205,13 @@ export function PositionMatrixGrid({ adapter }: Props) {
   const body = (
     <table className="w-full min-w-[1180px] border-collapse text-left">
       <colgroup>
-        <col style={{ width: 168 }} />{/* Servicio */}
-        <col style={{ width: 150 }} />{/* Turno */}
-        <col style={{ width: 62 }} />{/* Tipo */}
-        <col style={{ width: 140 }} />{/* Puesto */}
-        <col style={{ width: 118 }} />{/* Cargo */}
+        <col style={{ width: 150 }} />{/* Servicio */}
+        <col style={{ width: 64 }} />{/* Tipo */}
+        <col style={{ width: 150 }} />{/* Puesto */}
+        <col style={{ width: 116 }} />{/* Cargo */}
         <col style={{ width: 96 }} />{/* Rol */}
         <col style={{ width: 172 }} />{/* Horario */}
-        <col style={{ width: 182 }} />{/* Días */}
+        <col style={{ width: 180 }} />{/* Días */}
         <col style={{ width: 92 }} />{/* Guardias */}
         <col style={{ width: 92 }} />{/* Ptos */}
         <col style={{ width: 108 }} />{/* Bruto */}
@@ -195,7 +222,6 @@ export function PositionMatrixGrid({ adapter }: Props) {
       <thead className="sticky top-0 z-10">
         <tr className="border-b border-border bg-muted text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           <th className="border-r border-border px-2 py-2">Servicio</th>
-          <th className="border-r border-border px-2 py-2">Turno</th>
           <th className="border-r border-border px-2 py-2">Tipo</th>
           <th className="border-r border-border px-2 py-2">Puesto</th>
           <th className="border-r border-border px-2 py-2">Cargo</th>
@@ -221,6 +247,8 @@ export function PositionMatrixGrid({ adapter }: Props) {
             readOnly={readOnly}
             sortable={dndEnabled}
             dragging={activeId === group.key}
+            collapsed={!!collapsed[group.key]}
+            onToggleCollapse={() => toggleCollapse(group.key)}
             onRequestDeleteGroup={() => setDeleteTarget({ kind: "group", key: group.key, name: group.name })}
             onRequestDeleteRow={(id) => setDeleteTarget({ kind: "row", id })}
           />
@@ -235,6 +263,8 @@ export function PositionMatrixGrid({ adapter }: Props) {
             readOnly={readOnly}
             sortable={false}
             dragging={false}
+            collapsed={false}
+            onToggleCollapse={() => {}}
             onRequestDeleteGroup={() => {}}
             onRequestDeleteRow={(id) => setDeleteTarget({ kind: "row", id })}
           />
@@ -242,7 +272,7 @@ export function PositionMatrixGrid({ adapter }: Props) {
       </tbody>
       <tfoot>
         <tr className="border-t-2 border-border bg-muted/40 font-semibold">
-          <td className="border-r border-border px-2 py-2 text-[13px] text-foreground" colSpan={8}>
+          <td className="border-r border-border px-2 py-2 text-[13px] text-foreground" colSpan={7}>
             TOTAL
           </td>
           <td className="border-r border-border px-2 py-2 text-center text-[13px] text-foreground">{totalGuards}</td>
@@ -330,6 +360,8 @@ interface GroupBlockProps {
   readOnly?: boolean;
   sortable: boolean;
   dragging: boolean;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
   onRequestDeleteGroup: () => void;
   onRequestDeleteRow: (id: string) => void;
 }
@@ -342,6 +374,8 @@ function GroupBlock({
   readOnly,
   sortable,
   dragging,
+  collapsed,
+  onToggleCollapse,
   onRequestDeleteGroup,
   onRequestDeleteRow,
 }: GroupBlockProps) {
@@ -353,7 +387,6 @@ function GroupBlock({
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(group?.name ?? "");
 
-  const groupCost = rows.reduce((s, r) => s + (r.costo ?? 0), 0);
   const totalGuards = rows.reduce((s, r) => s + r.guardias * (r.nPuestos || 1), 0);
   const totalPtos = rows.reduce((s, r) => s + (r.nPuestos || 1), 0);
   const groupKey = group?.key ?? null;
@@ -364,15 +397,15 @@ function GroupBlock({
     setEditingName(false);
   };
 
-  // Filas físicas del grupo: turnos + (agregar turno) + subtotal.
-  const physicalRowCount = rows.length + (readOnly ? 0 : 1) + 1;
+  // Filas físicas del grupo: solo los turnos (mínimo 1 para el placeholder vacío).
+  const physicalRowCount = Math.max(rows.length, 1);
 
   const serviceCell = (ref?: Ref<HTMLTableCellElement>) => (
     <td
       ref={ref}
       rowSpan={physicalRowCount}
       className="border-b border-r border-border align-top"
-      style={{ backgroundColor: hexToRgba(color, 0.12), borderLeft: `4px solid ${color}`, opacity: dragging ? 0.5 : undefined }}
+      style={{ borderLeft: `4px solid ${color}`, opacity: dragging ? 0.5 : undefined }}
     >
       <div className="flex h-full flex-col gap-1 px-2 py-1.5">
         <div className="flex items-center gap-1.5">
@@ -385,6 +418,17 @@ function GroupBlock({
               {...listeners}
             >
               <GripVertical className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {group && (
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+              title="Colapsar servicio"
+              aria-label="Colapsar servicio"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
             </button>
           )}
           <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden />
@@ -413,6 +457,16 @@ function GroupBlock({
 
         {!readOnly && group && !editingName && (
           <div className="flex flex-wrap items-center gap-0.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-primary"
+              onClick={() => adapter.onAddRow(groupKey)}
+              title="Agregar turno"
+            >
+              <Plus className="h-3 w-3" />
+            </Button>
             {adapter.onSetGroupColor && (
               <Popover>
                 <PopoverTrigger asChild>
@@ -468,56 +522,79 @@ function GroupBlock({
     return serviceCell(refForFirst);
   };
 
+  // Servicio colapsado: una sola fila-resumen a todo el ancho.
+  if (collapsed && group) {
+    return (
+      <tr
+        className="border-b border-border hover:bg-muted/20"
+        style={{ borderLeft: `4px solid ${color}`, opacity: dragging ? 0.5 : undefined }}
+      >
+        <td ref={setNodeRef} colSpan={TOTAL_COLS} className="px-2 py-1.5">
+          <div className="flex items-center gap-1.5">
+            {sortable && (
+              <button
+                type="button"
+                className="cursor-grab touch-none text-muted-foreground/50 hover:text-muted-foreground active:cursor-grabbing"
+                aria-label="Arrastrar para reordenar servicio"
+                {...attributes}
+                {...listeners}
+              >
+                <GripVertical className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+              title="Expandir servicio"
+              aria-label="Expandir servicio"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden />
+            <span className="text-[13px] font-semibold text-foreground">{group.name}</span>
+            <span className="text-[11px] text-muted-foreground">
+              {rows.length} turno{rows.length !== 1 ? "s" : ""} · {totalGuards} gd · {totalPtos} pt
+            </span>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
   return (
     <>
-      {rows.map((row, idx) => (
-        <GridRow
-          key={row.id}
-          row={row}
-          adapter={adapter}
-          readOnly={readOnly}
-          leadingCell={leadingFor(idx === 0 ? setNodeRef : undefined)}
-          onRequestDelete={() => onRequestDeleteRow(row.id)}
-        />
-      ))}
-
-      {!readOnly && (
+      {rows.length === 0 ? (
         <tr className="border-b border-border bg-card">
-          {leadingFor(rows.length === 0 ? setNodeRef : undefined)}
-          <td colSpan={REST_COLS} className="px-2 py-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1 text-xs text-muted-foreground"
-              onClick={() => adapter.onAddRow(groupKey)}
-            >
-              <Plus className="h-3.5 w-3.5" /> Agregar turno
-            </Button>
+          {leadingFor(setNodeRef)}
+          <td colSpan={REST_COLS} className="px-2 py-2 text-center">
+            {!readOnly ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1 text-xs text-primary"
+                onClick={() => adapter.onAddRow(groupKey)}
+              >
+                <Plus className="h-3.5 w-3.5" /> Agregar turno
+              </Button>
+            ) : (
+              <span className="text-xs text-muted-foreground">Sin turnos</span>
+            )}
           </td>
         </tr>
-      )}
-
-      {/* Subtotal del servicio */}
-      <tr className="border-b border-border bg-muted/20 text-[12px]" style={{ borderLeft: `4px solid ${color}` }}>
-        {leadingFor(rows.length === 0 && readOnly ? setNodeRef : undefined)}
-        <td className="border-r border-border px-2 py-1 font-medium text-muted-foreground">Subtotal</td>
-        <td className="border-r border-border" colSpan={6} />
-        <td className="border-r border-border px-2 py-1 text-center font-semibold text-foreground">{totalGuards}</td>
-        <td className="border-r border-border px-2 py-1 text-center font-semibold text-foreground">{totalPtos}</td>
-        <td className="border-r border-border" colSpan={2} />
-        <td className="border-r border-border px-2 py-1 text-right">
-          <CpqDualCurrencyAmount
-            clp={groupCost}
-            currency={adapter.currency}
-            ufValue={adapter.ufValue}
-            size="sm"
-            primaryClassName="font-semibold text-foreground"
-            align="right"
+      ) : (
+        rows.map((row, idx) => (
+          <GridRow
+            key={row.id}
+            row={row}
+            adapter={adapter}
+            readOnly={readOnly}
+            leadingCell={leadingFor(idx === 0 ? setNodeRef : undefined)}
+            onRequestDelete={() => onRequestDeleteRow(row.id)}
           />
-        </td>
-        <td className="px-1 py-1" />
-      </tr>
+        ))
+      )}
     </>
   );
 }
@@ -589,23 +666,10 @@ function GridRow({ row, adapter, readOnly, leadingCell, onRequestDelete }: GridR
   const night = isNightShift(draft.inicio);
   const saving = savingRowId === row.id;
   const disabled = readOnly;
-  const puestoName = catalogs.puestos.find((p) => p.id === draft.puestoId)?.name ?? "Puesto";
 
   return (
     <tr className="border-b border-border/60 hover:bg-muted/20">
       {leadingCell}
-
-      {/* Turno (nombre editable) */}
-      <td className="border-r border-border px-2 py-1">
-        <Input
-          type="text"
-          disabled={disabled}
-          value={draft.customName ?? ""}
-          placeholder={puestoName}
-          onChange={(e) => apply({ customName: e.target.value })}
-          className="h-9 text-[13px]"
-        />
-      </td>
 
       {/* Tipo */}
       <td className="border-r border-border px-2 py-1">

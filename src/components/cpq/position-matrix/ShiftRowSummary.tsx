@@ -30,6 +30,7 @@ export function ShiftRowSummary({
 }: Props) {
   const night = isNightShift(row.inicio);
   const puestoName = puestos.find((p) => p.id === row.puestoId)?.name || "Puesto";
+  const customName = row.customName?.trim();
   const totalGuards = row.guardias * (row.nPuestos || 1);
 
   return (
@@ -56,7 +57,10 @@ export function ShiftRowSummary({
       </span>
 
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-medium text-foreground">{puestoName}</div>
+        <div className="truncate text-[13px] font-medium text-foreground">{customName || puestoName}</div>
+        {customName && (
+          <div className="truncate text-[11px] text-muted-foreground">{puestoName}</div>
+        )}
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
           <span className="font-mono">
             {row.inicio}–{row.fin}
