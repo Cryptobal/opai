@@ -216,7 +216,7 @@ export function GuardPortalClient() {
           <ChatGuardPortal session={session} />
         </div>
       ) : (
-        <main className="flex-1 overflow-y-auto pb-16 sm:pb-20 px-4 sm:px-6">
+        <main className="flex-1 overflow-y-auto overscroll-contain touch-pan-y pb-16 sm:pb-20 px-4 sm:px-6">
           <PushPermissionPrompt
             portalType="guardia"
             userType="guardia"
@@ -654,6 +654,8 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
   const [result, setResult] = useState<{ timestamp: string; tipo: string; gpsStatus: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  // Idempotency key: una por intento, reutilizada en reintentos de red hasta éxito/reset.
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   // Check which tipo (entrada/salida) is next
   const checkNextTipo = useCallback(async () => {
@@ -715,6 +717,13 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
     setStep("submitting");
     setError(null);
 
+    // Genera la key una vez por intento; los reintentos por error de red reusan
+    // la misma para que el servidor deduplique en vez de crear marcas repetidas.
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current =
+        crypto?.randomUUID?.() ?? `${session.guardiaId}-${Date.now()}-${Math.random()}`;
+    }
+
     try {
       const res = await fetch("/api/portal/guardia/marcar-foto", {
         method: "POST",
@@ -727,6 +736,8 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
           lng: coords?.lng ?? null,
           gpsAccuracy: coords?.accuracy ?? null,
           image: imageBase64,
+          idempotencyKey: idempotencyKeyRef.current,
+          deviceTimestamp: new Date().toISOString(),
         }),
       });
 
@@ -743,6 +754,10 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
         gpsStatus: data.gpsStatus ?? "sin_gps",
       });
       setStep("success");
+      // Marca consumida: liberar la key para que la próxima marca use una nueva.
+      idempotencyKeyRef.current = null;
+      // Refrescar el próximo tipo para que la UI quede consistente (evita estado stale).
+      checkNextTipo();
       toast.success(
         nextTipo === "entrada" ? "Entrada registrada" : "Salida registrada"
       );
@@ -760,6 +775,7 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
     setResult(null);
     setError(null);
     setCapturedImage(null);
+    idempotencyKeyRef.current = null;
   }
 
   if (!session.currentInstallationId) {

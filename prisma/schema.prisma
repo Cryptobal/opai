@@ -4554,6 +4554,13 @@ model OpsMarcacion {
   atrasoMinutos    Int?      @map("atraso_minutos") // minutos de atraso cuando tipo=entrada
   offlineSync      Boolean   @default(false) @map("offline_sync") // Marcación registrada offline
   deviceTimestamp  DateTime? @map("device_timestamp") @db.Timestamptz(6) // Timestamp del dispositivo (offline)
+  // Idempotencia: dedup de reintentos del mismo intento de marca (doble-tap / retry).
+  // La unicidad se aplica con un índice ÚNICO PARCIAL (uq_marcaciones_idempotency:
+  // WHERE idempotency_key IS NOT NULL AND deleted_at IS NULL) creado por raw SQL en
+  // la migración 20260929000000_marcacion_idempotency — Prisma no puede expresar
+  // índices parciales, por eso no se declara @@unique aquí.
+  idempotencyKey   String?   @map("idempotency_key")
+  origenMarca      String?   @map("origen_marca") // online | offline_queue | retry | sync_diferida
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   // ── Resolución Exenta N°38 — Campos obligatorios ──

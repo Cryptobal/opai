@@ -18,6 +18,14 @@ import { sendMarcacionComprobante } from "@/lib/marcacion-email";
 import { parseMarcacionConfigValue, resolveMarcacionGeoRadiusM } from "@/lib/ops-marcacion-config";
 import { computeAttendanceMetrics } from "@/lib/ops-attendance";
 import { uploadMarcacionPhoto } from "@/lib/marcacion-photo";
+import {
+  resolverProximoTipo,
+  calcularAtrasoMinutos,
+  chileDayStart,
+  buscarMarcacionPorIdempotencyKey,
+  ejecutarConDedup,
+  resolverTrazabilidadMarca,
+} from "@/lib/marcacion-jornada";
 import * as bcrypt from "bcryptjs";
 import { z } from "zod";
 
@@ -34,6 +42,10 @@ const schema = z.object({
   manualFromBackOffice: z.boolean().optional(),
   // Dispositivo del portal (DevicePairing) — para identificar equipo usado
   deviceToken: z.string().optional(),
+  // Idempotencia + trazabilidad de marca tardía/offline
+  idempotencyKey: z.string().min(8).max(120).optional(),
+  deviceTimestamp: z.string().datetime().optional(),
+  origenMarca: z.enum(["online", "offline_queue", "retry", "sync_diferida"]).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -47,7 +59,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { code, rut, pin, tipo, lat, lng, gpsAccuracy, fotoBase64, manualFromBackOffice, deviceToken } = parsed.data;
+    const { code, rut, pin, tipo, lat, lng, gpsAccuracy, fotoBase64, manualFromBackOffice, deviceToken, idempotencyKey } = parsed.data;
 
     // GPS obligatorio — sin excepción para marcaciones desde portal (manual/import desde back office sí puede omitir)
     if (!manualFromBackOffice && (lat == null || lng == null)) {
@@ -170,38 +182,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verificar que no haya marcación duplicada (no puede marcar dos entradas seguidas)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    // Idempotencia: si ya existe una marca con esta key (doble-tap / retry), devolverla.
+    if (idempotencyKey) {
+      const dup = await buscarMarcacionPorIdempotencyKey(prisma, installation.tenantId, idempotencyKey);
+      if (dup) {
+        return NextResponse.json({
+          success: true,
+          deduplicated: true,
+          data: { id: dup.id, tipo: dup.tipo, timestamp: dup.timestamp.toISOString() },
+        });
+      }
+    }
 
-    const ultimaMarcacion = await prisma.opsMarcacion.findFirst({
-      where: {
-        guardiaId: guardia.id,
-        installationId: installation.id,
-        timestamp: { gte: today, lt: tomorrow },
-        deletedAt: null,
-      },
-      orderBy: { timestamp: "desc" },
-      select: { tipo: true },
+    // Verificar duplicados resolviendo entrada/salida por la última marca real en
+    // una ventana de 26h (robusto a turnos nocturnos y al cruce de medianoche UTC).
+    const tipoEsperado = await resolverProximoTipo(prisma, {
+      guardiaId: guardia.id,
+      tenantId: installation.tenantId,
+      installationId: installation.id,
     });
 
-    if (ultimaMarcacion) {
-      if (ultimaMarcacion.tipo === tipo) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: tipo === "entrada"
-              ? "Ya registraste tu entrada. Debes marcar salida primero."
-              : "Ya registraste tu salida. Debes marcar entrada primero.",
-          },
-          { status: 409 }
-        );
-      }
-    } else if (tipo === "salida") {
+    if (tipoEsperado !== tipo) {
       return NextResponse.json(
-        { success: false, error: "No puedes marcar salida sin haber marcado entrada." },
+        {
+          success: false,
+          error: tipo === "entrada"
+            ? "Ya registraste tu entrada. Debes marcar salida primero."
+            : "No puedes marcar salida sin haber marcado entrada.",
+        },
         { status: 409 }
       );
     }
@@ -227,6 +235,13 @@ export async function POST(req: NextRequest) {
 
     // Sello de tiempo del servidor (no del cliente)
     const serverTimestamp = new Date();
+
+    // Trazabilidad de marca tardía/offline (no cambia el timestamp del servidor)
+    const traza = resolverTrazabilidadMarca({
+      serverTimestamp,
+      deviceTimestamp: parsed.data.deviceTimestamp,
+      origenMarca: parsed.data.origenMarca,
+    });
 
     // Hash de integridad SHA-256 (Resolución Exenta N°38)
     const hashIntegridad = computeMarcacionHash({
@@ -259,20 +274,11 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Calcular atraso (minutos) cuando es entrada y hay hora de inicio de turno
-    let atrasoMinutos: number | null = null;
-    if (tipo === "entrada" && asignacion?.puesto?.shiftStart) {
-      const match = asignacion.puesto.shiftStart.match(/^(\d{1,2}):(\d{2})/);
-      if (match) {
-        const shiftH = parseInt(match[1], 10);
-        const shiftM = parseInt(match[2], 10);
-        const d = new Date(serverTimestamp);
-        const shiftStartToday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), shiftH, shiftM, 0, 0));
-        if (serverTimestamp > shiftStartToday) {
-          atrasoMinutos = Math.floor((serverTimestamp.getTime() - shiftStartToday.getTime()) / 60_000);
-        }
-      }
-    }
+    // Calcular atraso (minutos) cuando es entrada — shiftStart interpretado como hora Chile
+    const atrasoMinutos =
+      tipo === "entrada"
+        ? calcularAtrasoMinutos(asignacion?.puesto?.shiftStart, serverTimestamp)
+        : null;
 
     // Headers de la request
     const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || null;
@@ -283,7 +289,8 @@ export async function POST(req: NextRequest) {
     const tenantCfg = await getTenantCompanyConfig(installation.tenantId);
 
     // Crear la marcación y actualizar asistencia diaria en una transacción
-    const result = await prisma.$transaction(async (tx) => {
+    const outcome = await ejecutarConDedup(
+      () => prisma.$transaction(async (tx) => {
       // 1. Crear OpsMarcacion
       const marcacion = await tx.opsMarcacion.create({
         data: {
@@ -313,12 +320,16 @@ export async function POST(req: NextRequest) {
           distanciaMetros: geoDistanciaM,
           gpsAccuracy: gpsAccuracy ?? null,
           devicePairingId,
+          // Idempotencia + trazabilidad de marca tardía/offline
+          idempotencyKey: idempotencyKey ?? null,
+          deviceTimestamp: traza.deviceTs,
+          offlineSync: traza.offlineSync,
+          origenMarca: traza.origenMarca,
         },
       });
 
-      // 2. Actualizar OpsAsistenciaDiaria si existe registro para hoy
-      const todayDate = new Date(serverTimestamp);
-      todayDate.setHours(0, 0, 0, 0);
+      // 2. Actualizar OpsAsistenciaDiaria si existe registro para hoy (día-calendario Chile)
+      const todayDate = chileDayStart(serverTimestamp);
 
       // Priority 1: check if guard is a replacement today (turno extra)
       const asistenciaReemplazo = await tx.opsAsistenciaDiaria.findFirst({
@@ -393,7 +404,18 @@ export async function POST(req: NextRequest) {
       }
 
       return marcacion;
-    });
+      }),
+      { db: prisma, tenantId: installation.tenantId, idempotencyKey },
+    );
+
+    if (!outcome.ok) {
+      return NextResponse.json({
+        success: true,
+        deduplicated: true,
+        data: { id: outcome.dup.id, tipo: outcome.dup.tipo, timestamp: outcome.dup.timestamp.toISOString() },
+      });
+    }
+    const result = outcome.value;
 
     // Enviar comprobante por email (fire-and-forget, no bloquea la respuesta)
     // Res. N°38: preferir email personal del guardia; fallback al email corporativo

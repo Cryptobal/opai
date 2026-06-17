@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { formatPersonName, normalizeRut } from "@/lib/personas";
+import { resolverProximoTipo } from "@/lib/marcacion-jornada";
 
 /**
  * Normalizes RUT for DB lookup.
@@ -102,28 +103,13 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Determine next marca type based on last marca today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const ultimaMarca = await prisma.opsMarcacion.findFirst({
-      where: {
-        guardiaId: guardia.id,
-        installationId,
-        timestamp: { gte: today, lt: tomorrow },
-        deletedAt: null,
-      },
-      orderBy: { timestamp: "desc" },
-      select: { tipo: true },
+    // Determine next marca type based on last real marca (ventana 26h, robusto a
+    // turnos nocturnos y al cruce de medianoche UTC).
+    const nextTipo = await resolverProximoTipo(prisma, {
+      guardiaId: guardia.id,
+      tenantId: installation.tenantId,
+      installationId,
     });
-
-    // If last marca was entrada → next is salida, and viceversa
-    let nextTipo: "entrada" | "salida" = "entrada";
-    if (ultimaMarca?.tipo === "entrada") {
-      nextTipo = "salida";
-    }
 
     return NextResponse.json({
       success: true,
