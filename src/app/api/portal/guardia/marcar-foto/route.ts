@@ -21,6 +21,7 @@ import { computeAttendanceMetrics } from "@/lib/ops-attendance";
 import { formatPersonName } from "@/lib/personas";
 import { uploadMarcacionPhoto } from "@/lib/marcacion-photo";
 import { verifyFace } from "@/lib/services/rekognition";
+import { resolverProximoTipo, calcularAtrasoMinutos, chileDayStart } from "@/lib/marcacion-jornada";
 import { z } from "zod";
 
 // -- POST: Register marcacion with photo --
@@ -128,38 +129,22 @@ export async function POST(req: NextRequest) {
     const marcacionConfig = parseMarcacionConfigValue(marcacionConfigSetting?.value);
     const effectiveGeoRadiusM = resolveMarcacionGeoRadiusM(marcacionConfig, installation.geoRadiusM);
 
-    // Duplicate check — no two consecutive same-type marks
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const ultimaMarcacion = await prisma.opsMarcacion.findFirst({
-      where: {
-        guardiaId: guardia.id,
-        installationId: installation.id,
-        timestamp: { gte: today, lt: tomorrow },
-        deletedAt: null,
-      },
-      orderBy: { timestamp: "desc" },
-      select: { tipo: true },
+    // Duplicate check — resolver entrada/salida por la última marca real en una
+    // ventana de 26h (robusto a turnos nocturnos y al cruce de medianoche UTC).
+    const tipoEsperado = await resolverProximoTipo(prisma, {
+      guardiaId: guardia.id,
+      tenantId,
+      installationId: installation.id,
     });
 
-    if (ultimaMarcacion) {
-      if (ultimaMarcacion.tipo === tipo) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: tipo === "entrada"
-              ? "Ya registraste tu entrada. Debes marcar salida primero."
-              : "Ya registraste tu salida. Debes marcar entrada primero.",
-          },
-          { status: 409 }
-        );
-      }
-    } else if (tipo === "salida") {
+    if (tipoEsperado !== tipo) {
       return NextResponse.json(
-        { success: false, error: "No puedes marcar salida sin haber marcado entrada." },
+        {
+          success: false,
+          error: tipo === "entrada"
+            ? "Ya registraste tu entrada. Debes marcar salida primero."
+            : "No puedes marcar salida sin haber marcado entrada.",
+        },
         { status: 409 }
       );
     }
@@ -213,20 +198,11 @@ export async function POST(req: NextRequest) {
       tenantId,
     });
 
-    // Late minutes calculation
-    let atrasoMinutos: number | null = null;
-    if (tipo === "entrada" && asignacion.puesto?.shiftStart) {
-      const match = asignacion.puesto.shiftStart.match(/^(\d{1,2}):(\d{2})/);
-      if (match) {
-        const shiftH = parseInt(match[1], 10);
-        const shiftM = parseInt(match[2], 10);
-        const d = new Date(serverTimestamp);
-        const shiftStartToday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), shiftH, shiftM, 0, 0));
-        if (serverTimestamp > shiftStartToday) {
-          atrasoMinutos = Math.floor((serverTimestamp.getTime() - shiftStartToday.getTime()) / 60_000);
-        }
-      }
-    }
+    // Late minutes calculation (shiftStart interpretado como hora Chile)
+    const atrasoMinutos =
+      tipo === "entrada"
+        ? calcularAtrasoMinutos(asignacion.puesto?.shiftStart, serverTimestamp)
+        : null;
 
     const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || null;
     const userAgent = req.headers.get("user-agent") || null;
@@ -269,9 +245,8 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Update OpsAsistenciaDiaria if exists for today
-      const todayDate = new Date(serverTimestamp);
-      todayDate.setHours(0, 0, 0, 0);
+      // Update OpsAsistenciaDiaria if exists for today (día-calendario Chile)
+      const todayDate = chileDayStart(serverTimestamp);
 
       // Check replacement first
       const asistenciaReemplazo = await tx.opsAsistenciaDiaria.findFirst({

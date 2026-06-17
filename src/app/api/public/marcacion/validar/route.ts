@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { normalizeRut, isValidChileanRut } from "@/lib/personas";
 import { parseMarcacionConfigValue, resolveMarcacionGeoRadiusM } from "@/lib/ops-marcacion-config";
+import { getUltimaMarcacion } from "@/lib/marcacion-jornada";
 import * as bcrypt from "bcryptjs";
 import { z } from "zod";
 
@@ -129,21 +130,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Buscar la última marcación del guardia en esta instalación hoy
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const ultimaMarcacion = await prisma.opsMarcacion.findFirst({
-      where: {
-        guardiaId: guardia.id,
-        installationId: installation.id,
-        timestamp: { gte: today, lt: tomorrow },
-        deletedAt: null,
-      },
-      orderBy: { timestamp: "desc" },
-      select: { tipo: true, timestamp: true },
+    // Buscar la última marcación real del guardia en esta instalación (ventana 26h,
+    // robusto a turnos nocturnos y al cruce de medianoche UTC).
+    const ultimaMarcacion = await getUltimaMarcacion(prisma, {
+      guardiaId: guardia.id,
+      tenantId: installation.tenantId,
+      installationId: installation.id,
     });
 
     // Determinar qué acción puede hacer: si la última fue "entrada", puede hacer "salida" y viceversa
