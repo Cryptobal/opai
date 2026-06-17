@@ -234,6 +234,15 @@ export function RondaActiva({
   // GPS watchPosition + trail accumulation
   useEffect(() => {
     if (!navigator.geolocation) return;
+
+    // Umbral de descarte: lecturas con accuracy peor a esto se ignoran salvo que
+    // no exista ninguna lectura previa (para no dejar el mapa vacío al arrancar).
+    const MAX_ACCEPTABLE_ACCURACY_M = 75;
+    // Cuando la lectura previa está "stale", aceptamos una nueva aunque sea algo peor,
+    // pero NO si su accuracy supera este múltiplo de la previa (evita el salto brusco).
+    const STALE_DEGRADE_FACTOR = 2;
+    const STALE_MS = 15_000;
+
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         const rawAcc = pos.coords.accuracy;
@@ -241,9 +250,19 @@ export function RondaActiva({
           rawAcc != null && Number.isFinite(rawAcc) && rawAcc > 0 ? rawAcc : 999_999;
         const now = Date.now();
         const prevQ = guardReadQualityRef.current;
-        const stale = prevQ != null && now - prevQ.ts > 15_000;
-        const accept =
-          prevQ == null || newAcc <= prevQ.accuracy || stale;
+        const stale = prevQ != null && now - prevQ.ts > STALE_MS;
+
+        // 1) Descartar lecturas con accuracy catastrófica, salvo que no haya ninguna previa.
+        if (prevQ != null && newAcc > MAX_ACCEPTABLE_ACCURACY_M) {
+          // Si además NO está stale, ignorar del todo. Si está stale, solo aceptar si
+          // no degrada demasiado respecto a la previa.
+          if (!stale) return;
+          if (newAcc > prevQ.accuracy * STALE_DEGRADE_FACTOR) return;
+        }
+
+        // 2) Regla base: aceptar si mejora/iguala accuracy, o si la previa está stale
+        //    (con el guardrail de degradación ya aplicado arriba).
+        const accept = prevQ == null || newAcc <= prevQ.accuracy || stale;
         if (!accept) return;
 
         guardReadQualityRef.current = { accuracy: newAcc, ts: now };
@@ -261,7 +280,9 @@ export function RondaActiva({
         });
       },
       () => {},
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+      // maximumAge bajo: evita que el navegador devuelva posiciones cacheadas viejas
+      // que provocan el "salto" del pin. enableHighAccuracy fuerza GPS real.
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 },
     );
     return () => {
       if (watchIdRef.current !== null)
