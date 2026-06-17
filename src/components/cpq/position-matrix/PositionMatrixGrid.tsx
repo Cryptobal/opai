@@ -61,25 +61,26 @@ import {
   Sun,
   Loader2,
   GripVertical,
-  ArrowLeftRight,
   ChevronDown,
   ChevronRight,
+  RotateCcw,
 } from "lucide-react";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import { HOURS_24, WEEKDAY_ORDER, isNightShift } from "./shift-utils";
 import { resolveServiceColor, SERVICE_COLOR_PALETTE } from "./service-colors";
 import { CatalogPicker } from "./CatalogPicker";
+import { useGridColWidths, type GridColKey } from "./useGridColWidths";
 import type { NormalizedGroup, NormalizedShift, PositionMatrixAdapter, ShiftPatch } from "./types";
 
 const FIELD =
   "flex h-9 w-full rounded-md border border-border bg-card px-1.5 text-[13px] text-foreground";
 
-/** Columnas no-servicio (12). El servicio es una celda rowspan aparte. */
-const REST_COLS = 12;
+/** Columnas no-servicio (9). El servicio es una celda rowspan aparte. */
+const REST_COLS = 9;
 
-/** Total de columnas de la tabla (servicio + 12). Usado por filas full-width. */
-const TOTAL_COLS = REST_COLS + 1;
+/** Total de columnas de la tabla (servicio + 9). Usado por filas full-width. */
+const TOTAL_COLS = REST_COLS + 1; // 10
 
 const COLLAPSE_STORAGE_KEY = "cpq-grid-collapsed";
 
@@ -97,6 +98,7 @@ export function PositionMatrixGrid({ adapter }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const { widths: colW, reset: resetColWidths, onResizeStart } = useGridColWidths();
 
   useEffect(() => {
     try {
@@ -203,36 +205,57 @@ export function PositionMatrixGrid({ adapter }: Props) {
   const activeGroup = activeId ? groupByKey.get(activeId) : null;
 
   const body = (
-    <table className="w-full min-w-[1180px] border-collapse text-left">
+    <table className="w-full min-w-[1040px] border-collapse text-left">
       <colgroup>
-        <col style={{ width: 150 }} />{/* Servicio */}
-        <col style={{ width: 64 }} />{/* Tipo */}
-        <col style={{ width: 150 }} />{/* Puesto */}
-        <col style={{ width: 116 }} />{/* Cargo */}
-        <col style={{ width: 96 }} />{/* Rol */}
-        <col style={{ width: 172 }} />{/* Horario */}
-        <col style={{ width: 180 }} />{/* Días */}
-        <col style={{ width: 92 }} />{/* Guardias */}
-        <col style={{ width: 92 }} />{/* Ptos */}
-        <col style={{ width: 108 }} />{/* Bruto */}
-        <col style={{ width: 90 }} />{/* Líquido */}
-        <col style={{ width: 116 }} />{/* Mano de obra */}
-        <col style={{ width: 60 }} />{/* Acciones */}
+        <col data-colkey="servicio" style={{ width: colW.servicio }} />{/* Servicio */}
+        <col data-colkey="puesto"   style={{ width: colW.puesto }} />{/* Puesto */}
+        <col data-colkey="cargo"    style={{ width: colW.cargo }} />{/* Cargo */}
+        <col data-colkey="rol"      style={{ width: colW.rol }} />{/* Rol */}
+        <col data-colkey="horario"  style={{ width: colW.horario }} />{/* Horario (incluye chip Día/Noche) */}
+        <col data-colkey="dias"     style={{ width: colW.dias }} />{/* Días */}
+        <col data-colkey="guardias" style={{ width: colW.guardias }} />{/* Guardias */}
+        <col data-colkey="ptos"     style={{ width: colW.ptos }} />{/* Ptos */}
+        <col data-colkey="costo"    style={{ width: colW.costo }} />{/* Bruto · Líquido · Mano obra */}
+        <col data-colkey="acciones" style={{ width: colW.acciones }} />{/* Acciones */}
       </colgroup>
       <thead className="sticky top-0 z-10">
         <tr className="border-b border-border bg-muted text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          <th className="border-r border-border px-2 py-2">Servicio</th>
-          <th className="border-r border-border px-2 py-2">Tipo</th>
-          <th className="border-r border-border px-2 py-2">Puesto</th>
-          <th className="border-r border-border px-2 py-2">Cargo</th>
-          <th className="border-r border-border px-2 py-2">Rol</th>
-          <th className="border-r border-border px-2 py-2">Horario</th>
-          <th className="border-r border-border px-2 py-2">Días</th>
-          <th className="border-r border-border px-2 py-2 text-center">Guard.</th>
-          <th className="border-r border-border px-2 py-2 text-center">Ptos</th>
-          <th className="border-r border-border px-2 py-2 text-right">Bruto</th>
-          <th className="border-r border-border px-2 py-2 text-right">Líquido</th>
-          <th className="border-r border-border px-2 py-2 text-right">Mano obra</th>
+          <th className="relative border-r border-border px-2 py-2">
+            Servicio
+            <ResizeGrip colKey="servicio" onResizeStart={onResizeStart} />
+          </th>
+          <th className="relative border-r border-border px-2 py-2">
+            Puesto
+            <ResizeGrip colKey="puesto" onResizeStart={onResizeStart} />
+          </th>
+          <th className="relative border-r border-border px-2 py-2">
+            Cargo
+            <ResizeGrip colKey="cargo" onResizeStart={onResizeStart} />
+          </th>
+          <th className="relative border-r border-border px-2 py-2">
+            Rol
+            <ResizeGrip colKey="rol" onResizeStart={onResizeStart} />
+          </th>
+          <th className="relative border-r border-border px-2 py-2">
+            Horario
+            <ResizeGrip colKey="horario" onResizeStart={onResizeStart} />
+          </th>
+          <th className="relative border-r border-border px-2 py-2">
+            Días
+            <ResizeGrip colKey="dias" onResizeStart={onResizeStart} />
+          </th>
+          <th className="relative border-r border-border px-2 py-2 text-center">
+            Guard.
+            <ResizeGrip colKey="guardias" onResizeStart={onResizeStart} />
+          </th>
+          <th className="relative border-r border-border px-2 py-2 text-center">
+            Ptos
+            <ResizeGrip colKey="ptos" onResizeStart={onResizeStart} />
+          </th>
+          <th className="relative border-r border-border px-2 py-2 text-right">
+            Bruto · Líquido
+            <ResizeGrip colKey="costo" onResizeStart={onResizeStart} />
+          </th>
           <th className="px-1 py-2" />
         </tr>
       </thead>
@@ -272,13 +295,11 @@ export function PositionMatrixGrid({ adapter }: Props) {
       </tbody>
       <tfoot>
         <tr className="border-t-2 border-border bg-muted/40 font-semibold">
-          <td className="border-r border-border px-2 py-2 text-[13px] text-foreground" colSpan={7}>
+          <td className="border-r border-border px-2 py-2 text-[13px] text-foreground" colSpan={6}>
             TOTAL
           </td>
           <td className="border-r border-border px-2 py-2 text-center text-[13px] text-foreground">{totalGuards}</td>
           <td className="border-r border-border px-2 py-2 text-center text-[13px] text-foreground">{totalPtos}</td>
-          <td className="border-r border-border px-2 py-2" />
-          <td className="border-r border-border px-2 py-2" />
           <td className="border-r border-border px-2 py-2 text-right">
             <CpqDualCurrencyAmount
               clp={totalCost}
@@ -296,7 +317,13 @@ export function PositionMatrixGrid({ adapter }: Props) {
   );
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
+    <div>
+      <div className="mb-2 flex justify-end">
+        <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 text-[11px] text-muted-foreground" onClick={resetColWidths}>
+          <RotateCcw className="h-3 w-3" /> Restablecer columnas
+        </Button>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-border">
       {dndEnabled ? (
         <DndContext
           sensors={sensors}
@@ -346,7 +373,22 @@ export function PositionMatrixGrid({ adapter }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
+  );
+}
+
+/* ─────────────────────────  Resize grip (cabecera redimensionable) ───────────────────────── */
+
+function ResizeGrip({ colKey, onResizeStart }: { colKey: GridColKey; onResizeStart: (k: GridColKey, e: React.MouseEvent) => void }) {
+  return (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Ajustar ancho de columna"
+      onMouseDown={(e) => onResizeStart(colKey, e)}
+      className="absolute right-0 top-0 z-20 h-full w-[6px] -translate-x-[3px] cursor-col-resize select-none hover:bg-primary/30"
+    />
   );
 }
 
@@ -671,21 +713,6 @@ function GridRow({ row, adapter, readOnly, leadingCell, onRequestDelete }: GridR
     <tr className="border-b border-border/60 hover:bg-muted/20">
       {leadingCell}
 
-      {/* Tipo */}
-      <td className="border-r border-border px-2 py-1">
-        <span
-          className={cn(
-            "inline-flex h-6 items-center gap-1 rounded-md border px-1.5 text-[11px] font-semibold",
-            night
-              ? "border-tint-violet-fg/30 bg-tint-violet text-tint-violet-fg"
-              : "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
-          )}
-        >
-          {night ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
-          {night ? "Noche" : "Día"}
-        </span>
-      </td>
-
       {/* Puesto */}
       <td className="border-r border-border px-2 py-1">
         <CatalogPicker kind="puesto" value={draft.puestoId} disabled={disabled} onChange={(id) => apply({ puestoId: id })} />
@@ -701,21 +728,46 @@ function GridRow({ row, adapter, readOnly, leadingCell, onRequestDelete }: GridR
         <CatalogPicker kind="rol" value={draft.rolId} disabled={disabled} onChange={(id) => apply({ rolId: id })} />
       </td>
 
-      {/* Horario */}
+      {/* Horario (con chip Día/Noche clickeable que invierte el turno) */}
       <td className="border-r border-border px-2 py-1">
-        <div className="flex items-center gap-1">
-          <select className={cn(FIELD, "w-[68px] font-mono")} value={draft.inicio} disabled={disabled} onChange={(e) => apply({ inicio: e.target.value })}>
-            {HOURS_24.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <span className="text-muted-foreground">–</span>
-          <select className={cn(FIELD, "w-[68px] font-mono")} value={draft.fin} disabled={disabled} onChange={(e) => apply({ fin: e.target.value })}>
-            {HOURS_24.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-          {!disabled && (
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" title="Invertir horario (día ↔ noche)" onClick={() => apply({ inicio: ref.current.fin, fin: ref.current.inicio })}>
-              <ArrowLeftRight className="h-3.5 w-3.5" />
-            </Button>
+        <div className="flex flex-col gap-1">
+          {!disabled ? (
+            <button
+              type="button"
+              title="Invertir turno (día ↔ noche)"
+              onClick={() => apply({ inicio: ref.current.fin, fin: ref.current.inicio })}
+              className={cn(
+                "inline-flex h-6 w-fit items-center gap-1 rounded-md border px-1.5 text-[11px] font-semibold transition-colors",
+                night
+                  ? "border-tint-violet-fg/30 bg-tint-violet text-tint-violet-fg hover:brightness-95"
+                  : "border-status-warn-border bg-status-warn-soft text-status-warn-fg hover:brightness-95"
+              )}
+            >
+              {night ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
+              {night ? "Noche" : "Día"}
+            </button>
+          ) : (
+            <span
+              className={cn(
+                "inline-flex h-6 w-fit items-center gap-1 rounded-md border px-1.5 text-[11px] font-semibold",
+                night
+                  ? "border-tint-violet-fg/30 bg-tint-violet text-tint-violet-fg"
+                  : "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
+              )}
+            >
+              {night ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
+              {night ? "Noche" : "Día"}
+            </span>
           )}
+          <div className="flex items-center gap-1">
+            <select className={cn(FIELD, "w-[64px] font-mono")} value={draft.inicio} disabled={disabled} onChange={(e) => apply({ inicio: e.target.value })}>
+              {HOURS_24.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <span className="text-muted-foreground">–</span>
+            <select className={cn(FIELD, "w-[64px] font-mono")} value={draft.fin} disabled={disabled} onChange={(e) => apply({ fin: e.target.value })}>
+              {HOURS_24.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
         </div>
       </td>
 
@@ -753,26 +805,24 @@ function GridRow({ row, adapter, readOnly, leadingCell, onRequestDelete }: GridR
         <Stepper value={draft.nPuestos} min={1} max={50} disabled={disabled} onChange={(v) => apply({ nPuestos: v })} />
       </td>
 
-      {/* Bruto */}
+      {/* Bruto · Líquido · Mano de obra (apilados) */}
       <td className="border-r border-border px-2 py-1 text-right">
-        <Input
-          type="text"
-          inputMode="numeric"
-          disabled={disabled}
-          value={formatNumber(draft.bruto, { minDecimals: 0, maxDecimals: 0 })}
-          onChange={(e) => apply({ bruto: parseLocalizedNumber(e.target.value) || 0 })}
-          className="h-9 text-right font-mono text-[13px]"
-        />
-      </td>
-
-      {/* Líquido */}
-      <td className="border-r border-border px-2 py-1 text-right font-mono text-[13px] text-muted-foreground">
-        {row.liquido != null && row.liquido > 0 ? Math.round(row.liquido).toLocaleString("es-CL") : "—"}
-      </td>
-
-      {/* Mano de obra */}
-      <td className="border-r border-border px-2 py-1 text-right">
-        <CpqDualCurrencyAmount clp={row.costo ?? 0} currency={currency} ufValue={ufValue} size="sm" primaryClassName="font-semibold text-foreground" align="right" />
+        <div className="flex flex-col items-end gap-0.5">
+          <Input
+            type="text"
+            inputMode="numeric"
+            disabled={disabled}
+            value={formatNumber(draft.bruto, { minDecimals: 0, maxDecimals: 0 })}
+            onChange={(e) => apply({ bruto: parseLocalizedNumber(e.target.value) || 0 })}
+            className="h-8 w-full text-right font-mono text-[13px]"
+          />
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {row.liquido != null && row.liquido > 0 ? `líq ${Math.round(row.liquido).toLocaleString("es-CL")}` : "líq —"}
+          </span>
+          <div className="mt-0.5">
+            <CpqDualCurrencyAmount clp={row.costo ?? 0} currency={currency} ufValue={ufValue} size="sm" primaryClassName="font-semibold text-foreground" align="right" />
+          </div>
+        </div>
       </td>
 
       {/* Acciones */}
