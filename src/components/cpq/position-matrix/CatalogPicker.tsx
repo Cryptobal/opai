@@ -134,7 +134,7 @@ export function CatalogPicker({ kind, value, onChange, disabled, triggerClassNam
           <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[260px] p-1" align="start" sideOffset={4} collisionPadding={8}>
+      <PopoverContent className="w-[280px] p-1" align="start" sideOffset={4} collisionPadding={8}>
         <div className="max-h-[240px] overflow-y-auto">
           {list.length === 0 && (
             <p className="px-2 py-3 text-center text-xs text-muted-foreground">Sin opciones</p>
@@ -191,7 +191,7 @@ export function CatalogPicker({ kind, value, onChange, disabled, triggerClassNam
           ))}
         </div>
 
-        <div className="-mx-1 -mb-1 mt-1 rounded-b-md border-t border-border bg-muted/30 px-1 pb-1 pt-1">
+        <div className="-mx-1 -mb-1 mt-1.5 rounded-b-md border-t border-border bg-muted/40 px-1.5 pb-1.5 pt-1.5">
           {kind === "rol" ? (
             <Button
               type="button"
