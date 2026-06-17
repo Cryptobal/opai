@@ -74,7 +74,7 @@ function SortableServiceCard({ group, ...rest }: SortableServiceCardProps) {
 
 export function PositionMatrix({ adapter }: Props) {
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
-  const [view, setView] = useState<MatrixView>("cards");
+  const [view, setView] = useState<MatrixView>("grid");
   const readOnly = adapter.readOnly;
 
   useEffect(() => {

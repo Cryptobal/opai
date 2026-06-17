@@ -1,19 +1,35 @@
 /**
- * Vista grilla (tipo Excel) de la matriz de puestos: servicios en bandas de
- * color con sus turnos en filas y columnas editables inline. Comparte el mismo
- * adapter que la vista de tarjetas, así ambas quedan siempre sincronizadas.
+ * Vista grilla (tipo Excel) de la matriz de puestos.
+ *
+ * - Servicio = primera columna con celda combinada (rowspan) y color.
+ * - Turno = nombre editable (customName) con chip Día/Noche.
+ * - Columnas alineadas con <colgroup> de anchos fijos + header sticky.
+ * - Guardias / Ptos con stepper compacto.
+ * - Subtotal por servicio + fila TOTAL general (tfoot).
+ * - Reordenar servicios arrastrando (grip en la celda de servicio) con DragOverlay.
+ *
+ * Comparte el mismo adapter que la vista de tarjetas → ambas siempre sincronizadas.
  */
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type Ref,
+} from "react";
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -21,7 +37,6 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +50,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Plus,
+  Minus,
   Copy,
   Trash2,
   Pencil,
@@ -51,10 +67,14 @@ import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import { HOURS_24, WEEKDAY_ORDER, isNightShift } from "./shift-utils";
 import { resolveServiceColor, hexToRgba, SERVICE_COLOR_PALETTE } from "./service-colors";
+import { CatalogPicker } from "./CatalogPicker";
 import type { NormalizedGroup, NormalizedShift, PositionMatrixAdapter, ShiftPatch } from "./types";
 
 const FIELD =
   "flex h-9 w-full rounded-md border border-border bg-card px-1.5 text-[13px] text-foreground";
+
+/** Columnas no-servicio (13). El servicio es una celda rowspan aparte. */
+const REST_COLS = 13;
 
 interface Props {
   adapter: PositionMatrixAdapter;
@@ -68,6 +88,7 @@ type DeleteTarget =
 export function PositionMatrixGrid({ adapter }: Props) {
   const readOnly = adapter.readOnly;
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   const { byGroup, ungrouped } = useMemo(() => {
     const map = new Map<string, NormalizedShift[]>();
@@ -88,13 +109,20 @@ export function PositionMatrixGrid({ adapter }: Props) {
     () => adapter.rows.reduce((s, r) => s + (r.costo ?? 0), 0),
     [adapter.rows]
   );
+  const totalGuards = useMemo(
+    () => adapter.rows.reduce((s, r) => s + r.guardias * (r.nPuestos || 1), 0),
+    [adapter.rows]
+  );
+  const totalPtos = useMemo(
+    () => adapter.rows.reduce((s, r) => s + (r.nPuestos || 1), 0),
+    [adapter.rows]
+  );
 
   const sortedGroups = useMemo(
     () => [...adapter.groups].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name)),
     [adapter.groups]
   );
 
-  // Orden local optimista para el drag & drop (se re-sincroniza con el adapter).
   const [orderedKeys, setOrderedKeys] = useState<string[]>(() => sortedGroups.map((g) => g.key));
   const sortedKeysSignature = sortedGroups.map((g) => g.key).join("|");
   useEffect(() => {
@@ -114,13 +142,19 @@ export function PositionMatrixGrid({ adapter }: Props) {
   );
 
   const dndEnabled = !readOnly && !!adapter.onReorderGroups && orderedGroups.length > 1;
+  const colorByKey = useMemo(() => {
+    const m = new Map<string, string>();
+    orderedGroups.forEach((g, i) => m.set(g.key, resolveServiceColor(g.colorHex, i)));
+    return m;
+  }, [orderedGroups]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor),
   );
 
-  const handleGroupDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const oldIndex = orderedKeys.indexOf(String(active.id));
@@ -138,73 +172,127 @@ export function PositionMatrixGrid({ adapter }: Props) {
     setDeleteTarget(null);
   };
 
-  const COLS = 12;
+  const activeGroup = activeId ? groupByKey.get(activeId) : null;
 
-  const groupBlocks = orderedGroups.map((group, gi) => (
-    <SortableGroupBlock
-      key={group.key}
-      group={group}
-      colorIndex={gi}
-      rows={byGroup.get(group.key) ?? []}
-      adapter={adapter}
-      totalCost={totalCost}
-      cols={COLS}
-      readOnly={readOnly}
-      sortable={dndEnabled}
-      onRequestDeleteGroup={() => setDeleteTarget({ kind: "group", key: group.key, name: group.name })}
-      onRequestDeleteRow={(id) => setDeleteTarget({ kind: "row", id })}
-    />
-  ));
+  const body = (
+    <table className="w-full min-w-[1180px] border-collapse text-left">
+      <colgroup>
+        <col style={{ width: 168 }} />{/* Servicio */}
+        <col style={{ width: 150 }} />{/* Turno */}
+        <col style={{ width: 62 }} />{/* Tipo */}
+        <col style={{ width: 140 }} />{/* Puesto */}
+        <col style={{ width: 118 }} />{/* Cargo */}
+        <col style={{ width: 96 }} />{/* Rol */}
+        <col style={{ width: 172 }} />{/* Horario */}
+        <col style={{ width: 182 }} />{/* Días */}
+        <col style={{ width: 92 }} />{/* Guardias */}
+        <col style={{ width: 92 }} />{/* Ptos */}
+        <col style={{ width: 108 }} />{/* Bruto */}
+        <col style={{ width: 90 }} />{/* Líquido */}
+        <col style={{ width: 116 }} />{/* Mano de obra */}
+        <col style={{ width: 60 }} />{/* Acciones */}
+      </colgroup>
+      <thead className="sticky top-0 z-10">
+        <tr className="border-b border-border bg-muted text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <th className="border-r border-border px-2 py-2">Servicio</th>
+          <th className="border-r border-border px-2 py-2">Turno</th>
+          <th className="border-r border-border px-2 py-2">Tipo</th>
+          <th className="border-r border-border px-2 py-2">Puesto</th>
+          <th className="border-r border-border px-2 py-2">Cargo</th>
+          <th className="border-r border-border px-2 py-2">Rol</th>
+          <th className="border-r border-border px-2 py-2">Horario</th>
+          <th className="border-r border-border px-2 py-2">Días</th>
+          <th className="border-r border-border px-2 py-2 text-center">Guard.</th>
+          <th className="border-r border-border px-2 py-2 text-center">Ptos</th>
+          <th className="border-r border-border px-2 py-2 text-right">Bruto</th>
+          <th className="border-r border-border px-2 py-2 text-right">Líquido</th>
+          <th className="border-r border-border px-2 py-2 text-right">Mano obra</th>
+          <th className="px-1 py-2" />
+        </tr>
+      </thead>
+      <tbody>
+        {orderedGroups.map((group, gi) => (
+          <GroupBlock
+            key={group.key}
+            group={group}
+            color={colorByKey.get(group.key) ?? resolveServiceColor(group.colorHex, gi)}
+            rows={byGroup.get(group.key) ?? []}
+            adapter={adapter}
+            readOnly={readOnly}
+            sortable={dndEnabled}
+            dragging={activeId === group.key}
+            onRequestDeleteGroup={() => setDeleteTarget({ kind: "group", key: group.key, name: group.name })}
+            onRequestDeleteRow={(id) => setDeleteTarget({ kind: "row", id })}
+          />
+        ))}
 
-  const ungroupedBlock = ungrouped.length > 0 && (
-    <GroupBlock
-      group={null}
-      colorIndex={0}
-      rows={ungrouped}
-      adapter={adapter}
-      totalCost={totalCost}
-      cols={COLS}
-      readOnly={readOnly}
-      onRequestDeleteGroup={() => {}}
-      onRequestDeleteRow={(id) => setDeleteTarget({ kind: "row", id })}
-    />
+        {ungrouped.length > 0 && (
+          <GroupBlock
+            group={null}
+            color="#94a3b8"
+            rows={ungrouped}
+            adapter={adapter}
+            readOnly={readOnly}
+            sortable={false}
+            dragging={false}
+            onRequestDeleteGroup={() => {}}
+            onRequestDeleteRow={(id) => setDeleteTarget({ kind: "row", id })}
+          />
+        )}
+      </tbody>
+      <tfoot>
+        <tr className="border-t-2 border-border bg-muted/40 font-semibold">
+          <td className="border-r border-border px-2 py-2 text-[13px] text-foreground" colSpan={8}>
+            TOTAL
+          </td>
+          <td className="border-r border-border px-2 py-2 text-center text-[13px] text-foreground">{totalGuards}</td>
+          <td className="border-r border-border px-2 py-2 text-center text-[13px] text-foreground">{totalPtos}</td>
+          <td className="border-r border-border px-2 py-2" />
+          <td className="border-r border-border px-2 py-2" />
+          <td className="border-r border-border px-2 py-2 text-right">
+            <CpqDualCurrencyAmount
+              clp={totalCost}
+              currency={adapter.currency}
+              ufValue={adapter.ufValue}
+              size="sm"
+              primaryClassName="font-bold text-foreground"
+              align="right"
+            />
+          </td>
+          <td className="px-1 py-2" />
+        </tr>
+      </tfoot>
+    </table>
   );
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full min-w-[980px] border-collapse text-left">
-        <thead>
-          <tr className="border-b border-border bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
-            <th className="px-2 py-2 font-medium">Turno</th>
-            <th className="px-2 py-2 font-medium">Puesto</th>
-            <th className="px-2 py-2 font-medium">Cargo</th>
-            <th className="px-2 py-2 font-medium">Rol</th>
-            <th className="px-2 py-2 font-medium">Horario</th>
-            <th className="px-2 py-2 font-medium">Días</th>
-            <th className="px-2 py-2 text-center font-medium">Guard.</th>
-            <th className="px-2 py-2 text-center font-medium">Ptos</th>
-            <th className="px-2 py-2 text-right font-medium">Bruto</th>
-            <th className="px-2 py-2 text-right font-medium">Líquido</th>
-            <th className="px-2 py-2 text-right font-medium">Costo/mes</th>
-            <th className="px-2 py-2" />
-          </tr>
-        </thead>
-        {dndEnabled ? (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
-            <SortableContext items={orderedKeys} strategy={verticalListSortingStrategy}>
-              <tbody>
-                {groupBlocks}
-                {ungroupedBlock}
-              </tbody>
-            </SortableContext>
-          </DndContext>
-        ) : (
-          <tbody>
-            {groupBlocks}
-            {ungroupedBlock}
-          </tbody>
-        )}
-      </table>
+      {dndEnabled ? (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setActiveId(null)}
+        >
+          <SortableContext items={orderedKeys} strategy={verticalListSortingStrategy}>
+            {body}
+          </SortableContext>
+          <DragOverlay>
+            {activeGroup ? (
+              <div
+                className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 shadow-lg"
+                style={{ borderLeft: `4px solid ${colorByKey.get(activeGroup.key)}` }}
+              >
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colorByKey.get(activeGroup.key) }} />
+                <span className="text-[13px] font-semibold text-foreground">{activeGroup.name}</span>
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      ) : (
+        body
+      )}
 
       <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <DialogContent className="sm:max-w-md">
@@ -232,78 +320,42 @@ export function PositionMatrixGrid({ adapter }: Props) {
   );
 }
 
+/* ─────────────────────────  Group block (banda de servicio + filas) ───────────────────────── */
+
 interface GroupBlockProps {
   group: NormalizedGroup | null;
-  colorIndex: number;
+  color: string;
   rows: NormalizedShift[];
   adapter: PositionMatrixAdapter;
-  totalCost: number;
-  cols: number;
   readOnly?: boolean;
+  sortable: boolean;
+  dragging: boolean;
   onRequestDeleteGroup: () => void;
   onRequestDeleteRow: (id: string) => void;
-  /** Ref del <tr> de la banda (para dnd-kit sortable). */
-  bandRef?: Ref<HTMLTableRowElement>;
-  /** Estilo extra para la banda (transform/transition del drag). */
-  bandStyle?: CSSProperties;
-  /** Manejador de arrastre inyectado por el contenedor sortable. */
-  dragHandle?: ReactNode;
-}
-
-function SortableGroupBlock({
-  sortable,
-  group,
-  ...rest
-}: Omit<GroupBlockProps, "group" | "bandRef" | "bandStyle" | "dragHandle"> & {
-  group: NormalizedGroup;
-  sortable: boolean;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: group.key,
-    disabled: !sortable,
-  });
-  const bandStyle: CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.7 : undefined,
-    position: "relative",
-    zIndex: isDragging ? 30 : undefined,
-  };
-  const handle = sortable ? (
-    <button
-      type="button"
-      className="cursor-grab touch-none p-0.5 text-muted-foreground/40 transition-colors hover:text-muted-foreground active:cursor-grabbing"
-      aria-label="Arrastrar para reordenar servicio"
-      {...attributes}
-      {...listeners}
-    >
-      <GripVertical className="h-4 w-4" />
-    </button>
-  ) : undefined;
-  return <GroupBlock group={group} {...rest} bandRef={setNodeRef} bandStyle={bandStyle} dragHandle={handle} />;
 }
 
 function GroupBlock({
   group,
-  colorIndex,
+  color,
   rows,
   adapter,
-  totalCost,
-  cols,
   readOnly,
+  sortable,
+  dragging,
   onRequestDeleteGroup,
   onRequestDeleteRow,
-  bandRef,
-  bandStyle,
-  dragHandle,
 }: GroupBlockProps) {
-  const color = group ? resolveServiceColor(group.colorHex, colorIndex) : "#94a3b8";
+  const { attributes, listeners, setNodeRef } = useSortable({
+    id: group?.key ?? `__ungrouped__`,
+    disabled: !sortable || !group,
+  });
+
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(group?.name ?? "");
 
   const groupCost = rows.reduce((s, r) => s + (r.costo ?? 0), 0);
   const totalGuards = rows.reduce((s, r) => s + r.guardias * (r.nPuestos || 1), 0);
-  const pct = totalCost > 0 ? Math.round((groupCost / totalCost) * 100) : 0;
+  const totalPtos = rows.reduce((s, r) => s + (r.nPuestos || 1), 0);
   const groupKey = group?.key ?? null;
 
   const saveName = () => {
@@ -312,117 +364,127 @@ function GroupBlock({
     setEditingName(false);
   };
 
+  // Filas físicas del grupo: turnos + (agregar turno) + subtotal.
+  const physicalRowCount = rows.length + (readOnly ? 0 : 1) + 1;
+
+  const serviceCell = (ref?: Ref<HTMLTableCellElement>) => (
+    <td
+      ref={ref}
+      rowSpan={physicalRowCount}
+      className="border-b border-r border-border align-top"
+      style={{ backgroundColor: hexToRgba(color, 0.12), borderLeft: `4px solid ${color}`, opacity: dragging ? 0.5 : undefined }}
+    >
+      <div className="flex h-full flex-col gap-1 px-2 py-1.5">
+        <div className="flex items-center gap-1.5">
+          {sortable && group && (
+            <button
+              type="button"
+              className="cursor-grab touch-none text-muted-foreground/50 hover:text-muted-foreground active:cursor-grabbing"
+              aria-label="Arrastrar para reordenar servicio"
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden />
+          {editingName && group ? (
+            <Input
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveName();
+                if (e.key === "Escape") { setEditingName(false); setDraftName(group.name); }
+              }}
+              onBlur={saveName}
+              className="h-7 text-[13px]"
+              autoFocus
+            />
+          ) : (
+            <span className="text-[13px] font-semibold leading-tight text-foreground">
+              {group?.name ?? "Sin agrupar"}
+            </span>
+          )}
+        </div>
+
+        <span className="text-[11px] text-muted-foreground">
+          {rows.length} turno{rows.length !== 1 ? "s" : ""} · {totalGuards} guardia{totalGuards !== 1 ? "s" : ""}
+        </span>
+
+        {!readOnly && group && !editingName && (
+          <div className="flex flex-wrap items-center gap-0.5">
+            {adapter.onSetGroupColor && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6" title="Color">
+                    <Palette className="h-3 w-3" style={{ color }} />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-2" align="start">
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {SERVICE_COLOR_PALETTE.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => adapter.onSetGroupColor?.(group.key, c)}
+                        className={cn(
+                          "h-6 w-6 rounded-full border transition-transform hover:scale-110",
+                          color.toLowerCase() === c.toLowerCase()
+                            ? "border-foreground ring-2 ring-offset-1 ring-offset-background"
+                            : "border-border"
+                        )}
+                        style={{ backgroundColor: c }}
+                        aria-label={`Color ${c}`}
+                      />
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+            <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setDraftName(group.name); setEditingName(true); }} title="Renombrar">
+              <Pencil className="h-3 w-3" />
+            </Button>
+            {adapter.onCloneGroup && (
+              <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => adapter.onCloneGroup?.(group.key)} title="Duplicar servicio">
+                <Copy className="h-3 w-3" />
+              </Button>
+            )}
+            {adapter.onDeleteGroup && (
+              <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={onRequestDeleteGroup} title="Eliminar servicio">
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+    </td>
+  );
+
+  // El primer <tr> físico lleva la celda de servicio (con rowspan). El resto, no.
+  let svcRendered = false;
+  const leadingFor = (refForFirst?: Ref<HTMLTableCellElement>) => {
+    if (svcRendered) return null;
+    svcRendered = true;
+    return serviceCell(refForFirst);
+  };
+
   return (
     <>
-      {/* Banda de servicio */}
-      <tr ref={bandRef} style={{ backgroundColor: hexToRgba(color, 0.12), ...bandStyle }}>
-        <td colSpan={cols} className="border-y border-border p-0">
-          <div className="flex items-center gap-2 px-2 py-1.5" style={{ borderLeft: `4px solid ${color}` }}>
-            {dragHandle && <span className="shrink-0">{dragHandle}</span>}
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden />
-            {editingName && group ? (
-              <div className="flex items-center gap-1">
-                <Input
-                  value={draftName}
-                  onChange={(e) => setDraftName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") saveName();
-                    if (e.key === "Escape") { setEditingName(false); setDraftName(group.name); }
-                  }}
-                  className="h-7 w-56 text-[13px]"
-                  autoFocus
-                />
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={saveName}>
-                  <Check className="h-3.5 w-3.5" />
-                </Button>
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingName(false); setDraftName(group.name); }}>
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ) : (
-              <span className="text-[13px] font-semibold text-foreground">
-                {group?.name ?? "Sin agrupar"}
-              </span>
-            )}
-            <span className="text-xs text-muted-foreground">
-              {rows.length} turno{rows.length !== 1 ? "s" : ""} · {totalGuards} guardia{totalGuards !== 1 ? "s" : ""}
-              {pct > 0 ? ` · ${pct}%` : ""}
-            </span>
-
-            <div className="ml-auto flex items-center gap-2">
-              {groupCost > 0 && (
-                <CpqDualCurrencyAmount
-                  clp={groupCost}
-                  currency={adapter.currency}
-                  ufValue={adapter.ufValue}
-                  size="sm"
-                  inline
-                  primaryClassName="font-semibold text-foreground"
-                />
-              )}
-              {!readOnly && group && !editingName && (
-                <div className="flex shrink-0 items-center gap-0.5">
-                  {adapter.onSetGroupColor && (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" title="Color del servicio">
-                          <Palette className="h-3.5 w-3.5" style={{ color }} />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-2" align="end">
-                        <div className="grid grid-cols-6 gap-1.5">
-                          {SERVICE_COLOR_PALETTE.map((c) => (
-                            <button
-                              key={c}
-                              type="button"
-                              onClick={() => adapter.onSetGroupColor?.(group.key, c)}
-                              className={cn(
-                                "h-6 w-6 rounded-full border transition-transform hover:scale-110",
-                                color.toLowerCase() === c.toLowerCase()
-                                  ? "border-foreground ring-2 ring-offset-1 ring-offset-background"
-                                  : "border-border"
-                              )}
-                              style={{ backgroundColor: c }}
-                              aria-label={`Color ${c}`}
-                            />
-                          ))}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  )}
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setDraftName(group.name); setEditingName(true); }} title="Renombrar">
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  {adapter.onCloneGroup && (
-                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => adapter.onCloneGroup?.(group.key)} title="Duplicar servicio">
-                      <Copy className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  {adapter.onDeleteGroup && (
-                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={onRequestDeleteGroup} title="Eliminar servicio">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </td>
-      </tr>
-
-      {rows.map((row) => (
+      {rows.map((row, idx) => (
         <GridRow
           key={row.id}
           row={row}
           adapter={adapter}
           readOnly={readOnly}
+          leadingCell={leadingFor(idx === 0 ? setNodeRef : undefined)}
           onRequestDelete={() => onRequestDeleteRow(row.id)}
         />
       ))}
 
       {!readOnly && (
-        <tr>
-          <td colSpan={cols} className="border-b border-border bg-card px-2 py-1">
+        <tr className="border-b border-border bg-card">
+          {leadingFor(rows.length === 0 ? setNodeRef : undefined)}
+          <td colSpan={REST_COLS} className="px-2 py-1">
             <Button
               type="button"
               variant="ghost"
@@ -435,24 +497,49 @@ function GroupBlock({
           </td>
         </tr>
       )}
+
+      {/* Subtotal del servicio */}
+      <tr className="border-b border-border bg-muted/20 text-[12px]" style={{ borderLeft: `4px solid ${color}` }}>
+        {leadingFor(rows.length === 0 && readOnly ? setNodeRef : undefined)}
+        <td className="border-r border-border px-2 py-1 font-medium text-muted-foreground">Subtotal</td>
+        <td className="border-r border-border" colSpan={6} />
+        <td className="border-r border-border px-2 py-1 text-center font-semibold text-foreground">{totalGuards}</td>
+        <td className="border-r border-border px-2 py-1 text-center font-semibold text-foreground">{totalPtos}</td>
+        <td className="border-r border-border" colSpan={2} />
+        <td className="border-r border-border px-2 py-1 text-right">
+          <CpqDualCurrencyAmount
+            clp={groupCost}
+            currency={adapter.currency}
+            ufValue={adapter.ufValue}
+            size="sm"
+            primaryClassName="font-semibold text-foreground"
+            align="right"
+          />
+        </td>
+        <td className="px-1 py-1" />
+      </tr>
     </>
   );
 }
+
+/* ─────────────────────────  Fila de turno editable ───────────────────────── */
 
 interface GridRowProps {
   row: NormalizedShift;
   adapter: PositionMatrixAdapter;
   readOnly?: boolean;
+  leadingCell?: ReactNode;
   onRequestDelete: () => void;
 }
 
 type RowDraft = Pick<
   NormalizedShift,
-  "puestoId" | "cargoId" | "rolId" | "inicio" | "fin" | "dias" | "guardias" | "nPuestos" | "bruto"
+  "customName" | "puestoId" | "cargoId" | "rolId" | "inicio" | "fin" | "dias" | "guardias" | "nPuestos" | "bruto"
 >;
 
 function rowDraftOf(row: NormalizedShift): RowDraft {
   return {
+    customName: row.customName ?? "",
     puestoId: row.puestoId,
     cargoId: row.cargoId,
     rolId: row.rolId,
@@ -465,14 +552,12 @@ function rowDraftOf(row: NormalizedShift): RowDraft {
   };
 }
 
-function GridRow({ row, adapter, readOnly, onRequestDelete }: GridRowProps) {
+function GridRow({ row, adapter, readOnly, leadingCell, onRequestDelete }: GridRowProps) {
   const { catalogs, currency, ufValue, savingRowId } = adapter;
   const [draft, setDraft] = useState<RowDraft>(() => rowDraftOf(row));
   const ref = useRef(draft);
   ref.current = draft;
 
-  // Re-sincroniza desde props cuando el servidor refresca (clone, plantilla,
-  // normalización). La firma evita pisar ediciones en curso ya reflejadas.
   const propSig = JSON.stringify(rowDraftOf(row));
   const lastSig = useRef(propSig);
   useEffect(() => {
@@ -503,15 +588,30 @@ function GridRow({ row, adapter, readOnly, onRequestDelete }: GridRowProps) {
 
   const night = isNightShift(draft.inicio);
   const saving = savingRowId === row.id;
-  const cellSelect = readOnly;
+  const disabled = readOnly;
+  const puestoName = catalogs.puestos.find((p) => p.id === draft.puestoId)?.name ?? "Puesto";
 
   return (
     <tr className="border-b border-border/60 hover:bg-muted/20">
+      {leadingCell}
+
+      {/* Turno (nombre editable) */}
+      <td className="border-r border-border px-2 py-1">
+        <Input
+          type="text"
+          disabled={disabled}
+          value={draft.customName ?? ""}
+          placeholder={puestoName}
+          onChange={(e) => apply({ customName: e.target.value })}
+          className="h-9 text-[13px]"
+        />
+      </td>
+
       {/* Tipo */}
-      <td className="px-2 py-1">
+      <td className="border-r border-border px-2 py-1">
         <span
           className={cn(
-            "inline-flex h-6 items-center gap-1 rounded-md border px-1.5 text-xs font-semibold",
+            "inline-flex h-6 items-center gap-1 rounded-md border px-1.5 text-[11px] font-semibold",
             night
               ? "border-tint-violet-fg/30 bg-tint-violet text-tint-violet-fg"
               : "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
@@ -523,79 +623,32 @@ function GridRow({ row, adapter, readOnly, onRequestDelete }: GridRowProps) {
       </td>
 
       {/* Puesto */}
-      <td className="px-2 py-1">
-        <select
-          className={cn(FIELD, "min-w-[130px]")}
-          value={draft.puestoId}
-          disabled={cellSelect}
-          onChange={(e) => apply({ puestoId: e.target.value })}
-        >
-          <option value="">—</option>
-          {catalogs.puestos.map((p) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
+      <td className="border-r border-border px-2 py-1">
+        <CatalogPicker kind="puesto" value={draft.puestoId} disabled={disabled} onChange={(id) => apply({ puestoId: id })} />
       </td>
 
       {/* Cargo */}
-      <td className="px-2 py-1">
-        <select
-          className={cn(FIELD, "min-w-[110px]")}
-          value={draft.cargoId}
-          disabled={cellSelect}
-          onChange={(e) => apply({ cargoId: e.target.value })}
-        >
-          <option value="">—</option>
-          {catalogs.cargos.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
+      <td className="border-r border-border px-2 py-1">
+        <CatalogPicker kind="cargo" value={draft.cargoId} disabled={disabled} onChange={(id) => apply({ cargoId: id })} />
       </td>
 
       {/* Rol */}
-      <td className="px-2 py-1">
-        <select
-          className={cn(FIELD, "min-w-[100px]")}
-          value={draft.rolId}
-          disabled={cellSelect}
-          onChange={(e) => apply({ rolId: e.target.value })}
-        >
-          <option value="">—</option>
-          {catalogs.roles.map((r) => (
-            <option key={r.id} value={r.id}>{r.name}</option>
-          ))}
-        </select>
+      <td className="border-r border-border px-2 py-1">
+        <CatalogPicker kind="rol" value={draft.rolId} disabled={disabled} onChange={(id) => apply({ rolId: id })} />
       </td>
 
       {/* Horario */}
-      <td className="px-2 py-1">
+      <td className="border-r border-border px-2 py-1">
         <div className="flex items-center gap-1">
-          <select
-            className={cn(FIELD, "w-[74px] font-mono")}
-            value={draft.inicio}
-            disabled={cellSelect}
-            onChange={(e) => apply({ inicio: e.target.value })}
-          >
+          <select className={cn(FIELD, "w-[68px] font-mono")} value={draft.inicio} disabled={disabled} onChange={(e) => apply({ inicio: e.target.value })}>
             {HOURS_24.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
           <span className="text-muted-foreground">–</span>
-          <select
-            className={cn(FIELD, "w-[74px] font-mono")}
-            value={draft.fin}
-            disabled={cellSelect}
-            onChange={(e) => apply({ fin: e.target.value })}
-          >
+          <select className={cn(FIELD, "w-[68px] font-mono")} value={draft.fin} disabled={disabled} onChange={(e) => apply({ fin: e.target.value })}>
             {HOURS_24.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
-          {!cellSelect && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 shrink-0"
-              title="Invertir horario (día ↔ noche)"
-              onClick={() => apply({ inicio: ref.current.fin, fin: ref.current.inicio })}
-            >
+          {!disabled && (
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" title="Invertir horario (día ↔ noche)" onClick={() => apply({ inicio: ref.current.fin, fin: ref.current.inicio })}>
               <ArrowLeftRight className="h-3.5 w-3.5" />
             </Button>
           )}
@@ -603,7 +656,7 @@ function GridRow({ row, adapter, readOnly, onRequestDelete }: GridRowProps) {
       </td>
 
       {/* Días */}
-      <td className="px-2 py-1">
+      <td className="border-r border-border px-2 py-1">
         <div className="flex gap-0.5">
           {WEEKDAY_ORDER.map((d) => {
             const on = draft.dias.includes(d);
@@ -611,13 +664,11 @@ function GridRow({ row, adapter, readOnly, onRequestDelete }: GridRowProps) {
               <button
                 key={d}
                 type="button"
-                disabled={cellSelect}
+                disabled={disabled}
                 onClick={() => toggleDay(d)}
                 className={cn(
-                  "h-7 w-6 rounded border text-[11px] font-semibold transition-colors",
-                  on
-                    ? "border-primary/40 bg-primary/15 text-primary"
-                    : "border-border bg-card text-muted-foreground hover:bg-muted/40"
+                  "h-7 w-6 rounded border text-[12px] font-semibold transition-colors",
+                  on ? "border-primary/40 bg-primary/15 text-primary" : "border-border bg-card text-muted-foreground hover:bg-muted/40"
                 )}
                 title={d}
               >
@@ -629,60 +680,39 @@ function GridRow({ row, adapter, readOnly, onRequestDelete }: GridRowProps) {
       </td>
 
       {/* Guardias */}
-      <td className="px-2 py-1 text-center">
-        <select
-          className={cn(FIELD, "w-[54px] justify-center text-center")}
-          value={draft.guardias}
-          disabled={cellSelect}
-          onChange={(e) => apply({ guardias: Number(e.target.value) })}
-        >
-          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
-        </select>
+      <td className="border-r border-border px-2 py-1">
+        <Stepper value={draft.guardias} min={1} max={20} disabled={disabled} onChange={(v) => apply({ guardias: v })} />
       </td>
 
-      {/* N° Puestos */}
-      <td className="px-2 py-1 text-center">
-        <select
-          className={cn(FIELD, "w-[54px] justify-center text-center")}
-          value={draft.nPuestos}
-          disabled={cellSelect}
-          onChange={(e) => apply({ nPuestos: Number(e.target.value) })}
-        >
-          {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
-        </select>
+      {/* Ptos */}
+      <td className="border-r border-border px-2 py-1">
+        <Stepper value={draft.nPuestos} min={1} max={50} disabled={disabled} onChange={(v) => apply({ nPuestos: v })} />
       </td>
 
       {/* Bruto */}
-      <td className="px-2 py-1 text-right">
+      <td className="border-r border-border px-2 py-1 text-right">
         <Input
           type="text"
           inputMode="numeric"
-          disabled={cellSelect}
+          disabled={disabled}
           value={formatNumber(draft.bruto, { minDecimals: 0, maxDecimals: 0 })}
           onChange={(e) => apply({ bruto: parseLocalizedNumber(e.target.value) || 0 })}
-          className="h-9 w-[110px] text-right font-mono text-[13px]"
+          className="h-9 text-right font-mono text-[13px]"
         />
       </td>
 
-      {/* Líquido (read-only) */}
-      <td className="px-2 py-1 text-right font-mono text-[13px] text-muted-foreground">
+      {/* Líquido */}
+      <td className="border-r border-border px-2 py-1 text-right font-mono text-[13px] text-muted-foreground">
         {row.liquido != null && row.liquido > 0 ? Math.round(row.liquido).toLocaleString("es-CL") : "—"}
       </td>
 
-      {/* Costo/mes (read-only) */}
-      <td className="px-2 py-1 text-right">
-        <CpqDualCurrencyAmount
-          clp={row.costo ?? 0}
-          currency={currency}
-          ufValue={ufValue}
-          size="sm"
-          primaryClassName="font-semibold text-foreground"
-          align="right"
-        />
+      {/* Mano de obra */}
+      <td className="border-r border-border px-2 py-1 text-right">
+        <CpqDualCurrencyAmount clp={row.costo ?? 0} currency={currency} ufValue={ufValue} size="sm" primaryClassName="font-semibold text-foreground" align="right" />
       </td>
 
       {/* Acciones */}
-      <td className="px-2 py-1">
+      <td className="px-1 py-1">
         <div className="flex items-center justify-end gap-0.5">
           {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
           {!readOnly && (
@@ -698,5 +728,46 @@ function GridRow({ row, adapter, readOnly, onRequestDelete }: GridRowProps) {
         </div>
       </td>
     </tr>
+  );
+}
+
+/* ─────────────────────────  Stepper compacto ───────────────────────── */
+
+function Stepper({
+  value,
+  min,
+  max,
+  disabled,
+  onChange,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  disabled?: boolean;
+  onChange: (v: number) => void;
+}) {
+  const clamp = (v: number) => Math.max(min, Math.min(max, v));
+  return (
+    <div className="mx-auto inline-flex items-center rounded-md border border-border bg-card">
+      <button
+        type="button"
+        disabled={disabled || value <= min}
+        onClick={() => onChange(clamp(value - 1))}
+        className="flex h-9 w-6 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
+        aria-label="Restar"
+      >
+        <Minus className="h-3 w-3" />
+      </button>
+      <span className="min-w-[22px] text-center font-mono text-[13px] tabular-nums text-foreground">{value}</span>
+      <button
+        type="button"
+        disabled={disabled || value >= max}
+        onClick={() => onChange(clamp(value + 1))}
+        className="flex h-9 w-6 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
+        aria-label="Sumar"
+      >
+        <Plus className="h-3 w-3" />
+      </button>
+    </div>
   );
 }

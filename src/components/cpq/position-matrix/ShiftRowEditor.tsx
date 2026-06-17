@@ -14,6 +14,7 @@ import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import { toast } from "sonner";
 import { HOURS_24, WEEKDAY_ORDER, durHours } from "./shift-utils";
+import { CatalogPicker } from "./CatalogPicker";
 import { useLiquidoPreview } from "./useLiquidoPreview";
 import type { CpqCatalogOption, NormalizedShift, ShiftPatch } from "./types";
 
@@ -94,28 +95,13 @@ export function ShiftRowEditor({
     <div className="space-y-3 rounded-lg border border-primary/40 bg-card p-3">
       <div className="grid grid-cols-3 gap-2">
         <Field label="Tipo de puesto">
-          <select className={FIELD} value={draft.puestoId} onChange={(e) => apply({ puestoId: e.target.value })}>
-            <option value="">Seleccionar…</option>
-            {catalogs.puestos.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
+          <CatalogPicker kind="puesto" value={draft.puestoId} onChange={(id) => apply({ puestoId: id })} triggerClassName="h-10 sm:h-9" />
         </Field>
         <Field label="Cargo">
-          <select className={FIELD} value={draft.cargoId} onChange={(e) => apply({ cargoId: e.target.value })}>
-            <option value="">Seleccionar…</option>
-            {catalogs.cargos.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+          <CatalogPicker kind="cargo" value={draft.cargoId} onChange={(id) => apply({ cargoId: id })} triggerClassName="h-10 sm:h-9" />
         </Field>
         <Field label="Rol">
-          <select className={FIELD} value={draft.rolId} onChange={(e) => apply({ rolId: e.target.value })}>
-            <option value="">Seleccionar…</option>
-            {catalogs.roles.map((r) => (
-              <option key={r.id} value={r.id}>{r.name}</option>
-            ))}
-          </select>
+          <CatalogPicker kind="rol" value={draft.rolId} onChange={(id) => apply({ rolId: id })} triggerClassName="h-10 sm:h-9" />
         </Field>
       </div>
 

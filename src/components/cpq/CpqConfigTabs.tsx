@@ -11,6 +11,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { CpqCatalogConfig } from "@/components/cpq/CpqCatalogConfig";
 import { CpqSimpleCatalogConfig } from "@/components/cpq/CpqSimpleCatalogConfig";
@@ -75,7 +76,10 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 export function CpqConfigTabs() {
-  const [activeTab, setActiveTab] = useState<TabId>("catalogo");
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const initialTab: TabId = TABS.some((t) => t.id === tabParam) ? (tabParam as TabId) : "catalogo";
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
 
   return (
     <div className="space-y-4">

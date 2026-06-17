@@ -18,6 +18,8 @@ export interface NormalizedShift {
   id: string;
   /** null = "Sin agrupar" */
   groupKey: string | null;
+  /** Nombre opcional del turno (customName). Si null, se usa el del puesto. */
+  customName?: string | null;
   puestoId: string;
   cargoId: string;
   rolId: string;
@@ -50,7 +52,7 @@ export interface NormalizedGroup {
 export type ShiftPatch = Partial<
   Pick<
     NormalizedShift,
-    "puestoId" | "cargoId" | "rolId" | "inicio" | "fin" | "dias" | "guardias" | "nPuestos" | "bruto"
+    "customName" | "puestoId" | "cargoId" | "rolId" | "inicio" | "fin" | "dias" | "guardias" | "nPuestos" | "bruto"
   >
 >;
 

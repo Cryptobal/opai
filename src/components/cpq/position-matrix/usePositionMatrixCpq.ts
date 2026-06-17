@@ -31,6 +31,7 @@ interface Opts {
 
 function patchToBody(patch: ShiftPatch): Record<string, unknown> {
   const body: Record<string, unknown> = {};
+  if (patch.customName !== undefined) body.customName = patch.customName;
   if (patch.puestoId !== undefined) body.puestoTrabajoId = patch.puestoId;
   if (patch.cargoId !== undefined) body.cargoId = patch.cargoId;
   if (patch.rolId !== undefined) body.rolId = patch.rolId;
@@ -54,6 +55,7 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
       positions.map((p) => ({
         id: p.id,
         groupKey: p.serviceGroupId ?? null,
+        customName: p.customName ?? null,
         puestoId: p.puestoTrabajoId,
         cargoId: p.cargoId,
         rolId: p.rolId,
