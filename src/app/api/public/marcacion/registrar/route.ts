@@ -18,7 +18,14 @@ import { sendMarcacionComprobante } from "@/lib/marcacion-email";
 import { parseMarcacionConfigValue, resolveMarcacionGeoRadiusM } from "@/lib/ops-marcacion-config";
 import { computeAttendanceMetrics } from "@/lib/ops-attendance";
 import { uploadMarcacionPhoto } from "@/lib/marcacion-photo";
-import { resolverProximoTipo, calcularAtrasoMinutos, chileDayStart } from "@/lib/marcacion-jornada";
+import {
+  resolverProximoTipo,
+  calcularAtrasoMinutos,
+  chileDayStart,
+  buscarMarcacionPorIdempotencyKey,
+  ejecutarConDedup,
+  resolverTrazabilidadMarca,
+} from "@/lib/marcacion-jornada";
 import * as bcrypt from "bcryptjs";
 import { z } from "zod";
 
@@ -35,6 +42,10 @@ const schema = z.object({
   manualFromBackOffice: z.boolean().optional(),
   // Dispositivo del portal (DevicePairing) — para identificar equipo usado
   deviceToken: z.string().optional(),
+  // Idempotencia + trazabilidad de marca tardía/offline
+  idempotencyKey: z.string().min(8).max(120).optional(),
+  deviceTimestamp: z.string().datetime().optional(),
+  origenMarca: z.enum(["online", "offline_queue", "retry", "sync_diferida"]).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -48,7 +59,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { code, rut, pin, tipo, lat, lng, gpsAccuracy, fotoBase64, manualFromBackOffice, deviceToken } = parsed.data;
+    const { code, rut, pin, tipo, lat, lng, gpsAccuracy, fotoBase64, manualFromBackOffice, deviceToken, idempotencyKey } = parsed.data;
 
     // GPS obligatorio — sin excepción para marcaciones desde portal (manual/import desde back office sí puede omitir)
     if (!manualFromBackOffice && (lat == null || lng == null)) {
@@ -171,6 +182,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Idempotencia: si ya existe una marca con esta key (doble-tap / retry), devolverla.
+    if (idempotencyKey) {
+      const dup = await buscarMarcacionPorIdempotencyKey(prisma, installation.tenantId, idempotencyKey);
+      if (dup) {
+        return NextResponse.json({
+          success: true,
+          deduplicated: true,
+          data: { id: dup.id, tipo: dup.tipo, timestamp: dup.timestamp.toISOString() },
+        });
+      }
+    }
+
     // Verificar duplicados resolviendo entrada/salida por la última marca real en
     // una ventana de 26h (robusto a turnos nocturnos y al cruce de medianoche UTC).
     const tipoEsperado = await resolverProximoTipo(prisma, {
@@ -212,6 +235,13 @@ export async function POST(req: NextRequest) {
 
     // Sello de tiempo del servidor (no del cliente)
     const serverTimestamp = new Date();
+
+    // Trazabilidad de marca tardía/offline (no cambia el timestamp del servidor)
+    const traza = resolverTrazabilidadMarca({
+      serverTimestamp,
+      deviceTimestamp: parsed.data.deviceTimestamp,
+      origenMarca: parsed.data.origenMarca,
+    });
 
     // Hash de integridad SHA-256 (Resolución Exenta N°38)
     const hashIntegridad = computeMarcacionHash({
@@ -259,7 +289,8 @@ export async function POST(req: NextRequest) {
     const tenantCfg = await getTenantCompanyConfig(installation.tenantId);
 
     // Crear la marcación y actualizar asistencia diaria en una transacción
-    const result = await prisma.$transaction(async (tx) => {
+    const outcome = await ejecutarConDedup(
+      () => prisma.$transaction(async (tx) => {
       // 1. Crear OpsMarcacion
       const marcacion = await tx.opsMarcacion.create({
         data: {
@@ -289,6 +320,11 @@ export async function POST(req: NextRequest) {
           distanciaMetros: geoDistanciaM,
           gpsAccuracy: gpsAccuracy ?? null,
           devicePairingId,
+          // Idempotencia + trazabilidad de marca tardía/offline
+          idempotencyKey: idempotencyKey ?? null,
+          deviceTimestamp: traza.deviceTs,
+          offlineSync: traza.offlineSync,
+          origenMarca: traza.origenMarca,
         },
       });
 
@@ -368,7 +404,18 @@ export async function POST(req: NextRequest) {
       }
 
       return marcacion;
-    });
+      }),
+      { db: prisma, tenantId: installation.tenantId, idempotencyKey },
+    );
+
+    if (!outcome.ok) {
+      return NextResponse.json({
+        success: true,
+        deduplicated: true,
+        data: { id: outcome.dup.id, tipo: outcome.dup.tipo, timestamp: outcome.dup.timestamp.toISOString() },
+      });
+    }
+    const result = outcome.value;
 
     // Enviar comprobante por email (fire-and-forget, no bloquea la respuesta)
     // Res. N°38: preferir email personal del guardia; fallback al email corporativo

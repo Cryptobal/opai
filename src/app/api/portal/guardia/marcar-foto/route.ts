@@ -21,7 +21,14 @@ import { computeAttendanceMetrics } from "@/lib/ops-attendance";
 import { formatPersonName } from "@/lib/personas";
 import { uploadMarcacionPhoto } from "@/lib/marcacion-photo";
 import { verifyFace } from "@/lib/services/rekognition";
-import { resolverProximoTipo, calcularAtrasoMinutos, chileDayStart } from "@/lib/marcacion-jornada";
+import {
+  resolverProximoTipo,
+  calcularAtrasoMinutos,
+  chileDayStart,
+  buscarMarcacionPorIdempotencyKey,
+  ejecutarConDedup,
+  resolverTrazabilidadMarca,
+} from "@/lib/marcacion-jornada";
 import { z } from "zod";
 
 // -- POST: Register marcacion with photo --
@@ -34,6 +41,9 @@ const postSchema = z.object({
   lng: z.number().nullable(),
   gpsAccuracy: z.number().nullable().optional(),
   image: z.string().min(1),
+  idempotencyKey: z.string().min(8).max(120).optional(),
+  deviceTimestamp: z.string().datetime().optional(),
+  origenMarca: z.enum(["online", "offline_queue", "retry", "sync_diferida"]).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -47,7 +57,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { guardiaId, tipo, lat, lng, gpsAccuracy, image } = parsed.data;
+    const { guardiaId, tipo, lat, lng, gpsAccuracy, image, idempotencyKey } = parsed.data;
 
     const guardAuth = await requirePortalGuardiaAuth(guardiaId);
     if (!guardAuth) {
@@ -89,6 +99,21 @@ export async function POST(req: NextRequest) {
 
     if (guardia.isBlacklisted) {
       return NextResponse.json({ success: false, error: "Guardia no habilitado" }, { status: 403 });
+    }
+
+    // Idempotencia: si ya existe una marca con esta key (doble-tap / retry), no
+    // repetir el trabajo (incluida la verificación facial) y devolver la ganadora.
+    if (idempotencyKey) {
+      const dup = await buscarMarcacionPorIdempotencyKey(prisma, tenantId, idempotencyKey);
+      if (dup) {
+        return NextResponse.json({
+          success: true,
+          deduplicated: true,
+          id: dup.id,
+          tipo: dup.tipo,
+          timestamp: dup.timestamp.toISOString(),
+        });
+      }
     }
 
     // Find guard's current active assignment to get installation
@@ -186,6 +211,13 @@ export async function POST(req: NextRequest) {
     // Server timestamp
     const serverTimestamp = new Date();
 
+    // Trazabilidad de marca tardía/offline (no cambia el timestamp del servidor)
+    const traza = resolverTrazabilidadMarca({
+      serverTimestamp,
+      deviceTimestamp: parsed.data.deviceTimestamp,
+      origenMarca: parsed.data.origenMarca,
+    });
+
     // SHA-256 integrity hash (Resolucion Exenta N°38)
     const hashIntegridad = computeMarcacionHash({
       guardiaId: guardia.id,
@@ -212,7 +244,8 @@ export async function POST(req: NextRequest) {
     const tenantCfg = await getTenantCompanyConfig(tenantId);
 
     // Create marcacion + update daily attendance in transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const outcome = await ejecutarConDedup(
+      () => prisma.$transaction(async (tx) => {
       const marcacion = await tx.opsMarcacion.create({
         data: {
           tenantId,
@@ -241,6 +274,11 @@ export async function POST(req: NextRequest) {
           gpsStatus,
           distanciaMetros: geoDistanciaM,
           gpsAccuracy: gpsAccuracy ?? null,
+          // Idempotencia + trazabilidad de marca tardía/offline
+          idempotencyKey: idempotencyKey ?? null,
+          deviceTimestamp: traza.deviceTs,
+          offlineSync: traza.offlineSync,
+          origenMarca: traza.origenMarca,
           // No devicePairingId — this is from the guard's personal device
         },
       });
@@ -318,7 +356,20 @@ export async function POST(req: NextRequest) {
       }
 
       return marcacion;
-    });
+      }),
+      { db: prisma, tenantId, idempotencyKey },
+    );
+
+    if (!outcome.ok) {
+      return NextResponse.json({
+        success: true,
+        deduplicated: true,
+        id: outcome.dup.id,
+        tipo: outcome.dup.tipo,
+        timestamp: outcome.dup.timestamp.toISOString(),
+      });
+    }
+    const result = outcome.value;
 
     // Send receipt email (fire-and-forget, Res. N°38)
     const guardiaEmail = guardia.personalEmail ?? guardia.persona.personalEmail ?? guardia.persona.email ?? undefined;

@@ -126,4 +126,73 @@ export function chileDayStart(ts: Date = new Date()): Date {
   return new Date(Date.UTC(y, mo - 1, d, 0, 0, 0, 0));
 }
 
+/**
+ * Busca una marcación previa con la misma idempotencyKey (no eliminada) para
+ * deduplicar reintentos del mismo intento de marca.
+ */
+export async function buscarMarcacionPorIdempotencyKey(
+  db: Db,
+  tenantId: string,
+  idempotencyKey: string,
+): Promise<{ id: string; tipo: string; timestamp: Date } | null> {
+  return db.opsMarcacion.findFirst({
+    where: { tenantId, idempotencyKey, deletedAt: null },
+    select: { id: true, tipo: true, timestamp: true },
+  });
+}
+
+/** True si el error es una violación de constraint único de Postgres (Prisma P2002). */
+export function esViolacionUnica(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: unknown }).code === "P2002"
+  );
+}
+
+type Dedup = { id: string; tipo: string; timestamp: Date };
+
+/**
+ * Ejecuta `fn` (típicamente el `$transaction` que crea la marca) y, si la carrera
+ * dispara el índice único parcial (P2002), recupera la marca ganadora en vez de
+ * fallar. Permite envolver la transacción sin re-indentar su cuerpo.
+ */
+export async function ejecutarConDedup<T>(
+  fn: () => Promise<T>,
+  ctx: { db: Db; tenantId: string; idempotencyKey?: string | null },
+): Promise<{ ok: true; value: T } | { ok: false; dup: Dedup }> {
+  try {
+    return { ok: true, value: await fn() };
+  } catch (err) {
+    if (ctx.idempotencyKey && esViolacionUnica(err)) {
+      const dup = await buscarMarcacionPorIdempotencyKey(ctx.db, ctx.tenantId, ctx.idempotencyKey);
+      if (dup) return { ok: false, dup };
+    }
+    throw err;
+  }
+}
+
+/**
+ * Resuelve la trazabilidad de una marca a partir del timestamp del dispositivo.
+ * NO cambia el `timestamp` (sello del servidor, Res. N°38); sólo informa si la
+ * marca llegó tarde (intento real > 90s antes del sello del servidor).
+ */
+export function resolverTrazabilidadMarca(args: {
+  serverTimestamp: Date;
+  deviceTimestamp?: string | null;
+  origenMarca?: string | null;
+}): { deviceTs: Date | null; esTardia: boolean; offlineSync: boolean; origenMarca: string } {
+  const deviceTs = args.deviceTimestamp ? new Date(args.deviceTimestamp) : null;
+  const esTardia = deviceTs
+    ? args.serverTimestamp.getTime() - deviceTs.getTime() > 90_000
+    : false;
+  return {
+    deviceTs,
+    esTardia,
+    offlineSync: esTardia || args.origenMarca === "offline_queue",
+    origenMarca: args.origenMarca ?? (esTardia ? "sync_diferida" : "online"),
+  };
+}
+
 export { toChileTime };
