@@ -22,11 +22,15 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutTemplate, GripVertical } from "lucide-react";
+import { Plus, LayoutTemplate, GripVertical, LayoutList, Table2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ServiceCard } from "./ServiceCard";
+import { PositionMatrixGrid } from "./PositionMatrixGrid";
 import { COVERAGE_BUTTONS, templateSeedsFor } from "./shift-utils";
 import type { NormalizedGroup, NormalizedShift, PositionMatrixAdapter } from "./types";
+
+const VIEW_STORAGE_KEY = "opai-cpq-puestos-view";
+type MatrixView = "cards" | "grid";
 
 interface Props {
   adapter: PositionMatrixAdapter;
@@ -39,6 +43,7 @@ interface SortableServiceCardProps {
   totalCost: number;
   expandedRowId: string | null;
   onToggleRow: (id: string) => void;
+  colorIndex: number;
 }
 
 function SortableServiceCard({ group, ...rest }: SortableServiceCardProps) {
@@ -69,7 +74,26 @@ function SortableServiceCard({ group, ...rest }: SortableServiceCardProps) {
 
 export function PositionMatrix({ adapter }: Props) {
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+  const [view, setView] = useState<MatrixView>("cards");
   const readOnly = adapter.readOnly;
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(VIEW_STORAGE_KEY);
+      if (saved === "grid" || saved === "cards") setView(saved);
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  const changeView = (v: MatrixView) => {
+    setView(v);
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, v);
+    } catch {
+      /* noop */
+    }
+  };
 
   const toggleRow = (id: string) => setExpandedRowId((prev) => (prev === id ? null : id));
 
@@ -180,51 +204,86 @@ export function PositionMatrix({ adapter }: Props) {
         </div>
       ) : (
         <div className="space-y-3">
-          {dndEnabled ? (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleGroupDragEnd}
-            >
-              <SortableContext items={orderedKeys} strategy={verticalListSortingStrategy}>
-                <div className="space-y-3">
-                  {orderedGroups.map((group) => (
-                    <SortableServiceCard
-                      key={group.key}
-                      group={group}
-                      rows={byGroup.get(group.key) ?? []}
-                      adapter={adapter}
-                      totalCost={totalCost}
-                      expandedRowId={expandedRowId}
-                      onToggleRow={toggleRow}
-                    />
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
-          ) : (
-            orderedGroups.map((group) => (
-              <ServiceCard
-                key={group.key}
-                group={group}
-                rows={byGroup.get(group.key) ?? []}
-                adapter={adapter}
-                totalCost={totalCost}
-                expandedRowId={expandedRowId}
-                onToggleRow={toggleRow}
-              />
-            ))
-          )}
+          <div className="flex items-center justify-end">
+            <div className="inline-flex items-center rounded-md border border-border bg-card p-0.5">
+              <button
+                type="button"
+                onClick={() => changeView("cards")}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                  view === "cards" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+                )}
+                aria-pressed={view === "cards"}
+              >
+                <LayoutList className="h-3.5 w-3.5" /> Tarjetas
+              </button>
+              <button
+                type="button"
+                onClick={() => changeView("grid")}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                  view === "grid" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+                )}
+                aria-pressed={view === "grid"}
+              >
+                <Table2 className="h-3.5 w-3.5" /> Grilla
+              </button>
+            </div>
+          </div>
 
-          {ungrouped.length > 0 && (
-            <ServiceCard
-              group={null}
-              rows={ungrouped}
-              adapter={adapter}
-              totalCost={totalCost}
-              expandedRowId={expandedRowId}
-              onToggleRow={toggleRow}
-            />
+          {view === "grid" ? (
+            <PositionMatrixGrid adapter={adapter} />
+          ) : (
+            <>
+              {dndEnabled ? (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleGroupDragEnd}
+                >
+                  <SortableContext items={orderedKeys} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-3">
+                      {orderedGroups.map((group, i) => (
+                        <SortableServiceCard
+                          key={group.key}
+                          group={group}
+                          rows={byGroup.get(group.key) ?? []}
+                          adapter={adapter}
+                          totalCost={totalCost}
+                          expandedRowId={expandedRowId}
+                          onToggleRow={toggleRow}
+                          colorIndex={i}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              ) : (
+                orderedGroups.map((group, i) => (
+                  <ServiceCard
+                    key={group.key}
+                    group={group}
+                    rows={byGroup.get(group.key) ?? []}
+                    adapter={adapter}
+                    totalCost={totalCost}
+                    expandedRowId={expandedRowId}
+                    onToggleRow={toggleRow}
+                    colorIndex={i}
+                  />
+                ))
+              )}
+
+              {ungrouped.length > 0 && (
+                <ServiceCard
+                  group={null}
+                  rows={ungrouped}
+                  adapter={adapter}
+                  totalCost={totalCost}
+                  expandedRowId={expandedRowId}
+                  onToggleRow={toggleRow}
+                />
+              )}
+            </>
           )}
 
           {!readOnly && (

@@ -16,11 +16,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ChevronDown, Plus, Pencil, Check, X, Trash2, Copy } from "lucide-react";
+import { ChevronDown, Plus, Pencil, Check, X, Trash2, Copy, Palette } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import { ShiftRowSummary } from "./ShiftRowSummary";
 import { ShiftRowEditor } from "./ShiftRowEditor";
+import { resolveServiceColor, hexToRgba, SERVICE_COLOR_PALETTE } from "./service-colors";
 import type { NormalizedGroup, NormalizedShift, PositionMatrixAdapter } from "./types";
 
 type DeleteTarget = { kind: "row"; id: string } | { kind: "group" } | null;
@@ -34,9 +36,11 @@ interface Props {
   onToggleRow: (id: string) => void;
   /** Manejador de arrastre (grip) inyectado por el contenedor sortable. */
   dragHandle?: ReactNode;
+  /** Índice del servicio (para autoasignar color de la paleta). */
+  colorIndex?: number;
 }
 
-export function ServiceCard({ group, rows, adapter, totalCost, expandedRowId, onToggleRow, dragHandle }: Props) {
+export function ServiceCard({ group, rows, adapter, totalCost, expandedRowId, onToggleRow, dragHandle, colorIndex = 0 }: Props) {
   const [expanded, setExpanded] = useState(true);
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(group?.name ?? "");
@@ -61,19 +65,32 @@ export function ServiceCard({ group, rows, adapter, totalCost, expandedRowId, on
     setEditingName(false);
   };
 
+  // Color del servicio: del usuario (colorHex) o autoasignado por índice.
+  // "Sin agrupar" (group === null) usa un gris neutro.
+  const color = group ? resolveServiceColor(group.colorHex, colorIndex) : "#94a3b8";
+
   return (
-    <Card className="overflow-hidden border-border bg-card">
+    <Card
+      className="overflow-hidden border-border bg-card"
+      style={{ borderLeftColor: color, borderLeftWidth: 4 }}
+    >
       <div
         role="button"
         tabIndex={0}
         onClick={() => !editingName && setExpanded((v) => !v)}
-        className="flex cursor-pointer items-center gap-2 border-b border-border bg-muted/20 px-3 py-2.5 transition-colors hover:bg-muted/30"
+        className="flex cursor-pointer items-center gap-2 border-b border-border px-3 py-2.5 transition-colors"
+        style={{ backgroundColor: hexToRgba(color, 0.1) }}
       >
         {dragHandle && !editingName && (
           <div onClick={(e) => e.stopPropagation()} className="shrink-0">
             {dragHandle}
           </div>
         )}
+        <span
+          className="h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ backgroundColor: color }}
+          aria-hidden
+        />
         <div className="min-w-0 flex-1">
           {editingName && group ? (
             <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -122,6 +139,33 @@ export function ServiceCard({ group, rows, adapter, totalCost, expandedRowId, on
 
         {!readOnly && !editingName && group && (
           <div className="flex shrink-0 gap-0.5" onClick={(e) => e.stopPropagation()}>
+            {adapter.onSetGroupColor && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Color del servicio">
+                    <Palette className="h-3.5 w-3.5" style={{ color }} />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-2" align="end">
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {SERVICE_COLOR_PALETTE.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => adapter.onSetGroupColor?.(group.key, c)}
+                        className={cn(
+                          "h-6 w-6 rounded-full border transition-transform hover:scale-110",
+                          color.toLowerCase() === c.toLowerCase() ? "border-foreground ring-2 ring-offset-1 ring-offset-background" : "border-border"
+                        )}
+                        style={{ backgroundColor: c }}
+                        title={c}
+                        aria-label={`Color ${c}`}
+                      />
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
             <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setDraftName(group.name); setEditingName(true); }} title="Renombrar">
               <Pencil className="h-3.5 w-3.5" />
             </Button>

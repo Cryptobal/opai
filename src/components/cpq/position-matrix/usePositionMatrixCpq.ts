@@ -77,6 +77,7 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
         name: g.name,
         pattern: g.coveragePattern,
         order: g.displayOrder,
+        colorHex: g.colorHex ?? null,
       })),
     [serviceGroups]
   );
@@ -212,6 +213,24 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
     [quoteId, refresh]
   );
 
+  const onSetGroupColor = useCallback(
+    async (groupKey: string, colorHex: string) => {
+      try {
+        const res = await fetch(`/api/cpq/quotes/${quoteId}/services/${groupKey}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ colorHex }),
+        });
+        const d = await res.json();
+        if (!d.success) throw new Error(d.error || "Error");
+        refresh();
+      } catch {
+        toast.error("No se pudo cambiar el color");
+      }
+    },
+    [quoteId, refresh]
+  );
+
   const onDeleteGroup = useCallback(
     async (groupKey: string) => {
       try {
@@ -305,6 +324,7 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
     onDeleteRow,
     onRenameGroup,
     onDeleteGroup,
+    onSetGroupColor,
     onCloneGroup,
     onReorderGroups,
     onAddGroup,

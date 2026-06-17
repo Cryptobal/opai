@@ -42,6 +42,8 @@ export interface NormalizedGroup {
   name: string;
   pattern?: string | null;
   order: number;
+  /** Color elegido por el usuario (hex). Si es null se autoasigna por índice. */
+  colorHex?: string | null;
 }
 
 /** Campos editables que el editor envía de vuelta al adapter. */
@@ -91,6 +93,8 @@ export interface PositionMatrixAdapter {
   onDeleteRow(id: string): void;
   onRenameGroup(groupKey: string, name: string): void;
   onDeleteGroup?(groupKey: string): void;
+  /** Define el color del servicio (hex). */
+  onSetGroupColor?(groupKey: string, colorHex: string): void;
   /** Duplica un servicio completo (grupo + todos sus turnos). */
   onCloneGroup?(groupKey: string): void;
   /** Reordena los servicios manualmente (drag & drop). Recibe las keys en el nuevo orden. */
