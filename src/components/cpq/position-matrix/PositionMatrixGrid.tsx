@@ -5,7 +5,23 @@
  */
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +44,7 @@ import {
   Moon,
   Sun,
   Loader2,
+  GripVertical,
 } from "lucide-react";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
@@ -76,6 +93,43 @@ export function PositionMatrixGrid({ adapter }: Props) {
     [adapter.groups]
   );
 
+  // Orden local optimista para el drag & drop (se re-sincroniza con el adapter).
+  const [orderedKeys, setOrderedKeys] = useState<string[]>(() => sortedGroups.map((g) => g.key));
+  const sortedKeysSignature = sortedGroups.map((g) => g.key).join("|");
+  useEffect(() => {
+    setOrderedKeys(sortedGroups.map((g) => g.key));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortedKeysSignature]);
+
+  const groupByKey = useMemo(() => {
+    const m = new Map<string, NormalizedGroup>();
+    for (const g of sortedGroups) m.set(g.key, g);
+    return m;
+  }, [sortedGroups]);
+
+  const orderedGroups = useMemo(
+    () => orderedKeys.map((k) => groupByKey.get(k)).filter((g): g is NormalizedGroup => !!g),
+    [orderedKeys, groupByKey]
+  );
+
+  const dndEnabled = !readOnly && !!adapter.onReorderGroups && orderedGroups.length > 1;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor),
+  );
+
+  const handleGroupDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = orderedKeys.indexOf(String(active.id));
+    const newIndex = orderedKeys.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const next = arrayMove(orderedKeys, oldIndex, newIndex);
+    setOrderedKeys(next);
+    adapter.onReorderGroups?.(next);
+  };
+
   const confirmDelete = () => {
     if (!deleteTarget) return;
     if (deleteTarget.kind === "row") adapter.onDeleteRow(deleteTarget.id);
@@ -84,6 +138,36 @@ export function PositionMatrixGrid({ adapter }: Props) {
   };
 
   const COLS = 12;
+
+  const groupBlocks = orderedGroups.map((group, gi) => (
+    <SortableGroupBlock
+      key={group.key}
+      group={group}
+      colorIndex={gi}
+      rows={byGroup.get(group.key) ?? []}
+      adapter={adapter}
+      totalCost={totalCost}
+      cols={COLS}
+      readOnly={readOnly}
+      sortable={dndEnabled}
+      onRequestDeleteGroup={() => setDeleteTarget({ kind: "group", key: group.key, name: group.name })}
+      onRequestDeleteRow={(id) => setDeleteTarget({ kind: "row", id })}
+    />
+  ));
+
+  const ungroupedBlock = ungrouped.length > 0 && (
+    <GroupBlock
+      group={null}
+      colorIndex={0}
+      rows={ungrouped}
+      adapter={adapter}
+      totalCost={totalCost}
+      cols={COLS}
+      readOnly={readOnly}
+      onRequestDeleteGroup={() => {}}
+      onRequestDeleteRow={(id) => setDeleteTarget({ kind: "row", id })}
+    />
+  );
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
@@ -104,36 +188,21 @@ export function PositionMatrixGrid({ adapter }: Props) {
             <th className="px-2 py-2" />
           </tr>
         </thead>
-        <tbody>
-          {sortedGroups.map((group, gi) => (
-            <GroupBlock
-              key={group.key}
-              group={group}
-              colorIndex={gi}
-              rows={byGroup.get(group.key) ?? []}
-              adapter={adapter}
-              totalCost={totalCost}
-              cols={COLS}
-              readOnly={readOnly}
-              onRequestDeleteGroup={() => setDeleteTarget({ kind: "group", key: group.key, name: group.name })}
-              onRequestDeleteRow={(id) => setDeleteTarget({ kind: "row", id })}
-            />
-          ))}
-
-          {ungrouped.length > 0 && (
-            <GroupBlock
-              group={null}
-              colorIndex={0}
-              rows={ungrouped}
-              adapter={adapter}
-              totalCost={totalCost}
-              cols={COLS}
-              readOnly={readOnly}
-              onRequestDeleteGroup={() => {}}
-              onRequestDeleteRow={(id) => setDeleteTarget({ kind: "row", id })}
-            />
-          )}
-        </tbody>
+        {dndEnabled ? (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
+            <SortableContext items={orderedKeys} strategy={verticalListSortingStrategy}>
+              <tbody>
+                {groupBlocks}
+                {ungroupedBlock}
+              </tbody>
+            </SortableContext>
+          </DndContext>
+        ) : (
+          <tbody>
+            {groupBlocks}
+            {ungroupedBlock}
+          </tbody>
+        )}
       </table>
 
       <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
@@ -172,6 +241,45 @@ interface GroupBlockProps {
   readOnly?: boolean;
   onRequestDeleteGroup: () => void;
   onRequestDeleteRow: (id: string) => void;
+  /** Ref del <tr> de la banda (para dnd-kit sortable). */
+  bandRef?: Ref<HTMLTableRowElement>;
+  /** Estilo extra para la banda (transform/transition del drag). */
+  bandStyle?: CSSProperties;
+  /** Manejador de arrastre inyectado por el contenedor sortable. */
+  dragHandle?: ReactNode;
+}
+
+function SortableGroupBlock({
+  sortable,
+  group,
+  ...rest
+}: Omit<GroupBlockProps, "group" | "bandRef" | "bandStyle" | "dragHandle"> & {
+  group: NormalizedGroup;
+  sortable: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: group.key,
+    disabled: !sortable,
+  });
+  const bandStyle: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.7 : undefined,
+    position: "relative",
+    zIndex: isDragging ? 30 : undefined,
+  };
+  const handle = sortable ? (
+    <button
+      type="button"
+      className="cursor-grab touch-none p-0.5 text-muted-foreground/40 transition-colors hover:text-muted-foreground active:cursor-grabbing"
+      aria-label="Arrastrar para reordenar servicio"
+      {...attributes}
+      {...listeners}
+    >
+      <GripVertical className="h-4 w-4" />
+    </button>
+  ) : undefined;
+  return <GroupBlock group={group} {...rest} bandRef={setNodeRef} bandStyle={bandStyle} dragHandle={handle} />;
 }
 
 function GroupBlock({
@@ -184,6 +292,9 @@ function GroupBlock({
   readOnly,
   onRequestDeleteGroup,
   onRequestDeleteRow,
+  bandRef,
+  bandStyle,
+  dragHandle,
 }: GroupBlockProps) {
   const color = group ? resolveServiceColor(group.colorHex, colorIndex) : "#94a3b8";
   const [editingName, setEditingName] = useState(false);
@@ -203,9 +314,10 @@ function GroupBlock({
   return (
     <>
       {/* Banda de servicio */}
-      <tr style={{ backgroundColor: hexToRgba(color, 0.12) }}>
+      <tr ref={bandRef} style={{ backgroundColor: hexToRgba(color, 0.12), ...bandStyle }}>
         <td colSpan={cols} className="border-y border-border p-0">
           <div className="flex items-center gap-2 px-2 py-1.5" style={{ borderLeft: `4px solid ${color}` }}>
+            {dragHandle && <span className="shrink-0">{dragHandle}</span>}
             <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden />
             {editingName && group ? (
               <div className="flex items-center gap-1">
