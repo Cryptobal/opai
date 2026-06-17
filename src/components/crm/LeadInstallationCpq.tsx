@@ -916,7 +916,11 @@ export function LeadInstallationCpq({
               const cName = cpqCargos.find(c => c.id === (pos.cargoId || catalogDefaults?.cargoId))?.name;
               const rName = cpqRoles.find(r => r.id === (pos.rolId || catalogDefaults?.rolId))?.name;
               const label = [pName, cName, rName].filter(Boolean).join(" · ");
-              return label || pos.puesto || `Posición ${idx + 1}`;
+              const base = label || pos.puesto || `Posición ${idx + 1}`;
+              // Nombre opcional del turno (customName): permite distinguir dos
+              // puestos iguales (ej: "Control de Acceso diurno" vs "nocturno") en
+              // el desglose "Por puesto".
+              return pos.customName?.trim() ? `${pos.customName.trim()} · ${base}` : base;
             })(),
             numGuards: pos.cantidad || 1,
             numPuestos: pos.numPuestos || 1,
