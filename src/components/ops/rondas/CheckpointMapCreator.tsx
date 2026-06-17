@@ -82,7 +82,7 @@ function loadMapsScript(): Promise<void> {
 
 const GEO_RADIUS_MIN = 5;
 const GEO_RADIUS_MAX = 50;
-const DEFAULT_GEO_RADIUS_M = 30;
+const DEFAULT_GEO_RADIUS_M = 5;
 
 function clampGeoRadiusM(m: number): number {
   return Math.min(GEO_RADIUS_MAX, Math.max(GEO_RADIUS_MIN, Math.round(m)));

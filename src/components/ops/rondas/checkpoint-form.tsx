@@ -46,7 +46,7 @@ export function CheckpointForm({
   const [description, setDescription] = useState("");
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
-  const [geoRadiusM, setGeoRadiusM] = useState(30);
+  const [geoRadiusM, setGeoRadiusM] = useState(5);
   const [requiresQr, setRequiresQr] = useState(false);
   const [isCritical, setIsCritical] = useState(false);
   const [sortOrder, setSortOrder] = useState(0);
@@ -82,7 +82,7 @@ export function CheckpointForm({
           setDescription("");
           setLat("");
           setLng("");
-          setGeoRadiusM(30);
+          setGeoRadiusM(5);
           setRequiresQr(false);
           setIsCritical(false);
           setSortOrder(0);

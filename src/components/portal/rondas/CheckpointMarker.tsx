@@ -98,9 +98,11 @@ export function CheckpointMarker({
   const [gpsError, setGpsError] = useState("");
 
   // ---- QR State ----
+  // El QR se exige según el verificationType del PROPIO checkpoint, no del flag
+  // global del template. Un punto "QR" o "BOTH" siempre pide escaneo, sin depender
+  // de `qrRequerido` del template (que el supervisor ni configura desde el form de punto).
   const needsQr =
-    qrRequerido &&
-    (checkpoint.verificationType === "QR" || checkpoint.verificationType === "BOTH");
+    checkpoint.verificationType === "QR" || checkpoint.verificationType === "BOTH";
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
 
