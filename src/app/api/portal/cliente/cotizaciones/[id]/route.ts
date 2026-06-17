@@ -5,6 +5,7 @@ import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 import { getUfValue } from "@/lib/uf";
 import { clpToUf } from "@/lib/uf-utils";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
+import { resolveLaborCharges } from "@/lib/cpq/labor-breakdown-fallback";
 import type { QuoteBreakdownData, PositionBreakdownItem } from "@/types/cpq-breakdown";
 import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
 import { buildEmailUrl } from "@/lib/emails/site-url";
@@ -228,19 +229,22 @@ export async function GET(
         const totalGuardsInPos = (pos.numGuards ?? 1) * (pos.numPuestos ?? 1);
 
         const getNum = (key: string) => Number((bd as Record<string, unknown>)[key] ?? 0) * totalGuardsInPos;
-        const getNestedNum = (key: string, sub: string) => {
-          const val = bd[key] as Record<string, unknown> | undefined;
-          return Number(val?.[sub] ?? 0) * totalGuardsInPos;
-        };
 
         const baseSalary = getNum("base_salary") || (Number(pos.baseSalary ?? 0) * totalGuardsInPos);
-        const gratification = getNum("gratification");
-        const totalImponible = getNum("total_taxable_income") || (baseSalary + gratification);
-        const sisEmployer = getNum("sis_employer");
-        const afcEmployer = getNestedNum("afc_employer", "total");
-        const mutualEmployer = getNestedNum("work_injury_employer", "amount");
-        const vacationProvision = getNum("vacation_provision");
-        const severanceProvision = getNum("severance_provision");
+        const charges = resolveLaborCharges({
+          baseSalaryTotal: baseSalary,
+          totalGuardsInPosition: totalGuardsInPos,
+          snapshot: bd,
+        });
+        const {
+          gratification,
+          totalImponible,
+          sisEmployer,
+          afcEmployer,
+          mutualEmployer,
+          vacationProvision,
+          severanceProvision,
+        } = charges;
 
         const hourlyRateSale =
           totalGuardsInPos > 0 && monthlyHoursStandard > 0

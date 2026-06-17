@@ -14,6 +14,7 @@ import { formatWeekdaysLong, formatCoverageSchedule } from '@/lib/cpq/weekdays';
 import { resolveAccountLogo } from '@/lib/crm/account-logo';
 import type { ProposalAIContent } from './proposal-ai';
 import type { QuoteBreakdownData, PositionBreakdownItem, ResourceBreakdownCategory, ResourceBreakdownItem } from '@/types/cpq-breakdown';
+import { resolveLaborCharges } from '@/lib/cpq/labor-breakdown-fallback';
 
 export interface ProposalProps {
   /**
@@ -464,28 +465,24 @@ export async function buildProposalProps(
         const salePrice = totalSalePrice * proportion;
         const totalGuardsInPos = Math.max(1, pos.numGuards) * Math.max(1, pos.numPuestos ?? 1);
         const getNum = (key: string) => Number(bd[key] ?? 0) * totalGuardsInPos;
-        const getNestedNum = (key: string, sub: string) => {
-          const val = bd[key] as Record<string, unknown> | undefined;
-          return Number(val?.[sub] ?? 0) * totalGuardsInPos;
-        };
         const baseSalary = getNum('base_salary') || Number(pos.baseSalary ?? 0) * totalGuardsInPos;
-        let gratification = getNum('gratification');
-        if (gratification === 0 && baseSalary > 0) {
-          const perGuardSalary = baseSalary / totalGuardsInPos;
-          const monthlyCap = (500000 * 4.75) / 12;
-          gratification = Math.min(perGuardSalary * 0.25, monthlyCap) * totalGuardsInPos;
-        }
-        const totalImponible = getNum('total_taxable_income') || baseSalary + gratification;
+        const charges = resolveLaborCharges({
+          baseSalaryTotal: baseSalary,
+          totalGuardsInPosition: totalGuardsInPos,
+          snapshot: bd,
+        });
         return {
           id: pos.id, name: pos.customName || pos.puestoTrabajo?.name || 'Puesto',
           numGuards: pos.numGuards, numPuestos: pos.numPuestos ?? 1,
           totalGuardsInPosition: totalGuardsInPos,
-          baseSalary, gratification, totalImponible,
-          sisEmployer: getNum('sis_employer'),
-          afcEmployer: getNestedNum('afc_employer', 'total'),
-          mutualEmployer: getNestedNum('work_injury_employer', 'amount'),
-          vacationProvision: getNum('vacation_provision'),
-          severanceProvision: getNum('severance_provision'),
+          baseSalary,
+          gratification: charges.gratification,
+          totalImponible: charges.totalImponible,
+          sisEmployer: charges.sisEmployer,
+          afcEmployer: charges.afcEmployer,
+          mutualEmployer: charges.mutualEmployer,
+          vacationProvision: charges.vacationProvision,
+          severanceProvision: charges.severanceProvision,
           totalLaborCost: costClp, salePrice,
           hourlyRateSale: totalGuardsInPos > 0 && monthlyHoursStandard > 0
             ? salePrice / (totalGuardsInPos * monthlyHoursStandard) : 0,
