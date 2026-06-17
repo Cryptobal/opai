@@ -4612,7 +4612,7 @@ model OpsCheckpoint {
   qrCode           String   @map("qr_code")
   lat              Float?
   lng              Float?
-  geoRadiusM       Int      @default(30) @map("geo_radius_m")
+  geoRadiusM       Int      @default(5) @map("geo_radius_m")
   verificationType String   @default("GEOFENCE") @map("verification_type")
   isCritical       Boolean  @default(false) @map("is_critical")
   sortOrder        Int      @default(0) @map("sort_order")
