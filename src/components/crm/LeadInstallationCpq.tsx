@@ -1053,44 +1053,47 @@ export function LeadInstallationCpq({
         )}
       </Card>
 
-      {/* ── Gastos financieros ── */}
-      <Card className="shadow-sm overflow-hidden">
-        <button type="button" onClick={() => setSecFinancieros((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
-          <h2 className="text-sm font-bold shrink-0">Gastos financieros</h2>
-          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secFinancieros && "rotate-180")} />
-        </button>
-        {secFinancieros && (
-          <div className="px-3 pb-3">
-            <FinancialCostsSection
-              value={config.financialCosts}
-              onChange={(fc) => update({ financialCosts: fc })}
-              calculatedBase={estimate.baseConMargen}
-            />
-          </div>
-        )}
-      </Card>
+      {/* ── Gastos financieros + Margen de venta (lado a lado en desktop) ── */}
+      <div className="grid grid-cols-1 items-start gap-2 md:grid-cols-2">
+        {/* ── Gastos financieros ── */}
+        <Card className="shadow-sm overflow-hidden">
+          <button type="button" onClick={() => setSecFinancieros((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
+            <h2 className="text-sm font-bold shrink-0">Gastos financieros</h2>
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secFinancieros && "rotate-180")} />
+          </button>
+          {secFinancieros && (
+            <div className="px-3 pb-3">
+              <FinancialCostsSection
+                value={config.financialCosts}
+                onChange={(fc) => update({ financialCosts: fc })}
+                calculatedBase={estimate.baseConMargen}
+              />
+            </div>
+          )}
+        </Card>
 
-      {/* ── Margen de venta ── */}
-      <Card className="shadow-sm overflow-hidden">
-        <button type="button" onClick={() => setSecMargen((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
-          <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-sm font-bold shrink-0">Margen de venta</h2>
-            {!secMargen && <span className="text-[11px] text-muted-foreground font-mono">{config.marginPercentage}%</span>}
-          </div>
-          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secMargen && "rotate-180")} />
-        </button>
-        {secMargen && (
-          <div className="px-3 pb-3">
-            <MarginSection
-              marginPct={config.marginPercentage}
-              onMarginChange={(m) => update({ marginPercentage: m })}
-              marginAmount={estimate.marginAmount}
-              marginMode={config.marginMode}
-              onMarginModeChange={(mode) => update({ marginMode: mode })}
-            />
-          </div>
-        )}
-      </Card>
+        {/* ── Margen de venta ── */}
+        <Card className="shadow-sm overflow-hidden">
+          <button type="button" onClick={() => setSecMargen((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-sm font-bold shrink-0">Margen de venta</h2>
+              {!secMargen && <span className="text-[11px] text-muted-foreground font-mono">{config.marginPercentage}%</span>}
+            </div>
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secMargen && "rotate-180")} />
+          </button>
+          {secMargen && (
+            <div className="px-3 pb-3">
+              <MarginSection
+                marginPct={config.marginPercentage}
+                onMarginChange={(m) => update({ marginPercentage: m })}
+                marginAmount={estimate.marginAmount}
+                marginMode={config.marginMode}
+                onMarginModeChange={(mode) => update({ marginMode: mode })}
+              />
+            </div>
+          )}
+        </Card>
+      </div>
 
       {/* ── Descripciones IA ── */}
       <Card className="shadow-sm overflow-hidden">
