@@ -4,15 +4,67 @@
  */
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutTemplate } from "lucide-react";
+import { Plus, LayoutTemplate, GripVertical } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { ServiceCard } from "./ServiceCard";
 import { COVERAGE_BUTTONS, templateSeedsFor } from "./shift-utils";
-import type { NormalizedShift, PositionMatrixAdapter } from "./types";
+import type { NormalizedGroup, NormalizedShift, PositionMatrixAdapter } from "./types";
 
 interface Props {
   adapter: PositionMatrixAdapter;
+}
+
+interface SortableServiceCardProps {
+  group: NormalizedGroup;
+  rows: NormalizedShift[];
+  adapter: PositionMatrixAdapter;
+  totalCost: number;
+  expandedRowId: string | null;
+  onToggleRow: (id: string) => void;
+}
+
+function SortableServiceCard({ group, ...rest }: SortableServiceCardProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: group.key });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+  };
+  const handle = (
+    <button
+      type="button"
+      className="cursor-grab touch-none p-0.5 text-muted-foreground/40 transition-colors hover:text-muted-foreground active:cursor-grabbing"
+      aria-label="Arrastrar para reordenar servicio"
+      {...attributes}
+      {...listeners}
+    >
+      <GripVertical className="h-4 w-4" />
+    </button>
+  );
+  return (
+    <div ref={setNodeRef} style={style} className={cn(isDragging && "opacity-70")}>
+      <ServiceCard group={group} {...rest} dragHandle={handle} />
+    </div>
+  );
 }
 
 export function PositionMatrix({ adapter }: Props) {
@@ -45,6 +97,44 @@ export function PositionMatrix({ adapter }: Props) {
     () => [...adapter.groups].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name)),
     [adapter.groups]
   );
+
+  // Orden local (optimista) para el drag & drop de servicios. Se re-sincroniza
+  // cuando cambia el conjunto de grupos provisto por el adapter.
+  const [orderedKeys, setOrderedKeys] = useState<string[]>(() => sortedGroups.map((g) => g.key));
+  const sortedKeysSignature = sortedGroups.map((g) => g.key).join("|");
+  useEffect(() => {
+    setOrderedKeys(sortedGroups.map((g) => g.key));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortedKeysSignature]);
+
+  const groupByKey = useMemo(() => {
+    const m = new Map<string, NormalizedGroup>();
+    for (const g of sortedGroups) m.set(g.key, g);
+    return m;
+  }, [sortedGroups]);
+
+  const orderedGroups = useMemo(
+    () => orderedKeys.map((k) => groupByKey.get(k)).filter((g): g is NormalizedGroup => !!g),
+    [orderedKeys, groupByKey]
+  );
+
+  const dndEnabled = !readOnly && !!adapter.onReorderGroups && orderedGroups.length > 1;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor),
+  );
+
+  const handleGroupDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = orderedKeys.indexOf(String(active.id));
+    const newIndex = orderedKeys.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const next = arrayMove(orderedKeys, oldIndex, newIndex);
+    setOrderedKeys(next);
+    adapter.onReorderGroups?.(next);
+  };
 
   const handleTemplate = (patternId: string) => {
     const seeded = templateSeedsFor(patternId);
@@ -90,17 +180,41 @@ export function PositionMatrix({ adapter }: Props) {
         </div>
       ) : (
         <div className="space-y-3">
-          {sortedGroups.map((group) => (
-            <ServiceCard
-              key={group.key}
-              group={group}
-              rows={byGroup.get(group.key) ?? []}
-              adapter={adapter}
-              totalCost={totalCost}
-              expandedRowId={expandedRowId}
-              onToggleRow={toggleRow}
-            />
-          ))}
+          {dndEnabled ? (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleGroupDragEnd}
+            >
+              <SortableContext items={orderedKeys} strategy={verticalListSortingStrategy}>
+                <div className="space-y-3">
+                  {orderedGroups.map((group) => (
+                    <SortableServiceCard
+                      key={group.key}
+                      group={group}
+                      rows={byGroup.get(group.key) ?? []}
+                      adapter={adapter}
+                      totalCost={totalCost}
+                      expandedRowId={expandedRowId}
+                      onToggleRow={toggleRow}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          ) : (
+            orderedGroups.map((group) => (
+              <ServiceCard
+                key={group.key}
+                group={group}
+                rows={byGroup.get(group.key) ?? []}
+                adapter={adapter}
+                totalCost={totalCost}
+                expandedRowId={expandedRowId}
+                onToggleRow={toggleRow}
+              />
+            ))
+          )}
 
           {ungrouped.length > 0 && (
             <ServiceCard

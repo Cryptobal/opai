@@ -4,7 +4,7 @@
  */
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,9 +32,11 @@ interface Props {
   totalCost: number;
   expandedRowId: string | null;
   onToggleRow: (id: string) => void;
+  /** Manejador de arrastre (grip) inyectado por el contenedor sortable. */
+  dragHandle?: ReactNode;
 }
 
-export function ServiceCard({ group, rows, adapter, totalCost, expandedRowId, onToggleRow }: Props) {
+export function ServiceCard({ group, rows, adapter, totalCost, expandedRowId, onToggleRow, dragHandle }: Props) {
   const [expanded, setExpanded] = useState(true);
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(group?.name ?? "");
@@ -67,6 +69,11 @@ export function ServiceCard({ group, rows, adapter, totalCost, expandedRowId, on
         onClick={() => !editingName && setExpanded((v) => !v)}
         className="flex cursor-pointer items-center gap-2 border-b border-border bg-muted/20 px-3 py-2.5 transition-colors hover:bg-muted/30"
       >
+        {dragHandle && !editingName && (
+          <div onClick={(e) => e.stopPropagation()} className="shrink-0">
+            {dragHandle}
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           {editingName && group ? (
             <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>

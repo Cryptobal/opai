@@ -93,5 +93,7 @@ export interface PositionMatrixAdapter {
   onDeleteGroup?(groupKey: string): void;
   /** Duplica un servicio completo (grupo + todos sus turnos). */
   onCloneGroup?(groupKey: string): void;
+  /** Reordena los servicios manualmente (drag & drop). Recibe las keys en el nuevo orden. */
+  onReorderGroups?(orderedKeys: string[]): void;
   onAddGroup(name: string, templateRows?: TemplateRowSeed[]): void;
 }

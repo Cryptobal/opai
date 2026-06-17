@@ -251,6 +251,28 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
     [ensureDefaults, quoteId, insertRow, refresh]
   );
 
+  const onReorderGroups = useCallback(
+    async (orderedKeys: string[]) => {
+      try {
+        const res = await fetch(`/api/cpq/quotes/${quoteId}/services/reorder`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: orderedKeys.map((id, displayOrder) => ({ id, displayOrder })),
+          }),
+        });
+        const d = await res.json();
+        if (!d.success) throw new Error(d.error || "Error");
+        refresh();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "No se pudo reordenar";
+        toast.error(msg);
+        refresh();
+      }
+    },
+    [quoteId, refresh]
+  );
+
   const onCloneGroup = useCallback(
     async (groupKey: string) => {
       try {
@@ -284,6 +306,7 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
     onRenameGroup,
     onDeleteGroup,
     onCloneGroup,
+    onReorderGroups,
     onAddGroup,
   };
 }
