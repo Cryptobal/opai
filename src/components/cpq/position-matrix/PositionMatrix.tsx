@@ -26,6 +26,7 @@ import { Plus, LayoutTemplate, GripVertical, LayoutList, Table2 } from "lucide-r
 import { cn } from "@/lib/utils";
 import { ServiceCard } from "./ServiceCard";
 import { PositionMatrixGrid } from "./PositionMatrixGrid";
+import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import { COVERAGE_BUTTONS, templateSeedsFor } from "./shift-utils";
 import type { NormalizedGroup, NormalizedShift, PositionMatrixAdapter } from "./types";
 
@@ -76,6 +77,10 @@ export function PositionMatrix({ adapter }: Props) {
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const [view, setView] = useState<MatrixView>("grid");
   const readOnly = adapter.readOnly;
+  // La grilla es herramienta de desktop: bajo 768px forzamos la vista de tarjetas.
+  // No tocamos `view` ni su persistencia → la preferencia se conserva para desktop.
+  const isMobile = useIsMobileViewport();
+  const effectiveView: MatrixView = isMobile ? "cards" : view;
 
   useEffect(() => {
     try {
@@ -204,34 +209,36 @@ export function PositionMatrix({ adapter }: Props) {
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="flex items-center justify-end">
-            <div className="inline-flex items-center rounded-md border border-border bg-card p-0.5">
-              <button
-                type="button"
-                onClick={() => changeView("cards")}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors",
-                  view === "cards" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
-                )}
-                aria-pressed={view === "cards"}
-              >
-                <LayoutList className="h-3.5 w-3.5" /> Tarjetas
-              </button>
-              <button
-                type="button"
-                onClick={() => changeView("grid")}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors",
-                  view === "grid" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
-                )}
-                aria-pressed={view === "grid"}
-              >
-                <Table2 className="h-3.5 w-3.5" /> Grilla
-              </button>
+          {!isMobile && (
+            <div className="flex items-center justify-end">
+              <div className="inline-flex items-center rounded-md border border-border bg-card p-0.5">
+                <button
+                  type="button"
+                  onClick={() => changeView("cards")}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                    view === "cards" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  aria-pressed={view === "cards"}
+                >
+                  <LayoutList className="h-3.5 w-3.5" /> Tarjetas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => changeView("grid")}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                    view === "grid" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  aria-pressed={view === "grid"}
+                >
+                  <Table2 className="h-3.5 w-3.5" /> Grilla
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
-          {view === "grid" ? (
+          {effectiveView === "grid" ? (
             <PositionMatrixGrid adapter={adapter} />
           ) : (
             <>
