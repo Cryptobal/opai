@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ChevronDown, Plus, Pencil, Check, X, Trash2 } from "lucide-react";
+import { ChevronDown, Plus, Pencil, Check, X, Trash2, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import { ShiftRowSummary } from "./ShiftRowSummary";
@@ -118,6 +118,11 @@ export function ServiceCard({ group, rows, adapter, totalCost, expandedRowId, on
             <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setDraftName(group.name); setEditingName(true); }} title="Renombrar">
               <Pencil className="h-3.5 w-3.5" />
             </Button>
+            {adapter.onCloneGroup && (
+              <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => adapter.onCloneGroup?.(group.key)} title="Duplicar servicio">
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+            )}
             {adapter.onDeleteGroup && (
               <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteTarget({ kind: "group" })} title="Eliminar servicio">
                 <Trash2 className="h-3.5 w-3.5" />

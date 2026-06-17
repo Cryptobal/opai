@@ -17,6 +17,7 @@ import { renderQuotationToBuffer } from '@/lib/pdf/templates/quotation/render-qu
 import { prisma } from '@/lib/prisma';
 import type { ProposalTemplateSections } from '@/types/cpq';
 import { requireTenantModule } from '@/lib/require-module';
+import { buildContentDisposition } from '@/lib/pdf/cpq-quote-pdf-filename';
 
 export const runtime = 'nodejs';
 
@@ -79,7 +80,7 @@ export async function GET(
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="${fileName}"`,
+        'Content-Disposition': buildContentDisposition(fileName, 'inline'),
       },
     });
   } catch (error) {
@@ -113,7 +114,7 @@ export async function POST(
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Content-Disposition': buildContentDisposition(fileName, 'attachment'),
       },
     });
   } catch (error) {

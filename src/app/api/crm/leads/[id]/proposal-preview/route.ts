@@ -20,7 +20,7 @@ import {
   computeLeadPositionCostsFromPayroll,
   type LeadPositionLike,
 } from "@/lib/cpq/lead-labor-from-payroll";
-import { buildCpqQuotePdfFileName } from "@/lib/pdf/cpq-quote-pdf-filename";
+import { buildCpqQuotePdfFileName, buildContentDisposition } from "@/lib/pdf/cpq-quote-pdf-filename";
 import { requireTenantModule } from '@/lib/require-module';
 
 export const runtime = "nodejs";
@@ -568,7 +568,7 @@ export async function POST(
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${fileName}"`,
+        "Content-Disposition": buildContentDisposition(fileName, "inline"),
       },
     });
   } catch (error) {

@@ -21,6 +21,7 @@ import { chromium } from 'playwright-core';
 import chromiumPkg from '@sparticuz/chromium';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, unauthorized } from '@/lib/api-auth';
+import { buildContentDisposition } from '@/lib/pdf/cpq-quote-pdf-filename';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -274,7 +275,7 @@ export async function POST(request: NextRequest) {
     return new NextResponse(uint8Array, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Content-Disposition': buildContentDisposition(fileName, 'attachment'),
         'Content-Length': String(pdfBuffer.length),
       },
     });

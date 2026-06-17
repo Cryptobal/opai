@@ -13,6 +13,7 @@
 import { prisma } from '@/lib/prisma';
 import { getTenantCompanyConfig } from '@/lib/tenant-config';
 import { getCanonicalSiteUrl } from '@/lib/emails/site-url';
+import { resolveAccountLogo } from '@/lib/crm/account-logo';
 import { generateProposalAIContent } from './proposal-ai';
 import type { ProposalAIContent } from './proposal-ai';
 import type { ProposalProps } from './build-proposal-props';
@@ -55,7 +56,7 @@ export async function buildInstitutionalPresentationProps(
   /* ── Logos de clientes activos (misma lógica que la Propuesta Técnica) ── */
   const allClientAccounts = await prisma.crmAccount.findMany({
     where: { tenantId },
-    select: { id: true, name: true, logoUrl: true, status: true, isActive: true },
+    select: { id: true, name: true, logoUrl: true, notes: true, status: true, isActive: true },
     orderBy: { name: 'asc' },
   });
   const isActiveClient = (a: { status: string | null; isActive: boolean }) => {
@@ -74,9 +75,17 @@ export async function buildInstitutionalPresentationProps(
       }
     })(),
   );
+  // No incluir la cuenta de la propia empresa (tenant) en su muro de clientes.
+  const selfNames = new Set(
+    [companyConfig.commercialName, companyConfig.companyName, companyConfig.brandNameUpper]
+      .filter(Boolean)
+      .map((n) => String(n).trim().toLowerCase()),
+  );
   const clientesConLogo = allClientAccounts
     .filter(isActiveClient)
-    .filter((c) => !excludedClientIds.has(c.id));
+    .filter((c) => !excludedClientIds.has(c.id))
+    .filter((c) => !selfNames.has(c.name.trim().toLowerCase()))
+    .map((c) => ({ name: c.name, logo: resolveAccountLogo(c) ?? null }));
 
   /* ── Contenido IA institucional (sin precios ni dotación) ── */
   let aiContent: ProposalAIContent;
@@ -140,7 +149,7 @@ export async function buildInstitutionalPresentationProps(
     providerLogo,
     opaiLogo: `${baseUrl}/opai-logo.png`,
     lx3Logo: `${baseUrl}/lx3-logo.png`,
-    clientLogos: clientesConLogo.filter((c) => c.logoUrl).map((c) => c.logoUrl!),
+    clientLogos: clientesConLogo.filter((c) => c.logo).map((c) => abs(c.logo!)),
     portalScreenshots: {},
 
     companyConfig: {
@@ -156,7 +165,7 @@ export async function buildInstitutionalPresentationProps(
     },
     clientLogosWithNames: clientesConLogo.map((c) => ({
       name: c.name,
-      url: c.logoUrl ? abs(c.logoUrl) : '',
+      url: c.logo ? abs(c.logo) : '',
     })),
 
     companyStats: {

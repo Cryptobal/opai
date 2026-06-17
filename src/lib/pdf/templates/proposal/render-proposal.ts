@@ -43,6 +43,7 @@ export async function renderProposalToBufferFromProps(
     Image: PDFImage,
     Svg,
     Path,
+    Circle,
   } = pdf;
   const { Font } = pdf;
 
@@ -109,28 +110,54 @@ export async function renderProposalToBufferFromProps(
     } catch { return null; }
   };
 
-  const fetchImageAsDataUri = async (url: string): Promise<string | null> => {
+  const fetchImageAsDataUri = async (
+    url: string,
+    opts: { grayscale?: boolean } = {},
+  ): Promise<string | null> => {
+    const grayscale = opts.grayscale === true;
     try {
       if (!url || url === '') return null;
-      if (url.startsWith('data:')) return url;
-      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      if (!res.ok) return null;
-      const arrBuf = await res.arrayBuffer();
-      let buf: Buffer = Buffer.from(arrBuf);
-      const ct = res.headers.get('content-type') || '';
-      const urlLower = url.toLowerCase();
-      const isWebp = ct.includes('webp') || urlLower.endsWith('.webp');
+      let buf: Buffer;
       let mime: string;
-      if (isWebp) {
+      if (url.startsWith('data:')) {
+        if (!grayscale) return url;
+        const m = url.match(/^data:([^;]+);base64,(.+)$/);
+        if (!m) return url;
+        buf = Buffer.from(m[2], 'base64');
+        mime = m[1];
+      } else {
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return null;
+        const arrBuf = await res.arrayBuffer();
+        buf = Buffer.from(arrBuf);
+        const ct = res.headers.get('content-type') || '';
+        const urlLower = url.toLowerCase();
+        const isWebp = ct.includes('webp') || urlLower.endsWith('.webp');
+        if (isWebp) {
+          try {
+            const sharpMod = nodeRequire('sharp') as typeof import('sharp');
+            buf = Buffer.from(await sharpMod(buf).png().toBuffer());
+            mime = 'image/png';
+          } catch {
+            return null;
+          }
+        } else {
+          mime = ct.includes('png') || urlLower.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        }
+      }
+      // Normalización a escala de grises + realce de contraste (muro "trusted by"
+      // cohesivo). `normalise` estira el rango tonal para que ningún logo claro
+      // (líneas finas / colores pálidos) desaparezca sobre fondo blanco.
+      if (grayscale) {
         try {
           const sharpMod = nodeRequire('sharp') as typeof import('sharp');
-          buf = Buffer.from(await sharpMod(buf).png().toBuffer());
+          buf = Buffer.from(
+            await sharpMod(buf).grayscale().normalise().linear(1.15, -12).png().toBuffer(),
+          );
           mime = 'image/png';
         } catch {
-          return null;
+          /* si sharp falla, se conserva el color original */
         }
-      } else {
-        mime = ct.includes('png') || urlLower.endsWith('.png') ? 'image/png' : 'image/jpeg';
       }
       return `data:${mime};base64,${buf.toString('base64')}`;
     } catch { return null; }
@@ -145,22 +172,6 @@ export async function renderProposalToBufferFromProps(
     { label: 'Seguridad integral', file: 'guardias/hero.jpg' },
   ].map(gp => ({ label: gp.label, src: loadLocalImage(gp.file) }))
    .filter(gp => gp.src !== null) as { label: string; src: string }[];
-
-  const STATIC_CLIENT_LOGOS = [
-    { name: 'Polpaico', file: 'clientes/Polpaico.png' },
-    { name: 'International Paper', file: 'clientes/International_Paper.png' },
-    { name: 'Tritec', file: 'clientes/Tritec.png' },
-    { name: 'Sparta', file: 'clientes/Sparta.png' },
-    { name: 'Tattersall', file: 'clientes/Tattersall.png' },
-    { name: 'Transmat', file: 'clientes/Transmat.png' },
-    { name: 'BBosch', file: 'clientes/BBosch.png' },
-    { name: 'Embajada de Brasil', file: 'clientes/Embajada_Brasil.png' },
-    { name: 'GL Events', file: 'clientes/GL_Events.png' },
-    { name: 'Dhemax', file: 'clientes/Dhemax.png' },
-    { name: 'eCars', file: 'clientes/eCars.png' },
-    { name: 'Newtree', file: 'clientes/Newtree.png' },
-  ].map(cl => ({ name: cl.name, src: loadLocalImage(cl.file) }))
-   .filter(cl => cl.src !== null) as { name: string; src: string }[];
 
   const quoteCurrency = props.currency || 'CLP';
   const ufValue = props.ufValue ?? 0;
@@ -259,12 +270,47 @@ export async function renderProposalToBufferFromProps(
     opaiShotImg: { width: '100%', height: 150, objectFit: 'contain' as const, backgroundColor: C.white },
     opaiShotLabel: { fontFamily: F.sans, fontSize: 7, color: C.textLight, textAlign: 'center' as const, paddingTop: 4, paddingBottom: 4, backgroundColor: C.bgAlt },
 
-    /* Logo grid */
-    logoGrid: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8, marginTop: 8 },
-    logoCell: { width: '30%', height: 50, backgroundColor: C.white, borderRadius: 4, border: `0.5 solid ${C.border}`, justifyContent: 'center' as const, alignItems: 'center' as const, padding: 6 },
-    logoImg: { maxHeight: 30, maxWidth: 80, objectFit: 'contain' as const },
-    logoName: { fontFamily: F.sans, fontSize: 6, color: C.textLighter, textAlign: 'center' as const, marginTop: 2 },
-    logoNameOnly: { fontFamily: F.sans, fontSize: 8, fontWeight: 600, color: C.navyLight, textAlign: 'center' as const, paddingHorizontal: 4 },
+    /* Logo grid — muro "trusted by": celdas uniformes, sin rótulos */
+    logoGrid: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 10, marginTop: 10 },
+    logoCell: { width: '23%', height: 58, backgroundColor: C.white, borderRadius: 6, border: `0.5 solid ${C.border}`, justifyContent: 'center' as const, alignItems: 'center' as const, padding: 10 },
+    logoImg: { maxHeight: 34, maxWidth: '100%', objectFit: 'contain' as const },
+    moreClients: { fontFamily: F.sans, fontSize: 9, color: C.textLight, textAlign: 'center' as const, marginTop: 12 },
+
+    /* Organigrama — árbol jerárquico */
+    orgTop: { alignSelf: 'center' as const, width: '54%', backgroundColor: C.navy, borderRadius: 8, padding: 10, alignItems: 'center' as const },
+    orgTopTitle: { fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white, marginTop: 5 },
+    orgTopDesc: { fontFamily: F.sans, fontSize: 7.5, color: '#cbd5e1', textAlign: 'center' as const, marginTop: 2 },
+    orgVConn: { width: 1.5, height: 12, backgroundColor: C.border, marginLeft: 19 },
+    orgIconCircleNavy: { width: 30, height: 30, borderRadius: 15, backgroundColor: C.navyLight, justifyContent: 'center' as const, alignItems: 'center' as const },
+    /* Árbol vertical único: espina + ramas a cada gerencia */
+    orgTreeSpine: { marginLeft: 19, borderLeft: `1.5 solid ${C.border}`, paddingLeft: 0 },
+    orgBranchRow: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, marginBottom: 8 },
+    orgBranchElbow: { width: 14, height: 1.5, backgroundColor: C.border, marginTop: 17 },
+    /* Tarjeta de gerencia (N2) con árbol de roles indentado (N3/N4) */
+    orgAreaCard: { backgroundColor: C.bgLight, borderRadius: 6, border: `0.5 solid ${C.border}`, padding: 9 },
+    orgAreaHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, marginBottom: 6, paddingBottom: 5, borderBottom: `0.5 solid ${C.border}` },
+    orgAreaIcon: { width: 22, height: 22, borderRadius: 11, backgroundColor: C.highlightBg, justifyContent: 'center' as const, alignItems: 'center' as const },
+    orgAreaTitle: { fontFamily: F.sans, fontSize: 9.5, fontWeight: 700, color: C.navy, flex: 1 },
+    orgRoleList: { marginTop: 1 },
+    orgBranch: { marginLeft: 5, paddingLeft: 8, borderLeft: `1 solid ${C.border}` },
+    orgRoleRow: { flexDirection: 'row' as const, alignItems: 'center' as const, marginBottom: 3 },
+    orgRoleDot0: { width: 4, height: 4, borderRadius: 2, backgroundColor: C.accent, marginRight: 6 },
+    orgRoleConnector: { width: 7, height: 1.5, backgroundColor: C.textLighter, marginRight: 5 },
+    orgRoleL0: { fontFamily: F.sans, fontSize: 8.5, fontWeight: 600, color: C.navyLight, flex: 1 },
+    orgRoleL1: { fontFamily: F.sans, fontSize: 8, color: C.textLight, flex: 1 },
+    orgRoleL2: { fontFamily: F.sans, fontSize: 7.5, color: C.textLighter, flex: 1 },
+
+    /* Cadena de servicio directa — timeline de escalamiento */
+    chainRow: { flexDirection: 'row' as const },
+    chainRail: { width: 30, alignItems: 'center' as const },
+    chainCircle: { width: 26, height: 26, borderRadius: 13, backgroundColor: C.accent, justifyContent: 'center' as const, alignItems: 'center' as const },
+    chainLine: { width: 1.5, flexGrow: 1, minHeight: 12, backgroundColor: C.border, marginVertical: 2 },
+    chainBody: { flex: 1, paddingLeft: 10, paddingBottom: 12 },
+    chainHead: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, alignItems: 'center' as const },
+    chainRole: { fontFamily: F.sans, fontSize: 9.5, fontWeight: 700, color: C.navy, flex: 1 },
+    chainDesc: { fontFamily: F.sans, fontSize: 8, color: C.text, lineHeight: 1.45, marginTop: 2 },
+    timeChip: { backgroundColor: C.successBg, borderRadius: 8, paddingVertical: 2, paddingHorizontal: 7, marginLeft: 6 },
+    timeChipText: { fontFamily: F.sans, fontSize: 7.5, fontWeight: 700, color: C.success },
 
     /* Comparison table */
     compRow: { flexDirection: 'row' as const, borderBottom: `0.5 solid ${C.border}` },
@@ -349,17 +395,25 @@ export async function renderProposalToBufferFromProps(
   ].map((sh) => ({ label: sh.label, src: loadLocalImage(sh.file) }))
    .filter((sh) => sh.src !== null) as { label: string; src: string }[];
 
-  const clientLogosData: { name: string; src: string | null }[] = await (async () => {
-    if (clientLogosWithNames.length > 0) {
-      // Incluir TODOS los clientes activos: con logo → imagen; sin logo → celda con nombre.
-      return Promise.all(
-        clientLogosWithNames.map(async (cl) => {
-          const src = cl.url ? await fetchImageAsDataUri(cl.url) : null;
-          return { name: cl.name, src };
-        }),
-      );
-    }
-    return STATIC_CLIENT_LOGOS.map((c) => ({ name: c.name, src: c.src as string | null }));
+  // Muro "trusted by": SOLO clientes reales con logo (sin fallback hardcodeado
+  // ni monogramas), a color, máx 12. Si no hay logos, la sección se omite.
+  const CLIENT_LOGO_CAP = 16;
+  const { clientLogosData, clientLogosExtra } = await (async (): Promise<{
+    clientLogosData: { name: string; src: string }[];
+    clientLogosExtra: number;
+  }> => {
+    const withLogo = clientLogosWithNames.filter((c) => c.url && c.url.trim().length > 0);
+    const shown = withLogo.slice(0, CLIENT_LOGO_CAP);
+    const fetched = await Promise.all(
+      shown.map(async (cl) => {
+        const src = await fetchImageAsDataUri(cl.url);
+        return src ? { name: cl.name, src } : null;
+      }),
+    );
+    const data = fetched.filter((x): x is { name: string; src: string } => x !== null);
+    // "extra" = total de clientes activos por sobre los logos mostrados.
+    const extra = Math.max(0, clientLogosWithNames.length - data.length);
+    return { clientLogosData: data, clientLogosExtra: extra };
   })();
 
   const providerLogoUri = providerLogo ? await fetchImageAsDataUri(providerLogo) : null;
@@ -373,6 +427,72 @@ export async function renderProposalToBufferFromProps(
     e(Path, { d: 'M10 15.5l-3.5-3.5 1.41-1.41L10 12.67l5.59-5.59L17 8.5l-7 7z', fill: C.white }),
   );
 
+  /* Íconos line-art (stroke) para organigrama y cadena de servicio. */
+  const icon = (name: string, color: string, size = 14) => {
+    const p = { stroke: color, strokeWidth: 1.8, fill: 'none' as const };
+    const wrap = (...children: unknown[]) =>
+      e(Svg, { width: size, height: size, viewBox: '0 0 24 24' }, ...children);
+    switch (name) {
+      case 'building':
+        return wrap(
+          e(Path, { ...p, d: 'M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16' }),
+          e(Path, { ...p, d: 'M2 21h20' }),
+          e(Path, { ...p, d: 'M8 7h2M8 11h2M8 15h2M12 7h2M12 11h2M12 15h2' }),
+        );
+      case 'pulse':
+        return wrap(e(Path, { ...p, d: 'M3 12h4l3 8 4-16 3 8h4' }));
+      case 'users':
+        return wrap(
+          e(Path, { ...p, d: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2' }),
+          e(Circle, { ...p, cx: 9, cy: 7, r: 4 }),
+          e(Path, { ...p, d: 'M22 21v-2a4 4 0 0 0-3-3.87' }),
+          e(Path, { ...p, d: 'M16 3.13a4 4 0 0 1 0 7.75' }),
+        );
+      case 'cpu':
+        return wrap(
+          e(Path, { ...p, d: 'M6 6h12v12H6z' }),
+          e(Path, { ...p, d: 'M9 9h6v6H9z' }),
+          e(Path, { ...p, d: 'M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2' }),
+        );
+      case 'headset':
+        return wrap(
+          e(Path, { ...p, d: 'M4 14v-2a8 8 0 0 1 16 0v2' }),
+          e(Path, { ...p, d: 'M4 14h1.5a1.5 1.5 0 0 1 1.5 1.5v3A1.5 1.5 0 0 1 5.5 20H4a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2z' }),
+          e(Path, { ...p, d: 'M20 14h-1.5a1.5 1.5 0 0 0-1.5 1.5v3a1.5 1.5 0 0 0 1.5 1.5H20a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2z' }),
+        );
+      case 'clipboard':
+        return wrap(
+          e(Path, { ...p, d: 'M9 3h6v3H9z' }),
+          e(Path, { ...p, d: 'M16 4h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2' }),
+          e(Path, { ...p, d: 'M9 13l2 2 4-4' }),
+        );
+      case 'eye':
+        return wrap(
+          e(Path, { ...p, d: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z' }),
+          e(Circle, { ...p, cx: 12, cy: 12, r: 2.5 }),
+        );
+      case 'briefcase':
+        return wrap(
+          e(Path, { ...p, d: 'M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z' }),
+          e(Path, { ...p, d: 'M8 6V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1' }),
+          e(Path, { ...p, d: 'M3 12h18' }),
+        );
+      case 'wallet':
+        return wrap(
+          e(Path, { ...p, d: 'M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z' }),
+          e(Path, { ...p, d: 'M16 5V4a2 2 0 0 0-2-2H6' }),
+          e(Circle, { ...p, cx: 17, cy: 12, r: 1.4 }),
+        );
+      case 'shield':
+        return wrap(
+          e(Path, { ...p, d: 'M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z' }),
+          e(Path, { ...p, d: 'M9 12l2 2 4-4' }),
+        );
+      default:
+        return wrap(e(Circle, { ...p, cx: 12, cy: 12, r: 8 }));
+    }
+  };
+
   const headerLogo = providerLogoUri
     ? e(PDFImage, { src: providerLogoUri, style: s.headerLogo })
     : shieldSvg;
@@ -382,7 +502,8 @@ export async function renderProposalToBufferFromProps(
     e(View, { style: s.headerBand },
       e(View, { style: s.headerBrandRow },
         headerLogo,
-        e(Text, { style: s.headerBrandName }, companyConfig.brandNameUpper || ''),
+        // Si hay logo, no repetir el nombre de marca al lado (el logo ya lo incluye).
+        providerLogoUri ? null : e(Text, { style: s.headerBrandName }, companyConfig.brandNameUpper || ''),
       ),
       e(Text, { style: s.headerRight }, `${docLabel} · ${companyName}`),
     ),
@@ -530,27 +651,126 @@ export async function renderProposalToBufferFromProps(
   );
 
   /* ── 4. Organigrama ── */
+  type OrgRole = { name: string; children?: OrgRole[] };
+  const orgAreas: { name: string; icon: string; roles: OrgRole[] }[] = [
+    {
+      name: 'Gerencia de Operaciones', icon: 'pulse', roles: [
+        { name: 'Jefe de Operaciones', children: [
+          { name: 'Supervisores de Terreno', children: [
+            { name: 'Guardias de Seguridad' },
+          ] },
+        ] },
+        { name: 'Jefe Centro de Control Operacional (CCO)', children: [
+          { name: 'Central de Monitoreo (CCTV / GPS)' },
+          { name: 'Planificación y Cobertura' },
+          { name: 'Control de Gestión Operacional' },
+        ] },
+        { name: 'Encargado de Calidad y Cumplimiento' },
+        { name: 'Prevencionista de Riesgos' },
+        { name: 'Encargado de Reclutamiento y Capacitación' },
+      ],
+    },
+    {
+      name: 'Gerencia Comercial', icon: 'briefcase', roles: [
+        { name: 'Ejecutivo de Ventas' },
+        { name: 'Encargado de Licitaciones y Estudios' },
+        { name: 'Ejecutivo de Postventa y Cuentas' },
+        { name: 'Encargado de Marketing' },
+      ],
+    },
+    {
+      name: 'Gerencia de Administración y Finanzas', icon: 'wallet', roles: [
+        { name: 'Contador' },
+        { name: 'Encargado de Tesorería' },
+        { name: 'Encargado de Cobranza' },
+      ],
+    },
+    {
+      name: 'Gerencia de Tecnología e Innovación', icon: 'cpu', roles: [
+        { name: 'Jefe de Tecnología', children: [
+          { name: 'Desarrollo OPAI' },
+          { name: 'Business Intelligence y Datos' },
+          { name: 'Soporte e Implementación' },
+        ] },
+      ],
+    },
+  ];
+
+  // Render recursivo de un nodo con espina vertical + ramas (árbol real).
+  const renderOrgNode = (node: OrgRole, depth: number, key: string): unknown => {
+    const labelStyle = depth === 0 ? s.orgRoleL0 : depth === 1 ? s.orgRoleL1 : s.orgRoleL2;
+    return e(View, { key },
+      e(View, { style: s.orgRoleRow },
+        depth === 0
+          ? e(View, { style: s.orgRoleDot0 })
+          : e(View, { style: s.orgRoleConnector }),
+        e(Text, { style: labelStyle }, node.name),
+      ),
+      node.children && node.children.length > 0
+        ? e(View, { style: s.orgBranch },
+            ...node.children.map((c, i) => renderOrgNode(c, depth + 1, `${key}-${i}`)),
+          )
+        : null,
+    );
+  };
+
+  const orgCard = (area: (typeof orgAreas)[number], key: string) =>
+    e(View, { key, style: s.orgAreaCard, wrap: false },
+      e(View, { style: s.orgAreaHeader },
+        e(View, { style: s.orgAreaIcon }, icon(area.icon, C.accent, 12)),
+        e(Text, { style: s.orgAreaTitle }, area.name),
+      ),
+      e(View, { style: s.orgRoleList },
+        ...area.roles.map((r, i) => renderOrgNode(r, 0, `${key}-r${i}`)),
+      ),
+    );
+
   sections.push(
-    e(View, { key: 'sec4', wrap: false },
+    e(View, { key: 'sec4', break: true },
       sectionTitle('Organigrama'),
-      e(Text, { style: s.sectionSubtitle }, 'Estructura corporativa'),
-      e(View, { style: [s.twoCol, { marginBottom: 10 }] },
-        e(View, { style: [s.card, { flex: 1 }] }, e(Text, { style: s.cardTitle }, 'Gerencia General'), e(Text, { style: s.cardText }, 'Dirección estratégica y relación con clientes clave')),
-        e(View, { style: [s.card, { flex: 1 }] }, e(Text, { style: s.cardTitle }, 'Gerencia de Operaciones'), e(Text, { style: s.cardText }, 'Supervisión de servicios, dotación y calidad')),
+      // Nodo raíz
+      e(View, { style: s.orgTop },
+        e(View, { style: s.orgIconCircleNavy }, icon('building', C.white, 16)),
+        e(Text, { style: s.orgTopTitle }, 'Gerente General'),
+        e(Text, { style: s.orgTopDesc }, 'Dirección estratégica y relación con clientes clave'),
       ),
-      e(View, { style: [s.twoCol, { marginBottom: 10 }] },
-        e(View, { style: [s.card, { flex: 1 }] }, e(Text, { style: s.cardTitle }, 'Jefatura de RRHH'), e(Text, { style: s.cardText }, 'Selección, capacitación y bienestar del personal')),
-        e(View, { style: [s.card, { flex: 1 }] }, e(Text, { style: s.cardTitle }, 'Tecnología (LX3.ai)'), e(Text, { style: s.cardText }, 'Desarrollo OPAI, soporte técnico e innovación')),
+      e(View, { style: s.orgVConn }),
+      // Árbol vertical único: todas las gerencias cuelgan de Gerente General,
+      // y cada gerencia despliega sus sub-áreas (todos los niveles visibles).
+      e(View, { style: s.orgTreeSpine },
+        ...orgAreas.map((area, i) =>
+          e(View, { key: i, style: s.orgBranchRow },
+            e(View, { style: s.orgBranchElbow }),
+            e(View, { style: { flex: 1 } }, orgCard(area, `g${i}`)),
+          ),
+        ),
       ),
-      e(Text, { style: s.sectionSubtitle }, 'Su cadena de servicio directa'),
-      ...['Ejecutivo de cuenta — su contacto directo para requerimientos y seguimiento.',
-        'Jefe de operaciones — coordina supervisores y asegura cumplimiento del SLA.',
-        'Supervisor de turno — presente en terreno, fiscaliza rondas y procedimientos.',
-        'Guardias asignados — equipo fijo que conoce su instalación en detalle.',
-      ].map((txt, i) =>
-        e(View, { key: i, style: s.stepRow },
-          e(View, { style: s.stepCircle }, e(Text, { style: s.stepNum }, String(i + 1))),
-          e(View, { style: s.stepContent }, e(Text, { style: s.para }, txt)),
+    ),
+  );
+
+  /* ── 4b. Cadena de servicio directa (timeline de escalamiento) ── */
+  const serviceChain = [
+    { ic: 'headset', role: 'Ejecutivo de cuenta', desc: 'Su contacto directo para requerimientos, seguimiento y reportería.', time: 'Responde < 2 h' },
+    { ic: 'clipboard', role: 'Jefe de operaciones', desc: 'Coordina supervisores, asegura el cumplimiento del SLA y escala lo crítico.', time: 'Escala < 1 h' },
+    { ic: 'eye', role: 'Supervisor de turno', desc: 'Presente en terreno: fiscaliza rondas, asistencia y procedimientos.', time: 'En sitio < 30 min' },
+    { ic: 'shield', role: 'Guardias asignados', desc: 'Equipo fijo que conoce su instalación en detalle, con respaldo permanente.', time: 'Cobertura 24/7' },
+  ];
+  sections.push(
+    e(View, { key: 'sec4b', wrap: false },
+      sectionTitle('Su cadena de servicio directa'),
+      ...serviceChain.map((st, i) =>
+        e(View, { key: i, style: s.chainRow },
+          e(View, { style: s.chainRail },
+            e(View, { style: s.chainCircle }, icon(st.ic, C.white, 13)),
+            i < serviceChain.length - 1 ? e(View, { style: s.chainLine }) : null,
+          ),
+          e(View, { style: s.chainBody },
+            e(View, { style: s.chainHead },
+              e(Text, { style: s.chainRole }, st.role),
+              e(View, { style: s.timeChip }, e(Text, { style: s.timeChipText }, st.time)),
+            ),
+            e(Text, { style: s.chainDesc }, st.desc),
+          ),
         ),
       ),
     ),
@@ -878,19 +1098,21 @@ export async function renderProposalToBufferFromProps(
             ),
           )
         : null,
-      sectionTitle('Clientes que Confían en Nosotros'),
-      e(View, { style: s.logoGrid },
-        ...clientLogosData.map((cl, i) =>
-          cl.src
-            ? e(View, { key: i, style: s.logoCell },
-                e(PDFImage, { src: cl.src, style: s.logoImg }),
-                e(Text, { style: s.logoName }, cl.name),
-              )
-            : e(View, { key: i, style: s.logoCell },
-                e(Text, { style: s.logoNameOnly }, cl.name),
+      clientLogosData.length > 0
+        ? e(View, null,
+            sectionTitle('Algunos de los clientes que confían en nosotros'),
+            e(View, { style: s.logoGrid },
+              ...clientLogosData.map((cl, i) =>
+                e(View, { key: i, style: s.logoCell },
+                  e(PDFImage, { src: cl.src, style: s.logoImg }),
+                ),
               ),
-        ),
-      ),
+            ),
+            clientLogosExtra > 0
+              ? e(Text, { style: s.moreClients }, `+ ${clientLogosExtra} empresas más confían en nosotros`)
+              : null,
+          )
+        : null,
     ),
   );
 
@@ -1309,6 +1531,7 @@ export async function renderProposalToBufferFromProps(
     'sec2',         // Ecosistema
     'sec3',         // Nuestra Gente
     'sec4',         // Organigrama
+    'sec4b',        // Cadena de servicio directa
     'sec12',        // SLA + Escalamiento
     'sec13',        // Reportabilidad
     'sec14',        // Cumplimiento Legal

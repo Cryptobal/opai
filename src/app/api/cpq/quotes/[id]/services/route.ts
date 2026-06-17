@@ -200,7 +200,14 @@ export async function POST(
       return group;
     });
 
-    await refreshQuoteTotals(id);
+    // El grupo ya está creado (commit de la transacción). Si el recálculo de
+    // totales falla, NO debemos devolver 500: el servicio quedó persistido y el
+    // usuario lo verá al refrescar. Se loguea para diagnóstico.
+    try {
+      await refreshQuoteTotals(id);
+    } catch (err) {
+      console.error("[CPQ services POST] refreshQuoteTotals failed:", err);
+    }
     await createCrmHistoryLog({
       tenantId: ctx.tenantId,
       entityType: "quote",

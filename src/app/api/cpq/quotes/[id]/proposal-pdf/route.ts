@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { renderProposalToBufferFromProps } from '@/lib/pdf/templates/proposal/render-proposal';
 import { buildProposalProps } from '@/lib/pdf/templates/proposal/build-proposal-props';
+import { buildContentDisposition } from '@/lib/pdf/cpq-quote-pdf-filename';
 import { prisma } from '@/lib/prisma';
 import { requireTenantModule } from '@/lib/require-module';
 
@@ -50,7 +51,7 @@ export async function GET(
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="${fileName}"`,
+        'Content-Disposition': buildContentDisposition(fileName, 'inline'),
       },
     });
   } catch (error) {

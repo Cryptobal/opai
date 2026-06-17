@@ -11,6 +11,7 @@ import {
 } from "@/lib/docs/token-resolver";
 import type { EntityData } from "@/lib/docs/token-resolver";
 import { tiptapToPreviewHtml } from "@/lib/docs/tiptap-to-html";
+import { buildContentDisposition } from "@/lib/pdf/cpq-quote-pdf-filename";
 import { getUfValue } from "@/lib/uf";
 import { clpToUf } from "@/lib/uf-utils";
 import { chromium } from "playwright-core";
@@ -245,7 +246,7 @@ export async function GET(
     return new NextResponse(new Uint8Array(pdf), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Content-Disposition": buildContentDisposition(fileName, "attachment"),
       },
     });
   } catch (error) {

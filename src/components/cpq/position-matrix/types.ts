@@ -91,5 +91,7 @@ export interface PositionMatrixAdapter {
   onDeleteRow(id: string): void;
   onRenameGroup(groupKey: string, name: string): void;
   onDeleteGroup?(groupKey: string): void;
+  /** Duplica un servicio completo (grupo + todos sus turnos). */
+  onCloneGroup?(groupKey: string): void;
   onAddGroup(name: string, templateRows?: TemplateRowSeed[]): void;
 }

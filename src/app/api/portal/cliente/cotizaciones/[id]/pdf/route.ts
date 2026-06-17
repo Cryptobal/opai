@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 import { buildQuotationProps } from "@/lib/pdf/templates/quotation/build-quotation-props";
 import { renderQuotationToBuffer } from "@/lib/pdf/templates/quotation/render-quotation";
+import { buildContentDisposition } from "@/lib/pdf/cpq-quote-pdf-filename";
 import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
 
 export const runtime = "nodejs";
@@ -61,7 +62,7 @@ export async function GET(
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Content-Disposition": buildContentDisposition(fileName, "attachment"),
       },
     });
   } catch (error) {

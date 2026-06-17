@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { PricingPDF } from '@/components/pdf/PricingPDF';
 import { requireAuth, unauthorized } from '@/lib/api-auth';
+import { buildContentDisposition } from '@/lib/pdf/cpq-quote-pdf-filename';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Content-Disposition': buildContentDisposition(fileName, 'attachment'),
       },
     });
     

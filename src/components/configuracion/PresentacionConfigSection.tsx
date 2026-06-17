@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { GARD_PRESENTATION_CONTENT } from "@/lib/tenant-presentation-defaults";
+import { resolveAccountLogo } from "@/lib/crm/account-logo";
 import type { PresentationSection, PresentationStat } from "@/lib/tenant-presentation";
 
 const KNOWN_SECTION_KEYS: { value: string; hint: string }[] = [
@@ -49,7 +50,7 @@ export function PresentacionConfigSection() {
   // ── Propuesta Técnica (PDF) ──
   const [proposalCfg, setProposalCfg] = useState<Record<string, string>>({});
   const [excludedIds, setExcludedIds] = useState<string[]>([]);
-  const [clientAccounts, setClientAccounts] = useState<Array<{ id: string; name: string }>>([]);
+  const [clientAccounts, setClientAccounts] = useState<Array<{ id: string; name: string; hasLogo: boolean }>>([]);
   const [clientSearch, setClientSearch] = useState("");
 
   const setProp = (key: string, value: string) =>
@@ -92,7 +93,7 @@ export function PresentacionConfigSection() {
     try {
       const res = await fetch("/api/crm/accounts");
       const data = await res.json();
-      const rows: Array<{ id: string; name: string; status?: string | null; isActive?: boolean }> =
+      const rows: Array<{ id: string; name: string; status?: string | null; isActive?: boolean; logoUrl?: string | null; notes?: string | null }> =
         data?.data ?? data?.accounts ?? [];
       const isActive = (a: { status?: string | null; isActive?: boolean }) => {
         if (a.status === "prospect") return false;
@@ -101,7 +102,11 @@ export function PresentacionConfigSection() {
         return a.isActive === true;
       };
       setClientAccounts(
-        rows.filter(isActive).map((a) => ({ id: a.id, name: a.name })),
+        rows
+          .filter(isActive)
+          .map((a) => ({ id: a.id, name: a.name, hasLogo: Boolean(resolveAccountLogo(a)) }))
+          // Los que tienen logo primero (son los que aparecen en el muro).
+          .sort((a, b) => (Number(b.hasLogo) - Number(a.hasLogo)) || a.name.localeCompare(b.name)),
       );
     } catch {
       /* silencioso: el selector simplemente queda vacío */
@@ -400,8 +405,9 @@ export function PresentacionConfigSection() {
         <div>
           <h3 className="font-semibold text-sm">Clientes en la propuesta</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Por defecto se muestran todos los clientes activos en el muro «Clientes que confían
-            en nosotros». Oculta los que no quieras incluir (ej: cuentas internas).
+            En el muro «Clientes que confían en nosotros» solo aparecen los clientes activos
+            que <strong>tienen logo</strong>. Los marcados «Sin logo» no se muestran hasta que
+            les cargues una imagen. Oculta los que no quieras incluir (ej: cuentas internas).
             {excludedIds.length > 0 ? ` ${excludedIds.length} oculto(s).` : ""}
           </p>
         </div>
@@ -421,8 +427,15 @@ export function PresentacionConfigSection() {
               const hidden = excludedIds.includes(c.id);
               return (
                 <div key={c.id} className="flex items-center justify-between gap-2 px-3 py-2">
-                  <span className={hidden ? "text-sm text-muted-foreground line-through" : "text-sm"}>
-                    {c.name}
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className={hidden ? "text-sm text-muted-foreground line-through truncate" : "text-sm truncate"}>
+                      {c.name}
+                    </span>
+                    {!c.hasLogo && (
+                      <span className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium bg-status-warn-soft text-status-warn-fg border border-status-warn-border">
+                        Sin logo
+                      </span>
+                    )}
                   </span>
                   <Button
                     variant={hidden ? "outline" : "ghost"}

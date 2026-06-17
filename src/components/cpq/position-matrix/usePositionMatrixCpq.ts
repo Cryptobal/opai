@@ -226,7 +226,9 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
 
   const onAddGroup = useCallback(
     async (name: string, templateRows?: TemplateRowSeed[]) => {
-      if (!ensureDefaults()) return;
+      // Un servicio vacío (sin turnos sembrados) no necesita catálogos: solo se
+      // exigen defaults cuando vamos a insertar turnos desde plantilla.
+      if (templateRows?.length && !ensureDefaults()) return;
       try {
         const res = await fetch(`/api/cpq/quotes/${quoteId}/services`, {
           method: "POST",
@@ -234,17 +236,37 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
           body: JSON.stringify({ name, coveragePattern: "custom", skipShifts: true }),
         });
         const d = await res.json();
-        if (!d.success) throw new Error(d.error);
+        if (!d.success) throw new Error(d.error || "Error");
         const groupId = d.data.id as string;
         if (templateRows?.length) {
           for (const seed of templateRows) await insertRow(groupId, seed);
         }
+        toast.success("Servicio creado");
         refresh();
-      } catch {
-        toast.error("No se pudo crear el servicio");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "No se pudo crear el servicio";
+        toast.error(msg);
       }
     },
     [ensureDefaults, quoteId, insertRow, refresh]
+  );
+
+  const onCloneGroup = useCallback(
+    async (groupKey: string) => {
+      try {
+        const res = await fetch(`/api/cpq/quotes/${quoteId}/services/${groupKey}/clone`, {
+          method: "POST",
+        });
+        const d = await res.json();
+        if (!d.success) throw new Error(d.error || "Error");
+        toast.success("Servicio duplicado");
+        refresh();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "No se pudo duplicar el servicio";
+        toast.error(msg);
+      }
+    },
+    [quoteId, refresh]
   );
 
   return {
@@ -261,6 +283,7 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
     onDeleteRow,
     onRenameGroup,
     onDeleteGroup,
+    onCloneGroup,
     onAddGroup,
   };
 }

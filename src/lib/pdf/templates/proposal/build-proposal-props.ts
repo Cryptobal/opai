@@ -11,6 +11,7 @@ import { getUfValue, clpToUf } from '@/lib/uf';
 import { generateProposalAIContent } from './proposal-ai';
 import { buildCpqQuotePdfFileName } from '@/lib/pdf/cpq-quote-pdf-filename';
 import { formatWeekdaysLong } from '@/lib/cpq/weekdays';
+import { resolveAccountLogo } from '@/lib/crm/account-logo';
 import type { ProposalAIContent } from './proposal-ai';
 import type { QuoteBreakdownData, PositionBreakdownItem, ResourceBreakdownCategory, ResourceBreakdownItem } from '@/types/cpq-breakdown';
 
@@ -107,8 +108,9 @@ export async function buildProposalProps(
     where: { id: quotationId, tenantId },
     include: {
       positions: {
-        include: { cargo: true, rol: true, puestoTrabajo: true },
+        include: { cargo: true, rol: true, puestoTrabajo: true, serviceGroup: true },
       },
+      serviceGroups: { orderBy: { displayOrder: 'asc' } },
       parameters: true,
       installation: true,
       costItems: { include: { catalogItem: true } },
@@ -228,9 +230,48 @@ export async function buildProposalProps(
     });
   }
 
-  const serviceType = positions.length > 0
-    ? positions.map((p) => p.customName || p.puestoTrabajo?.name || 'Puesto').join(', ')
-    : 'Servicio de seguridad';
+  // Nombres de servicio definidos por el ejecutivo en la matriz de puestos
+  // (CpqServiceGroup). Se ignoran placeholders genéricos como "Servicio nuevo".
+  const serviceGroupNames = (quote.serviceGroups ?? [])
+    .map((g) => g.name?.trim())
+    .filter((n): n is string => !!n && n.toLowerCase() !== 'servicio nuevo');
+
+  const positionNames = positions.map((p) => p.customName || p.puestoTrabajo?.name || 'Puesto');
+
+  // serviceType (mostrado en el PDF): preferir los nombres de servicio del
+  // ejecutivo; si no hay, derivar de los puestos.
+  const serviceType = serviceGroupNames.length > 0
+    ? serviceGroupNames.join(', ')
+    : positionNames.length > 0
+      ? positionNames.join(', ')
+      : 'Servicio de seguridad';
+
+  // Desglose detallado por servicio para que la IA infiera el alcance con
+  // precisión: cada grupo nombrado con sus puestos, dotación y horario.
+  const serviceNameForAi = (() => {
+    const groups = quote.serviceGroups ?? [];
+    if (groups.length === 0) return serviceType;
+    const lines = groups.map((g) => {
+      const groupPositions = positions.filter((p) => p.serviceGroupId === g.id);
+      const posDesc = groupPositions
+        .map((p) => {
+          const pn = p.customName || p.puestoTrabajo?.name || 'Puesto';
+          const guards = p.numGuards * (p.numPuestos || 1);
+          const schedule = `${p.startTime || '-'}-${p.endTime || '-'}`;
+          return `${pn} (${guards} guardia(s), ${schedule})`;
+        })
+        .join('; ');
+      return `${g.name}${posDesc ? `: ${posDesc}` : ''}`;
+    });
+    // Puestos sin grupo, si los hubiera.
+    const ungrouped = positions.filter((p) => !p.serviceGroupId);
+    if (ungrouped.length > 0) {
+      lines.push(
+        `Otros: ${ungrouped.map((p) => p.customName || p.puestoTrabajo?.name || 'Puesto').join('; ')}`,
+      );
+    }
+    return lines.join(' | ') || serviceType;
+  })();
 
   const firstPos = positions[0];
   const coverageSchedule = firstPos
@@ -287,7 +328,7 @@ export async function buildProposalProps(
   // status 'client_active', o (sin status canónico) isActive=true.
   const allClientAccounts = await prisma.crmAccount.findMany({
     where: { tenantId },
-    select: { id: true, name: true, logoUrl: true, status: true, isActive: true },
+    select: { id: true, name: true, logoUrl: true, notes: true, status: true, isActive: true },
     orderBy: { name: 'asc' },
   });
   const isActiveClient = (a: { status: string | null; isActive: boolean }) => {
@@ -306,12 +347,22 @@ export async function buildProposalProps(
       }
     })()
   );
-  const clientesConLogo = allClientAccounts
+  // No incluir la cuenta de la propia empresa (tenant) en su muro de clientes.
+  const selfNames = new Set(
+    [companyConfig.commercialName, companyConfig.companyName, companyConfig.brandNameUpper]
+      .filter(Boolean)
+      .map((n) => String(n).trim().toLowerCase()),
+  );
+  const clientesActivos = allClientAccounts
     .filter(isActiveClient)
-    .filter((c) => !excludedClientIds.has(c.id));
-  const clientLogos: string[] = clientesConLogo
-    .filter((c) => c.logoUrl)
-    .map((c) => c.logoUrl!);
+    .filter((c) => !excludedClientIds.has(c.id))
+    .filter((c) => !selfNames.has(c.name.trim().toLowerCase()))
+    .map((c) => ({ name: c.name, logo: resolveAccountLogo(c) ?? null }));
+  // Resuelve el logo desde columna `logoUrl` O el marcador en `notes`.
+  const clientesConLogo = clientesActivos;
+  const clientLogos: string[] = clientesActivos
+    .filter((c) => c.logo)
+    .map((c) => abs(c.logo!));
 
   const portalScreenshots: Record<string, string> = {
     clientes: 'placeholder',
@@ -335,7 +386,7 @@ export async function buildProposalProps(
       companySegment: account?.segment ?? undefined,
       contactName,
       contactPosition,
-      serviceName: serviceType,
+      serviceName: serviceNameForAi,
       staffingDetails,
       coverageSchedule,
       monthlyTotal: grandTotal,
@@ -754,7 +805,7 @@ export async function buildProposalProps(
       brandingLogoIcon: abs(companyConfig.brandingLogoIcon) || undefined,
     },
     clientLogosWithNames: clientesConLogo
-      .map((c) => ({ name: c.name, url: c.logoUrl ? abs(c.logoUrl)! : '' })),
+      .map((c) => ({ name: c.name, url: c.logo ? abs(c.logo) : '' })),
 
     companyStats: {
       yearsInOperation: companyConfig.proposalYearsInOperation || '',

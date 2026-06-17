@@ -37,6 +37,33 @@ export function buildCpqQuotePdfFileName(options: {
   return `${base}.pdf`;
 }
 
+/**
+ * Construye un header `Content-Disposition` seguro para HTTP.
+ *
+ * Los headers HTTP solo aceptan caracteres Latin-1 (ByteString, 0-255). Un
+ * nombre de archivo con caracteres como "–" (en dash, U+2013 = 8211), "“", "—"
+ * o emojis hace que `new Response(..., { headers })` lance:
+ *   "Cannot convert argument to a ByteString because the character at index N
+ *    has a value of X which is greater than 255."
+ *
+ * Solución estándar (RFC 5987 / RFC 6266): un `filename="..."` ASCII puro como
+ * fallback + un `filename*=UTF-8''...` percent-encoded para clientes modernos.
+ */
+export function buildContentDisposition(
+  fileName: string,
+  disposition: "inline" | "attachment" = "attachment",
+): string {
+  const clean = (fileName || "archivo")
+    .replace(/[\\/\x00-\x1f"]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 200) || "archivo";
+  // Fallback ASCII: cualquier caracter fuera de 0x20-0x7E se reemplaza por "-".
+  const ascii = clean.replace(/[^\x20-\x7E]/g, "-") || "archivo";
+  const encoded = encodeURIComponent(clean);
+  return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+}
+
 /** Extrae el nombre de archivo de Content-Disposition (incl. filename*=UTF-8'') */
 export function parseContentDispositionFileName(
   disposition: string | null | undefined,

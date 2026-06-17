@@ -11,6 +11,7 @@ import chromiumPkg from '@sparticuz/chromium';
 import { PricingData } from '@/types/presentation';
 import { formatCurrency } from '@/lib/utils';
 import { requireAuth, unauthorized } from '@/lib/api-auth';
+import { buildContentDisposition } from '@/lib/pdf/cpq-quote-pdf-filename';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Vercel: 60s timeout para Pro plan
@@ -409,7 +410,7 @@ export async function POST(request: NextRequest) {
     return new NextResponse(uint8Array, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Content-Disposition': buildContentDisposition(fileName, 'attachment'),
       },
     });
     
