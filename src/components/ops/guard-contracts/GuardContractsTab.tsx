@@ -35,7 +35,7 @@ import {
   canRenewContract,
   shouldBecomeIndefinido,
   shouldAlertContractExpiration,
-  businessDaysBetween,
+  daysBetween,
 } from "@/lib/guard-events";
 import { DocPreviewDialog } from "@/components/docs/DocPreviewDialog";
 import { SignatureRequestModal } from "@/components/docs/SignatureRequestModal";
@@ -129,7 +129,7 @@ export function GuardContractsTab({
   // Days until expiration
   const daysUntilEnd = useMemo(() => {
     if (!currentEndDate) return null;
-    return businessDaysBetween(today, currentEndDate);
+    return daysBetween(today, currentEndDate);
   }, [currentEndDate, today]);
 
   // Contract documents (filtered from linked docs)
@@ -319,7 +319,7 @@ export function GuardContractsTab({
           <div>
             <p className="text-sm font-medium text-status-warn-fg">Contrato próximo a vencer</p>
             <p className="text-xs text-status-warn-fg/80">
-              Quedan {daysUntilEnd} día(s) hábil(es) para el vencimiento
+              Quedan {daysUntilEnd} día(s) para el vencimiento
               {currentEndDate && ` (${formatDateUTC(currentEndDate)})`}.
               {canRenew ? " Puedes renovar o finiquitar." : " Máximo de renovaciones alcanzado."}
             </p>

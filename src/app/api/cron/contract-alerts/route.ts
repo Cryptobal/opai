@@ -14,7 +14,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { businessDaysBetween } from "@/lib/guard-events";
+import { daysBetween } from "@/lib/guard-events";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
       if (!endDate) continue;
 
       const endStr = endDate.toISOString().slice(0, 10);
-      const bDays = businessDaysBetween(today, endStr);
+      const bDays = daysBetween(today, endStr);
       const alertDays = g.contractAlertDaysBefore ?? 5;
       const fullName = `${g.persona.firstName} ${g.persona.lastName}`;
 
