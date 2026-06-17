@@ -86,3 +86,98 @@ export function formatWeekdaysLong(weekdays: readonly string[] | null | undefine
   if (longs.length === 1) return longs[0];
   return `${longs.slice(0, -1).join(", ")} y ${longs[longs.length - 1]}`;
 }
+
+/* ── Cobertura horaria (multi-turno) ───────────────────────────── */
+
+export interface CoverageShift {
+  startTime: string | null;
+  endTime: string | null;
+  weekdays: readonly string[] | string | null;
+}
+
+/** Convierte "HH:MM" a minutos desde medianoche. Devuelve null si no parsea. */
+function toMinutes(t: string | null | undefined): number | null {
+  if (!t) return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t.trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  return h * 60 + min;
+}
+
+/**
+ * Determina si el conjunto de turnos cubre el día completo (24h) sin huecos,
+ * considerando turnos que cruzan medianoche (ej: 20:00-08:00).
+ * Solo evalúa turnos que operan todos los días (cobertura continua real).
+ */
+export function coversFullDay(shifts: readonly CoverageShift[]): boolean {
+  const dailyShifts = shifts.filter((s) => {
+    const wd = sortWeekdays(
+      Array.isArray(s.weekdays) ? s.weekdays : s.weekdays ? [s.weekdays] : [],
+    );
+    return wd.length === 7;
+  });
+  if (dailyShifts.length === 0) return false;
+
+  // Construye intervalos [start, end) en una línea de 0..1440; los que cruzan
+  // medianoche se parten en dos.
+  const intervals: Array<[number, number]> = [];
+  for (const s of dailyShifts) {
+    const start = toMinutes(s.startTime);
+    let end = toMinutes(s.endTime);
+    if (start === null || end === null) return false;
+    if (end === start) return true; // turno de 24h declarado como 08:00-08:00
+    if (end < start) {
+      intervals.push([start, 1440]);
+      intervals.push([0, end]);
+    } else {
+      intervals.push([start, end]);
+    }
+  }
+
+  // Ordena y verifica cobertura continua de 0 a 1440 sin huecos.
+  intervals.sort((a, b) => a[0] - b[0]);
+  let cursor = 0;
+  for (const [start, end] of intervals) {
+    if (start > cursor) return false; // hueco
+    cursor = Math.max(cursor, end);
+    if (cursor >= 1440) return true;
+  }
+  return cursor >= 1440;
+}
+
+/**
+ * Frase de cobertura para PDF y prompt de IA, uniendo todos los turnos.
+ * - Si cubren el día completo todos los días → "24/7 continuo".
+ * - Si no, lista los turnos: "08:00-20:00 y 20:00-08:00, todos los días".
+ */
+export function formatCoverageSchedule(shifts: readonly CoverageShift[]): string {
+  if (!shifts.length) return "A definir";
+
+  if (coversFullDay(shifts)) return "24/7 continuo, todos los días";
+
+  // Días: si todos los turnos comparten el mismo set, lo mencionamos una vez.
+  const dayPhrases = new Set(
+    shifts.map((s) =>
+      formatWeekdaysLong(
+        Array.isArray(s.weekdays) ? s.weekdays : s.weekdays ? [s.weekdays] : [],
+      ),
+    ),
+  );
+
+  const ranges = shifts
+    .map((s) => `${s.startTime || "—"}-${s.endTime || "—"}`)
+    .filter((r) => r !== "—-—");
+
+  const uniqueRanges = Array.from(new Set(ranges));
+  const rangePhrase =
+    uniqueRanges.length <= 1
+      ? uniqueRanges[0] ?? "horario a definir"
+      : `${uniqueRanges.slice(0, -1).join(", ")} y ${uniqueRanges[uniqueRanges.length - 1]}`;
+
+  if (dayPhrases.size === 1) {
+    return `${rangePhrase}, ${[...dayPhrases][0]}`;
+  }
+  return rangePhrase;
+}

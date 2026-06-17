@@ -6,6 +6,8 @@ import type { LaborBreakdownPortal } from "./types";
 interface ProposalManoDeObraProps {
   laborBreakdown: LaborBreakdownPortal;
   sectionNumber: number;
+  currency?: string;
+  ufValue?: number;
   className?: string;
 }
 
@@ -17,13 +19,22 @@ function fmtCLP(n: number) {
   }).format(Math.round(n));
 }
 
+function fmtUF(n: number) {
+  return `${n.toFixed(2)} UF`;
+}
+
 export function ProposalManoDeObra({
   laborBreakdown,
   sectionNumber,
+  currency,
+  ufValue,
   className,
 }: ProposalManoDeObraProps) {
   const { positionDetails, totalGuardias, totalMensual } = laborBreakdown;
   if (!positionDetails || positionDetails.length === 0) return null;
+
+  const fmt = (n: number) =>
+    currency === "UF" && ufValue && ufValue > 0 ? fmtUF(n / ufValue) : fmtCLP(n);
 
   return (
     <div className={cn("rounded-xl border border-slate-700/50 bg-slate-800/50 p-4 space-y-4", className)}>
@@ -46,20 +57,20 @@ export function ProposalManoDeObra({
 
             {/* Breakdown rows */}
             <div className="divide-y divide-slate-700/30">
-              <Row label="Sueldo base imponible" value={fmtCLP(pos.baseSalary / Math.max(1, pos.totalGuardsInPosition))} />
-              <Row label="Gratificación legal" value={fmtCLP(pos.gratification / Math.max(1, pos.totalGuardsInPosition))} />
-              <Row label="Total haberes imponibles" value={fmtCLP(pos.totalImponible / Math.max(1, pos.totalGuardsInPosition))} bold />
-              <Row label="SIS" value={fmtCLP(pos.sisEmployer / Math.max(1, pos.totalGuardsInPosition))} indent />
-              <Row label="AFC" value={fmtCLP(pos.afcEmployer / Math.max(1, pos.totalGuardsInPosition))} indent />
-              <Row label="Mutual / Accidentes (Ley 16.744)" value={fmtCLP(pos.mutualEmployer / Math.max(1, pos.totalGuardsInPosition))} indent />
-              <Row label="Total cargas sociales empleador" value={fmtCLP(totalSocialCharges / Math.max(1, pos.totalGuardsInPosition))} bold />
+              <Row label="Sueldo base imponible" value={fmt(pos.baseSalary / Math.max(1, pos.totalGuardsInPosition))} />
+              <Row label="Gratificación legal" value={fmt(pos.gratification / Math.max(1, pos.totalGuardsInPosition))} />
+              <Row label="Total haberes imponibles" value={fmt(pos.totalImponible / Math.max(1, pos.totalGuardsInPosition))} bold />
+              <Row label="SIS" value={fmt(pos.sisEmployer / Math.max(1, pos.totalGuardsInPosition))} indent />
+              <Row label="AFC" value={fmt(pos.afcEmployer / Math.max(1, pos.totalGuardsInPosition))} indent />
+              <Row label="Mutual / Accidentes (Ley 16.744)" value={fmt(pos.mutualEmployer / Math.max(1, pos.totalGuardsInPosition))} indent />
+              <Row label="Total cargas sociales empleador" value={fmt(totalSocialCharges / Math.max(1, pos.totalGuardsInPosition))} bold />
               {pos.vacationProvision > 0 && (
-                <Row label="Provisión vacaciones" value={fmtCLP(pos.vacationProvision / Math.max(1, pos.totalGuardsInPosition))} indent />
+                <Row label="Provisión vacaciones" value={fmt(pos.vacationProvision / Math.max(1, pos.totalGuardsInPosition))} indent />
               )}
               {pos.severanceProvision > 0 && (
-                <Row label="Provisión indemnización" value={fmtCLP(pos.severanceProvision / Math.max(1, pos.totalGuardsInPosition))} indent />
+                <Row label="Provisión indemnización" value={fmt(pos.severanceProvision / Math.max(1, pos.totalGuardsInPosition))} indent />
               )}
-              <Row label="Costo empresa por guardia" value={fmtCLP(perGuard)} bold highlight />
+              <Row label="Costo empresa por guardia" value={fmt(perGuard)} bold highlight />
             </div>
           </div>
         );
@@ -73,7 +84,7 @@ export function ProposalManoDeObra({
         </div>
         <div className="flex items-center justify-between text-sm">
           <span className="font-bold text-white">Total mensual mano de obra</span>
-          <span className="font-bold text-status-ok-fg font-mono">{fmtCLP(totalMensual)}</span>
+          <span className="font-bold text-status-ok-fg font-mono">{fmt(totalMensual)}</span>
         </div>
       </div>
     </div>
