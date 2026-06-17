@@ -45,6 +45,7 @@ import {
   Sun,
   Loader2,
   GripVertical,
+  ArrowLeftRight,
 } from "lucide-react";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
@@ -586,6 +587,18 @@ function GridRow({ row, adapter, readOnly, onRequestDelete }: GridRowProps) {
           >
             {HOURS_24.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
+          {!cellSelect && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0"
+              title="Invertir horario (día ↔ noche)"
+              onClick={() => apply({ inicio: ref.current.fin, fin: ref.current.inicio })}
+            >
+              <ArrowLeftRight className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </td>
 

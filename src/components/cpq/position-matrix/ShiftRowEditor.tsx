@@ -9,7 +9,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Copy, Trash2, Check, AlertTriangle } from "lucide-react";
+import { Copy, Trash2, Check, AlertTriangle, ArrowLeftRight } from "lucide-react";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import { toast } from "sonner";
@@ -130,6 +130,16 @@ export function ShiftRowEditor({
             <select className={cn(FIELD, "w-[88px] font-mono")} value={draft.fin} onChange={(e) => apply({ fin: e.target.value })}>
               {HOURS_24.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0"
+              title="Invertir horario (día ↔ noche)"
+              onClick={() => apply({ inicio: ref.current.fin, fin: ref.current.inicio })}
+            >
+              <ArrowLeftRight className="h-3.5 w-3.5" />
+            </Button>
             <span className={cn("inline-flex items-center gap-1 text-xs", hours > 12 ? "text-status-warn-fg" : "text-muted-foreground")}>
               {hours > 12 && <AlertTriangle className="h-3 w-3" />}
               {hours}h
