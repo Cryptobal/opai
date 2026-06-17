@@ -22,11 +22,16 @@ async function upsertPautaEntries(
   installationId: string,
   tenantId: string,
   userId: string,
-  asignacion: { guardiaId: string; startDate: Date } | null
+  asignacion: { guardiaId: string; startDate: Date } | null,
+  seriesStartDate: Date
 ): Promise<number> {
   let updated = 0;
   for (const entry of entries) {
     const dateOnly = parseDateOnly(toISODate(entry.date));
+    // No sobrescribir el historial pasado: solo se escriben celdas desde
+    // la fecha de inicio de la serie en adelante. Las celdas anteriores
+    // conservan su turno/asignación previa.
+    if (dateOnly < seriesStartDate) continue;
     let plannedGuardiaId: string | null = null;
     if (entry.shiftCode === "T" && asignacion && dateOnly >= asignacion.startDate) {
       plannedGuardiaId = asignacion.guardiaId;
@@ -180,7 +185,8 @@ export async function POST(request: NextRequest) {
       const updated = await upsertPautaEntries(
         serieEntries, body.puestoId, body.slotNumber,
         puesto.installationId, ctx.tenantId, ctx.userId,
-        asignacion ? { guardiaId: asignacion.guardiaId, startDate: asignacion.startDate } : null
+        asignacion ? { guardiaId: asignacion.guardiaId, startDate: asignacion.startDate } : null,
+        startDate
       );
 
       await createOpsAuditLog(ctx, "ops.pauta.serie_rotativa_painted", "ops_pauta", puesto.installationId, {
@@ -252,7 +258,8 @@ export async function POST(request: NextRequest) {
     const updated = await upsertPautaEntries(
       serieEntries, body.puestoId, body.slotNumber,
       puesto.installationId, ctx.tenantId, ctx.userId,
-      asignacion ? { guardiaId: asignacion.guardiaId, startDate: asignacion.startDate } : null
+      asignacion ? { guardiaId: asignacion.guardiaId, startDate: asignacion.startDate } : null,
+      startDate
     );
 
     await createOpsAuditLog(ctx, "ops.pauta.serie_painted", "ops_pauta", puesto.installationId, {
