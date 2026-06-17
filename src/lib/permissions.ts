@@ -538,6 +538,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       "config.ats": "edit",
       // Inventario: editor puede gestionar todo (incluye eliminar bodegas/productos)
       "ops.inventario": "full",
+      // Eventos laborales: editor puede gestionar todo (incluye eliminar finiquitos)
+      "ops.eventos_laborales": "full",
       // Solo lectura
       "config.usuarios": "view",
       "config.grupos": "view",
