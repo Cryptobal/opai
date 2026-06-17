@@ -199,7 +199,7 @@ export function ProposalEstructuraCostos({
                     </span>
                   </span>
                   <span className="text-sm font-mono font-bold text-status-ok-fg">
-                    {fmtCLP(Math.round(pos.hourlyRateSale))}/hr
+                    {fmt(pos.hourlyRateSale)}/hr
                   </span>
                 </div>
               ))}
