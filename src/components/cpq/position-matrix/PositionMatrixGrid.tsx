@@ -353,9 +353,7 @@ function GroupBlock({
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(group?.name ?? "");
 
-  const groupCost = rows.reduce((s, r) => s + (r.costo ?? 0), 0);
   const totalGuards = rows.reduce((s, r) => s + r.guardias * (r.nPuestos || 1), 0);
-  const totalPtos = rows.reduce((s, r) => s + (r.nPuestos || 1), 0);
   const groupKey = group?.key ?? null;
 
   const saveName = () => {
@@ -364,8 +362,8 @@ function GroupBlock({
     setEditingName(false);
   };
 
-  // Filas físicas del grupo: turnos + (agregar turno) + subtotal.
-  const physicalRowCount = rows.length + (readOnly ? 0 : 1) + 1;
+  // Filas físicas del grupo: solo los turnos (mínimo 1 para el placeholder vacío).
+  const physicalRowCount = Math.max(rows.length, 1);
 
   const serviceCell = (ref?: Ref<HTMLTableCellElement>) => (
     <td
@@ -470,54 +468,37 @@ function GroupBlock({
 
   return (
     <>
-      {rows.map((row, idx) => (
-        <GridRow
-          key={row.id}
-          row={row}
-          adapter={adapter}
-          readOnly={readOnly}
-          leadingCell={leadingFor(idx === 0 ? setNodeRef : undefined)}
-          onRequestDelete={() => onRequestDeleteRow(row.id)}
-        />
-      ))}
-
-      {!readOnly && (
+      {rows.length === 0 ? (
         <tr className="border-b border-border bg-card">
-          {leadingFor(rows.length === 0 ? setNodeRef : undefined)}
-          <td colSpan={REST_COLS} className="px-2 py-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1 text-xs text-muted-foreground"
-              onClick={() => adapter.onAddRow(groupKey)}
-            >
-              <Plus className="h-3.5 w-3.5" /> Agregar turno
-            </Button>
+          {leadingFor(setNodeRef)}
+          <td colSpan={REST_COLS} className="px-2 py-2">
+            {!readOnly ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1 text-xs text-primary"
+                onClick={() => adapter.onAddRow(groupKey)}
+              >
+                <Plus className="h-3.5 w-3.5" /> Agregar turno
+              </Button>
+            ) : (
+              <span className="text-xs text-muted-foreground">Sin turnos</span>
+            )}
           </td>
         </tr>
-      )}
-
-      {/* Subtotal del servicio */}
-      <tr className="border-b border-border bg-muted/20 text-[12px]" style={{ borderLeft: `4px solid ${color}` }}>
-        {leadingFor(rows.length === 0 && readOnly ? setNodeRef : undefined)}
-        <td className="border-r border-border px-2 py-1 font-medium text-muted-foreground">Subtotal</td>
-        <td className="border-r border-border" colSpan={6} />
-        <td className="border-r border-border px-2 py-1 text-center font-semibold text-foreground">{totalGuards}</td>
-        <td className="border-r border-border px-2 py-1 text-center font-semibold text-foreground">{totalPtos}</td>
-        <td className="border-r border-border" colSpan={2} />
-        <td className="border-r border-border px-2 py-1 text-right">
-          <CpqDualCurrencyAmount
-            clp={groupCost}
-            currency={adapter.currency}
-            ufValue={adapter.ufValue}
-            size="sm"
-            primaryClassName="font-semibold text-foreground"
-            align="right"
+      ) : (
+        rows.map((row, idx) => (
+          <GridRow
+            key={row.id}
+            row={row}
+            adapter={adapter}
+            readOnly={readOnly}
+            leadingCell={leadingFor(idx === 0 ? setNodeRef : undefined)}
+            onRequestDelete={() => onRequestDeleteRow(row.id)}
           />
-        </td>
-        <td className="px-1 py-1" />
-      </tr>
+        ))
+      )}
     </>
   );
 }
