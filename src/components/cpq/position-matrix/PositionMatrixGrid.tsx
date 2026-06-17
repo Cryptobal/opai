@@ -66,15 +66,15 @@ import {
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import { HOURS_24, WEEKDAY_ORDER, isNightShift } from "./shift-utils";
-import { resolveServiceColor, hexToRgba, SERVICE_COLOR_PALETTE } from "./service-colors";
+import { resolveServiceColor, SERVICE_COLOR_PALETTE } from "./service-colors";
 import { CatalogPicker } from "./CatalogPicker";
 import type { NormalizedGroup, NormalizedShift, PositionMatrixAdapter, ShiftPatch } from "./types";
 
 const FIELD =
   "flex h-9 w-full rounded-md border border-border bg-card px-1.5 text-[13px] text-foreground";
 
-/** Columnas no-servicio (13). El servicio es una celda rowspan aparte. */
-const REST_COLS = 13;
+/** Columnas no-servicio (12). El servicio es una celda rowspan aparte. */
+const REST_COLS = 12;
 
 interface Props {
   adapter: PositionMatrixAdapter;
@@ -177,14 +177,13 @@ export function PositionMatrixGrid({ adapter }: Props) {
   const body = (
     <table className="w-full min-w-[1180px] border-collapse text-left">
       <colgroup>
-        <col style={{ width: 168 }} />{/* Servicio */}
-        <col style={{ width: 150 }} />{/* Turno */}
-        <col style={{ width: 62 }} />{/* Tipo */}
-        <col style={{ width: 140 }} />{/* Puesto */}
-        <col style={{ width: 118 }} />{/* Cargo */}
+        <col style={{ width: 150 }} />{/* Servicio */}
+        <col style={{ width: 64 }} />{/* Tipo */}
+        <col style={{ width: 150 }} />{/* Puesto */}
+        <col style={{ width: 116 }} />{/* Cargo */}
         <col style={{ width: 96 }} />{/* Rol */}
         <col style={{ width: 172 }} />{/* Horario */}
-        <col style={{ width: 182 }} />{/* Días */}
+        <col style={{ width: 180 }} />{/* Días */}
         <col style={{ width: 92 }} />{/* Guardias */}
         <col style={{ width: 92 }} />{/* Ptos */}
         <col style={{ width: 108 }} />{/* Bruto */}
@@ -195,7 +194,6 @@ export function PositionMatrixGrid({ adapter }: Props) {
       <thead className="sticky top-0 z-10">
         <tr className="border-b border-border bg-muted text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           <th className="border-r border-border px-2 py-2">Servicio</th>
-          <th className="border-r border-border px-2 py-2">Turno</th>
           <th className="border-r border-border px-2 py-2">Tipo</th>
           <th className="border-r border-border px-2 py-2">Puesto</th>
           <th className="border-r border-border px-2 py-2">Cargo</th>
@@ -242,7 +240,7 @@ export function PositionMatrixGrid({ adapter }: Props) {
       </tbody>
       <tfoot>
         <tr className="border-t-2 border-border bg-muted/40 font-semibold">
-          <td className="border-r border-border px-2 py-2 text-[13px] text-foreground" colSpan={8}>
+          <td className="border-r border-border px-2 py-2 text-[13px] text-foreground" colSpan={7}>
             TOTAL
           </td>
           <td className="border-r border-border px-2 py-2 text-center text-[13px] text-foreground">{totalGuards}</td>
@@ -370,7 +368,7 @@ function GroupBlock({
       ref={ref}
       rowSpan={physicalRowCount}
       className="border-b border-r border-border align-top"
-      style={{ backgroundColor: hexToRgba(color, 0.12), borderLeft: `4px solid ${color}`, opacity: dragging ? 0.5 : undefined }}
+      style={{ borderLeft: `4px solid ${color}`, opacity: dragging ? 0.5 : undefined }}
     >
       <div className="flex h-full flex-col gap-1 px-2 py-1.5">
         <div className="flex items-center gap-1.5">
@@ -411,6 +409,16 @@ function GroupBlock({
 
         {!readOnly && group && !editingName && (
           <div className="flex flex-wrap items-center gap-0.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-primary"
+              onClick={() => adapter.onAddRow(groupKey)}
+              title="Agregar turno"
+            >
+              <Plus className="h-3 w-3" />
+            </Button>
             {adapter.onSetGroupColor && (
               <Popover>
                 <PopoverTrigger asChild>
@@ -471,7 +479,7 @@ function GroupBlock({
       {rows.length === 0 ? (
         <tr className="border-b border-border bg-card">
           {leadingFor(setNodeRef)}
-          <td colSpan={REST_COLS} className="px-2 py-2">
+          <td colSpan={REST_COLS} className="px-2 py-2 text-center">
             {!readOnly ? (
               <Button
                 type="button"
@@ -570,23 +578,10 @@ function GridRow({ row, adapter, readOnly, leadingCell, onRequestDelete }: GridR
   const night = isNightShift(draft.inicio);
   const saving = savingRowId === row.id;
   const disabled = readOnly;
-  const puestoName = catalogs.puestos.find((p) => p.id === draft.puestoId)?.name ?? "Puesto";
 
   return (
     <tr className="border-b border-border/60 hover:bg-muted/20">
       {leadingCell}
-
-      {/* Turno (nombre editable) */}
-      <td className="border-r border-border px-2 py-1">
-        <Input
-          type="text"
-          disabled={disabled}
-          value={draft.customName ?? ""}
-          placeholder={puestoName}
-          onChange={(e) => apply({ customName: e.target.value })}
-          className="h-9 text-[13px]"
-        />
-      </td>
 
       {/* Tipo */}
       <td className="border-r border-border px-2 py-1">
