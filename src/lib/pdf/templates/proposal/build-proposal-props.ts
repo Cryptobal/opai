@@ -10,7 +10,7 @@ import { formatCurrency, formatUFSuffix } from '@/lib/utils';
 import { getUfValue, clpToUf } from '@/lib/uf';
 import { generateProposalAIContent } from './proposal-ai';
 import { buildCpqQuotePdfFileName } from '@/lib/pdf/cpq-quote-pdf-filename';
-import { formatWeekdaysLong } from '@/lib/cpq/weekdays';
+import { formatWeekdaysLong, formatCoverageSchedule } from '@/lib/cpq/weekdays';
 import { resolveAccountLogo } from '@/lib/crm/account-logo';
 import type { ProposalAIContent } from './proposal-ai';
 import type { QuoteBreakdownData, PositionBreakdownItem, ResourceBreakdownCategory, ResourceBreakdownItem } from '@/types/cpq-breakdown';
@@ -273,10 +273,13 @@ export async function buildProposalProps(
     return lines.join(' | ') || serviceType;
   })();
 
-  const firstPos = positions[0];
-  const coverageSchedule = firstPos
-    ? `${firstPos.startTime || '08:00'} - ${firstPos.endTime || '20:00'}, ${formatWeekdaysLong(firstPos.weekdays)}`
-    : 'A definir';
+  const coverageSchedule = formatCoverageSchedule(
+    positions.map((p) => ({
+      startTime: p.startTime,
+      endTime: p.endTime,
+      weekdays: p.weekdays,
+    })),
+  );
 
   const staffingRegime = positions.length > 0
     ? positions.map((p) => `${p.numGuards}x${p.numPuestos || 1}`).join(' + ')
