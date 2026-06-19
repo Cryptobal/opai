@@ -188,19 +188,13 @@ export async function POST(
       positionSalePrices.set(pos.id, bwm + fc + pc);
     }
 
-    // Total sale price
+    // Total sale price — usar baseWithMargin del motor canónico (incluye el
+    // ajuste de feriados y el modo de margen correcto). Recomputar costsBase a
+    // mano omitía el feriado y daba un precio menor que el panel.
     let salePriceMonthly = 0;
     if (summary) {
-      const costsBase =
-        summary.monthlyPositions +
-        (summary.monthlyUniforms ?? 0) +
-        (summary.monthlyExams ?? 0) +
-        (summary.monthlyMeals ?? 0) +
-        (summary.monthlyVehicles ?? 0) +
-        (summary.monthlyInfrastructure ?? 0) +
-        (summary.monthlyCostItems ?? 0);
-      const bwm = margin < 1 ? costsBase / (1 - margin) : costsBase;
-      salePriceMonthly = bwm + (summary.monthlyFinancial ?? 0) + (summary.monthlyPolicy ?? 0);
+      salePriceMonthly =
+        summary.baseWithMargin + (summary.monthlyFinancial ?? 0) + (summary.monthlyPolicy ?? 0);
     }
 
     // 5. Find template

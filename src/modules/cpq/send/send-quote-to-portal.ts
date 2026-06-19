@@ -247,11 +247,13 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
           positionSalePrices.set(pos.id, bwm + bwm * (financialRatePct / 100) + bwm * (policyRatePct / 100) * policyFactor);
         }
 
+        // Usar baseWithMargin del motor canónico (incluye ajuste de feriados y
+        // el modo de margen correcto); recomputar costsBase a mano omitía el
+        // feriado y daba un precio menor que el panel.
         let salePriceMonthly = 0;
         if (costSummary) {
-          const costsBase = costSummary.monthlyPositions + (costSummary.monthlyUniforms ?? 0) + (costSummary.monthlyExams ?? 0) + (costSummary.monthlyMeals ?? 0) + (costSummary.monthlyVehicles ?? 0) + (costSummary.monthlyInfrastructure ?? 0) + (costSummary.monthlyCostItems ?? 0);
-          const bwm = marginPct < 1 ? costsBase / (1 - marginPct) : costsBase;
-          salePriceMonthly = bwm + (costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0);
+          salePriceMonthly =
+            costSummary.baseWithMargin + (costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0);
         }
 
         const ufValue = quote.currency === "UF" ? await getUfValue() : undefined;
