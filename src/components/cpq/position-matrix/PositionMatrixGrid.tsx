@@ -464,7 +464,7 @@ function GroupBlock({
       ref={ref}
       rowSpan={physicalRowCount}
       className="border-b border-r border-border align-top"
-      style={{ borderLeft: `4px solid ${color}`, opacity: dragging ? 0.5 : undefined }}
+      style={{ borderLeft: `4px solid ${color}`, verticalAlign: "top", opacity: dragging ? 0.5 : undefined }}
     >
       <div className="flex h-full flex-col gap-1 px-2 py-1.5">
         <div className="flex items-center gap-1.5">
@@ -729,7 +729,7 @@ function GridRow({ row, adapter, readOnly, leadingCell, color, onRequestDelete }
   const disabled = readOnly;
 
   return (
-    <tr className="border-b border-border/60 hover:bg-muted/20">
+    <tr className="border-b border-border/60 hover:bg-muted/20 [&>td]:align-middle">
       {leadingCell}
 
       {/* Puesto */}
@@ -747,9 +747,9 @@ function GridRow({ row, adapter, readOnly, leadingCell, color, onRequestDelete }
         <CatalogPicker kind="rol" value={draft.rolId} disabled={disabled} onChange={(id) => apply({ rolId: id })} />
       </td>
 
-      {/* Horario (con chip Día/Noche clickeable que invierte el turno) */}
-      <td className="border-r border-border px-2 py-1">
-        <div className="flex flex-col gap-1">
+      {/* Horario (chip Día/Noche + horas; en una fila al autoajustar, wrap si se angosta) */}
+      <td className="border-r border-border px-2 py-1 align-middle">
+        <div className="flex flex-wrap items-center gap-1.5">
           {!disabled ? (
             <button
               type="button"
@@ -816,12 +816,12 @@ function GridRow({ row, adapter, readOnly, leadingCell, color, onRequestDelete }
       </td>
 
       {/* Guardias */}
-      <td className="border-r border-border px-2 py-1">
+      <td className="border-r border-border px-2 py-1 text-center">
         <Stepper value={draft.guardias} min={1} max={20} disabled={disabled} onChange={(v) => apply({ guardias: v })} />
       </td>
 
       {/* Ptos */}
-      <td className="border-r border-border px-2 py-1">
+      <td className="border-r border-border px-2 py-1 text-center">
         <Stepper value={draft.nPuestos} min={1} max={50} disabled={disabled} onChange={(v) => apply({ nPuestos: v })} />
       </td>
 
@@ -882,7 +882,7 @@ function Stepper({
 }) {
   const clamp = (v: number) => Math.max(min, Math.min(max, v));
   return (
-    <div className="mx-auto flex w-fit items-center rounded-md border border-border bg-card">
+    <div className="inline-flex items-center rounded-md border border-border bg-card">
       <button
         type="button"
         disabled={disabled || value <= min}
