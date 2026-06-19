@@ -753,29 +753,30 @@ function GridRow({ row, adapter, readOnly, leadingCell, color, onRequestDelete }
           {!disabled ? (
             <button
               type="button"
-              title="Invertir turno (día ↔ noche)"
+              title={night ? "Noche — clic para cambiar a día" : "Día — clic para cambiar a noche"}
+              aria-label={night ? "Turno noche" : "Turno día"}
               onClick={() => apply({ inicio: ref.current.fin, fin: ref.current.inicio })}
               className={cn(
-                "inline-flex h-6 w-fit items-center gap-1 rounded-md border px-1.5 text-[11px] font-semibold transition-colors",
+                "inline-flex h-6 w-6 items-center justify-center rounded-md border transition-colors",
                 night
                   ? "border-tint-violet-fg/30 bg-tint-violet text-tint-violet-fg hover:brightness-95"
                   : "border-status-warn-border bg-status-warn-soft text-status-warn-fg hover:brightness-95"
               )}
             >
-              {night ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
-              {night ? "Noche" : "Día"}
+              {night ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
             </button>
           ) : (
             <span
+              title={night ? "Noche" : "Día"}
+              aria-label={night ? "Turno noche" : "Turno día"}
               className={cn(
-                "inline-flex h-6 w-fit items-center gap-1 rounded-md border px-1.5 text-[11px] font-semibold",
+                "inline-flex h-6 w-6 items-center justify-center rounded-md border",
                 night
                   ? "border-tint-violet-fg/30 bg-tint-violet text-tint-violet-fg"
                   : "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
               )}
             >
-              {night ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
-              {night ? "Noche" : "Día"}
+              {night ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
             </span>
           )}
           <div className="flex flex-wrap items-center gap-1">
@@ -881,7 +882,7 @@ function Stepper({
 }) {
   const clamp = (v: number) => Math.max(min, Math.min(max, v));
   return (
-    <div className="mx-auto inline-flex items-center rounded-md border border-border bg-card">
+    <div className="mx-auto flex w-fit items-center rounded-md border border-border bg-card">
       <button
         type="button"
         disabled={disabled || value <= min}

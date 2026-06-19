@@ -10,8 +10,8 @@ export type GridColKey =
 // independiente (modelo Google Sheets); el doble clic en el separador devuelve
 // la columna a su ancho por defecto (autoajuste).
 const DEFAULTS: Record<GridColKey, number> = {
-  servicio: 200, puesto: 148, cargo: 112, rol: 90, horario: 148,
-  dias: 192, guardias: 84, ptos: 80, costo: 128, acciones: 56,
+  servicio: 200, puesto: 148, cargo: 112, rol: 90, horario: 164,
+  dias: 200, guardias: 88, ptos: 84, costo: 128, acciones: 56,
 };
 
 const MIN: Record<GridColKey, number> = {
@@ -19,9 +19,9 @@ const MIN: Record<GridColKey, number> = {
   dias: 60, guardias: 72, ptos: 70, costo: 110, acciones: 48,
 };
 
-// v4: reset de anchos guardados al volver al modelo "ancho = suma de columnas"
-// (todas redimensionables, scroll horizontal cuando se sale de pantalla).
-const STORAGE_KEY = "cpq-grid-col-widths-v4";
+// v5: anchos por defecto recalibrados (horario/días en una sola fila al
+// autoajustar, steppers centrados).
+const STORAGE_KEY = "cpq-grid-col-widths-v5";
 
 export function useGridColWidths() {
   const [widths, setWidths] = useState<Record<GridColKey, number>>(DEFAULTS);
