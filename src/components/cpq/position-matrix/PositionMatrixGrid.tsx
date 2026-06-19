@@ -98,7 +98,7 @@ export function PositionMatrixGrid({ adapter }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const { widths: colW, reset: resetColWidths, onResizeStart } = useGridColWidths();
+  const { widths: colW, reset: resetColWidths, onResizeStart, autoFitCol } = useGridColWidths();
 
   useEffect(() => {
     try {
@@ -204,15 +204,17 @@ export function PositionMatrixGrid({ adapter }: Props) {
 
   const activeGroup = activeId ? groupByKey.get(activeId) : null;
 
-  // La tabla ocupa el 100% del ancho disponible (table-fixed). La columna
-  // "Servicio" no tiene ancho fijo: es la columna flexible que absorbe el
-  // espacio sobrante. Así, al redimensionar cualquier otra columna, "Servicio"
-  // crece/encoge para compensar y la columna de acciones queda SIEMPRE pegada
-  // al borde derecho (no se corre ni desaparece).
+  // Modelo tipo Google Sheets: cada columna tiene su ancho propio y es
+  // redimensionable de forma independiente (incluida "Servicio"). El ancho de
+  // la tabla = suma de columnas; al ensanchar una columna, las demás mantienen
+  // su ancho y la tabla crece (aparece scroll horizontal si se sale de pantalla).
+  // Doble clic en el separador autoajusta esa columna a su ancho por defecto.
+  const totalWidth = Object.values(colW).reduce((s, w) => s + w, 0);
+
   const body = (
-    <table className="w-full table-fixed border-collapse text-left">
+    <table className="table-fixed border-collapse text-left" style={{ width: totalWidth }}>
       <colgroup>
-        <col data-colkey="servicio" />{/* Servicio (flexible, absorbe el ancho) */}
+        <col data-colkey="servicio" style={{ width: colW.servicio }} />{/* Servicio */}
         <col data-colkey="puesto"   style={{ width: colW.puesto }} />{/* Puesto */}
         <col data-colkey="cargo"    style={{ width: colW.cargo }} />{/* Cargo */}
         <col data-colkey="rol"      style={{ width: colW.rol }} />{/* Rol */}
@@ -225,40 +227,41 @@ export function PositionMatrixGrid({ adapter }: Props) {
       </colgroup>
       <thead className="sticky top-0 z-10">
         <tr className="border-b border-border bg-muted text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          <th className="border-r border-border px-2 py-2">
+          <th className="relative border-r border-border px-2 py-2">
             Servicio
+            <ResizeGrip colKey="servicio" onResizeStart={onResizeStart} onAutoFit={autoFitCol} />
           </th>
           <th className="relative border-r border-border px-2 py-2">
             Puesto
-            <ResizeGrip colKey="puesto" onResizeStart={onResizeStart} />
+            <ResizeGrip colKey="puesto" onResizeStart={onResizeStart} onAutoFit={autoFitCol} />
           </th>
           <th className="relative border-r border-border px-2 py-2">
             Cargo
-            <ResizeGrip colKey="cargo" onResizeStart={onResizeStart} />
+            <ResizeGrip colKey="cargo" onResizeStart={onResizeStart} onAutoFit={autoFitCol} />
           </th>
           <th className="relative border-r border-border px-2 py-2">
             Rol
-            <ResizeGrip colKey="rol" onResizeStart={onResizeStart} />
+            <ResizeGrip colKey="rol" onResizeStart={onResizeStart} onAutoFit={autoFitCol} />
           </th>
           <th className="relative border-r border-border px-2 py-2">
             Horario
-            <ResizeGrip colKey="horario" onResizeStart={onResizeStart} />
+            <ResizeGrip colKey="horario" onResizeStart={onResizeStart} onAutoFit={autoFitCol} />
           </th>
           <th className="relative border-r border-border px-2 py-2">
             Días
-            <ResizeGrip colKey="dias" onResizeStart={onResizeStart} />
+            <ResizeGrip colKey="dias" onResizeStart={onResizeStart} onAutoFit={autoFitCol} />
           </th>
           <th className="relative border-r border-border px-2 py-2 text-center">
             Guard.
-            <ResizeGrip colKey="guardias" onResizeStart={onResizeStart} />
+            <ResizeGrip colKey="guardias" onResizeStart={onResizeStart} onAutoFit={autoFitCol} />
           </th>
           <th className="relative border-r border-border px-2 py-2 text-center">
             Ptos
-            <ResizeGrip colKey="ptos" onResizeStart={onResizeStart} />
+            <ResizeGrip colKey="ptos" onResizeStart={onResizeStart} onAutoFit={autoFitCol} />
           </th>
           <th className="relative border-r border-border px-2 py-2 text-right">
             Bruto · Líquido
-            <ResizeGrip colKey="costo" onResizeStart={onResizeStart} />
+            <ResizeGrip colKey="costo" onResizeStart={onResizeStart} onAutoFit={autoFitCol} />
           </th>
           <th className="px-1 py-2" />
         </tr>
@@ -384,14 +387,24 @@ export function PositionMatrixGrid({ adapter }: Props) {
 
 /* ─────────────────────────  Resize grip (cabecera redimensionable) ───────────────────────── */
 
-function ResizeGrip({ colKey, onResizeStart }: { colKey: GridColKey; onResizeStart: (k: GridColKey, e: React.MouseEvent) => void }) {
+function ResizeGrip({
+  colKey,
+  onResizeStart,
+  onAutoFit,
+}: {
+  colKey: GridColKey;
+  onResizeStart: (k: GridColKey, e: React.MouseEvent) => void;
+  onAutoFit: (k: GridColKey) => void;
+}) {
   return (
     <span
       role="separator"
       aria-orientation="vertical"
-      aria-label="Ajustar ancho de columna"
+      aria-label="Ajustar ancho de columna (doble clic para autoajustar)"
+      title="Arrastra para redimensionar · doble clic para autoajustar"
       onMouseDown={(e) => onResizeStart(colKey, e)}
-      className="absolute right-0 top-0 z-20 h-full w-[6px] -translate-x-[3px] cursor-col-resize select-none hover:bg-primary/30"
+      onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); onAutoFit(colKey); }}
+      className="absolute right-0 top-0 z-20 h-full w-[7px] translate-x-[3px] cursor-col-resize select-none hover:bg-primary/40"
     />
   );
 }
