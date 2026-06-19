@@ -197,10 +197,11 @@ export function CatalogPicker({ kind, value, onChange, disabled, triggerClassNam
               type="button"
               variant="ghost"
               size="sm"
-              className="h-8 w-full justify-start gap-1.5 text-xs"
+              className="h-8 w-full min-w-0 justify-start gap-1.5 text-xs text-status-info-fg"
               onClick={() => { setOpen(false); router.push("/opai/configuracion/cpq?tab=roles"); }}
             >
-              <Settings2 className="h-3.5 w-3.5" /> Crear / editar roles y turnos
+              <Settings2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Crear / editar roles y turnos</span>
             </Button>
           ) : creating ? (
             <div className="flex items-center gap-1 px-1">
@@ -228,10 +229,11 @@ export function CatalogPicker({ kind, value, onChange, disabled, triggerClassNam
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-8 w-full justify-start gap-1.5 text-xs text-status-info-fg"
+                className="h-8 w-full min-w-0 justify-start gap-1.5 text-xs text-status-info-fg"
                 onClick={() => setCreating(true)}
               >
-                <Plus className="h-3.5 w-3.5" /> Crear nuevo {LABEL[kind].toLowerCase()}
+                <Plus className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">Crear nuevo {LABEL[kind].toLowerCase()}</span>
               </Button>
             )
           )}

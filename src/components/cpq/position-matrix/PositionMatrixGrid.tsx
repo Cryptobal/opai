@@ -204,8 +204,15 @@ export function PositionMatrixGrid({ adapter }: Props) {
 
   const activeGroup = activeId ? groupByKey.get(activeId) : null;
 
+  // Con table-layout:fixed el ancho de cada columna manda (se puede encoger,
+  // no solo agrandar). El ancho total de la tabla = suma de columnas.
+  const totalWidth = Object.values(colW).reduce((s, w) => s + w, 0);
+
   const body = (
-    <table className="w-full min-w-[1040px] border-collapse text-left">
+    <table
+      className="table-fixed border-collapse text-left"
+      style={{ width: totalWidth }}
+    >
       <colgroup>
         <col data-colkey="servicio" style={{ width: colW.servicio }} />{/* Servicio */}
         <col data-colkey="puesto"   style={{ width: colW.puesto }} />{/* Puesto */}
@@ -759,12 +766,12 @@ function GridRow({ row, adapter, readOnly, leadingCell, onRequestDelete }: GridR
               {night ? "Noche" : "Día"}
             </span>
           )}
-          <div className="flex items-center gap-1">
-            <select className={cn(FIELD, "w-[64px] font-mono")} value={draft.inicio} disabled={disabled} onChange={(e) => apply({ inicio: e.target.value })}>
+          <div className="flex flex-wrap items-center gap-1">
+            <select className={cn(FIELD, "w-[60px] font-mono")} value={draft.inicio} disabled={disabled} onChange={(e) => apply({ inicio: e.target.value })}>
               {HOURS_24.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
             <span className="text-muted-foreground">–</span>
-            <select className={cn(FIELD, "w-[64px] font-mono")} value={draft.fin} disabled={disabled} onChange={(e) => apply({ fin: e.target.value })}>
+            <select className={cn(FIELD, "w-[60px] font-mono")} value={draft.fin} disabled={disabled} onChange={(e) => apply({ fin: e.target.value })}>
               {HOURS_24.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
@@ -773,7 +780,7 @@ function GridRow({ row, adapter, readOnly, leadingCell, onRequestDelete }: GridR
 
       {/* Días */}
       <td className="border-r border-border px-2 py-1">
-        <div className="flex gap-0.5">
+        <div className="flex flex-wrap gap-0.5">
           {WEEKDAY_ORDER.map((d) => {
             const on = draft.dias.includes(d);
             return (

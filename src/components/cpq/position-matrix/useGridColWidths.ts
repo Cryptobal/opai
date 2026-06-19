@@ -7,16 +7,18 @@ export type GridColKey =
   | "dias" | "guardias" | "ptos" | "costo" | "acciones";
 
 const DEFAULTS: Record<GridColKey, number> = {
-  servicio: 230, puesto: 150, cargo: 116, rol: 96, horario: 150,
-  dias: 96, guardias: 84, ptos: 80, costo: 128, acciones: 56,
+  servicio: 220, puesto: 148, cargo: 112, rol: 90, horario: 148,
+  dias: 184, guardias: 84, ptos: 80, costo: 128, acciones: 56,
 };
 
 const MIN: Record<GridColKey, number> = {
-  servicio: 160, puesto: 110, cargo: 90, rol: 80, horario: 120,
-  dias: 92, guardias: 72, ptos: 70, costo: 110, acciones: 48,
+  servicio: 150, puesto: 96, cargo: 84, rol: 70, horario: 130,
+  dias: 60, guardias: 72, ptos: 70, costo: 110, acciones: 48,
 };
 
-const STORAGE_KEY = "cpq-grid-col-widths";
+// v2: reset de anchos guardados al pasar a table-layout:fixed (los defaults
+// viejos dejaban columnas como "Días" demasiado angostas con el layout nuevo).
+const STORAGE_KEY = "cpq-grid-col-widths-v2";
 
 export function useGridColWidths() {
   const [widths, setWidths] = useState<Record<GridColKey, number>>(DEFAULTS);
@@ -74,7 +76,21 @@ export function useGridColWidths() {
         const col = document.querySelector<HTMLTableColElement>(
           `col[data-colkey="${d.key}"]`
         );
-        if (col) col.style.width = `${px}px`;
+        if (!col) return;
+        col.style.width = `${px}px`;
+        // Con table-layout:fixed el ancho de la tabla = suma de columnas. Lo
+        // recalculamos en vivo para que encoger una columna realmente la encoja
+        // (estilo Excel) en lugar de redistribuir el espacio sobrante.
+        const table = col.closest("table");
+        if (table) {
+          let total = 0;
+          table
+            .querySelectorAll<HTMLTableColElement>("col[data-colkey]")
+            .forEach((c) => {
+              total += parseFloat(c.style.width) || 0;
+            });
+          if (total > 0) table.style.width = `${total}px`;
+        }
       };
       const up = (ev: MouseEvent) => {
         const d = dragRef.current;
