@@ -6,9 +6,11 @@ export type GridColKey =
   | "servicio" | "puesto" | "cargo" | "rol" | "horario"
   | "dias" | "guardias" | "ptos" | "costo" | "acciones";
 
+// "servicio" es la columna flexible (no se renderiza su ancho fijo); su valor
+// aquí solo es referencial. El resto son anchos fijos redimensionables.
 const DEFAULTS: Record<GridColKey, number> = {
-  servicio: 220, puesto: 148, cargo: 112, rol: 90, horario: 148,
-  dias: 184, guardias: 84, ptos: 80, costo: 128, acciones: 56,
+  servicio: 200, puesto: 148, cargo: 112, rol: 90, horario: 148,
+  dias: 192, guardias: 84, ptos: 80, costo: 128, acciones: 56,
 };
 
 const MIN: Record<GridColKey, number> = {
@@ -16,9 +18,9 @@ const MIN: Record<GridColKey, number> = {
   dias: 60, guardias: 72, ptos: 70, costo: 110, acciones: 48,
 };
 
-// v2: reset de anchos guardados al pasar a table-layout:fixed (los defaults
-// viejos dejaban columnas como "Días" demasiado angostas con el layout nuevo).
-const STORAGE_KEY = "cpq-grid-col-widths-v2";
+// v3: reset de anchos guardados al pasar a tabla w-full con "Servicio" como
+// columna flexible (la de acciones queda pegada a la derecha).
+const STORAGE_KEY = "cpq-grid-col-widths-v3";
 
 export function useGridColWidths() {
   const [widths, setWidths] = useState<Record<GridColKey, number>>(DEFAULTS);
@@ -77,20 +79,10 @@ export function useGridColWidths() {
           `col[data-colkey="${d.key}"]`
         );
         if (!col) return;
+        // La tabla es w-full + table-fixed con "Servicio" como columna flexible
+        // (sin ancho). Al fijar el ancho de esta columna, "Servicio" absorbe la
+        // diferencia y la columna de acciones se mantiene pegada a la derecha.
         col.style.width = `${px}px`;
-        // Con table-layout:fixed el ancho de la tabla = suma de columnas. Lo
-        // recalculamos en vivo para que encoger una columna realmente la encoja
-        // (estilo Excel) en lugar de redistribuir el espacio sobrante.
-        const table = col.closest("table");
-        if (table) {
-          let total = 0;
-          table
-            .querySelectorAll<HTMLTableColElement>("col[data-colkey]")
-            .forEach((c) => {
-              total += parseFloat(c.style.width) || 0;
-            });
-          if (total > 0) table.style.width = `${total}px`;
-        }
       };
       const up = (ev: MouseEvent) => {
         const d = dragRef.current;

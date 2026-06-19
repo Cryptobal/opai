@@ -204,17 +204,15 @@ export function PositionMatrixGrid({ adapter }: Props) {
 
   const activeGroup = activeId ? groupByKey.get(activeId) : null;
 
-  // Con table-layout:fixed el ancho de cada columna manda (se puede encoger,
-  // no solo agrandar). El ancho total de la tabla = suma de columnas.
-  const totalWidth = Object.values(colW).reduce((s, w) => s + w, 0);
-
+  // La tabla ocupa el 100% del ancho disponible (table-fixed). La columna
+  // "Servicio" no tiene ancho fijo: es la columna flexible que absorbe el
+  // espacio sobrante. Así, al redimensionar cualquier otra columna, "Servicio"
+  // crece/encoge para compensar y la columna de acciones queda SIEMPRE pegada
+  // al borde derecho (no se corre ni desaparece).
   const body = (
-    <table
-      className="table-fixed border-collapse text-left"
-      style={{ width: totalWidth }}
-    >
+    <table className="w-full table-fixed border-collapse text-left">
       <colgroup>
-        <col data-colkey="servicio" style={{ width: colW.servicio }} />{/* Servicio */}
+        <col data-colkey="servicio" />{/* Servicio (flexible, absorbe el ancho) */}
         <col data-colkey="puesto"   style={{ width: colW.puesto }} />{/* Puesto */}
         <col data-colkey="cargo"    style={{ width: colW.cargo }} />{/* Cargo */}
         <col data-colkey="rol"      style={{ width: colW.rol }} />{/* Rol */}
@@ -227,9 +225,8 @@ export function PositionMatrixGrid({ adapter }: Props) {
       </colgroup>
       <thead className="sticky top-0 z-10">
         <tr className="border-b border-border bg-muted text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          <th className="relative border-r border-border px-2 py-2">
+          <th className="border-r border-border px-2 py-2">
             Servicio
-            <ResizeGrip colKey="servicio" onResizeStart={onResizeStart} />
           </th>
           <th className="relative border-r border-border px-2 py-2">
             Puesto

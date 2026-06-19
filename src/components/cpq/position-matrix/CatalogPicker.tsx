@@ -191,53 +191,55 @@ export function CatalogPicker({ kind, value, onChange, disabled, triggerClassNam
           ))}
         </div>
 
-        <div className="-mx-1 -mb-1 mt-1.5 rounded-b-md border-t border-border bg-muted/40 px-1.5 pb-1.5 pt-1.5">
-          {kind === "rol" ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 w-full min-w-0 justify-start gap-1.5 text-xs text-status-info-fg"
-              onClick={() => { setOpen(false); router.push("/opai/configuracion/cpq?tab=roles"); }}
-            >
-              <Settings2 className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">Crear / editar roles y turnos</span>
-            </Button>
-          ) : creating ? (
-            <div className="flex items-center gap-1 px-1">
-              <Input
-                autoFocus
-                value={newName}
-                placeholder={`Nuevo ${LABEL[kind].toLowerCase()}…`}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") create();
-                  if (e.key === "Escape") { setCreating(false); setNewName(""); }
-                }}
-                className="h-8 text-[13px]"
-              />
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" disabled={busy || !newName.trim()} onClick={create}>
-                <Check className="h-3.5 w-3.5" />
-              </Button>
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => { setCreating(false); setNewName(""); }}>
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          ) : (
-            !disabled && (
+        {(kind === "rol" || !disabled) && (
+          <div className="-mx-1 -mb-1 mt-1 flex items-center rounded-b-md border-t border-border bg-muted/40 px-1.5 py-1">
+            {kind === "rol" ? (
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
-                className="h-8 w-full min-w-0 justify-start gap-1.5 text-xs text-status-info-fg"
+                size="icon"
+                className="h-7 w-7 text-status-info-fg"
+                title="Crear / editar roles y turnos"
+                aria-label="Crear / editar roles y turnos"
+                onClick={() => { setOpen(false); router.push("/opai/configuracion/cpq?tab=roles"); }}
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+              </Button>
+            ) : creating ? (
+              <div className="flex w-full items-center gap-1">
+                <Input
+                  autoFocus
+                  value={newName}
+                  placeholder={`Nuevo ${LABEL[kind].toLowerCase()}…`}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") create();
+                    if (e.key === "Escape") { setCreating(false); setNewName(""); }
+                  }}
+                  className="h-8 flex-1 text-[13px]"
+                />
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" disabled={busy || !newName.trim()} onClick={create}>
+                  <Check className="h-3.5 w-3.5" />
+                </Button>
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => { setCreating(false); setNewName(""); }}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-status-info-fg"
+                title={`Crear nuevo ${LABEL[kind].toLowerCase()}`}
+                aria-label={`Crear nuevo ${LABEL[kind].toLowerCase()}`}
                 onClick={() => setCreating(true)}
               >
-                <Plus className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">Crear nuevo {LABEL[kind].toLowerCase()}</span>
+                <Plus className="h-3.5 w-3.5" />
               </Button>
-            )
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
