@@ -6,9 +6,6 @@
 
 import { prisma } from "@/lib/prisma";
 import { aiService } from "@/lib/ai-service";
-import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
-import { formatCurrency } from "@/lib/utils";
-import { clpToUf, getUfValue } from "@/lib/uf";
 
 export async function generateQuoteDescription(
   quoteId: string,
@@ -41,34 +38,6 @@ export async function generateQuoteDescription(
     }
   }
 
-  // Get costs and compute sale price
-  let salePriceMonthly = 0;
-  try {
-    const costs = await computeCpqQuoteCosts(quoteId);
-    const marginPct = Number(quote.parameters?.marginPct ?? 13);
-    const margin = marginPct / 100;
-    const costsBase =
-      costs.monthlyPositions +
-      (costs.monthlyUniforms ?? 0) +
-      (costs.monthlyExams ?? 0) +
-      (costs.monthlyMeals ?? 0) +
-      (costs.monthlyVehicles ?? 0) +
-      (costs.monthlyInfrastructure ?? 0) +
-      (costs.monthlyCostItems ?? 0);
-    const bwm = margin < 1 ? costsBase / (1 - margin) : costsBase;
-    salePriceMonthly = bwm + (costs.monthlyFinancial ?? 0) + (costs.monthlyPolicy ?? 0);
-  } catch {
-    salePriceMonthly = Number(quote.monthlyCost) || 0;
-  }
-  if (!salePriceMonthly || salePriceMonthly <= 0) {
-    salePriceMonthly = Number(quote.monthlyCost) || 0;
-  }
-
-  const quoteCurrency = (quote.currency || "CLP").toUpperCase();
-  const displaySalePrice =
-    quoteCurrency === "UF"
-      ? formatCurrency(clpToUf(salePriceMonthly, await getUfValue()), "UF", { ufSuffix: true })
-      : formatCurrency(salePriceMonthly, quoteCurrency);
   const companySource =
     accountWebsite.trim().length > 0
       ? "Cuenta con datos web"
@@ -116,7 +85,6 @@ PASO 2: Crear texto personalizado
 ${positionsSummary}
 - Total puestos: ${totalPuestos}
 - Total guardias efectivos: ${totalGuardiasEfectivos}
-- Precio mensual ofertado: ${displaySalePrice}
 
 El texto debe:
 1. Conectar el servicio con la realidad específica del cliente
@@ -130,6 +98,7 @@ Requisitos CRÍTICOS:
 - Prioriza: Cliente + Servicio concreto + Valor diferencial
 - Tono: ejecutivo, directo, memorable
 - NO inventes características que no están en los datos
+- PROHIBIDO mencionar montos, precios, tarifas, inversión mensual o cualquier cifra monetaria (ni en UF ni en $). El precio se presenta aparte en la propuesta; el texto solo describe el servicio y su valor.
 - Si no hay sitio web ni datos de empresa, NO inventes historia corporativa; enfócate en instalación, dotación y necesidad operativa
 - OBLIGATORIO: Al describir la dotación de guardias, menciona explícitamente los DÍAS de cobertura (ej: "entre semana", "fines de semana", "todos los días 24x7", "viernes a domingo") usando lenguaje claro para el cliente, según los días indicados en cada puesto
 

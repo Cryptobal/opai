@@ -825,7 +825,7 @@ function GridRow({ row, adapter, readOnly, leadingCell, color, onRequestDelete }
         <Stepper value={draft.nPuestos} min={1} max={50} disabled={disabled} onChange={(v) => apply({ nPuestos: v })} />
       </td>
 
-      {/* Bruto · Líquido · Mano de obra (apilados) */}
+      {/* Bruto (editable) + Líquido y Mano de obra en la moneda de la cotización */}
       <td className="border-r border-border px-2 py-1 text-right">
         <div className="flex flex-col items-end gap-0.5">
           <Input
@@ -836,11 +836,12 @@ function GridRow({ row, adapter, readOnly, leadingCell, color, onRequestDelete }
             onChange={(e) => apply({ bruto: parseLocalizedNumber(e.target.value) || 0 })}
             className="h-8 w-full text-right font-mono text-[13px]"
           />
-          <span className="font-mono text-[11px] text-muted-foreground">
-            {row.liquido != null && row.liquido > 0 ? `líq ${Math.round(row.liquido).toLocaleString("es-CL")}` : "líq —"}
-          </span>
-          <div className="mt-0.5">
-            <CpqDualCurrencyAmount clp={row.costo ?? 0} currency={currency} ufValue={ufValue} size="sm" primaryClassName="font-semibold text-foreground" align="right" />
+          {/* Líquido + mano de obra en una sola línea (se envuelve si la columna se angosta) */}
+          <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-0">
+            <span className="whitespace-nowrap font-mono text-[11px] text-muted-foreground">
+              {row.liquido != null && row.liquido > 0 ? `líq ${Math.round(row.liquido).toLocaleString("es-CL")}` : "líq —"}
+            </span>
+            <CpqDualCurrencyAmount clp={row.costo ?? 0} currency={currency} ufValue={ufValue} size="sm" hideSecondary primaryClassName="font-semibold text-foreground" align="right" />
           </div>
         </div>
       </td>

@@ -30,6 +30,8 @@ export interface CpqDualCurrencyAmountProps {
   align?: "left" | "right" | "center";
   /** Primaria y secundaria en una sola línea (p. ej. meta de puesto) */
   inline?: boolean;
+  /** Oculta la moneda secundaria (muestra solo la moneda de visualización). */
+  hideSecondary?: boolean;
 }
 
 const SIZE_PRIMARY: Record<NonNullable<CpqDualCurrencyAmountProps["size"]>, string> = {
@@ -58,6 +60,7 @@ export function CpqDualCurrencyAmount({
   suffix = "",
   align = "right",
   inline = false,
+  hideSecondary = false,
 }: CpqDualCurrencyAmountProps) {
   const alignCls =
     align === "right"
@@ -102,7 +105,7 @@ export function CpqDualCurrencyAmount({
       >
         {primaryText}
       </span>
-      {secondaryText != null && <span className={defaultSecondary}>{secondaryText}</span>}
+      {secondaryText != null && !hideSecondary && <span className={defaultSecondary}>{secondaryText}</span>}
     </div>
   );
 }
