@@ -263,7 +263,7 @@ export function PositionMatrixGrid({ adapter }: Props) {
             Bruto · Líquido
             <ResizeGrip colKey="costo" onResizeStart={onResizeStart} onAutoFit={autoFitCol} />
           </th>
-          <th className="px-1 py-2" />
+          <th className="border-r border-border px-1 py-2" />
         </tr>
       </thead>
       <tbody>
@@ -317,7 +317,7 @@ export function PositionMatrixGrid({ adapter }: Props) {
               align="right"
             />
           </td>
-          <td className="px-1 py-2" />
+          <td className="border-r border-border px-1 py-2" />
         </tr>
       </tfoot>
     </table>
@@ -586,7 +586,7 @@ function GroupBlock({
     return (
       <tr
         className="border-b border-border hover:bg-muted/20"
-        style={{ borderLeft: `4px solid ${color}`, opacity: dragging ? 0.5 : undefined }}
+        style={{ borderLeft: `4px solid ${color}`, borderRight: `4px solid ${color}`, opacity: dragging ? 0.5 : undefined }}
       >
         <td ref={setNodeRef} colSpan={TOTAL_COLS} className="px-2 py-1.5">
           <div className="flex items-center gap-1.5">
@@ -626,7 +626,7 @@ function GroupBlock({
       {rows.length === 0 ? (
         <tr className="border-b border-border bg-card">
           {leadingFor(setNodeRef)}
-          <td colSpan={REST_COLS} className="px-2 py-2 text-center">
+          <td colSpan={REST_COLS} className="px-2 py-2 text-center" style={{ borderRight: `4px solid ${color}` }}>
             {!readOnly ? (
               <Button
                 type="button"
@@ -649,6 +649,7 @@ function GroupBlock({
             row={row}
             adapter={adapter}
             readOnly={readOnly}
+            color={color}
             leadingCell={leadingFor(idx === 0 ? setNodeRef : undefined)}
             onRequestDelete={() => onRequestDeleteRow(row.id)}
           />
@@ -665,6 +666,7 @@ interface GridRowProps {
   adapter: PositionMatrixAdapter;
   readOnly?: boolean;
   leadingCell?: ReactNode;
+  color: string;
   onRequestDelete: () => void;
 }
 
@@ -688,7 +690,7 @@ function rowDraftOf(row: NormalizedShift): RowDraft {
   };
 }
 
-function GridRow({ row, adapter, readOnly, leadingCell, onRequestDelete }: GridRowProps) {
+function GridRow({ row, adapter, readOnly, leadingCell, color, onRequestDelete }: GridRowProps) {
   const { catalogs, currency, ufValue, savingRowId } = adapter;
   const [draft, setDraft] = useState<RowDraft>(() => rowDraftOf(row));
   const ref = useRef(draft);
@@ -842,8 +844,8 @@ function GridRow({ row, adapter, readOnly, leadingCell, onRequestDelete }: GridR
         </div>
       </td>
 
-      {/* Acciones */}
-      <td className="px-1 py-1">
+      {/* Acciones (borde derecho con el color del servicio para cerrar la fila) */}
+      <td className="px-1 py-1" style={{ borderRight: `4px solid ${color}` }}>
         <div className="flex items-center justify-end gap-0.5">
           {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
           {!readOnly && (
