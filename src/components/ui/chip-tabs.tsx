@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +13,8 @@ export interface ChipTab {
   badge?: string | number;
   /** "alert" = red badge (e.g. unseen leads), disappears when tab is active */
   badgeVariant?: "default" | "alert";
+  /** Si está definido, el chip navega en lugar de cambiar de tab */
+  href?: string;
 }
 
 export interface ChipTabsProps {
@@ -112,23 +115,17 @@ export function ChipTabs({
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;
 
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              data-tab={tab.id}
-              aria-selected={isActive}
-              onClick={() => onTabChange(tab.id)}
-              className={cn(
-                "chip-tab inline-flex shrink-0 items-center gap-1.5 rounded-[20px] px-4 py-2 text-[13px] font-medium whitespace-nowrap",
-                "transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)]",
-                "scroll-snap-align-center",
-                isActive
-                  ? "bg-[#2DD4A0] text-[#0F1419] font-semibold shadow-[0_2px_8px_rgba(45,212,160,0.25)]"
-                  : "bg-white/[0.06] text-[#8899A6] font-medium active:bg-white/[0.1]"
-              )}
-            >
+          const chipClassName = cn(
+            "chip-tab inline-flex shrink-0 items-center gap-1.5 rounded-[20px] px-4 py-2 text-[13px] font-medium whitespace-nowrap",
+            "transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)]",
+            "scroll-snap-align-center",
+            isActive
+              ? "bg-[#2DD4A0] text-[#0F1419] font-semibold shadow-[0_2px_8px_rgba(45,212,160,0.25)]"
+              : "bg-white/[0.06] text-[#8899A6] font-medium active:bg-white/[0.1]"
+          );
+
+          const chipContent = (
+            <>
               {Icon && (
                 <Icon
                   className={cn(
@@ -156,6 +153,33 @@ export function ChipTabs({
                     : tab.badge}
                 </span>
               )}
+            </>
+          );
+
+          if (tab.href) {
+            return (
+              <Link
+                key={tab.id}
+                href={tab.href}
+                data-tab={tab.id}
+                className={chipClassName}
+              >
+                {chipContent}
+              </Link>
+            );
+          }
+
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              data-tab={tab.id}
+              aria-selected={isActive}
+              onClick={() => onTabChange(tab.id)}
+              className={chipClassName}
+            >
+              {chipContent}
             </button>
           );
         })}

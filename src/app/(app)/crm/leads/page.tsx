@@ -10,10 +10,17 @@ import { PageHero } from "@/components/opai-ds";
 import { Inbox } from "lucide-react";
 import { CrmLeadsClient } from "@/components/crm";
 
-type LeadStatusFilter = "all" | "pending" | "approved" | "rejected";
+type LeadStatusFilter = "all" | "pending" | "in_review" | "approved" | "rejected";
 
 function normalizeLeadStatusFilter(value?: string): LeadStatusFilter {
-  if (value === "pending" || value === "approved" || value === "rejected") return value;
+  if (
+    value === "pending" ||
+    value === "in_review" ||
+    value === "approved" ||
+    value === "rejected"
+  ) {
+    return value;
+  }
   return "pending";
 }
 

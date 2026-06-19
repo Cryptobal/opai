@@ -261,9 +261,9 @@ export async function getClosingHubData(
     prisma.cpqQuote.count({
       where: { tenantId, status: 'draft' },
     }),
-    // Leads borrador (pending + in_review, not yet approved)
+    // Leads borrador (in_review — abiertos en el fondo, sin enviar/aprobar)
     prisma.crmLead.count({
-      where: { tenantId, status: { in: ['pending', 'in_review'] } },
+      where: { tenantId, status: 'in_review' },
     }),
   ]);
 

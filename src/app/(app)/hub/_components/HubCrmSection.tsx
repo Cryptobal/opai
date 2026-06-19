@@ -28,6 +28,7 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
   const [activeTab, setActiveTab] = useState('hot');
   const [leadsLastSeenCount, setLeadsLastSeenCount] = useState(0);
   const { kpis, hotDeals, staleDeals, closedDeals, pendingLeads, portalTopUsers } = closingData;
+  const { leadsDraftCount } = kpis;
 
   useEffect(() => {
     setLeadsLastSeenCount(getStoredLastSeen());
@@ -62,6 +63,12 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
       label: 'Leads nuevos',
       badge: leadsUnseenCount,
       badgeVariant: 'alert' as const,
+    },
+    {
+      id: 'leads-draft',
+      label: 'Leads borrador',
+      badge: leadsDraftCount,
+      href: '/crm/leads?status=in_review',
     },
     { id: 'stale', label: '⚠️ Sin actividad', badge: staleDeals.length },
     ...(portalTopUsers.length > 0
