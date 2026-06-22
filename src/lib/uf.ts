@@ -48,17 +48,41 @@ export async function getUfValue(): Promise<number> {
 
 /**
  * Obtiene la UF para una fecha específica (UTC date YYYY-MM-DD).
- * Busca en FxUfRate por esa fecha exacta. Si no existe (ej: feriado),
- * devuelve la última UF anterior. Si no hay nada, llama a getUfValue()
- * (que cae en CMF API o el default 38000).
+ *
+ * Orden de resolución:
+ *   1) UF exacta de esa fecha en BD.
+ *   2) Si no está, la pide a la API por esa fecha exacta (CMF / mindicador)
+ *      y la cachea en BD. En Chile la UF de la segunda quincena se publica
+ *      anticipadamente, así que el "último día del mes en curso" ya existe
+ *      aunque el mes no haya terminado.
+ *   3) Si la API no la trae (feriado fuera de rango, sin red), cae a la
+ *      última UF anterior en BD.
+ *   4) Si no hay nada, getUfValue() (CMF de hoy o el default).
  *
  * Usado por facturación recurrente con UF policy: permite "fijar" la
- * UF a la del último día del mes anterior, primer día del mes, etc.
+ * UF a la del último día del mes en curso, mes anterior, etc.
  */
 export async function getUfValueForDate(date: Date): Promise<number> {
   try {
     const exact = await prisma.fxUfRate.findUnique({ where: { date } });
     if (exact) return Number(exact.value);
+
+    // Miss de la fecha exacta: intentamos traerla de la API antes de
+    // caer al "último anterior" (que devolvería un valor obsoleto con la
+    // fecha equivocada en el documento).
+    const dateStr = date.toISOString().slice(0, 10);
+    try {
+      const { fetchUfBestEffort, upsertUfRate } = await import("@/lib/fx-sync");
+      const fetched = await fetchUfBestEffort(dateStr);
+      if (fetched && isoToDateOnly(fetched.data.date) === dateStr) {
+        await upsertUfRate(fetched.data, fetched.source).catch(() => {
+          // El cache es best-effort; si el upsert falla igual usamos el valor.
+        });
+        return fetched.data.value;
+      }
+    } catch {
+      // API/red falló — seguimos al fallback de BD.
+    }
 
     const before = await prisma.fxUfRate.findFirst({
       where: { date: { lte: date } },
@@ -69,6 +93,11 @@ export async function getUfValueForDate(date: Date): Promise<number> {
     // fall through to default
   }
   return getUfValue();
+}
+
+/** Extrae YYYY-MM-DD de un ISO/fecha respetando los primeros 10 chars. */
+function isoToDateOnly(iso: string): string {
+  return iso.slice(0, 10);
 }
 
 export { clpToUf, ufToClp };
