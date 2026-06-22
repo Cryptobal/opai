@@ -1,6 +1,7 @@
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT } from 'jose';
 import { cookies } from 'next/headers';
 import * as bcrypt from 'bcryptjs';
+import { verifyPlatformToken } from './platform-jwt';
 
 const COOKIE_NAME = 'platform-session';
 const EXPIRY_SECONDS = 24 * 60 * 60; // 24 hours
@@ -115,20 +116,12 @@ export async function platformLoginByEmail(
 }
 
 export async function getPlatformSession(): Promise<PlatformSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE_NAME)?.value;
-    if (!token) return null;
-
-    const { payload } = await jwtVerify(token, getSecret());
-    return {
-      platformAdminId: payload.platformAdminId as string,
-      email: payload.email as string,
-      name: payload.name as string,
-    };
-  } catch {
-    return null;
-  }
+  const cookieStore = await cookies();
+  const token = cookieStore.get(COOKIE_NAME)?.value;
+  // Misma verificación (firma + expiración) que usa el middleware, para que
+  // no haya discrepancia entre "el middleware te deja pasar" y "el server te
+  // reconoce la sesión".
+  return verifyPlatformToken(token);
 }
 
 export async function platformLogout(): Promise<void> {

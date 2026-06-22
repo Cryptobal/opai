@@ -10,6 +10,7 @@
 
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { verifyPlatformToken } from '@/lib/platform-jwt';
 import {
   getDefaultPermissions,
   hasModuleAccess,
@@ -176,7 +177,7 @@ const DEFAULT_ROLE_PERMISSIONS_MAP: Record<string, true> = {
   solo_documentos: true, solo_payroll: true, supervisor: true, viewer: true,
 };
 
-export default auth((req) => {
+export default auth(async (req) => {
   const { pathname } = req.nextUrl;
 
   // ── Preview OG de cotizaciones para crawlers (WhatsApp, etc.) ──
@@ -194,11 +195,18 @@ export default auth((req) => {
 
   // ── Platform Admin portal ──
   // Uses its own auth (platform-session cookie), not Auth.js.
-  // Redirect to platform login if cookie is missing (except login page itself).
+  // Verificamos el JWT, no solo la presencia del cookie: un cookie presente
+  // pero con token inválido/expirado (p.ej. secret rotado) pasaba el chequeo
+  // anterior, la página cargaba y luego reventaba con los 401 de
+  // /api/platform/* (TypeError leyendo datos undefined). Si el token no es
+  // válido, redirigir al login y limpiar el cookie viejo.
   if (pathname.startsWith('/platform') && !pathname.startsWith('/platform/login')) {
-    const platformSession = req.cookies.get('platform-session');
-    if (!platformSession?.value) {
-      return NextResponse.redirect(new URL('/platform/login', req.url));
+    const token = req.cookies.get('platform-session')?.value;
+    const valid = await verifyPlatformToken(token);
+    if (!valid) {
+      const res = NextResponse.redirect(new URL('/platform/login', req.url));
+      if (token) res.cookies.delete('platform-session');
+      return res;
     }
     return NextResponse.next();
   }
