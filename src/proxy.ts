@@ -25,6 +25,11 @@ import {
   type ModuleKey,
 } from '@/lib/permissions';
 
+// Bots que arman link previews de OG (no son navegadores de usuarios reales).
+// Usado para el preview de cotizaciones privadas en WhatsApp y similares.
+const PREVIEW_BOT_RE =
+  /(whatsapp|facebookexternalhit|facebookcatalog|twitterbot|slackbot|telegrambot|linkedinbot|discordbot|skypeuripreview|pinterest|redditbot|embedly|vkshare|w3c_validator|applebot|bitlybot|flipboard|tumblr|nuzzel|qwantify|outbrain|mastodon|googlebot|bingbot|bingpreview)/i;
+
 function isPublicPath(pathname: string): boolean {
   // Marketing site pages (route group: (marketing))
   const marketingPaths = [
@@ -168,6 +173,19 @@ const DEFAULT_ROLE_PERMISSIONS_MAP: Record<string, true> = {
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
+
+  // ── Preview OG de cotizaciones para crawlers (WhatsApp, etc.) ──
+  // /crm/cotizaciones/[id] es privada: el bot la visita SIN sesión, el guard
+  // la redirige a /opai/login y el preview termina scrapeando el login. Para
+  // crawlers de preview sin sesión, reescribimos (sin cambiar la URL que ve
+  // el bot) a un endpoint público con OG mínimo (N° de cotización + cliente).
+  // Los usuarios autenticados no se ven afectados.
+  const cotizacionMatch = pathname.match(/^\/crm\/cotizaciones\/([^/]+)$/);
+  if (cotizacionMatch && !req.auth && PREVIEW_BOT_RE.test(req.headers.get("user-agent") ?? "")) {
+    const url = req.nextUrl.clone();
+    url.pathname = `/api/og/cotizacion/${cotizacionMatch[1]}`;
+    return NextResponse.rewrite(url);
+  }
 
   // ── Platform Admin portal ──
   // Uses its own auth (platform-session cookie), not Auth.js.
