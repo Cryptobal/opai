@@ -75,6 +75,25 @@ const nextConfig = {
     ],
     '/api/ai/help-chat/stream': ['./docs/**/*'],
     '/api/ai/help-chat': ['./docs/**/*'],
+    // Facturación: el render del PDF (proforma / estado de pago / factura)
+    // usa @react-pdf con fuentes en public/fonts y el logo WebP→PNG vía
+    // sharp. Sin estos globs, en Vercel `process.cwd()/public/fonts/*.ttf`
+    // no viaja en el lambda y el render tira ENOENT
+    // (PlusJakartaSans-Regular.ttf), rompiendo el auto-envío recurrente.
+    '/api/cron/finance-recurring-billing/route': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    '/api/cron/finance-recurring-billing': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    '/api/finance/billing/recurring/\\[id\\]/run-now/route': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    '/api/finance/billing/recurring/\\[id\\]/run-now': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    '/api/finance/billing/drafts/\\[id\\]/send-as/route': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    '/api/finance/billing/drafts/\\[id\\]/send-as': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    '/api/finance/billing/drafts/bulk-retry-send/route': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    '/api/finance/billing/drafts/bulk-retry-send': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    '/api/finance/billing/bulk-send-as/route': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    '/api/finance/billing/bulk-send-as': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    '/api/finance/billing/issued/\\[id\\]/send-as/route': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    '/api/finance/billing/issued/\\[id\\]/send-as': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    '/api/finance/billing/preview-pdf/route': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    '/api/finance/billing/preview-pdf': ['./public/fonts/**/*', ...sharpTraceGlobs],
   },
   turbopack: {
     root: __dirname,
