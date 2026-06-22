@@ -9,6 +9,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { sendTenantEmail } from "@/lib/email/send-tenant-email";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { buildBillingDocProps } from "@/lib/pdf/templates/billing-doc/build-billing-doc-props";
@@ -80,6 +81,44 @@ function variantToKinds(variant: BillingDocVariant): {
   return variant === "PROFORMA"
     ? { successKind: "proforma_sent", failKind: "proforma_failed" }
     : { successKind: "estado_pago_sent", failKind: "estado_pago_failed" };
+}
+
+/**
+ * Tras un envío exitoso, limpia el issue de esa variante del run recurrente
+ * que generó este borrador. El badge "X errores de auto-envío" de la plantilla
+ * sale del `autoSendIssues` del último run; si no lo limpiamos, el badge sigue
+ * mostrando el error histórico aunque el reenvío manual/bulk ya haya salido OK.
+ * Si tras quitar la variante el array queda vacío, se setea a NULL (badge fuera).
+ * Best-effort: si falla, log y seguimos — no rompe el envío que sí salió.
+ */
+async function clearRecurringRunIssueForVariant(
+  tenantId: string,
+  dteId: string,
+  variant: BillingDocVariant,
+): Promise<void> {
+  try {
+    const runs = await prisma.financeDteRecurringRun.findMany({
+      where: { tenantId, dteId },
+      select: { id: true, autoSendIssues: true },
+    });
+    for (const run of runs) {
+      if (!Array.isArray(run.autoSendIssues)) continue;
+      const issues = run.autoSendIssues as Array<{ variant?: string }>;
+      const remaining = issues.filter((i) => i?.variant !== variant);
+      if (remaining.length === issues.length) continue; // nada que limpiar
+      await prisma.financeDteRecurringRun.update({
+        where: { id: run.id },
+        data: {
+          autoSendIssues:
+            remaining.length > 0
+              ? (remaining as unknown as Prisma.InputJsonValue)
+              : Prisma.DbNull,
+        },
+      });
+    }
+  } catch (err) {
+    console.error("[billing/send] clear recurring run issue failed:", err);
+  }
 }
 
 async function logEmail(
@@ -439,7 +478,7 @@ export async function sendBillingDocument(
               proformaLastVariant: input.variant,
               proformaLastRecipient: primary,
             }
-          : {
+            : {
               estadoPagoStatus: "SENT",
               estadoPagoSentAt: new Date(),
               estadoPagoSentCount: { increment: 1 },
@@ -447,6 +486,11 @@ export async function sendBillingDocument(
               proformaLastVariant: input.variant, // legacy info
             },
     });
+
+    // Envío OK → si este borrador venía de un run recurrente con issue de
+    // auto-envío para esta variante, lo limpiamos para que el badge "X
+    // errores de auto-envío" de la plantilla desaparezca.
+    await clearRecurringRunIssueForVariant(tenantId, input.dteId, input.variant);
 
     await logEmail(tenantId, input.dteId, {
       kind: successKind,
