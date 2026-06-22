@@ -111,6 +111,11 @@ function isPublicPath(pathname: string): boolean {
   // PDF firmado: acceso con viewToken en query (la ruta valida el token)
   if (/^\/api\/docs\/documents\/[^/]+\/signed-pdf$/.test(pathname)) return true;
 
+  // Verificación de email del signup: el usuario AÚN no tiene cuenta, así que
+  // esta página debe ser pública. Si se protege, el flujo cae en un loop
+  // (verify → login → sin cuenta → no entra) y ningún tenant nuevo se activa.
+  if (pathname === '/verify-signup') return true;
+
   // Páginas públicas (raíz / y /opai se manejan abajo para redirigir siempre a login/inicio)
   if (pathname === '/opai/login' || pathname.startsWith('/activate')) return true;
   if (pathname === '/opai/forgot-password' || pathname === '/opai/reset-password') return true;
