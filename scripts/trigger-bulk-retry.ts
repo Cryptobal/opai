@@ -32,10 +32,7 @@ async function main() {
     {
       method: "POST",
       headers: { "content-type": "application/json", cookie },
-      body: JSON.stringify({
-        draftIds: ids,
-        variants: ["PROFORMA", "ESTADO_DE_PAGO"],
-      }),
+      body: JSON.stringify({ draftIds: ids }),
     },
   );
   const retry = await retryRes.json();

@@ -1,11 +1,13 @@
 /**
  * POST /api/finance/billing/drafts/bulk-retry-send
  *
- * Reintenta el envío de Proforma y/o Estado de Pago para múltiples borradores
- * con *_status='NONE'. Si el draft tiene recipient_contact_ids vacío pero la
- * plantilla recurrente origen ahora tiene destinatarios cargados (porque el
- * usuario los agregó después del cron), copiamos del template al draft antes
- * de disparar el envío.
+ * Reintenta el envío de Proforma y/o Estado de Pago solo para las variantes
+ * configuradas en cada borrador (requireProforma / requireEstadoPago) y aún
+ * pendientes (*_status='NONE'). No envía ambas variantes a todos por defecto.
+ *
+ * Si el draft tiene recipient_contact_ids vacío pero la plantilla recurrente
+ * origen ahora tiene destinatarios cargados, copiamos del template al draft
+ * antes de disparar el envío.
  *
  * Permisos: facturacion_resend_email | facturacion_create_draft | facturacion_issue
  */
@@ -23,8 +25,36 @@ import { sendBillingDocument } from "@/modules/finance/billing/billing-document-
 
 const schema = z.object({
   draftIds: z.array(z.string().uuid()).min(1).max(200),
-  variants: z.array(z.enum(["PROFORMA", "ESTADO_DE_PAGO"])).min(1),
+  /**
+   * Opcional. Si se omite, el servidor deriva las variantes por borrador desde
+   * requireProforma/requireEstadoPago + status NONE. Si se envía, se intersecta
+   * con lo permitido (nunca se manda una variante no configurada en el borrador).
+   */
+  variants: z.array(z.enum(["PROFORMA", "ESTADO_DE_PAGO"])).optional(),
 });
+
+type BillingDocVariant = "PROFORMA" | "ESTADO_DE_PAGO";
+
+/** Variantes elegibles según la config del borrador (misma lógica que pending-sends). */
+function resolveVariantsForDraft(
+  draft: {
+    requireProforma: boolean;
+    proformaStatus: string;
+    requireEstadoPago: boolean;
+    estadoPagoStatus: string;
+  },
+  requested?: BillingDocVariant[],
+): BillingDocVariant[] {
+  const eligible: BillingDocVariant[] = [];
+  if (draft.requireProforma && draft.proformaStatus === "NONE") {
+    eligible.push("PROFORMA");
+  }
+  if (draft.requireEstadoPago && draft.estadoPagoStatus === "NONE") {
+    eligible.push("ESTADO_DE_PAGO");
+  }
+  if (!requested?.length) return eligible;
+  return requested.filter((v) => eligible.includes(v));
+}
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -50,10 +80,11 @@ export async function POST(request: NextRequest) {
 
   const results: Array<{
     draftId: string;
-    variant: "PROFORMA" | "ESTADO_DE_PAGO";
+    variant: BillingDocVariant;
     success: boolean;
     error?: string;
     backfilledFromTemplate?: boolean;
+    skipped?: boolean;
   }> = [];
 
   for (const draftId of draftIds) {
@@ -61,12 +92,16 @@ export async function POST(request: NextRequest) {
       where: { id: draftId, tenantId: ctx.tenantId, siiStatus: "DRAFT" },
       select: {
         id: true,
+        requireProforma: true,
+        proformaStatus: true,
+        requireEstadoPago: true,
+        estadoPagoStatus: true,
         proformaRecipientContactIds: true,
         estadoPagoRecipientContactIds: true,
       },
     });
     if (!draft) {
-      for (const v of variants) {
+      for (const v of variants ?? ["PROFORMA", "ESTADO_DE_PAGO"]) {
         results.push({
           draftId,
           variant: v,
@@ -74,6 +109,11 @@ export async function POST(request: NextRequest) {
           error: "Borrador no encontrado",
         });
       }
+      continue;
+    }
+
+    const variantsToSend = resolveVariantsForDraft(draft, variants);
+    if (variantsToSend.length === 0) {
       continue;
     }
 
@@ -90,7 +130,7 @@ export async function POST(request: NextRequest) {
     let currentProformaIds = draft.proformaRecipientContactIds;
     let currentEstadoPagoIds = draft.estadoPagoRecipientContactIds;
 
-    for (const variant of variants) {
+    for (const variant of variantsToSend) {
       const currentIds =
         variant === "PROFORMA" ? currentProformaIds : currentEstadoPagoIds;
 
@@ -139,6 +179,7 @@ export async function POST(request: NextRequest) {
     data: {
       okCount: results.filter((r) => r.success).length,
       failCount: results.filter((r) => !r.success).length,
+      skippedCount: results.filter((r) => r.skipped).length,
       backfillCount: results.filter((r) => r.backfilledFromTemplate).length,
       results,
     },

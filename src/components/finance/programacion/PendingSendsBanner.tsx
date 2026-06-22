@@ -56,10 +56,7 @@ export function PendingSendsBanner({ onAfterRetry }: Props) {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            draftIds,
-            variants: ["PROFORMA", "ESTADO_DE_PAGO"],
-          }),
+          body: JSON.stringify({ draftIds }),
         },
       );
       const json = await res.json();
@@ -148,8 +145,9 @@ export function PendingSendsBanner({ onAfterRetry }: Props) {
         title={`¿Reintentar ${data.total} envíos pendientes?`}
         description={
           <>
-            Se intentará enviar Proforma y/o Estado de Pago para los borradores
-            marcados.
+            Se reenviará solo lo configurado en cada borrador: proforma si la
+            plantilla lo tenía activo, estado de pago si lo tenía activo (no
+            ambos a todos).
             {data.withoutRecipientsCount > 0 && (
               <>
                 {" "}
