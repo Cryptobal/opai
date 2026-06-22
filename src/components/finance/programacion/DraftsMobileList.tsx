@@ -6,7 +6,7 @@ import { es } from "date-fns/locale";
 import { formatCalendarDateDisplay } from "@/lib/fx-date";
 import { toast } from "sonner";
 import { notifyEmitResult } from "./emit-toast";
-import { FileText, Loader2, Send, RefreshCw, MapPin, Repeat } from "lucide-react";
+import { FileText, Loader2, Send, RefreshCw, MapPin, Repeat, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Surface, EmptyState, DataTable, type DataTableColumn } from "@/components/opai-ds";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -66,7 +66,7 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
   const [openDetailId, setOpenDetailId] = useState<string | null>(null);
   const [issuing, setIssuing] = useState<string | null>(null);
   const [confirmingDraft, setConfirmingDraft] = useState<DraftListItem | null>(null);
-  const [sortField, setSortField] = useState<DraftSortField>("date");
+  const [sortField, setSortField] = useState<DraftSortField>("receptor");
   const [sortDir, setSortDir] = useState<TableSortDir>("asc");
 
   const handleSort = useCallback((field: DraftSortField) => {
@@ -139,22 +139,82 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
 
   const draftColumns: DataTableColumn<DraftListItem>[] = useMemo(() => [
     {
-      id: "date",
+      id: "template",
       header: (
         <SortableColumnHeader
-          label="Fecha"
-          field="date"
+          label="Plantilla"
+          field="template"
           sortField={sortField}
           sortDir={sortDir}
           onSort={handleSort}
         />
       ),
-      width: "w-[100px]",
+      width: "w-[224px]",
       cell: (d) => (
-        <span className="font-mono text-xs tabular-nums">
-          {formatCalendarDateDisplay(d.date, "dd MMM yyyy", es)}
-        </span>
+        <div className="min-w-0">
+          {d.templateName ? (
+            <>
+              <div className="flex items-center gap-1 min-w-0 text-sm font-medium text-tint-violet-fg">
+                <Repeat className="h-3 w-3 shrink-0" />
+                <span className="truncate">{d.templateName}</span>
+              </div>
+              <div className="text-xs text-ds-text-3 truncate">
+                {d.receiverName ?? "Sin cliente"}
+              </div>
+            </>
+          ) : (
+            <div className="text-sm font-medium text-ds-text-1 truncate">
+              {d.receiverName ?? "Sin cliente"}
+            </div>
+          )}
+          {d.receiverRut && (
+            <div className="text-xs text-ds-text-4 font-mono tabular-nums truncate">
+              {d.receiverRut}
+            </div>
+          )}
+        </div>
       ),
+    },
+    {
+      id: "installation",
+      header: (
+        <SortableColumnHeader
+          label="Cliente / Instalación"
+          field="installation"
+          sortField={sortField}
+          sortDir={sortDir}
+          onSort={handleSort}
+        />
+      ),
+      width: "w-[200px]",
+      cell: (d) =>
+        d.crmAccountName || d.installationName ? (
+          <div className="min-w-0 text-xs space-y-0.5">
+            {d.crmAccountName && (
+              <div
+                className="flex items-center gap-1 min-w-0"
+                title={d.crmAccountName}
+              >
+                <Building2 className="h-3 w-3 shrink-0 text-ds-text-4" />
+                <span className="truncate font-medium">{d.crmAccountName}</span>
+              </div>
+            )}
+            {d.installationName && (
+              <div
+                className="flex items-center gap-1 min-w-0 text-ds-text-3"
+                title={d.installationName}
+              >
+                <MapPin className="h-3 w-3 shrink-0 text-ds-text-4" />
+                <span className="truncate">
+                  {d.installationName}
+                  {d.installationCommune ? ` · ${d.installationCommune}` : ""}
+                </span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <span className="text-ds-text-4">—</span>
+        ),
     },
     {
       id: "type",
@@ -175,76 +235,22 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
       ),
     },
     {
-      id: "receptor",
+      id: "date",
       header: (
         <SortableColumnHeader
-          label="Receptor"
-          field="receptor"
+          label="Fecha"
+          field="date"
           sortField={sortField}
           sortDir={sortDir}
           onSort={handleSort}
         />
       ),
-      width: "w-[200px]",
+      width: "w-[100px]",
       cell: (d) => (
-        <div className="min-w-0">
-          <div className="text-sm font-medium text-ds-text-1 truncate">
-            {d.receiverName ?? "Sin cliente"}
-          </div>
-          {d.receiverRut && (
-            <div className="text-xs text-ds-text-4 font-mono tabular-nums truncate">
-              {d.receiverRut}
-            </div>
-          )}
-        </div>
+        <span className="font-mono text-xs tabular-nums">
+          {formatCalendarDateDisplay(d.date, "dd MMM yyyy", es)}
+        </span>
       ),
-    },
-    {
-      id: "installation",
-      header: (
-        <SortableColumnHeader
-          label="Instalación"
-          field="installation"
-          sortField={sortField}
-          sortDir={sortDir}
-          onSort={handleSort}
-        />
-      ),
-      width: "w-[180px]",
-      cell: (d) =>
-        d.installationName || d.crmAccountName ? (
-          <div className="flex items-center gap-1 min-w-0 text-xs text-ds-text-3">
-            <MapPin className="h-3 w-3 shrink-0 text-ds-text-4" />
-            <span className="truncate">
-              {d.installationName ?? d.crmAccountName}
-              {d.installationCommune && (
-                <span className="text-ds-text-4">{" · "}{d.installationCommune}</span>
-              )}
-            </span>
-          </div>
-        ) : null,
-    },
-    {
-      id: "template",
-      header: (
-        <SortableColumnHeader
-          label="Plantilla"
-          field="template"
-          sortField={sortField}
-          sortDir={sortDir}
-          onSort={handleSort}
-        />
-      ),
-      width: "w-[140px]",
-      cell: (d) =>
-        d.templateName ? (
-          <div className="flex items-center gap-1 min-w-0 text-xs text-tint-violet-fg">
-            <Repeat className="h-3 w-3 shrink-0" />
-            <span className="truncate font-medium">{d.templateName}</span>
-          </div>
-        ) : (
-          <span className="text-ds-text-4">—</span>
-        ),
     },
     {
       id: "amount",
@@ -456,8 +462,20 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
                   </span>
                 </div>
 
-                {/* Receptor */}
-                <p className="text-sm font-medium text-ds-text-1 truncate">
+                {/* Plantilla (título) + receptor */}
+                {d.templateName && (
+                  <div className="flex items-center gap-1.5 text-sm font-medium text-tint-violet-fg min-w-0">
+                    <Repeat className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{d.templateName}</span>
+                  </div>
+                )}
+                <p
+                  className={
+                    d.templateName
+                      ? "text-[12px] text-ds-text-3 truncate"
+                      : "text-sm font-medium text-ds-text-1 truncate"
+                  }
+                >
                   {d.receiverName ?? "Sin cliente"}
                 </p>
                 {d.receiverRut && (
@@ -465,11 +483,18 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
                     {d.receiverRut}
                   </p>
                 )}
-                {(d.installationName || d.crmAccountName) && (
+                {/* Cliente / Instalación */}
+                {d.crmAccountName && (
+                  <div className="flex items-center gap-1.5 mt-1 text-[12px] text-ds-text-3 min-w-0">
+                    <Building2 className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{d.crmAccountName}</span>
+                  </div>
+                )}
+                {d.installationName && (
                   <div className="flex items-center gap-1.5 mt-1 text-[12px] text-ds-text-3 min-w-0">
                     <MapPin className="h-3 w-3 shrink-0" />
                     <span className="truncate">
-                      {d.installationName ?? d.crmAccountName}
+                      {d.installationName}
                       {d.installationCommune && (
                         <span className="text-ds-text-4">
                           {" · "}
@@ -477,12 +502,6 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
                         </span>
                       )}
                     </span>
-                  </div>
-                )}
-                {d.templateName && (
-                  <div className="flex items-center gap-1.5 mt-1 text-xs text-tint-violet-fg min-w-0">
-                    <Repeat className="h-3 w-3 shrink-0" />
-                    <span className="truncate font-medium">{d.templateName}</span>
                   </div>
                 )}
 
