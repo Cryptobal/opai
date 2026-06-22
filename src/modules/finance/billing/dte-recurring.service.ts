@@ -687,8 +687,10 @@ export async function runTemplate(
 
 /**
  * Procesa todos los templates activos cuyo nextRunAt <= today para un
- * tenant. Idempotente: si lastRunAt = today o la plantilla ya corrió
- * dentro del mismo período mensual (para frecuencia monthly), se salta.
+ * tenant. Único guard: idempotencia DIARIA (si el cron ya corrió hoy se
+ * salta) para no duplicar el mismo día ante un reintento. NO hay lógica de
+ * "ya se facturó este período": en la fecha programada se genera el borrador
+ * siempre. Los duplicados se borran manualmente (decisión de producto).
  *
  * NOTA: el filtro distingue "nueva sin schedule" (lastRunAt=null Y
  * nextRunAt=null) de "terminada" (lastRunAt!=null Y nextRunAt=null).
@@ -723,30 +725,20 @@ export async function processDueTemplates(
   let skippedCount = 0;
 
   for (const t of templates) {
-    // Idempotencia diaria: si ya corrió hoy, skip.
+    // Idempotencia diaria: si el cron ya corrió HOY para esta plantilla,
+    // skip. Esto SOLO evita duplicar el mismo día (ej: doble invocación del
+    // cron por un reintento de Vercel). NO es lógica de "ya se facturó este
+    // período": el cron debe generar el borrador en la fecha programada
+    // siempre, sin importar si hubo una factura/borrador antes en el mes.
+    // Decisión de producto: los duplicados se borran manualmente.
+    //
+    // Nota: los runs manuales (run-now) usan scheduleMode "keep" y NO tocan
+    // lastRunAt, así que este guard solo se dispara por corridas del propio
+    // cron — nunca bloquea la cuota programada por un run manual anticipado.
     if (t.lastRunAt) {
       const lastFloor = new Date(t.lastRunAt);
       lastFloor.setHours(0, 0, 0, 0);
       if (lastFloor.getTime() === nowFloor.getTime()) {
-        skippedCount += 1;
-        continue;
-      }
-    }
-
-    // Idempotencia mensual (defense-in-depth para frequency=monthly):
-    // si ya hay un run "success" en el mismo período mensual que today,
-    // skip. Esto protege contra bugs futuros en computeNextRunAt.
-    if (t.frequency === "monthly" && t.lastRunAt) {
-      const last = new Date(t.lastRunAt);
-      const sameYearMonth =
-        last.getUTCFullYear() === nowFloor.getUTCFullYear() &&
-        last.getUTCMonth() === nowFloor.getUTCMonth();
-      if (sameYearMonth) {
-        console.warn(
-          `[finance/recurring] template ${t.id} (${t.name}) skipped: ` +
-            `already ran this month (${last.toISOString().slice(0, 10)}). ` +
-            `This is defense-in-depth — check nextRunAt logic if frequent.`,
-        );
         skippedCount += 1;
         continue;
       }

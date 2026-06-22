@@ -23,14 +23,17 @@ export async function POST(
     const { id } = await params;
 
     // Body opcional (back-compat): { scheduleMode: "advance" | "keep" }.
-    // "keep" = corrida extra que no consume el cupo del período (no avanza
-    // nextRunAt); "advance" = reemplaza la corrida programada (default).
-    let scheduleMode: RunScheduleMode = "advance";
+    // DEFAULT "keep": un run manual es SIEMPRE una corrida extra que NO toca
+    // el calendario (no avanza nextRunAt). Así el cron genera el borrador en
+    // la fecha programada igual, sin que un run manual anticipado "consuma"
+    // la cuota del período. Solo se avanza el calendario si el caller pide
+    // explícitamente "advance" (escape hatch / back-compat).
+    let scheduleMode: RunScheduleMode = "keep";
     try {
       const body = await request.json();
-      if (body?.scheduleMode === "keep") scheduleMode = "keep";
+      if (body?.scheduleMode === "advance") scheduleMode = "advance";
     } catch {
-      // Sin body o body inválido → default "advance".
+      // Sin body o body inválido → default "keep".
     }
 
     const run = await runTemplate(ctx.tenantId, id, { scheduleMode });

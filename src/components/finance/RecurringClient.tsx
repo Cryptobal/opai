@@ -45,13 +45,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   DataTable,
@@ -348,10 +341,6 @@ export function RecurringClient({
 
   // Plantilla esperando elección de modo de agenda para el run manual
   // (solo cuando la próxima corrida programada está en el futuro).
-  const [runModeFor, setRunModeFor] = React.useState<RecurringTemplateRow | null>(
-    null,
-  );
-
   const executeRunNow = async (id: string, scheduleMode: "advance" | "keep") => {
     setBusyId(id);
     try {
@@ -389,20 +378,10 @@ export function RecurringClient({
   };
 
   const handleRunNow = (id: string) => {
-    const t = templates.find((r) => r.id === id);
-    if (!t) return;
-    // Si la próxima corrida programada está en el futuro, el usuario debe
-    // decidir si esta ejecución la reemplaza (avanza el calendario) o es
-    // una corrida extra (el calendario queda intacto). Sin esta pregunta,
-    // un run manual anticipado "consumía" el cupo del período y el cron
-    // de la fecha programada se saltaba silenciosamente.
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (t.nextRunAt && new Date(t.nextRunAt) > today) {
-      setRunModeFor(t);
-      return;
-    }
-    void executeRunNow(id, "advance");
+    // Un run manual SIEMPRE es una corrida extra ("keep"): genera el borrador
+    // ahora pero NO toca el calendario, así el cron sigue generando el
+    // borrador en la fecha programada igual. Los duplicados se borran a mano.
+    void executeRunNow(id, "keep");
   };
 
   const handleToggleActive = async (t: RecurringTemplateRow) => {
@@ -1392,71 +1371,6 @@ export function RecurringClient({
           router.refresh();
         }}
       />
-
-      {/* ── Modal de elección de agenda para run manual anticipado ── */}
-      <Dialog
-        open={runModeFor !== null}
-        onOpenChange={(open) => {
-          if (!open) setRunModeFor(null);
-        }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Generar borrador ahora</DialogTitle>
-            <DialogDescription>
-              {runModeFor && (
-                <>
-                  La próxima corrida programada de{" "}
-                  <span className="font-medium text-ds-text-1">
-                    {runModeFor.name}
-                  </span>{" "}
-                  es el{" "}
-                  <span className="font-medium text-ds-text-1">
-                    {formatCalendarDateDisplay(runModeFor.nextRunAt, "d 'de' MMMM", es)}
-                  </span>
-                  . ¿Esta ejecución la reemplaza o es adicional?
-                </>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <button
-              type="button"
-              className="w-full rounded-lg border border-ds-border-default bg-ds-surface-2 p-3 text-left hover:border-primary/40 transition-colors"
-              onClick={() => {
-                const id = runModeFor?.id;
-                setRunModeFor(null);
-                if (id) void executeRunNow(id, "keep");
-              }}
-            >
-              <p className="text-[13px] font-medium text-ds-text-1">
-                Corrida adicional (recomendado)
-              </p>
-              <p className="text-[12px] text-ds-text-3 mt-0.5">
-                Genera el borrador ahora y la corrida programada se mantiene
-                — saldrá igual en su fecha.
-              </p>
-            </button>
-            <button
-              type="button"
-              className="w-full rounded-lg border border-ds-border-default bg-ds-surface-2 p-3 text-left hover:border-primary/40 transition-colors"
-              onClick={() => {
-                const id = runModeFor?.id;
-                setRunModeFor(null);
-                if (id) void executeRunNow(id, "advance");
-              }}
-            >
-              <p className="text-[13px] font-medium text-ds-text-1">
-                Reemplaza la corrida programada
-              </p>
-              <p className="text-[12px] text-ds-text-3 mt-0.5">
-                Esta ejecución cuenta como la cuota del período: el
-                calendario avanza al período siguiente.
-              </p>
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* ── Modal de detalle de errores de auto-envío ── */}
       {issueDetailFor && (
