@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { formatCurrency } from "@/components/cpq/utils";
+import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import {
   CPQ_BREAKDOWN_SHELL,
   CPQ_BREAKDOWN_ROW,
@@ -31,6 +31,10 @@ interface AdditionalLinesSectionProps {
   contractDuration?: number;
   isLocked?: boolean;
   onSaveToCatalog?: (payload: { name: string; unit: string; basePrice: number; type: string }) => Promise<void>;
+  /** Moneda de visualización de la cotización ("UF" | "CLP"). El precio se guarda SIEMPRE en CLP. */
+  currency?: string;
+  /** Valor UF para convertir el input UF↔CLP. Requerido para ingresar en UF. */
+  ufValue?: number | null;
 }
 
 const LINE_TYPES = [
@@ -47,8 +51,18 @@ const RECURRENCE_TYPES = [
   { value: "por_evento", label: "Por evento" },
 ] as const;
 
-export function AdditionalLinesSection({ lines, onChange, contractDuration = 12, isLocked, onSaveToCatalog }: AdditionalLinesSectionProps) {
+export function AdditionalLinesSection({ lines, onChange, contractDuration = 12, isLocked, onSaveToCatalog, currency = "CLP", ufValue }: AdditionalLinesSectionProps) {
   const [savingIdx, setSavingIdx] = useState<number | null>(null);
+
+  // El precio se almacena SIEMPRE en CLP (igual que puestos y costos). Cuando la
+  // cotización está en UF, el input se ingresa en UF y se convierte a CLP al guardar.
+  const ufNum = ufValue != null && Number.isFinite(Number(ufValue)) && Number(ufValue) > 0 ? Number(ufValue) : 0;
+  const isUf = currency.toUpperCase() === "UF" && ufNum > 0;
+  /** CLP almacenado → número que ve el usuario en el input (UF o CLP). */
+  const toInput = (clp: number) => (isUf ? clp / ufNum : clp);
+  /** Número ingresado por el usuario (UF o CLP) → CLP a almacenar. */
+  const fromInput = (entered: number) => (isUf ? entered * ufNum : entered);
+  const inputDecimals = isUf ? 2 : 0;
 
   const addLine = () => {
     onChange([
@@ -202,13 +216,13 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
             {/* Price row */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mt-1.5">
               <div>
-                <Label className="text-xs text-muted-foreground">Precio base</Label>
+                <Label className="text-xs text-muted-foreground">Precio base ({isUf ? "UF" : "$"})</Label>
                 <Input
                   type="text"
                   inputMode="numeric"
                   disabled={isLocked}
-                  value={formatNumber(Number(line.precio || 0))}
-                  onChange={(e) => updateLine(idx, { precio: parseLocalizedNumber(e.target.value) })}
+                  value={formatNumber(toInput(Number(line.precio || 0)), { minDecimals: 0, maxDecimals: inputDecimals })}
+                  onChange={(e) => updateLine(idx, { precio: fromInput(parseLocalizedNumber(e.target.value)) })}
                   className="h-7 text-xs bg-card border-border"
                   placeholder="0"
                 />
@@ -240,11 +254,32 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
             </div>
 
             {/* Calculated total */}
-            <div className="flex justify-end mt-1 text-xs">
-              <span className="text-muted-foreground">
-                Venta: <span className="font-mono font-semibold text-tint-violet-fg">{formatCurrency(precioMensual)}</span>/mes
-                {isUnico && ` (${formatCurrency(precioVenta)} / ${contractDuration}m)`}
-              </span>
+            <div className="flex items-center justify-end gap-1 mt-1 text-xs">
+              <span className="text-muted-foreground">Venta:</span>
+              <CpqDualCurrencyAmount
+                clp={precioMensual}
+                currency={currency}
+                ufValue={ufValue}
+                size="xs"
+                inline
+                primaryClassName="font-semibold text-tint-violet-fg"
+              />
+              <span className="text-muted-foreground">/mes</span>
+              {isUnico && (
+                <span className="text-muted-foreground">
+                  (
+                  <CpqDualCurrencyAmount
+                    clp={precioVenta}
+                    currency={currency}
+                    ufValue={ufValue}
+                    size="xs"
+                    inline
+                    hideSecondary
+                    primaryClassName="text-muted-foreground"
+                  />
+                  {` / ${contractDuration}m)`}
+                </span>
+              )}
             </div>
           </div>
         );
@@ -259,7 +294,15 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
       {lines.length > 0 && (
         <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "pt-1 border-t border-tint-violet-fg/20 text-xs")}>
           <span className="text-sm font-medium text-tint-violet-fg break-words min-w-0">Total líneas adicionales</span>
-          <span className={cpqBreakdownAmount("text-sm font-bold text-tint-violet-fg")}>{formatCurrency(total)}</span>
+          <div className={cpqBreakdownAmount()}>
+            <CpqDualCurrencyAmount
+              clp={total}
+              currency={currency}
+              ufValue={ufValue}
+              size="sm"
+              primaryClassName="font-bold text-tint-violet-fg"
+            />
+          </div>
         </div>
       )}
     </div>

@@ -1296,6 +1296,14 @@ export function CpqQuoteDetail({
     [additionalLines]
   );
 
+  // Líneas adicionales: el precio se almacena SIEMPRE en CLP (igual que puestos y
+  // costos; el resto del CPQ convierte CLP→UF solo para mostrar). Cuando la
+  // cotización está en UF, el input se ingresa en UF y se convierte a CLP.
+  const addlUfNum = ufValue != null && Number.isFinite(Number(ufValue)) && Number(ufValue) > 0 ? Number(ufValue) : 0;
+  const addlIsUf = (crmContext.currency || "CLP").toUpperCase() === "UF" && addlUfNum > 0;
+  const addlToInput = (clp: number) => (addlIsUf ? clp / addlUfNum : clp);
+  const addlFromInput = (entered: number) => (addlIsUf ? entered * addlUfNum : entered);
+
   // Sale price calculation (includes additional lines in margin)
   const salePriceMonthly = useMemo(() => {
     if (!costSummary) return 0;
@@ -2218,8 +2226,11 @@ export function CpqQuoteDetail({
         )}
       </Card>
 
-      {/* -- Section: Desglose detallado (precio de venta, margen financiero) -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 xl:hidden sm:scroll-mt-32">
+      {/* -- Section: Desglose detallado (precio de venta, margen financiero) --
+           Visible en todos los breakpoints: es la apertura línea por línea de la
+           propuesta (mano de obra → costos → margen → financiero → líneas → total).
+           El aside «Centro de control» solo muestra KPIs, no el desglose. -- */}
+      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
         <button type="button" onClick={() => setSecDesglose(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Desglose</h2>
@@ -2470,14 +2481,15 @@ export function CpqQuoteDetail({
                     </div>
                     <div className="flex flex-col items-start gap-1 sm:items-end shrink-0">
                       <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground">{addlIsUf ? "UF" : "$"}</span>
                         <Input
                           type="text"
                           inputMode="numeric"
                           placeholder="Precio"
-                          value={formatNumber(Number(line.precio || 0), { minDecimals: 0, maxDecimals: 0 })}
+                          value={formatNumber(addlToInput(Number(line.precio || 0)), { minDecimals: 0, maxDecimals: addlIsUf ? 2 : 0 })}
                           onChange={(e) => {
                             const updated = [...additionalLines];
-                            updated[idx] = { ...updated[idx], precio: parseLocalizedNumber(e.target.value) || 0 };
+                            updated[idx] = { ...updated[idx], precio: addlFromInput(parseLocalizedNumber(e.target.value)) || 0 };
                             setAdditionalLines(updated);
                           }}
                           className="h-7 w-24 bg-card text-foreground border-border text-xs text-right font-mono"
@@ -2513,19 +2525,45 @@ export function CpqQuoteDetail({
                           <span className="text-xs text-muted-foreground">%</span>
                         </div>
                       </div>
-                      <div className="text-left sm:text-right">
-                        <span className="text-[13px] font-bold tabular-nums">
-                          {formatCurrency(precioMensual)}
+                      <div className="flex flex-col items-start sm:items-end">
+                        <div className="flex items-baseline gap-1">
+                          <CpqDualCurrencyAmount
+                            clp={precioMensual}
+                            currency={crmContext.currency || "CLP"}
+                            ufValue={ufValue}
+                            size="sm"
+                            inline
+                            primaryClassName="text-[13px] font-bold"
+                          />
                           <span className="text-xs text-muted-foreground font-normal">/mes</span>
-                        </span>
+                        </div>
                         {isUnico && (
-                          <div className="text-xs text-muted-foreground">
-                            Inv: {formatCurrency(precioVenta)} ÷ {quoteForm.contractDuration}m
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <span>Inv:</span>
+                            <CpqDualCurrencyAmount
+                              clp={precioVenta}
+                              currency={crmContext.currency || "CLP"}
+                              ufValue={ufValue}
+                              size="xs"
+                              inline
+                              hideSecondary
+                              primaryClassName="text-muted-foreground"
+                            />
+                            <span>÷ {quoteForm.contractDuration}m</span>
                           </div>
                         )}
                         {mPct > 0 && (
-                          <div className="text-xs text-status-ok-fg">
-                            Venta: {formatCurrency(precioVenta)}
+                          <div className="flex items-center gap-1 text-xs text-status-ok-fg">
+                            <span>Venta:</span>
+                            <CpqDualCurrencyAmount
+                              clp={precioVenta}
+                              currency={crmContext.currency || "CLP"}
+                              ufValue={ufValue}
+                              size="xs"
+                              inline
+                              hideSecondary
+                              primaryClassName="text-status-ok-fg"
+                            />
                           </div>
                         )}
                       </div>
@@ -2569,9 +2607,15 @@ export function CpqQuoteDetail({
             {additionalLines.length > 0 && (
               <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "pt-1 border-t border-tint-violet-fg/20 text-xs")}>
                 <span className="text-sm font-medium text-tint-violet-fg break-words min-w-0">Total líneas adicionales</span>
-                <span className={cpqBreakdownAmount("text-sm font-bold text-tint-violet-fg")}>
-                  {formatCurrency(additionalLinesTotal)}
-                </span>
+                <div className={cpqBreakdownAmount()}>
+                  <CpqDualCurrencyAmount
+                    clp={additionalLinesTotal}
+                    currency={crmContext.currency || "CLP"}
+                    ufValue={ufValue}
+                    size="sm"
+                    primaryClassName="font-bold text-tint-violet-fg"
+                  />
+                </div>
               </div>
             )}
           </div>

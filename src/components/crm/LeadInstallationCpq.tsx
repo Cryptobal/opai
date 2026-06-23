@@ -1032,6 +1032,8 @@ export function LeadInstallationCpq({
               lines={config.additionalLines}
               onChange={(lines) => update({ additionalLines: lines })}
               contractDuration={config.conditions.contractDuration}
+              currency={currency}
+              ufValue={ufValue}
               onSaveToCatalog={async (payload) => {
                 const res = await fetch("/api/cpq/catalog", {
                   method: "POST",
