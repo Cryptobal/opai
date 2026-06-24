@@ -15,7 +15,7 @@ import { SiiStatusPill } from "./SiiStatusPill";
 import { CessionBadge } from "./CessionBadge";
 import { LinkedNoteBadge } from "./LinkedNoteBadge";
 import { RelationRow } from "./RelationRow";
-import { fmtCLP } from "./shared/constants";
+import { DteAmountCell } from "./shared/DteAmountCell";
 import { formatCalendarDateDisplay } from "@/lib/fx-date";
 import type { DteRow, DteSortKey } from "./shared/types";
 
@@ -323,15 +323,13 @@ export function IssuedDtesTable({
           !!row.voidedByCreditNoteId ||
           row.linkedCreditNote?.hasFullAnnulment === true;
         return (
-          <span
-            className={cn(
-              "inline-block max-w-full whitespace-nowrap font-medium font-mono tabular-nums text-right",
-              isAnnulled && "text-ds-text-3 line-through",
-            )}
-            title={fmtCLP.format(row.totalAmount)}
-          >
-            {fmtCLP.format(row.totalAmount)}
-          </span>
+          <DteAmountCell
+            netAmount={row.netAmount}
+            taxAmount={row.taxAmount}
+            totalAmount={row.totalAmount}
+            dteType={row.dteType}
+            annulled={isAnnulled}
+          />
         );
       },
     },

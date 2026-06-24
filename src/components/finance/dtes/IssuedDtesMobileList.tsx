@@ -50,6 +50,7 @@ import { CessionBadge } from "./CessionBadge";
 import { LinkedNoteBadge } from "./LinkedNoteBadge";
 import { RelationRow } from "./RelationRow";
 import { fmtCLPSmart } from "./shared/constants";
+import { DteAmountCell } from "./shared/DteAmountCell";
 import type { DteRow } from "./shared/types";
 import {
   MobileActionSheet,
@@ -470,15 +471,15 @@ export function IssuedDtesMobileList({
                       {d.receiverRut}
                     </p>
                     <div className="flex items-center gap-2 mt-2">
-                      <span
-                        className={cn(
-                          "font-mono text-sm font-semibold tabular-nums truncate",
-                          isAnnulled && "line-through text-ds-text-3",
-                        )}
-                        title={d.totalAmount.toLocaleString("es-CL")}
-                      >
-                        {fmtCLPSmart(d.totalAmount)}
-                      </span>
+                      <DteAmountCell
+                        netAmount={d.netAmount}
+                        taxAmount={d.taxAmount}
+                        totalAmount={d.totalAmount}
+                        dteType={d.dteType}
+                        annulled={isAnnulled}
+                        align="left"
+                        format={fmtCLPSmart}
+                      />
                     </div>
                     <div className="mt-1.5">
                       <DtePaymentTag
