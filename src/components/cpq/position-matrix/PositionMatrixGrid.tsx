@@ -171,7 +171,9 @@ export function PositionMatrixGrid({ adapter }: Props) {
     [orderedKeys, groupByKey]
   );
 
-  const dndEnabled = !readOnly && !!adapter.onReorderGroups && orderedGroups.length > 1;
+  // El reordenar servicios se permite incluso en solo-lectura (cotización
+  // enviada): solo cambia el orden de visualización, no los datos comerciales.
+  const dndEnabled = !!adapter.onReorderGroups && orderedGroups.length > 1;
   const colorByKey = useMemo(() => {
     const m = new Map<string, string>();
     orderedGroups.forEach((g, i) => m.set(g.key, resolveServiceColor(g.colorHex, i)));

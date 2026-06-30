@@ -147,7 +147,9 @@ export function PositionMatrix({ adapter }: Props) {
     [orderedKeys, groupByKey]
   );
 
-  const dndEnabled = !readOnly && !!adapter.onReorderGroups && orderedGroups.length > 1;
+  // El reordenar servicios se permite incluso en solo-lectura (cotización
+  // enviada): solo cambia el orden de visualización, no los datos comerciales.
+  const dndEnabled = !!adapter.onReorderGroups && orderedGroups.length > 1;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),

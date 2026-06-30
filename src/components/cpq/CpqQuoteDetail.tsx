@@ -2298,7 +2298,11 @@ export function CpqQuoteDetail({
           </div>
         </div>
         {secPuestos && (
-          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4" inert={isLocked ? true : undefined}>
+          // No usamos `inert` aunque la cotización esté enviada: bloquearía
+          // también el cambio de vista (grilla/tarjetas), el colapsar/expandir
+          // y el reordenar — interacciones de solo-visualización. La edición de
+          // datos ya está bloqueada granularmente vía `readOnly` en la matriz.
+          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4">
             <PositionMatrix adapter={matrixAdapter} />
             {positions.length > 0 && (
               <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "px-3 py-2 border border-dashed border-border/60 rounded-lg mt-2 text-xs")}>
