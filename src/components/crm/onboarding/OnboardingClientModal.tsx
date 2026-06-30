@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -303,20 +304,30 @@ export function OnboardingClientModal({
             <div className="space-y-4">
               <ValidationsPanel validations={preview.validations} />
 
-              {!serviceStartDate ? (
-                <div className="space-y-1.5 rounded-xl border border-status-warn/40 bg-status-warn/[0.06] p-3.5">
-                  <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-status-warn-fg">
-                    <Calendar className="h-3.5 w-3.5" />
-                    Fecha de inicio del servicio
-                  </label>
-                  <Input
-                    type="date"
-                    value={serviceStartDate}
-                    onChange={(e) => setServiceStartDate(e.target.value)}
-                    className="h-9"
-                  />
-                </div>
-              ) : null}
+              <div
+                className={cn(
+                  "space-y-1.5 rounded-xl border p-3.5",
+                  serviceStartDate
+                    ? "border-ds-border-default/60 bg-ds-bg-2/40"
+                    : "border-status-warn/40 bg-status-warn/[0.06]",
+                )}
+              >
+                <label
+                  className={cn(
+                    "flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em]",
+                    serviceStartDate ? "text-ds-text-3" : "text-status-warn-fg",
+                  )}
+                >
+                  <Calendar className="h-3.5 w-3.5" />
+                  Fecha de inicio del servicio
+                </label>
+                <Input
+                  type="date"
+                  value={serviceStartDate}
+                  onChange={(e) => setServiceStartDate(e.target.value)}
+                  className="h-9"
+                />
+              </div>
 
               <section className="space-y-2.5">
                 <div className="flex items-baseline justify-between">
@@ -425,9 +436,12 @@ function ModalHeader({
         </span>
         <div className="flex-1">
           <DialogTitle className="text-lg leading-tight">{title}</DialogTitle>
-          {subtitle ? (
-            <p className="mt-0.5 text-xs text-ds-text-3">{subtitle}</p>
-          ) : null}
+          <DialogDescription
+            className={subtitle ? "mt-0.5 text-xs text-ds-text-3" : "sr-only"}
+          >
+            {subtitle ||
+              "Asistente de onboarding del cliente: revisa los pre-requisitos y crea los tickets."}
+          </DialogDescription>
         </div>
       </div>
 

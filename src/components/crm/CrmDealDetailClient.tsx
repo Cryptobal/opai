@@ -512,6 +512,12 @@ export function CrmDealDetailClient({
   const [onboardingTarget, setOnboardingTarget] = useState<
     { dealId: string; defaultPlaybookId?: string } | null
   >(null);
+  // Prompt previo: al ganar el negocio preguntamos si se quiere iniciar el
+  // onboarding ahora (crear tickets) o más tarde. Solo al confirmar se abre el
+  // modal (onboardingTarget).
+  const [onboardingPrompt, setOnboardingPrompt] = useState<
+    { dealId: string; defaultPlaybookId?: string } | null
+  >(null);
   const [deactivationDialog, setDeactivationDialog] = useState<{
     installationId: string;
     installationName: string;
@@ -1119,14 +1125,14 @@ export function CrmDealDetailClient({
       if (payload.data?.serviceStartDate) {
         setDealServiceStartDate(payload.data.serviceStartDate);
       }
-      const willOpenOnboarding =
-        !!(payload?.requiresOnboarding && payload?.defaultPlaybookId) ||
-        !!payload?.existingOnboarding?.id;
       if (payload?.requiresOnboarding && payload?.defaultPlaybookId) {
-        setOnboardingTarget({
+        // No abrimos el modal automáticamente: preguntamos primero si quiere
+        // iniciar el onboarding ahora o más tarde.
+        setOnboardingPrompt({
           dealId: deal.id,
           defaultPlaybookId: payload.defaultPlaybookId,
         });
+        toast.success("Negocio marcado como ganado.");
       } else if (
         payload?.existingOnboarding?.id &&
         payload?.existingOnboarding?.accountId
@@ -1143,8 +1149,7 @@ export function CrmDealDetailClient({
           },
           duration: 8000,
         });
-      }
-      if (!willOpenOnboarding) {
+      } else {
         toast.success("Etapa actualizada");
       }
       if (payload?.deactivationCandidate?.installationId) {
@@ -1187,6 +1192,21 @@ export function CrmDealDetailClient({
   const handleLostClick = () => {
     const lostStage = pipelineStages.find((s) => s.isClosedLost);
     if (lostStage) updateStage(lostStage.id);
+  };
+
+  // Respuesta al prompt "¿iniciar onboarding ahora?": Sí abre el modal, No deja
+  // el negocio ganado y el onboarding queda disponible para más tarde.
+  const confirmStartOnboarding = () => {
+    if (!onboardingPrompt) return;
+    setOnboardingTarget(onboardingPrompt);
+    setOnboardingPrompt(null);
+  };
+
+  const declineOnboarding = () => {
+    setOnboardingPrompt(null);
+    toast.message(
+      "Puedes iniciar el onboarding cuando quieras desde \"Onboarding del cliente\".",
+    );
   };
 
   // ── Helpers ──
@@ -2210,6 +2230,21 @@ export function CrmDealDetailClient({
         variant="default"
         loading={changingStage}
         loadingLabel="Procesando..."
+      />
+
+      <ConfirmDialog
+        open={!!onboardingPrompt}
+        onOpenChange={(v) => {
+          if (!v && onboardingPrompt) declineOnboarding();
+        }}
+        title="¿Iniciar el onboarding del cliente?"
+        description={
+          "Se abrirá el asistente para crear los tickets de onboarding (contrato, OS-10, protocolos, uniforme, etc.).\n\nPuedes hacerlo ahora o más tarde desde \"Onboarding del cliente\"."
+        }
+        confirmLabel="Sí, iniciar onboarding"
+        cancelLabel="Ahora no"
+        onConfirm={confirmStartOnboarding}
+        variant="default"
       />
 
       {/* Dialog: Fecha de inicio para etapa Adjudicado */}

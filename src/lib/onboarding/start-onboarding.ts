@@ -26,17 +26,28 @@ function computeSlaDueAt(serviceStart: Date, offsetDays: number): Date {
   return new Date(serviceStart.getTime() + offsetDays * 86_400_000);
 }
 
-async function nextTicketCode(
+/**
+ * Devuelve el último número de secuencia usado por los códigos de ticket del
+ * tenant. Se llama UNA sola vez antes del loop de creación: dentro de una misma
+ * transacción todas las filas comparten `transaction_timestamp()` como
+ * `createdAt`, así que ordenar por `createdAt` no distingue entre los tickets
+ * recién creados y `findFirst` podría devolver uno con código no-máximo,
+ * generando un código duplicado (P2002). Calculamos la base una vez y luego
+ * incrementamos en memoria.
+ */
+async function lastTicketSeq(
   tx: Prisma.TransactionClient,
   tenantId: string,
-): Promise<{ code: string; seq: number }> {
+): Promise<number> {
   const last = await tx.opsTicket.findFirst({
     where: { tenantId },
     orderBy: { createdAt: "desc" },
     select: { code: true },
   });
-  const seq = last?.code ? parseInt(last.code.split("-").pop() ?? "0", 10) : 0;
-  return { code: generateTicketCode(seq + 1), seq: seq + 1 };
+  const parsed = last?.code
+    ? parseInt(last.code.split("-").pop() ?? "0", 10)
+    : 0;
+  return Number.isNaN(parsed) ? 0 : parsed;
 }
 
 export async function startOnboardingForDeal(
@@ -98,6 +109,10 @@ export async function startOnboardingForDeal(
     const ticketsByTeam: Record<string, string[]> = {};
     const customStepsToSave: OnboardingStartStepInput[] = [];
 
+    // Secuencia base calculada una sola vez; cada ticket creado en este loop
+    // toma el siguiente número en memoria para evitar colisiones de código.
+    let ticketSeq = await lastTicketSeq(tx, ctx.tenantId);
+
     for (const step of input.steps) {
       if (!step.applies) {
         await tx.clientOnboardingStep.create({
@@ -132,7 +147,8 @@ export async function startOnboardingForDeal(
 
       const offsetDays = step.dueDateOffsetDays ?? 0;
       const slaDueAt = computeSlaDueAt(serviceStart, offsetDays);
-      const { code } = await nextTicketCode(tx, ctx.tenantId);
+      ticketSeq += 1;
+      const code = generateTicketCode(ticketSeq);
 
       const ticket = await tx.opsTicket.create({
         data: {
