@@ -508,6 +508,14 @@ export function CrmDealDetailClient({
   const [pendingAcceptedStageId, setPendingAcceptedStageId] = useState<string | null>(null);
   const [acceptedDate, setAcceptedDate] = useState("");
   const [dealServiceStartDate, setDealServiceStartDate] = useState(deal.serviceStartDate || null);
+  // Estado de cierre del negocio (open/won/lost). Se mantiene en estado local
+  // para reflejar el cambio de etapa al instante (el prop `deal.status` solo se
+  // refresca tras router.refresh()). El efecto lo re-sincroniza con la fuente
+  // de verdad cuando el server component vuelve a renderizar.
+  const [dealStatus, setDealStatus] = useState(deal.status);
+  useEffect(() => {
+    setDealStatus(deal.status);
+  }, [deal.status]);
   const [dealTitle, setDealTitle] = useState(deal.title);
   const [onboardingTarget, setOnboardingTarget] = useState<
     { dealId: string; defaultPlaybookId?: string } | null
@@ -1101,7 +1109,14 @@ export function CrmDealDetailClient({
     }
 
     const snapshot = currentStage;
+    const statusSnapshot = dealStatus;
+    const optimisticStatus = nextStage.isClosedWon
+      ? "won"
+      : nextStage.isClosedLost
+        ? "lost"
+        : "open";
     setCurrentStage({ id: nextStage.id, name: nextStage.name, color: nextStage.color });
+    setDealStatus(optimisticStatus);
     setChangingStage(true);
     try {
       const response = await fetch(`/api/crm/deals/${deal.id}/stage`, {
@@ -1159,9 +1174,13 @@ export function CrmDealDetailClient({
             payload.deactivationCandidate.installationName ?? "Instalación",
         });
       }
+      // Re-sincronizar datos del server (status, propagaciones, etc.) e
+      // invalidar el Router Cache para que un refresh no muestre el estado viejo.
+      router.refresh();
     } catch (error) {
       console.error(error);
       setCurrentStage(snapshot);
+      setDealStatus(statusSnapshot);
       toast.error("No se pudo actualizar la etapa.");
     } finally {
       setChangingStage(false);
@@ -1219,9 +1238,9 @@ export function CrmDealDetailClient({
     || pipelineStages.find((s) => s.id === currentStage?.id)?.color
     || "#94a3b8";
 
-  const statusBadge = deal.status === "won"
+  const statusBadge = dealStatus === "won"
     ? { label: "Ganado", variant: "success" as const }
-    : deal.status === "lost"
+    : dealStatus === "lost"
       ? { label: "Perdido", variant: "destructive" as const }
       : currentStage
         ? { label: currentStage.name, color: currentStageColor }
@@ -1239,19 +1258,19 @@ export function CrmDealDetailClient({
         {/* ── Hero: identidad (estado + cliente + contacto) ── */}
         <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
           <div className="flex flex-wrap items-center gap-2">
-            {deal.status === "won" && (
+            {dealStatus === "won" && (
               <Badge variant="outline" className="border-status-ok-border text-status-ok-fg">
                 <span className="mr-1 inline-flex h-1.5 w-1.5 rounded-full bg-status-ok" />
                 Ganado
               </Badge>
             )}
-            {deal.status === "lost" && (
+            {dealStatus === "lost" && (
               <Badge variant="outline" className="border-status-danger-border text-status-danger-fg">
                 <span className="mr-1 inline-flex h-1.5 w-1.5 rounded-full bg-status-danger" />
                 Perdido
               </Badge>
             )}
-            {deal.status === "open" && currentStage && (
+            {dealStatus === "open" && currentStage && (
               <Badge
                 variant="outline"
                 style={{ borderColor: `${currentStageColor}40`, color: currentStageColor, backgroundColor: `${currentStageColor}15` }}
@@ -1951,7 +1970,7 @@ export function CrmDealDetailClient({
       label: "Onboarding del cliente",
       icon: ListChecks,
       onClick: handleOpenOnboarding,
-      hidden: deal.status !== "won",
+      hidden: dealStatus !== "won",
     },
     { label: "Enviar correo", icon: Mail, onClick: () => setEmailOpen(true), hidden: !gmailConnected },
     { label: "Eliminar negocio", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
@@ -1984,7 +2003,7 @@ export function CrmDealDetailClient({
           <DealPipelineStepper
             stages={pipelineStages}
             currentStageId={currentStage?.id}
-            dealStatus={deal.status}
+            dealStatus={dealStatus}
             onStageClick={updateStage}
             onWonClick={handleWonClick}
             onLostClick={handleLostClick}
