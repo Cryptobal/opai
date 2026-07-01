@@ -9,11 +9,12 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Copy, Trash2, Check, AlertTriangle, ArrowLeftRight } from "lucide-react";
+import { Copy, Trash2, Check, ArrowLeftRight } from "lucide-react";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import { toast } from "sonner";
-import { HOURS_24, WEEKDAY_ORDER, durHours } from "./shift-utils";
+import { HOURS_24, WEEKDAY_ORDER, analizarTurno, DEFAULT_COLACION_MIN } from "./shift-utils";
+import { JornadaHoursChip } from "./JornadaHoursChip";
 import { CatalogPicker } from "./CatalogPicker";
 import { useLiquidoPreview } from "./useLiquidoPreview";
 import type { CpqCatalogOption, NormalizedShift, ShiftPatch } from "./types";
@@ -85,12 +86,21 @@ export function ShiftRowEditor({
     apply({ dias: next });
   };
 
+  const [colacionMin, setColacionMin] = useState<number>(DEFAULT_COLACION_MIN);
+
   const live = useLiquidoPreview(draft.bruto, { disabled: disableLivePreview, ufValue });
   const totalGuards = draft.guardias * (draft.nPuestos || 1);
   const liquido = live?.net ?? row.liquido ?? null;
   const perGuard = live?.employerPerGuard ?? row.costoPorGuardia ?? null;
   const costo = perGuard != null ? perGuard * totalGuards : row.costo ?? 0;
-  const hours = durHours(draft.inicio, draft.fin);
+  const rolName = catalogs.roles.find((r) => r.id === draft.rolId)?.name;
+  const jornada = analizarTurno({
+    inicio: draft.inicio,
+    fin: draft.fin,
+    dias: draft.dias,
+    rolName,
+    colacionMin,
+  });
   const puestoName = catalogs.puestos.find((p) => p.id === draft.puestoId)?.name || "Puesto";
 
   return (
@@ -137,10 +147,22 @@ export function ShiftRowEditor({
             >
               <ArrowLeftRight className="h-3.5 w-3.5" />
             </Button>
-            <span className={cn("inline-flex items-center gap-1 text-xs", hours > 12 ? "text-status-warn-fg" : "text-muted-foreground")}>
-              {hours > 12 && <AlertTriangle className="h-3 w-3" />}
-              {hours}h
-            </span>
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Colación</span>
+              <select
+                className={cn(FIELD, "w-[68px]")}
+                value={colacionMin}
+                onChange={(e) => setColacionMin(Number(e.target.value))}
+                title="Minutos de colación (no imputable a la jornada)"
+              >
+                {[0, 30, 45, 60].map((m) => (
+                  <option key={m} value={m}>{m}m</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="mt-1.5">
+            <JornadaHoursChip analysis={jornada} variant="full" />
           </div>
         </div>
         <div>

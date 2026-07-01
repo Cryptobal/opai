@@ -224,6 +224,7 @@ export function ServiceCard({ group, rows, adapter, totalCost, expandedRowId, on
                 <ShiftRowSummary
                   row={row}
                   puestos={adapter.catalogs.puestos}
+                  roles={adapter.catalogs.roles}
                   currency={adapter.currency}
                   ufValue={adapter.ufValue}
                   expanded={expandedRowId === row.id}

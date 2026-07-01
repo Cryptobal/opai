@@ -6,12 +6,14 @@
 import { ChevronDown, Loader2, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
-import { isNightShift, diasLabel } from "./shift-utils";
+import { isNightShift, diasLabel, analizarTurno } from "./shift-utils";
+import { JornadaHoursChip } from "./JornadaHoursChip";
 import type { CpqCatalogOption, NormalizedShift } from "./types";
 
 interface Props {
   row: NormalizedShift;
   puestos: CpqCatalogOption[];
+  roles?: CpqCatalogOption[];
   currency: string;
   ufValue?: number | null;
   expanded: boolean;
@@ -22,6 +24,7 @@ interface Props {
 export function ShiftRowSummary({
   row,
   puestos,
+  roles,
   currency,
   ufValue,
   expanded,
@@ -32,6 +35,8 @@ export function ShiftRowSummary({
   const puestoName = puestos.find((p) => p.id === row.puestoId)?.name || "Puesto";
   const customName = row.customName?.trim();
   const totalGuards = row.guardias * (row.nPuestos || 1);
+  const rolName = roles?.find((r) => r.id === row.rolId)?.name;
+  const jornada = analizarTurno({ inicio: row.inicio, fin: row.fin, dias: row.dias, rolName });
 
   return (
     <button
@@ -71,6 +76,8 @@ export function ShiftRowSummary({
           <span className="font-mono">
             {row.guardias}g × {row.nPuestos || 1} pto{(row.nPuestos || 1) !== 1 ? "s" : ""}
           </span>
+          <span>·</span>
+          <JornadaHoursChip analysis={jornada} variant="compact" />
         </div>
       </div>
 

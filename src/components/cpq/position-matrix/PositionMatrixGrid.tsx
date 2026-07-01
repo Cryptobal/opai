@@ -67,7 +67,8 @@ import {
 } from "lucide-react";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
-import { HOURS_24, WEEKDAY_ORDER, isNightShift } from "./shift-utils";
+import { HOURS_24, WEEKDAY_ORDER, isNightShift, analizarTurno } from "./shift-utils";
+import { JornadaHoursChip } from "./JornadaHoursChip";
 import { resolveServiceColor, SERVICE_COLOR_PALETTE } from "./service-colors";
 import { CatalogPicker } from "./CatalogPicker";
 import { useGridColWidths, type GridColKey } from "./useGridColWidths";
@@ -729,6 +730,8 @@ function GridRow({ row, adapter, readOnly, leadingCell, color, onRequestDelete }
   const night = isNightShift(draft.inicio);
   const saving = savingRowId === row.id;
   const disabled = readOnly;
+  const rolName = catalogs.roles.find((r) => r.id === draft.rolId)?.name;
+  const jornada = analizarTurno({ inicio: draft.inicio, fin: draft.fin, dias: draft.dias, rolName });
 
   return (
     <tr className="border-b border-border/60 hover:bg-muted/20 [&>td]:align-middle">
@@ -790,6 +793,7 @@ function GridRow({ row, adapter, readOnly, leadingCell, color, onRequestDelete }
               {HOURS_24.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
+          <JornadaHoursChip analysis={jornada} variant="compact" className="w-full" />
         </div>
       </td>
 
