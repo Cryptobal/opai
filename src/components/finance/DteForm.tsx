@@ -298,6 +298,13 @@ export function DteForm({ availableTypes, accounts }: Props) {
   const searchParams = useSearchParams();
   const draftIdParam = searchParams?.get("draftId") ?? null;
   const asDraftFlag = searchParams?.get("asDraft") === "true";
+  // Pestaña de origen: al guardar un borrador volvemos a donde estaba el usuario
+  // (DTEs Emitidos vs Programación) en vez de mandarlo siempre a Programación.
+  const fromParam = searchParams?.get("from") ?? null;
+  const draftReturnPath =
+    fromParam === "dtes"
+      ? "/finanzas/facturacion/dtes"
+      : "/finanzas/facturacion/programacion";
 
   // Cargar UF del día cuando se elige UF como moneda.
   useEffect(() => {
@@ -1133,7 +1140,7 @@ export function DteForm({ availableTypes, accounts }: Props) {
         throw new Error(err.error || "Error al guardar borrador");
       }
       toast.success(draftIdParam ? "Borrador actualizado" : "Borrador creado");
-      router.push("/finanzas/facturacion/programacion");
+      router.push(draftReturnPath);
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error inesperado");

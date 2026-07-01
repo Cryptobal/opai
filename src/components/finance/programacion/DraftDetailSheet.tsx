@@ -178,7 +178,7 @@ export function DraftDetailSheet({
   }
 
   function handleEditFull() {
-    router.push(`/finanzas/facturacion/emitir?draftId=${draftId}`);
+    router.push(`/finanzas/facturacion/emitir?draftId=${draftId}&from=programacion`);
   }
 
   return (

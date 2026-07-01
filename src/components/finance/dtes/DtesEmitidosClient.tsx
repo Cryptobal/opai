@@ -539,7 +539,7 @@ export function DtesEmitidosClient({
   };
 
   const handleEditDraft = (id: string) => {
-    router.push(`/finanzas/facturacion/emitir?draftId=${id}`);
+    router.push(`/finanzas/facturacion/emitir?draftId=${id}&from=dtes`);
   };
 
   const handleCloneDraft = async (id: string) => {
