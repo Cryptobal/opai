@@ -23,6 +23,7 @@ interface PortalContract {
   effectiveDate: string | null;
   expirationDate: string | null;
   pdfUrl: string | null;
+  contractClientToken: string | null;
   signatureStatus: string | null;
   signatureCompletedAt: string | null;
   createdAt: string;
@@ -38,6 +39,9 @@ interface Props {
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
   active: { label: "Vigente", color: "text-status-ok-fg bg-status-ok-soft border-status-ok-border", icon: CheckCircle2 },
   draft: { label: "Borrador", color: "text-zinc-400 bg-zinc-500/10 border-zinc-500/20", icon: Clock },
+  in_review: { label: "En revisión", color: "text-status-info-fg bg-status-info-soft border-status-info-border", icon: Clock },
+  review: { label: "En revisión", color: "text-status-info-fg bg-status-info-soft border-status-info-border", icon: Clock },
+  approved: { label: "Aceptado", color: "text-status-ok-fg bg-status-ok-soft border-status-ok-border", icon: CheckCircle2 },
   expiring: { label: "Por vencer", color: "text-status-warn-fg bg-status-warn-soft border-status-warn-border", icon: AlertTriangle },
   expired: { label: "Vencido", color: "text-status-danger-fg bg-status-danger-soft border-status-danger-border", icon: AlertTriangle },
 };
@@ -162,15 +166,17 @@ export function PortalContractsSection({ tenantId, accountId }: Props) {
                     <Download className="h-4 w-4 text-zinc-400" />
                   </a>
                 )}
-                <a
-                  href={`/portal/cliente/documentos/${c.uniqueId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-2 rounded-lg hover:bg-white/5 transition-colors"
-                  title="Ver documento"
-                >
-                  <ExternalLink className="h-4 w-4 text-zinc-400" />
-                </a>
+                {c.contractClientToken && (
+                  <a
+                    href={`/contrato/${c.contractClientToken}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+                    title="Ver documento"
+                  >
+                    <ExternalLink className="h-4 w-4 text-zinc-400" />
+                  </a>
+                )}
               </div>
             </div>
           </div>

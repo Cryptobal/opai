@@ -29,6 +29,9 @@ export async function GET(request: NextRequest) {
         module: "crm",
         category: { in: CONTRACT_CATEGORIES },
         portalVisible: true,
+        // Los borradores viven en el editor interno; no se muestran al cliente
+        // hasta que se envían a revisión (in_review/review) o más allá.
+        status: { not: "draft" },
         associations: {
           some: {
             entityType: "crm_account",
@@ -45,6 +48,7 @@ export async function GET(request: NextRequest) {
         effectiveDate: true,
         expirationDate: true,
         pdfUrl: true,
+        contractClientToken: true,
         createdAt: true,
         signatureRequests: {
           select: {
@@ -70,6 +74,7 @@ export async function GET(request: NextRequest) {
         effectiveDate: doc.effectiveDate,
         expirationDate: doc.expirationDate,
         pdfUrl: doc.pdfUrl,
+        contractClientToken: doc.contractClientToken,
         signatureStatus: sigReq?.status ?? null,
         signatureCompletedAt: sigReq?.completedAt ?? null,
         createdAt: doc.createdAt,
