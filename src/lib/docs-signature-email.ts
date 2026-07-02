@@ -97,6 +97,7 @@ export async function sendContractReviewRequestEmail(input: {
   senderName?: string;
   senderCompany?: string;
   message?: string | null;
+  portalSetupUrl?: string | null;
 }): Promise<SignatureMailResult> {
   try {
     const html = await render(ContractReviewRequestEmail(input));

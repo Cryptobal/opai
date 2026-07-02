@@ -209,21 +209,25 @@ export function resolveTokenValue(
     if (field === "contractStartDate") {
       // Pre-normalized in buildQuoteEnrichedData to YYYY-MM-DD. Format via
       // formatDateOnly so "2026-04-01" displays as "01/04/2026" without TZ drift.
-      if (!entity.contractStartDate) return "";
-      return formatDateOnly(entity.contractStartDate) ?? "";
+      // Si el quote dejó "FECHA INICIO CONTRATO" en blanco caemos a hoy (UTC),
+      // igual que el generador para effectiveDate/expirationDate del encabezado —
+      // si no, el token quedaría como badge sin resolver mientras el encabezado
+      // sí muestra una fecha.
+      const start = entity.contractStartDate || new Date().toISOString().slice(0, 10);
+      return formatDateOnly(start) ?? "";
     }
     if (field === "contractEndDate") {
-      if (!entity.contractStartDate) return "";
+      const startVal = entity.contractStartDate || new Date().toISOString().slice(0, 10);
       const months = entity.contractDuration ?? entity.contractMonths ?? 12;
       // Parse as a plain calendar date (YYYY-MM-DD) to avoid local-vs-UTC
       // timezone drift: `new Date("2026-04-01")` is UTC midnight, whose local
       // representation can be the previous day, which then poisons the end-date
       // arithmetic (returns 01/07 instead of 30/06 in western timezones).
-      const raw = typeof entity.contractStartDate === "string"
-        ? entity.contractStartDate
-        : entity.contractStartDate instanceof Date
-        ? entity.contractStartDate.toISOString()
-        : String(entity.contractStartDate);
+      const raw = typeof startVal === "string"
+        ? startVal
+        : startVal instanceof Date
+        ? startVal.toISOString()
+        : String(startVal);
       const m = raw.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
       let y: number, mo: number, d: number;
       if (m) {

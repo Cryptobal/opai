@@ -19,6 +19,12 @@ interface ContractReviewRequestEmailProps {
   senderName?: string;
   senderCompany?: string;
   message?: string | null;
+  /**
+   * Optional magic-link to create a portal PIN. Only passed when the recipient
+   * contact does not yet have portal access, so the review email doubles as a
+   * portal onboarding invite.
+   */
+  portalSetupUrl?: string | null;
 }
 
 /**
@@ -34,6 +40,7 @@ export default function ContractReviewRequestEmail({
   senderName = "Equipo OPAI",
   senderCompany,
   message,
+  portalSetupUrl,
 }: ContractReviewRequestEmailProps) {
   const senderLine = senderCompany
     ? `${senderName} (${senderCompany})`
@@ -98,6 +105,21 @@ export default function ContractReviewRequestEmail({
               {reviewUrl}
             </Link>
           </Text>
+
+          {portalSetupUrl ? (
+            <Section style={portalBox}>
+              <Text style={portalTitle}>Accede a tu portal de cliente</Text>
+              <Text style={boxText}>
+                Crea tu PIN para entrar al portal, donde podrás ver tus
+                contratos, documentos y servicios cuando quieras.
+              </Text>
+              <Text style={{ ...boxText, margin: "10px 0 0" }}>
+                <Link href={portalSetupUrl} style={link}>
+                  Crear mi PIN de acceso
+                </Link>
+              </Text>
+            </Section>
+          ) : null}
 
           <Text style={footer}>
             Este enlace es personal y único. No lo compartas con terceros.
@@ -200,4 +222,17 @@ const link = {
   color: "#0ea5e9",
   textDecoration: "underline",
   wordBreak: "break-all" as const,
+};
+const portalBox = {
+  backgroundColor: "#eff6ff",
+  border: "1px solid #bfdbfe",
+  borderRadius: "8px",
+  padding: "14px 16px",
+  margin: "18px 0 0",
+};
+const portalTitle = {
+  color: "#1e40af",
+  fontSize: "14px",
+  fontWeight: "700",
+  margin: "0 0 6px",
 };

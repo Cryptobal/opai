@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/opai-ds";
-import { DOC_STATUS_CONFIG, DOC_CATEGORIES } from "@/lib/docs/token-registry";
+import { DOC_STATUS_CONFIG, DOC_CATEGORIES, normalizeDocStatus } from "@/lib/docs/token-registry";
 import type { DocDocument } from "@/types/docs";
 import { useCanDelete } from "@/lib/permissions-context";
 
@@ -58,16 +58,18 @@ const STATUS_COLORS: Record<string, { compact: string; full: string }> = {
   review:   { compact: "text-status-warn-fg",  full: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
   approved: { compact: "text-status-info-fg",    full: "bg-status-info-soft text-status-info-fg border-status-info-border" },
   active:   { compact: "text-status-ok-fg", full: "bg-status-ok-soft text-status-ok-fg border-status-ok-border" },
+  pending_signature: { compact: "text-status-warn-fg", full: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
   expiring: { compact: "text-status-warn-fg",  full: "bg-status-warn-soft text-status-warn-fg border-status-warn-border" },
   expired:  { compact: "text-status-danger-fg",     full: "bg-status-danger-soft text-status-danger-fg border-status-danger-border" },
   renewed:  { compact: "text-tint-violet-fg",  full: "bg-tint-violet text-tint-violet-fg border-tint-violet-fg/30" },
 };
 
 function StatusBadge({ status, compact = false }: { status: string; compact?: boolean }) {
-  const config = DOC_STATUS_CONFIG[status];
+  const key = normalizeDocStatus(status);
+  const config = DOC_STATUS_CONFIG[key];
   if (!config) return <Badge variant="outline">{status}</Badge>;
-  const Icon = STATUS_ICONS[status] || FileText;
-  const colors = STATUS_COLORS[status] || { compact: "text-muted-foreground", full: "bg-muted text-muted-foreground border-border" };
+  const Icon = STATUS_ICONS[key] || FileText;
+  const colors = STATUS_COLORS[key] || { compact: "text-muted-foreground", full: "bg-muted text-muted-foreground border-border" };
 
   if (compact) {
     return (

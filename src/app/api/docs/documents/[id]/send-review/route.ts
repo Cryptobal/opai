@@ -18,7 +18,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
 import { canDelete } from "@/lib/permissions";
 import { sendContractReviewRequestEmail } from "@/lib/docs-signature-email";
-import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
+import { getCanonicalSiteUrl, buildEmailUrl } from "@/lib/emails/site-url";
 
 function forbidden() {
   return NextResponse.json(
@@ -135,14 +135,48 @@ export async function POST(
     });
     const tenant = await prisma.tenant.findUnique({
       where: { id: ctx.tenantId },
-      select: { name: true },
+      select: { name: true, slug: true },
     });
 
     const siteUrl = getSiteUrl();
     const reviewUrl = `${siteUrl}/contrato/${token}`;
 
+    // Account context for portal onboarding: if a recipient is a known contact
+    // without portal access, we mint a magic-link so the review email doubles
+    // as a portal invite (they set their own PIN — we never email a plaintext
+    // PIN). Reuses the existing /portal/cliente/setup flow.
+    const accountAssocForPortal = await prisma.docAssociation.findFirst({
+      where: { documentId: id, entityType: "crm_account" },
+      select: { entityId: true },
+    });
+    const portalAccountId = accountAssocForPortal?.entityId ?? null;
+
     const results: Array<{ email: string; ok: boolean; error?: string }> = [];
     for (const recipient of recipients) {
+      let portalSetupUrl: string | undefined;
+      if (portalAccountId) {
+        const contact = await prisma.crmContact.findFirst({
+          where: {
+            accountId: portalAccountId,
+            tenantId: ctx.tenantId,
+            email: { equals: recipient.email, mode: "insensitive" },
+          },
+          select: { id: true, portalEnabled: true },
+        });
+        if (contact && !contact.portalEnabled) {
+          const magicToken = buildToken();
+          const exp = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48h
+          await prisma.crmContact.update({
+            where: { id: contact.id },
+            data: { portalMagicToken: magicToken, portalMagicTokenExp: exp },
+          });
+          portalSetupUrl = buildEmailUrl(
+            `/portal/cliente/setup?token=${magicToken}`,
+            tenant?.slug ?? null,
+          );
+        }
+      }
+
       const send = await sendContractReviewRequestEmail({
         to: recipient.email,
         recipientName: recipient.name || "Estimado(a)",
@@ -151,6 +185,7 @@ export async function POST(
         senderName: sender?.name ?? sender?.email ?? "Equipo OPAI",
         senderCompany: tenant?.name ?? undefined,
         message: body.message?.trim() || null,
+        portalSetupUrl,
       });
       results.push({
         email: recipient.email,
@@ -159,13 +194,15 @@ export async function POST(
       });
     }
 
-    // Move the document to a "in review" status so the timeline / UI can
-    // reflect that there's an open review cycle. We store `in_review` in
-    // the existing `status` field — keeps the schema unchanged.
+    // Move the document to the "review" status so the timeline / UI can
+    // reflect that there's an open review cycle. `review` is the canonical
+    // in-review state understood by the editor allow-list, the status catalog
+    // (DOC_STATUS_CONFIG) and the PATCH validator — and it keeps the document
+    // editable so the executive can still fix unresolved tokens.
     if (document.status === "draft") {
       await prisma.document.update({
         where: { id },
-        data: { status: "in_review" },
+        data: { status: "review" },
       });
     }
 

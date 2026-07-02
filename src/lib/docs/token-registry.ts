@@ -607,3 +607,14 @@ export const DOC_STATUS_CONFIG: Record<string, { label: string; color: string; i
   expired: { label: "Vencido", color: "bg-red-100 text-status-danger-fg", icon: "XCircle" },
   renewed: { label: "Renovado", color: "bg-purple-100 text-purple-700", icon: "RefreshCw" },
 };
+
+/**
+ * Normaliza estados heredados a la clave canónica. Antes, el flujo "enviar a
+ * revisión" persistía `in_review`, pero el resto de la app (este catálogo, la
+ * lista de estados editables y el validador) solo conoce `review`. Los envíos
+ * nuevos ya escriben `review`; este helper deja que las filas antiguas se
+ * rendericen/editen correctamente sin necesidad de migrar datos.
+ */
+export function normalizeDocStatus(status: string): string {
+  return status === "in_review" ? "review" : status;
+}

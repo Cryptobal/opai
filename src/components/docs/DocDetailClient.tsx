@@ -39,7 +39,7 @@ import { ContractEditor } from "./ContractEditor";
 import { SignatureRequestModal } from "./SignatureRequestModal";
 import { SendForReviewModal } from "./SendForReviewModal";
 import { SignatureStatusPanel } from "./SignatureStatusPanel";
-import { DOC_STATUS_CONFIG, DOC_CATEGORIES } from "@/lib/docs/token-registry";
+import { DOC_STATUS_CONFIG, DOC_CATEGORIES, normalizeDocStatus } from "@/lib/docs/token-registry";
 import { toast } from "sonner";
 import type { DocDocument, DocHistory } from "@/types/docs";
 import { useCanDelete } from "@/lib/permissions-context";
@@ -132,9 +132,10 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
       const res = await fetch(`/api/docs/documents/${documentId}`);
       const data = await res.json();
       if (data.success && data.data) {
-        setDoc(data.data);
+        const normalized = { ...data.data, status: normalizeDocStatus(data.data.status) };
+        setDoc(normalized);
         setContent(sanitizeTiptapContent(data.data.content));
-        setStatus(data.data.status);
+        setStatus(normalized.status);
         setHistory(data.data.history || []);
       }
     } catch (error) {
@@ -222,7 +223,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
       const data = await res.json();
       if (res.ok) {
         toast.success("Documento guardado");
-        setDoc(data.data);
+        setDoc({ ...data.data, status: normalizeDocStatus(data.data.status) });
       } else {
         toast.error(data.error || "Error al guardar");
       }

@@ -60,7 +60,17 @@ export const updateDocumentSchema = z.object({
   content: z.any().optional(),
   tokenValues: z.record(z.string(), z.string()).optional(),
   status: z
-    .enum(["draft", "review", "approved", "active", "expiring", "expired", "renewed"])
+    .enum([
+      "draft",
+      "review",
+      "in_review",
+      "approved",
+      "active",
+      "pending_signature",
+      "expiring",
+      "expired",
+      "renewed",
+    ])
     .optional(),
   effectiveDate: z.string().optional().nullable(),
   expirationDate: z.string().optional().nullable(),
