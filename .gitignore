@@ -142,3 +142,6 @@ LIBRO_*
 *remuneraciones-*.csv
 *imposiciones-*.csv
 pnpm-lock.yaml
+
+# Documentos de entrega Web4Leads (contienen credenciales reales)
+WEB4LEADS_ENTREGA_*.md
