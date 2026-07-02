@@ -41,6 +41,7 @@ import { usePortalClienteRealtime } from "@/hooks/usePortalClienteRealtime";
 import { PreviewBadge } from "./PreviewBadge";
 import { OpaiBadge } from "./OpaiBadge";
 import { DashboardCotizacionesPendientes } from "./cotizaciones/DashboardCotizacionesPendientes";
+import { ContratosEnRevisionCard } from "./ContratosEnRevisionCard";
 import { EquipoGlobalCard } from "./dashboard/EquipoGlobalCard";
 import { DocComplianceAlertCard } from "./dashboard/DocComplianceAlertCard";
 import { WhatsAppButton } from "./cotizaciones/WhatsAppButton";
@@ -357,6 +358,9 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
         isProspect={isProspect}
         onNavigateToDetail={(section) => onNavigate(section)}
       />
+
+      {/* Contratos en revisión — deep-link directo al visor del contrato */}
+      <ContratosEnRevisionCard />
 
       {/* Alerta de cumplimiento documental global */}
       {!isProspect && <DocComplianceAlertCard onNavigate={onNavigate} />}
