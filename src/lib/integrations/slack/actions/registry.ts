@@ -13,6 +13,7 @@ import type { ModalDef } from "../modals/types";
 import { ticketModal } from "../modals/ticket";
 import { rendicionModal } from "../modals/rendicion";
 import { visitaModal } from "./visita";
+import { turnoExtraModal } from "./turno-extra";
 
 export interface ActionDef extends ModalDef {
   /** Grupo visible en el hub (p. ej. "Tickets", "Operaciones", "Finanzas"). */
@@ -22,6 +23,7 @@ export interface ActionDef extends ModalDef {
 export const ACTIONS: ActionDef[] = [
   { ...ticketModal, group: "Tickets" },
   { ...visitaModal, group: "Operaciones" },
+  { ...turnoExtraModal, group: "Operaciones" },
   { ...rendicionModal, group: "Finanzas" },
 ];
 
