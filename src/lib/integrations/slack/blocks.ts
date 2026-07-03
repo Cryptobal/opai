@@ -15,10 +15,43 @@ export interface NotificationBlocksInput {
   critical?: boolean;
   /** Teléfono del contacto: agrega línea '📞 Llamar' tappable (mrkdwn tel:). */
   phone?: string | null;
+  /** Pares clave-valor de contexto (≤6) renderizados como sección `fields`. */
+  fields?: Array<{ label: string; value: string }> | null;
 }
 
 const HEADER_MAX = 150;
 const BODY_MAX = 2900;
+const MAX_FIELDS = 6;
+
+/** Claves que NUNCA se muestran como campo (ids, urls, tokens, phone* ya en la línea 📞). */
+const FIELD_KEY_BLACKLIST = /(^id$|Id$|^url|token|^link$|^phone)/i;
+
+/** Humaniza una clave camelCase/snake_case a un label legible ("slaDueAt" → "Sla Due At"). */
+function humanizeKey(key: string): string {
+  const spaced = key.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").trim();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+/**
+ * Deriva hasta 6 campos de contexto de `data`: sólo primitivos cortos, sin
+ * ids/urls/tokens. Labels humanizadas. Es el renderer genérico de las tarjetas;
+ * los enrichers por tipo enriquecen `data` con claves ya legibles.
+ */
+export function toContextFields(
+  data?: Record<string, unknown> | null,
+): Array<{ label: string; value: string }> {
+  if (!data) return [];
+  const fields: Array<{ label: string; value: string }> = [];
+  for (const [k, v] of Object.entries(data)) {
+    if (fields.length >= MAX_FIELDS) break;
+    if (FIELD_KEY_BLACKLIST.test(k)) continue;
+    if (v === null || v === undefined || typeof v === "object") continue;
+    const value = typeof v === "boolean" ? (v ? "Sí" : "No") : String(v);
+    if (!value || value.length > 80) continue;
+    fields.push({ label: humanizeKey(k), value });
+  }
+  return fields;
+}
 
 function toAbsolute(link: string): string {
   if (/^https?:\/\//.test(link)) return link;
@@ -41,6 +74,14 @@ export function buildNotificationBlocks(input: NotificationBlocksInput): {
 
   if (body) {
     blocks.push({ type: "section", text: { type: "mrkdwn", text: body } });
+  }
+
+  const fields = (input.fields ?? []).slice(0, MAX_FIELDS);
+  if (fields.length) {
+    blocks.push({
+      type: "section",
+      fields: fields.map((f) => ({ type: "mrkdwn", text: `*${f.label}*\n${f.value}` })),
+    });
   }
 
   if (input.phone) {

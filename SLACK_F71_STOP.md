@@ -19,7 +19,7 @@ Manifest: scopes bot `reactions:read` + `reactions:write`; bot_events `reaction_
 
 ## Bloques
 - [x] B1 — CATEGORY en ruteo (dispatch + API + UI)
-- [ ] B2 — Renderer genérico de fields
+- [x] B2 — Renderer genérico de fields
 - [ ] B3 — Enrichers tickets + postulaciones + leads
 - [ ] B4 — Tool `get_my_tickets`
 - [ ] B5 — Hub "Mis tickets" + `/opai ayuda`

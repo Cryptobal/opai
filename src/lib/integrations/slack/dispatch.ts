@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import type { UnifiedNotificationType } from "@/lib/notifications/catalog";
 import { getWorkspaceForTenant } from "./workspace";
-import { buildNotificationBlocks, ticketActionsBlock } from "./blocks";
+import { buildNotificationBlocks, ticketActionsBlock, toContextFields } from "./blocks";
 import { slackPostMessage, SlackApiError, isPermanentSlackError } from "./api";
 
 interface DispatchInput {
@@ -61,6 +61,7 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     body: input.body,
     category: input.typeDef.category,
     phone: typeof input.data?.phone === "string" ? input.data.phone : null,
+    fields: toContextFields(input.data),
     link: input.link,
     critical: input.typeDef.critical,
   });
