@@ -82,8 +82,7 @@ export async function GET(request: NextRequest) {
         title: "⚠️ Lead sin contactar",
         body: `${empresa} hace ${minutesSince} min sin respuesta`,
         link: `/crm/leads/${lead.id}`,
-        data: { phone: lead.phone ?? null },
-        data: { leadId: lead.id },
+        data: { phone: lead.phone ?? null, leadId: lead.id },
       });
       await prisma.crmLead.update({
         where: { id: lead.id },
