@@ -15,12 +15,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Check,
   ChevronRight,
   Clock,
   GripVertical,
   Loader2,
-  Minus,
   Pencil,
   Plus,
   Save,
@@ -41,6 +39,14 @@ import {
   getOriginLabel,
 } from "@/lib/tickets";
 import type { AdminGroup } from "@/lib/groups";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  ChainEditorCell,
+  AssigneeCell,
+  BulkActionBar,
+  draftsToPayload,
+  type ChainStepDraft,
+} from "@/components/config/TicketTypeInlineEditors";
 
 // ═══════════════════════════════════════════════════════════════
 //  Types
@@ -212,16 +218,6 @@ function ApprovalChainTimeline({
         );
       })}
     </div>
-  );
-}
-
-function ApprovalChainSummary({ steps }: { steps: TicketTypeApprovalStep[] }) {
-  if (steps.length === 0) return <span className="text-muted-foreground">—</span>;
-  const labels = steps.map(
-    (s) => s.approverGroupName ?? s.approverUserName ?? s.label,
-  );
-  return (
-    <span className="text-xs">{labels.join(" \u2192 ")}</span>
   );
 }
 
@@ -733,6 +729,11 @@ export function TicketTypesConfigClient({
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
+  // Edición en línea + selección múltiple (Fase 11).
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+
   // ── Fetch data ──
 
   const fetchTicketTypes = useCallback(async () => {
@@ -833,6 +834,83 @@ export function TicketTypesConfigClient({
     }
   }
 
+  // ── Inline edit + bulk (Fase 11) ──
+
+  const markSaving = useCallback((id: string, on: boolean) => {
+    setSavingIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const handleInlinePatch = useCallback(
+    async (id: string, patch: Record<string, unknown>) => {
+      markSaving(id, true);
+      try {
+        const res = await fetch(`/api/ops/ticket-types/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        // Reemplazo puntual en el estado local para reflejar sin recargar todo.
+        setTicketTypes((prev) => prev.map((t) => (t.id === id ? data.data : t)));
+        toast.success("Actualizado");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Error al actualizar");
+        await fetchTicketTypes(); // re-sincroniza si algo divergió
+      } finally {
+        markSaving(id, false);
+      }
+    },
+    [markSaving, fetchTicketTypes],
+  );
+
+  const handleInlineChain = useCallback(
+    (id: string, drafts: ChainStepDraft[]) => {
+      const approvalSteps = draftsToPayload(drafts);
+      void handleInlinePatch(id, { approvalSteps, requiresApproval: approvalSteps.length > 0 });
+    },
+    [handleInlinePatch],
+  );
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleBatch = useCallback(
+    async (patch: Record<string, unknown>) => {
+      const ids = [...selected];
+      if (ids.length === 0) return;
+      setBulkBusy(true);
+      try {
+        const res = await fetch(`/api/ops/ticket-types/batch`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids, patch }),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        toast.success(`Aplicado a ${data.data?.updated ?? ids.length} tipo(s)`);
+        setSelected(new Set());
+        await fetchTicketTypes();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Error en acción masiva");
+      } finally {
+        setBulkBusy(false);
+      }
+    },
+    [selected, fetchTicketTypes],
+  );
+
   // ── Organize by origin ──
 
   const filteredTypes = useMemo(
@@ -902,6 +980,23 @@ export function TicketTypesConfigClient({
 
   return (
     <div className="space-y-6">
+      {/* Barra de acciones masivas (Fase 11) */}
+      {selected.size > 0 && (
+        <BulkActionBar
+          count={selected.size}
+          groups={groups}
+          admins={admins ?? []}
+          busy={bulkBusy}
+          onClear={() => setSelected(new Set())}
+          onSetChain={(drafts) => {
+            const approvalSteps = draftsToPayload(drafts);
+            void handleBatch({ approvalSteps, requiresApproval: approvalSteps.length > 0 });
+          }}
+          onSetAssignee={(adminId) => void handleBatch({ defaultAssignedToUserId: adminId })}
+          onSetPriority={(p) => void handleBatch({ defaultPriority: p })}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
@@ -921,6 +1016,11 @@ export function TicketTypesConfigClient({
           types={guardTypes}
           groups={groups}
           admins={admins}
+          selected={selected}
+          savingIds={savingIds}
+          onToggleSelect={toggleSelect}
+          onInlineChain={handleInlineChain}
+          onInlineAssignee={(id, adminId) => handleInlinePatch(id, { defaultAssignedToUserId: adminId })}
           onEdit={setSelectedTypeId}
           onToggleActive={handleToggleActive}
         />
@@ -933,6 +1033,11 @@ export function TicketTypesConfigClient({
           types={internalTypes}
           groups={groups}
           admins={admins}
+          selected={selected}
+          savingIds={savingIds}
+          onToggleSelect={toggleSelect}
+          onInlineChain={handleInlineChain}
+          onInlineAssignee={(id, adminId) => handleInlinePatch(id, { defaultAssignedToUserId: adminId })}
           onEdit={setSelectedTypeId}
           onToggleActive={handleToggleActive}
         />
@@ -945,6 +1050,11 @@ export function TicketTypesConfigClient({
           types={bothTypes}
           groups={groups}
           admins={admins}
+          selected={selected}
+          savingIds={savingIds}
+          onToggleSelect={toggleSelect}
+          onInlineChain={handleInlineChain}
+          onInlineAssignee={(id, adminId) => handleInlinePatch(id, { defaultAssignedToUserId: adminId })}
           onEdit={setSelectedTypeId}
           onToggleActive={handleToggleActive}
         />
@@ -983,6 +1093,11 @@ function TicketTypeSection({
   types,
   groups,
   admins,
+  selected,
+  savingIds,
+  onToggleSelect,
+  onInlineChain,
+  onInlineAssignee,
   onEdit,
   onToggleActive,
 }: {
@@ -990,9 +1105,15 @@ function TicketTypeSection({
   types: TicketType[];
   groups: AdminGroup[];
   admins?: Array<{ id: string; name: string | null; email: string }>;
+  selected: Set<string>;
+  savingIds: Set<string>;
+  onToggleSelect: (id: string) => void;
+  onInlineChain: (id: string, drafts: ChainStepDraft[]) => void;
+  onInlineAssignee: (id: string, adminId: string | null) => void;
   onEdit: (id: string) => void;
   onToggleActive: (id: string, isActive: boolean) => void;
 }) {
+  const adminList = admins ?? [];
   return (
     <section>
       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-1">
@@ -1006,6 +1127,28 @@ function TicketTypeSection({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left">
+                  <th className="w-10 px-3 py-3">
+                    <Checkbox
+                      aria-label="Seleccionar todos"
+                      checked={
+                        types.length > 0 && types.every((t) => selected.has(t.id))
+                          ? true
+                          : types.some((t) => selected.has(t.id))
+                            ? "indeterminate"
+                            : false
+                      }
+                      onCheckedChange={(v) => {
+                        const allSelected = types.every((t) => selected.has(t.id));
+                        // Toggle de todos los de la sección.
+                        types.forEach((t) => {
+                          if (allSelected ? selected.has(t.id) : !selected.has(t.id)) {
+                            onToggleSelect(t.id);
+                          }
+                        });
+                        void v;
+                      }}
+                    />
+                  </th>
                   <th className="px-4 py-3 font-medium text-muted-foreground">
                     Nombre
                   </th>
@@ -1019,7 +1162,7 @@ function TicketTypeSection({
                     SLA
                   </th>
                   <th className="px-4 py-3 font-medium text-muted-foreground">
-                    Aprobacion
+                    Responsable
                   </th>
                   <th className="px-4 py-3 font-medium text-muted-foreground">
                     Cadena
@@ -1033,11 +1176,21 @@ function TicketTypeSection({
               <tbody>
                 {types.map((t) => {
                   const priorityCfg = TICKET_PRIORITY_CONFIG[t.defaultPriority];
+                  const isSel = selected.has(t.id);
                   return (
                     <tr
                       key={t.id}
-                      className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors"
+                      className={`border-b border-border last:border-0 transition-colors ${
+                        isSel ? "bg-primary/5" : "hover:bg-accent/30"
+                      }`}
                     >
+                      <td className="px-3 py-3">
+                        <Checkbox
+                          aria-label={`Seleccionar ${t.name}`}
+                          checked={isSel}
+                          onCheckedChange={() => onToggleSelect(t.id)}
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <div>
                           <p className="font-medium text-sm">{t.name}</p>
@@ -1060,14 +1213,21 @@ function TicketTypeSection({
                         {slaHoursToDays(t.slaHours)} d
                       </td>
                       <td className="px-4 py-3">
-                        {t.requiresApproval ? (
-                          <Check className="h-4 w-4 text-status-ok-fg" />
-                        ) : (
-                          <Minus className="h-4 w-4 text-muted-foreground/40" />
-                        )}
+                        <AssigneeCell
+                          value={t.defaultAssignedToUserId ?? null}
+                          admins={adminList}
+                          saving={savingIds.has(t.id)}
+                          onChange={(adminId) => onInlineAssignee(t.id, adminId)}
+                        />
                       </td>
                       <td className="px-4 py-3">
-                        <ApprovalChainSummary steps={t.approvalSteps ?? []} />
+                        <ChainEditorCell
+                          steps={t.approvalSteps ?? []}
+                          groups={groups}
+                          admins={adminList}
+                          saving={savingIds.has(t.id)}
+                          onSave={(drafts) => onInlineChain(t.id, drafts)}
+                        />
                       </td>
                       <td className="px-4 py-3">
                         <button
@@ -1111,18 +1271,18 @@ function TicketTypeSection({
               className="transition-colors hover:bg-accent/30 cursor-pointer"
             >
               <CardContent className="pt-3 pb-3">
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    aria-label={`Seleccionar ${t.name}`}
+                    checked={selected.has(t.id)}
+                    onCheckedChange={() => onToggleSelect(t.id)}
+                    className="mt-1 shrink-0"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <Badge className={ORIGIN_BADGE_VARIANT[t.origin]}>
                         {getOriginLabel(t.origin)}
                       </Badge>
-                      {t.requiresApproval && (
-                        <Badge variant="outline" className="text-[10px] gap-0.5">
-                          <Check className="h-2.5 w-2.5" />
-                          Aprobacion
-                        </Badge>
-                      )}
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1158,17 +1318,22 @@ function TicketTypeSection({
                         {TICKET_TEAM_CONFIG[t.assignedTeam]?.label}
                       </span>
                     </div>
-                    {t.requiresApproval &&
-                      t.approvalSteps &&
-                      t.approvalSteps.length > 0 && (
-                        <div className="mt-2 overflow-x-auto">
-                          <ApprovalChainTimeline
-                            steps={t.approvalSteps}
-                            groups={groups}
-                            admins={admins}
-                          />
-                        </div>
-                      )}
+                    {/* Editores en línea (Fase 11) */}
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <AssigneeCell
+                        value={t.defaultAssignedToUserId ?? null}
+                        admins={adminList}
+                        saving={savingIds.has(t.id)}
+                        onChange={(adminId) => onInlineAssignee(t.id, adminId)}
+                      />
+                      <ChainEditorCell
+                        steps={t.approvalSteps ?? []}
+                        groups={groups}
+                        admins={adminList}
+                        saving={savingIds.has(t.id)}
+                        onSave={(drafts) => onInlineChain(t.id, drafts)}
+                      />
+                    </div>
                   </div>
                   <button
                     type="button"
