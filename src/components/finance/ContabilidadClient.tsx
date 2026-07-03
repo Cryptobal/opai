@@ -88,6 +88,8 @@ interface PeriodRow {
   startDate: string;
   endDate: string;
   status: string;
+  /** Documentos emitidos sin asiento (solo se calcula para períodos OPEN). */
+  orphanCount?: number;
 }
 
 interface Props {
@@ -1441,6 +1443,39 @@ function PeriodsTab({
   const [month, setMonth] = useState(String(new Date().getMonth() + 1));
   const [saving, setSaving] = useState(false);
   const [closing, setClosing] = useState<string | null>(null);
+  const [generating, setGenerating] = useState<string | null>(null);
+
+  const handleGenerateMissing = async (p: PeriodRow) => {
+    if (
+      !confirm(
+        `¿Generar los asientos faltantes de ${MONTH_NAMES[p.month - 1]} ${p.year}? Se creará y contabilizará un asiento por cada documento emitido sin asiento.`,
+      )
+    )
+      return;
+    setGenerating(p.id);
+    try {
+      const res = await fetch("/api/finance/accounting/health/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ year: p.year, month: p.month }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Error al generar asientos");
+      const d = json.data as { created: number; skipped: number; failed: number };
+      if (d.failed > 0) {
+        toast.warning(
+          `${d.created} asiento(s) generado(s), ${d.failed} con error. Revisa el detalle de los documentos.`,
+        );
+      } else {
+        toast.success(`${d.created} asiento(s) generado(s).`);
+      }
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error inesperado");
+    } finally {
+      setGenerating(null);
+    }
+  };
 
   const handleOpenPeriod = async () => {
     setSaving(true);
@@ -1496,6 +1531,45 @@ function PeriodsTab({
       )}
 
       <p className="text-xs text-muted-foreground">{periods.length} período(s)</p>
+
+      {/* Salud del período: documentos emitidos sin asiento por período abierto */}
+      {periods
+        .filter((p) => p.status === "OPEN" && (p.orphanCount ?? 0) > 0)
+        .map((p) => (
+          <Card key={`health-${p.id}`} className="border-status-warn-border bg-status-warn-soft">
+            <CardContent className="p-4 flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="h-4 w-4 text-status-warn-fg mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">
+                    Salud del período · {MONTH_NAMES[p.month - 1]} {p.year}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {p.orphanCount} documento(s) emitido(s) sin asiento contable.
+                    {canManage
+                      ? " Genera los asientos faltantes antes de cerrar el período."
+                      : ""}
+                  </p>
+                </div>
+              </div>
+              {canManage && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleGenerateMissing(p)}
+                  disabled={generating === p.id}
+                >
+                  {generating === p.id ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  Generar asientos faltantes
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ))}
 
       {periods.length === 0 ? (
         <EmptyState

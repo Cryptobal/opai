@@ -555,6 +555,13 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     audiences: ['admin'], defaults: { admin: adminBell(true) },
   },
   {
+    key: 'accounting_entry_failed', label: 'Factura sin asiento contable',
+    description: 'Cuando el asiento automático de una factura emitida falla y queda pendiente de generar',
+    module: 'finance', submodule: 'contabilidad', category: 'Finanzas - Contabilidad',
+    audiences: ['admin'], defaults: { admin: adminBell() },
+    coalesce: { windowSeconds: 300, groupBy: 'tenant' },
+  },
+  {
     key: 'payroll_processed', label: 'Liquidación procesada',
     description: 'Cuando se procesan las liquidaciones de sueldo del período',
     module: 'payroll', category: 'Payroll',

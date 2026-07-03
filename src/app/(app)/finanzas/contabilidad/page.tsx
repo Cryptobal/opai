@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { PageHero } from "@/components/opai-ds";
 import { BookOpen } from "lucide-react";
 import { ContabilidadClient } from "@/components/finance/ContabilidadClient";
+import { countDocumentsWithoutEntry } from "@/modules/finance/accounting/accounting-health.service";
 
 export default async function ContabilidadPage() {
   const session = await auth();
@@ -78,13 +79,24 @@ export default async function ContabilidadPage() {
     createdAt: je.createdAt.toISOString(),
   }));
 
-  const periodsData = periods.map((p: typeof periods[number]) => ({
+  // Salud del período: conteo de documentos emitidos sin asiento por cada
+  // período ABIERTO (los cerrados ya pasaron su guarda de cierre).
+  const orphanCounts = await Promise.all(
+    periods.map((p: typeof periods[number]) =>
+      p.status === "OPEN"
+        ? countDocumentsWithoutEntry(tenantId, { year: p.year, month: p.month })
+        : Promise.resolve(0),
+    ),
+  );
+
+  const periodsData = periods.map((p: typeof periods[number], i: number) => ({
     id: p.id,
     year: p.year,
     month: p.month,
     startDate: p.startDate.toISOString(),
     endDate: p.endDate.toISOString(),
     status: p.status,
+    orphanCount: orphanCounts[i],
   }));
 
   return (

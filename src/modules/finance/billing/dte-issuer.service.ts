@@ -9,8 +9,8 @@ import type { DteIssueRequest, DteLineItem } from "../shared/adapters/dte-provid
 import { isDteTypeValid } from "../shared/constants/dte-types";
 import { computeDteAmounts } from "./dte-amounts.helper";
 import { validateRut } from "../shared/validators/rut.validator";
-import { buildInvoiceIssuedEntry } from "../accounting/auto-entry.builder";
-import { createManualEntry, postEntry } from "../accounting/journal-entry.service";
+import { createEntryForDte } from "../accounting/accounting-health.service";
+import { notify } from "@/lib/notifications/notify";
 import { reserveNextFolio } from "./folio-tracker.service";
 import { sendDteEmail, sendDteXmlToBackoffice } from "./dte-email.service";
 import {
@@ -565,30 +565,27 @@ export async function issueDte(
     );
   }
 
-  // 11. Auto-generate journal entry for facturas (not boletas)
+  // 11. Auto-generate journal entry for facturas (not boletas). Reutiliza la
+  // función canónica createEntryForDte (misma que repara huérfanos). Sigue
+  // siendo best-effort: no falla la emisión si el asiento falla — pero ahora
+  // el fallo NUNCA es invisible: además del log, se notifica al equipo
+  // contable para que lo repare desde "Salud del período".
   if (input.dteType === 33 || input.dteType === 34) {
-    try {
-      const entryInput = await buildInvoiceIssuedEntry(tenantId, {
-        date: emissionYmd,
-        folio: nextFolio,
-        dteId: dte.id,
-        netAmount: totalNet,
-        taxAmount,
-        totalAmount,
-        receiverName: input.receiverName,
-      });
-
-      const entry = await createManualEntry(tenantId, createdBy, entryInput);
-      await postEntry(tenantId, entry.id, createdBy);
-
-      // Link journal entry to DTE
-      await prisma.financeDte.update({
-        where: { id: dte.id },
-        data: { journalEntryId: entry.id },
-      });
-    } catch (err) {
-      console.error("Auto-entry failed for DTE:", err);
-      // Don't fail the DTE issuance if auto-entry fails
+    const entryResult = await createEntryForDte(tenantId, dte.id, createdBy);
+    if (entryResult.status === "failed") {
+      console.error(
+        `Auto-entry failed for DTE ${dte.id} (folio ${nextFolio}): ${entryResult.error}`,
+      );
+      notify({
+        tenantId,
+        type: "accounting_entry_failed",
+        title: `Factura #${nextFolio} sin asiento contable`,
+        body: `No se pudo generar el asiento de la factura #${nextFolio} (${input.receiverName}). Genera el asiento faltante desde Contabilidad → Salud del período.`,
+        link: `/finanzas/contabilidad`,
+        data: { dteId: dte.id, folio: nextFolio, error: entryResult.error },
+      }).catch((err) =>
+        console.error("[dte-issuer] notify accounting_entry_failed falló:", err),
+      );
     }
   }
 

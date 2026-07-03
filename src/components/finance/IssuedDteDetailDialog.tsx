@@ -49,7 +49,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   FileText, Download, FileCode, Mail, RefreshCw, Loader2,
   FileMinus, FilePlus, ExternalLink, Copy, Coins, FileSearch, Upload,
-  AlertTriangle, ChevronDown, ChevronRight, MoreHorizontal,
+  AlertTriangle, ChevronDown, ChevronRight, MoreHorizontal, BookOpenCheck,
 } from "lucide-react";
 import { CederDteDialog } from "./factoring/CederDteDialog";
 import { PdfPreviewDialog } from "./PdfPreviewDialog";
@@ -113,6 +113,8 @@ interface DteFull {
   siiLastStatusCheckAt: string | null;
   /** Conteo de consultas al SII (para diagnóstico). */
   siiStatusCheckCount: number;
+  /** Asiento contable vinculado. null = factura emitida sin asiento (huérfana). */
+  journalEntryId: string | null;
   emailSentAt: string | null;
   emailStatus: string | null;
   referenceType: number | null;
@@ -261,6 +263,7 @@ export function IssuedDteDetailDialog({
   const [showSendEmail, setShowSendEmail] = useState(false);
   const [downloadingXml, setDownloadingXml] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
+  const [generatingEntry, setGeneratingEntry] = useState(false);
   const [showAttachXml, setShowAttachXml] = useState(false);
   const [attachingXml, setAttachingXml] = useState(false);
   const [xmlPaste, setXmlPaste] = useState("");
@@ -310,6 +313,7 @@ export function IssuedDteDetailDialog({
               : null,
           siiLastStatusCheckAt: d.siiLastStatusCheckAt ?? null,
           siiStatusCheckCount: Number(d.siiStatusCheckCount ?? 0),
+          journalEntryId: d.journalEntryId ?? null,
           emailSentAt: d.emailSentAt ?? null,
           emailStatus: d.emailStatus ?? null,
           referenceType: d.referenceType ?? null,
@@ -460,9 +464,43 @@ export function IssuedDteDetailDialog({
     }
   }
 
+  async function handleGenerateEntry() {
+    if (!dte) return;
+    setGeneratingEntry(true);
+    try {
+      const res = await fetch("/api/finance/accounting/health/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dteIds: [dte.id] }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) throw new Error(body.error || `HTTP ${res.status}`);
+      const r = body.data?.results?.[0];
+      if (r?.status === "failed") {
+        throw new Error(r.error || "No se pudo generar el asiento");
+      }
+      toast.success("Asiento contable generado");
+      router.refresh();
+      setDte((prev) =>
+        prev ? { ...prev, journalEntryId: r?.entryId ?? "generated" } : prev,
+      );
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setGeneratingEntry(false);
+    }
+  }
+
   if (!open) return null;
 
   const tipoLabel = dte ? DTE_TYPE_LABELS[dte.dteType] ?? `Tipo ${dte.dteType}` : "";
+  // Factura emitida (33/34) sin asiento contable y en estado contabilizable →
+  // ofrecer "Generar asiento" (repara huérfanos uno a uno).
+  const needsEntry =
+    !!dte &&
+    (dte.dteType === 33 || dte.dteType === 34) &&
+    !dte.journalEntryId &&
+    ["PENDING", "SENT", "ACCEPTED", "WITH_OBJECTIONS"].includes(dte.siiStatus);
   const stCfg = dte ? SII_STATUS_CONFIG[dte.siiStatus] ?? { label: dte.siiStatus, className: "bg-muted" } : null;
   const canAnular = dte && (dte.siiStatus === "PENDING" || dte.siiStatus === "SENT");
   // Saldo neto disponible para una NC parcial. Si llegó a 0 (o tiene
@@ -1097,6 +1135,22 @@ export function IssuedDteDetailDialog({
                             <RefreshCw className="h-4 w-4 mr-2" />
                           )}
                           Consultar estado SII
+                        </DropdownMenuItem>
+                      )}
+                      {needsEntry && (
+                        <DropdownMenuItem
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            handleGenerateEntry();
+                          }}
+                          disabled={generatingEntry}
+                        >
+                          {generatingEntry ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <BookOpenCheck className="h-4 w-4 mr-2" />
+                          )}
+                          Generar asiento contable
                         </DropdownMenuItem>
                       )}
                       {showSiiLink && (
