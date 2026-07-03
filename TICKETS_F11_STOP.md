@@ -24,3 +24,16 @@ para el ruteo de tickets.
 _(Placeholder de subtítulo "vía equipo Finanzas": no se agregó al modal porque la pertenencia
 NO es herencia de Propietario sino membresía real; mostrar "vía equipo X" sería engañoso. Si
 Carlos confirma que quiere ese rótulo informativo por fila, se agrega en un pase siguiente.)_
+
+## B3 — Backfill de los 145 tickets huérfanos (decisión pendiente)
+
+El fix raíz ya está cableado: los tickets **nuevos** heredan el responsable por defecto de su
+tipo. Para los **históricos** existe `scripts/backfill-ticket-assignees.ts` (dry-run por
+defecto, `--notify` apagado). **NO se ejecutó.**
+
+- Correr primero en dry-run para ver el impacto por tipo:
+  `npx tsx scripts/backfill-ticket-assignees.ts`
+- Aplicar sin ruido: `--commit` (SIN notificar).
+- Aplicar avisando a cada responsable: `--commit --notify` (≈145 notificaciones).
+
+Detalle en `docs/tickets/tipos.md`.

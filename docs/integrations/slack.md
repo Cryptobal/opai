@@ -829,3 +829,79 @@ responder situado. En el turno del bot: `setStatus("Pensando…")` + `setTitle` 
   conserva su lógica inline (podría adoptar el servicio luego).
 - El `contextHint` del panel de IA es una pista textual del canal activo; no resuelve aún
   la instalación específica.
+
+# Fase 11 — Alcances de bandeja · Home desglosado · Tomar · Botones robustos
+
+## 1. Todos los botones del Home/hub abren su modal (B1)
+
+Causa raíz corregida: `pushActionModal` corría el `build` del modal (que puede lanzar
+queries pesadas — la **bandeja de aprobaciones** es la más lenta) **antes** de `views.open`,
+y el `trigger_id` perecedero (~3s) expiraba. El botón "Pendientes de mi aprobación" parecía
+"no hacer nada".
+
+Ahora `pushActionModal` **consume el trigger_id primero** con un modal de carga (`views.open`
+desde el App Home / DM, `views.push` desde el hub) y el `build` real hace `views.update`
+sobre ese view — mismo patrón que `openModalForShortcut`. Aplica a los **6 botones** del Home
+y a todos los botones "Abrir" del hub.
+
+Matriz Home → modal (los 6 abren):
+
+| Botón | `value` (callbackId) | Modal |
+|---|---|---|
+| 🎫 Mis tickets | `opai_tickets` | bandeja |
+| 🔴 Vencidos SLA | `opai_tickets_vencidos` | bandeja (SLA vencido) |
+| ✅ Pendientes de mi aprobación | `opai_aprobaciones` | aprobaciones |
+| ➕ Nuevo ticket | `opai_crear_ticket` | crear ticket |
+| 🧾 Nueva rendición | `opai_nueva_rendicion` | rendición |
+| ⚡ Todas las acciones | `opai_acciones` | hub |
+
+## 2. Alcances de la bandeja, espejo de la web (B2)
+
+La bandeja replica la taxonomía de alcance de `/ops/tickets`. Chips (botones) en la parte
+superior del modal:
+
+- **Míos** (`mine`) — asignados a mí.
+- **Mi equipo** (`my_team`, default) — a mí **o** a un equipo del que soy miembro
+  (`getAssignedTeamsForUser`). Sin equipos degrada a "Míos".
+- **Sin asignar** (`unassigned`) — sin responsable, a nivel **tenant**.
+- **Todos** (`all`) — todos los del tenant.
+
+Los dos tenant-wide (**Sin asignar**, **Todos**) solo se muestran si el usuario tiene
+**visión global**. Auditoría: el único gate de la vista "Todos" de la web es
+`ensureOpsAccess` → `hasModuleAccess(perms, "ops")`; **no existe** una capability aparte.
+Por eso en Slack se usa el mismo criterio (`canViewAllTickets`). El título del modal refleja
+el alcance activo ("Tickets · Mi equipo", "Tickets · Sin asignar", …). El alcance viaja en
+`private_metadata.scope` y es combinable con los filtros de estado/prioridad/SLA. Defensa:
+un alcance tenant-wide sin visión global degrada a `my_team` (en el `build` y en el dispatch).
+
+## 3. Home "Tu día" desglosado (B2)
+
+`publishHome` calcula, con `countTickets`:
+
+- `Asignados a ti: N` (scope `mine`)
+- `Tu equipo: N` (scope `my_team`)
+- `Sin asignar (tenant): N` (scope `unassigned`) — **solo** si el usuario tiene visión global.
+- `🔴 N con SLA vencido` (scope `my_team` + `slaBreached`).
+
+Los botones "Mis tickets" / "Vencidos" abren la bandeja en su alcance correspondiente
+(default `my_team`).
+
+## 4. Botón "Tomar" de un clic (B2)
+
+Por fila, cuando el ticket está **sin responsable** y pertenece a un **equipo del usuario**,
+se muestra un botón `🙋 Tomar`. Un clic → `claimTicket` (en `tickets-mutations.ts`):
+
+- **Anti-carrera**: el update es condicional (`updateMany where assignedTo:null`); si otro lo
+  tomó primero devuelve `raced`. La bandeja se **refresca con aviso** (context block).
+- Respeta el guard de terminales (no se toma un ticket resuelto/cancelado).
+- Registra `recordTicketEvent(assignee_changed, from:null→actor)`. No notifica (uno se asigna
+  a sí mismo).
+
+## Matriz de pruebas manuales (Fase 11)
+
+- [ ] Botón "Pendientes de mi aprobación" **abre** el modal (con y sin pendientes).
+- [ ] Los 6 botones del Home abren su modal; los "Abrir" del hub también.
+- [ ] Chips de alcance calzan 1:1 con los conteos de la web para el mismo usuario.
+- [ ] "Sin asignar" y "Todos" solo aparecen para usuarios con acceso al módulo ops.
+- [ ] "Tomar" asigna el ticket; un segundo "Tomar" ajeno avisa "Otro usuario lo tomó primero".
+- [ ] Home muestra "Asignados a ti · Tu equipo · Sin asignar (tenant)" y cada número cuadra.
