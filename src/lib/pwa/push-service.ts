@@ -1,6 +1,8 @@
 import webPush from 'web-push';
 import { prisma } from '@/lib/prisma';
 import { batchUnreadCounts } from '@/lib/chat';
+import { computeBellUnreadCount } from '@/lib/notifications/bell-visibility';
+import type { AuthContext } from '@/lib/api-auth';
 
 // ── VAPID Initialization ──
 
@@ -97,6 +99,41 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 1, delayMs = 250): P
   }
 }
 
+/**
+ * Build minimal AuthContexts (role + roleTemplateId) for admins so their bell
+ * unread count can be scoped identically to the notification panel. userEmail is
+ * unused by permission resolution, so it is left empty.
+ */
+async function buildAdminAuthContexts(
+  tenantId: string,
+  adminIds: string[],
+): Promise<Map<string, AuthContext>> {
+  const map = new Map<string, AuthContext>();
+  if (adminIds.length === 0) return map;
+  const admins = await prisma.admin.findMany({
+    where: { id: { in: adminIds }, tenantId },
+    select: { id: true, role: true, roleTemplateId: true },
+  });
+  for (const a of admins) {
+    map.set(a.id, {
+      userId: a.id,
+      tenantId,
+      userEmail: '',
+      userRole: a.role,
+      roleTemplateId: a.roleTemplateId,
+    });
+  }
+  return map;
+}
+
+async function buildAdminAuthContext(
+  tenantId: string,
+  userId: string,
+): Promise<AuthContext | null> {
+  const ctxs = await buildAdminAuthContexts(tenantId, [userId]);
+  return ctxs.get(userId) ?? null;
+}
+
 async function calculateBadgeCount(
   tenantId: string,
   userType: UserType,
@@ -124,30 +161,12 @@ async function calculateBadgeCount(
       for (const count of unreads.values()) chatUnreads += count;
     }
 
-    // Bell notification unreads (admin only) — per-user via NotificationReadState
+    // Bell notification unreads (admin only) — scoped exactly like the bell so
+    // the badge never counts notifications the user can't actually see.
     let bellUnreads = 0;
     if (userType === 'admin') {
-      const allTenantNotifs = await prisma.notification.findMany({
-        where: { tenantId },
-        select: { id: true, read: true, data: true },
-      });
-      if (allTenantNotifs.length > 0) {
-        const readStateRows = await prisma.notificationReadState.findMany({
-          where: {
-            userId,
-            notificationId: { in: allTenantNotifs.map((n) => n.id) },
-          },
-          select: { notificationId: true },
-        });
-        const readSet = new Set(readStateRows.map((r) => r.notificationId));
-        bellUnreads = allTenantNotifs.filter((n) => {
-          const d = (n.data as Record<string, unknown> | null) ?? {};
-          const targetUserId =
-            typeof d.targetUserId === 'string' ? d.targetUserId : null;
-          if (targetUserId) return targetUserId === userId && !n.read;
-          return !readSet.has(n.id);
-        }).length;
-      }
+      const ctx = await buildAdminAuthContext(tenantId, userId);
+      if (ctx) bellUnreads = await computeBellUnreadCount(ctx);
     }
 
     return chatUnreads + bellUnreads;
@@ -214,45 +233,25 @@ async function batchCalculateBadgeCounts(
       excludedByUser.set(key, set);
     }
 
-    // 3a. Pre-compute per-admin bell unreads with a single global query
-    // (instead of one count() per admin recipient). Uses NotificationReadState
-    // to respect per-user read tracking for broadcast notifications.
+    // 3a. Pre-compute per-admin bell unreads, scoped exactly like the bell panel
+    // (role/module exclusions, user-muted types, per-user targeting + read state).
+    // Counting all tenant notifications here inflated the badge with notifs the
+    // admin can't actually see. resolvePermissions caches role templates in-memory,
+    // so the per-admin resolution is cheap after warm-up.
     const adminIds = recipients
       .filter((r) => r.subscriberType === 'ADMIN')
       .map((r) => r.subscriberId);
 
     const unreadByAdminId = new Map<string, number>();
     if (adminIds.length > 0) {
-      const allTenantNotifs = await prisma.notification.findMany({
-        where: { tenantId },
-        select: { id: true, read: true, data: true },
-      });
-      if (allTenantNotifs.length > 0) {
-        const readRows = await prisma.notificationReadState.findMany({
-          where: {
-            userId: { in: adminIds },
-            notificationId: { in: allTenantNotifs.map((n) => n.id) },
-          },
-          select: { notificationId: true, userId: true },
-        });
-        const readByUser = new Map<string, Set<string>>();
-        for (const adminId of adminIds) readByUser.set(adminId, new Set());
-        for (const row of readRows) {
-          readByUser.get(row.userId)!.add(row.notificationId);
-        }
-
-        for (const adminId of adminIds) {
-          const readSet = readByUser.get(adminId)!;
-          const count = allTenantNotifs.filter((n) => {
-            const d = (n.data as Record<string, unknown> | null) ?? {};
-            const targetUserId =
-              typeof d.targetUserId === 'string' ? d.targetUserId : null;
-            if (targetUserId) return targetUserId === adminId && !n.read;
-            return !readSet.has(n.id);
-          }).length;
+      const ctxs = await buildAdminAuthContexts(tenantId, adminIds);
+      await Promise.all(
+        adminIds.map(async (adminId) => {
+          const ctx = ctxs.get(adminId);
+          const count = ctx ? await computeBellUnreadCount(ctx) : 0;
           unreadByAdminId.set(adminId, count);
-        }
-      }
+        }),
+      );
     }
 
     // 3b. For each user, batch their unread counts using batchUnreadCounts

@@ -8,7 +8,9 @@ const DEFAULT_PIPELINE_STAGES = [
   { name: 'Primer seguimiento', order: 3, color: '#f59e0b' },
   { name: 'Segundo seguimiento', order: 4, color: '#f97316' },
   { name: 'Negociación', order: 5, color: '#8b5cf6' },
-  { name: 'Ganado', order: 6, color: '#10b981', isClosedWon: true },
+  // Etapa ganadora canónica. El nombre del negocio es "Adjudicado"; el flag
+  // isClosedWon es la fuente de verdad (no el nombre) para todo el código.
+  { name: 'Adjudicado', order: 6, color: '#10b981', isClosedWon: true },
   { name: 'Perdido', order: 7, color: '#ef4444', isClosedLost: true },
 ];
 

@@ -7,13 +7,15 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
 import {
   NOTIFICATION_TYPE_MAP,
-  NOTIFICATION_TYPES,
-  canSeeNotificationType,
-  type UserNotifPrefsMap,
 } from "@/lib/notification-types";
+import {
+  getRoleExcludedNotificationTypes,
+  getUserBellDisabledTypes,
+  visibleNotificationsWhere,
+} from "@/lib/notifications/bell-visibility";
 import type { AuthContext } from "@/lib/api-auth";
 import type { Prisma } from "@prisma/client";
 
@@ -499,103 +501,6 @@ function resolveSourceContext(
     sourceModuleLabel,
     sourceRecordName,
     isSystem,
-  };
-}
-
-async function getRoleExcludedNotificationTypes(ctx: AuthContext): Promise<string[]> {
-  const perms = await resolveApiPerms(ctx);
-  return NOTIFICATION_TYPES
-    .filter((t) => !canSeeNotificationType(perms, t))
-    .map((t) => t.key);
-}
-
-async function getUserBellDisabledTypes(ctx: AuthContext): Promise<string[]> {
-  const record = await prisma.notificationPreference.findUnique({
-    where: { subscriberType_subscriberId: { subscriberType: "ADMIN", subscriberId: ctx.userId } },
-  });
-  if (!record?.preferences) return [];
-  const prefs = record.preferences as unknown as UserNotifPrefsMap;
-  return Object.entries(prefs)
-    .filter(([, pref]) => pref.bell === false)
-    .map(([key]) => key);
-}
-
-function visibleNotificationsWhere(
-  ctx: AuthContext,
-  roleExcludedTypes: string[],
-  options?: { unreadOnly?: boolean; read?: boolean; ids?: string[]; types?: string[] }
-): Prisma.NotificationWhereInput {
-  const { unreadOnly = false, read, ids, types } = options || {};
-  // Note-related types (mention_direct, mention_group, note_thread_reply, note_alert)
-  // are handled exclusively by the Activity feed, not legacy Notificaciones.
-  const baseExclusions = roleExcludedTypes.filter(
-    (type) =>
-      type !== "mention"
-  );
-  // Types that use targeted delivery (only visible to specific users via data.targetUserId)
-  const targetedTypes = [
-    "ticket_approved",
-    "ticket_rejected",
-    "refuerzo_solicitud_created",
-    "mention",
-    "ticket_mention",
-    "ticket_created",
-    "ticket_assigned",
-    "ticket_sla_breached",
-    "ticket_sla_approaching",
-    "ticket_sla_breached_batch",
-  ];
-
-  const orConditions: Prisma.NotificationWhereInput[] = [
-    {
-      // Eventos generales del tenant, respetando exclusiones por módulo/rol.
-      // Excluimos targeted types aquí; se agregan con filtro de usuario abajo.
-      type: {
-        notIn:
-          baseExclusions.length > 0
-            ? [...baseExclusions, ...targetedTypes]
-            : targetedTypes,
-      },
-    },
-  ];
-
-  // Menciones legacy: visibles para el usuario mencionado (targetUserId o mentionUserId).
-  orConditions.push({
-    type: "mention",
-    OR: [
-      { data: { path: ["targetUserId"], equals: ctx.userId } },
-      { data: { path: ["mentionUserId"], equals: ctx.userId } },
-    ],
-  });
-
-  // Targeted notifications: solo visibles para el usuario destinatario.
-  // Si tienen data.targetUserId, solo ese usuario las ve. Si no lo tienen (legacy), se muestran a todos.
-  // Note: mention_direct, mention_group, note_thread_reply, note_alert are excluded —
-  // they are handled by the Activity feed module, not legacy Notificaciones.
-  for (const targetedType of [
-    "ticket_approved",
-    "ticket_rejected",
-    "refuerzo_solicitud_created",
-    "ticket_mention",
-    "ticket_created",
-    "ticket_assigned",
-    "ticket_sla_breached",
-    "ticket_sla_approaching",
-    "ticket_sla_breached_batch",
-  ]) {
-    if (baseExclusions.includes(targetedType)) continue; // Skip if role excludes it
-    orConditions.push({
-      type: targetedType,
-      data: { path: ["targetUserId"], equals: ctx.userId },
-    });
-  }
-
-  return {
-    tenantId: ctx.tenantId,
-    ...(ids?.length ? { id: { in: ids } } : {}),
-    ...(typeof read === "boolean" ? { read } : unreadOnly ? { read: false } : {}),
-    ...(types?.length ? { type: { in: types } } : {}),
-    OR: orConditions,
   };
 }
 

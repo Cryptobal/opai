@@ -65,13 +65,22 @@ export async function POST(
       console.error("[Portal] sync cashflow item failed:", err);
     }
 
-    // 3. Find "Ganado" pipeline stage
-    const ganadoStage = await prisma.crmPipelineStage.findFirst({
-      where: {
-        tenantId: session.tenantId,
-        name: { contains: "Ganad", mode: "insensitive" },
-      },
-    });
+    // 3. Find the "won" pipeline stage by flag, not by name. El nombre de la
+    // etapa ganadora varía por tenant (p. ej. "Adjudicado"), así que buscar por
+    // `isClosedWon` es robusto ante renombres y evita que la propagación falle
+    // en silencio. Fallback por nombre solo por si algún tenant legacy no tiene
+    // el flag seteado.
+    const ganadoStage =
+      (await prisma.crmPipelineStage.findFirst({
+        where: { tenantId: session.tenantId, isClosedWon: true, isActive: true },
+        orderBy: { order: "asc" },
+      })) ??
+      (await prisma.crmPipelineStage.findFirst({
+        where: {
+          tenantId: session.tenantId,
+          name: { contains: "Ganad", mode: "insensitive" },
+        },
+      }));
 
     // 4. Update deal if exists
     if (quote.dealId && ganadoStage) {

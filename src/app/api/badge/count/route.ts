@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { batchUnreadCounts } from "@/lib/chat";
+import { computeBellUnreadCount } from "@/lib/notifications/bell-visibility";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
-  const { tenantId, userId } = ctx;
+  const { userId } = ctx;
   const senderType = "ADMIN";
 
   // Chat unreads — only channels with read cursors, excluding MUTED/MENTIONS_ONLY.
@@ -37,28 +38,10 @@ export async function GET() {
     }
   }
 
-  // Bell unreads — per-user via NotificationReadState; targeted notifs use data.targetUserId.
-  const allNotifs = await prisma.notification.findMany({
-    where: { tenantId },
-    select: { id: true, read: true, data: true },
-  });
-  let bell = 0;
-  if (allNotifs.length > 0) {
-    const readRows = await prisma.notificationReadState.findMany({
-      where: {
-        userId,
-        notificationId: { in: allNotifs.map((n) => n.id) },
-      },
-      select: { notificationId: true },
-    });
-    const readSet = new Set(readRows.map((r) => r.notificationId));
-    bell = allNotifs.filter((n) => {
-      const d = (n.data as Record<string, unknown> | null) ?? {};
-      const tu = typeof d.targetUserId === "string" ? d.targetUserId : null;
-      if (tu) return tu === userId && !n.read;
-      return !readSet.has(n.id);
-    }).length;
-  }
+  // Bell unreads — scoped exactly like the notification bell (role/module
+  // exclusions, user-muted types, per-user targeting + read state). Counting all
+  // tenant notifications here inflated the badge with notifs the user can't see.
+  const bell = await computeBellUnreadCount(ctx);
 
   return NextResponse.json({ chat, bell, total: chat + bell });
 }
