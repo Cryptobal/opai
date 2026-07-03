@@ -43,6 +43,14 @@ export async function reassignTicket(input: {
 }): Promise<Ok<{ code: string }> | Err> {
   const t = await loadTicket(input.tenantId, input.ticketId);
   if (!t) return { ok: false, error: "Ticket no encontrado" };
+  // Regla de negocio: un ticket resuelto o cancelado conserva su responsable
+  // histórico; no se puede reasignar ni desasignar (trazabilidad).
+  if (
+    input.assignedTo !== undefined &&
+    ["resolved", "cancelled"].includes(t.status)
+  ) {
+    return { ok: false as const, error: "No se puede cambiar el responsable de un ticket resuelto o cancelado." };
+  }
   const data: { assignedTo?: string | null; assignedTeam?: string } = {};
   if (input.assignedTo !== undefined) data.assignedTo = input.assignedTo;
   if (input.assignedTeam) data.assignedTeam = input.assignedTeam;
