@@ -75,6 +75,14 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
   const action = payload.actions?.[0];
   const actionId = action?.action_id;
   const pendingId = action?.value;
+
+  // Hub de acciones (Fase 7): "Abrir" apila el modal de la acción (views.push).
+  if (actionId === "opai_action_open") {
+    const { pushActionModal } = await import("./modals/dispatch");
+    await pushActionModal(payload as unknown as Record<string, unknown>);
+    return;
+  }
+
   if (!teamId || !slackUserId || !actionId || !pendingId) return;
 
   const resolved = await getTenantForTeam(teamId);

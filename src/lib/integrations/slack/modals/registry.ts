@@ -1,14 +1,14 @@
 /**
- * Registro de modales de Slack. Agregar un modal = importarlo y sumarlo a
- * `MODALS`; el dispatch (abrir + view_submission) lo enruta por `callbackId`
- * sin más código. Los modales concretos se registran en los Bloques 5 y 6.
+ * Resolución de modales por `callbackId` para el dispatch (abrir + view_submission).
+ * La fuente es el registro de acciones (`actions/registry.ts`) más el hub y las
+ * bandejas que no son "acciones de creación".
  */
 
 import type { ModalDef } from "./types";
-import { ticketModal } from "./ticket";
-import { rendicionModal } from "./rendicion";
+import { ACTIONS } from "../actions/registry";
+import { hubModal } from "../actions/hub";
 
-const MODALS: ModalDef[] = [ticketModal, rendicionModal];
+const MODALS: ModalDef[] = [hubModal, ...ACTIONS];
 
 export function getModal(callbackId: string): ModalDef | undefined {
   return MODALS.find((m) => m.callbackId === callbackId);

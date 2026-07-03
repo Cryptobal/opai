@@ -189,6 +189,16 @@ export async function slackUpdateView(
   return { id: ((json.view as { id?: string })?.id) ?? "" };
 }
 
+/** views.push — apila un modal sobre el actual (usa el trigger_id del block_action). */
+export async function slackPushView(
+  token: string,
+  triggerId: string,
+  view: unknown,
+): Promise<{ id: string }> {
+  const json = await callSlack("views.push", { trigger_id: triggerId, view }, token);
+  return { id: ((json.view as { id?: string })?.id) ?? "" };
+}
+
 export interface SlackChannel {
   id: string;
   name: string;

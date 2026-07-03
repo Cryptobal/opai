@@ -13,6 +13,12 @@ export type SubCommand =
 
 export const SUBCOMMANDS: SubCommand[] = [
   {
+    name: "acciones",
+    description: "menú de acciones rápidas (tickets, rendición, operación)",
+    kind: "modal",
+    callbackId: "opai_acciones",
+  },
+  {
     name: "caja",
     description: "resumen ejecutivo de caja y proyección del mes",
     kind: "prompt",

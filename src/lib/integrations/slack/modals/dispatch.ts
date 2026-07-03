@@ -12,7 +12,7 @@
 
 import { getTenantForTeam, getWorkspaceForTenant } from "../workspace";
 import { resolveLinkedAdmin } from "../user-link";
-import { slackOpenView, slackUpdateView } from "../api";
+import { slackOpenView, slackUpdateView, slackPushView } from "../api";
 import { loadingView, infoView, linkAccountView, unpackMetadata } from "./views";
 import { getModal } from "./registry";
 import type { ViewState } from "./types";
@@ -97,6 +97,38 @@ export async function openModalForShortcut(payload: Record<string, unknown>): Pr
     messageTs: message?.ts,
     messageText: message?.text,
   });
+}
+
+/**
+ * Botón "Abrir" del hub (`opai_action_open`): apila el modal de la acción sobre
+ * el hub con views.push (usa el trigger_id del block_action). Re-valida capability.
+ */
+export async function pushActionModal(payload: Record<string, unknown>): Promise<void> {
+  const teamId = (payload.team as { id?: string } | undefined)?.id;
+  const triggerId = payload.trigger_id as string | undefined;
+  const slackUserId = (payload.user as { id?: string } | undefined)?.id;
+  const actions = payload.actions as Array<{ value?: string }> | undefined;
+  const actionId = actions?.[0]?.value;
+  if (!teamId || !triggerId || !slackUserId || !actionId) return;
+
+  const resolved = await getTenantForTeam(teamId);
+  if (!resolved) return;
+  const workspace = await getWorkspaceForTenant(resolved.tenantId);
+  if (!workspace) return;
+  const linked = await resolveLinkedAdmin(workspace, slackUserId);
+  if (!linked) return;
+
+  const modal = getModal(actionId);
+  if (!modal) return;
+  try {
+    const view =
+      modal.requires && !modal.requires(linked.perms)
+        ? infoView(modal.title, "No tienes permiso para esta acción.")
+        : await modal.build({ workspace, tenantId: workspace.tenantId, linked, slackUserId });
+    await slackPushView(workspace.botToken, triggerId, view);
+  } catch (err) {
+    console.error("[slack] pushActionModal falló:", err);
+  }
 }
 
 export async function prepareViewSubmission(
