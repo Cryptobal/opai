@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { verifySlackSignature } from "@/lib/integrations/slack/signature";
 import { getTenantForTeam, markWorkspaceRevoked } from "@/lib/integrations/slack/workspace";
 import { handleBotEvent, type SlackBotEvent } from "@/lib/integrations/slack/bot";
+import { handleInboundSlackMessage } from "@/lib/integrations/slack/bridge-inbound";
 import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -66,14 +67,21 @@ export async function POST(req: NextRequest) {
       break;
     case "app_mention":
     case "message":
-      // ACK 200 inmediato; el turno del bot corre en after() (Slack exige <3s).
+      // ACK 200 inmediato; el trabajo corre en after() (Slack exige <3s).
       if (payload.event) {
         const event = payload.event;
+        const ct = event.channel_type;
+        // Canales/grupos puenteados → bridge; DMs (im) y menciones → bot.
+        const toBridge = eventType === "message" && (ct === "channel" || ct === "group");
         after(async () => {
           try {
-            await handleBotEvent(teamId, event);
+            if (toBridge) {
+              await handleInboundSlackMessage(teamId, resolved.tenantId, resolved.workspaceId, event);
+            } else {
+              await handleBotEvent(teamId, event);
+            }
           } catch (err) {
-            console.error("[slack] handleBotEvent falló:", err);
+            console.error("[slack] evento message falló:", err);
           }
         });
       }

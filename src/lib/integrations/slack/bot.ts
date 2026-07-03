@@ -26,6 +26,7 @@ export interface SlackBotEvent {
   channel_type?: string;
   bot_id?: string;
   subtype?: string;
+  files?: Array<{ permalink?: string; name?: string }>;
 }
 
 type Turn = { role: string; content: string };
