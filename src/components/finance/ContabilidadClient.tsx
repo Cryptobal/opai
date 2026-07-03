@@ -1503,9 +1503,28 @@ function PeriodsTab({
     if (!confirm("¿Cerrar este período? No se podrán registrar más movimientos.")) return;
     setClosing(id);
     try {
-      const res = await fetch(`/api/finance/accounting/periods/${id}/close`, {
-        method: "POST",
-      });
+      const close = async (force: boolean) =>
+        fetch(`/api/finance/accounting/periods/${id}/close`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ force }),
+        });
+
+      let res = await close(false);
+      if (res.status === 409) {
+        // Guarda de cierre: hay documentos sin asiento. Pedir override explícito.
+        const err = await res.json();
+        const count = typeof err.count === "number" ? err.count : "varios";
+        const forceClose = confirm(
+          `Hay ${count} documento(s) emitido(s) sin asiento en este período.\n\nLo recomendable es generar los asientos faltantes antes de cerrar (botón "Generar asientos faltantes").\n\n¿Cerrar de todos modos? Quedará registrado en la auditoría.`,
+        );
+        if (!forceClose) {
+          setClosing(null);
+          return;
+        }
+        res = await close(true);
+      }
+
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || "Error al cerrar período");
