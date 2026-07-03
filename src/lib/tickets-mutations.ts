@@ -6,6 +6,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { recordTicketEvent } from "@/lib/tickets-events";
+import { isTerminalStatus } from "@/lib/tickets";
 
 type Ok<T> = { ok: true } & T;
 type Err = { ok: false; error: string };
@@ -13,7 +14,7 @@ type Err = { ok: false; error: string };
 async function loadTicket(tenantId: string, ticketId: string) {
   return prisma.opsTicket.findFirst({
     where: { id: ticketId, tenantId },
-    select: { id: true, code: true, title: true, priority: true, assignedTo: true, assignedTeam: true },
+    select: { id: true, code: true, title: true, status: true, priority: true, assignedTo: true, assignedTeam: true },
   });
 }
 
@@ -43,6 +44,10 @@ export async function reassignTicket(input: {
 }): Promise<Ok<{ code: string }> | Err> {
   const t = await loadTicket(input.tenantId, input.ticketId);
   if (!t) return { ok: false, error: "Ticket no encontrado" };
+  // El responsable es inmutable en tickets terminales (resuelto/cancelado…).
+  if (input.assignedTo !== undefined && isTerminalStatus(t.status)) {
+    return { ok: false, error: "No se puede reasignar un ticket resuelto o cancelado" };
+  }
   const data: { assignedTo?: string | null; assignedTeam?: string } = {};
   if (input.assignedTo !== undefined) data.assignedTo = input.assignedTo;
   if (input.assignedTeam) data.assignedTeam = input.assignedTeam;

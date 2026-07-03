@@ -690,6 +690,15 @@ export function isActiveStatus(status: TicketStatus): boolean {
   return ["pending_approval", "open", "in_progress", "waiting"].includes(status);
 }
 
+/**
+ * Statuses considered terminal. En estos estados el responsable es inmutable:
+ * no se puede reasignar ni asignar (regla de negocio — el responsable que
+ * resolvió/cerró queda registrado).
+ */
+export function isTerminalStatus(status: string): boolean {
+  return ["resolved", "closed", "rejected", "cancelled"].includes(status);
+}
+
 /** Check if a ticket is awaiting a specific user's approval (by their group memberships) */
 export function isPendingMyApproval(
   ticket: Ticket,

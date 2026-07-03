@@ -4,6 +4,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { isAdminRole } from "@/lib/access";
 import type { Ticket, TicketApproval, SlaExtensionEntry } from "@/lib/tickets";
+import { isTerminalStatus } from "@/lib/tickets";
 import {
   ticketSupervisionFindingInclude,
   pickTicketFinding,
@@ -250,6 +251,17 @@ export async function PATCH(
     if (body.description !== undefined) updateData.description = body.description;
     if (body.priority !== undefined) updateData.priority = body.priority;
     if (body.assignedTeam !== undefined) updateData.assignedTeam = body.assignedTeam;
+    // Responsable inmutable en tickets terminales: solo se permite reasignar si
+    // el mismo request reabre el ticket a un estado activo.
+    if (body.assignedTo !== undefined && isTerminalStatus(existing.status)) {
+      const reopening = body.status !== undefined && !isTerminalStatus(body.status);
+      if (!reopening) {
+        return NextResponse.json(
+          { success: false, error: "No se puede reasignar un ticket resuelto o cancelado" },
+          { status: 409 },
+        );
+      }
+    }
     if (body.assignedTo !== undefined) updateData.assignedTo = body.assignedTo;
     if (body.tags !== undefined) updateData.tags = body.tags;
     if (body.resolutionNotes !== undefined) updateData.resolutionNotes = body.resolutionNotes;

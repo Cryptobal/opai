@@ -63,6 +63,7 @@ import {
   isSlaBreached,
   canTransitionTo,
   isPendingMyApproval,
+  isTerminalStatus,
 } from "@/lib/tickets";
 import { TicketApprovalTimeline } from "./TicketApprovalTimeline";
 import { TicketFindingCard } from "./TicketFindingCard";
@@ -575,7 +576,8 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
   const sourceCfg = TICKET_SOURCE_CONFIG[ticket.source];
   const slaText = getSlaRemaining(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
   const breached = isSlaBreached(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
-  const isTerminal = ["resolved", "closed", "rejected", "cancelled"].includes(ticket.status);
+  const isTerminal = isTerminalStatus(ticket.status);
+  const assigneeLockedReason = "El responsable no se puede cambiar en un ticket resuelto o cancelado.";
 
   const availableTransitions = (Object.keys(TICKET_STATUS_CONFIG) as TicketStatus[]).filter(
     (s) => canTransitionTo(ticket.status, s),
@@ -774,11 +776,21 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 text-xs text-muted-foreground ml-auto"
+                className="h-7 text-xs text-muted-foreground ml-auto disabled:opacity-40 disabled:cursor-not-allowed"
                 onClick={() => setAssigningUser(true)}
+                disabled={isTerminal}
+                title={isTerminal ? assigneeLockedReason : undefined}
               >
                 Reasignar
               </Button>
+            </div>
+          ) : isTerminal ? (
+            <div
+              className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground"
+              title={assigneeLockedReason}
+            >
+              <UserCircle className="h-4 w-4" />
+              <span className="font-medium">Sin asignar</span>
             </div>
           ) : (
             <button
@@ -2084,7 +2096,7 @@ function TicketAttachmentsCard({
           Arrastra archivos aquí o{" "}
           <span className="text-primary underline">busca en tu PC</span>
         </p>
-        <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+        <p className="text-[12px] text-muted-foreground/60 mt-0.5">
           Hasta {ATT_MAX_FILES_PER_BATCH} archivos · 25 MB c/u
         </p>
       </div>
@@ -2184,7 +2196,7 @@ function TicketAttachmentsCard({
       {/* Adjuntos provenientes de comentarios/emails (solo lectura) */}
       {fromComments.length > 0 && (
         <div className="space-y-1 pt-1">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          <p className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground">
             En mensajes ({fromComments.length})
           </p>
           <ul className="space-y-1">
