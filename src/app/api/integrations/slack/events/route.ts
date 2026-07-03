@@ -75,6 +75,12 @@ export async function POST(req: NextRequest) {
         const toBridge = eventType === "message" && (ct === "channel" || ct === "group");
         after(async () => {
           try {
+            // Comentar un ticket respondiendo su hilo (Fase 7): si el reply cae en
+            // el hilo raíz de un ticket, se consume acá y NO va al puente/bot.
+            if (eventType === "message" && event.thread_ts && (ct === "channel" || ct === "group")) {
+              const { handleTicketThreadComment } = await import("@/lib/integrations/slack/ticket-thread-comment");
+              if (await handleTicketThreadComment(resolved.tenantId, event)) return;
+            }
             if (toBridge) {
               await handleInboundSlackMessage(teamId, resolved.tenantId, resolved.workspaceId, event);
             } else {
