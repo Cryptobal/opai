@@ -687,3 +687,145 @@ Nuevo lead estructurado · Actividad CRM sobre cuenta · Aprobar descuento de co
   membresía quedan como refinamiento.
 - Los servicios de mutación (`tickets-transition`/`tickets-mutations`) son la vía de
   Slack; las rutas web monolíticas conservan su lógica (podrían adoptarlos luego).
+
+---
+
+# Fase 7.1 — Ruteo por categoría · Tarjetas ricas · Mis tickets · Reacciones · App Home · Agente nativo
+
+Extiende la Fase 7 con seis capacidades, un commit por bloque (B1–B12, docs = B13).
+
+## 1. Ruteo por CATEGORÍA (B1)
+
+`SlackChannelRoute.matchType` sigue siendo `String`; se agrega el valor `CATEGORY`
+(sin migración). Precedencia en `dispatch.ts` `resolveChannel`:
+**KEY > CATEGORY > MODULE > default**. `matchValue` de una regla CATEGORY es el
+`category` del catálogo (ej. `"CRM - Leads"`). En la UI de ruteo, cada header de
+categoría gana su propio picker de canal + toggle; si algún evento de la categoría
+tiene su regla KEY, se avisa (esa KEY prevalece). El API `routes` valida el enum
+`["KEY","CATEGORY","MODULE"]`.
+
+## 2. Tarjetas ricas (B2–B3)
+
+`buildNotificationBlocks` pinta una sección `fields` (≤6 pares) — sobria, sin muros
+de texto; `critical` conserva el 🚨. `toContextFields` deriva campos genéricos de
+`data` (primitivos cortos; blacklist de `*Id`/`id`/`url*`/`token*`/`phone*`; labels
+humanizadas). Enrichers por tipo:
+
+- **Tickets**: `card-enrich.ts` carga lo mínimo por `ticketId` (prioridad, estado,
+  responsable, instalación, hora de vencimiento SLA en horario de Chile). El campo
+  **Responsable** menciona `<@U...>` si el asignado está vinculado (le llega).
+- **Leads / postulaciones**: los emisores enriquecen su `data` en origen (empresa,
+  contacto, comuna, origen, cargo, teléfono) — nunca queries duplicadas en dispatch.
+
+## 3. Mis tickets (B4–B5)
+
+- Tool `get_my_tickets` (args `estado`/`prioridad`/`solo_vencidos_sla`) filtra por la
+  asignación real del usuario (`assignedTo` o sus equipos vía `getAssignedTeamsForUser`).
+  `get_tickets_summary` se re-describe como resumen GLOBAL del sistema para desambiguar.
+- Entrada **"Mis tickets"** en el grupo Tickets del hub, que reusa la bandeja existente
+  (`opai_tickets`) vía `opai_action_open` → `getModal` (cero duplicación). `/opai ayuda`
+  suma ejemplos (`/opai tickets`, `/opai tickets vencidos`).
+
+## 4. Reacciones cruzadas (B6–B7)
+
+Puente de reacciones sobre mensajes espejados (`SlackBridgeMessageMap`). Tabla
+`emoji.ts` convierte nombre-Slack ↔ unicode (~45 comunes; tonos de piel y variation
+selectors normalizados al base); los desconocidos se omiten con log.
+
+- **Slack→OPAI** (`reactions.ts`): `reaction_added/removed` sobre un mensaje puenteado →
+  filtro barato (mapa + no-bot) → admin vinculado → upsert/delete `ChatMessageReaction`
+  con su identidad real + evento Pusher idéntico al de la UI. No vinculados se omiten (v1).
+- **OPAI→Slack**: hook `after()` en la ruta de reacciones del chat admin → el **BOT**
+  pone/quita la reacción en Slack.
+- **Asimetría documentada**: hacia Slack todas salen del bot (Slack no permite
+  reaccionar a nombre de terceros); hacia OPAI llegan con el admin real. Anti-loop:
+  `event.user === botUserId` se ignora al entrar.
+
+## 5. App Home + bienvenida (B8)
+
+La pestaña **Inicio** (`views.publish`, `app_home_opened`) es el panel personal:
+contadores propios (tickets abiertos/vencidos vía `listMyTickets`) y botones grandes
+que reusan `opai_action_open` (Mis tickets · Vencidos SLA · Aprobaciones · Nuevo ticket
+· Nueva rendición · Todas las acciones). Sin vínculo → Home minimalista con CTA. Como
+desde el Home/DM no hay modal en pila, `pushActionModal` **abre** (no apila). El Home se
+refresca tras aprobar/confirmar. Mensaje de bienvenida único por DM en la pestaña
+Mensajes, marcado con `SlackUserLink.welcomedAt` (migración aditiva) para no repetirlo.
+
+## 6. Gestión del ticket desde su tarjeta (B9)
+
+Las tarjetas de eventos `ticket_*` (salvo la de aprobación) ganan una fila de acciones:
+**Comentar · Estado · Aplazar SLA · Pausar/Reanudar SLA · Silenciar** (`action_id: tcard`).
+Cada botón abre el modal por-fila (`views.open` desde el canal) que ejecuta servicios
+reales. `tickets-sla.ts` (`extendSla`, `togglePauseSla`, `snoozeSla`) espeja la lógica
+del PATCH web con identidad real + `recordTicketEvent`. Los mismos controles se suman a
+la bandeja por-fila.
+
+## 7. Links profundos y tarjetas de entidades del bot (B10)
+
+`get_my_tickets` y `get_tickets_summary` ahora devuelven `id` + `url` por ticket. El
+runner del help-chat recolecta hasta 3 entidades con `url` de los resultados de tools;
+el bot de Slack las adjunta como tarjetas compactas (título · subtítulo · botón Abrir)
+que llevan a **LA** entidad. Regla dura en el system prompt v2: los links SIEMPRE salen
+del campo `url` de las tools; prohibido adivinar rutas. (El runner ya absolutiza los
+links del texto.)
+
+## 8. Menciones cruzadas en comentarios (B11)
+
+- **Slack→OPAI** (`ticket-thread-comment.ts`): un reply que menciona `<@U...>` resuelve
+  el admin vinculado, lo escribe como `@Nombre` en el comentario de OPAI y le notifica
+  (`ticket_mention`, con `data.skipSlack` para no re-postear en su propio hilo — ya pingó
+  nativo en Slack).
+- **OPAI→Slack**: el emisor de comentarios adjunta `data.mentions` (nombre→adminId) y
+  `dispatch` convierte `@Nombre` a `<@U...>` en el hilo cuando el mencionado está
+  vinculado (best-effort; no vinculados quedan en texto plano).
+
+## 9. Agente nativo (agent_view) (B12)
+
+`assistant_thread_started` → saludo breve + `assistant.threads.setSuggestedPrompts`
+(Mis tickets por prioridad · caja del mes · vencidos SLA · crear lead). Los suggested
+prompts cumplen el rol del mensaje de bienvenida en la superficie de agente.
+`assistant_thread_context_changed` → guarda el canal activo (`SlackUserLink.activeChannelId`,
+migración aditiva); si es un canal puenteado, el bot pasa un `contextHint` al runner para
+responder situado. En el turno del bot: `setStatus("Pensando…")` + `setTitle` nativos
+(best-effort; en un DM normal fallan y se ignoran).
+
+## Matriz de pruebas manuales (Fase 7.1)
+
+| Caso | Esperado |
+| --- | --- |
+| Rutear categoría "CRM - Leads" a #canal | Todos los eventos de la categoría van a ese canal |
+| Regla KEY sobre un evento de esa categoría | La KEY prevalece; el header avisa "N con regla propia" |
+| Tarjeta del próximo SLA vencido | Muestra prioridad, responsable, instalación y hora de vencimiento |
+| Responsable vinculado a Slack | La tarjeta lo menciona `<@U...>` (le llega) |
+| "¿qué tickets tengo?" al bot | Devuelve SOLO los del usuario (get_my_tickets), no del sistema |
+| "Mis tickets" en el hub | Abre la bandeja existente |
+| 👍 en OPAI sobre mensaje puenteado | Aparece en Slack (del bot) |
+| ✅ en Slack sobre mensaje puenteado | Aparece en OPAI con el nombre del admin vinculado |
+| Abrir pestaña Inicio | Panel con contadores propios + botones (sin manual) |
+| Botón "Aplazar SLA" en la tarjeta | Modal con datepicker + motivo; aplica `extendSla` |
+| Botón "Pausar SLA" | Pausa o reanuda según el estado; extiende el plazo al reanudar |
+| "¿qué cotización le mandé a X?" | Tarjeta con botón que abre LA cotización, no la lista |
+| Reply con `<@U>` en el hilo del ticket | Comentario en OPAI con @Nombre + notifica al mencionado |
+| Abrir el agente OPAI (panel de IA) | Saludo + 3-4 prompts sugeridos |
+
+## Checklist post-deploy (Fase 7.1)
+
+- [ ] **Manifest** (paso manual, requiere **re-autorizar** por los scopes nuevos):
+      bot scopes `reactions:read` + `reactions:write`; bot events `reaction_added`,
+      `reaction_removed`, `app_home_opened`, `assistant_thread_started`,
+      `assistant_thread_context_changed`; `features.app_home.home_tab_enabled: true`;
+      `features.assistant_view` habilitado.
+- [ ] Migración `20261006000000_slack_user_link_welcomed` aplicada.
+- [ ] Migración `20261007000000_slack_user_link_active_channel` aplicada.
+- [ ] Prueba end-to-end de la matriz con un tenant conectado + un usuario vinculado.
+
+## Limitaciones conocidas (Fase 7.1)
+
+- Reacciones OPAI→Slack sólo desde el chat **admin** (los portales aún no tienen ruta de
+  reacciones). Sólo se espejan los ~45 emojis de la tabla; el resto se omite.
+- La conversión de menciones OPAI→Slack es best-effort sobre nombre/primer-nombre (OPAI
+  guarda las menciones como texto `@Nombre`, no como token de id).
+- `tickets-sla.ts` espeja la lógica SLA del PATCH web para uso desde Slack; la ruta web
+  conserva su lógica inline (podría adoptar el servicio luego).
+- El `contextHint` del panel de IA es una pista textual del canal activo; no resuelve aún
+  la instalación específica.
