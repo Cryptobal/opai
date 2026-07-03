@@ -12,7 +12,8 @@ import { prisma } from "@/lib/prisma";
 import { triggerChatEvent } from "@/lib/chat";
 import { getWorkspaceForTenant } from "./workspace";
 import { resolveLinkedAdmin } from "./user-link";
-import { slackNameToUnicode } from "./emoji";
+import { slackNameToUnicode, unicodeToSlackName } from "./emoji";
+import { callSlack, SlackApiError } from "./api";
 
 export interface SlackReactionEvent {
   user?: string;
@@ -84,4 +85,45 @@ export async function handleSlackReaction(
     senderName,
     senderType: "ADMIN",
   }).catch((e) => console.error("[slack] pusher reacción falló:", e));
+}
+
+// Errores benignos: reaccionar dos veces / quitar una que no existe.
+const BENIGN_REACTION_ERRORS = new Set(["already_reacted", "no_reaction", "message_not_found"]);
+
+/**
+ * Reacciones OPAI → Slack. Si el mensaje del chat está puenteado, el BOT pone o
+ * quita la reacción en Slack. Asimetría documentada: Slack no permite reaccionar
+ * a nombre de terceros, así que hacia Slack todas salen del bot.
+ */
+export async function mirrorReactionToSlack(
+  tenantId: string,
+  chatMessageId: string,
+  emoji: string,
+  added: boolean,
+): Promise<void> {
+  const map = await prisma.slackBridgeMessageMap.findUnique({
+    where: { chatMessageId },
+    select: { slackChannelId: true, slackTs: true, tenantId: true },
+  });
+  if (!map || map.tenantId !== tenantId) return; // no puenteado / otro tenant
+
+  const name = unicodeToSlackName(emoji);
+  if (!name) {
+    console.debug(`[slack] emoji sin mapeo a nombre Slack, no se espeja: ${emoji}`);
+    return;
+  }
+
+  const workspace = await getWorkspaceForTenant(tenantId);
+  if (!workspace) return;
+
+  try {
+    await callSlack(
+      added ? "reactions.add" : "reactions.remove",
+      { channel: map.slackChannelId, timestamp: map.slackTs, name },
+      workspace.botToken,
+    );
+  } catch (err) {
+    if (err instanceof SlackApiError && BENIGN_REACTION_ERRORS.has(err.slackError)) return;
+    throw err;
+  }
 }

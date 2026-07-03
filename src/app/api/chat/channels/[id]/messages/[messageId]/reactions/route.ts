@@ -3,7 +3,7 @@
  * POST — Toggle reaction on a message. If reaction exists for this user+emoji, remove it.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { triggerChatEvent } from "@/lib/chat";
@@ -100,6 +100,8 @@ export async function POST(
         console.error("Error triggering reaction-removed event:", err)
       );
 
+      mirrorReactionInBackground(ctx.tenantId, messageId, emoji, false);
+
       return NextResponse.json({
         success: true,
         data: { action: "removed", ...eventData },
@@ -129,6 +131,8 @@ export async function POST(
         console.error("Error triggering reaction-added event:", err)
       );
 
+      mirrorReactionInBackground(ctx.tenantId, messageId, emoji, true);
+
       return NextResponse.json({
         success: true,
         data: { action: "added", id: reaction.id, ...eventData },
@@ -141,4 +145,16 @@ export async function POST(
       { status: 500 }
     );
   }
+}
+
+/** Espeja la reacción en Slack (si el mensaje está puenteado) sin bloquear la respuesta. */
+function mirrorReactionInBackground(tenantId: string, messageId: string, emoji: string, added: boolean) {
+  after(async () => {
+    try {
+      const { mirrorReactionToSlack } = await import("@/lib/integrations/slack/reactions");
+      await mirrorReactionToSlack(tenantId, messageId, emoji, added);
+    } catch (err) {
+      console.error("[slack] espejo de reacción a Slack falló:", err);
+    }
+  });
 }

@@ -24,7 +24,7 @@ Manifest: scopes bot `reactions:read` + `reactions:write`; bot_events `reaction_
 - [x] B4 — Tool `get_my_tickets`
 - [x] B5 — Hub "Mis tickets" + `/opai ayuda`
 - [x] B6 — Reacciones Slack→OPAI
-- [ ] B7 — Reacciones OPAI→Slack
+- [x] B7 — Reacciones OPAI→Slack
 - [ ] B8 — App Home (+ mensaje de bienvenida único vía `SlackUserLink.welcomedAt`, migración aditiva)
 - [ ] B9 — Botones de gestión + responsable en tarjetas de ticket (Comentar · Estado · Aplazar/Pausar/Silenciar SLA)
 - [ ] B10 — URLs canónicas por entidad en tools + regla system prompt + tarjetas de entidades en el bot
