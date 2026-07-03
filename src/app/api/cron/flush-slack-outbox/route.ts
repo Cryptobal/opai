@@ -62,12 +62,13 @@ export async function GET(req: NextRequest) {
       });
       continue;
     }
-    const payload = item.payload as { text?: string; blocks?: unknown[] };
+    const payload = item.payload as { text?: string; blocks?: unknown[]; thread_ts?: string };
     try {
       const { ts } = await slackPostMessage(token, {
         channel: item.channelId,
         text: payload.text ?? "",
         blocks: payload.blocks,
+        thread_ts: payload.thread_ts, // hilo por ticket (Fase 7) sobrevive el reintento
       });
       await prisma.slackOutbox.update({
         where: { id: item.id },

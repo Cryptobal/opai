@@ -70,6 +70,21 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
       ? (input.data.ticketId as string)
       : null;
 
+  // Hilo por ticket (Fase 7): cualquier evento ticket_* con data.ticketId cae en
+  // el hilo de ese ticket. La tarjeta de creación establece la raíz.
+  const threadTicketId =
+    input.typeDef.key.startsWith("ticket_") && typeof input.data?.ticketId === "string"
+      ? (input.data.ticketId as string)
+      : null;
+  let threadTs: string | undefined;
+  if (threadTicketId) {
+    const th = await prisma.ticketSlackThread.findUnique({
+      where: { ticketId: threadTicketId },
+      select: { slackTs: true },
+    });
+    threadTs = th?.slackTs;
+  }
+
   // Dedupe en ráfagas: mismo (tenant, key, title) dentro del mismo minuto. Para
   // aprobaciones se incluye el ticketId, así dos tickets distintos con el mismo
   // título en el mismo minuto NO colisionan (perderían sus botones).
@@ -86,7 +101,7 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
         tenantId: input.tenantId,
         workspaceId: workspace.id,
         channelId,
-        payload: { text, blocks } as object,
+        payload: { text, blocks, thread_ts: threadTs } as object,
         dedupeKey,
         status: "PENDING",
       },
@@ -121,13 +136,18 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     blocks.push(ticketActionsBlock(ticketPendingId));
     await prisma.slackOutbox.update({
       where: { id: outboxId },
-      data: { payload: { text, blocks } as object },
+      data: { payload: { text, blocks, thread_ts: threadTs } as object },
     });
   }
 
   // Intento de envío inmediato; el cron reintenta los que queden FAILED.
   try {
-    const { ts } = await slackPostMessage(workspace.botToken, { channel: channelId, text, blocks });
+    const { ts } = await slackPostMessage(workspace.botToken, {
+      channel: channelId,
+      text,
+      blocks,
+      thread_ts: threadTs,
+    });
     await prisma.slackOutbox.update({
       where: { id: outboxId },
       data: { status: "SENT", sentAt: new Date(), slackTs: ts },
@@ -135,6 +155,12 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     // Ancla la tarjeta de aprobación al mensaje publicado para actualizarla al decidir.
     if (ticketPendingId && ts) {
       await prisma.slackPendingAction.update({ where: { id: ticketPendingId }, data: { messageTs: ts } });
+    }
+    // Raíz del hilo: solo la tarjeta de creación (sin hilo previo) queda de ancla.
+    if (threadTicketId && !threadTs && input.typeDef.key === "ticket_created" && ts) {
+      await prisma.ticketSlackThread
+        .create({ data: { tenantId: input.tenantId, ticketId: threadTicketId, slackChannelId: channelId, slackTs: ts } })
+        .catch(() => {});
     }
   } catch (err) {
     const reason = err instanceof SlackApiError ? err.slackError : String(err);

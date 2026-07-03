@@ -11320,6 +11320,22 @@ model SlackPendingAction {
   @@schema("public")
 }
 
+/// Hilo de Slack por ticket (Fase 7): la tarjeta de creación de un ticket en el
+/// canal ruteado es la raíz; todos los eventos siguientes (aprobación, cambios,
+/// SLA, comentarios) caen como reply del mismo hilo. `ticketId` único.
+model TicketSlackThread {
+  id             String   @id @default(cuid())
+  tenantId       String   @map("tenant_id")
+  ticketId       String   @unique @map("ticket_id")
+  slackChannelId String   @map("slack_channel_id")
+  slackTs        String   @map("slack_ts")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId], map: "idx_ticket_slack_thread_tenant")
+  @@map("ticket_slack_threads")
+  @@schema("public")
+}
+
 /// API key del servidor MCP por tenant. La key JAMÁS se almacena en claro:
 /// solo su sha256 (keyHash) + prefijo visible (keyPrefix, primeros 12 chars)
 /// para poder identificarla en la UI. La key resuelve el tenant y corre con
