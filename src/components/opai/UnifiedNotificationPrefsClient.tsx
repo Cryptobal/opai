@@ -11,6 +11,7 @@ import {
 } from "@/lib/notifications/channel-types";
 import { ModuleAccordion } from "./_components/notif-prefs/ModuleAccordion";
 import { PrefsSearchBar } from "./_components/notif-prefs/PrefsSearchBar";
+import { supportsChannel, type Channel as ColChannel } from "./_components/notif-prefs/channels";
 
 type PrefsMap = Record<string, ChannelPrefs>;
 type Channel = keyof ChannelPrefs;
@@ -121,6 +122,47 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
       });
     },
     [types],
+  );
+
+  // Acción masiva: toggle tri-state de una columna en todo un módulo.
+  const toggleColumn = useCallback(
+    (moduleKey: string, channel: ColChannel) => {
+      const moduleTypes = types.filter(
+        (t) => t.module === moduleKey && supportsChannel(t, channel, slackState.linked),
+      );
+      if (moduleTypes.length === 0) return;
+      setPrefs((p) => {
+        const allOn = moduleTypes.every((t) => p[t.key]?.[channel] ?? false);
+        const value = !allOn; // todas ON → apagar; si no, encender todas
+        const next = { ...p };
+        for (const t of moduleTypes) next[t.key] = { ...next[t.key], [channel]: value };
+        return next;
+      });
+    },
+    [types, slackState.linked],
+  );
+
+  // Acción masiva: "Solo este canal" — enciende ese canal y apaga los demás.
+  const onlyChannel = useCallback(
+    (moduleKey: string, channel: ColChannel) => {
+      const moduleTypes = types.filter((t) => t.module === moduleKey);
+      setPrefs((p) => {
+        const next = { ...p };
+        for (const t of moduleTypes) {
+          const on = supportsChannel(t, channel, slackState.linked);
+          next[t.key] = {
+            bell: false,
+            email: false,
+            pushDesktop: false,
+            pushMobile: false,
+            slack: false,
+            [channel]: on,
+          };
+        }
+        return next;
+      });
+    },
+    [types, slackState.linked],
   );
 
   const dirtyCount = useMemo(() => {
@@ -238,6 +280,8 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
           onChannelToggle={toggle}
           onMute={() => muteModule(moduleKey)}
           onReset={() => resetModule(moduleKey)}
+          onToggleColumn={(channel) => toggleColumn(moduleKey, channel)}
+          onOnlyChannel={(channel) => onlyChannel(moduleKey, channel)}
           slackWorkspaceActive={slackState.workspaceActive}
           slackLinked={slackState.linked}
         />

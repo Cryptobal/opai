@@ -1,13 +1,19 @@
 "use client";
 
-import { Bell, ChevronDown, Mail, Monitor, RotateCcw, Slack, Smartphone, VolumeX } from "lucide-react";
+import { ChevronDown, RotateCcw, SlidersHorizontal, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { UnifiedNotificationType } from "@/lib/notifications/catalog";
 import { expandCatalogDefaults, type ChannelPrefs } from "@/lib/notifications/channel-types";
 import { ChannelToggle } from "./ChannelToggle";
-
-type Channel = keyof ChannelPrefs;
+import { CHANNEL_COLS, ColumnHeaderRow, supportsChannel, type Channel } from "./channels";
 
 interface ModuleAccordionProps {
   moduleKey: string;
@@ -21,91 +27,78 @@ interface ModuleAccordionProps {
   onChannelToggle: (key: string, channel: Channel, value: boolean) => void;
   onMute: () => void;
   onReset: () => void;
-  /** Tenant con workspace Slack ACTIVO → se muestra la columna Slack. */
+  onToggleColumn: (channel: Channel) => void;
+  onOnlyChannel: (channel: Channel) => void;
   slackWorkspaceActive: boolean;
-  /** El usuario tiene SlackUserLink → la columna Slack es interactiva. */
   slackLinked: boolean;
 }
 
-export function ModuleAccordion({
-  moduleKey,
-  moduleLabel,
-  isOpen,
-  onToggleOpen,
-  categories,
-  prefs,
-  highlighted,
-  highlightRef,
-  onChannelToggle,
-  onMute,
-  onReset,
-  slackWorkspaceActive,
-  slackLinked,
-}: ModuleAccordionProps) {
-  const totalTypes = Array.from(categories.values()).reduce((acc, arr) => acc + arr.length, 0);
+export function ModuleAccordion(props: ModuleAccordionProps) {
+  const { categories, prefs, highlighted, highlightRef, slackWorkspaceActive, slackLinked } = props;
+  const moduleTypes = Array.from(categories.values()).flat();
+  const cols = CHANNEL_COLS.filter((c) => !c.slackOnly || slackWorkspaceActive);
 
   return (
     <section className="rounded-xl border border-border bg-card overflow-hidden">
       <header className="flex items-center justify-between gap-2 px-4 py-3 bg-muted/30 border-b border-border">
         <button
           type="button"
-          onClick={onToggleOpen}
+          onClick={props.onToggleOpen}
           className="flex items-center gap-2 text-sm font-semibold flex-1 text-left"
         >
-          <ChevronDown
-            className={cn("h-4 w-4 transition-transform", isOpen ? "rotate-0" : "-rotate-90")}
-          />
-          {moduleLabel}
-          <span className="text-xs font-normal text-muted-foreground">({totalTypes})</span>
+          <ChevronDown className={cn("h-4 w-4 transition-transform", props.isOpen ? "rotate-0" : "-rotate-90")} />
+          {props.moduleLabel}
+          <span className="text-xs font-normal text-muted-foreground">({moduleTypes.length})</span>
         </button>
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs gap-1"
-            onClick={onMute}
-            title="Silenciar todos los tipos de este módulo"
-          >
+          <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={props.onMute} title="Silenciar todos los tipos de este módulo">
             <VolumeX className="h-3.5 w-3.5" />
             Silenciar
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs gap-1"
-            onClick={onReset}
-            title="Restablecer valores por defecto"
-          >
+          <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={props.onReset} title="Restablecer valores por defecto">
             <RotateCcw className="h-3.5 w-3.5" />
             Reset
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Dejar solo un canal en este módulo" aria-label="Solo un canal">
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuLabel className="text-xs">Solo este canal</DropdownMenuLabel>
+              {cols.map((c) => (
+                <DropdownMenuItem
+                  key={c.key}
+                  disabled={c.key === "slack" && !slackLinked}
+                  onClick={() => props.onOnlyChannel(c.key)}
+                >
+                  {c.icon}
+                  <span className="ml-2">Solo {c.label}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
-      {isOpen && (
+      {props.isOpen && (
         <div className="divide-y divide-border/50">
+          <ColumnHeaderRow
+            cols={cols}
+            moduleTypes={moduleTypes}
+            prefs={prefs}
+            slackLinked={slackLinked}
+            onToggleColumn={props.onToggleColumn}
+          />
           {Array.from(categories.entries()).map(([category, list]) => (
             <div key={category}>
-              <div className="px-4 py-1.5 text-[11px] font-mono font-semibold uppercase tracking-[0.08em] text-ds-text-4 bg-muted/10">
-                {category}
-              </div>
+              <div className="px-4 py-1.5 text-[11px] font-mono font-semibold uppercase tracking-[0.08em] text-ds-text-4 bg-muted/10">{category}</div>
               {list.map((t) => {
                 const def = expandCatalogDefaults(t.defaults.admin ?? {});
                 const cur = prefs[t.key] ?? {};
                 const isHighlighted = highlighted === t.key;
-                const isOverride =
-                  cur.bell !== def.bell ||
-                  cur.email !== def.email ||
-                  cur.pushDesktop !== def.pushDesktop ||
-                  cur.pushMobile !== def.pushMobile;
-
-                const supports = {
-                  bell: def.bell !== undefined,
-                  email: def.email !== undefined,
-                  pushDesktop: def.pushDesktop !== undefined,
-                  pushMobile: def.pushMobile !== undefined,
-                };
-
+                const isOverride = (["bell", "email", "pushDesktop", "pushMobile"] as const).some((k) => cur[k] !== def[k]);
                 return (
                   <div
                     key={t.key}
@@ -119,58 +112,31 @@ export function ModuleAccordion({
                       <div className="flex items-center gap-1.5">
                         <span className="text-sm font-medium truncate">{t.label}</span>
                         {isOverride && (
-                          <span
-                            className="h-1.5 w-1.5 rounded-full bg-primary shrink-0"
-                            title="Personalizado (difiere del default)"
-                          />
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" title="Personalizado (difiere del default)" />
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                        {t.description}
-                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{t.description}</p>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <ChannelToggle
-                        icon={<Bell className="h-3.5 w-3.5" />}
-                        checked={cur.bell ?? def.bell ?? false}
-                        disabled={!supports.bell}
-                        onChange={(v) => onChannelToggle(t.key, "bell", v)}
-                        label={`${t.label} - Campana`}
-                      />
-                      <ChannelToggle
-                        icon={<Mail className="h-3.5 w-3.5" />}
-                        checked={cur.email ?? def.email ?? false}
-                        disabled={!supports.email}
-                        onChange={(v) => onChannelToggle(t.key, "email", v)}
-                        label={`${t.label} - Email`}
-                      />
-                      <ChannelToggle
-                        icon={<Monitor className="h-3.5 w-3.5" />}
-                        checked={cur.pushDesktop ?? def.pushDesktop ?? false}
-                        disabled={!supports.pushDesktop}
-                        onChange={(v) => onChannelToggle(t.key, "pushDesktop", v)}
-                        label={`${t.label} - Push escritorio`}
-                      />
-                      <ChannelToggle
-                        icon={<Smartphone className="h-3.5 w-3.5" />}
-                        checked={cur.pushMobile ?? def.pushMobile ?? false}
-                        disabled={!supports.pushMobile}
-                        onChange={(v) => onChannelToggle(t.key, "pushMobile", v)}
-                        label={`${t.label} - Push móvil`}
-                      />
-                      {slackWorkspaceActive && (
-                        <ChannelToggle
-                          icon={<Slack className="h-3.5 w-3.5" />}
-                          checked={slackLinked ? cur.slack ?? false : false}
-                          disabled={!slackLinked}
-                          onChange={(v) => onChannelToggle(t.key, "slack", v)}
-                          label={
-                            slackLinked
-                              ? `${t.label} - Slack (DM directo del bot)`
-                              : "Vincula tu Slack: escríbele un DM al bot OPAI para activar este canal"
-                          }
-                        />
-                      )}
+                      {cols.map((c) => {
+                        const supported = supportsChannel(t, c.key, slackLinked);
+                        return (
+                          <ChannelToggle
+                            key={c.key}
+                            icon={c.icon}
+                            checked={supported ? (cur[c.key] ?? def[c.key] ?? false) : false}
+                            disabled={!supported}
+                            onChange={(v) => props.onChannelToggle(t.key, c.key, v)}
+                            label={
+                              c.key === "slack"
+                                ? slackLinked
+                                  ? `${t.label} - Slack (DM directo del bot)`
+                                  : "Vincula tu Slack: escríbele un DM al bot OPAI para activar este canal"
+                                : `${t.label} - ${c.label}`
+                            }
+                          />
+                        );
+                      })}
                     </div>
                   </div>
                 );

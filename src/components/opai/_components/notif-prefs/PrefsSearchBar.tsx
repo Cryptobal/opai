@@ -68,7 +68,7 @@ export function PrefsSearchBar({
             {slackLinked ? (
               "(DM del bot)"
             ) : (
-              <span className="text-amber-600 dark:text-amber-400">· vincula tu Slack (DM al bot OPAI)</span>
+              <span className="text-status-warn-fg">· vincula tu Slack (DM al bot OPAI)</span>
             )}
           </span>
         )}
