@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { verifySlackSignature } from "@/lib/integrations/slack/signature";
 import { getTenantForTeam, markWorkspaceRevoked } from "@/lib/integrations/slack/workspace";
+import { handleBotEvent, type SlackBotEvent } from "@/lib/integrations/slack/bot";
 import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
     type?: string;
     challenge?: string;
     team_id?: string;
-    event?: { type?: string };
+    event?: SlackBotEvent;
   };
   try {
     payload = JSON.parse(rawBody);
@@ -65,8 +66,17 @@ export async function POST(req: NextRequest) {
       break;
     case "app_mention":
     case "message":
-      // Fase 1: acuse silencioso. La respuesta del bot llega en Fase 2.
-      console.error("[slack] evento de bot recibido (Fase 2 pendiente):", eventType);
+      // ACK 200 inmediato; el turno del bot corre en after() (Slack exige <3s).
+      if (payload.event) {
+        const event = payload.event;
+        after(async () => {
+          try {
+            await handleBotEvent(teamId, event);
+          } catch (err) {
+            console.error("[slack] handleBotEvent falló:", err);
+          }
+        });
+      }
       break;
     default:
       break;

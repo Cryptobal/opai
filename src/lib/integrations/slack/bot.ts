@@ -1,0 +1,162 @@
+/**
+ * Bot conversacional OPAI Intelligence en Slack (menciones + DMs).
+ *
+ * Corre dentro de `after()` (el ACK 200 ya se envió en <3s). Ejecuta el MISMO
+ * motor de tools del chat web vía `runHelpChatTurn`, con la identidad y permisos
+ * del Admin vinculado. Memoria conversacional por thread en `SlackBotThread`.
+ */
+
+import { prisma } from "@/lib/prisma";
+import { hasCapability } from "@/lib/permissions";
+import { getAiHelpChatConfig } from "@/lib/ai/help-chat-config";
+import { runHelpChatTurn } from "@/lib/ai/help-chat-runner";
+import { getTenantForTeam, getWorkspaceForTenant, type ActiveWorkspace } from "./workspace";
+import { resolveLinkedAdmin, buildLinkPrompt } from "./user-link";
+import { slackPostMessage, slackUpdateMessage } from "./api";
+import { toSlackMarkdown } from "./markdown";
+import { assistantSection, contextLine, confirmActionsBlock } from "./blocks";
+
+export interface SlackBotEvent {
+  type?: string;
+  user?: string;
+  text?: string;
+  channel?: string;
+  ts?: string;
+  thread_ts?: string;
+  channel_type?: string;
+  bot_id?: string;
+  subtype?: string;
+}
+
+type Turn = { role: string; content: string };
+
+const PENDING_TTL_MS = 15 * 60 * 1000;
+const MAX_TURNS = 24; // ~12 turnos user/assistant
+const MAX_TRANSCRIPT_CHARS = 24_000;
+
+function stripMention(text: string): string {
+  return text.replace(/<@[A-Z0-9]+>/g, "").replace(/\s+/g, " ").trim();
+}
+
+function capTranscript(msgs: Turn[]): Turn[] {
+  let t = msgs.slice(-MAX_TURNS);
+  let size = t.reduce((s, m) => s + m.content.length, 0);
+  while (size > MAX_TRANSCRIPT_CHARS && t.length > 2) {
+    t = t.slice(2);
+    size = t.reduce((s, m) => s + m.content.length, 0);
+  }
+  return t;
+}
+
+async function loadTranscript(workspaceId: string, channelId: string, threadTs: string): Promise<Turn[]> {
+  const row = await prisma.slackBotThread.findUnique({
+    where: { workspaceId_channelId_threadTs: { workspaceId, channelId, threadTs } },
+    select: { transcript: true },
+  });
+  return Array.isArray(row?.transcript) ? (row!.transcript as Turn[]) : [];
+}
+
+async function saveTranscript(
+  ws: ActiveWorkspace,
+  channelId: string,
+  threadTs: string,
+  prior: Turn[],
+  userMessage: string,
+  assistantText: string,
+): Promise<void> {
+  const next = capTranscript([...prior, { role: "user", content: userMessage }, { role: "assistant", content: assistantText }]);
+  await prisma.slackBotThread.upsert({
+    where: { workspaceId_channelId_threadTs: { workspaceId: ws.id, channelId, threadTs } },
+    create: { tenantId: ws.tenantId, workspaceId: ws.id, channelId, threadTs, transcript: next as object, lastMessageAt: new Date() },
+    update: { transcript: next as object, lastMessageAt: new Date() },
+  });
+}
+
+/** Procesa un evento app_mention/message. Idempotente ante ruido (bots, edits). */
+export async function handleBotEvent(teamId: string, event: SlackBotEvent): Promise<void> {
+  if (event.bot_id || event.subtype) return; // mensajes de bots, ediciones, joins…
+  if (event.type === "message" && event.channel_type !== "im") return; // 'message' solo para DMs
+  const slackUserId = event.user;
+  const channelId = event.channel;
+  if (!slackUserId || !channelId || !event.ts) return;
+
+  const resolved = await getTenantForTeam(teamId);
+  if (!resolved) return;
+  const workspace = await getWorkspaceForTenant(resolved.tenantId);
+  if (!workspace) return;
+  if (slackUserId === workspace.botUserId) return; // nunca responderse a sí mismo
+
+  const threadTs = event.thread_ts || event.ts;
+  const userMessage = stripMention(event.text || "");
+  if (!userMessage) return;
+  const token = workspace.botToken;
+
+  // Gate de vínculo: usuario no vinculado = cero datos, solo el flujo de vínculo.
+  const linked = await resolveLinkedAdmin(workspace, slackUserId);
+  if (!linked) {
+    const prompt = buildLinkPrompt(workspace, slackUserId);
+    await slackPostMessage(token, { channel: channelId, text: prompt.text, blocks: prompt.blocks, thread_ts: threadTs });
+    return;
+  }
+
+  let placeholderTs: string;
+  try {
+    const posted = await slackPostMessage(token, { channel: channelId, text: "⏳ Consultando OPAI…", thread_ts: threadTs });
+    placeholderTs = posted.ts;
+  } catch (err) {
+    console.error("[slack] no se pudo publicar placeholder:", err);
+    return;
+  }
+
+  try {
+    const cfg = await getAiHelpChatConfig(workspace.tenantId);
+    const prior = await loadTranscript(workspace.id, channelId, threadTs);
+    const result = await runHelpChatTurn({
+      tenantId: workspace.tenantId,
+      userId: linked.adminId,
+      perms: linked.perms,
+      canViewAllRendiciones: hasCapability(linked.perms, "rendicion_view_all"),
+      history: prior,
+      userMessage,
+      allowWrites: cfg.allowWrites,
+    });
+
+    const blocks: unknown[] = [assistantSection(toSlackMarkdown(result.text))];
+    if (result.pendingConfirmation) {
+      const pa = await prisma.slackPendingAction.create({
+        data: {
+          tenantId: workspace.tenantId,
+          workspaceId: workspace.id,
+          kind: "TOOL_CONFIRM",
+          toolName: result.pendingConfirmation.confirmToolName,
+          toolArgs: result.pendingConfirmation.args as object,
+          requestedBySlackUserId: slackUserId,
+          channelId,
+          messageTs: placeholderTs,
+          status: "PENDING",
+          expiresAt: new Date(Date.now() + PENDING_TTL_MS),
+        },
+        select: { id: true },
+      });
+      blocks.push(contextLine(`⚠️ Acción: *${result.pendingConfirmation.summary}* · confirma o cancela (vence en 15 min)`));
+      blocks.push(confirmActionsBlock(pa.id));
+    }
+
+    await slackUpdateMessage(token, {
+      channel: channelId,
+      ts: placeholderTs,
+      text: result.text.slice(0, 2900),
+      blocks,
+    });
+
+    await saveTranscript(workspace, channelId, threadTs, prior, userMessage, result.text);
+  } catch (err) {
+    console.error("[slack] error procesando turno del bot:", err);
+    await slackUpdateMessage(token, {
+      channel: channelId,
+      ts: placeholderTs,
+      text: "⚠️ No pude completar la consulta. Intenta de nuevo en un momento.",
+      blocks: [assistantSection("⚠️ No pude completar la consulta. Intenta de nuevo en un momento.")],
+    }).catch(() => {});
+  }
+}
