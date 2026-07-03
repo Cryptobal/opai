@@ -37,7 +37,33 @@ export function SlackBridges() {
       const [b, c, s] = await Promise.all([bRes.json(), cRes.json(), sRes.json()]);
       if (b.success) setBridges(b.bridges);
       if (c.success) {
-        setChatOpts((c.data as { id: string; name: string }[]).map((ch) => ({ value: ch.id, label: ch.name })));
+        type ApiChatChannel = {
+          id: string;
+          name: string;
+          channelType?: string;
+          subType?: string | null;
+          installation?: { name: string; account?: { name: string } | null } | null;
+          account?: { name: string; status?: string | null } | null;
+        };
+        // Misma convención visible que el sidebar del chat (ChatChannelList):
+        // INSTALLATION → nombre de la instalación (+ cuenta · subtipo como hint);
+        // EXTERNAL → nombre de la cuenta. Los DM se excluyen: un 1:1 privado
+        // no debe espejarse a un canal de Slack.
+        setChatOpts(
+          (c.data as ApiChatChannel[])
+            .filter((ch) => ch.channelType !== "DM")
+            .map((ch) => {
+              if (ch.channelType === "INSTALLATION" && ch.installation) {
+                const sub = ch.subType === "interno" ? "Interno" : "Reportes";
+                const account = ch.installation.account?.name;
+                return { value: ch.id, label: ch.installation.name, hint: account ? `${account} · ${sub}` : sub };
+              }
+              if (ch.channelType === "EXTERNAL" && ch.account) {
+                return { value: ch.id, label: ch.account.name, hint: ch.account.status === "prospect" ? "Prospecto" : "Cliente" };
+              }
+              return { value: ch.id, label: ch.name };
+            }),
+        );
       }
       if (s.success) {
         setSlackOpts((s.channels as { id: string; name: string; isPrivate: boolean }[]).map((ch) => ({

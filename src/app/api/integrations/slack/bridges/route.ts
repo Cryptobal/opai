@@ -27,10 +27,27 @@ export async function GET() {
   const chatIds = links.map((l) => l.chatChannelId);
   const adminIds = [...new Set(links.map((l) => l.createdBy))];
   const [chatChannels, admins] = await Promise.all([
-    chatIds.length ? prisma.chatChannel.findMany({ where: { id: { in: chatIds } }, select: { id: true, name: true } }) : [],
+    chatIds.length
+      ? prisma.chatChannel.findMany({
+          where: { id: { in: chatIds } },
+          select: {
+            id: true,
+            name: true,
+            channelType: true,
+            installation: { select: { name: true } },
+          },
+        })
+      : [],
     adminIds.length ? prisma.admin.findMany({ where: { id: { in: adminIds } }, select: { id: true, name: true } }) : [],
   ]);
-  const chatName = new Map(chatChannels.map((c) => [c.id, c.name]));
+  // Misma convención visible que el sidebar del chat: canales de instalación
+  // se muestran por el nombre de la instalación, no por el name interno.
+  const chatName = new Map(
+    chatChannels.map((c) => [
+      c.id,
+      c.channelType === "INSTALLATION" && c.installation ? c.installation.name : c.name,
+    ]),
+  );
   const adminName = new Map(admins.map((a) => [a.id, a.name]));
 
   const bridges = links.map((l) => ({
