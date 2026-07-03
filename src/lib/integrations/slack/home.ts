@@ -9,10 +9,11 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { hasModuleAccess } from "@/lib/permissions";
 import { getWorkspaceForTenant } from "./workspace";
 import { resolveLinkedAdmin, buildLinkUrl } from "./user-link";
 import { slackPublishHomeView, slackPostMessage, slackOpenDm } from "./api";
-import { listMyTickets } from "./tickets/list";
+import { countTickets } from "./tickets/list";
 
 const pt = (text: string) => ({ type: "plain_text", text, emoji: true });
 
@@ -23,7 +24,19 @@ function openBtn(text: string, callbackId: string, style?: "primary" | "danger")
   return b;
 }
 
-function linkedHome(abiertos: number, vencidos: number): unknown {
+interface DayBreakdown {
+  mine: number;
+  team: number;
+  unassigned: number | null; // null = el usuario no tiene visión global (línea oculta)
+  vencidos: number;
+}
+
+function linkedHome(day: DayBreakdown): unknown {
+  const lines = [
+    `👤 Asignados a ti: *${day.mine}*`,
+    `👥 Tu equipo: *${day.team}*`,
+  ];
+  if (day.unassigned != null) lines.push(`⚪ Sin asignar (tenant): *${day.unassigned}*`);
   return {
     type: "home",
     blocks: [
@@ -32,7 +45,7 @@ function linkedHome(abiertos: number, vencidos: number): unknown {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*Tu día*\n🎫 *${abiertos}* ticket(s) abierto(s)   ·   🔴 *${vencidos}* con SLA vencido`,
+          text: `*Tu día*\n${lines.join("   ·   ")}\n🔴 *${day.vencidos}* con SLA vencido`,
         },
       },
       { type: "divider" },
@@ -91,11 +104,21 @@ export async function publishHome(tenantId: string, slackUserId: string): Promis
     await slackPublishHomeView(ws.botToken, slackUserId, unlinkedHome(buildLinkUrl(ws.id, slackUserId)));
     return;
   }
-  const [active, overdue] = await Promise.all([
-    listMyTickets(tenantId, linked.adminId, {}, 1),
-    listMyTickets(tenantId, linked.adminId, { slaBreached: true }, 1),
+  // "Tu día" desglosado. La línea "Sin asignar (tenant)" solo si el usuario
+  // tiene visión global (mismo criterio que la vista "Todos" de la web: acceso
+  // al módulo ops, único gate del route de counts).
+  const canViewAll = hasModuleAccess(linked.perms, "ops");
+  const [mine, team, vencidos, unassigned] = await Promise.all([
+    countTickets(tenantId, linked.adminId, { scope: "mine" }),
+    countTickets(tenantId, linked.adminId, { scope: "my_team" }),
+    countTickets(tenantId, linked.adminId, { scope: "my_team", slaBreached: true }),
+    canViewAll ? countTickets(tenantId, linked.adminId, { scope: "unassigned" }) : Promise.resolve(null),
   ]);
-  await slackPublishHomeView(ws.botToken, slackUserId, linkedHome(active.total, overdue.total));
+  await slackPublishHomeView(
+    ws.botToken,
+    slackUserId,
+    linkedHome({ mine, team, vencidos, unassigned }),
+  );
 }
 
 const WELCOME_TEXT = "¡Hola! Soy OPAI, tu copiloto de operaciones en Slack.";

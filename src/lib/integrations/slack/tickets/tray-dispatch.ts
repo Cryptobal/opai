@@ -11,8 +11,9 @@ import { getTenantForTeam, getWorkspaceForTenant } from "../workspace";
 import { resolveLinkedAdmin } from "../user-link";
 import { slackUpdateView, slackPushView, slackOpenView } from "../api";
 import { unpackMetadata } from "../modals/views";
-import { listMyTickets, type TrayFilters } from "./list";
-import { buildTrayView } from "./tray";
+import { listMyTickets, type TrayFilters, type TrayScope } from "./list";
+import { buildTrayView, canViewAllTickets } from "./tray";
+import { claimTicket } from "@/lib/tickets-mutations";
 import {
   commentModalView, statusModalView, priorityModalView, reassignModalView, confirmModalView,
   aplazarModalView, pausarModalView, silenciarModalView,
@@ -54,6 +55,11 @@ export async function handleTicketCardAction(payload: Record<string, unknown>): 
   await slackOpenView(workspace.botToken, triggerId, builder(ticketId, code ?? ticketId));
 }
 
+const SCOPES: TrayScope[] = ["mine", "my_team", "unassigned", "all"];
+function parseScope(raw: string | undefined): TrayScope {
+  return SCOPES.includes(raw as TrayScope) ? (raw as TrayScope) : "my_team";
+}
+
 function filtersFromMeta(m: ReturnType<typeof unpackMetadata>): { filters: TrayFilters; page: number } {
   return {
     filters: {
@@ -61,6 +67,7 @@ function filtersFromMeta(m: ReturnType<typeof unpackMetadata>): { filters: TrayF
       priority: m.priority || undefined,
       slaBreached: m.sla === "1",
       approvals: m.approvals === "1",
+      scope: parseScope(m.scope),
     },
     page: parseInt(m.page || "1", 10) || 1,
   };
@@ -89,6 +96,7 @@ export async function handleTrayAction(payload: Record<string, unknown>): Promis
   const meta = unpackMetadata(view?.private_metadata);
   const { filters, page } = filtersFromMeta(meta);
   const actionId = action.action_id;
+  const canViewAll = canViewAllTickets(linked.perms);
 
   // Fila: abrir el modal secundario correspondiente (views.push).
   if (actionId === "tray_row") {
@@ -99,10 +107,28 @@ export async function handleTrayAction(payload: Record<string, unknown>): Promis
     return;
   }
 
-  // Filtros / paginación: recomputar y actualizar la bandeja.
+  // "Tomar" una fila: asignarme el ticket (anti-carrera) y refrescar la bandeja.
+  if (actionId === "tray_take") {
+    const [ticketId, code] = (action.value ?? "").split(":");
+    if (!ticketId || !view?.id) return;
+    const res = await claimTicket({ tenantId: workspace.tenantId, actorId: linked.adminId, ticketId });
+    const notice = res.ok
+      ? `✅ Tomaste *${res.code}*.`
+      : `⚠️ ${code ? `*${code}*: ` : ""}${res.error}`;
+    const data = await listMyTickets(workspace.tenantId, linked.adminId, filters, page);
+    await slackUpdateView(workspace.botToken, view.id, buildTrayView(data, filters, { canViewAll, notice }));
+    return;
+  }
+
+  // Filtros / paginación / alcance: recomputar y actualizar la bandeja.
   const next: TrayFilters = { ...filters };
   let nextPage = page;
-  if (actionId === "tray_f_status") {
+  if (actionId.startsWith("tray_scope_")) {
+    const scope = parseScope(action.value);
+    // Defensa: sin visión global no se permiten alcances tenant-wide.
+    next.scope = !canViewAll && (scope === "all" || scope === "unassigned") ? "my_team" : scope;
+    nextPage = 1;
+  } else if (actionId === "tray_f_status") {
     next.status = valOf(action) || undefined;
     nextPage = 1;
   } else if (actionId === "tray_f_priority") {
@@ -118,7 +144,7 @@ export async function handleTrayAction(payload: Record<string, unknown>): Promis
   }
 
   const data = await listMyTickets(workspace.tenantId, linked.adminId, next, nextPage);
-  if (view?.id) await slackUpdateView(workspace.botToken, view.id, buildTrayView(data, next));
+  if (view?.id) await slackUpdateView(workspace.botToken, view.id, buildTrayView(data, next, { canViewAll }));
 }
 
 function valOf(action: { selected_option?: { value?: string } }): string {

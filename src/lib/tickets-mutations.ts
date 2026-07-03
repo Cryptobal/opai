@@ -78,6 +78,39 @@ export async function reassignTicket(input: {
   return { ok: true, code: t.code };
 }
 
+/**
+ * "Tomar" un ticket sin responsable: asigna al propio actor. Idempotente y
+ * anti-carrera — el update es condicional (`assignedTo: null`), así que si otro
+ * lo tomó primero devuelve `raced: true` en vez de pisar la asignación ajena.
+ * No notifica (uno se asigna a sí mismo): solo registra el evento estándar.
+ */
+export async function claimTicket(input: {
+  tenantId: string;
+  actorId: string;
+  ticketId: string;
+}): Promise<Ok<{ code: string; title: string }> | (Err & { raced?: boolean })> {
+  const t = await loadTicket(input.tenantId, input.ticketId);
+  if (!t) return { ok: false, error: "Ticket no encontrado" };
+  if (isTerminalStatus(t.status)) {
+    return { ok: false, error: "No se puede tomar un ticket resuelto o cancelado." };
+  }
+  if (t.assignedTo) {
+    return { ok: false, error: "Este ticket ya tiene responsable.", raced: true };
+  }
+  const claimed = await prisma.opsTicket.updateMany({
+    where: { id: t.id, tenantId: input.tenantId, assignedTo: null },
+    data: { assignedTo: input.actorId },
+  });
+  if (claimed.count === 0) {
+    return { ok: false, error: "Otro usuario lo tomó primero.", raced: true };
+  }
+  await recordTicketEvent({
+    tenantId: input.tenantId, ticketId: t.id, type: "assignee_changed", actorId: input.actorId,
+    data: { from: null, to: input.actorId, source: "slack", via: "tomar" },
+  });
+  return { ok: true, code: t.code, title: t.title };
+}
+
 export async function addTicketComment(input: {
   tenantId: string;
   actorId: string;

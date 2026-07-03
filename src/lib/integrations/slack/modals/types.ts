@@ -54,6 +54,7 @@ export interface ModalMetadata {
   sla?: string;
   page?: string;
   approvals?: string;
+  scope?: string; // alcance de la bandeja: mine | my_team | unassigned | all (Fase 11)
 }
 
 export interface ModalSubmitContext {
