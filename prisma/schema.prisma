@@ -8776,6 +8776,7 @@ enum ChatSenderType {
   GUARD
   CLIENT
   SYSTEM
+  SLACK
 
   @@schema("chat")
 }
@@ -11164,11 +11165,55 @@ model SlackWorkspace {
   createdAt          DateTime            @default(now()) @map("created_at")
   updatedAt          DateTime            @updatedAt @map("updated_at")
 
-  routes SlackChannelRoute[]
+  routes       SlackChannelRoute[]
+  channelLinks SlackChannelLink[]
 
   @@index([tenantId], map: "idx_slack_workspaces_tenant")
   @@index([slackTeamId], map: "idx_slack_workspaces_team")
   @@map("slack_workspaces")
+  @@schema("public")
+}
+
+/// Puente 1:1 entre un canal del chat de OPAI y un canal de Slack.
+/// Los mensajes se espejan en ambas direcciones (ver bridge-outbound/inbound).
+model SlackChannelLink {
+  id               String   @id @default(cuid())
+  tenantId         String   @map("tenant_id")
+  workspaceId      String   @map("workspace_id")
+  slackChannelId   String   @map("slack_channel_id")
+  slackChannelName String   @map("slack_channel_name")
+  chatChannelId    String   @map("chat_channel_id") @db.Uuid
+  enabled          Boolean  @default(true)
+  createdBy        String   @map("created_by")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  workspace   SlackWorkspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  messageMaps SlackBridgeMessageMap[]
+
+  @@unique([tenantId, slackChannelId], map: "uq_slack_channel_link_tenant_slack")
+  @@unique([tenantId, chatChannelId], map: "uq_slack_channel_link_tenant_chat")
+  @@index([workspaceId, enabled], map: "idx_slack_channel_links_ws_enabled")
+  @@map("slack_channel_links")
+  @@schema("public")
+}
+
+/// Mapeo mensaje OPAI ↔ ts de Slack para hilos y dedupe entrante.
+/// direction: OUT (OPAI→Slack) | IN (Slack→OPAI).
+model SlackBridgeMessageMap {
+  id            String   @id @default(cuid())
+  tenantId      String   @map("tenant_id")
+  linkId        String   @map("link_id")
+  chatMessageId String   @unique @map("chat_message_id") @db.Uuid
+  slackChannelId String  @map("slack_channel_id")
+  slackTs       String   @map("slack_ts")
+  direction     String // OUT | IN
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  link SlackChannelLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@unique([slackChannelId, slackTs], map: "uq_slack_bridge_map_channel_ts")
+  @@index([linkId, createdAt], map: "idx_slack_bridge_map_link_created")
+  @@map("slack_bridge_message_maps")
   @@schema("public")
 }
 
