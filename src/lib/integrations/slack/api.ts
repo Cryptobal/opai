@@ -89,6 +89,21 @@ export async function slackUpdateMessage(
   return { ts: (json.ts as string) ?? "" };
 }
 
+/**
+ * Responde a un `response_url` de Slack (slash commands / interactividad).
+ * No usa Bearer token: la URL ya está firmada por Slack y vence en 30 min.
+ */
+export async function slackRespondUrl(
+  responseUrl: string,
+  body: { text?: string; blocks?: unknown[]; response_type?: "ephemeral" | "in_channel"; replace_original?: boolean },
+): Promise<void> {
+  await fetch(responseUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
 export async function slackAuthTest(token: string): Promise<{ teamId: string; userId: string }> {
   const json = await callSlack("auth.test", {}, token);
   return { teamId: (json.team_id as string) ?? "", userId: (json.user_id as string) ?? "" };

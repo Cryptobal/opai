@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import type { UnifiedNotificationType } from "@/lib/notifications/catalog";
 import { getWorkspaceForTenant } from "./workspace";
-import { buildNotificationBlocks } from "./blocks";
+import { buildNotificationBlocks, ticketActionsBlock } from "./blocks";
 import { slackPostMessage, SlackApiError } from "./api";
 
 interface DispatchInput {
@@ -19,7 +19,11 @@ interface DispatchInput {
   title: string;
   body?: string | null;
   link?: string | null;
+  data?: Record<string, unknown> | null;
 }
+
+/** TTL amplio: la aprobación de ticket puede tardar días (el estado real manda). */
+const TICKET_PENDING_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Resuelve el canal destino con precedencia KEY > MODULE > default. */
 async function resolveChannel(
@@ -60,6 +64,31 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     critical: input.typeDef.critical,
   });
 
+  // Ticket pendiente de aprobación: adjunta botones Aprobar/Rechazar sobre una
+  // SlackPendingAction (kind TICKET_APPROVAL). La firma de la acción es su id.
+  let ticketPendingId: string | null = null;
+  const ticketId =
+    input.typeDef.key === "ticket_needs_approval" && typeof input.data?.ticketId === "string"
+      ? (input.data.ticketId as string)
+      : null;
+  if (ticketId) {
+    const pa = await prisma.slackPendingAction.create({
+      data: {
+        tenantId: input.tenantId,
+        workspaceId: workspace.id,
+        kind: "TICKET_APPROVAL",
+        entityId: ticketId,
+        requestedBySlackUserId: "system",
+        channelId,
+        status: "PENDING",
+        expiresAt: new Date(Date.now() + TICKET_PENDING_TTL_MS),
+      },
+      select: { id: true },
+    });
+    ticketPendingId = pa.id;
+    blocks.push(ticketActionsBlock(ticketPendingId));
+  }
+
   // Dedupe en ráfagas: mismo (tenant, key, title) dentro del mismo minuto.
   const minute = Math.floor(Date.now() / 60000);
   const dedupeKey = createHash("sha1")
@@ -93,6 +122,10 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
       where: { id: outboxId },
       data: { status: "SENT", sentAt: new Date(), slackTs: ts },
     });
+    // Ancla la tarjeta de aprobación al mensaje publicado para actualizarla al decidir.
+    if (ticketPendingId && ts) {
+      await prisma.slackPendingAction.update({ where: { id: ticketPendingId }, data: { messageTs: ts } });
+    }
   } catch (err) {
     const reason = err instanceof SlackApiError ? err.slackError : String(err);
     console.error("[slack] envío inmediato falló, queda para reintento:", reason);

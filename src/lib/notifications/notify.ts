@@ -58,6 +58,7 @@ export async function notify(params: NotifyParams): Promise<{ delivered: number 
       title: params.title,
       body: params.body,
       link: params.link,
+      data: params.data,
     }).catch((err) => console.error("[slack] dispatch error:", err)),
   );
 
