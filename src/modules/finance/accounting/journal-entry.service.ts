@@ -6,6 +6,94 @@
 import { prisma } from "@/lib/prisma";
 import { validateDoubleEntry } from "../shared/validators/journal.validator";
 import type { JournalEntryInput } from "../shared/types/accounting.types";
+import { openPeriod } from "./period.service";
+import { logAudit } from "@/lib/audit";
+
+const fmtPeriod = (year: number, month: number) =>
+  `${year}-${String(month).padStart(2, "0")}`;
+
+/**
+ * Resuelve el período contable OPEN para la fecha contable de un asiento,
+ * abriéndolo perezosamente si no existe.
+ *
+ * Filosofía (prompt 12): la APERTURA de un período es plomería invisible —
+ * facturar en julio debe contabilizar en julio sin que nadie "abra" nada.
+ * El CIERRE, en cambio, es un acto humano: si el período existe pero está
+ * CLOSED/LOCKED, se mantiene el error accionable (contabilizar en mes cerrado
+ * sigue siendo un error que el contador debe resolver explícitamente).
+ *
+ * Regla de sanidad: no auto-abrimos un mes pasado si ya existe algún período
+ * POSTERIOR cerrado — eso significaría resucitar historia contable por un
+ * documento mal fechado. En ese caso, error claro.
+ *
+ * Concurrencia: dos asientos del mismo mes recién estrenado pueden carrera a
+ * crear el período; capturamos el P2002 del unique (tenant, year, month) y
+ * releemos.
+ */
+async function resolvePeriodForEntry(
+  tenantId: string,
+  year: number,
+  month: number,
+  actorId: string,
+) {
+  const existing = await prisma.financeAccountingPeriod.findUnique({
+    where: { tenantId_year_month: { tenantId, year, month } },
+  });
+
+  if (existing) {
+    if (existing.status !== "OPEN") {
+      throw new Error(`El periodo ${fmtPeriod(year, month)} esta cerrado`);
+    }
+    return existing;
+  }
+
+  // El período no existe → auto-apertura perezosa, salvo que haya un período
+  // posterior ya cerrado (protección contra documentos mal fechados).
+  const target = year * 12 + (month - 1);
+  const laterClosed = await prisma.financeAccountingPeriod.findFirst({
+    where: { tenantId, status: { in: ["CLOSED", "LOCKED"] } },
+    orderBy: [{ year: "desc" }, { month: "desc" }],
+    select: { year: true, month: true },
+  });
+  if (laterClosed && laterClosed.year * 12 + (laterClosed.month - 1) > target) {
+    throw new Error(
+      `No se puede contabilizar en ${fmtPeriod(year, month)}: ya hay un período posterior (${fmtPeriod(laterClosed.year, laterClosed.month)}) cerrado. Revisa la fecha del documento.`,
+    );
+  }
+
+  try {
+    const created = await openPeriod(tenantId, year, month);
+    await logAudit({
+      tenantId,
+      userId: actorId,
+      action: "CREATE",
+      entity: "finance_accounting_period",
+      entityId: created.id,
+      details: {
+        event: "accounting_period_auto_opened",
+        year,
+        month,
+        trigger: "journal_entry",
+      },
+    });
+    return created;
+  } catch (err) {
+    // Carrera: otro asiento creó el mismo período entre nuestro findUnique y
+    // el create. openPeriod puede fallar por el P2002 del unique o por su
+    // propio guard "ya existe"; en ambos casos releemos y, si el período
+    // materializó, lo usamos (validando que quedó OPEN).
+    const raced = await prisma.financeAccountingPeriod.findUnique({
+      where: { tenantId_year_month: { tenantId, year, month } },
+    });
+    if (raced) {
+      if (raced.status !== "OPEN") {
+        throw new Error(`El periodo ${fmtPeriod(year, month)} esta cerrado`);
+      }
+      return raced;
+    }
+    throw err;
+  }
+}
 
 /**
  * Create a manual journal entry (saved as DRAFT)
@@ -21,22 +109,15 @@ export async function createManualEntry(
     throw new Error(validation.error);
   }
 
-  // Find period for the date
+  // Resolver período por la FECHA CONTABLE del asiento (input.date, no now()):
+  // facturar en julio contabiliza en julio. Si el mes aún no tiene período, se
+  // abre solo (auto-apertura perezosa); si existe pero está cerrado, el error
+  // se mantiene intacto.
   const entryDate = new Date(input.date);
   const year = entryDate.getFullYear();
   const month = entryDate.getMonth() + 1;
 
-  const period = await prisma.financeAccountingPeriod.findUnique({
-    where: {
-      tenantId_year_month: { tenantId, year, month },
-    },
-  });
-  if (!period) {
-    throw new Error(`No existe periodo contable para ${year}-${String(month).padStart(2, "0")}`);
-  }
-  if (period.status !== "OPEN") {
-    throw new Error(`El periodo ${year}-${String(month).padStart(2, "0")} esta cerrado`);
-  }
+  const period = await resolvePeriodForEntry(tenantId, year, month, createdBy);
 
   // Validate all accounts exist and accept entries
   const accountIds = input.lines.map((l) => l.accountId);
