@@ -3,7 +3,9 @@ import type { ChatChannelData, ChatMessageData } from "@/lib/chat-types";
 import {
   applyChannelSummaryPatch,
   applyDeletedMessages,
+  applyReactionEvent,
   reconcileRealtimeMessages,
+  type ReactionEvent,
 } from "../lib/chat-state";
 
 function message(id: string, content = id): ChatMessageData {
@@ -92,5 +94,53 @@ describe("chat state reconciliation", () => {
       lastMessagePreview: "preview viejo",
       messageCount: 3,
     });
+  });
+});
+
+describe("applyReactionEvent", () => {
+  const add = (senderId: string): ReactionEvent => ({
+    action: "add",
+    messageId: "m-1",
+    emoji: "👍",
+    sender: { id: senderId, name: senderId, type: "ADMIN" },
+  });
+  const remove = (senderId: string): ReactionEvent => ({
+    action: "remove",
+    messageId: "m-1",
+    emoji: "👍",
+    sender: { id: senderId, name: senderId, type: "ADMIN" },
+  });
+
+  it("agrega una reacción nueva al mensaje correcto", () => {
+    const result = applyReactionEvent([message("m-1"), message("m-2")], add("slack-user"));
+    expect(result[0].reactions).toEqual([
+      { emoji: "👍", count: 1, senders: [{ id: "slack-user", name: "slack-user", type: "ADMIN" }] },
+    ]);
+    expect(result[1].reactions).toEqual([]);
+  });
+
+  it("es idempotente: no duplica cuando el mismo sender ya reaccionó (optimista propio)", () => {
+    const once = applyReactionEvent([message("m-1")], add("admin-1"));
+    const twice = applyReactionEvent(once, add("admin-1"));
+    expect(twice[0].reactions).toEqual([
+      { emoji: "👍", count: 1, senders: [{ id: "admin-1", name: "admin-1", type: "ADMIN" }] },
+    ]);
+  });
+
+  it("incrementa el conteo con senders distintos", () => {
+    const result = [add("a"), add("b")].reduce(applyReactionEvent, [message("m-1")]);
+    expect(result[0].reactions[0].count).toBe(2);
+  });
+
+  it("remueve la reacción del sender y elimina el grupo si queda vacío", () => {
+    const withReaction = applyReactionEvent([message("m-1")], add("a"));
+    const result = applyReactionEvent(withReaction, remove("a"));
+    expect(result[0].reactions).toEqual([]);
+  });
+
+  it("remove es no-op si el sender no reaccionó", () => {
+    const withReaction = applyReactionEvent([message("m-1")], add("a"));
+    const result = applyReactionEvent(withReaction, remove("desconocido"));
+    expect(result[0].reactions[0].senders.map((s) => s.id)).toEqual(["a"]);
   });
 });

@@ -14,6 +14,7 @@ import { clearChatMessageCache, useChatMessages } from "./hooks/useChatMessages"
 import { useChatChannel } from "./hooks/useChatChannel";
 import {
   applyDeletedMessages,
+  applyReactionEvent,
   reconcileRealtimeMessages,
   type ChatChannelSummaryPatch,
 } from "./lib/chat-state";
@@ -76,9 +77,14 @@ export function ChatConversation({
     clearMessages: rtClearMessages,
     deletedMessageIds,
     editedMessages,
+    reactionEvents,
     clearRevision,
     channelSummaryPatch,
   } = useChatChannel(channelId, pusher);
+
+  // Reacciones recibidas por realtime (web o puente Slack). Se aplican sobre
+  // apiMessages porque el mensaje reaccionado casi siempre viene del historial.
+  const appliedReactionCountRef = useRef(0);
 
   const [currentUserIdState, setCurrentUserIdState] = useState<string | null>(currentUserIdProp ?? null);
   const currentUserId = currentUserIdProp ?? currentUserIdState;
@@ -145,6 +151,22 @@ export function ChatConversation({
         : next;
     });
   }, [rtMessages, deletedMessageIds, setApiMessages]);
+
+  // Apply realtime reaction events (add/remove) onto the rendered messages.
+  useEffect(() => {
+    // Channel switched → the log was reset to []; restart the cursor.
+    if (reactionEvents.length < appliedReactionCountRef.current) {
+      appliedReactionCountRef.current = 0;
+    }
+    const pending = reactionEvents.slice(appliedReactionCountRef.current);
+    if (pending.length === 0) return;
+    appliedReactionCountRef.current = reactionEvents.length;
+    setApiMessages((prev) => {
+      let next = prev;
+      for (const event of pending) next = applyReactionEvent(next, event);
+      return next;
+    });
+  }, [reactionEvents, setApiMessages]);
 
   useEffect(() => {
     if (deletedMessageIds.size === 0) return;

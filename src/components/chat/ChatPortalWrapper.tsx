@@ -14,6 +14,7 @@ import { ChatTypingIndicator } from "./ChatTypingIndicator";
 import { ChatInputPortal } from "./ChatInputPortal";
 import {
   applyDeletedMessages,
+  applyReactionEvent,
   reconcileRealtimeMessages,
   type ChatChannelSummaryPatch,
 } from "./lib/chat-state";
@@ -98,6 +99,7 @@ export function ChatPortalWrapper({
     deleteMessage: rtDeleteMessage,
     deletedMessageIds,
     editedMessages,
+    reactionEvents,
     clearRevision,
     channelSummaryPatch,
   } = useChatChannel(channelId, pusher);
@@ -109,6 +111,8 @@ export function ChatPortalWrapper({
   } | null>(null);
 
   const lastReadMsgRef = useRef<string | null>(null);
+  // Reacciones realtime aplicadas sobre apiMessages (ver ChatConversation).
+  const appliedReactionCountRef = useRef(0);
 
   // Merge real-time messages into API messages
   useEffect(() => {
@@ -120,6 +124,21 @@ export function ChatPortalWrapper({
         : next;
     });
   }, [rtMessages, deletedMessageIds, setApiMessages]);
+
+  // Apply realtime reaction events (add/remove) onto the rendered messages.
+  useEffect(() => {
+    if (reactionEvents.length < appliedReactionCountRef.current) {
+      appliedReactionCountRef.current = 0;
+    }
+    const pending = reactionEvents.slice(appliedReactionCountRef.current);
+    if (pending.length === 0) return;
+    appliedReactionCountRef.current = reactionEvents.length;
+    setApiMessages((prev) => {
+      let next = prev;
+      for (const event of pending) next = applyReactionEvent(next, event);
+      return next;
+    });
+  }, [reactionEvents, setApiMessages]);
 
   useEffect(() => {
     if (deletedMessageIds.size === 0) return;

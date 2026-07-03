@@ -13,7 +13,7 @@ import type {
   PusherTypingEvent,
   ChatSenderType,
 } from "@/lib/chat-types";
-import type { ChatChannelSummaryPatch } from "../lib/chat-state";
+import type { ChatChannelSummaryPatch, ReactionEvent } from "../lib/chat-state";
 
 export type PresenceMember = {
   id: string;
@@ -33,6 +33,12 @@ type UseChatChannelReturn = {
   clearMessages: () => void;
   deletedMessageIds: Set<string>;
   editedMessages: Record<string, { content: string }>;
+  /**
+   * Log append-only de reacciones recibidas por realtime. El consumidor lo
+   * aplica sobre su propia lista de mensajes (apiMessages) con {@link applyReactionEvent},
+   * porque el mensaje reaccionado suele venir del historial y no vive en `messages`.
+   */
+  reactionEvents: ReactionEvent[];
   clearRevision: number;
   channelSummaryPatch: ChatChannelSummaryPatch | null;
 };
@@ -52,6 +58,7 @@ export function useChatChannel(
   const [editedMessages, setEditedMessages] = useState<Record<string, { content: string }>>({});
   const [clearRevision, setClearRevision] = useState(0);
   const [channelSummaryPatch, setChannelSummaryPatch] = useState<ChatChannelSummaryPatch | null>(null);
+  const [reactionEvents, setReactionEvents] = useState<ReactionEvent[]>([]);
   const typingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const channelRef = useRef<Channel | null>(null);
 
@@ -207,11 +214,15 @@ export function useChatChannel(
     });
 
     channel.bind("reaction-added", (data: PusherReactionEvent) => {
-      addReaction(data.messageId, data.emoji, {
-        id: data.senderId,
-        name: data.senderName,
-        type: data.senderType,
-      });
+      setReactionEvents((prev) => [
+        ...prev,
+        {
+          action: "add",
+          messageId: data.messageId,
+          emoji: data.emoji,
+          sender: { id: data.senderId, name: data.senderName, type: data.senderType },
+        },
+      ]);
     });
 
     channel.bind("messages-cleared", (data: PusherMessagesClearedEvent) => {
@@ -228,7 +239,15 @@ export function useChatChannel(
     });
 
     channel.bind("reaction-removed", (data: PusherReactionEvent) => {
-      removeReaction(data.messageId, data.emoji, data.senderId);
+      setReactionEvents((prev) => [
+        ...prev,
+        {
+          action: "remove",
+          messageId: data.messageId,
+          emoji: data.emoji,
+          sender: { id: data.senderId, name: data.senderName, type: data.senderType },
+        },
+      ]);
     });
 
     channel.bind("client-typing", (data: PusherTypingEvent) => {
@@ -253,13 +272,14 @@ export function useChatChannel(
       setTypingUsers([]);
       setDeletedMessageIds(new Set());
       setEditedMessages({});
+      setReactionEvents([]);
       setClearRevision(0);
       setChannelSummaryPatch(null);
       // Clear all typing timers
       typingTimersRef.current.forEach((timer) => clearTimeout(timer));
       typingTimersRef.current.clear();
     };
-  }, [pusher, channelId, appendMessage, editMessage, deleteMessage, addReaction, removeReaction, clearMessages, clearTypingUser]);
+  }, [pusher, channelId, appendMessage, editMessage, deleteMessage, clearMessages, clearTypingUser]);
 
   return {
     messages,
@@ -273,6 +293,7 @@ export function useChatChannel(
     clearMessages,
     deletedMessageIds,
     editedMessages,
+    reactionEvents,
     clearRevision,
     channelSummaryPatch,
   };
