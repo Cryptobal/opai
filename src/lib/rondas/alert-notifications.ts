@@ -134,7 +134,7 @@ async function sendAlertPush(
       type: "ronda_alert_admin",
       title: `${emoji} Alerta: ${typeLabel}`,
       body: params.mensaje,
-      link: "/opai/ops/rondas/monitoreo",
+      link: "/ops/rondas/alertas",
       forceChannels: { bell: false, email: false }, // bell+email handled by callers via separate paths
     });
 
@@ -168,7 +168,7 @@ async function sendGroupedAlertPush(
       type: "ronda_alert_admin",
       title: `🚨 ${alerts.length} alertas críticas de rondas`,
       body: `Tipos: ${types.join(", ")}`,
-      link: "/opai/ops/rondas/monitoreo",
+      link: "/ops/rondas/alertas",
       forceChannels: { bell: false, email: false },
     });
 

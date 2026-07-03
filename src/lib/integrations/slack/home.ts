@@ -18,7 +18,7 @@ const pt = (text: string) => ({ type: "plain_text", text, emoji: true });
 
 /** Botón que abre un modal del hub por callbackId (opai_action_open → getModal). */
 function openBtn(text: string, callbackId: string, style?: "primary" | "danger") {
-  const b: Record<string, unknown> = { type: "button", text: pt(text), action_id: "opai_action_open", value: callbackId };
+  const b: Record<string, unknown> = { type: "button", text: pt(text), action_id: `opai_action_open_${callbackId}`, value: callbackId };
   if (style) b.style = style;
   return b;
 }

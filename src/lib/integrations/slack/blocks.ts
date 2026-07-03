@@ -160,7 +160,8 @@ export function ticketCardActionsBlock(ticketId: string, code: string): unknown 
   const ref = `${ticketId}:${code}`;
   const b = (op: string, text: string) => ({
     type: "button",
-    action_id: "tcard",
+    // Slack exige action_id ÚNICO dentro del bloque actions; el op lo garantiza.
+    action_id: `tcard_${op}`,
     value: `${op}:${ref}`,
     text: { type: "plain_text", text, emoji: true },
   });

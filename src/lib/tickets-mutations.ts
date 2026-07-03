@@ -44,9 +44,10 @@ export async function reassignTicket(input: {
 }): Promise<Ok<{ code: string }> | Err> {
   const t = await loadTicket(input.tenantId, input.ticketId);
   if (!t) return { ok: false, error: "Ticket no encontrado" };
-  // El responsable es inmutable en tickets terminales (resuelto/cancelado…).
+  // El responsable es inmutable en tickets terminales (resuelto/cancelado…):
+  // conserva su responsable histórico por trazabilidad; no se reasigna ni desasigna.
   if (input.assignedTo !== undefined && isTerminalStatus(t.status)) {
-    return { ok: false, error: "No se puede reasignar un ticket resuelto o cancelado" };
+    return { ok: false, error: "No se puede cambiar el responsable de un ticket resuelto o cancelado." };
   }
   const data: { assignedTo?: string | null; assignedTeam?: string } = {};
   if (input.assignedTo !== undefined) data.assignedTo = input.assignedTo;
