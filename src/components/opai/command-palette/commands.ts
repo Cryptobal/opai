@@ -1885,4 +1885,5 @@ export const CATEGORY_LABELS: Record<string, string> = {
   search_docs: 'Documentos',
   search_chat: 'Chat',
   search_finance: 'Finanzas',
+  search_config: 'Configuración',
 };

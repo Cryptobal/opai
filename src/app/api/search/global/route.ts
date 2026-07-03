@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasModuleAccess } from "@/lib/permissions";
 import { ensureOpsAccess } from "@/lib/ops";
+import { normalizeForSearch } from "@/lib/search-normalize-pure";
 import {
   findCpqQuoteIdsBySearch,
   findCrmAccountIdsBySearch,
@@ -38,9 +39,10 @@ export type GlobalSearchResult = {
     | "inventory_asset"
     | "inventory_phone_line"
     | "dte_issued"
-    | "dte_received";
+    | "dte_received"
+    | "config_page";
   /** Agrupa resultados por módulo para mostrar secciones separadas en la UI */
-  group: "crm" | "ops" | "docs" | "chat" | "inventory" | "finance";
+  group: "crm" | "ops" | "docs" | "chat" | "inventory" | "finance" | "config";
   title: string;
   subtitle: string;
   href: string;
@@ -92,6 +94,64 @@ const DTE_SII_STATUS_BADGE: Record<string, { label: string; class: string }> = {
   REJECTED:        { label: "SII Rechazado",  class: "bg-status-danger-soft text-status-danger-fg" },
   ANNULLED:        { label: "Anulado",        class: "bg-status-danger-soft text-status-danger-fg" },
 };
+
+/**
+ * Páginas de configuración indexadas en el buscador global. El palette consume
+ * `/api/search/global`, que solo tenía entidades (leads, cuentas, docs…): por eso
+ * "slack" no encontraba nada aunque la página exista. El match es por título o
+ * keywords, insensible a acentos (normalizeForSearch). Solo visibles para quien
+ * tiene acceso al módulo `config`.
+ */
+const CONFIG_PAGES: {
+  id: string;
+  title: string;
+  subtitle: string;
+  href: string;
+  keywords: string[];
+}[] = [
+  {
+    id: "slack",
+    title: "Slack (Integración)",
+    subtitle: "Configuración · Integraciones",
+    href: "/opai/configuracion/integraciones/slack",
+    keywords: ["slack", "integracion", "puente", "canal", "ruteo", "mensajeria", "bot"],
+  },
+  {
+    id: "integraciones",
+    title: "Integraciones",
+    subtitle: "Configuración",
+    href: "/opai/configuracion/integraciones",
+    keywords: ["integraciones", "slack", "sii", "banco", "api", "conexiones", "webhook"],
+  },
+  {
+    id: "notificaciones",
+    title: "Notificaciones",
+    subtitle: "Configuración",
+    href: "/opai/configuracion/notificaciones",
+    keywords: ["notificaciones", "alertas", "avisos", "correo", "email", "push"],
+  },
+  {
+    id: "asistente-ia",
+    title: "Asistente IA",
+    subtitle: "Configuración",
+    href: "/opai/configuracion/asistente-ia",
+    keywords: ["asistente", "ia", "inteligencia artificial", "bot", "opai", "ai"],
+  },
+  {
+    id: "usuarios",
+    title: "Usuarios",
+    subtitle: "Configuración",
+    href: "/opai/configuracion/usuarios",
+    keywords: ["usuarios", "equipo", "miembros", "cuentas", "personas", "invitar"],
+  },
+  {
+    id: "roles",
+    title: "Roles y Permisos",
+    subtitle: "Configuración",
+    href: "/opai/configuracion/roles",
+    keywords: ["roles", "permisos", "accesos", "seguridad", "perfiles"],
+  },
+];
 
 const QUOTE_STATUS_LABEL: Record<string, string> = {
   draft: "Borrador",
@@ -769,6 +829,27 @@ export async function GET(request: NextRequest) {
         }
       } catch (err) {
         console.error("[global search] finance DTE query error:", err);
+      }
+    }
+
+    // ── Configuración (páginas/acciones, no entidades) ──
+    // Mismo gate por módulo que el resto del route: solo quien tiene acceso a
+    // `config` (admins) ve estas páginas.
+    const hasConfig = hasModuleAccess(perms, "config");
+    if (hasConfig) {
+      const nq = normalizeForSearch(q);
+      for (const page of CONFIG_PAGES) {
+        const haystack = [page.title, ...page.keywords].map(normalizeForSearch);
+        if (haystack.some((entry) => entry.includes(nq))) {
+          results.push({
+            id: page.id,
+            type: "config_page",
+            group: "config",
+            title: page.title,
+            subtitle: page.subtitle,
+            href: page.href,
+          });
+        }
       }
     }
 

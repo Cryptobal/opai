@@ -34,6 +34,7 @@ import {
   Sparkles,
   FileInput,
   FileOutput,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsIOS } from '@/hooks/usePlatform';
@@ -115,9 +116,9 @@ type SearchResultType =
   | 'lead' | 'account' | 'contact' | 'deal' | 'quote'
   | 'installation' | 'guardia' | 'document' | 'pauta_mensual' | 'channel'
   | 'inventory_product' | 'inventory_asset' | 'inventory_phone_line'
-  | 'dte_issued' | 'dte_received';
+  | 'dte_issued' | 'dte_received' | 'config_page';
 
-type SearchResultGroup = 'crm' | 'ops' | 'docs' | 'chat' | 'inventory' | 'finance';
+type SearchResultGroup = 'crm' | 'ops' | 'docs' | 'chat' | 'inventory' | 'finance' | 'config';
 
 type ApiSearchResult = {
   id: string;
@@ -157,6 +158,8 @@ const SEARCH_TYPE_CONFIG: Record<SearchResultType, { icon: typeof Users; color: 
   // Finanzas — DTE
   dte_issued:            { icon: FileOutput,   color: 'text-status-ok-fg',    bgColor: 'bg-status-ok-soft',   label: 'DTE Emitido' },
   dte_received:          { icon: FileInput,    color: 'text-status-warn-fg',  bgColor: 'bg-status-warn-soft', label: 'DTE Recibido' },
+  // Configuración — páginas/acciones
+  config_page:           { icon: Settings,     color: 'text-muted-foreground', bgColor: 'bg-muted',           label: 'Configuración' },
 };
 
 const GROUP_CATEGORY: Record<SearchResultGroup, CommandCategory> = {
@@ -166,6 +169,7 @@ const GROUP_CATEGORY: Record<SearchResultGroup, CommandCategory> = {
   chat:      'search_chat',
   inventory: 'search_inventory',
   finance:   'search_finance',
+  config:    'search_config',
 };
 
 // ── Paleta por categoría de COMANDO (recent/navigation/action/config) ──
@@ -291,7 +295,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
   // Group by category
   const grouped = useMemo(() => {
     const groups: Record<string, CommandItem[]> = {};
-    const order = ['recent', 'search_crm', 'search_ops', 'search_finance', 'search_chat', 'search_docs', 'search_inventory', 'navigation', 'action', 'config'];
+    const order = ['recent', 'search_crm', 'search_ops', 'search_finance', 'search_chat', 'search_docs', 'search_inventory', 'search_config', 'navigation', 'action', 'config'];
 
     for (const cmd of allItems) {
       const cat = cmd.category;
