@@ -47,6 +47,13 @@ export interface ModalMetadata {
   channelId?: string;
   messageTs?: string;
   tenantHint?: string;
+  // Estado de la bandeja de tickets / acciones por fila (Fase 7).
+  ticketId?: string;
+  status?: string;
+  priority?: string;
+  sla?: string;
+  page?: string;
+  approvals?: string;
 }
 
 export interface ModalSubmitContext {

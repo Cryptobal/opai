@@ -19,6 +19,13 @@ export const SUBCOMMANDS: SubCommand[] = [
     callbackId: "opai_acciones",
   },
   {
+    name: "tickets",
+    description: "tu bandeja de tickets (agrega `vencidos` para filtrar por SLA)",
+    usage: "tickets [vencidos]",
+    kind: "modal",
+    callbackId: "opai_tickets",
+  },
+  {
     name: "caja",
     description: "resumen ejecutivo de caja y proyección del mes",
     kind: "prompt",

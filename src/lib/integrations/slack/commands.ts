@@ -57,16 +57,19 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
   const [first, ...restArr] = trimmed.split(/\s+/);
   const sub = SUBCOMMANDS.find((c) => c.name === first.toLowerCase());
 
-  // Subcomandos que abren un modal nativo (ticket, rendición).
+  // Subcomandos que abren un modal nativo (ticket, rendición, bandeja).
   if (sub?.kind === "modal") {
     if (!input.triggerId) {
       await ephemeral("No pude abrir el formulario. Intenta de nuevo.");
       return;
     }
-    await openModalByCallback({
-      teamId, triggerId: input.triggerId, callbackId: sub.callbackId, slackUserId, channelId,
-    });
-    await ephemeral("📝 Abriendo el formulario…");
+    // `/opai tickets vencidos` → variante pre-filtrada.
+    const callbackId =
+      sub.name === "tickets" && restArr.join(" ").trim().toLowerCase() === "vencidos"
+        ? "opai_tickets_vencidos"
+        : sub.callbackId;
+    await openModalByCallback({ teamId, triggerId: input.triggerId, callbackId, slackUserId, channelId });
+    await ephemeral("📂 Abriendo…");
     return;
   }
 

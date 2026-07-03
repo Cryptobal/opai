@@ -83,6 +83,13 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     return;
   }
 
+  // Bandeja de tickets (Fase 7): filtros / paginación / acción por fila.
+  if (actionId && actionId.startsWith("tray_")) {
+    const { handleTrayAction } = await import("./tickets/tray-dispatch");
+    await handleTrayAction(payload as unknown as Record<string, unknown>);
+    return;
+  }
+
   if (!teamId || !slackUserId || !actionId || !pendingId) return;
 
   const resolved = await getTenantForTeam(teamId);
