@@ -1,10 +1,13 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { IntegrationsGmailClient } from "@/components/opai";
 import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { prisma } from "@/lib/prisma";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { Plug } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Plug, Slack, ChevronRight } from "lucide-react";
 
 export default async function IntegracionesPage() {
   const session = await auth();
@@ -18,14 +21,18 @@ export default async function IntegracionesPage() {
   }
 
   const tenantId = session.user.tenantId;
-  const gmailAccount = await prisma.crmEmailAccount.findFirst({
-    where: {
-      tenantId,
-      userId: session.user.id,
-      provider: "gmail",
-      status: "active",
-    },
-  });
+  const [gmailAccount, slackWorkspace] = await Promise.all([
+    prisma.crmEmailAccount.findFirst({
+      where: {
+        tenantId,
+        userId: session.user.id,
+        provider: "gmail",
+        status: "active",
+      },
+    }),
+    prisma.slackWorkspace.findUnique({ where: { tenantId }, select: { status: true } }),
+  ]);
+  const slackConnected = slackWorkspace?.status === "ACTIVE";
 
   return (
     <ConfigPageLayout
@@ -33,7 +40,31 @@ export default async function IntegracionesPage() {
       description="Configura conexiones globales para el CRM"
       icon={<Plug className="h-[18px] w-[18px]" />}
     >
-      <IntegrationsGmailClient connected={Boolean(gmailAccount)} />
+      <div className="space-y-4">
+        <IntegrationsGmailClient connected={Boolean(gmailAccount)} />
+
+        <Link href="/opai/configuracion/integraciones/slack" className="block">
+          <Card className="transition-colors hover:bg-muted/40">
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary ring-1 ring-primary/20">
+                  <Slack className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <CardTitle>Slack</CardTitle>
+                  <CardDescription>Envía notificaciones de OPAI a canales de Slack.</CardDescription>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Badge variant={slackConnected ? "success" : "secondary"}>
+                  {slackConnected ? "Conectado" : "Sin conectar"}
+                </Badge>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </CardHeader>
+          </Card>
+        </Link>
+      </div>
     </ConfigPageLayout>
   );
 }
