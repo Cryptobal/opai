@@ -751,7 +751,14 @@ export async function enrichCompanyFromWebsite(opts: {
   try {
     enrichment = await enrichCompanyWithAi(companyName, extracted.websiteNormalized, extracted);
   } catch (aiError) {
-    console.error("Error generating AI company summary:", aiError);
+    // Un 401 (key inválida/no configurada) es un problema de config, no un bug:
+    // degradar a warn de una línea y seguir con el fallback (meta-description).
+    const status = (aiError as { status?: number })?.status;
+    if (status === 401) {
+      console.warn("[company-enrich] OpenAI 401 (key inválida) — usando resumen sin IA");
+    } else {
+      console.error("Error generating AI company summary:", aiError);
+    }
   }
 
   return {

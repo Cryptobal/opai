@@ -82,12 +82,28 @@ async function getMutedOrMentionsOnlyChannelIds(
   return new Set(prefs.map((p) => p.channelId));
 }
 
+/**
+ * Reintento corto para lecturas de badge: Neon lanza transientes (P1001/P1017)
+ * que antes se tragaban devolviendo un badge equivocado (0). 1 reintento con
+ * backoff 250 ms cubre el reconnect típico sin bloquear el flujo.
+ */
+async function withRetry<T>(fn: () => Promise<T>, retries = 1, delayMs = 250): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (retries <= 0) throw err;
+    await new Promise((r) => setTimeout(r, delayMs));
+    return withRetry(fn, retries - 1, delayMs);
+  }
+}
+
 async function calculateBadgeCount(
   tenantId: string,
   userType: UserType,
   userId: string,
 ): Promise<number> {
   try {
+    return await withRetry(async () => {
     const senderType = toChatSenderType(userType);
 
     // Get channels the user participates in via read cursors
@@ -135,8 +151,9 @@ async function calculateBadgeCount(
     }
 
     return chatUnreads + bellUnreads;
+    });
   } catch (err) {
-    console.error('[push] Error calculating badge count:', err);
+    console.error('[push] Error calculating badge count (tras reintento):', err);
     return 0;
   }
 }
@@ -663,15 +680,17 @@ export async function syncBadgeAcrossDevices(
     ensureVapidInitialized();
 
     const subscriberType = toChatSenderType(userType);
-    const subscriptions = await prisma.chatPushSubscription.findMany({
-      where: {
-        tenantId,
-        subscriberType,
-        subscriberId: userId,
-        isActive: true,
-        ...(excludeEndpoint ? { endpoint: { not: excludeEndpoint } } : {}),
-      },
-    });
+    const subscriptions = await withRetry(() =>
+      prisma.chatPushSubscription.findMany({
+        where: {
+          tenantId,
+          subscriberType,
+          subscriberId: userId,
+          isActive: true,
+          ...(excludeEndpoint ? { endpoint: { not: excludeEndpoint } } : {}),
+        },
+      }),
+    );
 
     if (subscriptions.length === 0) return;
 
