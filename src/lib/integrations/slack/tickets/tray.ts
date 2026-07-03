@@ -35,6 +35,9 @@ function rowSection(t: TrayRow): unknown {
     opt(`status:${ref}`, "🔄 Cambiar estado"),
     opt(`priority:${ref}`, "⚑ Cambiar prioridad"),
     opt(`reassign:${ref}`, "👤 Reasignar"),
+    opt(`aplazar:${ref}`, "⏳ Aplazar SLA"),
+    opt(`pausar:${ref}`, "⏸ Pausar/Reanudar SLA"),
+    opt(`silenciar:${ref}`, "🔕 Silenciar avisos"),
     opt(`close:${ref}`, "✅ Cerrar (resolver)"),
     opt(`cancel:${ref}`, "🚫 Cancelar"),
   ];

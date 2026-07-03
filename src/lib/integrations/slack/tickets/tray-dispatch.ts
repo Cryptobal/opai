@@ -9,20 +9,50 @@
 
 import { getTenantForTeam, getWorkspaceForTenant } from "../workspace";
 import { resolveLinkedAdmin } from "../user-link";
-import { slackUpdateView, slackPushView } from "../api";
+import { slackUpdateView, slackPushView, slackOpenView } from "../api";
 import { unpackMetadata } from "../modals/views";
 import { listMyTickets, type TrayFilters } from "./list";
 import { buildTrayView } from "./tray";
-import { commentModalView, statusModalView, priorityModalView, reassignModalView, confirmModalView } from "./row-views";
+import {
+  commentModalView, statusModalView, priorityModalView, reassignModalView, confirmModalView,
+  aplazarModalView, pausarModalView, silenciarModalView,
+} from "./row-views";
 
 const ROW_BUILDERS: Record<string, (id: string, code: string) => unknown> = {
   comment: commentModalView,
   status: statusModalView,
   priority: priorityModalView,
   reassign: reassignModalView,
+  aplazar: aplazarModalView,
+  pausar: pausarModalView,
+  silenciar: silenciarModalView,
   close: (id, code) => confirmModalView(id, code, "close"),
   cancel: (id, code) => confirmModalView(id, code, "cancel"),
 };
+
+/**
+ * Botón de gestión en la TARJETA de un ticket (`tcard`): abre el modal por-fila
+ * correspondiente. Desde un mensaje de canal no hay modal en pila → views.open.
+ */
+export async function handleTicketCardAction(payload: Record<string, unknown>): Promise<void> {
+  const teamId = (payload.team as { id?: string } | undefined)?.id;
+  const triggerId = payload.trigger_id as string | undefined;
+  const slackUserId = (payload.user as { id?: string } | undefined)?.id;
+  const value = (payload.actions as Array<{ value?: string }> | undefined)?.[0]?.value ?? "";
+  const [op, ticketId, code] = value.split(":");
+  if (!teamId || !slackUserId || !triggerId || !op || !ticketId) return;
+
+  const resolved = await getTenantForTeam(teamId);
+  if (!resolved) return;
+  const workspace = await getWorkspaceForTenant(resolved.tenantId);
+  if (!workspace) return;
+  const linked = await resolveLinkedAdmin(workspace, slackUserId);
+  if (!linked) return; // el submit re-valida permiso ops
+
+  const builder = ROW_BUILDERS[op];
+  if (!builder) return;
+  await slackOpenView(workspace.botToken, triggerId, builder(ticketId, code ?? ticketId));
+}
 
 function filtersFromMeta(m: ReturnType<typeof unpackMetadata>): { filters: TrayFilters; page: number } {
   return {

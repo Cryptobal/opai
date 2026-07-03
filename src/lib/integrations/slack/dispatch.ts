@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import type { UnifiedNotificationType } from "@/lib/notifications/catalog";
 import { getWorkspaceForTenant } from "./workspace";
-import { buildNotificationBlocks, ticketActionsBlock, toContextFields } from "./blocks";
+import { buildNotificationBlocks, ticketActionsBlock, ticketCardActionsBlock, toContextFields } from "./blocks";
 import { enrichTicketFields } from "./card-enrich";
 import { slackPostMessage, SlackApiError, isPermanentSlackError } from "./api";
 
@@ -63,7 +63,7 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     input.typeDef.key.startsWith("ticket_") && typeof input.data?.ticketId === "string"
       ? (input.data.ticketId as string)
       : null;
-  const ticketFields = cardTicketId ? await enrichTicketFields(input.tenantId, cardTicketId) : [];
+  const ticketFields = cardTicketId ? await enrichTicketFields(input.tenantId, cardTicketId, workspace) : [];
 
   const { text, blocks } = buildNotificationBlocks({
     title: input.title,
@@ -74,6 +74,13 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     link: input.link,
     critical: input.typeDef.critical,
   });
+
+  // Gestión del ticket desde su tarjeta (excepto la de aprobación, que ya trae
+  // Aprobar/Rechazar): Comentar · Estado · Aplazar/Pausar SLA · Silenciar.
+  if (cardTicketId && input.typeDef.key !== "ticket_needs_approval") {
+    const code = typeof input.data?.code === "string" ? input.data.code : cardTicketId;
+    blocks.push(ticketCardActionsBlock(cardTicketId, code));
+  }
 
   const ticketId =
     input.typeDef.key === "ticket_needs_approval" && typeof input.data?.ticketId === "string"

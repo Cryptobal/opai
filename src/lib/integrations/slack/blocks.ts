@@ -151,6 +151,32 @@ export function confirmActionsBlock(pendingId: string): unknown {
   };
 }
 
+/**
+ * Fila de gestión en la tarjeta de un ticket (Fase 7.1): Comentar · Estado ·
+ * Aplazar/Pausar SLA · Silenciar. Cada botón abre el modal por-fila existente
+ * (mismo `op` que la bandeja). `value = op:ticketId:code` (ids sin ':').
+ */
+export function ticketCardActionsBlock(ticketId: string, code: string): unknown {
+  const ref = `${ticketId}:${code}`;
+  const b = (op: string, text: string) => ({
+    type: "button",
+    action_id: "tcard",
+    value: `${op}:${ref}`,
+    text: { type: "plain_text", text, emoji: true },
+  });
+  return {
+    type: "actions",
+    block_id: `opai_tcard_${ticketId}`,
+    elements: [
+      b("comment", "💬 Comentar"),
+      b("status", "🔄 Estado"),
+      b("aplazar", "⏳ Aplazar SLA"),
+      b("pausar", "⏸ Pausar SLA"),
+      b("silenciar", "🔕 Silenciar"),
+    ],
+  };
+}
+
 /** Botones Aprobar (primary) / Rechazar (danger) para un ticket. */
 export function ticketActionsBlock(pendingId: string): unknown {
   return {

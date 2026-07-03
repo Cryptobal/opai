@@ -9,6 +9,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { TICKET_PRIORITY_CONFIG, TICKET_STATUS_CONFIG } from "@/lib/tickets";
+import { getSlackUserIdForAdmin } from "./user-link";
+import type { ActiveWorkspace } from "./workspace";
 
 export interface CardField {
   label: string;
@@ -25,7 +27,11 @@ const slaFmt = new Intl.DateTimeFormat("es-CL", {
 });
 
 /** Campos curados de un ticket para la tarjeta. `[]` si no existe o no es del tenant. */
-export async function enrichTicketFields(tenantId: string, ticketId: string): Promise<CardField[]> {
+export async function enrichTicketFields(
+  tenantId: string,
+  ticketId: string,
+  workspace?: ActiveWorkspace,
+): Promise<CardField[]> {
   const t = await prisma.opsTicket.findFirst({
     where: { id: ticketId, tenantId },
     select: {
@@ -57,8 +63,13 @@ export async function enrichTicketFields(tenantId: string, ticketId: string): Pr
       select: { name: true },
     });
     if (admin?.name) asignado = admin.name;
+    // Si el responsable está vinculado a Slack, lo mencionamos para que le llegue.
+    if (workspace) {
+      const slackUserId = await getSlackUserIdForAdmin(workspace, t.assignedTo);
+      if (slackUserId) asignado = `<@${slackUserId}>`;
+    }
   }
-  fields.push({ label: "Asignado", value: asignado });
+  fields.push({ label: "Responsable", value: asignado });
 
   if (t.installationId) {
     const inst = await prisma.crmInstallation.findFirst({

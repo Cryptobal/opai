@@ -9,6 +9,7 @@ import { hasModuleAccess } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { transitionTicketStatus } from "@/lib/tickets-transition";
 import { changeTicketPriority, reassignTicket, addTicketComment } from "@/lib/tickets-mutations";
+import { extendSla, togglePauseSla, snoozeSla } from "@/lib/tickets-sla";
 import { infoView } from "../modals/views";
 import type { ModalDef, ModalSubmitContext, ModalSubmitResult, SlackView } from "../modals/types";
 
@@ -102,8 +103,51 @@ function confirmModal(callbackId: string, target: "resolved" | "cancelled", labe
   };
 }
 
+const aplazarModal: ModalDef = {
+  callbackId: "tray_aplazar", title: "Aplazar SLA", requires, build: () => infoView("Aplazar SLA", ""),
+  submit: async (ctx) => {
+    const ticketId = ctx.metadata.ticketId ?? "";
+    const date = ctx.state.date?.v?.selected_date;
+    const reason = ctx.state.reason?.v?.value ?? "";
+    if (!date) return fieldError("date", "Elige una fecha.");
+    if (reason.trim().length < 10) return fieldError("reason", "El motivo debe tener al menos 10 caracteres.");
+    const r = await extendSla({ tenantId: ctx.tenantId, actorId: ctx.linked.adminId, ticketId, newDueAt: new Date(`${date}T23:59:59`), reason });
+    if (!r.ok) return fieldError("date", r.error ?? "No se pudo aplazar.");
+    await audit(ctx, ticketId, "sla_extend");
+    return done("Aplazar SLA", `⏳ SLA de *${r.code}* aplazado al ${date}.`);
+  },
+};
+
+const pausarModal: ModalDef = {
+  callbackId: "tray_pausar", title: "SLA", requires, build: () => infoView("SLA", ""),
+  submit: async (ctx) => {
+    const ticketId = ctx.metadata.ticketId ?? "";
+    const reason = ctx.state.reason?.v?.value ?? "";
+    const r = await togglePauseSla({ tenantId: ctx.tenantId, actorId: ctx.linked.adminId, ticketId, reason });
+    if (!r.ok) return done("SLA", `⚠️ ${r.error}`);
+    await audit(ctx, ticketId, "sla_pause_toggle");
+    return done("SLA", `⏸ SLA de *${r.code}* actualizado (pausado/reanudado).`);
+  },
+};
+
+const silenciarModal: ModalDef = {
+  callbackId: "tray_silenciar", title: "Silenciar", requires, build: () => infoView("Silenciar", ""),
+  submit: async (ctx) => {
+    const ticketId = ctx.metadata.ticketId ?? "";
+    const dur = ctx.state.dur?.v?.selected_option?.value;
+    if (dur === undefined) return fieldError("dur", "Elige una opción.");
+    const hours = parseInt(dur, 10);
+    const until = hours > 0 ? new Date(Date.now() + hours * 3600 * 1000) : null;
+    const r = await snoozeSla({ tenantId: ctx.tenantId, actorId: ctx.linked.adminId, ticketId, until });
+    if (!r.ok) return fieldError("dur", r.error ?? "No se pudo aplicar.");
+    await audit(ctx, ticketId, "sla_snooze");
+    return done("Silenciar", until ? `🔕 Avisos de *${r.code}* silenciados.` : `🔔 Avisos de *${r.code}* reactivados.`);
+  },
+};
+
 export const rowModals: ModalDef[] = [
   commentModal, statusModal, priorityModal, reassignModal,
+  aplazarModal, pausarModal, silenciarModal,
   confirmModal("tray_close", "resolved", "Cerrar ticket"),
   confirmModal("tray_cancel", "cancelled", "Cancelar ticket"),
 ];

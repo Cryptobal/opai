@@ -93,6 +93,15 @@ export async function resolveLinkedAdmin(
   return { adminId: admin.id, perms: await resolvePermissionsById(admin.id) };
 }
 
+/** Reverso adminId → slackUserId (para mencionar `<@U...>` al responsable si está vinculado). */
+export async function getSlackUserIdForAdmin(workspace: ActiveWorkspace, adminId: string): Promise<string | null> {
+  const link = await prisma.slackUserLink.findFirst({
+    where: { workspaceId: workspace.id, adminId },
+    select: { slackUserId: true },
+  });
+  return link?.slackUserId ?? null;
+}
+
 /** URL firmada al endpoint de vinculación manual (exige sesión OPAI activa). */
 export function buildLinkUrl(workspaceId: string, slackUserId: string): string {
   const token = signCookie(

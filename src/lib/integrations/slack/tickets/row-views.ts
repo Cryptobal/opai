@@ -60,6 +60,34 @@ export function reassignModalView(ticketId: string, code: string): SlackView {
   ]);
 }
 
+/** Aplazar SLA: nueva fecha (datepicker) + motivo (≥10). */
+export function aplazarModalView(ticketId: string, code: string): SlackView {
+  return shell("tray_aplazar", ticketId, `Aplazar SLA ${code}`, "Aplazar", [
+    { type: "input", block_id: "date", label: pt("Nueva fecha límite"),
+      element: { type: "datepicker", action_id: "v" } },
+    { type: "input", block_id: "reason", label: pt("Motivo (mín. 10 caracteres)"),
+      element: { type: "plain_text_input", action_id: "v", multiline: true, min_length: 10, max_length: 300 } },
+  ]);
+}
+
+/** Pausar / reanudar SLA (el submit decide según el estado actual). */
+export function pausarModalView(ticketId: string, code: string): SlackView {
+  return shell("tray_pausar", ticketId, `SLA ${code}`, "Aplicar", [
+    { type: "section", text: { type: "mrkdwn", text: `Pausa o reanuda el SLA de *${code}*. Si ya está pausado, se reanuda y el plazo se extiende por el tiempo pausado.` } },
+    { type: "input", block_id: "reason", optional: true, label: pt("Motivo (al pausar)"),
+      element: { type: "plain_text_input", action_id: "v", max_length: 200 } },
+  ]);
+}
+
+/** Silenciar avisos por una duración (o reactivar). */
+export function silenciarModalView(ticketId: string, code: string): SlackView {
+  const options = [opt("1", "1 hora"), opt("4", "4 horas"), opt("24", "24 horas"), opt("0", "Reactivar avisos")];
+  return shell("tray_silenciar", ticketId, `Silenciar ${code}`, "Aplicar", [
+    { type: "input", block_id: "dur", label: pt("Silenciar por"),
+      element: { type: "static_select", action_id: "v", options } },
+  ]);
+}
+
 /** Confirmación de cerrar (resolver) o cancelar (terminal, auditable). */
 export function confirmModalView(ticketId: string, code: string, op: "close" | "cancel"): SlackView {
   const verb = op === "close" ? "resolver" : "cancelar";

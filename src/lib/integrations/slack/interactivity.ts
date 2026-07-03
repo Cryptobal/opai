@@ -96,6 +96,13 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     return;
   }
 
+  // Botón de gestión en la tarjeta de un ticket (Fase 7.1): abre el modal por-fila.
+  if (actionId === "tcard") {
+    const { handleTicketCardAction } = await import("./tickets/tray-dispatch");
+    await handleTicketCardAction(payload as unknown as Record<string, unknown>);
+    return;
+  }
+
   // Bandeja de aprobaciones (Fase 7): Aprobar / Rechazar inline.
   if (actionId === "appr_decide") {
     const { handleApprovalAction } = await import("./tickets/approvals");
