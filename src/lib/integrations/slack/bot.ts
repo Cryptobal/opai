@@ -16,6 +16,16 @@ import { slackPostMessage, slackUpdateMessage } from "./api";
 import { toSlackMarkdown } from "./markdown";
 import { assistantSection, contextLine, confirmActionsBlock } from "./blocks";
 
+/** Archivo adjunto en un evento de Slack (subset de la File object). */
+export interface SlackFile {
+  id?: string;
+  name?: string;
+  mimetype?: string;
+  size?: number;
+  url_private?: string;
+  permalink?: string;
+}
+
 export interface SlackBotEvent {
   type?: string;
   user?: string;
@@ -26,7 +36,7 @@ export interface SlackBotEvent {
   channel_type?: string;
   bot_id?: string;
   subtype?: string;
-  files?: Array<{ permalink?: string; name?: string }>;
+  files?: SlackFile[];
 }
 
 type Turn = { role: string; content: string };

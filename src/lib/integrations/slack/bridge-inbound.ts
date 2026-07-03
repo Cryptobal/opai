@@ -11,6 +11,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getWorkspaceForTenant } from "./workspace";
 import { slackGetUserProfile } from "./api";
+import { ingestSlackFiles } from "./bridge-inbound-files";
 import { triggerChatEvent, truncatePreview } from "@/lib/chat";
 import type { SlackBotEvent } from "./bot";
 
@@ -93,11 +94,12 @@ export async function handleInboundSlackMessage(
     threadRootId = rootMap?.chatMessageId ?? null;
   }
 
+  // Adjuntos: imágenes/PDF de Slack → R2 (mismo shape que la UI ya pinta).
+  const { attachments, links } = await ingestSlackFiles(event.files, ws.botToken, tenantId);
   let content = fromSlackText(event.text ?? "");
-  for (const f of event.files ?? []) {
-    if (f?.permalink) content += `\n📎 (archivo en Slack: ${f.permalink})`;
-  }
-  if (!content.trim()) content = "(mensaje sin texto)";
+  for (const l of links) content += `\n${l}`;
+  if (!content.trim() && attachments.length === 0) content = "(mensaje sin texto)";
+  const preview = truncatePreview(content.trim() || "[Archivo adjunto]", 100);
 
   try {
     const message = await prisma.$transaction(async (tx) => {
@@ -111,6 +113,7 @@ export async function handleInboundSlackMessage(
           senderAvatar,
           content,
           threadRootId,
+          attachments: attachments.length ? (attachments as unknown as Prisma.InputJsonValue) : undefined,
         },
       });
       if (threadRootId) {
@@ -123,7 +126,7 @@ export async function handleInboundSlackMessage(
         where: { id: link.chatChannelId },
         data: {
           lastMessageAt: msg.createdAt,
-          lastMessagePreview: truncatePreview(content, 100),
+          lastMessagePreview: preview,
           messageCount: { increment: 1 },
         },
       });
@@ -155,7 +158,7 @@ export async function handleInboundSlackMessage(
       threadRootId: message.threadRootId,
       replyCount: message.replyCount,
       lastReplyAt: message.lastReplyAt?.toISOString() ?? null,
-      attachments: null,
+      attachments: attachments.length ? attachments : null,
       reactions: [],
       mentions: [],
       systemEventType: null,
