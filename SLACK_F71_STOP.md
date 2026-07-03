@@ -28,7 +28,7 @@ Manifest: scopes bot `reactions:read` + `reactions:write`; bot_events `reaction_
 - [x] B8 — App Home (+ mensaje de bienvenida único vía `SlackUserLink.welcomedAt`, migración aditiva)
 - [x] B9 — Botones de gestión + responsable en tarjetas de ticket (Comentar · Estado · Aplazar/Pausar/Silenciar SLA)
 - [x] B10 — URLs canónicas por entidad en tools + regla system prompt + tarjetas de entidades en el bot
-- [ ] B11 — Menciones cruzadas en comentarios de tickets (bidireccional + notificación)
+- [x] B11 — Menciones cruzadas en comentarios de tickets (bidireccional + notificación)
 - [ ] B12 — OPAI como agente nativo (agent_view): assistant_thread_started/context_changed, suggested prompts, setStatus/setTitle
 - [ ] B13 — QA + docs
 

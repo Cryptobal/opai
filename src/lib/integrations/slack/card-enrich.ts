@@ -86,3 +86,28 @@ export async function enrichTicketFields(
 
   return fields;
 }
+
+/**
+ * Convierte "@Nombre" (y "@Primer") del cuerpo en menciones Slack `<@U...>` para
+ * los admins mencionados que estén vinculados. Best-effort: los no vinculados
+ * quedan como texto plano. `mentions` = `[{ name, adminId }]`.
+ */
+export async function convertBodyMentions(
+  body: string,
+  mentions: unknown[],
+  workspace: ActiveWorkspace,
+): Promise<string> {
+  let out = body;
+  for (const m of mentions) {
+    if (!m || typeof m !== "object") continue;
+    const { name, adminId } = m as { name?: string; adminId?: string };
+    if (!name || !adminId) continue;
+    const slackUserId = await getSlackUserIdForAdmin(workspace, adminId);
+    if (!slackUserId) continue;
+    const tag = `<@${slackUserId}>`;
+    out = out.split(`@${name}`).join(tag);
+    const first = name.split(/\s+/)[0];
+    if (first && first !== name) out = out.split(`@${first}`).join(tag);
+  }
+  return out;
+}

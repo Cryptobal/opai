@@ -222,7 +222,16 @@ export async function POST(
                 ? body.body.slice(0, 100) + "..."
                 : body.body,
             link: `/ops/tickets/${ticketId}`,
-            data: { ticketId, commentId: comment.id, groupIds: mentionedGroupIds },
+            data: {
+              ticketId,
+              commentId: comment.id,
+              groupIds: mentionedGroupIds,
+              // Mapa nombre→adminId para que el hilo de Slack convierta "@Nombre"
+              // a `<@U...>` cuando el mencionado esté vinculado (OPAI→Slack).
+              mentions: uniqueIds
+                .map((mid) => ({ adminId: mid, name: allAdmins.find((a) => a.id === mid)?.name }))
+                .filter((x) => x.name),
+            },
           });
         }
       }

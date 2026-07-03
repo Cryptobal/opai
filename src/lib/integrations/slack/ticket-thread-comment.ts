@@ -10,7 +10,7 @@
 
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { getWorkspaceForTenant } from "./workspace";
+import { getWorkspaceForTenant, type ActiveWorkspace } from "./workspace";
 import { resolveLinkedAdmin, buildLinkPrompt } from "./user-link";
 import { callSlack } from "./api";
 import { logAudit } from "@/lib/audit";
@@ -25,6 +25,33 @@ function cleanSlackText(t: string): string {
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .trim();
+}
+
+/**
+ * Menciones Slack→OPAI: reemplaza cada `<@U...>` por `@Nombre` del admin vinculado
+ * (el humano ya pingó nativo en Slack) y devuelve los adminIds mencionados para
+ * notificarlos en OPAI. Los no vinculados quedan como `@usuario`.
+ */
+async function resolveInboundMentions(
+  text: string,
+  ws: ActiveWorkspace,
+): Promise<{ text: string; adminIds: string[] }> {
+  const ids: string[] = [];
+  let out = text;
+  for (const mth of text.matchAll(/<@([A-Z0-9]+)>/g)) {
+    const link = await prisma.slackUserLink.findUnique({
+      where: { workspaceId_slackUserId: { workspaceId: ws.id, slackUserId: mth[1] } },
+      select: { adminId: true },
+    });
+    const admin = link
+      ? await prisma.admin.findFirst({ where: { id: link.adminId, tenantId: ws.tenantId, status: "active" }, select: { name: true } })
+      : null;
+    if (link && admin?.name) {
+      out = out.split(mth[0]).join(`@${admin.name}`);
+      ids.push(link.adminId);
+    }
+  }
+  return { text: out, adminIds: [...new Set(ids)] };
 }
 
 export async function handleTicketThreadComment(tenantId: string, event: SlackBotEvent): Promise<boolean> {
@@ -52,7 +79,8 @@ export async function handleTicketThreadComment(tenantId: string, event: SlackBo
     return true;
   }
 
-  const body = cleanSlackText(event.text);
+  const mentions = await resolveInboundMentions(event.text, ws);
+  const body = cleanSlackText(mentions.text);
   if (!body) return true;
   const { addTicketComment } = await import("@/lib/tickets-mutations");
   const r = await addTicketComment({ tenantId, actorId: linked.adminId, ticketId: thread.ticketId, body });
@@ -61,6 +89,23 @@ export async function handleTicketThreadComment(tenantId: string, event: SlackBo
       action: "UPDATE", entity: "OpsTicket", entityId: thread.ticketId, tenantId,
       userId: linked.adminId, details: { via: "slack_thread_comment", commentId: r.commentId },
     }).catch(() => {});
+    // Mención real al admin en OPAI. El origen ya es Slack (ya pingó nativo), así
+    // que skipSlack evita re-postear el comentario en su propio hilo.
+    const targets = mentions.adminIds.filter((id) => id !== linked.adminId);
+    if (targets.length > 0) {
+      const t = await prisma.opsTicket.findFirst({ where: { id: thread.ticketId, tenantId }, select: { code: true } });
+      const { notify } = await import("@/lib/notifications/notify");
+      await notify({
+        tenantId,
+        type: "ticket_mention",
+        targetIds: targets,
+        targetType: "ADMIN",
+        title: `Te mencionaron en ticket ${t?.code ?? ""}`,
+        body: body.length > 140 ? `${body.slice(0, 140)}…` : body,
+        link: `/ops/tickets/${thread.ticketId}`,
+        data: { ticketId: thread.ticketId, commentId: r.commentId, source: "slack_thread", skipSlack: true },
+      }).catch(() => {});
+    }
     // Feedback: reacción ✅ (requiere reactions:write; si falta, silencioso).
     await callSlack("reactions.add", { channel: event.channel, timestamp: event.ts, name: "white_check_mark" }, ws.botToken).catch(() => {});
   }

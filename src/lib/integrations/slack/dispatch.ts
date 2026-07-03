@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 import type { UnifiedNotificationType } from "@/lib/notifications/catalog";
 import { getWorkspaceForTenant } from "./workspace";
 import { buildNotificationBlocks, ticketActionsBlock, ticketCardActionsBlock, toContextFields } from "./blocks";
-import { enrichTicketFields } from "./card-enrich";
+import { enrichTicketFields, convertBodyMentions } from "./card-enrich";
 import { slackPostMessage, SlackApiError, isPermanentSlackError } from "./api";
 
 interface DispatchInput {
@@ -51,6 +51,10 @@ async function resolveChannel(
 }
 
 export async function dispatchSlackForNotification(input: DispatchInput): Promise<void> {
+  // Notificación marcada para NO re-postear a Slack (p. ej. mención cuyo origen
+  // ya fue Slack): la entrega in-app/push la maneja notify(); acá se corta.
+  if (input.data?.skipSlack === true) return;
+
   const workspace = await getWorkspaceForTenant(input.tenantId);
   if (!workspace) return; // tenant sin Slack conectado
 
@@ -65,9 +69,16 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
       : null;
   const ticketFields = cardTicketId ? await enrichTicketFields(input.tenantId, cardTicketId, workspace) : [];
 
+  // Menciones OPAI→Slack: convierte "@Nombre" del cuerpo del comentario en
+  // `<@U...>` cuando el mencionado está vinculado (para que le llegue en Slack).
+  const body =
+    input.body && Array.isArray(input.data?.mentions)
+      ? await convertBodyMentions(input.body, input.data.mentions as unknown[], workspace)
+      : input.body;
+
   const { text, blocks } = buildNotificationBlocks({
     title: input.title,
-    body: input.body,
+    body,
     category: input.typeDef.category,
     phone: typeof input.data?.phone === "string" ? input.data.phone : null,
     fields: ticketFields.length ? ticketFields : toContextFields(input.data),
