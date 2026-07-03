@@ -204,6 +204,33 @@ export async function slackPublishHomeView(token: string, userId: string, view: 
   await callSlack("views.publish", { user_id: userId, view }, token);
 }
 
+/* ── Panel de IA / agente nativo (assistant, Fase 7.1) ── */
+
+/** assistant.threads.setSuggestedPrompts — prompts de arranque del hilo de agente. */
+export async function assistantSetSuggestedPrompts(
+  token: string,
+  channelId: string,
+  threadTs: string,
+  prompts: Array<{ title: string; message: string }>,
+  title?: string,
+): Promise<void> {
+  await callSlack(
+    "assistant.threads.setSuggestedPrompts",
+    { channel_id: channelId, thread_ts: threadTs, prompts, ...(title ? { title } : {}) },
+    token,
+  );
+}
+
+/** assistant.threads.setStatus — indicador nativo "pensando…" (se limpia al responder). */
+export async function assistantSetStatus(token: string, channelId: string, threadTs: string, status: string): Promise<void> {
+  await callSlack("assistant.threads.setStatus", { channel_id: channelId, thread_ts: threadTs, status }, token);
+}
+
+/** assistant.threads.setTitle — título/resumen del hilo de agente (≤ ~40 chars). */
+export async function assistantSetTitle(token: string, channelId: string, threadTs: string, title: string): Promise<void> {
+  await callSlack("assistant.threads.setTitle", { channel_id: channelId, thread_ts: threadTs, title }, token);
+}
+
 export interface SlackChannel {
   id: string;
   name: string;

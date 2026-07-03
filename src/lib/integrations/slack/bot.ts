@@ -12,7 +12,7 @@ import { getAiHelpChatConfig } from "@/lib/ai/help-chat-config";
 import { runHelpChatTurn } from "@/lib/ai/help-chat-runner";
 import { getTenantForTeam, getWorkspaceForTenant, type ActiveWorkspace } from "./workspace";
 import { resolveLinkedAdmin, buildLinkPrompt } from "./user-link";
-import { slackPostMessage, slackUpdateMessage } from "./api";
+import { slackPostMessage, slackUpdateMessage, assistantSetStatus, assistantSetTitle } from "./api";
 import { toSlackMarkdown } from "./markdown";
 import { assistantSection, contextLine, confirmActionsBlock } from "./blocks";
 
@@ -47,6 +47,21 @@ const MAX_TRANSCRIPT_CHARS = 24_000;
 
 function stripMention(text: string): string {
   return text.replace(/<@[A-Z0-9]+>/g, "").replace(/\s+/g, " ").trim();
+}
+
+/** Hint situado: si el usuario mira un canal puenteado en el panel de IA, lo indica al runner. */
+async function buildContextHint(ws: ActiveWorkspace, slackUserId: string): Promise<string | undefined> {
+  const link = await prisma.slackUserLink.findUnique({
+    where: { workspaceId_slackUserId: { workspaceId: ws.id, slackUserId } },
+    select: { activeChannelId: true },
+  });
+  if (!link?.activeChannelId) return undefined;
+  const bridged = await prisma.slackChannelLink.findFirst({
+    where: { tenantId: ws.tenantId, slackChannelId: link.activeChannelId },
+    select: { id: true },
+  });
+  if (!bridged) return undefined;
+  return `Contexto: el usuario está viendo el canal Slack <#${link.activeChannelId}>, puenteado con un chat de OPAI. Si su pregunta es ambigua, considera ese canal como foco probable.`;
 }
 
 function capTranscript(msgs: Turn[]): Turn[] {
@@ -110,6 +125,11 @@ export async function handleBotEvent(teamId: string, event: SlackBotEvent): Prom
     return;
   }
 
+  // Panel de IA (agente nativo): indicador nativo "pensando…" + título del hilo.
+  // Best-effort: en un DM normal (no-agente) estas llamadas fallan y se ignoran.
+  void assistantSetStatus(token, channelId, threadTs, "Pensando…").catch(() => {});
+  void assistantSetTitle(token, channelId, threadTs, userMessage.slice(0, 40)).catch(() => {});
+
   let placeholderTs: string;
   try {
     const posted = await slackPostMessage(token, { channel: channelId, text: "⏳ Consultando OPAI…", thread_ts: threadTs });
@@ -130,6 +150,7 @@ export async function handleBotEvent(teamId: string, event: SlackBotEvent): Prom
       history: prior,
       userMessage,
       allowWrites: cfg.allowWrites,
+      contextHint: await buildContextHint(workspace, slackUserId),
     });
 
     const blocks: unknown[] = [assistantSection(toSlackMarkdown(result.text))];

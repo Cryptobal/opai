@@ -11273,6 +11273,8 @@ model SlackUserLink {
   linkedAt    DateTime @default(now()) @map("linked_at")
   /// Marca del mensaje de bienvenida único (App Home / agente, Fase 7.1) para no repetirlo.
   welcomedAt  DateTime? @map("welcomed_at")
+  /// Canal activo del usuario en el panel de IA (assistant_thread_context_changed, Fase 7.1).
+  activeChannelId String? @map("active_channel_id")
 
   @@unique([workspaceId, slackUserId], map: "uq_slack_user_link_ws_user")
   @@index([adminId], map: "idx_slack_user_links_admin")

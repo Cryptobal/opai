@@ -104,6 +104,8 @@ export interface RunHelpChatTurnInput {
   userMessage: string;
   /** Si el tenant permite escrituras. Cuando true, se DIFIEREN a confirmación. */
   allowWrites: boolean;
+  /** Contexto situado opcional (p. ej. canal que el usuario mira en el panel de IA de Slack). */
+  contextHint?: string;
 }
 
 /**
@@ -202,6 +204,9 @@ export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<Help
     ...trimmedHistory.map((m) => ({ role: m.role, content: m.content })),
     { role: "user", content: userMessage },
   ];
+  if (input.contextHint) {
+    messages.splice(2, 0, { role: "system", content: input.contextHint });
+  }
 
   const tools = getToolDefinitionsV2(cfg.allowDataQuestions, allowWrites);
   const completionParams = { messages, tools, temperature: 0.2, maxTokens: 2800 };

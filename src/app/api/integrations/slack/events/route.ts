@@ -65,6 +65,23 @@ export async function POST(req: NextRequest) {
         console.error(`[slack] workspace revocado por evento ${eventType} (team ${teamId})`);
       });
       break;
+    case "assistant_thread_started":
+    case "assistant_thread_context_changed":
+      // OPAI como agente nativo del panel de IA de Slack.
+      if (payload.event) {
+        const ev = payload.event as unknown as import("@/lib/integrations/slack/assistant").AssistantEvent;
+        const started = eventType === "assistant_thread_started";
+        after(async () => {
+          try {
+            const mod = await import("@/lib/integrations/slack/assistant");
+            if (started) await mod.handleAssistantThreadStarted(resolved.tenantId, ev);
+            else await mod.handleAssistantContextChanged(resolved.tenantId, ev);
+          } catch (err) {
+            console.error("[slack] evento assistant falló:", err);
+          }
+        });
+      }
+      break;
     case "app_home_opened":
       // Pestaña Inicio → publica el panel personal. Pestaña Mensajes → bienvenida única.
       if (payload.event) {
