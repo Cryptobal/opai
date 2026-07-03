@@ -81,6 +81,7 @@ function isPublicPath(pathname: string): boolean {
   // API (rutas reales en /api/)
   if (pathname.startsWith('/api/auth')) return true;
   if (pathname.startsWith('/api/webhook')) return true;
+  if (pathname.startsWith('/api/mcp')) return true; // MCP server (auth por API key in-route)
   if (pathname.startsWith('/api/inbound')) return true; // Inbound mail webhooks (auth Svix in-route)
   // Slack: sólo los endpoints entrantes (firma HMAC / state firmado in-route).
   // NO todo /api/integrations/slack: config/channels/routes/test y oauth/start
