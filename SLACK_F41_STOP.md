@@ -16,7 +16,18 @@ siendo el gate real (rule 2: "la UI oculta, el API manda").
 
 ## Bloques
 
-- [ ] BLOQUE 1 — `useSlackBridges()` (estado + datos)
-- [ ] BLOQUE 2 — `ChatChannelSlackBridge.tsx` (modal)
-- [ ] BLOQUE 3 — ítem de menú + indicador `Link2` en ambas listas
-- [ ] BLOQUE 4 — QA 375px + docs
+- [x] BLOQUE 1 — `useSlackBridges()` (estado + datos)
+- [x] BLOQUE 2 — `ChatChannelSlackBridge.tsx` (modal)
+- [x] BLOQUE 3 — ítem de menú + indicador `Link2` en ambas listas
+- [x] BLOQUE 4 — QA 375px + docs
+
+## QA (Bloque 4)
+
+- **375px**: el modal usa `@/components/ui/dialog`, que en mobile es bottom-sheet a
+  ancho completo; `SearchableSelect` y los botones son `w-full`/flex → usables. El
+  menú es el mismo `DropdownMenu` (`w-52`/`w-56`) que ya se usa a 375px. *(La
+  verificación visual final requiere la app corriendo con un tenant Slack-conectado.)*
+- **No-admin**: `useSlackBridges(canDelete)` no hace fetch si no es owner/admin →
+  `enabled=false`, sin ítem ni indicador; el menú queda idéntico a hoy.
+- **DM**: guard `channelType !== "DIRECT"` → sin ítem.
+- Gate `npx prisma generate && npx tsc --noEmit` limpio tras cada bloque.

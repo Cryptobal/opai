@@ -316,6 +316,32 @@ canal Slack), sin fan-out en v1.
   desconectarlo, otro. Guardias y contactos de cliente saben que sus mensajes se
   leen en Slack.
 
+## Vinculación rápida desde el chat (Fase 4.1)
+
+Un admin puede puentear un canal **sin salir del chat**: en el menú de tres puntos
+del canal aparece "Vincular con Slack" (icono `Link2`), que abre un modal para
+elegir el canal de Slack y conectar. Si el canal ya está puenteado, el menú muestra
+"Conectado con #nombre" + "Desconectar de Slack" (con confirmación) y la fila luce un
+icono `Link2` junto al nombre. La página `/opai/configuracion/integraciones/slack`
+sigue siendo la vista global de puentes.
+
+- **Piezas**: `useSlackBridges()` (`src/components/chat/useSlackBridges.ts`) carga
+  una vez por montaje `config` (workspace activo) + `bridges` y expone
+  `bridgeByChatChannelId`; `ChatChannelSlackBridge.tsx` es el modal (conectar) +
+  confirmación (desconectar). El ítem se inyecta en el menú por canal de
+  `ChatSidePanel` (secciones con "Archivar": instalaciones-reportes, prospectos,
+  clientes, archivados) y de `ChatChannelListItem` (lista full-page).
+- **Gate de visibilidad**: el ítem aparece sólo si el viewer es `owner`/`admin`
+  (el mismo check que `requireSlackAdmin` enforce en el API de bridges), hay
+  workspace Slack ACTIVO y el canal **no** es DM. El hook ni siquiera llama a los
+  endpoints si el viewer no es admin. El ocultamiento es **cosmético**: la
+  seguridad real vive en `requireSlackAdmin` + `tenantId` del API. Un no-admin ve
+  el menú exactamente como antes.
+- **Endpoints**: reutiliza `GET config`, `GET bridges`, `GET channels`,
+  `POST bridges`, `DELETE bridges?id=`. No hay rutas de mutación nuevas. Los errores
+  accionables del POST (ej. "Escribe `/invite @OPAI` en el canal") se muestran tal
+  cual vía toast.
+
 ## Anti-loop (revisión Bloque 6)
 
 Ningún camino re-espeja un mensaje ya espejado. Dos capas:
@@ -354,6 +380,10 @@ evento, una lectura de cache en memoria.
 | Crear puente | Aviso de transparencia en ambos canales |
 | Desconectar puente | Aviso en ambos lados; deja de espejar de inmediato |
 | Canal de Slack sin invitar al bot | POST 400: "Escribe /invite @OPAI en el canal" |
+| Admin abre menú del canal en el chat | Ve "Vincular con Slack"; tras conectar, "Desconectar" + icono Link2 |
+| No-admin abre el menú del canal | No ve el ítem de Slack ni el icono; el menú luce como antes |
+| Menú del canal en un DM | Sin ítem de Slack (solo canales, no DMs) |
+| Vincular/desvincular a 375px | Menú y modal usables; SearchableSelect a ancho completo |
 
 ## Checklist post-deploy (Fase 4)
 
