@@ -124,3 +124,144 @@ públicos SOLO los endpoints entrantes (seguridad in-route): `events`,
 - [ ] Cron `flush-slack-outbox` visible en Vercel > Crons.
 - [ ] Prueba end-to-end: conectar un tenant, rutear `new_lead`, crear un lead,
       confirmar la tarjeta en el canal.
+
+---
+
+# Integración Slack — Fase 2 (OPAI Intelligence)
+
+Lleva el asistente OPAI Intelligence (help-chat v2) a Slack: responde menciones
+`@OPAI` y DMs, ejecuta el MISMO motor de tools del chat web con los permisos del
+Admin vinculado, confirma escrituras con botones, aprueba tickets desde la
+tarjeta y expone el slash command `/opai`.
+
+## Componentes nuevos
+
+| Pieza | Archivo |
+|-------|---------|
+| Runner no-streaming | `src/lib/ai/help-chat-runner.ts` |
+| Helpers compartidos | `src/lib/ai/help-chat-shared.ts` |
+| Vínculo usuario↔Admin | `src/lib/integrations/slack/user-link.ts` |
+| Ruta de vínculo manual | `src/app/api/integrations/slack/link/route.ts` |
+| Bot (menciones/DM) | `src/lib/integrations/slack/bot.ts` |
+| Markdown → mrkdwn | `src/lib/integrations/slack/markdown.ts` |
+| Interactividad (botones) | `src/lib/integrations/slack/interactivity.ts` + `.../interactivity/route.ts` |
+| Slash command `/opai` | `src/lib/integrations/slack/commands.ts` + `.../commands/route.ts` |
+| Servicio aprobación ticket | `src/lib/tickets-approvals.ts` (reusado por el route ops y Slack) |
+| Modelos | `SlackBotThread`, `SlackPendingAction` (migración `20261001000000`) |
+
+## Flujo del bot (mención / DM)
+
+```
+Slack Event (app_mention | message.im)   [.../events/route.ts]
+  1. verifySlackSignature(rawBody)  → 401 si no calza
+  2. ACK 200 inmediato            ← Slack exige <3s
+  3. after(() => handleBotEvent(teamId, event))       [bot.ts]
+        a. getTenantForTeam(teamId) → getWorkspaceForTenant(tenantId)
+        b. ignora bot_id / subtypes / el propio botUserId
+        c. resolveLinkedAdmin(workspace, slackUserId)
+             └─ sin vínculo ⇒ buildLinkPrompt (botón firmado) y termina
+        d. publica placeholder "⏳ Consultando OPAI…"
+        e. carga transcript de SlackBotThread (memoria por thread)
+        f. runHelpChatTurn(...) con permisos del admin vinculado
+        g. chat.update del placeholder con la respuesta (toSlackMarkdown)
+             └─ si pendingConfirmation ⇒ crea SlackPendingAction + botones
+        h. guarda el turno en el transcript (cap 24 turnos / 24k chars)
+```
+
+## La regla de los 3 segundos y `after()`
+
+Slack corta la request si no recibe un 200 en 3 s. Todas las rutas entrantes
+(events, interactivity, commands) responden 200 de inmediato y hacen el trabajo
+pesado (LLM, tools, posteo) dentro de `after()` de `next/server`, publicando o
+actualizando el mensaje por la Web API cuando el resultado está listo. Por eso
+las tres rutas declaran `maxDuration: 60` en `vercel.json`.
+
+## Vínculo de usuarios
+
+- **Automático por email**: al primer contacto, `resolveLinkedAdmin` obtiene el
+  email vía `users.info` (scope `users:read.email`) y busca un `Admin` activo del
+  tenant por email (case-insensitive). Si hay match crea el `SlackUserLink`.
+- **Manual firmado**: sin match, el bot responde con un botón a
+  `/api/integrations/slack/link?token=…`. El token (`signCookie`, TTL 15 min)
+  transporta `{workspaceId, slackUserId, exp}`. La ruta **exige sesión OPAI**
+  (no es pública en el proxy; si no hay sesión el proxy redirige a login) y valida
+  que el tenant de la sesión == tenant del workspace antes de crear el vínculo.
+- **Sin vínculo = cero datos**: un usuario no vinculado nunca recibe información;
+  sólo el flujo de vinculación.
+
+Los permisos SON los del Admin vinculado (`resolvePermissionsById`), nunca los del
+bot. `allowWrites` del tenant se respeta igual que en el chat web.
+
+## Confirmaciones de escritura (preview/confirm)
+
+En Slack **toda escritura se difiere**. El runner (`deferWrites = allowWrites`):
+
+- Ejecuta las tools `preview_*` (sólo calculan, no persisten) para mostrar montos
+  reales, y deja pendiente la escritura mapeada en `PREVIEW_TO_CONFIRM`.
+- Intercepta las tools de escritura directas (`create_lead`, `create_account`, …
+  en `WRITE_TOOL_NAMES`) sin ejecutarlas, y las expone como `pendingConfirmation`.
+
+La respuesta muestra una tarjeta con botones **Confirmar** / **Cancelar**
+(`action_id` `pending_confirm` / `pending_cancel`). Los args de la tool de
+escritura se guardan en `SlackPendingAction` (kind `TOOL_CONFIRM`, expira 15 min).
+Al **Confirmar**, la interactividad ejecuta `executeToolCallV2` con la identidad y
+permisos del usuario que PRESIONA (que también debe estar vinculado) y actualiza
+la tarjeta a "✅ Confirmado por @usuario". Si la tool devuelve error de permiso,
+la acción se mantiene PENDING y se responde efímero con el motivo.
+
+> Limitación: `create_recurring_invoice` requiere `previewToken` (cache en memoria)
+> y puede no sobrevivir entre la vista previa y la confirmación en serverless; el
+> resto de escrituras se re-ejecutan con los args guardados.
+
+## Aprobación de tickets desde Slack
+
+Cuando `notify()` emite `ticket_needs_approval`, el dispatch adjunta botones
+**Aprobar** / **Rechazar** sobre una `SlackPendingAction` (kind `TICKET_APPROVAL`,
+`entityId` = `ticketId` extraído de `params.data.ticketId`) anclada al mensaje
+publicado. Al decidir, la interactividad valida los permisos de Operaciones del
+admin vinculado y reutiliza `decideTicketApproval` (la MISMA máquina de estados
+del route `POST /api/ops/tickets/[id]/approvals`, extraída a `tickets-approvals.ts`).
+
+## Expiración
+
+El cron `flush-slack-outbox` (cada 2 min) marca `EXPIRED` las `SlackPendingAction`
+`PENDING` cuyo `expiresAt` ya pasó (paso 0, antes de reintentar envíos). Las
+tarjetas caducadas/resueltas, al presionarse, se actualizan a "⌛ Esta acción ya
+expiró o fue resuelta".
+
+## Aislamiento multi-tenant
+
+La frontera sigue siendo `slack_team_id → tenantId`. Interactividad, comandos y
+eventos SIEMPRE resuelven el tenant con `getTenantForTeam` + `getWorkspaceForTenant`
+y validan que el recurso (`SlackPendingAction`, `Admin`, `OpsTicket`) pertenezca a
+ese tenant antes de usarlo. Ningún ID del payload de Slack se usa sin ese pasaje.
+
+## Panel de configuración
+
+La página de Slack agrega la sección **Usuarios vinculados** (lista de
+`SlackUserLink` con Admin y fecha, botón desvincular) y un indicador del estado
+`allowWrites` del asistente con enlace a `/opai/configuracion/asistente-ia`. Las
+rutas nuevas (`/api/integrations/slack/users`) usan `requireSlackAdmin`.
+
+## Troubleshooting (Fase 2)
+
+- **El bot no responde a menciones** — verificar suscripción a `app_mention` y
+  que el bot esté invitado al canal; revisar logs de `handleBotEvent`.
+- **"Vincula tu cuenta OPAI" en loop** — el email de Slack no coincide con ningún
+  Admin activo del tenant; usar el enlace firmado estando logueado en OPAI.
+- **Botón Confirmar no hace nada** — la acción expiró (15 min) o el que presiona no
+  está vinculado / sin permiso para esa tool; se responde efímero con el motivo.
+- **`invalid_signature`** — `SLACK_SIGNING_SECRET` no coincide, o un proxy alteró
+  el raw body antes de la verificación.
+
+## Checklist post-deploy (Fase 2)
+
+- [ ] Migración `20261001000000_slack_bot_and_pending_actions` aplicada.
+- [ ] Slack App > **Interactivity & Shortcuts** > Request URL =
+      `https://www.opai.cl/api/integrations/slack/interactivity`.
+- [ ] Slack App > **Slash Commands** > `/opai` → Request URL =
+      `https://www.opai.cl/api/integrations/slack/commands`.
+- [ ] Eventos suscritos: `app_mention` y `message.im`.
+- [ ] Scope `users:read.email` presente (vínculo por email).
+- [ ] Prueba: `@OPAI ¿cómo viene la caja del mes?` responde en el thread; crear un
+      lead pide confirmación con botones; aprobar un ticket desde la tarjeta.

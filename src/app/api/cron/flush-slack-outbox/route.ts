@@ -19,6 +19,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Paso 0: vence las acciones pendientes (confirmaciones/aprobaciones) cuyo
+  // expiresAt ya pasó. Update masivo, barato, antes de reintentar envíos.
+  const expired = await prisma.slackPendingAction.updateMany({
+    where: { status: "PENDING", expiresAt: { lt: new Date() } },
+    data: { status: "EXPIRED", resolvedAt: new Date() },
+  });
+
   const due = await prisma.slackOutbox.findMany({
     where: { status: { in: ["PENDING", "FAILED"] }, attempts: { lt: MAX_ATTEMPTS } },
     orderBy: { createdAt: "asc" },
@@ -78,5 +85,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ sent, failed, total: due.length });
+  return NextResponse.json({ sent, failed, total: due.length, expiredPending: expired.count });
 }

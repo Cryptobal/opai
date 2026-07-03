@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Slack } from "lucide-react";
 import { SlackConnectedPanel } from "./SlackConnectedPanel";
 import { SlackRoutingTable } from "./SlackRoutingTable";
+import { SlackLinkedUsers } from "./SlackLinkedUsers";
 import type { SlackChannelOption, SlackConfig } from "./types";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -96,6 +97,7 @@ export function SlackConfigClient() {
           <SlackRoutingTable config={config} channels={channels} onChanged={load} />
         </CardContent>
       </Card>
+      <SlackLinkedUsers />
     </div>
   );
 }
