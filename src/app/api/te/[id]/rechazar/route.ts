@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
 import { rejectTeSchema } from "@/lib/validations/ops";
-import { createOpsAuditLog, ensureOpsAccess } from "@/lib/ops";
+import { ensureOpsAccess } from "@/lib/ops";
+import { rejectTe } from "@/lib/te-approvals";
 
 type Params = { id: string };
 
@@ -21,37 +22,21 @@ export async function PATCH(
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
-    const existing = await prisma.opsTurnoExtra.findFirst({
-      where: { id, tenantId: ctx.tenantId },
-      select: { id: true, status: true },
-    });
-    if (!existing) {
-      return NextResponse.json(
-        { success: false, error: "Turno extra no encontrado" },
-        { status: 404 }
-      );
-    }
-    if (existing.status === "paid") {
-      return NextResponse.json(
-        { success: false, error: "No se puede rechazar un turno extra ya pagado" },
-        { status: 400 }
-      );
-    }
-
-    const turno = await prisma.opsTurnoExtra.update({
-      where: { id },
-      data: {
-        status: "rejected",
-        rejectedBy: ctx.userId,
-        rejectedAt: new Date(),
-        rejectionReason: body.reason ?? null,
-      },
-    });
-
-    await createOpsAuditLog(ctx, "te.rejected", "te_turno", id, {
+    const result = await rejectTe({
+      tenantId: ctx.tenantId,
+      actorId: ctx.userId,
+      actorEmail: ctx.userEmail,
+      teId: id,
       reason: body.reason ?? null,
     });
+    if (!result.ok) {
+      return NextResponse.json(
+        { success: false, error: result.error },
+        { status: result.alreadyDecided ? 409 : 400 }
+      );
+    }
 
+    const turno = await prisma.opsTurnoExtra.findFirst({ where: { id, tenantId: ctx.tenantId } });
     return NextResponse.json({ success: true, data: turno });
   } catch (error) {
     console.error("[TE] Error rejecting turno extra:", error);
