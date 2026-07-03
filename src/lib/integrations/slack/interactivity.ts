@@ -83,7 +83,7 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
   const pendingId = action?.value;
 
   // Hub de acciones (Fase 7): "Abrir" apila el modal de la acción (views.push).
-  if (actionId.startsWith("opai_action_open")) {
+  if (actionId?.startsWith("opai_action_open")) {
     const { pushActionModal } = await import("./modals/dispatch");
     await pushActionModal(payload as unknown as Record<string, unknown>);
     return;
@@ -97,7 +97,7 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
   }
 
   // Botón de gestión en la tarjeta de un ticket (Fase 7.1): abre el modal por-fila.
-  if (actionId.startsWith("tcard")) {
+  if (actionId?.startsWith("tcard")) {
     const { handleTicketCardAction } = await import("./tickets/tray-dispatch");
     await handleTicketCardAction(payload as unknown as Record<string, unknown>);
     return;
