@@ -11272,3 +11272,26 @@ model SlackPendingAction {
   @@map("slack_pending_actions")
   @@schema("public")
 }
+
+/// API key del servidor MCP por tenant. La key JAMÁS se almacena en claro:
+/// solo su sha256 (keyHash) + prefijo visible (keyPrefix, primeros 12 chars)
+/// para poder identificarla en la UI. La key resuelve el tenant y corre con
+/// los permisos del Admin que la creó (createdByAdminId).
+/// scope READ → solo tools de lectura; READ_WRITE → lectura + escritura.
+model McpApiKey {
+  id               String    @id @default(cuid())
+  tenantId         String    @map("tenant_id")
+  name             String
+  keyHash          String    @unique @map("key_hash")
+  keyPrefix        String    @map("key_prefix")
+  scope            String    @default("READ") // READ | READ_WRITE
+  createdByAdminId String    @map("created_by_admin_id")
+  lastUsedAt       DateTime? @map("last_used_at")
+  revokedAt        DateTime? @map("revoked_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  @@index([tenantId, revokedAt], map: "idx_mcp_api_keys_tenant_revoked")
+  @@index([keyHash], map: "idx_mcp_api_keys_hash")
+  @@map("mcp_api_keys")
+  @@schema("public")
+}
