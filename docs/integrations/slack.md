@@ -492,3 +492,61 @@ tenant/identidad:
       en descargas o el shortcut no aparece).
 - [ ] `/opai` (Slash Commands) ya apuntando a `…/commands` (Fase 2) — sin cambios.
 - [ ] Prueba end-to-end de la matriz de arriba con un tenant real conectado.
+
+---
+
+# Fase 6 — Canal Slack PERSONAL (DM del bot) en Mis Notificaciones
+
+Quinto canal personal, además del ruteo tenant→canal compartido: cuando un admin
+activa el canal `slack` para un tipo en **Perfil → Mis Notificaciones**, esa
+notificación le llega como **DM del bot OPAI**. Opt-in, **default OFF** para todos
+los tipos (nadie recibe spam por sorpresa).
+
+## Cómo funciona
+
+- **Preferencia**: `NotificationPreference.preferences[typeKey].slack` (JSON aditivo;
+  sin migración de columna). `resolvePrefs` la resuelve y **la apaga en No molestar**
+  igual que push (salvo tipos `critical`).
+- **Despacho** (`notify.ts`, dentro del loop de recipients, tras la rama push):
+  si `eff.slack && subType === 'ADMIN'` → `dispatchPersonalSlackDm` (`personal-dm.ts`).
+  Resuelve el workspace por `tenantId`, el `SlackUserLink` por `adminId`, cachea el
+  `dmChannelId` (`conversations.open` → `slackOpenDm`), arma la tarjeta con
+  `buildNotificationBlocks` y **reusa `SlackOutbox`** (helpers `outbox.ts`: encolar +
+  enviar; el cron `flush-slack-outbox` reintenta los transitorios, descarta los
+  permanentes). Es una **capa independiente**: si el evento ya salió a un canal
+  compartido, el DM personal igual se envía porque el usuario lo pidió.
+- **Aislamiento**: tenant por `getTenantForTeam`/`getWorkspaceForTenant`; identidad por
+  `SlackUserLink`. Sin vínculo → no hay DM (la UI ya deshabilita la columna). Solo
+  admins (los portales no tienen vínculo).
+
+## UI (Mis Notificaciones)
+
+- 5ª columna Slack con 3 estados: (a) **activa** si el usuario tiene vínculo; (b)
+  **deshabilitada + CTA** "vincula tu Slack (DM al bot OPAI)" si hay workspace pero
+  sin vínculo; (c) **oculta** si el tenant no tiene workspace ACTIVO.
+- **Acciones masivas** (`channels.tsx`): headers de columna clickeables por módulo
+  con estado **tri-state** (todas/algunas/ninguna) y menú "Solo este canal"
+  (Solo campana / email / push / Slack). Todo persiste por el **mismo endpoint batch**
+  (`PUT /api/notifications/preferences`, mapa completo) — sin endpoints nuevos.
+- Mobile 375px: el cluster de toggles es `shrink-0` con `gap-1.5`; el label trunca.
+
+## Matriz de pruebas manuales (Fase 6)
+
+| Caso | Esperado |
+| --- | --- |
+| Activar Slack para un tipo → disparar el evento | Llega DM del bot con la tarjeta + botón "Ver en OPAI" |
+| Estar en No molestar (tipo no crítico) | El DM NO llega (igual que push); crítico sí |
+| Usuario sin `SlackUserLink` | Columna Slack deshabilitada con CTA "vincula tu Slack" |
+| Tenant sin workspace Slack activo | La columna Slack no se muestra |
+| "Solo Slack" en Operaciones | Deja Slack ON y campana/email/push OFF en todos los tipos del módulo |
+| Header de columna (tri-state) | 1 clic enciende toda la columna; con todas ON, apaga |
+| 375px (iPhone) | Menú, headers y 5 toggles usables; el nombre del tipo trunca |
+| Reintento del outbox | El cron `flush-slack-outbox` reenvía el DM transitorio; permanente se descarta |
+
+## Checklist post-deploy (Fase 6)
+
+- [ ] Migración `20261004000000_slack_user_link_dm` aplicada (columna `dm_channel_id`).
+- [ ] Scope del bot que permita DMs (`chat:write` ya cubre `im`; `conversations.open`
+      no requiere scope extra para el bot). Verificar que el bot puede abrir DM.
+- [ ] Prueba: vincular un usuario, activar Slack para `new_lead`, crear un lead →
+      confirmar el DM. Repetir con No molestar activo (no debe llegar).
