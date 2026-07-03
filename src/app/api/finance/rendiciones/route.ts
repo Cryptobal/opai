@@ -7,6 +7,7 @@ import {
   resolveApiPerms,
 } from "@/lib/api-auth";
 import { canView, canEdit, hasCapability } from "@/lib/permissions";
+import { createRendicion } from "@/lib/rendiciones-create";
 import { z } from "zod";
 
 // ── Zod schemas ──
@@ -122,66 +123,21 @@ export async function POST(request: NextRequest) {
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
-    // Generate sequential code: REN-YYYY-XXXX
-    const year = new Date().getFullYear();
-    const prefix = `REN-${year}-`;
-    const lastRendicion = await prisma.financeRendicion.findFirst({
-      where: {
-        tenantId: ctx.tenantId,
-        code: { startsWith: prefix },
-      },
-      orderBy: { code: "desc" },
-      select: { code: true },
-    });
-
-    let seq = 1;
-    if (lastRendicion) {
-      const lastSeq = parseInt(lastRendicion.code.replace(prefix, ""), 10);
-      if (!isNaN(lastSeq)) seq = lastSeq + 1;
-    }
-    const code = `${prefix}${String(seq).padStart(4, "0")}`;
-
-    const rendicion = await prisma.$transaction(async (tx) => {
-      const created = await tx.financeRendicion.create({
-        data: {
-          tenantId: ctx.tenantId,
-          code,
-          submitterId: ctx.userId,
-          type: body.type,
-          status: "DRAFT",
-          amount: body.amount,
-          date: new Date(`${body.date}T00:00:00.000Z`),
-          description: body.description ?? null,
-          documentType: body.documentType ?? null,
-          itemId: body.itemId ?? null,
-          costCenterId: body.costCenterId ?? null,
-          beneficiaryGuardiaId: body.beneficiaryGuardiaId ?? null,
-          beneficiaryAdminId: body.beneficiaryAdminId ?? null,
-        },
-        include: {
-          item: { select: { id: true, name: true } },
-          costCenter: { select: { id: true, name: true } },
-          beneficiaryGuardia: {
-            select: {
-              id: true,
-              persona: { select: { firstName: true, lastName: true, rut: true } },
-            },
-          },
-        },
-      });
-
-      await tx.financeRendicionHistory.create({
-        data: {
-          rendicionId: created.id,
-          action: "CREATED",
-          fromStatus: null,
-          toStatus: "DRAFT",
-          userId: ctx.userId,
-          userName: ctx.userEmail,
-        },
-      });
-
-      return created;
+    // Creación única compartida con Slack (code + rendición DRAFT + historial).
+    // Ver src/lib/rendiciones-create.ts.
+    const rendicion = await createRendicion({
+      tenantId: ctx.tenantId,
+      submitterId: ctx.userId,
+      submitterName: ctx.userEmail,
+      type: body.type,
+      amount: body.amount,
+      date: body.date,
+      description: body.description ?? null,
+      documentType: body.documentType ?? null,
+      itemId: body.itemId ?? null,
+      costCenterId: body.costCenterId ?? null,
+      beneficiaryGuardiaId: body.beneficiaryGuardiaId ?? null,
+      beneficiaryAdminId: body.beneficiaryAdminId ?? null,
     });
 
     return NextResponse.json({ success: true, data: rendicion }, { status: 201 });
