@@ -41,7 +41,11 @@
       "short_name": "Marcación",
       "url": "/portal/marcacion",
       "icons": [
-        { "src": "/icons/terreno/icon-96x96.png", "sizes": "96x96", "type": "image/png" }
+        {
+          "src": "/icons/terreno/icon-96x96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
       ]
     },
     {
@@ -49,7 +53,11 @@
       "short_name": "Rondas",
       "url": "/portal/rondas",
       "icons": [
-        { "src": "/icons/terreno/icon-96x96.png", "sizes": "96x96", "type": "image/png" }
+        {
+          "src": "/icons/terreno/icon-96x96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
       ]
     },
     {
@@ -57,8 +65,15 @@
       "short_name": "Acceso",
       "url": "/portal/acceso",
       "icons": [
-        { "src": "/icons/terreno/icon-96x96.png", "sizes": "96x96", "type": "image/png" }
+        {
+          "src": "/icons/terreno/icon-96x96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
       ]
     }
-  ]
+  ],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
 }
