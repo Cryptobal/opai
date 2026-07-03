@@ -75,7 +75,11 @@ export function buildHelpText(): string {
   lines.push(
     "• `/opai ayuda` — esta ayuda",
     "",
-    "También puedes mencionarme (`@OPAI`) en un canal o escribirme por DM.",
+    "*Ejemplos de tickets:*",
+    "• `/opai tickets` — abre tu bandeja de tickets asignados",
+    "• `/opai tickets vencidos` — sólo los que tienen el SLA vencido",
+    "",
+    "También puedes mencionarme (`@OPAI`) en un canal o escribirme por DM, y abrir la pestaña *Inicio* de OPAI en Slack para tu panel personal.",
   );
   return lines.join("\n");
 }

@@ -12,6 +12,7 @@
 import type { ModalDef } from "../modals/types";
 import { ticketModal } from "../modals/ticket";
 import { rendicionModal } from "../modals/rendicion";
+import { trayModal } from "../tickets/tray";
 import { visitaModal } from "./visita";
 import { turnoExtraModal } from "./turno-extra";
 import { vacacionesModal } from "./vacaciones";
@@ -22,6 +23,9 @@ export interface ActionDef extends ModalDef {
 }
 
 export const ACTIONS: ActionDef[] = [
+  // "Mis tickets" reusa la bandeja existente (opai_tickets); el botón Abrir la
+  // apila vía opai_action_open → getModal, sin duplicar el builder.
+  { ...trayModal, group: "Tickets" },
   { ...ticketModal, group: "Tickets" },
   { ...visitaModal, group: "Operaciones" },
   { ...turnoExtraModal, group: "Operaciones" },

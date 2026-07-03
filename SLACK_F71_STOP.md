@@ -22,8 +22,20 @@ Manifest: scopes bot `reactions:read` + `reactions:write`; bot_events `reaction_
 - [x] B2 — Renderer genérico de fields
 - [x] B3 — Enrichers tickets + postulaciones + leads
 - [x] B4 — Tool `get_my_tickets`
-- [ ] B5 — Hub "Mis tickets" + `/opai ayuda`
+- [x] B5 — Hub "Mis tickets" + `/opai ayuda`
 - [ ] B6 — Reacciones Slack→OPAI
 - [ ] B7 — Reacciones OPAI→Slack
 - [ ] B8 — App Home (+ mensaje de bienvenida único vía `SlackUserLink.welcomedAt`, migración aditiva)
-- [ ] B9 — QA + docs
+- [ ] B9 — Botones de gestión + responsable en tarjetas de ticket (Comentar · Estado · Aplazar/Pausar/Silenciar SLA)
+- [ ] B10 — URLs canónicas por entidad en tools + regla system prompt + tarjetas de entidades en el bot
+- [ ] B11 — Menciones cruzadas en comentarios de tickets (bidireccional + notificación)
+- [ ] B12 — QA + docs
+
+## Invariantes añadidos (fase extendida)
+- Controles SLA (aplazar/pausar/silenciar) y cambio de estado: REUSAR los servicios reales
+  del detalle `/ops/tickets/[id]`; extraer a servicio si viven sólo en el route. Confirmación
+  vía `SlackPendingAction` cuando aplique (aplazar pide fecha → modal datepicker).
+- Links del bot: SIEMPRE del campo `url` que devuelven las tools; PROHIBIDO adivinar rutas
+  (regla dura en el system prompt v2). Toda tool de entidades incluye `url` absoluta.
+- Menciones: Slack→OPAI parsea `<@U...>` → `SlackUserLink` → mención real + notify; OPAI→Slack
+  convierte `<@adminId>` a `<@U...>` si vinculado, si no nombre plano.
