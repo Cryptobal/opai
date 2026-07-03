@@ -148,8 +148,16 @@ export function SlackBridges() {
             ⚠️ El workspace fue autorizado sin los permisos que el puente necesita (
             {missingScopes.join(", ")}). Verifica que el manifest en api.slack.com incluya esos
             scopes y los eventos <code>message.channels</code> y <code>message.groups</code>, y
-            luego presiona «Conectar con Slack» de nuevo para re-autorizar. Sin esto, los mensajes
-            de Slack no llegan a OPAI y los de OPAI salen sin nombre.
+            luego re-autoriza aquí mismo. Sin esto, los mensajes de Slack no llegan a OPAI y los
+            de OPAI salen sin nombre.
+            <div className="mt-2">
+              <a
+                href="/api/integrations/slack/oauth/start"
+                className="inline-flex items-center rounded-md border border-amber-400/60 px-2.5 py-1 text-xs font-medium hover:bg-amber-500/15"
+              >
+                Re-autorizar permisos ahora
+              </a>
+            </div>
           </div>
         )}
         {creating && (

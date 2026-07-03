@@ -113,6 +113,11 @@ export function SlackConnectedPanel({
             <Send className="h-4 w-4 mr-1.5" />
             Enviar prueba
           </Button>
+          <Button type="button" variant="ghost" size="sm" asChild>
+            <a href="/api/integrations/slack/oauth/start" title="Vuelve a autorizar la app para otorgar permisos nuevos (no borra la configuración)">
+              Re-autorizar
+            </a>
+          </Button>
           <Button
             type="button"
             variant="ghost"
