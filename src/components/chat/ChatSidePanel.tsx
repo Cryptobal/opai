@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronRight,
   Handshake,
+  Link2,
   Loader2,
   MessageCircle,
   MoreHorizontal,
@@ -19,6 +20,7 @@ import {
   Search,
   Sprout,
   Trash2,
+  Unlink,
   Users,
   X,
 } from "lucide-react";
@@ -31,6 +33,8 @@ import { ChatConversation } from "./ChatConversation";
 import { NewExternalChatModal } from "./NewExternalChatModal";
 import { ChatNewDmModal } from "./ChatNewDmModal";
 import { usePusher } from "./hooks/usePusher";
+import { useSlackBridges, type SlackBridgeInfo } from "./useSlackBridges";
+import { ChatChannelSlackBridge } from "./ChatChannelSlackBridge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   DropdownMenu,
@@ -42,6 +46,13 @@ import {
 
 type AdminUser = { id: string; name: string; email: string };
 type CrmAccountSearchResult = { id: string; name: string; status: string };
+
+/** Control de puentes Slack que baja a cada sección de canales. */
+type SlackBridgeCtl = {
+  enabled: boolean;
+  bridges: Record<string, SlackBridgeInfo>;
+  refresh: () => void;
+};
 
 /* ─── Side Panel Component ─── */
 
@@ -196,6 +207,14 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
   const hiddenClientCount = allClientChannels.length - clientChannels.length;
 
   const canDeleteChannels = userRole === "owner" || userRole === "admin";
+
+  // Puentes Slack (solo admins): mismo gate que requireSlackAdmin en el API.
+  const { connected: slackConnected, bridgeByChatChannelId: slackBridges, refresh: refreshSlackBridges } =
+    useSlackBridges(canDeleteChannels);
+  const slackCtl = useMemo<SlackBridgeCtl>(
+    () => ({ enabled: canDeleteChannels && slackConnected, bridges: slackBridges, refresh: refreshSlackBridges }),
+    [canDeleteChannels, slackConnected, slackBridges, refreshSlackBridges],
+  );
 
   const handleDeleteChannel = (id: string) => setChannelToDelete(id);
 
@@ -509,6 +528,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 channels={installationReportesChannels}
                 collapsed={isSearching ? false : !!collapsedSections["installation_reportes"]}
                 onToggle={() => toggleSection("installation_reportes")}
+                slack={slackCtl}
                 onSelectChannel={ctx.selectChannel}
                 getDisplayName={getChannelDisplayName}
                 onArchive={(id) => ctx.archiveChannel(id)}
@@ -528,6 +548,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 channels={filter === "unread" ? prospectChannels.filter(c => c.unreadCount > 0) : prospectChannels}
                 collapsed={isSearching ? false : !!collapsedSections["prospects"]}
                 onToggle={() => toggleSection("prospects")}
+                slack={slackCtl}
                 onSelectChannel={ctx.selectChannel}
                 getDisplayName={(ch) => ch.account?.name ?? ch.name}
                 onArchive={(id) => ctx.archiveChannel(id)}
@@ -552,6 +573,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 channels={filter === "unread" ? clientChannels.filter(c => c.unreadCount > 0) : clientChannels}
                 collapsed={isSearching ? false : !!collapsedSections["clients"]}
                 onToggle={() => toggleSection("clients")}
+                slack={slackCtl}
                 onSelectChannel={ctx.selectChannel}
                 getDisplayName={(ch) => ch.account?.name ?? ch.name}
                 onArchive={(id) => ctx.archiveChannel(id)}
@@ -583,6 +605,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 onSelectChannel={ctx.selectChannel}
                 getDisplayName={(ch) => ch.name}
                 onUnarchive={(id) => ctx.unarchiveChannel(id)}
+                slack={slackCtl}
                 canDelete={canDeleteChannels}
                 onDelete={handleDeleteChannel}
                 isArchivedSection
@@ -1213,6 +1236,7 @@ function ChannelSection({
   emptyHint,
   subtitle,
   extraHeaderActions,
+  slack,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -1224,6 +1248,7 @@ function ChannelSection({
   onArchive?: (channelId: string) => void;
   onUnarchive?: (channelId: string) => void;
   canDelete?: boolean;
+  slack?: SlackBridgeCtl;
   onDelete?: (channelId: string) => void;
   isArchivedSection?: boolean;
   onNewChat?: () => void;
@@ -1237,6 +1262,7 @@ function ChannelSection({
   const sectionUnread = channels.reduce((sum, ch) => sum + (ch.notificationPreference === 'ALL' ? ch.unreadCount : 0), 0);
   const sectionPref = sectionNotifMode(channels);
   const showSectionNotifMenu = onApplySectionNotifPref && !isArchivedSection && channels.length > 0;
+  const [slackFor, setSlackFor] = useState<{ channel: ChatSidePanelChannel; mode: "connect" | "disconnect" } | null>(null);
 
   return (
     <div className="opai-chat-mobile-section">
@@ -1341,7 +1367,9 @@ function ChannelSection({
       {!collapsed && channels.length > 0 && (
         <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack opai-chat-mobile-section-body">
           {channels.map((ch) => {
-            const hasMenu = onArchive || onUnarchive || (canDelete && onDelete) || onMarkAsRead || onUpdateNotifPref;
+            const slackBridge = slack?.bridges[ch.id] ?? null;
+            const canSlack = Boolean(slack?.enabled) && ch.channelType !== "DIRECT";
+            const hasMenu = onArchive || onUnarchive || (canDelete && onDelete) || onMarkAsRead || onUpdateNotifPref || canSlack;
             return (
               <div key={ch.id} className="relative group flex items-center">
                 <div className="flex-1 min-w-0">
@@ -1349,6 +1377,7 @@ function ChannelSection({
                     channel={ch}
                     displayName={getDisplayName(ch)}
                     onClick={() => onSelectChannel(ch.id)}
+                    isBridged={Boolean(slackBridge)}
                   />
                 </div>
                 {hasMenu && (
@@ -1420,6 +1449,28 @@ function ChannelSection({
                             )}
                           </>
                         )}
+                        {canSlack && (
+                          <>
+                            <DropdownMenuSeparator />
+                            {slackBridge ? (
+                              <>
+                                <div className="px-2 py-1 text-[10px] text-muted-foreground flex items-center gap-1.5">
+                                  <Link2 className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">Conectado con #{slackBridge.slackChannelName}</span>
+                                </div>
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSlackFor({ channel: ch, mode: "disconnect" }); }}>
+                                  <Unlink className="h-3.5 w-3.5 mr-2" />
+                                  Desconectar de Slack
+                                </DropdownMenuItem>
+                              </>
+                            ) : (
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSlackFor({ channel: ch, mode: "connect" }); }}>
+                                <Link2 className="h-3.5 w-3.5 mr-2" />
+                                Vincular con Slack
+                              </DropdownMenuItem>
+                            )}
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -1428,6 +1479,17 @@ function ChannelSection({
             );
           })}
         </div>
+      )}
+      {slack && slackFor && (
+        <ChatChannelSlackBridge
+          open
+          mode={slackFor.mode}
+          chatChannelId={slackFor.channel.id}
+          channelName={getDisplayName(slackFor.channel)}
+          bridge={slack.bridges[slackFor.channel.id] ?? null}
+          onClose={() => setSlackFor(null)}
+          onChanged={() => { slack.refresh(); setSlackFor(null); }}
+        />
       )}
     </div>
   );
@@ -1439,10 +1501,12 @@ function ChannelListItem({
   channel,
   displayName,
   onClick,
+  isBridged,
 }: {
   channel: ChatSidePanelChannel;
   displayName: string;
   onClick: () => void;
+  isBridged?: boolean;
 }) {
   const initial = displayName.charAt(0).toUpperCase();
 
@@ -1483,6 +1547,11 @@ function ChannelListItem({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="text-sm font-medium truncate md:text-[15px]">{displayName}</span>
+          {isBridged && (
+            <span title="Conectado con Slack" className="shrink-0 inline-flex">
+              <Link2 className="h-3 w-3 text-muted-foreground/60" />
+            </span>
+          )}
           {channel.notificationPreference === "MENTIONS_ONLY" && (
             <AtSign className="h-3 w-3 shrink-0 text-muted-foreground/50" />
           )}
