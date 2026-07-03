@@ -59,7 +59,7 @@ function toForm(body: Record<string, unknown>): string {
   return form.toString();
 }
 
-async function callSlack(
+export async function callSlack(
   method: string,
   body: Record<string, unknown>,
   token?: string,
@@ -155,6 +155,29 @@ export async function slackRespondUrl(
 export async function slackAuthTest(token: string): Promise<{ teamId: string; userId: string }> {
   const json = await callSlack("auth.test", {}, token);
   return { teamId: (json.team_id as string) ?? "", userId: (json.user_id as string) ?? "" };
+}
+
+/**
+ * views.open — abre un modal. El `trigger_id` vence en ~3s, así que hay que
+ * llamar esto ANTES de cualquier trabajo pesado (Fase 5).
+ */
+export async function slackOpenView(
+  token: string,
+  triggerId: string,
+  view: unknown,
+): Promise<{ id: string }> {
+  const json = await callSlack("views.open", { trigger_id: triggerId, view }, token);
+  return { id: ((json.view as { id?: string })?.id) ?? "" };
+}
+
+/** views.update — reemplaza el contenido de un modal ya abierto. */
+export async function slackUpdateView(
+  token: string,
+  viewId: string,
+  view: unknown,
+): Promise<{ id: string }> {
+  const json = await callSlack("views.update", { view_id: viewId, view }, token);
+  return { id: ((json.view as { id?: string })?.id) ?? "" };
 }
 
 export interface SlackChannel {
