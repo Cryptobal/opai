@@ -23,7 +23,7 @@ export function CopyField({ value, label }: { value: string; label?: string }) {
     <div className="space-y-1">
       {label && <p className="text-xs font-medium text-muted-foreground">{label}</p>}
       <div className="flex items-start gap-2">
-        <code className="flex-1 whitespace-pre-wrap break-all rounded-lg border border-border bg-muted/40 p-2 font-mono text-[11px] leading-relaxed">
+        <code className="flex-1 whitespace-pre-wrap break-all rounded-lg border border-border bg-muted/40 p-2 font-mono text-[12px] leading-relaxed">
           {value}
         </code>
         <Button type="button" size="sm" variant="outline" onClick={copy} className="shrink-0">
