@@ -1565,6 +1565,7 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   add_quote_position: "Agregar puesto a la cotización",
   update_quote_position: "Actualizar puesto de la cotización",
   remove_quote_position: "Eliminar puesto de la cotización",
+  manage_quote_includes: "Modificar los incluidos de la cotización",
   send_quote_proposal: "Enviar propuesta de cotización",
   create_invoice_draft: "Crear borrador de factura",
   create_credit_note_draft: "Crear nota de crédito",
@@ -1573,8 +1574,20 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   create_factoring_company: "Crear empresa de factoring",
 };
 
-/** Nombres de todas las tools de escritura (patrón preview/confirm o directas). */
-export const WRITE_TOOL_NAMES: ReadonlySet<string> = new Set(Object.keys(WRITE_TOOL_LABELS));
+/** Tools que viven en la sección de escritura pero son de LECTURA (no diferir). */
+const WRITE_SECTION_READ_ONLY: ReadonlySet<string> = new Set(["get_quote_proposal"]);
+
+/**
+ * Nombres de todas las tools de escritura, DERIVADO de `writeToolDefinitions()`
+ * para que ningún write nuevo escape al diferido en transportes externos
+ * (Slack). Excluye las `preview_*` (solo calculan, no persisten) y las lecturas
+ * de la sección. `WRITE_TOOL_LABELS` queda solo para el texto de la tarjeta.
+ */
+export const WRITE_TOOL_NAMES: ReadonlySet<string> = new Set(
+  writeToolDefinitions()
+    .map((d) => d.function.name)
+    .filter((n) => !n.startsWith("preview_") && !WRITE_SECTION_READ_ONLY.has(n)),
+);
 
 export function getToolDefinitionsV2(allowDataQuestions: boolean, allowWrites: boolean = false) {
   if (!allowDataQuestions) return [];

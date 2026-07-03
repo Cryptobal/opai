@@ -57,5 +57,10 @@ export function toSlackMarkdown(input: string): string {
   }
 
   const text = out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
-  return text.length > MAX_LEN ? `${text.slice(0, MAX_LEN - 1)}…` : text;
+  if (text.length <= MAX_LEN) return text;
+  let cut = text.slice(0, MAX_LEN - 1);
+  // No cortar dentro de un enlace mrkdwn `<url|texto>`: si quedó un `<` sin su
+  // `>` de cierre, recorta antes del `<` para no dejar una entidad rota.
+  if (cut.lastIndexOf("<") > cut.lastIndexOf(">")) cut = cut.slice(0, cut.lastIndexOf("<"));
+  return `${cut.trimEnd()}…`;
 }

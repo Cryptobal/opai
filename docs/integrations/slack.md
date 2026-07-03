@@ -254,6 +254,22 @@ rutas nuevas (`/api/integrations/slack/users`) usan `requireSlackAdmin`.
 - **`invalid_signature`** — `SLACK_SIGNING_SECRET` no coincide, o un proxy alteró
   el raw body antes de la verificación.
 
+## Limitaciones conocidas (Fase 2)
+
+- **Escrituras encadenadas en un turno**: si el modelo pide dos escrituras a la
+  vez (ej. crear cuenta y luego contacto), sólo la ÚLTIMA queda como tarjeta de
+  confirmación (last-wins). Nada se persiste sin confirmar, así que el peor caso
+  es una confirmación que falla limpiamente (ej. accountId inexistente), nunca
+  datos corruptos. Para flujos multi-entidad, usar el chat web.
+- **Aprobaciones multi-paso**: los botones se adjuntan al evento
+  `ticket_needs_approval` (creación). Al avanzar de paso se notifica al siguiente
+  aprobador con `ticket_approved` (sin botones); ese paso se decide desde la web.
+- **Memoria por thread bajo ráfagas**: `SlackBotThread` es read-modify-write sin
+  lock; dos mensajes casi simultáneos en el mismo thread pueden perder un turno
+  del historial (last-write-wins). No afecta datos, sólo memoria conversacional.
+- **`create_recurring_invoice`**: depende de un `previewToken` en caché de memoria
+  que puede no sobrevivir entre la vista previa y la confirmación en serverless.
+
 ## Checklist post-deploy (Fase 2)
 
 - [ ] Migración `20261001000000_slack_bot_and_pending_actions` aplicada.

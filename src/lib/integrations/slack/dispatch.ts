@@ -64,36 +64,19 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     critical: input.typeDef.critical,
   });
 
-  // Ticket pendiente de aprobación: adjunta botones Aprobar/Rechazar sobre una
-  // SlackPendingAction (kind TICKET_APPROVAL). La firma de la acción es su id.
-  let ticketPendingId: string | null = null;
   const ticketId =
     input.typeDef.key === "ticket_needs_approval" && typeof input.data?.ticketId === "string"
       ? (input.data.ticketId as string)
       : null;
-  if (ticketId) {
-    const pa = await prisma.slackPendingAction.create({
-      data: {
-        tenantId: input.tenantId,
-        workspaceId: workspace.id,
-        kind: "TICKET_APPROVAL",
-        entityId: ticketId,
-        requestedBySlackUserId: "system",
-        channelId,
-        status: "PENDING",
-        expiresAt: new Date(Date.now() + TICKET_PENDING_TTL_MS),
-      },
-      select: { id: true },
-    });
-    ticketPendingId = pa.id;
-    blocks.push(ticketActionsBlock(ticketPendingId));
-  }
 
-  // Dedupe en ráfagas: mismo (tenant, key, title) dentro del mismo minuto.
+  // Dedupe en ráfagas: mismo (tenant, key, title) dentro del mismo minuto. Para
+  // aprobaciones se incluye el ticketId, así dos tickets distintos con el mismo
+  // título en el mismo minuto NO colisionan (perderían sus botones).
   const minute = Math.floor(Date.now() / 60000);
-  const dedupeKey = createHash("sha1")
-    .update(`${input.tenantId}|${input.typeDef.key}|${input.title}|${minute}`)
-    .digest("hex");
+  const dedupeMaterial = ticketId
+    ? `${input.tenantId}|${input.typeDef.key}|${input.title}|t:${ticketId}|${minute}`
+    : `${input.tenantId}|${input.typeDef.key}|${input.title}|${minute}`;
+  const dedupeKey = createHash("sha1").update(dedupeMaterial).digest("hex");
 
   let outboxId: string;
   try {
@@ -113,6 +96,32 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     // P2002 = choque de unique (dedupe): otra notificación idéntica ya encolada.
     if ((err as { code?: string }).code === "P2002") return;
     throw err;
+  }
+
+  // Ticket pendiente de aprobación: se crea la SlackPendingAction DESPUÉS de
+  // pasar el dedupe (evita huérfanas), se adjuntan los botones Aprobar/Rechazar
+  // y se re-persiste el payload del outbox con los botones incluidos.
+  let ticketPendingId: string | null = null;
+  if (ticketId) {
+    const pa = await prisma.slackPendingAction.create({
+      data: {
+        tenantId: input.tenantId,
+        workspaceId: workspace.id,
+        kind: "TICKET_APPROVAL",
+        entityId: ticketId,
+        requestedBySlackUserId: "system",
+        channelId,
+        status: "PENDING",
+        expiresAt: new Date(Date.now() + TICKET_PENDING_TTL_MS),
+      },
+      select: { id: true },
+    });
+    ticketPendingId = pa.id;
+    blocks.push(ticketActionsBlock(ticketPendingId));
+    await prisma.slackOutbox.update({
+      where: { id: outboxId },
+      data: { payload: { text, blocks } as object },
+    });
   }
 
   // Intento de envío inmediato; el cron reintenta los que queden FAILED.

@@ -223,22 +223,26 @@ export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<Help
           args,
           summary: WRITE_TOOL_LABELS[call.name] ?? call.name,
         };
+        // executed:false es deliberado: el modelo NO debe afirmar que la acción
+        // ya ocurrió. Solo se ejecutará cuando el usuario presione Confirmar.
         result = {
           ok: true,
-          deferred: true,
+          executed: false,
+          status: "pending_confirmation",
           message:
-            "Vista previa lista. Esta acción escribe datos y requiere confirmación del usuario en Slack. Resume en 1-2 frases QUÉ se hará (sin ejecutarla) y NO vuelvas a llamar tools de escritura.",
+            "Acción PREPARADA pero NO ejecutada. Se ejecutará solo cuando el usuario presione Confirmar en Slack. Resume en 1-2 frases QUÉ se hará y pídele que confirme. NO afirmes que ya está hecho. NO llames más tools de escritura en este turno.",
         };
       } else {
-        result = await executeToolCallV2(
-          call.name,
-          args,
-          tenantId,
-          userId,
-          perms,
-          canViewAllRendiciones,
-          null,
-        );
+        try {
+          result = await executeToolCallV2(
+            call.name, args, tenantId, userId, perms, canViewAllRendiciones, null,
+          );
+        } catch (err) {
+          // Aísla el fallo de UNA tool: el modelo puede recuperarse en vez de
+          // abortar todo el turno. Error ruidoso en logs.
+          console.error(`[help-chat-runner] tool ${call.name} lanzó excepción:`, err);
+          result = { ok: false, error: "La herramienta falló temporalmente. Intenta reformular o vuelve a intentar." };
+        }
         // `preview_*` es solo cálculo (no persiste): sí se ejecuta y, si sale
         // ok, deja pendiente la escritura mapeada con SUS mismos args.
         if (previewMap && (result as { ok?: boolean })?.ok) {
