@@ -1,5 +1,7 @@
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resend, getTenantEmailConfig } from "@/lib/resend";
+import { dispatchSlackForNotification } from "@/lib/integrations/slack/dispatch";
 import { render } from "@react-email/render";
 import NotificationEmail from "@/emails/NotificationEmail";
 import { resolvePermissions } from "@/lib/permissions-server";
@@ -45,6 +47,19 @@ export async function notify(params: NotifyParams): Promise<{ delivered: number 
     console.error(`[notify] Unknown notification type: ${params.type}`);
     return { delivered: 0 };
   }
+
+  // Slack: despacho a nivel tenant (evento→canal), una vez por notify() y
+  // antes del loop de destinatarios. Async con after() para no bloquear la
+  // respuesta; los tenants sin Slack retornan de inmediato dentro del dispatch.
+  after(() =>
+    dispatchSlackForNotification({
+      tenantId: params.tenantId,
+      typeDef,
+      title: params.title,
+      body: params.body,
+      link: params.link,
+    }).catch((err) => console.error("[slack] dispatch error:", err)),
+  );
 
   const audience: Audience = params.audience ?? typeDef.audiences[0];
   const subType: SubType = params.targetType ?? audienceToSubType(audience);

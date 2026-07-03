@@ -82,6 +82,13 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/api/auth')) return true;
   if (pathname.startsWith('/api/webhook')) return true;
   if (pathname.startsWith('/api/inbound')) return true; // Inbound mail webhooks (auth Svix in-route)
+  // Slack: sólo los endpoints entrantes (firma HMAC / state firmado in-route).
+  // NO todo /api/integrations/slack: config/channels/routes/test y oauth/start
+  // permanecen tras NextAuth (requireAuth + admin del tenant).
+  if (pathname.startsWith('/api/integrations/slack/events')) return true; // Slack Events API (firma HMAC in-route)
+  if (pathname.startsWith('/api/integrations/slack/interactivity')) return true; // Slack interactividad (firma HMAC in-route)
+  if (pathname.startsWith('/api/integrations/slack/commands')) return true; // Slack slash commands (firma HMAC in-route)
+  if (pathname.startsWith('/api/integrations/slack/oauth/callback')) return true; // OAuth callback (state firmado in-route)
   if (/^\/api\/presentations\/[^/]+\/track$/.test(pathname)) return true;
   if (pathname.startsWith('/api/pdf')) return true;
   if (pathname.startsWith('/api/cron')) return true; // Cron jobs (protegidos por CRON_SECRET)
