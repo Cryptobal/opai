@@ -30,7 +30,7 @@ export interface NotifyParams {
   data?: Record<string, unknown>;
   emailSecondaryAction?: { url: string; label: string; color?: string };
   /** Channel overrides for legitimate edge cases (e.g. force-bell on a usually-silent type). */
-  forceChannels?: { bell?: boolean; email?: boolean; push?: boolean };
+  forceChannels?: { bell?: boolean; email?: boolean; push?: boolean; slack?: boolean };
 }
 
 interface Recipient {
@@ -93,6 +93,7 @@ export async function notify(params: NotifyParams): Promise<{ delivered: number 
       push: params.forceChannels?.push ?? (prefs.pushDesktop || prefs.pushMobile),
       pushDesktop: params.forceChannels?.push ?? prefs.pushDesktop,
       pushMobile: params.forceChannels?.push ?? prefs.pushMobile,
+      slack: params.forceChannels?.slack ?? prefs.slack,
     };
 
     // Bell: only admins (portal users have no bell). Targeted vs broadcast:
@@ -170,6 +171,23 @@ export async function notify(params: NotifyParams): Promise<{ delivered: number 
         coalesce: typeDef.coalesce,
         channels: { desktop: eff.pushDesktop, mobile: eff.pushMobile },
       });
+    }
+
+    // Slack personal (DM del bot) — solo admins vinculados; opt-in. Quiet hours
+    // ya viene aplicado en prefs.slack. Capa independiente del ruteo tenant.
+    if (eff.slack && subType === 'ADMIN') {
+      const { dispatchPersonalSlackDm } = await import('@/lib/integrations/slack/personal-dm');
+      await dispatchPersonalSlackDm({
+        tenantId: params.tenantId,
+        adminId: r.id,
+        typeKey: typeDef.key,
+        title: params.title,
+        body: params.body,
+        category: typeDef.category,
+        link: params.link,
+        critical: typeDef.critical,
+        phone: typeof params.data?.phone === 'string' ? params.data.phone : null,
+      }).catch((err) => console.error(`[notify] slack DM error for ${r.id}:`, err));
     }
 
     delivered++;

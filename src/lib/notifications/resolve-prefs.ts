@@ -9,6 +9,8 @@ export interface ResolvedPrefs {
   push: boolean;
   pushDesktop: boolean;
   pushMobile: boolean;
+  /** DM personal del bot en Slack (Fase 6; opt-in, default OFF). */
+  slack: boolean;
   inQuietHours: boolean;
 }
 
@@ -61,6 +63,8 @@ export async function resolvePrefs(p: ResolvePrefsParams): Promise<ResolvedPrefs
   const email = userOverride.email ?? defaults.email ?? false;
   let pushDesktop = userOverride.pushDesktop ?? defaults.push ?? false;
   let pushMobile = userOverride.pushMobile ?? defaults.push ?? false;
+  // Slack personal: SIEMPRE opt-in — sin default de catálogo, arranca en false.
+  let slack = userOverride.slack ?? false;
 
   if (tenantPushDisabled) {
     pushDesktop = false;
@@ -87,6 +91,7 @@ export async function resolvePrefs(p: ResolvePrefsParams): Promise<ResolvedPrefs
   if (inQuietHours && !type.critical) {
     pushDesktop = false;
     pushMobile = false;
+    slack = false; // el DM personal respeta No molestar igual que push
   }
 
   return {
@@ -95,6 +100,7 @@ export async function resolvePrefs(p: ResolvePrefsParams): Promise<ResolvedPrefs
     push: pushDesktop || pushMobile,
     pushDesktop,
     pushMobile,
+    slack,
     inQuietHours,
   };
 }

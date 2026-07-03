@@ -5,14 +5,15 @@
  * - email:       email transaccional vía Resend
  * - pushDesktop: Web Push API en navegador desktop
  * - pushMobile:  Web Push en navegador mobile + apps Capacitor (Android/iOS)
+ * - slack:       DM personal del bot OPAI (Fase 6; opt-in, default OFF)
  *
  * El catálogo (`catalog.ts`) sigue exponiendo `defaults.push` como un único
  * boolean: cuando se lee, se replica como pushDesktop=push y pushMobile=push.
  * Esto mantiene la compatibilidad con el catálogo existente sin tocarlo.
  */
-export type UserChannel = 'bell' | 'email' | 'pushDesktop' | 'pushMobile';
+export type UserChannel = 'bell' | 'email' | 'pushDesktop' | 'pushMobile' | 'slack';
 
-export const USER_CHANNELS: UserChannel[] = ['bell', 'email', 'pushDesktop', 'pushMobile'];
+export const USER_CHANNELS: UserChannel[] = ['bell', 'email', 'pushDesktop', 'pushMobile', 'slack'];
 
 export interface ChannelPrefsLegacy {
   bell?: boolean;
@@ -21,6 +22,7 @@ export interface ChannelPrefsLegacy {
   push?: boolean;
   pushDesktop?: boolean;
   pushMobile?: boolean;
+  slack?: boolean;
 }
 
 export interface ChannelPrefs {
@@ -28,6 +30,7 @@ export interface ChannelPrefs {
   email?: boolean;
   pushDesktop?: boolean;
   pushMobile?: boolean;
+  slack?: boolean;
 }
 
 /**
@@ -39,6 +42,7 @@ export function normalizePrefs(input: ChannelPrefsLegacy | undefined): ChannelPr
   if (!input) return out;
   if (typeof input.bell === 'boolean') out.bell = input.bell;
   if (typeof input.email === 'boolean') out.email = input.email;
+  if (typeof input.slack === 'boolean') out.slack = input.slack;
 
   const hasNew = typeof input.pushDesktop === 'boolean' || typeof input.pushMobile === 'boolean';
   if (hasNew) {

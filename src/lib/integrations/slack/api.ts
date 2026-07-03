@@ -158,6 +158,15 @@ export async function slackAuthTest(token: string): Promise<{ teamId: string; us
 }
 
 /**
+ * conversations.open → id del canal DM (im) con un usuario. Se cachea en
+ * `SlackUserLink.dmChannelId` para el canal Slack personal (Fase 6).
+ */
+export async function slackOpenDm(token: string, userId: string): Promise<string | null> {
+  const json = await callSlack("conversations.open", { users: userId }, token);
+  return ((json.channel as { id?: string })?.id) ?? null;
+}
+
+/**
  * views.open — abre un modal. El `trigger_id` vence en ~3s, así que hay que
  * llamar esto ANTES de cualquier trabajo pesado (Fase 5).
  */
