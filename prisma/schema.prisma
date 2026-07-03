@@ -11230,3 +11230,45 @@ model SlackUserLink {
   @@map("slack_user_links")
   @@schema("public")
 }
+
+/// Memoria conversacional del bot por thread de Slack. Transcript JSON capado.
+model SlackBotThread {
+  id            String   @id @default(cuid())
+  tenantId      String   @map("tenant_id")
+  workspaceId   String   @map("workspace_id")
+  channelId     String   @map("channel_id")
+  threadTs      String   @map("thread_ts")
+  transcript    Json     @default("[]") @db.JsonB
+  lastMessageAt DateTime @default(now()) @map("last_message_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@unique([workspaceId, channelId, threadTs], map: "uq_slack_bot_thread_ws_channel_ts")
+  @@index([tenantId, lastMessageAt], map: "idx_slack_bot_threads_tenant_last")
+  @@map("slack_bot_threads")
+  @@schema("public")
+}
+
+/// Acción pendiente (confirmación de escritura o aprobación de ticket) creada
+/// desde una tarjeta interactiva. Expira a los 15 min; el cron marca EXPIRED.
+model SlackPendingAction {
+  id                     String    @id @default(cuid())
+  tenantId               String    @map("tenant_id")
+  workspaceId            String    @map("workspace_id")
+  kind                   String // TOOL_CONFIRM | TICKET_APPROVAL
+  toolName               String?   @map("tool_name")
+  toolArgs               Json?     @map("tool_args") @db.JsonB
+  entityId               String?   @map("entity_id")
+  requestedBySlackUserId String    @map("requested_by_slack_user_id")
+  channelId              String    @map("channel_id")
+  messageTs              String?   @map("message_ts")
+  status                 String    @default("PENDING") // PENDING | CONFIRMED | CANCELLED | EXPIRED
+  expiresAt              DateTime  @map("expires_at")
+  resolvedBy             String?   @map("resolved_by")
+  resolvedAt            DateTime? @map("resolved_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
+
+  @@index([tenantId, status], map: "idx_slack_pending_tenant_status")
+  @@index([expiresAt], map: "idx_slack_pending_expires")
+  @@map("slack_pending_actions")
+  @@schema("public")
+}
