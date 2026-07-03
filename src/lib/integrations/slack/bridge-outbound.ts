@@ -10,6 +10,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { getWorkspaceForTenant } from "./workspace";
 import { slackPostMessage, SlackApiError } from "./api";
+import { parseOutboundAttachments, buildOutboundMessage } from "./bridge-blocks";
 
 export interface OutboundMessage {
   id: string;
@@ -69,19 +70,6 @@ async function renderMentions(tenantId: string, content: string): Promise<string
   );
 }
 
-function attachmentLines(attachments: unknown): string {
-  if (!Array.isArray(attachments)) return "";
-  const lines: string[] = [];
-  for (const a of attachments) {
-    if (!a || typeof a !== "object") continue;
-    const url = (a as { url?: string }).url;
-    if (!isHttpUrl(url ?? null)) continue;
-    const name = (a as { name?: string; fileName?: string }).name || (a as { fileName?: string }).fileName || "archivo";
-    lines.push(`📎 <${url}|${name}>`);
-  }
-  return lines.length ? "\n" + lines.join("\n") : "";
-}
-
 export async function mirrorChatMessageToSlack(message: OutboundMessage): Promise<void> {
   // Anti-loop: nunca re-espejar lo que vino de Slack ni los mensajes de sistema.
   if (message.senderType === "SLACK" || message.senderType === "SYSTEM") return;
@@ -102,7 +90,9 @@ export async function mirrorChatMessageToSlack(message: OutboundMessage): Promis
     thread_ts = rootMap?.slackTs; // sin map → mensaje suelto (documentado)
   }
 
-  const body = (await renderMentions(message.tenantId, message.content || "")) + attachmentLines(message.attachments);
+  const rendered = await renderMentions(message.tenantId, message.content || "");
+  const atts = parseOutboundAttachments(message.attachments);
+  const primary = buildOutboundMessage(rendered, atts);
   const username = usernameFor(message.senderType, message.senderName);
   const icon_url = isHttpUrl(message.senderAvatar) ? message.senderAvatar : undefined;
 
@@ -110,7 +100,8 @@ export async function mirrorChatMessageToSlack(message: OutboundMessage): Promis
   try {
     ({ ts } = await slackPostMessage(ws.botToken, {
       channel: link.slackChannelId,
-      text: body || "(mensaje sin texto)",
+      text: primary.text,
+      blocks: primary.blocks,
       thread_ts,
       username,
       icon_url,
@@ -118,10 +109,12 @@ export async function mirrorChatMessageToSlack(message: OutboundMessage): Promis
   } catch (err) {
     if (err instanceof SlackApiError && err.slackError === "missing_scope") {
       console.error("[slack] falta chat:write.customize: reconectar workspace");
-      // Reintento sin identidad por mensaje: no perder el mensaje.
+      // Reintento sin identidad por mensaje (la identidad va en el texto).
+      const fb = buildOutboundMessage(rendered, atts, `*${username}:* `);
       ({ ts } = await slackPostMessage(ws.botToken, {
         channel: link.slackChannelId,
-        text: `*${username}:* ${body || "(mensaje sin texto)"}`,
+        text: fb.text,
+        blocks: fb.blocks,
         thread_ts,
       }));
     } else {
