@@ -9,6 +9,7 @@ import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { triggerChatEvent, getSenderId, truncatePreview, getPusherServer } from "@/lib/chat";
+import { mirrorChatMessageToSlack } from "@/lib/integrations/slack/bridge-outbound";
 import { sendChatPushNotifications, getChatChannelRecipients, filterRecipientsForInAppNotifications } from "@/lib/pwa/push-service";
 import type { ChatSenderType } from "@prisma/client";
 import { requireTenantModule } from '@/lib/require-module';
@@ -397,6 +398,11 @@ export async function POST(
 
       return msg;
     });
+
+    // Espejo saliente al canal de Slack puenteado (si existe). No bloquea.
+    after(() =>
+      mirrorChatMessageToSlack(message).catch((err) => console.error("[slack] bridge out:", err)),
+    );
 
     const responseData = {
       id: message.id,

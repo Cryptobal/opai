@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
+import { mirrorChatMessageToSlack } from "@/lib/integrations/slack/bridge-outbound";
 import { prisma } from "@/lib/prisma";
 import { verifyClientChannelAccess } from "@/lib/portal-chat-auth";
 import { requirePortalClienteAuth } from "@/lib/portal-cliente";
@@ -274,6 +275,11 @@ export async function POST(
 
       return msg;
     });
+
+    // Espejo saliente al canal de Slack puenteado (si existe). No bloquea.
+    after(() =>
+      mirrorChatMessageToSlack(message).catch((err) => console.error("[slack] bridge out:", err)),
+    );
 
     const responseData = {
       id: message.id,
