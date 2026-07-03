@@ -51,6 +51,25 @@ export async function createOpsTicket(input: CreateOpsTicketInput): Promise<Crea
   });
   if (!ticketType) return { error: "Tipo de ticket no encontrado" };
 
+  // Responsable por defecto del tipo (fix raíz de los tickets huérfanos): si el
+  // input no trae responsable, hereda `defaultAssignedToUserId` del tipo. Aplica
+  // a TODOS los orígenes (web, portal, email, Slack, IA) porque todos pasan por
+  // acá. Se valida que el admin siga activo en el tenant; si no, null + warn.
+  let resolvedAssignedTo = input.assignedTo ?? null;
+  if (resolvedAssignedTo == null && ticketType.defaultAssignedToUserId) {
+    const def = await prisma.admin.findFirst({
+      where: { id: ticketType.defaultAssignedToUserId, tenantId: input.tenantId, status: "active" },
+      select: { id: true },
+    });
+    if (def) {
+      resolvedAssignedTo = def.id;
+    } else {
+      console.warn(
+        `[tickets-create] Responsable por defecto ${ticketType.defaultAssignedToUserId} del tipo ${ticketType.id} no está activo en el tenant ${input.tenantId}; el ticket nace sin responsable.`,
+      );
+    }
+  }
+
   const slaDueAt = new Date(Date.now() + ticketType.slaHours * 60 * 60 * 1000);
   const requiresApproval = ticketType.requiresApproval && ticketType.approvalSteps.length > 0;
   const initialStatus = requiresApproval ? "pending_approval" : "open";
@@ -78,7 +97,7 @@ export async function createOpsTicket(input: CreateOpsTicketInput): Promise<Crea
         title: input.title,
         description: input.description ?? null,
         assignedTeam: input.assignedTeam ?? ticketType.assignedTeam,
-        assignedTo: input.assignedTo ?? null,
+        assignedTo: resolvedAssignedTo,
         installationId: input.installationId ?? null,
         source: input.source ?? "manual",
         sourceGuardEventId: input.sourceGuardEventId ?? null,
