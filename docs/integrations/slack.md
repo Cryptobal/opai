@@ -281,3 +281,86 @@ rutas nuevas (`/api/integrations/slack/users`) usan `requireSlackAdmin`.
 - [ ] Scope `users:read.email` presente (vínculo por email).
 - [ ] Prueba: `@OPAI ¿cómo viene la caja del mes?` responde en el thread; crear un
       lead pide confirmación con botones; aprobar un ticket desde la tarjeta.
+
+---
+
+# Fase 4 — Puente bidireccional de canales
+
+Conecta un canal del chat de OPAI con un canal de Slack: lo que se escribe en
+OPAI aparece en Slack con el nombre y avatar reales de cada persona, y lo que se
+escribe en Slack aparece en OPAI en vivo. Relación **1:1** (un canal OPAI ↔ un
+canal Slack), sin fan-out en v1.
+
+## Cómo funciona
+
+- **OPAI → Slack** (`bridge-outbound.ts`): tras cada envío en las 3 rutas de chat
+  (admin, portal guardia, portal cliente) se llama `mirrorChatMessageToSlack` en
+  `after()`. Publica con `chat.postMessage` usando `username` (con sufijo de rol:
+  `"Pedro Soto · Guardia"`, `"María Díaz · Cliente"`; los admins van con su
+  nombre) e `icon_url` = avatar si es URL absoluta. Requiere scope
+  `chat:write.customize`.
+- **Slack → OPAI** (`bridge-inbound.ts`): los eventos `message` de canales
+  `channel`/`group` puenteados crean un `ChatMessage` y emiten el evento Pusher
+  `new-message`/`thread-reply` (mismo shape que la ruta admin) para que la UI lo
+  pinte al instante. Los `im` siguen yendo al bot conversacional.
+- **Identidad entrante**: si el usuario de Slack está en `SlackUserLink` → entra
+  como su propio Admin (`senderType ADMIN`); si no, como `senderType SLACK` con su
+  display name y avatar (via `users.info`, cacheado 10 min).
+- **Hilos**: mapeados por `SlackBridgeMessageMap` (mensaje OPAI ↔ `ts` de Slack).
+  Respuesta en hilo en cualquier lado mantiene el hilo en el otro; sin map del
+  root, el mensaje sale suelto.
+- **Adjuntos v1**: como links en el texto (OPAI→Slack: URLs de `attachments`;
+  Slack→OPAI: permalink con nota "(archivo en Slack)"). Ediciones, borrados y
+  reacciones quedan fuera de v1.
+- **Transparencia**: al crear un puente se publica un aviso en ambos lados; al
+  desconectarlo, otro. Guardias y contactos de cliente saben que sus mensajes se
+  leen en Slack.
+
+## Anti-loop (revisión Bloque 6)
+
+Ningún camino re-espeja un mensaje ya espejado. Dos capas:
+
+1. **El saliente sólo se dispara desde las 3 rutas HTTP de chat.** Los mensajes
+   creados por `bridge-inbound` NO pasan por `mirrorChatMessageToSlack`, así que
+   un mensaje que entró de Slack nunca vuelve a salir a Slack — incluso cuando
+   entra como `senderType ADMIN` (usuario vinculado).
+2. **Filtros redundantes de tipo/origen.** El saliente ignora `senderType` `SLACK`
+   y `SYSTEM`. El entrante ignora todo evento con `bot_id` o `subtype`: como el
+   saliente publica con el token del bot, Slack reemite ese mensaje con `bot_id`
+   y el entrante lo descarta. Dedupe adicional por unique `(slackChannelId,
+   slackTs)`: los reintentos de Slack chocan P2002 y abortan en silencio.
+
+## Volumen (revisión Bloque 6)
+
+En `handleInboundSlackMessage` el orden es barato→caro: (1) `bot_id`/`subtype`
+sin query; (2) validación de campos; (3) `resolveLinkBySlack` (cache 60s) — es la
+**primera** query y si el canal no tiene puente hace `return` ANTES de resolver
+token, identidad o transacción. Un canal sin puente cuesta, tras el primer
+evento, una lectura de cache en memoria.
+
+## Matriz de pruebas manuales
+
+| Caso | Esperado |
+| --- | --- |
+| Admin escribe en canal OPAI puenteado | Aparece en Slack con su nombre (sin sufijo) |
+| Guardia (portal) escribe | Aparece en Slack como "Nombre · Guardia" con su avatar |
+| Contacto cliente (portal) escribe | Aparece como "Nombre · Cliente" |
+| Alguien escribe en el canal de Slack | Aparece en OPAI en vivo (Pusher) con su nombre/avatar |
+| Respuesta en hilo en OPAI | Cae en el hilo correcto en Slack |
+| Respuesta en hilo en Slack | Cae en el hilo correcto en OPAI |
+| El bot re-emite el mensaje espejado | NO rebota (bot_id / senderType) |
+| Reintento de evento de Slack | NO duplica (unique slackTs) |
+| Usuario de Slack vinculado escribe | Entra en OPAI como su propio Admin |
+| Crear puente | Aviso de transparencia en ambos canales |
+| Desconectar puente | Aviso en ambos lados; deja de espejar de inmediato |
+| Canal de Slack sin invitar al bot | POST 400: "Escribe /invite @OPAI en el canal" |
+
+## Checklist post-deploy (Fase 4)
+
+- [ ] Migración `20261003000000_slack_channel_bridge` aplicada (incluye
+      `ALTER TYPE chat."ChatSenderType" ADD VALUE 'SLACK'`).
+- [ ] Scopes del bot: `chat:write.customize`, `channels:history`, `groups:history`.
+- [ ] Eventos suscritos: `message.channels`, `message.groups`.
+- [ ] Workspace **reconectado** tras agregar los scopes (si no, `missing_scope`).
+- [ ] Bot invitado (`/invite @OPAI`) en cada canal de Slack a puentear.
+- [ ] Prueba end-to-end de la matriz de arriba en un canal real.
