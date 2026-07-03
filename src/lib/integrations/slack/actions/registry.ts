@@ -14,6 +14,7 @@ import { ticketModal } from "../modals/ticket";
 import { rendicionModal } from "../modals/rendicion";
 import { visitaModal } from "./visita";
 import { turnoExtraModal } from "./turno-extra";
+import { vacacionesModal } from "./vacaciones";
 
 export interface ActionDef extends ModalDef {
   /** Grupo visible en el hub (p. ej. "Tickets", "Operaciones", "Finanzas"). */
@@ -24,6 +25,7 @@ export const ACTIONS: ActionDef[] = [
   { ...ticketModal, group: "Tickets" },
   { ...visitaModal, group: "Operaciones" },
   { ...turnoExtraModal, group: "Operaciones" },
+  { ...vacacionesModal, group: "RRHH" },
   { ...rendicionModal, group: "Finanzas" },
 ];
 
