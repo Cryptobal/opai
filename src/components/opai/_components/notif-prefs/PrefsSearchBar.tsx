@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Loader2, Mail, Monitor, Save, Search, Smartphone } from "lucide-react";
+import { Bell, Loader2, Mail, Monitor, Save, Search, Slack, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -10,6 +10,10 @@ interface PrefsSearchBarProps {
   saving: boolean;
   dirtyCount: number;
   onSave: () => void;
+  /** Tenant con workspace Slack ACTIVO → se muestra la leyenda Slack. */
+  showSlack?: boolean;
+  /** El usuario tiene vínculo → sin CTA de vinculación. */
+  slackLinked?: boolean;
 }
 
 export function PrefsSearchBar({
@@ -18,6 +22,8 @@ export function PrefsSearchBar({
   saving,
   dirtyCount,
   onSave,
+  showSlack = false,
+  slackLinked = false,
 }: PrefsSearchBarProps) {
   return (
     <div className="rounded-xl border border-border bg-card p-3 space-y-3 sticky top-2 z-10 backdrop-blur supports-[backdrop-filter]:bg-card/80">
@@ -56,6 +62,16 @@ export function PrefsSearchBar({
         <span className="inline-flex items-center gap-1">
           <Smartphone className="h-3 w-3" /> Push móvil
         </span>
+        {showSlack && (
+          <span className="inline-flex items-center gap-1">
+            <Slack className="h-3 w-3" /> Slack{" "}
+            {slackLinked ? (
+              "(DM del bot)"
+            ) : (
+              <span className="text-amber-600 dark:text-amber-400">· vincula tu Slack (DM al bot OPAI)</span>
+            )}
+          </span>
+        )}
       </div>
     </div>
   );

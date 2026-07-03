@@ -28,7 +28,7 @@ export default async function MisNotificacionesPage({ searchParams }: Props) {
         icon={<Bell />}
         iconTone="primary"
         title="Mis Notificaciones"
-        subtitle="campana, email y push (escritorio + móvil)"
+        subtitle="campana, email, push (escritorio + móvil) y Slack"
         description="Activa o desactiva cada tipo, módulo a módulo. Los cambios aplican solo a ti."
         backHref="/opai/perfil"
         backLabel="Mi Perfil"

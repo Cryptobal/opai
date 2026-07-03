@@ -27,9 +27,14 @@ const MODULE_LABELS: Record<string, string> = {
 
 const MODULE_ORDER = ["ops", "crm", "cpq", "docs", "finance", "payroll", "chat"];
 
+interface SlackState {
+  workspaceActive: boolean;
+  linked: boolean;
+}
+
 interface ApiResponse {
   success: boolean;
-  data: { preferences: PrefsMap; types: UnifiedNotificationType[] };
+  data: { preferences: PrefsMap; types: UnifiedNotificationType[]; slack?: SlackState };
 }
 
 interface Props {
@@ -42,6 +47,7 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
   const [prefs, setPrefs] = useState<PrefsMap>({});
   const [initialPrefs, setInitialPrefs] = useState<PrefsMap>({});
   const [types, setTypes] = useState<UnifiedNotificationType[]>([]);
+  const [slackState, setSlackState] = useState<SlackState>({ workspaceActive: false, linked: false });
   const [query, setQuery] = useState("");
   const [openModules, setOpenModules] = useState<Set<string>>(new Set(["ops", "crm"]));
   const [highlighted, setHighlighted] = useState<string | undefined>(highlightType);
@@ -56,6 +62,7 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
         setPrefs(json.data.preferences);
         setInitialPrefs(json.data.preferences);
         setTypes(json.data.types);
+        if (json.data.slack) setSlackState(json.data.slack);
       }
     } catch {
       toast.error("No se pudieron cargar las preferencias");
@@ -93,7 +100,7 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
       setPrefs((p) => {
         const next = { ...p };
         for (const t of moduleTypes) {
-          next[t.key] = { bell: false, email: false, pushDesktop: false, pushMobile: false };
+          next[t.key] = { bell: false, email: false, pushDesktop: false, pushMobile: false, slack: false };
         }
         return next;
       });
@@ -107,7 +114,8 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
       setPrefs((p) => {
         const next = { ...p };
         for (const t of moduleTypes) {
-          next[t.key] = expandCatalogDefaults(t.defaults.admin ?? {});
+          // Slack personal siempre arranca OFF (opt-in), sin default de catálogo.
+          next[t.key] = { ...expandCatalogDefaults(t.defaults.admin ?? {}), slack: false };
         }
         return next;
       });
@@ -124,7 +132,8 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
         before.bell !== after.bell ||
         before.email !== after.email ||
         before.pushDesktop !== after.pushDesktop ||
-        before.pushMobile !== after.pushMobile
+        before.pushMobile !== after.pushMobile ||
+        before.slack !== after.slack
       ) {
         n++;
       }
@@ -201,6 +210,8 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
         saving={saving}
         dirtyCount={dirtyCount}
         onSave={() => void handleSave()}
+        showSlack={slackState.workspaceActive}
+        slackLinked={slackState.linked}
       />
 
       {MODULE_ORDER.filter((m) => grouped.has(m)).map((moduleKey) => (
@@ -227,6 +238,8 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
           onChannelToggle={toggle}
           onMute={() => muteModule(moduleKey)}
           onReset={() => resetModule(moduleKey)}
+          slackWorkspaceActive={slackState.workspaceActive}
+          slackLinked={slackState.linked}
         />
       ))}
 

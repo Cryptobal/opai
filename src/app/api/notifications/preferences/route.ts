@@ -8,6 +8,7 @@ import {
   type ChannelPrefs,
   type ChannelPrefsLegacy,
 } from "@/lib/notifications/channel-types";
+import { getWorkspaceForTenant } from "@/lib/integrations/slack/workspace";
 
 type PrefsMap = Record<string, ChannelPrefs>;
 type LegacyPrefsMap = Record<string, ChannelPrefsLegacy>;
@@ -50,12 +51,29 @@ export async function GET() {
           typeof stored.pushDesktop === 'boolean' ? stored.pushDesktop : def.push ?? false,
         pushMobile:
           typeof stored.pushMobile === 'boolean' ? stored.pushMobile : def.push ?? false,
+        // Slack personal: siempre opt-in (default OFF), sin default de catálogo.
+        slack: typeof stored.slack === 'boolean' ? stored.slack : false,
       };
+    }
+
+    // Estado del canal Slack personal: workspace activo + vínculo del usuario.
+    const ws = await getWorkspaceForTenant(ctx.tenantId);
+    let slackLinked = false;
+    if (ws) {
+      const link = await prisma.slackUserLink.findFirst({
+        where: { workspaceId: ws.id, adminId: ctx.userId },
+        select: { id: true },
+      });
+      slackLinked = !!link;
     }
 
     return NextResponse.json({
       success: true,
-      data: { preferences: out, types: accessible },
+      data: {
+        preferences: out,
+        types: accessible,
+        slack: { workspaceActive: !!ws, linked: slackLinked },
+      },
     });
   } catch (error) {
     console.error("[notif-prefs] GET error:", error);
@@ -91,6 +109,7 @@ export async function PUT(req: NextRequest) {
       if (typeof norm.email === 'boolean') entry.email = norm.email;
       if (typeof norm.pushDesktop === 'boolean') entry.pushDesktop = norm.pushDesktop;
       if (typeof norm.pushMobile === 'boolean') entry.pushMobile = norm.pushMobile;
+      if (typeof norm.slack === 'boolean') entry.slack = norm.slack;
       if (Object.keys(entry).length > 0) sanitized[t.key] = entry;
     }
 

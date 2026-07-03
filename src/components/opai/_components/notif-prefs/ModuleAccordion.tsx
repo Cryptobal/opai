@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, ChevronDown, Mail, Monitor, RotateCcw, Smartphone, VolumeX } from "lucide-react";
+import { Bell, ChevronDown, Mail, Monitor, RotateCcw, Slack, Smartphone, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { UnifiedNotificationType } from "@/lib/notifications/catalog";
@@ -21,6 +21,10 @@ interface ModuleAccordionProps {
   onChannelToggle: (key: string, channel: Channel, value: boolean) => void;
   onMute: () => void;
   onReset: () => void;
+  /** Tenant con workspace Slack ACTIVO → se muestra la columna Slack. */
+  slackWorkspaceActive: boolean;
+  /** El usuario tiene SlackUserLink → la columna Slack es interactiva. */
+  slackLinked: boolean;
 }
 
 export function ModuleAccordion({
@@ -35,6 +39,8 @@ export function ModuleAccordion({
   onChannelToggle,
   onMute,
   onReset,
+  slackWorkspaceActive,
+  slackLinked,
 }: ModuleAccordionProps) {
   const totalTypes = Array.from(categories.values()).reduce((acc, arr) => acc + arr.length, 0);
 
@@ -123,7 +129,7 @@ export function ModuleAccordion({
                         {t.description}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <ChannelToggle
                         icon={<Bell className="h-3.5 w-3.5" />}
                         checked={cur.bell ?? def.bell ?? false}
@@ -152,6 +158,19 @@ export function ModuleAccordion({
                         onChange={(v) => onChannelToggle(t.key, "pushMobile", v)}
                         label={`${t.label} - Push móvil`}
                       />
+                      {slackWorkspaceActive && (
+                        <ChannelToggle
+                          icon={<Slack className="h-3.5 w-3.5" />}
+                          checked={slackLinked ? cur.slack ?? false : false}
+                          disabled={!slackLinked}
+                          onChange={(v) => onChannelToggle(t.key, "slack", v)}
+                          label={
+                            slackLinked
+                              ? `${t.label} - Slack (DM directo del bot)`
+                              : "Vincula tu Slack: escríbele un DM al bot OPAI para activar este canal"
+                          }
+                        />
+                      )}
                     </div>
                   </div>
                 );
