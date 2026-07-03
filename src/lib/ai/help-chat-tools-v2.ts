@@ -3142,6 +3142,21 @@ async function toolCreateLead(
       lead.email ||
       lead.phone ||
       "Lead sin nombre";
+    // Espeja el evento que emiten los demás flujos de creación (POST
+    // /api/crm/leads, cotizador público): sin esto, los leads creados por
+    // el asistente no llegan a bell/push/Slack.
+    try {
+      const { notify } = await import("@/lib/notifications/notify");
+      await notify({
+        tenantId,
+        type: "new_lead",
+        title: "Nuevo lead registrado",
+        body: `${displayName}${lead.companyName && displayName !== lead.companyName ? ` — ${lead.companyName}` : ""}`,
+        link: "/crm/leads",
+      });
+    } catch (err) {
+      console.error("[AI] Error notifying new_lead:", err);
+    }
     return {
       ok: true,
       data: {
