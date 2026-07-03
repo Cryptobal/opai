@@ -8,9 +8,15 @@ import { validateDoubleEntry } from "../shared/validators/journal.validator";
 import type { JournalEntryInput } from "../shared/types/accounting.types";
 import { openPeriod } from "./period.service";
 import { logAudit } from "@/lib/audit";
+import { notify } from "@/lib/notifications/notify";
 
 const fmtPeriod = (year: number, month: number) =>
   `${year}-${String(month).padStart(2, "0")}`;
+
+const MONTH_NAMES_ES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
 
 /**
  * Resuelve el período contable OPEN para la fecha contable de un asiento,
@@ -76,6 +82,18 @@ async function resolvePeriodForEntry(
         trigger: "journal_entry",
       },
     });
+    // Aviso informativo único: el período nació solo. No bloquea el asiento.
+    const periodLabel = `${MONTH_NAMES_ES[month - 1]} ${year}`;
+    notify({
+      tenantId,
+      type: "accounting_period_auto_opened",
+      title: `Período ${periodLabel} abierto automáticamente`,
+      body: `${periodLabel} se abrió solo con el primer asiento del mes. No necesitas abrirlo manualmente.`,
+      link: "/finanzas/contabilidad",
+      data: { year, month, periodId: created.id },
+    }).catch((err) =>
+      console.error("[journal-entry] notify accounting_period_auto_opened falló:", err),
+    );
     return created;
   } catch (err) {
     // Carrera: otro asiento creó el mismo período entre nuestro findUnique y

@@ -562,6 +562,18 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     coalesce: { windowSeconds: 300, groupBy: 'tenant' },
   },
   {
+    key: 'accounting_period_close_reminder', label: 'Recordatorio de cierre de período',
+    description: 'El mes anterior sigue abierto — recordatorio para cuadrar, revisar y cerrar el período contable',
+    module: 'finance', submodule: 'contabilidad', category: 'Finanzas - Contabilidad',
+    audiences: ['admin'], defaults: { admin: adminBell(true) },
+  },
+  {
+    key: 'accounting_period_auto_opened', label: 'Período contable abierto automáticamente',
+    description: 'Informativo: un período se abrió solo con el primer asiento del mes',
+    module: 'finance', submodule: 'contabilidad', category: 'Finanzas - Contabilidad',
+    audiences: ['admin'], defaults: { admin: { bell: true, email: false, push: false } },
+  },
+  {
     key: 'payroll_processed', label: 'Liquidación procesada',
     description: 'Cuando se procesan las liquidaciones de sueldo del período',
     module: 'payroll', category: 'Payroll',
