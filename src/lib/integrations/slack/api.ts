@@ -6,6 +6,8 @@
  * (ej. `not_in_channel`, `invalid_auth`, `channel_not_found`).
  */
 
+import { slackRedirectUri } from "./config";
+
 const BASE = "https://slack.com/api";
 
 export class SlackApiError extends Error {
@@ -44,12 +46,11 @@ export async function slackOAuthAccess(code: string): Promise<{
   accessToken: string;
   scope: string;
 }> {
-  const redirectUri = `${process.env.PUBLIC_APP_URL ?? "https://www.opai.cl"}/api/integrations/slack/oauth/callback`;
   const form = new URLSearchParams({
     client_id: process.env.SLACK_CLIENT_ID ?? "",
     client_secret: process.env.SLACK_CLIENT_SECRET ?? "",
     code,
-    redirect_uri: redirectUri,
+    redirect_uri: slackRedirectUri(),
   });
   const res = await fetch(`${BASE}/oauth.v2.access`, {
     method: "POST",
