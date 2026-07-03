@@ -13,6 +13,8 @@ export interface NotificationBlocksInput {
   category: string;
   link?: string | null;
   critical?: boolean;
+  /** Teléfono del contacto: agrega línea '📞 Llamar' tappable (mrkdwn tel:). */
+  phone?: string | null;
 }
 
 const HEADER_MAX = 150;
@@ -39,6 +41,14 @@ export function buildNotificationBlocks(input: NotificationBlocksInput): {
 
   if (body) {
     blocks.push({ type: "section", text: { type: "mrkdwn", text: body } });
+  }
+
+  if (input.phone) {
+    const telHref = input.phone.replace(/[^+\d]/g, "");
+    blocks.push({
+      type: "section",
+      text: { type: "mrkdwn", text: `📞 <tel:${telHref}|Llamar ${input.phone}>` },
+    });
   }
 
   blocks.push({

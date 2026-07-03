@@ -60,6 +60,7 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     title: input.title,
     body: input.body,
     category: input.typeDef.category,
+    phone: typeof input.data?.phone === "string" ? input.data.phone : null,
     link: input.link,
     critical: input.typeDef.critical,
   });
