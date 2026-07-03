@@ -133,6 +133,18 @@ export async function handleBotEvent(teamId: string, event: SlackBotEvent): Prom
     });
 
     const blocks: unknown[] = [assistantSection(toSlackMarkdown(result.text))];
+    // Tarjetas compactas de las entidades que tocaron las tools (≤3): el botón
+    // Abrir lleva a la URL profunda REAL devuelta por la tool (no una inventada).
+    if (result.entities?.length) {
+      blocks.push({ type: "divider" });
+      for (const e of result.entities) {
+        blocks.push({
+          type: "section",
+          text: { type: "mrkdwn", text: `*${e.title}*${e.subtitle ? `\n${e.subtitle}` : ""}` },
+          accessory: { type: "button", text: { type: "plain_text", text: "Abrir", emoji: true }, url: e.url },
+        });
+      }
+    }
     if (result.pendingConfirmation) {
       const pa = await prisma.slackPendingAction.create({
         data: {

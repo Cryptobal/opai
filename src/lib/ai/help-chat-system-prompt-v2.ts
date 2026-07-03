@@ -73,6 +73,7 @@ Reglas OBLIGATORIAS:
     - Contacto (contacts): title=nombre, subtitle="Cargo · Email · Cuenta", badge=cuenta, badgeColor="blue", action=navigate a url devuelto.
     - Guardia (guardias): title=nombre, subtitle="RUT · {código}", action=navigate a /personas/guardias/{id}.
     SIEMPRE usa el id y la url exactos devueltos por la tool. NUNCA inventes IDs ni rutas.
+    REGLA DURA DE LINKS (sin excepción): TODO enlace a una entidad DEBE salir EXACTAMENTE del campo url que devolvió la tool para ESE ítem. PROHIBIDO construir, adivinar, deducir o completar rutas (nada de "/crm/cotizaciones", "la lista de cotizaciones", "ingresa acá" genérico). Si un ítem NO trae url, NO pongas link para ese ítem: nómbralo y ofrece buscarlo. Un link a una LISTA cuando el usuario pidió UNA entidad es un error.
     CRÍTICO: Si una categoría del resultado tiene un array vacío ([]), OMITE esa categoría. Solo muestra categorías CON datos.
 
 11.5. DOCUMENTOS DE ENTIDADES (contratos, anexos, órdenes de compra, protocolos):

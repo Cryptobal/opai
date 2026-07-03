@@ -56,6 +56,42 @@ export interface HelpChatTurnResult {
   toolCallsUsed: number;
   model: string;
   pendingConfirmation?: PendingConfirmation;
+  /** Entidades con URL profunda tocadas por las tools (≤3), para tarjetas en Slack. */
+  entities?: Array<{ title: string; subtitle?: string; url: string }>;
+}
+
+/** Recolecta entidades con `url` de un resultado de tool (para tarjetas de Slack). */
+function collectEntities(
+  acc: Array<{ title: string; subtitle?: string; url: string }>,
+  result: unknown,
+  base: string,
+): void {
+  if (acc.length >= 3) return;
+  const r = result as { data?: unknown } | null;
+  const data = r && typeof r === "object" && "data" in r ? r.data : result;
+  const candidates: unknown[] = [];
+  if (Array.isArray(data)) candidates.push(...data);
+  else if (data && typeof data === "object") {
+    for (const v of Object.values(data as Record<string, unknown>)) {
+      if (Array.isArray(v)) candidates.push(...v);
+      else if (v && typeof v === "object") candidates.push(v);
+    }
+  }
+  for (const it of candidates) {
+    if (acc.length >= 3) break;
+    if (!it || typeof it !== "object") continue;
+    const o = it as Record<string, unknown>;
+    if (typeof o.url !== "string" || !o.url) continue;
+    const url = o.url.startsWith("http") ? o.url : `${base}${o.url}`;
+    if (acc.some((e) => e.url === url)) continue;
+    const title = String(o.nombre ?? o.title ?? o.titulo ?? o.name ?? o.code ?? "Ver detalle").slice(0, 80);
+    const subtitle =
+      [o.code, o.cliente, o.estado, o.status, o.priority]
+        .filter((x) => typeof x === "string" && x)
+        .slice(0, 3)
+        .join(" · ") || undefined;
+    acc.push({ title, subtitle, url });
+  }
 }
 
 export interface RunHelpChatTurnInput {
@@ -173,6 +209,7 @@ export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<Help
   let fullText = "";
   let toolCallsUsed = 0;
   let pending: PendingConfirmation | undefined;
+  const entities: Array<{ title: string; subtitle?: string; url: string }> = [];
 
   for (let step = 0; step < MAX_TOOL_STEPS; step += 1) {
     let pendingToolCalls: ToolCallInfo[] = [];
@@ -255,6 +292,7 @@ export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<Help
         }
       }
       messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
+      if (!isDeferredWrite) collectEntities(entities, result, appBaseUrl);
     }
   }
 
@@ -285,5 +323,6 @@ export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<Help
     toolCallsUsed,
     model: effectiveModel,
     pendingConfirmation: pending,
+    entities: entities.length ? entities.slice(0, 3) : undefined,
   };
 }

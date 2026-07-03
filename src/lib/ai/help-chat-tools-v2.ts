@@ -2024,6 +2024,7 @@ async function toolGetTicketsSummary(tenantId: string) {
       orderBy: { createdAt: "desc" },
       take: 8,
       select: {
+        id: true,
         code: true,
         title: true,
         status: true,
@@ -2042,6 +2043,7 @@ async function toolGetTicketsSummary(tenantId: string) {
       status: t.status,
       priority: t.priority,
       createdAt: t.createdAt.toISOString(),
+      url: `/ops/tickets/${t.id}`,
     })),
   };
 }
@@ -2068,6 +2070,7 @@ async function toolGetMyTickets(
       orderBy: [{ priority: "asc" }, { createdAt: "desc" }],
       take: 15,
       select: {
+        id: true,
         code: true,
         title: true,
         status: true,
@@ -2091,6 +2094,7 @@ async function toolGetMyTickets(
       slaBreached: t.slaBreached,
       slaDueAt: t.slaDueAt ? t.slaDueAt.toISOString() : null,
       team: t.assignedTeam,
+      url: `/ops/tickets/${t.id}`,
     })),
   };
 }
