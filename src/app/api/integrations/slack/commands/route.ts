@@ -22,11 +22,12 @@ export async function POST(req: NextRequest) {
   const channelId = form.get("channel_id") ?? "";
   const text = form.get("text") ?? "";
   const responseUrl = form.get("response_url") ?? "";
+  const triggerId = form.get("trigger_id") ?? ""; // para abrir modales (ticket/rendición)
 
   if (responseUrl && teamId && slackUserId) {
     after(async () => {
       try {
-        await handleSlashCommand({ teamId, slackUserId, channelId, text, responseUrl });
+        await handleSlashCommand({ teamId, slackUserId, channelId, text, responseUrl, triggerId });
       } catch (err) {
         console.error("[slack] handleSlashCommand falló:", err);
       }

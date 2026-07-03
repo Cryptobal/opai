@@ -16,6 +16,8 @@ import { resolveLinkedAdmin, buildLinkPrompt } from "./user-link";
 import { slackRespondUrl } from "./api";
 import { toSlackMarkdown } from "./markdown";
 import { assistantSection, contextLine, confirmActionsBlock } from "./blocks";
+import { openModalByCallback } from "./modals/dispatch";
+import { SUBCOMMANDS, buildHelpText } from "./subcommands";
 
 export interface SlashCommandInput {
   teamId: string;
@@ -23,53 +25,53 @@ export interface SlashCommandInput {
   channelId: string;
   text: string;
   responseUrl: string;
+  triggerId?: string;
 }
 
 const PENDING_TTL_MS = 15 * 60 * 1000;
 
-const HELP_TEXT = [
-  "*OPAI Intelligence en Slack*",
-  "• `/opai <pregunta>` — pregunta libre al asistente",
-  "• `/opai caja` — resumen ejecutivo de caja y proyección del mes",
-  "• `/opai asistencia` — resumen de asistencia de hoy",
-  "• `/opai buscar <texto>` — busca en todo el sistema",
-  "• `/opai ayuda` — esta ayuda",
-  "",
-  "También puedes mencionarme (`@OPAI`) en un canal o escribirme por DM.",
-].join("\n");
-
-/** Traduce el subcomando a un mensaje de usuario para el runner. */
-function resolvePrompt(text: string): string | null {
-  const trimmed = text.trim();
-  const lower = trimmed.toLowerCase();
-  if (!trimmed || lower === "ayuda" || lower === "help") return null; // → ayuda
-  if (lower === "caja") return "Resumen ejecutivo de la caja actual y proyección del mes";
-  if (lower === "asistencia") return "Resumen de asistencia de hoy";
-  if (lower.startsWith("buscar ")) {
-    return `Busca en todo el sistema (usa la herramienta search_all) y resume: ${trimmed.slice(7).trim()}`;
-  }
-  return trimmed;
-}
-
 export async function handleSlashCommand(input: SlashCommandInput): Promise<void> {
   const { teamId, slackUserId, channelId, responseUrl } = input;
+  const ephemeral = (text: string, blocks?: unknown[]) =>
+    slackRespondUrl(responseUrl, { response_type: "ephemeral", replace_original: true, text, blocks });
 
   const resolved = await getTenantForTeam(teamId);
   if (!resolved) {
-    await slackRespondUrl(responseUrl, { response_type: "ephemeral", replace_original: true, text: "Workspace no reconocido." });
+    await ephemeral("Workspace no reconocido.");
     return;
   }
   const workspace = await getWorkspaceForTenant(resolved.tenantId);
   if (!workspace) {
-    await slackRespondUrl(responseUrl, { response_type: "ephemeral", replace_original: true, text: "Slack no está activo para tu organización." });
+    await ephemeral("Slack no está activo para tu organización.");
     return;
   }
 
-  const prompt = resolvePrompt(input.text);
-  if (prompt === null) {
-    await slackRespondUrl(responseUrl, { response_type: "ephemeral", replace_original: true, text: HELP_TEXT, blocks: [assistantSection(HELP_TEXT)] });
+  const trimmed = input.text.trim();
+  const lower = trimmed.toLowerCase();
+  if (!trimmed || lower === "ayuda" || lower === "help") {
+    const help = buildHelpText();
+    await ephemeral(help, [assistantSection(help)]);
     return;
   }
+
+  const [first, ...restArr] = trimmed.split(/\s+/);
+  const sub = SUBCOMMANDS.find((c) => c.name === first.toLowerCase());
+
+  // Subcomandos que abren un modal nativo (ticket, rendición).
+  if (sub?.kind === "modal") {
+    if (!input.triggerId) {
+      await ephemeral("No pude abrir el formulario. Intenta de nuevo.");
+      return;
+    }
+    await openModalByCallback({
+      teamId, triggerId: input.triggerId, callbackId: sub.callbackId, slackUserId, channelId,
+    });
+    await ephemeral("📝 Abriendo el formulario…");
+    return;
+  }
+
+  // Resto: consulta al asistente (subcomando prompt o pregunta libre).
+  const prompt = sub?.kind === "prompt" ? sub.toPrompt(restArr.join(" ")) : trimmed;
 
   const linked = await resolveLinkedAdmin(workspace, slackUserId);
   if (!linked) {

@@ -17,13 +17,19 @@ import { loadingView, infoView, linkAccountView, unpackMetadata } from "./views"
 import { getModal } from "./registry";
 import type { ViewState } from "./types";
 
-export async function openModalForShortcut(payload: Record<string, unknown>): Promise<void> {
-  const teamId = (payload.team as { id?: string } | undefined)?.id;
-  const triggerId = payload.trigger_id as string | undefined;
-  const callbackId = payload.callback_id as string | undefined;
-  const slackUserId = (payload.user as { id?: string } | undefined)?.id;
-  const channel = payload.channel as { id?: string } | undefined;
-  const message = payload.message as { ts?: string; text?: string } | undefined;
+export interface OpenModalParams {
+  teamId: string;
+  triggerId: string;
+  callbackId: string;
+  slackUserId: string;
+  channelId?: string;
+  messageTs?: string;
+  messageText?: string;
+}
+
+/** Abre un modal por callbackId (reusado por shortcuts y por `/opai <cmd>`). */
+export async function openModalByCallback(p: OpenModalParams): Promise<void> {
+  const { teamId, triggerId, callbackId, slackUserId } = p;
   if (!teamId || !triggerId || !callbackId || !slackUserId) return;
 
   const resolved = await getTenantForTeam(teamId);
@@ -68,15 +74,29 @@ export async function openModalForShortcut(payload: Record<string, unknown>): Pr
       tenantId: workspace.tenantId,
       linked,
       slackUserId,
-      channelId: channel?.id,
-      messageTs: message?.ts,
-      messageText: message?.text,
+      channelId: p.channelId,
+      messageTs: p.messageTs,
+      messageText: p.messageText,
     });
     await update(view);
   } catch (err) {
     console.error("[slack] build modal falló:", err);
     await update(infoView(title, "No se pudo cargar el formulario. Intenta de nuevo."));
   }
+}
+
+/** Extrae los campos del payload de shortcut/message_action y abre el modal. */
+export async function openModalForShortcut(payload: Record<string, unknown>): Promise<void> {
+  const message = payload.message as { ts?: string; text?: string } | undefined;
+  await openModalByCallback({
+    teamId: (payload.team as { id?: string } | undefined)?.id ?? "",
+    triggerId: (payload.trigger_id as string | undefined) ?? "",
+    callbackId: (payload.callback_id as string | undefined) ?? "",
+    slackUserId: (payload.user as { id?: string } | undefined)?.id ?? "",
+    channelId: (payload.channel as { id?: string } | undefined)?.id,
+    messageTs: message?.ts,
+    messageText: message?.text,
+  });
 }
 
 export async function prepareViewSubmission(
