@@ -129,24 +129,35 @@ export async function POST(
         console.error("[Finance] Error sending submit notification:", err),
       );
 
-      // Notify approvers (bell + push). Email is handled separately above
-      // by notifyRendicionSubmitted with its dedicated template.
+      // Notify approvers (bell + push + tarjeta Slack accionable). El email lo
+      // maneja notifyRendicionSubmitted arriba con su plantilla dedicada.
+      // `data` rica para la tarjeta genérica: monto, solicitante, categoría, fecha.
       try {
         const { notify } = await import('@/lib/notifications/notify');
         const submitterName = submitter?.name ?? 'Un supervisor';
+        const item = existing.itemId
+          ? await prisma.financeRendicionItem.findUnique({ where: { id: existing.itemId }, select: { name: true } })
+          : null;
         await notify({
           tenantId: ctx.tenantId,
-          type: 'expense_report_submitted',
+          type: 'rendicion_submitted',
           targetIds: approverIds,
           targetType: 'ADMIN',
-          title: 'Rendición de gastos enviada',
-          body: `${submitterName} envió una rendición para revisión`,
+          title: `Rendición ${existing.code} por aprobar`,
+          body: `${submitterName} envió una rendición por $${existing.amount.toLocaleString('es-CL')} para tu aprobación`,
           link: `/finanzas/rendiciones/${id}`,
-          data: { rendicionId: id, code: existing.code },
+          data: {
+            rendicionId: id,
+            code: existing.code,
+            montoClp: existing.amount,
+            solicitante: submitterName,
+            categoria: item?.name ?? null,
+            fecha: existing.date.toISOString().slice(0, 10),
+          },
           forceChannels: { email: false },
         });
       } catch (err) {
-        console.error('[FINANCE] Error notifying expense_report_submitted:', err);
+        console.error('[FINANCE] Error notifying rendicion_submitted:', err);
       }
     }
 

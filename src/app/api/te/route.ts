@@ -105,6 +105,30 @@ export async function POST(request: NextRequest) {
 
     await createOpsAuditLog(ctx, "te.created_manual", "te_turno", turno.id, { tipo: body.tipo });
 
+    // Notifica a los aprobadores (bell/push + tarjeta Slack accionable). Difusión
+    // por audiencia (admins con visión de turnos extra); no hay aprobador asignado.
+    try {
+      const { notify } = await import("@/lib/notifications/notify");
+      const guardiaNombre = [turno.guardia?.persona?.firstName, turno.guardia?.persona?.lastName].filter(Boolean).join(" ") || "Guardia";
+      await notify({
+        tenantId: ctx.tenantId,
+        type: "te_created",
+        title: "Turno extra por aprobar",
+        body: `${guardiaNombre} · ${turno.installation?.name ?? "—"} · $${Number(turno.amountClp).toLocaleString("es-CL")}`,
+        link: `/ops/turnos-extra/aprobaciones`,
+        data: {
+          teId: turno.id,
+          guardia: guardiaNombre,
+          instalacion: turno.installation?.name ?? "—",
+          montoClp: Number(turno.amountClp),
+          fecha: turno.date.toISOString().slice(0, 10),
+          justificacion: turno.amountJustification ?? null,
+        },
+      });
+    } catch (err) {
+      console.error("[TE] Error notifying te_created:", err);
+    }
+
     return NextResponse.json({ success: true, data: turno });
   } catch (error) {
     console.error("[TE] Error creating manual turno extra:", error);

@@ -326,6 +326,24 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     module: 'ops', submodule: 'turnos_extra', category: 'Operaciones - Turnos',
     audiences: ['admin'], defaults: { admin: adminBell(true) },
   },
+  {
+    key: 'te_created', label: 'Turno extra por aprobar',
+    description: 'Cuando se ingresa un turno extra y queda pendiente de aprobación',
+    module: 'ops', submodule: 'turnos_extra', category: 'Operaciones - Turnos',
+    audiences: ['admin'], defaults: { admin: adminBell() },
+  },
+  {
+    key: 'te_approved', label: 'Turno extra aprobado',
+    description: 'Cuando el turno extra que ingresaste es aprobado',
+    module: 'ops', submodule: 'turnos_extra', category: 'Operaciones - Turnos',
+    audiences: ['admin'], defaults: { admin: adminBell() },
+  },
+  {
+    key: 'te_rejected', label: 'Turno extra rechazado',
+    description: 'Cuando el turno extra que ingresaste es rechazado',
+    module: 'ops', submodule: 'turnos_extra', category: 'Operaciones - Turnos',
+    audiences: ['admin'], defaults: { admin: adminBell(true) },
+  },
 
   // ── Operaciones - Tickets ──
   {
@@ -541,6 +559,24 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     description: 'Cuando un supervisor envía una rendición de gastos para revisión',
     module: 'finance', category: 'Finanzas - Rendiciones',
     audiences: ['admin'], defaults: { admin: adminBell() },
+  },
+  {
+    key: 'rendicion_submitted', label: 'Rendición por aprobar',
+    description: 'Cuando una rendición se envía y queda pendiente de tu aprobación',
+    module: 'finance', category: 'Finanzas - Rendiciones',
+    audiences: ['admin'], defaults: { admin: adminBell() },
+  },
+  {
+    key: 'rendicion_approved', label: 'Rendición aprobada',
+    description: 'Cuando tu rendición es aprobada',
+    module: 'finance', category: 'Finanzas - Rendiciones',
+    audiences: ['admin'], defaults: { admin: adminBell() },
+  },
+  {
+    key: 'rendicion_rejected', label: 'Rendición rechazada',
+    description: 'Cuando tu rendición es rechazada',
+    module: 'finance', category: 'Finanzas - Rendiciones',
+    audiences: ['admin'], defaults: { admin: adminBell(true) },
   },
   {
     key: 'expense_report_reverted', label: 'Rendición revertida por administrador',
