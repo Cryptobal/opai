@@ -5,8 +5,9 @@
  */
 
 import type { ModalDef } from "./types";
+import { ticketModal } from "./ticket";
 
-const MODALS: ModalDef[] = [];
+const MODALS: ModalDef[] = [ticketModal];
 
 export function getModal(callbackId: string): ModalDef | undefined {
   return MODALS.find((m) => m.callbackId === callbackId);

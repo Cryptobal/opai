@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
-import { generateTicketCode, TICKET_TEAM_CONFIG } from "@/lib/tickets";
+import { createOpsTicket } from "@/lib/tickets-create";
 import { getAssignedTeamsForUser } from "@/lib/tickets-team-membership";
 import type { Ticket } from "@/lib/tickets";
 import {
@@ -485,216 +485,42 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!typeId) {
-      const defaultType = await prisma.opsTicketType.findFirst({
-        where: { tenantId: ctx.tenantId, isActive: true },
-        orderBy: { sortOrder: "asc" },
-        select: { id: true },
-      });
-      typeId = defaultType?.id;
-    }
+    // En tickets de cliente forzamos `source=portal_cliente` y dejamos
+    // `reportedBy` con el id del CrmContact (el resolver de actores ya sabe
+    // distinguir admin/guardia/contact). Quien lo creó realmente (el operador)
+    // queda en el evento de audit `ticket_created.actorId`.
+    const effectiveSource = clientContact ? "portal_cliente" : body.source ?? "manual";
+    const effectiveReportedBy = clientContact ? clientContact.id : ctx.userId;
 
-    if (!typeId) {
-      return NextResponse.json(
-        { success: false, error: "No hay tipos de ticket configurados. Configure uno en Ops > Tipos de ticket." },
-        { status: 400 },
-      );
-    }
-
-    const ticketType = await prisma.opsTicketType.findFirst({
-      where: { id: typeId, tenantId: ctx.tenantId },
-      include: {
-        approvalSteps: { orderBy: { stepOrder: "asc" } },
-      },
+    // Creación única compartida con Slack (code + ticket + aprobaciones + audit
+    // + notificaciones). Ver src/lib/tickets-create.ts.
+    const result = await createOpsTicket({
+      tenantId: ctx.tenantId,
+      actorId: ctx.userId,
+      reportedBy: effectiveReportedBy,
+      title: body.title,
+      description: body.description ?? null,
+      ticketTypeId: typeId,
+      priority: body.priority ?? null,
+      source: effectiveSource,
+      assignedTeam: body.assignedTeam ?? null,
+      assignedTo: body.assignedTo ?? null,
+      installationId: body.installationId ?? null,
+      guardiaId: body.guardiaId ?? null,
+      sourceGuardEventId: body.sourceGuardEventId ?? null,
+      tags: body.tags ?? [],
     });
-
-    if (!ticketType) {
-      return NextResponse.json(
-        { success: false, error: "Tipo de ticket no encontrado" },
-        { status: 404 },
-      );
+    if ("error" in result) {
+      return NextResponse.json({ success: false, error: result.error }, { status: 400 });
     }
 
-    const slaHours = ticketType.slaHours;
-    const slaDueAt = new Date(Date.now() + slaHours * 60 * 60 * 1000);
-    const requiresApproval =
-      ticketType.requiresApproval && ticketType.approvalSteps.length > 0;
-    const initialStatus = requiresApproval ? "pending_approval" : "open";
-
-    const approvalCreateData = requiresApproval
-      ? ticketType.approvalSteps.map((step) => ({
-          stepOrder: step.stepOrder,
-          stepLabel: step.label,
-          approverType: step.approverType,
-          approverGroupId: step.approverGroupId,
-          approverUserId: step.approverUserId,
-          decision: "pending",
-        }))
-      : [];
-
-    // Atomic: generate code + create ticket inside a transaction
-    const ticket = await prisma.$transaction(async (tx) => {
-      const lastTicket = await tx.opsTicket.findFirst({
-        where: { tenantId: ctx.tenantId },
-        orderBy: { createdAt: "desc" },
-        select: { code: true },
-      });
-      const lastSeq = lastTicket?.code
-        ? parseInt(lastTicket.code.split("-").pop() ?? "0", 10)
-        : 0;
-      const code = generateTicketCode(lastSeq + 1);
-
-      // En tickets de cliente forzamos `source=portal_cliente` y dejamos
-      // `reportedBy` con el id del CrmContact (el resolver de actores ya
-      // sabe distinguir admin/guardia/contact). Quien lo creó realmente
-      // (el operador) queda en el evento de audit `ticket_created.actorId`.
-      const effectiveSource = clientContact
-        ? "portal_cliente"
-        : body.source ?? "manual";
-      const effectiveReportedBy = clientContact ? clientContact.id : ctx.userId;
-
-      const created = await tx.opsTicket.create({
-        data: {
-          tenantId: ctx.tenantId,
-          code,
-          ticketTypeId: typeId,
-          status: initialStatus,
-          priority: body.priority ?? ticketType.defaultPriority,
-          title: body.title,
-          description: body.description ?? null,
-          assignedTeam: body.assignedTeam ?? ticketType.assignedTeam,
-          assignedTo: body.assignedTo ?? null,
-          installationId: body.installationId ?? null,
-          source: effectiveSource,
-          sourceGuardEventId: body.sourceGuardEventId ?? null,
-          guardiaId: body.guardiaId ?? null,
-          reportedBy: effectiveReportedBy,
-          slaDueAt,
-          slaBreached: false,
-          tags: body.tags ?? [],
-          currentApprovalStep: requiresApproval ? 1 : null,
-          approvalStatus: requiresApproval ? "pending" : null,
-          approvals: {
-            create: approvalCreateData,
-          },
-        },
-        include: ticketListIncludes,
-      });
-
-      // Audit: ticket creado.
-      const { recordTicketEvent } = await import("@/lib/tickets-events");
-      await recordTicketEvent({
-        tenantId: ctx.tenantId,
-        ticketId: created.id,
-        type: "ticket_created",
-        actorId: ctx.userId,
-        data: {
-          source: created.source,
-          priority: created.priority,
-          assignedTeam: created.assignedTeam,
-          assignedTo: created.assignedTo,
-          requiresApproval,
-        },
-        tx,
-      });
-      return created;
+    // Recarga con los includes de lista para el mapper de la respuesta.
+    const ticket = await prisma.opsTicket.findUnique({
+      where: { id: result.id },
+      include: ticketListIncludes,
     });
-
-    // Notify reporter + first approval group (bell + email + push, targeted)
-    const approvalTargetIds: string[] = [];
-    try {
-      const targetUserIds: string[] = [];
-
-      const reporter = await prisma.admin.findFirst({
-        where: { id: ctx.userId, tenantId: ctx.tenantId },
-        select: { name: true, email: true },
-      });
-      const reporterName = reporter?.name || reporter?.email || "Usuario";
-
-      // El creador NO se auto-notifica de su propio ticket. La notificación al
-      // asignado (si existe) se dispara más abajo vía notifyTicketAssigned.
-      // Aquí solo notificamos al grupo de aprobadores cuando el ticket requiere
-      // aprobación (caso en que SÍ deben enterarse).
-      if (requiresApproval && ticketType.approvalSteps.length > 0) {
-        const firstStep = ticketType.approvalSteps[0];
-        if (firstStep.approverGroupId) {
-          const groupMembers = await prisma.adminGroupMembership.findMany({
-            where: { groupId: firstStep.approverGroupId },
-            select: { adminId: true },
-          });
-          for (const m of groupMembers) {
-            targetUserIds.push(m.adminId);
-            approvalTargetIds.push(m.adminId);
-          }
-        }
-        if (firstStep.approverUserId) {
-          targetUserIds.push(firstStep.approverUserId);
-          approvalTargetIds.push(firstStep.approverUserId);
-        }
-      }
-
-      const teamLabel = TICKET_TEAM_CONFIG[ticket.assignedTeam as keyof typeof TICKET_TEAM_CONFIG]?.label ?? ticket.assignedTeam;
-      const bellMessage = `Tipo: ${ticketType.name} · Prioridad: ${ticket.priority.toUpperCase()}${requiresApproval ? " · Pendiente de aprobación" : ""}`;
-      const emailLines = [
-        `Tipo: ${ticketType.name} · Origen: ${ticket.source === "guard_portal" ? "Portal del guardia" : ticket.source === "manual" ? "Manual" : ticket.source}${requiresApproval ? " · Pendiente de aprobación" : ""}`,
-        `Creado por: ${reporterName}`,
-        `Equipo: ${teamLabel}`,
-        `Prioridad: ${ticket.priority.toUpperCase()}`,
-      ];
-      if (ticket.description) {
-        const desc = ticket.description.length > 200 ? ticket.description.slice(0, 200) + "…" : ticket.description;
-        emailLines.push(`\nDescripción:\n${desc}`);
-      }
-
-      const uniqueTargets = [...new Set(targetUserIds)];
-      if (uniqueTargets.length > 0) {
-        const { notify } = await import("@/lib/notifications/notify");
-        await notify({
-          tenantId: ctx.tenantId,
-          type: "ticket_created",
-          targetIds: uniqueTargets,
-          targetType: "ADMIN",
-          title: `Nuevo ticket: ${ticket.code} - ${ticket.title}`,
-          body: bellMessage,
-          emailBody: emailLines.join("\n"),
-          link: `/ops/tickets/${ticket.id}`,
-          data: { ticketId: ticket.id, code: ticket.code, priority: ticket.priority },
-        });
-      }
-
-      if (requiresApproval && approvalTargetIds.length > 0) {
-        const { notify } = await import("@/lib/notifications/notify");
-        await notify({
-          tenantId: ctx.tenantId,
-          type: "ticket_needs_approval",
-          targetIds: approvalTargetIds,
-          targetType: "ADMIN",
-          title: `Ticket ${ticket.code} pendiente de aprobación`,
-          body: `"${ticket.title}" requiere tu aprobación`,
-          link: `/ops/tickets/${ticket.id}`,
-          data: { ticketId: ticket.id, code: ticket.code },
-        });
-      }
-
-      // Notificar al nuevo responsable si fue asignado al crear el ticket.
-      if (ticket.assignedTo && ticket.assignedTo !== ctx.userId) {
-        const { notifyTicketAssigned } = await import(
-          "@/lib/notifications/notify-ticket-assigned"
-        );
-        await notifyTicketAssigned({
-          tenantId: ctx.tenantId,
-          ticketId: ticket.id,
-          ticketCode: ticket.code,
-          ticketTitle: ticket.title,
-          ticketPriority: ticket.priority,
-          ticketAssignedTeam: ticket.assignedTeam,
-          assigneeId: ticket.assignedTo,
-          assignedById: ctx.userId,
-          source: "creation",
-        });
-      }
-    } catch (err) {
-      console.error("[OPS] Error notifying ticket creation:", err);
+    if (!ticket) {
+      return NextResponse.json({ success: false, error: "No se pudo crear el ticket" }, { status: 500 });
     }
 
     // ── Email + acceso público para tickets de cliente ────────
