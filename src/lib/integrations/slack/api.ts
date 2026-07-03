@@ -115,7 +115,15 @@ export async function slackOAuthAccess(code: string): Promise<{
 
 export async function slackPostMessage(
   token: string,
-  msg: { channel: string; text: string; blocks?: unknown[]; thread_ts?: string },
+  msg: {
+    channel: string;
+    text: string;
+    blocks?: unknown[];
+    thread_ts?: string;
+    /** Identidad por mensaje (requiere scope chat:write.customize). */
+    username?: string;
+    icon_url?: string;
+  },
 ): Promise<{ ts: string }> {
   const json = await callSlack("chat.postMessage", { ...msg }, token);
   return { ts: (json.ts as string) ?? "" };
@@ -196,6 +204,63 @@ export interface SlackUserInfo {
   email: string | null;
   realName: string | null;
   isBot: boolean;
+}
+
+// ── Perfil de usuario para el puente de canales (Fase 4) ──
+
+export interface SlackUserProfile {
+  displayName: string;
+  avatarUrl: string | null;
+}
+
+// Caché en memoria 10 min por (teamId, userId) — evita golpear users.info por mensaje.
+const PROFILE_TTL_MS = 10 * 60 * 1000;
+const profileCache = new Map<string, { value: SlackUserProfile; expiresAt: number }>();
+
+/**
+ * users.info → nombre visible + avatar de un usuario de Slack, para pintar sus
+ * mensajes en el chat de OPAI cuando no está vinculado a un Admin.
+ */
+export async function slackGetUserProfile(
+  token: string,
+  userId: string,
+  teamId = "",
+): Promise<SlackUserProfile | null> {
+  const cacheKey = `${teamId}:${userId}`;
+  const cached = profileCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const json = await callSlack("users.info", { user: userId }, token);
+  const profile = (json.user as { profile?: { display_name?: string; real_name?: string; image_192?: string } })?.profile;
+  if (!profile) return null;
+  const value: SlackUserProfile = {
+    displayName: profile.display_name || profile.real_name || "Usuario de Slack",
+    avatarUrl: profile.image_192 || null,
+  };
+  profileCache.set(cacheKey, { value, expiresAt: Date.now() + PROFILE_TTL_MS });
+  return value;
+}
+
+export interface SlackChannelInfo {
+  name: string;
+  isMember: boolean;
+  isPrivate: boolean;
+}
+
+/** conversations.info → nombre + si el bot es miembro + si es privado. */
+export async function slackChannelInfo(token: string, channelId: string): Promise<SlackChannelInfo | null> {
+  try {
+    const json = await callSlack("conversations.info", { channel: channelId }, token);
+    const ch = (json.channel as { name?: string; is_member?: boolean; is_private?: boolean }) ?? {};
+    return {
+      name: ch.name ?? "",
+      isMember: !!ch.is_member,
+      isPrivate: !!ch.is_private,
+    };
+  } catch (err) {
+    if (err instanceof SlackApiError && err.slackError === "channel_not_found") return null;
+    throw err;
+  }
 }
 
 /** users.info: resuelve email + nombre de un usuario Slack (para vincularlo a un Admin). */
