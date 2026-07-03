@@ -11141,3 +11141,92 @@ model TenantDteFolioTracker {
   @@map("tenant_dte_folio_trackers")
   @@schema("public")
 }
+
+// ── Integración Slack (Fase 1) ───────────────────────────────────────
+// Una Slack App global; cada tenant instala en su workspace. La frontera
+// de aislamiento es slack_team_id → SlackWorkspace.tenantId. Ver
+// docs/integrations/slack.md.
+
+/// Un workspace de Slack conectado por tenant (1:1). El token del bot se
+/// almacena cifrado (AES-256-GCM) con SLACK_TOKEN_ENCRYPTION_KEY.
+model SlackWorkspace {
+  id                 String              @id @default(cuid())
+  tenantId           String              @unique @map("tenant_id")
+  slackTeamId        String              @unique @map("slack_team_id")
+  teamName           String              @map("team_name")
+  botUserId          String              @map("bot_user_id")
+  botTokenEnc        String              @map("bot_token_enc") @db.Text
+  scopes             String              @db.Text
+  installedBy        String              @map("installed_by")
+  status             String              @default("ACTIVE") // ACTIVE | REVOKED
+  defaultChannelId   String?             @map("default_channel_id")
+  defaultChannelName String?             @map("default_channel_name")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  routes SlackChannelRoute[]
+
+  @@index([tenantId], map: "idx_slack_workspaces_tenant")
+  @@index([slackTeamId], map: "idx_slack_workspaces_team")
+  @@map("slack_workspaces")
+  @@schema("public")
+}
+
+/// Ruteo notificación→canal. Precedencia en despacho: KEY > MODULE > default.
+model SlackChannelRoute {
+  id          String   @id @default(cuid())
+  tenantId    String   @map("tenant_id")
+  workspaceId String   @map("workspace_id")
+  matchType   String   @map("match_type") // KEY | MODULE
+  matchValue  String   @map("match_value") // ej. "new_lead" o "finance"
+  channelId   String   @map("channel_id")
+  channelName String   @map("channel_name")
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workspace SlackWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, matchType, matchValue], map: "uq_slack_route_tenant_match")
+  @@index([tenantId, enabled], map: "idx_slack_routes_tenant_enabled")
+  @@index([workspaceId], map: "idx_slack_routes_workspace")
+  @@map("slack_channel_routes")
+  @@schema("public")
+}
+
+/// Cola de entrega. Intento inmediato + reintento por cron (máx 5).
+model SlackOutbox {
+  id          String    @id @default(cuid())
+  tenantId    String    @map("tenant_id")
+  workspaceId String    @map("workspace_id")
+  channelId   String    @map("channel_id")
+  payload     Json      @db.JsonB
+  dedupeKey   String?   @unique @map("dedupe_key")
+  status      String    @default("PENDING") // PENDING | SENT | FAILED
+  attempts    Int       @default(0)
+  lastError   String?   @map("last_error") @db.Text
+  sentAt      DateTime? @map("sent_at")
+  slackTs     String?   @map("slack_ts")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([status, createdAt], map: "idx_slack_outbox_status_created")
+  @@index([tenantId, createdAt], map: "idx_slack_outbox_tenant_created")
+  @@map("slack_outbox")
+  @@schema("public")
+}
+
+/// Vínculo usuario Slack ↔ Admin. Se crea ahora, se puebla en Fase 2.
+model SlackUserLink {
+  id          String   @id @default(cuid())
+  tenantId    String   @map("tenant_id")
+  workspaceId String   @map("workspace_id")
+  slackUserId String   @map("slack_user_id")
+  adminId     String   @map("admin_id")
+  slackEmail  String?  @map("slack_email")
+  linkedAt    DateTime @default(now()) @map("linked_at")
+
+  @@unique([workspaceId, slackUserId], map: "uq_slack_user_link_ws_user")
+  @@index([adminId], map: "idx_slack_user_links_admin")
+  @@map("slack_user_links")
+  @@schema("public")
+}
