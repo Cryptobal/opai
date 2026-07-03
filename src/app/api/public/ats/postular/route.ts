@@ -315,8 +315,10 @@ export async function POST(request: NextRequest) {
         data: {
           guardiaId,
           applicationId: application.id,
-          jobTitle: job.titulo,
+          cargo: job.titulo,
           email: body.email,
+          phone: body.phoneMobile ?? null,
+          comuna: body.commune ?? undefined,
         },
       });
     } catch (e) {

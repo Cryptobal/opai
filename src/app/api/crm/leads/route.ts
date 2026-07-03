@@ -88,7 +88,12 @@ export async function POST(request: NextRequest) {
         title: 'Nuevo lead registrado',
         body: `${lead.firstName} ${lead.lastName}${lead.companyName ? ` — ${lead.companyName}` : ''}`,
         link: `/crm/leads/${lead.id}`,
-        data: { phone: lead.phone ?? null },
+        data: {
+          phone: lead.phone ?? null,
+          empresa: lead.companyName ?? undefined,
+          contacto: `${lead.firstName} ${lead.lastName}`.trim() || undefined,
+          comuna: lead.commune ?? undefined,
+        },
       });
     } catch (err) {
       console.error('[CRM] Error notifying new_lead:', err);

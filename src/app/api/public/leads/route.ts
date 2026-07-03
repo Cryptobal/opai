@@ -161,7 +161,14 @@ export async function POST(request: NextRequest) {
               : data.servicio
           }`,
           link: `/crm/leads/${lead.id}`,
-          data: { leadId: lead.id, email: data.email, company: data.empresa },
+          data: {
+            leadId: lead.id,
+            email: data.email,
+            empresa: data.empresa,
+            contacto: `${data.nombre} ${data.apellido}`.trim() || undefined,
+            origen: SERVICIO_LABELS[data.servicio] || data.servicio,
+            comuna: data.comuna || undefined,
+          },
         });
       } catch (e) {
         console.warn("Lead: failed to create notification", e);

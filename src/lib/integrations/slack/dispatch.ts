@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import type { UnifiedNotificationType } from "@/lib/notifications/catalog";
 import { getWorkspaceForTenant } from "./workspace";
 import { buildNotificationBlocks, ticketActionsBlock, toContextFields } from "./blocks";
+import { enrichTicketFields } from "./card-enrich";
 import { slackPostMessage, SlackApiError, isPermanentSlackError } from "./api";
 
 interface DispatchInput {
@@ -56,12 +57,20 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
   const channelId = await resolveChannel(input.tenantId, input.typeDef, workspace.defaultChannelId);
   if (!channelId) return; // sin ruta ni canal por defecto
 
+  // Tickets: dispatch tiene el id pero no el objeto → carga curada por ticketId.
+  // Los demás eventos usan el renderer genérico sobre el data ya enriquecido en origen.
+  const cardTicketId =
+    input.typeDef.key.startsWith("ticket_") && typeof input.data?.ticketId === "string"
+      ? (input.data.ticketId as string)
+      : null;
+  const ticketFields = cardTicketId ? await enrichTicketFields(input.tenantId, cardTicketId) : [];
+
   const { text, blocks } = buildNotificationBlocks({
     title: input.title,
     body: input.body,
     category: input.typeDef.category,
     phone: typeof input.data?.phone === "string" ? input.data.phone : null,
-    fields: toContextFields(input.data),
+    fields: ticketFields.length ? ticketFields : toContextFields(input.data),
     link: input.link,
     critical: input.typeDef.critical,
   });

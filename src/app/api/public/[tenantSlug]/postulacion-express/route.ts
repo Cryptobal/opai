@@ -228,8 +228,9 @@ export async function POST(
           data: {
             guardiaId: createdGuardia.id,
             code: createdGuardia.code,
-            source: body.source ?? "web_organico",
-            phoneMobile: body.phoneMobile,
+            origen: body.source ?? "web_organico",
+            phone: body.phoneMobile ?? null,
+            comuna: body.commune ?? undefined,
           },
         });
       } catch (e) {

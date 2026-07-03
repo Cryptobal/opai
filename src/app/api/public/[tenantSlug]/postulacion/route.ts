@@ -361,6 +361,9 @@ export async function POST(
             guardiaId: createdGuardia.id,
             code: createdGuardia.code,
             email: body.email,
+            phone: body.phoneMobile ?? null,
+            comuna: body.commune ?? undefined,
+            ciudad: body.city ?? undefined,
           },
         });
       } catch (e) {
