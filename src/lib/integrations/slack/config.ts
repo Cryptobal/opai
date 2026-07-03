@@ -8,16 +8,29 @@
 
 import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 
-/** Bot scopes (Fase 1: enviar, listar canales, lookup por email, eventos). */
+/**
+ * Bot scopes. DEBEN coincidir con el manifest de la Slack App: es lo que el
+ * OAuth solicita y por ende lo que el token termina teniendo. Si se agrega
+ * un scope aquí o en el manifest, cada workspace debe RECONECTAR para
+ * re-autorizar (Slack no otorga scopes retroactivamente).
+ * F1: envío/canales/lookup · F2: DMs del bot · F4: puente (identidad por
+ * mensaje + lectura de mensajes de canales).
+ */
 export const SLACK_BOT_SCOPES = [
   "chat:write",
   "chat:write.public",
+  "chat:write.customize",
   "channels:read",
+  "channels:history",
   "groups:read",
+  "groups:history",
+  "im:history",
+  "im:write",
   "users:read",
   "users:read.email",
   "app_mentions:read",
   "commands",
+  "team:read",
 ].join(",");
 
 export function slackRedirectUri(): string {

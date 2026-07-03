@@ -60,7 +60,19 @@ export async function GET() {
     createdByName: adminName.get(l.createdBy) ?? "—",
     createdAt: l.createdAt.toISOString(),
   }));
-  return NextResponse.json({ success: true, bridges });
+
+  // Auto-diagnóstico: el puente necesita scopes que no existían en Fase 1/2.
+  // Si el token fue otorgado antes, el panel muestra cómo re-autorizar.
+  const ws = await prisma.slackWorkspace.findFirst({
+    where: { tenantId, status: "ACTIVE" },
+    select: { scopes: true },
+  });
+  const granted = new Set((ws?.scopes ?? "").split(",").map((s) => s.trim()).filter(Boolean));
+  const missingScopes = ["chat:write.customize", "channels:history", "groups:history"].filter(
+    (s) => !granted.has(s),
+  );
+
+  return NextResponse.json({ success: true, bridges, missingScopes });
 }
 
 const createSchema = z.object({

@@ -18,6 +18,7 @@ interface Bridge {
 
 export function SlackBridges() {
   const [bridges, setBridges] = useState<Bridge[]>([]);
+  const [missingScopes, setMissingScopes] = useState<string[]>([]);
   const [chatOpts, setChatOpts] = useState<SelectOption[]>([]);
   const [slackOpts, setSlackOpts] = useState<SelectOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,7 +36,10 @@ export function SlackBridges() {
         fetch("/api/integrations/slack/channels"),
       ]);
       const [b, c, s] = await Promise.all([bRes.json(), cRes.json(), sRes.json()]);
-      if (b.success) setBridges(b.bridges);
+      if (b.success) {
+        setBridges(b.bridges);
+        setMissingScopes(b.missingScopes ?? []);
+      }
       if (c.success) {
         type ApiChatChannel = {
           id: string;
@@ -139,6 +143,15 @@ export function SlackBridges() {
         )}
       </CardHeader>
       <CardContent className="space-y-3">
+        {missingScopes.length > 0 && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+            ⚠️ El workspace fue autorizado sin los permisos que el puente necesita (
+            {missingScopes.join(", ")}). Verifica que el manifest en api.slack.com incluya esos
+            scopes y los eventos <code>message.channels</code> y <code>message.groups</code>, y
+            luego presiona «Conectar con Slack» de nuevo para re-autorizar. Sin esto, los mensajes
+            de Slack no llegan a OPAI y los de OPAI salen sin nombre.
+          </div>
+        )}
         {creating && (
           <div className="space-y-3 rounded-lg border border-border p-3">
             <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
