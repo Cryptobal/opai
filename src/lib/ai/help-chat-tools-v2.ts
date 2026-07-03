@@ -4,6 +4,7 @@
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getAssignedTeamsForUser } from "@/lib/tickets-team-membership";
 import { todayChileStr } from "@/lib/fx-date";
 import {
   getGuardiasMetrics,
@@ -215,8 +216,24 @@ function v2ToolDefinitions() {
       type: "function" as const,
       function: {
         name: "get_tickets_summary",
-        description: "Resumen de tickets Ops: conteos por estado, vencidos SLA y recientes.",
+        description: "Resumen GLOBAL de tickets Ops de TODO el sistema (NO filtra por usuario): conteos por estado, vencidos SLA y recientes. Para los tickets DE UN USUARIO usa get_my_tickets.",
         parameters: { type: "object", properties: {}, additionalProperties: false },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "get_my_tickets",
+        description: "Tickets Ops ASIGNADOS AL USUARIO ACTUAL (a él o a sus equipos). Úsala SIEMPRE que pregunten por 'mis tickets', 'los míos', 'asignados a mí' o 'qué tengo pendiente'. NO uses get_tickets_summary para eso (esa es del sistema completo).",
+        parameters: {
+          type: "object",
+          properties: {
+            estado: { type: "string", enum: ["open", "in_progress", "waiting", "pending_approval", "resolved", "closed", "cancelled"], description: "Filtra por estado; omite para ver los activos." },
+            prioridad: { type: "string", enum: ["p1", "p2", "p3", "p4"], description: "Filtra por prioridad." },
+            solo_vencidos_sla: { type: "boolean", description: "Sólo tickets con SLA vencido." },
+          },
+          additionalProperties: false,
+        },
       },
     },
     {
@@ -2025,6 +2042,55 @@ async function toolGetTicketsSummary(tenantId: string) {
       status: t.status,
       priority: t.priority,
       createdAt: t.createdAt.toISOString(),
+    })),
+  };
+}
+
+async function toolGetMyTickets(
+  tenantId: string,
+  userId: string,
+  args: { estado?: string; prioridad?: string; solo_vencidos_sla?: boolean },
+) {
+  const teams = await getAssignedTeamsForUser(tenantId, userId);
+  const mine =
+    teams.length > 0
+      ? { OR: [{ assignedTo: userId }, { assignedTeam: { in: teams } }] }
+      : { assignedTo: userId };
+  const where: Record<string, unknown> = { tenantId, AND: [mine] };
+  if (args.estado) where.status = args.estado;
+  else where.status = { in: ["open", "in_progress", "waiting", "pending_approval"] };
+  if (args.prioridad) where.priority = args.prioridad;
+  if (args.solo_vencidos_sla) where.slaBreached = true;
+
+  const [rows, total] = await Promise.all([
+    prisma.opsTicket.findMany({
+      where,
+      orderBy: [{ priority: "asc" }, { createdAt: "desc" }],
+      take: 15,
+      select: {
+        code: true,
+        title: true,
+        status: true,
+        priority: true,
+        slaBreached: true,
+        slaDueAt: true,
+        assignedTeam: true,
+      },
+    }),
+    prisma.opsTicket.count({ where }),
+  ]);
+
+  return {
+    scope: "asignados al usuario actual (él o sus equipos)",
+    total,
+    tickets: rows.map((t) => ({
+      code: t.code,
+      title: t.title,
+      status: t.status,
+      priority: t.priority,
+      slaBreached: t.slaBreached,
+      slaDueAt: t.slaDueAt ? t.slaDueAt.toISOString() : null,
+      team: t.assignedTeam,
     })),
   };
 }
@@ -5995,6 +6061,15 @@ export async function executeToolCallV2(
       }
       case "get_tickets_summary":
         return { ok: true, data: await toolGetTicketsSummary(tenantId) };
+      case "get_my_tickets":
+        return {
+          ok: true,
+          data: await toolGetMyTickets(tenantId, userId, {
+            estado: typeof args.estado === "string" ? args.estado : undefined,
+            prioridad: typeof args.prioridad === "string" ? args.prioridad : undefined,
+            solo_vencidos_sla: args.solo_vencidos_sla === true,
+          }),
+        };
       case "get_finance_summary": {
         const days = typeof args.days_back === "number" ? args.days_back : 30;
         return { ok: true, data: await toolGetFinanceSummary(tenantId, days) };

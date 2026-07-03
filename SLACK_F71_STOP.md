@@ -21,7 +21,7 @@ Manifest: scopes bot `reactions:read` + `reactions:write`; bot_events `reaction_
 - [x] B1 — CATEGORY en ruteo (dispatch + API + UI)
 - [x] B2 — Renderer genérico de fields
 - [x] B3 — Enrichers tickets + postulaciones + leads
-- [ ] B4 — Tool `get_my_tickets`
+- [x] B4 — Tool `get_my_tickets`
 - [ ] B5 — Hub "Mis tickets" + `/opai ayuda`
 - [ ] B6 — Reacciones Slack→OPAI
 - [ ] B7 — Reacciones OPAI→Slack
