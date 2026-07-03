@@ -2,13 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { verifySlackSignature } from "@/lib/integrations/slack/signature";
 import { handleInteractivity } from "@/lib/integrations/slack/interactivity";
+import { openModalForShortcut, prepareViewSubmission } from "@/lib/integrations/slack/modals/dispatch";
 
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/integrations/slack/interactivity — Slack Interactivity (block_actions).
+ * POST /api/integrations/slack/interactivity — Slack Interactivity.
  * Pública en el proxy; la seguridad es la firma HMAC verificada in-route sobre
- * el raw body ANTES de parsear. ACK 200 en <3s; el trabajo corre en after().
+ * el raw body ANTES de parsear. Maneja `block_actions`, `shortcut`,
+ * `message_action` y `view_submission`.
+ *
+ * ACK 200 en <3s. `view_submission` exige el ACK (response_action) en ESTA
+ * respuesta síncrona; el resto agenda el trabajo en after().
  */
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
@@ -23,6 +28,26 @@ export async function POST(req: NextRequest) {
     if (!encoded) return NextResponse.json({ ok: true });
     payload = JSON.parse(encoded);
   } catch {
+    return NextResponse.json({ ok: true });
+  }
+
+  // view_submission: el ACK (cerrar o errores por campo) va en esta respuesta.
+  if (payload.type === "view_submission") {
+    let result: { ack: Record<string, unknown>; work?: () => Promise<void> } = { ack: {} };
+    try {
+      result = await prepareViewSubmission(payload);
+    } catch (err) {
+      console.error("[slack] prepareViewSubmission falló:", err);
+    }
+    if (result.work) after(result.work);
+    return NextResponse.json(result.ack);
+  }
+
+  // shortcut / message_action: abrir modal (trigger_id perece) en after().
+  if (payload.type === "shortcut" || payload.type === "message_action") {
+    after(() =>
+      openModalForShortcut(payload).catch((err) => console.error("[slack] openModalForShortcut falló:", err)),
+    );
     return NextResponse.json({ ok: true });
   }
 
