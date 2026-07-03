@@ -13,7 +13,7 @@ type Err = { ok: false; error: string };
 async function loadTicket(tenantId: string, ticketId: string) {
   return prisma.opsTicket.findFirst({
     where: { id: ticketId, tenantId },
-    select: { id: true, code: true, title: true, priority: true, assignedTo: true, assignedTeam: true },
+    select: { id: true, code: true, title: true, priority: true, status: true, assignedTo: true, assignedTeam: true },
   });
 }
 
