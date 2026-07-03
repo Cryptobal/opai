@@ -19,19 +19,59 @@ export class SlackApiError extends Error {
 
 type SlackResponse = { ok: boolean; error?: string; [k: string]: unknown };
 
+/**
+ * Errores de Slack que NO se resuelven reintentando el mismo mensaje
+ * (permisos de publicación del canal, canal archivado/inexistente, bot fuera
+ * de un canal privado, payload inválido, auth revocada). El outbox los marca
+ * FAILED de inmediato sin gastar reintentos.
+ */
+const PERMANENT_SLACK_ERRORS = new Set([
+  "is_archived",
+  "restricted_action",
+  "channel_not_found",
+  "not_in_channel",
+  "msg_too_long",
+  "invalid_blocks",
+  "invalid_arguments",
+  "invalid_auth",
+  "account_inactive",
+  "token_revoked",
+]);
+
+export function isPermanentSlackError(code: string): boolean {
+  return PERMANENT_SLACK_ERRORS.has(code);
+}
+
+/**
+ * Serializa args como form-urlencoded: es el ÚNICO formato que aceptan TODOS
+ * los métodos de la Web API. JSON sólo funciona en métodos de escritura
+ * whitelisted (chat.postMessage); los de lectura (conversations.list) lo
+ * IGNORAN en silencio y aplican defaults (verificado con api.test: JSON →
+ * args {}, form → args parseados). Objetos/arrays (ej. blocks) van
+ * JSON-stringified dentro del campo, patrón oficial de Slack.
+ */
+function toForm(body: Record<string, unknown>): string {
+  const form = new URLSearchParams();
+  for (const [k, v] of Object.entries(body)) {
+    if (v === undefined || v === null) continue;
+    form.set(k, typeof v === "string" ? v : typeof v === "object" ? JSON.stringify(v) : String(v));
+  }
+  return form.toString();
+}
+
 async function callSlack(
   method: string,
   body: Record<string, unknown>,
   token?: string,
 ): Promise<SlackResponse> {
   const headers: Record<string, string> = {
-    "Content-Type": "application/json; charset=utf-8",
+    "Content-Type": "application/x-www-form-urlencoded",
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(`${BASE}/${method}`, {
     method: "POST",
     headers,
-    body: JSON.stringify(body),
+    body: toForm(body),
   });
   const json = (await res.json()) as SlackResponse;
   if (!json.ok) throw new SlackApiError(json.error ?? `http_${res.status}`);
@@ -127,8 +167,11 @@ export async function slackListChannels(token: string): Promise<SlackChannel[]> 
     };
     if (cursor) body.cursor = cursor;
     const json = await callSlack("conversations.list", body, token);
-    const list = (json.channels as Array<{ id: string; name: string; is_private?: boolean }>) ?? [];
-    for (const c of list) channels.push({ id: c.id, name: c.name, isPrivate: !!c.is_private });
+    const list = (json.channels as Array<{ id: string; name: string; is_private?: boolean; is_archived?: boolean }>) ?? [];
+    for (const c of list) {
+      if (c.is_archived) continue; // defensivo: nunca ofrecer canales archivados
+      channels.push({ id: c.id, name: c.name, isPrivate: !!c.is_private });
+    }
     cursor = (json.response_metadata as { next_cursor?: string } | undefined)?.next_cursor || undefined;
     if (!cursor) break;
   }

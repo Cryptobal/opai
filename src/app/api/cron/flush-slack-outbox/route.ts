@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { decryptSlackToken } from "@/lib/integrations/slack/crypto";
-import { slackPostMessage, SlackApiError } from "@/lib/integrations/slack/api";
+import { slackPostMessage, SlackApiError, isPermanentSlackError } from "@/lib/integrations/slack/api";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -77,10 +77,11 @@ export async function GET(req: NextRequest) {
     } catch (err) {
       failed++;
       const reason = err instanceof SlackApiError ? err.slackError : String(err);
-      console.error("[slack] reintento falló", item.id, reason);
+      const permanent = err instanceof SlackApiError && isPermanentSlackError(err.slackError);
+      console.error(permanent ? "[slack] reintento falló (permanente, se descarta)" : "[slack] reintento falló", item.id, reason);
       await prisma.slackOutbox.update({
         where: { id: item.id },
-        data: { status: "FAILED", attempts: { increment: 1 }, lastError: reason },
+        data: { status: "FAILED", attempts: permanent ? MAX_ATTEMPTS : { increment: 1 }, lastError: reason },
       });
     }
   }
