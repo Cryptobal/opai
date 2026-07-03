@@ -2,8 +2,10 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { prisma } from "@/lib/prisma";
 import { Slack } from "lucide-react";
 import { SlackConfigClient } from "@/components/configuracion/slack/SlackConfigClient";
+import { SlackBridges } from "@/components/configuracion/slack/SlackBridges";
 
 export default async function SlackIntegrationPage() {
   const session = await auth();
@@ -16,6 +18,12 @@ export default async function SlackIntegrationPage() {
     redirect("/opai/configuracion");
   }
 
+  const ws = await prisma.slackWorkspace.findUnique({
+    where: { tenantId: session.user.tenantId },
+    select: { status: true },
+  });
+  const connected = ws?.status === "ACTIVE";
+
   return (
     <ConfigPageLayout
       title="Slack"
@@ -24,7 +32,10 @@ export default async function SlackIntegrationPage() {
       backHref="/opai/configuracion/integraciones"
       backLabel="Integraciones"
     >
-      <SlackConfigClient />
+      <div className="space-y-4">
+        <SlackConfigClient />
+        {connected && <SlackBridges />}
+      </div>
     </ConfigPageLayout>
   );
 }
