@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArchiveRestore, MoreHorizontal, Trash2, Bell, BellOff, AtSign, CheckCheck } from "lucide-react";
+import { Archive, ArchiveRestore, MoreHorizontal, Trash2, Bell, BellOff, AtSign, CheckCheck, Link2, Unlink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatChannelData } from "@/lib/chat-types";
 import {
@@ -31,6 +31,12 @@ interface ChatChannelListItemProps {
   onChangeNotifPreference?: (pref: NotifPreference) => void;
   canDelete?: boolean;
   isArchived?: boolean;
+  /** Viewer admin + workspace Slack activo (gate cosmético; el API manda) */
+  canManageSlack?: boolean;
+  /** Nombre del canal de Slack puenteado, si lo hay */
+  slackBridgeName?: string | null;
+  onSlackConnect?: () => void;
+  onSlackDisconnect?: () => void;
 }
 
 function formatRelativeTime(dateStr: string | null): string {
@@ -82,9 +88,14 @@ export function ChatChannelListItem({
   onChangeNotifPreference,
   canDelete,
   isArchived,
+  canManageSlack,
+  slackBridgeName,
+  onSlackConnect,
+  onSlackDisconnect,
 }: ChatChannelListItemProps) {
   const hasUnread = unreadCount > 0;
   const isDm = channel.channelType === "DIRECT";
+  const canSlack = Boolean(canManageSlack) && !isDm;
   const isMuted = notifPreference === "MUTED";
   const isMentionsOnly = notifPreference === "MENTIONS_ONLY";
 
@@ -144,6 +155,11 @@ export function ChatChannelListItem({
             >
               {displayName}
             </span>
+            {slackBridgeName && (
+              <span title="Conectado con Slack" className="shrink-0 inline-flex">
+                <Link2 className="h-3 w-3 text-[rgba(255,255,255,0.45)]" />
+              </span>
+            )}
             {isMuted && <BellOff className="h-3 w-3 shrink-0 text-[rgba(255,255,255,0.35)]" />}
             {isMentionsOnly && !isMuted && <AtSign className="h-3 w-3 shrink-0 text-amber-400/80" />}
             {timestamp && (
@@ -258,6 +274,28 @@ export function ChatChannelListItem({
                   <Trash2 className="mr-2 h-4 w-4" />
                   Eliminar
                 </DropdownMenuItem>
+              </>
+            )}
+            {canSlack && (
+              <>
+                <DropdownMenuSeparator />
+                {slackBridgeName ? (
+                  <>
+                    <div className="px-2 py-1 text-[11px] text-muted-foreground flex items-center gap-1.5">
+                      <Link2 className="h-3 w-3 shrink-0" />
+                      <span className="truncate">Conectado con #{slackBridgeName}</span>
+                    </div>
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onSlackDisconnect?.(); }}>
+                      <Unlink className="mr-2 h-4 w-4" />
+                      Desconectar de Slack
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onSlackConnect?.(); }}>
+                    <Link2 className="mr-2 h-4 w-4" />
+                    Vincular con Slack
+                  </DropdownMenuItem>
+                )}
               </>
             )}
           </DropdownMenuContent>

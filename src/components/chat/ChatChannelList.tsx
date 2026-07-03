@@ -24,6 +24,8 @@ import { ChatChannelListItem } from "./ChatChannelListItem";
 import { applyChannelSummaryPatch, type ChatChannelSummaryPatch } from "./lib/chat-state";
 import { ChatNewDmModal } from "./ChatNewDmModal";
 import { NewExternalChatModal } from "./NewExternalChatModal";
+import { useSlackBridges } from "./useSlackBridges";
+import { ChatChannelSlackBridge } from "./ChatChannelSlackBridge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -144,6 +146,11 @@ export function ChatChannelList({
   const archivedFetchedRef = useRef(false);
 
   const canDelete = userRole === "owner" || userRole === "admin";
+
+  // Puentes Slack (solo admins): mismo gate que requireSlackAdmin en el API.
+  const { connected: slackConnected, bridgeByChatChannelId: slackBridges, refresh: refreshSlackBridges } =
+    useSlackBridges(canDelete);
+  const [slackFor, setSlackFor] = useState<{ channel: ChatChannelData; mode: "connect" | "disconnect" } | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -335,6 +342,14 @@ export function ChatChannelList({
 
   const isEmpty = processedChannels.length === 0 && archivedChannels.length === 0;
 
+  // Props del ítem Slack, compartidas por la lista normal y la de archivados.
+  const slackItemProps = (channel: ChatChannelData) => ({
+    canManageSlack: canDelete && slackConnected,
+    slackBridgeName: slackBridges[channel.id]?.slackChannelName ?? null,
+    onSlackConnect: () => setSlackFor({ channel, mode: "connect" }),
+    onSlackDisconnect: () => setSlackFor({ channel, mode: "disconnect" }),
+  });
+
   const renderChannelItems = (chs: ChatChannelData[], opts: { showArchive?: boolean; showUnarchive?: boolean; showDelete?: boolean }) =>
     chs.map((channel) => (
       <ChatChannelListItem
@@ -348,6 +363,7 @@ export function ChatChannelList({
         onDelete={opts.showDelete !== false && canDelete ? () => setDeleteTarget(channel.id) : undefined}
         canDelete={opts.showDelete !== false && canDelete}
         isArchived={opts.showUnarchive}
+        {...slackItemProps(channel)}
       />
     ));
 
@@ -688,6 +704,7 @@ export function ChatChannelList({
                           onDelete={channel.channelType !== "INSTALLATION" && canDelete ? () => setDeleteTarget(channel.id) : undefined}
                           canDelete={channel.channelType !== "INSTALLATION" && canDelete}
                           isArchived
+                          {...slackItemProps(channel)}
                         />
                       ))}
                     </div>
@@ -724,6 +741,19 @@ export function ChatChannelList({
         }}
         defaultStatus={newExternalStatus ?? undefined}
       />
+
+      {/* Vinculación con Slack (conectar/desconectar) */}
+      {slackFor && (
+        <ChatChannelSlackBridge
+          open
+          mode={slackFor.mode}
+          chatChannelId={slackFor.channel.id}
+          channelName={getDisplayName(slackFor.channel)}
+          bridge={slackBridges[slackFor.channel.id] ?? null}
+          onClose={() => setSlackFor(null)}
+          onChanged={() => { refreshSlackBridges(); setSlackFor(null); }}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
