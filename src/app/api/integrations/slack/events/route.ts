@@ -65,6 +65,21 @@ export async function POST(req: NextRequest) {
         console.error(`[slack] workspace revocado por evento ${eventType} (team ${teamId})`);
       });
       break;
+    case "app_home_opened":
+      // Pestaña Inicio → publica el panel personal. Pestaña Mensajes → bienvenida única.
+      if (payload.event) {
+        const ev = payload.event as unknown as { user?: string; tab?: string };
+        after(async () => {
+          try {
+            const { publishHome, maybeSendWelcome } = await import("@/lib/integrations/slack/home");
+            if (ev.tab === "messages") await maybeSendWelcome(resolved.tenantId, ev.user ?? "");
+            else await publishHome(resolved.tenantId, ev.user ?? "");
+          } catch (err) {
+            console.error("[slack] app_home_opened falló:", err);
+          }
+        });
+      }
+      break;
     case "reaction_added":
     case "reaction_removed":
       // Reacción sobre un mensaje puenteado → refleja en el chat de OPAI.

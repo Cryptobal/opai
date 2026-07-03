@@ -20,7 +20,13 @@ import { getTenantForTeam, getWorkspaceForTenant, type ActiveWorkspace } from ".
 import { resolveLinkedAdmin, buildLinkPrompt, type LinkedAdmin } from "./user-link";
 import { slackUpdateMessage, slackRespondUrl } from "./api";
 import { assistantSection } from "./blocks";
+import { publishHome } from "./home";
 import { decideTicketApproval } from "@/lib/tickets-approvals";
+
+/** Refresca el App Home del usuario tras completar una acción (best-effort). */
+function refreshHome(tenantId: string, slackUserId: string): void {
+  publishHome(tenantId, slackUserId).catch((e) => console.error("[slack] refresh Home falló:", e));
+}
 
 interface BlockActionsPayload {
   type?: string;
@@ -182,6 +188,7 @@ async function handleToolConfirm(
     return;
   }
   await respondCard(ctx, `✅ *${label}* confirmado por <@${ctx.slackUserId}>`);
+  refreshHome(workspace.tenantId, ctx.slackUserId);
   await logAudit({ action: "CREATE", entity: "SlackPendingAction", entityId: pending.id, tenantId: workspace.tenantId, userId: linked.adminId, details: { toolName: pending.toolName, kind: "TOOL_CONFIRM", via: "slack" } });
 }
 
@@ -213,5 +220,6 @@ async function handleTicketDecision(
   }
   const verb = approve ? "aprobado" : "rechazado";
   await respondCard(ctx, `${approve ? "✅" : "❌"} Ticket *${result.ticketCode ?? ""}* ${verb} por <@${ctx.slackUserId}>`);
+  refreshHome(workspace.tenantId, ctx.slackUserId);
   await logAudit({ action: "UPDATE", entity: "OpsTicket", entityId: pending.entityId, tenantId: workspace.tenantId, userId: linked.adminId, details: { decision: approve ? "approved" : "rejected", via: "slack" } });
 }

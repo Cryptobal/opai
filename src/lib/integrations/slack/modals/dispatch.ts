@@ -120,12 +120,16 @@ export async function pushActionModal(payload: Record<string, unknown>): Promise
 
   const modal = getModal(actionId);
   if (!modal) return;
+  // Desde el hub (modal ya abierto) se APILA; desde el App Home o un DM (no hay
+  // modal en pila) se ABRE uno nuevo — mismo trigger_id perecedero.
+  const fromModal = (payload.view as { type?: string } | undefined)?.type === "modal";
   try {
     const view =
       modal.requires && !modal.requires(linked.perms)
         ? infoView(modal.title, "No tienes permiso para esta acción.")
         : await modal.build({ workspace, tenantId: workspace.tenantId, linked, slackUserId });
-    await slackPushView(workspace.botToken, triggerId, view);
+    if (fromModal) await slackPushView(workspace.botToken, triggerId, view);
+    else await slackOpenView(workspace.botToken, triggerId, view);
   } catch (err) {
     console.error("[slack] pushActionModal falló:", err);
   }

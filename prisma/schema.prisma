@@ -11271,6 +11271,8 @@ model SlackUserLink {
   /// DM channel id (im) cacheado tras conversations.open — canal Slack personal (Fase 6).
   dmChannelId String?  @map("dm_channel_id")
   linkedAt    DateTime @default(now()) @map("linked_at")
+  /// Marca del mensaje de bienvenida único (App Home / agente, Fase 7.1) para no repetirlo.
+  welcomedAt  DateTime? @map("welcomed_at")
 
   @@unique([workspaceId, slackUserId], map: "uq_slack_user_link_ws_user")
   @@index([adminId], map: "idx_slack_user_links_admin")

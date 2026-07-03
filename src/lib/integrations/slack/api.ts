@@ -199,6 +199,11 @@ export async function slackPushView(
   return { id: ((json.view as { id?: string })?.id) ?? "" };
 }
 
+/** views.publish — publica la pestaña Inicio (App Home) de un usuario (Fase 7.1). */
+export async function slackPublishHomeView(token: string, userId: string, view: unknown): Promise<void> {
+  await callSlack("views.publish", { user_id: userId, view }, token);
+}
+
 export interface SlackChannel {
   id: string;
   name: string;
