@@ -16,8 +16,9 @@ const MODULE_LABELS: Record<string, string> = {
 };
 
 /**
- * Tabla de ruteo evento→canal. Precedencia: evento (KEY) > módulo (MODULE) >
- * canal por defecto. Agrupa el catálogo por `category`. Mobile: tarjetas.
+ * Tabla de ruteo evento→canal. Precedencia: evento (KEY) > categoría (CATEGORY) >
+ * módulo (MODULE) > canal por defecto. Agrupa el catálogo por `category` y cada
+ * header de grupo tiene su propio picker de canal. Mobile: tarjetas.
  */
 export function SlackRoutingTable({
   config,
@@ -37,6 +38,12 @@ export function SlackRoutingTable({
   const byModule = useMemo(() => {
     const m = new Map<string, SlackRoute>();
     for (const r of config.routes) if (r.matchType === "MODULE") m.set(r.matchValue, r);
+    return m;
+  }, [config.routes]);
+
+  const byCategoryRoute = useMemo(() => {
+    const m = new Map<string, SlackRoute>();
+    for (const r of config.routes) if (r.matchType === "CATEGORY") m.set(r.matchValue, r);
     return m;
   }, [config.routes]);
 
@@ -85,32 +92,47 @@ export function SlackRoutingTable({
 
       <section className="space-y-3">
         <div>
-          <h3 className="text-sm font-semibold">Reglas por evento</h3>
+          <h3 className="text-sm font-semibold">Reglas por categoría y evento</h3>
           <p className="text-xs text-muted-foreground">
-            Ruteo específico por tipo de notificación. Tiene prioridad sobre la regla de módulo.
+            Rutea toda una categoría a un canal con un clic. Prioridad: evento &gt; categoría &gt; módulo &gt; canal por defecto.
           </p>
         </div>
-        {byCategory.map((group) => (
-          <div key={group.category} className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {group.category}
-            </p>
-            <div className="space-y-2">
-              {group.types.map((t) => (
-                <SlackRouteRow
-                  key={t.key}
-                  label={t.label}
-                  sublabel={t.key}
-                  matchType="KEY"
-                  matchValue={t.key}
-                  route={byKey.get(t.key)}
-                  channels={channels}
-                  onChanged={onChanged}
-                />
-              ))}
+        {byCategory.map((group) => {
+          const overridden = group.types.filter((t) => byKey.has(t.key)).length;
+          const catRoute = byCategoryRoute.get(group.category);
+          return (
+            <div key={group.category} className="space-y-2">
+              <SlackRouteRow
+                emphasis
+                label={group.category}
+                sublabel={
+                  overridden > 0
+                    ? `${overridden} evento(s) con regla propia (prevalece sobre esta)`
+                    : "Aplica a toda la categoría"
+                }
+                matchType="CATEGORY"
+                matchValue={group.category}
+                route={catRoute}
+                channels={channels}
+                onChanged={onChanged}
+              />
+              <div className="space-y-2 sm:pl-4">
+                {group.types.map((t) => (
+                  <SlackRouteRow
+                    key={t.key}
+                    label={t.label}
+                    sublabel={t.key}
+                    matchType="KEY"
+                    matchValue={t.key}
+                    route={byKey.get(t.key)}
+                    channels={channels}
+                    onChanged={onChanged}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </section>
     </div>
   );

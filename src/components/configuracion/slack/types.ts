@@ -1,8 +1,10 @@
 // Tipos compartidos del panel de configuración de Slack.
 
+export type SlackMatchType = "KEY" | "CATEGORY" | "MODULE";
+
 export interface SlackRoute {
   id: string;
-  matchType: "KEY" | "MODULE";
+  matchType: SlackMatchType;
   matchValue: string;
   channelId: string;
   channelName: string;

@@ -25,7 +25,7 @@ interface DispatchInput {
 /** TTL amplio: la aprobación de ticket puede tardar días (el estado real manda). */
 const TICKET_PENDING_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Resuelve el canal destino con precedencia KEY > MODULE > default. */
+/** Resuelve el canal destino con precedencia KEY > CATEGORY > MODULE > default. */
 async function resolveChannel(
   tenantId: string,
   typeDef: UnifiedNotificationType,
@@ -37,16 +37,16 @@ async function resolveChannel(
       enabled: true,
       OR: [
         { matchType: "KEY", matchValue: typeDef.key },
+        { matchType: "CATEGORY", matchValue: typeDef.category },
         { matchType: "MODULE", matchValue: typeDef.module },
       ],
     },
     select: { matchType: true, channelId: true },
   });
-  const keyRoute = routes.find((r) => r.matchType === "KEY");
-  if (keyRoute) return keyRoute.channelId;
-  const moduleRoute = routes.find((r) => r.matchType === "MODULE");
-  if (moduleRoute) return moduleRoute.channelId;
-  return defaultChannelId;
+  const byType = (t: string) => routes.find((r) => r.matchType === t)?.channelId;
+  // Más específico gana: un evento (KEY) sobre su categoría, y la categoría sobre
+  // todo el módulo. Sin regla → canal por defecto del workspace.
+  return byType("KEY") ?? byType("CATEGORY") ?? byType("MODULE") ?? defaultChannelId;
 }
 
 export async function dispatchSlackForNotification(input: DispatchInput): Promise<void> {

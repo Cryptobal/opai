@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { SlackChannelPicker } from "./SlackChannelPicker";
-import type { SlackChannelOption, SlackRoute } from "./types";
+import type { SlackChannelOption, SlackMatchType, SlackRoute } from "./types";
 
 /**
  * Fila de ruteo reutilizable (por módulo o por evento). Mobile: se apila
@@ -20,14 +20,16 @@ export function SlackRouteRow({
   route,
   channels,
   onChanged,
+  emphasis,
 }: {
   label: string;
   sublabel?: string;
-  matchType: "KEY" | "MODULE";
+  matchType: SlackMatchType;
   matchValue: string;
   route?: SlackRoute;
   channels: SlackChannelOption[];
   onChanged: () => void;
+  emphasis?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -87,9 +89,13 @@ export function SlackRouteRow({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-border/60 bg-card/40 p-3 sm:flex-row sm:items-center sm:justify-between">
+    <div
+      className={`flex flex-col gap-2 rounded-xl border p-3 sm:flex-row sm:items-center sm:justify-between ${
+        emphasis ? "border-border bg-muted/40" : "border-border/60 bg-card/40"
+      }`}
+    >
       <div className="min-w-0">
-        <p className="text-sm font-medium truncate">{label}</p>
+        <p className={`truncate ${emphasis ? "text-sm font-semibold uppercase tracking-wide" : "text-sm font-medium"}`}>{label}</p>
         {sublabel && <p className="text-xs text-muted-foreground truncate">{sublabel}</p>}
       </div>
       <div className="flex items-center gap-2 sm:w-[260px] sm:shrink-0">

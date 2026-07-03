@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 const routeSchema = z.object({
   kind: z.literal("route"),
-  matchType: z.enum(["KEY", "MODULE"]),
+  matchType: z.enum(["KEY", "CATEGORY", "MODULE"]),
   matchValue: z.string().min(1),
   channelId: z.string().min(1),
   channelName: z.string().min(1),
