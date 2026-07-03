@@ -12,8 +12,14 @@ import {
   resolveFunctionalIntent,
   shouldUseInferredAnswerUpfront,
 } from "@/lib/ai/help-chat-intents";
-import { chooseModel, detectFrustration } from "@/lib/ai/help-chat-model-router";
+import { detectFrustration } from "@/lib/ai/help-chat-model-router";
 import { searchKnowledge } from "@/lib/knowledge/search";
+import {
+  fallbackMessage,
+  normalizeAssistantLinks,
+  resolveEffectiveModel,
+  trimHistory,
+} from "@/lib/ai/help-chat-shared";
 import {
   getHelpChatAIConfig as getProviderConfig,
   createStreamingCompletion,
@@ -27,37 +33,6 @@ import { logAiUsage } from "@/lib/platform-ai-service";
 function hasChatPersistence(): boolean {
   const db = prisma as unknown as Record<string, unknown>;
   return Boolean(db.aiChatConversation && db.aiChatMessage);
-}
-
-function fallbackMessage(_question: string): string {
-  return `No tengo datos específicos para responder eso con certeza. ¿Puedes darme más contexto o reformular tu pregunta?`;
-}
-
-function toAbsoluteUrl(pathname: string, appBaseUrl: string): string {
-  if (!pathname.startsWith("/")) return pathname;
-  const base = appBaseUrl.endsWith("/") ? appBaseUrl.slice(0, -1) : appBaseUrl;
-  return `${base}${pathname}`;
-}
-
-function normalizeAssistantLinks(text: string, appBaseUrl: string): string {
-  let output = text;
-  output = output.replace(
-    /-\s*URL:\s*`(\/[^`]+)`/gi,
-    (_, path: string) => `- Ingresa acá: [Abrir enlace](${toAbsoluteUrl(path, appBaseUrl)})`,
-  );
-  output = output.replace(
-    /\[([^\]]+)\]\((\/[^)\s]+)\)/g,
-    (_, label: string, path: string) => `[${label}](${toAbsoluteUrl(path, appBaseUrl)})`,
-  );
-  output = output.replace(
-    /`(\/[a-z0-9\-/_[\]]+)`/gi,
-    (_, path: string) => `[Ingresa acá](${toAbsoluteUrl(path, appBaseUrl)})`,
-  );
-  output = output.replace(
-    /\((\/[a-z0-9\-/_[\]]+)\)/gi,
-    (_, path: string) => `(Ingresa acá: [Abrir enlace](${toAbsoluteUrl(path, appBaseUrl)}))`,
-  );
-  return output;
 }
 
 function clipTitle(text: string): string {
@@ -120,19 +95,6 @@ function describeModule(pathname: string): string {
   if (p.startsWith("/fiscalizacion")) return "Fiscalización";
   if (p.startsWith("/ops/turnos-extra")) return "Turnos extra";
   return `ruta ${pathname}`;
-}
-
-/**
- * Resolves the effective model to use.
- * For platform-configured providers we honour the chosen model.
- * For the env-var fallback (OpenAI) we apply the dynamic model router.
- */
-function resolveModel(
-  aiConfig: HelpChatAIConfig,
-  ctx: { retrievalMaxScore: number; recentFallbackCount: number; frustrated: boolean },
-): string {
-  if (aiConfig.source === "platform") return aiConfig.model;
-  return chooseModel(ctx);
 }
 
 /* ── SSE POST handler ── */
@@ -290,21 +252,15 @@ export async function POST(request: NextRequest) {
     .slice(-6)
     .filter(m => m.role === "assistant" && m.content.includes("No tengo suficiente información")).length;
   const frustrated = detectFrustration(userMessage);
-  const effectiveModel = resolveModel(aiConfig, { retrievalMaxScore, recentFallbackCount, frustrated });
+  const effectiveModel = resolveEffectiveModel(aiConfig, { retrievalMaxScore, recentFallbackCount, frustrated });
 
   const configWithModel: HelpChatAIConfig = { ...aiConfig, model: effectiveModel };
 
   /* build messages (kept in OpenAI format; provider layer converts) */
-  const fallback = fallbackMessage(userMessage);
+  const fallback = fallbackMessage();
   const todayLabel = new Date().toLocaleString("es-CL", { dateStyle: "full", timeStyle: "short" });
 
-  const MAX_HISTORY_CHARS = 12_000;
-  let trimmedHistory = [...conversationHistory];
-  let historySize = trimmedHistory.reduce((sum, m) => sum + m.content.length, 0);
-  while (historySize > MAX_HISTORY_CHARS && trimmedHistory.length > 2) {
-    trimmedHistory = trimmedHistory.slice(2);
-    historySize = trimmedHistory.reduce((sum, m) => sum + m.content.length, 0);
-  }
+  const trimmedHistory = trimHistory(conversationHistory);
 
   const systemPrompt = buildHelpChatSystemPromptV2({
     fallbackText: fallback,
@@ -489,7 +445,7 @@ REGLAS DE CONTEXTO DE MÓDULO:
         }
 
         /* post-processing */
-        let assistantText = normalizeAssistantLinks(fullText || fallbackMessage(userMessage), appBaseUrl);
+        let assistantText = normalizeAssistantLinks(fullText || fallbackMessage(), appBaseUrl);
         const assistantUsedFallback = assistantText.includes("No tengo datos específicos para responder eso con certeza");
 
         // Rescate post-stream: si el AI devolvió fallback y tenemos respuesta

@@ -1526,6 +1526,56 @@ function writeToolDefinitions() {
   ];
 }
 
+/**
+ * Mapa explícito preview_* → tool de escritura real (patrón preview/confirm).
+ * Fuente única de verdad para transportes externos (Slack) que muestran la
+ * vista previa como tarjeta y ejecutan la escritura al confirmar. Evita duplicar
+ * strings sueltos por el código.
+ */
+export const PREVIEW_TO_CONFIRM: Record<string, { confirmToolName: string; label: string }> = {
+  preview_invoice_draft: { confirmToolName: "create_invoice_draft", label: "Crear borrador de factura" },
+  preview_credit_note_draft: { confirmToolName: "create_credit_note_draft", label: "Crear nota de crédito" },
+  preview_debit_note_draft: { confirmToolName: "create_debit_note_draft", label: "Crear nota de débito" },
+  preview_recurring_invoice: { confirmToolName: "create_recurring_invoice", label: "Crear plantilla de facturación recurrente" },
+  preview_send_quote_proposal: { confirmToolName: "send_quote_proposal", label: "Enviar propuesta de cotización" },
+  preview_update_quote_position: { confirmToolName: "update_quote_position", label: "Actualizar puesto de la cotización" },
+  preview_remove_quote_position: { confirmToolName: "remove_quote_position", label: "Eliminar puesto de la cotización" },
+};
+
+/**
+ * Tools que persisten/mutan datos. En transportes externos (Slack) NUNCA se
+ * ejecutan directas: se difieren a una tarjeta de confirmación. Etiqueta en
+ * español para el resumen de la tarjeta. Las `preview_*` NO son escrituras.
+ */
+export const WRITE_TOOL_LABELS: Record<string, string> = {
+  create_lead: "Crear lead",
+  create_account: "Crear cuenta / cliente",
+  create_contact: "Crear contacto",
+  create_deal: "Crear deal",
+  create_installation: "Crear instalación",
+  update_account: "Actualizar cuenta",
+  update_contact: "Actualizar contacto",
+  update_lead: "Actualizar lead",
+  update_deal: "Actualizar deal",
+  update_installation: "Actualizar instalación",
+  create_quote: "Crear cotización",
+  clone_quote: "Clonar cotización",
+  update_quote_margin: "Actualizar margen de la cotización",
+  update_quote_status: "Actualizar estado de la cotización",
+  add_quote_position: "Agregar puesto a la cotización",
+  update_quote_position: "Actualizar puesto de la cotización",
+  remove_quote_position: "Eliminar puesto de la cotización",
+  send_quote_proposal: "Enviar propuesta de cotización",
+  create_invoice_draft: "Crear borrador de factura",
+  create_credit_note_draft: "Crear nota de crédito",
+  create_debit_note_draft: "Crear nota de débito",
+  create_recurring_invoice: "Crear plantilla de facturación recurrente",
+  create_factoring_company: "Crear empresa de factoring",
+};
+
+/** Nombres de todas las tools de escritura (patrón preview/confirm o directas). */
+export const WRITE_TOOL_NAMES: ReadonlySet<string> = new Set(Object.keys(WRITE_TOOL_LABELS));
+
 export function getToolDefinitionsV2(allowDataQuestions: boolean, allowWrites: boolean = false) {
   if (!allowDataQuestions) return [];
   const reads = [...baseToolDefinitions(), ...v2ToolDefinitions()];
