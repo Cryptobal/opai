@@ -283,6 +283,14 @@ export default auth(async (req) => {
 
   // Rutas protegidas: sin sesión
   if (!req.auth) {
+    // Vinculación Slack: es una API pero se abre en el navegador desde un botón
+    // de Slack. NO es pública (exige sesión), pero al no haberla redirigimos a
+    // login (en vez de 401 JSON) para completar el vínculo tras autenticarse.
+    if (pathname === '/api/integrations/slack/link') {
+      const loginUrl = new URL('/opai/login', req.nextUrl.origin);
+      loginUrl.searchParams.set('callbackUrl', pathname + req.nextUrl.search);
+      return Response.redirect(loginUrl);
+    }
     // API routes: return 401 JSON (never redirect — callers expect JSON)
     if (pathname.startsWith('/api/')) {
       return Response.json(

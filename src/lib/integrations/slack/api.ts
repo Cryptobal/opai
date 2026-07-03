@@ -132,3 +132,31 @@ export async function slackLookupUserByEmail(
     throw err;
   }
 }
+
+export interface SlackUserInfo {
+  userId: string;
+  email: string | null;
+  realName: string | null;
+  isBot: boolean;
+}
+
+/** users.info: resuelve email + nombre de un usuario Slack (para vincularlo a un Admin). */
+export async function slackUserInfo(token: string, userId: string): Promise<SlackUserInfo | null> {
+  try {
+    const json = await callSlack("users.info", { user: userId }, token);
+    const user = (json.user as {
+      id?: string;
+      is_bot?: boolean;
+      profile?: { email?: string; real_name?: string };
+    }) ?? {};
+    return {
+      userId: user.id ?? userId,
+      email: user.profile?.email ?? null,
+      realName: user.profile?.real_name ?? null,
+      isBot: !!user.is_bot,
+    };
+  } catch (err) {
+    if (err instanceof SlackApiError && err.slackError === "user_not_found") return null;
+    throw err;
+  }
+}
