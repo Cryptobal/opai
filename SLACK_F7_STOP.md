@@ -14,14 +14,27 @@ Stop file de la fase. Si necesitas detener, avísalo aquí.
   `slackTs`). `dispatch.ts`: si `params.data.ticketId` y hay map → reply al hilo; si es creación → guardar raíz.
 - ≤150 líneas/archivo; migraciones aditivas a mano; un commit por bloque.
 
+## Estado: COMPLETA ✅ (bloques 1-10 en `main`)
+
+Hub + registro declarativo; suite de tickets (bandeja, acciones por fila,
+aprobaciones, hilo por ticket, comentar desde el hilo); acciones operativas
+(turno extra, vacaciones=ticket, visita=deep link por geocerca). Servicios de
+mutación extraídos (`tickets-transition`/`tickets-mutations`). Migración aditiva
+`20261005000000_ticket_slack_thread`.
+
+Verificación de aislamiento: tenant por `getTenantForTeam`, identidad por
+`resolveLinkedAdmin`, mutaciones con `source:"slack"` + `logAudit`; eliminar
+excluido (solo Cerrar/Cancelar). QA = estático + tsc verde por bloque; la prueba
+en vivo requiere tenant Slack conectado + usuario vinculado (matriz en docs).
+
 ## Bloques
-- [ ] BLOQUE 1 — Registro + hub (+ migrar ticket/rendición F5)
-- [ ] BLOQUE 2 — Servicios de mutación de tickets (si el audit lo exige)
-- [ ] BLOQUE 3 — Bandeja Mis tickets + acciones por fila
-- [ ] BLOQUE 4 — Pendientes de mi aprobación
-- [ ] BLOQUE 5 — Hilo por ticket
-- [ ] BLOQUE 6 — Comentarios desde el hilo (opcional-condicionado)
-- [ ] BLOQUE 7 — Visita de supervisor
-- [ ] BLOQUE 8 — Ingreso turno extra
-- [ ] BLOQUE 9 — Vacaciones (condicionado al audit)
-- [ ] BLOQUE 10 — QA + docs
+- [x] BLOQUE 1 — Registro + hub (+ migrar ticket/rendición F5)
+- [x] BLOQUE 2 — Servicios de mutación de tickets
+- [x] BLOQUE 3 — Bandeja Mis tickets + acciones por fila
+- [x] BLOQUE 4 — Pendientes de mi aprobación
+- [x] BLOQUE 5 — Hilo por ticket
+- [x] BLOQUE 6 — Comentarios desde el hilo
+- [x] BLOQUE 7 — Visita de supervisor (deep link por geocerca)
+- [x] BLOQUE 8 — Ingreso turno extra
+- [x] BLOQUE 9 — Vacaciones (tipo de ticket)
+- [x] BLOQUE 10 — QA + docs

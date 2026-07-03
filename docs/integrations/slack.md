@@ -550,3 +550,140 @@ los tipos (nadie recibe spam por sorpresa).
       no requiere scope extra para el bot). Verificar que el bot puede abrir DM.
 - [ ] Prueba: vincular un usuario, activar Slack para `new_lead`, crear un lead →
       confirmar el DM. Repetir con No molestar activo (no debe llegar).
+
+---
+
+# Fase 7 — Hub de Acciones Rápidas + Suite de Tickets
+
+Convierte Slack en superficie de operación: un hub de acciones filtradas por
+permiso, la suite completa de tickets (bandeja, acciones por fila, aprobaciones,
+un hilo vivo por ticket) y acciones operativas (turno extra, vacaciones, visita).
+
+## Registro declarativo de acciones
+
+`src/lib/integrations/slack/actions/registry.ts` — una acción es un `ModalDef`
+(`build` + `submit` + gate `requires`) más `group`. El hub, `/opai <accion>` y los
+shortcuts consumen el MISMO registro.
+
+### Cómo agregar una acción (≈20 líneas)
+
+```ts
+// src/lib/integrations/slack/actions/mi-accion.ts
+export const miAccionModal: ModalDef = {
+  callbackId: "opai_mi_accion",
+  title: "Mi acción",
+  requires: (perms) => hasModuleAccess(perms, "ops"),   // gate de capability real
+  build: async (ctx) => ({ /* Block Kit modal con callback_id opai_mi_accion */ }),
+  submit: async (ctx) => {
+    // valida ctx.state, llama al SERVICIO existente (no dupliques lógica),
+    // return { ack: { response_action: "update", view: exito } };
+  },
+};
+// registry.ts:  { ...miAccionModal, group: "Operaciones" }
+```
+
+Eso es todo: aparece en el hub (agrupada, solo si `requires` pasa), en `/opai
+ayuda`, y se puede abrir por su callbackId.
+
+## Hub (`opai_acciones`)
+
+Shortcut global o `/opai acciones`: modal-menú con las acciones que el usuario
+puede ejecutar (filtro por `requires(perms)`), agrupadas. Cada acción tiene un
+botón "Abrir" (block_action `opai_action_open`) que apila su modal con `views.push`.
+
+## Suite de tickets
+
+- **Bandeja "Mis tickets"** (`/opai tickets`, `tickets/tray.ts`): filtros (estado,
+  prioridad, SLA) + lista paginada (10/pág, ‹ ›). "Mis tickets" = asignados a mí O a
+  un equipo del que soy miembro (`getAssignedTeamsForUser`, mismo criterio que la
+  web). Cada fila: código enlazado a OPAI + badges + un select de acción.
+- **Acciones por fila** (`tickets/row-*.ts`): Comentar · Cambiar estado · Cambiar
+  prioridad · Reasignar · Cerrar · Cancelar → cada una apila un modal secundario
+  (`views.push`) que ejecuta el **servicio compartido** (`tickets-transition.ts` /
+  `tickets-mutations.ts`) y confirma en el modal. `/opai tickets vencidos` abre la
+  bandeja pre-filtrada por SLA.
+- **Bandeja de aprobaciones** (`/opai aprobaciones`, `tickets/approvals.ts`): tickets
+  en `pending_approval` cuyo paso actual me toca (por usuario o grupo), con botones
+  **Aprobar / Rechazar** inline → `decideTicketApproval` (mismo camino que Fase 2).
+- **Eliminar: EXCLUIDO por diseño.** Operación irreversible = solo OPAI web. Desde
+  Slack solo **Cerrar** (→ resolved) y **Cancelar** (→ cancelled, con confirmación).
+  Ambos van por `transitionTicketStatus` (no hay endpoint de borrado).
+- Toda mutación registra `recordTicketEvent` con `source: "slack"` + `logAudit`.
+
+## Hilo por ticket (`TicketSlackThread`)
+
+Migración `20261005000000_ticket_slack_thread` (aditiva). En `dispatch.ts`: cualquier
+evento `ticket_*` con `data.ticketId` cae en el hilo de ese ticket. La tarjeta de
+`ticket_created` establece la raíz (`slackTs`); los demás eventos (aprobación,
+cambios, SLA, comentarios) se publican como **reply del hilo** (`thread_ts`). El
+`thread_ts` viaja en el `payload` del outbox → sobrevive los reintentos del cron.
+Resultado: la tarjeta del ticket en el canal ruteado es un tracker vivo con toda su
+historia.
+
+**Comentar desde el hilo** (`ticket-thread-comment.ts`): un reply humano en el hilo
+raíz de un ticket → `addTicketComment` con el autor vinculado (patrón bridge-inbound,
+se busca por `(canal, thread_ts)`). Ignora mensajes del bot; sin vínculo → efímero
+para vincularse; con éxito, reacción ✅.
+
+## Acciones operativas
+
+- **Turno extra** (`actions/turno-extra.ts` + `turno-extra-create.ts` extraído de
+  `/api/te`): instalación + guardia (por RUT/código) + fecha + tipo. Duplicados del
+  servicio → `response_action: errors`.
+- **Vacaciones** (`actions/vacaciones.ts`): NO hay módulo dedicado — es el tipo de
+  ticket `solicitud_vacaciones` (aprobación RRHH). Reusa `createOpsTicket`.
+- **Visita de supervisor** (`actions/visita.ts`): es un check-in GEO en vivo
+  (lat/lng + geocerca). Slack no aporta GPS real, así que la acción es un **deep
+  link** honesto a OPAI para marcar en terreno (no se fabrica geo falsa).
+
+## Aislamiento (verificación escrita, Bloque 10)
+
+- Tenant SIEMPRE por `getTenantForTeam(team_id)` → `getWorkspaceForTenant`; los
+  servicios reciben `workspace.tenantId`, nunca un id del payload. `private_metadata`
+  (ticketId, filtros) es contexto: el ticketId se re-valida en cada servicio, que
+  filtra por tenant (`findFirst where tenantId`).
+- Identidad SIEMPRE por `resolveLinkedAdmin`; el actor de toda mutación es el
+  `adminId` vinculado. Permiso (`requires`) chequeado al abrir y re-validado al
+  enviar (aprobaciones: `decideTicketApproval` valida su propio paso).
+
+## Matriz de pruebas manuales (Fase 7)
+
+| Caso | Esperado |
+| --- | --- |
+| `/opai acciones` (o shortcut) | Hub con solo las acciones permitidas, agrupadas |
+| Usuario sin capability de un grupo | No ve ese grupo/acción en el hub |
+| `/opai tickets` a 375px (Slack mobile) | Bandeja usable: filtros, filas, paginación, select de acción |
+| Fila → Cancelar | Pide confirmación antes de cancelar (modal secundario) |
+| Fila → Comentar / Estado / Prioridad / Reasignar | Modal secundario; al confirmar, servicio + auditoría |
+| `/opai aprobaciones` → Aprobar | `decideTicketApproval`; la fila desaparece de la bandeja |
+| Crear ticket → cambiar estado → aprobar | Todos los eventos caen en UN hilo en el canal ruteado |
+| Responder el hilo de un ticket | Aparece como comentario en OPAI con el autor correcto |
+| Responder el hilo sin vínculo | Efímero para vincular la cuenta |
+| `/opai tickets vencidos` | Bandeja pre-filtrada por SLA vencido |
+| Turno extra duplicado | Error de duplicado en el campo fecha |
+| Vacaciones sin tipo configurado | Aviso "flujo no configurado" (no crea) |
+
+## Checklist post-deploy (Fase 7)
+
+- [ ] Migración `20261005000000_ticket_slack_thread` aplicada.
+- [ ] Manifest: shortcut `Acciones rápidas OPAI` (`opai_acciones`). No requiere
+      re-autorizar (shortcuts no son scopes).
+- [ ] (Opcional) scope `reactions:write` para la reacción ✅ al comentar desde el
+      hilo (si falta, el comentario igual se guarda; solo no reacciona).
+- [ ] Prueba end-to-end de la matriz con un tenant conectado + un usuario vinculado.
+
+## Backlog documentado (no implementado)
+
+Reportar incidente con foto · Solicitar cobertura de turno · Permiso administrativo ·
+Nuevo lead estructurado · Actividad CRM sobre cuenta · Aprobar descuento de cotización
+· Bandeja aprobar rendiciones · Enviar documento a firma · Nota rápida de instalación.
+
+## Limitaciones conocidas (Fase 7)
+
+- La bandeja no se auto-refresca tras una acción por fila: el modal secundario muestra
+  la confirmación; reabrir/re-filtrar la bandeja la actualiza. (Las aprobaciones SÍ
+  se refrescan in-place por `views.update`.)
+- Reasignar ofrece "asignarme a mí" o un equipo; candidatos persona-a-persona por
+  membresía quedan como refinamiento.
+- Los servicios de mutación (`tickets-transition`/`tickets-mutations`) son la vía de
+  Slack; las rutas web monolíticas conservan su lógica (podrían adoptarlos luego).
