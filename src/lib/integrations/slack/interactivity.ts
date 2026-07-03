@@ -90,6 +90,13 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     return;
   }
 
+  // Bandeja de aprobaciones (Fase 7): Aprobar / Rechazar inline.
+  if (actionId === "appr_decide") {
+    const { handleApprovalAction } = await import("./tickets/approvals");
+    await handleApprovalAction(payload as unknown as Record<string, unknown>);
+    return;
+  }
+
   if (!teamId || !slackUserId || !actionId || !pendingId) return;
 
   const resolved = await getTenantForTeam(teamId);
