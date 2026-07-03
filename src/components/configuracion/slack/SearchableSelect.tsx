@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
@@ -26,6 +26,8 @@ export function SearchableSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [openUp, setOpenUp] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const selected = options.find((o) => o.value === value) ?? null;
   const filtered = useMemo(() => {
@@ -35,11 +37,21 @@ export function SearchableSelect({
   }, [options, query]);
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <button
         type="button"
         disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (!open) {
+            // Si no hay espacio abajo (panel ~320px), abrir hacia arriba.
+            const rect = containerRef.current?.getBoundingClientRect();
+            if (rect) {
+              const spaceBelow = window.innerHeight - rect.bottom;
+              setOpenUp(spaceBelow < 320 && rect.top > spaceBelow);
+            }
+          }
+          setOpen((v) => !v);
+        }}
         className="flex w-full items-center justify-between gap-2 rounded-md border border-border bg-background px-3 py-2 text-left text-sm disabled:opacity-50"
       >
         <span className={selected ? "" : "text-muted-foreground"}>
@@ -49,7 +61,7 @@ export function SearchableSelect({
       </button>
 
       {open && !disabled && (
-        <div className="absolute z-20 mt-1 w-full rounded-md border border-border bg-popover shadow-md">
+        <div className={`absolute z-20 w-full rounded-md border border-border bg-popover shadow-md ${openUp ? "bottom-full mb-1" : "top-full mt-1"}`}>
           <div className="flex items-center gap-2 border-b border-border px-2 py-1.5">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
