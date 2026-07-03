@@ -65,6 +65,22 @@ export async function POST(req: NextRequest) {
         console.error(`[slack] workspace revocado por evento ${eventType} (team ${teamId})`);
       });
       break;
+    case "reaction_added":
+    case "reaction_removed":
+      // Reacción sobre un mensaje puenteado → refleja en el chat de OPAI.
+      if (payload.event) {
+        const rawEvent = payload.event as unknown as import("@/lib/integrations/slack/reactions").SlackReactionEvent;
+        const added = eventType === "reaction_added";
+        after(async () => {
+          try {
+            const { handleSlackReaction } = await import("@/lib/integrations/slack/reactions");
+            await handleSlackReaction(resolved.tenantId, rawEvent, added);
+          } catch (err) {
+            console.error("[slack] evento reaction falló:", err);
+          }
+        });
+      }
+      break;
     case "app_mention":
     case "message":
       // ACK 200 inmediato; el trabajo corre en after() (Slack exige <3s).
