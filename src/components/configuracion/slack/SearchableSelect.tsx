@@ -17,12 +17,20 @@ export function SearchableSelect({
   onChange,
   placeholder,
   disabled,
+  variant = "floating",
 }: {
   options: SelectOption[];
   value: string | null;
   onChange: (value: string) => void;
   placeholder: string;
   disabled?: boolean;
+  /**
+   * "floating": panel superpuesto con flip vertical (default, para páginas).
+   * "inline": la lista se expande en el flujo — usar DENTRO de modales/Dialog,
+   * donde un panel flotante queda recortado por el overflow y el focus-trap
+   * de Radix impide portales externos.
+   */
+  variant?: "floating" | "inline";
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -61,7 +69,13 @@ export function SearchableSelect({
       </button>
 
       {open && !disabled && (
-        <div className={`absolute z-20 w-full rounded-md border border-border bg-popover shadow-md ${openUp ? "bottom-full mb-1" : "top-full mt-1"}`}>
+        <div
+          className={
+            variant === "inline"
+              ? "mt-1 w-full rounded-md border border-border bg-popover shadow-sm"
+              : `absolute z-20 w-full rounded-md border border-border bg-popover shadow-md ${openUp ? "bottom-full mb-1" : "top-full mt-1"}`
+          }
+        >
           <div className="flex items-center gap-2 border-b border-border px-2 py-1.5">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input

@@ -129,6 +129,7 @@ export function ChatChannelSlackBridge({
           <div className="space-y-1">
             <p className="text-xs font-medium text-muted-foreground">Canal de Slack</p>
             <SearchableSelect
+              variant="inline"
               options={slackOpts}
               value={slackId}
               onChange={setSlackId}
