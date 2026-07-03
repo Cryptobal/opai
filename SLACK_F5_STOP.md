@@ -31,28 +31,25 @@ Stop file de la fase. Si necesitas detener la implementación, avísalo aquí.
   inicial `DRAFT`. Boleta = `FinanceAttachment` (storageKey+publicUrl) vía `uploadFile(...,"finance",tenantId)`.
   View `/finanzas/rendiciones/{id}`. → **extraer `createRendicion` y reusar en ambos**.
 
-## Estado (PAUSADO tras Bloque 4 — se priorizó Fase 6)
+## Estado: COMPLETA ✅ (bloques 1-8 en `main`)
 
-Bloques 1-4 hechos y en `main`. Bloques 5-8 PENDIENTES. Importante: el registro de
-modales (`modals/registry.ts`) está **vacío** — la infraestructura de shortcuts/
-view_submission existe y enruta, pero aún no hay modales registrados, así que un
-shortcut hoy abre un modal "Esta acción no está disponible". Al retomar: registrar
-`ticketModal`/`rendicionModal` en `registry.ts` (blocks 5/6).
+Servicios únicos extraídos y reusados por web + Slack: `createOpsTicket`
+(`src/lib/tickets-create.ts` + `tickets-notify.ts`) y `createRendicion`
+(`src/lib/rendiciones-create.ts`). Modales registrados en `modals/registry.ts`.
 
-Contexto para retomar Bloque 5 (crear ticket): NO existe servicio de creación de
-tickets; la lógica está inline en `POST /api/ops/tickets` (tx ~536-601 + notifs
-604-698). Hay que **extraer `createOpsTicket`** (type-resolution + tx + audit +
-notify) a `src/lib/tickets-create.ts` y reusarlo en la ruta web y en Slack. Ojo:
-`ticketListIncludes`/`mapTicket` viven en la ruta (líneas 70/85); el mapper usa
-`t: any`, así que el retype es de bajo riesgo. Bloque 6 (rendición): idem con
-`POST /api/finance/rendiciones` (tx 144-185) → extraer `createRendicion`.
+Verificación de aislamiento (Bloque 8): tenant SIEMPRE por `getTenantForTeam`;
+`private_metadata.tenantHint` nunca se setea ni se lee para scoping; identidad
+SIEMPRE por `resolveLinkedAdmin`; permiso chequeado al abrir Y re-validado al enviar.
+
+Pendiente operativo (Carlos): scopes `files:read`/`files:write` + shortcuts
+`opai_crear_ticket`/`opai_nueva_rendicion` en el manifest, y **re-autorizar**.
 
 ## Bloques
 - [x] BLOQUE 1 — cliente Slack: `slackOpenView`, `slackUpdateView`, `slackFilesUpload`, `slackDownloadFile`
 - [x] BLOQUE 2 — imágenes puente saliente (OPAI→Slack)
 - [x] BLOQUE 3 — imágenes puente entrante (Slack→OPAI)
 - [x] BLOQUE 4 — infraestructura de modales (shortcut/message_action/view_submission)
-- [ ] BLOQUE 5 — crear ticket desde mensaje
-- [ ] BLOQUE 6 — rendición desde Slack
-- [ ] BLOQUE 7 — registro de subcomandos + `/opai ayuda`
-- [ ] BLOQUE 8 — QA + docs
+- [x] BLOQUE 5 — crear ticket desde mensaje
+- [x] BLOQUE 6 — rendición desde Slack
+- [x] BLOQUE 7 — registro de subcomandos + `/opai ayuda`
+- [x] BLOQUE 8 — QA + docs

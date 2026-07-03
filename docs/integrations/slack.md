@@ -394,3 +394,101 @@ evento, una lectura de cache en memoria.
 - [ ] Workspace **reconectado** tras agregar los scopes (si no, `missing_scope`).
 - [ ] Bot invitado (`/invite @OPAI`) en cada canal de Slack a puentear.
 - [ ] Prueba end-to-end de la matriz de arriba en un canal real.
+
+---
+
+# Fase 5 — Acciones nativas (tickets, rendiciones, modales) + imágenes en el puente
+
+Convierte Slack en superficie de acción de OPAI: imágenes reales en el puente,
+crear tickets desde cualquier mensaje, y rendiciones de gasto con boleta — todo
+con la identidad y permisos reales del usuario vinculado y aislado por tenant.
+
+## Imágenes/archivos en el puente
+
+- **OPAI → Slack** (`bridge-blocks.ts`): los `fileUrl` del chat son URLs públicas y
+  estables (R2 `files.gard.cl`), así que las imágenes salen como `image` blocks
+  apuntando directo a la URL — sin re-subir binario. Los no-imagen siguen como
+  link `📎`. Si `chat:write.customize` falta, el fallback mantiene las imágenes y
+  antepone la identidad en el texto.
+- **Slack → OPAI** (`bridge-inbound-files.ts`): `event.files` → descarga con
+  `files:read` (Bearer sobre `url_private`) → `uploadFile(..., "chat", tenantId)` a
+  R2 → `attachments` con el shape `ChatAttachment` que la UI ya pinta (cero cambios
+  de frontend). Límites: **máx 5 archivos, 10 MB c/u, sólo imágenes y PDF**; el
+  resto queda como link al permalink.
+
+## Modales (shortcuts + slash + view_submission)
+
+- Cliente ampliado (`api.ts`): `slackOpenView`/`slackUpdateView`; `files.ts`:
+  `slackDownloadFile` (GET Bearer) y `slackFilesUpload` (external upload).
+- Infraestructura (`modals/`): `registry.ts` (registro por `callbackId`),
+  `dispatch.ts` (abrir + `view_submission`), `views.ts` (loading/info/link +
+  pack/unpack de `private_metadata`), `types.ts`, y un modal por archivo
+  (`ticket.ts`, `rendicion.ts`).
+- **ACK de 3s**: `shortcut`/`message_action` abren un modal de **carga** de
+  inmediato (el `trigger_id` vence en ~3s) y luego resuelven identidad/permiso y
+  hacen `views.update` con el formulario real. `view_submission` responde el ACK
+  (cerrar o `response_action:"errors"` por campo) **síncrono** en la ruta y difiere
+  la creación a `after()`.
+- **Registro de subcomandos** (`subcommands.ts`): `/opai ayuda` se genera del
+  registro; `ticket`/`rendicion` abren los mismos modales (usan el `trigger_id` del
+  slash command).
+
+## Crear ticket / rendición (servicios únicos)
+
+Para no duplicar lógica, la creación vive en servicios compartidos por la web y
+Slack: **`createOpsTicket`** (`src/lib/tickets-create.ts`, + `tickets-notify.ts`)
+y **`createRendicion`** (`src/lib/rendiciones-create.ts`). Las rutas
+`POST /api/ops/tickets` y `POST /api/finance/rendiciones` fueron refactorizadas
+para delegar en ellos.
+
+- Ticket: shortcut de mensaje `opai_crear_ticket` (título prellenado con el texto),
+  tipo (catálogo `OpsTicketType` origin internal/both), prioridad p1-p4, descripción.
+  Gate: módulo `ops`. Al crear responde en el **hilo** del mensaje: `🎫 <folio>` +
+  botón "Ver en OPAI" (`/ops/tickets/{id}`) + `logAudit`.
+- Rendición: shortcut global `opai_nueva_rendicion` o `/opai rendicion` (monto CLP,
+  fecha, categoría `FinanceRendicionItem`, descripción, `file_input` de boleta).
+  Gate: `canEdit(perms,"finance","rendiciones")`. Crea en estado **DRAFT**, adjunta
+  la(s) boleta(s) a R2 vía `FinanceAttachment` (`RECEIPT`), y confirma por **DM** con
+  link (`/finanzas/rendiciones/{id}`) + `logAudit`.
+
+## Aislamiento (verificación escrita, Bloque 8)
+
+Ningún handler de Fase 5 usa datos del payload para saltarse la resolución de
+tenant/identidad:
+
+- **Tenant**: `openModalByCallback` y `prepareViewSubmission` resuelven SIEMPRE por
+  `getTenantForTeam(payload.team.id)` → `getWorkspaceForTenant`. `ctx.tenantId` es
+  `workspace.tenantId`; los servicios (`createOpsTicket`/`createRendicion`) reciben
+  ese tenant, nunca uno del payload.
+- **`private_metadata` = contexto, no autoridad**: sólo transporta `channelId`/
+  `messageTs` (para responder en el hilo). El campo `tenantHint` no se setea ni se
+  lee para scoping — el tenant se re-resuelve por `team_id`.
+- **Identidad**: SIEMPRE `resolveLinkedAdmin(workspace, slackUserId)`. `actorId`/
+  `reportedBy`/`submitterId`/`uploadedById` son el `adminId` vinculado. Sin vínculo
+  → modal de vinculación (o silencioso en submit). El permiso (`requires`) se chequea
+  al **abrir** y se **re-valida** al enviar.
+
+## Matriz de pruebas manuales (Fase 5)
+
+| Caso | Esperado |
+| --- | --- |
+| Guardia sube foto en canal OPAI puenteado | El supervisor la VE como imagen en Slack |
+| Supervisor responde con foto en Slack | El guardia la ve en su portal (adjunto real) |
+| Archivo no-imagen (>10 MB o tipo raro) | Entra/sale como link `📎`, no como imagen |
+| Shortcut "Crear ticket en OPAI" sobre un mensaje | Modal prellenado; al crear, `🎫 folio` en el hilo + botón |
+| Usuario sin acceso a `ops` abre el shortcut de ticket | Modal informa "sin permiso"; no crea nada |
+| Shortcut global "Nueva rendición" con boleta | Rendición DRAFT en OPAI con la boleta adjunta; DM de confirmación |
+| `/opai rendicion` | Abre el mismo modal de rendición |
+| Usuario sin vínculo dispara cualquier shortcut | Modal con el flujo de vinculación |
+| `/opai ayuda` | Lista generada del registro (incluye ticket y rendición) |
+| Trigger vencido (>3s) | Log `views.open falló`; sin efecto (reintentar) |
+
+## Checklist post-deploy (Fase 5)
+
+- [ ] Scopes del bot: `files:read`, `files:write` (además de los previos).
+- [ ] Shortcuts en el manifest: `opai_crear_ticket` (message), `opai_nueva_rendicion`
+      (global).
+- [ ] Workspace **reconectado** tras agregar scopes/shortcuts (si no, `missing_scope`
+      en descargas o el shortcut no aparece).
+- [ ] `/opai` (Slash Commands) ya apuntando a `…/commands` (Fase 2) — sin cambios.
+- [ ] Prueba end-to-end de la matriz de arriba con un tenant real conectado.
