@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 import type { UnifiedNotificationType } from "@/lib/notifications/catalog";
 import { getWorkspaceForTenant } from "./workspace";
 import { buildNotificationBlocks } from "./blocks";
-import { slackPostMessage, SlackApiError } from "./api";
+import { slackPostMessage, SlackApiError, isPermanentSlackError } from "./api";
 
 interface DispatchInput {
   tenantId: string;
@@ -95,10 +95,17 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     });
   } catch (err) {
     const reason = err instanceof SlackApiError ? err.slackError : String(err);
-    console.error("[slack] envío inmediato falló, queda para reintento:", reason);
+    const permanent = err instanceof SlackApiError && isPermanentSlackError(err.slackError);
+    console.error(
+      permanent
+        ? "[slack] envío falló con error permanente, sin reintentos:"
+        : "[slack] envío inmediato falló, queda para reintento:",
+      reason,
+    );
     await prisma.slackOutbox.update({
       where: { id: outboxId },
-      data: { status: "FAILED", attempts: 1, lastError: reason },
+      // permanent → attempts al tope: el cron (attempts < 5) no lo vuelve a tomar.
+      data: { status: "FAILED", attempts: permanent ? 5 : 1, lastError: reason },
     });
   }
 }

@@ -20,6 +20,29 @@ export class SlackApiError extends Error {
 type SlackResponse = { ok: boolean; error?: string; [k: string]: unknown };
 
 /**
+ * Errores de Slack que NO se resuelven reintentando el mismo mensaje
+ * (permisos de publicación del canal, canal archivado/inexistente, bot fuera
+ * de un canal privado, payload inválido, auth revocada). El outbox los marca
+ * FAILED de inmediato sin gastar reintentos.
+ */
+const PERMANENT_SLACK_ERRORS = new Set([
+  "is_archived",
+  "restricted_action",
+  "channel_not_found",
+  "not_in_channel",
+  "msg_too_long",
+  "invalid_blocks",
+  "invalid_arguments",
+  "invalid_auth",
+  "account_inactive",
+  "token_revoked",
+]);
+
+export function isPermanentSlackError(code: string): boolean {
+  return PERMANENT_SLACK_ERRORS.has(code);
+}
+
+/**
  * Serializa args como form-urlencoded: es el ÚNICO formato que aceptan TODOS
  * los métodos de la Web API. JSON sólo funciona en métodos de escritura
  * whitelisted (chat.postMessage); los de lectura (conversations.list) lo
