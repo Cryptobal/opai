@@ -100,8 +100,15 @@ export async function openModalForShortcut(payload: Record<string, unknown>): Pr
 }
 
 /**
- * Botón "Abrir" del hub (`opai_action_open`): apila el modal de la acción sobre
- * el hub con views.push (usa el trigger_id del block_action). Re-valida capability.
+ * Botón "Abrir" del hub y del App Home (`opai_action_open[_<callbackId>]`): abre
+ * el modal de la acción por su `value` (callbackId).
+ *
+ * CRÍTICO (Fase 11): el `trigger_id` del block_action vence en ~3s, así que lo
+ * PRIMERO que hacemos es consumirlo con un modal de carga (open desde el App
+ * Home / DM, push desde el hub). Toda la resolución de identidad/permiso y el
+ * `build` (que puede correr queries pesadas — p.ej. la bandeja de aprobaciones)
+ * ocurre DESPUÉS y hace `views.update` sobre el modal ya abierto. Antes el build
+ * pesado precedía al open y el trigger expiraba: el botón "no hacía nada".
  */
 export async function pushActionModal(payload: Record<string, unknown>): Promise<void> {
   const teamId = (payload.team as { id?: string } | undefined)?.id;
@@ -115,23 +122,44 @@ export async function pushActionModal(payload: Record<string, unknown>): Promise
   if (!resolved) return;
   const workspace = await getWorkspaceForTenant(resolved.tenantId);
   if (!workspace) return;
-  const linked = await resolveLinkedAdmin(workspace, slackUserId);
-  if (!linked) return;
 
   const modal = getModal(actionId);
-  if (!modal) return;
-  // Desde el hub (modal ya abierto) se APILA; desde el App Home o un DM (no hay
-  // modal en pila) se ABRE uno nuevo — mismo trigger_id perecedero.
+  const title = modal?.title ?? "OPAI";
+
+  // (1) Consumir el trigger_id perecedero YA. Desde el hub (modal en pila) se
+  //     APILA; desde el App Home o un DM (no hay modal en pila) se ABRE.
   const fromModal = (payload.view as { type?: string } | undefined)?.type === "modal";
+  let viewId = "";
   try {
-    const view =
-      modal.requires && !modal.requires(linked.perms)
-        ? infoView(modal.title, "No tienes permiso para esta acción.")
-        : await modal.build({ workspace, tenantId: workspace.tenantId, linked, slackUserId });
-    if (fromModal) await slackPushView(workspace.botToken, triggerId, view);
-    else await slackOpenView(workspace.botToken, triggerId, view);
+    const opened = fromModal
+      ? await slackPushView(workspace.botToken, triggerId, loadingView(title))
+      : await slackOpenView(workspace.botToken, triggerId, loadingView(title));
+    viewId = opened.id;
   } catch (err) {
-    console.error("[slack] pushActionModal falló:", err);
+    console.error("[slack] pushActionModal open/push del loading falló:", err);
+    return;
+  }
+  const update = (view: unknown): Promise<void> =>
+    slackUpdateView(workspace.botToken, viewId, view)
+      .then(() => undefined)
+      .catch((e) => console.error("[slack] pushActionModal update falló:", e));
+
+  // (2) Resolver contenido real y reemplazar el modal de carga.
+  if (!modal) return update(infoView(title, "Esta acción no está disponible."));
+
+  const linked = await resolveLinkedAdmin(workspace, slackUserId);
+  if (!linked) return update(linkAccountView(workspace, slackUserId));
+
+  if (modal.requires && !modal.requires(linked.perms)) {
+    return update(infoView(title, modal.requiresMessage ?? "No tienes permiso para esta acción."));
+  }
+
+  try {
+    const view = await modal.build({ workspace, tenantId: workspace.tenantId, linked, slackUserId });
+    await update(view);
+  } catch (err) {
+    console.error("[slack] pushActionModal build falló:", err);
+    await update(infoView(title, "No se pudo cargar el formulario. Intenta de nuevo."));
   }
 }
 
