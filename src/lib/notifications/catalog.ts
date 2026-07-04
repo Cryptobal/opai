@@ -292,6 +292,12 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     module: 'ops', category: 'Operaciones - Documentos',
     audiences: ['admin'], defaults: { admin: adminBell(true) },
   },
+  {
+    key: 'docs_expiry_digest', label: 'Digest de vencimientos',
+    description: 'Resumen diario agrupado: documentos vencidos, esta semana y este mes',
+    module: 'ops', category: 'Operaciones - Documentos',
+    audiences: ['admin'], defaults: { admin: adminBell(true) },
+  },
 
   // ── Operaciones - Guardias ──
   {

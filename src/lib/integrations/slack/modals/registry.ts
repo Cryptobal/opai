@@ -17,13 +17,14 @@ import { discardLeadModal } from "../comercial/lead-modals";
 import { pipelineModal, advanceStageModal, dealNoteModal, dealLostModal } from "../comercial/pipeline";
 import { quotesTrayModal, quotesTrayFiltered } from "../comercial/quotes-tray";
 import { saveNoteModal } from "../deal-rooms/save-note";
+import { docsTrayModal } from "../docs/tray";
 
 const MODALS: ModalDef[] = [
   hubModal, trayModal, trayOverdueModal, inboxModal, rejectReasonModal, misRendicionesModal,
   leadsTrayModal, leadsTrayNuevosModal, discardLeadModal,
   pipelineModal, advanceStageModal, dealNoteModal, dealLostModal,
   quotesTrayModal, quotesTrayFiltered("sent"), quotesTrayFiltered("draft"), quotesTrayFiltered("accepted"), quotesTrayFiltered("rejected"),
-  saveNoteModal,
+  saveNoteModal, docsTrayModal,
   ...rowModals, ...ACTIONS,
 ];
 

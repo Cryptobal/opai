@@ -88,6 +88,12 @@ export const SUBCOMMANDS: SubCommand[] = [
     kind: "modal",
     callbackId: "opai_cotizaciones",
   },
+  {
+    name: "documentos",
+    description: "documentos por vencer (vencidos · esta semana · en trámite)",
+    kind: "modal",
+    callbackId: "opai_documentos",
+  },
 ];
 
 export function buildHelpText(): string {

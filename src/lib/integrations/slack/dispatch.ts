@@ -28,7 +28,7 @@ interface DispatchInput {
 const TICKET_PENDING_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Resuelve el canal destino con precedencia KEY > CATEGORY > MODULE > default. */
-async function resolveChannel(
+export async function resolveChannel(
   tenantId: string,
   typeDef: UnifiedNotificationType,
   defaultChannelId: string | null,

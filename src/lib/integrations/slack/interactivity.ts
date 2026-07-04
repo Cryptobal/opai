@@ -167,6 +167,12 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     await handleStaleQuoteAction(payload as never);
     return;
   }
+  // Bandeja de documentos por vencer (Fase 18): abrir / filtros / paginación.
+  if (actionId?.startsWith("docstray_")) {
+    const { handleDocsTrayAction } = await import("./docs/tray-dispatch");
+    await handleDocsTrayAction(payload as never);
+    return;
+  }
 
   if (!teamId || !slackUserId || !actionId || !pendingId) return;
 
