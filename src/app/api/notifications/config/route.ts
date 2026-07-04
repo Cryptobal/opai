@@ -12,9 +12,14 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
 import { PORTAL_NOTIFICATION_TYPES } from "@/lib/pwa/portal-notification-types";
+import {
+  sanitizeSlaReminderPolicy,
+  DEFAULT_SLA_REMINDER_POLICY,
+  notificationPrefsSettingKey,
+} from "@/lib/tickets-sla-policy";
 
 function settingKey(tenantId: string) {
-  return `notification_preferences:${tenantId}`;
+  return notificationPrefsSettingKey(tenantId);
 }
 
 /** Default: all notification types push-enabled = true (using defaultPush from type definition) */
@@ -35,7 +40,11 @@ export async function GET() {
       where: { key: settingKey(ctx.tenantId) },
     });
 
-    let prefs = { ...BASE_DEFAULTS, pushGlobalConfig: defaultPushGlobalConfig() };
+    let prefs = {
+      ...BASE_DEFAULTS,
+      pushGlobalConfig: defaultPushGlobalConfig(),
+      slaReminderPolicy: DEFAULT_SLA_REMINDER_POLICY,
+    };
     if (setting?.value) {
       try {
         const parsed = JSON.parse(setting.value);
@@ -43,6 +52,7 @@ export async function GET() {
           ...BASE_DEFAULTS,
           ...parsed,
           pushGlobalConfig: parsed.pushGlobalConfig ?? defaultPushGlobalConfig(),
+          slaReminderPolicy: sanitizeSlaReminderPolicy(parsed.slaReminderPolicy),
         };
       } catch {
         // corrupted JSON — return defaults
@@ -90,12 +100,24 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    const merged = { docExpiryDaysDefault: docExpiryDays, pushGlobalConfig };
-    const value = JSON.stringify(merged);
-
     const existing = await prisma.setting.findFirst({
       where: { key: settingKey(ctx.tenantId) },
     });
+
+    // Política de recordatorios SLA: sanitizar la del body; si no viene (otro
+    // formulario guardando), preservar la existente en vez de resetear a defaults.
+    let slaRaw: unknown = body.slaReminderPolicy;
+    if (slaRaw === undefined && existing?.value) {
+      try {
+        slaRaw = (JSON.parse(existing.value) as { slaReminderPolicy?: unknown }).slaReminderPolicy;
+      } catch {
+        /* corrupto → defaults */
+      }
+    }
+    const slaReminderPolicy = sanitizeSlaReminderPolicy(slaRaw);
+
+    const merged = { docExpiryDaysDefault: docExpiryDays, pushGlobalConfig, slaReminderPolicy };
+    const value = JSON.stringify(merged);
 
     if (existing) {
       await prisma.setting.update({ where: { id: existing.id }, data: { value } });

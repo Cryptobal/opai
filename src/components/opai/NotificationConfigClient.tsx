@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FileText, Save, Loader2, Bell, Smartphone } from "lucide-react";
+import { FileText, Save, Loader2, Bell, Smartphone, AlarmClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -9,7 +9,30 @@ import Link from "next/link";
 import { PORTAL_NOTIFICATION_TYPES } from "@/lib/pwa/portal-notification-types";
 
 type PushGlobalConfig = Record<string, { pushEnabled: boolean }>;
-type Prefs = { docExpiryDaysDefault?: number; pushGlobalConfig?: PushGlobalConfig };
+type SlaPriority = "p1" | "p2" | "p3" | "p4";
+type SlaReminderPolicy = {
+  intervals: Record<SlaPriority, number>;
+  dailyCap: number;
+  digestOnly: Record<SlaPriority, boolean>;
+};
+type Prefs = {
+  docExpiryDaysDefault?: number;
+  pushGlobalConfig?: PushGlobalConfig;
+  slaReminderPolicy?: SlaReminderPolicy;
+};
+
+const SLA_PRIORITIES: SlaPriority[] = ["p1", "p2", "p3", "p4"];
+const SLA_PRIORITY_LABELS: Record<SlaPriority, string> = {
+  p1: "P1 · Crítica",
+  p2: "P2 · Alta",
+  p3: "P3 · Media",
+  p4: "P4 · Baja",
+};
+const DEFAULT_SLA_POLICY: SlaReminderPolicy = {
+  intervals: { p1: 2, p2: 6, p3: 24, p4: 72 },
+  dailyCap: 3,
+  digestOnly: { p1: false, p2: false, p3: false, p4: false },
+};
 
 function defaultPushConfig(): PushGlobalConfig {
   return Object.fromEntries(
@@ -83,6 +106,9 @@ export function NotificationConfigClient() {
   }
 
   const pushConfig = prefs.pushGlobalConfig ?? defaultPushConfig();
+  const sla = prefs.slaReminderPolicy ?? DEFAULT_SLA_POLICY;
+  const updateSla = (patch: Partial<SlaReminderPolicy>) =>
+    setPrefs((prev) => ({ ...prev, slaReminderPolicy: { ...sla, ...patch } }));
 
   const portalLabels: Record<string, string> = {
     app: "App OPAI",
@@ -199,6 +225,87 @@ export function NotificationConfigClient() {
                   Math.min(365, Number(e.target.value) || 30)
                 ),
               }))
+            }
+          />
+        </div>
+      </section>
+
+      {/* Recordatorios de SLA */}
+      <section className="rounded-xl border border-border bg-card p-5 space-y-4">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <AlarmClock className="h-4 w-4 text-primary" />
+          Recordatorios de SLA (tickets)
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          Con qué frecuencia se recuerda un ticket con SLA vencido a su responsable, por
+          prioridad. &quot;Solo resumen diario&quot; silencia las campanas de esa prioridad y la
+          deja únicamente en el resumen diario. El tope evita el goteo constante.
+        </p>
+
+        <div className="space-y-2">
+          {SLA_PRIORITIES.map((p) => (
+            <div
+              key={p}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3"
+            >
+              <span className="text-sm font-medium min-w-[7rem]">{SLA_PRIORITY_LABELS[p]}</span>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-muted-foreground">Cada</label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={168}
+                  className="w-16 text-sm"
+                  disabled={sla.digestOnly[p]}
+                  value={Number(sla.intervals[p])}
+                  onChange={(e) =>
+                    updateSla({
+                      intervals: {
+                        ...sla.intervals,
+                        [p]: Math.max(1, Math.min(168, Number(e.target.value) || 1)),
+                      },
+                    })
+                  }
+                />
+                <span className="text-xs text-muted-foreground">h</span>
+              </div>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={sla.digestOnly[p]}
+                  aria-label={`Solo resumen diario para ${SLA_PRIORITY_LABELS[p]}`}
+                  onClick={() =>
+                    updateSla({ digestOnly: { ...sla.digestOnly, [p]: !sla.digestOnly[p] } })
+                  }
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors ${
+                    sla.digestOnly[p] ? "bg-primary" : "bg-input"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none block h-4 w-4 rounded-full bg-background shadow transition-transform ${
+                      sla.digestOnly[p] ? "translate-x-4" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+                Solo resumen diario
+              </label>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-3 pt-1">
+          <label className="text-xs text-muted-foreground whitespace-nowrap">
+            Tope de recordatorios por ticket por día:
+          </label>
+          <Input
+            type="number"
+            min={1}
+            max={50}
+            className="w-20 text-sm"
+            value={Number(sla.dailyCap)}
+            onChange={(e) =>
+              updateSla({ dailyCap: Math.max(1, Math.min(50, Number(e.target.value) || 1)) })
             }
           />
         </div>

@@ -22,6 +22,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { type TicketPriority } from "@/lib/tickets";
 import { notify } from "@/lib/notifications/notify";
+import {
+  getSlaReminderPolicies,
+  DEFAULT_SLA_REMINDER_POLICY,
+  type SlaPriority,
+  type SlaReminderPolicy,
+} from "@/lib/tickets-sla-policy";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -29,13 +35,10 @@ export const maxDuration = 30;
 const PAUSABLE_STATUSES = ["waiting", "pending_approval", "waiting_client"];
 const BREACHABLE_STATUSES = ["open", "in_progress"];
 
-/** Re-notification cadence per priority (in ms) */
-const ESCALATION_CADENCE_MS: Record<string, number> = {
-  p1: 2 * 60 * 60 * 1000,   // 2 hours
-  p2: 6 * 60 * 60 * 1000,   // 6 hours
-  p3: 24 * 60 * 60 * 1000,  // 24 hours
-  p4: 72 * 60 * 60 * 1000,  // 72 hours
-};
+/** Prioridad → clave de política (defensivo ante valores inesperados → p3). */
+function prioKey(priority: string): SlaPriority {
+  return (["p1", "p2", "p3", "p4"].includes(priority) ? priority : "p3") as SlaPriority;
+}
 
 interface SlaTicket {
   id: string;
@@ -202,10 +205,20 @@ export async function GET(request: NextRequest) {
         data: { slaBreached: true, lastSlaNotifiedAt: now },
       });
 
-      // Filtrar tickets sin responsable o snoozed (sí siguen marcados breached,
-      // pero NO se notifica por bell — el digest diario los cubre por equipo).
+      // Política por tenant (intervalos, tope diario, "solo resumen diario").
+      const policies = await getSlaReminderPolicies([
+        ...new Set(breachedTickets.map((t) => t.tenantId)),
+      ]);
+      const policyFor = (tenantId: string): SlaReminderPolicy =>
+        policies.get(tenantId) ?? DEFAULT_SLA_REMINDER_POLICY;
+
+      // Filtrar tickets sin responsable, snoozed, o de prioridad "solo resumen
+      // diario" (siguen marcados breached → el digest los cubre, sin campana).
       const toNotify = breachedTickets.filter(
-        (t) => t.assignedTo && !(t.snoozedUntil && now < new Date(t.snoozedUntil)),
+        (t) =>
+          t.assignedTo &&
+          !(t.snoozedUntil && now < new Date(t.snoozedUntil)) &&
+          !policyFor(t.tenantId).digestOnly[prioKey(t.priority)],
       );
 
       // Agrupar por (tenantId, assignedTo)
@@ -248,12 +261,40 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    const escPolicies = await getSlaReminderPolicies([
+      ...new Set(allBreached.map((t) => t.tenantId)),
+    ]);
+    const escPolicyFor = (tenantId: string): SlaReminderPolicy =>
+      escPolicies.get(tenantId) ?? DEFAULT_SLA_REMINDER_POLICY;
+
+    // Tope diario: cuántos recordatorios YA se enviaron hoy por ticket. Se cuentan
+    // las notificaciones de recordatorio (dedupKey `sla_reminder*`) creadas hoy,
+    // tanto individuales (data.ticketId) como consolidadas (data.ticketIds).
+    const dayStart = new Date(now);
+    dayStart.setHours(0, 0, 0, 0);
+    const todaysReminders = await prisma.notification.findMany({
+      where: { type: "ticket_sla_breached", createdAt: { gte: dayStart } },
+      select: { data: true },
+    });
+    const remindersToday = new Map<string, number>();
+    for (const n of todaysReminders) {
+      const d = (n.data as Record<string, unknown> | null) ?? {};
+      const dk = typeof d.dedupKey === "string" ? d.dedupKey : "";
+      if (!dk.startsWith("sla_reminder")) continue; // ignora el breach inicial
+      const ids: string[] = [];
+      if (typeof d.ticketId === "string") ids.push(d.ticketId);
+      if (Array.isArray(d.ticketIds)) ids.push(...d.ticketIds.filter((x): x is string => typeof x === "string"));
+      for (const id of ids) remindersToday.set(id, (remindersToday.get(id) ?? 0) + 1);
+    }
+
     const ticketsToRenotify = allBreached.filter((t) => {
       if (!t.assignedTo) return false; // sin responsable: sólo digest diario
       if (t.snoozedUntil && now < new Date(t.snoozedUntil)) return false;
+      const policy = escPolicyFor(t.tenantId);
+      if (policy.digestOnly[prioKey(t.priority)]) return false; // solo resumen diario
+      if ((remindersToday.get(t.id) ?? 0) >= policy.dailyCap) return false; // tope diario
       if (!t.lastSlaNotifiedAt) return true;
-      const cadenceMs =
-        ESCALATION_CADENCE_MS[t.priority] ?? ESCALATION_CADENCE_MS.p3;
+      const cadenceMs = policy.intervals[prioKey(t.priority)] * 60 * 60 * 1000;
       return now.getTime() - new Date(t.lastSlaNotifiedAt).getTime() >= cadenceMs;
     });
 
