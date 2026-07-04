@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
         tipo: "panico",
         severidad: "critical",
         mensaje: parts.join("\n"),
+        ejecucionId: execution.id,
       }).catch((err) => console.error("[public/panico] Alert notification failed:", err));
     }
 

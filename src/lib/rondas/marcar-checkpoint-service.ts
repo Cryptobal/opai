@@ -413,6 +413,7 @@ export async function marcarCheckpoint(
       tipo: alertAnomalies[0],
       severidad,
       mensaje: `Anomalía detectada en checkpoint ${cpName}: ${alertAnomalies.join(", ")}`,
+      ejecucionId: execution.id,
     }).catch((err) => console.error("[MARCAR] Alert notification failed:", err));
   }
 

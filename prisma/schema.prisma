@@ -11364,6 +11364,22 @@ model TicketSlackThread {
   @@schema("public")
 }
 
+/// Hilo de Slack por ronda (Fase 19): la tarjeta de `ronda_started` funda el
+/// hilo; término y alertas de esa ejecución llegan como reply del mismo ts,
+/// y el término actualiza además la raíz (chat.update).
+model RondaSlackThread {
+  id               String   @id @default(cuid())
+  tenantId         String   @map("tenant_id")
+  rondaEjecucionId String   @unique @map("ronda_ejecucion_id")
+  slackChannelId   String   @map("slack_channel_id")
+  slackTs          String   @map("slack_ts")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId], map: "idx_ronda_slack_thread_tenant")
+  @@map("ronda_slack_threads")
+  @@schema("public")
+}
+
 /// Sala de Slack (canal privado) por negocio importante (Fase 16 — Deal Rooms).
 /// Un canal por `CrmDeal`: la ficha viva del negocio va fijada (fichaTs) y se
 /// actualiza con chat.update en cada cambio; todos los eventos del deal caen a
