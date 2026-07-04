@@ -140,7 +140,7 @@ function noteView(dealId: string): SlackView {
   };
 }
 
-function lostView(dealId: string): SlackView {
+export function lostView(dealId: string): SlackView {
   return {
     type: "modal", callback_id: "pipe_lost", private_metadata: packMetadata({ kind: "pipe_lost", dealId }),
     title: modalTitle("Marcar perdido"), submit: pt("Perdido"), close: pt("Cancelar"),

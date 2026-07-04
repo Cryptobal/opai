@@ -155,6 +155,12 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     await handleQuotesTrayAction(payload as never);
     return;
   }
+  // Loop anti-olvido (Fase 15): Reenviar / Posponer / Marcar perdida de la tarjeta 48h.
+  if (actionId?.startsWith("qstale_")) {
+    const { handleStaleQuoteAction } = await import("./comercial/quote-stale");
+    await handleStaleQuoteAction(payload as never);
+    return;
+  }
 
   if (!teamId || !slackUserId || !actionId || !pendingId) return;
 
