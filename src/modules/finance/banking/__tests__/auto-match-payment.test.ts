@@ -28,6 +28,9 @@ vi.mock("@/lib/prisma", () => {
   const financePaymentAllocation = {
     create: vi.fn(),
   };
+  const financeBankTransactionLink = {
+    create: vi.fn(),
+  };
   const financeReconciliation = {
     findFirst: vi.fn(),
   };
@@ -41,6 +44,7 @@ vi.mock("@/lib/prisma", () => {
       financeDte,
       financePaymentRecord,
       financePaymentAllocation,
+      financeBankTransactionLink,
       financeReconciliation,
       financeReconciliationMatch,
     },
