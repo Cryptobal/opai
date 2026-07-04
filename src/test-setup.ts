@@ -1,5 +1,9 @@
 import "@testing-library/jest-dom";
 
+// Env vars mínimas para que módulos con guard de import (src/lib/resend.ts)
+// no revienten suites completas en CI. Ningún test envía correos reales.
+process.env.RESEND_API_KEY ||= "re_test_dummy";
+
 // Polyfills for jsdom — needed by components that use ResizeObserver,
 // IntersectionObserver, scrollIntoView, etc.
 if (typeof globalThis.ResizeObserver === "undefined") {

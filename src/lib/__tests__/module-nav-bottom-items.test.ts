@@ -48,16 +48,18 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     expect(hrefs).toContain("/crm/installations");
   });
 
-  it("Pautas inner page → mensual, diaria, te, ppc, refuerzos, marcaciones, auditoría", () => {
+  it("Pautas inner page → mensual, diaria, ppc, refuerzos, marcaciones, auditoría", () => {
     const items = getBottomNavItems("/ops/pauta-diaria", "owner", ALL_ENABLED);
     const hrefs = items.map((i) => i.href);
     expect(hrefs).toContain("/ops/pauta-mensual");
     expect(hrefs).toContain("/ops/pauta-diaria");
-    expect(hrefs).toContain("/ops/turnos-extra");
     expect(hrefs).toContain("/ops/ppc");
     expect(hrefs).toContain("/ops/refuerzos");
     expect(hrefs).toContain("/ops/marcaciones");
     expect(hrefs).toContain("/ops/audit-pautas");
+    // Turnos Extra ya no vive en el grupo Pautas: es su propio N2 en el
+    // registry (ops-turnos-extra → /ops/turnos-extra/registro).
+    expect(hrefs).not.toContain("/ops/turnos-extra");
   });
 
   it("Rondas inner → dashboard, monitor, alertas, reportes, centro IA, config", () => {
@@ -86,15 +88,17 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     expect(hrefs).not.toContain("/ops/inventario/configuracion");
   });
 
-  it("Finanzas main → ventas, compras, banca, contabilidad, informes, rendiciones", () => {
+  it("Finanzas main → compras y ventas, banca, contabilidad, informes, rendiciones", () => {
     const items = getBottomNavItems("/finanzas", "owner", ALL_ENABLED);
     const hrefs = items.map((i) => i.href);
     expect(hrefs).toContain("/finanzas/rendiciones");
     expect(hrefs).toContain("/finanzas/facturacion");
-    expect(hrefs).toContain("/finanzas/proveedores");
     expect(hrefs).toContain("/finanzas/bancos");
     expect(hrefs).toContain("/finanzas/contabilidad");
     expect(hrefs).toContain("/finanzas/reportes");
+    // Proveedores dejó de ser N2 propio: ahora es N3 dentro de
+    // "Compras y Ventas" (/finanzas/facturacion), no aparece en bottom nav.
+    expect(hrefs).not.toContain("/finanzas/proveedores");
   });
 
   it("Reportes inner → bottom nav shows N2 (finance children), no N3 dropdown", () => {
