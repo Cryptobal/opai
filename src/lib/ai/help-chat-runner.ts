@@ -8,9 +8,9 @@
  *
  * Diferencia clave para transportes externos: las escrituras se DIFIEREN. Las
  * tools de escritura (directas o `preview_*`) nunca persisten aquí; se exponen
- * como `pendingConfirmation` para que una tarjeta interactiva las ejecute al
- * confirmar. Las `preview_*` (solo cálculo, no persisten) sí se ejecutan para
- * mostrar montos reales.
+ * como `pendingConfirmations` (hasta 5 por turno) para que tarjetas
+ * interactivas independientes las ejecuten al confirmar. Las `preview_*`
+ * (solo cálculo, no persisten) sí se ejecutan para mostrar montos reales.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -43,6 +43,9 @@ import {
 } from "@/lib/ai/help-chat-shared";
 
 const MAX_TOOL_STEPS = 12;
+// Tope de escrituras diferidas por turno: cada una genera su propia tarjeta
+// de confirmación en Slack; más de 5 satura el mensaje y el TTL de 15 min.
+const MAX_PENDING_WRITES = 5;
 
 export interface PendingConfirmation {
   previewToolName?: string;
@@ -55,7 +58,7 @@ export interface HelpChatTurnResult {
   text: string;
   toolCallsUsed: number;
   model: string;
-  pendingConfirmation?: PendingConfirmation;
+  pendingConfirmations?: PendingConfirmation[];
   /** Entidades con URL profunda tocadas por las tools (≤3), para tarjetas en Slack. */
   entities?: Array<{ title: string; subtitle?: string; url: string }>;
 }
@@ -111,8 +114,8 @@ export interface RunHelpChatTurnInput {
 /**
  * Ejecuta un turno completo del asistente y devuelve el texto final ya
  * normalizado (links absolutos, sin bloques `:::visual/:::suggestions`),
- * el número de tools usadas y — si aplica — la escritura pendiente de
- * confirmación.
+ * el número de tools usadas y — si aplica — las escrituras pendientes de
+ * confirmación (máx. 5 por turno).
  */
 export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<HelpChatTurnResult> {
   const t0 = Date.now();
@@ -213,7 +216,7 @@ export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<Help
 
   let fullText = "";
   let toolCallsUsed = 0;
-  let pending: PendingConfirmation | undefined;
+  const pendings: PendingConfirmation[] = [];
   const entities: Array<{ title: string; subtitle?: string; url: string }> = [];
 
   for (let step = 0; step < MAX_TOOL_STEPS; step += 1) {
@@ -259,21 +262,31 @@ export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<Help
       let result: unknown;
       if (isDeferredWrite) {
         // Escritura directa (o el `create_*` de un flujo preview): NO se ejecuta.
-        // Se difiere a la tarjeta de confirmación con estos args exactos.
-        pending = {
-          confirmToolName: call.name,
-          args,
-          summary: WRITE_TOOL_LABELS[call.name] ?? call.name,
-        };
-        // executed:false es deliberado: el modelo NO debe afirmar que la acción
-        // ya ocurrió. Solo se ejecutará cuando el usuario presione Confirmar.
-        result = {
-          ok: true,
-          executed: false,
-          status: "pending_confirmation",
-          message:
-            "Acción PREPARADA pero NO ejecutada. Se ejecutará solo cuando el usuario presione Confirmar en Slack. Resume en 1-2 frases QUÉ se hará y pídele que confirme. NO afirmes que ya está hecho. NO llames más tools de escritura en este turno.",
-        };
+        // Se difiere a SU PROPIA tarjeta de confirmación con estos args exactos.
+        if (pendings.length >= MAX_PENDING_WRITES) {
+          result = {
+            ok: false,
+            executed: false,
+            status: "limit_reached",
+            message:
+              "Máximo 5 acciones por turno. Pide al usuario confirmar estas y luego continuar con el resto.",
+          };
+        } else {
+          pendings.push({
+            confirmToolName: call.name,
+            args,
+            summary: WRITE_TOOL_LABELS[call.name] ?? call.name,
+          });
+          // executed:false es deliberado: el modelo NO debe afirmar que la acción
+          // ya ocurrió. Solo se ejecutará cuando el usuario presione Confirmar.
+          result = {
+            ok: true,
+            executed: false,
+            status: "pending_confirmation",
+            message:
+              "Acción PREPARADA pero NO ejecutada; se ejecutará solo cuando el usuario presione Confirmar en Slack. Si el usuario pidió VARIAS acciones, puedes preparar las siguientes (máx. 5 por turno). Al final resume en 1-2 frases QUÉ quedará pendiente de confirmar. NO afirmes que algo ya está hecho.",
+          };
+        }
       } else {
         try {
           result = await executeToolCallV2(
@@ -288,12 +301,22 @@ export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<Help
         // `preview_*` es solo cálculo (no persiste): sí se ejecuta y, si sale
         // ok, deja pendiente la escritura mapeada con SUS mismos args.
         if (previewMap && (result as { ok?: boolean })?.ok) {
-          pending = {
-            previewToolName: call.name,
-            confirmToolName: previewMap.confirmToolName,
-            args,
-            summary: previewMap.label,
-          };
+          if (pendings.length >= MAX_PENDING_WRITES) {
+            result = {
+              ok: false,
+              executed: false,
+              status: "limit_reached",
+              message:
+                "Máximo 5 acciones por turno. Pide al usuario confirmar estas y luego continuar con el resto.",
+            };
+          } else {
+            pendings.push({
+              previewToolName: call.name,
+              confirmToolName: previewMap.confirmToolName,
+              args,
+              summary: previewMap.label,
+            });
+          }
         }
       }
       messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
@@ -327,7 +350,7 @@ export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<Help
     text: cleanText.trim() || fallbackMessage(),
     toolCallsUsed,
     model: effectiveModel,
-    pendingConfirmation: pending,
+    pendingConfirmations: pendings.length ? pendings : undefined,
     entities: entities.length ? entities.slice(0, 3) : undefined,
   };
 }
