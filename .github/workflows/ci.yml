@@ -44,10 +44,6 @@ jobs:
     name: Tests (vitest)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # TODO(endurecer): quitar continue-on-error cuando los 15 archivos de test
-    # que fallan hoy en main estén reparados. Mientras tanto el job es informativo:
-    # aparece rojo en el PR pero no bloquea el merge.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -61,6 +57,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # Los tests del firmador AEC (src/lib/sii) invocan aec_signer.py, que
+      # necesita lxml + cryptography en el Python del runner.
+      - name: Install Python deps (firmador AEC)
+        run: python3 -m pip install --upgrade lxml cryptography cffi
 
       - name: Run tests
         run: npx vitest run

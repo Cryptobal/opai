@@ -124,7 +124,10 @@ describe("buildUnsignedAec — Caratula", () => {
   it("incluye RutCedente, RutCesionario, contacto y TmstFirmaEnvio", () => {
     const out = buildUnsignedAec(baseInput);
     expect(out.xml).toContain("<Caratula version=\"1.0\">");
-    expect(out.xml).toContain("<RutCedente>77777777-7</RutCedente>");
+    // El SII (error 300) exige que RutCedente de la Caratula sea el RUT del
+    // representante AUTORIZADO (titular del cert que firma), no el de la
+    // empresa cedente — esa va en DocumentoCesion/Cedente/RUT.
+    expect(out.xml).toContain("<RutCedente>11111111-1</RutCedente>");
     expect(out.xml).toContain("<RutCesionario>88888888-8</RutCesionario>");
     expect(out.xml).toContain("<NmbContacto>Contacto Demo</NmbContacto>");
     expect(out.xml).toContain("<FonoContacto>+56999999999</FonoContacto>");

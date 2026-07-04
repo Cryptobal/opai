@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { CashflowMobileList } from "../CashflowMobileList";
 import { makeMobileProjection } from "./fixtures/cashflow-mobile-fixture";
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: vi.fn() }),
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
 }));
 
 const fetchMock = vi.fn();
@@ -12,13 +12,21 @@ const fetchMock = vi.fn();
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
   fetchMock.mockReset();
-  // Default response: vacío success para evitar errores no esperados.
-  fetchMock.mockResolvedValue({
-    json: async () => ({ success: true, data: null }),
-  });
+  // Default: el fetch de proyección mensual devuelve el mismo fixture
+  // (hydrateProjection convierte los start/end string a Date).
+  fetchMock.mockImplementation(async (url: string) => ({
+    json: async () =>
+      typeof url === "string" && url.includes("/projection")
+        ? { success: true, data: makeMobileProjection() }
+        : { success: true, data: null },
+  }));
   if (typeof window !== "undefined") {
     window.localStorage.clear();
   }
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 function renderList(canManage = true) {
@@ -32,53 +40,60 @@ function renderList(canManage = true) {
   );
 }
 
+/** Cambia al modo mensual (acordeón Ingresos/Egresos) y espera el render. */
+async function switchToMonthly() {
+  fireEvent.click(screen.getByRole("button", { name: /Mensual/ }));
+  await waitFor(() => {
+    expect(screen.getByRole("button", { name: /Ingresos/ })).toBeTruthy();
+  });
+}
+
 describe("CashflowMobileList", () => {
-  it("renderiza el bucket activo con sus ingresos/egresos", async () => {
+  it("weekly por default: segmented + tabla semanal con bandas INGRESOS/EGRESOS", () => {
     renderList();
     expect(screen.getByRole("button", { name: /Mensual/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Semanal/ })).toBeTruthy();
-    // "Ingresos" aparece tanto en el stat del bucket como en el header de
-    // sección; basta que exista al menos una instancia.
-    expect(screen.getAllByText(/Ingresos/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Egresos/).length).toBeGreaterThan(0);
-    // Ingresos abierto por default → "Ventas" visible.
+    expect(screen.getByText("INGRESOS")).toBeTruthy();
+    expect(screen.getByText("EGRESOS")).toBeTruthy();
+    // Las categorías aparecen como bandas (colapsadas por default).
     expect(screen.getByText("Ventas")).toBeTruthy();
-    // Egresos cerrado por default → abrir para ver la categoría "Sueldos".
-    // El texto "Sueldos" aparece también como badge en cada ítem (default
-    // expandido), por eso usamos getAllByText.
-    fireEvent.click(screen.getByRole("button", { name: /Egresos/ }));
-    await waitFor(() => {
-      expect(screen.getAllByText("Sueldos").length).toBeGreaterThan(0);
-    });
+    expect(screen.getByText("Sueldos")).toBeTruthy();
   });
 
-  it("cambiar de bucket con el navegador actualiza el header", async () => {
+  it("cambiar de semana con el navegador: retroceder hasta la primera deshabilita 'anterior'", async () => {
     renderList();
-    // El bucket activo al mount es W20 (hoy: 2026-05-14 cae en W20).
-    // Retroceder con la flecha "Período anterior" lleva a W19.
-    const prevBtn = screen.getByRole("button", { name: /Período anterior/ });
+    // Activo al mount = W20 (último bucket; hoy queda fuera del rango del
+    // fixture y el componente cae al último). W19 es el primero.
+    const prevBtn = screen.getByRole("button", { name: /Semana anterior/ });
+    expect(prevBtn.hasAttribute("disabled")).toBe(false);
     fireEvent.click(prevBtn);
     await waitFor(() => {
-      expect(screen.getByText(/Semana del 4 al 10 may/)).toBeTruthy();
+      expect(prevBtn.hasAttribute("disabled")).toBe(true);
     });
   });
 
-  it("las categorías de Ingresos están expandidas por default — todos los ítems visibles", async () => {
+  it("mensual: las categorías de Ingresos están expandidas por default — ítems visibles", async () => {
     renderList();
-    // Sin tap en la categoría, el ítem ya está visible.
-    expect(screen.getByText("Edificio A")).toBeTruthy();
+    await switchToMonthly();
+    // Sin tap en la categoría, el ítem ya está visible (agrupado por cliente).
+    await waitFor(() => {
+      expect(screen.getByText("Cliente Uno")).toBeTruthy();
+      expect(screen.getByText("Edificio A")).toBeTruthy();
+    });
   });
 
-  it("tap en un ítem abre el drawer", async () => {
+  it("mensual: tap en un ítem abre el drawer", async () => {
     renderList();
+    await switchToMonthly();
     fireEvent.click(await screen.findByText("Edificio A"));
     await waitFor(() => {
       expect(screen.getByText(/Monto del período/i)).toBeTruthy();
     });
   });
 
-  it("switch granularidad weekly↔monthly dispara fetch monthly", async () => {
+  it("switch semanal→mensual dispara fetch con granularity=monthly", async () => {
     renderList();
+    fireEvent.click(screen.getByRole("button", { name: /Mensual/ }));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining("granularity=monthly"),
@@ -88,8 +103,9 @@ describe("CashflowMobileList", () => {
 
   it("persistencia: colapsar una categoría se guarda en localStorage", async () => {
     renderList();
-    // Default = expandido → la primera click colapsa y persiste "0".
-    fireEvent.click(screen.getByRole("button", { name: /Ventas/ }));
+    await switchToMonthly();
+    // Default = expandido → el primer click colapsa y persiste "0".
+    fireEvent.click(await screen.findByRole("button", { name: /Ventas/ }));
     await waitFor(() => {
       expect(
         window.localStorage.getItem("cashflow.mobile.expanded.cat-ventas"),
@@ -104,8 +120,9 @@ describe("CashflowMobileList", () => {
     });
   });
 
-  it("oculta acciones cuando canManage=false", async () => {
+  it("oculta acciones del drawer cuando canManage=false", async () => {
     renderList(false);
+    await switchToMonthly();
     fireEvent.click(await screen.findByText("Edificio A"));
     await waitFor(() => {
       expect(screen.getByText(/Monto del período/i)).toBeTruthy();
@@ -114,17 +131,27 @@ describe("CashflowMobileList", () => {
     expect(screen.queryByText(/Editar monto/i)).toBeNull();
   });
 
-  it("muestra empty state cuando la sección no tiene movimientos", async () => {
-    const p = makeMobileProjection();
-    p.rows = p.rows.filter((r) => r.kind !== "EXPENSE");
+  it("mensual: muestra empty state cuando la sección no tiene movimientos", async () => {
+    const noExpenses = () => {
+      const p = makeMobileProjection();
+      p.rows = p.rows.filter((r) => r.kind !== "EXPENSE");
+      return p;
+    };
+    fetchMock.mockImplementation(async (url: string) => ({
+      json: async () =>
+        typeof url === "string" && url.includes("/projection")
+          ? { success: true, data: noExpenses() }
+          : { success: true, data: null },
+    }));
     render(
       <CashflowMobileList
-        initialProjection={p}
+        initialProjection={noExpenses()}
         defaultWeeks={8}
         defaultMonths={6}
         canManage
       />,
     );
+    await switchToMonthly();
     // Por default, Ingresos está abierto y Egresos cerrado: hay que abrir Egresos.
     const egresosHeader = screen.getByRole("button", { name: /Egresos/ });
     expect(egresosHeader.getAttribute("aria-expanded")).toBe("false");
@@ -134,8 +161,9 @@ describe("CashflowMobileList", () => {
     });
   });
 
-  it("acordeón: abrir Egresos cierra Ingresos", async () => {
+  it("acordeón mensual: abrir Egresos cierra Ingresos y persiste la sección", async () => {
     renderList();
+    await switchToMonthly();
     const ingresosHeader = screen.getByRole("button", { name: /Ingresos/ });
     const egresosHeader = screen.getByRole("button", { name: /Egresos/ });
     // Default: Ingresos abierto, Egresos cerrado.
@@ -153,11 +181,13 @@ describe("CashflowMobileList", () => {
   });
 
   it("auto-selecciona el bucket de hoy al mount y muestra el peek 'Esta semana'", async () => {
+    // El fixture cubre W19–W20 de mayo 2026; fijamos "hoy" dentro de W20
+    // para que el peek aparezca sin depender de la fecha real del sistema.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-05-14T12:00:00"));
     renderList();
-    // 2026-05-14 cae en la semana W20 (11–17 may).
     await waitFor(() => {
-      expect(screen.getByText(/Semana del 11 al 17 may/)).toBeTruthy();
-      expect(screen.getByText("Esta semana")).toBeTruthy();
+      expect(screen.getByText(/Esta semana/)).toBeTruthy();
     });
   });
 
