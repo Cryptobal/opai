@@ -76,15 +76,30 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
       ? await convertBodyMentions(input.body, input.data.mentions as unknown[], workspace)
       : input.body;
 
+  // Momento caliente (Fase 15): la tarjeta de quote_viewed usa campos curados.
+  const isQuoteViewed = input.typeDef.key === "quote_viewed";
+  let curatedFields: Array<{ label: string; value: string }> | null = null;
+  if (isQuoteViewed) {
+    const { quoteViewedFields } = await import("./comercial/quote-viewed");
+    curatedFields = quoteViewedFields(input.data);
+  }
+
   const { text, blocks } = buildNotificationBlocks({
     title: input.title,
     body,
     category: input.typeDef.category,
     phone: typeof input.data?.phone === "string" ? input.data.phone : null,
-    fields: ticketFields.length ? ticketFields : toContextFields(input.data),
+    fields: ticketFields.length ? ticketFields : curatedFields ?? toContextFields(input.data),
     link: input.link,
     critical: input.typeDef.critical,
   });
+
+  // Fila accionable de la tarjeta 🔥: WhatsApp "¿te llamo?" + Recordar 1h.
+  if (isQuoteViewed && typeof input.data?.quoteId === "string") {
+    const { resolveQuoteViewedWaUrl, quoteViewedActionsBlock } = await import("./comercial/quote-viewed");
+    const waUrl = await resolveQuoteViewedWaUrl(input.tenantId, input.data).catch(() => null);
+    blocks.push(quoteViewedActionsBlock(input.data.quoteId as string, waUrl));
+  }
 
   // Gestión del ticket desde su tarjeta (excepto la de aprobación, que ya trae
   // Aprobar/Rechazar): Comentar · Estado · Aplazar/Pausar SLA · Silenciar.

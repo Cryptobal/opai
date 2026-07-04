@@ -51,9 +51,9 @@ Arquitectura Slack = **registro declarativo**. Se agrega feature agregando una e
 
 ## Estado
 
-- [ ] B1 — Tarjeta-cockpit del lead + bandeja `/opai leads`
-- [ ] B2 — Cotización en un clic desde el lead
-- [ ] B3 — quote_viewed accionable (momento caliente)
+- [x] B1 — Tarjeta-cockpit del lead + bandeja `/opai leads` — `6ba43522f`
+- [x] B2 — Cotización en un clic desde el lead — **rama `feat/extract-lead-quote-engine` · PR #568** (NO en main; gate de paridad pendiente de Carlos)
+- [x] B3 — quote_viewed accionable (momento caliente)
 - [ ] B4 — `/opai pipeline` + acciones de deal + `/opai cotizaciones`
 - [ ] B5 — Loop anti-olvido (seguimiento 48h)
 - [ ] B6 — Digest comercial + Home comercial

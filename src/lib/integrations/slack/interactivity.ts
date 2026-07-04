@@ -136,6 +136,13 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     return;
   }
 
+  // Momento caliente (Fase 15): ⏰ Recordar 1h de la tarjeta quote_viewed.
+  if (actionId?.startsWith("quoteviewed_")) {
+    const { handleQuoteViewedAction } = await import("./comercial/quote-viewed");
+    await handleQuoteViewedAction(payload as never);
+    return;
+  }
+
   if (!teamId || !slackUserId || !actionId || !pendingId) return;
 
   const resolved = await getTenantForTeam(teamId);

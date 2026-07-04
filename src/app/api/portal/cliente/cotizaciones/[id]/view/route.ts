@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
@@ -40,6 +40,14 @@ export async function POST(
   } catch (e) {
     console.warn("[Portal] view_quote log failed:", (e as Error)?.message);
   }
+
+  // 🔥 Momento caliente (Fase 15): alerta accionable "está viendo la cotización
+  // AHORA" a comercial (con throttle interno para no spamear en refrescos).
+  after(() =>
+    import("@/lib/integrations/slack/comercial/quote-viewed")
+      .then(({ emitQuoteViewed }) => emitQuoteViewed(session.tenantId, quoteId))
+      .catch((err) => console.error("[Portal] emitQuoteViewed failed:", err)),
+  );
 
   return NextResponse.json({ success: true });
 }
