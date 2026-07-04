@@ -25,25 +25,55 @@ const pt = (text: string) => ({ type: "plain_text", text: text.slice(0, 75), emo
 const clp = (n: number) => new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(Math.round(n));
 
 /** Total de dotación guardado en el lead (metadata.totalGuards o suma de dotacion). */
-function leadTotalGuards(metadata: unknown): number {
-  if (!metadata || typeof metadata !== "object") return 0;
-  const m = metadata as { totalGuards?: unknown; dotacion?: Array<{ cantidad?: unknown; numPuestos?: unknown }> };
-  if (typeof m.totalGuards === "number" && m.totalGuards > 0) return m.totalGuards;
-  if (Array.isArray(m.dotacion)) {
-    return m.dotacion.reduce((s, d) => s + (Number(d?.cantidad) || 0) * (Number(d?.numPuestos) || 1), 0);
-  }
-  return 0;
+interface DotEntry { puesto: string; cantidad: number; numPuestos: number }
+
+/** Dotación estructurada del lead (del cotizador público). Vacío = lead sin datos. */
+function parseDotacion(metadata: unknown): DotEntry[] {
+  if (!metadata || typeof metadata !== "object") return [];
+  const arr = (metadata as { dotacion?: unknown }).dotacion;
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .map((d) => ({
+      puesto: typeof (d as { puesto?: unknown })?.puesto === "string" ? (d as { puesto: string }).puesto : "Guardia de Seguridad",
+      cantidad: Number((d as { cantidad?: unknown })?.cantidad) || 1,
+      numPuestos: Number((d as { numPuestos?: unknown })?.numPuestos) || 1,
+    }))
+    .filter((d) => d.cantidad > 0);
 }
 
-/** Construye el modal de cotización prellenado desde el lead (async: carga el lead). */
+/** Modal-fallback cuando el lead NO trae datos estructurados: manda al cockpit web. */
+function convertFallbackView(name: string, convertUrl: string): SlackView {
+  return {
+    type: "modal",
+    callback_id: "leadquote_fallback",
+    title: modalTitle("Cotizar lead"),
+    close: pt("Cerrar"),
+    blocks: [
+      { type: "section", text: { type: "mrkdwn", text: `*${name}* no trae datos estructurados de dotación, así que no puedo cotizar exprés sin inventar precios.\n\nÁbrelo en OPAI para convertirlo con el cockpit completo (cuenta, instalación con mapa, líneas y condiciones).` } },
+      { type: "actions", elements: [{ type: "button", action_id: "leadquote_convert", url: convertUrl, style: "primary", text: pt("📝 Convertir en OPAI") }] },
+    ],
+  };
+}
+
+/**
+ * Modal de cotización desde el lead (Fase 15, B2 · dos velocidades):
+ *  - EXPRESS: si el lead trae dotación estructurada (cotizador público), muestra
+ *    un RESUMEN de lo pedido + campos clave editables (instalación, comuna) y
+ *    cotiza con el motor real usando ESA dotación (no la inventa).
+ *  - Si no trae datos → cae al fallback deep-link "Convertir en OPAI".
+ */
 export async function buildCotizarView(tenantId: string, leadId: string): Promise<SlackView> {
   const lead = await prisma.crmLead.findFirst({
     where: { id: leadId, tenantId },
-    select: { firstName: true, lastName: true, companyName: true, commune: true, preferredShift: true, metadata: true },
+    select: { firstName: true, lastName: true, companyName: true, commune: true, metadata: true },
   });
   const name = lead ? leadDisplayName(lead) : "Lead";
-  const guards = lead ? leadTotalGuards(lead.metadata) : 0;
-  const instName = lead?.companyName?.trim() || name;
+  const convertUrl = `${getCanonicalSiteUrl()}/crm/leads/${leadId}`;
+  const dot = parseDotacion(lead?.metadata);
+  if (dot.length === 0) return convertFallbackView(name, convertUrl);
+
+  const totalGuards = dot.reduce((s, d) => s + d.cantidad * d.numPuestos, 0);
+  const resumen = dot.map((d) => `• ${d.puesto}: ${d.cantidad}${d.numPuestos > 1 ? ` × ${d.numPuestos} puestos` : ""}`).join("\n");
   const input = (block: string, label: string, initial?: string, optional = false) => ({
     type: "input", block_id: block, optional, label: pt(label),
     element: { type: "plain_text_input", action_id: "v", ...(initial ? { initial_value: initial } : {}) },
@@ -56,11 +86,11 @@ export async function buildCotizarView(tenantId: string, leadId: string): Promis
     submit: pt("Generar"),
     close: pt("Cancelar"),
     blocks: [
-      { type: "section", text: { type: "mrkdwn", text: `Cotización rápida para *${name}*. Ajusta lo que falte; el precio sale del mismo motor que la web.` } },
-      input("instname", "Instalación", instName),
-      input("guards", "Dotación (N.º de guardias)", guards > 0 ? String(guards) : undefined),
-      input("puestos", "Puestos", "1"),
+      { type: "section", text: { type: "mrkdwn", text: `Cotización *exprés* para *${name}* (${totalGuards} guardias). El precio sale del mismo motor que la web.` } },
+      { type: "section", text: { type: "mrkdwn", text: `*Solicitado:*\n${resumen}` } },
+      input("instname", "Instalación", lead?.companyName?.trim() || name),
       input("comuna", "Comuna", lead?.commune ?? undefined, true),
+      { type: "context", elements: [{ type: "mrkdwn", text: `¿Necesitas afinar más? <${convertUrl}|Convertir en OPAI (cockpit completo)>` }] },
     ],
   };
 }
@@ -104,12 +134,9 @@ export const cotizarLeadModal: ModalDef = {
   build: () => buildCotizarView("", ""), // fallback; el open real prellena por leadId
   submit: async (ctx: ModalSubmitContext): Promise<ModalSubmitResult> => {
     const leadId = ctx.metadata.leadId ?? "";
-    const guards = parseInt((ctx.state.guards?.v?.value ?? "").trim(), 10);
-    const puestos = parseInt((ctx.state.puestos?.v?.value ?? "1").trim(), 10) || 1;
     const instName = (ctx.state.instname?.v?.value ?? "").trim();
     const comuna = (ctx.state.comuna?.v?.value ?? "").trim();
-    if (!leadId) return { ack: { response_action: "errors", errors: { guards: "Lead no válido." } } };
-    if (!Number.isFinite(guards) || guards < 1) return { ack: { response_action: "errors", errors: { guards: "Indica cuántos guardias (número ≥ 1)." } } };
+    if (!leadId) return { ack: { response_action: "errors", errors: { instname: "Lead no válido." } } };
 
     const slackUserId = ctx.slackUserId;
     const botToken = ctx.workspace.botToken;
@@ -117,15 +144,18 @@ export const cotizarLeadModal: ModalDef = {
     const userId = ctx.linked.adminId;
 
     const work = async () => {
-      const lead = await prisma.crmLead.findFirst({ where: { id: leadId, tenantId }, select: { firstName: true, lastName: true, companyName: true, city: true, address: true } });
+      const lead = await prisma.crmLead.findFirst({ where: { id: leadId, tenantId }, select: { firstName: true, lastName: true, companyName: true, city: true, address: true, metadata: true } });
       const leadName = lead ? leadDisplayName(lead) : "lead";
+      // Exprés: cotiza con la dotación REAL del lead (no inventa); un puesto genérico si faltara.
+      const dot = parseDotacion(lead?.metadata);
+      const dotacion = (dot.length ? dot : [{ puesto: "Guardia de Seguridad", cantidad: 1, numPuestos: 1 }]).map((d) => ({ puesto: d.puesto, cantidad: d.cantidad, numPuestos: d.numPuestos, dias: [] as string[] }));
       const body = {
         installations: [{
           name: instName || lead?.companyName || "Instalación",
           commune: comuna || undefined,
           city: lead?.city ?? undefined,
           address: lead?.address ?? undefined,
-          dotacion: [{ puesto: "Guardia de Seguridad", cantidad: guards, numPuestos: puestos, dias: [] }],
+          dotacion,
         }],
       };
       const result = await approveLeadToEntities({ tenantId, userId, leadId, body });
