@@ -493,3 +493,23 @@ describe("shouldUseInferredAnswerUpfront()", () => {
     expect(shouldUseInferredAnswerUpfront("como reviso el control nocturno")).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 5. Golden intents — frases reales de Carlos (voz, minúsculas)
+// ---------------------------------------------------------------------------
+describe("golden intents — Carlos voice", () => {
+  it.each([
+    ["como creo un cliente nuevo", true],
+    ["donde veo la pauta mensual", true],
+    ["como funciona el modulo de rondas", true],
+    ["como configuro los turnos extra", true],
+    ["como descargo la app del guardia", true],
+    ["inactiva las de ametel", false],
+    ["todas las de melon a inactive", false],
+    ["crea un ticket p1 por puerta abierta", false],
+    ["toma el tk-1234 y comenta ya", false],
+    ["cuantos tickets vencidos hay hoy", false],
+  ] as const)("shouldUseInferredAnswerUpfront(%j) → %s", (phrase, expected) => {
+    expect(shouldUseInferredAnswerUpfront(phrase)).toBe(expected);
+  });
+});
