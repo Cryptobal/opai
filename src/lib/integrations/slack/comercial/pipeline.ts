@@ -1,11 +1,17 @@
 /**
- * Pipeline vivo en Slack (Fase 15, B4): `/opai pipeline`.
+ * Pipeline vivo en Slack (Fase 15, B4 · pulido F17): `/opai pipeline`.
  *
  * Overview por etapa (nombre · N negocios · Σ CLP) → drill a la etapa → deals
- * (cliente · monto · días en etapa · última actividad) con acciones: Avanzar
- * etapa · 🟢 WhatsApp · 📝 Nota rápida · 🎉 Ganado · 💔 Perdido (motivo).
- * El cambio de etapa usa el servicio real (changeDealStage → CrmDealStageHistory;
- * al ganar emite deal_won → tarjeta 🎉 al canal).
+ * ordenados del más frío al más fresco (semáforo por días en etapa: 🟢 <7 · 🟠
+ * 7-14 · 🔴 >14). Cada fila: *Cuenta* · negocio · monto · ⏱ días · badge 🏠 si
+ * tiene sala OPEN; botones 🔗 Abrir en OPAI · 🏠 Ir/Abrir sala · 🟢 WhatsApp;
+ * overflow 📞 Llamar · Avanzar · Nota · Ganado · Perdido. Navegación "← Pipeline"
+ * de vuelta al overview (views.update). El cambio de etapa usa el servicio real
+ * (changeDealStage → CrmDealStageHistory; al ganar emite deal_won → tarjeta 🎉).
+ *
+ * LÍMITE (B3.5): 🟢 WhatsApp y 📞 Llamar son botones URL — Slack NO notifica los
+ * clics de botones URL, así que el contacto NO se puede registrar solo; el
+ * registro queda vía "📝 Nota" manual o el followup-log de otras acciones.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -18,6 +24,7 @@ import { changeDealStage } from "@/lib/crm/change-deal-stage";
 import { packMetadata, unpackMetadata } from "../modals/views";
 import { modalTitle } from "../modals/title";
 import { clp, resolveDealWaUrl, addDealNote, markDealWon, markDealLost } from "./deal-common";
+import { normalizeWaPhone } from "./lead-actions";
 import type { ModalDef, ModalOpenContext, ModalSubmitContext, ModalSubmitResult, SlackView } from "../modals/types";
 
 const pt = (text: string) => ({ type: "plain_text", text: text.slice(0, 75), emoji: true });
@@ -56,14 +63,25 @@ async function listDealsInStage(tenantId: string, stageId: string): Promise<{ st
     : [];
   const enteredAt = new Map<string, Date>();
   for (const h of hist) if (!enteredAt.has(h.dealId)) enteredAt.set(h.dealId, h.changedAt);
-  return {
-    stageName: stage?.name ?? "Etapa",
-    deals: deals.map((d) => ({
-      id: d.id, amount: Number(d.amount ?? 0), updatedAt: d.updatedAt, accountName: d.account?.name ?? "Cliente", title: d.title ?? "Negocio",
-      contactFirst: d.primaryContact?.firstName ?? null, contactPhone: d.primaryContact?.phone ?? null,
-      enteredAt: enteredAt.get(d.id) ?? d.createdAt,
-    })),
-  };
+  const mapped: DrillDeal[] = deals.map((d) => ({
+    id: d.id, amount: Number(d.amount ?? 0), updatedAt: d.updatedAt, accountName: d.account?.name ?? "Cliente", title: d.title ?? "Negocio",
+    contactFirst: d.primaryContact?.firstName ?? null, contactPhone: d.primaryContact?.phone ?? null,
+    enteredAt: enteredAt.get(d.id) ?? d.createdAt,
+  }));
+  // Semáforo de frío: los más viejos en etapa (más días) saltan primero — es la
+  // función del radar. Orden por antigüedad de entrada ascendente = días DESC.
+  mapped.sort((a, b) => a.enteredAt.getTime() - b.enteredAt.getTime());
+  return { stageName: stage?.name ?? "Etapa", deals: mapped };
+}
+
+/** dealId → channelId de la sala OPEN, para el badge 🏠 y el botón "Ir a la sala". */
+async function openRoomsForDeals(tenantId: string, dealIds: string[]): Promise<Map<string, string>> {
+  if (!dealIds.length) return new Map();
+  const rooms = await prisma.crmDealSlackRoom.findMany({
+    where: { tenantId, dealId: { in: dealIds }, status: "OPEN" },
+    select: { dealId: true, slackChannelId: true },
+  });
+  return new Map(rooms.map((r) => [r.dealId, r.slackChannelId]));
 }
 
 /* ── Vistas ── */
@@ -87,36 +105,63 @@ const daysInStage = (d: Date): number => Math.max(0, Math.floor((Date.now() - d.
 const dfmt = (d: Date): string => d.toLocaleDateString("es-CL");
 /** URL canónica al detalle del negocio en OPAI. */
 const dealOpaiUrl = (dealId: string): string => `${getCanonicalSiteUrl()}/crm/deals/${dealId}`;
+/** Deep-link al canal de la sala en el cliente de Slack. */
+const roomClientUrl = (teamId: string, channelId: string): string => `https://app.slack.com/client/${teamId}/${channelId}`;
+/** Semáforo de frío por días en etapa: verde <7 · 🟠 7-14 · 🔴 >14. */
+const coldDot = (days: number): string => (days > 14 ? "🔴" : days >= 7 ? "🟠" : "🟢");
 
-function dealMenu(dealId: string): unknown {
-  return {
-    type: "overflow", action_id: "pipe_deal_menu",
-    options: [
-      { text: pt("🏠 Abrir sala del negocio"), value: `room:${dealId}` },
-      { text: pt("⏩ Avanzar etapa"), value: `advance:${dealId}` },
-      { text: pt("📝 Nota rápida"), value: `note:${dealId}` },
-      { text: pt("🎉 Ganado"), value: `won:${dealId}` },
-      { text: pt("💔 Perdido"), value: `lost:${dealId}` },
-    ],
-  };
+/**
+ * Overflow de acciones por negocio. Slack limita el overflow a 5 opciones, así
+ * que los links de navegación (Abrir en OPAI, Ir a la sala, WhatsApp) van como
+ * botones; aquí quedan las acciones de gestión: 📞 Llamar (tel) + las de
+ * escritura (Avanzar/Nota/Ganado/Perdido, solo si el usuario puede editar).
+ */
+function dealMenu(dealId: string, telUrl: string | null, canWrite: boolean): unknown | null {
+  const options: unknown[] = [];
+  if (telUrl) options.push({ text: pt("📞 Llamar"), url: telUrl, value: `call:${dealId}` });
+  if (canWrite) {
+    options.push({ text: pt("⏩ Avanzar etapa"), value: `advance:${dealId}` });
+    options.push({ text: pt("📝 Nota rápida"), value: `note:${dealId}` });
+    options.push({ text: pt("🎉 Ganado"), value: `won:${dealId}` });
+    options.push({ text: pt("💔 Perdido"), value: `lost:${dealId}` });
+  }
+  return options.length ? { type: "overflow", action_id: "pipe_deal_menu", options } : null;
 }
 
-function drillView(stageId: string, stageName: string, deals: DrillDeal[], waUrls: Map<string, string | null>, notice?: string): SlackView {
-  const blocks: unknown[] = [];
+interface DrillCtx {
+  teamId: string;
+  canWrite: boolean;
+  /** dealId → channelId de la sala OPEN (badge 🏠 + botón "Ir a la sala"). */
+  rooms: Map<string, string>;
+  waUrls: Map<string, string | null>;
+}
+
+function drillView(stageId: string, stageName: string, deals: DrillDeal[], ctx: DrillCtx, notice?: string): SlackView {
+  const blocks: unknown[] = [
+    // Navegación: volver a la vista de etapas sin cerrar el modal (views.update).
+    { type: "actions", block_id: "opai_pipe_nav", elements: [{ type: "button", action_id: "pipe_back", text: pt("← Pipeline") }] },
+  ];
   if (notice) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: notice }] });
   if (deals.length === 0) {
     blocks.push({ type: "section", text: { type: "mrkdwn", text: "No hay negocios abiertos en esta etapa." } });
   }
   for (const d of deals) {
-    const wa = waUrls.get(d.id) ?? null;
+    const wa = ctx.waUrls.get(d.id) ?? null;
+    const roomChannel = ctx.rooms.get(d.id) ?? null;
+    const phone = normalizeWaPhone(d.contactPhone);
+    const badge = roomChannel ? "🏠 " : "";
+    const days = daysInStage(d.enteredAt);
+    const menu = dealMenu(d.id, phone ? `tel:+${phone}` : null, ctx.canWrite);
     const section: Record<string, unknown> = {
       type: "section",
-      text: { type: "mrkdwn", text: `*${d.accountName}* · ${d.title}\n${clp(d.amount)} · ⏱ ${daysInStage(d.enteredAt)}d en etapa · act ${dfmt(d.updatedAt)}` },
-      accessory: dealMenu(d.id),
+      text: { type: "mrkdwn", text: `${badge}*${d.accountName}* · ${d.title}\n${clp(d.amount)} · ⏱ ${coldDot(days)} ${days}d en etapa · act ${dfmt(d.updatedAt)}` },
     };
+    if (menu) section.accessory = menu;
     blocks.push(section);
-    // Links por negocio: 🔗 Abrir en OPAI (siempre) + 🟢 WhatsApp (si hay teléfono).
+    // Links/navegación por negocio: 🔗 Abrir en OPAI · 🏠 sala (ir/abrir) · 🟢 WhatsApp.
     const linkBtns: unknown[] = [{ type: "button", action_id: "pipe_deal_open", url: dealOpaiUrl(d.id), text: pt("🔗 Abrir en OPAI") }];
+    if (roomChannel) linkBtns.push({ type: "button", action_id: "pipe_deal_roomlink", url: roomClientUrl(ctx.teamId, roomChannel), text: pt("🏠 Ir a la sala") });
+    else if (ctx.canWrite) linkBtns.push({ type: "button", action_id: "pipe_deal_room", value: d.id, text: pt("🏠 Abrir sala") });
     if (wa) linkBtns.push({ type: "button", action_id: "pipe_deal_wa", url: wa, text: pt("🟢 WhatsApp") });
     blocks.push({ type: "actions", block_id: `opai_dealbtns_${d.id}`, elements: linkBtns });
   }
@@ -127,10 +172,13 @@ function drillView(stageId: string, stageName: string, deals: DrillDeal[], waUrl
   };
 }
 
-async function renderDrill(tenantId: string, stageId: string, notice?: string): Promise<SlackView> {
+async function renderDrill(tenantId: string, teamId: string, canWrite: boolean, stageId: string, notice?: string): Promise<SlackView> {
   const { stageName, deals } = await listDealsInStage(tenantId, stageId);
-  const pairs = await Promise.all(deals.map(async (d) => [d.id, await resolveDealWaUrl(tenantId, { contactPhone: d.contactPhone, contactFirst: d.contactFirst, accountName: d.accountName }).catch(() => null)] as const));
-  return drillView(stageId, stageName, deals, new Map(pairs), notice);
+  const [pairs, rooms] = await Promise.all([
+    Promise.all(deals.map(async (d) => [d.id, await resolveDealWaUrl(tenantId, { contactPhone: d.contactPhone, contactFirst: d.contactFirst, accountName: d.accountName }).catch(() => null)] as const)),
+    openRoomsForDeals(tenantId, deals.map((d) => d.id)),
+  ]);
+  return drillView(stageId, stageName, deals, { teamId, canWrite, rooms, waUrls: new Map(pairs) }, notice);
 }
 
 /* ── Modales secundarios (Avanzar / Nota / Perdido) ── */
@@ -184,36 +232,50 @@ export async function handlePipelineAction(payload: {
   const tenantId = workspace.tenantId;
   const canWrite = canEdit(linked.perms, "crm", "deals");
 
+  const stageIdOf = () => unpackMetadata(payload.view?.private_metadata).stageId ?? "";
+
   // Overview → drill.
   if (action.action_id === "pipe_open") {
     if (!action.value || !payload.trigger_id) return;
-    await slackPushView(workspace.botToken, payload.trigger_id, await renderDrill(tenantId, action.value));
+    await slackPushView(workspace.botToken, payload.trigger_id, await renderDrill(tenantId, teamId, canWrite, action.value));
     return;
   }
 
-  // Menú por deal (overflow): advance | note | won | lost.
+  // Navegación: volver del drill a la vista de etapas (sin cerrar el modal).
+  if (action.action_id === "pipe_back") {
+    if (payload.view?.id) await slackUpdateView(workspace.botToken, payload.view.id, overviewView(await listStagesWithCounts(tenantId)));
+    return;
+  }
+
+  // Abrir sala del negocio (botón) → crea/reusa la sala y refresca el drill.
+  if (action.action_id === "pipe_deal_room") {
+    const dealId = action.value;
+    if (!dealId || !canWrite) return;
+    const stageId = stageIdOf();
+    const { openDealRoom } = await import("../deal-rooms/room");
+    const r = await openDealRoom(tenantId, dealId, linked.adminId);
+    const notice = r.ok
+      ? r.alreadyExisted
+        ? `🏠 La sala ya existe: <#${r.channelId}>`
+        : `🏠 Sala abierta: <#${r.channelId}> — ficha viva fijada.`
+      : `⚠️ ${r.error ?? "No se pudo abrir la sala."}`;
+    if (payload.view?.id && stageId) await slackUpdateView(workspace.botToken, payload.view.id, await renderDrill(tenantId, teamId, canWrite, stageId, notice));
+    return;
+  }
+
+  // Menú por deal (overflow): call (url, ya abierta por Slack) | advance | note | won | lost.
   if (action.action_id === "pipe_deal_menu") {
     const [op, dealId] = (action.selected_option?.value ?? "").split(":");
     if (!op || !dealId) return;
+    if (op === "call") return; // botón URL tel:; Slack ya lo abrió, nada que hacer.
     if (!canWrite) return;
-    const stageId = unpackMetadata(payload.view?.private_metadata).stageId ?? "";
-    if (op === "room") {
-      const { openDealRoom } = await import("../deal-rooms/room");
-      const r = await openDealRoom(tenantId, dealId, linked.adminId);
-      const notice = r.ok
-        ? r.alreadyExisted
-          ? `🏠 La sala ya existe: <#${r.channelId}>`
-          : `🏠 Sala abierta: <#${r.channelId}> — ficha viva fijada.`
-        : `⚠️ ${r.error ?? "No se pudo abrir la sala."}`;
-      if (payload.view?.id && stageId) await slackUpdateView(workspace.botToken, payload.view.id, await renderDrill(tenantId, stageId, notice));
-      return;
-    }
+    const stageId = stageIdOf();
     if (op === "advance") { if (payload.trigger_id) await slackPushView(workspace.botToken, payload.trigger_id, await advanceView(tenantId, dealId)); return; }
     if (op === "note") { if (payload.trigger_id) await slackPushView(workspace.botToken, payload.trigger_id, noteView(dealId)); return; }
     if (op === "lost") { if (payload.trigger_id) await slackPushView(workspace.botToken, payload.trigger_id, lostView(dealId)); return; }
     if (op === "won") {
       const r = await markDealWon(tenantId, linked.adminId, dealId);
-      if (payload.view?.id && stageId) await slackUpdateView(workspace.botToken, payload.view.id, await renderDrill(tenantId, stageId, r.ok ? "🎉 Negocio marcado como ganado." : `⚠️ ${r.error}`));
+      if (payload.view?.id && stageId) await slackUpdateView(workspace.botToken, payload.view.id, await renderDrill(tenantId, teamId, canWrite, stageId, r.ok ? "🎉 Negocio marcado como ganado." : `⚠️ ${r.error}`));
       return;
     }
   }
