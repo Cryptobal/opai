@@ -3659,6 +3659,17 @@ model OpsDocumentoPersona {
   validatedAt   DateTime? @map("validated_at") @db.Timestamptz(6)
   folderId      String?   @map("folder_id") @db.Uuid
   portalVisible Boolean   @default(false) @map("portal_visible")
+
+  // Fase 18 — escalera de hitos de vencimiento
+  lastExpiryMilestone    Int?      @map("last_expiry_milestone") // último hito notificado (30..0, negativos post-vencido)
+  lastExpiryMilestoneAt  DateTime? @map("last_expiry_milestone_at") @db.Timestamptz(6)
+  renewalInProgressUntil DateTime? @map("renewal_in_progress_until") @db.Date // "En trámite": silencia la escalera hasta esta fecha
+  renewalMarkedBy        String?   @map("renewal_marked_by")
+  renewalMarkedAt        DateTime? @map("renewal_marked_at") @db.Timestamptz(6)
+  expiryDismissedAt      DateTime? @map("expiry_dismissed_at") @db.Timestamptz(6) // "Ya no aplica"
+  expiryDismissedBy      String?   @map("expiry_dismissed_by")
+  expiryDismissedReason  String?   @map("expiry_dismissed_reason")
+
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -9897,6 +9908,9 @@ model TipoDocOperacional {
   isActive            Boolean  @default(true) @map("is_active")
   obligatorioEnVisita Boolean  @default(false) @map("obligatorio_en_visita")
   useAsAiKnowledge    Boolean  @default(false) @map("use_as_ai_knowledge")
+  // Fase 18 — escalera de hitos de vencimiento
+  criticoLegal        Boolean  @default(false) @map("critico_legal") // T-7/T-1 generan tarjeta individual (ej. OS10, ley 21.659)
+  milestones          Json?    @map("milestones") // escalera custom [30,14,7,3,1,0]; null = default
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -9940,6 +9954,16 @@ model DocOperacional {
 
   // Visibilidad
   portalClienteVisible Boolean @default(true) @map("portal_cliente_visible")
+
+  // Fase 18 — escalera de hitos de vencimiento
+  lastExpiryMilestone    Int?      @map("last_expiry_milestone") // último hito notificado (30..0, negativos post-vencido)
+  lastExpiryMilestoneAt  DateTime? @map("last_expiry_milestone_at") @db.Timestamptz(6)
+  renewalInProgressUntil DateTime? @map("renewal_in_progress_until") @db.Date // "En trámite": silencia la escalera hasta esta fecha
+  renewalMarkedBy        String?   @map("renewal_marked_by")
+  renewalMarkedAt        DateTime? @map("renewal_marked_at") @db.Timestamptz(6)
+  expiryDismissedAt      DateTime? @map("expiry_dismissed_at") @db.Timestamptz(6) // "Ya no aplica"
+  expiryDismissedBy      String?   @map("expiry_dismissed_by")
+  expiryDismissedReason  String?   @map("expiry_dismissed_reason")
 
   createdBy String?  @map("created_by")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
