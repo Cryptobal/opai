@@ -623,6 +623,23 @@ function v2ToolDefinitions() {
         },
       },
     },
+    {
+      type: "function" as const,
+      function: {
+        name: "slack_channel_context",
+        description:
+          "Lee las últimas ~50 mensajes de un canal de Slack para resumir o responder qué está pasando ahí. Úsala cuando te pregunten '¿qué está pasando en #canal?', 'resume #canal' o similar. No guarda nada. Si OPAI no es miembro del canal, devuelve un mensaje accionable para que lo inviten.",
+        parameters: {
+          type: "object",
+          properties: {
+            channel: { type: "string", description: "Nombre del canal (con o sin #) o su id. Omítelo solo si te refieres al canal actual." },
+            limit: { type: "number", description: "Cantidad de mensajes a leer (5-100, default 50)." },
+          },
+          required: ["channel"],
+          additionalProperties: false,
+        },
+      },
+    },
   ];
 }
 
@@ -6017,6 +6034,13 @@ export async function executeToolCallV2(
   if (toolName === "get_balance_sheet") return await toolGetBalanceSheet(tenantId, perms, args);
   if (toolName === "get_finance_dashboard_kpis") return await toolGetFinanceDashboardKpis(tenantId, perms, args);
   if (toolName === "get_profitability") return await toolGetProfitability(tenantId, perms, args);
+  if (toolName === "slack_channel_context") {
+    const { readChannelContextForTool } = await import("@/lib/integrations/slack/presence");
+    return await readChannelContextForTool(tenantId, {
+      channel: typeof args.channel === "string" ? args.channel : undefined,
+      limit: typeof args.limit === "number" ? args.limit : undefined,
+    });
+  }
 
   try {
     switch (toolName) {

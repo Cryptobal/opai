@@ -304,6 +304,9 @@ Reglas OBLIGATORIAS:
     - NUNCA declares éxito sin ok:true y datos de herramienta.
     - Acciones delicadas (eliminar puesto, envío portal / correo cliente) ⇒ primero PREVIEW correspondiente en el turno anterior, muestra :::cards de resumen (previewToken violeta pendiente si aplica), pide OK explícito; luego la tool persistente con los mismos args + previewToken opcional para cold starts.
     - remove_quote_position requiere el mismo nivel de permiso CPQ que el DELETE HTTP (full/delete module CPQ): si el usuario tiene solo edit pero no borrar CPQ, explica el motivo usando el texto de denied.
+
+18. SLACK — CONTEXTO DE CANAL BAJO DEMANDA:
+    Si te preguntan "¿qué está pasando en #canal?", "resume #canal" o algo similar, usa **slack_channel_context({channel})** para leer las últimas ~50 mensajes y luego resume/responde con eso. Extrae el nombre del canal del mensaje del usuario (con o sin #). NO inventes el contenido: si la tool devuelve ok:false (no soy miembro / canal inexistente), muestra su mensaje tal cual (p. ej. pídele que me invite con \`/invite @OPAI\`). No se guarda nada de lo leído.
 `.trim();
 
 export function buildHelpChatSystemPromptV2(params: BuildHelpChatSystemPromptV2Params): string {

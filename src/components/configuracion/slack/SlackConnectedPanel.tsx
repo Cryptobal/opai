@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Send } from "lucide-react";
+import { Send, Hash } from "lucide-react";
 import { SlackChannelPicker } from "./SlackChannelPicker";
 import type { SlackChannelOption, SlackConfig } from "./types";
 
@@ -24,6 +24,21 @@ export function SlackConnectedPanel({
   const [testing, setTesting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [joining, setJoining] = useState(false);
+
+  async function joinAll() {
+    setJoining(true);
+    try {
+      const res = await fetch("/api/integrations/slack/join-all", { method: "POST" });
+      const data = await res.json();
+      if (data.success) { toast.success(data.message ?? "OPAI se unió a los canales públicos"); onChanged(); }
+      else toast.error(`Slack: ${data.error ?? "error"}`);
+    } catch {
+      toast.error("No se pudo unir a los canales");
+    } finally {
+      setJoining(false);
+    }
+  }
 
   async function setDefault(channel: SlackChannelOption | null) {
     if (!channel) return;
@@ -112,6 +127,17 @@ export function SlackConnectedPanel({
           >
             <Send className="h-4 w-4 mr-1.5" />
             Enviar prueba
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={joinAll}
+            disabled={joining}
+            title="OPAI se une a todos los canales públicos. Los privados requieren /invite @OPAI."
+          >
+            <Hash className="h-4 w-4 mr-1.5" />
+            {joining ? "Uniéndose…" : "Unirse a todos los canales públicos"}
           </Button>
           <Button type="button" variant="ghost" size="sm" asChild>
             <a href="/api/integrations/slack/oauth/start" title="Vuelve a autorizar la app para otorgar permisos nuevos (no borra la configuración)">

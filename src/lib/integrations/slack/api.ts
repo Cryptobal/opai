@@ -360,6 +360,48 @@ export async function slackChannelInfo(token: string, channelId: string): Promis
   }
 }
 
+/** conversations.join → el bot se une a un canal público. Idempotente en la práctica. */
+export async function slackConversationsJoin(token: string, channelId: string): Promise<{ ok: boolean; already: boolean }> {
+  try {
+    await callSlack("conversations.join", { channel: channelId }, token);
+    return { ok: true, already: false };
+  } catch (err) {
+    if (err instanceof SlackApiError && err.slackError === "already_in_channel") return { ok: true, already: true };
+    if (err instanceof SlackApiError && (err.slackError === "method_not_supported_for_channel_type" || err.slackError === "is_archived")) return { ok: false, already: false };
+    throw err;
+  }
+}
+
+/** Lista TODOS los canales públicos (paginado completo por cursor). */
+export async function slackListPublicChannels(token: string): Promise<SlackChannel[]> {
+  const channels: SlackChannel[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < 50; page++) {
+    const body: Record<string, unknown> = { types: "public_channel", exclude_archived: true, limit: 200 };
+    if (cursor) body.cursor = cursor;
+    const json = await callSlack("conversations.list", body, token);
+    const list = (json.channels as Array<{ id: string; name: string; is_private?: boolean; is_archived?: boolean; is_member?: boolean }>) ?? [];
+    for (const c of list) {
+      if (c.is_archived) continue;
+      channels.push({ id: c.id, name: c.name, isPrivate: false });
+    }
+    cursor = (json.response_metadata as { next_cursor?: string } | undefined)?.next_cursor || undefined;
+    if (!cursor) break;
+  }
+  return channels;
+}
+
+export interface SlackHistoryMessage { user: string | null; text: string; ts: string; botId: string | null }
+
+/** conversations.history → últimas N mensajes de un canal (el bot debe ser miembro). */
+export async function slackConversationsHistory(token: string, channelId: string, limit = 50): Promise<SlackHistoryMessage[]> {
+  const json = await callSlack("conversations.history", { channel: channelId, limit }, token);
+  const msgs = (json.messages as Array<{ user?: string; text?: string; ts?: string; bot_id?: string; subtype?: string }>) ?? [];
+  return msgs
+    .filter((m) => !m.subtype || m.subtype === "bot_message") // descarta joins/system
+    .map((m) => ({ user: m.user ?? null, text: m.text ?? "", ts: m.ts ?? "", botId: m.bot_id ?? null }));
+}
+
 /** users.info: resuelve email + nombre de un usuario Slack (para vincularlo a un Admin). */
 export async function slackUserInfo(token: string, userId: string): Promise<SlackUserInfo | null> {
   try {

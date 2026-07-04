@@ -82,6 +82,22 @@ export async function POST(req: NextRequest) {
         });
       }
       break;
+    case "channel_created":
+      // Presencia total (Fase 15): OPAI se une solo al canal público recién creado.
+      if (payload.event) {
+        const ch = (payload.event as unknown as { channel?: { id?: string; is_private?: boolean } }).channel;
+        if (ch?.id && !ch.is_private) {
+          after(async () => {
+            try {
+              const { autoJoinNewChannel } = await import("@/lib/integrations/slack/presence");
+              await autoJoinNewChannel(resolved.tenantId, ch.id!);
+            } catch (err) {
+              console.error("[slack] channel_created auto-join falló:", err);
+            }
+          });
+        }
+      }
+      break;
     case "app_home_opened":
       // Pestaña Inicio → publica el panel personal. Pestaña Mensajes → bienvenida única.
       if (payload.event) {

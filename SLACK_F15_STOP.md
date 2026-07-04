@@ -59,4 +59,4 @@ Arquitectura Slack = **registro declarativo**. Se agrega feature agregando una e
 - [x] B5 — Loop anti-olvido: sweep 48h + cron `crm-quote-followup` (hourly) + tarjeta accionable
 - [x] B6 — Digest comercial (cron `comercial-digest`, lunes 08:00 + diario opt-in) + sección Comercial en el Home
 - [ ] B7 — QA (matriz) + docs
-- [ ] B8 — Presencia total en canales públicos + tool `slack_channel_context`
+- [x] B8 — Presencia total en canales públicos (botón panel + auto-join `channel_created`) + tool `slack_channel_context` (lectura bajo demanda, sin persistencia)
