@@ -1,13 +1,18 @@
 /**
- * Pipeline vivo en Slack (Fase 15, B4 · pulido F17): `/opai pipeline`.
+ * Pipeline vivo en Slack (Fase 15, B4 · pulido F17 · rediseño F21): `/opai pipeline`.
  *
- * Overview por etapa (nombre · N negocios · Σ CLP) → drill a la etapa → deals
- * ordenados del más frío al más fresco (semáforo por días en etapa: 🟢 <7 · 🟠
- * 7-14 · 🔴 >14). Cada fila: *Cuenta* · negocio · monto · ⏱ días · badge 🏠 si
- * tiene sala OPEN; botones 🔗 Abrir en OPAI · 🏠 Ir/Abrir sala · 🟢 WhatsApp;
- * overflow 📞 Llamar · Avanzar · Nota · Ganado · Perdido. Navegación "← Pipeline"
- * de vuelta al overview (views.update). El cambio de etapa usa el servicio real
- * (changeDealStage → CrmDealStageHistory; al ganar emite deal_won → tarjeta 🎉).
+ * Overview clase mundial: header protagonista (`💼 N negocios · $total abiertos`
+ * + 🔎 Buscar negocio + 📊 Abrir en OPAI), cada etapa como bloque denso con
+ * mini-barra proporcional `▓▓▓░░░░░░░` (monto vs total), `% del total` e
+ * indicador `🔴 N fríos` (>14d en etapa, mismo cálculo del semáforo del drill);
+ * botón por etapa con texto propio (`3 negocios →`). Con 8+ etapas el excedente
+ * se pliega en "…y N etapas más". Drill a la etapa → deals ordenados del más
+ * frío al más fresco (semáforo por días en etapa: 🟢 <7 · 🟠 7-14 · 🔴 >14).
+ * Cada fila: *Cuenta* · negocio · monto · ⏱ días · badge 🏠 si tiene sala OPEN;
+ * botones 🔗 Abrir en OPAI · 🏠 Ir/Abrir sala · 🟢 WhatsApp; overflow Avanzar ·
+ * Nota · Ganado · Perdido. Navegación "← Pipeline" de vuelta al overview
+ * (views.update). El cambio de etapa usa el servicio real (changeDealStage →
+ * CrmDealStageHistory; al ganar emite deal_won → tarjeta 🎉).
  *
  * LÍMITE (B3.5): 🟢 WhatsApp es botón URL — Slack NO notifica los clics de
  * botones URL, así que el contacto NO se puede registrar solo; el registro
@@ -37,15 +42,55 @@ const pt = (text: string) => ({ type: "plain_text", text: text.slice(0, 75), emo
 
 /* ── Consultas ── */
 
-async function listStagesWithCounts(tenantId: string) {
-  const [stages, grouped] = await Promise.all([
+interface StageRow {
+  id: string;
+  name: string;
+  count: number;
+  sum: number;
+  /** Negocios FRÍOS en la etapa: >14 días sin salir de ella (mismo cálculo
+   * que el semáforo 🔴 del drill F17: entrada por historial, fallback createdAt). */
+  cold: number;
+}
+
+/** 🔴 fríos por etapa (>14d en etapa), coherente con el semáforo del drill. */
+async function countColdByStage(tenantId: string): Promise<Map<string, number>> {
+  const deals = await prisma.crmDeal.findMany({
+    where: { tenantId, status: "open" },
+    select: { id: true, stageId: true, createdAt: true },
+  });
+  if (!deals.length) return new Map();
+  const hist = await prisma.crmDealStageHistory.findMany({
+    where: { tenantId, dealId: { in: deals.map((d) => d.id) } },
+    orderBy: { changedAt: "desc" },
+    select: { dealId: true, toStageId: true, changedAt: true },
+  });
+  const stageByDeal = new Map(deals.map((d) => [d.id, d.stageId]));
+  const enteredAt = new Map<string, Date>();
+  for (const h of hist) {
+    if (h.toStageId !== stageByDeal.get(h.dealId)) continue;
+    if (!enteredAt.has(h.dealId)) enteredAt.set(h.dealId, h.changedAt);
+  }
+  const cold = new Map<string, number>();
+  for (const d of deals) {
+    const days = daysInStage(enteredAt.get(d.id) ?? d.createdAt);
+    if (days > 14) cold.set(d.stageId, (cold.get(d.stageId) ?? 0) + 1);
+  }
+  return cold;
+}
+
+async function listStagesWithCounts(tenantId: string): Promise<StageRow[]> {
+  const [stages, grouped, cold] = await Promise.all([
     prisma.crmPipelineStage.findMany({ where: { tenantId, isActive: true }, orderBy: { order: "asc" }, select: { id: true, name: true, isClosedWon: true, isClosedLost: true } }),
     prisma.crmDeal.groupBy({ by: ["stageId"], where: { tenantId, status: "open" }, _count: { _all: true }, _sum: { amount: true } }),
+    countColdByStage(tenantId).catch((err) => {
+      console.error("[slack] pipeline: cálculo de fríos falló (se omite el indicador):", err);
+      return new Map<string, number>();
+    }),
   ]);
   const byStage = new Map(grouped.map((g) => [g.stageId, { count: g._count._all, sum: Number(g._sum.amount ?? 0) }]));
   return stages
     .filter((s) => !s.isClosedWon && !s.isClosedLost)
-    .map((s) => ({ id: s.id, name: s.name, count: byStage.get(s.id)?.count ?? 0, sum: byStage.get(s.id)?.sum ?? 0 }));
+    .map((s) => ({ id: s.id, name: s.name, count: byStage.get(s.id)?.count ?? 0, sum: byStage.get(s.id)?.sum ?? 0, cold: cold.get(s.id) ?? 0 }));
 }
 
 interface DrillDeal {
@@ -92,21 +137,63 @@ async function openRoomsForDeals(tenantId: string, dealIds: string[]): Promise<M
 
 /* ── Vistas ── */
 
-function overviewView(stages: Array<{ id: string; name: string; count: number; sum: number }>): SlackView {
+/**
+ * Mini-barra proporcional en mrkdwn: 10 celdas `▓/░` según monto vs total.
+ * Va entre backticks (fuente de ancho fijo) para que las barras de todas las
+ * etapas queden ALINEADAS y comparables al ojo, también a 375px (Slack iOS).
+ */
+function bar10(sum: number, total: number): string {
+  if (!(total > 0) || !(sum > 0)) return "░".repeat(10);
+  const filled = Math.min(10, Math.max(1, Math.round((sum / total) * 10)));
+  return "▓".repeat(filled) + "░".repeat(10 - filled);
+}
+
+const nNegocios = (n: number): string => `${n} negocio${n === 1 ? "" : "s"}`;
+
+/** Cuántas etapas se muestran sin plegar (presupuesto visual a 375px). */
+const OVERVIEW_MAX_STAGES = 8;
+
+/**
+ * Overview clase mundial (F21): header protagonista con el total en grande,
+ * cada etapa como bloque denso (monto · % · mini-barra · 🔴 fríos) y botón
+ * con texto propio (`3 negocios →` — jamás un "Ver" genérico, F20). Con más
+ * de 8 etapas, el excedente se pliega en "…y N etapas más" (pipe_more).
+ */
+function overviewView(stages: StageRow[], expanded = false): SlackView {
+  const total = stages.reduce((s, x) => s + x.sum, 0);
+  const totalCount = stages.reduce((s, x) => s + x.count, 0);
   const blocks: unknown[] = [
-    { type: "section", text: { type: "mrkdwn", text: "*Pipeline comercial* — negocios abiertos por etapa" } },
-    { type: "actions", block_id: "opai_pipe_header", elements: [{ type: "button", action_id: "pipe_search", text: pt("🔎 Buscar negocio") }] },
+    { type: "section", text: { type: "mrkdwn", text: `💼 *Pipeline comercial* — ${nNegocios(totalCount)} · *${clp(total)}* abiertos` } },
+    {
+      type: "actions",
+      block_id: "opai_pipe_header",
+      elements: [
+        { type: "button", action_id: "pipe_search", text: pt("🔎 Buscar negocio") },
+        // Vista web del pipeline (auditado F21): /crm/deals (kanban/lista).
+        { type: "button", action_id: "pipe_opai_web", url: `${getCanonicalSiteUrl()}/crm/deals`, text: pt("📊 Abrir en OPAI") },
+      ],
+    },
     { type: "divider" },
   ];
-  const total = stages.reduce((s, x) => s + x.sum, 0);
-  for (const s of stages) {
+  const visible = expanded ? stages : stages.slice(0, OVERVIEW_MAX_STAGES);
+  for (const s of visible) {
+    const pct = total > 0 ? Math.round((s.sum / total) * 100) : 0;
+    const coldTag = s.cold > 0 ? ` 🔴 ${s.cold} frío${s.cold === 1 ? "" : "s"}` : "";
     blocks.push({
       type: "section",
-      text: { type: "mrkdwn", text: `*${s.name}*\n${s.count} negocio(s) · ${clp(s.sum)}` },
-      accessory: { type: "button", action_id: "pipe_open", value: s.id, text: pt("Ver →") },
+      text: { type: "mrkdwn", text: `*${s.name}*\n${nNegocios(s.count)} · ${clp(s.sum)} · ${pct}% del total\n\`${bar10(s.sum, total)}\`${coldTag}` },
+      accessory: { type: "button", action_id: "pipe_open", value: s.id, text: pt(`${nNegocios(s.count)} →`) },
     });
   }
-  blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Total abierto: *${clp(total)}*` }] });
+  const hidden = stages.length - visible.length;
+  if (hidden > 0) {
+    blocks.push({
+      type: "section",
+      text: { type: "mrkdwn", text: `…y ${hidden} etapa${hidden === 1 ? "" : "s"} más` },
+      accessory: { type: "button", action_id: "pipe_more", text: pt(`+${hidden} etapa${hidden === 1 ? "" : "s"} →`) },
+    });
+  }
+  blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Total abierto: *${clp(total)}* · Actualizado hace un momento` }] });
   return { type: "modal", callback_id: "opai_pipeline", title: modalTitle("Pipeline"), close: pt("Cerrar"), blocks };
 }
 
@@ -320,6 +407,12 @@ export async function handlePipelineAction(payload: {
   // Navegación: volver del drill a la vista de etapas (sin cerrar el modal).
   if (action.action_id === "pipe_back") {
     if (payload.view?.id) await slackUpdateView(workspace.botToken, payload.view.id, overviewView(await listStagesWithCounts(tenantId)));
+    return;
+  }
+
+  // "…y N etapas más" (F21): re-render del overview con TODAS las etapas.
+  if (action.action_id === "pipe_more") {
+    if (payload.view?.id) await slackUpdateView(workspace.botToken, payload.view.id, overviewView(await listStagesWithCounts(tenantId), true));
     return;
   }
 
