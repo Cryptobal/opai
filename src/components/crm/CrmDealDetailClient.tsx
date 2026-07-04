@@ -1964,8 +1964,27 @@ export function CrmDealDetailClient({
     }
   };
 
+  const handleOpenDealRoom = async () => {
+    try {
+      const res = await fetch("/api/integrations/slack/deal-room", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dealId: deal.id }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.success) {
+        toast.error(json?.error || "No se pudo abrir la sala en Slack");
+        return;
+      }
+      toast.success(json.message || "Sala abierta en Slack");
+    } catch {
+      toast.error("No se pudo abrir la sala en Slack");
+    }
+  };
+
   const headerActions: EntityHeaderAction[] = [
     { label: "Editar negocio", icon: Pencil, onClick: openDealEdit, primary: true },
+    { label: "Abrir sala del negocio", icon: MessageSquare, onClick: handleOpenDealRoom },
     {
       label: "Onboarding del cliente",
       icon: ListChecks,

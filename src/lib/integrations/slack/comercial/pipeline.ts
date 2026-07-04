@@ -84,6 +84,7 @@ function dealMenu(dealId: string): unknown {
   return {
     type: "overflow", action_id: "pipe_deal_menu",
     options: [
+      { text: pt("🏠 Abrir sala del negocio"), value: `room:${dealId}` },
       { text: pt("⏩ Avanzar etapa"), value: `advance:${dealId}` },
       { text: pt("📝 Nota rápida"), value: `note:${dealId}` },
       { text: pt("🎉 Ganado"), value: `won:${dealId}` },
@@ -123,7 +124,7 @@ async function renderDrill(tenantId: string, stageId: string, notice?: string): 
 
 /* ── Modales secundarios (Avanzar / Nota / Perdido) ── */
 
-async function advanceView(tenantId: string, dealId: string): Promise<SlackView> {
+export async function advanceView(tenantId: string, dealId: string): Promise<SlackView> {
   const stages = await prisma.crmPipelineStage.findMany({ where: { tenantId, isActive: true }, orderBy: { order: "asc" }, select: { id: true, name: true } });
   return {
     type: "modal", callback_id: "pipe_advance", private_metadata: packMetadata({ kind: "pipe_advance", dealId }),
@@ -132,7 +133,7 @@ async function advanceView(tenantId: string, dealId: string): Promise<SlackView>
   };
 }
 
-function noteView(dealId: string): SlackView {
+export function noteView(dealId: string): SlackView {
   return {
     type: "modal", callback_id: "pipe_note", private_metadata: packMetadata({ kind: "pipe_note", dealId }),
     title: modalTitle("Nota rápida"), submit: pt("Guardar"), close: pt("Cancelar"),
@@ -185,6 +186,17 @@ export async function handlePipelineAction(payload: {
     if (!op || !dealId) return;
     if (!canWrite) return;
     const stageId = unpackMetadata(payload.view?.private_metadata).stageId ?? "";
+    if (op === "room") {
+      const { openDealRoom } = await import("../deal-rooms/room");
+      const r = await openDealRoom(tenantId, dealId, linked.adminId);
+      const notice = r.ok
+        ? r.alreadyExisted
+          ? `🏠 La sala ya existe: <#${r.channelId}>`
+          : `🏠 Sala abierta: <#${r.channelId}> — ficha viva fijada.`
+        : `⚠️ ${r.error ?? "No se pudo abrir la sala."}`;
+      if (payload.view?.id && stageId) await slackUpdateView(workspace.botToken, payload.view.id, await renderDrill(tenantId, stageId, notice));
+      return;
+    }
     if (op === "advance") { if (payload.trigger_id) await slackPushView(workspace.botToken, payload.trigger_id, await advanceView(tenantId, dealId)); return; }
     if (op === "note") { if (payload.trigger_id) await slackPushView(workspace.botToken, payload.trigger_id, noteView(dealId)); return; }
     if (op === "lost") { if (payload.trigger_id) await slackPushView(workspace.botToken, payload.trigger_id, lostView(dealId)); return; }

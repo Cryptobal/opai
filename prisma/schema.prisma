@@ -11340,6 +11340,30 @@ model TicketSlackThread {
   @@schema("public")
 }
 
+/// Sala de Slack (canal privado) por negocio importante (Fase 16 — Deal Rooms).
+/// Un canal por `CrmDeal`: la ficha viva del negocio va fijada (fichaTs) y se
+/// actualiza con chat.update en cada cambio; todos los eventos del deal caen a
+/// la sala; las notas se guardan desde cualquier mensaje. `dealId` único.
+/// status OPEN|ARCHIVED (al archivar se conserva el registro para historia).
+model CrmDealSlackRoom {
+  id               String   @id @default(cuid())
+  tenantId         String   @map("tenant_id")
+  dealId           String   @unique @map("deal_id")
+  slackChannelId   String   @map("slack_channel_id")
+  slackChannelName String   @map("slack_channel_name")
+  /// ts del mensaje-ficha fijado (pins.add) — se re-edita con chat.update.
+  fichaTs          String?  @map("ficha_ts")
+  status           String   @default("OPEN") // OPEN | ARCHIVED
+  createdBy        String   @map("created_by") // admin id (cuid)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId], map: "idx_crm_deal_slack_room_tenant")
+  @@index([slackChannelId], map: "idx_crm_deal_slack_room_channel")
+  @@map("crm_deal_slack_rooms")
+  @@schema("public")
+}
+
 /// API key del servidor MCP por tenant. La key JAMÁS se almacena en claro:
 /// solo su sha256 (keyHash) + prefijo visible (keyPrefix, primeros 12 chars)
 /// para poder identificarla en la UI. La key resuelve el tenant y corre con

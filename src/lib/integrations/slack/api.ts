@@ -372,6 +372,84 @@ export async function slackConversationsJoin(token: string, channelId: string): 
   }
 }
 
+/* ── Gestión de canales para Deal Rooms (Fase 16) ── */
+
+/**
+ * conversations.create → crea un canal (privado por defecto para salas de
+ * negocio). El nombre se normaliza a las reglas de Slack (≤80, minúsculas,
+ * sin espacios). Devuelve el id y el nombre real que Slack asignó (puede diferir
+ * si hubo colisión y Slack lo desambiguó). Requiere scope channels:manage /
+ * groups:write.
+ */
+export async function slackCreateConversation(
+  token: string,
+  name: string,
+  isPrivate = true,
+): Promise<{ id: string; name: string }> {
+  const json = await callSlack("conversations.create", { name, is_private: isPrivate }, token);
+  const ch = (json.channel as { id?: string; name?: string }) ?? {};
+  return { id: ch.id ?? "", name: ch.name ?? name };
+}
+
+/**
+ * conversations.invite → invita usuarios a un canal. Tolera los errores no
+ * fatales (usuario ya en el canal, no se puede invitar al propio bot). Devuelve
+ * los ids que efectivamente fallaron por otra causa.
+ */
+export async function slackConversationsInvite(
+  token: string,
+  channelId: string,
+  userIds: string[],
+): Promise<{ ok: boolean; failed: string[] }> {
+  const users = userIds.filter(Boolean);
+  if (!users.length) return { ok: true, failed: [] };
+  try {
+    await callSlack("conversations.invite", { channel: channelId, users: users.join(",") }, token);
+    return { ok: true, failed: [] };
+  } catch (err) {
+    const code = err instanceof SlackApiError ? err.slackError : "";
+    // already_in_channel / cant_invite_self no son fallos reales de la sala.
+    if (code === "already_in_channel" || code === "cant_invite_self") return { ok: true, failed: [] };
+    console.error("[slack] conversations.invite falló:", code || err);
+    return { ok: false, failed: users };
+  }
+}
+
+/** pins.add → fija un mensaje (la ficha viva). Tolera already_pinned. */
+export async function slackPinsAdd(token: string, channelId: string, ts: string): Promise<void> {
+  try {
+    await callSlack("pins.add", { channel: channelId, timestamp: ts }, token);
+  } catch (err) {
+    if (err instanceof SlackApiError && err.slackError === "already_pinned") return;
+    console.error("[slack] pins.add falló:", err instanceof SlackApiError ? err.slackError : err);
+  }
+}
+
+/** conversations.setPurpose → describe la sala (best-effort). */
+export async function slackSetPurpose(token: string, channelId: string, purpose: string): Promise<void> {
+  await callSlack("conversations.setPurpose", { channel: channelId, purpose: purpose.slice(0, 250) }, token).catch(
+    (e) => console.error("[slack] setPurpose falló:", e instanceof SlackApiError ? e.slackError : e),
+  );
+}
+
+/** conversations.rename → renombra el canal (handoff a operación, Fase 16 B5). */
+export async function slackRenameConversation(token: string, channelId: string, name: string): Promise<{ name: string }> {
+  const json = await callSlack("conversations.rename", { channel: channelId, name }, token);
+  return { name: ((json.channel as { name?: string })?.name) ?? name };
+}
+
+/** conversations.archive → archiva la sala al cerrar. Tolera already_archived. */
+export async function slackArchiveConversation(token: string, channelId: string): Promise<{ ok: boolean }> {
+  try {
+    await callSlack("conversations.archive", { channel: channelId }, token);
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof SlackApiError && err.slackError === "already_archived") return { ok: true };
+    console.error("[slack] conversations.archive falló:", err instanceof SlackApiError ? err.slackError : err);
+    return { ok: false };
+  }
+}
+
 /** Lista TODOS los canales públicos (paginado completo por cursor). */
 export async function slackListPublicChannels(token: string): Promise<SlackChannel[]> {
   const channels: SlackChannel[] = [];

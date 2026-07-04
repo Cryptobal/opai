@@ -149,6 +149,12 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     await handlePipelineAction(payload as never);
     return;
   }
+  // Ficha viva de una Deal Room (Fase 16): Avanzar etapa / Nota.
+  if (actionId?.startsWith("dealroom_")) {
+    const { handleDealRoomAction } = await import("./deal-rooms/actions");
+    await handleDealRoomAction(payload as never);
+    return;
+  }
   // Bandeja de cotizaciones (Fase 15): filtros / paginación.
   if (actionId?.startsWith("quotestray_")) {
     const { handleQuotesTrayAction } = await import("./comercial/quotes-tray");
