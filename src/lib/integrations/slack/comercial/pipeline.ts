@@ -9,9 +9,10 @@
  * de vuelta al overview (views.update). El cambio de etapa usa el servicio real
  * (changeDealStage → CrmDealStageHistory; al ganar emite deal_won → tarjeta 🎉).
  *
- * LÍMITE (B3.5): 🟢 WhatsApp y 📞 Llamar son botones URL — Slack NO notifica los
- * clics de botones URL, así que el contacto NO se puede registrar solo; el
- * registro queda vía "📝 Nota" manual o el followup-log de otras acciones.
+ * LÍMITE (B3.5): 🟢 WhatsApp es botón URL — Slack NO notifica los clics de
+ * botones URL, así que el contacto NO se puede registrar solo; el registro
+ * queda vía "📝 Nota" manual o el followup-log de otras acciones. 📞 Llamar
+ * abre un mini-modal con el teléfono tappable (tel: no es válido en overflow).
  */
 
 import { prisma } from "@/lib/prisma";
@@ -113,12 +114,14 @@ const coldDot = (days: number): string => (days > 14 ? "🔴" : days >= 7 ? "�
 /**
  * Overflow de acciones por negocio. Slack limita el overflow a 5 opciones, así
  * que los links de navegación (Abrir en OPAI, Ir a la sala, WhatsApp) van como
- * botones; aquí quedan las acciones de gestión: 📞 Llamar (tel) + las de
- * escritura (Avanzar/Nota/Ganado/Perdido, solo si el usuario puede editar).
+ * botones; aquí quedan las acciones de gestión: 📞 Llamar (mini-modal con el
+ * teléfono tappable — las options de overflow con `url` no son válidas dentro
+ * de un modal y `tel:` no es esquema permitido) + las de escritura
+ * (Avanzar/Nota/Ganado/Perdido, solo si el usuario puede editar).
  */
-function dealMenu(dealId: string, telUrl: string | null, canWrite: boolean): unknown | null {
+function dealMenu(dealId: string, hasPhone: boolean, canWrite: boolean): unknown | null {
   const options: unknown[] = [];
-  if (telUrl) options.push({ text: pt("📞 Llamar"), url: telUrl, value: `call:${dealId}` });
+  if (hasPhone) options.push({ text: pt("📞 Llamar"), value: `call:${dealId}` });
   if (canWrite) {
     options.push({ text: pt("⏩ Avanzar etapa"), value: `advance:${dealId}` });
     options.push({ text: pt("📝 Nota rápida"), value: `note:${dealId}` });
@@ -151,7 +154,7 @@ function drillView(stageId: string, stageName: string, deals: DrillDeal[], ctx: 
     const phone = normalizeWaPhone(d.contactPhone);
     const badge = roomChannel ? "🏠 " : "";
     const days = daysInStage(d.enteredAt);
-    const menu = dealMenu(d.id, phone ? `tel:+${phone}` : null, ctx.canWrite);
+    const menu = dealMenu(d.id, Boolean(phone), ctx.canWrite);
     const section: Record<string, unknown> = {
       type: "section",
       text: { type: "mrkdwn", text: `${badge}*${d.accountName}* · ${d.title}\n${clp(d.amount)} · ⏱ ${coldDot(days)} ${days}d en etapa · act ${dfmt(d.updatedAt)}` },
@@ -263,11 +266,26 @@ export async function handlePipelineAction(payload: {
     return;
   }
 
-  // Menú por deal (overflow): call (url, ya abierta por Slack) | advance | note | won | lost.
+  // Menú por deal (overflow): call (mini-modal con tel tappable) | advance | note | won | lost.
   if (action.action_id === "pipe_deal_menu") {
     const [op, dealId] = (action.selected_option?.value ?? "").split(":");
     if (!op || !dealId) return;
-    if (op === "call") return; // botón URL tel:; Slack ya lo abrió, nada que hacer.
+    if (op === "call") {
+      if (!payload.trigger_id) return;
+      const deal = await prisma.crmDeal.findFirst({
+        where: { id: dealId, tenantId },
+        select: { title: true, primaryContact: { select: { firstName: true, phone: true } } },
+      });
+      const phone = normalizeWaPhone(deal?.primaryContact?.phone ?? null);
+      const body = phone
+        ? `📞 <tel:+${phone}|Llamar a ${deal?.primaryContact?.firstName ?? "contacto"} (+${phone})>`
+        : "Este negocio no tiene teléfono de contacto.";
+      await slackPushView(workspace.botToken, payload.trigger_id, {
+        type: "modal", title: modalTitle("Llamar"), close: pt("Cerrar"),
+        blocks: [{ type: "section", text: { type: "mrkdwn", text: body } }],
+      });
+      return;
+    }
     if (!canWrite) return;
     const stageId = stageIdOf();
     if (op === "advance") { if (payload.trigger_id) await slackPushView(workspace.botToken, payload.trigger_id, await advanceView(tenantId, dealId)); return; }

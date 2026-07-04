@@ -194,7 +194,11 @@ async function callViewMethod(
     return await callSlack(method, { ...body, view: safe }, token);
   } catch (err) {
     if (err instanceof SlackApiError && err.slackError === "invalid_arguments") {
-      console.error(`[slack] ${method} invalid_arguments · title="${readViewTitle(safe) ?? "?"}"`);
+      const v = safe as { callback_id?: string; blocks?: unknown[] } | null;
+      console.error(`[slack] ${method} invalid_arguments · title="${readViewTitle(safe) ?? "?"}" · callback_id=${v?.callback_id ?? "?"} · blocks=${Array.isArray(v?.blocks) ? v.blocks.length : "?"} · bytes=${JSON.stringify(safe).length}`);
+      if (Array.isArray(v?.blocks) && v.blocks.length > 100) {
+        console.error("[slack] view excede 100 blocks — Slack lo rechaza siempre");
+      }
     }
     throw err;
   }
