@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
@@ -265,7 +265,9 @@ export async function POST(
                   ? body.body.slice(0, 140) + "..."
                   : body.body,
               link: `/ops/tickets/${ticketId}`,
-              data: { ticketId, commentId: comment.id, source: "comment" },
+              // skipSlack: el comentario cae en el hilo del ticket vía el espejo
+              // limpio (💬 autor: texto), no como tarjeta de notificación duplicada.
+              data: { ticketId, commentId: comment.id, source: "comment", skipSlack: true },
             });
           }
         }
@@ -273,6 +275,25 @@ export async function POST(
         console.error("[OPS] Error notificando comentario:", notifyErr);
       }
     }
+
+    // Espejo del comentario al hilo de Slack del ticket (feed de actividad, F14).
+    // best-effort en after(): no bloquea la respuesta ni la rompe si Slack falla.
+    after(async () => {
+      try {
+        const { mirrorCommentToSlackThread } = await import(
+          "@/lib/integrations/slack/ticket-thread-mirror"
+        );
+        await mirrorCommentToSlackThread({
+          tenantId: ctx.tenantId,
+          ticketId,
+          authorId: comment.userId,
+          body: comment.body,
+          isInternal: comment.isInternal,
+        });
+      } catch (mirrorErr) {
+        console.error("[OPS] Error espejando comentario a Slack:", mirrorErr);
+      }
+    });
 
     const { resolveActorNames } = await import("@/lib/notifications/resolve-actor-name");
     const actorMap = await resolveActorNames(ctx.tenantId, [comment.userId]);

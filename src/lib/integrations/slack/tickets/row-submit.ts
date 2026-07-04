@@ -11,6 +11,7 @@ import { logAudit } from "@/lib/audit";
 import { transitionTicketStatus } from "@/lib/tickets-transition";
 import { changeTicketPriority, reassignTicket, addTicketComment } from "@/lib/tickets-mutations";
 import { extendSla, togglePauseSla, snoozeSla } from "@/lib/tickets-sla";
+import { mirrorCommentToSlackThread } from "../ticket-thread-mirror";
 import { infoView } from "../modals/views";
 import type { ModalDef, ModalSubmitContext, ModalSubmitResult, SlackView } from "../modals/types";
 
@@ -55,7 +56,11 @@ const commentModal: ModalDef = {
     // vinculado va en la confirmación (antes se veía un nombre ajeno / ninguno).
     await audit(ctx, ticketId, "comment");
     const author = await resolveAdminName(ctx.tenantId, ctx.linked.adminId);
-    return done("Comentario", `💬 Comentario agregado a *${r.code}*${author ? ` por *${author}*` : ""}.`);
+    return {
+      ...done("Comentario", `💬 Comentario agregado a *${r.code}*${author ? ` por *${author}*` : ""}.`),
+      // El comentario también cae en el hilo del ticket (feed de actividad, F14).
+      work: () => mirrorCommentToSlackThread({ tenantId: ctx.tenantId, ticketId, authorId: ctx.linked.adminId, body }),
+    };
   },
 };
 

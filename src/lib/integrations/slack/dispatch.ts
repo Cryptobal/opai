@@ -190,8 +190,11 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     if (approvalPendingId && ts) {
       await prisma.slackPendingAction.update({ where: { id: approvalPendingId }, data: { messageTs: ts } });
     }
-    // Raíz del hilo: solo la tarjeta de creación (sin hilo previo) queda de ancla.
-    if (threadTicketId && !threadTs && input.typeDef.key === "ticket_created" && ts) {
+    // Raíz del hilo: el PRIMER mensaje de un ticket sin hilo previo queda de ancla
+    // — sea cual sea el evento (Fase 14). Así un ticket anterior a F7.1 funda su
+    // hilo con el próximo recordatorio y todos los siguientes encadenan bajo él.
+    // El unique(ticketId) + catch absorbe la carrera de eventos concurrentes.
+    if (threadTicketId && !threadTs && ts) {
       await prisma.ticketSlackThread
         .create({ data: { tenantId: input.tenantId, ticketId: threadTicketId, slackChannelId: channelId, slackTs: ts } })
         .catch(() => {});
