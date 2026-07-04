@@ -4,6 +4,8 @@
  * Setting JSON `rondas_notif_policy:{tenantId}` — todo opcional, con defaults:
  * - rondaStartedEnabled: si false, no se publica la tarjeta de inicio (la de
  *   término va suelta, sin hilo). Para tenants con cientos de rondas/día.
+ * - rondasRouteToInstallationChannel: si true, las tarjetas ronda_* también van
+ *   al canal Slack puenteado al chat de la instalación (además del ruteo por categoría).
  * - digestHour: hora local (America/Santiago) del digest diario de cumplimiento.
  * - digestRedBelow / digestGreenFrom: umbrales del semáforo del digest
  *   (🔴 < redBelow · 🟠 entre ambos · ✅ >= greenFrom), en porcentaje.
@@ -13,6 +15,8 @@ import { prisma } from "@/lib/prisma";
 
 export type RondasNotifPolicy = {
   rondaStartedEnabled: boolean;
+  /** Si true, las tarjetas ronda_* también van al canal Slack puenteado del chat de la instalación. */
+  rondasRouteToInstallationChannel: boolean;
   digestHour: number;
   digestRedBelow: number;
   digestGreenFrom: number;
@@ -20,6 +24,7 @@ export type RondasNotifPolicy = {
 
 export const DEFAULT_RONDAS_NOTIF_POLICY: RondasNotifPolicy = {
   rondaStartedEnabled: true,
+  rondasRouteToInstallationChannel: true,
   digestHour: 8,
   digestRedBelow: 70,
   digestGreenFrom: 90,
@@ -43,6 +48,10 @@ export function parseRondasNotifPolicy(raw: string | null | undefined): RondasNo
         typeof parsed.rondaStartedEnabled === "boolean"
           ? parsed.rondaStartedEnabled
           : DEFAULT_RONDAS_NOTIF_POLICY.rondaStartedEnabled,
+      rondasRouteToInstallationChannel:
+        typeof parsed.rondasRouteToInstallationChannel === "boolean"
+          ? parsed.rondasRouteToInstallationChannel
+          : DEFAULT_RONDAS_NOTIF_POLICY.rondasRouteToInstallationChannel,
       digestHour: clampInt(parsed.digestHour, 0, 23, DEFAULT_RONDAS_NOTIF_POLICY.digestHour),
       digestRedBelow: redBelow,
       // El verde nunca puede quedar bajo el rojo (rango naranjo >= 0).

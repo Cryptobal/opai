@@ -43,7 +43,8 @@ type EjecucionInfo = {
   porcentajeCompletado: number;
   durationMinutes: number | null;
   penalizacionMotivo: string | null;
-  rondaTemplate: { name: string; installation: { name: string } | null } | null;
+  installationId: string | null;
+  rondaTemplate: { name: string; installationId: string; installation: { name: string } | null } | null;
   installation: { name: string } | null;
   guardia: { persona: { firstName: string; lastName: string } } | null;
 };
@@ -65,7 +66,10 @@ async function loadEjecuciones(tenantId: string, ids: string[]): Promise<Ejecuci
       porcentajeCompletado: true,
       durationMinutes: true,
       penalizacionMotivo: true,
-      rondaTemplate: { select: { name: true, installation: { select: { name: true } } } },
+      installationId: true,
+      rondaTemplate: {
+        select: { name: true, installationId: true, installation: { select: { name: true } } },
+      },
       installation: { select: { name: true } },
       guardia: { select: { persona: { select: { firstName: true, lastName: true } } } },
     },
@@ -80,6 +84,10 @@ function installationName(ej: EjecucionInfo): string {
   return ej.rondaTemplate?.installation?.name ?? ej.installation?.name ?? "Sin instalación";
 }
 
+function resolveInstallationId(ej: EjecucionInfo): string | null {
+  return ej.installationId ?? ej.rondaTemplate?.installationId ?? null;
+}
+
 function guardiaName(ej: EjecucionInfo): string | null {
   return ej.guardia
     ? formatPersonName(ej.guardia.persona.firstName, ej.guardia.persona.lastName)
@@ -89,8 +97,10 @@ function guardiaName(ej: EjecucionInfo): string | null {
 /** Campos base de la tarjeta (labels ya legibles: el renderer los muestra tal cual). */
 function baseData(ej: EjecucionInfo): Record<string, unknown> {
   const guardia = guardiaName(ej);
+  const installationId = resolveInstallationId(ej);
   return {
     rondaId: ej.id,
+    ...(installationId ? { installationId } : {}),
     Ronda: rondaName(ej),
     "Instalación": installationName(ej),
     ...(guardia ? { Guardia: guardia } : {}),
