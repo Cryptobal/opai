@@ -119,14 +119,16 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
     });
 
     const blocks: unknown[] = [assistantSection(toSlackMarkdown(result.text))];
-    if (result.pendingConfirmation) {
+    const pendingList = result.pendingConfirmations ?? [];
+    for (let i = 0; i < pendingList.length; i += 1) {
+      const pc = pendingList[i];
       const pa = await prisma.slackPendingAction.create({
         data: {
           tenantId: workspace.tenantId,
           workspaceId: workspace.id,
           kind: "TOOL_CONFIRM",
-          toolName: result.pendingConfirmation.confirmToolName,
-          toolArgs: result.pendingConfirmation.args as object,
+          toolName: pc.confirmToolName,
+          toolArgs: pc.args as object,
           requestedBySlackUserId: slackUserId,
           channelId,
           status: "PENDING",
@@ -134,7 +136,8 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
         },
         select: { id: true },
       });
-      blocks.push(contextLine(`⚠️ Acción: *${result.pendingConfirmation.summary}* · confirma o cancela (vence en 15 min)`));
+      const label = pendingList.length > 1 ? `Acción ${i + 1}/${pendingList.length}` : "Acción";
+      blocks.push(contextLine(`⚠️ ${label}: *${pc.summary}* · confirma o cancela (vence en 15 min)`));
       blocks.push(confirmActionsBlock(pa.id));
     }
 

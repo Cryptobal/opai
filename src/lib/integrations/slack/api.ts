@@ -204,9 +204,13 @@ async function callViewMethod(
     if (err instanceof SlackApiError && (err.slackError === "invalid_arguments" || err.slackError === "invalid_blocks")) {
       // El detalle de Slack (json-pointer al bloque ofensor) es la ÚNICA pista
       // real cuando un view es rechazado — sin él, "el botón no hace nada".
+      const v = safe as { callback_id?: string; blocks?: unknown[] } | null;
       console.error(
-        `[slack] ${method} ${err.slackError} · title="${readViewTitle(safe) ?? "?"}" · detalle: ${err.slackDetails.join(" | ") || "(sin detalle)"}`,
+        `[slack] ${method} ${err.slackError} · title="${readViewTitle(safe) ?? "?"}" · callback_id=${v?.callback_id ?? "?"} · blocks=${Array.isArray(v?.blocks) ? v.blocks.length : "?"} · bytes=${JSON.stringify(safe).length} · detalle: ${err.slackDetails.join(" | ") || "(sin detalle)"}`,
       );
+      if (Array.isArray(v?.blocks) && v.blocks.length > 100) {
+        console.error("[slack] view excede 100 blocks — Slack lo rechaza siempre");
+      }
     }
     throw err;
   }

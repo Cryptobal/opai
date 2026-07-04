@@ -16,14 +16,15 @@
  *
  * LÍMITE (B3.5): 🟢 WhatsApp es botón URL — Slack NO notifica los clics de
  * botones URL, así que el contacto NO se puede registrar solo; el registro
- * queda vía "📝 Nota" manual o el followup-log de otras acciones.
+ * queda vía "📝 Nota" manual o el followup-log de otras acciones. 📞 Llamar
+ * abre un mini-modal con el teléfono tappable (link mrkdwn).
  *
  * LÍMITE (F21): Slack RECHAZA con `invalid_arguments` cualquier view cuyo
  * botón/opción tenga una URL que no sea http(s) — el overflow "📞 Llamar"
- * (`tel:`) mataba el drill COMPLETO en toda etapa con un deal con teléfono
- * (por eso "solo Prospección abría": era la única sin teléfonos). En modales
- * NO va `tel:`; el contacto telefónico queda vía 🟢 WhatsApp (https, mismo
- * número). Los links mrkdwn `tel:` en MENSAJES (lead card) siguen ok.
+ * con `url: tel:` mataba el drill COMPLETO en toda etapa con un deal con
+ * teléfono (por eso "solo Prospección abría": era la única sin teléfonos).
+ * En modales JAMÁS va una URL `tel:`/`mailto:` en botones u options; el
+ * esquema `tel:` solo se usa como link mrkdwn (mensajes y mini-modal Llamar).
  */
 
 import { prisma } from "@/lib/prisma";
@@ -36,6 +37,7 @@ import { changeDealStage } from "@/lib/crm/change-deal-stage";
 import { packMetadata, unpackMetadata } from "../modals/views";
 import { modalTitle } from "../modals/title";
 import { clp, resolveDealWaUrl, addDealNote, markDealWon, markDealLost } from "./deal-common";
+import { normalizeWaPhone } from "./lead-actions";
 import type { ModalDef, ModalOpenContext, ModalSubmitContext, ModalSubmitResult, SlackView } from "../modals/types";
 
 const pt = (text: string) => ({ type: "plain_text", text: text.slice(0, 75), emoji: true });
@@ -208,21 +210,23 @@ const roomClientUrl = (teamId: string, channelId: string): string => `https://ap
 const coldDot = (days: number): string => (days > 14 ? "🔴" : days >= 7 ? "🟠" : "🟢");
 
 /**
- * Overflow de acciones de escritura por negocio (Avanzar/Nota/Ganado/Perdido,
- * solo si el usuario puede editar). Los links de navegación (Abrir en OPAI,
- * Ir a la sala, WhatsApp) van como botones URL https. PROHIBIDO agregar aquí
- * opciones con URL `tel:`/`mailto:`: Slack rechaza el modal entero con
- * `invalid_arguments` (ver LÍMITE F21 en el header).
+ * Overflow de acciones por negocio. Slack limita el overflow a 5 opciones, así
+ * que los links de navegación (Abrir en OPAI, Ir a la sala, WhatsApp) van como
+ * botones; aquí quedan las acciones de gestión: 📞 Llamar (mini-modal con el
+ * teléfono tappable — las options de overflow con `url` no son válidas dentro
+ * de un modal y `tel:` no es esquema permitido, ver LÍMITE F21) + las de
+ * escritura (Avanzar/Nota/Ganado/Perdido, solo si el usuario puede editar).
  */
-function dealMenu(dealId: string, canWrite: boolean): unknown | null {
-  if (!canWrite) return null;
-  const options: unknown[] = [
-    { text: pt("⏩ Avanzar etapa"), value: `advance:${dealId}` },
-    { text: pt("📝 Nota rápida"), value: `note:${dealId}` },
-    { text: pt("🎉 Ganado"), value: `won:${dealId}` },
-    { text: pt("💔 Perdido"), value: `lost:${dealId}` },
-  ];
-  return { type: "overflow", action_id: "pipe_deal_menu", options };
+function dealMenu(dealId: string, hasPhone: boolean, canWrite: boolean): unknown | null {
+  const options: unknown[] = [];
+  if (hasPhone) options.push({ text: pt("📞 Llamar"), value: `call:${dealId}` });
+  if (canWrite) {
+    options.push({ text: pt("⏩ Avanzar etapa"), value: `advance:${dealId}` });
+    options.push({ text: pt("📝 Nota rápida"), value: `note:${dealId}` });
+    options.push({ text: pt("🎉 Ganado"), value: `won:${dealId}` });
+    options.push({ text: pt("💔 Perdido"), value: `lost:${dealId}` });
+  }
+  return options.length ? { type: "overflow", action_id: "pipe_deal_menu", options } : null;
 }
 
 interface DrillCtx {
@@ -249,7 +253,7 @@ function dealRowBlocks(d: DrillDeal, ctx: DrillCtx): unknown[] {
   const entered = d.enteredAt instanceof Date && !Number.isNaN(d.enteredAt.getTime()) ? d.enteredAt : new Date();
   const days = daysInStage(entered);
   const act = d.updatedAt instanceof Date && !Number.isNaN(d.updatedAt.getTime()) ? ` · act ${dfmt(d.updatedAt)}` : "";
-  const menu = dealMenu(d.id, ctx.canWrite);
+  const menu = dealMenu(d.id, Boolean(normalizeWaPhone(d.contactPhone)), ctx.canWrite);
   const section: Record<string, unknown> = {
     type: "section",
     text: { type: "mrkdwn", text: `${badge}*${account}* · ${title}\n${clp(amount)} · ⏱ ${coldDot(days)} ${days}d en etapa${act}` },
@@ -432,10 +436,26 @@ export async function handlePipelineAction(payload: {
     return;
   }
 
-  // Menú por deal (overflow): advance | note | won | lost.
+  // Menú por deal (overflow): call (mini-modal con tel tappable) | advance | note | won | lost.
   if (action.action_id === "pipe_deal_menu") {
     const [op, dealId] = (action.selected_option?.value ?? "").split(":");
     if (!op || !dealId) return;
+    if (op === "call") {
+      if (!payload.trigger_id) return;
+      const deal = await prisma.crmDeal.findFirst({
+        where: { id: dealId, tenantId },
+        select: { title: true, primaryContact: { select: { firstName: true, phone: true } } },
+      });
+      const phone = normalizeWaPhone(deal?.primaryContact?.phone ?? null);
+      const body = phone
+        ? `📞 <tel:+${phone}|Llamar a ${deal?.primaryContact?.firstName ?? "contacto"} (+${phone})>`
+        : "Este negocio no tiene teléfono de contacto.";
+      await slackPushView(workspace.botToken, payload.trigger_id, {
+        type: "modal", title: modalTitle("Llamar"), close: pt("Cerrar"),
+        blocks: [{ type: "section", text: { type: "mrkdwn", text: body } }],
+      });
+      return;
+    }
     if (!canWrite) return;
     const stageId = stageIdOf();
     if (op === "advance") { if (payload.trigger_id) await slackPushView(workspace.botToken, payload.trigger_id, await advanceView(tenantId, dealId)); return; }
