@@ -40,7 +40,7 @@ export default async function IntegracionesPage() {
   return (
     <ConfigPageLayout
       title="Integraciones"
-      description="Configura conexiones globales para el CRM"
+      description="Configura Gmail, Slack y conectores MCP"
       icon={<Plug className="h-[18px] w-[18px]" />}
     >
       <div className="space-y-4">

@@ -111,7 +111,7 @@ const CONFIG_PAGES: {
 }[] = [
   {
     id: "slack",
-    title: "Slack (Integración)",
+    title: "Slack",
     subtitle: "Configuración · Integraciones",
     href: "/opai/configuracion/integraciones/slack",
     keywords: ["slack", "integracion", "puente", "canal", "ruteo", "mensajeria", "bot"],
@@ -121,7 +121,7 @@ const CONFIG_PAGES: {
     title: "Integraciones",
     subtitle: "Configuración",
     href: "/opai/configuracion/integraciones",
-    keywords: ["integraciones", "slack", "sii", "banco", "api", "conexiones", "webhook"],
+    keywords: ["integraciones", "gmail", "slack", "mcp", "api", "conexiones", "webhook"],
   },
   {
     id: "notificaciones",

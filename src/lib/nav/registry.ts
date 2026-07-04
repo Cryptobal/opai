@@ -635,8 +635,6 @@ export const NAV_MODULES: NavNode[] = [
       { key: "config-grupos", href: "/opai/configuracion/grupos", label: "Grupos", icon: Users, module: "config", submodule: "grupos", category: "permisos" },
       // ── Comunicación ──
       { key: "config-integraciones", href: "/opai/configuracion/integraciones", label: "Integraciones", icon: Plug, module: "config", submodule: "integraciones", category: "comunicacion" },
-      { key: "config-integraciones-slack", href: "/opai/configuracion/integraciones/slack", label: "Slack (Integración)", shortLabel: "Slack", icon: Plug, module: "config", submodule: "integraciones", category: "comunicacion" },
-      { key: "config-integraciones-mcp", href: "/opai/configuracion/integraciones", label: "Conectores y MCP", shortLabel: "Conectores", icon: Plug, module: "config", submodule: "integraciones", category: "comunicacion" },
       { key: "config-notificaciones", href: "/opai/configuracion/notificaciones", label: "Notificaciones", shortLabel: "Notif.", icon: Bell, module: "config", submodule: "notificaciones", category: "comunicacion" },
       { key: "config-firmas", href: "/opai/configuracion/firmas", label: "Firmas", icon: PenLine, module: "config", submodule: "firmas", category: "comunicacion" },
       { key: "config-email-templates", href: "/opai/configuracion/email-templates", label: "Plantillas Email", shortLabel: "Emails", icon: Mail, category: "comunicacion" },
