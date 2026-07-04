@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { ApplyIpcDialog } from "./ApplyIpcDialog";
 import { IpcHistoryDialog } from "./IpcHistoryDialog";
+import { ContactsMultiSelect } from "@/components/finance/recurring/ContactsMultiSelect";
 import { cn } from "@/lib/utils";
 import { DOC_STATUS_CONFIG } from "@/lib/docs/token-registry";
 import {
@@ -310,6 +311,10 @@ export function AccountContractsSection({
     useState<boolean>(false);
   const [recurringAutoSendPaymentStatement, setRecurringAutoSendPaymentStatement] =
     useState<boolean>(false);
+  // Contactos CRM que reciben proforma / estado de pago. El endpoint exige
+  // al menos uno cuando cualquiera de esos dos envíos automáticos está activo.
+  const [recurringRecipientContactIds, setRecurringRecipientContactIds] =
+    useState<string[]>([]);
   // CC: el receptor principal (TO) sale de `recurringEmail`. Estos van
   // como copia. Texto crudo separado por coma/espacio/`;`.
   const [recurringCcEmailsRaw, setRecurringCcEmailsRaw] = useState<string>("");
@@ -519,6 +524,7 @@ export function AccountContractsSection({
     setRecurringIsActive(true);
     setRecurringAutoSendProforma(false);
     setRecurringAutoSendPaymentStatement(false);
+    setRecurringRecipientContactIds([]);
     setRecurringCcEmailsRaw("");
     setRecurringAdditionalRefs([]);
     setRecurringLineDescription("Servicios mensuales — {{periodo}}");
@@ -625,6 +631,13 @@ export function AccountContractsSection({
         if (!r.tipoDocRef.trim() || !r.folioRef.trim() || !r.fchRef)
           return `Plantilla recurrente: referencia #${i + 1} incompleta (tipo, folio y fecha son obligatorios)`;
       }
+      // El endpoint exige al menos un contacto destinatario si se activa el
+      // envío automático de proforma o de estado de pago (si no, 400).
+      if (
+        (recurringAutoSendProforma || recurringAutoSendPaymentStatement) &&
+        recurringRecipientContactIds.length === 0
+      )
+        return "Plantilla recurrente: seleccioná al menos un contacto destinatario para el envío automático de proforma / estado de pago";
     }
     return null;
   }, [
@@ -648,6 +661,9 @@ export function AccountContractsSection({
     recurringMonthOfYear,
     recurringCcEmailsRaw,
     recurringAdditionalRefs,
+    recurringAutoSendProforma,
+    recurringAutoSendPaymentStatement,
+    recurringRecipientContactIds,
   ]);
 
   // ─── Submit upload ─────────────────────────────────────────────
@@ -836,6 +852,9 @@ export function AccountContractsSection({
               autoSendEmail: recurringAutoSendEmail,
               autoSendProforma: recurringAutoSendProforma,
               autoSendPaymentStatement: recurringAutoSendPaymentStatement,
+              ...(recurringAutoSendProforma || recurringAutoSendPaymentStatement
+                ? { recipientContactIds: recurringRecipientContactIds }
+                : {}),
               ufFixingPolicy: isUf ? recurringUfFixingPolicy : "RUN_DAY",
               periodPolicy: recurringPeriodPolicy,
             };
@@ -2983,6 +3002,30 @@ export function AccountContractsSection({
                           </p>
                         </div>
                       </label>
+
+                      {(recurringAutoSendProforma ||
+                        recurringAutoSendPaymentStatement) && (
+                        <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
+                          <div className="text-[13px] font-medium">
+                            Destinatarios de proforma y estado de pago
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Los mismos contactos reciben proforma y estado de
+                            pago. Obligatorio si activás cualquiera de los dos
+                            envíos automáticos.
+                          </p>
+                          <ContactsMultiSelect
+                            accountId={accountId}
+                            value={recurringRecipientContactIds}
+                            onChange={setRecurringRecipientContactIds}
+                          />
+                          {recurringRecipientContactIds.length === 0 && (
+                            <div className="text-xs text-destructive">
+                              Seleccioná al menos un contacto.
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
