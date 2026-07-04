@@ -57,6 +57,7 @@ import {
   Power,
   UserCheck,
   ListChecks,
+  MessageSquare,
   Ticket as TicketIcon,
 } from "lucide-react";
 import { DuplicateAccountModal } from "./DuplicateAccountModal";

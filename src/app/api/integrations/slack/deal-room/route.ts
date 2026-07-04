@@ -21,7 +21,8 @@ export async function POST(req: Request) {
 
   let dealId = "";
   try {
-    ({ dealId } = (await req.json()) as { dealId?: string });
+    const body = (await req.json()) as { dealId?: string };
+    dealId = body.dealId ?? "";
   } catch {
     /* body inválido → 400 abajo */
   }
