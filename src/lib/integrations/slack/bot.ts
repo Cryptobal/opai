@@ -9,10 +9,13 @@
 import { prisma } from "@/lib/prisma";
 import { hasCapability } from "@/lib/permissions";
 import { getAiHelpChatConfig } from "@/lib/ai/help-chat-config";
+import { getHelpChatAIConfig, transcribeAudio } from "@/lib/ai/help-chat-provider";
+import { logAiUsage } from "@/lib/platform-ai-service";
 import { runHelpChatTurn } from "@/lib/ai/help-chat-runner";
 import { getTenantForTeam, getWorkspaceForTenant, type ActiveWorkspace } from "./workspace";
 import { resolveLinkedAdmin, buildLinkPrompt } from "./user-link";
 import { slackPostMessage, slackUpdateMessage, assistantSetStatus, assistantSetTitle } from "./api";
+import { slackDownloadFile } from "./files";
 import { toSlackMarkdown } from "./markdown";
 import { assistantSection, contextLine, confirmActionsBlock } from "./blocks";
 
@@ -44,6 +47,18 @@ type Turn = { role: string; content: string };
 const PENDING_TTL_MS = 15 * 60 * 1000;
 const MAX_TURNS = 24; // ~12 turnos user/assistant
 const MAX_TRANSCRIPT_CHARS = 24_000;
+const MAX_AUDIO_BYTES = 8_000_000;
+
+function pickAudioFile(files: SlackFile[] | undefined): SlackFile | null {
+  if (!files?.length) return null;
+  for (const f of files) {
+    const mime = f.mimetype ?? "";
+    if (mime.startsWith("audio/") && (f.size ?? 0) <= MAX_AUDIO_BYTES && f.url_private) {
+      return f;
+    }
+  }
+  return null;
+}
 
 function stripMention(text: string): string {
   return text.replace(/<@[A-Z0-9]+>/g, "").replace(/\s+/g, " ").trim();
@@ -117,10 +132,12 @@ export async function handleBotEvent(teamId: string, event: SlackBotEvent): Prom
   let userMessage = stripMention(event.text || "");
   const token = workspace.botToken;
 
-  // DM con adjunto (subtype file_share): no podemos leer el archivo, pero el
-  // bot NUNCA debe quedar mudo ni dejar que el modelo alucine su contenido.
-  const fileCount = event.subtype === "file_share" ? (event.files?.length ?? 0) : 0;
-  if (fileCount > 0 && !userMessage) {
+  const files = event.files ?? [];
+  const fileCount = event.subtype === "file_share" ? files.length : 0;
+  const audioFile = event.subtype === "file_share" ? pickAudioFile(files) : null;
+
+  // DM con adjunto no-audio sin texto: aviso explícito (nunca silencio).
+  if (fileCount > 0 && !userMessage && !audioFile) {
     await slackPostMessage(token, {
       channel: channelId,
       text: "Recibí tu archivo 📎. Por ahora no puedo leer adjuntos en Slack; escríbeme la instrucción en texto y te ayudo al tiro.",
@@ -128,10 +145,7 @@ export async function handleBotEvent(teamId: string, event: SlackBotEvent): Prom
     }).catch((err) => console.error("[slack] no se pudo responder a file_share sin texto:", err));
     return;
   }
-  if (!userMessage) return;
-  if (fileCount > 0) {
-    userMessage += `\n\n[El usuario adjuntó ${fileCount} archivo(s); no están disponibles para lectura en este turno.]`;
-  }
+  if (!userMessage && !audioFile) return;
 
   // Gate de vínculo: usuario no vinculado = cero datos, solo el flujo de vínculo.
   const linked = await resolveLinkedAdmin(workspace, slackUserId);
@@ -142,17 +156,80 @@ export async function handleBotEvent(teamId: string, event: SlackBotEvent): Prom
   }
 
   // Panel de IA (agente nativo): indicador nativo "pensando…" + título del hilo.
-  // Best-effort: en un DM normal (no-agente) estas llamadas fallan y se ignoran.
-  void assistantSetStatus(token, channelId, threadTs, "Pensando…").catch(() => {});
-  void assistantSetTitle(token, channelId, threadTs, userMessage.slice(0, 40)).catch(() => {});
+  void assistantSetStatus(token, channelId, threadTs, audioFile ? "Transcribiendo…" : "Pensando…").catch(() => {});
+  void assistantSetTitle(token, channelId, threadTs, (userMessage || "Nota de voz").slice(0, 40)).catch(() => {});
 
   let placeholderTs: string;
   try {
-    const posted = await slackPostMessage(token, { channel: channelId, text: "⏳ Consultando OPAI…", thread_ts: threadTs });
+    const posted = await slackPostMessage(token, {
+      channel: channelId,
+      text: audioFile && !userMessage ? "🎙️ Transcribiendo tu nota de voz…" : "⏳ Consultando OPAI…",
+      thread_ts: threadTs,
+    });
     placeholderTs = posted.ts;
   } catch (err) {
     console.error("[slack] no se pudo publicar placeholder:", err);
     return;
+  }
+
+  if (audioFile?.url_private) {
+    const tTranscribe = Date.now();
+    try {
+      const aiConfig = await getHelpChatAIConfig(workspace.tenantId);
+      if (!aiConfig) {
+        await slackUpdateMessage(token, {
+          channel: channelId,
+          ts: placeholderTs,
+          text: "Tu proveedor de IA actual no soporta transcripción de audio; escríbeme el texto 🙏",
+          blocks: [assistantSection("Tu proveedor de IA actual no soporta transcripción de audio; escríbeme el texto 🙏")],
+        });
+        return;
+      }
+      const { buffer, contentType } = await slackDownloadFile(audioFile.url_private, token);
+      const transcript = await transcribeAudio(aiConfig, buffer, contentType);
+      if (transcript === null) {
+        await slackUpdateMessage(token, {
+          channel: channelId,
+          ts: placeholderTs,
+          text: "Tu proveedor de IA actual no soporta transcripción de audio; escríbeme el texto 🙏",
+          blocks: [assistantSection("Tu proveedor de IA actual no soporta transcripción de audio; escríbeme el texto 🙏")],
+        });
+        return;
+      }
+      userMessage = (userMessage ? `${userMessage}\n\n` : "") + `[Nota de voz transcrita]: ${transcript}`;
+      logAiUsage({
+        tenantId: workspace.tenantId,
+        userId: linked.adminId,
+        providerType: aiConfig.providerType,
+        model: aiConfig.model,
+        feature: "voice_transcription",
+        durationMs: Date.now() - tTranscribe,
+        metadata: { mimeType: contentType, bytes: buffer.length },
+      });
+      await slackUpdateMessage(token, {
+        channel: channelId,
+        ts: placeholderTs,
+        text: "⏳ Consultando OPAI…",
+        blocks: [assistantSection("⏳ Consultando OPAI…")],
+      }).catch(() => {});
+    } catch (err) {
+      console.error("[slack] error transcribiendo nota de voz:", err);
+      await slackUpdateMessage(token, {
+        channel: channelId,
+        ts: placeholderTs,
+        text: "No pude transcribir tu nota de voz 😔 Intenta escribirme el mensaje o graba de nuevo.",
+        blocks: [assistantSection("No pude transcribir tu nota de voz 😔 Intenta escribirme el mensaje o graba de nuevo.")],
+      }).catch(() => {});
+      return;
+    }
+  }
+
+  const nonAudioAttachments = fileCount > 0 && (!audioFile || files.length > 1);
+  if (nonAudioAttachments) {
+    const n = audioFile ? fileCount - 1 : fileCount;
+    if (n > 0) {
+      userMessage += `\n\n[El usuario adjuntó ${n} archivo(s); no están disponibles para lectura en este turno.]`;
+    }
   }
 
   try {
