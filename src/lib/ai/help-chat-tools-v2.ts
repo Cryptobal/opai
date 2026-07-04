@@ -3989,6 +3989,7 @@ async function toolUpdateAccount(
         industry: account!.industry,
         status: account!.status,
         changedFields: diff.changedFields,
+        previousValues: Object.fromEntries(Object.entries(diff.changes).map(([k, v]) => [k, v.from])),
       },
     };
   } catch (e) {
@@ -4087,6 +4088,7 @@ async function toolUpdateContact(
         accountId: contact!.accountId,
         accountName: contact!.account?.name ?? null,
         changedFields: diff.changedFields,
+        previousValues: Object.fromEntries(Object.entries(diff.changes).map(([k, v]) => [k, v.from])),
       },
     };
   } catch (e) {
@@ -4181,6 +4183,7 @@ async function toolUpdateLead(
         phone: lead!.phone,
         status: lead!.status,
         changedFields: diff.changedFields,
+        previousValues: Object.fromEntries(Object.entries(diff.changes).map(([k, v]) => [k, v.from])),
       },
     };
   } catch (e) {
@@ -4316,6 +4319,7 @@ async function toolUpdateDeal(
         stageName: resolvedStageName ?? deal!.stage?.name ?? null,
         expectedCloseDate: deal!.expectedCloseDate?.toISOString().slice(0, 10) ?? null,
         changedFields: diff.changedFields,
+        previousValues: Object.fromEntries(Object.entries(diff.changes).map(([k, v]) => [k, v.from])),
       },
     };
   } catch (e) {
@@ -4405,6 +4409,7 @@ async function toolUpdateInstallation(
         accountId: installation!.accountId,
         accountName: installation!.account?.name ?? null,
         changedFields: diff.changedFields,
+        previousValues: Object.fromEntries(Object.entries(diff.changes).map(([k, v]) => [k, v.from])),
       },
     };
   } catch (e) {
