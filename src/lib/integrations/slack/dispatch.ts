@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import type { UnifiedNotificationType } from "@/lib/notifications/catalog";
 import { getWorkspaceForTenant } from "./workspace";
-import { buildNotificationBlocks, ticketActionsBlock, ticketCardActionsBlock, toContextFields } from "./blocks";
+import { approvalCardActionsBlock, buildNotificationBlocks, ticketActionsBlock, ticketCardActionsBlock, toContextFields } from "./blocks";
 import { enrichTicketFields, convertBodyMentions } from "./card-enrich";
 import { slackPostMessage, SlackApiError, isPermanentSlackError } from "./api";
 
@@ -93,10 +93,16 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     blocks.push(ticketCardActionsBlock(cardTicketId, code));
   }
 
-  const ticketId =
+  // Tarjeta accionable de aprobación: ticket (Fase 7), rendición o TE (Fase 13).
+  // Cada una crea una SlackPendingAction y adjunta sus botones Aprobar/Rechazar.
+  const approval: { kind: string; domain: "ticket" | "rendicion" | "te"; entityId: string } | null =
     input.typeDef.key === "ticket_needs_approval" && typeof input.data?.ticketId === "string"
-      ? (input.data.ticketId as string)
-      : null;
+      ? { kind: "TICKET_APPROVAL", domain: "ticket", entityId: input.data.ticketId as string }
+      : input.typeDef.key === "rendicion_submitted" && typeof input.data?.rendicionId === "string"
+        ? { kind: "RENDICION_APPROVAL", domain: "rendicion", entityId: input.data.rendicionId as string }
+        : input.typeDef.key === "te_created" && typeof input.data?.teId === "string"
+          ? { kind: "TE_APPROVAL", domain: "te", entityId: input.data.teId as string }
+          : null;
 
   // Hilo por ticket (Fase 7): cualquier evento ticket_* con data.ticketId cae en
   // el hilo de ese ticket. La tarjeta de creación establece la raíz.
@@ -114,11 +120,11 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
   }
 
   // Dedupe en ráfagas: mismo (tenant, key, title) dentro del mismo minuto. Para
-  // aprobaciones se incluye el ticketId, así dos tickets distintos con el mismo
+  // aprobaciones se incluye el entityId, así dos ítems distintos con el mismo
   // título en el mismo minuto NO colisionan (perderían sus botones).
   const minute = Math.floor(Date.now() / 60000);
-  const dedupeMaterial = ticketId
-    ? `${input.tenantId}|${input.typeDef.key}|${input.title}|t:${ticketId}|${minute}`
+  const dedupeMaterial = approval
+    ? `${input.tenantId}|${input.typeDef.key}|${input.title}|e:${approval.entityId}|${minute}`
     : `${input.tenantId}|${input.typeDef.key}|${input.title}|${minute}`;
   const dedupeKey = createHash("sha1").update(dedupeMaterial).digest("hex");
 
@@ -142,17 +148,17 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     throw err;
   }
 
-  // Ticket pendiente de aprobación: se crea la SlackPendingAction DESPUÉS de
-  // pasar el dedupe (evita huérfanas), se adjuntan los botones Aprobar/Rechazar
-  // y se re-persiste el payload del outbox con los botones incluidos.
-  let ticketPendingId: string | null = null;
-  if (ticketId) {
+  // Pendiente de aprobación: se crea la SlackPendingAction DESPUÉS de pasar el
+  // dedupe (evita huérfanas), se adjuntan los botones Aprobar/Rechazar y se
+  // re-persiste el payload del outbox con los botones incluidos.
+  let approvalPendingId: string | null = null;
+  if (approval) {
     const pa = await prisma.slackPendingAction.create({
       data: {
         tenantId: input.tenantId,
         workspaceId: workspace.id,
-        kind: "TICKET_APPROVAL",
-        entityId: ticketId,
+        kind: approval.kind,
+        entityId: approval.entityId,
         requestedBySlackUserId: "system",
         channelId,
         status: "PENDING",
@@ -160,8 +166,8 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
       },
       select: { id: true },
     });
-    ticketPendingId = pa.id;
-    blocks.push(ticketActionsBlock(ticketPendingId));
+    approvalPendingId = pa.id;
+    blocks.push(approval.domain === "ticket" ? ticketActionsBlock(pa.id) : approvalCardActionsBlock(approval.domain, pa.id));
     await prisma.slackOutbox.update({
       where: { id: outboxId },
       data: { payload: { text, blocks, thread_ts: threadTs } as object },
@@ -181,8 +187,8 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
       data: { status: "SENT", sentAt: new Date(), slackTs: ts },
     });
     // Ancla la tarjeta de aprobación al mensaje publicado para actualizarla al decidir.
-    if (ticketPendingId && ts) {
-      await prisma.slackPendingAction.update({ where: { id: ticketPendingId }, data: { messageTs: ts } });
+    if (approvalPendingId && ts) {
+      await prisma.slackPendingAction.update({ where: { id: approvalPendingId }, data: { messageTs: ts } });
     }
     // Raíz del hilo: solo la tarjeta de creación (sin hilo previo) queda de ancla.
     if (threadTicketId && !threadTs && input.typeDef.key === "ticket_created" && ts) {

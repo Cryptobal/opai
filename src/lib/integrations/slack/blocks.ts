@@ -178,6 +178,22 @@ export function ticketCardActionsBlock(ticketId: string, code: string): unknown 
   };
 }
 
+/**
+ * Botones Aprobar / Rechazar en la TARJETA de una rendición o turno extra
+ * (Fase 13). action_id ÚNICO por bloque (sufijo, lección aprendida); `value`
+ * lleva `domain:pendingId` (dominio para gatear la capability al presionar).
+ */
+export function approvalCardActionsBlock(domain: "rendicion" | "te", pendingId: string): unknown {
+  return {
+    type: "actions",
+    block_id: `opai_apcard_${pendingId}`,
+    elements: [
+      { type: "button", action_id: "apcard_approve", value: `${domain}:${pendingId}`, style: "primary", text: { type: "plain_text", text: "Aprobar", emoji: true } },
+      { type: "button", action_id: "apcard_reject", value: `${domain}:${pendingId}`, style: "danger", text: { type: "plain_text", text: "Rechazar", emoji: true } },
+    ],
+  };
+}
+
 /** Botones Aprobar (primary) / Rechazar (danger) para un ticket. */
 export function ticketActionsBlock(pendingId: string): unknown {
   return {

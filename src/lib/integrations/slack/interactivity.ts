@@ -117,6 +117,13 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     return;
   }
 
+  // Aprobar/Rechazar desde la TARJETA de notificación (Fase 13).
+  if (actionId?.startsWith("apcard_")) {
+    const { handleApprovalCardAction } = await import("./approvals/cards");
+    await handleApprovalCardAction(payload as unknown as Record<string, unknown>);
+    return;
+  }
+
   if (!teamId || !slackUserId || !actionId || !pendingId) return;
 
   const resolved = await getTenantForTeam(teamId);
