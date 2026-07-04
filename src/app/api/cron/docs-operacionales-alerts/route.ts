@@ -21,6 +21,7 @@ import {
   collectOperacionalItems,
   describeDue,
   getExpiryPolicy,
+  resolveEscalationTargets,
   runExpiryMilestones,
   todayUtc,
   type ExpiryRunResult,
@@ -133,6 +134,25 @@ async function processTenant(
           expiresAt: item.expiresAt,
           daysRemaining: item.daysRemaining,
           docRef: `operacional:${item.id}`, // habilita los botones de gestión en la tarjeta Slack
+        },
+      });
+    },
+    sendEscalation: async (item, evaluation) => {
+      const targets = await resolveEscalationTargets(tenantId);
+      const dueText = describeDue(item.daysRemaining, item.expiresAt);
+      await notify({
+        tenantId,
+        type: "doc_escalated",
+        ...(targets.length ? { targetIds: targets, targetType: "ADMIN" as const } : {}),
+        title: `⚠️ Escalado: ${item.label} sin gestión`,
+        body: `${item.label} (${item.contextLabel}) ${dueText} y cruzó T-7 sin acción (ni renovación ni "En trámite").`,
+        link: item.link,
+        data: {
+          docOperacionalId: item.id,
+          installationId: item.installationId,
+          milestone: evaluation.milestone,
+          daysRemaining: item.daysRemaining,
+          docRef: `operacional:${item.id}`,
         },
       });
     },

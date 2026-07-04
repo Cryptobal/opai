@@ -298,6 +298,13 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     module: 'ops', category: 'Operaciones - Documentos',
     audiences: ['admin'], defaults: { admin: adminBell(true) },
   },
+  {
+    key: 'doc_escalated', label: 'Documento escalado',
+    description: 'Un documento cruzó T-7 sin acción (ni renovado ni en trámite) y se avisa al jefe',
+    module: 'ops', category: 'Operaciones - Documentos',
+    audiences: ['admin'], defaults: { admin: adminBell(true) },
+    critical: true,
+  },
 
   // ── Operaciones - Guardias ──
   {

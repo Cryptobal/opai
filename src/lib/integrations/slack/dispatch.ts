@@ -154,6 +154,7 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
   const DOC_EXPIRY_CARD_KEYS = new Set([
     "doc_operacional_expiring", "doc_operacional_expired",
     "guardia_doc_expiring", "guardia_doc_expired",
+    "doc_escalated",
   ]);
   if (DOC_EXPIRY_CARD_KEYS.has(input.typeDef.key) && typeof input.data?.docRef === "string") {
     const { docCardActionsBlock } = await import("./docs/card-actions");

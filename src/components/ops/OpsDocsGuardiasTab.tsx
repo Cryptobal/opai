@@ -164,7 +164,7 @@ export function OpsDocsGuardiasTab({
                 const guardia =
                   guardiaIndex >= 0
                     ? guardiaDocConfig[guardiaIndex]
-                    : { hasExpiration: false, alertDaysBefore: 30, visibleInGuardForm: true, visibleInTeForm: false, obligatorioEnVisita: false };
+                    : { hasExpiration: false, alertDaysBefore: 30, visibleInGuardForm: true, visibleInTeForm: false, obligatorioEnVisita: false, criticoLegal: false };
                 const assocCount = documentCountsByType[doc.code] ?? 0;
                 return (
                   <div
@@ -326,6 +326,22 @@ export function OpsDocsGuardiasTab({
                         />
                         Oblig. en visita
                       </label>
+                      {guardia.hasExpiration && guardiaIndex >= 0 && (
+                        <label
+                          className="flex items-center gap-1.5 text-xs whitespace-nowrap"
+                          title="T-7 y T-1 generan tarjeta individual además del digest (ej. OS10, ley 21.659)"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={Boolean(guardia.criticoLegal)}
+                            onChange={(e) =>
+                              updateGuardiaDocConfigItem(guardiaIndex, { criticoLegal: e.target.checked })
+                            }
+                            className="accent-primary"
+                          />
+                          Crítico-legal
+                        </label>
+                      )}
                       {guardia.hasExpiration && guardiaIndex >= 0 && (
                         <div className="flex items-center gap-1.5">
                           <span className="text-[11px] text-muted-foreground">Alerta:</span>

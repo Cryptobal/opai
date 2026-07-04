@@ -15,7 +15,9 @@ import { prisma } from "@/lib/prisma";
 import { notify } from "@/lib/notifications/notify";
 import {
   collectGuardiaItems,
+  describeDue,
   getExpiryPolicy,
+  resolveEscalationTargets,
   runExpiryMilestones,
   todayUtc,
   type ExpiryRunResult,
@@ -143,6 +145,26 @@ async function processTenant(tenantId: string): Promise<ExpiryRunResult> {
           linkedFindingId: linkedFinding?.id ?? null,
           linkedTicketId: linkedFinding?.ticket?.id ?? null,
           linkedTicketCode: linkedFinding?.ticket?.code ?? null,
+        },
+      });
+    },
+    sendEscalation: async (item, evaluation) => {
+      const targets = await resolveEscalationTargets(tenantId);
+      const dueText = describeDue(item.daysRemaining, item.expiresAt);
+      await notify({
+        tenantId,
+        type: "doc_escalated",
+        ...(targets.length ? { targetIds: targets, targetType: "ADMIN" as const } : {}),
+        title: `⚠️ Escalado: doc. de ${item.contextLabel} sin gestión`,
+        body: `${item.label} de ${item.contextLabel} ${dueText} y cruzó T-7 sin acción (ni renovación ni "En trámite").`,
+        link: item.link,
+        data: {
+          guardiaId: item.guardiaId,
+          guardiaDocumentId: item.id,
+          docType: item.docTypeCode,
+          milestone: evaluation.milestone,
+          daysRemaining: item.daysRemaining,
+          docRef: `guardia:${item.id}`,
         },
       });
     },

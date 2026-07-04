@@ -510,6 +510,27 @@ export async function saveCardBudgetState(
 }
 
 // ==========================================
+// Escalamiento
+// ==========================================
+
+/**
+ * Criterio de jerarquía (documentado en docs/documents/vencimientos.md): no
+ * existe FK de "jefe directo" en Admin, así que "el jefe" son los admins
+ * activos con rol owner / admin / jefe_operaciones. Los roles con
+ * roleTemplateId custom quedan fuera (el broadcast normal ya los cubre si
+ * tienen acceso al módulo ops). Si no hay ninguno, notify() cae a broadcast.
+ */
+const ESCALATION_ROLES = ["owner", "admin", "jefe_operaciones"];
+
+export async function resolveEscalationTargets(tenantId: string): Promise<string[]> {
+  const admins = await prisma.admin.findMany({
+    where: { tenantId, status: "active", role: { in: ESCALATION_ROLES } },
+    select: { id: true },
+  });
+  return admins.map((a) => a.id);
+}
+
+// ==========================================
 // Runner compartido por los crons de tarjetas
 // ==========================================
 
