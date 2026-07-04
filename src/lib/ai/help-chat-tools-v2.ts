@@ -253,6 +253,15 @@ function v2ToolDefinitions() {
     {
       type: "function" as const,
       function: {
+        name: "get_my_reminders",
+        description:
+          "Lista los recordatorios personales abiertos del usuario actual (type reminder, status open), ordenados por fecha de vencimiento.",
+        parameters: { type: "object", properties: {}, additionalProperties: false },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
         name: "get_finance_summary",
         description: "Resumen financiero: rendiciones y DTEs por estado en los últimos N días.",
         parameters: {
@@ -1684,6 +1693,40 @@ function writeToolDefinitions() {
     {
       type: "function" as const,
       function: {
+        name: "create_reminder",
+        description:
+          "Crea un recordatorio personal para el usuario. Convierte expresiones relativas ('mañana 9am', 'el lunes') a ISO usando la fecha/hora actual del system prompt; zona America/Santiago.",
+        parameters: {
+          type: "object",
+          properties: {
+            title: { type: "string", description: "Texto del recordatorio. OBLIGATORIO." },
+            dueAtIso: { type: "string", description: "Fecha/hora de vencimiento en ISO 8601 (futuro). OBLIGATORIO." },
+            dealId: { type: "string", description: "UUID de deal asociado (opcional)." },
+            leadId: { type: "string", description: "UUID de lead asociado (opcional)." },
+          },
+          required: ["title", "dueAtIso"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "complete_reminder",
+        description: "Marca un recordatorio personal como completado (status done).",
+        parameters: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "UUID del recordatorio. OBLIGATORIO." },
+          },
+          required: ["id"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
         name: "preview_bulk_update_installations",
         description:
           "Lista (máx 50) instalaciones que cambiarían al status destino, excluyendo las que ya lo tienen. Filtra por accountId y/o query en nombre/cuenta. Paso 1 antes de bulk_update_installations.",
@@ -1768,6 +1811,8 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   create_recurring_invoice: "Crear plantilla de facturación recurrente",
   create_factoring_company: "Crear empresa de factoring",
   create_ticket: "Crear ticket",
+  create_reminder: "Crear recordatorio",
+  complete_reminder: "Completar recordatorio",
   transition_ticket: "Cambiar estado de ticket",
   take_ticket: "Tomar ticket",
   comment_ticket: "Comentar ticket",
@@ -4507,6 +4552,153 @@ async function resolveBulkInstallationTargets(
   };
 }
 
+async function toolGetMyReminders(tenantId: string, userId: string): Promise<unknown> {
+  const rows = await prisma.crmTask.findMany({
+    where: { tenantId, assignedTo: userId, type: "reminder", status: "open" },
+    orderBy: { dueAt: "asc" },
+    take: 20,
+    select: { id: true, title: true, dueAt: true },
+  });
+  return {
+    ok: true,
+    data: rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      dueAt: r.dueAt?.toISOString() ?? null,
+    })),
+  };
+}
+
+async function toolCreateReminder(
+  tenantId: string,
+  userId: string,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  const title = typeof args.title === "string" ? args.title.trim() : "";
+  const dueAtIso = typeof args.dueAtIso === "string" ? args.dueAtIso.trim() : "";
+  if (!title) {
+    await logAiAction({ tenantId, userId, toolName: "create_reminder", args, status: "validation_error", errorMessage: "Falta title", startedAt: t0 });
+    return { ok: false, error: "El título del recordatorio es obligatorio." };
+  }
+  if (!dueAtIso) {
+    await logAiAction({ tenantId, userId, toolName: "create_reminder", args, status: "validation_error", errorMessage: "Falta dueAtIso", startedAt: t0 });
+    return { ok: false, error: "La fecha dueAtIso es obligatoria (ISO 8601)." };
+  }
+  const dueAt = new Date(dueAtIso);
+  if (Number.isNaN(dueAt.getTime())) {
+    await logAiAction({ tenantId, userId, toolName: "create_reminder", args, status: "validation_error", errorMessage: "dueAtIso inválido", startedAt: t0 });
+    return { ok: false, error: "dueAtIso no es una fecha ISO válida." };
+  }
+  if (dueAt.getTime() <= Date.now()) {
+    await logAiAction({ tenantId, userId, toolName: "create_reminder", args, status: "validation_error", errorMessage: "dueAt en el pasado", startedAt: t0 });
+    return { ok: false, error: "La fecha del recordatorio debe ser futura. Indica cuándo quieres que te recuerde." };
+  }
+  const dealId = typeof args.dealId === "string" && args.dealId.trim() ? args.dealId.trim() : null;
+  const leadId = typeof args.leadId === "string" && args.leadId.trim() ? args.leadId.trim() : null;
+  if (dealId && !isUuid(dealId)) {
+    await logAiAction({ tenantId, userId, toolName: "create_reminder", args, status: "validation_error", errorMessage: "dealId inválido", startedAt: t0 });
+    return { ok: false, error: "dealId con formato inválido." };
+  }
+  if (leadId && !isUuid(leadId)) {
+    await logAiAction({ tenantId, userId, toolName: "create_reminder", args, status: "validation_error", errorMessage: "leadId inválido", startedAt: t0 });
+    return { ok: false, error: "leadId con formato inválido." };
+  }
+  if (dealId) {
+    const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, tenantId }, select: { id: true } });
+    if (!deal) {
+      await logAiAction({ tenantId, userId, toolName: "create_reminder", args, status: "validation_error", errorMessage: "Deal no encontrado", startedAt: t0 });
+      return { ok: false, error: "El deal indicado no existe en tu organización." };
+    }
+  }
+  if (leadId) {
+    const lead = await prisma.crmLead.findFirst({ where: { id: leadId, tenantId }, select: { id: true } });
+    if (!lead) {
+      await logAiAction({ tenantId, userId, toolName: "create_reminder", args, status: "validation_error", errorMessage: "Lead no encontrado", startedAt: t0 });
+      return { ok: false, error: "El lead indicado no existe en tu organización." };
+    }
+  }
+  try {
+    const task = await prisma.crmTask.create({
+      data: {
+        tenantId,
+        title,
+        type: "reminder",
+        status: "open",
+        dueAt,
+        assignedTo: userId,
+        dealId,
+        leadId,
+      },
+    });
+    await logAiAction({
+      tenantId,
+      userId,
+      toolName: "create_reminder",
+      args,
+      status: "success",
+      resultEntityId: task.id,
+      resultEntityType: "crm_task",
+      startedAt: t0,
+    });
+    return {
+      ok: true,
+      data: {
+        id: task.id,
+        title: task.title,
+        dueAt: task.dueAt?.toISOString() ?? null,
+        entityType: "crm_task",
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "create_reminder", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo crear el recordatorio: ${msg}` };
+  }
+}
+
+async function toolCompleteReminder(
+  tenantId: string,
+  userId: string,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  const id = typeof args.id === "string" ? args.id.trim() : "";
+  if (!id || !isUuid(id)) {
+    await logAiAction({ tenantId, userId, toolName: "complete_reminder", args, status: "validation_error", errorMessage: "id inválido", startedAt: t0 });
+    return { ok: false, error: "id del recordatorio inválido." };
+  }
+  const task = await prisma.crmTask.findFirst({
+    where: { id, tenantId, type: "reminder", assignedTo: userId },
+    select: { id: true, title: true, status: true },
+  });
+  if (!task) {
+    await logAiAction({ tenantId, userId, toolName: "complete_reminder", args, status: "validation_error", errorMessage: "No encontrado", startedAt: t0 });
+    return { ok: false, error: "Recordatorio no encontrado o no te pertenece." };
+  }
+  if (task.status === "done") {
+    return { ok: true, data: { id: task.id, title: task.title, status: "done", alreadyDone: true } };
+  }
+  try {
+    await prisma.crmTask.update({ where: { id: task.id }, data: { status: "done" } });
+    await logAiAction({
+      tenantId,
+      userId,
+      toolName: "complete_reminder",
+      args,
+      status: "success",
+      resultEntityId: task.id,
+      resultEntityType: "crm_task",
+      startedAt: t0,
+    });
+    return { ok: true, data: { id: task.id, title: task.title, status: "done" } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "complete_reminder", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo completar el recordatorio: ${msg}` };
+  }
+}
+
 async function toolCreateTicket(tenantId: string, userId: string, perms: RolePermissions, args: Record<string, unknown>) {
   const t0 = Date.now();
   if (!ensureOpsTickets(perms)) {
@@ -6599,6 +6791,9 @@ export async function executeToolCallV2(
   if (toolName === "create_recurring_invoice") return await toolCreateRecurringInvoice(tenantId, userId, perms, args);
   if (toolName === "create_factoring_company") return await toolCreateFactoringCompany(tenantId, userId, perms, args);
   if (toolName === "create_ticket") return await toolCreateTicket(tenantId, userId, perms, args);
+  if (toolName === "create_reminder") return await toolCreateReminder(tenantId, userId, args);
+  if (toolName === "complete_reminder") return await toolCompleteReminder(tenantId, userId, args);
+  if (toolName === "get_my_reminders") return await toolGetMyReminders(tenantId, userId);
   if (toolName === "transition_ticket") return await toolTransitionTicket(tenantId, userId, perms, args);
   if (toolName === "take_ticket") return await toolTakeTicket(tenantId, userId, perms, args);
   if (toolName === "comment_ticket") return await toolCommentTicket(tenantId, userId, perms, args);

@@ -7,6 +7,8 @@
  *  - `modal`: abre un modal nativo por `callbackId` (mismo del shortcut).
  */
 
+import { BRIEF_PROMPT } from "./daily-brief";
+
 export type SubCommand =
   | { name: string; description: string; usage?: string; kind: "prompt"; toPrompt: (rest: string) => string }
   | { name: string; description: string; usage?: string; kind: "modal"; callbackId: string };
@@ -30,6 +32,12 @@ export const SUBCOMMANDS: SubCommand[] = [
     description: "pendientes de tu aprobación (tickets · rendiciones · turnos extra)",
     kind: "modal",
     callbackId: "opai_aprobaciones",
+  },
+  {
+    name: "brief",
+    description: "brief ejecutivo del día (tickets, aprobaciones, cotizaciones, caja)",
+    kind: "prompt",
+    toPrompt: () => BRIEF_PROMPT,
   },
   {
     name: "caja",

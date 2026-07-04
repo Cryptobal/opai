@@ -8,6 +8,9 @@
  */
 
 import { getPlatformAIConfig } from "@/lib/platform-ai-service";
+import { prisma } from "@/lib/prisma";
+import { decryptApiKey } from "@/lib/ai-encryption";
+import { KNOWN_PROVIDERS } from "@/lib/ai-known-models";
 import OpenAI from "openai";
 
 /* ── Types ── */
@@ -47,13 +50,20 @@ export type CompletionParams = {
 /* ── Config retrieval ── */
 
 /**
- * Reads the platform-level AI config (managed by Platform Admin).
- * The tenantId parameter is kept for signature compatibility but is no longer
- * used to look up per-tenant providers.
+ * Reads tenant AI provider first; falls back to platform-level config (or env).
  */
 export async function getHelpChatAIConfig(
-  _tenantId: string,
+  tenantId: string,
 ): Promise<HelpChatAIConfig | null> {
+  if (tenantId) {
+    try {
+      const tenantCfg = await readTenantHelpChatConfig(tenantId);
+      if (tenantCfg) return tenantCfg;
+    } catch (error) {
+      console.warn("[help-chat-provider] Error reading tenant AI config:", error);
+    }
+  }
+
   const cfg = await getPlatformAIConfig();
   if (!cfg) return null;
 
@@ -64,6 +74,46 @@ export async function getHelpChatAIConfig(
     model: cfg.modelId,
     displayName: cfg.displayName,
     source: cfg.displayName.endsWith("(env)") ? "env" : "platform",
+  };
+}
+
+async function readTenantHelpChatConfig(tenantId: string): Promise<HelpChatAIConfig | null> {
+  const provider = await prisma.tenantAiProvider.findFirst({
+    where: { tenantId, isActive: true, apiKey: { not: null } },
+    include: {
+      models: { where: { isDefault: true, isActive: true }, take: 1 },
+    },
+  });
+  if (!provider?.apiKey) return null;
+
+  let model: { modelId: string; displayName: string } | null = provider.models[0] ?? null;
+  if (!model) {
+    model = await prisma.tenantAiModel.findFirst({
+      where: { providerId: provider.id, isActive: true },
+      orderBy: { costTier: "asc" },
+    });
+  }
+  if (!model) return null;
+
+  let apiKey: string;
+  try {
+    apiKey = decryptApiKey(provider.apiKey);
+    if (!apiKey.trim()) return null;
+  } catch (error) {
+    console.warn("[help-chat-provider] Tenant API key decrypt failed:", error);
+    return null;
+  }
+
+  const fallbackUrl =
+    KNOWN_PROVIDERS.find((kp) => kp.providerType === provider.providerType)?.defaultBaseUrl ?? "";
+
+  return {
+    providerType: provider.providerType as "openai" | "anthropic" | "google",
+    apiKey,
+    baseUrl: provider.baseUrl || fallbackUrl,
+    model: model.modelId,
+    displayName: model.displayName,
+    source: "platform",
   };
 }
 
