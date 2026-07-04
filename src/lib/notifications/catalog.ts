@@ -583,6 +583,12 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     module: 'ops', submodule: 'rondas', category: 'Operaciones - Rondas',
     audiences: ['rondas'], defaults: { rondas: { push: true, email: false } },
   },
+  {
+    key: 'rondas_daily_digest', label: 'Digest diario de rondas',
+    description: 'Resumen matinal del cumplimiento de rondas del día anterior, por instalación',
+    module: 'ops', submodule: 'rondas', category: 'Operaciones - Rondas',
+    audiences: ['admin'], defaults: { admin: adminBell() },
+  },
 
   // ── Supervisión / Gastos / Payroll ──
   {
