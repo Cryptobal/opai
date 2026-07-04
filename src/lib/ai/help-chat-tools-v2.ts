@@ -162,12 +162,15 @@ function v2ToolDefinitions() {
       type: "function" as const,
       function: {
         name: "search_installations",
-        description: "Busca instalaciones por nombre o dirección; incluye supervisor asignado si existe.",
+        description:
+          "Busca instalaciones por nombre, dirección, ciudad o nombre del cliente (cuenta); incluye supervisor asignado si existe. Acepta filtros accountId/status. Para 'las instalaciones del cliente X' puedes llamarla directo con query: 'X'.",
         parameters: {
           type: "object",
           properties: {
             query: { type: "string" },
             limit: { type: "number" },
+            accountId: { type: "string", description: "UUID de la cuenta para listar SOLO sus instalaciones (obténlo con search_accounts)." },
+            status: { type: "string", enum: ["prospect", "active", "inactive"] },
           },
           required: ["query"],
         },
@@ -1608,6 +1611,19 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   create_factoring_company: "Crear empresa de factoring",
 };
 
+/** Descripción humana corta de una escritura diferida para la tarjeta de Slack. */
+export function describeWriteArgs(toolName: string, args: Record<string, unknown>): string {
+  const label = WRITE_TOOL_LABELS[toolName] ?? toolName;
+  const name = [args.name, args.title, args.companyName, args.code]
+    .find((v): v is string => typeof v === "string" && !!v.trim());
+  const fields = Object.entries(args)
+    .filter(([k, v]) => k !== "id" && v !== undefined && v !== null && typeof v !== "object")
+    .slice(0, 3)
+    .map(([k, v]) => `${k}: ${String(v).slice(0, 30)}`);
+  const detail = [name, fields.join(", ")].filter(Boolean).join(" → ");
+  return detail ? `${label} · ${detail}`.slice(0, 140) : label;
+}
+
 /** Tools que viven en la sección de escritura pero son de LECTURA (no diferir). */
 const WRITE_SECTION_READ_ONLY: ReadonlySet<string> = new Set(["get_quote_proposal"]);
 
@@ -1797,17 +1813,27 @@ async function toolGetDealPipeline(tenantId: string) {
   };
 }
 
-async function toolSearchInstallations(tenantId: string, query: string, limit: number) {
+async function toolSearchInstallations(
+  tenantId: string,
+  query: string,
+  limit: number,
+  accountId?: string,
+  status?: string,
+) {
   const q = query.trim();
   const take = Math.max(1, Math.min(limit || 10, 20));
-  const where: Prisma.CrmInstallationWhereInput = {
-    tenantId,
-    OR: [
+  const where: Prisma.CrmInstallationWhereInput = { tenantId };
+  // Con accountId y sin texto, listamos TODAS las instalaciones de la cuenta.
+  if (q || !accountId) {
+    where.OR = [
       { name: { contains: q, mode: "insensitive" } },
       { address: { contains: q, mode: "insensitive" } },
       { city: { contains: q, mode: "insensitive" } },
-    ],
-  };
+      { account: { name: { contains: q, mode: "insensitive" } } },
+    ];
+  }
+  if (accountId) where.accountId = accountId;
+  if (status === "prospect" || status === "active" || status === "inactive") where.status = status;
   const rows = await prisma.crmInstallation.findMany({
     where,
     take,
@@ -1817,6 +1843,8 @@ async function toolSearchInstallations(tenantId: string, query: string, limit: n
       name: true,
       status: true,
       city: true,
+      address: true,
+      accountId: true,
       account: { select: { name: true } },
       supervisorAssignments: {
         where: { isActive: true },
@@ -1832,6 +1860,8 @@ async function toolSearchInstallations(tenantId: string, query: string, limit: n
     name: r.name,
     status: r.status,
     city: r.city,
+    address: r.address,
+    accountId: r.accountId,
     accountName: r.account?.name ?? null,
     supervisor: r.supervisorAssignments[0]?.supervisor
       ? {
@@ -6072,6 +6102,8 @@ export async function executeToolCallV2(
             tenantId,
             typeof args.query === "string" ? args.query : "",
             typeof args.limit === "number" ? args.limit : 10,
+            typeof args.accountId === "string" ? args.accountId : undefined,
+            typeof args.status === "string" ? args.status : undefined,
           ),
         };
       case "get_daily_attendance": {

@@ -9,6 +9,7 @@ import type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
 import { buildHelpChatSystemPromptV2 } from "@/lib/ai/help-chat-system-prompt-v2";
 import { parseVisualBlocks } from "@/lib/ai/help-chat-visual-types";
 import {
+  hasWriteIntent,
   resolveFunctionalIntent,
   shouldUseInferredAnswerUpfront,
 } from "@/lib/ai/help-chat-intents";
@@ -252,7 +253,8 @@ export async function POST(request: NextRequest) {
     .slice(-6)
     .filter(m => m.role === "assistant" && m.content.includes("No tengo suficiente información")).length;
   const frustrated = detectFrustration(userMessage);
-  const effectiveModel = resolveEffectiveModel(aiConfig, { retrievalMaxScore, recentFallbackCount, frustrated });
+  const writeIntent = cfg.allowWrites && hasWriteIntent(userMessage);
+  const effectiveModel = resolveEffectiveModel(aiConfig, { retrievalMaxScore, recentFallbackCount, frustrated, writeIntent });
 
   const configWithModel: HelpChatAIConfig = { ...aiConfig, model: effectiveModel };
 

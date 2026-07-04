@@ -221,6 +221,14 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     return;
   }
 
+  // Propiedad: solo quien pidió la acción del bot puede confirmarla o
+  // cancelarla (las decisiones de tickets siguen siendo multi-aprobador).
+  if ((actionId === "pending_confirm" || actionId === "pending_cancel") &&
+      pending.requestedBySlackUserId && pending.requestedBySlackUserId !== slackUserId) {
+    if (responseUrl) await slackRespondUrl(responseUrl, { response_type: "ephemeral", text: `Solo <@${pending.requestedBySlackUserId}> (quien pidió esta acción) puede confirmarla o cancelarla.` });
+    return;
+  }
+
   if (actionId === "pending_cancel") {
     if (await claimPending(pending.id, "CANCELLED", linked.adminId)) {
       await respondCard(ctx, `❌ Cancelado por <@${slackUserId}>`);

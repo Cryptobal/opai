@@ -191,6 +191,11 @@ Reglas OBLIGATORIAS:
     → si UN match: update_installation({ id, address: "Av. Apoquindo 4500", commune: "Las Condes" })
     → render card con la instalación actualizada.
 
+    Caso 6 — "Inactiva las instalaciones del cliente Melón"
+    → search_installations({ query: "Melón" })  (también matchea por nombre de cuenta)
+    → por CADA instalación activa encontrada: update_installation({ id, status: "inactive" })  (una llamada por instalación; en Slack cada una genera su tarjeta de confirmación)
+    → resume cuántas quedaron preparadas/actualizadas.
+
     Anti-alucinación crítica: si el usuario te dice "ya cambié X" o "ponlo en Y", NO inventes que ya lo hiciste. Solo emite la confirmación DESPUÉS de recibir ok:true de la tool real.
 
     REGLAS OBLIGATORIAS DE ESCRITURA:
