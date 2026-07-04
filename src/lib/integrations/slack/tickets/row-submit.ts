@@ -5,6 +5,7 @@
  * poder mostrar el resultado; errores → mensaje en el modal.
  */
 
+import { prisma } from "@/lib/prisma";
 import { hasModuleAccess } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { transitionTicketStatus } from "@/lib/tickets-transition";
@@ -28,6 +29,12 @@ const fieldError = (block: string, msg: string): ModalSubmitResult => ({
   ack: { response_action: "errors", errors: { [block]: msg } },
 });
 
+/** Nombre real del admin vinculado (scoped al tenant) para la confirmación. */
+async function resolveAdminName(tenantId: string, adminId: string): Promise<string | null> {
+  const a = await prisma.admin.findFirst({ where: { id: adminId, tenantId }, select: { name: true } }).catch(() => null);
+  return a?.name ?? null;
+}
+
 async function audit(ctx: ModalSubmitContext, ticketId: string, action: string) {
   await logAudit({
     action: "UPDATE", entity: "OpsTicket", entityId: ticketId, tenantId: ctx.tenantId,
@@ -43,8 +50,12 @@ const commentModal: ModalDef = {
     if (!body.trim()) return fieldError("body", "Escribe un comentario.");
     const r = await addTicketComment({ tenantId: ctx.tenantId, actorId: ctx.linked.adminId, ticketId, body });
     if (!r.ok) return fieldError("body", r.error);
+    // `via: slack_tray` es la provenance (no hay columna source en el modelo; se
+    // mantiene paridad exacta con un comentario web). El nombre real del autor
+    // vinculado va en la confirmación (antes se veía un nombre ajeno / ninguno).
     await audit(ctx, ticketId, "comment");
-    return done("Comentario", `💬 Comentario agregado a *${r.code}*.`);
+    const author = await resolveAdminName(ctx.tenantId, ctx.linked.adminId);
+    return done("Comentario", `💬 Comentario agregado a *${r.code}*${author ? ` por *${author}*` : ""}.`);
   },
 };
 
