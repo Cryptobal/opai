@@ -979,3 +979,64 @@ la tarjeta informa el estado real.
 - [ ] Contador del Home = suma real de los tres dominios.
 - [ ] Carrera de dos aprobadores → el segundo recibe aviso limpio ("ya fue resuelto").
 - [ ] 375px usable (filas densas de una línea + botones).
+
+---
+
+# Fase 14 — Aplazar operativo · comentarios reales · hilo = feed · recordatorios sin spam
+
+## Títulos de modal seguros (B1)
+
+Slack RECHAZA `views.open/push/update` con `invalid_arguments` (sin detalle) si el
+`title.text` supera **24 chars**. `pt()` cortaba a 75 → "Aplazar SLA TK-12345" o
+"Pendientes de mi aprobación" (27) reventaban el modal en silencio: "el botón no hacía
+nada". Confirmado en runtime logs de Vercel.
+
+- `modals/title.ts`: `clampModalTitle` (≤24, corte con "…"), `modalTitle`, `clampViewTitle`.
+- Red de seguridad en el **choke-point** de la API (`slackOpenView/UpdateView/PushView`
+  vía `callViewMethod`) y en el ACK `response_action` de la ruta de interactividad → cubre
+  TODOS los builders, incluidas las vistas devueltas por HTTP que no pasan por `api.ts`.
+- Al recibir `invalid_arguments` se **loguea el título ofensor** (`title="…"`): la clase de
+  bug deja de ser muda. Builders con títulos dinámicos (row-views, tray) usan `modalTitle`.
+
+## El comentario de Slack ES un comentario del ticket (B2)
+
+El submit de comentar (tarjeta y bandeja) ya creaba el mismo `OpsTicketComment` que la web
+(mismo modelo/autor que renderiza el timeline). Se agrega el **autor real** en la
+confirmación ("Comentario agregado a TK-X por *Nombre*"). La provenance `slack` vive en el
+`logAudit` (`via: slack_tray`); no se agrega columna `source` para conservar paridad exacta
+con un comentario web.
+
+## El hilo = feed de actividad completo (B3)
+
+- **Root en el primer contacto** (`dispatch.ts`): la raíz del hilo (`TicketSlackThread`) se
+  ancla con el PRIMER mensaje de un ticket sin hilo previo, **sea cual sea el evento** (antes
+  solo `ticket_created`). El `unique(ticketId)` + catch absorbe la carrera. Efecto: un ticket
+  anterior a F7.1 funda su hilo con el próximo recordatorio y todos los siguientes encadenan.
+- **Comentarios al hilo** (`ticket-thread-mirror.ts`): cada comentario cae como reply
+  (`💬 autor: texto`; nombre/avatar nativo vía `chat:write.customize` si el autor está
+  vinculado). Aplica a comentarios desde Slack (tarjeta/bandeja, vía `work` en `after()`) y
+  desde la web (route POST `/comments`, vía `after()`). La tarjeta de notificación de
+  comentario deja de duplicar (`skipSlack`) porque el espejo limpio la reemplaza.
+- **Cambios de estado/decisiones** caen solos como reply gracias al root: ya se rutean por
+  `notify` con `key` `ticket_*` y `threadTs` del hilo.
+
+## Recordatorios configurables por tenant (B4)
+
+Ver **docs/tickets/sla.md**. Intervalos por prioridad, tope diario por ticket y "solo resumen
+diario" viven en **Configuración → Notificaciones → Recordatorios de SLA** (Setting
+`notification_preferences.slaReminderPolicy`, sin migración; `src/lib/tickets-sla-policy.ts`).
+El monitor los lee por tenant, cuenta los recordatorios del día por ticket (dedupKey
+`sla_reminder*`) para el tope, y respeta el botón **Silenciar** (`snoozedUntil`).
+
+## Matriz de pruebas manuales (Fase 14)
+
+- [ ] Los 5 botones de la tarjeta abren y ejecutan (comentar · estado · aplazar · pausar · silenciar).
+- [ ] "Pendientes de mi aprobación" (título largo) abre sin `invalid_arguments`.
+- [ ] Comentar desde Slack → el comentario aparece en el timeline de OPAI con el autor correcto.
+- [ ] Comentar desde la web → aparece en el hilo de Slack (`💬 autor: texto`), sin tarjeta duplicada.
+- [ ] Segundo recordatorio de un ticket anterior a F7.1 → encadena bajo el primero (funda el hilo).
+- [ ] Ticket silenciado (Silenciar 1h) → el monitor no recuerda mientras dure.
+- [ ] Tope diario (3) → el 4º recordatorio del día no se envía.
+- [ ] Cambiar intervalo P1 a 4h en config → el monitor deja de recordar antes de las 4h.
+- [ ] Prioridad en "solo resumen diario" → sin campanas, solo en el digest.
+- [ ] 375px usable (sección de recordatorios: fila prioridad + input + toggle).

@@ -18,8 +18,12 @@ Gate por bloque: `npx prisma generate && npx tsc --noEmit`. Un commit c/u. ≤15
 
 ## Estado
 
-- [ ] B1 — clamp de títulos compartido + offender-logging (Aplazar SLA y Aprobaciones abren)
-- [ ] B2 — comentario Slack con source:"slack" + autor en confirmación
-- [ ] B3 — hilo = feed (root en cualquier evento + comentarios al hilo)
-- [ ] B4 — política de recordatorios configurable por tenant (Setting) + tope diario
-- [ ] B5 — QA + docs
+- [x] B1 — clamp de títulos compartido + offender-logging (Aplazar SLA y Aprobaciones abren)
+- [x] B2 — comentario Slack con autor en confirmación (provenance vía logAudit, sin columna)
+- [x] B3 — hilo = feed (root en cualquier evento + comentarios al hilo web/Slack)
+- [x] B4 — política de recordatorios configurable por tenant (Setting) + tope diario
+- [x] B5 — QA (matriz estática) + docs (slack.md Fase 14 · tickets/sla.md)
+
+Gate `npx prisma generate && npx tsc --noEmit --incremental false` → exit 0 en cada bloque.
+Verificación end-to-end en Slack (clic de botones) NO ejecutable en esta sesión (Slack MCP
+sin autorizar); la matriz queda como checklist manual.
