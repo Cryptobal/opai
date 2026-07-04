@@ -1269,3 +1269,115 @@ Ver el docstring de `comercial/pipeline.ts`. Resumen:
       `createdAt`, nunca "—" (caso Zelestra).
 - [ ] `← Pipeline` vuelve al overview sin cerrar el modal.
 - [ ] Legible a **375px**; títulos de modal ≤24; overflow ≤5 opciones.
+
+# Fase 20 — Pulido visual: Home sin redundancia · hub semántico · defaults inteligentes
+
+## Principios visuales del Home/hub (regla para TODA acción futura)
+
+1. **El contador ES el botón.** Un número que importa se toca: `🎫 6 abiertos`
+   abre la bandeja en el alcance que cuenta ese número. Nunca un contador
+   "decorativo" con un botón aparte que repita el destino.
+2. **El texto del botón es la acción** con su emoji (`⏱ Ingresar turno extra`,
+   `➕ Nuevo ticket`) — nunca un "Abrir" genérico. Los links a la web dicen a
+   dónde van (`Abrir en OPAI`, `✏️ Completar en OPAI`).
+3. **Revelación progresiva.** El Home muestra 3-4 accesos contextuales por rol;
+   `⚡ Todas las acciones` es la ÚNICA puerta a la cola larga (el hub). Agregar
+   una acción nueva = agregarla al registro del hub, NO al Home.
+4. **Cero duplicados semánticos.** Ninguna acción aparece dos veces en el Home;
+   si un contador ya navega a una bandeja, esa bandeja no tiene otro botón. Una
+   acción que es un *tipo* de otra (vacaciones = tipo de ticket) no es una
+   entrada propia.
+5. **Defaults = el caso del 90%.** Mis tickets aterriza en "Míos"; Mis
+   rendiciones aterriza en "Enviadas"; el botón de vencidos abre YA filtrado.
+   Los chips permiten cambiar, pero el primer render es el caso personal.
+
+## B1 — Hub semánticamente correcto
+
+- **"Solicitud de vacaciones" eliminada como acción propia** (era un TIPO de
+  ticket, `solicitud_vacaciones`): vive en el selector de tipos de "Nuevo
+  ticket", que lista los `OpsTicketType` activos con `origin` internal/both.
+  Requisito de datos: el tipo debe estar activo con ese origen en el tenant.
+  Se borró `actions/vacaciones.ts` (no había subcomando `/opai vacaciones` ni
+  shortcut del manifest apuntándole).
+- **"Ingresar turno extra"** (antes "Turno extra"): la acción registra al
+  GUARDIA que entra a cubrir — guardia existente (RUT o código) + instalación +
+  fecha + tipo — vía `createTurnoExtra` (mismo servicio que la web; queda
+  `pending`). El flujo destino ya era el correcto; el fix fue label + copy +
+  orden de campos. Para PERSONAS nuevas (alta con datos personales/bancarios,
+  Google Maps) el modal enlaza `/personas/guardias/ingreso-te` — ese alta no es
+  replicable en un modal Slack y no se finge.
+- **"Visita de supervisor"** sin cambios: deep-link honesto a
+  `/ops/supervision/nueva-visita` (la visita exige GPS real) — verificado.
+- **Botones del hub**: `${emoji} ${title}` desde el registro (`ActionDef.emoji`),
+  `action_id` único `opai_action_open_<callbackId>`, grupos con header +
+  divider, máx. 3 botones por actions block.
+
+## B2 — Home rediseñado (estructura fija)
+
+1. **"Tu día"** — contadores accionables: `🎫 {míos} abiertos` (→ Mis tickets
+   en "Míos", primary) · `🔴 {n} SLA vencidos` (→ bandeja vencidos alcance "Mi
+   equipo" — el MISMO que cuenta el número; danger si >0) · `✅ {n} por aprobar`
+   (→ bandeja unificada F13; OCULTO si 0). Debajo, el desglose F11 en una línea
+   `context`: `👤 tuyos · 👥 de tu equipo · ⚪ sin asignar` (sin-asignar solo
+   con visión global = módulo ops).
+2. **Divider.**
+3. **"Accesos rápidos"** — máx. 4 contextuales por rol: `➕ Nuevo ticket` (ops)
+   · `📊 Pipeline` (crm/deals) · `📇 {n} leads sin tomar` (crm/leads; el
+   contador es el botón: con pendientes abre la sub-bandeja sin-tomar, sin
+   pendientes abre la bandeja general) · `🧾 Nueva rendición` (finance edit) +
+   `⚡ Todas las acciones` al final. Se ELIMINARON el panel Comercial con
+   contadores propios y la lista larga que duplicaba el hub.
+4. **Footer** de una línea: ``Escríbeme `@OPAI` o usa `/opai ayuda` ``.
+
+Máx. 3 botones por `actions` block (Slack Home apila el resto de filas solo).
+
+## B3 — Defaults + Mis rendiciones gestionables
+
+- **Mis tickets** aterriza en scope `mine` (antes `my_team`); los chips F11
+  siguen permitiendo cambiar. `opai_tickets_vencidos` fija `my_team` explícito.
+- **Mis rendiciones** (`modals/mis-rendiciones.ts`):
+  - Chips sobre los estados REALES (`DRAFT | SUBMITTED | IN_APPROVAL | APPROVED
+    | REJECTED | PAID`): **Enviadas** (SUBMITTED+IN_APPROVAL, default) ·
+    Borradores (DRAFT) · Aprobadas (APPROVED+PAID) · Rechazadas (REJECTED).
+  - Cada fila: link al detalle canónico `/finanzas/rendiciones/{id}` ("Abrir en
+    OPAI"; en borradores "✏️ Completar en OPAI") + 📎 Boleta si existe.
+  - **Borrador → 🗑 Eliminar** con `confirm` nativo: misma regla que
+    `DELETE /api/finance/rendiciones/[id]` (solo DRAFT, solo el submitter, gate
+    `canDelete(finance, rendiciones)`), `logAudit` DELETE.
+  - **Enviada/En aprobación → ↩️ Retirar**: la transición SUBMITTED→DRAFT
+    existe en el servicio SOLO como reversión administrativa
+    (`/api/finance/rendiciones/[id]/revert`, capability `rendicion_configure`).
+    Se cabló con ese MISMO gate + ser el submitter: confirmación nativa,
+    approvals pendientes eliminadas (se recrean al re-enviar, igual que el
+    revert a DRAFT de la web), registro en `FinanceRendicionHistory`
+    (action `REVERTED`, comment "Retirada por el solicitante desde Slack") y
+    `logAudit`. **Sin la capability, la fila solo ofrece el link** (no se
+    inventó una transición self-service que la web no tiene). **Eliminar duro
+    de una ENVIADA queda excluido** (está en flujo de aprobación — regla de
+    irreversibles).
+- Tarjetas de entidad del asistente (`bot.ts`): botón "Abrir" → "Abrir en OPAI".
+
+## Matriz de pruebas manuales (Fase 20)
+
+> No ejecutable en la sesión de Claude (sin workspace Slack ni DB). Mocks a
+> 375px verificados en el reporte de la sesión. Checklist para Carlos:
+
+- [ ] Home a **375px**: filas de máx. 3 botones, sin desbordes; ningún "Abrir";
+      ninguna acción repetida.
+- [ ] `🎫 N abiertos` abre Mis tickets **en "Míos"** y N coincide; `🔴` abre la
+      bandeja de vencidos ya filtrada (alcance Mi equipo, mismo número);
+      `✅ por aprobar` abre la bandeja unificada y desaparece cuando llega a 0.
+- [ ] Hub (⚡): sin "Solicitud de vacaciones"; el tipo aparece dentro de
+      "Nuevo ticket" → selector de tipos (si no aparece: revisar que el
+      `OpsTicketType` esté activo con origin internal/both).
+- [ ] `⏱ Ingresar turno extra`: ingreso completo de un TE con guardia REAL
+      (RUT o código) + instalación + fecha → queda `pending` y visible en
+      `/te`; duplicado (mismo guardia+fecha+puesto) rechaza con error en campo;
+      RUT inexistente sugiere el alta en `/personas/guardias/ingreso-te`.
+- [ ] `📍 Visita de supervisor` abre y su botón aterriza en
+      `/ops/supervision/nueva-visita`.
+- [ ] Mis rendiciones aterriza en **Enviadas**; "Abrir en OPAI" aterriza en el
+      detalle correcto; 🗑 en borrador pide confirmación y elimina (aviso en el
+      modal + auditoría); ↩️ Retirar visible SOLO con `rendicion_configure`,
+      vuelve a Borrador y queda en el historial de la rendición (REVERTED).
+- [ ] Títulos de modal ≤24 chars en todos los flujos tocados.

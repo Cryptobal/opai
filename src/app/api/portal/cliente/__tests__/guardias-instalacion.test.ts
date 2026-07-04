@@ -248,11 +248,13 @@ describe("GET /api/portal/cliente/instalaciones/[id]/guardias", () => {
       { params: Promise.resolve({ id: "inst-1" }) },
     );
 
+    // La ruta delega en loadGuardiasForInstallations (helper compartido
+    // multi-instalación): el filtro va como `{ in: [...] }` aunque sea una sola.
     expect(guardiaFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           tenantId: "tenant-A",
-          currentInstallationId: "inst-1",
+          currentInstallationId: { in: ["inst-1"] },
           status: "active",
         }),
       }),
