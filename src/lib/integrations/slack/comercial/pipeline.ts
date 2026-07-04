@@ -93,7 +93,11 @@ async function openRoomsForDeals(tenantId: string, dealIds: string[]): Promise<M
 /* ── Vistas ── */
 
 function overviewView(stages: Array<{ id: string; name: string; count: number; sum: number }>): SlackView {
-  const blocks: unknown[] = [{ type: "section", text: { type: "mrkdwn", text: "*Pipeline comercial* — negocios abiertos por etapa" } }, { type: "divider" }];
+  const blocks: unknown[] = [
+    { type: "section", text: { type: "mrkdwn", text: "*Pipeline comercial* — negocios abiertos por etapa" } },
+    { type: "actions", block_id: "opai_pipe_header", elements: [{ type: "button", action_id: "pipe_search", text: pt("🔎 Buscar negocio") }] },
+    { type: "divider" },
+  ];
   const total = stages.reduce((s, x) => s + x.sum, 0);
   for (const s of stages) {
     blocks.push({
@@ -287,6 +291,28 @@ export async function handlePipelineAction(payload: {
     } catch (err) {
       console.error(`[slack] pipeline drill: no se pudo renderizar stageId=${stageId}:`, err);
       await slackUpdateView(workspace.botToken, viewId, infoView("Pipeline", "⚠️ No se pudo cargar esta etapa. Intenta de nuevo — el detalle quedó en los logs.")).catch(() => {});
+    }
+    return;
+  }
+
+  // 🔎 Buscar negocio (F21): apila el buscador universal sobre el pipeline.
+  // Mismo patrón loading-first que pipe_open (el trigger_id perece en ~3s).
+  if (action.action_id === "pipe_search") {
+    if (!payload.trigger_id) return;
+    const { loadingView, infoView } = await import("../modals/views");
+    let viewId = "";
+    try {
+      ({ id: viewId } = await slackPushView(workspace.botToken, payload.trigger_id, loadingView("Buscar negocio")));
+    } catch (err) {
+      console.error("[slack] pipe_search: push del loading falló:", err);
+      return;
+    }
+    try {
+      const { dealSearchView } = await import("./deal-search");
+      await slackUpdateView(workspace.botToken, viewId, await dealSearchView(tenantId, teamId, canWrite, "", "open"));
+    } catch (err) {
+      console.error("[slack] pipe_search: no se pudo renderizar el buscador:", err);
+      await slackUpdateView(workspace.botToken, viewId, infoView("Buscar negocio", "⚠️ No se pudo cargar el buscador. Intenta de nuevo.")).catch(() => {});
     }
     return;
   }

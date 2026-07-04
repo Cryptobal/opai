@@ -149,6 +149,12 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     await handlePipelineAction(payload as never);
     return;
   }
+  // Buscador universal de negocios (Fase 21): chips de alcance / abrir sala.
+  if (actionId?.startsWith("dsearch_")) {
+    const { handleDealSearchAction } = await import("./comercial/deal-search");
+    await handleDealSearchAction(payload as never);
+    return;
+  }
   // Ficha viva de una Deal Room (Fase 16): Avanzar etapa / Nota.
   if (actionId?.startsWith("dealroom_")) {
     const { handleDealRoomAction } = await import("./deal-rooms/actions");

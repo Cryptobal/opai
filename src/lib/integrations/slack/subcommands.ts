@@ -82,6 +82,13 @@ export const SUBCOMMANDS: SubCommand[] = [
     callbackId: "opai_pipeline",
   },
   {
+    name: "negocio",
+    description: "busca un negocio por nombre, cuenta o instalación (incluye cerrados)",
+    usage: "negocio <texto>",
+    kind: "modal",
+    callbackId: "opai_negocio",
+  },
+  {
     name: "cotizaciones",
     description: "bandeja de cotizaciones (filtra por estado)",
     usage: "cotizaciones [enviadas|borrador|aceptadas|rechazadas]",
