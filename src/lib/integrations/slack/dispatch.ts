@@ -9,11 +9,13 @@
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import type { UnifiedNotificationType } from "@/lib/notifications/catalog";
+import { getRondasNotifPolicy } from "@/lib/rondas/notification-policy";
 import { getWorkspaceForTenant } from "./workspace";
 import { approvalCardActionsBlock, buildNotificationBlocks, ticketActionsBlock, ticketCardActionsBlock, toContextFields } from "./blocks";
 import { enrichTicketFields, convertBodyMentions } from "./card-enrich";
 import { slackPostMessage, SlackApiError, isPermanentSlackError } from "./api";
 import { getOpenDealRoom, refreshDealRoomFicha } from "./deal-rooms/room";
+import { RONDA_INSTALLATION_ROUTE_KEYS, resolveInstallationSlackChannel } from "./installation-channel";
 
 interface DispatchInput {
   tenantId: string;
@@ -207,24 +209,119 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     threadTs = th?.slackTs;
   }
 
-  // Dedupe en ráfagas: mismo (tenant, key, title) dentro del mismo minuto. Para
-  // aprobaciones se incluye el entityId, así dos ítems distintos con el mismo
+  // Dedupe en ráfagas: mismo (tenant, key, title, canal) dentro del mismo minuto.
+  // Para aprobaciones se incluye el entityId, así dos ítems distintos con el mismo
   // título en el mismo minuto NO colisionan (perderían sus botones).
   const minute = Math.floor(Date.now() / 60000);
   // Rondas: el título es genérico ("✅ Ronda completada") — sin el rondaId dos
   // rondas distintas terminando el mismo minuto colisionarían en el dedupe.
-  const dedupeMaterial = approval
+  const dedupeMaterialBase = approval
     ? `${input.tenantId}|${input.typeDef.key}|${input.title}|e:${approval.entityId}|${minute}`
     : threadRondaId
       ? `${input.tenantId}|${input.typeDef.key}|${input.title}|r:${threadRondaId}|${minute}`
       : `${input.tenantId}|${input.typeDef.key}|${input.title}|${minute}`;
-  const dedupeKey = createHash("sha1").update(dedupeMaterial).digest("hex");
+
+  await deliverSlackCard({
+    tenantId: input.tenantId,
+    typeKey: input.typeDef.key,
+    workspace,
+    channelId,
+    text,
+    blocks,
+    threadTs,
+    dedupeMaterialBase,
+    link: input.link,
+    data: input.data,
+    approval,
+    threadSideEffects: {
+      threadTicketId,
+      threadRondaId,
+      rondaThreadTs,
+    },
+  });
+
+  // Ruteo adicional: tarjetas ronda_* también al canal Slack puenteado del chat
+  // de la instalación (además del canal por categoría). Dedupe si apuntan al mismo.
+  if (RONDA_INSTALLATION_ROUTE_KEYS.has(input.typeDef.key)) {
+    const installationId =
+      typeof input.data?.installationId === "string" ? input.data.installationId : null;
+    if (installationId) {
+      const policy = await getRondasNotifPolicy(input.tenantId);
+      if (policy.rondasRouteToInstallationChannel) {
+        const installChannelId = await resolveInstallationSlackChannel(input.tenantId, installationId);
+        if (installChannelId && installChannelId !== channelId) {
+          await deliverSlackCard({
+            tenantId: input.tenantId,
+            typeKey: input.typeDef.key,
+            workspace,
+            channelId: installChannelId,
+            text,
+            blocks,
+            dedupeMaterialBase,
+            link: input.link,
+            data: input.data,
+          });
+        }
+      }
+    }
+  }
+
+  // Ficha viva al día: todo evento del negocio que cae en su sala re-edita la
+  // tarjeta fijada (chat.update) para reflejar el estado actual. Best-effort.
+  if (dealRoom && dealId) {
+    await refreshDealRoomFicha(input.tenantId, dealId).catch((e) =>
+      console.error("[slack] refresh ficha tras evento falló:", e),
+    );
+  }
+}
+
+type SlackWorkspaceRow = NonNullable<Awaited<ReturnType<typeof getWorkspaceForTenant>>>;
+
+type DeliverSlackCardInput = {
+  tenantId: string;
+  typeKey: string;
+  workspace: SlackWorkspaceRow;
+  channelId: string;
+  text: string;
+  blocks: ReturnType<typeof buildNotificationBlocks>["blocks"];
+  dedupeMaterialBase: string;
+  threadTs?: string;
+  link?: string | null;
+  data?: Record<string, unknown> | null;
+  approval?: { kind: string; domain: "ticket" | "rendicion" | "te"; entityId: string } | null;
+  threadSideEffects?: {
+    threadTicketId?: string | null;
+    threadRondaId?: string | null;
+    rondaThreadTs?: string | undefined;
+  };
+};
+
+async function deliverSlackCard(input: DeliverSlackCardInput): Promise<void> {
+  const {
+    tenantId,
+    typeKey,
+    workspace,
+    channelId,
+    text,
+    blocks,
+    dedupeMaterialBase,
+    threadTs,
+    link,
+    data,
+    approval,
+    threadSideEffects,
+  } = input;
+  const { threadTicketId, threadRondaId, rondaThreadTs } = threadSideEffects ?? {};
+
+  const dedupeKey = createHash("sha1")
+    .update(`${dedupeMaterialBase}|c:${channelId}`)
+    .digest("hex");
 
   let outboxId: string;
   try {
     const row = await prisma.slackOutbox.create({
       data: {
-        tenantId: input.tenantId,
+        tenantId,
         workspaceId: workspace.id,
         channelId,
         payload: { text, blocks, thread_ts: threadTs } as object,
@@ -247,7 +344,7 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
   if (approval) {
     const pa = await prisma.slackPendingAction.create({
       data: {
-        tenantId: input.tenantId,
+        tenantId,
         workspaceId: workspace.id,
         kind: approval.kind,
         entityId: approval.entityId,
@@ -288,27 +385,27 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     // El unique(ticketId) + catch absorbe la carrera de eventos concurrentes.
     if (threadTicketId && !threadTs && ts) {
       await prisma.ticketSlackThread
-        .create({ data: { tenantId: input.tenantId, ticketId: threadTicketId, slackChannelId: channelId, slackTs: ts } })
+        .create({ data: { tenantId, ticketId: threadTicketId, slackChannelId: channelId, slackTs: ts } })
         .catch(() => {});
     }
     // Raíz del hilo de ronda (Fase 19): SOLO ronda_started funda el hilo (a
     // diferencia de tickets) — un término sin inicio queda suelto a propósito
     // (rondaStartedEnabled=false u offline sync). Unique + catch absorbe carreras.
-    if (threadRondaId && !rondaThreadTs && ts && input.typeDef.key === "ronda_started") {
+    if (threadRondaId && !rondaThreadTs && ts && typeKey === "ronda_started") {
       await prisma.rondaSlackThread
-        .create({ data: { tenantId: input.tenantId, rondaEjecucionId: threadRondaId, slackChannelId: channelId, slackTs: ts } })
+        .create({ data: { tenantId, rondaEjecucionId: threadRondaId, slackChannelId: channelId, slackTs: ts } })
         .catch(() => {});
     }
     // Término publicado como reply → la raíz se re-edita con el desenlace
     // ("🛡️ Ronda X · Instalación · Guardia → ✅ 12/12 en 42 min").
-    if (threadRondaId && rondaThreadTs && ts && input.typeDef.key === "ronda_completed") {
+    if (threadRondaId && rondaThreadTs && ts && typeKey === "ronda_completed") {
       const { updateRondaThreadRoot } = await import("./rondas-thread");
       await updateRondaThreadRoot({
         botToken: workspace.botToken,
         channelId,
         rootTs: rondaThreadTs,
-        data: input.data,
-        link: input.link,
+        data,
+        link,
       });
     }
   } catch (err) {
@@ -325,13 +422,5 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
       // permanent → attempts al tope: el cron (attempts < 5) no lo vuelve a tomar.
       data: { status: "FAILED", attempts: permanent ? 5 : 1, lastError: reason },
     });
-  }
-
-  // Ficha viva al día: todo evento del negocio que cae en su sala re-edita la
-  // tarjeta fijada (chat.update) para reflejar el estado actual. Best-effort.
-  if (dealRoom && dealId) {
-    await refreshDealRoomFicha(input.tenantId, dealId).catch((e) =>
-      console.error("[slack] refresh ficha tras evento falló:", e),
-    );
   }
 }
