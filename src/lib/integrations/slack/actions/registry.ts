@@ -1,12 +1,14 @@
 /**
- * Registro declarativo de acciones rápidas de OPAI en Slack (Fase 7).
+ * Registro declarativo de acciones rápidas de OPAI en Slack (Fase 7 · F20).
  *
  * Una acción es un `ModalDef` (build + submit + gate `requires`) con metadata de
- * `group` para agruparla en el hub. El hub, `/opai <accion>` y los shortcuts
- * consumen ESTE registro: agregar una acción = agregar una entrada acá.
+ * `group` para agruparla en el hub y `emoji` para el botón (el texto del botón
+ * ES la acción — nunca un "Abrir" genérico). El hub, `/opai <accion>` y los
+ * shortcuts consumen ESTE registro: agregar una acción = agregar una entrada acá.
  *
- * Los modales de Fase 5 (crear ticket, rendición) se migran sin cambios de
- * comportamiento — solo se les añade el grupo.
+ * Semántica (F20): "Solicitud de vacaciones" NO es una acción propia — es un
+ * TIPO de ticket (`solicitud_vacaciones`) y vive dentro de "Nuevo ticket" (su
+ * selector de tipos lista los tipos activos con origen internal/both).
  */
 
 import type { ModalDef } from "../modals/types";
@@ -16,23 +18,23 @@ import { misRendicionesModal } from "../modals/mis-rendiciones";
 import { trayModal } from "../tickets/tray";
 import { visitaModal } from "./visita";
 import { turnoExtraModal } from "./turno-extra";
-import { vacacionesModal } from "./vacaciones";
 
 export interface ActionDef extends ModalDef {
   /** Grupo visible en el hub (p. ej. "Tickets", "Operaciones", "Finanzas"). */
   group: string;
+  /** Emoji del botón en el hub (el label es `${emoji} ${title}`). */
+  emoji: string;
 }
 
 export const ACTIONS: ActionDef[] = [
-  // "Mis tickets" reusa la bandeja existente (opai_tickets); el botón Abrir la
+  // "Mis tickets" reusa la bandeja existente (opai_tickets); el botón del hub la
   // apila vía opai_action_open → getModal, sin duplicar el builder.
-  { ...trayModal, group: "Tickets" },
-  { ...ticketModal, group: "Tickets" },
-  { ...visitaModal, group: "Operaciones" },
-  { ...turnoExtraModal, group: "Operaciones" },
-  { ...vacacionesModal, group: "RRHH" },
-  { ...rendicionModal, group: "Finanzas" },
-  { ...misRendicionesModal, group: "Finanzas" },
+  { ...trayModal, group: "Tickets", emoji: "🎫" },
+  { ...ticketModal, group: "Tickets", emoji: "➕" },
+  { ...visitaModal, group: "Operaciones", emoji: "📍" },
+  { ...turnoExtraModal, group: "Operaciones", emoji: "⏱" },
+  { ...rendicionModal, group: "Finanzas", emoji: "🧾" },
+  { ...misRendicionesModal, group: "Finanzas", emoji: "📄" },
 ];
 
 export function getAction(id: string): ActionDef | undefined {
