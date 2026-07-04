@@ -16,6 +16,7 @@ export function leadCockpitActionsBlock(leadId: string, waUrl: string | null): u
     elements.push({ type: "button", action_id: "leadcard_wa", url: waUrl, text: { type: "plain_text", text: "🟢 WhatsApp", emoji: true } });
   }
   elements.push(
+    { type: "button", action_id: "leadcard_quote", value: leadId, text: { type: "plain_text", text: "✉️ Cotizar", emoji: true } },
     { type: "button", action_id: "leadcard_remind", value: leadId, text: { type: "plain_text", text: "📅 Recordar 2h", emoji: true } },
     { type: "button", action_id: "leadcard_discard", value: leadId, style: "danger", text: { type: "plain_text", text: "❌ Descartar", emoji: true } },
   );

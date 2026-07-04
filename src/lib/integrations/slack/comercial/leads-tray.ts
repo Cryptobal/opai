@@ -46,6 +46,7 @@ function rowBlocks(l: LeadRow, waUrl: string | null): unknown[] {
 
   const actions: unknown[] = [];
   if (!l.firstContactAt) actions.push({ type: "button", action_id: "leadtray_take", value: l.id, style: "primary", text: pt("👤 Tomar") });
+  actions.push({ type: "button", action_id: "leadtray_quote", value: l.id, text: pt("✉️ Cotizar") });
   actions.push({ type: "button", action_id: "leadtray_remind", value: l.id, text: pt("📅 Recordar 2h") });
   actions.push({ type: "button", action_id: "leadtray_discard", value: l.id, style: "danger", text: pt("❌ Descartar") });
   return [section, { type: "actions", block_id: `opai_leadrow_${l.id}`, elements: actions }];

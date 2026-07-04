@@ -135,6 +135,12 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     await handleLeadCardAction(payload as never);
     return;
   }
+  // Tarjeta-resultado de cotización (B2): Enviar al cliente. (Ver PDF / Editar = URL.)
+  if (actionId === "quotecard_send") {
+    const { handleQuoteCardAction } = await import("./comercial/quote-from-lead");
+    await handleQuoteCardAction(payload as never);
+    return;
+  }
 
   // Momento caliente (Fase 15): ⏰ Recordar 1h de la tarjeta quote_viewed.
   if (actionId?.startsWith("quoteviewed_")) {

@@ -14,12 +14,13 @@ import { rejectReasonModal } from "../approvals/reason-modal";
 import { misRendicionesModal } from "./mis-rendiciones";
 import { leadsTrayModal, leadsTrayNuevosModal } from "../comercial/leads-tray";
 import { discardLeadModal } from "../comercial/lead-modals";
+import { cotizarLeadModal } from "../comercial/quote-from-lead";
 import { pipelineModal, advanceStageModal, dealNoteModal, dealLostModal } from "../comercial/pipeline";
 import { quotesTrayModal, quotesTrayFiltered } from "../comercial/quotes-tray";
 
 const MODALS: ModalDef[] = [
   hubModal, trayModal, trayOverdueModal, inboxModal, rejectReasonModal, misRendicionesModal,
-  leadsTrayModal, leadsTrayNuevosModal, discardLeadModal,
+  leadsTrayModal, leadsTrayNuevosModal, discardLeadModal, cotizarLeadModal,
   pipelineModal, advanceStageModal, dealNoteModal, dealLostModal,
   quotesTrayModal, quotesTrayFiltered("sent"), quotesTrayFiltered("draft"), quotesTrayFiltered("accepted"), quotesTrayFiltered("rejected"),
   ...rowModals, ...ACTIONS,

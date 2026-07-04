@@ -11,6 +11,7 @@ import { slackUpdateView, slackPushView, slackOpenView, slackRespondUrl } from "
 import { unpackMetadata } from "../modals/views";
 import { renderLeadTray } from "./leads-tray";
 import { discardLeadModalView } from "./lead-modals";
+import { buildCotizarView } from "./quote-from-lead";
 import { takeLead, remindLead } from "./lead-actions";
 import type { LeadTrayFilters } from "./leads-list";
 
@@ -57,6 +58,13 @@ export async function handleLeadTrayAction(payload: Payload): Promise<void> {
   if (actionId === "leadtray_discard") {
     if (!action.value || !payload.trigger_id) return;
     await slackPushView(workspace.botToken, payload.trigger_id, discardLeadModalView(action.value));
+    return;
+  }
+
+  // Cotizar: abre el modal de cotización prellenado sobre la bandeja (views.push).
+  if (actionId === "leadtray_quote") {
+    if (!action.value || !payload.trigger_id) return;
+    await slackPushView(workspace.botToken, payload.trigger_id, await buildCotizarView(tenantId, action.value));
     return;
   }
 
@@ -118,6 +126,11 @@ export async function handleLeadCardAction(payload: Payload): Promise<void> {
   if (actionId === "leadcard_discard") {
     if (!payload.trigger_id) return;
     await slackOpenView(workspace.botToken, payload.trigger_id, discardLeadModalView(leadId));
+    return;
+  }
+  if (actionId === "leadcard_quote") {
+    if (!payload.trigger_id) return;
+    await slackOpenView(workspace.botToken, payload.trigger_id, await buildCotizarView(tenantId, leadId));
     return;
   }
 }
