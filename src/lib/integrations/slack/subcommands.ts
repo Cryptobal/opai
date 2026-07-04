@@ -75,6 +75,19 @@ export const SUBCOMMANDS: SubCommand[] = [
     kind: "modal",
     callbackId: "opai_leads",
   },
+  {
+    name: "pipeline",
+    description: "pipeline comercial por etapa (negocios abiertos)",
+    kind: "modal",
+    callbackId: "opai_pipeline",
+  },
+  {
+    name: "cotizaciones",
+    description: "bandeja de cotizaciones (filtra por estado)",
+    usage: "cotizaciones [enviadas|borrador|aceptadas|rechazadas]",
+    kind: "modal",
+    callbackId: "opai_cotizaciones",
+  },
 ];
 
 export function buildHelpText(): string {

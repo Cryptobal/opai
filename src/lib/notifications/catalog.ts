@@ -136,6 +136,12 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     module: 'crm', submodule: 'deals', category: 'CRM - Follow-ups',
     audiences: ['admin'], defaults: { admin: adminBell(true) },
   },
+  {
+    key: 'deal_won', label: 'Negocio ganado',
+    description: 'Cuando un negocio se marca como ganado (🎉 al canal comercial)',
+    module: 'crm', submodule: 'deals', category: 'CRM - Negocios',
+    audiences: ['admin'], defaults: { admin: adminBell(true) },
+  },
 
   // ── CPQ ──
   {

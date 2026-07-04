@@ -63,14 +63,17 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
       await ephemeral("No pude abrir el formulario. Intenta de nuevo.");
       return;
     }
-    // Variantes pre-filtradas: `/opai tickets vencidos`, `/opai leads nuevos`.
+    // Variantes pre-filtradas: `/opai tickets vencidos`, `/opai leads nuevos`,
+    // `/opai cotizaciones enviadas|borrador|aceptadas|rechazadas`.
     const rest = restArr.join(" ").trim().toLowerCase();
-    const callbackId =
-      sub.name === "tickets" && rest === "vencidos"
-        ? "opai_tickets_vencidos"
-        : sub.name === "leads" && rest === "nuevos"
-          ? "opai_leads_nuevos"
-          : sub.callbackId;
+    let callbackId = sub.callbackId;
+    if (sub.name === "tickets" && rest === "vencidos") callbackId = "opai_tickets_vencidos";
+    else if (sub.name === "leads" && rest === "nuevos") callbackId = "opai_leads_nuevos";
+    else if (sub.name === "cotizaciones" && rest) {
+      const { quotesStatusFromArg } = await import("./comercial/quotes-tray");
+      const st = quotesStatusFromArg(rest);
+      if (st) callbackId = `opai_cotizaciones_${st}`;
+    }
     await openModalByCallback({ teamId, triggerId: input.triggerId, callbackId, slackUserId, channelId });
     await ephemeral("📂 Abriendo…");
     return;

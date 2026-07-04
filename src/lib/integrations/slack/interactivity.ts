@@ -143,6 +143,19 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     return;
   }
 
+  // Pipeline comercial (Fase 15): overview → drill + acciones de deal.
+  if (actionId?.startsWith("pipe_")) {
+    const { handlePipelineAction } = await import("./comercial/pipeline");
+    await handlePipelineAction(payload as never);
+    return;
+  }
+  // Bandeja de cotizaciones (Fase 15): filtros / paginación.
+  if (actionId?.startsWith("quotestray_")) {
+    const { handleQuotesTrayAction } = await import("./comercial/quotes-tray");
+    await handleQuotesTrayAction(payload as never);
+    return;
+  }
+
   if (!teamId || !slackUserId || !actionId || !pendingId) return;
 
   const resolved = await getTenantForTeam(teamId);
