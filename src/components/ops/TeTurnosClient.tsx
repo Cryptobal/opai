@@ -80,7 +80,13 @@ export function TeTurnosClient({
 }: TeTurnosClientProps) {
   const searchParams = useSearchParams();
   const crearParam = searchParams.get("crear");
-  const [activeTab, setActiveTab] = useState<TabKey>(crearParam === "te" ? "registro" : "dashboard");
+  // Deep-link desde Slack: ?te=<id>&ym=YYYY-MM abre el Registro en el mes del TE
+  // y hace scroll+resalta esa fila (los TE no tienen página de detalle propia).
+  const focusTeId = searchParams.get("te");
+  const ymMatch = (searchParams.get("ym") ?? "").match(/^(\d{4})-(\d{2})$/);
+  const [activeTab, setActiveTab] = useState<TabKey>(
+    crearParam === "te" || focusTeId ? "registro" : "dashboard",
+  );
   const [dashKey, setDashKey] = useState(0);
   const [items, setItems] = useState<TeItem[]>(initialItems);
   const [statusFilter, setStatusFilter] = useState<string>(defaultStatusFilter);
@@ -88,8 +94,8 @@ export function TeTurnosClient({
   // Month filter for Registro tab — usar fecha local de Chile, no UTC,
   // para que cerca de medianoche no se "salte" al mes siguiente.
   const { year: currentYearCL, month: currentMonthCL } = currentYearMonthInChile();
-  const [regYear, setRegYear] = useState(currentYearCL);
-  const [regMonth, setRegMonth] = useState(currentMonthCL);
+  const [regYear, setRegYear] = useState(ymMatch ? Number(ymMatch[1]) : currentYearCL);
+  const [regMonth, setRegMonth] = useState(ymMatch ? Number(ymMatch[2]) : currentMonthCL);
   const [regLoading, setRegLoading] = useState(false);
   const isCurrentMonth = regYear === currentYearCL && regMonth === currentMonthCL;
 
@@ -127,6 +133,13 @@ export function TeTurnosClient({
       void fetchRegistroMonth(regYear, regMonth);
     }
   }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Deep-link ?te=<id>: al aparecer la fila enfocada, hace scroll hacia ella.
+  useEffect(() => {
+    if (!focusTeId) return;
+    const el = document.getElementById(`te-row-${focusTeId}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusTeId, items, statusFilter, regYear, regMonth]);
 
   const [search, setSearch] = useState<string>("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -687,7 +700,10 @@ export function TeTurnosClient({
               {filtered.map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-lg border border-border p-3 sm:p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between min-w-0 overflow-hidden"
+                  id={`te-row-${item.id}`}
+                  className={`rounded-lg border p-3 sm:p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between min-w-0 overflow-hidden ${
+                    focusTeId === item.id ? "border-amber-400 ring-2 ring-amber-400/60" : "border-border"
+                  }`}
                 >
                   <div className="flex items-start gap-3 min-w-0">
                     {canAddToLote(item) ? (

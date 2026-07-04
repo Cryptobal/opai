@@ -98,8 +98,10 @@ export async function buildInboxView(tenantId: string, adminId: string, perms: R
     if (te.length) {
       blocks.push({ type: "header", text: pt("⏱ Turnos extra") });
       for (const t of te) {
-        const fecha = t.date.toISOString().slice(5, 10).split("-").reverse().join("-");
-        blocks.push(...rowBlocks(`TE · ${clp(t.amountClp)} · ${t.guardiaNombre} · ${t.instalacion} · ${fecha}`, "te", t.id, "TE"));
+        const iso = t.date.toISOString().slice(0, 10);
+        const fecha = iso.slice(5).split("-").reverse().join("-");
+        const url = `${site}/ops/turnos-extra/aprobaciones?te=${t.id}&ym=${iso.slice(0, 7)}`;
+        blocks.push(...rowBlocks(`<${url}|TE> · ${clp(t.amountClp)} · ${t.guardiaNombre} · ${t.instalacion} · ${fecha}`, "te", t.id, "TE"));
       }
       const pg = pager("te", pages.te, teNext); if (pg) blocks.push(pg);
     }

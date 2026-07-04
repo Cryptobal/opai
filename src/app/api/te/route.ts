@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
         type: "te_created",
         title: "Turno extra por aprobar",
         body: `${guardiaNombre} · ${turno.installation?.name ?? "—"} · $${Number(turno.amountClp).toLocaleString("es-CL")}`,
-        link: `/ops/turnos-extra/aprobaciones`,
+        link: `/ops/turnos-extra/aprobaciones?te=${turno.id}&ym=${turno.date.toISOString().slice(0, 7)}`,
         data: {
           teId: turno.id,
           guardia: guardiaNombre,
