@@ -103,10 +103,10 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     return;
   }
 
-  // Bandeja de aprobaciones (Fase 7): Aprobar / Rechazar inline.
-  if (actionId === "appr_decide") {
-    const { handleApprovalAction } = await import("./tickets/approvals");
-    await handleApprovalAction(payload as unknown as Record<string, unknown>);
+  // Bandeja de aprobaciones UNIFICADA (Fase 13): Aprobar / Rechazar / paginar.
+  if (actionId?.startsWith("apx_")) {
+    const { handleInboxAction } = await import("./approvals/inbox-actions");
+    await handleInboxAction(payload as unknown as Record<string, unknown>);
     return;
   }
 

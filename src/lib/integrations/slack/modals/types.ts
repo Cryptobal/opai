@@ -55,6 +55,13 @@ export interface ModalMetadata {
   page?: string;
   approvals?: string;
   scope?: string; // alcance de la bandeja: mine | my_team | unassigned | all (Fase 11)
+  // Bandeja de aprobaciones unificada (Fase 13): rechazo con motivo obligatorio.
+  domain?: string; // ticket | rendicion | te
+  entityId?: string; // id del ticket/rendición/TE a rechazar
+  origin?: string; // inbox | card
+  pendingId?: string; // SlackPendingAction (tarjeta) para actualizar el mensaje
+  channelId2?: string; // canal del mensaje-tarjeta (origin=card)
+  messageTs2?: string; // ts del mensaje-tarjeta (origin=card)
 }
 
 export interface ModalSubmitContext {

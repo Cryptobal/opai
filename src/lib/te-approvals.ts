@@ -11,6 +11,7 @@
  * Todo scoping va por `tenantId`.
  */
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export interface PendingTe {
@@ -66,7 +67,7 @@ export async function countPendingTes(tenantId: string): Promise<number> {
 
 async function audit(input: TeDecisionInput, action: string, details: Record<string, unknown>): Promise<void> {
   await prisma.auditLog
-    .create({ data: { tenantId: input.tenantId, userId: input.actorId, userEmail: input.actorEmail ?? null, action, entity: "te_turno", entityId: input.teId, details } })
+    .create({ data: { tenantId: input.tenantId, userId: input.actorId, userEmail: input.actorEmail ?? null, action, entity: "te_turno", entityId: input.teId, details: details as Prisma.InputJsonValue } })
     .catch((e) => console.error("[te-approvals] audit:", e));
 }
 

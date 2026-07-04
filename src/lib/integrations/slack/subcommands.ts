@@ -27,7 +27,7 @@ export const SUBCOMMANDS: SubCommand[] = [
   },
   {
     name: "aprobaciones",
-    description: "tickets pendientes de tu aprobación",
+    description: "pendientes de tu aprobación (tickets · rendiciones · turnos extra)",
     kind: "modal",
     callbackId: "opai_aprobaciones",
   },

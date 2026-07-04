@@ -14,6 +14,7 @@ import { getWorkspaceForTenant } from "./workspace";
 import { resolveLinkedAdmin, buildLinkUrl } from "./user-link";
 import { slackPublishHomeView, slackPostMessage, slackOpenDm } from "./api";
 import { countTickets } from "./tickets/list";
+import { countInbox } from "./approvals/inbox";
 
 const pt = (text: string) => ({ type: "plain_text", text, emoji: true });
 
@@ -29,6 +30,7 @@ interface DayBreakdown {
   team: number;
   unassigned: number | null; // null = el usuario no tiene visión global (línea oculta)
   vencidos: number;
+  approvals: number; // agregado de los tres dominios (tickets + rendiciones + TEs)
 }
 
 function linkedHome(day: DayBreakdown): unknown {
@@ -49,13 +51,17 @@ function linkedHome(day: DayBreakdown): unknown {
         },
       },
       { type: "divider" },
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: `✅ *Pendientes de tu aprobación: ${day.approvals}*  _(tickets · rendiciones · turnos extra)_` },
+      },
       { type: "section", text: { type: "mrkdwn", text: "*Acciones rápidas*" } },
       {
         type: "actions",
         elements: [
           openBtn("🎫 Mis tickets", "opai_tickets", "primary"),
           openBtn("🔴 Vencidos SLA", "opai_tickets_vencidos"),
-          openBtn("✅ Pendientes de mi aprobación", "opai_aprobaciones"),
+          openBtn(day.approvals > 0 ? `✅ Aprobaciones (${day.approvals})` : "✅ Aprobaciones", "opai_aprobaciones", day.approvals > 0 ? "primary" : undefined),
         ],
       },
       {
@@ -108,16 +114,17 @@ export async function publishHome(tenantId: string, slackUserId: string): Promis
   // tiene visión global (mismo criterio que la vista "Todos" de la web: acceso
   // al módulo ops, único gate del route de counts).
   const canViewAll = hasModuleAccess(linked.perms, "ops");
-  const [mine, team, vencidos, unassigned] = await Promise.all([
+  const [mine, team, vencidos, unassigned, approvals] = await Promise.all([
     countTickets(tenantId, linked.adminId, { scope: "mine" }),
     countTickets(tenantId, linked.adminId, { scope: "my_team" }),
     countTickets(tenantId, linked.adminId, { scope: "my_team", slaBreached: true }),
     canViewAll ? countTickets(tenantId, linked.adminId, { scope: "unassigned" }) : Promise.resolve(null),
+    countInbox(tenantId, linked.adminId, linked.perms),
   ]);
   await slackPublishHomeView(
     ws.botToken,
     slackUserId,
-    linkedHome({ mine, team, vencidos, unassigned }),
+    linkedHome({ mine, team, vencidos, unassigned, approvals }),
   );
 }
 

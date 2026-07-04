@@ -9,9 +9,10 @@ import { ACTIONS } from "../actions/registry";
 import { hubModal } from "../actions/hub";
 import { trayModal, trayOverdueModal } from "../tickets/tray";
 import { rowModals } from "../tickets/row-submit";
-import { approvalsModal } from "../tickets/approvals";
+import { inboxModal } from "../approvals/inbox";
+import { rejectReasonModal } from "../approvals/reason-modal";
 
-const MODALS: ModalDef[] = [hubModal, trayModal, trayOverdueModal, approvalsModal, ...rowModals, ...ACTIONS];
+const MODALS: ModalDef[] = [hubModal, trayModal, trayOverdueModal, inboxModal, rejectReasonModal, ...rowModals, ...ACTIONS];
 
 export function getModal(callbackId: string): ModalDef | undefined {
   return MODALS.find((m) => m.callbackId === callbackId);
