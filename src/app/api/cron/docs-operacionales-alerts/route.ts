@@ -132,6 +132,7 @@ async function processTenant(
           installationId: item.installationId,
           expiresAt: item.expiresAt,
           daysRemaining: item.daysRemaining,
+          docRef: `operacional:${item.id}`, // habilita los botones de gestión en la tarjeta Slack
         },
       });
     },

@@ -148,6 +148,18 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     blocks.push(leadCockpitActionsBlock(leadId, waUrl));
   }
 
+  // Documentos por vencer (Fase 18): tarjeta gestionable — 📄 Ver documento ·
+  // ⏳ En trámite · 🔕 Ya no aplica. Requiere data.docRef ("operacional:<id>" |
+  // "guardia:<id>") que ponen los crons del motor de hitos.
+  const DOC_EXPIRY_CARD_KEYS = new Set([
+    "doc_operacional_expiring", "doc_operacional_expired",
+    "guardia_doc_expiring", "guardia_doc_expired",
+  ]);
+  if (DOC_EXPIRY_CARD_KEYS.has(input.typeDef.key) && typeof input.data?.docRef === "string") {
+    const { docCardActionsBlock } = await import("./docs/card-actions");
+    blocks.push(docCardActionsBlock(input.data.docRef as string, input.link ?? null));
+  }
+
   // Tarjeta accionable de aprobación: ticket (Fase 7), rendición o TE (Fase 13).
   // Cada una crea una SlackPendingAction y adjunta sus botones Aprobar/Rechazar.
   const approval: { kind: string; domain: "ticket" | "rendicion" | "te"; entityId: string } | null =

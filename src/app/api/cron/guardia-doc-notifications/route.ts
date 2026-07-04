@@ -139,6 +139,7 @@ async function processTenant(tenantId: string): Promise<ExpiryRunResult> {
           expiresAt: item.expiresAt,
           docType: item.docTypeCode,
           daysRemaining: item.daysRemaining,
+          docRef: `guardia:${item.id}`, // habilita los botones de gestión en la tarjeta Slack
           linkedFindingId: linkedFinding?.id ?? null,
           linkedTicketId: linkedFinding?.ticket?.id ?? null,
           linkedTicketCode: linkedFinding?.ticket?.code ?? null,

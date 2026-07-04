@@ -56,6 +56,18 @@ export async function handleDocsTrayAction(payload: Record<string, unknown>): Pr
   const installationId = meta.docInstallationId || undefined;
   const page = parseInt(meta.page || "1", 10) || 1;
 
+  // Fila: gestión del documento (En trámite / Ya no aplica) → modal apilado.
+  if (actionId === "docstray_row") {
+    const value = action.selected_option?.value ?? "";
+    const sep = value.indexOf(":");
+    const op = sep > 0 ? value.slice(0, sep) : "";
+    const rawRef = sep > 0 ? value.slice(sep + 1) : "";
+    if ((op !== "track" && op !== "dismiss") || !rawRef || !triggerId) return;
+    const { pushDocRowModal } = await import("./card-actions");
+    await pushDocRowModal(workspace.botToken, triggerId, workspace.tenantId, op, rawRef);
+    return;
+  }
+
   let nextFilter: DocsTrayFilter = filter;
   let nextInstallation = installationId;
   let nextPage = page;

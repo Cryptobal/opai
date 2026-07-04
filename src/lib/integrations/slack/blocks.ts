@@ -24,7 +24,7 @@ const BODY_MAX = 2900;
 const MAX_FIELDS = 6;
 
 /** Claves que NUNCA se muestran como campo (ids, urls, tokens, phone* ya en la línea 📞). */
-const FIELD_KEY_BLACKLIST = /(^id$|Id$|^url|token|^link$|^phone)/i;
+const FIELD_KEY_BLACKLIST = /(^id$|Id$|^url|token|^link$|^phone|^docRef$)/i;
 
 /** Humaniza una clave camelCase/snake_case a un label legible ("slaDueAt" → "Sla Due At"). */
 function humanizeKey(key: string): string {

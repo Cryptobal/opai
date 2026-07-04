@@ -87,11 +87,21 @@ export function rowText(e: DigestEntry, site: string): string {
   return `${kind} <${site}${e.link}|${e.label}> — ${e.contextLabel}\n${e.dueText}${badges}`;
 }
 
-/** Fila de la bandeja (el select de gestión por fila se agrega con las tarjetas accionables). */
+/** Fila de la bandeja: texto con link + select de gestión (mismos modales que la tarjeta). */
 function rowSection(e: DigestEntry, site: string): unknown {
+  const ref = `${e.kind}:${e.id}`;
   return {
     type: "section",
     text: { type: "mrkdwn", text: rowText(e, site) },
+    accessory: {
+      type: "static_select",
+      action_id: "docstray_row",
+      placeholder: pt("Acción…"),
+      options: [
+        { text: pt("⏳ En trámite"), value: `track:${ref}` },
+        { text: pt("🔕 Ya no aplica"), value: `dismiss:${ref}` },
+      ],
+    },
   };
 }
 
