@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Brain } from 'lucide-react';
+import { Brain, ListChecks } from 'lucide-react';
 
 const settingItems = [
   {
@@ -8,6 +8,13 @@ const settingItems = [
     title: 'Proveedor de IA por defecto',
     description:
       'Configura el proveedor centralizado de IA. Los tenants pueden sobreescribir con su propia API key.',
+  },
+  {
+    href: '/platform/ai/actions',
+    icon: ListChecks,
+    title: 'IA · Acciones',
+    description:
+      'Auditoría de herramientas ejecutadas por el agente OPAI Intelligence (AiActionLog).',
   },
 ];
 
