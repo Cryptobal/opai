@@ -93,6 +93,24 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     blocks.push(ticketCardActionsBlock(cardTicketId, code));
   }
 
+  // Cockpit comercial (Fase 15): la tarjeta de `new_lead` gana su fila de acciones
+  // (los 5 min de oro). Requiere leadId en el data del emisor.
+  if (input.typeDef.key === "new_lead" && typeof input.data?.leadId === "string") {
+    const leadId = input.data.leadId as string;
+    const { leadCockpitActionsBlock } = await import("./comercial/lead-card");
+    const { resolveLeadWaUrl } = await import("./comercial/lead-actions");
+    const lead = await prisma.crmLead.findFirst({
+      where: { id: leadId, tenantId: input.tenantId },
+      select: {
+        id: true, firstName: true, lastName: true, companyName: true, email: true, phone: true,
+        commune: true, city: true, address: true, industry: true, serviceType: true,
+        status: true, source: true, firstContactAt: true, firstContactBy: true,
+      },
+    });
+    const waUrl = lead ? await resolveLeadWaUrl(input.tenantId, lead).catch(() => null) : null;
+    blocks.push(leadCockpitActionsBlock(leadId, waUrl));
+  }
+
   // Tarjeta accionable de aprobación: ticket (Fase 7), rendición o TE (Fase 13).
   // Cada una crea una SlackPendingAction y adjunta sus botones Aprobar/Rechazar.
   const approval: { kind: string; domain: "ticket" | "rendicion" | "te"; entityId: string } | null =

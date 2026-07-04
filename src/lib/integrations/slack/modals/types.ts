@@ -62,6 +62,14 @@ export interface ModalMetadata {
   pendingId?: string; // SlackPendingAction (tarjeta) para actualizar el mensaje
   channelId2?: string; // canal del mensaje-tarjeta (origin=card)
   messageTs2?: string; // ts del mensaje-tarjeta (origin=card)
+  // Cockpit comercial (Fase 15): bandejas de leads / pipeline / cotizaciones.
+  leadId?: string;
+  dealId?: string;
+  quoteId?: string;
+  source?: string; // filtro de origen de la bandeja de leads
+  untaken?: string; // "1" = solo leads sin tomar
+  qstatus?: string; // filtro de estado de la bandeja de cotizaciones
+  stageId?: string; // etapa activa del drill de pipeline
 }
 
 export interface ModalSubmitContext {

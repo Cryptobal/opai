@@ -124,6 +124,18 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     return;
   }
 
+  // Cockpit comercial (Fase 15): bandeja de leads y tarjeta-cockpit del new_lead.
+  if (actionId?.startsWith("leadtray_")) {
+    const { handleLeadTrayAction } = await import("./comercial/leads-dispatch");
+    await handleLeadTrayAction(payload as never);
+    return;
+  }
+  if (actionId?.startsWith("leadcard_")) {
+    const { handleLeadCardAction } = await import("./comercial/leads-dispatch");
+    await handleLeadCardAction(payload as never);
+    return;
+  }
+
   if (!teamId || !slackUserId || !actionId || !pendingId) return;
 
   const resolved = await getTenantForTeam(teamId);

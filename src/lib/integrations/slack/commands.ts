@@ -63,11 +63,14 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
       await ephemeral("No pude abrir el formulario. Intenta de nuevo.");
       return;
     }
-    // `/opai tickets vencidos` → variante pre-filtrada.
+    // Variantes pre-filtradas: `/opai tickets vencidos`, `/opai leads nuevos`.
+    const rest = restArr.join(" ").trim().toLowerCase();
     const callbackId =
-      sub.name === "tickets" && restArr.join(" ").trim().toLowerCase() === "vencidos"
+      sub.name === "tickets" && rest === "vencidos"
         ? "opai_tickets_vencidos"
-        : sub.callbackId;
+        : sub.name === "leads" && rest === "nuevos"
+          ? "opai_leads_nuevos"
+          : sub.callbackId;
     await openModalByCallback({ teamId, triggerId: input.triggerId, callbackId, slackUserId, channelId });
     await ephemeral("📂 Abriendo…");
     return;

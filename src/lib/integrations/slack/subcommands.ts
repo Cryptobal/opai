@@ -68,6 +68,13 @@ export const SUBCOMMANDS: SubCommand[] = [
     kind: "modal",
     callbackId: "opai_mis_rendiciones",
   },
+  {
+    name: "leads",
+    description: "bandeja de leads (agrega `nuevos` para ver los sin tomar)",
+    usage: "leads [nuevos]",
+    kind: "modal",
+    callbackId: "opai_leads",
+  },
 ];
 
 export function buildHelpText(): string {

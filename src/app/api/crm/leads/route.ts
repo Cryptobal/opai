@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
         body: `${lead.firstName} ${lead.lastName}${lead.companyName ? ` — ${lead.companyName}` : ''}`,
         link: `/crm/leads/${lead.id}`,
         data: {
+          leadId: lead.id,
           phone: lead.phone ?? null,
           empresa: lead.companyName ?? undefined,
           contacto: `${lead.firstName} ${lead.lastName}`.trim() || undefined,

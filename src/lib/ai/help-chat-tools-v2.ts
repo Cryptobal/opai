@@ -3285,7 +3285,8 @@ async function toolCreateLead(
         type: "new_lead",
         title: "Nuevo lead registrado",
         body: `${displayName}${lead.companyName && displayName !== lead.companyName ? ` — ${lead.companyName}` : ""}`,
-        link: "/crm/leads",
+        link: `/crm/leads/${lead.id}`,
+        data: { leadId: lead.id, contacto: displayName, empresa: lead.companyName ?? undefined },
       });
     } catch (err) {
       console.error("[AI] Error notifying new_lead:", err);
