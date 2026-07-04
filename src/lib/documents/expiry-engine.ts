@@ -290,6 +290,8 @@ export type ExpiryDocItem = {
   renewalInProgressUntil: Date | null;
   renewalMarkedBy: string | null;
   dismissedAt: Date | null;
+  /** Status persistido del documento (vigente | por_vencer | vencido | pending | …). */
+  status: string;
   /** Deep link en OPAI para "Ver documento". */
   link: string;
   fileUrl: string | null;
@@ -345,6 +347,7 @@ export async function collectOperacionalItems(
         renewalInProgressUntil: doc.renewalInProgressUntil,
         renewalMarkedBy: doc.renewalMarkedBy,
         dismissedAt: doc.expiryDismissedAt,
+        status: doc.status,
         link: doc.installationId
           ? `/opai/documentos-operativos`
           : `/opai/configuracion/documentos-operacionales`,
@@ -412,6 +415,7 @@ export async function collectGuardiaItems(
       renewalInProgressUntil: doc.renewalInProgressUntil,
       renewalMarkedBy: doc.renewalMarkedBy,
       dismissedAt: doc.expiryDismissedAt,
+      status: doc.status,
       link: `/personas/guardias/${doc.guardiaId}?tab=operaciones&doc=${doc.id}`,
       fileUrl: doc.fileUrl,
     });
