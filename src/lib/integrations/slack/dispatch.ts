@@ -66,6 +66,18 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
   const dealId = typeof input.data?.dealId === "string" ? input.data.dealId : null;
   const dealRoom = dealId ? await getOpenDealRoom(input.tenantId, dealId) : null;
 
+  // Cierre del negocio en su sala (Fase 16, B5): la tarjeta de won/lost la maneja
+  // el ciclo de vida (resumen del bot + botones Archivar/Handoff). No publicamos
+  // la tarjeta genérica para no duplicar; solo refrescamos la ficha.
+  if (dealRoom && dealId && (input.typeDef.key === "deal_won" || input.typeDef.key === "deal_lost")) {
+    const { postDealClosedCard } = await import("./deal-rooms/lifecycle");
+    await postDealClosedCard(input.tenantId, dealId, input.typeDef.key === "deal_won" ? "won" : "lost").catch((e) =>
+      console.error("[slack] postDealClosedCard falló:", e),
+    );
+    await refreshDealRoomFicha(input.tenantId, dealId).catch(() => {});
+    return;
+  }
+
   const channelId = dealRoom
     ? dealRoom.slackChannelId
     : await resolveChannel(input.tenantId, input.typeDef, workspace.defaultChannelId);

@@ -25,8 +25,10 @@ Guardar → **Re-autorizar**.
 - [x] **B4** — Channel Expert: contexto dual (canal B8 + ficha del deal) en el
       runner (mención/DM + `/opai`); respeta exclusiones. COMMIT `feat(slack): el
       bot responde con contexto del canal y del negocio` ✅ gate OK
-- [ ] **B5** — Ciclo de vida won/lost → celebración/post-mortem + archivo/handoff.
-      COMMIT `feat(slack): cierre de sala con handoff a operaciones`
+- [x] **B5** — Ciclo de vida won (🎉 + resumen + Archivar/Handoff) / lost
+      (post-mortem del bot + Archivar); archive = conversations.archive + ARCHIVED;
+      handoff = rename op-{slug} + link a la operación. COMMIT `feat(slack): cierre
+      de sala con handoff a operaciones` ✅ gate OK
 - [ ] **B6** — Gobernanza (exclusión de canales) + QA matriz + docs.
       COMMIT `docs(slack): fase 16 deal rooms`
 
