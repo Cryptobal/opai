@@ -70,6 +70,10 @@ export interface ModalMetadata {
   untaken?: string; // "1" = solo leads sin tomar
   qstatus?: string; // filtro de estado de la bandeja de cotizaciones
   stageId?: string; // etapa activa del drill de pipeline
+  // Bandeja de documentos por vencer (Fase 18).
+  docfilter?: string; // vencidos | semana | tramite | todos
+  docInstallationId?: string; // filtro por instalación
+  docRef?: string; // "<kind>:<id>" del documento en gestión (En trámite / Ya no aplica)
 }
 
 export interface ModalSubmitContext {

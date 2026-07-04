@@ -36,6 +36,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { ExpiryPolicyCard } from "@/components/opai/configuracion/ExpiryPolicyCard";
 import {
   CATEGORIA_LABEL,
   CATEGORIA_ORDER,
@@ -60,8 +61,60 @@ type TipoDoc = {
   capa: string;
   obligatorioEnVisita: boolean;
   useAsAiKnowledge: boolean;
+  criticoLegal: boolean;
+  milestones: number[] | null;
   documentoActual: { id: string; status: string; fileName: string; expiresAt: string | null } | null;
 };
+
+/** Hitos configurables de la escalera (el día 0 y post-vencido son fijos). */
+const HITOS_CONFIGURABLES = [30, 14, 7, 3, 1] as const;
+
+/** Selector de hitos on/off de la escalera de avisos de un tipo. */
+function HitosSelector({
+  idPrefix,
+  value,
+  onChange,
+}: {
+  idPrefix: string;
+  value: number[] | null;
+  onChange: (next: number[] | null) => void;
+}) {
+  const active = new Set(value ?? [...HITOS_CONFIGURABLES, 0]);
+  const toggle = (hito: number, checked: boolean) => {
+    const next = new Set(active);
+    if (checked) next.add(hito);
+    else next.delete(hito);
+    next.add(0); // el día 0 siempre avisa
+    const arr = [...next].sort((a, b) => b - a);
+    // Si queda igual al default, se guarda null (usa la escalera default).
+    const isDefault =
+      arr.length === HITOS_CONFIGURABLES.length + 1 &&
+      [...HITOS_CONFIGURABLES, 0].every((m) => next.has(m));
+    onChange(isDefault ? null : arr);
+  };
+  return (
+    <div className="mt-2 space-y-1.5">
+      <Label className="text-xs">Hitos de aviso (días antes)</Label>
+      <div className="flex flex-wrap items-center gap-3">
+        {HITOS_CONFIGURABLES.map((hito) => (
+          <label key={hito} htmlFor={`${idPrefix}-hito-${hito}`} className="flex items-center gap-1.5 text-xs cursor-pointer">
+            <input
+              type="checkbox"
+              id={`${idPrefix}-hito-${hito}`}
+              checked={active.has(hito)}
+              onChange={(e) => toggle(hito, e.target.checked)}
+              className="rounded border-border"
+            />
+            T-{hito}
+          </label>
+        ))}
+      </div>
+      <p className="text-[10px] text-muted-foreground">
+        Entre hitos hay silencio. El día 0 y los recordatorios post-vencido siempre avisan. La escalera se recorta a la ventana de &quot;días antes&quot;.
+      </p>
+    </div>
+  );
+}
 
 type DocGlobal = {
   id: string;
@@ -195,6 +248,9 @@ export function GlobalDocumentsClient() {
         />
       )}
 
+      {/* Política global de recordatorios de vencimiento (Fase 18) */}
+      <ExpiryPolicyCard />
+
       {/* Link to existing guardia docs config */}
       <Card>
         <CardContent className="py-4 px-5">
@@ -251,13 +307,15 @@ function EmpresaTab({
     obligatorioEnVisita: true,
     tieneVencimiento: true,
     diasAlerta: 30,
+    criticoLegal: false,
+    milestones: null as number[] | null,
     issuedAt: "",
     expiresAt: "",
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [deleteTipoId, setDeleteTipoId] = useState<string | null>(null);
   const [addTipoOpen, setAddTipoOpen] = useState(false);
-  const [addTipoForm, setAddTipoForm] = useState({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true });
+  const [addTipoForm, setAddTipoForm] = useState({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true, criticoLegal: false });
 
   const resetUpload = () => {
     setUploadModal(null);
@@ -319,9 +377,11 @@ function EmpresaTab({
         obligatorio: editForm.obligatorio,
         obligatorioEnVisita: editForm.obligatorioEnVisita,
         tieneVencimiento: editForm.tieneVencimiento,
+        criticoLegal: editForm.criticoLegal,
       };
       if (editForm.tieneVencimiento) {
         tipoBody.diasAlerta = Math.max(0, Math.round(Number(editForm.diasAlerta) || 0));
+        tipoBody.milestones = editForm.milestones;
       }
       const res = await fetch(`/api/operacional/tipos/${editTipo.id}`, {
         method: "PUT",
@@ -379,7 +439,7 @@ function EmpresaTab({
       if (json.success) {
         toast.success("Tipo creado");
         setAddTipoOpen(false);
-        setAddTipoForm({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true });
+        setAddTipoForm({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true, criticoLegal: false });
         await onRefresh();
       } else toast.error(json.error || "Error");
     } catch { toast.error("Error al crear"); }
@@ -427,7 +487,7 @@ function EmpresaTab({
           Documentos agrupados por categoría. Haz clic en el lápiz para editar.
         </p>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => { setAddTipoOpen(true); setAddTipoForm({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true }); }}>
+          <Button variant="outline" size="sm" onClick={() => { setAddTipoOpen(true); setAddTipoForm({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true, criticoLegal: false }); }}>
             <Plus className="h-3.5 w-3.5 mr-1.5" /> Nuevo tipo
           </Button>
           <Button size="sm" onClick={() => {
@@ -522,6 +582,8 @@ function EmpresaTab({
                                 obligatorioEnVisita: tipo.obligatorioEnVisita,
                                 tieneVencimiento: tipo.tieneVencimiento,
                                 diasAlerta: tipo.diasAlerta ?? 30,
+                                criticoLegal: tipo.criticoLegal,
+                                milestones: tipo.milestones,
                                 issuedAt: doc?.issuedAt ?? "",
                                 expiresAt: doc?.expiresAt ?? "",
                               });
@@ -619,6 +681,17 @@ function EmpresaTab({
                   <p className="text-[10px] text-muted-foreground">Default: 30 días. Cuando el documento entra en esta ventana pasa a estado &quot;Por vencer&quot;.</p>
                 </div>
               )}
+              {editForm.tieneVencimiento && (
+                <HitosSelector
+                  idPrefix="edit-g"
+                  value={editForm.milestones}
+                  onChange={(next) => setEditForm((p) => ({ ...p, milestones: next }))}
+                />
+              )}
+              <div className="mt-2 flex items-center gap-2">
+                <input type="checkbox" id="edit-critico" checked={editForm.criticoLegal} onChange={(e) => setEditForm((p) => ({ ...p, criticoLegal: e.target.checked }))} className="rounded border-border" />
+                <Label htmlFor="edit-critico" className="text-xs cursor-pointer">Crítico-legal: T-7 y T-1 generan tarjeta individual (ej. OS10, ley 21.659)</Label>
+              </div>
             </div>
 
             {editDoc && editForm.tieneVencimiento && (
@@ -680,6 +753,10 @@ function EmpresaTab({
               <input type="checkbox" id="add-oblig-visita" checked={addTipoForm.obligatorioEnVisita} onChange={(e) => setAddTipoForm((p) => ({ ...p, obligatorioEnVisita: e.target.checked }))} className="rounded border-border" />
               <Label htmlFor="add-oblig-visita" className="text-xs cursor-pointer">Supervisor debe verificar físicamente en visita</Label>
             </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="add-critico" checked={addTipoForm.criticoLegal} onChange={(e) => setAddTipoForm((p) => ({ ...p, criticoLegal: e.target.checked }))} className="rounded border-border" />
+              <Label htmlFor="add-critico" className="text-xs cursor-pointer">Crítico-legal: T-7 y T-1 generan tarjeta individual</Label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddTipoOpen(false)}>Cancelar</Button>
@@ -717,11 +794,13 @@ function InstalacionTab({
     obligatorioEnVisita: true,
     tieneVencimiento: true,
     diasAlerta: 30,
+    criticoLegal: false,
+    milestones: null as number[] | null,
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [deleteTipoId, setDeleteTipoId] = useState<string | null>(null);
   const [addTipoOpen, setAddTipoOpen] = useState(false);
-  const [addTipoForm, setAddTipoForm] = useState({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true });
+  const [addTipoForm, setAddTipoForm] = useState({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true, criticoLegal: false });
 
   const handleEditTipo = async () => {
     if (!editTipo) return;
@@ -733,9 +812,11 @@ function InstalacionTab({
         obligatorio: editForm.obligatorio,
         obligatorioEnVisita: editForm.obligatorioEnVisita,
         tieneVencimiento: editForm.tieneVencimiento,
+        criticoLegal: editForm.criticoLegal,
       };
       if (editForm.tieneVencimiento) {
         body.diasAlerta = Math.max(0, Math.round(Number(editForm.diasAlerta) || 0));
+        body.milestones = editForm.milestones;
       }
       const res = await fetch(`/api/operacional/tipos/${editTipo.id}`, {
         method: "PUT",
@@ -771,7 +852,7 @@ function InstalacionTab({
       if (json.success) {
         toast.success("Tipo creado");
         setAddTipoOpen(false);
-        setAddTipoForm({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true });
+        setAddTipoForm({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true, criticoLegal: false });
         await onRefresh();
       } else toast.error(json.error || "Error");
     } catch { toast.error("Error al crear"); }
@@ -794,7 +875,7 @@ function InstalacionTab({
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">Configura los tipos que cada instalación debe tener cargados y controlados.</p>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => { setAddTipoOpen(true); setAddTipoForm({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true }); }}>
+          <Button variant="outline" size="sm" onClick={() => { setAddTipoOpen(true); setAddTipoForm({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true, criticoLegal: false }); }}>
             <Plus className="h-3.5 w-3.5 mr-1.5" /> Nuevo tipo
           </Button>
         </div>
@@ -843,6 +924,8 @@ function InstalacionTab({
                       obligatorioEnVisita: tipo.obligatorioEnVisita,
                       tieneVencimiento: tipo.tieneVencimiento,
                       diasAlerta: tipo.diasAlerta ?? 30,
+                      criticoLegal: tipo.criticoLegal,
+                      milestones: tipo.milestones,
                     });
                   }} title="Editar tipo">
                     <Pencil className="h-3 w-3" />
@@ -903,6 +986,17 @@ function InstalacionTab({
                   <p className="text-[10px] text-muted-foreground">Default: 30 días. Aplica a todas las instalaciones.</p>
                 </div>
               )}
+              {editForm.tieneVencimiento && (
+                <HitosSelector
+                  idPrefix="edit-i"
+                  value={editForm.milestones}
+                  onChange={(next) => setEditForm((p) => ({ ...p, milestones: next }))}
+                />
+              )}
+              <div className="mt-2 flex items-center gap-2">
+                <input type="checkbox" id="edit-i-critico" checked={editForm.criticoLegal} onChange={(e) => setEditForm((p) => ({ ...p, criticoLegal: e.target.checked }))} className="rounded border-border" />
+                <Label htmlFor="edit-i-critico" className="text-xs cursor-pointer">Crítico-legal: T-7 y T-1 generan tarjeta individual (ej. OS10, ley 21.659)</Label>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -939,6 +1033,10 @@ function InstalacionTab({
             <div className="flex items-center gap-2">
               <input type="checkbox" id="add-i-oblig-visita" checked={addTipoForm.obligatorioEnVisita} onChange={(e) => setAddTipoForm((p) => ({ ...p, obligatorioEnVisita: e.target.checked }))} className="rounded border-border" />
               <Label htmlFor="add-i-oblig-visita" className="text-xs cursor-pointer">Supervisor debe verificar físicamente en visita</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="add-i-critico" checked={addTipoForm.criticoLegal} onChange={(e) => setAddTipoForm((p) => ({ ...p, criticoLegal: e.target.checked }))} className="rounded border-border" />
+              <Label htmlFor="add-i-critico" className="text-xs cursor-pointer">Crítico-legal: T-7 y T-1 generan tarjeta individual</Label>
             </div>
           </div>
           <DialogFooter>

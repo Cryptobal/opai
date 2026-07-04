@@ -1,19 +1,31 @@
 /**
  * API Route: /api/cron/docs-operacionales-alerts
- * GET - Verifica documentos operacionales próximos a vencer o vencidos
- * y crea notificaciones (bell + email + push) usando `notify`.
+ * GET - Vencimientos de documentos operacionales sobre el motor de hitos.
+ *
+ * Fase 18: las tarjetas individuales se emiten SOLO al cruzar un hito y solo
+ * para día 0 / vencidos (todos los tipos) y T-7/T-1 de tipos crítico-legal.
+ * Los hitos T-30..T-3 viven únicamente en el digest diario
+ * (/api/cron/docs-expiry-digest). Entre hitos: silencio.
  *
  * Cubre documentos globales (capa="global") y por instalación (capa="instalacion").
- * Respeta `tipo.diasAlerta` como ventana de alerta.
+ * Respeta `tipo.diasAlerta` como techo de la escalera.
  *
  * Corre diariamente vía Vercel Cron. Protegido con CRON_SECRET.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { addDays, format } from "date-fns";
 import { notify } from "@/lib/notifications/notify";
 import { calcDocStatus } from "@/lib/docs-operacionales";
+import {
+  collectOperacionalItems,
+  describeDue,
+  getExpiryPolicy,
+  resolveEscalationTargets,
+  runExpiryMilestones,
+  todayUtc,
+  type ExpiryRunResult,
+} from "@/lib/documents/expiry-engine";
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,19 +49,20 @@ export async function GET(request: NextRequest) {
       select: { id: true },
     });
 
-    let expiringCreated = 0;
-    let expiredCreated = 0;
-    let skipped = 0;
+    let cardsSent = 0;
+    let digestOnly = 0;
+    let overflow = 0;
     let statusUpdates = 0;
     let errors = 0;
 
     for (const tenant of tenants) {
       try {
         const result = await processTenant(tenant.id);
-        expiringCreated += result.expiringCreated;
-        expiredCreated += result.expiredCreated;
-        skipped += result.skipped;
+        cardsSent += result.run.cardsSent;
+        digestOnly += result.run.digestOnly;
+        overflow += result.run.overflow;
         statusUpdates += result.statusUpdates;
+        errors += result.run.errors;
       } catch (err) {
         errors++;
         console.error(`[docs-operacionales-alerts] Error for tenant ${tenant.id}:`, err);
@@ -59,9 +72,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       tenants: tenants.length,
-      expiringCreated,
-      expiredCreated,
-      skipped,
+      cardsSent,
+      digestOnly,
+      overflow,
       statusUpdates,
       errors,
     });
@@ -74,121 +87,76 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function processTenant(tenantId: string) {
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+async function processTenant(
+  tenantId: string
+): Promise<{ run: ExpiryRunResult; statusUpdates: number }> {
+  const today = todayUtc();
+  const [policy, items] = await Promise.all([
+    getExpiryPolicy(tenantId),
+    collectOperacionalItems(tenantId, today),
+  ]);
 
-  // Traemos todos los docs operacionales del tenant cuyo tipo tiene vencimiento
-  // y que aún no están marcados como "no_aplica" (defensivo — evita reprocesar perpetuos).
-  const docs = await prisma.docOperacional.findMany({
-    where: {
-      tenantId,
-      expiresAt: { not: null },
-      tipo: { tieneVencimiento: true, isActive: true },
-    },
-    include: {
-      tipo: { select: { nombre: true, tieneVencimiento: true, diasAlerta: true } },
-      installation: { select: { id: true, name: true } },
-    },
-    take: 500,
-  });
-
-  let expiringCreated = 0;
-  let expiredCreated = 0;
-  let skipped = 0;
+  // Actualiza el status DB si diverge del cálculo actual (defensa vs. cron de status no programado)
   let statusUpdates = 0;
-
-  for (const doc of docs) {
-    if (!doc.expiresAt) continue;
-
-    const expiresAt = new Date(doc.expiresAt);
-    const daysRemaining = Math.ceil(
-      (expiresAt.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    const alertDays = doc.tipo.diasAlerta ?? 30;
-
-    // Actualiza el status DB si diverge del cálculo actual (defensa vs. cron de status no programado)
-    const computed = calcDocStatus(expiresAt, doc.tipo.tieneVencimiento, alertDays);
-    if (computed !== doc.status) {
+  for (const item of items) {
+    const computed = calcDocStatus(item.expiresAt, true, item.diasAlerta);
+    if (computed !== item.status) {
       await prisma.docOperacional.update({
-        where: { id: doc.id },
+        where: { id: item.id },
         data: { status: computed },
       });
       statusUpdates++;
     }
-
-    const ubicacion = doc.installation?.name ?? "Global";
-    const dueText =
-      daysRemaining < 0
-        ? `venció el ${format(expiresAt, "dd/MM/yyyy")}`
-        : daysRemaining === 0
-          ? `vence hoy (${format(expiresAt, "dd/MM/yyyy")})`
-          : `vence en ${daysRemaining} día(s) el ${format(expiresAt, "dd/MM/yyyy")}`;
-
-    if (daysRemaining < 0) {
-      // Vencido
-      const existing = await prisma.notification.findFirst({
-        where: {
-          tenantId,
-          type: "doc_operacional_expired",
-          data: { path: ["docOperacionalId"], equals: doc.id },
-        },
-        select: { id: true },
-      });
-      if (existing) {
-        skipped++;
-        continue;
-      }
-      await notify({
-        tenantId,
-        type: "doc_operacional_expired",
-        title: `Documento vencido: ${doc.tipo.nombre}`,
-        body: `${doc.tipo.nombre} (${ubicacion}) ${dueText}. Requiere renovación.`,
-        link: doc.installationId
-          ? `/opai/documentos-operativos`
-          : `/opai/configuracion/documentos-operacionales`,
-        data: {
-          docOperacionalId: doc.id,
-          tipoId: doc.tipoId,
-          installationId: doc.installationId,
-          expiresAt: doc.expiresAt,
-        },
-      });
-      expiredCreated++;
-    } else if (daysRemaining <= alertDays) {
-      // Por vencer — dedup por ventana de 24h para poder re-avisar en los días finales
-      const existing = await prisma.notification.findFirst({
-        where: {
-          tenantId,
-          type: "doc_operacional_expiring",
-          data: { path: ["docOperacionalId"], equals: doc.id },
-          createdAt: { gte: addDays(today, -1) },
-        },
-        select: { id: true },
-      });
-      if (existing) {
-        skipped++;
-        continue;
-      }
-      await notify({
-        tenantId,
-        type: "doc_operacional_expiring",
-        title: `Documento por vencer: ${doc.tipo.nombre}`,
-        body: `${doc.tipo.nombre} (${ubicacion}) ${dueText}.`,
-        link: doc.installationId
-          ? `/opai/documentos-operativos`
-          : `/opai/configuracion/documentos-operacionales`,
-        data: {
-          docOperacionalId: doc.id,
-          tipoId: doc.tipoId,
-          installationId: doc.installationId,
-          expiresAt: doc.expiresAt,
-          daysRemaining,
-        },
-      });
-      expiringCreated++;
-    }
   }
 
-  return { expiringCreated, expiredCreated, skipped, statusUpdates };
+  const run = await runExpiryMilestones({
+    tenantId,
+    items,
+    policy,
+    today,
+    sendCard: async (item) => {
+      const expired = item.daysRemaining < 0;
+      const dueText = describeDue(item.daysRemaining, item.expiresAt);
+      await notify({
+        tenantId,
+        type: expired ? "doc_operacional_expired" : "doc_operacional_expiring",
+        title: expired
+          ? `Documento vencido: ${item.label}`
+          : `Documento por vencer: ${item.label}`,
+        body: expired
+          ? `${item.label} (${item.contextLabel}) ${dueText}. Requiere renovación.`
+          : `${item.label} (${item.contextLabel}) ${dueText}.`,
+        link: item.link,
+        data: {
+          docOperacionalId: item.id,
+          tipoId: item.tipoId,
+          installationId: item.installationId,
+          expiresAt: item.expiresAt,
+          daysRemaining: item.daysRemaining,
+          docRef: `operacional:${item.id}`, // habilita los botones de gestión en la tarjeta Slack
+        },
+      });
+    },
+    sendEscalation: async (item, evaluation) => {
+      const targets = await resolveEscalationTargets(tenantId);
+      const dueText = describeDue(item.daysRemaining, item.expiresAt);
+      await notify({
+        tenantId,
+        type: "doc_escalated",
+        ...(targets.length ? { targetIds: targets, targetType: "ADMIN" as const } : {}),
+        title: `⚠️ Escalado: ${item.label} sin gestión`,
+        body: `${item.label} (${item.contextLabel}) ${dueText} y cruzó T-7 sin acción (ni renovación ni "En trámite").`,
+        link: item.link,
+        data: {
+          docOperacionalId: item.id,
+          installationId: item.installationId,
+          milestone: evaluation.milestone,
+          daysRemaining: item.daysRemaining,
+          docRef: `operacional:${item.id}`,
+        },
+      });
+    },
+  });
+
+  return { run, statusUpdates };
 }

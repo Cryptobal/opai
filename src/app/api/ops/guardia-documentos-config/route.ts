@@ -59,6 +59,13 @@ export async function POST(request: NextRequest) {
             : true,
         visibleInTeForm: Boolean((i as GuardiaDocumentoConfigItem).visibleInTeForm),
         obligatorioEnVisita: Boolean((i as GuardiaDocumentoConfigItem).obligatorioEnVisita),
+        criticoLegal: Boolean((i as GuardiaDocumentoConfigItem).criticoLegal),
+        milestones: Array.isArray((i as GuardiaDocumentoConfigItem).milestones)
+          ? ((i as GuardiaDocumentoConfigItem).milestones as number[])
+              .map((v) => Number(v))
+              .filter((v) => Number.isInteger(v) && v >= 0 && v <= 365)
+              .sort((a, b) => b - a)
+          : undefined,
       }));
 
     const saved = await setGuardiaDocumentosConfig(valid, ctx.tenantId);

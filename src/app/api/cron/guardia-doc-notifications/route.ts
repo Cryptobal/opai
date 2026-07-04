@@ -1,17 +1,27 @@
 /**
  * API Route: /api/cron/guardia-doc-notifications
- * GET - Check for guardia documents expiring or expired, create notifications
+ * GET - Vencimientos de documentos de guardia sobre el motor de hitos.
  *
- * Runs daily via Vercel Cron. Protected with CRON_SECRET.
- * Replaces the side-effect that previously ran inside GET /api/notifications.
+ * Fase 18: las tarjetas individuales se emiten SOLO al cruzar un hito y solo
+ * para día 0 / vencidos (todos los tipos) y T-7/T-1 de tipos crítico-legal
+ * (config `criticoLegal` en ops_guardia_documentos_config). Los hitos
+ * T-30..T-3 viven únicamente en el digest diario. Entre hitos: silencio.
+ *
+ * Corre diariamente vía Vercel Cron. Protegido con CRON_SECRET.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { addDays } from "date-fns";
-import { getGuardiaDocumentosConfig } from "@/lib/guardia-documentos-config";
 import { notify } from "@/lib/notifications/notify";
-import { GUARDIA_ALERTING_LIFECYCLE_STATUSES } from "@/lib/personas";
+import {
+  collectGuardiaItems,
+  describeDue,
+  getExpiryPolicy,
+  resolveEscalationTargets,
+  runExpiryMilestones,
+  todayUtc,
+  type ExpiryRunResult,
+} from "@/lib/documents/expiry-engine";
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,15 +45,18 @@ export async function GET(request: NextRequest) {
       select: { id: true },
     });
 
-    let created = 0;
-    let skipped = 0;
+    let cardsSent = 0;
+    let digestOnly = 0;
+    let overflow = 0;
     let errors = 0;
 
     for (const tenant of tenants) {
       try {
-        const result = await processGuardiaDocExpiryNotifications(tenant.id);
-        created += result.created;
-        skipped += result.skipped;
+        const result = await processTenant(tenant.id);
+        cardsSent += result.cardsSent;
+        digestOnly += result.digestOnly;
+        overflow += result.overflow;
+        errors += result.errors;
       } catch (err) {
         errors++;
         console.error(`[guardia-doc-notifications] Error for tenant ${tenant.id}:`, err);
@@ -53,8 +66,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       tenants: tenants.length,
-      created,
-      skipped,
+      cardsSent,
+      digestOnly,
+      overflow,
       errors,
     });
   } catch (error) {
@@ -66,119 +80,93 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function processGuardiaDocExpiryNotifications(tenantId: string) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+async function processTenant(tenantId: string): Promise<ExpiryRunResult> {
+  const today = todayUtc();
+  const [policy, items] = await Promise.all([
+    getExpiryPolicy(tenantId),
+    collectGuardiaItems(tenantId, today),
+  ]);
 
-  const config = await getGuardiaDocumentosConfig(tenantId);
-  const byType = new Map(
-    config.filter((c) => c.hasExpiration).map((c) => [c.code, c.alertDaysBefore])
-  );
+  return runExpiryMilestones({
+    tenantId,
+    items,
+    policy,
+    today,
+    sendCard: async (item) => {
+      const expired = item.daysRemaining < 0;
+      const type = expired ? "guardia_doc_expired" : "guardia_doc_expiring";
+      const title = expired
+        ? `Documento vencido de guardia: ${item.contextLabel}`
+        : `Documento por vencer de guardia: ${item.contextLabel}`;
+      const message = expired
+        ? `${item.label} venció y requiere renovación.`
+        : item.daysRemaining === 0
+          ? `${item.label} vence hoy.`
+          : `${item.label} vence en ${item.daysRemaining} día(s).`;
 
-  const maxDays = Math.max(30, ...Array.from(byType.values()));
-  const limitDate = addDays(today, maxDays);
-
-  const docs = await prisma.opsDocumentoPersona.findMany({
-    where: {
-      tenantId,
-      expiresAt: { not: null, lte: limitDate },
-      status: { not: "vencido" },
-      guardia: {
-        status: "active",
-        lifecycleStatus: { in: [...GUARDIA_ALERTING_LIFECYCLE_STATUSES] },
-      },
-    },
-    include: {
-      guardia: {
-        include: {
-          persona: { select: { firstName: true, lastName: true } },
+      // Cross-dedup: si ya existe un hallazgo de supervisión abierto sobre este
+      // mismo doc del guardia, vincular la notificación al ticket en curso para
+      // que el usuario sepa que ambos avisos hablan del mismo problema.
+      const linkedFinding = await prisma.opsSupervisionFinding.findFirst({
+        where: {
+          tenantId,
+          guardId: item.guardiaId ?? "",
+          guardiaDocCode: item.docTypeCode ?? "",
+          ticket: { status: { notIn: ["closed", "resolved"] } },
         },
-      },
-    },
-    take: 200,
-  });
+        include: { ticket: { select: { code: true, id: true, status: true } } },
+        orderBy: { createdAt: "desc" },
+      });
 
-  let created = 0;
-  let skipped = 0;
+      const bodyExtra = linkedFinding?.ticket
+        ? `\n\nYa existe ticket abierto sobre este hallazgo: ${linkedFinding.ticket.code}.`
+        : "";
 
-  for (const doc of docs) {
-    if (!doc.expiresAt) continue;
-    const alertDays = byType.get(doc.type);
-    if (alertDays === undefined) continue;
-    const expiresAt = new Date(doc.expiresAt);
-    const daysRemaining = Math.ceil(
-      (expiresAt.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    if (daysRemaining > alertDays) continue;
-
-    const type = daysRemaining < 0 ? "guardia_doc_expired" : "guardia_doc_expiring";
-    const personName = `${doc.guardia.persona.firstName} ${doc.guardia.persona.lastName}`.trim();
-    const title =
-      daysRemaining < 0
-        ? `Documento vencido de guardia: ${personName}`
-        : `Documento por vencer de guardia: ${personName}`;
-    const message =
-      daysRemaining < 0
-        ? `${doc.type} venció y requiere renovación.`
-        : `${doc.type} vence en ${daysRemaining} día(s).`;
-
-    // Improved deduplication: check by document ID (not just by time window)
-    const existing = await prisma.notification.findFirst({
-      where: {
+      await notify({
         tenantId,
         type,
-        data: { path: ["guardiaDocumentId"], equals: doc.id },
-      },
-      select: { id: true },
-    });
-    if (existing) {
-      skipped++;
-      continue;
-    }
-
-    // Cross-dedup: si ya existe un hallazgo de supervisión abierto sobre este
-    // mismo doc del guardia, vincular la notificación al ticket en curso para
-    // que el usuario sepa que ambos avisos hablan del mismo problema.
-    const linkedFinding = await prisma.opsSupervisionFinding.findFirst({
-      where: {
+        title,
+        body: message + bodyExtra,
+        link: item.link,
+        emailSecondaryAction: linkedFinding?.ticket
+          ? {
+              url: `/ops/tickets/${linkedFinding.ticket.id}`,
+              label: `Ver ticket ${linkedFinding.ticket.code}`,
+              color: "#0066FF",
+            }
+          : undefined,
+        data: {
+          guardiaId: item.guardiaId,
+          guardiaDocumentId: item.id,
+          expiresAt: item.expiresAt,
+          docType: item.docTypeCode,
+          daysRemaining: item.daysRemaining,
+          docRef: `guardia:${item.id}`, // habilita los botones de gestión en la tarjeta Slack
+          linkedFindingId: linkedFinding?.id ?? null,
+          linkedTicketId: linkedFinding?.ticket?.id ?? null,
+          linkedTicketCode: linkedFinding?.ticket?.code ?? null,
+        },
+      });
+    },
+    sendEscalation: async (item, evaluation) => {
+      const targets = await resolveEscalationTargets(tenantId);
+      const dueText = describeDue(item.daysRemaining, item.expiresAt);
+      await notify({
         tenantId,
-        guardId: doc.guardiaId,
-        guardiaDocCode: doc.type,
-        ticket: { status: { notIn: ["closed", "resolved"] } },
-      },
-      include: { ticket: { select: { code: true, id: true, status: true } } },
-      orderBy: { createdAt: "desc" },
-    });
-
-    const bodyExtra = linkedFinding?.ticket
-      ? `\n\nYa existe ticket abierto sobre este hallazgo: ${linkedFinding.ticket.code}.`
-      : "";
-
-    await notify({
-      tenantId,
-      type,
-      title,
-      body: message + bodyExtra,
-      link: `/personas/guardias/${doc.guardiaId}?tab=operaciones&doc=${doc.id}`,
-      emailSecondaryAction: linkedFinding?.ticket
-        ? {
-            url: `/ops/tickets/${linkedFinding.ticket.id}`,
-            label: `Ver ticket ${linkedFinding.ticket.code}`,
-            color: "#0066FF",
-          }
-        : undefined,
-      data: {
-        guardiaId: doc.guardiaId,
-        guardiaDocumentId: doc.id,
-        expiresAt: doc.expiresAt,
-        docType: doc.type,
-        linkedFindingId: linkedFinding?.id ?? null,
-        linkedTicketId: linkedFinding?.ticket?.id ?? null,
-        linkedTicketCode: linkedFinding?.ticket?.code ?? null,
-      },
-    });
-    created++;
-  }
-
-  return { created, skipped };
+        type: "doc_escalated",
+        ...(targets.length ? { targetIds: targets, targetType: "ADMIN" as const } : {}),
+        title: `⚠️ Escalado: doc. de ${item.contextLabel} sin gestión`,
+        body: `${item.label} de ${item.contextLabel} ${dueText} y cruzó T-7 sin acción (ni renovación ni "En trámite").`,
+        link: item.link,
+        data: {
+          guardiaId: item.guardiaId,
+          guardiaDocumentId: item.id,
+          docType: item.docTypeCode,
+          milestone: evaluation.milestone,
+          daysRemaining: item.daysRemaining,
+          docRef: `guardia:${item.id}`,
+        },
+      });
+    },
+  });
 }

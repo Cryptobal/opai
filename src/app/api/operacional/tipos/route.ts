@@ -44,6 +44,8 @@ export async function GET(request: NextRequest) {
       order: t.order,
       obligatorioEnVisita: t.obligatorioEnVisita,
       useAsAiKnowledge: t.useAsAiKnowledge,
+      criticoLegal: t.criticoLegal,
+      milestones: (t.milestones as number[] | null) ?? null,
       // Para capa global, incluir info del documento actual
       documentoActual: t.capa === "global" && t.documentos.length > 0
         ? {
@@ -112,6 +114,7 @@ export async function POST(request: NextRequest) {
         order: (maxOrder?.order ?? 0) + 1,
         obligatorioEnVisita: body.obligatorioEnVisita ?? true,
         useAsAiKnowledge: body.useAsAiKnowledge ?? false,
+        criticoLegal: !!body.criticoLegal,
       },
     });
 

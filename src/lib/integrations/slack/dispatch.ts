@@ -28,7 +28,7 @@ interface DispatchInput {
 const TICKET_PENDING_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Resuelve el canal destino con precedencia KEY > CATEGORY > MODULE > default. */
-async function resolveChannel(
+export async function resolveChannel(
   tenantId: string,
   typeDef: UnifiedNotificationType,
   defaultChannelId: string | null,
@@ -146,6 +146,19 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     });
     const waUrl = lead ? await resolveLeadWaUrl(input.tenantId, lead).catch(() => null) : null;
     blocks.push(leadCockpitActionsBlock(leadId, waUrl));
+  }
+
+  // Documentos por vencer (Fase 18): tarjeta gestionable — 📄 Ver documento ·
+  // ⏳ En trámite · 🔕 Ya no aplica. Requiere data.docRef ("operacional:<id>" |
+  // "guardia:<id>") que ponen los crons del motor de hitos.
+  const DOC_EXPIRY_CARD_KEYS = new Set([
+    "doc_operacional_expiring", "doc_operacional_expired",
+    "guardia_doc_expiring", "guardia_doc_expired",
+    "doc_escalated",
+  ]);
+  if (DOC_EXPIRY_CARD_KEYS.has(input.typeDef.key) && typeof input.data?.docRef === "string") {
+    const { docCardActionsBlock } = await import("./docs/card-actions");
+    blocks.push(docCardActionsBlock(input.data.docRef as string, input.link ?? null));
   }
 
   // Tarjeta accionable de aprobación: ticket (Fase 7), rendición o TE (Fase 13).

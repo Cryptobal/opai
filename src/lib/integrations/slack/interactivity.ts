@@ -167,6 +167,18 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     await handleStaleQuoteAction(payload as never);
     return;
   }
+  // Bandeja de documentos por vencer (Fase 18): abrir / filtros / paginación.
+  if (actionId?.startsWith("docstray_")) {
+    const { handleDocsTrayAction } = await import("./docs/tray-dispatch");
+    await handleDocsTrayAction(payload as never);
+    return;
+  }
+  // Tarjeta de documento por vencer (Fase 18): En trámite / Ya no aplica.
+  if (actionId?.startsWith("doccard_")) {
+    const { handleDocCardAction } = await import("./docs/card-actions");
+    await handleDocCardAction(payload as never);
+    return;
+  }
 
   if (!teamId || !slackUserId || !actionId || !pendingId) return;
 
