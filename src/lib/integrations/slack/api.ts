@@ -12,7 +12,12 @@ import { clampViewTitle, readViewTitle } from "./modals/title";
 const BASE = "https://slack.com/api";
 
 export class SlackApiError extends Error {
-  constructor(public readonly slackError: string) {
+  constructor(
+    public readonly slackError: string,
+    /** `response_metadata.messages` de Slack: apunta al bloque exacto que
+     * rechazó (json-pointer). Sin esto, un `invalid_arguments` es indescifrable. */
+    public readonly slackDetails: string[] = [],
+  ) {
     super(`[slack] Slack API error: ${slackError}`);
     this.name = "SlackApiError";
   }
@@ -75,7 +80,10 @@ export async function callSlack(
     body: toForm(body),
   });
   const json = (await res.json()) as SlackResponse;
-  if (!json.ok) throw new SlackApiError(json.error ?? `http_${res.status}`);
+  if (!json.ok) {
+    const details = (json.response_metadata as { messages?: string[] } | undefined)?.messages ?? [];
+    throw new SlackApiError(json.error ?? `http_${res.status}`, details);
+  }
   return json;
 }
 
@@ -193,9 +201,13 @@ async function callViewMethod(
   try {
     return await callSlack(method, { ...body, view: safe }, token);
   } catch (err) {
-    if (err instanceof SlackApiError && err.slackError === "invalid_arguments") {
+    if (err instanceof SlackApiError && (err.slackError === "invalid_arguments" || err.slackError === "invalid_blocks")) {
+      // El detalle de Slack (json-pointer al bloque ofensor) es la ÚNICA pista
+      // real cuando un view es rechazado — sin él, "el botón no hace nada".
       const v = safe as { callback_id?: string; blocks?: unknown[] } | null;
-      console.error(`[slack] ${method} invalid_arguments · title="${readViewTitle(safe) ?? "?"}" · callback_id=${v?.callback_id ?? "?"} · blocks=${Array.isArray(v?.blocks) ? v.blocks.length : "?"} · bytes=${JSON.stringify(safe).length}`);
+      console.error(
+        `[slack] ${method} ${err.slackError} · title="${readViewTitle(safe) ?? "?"}" · callback_id=${v?.callback_id ?? "?"} · blocks=${Array.isArray(v?.blocks) ? v.blocks.length : "?"} · bytes=${JSON.stringify(safe).length} · detalle: ${err.slackDetails.join(" | ") || "(sin detalle)"}`,
+      );
       if (Array.isArray(v?.blocks) && v.blocks.length > 100) {
         console.error("[slack] view excede 100 blocks — Slack lo rechaza siempre");
       }

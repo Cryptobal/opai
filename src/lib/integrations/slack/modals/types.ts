@@ -22,6 +22,8 @@ export interface ModalOpenContext {
   channelId?: string;
   messageTs?: string;
   messageText?: string;
+  /** Argumento libre del subcomando (`/opai negocio <texto>` → el texto). */
+  arg?: string;
 }
 
 /** `view.state.values`: block_id → action_id → valor del input. */
@@ -74,6 +76,9 @@ export interface ModalMetadata {
   docfilter?: string; // vencidos | semana | tramite | todos
   docInstallationId?: string; // filtro por instalación
   docRef?: string; // "<kind>:<id>" del documento en gestión (En trámite / Ya no aplica)
+  // Buscador universal de negocios (Fase 21).
+  q?: string; // texto buscado
+  dscope?: string; // alcance: open | won | lost | all
 }
 
 export interface ModalSubmitContext {

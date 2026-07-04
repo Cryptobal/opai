@@ -201,6 +201,61 @@ export async function findCpqQuoteIdsBySearch(params: {
   `);
 }
 
+/**
+ * Buscador UNIVERSAL de negocios (Fase 21 Slack): matchea por título del
+ * negocio, nombre de la CUENTA o nombre de INSTALACIÓN. La relación
+ * negocio↔instalación tiene TRES caminos reales en el esquema y se recorren
+ * todos (auditado F21):
+ *  1. `crm.deals.installation_name` — campo directo desnormalizado (migración Soho).
+ *  2. `cpq.quotes.installation_id` — instalaciones de sus cotizaciones CPQ,
+ *     vinculadas al deal por `q.deal_id` directo O por la tabla `crm.deal_quotes`.
+ *  3. `crm.installations.activated_by_deal_id` — instalación activada por el deal.
+ *
+ * `scope` filtra por estado del negocio: un negocio CERRADO debe ser
+ * encontrable (post-mortems, reactivaciones, abrir su sala).
+ */
+export async function findCrmDealIdsUniversalSearch(params: {
+  tenantId: string;
+  query: string;
+  scope: "open" | "won" | "lost" | "all";
+  limit: number;
+}): Promise<string[]> {
+  const { tenantId, query, scope, limit } = params;
+  const pattern = `%${query}%`;
+  const statusFilter =
+    scope === "all" ? Prisma.empty : Prisma.sql`AND d.status = ${scope}`;
+  return fetchIds(Prisma.sql`
+    SELECT d.id
+    FROM crm.deals d
+    LEFT JOIN crm.accounts a ON a.id = d.account_id
+    WHERE d.tenant_id::text = ${tenantId}
+      ${statusFilter}
+      AND (
+        LOWER(public.f_unaccent(d.title)) LIKE LOWER(public.f_unaccent(${pattern}))
+        OR LOWER(public.f_unaccent(COALESCE(a.name, ''))) LIKE LOWER(public.f_unaccent(${pattern}))
+        OR LOWER(public.f_unaccent(COALESCE(d.installation_name, ''))) LIKE LOWER(public.f_unaccent(${pattern}))
+        OR EXISTS (
+          SELECT 1 FROM cpq.quotes q
+          JOIN crm.installations iq ON iq.id = q.installation_id
+          WHERE q.tenant_id::text = ${tenantId}
+            AND (
+              q.deal_id = d.id
+              OR EXISTS (SELECT 1 FROM crm.deal_quotes dq WHERE dq.deal_id = d.id AND dq.quote_id = q.id)
+            )
+            AND LOWER(public.f_unaccent(iq.name)) LIKE LOWER(public.f_unaccent(${pattern}))
+        )
+        OR EXISTS (
+          SELECT 1 FROM crm.installations ia
+          WHERE ia.tenant_id::text = ${tenantId}
+            AND ia.activated_by_deal_id = d.id
+            AND LOWER(public.f_unaccent(ia.name)) LIKE LOWER(public.f_unaccent(${pattern}))
+        )
+      )
+    ORDER BY d.updated_at DESC
+    LIMIT ${limit}
+  `);
+}
+
 export async function findCrmInstallationIdsBySearch(params: {
   tenantId: string;
   query: string;

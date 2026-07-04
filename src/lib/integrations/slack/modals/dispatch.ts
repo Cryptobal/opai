@@ -25,6 +25,8 @@ export interface OpenModalParams {
   channelId?: string;
   messageTs?: string;
   messageText?: string;
+  /** Argumento libre del subcomando (`/opai negocio <texto>` → el texto). */
+  arg?: string;
 }
 
 /** Abre un modal por callbackId (reusado por shortcuts y por `/opai <cmd>`). */
@@ -90,6 +92,7 @@ export async function openModalByCallback(p: OpenModalParams): Promise<boolean> 
       channelId: p.channelId,
       messageTs: p.messageTs,
       messageText: p.messageText,
+      arg: p.arg,
     });
     await update(view);
   } catch (err) {

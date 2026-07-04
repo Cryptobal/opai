@@ -18,6 +18,7 @@ import { misRendicionesModal } from "../modals/mis-rendiciones";
 import { trayModal } from "../tickets/tray";
 import { visitaModal } from "./visita";
 import { turnoExtraModal } from "./turno-extra";
+import { dealSearchModal } from "../comercial/deal-search";
 
 export interface ActionDef extends ModalDef {
   /** Grupo visible en el hub (p. ej. "Tickets", "Operaciones", "Finanzas"). */
@@ -35,6 +36,8 @@ export const ACTIONS: ActionDef[] = [
   { ...turnoExtraModal, group: "Operaciones", emoji: "⏱" },
   { ...rendicionModal, group: "Finanzas", emoji: "🧾" },
   { ...misRendicionesModal, group: "Finanzas", emoji: "📄" },
+  // Comercial (F21): buscador universal de negocios (gate: ver Negocios CRM).
+  { ...dealSearchModal, group: "Comercial", emoji: "🔎" },
 ];
 
 export function getAction(id: string): ActionDef | undefined {
