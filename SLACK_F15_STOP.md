@@ -58,5 +58,5 @@ Arquitectura Slack = **registro declarativo**. Se agrega feature agregando una e
 - [x] B4b — auto-enrich empresa del lead al crearse (toggle tenant) — `ed0a37f5a` (main; bonus del ajuste B2)
 - [x] B5 — Loop anti-olvido: sweep 48h + cron `crm-quote-followup` (hourly) + tarjeta accionable
 - [x] B6 — Digest comercial (cron `comercial-digest`, lunes 08:00 + diario opt-in) + sección Comercial en el Home
-- [ ] B7 — QA (matriz) + docs
+- [x] B7 — QA (matriz Fase 15 en slack.md) + docs (`docs/crm/velocidad-comercial.md`)
 - [x] B8 — Presencia total en canales públicos (botón panel + auto-join `channel_created`) + tool `slack_channel_context` (lectura bajo demanda, sin persistencia)

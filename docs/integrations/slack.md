@@ -1040,3 +1040,119 @@ El monitor los lee por tenant, cuenta los recordatorios del día por ticket (ded
 - [ ] Cambiar intervalo P1 a 4h en config → el monitor deja de recordar antes de las 4h.
 - [ ] Prioridad en "solo resumen diario" → sin campanas, solo en el digest.
 - [ ] 375px usable (sección de recordatorios: fila prioridad + input + toggle).
+
+---
+
+# Fase 15 — Cockpit comercial: del lead a la cotización en minutos
+
+Slack se vuelve el cockpit del vendedor: el lead llega con botones, la cotización
+sale en un clic, el sistema avisa cuando el cliente está mirando, y ningún negocio
+muere por olvido. Todo gateado por capability **crm**. Ver el playbook de negocio
+en `docs/crm/velocidad-comercial.md`.
+
+## Decisiones de arquitectura
+
+- **Dispatch genérico + ramas por-key.** Las tarjetas siguen armándose con
+  `buildNotificationBlocks`; para `new_lead` y `quote_viewed` se agregó una rama en
+  `dispatch.ts` (espejo de `ticket_*`) que añade la fila de acciones.
+- **WhatsApp = botón URL `wa.me`** (un toque, ideal iPhone; mensaje resuelto por
+  `getWaTemplate` + entidades). Slack no llama de vuelta en botones URL → el clic no
+  se loguea; la provenance queda en la acción trackeada acompañante.
+- **Motores reusados por extracción mecánica** (cero cambios de comportamiento):
+  `src/lib/crm-lead-quote-engine.ts` (creación lead→cotización, vive en el **PR #568**,
+  no en main) y `src/lib/crm/change-deal-stage.ts` (cambio de etapa). Los routes
+  `approve` y `deals/[id]/stage` quedaron como wrappers delgados.
+
+## B1 — Tarjeta-cockpit del lead + `/opai leads`
+
+- La tarjeta de `new_lead` gana: 👤 Tomar · 🟢 WhatsApp · ✉️ Cotizar · 📝 Convertir en
+  OPAI · 📅 Recordar 2h · ❌ Descartar (`src/lib/integrations/slack/comercial/lead-card.ts`).
+- **Tomar** estampa `firstContactAt`/`firstContactBy` de forma atómica → corta el
+  escalamiento (el cron `lead-escalation` filtra `firstContactAt: null`). Cero campos nuevos.
+- **Recordar 2h** estrena `CrmTask`; **Descartar** espeja el reject web (status +
+  metadata.rejection + `CrmHistoryLog`).
+- `/opai leads` (+ `nuevos` = sin tomar): filtros estado/origen/sin-tomar, paginado 10,
+  "sin tomar" primero y destacado (`comercial/leads-tray.ts`, `leads-list.ts`).
+
+## B2 — Cotización desde el lead en dos velocidades (PR #568)
+
+- **Exprés**: lead con dotación estructurada → modal de revisión (resumen + instalación/
+  comuna) → `approveLeadToEntities` (mismo motor y precio que la web, usa la dotación real)
+  → tarjeta por DM: `CPQ-XXX · $X/mes · [Ver PDF][Enviar al cliente][Editar en OPAI]`.
+- **Fallback/Cockpit**: lead sin datos → deep-link `📝 Convertir en OPAI` (`/crm/leads/{id}`).
+- **Enviar** usa `sendQuoteToPortal` (canónico, 1×) y dispara `quote_sent`.
+- **Bonus**: al crear un lead se dispara `enrichLeadFromWebsite` (after(), toggle
+  Setting `crm.leadAutoEnrich`) para que la tarjeta llegue enriquecida.
+
+## B3 — 🔥 El momento caliente (`quote_viewed`)
+
+- El evento existía en el catálogo pero **sin emisor**: ahora el beacon del portal
+  (`cotizaciones/[id]/view`) llama `emitQuoteViewed` (throttle 30 min por cotización).
+- Tarjeta: "🔥 {Contacto} de {Empresa} está viendo {código} AHORA (vista #N)" + monto +
+  vigencia + línea 📞 Llamar + botones 🟢 WhatsApp ("¿te llamo?") · ⏰ Recordar 1h.
+- El owner recibe el DM personal vía la capa F6 (broadcast a admins CPQ opt-in).
+
+## B4 — Pipeline vivo (`/opai pipeline`) + `/opai cotizaciones`
+
+- Overview por etapa (N negocios · Σ CLP) → drill → deals (cliente · monto · días en
+  etapa · última actividad) con overflow: ⏩ Avanzar · 📝 Nota · 🎉 Ganado · 💔 Perdido,
+  + 🟢 WhatsApp por deal (`comercial/pipeline.ts`).
+- **Ganado/Perdido** usan `changeDealStage` (servicio real → `CrmDealStageHistory`).
+  Al ganar se emite el nuevo evento **`deal_won`** (🎉 al canal comercial).
+- `/opai cotizaciones [estado]`: bandeja de quotes con filtro + 🟢 WhatsApp por fila.
+
+## B5 — El loop anti-olvido (48h)
+
+- El motor de follow-up por email (`CrmFollowUpConfig` + `processFollowUpLog`, cron
+  `followup-emails`) sigue activo; se le agrega una salida Slack:
+- Cron **`crm-quote-followup`** (hourly): cotización `sent` sin vista/aceptación/rechazo y
+  `updatedAt > 48h` → tarjeta a comercial: "⏳ {Cliente} lleva 48h sin responder {código}"
+  + 🟢 WhatsApp · ✉️ Reenviar · ⏰ Posponer 24h · 💔 Marcar perdida.
+- Auto-documentado y sin spam: cada acción escribe `CrmHistoryLog` (`quote_stale_*`); el
+  sweep respeta posposiciones (`comercial/quote-stale.ts`).
+
+## B6 — Digest comercial + Home
+
+- Cron **`comercial-digest`** (~08:00 Chile): lunes a todos los tenants con Slack; a diario
+  a los que activen Setting `crm.digestDaily`. Idempotente por (tenant, día) vía outbox.
+- "📊 Semana comercial: pipeline $X en N negocios · M cotizaciones enviadas (time-to-quote
+  prom: Xh) · K vistas sin respuesta · J leads sin tomar · negocios sin actividad >7d".
+- Home de OPAI: sección **Comercial** (gate crm) con contadores (leads sin tomar ·
+  cotizaciones por vencer · 🔥 viendo ahora) + botones a las bandejas.
+
+## B8 — Presencia total + `slack_channel_context`
+
+- Botón "Unirse a todos los canales públicos" en el panel Slack → `POST
+  /api/integrations/slack/join-all` (itera `conversations.list` + `conversations.join`,
+  pausa cada 20 si >50; reporta "unido a N, ya estaba en M"). Privados = `/invite @OPAI`.
+- Evento `channel_created` → auto-join en `after()`.
+- Tool del bot **`slack_channel_context({channel})`**: lee las últimas ~50 vía
+  `conversations.history` (solo si el bot es miembro; si no, respuesta accionable) y las
+  entrega al runner. **Sin persistencia** (privacidad v1; ingesta permanente fuera de
+  alcance). Registrada en el system prompt (`comercial`/`presence.ts`).
+- **Paso manual (Carlos)**: agregar scope `channels:join` + bot_event `channel_created`
+  al manifest y **Re-autorizar**.
+
+## Matriz de pruebas manuales (Fase 15)
+
+> No ejecutable en la sesión de Claude (MCP Slack sin autorizar). Checklist para Carlos.
+
+- [ ] Lead nuevo → la tarjeta llega con los 6 botones; **Tomar** corta el escalamiento
+      (el lead ya no reaparece en `lead-escalation`).
+- [ ] **Cotizar** exprés sobre un lead del cotizador → genera la MISMA cotización que la web
+      (precio idéntico); **Enviar** dispara `quote_sent` y el cliente la recibe.
+- [ ] Lead sin datos estructurados → **Cotizar** cae al deep-link "Convertir en OPAI".
+- [ ] Abrir la cotización como cliente en el portal → tarjeta 🔥 con teléfono correcto;
+      refrescar no re-alerta (throttle 30 min).
+- [ ] `/opai pipeline` → overview con montos; drill; **Avanzar** queda en `CrmDealStageHistory`;
+      **Ganado** → 🎉 al canal; **Perdido** guarda motivo.
+- [ ] `/opai cotizaciones enviadas` → lista filtrada con WhatsApp por fila.
+- [ ] 48h sin respuesta → tarjeta de seguimiento; **Reenviar/Posponer/Perdida** funcionan y
+      no re-avisan lo ya avisado; ver/responder la cotización la saca del sweep.
+- [ ] Lunes 08:00 → digest al canal comercial con las métricas.
+- [ ] Home de OPAI (usuario crm) → sección Comercial con contadores y botones.
+- [ ] `wa.me` abre WhatsApp con el mensaje correcto (probar iPhone).
+- [ ] Botón "Unirse a todos los canales públicos" → se une sin rate-limit; canal nuevo →
+      OPAI aparece solo; "resume #canal" responde con lo último; canal privado sin invitación
+      → mensaje accionable.
+- [ ] Títulos de modal ≤24; capability **crm** gatea comandos, cards y Home.
