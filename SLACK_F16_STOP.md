@@ -22,8 +22,9 @@ Guardar → **Re-autorizar**.
       buscador external_select) + `CrmNote` con autor+permalink + archivos a R2
       (ingestSlackFiles) + espejo de notas a la sala. COMMIT `feat(crm+slack):
       notas visibles en negocios y guardado desde cualquier mensaje` ✅ gate OK
-- [ ] **B4** — Channel Expert: contexto dual (canal B8 + ficha del deal) en el runner.
-      COMMIT `feat(slack): el bot responde con contexto del canal y del negocio`
+- [x] **B4** — Channel Expert: contexto dual (canal B8 + ficha del deal) en el
+      runner (mención/DM + `/opai`); respeta exclusiones. COMMIT `feat(slack): el
+      bot responde con contexto del canal y del negocio` ✅ gate OK
 - [ ] **B5** — Ciclo de vida won/lost → celebración/post-mortem + archivo/handoff.
       COMMIT `feat(slack): cierre de sala con handoff a operaciones`
 - [ ] **B6** — Gobernanza (exclusión de canales) + QA matriz + docs.

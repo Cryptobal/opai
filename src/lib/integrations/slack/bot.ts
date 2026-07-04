@@ -142,6 +142,13 @@ export async function handleBotEvent(teamId: string, event: SlackBotEvent): Prom
   try {
     const cfg = await getAiHelpChatConfig(workspace.tenantId);
     const prior = await loadTranscript(workspace.id, channelId, threadTs);
+    // Channel Expert (Fase 16): si el canal ES una sala de negocio, el hint es
+    // el DOBLE contexto (conversación de la sala + ficha del deal); si no, el
+    // hint situado por defecto.
+    const { buildDealRoomContextHint } = await import("./deal-rooms/channel-expert");
+    const contextHint =
+      (await buildDealRoomContextHint(workspace.tenantId, channelId).catch(() => null)) ??
+      (await buildContextHint(workspace, slackUserId));
     const result = await runHelpChatTurn({
       tenantId: workspace.tenantId,
       userId: linked.adminId,
@@ -150,7 +157,7 @@ export async function handleBotEvent(teamId: string, event: SlackBotEvent): Prom
       history: prior,
       userMessage,
       allowWrites: cfg.allowWrites,
-      contextHint: await buildContextHint(workspace, slackUserId),
+      contextHint,
     });
 
     const blocks: unknown[] = [assistantSection(toSlackMarkdown(result.text))];

@@ -91,6 +91,10 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
 
   try {
     const cfg = await getAiHelpChatConfig(workspace.tenantId);
+    // Channel Expert (Fase 16): un `/opai` disparado dentro de una sala de
+    // negocio también recibe el doble contexto (conversación + ficha del deal).
+    const { buildDealRoomContextHint } = await import("./deal-rooms/channel-expert");
+    const contextHint = await buildDealRoomContextHint(workspace.tenantId, channelId).catch(() => null);
     const result = await runHelpChatTurn({
       tenantId: workspace.tenantId,
       userId: linked.adminId,
@@ -99,6 +103,7 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
       history: [],
       userMessage: prompt,
       allowWrites: cfg.allowWrites,
+      contextHint: contextHint ?? undefined,
     });
 
     const blocks: unknown[] = [assistantSection(toSlackMarkdown(result.text))];
