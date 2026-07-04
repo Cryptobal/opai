@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { verifySlackSignature } from "@/lib/integrations/slack/signature";
 import { handleInteractivity } from "@/lib/integrations/slack/interactivity";
 import { openModalForShortcut, prepareViewSubmission } from "@/lib/integrations/slack/modals/dispatch";
+import { clampViewTitle } from "@/lib/integrations/slack/modals/title";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,10 @@ export async function POST(req: NextRequest) {
       console.error("[slack] prepareViewSubmission falló:", err);
     }
     if (result.work) after(result.work);
+    // Red de seguridad (Fase 14): un ACK `response_action:"update"/"push"` con un
+    // view de título >24 chars también dispara `invalid_arguments`. Clampar aquí
+    // cubre las vistas devueltas por HTTP que NO pasan por api.ts.
+    if (result.ack.view) clampViewTitle(result.ack.view);
     return NextResponse.json(result.ack);
   }
 

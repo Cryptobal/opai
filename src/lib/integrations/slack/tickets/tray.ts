@@ -12,6 +12,7 @@ import { TICKET_STATUS_CONFIG, TICKET_PRIORITY_CONFIG } from "@/lib/tickets";
 import { hasModuleAccess, type RolePermissions } from "@/lib/permissions";
 import { listMyTickets, TRAY_PAGE_SIZE, type TrayFilters, type TrayRow, type TrayScope } from "./list";
 import { packMetadata } from "../modals/views";
+import { modalTitle } from "../modals/title";
 import type { ModalDef, ModalOpenContext, SlackView } from "../modals/types";
 
 const pt = (text: string) => ({ type: "plain_text", text: text.slice(0, 75) });
@@ -161,7 +162,7 @@ export function buildTrayView(
       approvals: filters.approvals ? "1" : "",
       scope,
     }),
-    title: pt(title),
+    title: modalTitle(title),
     close: pt("Cerrar"),
     blocks,
   };

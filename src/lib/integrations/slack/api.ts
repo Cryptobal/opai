@@ -7,6 +7,7 @@
  */
 
 import { slackRedirectUri } from "./config";
+import { clampViewTitle, readViewTitle } from "./modals/title";
 
 const BASE = "https://slack.com/api";
 
@@ -167,6 +168,28 @@ export async function slackOpenDm(token: string, userId: string): Promise<string
 }
 
 /**
+ * Envía un método de views.* con red de seguridad (Fase 14): clampa el título a
+ * ≤24 chars ANTES de enviar (evita `invalid_arguments` mudo) y, si Slack RECHAZA
+ * el payload igual, LOGUEA el título ofensor para que el bug nunca sea mudo.
+ */
+async function callViewMethod(
+  method: string,
+  body: Record<string, unknown>,
+  view: unknown,
+  token: string,
+): Promise<SlackResponse> {
+  const safe = clampViewTitle(view);
+  try {
+    return await callSlack(method, { ...body, view: safe }, token);
+  } catch (err) {
+    if (err instanceof SlackApiError && err.slackError === "invalid_arguments") {
+      console.error(`[slack] ${method} invalid_arguments · title="${readViewTitle(safe) ?? "?"}"`);
+    }
+    throw err;
+  }
+}
+
+/**
  * views.open — abre un modal. El `trigger_id` vence en ~3s, así que hay que
  * llamar esto ANTES de cualquier trabajo pesado (Fase 5).
  */
@@ -175,7 +198,7 @@ export async function slackOpenView(
   triggerId: string,
   view: unknown,
 ): Promise<{ id: string }> {
-  const json = await callSlack("views.open", { trigger_id: triggerId, view }, token);
+  const json = await callViewMethod("views.open", { trigger_id: triggerId }, view, token);
   return { id: ((json.view as { id?: string })?.id) ?? "" };
 }
 
@@ -185,7 +208,7 @@ export async function slackUpdateView(
   viewId: string,
   view: unknown,
 ): Promise<{ id: string }> {
-  const json = await callSlack("views.update", { view_id: viewId, view }, token);
+  const json = await callViewMethod("views.update", { view_id: viewId }, view, token);
   return { id: ((json.view as { id?: string })?.id) ?? "" };
 }
 
@@ -195,7 +218,7 @@ export async function slackPushView(
   triggerId: string,
   view: unknown,
 ): Promise<{ id: string }> {
-  const json = await callSlack("views.push", { trigger_id: triggerId, view }, token);
+  const json = await callViewMethod("views.push", { trigger_id: triggerId }, view, token);
   return { id: ((json.view as { id?: string })?.id) ?? "" };
 }
 

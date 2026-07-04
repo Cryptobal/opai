@@ -6,6 +6,7 @@
 
 import { TICKET_STATUS_CONFIG, TICKET_PRIORITY_CONFIG, TICKET_TEAM_CONFIG } from "@/lib/tickets";
 import { packMetadata } from "../modals/views";
+import { modalTitle } from "../modals/title";
 import type { SlackView } from "../modals/types";
 
 const pt = (text: string) => ({ type: "plain_text", text: text.slice(0, 75) });
@@ -17,7 +18,7 @@ function shell(callbackId: string, ticketId: string, title: string, submit: stri
     type: "modal",
     callback_id: callbackId,
     private_metadata: meta(ticketId),
-    title: pt(title),
+    title: modalTitle(title),
     submit: pt(submit),
     close: pt("Cancelar"),
     blocks,
