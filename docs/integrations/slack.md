@@ -905,3 +905,77 @@ se muestra un botón `🙋 Tomar`. Un clic → `claimTicket` (en `tickets-mutati
 - [ ] "Sin asignar" y "Todos" solo aparecen para usuarios con acceso al módulo ops.
 - [ ] "Tomar" asigna el ticket; un segundo "Tomar" ajeno avisa "Otro usuario lo tomó primero".
 - [ ] Home muestra "Asignados a ti · Tu equipo · Sin asignar (tenant)" y cada número cuadra.
+
+# Fase 13 — Aprobaciones unificadas (rendiciones + turnos extra)
+
+El aprobador no piensa en módulos: piensa en "¿qué espera mi firma?". La bandeja
+**Pendientes de tu aprobación** se vuelve multi-dominio — 🎫 Tickets · 🧾 Rendiciones ·
+⏱ Turnos extra — con Aprobar/Rechazar inline en las tres, desde el teléfono.
+
+## Servicios reutilizables (B1)
+
+Aprobar/rechazar se **extrajo** del inline de los routes web a servicios compartidos que
+consumen tanto la web como Slack (cero duplicación):
+
+- `src/lib/rendiciones-approvals.ts` — `listRendicionesPendingApproval`, `countRendicionesPendingApproval`,
+  `approveRendicion`, `rejectRendicion`. Solo `SUBMITTED` es accionable; transición anti-carrera
+  (`updateMany where status=SUBMITTED`); escribe `FinanceRendicionHistory`, `logAudit` y notifica
+  al solicitante. Aprobador = fila `FinanceApproval` (decision null) asignada al admin.
+- `src/lib/te-approvals.ts` — `listPendingTes`, `countPendingTes`, `approveTe`, `rejectTe`. Estado
+  `pending|approved|rejected|paid`; anti-carrera con guard de estado; audita `te.approved`/`te.rejected`
+  y notifica a quien lo ingresó (`createdBy`). No hay aprobador asignado: "pendiente para mí" = todos
+  los `pending` del tenant SI tengo capability `te_approve`.
+
+Control de acceso = del **caller** (patrón `rendiciones-create.ts`): el route web mantiene su gate;
+cada handler de Slack exige la capability real (`rendicion_approve` / `te_approve`) ANTES de decidir.
+
+## Eventos del catálogo (B2)
+
+`rendicion_submitted` / `rendicion_approved` / `rendicion_rejected` (cat. **Finanzas - Rendiciones**),
+`te_created` / `te_approved` / `te_rejected` (cat. **Operaciones - Turnos**). Se reutilizan las
+categorías existentes → el ruteo por categoría (F7.1) los agrupa sin tocar el dispatcher. Emisores:
+el submit de rendición (`rendicion_submitted` → aprobadores asignados), el create de TE
+(`te_created` → difusión a admins con visión de turnos extra), y los servicios de decisión
+(`*_approved`/`*_rejected` → solicitante). `data` rica (monto CLP, solicitante/guardia, instalación,
+fecha, motivo) para la tarjeta genérica.
+
+## Bandeja unificada (B3)
+
+`/opai aprobaciones` (y el botón del Home) abren `inboxModal` (`opai_aprobaciones`), ahora
+multi-dominio (`src/lib/integrations/slack/approvals/inbox.ts` + `inbox-actions.ts`):
+
+- Secciones por dominio, **solo** las que el usuario puede aprobar y con pendientes.
+- Fila densa: `REN-XX · $45.000 · Juan Pérez · Combustible` / `TE · $28.000 · Guardia X · Polpaico · 05-07`.
+- **Aprobar** inline (`apx_approve`, anti-carrera del servicio); **Rechazar** (`apx_reject`) →
+  `views.push` del modal de motivo **obligatorio** (`apx_reason`, compartido con las tarjetas).
+- Paginación por sección (`apx_page`, 6/pág), estado en `private_metadata.page` (`t-r-e`).
+- El **contador del Home** ("Pendientes de tu aprobación: N") es el AGREGADO de los tres dominios
+  (`countInbox` = tickets + rendiciones + TEs, cada uno gateado por su capability).
+
+## Mis rendiciones — lado solicitante (B4)
+
+`/opai rendiciones`, botón "🧾 Mis rendiciones" del Home y tile del hub (grupo Finanzas) abren
+`misRendicionesModal` (`opai_mis_rendiciones`): las rendiciones del usuario (`submitterId`), filtro
+por estado (`misren_filter`), fila `código · monto · estado · fecha` con "Ver en OPAI" y 📎 Boleta si
+existe, y "➕ Nueva rendición" que reusa el modal F5 (`opai_nueva_rendicion`).
+
+## Tarjetas accionables (B5)
+
+Las tarjetas de `rendicion_submitted` y `te_created` llevan **Aprobar / Rechazar** directos
+(`apcard_approve` / `apcard_reject`, action_id único por bloque, `value = domain:pendingId`), gateados
+por capability real al presionar. El dispatch crea una `SlackPendingAction`
+(`RENDICION_APPROVAL` / `TE_APPROVAL`) y ancla el `messageTs` para actualizar la tarjeta. Aprobar
+reclama atómicamente (`claimPending`) → `chat.update`: "✅ Aprobada por @X a las HH:MM". Rechazar abre
+el modal de motivo (origin=card) que al enviar rechaza y actualiza la misma tarjeta. Doble decisión →
+la tarjeta informa el estado real.
+
+## Matriz de pruebas manuales (Fase 13)
+
+- [ ] Rendición creada desde Slack → aprobador recibe tarjeta con botones Y la ve en su bandeja.
+- [ ] Aprobar (bandeja o tarjeta) → solicitante notificado, `FinanceRendicionHistory` registrado.
+- [ ] Rechazo exige motivo (≥3) y el motivo viaja al solicitante.
+- [ ] TE ingresado (web o Slack) → tarjeta al aprobador → aprobar setea `approvedBy`/`approvedAt`.
+- [ ] Usuario sin capability no ve la sección ni puede forzar por API (el servicio manda).
+- [ ] Contador del Home = suma real de los tres dominios.
+- [ ] Carrera de dos aprobadores → el segundo recibe aviso limpio ("ya fue resuelto").
+- [ ] 375px usable (filas densas de una línea + botones).
