@@ -15,6 +15,19 @@ import { resolveLinkedAdmin, buildLinkUrl } from "./user-link";
 import { slackPublishHomeView, slackPostMessage, slackOpenDm } from "./api";
 import { countTickets } from "./tickets/list";
 import { countInbox } from "./approvals/inbox";
+import { countLeads } from "./comercial/leads-list";
+
+/** Contadores del panel Comercial del Home (Fase 15): sin campos nuevos. */
+async function computeCrmHomeCounters(tenantId: string): Promise<{ leadsSinTomar: number; porVencer: number; caliente: number }> {
+  const now = new Date();
+  const in7d = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const [leadsSinTomar, porVencer, calienteRows] = await Promise.all([
+    countLeads(tenantId, { untaken: true }),
+    prisma.cpqQuote.count({ where: { tenantId, status: "sent", validUntil: { gte: now, lte: in7d } } }),
+    prisma.portalAccessLog.findMany({ where: { tenantId, action: "view_quote", createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } }, distinct: ["resource"], select: { resource: true } }),
+  ]);
+  return { leadsSinTomar, porVencer, caliente: calienteRows.length };
+}
 
 const pt = (text: string) => ({ type: "plain_text", text, emoji: true });
 
@@ -31,6 +44,8 @@ interface DayBreakdown {
   unassigned: number | null; // null = el usuario no tiene visión global (línea oculta)
   vencidos: number;
   approvals: number; // agregado de los tres dominios (tickets + rendiciones + TEs)
+  // Comercial (Fase 15): null si el usuario no tiene capability crm.
+  crm: { leadsSinTomar: number; porVencer: number; caliente: number } | null;
 }
 
 function linkedHome(day: DayBreakdown): unknown {
@@ -72,6 +87,27 @@ function linkedHome(day: DayBreakdown): unknown {
           openBtn("⚡ Todas las acciones", "opai_acciones"),
         ],
       },
+      // Comercial (Fase 15): solo para usuarios con acceso a CRM.
+      ...(day.crm
+        ? [
+            { type: "divider" },
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `*Comercial*\n📇 Leads sin tomar: *${day.crm.leadsSinTomar}*   ·   ⏳ Cotizaciones por vencer: *${day.crm.porVencer}*${day.crm.caliente > 0 ? `   ·   🔥 Viendo ahora: *${day.crm.caliente}*` : ""}`,
+              },
+            },
+            {
+              type: "actions",
+              elements: [
+                openBtn(day.crm.leadsSinTomar > 0 ? `📇 Leads (${day.crm.leadsSinTomar})` : "📇 Leads", "opai_leads", day.crm.leadsSinTomar > 0 ? "primary" : undefined),
+                openBtn("💼 Pipeline", "opai_pipeline"),
+                openBtn("🧾 Cotizaciones", "opai_cotizaciones"),
+              ],
+            },
+          ]
+        : []),
       {
         type: "context",
         elements: [{ type: "mrkdwn", text: "Escríbeme `@OPAI` o usa `/opai ayuda` · OPAI Intelligence" }],
@@ -114,17 +150,19 @@ export async function publishHome(tenantId: string, slackUserId: string): Promis
   // tiene visión global (mismo criterio que la vista "Todos" de la web: acceso
   // al módulo ops, único gate del route de counts).
   const canViewAll = hasModuleAccess(linked.perms, "ops");
-  const [mine, team, vencidos, unassigned, approvals] = await Promise.all([
+  const canViewCrm = hasModuleAccess(linked.perms, "crm");
+  const [mine, team, vencidos, unassigned, approvals, crm] = await Promise.all([
     countTickets(tenantId, linked.adminId, { scope: "mine" }),
     countTickets(tenantId, linked.adminId, { scope: "my_team" }),
     countTickets(tenantId, linked.adminId, { scope: "my_team", slaBreached: true }),
     canViewAll ? countTickets(tenantId, linked.adminId, { scope: "unassigned" }) : Promise.resolve(null),
     countInbox(tenantId, linked.adminId, linked.perms),
+    canViewCrm ? computeCrmHomeCounters(tenantId) : Promise.resolve(null),
   ]);
   await slackPublishHomeView(
     ws.botToken,
     slackUserId,
-    linkedHome({ mine, team, vencidos, unassigned, approvals }),
+    linkedHome({ mine, team, vencidos, unassigned, approvals, crm }),
   );
 }
 

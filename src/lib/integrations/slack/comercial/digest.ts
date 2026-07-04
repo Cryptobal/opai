@@ -1,0 +1,76 @@
+/**
+ * Digest comercial semanal (Fase 15, B6): cada lunes 08:00 (y diario opcional
+ * por tenant vía Setting crm.digestDaily) al canal comercial:
+ *   📊 Semana comercial: pipeline $X en N negocios · M cotizaciones enviadas
+ *   (time-to-quote prom: Xh) · K vistas sin respuesta · J leads sin tomar ·
+ *   negocios sin actividad >7d: [lista corta]
+ * Todo calculado de timestamps existentes (cero campos nuevos).
+ */
+
+import { prisma } from "@/lib/prisma";
+import { getWorkspaceForTenant } from "../workspace";
+import { enqueueOutboxRow, trySendOutboxRow } from "../outbox";
+import { clp } from "./deal-common";
+import { resolveComercialChannel } from "./quote-stale";
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Calcula las métricas de la semana y postea la tarjeta (idempotente por día). */
+export async function buildAndPostDigest(tenantId: string, dayKey: string): Promise<boolean> {
+  const ws = await getWorkspaceForTenant(tenantId);
+  if (!ws) return false;
+  const channelId = await resolveComercialChannel(ws);
+  if (!channelId) return false;
+
+  const weekAgo = new Date(Date.now() - WEEK_MS);
+  const [pipe, leadsSinTomar, enviadas, sentQuotes, staleDeals, leadQuotes] = await Promise.all([
+    prisma.crmDeal.aggregate({ where: { tenantId, status: "open" }, _count: { _all: true }, _sum: { amount: true } }),
+    prisma.crmLead.count({ where: { tenantId, status: { in: ["pending", "in_review"] }, firstContactAt: null } }),
+    prisma.crmHistoryLog.count({ where: { tenantId, action: "quote_sent_portal", createdAt: { gte: weekAgo } } }),
+    prisma.cpqQuote.findMany({ where: { tenantId, status: "sent" }, select: { id: true } }),
+    prisma.crmDeal.findMany({ where: { tenantId, status: "open", updatedAt: { lt: weekAgo } }, orderBy: { amount: "desc" }, take: 5, select: { id: true, amount: true, account: { select: { name: true } } } }),
+    prisma.cpqQuote.findMany({ where: { tenantId, createdFromLeadId: { not: null }, createdAt: { gte: weekAgo } }, select: { createdAt: true, createdFromLeadId: true } }),
+  ]);
+
+  // Vistas sin respuesta: cotizaciones sent que el cliente YA abrió.
+  const sentIds = sentQuotes.map((q) => q.id);
+  const viewed = sentIds.length
+    ? await prisma.portalAccessLog.findMany({ where: { tenantId, action: "view_quote", resource: { in: sentIds } }, distinct: ["resource"], select: { resource: true } })
+    : [];
+  const vistasSinRespuesta = viewed.length;
+
+  // Time-to-quote promedio (lead.createdAt → quote.createdAt) de la semana.
+  let ttq = "—";
+  if (leadQuotes.length) {
+    const leadIds = [...new Set(leadQuotes.map((q) => q.createdFromLeadId!).filter(Boolean))];
+    const leads = await prisma.crmLead.findMany({ where: { id: { in: leadIds } }, select: { id: true, createdAt: true } });
+    const lm = new Map(leads.map((l) => [l.id, l.createdAt]));
+    const diffs = leadQuotes
+      .map((q) => { const lc = lm.get(q.createdFromLeadId!); return lc ? q.createdAt.getTime() - lc.getTime() : null; })
+      .filter((x): x is number => x != null && x >= 0);
+    if (diffs.length) ttq = `${(diffs.reduce((a, b) => a + b, 0) / diffs.length / 3.6e6).toFixed(1)}h`;
+  }
+
+  const pipeSum = Number(pipe._sum.amount ?? 0);
+  const staleList = staleDeals.length
+    ? staleDeals.map((d) => `• ${d.account?.name ?? "Cliente"} (${clp(Number(d.amount ?? 0))})`).join("\n")
+    : "ninguno 🎉";
+
+  const blocks: unknown[] = [
+    { type: "header", text: { type: "plain_text", text: "📊 Semana comercial", emoji: true } },
+    { type: "section", text: { type: "mrkdwn", text: [
+      `*Pipeline:* ${clp(pipeSum)} en ${pipe._count._all} negocio(s)`,
+      `*Cotizaciones enviadas (7d):* ${enviadas}  ·  *time-to-quote prom:* ${ttq}`,
+      `*Vistas sin respuesta:* ${vistasSinRespuesta}`,
+      `*Leads sin tomar:* ${leadsSinTomar}`,
+    ].join("\n") } },
+    { type: "section", text: { type: "mrkdwn", text: `*Negocios sin actividad >7d:*\n${staleList}` } },
+  ];
+  const text = `📊 Semana comercial: pipeline ${clp(pipeSum)} en ${pipe._count._all} negocios · ${enviadas} cotizaciones enviadas · ${vistasSinRespuesta} vistas sin respuesta · ${leadsSinTomar} leads sin tomar`;
+
+  // Idempotencia por (tenant, día): el dedupe del outbox evita doble envío.
+  const id = await enqueueOutboxRow({ tenantId, workspaceId: ws.id, channelId, text, blocks, dedupeKey: `comercial-digest|${tenantId}|${dayKey}` });
+  if (!id) return false; // ya enviado hoy
+  await trySendOutboxRow(ws.botToken, id, channelId, text, blocks);
+  return true;
+}

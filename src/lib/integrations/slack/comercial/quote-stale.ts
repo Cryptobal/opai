@@ -25,7 +25,7 @@ const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // no perseguir cotizaciones muy vi
 const SWEEP_CAP = 100;
 
 /** Canal comercial del tenant (ruta CPQ → categoría → default del workspace). */
-async function resolveComercialChannel(ws: ActiveWorkspace): Promise<string | null> {
+export async function resolveComercialChannel(ws: ActiveWorkspace): Promise<string | null> {
   const route = await prisma.slackChannelRoute.findFirst({
     where: { tenantId: ws.tenantId, enabled: true, OR: [{ matchType: "MODULE", matchValue: "cpq" }, { matchType: "CATEGORY", matchValue: "CPQ - Cotizaciones" }] },
     select: { channelId: true },
