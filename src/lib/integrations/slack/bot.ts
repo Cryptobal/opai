@@ -100,7 +100,8 @@ async function saveTranscript(
 
 /** Procesa un evento app_mention/message. Idempotente ante ruido (bots, edits). */
 export async function handleBotEvent(teamId: string, event: SlackBotEvent): Promise<void> {
-  if (event.bot_id || event.subtype) return; // mensajes de bots, ediciones, joins…
+  if (event.bot_id) return;
+  if (event.subtype && event.subtype !== "file_share") return; // ediciones, joins, etc.
   if (event.type === "message" && event.channel_type !== "im") return; // 'message' solo para DMs
   const slackUserId = event.user;
   const channelId = event.channel;
@@ -113,9 +114,24 @@ export async function handleBotEvent(teamId: string, event: SlackBotEvent): Prom
   if (slackUserId === workspace.botUserId) return; // nunca responderse a sí mismo
 
   const threadTs = event.thread_ts || event.ts;
-  const userMessage = stripMention(event.text || "");
-  if (!userMessage) return;
+  let userMessage = stripMention(event.text || "");
   const token = workspace.botToken;
+
+  // DM con adjunto (subtype file_share): no podemos leer el archivo, pero el
+  // bot NUNCA debe quedar mudo ni dejar que el modelo alucine su contenido.
+  const fileCount = event.subtype === "file_share" ? (event.files?.length ?? 0) : 0;
+  if (fileCount > 0 && !userMessage) {
+    await slackPostMessage(token, {
+      channel: channelId,
+      text: "Recibí tu archivo 📎. Por ahora no puedo leer adjuntos en Slack; escríbeme la instrucción en texto y te ayudo al tiro.",
+      thread_ts: threadTs,
+    }).catch((err) => console.error("[slack] no se pudo responder a file_share sin texto:", err));
+    return;
+  }
+  if (!userMessage) return;
+  if (fileCount > 0) {
+    userMessage += `\n\n[El usuario adjuntó ${fileCount} archivo(s); no están disponibles para lectura en este turno.]`;
+  }
 
   // Gate de vínculo: usuario no vinculado = cero datos, solo el flujo de vínculo.
   const linked = await resolveLinkedAdmin(workspace, slackUserId);
