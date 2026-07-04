@@ -1204,3 +1204,68 @@ ya está). Agregar el message shortcut **"Guardar en OPAI"** (`callback_id`
       leerlo con aviso claro.
 - [ ] Títulos de modal ≤24; capability **crm** (edit) gatea abrir sala, guardar nota
       y las acciones de la ficha.
+
+---
+
+# Fase 17 — Pulido del cockpit comercial
+
+Cuatro bloques de pulido sobre F15/F16.
+
+## B1 — Efímeros de progreso: mutan o desaparecen (cero huérfanos)
+
+Regla OBLIGATORIA de toda la integración: **`chat.delete` NO borra efímeros** —
+solo su `response_url` puede REEMPLAZARLOS (`replace_original`) o ELIMINARLOS
+(`delete_original`, ventana 30 min). Todo efímero de progreso termina reemplazado
+o eliminado; prohibido dejar huérfanos.
+
+- **Slash `/opai`**: el route ACK-ea con `⏳ Procesando tu consulta…` (efímero).
+  - Camino de **MODAL** (`tickets`/`rendicion`/`leads`/`cotizaciones`…):
+    `openModalByCallback` abre el modal (el modal ES el feedback) y devuelve si lo
+    logró; el comando ELIMINA el `⏳` vía `delete_original`. Si el modal no abrió
+    (trigger vencido), el `⏳` MUTA a un aviso vía `replace_original`. Ya no queda
+    el viejo `📂 Abriendo…` huérfano.
+  - Camino de **TEXTO** (pregunta libre / subcomando prompt): la respuesta final
+    va al MISMO `response_url` con `replace_original` → un solo bubble que muta.
+- **`block_actions`** (leads/cotizaciones/aprobaciones/deal-room): la ruta de
+  interactividad ACK-ea `{ok:true}` (sin efímero de progreso). Los avisos son
+  efímeros TERMINALES (resultado), no spinners; NO se usa `replace_original` sobre
+  ellos porque editarían la **tarjeta compartida** del canal.
+- `slackRespondUrl` acepta `delete_original` (además de `replace_original`).
+
+## B2/B3 — Drill del pipeline (`/opai pipeline`)
+
+Ver el docstring de `comercial/pipeline.ts`. Resumen:
+
+- Fila: `🏠 *Cuenta* · negocio · monto` (badge 🏠 si el negocio tiene sala OPEN) +
+  `⏱ {semáforo} {días}d en etapa · act {fecha}`.
+- **Días en etapa** siempre calculados: último cambio en `CrmDealStageHistory`
+  con **fallback a `createdAt`** para negocios pre-tracking (nunca "—").
+- **Semáforo de frío**: filas ordenadas del más frío (más días) al más fresco; ⏱
+  coloreado 🟢 <7d · 🟠 7-14d · 🔴 >14d.
+- **Botones por fila**: `🔗 Abrir en OPAI` (`/crm/deals/{id}`, `getCanonicalSiteUrl`)
+  · `🏠 Ir a la sala` (deep-link `app.slack.com/client/{team}/{channel}`) o
+  `🏠 Abrir sala` (reusa `openDealRoom`, requiere edit) · `🟢 WhatsApp`.
+- **Overflow por fila** (≤5, límite de Slack): `📞 Llamar` (tel) + Avanzar / Nota /
+  Ganado / Perdido (solo con capability crm-edit).
+- **Navegación** `← Pipeline`: del drill al overview vía `views.update`.
+- **Límite documentado**: `🟢 WhatsApp` y `📞 Llamar` son botones URL — Slack NO
+  notifica los clics de botones URL, así que el contacto no se registra solo; el
+  registro queda vía `📝 Nota` manual o el followup-log de otras acciones.
+
+## Matriz de pruebas manuales (Fase 17)
+
+> No ejecutable en la sesión de Claude (MCP Slack sin autorizar). Checklist para Carlos.
+
+- [ ] `/opai pipeline` → abrir una etapa → cerrar el modal → **el canal queda sin
+      residuos** (sin `⏳`/`📂` pegados; sin recargar Slack).
+- [ ] `/opai [pregunta libre]` → **un solo** efímero que muta de `⏳ Procesando…`
+      a la respuesta final (nunca dos bubbles).
+- [ ] Fila del drill muestra **cuenta + negocio + monto + ⏱ coloreado**; el orden
+      va del más frío (🔴) al más fresco (🟢).
+- [ ] `🔗 Abrir en OPAI` aterriza en `/crm/deals/{id}` correcto.
+- [ ] Negocio **con sala OPEN**: badge 🏠 en la fila y `🏠 Ir a la sala` abre el
+      canal; negocio **sin sala** (usuario con edit): `🏠 Abrir sala` la crea.
+- [ ] Negocio **sin historial de etapa** (pre-tracking): muestra días desde
+      `createdAt`, nunca "—" (caso Zelestra).
+- [ ] `← Pipeline` vuelve al overview sin cerrar el modal.
+- [ ] Legible a **375px**; títulos de modal ≤24; overflow ≤5 opciones.
