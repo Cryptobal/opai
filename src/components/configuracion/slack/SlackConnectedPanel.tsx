@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Send, Hash } from "lucide-react";
+import { Send, Hash, X, ShieldOff } from "lucide-react";
 import { SlackChannelPicker } from "./SlackChannelPicker";
 import type { SlackChannelOption, SlackConfig } from "./types";
 
@@ -25,6 +25,45 @@ export function SlackConnectedPanel({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [excludedIds, setExcludedIds] = useState<string[]>([]);
+  const [savingExclusions, setSavingExclusions] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/integrations/slack/governance")
+      .then((r) => r.json())
+      .then((d) => { if (alive && d?.success) setExcludedIds(d.excludedChannelIds ?? []); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  async function saveExclusions(nextIds: string[]) {
+    setSavingExclusions(true);
+    try {
+      const res = await fetch("/api/integrations/slack/governance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channelIds: nextIds }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error();
+      setExcludedIds(data.excludedChannelIds ?? nextIds);
+      toast.success("Canales excluidos actualizados");
+    } catch {
+      toast.error("No se pudo guardar la exclusión");
+    } finally {
+      setSavingExclusions(false);
+    }
+  }
+
+  function addExclusion(channel: SlackChannelOption | null) {
+    if (!channel || excludedIds.includes(channel.id)) return;
+    void saveExclusions([...excludedIds, channel.id]);
+  }
+  function removeExclusion(id: string) {
+    void saveExclusions(excludedIds.filter((x) => x !== id));
+  }
+  const channelName = (id: string) => channels.find((c) => c.id === id)?.name ?? id;
 
   async function joinAll() {
     setJoining(true);
@@ -153,6 +192,34 @@ export function SlackConnectedPanel({
           >
             Desconectar
           </Button>
+        </div>
+
+        {/* Gobernanza (Fase 16): canales que OPAI NUNCA leerá ni usará de contexto. */}
+        <div className="space-y-1.5 border-t border-border pt-4">
+          <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <ShieldOff className="h-3.5 w-3.5" /> Canales que OPAI no leerá
+          </label>
+          <SlackChannelPicker
+            channels={channels.filter((c) => !excludedIds.includes(c.id))}
+            value=""
+            onSelect={addExclusion}
+            disabled={savingExclusions}
+            placeholder="Agregar canal a excluir…"
+          />
+          {excludedIds.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {excludedIds.map((id) => (
+                <Badge key={id} variant="secondary" className="gap-1">
+                  #{channelName(id)}
+                  <button type="button" onClick={() => removeExclusion(id)} disabled={savingExclusions} aria-label="Quitar" className="hover:text-destructive">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Sin exclusiones: OPAI puede leer cualquier canal donde sea miembro.</p>
+          )}
         </div>
       </CardContent>
 

@@ -29,8 +29,14 @@ Guardar → **Re-autorizar**.
       (post-mortem del bot + Archivar); archive = conversations.archive + ARCHIVED;
       handoff = rename op-{slug} + link a la operación. COMMIT `feat(slack): cierre
       de sala con handoff a operaciones` ✅ gate OK
-- [ ] **B6** — Gobernanza (exclusión de canales) + QA matriz + docs.
-      COMMIT `docs(slack): fase 16 deal rooms`
+- [x] **B6** — Gobernanza: exclusión de canales (Setting + panel Slack + API);
+      enforcement en B8 (`readChannelContextForTool`) y Channel Expert; matriz QA
+      + `docs/integrations/slack.md` + `docs/crm/deal-rooms.md`. COMMIT `docs(slack):
+      fase 16 deal rooms` ✅ gate OK
+
+**FASE 16 COMPLETA** — 6/6 bloques, gates verdes. Falta solo el paso manual de
+Carlos en el Slack dashboard (scopes + shortcut + re-autorizar) y correr la matriz
+QA en un workspace real.
 
 ## Hallazgos de auditoría (para no re-auditar)
 - `CrmDeal` usa `title` (no `name`), **sin `ownerId` ni `createdBy`**. Owner del

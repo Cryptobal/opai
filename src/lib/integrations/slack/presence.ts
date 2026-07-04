@@ -6,6 +6,7 @@
  */
 
 import { getWorkspaceForTenant } from "./workspace";
+import { isChannelExcluded } from "./channel-exclusions";
 import {
   slackListPublicChannels,
   slackConversationsJoin,
@@ -85,6 +86,11 @@ export async function readChannelContextForTool(
     channelName = resolved.name;
   }
   if (!channelId) return { ok: false, error: "Indica el canal (ej. #reportes) o menciona el actual." };
+
+  // Gobernanza (Fase 16, B6): OPAI NUNCA lee un canal excluido por el tenant.
+  if (await isChannelExcluded(tenantId, channelId)) {
+    return { ok: false, error: `El canal #${channelName} está en la lista de canales que no puedo leer (configuración de OPAI).` };
+  }
 
   const info = await slackChannelInfo(ws.botToken, channelId).catch(() => null);
   if (info && !info.isMember) {

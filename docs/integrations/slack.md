@@ -1156,3 +1156,51 @@ en `docs/crm/velocidad-comercial.md`.
       OPAI aparece solo; "resume #canal" responde con lo último; canal privado sin invitación
       → mensaje accionable.
 - [ ] Títulos de modal ≤24; capability **crm** gatea comandos, cards y Home.
+
+## Deal Rooms (Fase 16)
+
+Cada negocio importante gana su canal de Slack ligado al `CrmDeal`. Detalle
+completo en [`docs/crm/deal-rooms.md`](../crm/deal-rooms.md). Resumen de piezas:
+
+- **Modelo** `CrmDealSlackRoom` (`deal_id` único, ficha fijada, `OPEN|ARCHIVED`).
+- **Servicio** `openDealRoom` / `maybeAutoOpenDealRoom` (umbral por tenant en
+  `Setting`, **default OFF**).
+- **Ficha viva** fijada, re-editada con `chat.update` en cada evento del negocio.
+- **Ruteo**: `dispatch` manda a la sala (en vez del canal de categoría) todo
+  evento con `dealId` y sala OPEN; nuevos eventos `deal_stage_changed` / `deal_lost`.
+- **Guardar en OPAI** (shortcut `opai_guardar`): `CrmNote` con autor + permalink;
+  adjuntos a R2; buscador de entidad (`external_select` + `block_suggestion`).
+- **Channel Expert**: doble contexto (conversación + ficha) inyectado al runner.
+- **Ciclo de vida**: won → 🎉 + resumen + Archivar/Handoff; lost → post-mortem.
+- **Gobernanza**: canales excluidos (`Setting` `slack_governance`), respetados por
+  el B8 y el Channel Expert.
+
+### Paso manual PREVIO (Carlos, en el Slack dashboard)
+
+Agregar scopes del bot `channels:manage`, `groups:write`, `pins:write` (`files:read`
+ya está). Agregar el message shortcut **"Guardar en OPAI"** (`callback_id`
+`opai_guardar`). Guardar → **Re-autorizar**.
+
+## Matriz de pruebas manuales (Fase 16 — Deal Rooms)
+
+> No ejecutable en la sesión de Claude (MCP Slack sin autorizar). Checklist para Carlos.
+
+- [ ] Negocio cruza a Negociación → **Abrir sala del negocio** (web o `/opai pipeline`)
+      → se crea `neg-{cliente}` privado, invita al creador+owner, ficha viva fijada.
+- [ ] Cotización nueva del CPQ del MISMO deal → cae SOLA a la sala; al abrirla el
+      cliente, el 🔥 (`quote_viewed`) cae ahí mismo y la ficha se actualiza.
+- [ ] Avanzar etapa (ficha o pipeline) → la ficha fijada refleja la etapa nueva.
+- [ ] "Guardar en OPAI" desde un mensaje de la sala → nota en el negocio, visible
+      en el detalle web (pestaña **Notas**) con autor y link al mensaje; ✅ en el hilo.
+- [ ] "Guardar en OPAI" desde un canal normal → buscador cuenta/negocio/lead → nota
+      guardada en la entidad elegida; adjunto del mensaje aparece linkeado (R2).
+- [ ] `@OPAI ¿en qué quedamos?` dentro de la sala → responde mezclando la
+      conversación de la sala y los datos del CRM (monto/etapa/cotización).
+- [ ] Negocio **ganado** → 🎉 + resumen en la sala; **Convertir en canal de
+      operación** renombra a `op-{cliente}` y ofrece el link a la operación;
+      **Archivar** archiva (map conservado).
+- [ ] Negocio **perdido** → mini post-mortem del bot + **Archivar**.
+- [ ] Canal en la lista de exclusión → `resume #canal` / Channel Expert **declinan**
+      leerlo con aviso claro.
+- [ ] Títulos de modal ≤24; capability **crm** (edit) gatea abrir sala, guardar nota
+      y las acciones de la ficha.
