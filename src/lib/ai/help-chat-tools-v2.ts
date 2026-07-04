@@ -1681,6 +1681,42 @@ function writeToolDefinitions() {
         },
       },
     },
+    {
+      type: "function" as const,
+      function: {
+        name: "preview_bulk_update_installations",
+        description:
+          "Lista (máx 50) instalaciones que cambiarían al status destino, excluyendo las que ya lo tienen. Filtra por accountId y/o query en nombre/cuenta. Paso 1 antes de bulk_update_installations.",
+        parameters: {
+          type: "object",
+          properties: {
+            accountId: { type: "string", description: "UUID de cuenta CRM." },
+            query: { type: "string", description: "Texto en nombre de instalación o cuenta." },
+            status: { type: "string", enum: ["prospect", "active", "inactive"], description: "Status destino." },
+          },
+          required: ["status"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "bulk_update_installations",
+        description:
+          "PASO 2 (tras preview_bulk_update_installations y confirmación). Actualiza en lote el status de instalaciones (máx 50). Mismos filtros que el preview.",
+        parameters: {
+          type: "object",
+          properties: {
+            accountId: { type: "string" },
+            query: { type: "string" },
+            status: { type: "string", enum: ["prospect", "active", "inactive"] },
+          },
+          required: ["status"],
+          additionalProperties: false,
+        },
+      },
+    },
   ];
 }
 
@@ -1698,6 +1734,7 @@ export const PREVIEW_TO_CONFIRM: Record<string, { confirmToolName: string; label
   preview_send_quote_proposal: { confirmToolName: "send_quote_proposal", label: "Enviar propuesta de cotización" },
   preview_update_quote_position: { confirmToolName: "update_quote_position", label: "Actualizar puesto de la cotización" },
   preview_remove_quote_position: { confirmToolName: "remove_quote_position", label: "Eliminar puesto de la cotización" },
+  preview_bulk_update_installations: { confirmToolName: "bulk_update_installations", label: "Actualizar instalaciones en lote" },
 };
 
 /**
@@ -1736,11 +1773,22 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   comment_ticket: "Comentar ticket",
   reassign_ticket: "Reasignar ticket",
   change_ticket_priority: "Cambiar prioridad de ticket",
+  bulk_update_installations: "Actualizar instalaciones en lote",
 };
 
 /** Descripción humana corta de una escritura diferida para la tarjeta de Slack. */
 export function describeWriteArgs(toolName: string, args: Record<string, unknown>): string {
   const label = WRITE_TOOL_LABELS[toolName] ?? toolName;
+  if (toolName === "bulk_update_installations") {
+    const status = args.status ?? "?";
+    const scope =
+      typeof args.accountId === "string" && args.accountId
+        ? `cuenta ${args.accountId.slice(0, 8)}…`
+        : typeof args.query === "string" && args.query
+          ? `"${String(args.query).slice(0, 40)}"`
+          : "instalaciones";
+    return `${label} · ${scope} → ${status}`;
+  }
   const name = [args.name, args.title, args.companyName, args.code]
     .find((v): v is string => typeof v === "string" && !!v.trim());
   const fields = Object.entries(args)
@@ -4407,6 +4455,53 @@ async function resolveTicketIdForTool(
   return { error: "Indica ticketId (UUID) o code (TK-…)." };
 }
 
+async function resolveBulkInstallationTargets(
+  tenantId: string,
+  args: Record<string, unknown>,
+  targetStatus: "prospect" | "active" | "inactive",
+): Promise<
+  | { ok: true; installations: Array<{ id: string; name: string; statusActual: string; accountName: string | null }> }
+  | { ok: false; error: string }
+> {
+  const accountId = typeof args.accountId === "string" ? args.accountId.trim() : "";
+  const query = typeof args.query === "string" ? args.query.trim() : "";
+  if (!accountId && !query) {
+    return { ok: false, error: "Indica accountId o query para acotar las instalaciones." };
+  }
+  if (accountId && !isUuid(accountId)) {
+    return { ok: false, error: "accountId con formato inválido." };
+  }
+  const where: Prisma.CrmInstallationWhereInput = {
+    tenantId,
+    status: { not: targetStatus },
+  };
+  if (accountId) where.accountId = accountId;
+  if (query) {
+    where.OR = [
+      { name: { contains: query, mode: "insensitive" } },
+      { account: { name: { contains: query, mode: "insensitive" } } },
+    ];
+  }
+  const rows = await prisma.crmInstallation.findMany({
+    where,
+    take: 51,
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, status: true, account: { select: { name: true } } },
+  });
+  if (rows.length > 50) {
+    return { ok: false, error: "Hay más de 50 instalaciones; acota con accountId o un query más específico." };
+  }
+  return {
+    ok: true,
+    installations: rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      statusActual: r.status,
+      accountName: r.account?.name ?? null,
+    })),
+  };
+}
+
 async function toolCreateTicket(tenantId: string, userId: string, perms: RolePermissions, args: Record<string, unknown>) {
   const t0 = Date.now();
   if (!ensureOpsTickets(perms)) {
@@ -4608,6 +4703,75 @@ async function toolChangeTicketPriority(tenantId: string, userId: string, perms:
     const msg = e instanceof Error ? e.message : "Error desconocido";
     await logAiAction({ tenantId, userId, toolName: "change_ticket_priority", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
     return { ok: false, error: `No se pudo cambiar la prioridad: ${msg}` };
+  }
+}
+
+async function toolPreviewBulkUpdateInstallations(tenantId: string, userId: string, perms: RolePermissions, args: Record<string, unknown>) {
+  const t0 = Date.now();
+  if (!canEdit(perms, "crm", "installations")) {
+    await logAiAction({ tenantId, userId, toolName: "preview_bulk_update_installations", args, status: "denied", errorMessage: "Sin permiso crm.installations.edit", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para editar instalaciones." };
+  }
+  const status = args.status;
+  if (status !== "prospect" && status !== "active" && status !== "inactive") {
+    await logAiAction({ tenantId, userId, toolName: "preview_bulk_update_installations", args, status: "validation_error", errorMessage: "status inválido", startedAt: t0 });
+    return { ok: false, error: "status debe ser prospect, active o inactive." };
+  }
+  const resolved = await resolveBulkInstallationTargets(tenantId, args, status);
+  if (!resolved.ok) {
+    await logAiAction({ tenantId, userId, toolName: "preview_bulk_update_installations", args, status: "validation_error", errorMessage: resolved.error, startedAt: t0 });
+    return { ok: false, error: resolved.error };
+  }
+  await logAiAction({ tenantId, userId, toolName: "preview_bulk_update_installations", args, status: "success", startedAt: t0 });
+  return { ok: true, data: { count: resolved.installations.length, targetStatus: status, installations: resolved.installations } };
+}
+
+async function toolBulkUpdateInstallations(tenantId: string, userId: string, perms: RolePermissions, args: Record<string, unknown>) {
+  const t0 = Date.now();
+  if (!canEdit(perms, "crm", "installations")) {
+    await logAiAction({ tenantId, userId, toolName: "bulk_update_installations", args, status: "denied", errorMessage: "Sin permiso crm.installations.edit", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para editar instalaciones." };
+  }
+  const status = args.status;
+  if (status !== "prospect" && status !== "active" && status !== "inactive") {
+    await logAiAction({ tenantId, userId, toolName: "bulk_update_installations", args, status: "validation_error", errorMessage: "status inválido", startedAt: t0 });
+    return { ok: false, error: "status debe ser prospect, active o inactive." };
+  }
+  const resolved = await resolveBulkInstallationTargets(tenantId, args, status);
+  if (!resolved.ok) {
+    await logAiAction({ tenantId, userId, toolName: "bulk_update_installations", args, status: "validation_error", errorMessage: resolved.error, startedAt: t0 });
+    return { ok: false, error: resolved.error };
+  }
+  if (resolved.installations.length === 0) {
+    await logAiAction({ tenantId, userId, toolName: "bulk_update_installations", args, status: "validation_error", errorMessage: "Sin instalaciones", startedAt: t0 });
+    return { ok: false, error: "No hay instalaciones que actualizar con esos filtros." };
+  }
+  const ids = resolved.installations.map((i) => i.id);
+  try {
+    await prisma.crmInstallation.updateMany({ where: { id: { in: ids }, tenantId }, data: { status } });
+    for (const inst of resolved.installations) {
+      await createCrmHistoryLog({
+        tenantId,
+        entityType: "installation",
+        entityId: inst.id,
+        action: "installation_updated",
+        details: { changedFields: ["status"], changes: { status: { from: inst.statusActual, to: status } }, source: "ai_assistant" },
+        createdBy: userId,
+      });
+    }
+    await logAiAction({
+      tenantId,
+      userId,
+      toolName: "bulk_update_installations",
+      args: { ...args, count: ids.length },
+      status: "success",
+      startedAt: t0,
+    });
+    return { ok: true, data: { count: ids.length, targetStatus: status, installationIds: ids } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "bulk_update_installations", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo actualizar en lote: ${msg}` };
   }
 }
 
@@ -6435,6 +6599,8 @@ export async function executeToolCallV2(
   if (toolName === "comment_ticket") return await toolCommentTicket(tenantId, userId, perms, args);
   if (toolName === "reassign_ticket") return await toolReassignTicket(tenantId, userId, perms, args);
   if (toolName === "change_ticket_priority") return await toolChangeTicketPriority(tenantId, userId, perms, args);
+  if (toolName === "preview_bulk_update_installations") return await toolPreviewBulkUpdateInstallations(tenantId, userId, perms, args);
+  if (toolName === "bulk_update_installations") return await toolBulkUpdateInstallations(tenantId, userId, perms, args);
   if (toolName === "search_dtes") return { ok: true, data: await toolSearchDtes(tenantId, args) };
   if (toolName === "get_dte_detail") return await toolGetDteDetail(tenantId, args);
   if (toolName === "get_sales_report") return await toolGetSalesReport(tenantId, perms, args);

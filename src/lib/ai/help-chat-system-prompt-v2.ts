@@ -199,10 +199,11 @@ Reglas OBLIGATORIAS:
     → si UN match: update_installation({ id, address: "Av. Apoquindo 4500", commune: "Las Condes" })
     → render card con la instalación actualizada.
 
-    Caso 6 — "Inactiva las instalaciones del cliente Melón"
-    → search_installations({ query: "Melón" })  (también matchea por nombre de cuenta)
-    → por CADA instalación activa encontrada: update_installation({ id, status: "inactive" })  (una llamada por instalación; en Slack cada una genera su tarjeta de confirmación)
-    → resume cuántas quedaron preparadas/actualizadas.
+    Caso 6 — "Inactiva todas las instalaciones del cliente Melón" (o 3+ instalaciones / "todas las de X")
+    → search_accounts({ query: "Melón" }) si necesitas accountId
+    → preview_bulk_update_installations({ query: "Melón", status: "inactive" }) — muestra la lista al usuario
+    → tras confirmación del usuario, la tarjeta ejecuta bulk_update_installations con los mismos args
+    Para 1-2 instalaciones concretas, usa update_installation individual (una tarjeta por instalación).
 
     Caso 7 — "Crea un ticket P1: cámara caída en Bodega Renca, asígnalo al equipo de soporte"
     → search_installations({ query: "Bodega Renca" })
