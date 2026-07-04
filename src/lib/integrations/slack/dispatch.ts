@@ -78,10 +78,30 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     return;
   }
 
-  const channelId = dealRoom
+  let channelId = dealRoom
     ? dealRoom.slackChannelId
     : await resolveChannel(input.tenantId, input.typeDef, workspace.defaultChannelId);
   if (!channelId) return; // sin ruta ni canal por defecto
+
+  // Hilo por ronda (Fase 19): cualquier evento ronda_* con data.rondaId cae en
+  // el hilo de esa ejecución. SOLO la tarjeta de `ronda_started` funda la raíz
+  // (si el tenant la apagó, el término va suelto). El hilo manda sobre el ruteo:
+  // si la ruta cambió a mitad de ronda, los replies siguen en su canal original.
+  const threadRondaId =
+    input.typeDef.key.startsWith("ronda_") && typeof input.data?.rondaId === "string"
+      ? (input.data.rondaId as string)
+      : null;
+  let rondaThreadTs: string | undefined;
+  if (threadRondaId) {
+    const th = await prisma.rondaSlackThread.findUnique({
+      where: { rondaEjecucionId: threadRondaId },
+      select: { slackTs: true, slackChannelId: true },
+    });
+    if (th) {
+      rondaThreadTs = th.slackTs;
+      channelId = th.slackChannelId;
+    }
+  }
 
   // Tickets: dispatch tiene el id pero no el objeto → carga curada por ticketId.
   // Los demás eventos usan el renderer genérico sobre el data ya enriquecido en origen.
@@ -178,7 +198,7 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     input.typeDef.key.startsWith("ticket_") && typeof input.data?.ticketId === "string"
       ? (input.data.ticketId as string)
       : null;
-  let threadTs: string | undefined;
+  let threadTs: string | undefined = rondaThreadTs;
   if (threadTicketId) {
     const th = await prisma.ticketSlackThread.findUnique({
       where: { ticketId: threadTicketId },
@@ -191,9 +211,13 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
   // aprobaciones se incluye el entityId, así dos ítems distintos con el mismo
   // título en el mismo minuto NO colisionan (perderían sus botones).
   const minute = Math.floor(Date.now() / 60000);
+  // Rondas: el título es genérico ("✅ Ronda completada") — sin el rondaId dos
+  // rondas distintas terminando el mismo minuto colisionarían en el dedupe.
   const dedupeMaterial = approval
     ? `${input.tenantId}|${input.typeDef.key}|${input.title}|e:${approval.entityId}|${minute}`
-    : `${input.tenantId}|${input.typeDef.key}|${input.title}|${minute}`;
+    : threadRondaId
+      ? `${input.tenantId}|${input.typeDef.key}|${input.title}|r:${threadRondaId}|${minute}`
+      : `${input.tenantId}|${input.typeDef.key}|${input.title}|${minute}`;
   const dedupeKey = createHash("sha1").update(dedupeMaterial).digest("hex");
 
   let outboxId: string;
@@ -266,6 +290,26 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
       await prisma.ticketSlackThread
         .create({ data: { tenantId: input.tenantId, ticketId: threadTicketId, slackChannelId: channelId, slackTs: ts } })
         .catch(() => {});
+    }
+    // Raíz del hilo de ronda (Fase 19): SOLO ronda_started funda el hilo (a
+    // diferencia de tickets) — un término sin inicio queda suelto a propósito
+    // (rondaStartedEnabled=false u offline sync). Unique + catch absorbe carreras.
+    if (threadRondaId && !rondaThreadTs && ts && input.typeDef.key === "ronda_started") {
+      await prisma.rondaSlackThread
+        .create({ data: { tenantId: input.tenantId, rondaEjecucionId: threadRondaId, slackChannelId: channelId, slackTs: ts } })
+        .catch(() => {});
+    }
+    // Término publicado como reply → la raíz se re-edita con el desenlace
+    // ("🛡️ Ronda X · Instalación · Guardia → ✅ 12/12 en 42 min").
+    if (threadRondaId && rondaThreadTs && ts && input.typeDef.key === "ronda_completed") {
+      const { updateRondaThreadRoot } = await import("./rondas-thread");
+      await updateRondaThreadRoot({
+        botToken: workspace.botToken,
+        channelId,
+        rootTs: rondaThreadTs,
+        data: input.data,
+        link: input.link,
+      });
     }
   } catch (err) {
     const reason = err instanceof SlackApiError ? err.slackError : String(err);

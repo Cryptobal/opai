@@ -530,6 +530,12 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
 
   // ── Rondas ──
   {
+    key: 'ronda_started', label: 'Ronda iniciada',
+    description: 'Cuando un guardia inicia una ronda de vigilancia',
+    module: 'ops', submodule: 'rondas', category: 'Operaciones - Rondas',
+    audiences: ['admin'], defaults: { admin: { bell: false, email: false, push: false } },
+  },
+  {
     key: 'ronda_alert_admin', label: 'Alerta de ronda (admin)',
     description: 'Cuando se detecta un incidente o problema en una ronda',
     module: 'ops', submodule: 'rondas', category: 'Operaciones - Rondas',
@@ -576,6 +582,12 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     description: 'Cuando una ronda asignada es cancelada',
     module: 'ops', submodule: 'rondas', category: 'Operaciones - Rondas',
     audiences: ['rondas'], defaults: { rondas: { push: true, email: false } },
+  },
+  {
+    key: 'rondas_daily_digest', label: 'Digest diario de rondas',
+    description: 'Resumen matinal del cumplimiento de rondas del día anterior, por instalación',
+    module: 'ops', submodule: 'rondas', category: 'Operaciones - Rondas',
+    audiences: ['admin'], defaults: { admin: adminBell() },
   },
 
   // ── Supervisión / Gastos / Payroll ──

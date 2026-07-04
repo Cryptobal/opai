@@ -70,6 +70,8 @@ interface Props {
   companyName?: string;
   panicAlerts?: PanicAlert[];
   initialAlertas?: any[];
+  /** Deep link (Fase 19): abre el modal de recorrido de esta ejecución al montar. */
+  deepLinkEjecucionId?: string | null;
 }
 
 const TABS = [
@@ -111,6 +113,7 @@ export function RondasReportesClient({
   companyName,
   panicAlerts,
   initialAlertas,
+  deepLinkEjecucionId,
 }: Props) {
   const [rows, setRows] = useState<ReporteRow[]>(initialRows);
   const [totals, setTotals] = useState<Totals>(initialTotals);
@@ -165,6 +168,27 @@ export function RondasReportesClient({
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
+
+  // Deep link (Fase 19): ?ejecucionId= — la fila puede estar fuera del rango de
+  // fechas o de la página actual, así que se pide puntualmente a la API.
+  const deepLinkDone = useRef(false);
+  useEffect(() => {
+    if (!deepLinkEjecucionId || deepLinkDone.current) return;
+    deepLinkDone.current = true;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/ops/rondas/reportes?ejecucionId=${encodeURIComponent(deepLinkEjecucionId)}&page=0&pageSize=1`,
+        );
+        const json = await res.json();
+        const row: ReporteRow | undefined = json?.data?.rows?.[0];
+        if (json?.success && row) setMapRow(row);
+        else toast.error("Ronda no encontrada");
+      } catch {
+        toast.error("Error abriendo el recorrido");
+      }
+    })();
+  }, [deepLinkEjecucionId]);
 
   const fetchData = useCallback(async (requestedPage?: number) => {
     setLoading(true);

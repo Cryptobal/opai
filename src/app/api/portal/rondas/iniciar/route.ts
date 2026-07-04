@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getPusherServer } from "@/lib/chat";
 import { broadcastToPortalCliente } from "@/lib/rondas/realtime-portal-cliente";
+import { emitRondaStarted } from "@/lib/rondas/lifecycle-notifications";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -123,6 +125,9 @@ export async function POST(request: NextRequest) {
       ejecucionId: updated.id,
       payload: { startedAt: updated.startedAt },
     });
+
+    // Fase 19: la ronda anuncia su inicio (funda el hilo en Slack)
+    after(() => emitRondaStarted(execution.tenantId, updated.id));
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {

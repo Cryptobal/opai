@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseBody } from "@/lib/api-auth";
 import { rondaCompleteSchema } from "@/lib/validations/rondas";
 import { computeRondaTrustScore } from "@/lib/rondas/trust-score";
 import { calculateRondaTrustScore } from "@/lib/rondas/trust-score-v2";
 import { autoPopulateCNFromRonda } from "@/lib/rondas/auto-populate-grid";
+import { emitRondaTerminada } from "@/lib/rondas/lifecycle-notifications";
 
 export async function POST(request: NextRequest) {
   try {
@@ -114,6 +116,9 @@ export async function POST(request: NextRequest) {
         status,
       }).catch((err) => console.error("[public/completar] CN auto-populate failed:", err));
     }
+
+    // Fase 19: la ronda anuncia su término (reply del hilo en Slack)
+    after(() => emitRondaTerminada(execution.tenantId, execution.id));
 
     return NextResponse.json({
       success: true,

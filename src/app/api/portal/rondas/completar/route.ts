@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateRondaTrustScore } from "@/lib/rondas/trust-score-v2";
 import { autoPopulateCNFromRonda } from "@/lib/rondas/auto-populate-grid";
 import { getPusherServer } from "@/lib/chat";
 import { broadcastToPortalCliente } from "@/lib/rondas/realtime-portal-cliente";
+import { emitRondaTerminada } from "@/lib/rondas/lifecycle-notifications";
 
 export async function POST(request: NextRequest) {
   try {
@@ -217,6 +219,9 @@ export async function POST(request: NextRequest) {
         status,
       }).catch((err) => console.error("[COMPLETAR] CN auto-populate failed:", err));
     }
+
+    // Fase 19: la ronda anuncia su término (reply del hilo en Slack)
+    after(() => emitRondaTerminada(execution.tenantId, execution.id));
 
     // Build per-checkpoint detail for the completion screen
     let checkpointDetails: any[];
