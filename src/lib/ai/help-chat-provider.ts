@@ -696,3 +696,68 @@ async function completeGoogle(
 
   return { text: text.trim(), toolCalls };
 }
+
+function mimeToAudioExt(mimeType: string): string {
+  const m = mimeType.toLowerCase();
+  if (m.includes("mpeg") || m.includes("mp3")) return ".mp3";
+  if (m.includes("ogg")) return ".ogg";
+  if (m.includes("wav")) return ".wav";
+  if (m.includes("webm")) return ".webm";
+  if (m.includes("mp4") || m.includes("m4a")) return ".m4a";
+  if (m.includes("aac")) return ".aac";
+  return ".bin";
+}
+
+/** Transcribe audio con el proveedor configurado. null = proveedor sin soporte. */
+export async function transcribeAudio(
+  config: HelpChatAIConfig,
+  audio: Buffer,
+  mimeType: string,
+): Promise<string | null> {
+  if (config.providerType === "anthropic") return null;
+
+  if (config.providerType === "openai") {
+    const { toFile } = await import("openai");
+    const client = makeOpenAIClient(config);
+    const ext = mimeToAudioExt(mimeType);
+    const transcription = await client.audio.transcriptions.create({
+      file: await toFile(audio, `nota${ext}`),
+      model: "whisper-1",
+      language: "es",
+    });
+    const text = typeof transcription === "string" ? transcription : transcription.text;
+    if (!text?.trim()) throw new Error("La transcripción quedó vacía.");
+    return text.trim();
+  }
+
+  if (config.providerType === "google") {
+    const base = config.baseUrl.replace(/\/+$/, "");
+    const url = `${base}/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { inline_data: { mime_type: mimeType, data: audio.toString("base64") } },
+            { text: "Transcribe literalmente este audio en español. Devuelve solo el texto transcrito, sin comillas ni comentarios." },
+          ],
+        }],
+        generationConfig: { maxOutputTokens: 2048, temperature: 0 },
+      }),
+    });
+    if (!res.ok) {
+      const errBody = await res.text();
+      throw new Error(`Google transcripción ${res.status}: ${errBody.slice(0, 300)}`);
+    }
+    const data = await res.json();
+    const text = ((data.candidates?.[0]?.content?.parts as Array<{ text?: string }> | undefined) ?? [])
+      .map((p) => p.text ?? "")
+      .join("")
+      .trim();
+    if (!text) throw new Error("La transcripción quedó vacía.");
+    return text;
+  }
+
+  return null;
+}

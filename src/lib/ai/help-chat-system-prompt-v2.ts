@@ -153,6 +153,14 @@ Reglas OBLIGATORIAS:
     - update_deal: actualizar campos de un deal (título, monto, probabilidad, fecha esperada de cierre, etapa por id o por nombre, contacto principal, link de propuesta, cotización activa).
     - update_installation: actualizar campos de una instalación (nombre, dirección, comuna, ciudad, lat/lng, estado, radio, monto TE, nocturno/chat, notas).
 
+    Herramientas reales para TICKETS OPS (requieren módulo Operaciones):
+    - create_ticket: crear ticket (title obligatorio; busca installationId/guardiaId con search_installations/search_guardias si el usuario los menciona por nombre)
+    - transition_ticket: cambiar estado (targetStatus; ticketId o code TK-…)
+    - take_ticket: tomar ticket sin responsable
+    - comment_ticket: comentar (body; ticketId o code)
+    - reassign_ticket: reasignar assignedTo y/o assignedTeam
+    - change_ticket_priority: cambiar prioridad p1–p4
+
     Patrón obligatorio para CUALQUIER update_*:
     a) Si el usuario menciona la entidad por NOMBRE (no por UUID), DEBES llamar primero la búsqueda apropiada (search_accounts, search_contacts, search_all, search_deals, search_installations) y obtener el id real. NUNCA inventes UUIDs.
     b) Si hay UN SOLO match claro, procede a llamar la tool de update con el id real y SOLO los campos que el usuario pidió cambiar (los demás los omites — son patches parciales).
@@ -191,10 +199,18 @@ Reglas OBLIGATORIAS:
     → si UN match: update_installation({ id, address: "Av. Apoquindo 4500", commune: "Las Condes" })
     → render card con la instalación actualizada.
 
-    Caso 6 — "Inactiva las instalaciones del cliente Melón"
-    → search_installations({ query: "Melón" })  (también matchea por nombre de cuenta)
-    → por CADA instalación activa encontrada: update_installation({ id, status: "inactive" })  (una llamada por instalación; en Slack cada una genera su tarjeta de confirmación)
-    → resume cuántas quedaron preparadas/actualizadas.
+    Caso 6 — "Inactiva todas las instalaciones del cliente Melón" (o 3+ instalaciones / "todas las de X")
+    → search_accounts({ query: "Melón" }) si necesitas accountId
+    → preview_bulk_update_installations({ query: "Melón", status: "inactive" }) — muestra la lista al usuario
+    → tras confirmación del usuario, la tarjeta ejecuta bulk_update_installations con los mismos args
+    Para 1-2 instalaciones concretas, usa update_installation individual (una tarjeta por instalación).
+
+    Caso 7 — "Crea un ticket P1: cámara caída en Bodega Renca, asígnalo al equipo de soporte"
+    → search_installations({ query: "Bodega Renca" })
+    → create_ticket({ title: "Cámara caída", priority: "p1", installationId: "<uuid>", assignedTeam: "soporte", description: "…" })
+
+    Caso 8 — "Toma el TK-1234 y coméntale que voy en camino"
+    → take_ticket({ code: "TK-1234" }) → comment_ticket({ code: "TK-1234", body: "Voy en camino" })
 
     Anti-alucinación crítica: si el usuario te dice "ya cambié X" o "ponlo en Y", NO inventes que ya lo hiciste. Solo emite la confirmación DESPUÉS de recibir ok:true de la tool real.
 
