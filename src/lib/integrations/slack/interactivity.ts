@@ -110,6 +110,13 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     return;
   }
 
+  // "Mis rendiciones" (Fase 13): filtro por estado.
+  if (actionId?.startsWith("misren_")) {
+    const { handleMisRendicionesAction } = await import("./modals/mis-rendiciones");
+    await handleMisRendicionesAction(payload as unknown as Record<string, unknown>);
+    return;
+  }
+
   if (!teamId || !slackUserId || !actionId || !pendingId) return;
 
   const resolved = await getTenantForTeam(teamId);

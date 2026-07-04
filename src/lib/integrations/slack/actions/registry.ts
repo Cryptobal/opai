@@ -12,6 +12,7 @@
 import type { ModalDef } from "../modals/types";
 import { ticketModal } from "../modals/ticket";
 import { rendicionModal } from "../modals/rendicion";
+import { misRendicionesModal } from "../modals/mis-rendiciones";
 import { trayModal } from "../tickets/tray";
 import { visitaModal } from "./visita";
 import { turnoExtraModal } from "./turno-extra";
@@ -31,6 +32,7 @@ export const ACTIONS: ActionDef[] = [
   { ...turnoExtraModal, group: "Operaciones" },
   { ...vacacionesModal, group: "RRHH" },
   { ...rendicionModal, group: "Finanzas" },
+  { ...misRendicionesModal, group: "Finanzas" },
 ];
 
 export function getAction(id: string): ActionDef | undefined {

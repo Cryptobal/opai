@@ -62,6 +62,12 @@ export const SUBCOMMANDS: SubCommand[] = [
     kind: "modal",
     callbackId: "opai_nueva_rendicion",
   },
+  {
+    name: "rendiciones",
+    description: "tus rendiciones: ver estado y crear nuevas",
+    kind: "modal",
+    callbackId: "opai_mis_rendiciones",
+  },
 ];
 
 export function buildHelpText(): string {

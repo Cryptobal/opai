@@ -11,8 +11,9 @@ import { trayModal, trayOverdueModal } from "../tickets/tray";
 import { rowModals } from "../tickets/row-submit";
 import { inboxModal } from "../approvals/inbox";
 import { rejectReasonModal } from "../approvals/reason-modal";
+import { misRendicionesModal } from "./mis-rendiciones";
 
-const MODALS: ModalDef[] = [hubModal, trayModal, trayOverdueModal, inboxModal, rejectReasonModal, ...rowModals, ...ACTIONS];
+const MODALS: ModalDef[] = [hubModal, trayModal, trayOverdueModal, inboxModal, rejectReasonModal, misRendicionesModal, ...rowModals, ...ACTIONS];
 
 export function getModal(callbackId: string): ModalDef | undefined {
   return MODALS.find((m) => m.callbackId === callbackId);

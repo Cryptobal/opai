@@ -68,7 +68,7 @@ function linkedHome(day: DayBreakdown): unknown {
         type: "actions",
         elements: [
           openBtn("➕ Nuevo ticket", "opai_crear_ticket"),
-          openBtn("🧾 Nueva rendición", "opai_nueva_rendicion"),
+          openBtn("🧾 Mis rendiciones", "opai_mis_rendiciones"),
           openBtn("⚡ Todas las acciones", "opai_acciones"),
         ],
       },
