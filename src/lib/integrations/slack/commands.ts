@@ -74,8 +74,12 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
       const st = quotesStatusFromArg(rest);
       if (st) callbackId = `opai_cotizaciones_${st}`;
     }
-    await openModalByCallback({ teamId, triggerId: input.triggerId, callbackId, slackUserId, channelId });
-    await ephemeral("📂 Abriendo…");
+    // El modal ES el feedback (F17): abrimos y ELIMINAMOS el "⏳ Procesando…"
+    // que emitió el route vía `delete_original` — cero efímeros huérfanos. Si el
+    // modal no abrió (trigger vencido), mutamos el efímero a un aviso claro.
+    const opened = await openModalByCallback({ teamId, triggerId: input.triggerId, callbackId, slackUserId, channelId });
+    if (opened) await slackRespondUrl(responseUrl, { delete_original: true });
+    else await ephemeral("No pude abrir el formulario. Intenta de nuevo.");
     return;
   }
 

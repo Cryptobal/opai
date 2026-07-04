@@ -141,10 +141,21 @@ export async function slackUpdateMessage(
 /**
  * Responde a un `response_url` de Slack (slash commands / interactividad).
  * No usa Bearer token: la URL ya está firmada por Slack y vence en 30 min.
+ *
+ * REGLA de efímeros (F17): `chat.delete` NO borra efímeros — solo su
+ * `response_url` puede REEMPLAZARLOS (`replace_original`) o ELIMINARLOS
+ * (`delete_original`, ventana 30 min). Todo efímero de progreso termina
+ * reemplazado o eliminado por aquí; prohibido dejar huérfanos.
  */
 export async function slackRespondUrl(
   responseUrl: string,
-  body: { text?: string; blocks?: unknown[]; response_type?: "ephemeral" | "in_channel"; replace_original?: boolean },
+  body: {
+    text?: string;
+    blocks?: unknown[];
+    response_type?: "ephemeral" | "in_channel";
+    replace_original?: boolean;
+    delete_original?: boolean;
+  },
 ): Promise<void> {
   await fetch(responseUrl, {
     method: "POST",

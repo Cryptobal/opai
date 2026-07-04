@@ -28,14 +28,19 @@ export interface OpenModalParams {
 }
 
 /** Abre un modal por callbackId (reusado por shortcuts y por `/opai <cmd>`). */
-export async function openModalByCallback(p: OpenModalParams): Promise<void> {
+/**
+ * Devuelve `true` si un modal quedó abierto (aunque sea el de carga o uno de
+ * aviso) — el llamador usa ese acuse para ELIMINAR su efímero de progreso vía
+ * `delete_original` (regla F17: el modal ES el feedback, cero huérfanos).
+ */
+export async function openModalByCallback(p: OpenModalParams): Promise<boolean> {
   const { teamId, triggerId, callbackId, slackUserId } = p;
-  if (!teamId || !triggerId || !callbackId || !slackUserId) return;
+  if (!teamId || !triggerId || !callbackId || !slackUserId) return false;
 
   const resolved = await getTenantForTeam(teamId);
-  if (!resolved) return;
+  if (!resolved) return false;
   const workspace = await getWorkspaceForTenant(resolved.tenantId);
-  if (!workspace) return;
+  if (!workspace) return false;
 
   const modal = getModal(callbackId);
   const title = modal?.title ?? "OPAI";
@@ -46,7 +51,7 @@ export async function openModalByCallback(p: OpenModalParams): Promise<void> {
     ({ id: viewId } = await slackOpenView(workspace.botToken, triggerId, loadingView(title)));
   } catch (err) {
     console.error("[slack] views.open falló:", err);
-    return;
+    return false;
   }
   const update = async (view: unknown): Promise<void> => {
     try {
@@ -56,15 +61,23 @@ export async function openModalByCallback(p: OpenModalParams): Promise<void> {
     }
   };
 
-  if (!modal) return update(infoView("OPAI", "Esta acción no está disponible."));
+  // A partir de aquí el modal (de carga) YA está abierto → siempre `true`.
+  if (!modal) {
+    await update(infoView("OPAI", "Esta acción no está disponible."));
+    return true;
+  }
 
   // (2) Identidad SOLO por vínculo.
   const linked = await resolveLinkedAdmin(workspace, slackUserId);
-  if (!linked) return update(linkAccountView(workspace, slackUserId));
+  if (!linked) {
+    await update(linkAccountView(workspace, slackUserId));
+    return true;
+  }
 
   // (3) Permiso: si no la tiene, el modal ni se abre (aviso claro).
   if (modal.requires && !modal.requires(linked.perms)) {
-    return update(infoView(title, modal.requiresMessage ?? "No tienes permiso para esta acción."));
+    await update(infoView(title, modal.requiresMessage ?? "No tienes permiso para esta acción."));
+    return true;
   }
 
   // (4) Construir el formulario real y reemplazar el modal de carga.
@@ -83,6 +96,7 @@ export async function openModalByCallback(p: OpenModalParams): Promise<void> {
     console.error("[slack] build modal falló:", err);
     await update(infoView(title, "No se pudo cargar el formulario. Intenta de nuevo."));
   }
+  return true;
 }
 
 /** Extrae los campos del payload de shortcut/message_action y abre el modal. */
