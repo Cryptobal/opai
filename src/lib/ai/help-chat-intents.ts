@@ -81,7 +81,25 @@ const ACTION_VERB_MARKERS = [
   "dame", "damelo", "muestrameme",
   "quien", "quienes",
   "contactos",
+  "inactiva", "inactivar", "inactivame", "desactiva", "desactivar", "desactivame",
+  "activa", "activar", "activame", "suspende", "suspender",
+  "crea", "crear", "creame", "genera", "generar", "generame",
+  "emite", "emitir", "envia", "enviar", "enviame", "manda", "mandar", "mandame",
+  "factura", "facturar", "cotiza", "cotizar", "cotizame",
+  "anula", "anular", "aprueba", "aprobar", "rechaza", "rechazar",
+  "cierra", "cerrar", "cierrame", "abre", "abrir", "abreme",
+  "ingresa", "ingresar", "ingresame", "registra", "registrar", "registrame",
+  "sube", "subir", "subeme", "adjunta", "adjuntar", "reasigna", "reasignar",
+  "marca", "marcar", "marcame", "inactivas", "inactives", "desactives",
 ];
+
+// Match con límites de palabra sobre el texto ya normalizado (los markers
+// son ASCII sin tildes; el mensaje llega por normalize()). Las frases con
+// espacio siguen matcheando por substring.
+function matchesWholeWord(message: string, marker: string): boolean {
+  if (marker.includes(" ")) return message.includes(marker); // frases: substring
+  return new RegExp(`(^|\\s)${marker}(?=\\s|$)`).test(message);
+}
 
 // Patrones explícitos que indican una entidad nombrada/identificada.
 const RUT_PATTERN = /\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b/;
@@ -265,7 +283,7 @@ export function hasLikelyEntityToken(rawMessage: string): boolean {
 }
 
 function hasActionVerb(message: string): boolean {
-  return ACTION_VERB_MARKERS.some((marker) => message.includes(marker));
+  return ACTION_VERB_MARKERS.some((marker) => matchesWholeWord(message, marker));
 }
 
 function normalize(text: string): string {
@@ -1112,11 +1130,11 @@ function buildProspectToClientAnswer(appBaseUrl: string): string {
 }
 
 function isFunctionalQuestion(message: string): boolean {
-  return FUNCTIONAL_MARKERS.some((marker) => message.includes(marker));
+  return FUNCTIONAL_MARKERS.some((marker) => matchesWholeWord(message, marker));
 }
 
 function isDataHeavyQuestion(message: string): boolean {
-  return DATA_MARKERS.some((marker) => message.includes(marker));
+  return DATA_MARKERS.some((marker) => matchesWholeWord(message, marker));
 }
 
 export function shouldPreferFunctionalInference(
