@@ -100,6 +100,24 @@ export async function POST(request: NextRequest) {
       console.error('[CRM] Error notifying new_lead:', err);
     }
 
+    // Auto-enriquecer la empresa del lead (giro/web/tamaño) al crearse, para que
+    // la tarjeta del cockpit llegue ya enriquecida (Fase 15, bonus). Best-effort,
+    // en after() para no bloquear; toggle por tenant (Setting crm.leadAutoEnrich,
+    // desactivado solo si el valor es "false").
+    after(async () => {
+      try {
+        const toggle = await prisma.setting.findFirst({
+          where: { tenantId: ctx.tenantId, key: 'crm.leadAutoEnrich' },
+          select: { value: true },
+        });
+        if (toggle?.value === 'false') return;
+        const { enrichLeadFromWebsite } = await import('@/lib/crm/enrich-lead');
+        await enrichLeadFromWebsite(lead.id, ctx.tenantId);
+      } catch (err) {
+        console.warn('[CRM] auto-enrich lead failed:', err);
+      }
+    });
+
     // Apollo auto-enrich (background, non-blocking)
     if (process.env.APOLLO_API_KEY) {
       const enrichEmail = lead.email?.trim();
