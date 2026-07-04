@@ -17,9 +17,11 @@ Guardar → **Re-autorizar**.
 - [x] **B2** — Ruteo del deal a su sala (cotizaciones + `deal_stage_changed`);
       `chat.update` de la ficha en cada cambio.
       COMMIT `feat(slack): todo el negocio fluye a su sala` ✅ gate OK
-- [ ] **B3** — `NotesSection` en detalle de negocio (+ lead/cuenta donde falte);
-      shortcut `opai_guardar` + modal + `CrmNote` + archivos a R2.
-      COMMIT `feat(crm+slack): notas visibles en negocios y guardado desde cualquier mensaje`
+- [x] **B3** — `NotesSection` en detalle de negocio + cuenta + lead (allow-lists
+      extendidas para "lead"); shortcut `opai_guardar` + modal (sala→directo /
+      buscador external_select) + `CrmNote` con autor+permalink + archivos a R2
+      (ingestSlackFiles) + espejo de notas a la sala. COMMIT `feat(crm+slack):
+      notas visibles en negocios y guardado desde cualquier mensaje` ✅ gate OK
 - [ ] **B4** — Channel Expert: contexto dual (canal B8 + ficha del deal) en el runner.
       COMMIT `feat(slack): el bot responde con contexto del canal y del negocio`
 - [ ] **B5** — Ciclo de vida won/lost → celebración/post-mortem + archivo/handoff.

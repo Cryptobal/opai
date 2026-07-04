@@ -40,6 +40,7 @@ import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAct
 import { DetailField } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
+import { NotesSection } from "./NotesSection";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
@@ -1937,6 +1938,7 @@ export function CrmDealDetailClient({
 
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
+    { id: "notes", label: "Notas", icon: MessageSquare },
     { id: "files", label: "Documentos", icon: FileText, count: fileCount },
     { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
@@ -2085,6 +2087,11 @@ export function CrmDealDetailClient({
         {activeTab === "activity" && (
           <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
             <CrmActivityTimeline events={activityEvents} />
+          </div>
+        )}
+        {activeTab === "notes" && (
+          <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
+            <NotesSection entityType="deal" entityId={deal.id} currentUserId={currentUserId} />
           </div>
         )}
         {activeTab === "files" && <div className="rounded-lg border border-border bg-card p-4 sm:p-5">{filesSection.children}</div>}

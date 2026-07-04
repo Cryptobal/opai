@@ -64,6 +64,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { FileAttachments } from "./FileAttachments";
+import { NotesSection } from "./NotesSection";
 import { AccountExpensesSection } from "@/components/finance/AccountExpensesSection";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { CreateDealModal } from "./CreateDealModal";
@@ -942,6 +943,7 @@ export function CrmAccountDetailClient({
 
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
+    { id: "notes", label: "Notas", icon: MessageSquare },
     { id: "communication", label: "Comunicación", icon: Mail },
     { id: "portal", label: "Portal", icon: Shield },
     { id: "contracts", label: "Contratos", icon: ScrollText },
@@ -1681,6 +1683,11 @@ export function CrmAccountDetailClient({
           </div>
         )}
 
+        {activeTab === "notes" && (
+          <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
+            <NotesSection entityType="account" entityId={account.id} currentUserId={currentUserId} />
+          </div>
+        )}
         {activeTab === "communication" && <EmailHistoryList accountId={account.id} compact />}
         {activeTab === "activity" && (
           <div className="rounded-lg border border-border bg-card p-4 sm:p-5">

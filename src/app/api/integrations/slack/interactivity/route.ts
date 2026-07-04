@@ -48,6 +48,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result.ack);
   }
 
+  // block_suggestion: opciones del external_select (buscador de "Guardar en
+  // OPAI"). Respuesta SÍNCRONA con { options } en <3s.
+  if (payload.type === "block_suggestion") {
+    let options: { options: unknown[] } = { options: [] };
+    try {
+      const { handleSaveNoteSuggestion } = await import("@/lib/integrations/slack/deal-rooms/save-note");
+      options = await handleSaveNoteSuggestion(payload as never);
+    } catch (err) {
+      console.error("[slack] block_suggestion falló:", err);
+    }
+    return NextResponse.json(options);
+  }
+
   // shortcut / message_action: abrir modal (trigger_id perece) en after().
   if (payload.type === "shortcut" || payload.type === "message_action") {
     after(() =>

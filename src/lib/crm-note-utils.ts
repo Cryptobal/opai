@@ -2,6 +2,7 @@ type NoteEntityType =
   | "account"
   | "contact"
   | "deal"
+  | "lead"
   | "quote"
   | "installation"
   | "ops_guardia"
@@ -125,6 +126,7 @@ export function getEntityBaseLink(entityType: NoteEntityType, entityId: string):
   if (entityType === "account") return { path: `/crm/accounts/${entityId}`, openSectionKey: "notes" };
   if (entityType === "contact") return { path: `/crm/contacts/${entityId}`, openSectionKey: "notes" };
   if (entityType === "deal") return { path: `/crm/deals/${entityId}`, openSectionKey: "notes" };
+  if (entityType === "lead") return { path: `/crm/leads/${entityId}`, openSectionKey: "notes" };
   if (entityType === "quote") return { path: `/crm/cotizaciones/${entityId}` };
   if (entityType === "installation") return { path: `/crm/installations/${entityId}`, openSectionKey: "notes" };
   if (entityType === "ops_guardia") return { path: `/personas/guardias/${entityId}`, openSectionKey: "comentarios" };

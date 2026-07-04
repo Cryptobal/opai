@@ -4,7 +4,7 @@
  * POST - Create a new note or a thread reply
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
@@ -20,6 +20,7 @@ const VALID_ENTITY_TYPES = [
   "account",
   "contact",
   "deal",
+  "lead",
   "quote",
   "installation",
   "ops_guardia",
@@ -443,6 +444,19 @@ export async function POST(request: NextRequest) {
           noteId: note.id,
           content,
           excludedUserIds: mentionResolution.resolvedRecipientIds,
+        });
+      }
+
+      // Deal Rooms (Fase 16): una nota nueva de un negocio también fluye a su
+      // sala de Slack, si tiene una abierta. Best-effort, no bloquea la respuesta.
+      if (entityType === "deal") {
+        after(async () => {
+          try {
+            const { mirrorDealNoteToRoom } = await import("@/lib/integrations/slack/deal-rooms/room");
+            await mirrorDealNoteToRoom(ctx.tenantId, String(entityId), content, authorName);
+          } catch (e) {
+            console.error("[slack] mirror deal note to room failed:", e);
+          }
         });
       }
 

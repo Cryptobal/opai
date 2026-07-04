@@ -33,7 +33,7 @@ export default async function CrmLeadDetailPage({
 
   return (
     <div className="space-y-4">
-      <CrmLeadDetailClient lead={initialLead} />
+      <CrmLeadDetailClient lead={initialLead} currentUserId={session.user.id} />
     </div>
   );
 }

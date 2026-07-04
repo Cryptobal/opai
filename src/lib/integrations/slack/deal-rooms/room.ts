@@ -55,6 +55,32 @@ export async function getOpenDealRoom(tenantId: string, dealId: string) {
   return prisma.crmDealSlackRoom.findFirst({ where: { tenantId, dealId, status: "OPEN" } });
 }
 
+/** Devuelve la sala (cualquier estado) por su canal de Slack, o null. */
+export async function getDealRoomByChannel(tenantId: string, slackChannelId: string) {
+  return prisma.crmDealSlackRoom.findFirst({ where: { tenantId, slackChannelId } });
+}
+
+/**
+ * Espeja una nota nueva de un negocio en su sala de Slack (decisión B2/B3: las
+ * notas del deal también fluyen a la sala). Best-effort; no hace nada si el
+ * negocio no tiene sala OPEN.
+ */
+export async function mirrorDealNoteToRoom(
+  tenantId: string,
+  dealId: string,
+  content: string,
+  authorName: string,
+): Promise<void> {
+  const room = await getOpenDealRoom(tenantId, dealId);
+  if (!room) return;
+  const ws = await getWorkspaceForTenant(tenantId);
+  if (!ws) return;
+  const line = `📝 *${authorName}* guardó una nota:\n>${content.replace(/\n/g, "\n>").slice(0, 2800)}`;
+  await slackPostMessage(ws.botToken, { channel: room.slackChannelId, text: line.slice(0, 3000) }).catch((e) =>
+    console.error("[slack] mirrorDealNoteToRoom falló:", e),
+  );
+}
+
 /**
  * Refresca la ficha viva fijada de una sala (chat.update sobre `fichaTs`). Se
  * llama tras cada evento del negocio que cae en su sala (B2). Best-effort:

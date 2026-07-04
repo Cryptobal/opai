@@ -26,6 +26,7 @@ import {
   Users,
   Briefcase,
   MapPin,
+  MessageSquare,
   X,
   Copy,
   ExternalLink,
@@ -66,6 +67,7 @@ import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { useWaTemplate } from "@/lib/whatsapp/use-wa-template";
 import { FileAttachments } from "./FileAttachments";
+import { NotesSection } from "./NotesSection";
 import { LeadSourceBadge } from "./LeadSourceBadge";
 import { DotacionSummary } from "./DotacionSummary";
 import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
@@ -502,7 +504,7 @@ function getSourceLabel(source: string | null | undefined): string {
 
 /* ─── Component ─── */
 
-export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
+export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: { lead: CrmLead; currentUserId?: string }) {
   const router = useRouter();
   const { resolve: resolveWaTemplate } = useWaTemplate();
   const [lead, setLead] = useState<CrmLead>(initialLead);
@@ -1792,6 +1794,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
+    { id: "notes", label: "Notas", icon: MessageSquare },
     { id: "account", label: "Cuenta", icon: Building2, hidden: !isEditable },
     { id: "contacts", label: "Contacto", icon: Users, hidden: !isEditable },
     { id: "deals", label: "Negocio", icon: Briefcase, hidden: !isEditable },
@@ -2826,6 +2829,11 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         pipelineBar={leadActionBar}
       >
         {activeTab === "general" && generalContent}
+        {activeTab === "notes" && (
+          <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
+            <NotesSection entityType="lead" entityId={lead.id} currentUserId={currentUserId} />
+          </div>
+        )}
         {activeTab === "account" && isEditable && accountContent}
         {activeTab === "contacts" && isEditable && contactsContent}
         {activeTab === "deals" && isEditable && dealsContent}

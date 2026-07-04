@@ -480,6 +480,42 @@ export async function slackConversationsHistory(token: string, channelId: string
     .map((m) => ({ user: m.user ?? null, text: m.text ?? "", ts: m.ts ?? "", botId: m.bot_id ?? null }));
 }
 
+/** chat.getPermalink → link permanente a un mensaje (para citarlo desde OPAI). */
+export async function slackGetPermalink(token: string, channelId: string, ts: string): Promise<string | null> {
+  try {
+    const json = await callSlack("chat.getPermalink", { channel: channelId, message_ts: ts }, token);
+    return (json.permalink as string) ?? null;
+  } catch (err) {
+    console.error("[slack] chat.getPermalink falló:", err instanceof SlackApiError ? err.slackError : err);
+    return null;
+  }
+}
+
+export interface SlackFullMessage {
+  text: string;
+  files: Array<{ url_private?: string; name?: string; mimetype?: string; size?: number; permalink?: string }>;
+}
+
+/**
+ * Recupera UN mensaje puntual por su ts (conversations.history acotado a esa
+ * marca), con su texto y archivos — usado por "Guardar en OPAI" al enviar el
+ * modal (el view_submission ya no trae el mensaje original).
+ */
+export async function slackFetchMessage(token: string, channelId: string, ts: string): Promise<SlackFullMessage | null> {
+  try {
+    const json = await callSlack("conversations.history", { channel: channelId, latest: ts, oldest: ts, inclusive: true, limit: 1 }, token);
+    const msg = ((json.messages as Array<Record<string, unknown>>) ?? [])[0];
+    if (!msg) return null;
+    return {
+      text: typeof msg.text === "string" ? msg.text : "",
+      files: (Array.isArray(msg.files) ? (msg.files as SlackFullMessage["files"]) : []) ?? [],
+    };
+  } catch (err) {
+    console.error("[slack] slackFetchMessage falló:", err instanceof SlackApiError ? err.slackError : err);
+    return null;
+  }
+}
+
 /** users.info: resuelve email + nombre de un usuario Slack (para vincularlo a un Admin). */
 export async function slackUserInfo(token: string, userId: string): Promise<SlackUserInfo | null> {
   try {
