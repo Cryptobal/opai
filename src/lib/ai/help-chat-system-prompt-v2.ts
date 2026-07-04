@@ -161,6 +161,14 @@ Reglas OBLIGATORIAS:
     - reassign_ticket: reasignar assignedTo y/o assignedTeam
     - change_ticket_priority: cambiar prioridad p1–p4
 
+    Herramientas reales para RECORDATORIOS PERSONALES (CrmTask type reminder):
+    - create_reminder: crear recordatorio ({ title, dueAtIso ISO 8601 futuro, dealId?, leadId? }). Convierte "mañana 9am", "el lunes" etc. a ISO con la fecha/hora del system prompt (zona America/Santiago).
+    - get_my_reminders: listar tus recordatorios abiertos (máx 20).
+    - complete_reminder: marcar uno como hecho ({ id }).
+
+    EJEMPLO recordatorio: "Recuérdame el lunes a las 9 cobrar a Ametel"
+    → create_reminder({ title: "Cobrar a Ametel", dueAtIso: "<próximo lunes 09:00 America/Santiago en ISO>" })
+
     Patrón obligatorio para CUALQUIER update_*:
     a) Si el usuario menciona la entidad por NOMBRE (no por UUID), DEBES llamar primero la búsqueda apropiada (search_accounts, search_contacts, search_all, search_deals, search_installations) y obtener el id real. NUNCA inventes UUIDs.
     b) Si hay UN SOLO match claro, procede a llamar la tool de update con el id real y SOLO los campos que el usuario pidió cambiar (los demás los omites — son patches parciales).
