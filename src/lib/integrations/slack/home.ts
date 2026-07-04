@@ -21,6 +21,7 @@ import { slackPublishHomeView, slackPostMessage, slackOpenDm } from "./api";
 import { countTickets } from "./tickets/list";
 import { countInbox } from "./approvals/inbox";
 import { countLeads } from "./comercial/leads-list";
+import { isDailyBriefOptIn } from "./daily-brief";
 
 const pt = (text: string) => ({ type: "plain_text", text, emoji: true });
 
@@ -29,6 +30,10 @@ function openBtn(text: string, callbackId: string, style?: "primary" | "danger")
   const b: Record<string, unknown> = { type: "button", text: pt(text), action_id: `opai_action_open_${callbackId}`, value: callbackId };
   if (style) b.style = style;
   return b;
+}
+
+function actionBtn(text: string, actionId: string) {
+  return { type: "button", text: pt(text), action_id: actionId };
 }
 
 /** Parte una lista en filas de máx. 3 botones (Slack mobile, 375px). */
@@ -45,6 +50,7 @@ interface DayBreakdown {
   vencidos: number;
   approvals: number; // agregado de los tres dominios (tickets + rendiciones + TEs)
   leadsSinTomar: number | null; // null = sin acceso a leads (botón oculto)
+  briefOptIn: boolean;
   quick: { text: string; callbackId: string }[]; // accesos contextuales por rol (≤4)
 }
 
@@ -60,7 +66,11 @@ function linkedHome(day: DayBreakdown): unknown {
   const scope = [`👤 ${day.mine} tuyos`, `👥 ${day.team} de tu equipo`];
   if (day.unassigned != null) scope.push(`⚪ ${day.unassigned} sin asignar`);
 
-  const quick = [...day.quick.map((q) => openBtn(q.text, q.callbackId)), openBtn("⚡ Todas las acciones", "opai_acciones")];
+  const quick = [
+    ...day.quick.map((q) => openBtn(q.text, q.callbackId)),
+    actionBtn(day.briefOptIn ? "🌅 Brief diario: ON" : "🌅 Brief diario: OFF", "brief_toggle"),
+    openBtn("⚡ Todas las acciones", "opai_acciones"),
+  ];
 
   return {
     type: "home",
@@ -111,13 +121,14 @@ export async function publishHome(tenantId: string, slackUserId: string): Promis
   // visión global (mismo criterio que la vista "Todos" de la web: módulo ops).
   const canViewAll = hasModuleAccess(linked.perms, "ops");
   const canSeeLeads = canView(linked.perms, "crm", "leads");
-  const [mine, team, vencidos, unassigned, approvals, leadsSinTomar] = await Promise.all([
+  const [mine, team, vencidos, unassigned, approvals, leadsSinTomar, briefOptIn] = await Promise.all([
     countTickets(tenantId, linked.adminId, { scope: "mine" }),
     countTickets(tenantId, linked.adminId, { scope: "my_team" }),
     countTickets(tenantId, linked.adminId, { scope: "my_team", slaBreached: true }),
     canViewAll ? countTickets(tenantId, linked.adminId, { scope: "unassigned" }) : Promise.resolve(null),
     countInbox(tenantId, linked.adminId, linked.perms),
     canSeeLeads ? countLeads(tenantId, { untaken: true }) : Promise.resolve(null),
+    isDailyBriefOptIn(tenantId, linked.adminId),
   ]);
 
   // Accesos rápidos contextuales por rol (máx. 4; ⚡ se agrega al final).
@@ -138,7 +149,7 @@ export async function publishHome(tenantId: string, slackUserId: string): Promis
   await slackPublishHomeView(
     ws.botToken,
     slackUserId,
-    linkedHome({ mine, team, vencidos, unassigned, approvals, leadsSinTomar, quick: quick.slice(0, 4) }),
+    linkedHome({ mine, team, vencidos, unassigned, approvals, leadsSinTomar, briefOptIn, quick: quick.slice(0, 4) }),
   );
 }
 
