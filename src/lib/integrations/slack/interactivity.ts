@@ -255,6 +255,12 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     return;
   }
 
+  if (actionId === "reminder_done") {
+    const { handleReminderDoneAction } = await import("./reminder-actions");
+    await handleReminderDoneAction(payload);
+    return;
+  }
+
   if (!teamId || !slackUserId || !actionId || !pendingId) return;
 
   const resolved = await getTenantForTeam(teamId);
