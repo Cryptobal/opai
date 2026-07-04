@@ -41,10 +41,21 @@ import {
 import {
   hasFacturacionCapability,
   hasCapability,
+  hasModuleAccess,
   canEdit,
   canView,
   type RolePermissions,
 } from "@/lib/permissions";
+import { z } from "zod";
+import { createOpsTicket } from "@/lib/tickets-create";
+import { transitionTicketStatus } from "@/lib/tickets-transition";
+import {
+  claimTicket,
+  addTicketComment,
+  reassignTicket,
+  changeTicketPriority,
+} from "@/lib/tickets-mutations";
+import type { TicketStatus } from "@/lib/tickets";
 import { factoringCompanyInputSchema } from "@/lib/validations/factoring";
 import { createFactoringCompany } from "@/modules/finance/factoring/factoring-companies.service";
 import { toSentenceCase } from "@/lib/text-format";
@@ -1560,6 +1571,116 @@ function writeToolDefinitions() {
         },
       },
     },
+    {
+      type: "function" as const,
+      function: {
+        name: "create_ticket",
+        description:
+          "Crea un ticket OPS. Requiere title. Si el usuario menciona instalación o guardia por nombre, llama search_installations / search_guardias primero para obtener el id. Si no viene ticketTypeId, se usa el primer tipo activo del tenant.",
+        parameters: {
+          type: "object",
+          properties: {
+            title: { type: "string", description: "Asunto del ticket. OBLIGATORIO." },
+            description: { type: "string" },
+            ticketTypeId: { type: "string", description: "UUID del tipo de ticket (opcional)." },
+            priority: { type: "string", enum: ["p1", "p2", "p3", "p4"] },
+            assignedTeam: { type: "string", description: "Equipo asignado (ej: ops, postventa, it_admin)." },
+            assignedTo: { type: "string", description: "UUID del admin responsable (opcional)." },
+            installationId: { type: "string" },
+            guardiaId: { type: "string" },
+            tags: { type: "array", items: { type: "string" } },
+          },
+          required: ["title"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "transition_ticket",
+        description: "Cambia el estado de un ticket OPS según la máquina de estados. Identifica por ticketId (UUID) o code (TK-…).",
+        parameters: {
+          type: "object",
+          properties: {
+            ticketId: { type: "string" },
+            code: { type: "string", description: "Código TK-1234." },
+            targetStatus: {
+              type: "string",
+              enum: ["pending_approval", "open", "in_progress", "waiting", "resolved", "closed", "rejected", "cancelled"],
+            },
+          },
+          required: ["targetStatus"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "take_ticket",
+        description: "Toma un ticket sin responsable asignándolo al usuario actual. Identifica por ticketId o code.",
+        parameters: {
+          type: "object",
+          properties: {
+            ticketId: { type: "string" },
+            code: { type: "string" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "comment_ticket",
+        description: "Agrega un comentario público a un ticket. Identifica por ticketId o code.",
+        parameters: {
+          type: "object",
+          properties: {
+            ticketId: { type: "string" },
+            code: { type: "string" },
+            body: { type: "string", description: "Texto del comentario. OBLIGATORIO." },
+          },
+          required: ["body"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "reassign_ticket",
+        description: "Reasigna responsable y/o equipo de un ticket. Identifica por ticketId o code.",
+        parameters: {
+          type: "object",
+          properties: {
+            ticketId: { type: "string" },
+            code: { type: "string" },
+            assignedTo: { type: "string", description: "UUID del admin responsable; null para desasignar." },
+            assignedTeam: { type: "string" },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "change_ticket_priority",
+        description: "Cambia la prioridad de un ticket (p1–p4). Identifica por ticketId o code.",
+        parameters: {
+          type: "object",
+          properties: {
+            ticketId: { type: "string" },
+            code: { type: "string" },
+            priority: { type: "string", enum: ["p1", "p2", "p3", "p4"] },
+          },
+          required: ["priority"],
+          additionalProperties: false,
+        },
+      },
+    },
   ];
 }
 
@@ -1609,6 +1730,12 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   create_debit_note_draft: "Crear nota de débito",
   create_recurring_invoice: "Crear plantilla de facturación recurrente",
   create_factoring_company: "Crear empresa de factoring",
+  create_ticket: "Crear ticket",
+  transition_ticket: "Cambiar estado de ticket",
+  take_ticket: "Tomar ticket",
+  comment_ticket: "Comentar ticket",
+  reassign_ticket: "Reasignar ticket",
+  change_ticket_priority: "Cambiar prioridad de ticket",
 };
 
 /** Descripción humana corta de una escritura diferida para la tarjeta de Slack. */
@@ -4239,6 +4366,251 @@ async function toolUpdateInstallation(
   }
 }
 
+const TICKET_STATUS_VALUES = [
+  "pending_approval", "open", "in_progress", "waiting", "resolved", "closed", "rejected", "cancelled",
+] as const;
+
+const createTicketToolSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional(),
+  ticketTypeId: z.string().uuid().optional(),
+  priority: z.enum(["p1", "p2", "p3", "p4"]).optional(),
+  assignedTeam: z.string().optional(),
+  assignedTo: z.string().uuid().optional().nullable(),
+  installationId: z.string().uuid().optional(),
+  guardiaId: z.string().uuid().optional(),
+  tags: z.array(z.string()).optional(),
+});
+
+function ensureOpsTickets(perms: RolePermissions): boolean {
+  return hasModuleAccess(perms, "ops");
+}
+
+async function resolveTicketIdForTool(
+  tenantId: string,
+  args: Record<string, unknown>,
+): Promise<{ id: string; code?: string } | { error: string }> {
+  const ticketId = typeof args.ticketId === "string" ? args.ticketId.trim() : "";
+  const codeRaw = typeof args.code === "string" ? args.code.trim() : "";
+  if (ticketId) {
+    if (!isUuid(ticketId)) return { error: "ticketId con formato inválido." };
+    const row = await prisma.opsTicket.findFirst({ where: { id: ticketId, tenantId }, select: { id: true, code: true } });
+    if (!row) return { error: "Ticket no encontrado." };
+    return { id: row.id, code: row.code };
+  }
+  if (codeRaw) {
+    const code = codeRaw.toUpperCase();
+    const row = await prisma.opsTicket.findFirst({ where: { code, tenantId }, select: { id: true, code: true } });
+    if (!row) return { error: `Ticket ${code} no encontrado.` };
+    return { id: row.id, code: row.code };
+  }
+  return { error: "Indica ticketId (UUID) o code (TK-…)." };
+}
+
+async function toolCreateTicket(tenantId: string, userId: string, perms: RolePermissions, args: Record<string, unknown>) {
+  const t0 = Date.now();
+  if (!ensureOpsTickets(perms)) {
+    await logAiAction({ tenantId, userId, toolName: "create_ticket", args, status: "denied", errorMessage: "Sin módulo ops", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para el módulo Operaciones (tickets)." };
+  }
+  const parsed = createTicketToolSchema.safeParse(args);
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+    await logAiAction({ tenantId, userId, toolName: "create_ticket", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `Datos inválidos: ${msg}` };
+  }
+  try {
+    const result = await createOpsTicket({
+      tenantId,
+      actorId: userId,
+      reportedBy: userId,
+      title: parsed.data.title,
+      description: parsed.data.description ?? null,
+      ticketTypeId: parsed.data.ticketTypeId ?? null,
+      priority: parsed.data.priority ?? null,
+      source: "manual",
+      assignedTeam: parsed.data.assignedTeam ?? null,
+      assignedTo: parsed.data.assignedTo ?? null,
+      installationId: parsed.data.installationId ?? null,
+      guardiaId: parsed.data.guardiaId ?? null,
+      tags: parsed.data.tags ?? [],
+    });
+    if ("error" in result) {
+      await logAiAction({ tenantId, userId, toolName: "create_ticket", args, status: "validation_error", errorMessage: result.error, startedAt: t0 });
+      return { ok: false, error: result.error };
+    }
+    await logAiAction({ tenantId, userId, toolName: "create_ticket", args, status: "success", resultEntityId: result.id, resultEntityType: "ops_ticket", startedAt: t0 });
+    return { ok: true, data: { ...result, entityType: "ops_ticket", url: `/ops/tickets/${result.id}` } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "create_ticket", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo crear el ticket: ${msg}` };
+  }
+}
+
+async function toolTransitionTicket(tenantId: string, userId: string, perms: RolePermissions, args: Record<string, unknown>) {
+  const t0 = Date.now();
+  if (!ensureOpsTickets(perms)) {
+    await logAiAction({ tenantId, userId, toolName: "transition_ticket", args, status: "denied", errorMessage: "Sin módulo ops", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para el módulo Operaciones (tickets)." };
+  }
+  const target = typeof args.targetStatus === "string" ? args.targetStatus : "";
+  if (!TICKET_STATUS_VALUES.includes(target as (typeof TICKET_STATUS_VALUES)[number])) {
+    await logAiAction({ tenantId, userId, toolName: "transition_ticket", args, status: "validation_error", errorMessage: "targetStatus inválido", startedAt: t0 });
+    return { ok: false, error: "targetStatus inválido." };
+  }
+  const resolved = await resolveTicketIdForTool(tenantId, args);
+  if ("error" in resolved) {
+    await logAiAction({ tenantId, userId, toolName: "transition_ticket", args, status: "validation_error", errorMessage: resolved.error, startedAt: t0 });
+    return { ok: false, error: resolved.error };
+  }
+  try {
+    const result = await transitionTicketStatus({
+      tenantId,
+      actorId: userId,
+      ticketId: resolved.id,
+      targetStatus: target as TicketStatus,
+      source: "ai_assistant",
+    });
+    if (!result.ok) {
+      await logAiAction({ tenantId, userId, toolName: "transition_ticket", args, status: "validation_error", errorMessage: result.error, startedAt: t0 });
+      return { ok: false, error: result.error };
+    }
+    await logAiAction({ tenantId, userId, toolName: "transition_ticket", args, status: "success", resultEntityId: result.ticket.id, resultEntityType: "ops_ticket", startedAt: t0 });
+    return { ok: true, data: { ...result.ticket, entityType: "ops_ticket", url: `/ops/tickets/${result.ticket.id}` } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "transition_ticket", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo cambiar el estado: ${msg}` };
+  }
+}
+
+async function toolTakeTicket(tenantId: string, userId: string, perms: RolePermissions, args: Record<string, unknown>) {
+  const t0 = Date.now();
+  if (!ensureOpsTickets(perms)) {
+    await logAiAction({ tenantId, userId, toolName: "take_ticket", args, status: "denied", errorMessage: "Sin módulo ops", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para el módulo Operaciones (tickets)." };
+  }
+  const resolved = await resolveTicketIdForTool(tenantId, args);
+  if ("error" in resolved) {
+    await logAiAction({ tenantId, userId, toolName: "take_ticket", args, status: "validation_error", errorMessage: resolved.error, startedAt: t0 });
+    return { ok: false, error: resolved.error };
+  }
+  try {
+    const result = await claimTicket({ tenantId, actorId: userId, ticketId: resolved.id });
+    if (!result.ok) {
+      await logAiAction({ tenantId, userId, toolName: "take_ticket", args, status: "validation_error", errorMessage: result.error, startedAt: t0 });
+      return { ok: false, error: result.error };
+    }
+    await logAiAction({ tenantId, userId, toolName: "take_ticket", args, status: "success", resultEntityId: resolved.id, resultEntityType: "ops_ticket", startedAt: t0 });
+    return { ok: true, data: { code: result.code, title: result.title, id: resolved.id, entityType: "ops_ticket", url: `/ops/tickets/${resolved.id}` } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "take_ticket", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo tomar el ticket: ${msg}` };
+  }
+}
+
+async function toolCommentTicket(tenantId: string, userId: string, perms: RolePermissions, args: Record<string, unknown>) {
+  const t0 = Date.now();
+  if (!ensureOpsTickets(perms)) {
+    await logAiAction({ tenantId, userId, toolName: "comment_ticket", args, status: "denied", errorMessage: "Sin módulo ops", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para el módulo Operaciones (tickets)." };
+  }
+  const body = typeof args.body === "string" ? args.body.trim() : "";
+  if (!body) {
+    await logAiAction({ tenantId, userId, toolName: "comment_ticket", args, status: "validation_error", errorMessage: "body vacío", startedAt: t0 });
+    return { ok: false, error: "El comentario no puede estar vacío." };
+  }
+  const resolved = await resolveTicketIdForTool(tenantId, args);
+  if ("error" in resolved) {
+    await logAiAction({ tenantId, userId, toolName: "comment_ticket", args, status: "validation_error", errorMessage: resolved.error, startedAt: t0 });
+    return { ok: false, error: resolved.error };
+  }
+  try {
+    const result = await addTicketComment({ tenantId, actorId: userId, ticketId: resolved.id, body });
+    if (!result.ok) {
+      await logAiAction({ tenantId, userId, toolName: "comment_ticket", args, status: "validation_error", errorMessage: result.error, startedAt: t0 });
+      return { ok: false, error: result.error };
+    }
+    await logAiAction({ tenantId, userId, toolName: "comment_ticket", args, status: "success", resultEntityId: resolved.id, resultEntityType: "ops_ticket", startedAt: t0 });
+    return { ok: true, data: { code: result.code, commentId: result.commentId, id: resolved.id, entityType: "ops_ticket", url: `/ops/tickets/${resolved.id}` } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "comment_ticket", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo comentar el ticket: ${msg}` };
+  }
+}
+
+async function toolReassignTicket(tenantId: string, userId: string, perms: RolePermissions, args: Record<string, unknown>) {
+  const t0 = Date.now();
+  if (!ensureOpsTickets(perms)) {
+    await logAiAction({ tenantId, userId, toolName: "reassign_ticket", args, status: "denied", errorMessage: "Sin módulo ops", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para el módulo Operaciones (tickets)." };
+  }
+  const resolved = await resolveTicketIdForTool(tenantId, args);
+  if ("error" in resolved) {
+    await logAiAction({ tenantId, userId, toolName: "reassign_ticket", args, status: "validation_error", errorMessage: resolved.error, startedAt: t0 });
+    return { ok: false, error: resolved.error };
+  }
+  const assignedTo = args.assignedTo === null ? null : typeof args.assignedTo === "string" ? args.assignedTo.trim() || null : undefined;
+  const assignedTeam = typeof args.assignedTeam === "string" ? args.assignedTeam.trim() : undefined;
+  if (assignedTo === undefined && !assignedTeam) {
+    await logAiAction({ tenantId, userId, toolName: "reassign_ticket", args, status: "validation_error", errorMessage: "Sin campos de reasignación", startedAt: t0 });
+    return { ok: false, error: "Indica assignedTo y/o assignedTeam." };
+  }
+  try {
+    const result = await reassignTicket({
+      tenantId,
+      actorId: userId,
+      ticketId: resolved.id,
+      assignedTo,
+      assignedTeam: assignedTeam || undefined,
+    });
+    if (!result.ok) {
+      await logAiAction({ tenantId, userId, toolName: "reassign_ticket", args, status: "validation_error", errorMessage: result.error, startedAt: t0 });
+      return { ok: false, error: result.error };
+    }
+    await logAiAction({ tenantId, userId, toolName: "reassign_ticket", args, status: "success", resultEntityId: resolved.id, resultEntityType: "ops_ticket", startedAt: t0 });
+    return { ok: true, data: { code: result.code, id: resolved.id, entityType: "ops_ticket", url: `/ops/tickets/${resolved.id}` } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "reassign_ticket", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo reasignar el ticket: ${msg}` };
+  }
+}
+
+async function toolChangeTicketPriority(tenantId: string, userId: string, perms: RolePermissions, args: Record<string, unknown>) {
+  const t0 = Date.now();
+  if (!ensureOpsTickets(perms)) {
+    await logAiAction({ tenantId, userId, toolName: "change_ticket_priority", args, status: "denied", errorMessage: "Sin módulo ops", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para el módulo Operaciones (tickets)." };
+  }
+  const priority = typeof args.priority === "string" ? args.priority : "";
+  if (!["p1", "p2", "p3", "p4"].includes(priority)) {
+    await logAiAction({ tenantId, userId, toolName: "change_ticket_priority", args, status: "validation_error", errorMessage: "priority inválida", startedAt: t0 });
+    return { ok: false, error: "priority debe ser p1, p2, p3 o p4." };
+  }
+  const resolved = await resolveTicketIdForTool(tenantId, args);
+  if ("error" in resolved) {
+    await logAiAction({ tenantId, userId, toolName: "change_ticket_priority", args, status: "validation_error", errorMessage: resolved.error, startedAt: t0 });
+    return { ok: false, error: resolved.error };
+  }
+  try {
+    const result = await changeTicketPriority({ tenantId, actorId: userId, ticketId: resolved.id, priority });
+    if (!result.ok) {
+      await logAiAction({ tenantId, userId, toolName: "change_ticket_priority", args, status: "validation_error", errorMessage: result.error, startedAt: t0 });
+      return { ok: false, error: result.error };
+    }
+    await logAiAction({ tenantId, userId, toolName: "change_ticket_priority", args, status: "success", resultEntityId: resolved.id, resultEntityType: "ops_ticket", startedAt: t0 });
+    return { ok: true, data: { code: result.code, priority, id: resolved.id, entityType: "ops_ticket", url: `/ops/tickets/${resolved.id}` } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "change_ticket_priority", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo cambiar la prioridad: ${msg}` };
+  }
+}
+
 async function toolCreateQuote(
   tenantId: string,
   userId: string,
@@ -6057,6 +6429,12 @@ export async function executeToolCallV2(
   if (toolName === "preview_recurring_invoice") return await toolPreviewRecurringInvoice(tenantId, userId, perms, args);
   if (toolName === "create_recurring_invoice") return await toolCreateRecurringInvoice(tenantId, userId, perms, args);
   if (toolName === "create_factoring_company") return await toolCreateFactoringCompany(tenantId, userId, perms, args);
+  if (toolName === "create_ticket") return await toolCreateTicket(tenantId, userId, perms, args);
+  if (toolName === "transition_ticket") return await toolTransitionTicket(tenantId, userId, perms, args);
+  if (toolName === "take_ticket") return await toolTakeTicket(tenantId, userId, perms, args);
+  if (toolName === "comment_ticket") return await toolCommentTicket(tenantId, userId, perms, args);
+  if (toolName === "reassign_ticket") return await toolReassignTicket(tenantId, userId, perms, args);
+  if (toolName === "change_ticket_priority") return await toolChangeTicketPriority(tenantId, userId, perms, args);
   if (toolName === "search_dtes") return { ok: true, data: await toolSearchDtes(tenantId, args) };
   if (toolName === "get_dte_detail") return await toolGetDteDetail(tenantId, args);
   if (toolName === "get_sales_report") return await toolGetSalesReport(tenantId, perms, args);
