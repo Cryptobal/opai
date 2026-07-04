@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getPusherServer } from "@/lib/chat";
 import { broadcastToPortalCliente } from "@/lib/rondas/realtime-portal-cliente";
 import { getChileDayOfWeek, parseChileHour } from "@/lib/rondas/timezone";
+import { emitRondaStarted } from "@/lib/rondas/lifecycle-notifications";
 
 const schema = z.object({
   guardiaId: z.string().uuid(),
@@ -229,6 +231,10 @@ export async function POST(request: NextRequest) {
     } catch (pusherErr) {
       console.error("[INICIAR_LIBRE] Pusher trigger failed:", pusherErr);
     }
+
+    // Fase 19: la ronda libre anuncia su inicio (funda el hilo en Slack).
+    // Solo en la creación — el camino de "resume" (existing) ya anunció.
+    after(() => emitRondaStarted(tenantId, ejecucion.id));
 
     return NextResponse.json({
       success: true,

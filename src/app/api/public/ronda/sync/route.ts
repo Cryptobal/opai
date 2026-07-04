@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { rondaSyncSchema } from "@/lib/validations/rondas";
 import { computeMarcacionHash } from "@/lib/marcacion";
@@ -10,6 +11,7 @@ import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
 import { notifyCriticalAlertsBatch } from "@/lib/rondas/alert-notifications";
 import { getFullAlertConfig } from "@/lib/rondas/alert-config-service";
 import { DEFAULT_SPEED_THRESHOLD_KMH } from "@/lib/rondas/ia-config";
+import { emitRondaTerminada } from "@/lib/rondas/lifecycle-notifications";
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,6 +30,7 @@ export async function POST(request: NextRequest) {
       try {
         const roundAlerts: Array<{ tipo: string; severidad: string; mensaje: string }> = [];
         let roundTenantId = "";
+        let roundEjecucionId = "";
         await prisma.$transaction(async (tx) => {
           const template = await tx.opsRondaTemplate.findFirst({
             where: { id: round.templateId },
@@ -61,6 +64,8 @@ export async function POST(request: NextRequest) {
               notes: round.notes ?? null,
             },
           });
+
+          roundEjecucionId = ejecucion.id;
 
           const sortedMarcaciones = [...round.marcaciones].sort(
             (a, b) => new Date(a.marcadoAt).getTime() - new Date(b.marcadoAt).getTime(),
@@ -240,6 +245,14 @@ export async function POST(request: NextRequest) {
           notifyCriticalAlertsBatch(roundTenantId, roundAlerts).catch((err) =>
             console.error("[SYNC] Alert notification failed:", err),
           );
+        }
+
+        // Fase 19: ronda sincronizada offline llega ya terminada — anúnciala
+        // (sin hilo: nunca hubo tarjeta de inicio, la de término va suelta).
+        if (roundTenantId && roundEjecucionId) {
+          const tid = roundTenantId;
+          const eid = roundEjecucionId;
+          after(() => emitRondaTerminada(tid, eid));
         }
 
         synced++;

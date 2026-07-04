@@ -530,6 +530,12 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
 
   // ── Rondas ──
   {
+    key: 'ronda_started', label: 'Ronda iniciada',
+    description: 'Cuando un guardia inicia una ronda de vigilancia',
+    module: 'ops', submodule: 'rondas', category: 'Operaciones - Rondas',
+    audiences: ['admin'], defaults: { admin: { bell: false, email: false, push: false } },
+  },
+  {
     key: 'ronda_alert_admin', label: 'Alerta de ronda (admin)',
     description: 'Cuando se detecta un incidente o problema en una ronda',
     module: 'ops', submodule: 'rondas', category: 'Operaciones - Rondas',

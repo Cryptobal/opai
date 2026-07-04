@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getPusherServer } from "@/lib/chat";
 import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
 import { notifyCriticalAlertsBatch } from "@/lib/rondas/alert-notifications";
+import { emitRondasTerminadas } from "@/lib/rondas/lifecycle-notifications";
 
 /**
  * CRON: /api/cron/rondas/cerrar-en-curso
@@ -201,6 +202,12 @@ export async function GET(request: NextRequest) {
       );
     } catch (pusherErr) {
       console.error("[CRON] cerrar-en-curso Pusher trigger failed:", pusherErr);
+    }
+
+    // Fase 19: tarjeta ⚠️ de cierre automático por cada ronda (reply del hilo si existe)
+    for (const tid of alertTenantIds) {
+      const ids = toClose.filter((ej) => ej.tenantId === tid).map((ej) => ej.id);
+      await emitRondasTerminadas(tid, ids);
     }
 
     console.log(

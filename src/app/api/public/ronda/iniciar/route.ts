@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import * as bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { normalizeRut, isValidChileanRut } from "@/lib/personas";
 import { z } from "zod";
+import { emitRondaStarted } from "@/lib/rondas/lifecycle-notifications";
 
 const schema = z.object({
   code: z.string().min(1),
@@ -92,6 +94,9 @@ export async function POST(req: NextRequest) {
         } as never,
       },
     });
+
+    // Fase 19: la ronda anuncia su inicio (funda el hilo en Slack)
+    after(() => emitRondaStarted(installation.tenantId, execution.id));
 
     const checkpointData = execution.rondaTemplate?.checkpoints?.map((tc: any) => ({
       id: tc.checkpoint.id,
