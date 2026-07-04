@@ -142,6 +142,18 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     module: 'crm', submodule: 'deals', category: 'CRM - Negocios',
     audiences: ['admin'], defaults: { admin: adminBell(true) },
   },
+  {
+    key: 'deal_stage_changed', label: 'Negocio cambió de etapa',
+    description: 'Cuando un negocio se mueve de etapa en el pipeline (fluye a su sala de Slack)',
+    module: 'crm', submodule: 'deals', category: 'CRM - Negocios',
+    audiences: ['admin'], defaults: { admin: adminBell() },
+  },
+  {
+    key: 'deal_lost', label: 'Negocio perdido',
+    description: 'Cuando un negocio se marca como perdido (post-mortem en su sala de Slack)',
+    module: 'crm', submodule: 'deals', category: 'CRM - Negocios',
+    audiences: ['admin'], defaults: { admin: adminBell() },
+  },
 
   // ── CPQ ──
   {

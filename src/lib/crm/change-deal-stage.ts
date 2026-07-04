@@ -309,6 +309,48 @@ export async function changeDealStage(input: {
       }
     }
 
+    // Fase 16 — Deal Rooms: todo cambio de etapa fluye a la sala del negocio.
+    // `deal_stage_changed` (movimientos vivos) enruta a la sala y refresca la
+    // ficha viva; `deal_lost` dispara el post-mortem (B5). El evento ganado ya
+    // manda su propia tarjeta 🎉, así que no duplicamos con stage_changed.
+    // Emitidos fuera de la transacción (como deal_won).
+    try {
+      const monto = Number(updatedDeal.amount) || 0;
+      const montoTxt = monto ? clp(monto) : undefined;
+      const { notify } = await import("@/lib/notifications/notify");
+      if (nextStatus === "lost") {
+        await notify({
+          tenantId: ctx.tenantId,
+          type: "deal_lost",
+          title: `💔 Negocio perdido: ${updatedDeal.account.name}`,
+          link: `/crm/deals/${updatedDeal.id}`,
+          data: { dealId: updatedDeal.id, empresa: updatedDeal.account.name, etapa: stage.name, montoTxt },
+        });
+      } else if (nextStatus === "open") {
+        await notify({
+          tenantId: ctx.tenantId,
+          type: "deal_stage_changed",
+          title: `⏩ ${updatedDeal.account.name} → ${stage.name}`,
+          body: montoTxt ? `💰 ${montoTxt}` : undefined,
+          link: `/crm/deals/${updatedDeal.id}`,
+          data: { dealId: updatedDeal.id, empresa: updatedDeal.account.name, etapa: stage.name, montoTxt },
+        });
+      }
+    } catch (e) {
+      console.error("[crm] deal_stage_changed/lost notify failed:", e);
+    }
+
+    // Auto-apertura por umbral (default OFF): no-op inmediato si el tenant no lo
+    // activó. Solo en movimientos vivos (no en cierre won/lost).
+    if (nextStatus === "open") {
+      try {
+        const { maybeAutoOpenDealRoom } = await import("@/lib/integrations/slack/deal-rooms/room");
+        await maybeAutoOpenDealRoom(ctx.tenantId, updatedDeal.id, ctx.userId);
+      } catch (e) {
+        console.error("[slack] auto-open deal room failed:", e);
+      }
+    }
+
     return { kind: "ok", data: updatedDeal, onboardingMeta, deactivationCandidate: (dealLostResult as DealLostPropagationResult | null)?.deactivationCandidate ?? null };
   } catch (error) {
     console.error("Error updating CRM deal stage:", error);

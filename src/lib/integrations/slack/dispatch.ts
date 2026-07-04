@@ -13,6 +13,7 @@ import { getWorkspaceForTenant } from "./workspace";
 import { approvalCardActionsBlock, buildNotificationBlocks, ticketActionsBlock, ticketCardActionsBlock, toContextFields } from "./blocks";
 import { enrichTicketFields, convertBodyMentions } from "./card-enrich";
 import { slackPostMessage, SlackApiError, isPermanentSlackError } from "./api";
+import { getOpenDealRoom, refreshDealRoomFicha } from "./deal-rooms/room";
 
 interface DispatchInput {
   tenantId: string;
@@ -58,7 +59,16 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
   const workspace = await getWorkspaceForTenant(input.tenantId);
   if (!workspace) return; // tenant sin Slack conectado
 
-  const channelId = await resolveChannel(input.tenantId, input.typeDef, workspace.defaultChannelId);
+  // Deal Rooms (Fase 16): si el evento trae `dealId` con sala OPEN, el destino
+  // es LA SALA — EN VEZ del canal de categoría (decisión: no duplicar). Los
+  // negocios sin sala siguen el ruteo normal por categoría/módulo. Tras publicar
+  // se refresca la ficha viva fijada.
+  const dealId = typeof input.data?.dealId === "string" ? input.data.dealId : null;
+  const dealRoom = dealId ? await getOpenDealRoom(input.tenantId, dealId) : null;
+
+  const channelId = dealRoom
+    ? dealRoom.slackChannelId
+    : await resolveChannel(input.tenantId, input.typeDef, workspace.defaultChannelId);
   if (!channelId) return; // sin ruta ni canal por defecto
 
   // Tickets: dispatch tiene el id pero no el objeto → carga curada por ticketId.
@@ -246,5 +256,13 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
       // permanent → attempts al tope: el cron (attempts < 5) no lo vuelve a tomar.
       data: { status: "FAILED", attempts: permanent ? 5 : 1, lastError: reason },
     });
+  }
+
+  // Ficha viva al día: todo evento del negocio que cae en su sala re-edita la
+  // tarjeta fijada (chat.update) para reflejar el estado actual. Best-effort.
+  if (dealRoom && dealId) {
+    await refreshDealRoomFicha(input.tenantId, dealId).catch((e) =>
+      console.error("[slack] refresh ficha tras evento falló:", e),
+    );
   }
 }

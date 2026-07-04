@@ -14,9 +14,9 @@ Guardar → **Re-autorizar**.
 - [x] **B1** — Modelo `CrmDealSlackRoom` + migración; servicio `openDealRoom`;
       botón manual (pipeline Slack + detalle web); umbral en `Setting` (default OFF).
       COMMIT `feat(slack): deal rooms con ficha viva` ✅ gate OK (0 errores TS)
-- [ ] **B2** — Ruteo del deal a su sala (cotizaciones + `deal_stage_changed`);
+- [x] **B2** — Ruteo del deal a su sala (cotizaciones + `deal_stage_changed`);
       `chat.update` de la ficha en cada cambio.
-      COMMIT `feat(slack): todo el negocio fluye a su sala`
+      COMMIT `feat(slack): todo el negocio fluye a su sala` ✅ gate OK
 - [ ] **B3** — `NotesSection` en detalle de negocio (+ lead/cuenta donde falte);
       shortcut `opai_guardar` + modal + `CrmNote` + archivos a R2.
       COMMIT `feat(crm+slack): notas visibles en negocios y guardado desde cualquier mensaje`

@@ -18,6 +18,7 @@ import {
   slackConversationsInvite,
   slackSetPurpose,
   slackPostMessage,
+  slackUpdateMessage,
   slackPinsAdd,
   SlackApiError,
 } from "../api";
@@ -52,6 +53,23 @@ export async function getDealRoom(tenantId: string, dealId: string) {
 /** Devuelve la sala OPEN de un negocio (para ruteo de eventos), o null. */
 export async function getOpenDealRoom(tenantId: string, dealId: string) {
   return prisma.crmDealSlackRoom.findFirst({ where: { tenantId, dealId, status: "OPEN" } });
+}
+
+/**
+ * Refresca la ficha viva fijada de una sala (chat.update sobre `fichaTs`). Se
+ * llama tras cada evento del negocio que cae en su sala (B2). Best-effort:
+ * si no hay sala OPEN, ficha, o workspace, no hace nada.
+ */
+export async function refreshDealRoomFicha(tenantId: string, dealId: string): Promise<void> {
+  const room = await getOpenDealRoom(tenantId, dealId);
+  if (!room?.fichaTs) return;
+  const ws = await getWorkspaceForTenant(tenantId);
+  if (!ws) return;
+  const ficha = await renderFicha(tenantId, dealId).catch(() => null);
+  if (!ficha) return;
+  await slackUpdateMessage(ws.botToken, {
+    channel: room.slackChannelId, ts: room.fichaTs, text: ficha.text, blocks: ficha.blocks,
+  }).catch((e) => console.error("[slack] refreshDealRoomFicha falló:", e));
 }
 
 /** Resuelve el slackUserId de un Admin vinculado (para invitar a la sala). */
