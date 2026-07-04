@@ -18,10 +18,19 @@ La subida de contratos es el **único** flujo que hace un `PUT` **directo desde
 el browser a R2** vía URL pre-firmada (para saltar el límite de body de Vercel
 ~4.5MB y permitir PDFs de hasta 25MB). R2 sólo devuelve el header
 `Access-Control-Allow-Origin` en ese PUT cross-origin **si el bucket tiene una
-política CORS**. El bucket `opai` no la tenía → el browser bloquea el PUT.
+política CORS que incluya el origen**. El bucket `opai` no la tenía → el browser
+bloquea el PUT.
 
 No es un bug de código: es configuración del bucket. El resto de las subidas
 (FileAttachments, chat, tickets…) pasan por el server same-origin y no tocan CORS.
+
+**Importante — multi-tenant:** cada cliente entra por su propio subdominio
+(`www.opai.cl`, `opai.gard.cl`, y otros a futuro), así que el origen del PUT
+cambia por tenant. Por eso la política usa `AllowedOrigins: ["*"]`: cubre todos
+los tenants actuales y futuros sin mantenimiento. **No debilita la seguridad** —
+el PUT sólo funciona con la URL pre-firmada que el server genera tras autenticar;
+sin ella nadie sube nada (y con ella se podría subir por `curl` igual, saltándose
+CORS). Es el patrón estándar para buckets de subida por presigned URL.
 
 ## Solución — aplicar CORS al bucket `opai` (una sola vez)
 
@@ -35,11 +44,7 @@ Cualquiera de estas tres opciones. La **A (dashboard)** no requiere ningún toke
 ```json
 [
   {
-    "AllowedOrigins": [
-      "https://www.opai.cl",
-      "https://opai.cl",
-      "http://localhost:3000"
-    ],
+    "AllowedOrigins": ["*"],
     "AllowedMethods": ["GET", "PUT", "HEAD"],
     "AllowedHeaders": ["*"],
     "ExposeHeaders": ["ETag"],

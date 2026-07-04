@@ -26,11 +26,14 @@ import {
   type CORSRule,
 } from "@aws-sdk/client-s3";
 
-const DEFAULT_ORIGINS = [
-  "https://www.opai.cl",
-  "https://opai.cl",
-  "http://localhost:3000",
-];
+// La app es multi-tenant: cada cliente entra por su propio subdominio
+// (www.opai.cl, opai.gard.cl, y otros a futuro). Enumerarlos es frágil, así
+// que por default permitimos cualquier origen. NO debilita la seguridad: el
+// PUT sólo funciona con una URL pre-firmada que el server genera tras
+// autenticar; sin ella nadie sube nada (y con ella se podría subir por curl
+// igual, sin pasar por CORS). Para restringir a orígenes explícitos, pasar
+// R2_CORS_EXTRA_ORIGINS y quitar el "*".
+const DEFAULT_ORIGINS = ["*"];
 
 function getClient(): S3Client {
   const accountId = process.env.R2_ACCOUNT_ID;
@@ -59,7 +62,11 @@ function buildOrigins(): string[] {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  return Array.from(new Set([...DEFAULT_ORIGINS, ...extra]));
+  // Si se pasan orígenes explícitos, usar SÓLO esos (permite restringir sin
+  // editar el script). Si no, el default "*".
+  const origins = extra.length > 0 ? extra : DEFAULT_ORIGINS;
+  // "*" es excluyente: R2 no mezcla wildcard con orígenes específicos.
+  return origins.includes("*") ? ["*"] : Array.from(new Set(origins));
 }
 
 async function main() {
