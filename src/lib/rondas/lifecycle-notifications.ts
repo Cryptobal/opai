@@ -211,10 +211,11 @@ export async function emitRondasNoRealizadas(tenantId: string, ejecucionIds: str
         tenantId,
         type: "ronda_overdue_admin",
         title: "🚨 Ronda no realizada",
-        body: `La ronda de las ${formatChileTime(ej.scheduledAt)} no fue iniciada dentro de su ventana de tolerancia.`,
+        body: `*${installationName(ej)}*: la ronda de las ${formatChileTime(ej.scheduledAt)} no fue iniciada dentro de su ventana de tolerancia.`,
         data: {
           ...baseData(ej),
           resumen: "🚨 No realizada · 0%",
+          "Instalación": installationName(ej),
           Programada: formatChileTime(ej.scheduledAt),
         },
         link: rondaRecorridoLink(ej.id),
