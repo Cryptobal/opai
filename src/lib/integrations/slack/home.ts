@@ -1,33 +1,27 @@
 /**
- * App Home de OPAI (Fase 7.1): la pestaña "Inicio" del bot se vuelve el panel
- * personal de cada usuario — botones grandes, contadores propios (tickets
- * abiertos/vencidos) y estado de vínculo. Los botones reusan el `action_id`
- * "opai_action_open" del hub; abren el mismo modal existente (cero duplicación).
+ * App Home de OPAI (Fase 7.1 · rediseño F20): panel personal con jerarquía sin
+ * redundancia. Principios: el contador ES el botón; el texto del botón es la
+ * acción (nunca "Abrir"); revelación progresiva (máx. 4 accesos contextuales +
+ * "⚡ Todas las acciones" como única puerta a la cola larga); cero duplicados
+ * semánticos; defaults = el caso del 90% (Mis tickets aterriza en "Míos").
+ *
+ * Estructura: "Tu día" (contadores accionables + desglose en context) · divider
+ * · "Accesos rápidos" (contextuales por rol + ⚡) · footer de una línea.
+ * Máx. 3 botones por actions block (Slack mobile, 375px).
  *
  * También el mensaje de bienvenida único (estilo agente) por DM, marcado en
  * `SlackUserLink.welcomedAt` para no repetirlo jamás.
  */
 
 import { prisma } from "@/lib/prisma";
-import { hasModuleAccess } from "@/lib/permissions";
+import { hasModuleAccess, canView, canEdit } from "@/lib/permissions";
 import { getWorkspaceForTenant } from "./workspace";
 import { resolveLinkedAdmin, buildLinkUrl } from "./user-link";
 import { slackPublishHomeView, slackPostMessage, slackOpenDm } from "./api";
 import { countTickets } from "./tickets/list";
 import { countInbox } from "./approvals/inbox";
 import { countLeads } from "./comercial/leads-list";
-
-/** Contadores del panel Comercial del Home (Fase 15): sin campos nuevos. */
-async function computeCrmHomeCounters(tenantId: string): Promise<{ leadsSinTomar: number; porVencer: number; caliente: number }> {
-  const now = new Date();
-  const in7d = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const [leadsSinTomar, porVencer, calienteRows] = await Promise.all([
-    countLeads(tenantId, { untaken: true }),
-    prisma.cpqQuote.count({ where: { tenantId, status: "sent", validUntil: { gte: now, lte: in7d } } }),
-    prisma.portalAccessLog.findMany({ where: { tenantId, action: "view_quote", createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } }, distinct: ["resource"], select: { resource: true } }),
-  ]);
-  return { leadsSinTomar, porVencer, caliente: calienteRows.length };
-}
+import { isDailyBriefOptIn } from "./daily-brief";
 
 const pt = (text: string) => ({ type: "plain_text", text, emoji: true });
 
@@ -38,80 +32,57 @@ function openBtn(text: string, callbackId: string, style?: "primary" | "danger")
   return b;
 }
 
+function actionBtn(text: string, actionId: string) {
+  return { type: "button", text: pt(text), action_id: actionId };
+}
+
+/** Parte una lista en filas de máx. 3 botones (Slack mobile, 375px). */
+function chunk<T>(list: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+
 interface DayBreakdown {
   mine: number;
   team: number;
-  unassigned: number | null; // null = el usuario no tiene visión global (línea oculta)
+  unassigned: number | null; // null = el usuario no tiene visión global (se omite del desglose)
   vencidos: number;
   approvals: number; // agregado de los tres dominios (tickets + rendiciones + TEs)
-  // Comercial (Fase 15): null si el usuario no tiene capability crm.
-  crm: { leadsSinTomar: number; porVencer: number; caliente: number } | null;
+  leadsSinTomar: number | null; // null = sin acceso a leads (botón oculto)
+  briefOptIn: boolean;
+  quick: { text: string; callbackId: string }[]; // accesos contextuales por rol (≤4)
 }
 
 function linkedHome(day: DayBreakdown): unknown {
-  const lines = [
-    `👤 Asignados a ti: *${day.mine}*`,
-    `👥 Tu equipo: *${day.team}*`,
+  // "Tu día": los contadores SON los botones. Aprobaciones se oculta si es 0.
+  const counters = [
+    openBtn(`🎫 ${day.mine} abiertos`, "opai_tickets", "primary"),
+    openBtn(`🔴 ${day.vencidos} SLA vencidos`, "opai_tickets_vencidos", day.vencidos > 0 ? "danger" : undefined),
   ];
-  if (day.unassigned != null) lines.push(`⚪ Sin asignar (tenant): *${day.unassigned}*`);
+  if (day.approvals > 0) counters.push(openBtn(`✅ ${day.approvals} por aprobar`, "opai_aprobaciones"));
+
+  // Desglose de alcance (F11) en una línea pequeña bajo los contadores.
+  const scope = [`👤 ${day.mine} tuyos`, `👥 ${day.team} de tu equipo`];
+  if (day.unassigned != null) scope.push(`⚪ ${day.unassigned} sin asignar`);
+
+  const quick = [
+    ...day.quick.map((q) => openBtn(q.text, q.callbackId)),
+    actionBtn(day.briefOptIn ? "🌅 Brief diario: ON" : "🌅 Brief diario: OFF", "brief_toggle"),
+    openBtn("⚡ Todas las acciones", "opai_acciones"),
+  ];
+
   return {
     type: "home",
     blocks: [
       { type: "header", text: pt("OPAI · Tu panel") },
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*Tu día*\n${lines.join("   ·   ")}\n🔴 *${day.vencidos}* con SLA vencido`,
-        },
-      },
+      { type: "section", text: { type: "mrkdwn", text: "*Tu día*" } },
+      ...chunk(counters, 3).map((row) => ({ type: "actions", elements: row })),
+      { type: "context", elements: [{ type: "mrkdwn", text: scope.join("   ·   ") }] },
       { type: "divider" },
-      {
-        type: "section",
-        text: { type: "mrkdwn", text: `✅ *Pendientes de tu aprobación: ${day.approvals}*  _(tickets · rendiciones · turnos extra)_` },
-      },
-      { type: "section", text: { type: "mrkdwn", text: "*Acciones rápidas*" } },
-      {
-        type: "actions",
-        elements: [
-          openBtn("🎫 Mis tickets", "opai_tickets", "primary"),
-          openBtn("🔴 Vencidos SLA", "opai_tickets_vencidos"),
-          openBtn(day.approvals > 0 ? `✅ Aprobaciones (${day.approvals})` : "✅ Aprobaciones", "opai_aprobaciones", day.approvals > 0 ? "primary" : undefined),
-        ],
-      },
-      {
-        type: "actions",
-        elements: [
-          openBtn("➕ Nuevo ticket", "opai_crear_ticket"),
-          openBtn("🧾 Mis rendiciones", "opai_mis_rendiciones"),
-          openBtn("⚡ Todas las acciones", "opai_acciones"),
-        ],
-      },
-      // Comercial (Fase 15): solo para usuarios con acceso a CRM.
-      ...(day.crm
-        ? [
-            { type: "divider" },
-            {
-              type: "section",
-              text: {
-                type: "mrkdwn",
-                text: `*Comercial*\n📇 Leads sin tomar: *${day.crm.leadsSinTomar}*   ·   ⏳ Cotizaciones por vencer: *${day.crm.porVencer}*${day.crm.caliente > 0 ? `   ·   🔥 Viendo ahora: *${day.crm.caliente}*` : ""}`,
-              },
-            },
-            {
-              type: "actions",
-              elements: [
-                openBtn(day.crm.leadsSinTomar > 0 ? `📇 Leads (${day.crm.leadsSinTomar})` : "📇 Leads", "opai_leads", day.crm.leadsSinTomar > 0 ? "primary" : undefined),
-                openBtn("💼 Pipeline", "opai_pipeline"),
-                openBtn("🧾 Cotizaciones", "opai_cotizaciones"),
-              ],
-            },
-          ]
-        : []),
-      {
-        type: "context",
-        elements: [{ type: "mrkdwn", text: "Escríbeme `@OPAI` o usa `/opai ayuda` · OPAI Intelligence" }],
-      },
+      { type: "section", text: { type: "mrkdwn", text: "*Accesos rápidos*" } },
+      ...chunk(quick, 3).map((row) => ({ type: "actions", elements: row })),
+      { type: "context", elements: [{ type: "mrkdwn", text: "Escríbeme `@OPAI` o usa `/opai ayuda`" }] },
     ],
   };
 }
@@ -146,23 +117,39 @@ export async function publishHome(tenantId: string, slackUserId: string): Promis
     await slackPublishHomeView(ws.botToken, slackUserId, unlinkedHome(buildLinkUrl(ws.id, slackUserId)));
     return;
   }
-  // "Tu día" desglosado. La línea "Sin asignar (tenant)" solo si el usuario
-  // tiene visión global (mismo criterio que la vista "Todos" de la web: acceso
-  // al módulo ops, único gate del route de counts).
+  // Desglose "Tu día". La cifra "sin asignar (tenant)" solo si el usuario tiene
+  // visión global (mismo criterio que la vista "Todos" de la web: módulo ops).
   const canViewAll = hasModuleAccess(linked.perms, "ops");
-  const canViewCrm = hasModuleAccess(linked.perms, "crm");
-  const [mine, team, vencidos, unassigned, approvals, crm] = await Promise.all([
+  const canSeeLeads = canView(linked.perms, "crm", "leads");
+  const [mine, team, vencidos, unassigned, approvals, leadsSinTomar, briefOptIn] = await Promise.all([
     countTickets(tenantId, linked.adminId, { scope: "mine" }),
     countTickets(tenantId, linked.adminId, { scope: "my_team" }),
     countTickets(tenantId, linked.adminId, { scope: "my_team", slaBreached: true }),
     canViewAll ? countTickets(tenantId, linked.adminId, { scope: "unassigned" }) : Promise.resolve(null),
     countInbox(tenantId, linked.adminId, linked.perms),
-    canViewCrm ? computeCrmHomeCounters(tenantId) : Promise.resolve(null),
+    canSeeLeads ? countLeads(tenantId, { untaken: true }) : Promise.resolve(null),
+    isDailyBriefOptIn(tenantId, linked.adminId),
   ]);
+
+  // Accesos rápidos contextuales por rol (máx. 4; ⚡ se agrega al final).
+  // Regla F20: ninguna acción repetida en el Home — los contadores ya cubren
+  // tickets/vencidos/aprobaciones, así que acá van solo las de creación/rol.
+  const quick: { text: string; callbackId: string }[] = [];
+  if (hasModuleAccess(linked.perms, "ops")) quick.push({ text: "➕ Nuevo ticket", callbackId: "opai_crear_ticket" });
+  if (canView(linked.perms, "crm", "deals")) quick.push({ text: "📊 Pipeline", callbackId: "opai_pipeline" });
+  if (leadsSinTomar != null) {
+    // El contador de sin-tomar ES el botón: con pendientes abre la sub-bandeja
+    // "sin tomar"; sin pendientes abre la bandeja general.
+    quick.push(leadsSinTomar > 0
+      ? { text: `📇 ${leadsSinTomar} leads sin tomar`, callbackId: "opai_leads_nuevos" }
+      : { text: "📇 Leads", callbackId: "opai_leads" });
+  }
+  if (canEdit(linked.perms, "finance", "rendiciones")) quick.push({ text: "🧾 Nueva rendición", callbackId: "opai_nueva_rendicion" });
+
   await slackPublishHomeView(
     ws.botToken,
     slackUserId,
-    linkedHome({ mine, team, vencidos, unassigned, approvals, crm }),
+    linkedHome({ mine, team, vencidos, unassigned, approvals, leadsSinTomar, briefOptIn, quick: quick.slice(0, 4) }),
   );
 }
 
@@ -183,7 +170,7 @@ function welcomeBlocks(): unknown[] {
     },
     {
       type: "actions",
-      elements: [openBtn("🎫 Mis tickets", "opai_tickets", "primary"), openBtn("⚡ Acciones", "opai_acciones")],
+      elements: [openBtn("🎫 Mis tickets", "opai_tickets", "primary"), openBtn("⚡ Todas las acciones", "opai_acciones")],
     },
   ];
 }

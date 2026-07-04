@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { PlatformAiProvidersConfig } from '@/components/platform/PlatformAiProvidersConfig';
+import { PlatformAiNav } from '@/components/platform/ai-actions/PlatformAiNav';
 
 export default function PlatformAiSettingsPage() {
   const router = useRouter();
@@ -42,6 +43,7 @@ export default function PlatformAiSettingsPage() {
 
   return (
     <div className="space-y-8">
+      <PlatformAiNav />
       <div>
         <Link
           href="/platform/settings"

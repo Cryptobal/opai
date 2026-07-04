@@ -292,6 +292,19 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     module: 'ops', category: 'Operaciones - Documentos',
     audiences: ['admin'], defaults: { admin: adminBell(true) },
   },
+  {
+    key: 'docs_expiry_digest', label: 'Digest de vencimientos',
+    description: 'Resumen diario agrupado: documentos vencidos, esta semana y este mes',
+    module: 'ops', category: 'Operaciones - Documentos',
+    audiences: ['admin'], defaults: { admin: adminBell(true) },
+  },
+  {
+    key: 'doc_escalated', label: 'Documento escalado',
+    description: 'Un documento cruzó T-7 sin acción (ni renovado ni en trámite) y se avisa al jefe',
+    module: 'ops', category: 'Operaciones - Documentos',
+    audiences: ['admin'], defaults: { admin: adminBell(true) },
+    critical: true,
+  },
 
   // ── Operaciones - Guardias ──
   {
@@ -517,6 +530,12 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
 
   // ── Rondas ──
   {
+    key: 'ronda_started', label: 'Ronda iniciada',
+    description: 'Cuando un guardia inicia una ronda de vigilancia',
+    module: 'ops', submodule: 'rondas', category: 'Operaciones - Rondas',
+    audiences: ['admin'], defaults: { admin: { bell: false, email: false, push: false } },
+  },
+  {
     key: 'ronda_alert_admin', label: 'Alerta de ronda (admin)',
     description: 'Cuando se detecta un incidente o problema en una ronda',
     module: 'ops', submodule: 'rondas', category: 'Operaciones - Rondas',
@@ -563,6 +582,12 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     description: 'Cuando una ronda asignada es cancelada',
     module: 'ops', submodule: 'rondas', category: 'Operaciones - Rondas',
     audiences: ['rondas'], defaults: { rondas: { push: true, email: false } },
+  },
+  {
+    key: 'rondas_daily_digest', label: 'Digest diario de rondas',
+    description: 'Resumen matinal del cumplimiento de rondas del día anterior, por instalación',
+    module: 'ops', submodule: 'rondas', category: 'Operaciones - Rondas',
+    audiences: ['admin'], defaults: { admin: adminBell() },
   },
 
   // ── Supervisión / Gastos / Payroll ──

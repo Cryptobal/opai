@@ -52,6 +52,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/access-control/utils", () => ({
   validateRut: () => true,
   cleanRut: (r: string) => r,
+  cleanPlate: (p: string) => p,
 }));
 
 // Simula un request básico
@@ -178,7 +179,8 @@ describe("PUT /api/portal/cliente/access-control/[installationId]/whitelist/[id]
 
   it("actualiza cuando la entrada existe y es whitelist de la misma instalación", async () => {
     findFirstInstallation.mockResolvedValue({ id: "inst-own" });
-    findFirstWhitelist.mockResolvedValue({ id: "entry-own" });
+    // La ruta exige que la entrada resultante conserve RUT o patente.
+    findFirstWhitelist.mockResolvedValue({ id: "entry-own", rut: "123456785", vehiclePlate: null });
     updateWhitelist.mockResolvedValue({ id: "entry-own", isActive: true });
 
     const { PUT } = await import(

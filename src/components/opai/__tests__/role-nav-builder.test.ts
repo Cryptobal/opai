@@ -43,11 +43,12 @@ describe("buildNavItems — sidebar back-compat", () => {
     expect(childLabels).toContain("Negocios");
     expect(childLabels).toContain("Contactos");
     expect(childLabels).toContain("Cotizaciones");
-    expect(childLabels).toContain("Prospección");
     expect(childLabels).toContain("Instalaciones");
+    // "Prospección" se retiró del sidebar comercial.
+    expect(childLabels).not.toContain("Prospección");
   });
 
-  it("Finanzas children include Inicio, Rendiciones, Ventas, Compras, Banca, Contabilidad, Informes", () => {
+  it("Finanzas children include Inicio, Rendiciones, Compras y Ventas, Banca, Contabilidad, Informes", () => {
     const items = buildNavItems({
       permissions: getDefaultPermissions("owner"),
       isAdmin: true,
@@ -58,8 +59,9 @@ describe("buildNavItems — sidebar back-compat", () => {
     const childLabels = fin?.children?.map((c) => c.label) ?? [];
     expect(childLabels).toContain("Inicio");
     expect(childLabels).toContain("Rendiciones");
-    expect(childLabels).toContain("Ventas");
-    expect(childLabels).toContain("Compras");
+    // "Ventas" y "Compras" se fusionaron en el nodo "Compras y Ventas"
+    // (Facturación + Proveedores como N3).
+    expect(childLabels).toContain("Compras y Ventas");
     expect(childLabels).toContain("Banca");
     expect(childLabels).toContain("Contabilidad");
     expect(childLabels).toContain("Informes");

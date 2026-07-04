@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
     const statusFilter = sp.get("status");
     const pageParam = sp.get("page");
     const pageSizeParam = sp.get("pageSize");
+    const ejecucionId = sp.get("ejecucionId");
 
     const dateFrom = from ? new Date(from) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     // Fix: dateTo should include the entire end day (23:59:59.999)
@@ -47,6 +48,11 @@ export async function GET(request: NextRequest) {
     }
     if (guardiaId) where.guardiaId = guardiaId;
     if (statusFilter && statusFilter !== "all") where.status = statusFilter;
+    // Deep link (Fase 19): una ejecución puntual, sin importar el rango de fechas.
+    if (ejecucionId) {
+      where.id = ejecucionId;
+      delete where.scheduledAt;
+    }
 
     // Server-side pagination (skip CSV exports which need all rows)
     const page = pageParam != null ? Math.max(0, parseInt(pageParam, 10) || 0) : null;

@@ -52,6 +52,8 @@ interface AlertNotificationParams {
   tipo: string;
   severidad: string;
   mensaje: string;
+  /** Ejecución de ronda asociada: con esto la tarjeta cae al hilo de la ronda (F19). */
+  ejecucionId?: string | null;
 }
 
 // Alert types that should be sent to the ops chat channel.
@@ -87,7 +89,7 @@ export async function notifyCriticalAlert(
  */
 export async function notifyCriticalAlertsBatch(
   tenantId: string,
-  alerts: Array<{ tipo: string; severidad: string; mensaje: string }>,
+  alerts: Array<{ tipo: string; severidad: string; mensaje: string; ejecucionId?: string | null }>,
 ): Promise<void> {
   const critical = alerts.filter((a) => a.severidad === "critical");
   if (critical.length === 0) return;
@@ -135,6 +137,8 @@ async function sendAlertPush(
       title: `${emoji} Alerta: ${typeLabel}`,
       body: params.mensaje,
       link: "/ops/rondas/alertas",
+      // rondaId → la tarjeta de Slack cae al hilo de esa ronda si existe (F19)
+      data: params.ejecucionId ? { rondaId: params.ejecucionId } : undefined,
       forceChannels: { bell: false, email: false }, // bell+email handled by callers via separate paths
     });
 

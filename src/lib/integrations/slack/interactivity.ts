@@ -21,6 +21,13 @@ import { resolveLinkedAdmin, buildLinkPrompt, type LinkedAdmin } from "./user-li
 import { slackUpdateMessage, slackRespondUrl } from "./api";
 import { assistantSection } from "./blocks";
 import { publishHome } from "./home";
+import {
+  updateAccountSchema,
+  updateContactSchema,
+  updateInstallationSchema,
+  createLeadSchema,
+} from "@/lib/validations/crm";
+import { z } from "zod";
 import { decideTicketApproval } from "@/lib/tickets-approvals";
 
 /** Refresca el App Home del usuario tras completar una acción (best-effort). */
@@ -48,8 +55,8 @@ interface RespondCtx {
 }
 
 /** Actualiza la tarjeta: chat.update para mensajes normales, response_url para efímeros. */
-async function respondCard(ctx: RespondCtx, text: string): Promise<void> {
-  const blocks = [assistantSection(text)];
+async function respondCard(ctx: RespondCtx, text: string, extraBlocks?: unknown[]): Promise<void> {
+  const blocks = [assistantSection(text), ...(extraBlocks ?? [])];
   if (ctx.isEphemeral) {
     if (ctx.responseUrl) {
       await slackRespondUrl(ctx.responseUrl, { response_type: "ephemeral", replace_original: true, text, blocks }).catch(() => {});
@@ -57,6 +64,68 @@ async function respondCard(ctx: RespondCtx, text: string): Promise<void> {
     return;
   }
   if (ctx.ts) await slackUpdateMessage(ctx.token, { channel: ctx.channel, ts: ctx.ts, text, blocks }).catch(() => {});
+}
+
+const UNDO_TTL_MS = 15 * 60 * 1000;
+
+const updateDealUndoSchema = z.object({
+  title: z.string().optional(),
+  amount: z.number().optional(),
+  probability: z.number().optional(),
+  expectedCloseDate: z.string().optional().nullable(),
+  primaryContactId: z.string().optional().nullable(),
+  proposalLink: z.string().optional().nullable(),
+  stageId: z.string().optional().nullable(),
+}).partial();
+
+const UNDO_SCHEMAS: Record<string, z.ZodTypeAny> = {
+  update_account: updateAccountSchema,
+  update_contact: updateContactSchema,
+  update_lead: createLeadSchema.partial(),
+  update_deal: updateDealUndoSchema,
+  update_installation: updateInstallationSchema,
+};
+
+function undoActionsBlock(pendingId: string): unknown {
+  return {
+    type: "actions",
+    block_id: `opai_undo_${pendingId}`,
+    elements: [{
+      type: "button",
+      action_id: "pending_undo",
+      value: pendingId,
+      text: { type: "plain_text", text: "↩︎ Deshacer (15 min)", emoji: true },
+    }],
+  };
+}
+
+function isScalarOrNull(v: unknown): boolean {
+  return v === null || ["string", "number", "boolean"].includes(typeof v);
+}
+
+function canOfferUndo(previousValues: Record<string, unknown>): boolean {
+  const keys = Object.keys(previousValues);
+  return keys.length > 0 && keys.every((k) => isScalarOrNull(previousValues[k]));
+}
+
+/** Filtra campos que el schema de update rechazaría (p. ej. null en campos no-nullable). */
+function buildUndoToolArgs(
+  toolName: string,
+  entityId: string,
+  previousValues: Record<string, unknown>,
+): { args: Record<string, unknown>; omitted: string[] } {
+  const schema = UNDO_SCHEMAS[toolName];
+  const omitted: string[] = [];
+  const accepted: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(previousValues)) {
+    const candidate = { id: entityId, ...accepted, [key]: value };
+    if (schema?.safeParse({ ...candidate, id: undefined }).success) {
+      accepted[key] = value;
+    } else {
+      omitted.push(key);
+    }
+  }
+  return { args: { id: entityId, ...accepted }, omitted };
 }
 
 /** Transición atómica PENDING→status. Devuelve true si ESTE click ganó la carrera. */
@@ -149,6 +218,12 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     await handlePipelineAction(payload as never);
     return;
   }
+  // Buscador universal de negocios (Fase 21): chips de alcance / abrir sala.
+  if (actionId?.startsWith("dsearch_")) {
+    const { handleDealSearchAction } = await import("./comercial/deal-search");
+    await handleDealSearchAction(payload as never);
+    return;
+  }
   // Ficha viva de una Deal Room (Fase 16): Avanzar etapa / Nota.
   if (actionId?.startsWith("dealroom_")) {
     const { handleDealRoomAction } = await import("./deal-rooms/actions");
@@ -165,6 +240,30 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
   if (actionId?.startsWith("qstale_")) {
     const { handleStaleQuoteAction } = await import("./comercial/quote-stale");
     await handleStaleQuoteAction(payload as never);
+    return;
+  }
+  // Bandeja de documentos por vencer (Fase 18): abrir / filtros / paginación.
+  if (actionId?.startsWith("docstray_")) {
+    const { handleDocsTrayAction } = await import("./docs/tray-dispatch");
+    await handleDocsTrayAction(payload as never);
+    return;
+  }
+  // Tarjeta de documento por vencer (Fase 18): En trámite / Ya no aplica.
+  if (actionId?.startsWith("doccard_")) {
+    const { handleDocCardAction } = await import("./docs/card-actions");
+    await handleDocCardAction(payload as never);
+    return;
+  }
+
+  if (actionId === "reminder_done") {
+    const { handleReminderDoneAction } = await import("./reminder-actions");
+    await handleReminderDoneAction(payload);
+    return;
+  }
+
+  if (actionId === "brief_toggle") {
+    const { handleBriefToggleAction } = await import("./daily-brief-actions");
+    await handleBriefToggleAction(payload);
     return;
   }
 
@@ -209,6 +308,14 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     return;
   }
 
+  // Propiedad: solo quien pidió la acción del bot puede confirmarla o
+  // cancelarla (las decisiones de tickets siguen siendo multi-aprobador).
+  if ((actionId === "pending_confirm" || actionId === "pending_cancel" || actionId === "pending_undo") &&
+      pending.requestedBySlackUserId && pending.requestedBySlackUserId !== slackUserId) {
+    if (responseUrl) await slackRespondUrl(responseUrl, { response_type: "ephemeral", text: `Solo <@${pending.requestedBySlackUserId}> (quien pidió esta acción) puede confirmarla o cancelarla.` });
+    return;
+  }
+
   if (actionId === "pending_cancel") {
     if (await claimPending(pending.id, "CANCELLED", linked.adminId)) {
       await respondCard(ctx, `❌ Cancelado por <@${slackUserId}>`);
@@ -218,6 +325,7 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     return;
   }
   if (actionId === "pending_confirm") return handleToolConfirm(workspace, pending, linked, ctx);
+  if (actionId === "pending_undo") return handleToolUndo(workspace, pending, linked, ctx);
   if (actionId === "ticket_approve" || actionId === "ticket_reject") {
     return handleTicketDecision(workspace, pending, linked, ctx, actionId === "ticket_approve");
   }
@@ -236,12 +344,12 @@ async function handleToolConfirm(
   }
 
   const args = (pending.toolArgs ?? {}) as Record<string, unknown>;
-  let result: { ok?: boolean; error?: string };
+  let result: { ok?: boolean; error?: string; data?: { previousValues?: Record<string, unknown> } };
   try {
     result = (await executeToolCallV2(
       pending.toolName, args, workspace.tenantId, linked.adminId,
       linked.perms, hasCapability(linked.perms, "rendicion_view_all"), null,
-    )) as { ok?: boolean; error?: string };
+    )) as { ok?: boolean; error?: string; data?: { previousValues?: Record<string, unknown> } };
   } catch (err) {
     console.error(`[slack] confirm ${pending.toolName} lanzó excepción:`, err);
     result = { ok: false, error: "error inesperado" };
@@ -252,9 +360,93 @@ async function handleToolConfirm(
     if (ctx.responseUrl) await slackRespondUrl(ctx.responseUrl, { response_type: "ephemeral", text: `⚠️ No se pudo completar *${label}*: ${result?.error ?? "error"}` });
     return;
   }
-  await respondCard(ctx, `✅ *${label}* confirmado por <@${ctx.slackUserId}>`);
+
+  let extraBlocks: unknown[] | undefined;
+  const entityId = typeof args.id === "string" ? args.id : "";
+  const previousValues = result.data?.previousValues;
+  if (
+    pending.toolName?.startsWith("update_") &&
+    previousValues &&
+    canOfferUndo(previousValues) &&
+    entityId
+  ) {
+    const { args: undoArgs, omitted } = buildUndoToolArgs(pending.toolName, entityId, previousValues);
+    if (Object.keys(undoArgs).length > 1) {
+      const undoPa = await prisma.slackPendingAction.create({
+        data: {
+          tenantId: workspace.tenantId,
+          workspaceId: pending.workspaceId,
+          kind: "TOOL_UNDO",
+          toolName: pending.toolName,
+          toolArgs: undoArgs as object,
+          requestedBySlackUserId: pending.requestedBySlackUserId,
+          channelId: pending.channelId,
+          messageTs: ctx.ts,
+          status: "PENDING",
+          expiresAt: new Date(Date.now() + UNDO_TTL_MS),
+        },
+        select: { id: true },
+      });
+      extraBlocks = [undoActionsBlock(undoPa.id)];
+      await respondCard(
+        ctx,
+        `✅ *${label}* confirmado por <@${ctx.slackUserId}>`,
+        extraBlocks,
+      );
+      refreshHome(workspace.tenantId, ctx.slackUserId);
+      await logAudit({ action: "CREATE", entity: "SlackPendingAction", entityId: pending.id, tenantId: workspace.tenantId, userId: linked.adminId, details: { toolName: pending.toolName, kind: "TOOL_CONFIRM", via: "slack" } });
+      return;
+    }
+  }
+
+  await respondCard(ctx, `✅ *${label}* confirmado por <@${ctx.slackUserId}>`, extraBlocks);
   refreshHome(workspace.tenantId, ctx.slackUserId);
   await logAudit({ action: "CREATE", entity: "SlackPendingAction", entityId: pending.id, tenantId: workspace.tenantId, userId: linked.adminId, details: { toolName: pending.toolName, kind: "TOOL_CONFIRM", via: "slack" } });
+}
+
+async function handleToolUndo(
+  workspace: ActiveWorkspace, pending: Pending, linked: LinkedAdmin, ctx: RespondCtx,
+): Promise<void> {
+  if (pending.kind !== "TOOL_UNDO" || !pending.toolName) return;
+  const label = WRITE_TOOL_LABELS[pending.toolName] ?? pending.toolName;
+
+  if (!(await claimPending(pending.id, "CONFIRMED", linked.adminId))) {
+    await respondCard(ctx, "⌛ Esta acción ya expiró o fue resuelta.");
+    return;
+  }
+
+  const args = (pending.toolArgs ?? {}) as Record<string, unknown>;
+  let result: { ok?: boolean; error?: string };
+  try {
+    result = (await executeToolCallV2(
+      pending.toolName, args, workspace.tenantId, linked.adminId,
+      linked.perms, hasCapability(linked.perms, "rendicion_view_all"), null,
+    )) as { ok?: boolean; error?: string };
+  } catch (err) {
+    console.error(`[slack] undo ${pending.toolName} lanzó excepción:`, err);
+    result = { ok: false, error: "error inesperado" };
+  }
+
+  if (!result?.ok) {
+    await restorePending(pending.id);
+    if (ctx.responseUrl) await slackRespondUrl(ctx.responseUrl, { response_type: "ephemeral", text: `⚠️ No se pudo deshacer *${label}*: ${result?.error ?? "error"}` });
+    return;
+  }
+
+  const entityId = typeof args.id === "string" ? args.id : "";
+  const undoFields = Object.fromEntries(Object.entries(args).filter(([k]) => k !== "id"));
+  const { omitted } = entityId
+    ? buildUndoToolArgs(pending.toolName, entityId, undoFields)
+    : { omitted: [] as string[] };
+  const partialNote = omitted.length ? ` (revertido parcialmente: ${omitted.join(", ")})` : "";
+
+  await respondCard(ctx, `↩︎ *${label}* revertido por <@${ctx.slackUserId}>${partialNote}`);
+  refreshHome(workspace.tenantId, ctx.slackUserId);
+  await logAudit({
+    action: "UPDATE", entity: "SlackPendingAction", entityId: pending.id,
+    tenantId: workspace.tenantId, userId: linked.adminId,
+    details: { toolName: pending.toolName, kind: "TOOL_UNDO", via: "slack" },
+  });
 }
 
 async function handleTicketDecision(

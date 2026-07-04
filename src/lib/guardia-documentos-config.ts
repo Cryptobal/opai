@@ -17,10 +17,23 @@ export type GuardiaDocumentoConfigItem = {
   visibleInTeForm?: boolean;
   /** Si true, el documento debe verificarse físicamente durante visitas de supervisión. */
   obligatorioEnVisita?: boolean;
+  /** Fase 18: si true, T-7/T-1 generan tarjeta individual además del digest (ej. OS10). */
+  criticoLegal?: boolean;
+  /** Fase 18: escalera de hitos custom (días antes de vencer); undefined = default [30,14,7,3,1,0]. */
+  milestones?: number[];
 };
 
 const SETTING_KEY = "ops_guardia_documentos_config";
 const DEFAULT_ALERT_DAYS = 30;
+
+function sanitizeMilestones(value: unknown): number[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const nums = value
+    .map((v) => Number(v))
+    .filter((v) => Number.isInteger(v) && v >= 0 && v <= 365);
+  if (nums.length === 0) return undefined;
+  return [...new Set(nums)].sort((a, b) => b - a);
+}
 
 function parseConfig(value: string | null): GuardiaDocumentoConfigItem[] {
   if (!value?.trim()) return getDefaults();
@@ -45,6 +58,8 @@ function parseConfig(value: string | null): GuardiaDocumentoConfigItem[] {
             visibleInGuardForm: c.visibleInGuardForm !== false,
             visibleInTeForm: Boolean(c.visibleInTeForm),
             obligatorioEnVisita: Boolean(c.obligatorioEnVisita),
+            criticoLegal: Boolean(c.criticoLegal),
+            milestones: sanitizeMilestones(c.milestones),
           });
         }
       }
@@ -66,6 +81,7 @@ function getDefaults(): GuardiaDocumentoConfigItem[] {
     visibleInGuardForm: true,
     visibleInTeForm: false,
     obligatorioEnVisita: OS10_CODES.has(code),
+    criticoLegal: OS10_CODES.has(code),
   }));
 }
 
@@ -83,6 +99,8 @@ function mergeWithDefaults(partial: GuardiaDocumentoConfigItem[]): GuardiaDocume
       visibleInGuardForm: existing?.visibleInGuardForm !== false,
       visibleInTeForm: Boolean(existing?.visibleInTeForm),
       obligatorioEnVisita: existing !== undefined ? Boolean(existing.obligatorioEnVisita) : OS10_CODES.has(code),
+      criticoLegal: existing !== undefined ? Boolean(existing.criticoLegal) : OS10_CODES.has(code),
+      milestones: sanitizeMilestones(existing?.milestones),
     };
   });
   const docCodes = new Set(DOCUMENT_TYPES as readonly string[]);
@@ -99,6 +117,8 @@ function mergeWithDefaults(partial: GuardiaDocumentoConfigItem[]): GuardiaDocume
       visibleInGuardForm: p.visibleInGuardForm !== false,
       visibleInTeForm: Boolean(p.visibleInTeForm),
       obligatorioEnVisita: Boolean(p.obligatorioEnVisita),
+      criticoLegal: Boolean(p.criticoLegal),
+      milestones: sanitizeMilestones(p.milestones),
     });
   }
   return [...base, ...mergedExtras];

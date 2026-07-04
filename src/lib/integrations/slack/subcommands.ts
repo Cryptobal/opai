@@ -7,6 +7,8 @@
  *  - `modal`: abre un modal nativo por `callbackId` (mismo del shortcut).
  */
 
+import { BRIEF_PROMPT } from "./daily-brief";
+
 export type SubCommand =
   | { name: string; description: string; usage?: string; kind: "prompt"; toPrompt: (rest: string) => string }
   | { name: string; description: string; usage?: string; kind: "modal"; callbackId: string };
@@ -30,6 +32,12 @@ export const SUBCOMMANDS: SubCommand[] = [
     description: "pendientes de tu aprobación (tickets · rendiciones · turnos extra)",
     kind: "modal",
     callbackId: "opai_aprobaciones",
+  },
+  {
+    name: "brief",
+    description: "brief ejecutivo del día (tickets, aprobaciones, cotizaciones, caja)",
+    kind: "prompt",
+    toPrompt: () => BRIEF_PROMPT,
   },
   {
     name: "caja",
@@ -82,11 +90,24 @@ export const SUBCOMMANDS: SubCommand[] = [
     callbackId: "opai_pipeline",
   },
   {
+    name: "negocio",
+    description: "busca un negocio por nombre, cuenta o instalación (incluye cerrados)",
+    usage: "negocio <texto>",
+    kind: "modal",
+    callbackId: "opai_negocio",
+  },
+  {
     name: "cotizaciones",
     description: "bandeja de cotizaciones (filtra por estado)",
     usage: "cotizaciones [enviadas|borrador|aceptadas|rechazadas]",
     kind: "modal",
     callbackId: "opai_cotizaciones",
+  },
+  {
+    name: "documentos",
+    description: "documentos por vencer (vencidos · esta semana · en trámite)",
+    kind: "modal",
+    callbackId: "opai_documentos",
   },
 ];
 

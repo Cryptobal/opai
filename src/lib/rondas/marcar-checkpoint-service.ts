@@ -3,6 +3,7 @@
  * Used by both portal/rondas/marcar and public/ronda/marcar endpoints.
  */
 
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { computeMarcacionHash } from "@/lib/marcacion";
 import { detectCheckpointAnomalies, type RondaAnomalyCode } from "@/lib/rondas/anomaly-detection";
@@ -11,6 +12,7 @@ import { computeCheckpointTrustScore, toAlertSeverityFromAnomalies } from "@/lib
 import { evaluatePostMarkAlerts } from "@/lib/rondas/alert-engine";
 import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
 import { notifyCriticalAlert } from "@/lib/rondas/alert-notifications";
+import { emitRondaStarted } from "@/lib/rondas/lifecycle-notifications";
 import { getFullAlertConfig } from "@/lib/rondas/alert-config-service";
 import { DEFAULT_SPEED_THRESHOLD_KMH } from "@/lib/rondas/ia-config";
 import { getPusherServer } from "@/lib/chat";
@@ -395,6 +397,13 @@ export async function marcarCheckpoint(
     return mark;
   });
 
+  // 9.5 Fase 19: inicio implícito — la primera marcación de una ronda que nunca
+  // pasó por /iniciar la puso en_curso dentro de la tx; anúnciala una sola vez
+  // (las marcas siguientes ya la ven en_curso y no entran acá).
+  if (execution.status === "pendiente" && !execution.startedAt) {
+    after(() => emitRondaStarted(execution.tenantId, execution.id));
+  }
+
   // 10. Fire-and-forget: push + chat notification for critical alerts
   if (alertAnomalies.length) {
     const severidad = toAlertSeverityFromAnomalies(alertAnomalies);
@@ -404,6 +413,7 @@ export async function marcarCheckpoint(
       tipo: alertAnomalies[0],
       severidad,
       mensaje: `Anomalía detectada en checkpoint ${cpName}: ${alertAnomalies.join(", ")}`,
+      ejecucionId: execution.id,
     }).catch((err) => console.error("[MARCAR] Alert notification failed:", err));
   }
 

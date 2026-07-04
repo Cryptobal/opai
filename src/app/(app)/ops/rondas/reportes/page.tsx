@@ -9,9 +9,16 @@ import { BarChart3 } from "lucide-react";
 import { RondasReportesClient } from "@/components/ops/rondas";
 import { asRouteSnapshot, asWalkRoute } from "@/lib/rondas/ejecucion-map-helpers";
 
-export default async function RondasReportesPage() {
+export default async function RondasReportesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ ejecucionId?: string }>;
+}) {
   const session = await auth();
   if (!session?.user) redirect("/opai/login?callbackUrl=/ops/rondas/reportes");
+
+  // Deep link (Fase 19): ?ejecucionId= abre el modal de recorrido de esa ejecución
+  const deepLinkEjecucionId = (await searchParams)?.ejecucionId ?? null;
 
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "ops", "rondas")) redirect("/hub");
@@ -215,6 +222,7 @@ export default async function RondasReportesPage() {
         companyName={tenantCfg.commercialName}
         panicAlerts={panicData}
         initialAlertas={JSON.parse(JSON.stringify(allAlertas))}
+        deepLinkEjecucionId={deepLinkEjecucionId}
       />
     </div>
   );

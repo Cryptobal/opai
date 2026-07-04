@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { formatChileTime } from "@/lib/rondas/timezone";
 import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
 import { notifyCriticalAlertsBatch } from "@/lib/rondas/alert-notifications";
+import { emitRondasNoRealizadas } from "@/lib/rondas/lifecycle-notifications";
 
 /**
  * CRON: /api/cron/rondas/cerrar-atrasadas
@@ -123,6 +124,12 @@ export async function GET(request: NextRequest) {
           );
         }
       }
+    }
+
+    // Fase 19: tarjeta individual de atención por cada ronda no realizada
+    for (const tid of uniqueTenants) {
+      const tenantIds = toClose.filter((ej) => ej.tenantId === tid).map((ej) => ej.id);
+      await emitRondasNoRealizadas(tid, tenantIds);
     }
 
     console.log(`[CRON] cerrar-atrasadas: ${toClose.length} rondas cerradas como no_realizada`);

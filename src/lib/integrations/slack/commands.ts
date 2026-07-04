@@ -55,7 +55,15 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
   }
 
   const [first, ...restArr] = trimmed.split(/\s+/);
-  const sub = SUBCOMMANDS.find((c) => c.name === first.toLowerCase());
+  let subName = first.toLowerCase();
+  let rawRest = restArr.join(" ").trim();
+  // Alias (F21): `/opai buscar negocio <texto>` = `/opai negocio <texto>` (el
+  // buscador universal de negocios, no la búsqueda global del asistente).
+  if (subName === "buscar" && /^negocio(s)?\b/i.test(rawRest)) {
+    subName = "negocio";
+    rawRest = rawRest.replace(/^negocio(s)?\s*/i, "").trim();
+  }
+  const sub = SUBCOMMANDS.find((c) => c.name === subName);
 
   // Subcomandos que abren un modal nativo (ticket, rendición, bandeja).
   if (sub?.kind === "modal") {
@@ -65,7 +73,7 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
     }
     // Variantes pre-filtradas: `/opai tickets vencidos`, `/opai leads nuevos`,
     // `/opai cotizaciones enviadas|borrador|aceptadas|rechazadas`.
-    const rest = restArr.join(" ").trim().toLowerCase();
+    const rest = rawRest.toLowerCase();
     let callbackId = sub.callbackId;
     if (sub.name === "tickets" && rest === "vencidos") callbackId = "opai_tickets_vencidos";
     else if (sub.name === "leads" && rest === "nuevos") callbackId = "opai_leads_nuevos";
@@ -77,14 +85,14 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
     // El modal ES el feedback (F17): abrimos y ELIMINAMOS el "⏳ Procesando…"
     // que emitió el route vía `delete_original` — cero efímeros huérfanos. Si el
     // modal no abrió (trigger vencido), mutamos el efímero a un aviso claro.
-    const opened = await openModalByCallback({ teamId, triggerId: input.triggerId, callbackId, slackUserId, channelId });
+    const opened = await openModalByCallback({ teamId, triggerId: input.triggerId, callbackId, slackUserId, channelId, arg: rawRest });
     if (opened) await slackRespondUrl(responseUrl, { delete_original: true });
     else await ephemeral("No pude abrir el formulario. Intenta de nuevo.");
     return;
   }
 
   // Resto: consulta al asistente (subcomando prompt o pregunta libre).
-  const prompt = sub?.kind === "prompt" ? sub.toPrompt(restArr.join(" ")) : trimmed;
+  const prompt = sub?.kind === "prompt" ? sub.toPrompt(rawRest) : trimmed;
 
   const linked = await resolveLinkedAdmin(workspace, slackUserId);
   if (!linked) {
@@ -111,14 +119,16 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
     });
 
     const blocks: unknown[] = [assistantSection(toSlackMarkdown(result.text))];
-    if (result.pendingConfirmation) {
+    const pendingList = result.pendingConfirmations ?? [];
+    for (let i = 0; i < pendingList.length; i += 1) {
+      const pc = pendingList[i];
       const pa = await prisma.slackPendingAction.create({
         data: {
           tenantId: workspace.tenantId,
           workspaceId: workspace.id,
           kind: "TOOL_CONFIRM",
-          toolName: result.pendingConfirmation.confirmToolName,
-          toolArgs: result.pendingConfirmation.args as object,
+          toolName: pc.confirmToolName,
+          toolArgs: pc.args as object,
           requestedBySlackUserId: slackUserId,
           channelId,
           status: "PENDING",
@@ -126,7 +136,8 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
         },
         select: { id: true },
       });
-      blocks.push(contextLine(`⚠️ Acción: *${result.pendingConfirmation.summary}* · confirma o cancela (vence en 15 min)`));
+      const label = pendingList.length > 1 ? `Acción ${i + 1}/${pendingList.length}` : "Acción";
+      blocks.push(contextLine(`⚠️ ${label}: *${pc.summary}* · confirma o cancela (vence en 15 min)`));
       blocks.push(confirmActionsBlock(pa.id));
     }
 

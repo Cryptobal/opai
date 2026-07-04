@@ -1,11 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/modules/payroll/engine/compute-employer-cost", () => ({
-  computeEmployerCost: vi.fn(async ({ base_salary_clp }) => ({
-    monthly_employer_cost_clp: Math.round(base_salary_clp * 1.45),
-  })),
-}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     opsTurnoExtra: { findMany: vi.fn() },
@@ -45,7 +40,7 @@ beforeEach(() => {
 });
 
 describe("syncTurnosExtraItemForInstallation", () => {
-  it("crea item con monthly = (suma 8 sem / 8) * 4.33", async () => {
+  it("crea item semanal con amount = suma 8 semanas / 8", async () => {
     (prisma.opsTurnoExtra.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
       { amountClp: 80_000, installation: { name: "X" } },
       { amountClp: 80_000, installation: { name: "X" } },
@@ -58,11 +53,13 @@ describe("syncTurnosExtraItemForInstallation", () => {
     const r = await syncTurnosExtraItemForInstallation(TENANT, INST);
     expect(r.action).toBe("created");
     const call = (prisma.financeCashflowItem.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    // total = 320_000; semanal = 320_000/8 = 40_000; mensual = 40_000*4.33 = 173_200
-    expect(call.data.amount).toBe(173_200);
+    // total = 320_000; promedio semanal = 320_000/8 = 40_000 (el ítem se
+    // proyecta SEMANALMENTE: recurrence WEEKLY, viernes, sin dayOfMonth).
+    expect(call.data.amount).toBe(40_000);
     expect(call.data.source).toBe("TURNOS_EXTRA");
-    expect(call.data.dayOfMonth).toBe(20);
-    expect(call.data.recurrence).toBe("MONTHLY");
+    expect(call.data.dayOfMonth).toBeNull();
+    expect(call.data.dayOfWeek).toBe(5);
+    expect(call.data.recurrence).toBe("WEEKLY");
   });
 
   it("hace noop si la instalación no tiene historial de TE", async () => {
@@ -117,7 +114,7 @@ describe("recomputeTurnosExtraAmounts", () => {
 });
 
 describe("modo PCT_PAYROLL", () => {
-  it("aplica el porcentaje al costo empleador de los puestos activos", async () => {
+  it("aplica el porcentaje al sueldo base de los puestos activos (semanal)", async () => {
     (prisma.financeCashflowConfig.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
       turnosExtraMode: "PCT_PAYROLL",
       turnosExtraPercentage: 0.05, // 5%
@@ -132,8 +129,9 @@ describe("modo PCT_PAYROLL", () => {
     const r = await syncTurnosExtraItemForInstallation(TENANT, INST);
     expect(r.action).toBe("created");
     const call = (prisma.financeCashflowItem.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    // 2 * 1.000.000 * 1.45 = 2.900.000 costo empleador. 5% = 145.000.
-    expect(call.data.amount).toBe(145_000);
+    // 2 * 1.000.000 sueldo base = 2.000.000; 5% = 100.000 mensual;
+    // semanal = round(100.000 / 4.33) = 23.095.
+    expect(call.data.amount).toBe(23_095);
     expect(call.data.description).toContain("5.0%");
   });
 

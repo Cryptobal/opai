@@ -165,6 +165,26 @@ describe("Model Router", () => {
       ).toBe("gpt-4o-mini");
     });
 
+    it('escalates to "gpt-4o" when writeIntent=true (and not without it)', () => {
+      expect(
+        chooseModel({
+          retrievalMaxScore: 8,
+          recentFallbackCount: 0,
+          frustrated: false,
+          writeIntent: true,
+        }),
+      ).toBe("gpt-4o");
+
+      expect(
+        chooseModel({
+          retrievalMaxScore: 8,
+          recentFallbackCount: 0,
+          frustrated: false,
+          writeIntent: false,
+        }),
+      ).toBe("gpt-4o-mini");
+    });
+
     it("frustration takes priority over other signals", () => {
       const model = chooseModel({
         frustrated: true,
@@ -223,7 +243,7 @@ describe("System Prompt Builder", () => {
       ...baseParams,
       retrievalHasEvidence: false,
     });
-    expect(prompt).toContain("Pide al usuario 1 dato adicional");
+    expect(prompt).toContain("pide al usuario 1 dato adicional");
     // Should NOT contain the partial evidence text
     expect(prompt).not.toContain("respuesta puede ser parcial");
   });
@@ -446,5 +466,50 @@ describe("shouldUseInferredAnswerUpfront()", () => {
 
   it("returns false for data-heavy questions (cuántos, total, hoy)", () => {
     expect(shouldUseInferredAnswerUpfront("¿cuántos guardias hay hoy?")).toBe(false);
+  });
+
+  it.each([
+    "inactiva las instalaciones del cliente ametel",
+    "desactiva la instalacion bodega renca",
+    "crea una cuenta para constructora andes",
+    "emite la factura del cliente melon",
+    "aprueba la rendicion de lizeth",
+  ])("returns false for action-verb orders (never serve template): '%s'", (msg) => {
+    expect(shouldUseInferredAnswerUpfront(msg)).toBe(false);
+  });
+
+  it.each([
+    "como funciona la pauta mensual",
+    "donde descargo la app de guardias",
+    "como ingreso al modulo de rondas",
+  ])("still returns true for purely functional questions: '%s'", (msg) => {
+    expect(shouldUseInferredAnswerUpfront(msg)).toBe(true);
+  });
+
+  it("word-boundary: 'control' does not trigger via 'rol' nor action verbs", () => {
+    // "rol" está en FUNCTIONAL_MARKERS y antes matcheaba dentro de "control"
+    // por substring; con word-boundary sigue siendo pregunta funcional solo
+    // gracias a "como", y ningún verbo de acción dispara dentro de otra palabra.
+    expect(shouldUseInferredAnswerUpfront("como reviso el control nocturno")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 5. Golden intents — frases reales de Carlos (voz, minúsculas)
+// ---------------------------------------------------------------------------
+describe("golden intents — Carlos voice", () => {
+  it.each([
+    ["como creo un cliente nuevo", true],
+    ["donde veo la pauta mensual", true],
+    ["como funciona el modulo de rondas", true],
+    ["como configuro los turnos extra", true],
+    ["como descargo la app del guardia", true],
+    ["inactiva las de ametel", false],
+    ["todas las de melon a inactive", false],
+    ["crea un ticket p1 por puerta abierta", false],
+    ["toma el tk-1234 y comenta ya", false],
+    ["cuantos tickets vencidos hay hoy", false],
+  ] as const)("shouldUseInferredAnswerUpfront(%j) → %s", (phrase, expected) => {
+    expect(shouldUseInferredAnswerUpfront(phrase)).toBe(expected);
   });
 });

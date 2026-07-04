@@ -12,21 +12,18 @@ import {
   type ExtractedLeadData,
 } from "@/lib/email-lead-extractor";
 
-// Mock OpenAI antes de importar el módulo
-vi.mock("@/lib/openai", () => ({
-  openai: {
-    chat: {
-      completions: {
-        create: vi.fn(),
-      },
-    },
+// Mock del AIService (capa por la que hoy pasan todas las llamadas de IA)
+// antes de importar el módulo.
+vi.mock("@/lib/ai-service", () => ({
+  aiService: {
+    generateJSON: vi.fn(),
   },
 }));
 
 // Importar después del mock para que use el mock
-const { openai } = await import("@/lib/openai");
+const { aiService } = await import("@/lib/ai-service");
 
-const mockCreate = vi.mocked(openai.chat.completions.create);
+const mockGenerateJSON = vi.mocked(aiService.generateJSON);
 
 describe("email-lead-extractor", () => {
   beforeEach(() => {
@@ -168,22 +165,7 @@ Buenas tardes.`;
     };
 
     it("extrae datos del cliente cuando hay forward (remitente interno)", async () => {
-      mockCreate.mockResolvedValue({
-        id: "test",
-        choices: [
-          {
-            index: 0,
-            message: {
-              role: "assistant",
-              content: JSON.stringify(SICE_MOCK_RESPONSE),
-            },
-            finish_reason: "stop",
-          },
-        ],
-        created: 0,
-        model: "",
-        object: "chat.completion",
-      } as any);
+      mockGenerateJSON.mockResolvedValue(SICE_MOCK_RESPONSE as unknown as object);
 
       const forwardBody = `---------- Forwarded message ----------
 From: Muñoz Burgos, Jaime Orlando <jomunozb@sice.com>
@@ -228,26 +210,11 @@ E-mail: jomunozb@sice.com | www.sice.com`;
       expect(result.guardsPerShift).toBe("1");
       expect(result.numberOfLocations).toBe("2");
       expect(result.summary).toContain("SICE");
-      expect(mockCreate).toHaveBeenCalledTimes(1);
+      expect(mockGenerateJSON).toHaveBeenCalledTimes(1);
     });
 
     it("extrae del bloque citado cuando es reply (On ... wrote)", async () => {
-      mockCreate.mockResolvedValue({
-        id: "test",
-        choices: [
-          {
-            index: 0,
-            message: {
-              role: "assistant",
-              content: JSON.stringify(SICE_MOCK_RESPONSE),
-            },
-            finish_reason: "stop",
-          },
-        ],
-        created: 0,
-        model: "",
-        object: "chat.completion",
-      } as any);
+      mockGenerateJSON.mockResolvedValue(SICE_MOCK_RESPONSE as unknown as object);
 
       const replyBody = `Cordialmente,
 
@@ -277,8 +244,9 @@ On Wed, Mar 12, 2025 at 1:06 PM Muñoz Burgos, Jaime Orlando <jomunozb@sice.com>
 
       expect(result.companyName).toBe("SICE AGENCIA CHILE S.A");
       expect(result.contactEmail).toBe("jomunozb@sice.com");
-      expect(mockCreate).toHaveBeenCalledTimes(1);
-      const sentContent = (mockCreate.mock.calls[0][0] as any).messages[1].content;
+      expect(mockGenerateJSON).toHaveBeenCalledTimes(1);
+      // El prompt completo (sistema + contenido del correo) va como 1er argumento.
+      const sentContent = mockGenerateJSON.mock.calls[0][0] as string;
       expect(sentContent).toContain("SICE");
       expect(sentContent).toContain("jomunozb@sice.com");
       expect(sentContent).not.toContain("Carlos Irigoyen");

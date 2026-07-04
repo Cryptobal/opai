@@ -111,7 +111,10 @@ export async function evaluatePostMarkAlerts(input: {
     }
 
     // Push + chat notifications for critical alerts (fire-and-forget)
-    notifyCriticalAlertsBatch(input.tenantId, alerts).catch((err) =>
+    notifyCriticalAlertsBatch(
+      input.tenantId,
+      alerts.map((a) => ({ ...a, ejecucionId: input.ejecucionId })),
+    ).catch((err) =>
       console.error("[ALERT_ENGINE] Alert notification failed:", err),
     );
   }

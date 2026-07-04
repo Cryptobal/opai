@@ -43,16 +43,18 @@ describe("CellActionPopover — botones extendidos", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("expone los nuevos botones (1 día, 1 sem, 2 sem, 1 mes en ambos sentidos + fecha exacta + editar)", async () => {
+  it("expone los controles de mover (1 sem / 2 sem ←→) + fecha exacta + editar monto", async () => {
     renderPopover();
     fireEvent.click(screen.getByRole("button"));
     await waitFor(() => {
-      // 8 botones de shift + fecha exacta + editar monto = al menos esos textos
-      expect(screen.getAllByText(/1 día/).length).toBe(2);
-      expect(screen.getAllByText(/1 sem/).length).toBe(2);
-      expect(screen.getAllByText(/2 sem/).length).toBe(2);
-      expect(screen.getAllByText(/1 mes/).length).toBe(2);
-      expect(screen.getByText(/Fecha exacta/)).toBeTruthy();
+      // Filas ←/→ por opción de shift (1 sem y 2 sem).
+      expect(screen.getByText("1 sem")).toBeTruthy();
+      expect(screen.getByText("2 sem")).toBeTruthy();
+      expect(screen.getByLabelText("Mover 1 sem hacia atrás")).toBeTruthy();
+      expect(screen.getByLabelText("Mover 1 sem hacia adelante")).toBeTruthy();
+      expect(screen.getByLabelText("Mover 2 sem hacia atrás")).toBeTruthy();
+      expect(screen.getByLabelText("Mover 2 sem hacia adelante")).toBeTruthy();
+      expect(screen.getByText(/Mover a fecha exacta/)).toBeTruthy();
       expect(screen.getByText(/Editar monto/)).toBeTruthy();
     });
   });
@@ -60,9 +62,8 @@ describe("CellActionPopover — botones extendidos", () => {
   it("click en '1 sem ←' llama POST /move con daysFromCurrent=-7", async () => {
     const { onActionDone } = renderPopover();
     fireEvent.click(screen.getByRole("button"));
-    await waitFor(() => screen.getAllByText(/1 sem/));
-    const [backOneWeek] = screen.getAllByText(/1 sem/);
-    fireEvent.click(backOneWeek);
+    await waitFor(() => screen.getByLabelText("Mover 1 sem hacia atrás"));
+    fireEvent.click(screen.getByLabelText("Mover 1 sem hacia atrás"));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/finance/cashflow/occurrences/occ-1/move",
@@ -75,29 +76,28 @@ describe("CellActionPopover — botones extendidos", () => {
     });
   });
 
-  it("click en '1 mes →' usa daysFromCurrent=30", async () => {
+  it("click en '2 sem →' usa daysFromCurrent=14", async () => {
     renderPopover();
     fireEvent.click(screen.getByRole("button"));
-    await waitFor(() => screen.getAllByText(/1 mes/));
-    const monthButtons = screen.getAllByText(/1 mes/);
-    fireEvent.click(monthButtons[1]);
+    await waitFor(() => screen.getByLabelText("Mover 2 sem hacia adelante"));
+    fireEvent.click(screen.getByLabelText("Mover 2 sem hacia adelante"));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/finance/cashflow/occurrences/occ-1/move",
         expect.objectContaining({
-          body: JSON.stringify({ daysFromCurrent: 30 }),
+          body: JSON.stringify({ daysFromCurrent: 14 }),
         }),
       );
     });
   });
 
-  it("click en 'Fecha exacta...' abre el calendario", async () => {
+  it("click en 'Mover a fecha exacta…' abre el calendario", async () => {
     renderPopover();
     fireEvent.click(screen.getByRole("button"));
-    await waitFor(() => screen.getByText(/Fecha exacta/));
-    fireEvent.click(screen.getByText(/Fecha exacta/));
+    await waitFor(() => screen.getByText(/Mover a fecha exacta/));
+    fireEvent.click(screen.getByText(/Mover a fecha exacta/));
     await waitFor(() => {
-      expect(screen.getByText(/Mover a fecha exacta/)).toBeTruthy();
+      expect(screen.getByText(/Elegí una fecha/)).toBeTruthy();
       // Calendar de DayPicker tiene un grid role
       expect(screen.getAllByRole("grid").length).toBeGreaterThan(0);
     });

@@ -112,7 +112,7 @@ export function buildTrayView(
   filters: TrayFilters,
   opts?: { canViewAll?: boolean; notice?: string },
 ): SlackView {
-  const scope: TrayScope = filters.scope ?? "my_team";
+  const scope: TrayScope = filters.scope ?? "mine";
   const canViewAll = !!opts?.canViewAll;
   const blocks: unknown[] = [];
 
@@ -173,11 +173,14 @@ export function canViewAllTickets(perms: RolePermissions): boolean {
   return hasModuleAccess(perms, "ops");
 }
 
-/** Abre la bandeja (desde /opai tickets o el hub). */
+/**
+ * Abre la bandeja (desde /opai tickets, el Home o el hub). Default F20: alcance
+ * "Míos" — el aterrizaje es el caso personal del 90%; los chips permiten cambiar.
+ */
 async function build(ctx: ModalOpenContext, filters: TrayFilters = {}): Promise<SlackView> {
   const canViewAll = canViewAllTickets(ctx.linked.perms);
   // Defensa: un alcance tenant-wide sin visión global degrada a "mi equipo".
-  const scope = filters.scope ?? "my_team";
+  const scope = filters.scope ?? "mine";
   const safeScope: TrayScope = !canViewAll && (scope === "all" || scope === "unassigned") ? "my_team" : scope;
   const f: TrayFilters = { ...filters, scope: safeScope };
   const data = await listMyTickets(ctx.tenantId, ctx.linked.adminId, f, 1);
@@ -191,10 +194,13 @@ export const trayModal: ModalDef = {
   submit: async () => ({ ack: {} }),
 };
 
-/** `/opai tickets vencidos` — bandeja pre-filtrada por SLA vencido. */
+/**
+ * `/opai tickets vencidos` y contador 🔴 del Home — bandeja pre-filtrada por SLA
+ * vencido en alcance "Mi equipo" (el mismo que cuenta el contador del Home).
+ */
 export const trayOverdueModal: ModalDef = {
   callbackId: "opai_tickets_vencidos",
   title: "Tickets vencidos",
-  build: (ctx) => build(ctx, { slaBreached: true }),
+  build: (ctx) => build(ctx, { slaBreached: true, scope: "my_team" }),
   submit: async () => ({ ack: {} }),
 };

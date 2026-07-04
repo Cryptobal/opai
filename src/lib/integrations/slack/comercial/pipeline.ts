@@ -1,17 +1,30 @@
 /**
- * Pipeline vivo en Slack (Fase 15, B4 · pulido F17): `/opai pipeline`.
+ * Pipeline vivo en Slack (Fase 15, B4 · pulido F17 · rediseño F21): `/opai pipeline`.
  *
- * Overview por etapa (nombre · N negocios · Σ CLP) → drill a la etapa → deals
- * ordenados del más frío al más fresco (semáforo por días en etapa: 🟢 <7 · 🟠
- * 7-14 · 🔴 >14). Cada fila: *Cuenta* · negocio · monto · ⏱ días · badge 🏠 si
- * tiene sala OPEN; botones 🔗 Abrir en OPAI · 🏠 Ir/Abrir sala · 🟢 WhatsApp;
- * overflow 📞 Llamar · Avanzar · Nota · Ganado · Perdido. Navegación "← Pipeline"
- * de vuelta al overview (views.update). El cambio de etapa usa el servicio real
- * (changeDealStage → CrmDealStageHistory; al ganar emite deal_won → tarjeta 🎉).
+ * Overview clase mundial: header protagonista (`💼 N negocios · $total abiertos`
+ * + 🔎 Buscar negocio + 📊 Abrir en OPAI), cada etapa como bloque denso con
+ * mini-barra proporcional `▓▓▓░░░░░░░` (monto vs total), `% del total` e
+ * indicador `🔴 N fríos` (>14d en etapa, mismo cálculo del semáforo del drill);
+ * botón por etapa con texto propio (`3 negocios →`). Con 8+ etapas el excedente
+ * se pliega en "…y N etapas más". Drill a la etapa → deals ordenados del más
+ * frío al más fresco (semáforo por días en etapa: 🟢 <7 · 🟠 7-14 · 🔴 >14).
+ * Cada fila: *Cuenta* · negocio · monto · ⏱ días · badge 🏠 si tiene sala OPEN;
+ * botones 🔗 Abrir en OPAI · 🏠 Ir/Abrir sala · 🟢 WhatsApp; overflow Avanzar ·
+ * Nota · Ganado · Perdido. Navegación "← Pipeline" de vuelta al overview
+ * (views.update). El cambio de etapa usa el servicio real (changeDealStage →
+ * CrmDealStageHistory; al ganar emite deal_won → tarjeta 🎉).
  *
- * LÍMITE (B3.5): 🟢 WhatsApp y 📞 Llamar son botones URL — Slack NO notifica los
- * clics de botones URL, así que el contacto NO se puede registrar solo; el
- * registro queda vía "📝 Nota" manual o el followup-log de otras acciones.
+ * LÍMITE (B3.5): 🟢 WhatsApp es botón URL — Slack NO notifica los clics de
+ * botones URL, así que el contacto NO se puede registrar solo; el registro
+ * queda vía "📝 Nota" manual o el followup-log de otras acciones. 📞 Llamar
+ * abre un mini-modal con el teléfono tappable (link mrkdwn).
+ *
+ * LÍMITE (F21): Slack RECHAZA con `invalid_arguments` cualquier view cuyo
+ * botón/opción tenga una URL que no sea http(s) — el overflow "📞 Llamar"
+ * con `url: tel:` mataba el drill COMPLETO en toda etapa con un deal con
+ * teléfono (por eso "solo Prospección abría": era la única sin teléfonos).
+ * En modales JAMÁS va una URL `tel:`/`mailto:` en botones u options; el
+ * esquema `tel:` solo se usa como link mrkdwn (mensajes y mini-modal Llamar).
  */
 
 import { prisma } from "@/lib/prisma";
@@ -31,15 +44,55 @@ const pt = (text: string) => ({ type: "plain_text", text: text.slice(0, 75), emo
 
 /* ── Consultas ── */
 
-async function listStagesWithCounts(tenantId: string) {
-  const [stages, grouped] = await Promise.all([
+interface StageRow {
+  id: string;
+  name: string;
+  count: number;
+  sum: number;
+  /** Negocios FRÍOS en la etapa: >14 días sin salir de ella (mismo cálculo
+   * que el semáforo 🔴 del drill F17: entrada por historial, fallback createdAt). */
+  cold: number;
+}
+
+/** 🔴 fríos por etapa (>14d en etapa), coherente con el semáforo del drill. */
+async function countColdByStage(tenantId: string): Promise<Map<string, number>> {
+  const deals = await prisma.crmDeal.findMany({
+    where: { tenantId, status: "open" },
+    select: { id: true, stageId: true, createdAt: true },
+  });
+  if (!deals.length) return new Map();
+  const hist = await prisma.crmDealStageHistory.findMany({
+    where: { tenantId, dealId: { in: deals.map((d) => d.id) } },
+    orderBy: { changedAt: "desc" },
+    select: { dealId: true, toStageId: true, changedAt: true },
+  });
+  const stageByDeal = new Map(deals.map((d) => [d.id, d.stageId]));
+  const enteredAt = new Map<string, Date>();
+  for (const h of hist) {
+    if (h.toStageId !== stageByDeal.get(h.dealId)) continue;
+    if (!enteredAt.has(h.dealId)) enteredAt.set(h.dealId, h.changedAt);
+  }
+  const cold = new Map<string, number>();
+  for (const d of deals) {
+    const days = daysInStage(enteredAt.get(d.id) ?? d.createdAt);
+    if (days > 14) cold.set(d.stageId, (cold.get(d.stageId) ?? 0) + 1);
+  }
+  return cold;
+}
+
+async function listStagesWithCounts(tenantId: string): Promise<StageRow[]> {
+  const [stages, grouped, cold] = await Promise.all([
     prisma.crmPipelineStage.findMany({ where: { tenantId, isActive: true }, orderBy: { order: "asc" }, select: { id: true, name: true, isClosedWon: true, isClosedLost: true } }),
     prisma.crmDeal.groupBy({ by: ["stageId"], where: { tenantId, status: "open" }, _count: { _all: true }, _sum: { amount: true } }),
+    countColdByStage(tenantId).catch((err) => {
+      console.error("[slack] pipeline: cálculo de fríos falló (se omite el indicador):", err);
+      return new Map<string, number>();
+    }),
   ]);
   const byStage = new Map(grouped.map((g) => [g.stageId, { count: g._count._all, sum: Number(g._sum.amount ?? 0) }]));
   return stages
     .filter((s) => !s.isClosedWon && !s.isClosedLost)
-    .map((s) => ({ id: s.id, name: s.name, count: byStage.get(s.id)?.count ?? 0, sum: byStage.get(s.id)?.sum ?? 0 }));
+    .map((s) => ({ id: s.id, name: s.name, count: byStage.get(s.id)?.count ?? 0, sum: byStage.get(s.id)?.sum ?? 0, cold: cold.get(s.id) ?? 0 }));
 }
 
 interface DrillDeal {
@@ -86,17 +139,63 @@ async function openRoomsForDeals(tenantId: string, dealIds: string[]): Promise<M
 
 /* ── Vistas ── */
 
-function overviewView(stages: Array<{ id: string; name: string; count: number; sum: number }>): SlackView {
-  const blocks: unknown[] = [{ type: "section", text: { type: "mrkdwn", text: "*Pipeline comercial* — negocios abiertos por etapa" } }, { type: "divider" }];
+/**
+ * Mini-barra proporcional en mrkdwn: 10 celdas `▓/░` según monto vs total.
+ * Va entre backticks (fuente de ancho fijo) para que las barras de todas las
+ * etapas queden ALINEADAS y comparables al ojo, también a 375px (Slack iOS).
+ */
+function bar10(sum: number, total: number): string {
+  if (!(total > 0) || !(sum > 0)) return "░".repeat(10);
+  const filled = Math.min(10, Math.max(1, Math.round((sum / total) * 10)));
+  return "▓".repeat(filled) + "░".repeat(10 - filled);
+}
+
+const nNegocios = (n: number): string => `${n} negocio${n === 1 ? "" : "s"}`;
+
+/** Cuántas etapas se muestran sin plegar (presupuesto visual a 375px). */
+const OVERVIEW_MAX_STAGES = 8;
+
+/**
+ * Overview clase mundial (F21): header protagonista con el total en grande,
+ * cada etapa como bloque denso (monto · % · mini-barra · 🔴 fríos) y botón
+ * con texto propio (`3 negocios →` — jamás un "Ver" genérico, F20). Con más
+ * de 8 etapas, el excedente se pliega en "…y N etapas más" (pipe_more).
+ */
+function overviewView(stages: StageRow[], expanded = false): SlackView {
   const total = stages.reduce((s, x) => s + x.sum, 0);
-  for (const s of stages) {
+  const totalCount = stages.reduce((s, x) => s + x.count, 0);
+  const blocks: unknown[] = [
+    { type: "section", text: { type: "mrkdwn", text: `💼 *Pipeline comercial* — ${nNegocios(totalCount)} · *${clp(total)}* abiertos` } },
+    {
+      type: "actions",
+      block_id: "opai_pipe_header",
+      elements: [
+        { type: "button", action_id: "pipe_search", text: pt("🔎 Buscar negocio") },
+        // Vista web del pipeline (auditado F21): /crm/deals (kanban/lista).
+        { type: "button", action_id: "pipe_opai_web", url: `${getCanonicalSiteUrl()}/crm/deals`, text: pt("📊 Abrir en OPAI") },
+      ],
+    },
+    { type: "divider" },
+  ];
+  const visible = expanded ? stages : stages.slice(0, OVERVIEW_MAX_STAGES);
+  for (const s of visible) {
+    const pct = total > 0 ? Math.round((s.sum / total) * 100) : 0;
+    const coldTag = s.cold > 0 ? ` 🔴 ${s.cold} frío${s.cold === 1 ? "" : "s"}` : "";
     blocks.push({
       type: "section",
-      text: { type: "mrkdwn", text: `*${s.name}*\n${s.count} negocio(s) · ${clp(s.sum)}` },
-      accessory: { type: "button", action_id: "pipe_open", value: s.id, text: pt("Ver →") },
+      text: { type: "mrkdwn", text: `*${s.name}*\n${nNegocios(s.count)} · ${clp(s.sum)} · ${pct}% del total\n\`${bar10(s.sum, total)}\`${coldTag}` },
+      accessory: { type: "button", action_id: "pipe_open", value: s.id, text: pt(`${nNegocios(s.count)} →`) },
     });
   }
-  blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Total abierto: *${clp(total)}*` }] });
+  const hidden = stages.length - visible.length;
+  if (hidden > 0) {
+    blocks.push({
+      type: "section",
+      text: { type: "mrkdwn", text: `…y ${hidden} etapa${hidden === 1 ? "" : "s"} más` },
+      accessory: { type: "button", action_id: "pipe_more", text: pt(`+${hidden} etapa${hidden === 1 ? "" : "s"} →`) },
+    });
+  }
+  blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Total abierto: *${clp(total)}* · Actualizado hace un momento` }] });
   return { type: "modal", callback_id: "opai_pipeline", title: modalTitle("Pipeline"), close: pt("Cerrar"), blocks };
 }
 
@@ -113,12 +212,14 @@ const coldDot = (days: number): string => (days > 14 ? "🔴" : days >= 7 ? "�
 /**
  * Overflow de acciones por negocio. Slack limita el overflow a 5 opciones, así
  * que los links de navegación (Abrir en OPAI, Ir a la sala, WhatsApp) van como
- * botones; aquí quedan las acciones de gestión: 📞 Llamar (tel) + las de
+ * botones; aquí quedan las acciones de gestión: 📞 Llamar (mini-modal con el
+ * teléfono tappable — las options de overflow con `url` no son válidas dentro
+ * de un modal y `tel:` no es esquema permitido, ver LÍMITE F21) + las de
  * escritura (Avanzar/Nota/Ganado/Perdido, solo si el usuario puede editar).
  */
-function dealMenu(dealId: string, telUrl: string | null, canWrite: boolean): unknown | null {
+function dealMenu(dealId: string, hasPhone: boolean, canWrite: boolean): unknown | null {
   const options: unknown[] = [];
-  if (telUrl) options.push({ text: pt("📞 Llamar"), url: telUrl, value: `call:${dealId}` });
+  if (hasPhone) options.push({ text: pt("📞 Llamar"), value: `call:${dealId}` });
   if (canWrite) {
     options.push({ text: pt("⏩ Avanzar etapa"), value: `advance:${dealId}` });
     options.push({ text: pt("📝 Nota rápida"), value: `note:${dealId}` });
@@ -136,6 +237,36 @@ interface DrillCtx {
   waUrls: Map<string, string | null>;
 }
 
+/**
+ * Bloques de UNA fila del drill. Null-safety TOTAL (F21): los negocios reales
+ * vienen con huecos (sin contacto, sin teléfono, sin cuenta, sin historial) y
+ * NINGÚN campo opcional puede asumir presencia — todo tiene fallback. Solo se
+ * emiten URLs http(s) (ver LÍMITE F21).
+ */
+function dealRowBlocks(d: DrillDeal, ctx: DrillCtx): unknown[] {
+  const account = (d.accountName || "Cliente").trim() || "Cliente";
+  const title = (d.title || "Negocio").trim() || "Negocio";
+  const amount = Number.isFinite(d.amount) ? d.amount : 0;
+  const wa = ctx.waUrls.get(d.id) ?? null;
+  const roomChannel = ctx.rooms.get(d.id) ?? null;
+  const badge = roomChannel ? "🏠 " : "";
+  const entered = d.enteredAt instanceof Date && !Number.isNaN(d.enteredAt.getTime()) ? d.enteredAt : new Date();
+  const days = daysInStage(entered);
+  const act = d.updatedAt instanceof Date && !Number.isNaN(d.updatedAt.getTime()) ? ` · act ${dfmt(d.updatedAt)}` : "";
+  const menu = dealMenu(d.id, Boolean(normalizeWaPhone(d.contactPhone)), ctx.canWrite);
+  const section: Record<string, unknown> = {
+    type: "section",
+    text: { type: "mrkdwn", text: `${badge}*${account}* · ${title}\n${clp(amount)} · ⏱ ${coldDot(days)} ${days}d en etapa${act}` },
+  };
+  if (menu) section.accessory = menu;
+  // Links/navegación por negocio: 🔗 Abrir en OPAI · 🏠 sala (ir/abrir) · 🟢 WhatsApp.
+  const linkBtns: unknown[] = [{ type: "button", action_id: "pipe_deal_open", url: dealOpaiUrl(d.id), text: pt("🔗 Abrir en OPAI") }];
+  if (roomChannel) linkBtns.push({ type: "button", action_id: "pipe_deal_roomlink", url: roomClientUrl(ctx.teamId, roomChannel), text: pt("🏠 Ir a la sala") });
+  else if (ctx.canWrite) linkBtns.push({ type: "button", action_id: "pipe_deal_room", value: d.id, text: pt("🏠 Abrir sala") });
+  if (wa && /^https:\/\//.test(wa)) linkBtns.push({ type: "button", action_id: "pipe_deal_wa", url: wa, text: pt("🟢 WhatsApp") });
+  return [section, { type: "actions", block_id: `opai_dealbtns_${d.id}`, elements: linkBtns }];
+}
+
 function drillView(stageId: string, stageName: string, deals: DrillDeal[], ctx: DrillCtx, notice?: string): SlackView {
   const blocks: unknown[] = [
     // Navegación: volver a la vista de etapas sin cerrar el modal (views.update).
@@ -143,27 +274,24 @@ function drillView(stageId: string, stageName: string, deals: DrillDeal[], ctx: 
   ];
   if (notice) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: notice }] });
   if (deals.length === 0) {
-    blocks.push({ type: "section", text: { type: "mrkdwn", text: "No hay negocios abiertos en esta etapa." } });
+    blocks.push(
+      { type: "section", text: { type: "mrkdwn", text: `✨ *${stageName}* no tiene negocios abiertos.` } },
+      { type: "context", elements: [{ type: "mrkdwn", text: "Cuando un negocio entre a esta etapa, aparecerá aquí con su semáforo de frío." }] },
+    );
   }
+  let broken = 0;
   for (const d of deals) {
-    const wa = ctx.waUrls.get(d.id) ?? null;
-    const roomChannel = ctx.rooms.get(d.id) ?? null;
-    const phone = normalizeWaPhone(d.contactPhone);
-    const badge = roomChannel ? "🏠 " : "";
-    const days = daysInStage(d.enteredAt);
-    const menu = dealMenu(d.id, phone ? `tel:+${phone}` : null, ctx.canWrite);
-    const section: Record<string, unknown> = {
-      type: "section",
-      text: { type: "mrkdwn", text: `${badge}*${d.accountName}* · ${d.title}\n${clp(d.amount)} · ⏱ ${coldDot(days)} ${days}d en etapa · act ${dfmt(d.updatedAt)}` },
-    };
-    if (menu) section.accessory = menu;
-    blocks.push(section);
-    // Links/navegación por negocio: 🔗 Abrir en OPAI · 🏠 sala (ir/abrir) · 🟢 WhatsApp.
-    const linkBtns: unknown[] = [{ type: "button", action_id: "pipe_deal_open", url: dealOpaiUrl(d.id), text: pt("🔗 Abrir en OPAI") }];
-    if (roomChannel) linkBtns.push({ type: "button", action_id: "pipe_deal_roomlink", url: roomClientUrl(ctx.teamId, roomChannel), text: pt("🏠 Ir a la sala") });
-    else if (ctx.canWrite) linkBtns.push({ type: "button", action_id: "pipe_deal_room", value: d.id, text: pt("🏠 Abrir sala") });
-    if (wa) linkBtns.push({ type: "button", action_id: "pipe_deal_wa", url: wa, text: pt("🟢 WhatsApp") });
-    blocks.push({ type: "actions", block_id: `opai_dealbtns_${d.id}`, elements: linkBtns });
+    // Blindaje por FILA (F21): una fila corrupta se salta con log — jamás mata
+    // el modal completo (antes, un solo deal con datos rotos = etapa muda).
+    try {
+      blocks.push(...dealRowBlocks(d, ctx));
+    } catch (err) {
+      broken += 1;
+      console.error(`[slack] pipeline drill: fila corrupta dealId=${d.id} etapa="${stageName}":`, err);
+    }
+  }
+  if (broken > 0) {
+    blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `⚠️ ${broken} negocio(s) no se pudieron mostrar (datos incompletos — revisa los logs).` }] });
   }
   return {
     type: "modal", callback_id: "opai_pipeline_stage",
@@ -234,16 +362,61 @@ export async function handlePipelineAction(payload: {
 
   const stageIdOf = () => unpackMetadata(payload.view?.private_metadata).stageId ?? "";
 
-  // Overview → drill.
+  // Overview → drill. Patrón loading-first (F11/F14): el trigger_id vence en
+  // ~3s, así que PRIMERO se apila un modal de carga (consume el trigger) y
+  // DESPUÉS se resuelve el contenido con views.update. Si el contenido falla,
+  // el usuario ve un aviso claro en el modal — nunca un botón mudo (F21).
   if (action.action_id === "pipe_open") {
-    if (!action.value || !payload.trigger_id) return;
-    await slackPushView(workspace.botToken, payload.trigger_id, await renderDrill(tenantId, teamId, canWrite, action.value));
+    const stageId = action.value;
+    if (!stageId || !payload.trigger_id) return;
+    const { loadingView, infoView } = await import("../modals/views");
+    let viewId = "";
+    try {
+      ({ id: viewId } = await slackPushView(workspace.botToken, payload.trigger_id, loadingView("Pipeline")));
+    } catch (err) {
+      console.error(`[slack] pipeline drill: push del loading falló stageId=${stageId}:`, err);
+      return;
+    }
+    try {
+      await slackUpdateView(workspace.botToken, viewId, await renderDrill(tenantId, teamId, canWrite, stageId));
+    } catch (err) {
+      console.error(`[slack] pipeline drill: no se pudo renderizar stageId=${stageId}:`, err);
+      await slackUpdateView(workspace.botToken, viewId, infoView("Pipeline", "⚠️ No se pudo cargar esta etapa. Intenta de nuevo — el detalle quedó en los logs.")).catch(() => {});
+    }
+    return;
+  }
+
+  // 🔎 Buscar negocio (F21): apila el buscador universal sobre el pipeline.
+  // Mismo patrón loading-first que pipe_open (el trigger_id perece en ~3s).
+  if (action.action_id === "pipe_search") {
+    if (!payload.trigger_id) return;
+    const { loadingView, infoView } = await import("../modals/views");
+    let viewId = "";
+    try {
+      ({ id: viewId } = await slackPushView(workspace.botToken, payload.trigger_id, loadingView("Buscar negocio")));
+    } catch (err) {
+      console.error("[slack] pipe_search: push del loading falló:", err);
+      return;
+    }
+    try {
+      const { dealSearchView } = await import("./deal-search");
+      await slackUpdateView(workspace.botToken, viewId, await dealSearchView(tenantId, teamId, canWrite, "", "open"));
+    } catch (err) {
+      console.error("[slack] pipe_search: no se pudo renderizar el buscador:", err);
+      await slackUpdateView(workspace.botToken, viewId, infoView("Buscar negocio", "⚠️ No se pudo cargar el buscador. Intenta de nuevo.")).catch(() => {});
+    }
     return;
   }
 
   // Navegación: volver del drill a la vista de etapas (sin cerrar el modal).
   if (action.action_id === "pipe_back") {
     if (payload.view?.id) await slackUpdateView(workspace.botToken, payload.view.id, overviewView(await listStagesWithCounts(tenantId)));
+    return;
+  }
+
+  // "…y N etapas más" (F21): re-render del overview con TODAS las etapas.
+  if (action.action_id === "pipe_more") {
+    if (payload.view?.id) await slackUpdateView(workspace.botToken, payload.view.id, overviewView(await listStagesWithCounts(tenantId), true));
     return;
   }
 
@@ -263,11 +436,26 @@ export async function handlePipelineAction(payload: {
     return;
   }
 
-  // Menú por deal (overflow): call (url, ya abierta por Slack) | advance | note | won | lost.
+  // Menú por deal (overflow): call (mini-modal con tel tappable) | advance | note | won | lost.
   if (action.action_id === "pipe_deal_menu") {
     const [op, dealId] = (action.selected_option?.value ?? "").split(":");
     if (!op || !dealId) return;
-    if (op === "call") return; // botón URL tel:; Slack ya lo abrió, nada que hacer.
+    if (op === "call") {
+      if (!payload.trigger_id) return;
+      const deal = await prisma.crmDeal.findFirst({
+        where: { id: dealId, tenantId },
+        select: { title: true, primaryContact: { select: { firstName: true, phone: true } } },
+      });
+      const phone = normalizeWaPhone(deal?.primaryContact?.phone ?? null);
+      const body = phone
+        ? `📞 <tel:+${phone}|Llamar a ${deal?.primaryContact?.firstName ?? "contacto"} (+${phone})>`
+        : "Este negocio no tiene teléfono de contacto.";
+      await slackPushView(workspace.botToken, payload.trigger_id, {
+        type: "modal", title: modalTitle("Llamar"), close: pt("Cerrar"),
+        blocks: [{ type: "section", text: { type: "mrkdwn", text: body } }],
+      });
+      return;
+    }
     if (!canWrite) return;
     const stageId = stageIdOf();
     if (op === "advance") { if (payload.trigger_id) await slackPushView(workspace.botToken, payload.trigger_id, await advanceView(tenantId, dealId)); return; }

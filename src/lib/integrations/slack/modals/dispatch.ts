@@ -25,6 +25,8 @@ export interface OpenModalParams {
   channelId?: string;
   messageTs?: string;
   messageText?: string;
+  /** Argumento libre del subcomando (`/opai negocio <texto>` → el texto). */
+  arg?: string;
 }
 
 /** Abre un modal por callbackId (reusado por shortcuts y por `/opai <cmd>`). */
@@ -90,6 +92,7 @@ export async function openModalByCallback(p: OpenModalParams): Promise<boolean> 
       channelId: p.channelId,
       messageTs: p.messageTs,
       messageText: p.messageText,
+      arg: p.arg,
     });
     await update(view);
   } catch (err) {
@@ -114,8 +117,8 @@ export async function openModalForShortcut(payload: Record<string, unknown>): Pr
 }
 
 /**
- * Botón "Abrir" del hub y del App Home (`opai_action_open[_<callbackId>]`): abre
- * el modal de la acción por su `value` (callbackId).
+ * Botones de acción del hub y del App Home (`opai_action_open_<callbackId>`):
+ * abren el modal de la acción por su `value` (callbackId).
  *
  * CRÍTICO (Fase 11): el `trigger_id` del block_action vence en ~3s, así que lo
  * PRIMERO que hacemos es consumirlo con un modal de carga (open desde el App

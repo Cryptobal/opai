@@ -1269,3 +1269,220 @@ Ver el docstring de `comercial/pipeline.ts`. Resumen:
       `createdAt`, nunca "—" (caso Zelestra).
 - [ ] `← Pipeline` vuelve al overview sin cerrar el modal.
 - [ ] Legible a **375px**; títulos de modal ≤24; overflow ≤5 opciones.
+
+# Fase 20 — Pulido visual: Home sin redundancia · hub semántico · defaults inteligentes
+
+## Principios visuales del Home/hub (regla para TODA acción futura)
+
+1. **El contador ES el botón.** Un número que importa se toca: `🎫 6 abiertos`
+   abre la bandeja en el alcance que cuenta ese número. Nunca un contador
+   "decorativo" con un botón aparte que repita el destino.
+2. **El texto del botón es la acción** con su emoji (`⏱ Ingresar turno extra`,
+   `➕ Nuevo ticket`) — nunca un "Abrir" genérico. Los links a la web dicen a
+   dónde van (`Abrir en OPAI`, `✏️ Completar en OPAI`).
+3. **Revelación progresiva.** El Home muestra 3-4 accesos contextuales por rol;
+   `⚡ Todas las acciones` es la ÚNICA puerta a la cola larga (el hub). Agregar
+   una acción nueva = agregarla al registro del hub, NO al Home.
+4. **Cero duplicados semánticos.** Ninguna acción aparece dos veces en el Home;
+   si un contador ya navega a una bandeja, esa bandeja no tiene otro botón. Una
+   acción que es un *tipo* de otra (vacaciones = tipo de ticket) no es una
+   entrada propia.
+5. **Defaults = el caso del 90%.** Mis tickets aterriza en "Míos"; Mis
+   rendiciones aterriza en "Enviadas"; el botón de vencidos abre YA filtrado.
+   Los chips permiten cambiar, pero el primer render es el caso personal.
+
+## B1 — Hub semánticamente correcto
+
+- **"Solicitud de vacaciones" eliminada como acción propia** (era un TIPO de
+  ticket, `solicitud_vacaciones`): vive en el selector de tipos de "Nuevo
+  ticket", que lista los `OpsTicketType` activos con `origin` internal/both.
+  Requisito de datos: el tipo debe estar activo con ese origen en el tenant.
+  Se borró `actions/vacaciones.ts` (no había subcomando `/opai vacaciones` ni
+  shortcut del manifest apuntándole).
+- **"Ingresar turno extra"** (antes "Turno extra"): la acción registra al
+  GUARDIA que entra a cubrir — guardia existente (RUT o código) + instalación +
+  fecha + tipo — vía `createTurnoExtra` (mismo servicio que la web; queda
+  `pending`). El flujo destino ya era el correcto; el fix fue label + copy +
+  orden de campos. Para PERSONAS nuevas (alta con datos personales/bancarios,
+  Google Maps) el modal enlaza `/personas/guardias/ingreso-te` — ese alta no es
+  replicable en un modal Slack y no se finge.
+- **"Visita de supervisor"** sin cambios: deep-link honesto a
+  `/ops/supervision/nueva-visita` (la visita exige GPS real) — verificado.
+- **Botones del hub**: `${emoji} ${title}` desde el registro (`ActionDef.emoji`),
+  `action_id` único `opai_action_open_<callbackId>`, grupos con header +
+  divider, máx. 3 botones por actions block.
+
+## B2 — Home rediseñado (estructura fija)
+
+1. **"Tu día"** — contadores accionables: `🎫 {míos} abiertos` (→ Mis tickets
+   en "Míos", primary) · `🔴 {n} SLA vencidos` (→ bandeja vencidos alcance "Mi
+   equipo" — el MISMO que cuenta el número; danger si >0) · `✅ {n} por aprobar`
+   (→ bandeja unificada F13; OCULTO si 0). Debajo, el desglose F11 en una línea
+   `context`: `👤 tuyos · 👥 de tu equipo · ⚪ sin asignar` (sin-asignar solo
+   con visión global = módulo ops).
+2. **Divider.**
+3. **"Accesos rápidos"** — máx. 4 contextuales por rol: `➕ Nuevo ticket` (ops)
+   · `📊 Pipeline` (crm/deals) · `📇 {n} leads sin tomar` (crm/leads; el
+   contador es el botón: con pendientes abre la sub-bandeja sin-tomar, sin
+   pendientes abre la bandeja general) · `🧾 Nueva rendición` (finance edit) +
+   `⚡ Todas las acciones` al final. Se ELIMINARON el panel Comercial con
+   contadores propios y la lista larga que duplicaba el hub.
+4. **Footer** de una línea: ``Escríbeme `@OPAI` o usa `/opai ayuda` ``.
+
+Máx. 3 botones por `actions` block (Slack Home apila el resto de filas solo).
+
+## B3 — Defaults + Mis rendiciones gestionables
+
+- **Mis tickets** aterriza en scope `mine` (antes `my_team`); los chips F11
+  siguen permitiendo cambiar. `opai_tickets_vencidos` fija `my_team` explícito.
+- **Mis rendiciones** (`modals/mis-rendiciones.ts`):
+  - Chips sobre los estados REALES (`DRAFT | SUBMITTED | IN_APPROVAL | APPROVED
+    | REJECTED | PAID`): **Enviadas** (SUBMITTED+IN_APPROVAL, default) ·
+    Borradores (DRAFT) · Aprobadas (APPROVED+PAID) · Rechazadas (REJECTED).
+  - Cada fila: link al detalle canónico `/finanzas/rendiciones/{id}` ("Abrir en
+    OPAI"; en borradores "✏️ Completar en OPAI") + 📎 Boleta si existe.
+  - **Borrador → 🗑 Eliminar** con `confirm` nativo: misma regla que
+    `DELETE /api/finance/rendiciones/[id]` (solo DRAFT, solo el submitter, gate
+    `canDelete(finance, rendiciones)`), `logAudit` DELETE.
+  - **Enviada/En aprobación → ↩️ Retirar**: la transición SUBMITTED→DRAFT
+    existe en el servicio SOLO como reversión administrativa
+    (`/api/finance/rendiciones/[id]/revert`, capability `rendicion_configure`).
+    Se cabló con ese MISMO gate + ser el submitter: confirmación nativa,
+    approvals pendientes eliminadas (se recrean al re-enviar, igual que el
+    revert a DRAFT de la web), registro en `FinanceRendicionHistory`
+    (action `REVERTED`, comment "Retirada por el solicitante desde Slack") y
+    `logAudit`. **Sin la capability, la fila solo ofrece el link** (no se
+    inventó una transición self-service que la web no tiene). **Eliminar duro
+    de una ENVIADA queda excluido** (está en flujo de aprobación — regla de
+    irreversibles).
+- Tarjetas de entidad del asistente (`bot.ts`): botón "Abrir" → "Abrir en OPAI".
+
+## Matriz de pruebas manuales (Fase 20)
+
+> No ejecutable en la sesión de Claude (sin workspace Slack ni DB). Mocks a
+> 375px verificados en el reporte de la sesión. Checklist para Carlos:
+
+- [ ] Home a **375px**: filas de máx. 3 botones, sin desbordes; ningún "Abrir";
+      ninguna acción repetida.
+- [ ] `🎫 N abiertos` abre Mis tickets **en "Míos"** y N coincide; `🔴` abre la
+      bandeja de vencidos ya filtrada (alcance Mi equipo, mismo número);
+      `✅ por aprobar` abre la bandeja unificada y desaparece cuando llega a 0.
+- [ ] Hub (⚡): sin "Solicitud de vacaciones"; el tipo aparece dentro de
+      "Nuevo ticket" → selector de tipos (si no aparece: revisar que el
+      `OpsTicketType` esté activo con origin internal/both).
+- [ ] `⏱ Ingresar turno extra`: ingreso completo de un TE con guardia REAL
+      (RUT o código) + instalación + fecha → queda `pending` y visible en
+      `/te`; duplicado (mismo guardia+fecha+puesto) rechaza con error en campo;
+      RUT inexistente sugiere el alta en `/personas/guardias/ingreso-te`.
+- [ ] `📍 Visita de supervisor` abre y su botón aterriza en
+      `/ops/supervision/nueva-visita`.
+- [ ] Mis rendiciones aterriza en **Enviadas**; "Abrir en OPAI" aterriza en el
+      detalle correcto; 🗑 en borrador pide confirmación y elimina (aviso en el
+      modal + auditoría); ↩️ Retirar visible SOLO con `rendicion_configure`,
+      vuelve a Borrador y queda en el historial de la rendición (REVERTED).
+- [ ] Títulos de modal ≤24 chars en todos los flujos tocados.
+
+# Fase 21 — Pipeline clase mundial: drill que abre siempre · buscador universal · rediseño visual
+
+## B1 — BUG: el drill solo abría en Prospección (causa real + blindaje)
+
+**Diagnóstico con evidencia** (runtime logs de Vercel, ruta
+`/api/integrations/slack/interactivity`): cada clic fallido registraba
+`views.push invalid_arguments` con títulos ≤24 chars ("Cotización enviada",
+"Primer seguimiento", "Segundo seguimiento", "Negociación") — el clamp del F14
+estaba bien; lo rechazado era el *payload de bloques*. La única pieza del view
+que dependía de los datos era la opción de overflow **"📞 Llamar" con URL
+`tel:`** — y Slack solo acepta `http(s)` en URLs de botones/opciones dentro de
+modales. Prospección abría porque era la única etapa cuyos deals no tenían
+contacto con teléfono; las demás (negocios reales) sí, y el modal completo
+moría en silencio.
+
+Fix + blindaje permanente (`comercial/pipeline.ts`, `api.ts`):
+
+- **Sin `tel:` en modales** (LÍMITE F21 documentado en el header del módulo):
+  el contacto telefónico queda vía 🟢 WhatsApp (https, mismo número). Los links
+  mrkdwn `tel:` en MENSAJES (lead card) siguen funcionando.
+- **Null-safety total** en el builder de fila (`dealRowBlocks`): cuenta,
+  título, monto, fechas y contacto con fallback — jamás asumir presencia.
+- **try/catch por FILA**: una fila corrupta se salta con log (`dealId` +
+  etapa), no mata el modal; si hubo filas saltadas, el modal lo dice.
+- **Loading-first en `pipe_open`** (patrón F11/F14): se apila el modal de
+  carga de inmediato (consume el `trigger_id` perecedero) y el contenido llega
+  por `views.update`; si falla, el usuario ve "⚠️ No se pudo cargar esta
+  etapa" — nunca un botón mudo.
+- **`SlackApiError` ahora captura `response_metadata.messages`** (el
+  json-pointer al bloque ofensor) y `callViewMethod` lo loguea en
+  `invalid_arguments`/`invalid_blocks`: ningún rechazo de view vuelve a ser
+  indescifrable.
+- Estado vacío elegante para etapas sin negocios.
+
+## B2 — Buscador universal de negocios (`/opai negocio <texto>`)
+
+`comercial/deal-search.ts` + `findCrmDealIdsUniversalSearch` en
+`src/lib/search-normalize.ts` (mismo patrón accent-insensitive `f_unaccent`
+del search global).
+
+- **Entradas**: `/opai negocio <texto>`, alias `/opai buscar negocio <texto>`
+  (interceptado en `commands.ts` antes del subcomando `buscar` del asistente),
+  botón `🔎 Buscar negocio` en el header del pipeline (`pipe_search`,
+  loading-first) y acción en el hub, grupo **Comercial** (gate: ver Negocios
+  CRM — la misma capability del pipeline).
+- **Relación negocio↔instalación (auditada)** — se recorren los TRES caminos
+  reales del esquema:
+  1. `crm.deals.installation_name` — campo directo desnormalizado (migración Soho);
+  2. `cpq.quotes.installation_id` — instalaciones de sus cotizaciones CPQ,
+     vinculadas por `q.deal_id` directo O por `crm.deal_quotes`;
+  3. `crm.installations.activated_by_deal_id` — instalación activada por el deal.
+- Matching parcial + normalización de acentos; máx 10 resultados, orden por
+  `updated_at DESC`.
+- **Alcance por chips**: `Abiertos` (default) · `🏆 Ganados` · `❌ Perdidos` ·
+  `Todos` — un negocio cerrado es encontrable (post-mortem, reactivación,
+  abrir su sala). Los chips releen el texto TIPEADO del input (view.state), no
+  solo el último buscado.
+- **Cada resultado**: `*Cuenta* · negocio · $monto · etapa/estado (🏆/❌) · ⏱ Nd`
+  con `🏠 Abrir sala` (crea o entra — `openDealRoom` F16 no filtra por estado,
+  funciona para cerrados) / `🏠 Ir a la sala` (deep-link si ya hay sala OPEN),
+  `🔗 Abrir en OPAI` y `🟢 WhatsApp` si hay contacto con teléfono. Sin
+  resultados → estado vacío con sugerencia (y hint del chip `Todos` si el
+  alcance era Abiertos).
+
+## B3 — Rediseño clase mundial del modal Pipeline
+
+- **Header protagonista**: `💼 *Pipeline comercial* — 16 negocios ·
+  *$63.762.420* abiertos` + botones `🔎 Buscar negocio` y `📊 Abrir en OPAI`
+  (vista web del pipeline: `/crm/deals`, kanban/lista — auditada).
+- **Cada etapa como bloque denso**: nombre en bold + `N negocios · $monto ·
+  X% del total` + mini-barra proporcional de 10 celdas `▓▓▓▓░░░░░░` (monto vs
+  total, entre backticks para ancho fijo → barras alineadas a 375px) +
+  `🔴 N fríos` si hay deals >14d en la etapa (`countColdByStage` usa el MISMO
+  cálculo del semáforo del drill F17: última entrada por
+  `CrmDealStageHistory`, fallback `createdAt` — overview y drill nunca se
+  contradicen).
+- **Botón por etapa con texto propio**: `3 negocios →` (nada de "Ver →"
+  repetido, principio F20).
+- **Plegado**: con más de 8 etapas, el excedente va en `…y N etapas más` con
+  botón `+N etapas →` (`pipe_more` re-renderiza expandido). Presupuesto de
+  blocks: 13 con 12 etapas (límite Slack: 100).
+- **Footer**: `Total abierto: *$X* · Actualizado hace un momento`.
+
+## Matriz de pruebas manuales (Fase 21)
+
+> Verificado en la sesión: typecheck, render simulado del overview (barras
+> suman 10 celdas proporcionales, líneas ≤40 chars a 375px), unicidad de
+> action_ids, cero URLs no-https en modales, títulos ≤24. No ejecutable sin
+> workspace Slack ni DB de producción — checklist para Carlos:
+
+- [ ] Las **5 etapas** abren el drill con los negocios REALES de producción
+      (incluidos deals sin contacto/teléfono/actividad); una etapa vacía
+      muestra el estado vacío elegante.
+- [ ] `/opai negocio polpaico` encuentra el negocio por su INSTALACIÓN;
+      `/opai buscar negocio <texto>` hace lo mismo.
+- [ ] Buscar un GANADO histórico (chip 🏆 o Todos) y abrirle sala para el
+      post-mortem — la sala se crea/entra igual que en el pipeline.
+- [ ] Las barras del overview suman proporciones coherentes y el `🔴 N fríos`
+      coincide con los deals 🔴 del drill de esa etapa.
+- [ ] Ningún botón con texto genérico ("Ver"/"Abrir" pelados) en pipeline,
+      drill ni buscador.
+- [ ] 375px (Slack iOS): barras alineadas, sin desbordes, chips en una fila.
+- [ ] Si un view vuelve a ser rechazado, el log de Vercel ahora muestra el
+      `detalle:` con el json-pointer del bloque ofensor.
