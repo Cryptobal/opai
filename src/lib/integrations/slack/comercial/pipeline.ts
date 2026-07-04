@@ -10,6 +10,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { canView, canEdit } from "@/lib/permissions";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 import { getTenantForTeam, getWorkspaceForTenant } from "../workspace";
 import { resolveLinkedAdmin } from "../user-link";
 import { slackUpdateView, slackPushView } from "../api";
@@ -35,8 +36,11 @@ async function listStagesWithCounts(tenantId: string) {
 }
 
 interface DrillDeal {
-  id: string; amount: number; updatedAt: Date; accountName: string;
-  contactFirst: string | null; contactPhone: string | null; enteredAt: Date | null;
+  id: string; amount: number; updatedAt: Date; accountName: string; title: string;
+  contactFirst: string | null; contactPhone: string | null;
+  /** Fecha de entrada a la etapa: último cambio en el historial, o `createdAt`
+   * como fallback para negocios pre-tracking (nunca queda en "—"). */
+  enteredAt: Date;
 }
 
 async function listDealsInStage(tenantId: string, stageId: string): Promise<{ stageName: string; deals: DrillDeal[] }> {
@@ -44,7 +48,7 @@ async function listDealsInStage(tenantId: string, stageId: string): Promise<{ st
     prisma.crmPipelineStage.findFirst({ where: { id: stageId, tenantId }, select: { name: true } }),
     prisma.crmDeal.findMany({
       where: { tenantId, stageId, status: "open" }, orderBy: { updatedAt: "desc" }, take: 15,
-      select: { id: true, amount: true, updatedAt: true, account: { select: { name: true } }, primaryContact: { select: { firstName: true, phone: true } } },
+      select: { id: true, title: true, amount: true, updatedAt: true, createdAt: true, account: { select: { name: true } }, primaryContact: { select: { firstName: true, phone: true } } },
     }),
   ]);
   const hist = deals.length
@@ -55,8 +59,9 @@ async function listDealsInStage(tenantId: string, stageId: string): Promise<{ st
   return {
     stageName: stage?.name ?? "Etapa",
     deals: deals.map((d) => ({
-      id: d.id, amount: Number(d.amount ?? 0), updatedAt: d.updatedAt, accountName: d.account?.name ?? "Cliente",
-      contactFirst: d.primaryContact?.firstName ?? null, contactPhone: d.primaryContact?.phone ?? null, enteredAt: enteredAt.get(d.id) ?? null,
+      id: d.id, amount: Number(d.amount ?? 0), updatedAt: d.updatedAt, accountName: d.account?.name ?? "Cliente", title: d.title ?? "Negocio",
+      contactFirst: d.primaryContact?.firstName ?? null, contactPhone: d.primaryContact?.phone ?? null,
+      enteredAt: enteredAt.get(d.id) ?? d.createdAt,
     })),
   };
 }
@@ -77,8 +82,11 @@ function overviewView(stages: Array<{ id: string; name: string; count: number; s
   return { type: "modal", callback_id: "opai_pipeline", title: modalTitle("Pipeline"), close: pt("Cerrar"), blocks };
 }
 
-const daysAgo = (d: Date | null): string => (d ? `${Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000))}d` : "—");
+/** Días en la etapa (siempre calculable: el fallback a `createdAt` vive en la query). */
+const daysInStage = (d: Date): number => Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
 const dfmt = (d: Date): string => d.toLocaleDateString("es-CL");
+/** URL canónica al detalle del negocio en OPAI. */
+const dealOpaiUrl = (dealId: string): string => `${getCanonicalSiteUrl()}/crm/deals/${dealId}`;
 
 function dealMenu(dealId: string): unknown {
   return {
@@ -103,11 +111,14 @@ function drillView(stageId: string, stageName: string, deals: DrillDeal[], waUrl
     const wa = waUrls.get(d.id) ?? null;
     const section: Record<string, unknown> = {
       type: "section",
-      text: { type: "mrkdwn", text: `*${d.accountName}* · ${clp(d.amount)}\n⏱ ${daysAgo(d.enteredAt)} en etapa · act ${dfmt(d.updatedAt)}` },
+      text: { type: "mrkdwn", text: `*${d.accountName}* · ${d.title}\n${clp(d.amount)} · ⏱ ${daysInStage(d.enteredAt)}d en etapa · act ${dfmt(d.updatedAt)}` },
       accessory: dealMenu(d.id),
     };
     blocks.push(section);
-    if (wa) blocks.push({ type: "actions", block_id: `opai_dealwa_${d.id}`, elements: [{ type: "button", action_id: "pipe_deal_wa", url: wa, text: pt("🟢 WhatsApp") }] });
+    // Links por negocio: 🔗 Abrir en OPAI (siempre) + 🟢 WhatsApp (si hay teléfono).
+    const linkBtns: unknown[] = [{ type: "button", action_id: "pipe_deal_open", url: dealOpaiUrl(d.id), text: pt("🔗 Abrir en OPAI") }];
+    if (wa) linkBtns.push({ type: "button", action_id: "pipe_deal_wa", url: wa, text: pt("🟢 WhatsApp") });
+    blocks.push({ type: "actions", block_id: `opai_dealbtns_${d.id}`, elements: linkBtns });
   }
   return {
     type: "modal", callback_id: "opai_pipeline_stage",
