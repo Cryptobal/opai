@@ -4,8 +4,9 @@
  * Setting JSON `rondas_notif_policy:{tenantId}` — todo opcional, con defaults:
  * - rondaStartedEnabled: si false, no se publica la tarjeta de inicio (la de
  *   término va suelta, sin hilo). Para tenants con cientos de rondas/día.
- * - rondasRouteToInstallationChannel: si true, las tarjetas ronda_* también van
- *   al canal Slack puenteado al chat de la instalación (además del ruteo por categoría).
+ * - rondasRouteToInstallationChannel: si true, las tarjetas ronda_* prefieren
+ *   el canal Slack puenteado al chat de la instalación. Sin puente, caen al
+ *   ruteo por categoría/módulo/default.
  * - digestHour: hora local (America/Santiago) del digest diario de cumplimiento.
  * - digestRedBelow / digestGreenFrom: umbrales del semáforo del digest
  *   (🔴 < redBelow · 🟠 entre ambos · ✅ >= greenFrom), en porcentaje.
@@ -15,7 +16,7 @@ import { prisma } from "@/lib/prisma";
 
 export type RondasNotifPolicy = {
   rondaStartedEnabled: boolean;
-  /** Si true, las tarjetas ronda_* también van al canal Slack puenteado del chat de la instalación. */
+  /** Si true, las tarjetas ronda_* prefieren el canal Slack puenteado del chat de la instalación. */
   rondasRouteToInstallationChannel: boolean;
   digestHour: number;
   digestRedBelow: number;

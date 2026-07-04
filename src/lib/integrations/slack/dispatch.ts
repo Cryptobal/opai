@@ -83,7 +83,6 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
   let channelId = dealRoom
     ? dealRoom.slackChannelId
     : await resolveChannel(input.tenantId, input.typeDef, workspace.defaultChannelId);
-  if (!channelId) return; // sin ruta ni canal por defecto
 
   // Hilo por ronda (Fase 19): cualquier evento ronda_* con data.rondaId cae en
   // el hilo de esa ejecución. SOLO la tarjeta de `ronda_started` funda la raíz
@@ -104,6 +103,24 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
       channelId = th.slackChannelId;
     }
   }
+
+  // Rondas visibles: para eventos de una instalación, el canal puenteado de esa
+  // instalación es el destino primario. Si no existe puente, se usa el ruteo
+  // normal (por categoría/módulo/default, típicamente #op-rondas).
+  if (!rondaThreadTs && RONDA_INSTALLATION_ROUTE_KEYS.has(input.typeDef.key)) {
+    const installationId =
+      typeof input.data?.installationId === "string" ? input.data.installationId : null;
+    if (installationId) {
+      const policy = await getRondasNotifPolicy(input.tenantId);
+      if (policy.rondasRouteToInstallationChannel) {
+        channelId =
+          (await resolveInstallationSlackChannel(input.tenantId, installationId)) ??
+          channelId;
+      }
+    }
+  }
+
+  if (!channelId) return; // sin ruta, canal por defecto ni canal de instalación
 
   // Tickets: dispatch tiene el id pero no el objeto → carga curada por ticketId.
   // Los demás eventos usan el renderer genérico sobre el data ya enriquecido en origen.
@@ -239,32 +256,6 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
       rondaThreadTs,
     },
   });
-
-  // Ruteo adicional: tarjetas ronda_* también al canal Slack puenteado del chat
-  // de la instalación (además del canal por categoría). Dedupe si apuntan al mismo.
-  if (RONDA_INSTALLATION_ROUTE_KEYS.has(input.typeDef.key)) {
-    const installationId =
-      typeof input.data?.installationId === "string" ? input.data.installationId : null;
-    if (installationId) {
-      const policy = await getRondasNotifPolicy(input.tenantId);
-      if (policy.rondasRouteToInstallationChannel) {
-        const installChannelId = await resolveInstallationSlackChannel(input.tenantId, installationId);
-        if (installChannelId && installChannelId !== channelId) {
-          await deliverSlackCard({
-            tenantId: input.tenantId,
-            typeKey: input.typeDef.key,
-            workspace,
-            channelId: installChannelId,
-            text,
-            blocks,
-            dedupeMaterialBase,
-            link: input.link,
-            data: input.data,
-          });
-        }
-      }
-    }
-  }
 
   // Ficha viva al día: todo evento del negocio que cae en su sala re-edita la
   // tarjeta fijada (chat.update) para reflejar el estado actual. Best-effort.

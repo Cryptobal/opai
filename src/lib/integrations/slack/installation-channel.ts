@@ -6,7 +6,7 @@
 
 import { prisma } from "@/lib/prisma";
 
-/** Eventos de ronda que se duplican al canal Slack de su instalación (si existe puente). */
+/** Eventos de ronda que prefieren el canal Slack de su instalación (si existe puente). */
 export const RONDA_INSTALLATION_ROUTE_KEYS = new Set([
   "ronda_started",
   "ronda_completed",

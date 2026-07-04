@@ -41,6 +41,12 @@ interface Recipient {
 const audienceToSubType = (a: Audience): SubType =>
   a === 'admin' ? 'ADMIN' : a === 'guardia' ? 'GUARD' : 'CLIENT';
 
+const PERSONAL_SLACK_DM_SUPPRESSED_TYPES = new Set([
+  "ronda_started",
+  "ronda_completed",
+  "ronda_overdue_admin",
+]);
+
 export async function notify(params: NotifyParams): Promise<{ delivered: number }> {
   const typeDef = getUnifiedType(params.type);
   if (!typeDef) {
@@ -175,7 +181,11 @@ export async function notify(params: NotifyParams): Promise<{ delivered: number 
 
     // Slack personal (DM del bot) — solo admins vinculados; opt-in. Quiet hours
     // ya viene aplicado en prefs.slack. Capa independiente del ruteo tenant.
-    if (eff.slack && subType === 'ADMIN') {
+    if (
+      eff.slack &&
+      subType === 'ADMIN' &&
+      !PERSONAL_SLACK_DM_SUPPRESSED_TYPES.has(typeDef.key)
+    ) {
       const { dispatchPersonalSlackDm } = await import('@/lib/integrations/slack/personal-dm');
       await dispatchPersonalSlackDm({
         tenantId: params.tenantId,

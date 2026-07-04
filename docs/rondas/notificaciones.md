@@ -1,18 +1,20 @@
 # Rondas — Notificaciones, hilos de Slack y digest (Fase 19)
 
-Cada ronda vive como **un hilo** en el canal de Slack ruteado para
-"Operaciones - Rondas": la tarjeta de inicio funda el hilo, el término llega
-como reply (y actualiza la raíz), las fallas gritan con ⚠️/🚨, y cada mañana
+Cada ronda vive como **un hilo** en Slack. Si la instalación tiene un canal
+Slack puenteado, ese canal es el destino único de la ronda: la tarjeta de inicio
+funda el hilo, el término llega como reply (y actualiza la raíz), y las fallas
+gritan con ⚠️/🚨. Si la instalación no tiene canal puenteado, la tarjeta cae al
+ruteo normal de "Operaciones - Rondas" (por ejemplo `#op-rondas`). Cada mañana
 llega el digest de cumplimiento por instalación.
 
 ## Mapa de eventos
 
 | Evento | Cuándo se emite | Emisor | Canal |
 |---|---|---|---|
-| `ronda_started` | Guardia inicia la ronda (portal `iniciar`, `iniciar-libre`, `public/ronda/iniciar`, o inicio implícito por primera marcación) | `lifecycle-notifications.emitRondaStarted` | Slack (raíz del hilo). Silencioso in-app. |
-| `ronda_completed` ✅ | Ronda completada (`portal/completar`, `public/completar`, sync offline) | `emitRondaTerminada` | Slack (reply + update de raíz). |
-| `ronda_completed` ⚠️ | Falla de ronda que corrió: `incompleta` (>20% checkpoints sin marcar) o `cerrada_auto` (crons `cerrar-libres` / `cerrar-en-curso`) | `emitRondaTerminada` | Slack (reply ⚠️ + update de raíz; suelta si no hay hilo). |
-| `ronda_overdue_admin` 🚨 | Ronda nunca iniciada, cerrada `no_realizada` por el cron `cerrar-atrasadas` | `emitRondasNoRealizadas` | Slack + bell + push a admins (tarjeta individual de atención). |
+| `ronda_started` | Guardia inicia la ronda (portal `iniciar`, `iniciar-libre`, `public/ronda/iniciar`, o inicio implícito por primera marcación) | `lifecycle-notifications.emitRondaStarted` | Slack instalación si existe; fallback a ruteo global. Raíz del hilo. Silencioso in-app y sin DM personal. |
+| `ronda_completed` ✅ | Ronda completada (`portal/completar`, `public/completar`, sync offline) | `emitRondaTerminada` | Slack instalación si existe; fallback a ruteo global. Reply + update de raíz. Sin DM personal. |
+| `ronda_completed` ⚠️ | Falla de ronda que corrió: `incompleta` (>20% checkpoints sin marcar) o `cerrada_auto` (crons `cerrar-libres` / `cerrar-en-curso`) | `emitRondaTerminada` | Slack instalación si existe; fallback a ruteo global. Reply ⚠️ + update de raíz; suelta si no hay hilo. Sin DM personal. |
+| `ronda_overdue_admin` 🚨 | Ronda nunca iniciada, cerrada `no_realizada` por el cron `cerrar-atrasadas` | `emitRondasNoRealizadas` | Slack instalación si existe; fallback a ruteo global + bell/push admins. Sin DM personal. |
 | `ronda_alert_admin` | Alerta crítica (pánico, anomalías) — ahora con `ejecucionId` | `alert-notifications` (sin cambios de gatillo) | Slack: cae al **hilo de su ronda** si existe. |
 | `rondas_daily_digest` | Cada mañana a la hora configurada | Cron `rondas-daily-digest` | Slack (blocks ricos) + bell/push admins. |
 
@@ -76,6 +78,7 @@ Todas las tarjetas (inicio, término, no realizada) llevan este link.
 | Campo | Default | Efecto |
 |---|---|---|
 | `rondaStartedEnabled` | `true` | En `false` no se publica la tarjeta de inicio: los términos van sueltos (sin hilo). Para tenants con cientos de rondas/día. |
+| `rondasRouteToInstallationChannel` | `true` | Si hay canal Slack puenteado para la instalación, las tarjetas `ronda_started`, `ronda_completed`, `ronda_overdue_admin` y `ronda_failed` se publican sólo ahí. Si no hay puente, se usa el ruteo normal. |
 | `digestHour` | `8` | Hora local (America/Santiago, 0-23) del digest diario. |
 | `digestRedBelow` | `70` | Semáforo: 🔴 bajo este % de cumplimiento. |
 | `digestGreenFrom` | `90` | Semáforo: ✅ desde este % (entre ambos, 🟠). Se fuerza `>= digestRedBelow`. |
@@ -85,16 +88,19 @@ Helpers: `getRondasNotifPolicy` / `setRondasNotifPolicy` en
 
 ## Ruteo
 
-Todos los tipos usan la categoría **"Operaciones - Rondas"** — una regla
-`SlackChannelRoute` (`CATEGORY` = "Operaciones - Rondas", o `KEY` por evento)
-manda todo al canal del tenant (p. ej. `#reportes-polpaico-el-bosque`);
-sin regla cae al canal por defecto del workspace.
+Para eventos de ronda con `installationId`, el destino primario es el canal
+Slack puenteado al chat de esa instalación. Si no existe puente, se usa el
+ruteo normal: `SlackChannelRoute` (`KEY`, `CATEGORY` = "Operaciones - Rondas",
+o `MODULE`) y luego el canal por defecto del workspace. El canal global
+`#op-rondas` debe quedar como fallback/resumen, no como copia de cada evento de
+una instalación que ya tiene canal propio.
 
 ## Matriz QA (Fase 19)
 
 | # | Caso | Esperado |
 |---|---|---|
-| 1 | Iniciar ronda de prueba (portal guardia) | Tarjeta raíz `🛡️ Ronda iniciada` en el canal ruteado, con Ronda/Instalación/Guardia/Programada/Inicio y botón al recorrido. Fila en `ronda_slack_threads`. |
+| 1 | Iniciar ronda de prueba (portal guardia) con instalación puenteada | Tarjeta raíz `🛡️ Ronda iniciada` sólo en el canal Slack de la instalación, con Ronda/Instalación/Guardia/Programada/Inicio y botón al recorrido. Fila en `ronda_slack_threads`. No aparece en `#op-rondas` ni por DM personal. |
+| 1b | Iniciar ronda sin canal de instalación | Tarjeta raíz en el canal ruteado por "Operaciones - Rondas" (fallback, por ejemplo `#op-rondas`). |
 | 2 | Iniciar vía `public/ronda/iniciar` (RUT+PIN) y vía primera marcación sin `/iniciar` | Misma tarjeta raíz; el inicio implícito emite UNA vez (marcas siguientes no re-emiten). |
 | 3 | Completar la ronda | Reply `✅ Ronda completada` en el hilo + raíz actualizada `→ ✅ 12/12 en 42 min`; el botón aterriza en `/ops/rondas/reportes?ejecucionId=` y abre el modal con el recorrido correcto. |
 | 4 | Completar con >20% checkpoints sin marcar | Reply `⚠️ Ronda incompleta` con % y Motivo; raíz actualizada con ⚠️. |

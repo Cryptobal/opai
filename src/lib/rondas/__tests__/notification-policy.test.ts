@@ -6,7 +6,7 @@ import {
 import { RONDA_INSTALLATION_ROUTE_KEYS } from "@/lib/integrations/slack/installation-channel";
 
 describe("parseRondasNotifPolicy", () => {
-  it("defaults rondasRouteToInstallationChannel to true", () => {
+  it("defaults rondasRouteToInstallationChannel to true (prefer installation channel)", () => {
     expect(parseRondasNotifPolicy(null).rondasRouteToInstallationChannel).toBe(true);
     expect(parseRondasNotifPolicy("{}").rondasRouteToInstallationChannel).toBe(true);
     expect(DEFAULT_RONDAS_NOTIF_POLICY.rondasRouteToInstallationChannel).toBe(true);
