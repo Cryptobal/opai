@@ -165,6 +165,26 @@ describe("Model Router", () => {
       ).toBe("gpt-4o-mini");
     });
 
+    it('escalates to "gpt-4o" when writeIntent=true (and not without it)', () => {
+      expect(
+        chooseModel({
+          retrievalMaxScore: 8,
+          recentFallbackCount: 0,
+          frustrated: false,
+          writeIntent: true,
+        }),
+      ).toBe("gpt-4o");
+
+      expect(
+        chooseModel({
+          retrievalMaxScore: 8,
+          recentFallbackCount: 0,
+          frustrated: false,
+          writeIntent: false,
+        }),
+      ).toBe("gpt-4o-mini");
+    });
+
     it("frustration takes priority over other signals", () => {
       const model = chooseModel({
         frustrated: true,

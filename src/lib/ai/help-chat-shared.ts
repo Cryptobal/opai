@@ -62,7 +62,7 @@ export function trimHistory<T extends { content: string }>(history: T[]): T[] {
  */
 export function resolveEffectiveModel(
   aiConfig: HelpChatAIConfig,
-  ctx: { retrievalMaxScore: number; recentFallbackCount: number; frustrated: boolean },
+  ctx: { retrievalMaxScore: number; recentFallbackCount: number; frustrated: boolean; writeIntent?: boolean },
 ): string {
   if (aiConfig.source === "platform") return aiConfig.model;
   return chooseModel(ctx);

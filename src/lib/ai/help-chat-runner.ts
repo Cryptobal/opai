@@ -23,7 +23,9 @@ import {
   PREVIEW_TO_CONFIRM,
   WRITE_TOOL_NAMES,
   WRITE_TOOL_LABELS,
+  describeWriteArgs,
 } from "@/lib/ai/help-chat-tools-v2";
+import { hasWriteIntent } from "@/lib/ai/help-chat-intents";
 import { buildHelpChatSystemPromptV2 } from "@/lib/ai/help-chat-system-prompt-v2";
 import { parseVisualBlocks } from "@/lib/ai/help-chat-visual-types";
 import { detectFrustration } from "@/lib/ai/help-chat-model-router";
@@ -179,10 +181,12 @@ export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<Help
     .slice(-6)
     .filter((m) => m.role === "assistant" && m.content.includes("No tengo suficiente información")).length;
   const frustrated = detectFrustration(userMessage);
+  const writeIntent = allowWrites && hasWriteIntent(userMessage);
   const effectiveModel = resolveEffectiveModel(aiConfig, {
     retrievalMaxScore,
     recentFallbackCount,
     frustrated,
+    writeIntent,
   });
   const configWithModel = { ...aiConfig, model: effectiveModel };
 
@@ -275,7 +279,7 @@ export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<Help
           pendings.push({
             confirmToolName: call.name,
             args,
-            summary: WRITE_TOOL_LABELS[call.name] ?? call.name,
+            summary: describeWriteArgs(call.name, args),
           });
           // executed:false es deliberado: el modelo NO debe afirmar que la acción
           // ya ocurrió. Solo se ejecutará cuando el usuario presione Confirmar.
@@ -310,11 +314,15 @@ export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<Help
                 "Máximo 5 acciones por turno. Pide al usuario confirmar estas y luego continuar con el resto.",
             };
           } else {
+            // Si describeWriteArgs aporta detalle más allá de la etiqueta base,
+            // úsalo; si no, la etiqueta del preview sigue siendo lo más claro.
+            const desc = describeWriteArgs(previewMap.confirmToolName, args);
+            const baseLabel = WRITE_TOOL_LABELS[previewMap.confirmToolName] ?? previewMap.confirmToolName;
             pendings.push({
               previewToolName: call.name,
               confirmToolName: previewMap.confirmToolName,
               args,
-              summary: previewMap.label,
+              summary: desc === baseLabel ? previewMap.label : desc,
             });
           }
         }

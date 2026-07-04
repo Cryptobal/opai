@@ -286,6 +286,15 @@ function hasActionVerb(message: string): boolean {
   return ACTION_VERB_MARKERS.some((marker) => matchesWholeWord(message, marker));
 }
 
+/**
+ * Detecta intención de escritura/mutación en el mensaje crudo (verbos de
+ * acción con word-boundary sobre el texto normalizado). La usa el model
+ * router para escalar el modelo cuando el turno probablemente prepara writes.
+ */
+export function hasWriteIntent(rawMessage: string): boolean {
+  return hasActionVerb(normalize(rawMessage));
+}
+
 function normalize(text: string): string {
   const cleaned = text
     .toLowerCase()

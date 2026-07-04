@@ -49,6 +49,8 @@ type ModelChoice = {
   retrievalMaxScore: number;
   recentFallbackCount: number;
   frustrated: boolean;
+  /** True cuando el turno tiene intención de escritura (preparar writes exige mejor razonamiento). */
+  writeIntent?: boolean;
 };
 
 /**
@@ -57,10 +59,12 @@ type ModelChoice = {
  * Escalates to gpt-4o when:
  * 1. Retrieval evidence is weak (low scores), OR
  * 2. Multiple recent fallbacks in the conversation, OR
- * 3. User expresses frustration
+ * 3. User expresses frustration, OR
+ * 4. The turn carries write intent (action verbs with writes enabled)
  */
 export function chooseModel(ctx: ModelChoice): string {
   if (ctx.frustrated) return MODEL_ESCALATED;
+  if (ctx.writeIntent) return MODEL_ESCALATED;
   if (ctx.recentFallbackCount >= FALLBACK_ESCALATION_COUNT) return MODEL_ESCALATED;
   if (ctx.retrievalMaxScore > 0 && ctx.retrievalMaxScore < RETRIEVAL_WEAK_THRESHOLD) return MODEL_ESCALATED;
   return MODEL_DEFAULT;

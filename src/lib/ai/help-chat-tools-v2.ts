@@ -1611,6 +1611,19 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   create_factoring_company: "Crear empresa de factoring",
 };
 
+/** Descripción humana corta de una escritura diferida para la tarjeta de Slack. */
+export function describeWriteArgs(toolName: string, args: Record<string, unknown>): string {
+  const label = WRITE_TOOL_LABELS[toolName] ?? toolName;
+  const name = [args.name, args.title, args.companyName, args.code]
+    .find((v): v is string => typeof v === "string" && !!v.trim());
+  const fields = Object.entries(args)
+    .filter(([k, v]) => k !== "id" && v !== undefined && v !== null && typeof v !== "object")
+    .slice(0, 3)
+    .map(([k, v]) => `${k}: ${String(v).slice(0, 30)}`);
+  const detail = [name, fields.join(", ")].filter(Boolean).join(" → ");
+  return detail ? `${label} · ${detail}`.slice(0, 140) : label;
+}
+
 /** Tools que viven en la sección de escritura pero son de LECTURA (no diferir). */
 const WRITE_SECTION_READ_ONLY: ReadonlySet<string> = new Set(["get_quote_proposal"]);
 
