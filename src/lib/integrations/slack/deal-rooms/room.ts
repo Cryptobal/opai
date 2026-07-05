@@ -33,16 +33,29 @@ export interface OpenDealRoomResult {
   error?: string;
 }
 
-/** Normaliza el nombre del cliente a un nombre de canal Slack válido: `neg-{slug}`. */
-export function dealRoomChannelName(accountName: string): string {
-  const slug = (accountName || "negocio")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "") // quita tildes (marcas diacríticas combinantes)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 74) || "negocio";
-  return `neg-${slug}`.slice(0, 80);
+/** Slugifica a caracteres válidos de canal Slack (minúsculas, dígitos, guiones). */
+export function slackSlug(raw: string, max: number, fallback: string): string {
+  return (
+    (raw || fallback)
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "") // quita tildes (marcas diacríticas combinantes)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, max) || fallback
+  );
+}
+
+/**
+ * Nombre de canal Slack válido para la sala: `{prefix}-{slug-cliente}`.
+ * `prefix` opcional (default "neg", retrocompatible) permite reflejar la etapa
+ * en el nombre (naming "stagePrefix"/"emoji", Fase 3). Slack no admite emoji en
+ * nombres → el prefijo es siempre ascii; el emoji de macro-fase vive en el topic.
+ */
+export function dealRoomChannelName(accountName: string, prefix = "neg"): string {
+  const slug = slackSlug(accountName, 74, "negocio");
+  const pfx = slackSlug(prefix, 20, "neg");
+  return `${pfx}-${slug}`.slice(0, 80);
 }
 
 /** Devuelve la sala (cualquier estado) de un negocio, o null. */
