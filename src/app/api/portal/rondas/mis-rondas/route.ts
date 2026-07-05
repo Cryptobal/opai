@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { startOfDayChile, endOfDayChile } from "@/lib/rondas/timezone";
+import { assertInstallationOperationallyActive } from "@/lib/crm/installation-operational-shutdown";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CUID_RE = /^c[a-z0-9]{8,}$/i;
@@ -27,6 +28,11 @@ export async function GET(request: NextRequest) {
         { success: false, error: "Formato de tenantId inválido" },
         { status: 400 },
       );
+    }
+
+    const opCheck = await assertInstallationOperationallyActive(tenantId, installationId);
+    if (!opCheck.ok) {
+      return NextResponse.json({ success: false, error: opCheck.error }, { status: 403 });
     }
 
     // Get active templates for this installation

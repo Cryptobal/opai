@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { buildScheduleSlots } from "@/lib/rondas/schedule-engine";
 import { pendingProgramadaEjecucion } from "@/lib/rondas/pending-programada-ejecucion";
 import { startOfDayChile } from "@/lib/rondas/timezone";
+import { onlyActiveInstallationProgramacion, repairInactiveInstallationOperations } from "@/lib/crm/installation-operational-shutdown";
 
 /**
  * CRON: /api/cron/rondas/generar
@@ -30,6 +31,8 @@ export async function GET(request: NextRequest) {
     }
 
     const now = new Date();
+    await repairInactiveInstallationOperations(now);
+
     // Generate from start of YESTERDAY (Chile time) to capture overnight shifts
     // that cross midnight (e.g., 22:00 Fri → 06:00 Sat produces Sat 01:00+ slots)
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -37,7 +40,7 @@ export async function GET(request: NextRequest) {
     const end = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
     const programaciones = await prisma.opsRondaProgramacion.findMany({
-      where: { isActive: true },
+      where: onlyActiveInstallationProgramacion,
       include: {
         rondaTemplate: {
           include: { checkpoints: true },

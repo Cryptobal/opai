@@ -6,6 +6,7 @@ import { getPusherServer } from "@/lib/chat";
 import { broadcastToPortalCliente } from "@/lib/rondas/realtime-portal-cliente";
 import { getChileDayOfWeek, parseChileHour } from "@/lib/rondas/timezone";
 import { emitRondaStarted } from "@/lib/rondas/lifecycle-notifications";
+import { assertInstallationOperationallyActive } from "@/lib/crm/installation-operational-shutdown";
 
 const schema = z.object({
   guardiaId: z.string().uuid(),
@@ -32,6 +33,11 @@ export async function POST(request: NextRequest) {
     });
     if (!guardia) {
       return NextResponse.json({ success: false, error: "Guardia no encontrado" }, { status: 404 });
+    }
+
+    const opCheck = await assertInstallationOperationallyActive(tenantId, installationId);
+    if (!opCheck.ok) {
+      return NextResponse.json({ success: false, error: opCheck.error }, { status: 403 });
     }
 
     // Fetch active checkpoints for the installation

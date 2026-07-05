@@ -5,6 +5,10 @@ import { formatChileTime } from "./timezone";
 import { getPusherServer } from "@/lib/chat";
 import { getActiveTurnoId } from "./get-active-turno";
 import { notifyCriticalAlertsBatch } from "./alert-notifications";
+import {
+  isInstallationOperationallyActive,
+  onlyActiveInstallationProgramacion,
+} from "@/lib/crm/installation-operational-shutdown";
 
 export async function evaluatePostMarkAlerts(input: {
   tenantId: string;
@@ -23,6 +27,12 @@ export async function evaluatePostMarkAlerts(input: {
     timestamp: Date;
   };
 }): Promise<void> {
+  const inst = await prisma.crmInstallation.findFirst({
+    where: { id: input.installationId, tenantId: input.tenantId },
+    select: { status: true },
+  });
+  if (!inst || !isInstallationOperationallyActive(inst.status)) return;
+
   const config: AlertConfig = await getAlertConfig(input.tenantId);
 
   const alerts: Array<{
@@ -127,7 +137,7 @@ export async function checkPendingRounds(tenantId: string): Promise<{ alertsCrea
   const now = new Date();
 
   const activeProgramaciones = await prisma.opsRondaProgramacion.findMany({
-    where: { tenantId, isActive: true },
+    where: { tenantId, ...onlyActiveInstallationProgramacion },
     include: {
       rondaTemplate: { select: { id: true, installationId: true, name: true } },
     },

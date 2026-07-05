@@ -14,6 +14,7 @@
 
 import { prisma } from "@/lib/prisma";
 import type { RondasNotifPolicy } from "@/lib/rondas/notification-policy";
+import { onlyActiveInstallationEjecucion } from "@/lib/rondas/active-installation-filter";
 
 export interface RondasDigestInstallation {
   installationId: string | null;
@@ -46,6 +47,7 @@ export async function buildRondasDigestSummary(
       tenantId,
       isAdHoc: false,
       scheduledAt: { gte: dayStart, lte: dayEnd },
+      ...onlyActiveInstallationEjecucion,
     },
     select: {
       status: true,

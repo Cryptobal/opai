@@ -25,6 +25,7 @@ import {
   updateInstallationSchema,
 } from "@/lib/validations/crm";
 import { createCrmHistoryLog, computeChangedFields } from "@/lib/crm-history";
+import { shutdownInstallationOperations } from "@/lib/crm/installation-operational-shutdown";
 import {
   resolveStageByName,
   resolveOrCreateInstallation,
@@ -4415,6 +4416,19 @@ async function toolUpdateInstallation(
   if (patch.name) {
     patch.name = toSentenceCase(patch.name) || patch.name;
   }
+  const nextStatus = (patch.status ?? existing.status) as string;
+  if (patch.status !== undefined) {
+    if (patch.status === "active") {
+      patch.nocturnoEnabled = patch.nocturnoEnabled ?? true;
+      patch.chatEnabled = patch.chatEnabled ?? true;
+    } else {
+      patch.nocturnoEnabled = false;
+      patch.chatEnabled = false;
+    }
+  } else if (nextStatus !== "active") {
+    patch.nocturnoEnabled = false;
+    patch.chatEnabled = false;
+  }
   try {
     const result = await prisma.crmInstallation.updateMany({
       where: { id, tenantId },
@@ -4422,6 +4436,9 @@ async function toolUpdateInstallation(
     });
     if (result.count === 0) {
       return { ok: false, error: "Instalación no encontrada al aplicar el cambio." };
+    }
+    if (nextStatus !== "active") {
+      await shutdownInstallationOperations(tenantId, id);
     }
     const installation = await prisma.crmInstallation.findFirst({
       where: { id, tenantId },
@@ -4945,7 +4962,18 @@ async function toolBulkUpdateInstallations(tenantId: string, userId: string, per
   }
   const ids = resolved.installations.map((i) => i.id);
   try {
-    await prisma.crmInstallation.updateMany({ where: { id: { in: ids }, tenantId }, data: { status } });
+    await prisma.crmInstallation.updateMany({
+      where: { id: { in: ids }, tenantId },
+      data: {
+        status,
+        ...(status !== "active" ? { nocturnoEnabled: false, chatEnabled: false } : {}),
+      },
+    });
+    if (status !== "active") {
+      for (const instId of ids) {
+        await shutdownInstallationOperations(tenantId, instId);
+      }
+    }
     for (const inst of resolved.installations) {
       await createCrmHistoryLog({
         tenantId,

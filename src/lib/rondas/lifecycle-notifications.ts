@@ -21,6 +21,7 @@ import { notify } from "@/lib/notifications/notify";
 import { formatPersonName } from "@/lib/personas";
 import { formatChileTime } from "@/lib/rondas/timezone";
 import { getRondasNotifPolicy } from "@/lib/rondas/notification-policy";
+import { isInstallationOperationallyActive } from "@/lib/crm/installation-operational-shutdown";
 
 /**
  * Deep link al recorrido de UNA ejecución: la página de reportes abre el modal
@@ -44,8 +45,8 @@ type EjecucionInfo = {
   durationMinutes: number | null;
   penalizacionMotivo: string | null;
   installationId: string | null;
-  rondaTemplate: { name: string; installationId: string; installation: { name: string } | null } | null;
-  installation: { name: string } | null;
+  rondaTemplate: { name: string; installationId: string; installation: { name: string; status: string } | null } | null;
+  installation: { name: string; status: string } | null;
   guardia: { persona: { firstName: string; lastName: string } } | null;
 };
 
@@ -68,9 +69,9 @@ async function loadEjecuciones(tenantId: string, ids: string[]): Promise<Ejecuci
       penalizacionMotivo: true,
       installationId: true,
       rondaTemplate: {
-        select: { name: true, installationId: true, installation: { select: { name: true } } },
+        select: { name: true, installationId: true, installation: { select: { name: true, status: true } } },
       },
-      installation: { select: { name: true } },
+      installation: { select: { name: true, status: true } },
       guardia: { select: { persona: { select: { firstName: true, lastName: true } } } },
     },
   });
@@ -86,6 +87,12 @@ function installationName(ej: EjecucionInfo): string {
 
 function resolveInstallationId(ej: EjecucionInfo): string | null {
   return ej.installationId ?? ej.rondaTemplate?.installationId ?? null;
+}
+
+function isEjecucionOperationallyActive(ej: EjecucionInfo): boolean {
+  const status = ej.installation?.status ?? ej.rondaTemplate?.installation?.status;
+  if (!status) return true;
+  return isInstallationOperationallyActive(status);
 }
 
 function guardiaName(ej: EjecucionInfo): string | null {
@@ -127,7 +134,7 @@ export async function emitRondaStarted(tenantId: string, ejecucionId: string): P
     if (!policy.rondaStartedEnabled) return;
 
     const [ej] = await loadEjecuciones(tenantId, [ejecucionId]);
-    if (!ej) return;
+    if (!ej || !isEjecucionOperationallyActive(ej)) return;
 
     await notify({
       tenantId,
@@ -155,7 +162,7 @@ export async function emitRondaStarted(tenantId: string, ejecucionId: string): P
 export async function emitRondaTerminada(tenantId: string, ejecucionId: string): Promise<void> {
   try {
     const [ej] = await loadEjecuciones(tenantId, [ejecucionId]);
-    if (!ej) return;
+    if (!ej || !isEjecucionOperationallyActive(ej)) return;
 
     const checkpoints = `${ej.checkpointsCompletados}/${ej.checkpointsTotal}`;
     const avance = `${Math.round(ej.porcentajeCompletado)}%`;
@@ -217,6 +224,7 @@ export async function emitRondasNoRealizadas(tenantId: string, ejecucionIds: str
   try {
     const ejecuciones = await loadEjecuciones(tenantId, ejecucionIds);
     for (const ej of ejecuciones) {
+      if (!isEjecucionOperationallyActive(ej)) continue;
       await notify({
         tenantId,
         type: "ronda_overdue_admin",

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getPusherServer } from "@/lib/chat";
 import { broadcastToPortalCliente } from "@/lib/rondas/realtime-portal-cliente";
 import { emitRondaStarted } from "@/lib/rondas/lifecycle-notifications";
+import { assertInstallationOperationallyActive } from "@/lib/crm/installation-operational-shutdown";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest) {
         tenantId: true,
         guardiaId: true,
         installationId: true,
+        rondaTemplateId: true,
         isAdHoc: true,
         scheduledAt: true,
         programacionId: true,
@@ -59,6 +61,24 @@ export async function POST(request: NextRequest) {
         { success: false, error: "Ejecuci\u00F3n no encontrada o ya iniciada" },
         { status: 404 },
       );
+    }
+
+    let resolvedInstallationId = execution.installationId;
+    if (!resolvedInstallationId && execution.rondaTemplateId) {
+      const template = await prisma.opsRondaTemplate.findFirst({
+        where: { id: execution.rondaTemplateId, tenantId: execution.tenantId },
+        select: { installationId: true },
+      });
+      resolvedInstallationId = template?.installationId ?? null;
+    }
+    if (resolvedInstallationId) {
+      const opCheck = await assertInstallationOperationallyActive(
+        execution.tenantId,
+        resolvedInstallationId,
+      );
+      if (!opCheck.ok) {
+        return NextResponse.json({ success: false, error: opCheck.error }, { status: 403 });
+      }
     }
 
     // Block starting a new scheduled round if the same guard already has one en_curso

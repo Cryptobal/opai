@@ -13,6 +13,7 @@ import { requireCrmView, requireCrmEdit, requireCrmDelete } from "@/lib/api-auth
 import { updateInstallationSchema } from "@/lib/validations/crm";
 import { toSentenceCase } from "@/lib/text-format";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
+import { shutdownInstallationOperations } from "@/lib/crm/installation-operational-shutdown";
 import { requireTenantModule } from '@/lib/require-module';
 
 export async function GET(
@@ -228,9 +229,19 @@ export async function PATCH(
       );
     }
 
-    // Auto-manage chat channels when chatEnabled changes
-    if (payload.chatEnabled !== undefined) {
-      if (payload.chatEnabled) {
+    const chatShouldBeOff =
+      installation.status !== "active" ||
+      payload.chatEnabled === false ||
+      (payload.status !== undefined && payload.status !== "active");
+
+    // Instalación no operativa: apagar rondas, chat y puentes Slack.
+    if (installation.status !== "active") {
+      await shutdownInstallationOperations(ctx.tenantId, id);
+    }
+
+    // Auto-manage chat channels when chatEnabled changes (o al quedar inactiva)
+    if (payload.chatEnabled !== undefined || chatShouldBeOff) {
+      if (payload.chatEnabled && installation.status === "active") {
         const existingChannels = await prisma.chatChannel.findMany({
           where: { installationId: id },
         });
@@ -255,8 +266,7 @@ export async function PATCH(
             },
           });
         }
-      } else {
-        // Deactivate all channels for this installation
+      } else if (chatShouldBeOff) {
         await prisma.chatChannel.updateMany({
           where: { installationId: id, tenantId: ctx.tenantId },
           data: { isActive: false },

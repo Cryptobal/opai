@@ -4,6 +4,7 @@ import { getPusherServer } from "@/lib/chat";
 import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
 import { notifyCriticalAlertsBatch } from "@/lib/rondas/alert-notifications";
 import { emitRondasTerminadas } from "@/lib/rondas/lifecycle-notifications";
+import { onlyActiveInstallationEjecucion } from "@/lib/rondas/active-installation-filter";
 
 /**
  * CRON: /api/cron/rondas/cerrar-libres
@@ -44,7 +45,11 @@ export async function GET(request: NextRequest) {
 
     // Query all ad-hoc rondas currently en_curso
     const enCurso = await prisma.opsRondaEjecucion.findMany({
-      where: { isAdHoc: true, status: "en_curso" },
+      where: {
+        isAdHoc: true,
+        status: "en_curso",
+        ...onlyActiveInstallationEjecucion,
+      },
       select: {
         id: true,
         tenantId: true,

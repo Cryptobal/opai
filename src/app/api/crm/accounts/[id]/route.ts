@@ -11,6 +11,7 @@ import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { requireCrmView, requireCrmEdit, requireCrmDelete } from "@/lib/api-auth-crm";
 import { createAccountSchema, updateAccountSchema } from "@/lib/validations/crm";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
+import { shutdownInstallationOperations } from "@/lib/crm/installation-operational-shutdown";
 import { requireTenantModule } from '@/lib/require-module';
 
 type AccountLifecycle = "prospect" | "client_active" | "client_inactive";
@@ -142,6 +143,8 @@ export async function PATCH(
       status: legacy.status,
     };
 
+    let deactivatedInstallationIds: string[] = [];
+
     const account = await prisma.$transaction(async (tx) => {
       if (requestingDowngradeToProspect) {
         const admin = await tx.admin.findUnique({
@@ -225,14 +228,25 @@ export async function PATCH(
 
       // Invariant: no account out of operation can keep active installations.
       if (legacy.isActive === false) {
-        await tx.crmInstallation.updateMany({
+        const toDeactivate = await tx.crmInstallation.findMany({
           where: { tenantId: ctx.tenantId, accountId: id, status: "active" },
-          data: { status: "inactive" },
+          select: { id: true },
         });
+        deactivatedInstallationIds = toDeactivate.map((i) => i.id);
+        if (deactivatedInstallationIds.length > 0) {
+          await tx.crmInstallation.updateMany({
+            where: { id: { in: deactivatedInstallationIds }, tenantId: ctx.tenantId },
+            data: { status: "inactive", nocturnoEnabled: false, chatEnabled: false },
+          });
+        }
       }
 
       return updatedAccount;
     });
+
+    for (const installationId of deactivatedInstallationIds) {
+      await shutdownInstallationOperations(ctx.tenantId, installationId);
+    }
     const diff = computeChangedFields(
       existing as unknown as Record<string, unknown>,
       updateData

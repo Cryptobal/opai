@@ -5,6 +5,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { isInstallationOperationallyActive } from "@/lib/crm/installation-operational-shutdown";
 
 /** Eventos de ronda que prefieren el canal Slack de su instalación (si existe puente). */
 export const RONDA_INSTALLATION_ROUTE_KEYS = new Set([
@@ -18,6 +19,18 @@ export async function resolveInstallationSlackChannel(
   tenantId: string,
   installationId: string,
 ): Promise<string | null> {
+  const installation = await prisma.crmInstallation.findFirst({
+    where: { id: installationId, tenantId },
+    select: { status: true, chatEnabled: true },
+  });
+  if (
+    !installation ||
+    !isInstallationOperationallyActive(installation.status) ||
+    !installation.chatEnabled
+  ) {
+    return null;
+  }
+
   const chatChannel = await prisma.chatChannel.findFirst({
     where: {
       tenantId,

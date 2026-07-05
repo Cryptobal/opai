@@ -4,6 +4,7 @@ import { formatChileTime } from "@/lib/rondas/timezone";
 import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
 import { notifyCriticalAlertsBatch } from "@/lib/rondas/alert-notifications";
 import { emitRondasNoRealizadas } from "@/lib/rondas/lifecycle-notifications";
+import { onlyActiveInstallationEjecucion } from "@/lib/rondas/active-installation-filter";
 
 /**
  * CRON: /api/cron/rondas/cerrar-atrasadas
@@ -42,6 +43,7 @@ export async function GET(request: NextRequest) {
         status: "pendiente",
         startedAt: null,
         scheduledAt: { lte: cutoffMin },
+        ...onlyActiveInstallationEjecucion,
       },
       include: {
         programacion: { select: { toleranciaMinutos: true, frecuenciaMinutos: true } },
