@@ -138,8 +138,6 @@ export function buildFichaBlocks(card: DealCard, waUrl: string | null): { text: 
 export async function renderFicha(tenantId: string, dealId: string): Promise<{ text: string; blocks: unknown[] } | null> {
   const card = await loadDealCard(tenantId, dealId);
   if (!card) return null;
-  const waUrl = await resolveDealWaUrl(tenantId, {
-    contactPhone: card.contactPhone, contactFirst: card.contactFirst, accountName: card.accountName,
-  }).catch(() => null);
+  const waUrl = await resolveDealWaUrl(tenantId, dealId).catch(() => null);
   return buildFichaBlocks(card, waUrl);
 }

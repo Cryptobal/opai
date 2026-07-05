@@ -14,6 +14,8 @@
  *   3. DocTemplate (único path)
  */
 
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { prisma } from "@/lib/prisma";
 import {
   extractTokenKeys,
@@ -24,6 +26,10 @@ import {
 import {
   migrateLegacyPlaceholdersInTiptap,
 } from "@/lib/docs/wa-template-migrations";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
+import { buildPortalClienteMagicLinkUrl } from "@/lib/portal-cliente-magic-link";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { normalizePhone } from "@/lib/psych/normalizePhone";
 
 export type GetWaTemplateContext = {
   /** Entidades para resolver tokens DocTemplate (account, contact, deal, lead, actor, tenant, system, blocks, ...) */
@@ -111,4 +117,93 @@ export async function getWaTemplateAndUrl(
   const message = await getWaTemplate(tenantId, slug, context);
   const url = buildWaUrl(message, context.phone);
   return { message, url };
+}
+
+/** Enriquece un deal de Prisma con tokens computados para plantillas WA/email. */
+export function enrichDealForWaTemplate(
+  deal: Record<string, unknown>,
+  contact: { id?: string; email?: string | null } | null | undefined,
+  resolvedProposalLink: string | null,
+): Record<string, unknown> {
+  const proposalSentAt = deal.proposalSentAt;
+  const proposalSentDate =
+    proposalSentAt instanceof Date
+      ? format(proposalSentAt, "d 'de' MMMM 'de' yyyy", { locale: es })
+      : typeof proposalSentAt === "string" && proposalSentAt
+        ? format(new Date(proposalSentAt), "d 'de' MMMM 'de' yyyy", { locale: es })
+        : "reciente";
+
+  return {
+    ...deal,
+    proposalLink: resolvedProposalLink ?? deal.proposalLink ?? null,
+    proposalSentDate,
+  };
+}
+
+/**
+ * Carga un negocio con sus relaciones y arma EntityData lista para resolver
+ * plantillas WhatsApp (contact, account, deal con magic-link y fecha formateada).
+ */
+export async function buildDealWaEntities(
+  tenantId: string,
+  dealId: string,
+): Promise<{ entities: EntityData; phone: string | null } | null> {
+  const deal = await prisma.crmDeal.findFirst({
+    where: { id: dealId, tenantId },
+    include: { account: true, primaryContact: true },
+  });
+  if (!deal) return null;
+
+  const contact = deal.primaryContact;
+  const phoneRaw = contact?.phone ?? null;
+  const normalized = phoneRaw ? normalizePhone(phoneRaw) : null;
+  const phone = normalized?.ok ? normalized.digits : null;
+
+  let resolvedProposalLink = deal.proposalLink ?? null;
+  if (contact?.email && contact.id) {
+    try {
+      const tenantRow = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { slug: true },
+      });
+      resolvedProposalLink =
+        buildPortalClienteMagicLinkUrl({
+          baseSiteUrl: getCanonicalSiteUrl(),
+          email: contact.email,
+          tenantSlug: tenantRow?.slug ?? null,
+          contactId: contact.id,
+          expiryDays: 30,
+        }) || resolvedProposalLink;
+    } catch {
+      // PORTAL_COOKIE_SECRET ausente: caer al link estándar del deal.
+    }
+  }
+
+  const tenantCfg = await getTenantCompanyConfig(tenantId);
+
+  return {
+    entities: {
+      deal: enrichDealForWaTemplate(
+        deal as unknown as Record<string, unknown>,
+        contact,
+        resolvedProposalLink,
+      ),
+      account: deal.account ?? undefined,
+      contact: contact ?? undefined,
+      installation: {
+        name: deal.installationName ?? null,
+        address: deal.address ?? null,
+        commune: deal.commune ?? null,
+        city: deal.city ?? null,
+      },
+      tenant: {
+        commercialName: tenantCfg.commercialName,
+        website: tenantCfg.website,
+        phone: tenantCfg.phone,
+        email: tenantCfg.email,
+        whatsappLink: tenantCfg.whatsappLink,
+      },
+    },
+    phone,
+  };
 }

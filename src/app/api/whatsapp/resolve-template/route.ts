@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
-import { getWaTemplateAndUrl } from "@/lib/whatsapp-templates";
+import { getWaTemplateAndUrl, enrichDealForWaTemplate } from "@/lib/whatsapp-templates";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { prisma } from "@/lib/prisma";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
+import { buildPortalClienteMagicLinkUrl } from "@/lib/portal-cliente-magic-link";
 
 const resolveSchema = z.object({
   slug: z.string().min(1),
@@ -98,7 +100,30 @@ export async function POST(request: NextRequest) {
         include: { account: true, primaryContact: true },
       });
       if (deal) {
-        entities.deal = deal;
+        let resolvedProposalLink = deal.proposalLink ?? null;
+        if (deal.primaryContact?.email && deal.primaryContact.id) {
+          try {
+            const tenantRow = await prisma.tenant.findUnique({
+              where: { id: ctx.tenantId },
+              select: { slug: true },
+            });
+            resolvedProposalLink =
+              buildPortalClienteMagicLinkUrl({
+                baseSiteUrl: getCanonicalSiteUrl(),
+                email: deal.primaryContact.email,
+                tenantSlug: tenantRow?.slug ?? null,
+                contactId: deal.primaryContact.id,
+                expiryDays: 30,
+              }) || resolvedProposalLink;
+          } catch {
+            // Caer al link estándar del deal si no hay secreto de portal.
+          }
+        }
+        entities.deal = enrichDealForWaTemplate(
+          deal as unknown as Record<string, unknown>,
+          deal.primaryContact,
+          resolvedProposalLink,
+        );
         if (deal.account) entities.account = deal.account;
         if (deal.primaryContact) entities.contact = deal.primaryContact;
         // CrmDeal no tiene relación `installation`; sintetizamos una con sus

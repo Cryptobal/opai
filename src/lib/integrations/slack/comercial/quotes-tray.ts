@@ -90,7 +90,12 @@ function trayView(data: { rows: QuoteRow[]; total: number; page: number; hasMore
 
 async function renderQuotesTray(tenantId: string, status: string, page: number): Promise<SlackView> {
   const data = await listQuotes(tenantId, status, page);
-  const pairs = await Promise.all(data.rows.map(async (q) => [q.id, await resolveDealWaUrl(tenantId, { contactPhone: q.contactPhone, contactFirst: q.contactFirst, accountName: q.clientName }).catch(() => null)] as const));
+  const pairs = await Promise.all(
+    data.rows.map(async (q) => [
+      q.id,
+      q.dealId ? await resolveDealWaUrl(tenantId, q.dealId).catch(() => null) : null,
+    ] as const),
+  );
   return trayView(data, status, new Map(pairs));
 }
 
