@@ -254,6 +254,12 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     await handleStaleQuoteAction(payload as never);
     return;
   }
+  // Barrido de negocios estancados (Fase 5): Avanzar / Nota / Posponer / Perdido.
+  if (actionId?.startsWith("dealstale_")) {
+    const { handleStaleDealAction } = await import("./comercial/deal-stale");
+    await handleStaleDealAction(payload as never);
+    return;
+  }
   // Bandeja de documentos por vencer (Fase 18): abrir / filtros / paginación.
   if (actionId?.startsWith("docstray_")) {
     const { handleDocsTrayAction } = await import("./docs/tray-dispatch");
