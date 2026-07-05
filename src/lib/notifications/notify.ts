@@ -10,6 +10,7 @@ import NotificationEmail from "@/emails/NotificationEmail";
 import { resolvePermissions } from "@/lib/permissions-server";
 import { hasModuleAccess, canView, type ModuleKey } from "@/lib/permissions";
 import { getUnifiedType, type Audience, type UnifiedNotificationType } from "./catalog";
+import { getWorkspaceForTenant } from "@/lib/integrations/slack/workspace";
 import { resolvePrefs } from "./resolve-prefs";
 import { sendPushToSubscriptions } from "./push-sender";
 
@@ -86,11 +87,15 @@ export async function notify(params: NotifyParams): Promise<{ delivered: number 
     typeDef,
   );
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: params.tenantId },
-    select: { slug: true },
-  });
+  const [tenant, slackWorkspace] = await Promise.all([
+    prisma.tenant.findUnique({
+      where: { id: params.tenantId },
+      select: { slug: true },
+    }),
+    getWorkspaceForTenant(params.tenantId),
+  ]);
   const tenantSlug = tenant?.slug ?? null;
+  const tenantSlackActive = !!slackWorkspace;
 
   let bellCreatedForBroadcast = false;
   let delivered = 0;
@@ -102,6 +107,7 @@ export async function notify(params: NotifyParams): Promise<{ delivered: number 
       subscriberType: subType,
       subscriberId: r.id,
       audience,
+      tenantSlackActive,
     });
     const eff = {
       bell: params.forceChannels?.bell ?? prefs.bell,

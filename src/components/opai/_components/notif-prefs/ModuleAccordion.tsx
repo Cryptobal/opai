@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { UnifiedNotificationType } from "@/lib/notifications/catalog";
-import { expandCatalogDefaults, type ChannelPrefs } from "@/lib/notifications/channel-types";
+import { expandCatalogDefaultsForType, type ChannelPrefs } from "@/lib/notifications/channel-types";
 import { ChannelToggle } from "./ChannelToggle";
 import { CHANNEL_COLS, ColumnHeaderRow, supportsChannel, type Channel } from "./channels";
 
@@ -89,13 +89,18 @@ export function ModuleAccordion(props: ModuleAccordionProps) {
             moduleTypes={moduleTypes}
             prefs={prefs}
             slackLinked={slackLinked}
+            tenantSlackActive={slackWorkspaceActive}
             onToggleColumn={props.onToggleColumn}
           />
           {Array.from(categories.entries()).map(([category, list]) => (
             <div key={category}>
               <div className="px-4 py-1.5 text-[11px] font-mono font-semibold uppercase tracking-[0.08em] text-ds-text-4 bg-muted/10">{category}</div>
               {list.map((t) => {
-                const def = expandCatalogDefaults(t.defaults.admin ?? {});
+                const def = expandCatalogDefaultsForType(
+                  t.key,
+                  t.defaults.admin ?? {},
+                  slackWorkspaceActive,
+                );
                 const cur = prefs[t.key] ?? {};
                 const isHighlighted = highlighted === t.key;
                 const isOverride = (["bell", "email", "pushDesktop", "pushMobile"] as const).some((k) => cur[k] !== def[k]);
@@ -119,7 +124,7 @@ export function ModuleAccordion(props: ModuleAccordionProps) {
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {cols.map((c) => {
-                        const supported = supportsChannel(t, c.key, slackLinked);
+                        const supported = supportsChannel(t, c.key, slackLinked, slackWorkspaceActive);
                         return (
                           <ChannelToggle
                             key={c.key}

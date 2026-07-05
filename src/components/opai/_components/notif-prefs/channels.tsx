@@ -2,7 +2,7 @@
 
 import { Bell, Mail, Monitor, Slack, Smartphone } from "lucide-react";
 import type { ReactNode } from "react";
-import { expandCatalogDefaults, type ChannelPrefs } from "@/lib/notifications/channel-types";
+import { expandCatalogDefaultsForType, type ChannelPrefs } from "@/lib/notifications/channel-types";
 import type { UnifiedNotificationType } from "@/lib/notifications/catalog";
 
 export type Channel = keyof ChannelPrefs;
@@ -24,9 +24,10 @@ export function supportsChannel(
   t: UnifiedNotificationType,
   channel: Channel,
   slackLinked: boolean,
+  tenantSlackActive = false,
 ): boolean {
   if (channel === "slack") return slackLinked;
-  const def = expandCatalogDefaults(t.defaults.admin ?? {});
+  const def = expandCatalogDefaultsForType(t.key, t.defaults.admin ?? {}, tenantSlackActive);
   return def[channel] !== undefined;
 }
 
@@ -38,8 +39,9 @@ export function columnState(
   prefs: Record<string, ChannelPrefs>,
   channel: Channel,
   slackLinked: boolean,
+  tenantSlackActive = false,
 ): ColumnState {
-  const supported = moduleTypes.filter((t) => supportsChannel(t, channel, slackLinked));
+  const supported = moduleTypes.filter((t) => supportsChannel(t, channel, slackLinked, tenantSlackActive));
   if (supported.length === 0) return "none";
   const on = supported.filter((t) => prefs[t.key]?.[channel] ?? false).length;
   return on === 0 ? "none" : on === supported.length ? "all" : "some";
@@ -51,6 +53,7 @@ export function ColumnHeaderRow(props: {
   moduleTypes: UnifiedNotificationType[];
   prefs: Record<string, ChannelPrefs>;
   slackLinked: boolean;
+  tenantSlackActive: boolean;
   onToggleColumn: (channel: Channel) => void;
 }) {
   return (
@@ -59,7 +62,13 @@ export function ColumnHeaderRow(props: {
       <div className="flex items-center gap-1.5 shrink-0">
         {props.cols.map((c) => {
           const enabled = c.key !== "slack" || props.slackLinked;
-          const state = columnState(props.moduleTypes, props.prefs, c.key, props.slackLinked);
+          const state = columnState(
+            props.moduleTypes,
+            props.prefs,
+            c.key,
+            props.slackLinked,
+            props.tenantSlackActive,
+          );
           return (
             <button
               key={c.key}

@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import { getWorkspaceForTenant } from "@/lib/integrations/slack/workspace";
 import { type Audience, type UnifiedNotificationType } from "./catalog";
 import { normalizePrefs, type ChannelPrefsLegacy } from "./channel-types";
+import { applySlackTenantEmailDefault } from "./doc-expiry-channel-defaults";
 
 export interface ResolvedPrefs {
   bell: boolean;
@@ -20,6 +22,8 @@ export interface ResolvePrefsParams {
   subscriberType: 'ADMIN' | 'GUARD' | 'CLIENT';
   subscriberId: string;
   audience: Audience;
+  /** Si el tenant tiene workspace Slack activo (evita N queries en notify broadcast). */
+  tenantSlackActive?: boolean;
   now?: Date;
 }
 
@@ -33,7 +37,12 @@ interface UserPrefMap {
 
 export async function resolvePrefs(p: ResolvePrefsParams): Promise<ResolvedPrefs> {
   const { tenantId, type, subscriberType, subscriberId, audience, now = new Date() } = p;
-  const defaults = type.defaults[audience] ?? {};
+  const catalogDefaults = type.defaults[audience] ?? {};
+  let tenantSlackActive = p.tenantSlackActive;
+  if (tenantSlackActive === undefined) {
+    tenantSlackActive = !!(await getWorkspaceForTenant(tenantId));
+  }
+  const defaults = applySlackTenantEmailDefault(type.key, catalogDefaults, tenantSlackActive);
 
   // 1. Tenant-wide push override (Setting.pushGlobalConfig) — apaga ambos push
   let tenantPushDisabled = false;

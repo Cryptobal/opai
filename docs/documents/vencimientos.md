@@ -53,7 +53,10 @@ resetea automáticamente.
   crítico-legal desempata.
 - **Lo personal NO cambia**: por qué canal recibe cada quien (campana/email/
   push/Slack DM) sigue en **Mis Notificaciones**; el digest y las tarjetas
-  son tipos del catálogo como cualquier otro.
+  son tipos del catálogo como cualquier otro. Si el tenant tiene **Slack
+  conectado**, el email de esos tipos arranca **apagado por default** (el
+  canal Slack del tenant cubre el equipo); quien quiera correo puede
+  reactivarlo en Perfil → Notificaciones.
 
 ## Escalamiento — criterio de jerarquía
 
