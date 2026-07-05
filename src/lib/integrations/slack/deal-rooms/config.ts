@@ -10,6 +10,9 @@
 
 import { prisma } from "@/lib/prisma";
 
+/** Estrategia de nombre de canal al cambiar de etapa (Fase 3). */
+export type ChannelNaming = "emoji" | "stagePrefix" | "stable";
+
 export interface DealRoomConfig {
   /** Si false (default), NUNCA se abre una sala automáticamente. */
   enabled: boolean;
@@ -17,9 +20,30 @@ export interface DealRoomConfig {
   minAmountClp: number;
   /** Orden de etapa mínimo (CrmPipelineStage.order) para gatillar. 0 = sin umbral de etapa. */
   minStageOrder: number;
+  /**
+   * Cómo refleja el nombre del canal la etapa (Fase 3):
+   * · "emoji" (default): renombra SOLO al cruzar macro-fase (🌱→🔥→🤝), sin ruido.
+   * · "stagePrefix": prefija el slug con la etapa ({prefijo}-{slug}).
+   * · "stable": nunca toca el nombre (la etapa vive en ficha + topic).
+   */
+  channelNaming: ChannelNaming;
+  /** Si true, mantiene el board del canal hub #pipeline. Default false. */
+  pipelineHubEnabled: boolean;
+  /** Ganar → el canal pasa a operativo (handoff automático). Default true. */
+  autoHandoffOnWon: boolean;
+  /** Perder → el canal se archiva automáticamente. Default true. */
+  autoArchiveOnLost: boolean;
 }
 
-const DEFAULTS: DealRoomConfig = { enabled: false, minAmountClp: 0, minStageOrder: 0 };
+const DEFAULTS: DealRoomConfig = {
+  enabled: false,
+  minAmountClp: 0,
+  minStageOrder: 0,
+  channelNaming: "emoji",
+  pipelineHubEnabled: false,
+  autoHandoffOnWon: true,
+  autoArchiveOnLost: true,
+};
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const cache = new Map<string, { value: DealRoomConfig; expires: number }>();
@@ -28,6 +52,16 @@ const KEY = {
   enabled: "slack_deal_rooms.enabled",
   minAmountClp: "slack_deal_rooms.min_amount_clp",
   minStageOrder: "slack_deal_rooms.min_stage_order",
+  channelNaming: "slack_deal_rooms.channel_naming",
+  pipelineHubEnabled: "slack_deal_rooms.pipeline_hub_enabled",
+  autoHandoffOnWon: "slack_deal_rooms.auto_handoff_on_won",
+  autoArchiveOnLost: "slack_deal_rooms.auto_archive_on_lost",
+} as const;
+
+// Estado runtime del hub #pipeline (no cacheado: se lee/escribe puntualmente).
+const HUB_KEY = {
+  channelId: "slack_deal_rooms.pipeline_hub_channel_id",
+  ts: "slack_deal_rooms.pipeline_hub_ts",
 } as const;
 
 const CATEGORY = "slack_deal_rooms";
@@ -50,9 +84,38 @@ export async function getDealRoomConfig(tenantId: string): Promise<DealRoomConfi
     enabled: parseBoolOr(map.get(KEY.enabled), DEFAULTS.enabled),
     minAmountClp: parseIntOr(map.get(KEY.minAmountClp), DEFAULTS.minAmountClp, 0, 100_000_000_000),
     minStageOrder: parseIntOr(map.get(KEY.minStageOrder), DEFAULTS.minStageOrder, 0, 1000),
+    channelNaming: parseNamingOr(map.get(KEY.channelNaming), DEFAULTS.channelNaming),
+    pipelineHubEnabled: parseBoolOr(map.get(KEY.pipelineHubEnabled), DEFAULTS.pipelineHubEnabled),
+    autoHandoffOnWon: parseBoolOr(map.get(KEY.autoHandoffOnWon), DEFAULTS.autoHandoffOnWon),
+    autoArchiveOnLost: parseBoolOr(map.get(KEY.autoArchiveOnLost), DEFAULTS.autoArchiveOnLost),
   };
   cache.set(tenantId, { value: cfg, expires: Date.now() + CACHE_TTL_MS });
   return cfg;
+}
+
+/** Estado del board del hub #pipeline (channelId + ts del mensaje fijado). */
+export async function getPipelineHubState(tenantId: string): Promise<{ channelId: string | null; ts: string | null }> {
+  const rows = await prisma.setting.findMany({
+    where: { tenantId, category: CATEGORY, key: { in: [HUB_KEY.channelId, HUB_KEY.ts] } },
+    select: { key: true, value: true },
+  });
+  const map = new Map(rows.map((r) => [r.key, r.value]));
+  return { channelId: map.get(HUB_KEY.channelId) ?? null, ts: map.get(HUB_KEY.ts) ?? null };
+}
+
+export async function setPipelineHubState(tenantId: string, channelId: string, ts: string): Promise<void> {
+  await prisma.$transaction([
+    prisma.setting.upsert({
+      where: { tenantId_key: { tenantId, key: HUB_KEY.channelId } },
+      update: { value: channelId, type: "string", category: CATEGORY },
+      create: { tenantId, key: HUB_KEY.channelId, value: channelId, type: "string", category: CATEGORY },
+    }),
+    prisma.setting.upsert({
+      where: { tenantId_key: { tenantId, key: HUB_KEY.ts } },
+      update: { value: ts, type: "string", category: CATEGORY },
+      create: { tenantId, key: HUB_KEY.ts, value: ts, type: "string", category: CATEGORY },
+    }),
+  ]);
 }
 
 export async function setDealRoomConfig(tenantId: string, partial: Partial<DealRoomConfig>): Promise<DealRoomConfig> {
@@ -60,6 +123,10 @@ export async function setDealRoomConfig(tenantId: string, partial: Partial<DealR
   if (partial.enabled !== undefined) updates.push({ key: KEY.enabled, value: String(partial.enabled), type: "boolean" });
   if (partial.minAmountClp !== undefined) updates.push({ key: KEY.minAmountClp, value: String(partial.minAmountClp), type: "number" });
   if (partial.minStageOrder !== undefined) updates.push({ key: KEY.minStageOrder, value: String(partial.minStageOrder), type: "number" });
+  if (partial.channelNaming !== undefined) updates.push({ key: KEY.channelNaming, value: partial.channelNaming, type: "string" });
+  if (partial.pipelineHubEnabled !== undefined) updates.push({ key: KEY.pipelineHubEnabled, value: String(partial.pipelineHubEnabled), type: "boolean" });
+  if (partial.autoHandoffOnWon !== undefined) updates.push({ key: KEY.autoHandoffOnWon, value: String(partial.autoHandoffOnWon), type: "boolean" });
+  if (partial.autoArchiveOnLost !== undefined) updates.push({ key: KEY.autoArchiveOnLost, value: String(partial.autoArchiveOnLost), type: "boolean" });
 
   if (updates.length > 0) {
     await prisma.$transaction(
@@ -86,4 +153,8 @@ function parseIntOr(s: string | undefined, fallback: number, min: number, max: n
 function parseBoolOr(s: string | undefined, fallback: boolean): boolean {
   if (s === undefined) return fallback;
   return s === "true" || s === "1";
+}
+
+function parseNamingOr(s: string | undefined, fallback: ChannelNaming): ChannelNaming {
+  return s === "emoji" || s === "stagePrefix" || s === "stable" ? s : fallback;
 }
