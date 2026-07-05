@@ -21,7 +21,7 @@ import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 import { findCrmDealIdsUniversalSearch } from "@/lib/search-normalize";
 import { getTenantForTeam, getWorkspaceForTenant } from "../workspace";
 import { resolveLinkedAdmin } from "../user-link";
-import { slackUpdateView } from "../api";
+import { slackUpdateView, slackPushView } from "../api";
 import { packMetadata, unpackMetadata } from "../modals/views";
 import { modalTitle } from "../modals/title";
 import { clp, resolveDealWaUrl } from "./deal-common";
@@ -135,6 +135,7 @@ function resultRowBlocks(d: FoundDeal, ctx: SearchRenderCtx): unknown[] {
   if (roomChannel) btns.push({ type: "button", action_id: "dsearch_roomlink", url: roomClientUrl(ctx.teamId, roomChannel), text: pt("🏠 Ir a la sala") });
   else if (ctx.canWrite) btns.push({ type: "button", action_id: "dsearch_room", value: d.id, text: pt("🏠 Abrir sala") });
   btns.push({ type: "button", action_id: "dsearch_open", url: dealOpaiUrl(d.id), text: pt("🔗 Abrir en OPAI") });
+  if (ctx.canWrite) btns.push({ type: "button", action_id: "dsearch_interaction", value: d.id, text: pt("➕ Interacción") });
   if (wa && /^https:\/\//.test(wa)) btns.push({ type: "button", action_id: "dsearch_wa", url: wa, text: pt("🟢 WhatsApp") });
   return [section, { type: "actions", block_id: `opai_dsearch_${d.id}`, elements: btns }];
 }
@@ -264,6 +265,17 @@ export async function handleDealSearchAction(payload: {
   // Chips de alcance: re-buscar con el texto vigente y el nuevo estado.
   if (action.action_id.startsWith("dsearch_scope_")) {
     await rerender(q, asScope(action.value));
+    return;
+  }
+
+  // ➕ Registrar interacción (Fase 4): apila el modal tipificado sobre el buscador.
+  if (action.action_id === "dsearch_interaction") {
+    const dealId = action.value;
+    if (!dealId || !canWrite || !payload.trigger_id) return;
+    const { interactionView } = await import("./pipeline");
+    await slackPushView(workspace.botToken, payload.trigger_id, interactionView(dealId)).catch((e) =>
+      console.error("[slack] dsearch_interaction push falló:", e),
+    );
     return;
   }
 

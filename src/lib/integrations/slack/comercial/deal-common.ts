@@ -22,9 +22,24 @@ export async function resolveDealWaUrl(
   return `https://wa.me/${ctx.phone}?text=${encodeURIComponent((msg ?? "").trim())}`;
 }
 
-/** Nota rápida sobre un deal (CrmNote entityType="deal"). */
-export async function addDealNote(tenantId: string, adminId: string, dealId: string, content: string): Promise<void> {
-  await prisma.crmNote.create({ data: { tenantId, entityType: "deal", entityId: dealId, content, mentions: [], createdBy: adminId } });
+/**
+ * Nota/interacción sobre un deal (CrmNote entityType="deal"). `interactionType`
+ * y `occurredAt` son opcionales (retrocompatible con la nota rápida sin tipo).
+ */
+export async function addDealNote(
+  tenantId: string,
+  adminId: string,
+  dealId: string,
+  content: string,
+  interactionType?: string | null,
+  occurredAt?: Date | null,
+): Promise<void> {
+  await prisma.crmNote.create({
+    data: {
+      tenantId, entityType: "deal", entityId: dealId, content, mentions: [], createdBy: adminId,
+      interactionType: interactionType ?? null, occurredAt: occurredAt ?? null,
+    },
+  });
 }
 
 /** Marca el deal como ganado (etapa isClosedWon; el servicio emite deal_won → 🎉). */

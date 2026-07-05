@@ -38,6 +38,7 @@ import { packMetadata, unpackMetadata } from "../modals/views";
 import { modalTitle } from "../modals/title";
 import { clp, resolveDealWaUrl, addDealNote, markDealWon, markDealLost } from "./deal-common";
 import { normalizeWaPhone } from "./lead-actions";
+import { INTERACTION_TYPES, interactionLabel, isInteractionType, type InteractionTypeMeta } from "@/lib/crm/interaction-types";
 import type { ModalDef, ModalOpenContext, ModalSubmitContext, ModalSubmitResult, SlackView } from "../modals/types";
 
 const pt = (text: string) => ({ type: "plain_text", text: text.slice(0, 75), emoji: true });
@@ -328,6 +329,21 @@ export function noteView(dealId: string): SlackView {
   };
 }
 
+const interactionTypeOption = (t: InteractionTypeMeta) => ({ text: pt(`${t.emoji} ${t.label}`), value: t.key });
+
+/** Modal "Registrar interacción" tipificada: tipo + resumen + fecha (Fase 4). */
+export function interactionView(dealId: string): SlackView {
+  return {
+    type: "modal", callback_id: "pipe_interaction", private_metadata: packMetadata({ kind: "pipe_interaction", dealId }),
+    title: modalTitle("Registrar interacción"), submit: pt("Registrar"), close: pt("Cancelar"),
+    blocks: [
+      { type: "input", block_id: "itype", label: pt("Tipo"), element: { type: "static_select", action_id: "v", initial_option: interactionTypeOption(INTERACTION_TYPES[0]), options: INTERACTION_TYPES.map(interactionTypeOption) } },
+      { type: "input", block_id: "note", label: pt("Resumen"), element: { type: "plain_text_input", action_id: "v", multiline: true, max_length: 2000, placeholder: pt("¿Qué pasó? Próximos pasos…") } },
+      { type: "input", block_id: "idate", optional: true, label: pt("¿Cuándo ocurrió? (opcional)"), element: { type: "datepicker", action_id: "v", placeholder: pt("Fecha de la interacción") } },
+    ],
+  };
+}
+
 export function lostView(dealId: string): SlackView {
   return {
     type: "modal", callback_id: "pipe_lost", private_metadata: packMetadata({ kind: "pipe_lost", dealId }),
@@ -503,6 +519,30 @@ export const dealNoteModal: ModalDef = {
     if (!note) return { ack: { response_action: "errors", errors: { note: "Escribe una nota." } } };
     await addDealNote(ctx.tenantId, ctx.linked.adminId, dealId, note);
     return done("Nota rápida", "📝 Nota agregada al negocio.");
+  },
+};
+
+export const dealInteractionModal: ModalDef = {
+  callbackId: "pipe_interaction", title: "Registrar interacción",
+  requires: (perms) => canEdit(perms, "crm", "deals"),
+  build: () => interactionView(""), // fallback; el open real (push) prellena el dealId
+  submit: async (ctx: ModalSubmitContext) => {
+    const dealId = ctx.metadata.dealId ?? "";
+    const note = (ctx.state.note?.v?.value ?? "").trim();
+    if (!note) return { ack: { response_action: "errors", errors: { note: "Escribe un resumen." } } };
+    const rawType = ctx.state.itype?.v?.selected_option?.value ?? null;
+    const interactionType = isInteractionType(rawType) ? rawType : "note";
+    const occurredDate = ctx.state.idate?.v?.selected_date ?? null;
+    const occurredAt = occurredDate ? new Date(`${occurredDate}T12:00:00Z`) : null;
+    return {
+      ...done("Registrar interacción", `${interactionLabel(interactionType)} registrada en el negocio.`),
+      work: async () => {
+        await addDealNote(ctx.tenantId, ctx.linked.adminId, dealId, note, interactionType, occurredAt);
+        // Espejo a la sala + próxima acción (Fase 4.4). Best-effort.
+        const { onDealInteractionLogged } = await import("../deal-rooms/interaction-insight");
+        await onDealInteractionLogged(ctx.tenantId, dealId, ctx.linked.adminId, interactionType, note).catch(() => {});
+      },
+    };
   },
 };
 
