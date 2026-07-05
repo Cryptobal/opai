@@ -196,7 +196,7 @@ export async function dealSearchView(
       blocks.push({ type: "section", text: { type: "mrkdwn", text: `Sin resultados para *${q.trim().slice(0, 60)}*. Prueba con parte del nombre de la cuenta o de la instalación.${scopeHint}` } });
     } else {
       const [pairs, rooms] = await Promise.all([
-        Promise.all(deals.map(async (d) => [d.id, await resolveDealWaUrl(tenantId, { contactPhone: d.contactPhone, contactFirst: d.contactFirst, accountName: d.accountName }).catch(() => null)] as const)),
+        Promise.all(deals.map(async (d) => [d.id, await resolveDealWaUrl(tenantId, d.id).catch(() => null)] as const)),
         openRoomsFor(tenantId, deals.map((d) => d.id)),
       ]);
       const ctx: SearchRenderCtx = { teamId, canWrite, rooms, waUrls: new Map(pairs) };

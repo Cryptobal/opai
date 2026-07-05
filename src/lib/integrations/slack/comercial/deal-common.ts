@@ -5,23 +5,21 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { getWaTemplate } from "@/lib/whatsapp-templates";
+import { buildDealWaEntities, getWaTemplate } from "@/lib/whatsapp-templates";
 import { changeDealStage } from "@/lib/crm/change-deal-stage";
-import { normalizeWaPhone } from "./lead-actions";
 
 export const clp = (n: number) => new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(Math.round(n || 0));
 
 /** URL wa.me de seguimiento para el contacto del deal (o null sin teléfono). */
 export async function resolveDealWaUrl(
   tenantId: string,
-  d: { contactPhone?: string | null; contactFirst?: string | null; accountName?: string | null },
+  dealId: string,
+  slug = "followup_first",
 ): Promise<string | null> {
-  const phone = normalizeWaPhone(d.contactPhone);
-  if (!phone) return null;
-  const msg = await getWaTemplate(tenantId, "followup_first", {
-    entities: { contact: { firstName: d.contactFirst ?? "" }, account: { name: d.accountName ?? "" } },
-  }).catch(() => "");
-  return `https://wa.me/${phone}?text=${encodeURIComponent((msg ?? "").trim())}`;
+  const ctx = await buildDealWaEntities(tenantId, dealId);
+  if (!ctx?.phone) return null;
+  const msg = await getWaTemplate(tenantId, slug, { entities: ctx.entities }).catch(() => "");
+  return `https://wa.me/${ctx.phone}?text=${encodeURIComponent((msg ?? "").trim())}`;
 }
 
 /** Nota rápida sobre un deal (CrmNote entityType="deal"). */

@@ -303,7 +303,7 @@ function drillView(stageId: string, stageName: string, deals: DrillDeal[], ctx: 
 async function renderDrill(tenantId: string, teamId: string, canWrite: boolean, stageId: string, notice?: string): Promise<SlackView> {
   const { stageName, deals } = await listDealsInStage(tenantId, stageId);
   const [pairs, rooms] = await Promise.all([
-    Promise.all(deals.map(async (d) => [d.id, await resolveDealWaUrl(tenantId, { contactPhone: d.contactPhone, contactFirst: d.contactFirst, accountName: d.accountName }).catch(() => null)] as const)),
+    Promise.all(deals.map(async (d) => [d.id, await resolveDealWaUrl(tenantId, d.id).catch(() => null)] as const)),
     openRoomsForDeals(tenantId, deals.map((d) => d.id)),
   ]);
   return drillView(stageId, stageName, deals, { teamId, canWrite, rooms, waUrls: new Map(pairs) }, notice);
