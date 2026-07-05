@@ -2833,6 +2833,11 @@ model CrmNote {
   content     String   @db.Text
   mentions    String[] @default([]) // Array of admin IDs mentioned with @
   mentionMeta Json?    @map("mention_meta") @db.JsonB // Mentions resolved metadata (groups, @all, recipients)
+  // Interacción tipificada (Fase 2, aditivo). Valores lógicos validados en app:
+  // note | contact | call | meeting | visit. `occurredAt` = cuándo ocurrió la
+  // interacción (distinto de createdAt = cuándo se registró en OPAI).
+  interactionType String?   @map("interaction_type")
+  occurredAt      DateTime? @map("occurred_at") @db.Timestamptz(6)
   createdBy   String   @map("created_by") // admin ID
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -2844,6 +2849,7 @@ model CrmNote {
   @@index([entityType, entityId], map: "idx_crm_notes_entity")
   @@index([parentId], map: "idx_crm_notes_parent")
   @@index([entityType, entityId, parentId], map: "idx_crm_notes_entity_parent")
+  @@index([entityType, entityId, interactionType], map: "idx_crm_notes_entity_type")
   @@index([createdAt(sort: Desc)], map: "idx_crm_notes_created_desc")
   @@map("notes")
   @@schema("crm")
