@@ -209,6 +209,8 @@ export async function openDealRoom(
       action: "CREATE", entity: "CrmDealSlackRoom", entityId: dealId, tenantId, userId: actorAdminId,
       details: { slackChannelId: channel.id, slackChannelName: channel.name, via: "slack" },
     });
+    // Board del hub #pipeline (Fase 3): refresca para incluir la nueva sala.
+    await import("./pipeline-hub").then((m) => m.refreshPipelineHub(tenantId)).catch(() => {});
     return { ok: true, channelId: room.slackChannelId, channelName: room.slackChannelName };
   } catch (err) {
     // Carrera: otro click creó la sala primero → devolver la que ganó.

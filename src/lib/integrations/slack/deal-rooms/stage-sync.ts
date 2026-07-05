@@ -54,6 +54,9 @@ export async function syncDealRoomStage(tenantId: string, dealId: string): Promi
   const topic = `${macro.emoji} Etapa: ${deal.stage.name}${monto ? ` · ${fmtClp(monto)}` : ""} · ${days}d`;
   await slackSetTopic(ws.botToken, room.slackChannelId, topic);
 
+  // Board del hub #pipeline: refleja el nuevo estado/etapa (best-effort, debounced).
+  await import("./pipeline-hub").then((m) => m.refreshPipelineHub(tenantId)).catch(() => {});
+
   // 3) Nombre del canal según estrategia.
   const cfg = await getDealRoomConfig(tenantId);
   if (cfg.channelNaming === "stable") return;

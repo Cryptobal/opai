@@ -192,6 +192,9 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
         const { archiveDealRoom } = await import("./deal-rooms/lifecycle");
         await archiveDealRoom(input.tenantId, dealId, actor).catch((e) => console.error("[slack] auto-archive falló:", e));
       }
+      // Board del hub #pipeline: saca el negocio cerrado del board.
+      const { refreshPipelineHub } = await import("./deal-rooms/pipeline-hub");
+      await refreshPipelineHub(input.tenantId).catch(() => {});
     } catch (e) {
       console.error("[slack] cierre automático deal room falló:", e);
     }
