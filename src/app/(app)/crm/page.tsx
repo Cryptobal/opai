@@ -18,16 +18,10 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { Users, AlertTriangle, Building2, TrendingUp, BarChart3 } from 'lucide-react';
+import { getCommercialMetrics, normalizeWindow } from '@/modules/crm/analytics/commercial-metrics';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-
-function formatMonthLabel(dateStr: string): string {
-  const d = new Date(dateStr);
-  return `${MONTH_LABELS[d.getUTCMonth()]} ${String(d.getUTCFullYear()).slice(2)}`;
-}
 
 function formatLeadSource(source: string | null): string {
   if (!source) return 'Otros';
@@ -42,21 +36,19 @@ function toPercent(value: number, total: number): number {
   return Math.round((value / total) * 100);
 }
 
-export default async function CRMPage() {
+export default async function CRMPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
   const session = await auth();
   if (!session?.user) redirect('/opai/login?callbackUrl=/crm');
   const perms = await resolvePagePerms(session.user);
   if (!hasModuleAccess(perms, 'crm')) redirect('/hub');
   const tenantId = session.user.tenantId;
+  const period = normalizeWindow((await searchParams)?.period);
+  const metrics = await getCommercialMetrics(tenantId, period);
   const now = new Date();
   const twelveMonthsAgo = new Date(now);
   twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
   twelveMonthsAgo.setDate(1);
   twelveMonthsAgo.setHours(0, 0, 0, 0);
-  const twentyFourMonthsAgo = new Date(now);
-  twentyFourMonthsAgo.setMonth(twentyFourMonthsAgo.getMonth() - 24);
-  twentyFourMonthsAgo.setDate(1);
-  twentyFourMonthsAgo.setHours(0, 0, 0, 0);
   const thirtyDaysAgo = new Date(now);
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -79,8 +71,6 @@ export default async function CRMPage() {
     leadsConverted30,
     proposalsSent30,
     wonDealsWithProposal30Rows,
-    leadsByMonthRaw,
-    quotesByMonthRaw,
     leadsBySourceGroup,
   ] = await Promise.all([
     prisma.crmLead.count({ where: { tenantId, createdAt: { gte: startOfThisMonth } } }),
@@ -101,16 +91,6 @@ export default async function CRMPage() {
       select: { dealId: true },
       distinct: ['dealId'],
     }),
-    prisma.$queryRaw<Array<{ month: Date; status: string; count: bigint }>>`
-      SELECT date_trunc('month', created_at)::date as month, status, COUNT(*)::bigint as count
-      FROM crm.leads WHERE tenant_id = ${tenantId} AND created_at >= ${twelveMonthsAgo}
-      GROUP BY 1, 2 ORDER BY 1
-    `,
-    prisma.$queryRaw<Array<{ month: Date; count: bigint }>>`
-      SELECT date_trunc('month', proposal_sent_at)::date as month, COUNT(*)::bigint as count
-      FROM crm.deals WHERE tenant_id = ${tenantId} AND proposal_sent_at >= ${twentyFourMonthsAgo}
-      GROUP BY 1 ORDER BY 1
-    `,
     prisma.crmLead.groupBy({ by: ['source'], where: { tenantId, createdAt: { gte: twelveMonthsAgo } }, _count: true }),
   ]);
 
@@ -131,34 +111,9 @@ export default async function CRMPage() {
     { label: 'Ganados', value: wonDealsWithProposal30, rate: toPercent(wonDealsWithProposal30, proposalsSent30) },
   ];
 
-  // Process leads by month
-  const monthMap = new Map<string, { pending: number; in_review: number; approved: number; rejected: number }>();
-  for (const row of leadsByMonthRaw) {
-    const key = row.month instanceof Date ? row.month.toISOString().slice(0, 7) : String(row.month).slice(0, 7);
-    if (!monthMap.has(key)) monthMap.set(key, { pending: 0, in_review: 0, approved: 0, rejected: 0 });
-    const c = Number(row.count);
-    const s = row.status ?? 'pending';
-    const m = monthMap.get(key)!;
-    if (s === 'pending') m.pending = c;
-    else if (s === 'in_review') m.in_review = c;
-    else if (s === 'approved') m.approved = c;
-    else if (s === 'rejected') m.rejected = c;
-  }
-  const leadsByMonthData: LeadByMonthRow[] = Array.from(monthMap.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([monthKey, c]) => ({
-      month: monthKey,
-      monthLabel: formatMonthLabel(monthKey + '-01'),
-      ...c,
-      total: c.pending + c.in_review + c.approved + c.rejected,
-    }));
-
-  // Process quotes by month
-  const quotesByMonthData: QuotesByMonthRow[] = quotesByMonthRaw.map((row) => {
-    const d = row.month instanceof Date ? row.month : new Date(row.month);
-    const mk = d.toISOString().slice(0, 7);
-    return { month: mk, monthLabel: formatMonthLabel(mk + '-01'), count: Number(row.count) };
-  });
+  // Leads/cotizaciones por mes: del servicio compartido (ventana = period).
+  const leadsByMonthData: LeadByMonthRow[] = metrics.leadsByMonth;
+  const quotesByMonthData: QuotesByMonthRow[] = metrics.quotesByMonth;
 
   // Process leads by source
   const getSourceCount = (r: (typeof leadsBySourceGroup)[number]) =>
@@ -174,8 +129,10 @@ export default async function CRMPage() {
     .map((r) => ({ ...r, percent: toPercent(r.count, totalSrc) }))
     .sort((a, b) => b.count - a.count);
 
-  const totalLeads12m = leadsByMonthData.reduce((s, r) => s + r.total, 0);
-  const totalQuotes24m = quotesByMonthData.reduce((s, r) => s + r.count, 0);
+  const totalLeads12m = metrics.totalLeads;
+  const totalQuotes24m = metrics.totalQuotes;
+  const periodLabel = `${period}m`;
+  const PERIOD_OPTS: Array<3 | 6 | 12> = [3, 6, 12];
 
   return (
     <div className="space-y-4 sm:space-y-6 min-w-0 overflow-x-hidden">
@@ -226,19 +183,36 @@ export default async function CRMPage() {
       </StatGrid>
 
       {/* ─── Gráficos históricos ─── */}
+      {/* Toggle de ventana 3m/6m/12m (tokens DS v3; el estado vive en ?period). */}
+      <div className="flex items-center justify-end">
+        <div className="inline-flex items-center gap-1 rounded-lg border border-border/60 bg-muted/30 p-1">
+          {PERIOD_OPTS.map((p) => (
+            <Link
+              key={p}
+              href={`/crm?period=${p}`}
+              scroll={false}
+              className={`rounded-md px-3 py-1 text-sm font-medium tabular-nums transition-colors ${
+                p === period ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {p}m
+            </Link>
+          ))}
+        </div>
+      </div>
       <div className="grid gap-4 lg:grid-cols-2 min-w-0">
         <Card className="border-border/60 min-w-0 overflow-hidden">
           <CardHeader>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div>
                 <CardTitle className="text-sm font-medium">Leads recibidos</CardTitle>
-                <CardDescription className="text-sm">Últimos 12 meses por estado</CardDescription>
+                <CardDescription className="text-sm">Últimos {periodLabel} por estado · prom {metrics.avgLeadsPerMonth}/mes</CardDescription>
               </div>
               <span className="text-2xl font-semibold tabular-nums tracking-tight">{totalLeads12m}</span>
             </div>
           </CardHeader>
           <CardContent>
-            <LeadsByMonthChart data={leadsByMonthData} />
+            <LeadsByMonthChart data={leadsByMonthData} average={metrics.avgLeadsPerMonth} />
           </CardContent>
         </Card>
 
@@ -247,13 +221,13 @@ export default async function CRMPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div>
                 <CardTitle className="text-sm font-medium">Cotizaciones enviadas</CardTitle>
-                <CardDescription className="text-sm">Últimos 24 meses</CardDescription>
+                <CardDescription className="text-sm">Últimos {periodLabel} · prom {metrics.avgQuotesPerMonth}/mes</CardDescription>
               </div>
               <span className="text-2xl font-semibold tabular-nums tracking-tight">{totalQuotes24m}</span>
             </div>
           </CardHeader>
           <CardContent>
-            <QuotesByMonthChart data={quotesByMonthData} />
+            <QuotesByMonthChart data={quotesByMonthData} average={metrics.avgQuotesPerMonth} />
           </CardContent>
         </Card>
       </div>
