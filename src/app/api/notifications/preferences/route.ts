@@ -9,6 +9,7 @@ import {
   type ChannelPrefsLegacy,
 } from "@/lib/notifications/channel-types";
 import { getWorkspaceForTenant } from "@/lib/integrations/slack/workspace";
+import { applySlackTenantEmailDefault } from "@/lib/notifications/doc-expiry-channel-defaults";
 
 type PrefsMap = Record<string, ChannelPrefs>;
 type LegacyPrefsMap = Record<string, ChannelPrefsLegacy>;
@@ -36,13 +37,20 @@ export async function GET() {
     });
     const saved = (record?.preferences as LegacyPrefsMap | null) ?? {};
 
+    const ws = await getWorkspaceForTenant(ctx.tenantId);
+    const tenantSlackActive = !!ws;
+
     const accessible = UNIFIED_NOTIFICATION_TYPES.filter(
       (t) => t.audiences.includes('admin') && isAccessible(t, perms),
     );
 
     const out: PrefsMap = {};
     for (const t of accessible) {
-      const def = t.defaults.admin ?? {};
+      const def = applySlackTenantEmailDefault(
+        t.key,
+        t.defaults.admin ?? {},
+        tenantSlackActive,
+      );
       const stored = normalizePrefs(saved[t.key]);
       out[t.key] = {
         bell: typeof stored.bell === 'boolean' ? stored.bell : def.bell ?? false,
@@ -57,7 +65,6 @@ export async function GET() {
     }
 
     // Estado del canal Slack personal: workspace activo + vínculo del usuario.
-    const ws = await getWorkspaceForTenant(ctx.tenantId);
     let slackLinked = false;
     if (ws) {
       const link = await prisma.slackUserLink.findFirst({

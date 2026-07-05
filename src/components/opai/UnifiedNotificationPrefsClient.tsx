@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { UnifiedNotificationType } from "@/lib/notifications/catalog";
 import {
-  expandCatalogDefaults,
+  expandCatalogDefaultsForType,
   type ChannelPrefs,
 } from "@/lib/notifications/channel-types";
 import { ModuleAccordion } from "./_components/notif-prefs/ModuleAccordion";
@@ -116,19 +116,24 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
         const next = { ...p };
         for (const t of moduleTypes) {
           // Slack personal siempre arranca OFF (opt-in), sin default de catálogo.
-          next[t.key] = { ...expandCatalogDefaults(t.defaults.admin ?? {}), slack: false };
+          next[t.key] = {
+            ...expandCatalogDefaultsForType(t.key, t.defaults.admin ?? {}, slackState.workspaceActive),
+            slack: false,
+          };
         }
         return next;
       });
     },
-    [types],
+    [types, slackState.workspaceActive],
   );
 
   // Acción masiva: toggle tri-state de una columna en todo un módulo.
   const toggleColumn = useCallback(
     (moduleKey: string, channel: ColChannel) => {
       const moduleTypes = types.filter(
-        (t) => t.module === moduleKey && supportsChannel(t, channel, slackState.linked),
+        (t) =>
+          t.module === moduleKey &&
+          supportsChannel(t, channel, slackState.linked, slackState.workspaceActive),
       );
       if (moduleTypes.length === 0) return;
       setPrefs((p) => {
@@ -139,7 +144,7 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
         return next;
       });
     },
-    [types, slackState.linked],
+    [types, slackState.linked, slackState.workspaceActive],
   );
 
   // Acción masiva: "Solo este canal" — enciende ese canal y apaga los demás.
@@ -149,7 +154,7 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
       setPrefs((p) => {
         const next = { ...p };
         for (const t of moduleTypes) {
-          const on = supportsChannel(t, channel, slackState.linked);
+          const on = supportsChannel(t, channel, slackState.linked, slackState.workspaceActive);
           next[t.key] = {
             bell: false,
             email: false,
@@ -162,7 +167,7 @@ export function UnifiedNotificationPrefsClient({ highlightType }: Props = {}) {
         return next;
       });
     },
-    [types, slackState.linked],
+    [types, slackState.linked, slackState.workspaceActive],
   );
 
   const dirtyCount = useMemo(() => {
