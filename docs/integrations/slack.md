@@ -513,8 +513,10 @@ los tipos (nadie recibe spam por sorpresa).
   `dmChannelId` (`conversations.open` → `slackOpenDm`), arma la tarjeta con
   `buildNotificationBlocks` y **reusa `SlackOutbox`** (helpers `outbox.ts`: encolar +
   enviar; el cron `flush-slack-outbox` reintenta los transitorios, descarta los
-  permanentes). Es una **capa independiente**: si el evento ya salió a un canal
-  compartido, el DM personal igual se envía porque el usuario lo pidió.
+  permanentes). **Sin duplicar**: si `dispatchSlackForNotification` publicará en
+  un canal compartido (ruteo KEY/CATEGORY/MODULE, canal default, sala de deal,
+  hilo de ronda o puente de instalación), `notify()` omite el DM personal aunque
+  el usuario tenga opt-in Slack activo.
 - **Aislamiento**: tenant por `getTenantForTeam`/`getWorkspaceForTenant`; identidad por
   `SlackUserLink`. Sin vínculo → no hay DM (la UI ya deshabilita la columna). Solo
   admins (los portales no tienen vínculo).
@@ -1090,7 +1092,8 @@ en `docs/crm/velocidad-comercial.md`.
   (`cotizaciones/[id]/view`) llama `emitQuoteViewed` (throttle 30 min por cotización).
 - Tarjeta: "🔥 {Contacto} de {Empresa} está viendo {código} AHORA (vista #N)" + monto +
   vigencia + línea 📞 Llamar + botones 🟢 WhatsApp ("¿te llamo?") · ⏰ Recordar 1h.
-- El owner recibe el DM personal vía la capa F6 (broadcast a admins CPQ opt-in).
+- El owner recibe la alerta en el **canal compartido** (ruteo CPQ/default). El DM
+  personal solo aplica si **no** hay destino en canal (sin duplicar).
 
 ## B4 — Pipeline vivo (`/opai pipeline`) + `/opai cotizaciones`
 

@@ -72,41 +72,43 @@ export async function hasExplicitSlackChannelRoute(
   return count > 0;
 }
 
-export async function dispatchSlackForNotification(input: DispatchInput): Promise<void> {
-  // Notificación marcada para NO re-postear a Slack (p. ej. mención cuyo origen
-  // ya fue Slack): la entrega in-app/push la maneja notify(); acá se corta.
-  if (input.data?.skipSlack === true) return;
+interface SharedSlackChannelResolution {
+  workspace: NonNullable<Awaited<ReturnType<typeof getWorkspaceForTenant>>>;
+  channelId: string;
+  dealRoomLifecycleOnly: boolean;
+  openDealRoomDealId: string | null;
+  threadRondaId: string | null;
+  rondaThreadTs?: string;
+}
+
+/** Resuelve si la notificación caerá en un canal compartido (KEY/CATEGORY/MODULE/default, sala, hilo ronda o instalación). */
+export async function resolveSlackSharedChannelDestination(input: {
+  tenantId: string;
+  typeDef: UnifiedNotificationType;
+  data?: Record<string, unknown> | null;
+}): Promise<SharedSlackChannelResolution | null> {
+  if (input.data?.skipSlack === true) return null;
 
   const workspace = await getWorkspaceForTenant(input.tenantId);
-  if (!workspace) return; // tenant sin Slack conectado
+  if (!workspace) return null;
 
-  // Deal Rooms (Fase 16): si el evento trae `dealId` con sala OPEN, el destino
-  // es LA SALA — EN VEZ del canal de categoría (decisión: no duplicar). Los
-  // negocios sin sala siguen el ruteo normal por categoría/módulo. Tras publicar
-  // se refresca la ficha viva fijada.
   const dealId = typeof input.data?.dealId === "string" ? input.data.dealId : null;
   const dealRoom = dealId ? await getOpenDealRoom(input.tenantId, dealId) : null;
 
-  // Cierre del negocio en su sala (Fase 16, B5): la tarjeta de won/lost la maneja
-  // el ciclo de vida (resumen del bot + botones Archivar/Handoff). No publicamos
-  // la tarjeta genérica para no duplicar; solo refrescamos la ficha.
   if (dealRoom && dealId && (input.typeDef.key === "deal_won" || input.typeDef.key === "deal_lost")) {
-    const { postDealClosedCard } = await import("./deal-rooms/lifecycle");
-    await postDealClosedCard(input.tenantId, dealId, input.typeDef.key === "deal_won" ? "won" : "lost").catch((e) =>
-      console.error("[slack] postDealClosedCard falló:", e),
-    );
-    await refreshDealRoomFicha(input.tenantId, dealId).catch(() => {});
-    return;
+    return {
+      workspace,
+      channelId: dealRoom.slackChannelId,
+      dealRoomLifecycleOnly: true,
+      openDealRoomDealId: dealId,
+      threadRondaId: null,
+    };
   }
 
   let channelId = dealRoom
     ? dealRoom.slackChannelId
     : await resolveChannel(input.tenantId, input.typeDef, workspace.defaultChannelId);
 
-  // Hilo por ronda (Fase 19): cualquier evento ronda_* con data.rondaId cae en
-  // el hilo de esa ejecución. SOLO la tarjeta de `ronda_started` funda la raíz
-  // (si el tenant la apagó, el término va suelto). El hilo manda sobre el ruteo:
-  // si la ruta cambió a mitad de ronda, los replies siguen en su canal original.
   const threadRondaId =
     input.typeDef.key.startsWith("ronda_") && typeof input.data?.rondaId === "string"
       ? (input.data.rondaId as string)
@@ -123,9 +125,6 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     }
   }
 
-  // Rondas visibles: para eventos de una instalación, el canal puenteado de esa
-  // instalación es el destino primario. Si no existe puente, se usa el ruteo
-  // normal (por categoría/módulo/default, típicamente #op-rondas).
   if (!rondaThreadTs && RONDA_INSTALLATION_ROUTE_KEYS.has(input.typeDef.key)) {
     const installationId =
       typeof input.data?.installationId === "string" ? input.data.installationId : null;
@@ -139,7 +138,47 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     }
   }
 
-  if (!channelId) return; // sin ruta, canal por defecto ni canal de instalación
+  if (!channelId) return null;
+
+  return {
+    workspace,
+    channelId,
+    dealRoomLifecycleOnly: false,
+    openDealRoomDealId: dealRoom && dealId ? dealId : null,
+    threadRondaId,
+    rondaThreadTs,
+  };
+}
+
+/** True si `dispatchSlackForNotification` publicaría en un canal compartido (no DM). */
+export async function willDispatchSlackToSharedChannel(
+  tenantId: string,
+  typeDef: UnifiedNotificationType,
+  data?: Record<string, unknown> | null,
+): Promise<boolean> {
+  const destination = await resolveSlackSharedChannelDestination({ tenantId, typeDef, data });
+  return destination !== null;
+}
+
+export async function dispatchSlackForNotification(input: DispatchInput): Promise<void> {
+  const destination = await resolveSlackSharedChannelDestination(input);
+  if (!destination) return;
+
+  const { workspace, channelId, dealRoomLifecycleOnly, openDealRoomDealId, threadRondaId, rondaThreadTs } = destination;
+
+  const dealId = typeof input.data?.dealId === "string" ? input.data.dealId : null;
+
+  // Cierre del negocio en su sala (Fase 16, B5): la tarjeta de won/lost la maneja
+  // el ciclo de vida (resumen del bot + botones Archivar/Handoff). No publicamos
+  // la tarjeta genérica para no duplicar; solo refrescamos la ficha.
+  if (dealRoomLifecycleOnly && dealId) {
+    const { postDealClosedCard } = await import("./deal-rooms/lifecycle");
+    await postDealClosedCard(input.tenantId, dealId, input.typeDef.key === "deal_won" ? "won" : "lost").catch((e) =>
+      console.error("[slack] postDealClosedCard falló:", e),
+    );
+    await refreshDealRoomFicha(input.tenantId, dealId).catch(() => {});
+    return;
+  }
 
   // Tickets: dispatch tiene el id pero no el objeto → carga curada por ticketId.
   // Los demás eventos usan el renderer genérico sobre el data ya enriquecido en origen.
@@ -278,8 +317,8 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
 
   // Ficha viva al día: todo evento del negocio que cae en su sala re-edita la
   // tarjeta fijada (chat.update) para reflejar el estado actual. Best-effort.
-  if (dealRoom && dealId) {
-    await refreshDealRoomFicha(input.tenantId, dealId).catch((e) =>
+  if (openDealRoomDealId) {
+    await refreshDealRoomFicha(input.tenantId, openDealRoomDealId).catch((e) =>
       console.error("[slack] refresh ficha tras evento falló:", e),
     );
   }
