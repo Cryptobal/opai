@@ -111,6 +111,22 @@ export async function refreshDealRoomFicha(tenantId: string, dealId: string): Pr
   }).catch((e) => console.error("[slack] refreshDealRoomFicha falló:", e));
 }
 
+/**
+ * Supervisor a auto-invitar (Fase 3): el asignado ACTIVO de una instalación
+ * activada por este negocio (OpsAsignacionSupervisor). null si no hay. OPAI no
+ * modela supervisor en el deal → se llega por la instalación (activatedByDealId).
+ */
+async function resolveDealSupervisorAdminId(tenantId: string, dealId: string): Promise<string | null> {
+  const sup = await prisma.opsAsignacionSupervisor
+    .findFirst({
+      where: { tenantId, isActive: true, installation: { activatedByDealId: dealId } },
+      orderBy: { createdAt: "desc" },
+      select: { supervisorId: true },
+    })
+    .catch(() => null);
+  return sup?.supervisorId ?? null;
+}
+
 /** Resuelve el slackUserId de un Admin vinculado (para invitar a la sala). */
 async function slackUserIdForAdmin(workspaceId: string, adminId: string | null): Promise<string | null> {
   if (!adminId) return null;
@@ -172,12 +188,15 @@ export async function openDealRoom(
     return { ok: false, error: `No pude crear la sala en Slack (${code}).` };
   }
 
-  // 2) Invitar al actor + al owner del negocio (los que estén vinculados a Slack).
-  const [actorSlack, ownerSlack] = await Promise.all([
+  // 2) Invitar al actor + owner del negocio + supervisor de la instalación
+  //    (los que estén vinculados a Slack; los no vinculados se omiten sin fallar).
+  const supervisorAdminId = await resolveDealSupervisorAdminId(tenantId, dealId);
+  const [actorSlack, ownerSlack, supervisorSlack] = await Promise.all([
     slackUserIdForAdmin(ws.id, actorAdminId),
     slackUserIdForAdmin(ws.id, deal.account.ownerId),
+    slackUserIdForAdmin(ws.id, supervisorAdminId),
   ]);
-  const invitees = [...new Set([actorSlack, ownerSlack].filter((x): x is string => !!x))];
+  const invitees = [...new Set([actorSlack, ownerSlack, supervisorSlack].filter((x): x is string => !!x))];
   if (invitees.length) await slackConversationsInvite(ws.botToken, channel.id, invitees);
 
   // 3) Propósito del canal (contexto siempre visible en el header de Slack).
