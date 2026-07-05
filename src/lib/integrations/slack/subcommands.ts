@@ -97,6 +97,13 @@ export const SUBCOMMANDS: SubCommand[] = [
     callbackId: "opai_negocio",
   },
   {
+    name: "cuenta",
+    description: "busca un cliente por nombre o RUT (ficha: instalaciones, negocios, cotización, pago)",
+    usage: "cuenta <texto> (alias: cliente · instalacion)",
+    kind: "modal",
+    callbackId: "opai_cuenta",
+  },
+  {
     name: "cotizaciones",
     description: "bandeja de cotizaciones (filtra por estado)",
     usage: "cotizaciones [enviadas|borrador|aceptadas|rechazadas]",

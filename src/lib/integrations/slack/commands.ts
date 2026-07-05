@@ -63,6 +63,15 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
     subName = "negocio";
     rawRest = rawRest.replace(/^negocio(s)?\s*/i, "").trim();
   }
+  // Alias (Fase 1): `cliente`/`instalacion` (+ plurales) = `cuenta` (buscador de
+  // cuentas). También `/opai buscar cliente <texto>`.
+  if (subName === "buscar" && /^(cliente|instalaci[oó]n)(es)?\b/i.test(rawRest)) {
+    subName = "cuenta";
+    rawRest = rawRest.replace(/^(cliente|instalaci[oó]n)(es)?\s*/i, "").trim();
+  }
+  if (/^(cliente|clientes|instalaci[oó]n|instalaciones)$/i.test(subName)) {
+    subName = "cuenta";
+  }
   const sub = SUBCOMMANDS.find((c) => c.name === subName);
 
   // Subcomandos que abren un modal nativo (ticket, rendición, bandeja).

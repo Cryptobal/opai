@@ -137,6 +137,7 @@ export async function publishHome(tenantId: string, slackUserId: string): Promis
   const quick: { text: string; callbackId: string }[] = [];
   if (hasModuleAccess(linked.perms, "ops")) quick.push({ text: "➕ Nuevo ticket", callbackId: "opai_crear_ticket" });
   if (canView(linked.perms, "crm", "deals")) quick.push({ text: "📊 Pipeline", callbackId: "opai_pipeline" });
+  if (canView(linked.perms, "crm", "accounts")) quick.push({ text: "🔎 Buscar cliente", callbackId: "opai_cuenta" });
   if (leadsSinTomar != null) {
     // El contador de sin-tomar ES el botón: con pendientes abre la sub-bandeja
     // "sin tomar"; sin pendientes abre la bandeja general.
