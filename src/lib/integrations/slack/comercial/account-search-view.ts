@@ -14,6 +14,7 @@ import { normalizePhone } from "@/lib/psych/normalizePhone";
 import { packMetadata } from "../modals/views";
 import { modalTitle } from "../modals/title";
 import { clp } from "./deal-common";
+import { lastInteractionLabels } from "@/lib/crm/interaction-history";
 import { searchAccounts, type FoundAccount } from "./account-search";
 import type { SlackView } from "../modals/types";
 
@@ -45,7 +46,7 @@ function paymentLabel(a: FoundAccount): string {
 }
 
 /** Bloques de UNA fila de resultado de cuenta. */
-function resultRowBlocks(a: FoundAccount): unknown[] {
+function resultRowBlocks(a: FoundAccount, lastInteraction?: string): unknown[] {
   const quote = quoteLabel(a);
   const metrics = [
     `📍 ${a.activeInstallations} inst`,
@@ -55,7 +56,8 @@ function resultRowBlocks(a: FoundAccount): unknown[] {
   ].join(" · ");
   const title = `*${a.name}*${a.rut ? ` · ${a.rut}` : ""}`;
   const contact = a.contactName ? `\n👤 ${a.contactName}${a.contactPhone ? ` · ${a.contactPhone}` : ""}` : "";
-  const section = { type: "section", text: { type: "mrkdwn", text: `${title}\n${metrics}${contact}` } };
+  const inter = lastInteraction ? `\n_última interacción: ${lastInteraction}_` : "";
+  const section = { type: "section", text: { type: "mrkdwn", text: `${title}\n${metrics}${contact}${inter}` } };
 
   const btns: unknown[] = [
     { type: "button", action_id: "acct_open", url: accountOpaiUrl(a.id), text: pt("🔗 Abrir cliente") },
@@ -116,10 +118,11 @@ export async function accountSearchView(tenantId: string, q: string, notice?: st
   if (!accounts.length) {
     blocks.push({ type: "section", text: { type: "mrkdwn", text: `Sin resultados para *${q.trim().slice(0, 60)}*. Prueba con parte del nombre o el RUT.` } });
   } else {
+    const interactions = await lastInteractionLabels(tenantId, "account", accounts.map((a) => a.id));
     for (const a of accounts) {
       // Blindaje por fila: una fila corrupta se salta con log (regla Fase 1).
       try {
-        blocks.push(...resultRowBlocks(a));
+        blocks.push(...resultRowBlocks(a, interactions.get(a.id)));
       } catch (err) {
         console.error(`[slack] accountSearch: fila corrupta accountId=${a.id}:`, err);
       }

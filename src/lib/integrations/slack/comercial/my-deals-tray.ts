@@ -12,6 +12,7 @@ import { resolveLinkedAdmin } from "../user-link";
 import { slackUpdateView, slackPushView } from "../api";
 import { modalTitle } from "../modals/title";
 import { clp, resolveDealWaUrl } from "./deal-common";
+import { lastInteractionLabels } from "@/lib/crm/interaction-history";
 import { myDealsByRisk } from "./my-deals";
 import type { ModalDef, ModalOpenContext, SlackView } from "../modals/types";
 
@@ -30,9 +31,10 @@ const roomClientUrl = (teamId: string, channelId: string): string => `https://ap
 
 async function renderMyDeals(tenantId: string, adminId: string, teamId: string, canWrite: boolean, notice?: string): Promise<SlackView> {
   const deals = await myDealsByRisk(tenantId, adminId, 15);
-  const [waPairs, rooms] = await Promise.all([
+  const [waPairs, rooms, interactions] = await Promise.all([
     Promise.all(deals.map(async (d) => [d.id, await resolveDealWaUrl(tenantId, d.id).catch(() => null)] as const)),
     openRoomsFor(tenantId, deals.map((d) => d.id)),
+    lastInteractionLabels(tenantId, "deal", deals.map((d) => d.id)),
   ]);
   const waById = new Map(waPairs);
 
@@ -44,7 +46,8 @@ async function renderMyDeals(tenantId: string, adminId: string, teamId: string, 
     blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "Tus negocios abiertos, ordenados por riesgo de enfriarse." }] }, { type: "divider" });
     for (const d of deals) {
       const roomChannel = rooms.get(d.id) ?? null;
-      const line = `${roomChannel ? "🏠 " : ""}*${d.accountName}* · ${d.title}\n${clp(d.amount)} · ${d.stageName} · ⏱ ${d.daysInactive}d sin actividad`;
+      const li = interactions.get(d.id);
+      const line = `${roomChannel ? "🏠 " : ""}*${d.accountName}* · ${d.title}\n${clp(d.amount)} · ${d.stageName} · ⏱ ${d.daysInactive}d sin actividad${li ? `\n_última interacción: ${li}_` : ""}`;
       blocks.push({ type: "section", text: { type: "mrkdwn", text: line } });
       const btns: unknown[] = [];
       if (canWrite) btns.push({ type: "button", action_id: "mydeals_advance", value: d.id, text: pt("➡️ Avanzar") });

@@ -55,3 +55,26 @@ export async function lastInteractionLabel(tenantId: string, entityType: string,
     return null;
   }
 }
+
+/**
+ * Versión batch para tarjetas en lista (Fase 7): última interacción por entidad.
+ * Devuelve Map<entityId, "🤝 hace 2d">. Best-effort: Map vacío si la query falla.
+ */
+export async function lastInteractionLabels(tenantId: string, entityType: string, entityIds: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (!entityIds.length) return out;
+  try {
+    const notes = await prisma.crmNote.findMany({
+      where: { tenantId, entityType, entityId: { in: entityIds }, interactionType: { not: null } },
+      orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
+      select: { entityId: true, interactionType: true, occurredAt: true, createdAt: true },
+    });
+    for (const n of notes) {
+      if (out.has(n.entityId)) continue;
+      out.set(n.entityId, `${interactionLabel(n.interactionType)} · ${agoLabel(n.occurredAt ?? n.createdAt)}`);
+    }
+  } catch (err) {
+    console.error("[crm] lastInteractionLabels falló:", err);
+  }
+  return out;
+}

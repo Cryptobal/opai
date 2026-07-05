@@ -13,6 +13,7 @@ import { getTenantForTeam, getWorkspaceForTenant } from "../workspace";
 import { resolveLinkedAdmin } from "../user-link";
 import { slackPostMessage, slackRespondUrl, slackOpenView } from "../api";
 import { clp, resolveDealWaUrl } from "./deal-common";
+import { lastInteractionLabel } from "@/lib/crm/interaction-history";
 import { resolveComercialChannel } from "./quote-stale";
 import { advanceView, interactionView, lostView } from "./pipeline";
 
@@ -44,7 +45,7 @@ async function shouldSkip(tenantId: string, dealId: string): Promise<boolean> {
   return true;
 }
 
-interface StaleDeal { id: string; title: string; accountName: string; monto: number; stageName: string; days: number }
+interface StaleDeal { id: string; title: string; accountName: string; monto: number; stageName: string; days: number; lastInteraction?: string | null }
 
 export function staleDealCard(d: StaleDeal, waUrl: string | null): { text: string; blocks: unknown[] } {
   const actions: unknown[] = [
@@ -57,7 +58,7 @@ export function staleDealCard(d: StaleDeal, waUrl: string | null): { text: strin
     { type: "button", action_id: "dealstale_lost", value: d.id, style: "danger", text: pt("💔 Perdido") },
   );
   const blocks: unknown[] = [
-    { type: "section", text: { type: "mrkdwn", text: `😴 *${d.accountName}* · ${d.title} lleva *${d.days}d* sin movimiento (${d.stageName}${d.monto ? ` · ${clp(d.monto)}` : ""})` } },
+    { type: "section", text: { type: "mrkdwn", text: `😴 *${d.accountName}* · ${d.title} lleva *${d.days}d* sin movimiento (${d.stageName}${d.monto ? ` · ${clp(d.monto)}` : ""})${d.lastInteraction ? `\n_última interacción: ${d.lastInteraction}_` : ""}` } },
     { type: "actions", block_id: `opai_dealstale_${d.id}`, elements: actions },
   ];
   return { text: `😴 ${d.accountName} lleva ${d.days}d sin movimiento`, blocks };
@@ -90,9 +91,12 @@ export async function sweepStaleDeals(tenantId: string): Promise<{ scanned: numb
     if (days < staleDays) continue;
     if (await shouldSkip(tenantId, d.id)) continue;
 
-    const waUrl = await resolveDealWaUrl(tenantId, d.id).catch(() => null);
+    const [waUrl, lastInteraction] = await Promise.all([
+      resolveDealWaUrl(tenantId, d.id).catch(() => null),
+      lastInteractionLabel(tenantId, "deal", d.id),
+    ]);
     const card = staleDealCard(
-      { id: d.id, title: (d.title || "Negocio").trim() || "Negocio", accountName: (d.account?.name || "Cliente").trim() || "Cliente", monto: Number(d.amount ?? 0), stageName: d.stage?.name ?? "Sin etapa", days },
+      { id: d.id, title: (d.title || "Negocio").trim() || "Negocio", accountName: (d.account?.name || "Cliente").trim() || "Cliente", monto: Number(d.amount ?? 0), stageName: d.stage?.name ?? "Sin etapa", days, lastInteraction },
       waUrl && /^https:\/\//.test(waUrl) ? waUrl : null,
     );
     try {

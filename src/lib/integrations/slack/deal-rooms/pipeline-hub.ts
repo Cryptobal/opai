@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { getWorkspaceForTenant, type ActiveWorkspace } from "../workspace";
 import { slackCreateConversation, slackPostMessage, slackUpdateMessage, slackPinsAdd, slackListPublicChannels, SlackApiError } from "../api";
 import { getDealRoomConfig, getPipelineHubState, setPipelineHubState } from "./config";
+import { lastInteractionLabels } from "@/lib/crm/interaction-history";
 
 const HUB_NAME = "pipeline";
 const DEBOUNCE_MS = 4000;
@@ -49,12 +50,13 @@ async function buildBoardBlocks(tenantId: string): Promise<unknown[]> {
   }
   const channelByDeal = new Map(rooms.map((r) => [r.dealId, r.slackChannelId]));
   const dealIds = rooms.map((r) => r.dealId);
-  const [deals, lastChanges] = await Promise.all([
+  const [deals, lastChanges, interactions] = await Promise.all([
     prisma.crmDeal.findMany({
       where: { tenantId, id: { in: dealIds }, status: "open" },
       select: { id: true, amount: true, account: { select: { name: true } }, stage: { select: { id: true, name: true, order: true } } },
     }),
     prisma.crmDealStageHistory.groupBy({ by: ["dealId"], where: { tenantId, dealId: { in: dealIds } }, _max: { changedAt: true } }),
+    lastInteractionLabels(tenantId, "deal", dealIds),
   ]);
   const changedAtByDeal = new Map(lastChanges.map((c) => [c.dealId, c._max.changedAt]));
 
@@ -67,7 +69,8 @@ async function buildBoardBlocks(tenantId: string): Promise<unknown[]> {
     const changedAt = changedAtByDeal.get(d.id) ?? null;
     const days = changedAt ? daysSince(changedAt) : 0;
     const monto = Number(d.amount ?? 0);
-    g.lines.push(`• <#${channel}> · ${d.account?.name ?? "Cliente"}${monto ? ` · ${fmtClp(monto)}` : ""} · ⏱ ${days}d`);
+    const li = interactions.get(d.id);
+    g.lines.push(`• <#${channel}> · ${d.account?.name ?? "Cliente"}${monto ? ` · ${fmtClp(monto)}` : ""} · ⏱ ${days}d${li ? ` · ${li}` : ""}`);
     byStage.set(d.stage.id, g);
   }
 
