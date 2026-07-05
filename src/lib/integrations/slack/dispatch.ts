@@ -53,6 +53,25 @@ export async function resolveChannel(
   return byType("KEY") ?? byType("CATEGORY") ?? byType("MODULE") ?? defaultChannelId;
 }
 
+/** True si el tenant tiene ruteo explícito (evento, categoría o módulo) para este tipo. */
+export async function hasExplicitSlackChannelRoute(
+  tenantId: string,
+  typeDef: UnifiedNotificationType,
+): Promise<boolean> {
+  const count = await prisma.slackChannelRoute.count({
+    where: {
+      tenantId,
+      enabled: true,
+      OR: [
+        { matchType: "KEY", matchValue: typeDef.key },
+        { matchType: "CATEGORY", matchValue: typeDef.category },
+        { matchType: "MODULE", matchValue: typeDef.module },
+      ],
+    },
+  });
+  return count > 0;
+}
+
 export async function dispatchSlackForNotification(input: DispatchInput): Promise<void> {
   // Notificación marcada para NO re-postear a Slack (p. ej. mención cuyo origen
   // ya fue Slack): la entrega in-app/push la maneja notify(); acá se corta.

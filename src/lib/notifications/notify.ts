@@ -1,7 +1,10 @@
 import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resend, getTenantEmailConfig } from "@/lib/resend";
-import { dispatchSlackForNotification } from "@/lib/integrations/slack/dispatch";
+import {
+  dispatchSlackForNotification,
+  hasExplicitSlackChannelRoute,
+} from "@/lib/integrations/slack/dispatch";
 import { render } from "@react-email/render";
 import NotificationEmail from "@/emails/NotificationEmail";
 import { resolvePermissions } from "@/lib/permissions-server";
@@ -75,6 +78,13 @@ export async function notify(params: NotifyParams): Promise<{ delivered: number 
     ? await fetchRecipientsByIds(params.tenantId, subType, params.targetIds)
     : await fetchAudienceRecipients(params.tenantId, subType, typeDef);
   if (recipients.length === 0) return { delivered: 0 };
+
+  // Si el evento ya tiene ruteo explícito a un canal compartido, no duplicar
+  // en el DM personal del bot (p. ej. postulaciones → #rrhh-postulantes).
+  const skipPersonalSlackDmForRoute = await hasExplicitSlackChannelRoute(
+    params.tenantId,
+    typeDef,
+  );
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: params.tenantId },
@@ -180,10 +190,12 @@ export async function notify(params: NotifyParams): Promise<{ delivered: number 
     }
 
     // Slack personal (DM del bot) — solo admins vinculados; opt-in. Quiet hours
-    // ya viene aplicado en prefs.slack. Capa independiente del ruteo tenant.
+    // ya viene aplicado en prefs.slack. Se omite si hay ruteo explícito a canal
+    // compartido (evita duplicar con #rrhh-postulantes, etc.).
     if (
       eff.slack &&
       subType === 'ADMIN' &&
+      !skipPersonalSlackDmForRoute &&
       !PERSONAL_SLACK_DM_SUPPRESSED_TYPES.has(typeDef.key)
     ) {
       const { dispatchPersonalSlackDm } = await import('@/lib/integrations/slack/personal-dm');

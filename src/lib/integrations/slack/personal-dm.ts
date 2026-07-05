@@ -2,8 +2,8 @@
  * Canal Slack PERSONAL (Fase 6): envía una notificación como DM del bot al
  * usuario, si tiene `SlackUserLink` y activó el canal `slack` para ese tipo.
  *
- * Capa distinta del ruteo tenant→canal compartido: si el evento ya salió a un
- * canal, el DM personal igual se envía porque el usuario lo pidió. Reusa el
+ * Capa distinta del ruteo tenant→canal compartido. Si hay ruteo explícito
+ * (evento/categoría/módulo), notify() omite el DM para no duplicar. Reusa el
  * `SlackOutbox` (misma confiabilidad + cron). El gate de quiet hours ya viene
  * aplicado en `resolvePrefs` (slack=false en No molestar salvo crítico).
  */
