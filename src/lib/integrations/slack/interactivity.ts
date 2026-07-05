@@ -230,6 +230,12 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     await handleAccountSearchAction(payload as never);
     return;
   }
+  // Bandeja "Mis negocios" (Fase 5): avanzar / interacción / abrir sala.
+  if (actionId?.startsWith("mydeals_")) {
+    const { handleMyDealsAction } = await import("./comercial/my-deals-tray");
+    await handleMyDealsAction(payload as never);
+    return;
+  }
   // Ficha viva de una Deal Room (Fase 16): Avanzar etapa / Nota.
   if (actionId?.startsWith("dealroom_")) {
     const { handleDealRoomAction } = await import("./deal-rooms/actions");

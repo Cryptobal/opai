@@ -20,6 +20,7 @@ import { visitaModal } from "./visita";
 import { turnoExtraModal } from "./turno-extra";
 import { dealSearchModal } from "../comercial/deal-search";
 import { accountSearchModal } from "../comercial/account-search-modal";
+import { myDealsModal } from "../comercial/my-deals-tray";
 
 export interface ActionDef extends ModalDef {
   /** Grupo visible en el hub (p. ej. "Tickets", "Operaciones", "Finanzas"). */
@@ -41,6 +42,8 @@ export const ACTIONS: ActionDef[] = [
   { ...dealSearchModal, group: "Comercial", emoji: "🔎" },
   // Comercial (Fase 1): buscador de cuentas/clientes (gate: ver Cuentas CRM).
   { ...accountSearchModal, group: "Comercial", emoji: "🔎" },
+  // Comercial (Fase 5): bandeja de mis negocios por riesgo (gate: ver Negocios CRM).
+  { ...myDealsModal, group: "Comercial", emoji: "💼" },
 ];
 
 export function getAction(id: string): ActionDef | undefined {

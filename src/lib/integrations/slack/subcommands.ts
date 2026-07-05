@@ -104,6 +104,12 @@ export const SUBCOMMANDS: SubCommand[] = [
     callbackId: "opai_cuenta",
   },
   {
+    name: "negocios",
+    description: "tus negocios abiertos ordenados por riesgo (con acciones de pipeline)",
+    kind: "modal",
+    callbackId: "opai_mis_negocios",
+  },
+  {
     name: "cotizaciones",
     description: "bandeja de cotizaciones (filtra por estado)",
     usage: "cotizaciones [enviadas|borrador|aceptadas|rechazadas]",
