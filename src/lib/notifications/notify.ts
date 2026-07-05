@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { resend, getTenantEmailConfig } from "@/lib/resend";
 import {
   dispatchSlackForNotification,
-  hasExplicitSlackChannelRoute,
+  willDispatchSlackToSharedChannel,
 } from "@/lib/integrations/slack/dispatch";
 import { render } from "@react-email/render";
 import NotificationEmail from "@/emails/NotificationEmail";
@@ -80,11 +80,12 @@ export async function notify(params: NotifyParams): Promise<{ delivered: number 
     : await fetchAudienceRecipients(params.tenantId, subType, typeDef);
   if (recipients.length === 0) return { delivered: 0 };
 
-  // Si el evento ya tiene ruteo explícito a un canal compartido, no duplicar
-  // en el DM personal del bot (p. ej. postulaciones → #rrhh-postulantes).
-  const skipPersonalSlackDmForRoute = await hasExplicitSlackChannelRoute(
+  // Si la notificación caerá en un canal compartido (ruteo explícito, default,
+  // sala de deal, hilo de ronda o puente de instalación), no duplicar en DM.
+  const skipPersonalSlackDmForRoute = await willDispatchSlackToSharedChannel(
     params.tenantId,
     typeDef,
+    params.data,
   );
 
   const [tenant, slackWorkspace] = await Promise.all([
@@ -196,8 +197,8 @@ export async function notify(params: NotifyParams): Promise<{ delivered: number 
     }
 
     // Slack personal (DM del bot) — solo admins vinculados; opt-in. Quiet hours
-    // ya viene aplicado en prefs.slack. Se omite si hay ruteo explícito a canal
-    // compartido (evita duplicar con #rrhh-postulantes, etc.).
+    // ya viene aplicado en prefs.slack. Se omite si la notificación caerá en un
+    // canal compartido (ruteo, default, sala, etc.) para no duplicar.
     if (
       eff.slack &&
       subType === 'ADMIN' &&
