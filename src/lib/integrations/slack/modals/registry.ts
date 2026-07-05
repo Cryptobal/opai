@@ -14,8 +14,10 @@ import { rejectReasonModal } from "../approvals/reason-modal";
 import { misRendicionesModal } from "./mis-rendiciones";
 import { leadsTrayModal, leadsTrayNuevosModal } from "../comercial/leads-tray";
 import { discardLeadModal } from "../comercial/lead-modals";
-import { pipelineModal, advanceStageModal, dealNoteModal, dealLostModal } from "../comercial/pipeline";
+import { pipelineModal, advanceStageModal, dealNoteModal, dealInteractionModal, dealLostModal } from "../comercial/pipeline";
 import { dealSearchModal } from "../comercial/deal-search";
+import { accountSearchModal } from "../comercial/account-search-modal";
+import { myDealsModal } from "../comercial/my-deals-tray";
 import { quotesTrayModal, quotesTrayFiltered } from "../comercial/quotes-tray";
 import { saveNoteModal } from "../deal-rooms/save-note";
 import { docsTrayModal } from "../docs/tray";
@@ -24,7 +26,7 @@ import { docTrackModal, docDismissModal } from "../docs/card-actions";
 const MODALS: ModalDef[] = [
   hubModal, trayModal, trayOverdueModal, inboxModal, rejectReasonModal, misRendicionesModal,
   leadsTrayModal, leadsTrayNuevosModal, discardLeadModal,
-  pipelineModal, advanceStageModal, dealNoteModal, dealLostModal, dealSearchModal,
+  pipelineModal, advanceStageModal, dealNoteModal, dealInteractionModal, dealLostModal, dealSearchModal, accountSearchModal, myDealsModal,
   quotesTrayModal, quotesTrayFiltered("sent"), quotesTrayFiltered("draft"), quotesTrayFiltered("accepted"), quotesTrayFiltered("rejected"),
   saveNoteModal, docsTrayModal, docTrackModal, docDismissModal,
   ...rowModals, ...ACTIONS,

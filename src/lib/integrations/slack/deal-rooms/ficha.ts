@@ -124,7 +124,7 @@ export function buildFichaBlocks(card: DealCard, waUrl: string | null): { text: 
     { type: "button", action_id: "dealroom_advance", value: card.dealId, text: pt("⏩ Avanzar etapa") },
   ];
   if (waUrl) elements.push({ type: "button", action_id: "dealroom_wa", url: waUrl, text: pt("🟢 WhatsApp") });
-  elements.push({ type: "button", action_id: "dealroom_note", value: card.dealId, text: pt("📝 Nota") });
+  elements.push({ type: "button", action_id: "dealroom_interaction", value: card.dealId, text: pt("➕ Interacción") });
   elements.push({ type: "button", action_id: "dealroom_open", url: `${base}/crm/deals/${card.dealId}`, text: pt("Abrir en OPAI") });
   blocks.push({ type: "actions", block_id: `dealroom_ficha_${card.dealId}`, elements });
 

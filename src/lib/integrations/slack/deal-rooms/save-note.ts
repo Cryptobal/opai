@@ -17,6 +17,7 @@ import { slackFetchMessage, slackGetPermalink, slackPostMessage } from "../api";
 import { ingestSlackFiles } from "../bridge-inbound-files";
 import { packMetadata } from "../modals/views";
 import { modalTitle } from "../modals/title";
+import { INTERACTION_TYPES, interactionLabel, isInteractionType, type InteractionTypeMeta } from "@/lib/crm/interaction-types";
 import type { ModalDef, ModalOpenContext, ModalSubmitContext, ModalSubmitResult, SlackView } from "../modals/types";
 import { getDealRoomByChannel, getOpenDealRoom, mirrorDealNoteToRoom } from "./room";
 
@@ -28,6 +29,20 @@ function previewBlock(text: string): unknown {
   const clean = (text || "").trim().replace(/\n+/g, " ").slice(0, 240);
   return { type: "context", elements: [{ type: "mrkdwn", text: clean ? `Mensaje: “${clean}”` : "Se guardará el mensaje seleccionado." }] };
 }
+
+const typeOption = (t: InteractionTypeMeta) => ({ text: pt(`${t.emoji} ${t.label}`), value: t.key });
+
+/** Selector de tipo de interacción (default 📝 Nota) + fecha opcional. */
+const typeAndDateInputs: unknown[] = [
+  {
+    type: "input", block_id: "itype", optional: true, label: pt("Tipo de interacción"),
+    element: { type: "static_select", action_id: "v", initial_option: typeOption(INTERACTION_TYPES[0]), options: INTERACTION_TYPES.map(typeOption) },
+  },
+  {
+    type: "input", block_id: "idate", optional: true, label: pt("¿Cuándo ocurrió? (opcional)"),
+    element: { type: "datepicker", action_id: "v", placeholder: pt("Fecha de la interacción") },
+  },
+];
 
 const noteInput: unknown = {
   type: "input", block_id: "note", optional: true, label: pt("Nota (opcional)"),
@@ -43,6 +58,7 @@ function roomSaveView(p: { dealId: string; dealTitle: string; channelId: string;
     blocks: [
       { type: "section", text: { type: "mrkdwn", text: `Se guardará en el negocio *${p.dealTitle}*.` } },
       previewBlock(p.preview),
+      ...typeAndDateInputs,
       noteInput,
     ],
   };
@@ -60,6 +76,7 @@ function searchSaveView(p: { channelId: string; messageTs: string; preview: stri
         type: "input", block_id: "entity", label: pt("Guardar en"),
         element: { type: "external_select", action_id: "v", min_query_length: 2, placeholder: pt("Busca cuenta, negocio o lead…") },
       },
+      ...typeAndDateInputs,
       noteInput,
     ],
   };
@@ -108,15 +125,21 @@ export const saveNoteModal: ModalDef = {
       entityId = id;
     }
 
+    // Tipo de interacción (default note) + fecha opcional (datepicker YYYY-MM-DD).
+    const rawType = ctx.state.itype?.v?.selected_option?.value ?? null;
+    const interactionType = isInteractionType(rawType) ? rawType : "note";
+    const occurredDate = ctx.state.idate?.v?.selected_date ?? null;
+    const occurredAt = occurredDate ? new Date(`${occurredDate}T12:00:00Z`) : null;
+
     const label = entityType === "deal" ? "el negocio" : entityType === "account" ? "la cuenta" : "el lead";
     // El armado del contenido (fetch del mensaje + permalink + archivos a R2) es
     // pesado → se difiere a after(); el modal confirma de inmediato.
     return {
-      ...doneView(`📝 Guardado en ${label}. Aparecerá en OPAI en segundos.`),
+      ...doneView(`${interactionLabel(interactionType)} guardada en ${label}. Aparecerá en OPAI en segundos.`),
       work: async () => {
         await persistSlackNote({
           tenantId: ctx.tenantId, adminId: ctx.linked.adminId,
-          entityType, entityId, channelId, messageTs, noteText,
+          entityType, entityId, channelId, messageTs, noteText, interactionType, occurredAt,
         });
       },
     };
@@ -128,6 +151,7 @@ export const saveNoteModal: ModalDef = {
 async function persistSlackNote(p: {
   tenantId: string; adminId: string;
   entityType: string; entityId: string; channelId: string; messageTs: string; noteText: string;
+  interactionType?: string; occurredAt?: Date | null;
 }): Promise<void> {
   const ws = await getWorkspaceForTenant(p.tenantId);
   if (!ws) return;
@@ -150,7 +174,10 @@ async function persistSlackNote(p: {
   content = content.trim() || "(nota guardada desde Slack)";
 
   await prisma.crmNote.create({
-    data: { tenantId: p.tenantId, entityType: p.entityType, entityId: p.entityId, content, mentions: [], createdBy: p.adminId },
+    data: {
+      tenantId: p.tenantId, entityType: p.entityType, entityId: p.entityId, content, mentions: [], createdBy: p.adminId,
+      interactionType: p.interactionType ?? null, occurredAt: p.occurredAt ?? null,
+    },
   }).catch((e) => console.error("[slack] persistSlackNote crear CrmNote falló:", e));
 
   // Espejo a la sala del negocio (decisión B2/B3): si el deal tiene sala.

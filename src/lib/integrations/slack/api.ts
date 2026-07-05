@@ -459,6 +459,13 @@ export async function slackSetPurpose(token: string, channelId: string, purpose:
   );
 }
 
+/** conversations.setTopic → etapa/estado visible del negocio en el header (best-effort). */
+export async function slackSetTopic(token: string, channelId: string, topic: string): Promise<void> {
+  await callSlack("conversations.setTopic", { channel: channelId, topic: topic.slice(0, 250) }, token).catch(
+    (e) => console.error("[slack] setTopic falló:", e instanceof SlackApiError ? e.slackError : e),
+  );
+}
+
 /** conversations.rename → renombra el canal (handoff a operación, Fase 16 B5). */
 export async function slackRenameConversation(token: string, channelId: string, name: string): Promise<{ name: string }> {
   const json = await callSlack("conversations.rename", { channel: channelId, name }, token);

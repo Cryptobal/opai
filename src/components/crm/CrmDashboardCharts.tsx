@@ -12,6 +12,7 @@ import {
   Pie,
   Cell,
   LabelList,
+  ReferenceLine,
 } from 'recharts';
 
 /* ─── Paleta coherente con el design system oscuro + teal ─── */
@@ -67,7 +68,7 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 
 /* ─── Leads por Mes ─── */
 
-export function LeadsByMonthChart({ data }: { data: LeadByMonthRow[] }) {
+export function LeadsByMonthChart({ data, average }: { data: LeadByMonthRow[]; average?: number }) {
   if (data.length === 0) return <EmptyChart message="Sin leads en el periodo" />;
 
   return (
@@ -83,6 +84,9 @@ export function LeadsByMonthChart({ data }: { data: LeadByMonthRow[] }) {
             <Bar dataKey="pending" stackId="stack" fill={PALETTE.amber} name="pending" />
             <Bar dataKey="in_review" stackId="stack" fill={PALETTE.blue} name="in_review" />
             <Bar dataKey="approved" stackId="stack" fill={PALETTE.teal} name="approved" radius={[3, 3, 0, 0]} />
+            {average != null && average > 0 && (
+              <ReferenceLine y={average} stroke={PALETTE.axis} strokeDasharray="4 4" label={{ value: `prom ${average}/mes`, position: 'insideTopRight', fontSize: 10, fill: PALETTE.axis }} />
+            )}
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -98,7 +102,7 @@ export function LeadsByMonthChart({ data }: { data: LeadByMonthRow[] }) {
 
 /* ─── Cotizaciones por Mes ─── */
 
-export function QuotesByMonthChart({ data }: { data: QuotesByMonthRow[] }) {
+export function QuotesByMonthChart({ data, average }: { data: QuotesByMonthRow[]; average?: number }) {
   if (data.length === 0) return <EmptyChart message="Sin cotizaciones en el periodo" />;
 
   return (
@@ -112,6 +116,9 @@ export function QuotesByMonthChart({ data }: { data: QuotesByMonthRow[] }) {
           <Bar dataKey="count" fill={PALETTE.teal} name="Cotizaciones" radius={[4, 4, 0, 0]}>
             <LabelList dataKey="count" position="top" style={{ fontSize: 10, fill: 'rgba(255,255,255,0.5)', fontWeight: 500 }} />
           </Bar>
+          {average != null && average > 0 && (
+            <ReferenceLine y={average} stroke={PALETTE.axis} strokeDasharray="4 4" label={{ value: `prom ${average}/mes`, position: 'insideTopRight', fontSize: 10, fill: PALETTE.axis }} />
+          )}
         </BarChart>
       </ResponsiveContainer>
     </div>

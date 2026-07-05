@@ -11,7 +11,9 @@ import { BRIEF_PROMPT } from "./daily-brief";
 
 export type SubCommand =
   | { name: string; description: string; usage?: string; kind: "prompt"; toPrompt: (rest: string) => string }
-  | { name: string; description: string; usage?: string; kind: "modal"; callbackId: string };
+  | { name: string; description: string; usage?: string; kind: "modal"; callbackId: string }
+  // `special`: efímero manejado a medida en commands.ts (ej. scorecard).
+  | { name: string; description: string; usage?: string; kind: "special"; key: string };
 
 export const SUBCOMMANDS: SubCommand[] = [
   {
@@ -95,6 +97,25 @@ export const SUBCOMMANDS: SubCommand[] = [
     usage: "negocio <texto>",
     kind: "modal",
     callbackId: "opai_negocio",
+  },
+  {
+    name: "cuenta",
+    description: "busca un cliente por nombre o RUT (ficha: instalaciones, negocios, cotización, pago)",
+    usage: "cuenta <texto> (alias: cliente · instalacion)",
+    kind: "modal",
+    callbackId: "opai_cuenta",
+  },
+  {
+    name: "negocios",
+    description: "tus negocios abiertos ordenados por riesgo (con acciones de pipeline)",
+    kind: "modal",
+    callbackId: "opai_mis_negocios",
+  },
+  {
+    name: "metricas",
+    description: "scorecard comercial del mes (leads, cotizaciones, conversión vs promedio)",
+    kind: "special",
+    key: "scorecard",
   },
   {
     name: "cotizaciones",

@@ -346,8 +346,11 @@ export async function changeDealStage(input: {
       try {
         const { maybeAutoOpenDealRoom } = await import("@/lib/integrations/slack/deal-rooms/room");
         await maybeAutoOpenDealRoom(ctx.tenantId, updatedDeal.id, ctx.userId);
+        // Sincroniza etapa → sala (ficha + topic + naming). No-op si no hay sala.
+        const { syncDealRoomStage } = await import("@/lib/integrations/slack/deal-rooms/stage-sync");
+        await syncDealRoomStage(ctx.tenantId, updatedDeal.id);
       } catch (e) {
-        console.error("[slack] auto-open deal room failed:", e);
+        console.error("[slack] auto-open/sync deal room failed:", e);
       }
     }
 

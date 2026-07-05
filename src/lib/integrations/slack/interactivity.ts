@@ -224,6 +224,18 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     await handleDealSearchAction(payload as never);
     return;
   }
+  // Buscador de cuentas (Fase 1): "Ver negocios" abre el buscador pre-filtrado.
+  if (actionId?.startsWith("acct_")) {
+    const { handleAccountSearchAction } = await import("./comercial/account-search-modal");
+    await handleAccountSearchAction(payload as never);
+    return;
+  }
+  // Bandeja "Mis negocios" (Fase 5): avanzar / interacción / abrir sala.
+  if (actionId?.startsWith("mydeals_")) {
+    const { handleMyDealsAction } = await import("./comercial/my-deals-tray");
+    await handleMyDealsAction(payload as never);
+    return;
+  }
   // Ficha viva de una Deal Room (Fase 16): Avanzar etapa / Nota.
   if (actionId?.startsWith("dealroom_")) {
     const { handleDealRoomAction } = await import("./deal-rooms/actions");
@@ -240,6 +252,12 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
   if (actionId?.startsWith("qstale_")) {
     const { handleStaleQuoteAction } = await import("./comercial/quote-stale");
     await handleStaleQuoteAction(payload as never);
+    return;
+  }
+  // Barrido de negocios estancados (Fase 5): Avanzar / Nota / Posponer / Perdido.
+  if (actionId?.startsWith("dealstale_")) {
+    const { handleStaleDealAction } = await import("./comercial/deal-stale");
+    await handleStaleDealAction(payload as never);
     return;
   }
   // Bandeja de documentos por vencer (Fase 18): abrir / filtros / paginación.

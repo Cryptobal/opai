@@ -33,16 +33,29 @@ export interface OpenDealRoomResult {
   error?: string;
 }
 
-/** Normaliza el nombre del cliente a un nombre de canal Slack válido: `neg-{slug}`. */
-export function dealRoomChannelName(accountName: string): string {
-  const slug = (accountName || "negocio")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "") // quita tildes (marcas diacríticas combinantes)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 74) || "negocio";
-  return `neg-${slug}`.slice(0, 80);
+/** Slugifica a caracteres válidos de canal Slack (minúsculas, dígitos, guiones). */
+export function slackSlug(raw: string, max: number, fallback: string): string {
+  return (
+    (raw || fallback)
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "") // quita tildes (marcas diacríticas combinantes)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, max) || fallback
+  );
+}
+
+/**
+ * Nombre de canal Slack válido para la sala: `{prefix}-{slug-cliente}`.
+ * `prefix` opcional (default "neg", retrocompatible) permite reflejar la etapa
+ * en el nombre (naming "stagePrefix"/"emoji", Fase 3). Slack no admite emoji en
+ * nombres → el prefijo es siempre ascii; el emoji de macro-fase vive en el topic.
+ */
+export function dealRoomChannelName(accountName: string, prefix = "neg"): string {
+  const slug = slackSlug(accountName, 74, "negocio");
+  const pfx = slackSlug(prefix, 20, "neg");
+  return `${pfx}-${slug}`.slice(0, 80);
 }
 
 /** Devuelve la sala (cualquier estado) de un negocio, o null. */
@@ -96,6 +109,22 @@ export async function refreshDealRoomFicha(tenantId: string, dealId: string): Pr
   await slackUpdateMessage(ws.botToken, {
     channel: room.slackChannelId, ts: room.fichaTs, text: ficha.text, blocks: ficha.blocks,
   }).catch((e) => console.error("[slack] refreshDealRoomFicha falló:", e));
+}
+
+/**
+ * Supervisor a auto-invitar (Fase 3): el asignado ACTIVO de una instalación
+ * activada por este negocio (OpsAsignacionSupervisor). null si no hay. OPAI no
+ * modela supervisor en el deal → se llega por la instalación (activatedByDealId).
+ */
+async function resolveDealSupervisorAdminId(tenantId: string, dealId: string): Promise<string | null> {
+  const sup = await prisma.opsAsignacionSupervisor
+    .findFirst({
+      where: { tenantId, isActive: true, installation: { activatedByDealId: dealId } },
+      orderBy: { createdAt: "desc" },
+      select: { supervisorId: true },
+    })
+    .catch(() => null);
+  return sup?.supervisorId ?? null;
 }
 
 /** Resuelve el slackUserId de un Admin vinculado (para invitar a la sala). */
@@ -159,12 +188,15 @@ export async function openDealRoom(
     return { ok: false, error: `No pude crear la sala en Slack (${code}).` };
   }
 
-  // 2) Invitar al actor + al owner del negocio (los que estén vinculados a Slack).
-  const [actorSlack, ownerSlack] = await Promise.all([
+  // 2) Invitar al actor + owner del negocio + supervisor de la instalación
+  //    (los que estén vinculados a Slack; los no vinculados se omiten sin fallar).
+  const supervisorAdminId = await resolveDealSupervisorAdminId(tenantId, dealId);
+  const [actorSlack, ownerSlack, supervisorSlack] = await Promise.all([
     slackUserIdForAdmin(ws.id, actorAdminId),
     slackUserIdForAdmin(ws.id, deal.account.ownerId),
+    slackUserIdForAdmin(ws.id, supervisorAdminId),
   ]);
-  const invitees = [...new Set([actorSlack, ownerSlack].filter((x): x is string => !!x))];
+  const invitees = [...new Set([actorSlack, ownerSlack, supervisorSlack].filter((x): x is string => !!x))];
   if (invitees.length) await slackConversationsInvite(ws.botToken, channel.id, invitees);
 
   // 3) Propósito del canal (contexto siempre visible en el header de Slack).
@@ -196,6 +228,8 @@ export async function openDealRoom(
       action: "CREATE", entity: "CrmDealSlackRoom", entityId: dealId, tenantId, userId: actorAdminId,
       details: { slackChannelId: channel.id, slackChannelName: channel.name, via: "slack" },
     });
+    // Board del hub #pipeline (Fase 3): refresca para incluir la nueva sala.
+    await import("./pipeline-hub").then((m) => m.refreshPipelineHub(tenantId)).catch(() => {});
     return { ok: true, channelId: room.slackChannelId, channelName: room.slackChannelName };
   } catch (err) {
     // Carrera: otro click creó la sala primero → devolver la que ganó.

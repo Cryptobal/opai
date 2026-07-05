@@ -13,7 +13,7 @@ import { getTenantForTeam, getWorkspaceForTenant } from "../workspace";
 import { resolveLinkedAdmin } from "../user-link";
 import { canEdit } from "@/lib/permissions";
 import { slackOpenView, slackUpdateMessage, slackRespondUrl } from "../api";
-import { advanceView, noteView } from "../comercial/pipeline";
+import { advanceView, noteView, interactionView } from "../comercial/pipeline";
 import { assistantSection } from "../blocks";
 
 interface Payload {
@@ -33,7 +33,7 @@ export async function handleDealRoomAction(payload: Payload): Promise<void> {
   const dealId = action?.value;
   // Los botones URL (wa / open) no llevan value ni requieren trabajo.
   if (!teamId || !slackUserId || !actionId || !dealId) return;
-  const isModalBtn = actionId === "dealroom_advance" || actionId === "dealroom_note";
+  const isModalBtn = actionId === "dealroom_advance" || actionId === "dealroom_note" || actionId === "dealroom_interaction";
   const isCloseBtn = actionId === "dealroom_archive" || actionId === "dealroom_handoff";
   if (!isModalBtn && !isCloseBtn) return;
 
@@ -46,10 +46,13 @@ export async function handleDealRoomAction(payload: Payload): Promise<void> {
   if (!canEdit(linked.perms, "crm", "deals")) return;
   const tenantId = workspace.tenantId;
 
-  // Ficha viva: abrir modal Avanzar / Nota.
+  // Ficha viva: abrir modal Avanzar / Interacción / Nota.
   if (isModalBtn) {
     if (!payload.trigger_id) return;
-    const view = actionId === "dealroom_advance" ? await advanceView(tenantId, dealId) : noteView(dealId);
+    const view =
+      actionId === "dealroom_advance" ? await advanceView(tenantId, dealId)
+      : actionId === "dealroom_interaction" ? interactionView(dealId)
+      : noteView(dealId);
     await slackOpenView(workspace.botToken, payload.trigger_id, view).catch((e) =>
       console.error("[slack] dealroom action abrir modal falló:", e),
     );

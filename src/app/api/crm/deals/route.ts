@@ -129,6 +129,15 @@ export async function POST(request: NextRequest) {
       createdBy: ctx.userId,
     });
 
+    // Auto-apertura de sala desde la Oportunidad (Fase 3): default OFF; abre solo
+    // si el tenant lo activó y el negocio supera el umbral. Best-effort, no bloquea.
+    try {
+      const { maybeAutoOpenDealRoom } = await import("@/lib/integrations/slack/deal-rooms/room");
+      await maybeAutoOpenDealRoom(ctx.tenantId, deal.id, ctx.userId);
+    } catch (e) {
+      console.error("[slack] auto-open deal room on create failed:", e);
+    }
+
     return NextResponse.json({ success: true, data: deal }, { status: 201 });
   } catch (error) {
     console.error("Error creating CRM deal:", error);
