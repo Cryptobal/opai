@@ -173,6 +173,22 @@ function v2ToolDefinitions() {
     {
       type: "function" as const,
       function: {
+        name: "get_deal_notes",
+        description:
+          "Historial de notas e interacciones registradas de UN negocio (llamados, reuniones, visitas, contactos, notas), más reciente primero. Úsalo para responder '¿qué ha pasado con este negocio?' o '¿en qué quedamos?'. Requiere el UUID del deal (obtenlo con search_deals).",
+        parameters: {
+          type: "object",
+          properties: {
+            dealId: { type: "string", description: "UUID del negocio (deal)." },
+            limit: { type: "number", description: "Máximo de interacciones (default 10, tope 20)." },
+          },
+          required: ["dealId"],
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
         name: "search_installations",
         description:
           "Busca instalaciones por nombre, dirección, ciudad o nombre del cliente (cuenta); incluye supervisor asignado si existe. Acepta filtros accountId/status. Para 'las instalaciones del cliente X' puedes llamarla directo con query: 'X'.",
@@ -1987,6 +2003,33 @@ async function toolSearchDeals(tenantId: string, query: string | undefined, stat
     updatedAt: r.updatedAt.toISOString(),
     url: `/crm/deals/${r.id}`,
   }));
+}
+
+async function toolGetDealNotes(tenantId: string, dealId: string, limit: number) {
+  const take = Math.max(1, Math.min(20, limit || 10));
+  const notes = await prisma.crmNote.findMany({
+    where: { tenantId, entityType: "deal", entityId: dealId },
+    orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
+    take,
+    select: { interactionType: true, occurredAt: true, createdAt: true, content: true, createdBy: true },
+  });
+  if (!notes.length) return { dealId, count: 0, interactions: [] };
+  // Resolver nombres de autor (una query).
+  const adminIds = [...new Set(notes.map((n) => n.createdBy).filter(Boolean))] as string[];
+  const admins = adminIds.length
+    ? await prisma.admin.findMany({ where: { id: { in: adminIds }, tenantId }, select: { id: true, name: true } })
+    : [];
+  const nameById = new Map(admins.map((a) => [a.id, a.name]));
+  return {
+    dealId,
+    count: notes.length,
+    interactions: notes.map((n) => ({
+      type: n.interactionType ?? "note",
+      date: (n.occurredAt ?? n.createdAt).toISOString().slice(0, 10),
+      author: nameById.get(n.createdBy) ?? "—",
+      content: n.content.slice(0, 400),
+    })),
+  };
 }
 
 async function toolGetDealPipeline(tenantId: string) {
@@ -6867,6 +6910,15 @@ export async function executeToolCallV2(
         };
       case "get_deal_pipeline":
         return { ok: true, data: await toolGetDealPipeline(tenantId) };
+      case "get_deal_notes":
+        return {
+          ok: true,
+          data: await toolGetDealNotes(
+            tenantId,
+            typeof args.dealId === "string" ? args.dealId : "",
+            typeof args.limit === "number" ? args.limit : 10,
+          ),
+        };
       case "search_installations":
         return {
           ok: true,

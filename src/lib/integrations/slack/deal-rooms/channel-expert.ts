@@ -10,6 +10,8 @@
 import { clp } from "../comercial/deal-common";
 import { isChannelExcluded } from "../channel-exclusions";
 import { readChannelContextForTool } from "../presence";
+import { recentInteractions, agoLabel } from "@/lib/crm/interaction-history";
+import { interactionLabel } from "@/lib/crm/interaction-types";
 import { loadDealCard } from "./ficha";
 import { getDealRoomByChannel } from "./room";
 
@@ -36,6 +38,16 @@ export async function buildDealRoomContextHint(tenantId: string, channelId: stri
     `- Owner: ${card.ownerName ?? "—"}`,
   ].join("\n");
 
+  // Interacciones tipificadas registradas del negocio (Fase 4): memoria comercial
+  // (llamados/reuniones/visitas) que NO vive en el chat del canal. Best-effort.
+  let interacciones = "";
+  const recientes = await recentInteractions(tenantId, "deal", room.dealId, 5).catch(() => []);
+  if (recientes.length) {
+    interacciones = recientes
+      .map((i) => `- ${interactionLabel(i.type)} (${agoLabel(i.at)}): ${i.content.replace(/\n+/g, " ").slice(0, 200)}`)
+      .join("\n");
+  }
+
   // Conversación reciente de la sala (B8): reusa el lector con resolución de
   // nombres; sin persistir nada. Best-effort.
   let convo = "";
@@ -53,6 +65,8 @@ export async function buildDealRoomContextHint(tenantId: string, channelId: stri
     ``,
     `FICHA DEL NEGOCIO (datos CRM en vivo):`,
     fichaLines,
+    ``,
+    interacciones ? `ÚLTIMAS INTERACCIONES REGISTRADAS (más reciente primero):\n${interacciones}` : `(Sin interacciones tipificadas registradas.)`,
     ``,
     convo ? `CONVERSACIÓN RECIENTE DE LA SALA (más nueva al final):\n${convo}` : `(La sala no tiene conversación reciente legible.)`,
     ``,
