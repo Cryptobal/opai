@@ -74,6 +74,25 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
   }
   const sub = SUBCOMMANDS.find((c) => c.name === subName);
 
+  // Subcomandos "special" (efímeros a medida). Scorecard comercial (Fase 6).
+  if (sub?.kind === "special" && sub.key === "scorecard") {
+    const linked = await resolveLinkedAdmin(workspace, slackUserId);
+    if (!linked) {
+      const linkPrompt = buildLinkPrompt(workspace, slackUserId);
+      await slackRespondUrl(responseUrl, { response_type: "ephemeral", replace_original: true, text: linkPrompt.text, blocks: linkPrompt.blocks });
+      return;
+    }
+    const { canView } = await import("@/lib/permissions");
+    if (!canView(linked.perms, "crm", "deals")) {
+      await ephemeral("Necesitas acceso a Negocios (CRM) para ver el scorecard.");
+      return;
+    }
+    const { buildScorecardBlocks } = await import("./comercial/scorecard");
+    const sc = await buildScorecardBlocks(workspace.tenantId);
+    await ephemeral(sc.text, sc.blocks);
+    return;
+  }
+
   // Subcomandos que abren un modal nativo (ticket, rendición, bandeja).
   if (sub?.kind === "modal") {
     if (!input.triggerId) {
