@@ -172,11 +172,29 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
   // el ciclo de vida (resumen del bot + botones Archivar/Handoff). No publicamos
   // la tarjeta genérica para no duplicar; solo refrescamos la ficha.
   if (dealRoomLifecycleOnly && dealId) {
+    const kind: "won" | "lost" = input.typeDef.key === "deal_won" ? "won" : "lost";
     const { postDealClosedCard } = await import("./deal-rooms/lifecycle");
-    await postDealClosedCard(input.tenantId, dealId, input.typeDef.key === "deal_won" ? "won" : "lost").catch((e) =>
+    await postDealClosedCard(input.tenantId, dealId, kind).catch((e) =>
       console.error("[slack] postDealClosedCard falló:", e),
     );
     await refreshDealRoomFicha(input.tenantId, dealId).catch(() => {});
+    // Cierre automático (Fase 3): ganar → canal operativo (handoff), perder →
+    // archivar. Config por tenant (default: ambos ON). Los botones de la tarjeta
+    // quedan de respaldo/rehacer. Best-effort: no rompe el dispatch.
+    try {
+      const { getDealRoomConfig } = await import("./deal-rooms/config");
+      const cfg = await getDealRoomConfig(input.tenantId);
+      const actor = typeof input.data?.actorAdminId === "string" ? input.data.actorAdminId : "system";
+      if (kind === "won" && cfg.autoHandoffOnWon) {
+        const { handoffDealRoomToOps } = await import("./deal-rooms/lifecycle");
+        await handoffDealRoomToOps(input.tenantId, dealId, actor).catch((e) => console.error("[slack] auto-handoff falló:", e));
+      } else if (kind === "lost" && cfg.autoArchiveOnLost) {
+        const { archiveDealRoom } = await import("./deal-rooms/lifecycle");
+        await archiveDealRoom(input.tenantId, dealId, actor).catch((e) => console.error("[slack] auto-archive falló:", e));
+      }
+    } catch (e) {
+      console.error("[slack] cierre automático deal room falló:", e);
+    }
     return;
   }
 
