@@ -286,12 +286,12 @@ function DealPipelineStepper({
                 <button
                   key={stage.id}
                   type="button"
-                  disabled={disabled || isClosed}
+                  disabled={disabled}
                   onClick={() => onStageClick(stage.id)}
                   className={cn(
                     "flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium whitespace-nowrap transition-all",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    isClosed && "opacity-50 cursor-not-allowed",
+                    isClosed && "opacity-60 cursor-pointer hover:opacity-100 hover:brightness-110",
                     !isClosed && !isCurrent && "cursor-pointer hover:brightness-110",
                     isCurrent && "text-white border-transparent shadow-sm",
                     isPast && "text-white/90 border-transparent",
@@ -373,7 +373,7 @@ function DealPipelineStepper({
               <button
                 key={stage.id}
                 type="button"
-                disabled={disabled || isClosed}
+                disabled={disabled}
                 onClick={() => onStageClick(stage.id)}
                 data-chevron={openStages.length > 1 ? chevronVariant : undefined}
                 className={cn(
@@ -382,7 +382,7 @@ function DealPipelineStepper({
                   "min-w-0",
                   openStages.length > 1 ? "rounded-none pipeline-step-chevron" : "rounded-md",
                   !isFirst && "-ml-[6px]",
-                  isClosed && "opacity-50 cursor-not-allowed",
+                  isClosed && "opacity-60 cursor-pointer hover:opacity-100 hover:brightness-110",
                   !isClosed && !isCurrent && "cursor-pointer hover:brightness-110",
                   isCurrent && "text-white shadow-sm",
                   isPast && "text-white/80",
