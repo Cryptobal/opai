@@ -91,6 +91,12 @@ export async function PATCH(
     const data = { ...raw };
     if (data.expectedCloseDate)
       data.expectedCloseDate = new Date(data.expectedCloseDate as string);
+    // Edición directa de la fecha de inicio del servicio (negocio adjudicado).
+    // Se acepta null para limpiarla. Fecha-only → mediodía UTC para evitar corrimiento de día por zona horaria.
+    if ("serviceStartDate" in raw) {
+      const v = raw.serviceStartDate as string | null | undefined;
+      data.serviceStartDate = v ? new Date(`${v}T12:00:00Z`) : null;
+    }
 
     if ("activeQuotationId" in raw) {
       const nextActiveQuotationId = raw.activeQuotationId as string | null | undefined;
@@ -108,7 +114,7 @@ export async function PATCH(
             where: {
               tenantId: ctx.tenantId,
               id: nextActiveQuotationId,
-              status: "sent",
+              status: { in: ["sent", "approved"] },
             },
             select: { id: true },
           }),
@@ -119,7 +125,7 @@ export async function PATCH(
             {
               success: false,
               error:
-                "La cotización activa debe estar vinculada al negocio y en estado enviada.",
+                "La cotización activa debe estar vinculada al negocio y en estado enviada o aprobada.",
             },
             { status: 400 }
           );

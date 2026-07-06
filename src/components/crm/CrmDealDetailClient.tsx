@@ -1195,6 +1195,33 @@ export function CrmDealDetailClient({
     setPendingAcceptedStageId(null);
   };
 
+  // Edición directa de la fecha de inicio (sin cambiar de etapa) vía PATCH.
+  const [editStartOpen, setEditStartOpen] = useState(false);
+  const [savingStartDate, setSavingStartDate] = useState(false);
+  const openEditStartDate = () => {
+    setAcceptedDate(dealServiceStartDate ? new Date(dealServiceStartDate).toISOString().slice(0, 10) : "");
+    setEditStartOpen(true);
+  };
+  const saveStartDate = async () => {
+    if (!acceptedDate) return;
+    setSavingStartDate(true);
+    try {
+      const res = await fetch(`/api/crm/deals/${deal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serviceStartDate: acceptedDate }),
+      });
+      if (!res.ok) throw new Error();
+      setDealServiceStartDate(new Date(`${acceptedDate}T12:00:00Z`).toISOString());
+      setEditStartOpen(false);
+      toast.success("Fecha de inicio actualizada.");
+    } catch {
+      toast.error("No se pudo actualizar la fecha de inicio.");
+    } finally {
+      setSavingStartDate(false);
+    }
+  };
+
   const handleWonClick = () => {
     const wonStage = pipelineStages.find((s) => s.isClosedWon);
     if (!wonStage) return;
@@ -1312,6 +1339,14 @@ export function CrmDealDetailClient({
               <CalendarClock className="h-3.5 w-3.5 shrink-0" />
               Inicio del servicio:{" "}
               {new Date(dealServiceStartDate).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric" })}
+              <button
+                type="button"
+                onClick={openEditStartDate}
+                className="ml-1 text-status-info-fg/70 hover:text-status-info-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                title="Editar fecha de inicio"
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
             </p>
           )}
         </div>
@@ -1402,7 +1437,7 @@ export function CrmDealDetailClient({
           <p className="text-[11px] text-muted-foreground">
             {deal.activeQuoteSummary
               ? `Actual: ${deal.activeQuoteSummary.code || "Sin código"} (${deal.activeQuoteSummary.isManual ? "selección manual" : "selección automática"}).`
-              : "Sin cotización activa. El negocio mostrará $0 hasta tener una cotización enviada."}
+              : "Sin cotización activa. El negocio mostrará $0 hasta tener una cotización enviada o aprobada."}
           </p>
           {updatingActiveQuotation && (
             <div className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -2317,6 +2352,36 @@ export function CrmDealDetailClient({
             </Button>
             <Button onClick={confirmAccepted} disabled={!acceptedDate}>
               Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: editar fecha de inicio del servicio (sin cambiar de etapa) */}
+      <Dialog open={editStartOpen} onOpenChange={setEditStartOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Editar fecha de inicio</DialogTitle>
+            <DialogDescription>
+              Actualiza la fecha estimada de inicio del servicio de este negocio.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Label htmlFor="edit-start-date">Fecha de inicio</Label>
+            <Input
+              id="edit-start-date"
+              type="date"
+              value={acceptedDate}
+              onChange={(e) => setAcceptedDate(e.target.value)}
+              className="mt-1.5"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditStartOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={saveStartDate} disabled={!acceptedDate || savingStartDate}>
+              {savingStartDate ? "Guardando…" : "Guardar"}
             </Button>
           </DialogFooter>
         </DialogContent>
