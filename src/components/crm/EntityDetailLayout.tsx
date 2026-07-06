@@ -79,6 +79,12 @@ export interface EntityDetailLayoutProps {
   subTabs?: ReactNode;
   /** Right panel for associated records (desktop: sidebar, mobile: accordion below content) */
   rightPanel?: ReactNode;
+  /**
+   * Optional left panel (desktop: sticky 264px column left of the content, mobile: rendered
+   * above the content). Additive — undefined preserves the previous single-column behavior.
+   * The node is responsible for its own mobile treatment (e.g. collapsible accordion).
+   */
+  leftPanel?: ReactNode;
   /** Optional pipeline bar rendered between header and tabs */
   pipelineBar?: ReactNode;
   /** Thin row inside the sticky block, below tabs (e.g. totals + sync status) */
@@ -116,6 +122,7 @@ export function EntityDetailLayout({
   children,
   subTabs,
   rightPanel,
+  leftPanel,
   pipelineBar,
   stickyMeta,
   onAvatarClick,
@@ -330,6 +337,11 @@ export function EntityDetailLayout({
 
       {/* ── Content area: main + optional right panel ── */}
       <div className={cn("lg:flex", subTabs ? "pt-14 sm:pt-16" : "pt-4 sm:pt-5")}>
+        {leftPanel ? (
+          <div className="mb-4 lg:mb-0 lg:mr-6 lg:w-[264px] lg:shrink-0 lg:self-start lg:sticky lg:top-12 lg:max-h-[calc(100vh-48px)] lg:overflow-y-auto">
+            {leftPanel}
+          </div>
+        ) : null}
         <div className="flex-1 min-w-0">{children}</div>
         {rightPanel}
       </div>
