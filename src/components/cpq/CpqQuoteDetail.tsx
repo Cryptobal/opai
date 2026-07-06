@@ -25,6 +25,7 @@ import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
 import { SendPortalProposalModal } from "@/components/cpq/SendPortalProposalModal";
 import { formatCurrency } from "@/components/cpq/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
+import { LocalizedNumberInput } from "@/components/cpq/LocalizedNumberInput";
 import {
   CPQ_BREAKDOWN_SHELL,
   CPQ_BREAKDOWN_ROW,
@@ -2486,14 +2487,13 @@ export function CpqQuoteDetail({
                     <div className="flex flex-col items-start gap-1 sm:items-end shrink-0">
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs text-muted-foreground">{addlIsUf ? "UF" : "$"}</span>
-                        <Input
-                          type="text"
-                          inputMode="numeric"
+                        <LocalizedNumberInput
                           placeholder="Precio"
-                          value={formatNumber(addlToInput(Number(line.precio || 0)), { minDecimals: 0, maxDecimals: addlIsUf ? 2 : 0 })}
-                          onChange={(e) => {
+                          value={addlToInput(Number(line.precio || 0))}
+                          maxDecimals={addlIsUf ? 2 : 0}
+                          onValueChange={(entered) => {
                             const updated = [...additionalLines];
-                            updated[idx] = { ...updated[idx], precio: addlFromInput(parseLocalizedNumber(e.target.value)) || 0 };
+                            updated[idx] = { ...updated[idx], precio: addlFromInput(entered) || 0 };
                             setAdditionalLines(updated);
                           }}
                           className="h-7 w-24 bg-card text-foreground border-border text-xs text-right font-mono"
