@@ -179,27 +179,16 @@ async function countAdjudicados(tenantId: string): Promise<number> {
 
 /* ── Vistas ── */
 
-/**
- * Mini-barra proporcional en mrkdwn: 10 celdas `▓/░` según monto vs total.
- * Va entre backticks (fuente de ancho fijo) para que las barras de todas las
- * etapas queden ALINEADAS y comparables al ojo, también a 375px (Slack iOS).
- */
-function bar10(sum: number, total: number): string {
-  if (!(total > 0) || !(sum > 0)) return "░".repeat(10);
-  const filled = Math.min(10, Math.max(1, Math.round((sum / total) * 10)));
-  return "▓".repeat(filled) + "░".repeat(10 - filled);
-}
-
 const nNegocios = (n: number): string => `${n} negocio${n === 1 ? "" : "s"}`;
 
 /** Cuántas etapas se muestran sin plegar (presupuesto visual a 375px). */
 const OVERVIEW_MAX_STAGES = 8;
 
 /**
- * Overview clase mundial (F21): header protagonista con el total en grande,
- * cada etapa como bloque denso (monto · % · mini-barra · 🔴 fríos) y botón
- * con texto propio (`3 negocios →` — jamás un "Ver" genérico, F20). Con más
- * de 8 etapas, el excedente se pliega en "…y N etapas más" (pipe_more).
+ * Overview (F21, rediseño): header con el total, y cada etapa en UNA línea
+ * limpia — nombre + conteo · monto · % · 🔴 fríos (solo si hay), con botón
+ * "N →" al costado. Sin mini-barras ASCII (eran ruido visual). Con más de 8
+ * etapas, el excedente se pliega en "…y N etapas más" (pipe_more).
  */
 function overviewView(stages: StageRow[], adjCount: number, expanded = false): SlackView {
   const total = stages.reduce((s, x) => s + x.sum, 0);
@@ -220,11 +209,11 @@ function overviewView(stages: StageRow[], adjCount: number, expanded = false): S
   const visible = expanded ? stages : stages.slice(0, OVERVIEW_MAX_STAGES);
   for (const s of visible) {
     const pct = total > 0 ? Math.round((s.sum / total) * 100) : 0;
-    const coldTag = s.cold > 0 ? ` 🔴 ${s.cold} frío${s.cold === 1 ? "" : "s"}` : "";
+    const coldTag = s.cold > 0 ? ` · 🔴 ${s.cold} frío${s.cold === 1 ? "" : "s"}` : "";
     blocks.push({
       type: "section",
-      text: { type: "mrkdwn", text: `*${s.name}*\n${nNegocios(s.count)} · ${clp(s.sum)} · ${pct}% del total\n\`${bar10(s.sum, total)}\`${coldTag}` },
-      accessory: { type: "button", action_id: "pipe_open", value: s.id, text: pt(`${nNegocios(s.count)} →`) },
+      text: { type: "mrkdwn", text: `*${s.name}*\n${nNegocios(s.count)} · ${clp(s.sum)} · ${pct}%${coldTag}` },
+      accessory: { type: "button", action_id: "pipe_open", value: s.id, text: pt(`${s.count} →`) },
     });
   }
   const hidden = stages.length - visible.length;
@@ -394,34 +383,42 @@ function startStatus(start: Date | null): { dot: string; text: string } {
 
 /**
  * Fila de UN adjudicado, layout compacto (agenda de próximos inicios):
- *   *Cuenta* — negocio            [ Abrir → ]
+ *   *Cuenta* — negocio                    [ Abrir → ]
  *   🟠 inicia DD-MM-AAAA · en Nd  ·  $monto  ·  📍 comuna
+ *   [ 🏠 Ir a la sala | 🏠 Abrir sala ]
  *   ───────────
- * Una sola acción (Abrir en OPAI) como accessory para no saturar; el resto de
- * acciones vive en el detalle del negocio. Null-safety TOTAL (F21).
+ * "Abrir →" (OPAI) como accessory; una sola acción de sala debajo: link al canal
+ * si la sala existe, o botón para crearla (si el usuario puede editar). F21.
  */
 function adjudicadoRowBlocks(d: AdjudicadoDeal, ctx: DrillCtx): unknown[] {
   const account = (d.accountName || "Cliente").trim() || "Cliente";
   const title = (d.title || "Negocio").trim() || "Negocio";
   const amount = Number.isFinite(d.amount) ? d.amount : 0;
   const roomChannel = ctx.rooms.get(d.id) ?? null;
-  const badge = roomChannel ? "🏠 " : "";
   const start = d.serviceStartDate instanceof Date && !Number.isNaN(d.serviceStartDate.getTime()) ? d.serviceStartDate : null;
   const st = startStatus(start);
   const place = (d.commune || "").trim();
   const meta = [st.text, amount ? clp(amount) : null, place ? `📍 ${place}` : null].filter(Boolean).join("  ·  ");
-  return [
+  const out: unknown[] = [
     {
       type: "section",
-      text: { type: "mrkdwn", text: `${badge}*${account}*\n${title}` },
+      text: { type: "mrkdwn", text: `*${account}*\n${title}` },
       accessory: { type: "button", action_id: "pipe_deal_open", url: dealOpaiUrl(d.id), text: pt("Abrir →") },
     },
     { type: "context", elements: [{ type: "mrkdwn", text: `${st.dot} ${meta}` }] },
-    { type: "divider" },
   ];
+  // Sala del negocio: link al canal si existe; si no, botón para crearla.
+  const roomBtn = roomChannel
+    ? { type: "button", action_id: "pipe_deal_roomlink", url: roomClientUrl(ctx.teamId, roomChannel), text: pt("🏠 Ir a la sala") }
+    : ctx.canWrite
+      ? { type: "button", action_id: "pipe_deal_room", value: d.id, text: pt("🏠 Abrir sala") }
+      : null;
+  if (roomBtn) out.push({ type: "actions", block_id: `opai_adjroom_${d.id}`, elements: [roomBtn] });
+  out.push({ type: "divider" });
+  return out;
 }
 
-function adjudicadosView(deals: AdjudicadoDeal[], ctx: DrillCtx): SlackView {
+function adjudicadosView(deals: AdjudicadoDeal[], ctx: DrillCtx, notice?: string): SlackView {
   const conFecha = deals.filter((d) => d.serviceStartDate).length;
   const blocks: unknown[] = [
     { type: "actions", block_id: "opai_pipe_nav", elements: [{ type: "button", action_id: "pipe_back", text: pt("← Pipeline") }] },
@@ -429,6 +426,7 @@ function adjudicadosView(deals: AdjudicadoDeal[], ctx: DrillCtx): SlackView {
     { type: "context", elements: [{ type: "mrkdwn", text: `${nNegocios(deals.length)} · ${conFecha} con fecha · ordenados por inicio del servicio` }] },
     { type: "divider" },
   ];
+  if (notice) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: notice }] });
   if (deals.length === 0) {
     blocks.push(
       { type: "section", text: { type: "mrkdwn", text: "✨ *No hay proyectos adjudicados por iniciar.*" } },
@@ -453,10 +451,10 @@ function adjudicadosView(deals: AdjudicadoDeal[], ctx: DrillCtx): SlackView {
   };
 }
 
-async function renderAdjudicados(tenantId: string, teamId: string, canWrite: boolean): Promise<SlackView> {
+async function renderAdjudicados(tenantId: string, teamId: string, canWrite: boolean, notice?: string): Promise<SlackView> {
   const deals = await listAdjudicados(tenantId);
   const rooms = await openRoomsForDeals(tenantId, deals.map((d) => d.id));
-  return adjudicadosView(deals, { teamId, canWrite, rooms, waUrls: new Map() });
+  return adjudicadosView(deals, { teamId, canWrite, rooms, waUrls: new Map() }, notice);
 }
 
 /* ── Modales secundarios (Avanzar / Nota / Perdido) ── */
@@ -606,11 +604,12 @@ export async function handlePipelineAction(payload: {
     return;
   }
 
-  // Abrir sala del negocio (botón) → crea/reusa la sala y refresca el drill.
+  // Abrir sala del negocio (botón) → crea/reusa la sala y refresca la vista de
+  // origen (drill de etapa o lista de adjudicados, según el metadata).
   if (action.action_id === "pipe_deal_room") {
     const dealId = action.value;
     if (!dealId || !canWrite) return;
-    const stageId = stageIdOf();
+    const meta = unpackMetadata(payload.view?.private_metadata);
     const { openDealRoom } = await import("../deal-rooms/room");
     const r = await openDealRoom(tenantId, dealId, linked.adminId);
     const notice = r.ok
@@ -618,7 +617,13 @@ export async function handlePipelineAction(payload: {
         ? `🏠 La sala ya existe: <#${r.channelId}>`
         : `🏠 Sala abierta: <#${r.channelId}> — ficha viva fijada.`
       : `⚠️ ${r.error ?? "No se pudo abrir la sala."}`;
-    if (payload.view?.id && stageId) await slackUpdateView(workspace.botToken, payload.view.id, await renderDrill(tenantId, teamId, canWrite, stageId, notice));
+    if (payload.view?.id) {
+      if (meta.kind === "pipeline_adjudicados") {
+        await slackUpdateView(workspace.botToken, payload.view.id, await renderAdjudicados(tenantId, teamId, canWrite, notice));
+      } else if (meta.stageId) {
+        await slackUpdateView(workspace.botToken, payload.view.id, await renderDrill(tenantId, teamId, canWrite, meta.stageId, notice));
+      }
+    }
     return;
   }
 
