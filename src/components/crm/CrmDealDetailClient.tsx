@@ -333,7 +333,7 @@ function DealPipelineStepper({
               )}
             >
               <Check className="h-3 w-3" />
-              Ganado
+              {wonStage.name}
             </button>
           )}
           {lostStage && (
@@ -350,7 +350,7 @@ function DealPipelineStepper({
               )}
             >
               <XCircle className="h-3 w-3" />
-              Perdido
+              {lostStage.name}
             </button>
           )}
         </div>
@@ -421,7 +421,7 @@ function DealPipelineStepper({
               )}
             >
               <Check className="h-3 w-3" />
-              Ganado
+              {wonStage.name}
             </button>
           )}
           {lostStage && (
@@ -438,7 +438,7 @@ function DealPipelineStepper({
               )}
             >
               <XCircle className="h-3 w-3" />
-              Perdido
+              {lostStage.name}
             </button>
           )}
         </div>
