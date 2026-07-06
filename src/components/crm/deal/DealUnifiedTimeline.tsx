@@ -1,9 +1,15 @@
 "use client";
 
 import { type ReactNode, useMemo, useState } from "react";
-import { History, Send, StickyNote } from "lucide-react";
+import { StickyNote } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ACTION_LABELS } from "../CrmActivityTimeline";
+import { DealTimelineRow, type TimelineEntry } from "./DealTimelineRow";
+import {
+  buildDealTimelineEntries,
+  monthLabel,
+  type FollowUpEntry,
+  type SystemEvent,
+} from "./dealTimeline";
 
 /**
  * DealUnifiedTimeline — línea de tiempo de presentación que fusiona eventos de
@@ -12,22 +18,6 @@ import { ACTION_LABELS } from "../CrmActivityTimeline";
  * que sus filtros muestran el componente correspondiente (emailSlot) o hacen foco
  * en el compositor (onFocusNotes) — no se duplica su fetching.
  */
-type SystemEvent = {
-  id: string;
-  action: string;
-  createdAt: string;
-  createdBy?: string | null;
-  createdByName?: string | null;
-};
-type FollowUpEntry = {
-  id: string;
-  sequence: number;
-  status: string;
-  scheduledAt: string;
-  sentAt?: string | null;
-  createdAt: string;
-};
-
 interface DealUnifiedTimelineProps {
   activityEvents: SystemEvent[];
   followUpLogs: FollowUpEntry[];
@@ -37,27 +27,6 @@ interface DealUnifiedTimelineProps {
 }
 
 type Filter = "todo" | "notas" | "correos" | "seguimientos" | "sistema";
-type Entry = {
-  id: string;
-  kind: "system" | "followup";
-  title: string;
-  subtitle?: string;
-  createdAt: string;
-};
-
-function monthLabel(value: string): string {
-  const d = new Date(value);
-  const m = d.toLocaleDateString("es-CL", { month: "long" });
-  return `${m.charAt(0).toUpperCase()}${m.slice(1)} ${d.getFullYear()}`;
-}
-
-function followUpTitle(status: string): string {
-  if (status === "sent") return "enviado";
-  if (status === "failed") return "fallido";
-  if (status === "paused") return "pausado";
-  if (status === "cancelled") return "cancelado";
-  return "programado";
-}
 
 const CHIPS: { key: Filter; label: string }[] = [
   { key: "todo", label: "Todo" },
@@ -76,37 +45,17 @@ export function DealUnifiedTimeline({
 }: DealUnifiedTimelineProps) {
   const [filter, setFilter] = useState<Filter>("todo");
 
-  const entries = useMemo<Entry[]>(() => {
-    const system: Entry[] = activityEvents.map((e) => ({
-      id: `sys-${e.id}`,
-      kind: "system",
-      title:
-        ACTION_LABELS[e.action] ||
-        e.action.replace(/[_-]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()),
-      subtitle: e.createdByName
-        ? `por ${e.createdByName}`
-        : e.createdBy === "system"
-          ? "por Sistema"
-          : undefined,
-      createdAt: e.createdAt,
-    }));
-    const followups: Entry[] = followUpLogs.map((l) => ({
-      id: `fu-${l.id}`,
-      kind: "followup",
-      title: `Seguimiento S${l.sequence} · ${followUpTitle(l.status)}`,
-      createdAt: l.sentAt || l.scheduledAt || l.createdAt,
-    }));
-    return [...system, ...followups].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-  }, [activityEvents, followUpLogs]);
+  const entries = useMemo<TimelineEntry[]>(
+    () => buildDealTimelineEntries(activityEvents, followUpLogs),
+    [activityEvents, followUpLogs]
+  );
 
   const visible = entries.filter((e) =>
     filter === "seguimientos" ? e.kind === "followup" : filter === "sistema" ? e.kind === "system" : true
   );
 
   // Agrupación por mes preservando orden descendente.
-  const groups: { label: string; items: Entry[] }[] = [];
+  const groups: { label: string; items: TimelineEntry[] }[] = [];
   for (const entry of visible) {
     const label = monthLabel(entry.createdAt);
     const last = groups[groups.length - 1];
@@ -164,7 +113,7 @@ export function DealUnifiedTimeline({
                 <div className="relative space-y-3 pl-6">
                   <div className="absolute left-[7px] top-1 bottom-1 w-px bg-border" />
                   {group.items.map((entry) => (
-                    <TimelineRow key={entry.id} entry={entry} />
+                    <DealTimelineRow key={entry.id} entry={entry} />
                   ))}
                 </div>
               </div>
@@ -172,34 +121,6 @@ export function DealUnifiedTimeline({
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function TimelineRow({ entry }: { entry: Entry }) {
-  const isFollowUp = entry.kind === "followup";
-  const Icon = isFollowUp ? Send : History;
-  const when = new Date(entry.createdAt).toLocaleString("es-CL", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  return (
-    <div className="relative">
-      <div
-        className={cn(
-          "absolute -left-6 top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-background",
-          isFollowUp ? "bg-tint-violet text-tint-violet-fg" : "bg-muted-foreground/40"
-        )}
-      >
-        <Icon className="h-2 w-2 text-background" />
-      </div>
-      <p className="text-[13px] font-medium leading-tight">{entry.title}</p>
-      <p className="mt-0.5 text-[12px] text-ds-text-3">
-        {when}
-        {entry.subtitle ? ` · ${entry.subtitle}` : ""}
-      </p>
     </div>
   );
 }
