@@ -26,7 +26,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
 import { NotesSkeleton } from "@/components/ui/skeleton";
-import { interactionMeta } from "@/lib/crm/interaction-types";
+import { interactionMeta, INTERACTION_TYPES } from "@/lib/crm/interaction-types";
 
 /* ─── Types ─── */
 
@@ -132,6 +132,9 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [newNote, setNewNote] = useState("");
+  // Tipo de interacción para la nota nueva (solo negocios). Default "note".
+  const [interactionType, setInteractionType] = useState<string>("note");
+  const [occurredAt, setOccurredAt] = useState<string>("");
   const [sending, setSending] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
@@ -352,6 +355,8 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
           content: newNote.trim(),
           mentions: mentionPayload.mentions,
           mentionMeta: mentionPayload.mentionMeta,
+          interactionType,
+          occurredAt: occurredAt || undefined,
         }),
       });
       const data = await res.json();
@@ -360,7 +365,9 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
         setNotes((prev) => [data.data, ...prev]);
       }
       setNewNote("");
-      toast.success("Nota agregada");
+      setInteractionType("note");
+      setOccurredAt("");
+      toast.success(interactionType === "note" ? "Nota agregada" : "Interacción registrada");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "No se pudo crear la nota";
       toast.error(msg);
@@ -810,6 +817,38 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
             {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
           </Button>
         </div>
+        {["deal", "lead", "account", "contact"].includes(entityType) && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {INTERACTION_TYPES.map((t) => {
+              const active = interactionType === t.key;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setInteractionType(t.key)}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${
+                    active
+                      ? "border-primary/40 bg-primary/10 text-primary font-medium"
+                      : "border-border text-muted-foreground hover:bg-accent/40"
+                  }`}
+                  title={`Registrar como ${t.label}`}
+                >
+                  <span>{t.emoji}</span>
+                  {t.label}
+                </button>
+              );
+            })}
+            {interactionType !== "note" && (
+              <input
+                type="date"
+                value={occurredAt}
+                onChange={(e) => setOccurredAt(e.target.value)}
+                title="¿Cuándo ocurrió? (opcional)"
+                className="rounded-md border border-input bg-background px-2 py-0.5 text-[11px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+            )}
+          </div>
+        )}
         <p className="mt-1 text-[10px] text-muted-foreground">
           <kbd className="rounded border border-border px-1 py-0.5 text-[9px]">Ctrl</kbd>+<kbd className="rounded border border-border px-1 py-0.5 text-[9px]">Enter</kbd> para enviar
         </p>

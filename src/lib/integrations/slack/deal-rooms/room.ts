@@ -118,12 +118,21 @@ export async function mirrorDealNoteToRoom(
   dealId: string,
   content: string,
   authorName: string,
+  interactionType?: string | null,
 ): Promise<void> {
   const room = await getOpenDealRoom(tenantId, dealId);
   if (!room) return;
   const ws = await getWorkspaceForTenant(tenantId);
   if (!ws) return;
-  const line = `📝 *${authorName}* guardó una nota:\n>${content.replace(/\n/g, "\n>").slice(0, 2800)}`;
+  // Encabezado tipado (paridad con el modal de Slack): 📞 Llamado / 🚶 Visita /
+  // 🤝 Reunión / ✉️ Contacto registran; la nota simple usa "guardó una nota".
+  const { interactionMeta } = await import("@/lib/crm/interaction-types");
+  const meta = interactionType ? interactionMeta(interactionType) : null;
+  const header =
+    meta && meta.key !== "note"
+      ? `${meta.emoji} *${authorName}* registró — ${meta.label}:`
+      : `📝 *${authorName}* guardó una nota:`;
+  const line = `${header}\n>${content.replace(/\n/g, "\n>").slice(0, 2800)}`;
   await slackPostMessage(ws.botToken, { channel: room.slackChannelId, text: line.slice(0, 3000) }).catch((e) =>
     console.error("[slack] mirrorDealNoteToRoom falló:", e),
   );

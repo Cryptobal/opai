@@ -15,6 +15,7 @@ import {
   type NoteMentionUser,
 } from "@/lib/crm-note-utils";
 import { requireTenantModule } from '@/lib/require-module';
+import { isInteractionType } from "@/lib/crm/interaction-types";
 
 const VALID_ENTITY_TYPES = [
   "account",
@@ -342,6 +343,16 @@ export async function POST(request: NextRequest) {
       : null;
     const content = typeof body.content === "string" ? body.content.trim() : "";
 
+    // Tipo de interacción (📞 llamado / 🚶 visita / 🤝 reunión / ✉️ contacto /
+    // 📝 nota) + fecha de ocurrencia — solo para notas de primer nivel (los
+    // replies son solo replies). Paridad con el modal "Registrar interacción"
+    // de Slack; permite que lo registrado en OPAI llegue tipado al canal.
+    const interactionTypeRaw = typeof body.interactionType === "string" ? body.interactionType : null;
+    const interactionType = !parentId && isInteractionType(interactionTypeRaw) ? interactionTypeRaw : null;
+    const occurredAtRaw = typeof body.occurredAt === "string" ? body.occurredAt.trim() : "";
+    const occurredAtParsed = !parentId && occurredAtRaw ? new Date(occurredAtRaw) : null;
+    const occurredAt = occurredAtParsed && !Number.isNaN(occurredAtParsed.getTime()) ? occurredAtParsed : null;
+
     if (!content) {
       return NextResponse.json(
         { success: false, error: "content es requerido" },
@@ -414,6 +425,8 @@ export async function POST(request: NextRequest) {
           content,
           mentions: mentionResolution.resolvedRecipientIds,
           mentionMeta: mentionResolution.metadata as any,
+          interactionType,
+          occurredAt,
           createdBy: ctx.userId,
         },
       });
@@ -457,7 +470,7 @@ export async function POST(request: NextRequest) {
         after(async () => {
           try {
             const { mirrorDealNoteToRoom } = await import("@/lib/integrations/slack/deal-rooms/room");
-            await mirrorDealNoteToRoom(ctx.tenantId, String(entityId), content, authorName);
+            await mirrorDealNoteToRoom(ctx.tenantId, String(entityId), content, authorName, interactionType);
           } catch (e) {
             console.error("[slack] mirror deal note to room failed:", e);
           }
