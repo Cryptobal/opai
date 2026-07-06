@@ -26,6 +26,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
 import { NotesSkeleton } from "@/components/ui/skeleton";
+import { interactionMeta } from "@/lib/crm/interaction-types";
 
 /* ─── Types ─── */
 
@@ -55,6 +56,8 @@ type Note = {
   content: string;
   mentions: string[];
   mentionMeta?: Record<string, unknown> | null;
+  interactionType?: string | null;
+  occurredAt?: string | null;
   parentId?: string | null;
   createdBy: string;
   createdAt: string;
@@ -645,6 +648,11 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
     const isReply = opts.isReply ?? false;
     const isHighlighted = highlightedNoteId === note.id;
     const canEdit = note.createdBy === currentUserId && editingId !== note.id;
+    // Badge de tipo para interacciones registradas (llamado/visita/reunión/
+    // contacto), típicamente desde Slack. Las notas simples no llevan badge.
+    const showTypeBadge =
+      !!note.interactionType && note.interactionType !== "note";
+    const typeMeta = showTypeBadge ? interactionMeta(note.interactionType) : null;
     return (
       <div
         id={`note-${note.id}`}
@@ -662,9 +670,23 @@ export function NotesSection({ entityType, entityId, currentUserId }: NotesSecti
             </div>
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-medium">{note.author.name}</span>
+              {typeMeta && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-medium"
+                  title={`Interacción: ${typeMeta.label}`}
+                >
+                  <span>{typeMeta.emoji}</span>
+                  {typeMeta.label}
+                </span>
+              )}
               <span className="text-[10px] text-muted-foreground">{timeAgo(note.createdAt)}</span>
+              {note.occurredAt && note.occurredAt.slice(0, 10) !== note.createdAt.slice(0, 10) && (
+                <span className="text-[10px] text-muted-foreground">
+                  · ocurrió {new Date(note.occurredAt).toLocaleDateString("es-CL", { day: "numeric", month: "short" })}
+                </span>
+              )}
               {note.updatedAt !== note.createdAt && (
                 <span className="text-[10px] text-muted-foreground italic">(editada)</span>
               )}

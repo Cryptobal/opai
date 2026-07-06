@@ -149,9 +149,9 @@ export async function handoffDealRoomToOps(tenantId: string, dealId: string, act
 
   const deal = await prisma.crmDeal.findFirst({
     where: { id: dealId, tenantId },
-    select: { account: { select: { name: true } } },
+    select: { title: true, account: { select: { name: true } } },
   });
-  const opName = dealRoomChannelName(deal?.account.name ?? "operacion").replace(/^neg-/, "op-").slice(0, 80);
+  const opName = dealRoomChannelName(deal?.account.name ?? "operacion", deal?.title).replace(/^neg-/, "op-").slice(0, 80);
 
   let newName = room.slackChannelName;
   try {

@@ -37,6 +37,8 @@ type EnrichedNote = {
   content: string;
   mentions: string[];
   mentionMeta: unknown;
+  interactionType: string | null;
+  occurredAt: Date | null;
   createdBy: string;
   updatedAt: Date;
   createdAt: Date;
@@ -98,6 +100,8 @@ async function enrichNotes(
     content: string;
     mentions: string[];
     mentionMeta: unknown;
+    interactionType: string | null;
+    occurredAt: Date | null;
     createdBy: string;
     updatedAt: Date;
     createdAt: Date;

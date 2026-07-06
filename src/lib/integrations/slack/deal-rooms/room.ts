@@ -47,15 +47,19 @@ export function slackSlug(raw: string, max: number, fallback: string): string {
 }
 
 /**
- * Nombre de canal Slack válido para la sala: `{prefix}-{slug-cliente}`.
- * `prefix` opcional (default "neg", retrocompatible) permite reflejar la etapa
- * en el nombre (naming "stagePrefix"/"emoji", Fase 3). Slack no admite emoji en
- * nombres → el prefijo es siempre ascii; el emoji de macro-fase vive en el topic.
+ * Nombre de canal Slack válido para la sala: `{prefix}-{cliente}-{negocio}`.
+ * Incluir el nombre del negocio (además del cliente) permite ordenar/distinguir
+ * varias salas de un mismo cliente. `dealTitle` opcional (si falta o queda vacío
+ * tras slug, se omite → `{prefix}-{cliente}`, retrocompatible).
+ * `prefix` opcional (default "neg") refleja la etapa/macro-fase en el nombre
+ * (naming "stagePrefix"/"emoji", Fase 3). Slack no admite emoji en nombres → el
+ * prefijo es siempre ascii; el emoji de macro-fase vive en el topic.
  */
-export function dealRoomChannelName(accountName: string, prefix = "neg"): string {
-  const slug = slackSlug(accountName, 74, "negocio");
+export function dealRoomChannelName(accountName: string, dealTitle?: string | null, prefix = "neg"): string {
   const pfx = slackSlug(prefix, 20, "neg");
-  return `${pfx}-${slug}`.slice(0, 80);
+  const cliente = slackSlug(accountName, 32, "cliente");
+  const negocio = dealTitle ? slackSlug(dealTitle, 30, "") : "";
+  return [pfx, cliente, negocio].filter(Boolean).join("-").slice(0, 80);
 }
 
 /** Devuelve la sala (cualquier estado) de un negocio, o null. */
@@ -181,7 +185,7 @@ export async function openDealRoom(
   // 1) Crear el canal privado (con fallback de nombre).
   let channel: { id: string; name: string };
   try {
-    channel = await createChannelWithFallback(ws, dealRoomChannelName(deal.account.name));
+    channel = await createChannelWithFallback(ws, dealRoomChannelName(deal.account.name, deal.title));
   } catch (err) {
     const code = err instanceof SlackApiError ? err.slackError : String(err);
     console.error("[slack] openDealRoom crear canal falló:", code);

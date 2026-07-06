@@ -38,7 +38,7 @@ export async function syncDealRoomStage(tenantId: string, dealId: string): Promi
 
   const deal = await prisma.crmDeal.findFirst({
     where: { id: dealId, tenantId },
-    select: { amount: true, account: { select: { name: true } }, stage: { select: { name: true, order: true } } },
+    select: { title: true, amount: true, account: { select: { name: true } }, stage: { select: { name: true, order: true } } },
   });
   if (!deal?.stage) return;
 
@@ -64,7 +64,7 @@ export async function syncDealRoomStage(tenantId: string, dealId: string): Promi
   const token = slackSlug(prefix, 20, "neg");
   // Ya está en ese prefijo (incluye sufijos por name_taken, p. ej. neg-acme-2) → sin rename.
   if (room.slackChannelName.startsWith(`${token}-`)) return;
-  const desired = dealRoomChannelName(deal.account.name, prefix);
+  const desired = dealRoomChannelName(deal.account.name, deal.title, prefix);
   if (desired === room.slackChannelName) return;
   try {
     const renamed = await slackRenameConversation(ws.botToken, room.slackChannelId, desired);
