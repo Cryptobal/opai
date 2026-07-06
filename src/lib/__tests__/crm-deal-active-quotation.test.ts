@@ -104,7 +104,7 @@ describe('crm-deal-active-quotation', () => {
     expect(summary?.amountClp).toBe(1300000);
   });
 
-  it('devuelve null en múltiples cotizaciones sin enviadas', () => {
+  it('elige la cotización aprobada como monto firme (approved cuenta igual que sent)', () => {
     const deal: DealWithQuoteLinks = {
       id: 'deal-4',
       activeQuotationId: null,
@@ -113,6 +113,23 @@ describe('crm-deal-active-quotation', () => {
     const quoteMap = buildQuoteMap([
       { id: 'q-1', status: 'draft', currency: 'CLP', monthlyCost: 100 },
       { id: 'q-2', status: 'approved', currency: 'CLP', monthlyCost: 200 },
+    ]);
+
+    const summary = resolveDealActiveQuotationSummary(deal, quoteMap, 39000);
+
+    expect(summary?.quoteId).toBe('q-2');
+    expect(summary?.amountClp).toBe(200);
+  });
+
+  it('devuelve null en múltiples cotizaciones sin enviadas ni aprobadas', () => {
+    const deal: DealWithQuoteLinks = {
+      id: 'deal-4b',
+      activeQuotationId: null,
+      quotes: [{ quoteId: 'q-1' }, { quoteId: 'q-2' }],
+    };
+    const quoteMap = buildQuoteMap([
+      { id: 'q-1', status: 'draft', currency: 'CLP', monthlyCost: 100 },
+      { id: 'q-2', status: 'draft', currency: 'CLP', monthlyCost: 200 },
     ]);
 
     const summary = resolveDealActiveQuotationSummary(deal, quoteMap, 39000);

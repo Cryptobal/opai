@@ -35,7 +35,10 @@ export type ActiveQuotationSummary = {
   sentAt: string | null;
 };
 
-const SENT_QUOTE_STATUS = "sent";
+// Estados "firmes" que representan el valor del negocio: enviada Y aprobada.
+// (Antes solo "sent" → un negocio con la cotización "Aprobada" mostraba $0,
+// incoherente con pickWinningQuote, que sí trata "approved" como ganadora.)
+const FIRM_QUOTE_STATUSES = new Set(["sent", "approved"]);
 const DEFAULT_UF_VALUE = 38000;
 
 function normalizeUfValue(ufValue: number): number {
@@ -80,8 +83,8 @@ function getQuoteSentAt(quote: QuoteForActiveQuotation): Date | null {
   return parseDate(quote.updatedAt) ?? parseDate(quote.createdAt);
 }
 
-function isSentQuote(quote: QuoteForActiveQuotation): boolean {
-  return quote.status.toLowerCase() === SENT_QUOTE_STATUS;
+function isFirmQuote(quote: QuoteForActiveQuotation): boolean {
+  return FIRM_QUOTE_STATUSES.has(quote.status.toLowerCase());
 }
 
 function toSummary(
@@ -129,7 +132,7 @@ export function resolveDealActiveQuotationSummary(
 
   const manualQuote = deal.activeQuotationId
     ? linkedQuotes.find(
-        (quote) => quote.id === deal.activeQuotationId && isSentQuote(quote)
+        (quote) => quote.id === deal.activeQuotationId && isFirmQuote(quote)
       )
     : undefined;
 
@@ -141,16 +144,16 @@ export function resolveDealActiveQuotationSummary(
     return toSummary(linkedQuotes[0], ufValue, false);
   }
 
-  const sentQuotes = linkedQuotes.filter(isSentQuote);
-  if (sentQuotes.length === 0) {
+  const firmQuotes = linkedQuotes.filter(isFirmQuote);
+  if (firmQuotes.length === 0) {
     return null;
   }
 
-  sentQuotes.sort((a, b) => {
+  firmQuotes.sort((a, b) => {
     const bTime = getQuoteSentAt(b)?.getTime() ?? 0;
     const aTime = getQuoteSentAt(a)?.getTime() ?? 0;
     return bTime - aTime;
   });
 
-  return toSummary(sentQuotes[0], ufValue, false);
+  return toSummary(firmQuotes[0], ufValue, false);
 }
