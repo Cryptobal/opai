@@ -2,7 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import { cn, formatCLP, formatUFSuffix } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { getQuoteStatus } from "@/lib/quoteStatus";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Info, Users, Briefcase, CalendarClock, Phone, Link2, History, Copy, Building2, ListChecks, Ticket as TicketIcon, Hash } from "lucide-react";
+import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Users, Briefcase, Phone, Link2, History, Copy, Building2, ListChecks, Ticket as TicketIcon, Hash } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -37,7 +37,6 @@ import {
 import { EmailHistoryList, type EmailMessage } from "@/components/crm/EmailHistoryList";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
-import { DetailField } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
 import { NotesSection } from "./NotesSection";
@@ -57,7 +56,6 @@ import { OnboardingClientModal } from "@/components/crm/onboarding/OnboardingCli
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { FileAttachments } from "./FileAttachments";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
-import { CrmActivityTimeline } from "./CrmActivityTimeline";
 import { DeactivateInstallationDialog } from "@/components/crm/DeactivateInstallationDialog";
 import { DealHighlightsStrip } from "./deal/DealHighlightsStrip";
 import { DealAboutCard } from "./deal/DealAboutCard";
@@ -1326,19 +1324,9 @@ export function CrmDealDetailClient({
         : undefined;
 
   // ── Sections ──
-  // Patrón unificado con Account/Installation/Contact:
-  //   hero (identidad + chips) → stats strip (montos/guardias) →
-  //   widget cotización activa → colapsables (seguimiento + detalles técnicos).
-  const generalSection = {
-    key: "general",
-    label: "Resumen del negocio",
-    children: (
-      // Contenido redistribuido: identidad → header + highlights, cuenta/contacto
-      // + cotización + detalles técnicos → columna izquierda (DealAboutCard).
-      // El centro del tab se arma en el render (BLOQUE 4: next-step + composer + timeline).
-      <div className="space-y-3 sm:space-y-4" />
-    ),
-  };
+  // La identidad del negocio vive en header + highlights; cuenta/contacto,
+  // cotización y detalles técnicos en la columna izquierda (DealAboutCard); el
+  // centro del tab "general" se arma en el render (next-step + composer + timeline).
 
   const localPendingCount = localFollowUpLogs.filter((l) => l.status === "pending").length;
   const localPausedCount = localFollowUpLogs.filter((l) => l.status === "paused").length;
@@ -1809,12 +1797,14 @@ export function CrmDealDetailClient({
       .catch(() => {});
   }, [deal.id]);
 
+  // Tabs consolidados: "Actividad" (id general, mantiene deep-links previos) y
+  // "Documentos". Notas y Actividad quedaron absorbidos por el centro del deal.
   const tabs: EntityTab[] = [
-    { id: "general", label: "General", icon: Info },
-    { id: "notes", label: "Notas", icon: MessageSquare },
+    { id: "general", label: "Actividad", icon: History, count: activityEvents.length },
     { id: "files", label: "Documentos", icon: FileText, count: fileCount },
-    { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
+  // Fallback silencioso: cualquier ?tab= antiguo (notes/activity) cae en general.
+  const effectiveTab = activeTab === "files" ? "files" : "general";
 
   const handleOpenOnboarding = async () => {
     try {
@@ -1931,7 +1921,7 @@ export function CrmDealDetailClient({
           />
         }
         tabs={tabs}
-        activeTab={activeTab}
+        activeTab={effectiveTab}
         onTabChange={setActiveTab}
         leftPanel={
           <DealAboutCard
@@ -1973,7 +1963,7 @@ export function CrmDealDetailClient({
           </div>
         }
       >
-        {activeTab === "general" && (
+        {effectiveTab === "general" && (
           <div className="space-y-4">
             <DealNextStepBanner
               log={pendingLogsBySequence[0] ?? null}
@@ -2014,17 +2004,7 @@ export function CrmDealDetailClient({
             />
           </div>
         )}
-        {activeTab === "activity" && (
-          <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
-            <CrmActivityTimeline events={activityEvents} />
-          </div>
-        )}
-        {activeTab === "notes" && (
-          <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
-            <NotesSection entityType="deal" entityId={deal.id} currentUserId={currentUserId} />
-          </div>
-        )}
-        {activeTab === "files" && <div className="rounded-lg border border-border bg-card p-4 sm:p-5">{filesSection.children}</div>}
+        {effectiveTab === "files" && <div className="rounded-lg border border-border bg-card p-4 sm:p-5">{filesSection.children}</div>}
       </EntityDetailLayout>
 
       {/* ── Email Compose Modal ── */}
