@@ -11,7 +11,7 @@
 import { prisma } from "@/lib/prisma";
 
 /** Estrategia de nombre de canal al cambiar de etapa (Fase 3). */
-export type ChannelNaming = "emoji" | "stagePrefix" | "stable";
+export type ChannelNaming = "stageSuffix" | "emoji" | "stagePrefix" | "stable";
 
 export interface DealRoomConfig {
   /** Si false (default), NUNCA se abre una sala automáticamente. */
@@ -22,8 +22,10 @@ export interface DealRoomConfig {
   minStageOrder: number;
   /**
    * Cómo refleja el nombre del canal la etapa (Fase 3):
-   * · "emoji" (default): renombra SOLO al cruzar macro-fase (🌱→🔥→🤝), sin ruido.
-   * · "stagePrefix": prefija el slug con la etapa ({prefijo}-{slug}).
+   * · "stageSuffix" (default): el nombre termina con la etapa exacta
+   *   (`neg-{cliente}-{negocio}-{etapa}`) y se renombra en cada cambio de etapa.
+   * · "emoji": renombra SOLO al cruzar macro-fase (🌱→🔥→🤝), sin ruido, en el prefijo.
+   * · "stagePrefix": prefija el slug con la etapa ({etapa}-{cliente}-{negocio}).
    * · "stable": nunca toca el nombre (la etapa vive en ficha + topic).
    */
   channelNaming: ChannelNaming;
@@ -39,7 +41,7 @@ const DEFAULTS: DealRoomConfig = {
   enabled: false,
   minAmountClp: 0,
   minStageOrder: 0,
-  channelNaming: "emoji",
+  channelNaming: "stageSuffix",
   pipelineHubEnabled: false,
   autoHandoffOnWon: true,
   autoArchiveOnLost: true,
@@ -156,5 +158,5 @@ function parseBoolOr(s: string | undefined, fallback: boolean): boolean {
 }
 
 function parseNamingOr(s: string | undefined, fallback: ChannelNaming): ChannelNaming {
-  return s === "emoji" || s === "stagePrefix" || s === "stable" ? s : fallback;
+  return s === "stageSuffix" || s === "emoji" || s === "stagePrefix" || s === "stable" ? s : fallback;
 }

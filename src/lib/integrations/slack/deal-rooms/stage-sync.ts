@@ -15,7 +15,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { getWorkspaceForTenant } from "../workspace";
 import { slackSetTopic, slackRenameConversation } from "../api";
-import { getOpenDealRoom, refreshDealRoomFicha, dealRoomChannelName, slackSlug } from "./room";
+import { getOpenDealRoom, refreshDealRoomFicha, resolveDealRoomName, slackSlug } from "./room";
 import { getDealRoomConfig } from "./config";
 import { stageMacroPhase, type MacroPhaseKey } from "./stage-phase";
 
@@ -60,11 +60,20 @@ export async function syncDealRoomStage(tenantId: string, dealId: string): Promi
   // 3) Nombre del canal según estrategia.
   const cfg = await getDealRoomConfig(tenantId);
   if (cfg.channelNaming === "stable") return;
-  const prefix = cfg.channelNaming === "stagePrefix" ? deal.stage.name : MACRO_TOKEN[macro.key];
-  const token = slackSlug(prefix, 20, "neg");
-  // Ya está en ese prefijo (incluye sufijos por name_taken, p. ej. neg-acme-2) → sin rename.
-  if (room.slackChannelName.startsWith(`${token}-`)) return;
-  const desired = dealRoomChannelName(deal.account.name, deal.title, prefix);
+  // Modos por-prefijo (emoji/stagePrefix): short-circuit si ya está en ese
+  // prefijo (incluye sufijos por name_taken, p. ej. neg-acme-2) → evita renames
+  // redundantes. "stageSuffix" no aplica: se compara el nombre completo abajo.
+  if (cfg.channelNaming !== "stageSuffix") {
+    const prefix = cfg.channelNaming === "stagePrefix" ? deal.stage.name : MACRO_TOKEN[macro.key];
+    const token = slackSlug(prefix, 20, "neg");
+    if (room.slackChannelName.startsWith(`${token}-`)) return;
+  }
+  const desired = resolveDealRoomName(cfg.channelNaming, {
+    accountName: deal.account.name,
+    dealTitle: deal.title,
+    stageName: deal.stage.name,
+    macroToken: MACRO_TOKEN[macro.key],
+  });
   if (desired === room.slackChannelName) return;
   try {
     const renamed = await slackRenameConversation(ws.botToken, room.slackChannelId, desired);

@@ -23,7 +23,7 @@ import {
   SlackApiError,
 } from "../api";
 import { renderFicha } from "./ficha";
-import { getDealRoomConfig } from "./config";
+import { getDealRoomConfig, type ChannelNaming } from "./config";
 
 export interface OpenDealRoomResult {
   ok: boolean;
@@ -47,19 +47,50 @@ export function slackSlug(raw: string, max: number, fallback: string): string {
 }
 
 /**
- * Nombre de canal Slack válido para la sala: `{prefix}-{cliente}-{negocio}`.
+ * Nombre de canal Slack válido para la sala: `{prefix}-{cliente}-{negocio}[-{etapa}]`.
  * Incluir el nombre del negocio (además del cliente) permite ordenar/distinguir
  * varias salas de un mismo cliente. `dealTitle` opcional (si falta o queda vacío
- * tras slug, se omite → `{prefix}-{cliente}`, retrocompatible).
- * `prefix` opcional (default "neg") refleja la etapa/macro-fase en el nombre
- * (naming "stagePrefix"/"emoji", Fase 3). Slack no admite emoji en nombres → el
- * prefijo es siempre ascii; el emoji de macro-fase vive en el topic.
+ * tras slug, se omite, retrocompatible).
+ * - `opts.prefix` (default "neg") refleja la etapa/macro-fase en el prefijo
+ *   (naming "stagePrefix"/"emoji", Fase 3).
+ * - `opts.stage` agrega la etapa al FINAL (naming "stageSuffix"): con etapa se
+ *   recorta el presupuesto de cliente/negocio para caber en 80 chars.
+ * Slack no admite emoji en nombres → todo ascii; el emoji de macro vive en el topic.
  */
-export function dealRoomChannelName(accountName: string, dealTitle?: string | null, prefix = "neg"): string {
-  const pfx = slackSlug(prefix, 20, "neg");
-  const cliente = slackSlug(accountName, 32, "cliente");
-  const negocio = dealTitle ? slackSlug(dealTitle, 30, "") : "";
-  return [pfx, cliente, negocio].filter(Boolean).join("-").slice(0, 80);
+export function dealRoomChannelName(
+  accountName: string,
+  dealTitle?: string | null,
+  opts?: { prefix?: string; stage?: string | null },
+): string {
+  const pfx = slackSlug(opts?.prefix ?? "neg", 20, "neg");
+  const stage = opts?.stage ? slackSlug(opts.stage, 24, "") : "";
+  const cliente = slackSlug(accountName, stage ? 24 : 32, "cliente");
+  const negocio = dealTitle ? slackSlug(dealTitle, stage ? 22 : 30, "") : "";
+  return [pfx, cliente, negocio, stage].filter(Boolean).join("-").slice(0, 80);
+}
+
+/**
+ * Nombre de canal deseado según la estrategia de naming del tenant. Fuente única
+ * usada por la creación (`openDealRoom`) y el renombrado por etapa (`syncDealRoomStage`).
+ * `macroToken` solo lo consume "emoji" (lo calcula el llamador que sí conoce el total
+ * de etapas); en creación se puede pasar "neg" (fase temprana) y el 1er cambio corrige.
+ */
+export function resolveDealRoomName(
+  naming: ChannelNaming,
+  input: { accountName: string; dealTitle?: string | null; stageName?: string | null; macroToken?: string },
+): string {
+  const { accountName, dealTitle = null } = input;
+  switch (naming) {
+    case "stageSuffix":
+      return dealRoomChannelName(accountName, dealTitle, { stage: input.stageName ?? null });
+    case "stagePrefix":
+      return dealRoomChannelName(accountName, dealTitle, { prefix: input.stageName ?? "neg" });
+    case "emoji":
+      return dealRoomChannelName(accountName, dealTitle, { prefix: input.macroToken ?? "neg" });
+    case "stable":
+    default:
+      return dealRoomChannelName(accountName, dealTitle);
+  }
 }
 
 /** Devuelve la sala (cualquier estado) de un negocio, o null. */
@@ -178,14 +209,22 @@ export async function openDealRoom(
 
   const deal = await prisma.crmDeal.findFirst({
     where: { id: dealId, tenantId },
-    select: { id: true, title: true, account: { select: { name: true, ownerId: true } } },
+    select: { id: true, title: true, stage: { select: { name: true } }, account: { select: { name: true, ownerId: true } } },
   });
   if (!deal) return { ok: false, error: "No encontré el negocio." };
 
-  // 1) Crear el canal privado (con fallback de nombre).
+  // 1) Crear el canal privado (con fallback de nombre). El nombre ya refleja la
+  //    etapa actual según la estrategia del tenant (default: etapa al final).
+  const cfg = await getDealRoomConfig(tenantId);
+  const initialName = resolveDealRoomName(cfg.channelNaming, {
+    accountName: deal.account.name,
+    dealTitle: deal.title,
+    stageName: deal.stage?.name,
+    macroToken: "neg",
+  });
   let channel: { id: string; name: string };
   try {
-    channel = await createChannelWithFallback(ws, dealRoomChannelName(deal.account.name, deal.title));
+    channel = await createChannelWithFallback(ws, initialName);
   } catch (err) {
     const code = err instanceof SlackApiError ? err.slackError : String(err);
     console.error("[slack] openDealRoom crear canal falló:", code);
