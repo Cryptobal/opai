@@ -711,9 +711,26 @@ export function CrmDealDetailClient({
     setEditDealOpen(true);
   };
 
+  // Salvaguarda: cambiar la cuenta mueve el negocio a OTRO cliente. Un mis-click
+  // en el dropdown (cuentas contiguas por orden alfabético) reasignaba la cuenta
+  // en silencio. Ahora pedimos confirmación explícita antes de guardar el cambio.
+  const [confirmAccountChange, setConfirmAccountChange] = useState<{ fromName: string; toName: string } | null>(null);
+
   const saveDeal = async () => {
     if (!editDealForm.title.trim()) { toast.error("El título es obligatorio."); return; }
     if (!editDealForm.accountId) { toast.error("Selecciona una cuenta."); return; }
+    if (editDealForm.accountId !== (deal.account?.id ?? "")) {
+      const toName = accountOptions.find((a) => a.id === editDealForm.accountId)?.name
+        ?? (editDealForm.accountId === deal.account?.id ? deal.account?.name : undefined)
+        ?? "otra cuenta";
+      setConfirmAccountChange({ fromName: deal.account?.name ?? "sin cuenta", toName });
+      return;
+    }
+    await doSaveDeal();
+  };
+
+  const doSaveDeal = async () => {
+    setConfirmAccountChange(null);
     setSavingDeal(true);
     try {
       const res = await fetch(`/api/crm/deals/${deal.id}`, {
@@ -2233,6 +2250,27 @@ export function CrmDealDetailClient({
             <Button onClick={saveDeal} disabled={savingDeal}>
               {savingDeal && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmación al cambiar la cuenta del negocio (evita reasignación por mis-click) */}
+      <Dialog open={!!confirmAccountChange} onOpenChange={(o) => { if (!o) setConfirmAccountChange(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>¿Mover el negocio a otro cliente?</DialogTitle>
+            <DialogDescription>
+              Vas a cambiar la cuenta de <strong>«{confirmAccountChange?.fromName}»</strong> a{" "}
+              <strong>«{confirmAccountChange?.toName}»</strong>. El negocio dejará de aparecer en el
+              cliente actual y pasará al nuevo. Si no querías cambiar la cuenta, cancela.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmAccountChange(null)}>Cancelar</Button>
+            <Button onClick={doSaveDeal} disabled={savingDeal}>
+              {savingDeal && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Sí, mover a «{confirmAccountChange?.toName}»
             </Button>
           </DialogFooter>
         </DialogContent>
