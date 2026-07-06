@@ -43,6 +43,7 @@ type FollowUpConfig = {
   isActive: boolean;
   bccEnabled: boolean;
   bccEmail: string | null;
+  ccEnabled: boolean;
   ccEmail: string | null;
 };
 
@@ -70,6 +71,7 @@ const DEFAULT_CONFIG: FollowUpConfig = {
   isActive: true,
   bccEnabled: false,
   bccEmail: null,
+  ccEnabled: true,
   ccEmail: null,
 };
 
@@ -451,19 +453,34 @@ export function FollowUpConfigSection({ className }: FollowUpConfigSectionProps)
                   Copia (CC) al tenant
                 </div>
                 <div className="rounded-lg border border-primary/30 p-3">
-                  <p className="text-sm font-medium mb-2">
-                    Los seguimientos se envían al cliente y en copia solo a este correo.
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={config.ccEnabled ?? true}
+                      onChange={(e) => update("ccEnabled", e.target.checked)}
+                    />
+                    <span className="text-sm font-medium">
+                      Enviarme copia (CC) de cada seguimiento
+                    </span>
+                  </label>
+                  <p className="text-[10px] text-muted-foreground mt-1 mb-2">
+                    Si lo apagas, el seguimiento se envía solo al cliente y deja de llegar a tu correo.
+                    Igual puedes verlo en Slack si tienes el ruteo activo.
                   </p>
-                  <Input
-                    type="email"
-                    placeholder="ej: ventas@empresa.cl"
-                    value={config.ccEmail ?? ""}
-                    onChange={(e) => update("ccEmail", e.target.value || null)}
-                    className={`${inputCn} max-w-sm`}
-                  />
-                  <p className="text-[10px] text-muted-foreground mt-2">
-                    Si está vacío, se usa el email comercial del tenant.
-                  </p>
+                  {config.ccEnabled && (
+                    <>
+                      <Input
+                        type="email"
+                        placeholder="ej: ventas@empresa.cl"
+                        value={config.ccEmail ?? ""}
+                        onChange={(e) => update("ccEmail", e.target.value || null)}
+                        className={`${inputCn} max-w-sm`}
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-2">
+                        Si está vacío, se usa el email comercial del tenant.
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
 

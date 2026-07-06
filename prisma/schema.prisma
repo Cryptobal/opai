@@ -2877,6 +2877,7 @@ model CrmFollowUpConfig {
   isActive              Boolean  @default(true) @map("is_active")
   bccEnabled            Boolean  @default(false) @map("bcc_enabled")
   bccEmail              String?  @map("bcc_email") // Copia oculta a este correo
+  ccEnabled             Boolean  @default(true) @map("cc_enabled") // Si false, NO se manda copia CC al tenant
   ccEmail               String?  @map("cc_email") // Copia visible (CC) al email del tenant
   createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)

@@ -218,10 +218,15 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
 
   // Momento caliente (Fase 15): la tarjeta de quote_viewed usa campos curados.
   const isQuoteViewed = input.typeDef.key === "quote_viewed";
+  // Seguimiento de propuesta enviado: tarjeta comercial con campos curados.
+  const isFollowupSent = input.typeDef.key === "followup_sent";
   let curatedFields: Array<{ label: string; value: string }> | null = null;
   if (isQuoteViewed) {
     const { quoteViewedFields } = await import("./comercial/quote-viewed");
     curatedFields = quoteViewedFields(input.data);
+  } else if (isFollowupSent) {
+    const { followupSentFields } = await import("./comercial/followup-sent");
+    curatedFields = followupSentFields(input.data);
   }
 
   const { text, blocks } = buildNotificationBlocks({
@@ -239,6 +244,15 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     const { resolveQuoteViewedWaUrl, quoteViewedActionsBlock } = await import("./comercial/quote-viewed");
     const waUrl = await resolveQuoteViewedWaUrl(input.tenantId, input.data).catch(() => null);
     blocks.push(quoteViewedActionsBlock(input.data.quoteId as string, waUrl));
+  }
+
+  // Fila accionable de la tarjeta 📨: WhatsApp para contactar (link ya templado
+  // en el emisor). Solo si hubo teléfono → wa.me resuelto.
+  if (isFollowupSent && typeof input.data?.dealId === "string") {
+    const { followupSentActionsBlock } = await import("./comercial/followup-sent");
+    const waUrl = typeof input.data?.waUrl === "string" ? input.data.waUrl : null;
+    const actions = followupSentActionsBlock(input.data.dealId as string, waUrl);
+    if (actions) blocks.push(actions);
   }
 
   // Gestión del ticket desde su tarjeta (excepto la de aprobación, que ya trae

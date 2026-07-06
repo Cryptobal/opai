@@ -46,6 +46,7 @@ export async function GET() {
         isActive: true,
         bccEnabled: false,
         bccEmail: null,
+        ccEnabled: true,
         ccEmail: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -123,6 +124,7 @@ export async function POST(request: NextRequest) {
       isActive,
       bccEnabled,
       bccEmail,
+      ccEnabled,
       ccEmail,
     } = body;
 
@@ -166,6 +168,7 @@ export async function POST(request: NextRequest) {
         ...(isActive !== undefined ? { isActive } : {}),
         ...(bccEnabled !== undefined ? { bccEnabled } : {}),
         ...(bccEmail !== undefined ? { bccEmail: bccEmail || null } : {}),
+        ...(ccEnabled !== undefined ? { ccEnabled } : {}),
         ...(ccEmail !== undefined ? { ccEmail: ccEmail || null } : {}),
       },
       create: {
@@ -187,6 +190,7 @@ export async function POST(request: NextRequest) {
         isActive: isActive ?? true,
         bccEnabled: bccEnabled ?? false,
         bccEmail: bccEmail || null,
+        ccEnabled: ccEnabled ?? true,
         ccEmail: ccEmail || null,
       },
     });

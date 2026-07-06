@@ -333,8 +333,12 @@ export async function processFollowUpLog(
       ? [config.bccEmail.trim()]
       : undefined;
 
+  // CC al tenant: activo por defecto (comportamiento histórico). Si el tenant
+  // apaga `ccEnabled` en Configuración → CRM, el seguimiento va SOLO al cliente
+  // y deja de llegar copia a su correo (el seguimiento se ve en Slack).
+  const ccEnabled = config?.ccEnabled ?? true;
   const ccEmail = config?.ccEmail?.trim() || tenantConfig.email?.trim();
-  const cc = ccEmail ? [ccEmail] : undefined;
+  const cc = ccEnabled && ccEmail ? [ccEmail] : undefined;
 
   const emailResult = await resend.emails.send({
     from: EMAIL_CONFIG.from,
@@ -433,7 +437,42 @@ export async function processFollowUpLog(
       ? `https://wa.me/${contactPhone}?text=${whatsappMessage}`
       : null;
 
-  // No se envía notificación a todos los usuarios CRM; el tenant recibe copia vía CC
+  // Ruteo a Slack (tarjeta comercial): cada seguimiento enviado emite
+  // `followup_sent` con cliente, contacto, qué se mandó y botón de WhatsApp.
+  // El renderer especial vive en dispatch.ts (rama por-key). Best-effort: un
+  // fallo de notificación nunca debe voltear un envío que ya salió al cliente.
+  try {
+    const { notify } = await import("@/lib/notifications/notify");
+    const contactFullName =
+      `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim() ||
+      contact.email;
+    const seqLabel =
+      followUp.sequence === 1
+        ? "1er seguimiento"
+        : followUp.sequence === 2
+          ? "2do seguimiento"
+          : "Último seguimiento";
+    await notify({
+      tenantId: followUp.tenantId,
+      type: "followup_sent",
+      title: `📨 ${seqLabel} enviado a ${contactFullName}${deal.account?.name ? ` · ${deal.account.name}` : ""}`,
+      body: emailSubject,
+      link: `/crm/deals/${deal.id}`,
+      // Claves consumidas por la rama followup_sent de dispatch (campos + WhatsApp).
+      data: {
+        dealId: deal.id,
+        empresa: deal.account?.name ?? "",
+        contacto: contactFullName,
+        phone: contact.phone ?? undefined,
+        waUrl: whatsappUrl ?? undefined,
+        asunto: emailSubject,
+        secuencia: followUp.sequence,
+        proposalSentDate,
+      },
+    });
+  } catch (err) {
+    console.error(`[followup] notify followup_sent falló (${followUp.id}):`, err);
+  }
 
   if (config?.autoAdvanceStage) {
     if (followUp.sequence === 3) {

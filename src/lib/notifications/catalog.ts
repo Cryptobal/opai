@@ -122,7 +122,9 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     key: 'followup_sent', label: 'Follow-up enviado',
     description: 'Cuando se envía un email de seguimiento automático',
     module: 'crm', submodule: 'deals', category: 'CRM - Follow-ups',
-    audiences: ['admin'], defaults: { admin: { bell: true, email: true, push: false } },
+    // Bell + Slack (dispatch). Email off por defecto: no duplicar el correo del
+    // seguimiento con una notificación de "se envió el seguimiento".
+    audiences: ['admin'], defaults: { admin: { bell: true, email: false, push: false } },
   },
   {
     key: 'followup_scheduled', label: 'Follow-up programado',
