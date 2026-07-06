@@ -59,6 +59,7 @@ import { FileAttachments } from "./FileAttachments";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
 import { DeactivateInstallationDialog } from "@/components/crm/DeactivateInstallationDialog";
+import { DealHighlightsStrip } from "./deal/DealHighlightsStrip";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -1351,51 +1352,6 @@ export function CrmDealDetailClient({
               </span>
             )}
           </div>
-          {dealServiceStartDate && (
-            <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-status-info-fg">
-              <CalendarClock className="h-3.5 w-3.5 shrink-0" />
-              Inicio del servicio:{" "}
-              {new Date(dealServiceStartDate).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric" })}
-              <button
-                type="button"
-                onClick={openEditStartDate}
-                className="ml-1 text-status-info-fg/70 hover:text-status-info-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
-                title="Editar fecha de inicio"
-              >
-                <Pencil className="h-3 w-3" />
-              </button>
-            </p>
-          )}
-        </div>
-
-        {/* ── Stats strip: montos y volumen. Se conservan colores por ser métricas clave. ── */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-          <div className="min-w-0 rounded-xl border border-status-ok-border bg-status-ok-soft p-3 sm:p-4">
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-status-ok-fg/80">Monto CLP</div>
-            <div className="truncate text-[13px] font-semibold tabular-nums text-status-ok-fg">
-              {formatCLP(activeQuoteIndicators.amountClp)}
-            </div>
-          </div>
-          <div className="min-w-0 rounded-xl border border-status-info-border bg-status-info-soft p-3 sm:p-4">
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-status-info-fg/80">Monto UF</div>
-            <div className="truncate text-[13px] font-semibold tabular-nums text-status-info-fg">
-              {formatUFSuffix(activeQuoteIndicators.amountUf)}
-            </div>
-          </div>
-          <div className="min-w-0 rounded-xl border border-status-warn-border bg-status-warn-soft p-3 sm:p-4">
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-status-warn-fg/80">Guardias</div>
-            <div className="truncate text-[13px] font-semibold tabular-nums text-status-warn-fg">
-              {activeQuoteIndicators.totalGuards.toLocaleString("es-CL")}
-            </div>
-          </div>
-          <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Monto manual</div>
-            <div className="truncate font-mono text-[13px] font-medium tabular-nums text-foreground">
-              {dealAmount
-                ? `$${Number(dealAmount).toLocaleString("es-CL")}`
-                : <span className="font-sans text-muted-foreground/70">—</span>}
-            </div>
-          </div>
         </div>
 
         {/* ── Cotización activa (widget dedicado, funcionalidad intacta) ── */}
@@ -2081,6 +2037,23 @@ export function CrmDealDetailClient({
             onWonClick={handleWonClick}
             onLostClick={handleLostClick}
             disabled={changingStage}
+          />
+        }
+        stickyMeta={
+          <DealHighlightsStrip
+            amountClp={activeQuoteIndicators.amountClp}
+            amountUf={activeQuoteIndicators.amountUf}
+            totalGuards={activeQuoteIndicators.totalGuards}
+            serviceStartDate={dealServiceStartDate}
+            onEditStartDate={openEditStartDate}
+            activeQuote={
+              deal.activeQuoteSummary?.code
+                ? {
+                    code: deal.activeQuoteSummary.code,
+                    statusLabel: getQuoteStatus(deal.activeQuoteSummary.status).label,
+                  }
+                : null
+            }
           />
         }
         tabs={tabs}
