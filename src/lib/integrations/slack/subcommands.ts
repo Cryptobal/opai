@@ -118,6 +118,12 @@ export const SUBCOMMANDS: SubCommand[] = [
     key: "scorecard",
   },
   {
+    name: "adjudicados",
+    description: "comparte al canal los proyectos adjudicados por iniciar (ordenados por fecha de inicio)",
+    kind: "special",
+    key: "adjudicados",
+  },
+  {
     name: "cotizaciones",
     description: "bandeja de cotizaciones (filtra por estado)",
     usage: "cotizaciones [enviadas|borrador|aceptadas|rechazadas]",

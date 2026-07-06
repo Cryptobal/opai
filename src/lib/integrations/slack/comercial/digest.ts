@@ -74,3 +74,67 @@ export async function buildAndPostDigest(tenantId: string, dayKey: string): Prom
   await trySendOutboxRow(ws.botToken, id, channelId, text, blocks);
   return true;
 }
+
+/** Días hasta el inicio del servicio (a medianoche local); negativo = ya arrancó. */
+function daysUntilStart(d: Date): number {
+  const s = new Date(d);
+  s.setHours(0, 0, 0, 0);
+  return Math.ceil((s.getTime() - Date.now()) / 86400000);
+}
+
+const shortDate = (d: Date): string => d.toLocaleDateString("es-CL", { day: "numeric", month: "short" });
+
+/**
+ * "La carta" de adjudicados: mensaje compartible con el equipo con todos los
+ * proyectos adjudicados por iniciar (etapas `isAccepted`) ordenados por fecha de
+ * inicio del servicio. Mismo criterio que el Hub (`getUpcomingProjects`) y la
+ * vista de pipeline en Slack. No postea: devuelve `{ text, blocks }` para que el
+ * caller decida el canal (aquí lo comparte in_channel desde `/opai adjudicados`).
+ */
+export async function buildAdjudicadosDigest(tenantId: string): Promise<{ text: string; blocks: unknown[] }> {
+  const acceptedStages = await prisma.crmPipelineStage.findMany({
+    where: { tenantId, isActive: true, isAccepted: true }, select: { id: true },
+  });
+  const deals = acceptedStages.length
+    ? await prisma.crmDeal.findMany({
+        where: { tenantId, stageId: { in: acceptedStages.map((s) => s.id) } },
+        orderBy: [{ serviceStartDate: { sort: "asc", nulls: "last" } }, { updatedAt: "desc" }],
+        take: 25,
+        select: { id: true, title: true, amount: true, serviceStartDate: true, commune: true, city: true, account: { select: { name: true } } },
+      })
+    : [];
+
+  const header = { type: "header", text: { type: "plain_text", text: `🏁 Adjudicados por iniciar (${deals.length})`, emoji: true } };
+
+  if (!deals.length) {
+    return {
+      text: "🏁 No hay proyectos adjudicados por iniciar.",
+      blocks: [header, { type: "section", text: { type: "mrkdwn", text: "No hay proyectos adjudicados por iniciar. Cuando marques un negocio como adjudicado con su fecha de inicio, aparecerá aquí." } }],
+    };
+  }
+
+  const lines = deals.map((d, i) => {
+    const account = (d.account?.name || "Cliente").trim() || "Cliente";
+    const title = (d.title || "Negocio").trim() || "Negocio";
+    const start = d.serviceStartDate;
+    let when = "🚀 sin fecha";
+    if (start) {
+      const dl = daysUntilStart(start);
+      const rel = dl < 0 ? `hace ${-dl}d` : dl === 0 ? "hoy" : `en ${dl}d`;
+      when = `🚀 ${shortDate(start)} · ${rel}`;
+    }
+    const place = (d.commune || d.city || "").trim();
+    const placeTxt = place ? ` · 📍 ${place}` : "";
+    return `${i + 1}. *${account}* · ${title} — ${when} · ${clp(Number(d.amount ?? 0))}${placeTxt}`;
+  });
+
+  // Slack limita cada section text a 3000 chars → troceamos en bloques de 8.
+  const blocks: unknown[] = [header];
+  for (let i = 0; i < lines.length; i += 8) {
+    blocks.push({ type: "section", text: { type: "mrkdwn", text: lines.slice(i, i + 8).join("\n") } });
+  }
+  blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Ordenados por fecha de inicio · Actualizado ${new Date().toLocaleDateString("es-CL")}` }] });
+
+  const text = `🏁 Adjudicados por iniciar (${deals.length}) — ordenados por fecha de inicio`;
+  return { text, blocks };
+}

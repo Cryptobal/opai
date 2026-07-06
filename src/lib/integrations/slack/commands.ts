@@ -93,6 +93,26 @@ export async function handleSlashCommand(input: SlashCommandInput): Promise<void
     return;
   }
 
+  // Adjudicados por iniciar: "la carta" compartible. A diferencia del scorecard
+  // (efímero/privado), este se postea IN_CHANNEL para que el equipo lo vea.
+  if (sub?.kind === "special" && sub.key === "adjudicados") {
+    const linked = await resolveLinkedAdmin(workspace, slackUserId);
+    if (!linked) {
+      const linkPrompt = buildLinkPrompt(workspace, slackUserId);
+      await slackRespondUrl(responseUrl, { response_type: "ephemeral", replace_original: true, text: linkPrompt.text, blocks: linkPrompt.blocks });
+      return;
+    }
+    const { canView } = await import("@/lib/permissions");
+    if (!canView(linked.perms, "crm", "deals")) {
+      await ephemeral("Necesitas acceso a Negocios (CRM) para ver los adjudicados.");
+      return;
+    }
+    const { buildAdjudicadosDigest } = await import("./comercial/digest");
+    const dg = await buildAdjudicadosDigest(workspace.tenantId);
+    await slackRespondUrl(responseUrl, { response_type: "in_channel", replace_original: true, text: dg.text, blocks: dg.blocks });
+    return;
+  }
+
   // Subcomandos que abren un modal nativo (ticket, rendición, bandeja).
   if (sub?.kind === "modal") {
     if (!input.triggerId) {
