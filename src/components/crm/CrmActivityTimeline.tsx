@@ -9,7 +9,7 @@ type CrmActivityEvent = {
   createdByName?: string | null;
 };
 
-const ACTION_LABELS: Record<string, string> = {
+export const ACTION_LABELS: Record<string, string> = {
   account_created: "Cuenta creada",
   account_updated: "Cuenta actualizada",
   account_deleted: "Cuenta eliminada",

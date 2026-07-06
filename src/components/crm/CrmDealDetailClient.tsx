@@ -61,6 +61,8 @@ import { CrmActivityTimeline } from "./CrmActivityTimeline";
 import { DeactivateInstallationDialog } from "@/components/crm/DeactivateInstallationDialog";
 import { DealHighlightsStrip } from "./deal/DealHighlightsStrip";
 import { DealAboutCard } from "./deal/DealAboutCard";
+import { DealNextStepBanner } from "./deal/DealNextStepBanner";
+import { DealUnifiedTimeline } from "./deal/DealUnifiedTimeline";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -560,6 +562,8 @@ export function CrmDealDetailClient({
   const router = useRouter();
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const createInstallationRef = useRef<{ open: () => void } | null>(null);
+  // Ancla para el filtro "Notas" del timeline (hace scroll al compositor).
+  const notesRef = useRef<HTMLDivElement>(null);
 
   // ── WhatsApp Adjudicado state ──
   const { resolve: resolveWaTemplate } = useWaTemplate();
@@ -1949,7 +1953,13 @@ export function CrmDealDetailClient({
       >
         {activeTab === "general" && (
           <div className="space-y-4">
-            {generalSection.children}
+            <DealNextStepBanner
+              log={pendingLogsBySequence[0] ?? null}
+              onSendNow={handleSendFollowUpNow}
+              onPause={() => handleFollowUpAction("pause")}
+              sendingLogId={sendingLogId}
+              pausing={followUpActioning}
+            />
 
             {/* WhatsApp Adjudicado — visible solo en etapa aceptada/adjudicado */}
             {pipelineStages.find((s) => s.id === currentStage?.id)?.isAccepted && (
@@ -1974,25 +1984,32 @@ export function CrmDealDetailClient({
               </div>
             )}
 
-            <div className="space-y-3 rounded-lg border border-border bg-card p-4 sm:p-5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
-                  <CalendarClock className="h-4 w-4 text-muted-foreground" /> Seguimiento automático
-                </h3>
-                {followUpSection.action}
-              </div>
-              {followUpSection.children}
+            {/* Compositor de interacciones (nota/contacto/llamado/reunión/visita) + notas */}
+            <div ref={notesRef} className="rounded-lg border border-border bg-card p-4 sm:p-5">
+              <NotesSection entityType="deal" entityId={deal.id} currentUserId={currentUserId} />
             </div>
 
-            <div className="space-y-3 rounded-lg border border-border bg-card p-4 sm:p-5">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground" /> Comunicación
-                </h3>
-                {communicationSection.action}
-              </div>
-              {communicationSection.children}
-            </div>
+            {/* Timeline unificado: sistema + seguimientos (+ correos vía filtro) */}
+            <DealUnifiedTimeline
+              activityEvents={activityEvents}
+              followUpLogs={localFollowUpLogs}
+              emailSlot={
+                <EmailHistoryList
+                  dealId={deal.id}
+                  compact
+                  onReply={gmailConnected ? handleReplyFromHistory : undefined}
+                />
+              }
+              headerAction={
+                <div className="flex items-center gap-1">
+                  {communicationSection.action}
+                  {followUpSection.action}
+                </div>
+              }
+              onFocusNotes={() =>
+                notesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
+            />
           </div>
         )}
         {activeTab === "activity" && (
