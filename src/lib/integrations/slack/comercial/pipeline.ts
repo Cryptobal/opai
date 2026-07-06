@@ -138,6 +138,47 @@ async function openRoomsForDeals(tenantId: string, dealIds: string[]): Promise<M
   return new Map(rooms.map((r) => [r.dealId, r.slackChannelId]));
 }
 
+/**
+ * Negocios ADJUDICADOS por iniciar: los de etapas `isAccepted` (ganamos, aún no
+ * arranca), ordenados por fecha de inicio del servicio. Mismo criterio que el
+ * Hub (`getUpcomingProjects`): por `stage.isAccepted`, robusto sin depender del
+ * status. Los sin `serviceStartDate` van al final ("sin fecha") para no perderse.
+ */
+interface AdjudicadoDeal {
+  id: string; amount: number; accountName: string; title: string;
+  contactFirst: string | null; contactPhone: string | null;
+  serviceStartDate: Date | null;
+}
+
+async function acceptedStageIds(tenantId: string): Promise<string[]> {
+  const stages = await prisma.crmPipelineStage.findMany({
+    where: { tenantId, isActive: true, isAccepted: true }, select: { id: true },
+  });
+  return stages.map((s) => s.id);
+}
+
+async function listAdjudicados(tenantId: string): Promise<AdjudicadoDeal[]> {
+  const stageIds = await acceptedStageIds(tenantId);
+  if (!stageIds.length) return [];
+  const deals = await prisma.crmDeal.findMany({
+    where: { tenantId, stageId: { in: stageIds } },
+    orderBy: [{ serviceStartDate: { sort: "asc", nulls: "last" } }, { updatedAt: "desc" }],
+    take: 25,
+    select: { id: true, title: true, amount: true, serviceStartDate: true, account: { select: { name: true } }, primaryContact: { select: { firstName: true, phone: true } } },
+  });
+  return deals.map((d) => ({
+    id: d.id, amount: Number(d.amount ?? 0), accountName: d.account?.name ?? "Cliente", title: d.title ?? "Negocio",
+    contactFirst: d.primaryContact?.firstName ?? null, contactPhone: d.primaryContact?.phone ?? null,
+    serviceStartDate: d.serviceStartDate,
+  }));
+}
+
+async function countAdjudicados(tenantId: string): Promise<number> {
+  const stageIds = await acceptedStageIds(tenantId);
+  if (!stageIds.length) return 0;
+  return prisma.crmDeal.count({ where: { tenantId, stageId: { in: stageIds } } });
+}
+
 /* ── Vistas ── */
 
 /**
@@ -162,7 +203,7 @@ const OVERVIEW_MAX_STAGES = 8;
  * con texto propio (`3 negocios →` — jamás un "Ver" genérico, F20). Con más
  * de 8 etapas, el excedente se pliega en "…y N etapas más" (pipe_more).
  */
-function overviewView(stages: StageRow[], expanded = false): SlackView {
+function overviewView(stages: StageRow[], adjCount: number, expanded = false): SlackView {
   const total = stages.reduce((s, x) => s + x.sum, 0);
   const totalCount = stages.reduce((s, x) => s + x.count, 0);
   const blocks: unknown[] = [
@@ -196,8 +237,32 @@ function overviewView(stages: StageRow[], expanded = false): SlackView {
       accessory: { type: "button", action_id: "pipe_more", text: pt(`+${hidden} etapa${hidden === 1 ? "" : "s"} →`) },
     });
   }
+  // Adjudicados por iniciar (isAccepted): fuera de las columnas abiertas, con su
+  // propia entrada al drill ordenado por fecha de inicio. Solo si hay alguno.
+  if (adjCount > 0) {
+    blocks.push(
+      { type: "divider" },
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: `🏁 *Adjudicados por iniciar*\n${nNegocios(adjCount)} ganado${adjCount === 1 ? "" : "s"}, aún por arrancar` },
+        accessory: { type: "button", action_id: "pipe_open_adjudicados", text: pt(`🏁 Ver ${adjCount} →`) },
+      },
+    );
+  }
   blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Total abierto: *${clp(total)}* · Actualizado hace un momento` }] });
   return { type: "modal", callback_id: "opai_pipeline", title: modalTitle("Pipeline"), close: pt("Cerrar"), blocks };
+}
+
+/** Carga stages + conteo de adjudicados en paralelo y arma el overview. */
+async function renderOverview(tenantId: string, expanded = false): Promise<SlackView> {
+  const [stages, adjCount] = await Promise.all([
+    listStagesWithCounts(tenantId),
+    countAdjudicados(tenantId).catch((err) => {
+      console.error("[slack] pipeline: conteo de adjudicados falló (se omite la entrada):", err);
+      return 0;
+    }),
+  ]);
+  return overviewView(stages, adjCount, expanded);
 }
 
 /** Días en la etapa (siempre calculable: el fallback a `createdAt` vive en la query). */
@@ -308,6 +373,85 @@ async function renderDrill(tenantId: string, teamId: string, canWrite: boolean, 
     openRoomsForDeals(tenantId, deals.map((d) => d.id)),
   ]);
   return drillView(stageId, stageName, deals, { teamId, canWrite, rooms, waUrls: new Map(pairs) }, notice);
+}
+
+/* ── Adjudicados por iniciar ── */
+
+/** Días hasta el inicio del servicio (a medianoche local); negativo = ya arrancó. */
+function daysUntil(d: Date): number {
+  const start = new Date(d);
+  start.setHours(0, 0, 0, 0);
+  return Math.ceil((start.getTime() - Date.now()) / 86400000);
+}
+
+/**
+ * Fila de UN adjudicado: fecha de inicio + días restantes en vez del semáforo de
+ * frío. Vista de lectura/agenda: solo links de navegación (Abrir en OPAI · Ir a
+ * la sala si existe · WhatsApp), sin overflow de gestión ni "Abrir sala" (que
+ * dependería de un stageId inexistente en esta vista). Null-safety TOTAL (F21).
+ */
+function adjudicadoRowBlocks(d: AdjudicadoDeal, ctx: DrillCtx): unknown[] {
+  const account = (d.accountName || "Cliente").trim() || "Cliente";
+  const title = (d.title || "Negocio").trim() || "Negocio";
+  const amount = Number.isFinite(d.amount) ? d.amount : 0;
+  const wa = ctx.waUrls.get(d.id) ?? null;
+  const roomChannel = ctx.rooms.get(d.id) ?? null;
+  const badge = roomChannel ? "🏠 " : "";
+  const start = d.serviceStartDate instanceof Date && !Number.isNaN(d.serviceStartDate.getTime()) ? d.serviceStartDate : null;
+  let startTxt: string;
+  if (start) {
+    const dl = daysUntil(start);
+    const rel = dl < 0 ? `hace ${-dl}d` : dl === 0 ? "hoy" : `en ${dl}d`;
+    startTxt = `🚀 inicia ${dfmt(start)} · ${rel}`;
+  } else {
+    startTxt = "🚀 sin fecha de inicio";
+  }
+  const section = {
+    type: "section",
+    text: { type: "mrkdwn", text: `${badge}*${account}* · ${title}\n${clp(amount)} · ${startTxt}` },
+  };
+  const linkBtns: unknown[] = [{ type: "button", action_id: "pipe_deal_open", url: dealOpaiUrl(d.id), text: pt("🔗 Abrir en OPAI") }];
+  if (roomChannel) linkBtns.push({ type: "button", action_id: "pipe_deal_roomlink", url: roomClientUrl(ctx.teamId, roomChannel), text: pt("🏠 Ir a la sala") });
+  if (wa && /^https:\/\//.test(wa)) linkBtns.push({ type: "button", action_id: "pipe_deal_wa", url: wa, text: pt("🟢 WhatsApp") });
+  return [section, { type: "actions", block_id: `opai_adjbtns_${d.id}`, elements: linkBtns }];
+}
+
+function adjudicadosView(deals: AdjudicadoDeal[], ctx: DrillCtx): SlackView {
+  const blocks: unknown[] = [
+    { type: "actions", block_id: "opai_pipe_nav", elements: [{ type: "button", action_id: "pipe_back", text: pt("← Pipeline") }] },
+    { type: "section", text: { type: "mrkdwn", text: `🏁 *Adjudicados por iniciar* — ${nNegocios(deals.length)}` } },
+  ];
+  if (deals.length === 0) {
+    blocks.push(
+      { type: "section", text: { type: "mrkdwn", text: "✨ No hay proyectos adjudicados por iniciar." } },
+      { type: "context", elements: [{ type: "mrkdwn", text: "Cuando marques un negocio como adjudicado con su fecha de inicio, aparecerá aquí ordenado por fecha." }] },
+    );
+  }
+  let broken = 0;
+  for (const d of deals) {
+    try {
+      blocks.push(...adjudicadoRowBlocks(d, ctx));
+    } catch (err) {
+      broken += 1;
+      console.error(`[slack] pipeline adjudicados: fila corrupta dealId=${d.id}:`, err);
+    }
+  }
+  if (broken > 0) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `⚠️ ${broken} negocio(s) no se pudieron mostrar (datos incompletos — revisa los logs).` }] });
+  blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "Ordenados por fecha de inicio · 🚀 = inicio del servicio · OPAI" }] });
+  return {
+    type: "modal", callback_id: "opai_pipeline_adjudicados",
+    private_metadata: packMetadata({ kind: "pipeline_adjudicados" }),
+    title: modalTitle("Adjudicados"), close: pt("Cerrar"), blocks,
+  };
+}
+
+async function renderAdjudicados(tenantId: string, teamId: string, canWrite: boolean): Promise<SlackView> {
+  const deals = await listAdjudicados(tenantId);
+  const [pairs, rooms] = await Promise.all([
+    Promise.all(deals.map(async (d) => [d.id, await resolveDealWaUrl(tenantId, d.id).catch(() => null)] as const)),
+    openRoomsForDeals(tenantId, deals.map((d) => d.id)),
+  ]);
+  return adjudicadosView(deals, { teamId, canWrite, rooms, waUrls: new Map(pairs) });
 }
 
 /* ── Modales secundarios (Avanzar / Nota / Perdido) ── */
@@ -426,13 +570,34 @@ export async function handlePipelineAction(payload: {
 
   // Navegación: volver del drill a la vista de etapas (sin cerrar el modal).
   if (action.action_id === "pipe_back") {
-    if (payload.view?.id) await slackUpdateView(workspace.botToken, payload.view.id, overviewView(await listStagesWithCounts(tenantId)));
+    if (payload.view?.id) await slackUpdateView(workspace.botToken, payload.view.id, await renderOverview(tenantId));
     return;
   }
 
   // "…y N etapas más" (F21): re-render del overview con TODAS las etapas.
   if (action.action_id === "pipe_more") {
-    if (payload.view?.id) await slackUpdateView(workspace.botToken, payload.view.id, overviewView(await listStagesWithCounts(tenantId), true));
+    if (payload.view?.id) await slackUpdateView(workspace.botToken, payload.view.id, await renderOverview(tenantId, true));
+    return;
+  }
+
+  // 🏁 Adjudicados por iniciar (F21): drill aparte, ordenado por fecha de inicio.
+  // Mismo patrón loading-first que pipe_open (el trigger_id perece en ~3s).
+  if (action.action_id === "pipe_open_adjudicados") {
+    if (!payload.trigger_id) return;
+    const { loadingView, infoView } = await import("../modals/views");
+    let viewId = "";
+    try {
+      ({ id: viewId } = await slackPushView(workspace.botToken, payload.trigger_id, loadingView("Adjudicados")));
+    } catch (err) {
+      console.error("[slack] pipe_open_adjudicados: push del loading falló:", err);
+      return;
+    }
+    try {
+      await slackUpdateView(workspace.botToken, viewId, await renderAdjudicados(tenantId, teamId, canWrite));
+    } catch (err) {
+      console.error("[slack] pipe_open_adjudicados: no se pudo renderizar:", err);
+      await slackUpdateView(workspace.botToken, viewId, infoView("Adjudicados", "⚠️ No se pudo cargar los adjudicados. Intenta de nuevo — el detalle quedó en los logs.")).catch(() => {});
+    }
     return;
   }
 
@@ -492,7 +657,7 @@ export const pipelineModal: ModalDef = {
   title: "Pipeline",
   requires: (perms) => canView(perms, "crm", "deals"),
   requiresMessage: "Necesitas acceso a Negocios (CRM).",
-  build: async (ctx: ModalOpenContext) => overviewView(await listStagesWithCounts(ctx.tenantId)),
+  build: async (ctx: ModalOpenContext) => renderOverview(ctx.tenantId),
   submit: async () => ({ ack: {} }),
 };
 
