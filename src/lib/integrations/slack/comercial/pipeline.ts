@@ -146,8 +146,7 @@ async function openRoomsForDeals(tenantId: string, dealIds: string[]): Promise<M
  */
 interface AdjudicadoDeal {
   id: string; amount: number; accountName: string; title: string;
-  contactFirst: string | null; contactPhone: string | null;
-  serviceStartDate: Date | null;
+  serviceStartDate: Date | null; commune: string | null;
 }
 
 async function acceptedStageIds(tenantId: string): Promise<string[]> {
@@ -164,12 +163,11 @@ async function listAdjudicados(tenantId: string): Promise<AdjudicadoDeal[]> {
     where: { tenantId, stageId: { in: stageIds } },
     orderBy: [{ serviceStartDate: { sort: "asc", nulls: "last" } }, { updatedAt: "desc" }],
     take: 25,
-    select: { id: true, title: true, amount: true, serviceStartDate: true, account: { select: { name: true } }, primaryContact: { select: { firstName: true, phone: true } } },
+    select: { id: true, title: true, amount: true, serviceStartDate: true, commune: true, city: true, account: { select: { name: true } } },
   });
   return deals.map((d) => ({
     id: d.id, amount: Number(d.amount ?? 0), accountName: d.account?.name ?? "Cliente", title: d.title ?? "Negocio",
-    contactFirst: d.primaryContact?.firstName ?? null, contactPhone: d.primaryContact?.phone ?? null,
-    serviceStartDate: d.serviceStartDate,
+    serviceStartDate: d.serviceStartDate, commune: (d.commune || d.city) ?? null,
   }));
 }
 
@@ -384,46 +382,56 @@ function daysUntil(d: Date): number {
   return Math.ceil((start.getTime() - Date.now()) / 86400000);
 }
 
+/** Línea de estado del inicio: emoji-semáforo + fecha + relativo (o "sin fecha"). */
+function startStatus(start: Date | null): { dot: string; text: string } {
+  if (!start) return { dot: "⚪", text: "sin fecha de inicio" };
+  const dl = daysUntil(start);
+  const rel = dl < 0 ? `inició hace ${-dl}d` : dl === 0 ? "*inicia hoy*" : `en ${dl}d`;
+  // 🔴 ya debió arrancar · 🟠 arranca dentro de 7d · 🟢 más lejos.
+  const dot = dl < 0 ? "🔴" : dl <= 7 ? "🟠" : "🟢";
+  return { dot, text: `inicia ${dfmt(start)} · ${rel}` };
+}
+
 /**
- * Fila de UN adjudicado: fecha de inicio + días restantes en vez del semáforo de
- * frío. Vista de lectura/agenda: solo links de navegación (Abrir en OPAI · Ir a
- * la sala si existe · WhatsApp), sin overflow de gestión ni "Abrir sala" (que
- * dependería de un stageId inexistente en esta vista). Null-safety TOTAL (F21).
+ * Fila de UN adjudicado, layout compacto (agenda de próximos inicios):
+ *   *Cuenta* — negocio            [ Abrir → ]
+ *   🟠 inicia DD-MM-AAAA · en Nd  ·  $monto  ·  📍 comuna
+ *   ───────────
+ * Una sola acción (Abrir en OPAI) como accessory para no saturar; el resto de
+ * acciones vive en el detalle del negocio. Null-safety TOTAL (F21).
  */
 function adjudicadoRowBlocks(d: AdjudicadoDeal, ctx: DrillCtx): unknown[] {
   const account = (d.accountName || "Cliente").trim() || "Cliente";
   const title = (d.title || "Negocio").trim() || "Negocio";
   const amount = Number.isFinite(d.amount) ? d.amount : 0;
-  const wa = ctx.waUrls.get(d.id) ?? null;
   const roomChannel = ctx.rooms.get(d.id) ?? null;
   const badge = roomChannel ? "🏠 " : "";
   const start = d.serviceStartDate instanceof Date && !Number.isNaN(d.serviceStartDate.getTime()) ? d.serviceStartDate : null;
-  let startTxt: string;
-  if (start) {
-    const dl = daysUntil(start);
-    const rel = dl < 0 ? `hace ${-dl}d` : dl === 0 ? "hoy" : `en ${dl}d`;
-    startTxt = `🚀 inicia ${dfmt(start)} · ${rel}`;
-  } else {
-    startTxt = "🚀 sin fecha de inicio";
-  }
-  const section = {
-    type: "section",
-    text: { type: "mrkdwn", text: `${badge}*${account}* · ${title}\n${clp(amount)} · ${startTxt}` },
-  };
-  const linkBtns: unknown[] = [{ type: "button", action_id: "pipe_deal_open", url: dealOpaiUrl(d.id), text: pt("🔗 Abrir en OPAI") }];
-  if (roomChannel) linkBtns.push({ type: "button", action_id: "pipe_deal_roomlink", url: roomClientUrl(ctx.teamId, roomChannel), text: pt("🏠 Ir a la sala") });
-  if (wa && /^https:\/\//.test(wa)) linkBtns.push({ type: "button", action_id: "pipe_deal_wa", url: wa, text: pt("🟢 WhatsApp") });
-  return [section, { type: "actions", block_id: `opai_adjbtns_${d.id}`, elements: linkBtns }];
+  const st = startStatus(start);
+  const place = (d.commune || "").trim();
+  const meta = [st.text, amount ? clp(amount) : null, place ? `📍 ${place}` : null].filter(Boolean).join("  ·  ");
+  return [
+    {
+      type: "section",
+      text: { type: "mrkdwn", text: `${badge}*${account}*\n${title}` },
+      accessory: { type: "button", action_id: "pipe_deal_open", url: dealOpaiUrl(d.id), text: pt("Abrir →") },
+    },
+    { type: "context", elements: [{ type: "mrkdwn", text: `${st.dot} ${meta}` }] },
+    { type: "divider" },
+  ];
 }
 
 function adjudicadosView(deals: AdjudicadoDeal[], ctx: DrillCtx): SlackView {
+  const conFecha = deals.filter((d) => d.serviceStartDate).length;
   const blocks: unknown[] = [
     { type: "actions", block_id: "opai_pipe_nav", elements: [{ type: "button", action_id: "pipe_back", text: pt("← Pipeline") }] },
-    { type: "section", text: { type: "mrkdwn", text: `🏁 *Adjudicados por iniciar* — ${nNegocios(deals.length)}` } },
+    { type: "header", text: pt(`🏁 Adjudicados por iniciar`) },
+    { type: "context", elements: [{ type: "mrkdwn", text: `${nNegocios(deals.length)} · ${conFecha} con fecha · ordenados por inicio del servicio` }] },
+    { type: "divider" },
   ];
   if (deals.length === 0) {
     blocks.push(
-      { type: "section", text: { type: "mrkdwn", text: "✨ No hay proyectos adjudicados por iniciar." } },
+      { type: "section", text: { type: "mrkdwn", text: "✨ *No hay proyectos adjudicados por iniciar.*" } },
       { type: "context", elements: [{ type: "mrkdwn", text: "Cuando marques un negocio como adjudicado con su fecha de inicio, aparecerá aquí ordenado por fecha." }] },
     );
   }
@@ -437,7 +445,7 @@ function adjudicadosView(deals: AdjudicadoDeal[], ctx: DrillCtx): SlackView {
     }
   }
   if (broken > 0) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `⚠️ ${broken} negocio(s) no se pudieron mostrar (datos incompletos — revisa los logs).` }] });
-  blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "Ordenados por fecha de inicio · 🚀 = inicio del servicio · OPAI" }] });
+  blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "🔴 ya debió iniciar · 🟠 dentro de 7 días · 🟢 más adelante" }] });
   return {
     type: "modal", callback_id: "opai_pipeline_adjudicados",
     private_metadata: packMetadata({ kind: "pipeline_adjudicados" }),
@@ -447,11 +455,8 @@ function adjudicadosView(deals: AdjudicadoDeal[], ctx: DrillCtx): SlackView {
 
 async function renderAdjudicados(tenantId: string, teamId: string, canWrite: boolean): Promise<SlackView> {
   const deals = await listAdjudicados(tenantId);
-  const [pairs, rooms] = await Promise.all([
-    Promise.all(deals.map(async (d) => [d.id, await resolveDealWaUrl(tenantId, d.id).catch(() => null)] as const)),
-    openRoomsForDeals(tenantId, deals.map((d) => d.id)),
-  ]);
-  return adjudicadosView(deals, { teamId, canWrite, rooms, waUrls: new Map(pairs) });
+  const rooms = await openRoomsForDeals(tenantId, deals.map((d) => d.id));
+  return adjudicadosView(deals, { teamId, canWrite, rooms, waUrls: new Map() });
 }
 
 /* ── Modales secundarios (Avanzar / Nota / Perdido) ── */
