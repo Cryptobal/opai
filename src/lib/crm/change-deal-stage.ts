@@ -259,7 +259,19 @@ export async function changeDealStage(input: {
           };
         }
       | null = null;
+    // Flag por tenant (default OFF): si el onboarding-al-ganar está apagado, no
+    // se crea playbook ni onboardingMeta → el frontend no abre el modal (maneja
+    // null). No afecta la 🎉 deal_won, propagateDealWon ni la transición portal.
+    let onWonEnabled = false;
     if (nextStatus === "won") {
+      try {
+        const { getOnboardingConfig } = await import("@/lib/onboarding/config");
+        onWonEnabled = (await getOnboardingConfig(ctx.tenantId)).onWonEnabled;
+      } catch (e) {
+        console.error("[onboarding] read on_won flag failed:", e);
+      }
+    }
+    if (nextStatus === "won" && onWonEnabled) {
       try {
         const { ensureDefaultPlaybook } = await import(
           "@/lib/onboarding/seed-defaults"
