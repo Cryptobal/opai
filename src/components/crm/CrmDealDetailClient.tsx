@@ -60,6 +60,7 @@ import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
 import { DeactivateInstallationDialog } from "@/components/crm/DeactivateInstallationDialog";
 import { DealHighlightsStrip } from "./deal/DealHighlightsStrip";
+import { DealAboutCard } from "./deal/DealAboutCard";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -917,6 +918,33 @@ export function CrmDealDetailClient({
     totalGuards: Number.isFinite(rawTotalGuards) ? rawTotalGuards : 0,
   };
 
+  // Datos precomputados del selector de cotización activa para DealAboutCard
+  // (columna izquierda). La lógica del handler (updateActiveQuotation) se pasa
+  // por prop sin reescribirse; aquí solo se arman las etiquetas de las opciones.
+  const aboutQuoteAutoLabel = (() => {
+    const autoSummary = deal.activeQuoteSummary?.code
+      ? ` · usando ${deal.activeQuoteSummary.code}`
+      : "";
+    const baseLabel =
+      linkedQuotes.length > 1
+        ? "Automática (última enviada)"
+        : "Automática (única cotización)";
+    return `${baseLabel}${autoSummary}`;
+  })();
+  const aboutQuoteOptions = sentLinkedQuotes.map(({ quoteInfo }) => {
+    const quoteDate = quoteInfo.updatedAt || quoteInfo.createdAt || null;
+    const quoteDateLabel = quoteDate ? formatDealDate(quoteDate) : "sin fecha";
+    const quoteLabel = quoteInfo.name ? `${quoteInfo.code} — ${quoteInfo.name}` : quoteInfo.code;
+    const statusSuffix = quoteInfo.status === "approved" ? " · Aprobada" : "";
+    return {
+      id: quoteInfo.id,
+      label: `${quoteLabel} · ${quoteDateLabel} · ${formatQuoteAmounts(quoteInfo)}${statusSuffix}`,
+    };
+  });
+  const aboutQuoteHelperText = deal.activeQuoteSummary
+    ? `Actual: ${deal.activeQuoteSummary.code || "Sin código"} (${deal.activeQuoteSummary.isManual ? "selección manual" : "selección automática"}).`
+    : "Sin cotización activa. El negocio mostrará $0 hasta tener una cotización enviada o aprobada.";
+
   const updateActiveQuotation = async (value: string) => {
     const nextActiveQuotationId = value === "__auto__" ? null : value;
     const previousActiveQuotationId = activeQuotationId;
@@ -1300,178 +1328,10 @@ export function CrmDealDetailClient({
     key: "general",
     label: "Resumen del negocio",
     children: (
-      <div className="space-y-3 sm:space-y-4">
-        {/* ── Hero: identidad (estado + cliente + contacto) ── */}
-        <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
-          <div className="flex flex-wrap items-center gap-2">
-            {dealStatus === "won" && (
-              <Badge variant="outline" className="border-status-ok-border text-status-ok-fg">
-                <span className="mr-1 inline-flex h-1.5 w-1.5 rounded-full bg-status-ok" />
-                Ganado
-              </Badge>
-            )}
-            {dealStatus === "lost" && (
-              <Badge variant="outline" className="border-status-danger-border text-status-danger-fg">
-                <span className="mr-1 inline-flex h-1.5 w-1.5 rounded-full bg-status-danger" />
-                Perdido
-              </Badge>
-            )}
-            {dealStatus === "open" && currentStage && (
-              <Badge
-                variant="outline"
-                style={{ borderColor: `${currentStageColor}40`, color: currentStageColor, backgroundColor: `${currentStageColor}15` }}
-              >
-                <span className="mr-1 inline-flex h-1.5 w-1.5 rounded-full" style={{ backgroundColor: currentStageColor }} />
-                {currentStage.name}
-              </Badge>
-            )}
-            {deal.account && (
-              <Link
-                href={`/crm/accounts/${deal.account.id}`}
-                className="inline-flex items-center gap-1 truncate rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-primary transition-colors hover:bg-muted/50"
-              >
-                <Building2 className="h-3 w-3 shrink-0" />
-                <span className="truncate max-w-[180px] sm:max-w-xs">{deal.account.name}</span>
-              </Link>
-            )}
-            {deal.primaryContact && deal.primaryContactId && (
-              <Link
-                href={`/crm/contacts/${deal.primaryContactId}`}
-                className="inline-flex items-center gap-1 truncate rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-primary transition-colors hover:bg-muted/50"
-              >
-                <Users className="h-3 w-3 shrink-0" />
-                <span className="truncate max-w-[180px] sm:max-w-xs">
-                  {`${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim()}
-                </span>
-              </Link>
-            )}
-            {changingStage && (
-              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Cambiando etapa…
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* ── Cotización activa (widget dedicado, funcionalidad intacta) ── */}
-        <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-2">
-          <Label>
-            Cotización activa en negociación
-          </Label>
-          <Select
-            value={activeQuotationSelectValue}
-            onValueChange={(value) => void updateActiveQuotation(value)}
-            disabled={updatingActiveQuotation || sentLinkedQuotes.length === 0}
-          >
-            <SelectTrigger className="h-auto min-h-8 text-xs max-w-xl">
-              <SelectValue
-                placeholder={
-                  sentLinkedQuotes.length === 0
-                    ? "Sin cotizaciones enviadas"
-                    : "Selecciona cotización activa"
-                }
-              />
-            </SelectTrigger>
-            <SelectContent className="max-w-[calc(100vw-24px)]">
-              <SelectItem value="__auto__" className="whitespace-normal break-words pr-2">
-                {(() => {
-                  const autoSummary = deal.activeQuoteSummary?.code
-                    ? ` · usando ${deal.activeQuoteSummary.code}`
-                    : "";
-                  const baseLabel =
-                    linkedQuotes.length > 1
-                      ? "Automática (última enviada)"
-                      : "Automática (única cotización)";
-                  return `${baseLabel}${autoSummary}`;
-                })()}
-              </SelectItem>
-              {sentLinkedQuotes.map(({ quoteInfo }) => {
-                const quoteDate = quoteInfo.updatedAt || quoteInfo.createdAt || null;
-                const quoteDateLabel = quoteDate
-                  ? formatDealDate(quoteDate)
-                  : "sin fecha";
-                const quoteLabel = quoteInfo.name
-                  ? `${quoteInfo.code} — ${quoteInfo.name}`
-                  : quoteInfo.code;
-                const statusSuffix = quoteInfo.status === "approved" ? " · Aprobada" : "";
-                return (
-                  <SelectItem
-                    key={quoteInfo.id}
-                    value={quoteInfo.id}
-                    className="whitespace-normal break-words pr-2"
-                  >
-                    {`${quoteLabel} · ${quoteDateLabel} · ${formatQuoteAmounts(quoteInfo)}${statusSuffix}`}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-          <p className="text-[11px] text-muted-foreground">
-            {deal.activeQuoteSummary
-              ? `Actual: ${deal.activeQuoteSummary.code || "Sin código"} (${deal.activeQuoteSummary.isManual ? "selección manual" : "selección automática"}).`
-              : "Sin cotización activa. El negocio mostrará $0 hasta tener una cotización enviada o aprobada."}
-          </p>
-          {updatingActiveQuotation && (
-            <div className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              Guardando selección...
-            </div>
-          )}
-        </div>
-
-        {/* ── Seguimiento y propuesta (colapsable) ── */}
-        <details className="group rounded-xl border border-border bg-card">
-          <summary className="flex cursor-pointer list-none select-none items-center justify-between px-4 py-3 transition-colors hover:bg-muted/20">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-              Seguimiento y propuesta
-            </span>
-            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
-          </summary>
-          <div className="grid grid-cols-1 gap-x-6 gap-y-3 px-4 pb-4 pt-1 sm:grid-cols-2">
-            <DetailField
-              label="Flujo seguimiento"
-              value={<Badge variant="outline" className={followUpFlowStatus.className}>{followUpFlowStatus.label}</Badge>}
-            />
-            <DetailField
-              label="Link propuesta"
-              value={dealProposalLink ? (
-                <a href={dealProposalLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
-                  Ver propuesta<ExternalLink className="h-3 w-3" />
-                </a>
-              ) : undefined}
-            />
-          </div>
-        </details>
-
-        {/* ── Detalles técnicos (colapsable) ── */}
-        <details className="group rounded-xl border border-border bg-card">
-          <summary className="flex cursor-pointer list-none select-none items-center justify-between px-4 py-3 transition-colors hover:bg-muted/20">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-              Detalles técnicos
-            </span>
-            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
-          </summary>
-          <div className="grid grid-cols-1 gap-x-6 gap-y-3 px-4 pb-4 pt-1 sm:grid-cols-2">
-            <DetailField
-              label="Fecha creación"
-              value={
-                deal.createdAt
-                  ? new Date(deal.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
-                  : "—"
-              }
-            />
-            <DetailField
-              label="Última modificación"
-              value={
-                deal.updatedAt
-                  ? new Date(deal.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
-                  : "—"
-              }
-            />
-          </div>
-        </details>
-      </div>
+      // Contenido redistribuido: identidad → header + highlights, cuenta/contacto
+      // + cotización + detalles técnicos → columna izquierda (DealAboutCard).
+      // El centro del tab se arma en el render (BLOQUE 4: next-step + composer + timeline).
+      <div className="space-y-3 sm:space-y-4" />
     ),
   };
 
@@ -2059,6 +1919,32 @@ export function CrmDealDetailClient({
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        leftPanel={
+          <DealAboutCard
+            account={deal.account ? { id: deal.account.id, name: deal.account.name } : null}
+            primaryContact={
+              deal.primaryContact && deal.primaryContactId
+                ? {
+                    id: deal.primaryContactId,
+                    name: `${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim(),
+                  }
+                : null
+            }
+            followUpFlowStatus={followUpFlowStatus}
+            proposalLink={dealProposalLink}
+            createdAt={deal.createdAt}
+            updatedAt={deal.updatedAt}
+            quote={{
+              selectValue: activeQuotationSelectValue,
+              onChange: (value) => void updateActiveQuotation(value),
+              updating: updatingActiveQuotation,
+              hasSent: sentLinkedQuotes.length > 0,
+              autoLabel: aboutQuoteAutoLabel,
+              options: aboutQuoteOptions,
+              helperText: aboutQuoteHelperText,
+            }}
+          />
+        }
         rightPanel={<AssociatedRecordsPanel sections={associatedSections} />}
       >
         {activeTab === "general" && (
