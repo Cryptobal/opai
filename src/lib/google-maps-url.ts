@@ -61,3 +61,50 @@ export function isGoogleMapsUrl(value: string): boolean {
     /goo\.gl\/maps/i.test(v)
   );
 }
+
+/**
+ * Construye una URL de Google Maps para navegar a una instalación.
+ * Prioridad: link de Maps ya guardado > lat/lng exactas > dirección textual.
+ * Devuelve null si no hay ningún dato usable. Solo emite https:// (regla F21).
+ */
+export function buildDealMapsUrl(input: {
+  lat?: number | null;
+  lng?: number | null;
+  address?: string | null;
+  street?: string | null;
+  commune?: string | null;
+  city?: string | null;
+  installationWebsite?: string | null;
+}): string | null {
+  // 1) Si installationWebsite ya es un link de Maps válido, usarlo tal cual.
+  if (input.installationWebsite && isGoogleMapsUrl(input.installationWebsite)) {
+    const w = input.installationWebsite.trim();
+    if (/^https:\/\//i.test(w)) return w;
+  }
+  // 2) Coordenadas exactas.
+  if (
+    typeof input.lat === "number" &&
+    typeof input.lng === "number" &&
+    Number.isFinite(input.lat) &&
+    Number.isFinite(input.lng)
+  ) {
+    return `https://www.google.com/maps?q=${input.lat.toFixed(6)},${input.lng.toFixed(6)}`;
+  }
+  // 3) Dirección textual (search API de Maps).
+  const text = formatDealAddress(input);
+  if (!text) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(text)}`;
+}
+
+/** Dirección legible de una instalación (para pintar como texto). null si vacía. */
+export function formatDealAddress(input: {
+  address?: string | null;
+  street?: string | null;
+  commune?: string | null;
+  city?: string | null;
+}): string | null {
+  const parts = [input.address || input.street, input.commune, input.city]
+    .map((p) => (p || "").trim())
+    .filter(Boolean);
+  return parts.length ? parts.join(", ") : null;
+}

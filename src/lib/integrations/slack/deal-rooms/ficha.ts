@@ -9,6 +9,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
+import { buildDealMapsUrl, formatDealAddress } from "@/lib/google-maps-url";
 import { clp, resolveDealWaUrl } from "../comercial/deal-common";
 
 export interface DealCard {
@@ -23,6 +24,9 @@ export interface DealCard {
   ownerName: string | null;
   contactPhone: string | null;
   contactFirst: string | null;
+  mapsUrl: string | null; // botón "Cómo llegar" | null
+  addressText: string | null; // línea de dirección legible | null
+  installationName: string | null;
 }
 
 const dfmt = (d: Date | null): string => (d ? d.toLocaleDateString("es-CL") : "—");
@@ -38,6 +42,8 @@ export async function loadDealCard(tenantId: string, dealId: string): Promise<De
     where: { id: dealId, tenantId },
     select: {
       id: true, title: true, amount: true, status: true, activeQuotationId: true,
+      address: true, street: true, city: true, commune: true, lat: true, lng: true,
+      installationName: true, installationWebsite: true,
       account: { select: { name: true, ownerId: true } },
       stage: { select: { name: true } },
       primaryContact: { select: { firstName: true, phone: true } },
@@ -85,6 +91,14 @@ export async function loadDealCard(tenantId: string, dealId: string): Promise<De
     ownerName,
     contactPhone: deal.primaryContact?.phone ?? null,
     contactFirst: deal.primaryContact?.firstName ?? null,
+    mapsUrl: buildDealMapsUrl({
+      lat: deal.lat, lng: deal.lng, address: deal.address, street: deal.street,
+      commune: deal.commune, city: deal.city, installationWebsite: deal.installationWebsite,
+    }),
+    addressText: formatDealAddress({
+      address: deal.address, street: deal.street, commune: deal.commune, city: deal.city,
+    }),
+    installationName: deal.installationName ?? null,
   };
 }
 
@@ -118,6 +132,13 @@ export function buildFichaBlocks(card: DealCard, waUrl: string | null): { text: 
     { type: "section", fields: fields.map((f) => ({ type: "mrkdwn", text: `*${f.label}*\n${f.value}` })) },
   ];
 
+  // Ubicación de la instalación (solo si hay dato). El botón "Cómo llegar" vive
+  // en la fila de acciones de abajo.
+  if (card.addressText || card.installationName) {
+    const loc = [card.installationName, card.addressText].filter(Boolean).join("\n");
+    blocks.push({ type: "section", text: { type: "mrkdwn", text: `📍 *Ubicación de la instalación*\n${loc}` } });
+  }
+
   // Fila de acciones. action_id ÚNICO por elemento (regla de Slack); los que
   // abren modal se rutean en interactivity.ts por prefijo `dealroom_`.
   const elements: unknown[] = [
@@ -125,6 +146,8 @@ export function buildFichaBlocks(card: DealCard, waUrl: string | null): { text: 
   ];
   if (waUrl) elements.push({ type: "button", action_id: "dealroom_wa", url: waUrl, text: pt("🟢 WhatsApp") });
   elements.push({ type: "button", action_id: "dealroom_interaction", value: card.dealId, text: pt("➕ Interacción") });
+  // Botón tipo url (abre el navegador) → no requiere handler en interactivity.ts.
+  if (card.mapsUrl) elements.push({ type: "button", action_id: "dealroom_maps", url: card.mapsUrl, text: pt("🗺️ Cómo llegar") });
   elements.push({ type: "button", action_id: "dealroom_open", url: `${base}/crm/deals/${card.dealId}`, text: pt("Abrir en OPAI") });
   blocks.push({ type: "actions", block_id: `dealroom_ficha_${card.dealId}`, elements });
 
