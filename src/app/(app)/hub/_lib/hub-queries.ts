@@ -769,6 +769,11 @@ export async function getClosingHubData(
 /* Upcoming projects (deals in accepted/adjudicado stage)              */
 /* ------------------------------------------------------------------ */
 
+// TODO(adjudicados): unificar con comercial/adjudicados.ts. No es trivial: este
+// helper tiene contrato propio del Hub (UpcomingProject: stageName/stageColor,
+// totalGuards, contactName, serviceStartDate ISO, conversión UF, filtro
+// serviceStartDate not null), así que unificar exige extender el helper sin
+// romper ese contrato. Fuera de alcance de este PR.
 export async function getUpcomingProjects(
   tenantId: string,
 ): Promise<import('./hub-types').UpcomingProject[]> {
