@@ -153,6 +153,14 @@ export async function POST(
 
     const results: Array<{ email: string; ok: boolean; error?: string }> = [];
     for (const recipient of recipients) {
+      // Primary portal entry point: the client-portal login page with the
+      // recipient's email pre-filled, so they land on the ingreso screen with
+      // their correo ready and only need their PIN.
+      const portalLoginUrl = buildEmailUrl(
+        `/portal/cliente?email=${encodeURIComponent(recipient.email)}`,
+        tenant?.slug ?? null,
+      );
+
       let portalSetupUrl: string | undefined;
       if (portalAccountId) {
         const contact = await prisma.crmContact.findFirst({
@@ -185,6 +193,7 @@ export async function POST(
         senderName: sender?.name ?? sender?.email ?? "Equipo OPAI",
         senderCompany: tenant?.name ?? undefined,
         message: body.message?.trim() || null,
+        portalLoginUrl,
         portalSetupUrl,
       });
       results.push({

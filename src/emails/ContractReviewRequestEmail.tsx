@@ -20,9 +20,16 @@ interface ContractReviewRequestEmailProps {
   senderCompany?: string;
   message?: string | null;
   /**
+   * Link to the client portal login page with the recipient's email already
+   * pre-filled (`/portal/cliente?email=...`). This is the primary way in: the
+   * client lands on the login/ingreso screen with their email ready and only
+   * needs their PIN.
+   */
+  portalLoginUrl?: string | null;
+  /**
    * Optional magic-link to create a portal PIN. Only passed when the recipient
    * contact does not yet have portal access, so the review email doubles as a
-   * portal onboarding invite.
+   * portal onboarding invite (shown as a secondary "first time?" line).
    */
   portalSetupUrl?: string | null;
 }
@@ -40,6 +47,7 @@ export default function ContractReviewRequestEmail({
   senderName = "Equipo OPAI",
   senderCompany,
   message,
+  portalLoginUrl,
   portalSetupUrl,
 }: ContractReviewRequestEmailProps) {
   const senderLine = senderCompany
@@ -106,18 +114,27 @@ export default function ContractReviewRequestEmail({
             </Link>
           </Text>
 
-          {portalSetupUrl ? (
+          {portalLoginUrl ? (
             <Section style={portalBox}>
               <Text style={portalTitle}>Accede a tu portal de cliente</Text>
               <Text style={boxText}>
-                Crea tu PIN para entrar al portal, donde podrás ver tus
-                contratos, documentos y servicios cuando quieras.
+                Entra a tu portal para ver tus contratos, documentos y servicios
+                cuando quieras. Tu correo ya viene ingresado, solo necesitas tu
+                PIN.
               </Text>
               <Text style={{ ...boxText, margin: "10px 0 0" }}>
-                <Link href={portalSetupUrl} style={link}>
-                  Crear mi PIN de acceso
+                <Link href={portalLoginUrl} style={link}>
+                  Ingresar a mi portal
                 </Link>
               </Text>
+              {portalSetupUrl ? (
+                <Text style={{ ...boxText, margin: "8px 0 0", fontSize: "13px" }}>
+                  ¿Primera vez?{" "}
+                  <Link href={portalSetupUrl} style={link}>
+                    Crea tu PIN de acceso
+                  </Link>
+                </Text>
+              ) : null}
             </Section>
           ) : null}
 
