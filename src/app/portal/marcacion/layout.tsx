@@ -28,7 +28,24 @@ export const metadata: Metadata = {
 
 export default function PortalMarcacionLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh text-foreground antialiased" style={{ paddingTop: 'var(--safe-area-top)' }}>
+    <div
+      className="text-foreground antialiased"
+      style={{
+        // Fixed-viewport scroll shell. This used to be `min-h-dvh`, which let
+        // the page grow past the viewport and rely on document-level scrolling.
+        // On low-end Android/Samsung browsers that document scroll fights the
+        // collapsing address bar, so the controls at the bottom of a screen
+        // (capture / PIN / "Continuar") were unreachable unless the user swiped
+        // up from the very bottom edge. Owning the viewport height here and
+        // scrolling *inside* this container gives smooth, reliable scrolling on
+        // every device without changing the visual layout.
+        height: '100dvh',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        overscrollBehaviorY: 'contain',
+        paddingTop: 'var(--safe-area-top)',
+      }}
+    >
       <ServiceWorkerRegistrar scope="/portal/marcacion" />
       <PlatformDataAttribute />
       <BadgeClear />
