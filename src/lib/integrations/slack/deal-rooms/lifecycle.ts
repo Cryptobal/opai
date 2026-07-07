@@ -70,7 +70,7 @@ async function summarizeRoom(tenantId: string, channelId: string, dealTitle: str
   }
 }
 
-function closeCardBlocks(kind: "won" | "lost", dealId: string, title: string, summary: string, montoTxt?: string): unknown[] {
+function closeCardBlocks(kind: "won" | "lost", dealId: string, title: string, summary: string, montoTxt?: string, canvasUrl?: string): unknown[] {
   const base = getCanonicalSiteUrl();
   const header = kind === "won" ? `🎉 Negocio ganado: ${title}` : `🥀 Negocio perdido: ${title}`;
   const blocks: unknown[] = [
@@ -82,6 +82,10 @@ function closeCardBlocks(kind: "won" | "lost", dealId: string, title: string, su
   const elements: unknown[] = [
     { type: "button", action_id: "dealroom_open", url: `${base}/crm/deals/${dealId}`, text: pt("Abrir en OPAI") },
   ];
+  // Ficha de Inicio (Canvas): abre el canal donde vive como pestaña. Solo si ya existe.
+  if (kind === "won" && canvasUrl) {
+    elements.push({ type: "button", action_id: "dealroom_open_canvas", url: canvasUrl, style: "primary", text: pt("🏁 Abrir Ficha de Inicio") });
+  }
   if (kind === "won") {
     elements.push({ type: "button", action_id: "dealroom_handoff", value: dealId, style: "primary", text: pt("🚀 Convertir en canal de operación") });
   }
@@ -105,7 +109,19 @@ export async function postDealClosedCard(tenantId: string, dealId: string, kind:
   const montoTxt = card?.amount ? clp(card.amount) : undefined;
   const summary = await summarizeRoom(tenantId, room.slackChannelId, title, kind);
 
-  const blocks = closeCardBlocks(kind, dealId, title, summary, montoTxt);
+  // Ficha de Inicio (Canvas): si ya se creó, ofrecer el botón que abre el canal
+  // (el canvas vive como pestaña). Se crea antes que esta tarjeta en el dispatch.
+  let canvasUrl: string | undefined;
+  if (kind === "won") {
+    const { getDealStartCanvasId } = await import("./canvas-store");
+    const canvasId = await getDealStartCanvasId(tenantId, dealId).catch(() => null);
+    if (canvasId) {
+      const { startCanvasChannelUrl } = await import("./start-canvas");
+      canvasUrl = startCanvasChannelUrl(ws.slackTeamId, room.slackChannelId);
+    }
+  }
+
+  const blocks = closeCardBlocks(kind, dealId, title, summary, montoTxt, canvasUrl);
   await slackPostMessage(ws.botToken, {
     channel: room.slackChannelId,
     text: kind === "won" ? `🎉 Negocio ganado: ${title}` : `🥀 Negocio perdido: ${title}`,

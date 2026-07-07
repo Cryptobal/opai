@@ -11400,6 +11400,9 @@ model CrmDealSlackRoom {
   slackChannelName String   @map("slack_channel_name")
   /// ts del mensaje-ficha fijado (pins.add) — se re-edita con chat.update.
   fichaTs          String?  @map("ficha_ts")
+  /// canvas_id de la Ficha de Inicio del canal (Canvas de Slack). Se guarda al
+  /// crearla para que sea idempotente y re-renderizable con canvases.edit.
+  startCanvasId    String?  @map("start_canvas_id")
   status           String   @default("OPEN") // OPEN | ARCHIVED
   createdBy        String   @map("created_by") // admin id (cuid)
   createdAt        DateTime @default(now()) @map("created_at")

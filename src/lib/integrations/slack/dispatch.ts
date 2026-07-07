@@ -175,6 +175,15 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
   // la tarjeta genérica para no duplicar; solo refrescamos la ficha.
   if (dealRoomLifecycleOnly && dealId) {
     const kind: "won" | "lost" = input.typeDef.key === "deal_won" ? "won" : "lost";
+    // Ficha de Inicio (Canvas): al adjudicar, crea/actualiza el canvas del canal
+    // ANTES de la tarjeta de cierre, para que ésta pueda ofrecer "Abrir Ficha de
+    // Inicio". Detrás del flag `startCanvasOnWon` (default OFF). Best-effort.
+    if (kind === "won") {
+      const { ensureStartCanvas } = await import("./deal-rooms/start-canvas");
+      await ensureStartCanvas(input.tenantId, dealId).catch((e) =>
+        console.error("[slack] ensureStartCanvas falló:", e),
+      );
+    }
     const { postDealClosedCard } = await import("./deal-rooms/lifecycle");
     await postDealClosedCard(input.tenantId, dealId, kind).catch((e) =>
       console.error("[slack] postDealClosedCard falló:", e),
