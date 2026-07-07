@@ -81,6 +81,20 @@ import {
 import { SERVICE_TYPES } from "@/lib/constants";
 import { computeLeadCpqMonthlySaleClp } from "@/lib/crm/lead-cpq-monthly-total";
 import { formatCurrency } from "@/components/cpq/utils";
+import { LeadPathStepper } from "./lead/LeadPathStepper";
+import { LeadHighlightsStrip } from "./lead/LeadHighlightsStrip";
+import { LeadQuickContact } from "./lead/LeadQuickContact";
+import { LeadSpecCard } from "./lead/LeadSpecCard";
+import { LeadActivityTimeline } from "./lead/LeadActivityTimeline";
+import { LeadActionBar } from "./lead/LeadActionBar";
+import { LeadHeaderCta } from "./lead/LeadHeaderCta";
+import { LeadOverflowMenu } from "./lead/LeadOverflowMenu";
+import { LedgerSection } from "./lead/ledger/LedgerSection";
+import { LedgerAccountRow } from "./lead/ledger/LedgerAccountRow";
+import { LedgerContactRow } from "./lead/ledger/LedgerContactRow";
+import { LedgerDealRow } from "./lead/ledger/LedgerDealRow";
+import { LedgerInstallationList } from "./lead/ledger/LedgerInstallationList";
+import { LedgerInstallationRow } from "./lead/ledger/LedgerInstallationRow";
 
 /* ─── Truncated text helper ─── */
 
@@ -1853,84 +1867,8 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
   const leadWebsiteHref = leadWebsiteRaw
     ? (leadWebsiteRaw.startsWith("http") ? leadWebsiteRaw : `https://${leadWebsiteRaw}`)
     : undefined;
-  const generalContent = (
+  const supplementalContent = (
       <div className="space-y-3 sm:space-y-4">
-        {/* ── Hero: identidad (fuente + sitio web + dirección) ── */}
-        <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <LeadSourceBadge source={lead.source} />
-            {leadWebsiteHref && (
-              <a
-                href={leadWebsiteHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 truncate rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-primary transition-colors hover:bg-muted/50"
-              >
-                <Globe className="h-3 w-3 shrink-0" />
-                <span className="truncate max-w-[180px] sm:max-w-xs">
-                  {leadWebsiteRaw!.replace(/^https?:\/\//, "")}
-                </span>
-              </a>
-            )}
-            {/* Evitar duplicar el nombre del contacto si ya se usa como título del header (caso sin companyName). */}
-            {fullName && fullName !== (lead.companyName || fullName) && (
-              <span className="inline-flex items-center gap-1 truncate rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                <Users className="h-3 w-3 shrink-0" />
-                <span className="truncate max-w-[180px] sm:max-w-xs">{fullName}</span>
-              </span>
-            )}
-          </div>
-          {leadAddressText && (
-            <div className="mt-3 flex items-start gap-2 border-t border-border/50 pt-3">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(leadAddressText + ", Chile")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="min-w-0 break-words text-[14px] leading-snug text-primary underline underline-offset-2 hover:text-primary/80"
-              >
-                {leadAddressText}
-              </a>
-            </div>
-          )}
-        </div>
-
-        {/* ── Stats strip: datos tabulares clave ── */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-          <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Empresa</div>
-            <div className="truncate text-[13px] font-medium text-foreground" title={lead.companyName || undefined}>
-              {lead.companyName || <span className="text-muted-foreground/70">—</span>}
-            </div>
-          </div>
-          <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Industria</div>
-            <div className="truncate text-[13px] font-medium text-foreground" title={lead.industry || undefined}>
-              {lead.industry || <span className="text-muted-foreground/70">—</span>}
-            </div>
-          </div>
-          <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Teléfono</div>
-            <div className="truncate font-mono text-[13px] font-medium tabular-nums text-foreground">
-              {lead.phone ? (
-                <a href={`tel:${lead.phone}`} className="text-primary hover:underline">{lead.phone}</a>
-              ) : (
-                <span className="font-sans text-muted-foreground/70">—</span>
-              )}
-            </div>
-          </div>
-          <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Email</div>
-            <div className="truncate text-[13px] font-medium text-foreground" title={lead.email || undefined}>
-              {lead.email ? (
-                <a href={`mailto:${lead.email}`} className="text-primary hover:underline">{lead.email}</a>
-              ) : (
-                <span className="text-muted-foreground/70">—</span>
-              )}
-            </div>
-          </div>
-        </div>
-
         {/* ── Detalles técnicos (colapsable) ── */}
         <details className="group rounded-xl border border-border bg-card">
           <summary className="flex cursor-pointer list-none select-none items-center justify-between px-4 py-3 transition-colors hover:bg-muted/20">
@@ -1958,27 +1896,6 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
             />
           </div>
         </details>
-
-        {/* Solicitud del cliente — siempre visible en General */}
-        {(lead.serviceType || lead.notes) && (
-          <div className="rounded-lg border border-status-info-border bg-status-info-soft p-4 space-y-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-status-info-fg flex items-center gap-2">
-              <FileText className="h-4 w-4 text-status-info-fg shrink-0" />
-              Solicitud
-            </h4>
-            <div className="space-y-2 text-sm">
-              {lead.serviceType && (
-                <DetailField
-                  label="Servicio"
-                  value={SERVICE_TYPES.find((s) => s.value === lead.serviceType)?.label ?? lead.serviceType}
-                />
-              )}
-              {lead.notes && (
-                <TruncatedText label="Detalle de la solicitud" text={lead.notes} maxChars={300} />
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Datos Apollo — visibles solo si hay datos reales */}
         {apolloData && (apolloData.person?.title || apolloData.person?.seniority || apolloData.person?.linkedinUrl || apolloData.organization?.name || apolloData.organization?.industry) && (
@@ -2136,430 +2053,6 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
 
   // === For editable leads: approval form tab contents ===
   // Conflict alerts
-    const conflictAlerts = (
-      <div className="space-y-3">
-        {duplicates.length > 0 && (
-          <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-status-warn-fg">
-              <AlertTriangle className="h-4 w-4" />
-              Cuenta con el mismo nombre ya existe
-            </div>
-            <div className="flex flex-col gap-2 pl-6">
-              <label className="flex items-center gap-2 text-xs cursor-pointer">
-                <input type="radio" name="accountResolution" checked={!useExistingAccountId}
-                  onChange={() => { setUseExistingAccountId(null); setInstallationConflicts([]); setInstallationUseExisting({}); }} className="rounded border-input" />
-                Crear nueva cuenta
-              </label>
-              <label className="flex items-center gap-2 text-xs cursor-pointer">
-                <input type="radio" name="accountResolution" checked={!!useExistingAccountId}
-                  onChange={() => setUseExistingAccountId(duplicates[0]?.id ?? null)} className="rounded border-input" />
-                Usar cuenta existente:
-              </label>
-              <select className="ml-6 mt-1 w-full max-w-[280px] sm:max-w-xs rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground min-h-[44px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                value={useExistingAccountId ?? ""}
-                onChange={(e) => { setUseExistingAccountId(e.target.value || null); setInstallationUseExisting({}); }}>
-                <option value="">Seleccionar cuenta...</option>
-                {duplicates.map((dup) => (
-                  <option key={dup.id} value={dup.id}>{dup.name} {dup.rut ? `(${dup.rut})` : ""} — {dup.type === "client" ? "Cliente" : "Prospecto"}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
-        {existingContact && (
-          <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-status-warn-fg">
-              <AlertTriangle className="h-4 w-4" />
-              Ya existe un contacto con este email
-            </div>
-            <p className="text-xs text-muted-foreground pl-6">
-              {existingContact.firstName} {existingContact.lastName} — {existingContact.email}
-            </p>
-            <div className="flex flex-col gap-1.5 pl-6">
-              <label className="flex items-center gap-2 text-xs cursor-pointer">
-                <input type="radio" name="contactResolution" checked={contactResolution === "overwrite"} onChange={() => setContactResolution("overwrite")} className="rounded border-input" />
-                Sobrescribir con los datos de este lead
-              </label>
-              <label className="flex items-center gap-2 text-xs cursor-pointer">
-                <input type="radio" name="contactResolution" checked={contactResolution === "use_existing"} onChange={() => setContactResolution("use_existing")} className="rounded border-input" />
-                Mantener el contacto existente
-              </label>
-              <label className="flex items-center gap-2 text-xs cursor-pointer">
-                <input type="radio" name="contactResolution" checked={contactResolution === "create"} onChange={() => setContactResolution("create")} className="rounded border-input" />
-                Crear nuevo contacto (otro email)
-              </label>
-            </div>
-          </div>
-        )}
-        {installationConflicts.length > 0 && (
-          <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-3 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-status-warn-fg">
-              <AlertTriangle className="h-4 w-4" />
-              Instalación con el mismo nombre ya existe en esta cuenta
-            </div>
-            <p className="text-xs text-muted-foreground pl-6">
-              Se usará la instalación existente (ya marcado). Puedes cambiar el nombre abajo si quieres crear otra.
-            </p>
-            {installationConflicts.map((conf) => (
-              <div key={conf.id} className="pl-6 flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-muted-foreground">&quot;{conf.name}&quot;</span>
-                {installations.filter((i) => i.name.trim().toLowerCase() === conf.name.toLowerCase()).map((inst) => (
-                  <Button key={inst._key} type="button"
-                    variant={installationUseExisting[inst._key] === conf.id ? "default" : "outline"}
-                    size="sm" className="h-7 text-xs"
-                    onClick={() => setInstallationUseExisting((prev) => {
-                      if (prev[inst._key] === conf.id) { const next = { ...prev }; delete next[inst._key]; return next; }
-                      return { ...prev, [inst._key]: conf.id };
-                    })}>
-                    {installationUseExisting[inst._key] === conf.id ? "Usar existente ✓" : "Usar esta existente"}
-                  </Button>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-
-    // TAB: Account
-    const accountContent = (
-        <div className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5">
-          {conflictAlerts}
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
-              <Label>Nombre de empresa *</Label>
-              <Input value={approveForm.accountName} onChange={(e) => updateApproveForm("accountName", e.target.value)} placeholder="Nombre de la empresa" className={inputClassName} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>RUT</Label>
-              <Input value={approveForm.rut} onChange={(e) => updateApproveForm("rut", e.target.value)} placeholder="76.123.456-7" className={inputClassName} />
-            </div>
-            <div className="space-y-1.5 md:col-span-2">
-              <Label>Razón social (empresa)</Label>
-              <Input value={approveForm.legalName} onChange={(e) => updateApproveForm("legalName", e.target.value)} placeholder="Empresa SpA / Ltda / S.A." className={inputClassName} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Representante legal</Label>
-              <Input value={approveForm.legalRepresentativeName} onChange={(e) => updateApproveForm("legalRepresentativeName", e.target.value)} placeholder="Nombre completo" className={inputClassName} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>RUT representante legal</Label>
-              <Input value={approveForm.legalRepresentativeRut} onChange={(e) => updateApproveForm("legalRepresentativeRut", e.target.value)} placeholder="12.345.678-9" className={inputClassName} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Industria</Label>
-              <SearchableSelect
-                value={approveForm.industry}
-                options={industries.map((i) => ({ id: i.name, label: i.name }))}
-                placeholder="Seleccionar industria"
-                onChange={(val) => updateApproveForm("industry", val)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Segmento</Label>
-              <Input value={approveForm.segment} onChange={(e) => updateApproveForm("segment", e.target.value)} placeholder="Corporativo, PYME..." className={inputClassName} />
-            </div>
-            <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
-              <div className="flex items-center justify-between gap-2">
-                <Label>Página web</Label>
-                <div className="flex items-center gap-2">
-                  <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={enrichCompanyInfoFromWebsite} disabled={enrichingCompanyInfo || (!approveForm.website.trim() && !approveForm.accountName.trim())}>
-                    {enrichingCompanyInfo && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
-                    Traer datos web
-                  </Button>
-                </div>
-              </div>
-              <Input value={approveForm.website} onChange={(e) => updateApproveForm("website", e.target.value)} placeholder="https://www.empresa.cl" className={inputClassName} />
-              <p className="text-xs text-muted-foreground">Se detecta automáticamente desde el dominio del email. Se asocia a la cuenta.</p>
-            </div>
-            <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
-              <Label>Información de la empresa</Label>
-              <textarea value={approveForm.companyInfo} onChange={(e) => updateApproveForm("companyInfo", e.target.value)}
-                placeholder="Resumen comercial de qué hace la empresa..." className={`w-full min-h-[96px] resize-y rounded-md border px-3 py-2 text-sm ${inputClassName}`} rows={4} />
-              {detectedCompanyLogoUrl && (
-                <div className="space-y-2 rounded-md border border-border bg-muted/20 p-2">
-                  <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Logo detectado</div>
-                  <div className="flex items-center gap-3">
-                    <img src={detectedCompanyLogoUrl} alt="Logo empresa detectado" className="h-12 w-12 rounded border border-border bg-background object-contain" />
-                    <span className="truncate text-xs text-muted-foreground">{detectedCompanyLogoUrl}</span>
-                  </div>
-                  <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs"
-                    onClick={async () => { try { await navigator.clipboard.writeText(detectedCompanyLogoUrl); toast.success("URL del logo copiada."); } catch { toast.error("No se pudo copiar."); } }}>
-                    Copiar URL
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-    );
-
-    // TAB: Contacts
-    const contactsContent = (
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 rounded-xl border border-border bg-card p-4 sm:p-5">
-          <div className="space-y-1.5">
-            <Label>Nombre *</Label>
-            <Input value={approveForm.contactFirstName} onChange={(e) => updateApproveForm("contactFirstName", e.target.value)} placeholder="Nombre" className={inputClassName} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Apellido</Label>
-            <Input value={approveForm.contactLastName} onChange={(e) => updateApproveForm("contactLastName", e.target.value)} placeholder="Apellido" className={inputClassName} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Cargo</Label>
-            <Input value={approveForm.roleTitle} onChange={(e) => updateApproveForm("roleTitle", e.target.value)} placeholder="Gerente, jefe..." className={inputClassName} />
-          </div>
-          <div className="space-y-1.5 md:col-span-2 lg:col-span-1">
-            <Label>Email</Label>
-            <Input value={approveForm.email} onChange={(e) => updateApproveForm("email", e.target.value)} placeholder="correo@empresa.com" className={inputClassName} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Teléfono</Label>
-            <Input value={approveForm.phone} onChange={(e) => updateApproveForm("phone", e.target.value)} placeholder="+56 9 1234 5678" className={inputClassName} />
-          </div>
-        </div>
-    );
-
-    // TAB: Deals
-    const dealsContent = (
-        <div className="space-y-3 rounded-xl border border-border bg-card p-4 sm:p-5">
-          <div className="space-y-1.5">
-            <Label>Título del negocio</Label>
-            <Input value={approveForm.dealTitle} onChange={(e) => updateApproveForm("dealTitle", e.target.value)} placeholder="Oportunidad para..." className={inputClassName} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Solicitud</Label>
-            <textarea value={approveForm.notes} onChange={(e) => updateApproveForm("notes", e.target.value)}
-              placeholder="Descripción de la solicitud (se copiará al negocio y cotización)..."
-              className={`w-full min-h-[120px] resize-y rounded-md border px-3 py-2 text-sm ${inputClassName}`} rows={5} />
-            <p className="text-xs text-muted-foreground">Esta solicitud se agregará al negocio y a las cotizaciones creadas.</p>
-          </div>
-        </div>
-    );
-
-    // TAB: Installations & Dotación
-    const installationsContent = (
-        <div className="space-y-5 pb-52 sm:pb-40 lg:pb-32">
-          {installations.length === 0 && (
-            <div className="rounded-xl border border-dashed border-border/70 bg-card/40 px-4 py-8 text-center">
-              <p className="text-xs text-muted-foreground">Sin instalaciones. Usa &quot;Nueva instalación&quot; para comenzar (luego puedes duplicar cada una con el ícono de copiar en su fila).</p>
-            </div>
-          )}
-          {installations.map((inst, instIdx) => {
-            const instConfig = cpqConfigs[inst._key];
-            const isExpanded = expandedInstallations[inst._key] !== false; // default expanded
-            const instGuards = instConfig?.positions?.reduce((s, p) => s + (p.cantidad || 1) * (p.numPuestos || 1), 0) ?? 0;
-            const dispCur = (instConfig?.currency ?? DEFAULT_LEAD_CPQ_CURRENCY) as "CLP" | "UF";
-            const saleClp = leadCpqSaleClpByKey[inst._key];
-            const salePending = leadCpqTotalsLoading && !(inst._key in leadCpqSaleClpByKey);
-            const ufV = ufValue && ufValue > 0 ? ufValue : null;
-            const saleUf = saleClp != null && ufV ? saleClp / ufV : null;
-            const marginPct = instConfig?.marginPercentage ?? 0;
-            const finEnabled = instConfig?.financialCosts?.financialEnabled;
-            const finPct = instConfig?.financialCosts?.financialRatePct ?? 0;
-            return (
-            <div
-              key={inst._key}
-              className="rounded-xl border-2 border-border bg-card shadow-sm ring-1 ring-border/40 overflow-hidden"
-            >
-              {/* Cabecera: izquierda = expandir/contraer; derecha = quitar, copiar, chevron */}
-              <div className="flex w-full items-stretch">
-                <button
-                  type="button"
-                  onClick={() => setExpandedInstallations((prev) => ({ ...prev, [inst._key]: !isExpanded }))}
-                  className="min-w-0 flex-1 flex items-center gap-2 px-4 py-3 text-left hover:bg-muted/10 transition-colors rounded-tl-xl"
-                >
-                  <MapPin className="h-4 w-4 shrink-0 text-primary" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground shrink-0">#{instIdx + 1}</span>
-                  <span className="text-sm font-semibold min-w-0 truncate">
-                    {inst.name || <span className="text-muted-foreground italic">Sin nombre</span>}
-                  </span>
-                  {!isExpanded && instGuards > 0 && (
-                    <span className="text-[10px] text-muted-foreground ml-1 truncate">
-                      {instConfig?.positions?.length ?? 0} puesto(s) · {instGuards} guardias
-                    </span>
-                  )}
-                </button>
-                <div className="flex items-center gap-0.5 pr-2 shrink-0 border-l border-border/30">
-                  {installations.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      title="Quitar instalación"
-                      onClick={() => removeInstallation(inst._key)}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                    title="Copiar esta instalación (datos y cotización)"
-                    onClick={() => duplicateInstallationByKey(inst._key)}
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 rounded-tr-xl"
-                    title={isExpanded ? "Plegar" : "Expandir"}
-                    onClick={() => setExpandedInstallations((prev) => ({ ...prev, [inst._key]: !isExpanded }))}
-                  >
-                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isExpanded && "rotate-180")} />
-                  </Button>
-                </div>
-              </div>
-              {!isExpanded && (instConfig?.positions?.length ?? 0) > 0 && (
-                <div className="px-4 pb-2.5 pt-1.5 border-t border-border/25 bg-muted/10 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                  {salePending ? (
-                    <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1">
-                      <Loader2 className="h-3 w-3 animate-spin shrink-0" aria-hidden />
-                      Calculando…
-                    </span>
-                  ) : saleClp != null ? (
-                    <>
-                      {dispCur === "UF" ? (
-                        <>
-                          <span className="text-sm font-semibold tabular-nums text-status-ok-fg dark:text-status-ok-fg">
-                            {saleUf != null
-                              ? `${saleUf.toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UF`
-                              : "— UF"}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground tabular-nums">{formatCurrency(saleClp)}</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="text-sm font-semibold tabular-nums text-status-info-fg dark:text-status-info-fg">
-                            {formatCurrency(saleClp)}
-                          </span>
-                          {saleUf != null ? (
-                            <span className="text-[11px] font-medium tabular-nums text-status-ok-fg/85">
-                              {saleUf.toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UF
-                            </span>
-                          ) : null}
-                        </>
-                      )}
-                      <span className="text-[10px] text-muted-foreground hidden sm:inline">·</span>
-                      <span className="text-[10px] text-muted-foreground">Margen {marginPct}%</span>
-                      {finEnabled ? (
-                        <span className="text-[10px] text-muted-foreground">Fin. {finPct}%</span>
-                      ) : null}
-                    </>
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground">Sin total</span>
-                  )}
-                </div>
-              )}
-              {/* Collapsible content */}
-              {isExpanded && (
-              <div className="space-y-2 border-t border-border/30 px-3 pb-3 pt-2 sm:px-4 sm:pb-4">
-                {/* ── Datos básicos (subsección colapsable independiente) ── */}
-                {(() => {
-                  const datosOpen = expandedInstDatos[inst._key] !== false; // default abierto
-                  const summaryParts = [inst.commune, inst.city].filter(Boolean);
-                  const addressShort = inst.address?.split(",")[0]?.trim();
-                  const summary = !datosOpen
-                    ? [addressShort, ...summaryParts].filter(Boolean).join(" · ") || "Sin dirección"
-                    : null;
-                  return (
-                    <Card className="shadow-sm overflow-hidden">
-                      <button
-                        type="button"
-                        onClick={() => setExpandedInstDatos((prev) => ({ ...prev, [inst._key]: !datosOpen }))}
-                        className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground shrink-0">Datos básicos</h2>
-                          {!datosOpen && summary && (
-                            <span className="text-[11px] text-muted-foreground truncate">{summary}</span>
-                          )}
-                        </div>
-                        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", datosOpen && "rotate-180")} />
-                      </button>
-                      {datosOpen && (
-                        <div className="px-3 pb-3 space-y-2">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <div className="space-y-1">
-                              <Label className="text-[11px]">Nombre *</Label>
-                              <Input value={inst.name} onChange={(e) => updateInstallation(inst._key, "name", e.target.value)} placeholder="Bodega central, Sucursal norte..." className={`h-9 text-sm ${inputClassName}`} />
-                            </div>
-                            <div className="relative z-[5] space-y-1">
-                              <div className="flex items-center justify-between">
-                                <Label className="text-[11px]">Dirección (Google Maps)</Label>
-                                {(inst.address || (inst.lat != null && inst.lng != null)) && (
-                                  <a
-                                    href={inst.lat != null && inst.lng != null ? `https://www.google.com/maps/@${inst.lat},${inst.lng},17z` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inst.address)}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-[11px] text-status-ok-fg hover:text-status-ok-fg inline-flex items-center gap-1"
-                                    title="Abrir en Google Maps"
-                                  >
-                                    <ExternalLink className="h-3 w-3" />
-                                    Abrir en Maps
-                                  </a>
-                                )}
-                              </div>
-                              <AddressAutocomplete value={inst.address} onChange={(result) => handleAddressChange(inst._key, result)} placeholder="Buscar dirección..." showMap={false} />
-                              <MapsUrlPasteInput onResolve={(result) => handleAddressChange(inst._key, result)} className="mt-1.5" />
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                            <div className="space-y-1">
-                              <Label className="text-[11px]">Comuna</Label>
-                              <Input value={inst.commune} onChange={(e) => updateInstallation(inst._key, "commune", e.target.value)} placeholder="Las Condes" className={`h-9 text-sm ${inputClassName}`} />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-[11px]">Ciudad</Label>
-                              <Input value={inst.city} onChange={(e) => updateInstallation(inst._key, "city", e.target.value)} placeholder="Santiago" className={`h-9 text-sm ${inputClassName}`} />
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </Card>
-                  );
-                })()}
-
-                {/* ── CPQ Embebido (dentro de cada instalación) ── */}
-                <LeadInstallationCpq
-                  config={cpqConfigs[inst._key] || createDefaultLeadCpqConfig()}
-                  onChange={(cfg) => setCpqConfigs((prev) => ({ ...prev, [inst._key]: cfg }))}
-                  proposalTemplates={proposalTemplates}
-                  catalogDefaults={defaultPuesto.id ? { puestoId: defaultPuesto.id, puestoName: defaultPuesto.name, cargoId: defaultCargoId, rolId: defaultRolId } : undefined}
-                  cpqPuestos={cpqPuestos}
-                  cpqCargos={cpqCargos}
-                  cpqRoles={cpqRoles}
-                  leadId={lead.id}
-                  accountName={approveForm.accountName}
-                  industry={approveForm.industry}
-                  installationName={inst.name}
-                  installationCity={inst.city}
-                  ufValue={ufValue}
-                />
-              </div>
-              )}
-            </div>
-            );
-          })}
-          <p className="text-xs text-muted-foreground">
-            Cada instalación tiene su propia configuración. El nombre de cotización sigue al nombre de la instalación hasta que lo edites. Con la fila plegada ves total UF/CLP y márgenes según la moneda elegida.
-          </p>
-        </div>
-    );
-
-  /* ── Toolbar superior de acciones del lead (sticky bajo el header, estilo CPQ) ──
-   * Reemplaza la antigua barra inferior. Visualmente:
-   *   ┌──────────────────────────────────────────────────────────┐
-   *   │ Banner de estado (info / verificación completada)         │
-   *   │ [Guardar] [Rechazar]            [Verificar y aprobar] [Enviar] │
-   *   └──────────────────────────────────────────────────────────┘
-   * En mobile: secundarios y primarios cada uno en su propia fila para
-   * que no queden apretados; en ≥sm todo entra en una sola línea.   */
   const showApproveAndSend =
     duplicateChecked &&
     approveForm.email.trim() &&
@@ -2571,189 +2064,178 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
       : "Confirmar aprobación";
   const hasConflicts =
     duplicateChecked && (duplicates.length > 0 || existingContact !== null || installationConflicts.length > 0);
-  const filledInstallations = installations.filter((i) => i.name.trim());
-  const leadActionBar = isEditable ? (
-    <div className="border-t border-border/40 bg-muted/15 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:-mx-10 xl:px-10 2xl:-mx-12 2xl:px-12 py-2.5 space-y-2">
-      {/* Status — compacto, ocupa la mínima altura posible */}
-      {duplicateChecked ? (
-        <div
-          className={cn(
-            "rounded-md border px-2.5 py-1.5 text-xs",
-            hasConflicts
-              ? "border-status-warn-border bg-status-warn-soft"
-              : "border-status-ok-border bg-status-ok-soft"
-          )}
-        >
-          <p
-            className={cn(
-              "inline-flex items-center gap-1.5 text-[11px] font-medium",
-              hasConflicts ? "text-status-warn-fg" : "text-status-ok-fg"
-            )}
-          >
-            {hasConflicts ? (
-              <AlertTriangle className="h-3.5 w-3.5" />
-            ) : (
-              <CheckCircle2 className="h-3.5 w-3.5" />
-            )}
-            {hasConflicts
-              ? "Verificación con conflictos — al confirmar se creará:"
-              : "Verificación completada — al confirmar se creará:"}
-          </p>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px] font-normal">
-              <Building2 className="h-3 w-3" />
-              {useExistingAccountId ? (
-                <>
-                  <span className="text-status-warn-fg">Usar:</span>
-                  <span className="max-w-[120px] truncate">
-                    {duplicates.find((d) => d.id === useExistingAccountId)?.name || "existente"}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="text-status-ok-fg">Nueva:</span>
-                  <span className="max-w-[140px] truncate">{approveForm.accountName}</span>
-                </>
-              )}
-            </Badge>
-            <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px] font-normal">
-              <Users className="h-3 w-3" />
-              {existingContact ? (
-                contactResolution === "use_existing" ? (
-                  <>
-                    <span className="text-status-warn-fg">Mantener:</span>
-                    <span className="max-w-[120px] truncate">{existingContact.firstName}</span>
-                  </>
-                ) : contactResolution === "overwrite" ? (
-                  <>
-                    <span className="text-status-warn-fg">Sobrescribir:</span>
-                    <span className="max-w-[120px] truncate">{existingContact.firstName}</span>
-                  </>
-                ) : (
-                  <span className="text-status-ok-fg">Nuevo contacto</span>
-                )
-              ) : (
-                <>
-                  <span className="text-status-ok-fg">Nuevo:</span>
-                  <span className="max-w-[140px] truncate">
-                    {approveForm.contactFirstName} {approveForm.contactLastName}
-                  </span>
-                </>
-              )}
-            </Badge>
-            <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px] font-normal">
-              <Briefcase className="h-3 w-3" />
-              <span className="max-w-[140px] truncate">{approveForm.dealTitle}</span>
-            </Badge>
-            {filledInstallations.length > 0 && (
-              <Badge variant="outline" className="h-5 gap-1 px-1.5 text-[10px] font-normal">
-                <MapPin className="h-3 w-3" />
-                <span className="max-w-[160px] truncate">
-                  {filledInstallations.map((i) => i.name).join(", ")}
-                </span>
-              </Badge>
-            )}
-          </div>
+  // ─── Single-page (v2): datos derivados para las nuevas piezas ───
+  const cpqPositionCount = Object.values(cpqConfigs).reduce((s, c) => s + (c?.positions?.length ?? 0), 0);
+  const cpqTotalGuards = Object.values(cpqConfigs).reduce(
+    (s, c) => s + (c?.positions?.reduce((a, p) => a + (p.cantidad || 1) * (p.numPuestos || 1), 0) ?? 0),
+    0,
+  );
+  const estSaleClp = leadCpqMonthlyTotalClp;
+  const estSaleUf = estSaleClp != null && ufValue && ufValue > 0 ? estSaleClp / ufValue : null;
+  const utmString = (() => {
+    const m = lead.metadata as Record<string, unknown> | undefined;
+    if (!m) return null;
+    const parts = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"]
+      .map((k) => (typeof m[k] === "string" ? `${k}=${m[k] as string}` : null))
+      .filter(Boolean);
+    return parts.length ? parts.join(" · ") : null;
+  })();
+  const specServiceLabel = lead.serviceType
+    ? SERVICE_TYPES.find((s) => s.value === lead.serviceType)?.label ?? lead.serviceType
+    : null;
+  const onOpenConvertedDeal = lead.convertedDealId
+    ? () => router.push(`/crm/deals/${lead.convertedDealId}`)
+    : undefined;
+
+  const accountEnrichSlot = (
+    <>
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <Label>Página web</Label>
+          <Button type="button" size="sm" variant="outline" className="h-9 text-xs" onClick={enrichCompanyInfoFromWebsite} disabled={enrichingCompanyInfo || (!approveForm.website.trim() && !approveForm.accountName.trim())}>
+            {enrichingCompanyInfo && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+            Traer datos web
+          </Button>
         </div>
-      ) : (
-        <p className="hidden sm:flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <Info className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" aria-hidden />
-          Nada se crea hasta que hagas clic en &quot;Verificar y aprobar&quot; y luego confirmes.
-        </p>
+        <Input value={approveForm.website} onChange={(e) => updateApproveForm("website", e.target.value)} placeholder="https://www.empresa.cl" className={inputClassName} />
+        <p className="text-xs text-muted-foreground">Se detecta automáticamente desde el dominio del email. Se asocia a la cuenta.</p>
+      </div>
+      <div className="mt-3 space-y-1.5">
+        <Label>Información de la empresa</Label>
+        <textarea value={approveForm.companyInfo} onChange={(e) => updateApproveForm("companyInfo", e.target.value)} placeholder="Resumen comercial de qué hace la empresa..." className={`w-full min-h-[96px] resize-y rounded-md border px-3 py-2 text-sm ${inputClassName}`} rows={4} />
+        {detectedCompanyLogoUrl && (
+          <div className="space-y-2 rounded-md border border-border bg-muted/20 p-2">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Logo detectado</div>
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={detectedCompanyLogoUrl} alt="Logo empresa detectado" className="h-12 w-12 rounded border border-border bg-background object-contain" />
+              <span className="truncate text-xs text-muted-foreground">{detectedCompanyLogoUrl}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+
+  const singlePageContent = (
+    <div className="flex flex-col gap-3 pb-40 lg:pb-6">
+      <LeadPathStepper status={lead.status} firstContactAt={lead.firstContactAt ?? null} />
+      <LeadHighlightsStrip
+        source={lead.source ?? null}
+        installationCount={installations.length}
+        positionCount={cpqPositionCount}
+        totalGuards={cpqTotalGuards}
+        estimatedSaleClp={estSaleClp}
+        estimatedSaleUf={estSaleUf}
+        firstContactChannel={lead.firstContactChannel ?? null}
+      />
+      {isEditable && (
+        <LeadQuickContact
+          phone={lead.phone ?? null}
+          whatsapp={lead.phone ?? null}
+          email={lead.email ?? null}
+          firstContactChannel={lead.firstContactChannel ?? null}
+          onChannelUsed={(ch) => handleMarkContacted(ch)}
+        />
+      )}
+      <LeadSpecCard
+        serviceType={specServiceLabel}
+        detail={null}
+        contactFullName={fullName}
+        contactPhone={lead.phone ?? null}
+        contactEmail={lead.email ?? null}
+        address={lead.address ?? null}
+        commune={lead.commune ?? null}
+        city={lead.city ?? null}
+        rawNotes={lead.notes ?? null}
+        utm={utmString}
+      />
+
+      {isEditable && (
+        <LedgerSection title="Al aprobar se creará">
+          <LedgerAccountRow
+            approveForm={approveForm}
+            updateApproveForm={(field, value) => updateApproveForm(field as keyof ApproveFormState, value)}
+            inputClassName={inputClassName}
+            industries={industries}
+            duplicates={duplicates}
+            useExistingAccountId={useExistingAccountId}
+            onSelectNewAccount={() => { setUseExistingAccountId(null); setInstallationConflicts([]); setInstallationUseExisting({}); }}
+            onSelectExistingAccount={(id) => { setUseExistingAccountId(id); setInstallationUseExisting({}); }}
+            enrichSlot={accountEnrichSlot}
+          />
+          <LedgerContactRow
+            approveForm={approveForm}
+            updateApproveForm={(field, value) => updateApproveForm(field as keyof ApproveFormState, value)}
+            inputClassName={inputClassName}
+            existingContact={existingContact}
+            contactResolution={contactResolution}
+            onContactResolution={setContactResolution}
+          />
+          <LedgerDealRow
+            approveForm={approveForm}
+            updateApproveForm={(field, value) => updateApproveForm(field as keyof ApproveFormState, value)}
+            inputClassName={inputClassName}
+            estimatedSaleClp={estSaleClp}
+          />
+          <LedgerInstallationList
+            installationCount={installations.length}
+            totalClp={estSaleClp}
+            isEditable={isEditable}
+            onAddInstallation={addInstallation}
+          >
+            {installations.map((inst, idx) => {
+              const cfg = cpqConfigs[inst._key];
+              const clp = leadCpqSaleClpByKey[inst._key] ?? null;
+              const uf = clp != null && ufValue && ufValue > 0 ? clp / ufValue : null;
+              const guards = cfg?.positions?.reduce((a, p) => a + (p.cantidad || 1) * (p.numPuestos || 1), 0) ?? 0;
+              return (
+                <LedgerInstallationRow
+                  key={inst._key}
+                  index={idx + 1}
+                  installation={inst}
+                  inputClassName={inputClassName}
+                  positionCount={cfg?.positions?.length ?? 0}
+                  totalGuards={guards}
+                  saleClp={clp}
+                  saleUf={uf}
+                  marginPct={cfg?.marginPercentage ?? 0}
+                  currency={(cfg?.currency ?? DEFAULT_LEAD_CPQ_CURRENCY) as "CLP" | "UF"}
+                  salePending={leadCpqTotalsLoading && !(inst._key in leadCpqSaleClpByKey)}
+                  canRemove={installations.length > 1}
+                  onFieldChange={(field, value) => updateInstallation(inst._key, field, value)}
+                  onAddressChange={(result) => handleAddressChange(inst._key, result)}
+                  onRemove={() => removeInstallation(inst._key)}
+                  onDuplicate={() => duplicateInstallationByKey(inst._key)}
+                  cpqSlot={
+                    <LeadInstallationCpq
+                      config={cpqConfigs[inst._key] || createDefaultLeadCpqConfig()}
+                      onChange={(c) => setCpqConfigs((prev) => ({ ...prev, [inst._key]: c }))}
+                      proposalTemplates={proposalTemplates}
+                      catalogDefaults={defaultPuesto.id ? { puestoId: defaultPuesto.id, puestoName: defaultPuesto.name, cargoId: defaultCargoId, rolId: defaultRolId } : undefined}
+                      cpqPuestos={cpqPuestos}
+                      cpqCargos={cpqCargos}
+                      cpqRoles={cpqRoles}
+                      leadId={lead.id}
+                      accountName={approveForm.accountName}
+                      industry={approveForm.industry}
+                      installationName={inst.name}
+                      installationCity={inst.city}
+                      ufValue={ufValue}
+                    />
+                  }
+                />
+              );
+            })}
+          </LedgerInstallationList>
+        </LedgerSection>
       )}
 
-      {/* Acciones — secundarias a la izquierda, primarias a la derecha */}
-      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
-        <div className="flex gap-1.5 sm:gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={saveLeadDraft}
-            disabled={approving || savingLead}
-            className="h-8 flex-1 gap-1.5 px-2.5 text-xs sm:flex-initial sm:px-3"
-            title="Guardar el borrador del lead en estado «en revisión» (no crea nada todavía)"
-          >
-            {savingLead ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            ) : (
-              <Save className="h-3.5 w-3.5" aria-hidden />
-            )}
-            <span>Guardar</span>
-            <span className="hidden md:inline">en revisión</span>
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={openRejectModal}
-            disabled={approving || savingLead}
-            className="h-8 flex-1 gap-1.5 px-2.5 text-xs text-destructive hover:text-destructive sm:flex-initial sm:px-3"
-            title="Rechazar el lead (puedes incluir motivo y enviar correo)"
-          >
-            <XCircle className="h-3.5 w-3.5" aria-hidden />
-            Rechazar
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={openSendPresentation}
-            disabled={approving || savingLead || !lead.email}
-            className="h-8 flex-1 gap-1.5 px-2.5 text-xs sm:flex-initial sm:px-3"
-            title={
-              lead.email
-                ? "Enviar la presentación de empresa al lead y darle acceso al portal del cliente"
-                : "El lead no tiene email; agrégalo para enviar la presentación"
-            }
-          >
-            <Mailbox className="h-3.5 w-3.5" aria-hidden />
-            <span>Presentación</span>
-          </Button>
-        </div>
-        <div className="flex gap-1.5 sm:ml-auto sm:gap-2">
-          <Button
-            onClick={approveLead}
-            disabled={approving || savingLead || sendingExpress}
-            size="sm"
-            className={cn(
-              "h-8 flex-1 gap-1.5 px-3 text-xs font-medium shadow-sm sm:flex-initial",
-              hasConflicts
-                ? "bg-status-warn text-white hover:brightness-110"
-                : "bg-status-ok text-white hover:brightness-110"
-            )}
-            title={
-              !duplicateChecked
-                ? "Comprobar duplicados de cuenta/contacto e instalaciones antes de aprobar"
-                : "Confirmar y crear cuenta, contacto, negocio y cotizaciones"
-            }
-          >
-            {approving ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            ) : (
-              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
-            )}
-            <span className="truncate">{approveLabel}</span>
-          </Button>
-          {showApproveAndSend && (
-            <Button
-              onClick={approveAndSend}
-              disabled={approving || savingLead || sendingExpress}
-              size="sm"
-              className="h-8 flex-1 gap-1.5 px-3 text-xs font-medium bg-status-info text-white shadow-sm hover:brightness-110 sm:flex-initial"
-              title="Aprobar y enviar la propuesta al cliente por email + portal"
-            >
-              {sendingExpress ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-              ) : (
-                <Send className="h-3.5 w-3.5" aria-hidden />
-              )}
-              <span className="truncate">
-                <span className="hidden sm:inline">Aprobar y </span>Enviar
-              </span>
-            </Button>
-          )}
-        </div>
-      </div>
+      {supplementalContent}
+
+      <LeadActivityTimeline lead={lead} currentUserId={currentUserId} />
     </div>
-  ) : null;
+  );
 
   return (
     <>
@@ -2764,7 +2246,7 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
           avatar: { initials: (lead.companyName || fullName).charAt(0).toUpperCase() },
           title: lead.companyName || fullName,
           status: statusInfo,
-          actions: headerActions,
+          actions: [],
           extra: (
             <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
               <DropdownMenu>
@@ -2819,37 +2301,55 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
                   </button>
                 </div>
               ) : null}
+              <LeadHeaderCta
+                className="hidden lg:flex"
+                isEditable={isEditable}
+                isApproved={lead.status === "approved"}
+                isRejected={lead.status === "rejected"}
+                duplicateChecked={duplicateChecked}
+                hasConflicts={hasConflicts}
+                approving={approving}
+                onReject={openRejectModal}
+                onVerifyAndApprove={approveLead}
+                onOpenDeal={onOpenConvertedDeal}
+              />
+              <LeadOverflowMenu
+                isEditable={isEditable}
+                canSendPresentation={!!lead.email}
+                savingLead={savingLead}
+                onSendPresentation={openSendPresentation}
+                onSaveDraft={saveLeadDraft}
+                onDelete={() => setDeleteConfirm(true)}
+              />
             </div>
           ),
         }}
-        tabs={tabs}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        stickyMeta={leadStickyMeta}
-        pipelineBar={leadActionBar}
+        tabs={[]}
+        activeTab=""
+        onTabChange={() => {}}
       >
-        {activeTab === "general" && generalContent}
-        {activeTab === "notes" && (
-          <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
-            <NotesSection entityType="lead" entityId={lead.id} currentUserId={currentUserId} />
+        {singlePageContent}
+        <details className="group mt-3 rounded-2xl border border-ds-border-subtle bg-card">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-ds-text-3">
+            Documentos
+            <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+          </summary>
+          <div className="px-4 pb-4">
+            <FileAttachments entityType="lead" entityId={lead.id} readOnly={!isEditable} title="Documentos" />
           </div>
-        )}
-        {activeTab === "account" && isEditable && accountContent}
-        {activeTab === "contacts" && isEditable && contactsContent}
-        {activeTab === "deals" && isEditable && dealsContent}
-        {activeTab === "installations" && isEditable && (
-          <div className="space-y-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Instalaciones y Dotación</h3>
-              <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addInstallation}>
-                <Plus className="h-3 w-3" /> Nueva instalación
-              </Button>
-            </div>
-            {installationsContent}
-          </div>
-        )}
-        {activeTab === "files" && <FileAttachments entityType="lead" entityId={lead.id} readOnly={!isEditable} title="Documentos" />}
+        </details>
       </EntityDetailLayout>
+      <LeadActionBar
+        isEditable={isEditable}
+        isApproved={lead.status === "approved"}
+        isRejected={lead.status === "rejected"}
+        duplicateChecked={duplicateChecked}
+        hasConflicts={hasConflicts}
+        approving={approving}
+        onReject={openRejectModal}
+        onVerifyAndApprove={approveLead}
+        onOpenDeal={onOpenConvertedDeal}
+      />
 
       {/* ── Approval Success Modal ── */}
       <Dialog open={!!approvalResult} onOpenChange={(open) => { if (!open) { setApprovalResult(null); router.push("/crm/leads"); } }}>
