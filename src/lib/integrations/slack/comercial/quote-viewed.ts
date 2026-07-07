@@ -20,9 +20,38 @@ import { slackRespondUrl } from "../api";
 const VIEW_THROTTLE_MS = 30 * 60 * 1000;
 const clp = (n: number) => new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(Math.round(n));
 
+/** Nombre legible de la cotización: name → título del negocio → código. */
+export function resolveQuoteDisplayName(input: {
+  name?: string | null;
+  dealTitle?: string | null;
+  code: string;
+}): string {
+  const trimmedName = input.name?.trim();
+  if (trimmedName) return trimmedName;
+  const trimmedDealTitle = input.dealTitle?.trim();
+  if (trimmedDealTitle) return trimmedDealTitle;
+  return input.code;
+}
+
+/** Etiqueta del cliente: clientName de la cotización → cuenta CRM. */
+export function resolveQuoteClientName(input: {
+  clientName?: string | null;
+  accountName?: string | null;
+}): string {
+  const trimmedClient = input.clientName?.trim();
+  if (trimmedClient) return trimmedClient;
+  return input.accountName?.trim() ?? "";
+}
+
+/** Fragmento del título Slack: nombre + código entre paréntesis si difieren. */
+export function formatQuoteViewedLabel(displayName: string, code: string): string {
+  if (displayName === code) return code;
+  return `${displayName} (${code})`;
+}
+
 /** Emite quote_viewed enriquecido (con throttle). Lo llama el beacon del portal. */
 export async function emitQuoteViewed(tenantId: string, quoteId: string): Promise<void> {
-  // Throttle: si hubo OTRA vista de esta cotización en los últimos 30 min, callar.
+  // Throttle: si hubo OTRA vista de esta cotización en los ultimos 30 min, callar.
   const recent = await prisma.portalAccessLog.findFirst({
     where: { tenantId, action: "view_quote", resource: quoteId, createdAt: { gte: new Date(Date.now() - VIEW_THROTTLE_MS) } },
     orderBy: { createdAt: "desc" }, skip: 1, select: { id: true },
@@ -32,15 +61,28 @@ export async function emitQuoteViewed(tenantId: string, quoteId: string): Promis
 
   const quote = await prisma.cpqQuote.findFirst({
     where: { id: quoteId, tenantId },
-    select: { code: true, dealId: true, contactId: true, accountId: true, validUntil: true, monthlyCost: true, parameters: { select: { salePriceMonthly: true } } },
+    select: {
+      code: true,
+      name: true,
+      clientName: true,
+      dealId: true,
+      contactId: true,
+      accountId: true,
+      validUntil: true,
+      monthlyCost: true,
+      parameters: { select: { salePriceMonthly: true } },
+    },
   });
   if (!quote) return;
-  const [contact, account] = await Promise.all([
+  const [contact, account, deal] = await Promise.all([
     quote.contactId ? prisma.crmContact.findFirst({ where: { id: quote.contactId, tenantId }, select: { firstName: true, lastName: true, phone: true } }) : null,
     quote.accountId ? prisma.crmAccount.findFirst({ where: { id: quote.accountId, tenantId }, select: { name: true } }) : null,
+    quote.dealId ? prisma.crmDeal.findFirst({ where: { id: quote.dealId, tenantId }, select: { title: true } }) : null,
   ]);
   const contactName = `${contact?.firstName ?? ""} ${contact?.lastName ?? ""}`.trim() || "El cliente";
-  const empresa = account?.name ?? "";
+  const quoteDisplayName = resolveQuoteDisplayName({ name: quote.name, dealTitle: deal?.title, code: quote.code });
+  const clientName = resolveQuoteClientName({ clientName: quote.clientName, accountName: account?.name });
+  const quoteLabel = formatQuoteViewedLabel(quoteDisplayName, quote.code);
   const monto = Number(quote.parameters?.salePriceMonthly ?? 0) || Number(quote.monthlyCost ?? 0);
   const montoTxt = monto ? clp(monto) : null;
   const vigencia = quote.validUntil ? new Date(quote.validUntil).toLocaleDateString("es-CL") : null;
@@ -49,11 +91,23 @@ export async function emitQuoteViewed(tenantId: string, quoteId: string): Promis
   await notify({
     tenantId,
     type: "quote_viewed",
-    title: `🔥 ${contactName}${empresa ? ` de ${empresa}` : ""} está viendo ${quote.code} AHORA (vista #${viewCount})`,
+    title: `🔥 ${contactName}${clientName ? ` de ${clientName}` : ""} está viendo ${quoteLabel} AHORA (vista #${viewCount})`,
     body: [montoTxt ? `💰 ${montoTxt}/mes` : null, vigencia ? `Vigencia: ${vigencia}` : null].filter(Boolean).join("  ·  ") || undefined,
     link: quote.dealId ? `/crm/deals/${quote.dealId}` : `/crm/cotizaciones/${quoteId}`,
     // Claves consumidas por la rama quote_viewed de dispatch (campos curados + WhatsApp).
-    data: { quoteId, dealId: quote.dealId ?? undefined, phone: contact?.phone ?? undefined, contacto: contactName, empresa, code: quote.code, montoTxt, vigencia, vista: viewCount },
+    data: {
+      quoteId,
+      dealId: quote.dealId ?? undefined,
+      phone: contact?.phone ?? undefined,
+      contacto: contactName,
+      empresa: clientName,
+      cotizacion: quoteDisplayName,
+      cliente: clientName,
+      code: quote.code,
+      montoTxt,
+      vigencia,
+      vista: viewCount,
+    },
   });
 }
 
@@ -61,6 +115,18 @@ export async function emitQuoteViewed(tenantId: string, quoteId: string): Promis
 export function quoteViewedFields(data?: Record<string, unknown> | null): Array<{ label: string; value: string }> {
   if (!data) return [];
   const out: Array<{ label: string; value: string }> = [];
+  const cotizacion = typeof data.cotizacion === "string" ? data.cotizacion.trim() : "";
+  const code = typeof data.code === "string" ? data.code.trim() : "";
+  if (cotizacion) {
+    out.push({
+      label: "Cotización",
+      value: cotizacion === code || !code ? cotizacion : `${cotizacion} (${code})`,
+    });
+  } else if (code) {
+    out.push({ label: "Cotización", value: code });
+  }
+  const cliente = typeof data.cliente === "string" ? data.cliente.trim() : "";
+  if (cliente) out.push({ label: "Cliente", value: cliente });
   if (typeof data.montoTxt === "string" && data.montoTxt) out.push({ label: "Monto", value: `${data.montoTxt}/mes` });
   if (typeof data.vigencia === "string" && data.vigencia) out.push({ label: "Vigencia", value: data.vigencia });
   if (typeof data.vista === "number") out.push({ label: "Vista", value: `#${data.vista}` });
@@ -107,14 +173,24 @@ export async function handleQuoteViewedAction(payload: {
   if (!linked) return;
   const tenantId = workspace.tenantId;
 
-  const quote = await prisma.cpqQuote.findFirst({ where: { id: quoteId, tenantId }, select: { code: true, dealId: true } });
+  const quote = await prisma.cpqQuote.findFirst({
+    where: { id: quoteId, tenantId },
+    select: { code: true, name: true, dealId: true },
+  });
   if (!quote) { await ephemeral("La cotización ya no existe."); return; }
+  const deal = quote.dealId
+    ? await prisma.crmDeal.findFirst({ where: { id: quote.dealId, tenantId }, select: { title: true } })
+    : null;
+  const quoteLabel = formatQuoteViewedLabel(
+    resolveQuoteDisplayName({ name: quote.name, dealTitle: deal?.title, code: quote.code }),
+    quote.code,
+  );
   await prisma.crmTask.create({
     data: {
       tenantId, dealId: quote.dealId ?? null, assignedTo: linked.adminId,
-      title: `Volver a llamar — está revisando ${quote.code}`, type: "followup", status: "open",
+      title: `Volver a llamar — está revisando ${quoteLabel}`, type: "followup", status: "open",
       dueAt: new Date(Date.now() + 60 * 60 * 1000),
     },
   });
-  await ephemeral(`⏰ Te recordaré en 1 h volver a contactar por *${quote.code}*.`);
+  await ephemeral(`⏰ Te recordaré en 1 h volver a contactar por *${quoteLabel}*.`);
 }
