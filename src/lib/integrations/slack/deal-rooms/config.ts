@@ -35,6 +35,11 @@ export interface DealRoomConfig {
   autoHandoffOnWon: boolean;
   /** Perder → el canal se archiva automáticamente. Default true. */
   autoArchiveOnLost: boolean;
+  /**
+   * Ganar → crea/actualiza el canvas "Ficha de Inicio" del canal. Default false
+   * (no sorprender a Gard hasta reconectar los scopes canvases:*).
+   */
+  startCanvasOnWon: boolean;
 }
 
 const DEFAULTS: DealRoomConfig = {
@@ -45,6 +50,7 @@ const DEFAULTS: DealRoomConfig = {
   pipelineHubEnabled: false,
   autoHandoffOnWon: true,
   autoArchiveOnLost: true,
+  startCanvasOnWon: false,
 };
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -58,6 +64,7 @@ const KEY = {
   pipelineHubEnabled: "slack_deal_rooms.pipeline_hub_enabled",
   autoHandoffOnWon: "slack_deal_rooms.auto_handoff_on_won",
   autoArchiveOnLost: "slack_deal_rooms.auto_archive_on_lost",
+  startCanvasOnWon: "slack_deal_rooms.start_canvas_on_won",
 } as const;
 
 // Estado runtime del hub #pipeline (no cacheado: se lee/escribe puntualmente).
@@ -90,6 +97,7 @@ export async function getDealRoomConfig(tenantId: string): Promise<DealRoomConfi
     pipelineHubEnabled: parseBoolOr(map.get(KEY.pipelineHubEnabled), DEFAULTS.pipelineHubEnabled),
     autoHandoffOnWon: parseBoolOr(map.get(KEY.autoHandoffOnWon), DEFAULTS.autoHandoffOnWon),
     autoArchiveOnLost: parseBoolOr(map.get(KEY.autoArchiveOnLost), DEFAULTS.autoArchiveOnLost),
+    startCanvasOnWon: parseBoolOr(map.get(KEY.startCanvasOnWon), DEFAULTS.startCanvasOnWon),
   };
   cache.set(tenantId, { value: cfg, expires: Date.now() + CACHE_TTL_MS });
   return cfg;
@@ -129,6 +137,7 @@ export async function setDealRoomConfig(tenantId: string, partial: Partial<DealR
   if (partial.pipelineHubEnabled !== undefined) updates.push({ key: KEY.pipelineHubEnabled, value: String(partial.pipelineHubEnabled), type: "boolean" });
   if (partial.autoHandoffOnWon !== undefined) updates.push({ key: KEY.autoHandoffOnWon, value: String(partial.autoHandoffOnWon), type: "boolean" });
   if (partial.autoArchiveOnLost !== undefined) updates.push({ key: KEY.autoArchiveOnLost, value: String(partial.autoArchiveOnLost), type: "boolean" });
+  if (partial.startCanvasOnWon !== undefined) updates.push({ key: KEY.startCanvasOnWon, value: String(partial.startCanvasOnWon), type: "boolean" });
 
   if (updates.length > 0) {
     await prisma.$transaction(
