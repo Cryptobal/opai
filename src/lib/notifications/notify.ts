@@ -8,7 +8,7 @@ import {
 import { render } from "@react-email/render";
 import NotificationEmail from "@/emails/NotificationEmail";
 import { resolvePermissions } from "@/lib/permissions-server";
-import { hasModuleAccess, canView, type ModuleKey } from "@/lib/permissions";
+import { hasModuleAccess, canView, hasCapability, type ModuleKey } from "@/lib/permissions";
 import { getUnifiedType, type Audience, type UnifiedNotificationType } from "./catalog";
 import { getWorkspaceForTenant } from "@/lib/integrations/slack/workspace";
 import { resolvePrefs } from "./resolve-prefs";
@@ -282,10 +282,13 @@ async function fetchAudienceRecipients(
         role: a.role,
         roleTemplateId: a.roleTemplateId,
       });
-      const ok = typeDef.submodule
+      const moduleOk = typeDef.submodule
         ? canView(perms, moduleKey, typeDef.submodule)
         : hasModuleAccess(perms, moduleKey);
-      if (ok) eligible.push({ id: a.id, email: a.email });
+      const capabilityOk = typeDef.capability
+        ? hasCapability(perms, typeDef.capability)
+        : true;
+      if (moduleOk && capabilityOk) eligible.push({ id: a.id, email: a.email });
     } catch {
       // If permission resolution fails, skip the admin — fail closed for safety.
     }

@@ -1,4 +1,4 @@
-import { type ModuleKey } from "@/lib/permissions";
+import { type CapabilityKey, type ModuleKey } from "@/lib/permissions";
 
 export type Audience = 'admin' | 'guardia' | 'cliente' | 'rondas';
 
@@ -26,6 +26,16 @@ export interface UnifiedNotificationType {
   defaults: Partial<Record<Audience, NotificationChannelDefaults>>;
   coalesce?: CoalescePolicy;
   critical?: boolean;
+  /**
+   * Capability adicional requerida para recibir la notificación (además de
+   * canView del módulo/submódulo). Alinea el broadcast con gates de página/API.
+   */
+  capability?: CapabilityKey;
+  /**
+   * No publicar en canales compartidos de Slack (KEY/CATEGORY/MODULE/default).
+   * Solo DM personal a admins con permiso + opt-in en Mis Notificaciones.
+   */
+  slackDmOnly?: boolean;
   /** Legacy keys that resolve to this canonical entry. */
   aliases?: string[];
 }
@@ -255,12 +265,16 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     description: 'Cuando se acerca la fecha de ajuste de IPC de un contrato CLP — hay que ingresar el % real del período',
     module: 'finance', submodule: 'cashflow', category: 'Finanzas - Flujo de Caja',
     audiences: ['admin'], defaults: { admin: adminBell(true) },
+    capability: 'cashflow_view',
+    slackDmOnly: true,
   },
   {
     key: 'cashflow_drift_alert', label: 'Drift de caja persistente',
     description: 'Cuando el saldo bancario real difiere del proyectado por más del umbral configurado por dos días consecutivos',
     module: 'finance', submodule: 'cashflow', category: 'Finanzas - Flujo de Caja',
     audiences: ['admin'], defaults: { admin: adminBell(true) },
+    capability: 'cashflow_view',
+    slackDmOnly: true,
   },
   {
     key: 'document_rejected', label: 'Documento rechazado',

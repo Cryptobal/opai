@@ -88,6 +88,8 @@ export async function resolveSlackSharedChannelDestination(input: {
   data?: Record<string, unknown> | null;
 }): Promise<SharedSlackChannelResolution | null> {
   if (input.data?.skipSlack === true) return null;
+  // Tipos sensibles (ej. flujo de caja): solo DM personal con permiso, no canal compartido.
+  if (input.typeDef.slackDmOnly) return null;
 
   const workspace = await getWorkspaceForTenant(input.tenantId);
   if (!workspace) return null;
