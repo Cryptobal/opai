@@ -21,6 +21,8 @@ import { slackPublishHomeView, slackPostMessage, slackOpenDm } from "./api";
 import { countTickets } from "./tickets/list";
 import { countInbox } from "./approvals/inbox";
 import { countLeads } from "./comercial/leads-list";
+import { listAdjudicados, type AdjudicadoDeal } from "./comercial/adjudicados";
+import { adjudicadosSectionBlocks } from "./home-adjudicados-blocks";
 import { isDailyBriefOptIn } from "./daily-brief";
 
 const pt = (text: string) => ({ type: "plain_text", text, emoji: true });
@@ -52,6 +54,7 @@ interface DayBreakdown {
   leadsSinTomar: number | null; // null = sin acceso a leads (botón oculto)
   briefOptIn: boolean;
   quick: { text: string; callbackId: string }[]; // accesos contextuales por rol (≤4)
+  adjudicados: AdjudicadoDeal[] | null; // null = sin acceso a deals (sección oculta)
 }
 
 function linkedHome(day: DayBreakdown): unknown {
@@ -82,6 +85,7 @@ function linkedHome(day: DayBreakdown): unknown {
       { type: "divider" },
       { type: "section", text: { type: "mrkdwn", text: "*Accesos rápidos*" } },
       ...chunk(quick, 3).map((row) => ({ type: "actions", elements: row })),
+      ...(day.adjudicados && day.adjudicados.length ? adjudicadosSectionBlocks(day.adjudicados) : []),
       { type: "context", elements: [{ type: "mrkdwn", text: "Escríbeme `@OPAI` o usa `/opai ayuda`" }] },
     ],
   };
@@ -121,7 +125,11 @@ export async function publishHome(tenantId: string, slackUserId: string): Promis
   // visión global (mismo criterio que la vista "Todos" de la web: módulo ops).
   const canViewAll = hasModuleAccess(linked.perms, "ops");
   const canSeeLeads = canView(linked.perms, "crm", "leads");
-  const [mine, team, vencidos, unassigned, approvals, leadsSinTomar, briefOptIn] = await Promise.all([
+  // Sección "Adjudicados por iniciar": mismo permiso que Pipeline/Mis negocios.
+  // Alcance = canViewAll (ops ve todo · comercial solo sus cuentas). take 6 para
+  // el presupuesto visual del Home; el pipeline completo sigue mostrando 25.
+  const canSeeDeals = canView(linked.perms, "crm", "deals");
+  const [mine, team, vencidos, unassigned, approvals, leadsSinTomar, briefOptIn, adjudicados] = await Promise.all([
     countTickets(tenantId, linked.adminId, { scope: "mine" }),
     countTickets(tenantId, linked.adminId, { scope: "my_team" }),
     countTickets(tenantId, linked.adminId, { scope: "my_team", slaBreached: true }),
@@ -129,6 +137,9 @@ export async function publishHome(tenantId: string, slackUserId: string): Promis
     countInbox(tenantId, linked.adminId, linked.perms),
     canSeeLeads ? countLeads(tenantId, { untaken: true }) : Promise.resolve(null),
     isDailyBriefOptIn(tenantId, linked.adminId),
+    canSeeDeals
+      ? listAdjudicados(tenantId, canViewAll ? undefined : { ownerId: linked.adminId }, 6)
+      : Promise.resolve(null),
   ]);
 
   // Accesos rápidos contextuales por rol (máx. 4; ⚡ se agrega al final).
@@ -151,7 +162,7 @@ export async function publishHome(tenantId: string, slackUserId: string): Promis
   await slackPublishHomeView(
     ws.botToken,
     slackUserId,
-    linkedHome({ mine, team, vencidos, unassigned, approvals, leadsSinTomar, briefOptIn, quick: quick.slice(0, 4) }),
+    linkedHome({ mine, team, vencidos, unassigned, approvals, leadsSinTomar, briefOptIn, adjudicados, quick: quick.slice(0, 4) }),
   );
 }
 

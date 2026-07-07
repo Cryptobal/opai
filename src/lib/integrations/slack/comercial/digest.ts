@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { getWorkspaceForTenant } from "../workspace";
 import { enqueueOutboxRow, trySendOutboxRow } from "../outbox";
 import { clp } from "./deal-common";
+import { listAdjudicados } from "./adjudicados";
 import { resolveComercialChannel } from "./quote-stale";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -92,17 +93,9 @@ const shortDate = (d: Date): string => d.toLocaleDateString("es-CL", { day: "num
  * caller decida el canal (aquí lo comparte in_channel desde `/opai adjudicados`).
  */
 export async function buildAdjudicadosDigest(tenantId: string): Promise<{ text: string; blocks: unknown[] }> {
-  const acceptedStages = await prisma.crmPipelineStage.findMany({
-    where: { tenantId, isActive: true, isAccepted: true }, select: { id: true },
-  });
-  const deals = acceptedStages.length
-    ? await prisma.crmDeal.findMany({
-        where: { tenantId, stageId: { in: acceptedStages.map((s) => s.id) } },
-        orderBy: [{ serviceStartDate: { sort: "asc", nulls: "last" } }, { updatedAt: "desc" }],
-        take: 25,
-        select: { id: true, title: true, amount: true, serviceStartDate: true, commune: true, city: true, account: { select: { name: true } } },
-      })
-    : [];
+  // Datos desde el helper compartido (sin scope → todos los del tenant, que es
+  // el comportamiento de "la carta" compartible de `/opai adjudicados`).
+  const deals = await listAdjudicados(tenantId);
 
   const header = { type: "header", text: { type: "plain_text", text: `🏁 Adjudicados por iniciar (${deals.length})`, emoji: true } };
 
@@ -114,7 +107,7 @@ export async function buildAdjudicadosDigest(tenantId: string): Promise<{ text: 
   }
 
   const lines = deals.map((d, i) => {
-    const account = (d.account?.name || "Cliente").trim() || "Cliente";
+    const account = (d.accountName || "Cliente").trim() || "Cliente";
     const title = (d.title || "Negocio").trim() || "Negocio";
     const start = d.serviceStartDate;
     let when = "🚀 sin fecha";
@@ -123,9 +116,9 @@ export async function buildAdjudicadosDigest(tenantId: string): Promise<{ text: 
       const rel = dl < 0 ? `hace ${-dl}d` : dl === 0 ? "hoy" : `en ${dl}d`;
       when = `🚀 ${shortDate(start)} · ${rel}`;
     }
-    const place = (d.commune || d.city || "").trim();
+    const place = (d.commune || "").trim();
     const placeTxt = place ? ` · 📍 ${place}` : "";
-    return `${i + 1}. *${account}* · ${title} — ${when} · ${clp(Number(d.amount ?? 0))}${placeTxt}`;
+    return `${i + 1}. *${account}* · ${title} — ${when} · ${clp(d.amount)}${placeTxt}`;
   });
 
   // Slack limita cada section text a 3000 chars → troceamos en bloques de 8.

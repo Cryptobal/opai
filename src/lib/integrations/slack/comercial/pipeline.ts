@@ -37,6 +37,7 @@ import { changeDealStage } from "@/lib/crm/change-deal-stage";
 import { packMetadata, unpackMetadata } from "../modals/views";
 import { modalTitle } from "../modals/title";
 import { clp, resolveDealWaUrl, addDealNote, markDealWon, markDealLost } from "./deal-common";
+import { listAdjudicados, countAdjudicados, type AdjudicadoDeal } from "./adjudicados";
 import { normalizeWaPhone } from "./lead-actions";
 import { INTERACTION_TYPES, interactionLabel, isInteractionType, type InteractionTypeMeta } from "@/lib/crm/interaction-types";
 import type { ModalDef, ModalOpenContext, ModalSubmitContext, ModalSubmitResult, SlackView } from "../modals/types";
@@ -140,45 +141,6 @@ async function openRoomsForDeals(tenantId: string, dealIds: string[]): Promise<M
     select: { dealId: true, slackChannelId: true },
   });
   return new Map(rooms.map((r) => [r.dealId, r.slackChannelId]));
-}
-
-/**
- * Negocios ADJUDICADOS por iniciar: los de etapas `isAccepted` (ganamos, aún no
- * arranca), ordenados por fecha de inicio del servicio. Mismo criterio que el
- * Hub (`getUpcomingProjects`): por `stage.isAccepted`, robusto sin depender del
- * status. Los sin `serviceStartDate` van al final ("sin fecha") para no perderse.
- */
-interface AdjudicadoDeal {
-  id: string; amount: number; accountName: string; title: string;
-  serviceStartDate: Date | null; commune: string | null;
-}
-
-async function acceptedStageIds(tenantId: string): Promise<string[]> {
-  const stages = await prisma.crmPipelineStage.findMany({
-    where: { tenantId, isActive: true, isAccepted: true }, select: { id: true },
-  });
-  return stages.map((s) => s.id);
-}
-
-async function listAdjudicados(tenantId: string): Promise<AdjudicadoDeal[]> {
-  const stageIds = await acceptedStageIds(tenantId);
-  if (!stageIds.length) return [];
-  const deals = await prisma.crmDeal.findMany({
-    where: { tenantId, stageId: { in: stageIds } },
-    orderBy: [{ serviceStartDate: { sort: "asc", nulls: "last" } }, { updatedAt: "desc" }],
-    take: 25,
-    select: { id: true, title: true, amount: true, serviceStartDate: true, commune: true, city: true, account: { select: { name: true } } },
-  });
-  return deals.map((d) => ({
-    id: d.id, amount: Number(d.amount ?? 0), accountName: d.account?.name ?? "Cliente", title: d.title ?? "Negocio",
-    serviceStartDate: d.serviceStartDate, commune: (d.commune || d.city) ?? null,
-  }));
-}
-
-async function countAdjudicados(tenantId: string): Promise<number> {
-  const stageIds = await acceptedStageIds(tenantId);
-  if (!stageIds.length) return 0;
-  return prisma.crmDeal.count({ where: { tenantId, stageId: { in: stageIds } } });
 }
 
 /* ── Vistas ── */
