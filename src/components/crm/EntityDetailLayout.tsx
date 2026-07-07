@@ -313,19 +313,21 @@ export function EntityDetailLayout({
         {/* Pipeline bar */}
         {pipelineBar}
 
-        {/* ── ChipTabs (inside sticky container) ── */}
-        <ChipTabs
-          tabs={visibleTabs.map((tab) => ({
-            id: tab.id,
-            label: tab.label,
-            icon: tab.icon,
-            badge: tab.count,
-          }))}
-          activeTab={activeTab}
-          onTabChange={onTabChange}
-          compact
-          centered={false}
-        />
+        {/* ── ChipTabs (inside sticky container) — se omite en fichas single-page ── */}
+        {visibleTabs.length > 0 && (
+          <ChipTabs
+            tabs={visibleTabs.map((tab) => ({
+              id: tab.id,
+              label: tab.label,
+              icon: tab.icon,
+              badge: tab.count,
+            }))}
+            activeTab={activeTab}
+            onTabChange={onTabChange}
+            compact
+            centered={false}
+          />
+        )}
 
         {stickyMeta ? (
           <div className="border-t border-border/50 bg-muted/15 px-0 py-2 -mb-px">{stickyMeta}</div>
