@@ -28,7 +28,21 @@ export const metadata: Metadata = {
 
 export default function PortalAccesoLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh text-foreground antialiased" style={{ paddingTop: 'var(--safe-area-top)' }}>
+    <div
+      className="text-foreground antialiased"
+      style={{
+        // Fixed-viewport scroll shell — see marcacion/layout.tsx for the full
+        // rationale. Scrolling inside this container (instead of growing the
+        // document past `min-h-dvh`) fixes the low-end Android/Samsung bug where
+        // the bottom controls were only reachable by swiping up from the very
+        // bottom edge of the screen.
+        height: '100dvh',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        overscrollBehaviorY: 'contain',
+        paddingTop: 'var(--safe-area-top)',
+      }}
+    >
       <ServiceWorkerRegistrar scope="/portal/acceso" />
       <PlatformDataAttribute />
       <BadgeClear />
