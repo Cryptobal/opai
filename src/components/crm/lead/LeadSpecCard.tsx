@@ -97,11 +97,11 @@ export function LeadSpecCard({
             Texto original y UTM
           </summary>
           {rawNotes && (
-            <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-ds-surface-1 p-3 font-mono text-[11px] leading-relaxed text-ds-text-2">
+            <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-ds-surface-1 p-3 font-mono text-[12px] leading-relaxed text-ds-text-2">
               {rawNotes}
             </pre>
           )}
-          {utm && <p className="mt-2 break-words font-mono text-[11px] text-ds-text-3">{utm}</p>}
+          {utm && <p className="mt-2 break-words font-mono text-[12px] text-ds-text-3">{utm}</p>}
         </details>
       )}
     </div>
