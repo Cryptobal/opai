@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Clock,
   FileText,
+  FileDown,
   X,
   AlertTriangle,
   Loader2,
@@ -278,6 +279,16 @@ export default function ContratoReviewPage() {
                 </p>
               )}
             </div>
+            <a
+              href={`/api/portal/cliente/contrato/${token}/docx`}
+              download
+              className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-[11px] sm:text-xs font-medium min-h-[36px]"
+              title="Descargar borrador en Word"
+            >
+              <FileDown className="h-4 w-4" />
+              <span className="hidden sm:inline">Descargar Word</span>
+              <span className="sm:hidden">Word</span>
+            </a>
           </div>
         </div>
       </header>
