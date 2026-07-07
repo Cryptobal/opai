@@ -83,7 +83,7 @@ async function countColdByStage(tenantId: string): Promise<Map<string, number>> 
 
 async function listStagesWithCounts(tenantId: string): Promise<StageRow[]> {
   const [stages, grouped, cold] = await Promise.all([
-    prisma.crmPipelineStage.findMany({ where: { tenantId, isActive: true }, orderBy: { order: "asc" }, select: { id: true, name: true, isClosedWon: true, isClosedLost: true } }),
+    prisma.crmPipelineStage.findMany({ where: { tenantId, isActive: true }, orderBy: { order: "asc" }, select: { id: true, name: true, isClosedWon: true, isClosedLost: true, isAccepted: true } }),
     prisma.crmDeal.groupBy({ by: ["stageId"], where: { tenantId, status: "open" }, _count: { _all: true }, _sum: { amount: true } }),
     countColdByStage(tenantId).catch((err) => {
       console.error("[slack] pipeline: cálculo de fríos falló (se omite el indicador):", err);
@@ -91,8 +91,12 @@ async function listStagesWithCounts(tenantId: string): Promise<StageRow[]> {
     }),
   ]);
   const byStage = new Map(grouped.map((g) => [g.stageId, { count: g._count._all, sum: Number(g._sum.amount ?? 0) }]));
+  // `isAccepted` (Adjudicado) NO va como columna abierta: esos negocios tienen su
+  // propia sección "🏁 Adjudicados por iniciar" (listAdjudicados). Sin este filtro
+  // se listaban DOS veces — como etapa y como adjudicado — y el total los duplicaba
+  // (mismo criterio que el Hub, hub-queries.ts, que también excluye stage.isAccepted).
   return stages
-    .filter((s) => !s.isClosedWon && !s.isClosedLost)
+    .filter((s) => !s.isClosedWon && !s.isClosedLost && !s.isAccepted)
     .map((s) => ({ id: s.id, name: s.name, count: byStage.get(s.id)?.count ?? 0, sum: byStage.get(s.id)?.sum ?? 0, cold: cold.get(s.id) ?? 0 }));
 }
 
@@ -257,8 +261,12 @@ const daysInStage = (d: Date): number => Math.max(0, Math.floor((Date.now() - d.
 const dfmt = (d: Date): string => d.toLocaleDateString("es-CL");
 /** URL canónica al detalle del negocio en OPAI. */
 const dealOpaiUrl = (dealId: string): string => `${getCanonicalSiteUrl()}/crm/deals/${dealId}`;
-/** Deep-link al canal de la sala en el cliente de Slack. */
-const roomClientUrl = (teamId: string, channelId: string): string => `https://app.slack.com/client/${teamId}/${channelId}`;
+/**
+ * Deep-link al canal de la sala. Usa `slack.com/app_redirect` (NO `app.slack.com/
+ * client/…`): el redirect abre el canal DENTRO de la app nativa de Slack, mientras
+ * que la URL `app.slack.com/client` la abría como página web en el navegador. Sigue
+ * siendo https, así que es válida en botones de modal (LÍMITE F21). */
+const roomClientUrl = (teamId: string, channelId: string): string => `https://slack.com/app_redirect?channel=${channelId}&team=${teamId}`;
 /** Semáforo de frío por días en etapa: verde <7 · 🟠 7-14 · 🔴 >14. */
 const coldDot = (days: number): string => (days > 14 ? "🔴" : days >= 7 ? "🟠" : "🟢");
 

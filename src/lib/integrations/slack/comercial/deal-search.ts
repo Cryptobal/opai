@@ -102,7 +102,9 @@ async function openRoomsFor(tenantId: string, dealIds: string[]): Promise<Map<st
 /* ── Vista ── */
 
 const dealOpaiUrl = (dealId: string): string => `${getCanonicalSiteUrl()}/crm/deals/${dealId}`;
-const roomClientUrl = (teamId: string, channelId: string): string => `https://app.slack.com/client/${teamId}/${channelId}`;
+// `app_redirect` abre el canal DENTRO de la app nativa de Slack (la URL antigua
+// `app.slack.com/client` lo abría como página web); sigue siendo https (F21).
+const roomClientUrl = (teamId: string, channelId: string): string => `https://slack.com/app_redirect?channel=${channelId}&team=${teamId}`;
 const daysSince = (d: Date): number => Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
 
 /** Etiqueta de estado/etapa: etapa si abierto, 🏆/❌ si cerrado. */

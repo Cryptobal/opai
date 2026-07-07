@@ -27,7 +27,9 @@ async function openRoomsFor(tenantId: string, dealIds: string[]): Promise<Map<st
   return new Map(rooms.map((r) => [r.dealId, r.slackChannelId]));
 }
 
-const roomClientUrl = (teamId: string, channelId: string): string => `https://app.slack.com/client/${teamId}/${channelId}`;
+// `app_redirect` abre el canal DENTRO de la app nativa de Slack (la URL antigua
+// `app.slack.com/client` lo abría como página web); sigue siendo https (F21).
+const roomClientUrl = (teamId: string, channelId: string): string => `https://slack.com/app_redirect?channel=${channelId}&team=${teamId}`;
 
 async function renderMyDeals(tenantId: string, adminId: string, teamId: string, canWrite: boolean, notice?: string): Promise<SlackView> {
   const deals = await myDealsByRisk(tenantId, adminId, 15);
