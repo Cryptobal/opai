@@ -19,6 +19,10 @@ export interface StartCanvasData {
   title: string;
   accountName: string;
   serviceStartDate: Date;
+  // Continuidad del servicio (desde la cotización activa):
+  isOngoingService: boolean;
+  contractDurationMonths: number | null;
+  serviceEndDate: Date | null; // solo si plazo definido; null si continuo
   // Condiciones (auto desde cotización aceptada + deal):
   totalGuards: number;
   positions: Array<{ name: string; weekdays: string[]; startTime: string; endTime: string; numGuards: number }>;
@@ -43,6 +47,13 @@ export interface StartCanvasData {
 function addDays(base: Date, days: number): Date {
   const d = new Date(base);
   d.setDate(d.getDate() + days);
+  return d;
+}
+
+/** Suma `months` meses en UTC (copia; campos @db.Date no driftan). */
+function addMonths(base: Date, months: number): Date {
+  const d = new Date(base);
+  d.setUTCMonth(d.getUTCMonth() + months);
   return d;
 }
 
@@ -85,12 +96,17 @@ export async function loadStartCanvasData(tenantId: string, dealId: string): Pro
   let positions: StartCanvasData["positions"] = [];
   let cargoSueldo: StartCanvasData["cargoSueldo"] = [];
   let quoteUrl: string | null = null;
+  // Continuidad: default continuo (indefinido), como el schema.
+  let isOngoingService = true;
+  let contractDurationMonths: number | null = null;
+  let serviceEndDate: Date | null = null;
   if (deal.activeQuotationId) {
     const quote = await prisma.cpqQuote
       .findFirst({
         where: { id: deal.activeQuotationId, tenantId },
         select: {
           id: true, totalGuards: true,
+          isOngoingService: true, contractDuration: true, contractStartDate: true,
           positions: {
             select: {
               customName: true, weekdays: true, startTime: true, endTime: true, numGuards: true,
@@ -104,6 +120,12 @@ export async function loadStartCanvasData(tenantId: string, dealId: string): Pro
     if (quote) {
       quoteUrl = `${base}/cpq/quotes/${quote.id}`;
       totalGuards = quote.totalGuards ?? 0;
+      isOngoingService = quote.isOngoingService;
+      contractDurationMonths = quote.contractDuration ?? null;
+      // Plazo definido → término = (contractStartDate | serviceStartDate) + N meses.
+      if (!isOngoingService && contractDurationMonths && contractDurationMonths > 0) {
+        serviceEndDate = addMonths(quote.contractStartDate ?? serviceStartDate, contractDurationMonths);
+      }
       positions = quote.positions.map((p) => ({
         name: p.customName || p.puestoTrabajo?.name || "Puesto",
         weekdays: p.weekdays ?? [],
@@ -150,6 +172,9 @@ export async function loadStartCanvasData(tenantId: string, dealId: string): Pro
     title: card.title,
     accountName: card.accountName,
     serviceStartDate,
+    isOngoingService,
+    contractDurationMonths,
+    serviceEndDate,
     totalGuards,
     positions,
     cargoSueldo,

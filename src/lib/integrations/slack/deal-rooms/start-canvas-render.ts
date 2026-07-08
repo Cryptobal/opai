@@ -52,6 +52,14 @@ export function renderStartCanvasMarkdown(data: StartCanvasData, now: number = D
   lines.push(`🏁 Inicio de servicio · ${data.accountName}`);
   lines.push("");
   lines.push(`📅 Inicia el **${longDate(data.serviceStartDate)}** · ${countdown(data.serviceStartDate, now)}`);
+  // Modalidad de continuidad del servicio.
+  if (data.isOngoingService) {
+    lines.push("🔁 Servicio continuo (indefinido)");
+  } else {
+    const meses = data.contractDurationMonths ?? 0;
+    const termina = data.serviceEndDate ? ` · termina el **${longDate(data.serviceEndDate)}**` : "";
+    lines.push(`⏳ Plazo definido · ${meses} ${meses === 1 ? "mes" : "meses"}${termina}`);
+  }
   lines.push("");
 
   // ── Condiciones del servicio ──
@@ -73,6 +81,12 @@ export function renderStartCanvasMarkdown(data: StartCanvasData, now: number = D
     rows.push(["Dirección", data.mapsUrl ? `${dir} → [📍 Cómo llegar](${data.mapsUrl})` : dir]);
   }
   rows.push(["Monto mensual", data.amount ? `**${clp(data.amount)} + IVA**` : "—"]);
+  if (data.isOngoingService) {
+    rows.push(["Modalidad", "Servicio continuo"]);
+  } else {
+    rows.push(["Modalidad", `Plazo definido (${data.contractDurationMonths ?? 0} ${data.contractDurationMonths === 1 ? "mes" : "meses"})`]);
+    if (data.serviceEndDate) rows.push(["Término estimado", longDate(data.serviceEndDate)]);
+  }
   if (data.quoteLabel) rows.push(["Cotización", data.quoteUrl ? `[${cell(data.quoteLabel)}](${data.quoteUrl})` : cell(data.quoteLabel)]);
   if (data.contact) {
     const c = [data.contact.name, data.contact.phone, data.contact.email].filter(Boolean).join(" · ");

@@ -10,6 +10,9 @@ function baseData(overrides: Partial<StartCanvasData> = {}): StartCanvasData {
     title: "Servicio Mall Plaza",
     accountName: "Mall Plaza SpA",
     serviceStartDate: START,
+    isOngoingService: true,
+    contractDurationMonths: null,
+    serviceEndDate: null,
     totalGuards: 4,
     positions: [
       { name: "Acceso principal", weekdays: ["Lun", "Mar", "Mié", "Jue", "Vie"], startTime: "08:00", endTime: "20:00", numGuards: 2 },
@@ -82,6 +85,29 @@ describe("renderStartCanvasMarkdown", () => {
     expect(md).not.toContain("| Cotización |");
     // Sin quoteUrl no se pinta el enlace de cotización
     expect(md).not.toContain("[📄 Cotización]");
+  });
+
+  it("modalidad servicio continuo (default)", () => {
+    const md = renderStartCanvasMarkdown(baseData(), START.getTime());
+    expect(md).toContain("🔁 Servicio continuo (indefinido)");
+    expect(md).toContain("| Modalidad | Servicio continuo |");
+    expect(md).not.toContain("Término estimado");
+    expect(md).not.toContain("⏳ Plazo definido");
+  });
+
+  it("modalidad plazo definido con fecha de término", () => {
+    const md = renderStartCanvasMarkdown(
+      baseData({
+        isOngoingService: false,
+        contractDurationMonths: 2,
+        serviceEndDate: new Date("2026-10-01T00:00:00Z"),
+      }),
+      START.getTime(),
+    );
+    expect(md).toContain("⏳ Plazo definido · 2 meses · termina el");
+    expect(md).toContain("| Modalidad | Plazo definido (2 meses) |");
+    expect(md).toMatch(/\| Término estimado \| .*octubre.*2026 \|/);
+    expect(md).not.toContain("🔁 Servicio continuo");
   });
 
   it("escapa pipes y saltos en celdas de tabla", () => {
