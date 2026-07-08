@@ -10,6 +10,7 @@
 import { prisma } from "@/lib/prisma";
 import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 import { buildDealMapsUrl, formatDealAddress } from "@/lib/google-maps-url";
+import { resolveDealInstallation } from "@/lib/crm/deal-installation";
 import { clp, resolveDealWaUrl } from "../comercial/deal-common";
 
 export interface DealCard {
@@ -79,6 +80,20 @@ export async function loadDealCard(tenantId: string, dealId: string): Promise<De
     ownerName = owner?.name ?? null;
   }
 
+  // Ubicación de referencia: la instalación de ESTE negocio (cotización activa)
+  // manda; si no se resuelve, se cae a los campos denormalizados del deal.
+  const installRef = await resolveDealInstallation(tenantId, dealId).catch(() => null);
+  const install = installRef && installRef.source !== "none" ? installRef : null;
+
+  const mapsUrl = install?.mapsUrl ?? buildDealMapsUrl({
+    lat: deal.lat, lng: deal.lng, address: deal.address, street: deal.street,
+    commune: deal.commune, city: deal.city, installationWebsite: deal.installationWebsite,
+  });
+  const addressText = install?.addressText ?? formatDealAddress({
+    address: deal.address, street: deal.street, commune: deal.commune, city: deal.city,
+  });
+  const installationName = install?.name ?? deal.installationName ?? null;
+
   return {
     dealId: deal.id,
     title: deal.title,
@@ -91,14 +106,9 @@ export async function loadDealCard(tenantId: string, dealId: string): Promise<De
     ownerName,
     contactPhone: deal.primaryContact?.phone ?? null,
     contactFirst: deal.primaryContact?.firstName ?? null,
-    mapsUrl: buildDealMapsUrl({
-      lat: deal.lat, lng: deal.lng, address: deal.address, street: deal.street,
-      commune: deal.commune, city: deal.city, installationWebsite: deal.installationWebsite,
-    }),
-    addressText: formatDealAddress({
-      address: deal.address, street: deal.street, commune: deal.commune, city: deal.city,
-    }),
-    installationName: deal.installationName ?? null,
+    mapsUrl,
+    addressText,
+    installationName,
   };
 }
 
