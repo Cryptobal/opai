@@ -1,21 +1,26 @@
 "use client";
 
-import { ExternalLink, Hash } from "lucide-react";
+import { ExternalLink, Hash, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /**
  * SlackDealRoomCard — sala de Slack del negocio como ciudadano de primera clase
- * en el panel derecho. Solo presentación: `onOpen` (handleOpenDealRoom) llega por
- * prop. Si hay sala abierta, muestra el nombre REAL guardado (`channelName`),
- * sincronizado desde Slack vía el evento `channel_rename`. Si aún no hay sala,
- * cae a una estimación best-effort del patrón `neg-{cliente}-{negocio}`.
+ * en el panel derecho. Solo presentación: `onOpen` (crea la sala si no existe y
+ * abre Slack) y `onRefresh` (reenvía la info al canal) llegan por prop.
+ * `hasRoom` distingue si la sala ya existe: cambia el label del botón principal
+ * ("Abrir en Slack" vs "Crear sala en Slack") y muestra "Actualizar sala".
+ * Con sala, `channelName` es el nombre REAL (sincronizado desde Slack vía el
+ * evento `channel_rename`); sin sala, una estimación `neg-{cliente}-{negocio}`.
  */
 interface SlackDealRoomCardProps {
   accountName?: string | null;
   dealTitle: string;
   /** Nombre real del canal (de la BD); si falta, se estima desde cuenta+título. */
   channelName?: string | null;
+  /** True si el negocio ya tiene sala abierta (hay `channelName` real en BD). */
+  hasRoom?: boolean;
   onOpen: () => void;
+  onRefresh?: () => void;
 }
 
 /** Slug ascii equivalente al usado en el server (sin tildes, [a-z0-9-]). */
@@ -29,11 +34,12 @@ function slug(raw: string, max: number): string {
     .slice(0, max);
 }
 
-export function SlackDealRoomCard({ accountName, dealTitle, channelName: realName, onOpen }: SlackDealRoomCardProps) {
+export function SlackDealRoomCard({ accountName, dealTitle, channelName: realName, hasRoom, onOpen, onRefresh }: SlackDealRoomCardProps) {
   const cliente = slug(accountName || "cliente", 32);
   const negocio = slug(dealTitle, 30);
   const estimated = ["neg", cliente, negocio].filter(Boolean).join("-").slice(0, 80);
   // Nombre real de la sala (sincronizado desde Slack) si existe; si no, estimación.
+  const exists = hasRoom ?? !!realName?.trim();
   const channelName = realName?.trim() || estimated;
 
   return (
@@ -52,9 +58,13 @@ export function SlackDealRoomCard({ accountName, dealTitle, channelName: realNam
         </div>
       </div>
       <Button size="sm" onClick={onOpen} className="mt-3 w-full gap-1.5">
-        Abrir en Slack <ExternalLink className="h-3.5 w-3.5" />
+        {exists ? "Abrir en Slack" : "Crear sala en Slack"} <ExternalLink className="h-3.5 w-3.5" />
       </Button>
-      {/* TODO fase 2: estado del canal (último mensaje, miembros) vía GET deal-room */}
+      {exists && onRefresh && (
+        <Button size="sm" variant="ghost" onClick={onRefresh} className="mt-1.5 w-full gap-1.5 text-tint-violet-fg">
+          <RefreshCw className="h-3.5 w-3.5" /> Actualizar sala
+        </Button>
+      )}
     </div>
   );
 }

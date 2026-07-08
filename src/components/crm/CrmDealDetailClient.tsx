@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Users, Briefcase, Phone, Link2, History, Copy, Building2, ListChecks, Ticket as TicketIcon, Hash } from "lucide-react";
+import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Users, Briefcase, Phone, Link2, History, Copy, Building2, ListChecks, Ticket as TicketIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -1922,8 +1922,28 @@ export function CrmDealDetailClient({
         return;
       }
       toast.success(json.message || "Sala abierta en Slack");
+      // Abre el canal en Slack (deep link real). Si no hay teamId, no abrimos nada.
+      if (json.deepLink) window.open(json.deepLink, "_blank", "noopener,noreferrer");
     } catch {
       toast.error("No se pudo abrir la sala en Slack");
+    }
+  };
+
+  const handleRefreshDealRoom = async () => {
+    try {
+      const res = await fetch("/api/integrations/slack/deal-room/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dealId: deal.id }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.success) {
+        toast.error(json?.error || "No se pudo actualizar la sala en Slack");
+        return;
+      }
+      toast.success(json.message || "Info reenviada a la sala");
+    } catch {
+      toast.error("No se pudo actualizar la sala en Slack");
     }
   };
 
@@ -1937,7 +1957,6 @@ export function CrmDealDetailClient({
       primary: true,
       hidden: !currentStageIsAccepted,
     },
-    { label: "Sala Slack", icon: Hash, onClick: handleOpenDealRoom, primary: true },
     { label: "Editar negocio", icon: Pencil, onClick: openDealEdit, primary: true },
     {
       label: "Onboarding del cliente",
@@ -2038,7 +2057,9 @@ export function CrmDealDetailClient({
                 accountName={deal.account?.name}
                 dealTitle={dealTitle}
                 channelName={deal.slackChannelName}
+                hasRoom={!!deal.slackChannelName}
                 onOpen={handleOpenDealRoom}
+                onRefresh={handleRefreshDealRoom}
               />
             </div>
             <AssociatedRecordsPanel sections={associatedSections} />

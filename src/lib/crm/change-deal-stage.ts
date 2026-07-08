@@ -361,6 +361,13 @@ export async function changeDealStage(input: {
         // Sincroniza etapa → sala (ficha + topic + naming). No-op si no hay sala.
         const { syncDealRoomStage } = await import("@/lib/integrations/slack/deal-rooms/stage-sync");
         await syncDealRoomStage(ctx.tenantId, updatedDeal.id);
+        // Ficha de Inicio (Canvas) al ADJUDICAR (etapa isAccepted): crea/actualiza
+        // el canvas del canal. Detrás del flag startCanvasOnWon (default ON) y
+        // best-effort. No-op si no hay sala o faltan scopes de canvas.
+        if (stage.isAccepted) {
+          const { ensureStartCanvas } = await import("@/lib/integrations/slack/deal-rooms/start-canvas");
+          await ensureStartCanvas(ctx.tenantId, updatedDeal.id);
+        }
       } catch (e) {
         console.error("[slack] auto-open/sync deal room failed:", e);
       }

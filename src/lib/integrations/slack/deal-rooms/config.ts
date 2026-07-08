@@ -36,8 +36,9 @@ export interface DealRoomConfig {
   /** Perder → el canal se archiva automáticamente. Default true. */
   autoArchiveOnLost: boolean;
   /**
-   * Ganar → crea/actualiza el canvas "Ficha de Inicio" del canal. Default false
-   * (no sorprender a Gard hasta reconectar los scopes canvases:*).
+   * Adjudicar (etapa isAccepted) → crea/actualiza el canvas "Ficha de Inicio" del
+   * canal; también se re-renderiza al ganar. Default true (best-effort: si aún no
+   * se reconectan los scopes canvases:*, es un no-op silencioso hasta que se hagan).
    */
   startCanvasOnWon: boolean;
 }
@@ -50,7 +51,7 @@ const DEFAULTS: DealRoomConfig = {
   pipelineHubEnabled: false,
   autoHandoffOnWon: true,
   autoArchiveOnLost: true,
-  startCanvasOnWon: false,
+  startCanvasOnWon: true,
 };
 
 const CACHE_TTL_MS = 5 * 60 * 1000;

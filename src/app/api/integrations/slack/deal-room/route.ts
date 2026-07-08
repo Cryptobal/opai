@@ -30,10 +30,17 @@ export async function POST(req: Request) {
 
   const r = await openDealRoom(auth.ctx.tenantId, dealId, auth.ctx.userId);
   if (!r.ok) return NextResponse.json({ success: false, error: r.error }, { status: 502 });
+  // Deep link que abre el canal en la app de Slack (native/web). Requiere teamId.
+  const deepLink =
+    r.teamId && r.channelId
+      ? `https://slack.com/app_redirect?channel=${r.channelId}&team=${r.teamId}`
+      : null;
   return NextResponse.json({
     success: true,
     channelId: r.channelId,
     channelName: r.channelName,
+    teamId: r.teamId,
+    deepLink,
     alreadyExisted: !!r.alreadyExisted,
     message: r.alreadyExisted ? `La sala #${r.channelName} ya existía.` : `Sala #${r.channelName} abierta en Slack.`,
   });

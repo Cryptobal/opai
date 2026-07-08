@@ -29,6 +29,8 @@ export interface OpenDealRoomResult {
   ok: boolean;
   channelId?: string;
   channelName?: string;
+  /** Team de Slack (para construir el deep link que abre el canal en la app). */
+  teamId?: string;
   alreadyExisted?: boolean;
   error?: string;
 }
@@ -229,7 +231,15 @@ export async function openDealRoom(
   // Idempotencia: una sala por negocio (dealId unique).
   const existing = await getDealRoom(tenantId, dealId);
   if (existing) {
-    return { ok: true, channelId: existing.slackChannelId, channelName: existing.slackChannelName, alreadyExisted: true };
+    // teamId best-effort para el deep link; si Slack no responde, igual devolvemos la sala.
+    const wsExisting = await getWorkspaceForTenant(tenantId).catch(() => null);
+    return {
+      ok: true,
+      channelId: existing.slackChannelId,
+      channelName: existing.slackChannelName,
+      teamId: wsExisting?.slackTeamId,
+      alreadyExisted: true,
+    };
   }
 
   const ws = await getWorkspaceForTenant(tenantId);
@@ -286,6 +296,12 @@ export async function openDealRoom(
     }
   }
 
+  // 4.5) Resumen rico de la cotización (dotación, sueldos, monto, ubicación…).
+  //      Best-effort: no bloquea la creación de la sala si falla.
+  await import("./quote-resumen")
+    .then((m) => m.postQuoteResumenToRoom(tenantId, dealId, { ws, channelId: channel.id }))
+    .catch((e) => console.error("[slack] openDealRoom resumen cotización falló:", e));
+
   // 5) Persistir el map (unique dealId absorbe la carrera de doble-click).
   try {
     const room = await prisma.crmDealSlackRoom.create({
@@ -301,12 +317,12 @@ export async function openDealRoom(
     });
     // Board del hub #pipeline (Fase 3): refresca para incluir la nueva sala.
     await import("./pipeline-hub").then((m) => m.refreshPipelineHub(tenantId)).catch(() => {});
-    return { ok: true, channelId: room.slackChannelId, channelName: room.slackChannelName };
+    return { ok: true, channelId: room.slackChannelId, channelName: room.slackChannelName, teamId: ws.slackTeamId };
   } catch (err) {
     // Carrera: otro click creó la sala primero → devolver la que ganó.
     if ((err as { code?: string }).code === "P2002") {
       const won = await getDealRoom(tenantId, dealId);
-      if (won) return { ok: true, channelId: won.slackChannelId, channelName: won.slackChannelName, alreadyExisted: true };
+      if (won) return { ok: true, channelId: won.slackChannelId, channelName: won.slackChannelName, teamId: ws.slackTeamId, alreadyExisted: true };
     }
     console.error("[slack] openDealRoom persistir map falló:", err);
     return { ok: false, error: "La sala se creó en Slack pero no pude registrarla. Reintenta." };
@@ -341,4 +357,29 @@ export async function maybeAutoOpenDealRoom(tenantId: string, dealId: string, ac
     return null;
   });
   if (r && !r.ok) console.error("[slack] maybeAutoOpenDealRoom no abrió la sala:", r.error);
+}
+
+/**
+ * Reenvía al canal toda la info del negocio (botón "Actualizar sala"): refresca
+ * la ficha viva fijada, re-publica el resumen de la cotización con los datos
+ * actuales y re-renderiza el Canvas de Inicio si el negocio ya está adjudicado.
+ * Requiere una sala OPEN. Best-effort por parte: nunca lanza.
+ */
+export async function resendDealRoomInfo(
+  tenantId: string,
+  dealId: string,
+): Promise<{ ok: boolean; message: string }> {
+  const room = await getOpenDealRoom(tenantId, dealId);
+  if (!room) return { ok: false, message: "Este negocio aún no tiene una sala abierta en Slack." };
+
+  // 1) Ficha viva (in-place). 2) Resumen de cotización (nuevo mensaje). 3) Canvas.
+  await refreshDealRoomFicha(tenantId, dealId).catch((e) => console.error("[slack] resend ficha falló:", e));
+  await import("./quote-resumen")
+    .then((m) => m.postQuoteResumenToRoom(tenantId, dealId, { channelId: room.slackChannelId }))
+    .catch((e) => console.error("[slack] resend resumen falló:", e));
+  await import("./start-canvas")
+    .then((m) => m.renderStartCanvasForDeal(tenantId, dealId, { ignoreFlag: true }))
+    .catch((e) => console.error("[slack] resend canvas falló:", e));
+
+  return { ok: true, message: `Info reenviada a la sala #${room.slackChannelName}.` };
 }
