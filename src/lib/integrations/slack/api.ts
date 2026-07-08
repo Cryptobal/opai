@@ -310,6 +310,25 @@ export async function slackListChannels(token: string): Promise<SlackChannel[]> 
   return channels;
 }
 
+/** Miembros de un canal (users). Paginado corto; best-effort (nunca lanza). */
+export async function slackConversationMembers(token: string, channelId: string): Promise<string[]> {
+  const ids: string[] = [];
+  let cursor: string | undefined;
+  try {
+    for (let page = 0; page < 3; page++) {
+      const body: Record<string, unknown> = { channel: channelId, limit: 200 };
+      if (cursor) body.cursor = cursor;
+      const json = await callSlack("conversations.members", body, token);
+      for (const id of (json.members as string[] | undefined) ?? []) ids.push(id);
+      cursor = (json.response_metadata as { next_cursor?: string } | undefined)?.next_cursor || undefined;
+      if (!cursor) break;
+    }
+  } catch (err) {
+    console.error("[slack] conversations.members falló:", err);
+  }
+  return ids;
+}
+
 export async function slackLookupUserByEmail(
   token: string,
   email: string,
