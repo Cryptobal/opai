@@ -20,8 +20,6 @@ import { getQuoteStatus } from "@/lib/quoteStatus";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
 import { EmailHistoryList } from "./EmailHistoryList";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
-import { OnboardingAccountBanner } from "@/components/crm/onboarding/OnboardingAccountBanner";
-import { OnboardingClientModal } from "@/components/crm/onboarding/OnboardingClientModal";
 import { AccountBillingDocSection } from "@/components/crm/AccountBillingDocSection";
 import { DetailField } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
@@ -56,7 +54,6 @@ import {
   ChevronDown,
   Power,
   UserCheck,
-  ListChecks,
   MessageSquare,
   Ticket as TicketIcon,
 } from "lucide-react";
@@ -1160,52 +1157,9 @@ export function CrmAccountDetailClient({
   ];
 
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
-  const [onboardingTarget, setOnboardingTarget] = useState<
-    { dealId: string; defaultPlaybookId?: string } | null
-  >(null);
-
-  const wonDeals = account.deals.filter((d) => d.status === "won");
-
-  const openOnboardingForDeal = async (dealId: string) => {
-    try {
-      const res = await fetch(`/api/onboarding/by-deal?dealId=${dealId}`);
-      const json = await res.json();
-      if (!res.ok || !json?.success) {
-        toast.error("No se pudo cargar el onboarding");
-        return;
-      }
-      if (json.data.exists) {
-        router.push(
-          `/crm/accounts/${json.data.onboarding.accountId}/onboarding/${json.data.onboarding.id}`,
-        );
-      } else {
-        setOnboardingTarget({ dealId, defaultPlaybookId: json.data.defaultPlaybookId });
-      }
-    } catch {
-      toast.error("No se pudo cargar el onboarding");
-    }
-  };
-
-  const onboardingActions: EntityHeaderAction[] =
-    wonDeals.length === 0
-      ? []
-      : wonDeals.length === 1
-        ? [
-            {
-              label: "Onboarding del cliente",
-              icon: ListChecks,
-              onClick: () => openOnboardingForDeal(wonDeals[0].id),
-            },
-          ]
-        : wonDeals.map((d) => ({
-            label: `Onboarding · ${d.title}`,
-            icon: ListChecks,
-            onClick: () => openOnboardingForDeal(d.id),
-          }));
 
   const headerActions: EntityHeaderAction[] = [
     { label: "Editar cuenta", icon: Pencil, onClick: openAccountEdit, primary: true },
-    ...onboardingActions,
     {
       label: !hasPortalContacts ? "Chat (sin contactos con portal)" : "Iniciar chat externo",
       icon: MessageCircle,
@@ -1676,10 +1630,6 @@ export function CrmAccountDetailClient({
       >
         {activeTab === "general" && (
           <div className="space-y-3">
-            {(account.status === "client_active" ||
-              account.deals.some((d) => d.status === "won")) && (
-              <OnboardingAccountBanner accountId={account.id} />
-            )}
             {generalContent}
           </div>
         )}
@@ -1727,20 +1677,6 @@ export function CrmAccountDetailClient({
 
         {activeTab === "files" && <FileAttachments entityType="account" entityId={account.id} title="Documentos" />}
       </EntityDetailLayout>
-
-      {/* ── Onboarding Cliente Modal ── */}
-      {onboardingTarget ? (
-        <OnboardingClientModal
-          open
-          dealId={onboardingTarget.dealId}
-          defaultPlaybookId={onboardingTarget.defaultPlaybookId}
-          onClose={() => setOnboardingTarget(null)}
-          onCreated={() => {
-            setOnboardingTarget(null);
-            router.refresh();
-          }}
-        />
-      ) : null}
 
       {/* ── Duplicate Account Modal ── */}
       <DuplicateAccountModal

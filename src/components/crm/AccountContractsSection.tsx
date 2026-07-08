@@ -2564,12 +2564,31 @@ export function AccountContractsSection({
                     onCheckedChange={(v) => {
                       const next = v === true;
                       setRecurringEnabled(next);
-                      // Al activarla, completamos el nombre con el título
-                      // del contrato si el usuario aún no escribió uno.
-                      if (next && !recurringName.trim()) {
-                        setRecurringName(
-                          uploadTitle.trim() || `Contrato ${accountName}`,
-                        );
+                      // Al activarla, pre-rellenamos los datos del receptor SII
+                      // desde el CrmAccount. Sólo hidratamos los campos vacíos
+                      // para no pisar lo que el usuario ya haya editado. Antes
+                      // esto vivía sólo en resetUploadForm (que corre al CERRAR
+                      // el diálogo), por lo que en el flujo normal de subida el
+                      // receptor quedaba en blanco: bug de prefill.
+                      if (next) {
+                        if (!recurringName.trim()) {
+                          setRecurringName(
+                            uploadTitle.trim() || `Contrato ${accountName}`,
+                          );
+                        }
+                        if (!recurringRut.trim()) setRecurringRut(accountRut ?? "");
+                        if (!recurringReceiverName.trim())
+                          setRecurringReceiverName(accountLegalName ?? accountName);
+                        if (!recurringEmail.trim())
+                          setRecurringEmail(accountEmail ?? "");
+                        if (!recurringGiro.trim())
+                          setRecurringGiro(accountGiro ?? "");
+                        if (!recurringAddress.trim())
+                          setRecurringAddress(accountAddress ?? "");
+                        if (!recurringComuna.trim())
+                          setRecurringComuna(accountCommune ?? "");
+                        if (!recurringCiudad.trim())
+                          setRecurringCiudad(accountCity ?? "");
                       }
                     }}
                     className="mt-1"
