@@ -104,8 +104,14 @@ export async function buildRelevoBoardData(input: {
     };
   };
 
-  const entrante = rows.filter((r) => r.puesto.shiftStart === input.shiftStart).map(toRow);
-  const saliente = rows.filter((r) => r.puesto.shiftStart !== input.shiftStart).map(toRow);
+  // Normaliza a "HH:MM" con cero a la izquierda antes de comparar: el createMany
+  // guarda `plannedShiftStart` desde `puesto.shiftStart` y el filtro compara
+  // contra `puesto.shiftStart` (join vivo) — mismo origen, pero blindamos contra
+  // cualquier "8:00" vs "08:00" que dejaría el tablero vacío en silencio.
+  const norm = (s: string) => s.trim().padStart(5, "0");
+  const targetShift = norm(input.shiftStart);
+  const entrante = rows.filter((r) => norm(r.puesto.shiftStart) === targetShift).map(toRow);
+  const saliente = rows.filter((r) => norm(r.puesto.shiftStart) !== targetShift).map(toRow);
 
   const total = entrante.length;
   const cubiertos = entrante.filter((r) => PRESENT_STATES.has(r.estado)).length;
