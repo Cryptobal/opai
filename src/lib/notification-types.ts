@@ -506,7 +506,8 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     module: "finance",
     category: "Finanzas - Bancos",
     defaultBell: true,
-    defaultEmail: true,
+    // Evento de alta frecuencia: sin email por default (alineado con catalog.ts).
+    defaultEmail: false,
   },
 
   // ── CRM - Portal Cliente ──

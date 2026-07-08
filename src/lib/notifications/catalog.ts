@@ -668,7 +668,10 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     key: 'bank_cartola_received', label: 'Cartola bancaria recibida',
     description: 'Cuando llega una cartola por email del banco y se procesan los movimientos',
     module: 'finance', category: 'Finanzas - Bancos',
-    audiences: ['admin'], defaults: { admin: adminBell(true) },
+    // Sin email por default: es un evento de alta frecuencia (cada cartola/lote de
+    // movimientos) y ya lo cubren la campana + push + Slack. El usuario puede
+    // reactivar el correo por preferencia. adminBell() = bell + push, sin email.
+    audiences: ['admin'], defaults: { admin: adminBell() },
   },
   {
     key: 'accounting_entry_failed', label: 'Factura sin asiento contable',

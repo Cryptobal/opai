@@ -42,9 +42,13 @@ import {
   tenantInboxKey,
 } from "@/modules/finance/banking/cartola-inbox";
 import { loadXlsxRows } from "@/modules/finance/banking/xlsx-loader";
-import { parseSantanderCartola } from "@/modules/finance/banking/santander-parser";
+import {
+  parseSantanderCartola,
+  type ParsedBankTransaction,
+} from "@/modules/finance/banking/santander-parser";
 import { importBankTransactions } from "@/modules/finance/banking/bank-transaction.service";
 import { notify } from "@/lib/notifications/notify";
+import { buildBankMovementsBody } from "@/lib/finance/bank-movements-summary";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -275,6 +279,7 @@ export async function POST(request: NextRequest) {
   // 9. Descargar y procesar cada XLSX
   let totalImported = 0;
   let totalInFile = 0;
+  const allMovements: ParsedBankTransaction[] = [];
   for (const att of xlsxList) {
     if (!att.download_url) {
       log("attachment sin download_url", att.id);
@@ -308,6 +313,7 @@ export async function POST(request: NextRequest) {
     const parsed = parseSantanderCartola(rows);
     totalInFile += parsed.transactions.length;
     if (parsed.transactions.length === 0) continue;
+    allMovements.push(...parsed.transactions);
 
     const result = await importBankTransactions(
       tenantId,
@@ -339,23 +345,23 @@ export async function POST(request: NextRequest) {
   try {
     const accountLabel = `${targetAccount.bankName} ${targetAccount.accountNumber}`;
     const skipped = totalInFile - totalImported;
-    const detail =
+    const body =
       totalImported > 0
-        ? `Se importaron ${totalImported} de ${totalInFile} movimientos${
-            skipped > 0 ? ` (${skipped} omitidos por duplicados)` : ""
-          }.`
+        ? buildBankMovementsBody({
+            summary: `${totalImported} de ${totalInFile} movimientos${skipped > 0 ? ` · ${skipped} omitidos por duplicados` : ""} en cta. ${targetAccount.accountNumber}`,
+            movements: allMovements,
+          })
         : `Cartola recibida sin movimientos nuevos (${totalInFile} ya estaban importados).`;
     await notify({
       tenantId,
       type: "bank_cartola_received",
       title: `Cartola recibida — ${accountLabel}`,
-      body: detail,
+      body,
       link: "/finanzas/bancos?tab=transactions",
+      // Detalle (fecha · descripción · monto) va en el cuerpo; bankAccountId no
+      // se renderiza como campo (blacklist). emailId solo para trazabilidad.
       data: {
         bankAccountId: targetAccount.id,
-        bank,
-        importedCount: totalImported,
-        totalInFile,
         emailId,
       },
     });

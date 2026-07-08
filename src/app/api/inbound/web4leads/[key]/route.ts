@@ -38,6 +38,7 @@ import {
   normalizeBankCode,
 } from "@/modules/finance/banking/web4leads-inbox";
 import { notify } from "@/lib/notifications/notify";
+import { buildBankMovementsBody } from "@/lib/finance/bank-movements-summary";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -275,13 +276,15 @@ export async function POST(
         tenantId,
         type: "bank_cartola_received",
         title: `Movimientos bancarios recibidos — ${account.bankName}`,
-        body: `Se recibieron ${imported} movimiento(s) desde Web4Leads en ${account.accountNumber}.${duplicates > 0 ? ` (${duplicates} duplicados ignorados)` : ""}`,
+        body: buildBankMovementsBody({
+          summary: `${imported} movimiento(s) en cta. ${account.accountNumber}${duplicates > 0 ? ` · ${duplicates} duplicados ignorados` : ""}`,
+          movements: payload.movements,
+        }),
         link: "/finanzas/bancos?tab=transactions",
+        // Sin provider/imported/duplicates en data: el detalle ya va en el cuerpo
+        // (fecha · descripción · monto). bankAccountId no se renderiza (blacklist).
         data: {
           bankAccountId: account.id,
-          provider: "WEB4LEADS",
-          imported,
-          duplicates,
         },
       });
     } catch (err) {
