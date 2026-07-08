@@ -411,6 +411,26 @@ export async function POST(req: NextRequest) {
         } catch (err) {
           console.error("[portal-guardia/marcar] Error notificando fuera de rango:", err);
         }
+        try {
+          const { notifyMarcacionFueraRango } = await import("@/lib/marcacion/notify-fuera-rango");
+          await notifyMarcacionFueraRango({
+            tenantId,
+            installationId: installation.id,
+            installationName: installation.name,
+            guardiaName: formatPersonName(guardia.persona.firstName, guardia.persona.lastName),
+            guardiaRut: guardia.persona.rut ?? "",
+            tipo,
+            timestamp: serverTimestamp,
+            geoDistanciaM,
+            geoRadiusM: effectiveGeoRadiusM,
+            lat: lat ?? null,
+            lng: lng ?? null,
+            fotoEvidenciaUrl: null,
+            deviceDisplay: "Portal Guardia (celular personal)",
+          });
+        } catch (err) {
+          console.error("[portal-guardia/marcar] Error alertando fuera de rango a Slack:", err);
+        }
       });
     }
 

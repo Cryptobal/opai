@@ -488,6 +488,25 @@ export async function POST(req: NextRequest) {
           deviceDisplay,
         }).catch((err) => console.error("[marcacion] Error notificando supervisor fuera de rango:", err))
       );
+
+      // Alerta al canal Slack de la instalación (foto embebida), en paralelo al correo.
+      import("@/lib/marcacion/notify-fuera-rango").then(({ notifyMarcacionFueraRango }) =>
+        notifyMarcacionFueraRango({
+          tenantId: installation.tenantId,
+          installationId: installation.id,
+          installationName: installation.name,
+          guardiaName: formatPersonName(guardia.persona.firstName, guardia.persona.lastName),
+          guardiaRut: guardia.persona.rut ?? "",
+          tipo,
+          timestamp: effectiveTimestamp,
+          geoDistanciaM,
+          geoRadiusM: effectiveGeoRadiusM,
+          lat: lat ?? null,
+          lng: lng ?? null,
+          fotoEvidenciaUrl,
+          deviceDisplay,
+        }).catch((err) => console.error("[marcacion] Error alertando fuera de rango a Slack:", err))
+      );
     }
 
     return NextResponse.json({

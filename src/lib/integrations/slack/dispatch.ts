@@ -246,15 +246,30 @@ export async function dispatchSlackForNotification(input: DispatchInput): Promis
     curatedFields = followupSentFields(input.data);
   }
 
-  const { text, blocks } = buildNotificationBlocks({
-    title: input.title,
-    body,
-    category: input.typeDef.category,
-    phone: typeof input.data?.phone === "string" ? input.data.phone : null,
-    fields: ticketFields.length ? ticketFields : curatedFields ?? toContextFields(input.data),
-    link: input.link,
-    critical: input.typeDef.critical,
-  });
+  // Blocks enriquecidos por evento: si el emisor adjunta `data.__customBlocks`
+  // (array Block Kit ya armado), reemplazan el render genérico. `__customText`
+  // es el fallback de accesibilidad. Se usa p. ej. en la alerta de marca fuera
+  // de rango, que trae imagen embebida y campos propios.
+  const customBlocks = Array.isArray(input.data?.__customBlocks)
+    ? (input.data.__customBlocks as unknown[])
+    : null;
+  const { text, blocks } = customBlocks
+    ? {
+        text:
+          typeof input.data?.__customText === "string"
+            ? (input.data.__customText as string)
+            : input.title,
+        blocks: customBlocks,
+      }
+    : buildNotificationBlocks({
+        title: input.title,
+        body,
+        category: input.typeDef.category,
+        phone: typeof input.data?.phone === "string" ? input.data.phone : null,
+        fields: ticketFields.length ? ticketFields : curatedFields ?? toContextFields(input.data),
+        link: input.link,
+        critical: input.typeDef.critical,
+      });
 
   // Fila accionable de la tarjeta 🔥: WhatsApp "¿te llamo?" + Recordar 1h.
   if (isQuoteViewed && typeof input.data?.quoteId === "string") {
