@@ -98,6 +98,23 @@ export async function POST(req: NextRequest) {
         }
       }
       break;
+    case "channel_rename":
+      // Renombre hecho manualmente en Slack → sincroniza el nombre-display de la
+      // sala del negocio. El id del canal es el ancla estable; el nombre es cache.
+      if (payload.event) {
+        const ch = (payload.event as unknown as { channel?: { id?: string; name?: string } }).channel;
+        if (ch?.id && ch.name) {
+          after(async () => {
+            try {
+              const { syncDealRoomNameFromSlack } = await import("@/lib/integrations/slack/deal-rooms/room");
+              await syncDealRoomNameFromSlack(resolved.tenantId, ch.id!, ch.name!);
+            } catch (err) {
+              console.error("[slack] channel_rename sync falló:", err);
+            }
+          });
+        }
+      }
+      break;
     case "app_home_opened":
       // Pestaña Inicio → publica el panel personal. Pestaña Mensajes → bienvenida única.
       if (payload.event) {

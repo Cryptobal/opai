@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button";
 /**
  * SlackDealRoomCard — sala de Slack del negocio como ciudadano de primera clase
  * en el panel derecho. Solo presentación: `onOpen` (handleOpenDealRoom) llega por
- * prop. El nombre del canal es una estimación best-effort del patrón por defecto
- * `neg-{cliente}-{negocio}` (el nombre real y su estado dependen del server; ver
- * TODO fase 2). No hace fetch propio.
+ * prop. Si hay sala abierta, muestra el nombre REAL guardado (`channelName`),
+ * sincronizado desde Slack vía el evento `channel_rename`. Si aún no hay sala,
+ * cae a una estimación best-effort del patrón `neg-{cliente}-{negocio}`.
  */
 interface SlackDealRoomCardProps {
   accountName?: string | null;
   dealTitle: string;
+  /** Nombre real del canal (de la BD); si falta, se estima desde cuenta+título. */
+  channelName?: string | null;
   onOpen: () => void;
 }
 
@@ -27,10 +29,12 @@ function slug(raw: string, max: number): string {
     .slice(0, max);
 }
 
-export function SlackDealRoomCard({ accountName, dealTitle, onOpen }: SlackDealRoomCardProps) {
+export function SlackDealRoomCard({ accountName, dealTitle, channelName: realName, onOpen }: SlackDealRoomCardProps) {
   const cliente = slug(accountName || "cliente", 32);
   const negocio = slug(dealTitle, 30);
-  const channelName = ["neg", cliente, negocio].filter(Boolean).join("-").slice(0, 80);
+  const estimated = ["neg", cliente, negocio].filter(Boolean).join("-").slice(0, 80);
+  // Nombre real de la sala (sincronizado desde Slack) si existe; si no, estimación.
+  const channelName = realName?.trim() || estimated;
 
   return (
     <div className="rounded-xl border border-tint-violet/40 bg-tint-violet/10 p-3.5">

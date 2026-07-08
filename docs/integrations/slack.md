@@ -1136,6 +1136,16 @@ en `docs/crm/velocidad-comercial.md`.
 - **Paso manual (Carlos)**: agregar scope `channels:join` + bot_event `channel_created`
   al manifest y **Re-autorizar**.
 
+## Sincronía de nombre de sala (rename en Slack → OPAI)
+
+- Evento `channel_rename` → `syncDealRoomNameFromSlack(tenantId, channelId, name)`
+  actualiza `CrmDealSlackRoom.slackChannelName` por `slackChannelId` (ancla estable).
+  El detalle del negocio muestra ese nombre real (`deal.slackChannelName`); si aún no
+  hay sala, cae a la estimación `neg-{cliente}-{negocio}`. Se refleja al refrescar.
+- **Paso manual (Carlos)**: agregar el bot_event `channel_rename` al manifest de la
+  Slack App (Event Subscriptions) y **Re-autorizar**. El bot ya se auto-une a los
+  canales de las salas, requisito para recibir el evento.
+
 ## Matriz de pruebas manuales (Fase 15)
 
 > No ejecutable en la sesión de Claude (MCP Slack sin autorizar). Checklist para Carlos.

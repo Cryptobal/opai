@@ -109,6 +109,25 @@ export async function getDealRoomByChannel(tenantId: string, slackChannelId: str
 }
 
 /**
+ * Sincroniza el nombre guardado cuando el canal se renombra EN Slack (evento
+ * `channel_rename`). El `slackChannelId` es el ancla estable; el nombre es solo
+ * display cache. Best-effort e idempotente: si el canal no es de un negocio,
+ * `updateMany` no afecta filas. Devuelve cuántas salas se actualizaron.
+ */
+export async function syncDealRoomNameFromSlack(
+  tenantId: string,
+  slackChannelId: string,
+  newName: string,
+): Promise<number> {
+  if (!slackChannelId || !newName) return 0;
+  const { count } = await prisma.crmDealSlackRoom.updateMany({
+    where: { tenantId, slackChannelId },
+    data: { slackChannelName: newName },
+  });
+  return count;
+}
+
+/**
  * Espeja una nota nueva de un negocio en su sala de Slack (decisión B2/B3: las
  * notas del deal también fluyen a la sala). Best-effort; no hace nada si el
  * negocio no tiene sala OPEN.
