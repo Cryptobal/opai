@@ -28,6 +28,7 @@ export interface StartCanvasData {
   positions: Array<{ name: string; weekdays: string[]; startTime: string; endTime: string; numGuards: number }>;
   cargoSueldo: Array<{ cargo: string; netSalary: number | null; baseSalary: number }>;
   amount: number;
+  monthlyAmount: number;
   quoteLabel: string | null;
   mapsUrl: string | null;
   addressText: string | null;
@@ -93,6 +94,7 @@ export async function loadStartCanvasData(tenantId: string, dealId: string): Pro
 
   // Condiciones desde la cotización activa (best-effort).
   let totalGuards = 0;
+  let monthlyAmount = 0;
   let positions: StartCanvasData["positions"] = [];
   let cargoSueldo: StartCanvasData["cargoSueldo"] = [];
   let quoteUrl: string | null = null;
@@ -100,12 +102,28 @@ export async function loadStartCanvasData(tenantId: string, dealId: string): Pro
   let isOngoingService = true;
   let contractDurationMonths: number | null = null;
   let serviceEndDate: Date | null = null;
-  if (deal.activeQuotationId) {
+
+  // Cotización de referencia: la activa manda; si el deal no la marcó, cae en la
+  // más reciente ligada por dealId (excluye borradores para no mostrar basura).
+  let quoteId = deal.activeQuotationId ?? null;
+  if (!quoteId) {
+    const fallback = await prisma.cpqQuote
+      .findFirst({
+        where: { dealId, tenantId, status: { not: "draft" } },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      })
+      .catch(() => null);
+    quoteId = fallback?.id ?? null;
+  }
+
+  if (quoteId) {
     const quote = await prisma.cpqQuote
       .findFirst({
-        where: { id: deal.activeQuotationId, tenantId },
+        where: { id: quoteId, tenantId },
         select: {
-          id: true, totalGuards: true,
+          id: true, totalGuards: true, monthlyCost: true,
+          parameters: { select: { salePriceMonthly: true } },
           isOngoingService: true, contractDuration: true, contractStartDate: true,
           positions: {
             select: {
@@ -120,6 +138,8 @@ export async function loadStartCanvasData(tenantId: string, dealId: string): Pro
     if (quote) {
       quoteUrl = `${base}/cpq/quotes/${quote.id}`;
       totalGuards = quote.totalGuards ?? 0;
+      const salePriceMonthly = Number(quote.parameters?.salePriceMonthly ?? 0);
+      monthlyAmount = salePriceMonthly > 0 ? salePriceMonthly : Number(quote.monthlyCost ?? 0);
       isOngoingService = quote.isOngoingService;
       contractDurationMonths = quote.contractDuration ?? null;
       // Plazo definido → término = (contractStartDate | serviceStartDate) + N meses.
@@ -179,6 +199,7 @@ export async function loadStartCanvasData(tenantId: string, dealId: string): Pro
     positions,
     cargoSueldo,
     amount: card.amount,
+    monthlyAmount,
     quoteLabel: card.quoteLabel,
     mapsUrl: card.mapsUrl,
     addressText: card.addressText,
