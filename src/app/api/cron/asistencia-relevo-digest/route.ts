@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getWorkspaceForTenant } from "@/lib/integrations/slack/workspace";
 import { publishRelevoBoard } from "@/lib/ops/relevo-board";
+import { ensureAsistenciaDia } from "@/lib/ops/ensure-asistencia-dia";
 import { chileDayStart } from "@/lib/marcacion-jornada";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,29 @@ function publishHourFor(shiftStart: string, anticipacionMin: number): number | n
   const shiftMin = hh * 60 + (Number.isFinite(mm) ? mm : 0);
   const pub = (((shiftMin - anticipacionMin) % 1440) + 1440) % 1440;
   return Math.floor(pub / 60);
+}
+
+/**
+ * Fecha (día Chile, medianoche UTC como la pauta) en que ENTRA el turno.
+ *
+ * Caso normal (07-08, 19-20): la publicación y la entrada ocurren el mismo día
+ * Chile → `chileDayStart(now)`. Caso borde: si `shiftStart − anticipacionMin`
+ * es negativo, la publicación cayó el día ANTERIOR a la entrada (turno de
+ * madrugada publicado antes de medianoche) → el turno entra al día siguiente.
+ * La pauta cambia día a día, así que la fecha del tablero debe ser la del turno
+ * que entra, no la del día de publicación.
+ */
+function shiftDateFor(now: Date, shiftStart: string, anticipacionMin: number): Date {
+  const base = chileDayStart(now);
+  const [hh, mm] = shiftStart.split(":").map(Number);
+  if (!Number.isFinite(hh)) return base;
+  const shiftMin = hh * 60 + (Number.isFinite(mm) ? mm : 0);
+  if (shiftMin - anticipacionMin < 0) {
+    // base es medianoche UTC del día calendario; +24h da la medianoche UTC del
+    // día siguiente (mismo formato @db.Date que la pauta, sin desfase por DST).
+    return new Date(base.getTime() + 24 * 60 * 60 * 1000);
+  }
+  return base;
 }
 
 async function getRelevoConfig(tenantId: string): Promise<RelevoConfig> {
@@ -67,8 +91,6 @@ export async function GET(request: NextRequest) {
   const chileHour = Number(
     new Intl.DateTimeFormat("en-US", { timeZone: "America/Santiago", hour: "numeric", hour12: false }).format(now),
   );
-  const date = chileDayStart(now);
-
   try {
     const tenants = await prisma.tenant.findMany({ where: { active: true }, select: { id: true } });
     let published = 0;
@@ -100,14 +122,32 @@ export async function GET(request: NextRequest) {
           const key = `${p.installationId}|${p.shiftStart}`;
           if (seen.has(key)) continue;
           seen.add(key);
-          // publishRelevoBoard no-op si no hay puente Slack para la instalación.
-          await publishRelevoBoard({
-            tenantId: tenant.id,
-            installationId: p.installationId,
-            date,
-            shiftStart: p.shiftStart,
-          });
-          published++;
+          // try/catch por instalación: un fallo aislado no corta el resto.
+          try {
+            const targetDate = shiftDateFor(now, p.shiftStart, config.anticipacionMin);
+            // Materializa la asistencia del DÍA DEL TURNO antes de publicar: el
+            // tablero lee OpsAsistenciaDiaria, que no se genera sola si nadie
+            // abrió la vista de asistencia ese día. Idempotente (skipDuplicates).
+            await ensureAsistenciaDia({
+              tenantId: tenant.id,
+              installationId: p.installationId,
+              date: targetDate,
+            });
+            // publishRelevoBoard no-op si no hay puente Slack para la instalación.
+            await publishRelevoBoard({
+              tenantId: tenant.id,
+              installationId: p.installationId,
+              date: targetDate,
+              shiftStart: p.shiftStart,
+            });
+            published++;
+          } catch (err) {
+            errors++;
+            console.error(
+              `[asistencia-relevo-digest] Error publicando tablero instalación ${p.installationId} turno ${p.shiftStart}:`,
+              err,
+            );
+          }
         }
       } catch (err) {
         errors++;
