@@ -273,6 +273,23 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     return;
   }
 
+  // Tablero de relevo (control de asistencia): botones por guardia entrante.
+  if (actionId?.startsWith("asist_camino_")) {
+    const { handleAsistenciaCamino } = await import("./actions/asistencia");
+    await handleAsistenciaCamino(payload as unknown as Record<string, unknown>);
+    return;
+  }
+  if (actionId?.startsWith("asist_confirmar_")) {
+    const { handleAsistenciaConfirmar } = await import("./actions/asistencia");
+    await handleAsistenciaConfirmar(payload as unknown as Record<string, unknown>);
+    return;
+  }
+  if (actionId?.startsWith("asist_ausente_")) {
+    const { handleAsistenciaAusente } = await import("./actions/asistencia");
+    await handleAsistenciaAusente(payload as unknown as Record<string, unknown>);
+    return;
+  }
+
   if (actionId === "reminder_done") {
     const { handleReminderDoneAction } = await import("./reminder-actions");
     await handleReminderDoneAction(payload);
