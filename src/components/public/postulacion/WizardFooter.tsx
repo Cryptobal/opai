@@ -17,10 +17,10 @@ export function WizardFooter({ step, totalSteps, saving, onBack, onNext, onSubmi
 
   return (
     <div
-      className="sticky bottom-0 z-30 -mx-4 mt-2 border-t border-border bg-background/95 px-4 pt-3 backdrop-blur md:-mx-6 md:px-6"
-      style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)" }}
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur"
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
-      <div className="flex items-center gap-3">
+      <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
         {step > 0 ? (
           <Button
             type="button"

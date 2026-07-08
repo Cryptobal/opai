@@ -73,31 +73,33 @@ export function PostulacionWizard({ token, tenantSlug }: PostulacionWizardProps)
   };
 
   return (
-    <div className="mx-auto max-w-2xl p-4 md:p-6">
+    <div className="mx-auto max-w-2xl p-4 pb-28 md:p-6 md:pb-28">
       <WizardHeader />
       {c.submitSuccessMessage ? (
         <WizardSuccess message={c.submitSuccessMessage} />
       ) : (
-        <Card>
-          <CardContent className="space-y-5 pt-6">
-            <WizardProgress steps={STEPS} step={step} maxStep={maxStep} onStepClick={goToStep} />
-            <div
-              ref={contentRef}
-              key={step}
-              className="animate-in fade-in-0 slide-in-from-right-2 duration-200 motion-reduce:animate-none"
-            >
-              <StepRenderer step={step} c={c} errors={errors} />
-            </div>
-            <WizardFooter
-              step={step}
-              totalSteps={STEPS.length}
-              saving={c.saving}
-              onBack={goBack}
-              onNext={goNext}
-              onSubmit={c.handleSubmit}
-            />
-          </CardContent>
-        </Card>
+        <>
+          <Card>
+            <CardContent className="space-y-5 pt-6">
+              <WizardProgress steps={STEPS} step={step} maxStep={maxStep} onStepClick={goToStep} />
+              <div
+                ref={contentRef}
+                key={step}
+                className="animate-in fade-in-0 slide-in-from-right-2 duration-200 motion-reduce:animate-none"
+              >
+                <StepRenderer step={step} c={c} errors={errors} />
+              </div>
+            </CardContent>
+          </Card>
+          <WizardFooter
+            step={step}
+            totalSteps={STEPS.length}
+            saving={c.saving}
+            onBack={goBack}
+            onNext={goNext}
+            onSubmit={c.handleSubmit}
+          />
+        </>
       )}
     </div>
   );
