@@ -326,7 +326,13 @@ export async function POST(req: NextRequest) {
           updateData.checkInAt = serverTimestamp;
           updateData.checkInSource = "digital";
           updateData.marcacionEntradaId = marcacion.id;
-          if (!isReplacementRow && asistencia.attendanceStatus === "pendiente") {
+          // La marca del guardia cierra el ciclo de central: pendiente y
+          // en_camino (llamado por central) pasan a asistió al llegar la marca.
+          if (
+            !isReplacementRow &&
+            (asistencia.attendanceStatus === "pendiente" ||
+              asistencia.attendanceStatus === "en_camino")
+          ) {
             updateData.attendanceStatus = "asistio";
             updateData.actualGuardiaId = guardia.id;
           }
@@ -369,6 +375,18 @@ export async function POST(req: NextRequest) {
       });
     }
     const result = outcome.value;
+
+    // Refresca el tablero de relevo activo (semáforo → presente). No-op si no
+    // hay tablero OPEN. Fire-and-forget.
+    import("@/lib/ops/relevo-board")
+      .then((m) =>
+        m.refreshRelevoBoardForInstallation(
+          tenantId,
+          installation.id,
+          chileDayStart(serverTimestamp),
+        ),
+      )
+      .catch((err) => console.error("[portal-guardia/marcar] Error refrescando tablero de relevo:", err));
 
     // Send receipt email (fire-and-forget, Res. N°38)
     const guardiaEmail = guardia.personalEmail ?? guardia.persona.personalEmail ?? guardia.persona.email ?? undefined;

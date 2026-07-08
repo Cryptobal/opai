@@ -400,7 +400,13 @@ export async function POST(req: NextRequest) {
           updateData.checkInAt = effectiveTimestamp;
           updateData.checkInSource = "digital";
           updateData.marcacionEntradaId = marcacion.id;
-          if (!isReplacementRow && asistencia.attendanceStatus === "pendiente") {
+          // La marca del guardia cierra el ciclo de central: pendiente y
+          // en_camino (llamado por central) pasan a asistió al llegar la marca.
+          if (
+            !isReplacementRow &&
+            (asistencia.attendanceStatus === "pendiente" ||
+              asistencia.attendanceStatus === "en_camino")
+          ) {
             updateData.attendanceStatus = "asistio";
             updateData.actualGuardiaId = guardia.id;
           }
@@ -430,6 +436,18 @@ export async function POST(req: NextRequest) {
 
       return marcacion;
     });
+
+    // Refresca el tablero de relevo activo (semáforo → presente). No-op si no
+    // hay tablero OPEN. Fire-and-forget.
+    import("@/lib/ops/relevo-board")
+      .then((m) =>
+        m.refreshRelevoBoardForInstallation(
+          installation.tenantId,
+          installation.id,
+          chileDayStart(effectiveTimestamp),
+        ),
+      )
+      .catch((err) => console.error("[marcacion] Error refrescando tablero de relevo:", err));
 
     // Send comprobante email (fire-and-forget)
     // Res. N°38: preferir email personal del guardia; fallback al email corporativo
