@@ -1,28 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-  completeRutWithDv,
-  DEFAULT_POSTULACION_DOCUMENTS,
-  isChileanRutFormat,
-  isValidChileanRut,
-} from "@/lib/personas";
+import { completeRutWithDv } from "@/lib/personas";
 import type { AddressResult } from "@/components/ui/AddressAutocomplete";
 import { buildPostulacionPayload } from "./buildPayload";
-import { EMPTY_FORM, type DocTypeConfig, type PostulacionForm, type UploadedDoc } from "./types";
+import { usePostulacionData } from "./usePostulacionData";
+import { validateSubmit } from "./wizard-validation";
+import { EMPTY_FORM, type PostulacionForm, type UploadedDoc } from "./types";
 
-interface Args {
-  token: string;
-  tenantSlug: string;
-}
-
-export function usePostulacionForm({ token, tenantSlug }: Args) {
-  const [documentTypes, setDocumentTypes] = useState<DocTypeConfig[]>(DEFAULT_POSTULACION_DOCUMENTS);
+export function usePostulacionForm({ token, tenantSlug }: { token: string; tenantSlug: string }) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
-  const [docType, setDocType] = useState("");
   const [docFileName, setDocFileName] = useState("");
   const [healthSystem, setHealthSystem] = useState("fonasa");
   const [isapreHasExtraPercent, setIsapreHasExtraPercent] = useState(false);
@@ -30,51 +20,7 @@ export function usePostulacionForm({ token, tenantSlug }: Args) {
   const [form, setForm] = useState<PostulacionForm>(EMPTY_FORM);
   const [rutError, setRutError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Pre-fill from Google OAuth pending registration
-  useEffect(() => {
-    fetch("/api/portal/guardia/auth/google/pending-data")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.googleData) {
-          const nameParts = (data.googleData.name || "").split(" ");
-          const firstName = nameParts[0] || "";
-          const lastName = nameParts.slice(1).join(" ") || "";
-          setForm((prev) => ({
-            ...prev,
-            firstName: prev.firstName || firstName,
-            lastName: prev.lastName || lastName,
-            email: prev.email || data.googleData.googleEmail || "",
-          }));
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-    fetch(`/api/public/${tenantSlug}/postulacion/document-types?token=${encodeURIComponent(token)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (mounted && data.success && Array.isArray(data.data) && data.data.length > 0) {
-          setDocumentTypes(data.data);
-          setDocType((prev) => {
-            const first = data.data[0].code;
-            return data.data.some((d: DocTypeConfig) => d.code === prev) ? prev : first;
-          });
-        }
-      })
-      .catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, [token, tenantSlug]);
-
-  useEffect(() => {
-    if (documentTypes.length > 0 && !documentTypes.some((d) => d.code === docType)) {
-      setDocType(documentTypes[0].code);
-    }
-  }, [documentTypes, docType]);
+  const { documentTypes, docType, setDocType } = usePostulacionData({ token, tenantSlug, setForm });
 
   const onAddressChange = (result: AddressResult) => {
     setForm((prev) => ({
@@ -100,10 +46,7 @@ export function usePostulacionForm({ token, tenantSlug }: Args) {
       const body = new FormData();
       body.append("token", token);
       body.append("file", file);
-      const response = await fetch(`/api/public/${tenantSlug}/postulacion/upload`, {
-        method: "POST",
-        body,
-      });
+      const response = await fetch(`/api/public/${tenantSlug}/postulacion/upload`, { method: "POST", body });
       const payload = await response.json();
       if (!response.ok || !payload.success) {
         throw new Error(payload.error || "No se pudo subir el archivo");
@@ -128,49 +71,16 @@ export function usePostulacionForm({ token, tenantSlug }: Args) {
 
   const handleSubmit = async () => {
     setSubmitSuccessMessage(null);
-    const requiredCodes = documentTypes.filter((d) => d.required).map((d) => d.code);
-    const uploadedTypes = new Set(uploadedDocs.map((d) => d.type));
-    const missingRequired = requiredCodes.filter((code) => !uploadedTypes.has(code));
-    if (missingRequired.length > 0) {
-      const names = missingRequired
-        .map((code) => documentTypes.find((d) => d.code === code)?.label ?? code)
-        .join(", ");
-      toast.error(`Faltan documentos obligatorios: ${names}`);
-      return;
-    }
-    if (
-      !form.firstName.trim() ||
-      !form.lastName.trim() ||
-      !form.rut.trim() ||
-      !form.email.trim() ||
-      !form.phoneMobile.trim() ||
-      !form.addressFormatted.trim() ||
-      !form.googlePlaceId ||
-      !form.birthDate ||
-      !form.sex ||
-      !form.afp ||
-      !form.bankCode ||
-      !form.accountType ||
-      !form.accountNumber.trim() ||
-      uploadedDocs.length === 0
-    ) {
-      toast.error("Completa todos los campos obligatorios");
-      return;
-    }
-    if (healthSystem === "isapre" && !form.isapreName) {
-      toast.error("Debes seleccionar Isapre");
-      return;
-    }
-    if (healthSystem === "isapre" && isapreHasExtraPercent && Number(form.isapreExtraPercent || 0) <= 7) {
-      toast.error("Si cotiza sobre 7%, indica un porcentaje mayor a 7");
+    const ctx = { healthSystem, isapreHasExtraPercent, uploadedDocs, documentTypes };
+    const validationError = validateSubmit(form, ctx);
+    if (validationError) {
+      if (validationError.field === "rut") {
+        setRutError("RUT inválido. Verifica guión y dígito verificador.");
+      }
+      toast.error(validationError.message);
       return;
     }
     const completedRut = completeRutWithDv(form.rut);
-    if (!isChileanRutFormat(completedRut) || !isValidChileanRut(completedRut)) {
-      setRutError("RUT inválido. Verifica guión y dígito verificador.");
-      toast.error("Corrige el RUT antes de enviar");
-      return;
-    }
     setForm((prev) => ({ ...prev, rut: completedRut }));
     setRutError(null);
 
@@ -236,3 +146,5 @@ export function usePostulacionForm({ token, tenantSlug }: Args) {
     handleSubmit,
   };
 }
+
+export type PostulacionController = ReturnType<typeof usePostulacionForm>;
