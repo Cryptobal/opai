@@ -2,11 +2,24 @@
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+
+/** Suma `months` meses a una fecha ISO (yyyy-mm-dd). Solo display; no persiste. */
+function estimatedEndDate(startIso: string | null | undefined, months: number): string | null {
+  if (!startIso || !Number.isFinite(months) || months <= 0) return null;
+  const start = new Date(`${startIso}T00:00:00`);
+  if (Number.isNaN(start.getTime())) return null;
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + Math.round(months));
+  return end.toLocaleDateString("es-CL", { day: "2-digit", month: "long", year: "numeric" });
+}
 
 export interface CommercialConditionsData {
   paymentTerms: string;
   serviceStartDays: number;
   contractDuration: number;
+  /** true = servicio continuo/indefinido (default); false = plazo definido */
+  isOngoingService?: boolean;
   proposalTemplateId: string | null;
   // Contract service fields (optional — only used in full CPQ detail)
   adjustmentType?: string;
@@ -39,6 +52,10 @@ export function CommercialConditionsSection({
   isLocked,
 }: CommercialConditionsSectionProps) {
   const update = (patch: Partial<CommercialConditionsData>) => onChange({ ...value, ...patch });
+
+  // Continuidad del servicio: default continuo (indefinido), como el schema.
+  const isOngoing = value.isOngoingService ?? true;
+  const estimatedEnd = estimatedEndDate(value.contractStartDate, value.contractDuration);
 
   const filteredTemplates = proposalTemplates.filter(
     (t) =>
@@ -79,7 +96,9 @@ export function CommercialConditionsSection({
           </div>
         </div>
         <div className="space-y-1">
-          <Label className="text-sm text-muted-foreground">Duración contrato</Label>
+          <Label className="text-sm text-muted-foreground">
+            {isOngoing ? "Compromiso / reajuste" : "Duración"}
+          </Label>
           <div className="flex items-center gap-1">
             <Input
               type="number"
@@ -91,6 +110,22 @@ export function CommercialConditionsSection({
               className="h-8 bg-card text-foreground border-border text-xs w-16"
             />
             <span className="text-xs text-muted-foreground">meses</span>
+          </div>
+          {!isOngoing && estimatedEnd && (
+            <p className="text-xs text-muted-foreground">Termina ~{estimatedEnd}</p>
+          )}
+        </div>
+        <div className="space-y-1">
+          <Label className="text-sm text-muted-foreground">Servicio continuo</Label>
+          <div className="flex h-8 items-center gap-2">
+            <Switch
+              checked={isOngoing}
+              onCheckedChange={(checked) => update({ isOngoingService: checked })}
+              disabled={isLocked}
+            />
+            <span className="text-xs text-muted-foreground">
+              {isOngoing ? "Indefinido" : "Plazo definido"}
+            </span>
           </div>
         </div>
         {filteredTemplates.length > 0 && (

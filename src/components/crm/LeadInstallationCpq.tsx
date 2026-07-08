@@ -1536,6 +1536,7 @@ export function createDefaultLeadCpqConfig(): LeadCpqConfig {
       paymentTerms: "contrafactura",
       serviceStartDays: 5,
       contractDuration: 12,
+      isOngoingService: true,
       proposalTemplateId: null,
     },
     uniformChangesPerYear: 3,

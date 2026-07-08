@@ -186,6 +186,8 @@ export interface CpqQuote {
   paymentTerms?: string;
   serviceStartDays?: number;
   contractDuration?: number;
+  /** true = servicio continuo/indefinido (default); false = plazo definido (termina a los contractDuration meses) */
+  isOngoingService?: boolean;
   includedItems?: string[];
   /** Proposal template */
   proposalTemplateId?: string | null;

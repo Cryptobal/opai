@@ -102,6 +102,7 @@ export async function PATCH(
     if (body.paymentTerms !== undefined) updateData.paymentTerms = body.paymentTerms || "contrafactura";
     if (body.serviceStartDays !== undefined) updateData.serviceStartDays = Number(body.serviceStartDays) || 5;
     if (body.contractDuration !== undefined) updateData.contractDuration = Number(body.contractDuration) || 12;
+    if (body.isOngoingService !== undefined) updateData.isOngoingService = Boolean(body.isOngoingService);
     // Contract service fields
     if (body.adjustmentType !== undefined) updateData.adjustmentType = body.adjustmentType || "NONE";
     if (body.adjustmentFreq !== undefined) updateData.adjustmentFreq = body.adjustmentFreq || null;
@@ -145,6 +146,7 @@ export async function PATCH(
         paymentTerms: true,
         serviceStartDays: true,
         contractDuration: true,
+        isOngoingService: true,
         includedItems: true,
         proposalTemplateId: true,
         visibleInClientPortal: true,
