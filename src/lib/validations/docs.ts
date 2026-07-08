@@ -240,6 +240,26 @@ export const uploadContractFieldsSchema = z.object({
         return undefined;
       }, z.array(z.string().uuid()).optional())
       .optional(),
+    /** Negocios (CrmDeal) que cubre el contrato. Relación N:M vía
+     *  DocAssociation(entityType=crm_deal). El contrato sigue siendo la
+     *  unidad de facturación (1 línea de flujo de caja), los negocios son
+     *  el cruce/trazabilidad: permiten ver el contrato desde la ficha de
+     *  cada negocio. La fecha de inicio y las instalaciones se prellenan
+     *  desde el negocio en el cliente, pero acá sólo persistimos el vínculo. */
+    dealIds: z
+      .preprocess((v) => {
+        if (Array.isArray(v)) return v;
+        if (typeof v === "string" && v.trim().length > 0) {
+          try {
+            const parsed = JSON.parse(v);
+            return Array.isArray(parsed) ? parsed : undefined;
+          } catch {
+            return undefined;
+          }
+        }
+        return undefined;
+      }, z.array(z.string().uuid()).optional())
+      .optional(),
     addToCashflow: z
       .preprocess((v) => {
         if (typeof v === "boolean") return v;

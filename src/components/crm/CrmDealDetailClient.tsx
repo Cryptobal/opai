@@ -495,6 +495,32 @@ export function CrmDealDetailClient({
     setActiveQuotationId(deal.activeQuotationId ?? null);
   }, [deal.activeQuotationId]);
 
+  // ── Contratos vinculados (cruce contrato ↔ negocio) ──
+  const [linkedContracts, setLinkedContracts] = useState<
+    Array<{
+      id: string;
+      uniqueId: string;
+      title: string;
+      status: string;
+      effectiveDate: string | null;
+      expirationDate: string | null;
+      pdfUrl: string | null;
+    }>
+  >([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/crm/deals/${deal.id}/contracts`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled || !j?.success) return;
+        setLinkedContracts(j.data ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [deal.id]);
+
   // ── Deal contacts state ──
   const [dealContacts, setDealContacts] = useState<DealContactRow[]>(initialDealContacts);
   const [accountContactsList, setAccountContactsList] = useState<ContactRow[]>(accountContacts);
@@ -1776,6 +1802,60 @@ export function CrmDealDetailClient({
           )}
         </div>
       ),
+    },
+    {
+      id: "contracts",
+      label: "Contratos",
+      icon: FileText,
+      count: linkedContracts.length,
+      onAdd: deal.account?.id
+        ? () => router.push(`/crm/accounts/${deal.account!.id}?tab=contracts`)
+        : undefined,
+      content:
+        linkedContracts.length === 0 ? (
+          <EmptyState
+            icon={<FileText className="h-8 w-8" />}
+            title="Sin contratos"
+            description="Sube un contrato en la cuenta y vincúlalo a este negocio para verlo aquí."
+            compact
+          />
+        ) : (
+          <CrmRelatedRecordGrid className="!grid-cols-1">
+            {linkedContracts.map((c) => {
+              const range = [c.effectiveDate, c.expirationDate]
+                .filter(Boolean)
+                .join(" → ");
+              const statusLabel =
+                c.status === "active"
+                  ? "Vigente"
+                  : c.status === "pending_signature"
+                    ? "Pend. firma"
+                    : c.status === "expired"
+                      ? "Vencido"
+                      : c.status === "renewed"
+                        ? "Renovado"
+                        : c.status;
+              return (
+                <CrmRelatedRecordCard
+                  key={c.id}
+                  module="accounts"
+                  title={c.title}
+                  subtitle={range || undefined}
+                  badge={{
+                    label: statusLabel,
+                    variant: c.status === "active" ? "success" : "secondary",
+                  }}
+                  href={
+                    c.pdfUrl ??
+                    (deal.account?.id
+                      ? `/crm/accounts/${deal.account.id}?tab=contracts`
+                      : undefined)
+                  }
+                />
+              );
+            })}
+          </CrmRelatedRecordGrid>
+        ),
     },
     {
       id: "tickets",

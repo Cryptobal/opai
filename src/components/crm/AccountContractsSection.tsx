@@ -40,6 +40,7 @@ import {
   ExternalLink,
   Wallet,
   MapPin,
+  Briefcase,
   TrendingUp,
   PlusCircle,
   X,
@@ -104,6 +105,7 @@ interface Contract {
   portalVisible: boolean;
   templateName: string | null;
   deal: { id: string; title: string } | null;
+  deals?: Array<{ id: string; title: string }>;
   signedAt: string | null;
   signedBy: string | null;
   signatureStatus: string | null;
@@ -262,6 +264,19 @@ export function AccountContractsSection({
   >([]);
   const [uploadInstallationId, setUploadInstallationId] = useState<string>("");
   const [uploadInstallationIds, setUploadInstallationIds] = useState<string[]>([]);
+  // Negocios de la cuenta (cruce contrato ↔ negocio). Al elegir uno se
+  // prellena la fecha de inicio del contrato (desde serviceStartDate del
+  // negocio) y se agregan sus instalaciones activadas.
+  const [deals, setDeals] = useState<
+    Array<{
+      id: string;
+      title: string;
+      serviceStartDate: string | null;
+      stageName: string | null;
+      installations: Array<{ id: string; name: string }>;
+    }>
+  >([]);
+  const [uploadDealIds, setUploadDealIds] = useState<string[]>([]);
   const [uploadAddToCashflow, setUploadAddToCashflow] = useState(false);
   const [uploadMonthlyAmount, setUploadMonthlyAmount] = useState<string>("");
   const [uploadCurrency, setUploadCurrency] = useState<"CLP" | "UF">("CLP");
@@ -468,6 +483,21 @@ export function AccountContractsSection({
     };
   }, [accountId]);
 
+  // Lazy-load negocios de la cuenta para el selector del upload.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/crm/accounts/${encodeURIComponent(accountId)}/deals`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled || !j?.success) return;
+        setDeals(j.data ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+
   // ─── Auto-compute expiration when effective + duration change ──
   useEffect(() => {
     if (expirationManuallyEdited) return;
@@ -495,6 +525,7 @@ export function AccountContractsSection({
     setUploadNotes("");
     setUploadInstallationId("");
     setUploadInstallationIds([]);
+    setUploadDealIds([]);
     setUploadAddToCashflow(false);
     setUploadMonthlyAmount("");
     setUploadCurrency("CLP");
@@ -538,6 +569,47 @@ export function AccountContractsSection({
     accountCommune,
     accountCity,
   ]);
+
+  // ─── Selección de negocios en el upload ───────────────────────
+  // Al agregar un negocio: (1) se vincula, (2) sus instalaciones activadas
+  // se suman a las instalaciones del contrato, (3) si la fecha de inicio
+  // está vacía, se prellena con la serviceStartDate del negocio (la de su
+  // ficha). El contrato sigue teniendo UNA sola fecha de inicio: con varios
+  // negocios gana la más temprana, y el usuario siempre puede editarla.
+  const addDealToUpload = useCallback(
+    (dealId: string) => {
+      const deal = deals.find((d) => d.id === dealId);
+      if (!deal) return;
+      setUploadDealIds((prev) =>
+        prev.includes(dealId) ? prev : [...prev, dealId],
+      );
+      // Sumar instalaciones activadas del negocio (sin duplicar).
+      if (deal.installations.length > 0) {
+        setUploadInstallationIds((prev) => {
+          const next = new Set(prev);
+          deal.installations.forEach((i) => next.add(i.id));
+          return Array.from(next);
+        });
+      }
+      // Prellenar fecha de inicio con la más temprana entre los negocios
+      // ya seleccionados (incluido éste). Sólo si el usuario no la fijó.
+      if (deal.serviceStartDate) {
+        setUploadEffective((prev) => {
+          if (!prev) return deal.serviceStartDate as string;
+          return deal.serviceStartDate! < prev
+            ? (deal.serviceStartDate as string)
+            : prev;
+        });
+      }
+    },
+    [deals],
+  );
+
+  const removeDealFromUpload = useCallback((dealId: string) => {
+    setUploadDealIds((prev) => prev.filter((id) => id !== dealId));
+    // No removemos instalaciones ni fecha: pudieron editarse a mano y
+    // quitar el negocio no debería borrar decisiones del usuario.
+  }, []);
 
   // ─── Abrir modal en modo "sin contrato firmado" ───────────────
   // Permite proyectar el ingreso al flujo de caja antes de tener el PDF.
@@ -738,6 +810,7 @@ export function AccountContractsSection({
         installationId: uploadInstallationId || undefined,
         installationIds:
           uploadInstallationIds.length > 0 ? uploadInstallationIds : undefined,
+        dealIds: uploadDealIds.length > 0 ? uploadDealIds : undefined,
         addToCashflow: uploadAddToCashflow,
         pendingSignature: uploadPendingSignature,
       };
@@ -2198,8 +2271,75 @@ export function AccountContractsSection({
               />
             </div>
 
-            {/* ── Vinculación: Instalación + Flujo de Caja ───────────── */}
+            {/* ── Vinculación: Negocio + Instalación + Flujo de Caja ──── */}
             <div className="rounded-md border border-border p-3 space-y-3">
+              {/* Negocios: el cruce contrato ↔ negocio. Elegir un negocio
+                  prellena la fecha de inicio (desde su ficha) y agrega sus
+                  instalaciones. El contrato aparecerá en la ficha de cada
+                  negocio vinculado. */}
+              {deals.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    Negocios vinculados
+                    <span className="text-[10px] text-muted-foreground font-normal">
+                      (puede ser más de uno)
+                    </span>
+                  </Label>
+                  {uploadDealIds.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {uploadDealIds.map((id) => {
+                        const deal = deals.find((d) => d.id === id);
+                        return (
+                          <span
+                            key={id}
+                            className="inline-flex items-center gap-1 rounded-md bg-status-ok-soft text-status-ok-fg text-xs px-2 py-0.5"
+                          >
+                            <Briefcase className="h-3 w-3" />
+                            {deal?.title ?? id.slice(0, 8)}
+                            <button
+                              type="button"
+                              onClick={() => removeDealFromUpload(id)}
+                              className="ml-0.5 hover:opacity-70"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                  <Select
+                    value=""
+                    onValueChange={(v) => {
+                      if (v) addDealToUpload(v);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="+ Agregar negocio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {deals
+                        .filter((d) => !uploadDealIds.includes(d.id))
+                        .map((d) => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.title}
+                            {d.serviceStartDate
+                              ? ` · inicio ${d.serviceStartDate}`
+                              : d.stageName
+                                ? ` · ${d.stageName}`
+                                : ""}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">
+                    Al elegir un negocio se toma su fecha de inicio y sus
+                    instalaciones. El contrato quedará visible desde la ficha de
+                    cada negocio.
+                  </p>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   Instalaciones vinculadas

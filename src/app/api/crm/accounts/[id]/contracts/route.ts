@@ -131,10 +131,18 @@ export async function GET(
     }
 
     const data = documents.map((doc) => {
-      const dealAssoc = doc.associations.find(
+      const dealAssocs = doc.associations.filter(
         (a) => a.entityType === "crm_deal",
       );
-      const deal = dealAssoc ? dealMap.get(dealAssoc.entityId) : null;
+      // "primary" primero (la marcamos así al subir), luego el resto.
+      const orderedDealAssocs = [...dealAssocs].sort((a, b) =>
+        a.role === "primary" ? -1 : b.role === "primary" ? 1 : 0,
+      );
+      const dealsLinked = orderedDealAssocs
+        .map((a) => dealMap.get(a.entityId))
+        .filter((d): d is NonNullable<typeof d> => Boolean(d))
+        .map((d) => ({ id: d.id, title: d.title }));
+      const deal = dealsLinked[0] ?? null;
       const sigReq = doc.signatureRequests[0] ?? null;
 
       // Derive: signature kind = internal request | external (manual upload) | none
@@ -160,6 +168,7 @@ export async function GET(
         portalVisible: doc.portalVisible,
         templateName: doc.template?.name ?? null,
         deal: deal ? { id: deal.id, title: deal.title } : null,
+        deals: dealsLinked,
         signedAt: doc.signedAt,
         signedBy: doc.signedBy,
         signatureStatus,
@@ -311,6 +320,7 @@ export async function POST(
       notes,
       installationId,
       installationIds,
+      dealIds,
       addToCashflow,
       monthlyAmountClp,
       currency,
@@ -333,6 +343,24 @@ export async function POST(
     // instalaciones desde las DocAssociations.
     const itemInstallationId =
       installationList.length === 1 ? installationList[0] : null;
+
+    // Negocios vinculados (cruce contrato ↔ negocio). Dedup defensivo +
+    // scoping fail-closed: sólo persistimos negocios que pertenecen a ESTA
+    // cuenta y tenant. Un id que no resuelve se descarta silenciosamente.
+    const requestedDealIds =
+      dealIds && dealIds.length > 0 ? [...new Set(dealIds)] : [];
+    let dealList: string[] = [];
+    if (requestedDealIds.length > 0) {
+      const validDeals = await prisma.crmDeal.findMany({
+        where: {
+          id: { in: requestedDealIds },
+          tenantId: ctx.tenantId,
+          accountId,
+        },
+        select: { id: true },
+      });
+      dealList = validDeals.map((d) => d.id);
+    }
 
     // Derive expirationDate: explicit value wins; else compute from effective + duration.
     const computedExpiration =
@@ -451,6 +479,22 @@ export async function POST(
             entityType: "crm_installation",
             entityId: instId,
             role: "related",
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      // Asociaciones N:M con negocios (cruce contrato ↔ negocio). Permiten
+      // ver este contrato desde la ficha de cada negocio que cubre. El
+      // primero queda como "primary" para que la UI que muestra un solo
+      // negocio (tarjeta de contrato) elija uno determinístico.
+      if (dealList.length > 0) {
+        await tx.docAssociation.createMany({
+          data: dealList.map((dealId, idx) => ({
+            documentId: doc.id,
+            entityType: "crm_deal",
+            entityId: dealId,
+            role: idx === 0 ? "primary" : "related",
           })),
           skipDuplicates: true,
         });
