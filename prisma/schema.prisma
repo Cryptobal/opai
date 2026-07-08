@@ -1486,6 +1486,12 @@ model CpqQuote {
   paymentTerms          String    @default("contrafactura") @map("payment_terms")
   serviceStartDays      Int       @default(5) @map("service_start_days")
   contractDuration      Int       @default(12) @map("contract_duration")
+  /// Modalidad de continuidad del servicio.
+  /// - true  (default): servicio CONTINUO / indefinido. `contractDuration` se
+  ///   interpreta solo como el período de reajuste/compromiso, no como fin.
+  /// - false: servicio de PLAZO DEFINIDO; termina a los `contractDuration` meses
+  ///   contados desde `contractStartDate` (o serviceStartDate si no hay).
+  isOngoingService      Boolean   @default(true) @map("is_ongoing_service")
   adjustmentType        String    @default("NONE") @map("adjustment_type") // NONE | IPC | IMO | POLYNOMIAL
   adjustmentFreq        String?   @map("adjustment_freq") // TRIMESTRAL | SEMESTRAL | ANUAL
   ipcWeight             Int?      @map("ipc_weight") // % del IPC en polinomio
