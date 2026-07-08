@@ -327,7 +327,13 @@ export async function POST(req: NextRequest) {
           updateData.checkInAt = serverTimestamp;
           updateData.checkInSource = "digital";
           updateData.marcacionEntradaId = marcacion.id;
-          if (!isReplacementRow && asistencia.attendanceStatus === "pendiente") {
+          // La marca del guardia cierra el ciclo de central: pendiente y
+          // en_camino (llamado por central) pasan a asistió al llegar la marca.
+          if (
+            !isReplacementRow &&
+            (asistencia.attendanceStatus === "pendiente" ||
+              asistencia.attendanceStatus === "en_camino")
+          ) {
             updateData.attendanceStatus = "asistio";
             updateData.actualGuardiaId = guardia.id;
           }
@@ -371,6 +377,18 @@ export async function POST(req: NextRequest) {
     }
     const result = outcome.value;
 
+    // Refresca el tablero de relevo activo (semáforo → presente). No-op si no
+    // hay tablero OPEN. Fire-and-forget.
+    import("@/lib/ops/relevo-board")
+      .then((m) =>
+        m.refreshRelevoBoardForInstallation(
+          tenantId,
+          installation.id,
+          chileDayStart(serverTimestamp),
+        ),
+      )
+      .catch((err) => console.error("[portal-guardia/marcar-foto] Error refrescando tablero de relevo:", err));
+
     // Send receipt email (fire-and-forget, Res. N°38)
     const guardiaEmail = guardia.personalEmail ?? guardia.persona.personalEmail ?? guardia.persona.email ?? undefined;
     if (marcacionConfig.emailComprobanteDigitalEnabled && guardiaEmail) {
@@ -412,6 +430,26 @@ export async function POST(req: NextRequest) {
           });
         } catch (err) {
           console.error("[portal-guardia/marcar-foto] Error notificando fuera de rango:", err);
+        }
+        try {
+          const { notifyMarcacionFueraRango } = await import("@/lib/marcacion/notify-fuera-rango");
+          await notifyMarcacionFueraRango({
+            tenantId,
+            installationId: installation.id,
+            installationName: installation.name,
+            guardiaName: formatPersonName(guardia.persona.firstName, guardia.persona.lastName),
+            guardiaRut: guardia.persona.rut ?? "",
+            tipo,
+            timestamp: serverTimestamp,
+            geoDistanciaM,
+            geoRadiusM: effectiveGeoRadiusM,
+            lat: lat ?? null,
+            lng: lng ?? null,
+            fotoEvidenciaUrl,
+            deviceDisplay: "Portal Guardia (celular personal)",
+          });
+        } catch (err) {
+          console.error("[portal-guardia/marcar-foto] Error alertando fuera de rango a Slack:", err);
         }
       });
     }

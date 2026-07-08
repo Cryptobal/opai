@@ -7,6 +7,7 @@ import { sendControlNocturnoEmail } from "@/lib/control-nocturno-email";
 import { generateControlNocturnoSummary } from "@/lib/control-nocturno-ai";
 import { generateControlNocturnoPdfBuffer } from "@/lib/control-nocturno-pdf";
 import { getControlNocturnoSnapshot } from "@/lib/control-nocturno-kpis";
+import { isTenantEmailEnabled } from "@/lib/notifications/email-flags";
 import { getEmailBaseUrl } from "@/lib/emails/site-url";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -444,8 +445,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         tenantId: ctx.tenantId,
       };
 
+      // Apagado de correo por tenant (flag, default true). Solo se gatea el
+      // correo; la tarjeta Slack de cierre se publica siempre.
+      const controlNocturnoEmailEnabled = await isTenantEmailEnabled(ctx.tenantId, "controlNocturnoEmailEnabled");
       // Send email — MUST await: Vercel serverless kills fire-and-forget on return
-      try {
+      if (controlNocturnoEmailEnabled) try {
         const emailResult = await sendControlNocturnoEmail(emailData, pdfBuffer);
         if (!emailResult.ok) {
           console.error("[OPS] Control nocturno email failed:", emailResult.error);
@@ -453,6 +457,31 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       } catch (err) {
         console.error("[OPS] Control nocturno email error:", err);
       }
+
+      // Tarjeta "🌙 Cambios de turno · por instalación" al canal ops (mismo que
+      // el correo). Fire-and-forget, best-effort.
+      void (async () => {
+        try {
+          const { buildControlNocturnoBlocks } = await import("@/lib/integrations/slack/control-nocturno-blocks");
+          const { publishOpsCierreCard } = await import("@/lib/integrations/slack/cierre-publish");
+          const card = buildControlNocturnoBlocks({
+            reporteId: id,
+            date: updated.date,
+            centralLabel: updated.centralLabel,
+            instalaciones: updated.instalaciones.map((i) => ({
+              installationName: i.installationName,
+              statusInstalacion: i.statusInstalacion,
+              guardiasRequeridos: i.guardiasRequeridos,
+              guardiasPresentes: i.guardiasPresentes,
+              horaLlegadaTurnoDia: i.horaLlegadaTurnoDia,
+              guardiaDiaNombres: i.guardiaDiaNombres,
+            })),
+          });
+          await publishOpsCierreCard(ctx.tenantId, card);
+        } catch (err) {
+          console.error("[OPS] Control nocturno Slack card error:", err);
+        }
+      })();
     }
 
     return NextResponse.json({ success: true, data: updated });

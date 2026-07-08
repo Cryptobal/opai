@@ -322,6 +322,27 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     critical: true,
   },
 
+  // ── Operaciones - Marcación ──
+  {
+    key: 'marcacion_fuera_rango', label: 'Marca fuera de rango',
+    description: 'Un guardia marcó entrada/salida fuera del radio permitido de la instalación. Se publica al canal Slack de la instalación con foto de evidencia.',
+    module: 'ops', submodule: 'marcaciones', category: 'Operaciones - Marcación',
+    audiences: ['admin'], defaults: { admin: adminBell() },
+    critical: true,
+  },
+  {
+    // Nace silencioso en canal: su rol es alimentar/actualizar el tablero de
+    // relevo (que se refresca por vía directa, no por esta notificación). Se
+    // define para trazabilidad/opt-in. `slackDmOnly` garantiza que NUNCA cae en
+    // un canal compartido — los defaults por-canal no bastan, porque el dispatch
+    // a canal compartido corre independiente de bell/email/push.
+    key: 'marcacion_registrada', label: 'Marca registrada',
+    description: 'Un guardia registró su marca dentro de rango. Silenciosa: solo actualiza el tablero de relevo; no publica mensaje suelto.',
+    module: 'ops', submodule: 'marcaciones', category: 'Operaciones - Marcación',
+    audiences: ['admin'], defaults: { admin: { bell: false, email: false, push: false } },
+    slackDmOnly: true,
+  },
+
   // ── Operaciones - Guardias ──
   {
     key: 'guardia_doc_expiring', label: 'Doc. guardia por vencer',

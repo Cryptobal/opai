@@ -375,7 +375,13 @@ export async function POST(req: NextRequest) {
           updateData.checkInAt = serverTimestamp;
           updateData.checkInSource = "digital";
           updateData.marcacionEntradaId = marcacion.id;
-          if (!isReplacementRow && asistencia.attendanceStatus === "pendiente") {
+          // La marca del guardia cierra el ciclo de central: pendiente y
+          // en_camino (llamado por central) pasan a asistió al llegar la marca.
+          if (
+            !isReplacementRow &&
+            (asistencia.attendanceStatus === "pendiente" ||
+              asistencia.attendanceStatus === "en_camino")
+          ) {
             updateData.attendanceStatus = "asistio";
             updateData.actualGuardiaId = guardia.id;
           }
@@ -416,6 +422,18 @@ export async function POST(req: NextRequest) {
       });
     }
     const result = outcome.value;
+
+    // Refresca el tablero de relevo activo de la instalación (semáforo → presente).
+    // Idempotente y no-op si no hay tablero OPEN. Fire-and-forget.
+    import("@/lib/ops/relevo-board")
+      .then((m) =>
+        m.refreshRelevoBoardForInstallation(
+          installation.tenantId,
+          installation.id,
+          chileDayStart(serverTimestamp),
+        ),
+      )
+      .catch((err) => console.error("[marcacion] Error refrescando tablero de relevo:", err));
 
     // Enviar comprobante por email (fire-and-forget, no bloquea la respuesta)
     // Res. N°38: preferir email personal del guardia; fallback al email corporativo
@@ -473,6 +491,26 @@ export async function POST(req: NextRequest) {
           lng: lng ?? null,
           deviceDisplay,
         }).catch((err) => console.error("[marcacion] Error notificando supervisor fuera de rango:", err))
+      );
+
+      // Alerta al canal Slack de la instalación (foto embebida) — en paralelo al
+      // correo, no lo reemplaza. Fire-and-forget.
+      import("@/lib/marcacion/notify-fuera-rango").then(({ notifyMarcacionFueraRango }) =>
+        notifyMarcacionFueraRango({
+          tenantId: installation.tenantId,
+          installationId: installation.id,
+          installationName: installation.name,
+          guardiaName: formatPersonName(persona.firstName, persona.lastName),
+          guardiaRut: normalizedRut,
+          tipo,
+          timestamp: serverTimestamp,
+          geoDistanciaM,
+          geoRadiusM: effectiveGeoRadiusM,
+          lat: lat ?? null,
+          lng: lng ?? null,
+          fotoEvidenciaUrl,
+          deviceDisplay,
+        }).catch((err) => console.error("[marcacion] Error alertando fuera de rango a Slack:", err))
       );
     }
 

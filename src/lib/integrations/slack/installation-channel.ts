@@ -15,6 +15,11 @@ export const RONDA_INSTALLATION_ROUTE_KEYS = new Set([
   "ronda_failed",
 ]);
 
+/** Eventos de marcación que prefieren el canal Slack de su instalación (si existe puente). */
+export const MARCACION_INSTALLATION_ROUTE_KEYS = new Set([
+  "marcacion_fuera_rango",
+]);
+
 export async function resolveInstallationSlackChannel(
   tenantId: string,
   installationId: string,

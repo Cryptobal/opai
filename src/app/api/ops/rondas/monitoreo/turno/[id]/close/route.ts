@@ -6,6 +6,7 @@ import { monitoreoTurnoCloseSchema } from "@/lib/validations/rondas";
 import { sendMonitorTurnoEmail } from "@/lib/rondas/monitor-email";
 import { getEmailBaseUrl } from "@/lib/emails/site-url";
 import { buildTurnoReportData } from "@/lib/rondas/monitor-turno-report-data";
+import { isTenantEmailEnabled } from "@/lib/notifications/email-flags";
 import { requireTenantModule } from '@/lib/require-module';
 
 // PDF generation with Chromium needs more memory and time
@@ -238,8 +239,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       console.error("[RONDAS] buildTurnoReportData failed:", err instanceof Error ? err.message : err);
     }
 
+    // Apagado de correo por tenant (flag, default true). Solo se gatea el
+    // correo; la tarjeta Slack de cierre se publica siempre.
+    const reporteTurnoEmailEnabled = await isTenantEmailEnabled(ctx.tenantId, "reporteTurnoEmailEnabled");
     // MUST await: Vercel serverless kills fire-and-forget on return
-    try {
+    if (reporteTurnoEmailEnabled) try {
       const emailResult = await sendMonitorTurnoEmail(
         {
           turnoId: id,
@@ -281,6 +285,32 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     } catch (err) {
       console.error("[RONDAS] Email send error:", err);
     }
+
+    // Tarjeta "🏁 Cierre de turno · Rondas" al canal ops (mismo que el correo).
+    // Fire-and-forget, best-effort.
+    void (async () => {
+      try {
+        const { buildCierreTurnoBlocks } = await import("@/lib/integrations/slack/cierre-turno-blocks");
+        const { publishOpsCierreCard } = await import("@/lib/integrations/slack/cierre-publish");
+        const card = buildCierreTurnoBlocks({
+          operatorName: turno.operatorName ?? ctx.userId,
+          startedAt: turno.startedAt,
+          endedAt: now,
+          completadas,
+          incompletas,
+          noRealizadas,
+          trustAvg,
+          criticalAlerts,
+          installationSummaries: reportData?.installationSummaries ?? null,
+          semaforo: reportData?.semaforo ?? null,
+          panicos: reportData?.panicos ?? null,
+          reportUrl: `${baseUrl}/ops/rondas/reportes`,
+        });
+        await publishOpsCierreCard(ctx.tenantId, card);
+      } catch (err) {
+        console.error("[RONDAS] Slack cierre card error:", err);
+      }
+    })();
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
