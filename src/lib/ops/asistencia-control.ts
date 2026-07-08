@@ -56,9 +56,7 @@ export async function marcarEnCamino(
 ): Promise<AsistenciaControlResult> {
   const asistencia = await loadAsistencia(params.tenantId, params.asistenciaId);
   if (!asistencia) return { ok: false, error: "No se encontró la asistencia." };
-  if (!OPEN_STATES.has(asistencia.attendanceStatus)) {
-    return { ok: false, error: `El guardia ya está en estado "${asistencia.attendanceStatus}".` };
-  }
+  if (!OPEN_STATES.has(asistencia.attendanceStatus)) return { ok: false, error: `Estado no intervenible: "${asistencia.attendanceStatus}".` };
 
   const now = new Date();
   await prisma.$transaction([
@@ -101,9 +99,7 @@ export async function marcarEnCamino(
 export async function confirmarLlegada(params: BaseParams): Promise<AsistenciaControlResult> {
   const asistencia = await loadAsistencia(params.tenantId, params.asistenciaId);
   if (!asistencia) return { ok: false, error: "No se encontró la asistencia." };
-  if (!OPEN_STATES.has(asistencia.attendanceStatus)) {
-    return { ok: false, error: `El guardia ya está en estado "${asistencia.attendanceStatus}".` };
-  }
+  if (!OPEN_STATES.has(asistencia.attendanceStatus)) return { ok: false, error: `Estado no intervenible: "${asistencia.attendanceStatus}".` };
 
   await prisma.opsAsistenciaDiaria.update({
     where: { id: asistencia.id },
@@ -132,9 +128,7 @@ export async function reportarAusencia(
 ): Promise<AsistenciaControlResult> {
   const asistencia = await loadAsistencia(params.tenantId, params.asistenciaId);
   if (!asistencia) return { ok: false, error: "No se encontró la asistencia." };
-  if (!OPEN_STATES.has(asistencia.attendanceStatus)) {
-    return { ok: false, error: `El guardia ya está en estado "${asistencia.attendanceStatus}".` };
-  }
+  if (!OPEN_STATES.has(asistencia.attendanceStatus)) return { ok: false, error: `Estado no intervenible: "${asistencia.attendanceStatus}".` };
 
   await prisma.opsAsistenciaDiaria.update({
     where: { id: asistencia.id },
