@@ -6,6 +6,7 @@ import { monitoreoTurnoCloseSchema } from "@/lib/validations/rondas";
 import { sendMonitorTurnoEmail } from "@/lib/rondas/monitor-email";
 import { getEmailBaseUrl } from "@/lib/emails/site-url";
 import { buildTurnoReportData } from "@/lib/rondas/monitor-turno-report-data";
+import { isTenantEmailEnabled } from "@/lib/notifications/email-flags";
 import { requireTenantModule } from '@/lib/require-module';
 
 // PDF generation with Chromium needs more memory and time
@@ -238,8 +239,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       console.error("[RONDAS] buildTurnoReportData failed:", err instanceof Error ? err.message : err);
     }
 
+    // Apagado de correo por tenant (flag, default true). Solo se gatea el
+    // correo; la tarjeta Slack de cierre se publica siempre.
+    const reporteTurnoEmailEnabled = await isTenantEmailEnabled(ctx.tenantId, "reporteTurnoEmailEnabled");
     // MUST await: Vercel serverless kills fire-and-forget on return
-    try {
+    if (reporteTurnoEmailEnabled) try {
       const emailResult = await sendMonitorTurnoEmail(
         {
           turnoId: id,

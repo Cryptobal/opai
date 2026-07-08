@@ -7,6 +7,7 @@ import { sendControlNocturnoEmail } from "@/lib/control-nocturno-email";
 import { generateControlNocturnoSummary } from "@/lib/control-nocturno-ai";
 import { generateControlNocturnoPdfBuffer } from "@/lib/control-nocturno-pdf";
 import { getControlNocturnoSnapshot } from "@/lib/control-nocturno-kpis";
+import { isTenantEmailEnabled } from "@/lib/notifications/email-flags";
 import { getEmailBaseUrl } from "@/lib/emails/site-url";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -444,8 +445,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         tenantId: ctx.tenantId,
       };
 
+      // Apagado de correo por tenant (flag, default true). Solo se gatea el
+      // correo; la tarjeta Slack de cierre se publica siempre.
+      const controlNocturnoEmailEnabled = await isTenantEmailEnabled(ctx.tenantId, "controlNocturnoEmailEnabled");
       // Send email — MUST await: Vercel serverless kills fire-and-forget on return
-      try {
+      if (controlNocturnoEmailEnabled) try {
         const emailResult = await sendControlNocturnoEmail(emailData, pdfBuffer);
         if (!emailResult.ok) {
           console.error("[OPS] Control nocturno email failed:", emailResult.error);
