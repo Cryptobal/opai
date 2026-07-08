@@ -131,6 +131,16 @@ function roundUpToNice(value: number): number {
   return Math.ceil(value / 100000) * 100000;
 }
 
+/** Fecha de término estimada (solo display): inicio contrato + N meses. */
+function estimatedServiceEnd(startIso: string | null | undefined, months: number): string | null {
+  if (!startIso || !Number.isFinite(months) || months <= 0) return null;
+  const start = new Date(`${startIso}T00:00:00`);
+  if (Number.isNaN(start.getTime())) return null;
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + Math.round(months));
+  return end.toLocaleDateString("es-CL", { day: "2-digit", month: "long", year: "numeric" });
+}
+
 export function CpqQuoteDetail({
   quoteId,
   currentUserId,
@@ -214,6 +224,7 @@ export function CpqQuoteDetail({
     paymentTerms: "contrafactura",
     serviceStartDays: 5,
     contractDuration: 12,
+    isOngoingService: true,
     includedItems: [] as string[],
     // Contract service fields
     adjustmentType: "NONE",
@@ -476,7 +487,7 @@ export function CpqQuoteDetail({
       saveQuoteBasics();
     }, 2000);
     return () => clearTimeout(quoteFormAutoSaveTimer.current);
-  }, [quoteForm.name, quoteForm.validUntil, quoteForm.notes, quoteForm.paymentTerms, quoteForm.serviceStartDays, quoteForm.contractDuration, quoteForm.adjustmentType, quoteForm.adjustmentFreq, quoteForm.ipcWeight, quoteForm.imoWeight, quoteForm.insurancePolicyUF, quoteForm.contractStartDate, quoteForm.liabilityMonths, quoteForm.hasCCTV, quoteForm.cctvRetentionDays, quoteForm.contractTemplateId, quoteForm.paymentDays, quoteForm.realAnnualIncrement]);
+  }, [quoteForm.name, quoteForm.validUntil, quoteForm.notes, quoteForm.paymentTerms, quoteForm.serviceStartDays, quoteForm.contractDuration, quoteForm.isOngoingService, quoteForm.adjustmentType, quoteForm.adjustmentFreq, quoteForm.ipcWeight, quoteForm.imoWeight, quoteForm.insurancePolicyUF, quoteForm.contractStartDate, quoteForm.liabilityMonths, quoteForm.hasCCTV, quoteForm.cctvRetentionDays, quoteForm.contractTemplateId, quoteForm.paymentDays, quoteForm.realAnnualIncrement]);
 
   // Auto-calc salePriceBase when costSummary changes
   useEffect(() => {
@@ -583,6 +594,7 @@ export function CpqQuoteDetail({
       paymentTerms: quote.paymentTerms || "contrafactura",
       serviceStartDays: quote.serviceStartDays ?? 5,
       contractDuration: quote.contractDuration ?? 12,
+      isOngoingService: (quote as any).isOngoingService ?? true,
       includedItems: (quote.includedItems && quote.includedItems.length > 0)
         ? quote.includedItems
         : prev.includedItems,
@@ -868,6 +880,7 @@ export function CpqQuoteDetail({
           paymentTerms: quoteForm.paymentTerms,
           serviceStartDays: quoteForm.serviceStartDays,
           contractDuration: quoteForm.contractDuration,
+          isOngoingService: quoteForm.isOngoingService,
           adjustmentType: quoteForm.adjustmentType,
           adjustmentFreq: quoteForm.adjustmentFreq,
           ipcWeight: quoteForm.ipcWeight,
@@ -2031,7 +2044,9 @@ export function CpqQuoteDetail({
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Duración contrato</Label>
+                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {quoteForm.isOngoingService ? "Compromiso / reajuste" : "Duración"}
+                </Label>
                 <div className="flex items-center gap-1">
                   <Input
                     type="number"
@@ -2043,6 +2058,22 @@ export function CpqQuoteDetail({
                     className="h-8 bg-card text-foreground border-border text-xs w-16"
                   />
                   <span className="text-xs text-muted-foreground">meses</span>
+                </div>
+                {!quoteForm.isOngoingService && estimatedServiceEnd(quoteForm.contractStartDate, quoteForm.contractDuration) && (
+                  <p className="text-xs text-muted-foreground">Termina ~{estimatedServiceEnd(quoteForm.contractStartDate, quoteForm.contractDuration)}</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Servicio continuo</Label>
+                <div className="flex h-8 items-center gap-2">
+                  <Switch
+                    checked={quoteForm.isOngoingService}
+                    onCheckedChange={(checked) => { setQuoteForm(prev => ({ ...prev, isOngoingService: checked })); setQuoteDirty(true); }}
+                    disabled={isLocked}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {quoteForm.isOngoingService ? "Indefinido" : "Plazo definido"}
+                  </span>
                 </div>
               </div>
               <div className="space-y-1">
