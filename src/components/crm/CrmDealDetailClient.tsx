@@ -59,6 +59,7 @@ import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/
 import { DeactivateInstallationDialog } from "@/components/crm/DeactivateInstallationDialog";
 import { DealHighlightsStrip } from "./deal/DealHighlightsStrip";
 import { DealAboutCard } from "./deal/DealAboutCard";
+import type { DealInstallationRef } from "@/lib/crm/deal-installation";
 import { DealNextStepBanner } from "./deal/DealNextStepBanner";
 import { DealUnifiedTimeline } from "./deal/DealUnifiedTimeline";
 import { SlackDealRoomCard } from "./deal/SlackDealRoomCard";
@@ -177,6 +178,8 @@ export type DealDetail = {
   serviceStartDate?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+  /** Nombre real del canal de Slack de la sala (sincronizado desde Slack); null si no hay sala. */
+  slackChannelName?: string | null;
 };
 
 type InstallationRow = { id: string; name: string; address?: string | null; city?: string | null; commune?: string | null; lat?: number | null; lng?: number | null; status?: "prospect" | "active" | "inactive" };
@@ -451,12 +454,13 @@ function DealPipelineStepper({
 }
 
 export function CrmDealDetailClient({
-  deal, quotes, pipelineStages, dealContacts: initialDealContacts, accountContacts, accountInstallations = [], gmailConnected, docTemplatesMail = [], docTemplatesWhatsApp = [], followUpConfig = null, followUpLogs = [], activityEvents = [], ufValue, canConfigureCrm = false, currentUserId = "",
+  deal, quotes, pipelineStages, dealContacts: initialDealContacts, accountContacts, accountInstallations = [], dealInstallation = null, gmailConnected, docTemplatesMail = [], docTemplatesWhatsApp = [], followUpConfig = null, followUpLogs = [], activityEvents = [], ufValue, canConfigureCrm = false, currentUserId = "",
 }: {
   deal: DealDetail; quotes: QuoteOption[];
   pipelineStages: PipelineStageOption[];
   dealContacts: DealContactRow[]; accountContacts: ContactRow[];
   accountInstallations?: InstallationRow[];
+  dealInstallation?: DealInstallationRef | null;
   gmailConnected: boolean; docTemplatesMail?: DocTemplateMail[]; docTemplatesWhatsApp?: DocTemplateWhatsApp[];
   followUpConfig?: FollowUpConfigState | null;
   followUpLogs?: FollowUpLog[];
@@ -593,15 +597,11 @@ export function CrmDealDetailClient({
     const contactName = deal.primaryContact
       ? `${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim()
       : null;
-    const install = accountInstallations[0];
-    const installAddress = [install?.address, install?.commune, install?.city]
-      .filter(Boolean)
-      .join(", ") || null;
-    const hasCoords =
-      install && typeof install.lat === "number" && typeof install.lng === "number";
-    const mapsLink = hasCoords
-      ? `https://maps.google.com/?q=${install.lat},${install.lng}`
-      : null;
+    // Instalación DE ESTE negocio (derivada de la cotización activa), no la
+    // primera de la cuenta a ciegas. `null` si no hay forma segura de resolverla.
+    const install = dealInstallation && dealInstallation.source !== "none" ? dealInstallation : null;
+    const installAddress = install?.addressText ?? null;
+    const mapsLink = install?.mapsUrl ?? null;
     const activeQuote = deal.activeQuoteSummary;
 
     const datosBlock = buildAdjudicacionDatosBlock({
@@ -633,7 +633,7 @@ export function CrmDealDetailClient({
     );
 
     return { datosBlock, dotacionBlock };
-  }, [deal, dealTitle, dealServiceStartDate, currentStage, accountInstallations]);
+  }, [deal, dealTitle, dealServiceStartDate, currentStage, dealInstallation]);
 
   const openWaAdjudicado = async () => {
     setWaAdjudicadoLoading(true);
@@ -1947,6 +1947,7 @@ export function CrmDealDetailClient({
               options: aboutQuoteOptions,
               helperText: aboutQuoteHelperText,
             }}
+            installation={dealInstallation}
           />
         }
         rightPanel={
@@ -1956,6 +1957,7 @@ export function CrmDealDetailClient({
               <SlackDealRoomCard
                 accountName={deal.account?.name}
                 dealTitle={dealTitle}
+                channelName={deal.slackChannelName}
                 onOpen={handleOpenDealRoom}
               />
             </div>

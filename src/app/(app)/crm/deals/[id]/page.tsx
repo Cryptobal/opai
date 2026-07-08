@@ -8,6 +8,7 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getUfValue } from "@/lib/uf";
 import { resolveDealActiveQuotationSummary } from "@/lib/crm-deal-active-quotation";
+import { resolveDealInstallation } from "@/lib/crm/deal-installation";
 import { CrmDealDetailClient, type DealDetail } from "@/components/crm";
 export default async function CrmDealDetailPage({
   params,
@@ -58,6 +59,8 @@ export default async function CrmDealDetailPage({
     followUpLogsRaw,
     activityLogs,
     ufValue,
+    dealSlackRoom,
+    dealInstallation,
   ] = await Promise.all([
     prisma.cpqQuote.findMany({
       where: { tenantId },
@@ -165,6 +168,11 @@ export default async function CrmDealDetailPage({
       take: 150,
     }),
     getUfValue(),
+    prisma.crmDealSlackRoom.findFirst({
+      where: { tenantId, dealId: id, status: "OPEN" },
+      select: { slackChannelName: true },
+    }),
+    resolveDealInstallation(tenantId, id),
   ]);
   const activityActorIds = Array.from(
     new Set(activityLogs.map((log) => log.createdBy).filter((actorId): actorId is string => Boolean(actorId)))
@@ -272,6 +280,7 @@ export default async function CrmDealDetailPage({
   initialDeal.proposalSentAt = deal.proposalSentAt ? deal.proposalSentAt.toISOString() : null;
   initialDeal.serviceStartDate = deal.serviceStartDate ? deal.serviceStartDate.toISOString() : null;
   initialDeal.status = deal.status;
+  initialDeal.slackChannelName = dealSlackRoom?.slackChannelName ?? null;
   initialDeal.activeQuotationId = (deal as any).activeQuotationId ?? null;
   initialDeal.activeQuoteSummary = activeQuoteSummary
     ? JSON.parse(JSON.stringify(activeQuoteSummary))
@@ -295,6 +304,7 @@ export default async function CrmDealDetailPage({
         dealContacts={initialDealContacts}
         accountContacts={initialAccountContacts}
         accountInstallations={initialAccountInstallations}
+        dealInstallation={dealInstallation}
         gmailConnected={Boolean(gmailAccount)}
         docTemplatesMail={initialDocTemplatesMail}
         docTemplatesWhatsApp={initialDocTemplatesWhatsApp}

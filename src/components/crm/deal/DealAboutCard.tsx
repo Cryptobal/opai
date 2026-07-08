@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { DealAboutTechDetails } from "./DealAboutTechDetails";
 import { DealAboutQuoteSelect, type DealQuoteSelectProps } from "./DealAboutQuoteSelect";
+import { DealInstallationCard } from "./DealInstallationCard";
+import type { DealInstallationRef } from "@/lib/crm/deal-installation";
 
 /**
  * DealAboutCard — columna izquierda "Sobre el negocio" de la ficha de deal.
@@ -21,6 +23,7 @@ export interface DealAboutCardProps {
   createdAt?: string | null;
   updatedAt?: string | null;
   quote: DealQuoteSelectProps;
+  installation: DealInstallationRef | null;
 }
 
 function LinkChip({ href, icon: Icon, label }: { href: string; icon: typeof Building2; label: string }) {
@@ -43,6 +46,7 @@ export function DealAboutCard({
   createdAt,
   updatedAt,
   quote,
+  installation,
 }: DealAboutCardProps) {
   const [open, setOpen] = useState(false);
 
@@ -84,6 +88,9 @@ export function DealAboutCard({
 
         {/* Cotización activa (selector completo, handler por props) */}
         <DealAboutQuoteSelect {...quote} />
+
+        {/* Instalación de ESTE negocio (derivada de la cotización activa) */}
+        <DealInstallationCard installation={installation} />
 
         {/* Flujo de seguimiento + link propuesta */}
         <div className="space-y-2">
