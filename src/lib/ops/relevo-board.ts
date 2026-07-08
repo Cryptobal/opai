@@ -39,6 +39,12 @@ export async function publishRelevoBoard(input: BoardKey): Promise<void> {
   const existing = await prisma.opsRelevoSlackBoard.findUnique({ where: whereKey });
 
   const data = await buildRelevoBoardData(input);
+  // Diagnóstico: si el tablero vuelve a salir vacío, este log distingue "0 filas
+  // materializadas" de "0 match de shiftStart".
+  console.info(
+    `[relevo-board] publish inst=${input.installationId} turno=${input.shiftStart} ` +
+      `fecha=${input.date.toISOString().slice(0, 10)} entrante=${data.entrante.length} saliente=${data.saliente.length}`,
+  );
   const { text, blocks } = buildRelevoBlocks(data);
 
   // Ya publicado y abierto → re-edita en vez de duplicar (idempotencia).
