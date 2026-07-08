@@ -23,14 +23,28 @@ export function startCanvasChannelUrl(teamId: string, channelId: string): string
   return `https://slack.com/app_redirect?channel=${channelId}&team=${teamId}`;
 }
 
+/** Resultado de renderizar el canvas: canvasId + si se creó o re-renderizó. */
+export type StartCanvasResult = { canvasId: string; action: "created" | "rerendered" };
+
 /**
- * Crea (si no existe) o re-renderiza el canvas de inicio del negocio. Devuelve el
- * canvasId, o null si el flag está apagado / no hay sala / falla algo.
+ * Núcleo reutilizable: crea (si no existe) o re-renderiza el canvas de inicio del
+ * negocio en su canal abierto. Devuelve el resultado o null si no hay sala/datos
+ * o falla algo. Best-effort: nunca lanza.
+ *
+ * `ignoreFlag` salta la verificación de `startCanvasOnWon` (para backfills
+ * puntuales que deben operar aunque el flag global del tenant esté OFF, sin
+ * tocar la config). El dispatch normal del cierre pasa `ignoreFlag: false`.
  */
-export async function ensureStartCanvas(tenantId: string, dealId: string): Promise<{ canvasId: string } | null> {
+export async function renderStartCanvasForDeal(
+  tenantId: string,
+  dealId: string,
+  opts: { ignoreFlag?: boolean } = {},
+): Promise<StartCanvasResult | null> {
   try {
-    const cfg = await getDealRoomConfig(tenantId);
-    if (!cfg.startCanvasOnWon) return null;
+    if (!opts.ignoreFlag) {
+      const cfg = await getDealRoomConfig(tenantId);
+      if (!cfg.startCanvasOnWon) return null;
+    }
 
     const [ws, room] = await Promise.all([getWorkspaceForTenant(tenantId), getOpenDealRoom(tenantId, dealId)]);
     if (!ws || !room) return null;
@@ -59,10 +73,19 @@ export async function ensureStartCanvas(tenantId: string, dealId: string): Promi
       details: { canvasId, channelId: room.slackChannelId, via: "slack" },
     }).catch(() => {});
 
-    return { canvasId };
+    return { canvasId, action: existing ? "rerendered" : "created" };
   } catch (e) {
     const code = e instanceof SlackApiError ? e.slackError : e;
-    console.error("[slack] ensureStartCanvas falló:", code);
+    console.error("[slack] renderStartCanvasForDeal falló:", code);
     return null;
   }
+}
+
+/**
+ * Crea (si no existe) o re-renderiza el canvas de inicio del negocio. Devuelve el
+ * canvasId, o null si el flag está apagado / no hay sala / falla algo.
+ */
+export async function ensureStartCanvas(tenantId: string, dealId: string): Promise<{ canvasId: string } | null> {
+  const res = await renderStartCanvasForDeal(tenantId, dealId, { ignoreFlag: false });
+  return res ? { canvasId: res.canvasId } : null;
 }
