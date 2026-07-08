@@ -453,6 +453,31 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       } catch (err) {
         console.error("[OPS] Control nocturno email error:", err);
       }
+
+      // Tarjeta "🌙 Cambios de turno · por instalación" al canal ops (mismo que
+      // el correo). Fire-and-forget, best-effort.
+      void (async () => {
+        try {
+          const { buildControlNocturnoBlocks } = await import("@/lib/integrations/slack/control-nocturno-blocks");
+          const { publishOpsCierreCard } = await import("@/lib/integrations/slack/cierre-publish");
+          const card = buildControlNocturnoBlocks({
+            reporteId: id,
+            date: updated.date,
+            centralLabel: updated.centralLabel,
+            instalaciones: updated.instalaciones.map((i) => ({
+              installationName: i.installationName,
+              statusInstalacion: i.statusInstalacion,
+              guardiasRequeridos: i.guardiasRequeridos,
+              guardiasPresentes: i.guardiasPresentes,
+              horaLlegadaTurnoDia: i.horaLlegadaTurnoDia,
+              guardiaDiaNombres: i.guardiaDiaNombres,
+            })),
+          });
+          await publishOpsCierreCard(ctx.tenantId, card);
+        } catch (err) {
+          console.error("[OPS] Control nocturno Slack card error:", err);
+        }
+      })();
     }
 
     return NextResponse.json({ success: true, data: updated });
