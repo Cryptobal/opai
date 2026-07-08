@@ -4374,6 +4374,13 @@ model OpsAsistenciaDiaria {
   correctionReason     String?   @map("correction_reason")
   marcacionEntradaId   String?   @map("marcacion_entrada_id") @db.Uuid
   marcacionSalidaId    String?   @map("marcacion_salida_id") @db.Uuid
+  // ── Contacto de central (control de asistencia operado desde Slack) ──
+  // Último llamado registrado por central sobre el entrante; el historial vive
+  // en OpsContactoCentral. `attendanceStatus` admite además "en_camino" y
+  // "confirmado_llegada" (String libre, sin enum nuevo).
+  contactoCentralAt        DateTime? @map("contacto_central_at") @db.Timestamptz(6)
+  contactoCentralBy        String?   @map("contacto_central_by")
+  contactoCentralResultado String?   @map("contacto_central_resultado") // no_contesta | confirmado | atrasado
   source               String    @default("manual") @map("source") // "marcacion_electronica" | "manual" | "import"
   createdBy            String?   @map("created_by")
   createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -4394,6 +4401,7 @@ model OpsAsistenciaDiaria {
   marcacionEntrada   OpsMarcacion?      @relation("asistencia_marcacion_entrada", fields: [marcacionEntradaId], references: [id], onDelete: SetNull)
   marcacionSalida    OpsMarcacion?      @relation("asistencia_marcacion_salida", fields: [marcacionSalidaId], references: [id], onDelete: SetNull)
   turnosExtra        OpsTurnoExtra[]
+  contactosCentral   OpsContactoCentral[]
 
   @@unique([puestoId, slotNumber, date], map: "uq_ops_asistencia_puesto_slot_fecha")
   @@index([tenantId], map: "idx_ops_asistencia_tenant")
@@ -4402,6 +4410,29 @@ model OpsAsistenciaDiaria {
   @@index([date, overtimeMinutes], map: "idx_ops_asistencia_date_overtime")
   @@index([deletedAt], map: "idx_ops_asistencia_deleted_at")
   @@map("asistencia_diaria")
+  @@schema("ops")
+}
+
+/// Historial de llamados de central sobre el turno entrante (control de
+/// asistencia operado desde Slack). Cada intento queda registrado; el estado
+/// vigente se refleja en OpsAsistenciaDiaria.contactoCentral*.
+model OpsContactoCentral {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String   @map("tenant_id")
+  asistenciaId  String   @map("asistencia_id") @db.Uuid
+  resultado     String // no_contesta | confirmado | atrasado
+  minutosAtraso Int?     @map("minutos_atraso")
+  comentario    String?
+  operadorId    String?  @map("operador_id")
+  operadorName  String?  @map("operador_name")
+  origen        String   @default("slack") // slack | web
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  asistencia    OpsAsistenciaDiaria @relation(fields: [asistenciaId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_ops_contacto_central_tenant")
+  @@index([asistenciaId], map: "idx_ops_contacto_central_asistencia")
+  @@map("contacto_central")
   @@schema("ops")
 }
 
@@ -11411,6 +11442,28 @@ model CrmDealSlackRoom {
   @@index([tenantId], map: "idx_crm_deal_slack_room_tenant")
   @@index([slackChannelId], map: "idx_crm_deal_slack_room_channel")
   @@map("crm_deal_slack_rooms")
+  @@schema("public")
+}
+
+/// Mensaje-ficha auto-editable del tablero de relevo en el canal de la
+/// instalación (espejo de CrmDealSlackRoom.fichaTs): un único mensaje por
+/// (instalación, día, turno entrante) que se re-edita con chat.update en cada
+/// cambio de asistencia. `slackTs` es el ts del mensaje publicado.
+model OpsRelevoSlackBoard {
+  id             String   @id @default(cuid())
+  tenantId       String   @map("tenant_id")
+  installationId String   @map("installation_id")
+  date           DateTime @db.Date
+  shiftStart     String   @map("shift_start") // "HH:MM" del turno entrante
+  slackChannelId String   @map("slack_channel_id")
+  slackTs        String   @map("slack_ts") // ts del mensaje; se re-edita con chat.update
+  status         String   @default("OPEN") // OPEN | CLOSED
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([installationId, date, shiftStart], map: "uq_ops_relevo_board_inst_date_shift")
+  @@index([tenantId], map: "idx_ops_relevo_board_tenant")
+  @@map("ops_relevo_slack_board")
   @@schema("public")
 }
 
