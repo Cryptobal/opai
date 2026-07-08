@@ -15,7 +15,7 @@ import { approvalCardActionsBlock, buildNotificationBlocks, ticketActionsBlock, 
 import { enrichTicketFields, convertBodyMentions } from "./card-enrich";
 import { slackPostMessage, SlackApiError, isPermanentSlackError } from "./api";
 import { getOpenDealRoom, refreshDealRoomFicha } from "./deal-rooms/room";
-import { RONDA_INSTALLATION_ROUTE_KEYS, resolveInstallationSlackChannel } from "./installation-channel";
+import { MARCACION_INSTALLATION_ROUTE_KEYS, RONDA_INSTALLATION_ROUTE_KEYS, resolveInstallationSlackChannel } from "./installation-channel";
 
 interface DispatchInput {
   tenantId: string;
@@ -127,12 +127,18 @@ export async function resolveSlackSharedChannelDestination(input: {
     }
   }
 
-  if (!rondaThreadTs && RONDA_INSTALLATION_ROUTE_KEYS.has(input.typeDef.key)) {
+  const isRondaInstallRoute = RONDA_INSTALLATION_ROUTE_KEYS.has(input.typeDef.key);
+  const isMarcacionInstallRoute = MARCACION_INSTALLATION_ROUTE_KEYS.has(input.typeDef.key);
+  if (!rondaThreadTs && (isRondaInstallRoute || isMarcacionInstallRoute)) {
     const installationId =
       typeof input.data?.installationId === "string" ? input.data.installationId : null;
     if (installationId) {
-      const policy = await getRondasNotifPolicy(input.tenantId);
-      if (policy.rondasRouteToInstallationChannel) {
+      // Rondas respeta su policy por tenant; marcación SIEMPRE puentea al canal
+      // de la instalación (visibilidad social intencional, decisión de producto).
+      const routeToInstall = isMarcacionInstallRoute
+        ? true
+        : (await getRondasNotifPolicy(input.tenantId)).rondasRouteToInstallationChannel;
+      if (routeToInstall) {
         channelId =
           (await resolveInstallationSlackChannel(input.tenantId, installationId)) ??
           channelId;
