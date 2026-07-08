@@ -80,7 +80,7 @@ export function renderStartCanvasMarkdown(data: StartCanvasData, now: number = D
     const dir = data.addressText ? cell(data.addressText) : "—";
     rows.push(["Dirección", data.mapsUrl ? `${dir} → [📍 Cómo llegar](${data.mapsUrl})` : dir]);
   }
-  rows.push(["Monto mensual", data.amount ? `**${clp(data.amount)} + IVA**` : "—"]);
+  rows.push(["Monto mensual", data.monthlyAmount ? `**${clp(data.monthlyAmount)} + IVA**` : "—"]);
   if (data.isOngoingService) {
     rows.push(["Modalidad", "Servicio continuo"]);
   } else {

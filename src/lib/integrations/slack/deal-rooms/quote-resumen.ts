@@ -35,7 +35,7 @@ export function buildQuoteResumenBlocks(data: StartCanvasData): { text: string; 
 
   const fields: Array<{ label: string; value: string }> = [
     { label: "Cliente", value: data.accountName },
-    { label: "Monto mensual", value: data.amount ? `${clp(data.amount)} + IVA` : "—" },
+    { label: "Monto mensual", value: data.monthlyAmount ? `${clp(data.monthlyAmount)} + IVA` : "—" },
     {
       label: "Dotación",
       value: `${data.totalGuards} ${data.totalGuards === 1 ? "guardia" : "guardias"} · ${data.positions.length} ${

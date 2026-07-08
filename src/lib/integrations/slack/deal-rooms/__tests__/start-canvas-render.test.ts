@@ -19,6 +19,7 @@ function baseData(overrides: Partial<StartCanvasData> = {}): StartCanvasData {
     ],
     cargoSueldo: [{ cargo: "Guardia", netSalary: 550000, baseSalary: 700000 }],
     amount: 3200000,
+    monthlyAmount: 3200000,
     quoteLabel: "Q-187 · aceptada",
     mapsUrl: "https://maps.google.com/?q=x",
     addressText: "Av. Siempre Viva 742",

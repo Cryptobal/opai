@@ -16,6 +16,8 @@ import { getWorkspaceForTenant, type ActiveWorkspace } from "../workspace";
 import {
   slackCreateConversation,
   slackConversationsInvite,
+  slackListChannels,
+  slackConversationMembers,
   slackSetPurpose,
   slackPostMessage,
   slackUpdateMessage,
@@ -279,6 +281,19 @@ export async function openDealRoom(
   ]);
   const invitees = [...new Set([actorSlack, ownerSlack, supervisorSlack].filter((x): x is string => !!x))];
   if (invitees.length) await slackConversationsInvite(ws.botToken, channel.id, invitees);
+
+  // Equipo de operaciones: invitar a los miembros de #operaciones si el canal existe.
+  try {
+    const all = await slackListChannels(ws.botToken);
+    const ops = all.find((c) => c.name === "operaciones");
+    if (ops) {
+      const members = await slackConversationMembers(ws.botToken, ops.id);
+      const toAdd = members.filter((m) => !invitees.includes(m));
+      if (toAdd.length) await slackConversationsInvite(ws.botToken, channel.id, toAdd);
+    }
+  } catch (e) {
+    console.error("[slack] invitar #operaciones falló:", e);
+  }
 
   // 3) Propósito del canal (contexto siempre visible en el header de Slack).
   await slackSetPurpose(ws.botToken, channel.id, `Sala del negocio "${deal.title}" (${deal.account.name}) · OPAI`);
