@@ -63,6 +63,15 @@ export async function POST(req: NextRequest) {
     let options: { options: unknown[] } = { options: [] };
     try {
       const callbackId = (payload.view as { callback_id?: string } | undefined)?.callback_id;
+      // DEBUG TEMPORAL: capturar el shape real que Slack envía en block_suggestion.
+      console.log("[slack][DEBUG block_suggestion]", JSON.stringify({
+        callbackId,
+        actionId: (payload as { action_id?: string }).action_id,
+        value: (payload as { value?: string }).value,
+        hasView: Boolean(payload.view),
+        viewKeys: payload.view ? Object.keys(payload.view as object) : null,
+        topKeys: Object.keys(payload),
+      }));
       if (callbackId === "bankreconc_assign_account") {
         const { handleBankReconcileAccountSuggestion } = await import(
           "@/lib/integrations/slack/actions/bank-reconcile-modal"
