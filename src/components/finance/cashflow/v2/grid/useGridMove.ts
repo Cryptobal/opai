@@ -91,8 +91,83 @@ export function useGridMove(opts: {
     [buckets, refresh],
   );
 
+  // Mueve un grupo de egreso (sueldos/previred/turnos) como unidad: todas las
+  // instalaciones de esa semana se aplazan/adelantan juntas a la semana destino.
+  // Estado optimista vía refresh; un solo UndoToast revierte todas. Las cuotas
+  // pagadas ya vienen excluidas de `occurrenceIds` (su value.occurrenceId es
+  // null); `skippedPaid` solo alimenta el texto informativo del toast.
+  const moveGroup = useCallback(
+    async (opts: {
+      occurrenceIds: string[];
+      label: string;
+      fromBucketKey: string;
+      toBucketKey: string;
+      skippedPaid?: number;
+    }) => {
+      const to = buckets.find((b) => b.key === opts.toBucketKey);
+      const from = buckets.find((b) => b.key === opts.fromBucketKey);
+      if (!to || !from || to.key === from.key || opts.occurrenceIds.length === 0) {
+        return;
+      }
+
+      const newDate = ymd(to.start);
+      setSubmitting(true);
+      const results = await Promise.all(
+        opts.occurrenceIds.map((id) =>
+          moveViaApi({
+            occurrenceId: id,
+            itemId: null,
+            dteId: null,
+            originalDate: ymd(from.start),
+            newDate,
+          }),
+        ),
+      );
+      setSubmitting(false);
+
+      const failed = results.filter((r) => !r.ok).length;
+      const moved = results.length - failed;
+      if (moved === 0) {
+        toast.error("No se pudieron mover los egresos");
+        return;
+      }
+      const skipped =
+        opts.skippedPaid && opts.skippedPaid > 0
+          ? ` · ${opts.skippedPaid} pagada${opts.skippedPaid > 1 ? "s" : ""} no se movieron`
+          : "";
+      toast.success(`${opts.label} movido a ${to.label}${skipped}`);
+      if (failed > 0) {
+        toast.warning(`${failed} cuota${failed > 1 ? "s" : ""} no se pudieron mover`);
+      }
+      await refresh();
+
+      // Undo: las occurrences movidas conservan su id (mismo registro, nueva
+      // fecha), así que las devolvemos todas a la semana original.
+      setUndoPayload({
+        occurrenceName: opts.label,
+        destLabel: to.label,
+        undo: async () => {
+          await Promise.all(
+            opts.occurrenceIds.map((id) =>
+              moveViaApi({
+                occurrenceId: id,
+                itemId: null,
+                dteId: null,
+                originalDate: newDate,
+                newDate: ymd(from.start),
+              }),
+            ),
+          );
+          await refresh();
+        },
+      });
+    },
+    [buckets, refresh],
+  );
+
   return {
     move,
+    moveGroup,
     submitting,
     undoPayload,
     clearUndo: useCallback(() => setUndoPayload(null), []),

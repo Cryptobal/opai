@@ -25,6 +25,17 @@ export interface GridItemRow {
   item: ProjectionRowItemDetail;
   /** Lookup de valor por bucketKey para pintar cada celda en O(1). */
   valueByBucket: Map<string, ProjectionRowItemValue>;
+  /** Presente SOLO en filas de egreso agrupado (B3): la fila suma N
+   *  instalaciones de un mismo tipo de gasto (sueldos/previred/turnos).
+   *  `source` identifica el tipo; `occurrencesByBucket` lista, por bucket, las
+   *  occurrences movibles (id + monto actual) de esas instalaciones. El gesto
+   *  de arrastre (B4A) las mueve todas juntas; la edición de monto (B4B)
+   *  reparte el nuevo total proporcional a estos montos. Las cuotas pagadas no
+   *  aparecen (su value.occurrenceId es null), por lo que quedan fijas. */
+  group?: {
+    source: FinanceCashflowItemSource;
+    occurrencesByBucket: Map<string, { id: string; amountClp: number }[]>;
+  };
 }
 
 /** Aplana las filas de una sección (INCOME/EXPENSE) en filas-item ordenadas
@@ -56,14 +67,19 @@ function itemSortKey(i: ProjectionRowItemDetail): string {
 }
 
 /** Etiqueta principal (cliente) y tag secundario (instalación/nickname) de la
- *  columna sticky. Cuando no hay cuenta CRM cae al nombre técnico del item. */
+ *  columna sticky. Cuando no hay cuenta CRM cae al nombre técnico del item.
+ *  La instalación se muestra SIEMPRE (aunque coincida con el nombre del
+ *  cliente): el usuario prefiere verla redundante que no verla (ej. venta
+ *  "Ametel" → "Ametel algarrobo"). Las filas de egreso agrupado (B3) traen
+ *  installationName=null/nickname=null, por lo que su tag queda en null y el
+ *  primary es la categoría — sin ensuciar el caso agregado. */
 export function rowLabels(item: ProjectionRowItemDetail): {
   primary: string;
   tag: string | null;
 } {
   const primary = item.crmAccountName ?? item.itemName;
-  const tag = item.nickname ?? item.installationName ?? null;
-  return { primary, tag: tag && tag !== primary ? tag : null };
+  const tag = item.installationName ?? item.nickname ?? null;
+  return { primary, tag };
 }
 
 /** Banda de mes en el header: agrupa columnas contiguas del mismo mes. */
@@ -129,15 +145,14 @@ export function isoWeek(date: Date): number {
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
 }
 
-/** Egresos del sistema (payroll, previred, IVA, turnos extra, quincena, retiro
- *  de socios): se muestran pero no se arrastran — su fecha la manda la
- *  configuración/cron, no un gesto de la planilla. */
+/** Egresos del sistema no arrastrables — su fecha la manda la configuración/cron
+ *  y el usuario no pidió moverlos (IVA, quincena, retiro socios).
+ *  Sueldos/previred/turnos SÍ son arrastrables: se pagan/aplazan en días
+ *  distintos y se mueven como grupo entre semanas (B4A). El source legacy
+ *  PAYROLL (virtual, sin item) sigue fijo. */
 export const SYSTEM_SOURCES: ReadonlySet<FinanceCashflowItemSource> = new Set([
   "PAYROLL",
-  "PAYROLL_LIQUIDO",
-  "PAYROLL_PREVIRED",
   "IVA",
-  "TURNOS_EXTRA",
   "QUINCENA",
   "RETIRO_SOCIO",
 ]);

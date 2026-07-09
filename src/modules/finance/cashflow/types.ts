@@ -66,6 +66,10 @@ export interface VirtualOccurrence {
   ipcAdjustmentMonths: number | null;
   /** DTE vinculado a la occurrence materializada (null si proyectada o sin vínculo). */
   dteId: string | null;
+  /** El monto de esta occurrence fue fijado manualmente por el usuario
+   *  (`amountOverride != null`) — vía "Editar monto" / "Igualar a factura".
+   *  La UI lo marca como override manual y ofrece revertir al calculado. */
+  hasAmountOverride?: boolean;
   /** Alias visible del contrato. Permite distinguir varios contratos del
    *  mismo cliente con la misma instalación (ej. "Ciclo proforma" vs
    *  "Facturación directa" en Transmat). null = usar nombre técnico. */
@@ -155,6 +159,9 @@ export interface ProjectionRowItemValue {
   cellStatus?: CashflowCellStatus;
   /** dteId vinculado, si existe — para deep-link al DTE. */
   dteId?: string | null;
+  /** Alguna occurrence de la celda tiene monto fijado manualmente
+   *  (`amountOverride`). La UI muestra un badge "editado" y ofrece revertir. */
+  hasAmountOverride?: boolean;
   /** Folio del DTE vinculado, si existe. Usado en el tooltip de la celda
    *  para mostrar "Factura N° {folio}" al hacer hover. */
   dteFolio?: number | null;

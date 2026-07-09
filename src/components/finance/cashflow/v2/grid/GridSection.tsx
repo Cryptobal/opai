@@ -24,6 +24,7 @@ export function GridSection({
   dndEnabled,
   bucketMeta,
   advanced,
+  onAmountSaved,
 }: {
   label: string;
   tone: "ok" | "warn";
@@ -33,6 +34,7 @@ export function GridSection({
   dndEnabled: boolean;
   bucketMeta?: Map<string, BucketMeta>;
   advanced?: boolean;
+  onAmountSaved?: () => void;
 }) {
   const totals = sectionBucketTotals(rows, buckets);
   const headTone =
@@ -72,6 +74,7 @@ export function GridSection({
             dndEnabled={dndEnabled}
             bucketMeta={bucketMeta}
             advanced={advanced}
+            onAmountSaved={onAmountSaved}
           />
         ))
       )}

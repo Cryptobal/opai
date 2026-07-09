@@ -32,6 +32,7 @@ import { GridBalanceRow } from "./grid/GridBalanceRow";
 import { GridDriftRow } from "./grid/GridDriftRow";
 import { GridChip } from "./grid/GridChip";
 import { buildBucketMeta, itemRowsForKind } from "./grid/grid-helpers";
+import { expenseRows } from "./grid/expense-grouping";
 import { useGridMove, type GridDragData } from "./grid/useGridMove";
 import { QuotaMoveSelector } from "./grid/QuotaMoveSelector";
 import {
@@ -85,8 +86,10 @@ export function CashflowGrid({
     () => itemRowsForKind(active.rows, "INCOME"),
     [active.rows],
   );
-  const expenseRows = useMemo(
-    () => itemRowsForKind(active.rows, "EXPENSE"),
+  // Egresos agrupados: una línea por tipo de gasto (sueldos/previred/turnos
+  // suman todas las instalaciones); el resto queda como filas individuales.
+  const expenseGridRows = useMemo(
+    () => expenseRows(active.rows),
     [active.rows],
   );
   const balanceByBucket = useMemo(
@@ -125,16 +128,19 @@ export function CashflowGrid({
     router.refresh();
   }, [refresh, router]);
 
-  const { move, undoPayload, clearUndo } = useGridMove({
+  const { move, moveGroup, undoPayload, clearUndo } = useGridMove({
     buckets,
     refresh: refreshAll,
   });
 
-  // Sensors: puntero (mouse + touch) con activación por distancia para no
-  // disparar drag en taps, y teclado (dnd-kit maneja Space/flechas → mover con
-  // teclado, cubriendo accesibilidad sin botones de flecha en cada celda).
+  // Sensors: puntero (mouse + touch) con activación por long-press (delay +
+  // tolerance) para NO secuestrar el scroll táctil de la grilla. Un scroll
+  // rápido no alcanza los 200ms; si el dedo se mueve >8px antes del delay se
+  // cancela (es scroll, no drag). Teclado para accesibilidad (Space/flechas).
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(PointerSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    }),
     useSensor(KeyboardSensor),
   );
   const [activeDrag, setActiveDrag] = useState<GridDragData | null>(null);
@@ -163,6 +169,35 @@ export function CashflowGrid({
     // Solo destino válido: otra semana de la MISMA fila.
     if (over.itemId !== drag.itemId) return;
     if (over.bucketKey === drag.fromBucketKey) return;
+    // Fila de egreso agrupado: se mueven TODAS las instalaciones de esa semana
+    // juntas ("los sueldos se pagan todos juntos"). Las pagadas quedan fijas.
+    if (drag.itemId?.startsWith("_group:")) {
+      const groupRow = expenseGridRows.find(
+        (r) => r.item.itemId === drag.itemId,
+      );
+      const ids = (
+        groupRow?.group?.occurrencesByBucket.get(drag.fromBucketKey) ?? []
+      ).map((o) => o.id);
+      if (ids.length === 0) return;
+      const source = groupRow?.group?.source;
+      const fromBucket = buckets.find((b) => b.key === drag.fromBucketKey);
+      const skippedPaid =
+        source && fromBucket
+          ? fromBucket.occurrences.filter(
+              (o) =>
+                o.source === source &&
+                (o.status === "PAID" || o.bankTransactionId !== null),
+            ).length
+          : 0;
+      void moveGroup({
+        occurrenceIds: ids,
+        label: groupRow?.item.itemName ?? "Egresos",
+        fromBucketKey: drag.fromBucketKey,
+        toBucketKey: over.bucketKey,
+        skippedPaid,
+      });
+      return;
+    }
     // Si la celda origen tiene más de una cuota movible, no adivinamos cuál:
     // abrimos el selector. Con 0/1 movible se mueve directo (comportamiento
     // original — la representativa es la única candidata).
@@ -277,16 +312,18 @@ export function CashflowGrid({
                 dndEnabled={canManage}
                 bucketMeta={bucketMeta}
                 advanced={advanced}
+                onAmountSaved={refreshAll}
               />
               <GridSection
                 label="Egresos"
                 tone="warn"
-                rows={expenseRows}
+                rows={expenseGridRows}
                 buckets={buckets}
                 currentIdx={currentIdx}
                 dndEnabled={canManage}
                 bucketMeta={bucketMeta}
                 advanced={advanced}
+                onAmountSaved={refreshAll}
               />
               <GridBalanceRow
                 buckets={buckets}

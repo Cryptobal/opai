@@ -430,6 +430,65 @@ export async function setOccurrenceAmountOverride(
   });
 }
 
+/**
+ * Revierte un override manual: limpia `amountOverride` y recalcula `amountClp`
+ * a partir del monto base del item (misma regla que el motor de proyección:
+ * base × UF si el contrato es en UF, × IVA si la categoría no está exenta).
+ * Los casos borde (reajuste IPC mid-período) caen al monto base y se corrigen
+ * en la próxima corrida del generador correspondiente. No toca ocurrencias
+ * pagadas/conciliadas (su monto lo fija el banco).
+ */
+export async function clearOccurrenceAmountOverride(
+  tenantId: string,
+  id: string,
+): Promise<void> {
+  const existing = await prisma.financeCashflowOccurrence.findFirst({
+    where: { id, tenantId },
+    select: {
+      id: true,
+      status: true,
+      scheduledDate: true,
+      ufValueUsed: true,
+      item: {
+        select: {
+          amount: true,
+          currency: true,
+          ufFixingPolicy: true,
+          ufFixingDay: true,
+          category: { select: { isTaxExempt: true } },
+        },
+      },
+    },
+  });
+  if (!existing) throw new Error("Ocurrencia no encontrada");
+  if (existing.status === "PAID") {
+    throw new Error("No se puede editar el monto de una ocurrencia ya conciliada");
+  }
+  const item = existing.item;
+  const base = Number(item.amount);
+  let amountClp = base;
+  if (item.currency === "UF") {
+    const uf = existing.ufValueUsed
+      ? Number(existing.ufValueUsed)
+      : await resolveUfForOccurrence(
+          item.ufFixingPolicy,
+          item.ufFixingDay,
+          existing.scheduledDate,
+        );
+    amountClp = base * uf;
+  }
+  if (item.category && !item.category.isTaxExempt) {
+    amountClp = amountClp * 1.19;
+  }
+  await prisma.financeCashflowOccurrence.update({
+    where: { id },
+    data: {
+      amountOverride: null,
+      amountClp: Math.round(amountClp),
+    },
+  });
+}
+
 /** Resuelve la categoría sistema por defecto del kind (ING_OTRO / EGR_OTRO),
  *  cayendo a la primera categoría activa del kind. Multi-tenant. */
 async function resolveDefaultCategoryId(
