@@ -12,21 +12,14 @@ import { secBlockId, ctxBlockId, actBlockId } from "./bank-reconcile-blocks";
 
 const pt = (text: string) => ({ type: "plain_text" as const, text: text.slice(0, 75), emoji: true });
 
-/** Botón "↩︎ Deshacer (15 min)" — `value` = id del SlackPendingAction de undo. */
-export function undoActionsBlock(pendingId: string): unknown {
-  return {
-    type: "actions",
-    block_id: `bankreconc_undo_${pendingId}`,
-    elements: [{
-      type: "button",
-      action_id: "bankreconc_undo",
-      value: pendingId,
-      text: pt("↩︎ Deshacer (15 min)"),
-    }],
-  };
-}
-
-/** Estado resuelto de un movimiento: línea ✓ + (opcional) botón Deshacer. */
+/**
+ * Estado resuelto de un movimiento: línea ✓ + (opcional) botón Deshacer.
+ *
+ * El botón de undo usa `actBlockId(txId)` (el MISMO block_id del grupo de
+ * acciones original) a propósito: así `replaceMovementInMessage` lo incluye
+ * en el grupo y lo sustituye tanto al re-conciliar como al deshacer — si usara
+ * un id propio (p.ej. por pendingId) quedaría huérfano tras el "Deshacer".
+ */
 export function resolvedMovementBlocks(
   txId: string,
   statusText: string,
@@ -35,7 +28,18 @@ export function resolvedMovementBlocks(
   const blocks: unknown[] = [
     { type: "section", block_id: secBlockId(txId), text: { type: "mrkdwn", text: `✅ ${statusText}` } },
   ];
-  if (undoPendingId) blocks.push(undoActionsBlock(undoPendingId));
+  if (undoPendingId) {
+    blocks.push({
+      type: "actions",
+      block_id: actBlockId(txId),
+      elements: [{
+        type: "button",
+        action_id: "bankreconc_undo",
+        value: undoPendingId,
+        text: pt("↩︎ Deshacer (15 min)"),
+      }],
+    });
+  }
   return blocks;
 }
 
