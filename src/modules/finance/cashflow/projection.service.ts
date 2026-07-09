@@ -368,18 +368,23 @@ export async function buildProjection(
   const alignedFrom = bucketBoundsFor(range.from, range.granularity).start;
   range = { ...range, from: alignedFrom };
 
-  const config = await getOrCreateCashflowConfig(tenantId);
-  const categories = await listCategories(tenantId);
+  // config, categories y la lista de items no dependen entre sí (cada uno
+  // toma solo tenantId), así que se resuelven en paralelo en vez de tres
+  // round-trips secuenciales. El orden de las derivaciones síncronas de más
+  // abajo no cambia.
+  const [config, categories, allItems] = await Promise.all([
+    getOrCreateCashflowConfig(tenantId),
+    listCategories(tenantId),
+    // Excluimos source=PAYROLL (legacy pre-split): reemplazado por
+    // PAYROLL_LIQUIDO + PAYROLL_PREVIRED. Los ítems source=CONTRACT son los
+    // contratos CRM vigentes (Document → FinanceCashflowItem vía el tab
+    // Contratos de cada cuenta) y deben incluirse en la proyección.
+    listItems(tenantId, { isActive: true }),
+  ]);
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
   const codeToCategory = new Map<string, CategoryLite>(
     categories.map((c) => [c.code, c]),
   );
-
-  // Excluimos source=PAYROLL (legacy pre-split): reemplazado por
-  // PAYROLL_LIQUIDO + PAYROLL_PREVIRED. Los ítems source=CONTRACT son los
-  // contratos CRM vigentes (Document → FinanceCashflowItem vía el tab
-  // Contratos de cada cuenta) y deben incluirse en la proyección.
-  const allItems = await listItems(tenantId, { isActive: true });
   const itemsAfterPayroll = allItems.filter((i) => i.source !== "PAYROLL");
 
   // Filtro de items "globales huérfanos" por contrato: cuando un contrato
@@ -441,58 +446,61 @@ export async function buildProjection(
   const items = filterCashflowItemsForProjection(itemsAfterRecurringSanity);
   // FinanceCashflowItem.installationId no tiene @relation, así que resolvemos
   // los nombres en un lookup batch por tenant. Pick mínimo para no traer overhead.
+  // FinanceCashflowItem.installationId no tiene @relation, así que resolvemos
+  // los nombres en un lookup batch por tenant. Pick mínimo para no traer overhead.
   const installationIds = Array.from(
     new Set(items.map((i) => i.installationId).filter((x): x is string => !!x)),
   );
-  const installations =
-    installationIds.length > 0
-      ? await prisma.crmInstallation.findMany({
-          where: { tenantId, id: { in: installationIds } },
-          select: { id: true, name: true },
-        })
-      : [];
-  const installationNameById = new Map(installations.map((i) => [i.id, i.name]));
-
-  // Dotación por instalación (headcount planificado) — SUM(requiredGuards)
-  // de OpsPuestoOperativo activos. Cada puesto-turno cuenta como 1+ personas
-  // (`requiredGuards` permite multi-guardia en un mismo turno). Sirve para
-  // mostrar "· N personas" en cada línea de contrato/instalación y sumar al
-  // colapsar el cliente. Una sola query agregada por la lista de
-  // instalaciones que aparecen en la proyección.
-  const headcountRows =
-    installationIds.length > 0
-      ? await prisma.opsPuestoOperativo.groupBy({
-          by: ["installationId"],
-          where: {
-            tenantId,
-            installationId: { in: installationIds },
-            active: true,
-          },
-          _sum: { requiredGuards: true },
-        })
-      : [];
-  const headcountByInstallation = new Map<string, number>(
-    headcountRows.map((r) => [r.installationId, r._sum.requiredGuards ?? 0]),
-  );
-
   // Mapeo crmAccountId → name para agrupar en UI por cliente (Fase C.3).
   const crmAccountIds = Array.from(
     new Set(items.map((i) => i.crmAccountId).filter((x): x is string => !!x)),
   );
-  const crmAccounts =
-    crmAccountIds.length > 0
-      ? await prisma.crmAccount.findMany({
-          where: { tenantId, id: { in: crmAccountIds } },
-          select: { id: true, name: true },
-        })
-      : [];
-  const crmAccountNameById = new Map(crmAccounts.map((a) => [a.id, a.name]));
-  const materialized = await listMaterializedOccurrences(
-    tenantId,
-    range.from,
-    range.to,
-    items.map((i) => i.id),
+  // Estas cuatro lecturas solo dependen de ids derivados de `items` (no entre
+  // sí), así que se resuelven en una sola ronda en vez de cuatro round-trips
+  // secuenciales:
+  //  - installations: nombres de instalación por id.
+  //  - headcountRows: dotación planificada (SUM requiredGuards de puestos
+  //    activos) por instalación — para "· N personas" en cada línea y el
+  //    subtotal al colapsar el cliente.
+  //  - crmAccounts: nombres de cuenta CRM.
+  //  - materialized: occurrences ya materializadas en el rango.
+  const [installations, headcountRows, crmAccounts, materialized] =
+    await Promise.all([
+      installationIds.length > 0
+        ? prisma.crmInstallation.findMany({
+            where: { tenantId, id: { in: installationIds } },
+            select: { id: true, name: true },
+          })
+        : [],
+      installationIds.length > 0
+        ? prisma.opsPuestoOperativo.groupBy({
+            by: ["installationId"],
+            where: {
+              tenantId,
+              installationId: { in: installationIds },
+              active: true,
+            },
+            _sum: { requiredGuards: true },
+          })
+        : [],
+      crmAccountIds.length > 0
+        ? prisma.crmAccount.findMany({
+            where: { tenantId, id: { in: crmAccountIds } },
+            select: { id: true, name: true },
+          })
+        : [],
+      listMaterializedOccurrences(
+        tenantId,
+        range.from,
+        range.to,
+        items.map((i) => i.id),
+      ),
+    ]);
+  const installationNameById = new Map(installations.map((i) => [i.id, i.name]));
+  const headcountByInstallation = new Map<string, number>(
+    headcountRows.map((r) => [r.installationId, r._sum.requiredGuards ?? 0]),
   );
+  const crmAccountNameById = new Map(crmAccounts.map((a) => [a.id, a.name]));
 
   // ── Reajuste IPC esperado (items CLP con hasIpcAdjustment=true) ──
   // Pre-cargamos TODO el historial de ajustes APPLIED por item, ordenado
