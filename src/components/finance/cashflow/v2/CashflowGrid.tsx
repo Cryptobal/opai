@@ -341,6 +341,8 @@ export function CashflowGrid({
                 bucketMeta={bucketMeta}
                 advanced={advanced}
                 onAmountSaved={refreshAll}
+                isMobile={isMobile}
+                editableAmounts={false}
               />
               <GridSection
                 label="Egresos"
@@ -352,6 +354,8 @@ export function CashflowGrid({
                 bucketMeta={bucketMeta}
                 advanced={advanced}
                 onAmountSaved={refreshAll}
+                isMobile={isMobile}
+                editableAmounts
               />
               <GridBalanceRow
                 buckets={visibleBuckets}

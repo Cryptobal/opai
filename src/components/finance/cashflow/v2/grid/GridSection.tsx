@@ -25,6 +25,8 @@ export function GridSection({
   bucketMeta,
   advanced,
   onAmountSaved,
+  isMobile,
+  editableAmounts,
 }: {
   label: string;
   tone: "ok" | "warn";
@@ -35,6 +37,10 @@ export function GridSection({
   bucketMeta?: Map<string, BucketMeta>;
   advanced?: boolean;
   onAmountSaved?: () => void;
+  /** Móvil: editar por tap + lápiz de affordance en las celdas editables. */
+  isMobile?: boolean;
+  /** La sección admite editar montos (solo Egresos; ver GridCell). */
+  editableAmounts?: boolean;
 }) {
   const totals = sectionBucketTotals(rows, buckets);
   const headTone =
@@ -75,6 +81,8 @@ export function GridSection({
             bucketMeta={bucketMeta}
             advanced={advanced}
             onAmountSaved={onAmountSaved}
+            isMobile={isMobile}
+            editableAmounts={editableAmounts}
           />
         ))
       )}
