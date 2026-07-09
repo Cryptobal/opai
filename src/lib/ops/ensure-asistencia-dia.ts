@@ -14,6 +14,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { computeAttendanceMetrics } from "@/lib/ops-attendance";
+import { projectActiveSeriesToPauta } from "./project-serie-to-pauta";
 import {
   ABSENCE_CODES,
   buildEffectiveShiftCode,
@@ -30,6 +31,12 @@ export async function ensureAsistenciaDia(params: {
   const { tenantId, date } = params;
   const installationFilter = installationFilterFor(params.installationId);
   const createdBy = params.createdBy ?? null;
+
+  // Proyecta la serie activa sobre celdas sin pintar ANTES de leer la pauta, para
+  // que la fuente de verdad sea única entre web y cron: si nadie abrió la vista
+  // mensual, las celdas siguen en shiftCode=null y loadPautaForDate no las vería.
+  // Idempotente (createMany skipDuplicates + updateMany sobre shiftCode=null).
+  await projectActiveSeriesToPauta({ tenantId, installationId: params.installationId, date });
 
   // Auto-create asistencia rows from pauta mensual
   // Días con shiftCode="T" (trabajo) + ausencias (V/L/PCG/PSG) generan filas.

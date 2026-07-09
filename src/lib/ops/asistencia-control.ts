@@ -7,6 +7,7 @@
  * el estado que corresponde y rechaza los que no.
  */
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 
@@ -21,7 +22,12 @@ interface BaseParams {
 }
 
 export interface MarcarEnCaminoParams extends BaseParams {
-  resultado: ContactoResultado;
+  /**
+   * Resultado del contacto de central con el entrante. Opcional: el botón
+   * "En camino" ya deja la fila en `en_camino`; el resultado solo agrega la
+   * bitácora en `OpsContactoCentral` si el operador efectivamente contactó.
+   */
+  resultado?: ContactoResultado | null;
   minutosAtraso?: number | null;
   comentario?: string | null;
   origen?: ControlOrigen;
@@ -48,8 +54,9 @@ async function loadAsistencia(tenantId: string, asistenciaId: string) {
 }
 
 /**
- * Registra un llamado de central al entrante. Cualquier resultado deja la fila
- * en `en_camino` (la llegada se confirma aparte) y agrega una fila al historial.
+ * Marca al entrante como "en camino". El estado se setea siempre; el resultado
+ * del contacto de central es opcional y, si está presente, agrega una fila al
+ * historial (`OpsContactoCentral`). Sin resultado no se crea bitácora.
  */
 export async function marcarEnCamino(
   params: MarcarEnCaminoParams,
@@ -58,30 +65,37 @@ export async function marcarEnCamino(
   if (!asistencia) return { ok: false, error: "No se encontró la asistencia." };
   if (!OPEN_STATES.has(asistencia.attendanceStatus)) return { ok: false, error: `Estado no intervenible: "${asistencia.attendanceStatus}".` };
 
+  const resultado = params.resultado ?? null;
   const now = new Date();
-  await prisma.$transaction([
+  const ops: Prisma.PrismaPromise<unknown>[] = [
     prisma.opsAsistenciaDiaria.update({
       where: { id: asistencia.id },
       data: {
         attendanceStatus: "en_camino",
         contactoCentralAt: now,
         contactoCentralBy: params.operadorName ?? params.operadorId ?? null,
-        contactoCentralResultado: params.resultado,
+        contactoCentralResultado: resultado,
       },
     }),
-    prisma.opsContactoCentral.create({
-      data: {
-        tenantId: params.tenantId,
-        asistenciaId: asistencia.id,
-        resultado: params.resultado,
-        minutosAtraso: params.minutosAtraso ?? null,
-        comentario: params.comentario ?? null,
-        operadorId: params.operadorId ?? null,
-        operadorName: params.operadorName ?? null,
-        origen: params.origen ?? "slack",
-      },
-    }),
-  ]);
+  ];
+  // La bitácora de contacto solo se registra si hubo contacto efectivo.
+  if (resultado) {
+    ops.push(
+      prisma.opsContactoCentral.create({
+        data: {
+          tenantId: params.tenantId,
+          asistenciaId: asistencia.id,
+          resultado,
+          minutosAtraso: params.minutosAtraso ?? null,
+          comentario: params.comentario ?? null,
+          operadorId: params.operadorId ?? null,
+          operadorName: params.operadorName ?? null,
+          origen: params.origen ?? "slack",
+        },
+      }),
+    );
+  }
+  await prisma.$transaction(ops);
 
   await logAudit({
     action: "UPDATE",
@@ -89,7 +103,7 @@ export async function marcarEnCamino(
     entityId: asistencia.id,
     tenantId: params.tenantId,
     userId: params.operadorId ?? null,
-    details: { via: params.origen ?? "slack", op: "en_camino", resultado: params.resultado, minutosAtraso: params.minutosAtraso ?? null },
+    details: { via: params.origen ?? "slack", op: "en_camino", resultado, minutosAtraso: params.minutosAtraso ?? null },
   }).catch(() => {});
 
   return { ok: true, attendanceStatus: "en_camino", installationId: asistencia.installationId, date: asistencia.date };
