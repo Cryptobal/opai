@@ -130,11 +130,14 @@ export function CashflowGrid({
     refresh: refreshAll,
   });
 
-  // Sensors: puntero (mouse + touch) con activación por distancia para no
-  // disparar drag en taps, y teclado (dnd-kit maneja Space/flechas → mover con
-  // teclado, cubriendo accesibilidad sin botones de flecha en cada celda).
+  // Sensors: puntero (mouse + touch) con activación por long-press (delay +
+  // tolerance) para NO secuestrar el scroll táctil de la grilla. Un scroll
+  // rápido no alcanza los 200ms; si el dedo se mueve >8px antes del delay se
+  // cancela (es scroll, no drag). Teclado para accesibilidad (Space/flechas).
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(PointerSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    }),
     useSensor(KeyboardSensor),
   );
   const [activeDrag, setActiveDrag] = useState<GridDragData | null>(null);
