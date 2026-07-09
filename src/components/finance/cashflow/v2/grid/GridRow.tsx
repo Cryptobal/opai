@@ -2,14 +2,14 @@
 
 import { cn } from "@/lib/utils";
 import type { ProjectionBucket } from "@/modules/finance/cashflow/types";
-import { fmt } from "@/components/finance/cashflow/MatrixHelpers";
-import { rowLabels, type GridItemRow } from "./grid-helpers";
+import { GridChip } from "./GridChip";
+import { cellChip, rowLabels, type GridItemRow } from "./grid-helpers";
 
 /**
  * Fila de la grilla para una línea de contrato/instalación. Columna cliente
  * sticky (cliente + tag instalación/nickname + badge UF) y una celda por
- * semana con el monto proyectado. Los chips con estado por color y el arrastre
- * se agregan en B3/B4.
+ * semana con el chip de cuota (color por etapa del DTE). El arrastre se cablea
+ * en B4.
  */
 export function GridRow({
   row,
@@ -36,12 +36,13 @@ export function GridRow({
           )}
         </div>
         {tag && (
-          <div className="truncate text-[11px] text-ds-text-3">{tag}</div>
+          <div className="truncate text-[12px] text-ds-text-3">{tag}</div>
         )}
       </td>
       {buckets.map((b, i) => {
         const value = row.valueByBucket.get(b.key);
         const amount = value?.amount ?? 0;
+        const chip = value ? cellChip(value, row.item.source) : null;
         return (
           <td
             key={b.key}
@@ -50,10 +51,14 @@ export function GridRow({
               i === currentIdx && "bg-primary/[0.04]",
             )}
           >
-            {amount !== 0 ? (
-              <span className="font-mono text-[12px] tabular-nums text-ds-text-2">
-                {fmt.format(amount)}
-              </span>
+            {amount !== 0 && chip ? (
+              <GridChip
+                amount={amount}
+                variant={chip.variant}
+                locked={chip.locked}
+                draggable={chip.draggable}
+                title={chip.title}
+              />
             ) : (
               <span className="text-[12px] text-ds-text-4">·</span>
             )}

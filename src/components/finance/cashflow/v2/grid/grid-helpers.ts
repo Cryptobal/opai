@@ -6,6 +6,10 @@ import type {
   ProjectionRowItemDetail,
   ProjectionRowItemValue,
 } from "@/modules/finance/cashflow/types";
+import {
+  pillVariantFor,
+  type PillVariant,
+} from "@/components/finance/cashflow/CellStatusPill";
 import { toDate } from "../format";
 
 /** Una fila de la grilla = una línea de contrato/instalación (item). Se aplana
@@ -135,4 +139,46 @@ export const SYSTEM_SOURCES: ReadonlySet<FinanceCashflowItemSource> = new Set([
 /** ¿La cuota de este item (por su source) admite arrastre? */
 export function isDraggableSource(source: FinanceCashflowItemSource): boolean {
   return !SYSTEM_SOURCES.has(source);
+}
+
+const VARIANT_TITLE: Record<PillVariant, string> = {
+  PROJECTED: "Programada",
+  DRAFT: "Borrador",
+  INVOICED: "Facturada",
+  FACTORING: "Factorizada",
+  FACTORING_COLLECTED: "Factorizada · cobrada",
+  PAID: "Pagada",
+  OVERDUE: "Vencida",
+  VOIDED: "Anulada",
+};
+
+/** Estado visual + affordances de una celda con cuota: color (variant),
+ *  candado (pagada = fija), si admite arrastre (no pagada + source arrastrable)
+ *  y un título humano para el hover. El bloqueo por semana cerrada lo aplica
+ *  el padre (B5), que sí conoce el anchor. */
+export interface CellChip {
+  variant: PillVariant;
+  locked: boolean;
+  draggable: boolean;
+  title: string;
+}
+
+export function cellChip(
+  value: ProjectionRowItemValue,
+  source: FinanceCashflowItemSource,
+): CellChip {
+  const status = value.cellStatus ?? "PROJECTED";
+  const variant = pillVariantFor({
+    cellStatus: status,
+    daysOverdue: value.daysOverdue,
+    factoringCollected: value.dtes?.some((d) => d.factoringCollected),
+  });
+  const locked = status === "PAID";
+  const draggable = !locked && isDraggableSource(source);
+  let title = VARIANT_TITLE[variant];
+  if (variant === "OVERDUE" && value.daysOverdue) {
+    title += ` · ${value.daysOverdue}d de mora`;
+  }
+  if (value.dteFolio) title += ` · N° ${value.dteFolio}`;
+  return { variant, locked, draggable, title };
 }
