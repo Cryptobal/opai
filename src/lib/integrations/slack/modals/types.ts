@@ -79,6 +79,11 @@ export interface ModalMetadata {
   // Buscador universal de negocios (Fase 21).
   q?: string; // texto buscado
   dscope?: string; // alcance: open | won | lost | all
+  // Turno extra desde el flujo de relevo: contexto derivado de la asistencia
+  // (entityId = asistenciaId). Opcionales: el modo standalone no los usa.
+  teInstallationId?: string; // instalación derivada de la asistencia
+  tePuestoId?: string; // puesto derivado de la asistencia
+  teDate?: string; // fecha del turno (YYYY-MM-DD) derivada de la asistencia
 }
 
 export interface ModalSubmitContext {

@@ -48,13 +48,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result.ack);
   }
 
-  // block_suggestion: opciones del external_select (buscador de "Guardar en
-  // OPAI"). Respuesta SÍNCRONA con { options } en <3s.
+  // block_suggestion: opciones del external_select. Respuesta SÍNCRONA con
+  // { options } en <3s. Se discrimina por el callback_id del view: el buscador
+  // de guardias del turno extra vs el buscador de entidad de "Guardar en OPAI".
   if (payload.type === "block_suggestion") {
     let options: { options: unknown[] } = { options: [] };
     try {
-      const { handleSaveNoteSuggestion } = await import("@/lib/integrations/slack/deal-rooms/save-note");
-      options = await handleSaveNoteSuggestion(payload as never);
+      const callbackId = (payload.view as { callback_id?: string } | undefined)?.callback_id;
+      if (callbackId === "opai_turno_extra") {
+        const { handleTurnoExtraGuardiaSuggestion } = await import("@/lib/integrations/slack/actions/turno-extra");
+        options = await handleTurnoExtraGuardiaSuggestion(payload as never);
+      } else {
+        const { handleSaveNoteSuggestion } = await import("@/lib/integrations/slack/deal-rooms/save-note");
+        options = await handleSaveNoteSuggestion(payload as never);
+      }
     } catch (err) {
       console.error("[slack] block_suggestion falló:", err);
     }
