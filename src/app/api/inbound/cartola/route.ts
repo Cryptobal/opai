@@ -47,6 +47,7 @@ import {
   type ParsedBankTransaction,
 } from "@/modules/finance/banking/santander-parser";
 import { importBankTransactions } from "@/modules/finance/banking/bank-transaction.service";
+import { buildBankMovementsSlackData } from "@/modules/finance/banking/slack-movements-payload";
 import { notify } from "@/lib/notifications/notify";
 import { buildBankMovementsBody } from "@/lib/finance/bank-movements-summary";
 
@@ -345,13 +346,41 @@ export async function POST(request: NextRequest) {
   try {
     const accountLabel = `${targetAccount.bankName} ${targetAccount.accountNumber}`;
     const skipped = totalInFile - totalImported;
+    const summary = `${totalImported} de ${totalInFile} movimientos${skipped > 0 ? ` · ${skipped} omitidos por duplicados` : ""} en cta. ${targetAccount.accountNumber}`;
     const body =
       totalImported > 0
-        ? buildBankMovementsBody({
-            summary: `${totalImported} de ${totalInFile} movimientos${skipped > 0 ? ` · ${skipped} omitidos por duplicados` : ""} en cta. ${targetAccount.accountNumber}`,
-            movements: allMovements,
-          })
+        ? buildBankMovementsBody({ summary, movements: allMovements })
         : `Cartola recibida sin movimientos nuevos (${totalInFile} ya estaban importados).`;
+
+    // Blocks interactivos de conciliación (best-effort): tomamos las filas
+    // recién insertadas (las más nuevas por createdAt) para tener sus ids DB,
+    // computamos el match exacto y adjuntamos `__customBlocks`. Si algo falla,
+    // `notify` sigue con el texto plano — nunca rompemos el 200 al provider.
+    let slackData: Record<string, unknown> = {};
+    if (totalImported > 0) {
+      try {
+        const inserted = await prisma.financeBankTransaction.findMany({
+          where: { tenantId, bankAccountId: targetAccount.id },
+          orderBy: { createdAt: "desc" },
+          take: totalImported,
+          select: { id: true, transactionDate: true, description: true, amount: true },
+        });
+        slackData = await buildBankMovementsSlackData(
+          tenantId,
+          accountLabel,
+          summary,
+          inserted.map((t) => ({
+            id: t.id,
+            transactionDate: t.transactionDate.toISOString().slice(0, 10),
+            description: t.description,
+            amount: t.amount.toNumber(),
+          })),
+        );
+      } catch (blocksErr) {
+        console.error("[inbound/cartola] blocks conciliación error:", blocksErr);
+      }
+    }
+
     await notify({
       tenantId,
       type: "bank_cartola_received",
@@ -360,9 +389,11 @@ export async function POST(request: NextRequest) {
       link: "/finanzas/bancos?tab=transactions",
       // Detalle (fecha · descripción · monto) va en el cuerpo; bankAccountId no
       // se renderiza como campo (blacklist). emailId solo para trazabilidad.
+      // __customBlocks/__customText solo afectan el render del canal compartido.
       data: {
         bankAccountId: targetAccount.id,
         emailId,
+        ...slackData,
       },
     });
   } catch (notifyErr) {

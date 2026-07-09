@@ -302,6 +302,25 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     return;
   }
 
+  // Conciliación de movimientos bancarios desde la tarjeta (Caso A + undo).
+  // `value` NO es un pendingId (confirm trae JSON {txId,dteId}), así que se
+  // despacha ANTES del bloque genérico de pendingId.
+  if (actionId === "bankreconc_confirm") {
+    const { handleBankReconcileConfirm } = await import("./actions/bank-reconcile");
+    await handleBankReconcileConfirm(payload as never);
+    return;
+  }
+  if (actionId === "bankreconc_undo") {
+    const { handleBankReconcileUndo } = await import("./actions/bank-reconcile");
+    await handleBankReconcileUndo(payload as never);
+    return;
+  }
+  if (actionId === "bankreconc_manual") {
+    const { handleBankReconcileManual } = await import("./actions/bank-reconcile-modal");
+    await handleBankReconcileManual(payload as never);
+    return;
+  }
+
   if (!teamId || !slackUserId || !actionId || !pendingId) return;
 
   const resolved = await getTenantForTeam(teamId);

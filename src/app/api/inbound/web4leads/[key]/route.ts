@@ -39,6 +39,7 @@ import {
 } from "@/modules/finance/banking/web4leads-inbox";
 import { notify } from "@/lib/notifications/notify";
 import { buildBankMovementsBody } from "@/lib/finance/bank-movements-summary";
+import { buildBankMovementsSlackData } from "@/modules/finance/banking/slack-movements-payload";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -271,20 +272,53 @@ export async function POST(
 
   // 8. Notificación (fire-and-forget; un fallo no debe romper el 200)
   if (imported > 0) {
+    const summary = `${imported} movimiento(s) en cta. ${account.accountNumber}${duplicates > 0 ? ` · ${duplicates} duplicados ignorados` : ""}`;
+
+    // Blocks interactivos de conciliación (best-effort): tomamos las filas
+    // recién insertadas (las más nuevas por createdAt) para tener sus ids DB,
+    // computamos el match exacto y adjuntamos `__customBlocks`. Si algo falla,
+    // `notify` sigue con el texto plano de siempre — nunca rompemos el webhook.
+    // Nota: los blocks listan solo los movimientos NUEVOS (accionables); el
+    // cuerpo de texto de fallback sigue listando todo el lote.
+    let slackData: Record<string, unknown> = {};
+    try {
+      const inserted = await prisma.financeBankTransaction.findMany({
+        where: { tenantId, bankAccountId: account.id },
+        orderBy: { createdAt: "desc" },
+        take: imported,
+        select: { id: true, transactionDate: true, description: true, amount: true },
+      });
+      slackData = await buildBankMovementsSlackData(
+        tenantId,
+        `${account.bankName} ${account.accountNumber}`,
+        summary,
+        inserted.map((t) => ({
+          id: t.id,
+          transactionDate: t.transactionDate.toISOString().slice(0, 10),
+          description: t.description,
+          amount: t.amount.toNumber(),
+        })),
+      );
+    } catch (blocksErr) {
+      console.error("[inbound/web4leads] blocks conciliación error:", blocksErr);
+    }
+
     try {
       await notify({
         tenantId,
         type: "bank_cartola_received",
         title: `Movimientos bancarios recibidos — ${account.bankName}`,
         body: buildBankMovementsBody({
-          summary: `${imported} movimiento(s) en cta. ${account.accountNumber}${duplicates > 0 ? ` · ${duplicates} duplicados ignorados` : ""}`,
+          summary,
           movements: payload.movements,
         }),
         link: "/finanzas/bancos?tab=transactions",
         // Sin provider/imported/duplicates en data: el detalle ya va en el cuerpo
         // (fecha · descripción · monto). bankAccountId no se renderiza (blacklist).
+        // __customBlocks/__customText solo afectan el render del canal compartido.
         data: {
           bankAccountId: account.id,
+          ...slackData,
         },
       });
     } catch (err) {
