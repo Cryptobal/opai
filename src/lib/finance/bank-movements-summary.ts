@@ -22,14 +22,16 @@ const MAX_LINES = 8;
 /** Recorte de la descripción por línea (Slack ya limita el body a ~2900). */
 const DESC_MAX = 60;
 
-/** "2026-07-07" → "07/07". Trabaja sobre el string, no sobre un Date, a propósito. */
-function shortDate(iso: string): string {
+/** "2026-07-07" → "07/07". Trabaja sobre el string, no sobre un Date, a propósito.
+ *  Exportada para reusar en el builder de Block Kit de conciliación (sin duplicar). */
+export function shortDate(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   return m ? `${m[3]}/${m[2]}` : iso;
 }
 
-/** Monto con signo explícito: 800000 → "+$800.000", -434567 → "−$434.567". */
-function signedCLP(amount: number): string {
+/** Monto con signo explícito: 800000 → "+$800.000", -434567 → "−$434.567".
+ *  Exportada para reusar en el builder de Block Kit de conciliación (sin duplicar). */
+export function signedCLP(amount: number): string {
   const abs = formatCLP(Math.abs(amount));
   return amount < 0 ? `−${abs}` : `+${abs}`;
 }
