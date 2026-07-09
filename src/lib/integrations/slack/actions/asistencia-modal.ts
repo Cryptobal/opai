@@ -12,7 +12,7 @@ import { packMetadata } from "../modals/views";
 import { modalTitle } from "../modals/title";
 import type { ModalDef, ModalOpenContext, ModalSubmitContext, ModalSubmitResult, SlackView } from "../modals/types";
 
-const TITLE = "En camino";
+const TITLE = "Contacto central";
 const pt = (text: string) => ({ type: "plain_text", text: text.slice(0, 75) });
 const opt = (value: string, label: string) => ({ text: pt(label), value });
 const fieldError = (block: string, msg: string): ModalSubmitResult => ({
@@ -35,10 +35,11 @@ function build(ctx: ModalOpenContext): SlackView {
     close: pt("Cancelar"),
     private_metadata: packMetadata({ kind: "asist_camino", entityId: asistenciaId }),
     blocks: [
-      { type: "context", elements: [{ type: "mrkdwn", text: "Resultado del llamado al guardia entrante." }] },
+      { type: "context", elements: [{ type: "mrkdwn", text: "Guardia marcado en camino. Registra el contacto con central (opcional)." }] },
       {
         type: "input",
         block_id: "resultado",
+        optional: true,
         label: pt("Resultado"),
         element: { type: "static_select", action_id: "v", options: RESULTADO_OPTS },
       },
@@ -62,13 +63,14 @@ function build(ctx: ModalOpenContext): SlackView {
 
 async function submit(ctx: ModalSubmitContext): Promise<ModalSubmitResult> {
   const asistenciaId = ctx.metadata.entityId;
-  const resultado = ctx.state.resultado?.v?.selected_option?.value as ContactoResultado | undefined;
+  const resultado = (ctx.state.resultado?.v?.selected_option?.value as ContactoResultado | undefined) ?? null;
   const minutosStr = (ctx.state.minutos?.v?.value ?? "").trim();
   const comentario = (ctx.state.comentario?.v?.value ?? "").trim() || null;
   if (!asistenciaId) return { ack: {} };
-  if (!resultado) return fieldError("resultado", "Elige un resultado.");
+  // El resultado es opcional: el guardia ya quedó "en camino" por el botón.
+  // Sin resultado no se persiste bitácora, así que minutos/comentario se ignoran.
   let minutosAtraso: number | null = null;
-  if (minutosStr) {
+  if (resultado && minutosStr) {
     const n = parseInt(minutosStr, 10);
     if (Number.isNaN(n) || n < 0) return fieldError("minutos", "Ingresa un número de minutos válido.");
     minutosAtraso = n;
