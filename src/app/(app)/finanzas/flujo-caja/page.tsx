@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, hasCapability } from "@/lib/permissions-server";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { Settings, ArrowLeftRight } from "lucide-react";
 import Link from "next/link";
 import { getOrCreateCashflowConfig } from "@/modules/finance/cashflow/config.service";
@@ -31,11 +32,14 @@ export default async function FlujoCajaPage({
   const canConfigure = hasCapability(perms, "cashflow_configure");
 
   // Self-heal: si detectamos drift entre datos fuente (quotes, dotación,
-  // templates DTE) y items materializados, sincroniza inline ANTES de
-  // construir la proyección. Idempotente y barato cuando ya está OK
-  // (~50ms de counts); paga ~2-5s solo en el primer load post-deploy.
-  // El cron nightly cubre IVA/TURNOS_EXTRA y refresh de montos.
-  await ensureCashflowSynced(tenantId);
+  // templates DTE) y items materializados, sincroniza silenciosamente. Se
+  // agenda con `after()` para correr DESPUÉS de emitir el render y no
+  // bloquear el primer paint (antes se hacía inline y pagaba ~2-5s en el
+  // primer load post-deploy). Idempotente y best-effort: nunca lanza al
+  // caller y su retorno se descarta, así que sacarlo del camino crítico no
+  // cambia lo que se pinta. El cron nightly cubre IVA/TURNOS_EXTRA y refresh
+  // de montos; la proyección de este render usa los datos ya materializados.
+  after(() => ensureCashflowSynced(tenantId));
 
   const weeks = Math.max(8, Math.min(104, Number(sp.weeks) || config.horizonWeeksDefault));
   // Permite ver historia: ?weeksBack=N retrocede el origen N semanas para
