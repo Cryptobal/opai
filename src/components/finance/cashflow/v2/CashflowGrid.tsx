@@ -128,7 +128,7 @@ export function CashflowGrid({
     router.refresh();
   }, [refresh, router]);
 
-  const { move, undoPayload, clearUndo } = useGridMove({
+  const { move, moveGroup, undoPayload, clearUndo } = useGridMove({
     buckets,
     refresh: refreshAll,
   });
@@ -169,6 +169,34 @@ export function CashflowGrid({
     // Solo destino válido: otra semana de la MISMA fila.
     if (over.itemId !== drag.itemId) return;
     if (over.bucketKey === drag.fromBucketKey) return;
+    // Fila de egreso agrupado: se mueven TODAS las instalaciones de esa semana
+    // juntas ("los sueldos se pagan todos juntos"). Las pagadas quedan fijas.
+    if (drag.itemId?.startsWith("_group:")) {
+      const groupRow = expenseGridRows.find(
+        (r) => r.item.itemId === drag.itemId,
+      );
+      const ids =
+        groupRow?.group?.occurrenceIdsByBucket.get(drag.fromBucketKey) ?? [];
+      if (ids.length === 0) return;
+      const source = groupRow?.group?.source;
+      const fromBucket = buckets.find((b) => b.key === drag.fromBucketKey);
+      const skippedPaid =
+        source && fromBucket
+          ? fromBucket.occurrences.filter(
+              (o) =>
+                o.source === source &&
+                (o.status === "PAID" || o.bankTransactionId !== null),
+            ).length
+          : 0;
+      void moveGroup({
+        occurrenceIds: ids,
+        label: groupRow?.item.itemName ?? "Egresos",
+        fromBucketKey: drag.fromBucketKey,
+        toBucketKey: over.bucketKey,
+        skippedPaid,
+      });
+      return;
+    }
     // Si la celda origen tiene más de una cuota movible, no adivinamos cuál:
     // abrimos el selector. Con 0/1 movible se mueve directo (comportamiento
     // original — la representativa es la única candidata).

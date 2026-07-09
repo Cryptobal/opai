@@ -143,15 +143,14 @@ export function isoWeek(date: Date): number {
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
 }
 
-/** Egresos del sistema (payroll, previred, IVA, turnos extra, quincena, retiro
- *  de socios): se muestran pero no se arrastran — su fecha la manda la
- *  configuración/cron, no un gesto de la planilla. */
+/** Egresos del sistema no arrastrables — su fecha la manda la configuración/cron
+ *  y el usuario no pidió moverlos (IVA, quincena, retiro socios).
+ *  Sueldos/previred/turnos SÍ son arrastrables: se pagan/aplazan en días
+ *  distintos y se mueven como grupo entre semanas (B4A). El source legacy
+ *  PAYROLL (virtual, sin item) sigue fijo. */
 export const SYSTEM_SOURCES: ReadonlySet<FinanceCashflowItemSource> = new Set([
   "PAYROLL",
-  "PAYROLL_LIQUIDO",
-  "PAYROLL_PREVIRED",
   "IVA",
-  "TURNOS_EXTRA",
   "QUINCENA",
   "RETIRO_SOCIO",
 ]);
