@@ -36,11 +36,16 @@ export default function PortalAccesoLayout({ children }: { children: React.React
         // document past `min-h-dvh`) fixes the low-end Android/Samsung bug where
         // the bottom controls were only reachable by swiping up from the very
         // bottom edge of the screen.
-        height: '100dvh',
-        overflowY: 'auto',
-        WebkitOverflowScrolling: 'touch',
-        overscrollBehaviorY: 'contain',
+        // En Acceso el scroll lo posee el componente (AccessPortalApp fija su
+        // shell a 100svh y su <main> aporta el overflow-y-auto). Para no crear
+        // un segundo contexto de scroll que compita en Android, este layout NO
+        // scrollea (overflowY:visible); solo aporta altura estable (100svh) y
+        // las safe-areas.
+        height: '100svh',
+        minHeight: '100svh',
+        overflowY: 'visible',
         paddingTop: 'var(--safe-area-top)',
+        paddingBottom: 'var(--safe-area-bottom)',
       }}
     >
       <ServiceWorkerRegistrar scope="/portal/acceso" />
