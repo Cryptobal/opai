@@ -1,29 +1,31 @@
 /**
- * Caso B — asignación manual de cuenta contable a un movimiento sin match.
+ * Caso B — asignación manual de un movimiento sin match a una CATEGORÍA de
+ * flujo de caja (Arriendo, Sueldo, Turno Extra, Proveedor, IVA F29…).
  *
- *  - `bankreconc_manual` (block_action): abre un modal con un buscador
- *     (external_select) del plan de cuentas del tenant.
- *  - `block_suggestion` (callback_id bankreconc_assign_account): alimenta ese
- *     buscador filtrando por code/name.
+ *  - `bankreconc_manual` (block_action): abre un modal con un `static_select`
+ *     agrupado (Ingresos / Egresos) de las categorías activas del tenant.
  *
- * El `view_submission` del modal vive en `bank-reconcile-assign.ts`.
+ * El `view_submission` del modal vive en `bank-reconcile-assign.ts` y delega
+ * en el motor `assignBankTxToCategory` (regla "el real consume el proyectado").
  *
- * external_select (no static): el plan de cuentas con `acceptsEntries` puede
- * superar el tope de 100 opciones de un static_select en tenants reales (el
- * plan CL por defecto ya trae 66), así que se filtra server-side por término.
+ * static_select (no external): con ~20-25 categorías por tenant, el estático
+ * las carga TODAS sin búsqueda dinámica — elimina de raíz el `external_select`
+ * que fallaba con "Ocurrió un problema al cargar las opciones". Umbral: Slack
+ * admite ~100 options por select (y por grupo); si un tenant superara ~90
+ * categorías habría que volver a un buscador — no aplica a este catálogo.
  */
 
 import { prisma } from "@/lib/prisma";
 import { shortDate, signedCLP } from "@/lib/finance/bank-movements-summary";
 import { slackOpenView } from "../api";
-import { getTenantForTeam } from "../workspace";
 import { modalTitle } from "../modals/title";
 import { resolveBankReconcileActor, type BankReconcilePayload } from "./bank-reconcile-context";
 
 const CALLBACK_ID = "bankreconc_assign_account";
+const MAX_OPTIONS_PER_GROUP = 90; // margen bajo el tope práctico (~100) de Slack.
 const pt = (text: string) => ({ type: "plain_text" as const, text: text.slice(0, 75), emoji: true });
 
-/** Abre el modal de asignación manual (Caso B). */
+/** Abre el modal de asignación manual a categoría de flujo de caja (Caso B). */
 export async function handleBankReconcileManual(payload: BankReconcilePayload): Promise<void> {
   const actor = await resolveBankReconcileActor(payload);
   if (!actor || !payload.trigger_id) return;
@@ -36,12 +38,28 @@ export async function handleBankReconcileManual(payload: BankReconcilePayload): 
   });
   if (!tx) return;
 
+  const categories = await prisma.financeCashflowCategory.findMany({
+    where: { tenantId: actor.tenantId, isActive: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, kind: true },
+  });
+  const toOption = (c: { id: string; name: string }) => ({ text: pt(c.name), value: c.id });
+  const optionGroups = [
+    { label: pt("Ingresos"), kind: "INCOME" as const },
+    { label: pt("Egresos"), kind: "EXPENSE" as const },
+  ]
+    .map((g) => ({
+      label: g.label,
+      options: categories.filter((c) => c.kind === g.kind).slice(0, MAX_OPTIONS_PER_GROUP).map(toOption),
+    }))
+    .filter((g) => g.options.length > 0);
+
   const line = `*${shortDate(tx.transactionDate.toISOString().slice(0, 10))}*  ${tx.description.trim().slice(0, 120)}  ·  *${signedCLP(tx.amount.toNumber())}*`;
   const view = {
     type: "modal",
     callback_id: CALLBACK_ID,
-    title: modalTitle("Asignar cuenta"),
-    submit: pt("Conciliar"),
+    title: modalTitle("Asignar a flujo de caja"),
+    submit: pt("Asignar"),
     close: pt("Cancelar"),
     private_metadata: JSON.stringify({
       txId,
@@ -52,13 +70,13 @@ export async function handleBankReconcileManual(payload: BankReconcilePayload): 
       { type: "section", text: { type: "mrkdwn", text: line } },
       {
         type: "input",
-        block_id: "account",
-        label: pt("Cuenta contable"),
+        block_id: "category",
+        label: pt("Categoría"),
         element: {
-          type: "external_select",
+          type: "static_select",
           action_id: "v",
-          min_query_length: 2,
-          placeholder: pt("Busca por código o nombre…"),
+          placeholder: pt("Elegí una categoría…"),
+          option_groups: optionGroups,
         },
       },
     ],
@@ -66,35 +84,4 @@ export async function handleBankReconcileManual(payload: BankReconcilePayload): 
   await slackOpenView(actor.workspace.botToken, payload.trigger_id, view).catch((e) =>
     console.error("[bankreconc] views.open falló:", e),
   );
-}
-
-/** Opciones del external_select: plan de cuentas activo con acceptsEntries. */
-export async function handleBankReconcileAccountSuggestion(
-  payload: { team?: { id?: string }; value?: string },
-): Promise<{ options: unknown[] }> {
-  const teamId = payload.team?.id;
-  if (!teamId) return { options: [] };
-  const tenant = await getTenantForTeam(teamId);
-  if (!tenant) return { options: [] };
-
-  const term = (payload.value ?? "").trim();
-  const accounts = await prisma.financeAccountPlan.findMany({
-    where: {
-      tenantId: tenant.tenantId,
-      isActive: true,
-      acceptsEntries: true,
-      ...(term
-        ? { OR: [{ code: { contains: term, mode: "insensitive" } }, { name: { contains: term, mode: "insensitive" } }] }
-        : {}),
-    },
-    orderBy: { code: "asc" },
-    // Slack tope 100 opciones/external_select; 50 deja margen y evita payloads
-    // grandes que Slack rechaza con "no se pudieron cargar las opciones". Con
-    // min_query_length:2 el término ya acota, así que 50 alcanza de sobra.
-    take: 50,
-    select: { id: true, code: true, name: true },
-  });
-  return {
-    options: accounts.map((a) => ({ text: pt(`${a.code} · ${a.name}`), value: a.id })),
-  };
 }
