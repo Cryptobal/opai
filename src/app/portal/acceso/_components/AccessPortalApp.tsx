@@ -456,7 +456,10 @@ export function AccessPortalApp() {
         onChangeGuard={handleChangeGuard}
       />
 
-      <main className="flex-1 overflow-y-auto px-4 pb-28 pt-2">
+      <main
+        className="flex-1 overflow-y-auto px-4 pb-28 pt-2"
+        style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorY: "contain" }}
+      >
         {activeTab === "inicio" && (
           <InicioTab
             installationId={device.installationId}
