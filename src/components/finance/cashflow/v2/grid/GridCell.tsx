@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -64,6 +64,9 @@ export function GridCell({
   editableAmounts?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
+  // Timestamp del último tap para detectar el doble-tap en móvil (ver comentario
+  // sobre los disparadores de edición más abajo).
+  const lastTapRef = useRef(0);
   const amount = value?.amount ?? 0;
   const chip = value ? cellChip(value, source) : null;
   const canDrag = dndEnabled && !closed && amount !== 0 && !!chip?.draggable;
@@ -94,17 +97,30 @@ export function GridCell({
 
   const hasOverride = value?.hasAmountOverride ?? false;
 
-  // Disparadores de edición según dispositivo:
-  //  - Desktop: doble-clic (gesto que no colisiona con el drag por single-click).
-  //  - Móvil: tap corto sobre la casilla. El drag se activa con long-press (delay
-  //    200ms + movimiento), así que un tap que suelta sin moverse NO arranca el
-  //    arrastre y cae en este onClick → abre el editor. El área tocable es la
-  //    celda completa (≥44px), con un lápiz neutro como affordance.
+  // Disparadores de edición según dispositivo. La regla de gestos en móvil es:
+  //  - tap corto  → nada (evita aperturas accidentales por roces).
+  //  - long-press → arrastrar la cuota (drag: delay 180ms + movimiento).
+  //  - doble-tap  → editar el monto (abre el modal), análogo al doble-clic de
+  //    desktop pero adaptado a touch.
+  // Desktop: doble-clic (no colisiona con el drag, que es single-click + arrastre).
+  // El doble-tap se detecta comparando el tap actual con el anterior dentro de
+  // una ventana de ~300ms sobre la misma casilla; un tap suelto sin movimiento
+  // no arranca el drag (no alcanza el long-press) y cae en este handler.
+  function handleMobileTap() {
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      lastTapRef.current = 0;
+      setEditing(true);
+    } else {
+      lastTapRef.current = now;
+    }
+  }
+
   return (
     <td
       ref={setDropRef}
       onDoubleClick={!isMobile && canEdit ? () => setEditing(true) : undefined}
-      onClick={isMobile && canEdit ? () => setEditing(true) : undefined}
+      onClick={isMobile && canEdit ? handleMobileTap : undefined}
       className={cn(
         "relative border-l border-ds-border-subtle px-1.5 py-1.5 text-center align-middle",
         isCurrent && "bg-primary/[0.04]",
@@ -113,10 +129,13 @@ export function GridCell({
         validTarget && "bg-primary/10 ring-2 ring-inset ring-primary",
         canEdit && (isMobile ? "cursor-pointer" : "cursor-text"),
       )}
+      aria-label={
+        canEdit && isMobile ? "Doble toque para editar el monto" : undefined
+      }
       title={
         canEdit
           ? isMobile
-            ? "Tocar para editar el monto"
+            ? "Doble toque para editar el monto"
             : "Doble clic para editar el monto"
           : undefined
       }
