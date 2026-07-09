@@ -25,6 +25,15 @@ export interface GridItemRow {
   item: ProjectionRowItemDetail;
   /** Lookup de valor por bucketKey para pintar cada celda en O(1). */
   valueByBucket: Map<string, ProjectionRowItemValue>;
+  /** Presente SOLO en filas de egreso agrupado (B3): la fila suma N
+   *  instalaciones de un mismo tipo de gasto (sueldos/previred/turnos).
+   *  `source` identifica el tipo; `occurrenceIdsByBucket` lista, por bucket,
+   *  los occurrenceId movibles (no pagados) de esas instalaciones — el gesto
+   *  de arrastre (B4A) mueve todos juntos a la semana destino. */
+  group?: {
+    source: FinanceCashflowItemSource;
+    occurrenceIdsByBucket: Map<string, string[]>;
+  };
 }
 
 /** Aplana las filas de una sección (INCOME/EXPENSE) en filas-item ordenadas

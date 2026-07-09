@@ -32,6 +32,7 @@ import { GridBalanceRow } from "./grid/GridBalanceRow";
 import { GridDriftRow } from "./grid/GridDriftRow";
 import { GridChip } from "./grid/GridChip";
 import { buildBucketMeta, itemRowsForKind } from "./grid/grid-helpers";
+import { expenseRows } from "./grid/expense-grouping";
 import { useGridMove, type GridDragData } from "./grid/useGridMove";
 import { QuotaMoveSelector } from "./grid/QuotaMoveSelector";
 import {
@@ -85,8 +86,10 @@ export function CashflowGrid({
     () => itemRowsForKind(active.rows, "INCOME"),
     [active.rows],
   );
-  const expenseRows = useMemo(
-    () => itemRowsForKind(active.rows, "EXPENSE"),
+  // Egresos agrupados: una línea por tipo de gasto (sueldos/previred/turnos
+  // suman todas las instalaciones); el resto queda como filas individuales.
+  const expenseGridRows = useMemo(
+    () => expenseRows(active.rows),
     [active.rows],
   );
   const balanceByBucket = useMemo(
@@ -284,7 +287,7 @@ export function CashflowGrid({
               <GridSection
                 label="Egresos"
                 tone="warn"
-                rows={expenseRows}
+                rows={expenseGridRows}
                 buckets={buckets}
                 currentIdx={currentIdx}
                 dndEnabled={canManage}
