@@ -148,6 +148,10 @@ export function CashflowGrid({
   // Modo avanzado: por defecto oculta variance/drift/IPC para una vista diaria
   // limpia; al activarlo revela esa información contable.
   const [advanced, setAdvanced] = useState(false);
+  // En móvil el modo avanzado no aporta y confunde: se fuerza apagado y el botón
+  // se oculta (ver header). Así la grilla móvil queda limpia — Ingresos, Egresos
+  // y Saldo — sin fila Drift ni badges de IPC/headcount.
+  const effectiveAdvanced = advanced && !isMobile;
 
   // Refresca tanto el bloque visible (re-fetch del rango) como los props del
   // server (KPIs de HealthHeader) tras un move/cierre.
@@ -284,20 +288,25 @@ export function CashflowGrid({
           Planilla de flujo · {isMobile ? "3" : "8"} semanas
         </h2>
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setAdvanced((a) => !a)}
-            aria-pressed={advanced}
-            title="Modo avanzado: muestra real conciliado, drift e IPC"
-            className={cn(
-              "mr-1 inline-flex h-9 items-center gap-1.5 rounded-ds-md border px-2.5 text-[12px] transition-colors",
-              advanced
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-ds-border-default text-ds-text-2 hover:bg-ds-surface-2 hover:text-ds-text-1",
-            )}
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" /> Avanzado
-          </button>
+          {/* "Avanzado" solo en desktop: revela la fila de desviación (proyectado
+              vs. real) e indicadores de IPC/headcount. En móvil se oculta porque
+              no aporta al uso diario (advanced se fuerza en false, ver arriba). */}
+          {!isMobile && (
+            <button
+              type="button"
+              onClick={() => setAdvanced((a) => !a)}
+              aria-pressed={advanced}
+              title="Muestra la fila de desviación (proyectado vs. real) e indicadores de IPC/headcount"
+              className={cn(
+                "mr-1 inline-flex h-9 items-center gap-1.5 rounded-ds-md border px-2.5 text-[12px] transition-colors",
+                advanced
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-ds-border-default text-ds-text-2 hover:bg-ds-surface-2 hover:text-ds-text-1",
+              )}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" /> Avanzado
+            </button>
+          )}
           <button
             type="button"
             onClick={goToday}
@@ -358,7 +367,7 @@ export function CashflowGrid({
                 currentIdx={currentIdx}
                 dndEnabled={canManage}
                 bucketMeta={bucketMeta}
-                advanced={advanced}
+                advanced={effectiveAdvanced}
                 onAmountSaved={refreshAll}
                 isMobile={isMobile}
                 editableAmounts={false}
@@ -371,7 +380,7 @@ export function CashflowGrid({
                 currentIdx={currentIdx}
                 dndEnabled={canManage}
                 bucketMeta={bucketMeta}
-                advanced={advanced}
+                advanced={effectiveAdvanced}
                 onAmountSaved={refreshAll}
                 isMobile={isMobile}
                 editableAmounts
@@ -382,7 +391,7 @@ export function CashflowGrid({
                 currentIdx={currentIdx}
                 bucketMeta={bucketMeta}
               />
-              {advanced && (
+              {effectiveAdvanced && (
                 <GridDriftRow
                   buckets={visibleBuckets}
                   driftByBucket={driftByBucket}
