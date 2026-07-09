@@ -15,6 +15,12 @@ import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
 import { OpeningAnchorCard } from "@/components/finance/cashflow/OpeningAnchorCard";
 import { CashflowV2Shell } from "@/components/finance/cashflow/v2/CashflowV2Shell";
 
+// Semanas del primer render en el server. Total = 8 (BACK + hoy + FORWARD).
+// El horizonte completo (config.horizonWeeksDefault) solo se pide bajo
+// demanda; ver el cálculo de la ventana más abajo.
+const INITIAL_WEEKS_FORWARD = 6;
+const INITIAL_WEEKS_BACK = 2;
+
 export default async function FlujoCajaPage({
   searchParams,
 }: {
@@ -41,17 +47,27 @@ export default async function FlujoCajaPage({
   // de montos; la proyección de este render usa los datos ya materializados.
   after(() => ensureCashflowSynced(tenantId));
 
-  const weeks = Math.max(8, Math.min(104, Number(sp.weeks) || config.horizonWeeksDefault));
-  // Permite ver historia: ?weeksBack=N retrocede el origen N semanas para
-  // mostrar lo que pasó (movs conciliados, ajustes shortfall) además del
-  // forecast hacia adelante. Default = 2 semanas (las dos últimas + hoy)
-  // para que el usuario vea de un vistazo lo recién conciliado. Clamp
-  // [0, 52] para no traer años de historia en un solo request.
+  // Ventana inicial liviana: el primer render del server proyecta solo 8
+  // semanas (INITIAL_WEEKS_BACK atrás + hoy + INITIAL_WEEKS_FORWARD adelante)
+  // en vez de las 54 del horizonte completo (52 fwd + 2 back). El resto de
+  // semanas se trae bajo demanda vía GET /api/finance/cashflow/projection
+  // (from/to) desde la grilla (patrón fetchWeeklyRange de la v2). Sin este
+  // recorte se disparaban ~20 queries por el rango completo en cada carga.
+  //
+  // Overrides por query string: si llegan ?weeks / ?weeksBack se respetan con
+  // el mismo clamp de antes ([8, 104] y [0, 52]); solo cambia el default.
+  const weeks =
+    sp.weeks !== undefined && sp.weeks !== ""
+      ? Math.max(8, Math.min(104, Number(sp.weeks) || config.horizonWeeksDefault))
+      : INITIAL_WEEKS_FORWARD;
   const rawWeeksBack =
     sp.weeksBack !== undefined && sp.weeksBack !== ""
       ? Number(sp.weeksBack)
-      : 2;
-  const weeksBack = Math.max(0, Math.min(52, isFinite(rawWeeksBack) ? rawWeeksBack : 2));
+      : INITIAL_WEEKS_BACK;
+  const weeksBack = Math.max(
+    0,
+    Math.min(52, isFinite(rawWeeksBack) ? rawWeeksBack : INITIAL_WEEKS_BACK),
+  );
   const today = new Date();
   const projection = await buildProjection(tenantId, {
     from: weeksBack > 0 ? subWeeks(today, weeksBack) : today,
