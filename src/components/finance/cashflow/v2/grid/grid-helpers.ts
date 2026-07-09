@@ -56,14 +56,19 @@ function itemSortKey(i: ProjectionRowItemDetail): string {
 }
 
 /** Etiqueta principal (cliente) y tag secundario (instalación/nickname) de la
- *  columna sticky. Cuando no hay cuenta CRM cae al nombre técnico del item. */
+ *  columna sticky. Cuando no hay cuenta CRM cae al nombre técnico del item.
+ *  La instalación se muestra SIEMPRE (aunque coincida con el nombre del
+ *  cliente): el usuario prefiere verla redundante que no verla (ej. venta
+ *  "Ametel" → "Ametel algarrobo"). Las filas de egreso agrupado (B3) traen
+ *  installationName=null/nickname=null, por lo que su tag queda en null y el
+ *  primary es la categoría — sin ensuciar el caso agregado. */
 export function rowLabels(item: ProjectionRowItemDetail): {
   primary: string;
   tag: string | null;
 } {
   const primary = item.crmAccountName ?? item.itemName;
-  const tag = item.nickname ?? item.installationName ?? null;
-  return { primary, tag: tag && tag !== primary ? tag : null };
+  const tag = item.installationName ?? item.nickname ?? null;
+  return { primary, tag };
 }
 
 /** Banda de mes en el header: agrupa columnas contiguas del mismo mes. */
