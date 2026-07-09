@@ -4,7 +4,10 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { Settings, ArrowLeftRight } from "lucide-react";
 import Link from "next/link";
-import { getOrCreateCashflowConfig } from "@/modules/finance/cashflow/config.service";
+import {
+  getOrCreateCashflowConfig,
+  resolveWeeksBackDefault,
+} from "@/modules/finance/cashflow/config.service";
 import { buildProjection } from "@/modules/finance/cashflow/projection.service";
 import { listRecentCloses } from "@/modules/finance/cashflow/weekly-close.service";
 import { ensureCashflowSynced } from "@/modules/finance/cashflow/auto-sync";
@@ -60,13 +63,18 @@ export default async function FlujoCajaPage({
     sp.weeks !== undefined && sp.weeks !== ""
       ? Math.max(8, Math.min(104, Number(sp.weeks) || config.horizonWeeksDefault))
       : INITIAL_WEEKS_FORWARD;
+  // B6: la ventana hacia atrás por defecto vendrá de la preferencia del tenant
+  // (config.weeksBackDefault, migración pendiente de aprobación). Hoy el
+  // resolver devuelve INITIAL_WEEKS_BACK como fallback; cuando la migración se
+  // aplique, respetará la preferencia sin tocar este call site.
+  const weeksBackDefault = resolveWeeksBackDefault(config, INITIAL_WEEKS_BACK);
   const rawWeeksBack =
     sp.weeksBack !== undefined && sp.weeksBack !== ""
       ? Number(sp.weeksBack)
-      : INITIAL_WEEKS_BACK;
+      : weeksBackDefault;
   const weeksBack = Math.max(
     0,
-    Math.min(52, isFinite(rawWeeksBack) ? rawWeeksBack : INITIAL_WEEKS_BACK),
+    Math.min(52, isFinite(rawWeeksBack) ? rawWeeksBack : weeksBackDefault),
   );
   const today = new Date();
   const projection = await buildProjection(tenantId, {

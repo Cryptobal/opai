@@ -1,0 +1,39 @@
+-- ============================================================================
+-- PENDING MIGRATION — NO EJECUTAR SIN APROBACIÓN HUMANA (B6 · flujo de caja)
+-- ============================================================================
+--
+-- Agrega la preferencia por tenant `weeksBackDefault` a FinanceCashflowConfig:
+-- cuántas semanas hacia atrás encuadra la ventana inicial de la grilla de
+-- flujo de caja (1 o 2; default 2 = las dos últimas semanas + hoy).
+--
+-- Hasta que esta migración se apruebe y aplique, el código lee la preferencia
+-- de forma DEFENSIVA (config.service.ts → resolveWeeksBackDefault) y cae al
+-- default en código (INITIAL_WEEKS_BACK = 2). El cliente Prisma NO tipa aún la
+-- columna, así que NO se debe tocar schema.prisma hasta aplicar esto.
+--
+-- ── Pasos de aplicación (cuando un humano apruebe) ──────────────────────────
+--
+-- 1) SQL contra la DB (tabla real: finance.finance_cashflow_config):
+--
+--    ALTER TABLE finance.finance_cashflow_config
+--      ADD COLUMN weeks_back_default INTEGER NOT NULL DEFAULT 2;
+--
+-- 2) En schema.prisma, dentro de `model FinanceCashflowConfig`:
+--
+--      weeksBackDefault Int @default(2) @map("weeks_back_default")
+--
+--    Luego `npx prisma generate` (o `npx prisma db pull` para sincronizar).
+--
+-- 3) Exponer en la escritura de config (config.service.ts → updateCashflowConfig):
+--    agregar `weeksBackDefault: number` al tipo `patch`. Como el update ya hace
+--    `data: patch`, no requiere más cambios en la query.
+--
+-- 4) Form de configuración (CashflowConfigClient.tsx): agregar un control
+--    (radio o select) 1 / 2 semanas hacia atrás, enviándolo en el patch.
+--
+-- Tras el paso 2 el resolver defensivo empieza a devolver el valor real sin
+-- cambios adicionales en los call sites (page.tsx ya lo consume).
+--
+-- IMPORTANTE: No mover este archivo a un folder de migración con timestamp
+-- hasta aplicar; `prisma migrate deploy` ignora los archivos PENDING-*.sql.
+-- ============================================================================
