@@ -395,12 +395,12 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
   {
     key: "ticket_sla_breached_batch",
     label: "Resumen diario SLA vencido",
-    description: "Un email diario (6 AM Chile) con el resumen consolidado de tickets con SLA vencido por equipo",
+    description: "Resumen diario (6 AM Chile) de tickets con SLA vencido por equipo; Slack por defecto",
     module: "ops",
     submodule: "tickets",
     category: "Operaciones - Tickets",
     defaultBell: false,
-    defaultEmail: true,
+    defaultEmail: false,
   },
   {
     key: "ticket_sla_paused",

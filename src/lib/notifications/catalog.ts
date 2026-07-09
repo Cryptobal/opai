@@ -473,9 +473,9 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
   },
   {
     key: 'ticket_sla_breached_batch', label: 'Resumen diario SLA vencido',
-    description: 'Email diario consolidado de tickets con SLA vencido por equipo',
+    description: 'Resumen diario consolidado de tickets con SLA vencido por equipo (Slack por defecto)',
     module: 'ops', submodule: 'tickets', category: 'Operaciones - Tickets',
-    audiences: ['admin'], defaults: { admin: { bell: false, email: true, push: false } },
+    audiences: ['admin'], defaults: { admin: { bell: false, email: false, push: false } },
   },
   {
     key: 'ticket_sla_paused', label: 'SLA pausado',

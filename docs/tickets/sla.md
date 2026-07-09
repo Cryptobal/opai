@@ -2,7 +2,8 @@
 
 El monitor de SLA (`/api/cron/sla-monitor`, cada 15 min) detecta tickets vencidos
 y recuerda a su **responsable** (`assignedTo`). El resumen diario por equipo va por
-correo vía `/api/cron/sla-daily-digest` (10:00 Chile).
+Slack (canal + DM según preferencias) vía `/api/cron/sla-daily-digest` (6:00 Chile);
+el email solo si el usuario lo activa en Perfil → Mis notificaciones.
 
 ## Estados
 

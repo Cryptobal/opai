@@ -6,8 +6,8 @@
  * cada breach + re-notificación que antes enviaba sla-monitor cada 15 min.
  *
  * Por cada tenant con tickets con SLA vencido (no resueltos, no pausados),
- * envía UN solo email consolidado a los usuarios que tengan habilitado
- * `ticket_sla_breached_batch` en sus preferencias.
+ * envía UN resumen consolidado (Slack canal + canales personales según preferencias)
+ * a quienes tengan habilitado `ticket_sla_breached_batch`.
  *
  * No crea notificaciones bell: los bells ya se crean en tiempo real desde
  * /api/cron/sla-monitor (que corre cada 15 min y usa `channels: ['bell']`).
@@ -127,8 +127,8 @@ export async function GET(request: NextRequest) {
           `\n\nPor equipo:\n${teamSummary}` +
           `\n\nEste resumen se envía una vez al día. Para ver el detalle, abre OPAI.`;
 
-        // Email-only digest — bells were created in real time by sla-monitor
-        // (every 15 min) when each breach occurred.
+        // Respeta preferencias del usuario (email/Slack/push). Las campanas en
+        // tiempo real las crea sla-monitor cada 15 min.
         await notify({
           tenantId,
           type: "ticket_sla_breached_batch",
@@ -141,7 +141,6 @@ export async function GET(request: NextRequest) {
             date: now.toISOString().slice(0, 10),
             digest: true,
           },
-          forceChannels: { bell: false, email: true, push: false },
         });
         emailsSent++;
       } catch (e) {

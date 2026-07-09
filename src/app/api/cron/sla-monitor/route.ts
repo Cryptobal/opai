@@ -4,7 +4,7 @@
  *
  * Reglas de negocio:
  * - Sólo se notifica al `assignedTo` del ticket. Sin responsable → sin bell.
- *   El resumen diario por equipo se envía vía /api/cron/sla-daily-digest (email).
+ *   El resumen diario por equipo se envía vía /api/cron/sla-daily-digest (Slack/email según prefs).
  * - Estados pausables (waiting/pending_approval/waiting_client) no breachean
  *   aunque pasen su slaDueAt. Tickets con slaPausedAt están fuera.
  * - Si un usuario tiene >1 SLA vencido en la misma corrida, recibe UNA campana
@@ -13,7 +13,7 @@
  *   en cada notificación efectiva.
  * - dedupKey en data para defensa frente a reruns accidentales del cron.
  *
- * Sólo crea bells. El email se consolida en sla-daily-digest (6 AM Chile).
+ * Sólo crea bells. El resumen diario consolidado va en sla-daily-digest (6 AM Chile).
  *
  * Protected with CRON_SECRET env var.
  */
