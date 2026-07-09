@@ -1,6 +1,7 @@
 import type {
   FinanceCashflowItemKind,
   FinanceCashflowItemSource,
+  ProjectionAnchorInfo,
   ProjectionBucket,
   ProjectionRow,
   ProjectionRowItemDetail,
@@ -10,6 +11,11 @@ import {
   pillVariantFor,
   type PillVariant,
 } from "@/components/finance/cashflow/CellStatusPill";
+import {
+  isAnchorBucket,
+  isBucketClosed,
+  isBucketManualClose,
+} from "../projection-helpers";
 import { toDate } from "../format";
 
 /** Una fila de la grilla = una línea de contrato/instalación (item). Se aplana
@@ -139,6 +145,32 @@ export const SYSTEM_SOURCES: ReadonlySet<FinanceCashflowItemSource> = new Set([
 /** ¿La cuota de este item (por su source) admite arrastre? */
 export function isDraggableSource(source: FinanceCashflowItemSource): boolean {
   return !SYSTEM_SOURCES.has(source);
+}
+
+/** Estado de sellado de una columna respecto al cierre semanal anclado.
+ *  `closed` → semana sellada (≤ anchor). `anchor` → es exactamente la semana
+ *  anclada (frontera real/proyectado → línea de ancla). `manualClosed` →
+ *  cerrada con saldo forzado. */
+export interface BucketMeta {
+  closed: boolean;
+  anchor: boolean;
+  manualClosed: boolean;
+}
+
+/** Indexa bucketKey → estado de sellado usando el anchor de la proyección. */
+export function buildBucketMeta(
+  buckets: ProjectionBucket[],
+  anchor: ProjectionAnchorInfo | null,
+): Map<string, BucketMeta> {
+  const map = new Map<string, BucketMeta>();
+  for (const b of buckets) {
+    map.set(b.key, {
+      closed: isBucketClosed(b, anchor),
+      anchor: isAnchorBucket(b, anchor),
+      manualClosed: isBucketManualClose(b, anchor),
+    });
+  }
+  return map;
 }
 
 const VARIANT_TITLE: Record<PillVariant, string> = {

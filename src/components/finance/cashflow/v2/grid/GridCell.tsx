@@ -24,7 +24,8 @@ export function GridCell({
   bucketKey,
   isCurrent,
   dndEnabled,
-  bucketClosed = false,
+  closed = false,
+  isAnchor = false,
 }: {
   itemId: string;
   itemName: string;
@@ -33,18 +34,19 @@ export function GridCell({
   bucketKey: string;
   isCurrent: boolean;
   dndEnabled: boolean;
-  /** Semana sellada (cierre): sin arrastre ni drop. Lo aplica B5. */
-  bucketClosed?: boolean;
+  /** Semana sellada (cierre): sin arrastre ni drop, atenuada. */
+  closed?: boolean;
+  /** Semana anclada: dibuja la línea de ancla (borde derecho de acento). */
+  isAnchor?: boolean;
 }) {
   const amount = value?.amount ?? 0;
   const chip = value ? cellChip(value, source) : null;
-  const canDrag =
-    dndEnabled && !bucketClosed && amount !== 0 && !!chip?.draggable;
+  const canDrag = dndEnabled && !closed && amount !== 0 && !!chip?.draggable;
 
   const { setNodeRef: setDropRef, isOver, active } = useDroppable({
     id: `drop::${itemId}::${bucketKey}`,
     data: { itemId, bucketKey },
-    disabled: !dndEnabled || bucketClosed,
+    disabled: !dndEnabled || closed,
   });
   const activeItemId = (active?.data.current as GridDragData | undefined)?.itemId;
   const validTarget = isOver && activeItemId === itemId;
@@ -55,6 +57,8 @@ export function GridCell({
       className={cn(
         "border-l border-ds-border-subtle px-1.5 py-1.5 text-center align-middle",
         isCurrent && "bg-primary/[0.04]",
+        closed && "bg-ds-surface-2/50 opacity-60",
+        isAnchor && "border-r-2 border-r-primary",
         validTarget && "bg-primary/10 ring-2 ring-inset ring-primary",
       )}
     >

@@ -23,13 +23,14 @@ import { HealthHeader } from "./HealthHeader";
 import { ManualCloseStreakBanner, type CloseLite } from "./ManualCloseStreakBanner";
 import { Legend } from "./Legend";
 import { UndoToast } from "./UndoToast";
+import { WeekCloseDrawer } from "../week-close/WeekCloseDrawer";
 import { currentBucketIndex } from "./projection-helpers";
 import { useGridWindow } from "./grid/useGridWindow";
 import { GridHeader } from "./grid/GridHeader";
 import { GridSection } from "./grid/GridSection";
 import { GridBalanceRow } from "./grid/GridBalanceRow";
 import { GridChip } from "./grid/GridChip";
-import { itemRowsForKind } from "./grid/grid-helpers";
+import { buildBucketMeta, itemRowsForKind } from "./grid/grid-helpers";
 import { useGridMove, type GridDragData } from "./grid/useGridMove";
 
 /** Semanas hacia atrás por defecto en la ventana inicial. Hasta que exista la
@@ -85,6 +86,14 @@ export function CashflowGrid({
       new Map(active.cumulativeBalances.map((b) => [b.bucketKey, b.balanceClp])),
     [active.cumulativeBalances],
   );
+  // Estado de sellado por bucket (cierre / ancla) desde el anchor activo de la
+  // proyección del bloque visible.
+  const bucketMeta = useMemo(
+    () => buildBucketMeta(buckets, active.anchor),
+    [buckets, active.anchor],
+  );
+  // Semana en proceso de cierre (Opción A): abre el WeekCloseDrawer existente.
+  const [closeWeekEndIso, setCloseWeekEndIso] = useState<string | null>(null);
 
   // Refresca tanto el bloque visible (re-fetch del rango) como los props del
   // server (KPIs de HealthHeader) tras un move/cierre.
@@ -169,7 +178,13 @@ export function CashflowGrid({
       >
         <div className="max-h-[70vh] overflow-auto rounded-ds-lg border border-ds-border-default">
           <table className="w-full min-w-[720px] border-collapse text-[13px]">
-            <GridHeader buckets={buckets} currentIdx={currentIdx} />
+            <GridHeader
+              buckets={buckets}
+              currentIdx={currentIdx}
+              bucketMeta={bucketMeta}
+              canManage={canManage}
+              onCloseWeek={setCloseWeekEndIso}
+            />
             <tbody>
               <GridSection
                 label="Ingresos"
@@ -178,6 +193,7 @@ export function CashflowGrid({
                 buckets={buckets}
                 currentIdx={currentIdx}
                 dndEnabled={canManage}
+                bucketMeta={bucketMeta}
               />
               <GridSection
                 label="Egresos"
@@ -186,11 +202,13 @@ export function CashflowGrid({
                 buckets={buckets}
                 currentIdx={currentIdx}
                 dndEnabled={canManage}
+                bucketMeta={bucketMeta}
               />
               <GridBalanceRow
                 buckets={buckets}
                 balanceByBucket={balanceByBucket}
                 currentIdx={currentIdx}
+                bucketMeta={bucketMeta}
               />
             </tbody>
           </table>
@@ -209,6 +227,13 @@ export function CashflowGrid({
 
       <Legend />
       <UndoToast payload={undoPayload} onDismiss={clearUndo} />
+
+      <WeekCloseDrawer
+        open={closeWeekEndIso != null}
+        weekEndIso={closeWeekEndIso ?? ""}
+        onClose={() => setCloseWeekEndIso(null)}
+        onCommitted={refreshAll}
+      />
     </div>
   );
 }

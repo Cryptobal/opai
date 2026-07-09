@@ -4,7 +4,11 @@ import { cn } from "@/lib/utils";
 import type { ProjectionBucket } from "@/modules/finance/cashflow/types";
 import { fmt } from "@/components/finance/cashflow/MatrixHelpers";
 import { GridRow } from "./GridRow";
-import { sectionBucketTotals, type GridItemRow } from "./grid-helpers";
+import {
+  sectionBucketTotals,
+  type BucketMeta,
+  type GridItemRow,
+} from "./grid-helpers";
 
 /**
  * Sección de la grilla (Ingresos o Egresos): banda de título con tono
@@ -18,7 +22,7 @@ export function GridSection({
   buckets,
   currentIdx,
   dndEnabled,
-  closedBucketKeys,
+  bucketMeta,
 }: {
   label: string;
   tone: "ok" | "warn";
@@ -26,7 +30,7 @@ export function GridSection({
   buckets: ProjectionBucket[];
   currentIdx: number;
   dndEnabled: boolean;
-  closedBucketKeys?: ReadonlySet<string>;
+  bucketMeta?: Map<string, BucketMeta>;
 }) {
   const totals = sectionBucketTotals(rows, buckets);
   const headTone =
@@ -64,7 +68,7 @@ export function GridSection({
             buckets={buckets}
             currentIdx={currentIdx}
             dndEnabled={dndEnabled}
-            closedBucketKeys={closedBucketKeys}
+            bucketMeta={bucketMeta}
           />
         ))
       )}
@@ -73,18 +77,23 @@ export function GridSection({
         <td className="sticky left-0 z-10 border-r border-ds-border-default bg-ds-surface-2 p-2 text-[12px] text-ds-text-1">
           Subtotal {label.toLowerCase()}
         </td>
-        {totals.map((t, i) => (
-          <td
-            key={buckets[i].key}
-            className={cn(
-              "border-l border-ds-border-subtle px-1.5 py-1.5 text-center font-mono text-[12px] tabular-nums",
-              totalTone,
-              i === currentIdx && "bg-primary/[0.04]",
-            )}
-          >
-            {t !== 0 ? fmt.format(t) : "·"}
-          </td>
-        ))}
+        {totals.map((t, i) => {
+          const meta = bucketMeta?.get(buckets[i].key);
+          return (
+            <td
+              key={buckets[i].key}
+              className={cn(
+                "border-l border-ds-border-subtle px-1.5 py-1.5 text-center font-mono text-[12px] tabular-nums",
+                totalTone,
+                i === currentIdx && "bg-primary/[0.04]",
+                meta?.closed && "opacity-60",
+                meta?.anchor && "border-r-2 border-r-primary",
+              )}
+            >
+              {t !== 0 ? fmt.format(t) : "·"}
+            </td>
+          );
+        })}
       </tr>
     </>
   );
