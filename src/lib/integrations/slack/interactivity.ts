@@ -315,6 +315,11 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     await handleBankReconcileUndo(payload as never);
     return;
   }
+  if (actionId === "bankreconc_manual") {
+    const { handleBankReconcileManual } = await import("./actions/bank-reconcile-modal");
+    await handleBankReconcileManual(payload as never);
+    return;
+  }
 
   if (!teamId || !slackUserId || !actionId || !pendingId) return;
 

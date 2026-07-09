@@ -36,9 +36,17 @@ export async function POST(req: NextRequest) {
   if (payload.type === "view_submission") {
     let result: { ack: Record<string, unknown>; work?: () => Promise<void> } = { ack: {} };
     try {
-      result = await prepareViewSubmission(payload);
+      const cbId = (payload.view as { callback_id?: string } | undefined)?.callback_id;
+      if (cbId === "bankreconc_assign_account") {
+        const { handleBankReconcileAssignSubmit } = await import(
+          "@/lib/integrations/slack/actions/bank-reconcile-assign"
+        );
+        result = await handleBankReconcileAssignSubmit(payload as never);
+      } else {
+        result = await prepareViewSubmission(payload);
+      }
     } catch (err) {
-      console.error("[slack] prepareViewSubmission falló:", err);
+      console.error("[slack] view_submission falló:", err);
     }
     if (result.work) after(result.work);
     // Red de seguridad (Fase 14): un ACK `response_action:"update"/"push"` con un
@@ -55,7 +63,12 @@ export async function POST(req: NextRequest) {
     let options: { options: unknown[] } = { options: [] };
     try {
       const callbackId = (payload.view as { callback_id?: string } | undefined)?.callback_id;
-      if (callbackId === "opai_turno_extra") {
+      if (callbackId === "bankreconc_assign_account") {
+        const { handleBankReconcileAccountSuggestion } = await import(
+          "@/lib/integrations/slack/actions/bank-reconcile-modal"
+        );
+        options = await handleBankReconcileAccountSuggestion(payload as never);
+      } else if (callbackId === "opai_turno_extra") {
         const { handleTurnoExtraGuardiaSuggestion } = await import("@/lib/integrations/slack/actions/turno-extra");
         options = await handleTurnoExtraGuardiaSuggestion(payload as never);
       } else {
