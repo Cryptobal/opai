@@ -120,6 +120,18 @@ export function buildMarcacionFueraRangoBlocks(input: MarcacionFueraRangoInput):
     ],
   });
 
-  const text = `🚨 Marca fuera de rango · ${input.guardiaName} · ${tipo} · ${distancia} (radio ${input.geoRadiusM} m) · ${input.installationName}`;
+  // Ping al canal completo: sin <!channel> la tarjeta se publica pero muchos
+  // miembros no reciben push (solo ven el mensaje al abrir el canal).
+  blocks.push({
+    type: "context",
+    elements: [
+      {
+        type: "mrkdwn",
+        text: "<!channel> Marca fuera de rango — requiere revisión de central.",
+      },
+    ],
+  });
+
+  const text = `<!channel> 🚨 Marca fuera de rango · ${input.guardiaName} · ${tipo} · ${distancia} (radio ${input.geoRadiusM} m) · ${input.installationName}`;
   return { text, blocks };
 }
