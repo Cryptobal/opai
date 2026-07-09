@@ -17,6 +17,7 @@ export function GridRow({
   dndEnabled,
   bucketMeta,
   advanced,
+  onAmountSaved,
 }: {
   row: GridItemRow;
   buckets: ProjectionBucket[];
@@ -25,7 +26,10 @@ export function GridRow({
   bucketMeta?: Map<string, BucketMeta>;
   /** Modo avanzado: revela badge IPC y headcount en la columna cliente. */
   advanced?: boolean;
+  /** Refresca la proyección tras editar/revertir el monto de una casilla. */
+  onAmountSaved?: () => void;
 }) {
+  const group = row.group;
   const { primary, tag } = rowLabels(row.item);
   const isUf = row.item.currency === "UF";
   const headcount = row.item.headcount;
@@ -74,6 +78,9 @@ export function GridRow({
             closed={meta?.closed ?? false}
             isAnchor={meta?.anchor ?? false}
             advanced={advanced}
+            isGroup={!!group}
+            groupOccurrences={group?.occurrencesByBucket.get(b.key)}
+            onAmountSaved={onAmountSaved}
           />
         );
       })}

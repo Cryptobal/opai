@@ -27,12 +27,14 @@ export interface GridItemRow {
   valueByBucket: Map<string, ProjectionRowItemValue>;
   /** Presente SOLO en filas de egreso agrupado (B3): la fila suma N
    *  instalaciones de un mismo tipo de gasto (sueldos/previred/turnos).
-   *  `source` identifica el tipo; `occurrenceIdsByBucket` lista, por bucket,
-   *  los occurrenceId movibles (no pagados) de esas instalaciones — el gesto
-   *  de arrastre (B4A) mueve todos juntos a la semana destino. */
+   *  `source` identifica el tipo; `occurrencesByBucket` lista, por bucket, las
+   *  occurrences movibles (id + monto actual) de esas instalaciones. El gesto
+   *  de arrastre (B4A) las mueve todas juntas; la edición de monto (B4B)
+   *  reparte el nuevo total proporcional a estos montos. Las cuotas pagadas no
+   *  aparecen (su value.occurrenceId es null), por lo que quedan fijas. */
   group?: {
     source: FinanceCashflowItemSource;
-    occurrenceIdsByBucket: Map<string, string[]>;
+    occurrencesByBucket: Map<string, { id: string; amountClp: number }[]>;
   };
 }
 

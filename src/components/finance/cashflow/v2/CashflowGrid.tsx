@@ -175,8 +175,9 @@ export function CashflowGrid({
       const groupRow = expenseGridRows.find(
         (r) => r.item.itemId === drag.itemId,
       );
-      const ids =
-        groupRow?.group?.occurrenceIdsByBucket.get(drag.fromBucketKey) ?? [];
+      const ids = (
+        groupRow?.group?.occurrencesByBucket.get(drag.fromBucketKey) ?? []
+      ).map((o) => o.id);
       if (ids.length === 0) return;
       const source = groupRow?.group?.source;
       const fromBucket = buckets.find((b) => b.key === drag.fromBucketKey);
@@ -311,6 +312,7 @@ export function CashflowGrid({
                 dndEnabled={canManage}
                 bucketMeta={bucketMeta}
                 advanced={advanced}
+                onAmountSaved={refreshAll}
               />
               <GridSection
                 label="Egresos"
@@ -321,6 +323,7 @@ export function CashflowGrid({
                 dndEnabled={canManage}
                 bucketMeta={bucketMeta}
                 advanced={advanced}
+                onAmountSaved={refreshAll}
               />
               <GridBalanceRow
                 buckets={buckets}

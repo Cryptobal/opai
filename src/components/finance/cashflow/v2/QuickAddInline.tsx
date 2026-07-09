@@ -5,27 +5,12 @@ import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { toDate } from "./format";
+import { formatThousands, parseAmount } from "./amount-format";
 
 interface Props {
   kind: "INCOME" | "EXPENSE";
   bucketStart: Date | string;
   onAdded?: () => void;
-}
-
-/** Formatea un string numérico con separadores de miles (formato chileno).
- *  Conserva el cursor cerca del final — el usuario escribe a la derecha. */
-function formatThousands(raw: string): string {
-  // Quitar todo lo que no sea dígito
-  const digits = raw.replace(/\D/g, "");
-  if (!digits) return "";
-  // Insertar puntos cada 3 dígitos desde la derecha
-  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
-
-/** Convierte un string con separadores ("10.000") a número (10000). */
-function parseAmount(formatted: string): number {
-  const digits = formatted.replace(/\D/g, "");
-  return digits ? parseInt(digits, 10) : 0;
 }
 
 /** Quick-add manual: en mobile vertical es un bottom-sheet con backdrop;

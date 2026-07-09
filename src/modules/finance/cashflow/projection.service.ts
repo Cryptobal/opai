@@ -811,6 +811,7 @@ export async function buildProjection(
         nickname: item.nickname ?? null,
         modoCobro:
           (item.modoCobro as "DIRECTO" | "FACTORING" | undefined) ?? "DIRECTO",
+        hasAmountOverride: hasManualOverride,
       });
     }
   }
@@ -2312,6 +2313,9 @@ function buildRows(
       }
       if (o.id && !detail.values[bIdx].occurrenceId && o.status !== "PAID") {
         detail.values[bIdx].occurrenceId = o.id;
+      }
+      if (o.hasAmountOverride) {
+        detail.values[bIdx].hasAmountOverride = true;
       }
       detail.total += amountForBucket;
       // cellStatus: si la occurrence tiene DTE vinculado, derivamos el estado

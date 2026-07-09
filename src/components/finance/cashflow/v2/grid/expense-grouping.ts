@@ -88,7 +88,10 @@ function buildGroupRow(
   // Orden canónico de buckets tomado del primer item (todos comparten el mismo
   // set de buckets desde el motor de proyección).
   const bucketKeys = g.items[0].values.map((v) => v.bucketKey);
-  const occurrenceIdsByBucket = new Map<string, string[]>();
+  const occurrencesByBucket = new Map<
+    string,
+    { id: string; amountClp: number }[]
+  >();
   const valueByBucket = new Map<string, ProjectionRowItemValue>();
   const summedValues: ProjectionRowItemValue[] = [];
   let total = 0;
@@ -98,7 +101,8 @@ function buildGroupRow(
     let amount = 0;
     let actualAmount: number | null = null;
     let scheduledDate = "";
-    const ids: string[] = [];
+    let overridden = false;
+    const occs: { id: string; amountClp: number }[] = [];
     for (const item of g.items) {
       const v = item.values.find((x) => x.bucketKey === bucketKey);
       if (!v) continue;
@@ -107,18 +111,22 @@ function buildGroupRow(
         actualAmount = (actualAmount ?? 0) + v.actualAmount;
       }
       if (!scheduledDate && v.scheduledDate) scheduledDate = v.scheduledDate;
+      if (v.hasAmountOverride) overridden = true;
       // value.occurrenceId ya excluye las pagadas (el motor lo deja en null
-      // para status=PAID), así que la lista queda solo con las movibles.
-      if (v.occurrenceId) ids.push(v.occurrenceId);
+      // para status=PAID), así que la lista queda solo con las movibles. El
+      // monto por instalación es el amount de su value (un item = una
+      // instalación) — alimenta el reparto proporcional al editar el total.
+      if (v.occurrenceId) occs.push({ id: v.occurrenceId, amountClp: v.amount });
     }
-    if (ids.length > 0) occurrenceIdsByBucket.set(bucketKey, ids);
+    if (occs.length > 0) occurrencesByBucket.set(bucketKey, occs);
     total += amount;
     if (actualAmount != null) totalActual += actualAmount;
     const value: ProjectionRowItemValue = {
       bucketKey,
       amount,
       actualAmount,
-      occurrenceId: ids[0] ?? null,
+      hasAmountOverride: overridden,
+      occurrenceId: occs[0]?.id ?? null,
       scheduledDate,
       cellStatus: "PROJECTED",
       dteId: null,
@@ -154,6 +162,6 @@ function buildGroupRow(
   return {
     item,
     valueByBucket,
-    group: { source, occurrenceIdsByBucket },
+    group: { source, occurrencesByBucket },
   };
 }
