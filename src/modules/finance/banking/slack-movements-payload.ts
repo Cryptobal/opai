@@ -8,6 +8,7 @@
  * lógica de conciliación nueva.
  */
 
+import { prisma } from "@/lib/prisma";
 import { findDteCandidates } from "./bank-tx-link.service";
 import {
   buildBankMovementsBlocks,
@@ -99,5 +100,30 @@ export async function buildBankMovementsSlackData(
   return {
     __customBlocks: buildBankMovementsBlocks(input),
     __customText: buildBankMovementsText(input),
+  };
+}
+
+/**
+ * Rearma un solo movimiento (fecha/desc/monto + match exacto recomputado) para
+ * re-renderizar su bloque tras un "Deshacer". Devuelve null si el mov no existe
+ * o no pertenece al tenant (aislamiento). Revalida SIEMPRE contra `tenantId`.
+ */
+export async function buildSingleMovement(
+  tenantId: string,
+  txId: string,
+): Promise<MovementForBlocks | null> {
+  const tx = await prisma.financeBankTransaction.findFirst({
+    where: { id: txId, tenantId },
+    select: { id: true, transactionDate: true, description: true, amount: true },
+  });
+  if (!tx) return null;
+  const amount = tx.amount.toNumber();
+  const candidates = await findDteCandidates(tenantId, tx.id);
+  return {
+    bankTxId: tx.id,
+    transactionDate: tx.transactionDate.toISOString().slice(0, 10),
+    description: tx.description,
+    amount,
+    match: pickExactMatch(candidates, amount),
   };
 }

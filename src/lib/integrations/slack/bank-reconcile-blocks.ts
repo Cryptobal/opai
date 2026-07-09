@@ -72,15 +72,27 @@ function headerBlocks(summary: string, movements: MovementForBlocks[]): unknown[
   ];
 }
 
-/** Bloques (section + context de match + actions) de UN movimiento sin resolver. */
-function movementBlocks(m: MovementForBlocks): unknown[] {
+/**
+ * IDs de bloque estables por movimiento — el handler los usa para localizar y
+ * reemplazar el grupo de UN movimiento al resolverlo (ver bank-reconcile-message.ts).
+ */
+export const secBlockId = (txId: string) => `bankreconc_sec_${txId}`;
+export const ctxBlockId = (txId: string) => `bankreconc_ctx_${txId}`;
+export const actBlockId = (txId: string) => `bankreconc_${txId}`;
+
+/** Bloques (section + context de match + actions) de UN movimiento sin resolver.
+ *  Exportado para re-renderizar el estado pendiente tras un "Deshacer". */
+export function renderMovementBlocks(m: MovementForBlocks): unknown[] {
   const line = `*${shortDate(m.transactionDate)}*  ${cleanDesc(m.description)}  ·  *${signedCLP(m.amount)}*`;
-  const blocks: unknown[] = [{ type: "section", text: { type: "mrkdwn", text: line } }];
+  const blocks: unknown[] = [
+    { type: "section", block_id: secBlockId(m.bankTxId), text: { type: "mrkdwn", text: line } },
+  ];
 
   if (m.match) {
     const kind = m.match.direction === "RECEIVED" ? "compra" : "venta";
     blocks.push({
       type: "context",
+      block_id: ctxBlockId(m.bankTxId),
       elements: [{
         type: "mrkdwn",
         text: `↳ Coincide con ${kind} *F-${m.match.folio}* · ${m.match.counterpartyName} · pendiente ${signedCLP(m.match.amountPending)}`,
@@ -88,7 +100,7 @@ function movementBlocks(m: MovementForBlocks): unknown[] {
     });
     blocks.push({
       type: "actions",
-      block_id: `bankreconc_${m.bankTxId}`,
+      block_id: actBlockId(m.bankTxId),
       elements: [
         {
           type: "button",
@@ -108,11 +120,12 @@ function movementBlocks(m: MovementForBlocks): unknown[] {
   } else {
     blocks.push({
       type: "context",
+      block_id: ctxBlockId(m.bankTxId),
       elements: [{ type: "mrkdwn", text: `↳ ${directionLabel(m.amount)} · sin match exacto` }],
     });
     blocks.push({
       type: "actions",
-      block_id: `bankreconc_${m.bankTxId}`,
+      block_id: actBlockId(m.bankTxId),
       elements: [{
         type: "button",
         action_id: "bankreconc_manual",
@@ -140,7 +153,7 @@ export function buildBankMovementsBlocks(input: BankMovementsBlocksInput): unkno
     return blocks;
   }
 
-  for (const m of movements) blocks.push(...movementBlocks(m));
+  for (const m of movements) blocks.push(...renderMovementBlocks(m));
   return blocks;
 }
 
