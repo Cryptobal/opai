@@ -15,6 +15,7 @@ import {
 import { ChevronLeft, ChevronRight, CalendarDays, SlidersHorizontal } from "lucide-react";
 import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
 import { cn } from "@/lib/utils";
+import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import type {
   ProjectionMatrix,
   ProjectionAnchorInfo,
@@ -31,7 +32,7 @@ import { GridSection } from "./grid/GridSection";
 import { GridBalanceRow } from "./grid/GridBalanceRow";
 import { GridDriftRow } from "./grid/GridDriftRow";
 import { GridChip } from "./grid/GridChip";
-import { buildBucketMeta, itemRowsForKind } from "./grid/grid-helpers";
+import { buildBucketMeta, itemRowsForKind, windowSlice } from "./grid/grid-helpers";
 import { expenseRows } from "./grid/expense-grouping";
 import { useGridMove, type GridDragData } from "./grid/useGridMove";
 import { QuotaMoveSelector } from "./grid/QuotaMoveSelector";
@@ -46,6 +47,11 @@ import type { VirtualOccurrence } from "@/modules/finance/cashflow/types";
  *  preferencia por tenant (config.weeksBackDefault — migración pendiente, B6)
  *  se lee de este default en código. */
 export const GRID_WEEKS_BACK_DEFAULT = 2;
+
+/** En móvil la grilla muestra 3 columnas anchas (anterior · actual · siguiente)
+ *  en vez de las 8 comprimidas, y las flechas navegan de a 1 semana. */
+const MOBILE_WINDOW_WEEKS = 3;
+const MOBILE_WEEKS_BACK = 1;
 
 export interface CashflowGridProps {
   /** Proyección semanal (8 semanas) ya construida en el server y serializada a
@@ -76,12 +82,34 @@ export function CashflowGrid({
   weeksBack = GRID_WEEKS_BACK_DEFAULT,
 }: CashflowGridProps) {
   const router = useRouter();
+  // Móvil: ventana de 3 columnas (anterior/actual/siguiente), navegación de a 1
+  // semana. Desktop: 8 columnas, navegación por bloque. Reutiliza el hook de
+  // viewport existente (no crear uno nuevo).
+  const isMobile = useIsMobileViewport(768);
+  const windowWeeks = isMobile ? MOBILE_WINDOW_WEEKS : undefined; // undefined → 8
   const { active, loading, goPrev, goNext, goToday, refresh } = useGridWindow(
     projection,
-    { weeksBack },
+    {
+      weeksBack: isMobile ? MOBILE_WEEKS_BACK : weeksBack,
+      windowWeeks,
+      step: isMobile ? 1 : undefined,
+    },
   );
   const buckets = active.buckets;
-  const currentIdx = useMemo(() => currentBucketIndex(buckets), [buckets]);
+  // Columnas efectivamente pintadas: en móvil se recorta la matriz a 3 centradas
+  // en la semana actual (la matriz inicial del server trae 8; tras navegar ya
+  // llega con 3). Header, filas, subtotales y fila FC comparten este recorte.
+  const visibleBuckets = useMemo(
+    () =>
+      isMobile
+        ? windowSlice(buckets, MOBILE_WINDOW_WEEKS, currentBucketIndex(buckets))
+        : buckets,
+    [isMobile, buckets],
+  );
+  const currentIdx = useMemo(
+    () => currentBucketIndex(visibleBuckets),
+    [visibleBuckets],
+  );
   const incomeRows = useMemo(
     () => itemRowsForKind(active.rows, "INCOME"),
     [active.rows],
@@ -245,7 +273,7 @@ export function CashflowGrid({
 
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-ds-text-1">
-          Planilla de flujo · 8 semanas
+          Planilla de flujo · {isMobile ? "3" : "8"} semanas
         </h2>
         <div className="flex items-center gap-1">
           <button
@@ -276,13 +304,13 @@ export function CashflowGrid({
             dir="prev"
             onClick={goPrev}
             loading={loading}
-            label="8 semanas anteriores"
+            label={isMobile ? "Semana anterior" : "8 semanas anteriores"}
           />
           <NavButton
             dir="next"
             onClick={goNext}
             loading={loading}
-            label="8 semanas siguientes"
+            label={isMobile ? "Semana siguiente" : "8 semanas siguientes"}
           />
         </div>
       </div>
@@ -296,7 +324,7 @@ export function CashflowGrid({
         <div className="max-h-[70vh] overflow-auto rounded-ds-lg border border-ds-border-default">
           <table className="w-full min-w-[720px] border-collapse text-[13px]">
             <GridHeader
-              buckets={buckets}
+              buckets={visibleBuckets}
               currentIdx={currentIdx}
               bucketMeta={bucketMeta}
               canManage={canManage}
@@ -307,7 +335,7 @@ export function CashflowGrid({
                 label="Ingresos"
                 tone="ok"
                 rows={incomeRows}
-                buckets={buckets}
+                buckets={visibleBuckets}
                 currentIdx={currentIdx}
                 dndEnabled={canManage}
                 bucketMeta={bucketMeta}
@@ -318,7 +346,7 @@ export function CashflowGrid({
                 label="Egresos"
                 tone="warn"
                 rows={expenseGridRows}
-                buckets={buckets}
+                buckets={visibleBuckets}
                 currentIdx={currentIdx}
                 dndEnabled={canManage}
                 bucketMeta={bucketMeta}
@@ -326,14 +354,14 @@ export function CashflowGrid({
                 onAmountSaved={refreshAll}
               />
               <GridBalanceRow
-                buckets={buckets}
+                buckets={visibleBuckets}
                 balanceByBucket={balanceByBucket}
                 currentIdx={currentIdx}
                 bucketMeta={bucketMeta}
               />
               {advanced && (
                 <GridDriftRow
-                  buckets={buckets}
+                  buckets={visibleBuckets}
                   driftByBucket={driftByBucket}
                   currentIdx={currentIdx}
                   bucketMeta={bucketMeta}
