@@ -24,6 +24,7 @@ import { AccountBillingDocSection } from "@/components/crm/AccountBillingDocSect
 import { DetailField } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
+import { AssociatedRecurringSection } from "./AssociatedRecurringSection";
 import {
   AccountFacturacionSection,
   type AccountFacturacion,
@@ -56,6 +57,7 @@ import {
   UserCheck,
   MessageSquare,
   Ticket as TicketIcon,
+  RefreshCw,
 } from "lucide-react";
 import { DuplicateAccountModal } from "./DuplicateAccountModal";
 import { toast } from "sonner";
@@ -1089,6 +1091,12 @@ export function CrmAccountDetailClient({
           ),
         }]
       : []),
+    {
+      id: "recurrentes",
+      label: "Facturas recurrentes",
+      icon: RefreshCw,
+      content: <AssociatedRecurringSection accountId={account.id} />,
+    },
     {
       id: "tickets",
       label: "Tickets",
