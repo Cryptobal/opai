@@ -88,7 +88,7 @@ export function GridSection({
       )}
       {/* Subtotal por semana */}
       <tr className="border-b border-ds-border-default bg-ds-surface-2 font-medium">
-        <td className="sticky left-0 z-10 border-r border-ds-border-default bg-ds-surface-2 p-2 text-[12px] text-ds-text-1">
+        <td className="sticky left-0 z-10 max-md:max-w-[128px] border-r border-ds-border-default bg-ds-surface-2 p-2 text-[12px] text-ds-text-1">
           Subtotal {label.toLowerCase()}
         </td>
         {totals.map((t, i) => {

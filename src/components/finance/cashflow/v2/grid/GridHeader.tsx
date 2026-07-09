@@ -34,7 +34,7 @@ export function GridHeader({
       <tr className="border-b border-ds-border-default">
         <th
           rowSpan={2}
-          className="sticky left-0 z-30 min-w-[160px] max-w-[220px] border-r border-ds-border-default bg-ds-surface-2 p-2 text-left align-bottom text-[12px] font-medium text-ds-text-2"
+          className="sticky left-0 z-30 min-w-[160px] max-w-[220px] max-md:min-w-[100px] max-md:max-w-[128px] border-r border-ds-border-default bg-ds-surface-2 p-2 text-left align-bottom text-[12px] font-medium text-ds-text-2"
         >
           Cliente / contrato
         </th>

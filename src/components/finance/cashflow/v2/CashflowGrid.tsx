@@ -321,8 +321,12 @@ export function CashflowGrid({
         onDragEnd={onDragEnd}
         onDragCancel={() => setActiveDrag(null)}
       >
-        <div className="max-h-[70vh] overflow-auto rounded-ds-lg border border-ds-border-default">
-          <table className="w-full min-w-[720px] border-collapse text-[13px]">
+        {/* Scroll interno con inercia nativa (momentum) y `overscroll-contain`
+            para que no arrastre la página al llegar al borde. En móvil (max-md,
+            768px) las 3 columnas caben en 375px, así que se elimina el scroll
+            horizontal (solo vertical) y desaparece la pelea de capas sticky. */}
+        <div className="max-h-[70vh] overflow-auto overscroll-contain [-webkit-overflow-scrolling:touch] max-md:overflow-x-hidden rounded-ds-lg border border-ds-border-default">
+          <table className="w-full min-w-[720px] max-md:min-w-0 border-collapse text-[13px]">
             <GridHeader
               buckets={visibleBuckets}
               currentIdx={currentIdx}
