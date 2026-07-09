@@ -116,14 +116,13 @@ export const createItemFromBankTxSchema = z.object({
   bankTransactionId: z.string().uuid(),
   categoryId: z.string().uuid(),
   name: z.string().min(2).max(200),
-  recurrence: z.enum([
-    "ONCE",
-    "WEEKLY",
-    "BIWEEKLY",
-    "MONTHLY",
-    "QUARTERLY",
-    "YEARLY",
-  ]),
+  /** Sólo aplica cuando NO hay proyectado que consumir (rama "real puro"):
+   *  el motor crea un item nuevo con esta recurrencia. Si el real consume
+   *  una proyección existente, `recurrence` se ignora (no se crea item).
+   *  Default ONCE para no romper callers que ya no lo envían. */
+  recurrence: z
+    .enum(["ONCE", "WEEKLY", "BIWEEKLY", "MONTHLY", "QUARTERLY", "YEARLY"])
+    .default("ONCE"),
   /** Opcional: si no viene, se toma el monto absoluto del bank tx. */
   amountClp: z.number().positive().optional(),
   installationId: z.string().uuid().optional(),
