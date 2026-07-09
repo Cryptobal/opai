@@ -332,8 +332,15 @@ export function CashflowGrid({
         {/* Scroll interno con inercia nativa (momentum) y `overscroll-contain`
             para que no arrastre la página al llegar al borde. En móvil (max-md,
             768px) las 3 columnas caben en 375px, así que se elimina el scroll
-            horizontal (solo vertical) y desaparece la pelea de capas sticky. */}
-        <div className="max-h-[70vh] overflow-auto overscroll-contain [-webkit-overflow-scrolling:touch] max-md:overflow-x-hidden rounded-ds-lg border border-ds-border-default">
+            horizontal (solo vertical) y desaparece la pelea de capas sticky.
+
+            Altura: desktop 70vh. En móvil se descuenta la topbar fija (3rem +
+            safe-area-top) y el bottom nav fijo (`--bottom-nav-height`, que ya
+            incluye su safe-area-inset-bottom) usando `100dvh` (no 100vh, para no
+            contar el alto de las barras del navegador móvil). Así el borde
+            inferior del scroll queda por encima del bottom bar y la fila FC ·
+            saldo (sticky-bottom) siempre es visible sin quedar tapada. */}
+        <div className="max-h-[70vh] max-md:max-h-[calc(100dvh-3rem-env(safe-area-inset-top,0px)-var(--bottom-nav-height,4.5rem)-1rem)] overflow-auto overscroll-contain [-webkit-overflow-scrolling:touch] max-md:overflow-x-hidden rounded-ds-lg border border-ds-border-default">
           <table className="w-full min-w-[720px] max-md:min-w-0 border-collapse text-[13px]">
             <GridHeader
               buckets={visibleBuckets}
