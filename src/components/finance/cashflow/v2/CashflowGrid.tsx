@@ -1,6 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
 import { cn } from "@/lib/utils";
@@ -11,12 +22,15 @@ import type {
 import { HealthHeader } from "./HealthHeader";
 import { ManualCloseStreakBanner, type CloseLite } from "./ManualCloseStreakBanner";
 import { Legend } from "./Legend";
+import { UndoToast } from "./UndoToast";
 import { currentBucketIndex } from "./projection-helpers";
 import { useGridWindow } from "./grid/useGridWindow";
 import { GridHeader } from "./grid/GridHeader";
 import { GridSection } from "./grid/GridSection";
 import { GridBalanceRow } from "./grid/GridBalanceRow";
+import { GridChip } from "./grid/GridChip";
 import { itemRowsForKind } from "./grid/grid-helpers";
+import { useGridMove, type GridDragData } from "./grid/useGridMove";
 
 /** Semanas hacia atrás por defecto en la ventana inicial. Hasta que exista la
  *  preferencia por tenant (config.weeksBackDefault — migración pendiente, B6)
@@ -51,7 +65,8 @@ export function CashflowGrid({
   recentCloses,
   weeksBack = GRID_WEEKS_BACK_DEFAULT,
 }: CashflowGridProps) {
-  const { active, loading, goPrev, goNext, goToday } = useGridWindow(
+  const router = useRouter();
+  const { active, loading, goPrev, goNext, goToday, refresh } = useGridWindow(
     projection,
     { weeksBack },
   );
@@ -70,6 +85,45 @@ export function CashflowGrid({
       new Map(active.cumulativeBalances.map((b) => [b.bucketKey, b.balanceClp])),
     [active.cumulativeBalances],
   );
+
+  // Refresca tanto el bloque visible (re-fetch del rango) como los props del
+  // server (KPIs de HealthHeader) tras un move/cierre.
+  const refreshAll = useCallback(async () => {
+    await refresh();
+    router.refresh();
+  }, [refresh, router]);
+
+  const { move, undoPayload, clearUndo } = useGridMove({
+    buckets,
+    refresh: refreshAll,
+  });
+
+  // Sensors: puntero (mouse + touch) con activación por distancia para no
+  // disparar drag en taps, y teclado (dnd-kit maneja Space/flechas → mover con
+  // teclado, cubriendo accesibilidad sin botones de flecha en cada celda).
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor),
+  );
+  const [activeDrag, setActiveDrag] = useState<GridDragData | null>(null);
+
+  function onDragStart(e: DragStartEvent) {
+    const data = e.active.data.current as GridDragData | undefined;
+    if (data?.kind === "grid-chip") setActiveDrag(data);
+  }
+
+  function onDragEnd(e: DragEndEvent) {
+    setActiveDrag(null);
+    const drag = e.active.data.current as GridDragData | undefined;
+    const over = e.over?.data.current as
+      | { itemId: string; bucketKey: string }
+      | undefined;
+    if (!drag || drag.kind !== "grid-chip" || !over) return;
+    // Solo destino válido: otra semana de la MISMA fila.
+    if (over.itemId !== drag.itemId) return;
+    if (over.bucketKey === drag.fromBucketKey) return;
+    void move(drag, over.bucketKey);
+  }
 
   return (
     <div className="min-w-0 space-y-4">
@@ -107,34 +161,54 @@ export function CashflowGrid({
         </div>
       </div>
 
-      <div className="max-h-[70vh] overflow-auto rounded-ds-lg border border-ds-border-default">
-        <table className="w-full min-w-[720px] border-collapse text-[13px]">
-          <GridHeader buckets={buckets} currentIdx={currentIdx} />
-          <tbody>
-            <GridSection
-              label="Ingresos"
-              tone="ok"
-              rows={incomeRows}
-              buckets={buckets}
-              currentIdx={currentIdx}
+      <DndContext
+        sensors={sensors}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        onDragCancel={() => setActiveDrag(null)}
+      >
+        <div className="max-h-[70vh] overflow-auto rounded-ds-lg border border-ds-border-default">
+          <table className="w-full min-w-[720px] border-collapse text-[13px]">
+            <GridHeader buckets={buckets} currentIdx={currentIdx} />
+            <tbody>
+              <GridSection
+                label="Ingresos"
+                tone="ok"
+                rows={incomeRows}
+                buckets={buckets}
+                currentIdx={currentIdx}
+                dndEnabled={canManage}
+              />
+              <GridSection
+                label="Egresos"
+                tone="warn"
+                rows={expenseRows}
+                buckets={buckets}
+                currentIdx={currentIdx}
+                dndEnabled={canManage}
+              />
+              <GridBalanceRow
+                buckets={buckets}
+                balanceByBucket={balanceByBucket}
+                currentIdx={currentIdx}
+              />
+            </tbody>
+          </table>
+        </div>
+        <DragOverlay dropAnimation={null}>
+          {activeDrag ? (
+            <GridChip
+              amount={activeDrag.amount}
+              variant={activeDrag.variant}
+              locked={activeDrag.locked}
+              draggable
             />
-            <GridSection
-              label="Egresos"
-              tone="warn"
-              rows={expenseRows}
-              buckets={buckets}
-              currentIdx={currentIdx}
-            />
-            <GridBalanceRow
-              buckets={buckets}
-              balanceByBucket={balanceByBucket}
-              currentIdx={currentIdx}
-            />
-          </tbody>
-        </table>
-      </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
       <Legend />
+      <UndoToast payload={undoPayload} onDismiss={clearUndo} />
     </div>
   );
 }

@@ -17,12 +17,16 @@ export function GridSection({
   rows,
   buckets,
   currentIdx,
+  dndEnabled,
+  closedBucketKeys,
 }: {
   label: string;
   tone: "ok" | "warn";
   rows: GridItemRow[];
   buckets: ProjectionBucket[];
   currentIdx: number;
+  dndEnabled: boolean;
+  closedBucketKeys?: ReadonlySet<string>;
 }) {
   const totals = sectionBucketTotals(rows, buckets);
   const headTone =
@@ -59,6 +63,8 @@ export function GridSection({
             row={row}
             buckets={buckets}
             currentIdx={currentIdx}
+            dndEnabled={dndEnabled}
+            closedBucketKeys={closedBucketKeys}
           />
         ))
       )}

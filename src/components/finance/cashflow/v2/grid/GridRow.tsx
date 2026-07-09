@@ -1,9 +1,8 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import type { ProjectionBucket } from "@/modules/finance/cashflow/types";
-import { GridChip } from "./GridChip";
-import { cellChip, rowLabels, type GridItemRow } from "./grid-helpers";
+import { GridCell } from "./GridCell";
+import { rowLabels, type GridItemRow } from "./grid-helpers";
 
 /**
  * Fila de la grilla para una línea de contrato/instalación. Columna cliente
@@ -15,10 +14,15 @@ export function GridRow({
   row,
   buckets,
   currentIdx,
+  dndEnabled,
+  closedBucketKeys,
 }: {
   row: GridItemRow;
   buckets: ProjectionBucket[];
   currentIdx: number;
+  dndEnabled: boolean;
+  /** Claves de buckets sellados (semana cerrada). Aplicado en B5. */
+  closedBucketKeys?: ReadonlySet<string>;
 }) {
   const { primary, tag } = rowLabels(row.item);
   const isUf = row.item.currency === "UF";
@@ -39,32 +43,19 @@ export function GridRow({
           <div className="truncate text-[12px] text-ds-text-3">{tag}</div>
         )}
       </td>
-      {buckets.map((b, i) => {
-        const value = row.valueByBucket.get(b.key);
-        const amount = value?.amount ?? 0;
-        const chip = value ? cellChip(value, row.item.source) : null;
-        return (
-          <td
-            key={b.key}
-            className={cn(
-              "border-l border-ds-border-subtle px-1.5 py-1.5 text-center align-middle",
-              i === currentIdx && "bg-primary/[0.04]",
-            )}
-          >
-            {amount !== 0 && chip ? (
-              <GridChip
-                amount={amount}
-                variant={chip.variant}
-                locked={chip.locked}
-                draggable={chip.draggable}
-                title={chip.title}
-              />
-            ) : (
-              <span className="text-[12px] text-ds-text-4">·</span>
-            )}
-          </td>
-        );
-      })}
+      {buckets.map((b, i) => (
+        <GridCell
+          key={b.key}
+          itemId={row.item.itemId}
+          itemName={row.item.nickname ?? row.item.itemName}
+          source={row.item.source}
+          value={row.valueByBucket.get(b.key)}
+          bucketKey={b.key}
+          isCurrent={i === currentIdx}
+          dndEnabled={dndEnabled}
+          bucketClosed={closedBucketKeys?.has(b.key) ?? false}
+        />
+      ))}
     </tr>
   );
 }
