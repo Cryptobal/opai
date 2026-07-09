@@ -30,7 +30,7 @@ export function GridDriftRow({
 }) {
   return (
     <tr className="border-t border-ds-border-default bg-ds-surface-1">
-      <td className="sticky left-0 z-10 border-r border-ds-border-default bg-ds-surface-1 p-2 text-[12px] text-ds-text-2">
+      <td className="sticky left-0 z-10 max-md:max-w-[128px] border-r border-ds-border-default bg-ds-surface-1 p-2 text-[12px] text-ds-text-2">
         Drift acumulado
       </td>
       {buckets.map((b, i) => {

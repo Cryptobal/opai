@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RotateCcw, Check } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -13,11 +13,13 @@ import {
 } from "./cashflow-amount";
 
 /**
- * Editor inline del monto de una celda (B4B). Se abre con doble-clic / doble-tap
- * sobre la casilla (no pelea con el long-press del drag). Prefill con el monto
- * actual, Enter guarda, Esc/tap-fuera cancela. Para una celda de grupo edita el
- * TOTAL y el reparto proporcional lo hace `saveGroupAmount`. Si la celda ya
- * tiene override manual permite revertir al valor calculado.
+ * Editor inline del monto de una celda (B4B). Se abre con doble-clic (desktop) o
+ * con un tap corto / el lápiz de la celda (móvil) — el long-press queda para el
+ * drag, así no pelean. Prefill con el monto actual, Enter guarda, Esc/tap-fuera
+ * cancela. Para una celda de grupo edita el TOTAL y el reparto proporcional lo
+ * hace `saveGroupAmount`. Si la celda ya tiene override manual permite revertir
+ * al valor calculado. En móvil se alinea arriba y hace scroll del input a la
+ * vista para que el teclado numérico no lo tape.
  */
 export function AmountCellEditor({
   currentAmount,
@@ -38,6 +40,13 @@ export function AmountCellEditor({
 }) {
   const [raw, setRaw] = useState(() => formatThousands(String(Math.round(currentAmount))));
   const [busy, setBusy] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Al abrir en móvil, el teclado numérico sube y puede tapar el input: lo
+  // llevamos a la vista. `block: "center"` lo deja centrado en el área visible.
+  useEffect(() => {
+    inputRef.current?.scrollIntoView({ block: "center" });
+  }, []);
 
   function finish(res: AmountResult, okMsg: string) {
     if (res.ok) {
@@ -86,7 +95,7 @@ export function AmountCellEditor({
   // tap-fuera. Touch targets ≥ 44px.
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[15vh] sm:items-center sm:pt-4"
       onClick={onClose}
       onDoubleClick={(e) => e.stopPropagation()}
       role="dialog"
@@ -100,6 +109,7 @@ export function AmountCellEditor({
           {isGroup ? "Editar total de la semana" : "Editar monto"}
         </span>
         <input
+          ref={inputRef}
           autoFocus
           value={raw}
           inputMode="numeric"

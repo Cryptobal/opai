@@ -121,6 +121,25 @@ export function monthBands(buckets: ProjectionBucket[]): MonthBand[] {
   return bands;
 }
 
+/**
+ * Recorta `buckets` a una ventana de `count` columnas centrada en `centerIdx`
+ * (la semana actual) para la vista móvil (anterior · actual · siguiente). Si el
+ * foco no está en el rango (-1) centra en el medio. Con `buckets.length <=
+ * count` devuelve todo tal cual (la matriz ya viene del ancho pedido, p. ej.
+ * tras navegar y recargar un rango de 3 semanas). Genérico para reusar el mismo
+ * recorte en header, filas y fila FC. */
+export function windowSlice<T>(
+  buckets: T[],
+  count: number,
+  centerIdx: number,
+): T[] {
+  if (buckets.length <= count) return buckets;
+  const center = centerIdx >= 0 ? centerIdx : Math.floor(buckets.length / 2);
+  const half = Math.floor(count / 2);
+  const start = Math.min(Math.max(center - half, 0), buckets.length - count);
+  return buckets.slice(start, start + count);
+}
+
 /** Subtotal por bucket de una sección (suma de los montos de sus filas-item). */
 export function sectionBucketTotals(
   rows: GridItemRow[],

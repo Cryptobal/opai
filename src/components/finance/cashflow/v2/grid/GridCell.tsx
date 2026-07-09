@@ -35,6 +35,8 @@ export function GridCell({
   isGroup = false,
   groupOccurrences,
   onAmountSaved,
+  isMobile = false,
+  editableAmounts = false,
 }: {
   itemId: string;
   itemName: string;
@@ -55,6 +57,11 @@ export function GridCell({
   groupOccurrences?: { id: string; amountClp: number }[];
   /** Se llama tras guardar/revertir un monto para refrescar la proyección. */
   onAmountSaved?: () => void;
+  /** Móvil: habilita el editar por tap y muestra el lápiz de affordance. */
+  isMobile?: boolean;
+  /** La sección admite editar montos (solo Egresos). Los Ingresos vienen de la
+   *  factura y no se editan desde el flujo, así que la sección los pasa false. */
+  editableAmounts?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const amount = value?.amount ?? 0;
@@ -67,7 +74,12 @@ export function GridCell({
     ? (groupOccurrences?.length ?? 0) > 0
     : !!value?.occurrenceId;
   const canEdit =
-    dndEnabled && !closed && amount !== 0 && editTarget && !chip?.locked;
+    editableAmounts &&
+    dndEnabled &&
+    !closed &&
+    amount !== 0 &&
+    editTarget &&
+    !chip?.locked;
   // Varianza (real − proyectado): oculta por defecto, visible en avanzado.
   const actual = value?.actualAmount ?? null;
   const variance = actual !== null ? actual - amount : null;
@@ -82,19 +94,32 @@ export function GridCell({
 
   const hasOverride = value?.hasAmountOverride ?? false;
 
+  // Disparadores de edición según dispositivo:
+  //  - Desktop: doble-clic (gesto que no colisiona con el drag por single-click).
+  //  - Móvil: tap corto sobre la casilla. El drag se activa con long-press (delay
+  //    200ms + movimiento), así que un tap que suelta sin moverse NO arranca el
+  //    arrastre y cae en este onClick → abre el editor. El área tocable es la
+  //    celda completa (≥44px), con un lápiz neutro como affordance.
   return (
     <td
       ref={setDropRef}
-      onDoubleClick={canEdit ? () => setEditing(true) : undefined}
+      onDoubleClick={!isMobile && canEdit ? () => setEditing(true) : undefined}
+      onClick={isMobile && canEdit ? () => setEditing(true) : undefined}
       className={cn(
         "relative border-l border-ds-border-subtle px-1.5 py-1.5 text-center align-middle",
         isCurrent && "bg-primary/[0.04]",
         closed && "bg-ds-surface-2/50 opacity-60",
         isAnchor && "border-r-2 border-r-primary",
         validTarget && "bg-primary/10 ring-2 ring-inset ring-primary",
-        canEdit && "cursor-text",
+        canEdit && (isMobile ? "cursor-pointer" : "cursor-text"),
       )}
-      title={canEdit ? "Doble clic para editar el monto" : undefined}
+      title={
+        canEdit
+          ? isMobile
+            ? "Tocar para editar el monto"
+            : "Doble clic para editar el monto"
+          : undefined
+      }
     >
       {amount !== 0 && chip ? (
         <span
@@ -131,6 +156,16 @@ export function GridCell({
         </span>
       ) : (
         <span className="text-[12px] text-ds-text-4">·</span>
+      )}
+      {/* Affordance "editar" en móvil: lápiz neutro en la esquina inferior
+          (distinto del badge de override —primary, arriba a la derecha—). Es
+          decorativo (pointer-events-none): el tap lo captura el onClick de la
+          celda, así nunca bloquea el long-press del chip arrastrable. */}
+      {isMobile && canEdit && (
+        <Pencil
+          className="pointer-events-none absolute bottom-0.5 right-1 h-3 w-3 text-ds-text-3"
+          aria-hidden
+        />
       )}
       {editing && (
         <AmountCellEditor

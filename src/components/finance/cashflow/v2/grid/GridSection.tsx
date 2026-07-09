@@ -25,6 +25,8 @@ export function GridSection({
   bucketMeta,
   advanced,
   onAmountSaved,
+  isMobile,
+  editableAmounts,
 }: {
   label: string;
   tone: "ok" | "warn";
@@ -35,6 +37,10 @@ export function GridSection({
   bucketMeta?: Map<string, BucketMeta>;
   advanced?: boolean;
   onAmountSaved?: () => void;
+  /** Móvil: editar por tap + lápiz de affordance en las celdas editables. */
+  isMobile?: boolean;
+  /** La sección admite editar montos (solo Egresos; ver GridCell). */
+  editableAmounts?: boolean;
 }) {
   const totals = sectionBucketTotals(rows, buckets);
   const headTone =
@@ -75,12 +81,14 @@ export function GridSection({
             bucketMeta={bucketMeta}
             advanced={advanced}
             onAmountSaved={onAmountSaved}
+            isMobile={isMobile}
+            editableAmounts={editableAmounts}
           />
         ))
       )}
       {/* Subtotal por semana */}
       <tr className="border-b border-ds-border-default bg-ds-surface-2 font-medium">
-        <td className="sticky left-0 z-10 border-r border-ds-border-default bg-ds-surface-2 p-2 text-[12px] text-ds-text-1">
+        <td className="sticky left-0 z-10 max-md:max-w-[128px] border-r border-ds-border-default bg-ds-surface-2 p-2 text-[12px] text-ds-text-1">
           Subtotal {label.toLowerCase()}
         </td>
         {totals.map((t, i) => {

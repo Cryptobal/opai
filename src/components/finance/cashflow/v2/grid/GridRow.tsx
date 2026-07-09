@@ -18,6 +18,8 @@ export function GridRow({
   bucketMeta,
   advanced,
   onAmountSaved,
+  isMobile,
+  editableAmounts,
 }: {
   row: GridItemRow;
   buckets: ProjectionBucket[];
@@ -28,6 +30,10 @@ export function GridRow({
   advanced?: boolean;
   /** Refresca la proyección tras editar/revertir el monto de una casilla. */
   onAmountSaved?: () => void;
+  /** Móvil: editar por tap + lápiz de affordance en las celdas editables. */
+  isMobile?: boolean;
+  /** La sección admite editar montos (solo Egresos; ver GridCell). */
+  editableAmounts?: boolean;
 }) {
   const group = row.group;
   const { primary, tag } = rowLabels(row.item);
@@ -35,7 +41,7 @@ export function GridRow({
   const headcount = row.item.headcount;
   return (
     <tr className="border-b border-ds-border-subtle hover:bg-ds-surface-2/60">
-      <td className="sticky left-0 z-10 min-w-[160px] max-w-[220px] border-r border-ds-border-default bg-ds-surface-1 p-2">
+      <td className="sticky left-0 z-10 min-w-[160px] max-w-[220px] max-md:min-w-[100px] max-md:max-w-[128px] border-r border-ds-border-default bg-ds-surface-1 p-2">
         <div className="flex items-center gap-1.5">
           <span className="truncate text-[13px] font-medium text-ds-text-1">
             {primary}
@@ -81,6 +87,8 @@ export function GridRow({
             isGroup={!!group}
             groupOccurrences={group?.occurrencesByBucket.get(b.key)}
             onAmountSaved={onAmountSaved}
+            isMobile={isMobile}
+            editableAmounts={editableAmounts}
           />
         );
       })}

@@ -27,7 +27,7 @@ export function GridBalanceRow({
 }) {
   return (
     <tr className="sticky bottom-0 z-10 border-t-2 border-ds-border-strong bg-ds-surface-2 font-semibold">
-      <td className="sticky left-0 z-20 border-r border-ds-border-default bg-ds-surface-2 p-2 text-[12px] font-semibold text-ds-text-1">
+      <td className="sticky left-0 z-20 max-md:max-w-[128px] border-r border-ds-border-default bg-ds-surface-2 p-2 text-[12px] font-semibold text-ds-text-1">
         FC · saldo acumulado
       </td>
       {buckets.map((b, i) => {
