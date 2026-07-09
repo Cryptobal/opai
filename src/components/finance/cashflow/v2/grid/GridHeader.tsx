@@ -29,7 +29,14 @@ export function GridHeader({
 }) {
   const bands = monthBands(buckets);
   return (
-    <thead>
+    // Header sticky-top: ambas filas (bandas de mes + semanas) quedan fijas
+    // arriba al hacer scroll vertical dentro del contenedor scrollable. El
+    // `<thead>` sticky crea un contexto de apilado (z-20) por encima del cuerpo
+    // (celdas sticky-left z-10 / balance z-20); la esquina Cliente/contrato es
+    // sticky en los dos ejes (top vía thead + left propio) y lleva el z más alto
+    // (z-30) para no ser tapada por nada. Fondo sólido en cada celda para que las
+    // filas del cuerpo no se transparenten por detrás.
+    <thead className="sticky top-0 z-20 bg-ds-surface-1">
       {/* Fila 1 — bandas de mes */}
       <tr className="border-b border-ds-border-default">
         <th

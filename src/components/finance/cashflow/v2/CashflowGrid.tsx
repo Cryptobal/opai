@@ -148,6 +148,10 @@ export function CashflowGrid({
   // Modo avanzado: por defecto oculta variance/drift/IPC para una vista diaria
   // limpia; al activarlo revela esa información contable.
   const [advanced, setAdvanced] = useState(false);
+  // En móvil el modo avanzado no aporta y confunde: se fuerza apagado y el botón
+  // se oculta (ver header). Así la grilla móvil queda limpia — Ingresos, Egresos
+  // y Saldo — sin fila Drift ni badges de IPC/headcount.
+  const effectiveAdvanced = advanced && !isMobile;
 
   // Refresca tanto el bloque visible (re-fetch del rango) como los props del
   // server (KPIs de HealthHeader) tras un move/cierre.
@@ -284,20 +288,25 @@ export function CashflowGrid({
           Planilla de flujo · {isMobile ? "3" : "8"} semanas
         </h2>
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setAdvanced((a) => !a)}
-            aria-pressed={advanced}
-            title="Modo avanzado: muestra real conciliado, drift e IPC"
-            className={cn(
-              "mr-1 inline-flex h-9 items-center gap-1.5 rounded-ds-md border px-2.5 text-[12px] transition-colors",
-              advanced
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-ds-border-default text-ds-text-2 hover:bg-ds-surface-2 hover:text-ds-text-1",
-            )}
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" /> Avanzado
-          </button>
+          {/* "Avanzado" solo en desktop: revela la fila de desviación (proyectado
+              vs. real) e indicadores de IPC/headcount. En móvil se oculta porque
+              no aporta al uso diario (advanced se fuerza en false, ver arriba). */}
+          {!isMobile && (
+            <button
+              type="button"
+              onClick={() => setAdvanced((a) => !a)}
+              aria-pressed={advanced}
+              title="Muestra la fila de desviación (proyectado vs. real) e indicadores de IPC/headcount"
+              className={cn(
+                "mr-1 inline-flex h-9 items-center gap-1.5 rounded-ds-md border px-2.5 text-[12px] transition-colors",
+                advanced
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-ds-border-default text-ds-text-2 hover:bg-ds-surface-2 hover:text-ds-text-1",
+              )}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" /> Avanzado
+            </button>
+          )}
           <button
             type="button"
             onClick={goToday}
@@ -332,8 +341,15 @@ export function CashflowGrid({
         {/* Scroll interno con inercia nativa (momentum) y `overscroll-contain`
             para que no arrastre la página al llegar al borde. En móvil (max-md,
             768px) las 3 columnas caben en 375px, así que se elimina el scroll
-            horizontal (solo vertical) y desaparece la pelea de capas sticky. */}
-        <div className="max-h-[70vh] overflow-auto overscroll-contain [-webkit-overflow-scrolling:touch] max-md:overflow-x-hidden rounded-ds-lg border border-ds-border-default">
+            horizontal (solo vertical) y desaparece la pelea de capas sticky.
+
+            Altura: desktop 70vh. En móvil se descuenta la topbar fija (3rem +
+            safe-area-top) y el bottom nav fijo (`--bottom-nav-height`, que ya
+            incluye su safe-area-inset-bottom) usando `100dvh` (no 100vh, para no
+            contar el alto de las barras del navegador móvil). Así el borde
+            inferior del scroll queda por encima del bottom bar y la fila FC ·
+            saldo (sticky-bottom) siempre es visible sin quedar tapada. */}
+        <div className="max-h-[70vh] max-md:max-h-[calc(100dvh-3rem-env(safe-area-inset-top,0px)-var(--bottom-nav-height,4.5rem)-1rem)] overflow-auto overscroll-contain [-webkit-overflow-scrolling:touch] max-md:overflow-x-hidden rounded-ds-lg border border-ds-border-default">
           <table className="w-full min-w-[720px] max-md:min-w-0 border-collapse text-[13px]">
             <GridHeader
               buckets={visibleBuckets}
@@ -351,7 +367,7 @@ export function CashflowGrid({
                 currentIdx={currentIdx}
                 dndEnabled={canManage}
                 bucketMeta={bucketMeta}
-                advanced={advanced}
+                advanced={effectiveAdvanced}
                 onAmountSaved={refreshAll}
                 isMobile={isMobile}
                 editableAmounts={false}
@@ -364,7 +380,7 @@ export function CashflowGrid({
                 currentIdx={currentIdx}
                 dndEnabled={canManage}
                 bucketMeta={bucketMeta}
-                advanced={advanced}
+                advanced={effectiveAdvanced}
                 onAmountSaved={refreshAll}
                 isMobile={isMobile}
                 editableAmounts
@@ -375,7 +391,7 @@ export function CashflowGrid({
                 currentIdx={currentIdx}
                 bucketMeta={bucketMeta}
               />
-              {advanced && (
+              {effectiveAdvanced && (
                 <GridDriftRow
                   buckets={visibleBuckets}
                   driftByBucket={driftByBucket}
