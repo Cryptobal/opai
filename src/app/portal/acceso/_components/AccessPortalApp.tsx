@@ -447,7 +447,10 @@ export function AccessPortalApp() {
 
   // Main app with tabs (active or preview mode)
   return (
-    <div className="flex min-h-dvh flex-col bg-[#0A0F1C] overflow-x-hidden">
+    <div
+      className="flex flex-col bg-[#0A0F1C] overflow-hidden"
+      style={{ height: "100%", minHeight: "100%" }}
+    >
       <InstallationHeader
         installationName={device.installationName}
         guardName={guardName}
@@ -456,7 +459,10 @@ export function AccessPortalApp() {
         onChangeGuard={handleChangeGuard}
       />
 
-      <main className="flex-1 overflow-y-auto px-4 pb-28 pt-2">
+      <main
+        className="flex-1 overflow-y-auto px-4 pb-28 pt-2"
+        style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorY: "contain" }}
+      >
         {activeTab === "inicio" && (
           <InicioTab
             installationId={device.installationId}

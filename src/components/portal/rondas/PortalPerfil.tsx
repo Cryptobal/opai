@@ -74,8 +74,14 @@ export function PortalPerfil({ session, onLogout }: PortalPerfilProps) {
   }, [session.guardiaId]);
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col bg-[#0a0a0f]">
-      <div className="flex-1 space-y-4 px-4 pt-5">
+    <div
+      className="flex flex-1 min-h-0 flex-col overflow-y-auto bg-[#0a0a0f]"
+      style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorY: "contain" }}
+    >
+      <div
+        className="flex-1 space-y-4 px-4 pt-5"
+        style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}
+      >
         {/* Avatar + Name */}
         <div className="flex flex-col items-center gap-2">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-status-info-soft ring-2 ring-status-info-border">

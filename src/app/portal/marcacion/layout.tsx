@@ -39,11 +39,17 @@ export default function PortalMarcacionLayout({ children }: { children: React.Re
         // up from the very bottom edge. Owning the viewport height here and
         // scrolling *inside* this container gives smooth, reliable scrolling on
         // every device without changing the visual layout.
-        height: '100dvh',
+        // 100svh (small viewport height) es la altura estable en Android: no se
+        // recalcula al colapsar la barra de direcciones, a diferencia de 100dvh.
+        // En Marcación el scroll lo posee este layout (las pantallas son
+        // min-h-dvh centradas), así que mantenemos overflowY:auto.
+        height: '100svh',
+        minHeight: '100svh',
         overflowY: 'auto',
         WebkitOverflowScrolling: 'touch',
         overscrollBehaviorY: 'contain',
         paddingTop: 'var(--safe-area-top)',
+        paddingBottom: 'var(--safe-area-bottom)',
       }}
     >
       <ServiceWorkerRegistrar scope="/portal/marcacion" />
