@@ -28,6 +28,7 @@ export function GridChip({
   variant,
   locked = false,
   draggable = false,
+  elevated = false,
   title,
 }: {
   amount: number;
@@ -36,6 +37,9 @@ export function GridChip({
   locked?: boolean;
   /** Afecta solo el cursor/affordance; el DnD se maneja en el padre (B4). */
   draggable?: boolean;
+  /** En el DragOverlay: eleva el chip (sombra + leve escala + anillo) para que
+   *  se lea "agarrado y flotando" mientras sigue al dedo. */
+  elevated?: boolean;
   title?: string;
 }) {
   return (
@@ -45,6 +49,7 @@ export function GridChip({
         "inline-flex min-h-[30px] items-center justify-center gap-1 rounded-ds-sm px-1.5 py-1 font-mono text-[12px] font-medium tabular-nums",
         CHIP[variant],
         draggable && "cursor-grab active:cursor-grabbing",
+        elevated && "scale-105 shadow-lg ring-2 ring-inset ring-primary/50",
       )}
     >
       {locked && <Lock className="h-3 w-3 shrink-0 opacity-70" aria-hidden />}

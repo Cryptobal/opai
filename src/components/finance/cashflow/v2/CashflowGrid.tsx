@@ -163,11 +163,13 @@ export function CashflowGrid({
 
   // Sensors: puntero (mouse + touch) con activación por long-press (delay +
   // tolerance) para NO secuestrar el scroll táctil de la grilla. Un scroll
-  // rápido no alcanza los 200ms; si el dedo se mueve >8px antes del delay se
-  // cancela (es scroll, no drag). Teclado para accesibilidad (Space/flechas).
+  // rápido no alcanza el delay; si el dedo se mueve >8px antes del delay se
+  // cancela (es scroll, no drag). 180ms se siente más responsivo que 200 sin
+  // volver a pelear con el scroll (no bajar de ~150). Teclado para
+  // accesibilidad (Space/flechas).
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { delay: 200, tolerance: 8 },
+      activationConstraint: { delay: 180, tolerance: 8 },
     }),
     useSensor(KeyboardSensor),
   );
@@ -184,7 +186,13 @@ export function CashflowGrid({
 
   function onDragStart(e: DragStartEvent) {
     const data = e.active.data.current as GridDragData | undefined;
-    if (data?.kind === "grid-chip") setActiveDrag(data);
+    if (data?.kind !== "grid-chip") return;
+    setActiveDrag(data);
+    // Tick háptico al quedar "agarrado" el chip (justo cuando se supera el
+    // long-press). Guard: no todos los dispositivos soportan Vibration API.
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate?.(10);
+    }
   }
 
   function onDragEnd(e: DragEndEvent) {
@@ -385,6 +393,7 @@ export function CashflowGrid({
               variant={activeDrag.variant}
               locked={activeDrag.locked}
               draggable
+              elevated
             />
           ) : null}
         </DragOverlay>
