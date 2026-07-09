@@ -57,7 +57,7 @@ export async function handleBankReconcileManual(payload: BankReconcilePayload): 
         element: {
           type: "external_select",
           action_id: "v",
-          min_query_length: 0,
+          min_query_length: 2,
           placeholder: pt("Busca por código o nombre…"),
         },
       },
@@ -88,7 +88,10 @@ export async function handleBankReconcileAccountSuggestion(
         : {}),
     },
     orderBy: { code: "asc" },
-    take: 100,
+    // Slack tope 100 opciones/external_select; 50 deja margen y evita payloads
+    // grandes que Slack rechaza con "no se pudieron cargar las opciones". Con
+    // min_query_length:2 el término ya acota, así que 50 alcanza de sobra.
+    take: 50,
     select: { id: true, code: true, name: true },
   });
   return {
