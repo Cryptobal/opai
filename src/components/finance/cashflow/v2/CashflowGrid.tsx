@@ -12,8 +12,11 @@ import { HealthHeader } from "./HealthHeader";
 import { ManualCloseStreakBanner, type CloseLite } from "./ManualCloseStreakBanner";
 import { Legend } from "./Legend";
 import { currentBucketIndex } from "./projection-helpers";
-import { fmtBucketRange } from "./format";
 import { useGridWindow } from "./grid/useGridWindow";
+import { GridHeader } from "./grid/GridHeader";
+import { GridSection } from "./grid/GridSection";
+import { GridBalanceRow } from "./grid/GridBalanceRow";
+import { itemRowsForKind } from "./grid/grid-helpers";
 
 /** Semanas hacia atrás por defecto en la ventana inicial. Hasta que exista la
  *  preferencia por tenant (config.weeksBackDefault — migración pendiente, B6)
@@ -54,6 +57,19 @@ export function CashflowGrid({
   );
   const buckets = active.buckets;
   const currentIdx = useMemo(() => currentBucketIndex(buckets), [buckets]);
+  const incomeRows = useMemo(
+    () => itemRowsForKind(active.rows, "INCOME"),
+    [active.rows],
+  );
+  const expenseRows = useMemo(
+    () => itemRowsForKind(active.rows, "EXPENSE"),
+    [active.rows],
+  );
+  const balanceByBucket = useMemo(
+    () =>
+      new Map(active.cumulativeBalances.map((b) => [b.bucketKey, b.balanceClp])),
+    [active.cumulativeBalances],
+  );
 
   return (
     <div className="min-w-0 space-y-4">
@@ -91,37 +107,29 @@ export function CashflowGrid({
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-ds-lg border border-ds-border-default">
+      <div className="max-h-[70vh] overflow-auto rounded-ds-lg border border-ds-border-default">
         <table className="w-full min-w-[720px] border-collapse text-[13px]">
-          <thead>
-            <tr className="border-b border-ds-border-default bg-ds-surface-2">
-              <th className="sticky left-0 z-20 min-w-[160px] max-w-[220px] bg-ds-surface-2 p-2 text-left text-[12px] font-medium text-ds-text-2">
-                Cliente / contrato
-              </th>
-              {buckets.map((b, i) => (
-                <th
-                  key={b.key}
-                  className={cn(
-                    "min-w-[84px] p-2 text-center text-[11px] font-medium text-ds-text-2",
-                    i === currentIdx && "bg-primary/10 font-semibold text-primary",
-                  )}
-                >
-                  {fmtBucketRange(b.start, b.end)}
-                </th>
-              ))}
-            </tr>
-          </thead>
+          <GridHeader buckets={buckets} currentIdx={currentIdx} />
           <tbody>
-            <tr>
-              <td
-                colSpan={buckets.length + 1}
-                className="p-6 text-center text-[12px] text-ds-text-3"
-              >
-                {/* El render completo (bandas de mes, secciones, chips y fila
-                    FC) se arma en los pasos B2–B5. */}
-                Grilla en construcción.
-              </td>
-            </tr>
+            <GridSection
+              label="Ingresos"
+              tone="ok"
+              rows={incomeRows}
+              buckets={buckets}
+              currentIdx={currentIdx}
+            />
+            <GridSection
+              label="Egresos"
+              tone="warn"
+              rows={expenseRows}
+              buckets={buckets}
+              currentIdx={currentIdx}
+            />
+            <GridBalanceRow
+              buckets={buckets}
+              balanceByBucket={balanceByBucket}
+              currentIdx={currentIdx}
+            />
           </tbody>
         </table>
       </div>
