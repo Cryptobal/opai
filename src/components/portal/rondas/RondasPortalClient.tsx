@@ -558,7 +558,10 @@ export function RondasPortalClient() {
   const needsGuardWarning = authMode === "ready" && !currentGuard;
 
   return (
-    <div className="flex flex-col h-dvh overflow-hidden">
+    <div
+      className="flex flex-col overflow-hidden"
+      style={{ height: "100svh", minHeight: "100svh" }}
+    >
       {isOffline && (
         <div
           className="fixed top-0 inset-x-0 z-50 bg-status-warn px-4 text-center text-sm font-medium text-white"
