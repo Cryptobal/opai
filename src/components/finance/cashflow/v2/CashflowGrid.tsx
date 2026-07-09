@@ -33,6 +33,13 @@ import { GridDriftRow } from "./grid/GridDriftRow";
 import { GridChip } from "./grid/GridChip";
 import { buildBucketMeta, itemRowsForKind } from "./grid/grid-helpers";
 import { useGridMove, type GridDragData } from "./grid/useGridMove";
+import { QuotaMoveSelector } from "./grid/QuotaMoveSelector";
+import {
+  movableOccurrencesInCell,
+  occurrenceVariant,
+  ymd,
+} from "./grid/cell-occurrences";
+import type { VirtualOccurrence } from "@/modules/finance/cashflow/types";
 
 /** Semanas hacia atrás por defecto en la ventana inicial. Hasta que exista la
  *  preferencia por tenant (config.weeksBackDefault — migración pendiente, B6)
@@ -131,6 +138,15 @@ export function CashflowGrid({
     useSensor(KeyboardSensor),
   );
   const [activeDrag, setActiveDrag] = useState<GridDragData | null>(null);
+  // Selector "¿cuál cuota mover?": activo cuando se suelta una celda con más de
+  // una cuota movible. Guarda el arrastre origen, las cuotas candidatas y el
+  // destino; al elegir una se llama al mismo move unificado.
+  const [multiMove, setMultiMove] = useState<{
+    drag: GridDragData;
+    toBucketKey: string;
+    toLabel: string;
+    occurrences: VirtualOccurrence[];
+  } | null>(null);
 
   function onDragStart(e: DragStartEvent) {
     const data = e.active.data.current as GridDragData | undefined;
@@ -147,7 +163,43 @@ export function CashflowGrid({
     // Solo destino válido: otra semana de la MISMA fila.
     if (over.itemId !== drag.itemId) return;
     if (over.bucketKey === drag.fromBucketKey) return;
+    // Si la celda origen tiene más de una cuota movible, no adivinamos cuál:
+    // abrimos el selector. Con 0/1 movible se mueve directo (comportamiento
+    // original — la representativa es la única candidata).
+    const fromBucket = buckets.find((b) => b.key === drag.fromBucketKey);
+    const movable = fromBucket
+      ? movableOccurrencesInCell(fromBucket, drag.itemId)
+      : [];
+    if (movable.length >= 2) {
+      const toBucket = buckets.find((b) => b.key === over.bucketKey);
+      setMultiMove({
+        drag,
+        toBucketKey: over.bucketKey,
+        toLabel: toBucket?.label ?? "",
+        occurrences: movable,
+      });
+      return;
+    }
     void move(drag, over.bucketKey);
+  }
+
+  // Confirma el selector: arma un GridDragData con la cuota elegida (mismos
+  // identificadores que espera el move unificado) y llama al move existente.
+  function confirmMultiMove(o: VirtualOccurrence) {
+    if (!multiMove) return;
+    const chosen: GridDragData = {
+      ...multiMove.drag,
+      itemId: o.itemId ?? multiMove.drag.itemId,
+      occurrenceId: o.id,
+      dteId: o.dteId ?? null,
+      originalDate: ymd(o.scheduledDate),
+      amount: o.amountClp,
+      variant: occurrenceVariant(o),
+      locked: false,
+    };
+    const toBucketKey = multiMove.toBucketKey;
+    setMultiMove(null);
+    void move(chosen, toBucketKey);
   }
 
   return (
@@ -267,6 +319,16 @@ export function CashflowGrid({
 
       <Legend />
       <UndoToast payload={undoPayload} onDismiss={clearUndo} />
+
+      {multiMove && (
+        <QuotaMoveSelector
+          open={multiMove.occurrences.length >= 2}
+          toLabel={multiMove.toLabel}
+          occurrences={multiMove.occurrences}
+          onSelect={confirmMultiMove}
+          onCancel={() => setMultiMove(null)}
+        />
+      )}
 
       <WeekCloseDrawer
         open={closeWeekEndIso != null}
