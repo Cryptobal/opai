@@ -1,12 +1,14 @@
 "use client";
 
-import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { useDroppable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 import type {
   FinanceCashflowItemSource,
   ProjectionRowItemValue,
 } from "@/modules/finance/cashflow/types";
+import { fmt } from "@/components/finance/cashflow/MatrixHelpers";
 import { GridChip } from "./GridChip";
+import { GridDraggableChip } from "./GridDraggableChip";
 import { cellChip } from "./grid-helpers";
 import type { GridDragData } from "./useGridMove";
 
@@ -26,6 +28,7 @@ export function GridCell({
   dndEnabled,
   closed = false,
   isAnchor = false,
+  advanced = false,
 }: {
   itemId: string;
   itemName: string;
@@ -38,10 +41,15 @@ export function GridCell({
   closed?: boolean;
   /** Semana anclada: dibuja la línea de ancla (borde derecho de acento). */
   isAnchor?: boolean;
+  /** Modo avanzado: revela el monto real conciliado y la varianza (Δ). */
+  advanced?: boolean;
 }) {
   const amount = value?.amount ?? 0;
   const chip = value ? cellChip(value, source) : null;
   const canDrag = dndEnabled && !closed && amount !== 0 && !!chip?.draggable;
+  // Varianza (real − proyectado): oculta por defecto, visible en avanzado.
+  const actual = value?.actualAmount ?? null;
+  const variance = actual !== null ? actual - amount : null;
 
   const { setNodeRef: setDropRef, isOver, active } = useDroppable({
     id: `drop::${itemId}::${bucketKey}`,
@@ -64,7 +72,7 @@ export function GridCell({
     >
       {amount !== 0 && chip ? (
         canDrag && value ? (
-          <DraggableChip
+          <GridDraggableChip
             itemId={itemId}
             itemName={itemName}
             value={value}
@@ -85,59 +93,20 @@ export function GridCell({
       ) : (
         <span className="text-[12px] text-ds-text-4">·</span>
       )}
+      {advanced && actual !== null && (
+        <div
+          className="mt-0.5 font-mono text-[11px] tabular-nums text-ds-text-3"
+          title="Real conciliado (banco)"
+        >
+          {fmt.format(actual)}
+          {variance !== null && variance !== 0 && (
+            <span className="ml-1 text-ds-text-4">
+              Δ{variance > 0 ? "+" : ""}
+              {fmt.format(variance)}
+            </span>
+          )}
+        </div>
+      )}
     </td>
-  );
-}
-
-function DraggableChip({
-  itemId,
-  itemName,
-  value,
-  bucketKey,
-  amount,
-  variant,
-  locked,
-  title,
-}: {
-  itemId: string;
-  itemName: string;
-  value: ProjectionRowItemValue;
-  bucketKey: string;
-  amount: number;
-  variant: React.ComponentProps<typeof GridChip>["variant"];
-  locked: boolean;
-  title: string;
-}) {
-  const data: GridDragData = {
-    kind: "grid-chip",
-    itemId,
-    itemName,
-    occurrenceId: value.occurrenceId,
-    dteId: value.dteId ?? null,
-    originalDate: value.scheduledDate,
-    fromBucketKey: bucketKey,
-    amount,
-    variant,
-    locked,
-  };
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `drag::${itemId}::${bucketKey}`,
-    data,
-  });
-  return (
-    <span
-      ref={setNodeRef}
-      className={cn("inline-block touch-none", isDragging && "opacity-40")}
-      {...listeners}
-      {...attributes}
-    >
-      <GridChip
-        amount={amount}
-        variant={variant}
-        locked={locked}
-        draggable
-        title={title}
-      />
-    </span>
   );
 }

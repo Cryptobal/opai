@@ -1,5 +1,13 @@
 "use client";
 
+/**
+ * @deprecated Reemplazado como vista por defecto por `CashflowGrid` (planilla
+ * densa) en B7. Ya no se monta desde `/finanzas/flujo-caja`. Se conserva
+ * (junto con sus subcomponentes WeekKanban/WeekStrip/WeekDetail/…) como
+ * referencia del patrón load-as-you-go y del move unificado, del que
+ * `CashflowGrid` reutiliza la lógica. Candidato a retiro en una limpieza
+ * posterior, fuera del alcance de este PR.
+ */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addMonths, subWeeks } from "date-fns";

@@ -1,4 +1,10 @@
 "use client";
+/**
+ * @deprecated LEGACY — matriz semanal de la vista `?v=1` (retirada en B7). La
+ * vista por defecto de `/finanzas/flujo-caja` es ahora `v2/CashflowGrid`. Ya no
+ * es alcanzable desde ninguna página; se conserva solo porque sus tests aún la
+ * importan. Candidato a borrado junto con CashflowTabs/MonthlyMatrix.
+ */
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Eye, EyeOff, Lock, MoreHorizontal, Search } from "lucide-react";

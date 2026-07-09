@@ -12,7 +12,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, SlidersHorizontal } from "lucide-react";
 import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
 import { cn } from "@/lib/utils";
 import type {
@@ -29,6 +29,7 @@ import { useGridWindow } from "./grid/useGridWindow";
 import { GridHeader } from "./grid/GridHeader";
 import { GridSection } from "./grid/GridSection";
 import { GridBalanceRow } from "./grid/GridBalanceRow";
+import { GridDriftRow } from "./grid/GridDriftRow";
 import { GridChip } from "./grid/GridChip";
 import { buildBucketMeta, itemRowsForKind } from "./grid/grid-helpers";
 import { useGridMove, type GridDragData } from "./grid/useGridMove";
@@ -92,8 +93,23 @@ export function CashflowGrid({
     () => buildBucketMeta(buckets, active.anchor),
     [buckets, active.anchor],
   );
+  // Drift acumulado por bucket (banco real − proyectado) — solo se pinta en
+  // modo avanzado.
+  const driftByBucket = useMemo(
+    () =>
+      new Map(
+        active.cumulativePoints.map((p) => [
+          p.bucketKey,
+          p.cumulativeBankVarianceClp,
+        ]),
+      ),
+    [active.cumulativePoints],
+  );
   // Semana en proceso de cierre (Opción A): abre el WeekCloseDrawer existente.
   const [closeWeekEndIso, setCloseWeekEndIso] = useState<string | null>(null);
+  // Modo avanzado: por defecto oculta variance/drift/IPC para una vista diaria
+  // limpia; al activarlo revela esa información contable.
+  const [advanced, setAdvanced] = useState(false);
 
   // Refresca tanto el bloque visible (re-fetch del rango) como los props del
   // server (KPIs de HealthHeader) tras un move/cierre.
@@ -147,6 +163,20 @@ export function CashflowGrid({
         <div className="flex items-center gap-1">
           <button
             type="button"
+            onClick={() => setAdvanced((a) => !a)}
+            aria-pressed={advanced}
+            title="Modo avanzado: muestra real conciliado, drift e IPC"
+            className={cn(
+              "mr-1 inline-flex h-9 items-center gap-1.5 rounded-ds-md border px-2.5 text-[12px] transition-colors",
+              advanced
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-ds-border-default text-ds-text-2 hover:bg-ds-surface-2 hover:text-ds-text-1",
+            )}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" /> Avanzado
+          </button>
+          <button
+            type="button"
             onClick={goToday}
             disabled={loading}
             aria-label="Volver a hoy"
@@ -194,6 +224,7 @@ export function CashflowGrid({
                 currentIdx={currentIdx}
                 dndEnabled={canManage}
                 bucketMeta={bucketMeta}
+                advanced={advanced}
               />
               <GridSection
                 label="Egresos"
@@ -203,6 +234,7 @@ export function CashflowGrid({
                 currentIdx={currentIdx}
                 dndEnabled={canManage}
                 bucketMeta={bucketMeta}
+                advanced={advanced}
               />
               <GridBalanceRow
                 buckets={buckets}
@@ -210,6 +242,14 @@ export function CashflowGrid({
                 currentIdx={currentIdx}
                 bucketMeta={bucketMeta}
               />
+              {advanced && (
+                <GridDriftRow
+                  buckets={buckets}
+                  driftByBucket={driftByBucket}
+                  currentIdx={currentIdx}
+                  bucketMeta={bucketMeta}
+                />
+              )}
             </tbody>
           </table>
         </div>

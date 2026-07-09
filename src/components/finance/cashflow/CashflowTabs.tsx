@@ -1,4 +1,13 @@
 "use client";
+/**
+ * @deprecated LEGACY — retirado de la ruta. `/finanzas/flujo-caja` ahora monta
+ * `v2/CashflowGrid` (planilla densa) como única vista; la ruta `?v=1` que
+ * montaba estos tabs (Weekly/Monthly matrix) se eliminó en B7. Este árbol
+ * (CashflowTabs → WeeklyMatrix/MonthlyMatrix/CashflowMobileList) ya no es
+ * alcanzable desde ninguna página, pero NO se borra todavía porque sus tests
+ * (`__tests__/…`) siguen importándolo. Candidato a borrado cuando se retiren
+ * también esos tests. Ver el resumen del PR de rediseño.
+ */
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Search, X } from "lucide-react";
