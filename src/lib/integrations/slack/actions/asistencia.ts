@@ -96,6 +96,6 @@ export async function handleAsistenciaAusente(p: Payload): Promise<void> {
   const slackUserId = field<string>(p, ["user", "id"]);
   if (r.needsCobertura && teamId && triggerId && slackUserId) {
     const { openModalByCallback } = await import("../modals/dispatch");
-    await openModalByCallback({ teamId, triggerId, callbackId: "opai_turno_extra", slackUserId });
+    await openModalByCallback({ teamId, triggerId, callbackId: "opai_turno_extra", slackUserId, arg: asistenciaId });
   }
 }
