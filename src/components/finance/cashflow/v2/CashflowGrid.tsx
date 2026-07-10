@@ -12,7 +12,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { ChevronLeft, ChevronRight, CalendarDays, SlidersHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
 import { cn } from "@/lib/utils";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
@@ -145,13 +145,10 @@ export function CashflowGrid({
   );
   // Semana en proceso de cierre (Opción A): abre el WeekCloseDrawer existente.
   const [closeWeekEndIso, setCloseWeekEndIso] = useState<string | null>(null);
-  // Modo avanzado: por defecto oculta variance/drift/IPC para una vista diaria
-  // limpia; al activarlo revela esa información contable.
-  const [advanced, setAdvanced] = useState(false);
-  // En móvil el modo avanzado no aporta y confunde: se fuerza apagado y el botón
-  // se oculta (ver header). Así la grilla móvil queda limpia — Ingresos, Egresos
-  // y Saldo — sin fila Drift ni badges de IPC/headcount.
-  const effectiveAdvanced = advanced && !isMobile;
+  // La grilla se muestra siempre en vista simple (Ingresos · Egresos · Saldo),
+  // sin fila de desviación (Drift) ni badges de IPC/headcount. El antiguo toggle
+  // "Avanzado" que revelaba esa información contable fue retirado.
+  const effectiveAdvanced = false;
 
   // Refresca tanto el bloque visible (re-fetch del rango) como los props del
   // server (KPIs de HealthHeader) tras un move/cierre.
@@ -288,25 +285,6 @@ export function CashflowGrid({
           Planilla de flujo · {isMobile ? "3" : "8"} semanas
         </h2>
         <div className="flex items-center gap-1">
-          {/* "Avanzado" solo en desktop: revela la fila de desviación (proyectado
-              vs. real) e indicadores de IPC/headcount. En móvil se oculta porque
-              no aporta al uso diario (advanced se fuerza en false, ver arriba). */}
-          {!isMobile && (
-            <button
-              type="button"
-              onClick={() => setAdvanced((a) => !a)}
-              aria-pressed={advanced}
-              title="Muestra la fila de desviación (proyectado vs. real) e indicadores de IPC/headcount"
-              className={cn(
-                "mr-1 inline-flex h-9 items-center gap-1.5 rounded-ds-md border px-2.5 text-[12px] transition-colors",
-                advanced
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-ds-border-default text-ds-text-2 hover:bg-ds-surface-2 hover:text-ds-text-1",
-              )}
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" /> Avanzado
-            </button>
-          )}
           <button
             type="button"
             onClick={goToday}
