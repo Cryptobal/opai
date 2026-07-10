@@ -261,6 +261,13 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     critical: true,
   },
   {
+    key: 'dte_received', label: 'DTE recibido de proveedor',
+    description: 'Cuando llega un nuevo documento tributario de un proveedor (factura, exenta o nota de crédito) y queda pendiente de acuse SII',
+    module: 'finance', submodule: 'facturacion', category: 'Finanzas - Facturación',
+    audiences: ['admin'], defaults: { admin: adminBell(true) },
+    capability: 'facturacion_view',
+  },
+  {
     key: 'contract_ipc_adjustment_due', label: 'Ajuste de IPC pendiente',
     description: 'Cuando se acerca la fecha de ajuste de IPC de un contrato CLP — hay que ingresar el % real del período',
     module: 'finance', submodule: 'cashflow', category: 'Finanzas - Flujo de Caja',
