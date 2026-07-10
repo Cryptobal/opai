@@ -1,13 +1,15 @@
 /**
- * Publicador de la tarjeta "Cierre de supervisión" al canal del módulo ops.
- * Best-effort: nunca lanza. Reutiliza `publishOpsCierreCard` (que ya gatea por
- * workspace Slack ACTIVE + rutea al canal ops). Sobre eso, un flag por tenant
- * `reporteSupervisionSlackEnabled` (tabla Setting, sin migración) permite
- * apagar la tarjeta sin desconectar Slack. Solo "false" explícito la apaga.
+ * Publicador de la tarjeta "Cierre de supervisión" al canal de Slack puenteado
+ * a la instalación de la visita (SlackChannelLink). Best-effort: nunca lanza.
+ * Si la instalación no tiene puente, no publica — no cae al canal de
+ * notificaciones ni al módulo ops. Flag por tenant `reporteSupervisionSlackEnabled`
+ * (tabla Setting): solo "false" explícito la apaga.
  */
 
 import { prisma } from "@/lib/prisma";
-import { publishOpsCierreCard } from "./cierre-publish";
+import { getWorkspaceForTenant } from "./workspace";
+import { resolveInstallationSlackChannel } from "./installation-channel";
+import { slackPostMessage } from "./api";
 
 /** Flag por tenant (tabla Setting). Solo "false" explícito apaga. Fail-open. */
 async function isSupervisionSlackEnabled(tenantId: string): Promise<boolean> {
@@ -22,15 +24,27 @@ async function isSupervisionSlackEnabled(tenantId: string): Promise<boolean> {
   }
 }
 
-/** Publica la tarjeta de cierre de supervisión al canal ops. Best-effort, nunca lanza. */
+/** Publica la tarjeta de cierre de supervisión al canal Slack de la instalación. Best-effort. */
 export async function publishSupervisionCierreCard(
   tenantId: string,
+  installationId: string,
   card: { text: string; blocks: unknown[] },
 ): Promise<void> {
   try {
     const enabled = await isSupervisionSlackEnabled(tenantId);
     if (!enabled) return;
-    await publishOpsCierreCard(tenantId, card); // ya gatea por workspace ACTIVE + rutea canal ops
+
+    const workspace = await getWorkspaceForTenant(tenantId);
+    if (!workspace) return;
+
+    const channelId = await resolveInstallationSlackChannel(tenantId, installationId);
+    if (!channelId) return;
+
+    await slackPostMessage(workspace.botToken, {
+      channel: channelId,
+      text: card.text,
+      blocks: card.blocks,
+    });
   } catch (err) {
     console.error("[slack] publishSupervisionCierreCard falló:", err);
   }
