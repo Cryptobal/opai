@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
+import { cleanRut } from "@/lib/chile-rut";
 
 export async function GET(request: NextRequest) {
   const ctx = await requireAuth();
@@ -32,13 +33,14 @@ export async function GET(request: NextRequest) {
   // accounts cuyo RUT coincida exactamente (ignorando puntos/guion). Lo
   // usa el CostCenterEditor de un DTE emitido para que no se pueda elegir
   // un cliente con RUT distinto al receptor del DTE.
-  const rutFilter = request.nextUrl.searchParams
-    .get("rut")
-    ?.replace(/[.\-\s]/g, "")
-    .toUpperCase();
+  const rutParam = request.nextUrl.searchParams.get("rut");
+  const rutFilter = rutParam ? cleanRut(rutParam) : "";
 
-  // Limpia separadores comunes del RUT para que "12.345.678-9" calce con "123456789".
-  const rutNeedle = search.replace(/[.\-\s]/g, "");
+  // Normaliza el RUT a solo dígitos+K (tolera puntos, guiones, espacios y
+  // caracteres invisibles del XML SII) para que "12.345.678-9" calce con
+  // "123456789". Un needle vacío (ej: búsqueda por nombre) NO se aplica al
+  // filtro por RUT para no matchear todas las cuentas con `contains ""`.
+  const rutNeedle = cleanRut(search);
 
   const accounts = await prisma.crmAccount.findMany({
     where: {
@@ -53,7 +55,9 @@ export async function GET(request: NextRequest) {
         OR: [
           { name: { contains: search, mode: "insensitive" as const } },
           { legalName: { contains: search, mode: "insensitive" as const } },
-          { rut: { contains: rutNeedle, mode: "insensitive" as const } },
+          ...(rutNeedle
+            ? [{ rut: { contains: rutNeedle, mode: "insensitive" as const } }]
+            : []),
         ],
       }),
     },
@@ -81,7 +85,7 @@ export async function GET(request: NextRequest) {
   // (DB puede tener RUTs con/sin puntos/guión — el `contains` es permisivo
   // y podría devolver false positives tipo "1234567" matching "12345678").
   const filteredAccounts = rutFilter
-    ? accounts.filter((a) => (a.rut ?? "").replace(/[.\-\s]/g, "").toUpperCase() === rutFilter)
+    ? accounts.filter((a) => cleanRut(a.rut ?? "") === rutFilter)
     : accounts;
 
   // Email del contacto primario (si existe).
