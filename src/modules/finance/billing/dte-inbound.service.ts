@@ -32,6 +32,7 @@ import {
   parseDteXml,
   type DteParsed,
 } from "@/lib/dte-xml-parser";
+import { cleanRut } from "@/lib/chile-rut";
 import { notifyNewReceivedDteIds } from "./dte-received-notify";
 
 /**
@@ -58,9 +59,12 @@ export interface InboundDteResult {
   skipReasons: string[];
 }
 
-/** Normaliza un RUT para comparar (quita puntos, guiones, espacios). */
+/**
+ * Normaliza un RUT para comparar. Delega en `cleanRut` (solo dígitos+K)
+ * para tolerar caracteres invisibles del XML SII, no solo puntos/guiones.
+ */
 function rutKey(rut: string | null | undefined): string {
-  return (rut ?? "").replace(/[.\-\s]/g, "").toUpperCase();
+  return cleanRut(rut ?? "");
 }
 
 /** Formato canónico de RUT para persistir (sin puntos, con guión, K mayúscula). */

@@ -9,6 +9,7 @@ import { hasFacturacionCapability } from "@/lib/permissions";
 import { issueDteSchema } from "@/lib/validations/finance";
 import { issueDte } from "@/modules/finance/billing/dte-issuer.service";
 import { prisma } from "@/lib/prisma";
+import { cleanRut } from "@/lib/chile-rut";
 
 export async function GET(request: NextRequest) {
   try {
@@ -212,11 +213,17 @@ export async function GET(request: NextRequest) {
     if (search) {
       // Búsqueda fuzzy global: folio, RUT (con/sin guión), razón social,
       // nombre de fantasía del CRM, monto exacto, o rango "1000-5000".
-      const rutNeedle = search.replace(/[.\-\s]/g, "");
+      // Normaliza a solo dígitos+K (tolera puntos, guiones, espacios y
+      // caracteres invisibles del XML SII). Si el needle queda vacío (ej:
+      // búsqueda por nombre) NO agregamos el clause por receiverRut para no
+      // matchear todos los DTEs con `contains ""`.
+      const rutNeedle = cleanRut(search);
       const orClauses: Record<string, unknown>[] = [
         { receiverName: { contains: search, mode: "insensitive" } },
-        { receiverRut: { contains: rutNeedle, mode: "insensitive" } },
       ];
+      if (rutNeedle) {
+        orClauses.push({ receiverRut: { contains: rutNeedle, mode: "insensitive" } });
+      }
 
       // Búsqueda por nombre de fantasía / razón social en CRM accounts.
       // crmAccountId es FK lógica (sin @relation), por eso resolvemos

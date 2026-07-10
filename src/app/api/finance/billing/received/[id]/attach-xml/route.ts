@@ -33,10 +33,15 @@ import { hasFacturacionCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { uploadFile } from "@/lib/storage";
 import { extractDteIdentity, extractDteLines } from "@/lib/dte-xml-parser";
+import { cleanRut } from "@/lib/chile-rut";
 
-/** Normaliza un RUT chileno para comparar (ej: "76.123.456-7" → "761234567"). */
+/**
+ * Normaliza un RUT chileno para comparar (ej: "76.123.456-7" → "761234567").
+ * Delega en `cleanRut` (solo dígitos+K) para tolerar también caracteres
+ * invisibles del XML SII, no solo puntos/guiones/espacios.
+ */
 function normalizeRut(rut: string | null | undefined): string {
-  return (rut ?? "").replace(/[.\-\s]/g, "").toUpperCase();
+  return cleanRut(rut ?? "");
 }
 
 export async function POST(

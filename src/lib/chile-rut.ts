@@ -1,5 +1,13 @@
+/**
+ * Normaliza un RUT dejando SOLO dígitos y la `K` del dígito verificador.
+ * A diferencia de un `replace(/[.\-\s]/g, "")` (que solo quita puntos,
+ * guiones y espacios), esto también elimina caracteres invisibles —
+ * zero-width space (U+200B), BOM (U+FEFF), marcas LTR/RTL, etc.— que
+ * suelen colarse en los XML del SII y rompen las comparaciones de
+ * igualdad exacta (picker de cliente, validación de centro de costo).
+ */
 export function cleanRut(rut: string): string {
-  return rut.replace(/[.\s-]/g, "").toUpperCase();
+  return (rut ?? "").replace(/[^0-9kK]/g, "").toUpperCase();
 }
 
 export function formatRut(rut: string): string {
