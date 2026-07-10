@@ -343,6 +343,11 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     await handleDteClaimTotal(payload as never);
     return;
   }
+  if (actionId === "dterecv_costcenter") {
+    const { handleDteCostCenterOpen } = await import("./actions/dte-costcenter-modal");
+    await handleDteCostCenterOpen(payload as never);
+    return;
+  }
 
   if (!teamId || !slackUserId || !actionId || !pendingId) return;
 
