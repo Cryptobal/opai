@@ -13,6 +13,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { cleanRut } from "@/lib/chile-rut";
 
 export class AssignDteCostCenterError extends Error {
   constructor(
@@ -78,10 +79,11 @@ export async function assignDteCostCenter(
     });
     if (!acc) throw new AssignDteCostCenterError("Cliente CRM no encontrado", "INVALID");
     if (dte.direction === "ISSUED") {
-      const normalize = (v: string | null | undefined) =>
-        (v ?? "").replace(/[.\-\s]/g, "").toUpperCase();
-      const accRut = normalize(acc.rut);
-      const dteRut = normalize(dte.receiverRut);
+      // cleanRut normaliza a solo dígitos+K, tolerando caracteres invisibles
+      // del XML SII (zero-width space, BOM, etc.) que de otro modo harían
+      // fallar esta igualdad aunque el RUT se vea idéntico (fix #610).
+      const accRut = cleanRut(acc.rut ?? "");
+      const dteRut = cleanRut(dte.receiverRut ?? "");
       if (!accRut || accRut !== dteRut) {
         throw new AssignDteCostCenterError(
           `El RUT del cliente seleccionado (${acc.rut ?? "sin RUT"}) no coincide con el RUT del receptor del DTE (${dte.receiverRut}). Para facturas de venta el centro de costo debe ser el mismo cliente al que se facturó.`,
