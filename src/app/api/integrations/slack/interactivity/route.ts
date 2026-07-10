@@ -42,6 +42,11 @@ export async function POST(req: NextRequest) {
           "@/lib/integrations/slack/actions/bank-reconcile-assign"
         );
         result = await handleBankReconcileAssignSubmit(payload as never);
+      } else if (cbId === "dterecv_costcenter_assign") {
+        const { handleDteCostCenterAssignSubmit } = await import(
+          "@/lib/integrations/slack/actions/dte-costcenter-assign"
+        );
+        result = await handleDteCostCenterAssignSubmit(payload as never);
       } else {
         result = await prepareViewSubmission(payload);
       }

@@ -33,6 +33,7 @@ import {
   type DteParsed,
 } from "@/lib/dte-xml-parser";
 import { cleanRut } from "@/lib/chile-rut";
+import { notifyNewReceivedDteIds } from "./dte-received-notify";
 
 /**
  * Adjunto crudo tal cual lo entrega Resend en el webhook + el buffer
@@ -112,9 +113,13 @@ export async function ingestDtesFromInboundEmail(opts: {
     isPdfAttachment(a.filename, a.contentType),
   );
 
+  // DTEs recién CREADOS por esta ingesta (no enriquecidos) → gatillo Slack.
+  // El email puede ser el primero en registrar un DTE que RCV aún no bajó.
+  const createdDteIds: string[] = [];
+
   for (const att of xmlAttachments) {
     try {
-      const dteId = await processInboundXml({
+      const res = await processInboundXml({
         tenantId,
         tenantRutKey,
         xmlBuffer: att.buffer,
@@ -124,9 +129,10 @@ export async function ingestDtesFromInboundEmail(opts: {
         subject,
         emailId,
       });
-      if (dteId) {
+      if (res) {
         result.xmlProcessed++;
-        result.dteIds.push(dteId);
+        result.dteIds.push(res.dteId);
+        if (res.created) createdDteIds.push(res.dteId);
       } else {
         result.xmlSkipped++;
       }
@@ -162,6 +168,10 @@ export async function ingestDtesFromInboundEmail(opts: {
     }
   }
 
+  // Best-effort: emite la card Slack de los DTEs recién creados por email. No
+  // rompe la ingesta si Slack falla (el emisor envuelve todo en try/catch).
+  await notifyNewReceivedDteIds(tenantId, createdDteIds);
+
   return result;
 }
 
@@ -196,7 +206,7 @@ async function processInboundXml(opts: {
   fromEmail: string;
   subject: string;
   emailId: string;
-}): Promise<string | null> {
+}): Promise<{ dteId: string; created: boolean } | null> {
   const {
     tenantId,
     tenantRutKey,
@@ -260,7 +270,9 @@ async function processInboundXml(opts: {
     emailId,
   });
 
-  return dteId;
+  // `created` solo cuando el XML fue el primero en registrar este DTE (no
+  // existía). Un DTE ya bajado por RCV que solo se enriquece NO re-notifica.
+  return { dteId, created: !existing };
 }
 
 /**

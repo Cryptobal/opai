@@ -321,6 +321,34 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     return;
   }
 
+  // Acuse SII + centro de costo de un DTE recibido desde la tarjeta. `value` es
+  // el dteId (no un pendingId), así que se despacha ANTES del bloque genérico.
+  if (actionId === "dterecv_accept") {
+    const { handleDteAccept } = await import("./actions/dte-received");
+    await handleDteAccept(payload as never);
+    return;
+  }
+  if (actionId === "dterecv_claim_content") {
+    const { handleDteClaimContent } = await import("./actions/dte-received");
+    await handleDteClaimContent(payload as never);
+    return;
+  }
+  if (actionId === "dterecv_claim_partial") {
+    const { handleDteClaimPartial } = await import("./actions/dte-received");
+    await handleDteClaimPartial(payload as never);
+    return;
+  }
+  if (actionId === "dterecv_claim_total") {
+    const { handleDteClaimTotal } = await import("./actions/dte-received");
+    await handleDteClaimTotal(payload as never);
+    return;
+  }
+  if (actionId === "dterecv_costcenter") {
+    const { handleDteCostCenterOpen } = await import("./actions/dte-costcenter-modal");
+    await handleDteCostCenterOpen(payload as never);
+    return;
+  }
+
   if (!teamId || !slackUserId || !actionId || !pendingId) return;
 
   const resolved = await getTenantForTeam(teamId);

@@ -27,6 +27,10 @@
 import { prisma } from "@/lib/prisma";
 import { decryptBuffer, decryptString } from "@/lib/dte-encryption";
 import { callSimpleApi, detectApiKeyBlocked } from "../shared/adapters/simpleapi-http";
+import {
+  notifyNewReceivedDtes,
+  type NewReceivedDteForNotify,
+} from "./dte-received-notify";
 
 export interface RcvSyncResult {
   tenantId: string;
@@ -243,11 +247,20 @@ export async function syncTenantRcv(
 
   result.fetched = allDocs.length;
 
+  // DTEs recién creados en este sync → gatillo de la card Slack. Solo se
+  // acumulan inserciones NUEVAS (upsert devuelve null si el folio ya existía),
+  // así que un re-sync sin novedades deja el array vacío y no emite.
+  const nuevos: NewReceivedDteForNotify[] = [];
+
   for (const doc of allDocs) {
     try {
-      const inserted = await upsertReceivedDte(tenantId, doc);
-      if (inserted) result.inserted++;
-      else result.skipped++;
+      const created = await upsertReceivedDte(tenantId, doc);
+      if (created) {
+        result.inserted++;
+        nuevos.push(created);
+      } else {
+        result.skipped++;
+      }
     } catch (err) {
       result.errors.push(
         `Upsert ${doc.rutEmisor}/${doc.tipoDte}/${doc.folio}: ${err instanceof Error ? err.message : String(err)}`,
@@ -259,6 +272,10 @@ export async function syncTenantRcv(
     where: { tenantId },
     data: { lastRcvSyncAt: now },
   });
+
+  // Best-effort: la notificación NO debe romper el sync (crítico). El emisor
+  // ya envuelve todo en try/catch y hace skip si `nuevos` está vacío.
+  await notifyNewReceivedDtes(tenantId, nuevos);
 
   return result;
 }
@@ -305,7 +322,7 @@ function computePeriodsToSync(
 async function upsertReceivedDte(
   tenantId: string,
   doc: NormalizedRcvDoc,
-): Promise<boolean> {
+): Promise<NewReceivedDteForNotify | null> {
   const existing = await prisma.financeDte.findFirst({
     where: {
       tenantId,
@@ -315,7 +332,7 @@ async function upsertReceivedDte(
     },
     select: { id: true },
   });
-  if (existing) return false;
+  if (existing) return null;
 
   const cleanRut = doc.rutEmisor.replace(/[^\dKk-]/g, "").toUpperCase();
   const supplier = await prisma.financeSupplier.upsert({
@@ -336,15 +353,16 @@ async function upsertReceivedDte(
   );
 
   const code = `RCV-${doc.tipoDte}-${doc.folio}`;
+  const date = new Date(doc.fechaEmision);
 
-  await prisma.financeDte.create({
+  const created = await prisma.financeDte.create({
     data: {
       tenantId,
       direction: "RECEIVED",
       dteType: doc.tipoDte,
       folio: doc.folio,
       code,
-      date: new Date(doc.fechaEmision),
+      date,
       issuerRut: cleanRut,
       issuerName: doc.razonSocialEmisor,
       receiverRut: "",
@@ -363,7 +381,18 @@ async function upsertReceivedDte(
       supplierId: supplier.id,
       createdBy: "system:rcv-sync",
     },
+    select: { id: true },
   });
 
-  return true;
+  return {
+    id: created.id,
+    dteType: doc.tipoDte,
+    folio: doc.folio,
+    issuerName: doc.razonSocialEmisor,
+    issuerRut: cleanRut,
+    date,
+    totalAmount,
+    netAmount,
+    taxAmount,
+  };
 }
