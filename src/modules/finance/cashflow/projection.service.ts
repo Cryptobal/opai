@@ -2262,6 +2262,7 @@ function buildRows(
             dteFolio: null,
             dteGrossAmount: null,
             daysOverdue: 0,
+            reconciled: false,
             dtes: [] as import("./types").CellDteSummary[],
           })),
           total: 0,
@@ -2316,6 +2317,11 @@ function buildRows(
       }
       if (o.hasAmountOverride) {
         detail.values[bIdx].hasAmountOverride = true;
+      }
+      // Conciliada (bank-matched) ⇒ celda fija. Vale para gastos conciliados
+      // SIN factura (dteId=null), que antes quedaban fijos pero sin candado.
+      if (isReconciled) {
+        detail.values[bIdx].reconciled = true;
       }
       detail.total += amountForBucket;
       // cellStatus: si la occurrence tiene DTE vinculado, derivamos el estado

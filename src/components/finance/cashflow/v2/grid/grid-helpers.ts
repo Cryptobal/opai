@@ -239,9 +239,18 @@ export function cellChip(
     daysOverdue: value.daysOverdue,
     factoringCollected: value.dtes?.some((d) => d.factoringCollected),
   });
-  const locked = status === "PAID";
+  // Fija = pagada (DTE cobrado) O conciliada con banco (bankTransactionId),
+  // aunque no tenga factura detrás (ej. gasto conciliado a categoría). Sin el
+  // segundo caso, esos gastos quedaban fijos pero sin candado y la leyenda
+  // "candado = conciliado (fijo)" mentía.
+  const locked = status === "PAID" || value.reconciled === true;
   const draggable = !locked && isDraggableSource(source);
   let title = VARIANT_TITLE[variant];
+  // Conciliada sin estado de factura → el variant se queda en "Programada";
+  // el título honesto es "Conciliada (fija)".
+  if (value.reconciled === true && variant !== "PAID") {
+    title = "Conciliada (fija)";
+  }
   if (variant === "OVERDUE" && value.daysOverdue) {
     title += ` · ${value.daysOverdue}d de mora`;
   }
