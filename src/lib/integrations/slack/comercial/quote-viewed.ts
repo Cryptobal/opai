@@ -10,8 +10,8 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { getWaTemplate } from "@/lib/whatsapp-templates";
 import { normalizeWaPhone } from "./lead-actions";
+import { resolveSlackWaUrl } from "./wa-context";
 import { getTenantForTeam, getWorkspaceForTenant } from "../workspace";
 import { resolveLinkedAdmin } from "../user-link";
 import { slackRespondUrl } from "../api";
@@ -137,9 +137,19 @@ export function quoteViewedFields(data?: Record<string, unknown> | null): Array<
 export async function resolveQuoteViewedWaUrl(tenantId: string, data?: Record<string, unknown> | null): Promise<string | null> {
   const phone = normalizeWaPhone(typeof data?.phone === "string" ? data.phone : null);
   if (!phone) return null;
-  const entities = { contact: { firstName: typeof data?.contacto === "string" ? data.contacto : "" }, account: { name: typeof data?.empresa === "string" ? data.empresa : "" } };
-  const message = await getWaTemplate(tenantId, "hub_hot", { entities }).catch(() => "");
-  return `https://wa.me/${phone}?text=${encodeURIComponent((message ?? "").trim())}`;
+  const contacto = typeof data?.contacto === "string" ? data.contacto.trim() : "";
+  const contactFirstName = contacto.split(/\s+/)[0] ?? contacto;
+  const quoteId = typeof data?.quoteId === "string" ? data.quoteId : null;
+  return resolveSlackWaUrl(
+    tenantId,
+    "hub_hot",
+    phone,
+    {
+      contact: { firstName: contactFirstName },
+      account: { name: typeof data?.empresa === "string" ? data.empresa : "" },
+    },
+    { quoteId },
+  );
 }
 
 /** Fila de acciones de la tarjeta 🔥: WhatsApp (URL) + ⏰ Recordar 1h. */
