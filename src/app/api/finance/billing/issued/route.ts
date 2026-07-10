@@ -9,7 +9,7 @@ import { hasFacturacionCapability } from "@/lib/permissions";
 import { issueDteSchema } from "@/lib/validations/finance";
 import { issueDte } from "@/modules/finance/billing/dte-issuer.service";
 import { prisma } from "@/lib/prisma";
-import { cleanRut } from "@/lib/chile-rut";
+import { cleanRut, toSiiRut, formatRut } from "@/lib/chile-rut";
 
 export async function GET(request: NextRequest) {
   try {
@@ -345,7 +345,22 @@ export async function GET(request: NextRequest) {
         : Promise.resolve([]),
       receiverRuts.length > 0
         ? prisma.crmAccount.findMany({
-            where: { rut: { in: receiverRuts }, tenantId: ctx.tenantId },
+            // El `receiverRut` guardado y el `rut` de la cuenta pueden diferir
+            // en formato (puntos/guión) o traer caracteres invisibles del XML
+            // SII. Como Prisma compara el string crudo, ampliamos el `in` a
+            // las variantes canónicas de cada RUT (con guión, con puntos y
+            // solo dígitos) para no perder el match por formato; el Map de
+            // abajo se cierra con la clave normalizada (cleanRut).
+            where: {
+              rut: {
+                in: Array.from(
+                  new Set(
+                    receiverRuts.flatMap((r) => [r, toSiiRut(r), formatRut(r), cleanRut(r)]),
+                  ),
+                ).filter((r) => r.length > 0),
+              },
+              tenantId: ctx.tenantId,
+            },
             select: { id: true, name: true, legalName: true, rut: true },
           })
         : Promise.resolve([]),
@@ -357,8 +372,12 @@ export async function GET(request: NextRequest) {
         : Promise.resolve([]),
     ]);
     const accountById = new Map(accountsById.map((a) => [a.id, a]));
+    // Clave normalizada (solo dígitos+K) para que el lookup tolere formato y
+    // caracteres invisibles en ambos lados.
     const accountByRut = new Map(
-      accountsByRut.filter((a) => !!a.rut).map((a) => [a.rut as string, a]),
+      accountsByRut
+        .filter((a) => !!a.rut)
+        .map((a) => [cleanRut(a.rut as string), a]),
     );
     const installationMap = new Map(installations.map((i) => [i.id, i]));
 
@@ -512,7 +531,7 @@ export async function GET(request: NextRequest) {
       void _dteXml;
       const enrichedAccount =
         (d.crmAccountId ? accountById.get(d.crmAccountId) ?? null : null) ??
-        (d.receiverRut ? accountByRut.get(d.receiverRut) ?? null : null);
+        (d.receiverRut ? accountByRut.get(cleanRut(d.receiverRut)) ?? null : null);
       return {
         ...rest,
         hasXml,

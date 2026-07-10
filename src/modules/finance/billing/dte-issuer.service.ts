@@ -9,6 +9,7 @@ import type { DteIssueRequest, DteLineItem } from "../shared/adapters/dte-provid
 import { isDteTypeValid } from "../shared/constants/dte-types";
 import { computeDteAmounts } from "./dte-amounts.helper";
 import { validateRut } from "../shared/validators/rut.validator";
+import { cleanRut, toSiiRut } from "@/lib/chile-rut";
 import { createEntryForDte } from "../accounting/accounting-health.service";
 import { notify } from "@/lib/notifications/notify";
 import { reserveNextFolio } from "./folio-tracker.service";
@@ -188,17 +189,32 @@ export async function issueDte(
     throw new Error(`RUT receptor invalido: ${rutValidation.error}`);
   }
 
+  // 2a. Canonicalizar el RUT receptor ANTES de persistir/matchear. La
+  // ingesta de DTE recibido ya lo hace (rutCanonical); la emisión guardaba
+  // `receiverRut` crudo — si traía un carácter invisible del XML/portapapeles
+  // (zero-width, BOM, etc.) el string se veía idéntico al RUT de la cuenta
+  // CRM pero no calzaba en igualdad exacta → el DTE quedaba sin vincular.
+  // toSiiRut deja el formato `<cuerpo>-<dv>` (mismo que persisten los
+  // recibidos y el que exige el SII).
+  input.receiverRut = toSiiRut(input.receiverRut);
+
   // 2b. Auto-link CrmAccount por RUT cuando el caller no lo provee.
   // Antes el frontend tenía que mandar crmAccountId explícitamente y muchas
   // emisiones quedaban sin vincular — el detalle del DTE mostraba "Sin
-  // asignar" aunque el cliente CRM existía. Si encontramos match por RUT
-  // lo asignamos; si no, queda null como antes.
+  // asignar" aunque el cliente CRM existía. Prisma no normaliza en el `where`,
+  // así que traemos las cuentas candidatas del tenant y matcheamos en JS con
+  // `cleanRut` (solo dígitos+K) — tolera invisibles/formato en AMBOS lados,
+  // incluida una cuenta cuyo rut esté sucio en la BD.
   if (!input.crmAccountId) {
-    const match = await prisma.crmAccount.findFirst({
-      where: { tenantId, rut: input.receiverRut },
-      select: { id: true },
-    });
-    if (match) input.crmAccountId = match.id;
+    const receiverKey = cleanRut(input.receiverRut);
+    if (receiverKey) {
+      const candidates = await prisma.crmAccount.findMany({
+        where: { tenantId, rut: { not: null } },
+        select: { id: true, rut: true },
+      });
+      const match = candidates.find((a) => cleanRut(a.rut ?? "") === receiverKey);
+      if (match) input.crmAccountId = match.id;
+    }
   }
 
   // 3-4. Calcular líneas, IVA, total. Si currency=UF, convierte cada
