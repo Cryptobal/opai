@@ -11,8 +11,8 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { getWaTemplate } from "@/lib/whatsapp-templates";
 import type { EntityData } from "@/lib/docs/token-resolver";
+import { resolveSlackWaUrl } from "./wa-context";
 
 /** Lead con los campos que el cockpit necesita para pintar y accionar. */
 export interface LeadLite {
@@ -55,7 +55,7 @@ export async function resolveAdminName(tenantId: string, adminId: string | null 
 }
 
 /** EntityData mínima para resolver la plantilla WhatsApp de primer contacto. */
-function leadWaEntities(lead: LeadLite, tenantName: string | null): EntityData {
+function leadWaEntities(lead: LeadLite): EntityData {
   const direccion = [lead.address, lead.commune, lead.city].filter(Boolean).join(", ");
   return {
     lead: {
@@ -69,7 +69,6 @@ function leadWaEntities(lead: LeadLite, tenantName: string | null): EntityData {
       phone: lead.phone ?? "",
       industry: lead.industry ?? "",
     },
-    tenant: { commercialName: tenantName ?? "" },
   };
 }
 
@@ -79,12 +78,14 @@ function leadWaEntities(lead: LeadLite, tenantName: string | null): EntityData {
  * si el lead no tiene teléfono. Si la plantilla no existe, abre WhatsApp igual
  * (sin texto) para no bloquear el contacto.
  */
-export async function resolveLeadWaUrl(tenantId: string, lead: LeadLite): Promise<string | null> {
+export async function resolveLeadWaUrl(
+  tenantId: string,
+  lead: LeadLite,
+  adminId?: string | null,
+): Promise<string | null> {
   const phone = normalizeWaPhone(lead.phone);
   if (!phone) return null;
-  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } }).catch(() => null);
-  const message = await getWaTemplate(tenantId, "lead_commercial", { entities: leadWaEntities(lead, tenant?.name ?? null) }).catch(() => "");
-  return `https://wa.me/${phone}?text=${encodeURIComponent((message ?? "").trim())}`;
+  return resolveSlackWaUrl(tenantId, "lead_commercial", phone, leadWaEntities(lead), { adminId });
 }
 
 interface TakeResult {

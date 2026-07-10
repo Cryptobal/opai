@@ -12,12 +12,12 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { getWaTemplate } from "@/lib/whatsapp-templates";
 import { getTenantForTeam, getWorkspaceForTenant, type ActiveWorkspace } from "../workspace";
 import { resolveLinkedAdmin } from "../user-link";
 import { slackPostMessage, slackRespondUrl, slackOpenView } from "../api";
 import { normalizeWaPhone } from "./lead-actions";
 import { clp } from "./deal-common";
+import { resolveSlackWaUrl } from "./wa-context";
 import { lostView } from "./pipeline";
 
 const STALE_MS = 48 * 60 * 60 * 1000;
@@ -52,8 +52,16 @@ async function shouldSkip(tenantId: string, quoteId: string): Promise<boolean> {
 async function resolveQuoteWa(tenantId: string, q: StaleQuote): Promise<string | null> {
   const phone = normalizeWaPhone(q.contactPhone);
   if (!phone) return null;
-  const msg = await getWaTemplate(tenantId, "hub_stale", { entities: { contact: { firstName: q.contactFirst ?? "" }, account: { name: q.clientName } } }).catch(() => "");
-  return `https://wa.me/${phone}?text=${encodeURIComponent((msg ?? "").trim())}`;
+  return resolveSlackWaUrl(
+    tenantId,
+    "hub_stale",
+    phone,
+    {
+      contact: { firstName: q.contactFirst ?? "" },
+      account: { name: q.clientName },
+    },
+    { quoteId: q.id },
+  );
 }
 
 export function staleQuoteCard(q: StaleQuote, waUrl: string | null): { text: string; blocks: unknown[] } {
