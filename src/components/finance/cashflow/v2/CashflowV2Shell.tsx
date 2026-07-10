@@ -53,6 +53,14 @@ type MoveResult =
   | { ok: true; overwrote?: { occurrenceId: string; itemName: string } | null }
   | { ok: false; conflict?: MoveConflict; error?: string };
 
+// El endpoint upsert-and-act exige `itemId: uuid`. Un `itemId` que no sea UUID
+// (defensivo: hoy las occurrences solo traen UUID o null) NO debe rutearse ahí
+// —Zod lo rechaza con 400 "Invalid uuid". Cuando eso pasa y hay `dteId`, la
+// fila es una factura huérfana y va al endpoint /dtes/[dteId]/move.
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid = (v: string | null | undefined): v is string => !!v && UUID_RE.test(v);
+
 export interface CashflowV2ShellProps {
   /** Proyección semanal ya construida en el server (serializada a JSON:
    *  las fechas viajan como ISO string — usar new Date() al consumirlas). */
@@ -254,7 +262,7 @@ export function CashflowV2Shell({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ newDate }),
         });
-      } else if (occ.itemId) {
+      } else if (isUuid(occ.itemId)) {
         res = await fetch(`/api/finance/cashflow/occurrences/upsert-and-act`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -271,8 +279,10 @@ export function CashflowV2Shell({
           }),
         });
       } else if (occ.dteId) {
-        // DTE huérfano sin programación: mover = override de fecha de
-        // visibilidad. No toca el DTE.
+        // Factura/DTE huérfano sin programación (itemId null o no-UUID): mover =
+        // override de fecha de visibilidad, vía el endpoint dedicado. No toca el
+        // DTE. Antes esta fila caía en upsert-and-act y Zod la rechazaba (400
+        // "Invalid uuid") porque su itemId no es un UUID válido.
         res = await fetch(`/api/finance/cashflow/dtes/${occ.dteId}/move`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
