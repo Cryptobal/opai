@@ -2,7 +2,8 @@
  * Tarjeta "Cierre de supervisión": resumen de la visita al cerrarla (checkout).
  * Sigue el estilo de `cierre-turno-blocks.ts` (rondas): header con estado,
  * context con supervisor/horas/duración, KPIs, hallazgos, comentarios, fotos
- * embebidas y botón "Ver reporte completo". Se publica al canal del módulo ops.
+ * embebidas y botón "Ver reporte completo". Se publica al canal Slack puenteado
+ * de la instalación (no al canal de notificaciones).
  */
 
 const pt = (text: string) => ({ type: "plain_text", text: text.slice(0, 150), emoji: true });

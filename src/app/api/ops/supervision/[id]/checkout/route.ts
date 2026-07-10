@@ -101,7 +101,7 @@ export async function POST(
       },
     });
 
-    // Tarjeta "Cierre de supervisión" al canal ops (mismo que recibe correos).
+    // Tarjeta "Cierre de supervisión" al canal Slack puenteado de la instalación.
     // Fire-and-forget, best-effort: NUNCA debe hacer fallar el checkout.
     void (async () => {
       try {
@@ -155,7 +155,7 @@ export async function POST(
           totalPhotoCount: dedupedPhotos.length,
           reportUrl: `${getCanonicalSiteUrl()}/ops/supervision/${visit.id}`,
         });
-        await publishSupervisionCierreCard(ctx.tenantId, card);
+        await publishSupervisionCierreCard(ctx.tenantId, full.installationId, card);
       } catch (err) {
         console.error("[SUPERVISION] Slack cierre card error:", err);
       }
