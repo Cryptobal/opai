@@ -5,6 +5,8 @@
  */
 
 import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
+import { normalizeWaPhone } from "@/lib/integrations/slack/comercial/lead-actions";
+import { buildWaUrl } from "@/lib/psych/normalizePhone";
 import type { RelevoBoardData, RelevoGuardiaRow } from "@/lib/ops/relevo-board-data";
 
 const pt = (text: string) => ({ type: "plain_text", text: text.slice(0, 75), emoji: true });
@@ -32,6 +34,39 @@ function verButton(): Record<string, unknown> {
   return { type: "button", action_id: "asist_ver", text: pt("Ver"), url: `${getCanonicalSiteUrl()}/ops/marcaciones` };
 }
 
+/** Primer nombre para saludo en WhatsApp ("Carlos Muñoz" → "Carlos"). */
+function firstName(nombre: string): string {
+  const n = nombre.trim();
+  if (!n || n === "PPC") return "guardia";
+  return n.split(/\s+/)[0] ?? n;
+}
+
+/** Mensaje pre-llenado para confirmar llegada al relevo. */
+function relevoWaMessage(nombre: string, installationName: string, puesto: string): string {
+  return (
+    `Hola ${firstName(nombre)}, te contactamos desde central. ` +
+    `¿Puedes confirmar tu llegada a ${installationName} (${puesto})? ` +
+    `Avísanos cuando estés en el puesto. Gracias.`
+  );
+}
+
+function telefonoLine(telefono: string | null): string | null {
+  if (!telefono) return null;
+  const digits = normalizeWaPhone(telefono);
+  if (!digits) return null;
+  return `📞 <tel:+${digits}|${telefono}>`;
+}
+
+function whatsappButton(
+  r: RelevoGuardiaRow,
+  installationName: string,
+): Record<string, unknown> | null {
+  const digits = normalizeWaPhone(r.telefono);
+  if (!digits || r.nombre === "PPC") return null;
+  const url = buildWaUrl(digits, relevoWaMessage(r.nombre, installationName, r.puesto));
+  return { type: "button", action_id: `asist_wa_${r.asistenciaId}`, url, text: pt("🟢 WhatsApp") };
+}
+
 /** Fila del turno saliente (informativa): verde si marcó salida, sin botones. */
 function salienteRow(r: RelevoGuardiaRow): unknown[] {
   const marcoSalida = !!r.checkOutAt;
@@ -46,19 +81,25 @@ function salienteRow(r: RelevoGuardiaRow): unknown[] {
 }
 
 /** Fila del turno entrante: semáforo + botones según estado. */
-function entranteRow(r: RelevoGuardiaRow): unknown[] {
+function entranteRow(r: RelevoGuardiaRow, installationName: string): unknown[] {
   const emoji = estadoEmoji(r.estado, r.nombre);
   const present = PRESENT_STATES.has(r.estado);
   const metaBits: string[] = [r.rut || "—"];
   if (r.checkInAt) metaBits.push(`entró ${hora(r.checkInAt)}`);
   if (r.contactoResultado) metaBits.push(`central: ${r.contactoResultado}`);
 
+  const tel = telefonoLine(r.telefono);
+  const lines = [`${emoji} *${r.nombre}* · ${r.puesto}`, `_${metaBits.join(" · ")}_`];
+  if (tel) lines.push(tel);
+
   const section = {
     type: "section",
-    text: { type: "mrkdwn", text: `${emoji} *${r.nombre}* · ${r.puesto}\n_${metaBits.join(" · ")}_` },
+    text: { type: "mrkdwn", text: lines.join("\n") },
   };
 
   const elements: Record<string, unknown>[] = [];
+  const wa = whatsappButton(r, installationName);
+  if (wa) elements.push(wa);
   if (present) {
     elements.push(verButton());
   } else {
@@ -94,7 +135,7 @@ export function buildRelevoBlocks(data: RelevoBoardData): { text: string; blocks
   if (data.entrante.length === 0) {
     blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "Sin puestos para este turno." }] });
   } else {
-    for (const r of data.entrante) blocks.push(...entranteRow(r));
+    for (const r of data.entrante) blocks.push(...entranteRow(r, data.installationName));
   }
 
   blocks.push({ type: "divider" });

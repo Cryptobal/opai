@@ -15,6 +15,8 @@ export interface RelevoGuardiaRow {
   asistenciaId: string;
   nombre: string;
   rut: string;
+  /** Celular o fijo del guardia activo (mobile preferido). */
+  telefono: string | null;
   puesto: string;
   estado: string;
   checkInAt: Date | null;
@@ -35,13 +37,22 @@ export interface RelevoBoardData {
 
 const PRESENT_STATES = new Set(["asistio", "presente", "confirmado_llegada"]);
 
-type PersonaSel = { persona: { firstName: string | null; lastName: string | null; rut: string | null } } | null;
+type PersonaSel = {
+  persona: {
+    firstName: string | null;
+    lastName: string | null;
+    rut: string | null;
+    phone: string | null;
+    phoneMobile: string | null;
+  };
+} | null;
 
-function personaName(g: PersonaSel): { nombre: string; rut: string } | null {
+function personaName(g: PersonaSel): { nombre: string; rut: string; telefono: string | null } | null {
   if (!g) return null;
   return {
     nombre: formatPersonName(g.persona.firstName, g.persona.lastName) || "—",
     rut: g.persona.rut ?? "",
+    telefono: g.persona.phoneMobile?.trim() || g.persona.phone?.trim() || null,
   };
 }
 
@@ -77,9 +88,21 @@ export async function buildRelevoBoardData(input: {
         contactoCentralResultado: true,
         replacementGuardiaId: true,
         puesto: { select: { name: true, shiftStart: true } },
-        plannedGuardia: { select: { persona: { select: { firstName: true, lastName: true, rut: true } } } },
-        actualGuardia: { select: { persona: { select: { firstName: true, lastName: true, rut: true } } } },
-        replacementGuardia: { select: { persona: { select: { firstName: true, lastName: true, rut: true } } } },
+        plannedGuardia: {
+          select: {
+            persona: { select: { firstName: true, lastName: true, rut: true, phone: true, phoneMobile: true } },
+          },
+        },
+        actualGuardia: {
+          select: {
+            persona: { select: { firstName: true, lastName: true, rut: true, phone: true, phoneMobile: true } },
+          },
+        },
+        replacementGuardia: {
+          select: {
+            persona: { select: { firstName: true, lastName: true, rut: true, phone: true, phoneMobile: true } },
+          },
+        },
       },
       orderBy: [{ puesto: { shiftStart: "asc" } }, { slotNumber: "asc" }],
     }),
@@ -96,6 +119,7 @@ export async function buildRelevoBoardData(input: {
       asistenciaId: r.id,
       nombre: active?.nombre ?? "PPC",
       rut: active?.rut ?? "",
+      telefono: active?.telefono ?? null,
       puesto: r.puesto.name,
       estado: r.attendanceStatus,
       checkInAt: r.checkInAt,
