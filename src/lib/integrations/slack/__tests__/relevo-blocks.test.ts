@@ -46,6 +46,8 @@ describe("buildRelevoBlocks", () => {
     expect(decodeURIComponent(wa?.url?.split("text=")[1] ?? "")).toContain("Hola Carlos");
     expect(decodeURIComponent(wa?.url?.split("text=")[1] ?? "")).toContain("Polpaico Norte");
     expect(decodeURIComponent(wa?.url?.split("text=")[1] ?? "")).toContain("Portería");
+    expect(decodeURIComponent(wa?.url?.split("text=")[1] ?? "")).toContain("vas en camino");
+    expect(decodeURIComponent(wa?.url?.split("text=")[1] ?? "")).toContain("gestionar el relevo");
   });
 
   it("no agrega WhatsApp si el guardia no tiene teléfono", () => {

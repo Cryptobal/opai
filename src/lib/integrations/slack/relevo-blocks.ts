@@ -41,12 +41,12 @@ function firstName(nombre: string): string {
   return n.split(/\s+/)[0] ?? n;
 }
 
-/** Mensaje pre-llenado para confirmar llegada al relevo. */
+/** Mensaje pre-llenado para confirmar si el guardia va en camino al relevo. */
 function relevoWaMessage(nombre: string, installationName: string, puesto: string): string {
   return (
-    `Hola ${firstName(nombre)}, te contactamos desde central. ` +
-    `¿Puedes confirmar tu llegada a ${installationName} (${puesto})? ` +
-    `Avísanos cuando estés en el puesto. Gracias.`
+    `Hola ${firstName(nombre)}, te contactamos desde central por tu turno en ${installationName} (${puesto}). ` +
+    `¿Puedes confirmar si ya vas en camino? ` +
+    `Si no puedes asistir, gracias por avisarnos para gestionar el relevo.`
   );
 }
 
