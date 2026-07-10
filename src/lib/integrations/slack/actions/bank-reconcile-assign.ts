@@ -1,20 +1,26 @@
 /**
- * view_submission del modal de asignación manual (Caso B): concilia el
- * movimiento con la cuenta contable elegida vía `setTransactionLinks`
- * (INCOME/EXPENSE), registra el pending de undo (15 min) y refresca el mensaje.
+ * view_submission del modal de asignación manual (Caso B): asigna el
+ * movimiento a una CATEGORÍA de flujo de caja vía el motor único
+ * `assignBankTxToCategory` (regla "el real consume el proyectado"), registra
+ * el pending de undo (15 min) y refresca el mensaje.
  *
- * SOLO orquesta: la conciliación vive en `setTransactionLinks`; el undo reusa
- * `clearTransactionLinks` a través de `handleBankReconcileUndo`.
+ * SOLO orquesta: la lógica de consumo/creación vive en el motor; el undo reusa
+ * `revertBankTxCategoryAssignment` a través de `handleBankReconcileUndo`.
  */
 
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
-import { setTransactionLinks } from "@/modules/finance/banking/bank-tx-link.service";
+import {
+  assignBankTxToCategory,
+  AssignToCategoryError,
+} from "@/modules/finance/cashflow/assign-to-category.service";
+import { signedCLP } from "@/lib/finance/bank-movements-summary";
 import { callSlack, slackUpdateMessage } from "../api";
 import { resolvedMovementBlocks, replaceMovementInMessage } from "../bank-reconcile-message";
 import { resolveBankReconcileActor, type BankReconcilePayload } from "./bank-reconcile-context";
 
 const UNDO_TTL_MS = 15 * 60 * 1000;
+const clp = (n: number) => signedCLP(Math.abs(n)).replace(/^[+-]/, "");
 
 interface ViewSubmissionPayload extends BankReconcilePayload {
   view?: {
@@ -27,10 +33,10 @@ interface ViewSubmissionPayload extends BankReconcilePayload {
 export async function handleBankReconcileAssignSubmit(
   payload: ViewSubmissionPayload,
 ): Promise<{ ack: Record<string, unknown>; work?: () => Promise<void> }> {
-  const fieldError = (msg: string) => ({ ack: { response_action: "errors", errors: { account: msg.slice(0, 150) } } });
+  const fieldError = (msg: string) => ({ ack: { response_action: "errors", errors: { category: msg.slice(0, 150) } } });
 
   const actor = await resolveBankReconcileActor(payload);
-  if (!actor) return fieldError("Vinculá tu usuario de Slack para conciliar.");
+  if (!actor) return fieldError("Vinculá tu usuario de Slack para asignar.");
 
   let meta: { txId?: string; channelId?: string; messageTs?: string } = {};
   try {
@@ -39,28 +45,37 @@ export async function handleBankReconcileAssignSubmit(
     meta = {};
   }
   const txId = meta.txId;
-  const accountPlanId = payload.view?.state?.values?.account?.v?.selected_option?.value;
-  if (!txId || !accountPlanId) return fieldError("Elegí una cuenta contable.");
+  const categoryId = payload.view?.state?.values?.category?.v?.selected_option?.value;
+  if (!txId || !categoryId) return fieldError("Elegí una categoría.");
 
-  // Revalidar cuenta + movimiento contra el tenant del actor (aislamiento).
-  const account = await prisma.financeAccountPlan.findFirst({
-    where: { id: accountPlanId, tenantId: actor.tenantId, isActive: true, acceptsEntries: true },
-    select: { code: true, name: true },
+  // Revalidar categoría + movimiento contra el tenant del actor (aislamiento).
+  const category = await prisma.financeCashflowCategory.findFirst({
+    where: { id: categoryId, tenantId: actor.tenantId, isActive: true },
+    select: { name: true },
   });
   const tx = await prisma.financeBankTransaction.findFirst({
-    where: { id: txId, tenantId: actor.tenantId },
-    select: { amount: true },
+    where: { id: txId, tenantId: actor.tenantId, hiddenAt: null },
+    select: { description: true },
   });
-  if (!account || !tx) return fieldError("Cuenta o movimiento no válido.");
-  const amount = tx.amount.toNumber();
+  if (!category || !tx) return fieldError("Categoría o movimiento no válido.");
 
+  let result: Awaited<ReturnType<typeof assignBankTxToCategory>>;
   try {
-    await setTransactionLinks(actor.tenantId, txId, actor.adminId, [
-      { targetType: amount > 0 ? "INCOME" : "EXPENSE", targetId: null, amount: Math.abs(amount), accountPlanId },
-    ]);
+    result = await assignBankTxToCategory(actor.tenantId, actor.adminId, {
+      bankTransactionId: txId,
+      categoryId,
+      name: tx.description ?? undefined,
+    });
   } catch (err) {
-    return fieldError(err instanceof Error ? err.message : "No se pudo asignar la cuenta.");
+    if (err instanceof AssignToCategoryError) return fieldError(err.message);
+    return fieldError(err instanceof Error ? err.message : "No se pudo asignar.");
   }
+
+  const desc = (tx.description ?? "").trim().slice(0, 60);
+  const statusText =
+    result.mode === "consumed"
+      ? `✓ ${desc} → ${category.name} · consumió proyectado (real ${clp(result.realClp)}, proyectado ${clp(result.projectedClp ?? 0)})`
+      : `✓ ${desc} → ${category.name} · agregado al flujo`;
 
   const pending = await prisma.slackPendingAction.create({
     data: {
@@ -68,7 +83,9 @@ export async function handleBankReconcileAssignSubmit(
       workspaceId: actor.workspace.id,
       kind: "BANK_RECONCILE_UNDO",
       toolName: "bank_reconcile_undo",
-      toolArgs: { txId, accountPlanId },
+      // `mode: cashflow_category` → el undo revierte la asignación de categoría
+      // (revertBankTxCategoryAssignment), no un link contable legacy.
+      toolArgs: { txId, categoryId, mode: "cashflow_category" },
       entityId: txId,
       requestedBySlackUserId: actor.slackUserId,
       channelId: meta.channelId ?? "",
@@ -79,7 +96,6 @@ export async function handleBankReconcileAssignSubmit(
     select: { id: true },
   });
 
-  const statusText = `Asignado a ${account.code} · ${account.name}`;
   // ACK vacío → cierra el modal; el chat.update (más lento) va en after() (work).
   const work = async () => {
     await refreshOriginalCard(actor.workspace.botToken, meta.channelId, meta.messageTs, txId, pending.id, statusText);
@@ -89,7 +105,7 @@ export async function handleBankReconcileAssignSubmit(
       entityId: txId,
       tenantId: actor.tenantId,
       userId: actor.adminId,
-      details: { operation: "slack_assign_account", accountPlanId, via: "slack" },
+      details: { operation: "slack_assign_cashflow_category", categoryId, mode: result.mode, via: "slack" },
     });
   };
   return { ack: {}, work };
@@ -119,6 +135,6 @@ async function refreshOriginalCard(
   }
   const blocks = replaceMovementInMessage(existing, txId, resolvedMovementBlocks(txId, statusText, pendingId));
   await slackUpdateMessage(token, { channel: channelId, ts: messageTs, text: "Movimientos bancarios", blocks }).catch(
-    (e) => console.error("[bankreconc] chat.update (manual) falló:", e),
+    (e) => console.error("[bankreconc] chat.update (asignar) falló:", e),
   );
 }

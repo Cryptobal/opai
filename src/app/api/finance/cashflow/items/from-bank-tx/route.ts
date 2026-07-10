@@ -7,23 +7,25 @@ import {
   parseBody,
 } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
-import { prisma } from "@/lib/prisma";
-import { Decimal } from "@prisma/client/runtime/library";
 import { createItemFromBankTxSchema } from "@/lib/validations/cashflow";
+import {
+  assignBankTxToCategory,
+  AssignToCategoryError,
+} from "@/modules/finance/cashflow/assign-to-category.service";
 
 /**
  * POST /api/finance/cashflow/items/from-bank-tx
  *
- * Crea un FinanceCashflowItem (recurrente o puntual) a partir de un bank tx
- * no clasificado. En una sola transacción:
- *   1) Crea el item con recurrence configurable.
- *   2) Crea una FinanceCashflowOccurrence con status=PAID en la fecha del
- *      bank tx (con actualAmountClp = monto absoluto del tx).
- *   3) Vincula la occurrence al bank tx (bankTransactionId).
- *   4) Marca el bank tx como reconciliationStatus=MATCHED.
+ * Asigna un movimiento bancario no clasificado a una categoría de flujo de
+ * caja. Delega en el motor único `assignBankTxToCategory`, que aplica la
+ * regla "el real CONSUME el proyectado" (Opción A):
  *
- * Usado por el drawer de cierre semanal para "meter al flujo" un movimiento
- * bancario inesperado como recurrente nuevo o puntual.
+ *   - Si la categoría ya tiene una cuota PROYECTADA en la semana del
+ *     movimiento, el real la reemplaza (no se suma). `recurrence` se ignora.
+ *   - Si no hay proyectado, crea un item nuevo (recurrente o puntual según
+ *     `recurrence`) + occurrence PAID. Este es el comportamiento histórico
+ *     que usa el drawer de cierre semanal para "meter al flujo" un
+ *     movimiento inesperado.
  */
 export async function POST(req: NextRequest) {
   const ctx = await requireAuth();
@@ -39,101 +41,25 @@ export async function POST(req: NextRequest) {
   if (parsed.error) return parsed.error;
   const input = parsed.data;
 
-  const tx = await prisma.financeBankTransaction.findFirst({
-    where: {
-      id: input.bankTransactionId,
-      tenantId: ctx.tenantId,
-      hiddenAt: null,
-    },
-    select: {
-      id: true,
-      amount: true,
-      transactionDate: true,
-      description: true,
-    },
-  });
-  if (!tx) {
-    return NextResponse.json(
-      { success: false, error: "Movimiento bancario no encontrado" },
-      { status: 404 },
-    );
-  }
-
-  const usedAsOcc = await prisma.financeCashflowOccurrence.findFirst({
-    where: { tenantId: ctx.tenantId, bankTransactionId: tx.id },
-    select: { id: true },
-  });
-  if (usedAsOcc) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Ese movimiento bancario ya está vinculado a otra ocurrencia",
-      },
-      { status: 409 },
-    );
-  }
-
-  const category = await prisma.financeCashflowCategory.findFirst({
-    where: { id: input.categoryId, tenantId: ctx.tenantId, isActive: true },
-    select: { id: true, kind: true },
-  });
-  if (!category) {
-    return NextResponse.json(
-      { success: false, error: "Categoría no encontrada" },
-      { status: 404 },
-    );
-  }
-
-  const txAmount = Number(tx.amount);
-  const absAmount = Math.abs(input.amountClp ?? txAmount);
-  const txDate = new Date(
-    tx.transactionDate.getUTCFullYear(),
-    tx.transactionDate.getUTCMonth(),
-    tx.transactionDate.getUTCDate(),
-  );
-
-  const result = await prisma.$transaction(async (db) => {
-    const item = await db.financeCashflowItem.create({
-      data: {
-        tenantId: ctx.tenantId,
-        categoryId: category.id,
-        kind: category.kind,
-        source: "MANUAL",
-        name: input.name,
-        amount: new Decimal(absAmount),
-        currency: "CLP",
-        recurrence: input.recurrence,
-        startDate: txDate,
-        isActive: true,
-        installationId: input.installationId ?? null,
-        notes: input.notes ?? null,
-        createdBy: ctx.userId ?? undefined,
-      },
+  try {
+    const result = await assignBankTxToCategory(ctx.tenantId, ctx.userId ?? null, {
+      bankTransactionId: input.bankTransactionId,
+      categoryId: input.categoryId,
+      name: input.name,
+      recurrence: input.recurrence,
+      amountClp: input.amountClp,
+      installationId: input.installationId ?? null,
+      notes: input.notes ?? null,
     });
-
-    const occurrence = await db.financeCashflowOccurrence.create({
-      data: {
-        tenantId: ctx.tenantId,
-        itemId: item.id,
-        scheduledDate: txDate,
-        effectiveDate: txDate,
-        amountClp: new Decimal(absAmount),
-        status: "PAID",
-        bankTransactionId: tx.id,
-        matchedAt: new Date(),
-        matchedBy: ctx.userId ?? undefined,
-        notes: `Creada desde mov banco no clasificado: ${tx.description}`,
-      },
-    });
-
-    await db.financeBankTransaction.update({
-      where: { id: tx.id },
-      data: { reconciliationStatus: "MATCHED" },
-    });
-
-    return { itemId: item.id, occurrenceId: occurrence.id };
-  });
-
-  revalidatePath("/finanzas/flujo-caja");
-  return NextResponse.json({ success: true, data: result }, { status: 201 });
+    revalidatePath("/finanzas/flujo-caja");
+    return NextResponse.json({ success: true, data: result }, { status: 201 });
+  } catch (err) {
+    if (err instanceof AssignToCategoryError) {
+      return NextResponse.json(
+        { success: false, error: err.message },
+        { status: err.status },
+      );
+    }
+    throw err;
+  }
 }

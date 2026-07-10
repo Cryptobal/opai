@@ -56,28 +56,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result.ack);
   }
 
-  // block_suggestion: opciones del external_select. Respuesta SÍNCRONA con
+  // block_suggestion: opciones de un external_select. Respuesta SÍNCRONA con
   // { options } en <3s. Se discrimina por el callback_id del view: el buscador
   // de guardias del turno extra vs el buscador de entidad de "Guardar en OPAI".
+  // (La asignación a categoría de flujo de caja usa un static_select agrupado,
+  //  que NO emite block_suggestion.)
   if (payload.type === "block_suggestion") {
     let options: { options: unknown[] } = { options: [] };
     try {
       const callbackId = (payload.view as { callback_id?: string } | undefined)?.callback_id;
-      // DEBUG TEMPORAL: capturar el shape real que Slack envía en block_suggestion.
-      console.log("[slack][DEBUG block_suggestion]", JSON.stringify({
-        callbackId,
-        actionId: (payload as { action_id?: string }).action_id,
-        value: (payload as { value?: string }).value,
-        hasView: Boolean(payload.view),
-        viewKeys: payload.view ? Object.keys(payload.view as object) : null,
-        topKeys: Object.keys(payload),
-      }));
-      if (callbackId === "bankreconc_assign_account") {
-        const { handleBankReconcileAccountSuggestion } = await import(
-          "@/lib/integrations/slack/actions/bank-reconcile-modal"
-        );
-        options = await handleBankReconcileAccountSuggestion(payload as never);
-      } else if (callbackId === "opai_turno_extra") {
+      if (callbackId === "opai_turno_extra") {
         const { handleTurnoExtraGuardiaSuggestion } = await import("@/lib/integrations/slack/actions/turno-extra");
         options = await handleTurnoExtraGuardiaSuggestion(payload as never);
       } else {

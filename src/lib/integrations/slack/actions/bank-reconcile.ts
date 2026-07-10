@@ -17,6 +17,7 @@ import {
   bulkReconcileToDte,
   clearTransactionLinks,
 } from "@/modules/finance/banking/bank-tx-link.service";
+import { revertBankTxCategoryAssignment } from "@/modules/finance/cashflow/assign-to-category.service";
 import { buildSingleMovement } from "@/modules/finance/banking/slack-movements-payload";
 import { renderMovementBlocks } from "../bank-reconcile-blocks";
 import { resolvedMovementBlocks } from "../bank-reconcile-message";
@@ -123,6 +124,7 @@ export async function handleBankReconcileUndo(payload: BankReconcilePayload): Pr
     where: { id: pendingId, tenantId: actor.tenantId },
     select: { toolArgs: true },
   });
+  const pendingMode = (pending?.toolArgs as { mode?: string } | null)?.mode;
   if (!pending) {
     await ephemeral(payload.response_url, "Esta acción ya no existe.");
     return;
@@ -145,7 +147,13 @@ export async function handleBankReconcileUndo(payload: BankReconcilePayload): Pr
   }
 
   try {
-    await clearTransactionLinks(actor.tenantId, txId);
+    // Asignación a categoría de flujo de caja → revierte la occurrence
+    // (consumida o creada). Legacy (link contable) → clearTransactionLinks.
+    if (pendingMode === "cashflow_category") {
+      await revertBankTxCategoryAssignment(actor.tenantId, actor.adminId, txId);
+    } else {
+      await clearTransactionLinks(actor.tenantId, txId);
+    }
   } catch (err) {
     // Restaurar a PENDING para permitir reintento del undo.
     await prisma.slackPendingAction

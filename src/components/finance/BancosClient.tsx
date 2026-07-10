@@ -33,6 +33,7 @@ import { BankTxReconcileSheet } from "./BankTxReconcileSheet";
 import { CategoryMappingDialog } from "./cashflow/CategoryMappingDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BulkAssignDialog } from "./BulkAssignDialog";
+import { BulkAssignCashflowDialog } from "./BulkAssignCashflowDialog";
 import { BankAnalysisClient } from "./BankAnalysisClient";
 import {
   Landmark,
@@ -960,6 +961,7 @@ function TransactionsTab({
   //    abre con «Conciliar selección» (suma de montos). ──
   const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [bulkCashflowOpen, setBulkCashflowOpen] = useState(false);
   // Ocultar masivo.
   const [bulkHideOpen, setBulkHideOpen] = useState(false);
   const [bulkHideReason, setBulkHideReason] = useState("");
@@ -2453,6 +2455,14 @@ function TransactionsTab({
           <Button
             size="sm"
             variant="outline"
+            onClick={() => setBulkCashflowOpen(true)}
+            title="Asignar los seleccionados a una categoría de flujo de caja (el real consume el proyectado)"
+          >
+            Asignar a flujo…
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
             onClick={() => setBulkHideOpen(true)}
             title="Ocultar todos los movimientos seleccionados"
             className="text-status-danger-fg hover:bg-status-danger-soft"
@@ -2474,6 +2484,18 @@ function TransactionsTab({
         onDone={() => {
           clearSelection();
           setBulkAssignOpen(false);
+          loadTransactions();
+        }}
+      />
+
+      {/* Modal de asignación a categoría de flujo de caja (consume proyectado) */}
+      <BulkAssignCashflowDialog
+        open={bulkCashflowOpen}
+        onOpenChange={setBulkCashflowOpen}
+        selectedIds={Array.from(selectedTxIds)}
+        onDone={() => {
+          clearSelection();
+          setBulkCashflowOpen(false);
           loadTransactions();
         }}
       />

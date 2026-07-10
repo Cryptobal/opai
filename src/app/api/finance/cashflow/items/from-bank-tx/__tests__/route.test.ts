@@ -17,9 +17,12 @@ const hasCapabilityMock = vi.fn();
 const bankTxFindFirst = vi.fn();
 const bankTxUpdate = vi.fn();
 const occurrenceFindFirst = vi.fn();
+const occurrenceFindMany = vi.fn();
 const occurrenceCreate = vi.fn();
 const categoryFindFirst = vi.fn();
 const itemCreate = vi.fn();
+const itemFindMany = vi.fn();
+const configFindUnique = vi.fn();
 
 vi.mock("server-only", () => ({}));
 
@@ -74,6 +77,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     financeCashflowOccurrence: {
       findFirst: occurrenceFindFirst,
+      findMany: occurrenceFindMany,
       create: occurrenceCreate,
     },
     financeCashflowCategory: {
@@ -81,6 +85,10 @@ vi.mock("@/lib/prisma", () => ({
     },
     financeCashflowItem: {
       create: itemCreate,
+      findMany: itemFindMany,
+    },
+    financeCashflowConfig: {
+      findUnique: configFindUnique,
     },
     $transaction: async (
       fn: (db: {
@@ -115,9 +123,18 @@ beforeEach(() => {
   bankTxFindFirst.mockReset();
   bankTxUpdate.mockReset();
   occurrenceFindFirst.mockReset();
+  occurrenceFindMany.mockReset();
   occurrenceCreate.mockReset();
   categoryFindFirst.mockReset();
   itemCreate.mockReset();
+  itemFindMany.mockReset();
+  configFindUnique.mockReset();
+
+  // Defaults del motor de asignación: cierre viernes, sin proyectado que
+  // consumir (→ rama "real puro" = crea item + occurrence).
+  configFindUnique.mockResolvedValue({ weekClosingDow: 5 });
+  occurrenceFindMany.mockResolvedValue([]);
+  itemFindMany.mockResolvedValue([]);
 
   requireAuthMock.mockResolvedValue({
     userId: "user-1",
@@ -249,7 +266,9 @@ describe("POST /api/finance/cashflow/items/from-bank-tx", () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.data).toEqual({ itemId: "item-new", occurrenceId: "occ-new" });
+    expect(body.data).toEqual(
+      expect.objectContaining({ itemId: "item-new", occurrenceId: "occ-new", mode: "created" }),
+    );
 
     // Item creado con kind de la categoría, recurrence MONTHLY, monto absoluto
     expect(itemCreate).toHaveBeenCalledWith({
