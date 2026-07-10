@@ -101,6 +101,66 @@ export async function POST(
       },
     });
 
+    // Tarjeta "Cierre de supervisión" al canal ops (mismo que recibe correos).
+    // Fire-and-forget, best-effort: NUNCA debe hacer fallar el checkout.
+    void (async () => {
+      try {
+        const full = await prisma.opsVisitaSupervision.findUnique({
+          where: { id: visit.id },
+          include: {
+            supervisor: { select: { name: true } },
+            installation: { select: { name: true } },
+            findings: {
+              where: { status: "open" },
+              orderBy: { createdAt: "desc" },
+              select: { severity: true, description: true },
+            },
+            images: { select: { publicUrl: true } },
+            photos: { select: { photoUrl: true } },
+          },
+        });
+        if (!full) return;
+
+        const allPhotos = [
+          ...full.images.map((i) => i.publicUrl),
+          ...full.photos.map((p) => p.photoUrl),
+        ].filter((u): u is string => Boolean(u));
+        const dedupedPhotos = [...new Set(allPhotos)];
+
+        const { buildSupervisionCierreBlocks } = await import(
+          "@/lib/integrations/slack/supervision-cierre-blocks"
+        );
+        const { publishSupervisionCierreCard } = await import(
+          "@/lib/integrations/slack/supervision-cierre-publish"
+        );
+        const { getCanonicalSiteUrl } = await import("@/lib/emails/site-url");
+
+        const card = buildSupervisionCierreBlocks({
+          installationName: full.installation.name,
+          supervisorName: full.supervisor.name ?? "Supervisor",
+          checkInAt: updated.checkInAt,
+          checkOutAt: updated.checkOutAt ?? checkOutAt,
+          durationMinutes: updated.durationMinutes,
+          checkInGeoValidada: updated.checkInGeoValidada,
+          checkInDistanciaM: updated.checkInDistanciaM,
+          checkOutGeoValidada: updated.checkOutGeoValidada,
+          checkOutDistanciaM: updated.checkOutDistanciaM,
+          installationState: updated.installationState,
+          guardsFound: updated.guardsFound,
+          guardsExpected: updated.guardsExpected,
+          healthScore: updated.healthScore,
+          generalComments: updated.generalComments,
+          findings: full.findings,
+          photoUrls: dedupedPhotos.slice(0, 6),
+          totalPhotoCount: dedupedPhotos.length,
+          reportUrl: `${getCanonicalSiteUrl()}/ops/supervision/${visit.id}`,
+        });
+        await publishSupervisionCierreCard(ctx.tenantId, card);
+      } catch (err) {
+        console.error("[SUPERVISION] Slack cierre card error:", err);
+      }
+    })();
+
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     console.error("[OPS][SUPERVISION] Error checkout visit:", error);
