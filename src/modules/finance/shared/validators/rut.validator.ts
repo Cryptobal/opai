@@ -4,10 +4,13 @@
  */
 
 /**
- * Clean a RUT string: remove dots, dashes, spaces
+ * Clean a RUT string: keep only digits and the `K` check digit.
+ * Uses `[^0-9kK]` (not `[.\-\s]`) so it also strips invisible characters
+ * — zero-width space (U+200B), BOM (U+FEFF), LTR/RTL marks — that leak in
+ * from SII XML and would otherwise break exact-match comparisons.
  */
 export function cleanRut(rut: string): string {
-  return rut.replace(/[\.\-\s]/g, "").toUpperCase();
+  return (rut ?? "").replace(/[^0-9kK]/g, "").toUpperCase();
 }
 
 /**

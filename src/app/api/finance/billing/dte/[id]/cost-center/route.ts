@@ -27,6 +27,7 @@ import {
   parseBody,
 } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
+import { cleanRut } from "@/lib/chile-rut";
 
 const bodySchema = z.object({
   crmAccountId: z.string().uuid().nullable().optional(),
@@ -106,10 +107,11 @@ export async function PATCH(
       );
     }
     if (dte.direction === "ISSUED") {
-      const normalize = (v: string | null | undefined) =>
-        (v ?? "").replace(/[.\-\s]/g, "").toUpperCase();
-      const accRut = normalize(acc.rut);
-      const dteRut = normalize(dte.receiverRut);
+      // cleanRut normaliza a solo dígitos+K, tolerando caracteres
+      // invisibles del XML SII (zero-width space, BOM, etc.) que de otro
+      // modo harían fallar esta igualdad aunque el RUT se vea idéntico.
+      const accRut = cleanRut(acc.rut ?? "");
+      const dteRut = cleanRut(dte.receiverRut ?? "");
       if (!accRut || accRut !== dteRut) {
         return NextResponse.json(
           {
