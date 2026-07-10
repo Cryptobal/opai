@@ -776,11 +776,29 @@ export function IssuedDteDetailDialog({
                           ...prev,
                           crmAccountId: next.crmAccountId,
                           installationId: next.installationId,
-                          crmAccount: next.crmAccountId && next.accountName
-                            ? { id: next.crmAccountId, name: next.accountName }
+                          // Si el id está presente conservamos el vínculo
+                          // aunque el nombre venga vacío tras guardar: caemos
+                          // al nombre previo o, en último caso, al receptor
+                          // del DTE. Antes seteábamos `null` si faltaba el
+                          // nombre, y el drawer mostraba el cliente como
+                          // desvinculado aunque sí se hubiera guardado.
+                          crmAccount: next.crmAccountId
+                            ? {
+                                id: next.crmAccountId,
+                                name:
+                                  next.accountName ||
+                                  prev.crmAccount?.name ||
+                                  prev.receiverName,
+                              }
                             : null,
-                          installation: next.installationId && next.installationName
-                            ? { id: next.installationId, name: next.installationName }
+                          installation: next.installationId
+                            ? {
+                                id: next.installationId,
+                                name:
+                                  next.installationName ||
+                                  prev.installation?.name ||
+                                  "Instalación",
+                              }
                             : null,
                         }
                       : prev,
