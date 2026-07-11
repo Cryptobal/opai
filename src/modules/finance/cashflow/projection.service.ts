@@ -1232,10 +1232,27 @@ export async function buildProjection(
       installationId: true,
       receiverName: true,
       issuerName: true,
+      receiverRut: true, // ← NUEVO: para resolver cliente por RUT
     },
   });
   const orphanDteIds = orphanDtes.map((d) => d.id);
   const dteDateOverrideByIdEarly = await loadDteDateOverrides(tenantId, orphanDteIds);
+
+  // Backfill de cliente CRM por RUT para DTEs huérfanos cuyo crmAccountId viene null.
+  // Mismo patrón que el matcher DTE-issuer (más arriba). Permite que Path 1 enganche
+  // la factura a la línea del cliente aunque el DTE no traiga crmAccountId explícito.
+  const orphanRutsNeedingLookup = orphanDtes
+    .filter((d) => !d.crmAccountId && d.receiverRut && d.direction === "ISSUED")
+    .map((d) => d.receiverRut!)
+    .filter((r, i, arr) => arr.indexOf(r) === i);
+  const orphanCrmByRut = new Map<string, string>();
+  if (orphanRutsNeedingLookup.length > 0) {
+    const accs = await prisma.crmAccount.findMany({
+      where: { tenantId, rut: { in: orphanRutsNeedingLookup } },
+      select: { id: true, rut: true },
+    });
+    for (const a of accs) if (a.rut) orphanCrmByRut.set(a.rut, a.id);
+  }
 
   for (const dte of orphanDtes) {
     const isIncome = dte.direction === "ISSUED";
@@ -1281,11 +1298,16 @@ export async function buildProjection(
       // contrato quedó solo con crmAccount), enganchamos por cuenta en vez de
       // dejar la factura huérfana mostrándose como "Programada". La
       // desambiguación por monto evita cruces entre instalaciones de la cuenta.
+      // crmAccountId efectivo: directo del DTE, o resuelto por RUT (backfill).
+      const resolvedCrmAccountId =
+        dte.crmAccountId ??
+        (dte.receiverRut ? (orphanCrmByRut.get(dte.receiverRut) ?? null) : null);
+
       let candidateItems = dte.installationId
         ? contractItemsByInstallation.get(dte.installationId)
         : undefined;
-      if ((!candidateItems || candidateItems.length === 0) && dte.crmAccountId) {
-        candidateItems = contractItemsByCrmAccount.get(dte.crmAccountId);
+      if ((!candidateItems || candidateItems.length === 0) && resolvedCrmAccountId) {
+        candidateItems = contractItemsByCrmAccount.get(resolvedCrmAccountId);
       }
       const contractItem = await pickProgramacionByAmount(
         candidateItems,
