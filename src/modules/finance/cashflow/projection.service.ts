@@ -290,6 +290,30 @@ async function loadResolvedBankLinks(
   return { resolved, unresolved };
 }
 
+/** Item MANUAL de egreso creado por `assignBankTxToCategory` (rama "real
+ *  puro"): sin cliente ni instalación y con bank-tx enganchado. Su `name`
+ *  es la glosa del banco (ej. "Compra OPENAI* CHATGPT C"), no una cuenta
+ *  contable, por lo que la grilla de EGRESOS lo colapsa dentro de su cuenta
+ *  en vez de darle fila propia. No matchea gastos manuales legítimos que el
+ *  usuario cargó a mano y aún NO concilió (esos no tienen bankTransactionId). */
+export function isBankBornManualExpense(
+  item: {
+    source: string;
+    kind: string;
+    crmAccountId: string | null;
+    installationId: string | null;
+  },
+  bankTransactionId: string | null,
+): boolean {
+  return (
+    item.source === "MANUAL" &&
+    item.kind === "EXPENSE" &&
+    item.crmAccountId == null &&
+    item.installationId == null &&
+    bankTransactionId != null
+  );
+}
+
 /**
  * Consolida los INGRESOS a UNA occurrence por facturación, según el modelo:
  * "el flujo muestra el DOCUMENTO (programación → borrador → factura), una sola
@@ -812,6 +836,10 @@ export async function buildProjection(
         modoCobro:
           (item.modoCobro as "DIRECTO" | "FACTORING" | undefined) ?? "DIRECTO",
         hasAmountOverride: hasManualOverride,
+        // Item MANUAL/EXPENSE creado desde una conciliación bancaria (glosa del
+        // banco como nombre, sin cliente/instalación): la grilla lo colapsa en
+        // su cuenta. Un gasto manual aún no conciliado (sin bank-tx) no entra.
+        isConciliacion: isBankBornManualExpense(item, mat?.bankTransactionId ?? null),
       });
     }
   }
@@ -1478,6 +1506,10 @@ export async function buildProjection(
       // Bank-link sintético sin contrato → DIRECTO por default.
       nickname: null,
       modoCobro: "DIRECTO",
+      // Conciliación pura (bank-link huérfano). Solo EGRESOS se colapsan por
+      // cuenta; un INGRESO conciliado sin contrato es una venta real que el
+      // usuario necesita ver por cliente, así que conserva su fila propia.
+      isConciliacion: cat.kind === "EXPENSE",
     });
   }
 

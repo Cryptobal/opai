@@ -95,6 +95,12 @@ export interface VirtualOccurrence {
    *  "Factorizada · cobrada" en vez de "Factorizada" plana: la plata ya entró
    *  al banco aunque el DTE siga en CEDED (su cobro lo gestiona el factoring). */
   factoringCollected?: boolean;
+  /** Movimiento originado en conciliación bancaria SIN item de contrato/nómina
+   *  detrás: bank-link huérfano (`Conciliación · <cat>`) o item MANUAL creado
+   *  por `assignBankTxToCategory` rama B (nombre = glosa del banco, ej.
+   *  "Compra OPENAI* CHATGPT C"). La grilla de EGRESOS los colapsa dentro de su
+   *  cuenta en vez de darles fila propia. No aplica a INGRESOS. */
+  isConciliacion?: boolean;
 }
 
 export interface ProjectionRange {
@@ -255,6 +261,13 @@ export interface ProjectionRowItemDetail {
   values: ProjectionRowItemValue[];
   total: number;
   totalActual: number;
+  /** Sub-fila que agrupa N movimientos de conciliación de una misma cuenta
+   *  (ver isConciliacion en VirtualOccurrence). Cuando es true, `children`
+   *  trae el desglose y la UI la pinta expandible. */
+  isConciliacionGroup?: boolean;
+  /** Movimientos individuales que componen una fila agrupada de conciliación.
+   *  Sólo presente cuando isConciliacionGroup=true. */
+  children?: ProjectionRowItemDetail[];
 }
 
 export interface ProjectionRow {
