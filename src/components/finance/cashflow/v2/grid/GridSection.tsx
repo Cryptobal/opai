@@ -1,10 +1,12 @@
 "use client";
 
+import { Fragment, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { ProjectionBucket } from "@/modules/finance/cashflow/types";
 import { fmt } from "@/components/finance/cashflow/MatrixHelpers";
 import { GridRow } from "./GridRow";
 import {
+  childGridRow,
   sectionBucketTotals,
   type BucketMeta,
   type GridItemRow,
@@ -42,6 +44,16 @@ export function GridSection({
   /** La sección admite editar montos (solo Egresos; ver GridCell). */
   editableAmounts?: boolean;
 }) {
+  // Cuentas de conciliación expandidas (keyed por itemId). Colapsadas por
+  // defecto: set vacío al montar.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const totals = sectionBucketTotals(rows, buckets);
   const headTone =
     tone === "ok"
@@ -71,20 +83,49 @@ export function GridSection({
           </td>
         </tr>
       ) : (
-        rows.map((row) => (
-          <GridRow
-            key={row.item.itemId}
-            row={row}
-            buckets={buckets}
-            currentIdx={currentIdx}
-            dndEnabled={dndEnabled}
-            bucketMeta={bucketMeta}
-            advanced={advanced}
-            onAmountSaved={onAmountSaved}
-            isMobile={isMobile}
-            editableAmounts={editableAmounts}
-          />
-        ))
+        rows.map((row) => {
+          const itemId = row.item.itemId;
+          const isExpandableRow =
+            !!row.item.isConciliacionGroup && (row.item.children?.length ?? 0) > 0;
+          const open = expanded.has(itemId);
+          return (
+            <Fragment key={itemId}>
+              <GridRow
+                row={row}
+                buckets={buckets}
+                currentIdx={currentIdx}
+                dndEnabled={dndEnabled}
+                bucketMeta={bucketMeta}
+                advanced={advanced}
+                onAmountSaved={onAmountSaved}
+                isMobile={isMobile}
+                editableAmounts={editableAmounts}
+                expandable={
+                  isExpandableRow
+                    ? { open, onToggle: () => toggle(itemId) }
+                    : undefined
+                }
+              />
+              {isExpandableRow &&
+                open &&
+                row.item.children!.map((child) => (
+                  <GridRow
+                    key={`${itemId}::${child.itemId}`}
+                    row={childGridRow(child)}
+                    buckets={buckets}
+                    currentIdx={currentIdx}
+                    dndEnabled={dndEnabled}
+                    bucketMeta={bucketMeta}
+                    advanced={advanced}
+                    onAmountSaved={onAmountSaved}
+                    isMobile={isMobile}
+                    editableAmounts={editableAmounts}
+                    isChild
+                  />
+                ))}
+            </Fragment>
+          );
+        })
       )}
       {/* Subtotal por semana */}
       <tr className="border-b border-ds-border-default bg-ds-surface-2 font-medium">
