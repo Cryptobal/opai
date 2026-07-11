@@ -315,6 +315,53 @@ export function isBankBornManualExpense(
 }
 
 /**
+ * Marca la 2ª+ factura (`isExtraInvoice`) cuando ≥2 DTEs del mismo item de
+ * contrato caen en el mismo bucket. Detecta la colisión DESPUÉS de tener todas
+ * las occurrences consolidadas y los bounds de bucket — en los push sites aún
+ * no se sabe si habrá colisión.
+ *
+ * El "primero" (que conserva la celda del contrato) se elige de forma
+ * determinista: scheduledDate asc → folio asc → dteId asc. Todos los demás del
+ * grupo quedan marcados y obtienen sub-fila propia en `buildRows`.
+ *
+ * NO cambia montos: es sólo un flag de ruteo. El aporte al subtotal es idéntico
+ * (misma occurrence, sólo cambia en qué sub-fila se agrupa su celda).
+ */
+export function markExtraInvoices(
+  occurrences: VirtualOccurrence[],
+  buckets: { key: string; start: Date; end: Date }[],
+  folioByDteId?: Map<string, number | null>,
+): void {
+  const groups = new Map<string, VirtualOccurrence[]>();
+  for (const o of occurrences) {
+    if (o.kind !== "INCOME" || !o.itemId || !o.dteId) continue;
+    const d = utcCalendarDay(o.effectiveDate ?? o.scheduledDate);
+    const b = buckets.find((bk) => d >= bk.start && d <= bk.end);
+    if (!b) continue;
+    const gk = `${o.itemId}::${b.key}`;
+    const arr = groups.get(gk) ?? [];
+    arr.push(o);
+    groups.set(gk, arr);
+  }
+  const folioOf = (dteId: string) => folioByDteId?.get(dteId) ?? Number.MAX_SAFE_INTEGER;
+  for (const arr of groups.values()) {
+    // Dedup defensivo por dteId (la consolidación ya deja uno por DTE).
+    const byDte = new Map<string, VirtualOccurrence>();
+    for (const o of arr) if (!byDte.has(o.dteId!)) byDte.set(o.dteId!, o);
+    if (byDte.size < 2) continue;
+    const sorted = [...byDte.values()].sort((a, b) => {
+      const t = a.scheduledDate.getTime() - b.scheduledDate.getTime();
+      if (t !== 0) return t;
+      const fa = folioOf(a.dteId!);
+      const fb = folioOf(b.dteId!);
+      if (fa !== fb) return fa - fb;
+      return a.dteId!.localeCompare(b.dteId!);
+    });
+    for (let i = 1; i < sorted.length; i++) sorted[i].isExtraInvoice = true;
+  }
+}
+
+/**
  * Consolida los INGRESOS a UNA occurrence por facturación, según el modelo:
  * "el flujo muestra el DOCUMENTO (programación → borrador → factura), una sola
  * vez". Si un período ya tiene DTE (borrador/factura), ese DTE manda con su
@@ -1819,6 +1866,11 @@ export async function buildProjection(
     );
   }
 
+  // Detección de facturas extra (2ª+ DTE del mismo contrato en el mismo
+  // bucket): se resuelve acá, con occurrences consolidadas y buckets/folios
+  // ya disponibles, y NO en los push sites (ahí aún no se conoce la colisión).
+  markExtraInvoices(occurrences, buckets, dteFolioById);
+
   const rows = buildRows(
     buckets,
     categories,
@@ -2282,11 +2334,18 @@ function buildRows(
       // completo al expandir. Sin esto, los huérfanos de una misma categoría
       // colapsaban bajo "_orphan" perdiendo el detalle por movimiento.
       const isConciliacionMove = !!o.isConciliacion && !!o.bankTransactionId;
+      // 2ª+ factura del mismo contrato en el bucket: sub-fila propia
+      // (`_extra:<dteId>`) para que sea visible con badge en vez de colapsar en
+      // la celda del contrato (donde sólo vivía en el popover). Su aporte al
+      // subtotal es idéntico al que tenía colapsada: sólo cambia la sub-fila.
+      const isExtra = !!o.isExtraInvoice && !!o.dteId;
       const key = isPeriodicGroup
         ? `_periodic:${o.source}`
         : isConciliacionMove
           ? `_conc:${o.bankTransactionId}`
-          : (o.itemId ?? (o.dteId ? `_dte:${o.dteId}` : "_orphan"));
+          : isExtra
+            ? `_extra:${o.dteId}`
+            : (o.itemId ?? (o.dteId ? `_dte:${o.dteId}` : "_orphan"));
 
       let detail = byItem.get(key);
       if (!detail) {
@@ -2294,9 +2353,10 @@ function buildRows(
           itemId: key,
           itemName: isPeriodicGroup
             ? (PERIODIC_DISPLAY_NAMES[o.source] ?? o.name)
-            : // Fila huérfana (_dte:) con cliente CRM resoluble → nombre del cliente,
-              // para agruparla bajo su encabezado en vez de "Factura #N · receptor".
-              key.startsWith("_dte:") && o.crmAccountId
+            : // Fila huérfana (_dte:) o factura extra (_extra:) con cliente CRM
+              // resoluble → nombre del cliente, para agruparla bajo su
+              // encabezado en vez de "Factura #N · receptor".
+              (key.startsWith("_dte:") || isExtra) && o.crmAccountId
               ? (crmAccountNameById.get(o.crmAccountId) ?? o.name)
               : o.name,
           installationId: isPeriodicGroup ? null : o.installationId,
@@ -2309,7 +2369,7 @@ function buildRows(
           // baseAmount no aplica al agregado periódico — distintos meses
           // tienen distintos montos. Lo dejamos en 0 para que la UI no
           // muestre un "$/mes" engañoso al lado del nombre.
-          baseAmount: isPeriodicGroup ? 0 : (o.amountOriginal ?? o.amountClp),
+          baseAmount: isPeriodicGroup || isExtra ? 0 : (o.amountOriginal ?? o.amountClp),
           currency: o.currency,
           source: o.source,
           sourceRefCode: null,
@@ -2322,6 +2382,7 @@ function buildRows(
           nickname: isPeriodicGroup ? null : (o.nickname ?? null),
           modoCobro: o.modoCobro ?? "DIRECTO",
           isConciliacion: isConciliacionMove,
+          isExtraInvoice: isExtra,
           values: buckets.map((b) => ({
             bucketKey: b.key,
             amount: 0,
