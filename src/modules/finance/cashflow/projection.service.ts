@@ -2276,9 +2276,17 @@ function buildRows(
       // sources, todas las occurrences caen en la misma entrada del map.
       const isPeriodicGroup =
         !!o.itemId && PERIODIC_AGGREGATE_SOURCES.has(o.source);
+      // Movimiento de conciliación pura (bank-link huérfano o item MANUAL
+      // nacido de banco): una sub-fila por movimiento (keyed por bank-tx) para
+      // que la grilla de EGRESOS los pueda colapsar por cuenta con el desglose
+      // completo al expandir. Sin esto, los huérfanos de una misma categoría
+      // colapsaban bajo "_orphan" perdiendo el detalle por movimiento.
+      const isConciliacionMove = !!o.isConciliacion && !!o.bankTransactionId;
       const key = isPeriodicGroup
         ? `_periodic:${o.source}`
-        : (o.itemId ?? (o.dteId ? `_dte:${o.dteId}` : "_orphan"));
+        : isConciliacionMove
+          ? `_conc:${o.bankTransactionId}`
+          : (o.itemId ?? (o.dteId ? `_dte:${o.dteId}` : "_orphan"));
 
       let detail = byItem.get(key);
       if (!detail) {
@@ -2313,6 +2321,7 @@ function buildRows(
               : 0,
           nickname: isPeriodicGroup ? null : (o.nickname ?? null),
           modoCobro: o.modoCobro ?? "DIRECTO",
+          isConciliacion: isConciliacionMove,
           values: buckets.map((b) => ({
             bucketKey: b.key,
             amount: 0,

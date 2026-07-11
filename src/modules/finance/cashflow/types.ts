@@ -261,6 +261,10 @@ export interface ProjectionRowItemDetail {
   values: ProjectionRowItemValue[];
   total: number;
   totalActual: number;
+  /** El detail proviene de un movimiento de conciliación pura (ver
+   *  isConciliacion en VirtualOccurrence). La grilla de EGRESOS lo colapsa
+   *  dentro de la fila de su cuenta en vez de mostrarlo como fila propia. */
+  isConciliacion?: boolean;
   /** Sub-fila que agrupa N movimientos de conciliación de una misma cuenta
    *  (ver isConciliacion en VirtualOccurrence). Cuando es true, `children`
    *  trae el desglose y la UI la pinta expandible. */
