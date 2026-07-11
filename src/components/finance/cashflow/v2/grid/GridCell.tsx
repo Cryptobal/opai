@@ -96,6 +96,11 @@ export function GridCell({
   const validTarget = isOver && activeItemId === itemId;
 
   const hasOverride = value?.hasAmountOverride ?? false;
+  // El lápiz/anillo "editado manualmente" solo tiene sentido en celdas
+  // editables. En una celda fija (conciliada) el monto override es el del
+  // banco, no una edición manual — mostrarlo ahí era engañoso. El candado
+  // (GridChip locked) comunica el estado de las fijas.
+  const showOverrideBadge = hasOverride && canEdit;
 
   // Disparadores de edición según dispositivo. La regla de gestos en móvil es:
   //  - tap corto  → nada (evita aperturas accidentales por roces).
@@ -144,7 +149,7 @@ export function GridCell({
         <span
           className={cn(
             "relative inline-flex",
-            hasOverride && "rounded-ds-sm ring-1 ring-inset ring-primary/60",
+            showOverrideBadge && "rounded-ds-sm ring-1 ring-inset ring-primary/60",
           )}
         >
           {canDrag && value ? (
@@ -166,7 +171,7 @@ export function GridCell({
               title={chip.title}
             />
           )}
-          {hasOverride && (
+          {showOverrideBadge && (
             <Pencil
               className="absolute -right-1 -top-1 h-2.5 w-2.5 text-primary"
               aria-label="Monto editado manualmente"

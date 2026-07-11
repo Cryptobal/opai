@@ -162,6 +162,12 @@ export interface ProjectionRowItemValue {
   /** Alguna occurrence de la celda tiene monto fijado manualmente
    *  (`amountOverride`). La UI muestra un badge "editado" y ofrece revertir. */
   hasAmountOverride?: boolean;
+  /** Alguna occurrence de la celda está conciliada con el banco
+   *  (`bankTransactionId != null`) — la celda quedó FIJA (no editable),
+   *  tenga o no un DTE cobrado detrás. La UI la marca con candado. Sin esto,
+   *  un gasto conciliado sin factura (ej. OpenAI, Contador) quedaba fijo pero
+   *  sin candado, y la leyenda "candado = conciliado (fijo)" mentía. */
+  reconciled?: boolean;
   /** Folio del DTE vinculado, si existe. Usado en el tooltip de la celda
    *  para mostrar "Factura N° {folio}" al hacer hover. */
   dteFolio?: number | null;

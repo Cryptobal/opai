@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasFacturacionCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { cleanRut, toSiiRut, formatRut } from "@/lib/chile-rut";
 
 export async function GET(
   request: NextRequest,
@@ -61,7 +62,7 @@ export async function GET(
     // Fallback por RUT cuando crmAccountId está vacío: muchos DTEs históricos
     // no llevan crmAccountId pero sí receiverRut → matcheamos por RUT contra
     // CrmAccount.
-    const [crmAccount, crmAccountByRut, installation, lastReconciliation] =
+    const [crmAccount, crmAccountRutCandidates, installation, lastReconciliation] =
       await Promise.all([
         dte.crmAccountId
           ? prisma.crmAccount.findFirst({
@@ -69,12 +70,28 @@ export async function GET(
               select: { id: true, name: true, legalName: true, rut: true },
             })
           : Promise.resolve(null),
+        // Fallback por RUT sin crmAccountId. La igualdad exacta fallaba cuando
+        // el `receiverRut` guardado y el `rut` de la cuenta diferían en formato
+        // o traían caracteres invisibles del XML SII. Traemos candidatos por
+        // las variantes canónicas y elegimos abajo con `cleanRut` (JS).
         !dte.crmAccountId && dte.receiverRut
-          ? prisma.crmAccount.findFirst({
-              where: { rut: dte.receiverRut, tenantId: ctx.tenantId },
+          ? prisma.crmAccount.findMany({
+              where: {
+                rut: {
+                  in: Array.from(
+                    new Set([
+                      dte.receiverRut,
+                      toSiiRut(dte.receiverRut),
+                      formatRut(dte.receiverRut),
+                      cleanRut(dte.receiverRut),
+                    ]),
+                  ).filter((r) => r.length > 0),
+                },
+                tenantId: ctx.tenantId,
+              },
               select: { id: true, name: true, legalName: true, rut: true },
             })
-          : Promise.resolve(null),
+          : Promise.resolve([]),
         dte.installationId
           ? prisma.crmInstallation.findFirst({
               where: { id: dte.installationId, tenantId: ctx.tenantId },
@@ -107,6 +124,12 @@ export async function GET(
         }),
       ]);
 
+    // Elegir el candidato cuyo RUT normalizado coincide con el del receptor.
+    const receiverKey = dte.receiverRut ? cleanRut(dte.receiverRut) : "";
+    const crmAccountByRut =
+      receiverKey.length > 0
+        ? crmAccountRutCandidates.find((a) => cleanRut(a.rut ?? "") === receiverKey) ?? null
+        : null;
     const enrichedAccount = crmAccount ?? crmAccountByRut;
     const lastReconciliationPayload = lastReconciliation
       ? {
