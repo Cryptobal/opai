@@ -38,6 +38,15 @@ export interface GridItemRow {
   };
 }
 
+/** GridItemRow para una sub-fila hija de un grupo de conciliación (B3). El
+ *  detalle del movimiento ya trae su `values`; solo indexamos por bucket. */
+export function childGridRow(item: ProjectionRowItemDetail): GridItemRow {
+  return {
+    item,
+    valueByBucket: new Map(item.values.map((v) => [v.bucketKey, v])),
+  };
+}
+
 /** Aplana las filas de una sección (INCOME/EXPENSE) en filas-item ordenadas
  *  por cuenta CRM (cliente) y luego instalación/nickname. */
 export function itemRowsForKind(

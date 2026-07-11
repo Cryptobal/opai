@@ -5,6 +5,7 @@ import type {
   ProjectionRowItemValue,
 } from "@/modules/finance/cashflow/types";
 import { itemRowsForKind, type GridItemRow } from "./grid-helpers";
+import { buildConcRow } from "./expense-conc-grouping";
 
 /** Tipos de egreso que agrupan varias instalaciones en una sola línea: hoy la
  *  proyección emite una occurrence por instalación (sourceRefId=installationId)
@@ -45,15 +46,22 @@ export function expenseRows(rows: ProjectionRow[]): GridItemRow[] {
     FinanceCashflowItemSource,
     { items: ProjectionRowItemDetail[]; categoryName: string }
   >();
+  // Tercer cubo: movimientos de conciliación (isConciliacion), agrupados por
+  // CUENTA (categoría, que vive en la ProjectionRow) en vez de por source.
+  const concByCategory = new Map<
+    string,
+    { categoryId: string; categoryName: string; items: ProjectionRowItemDetail[] }
+  >();
   const individualRows: ProjectionRow[] = [];
 
   for (const row of rows) {
     if (row.kind !== "EXPENSE") continue;
-    const groupedItems = row.items.filter((i) =>
-      GROUPED_EXPENSE_SOURCES.has(i.source),
+    const groupedItems = row.items.filter(
+      (i) => GROUPED_EXPENSE_SOURCES.has(i.source) && !i.isConciliacion,
     );
+    const concItems = row.items.filter((i) => i.isConciliacion);
     const restItems = row.items.filter(
-      (i) => !GROUPED_EXPENSE_SOURCES.has(i.source),
+      (i) => !GROUPED_EXPENSE_SOURCES.has(i.source) && !i.isConciliacion,
     );
     for (const item of groupedItems) {
       const g = grouped.get(item.source) ?? {
@@ -62,6 +70,16 @@ export function expenseRows(rows: ProjectionRow[]): GridItemRow[] {
       };
       g.items.push(item);
       grouped.set(item.source, g);
+    }
+    if (concItems.length > 0) {
+      const catId = row.categoryId ?? `_nocat:${row.categoryCode}`;
+      const c = concByCategory.get(catId) ?? {
+        categoryId: catId,
+        categoryName: row.categoryName,
+        items: [],
+      };
+      c.items.push(...concItems);
+      concByCategory.set(catId, c);
     }
     if (restItems.length > 0) {
       individualRows.push({ ...row, items: restItems });
@@ -74,9 +92,19 @@ export function expenseRows(rows: ProjectionRow[]): GridItemRow[] {
     if (g && g.items.length > 0) groupRows.push(buildGroupRow(source, g));
   }
 
+  // Filas de conciliación: una por cuenta, ordenadas por nombre de cuenta
+  // (consistente con itemSortKey).
+  const concRows: GridItemRow[] = Array.from(concByCategory.values())
+    .map((c) => buildConcRow(c.categoryId, c.categoryName, c.items))
+    .sort((a, b) =>
+      a.item.itemName.localeCompare(b.item.itemName, "es", {
+        sensitivity: "base",
+      }),
+    );
+
   // Filas no agrupadas: reutiliza el aplanado/orden estándar por nombre.
   const rest = itemRowsForKind(individualRows, "EXPENSE");
-  return [...groupRows, ...rest];
+  return [...groupRows, ...concRows, ...rest];
 }
 
 /** Construye la fila agregada de un tipo de egreso sumando sus instalaciones

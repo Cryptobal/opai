@@ -95,6 +95,16 @@ export interface VirtualOccurrence {
    *  "Factorizada · cobrada" en vez de "Factorizada" plana: la plata ya entró
    *  al banco aunque el DTE siga en CEDED (su cobro lo gestiona el factoring). */
   factoringCollected?: boolean;
+  /** Movimiento originado en conciliación bancaria SIN item de contrato/nómina
+   *  detrás: bank-link huérfano (`Conciliación · <cat>`) o item MANUAL creado
+   *  por `assignBankTxToCategory` rama B (nombre = glosa del banco, ej.
+   *  "Compra OPENAI* CHATGPT C"). La grilla de EGRESOS los colapsa dentro de su
+   *  cuenta en vez de darles fila propia. No aplica a INGRESOS. */
+  isConciliacion?: boolean;
+  /** 2ª+ factura del mismo item de contrato en el mismo bucket. Obtiene
+   *  sub-fila propia en buildRows (badge "+ EXTRA") en vez de colapsar en la
+   *  celda del contrato, donde sólo era visible en el popover. */
+  isExtraInvoice?: boolean;
 }
 
 export interface ProjectionRange {
@@ -255,6 +265,21 @@ export interface ProjectionRowItemDetail {
   values: ProjectionRowItemValue[];
   total: number;
   totalActual: number;
+  /** El detail proviene de un movimiento de conciliación pura (ver
+   *  isConciliacion en VirtualOccurrence). La grilla de EGRESOS lo colapsa
+   *  dentro de la fila de su cuenta en vez de mostrarlo como fila propia. */
+  isConciliacion?: boolean;
+  /** Sub-fila de una 2ª+ factura del mismo contrato en la misma semana
+   *  (ver isExtraInvoice en VirtualOccurrence). La UI la pinta con badge
+   *  "+ EXTRA" colgando del cliente. */
+  isExtraInvoice?: boolean;
+  /** Sub-fila que agrupa N movimientos de conciliación de una misma cuenta
+   *  (ver isConciliacion en VirtualOccurrence). Cuando es true, `children`
+   *  trae el desglose y la UI la pinta expandible. */
+  isConciliacionGroup?: boolean;
+  /** Movimientos individuales que componen una fila agrupada de conciliación.
+   *  Sólo presente cuando isConciliacionGroup=true. */
+  children?: ProjectionRowItemDetail[];
 }
 
 export interface ProjectionRow {
