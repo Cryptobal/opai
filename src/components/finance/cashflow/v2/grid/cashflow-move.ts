@@ -34,8 +34,19 @@ export interface MoveInput {
   newDate: string;
 }
 
+/** itemId sintético que produce buildRows para filas sin FinanceCashflowItem real
+ *  (`_dte:<uuid>`, `_orphan`, `_periodic:<source>`). No es un UUID: no debe ir a
+ *  la rama `itemId` del router (Zod exige uuid → 400 "Invalid UUID"). */
+function isSyntheticItemId(id: string | null): boolean {
+  return !!id && (id.startsWith("_dte:") || id.startsWith("_orphan") || id.startsWith("_periodic"));
+}
+
 export async function moveViaApi(input: MoveInput): Promise<MoveResult> {
-  const { occurrenceId, itemId, dteId, originalDate, newDate } = input;
+  const { occurrenceId, dteId, originalDate, newDate } = input;
+  // Un itemId sintético (fila huérfana `_dte:`, `_orphan`, `_periodic`) NO es un
+  // UUID real: lo anulamos para que el router caiga a la rama dteId (DTE huérfano →
+  // dtes/[dteId]/move) en vez de mandar basura a upsert-and-act.
+  const itemId = isSyntheticItemId(input.itemId) ? null : input.itemId;
   let res: Response;
   try {
     if (occurrenceId) {
