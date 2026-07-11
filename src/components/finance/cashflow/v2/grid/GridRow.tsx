@@ -53,6 +53,7 @@ export function GridRow({
   const headcount = row.item.headcount;
   const childCount = row.item.children?.length ?? 0;
   const open = expandable?.open ?? false;
+  const isExtra = !!row.item.isExtraInvoice;
   return (
     <tr
       className={cn(
@@ -66,6 +67,7 @@ export function GridRow({
         className={cn(
           "sticky left-0 z-10 min-w-[160px] max-w-[220px] max-md:min-w-[100px] max-md:max-w-[128px] border-r border-ds-border-default bg-ds-surface-1 p-2",
           isChild && "bg-ds-surface-2/40 pl-8",
+          isExtra && "pl-6",
         )}
       >
         <div className="flex items-center gap-1.5">
@@ -96,6 +98,14 @@ export function GridRow({
           >
             {primary}
           </span>
+          {isExtra && (
+            <span
+              className="shrink-0 rounded-ds-sm bg-tint-violet-soft px-1 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-tint-violet-fg"
+              title="Factura adicional de la misma semana"
+            >
+              + EXTRA
+            </span>
+          )}
           {isUf && (
             <span className="shrink-0 rounded-ds-sm bg-ds-surface-3 px-1 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-ds-text-2">
               UF

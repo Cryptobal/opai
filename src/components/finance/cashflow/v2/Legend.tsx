@@ -34,6 +34,12 @@ export function Legend() {
         <span className="inline-flex items-center gap-1.5">
           <FileText className="h-3.5 w-3.5 text-primary" /> N° = folio de factura
         </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="rounded-ds-sm bg-tint-violet-soft px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-tint-violet-fg">
+            + EXTRA
+          </span>{" "}
+          = 2ª+ factura de la misma semana
+        </span>
       </div>
     </div>
   );
