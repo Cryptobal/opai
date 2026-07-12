@@ -1032,6 +1032,17 @@ export async function buildProjection(
           // re-ejecuta en cada carga del flujo. El fix aplica al
           // siguiente deploy.
           dteType: { notIn: [56, 61] },
+          // Anuladas/rechazadas no representan flujo real. Mismo criterio que
+          // `orphanDtes` — el matcher las dejaba pasar y terminaban marcando
+          // como PAID una cuota del contrato con plata de una factura
+          // inexistente (rama if(best)) o pusheando una occurrence sintética
+          // PAID (rama else). Ambas inflan actualIncome / saldo acumulado.
+          siiStatus: { notIn: ["ANNULLED", "REJECTED"] },
+          // Anulada TOTAL por NC (CodRef=1): sale del flujo. La NC parcial
+          // (CodRef=3, creditedNetAmount > 0) NO se excluye acá — permanece
+          // con monto ajustado vía computeCreditNoteImpact(), igual que en
+          // orphanDtes.
+          voidedByCreditNoteId: null,
         },
         select: {
           id: true,
