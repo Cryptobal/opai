@@ -68,11 +68,31 @@ export function itemRowsForKind(
   return gridRows;
 }
 
-/** Cuenta␟instalación; sin cuenta va al final. */
+/** Clave de orden: cuenta · instalación · rank · tie, unidos por \u001F (unit
+ *  separator, no imprimible). Sin cuenta ("￿") va al final.
+ *
+ *  El `rank` desempata cuando la sub-fila EXTRA hereda cuenta e instalación de
+ *  su fila padre (mismas claves cuenta+instalación): sin él, el orden relativo
+ *  padre/extra queda a merced del orden de inserción del Map (Array.sort es
+ *  estable pero sólo preserva el orden de ENTRADA, que también empata) y la
+ *  extra puede renderizarse ENCIMA de su padre, aparentando colgar del cliente
+ *  anterior. Padre → "0", extra → "1", así la extra siempre queda debajo.
+ *
+ *  El `tie` (itemId, que en una fila extra es `_extra:<dteId>` — único y
+ *  estable) desempata entre 2+ facturas extra del mismo cliente/instalación,
+ *  para que su orden relativo tampoco quede al azar.
+ *
+ *  El separador es \u001F y no un espacio porque el comparador usa
+ *  localeCompare(…, "es", { sensitivity: "base" }), que trata el espacio como
+ *  carácter ordenable: con espacio, una instalación real terminada en dígito
+ *  podría colisionar con el `rank` en el borde. \u001F nunca aparece en el
+ *  contenido, así que el rank jamás se confunde con datos reales. */
 function itemSortKey(i: ProjectionRowItemDetail): string {
   const cuenta = i.crmAccountName ?? "￿";
   const inst = i.installationName ?? i.nickname ?? i.itemName ?? "";
-  return `${cuenta} ${inst}`;
+  const rank = i.isExtraInvoice ? "1" : "0";
+  const tie = i.isExtraInvoice ? i.itemId : "";
+  return `${cuenta}\u001F${inst}\u001F${rank}\u001F${tie}`;
 }
 
 /** Etiqueta principal (cliente) y tag secundario (instalación/nickname) de la
