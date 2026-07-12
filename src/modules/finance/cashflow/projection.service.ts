@@ -315,13 +315,19 @@ export function isBankBornManualExpense(
 }
 
 /**
- * Marca la 2ª+ factura (`isExtraInvoice`) cuando ≥2 DTEs del mismo item de
- * contrato caen en el mismo bucket. Detecta la colisión DESPUÉS de tener todas
- * las occurrences consolidadas y los bounds de bucket — en los push sites aún
- * no se sabe si habrá colisión.
+ * Marca la 2ª+ factura (`isExtraInvoice`) cuando ≥2 DTEs de la misma
+ * CUENTA+INSTALACIÓN caen en el mismo bucket. Antes se agrupaba por item de
+ * contrato, lo que dejaba "sueltas" las facturas de distinto item (o sin item)
+ * de una misma cuenta: cada una armaba su propia fila desanclada. Ahora la
+ * regla es por cuenta+instalación e incluye facturas huérfanas (`itemId=null`),
+ * así toda 2ª+ factura de la semana queda como una fila extra colgada de esa
+ * cuenta. Detecta la colisión DESPUÉS de tener todas las occurrences
+ * consolidadas y los bounds de bucket — en los push sites aún no se sabe si
+ * habrá colisión.
  *
- * El "primero" (que conserva la celda del contrato) se elige de forma
- * determinista: scheduledDate asc → folio asc → dteId asc. Todos los demás del
+ * El "primero" (que conserva su celda natural — la del contrato si engancha a
+ * un item) se elige de forma determinista: primero las que enganchan a contrato
+ * (con `itemId`) → scheduledDate asc → folio asc → dteId asc. Los demás del
  * grupo quedan marcados y obtienen sub-fila propia en `buildRows`.
  *
  * NO cambia montos: es sólo un flag de ruteo. El aporte al subtotal es idéntico
@@ -334,11 +340,11 @@ export function markExtraInvoices(
 ): void {
   const groups = new Map<string, VirtualOccurrence[]>();
   for (const o of occurrences) {
-    if (o.kind !== "INCOME" || !o.itemId || !o.dteId) continue;
+    if (o.kind !== "INCOME" || !o.dteId) continue;
     const d = utcCalendarDay(o.effectiveDate ?? o.scheduledDate);
     const b = buckets.find((bk) => d >= bk.start && d <= bk.end);
     if (!b) continue;
-    const gk = `${o.itemId}::${b.key}`;
+    const gk = `${o.crmAccountId ?? "_nocli"}::${o.installationId ?? "_noinst"}::${b.key}`;
     const arr = groups.get(gk) ?? [];
     arr.push(o);
     groups.set(gk, arr);
@@ -350,6 +356,10 @@ export function markExtraInvoices(
     for (const o of arr) if (!byDte.has(o.dteId!)) byDte.set(o.dteId!, o);
     if (byDte.size < 2) continue;
     const sorted = [...byDte.values()].sort((a, b) => {
+      // La que engancha a contrato (itemId) se queda como principal.
+      const ai = a.itemId ? 0 : 1;
+      const bi = b.itemId ? 0 : 1;
+      if (ai !== bi) return ai - bi;
       const t = a.scheduledDate.getTime() - b.scheduledDate.getTime();
       if (t !== 0) return t;
       const fa = folioOf(a.dteId!);
@@ -2205,7 +2215,23 @@ function filterShadowProjectionsWithDtePriority(
   );
 }
 
-function filterOccurrencesWithConciliationPriority(
+/**
+ * Clave de "movimiento" para acotar la regla de conciliación en INGRESOS.
+ * Una conciliación solo reemplaza la proyección del MISMO movimiento
+ * (item de contrato / factura DTE / cuenta+instalación), no la de otros
+ * clientes. Sin identidad resoluble devuelve `null` → la occurrence nunca
+ * oculta ni es ocultada por otras.
+ */
+function incomeMovementKey(o: VirtualOccurrence): string | null {
+  if (o.itemId) return `item:${o.itemId}`;
+  if (o.dteId) return `dte:${o.dteId}`;
+  if (o.crmAccountId || o.installationId) {
+    return `acct:${o.crmAccountId ?? ""}|${o.installationId ?? ""}`;
+  }
+  return null;
+}
+
+export function filterOccurrencesWithConciliationPriority(
   occurrences: VirtualOccurrence[],
 ): VirtualOccurrence[] {
   if (occurrences.length === 0) return occurrences;
@@ -2214,7 +2240,31 @@ function filterOccurrencesWithConciliationPriority(
   // 2) Conciliación bancaria reemplaza lo proyectado (regla más fuerte).
   const hasConciliation = afterShadow.some((o) => o.bankTransactionId !== null);
   if (!hasConciliation) return afterShadow;
-  return afterShadow.filter((o) => o.bankTransactionId !== null);
+
+  // En EGRESOS mantenemos el comportamiento amplio (la conciliación de la
+  // celda categoría+bucket reemplaza toda proyección: los gastos se ven
+  // colapsados por categoría y una conciliación real manda sobre el estimado).
+  const allIncome = afterShadow.every((o) => o.kind === "INCOME");
+  if (!allIncome) {
+    return afterShadow.filter((o) => o.bankTransactionId !== null);
+  }
+
+  // En INGRESOS acotamos la regla al MISMO movimiento: una factura cobrada
+  // (conciliada) NO puede ocultar las facturas impagas de OTROS clientes en la
+  // misma categoría/semana. Antes la regla amplia las borraba de la grilla y de
+  // los subtotales ("no salen todas las facturas de DTE emitidos").
+  const reconciledKeys = new Set<string>();
+  for (const o of afterShadow) {
+    if (o.bankTransactionId === null) continue;
+    const k = incomeMovementKey(o);
+    if (k) reconciledKeys.add(k);
+  }
+  if (reconciledKeys.size === 0) return afterShadow;
+  return afterShadow.filter((o) => {
+    if (o.bankTransactionId !== null) return true;
+    const k = incomeMovementKey(o);
+    return k === null || !reconciledKeys.has(k);
+  });
 }
 
 /**
@@ -2347,25 +2397,32 @@ function buildRows(
             ? `_extra:${o.dteId}`
             : (o.itemId ?? (o.dteId ? `_dte:${o.dteId}` : "_orphan"));
 
+      // Fila de factura DTE: huérfana (_dte:) o extra (_extra:). Va SIEMPRE
+      // anclada a una cuenta: si el DTE resuelve cliente → su nombre; si no,
+      // al grupo "Sin cliente" (nunca "suelta" como "Factura #N · receptor").
+      const isDteRow = key.startsWith("_dte:") || isExtra;
+      const resolvedAccountName = o.crmAccountId
+        ? (crmAccountNameById.get(o.crmAccountId) ?? null)
+        : null;
+      const dteRowAccountName = isDteRow
+        ? (resolvedAccountName ?? "Sin cliente")
+        : resolvedAccountName;
       let detail = byItem.get(key);
       if (!detail) {
         detail = {
           itemId: key,
           itemName: isPeriodicGroup
             ? (PERIODIC_DISPLAY_NAMES[o.source] ?? o.name)
-            : // Fila huérfana (_dte:) o factura extra (_extra:) con cliente CRM
-              // resoluble → nombre del cliente, para agruparla bajo su
-              // encabezado en vez de "Factura #N · receptor".
-              (key.startsWith("_dte:") || isExtra) && o.crmAccountId
-              ? (crmAccountNameById.get(o.crmAccountId) ?? o.name)
+            : // Fila de factura (_dte:/_extra:) → nombre del cliente (o "Sin
+              // cliente"), para agruparla bajo su encabezado en vez de
+              // "Factura #N · receptor".
+              isDteRow
+              ? (dteRowAccountName ?? o.name)
               : o.name,
           installationId: isPeriodicGroup ? null : o.installationId,
           installationName: isPeriodicGroup ? null : o.installationName,
           crmAccountId: isPeriodicGroup ? null : o.crmAccountId,
-          crmAccountName:
-            !isPeriodicGroup && o.crmAccountId
-              ? (crmAccountNameById.get(o.crmAccountId) ?? null)
-              : null,
+          crmAccountName: isPeriodicGroup ? null : dteRowAccountName,
           // baseAmount no aplica al agregado periódico — distintos meses
           // tienen distintos montos. Lo dejamos en 0 para que la UI no
           // muestre un "$/mes" engañoso al lado del nombre.

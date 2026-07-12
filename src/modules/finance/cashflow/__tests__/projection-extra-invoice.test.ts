@@ -87,7 +87,7 @@ describe("markExtraInvoices", () => {
     expect([...keys].some((k) => k.startsWith("_extra:"))).toBe(true);
   });
 
-  it("2 DTEs mismo item/bucket → 1 contrato (folio menor) + 1 _extra marcado", () => {
+  it("2 DTEs misma cuenta+instalación/bucket → 1 principal (folio menor) + 1 _extra", () => {
     const first = occ({ dteId: "dte_lo", scheduledDate: new Date("2026-06-03T00:00:00Z") });
     const second = occ({ dteId: "dte_hi", scheduledDate: new Date("2026-06-03T00:00:00Z") });
     const occs = [second, first]; // orden de llegada invertido a propósito
@@ -97,6 +97,50 @@ describe("markExtraInvoices", () => {
     expect(first.isExtraInvoice).toBeFalsy();
     expect(second.isExtraInvoice).toBe(true);
     expect(subRowKey(second)).toBe("_extra:dte_hi");
+  });
+
+  it("2 DTEs de items DISTINTOS pero misma cuenta+instalación/semana → 2º extra", () => {
+    // Antes se agrupaba por item (no colisionaban). Ahora por cuenta+instalación:
+    // la 2ª factura de la cuenta queda anclada como fila extra, no suelta.
+    const a = occ({ dteId: "dte_1", itemId: "item_A" });
+    const b = occ({ dteId: "dte_2", itemId: "item_B" });
+    markExtraInvoices([a, b], BUCKETS, new Map([["dte_1", 1], ["dte_2", 2]]));
+    expect(a.isExtraInvoice).toBeFalsy();
+    expect(b.isExtraInvoice).toBe(true);
+  });
+
+  it("orphan (itemId=null) + factura de contrato misma cuenta/semana → el orphan queda extra", () => {
+    // La factura de contrato (con itemId) se prefiere como principal; la
+    // huérfana de la misma cuenta+semana se marca extra (anclada a la cuenta).
+    const contract = occ({ dteId: "dte_c", itemId: "item_A", scheduledDate: new Date("2026-06-04T00:00:00Z") });
+    const orphan = occ({ dteId: "dte_o", itemId: null, scheduledDate: new Date("2026-06-03T00:00:00Z") });
+    markExtraInvoices([orphan, contract], BUCKETS, new Map([["dte_c", 1], ["dte_o", 2]]));
+    expect(contract.isExtraInvoice).toBeFalsy();
+    expect(orphan.isExtraInvoice).toBe(true);
+  });
+
+  it("2 orphans (itemId=null) misma cuenta/semana → 2º extra", () => {
+    const o1 = occ({ dteId: "dte_1", itemId: null, scheduledDate: new Date("2026-06-02T00:00:00Z") });
+    const o2 = occ({ dteId: "dte_2", itemId: null, scheduledDate: new Date("2026-06-03T00:00:00Z") });
+    markExtraInvoices([o1, o2], BUCKETS, new Map([["dte_1", 1], ["dte_2", 2]]));
+    expect(o1.isExtraInvoice).toBeFalsy();
+    expect(o2.isExtraInvoice).toBe(true);
+  });
+
+  it("DTEs de CUENTAS distintas en el mismo bucket → sin _extra", () => {
+    const a = occ({ dteId: "dte_1", crmAccountId: "crm_1" });
+    const b = occ({ dteId: "dte_2", crmAccountId: "crm_2" });
+    markExtraInvoices([a, b], BUCKETS, new Map([["dte_1", 1], ["dte_2", 2]]));
+    expect(a.isExtraInvoice).toBeFalsy();
+    expect(b.isExtraInvoice).toBeFalsy();
+  });
+
+  it("misma cuenta pero INSTALACIONES distintas en el mismo bucket → sin _extra", () => {
+    const a = occ({ dteId: "dte_1", installationId: "inst_1" });
+    const b = occ({ dteId: "dte_2", installationId: "inst_2" });
+    markExtraInvoices([a, b], BUCKETS, new Map([["dte_1", 1], ["dte_2", 2]]));
+    expect(a.isExtraInvoice).toBeFalsy();
+    expect(b.isExtraInvoice).toBeFalsy();
   });
 
   it("la extra conserva crmAccountId/installationId (buildRows hereda el cliente)", () => {
@@ -138,19 +182,11 @@ describe("markExtraInvoices", () => {
     expect(run(["dte_b", "dte_c", "dte_a"])).toBe("dte_a");
   });
 
-  it("DTEs del mismo item en buckets distintos → sin _extra (no colisionan)", () => {
+  it("DTEs de la misma cuenta en buckets distintos → sin _extra (no colisionan)", () => {
     const w1 = occ({ dteId: "dte_1", scheduledDate: new Date("2026-06-03T00:00:00Z") });
     const w2 = occ({ dteId: "dte_2", scheduledDate: new Date("2026-06-10T00:00:00Z") });
     markExtraInvoices([w1, w2], BUCKETS, new Map());
     expect(w1.isExtraInvoice).toBeFalsy();
     expect(w2.isExtraInvoice).toBeFalsy();
-  });
-
-  it("DTEs de items distintos en el mismo bucket → sin _extra", () => {
-    const a = occ({ dteId: "dte_1", itemId: "item_A" });
-    const b = occ({ dteId: "dte_2", itemId: "item_B" });
-    markExtraInvoices([a, b], BUCKETS, new Map());
-    expect(a.isExtraInvoice).toBeFalsy();
-    expect(b.isExtraInvoice).toBeFalsy();
   });
 });
