@@ -2249,10 +2249,16 @@ export function filterOccurrencesWithConciliationPriority(
     return afterShadow.filter((o) => o.bankTransactionId !== null);
   }
 
-  // En INGRESOS acotamos la regla al MISMO movimiento: una factura cobrada
-  // (conciliada) NO puede ocultar las facturas impagas de OTROS clientes en la
-  // misma categoría/semana. Antes la regla amplia las borraba de la grilla y de
-  // los subtotales ("no salen todas las facturas de DTE emitidos").
+  // En INGRESOS acotamos la regla: la conciliación solo reemplaza la
+  // PROYECCIÓN-sombra (dteId=null) del MISMO movimiento. Antes la regla amplia
+  // borraba de la grilla y de los subtotales toda proyección de la categoría+
+  // semana, así una factura cobrada ocultaba las facturas impagas de OTROS
+  // clientes ("no salen todas las facturas de DTE emitidos"). Reglas:
+  //   • Una occurrence conciliada (bankTransactionId) siempre se muestra.
+  //   • Una factura real (dteId) SIEMPRE se muestra: es un documento distinto,
+  //     nunca la oculta la conciliación de un hermano.
+  //   • Una proyección pura (dteId=null) se oculta solo si su MISMO movimiento
+  //     (item / cuenta+instalación) tiene una conciliada.
   const reconciledKeys = new Set<string>();
   for (const o of afterShadow) {
     if (o.bankTransactionId === null) continue;
@@ -2262,6 +2268,7 @@ export function filterOccurrencesWithConciliationPriority(
   if (reconciledKeys.size === 0) return afterShadow;
   return afterShadow.filter((o) => {
     if (o.bankTransactionId !== null) return true;
+    if (o.dteId) return true;
     const k = incomeMovementKey(o);
     return k === null || !reconciledKeys.has(k);
   });

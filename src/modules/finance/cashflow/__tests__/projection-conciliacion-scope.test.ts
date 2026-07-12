@@ -73,6 +73,21 @@ describe("filterOccurrencesWithConciliationPriority — scope de INGRESOS", () =
     expect(visible).toContain(otherClient); // otro cliente sobrevive
   });
 
+  it("una factura real impaga NO se oculta aunque un hermano del mismo item esté conciliado", () => {
+    // Una factura extra (dteId) de la misma cuenta/semana es un documento
+    // distinto: debe verse aunque el cobro del contrato ya esté conciliado.
+    const paidContract = occ({
+      itemId: "item_X",
+      dteId: "dte_pagada",
+      bankTransactionId: "tx_1",
+      status: "PAID",
+    });
+    const extraInvoice = occ({ itemId: "item_X", dteId: "dte_extra" }); // impaga, mismo item
+    const visible = filterOccurrencesWithConciliationPriority([paidContract, extraInvoice]);
+    expect(visible).toContain(paidContract);
+    expect(visible).toContain(extraInvoice);
+  });
+
   it("la conciliación reemplaza la proyección de la MISMA cuenta+instalación (sin item)", () => {
     const paid = occ({
       crmAccountId: "crm_A",
