@@ -157,22 +157,27 @@ export function GridCell({
   return (
     <td
       ref={setDropRef}
-      onClick={canOpenSheet ? handleCellClick : undefined}
       className={cn(
         "relative border-l border-ds-border-subtle px-1.5 py-1.5 text-center align-middle",
         isCurrent && "bg-primary/[0.04]",
         closed && "bg-ds-surface-2/50 opacity-60",
         isAnchor && "border-r-2 border-r-primary",
         validTarget && "bg-primary/10 ring-2 ring-inset ring-primary",
-        canOpenSheet && "cursor-pointer",
       )}
-      aria-label={canOpenSheet ? `Ver acciones de ${itemName}` : undefined}
-      title={canOpenSheet ? "Toca para ver acciones" : undefined}
     >
       {amount !== 0 && chipNode ? (
         <span
+          // El onClick va en el chip (no en el <td>): el sheet se renderiza como
+          // hermano dentro del td y sus eventos de portal burbujean por el árbol
+          // de React hasta el td; si el handler estuviera en el td, cerrar el
+          // sheet (X / click fuera) reabriría el sheet (parpadeo). El chip no es
+          // ancestro del portal, así que no recibe esos eventos.
+          onClick={canOpenSheet ? handleCellClick : undefined}
+          role={canOpenSheet ? "button" : undefined}
+          title={canOpenSheet ? "Ver acciones" : undefined}
           className={cn(
             "relative inline-flex",
+            canOpenSheet && "cursor-pointer",
             showOverrideBadge && "rounded-ds-sm ring-1 ring-inset ring-primary/60",
           )}
         >

@@ -2004,7 +2004,11 @@ export async function buildProjection(
   }
 
   const openingBreakdown = await resolveOpeningBalance(tenantId);
-  const opening = openingBreakdown.totalClp;
+  // "Saldo banco hoy" = saldo real vigente (currentBalance de las cuentas, lo
+  // que muestra Bancos). El total snapshot+tx (openingBreakdown.totalClp) puede
+  // desviarse si entran movimientos sin refrescar el snapshot; currentTotalClp
+  // es la fuente de verdad del "monto que hay hoy en el banco".
+  const opening = openingBreakdown.currentTotalClp;
 
   const todayMidnight = new Date();
   todayMidnight.setHours(0, 0, 0, 0);
@@ -2093,22 +2097,27 @@ export async function buildProjection(
     txsByAccount.set(t.bankAccountId, arr);
   }
 
-  // Si hay anchor, el runningProjected arranca diferente:
-  //  - buckets con end <= anchorDate → mostramos saldo banco real al b.end
-  //                                    (ya disponible via getRealBankBalanceAt)
-  //  - primer bucket con start > anchorDate → runningProjected = anchorBalance + b.net
-  //  - buckets siguientes → runningProjected += b.net
-  // Sin anchor: igual que antes (runningProjected = opening; runningProjected += b.net).
-  let runningProjected = anchorBalance ?? opening;
-  let crossedAnchor = anchorDate === null; // sin anchor, ya estamos "post-anchor" desde el bucket 0
+  // Anclaje del saldo acumulado a un punto ABSOLUTO para que cada semana muestre
+  // el mismo saldo sin importar la ventana visible (antes se acumulaba desde el
+  // primer bucket de la ventana → la misma semana cambiaba al navegar).
+  //  - Con cierre-ancla explícito: se usa ese (anchorDate/anchorBalance).
+  //  - Sin cierre: ancla IMPLÍCITA en HOY con el saldo real (opening =
+  //    currentBalance). Así las semanas pasadas muestran el saldo banco real a
+  //    esa fecha (getRealBankBalanceAt, absoluto) y las futuras proyectan desde
+  //    el saldo de hoy.
+  const effAnchorDate = anchorDate ?? todayMidnight;
+  const effAnchorBalance = anchorBalance ?? opening;
+  let runningProjected = effAnchorBalance;
+  let crossedAnchor = false;
   let lastRealBucketIdx = -1;
   const cumulativePoints: CumulativeBalancePoint[] = buckets.map((b, idx) => {
     const isPastOrCurrent = b.start.getTime() <= todayMidnight.getTime();
     const cutoff =
       b.end.getTime() <= todayMidnight.getTime() ? b.end : todayMidnight;
 
-    // Caso A: bucket totalmente pre-anchor (end <= anchorDate)
-    if (anchorDate !== null && b.end.getTime() <= anchorDate.getTime()) {
+    // Caso A: bucket totalmente pre-anchor (end <= anchorDate) → saldo banco
+    // real a esa fecha (absoluto, no depende de la ventana).
+    if (b.end.getTime() <= effAnchorDate.getTime()) {
       const realBank = getRealBankBalanceAt(
         cutoff,
         accountIds,
@@ -2125,15 +2134,11 @@ export async function buildProjection(
       };
     }
 
-    // Caso B: bucket que cruza el anchor (start <= anchorDate < end) o primer post-anchor
-    if (!crossedAnchor && anchorDate !== null && b.start.getTime() <= anchorDate.getTime()) {
-      runningProjected = (anchorBalance as number) + b.net;
-      crossedAnchor = true;
-    } else if (!crossedAnchor && anchorDate !== null && b.start.getTime() > anchorDate.getTime()) {
-      runningProjected = (anchorBalance as number) + b.net;
+    // Caso B: primer bucket que cruza/pasa el anchor → parte del saldo ancla.
+    if (!crossedAnchor) {
+      runningProjected = effAnchorBalance + b.net;
       crossedAnchor = true;
     } else {
-      // Buckets siguientes (post-anchor) o sin anchor en absoluto
       runningProjected += b.net;
     }
 

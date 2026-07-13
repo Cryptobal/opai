@@ -2,8 +2,17 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 
 export interface OpeningBalanceBreakdown {
-  /** Saldo total resultante en CLP, "as of today". */
+  /** Saldo total resultante en CLP, "as of today" (snapshot + Σ tx posteriores).
+   *  Útil para drift/anclas. Puede desviarse del saldo real si entran
+   *  movimientos sin refrescar el snapshot (ej. API que solo actualiza
+   *  currentBalance). Para "el monto que hay HOY en el banco" usar
+   *  `currentTotalClp`. */
   totalClp: number;
+  /** Suma de `currentBalance` de las cuentas activas — el saldo real vigente que
+   *  muestra la página de Bancos y que ambos importadores (cartola/API) mantienen
+   *  al día. Es la fuente de verdad para "Saldo banco hoy". Fallback por cuenta a
+   *  `resolvedBalanceClp` cuando `currentBalance` es null. */
+  currentTotalClp: number;
   /** Una fila por cuenta CLP activa para auditoría. */
   perAccount: Array<{
     bankAccountId: string;
@@ -57,6 +66,9 @@ export async function resolveOpeningBalance(
   });
 
   const perAccount: OpeningBalanceBreakdown["perAccount"] = [];
+  // Saldo real vigente por cuenta = currentBalance (lo que muestra Bancos y que
+  // los importadores mantienen al día). Fallback al snapshot+tx solo si es null.
+  let currentTotalClp = 0;
 
   for (const acc of accounts) {
     const anchor = await prisma.financeBankAccountBalance.findFirst({
@@ -80,6 +92,7 @@ export async function resolveOpeningBalance(
         txCount: 0,
         resolvedBalanceClp: Number(acc.currentBalance ?? 0),
       });
+      currentTotalClp += Number(acc.currentBalance ?? 0);
       continue;
     }
 
@@ -105,9 +118,11 @@ export async function resolveOpeningBalance(
       txCount: txAgg._count._all,
       resolvedBalanceClp: anchorBalance + txDelta,
     });
+    currentTotalClp +=
+      acc.currentBalance != null ? Number(acc.currentBalance) : anchorBalance + txDelta;
   }
 
   const totalClp = perAccount.reduce((s, a) => s + a.resolvedBalanceClp, 0);
 
-  return { totalClp, perAccount };
+  return { totalClp, currentTotalClp, perAccount };
 }
