@@ -33,7 +33,7 @@ import { GridSection } from "./grid/GridSection";
 import { GridBalanceRow } from "./grid/GridBalanceRow";
 import { GridDriftRow } from "./grid/GridDriftRow";
 import { GridChip } from "./grid/GridChip";
-import { buildBucketMeta, itemRowsForKind, windowSlice } from "./grid/grid-helpers";
+import { buildBucketMeta, itemRowsForKind } from "./grid/grid-helpers";
 import { expenseRows } from "./grid/expense-grouping";
 import { useGridMove, type GridDragData } from "./grid/useGridMove";
 import { QuotaMoveSelector } from "./grid/QuotaMoveSelector";
@@ -97,16 +97,12 @@ export function CashflowGrid({
     },
   );
   const buckets = active.buckets;
-  // Columnas efectivamente pintadas: en móvil se recorta la matriz a 3 centradas
-  // en la semana actual (la matriz inicial del server trae 8; tras navegar ya
-  // llega con 3). Header, filas, subtotales y fila FC comparten este recorte.
-  const visibleBuckets = useMemo(
-    () =>
-      isMobile
-        ? windowSlice(buckets, MOBILE_WINDOW_WEEKS, currentBucketIndex(buckets))
-        : buckets,
-    [isMobile, buckets],
-  );
+  // El hook ya entrega EXACTAMENTE `windowWeeks` buckets (3 en móvil, 8 en
+  // desktop) desde el ancla de navegación. El doble recorte móvil anterior
+  // re-centraba en "hoy" con `windowSlice`, y al navegar lejos de hoy
+  // `currentBucketIndex` devolvía -1 → caía a un centro arbitrario y la ventana
+  // "saltaba" (2ª causa del "se queda pegado" en móvil). Ya no aplica.
+  const visibleBuckets = buckets;
   const currentIdx = useMemo(
     () => currentBucketIndex(visibleBuckets),
     [visibleBuckets],
