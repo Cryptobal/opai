@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -167,6 +167,44 @@ export function CashflowGrid({
     router.refresh();
     setPanelReloadKey((k) => k + 1);
   }, [refresh, router]);
+
+  // Semanas con cierre real (registro en DB), para pintar un candado accionable
+  // en CADA columna cerrada de la grilla. La grilla solo conoce el ancla activo,
+  // así que la lista precisa de cierres viene del endpoint de estado (mismo que
+  // el panel). Se refresca junto al panel tras cerrar / reabrir.
+  const [closedWeeks, setClosedWeeks] = useState<
+    { weekStartMs: number; weekEndIso: string; isAnchor: boolean }[]
+  >([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/finance/cashflow/weekly-close/status");
+        const j = await res.json();
+        if (cancelled || !j.success) return;
+        const cw = (
+          j.data as Array<{
+            weekStartDate: string;
+            weekEndDate: string;
+            state: string;
+            isAnchor: boolean;
+          }>
+        )
+          .filter((w) => w.state === "CLOSED")
+          .map((w) => ({
+            weekStartMs: Date.parse(w.weekStartDate),
+            weekEndIso: w.weekEndDate,
+            isAnchor: w.isAnchor,
+          }));
+        setClosedWeeks(cw);
+      } catch {
+        /* silencioso: sin datos, la grilla simplemente no muestra candados */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [panelReloadKey]);
 
   // Semana cuya reapertura se está confirmando (candado en la columna / panel).
   const [reopenTarget, setReopenTarget] = useState<{
@@ -424,6 +462,7 @@ export function CashflowGrid({
               canManage={canManage}
               onCloseWeek={setCloseWeekEndIso}
               onReopenWeek={requestReopen}
+              closedWeeks={closedWeeks}
             />
             <tbody>
               <GridSection

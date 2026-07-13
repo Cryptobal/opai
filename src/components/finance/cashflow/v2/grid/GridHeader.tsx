@@ -21,6 +21,7 @@ export function GridHeader({
   canManage,
   onCloseWeek,
   onReopenWeek,
+  closedWeeks,
 }: {
   buckets: ProjectionBucket[];
   currentIdx: number;
@@ -32,16 +33,21 @@ export function GridHeader({
     weekEndIso: string,
     opts: { isAnchor: boolean; label: string },
   ) => void;
+  /** Semanas con cierre real (registro en DB), para el candado por columna. El
+   *  `weekStartMs` (sábado del cierre dow) cae en una única semana ISO de la
+   *  grilla, así que mapea 1:1 a la columna que la contiene. */
+  closedWeeks?: { weekStartMs: number; weekEndIso: string; isAnchor: boolean }[];
 }) {
   const bands = monthBands(buckets);
-  // Frontera sellada = última columna cerrada (las cerradas son el prefijo
-  // ≤ ancla). Reabrir esa columna retrocede el ancla y se ve de inmediato.
-  // Las semanas del cierre (dow) e ISO no calzan exactamente, así que ubicamos
-  // el candado por la frontera, no por coincidencia de día con el ancla.
-  let frontierIdx = -1;
-  buckets.forEach((b, i) => {
-    if (bucketMeta?.get(b.key)?.closed) frontierIdx = i;
-  });
+  // Cierre real que cae en una columna ISO: su sábado (weekStart del cierre dow)
+  // está dentro de [lunes, domingo] de esa semana ISO. Devuelve el cierre para
+  // pintar un candado accionable en CADA columna cerrada (no solo en la ancla).
+  const closeForBucket = (b: ProjectionBucket) => {
+    if (!closedWeeks?.length) return undefined;
+    const s = toDate(b.start).getTime();
+    const e = toDate(b.end).getTime();
+    return closedWeeks.find((c) => c.weekStartMs >= s && c.weekStartMs <= e);
+  };
   return (
     // Header sticky-top: ambas filas (bandas de mes + semanas) quedan fijas
     // arriba al hacer scroll vertical dentro del contenedor scrollable. El
@@ -127,26 +133,31 @@ export function GridHeader({
                   <Lock className="h-3 w-3" aria-hidden /> Cerrar
                 </button>
               )}
-              {/* Frontera sellada → candado accionable: reabre esta semana y
-                  retrocede el ancla (efecto visible al instante). Las semanas
-                  selladas más atrás muestran solo el candado de estado; para
-                  reabrir una intermedia puntual está el panel (lista precisa). */}
-              {canManage && onReopenWeek && i === frontierIdx && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    onReopenWeek(toDate(b.end).toISOString(), {
-                      isAnchor: true,
-                      label: `S${isoWeek(monday)}`,
-                    })
-                  }
-                  aria-label="Reabrir semana"
-                  title="Semana cerrada · reabrir"
-                  className="mt-1 inline-flex h-7 w-7 items-center justify-center rounded-ds-sm border border-ds-border-default text-ds-text-3 transition-colors hover:border-status-warn-border hover:bg-status-warn-soft hover:text-status-warn-fg"
-                >
-                  <Lock className="h-3 w-3" aria-hidden />
-                </button>
-              )}
+              {/* Semana con cierre real → candado accionable: reabre SOLO esa
+                  semana. Se apunta al weekEnd del registro (no a la fecha de la
+                  columna) para que el backend borre exactamente ese cierre. */}
+              {canManage &&
+                onReopenWeek &&
+                (() => {
+                  const close = closeForBucket(b);
+                  if (!close) return null;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onReopenWeek(close.weekEndIso, {
+                          isAnchor: close.isAnchor,
+                          label: `S${isoWeek(monday)}`,
+                        })
+                      }
+                      aria-label="Reabrir semana"
+                      title="Semana cerrada · reabrir"
+                      className="mt-1 inline-flex h-7 w-7 items-center justify-center rounded-ds-sm border border-ds-border-default text-ds-text-3 transition-colors hover:border-status-warn-border hover:bg-status-warn-soft hover:text-status-warn-fg"
+                    >
+                      <Lock className="h-3 w-3" aria-hidden />
+                    </button>
+                  );
+                })()}
             </th>
           );
         })}
