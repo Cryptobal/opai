@@ -6,6 +6,10 @@ import { WeekClosePanelRow, type WeekStatusDTO } from "./WeekClosePanelRow";
 
 interface Props {
   onCloseWeek: (weekEndIso: string) => void;
+  /** Reabre (desbloquea) una semana cerrada desde su candado de fila. */
+  onReopenWeek?: (weekEndIso: string) => void;
+  /** Solo con permiso de gestión se muestran las acciones (cerrar / candado). */
+  canManage?: boolean;
   /** Cambiar este valor fuerza un refetch (tras cerrar / mover). */
   reloadKey?: number;
   /** Saldo banco vigente, para la fila de la semana en curso (aún sin cierre). */
@@ -19,6 +23,8 @@ interface Props {
  */
 export function WeekClosePanel({
   onCloseWeek,
+  onReopenWeek,
+  canManage = true,
   reloadKey = 0,
   currentBankBalanceClp,
 }: Props) {
@@ -73,6 +79,8 @@ export function WeekClosePanel({
             key={w.weekEndDate}
             w={w}
             onCloseWeek={onCloseWeek}
+            onReopenWeek={onReopenWeek}
+            canManage={canManage}
             currentBankBalanceClp={currentBankBalanceClp}
           />
         ))}

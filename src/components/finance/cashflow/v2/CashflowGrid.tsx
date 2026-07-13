@@ -159,6 +159,30 @@ export function CashflowGrid({
     setPanelReloadKey((k) => k + 1);
   }, [refresh, router]);
 
+  // Reabre (desbloquea) una semana cerrada desde el candado de su fila. Deshace
+  // el cierre en el backend y refresca panel + grilla + KPIs.
+  const handleReopenWeek = useCallback(
+    async (weekEndIso: string) => {
+      try {
+        const res = await fetch(
+          `/api/finance/cashflow/weekly-close?weekEnd=${encodeURIComponent(weekEndIso)}`,
+          { method: "DELETE" },
+        );
+        const j = await res.json();
+        if (!j.success) throw new Error(j.error);
+        toast.success(
+          j.data?.wasAnchor
+            ? "Semana reabierta · la proyección perdió su ancla"
+            : "Semana reabierta",
+        );
+        await refreshAll();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Error al reabrir");
+      }
+    },
+    [refreshAll],
+  );
+
   const { move, moveGroup, undoPayload, clearUndo, pushUndo } = useGridMove({
     buckets,
     refresh: refreshAll,
@@ -310,6 +334,8 @@ export function CashflowGrid({
 
       <WeekClosePanel
         onCloseWeek={setCloseWeekEndIso}
+        onReopenWeek={handleReopenWeek}
+        canManage={canManage}
         reloadKey={panelReloadKey}
         currentBankBalanceClp={projection.openingBalanceClp}
       />
