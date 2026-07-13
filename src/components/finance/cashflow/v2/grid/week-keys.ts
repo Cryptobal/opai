@@ -87,18 +87,6 @@ export function weekSlots(anchor: Date, count: number): WeekSlot[] {
   });
 }
 
-/** Todas las week keys que cubren `[from, to]` (ambos inclusive, por semana). */
-export function weekKeysInRange(from: Date, to: Date): string[] {
-  const keys: string[] = [];
-  let cur = startOfIsoWeekUTC(from);
-  const last = startOfIsoWeekUTC(to);
-  while (cur.getTime() <= last.getTime()) {
-    keys.push(weekKey(cur));
-    cur = addWeeksUTC(cur, 1);
-  }
-  return keys;
-}
-
 /** Bucket vacío (montos en 0) para un slot aún no cacheado. Nunca debería
  *  pintarse (ensureRange corre antes), pero evita un `undefined` que rompa el
  *  render si una key no resolvió. */

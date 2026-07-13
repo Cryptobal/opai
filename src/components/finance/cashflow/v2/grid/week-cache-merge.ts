@@ -136,13 +136,3 @@ export function sliceMatrix(
     ),
   };
 }
-
-/** ¿Están TODAS estas keys en la matriz fusionada? */
-export function hasAllBuckets(
-  merged: ProjectionMatrix | null,
-  keys: string[],
-): boolean {
-  if (!merged) return false;
-  const present = new Set(merged.buckets.map((b) => b.key));
-  return keys.every((k) => present.has(k));
-}

@@ -3,11 +3,12 @@
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
-import { hasAllBuckets, mergeMatrix, sliceMatrix } from "./week-cache-merge";
+import { mergeMatrix, sliceMatrix } from "./week-cache-merge";
 import {
+  addWeeksUTC,
   endOfIsoWeekUTC,
   startOfIsoWeekUTC,
-  weekKeysInRange,
+  weekKey,
   type WeekSlot,
 } from "./week-keys";
 
@@ -49,27 +50,39 @@ export function useWeekCache(initial: ProjectionMatrix) {
   );
 
   /** Garantiza que todas las semanas de `[from, to]` estén cacheadas. Si ya lo
-   *  están (y el caché no está stale) retorna sin fetch ni setState. */
+   *  están (y el caché no está stale) retorna sin fetch ni setState. Si faltan,
+   *  hace UN solo fetch que cubre exactamente el hueco contiguo (de la primera a
+   *  la última semana faltante). El merge por bucketKey conserva lo ya cacheado,
+   *  así que pedir sólo el hueco basta para pintar toda la ventana. */
   const ensureRange = useCallback(
     async (from: Date, to: Date) => {
-      const keys = weekKeysInRange(from, to);
       const stale = staleRef.current;
-      if (!stale && hasAllBuckets(mergedRef.current, keys)) return;
+      const present = new Set(mergedRef.current.buckets.map((b) => b.key));
+      let firstMissing: Date | null = null;
+      let lastMissing: Date | null = null;
+      const last = startOfIsoWeekUTC(to).getTime();
+      for (
+        let cur = startOfIsoWeekUTC(from);
+        cur.getTime() <= last;
+        cur = addWeeksUTC(cur, 1)
+      ) {
+        // stale (post-invalidate) → toda la ventana cuenta como faltante.
+        if (stale || !present.has(weekKey(cur))) {
+          if (!firstMissing) firstMissing = cur;
+          lastMissing = cur;
+        }
+      }
+      if (!firstMissing || !lastMissing) return; // todo cacheado
       const token = ++loadToken.current;
       setLoading(true);
       try {
-        // Un solo fetch que cubre el hueco contiguo (semana completa a semana
-        // completa). El server sólo computa lo pedido; el merge conserva lo ya
-        // cacheado, salvo tras invalidate() (stale → reemplaza desde cero).
-        const next = await fetchRange(
-          startOfIsoWeekUTC(from),
-          endOfIsoWeekUTC(to),
-        );
+        const next = await fetchRange(firstMissing, endOfIsoWeekUTC(lastMissing));
         if (token !== loadToken.current) return; // respuesta stale, se descarta
         if (!next) {
           toast.error("No se pudieron cargar esas semanas");
           return;
         }
+        // Tras invalidate() se reemplaza desde cero; si no, se fusiona.
         mergedRef.current = mergeMatrix(stale ? null : mergedRef.current, next);
         staleRef.current = false;
         setVersion((v) => v + 1);
