@@ -20,12 +20,18 @@ export function GridHeader({
   bucketMeta,
   canManage,
   onCloseWeek,
+  onReopenWeek,
 }: {
   buckets: ProjectionBucket[];
   currentIdx: number;
   bucketMeta?: Map<string, BucketMeta>;
   canManage: boolean;
   onCloseWeek: (weekEndIso: string) => void;
+  /** Reabre (desbloquea) una semana cerrada desde el candado de su columna. */
+  onReopenWeek?: (
+    weekEndIso: string,
+    opts: { isAnchor: boolean; label: string },
+  ) => void;
 }) {
   const bands = monthBands(buckets);
   return (
@@ -108,9 +114,30 @@ export function GridHeader({
                 <button
                   type="button"
                   onClick={() => onCloseWeek(toDate(b.end).toISOString())}
-                  className="mt-1 inline-flex h-7 items-center gap-1 rounded-ds-sm border border-primary/40 px-1.5 text-[11px] font-medium text-primary transition-colors hover:bg-primary/10"
+                  className="mt-1 inline-flex h-7 items-center gap-1 rounded-ds-sm border border-status-warn-border bg-status-warn-soft px-1.5 text-[11px] font-medium text-status-warn-fg transition-colors hover:brightness-95"
                 >
                   <Lock className="h-3 w-3" aria-hidden /> Cerrar
+                </button>
+              )}
+              {/* Frontera sellada (semana ancla) → candado accionable: reabre
+                  SOLO esta semana y retrocede el ancla. Las semanas selladas más
+                  atrás muestran el candado de estado (no accionable) porque el
+                  sellado se define por "≤ ancla": reabrir una intermedia no
+                  cambiaría su estado en la grilla. Para esas, usa el panel. */}
+              {canManage && meta?.anchor && onReopenWeek && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onReopenWeek(toDate(b.end).toISOString(), {
+                      isAnchor: true,
+                      label: `S${isoWeek(monday)}`,
+                    })
+                  }
+                  aria-label="Reabrir semana"
+                  title="Semana cerrada (ancla) · reabrir"
+                  className="mt-1 inline-flex h-7 w-7 items-center justify-center rounded-ds-sm border border-ds-border-default text-ds-text-3 transition-colors hover:border-status-warn-border hover:bg-status-warn-soft hover:text-status-warn-fg"
+                >
+                  <Lock className="h-3 w-3" aria-hidden />
                 </button>
               )}
             </th>

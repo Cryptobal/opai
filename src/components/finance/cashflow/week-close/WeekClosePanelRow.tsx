@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   AlertTriangle,
   Anchor,
@@ -8,8 +7,6 @@ import {
   CircleDot,
   Hand,
   Lock,
-  LockOpen,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtCLP, VARIANCE_DRIFT_THRESHOLD_CLP } from "./types";
@@ -52,14 +49,14 @@ export function WeekClosePanelRow({
 }: {
   w: WeekStatusDTO;
   onCloseWeek: (weekEndIso: string) => void;
-  onReopenWeek?: (weekEndIso: string) => void;
+  onReopenWeek?: (
+    weekEndIso: string,
+    opts: { isAnchor: boolean; label: string },
+  ) => void;
   /** Solo con permiso de gestión se muestran las acciones (cerrar / candado). */
   canManage?: boolean;
   currentBankBalanceClp?: number;
 }) {
-  // Confirmación inline del candado: reabrir es destructivo (deshace el cierre),
-  // así que el primer clic muestra confirmar/cancelar en la misma fila.
-  const [confirmingReopen, setConfirmingReopen] = useState(false);
   const isGap = w.state === "OPEN";
   const note = noteFor(w);
   const balance =
@@ -129,45 +126,23 @@ export function WeekClosePanelRow({
           </button>
         )}
 
-        {/* Semana cerrada → candado. Al presionarlo se reabre SOLO esa semana,
-            con confirmación inline (deshacer un cierre es destructivo). */}
+        {/* Semana cerrada → candado. Al presionarlo se confirma y se reabre
+            SOLO esa semana (confirmación en diálogo central). */}
         {canManage && w.state === "CLOSED" && onReopenWeek && (
-          confirmingReopen ? (
-            <span className="inline-flex items-center gap-1.5">
-              <span className="text-[12px] text-ds-text-2">
-                {w.isAnchor ? "¿Reabrir el ancla?" : "¿Reabrir?"}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setConfirmingReopen(false);
-                  onReopenWeek(w.weekEndDate);
-                }}
-                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-ds-md border border-status-warn-border bg-status-warn-soft px-2.5 text-[12px] font-medium text-status-warn-fg transition-colors hover:brightness-95 sm:min-h-[36px]"
-              >
-                <LockOpen className="h-3.5 w-3.5" />
-                Reabrir
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmingReopen(false)}
-                aria-label="Cancelar"
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-ds-md border border-ds-border-default text-ds-text-2 transition-colors hover:bg-ds-surface-2 sm:min-h-[36px] sm:min-w-[36px]"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setConfirmingReopen(true)}
-              aria-label="Reabrir semana"
-              title="Semana cerrada · presiona para reabrir"
-              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-ds-md border border-ds-border-default text-ds-text-2 transition-colors hover:border-status-warn-border hover:bg-status-warn-soft hover:text-status-warn-fg sm:min-h-[36px] sm:min-w-[36px]"
-            >
-              <Lock className="h-3.5 w-3.5" />
-            </button>
-          )
+          <button
+            type="button"
+            onClick={() =>
+              onReopenWeek(w.weekEndDate, {
+                isAnchor: w.isAnchor,
+                label: w.label,
+              })
+            }
+            aria-label="Reabrir semana"
+            title="Semana cerrada · presiona para reabrir"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-ds-md border border-ds-border-default text-ds-text-2 transition-colors hover:border-status-warn-border hover:bg-status-warn-soft hover:text-status-warn-fg sm:min-h-[36px] sm:min-w-[36px]"
+          >
+            <Lock className="h-3.5 w-3.5" />
+          </button>
         )}
       </span>
     </li>
