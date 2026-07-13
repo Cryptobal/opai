@@ -34,6 +34,14 @@ export function GridHeader({
   ) => void;
 }) {
   const bands = monthBands(buckets);
+  // Frontera sellada = última columna cerrada (las cerradas son el prefijo
+  // ≤ ancla). Reabrir esa columna retrocede el ancla y se ve de inmediato.
+  // Las semanas del cierre (dow) e ISO no calzan exactamente, así que ubicamos
+  // el candado por la frontera, no por coincidencia de día con el ancla.
+  let frontierIdx = -1;
+  buckets.forEach((b, i) => {
+    if (bucketMeta?.get(b.key)?.closed) frontierIdx = i;
+  });
   return (
     // Header sticky-top: ambas filas (bandas de mes + semanas) quedan fijas
     // arriba al hacer scroll vertical dentro del contenedor scrollable. El
@@ -119,12 +127,11 @@ export function GridHeader({
                   <Lock className="h-3 w-3" aria-hidden /> Cerrar
                 </button>
               )}
-              {/* Frontera sellada (semana ancla) → candado accionable: reabre
-                  SOLO esta semana y retrocede el ancla. Las semanas selladas más
-                  atrás muestran el candado de estado (no accionable) porque el
-                  sellado se define por "≤ ancla": reabrir una intermedia no
-                  cambiaría su estado en la grilla. Para esas, usa el panel. */}
-              {canManage && meta?.anchor && onReopenWeek && (
+              {/* Frontera sellada → candado accionable: reabre esta semana y
+                  retrocede el ancla (efecto visible al instante). Las semanas
+                  selladas más atrás muestran solo el candado de estado; para
+                  reabrir una intermedia puntual está el panel (lista precisa). */}
+              {canManage && onReopenWeek && i === frontierIdx && (
                 <button
                   type="button"
                   onClick={() =>
@@ -134,7 +141,7 @@ export function GridHeader({
                     })
                   }
                   aria-label="Reabrir semana"
-                  title="Semana cerrada (ancla) · reabrir"
+                  title="Semana cerrada · reabrir"
                   className="mt-1 inline-flex h-7 w-7 items-center justify-center rounded-ds-sm border border-ds-border-default text-ds-text-3 transition-colors hover:border-status-warn-border hover:bg-status-warn-soft hover:text-status-warn-fg"
                 >
                   <Lock className="h-3 w-3" aria-hidden />
