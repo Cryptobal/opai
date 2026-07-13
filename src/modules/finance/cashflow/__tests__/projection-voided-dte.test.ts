@@ -322,3 +322,64 @@ describe("Bug A — facturas anuladas por NC excluidas del matcher de bank-links
     expect(actualIncomeOf(post)).toBe(0);
   });
 });
+
+/**
+ * Mirror del filtro pre-consolidate (projection.service.ts ~L1608+): además
+ * del matcher, las occurrences YA vinculadas a un DTE anulado deben salir del
+ * flujo. Sin esto, chips VOIDED (rojo, tachado) seguían apareciendo.
+ */
+function isVoidedDte(d: {
+  siiStatus: string;
+  voidedByCreditNoteId: string | null;
+}): boolean {
+  return (
+    d.siiStatus === "ANNULLED" ||
+    d.siiStatus === "REJECTED" ||
+    d.voidedByCreditNoteId !== null
+  );
+}
+
+function filterVoidedFromConsolidate(
+  occs: { dteId: string | null; amountClp: number }[],
+  dtes: { id: string; siiStatus: string; voidedByCreditNoteId: string | null }[],
+): { dteId: string | null; amountClp: number }[] {
+  const voided = new Set(
+    dtes.filter(isVoidedDte).map((d) => d.id),
+  );
+  return occs.filter((o) => !o.dteId || !voided.has(o.dteId));
+}
+
+describe("buildProjection — filtro pre-consolidate de DTEs anulados", () => {
+  it("occurrence vinculada a DTE con voidedByCreditNoteId sale del flujo", () => {
+    const out = filterVoidedFromConsolidate(
+      [
+        { dteId: "dte_ok", amountClp: 1_000_000 },
+        { dteId: "dte_voided", amountClp: 11_206_786 },
+        { dteId: null, amountClp: 500_000 },
+      ],
+      [
+        { id: "dte_ok", siiStatus: "ACCEPTED", voidedByCreditNoteId: null },
+        {
+          id: "dte_voided",
+          siiStatus: "ACCEPTED",
+          voidedByCreditNoteId: "nc_1",
+        },
+      ],
+    );
+    expect(out.map((o) => o.dteId)).toEqual(["dte_ok", null]);
+  });
+
+  it("siiStatus ANNULLED / REJECTED también se excluyen", () => {
+    const out = filterVoidedFromConsolidate(
+      [
+        { dteId: "a", amountClp: 1 },
+        { dteId: "r", amountClp: 2 },
+      ],
+      [
+        { id: "a", siiStatus: "ANNULLED", voidedByCreditNoteId: null },
+        { id: "r", siiStatus: "REJECTED", voidedByCreditNoteId: null },
+      ],
+    );
+    expect(out).toEqual([]);
+  });
+});

@@ -107,7 +107,8 @@ export function GridCell({
   const showOverrideBadge = hasOverride && canEdit;
 
   // Ocultar del flujo: facturas (dteId) o programaciones individuales. No en
-  // grupos consolidados (sueldos) ni celdas fijas/cerradas.
+  // grupos consolidados (sueldos), celdas fijas/cerradas ni anuladas (el
+  // backend ya las filtra; si alguna llega, no mostrar el ojo).
   const canHideFromFlow =
     !!onHiddenFromFlow &&
     dndEnabled &&
@@ -115,6 +116,7 @@ export function GridCell({
     !isGroup &&
     amount !== 0 &&
     !chip?.locked &&
+    chip?.variant !== "VOIDED" &&
     (!!value?.dteId || !!value?.occurrenceId || !!itemId);
 
   // Disparadores de edición según dispositivo. La regla de gestos en móvil es:

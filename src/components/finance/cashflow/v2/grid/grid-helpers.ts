@@ -271,8 +271,10 @@ export function cellChip(
   // Fija = pagada (DTE cobrado) O conciliada con banco (bankTransactionId),
   // aunque no tenga factura detrás (ej. gasto conciliado a categoría). Sin el
   // segundo caso, esos gastos quedaban fijos pero sin candado y la leyenda
-  // "candado = conciliado (fijo)" mentía.
-  const locked = status === "PAID" || value.reconciled === true;
+  // "candado = conciliado (fijo)" mentía. Anulada tampoco se arrastra (y el
+  // backend debería haberla filtrado del flujo).
+  const locked =
+    status === "PAID" || status === "VOIDED" || value.reconciled === true;
   const draggable = !locked && isDraggableSource(source);
   let title = VARIANT_TITLE[variant];
   // Conciliada sin estado de factura → el variant se queda en "Programada";

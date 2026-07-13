@@ -1605,12 +1605,30 @@ export async function buildProjection(
     new Set(allOccurrences.map((o) => o.dteId).filter((x): x is string => !!x)),
   );
   const grossByDteId = new Map<string, number>();
+  /** DTEs anulados (SII ANNULLED/REJECTED o NC total). No deben aparecer ni
+   *  sumar en el flujo aunque ya tengan occurrence vinculada (stale link). */
+  const voidedDteIds = new Set<string>();
   if (incomeDteIds.length > 0) {
     const dtesForGross = await prisma.financeDte.findMany({
       where: { tenantId, id: { in: incomeDteIds } },
-      select: { id: true, totalAmount: true, netAmount: true, creditedNetAmount: true },
+      select: {
+        id: true,
+        totalAmount: true,
+        netAmount: true,
+        creditedNetAmount: true,
+        siiStatus: true,
+        voidedByCreditNoteId: true,
+      },
     });
     for (const d of dtesForGross) {
+      if (
+        d.siiStatus === "ANNULLED" ||
+        d.siiStatus === "REJECTED" ||
+        d.voidedByCreditNoteId !== null
+      ) {
+        voidedDteIds.add(d.id);
+        continue;
+      }
       grossByDteId.set(
         d.id,
         computeCreditNoteImpact({
@@ -1623,12 +1641,14 @@ export async function buildProjection(
   }
   // Mismo criterio de bucket que placement (ISO semanal). weekClosingDow del
   // config aplica al cierre manual, no aún a buildBuckets/ placement.
-  // Filtra facturas ocultadas del flujo (exclude-flow) antes de consolidar —
-  // así no suman ni generan filas EXTRA.
+  // Filtra ocultadas (exclude-flow) y anuladas antes de consolidar — así no
+  // suman ni generan filas EXTRA / chips VOIDED.
+  const dropFromFlow = (dteId: string | null | undefined) =>
+    !!dteId && (excludedDteIds.has(dteId) || voidedDteIds.has(dteId));
   const occurrencesForConsolidate =
-    excludedDteIds.size === 0
+    excludedDteIds.size === 0 && voidedDteIds.size === 0
       ? allOccurrences
-      : allOccurrences.filter((o) => !o.dteId || !excludedDteIds.has(o.dteId));
+      : allOccurrences.filter((o) => !dropFromFlow(o.dteId));
   const occurrences = consolidateIncomeOccurrences(
     occurrencesForConsolidate,
     grossByDteId,
