@@ -268,6 +268,10 @@ export interface PersistWeeklyCloseInput {
   forcedBalanceClp?: number;
   /** Requerido si mode=manual (min 5 chars): por qué se forzó el saldo. */
   manualReason?: string;
+  /** Confirmación explícita para anclar una semana MÁS ANTIGUA que el ancla
+   *  vigente. Sin esto, ese caso se rechaza (ANCHOR_REWIND) porque retrocedería
+   *  el ancla de la proyección y desplomaría toda la caja proyectada. */
+  allowAnchorRewind?: boolean;
 }
 
 /** Resuelve la categoría para el ajuste de cierre manual: prefiere la categoría
@@ -332,6 +336,26 @@ export async function persistWeeklyClose(
 
   return prisma.$transaction(async (tx) => {
     if (anchor) {
+      // El anchor rebasa runningProjected para TODOS los buckets futuros
+      // (projection.service:2110). Anclar una semana MÁS ANTIGUA que el anchor
+      // vigente hace que la proyección completa retroceda al saldo de esa semana
+      // -- un desplome silencioso de toda la caja proyectada. Se exige
+      // confirmación explícita del caller.
+      const currentAnchor = await tx.financeCashflowWeeklyClose.findFirst({
+        where: { tenantId, isAnchor: true },
+        select: { weekEndDate: true },
+      });
+      if (
+        currentAnchor &&
+        snap.weekEndDate < currentAnchor.weekEndDate &&
+        !input.allowAnchorRewind
+      ) {
+        throw new Error(
+          "ANCHOR_REWIND: anclar esta semana retrocederia el ancla de la proyeccion. " +
+            "Confirma explicitamente si es lo que quieres.",
+        );
+      }
+
       await tx.financeCashflowWeeklyClose.updateMany({
         where: { tenantId, isAnchor: true },
         data: { isAnchor: false },
@@ -449,4 +473,30 @@ export async function listRecentCloses(tenantId: string, limit = 12) {
     orderBy: { weekEndDate: "desc" },
     take: limit,
   });
+}
+
+/** Ancla vigente del tenant (cierre con isAnchor=true) con su saldo base ya
+ *  resuelto (forcedBalanceClp si fue manual, si no el saldo banco). Null si no
+ *  hay ancla. La UI del cierre lo usa para detectar el retroceso del ancla y
+ *  mostrar el impacto en CLP antes de confirmar. */
+export async function getActiveAnchorClose(
+  tenantId: string,
+): Promise<{ weekEndDate: Date; balanceClp: number } | null> {
+  const a = await prisma.financeCashflowWeeklyClose.findFirst({
+    where: { tenantId, isAnchor: true },
+    orderBy: { weekEndDate: "desc" },
+    select: {
+      weekEndDate: true,
+      bankBalanceClp: true,
+      isManual: true,
+      forcedBalanceClp: true,
+    },
+  });
+  if (!a) return null;
+  return {
+    weekEndDate: a.weekEndDate,
+    balanceClp: Number(
+      a.isManual && a.forcedBalanceClp != null ? a.forcedBalanceClp : a.bankBalanceClp,
+    ),
+  };
 }

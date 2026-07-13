@@ -4,6 +4,7 @@ import { hasCapability } from "@/lib/permissions";
 import {
   computeWeeklyCloseSnapshot,
   nextWeekClosingDate,
+  getActiveAnchorClose,
 } from "@/modules/finance/cashflow/weekly-close.service";
 
 /**
@@ -38,6 +39,12 @@ export async function GET(request: NextRequest) {
     );
   }
   const snapshot = await computeWeeklyCloseSnapshot(ctx.tenantId, weekEnd);
+  // Ancla vigente + cierre de la semana en curso: el drawer los usa para decidir
+  // el default del checkbox de ancla y para advertir el retroceso del ancla.
+  const [currentAnchor, nextClosing] = await Promise.all([
+    getActiveAnchorClose(ctx.tenantId),
+    nextWeekClosingDate(ctx.tenantId),
+  ]);
   return NextResponse.json({
     success: true,
     data: {
@@ -47,6 +54,13 @@ export async function GET(request: NextRequest) {
       openingBalanceClp: snapshot.openingBalanceClp,
       projectedBalanceClp: snapshot.projectedBalanceClp,
       varianceClp: snapshot.varianceClp,
+      currentAnchor: currentAnchor
+        ? {
+            weekEndDate: currentAnchor.weekEndDate.toISOString(),
+            balanceClp: currentAnchor.balanceClp,
+          }
+        : null,
+      nextClosingWeekEndDate: nextClosing.toISOString(),
       unassignedBank: snapshot.unassignedBank.map((u) => ({
         id: u.id,
         transactionDate: u.transactionDate.toISOString(),

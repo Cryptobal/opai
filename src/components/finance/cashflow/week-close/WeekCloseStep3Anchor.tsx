@@ -1,5 +1,5 @@
 "use client";
-import { Lock, Unlock } from "lucide-react";
+import { AlertTriangle, Lock, Unlock } from "lucide-react";
 import type { WeeklyCloseSnapshotDTO, VarianceResolution } from "./types";
 import { fmtCLP } from "./types";
 
@@ -12,6 +12,11 @@ interface Props {
   /** Saldo mostrado como base del ancla. En cierre manual es el monto que el
    *  usuario definió; si no viene, se usa el saldo banco del snapshot. */
   displayBalanceClp?: number;
+  /** Anclar esta semana retrocedería el ancla vigente y el usuario lo tiene
+   *  marcado: mostramos la advertencia con el impacto en CLP antes de confirmar. */
+  rewindActive?: boolean;
+  /** Saldo base del ancla vigente (Y en la advertencia). Null si no hay ancla. */
+  currentAnchorBalanceClp?: number | null;
 }
 
 /**
@@ -29,9 +34,15 @@ export function WeekCloseStep3Anchor({
   varianceResolution,
   onVarianceResolutionChange,
   displayBalanceClp,
+  rewindActive = false,
+  currentAnchorBalanceClp = null,
 }: Props) {
   const baseBalanceClp = displayBalanceClp ?? snap.bankBalanceClp;
   const hasDrift = Math.abs(snap.varianceClp) >= 50_000;
+  // Impacto del retroceso: la proyección pasaría de partir del saldo del ancla
+  // vigente (Y) al saldo de esta semana (X). Delta = Y − X (positivo = baja).
+  const anchorDelta =
+    currentAnchorBalanceClp != null ? currentAnchorBalanceClp - baseBalanceClp : 0;
   const weekEndLabel = new Date(snap.weekEndDate).toLocaleDateString("es-CL", {
     day: "2-digit",
     month: "short",
@@ -76,6 +87,37 @@ export function WeekCloseStep3Anchor({
           )}
         </div>
       </label>
+
+      {rewindActive && currentAnchorBalanceClp != null && (
+        <div className="flex items-start gap-2 rounded-md border border-status-warn-border bg-status-warn-soft px-3 py-2.5">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-status-warn-fg" />
+          <div className="text-xs text-ds-text-2 space-y-1">
+            <p className="font-semibold text-status-warn-fg">
+              Esto retrocedería el ancla de tu proyección.
+            </p>
+            <p>
+              La proyección hacia adelante pasaría a calcularse desde el saldo de
+              esta semana (<strong>{fmtCLP.format(baseBalanceClp)}</strong>) en vez
+              del actual (<strong>{fmtCLP.format(currentAnchorBalanceClp)}</strong>).
+              {anchorDelta > 0 ? (
+                <>
+                  {" "}Tu caja proyectada bajaría{" "}
+                  <strong>{fmtCLP.format(anchorDelta)}</strong>.
+                </>
+              ) : anchorDelta < 0 ? (
+                <>
+                  {" "}Tu caja proyectada subiría{" "}
+                  <strong>{fmtCLP.format(-anchorDelta)}</strong>.
+                </>
+              ) : null}
+            </p>
+            <p className="text-ds-text-3">
+              Si confirmas, se anclará igual. Normalmente solo debes anclar la
+              semana más reciente.
+            </p>
+          </div>
+        </div>
+      )}
 
       {hasDrift && (
         <fieldset className="rounded-md border border-border/60 px-3 py-2.5 space-y-1.5">

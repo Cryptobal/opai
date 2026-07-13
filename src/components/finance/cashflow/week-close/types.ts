@@ -26,6 +26,12 @@ export interface WeeklyCloseSnapshotDTO {
     kind: "INCOME" | "EXPENSE";
     categoryCode: string;
   }>;
+  /** Ancla vigente del tenant (cierre con isAnchor=true). Null si no hay. El
+   *  drawer lo usa para detectar el retroceso del ancla y su impacto en CLP. */
+  currentAnchor?: { weekEndDate: string; balanceClp: number } | null;
+  /** Cierre (weekEnd) de la semana en curso. Referencia para decidir si la
+   *  semana que se cierra es la más reciente (default de anclar). */
+  nextClosingWeekEndDate?: string;
 }
 
 export type VarianceResolution = "ADJUSTED" | "ACCEPTED" | "PENDING";

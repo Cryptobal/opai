@@ -38,6 +38,7 @@ const postSchema = z
     mode: z.enum(["real", "manual"]).optional().default("real"),
     forcedBalanceClp: z.number().int().optional(),
     manualReason: z.string().min(5).max(500).optional(),
+    allowAnchorRewind: z.boolean().optional().default(false),
   })
   .refine(
     (d) => d.mode !== "manual" || (d.forcedBalanceClp != null && d.manualReason != null),
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest) {
       mode: parsed.data.mode,
       forcedBalanceClp: parsed.data.forcedBalanceClp,
       manualReason: parsed.data.manualReason,
+      allowAnchorRewind: parsed.data.allowAnchorRewind,
     });
     return NextResponse.json({
       success: true,
@@ -70,8 +72,18 @@ export async function POST(request: NextRequest) {
       adjustCreated: closed.adjustOccurrenceId != null,
     });
   } catch (e) {
+    const message = e instanceof Error ? e.message : "Error";
+    // Anclar una semana anterior al ancla vigente retrocede la proyección: el
+    // service lo bloquea salvo allowAnchorRewind. Se traduce a 409 con code para
+    // que la UI muestre la advertencia y pida reconfirmar (no un toast genérico).
+    if (message.startsWith("ANCHOR_REWIND")) {
+      return NextResponse.json(
+        { success: false, code: "ANCHOR_REWIND", error: message },
+        { status: 409 },
+      );
+    }
     return NextResponse.json(
-      { success: false, error: e instanceof Error ? e.message : "Error" },
+      { success: false, error: message },
       { status: 400 },
     );
   }

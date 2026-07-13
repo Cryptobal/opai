@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -22,6 +22,31 @@ interface Props {
   weekEndIso: string;
 }
 
+/** ¿Anclar esta semana retrocedería el ancla vigente? Ocurre cuando el cierre de
+ *  la semana es ANTERIOR al del ancla actual: la proyección pasaría a partir del
+ *  saldo de esta semana (más viejo) y toda la caja proyectada se desplomaría. */
+function wouldRewindAnchor(d: WeeklyCloseSnapshotDTO): boolean {
+  if (!d.currentAnchor) return false;
+  return (
+    new Date(d.weekEndDate).getTime() <
+    new Date(d.currentAnchor.weekEndDate).getTime()
+  );
+}
+
+/** ¿Es la semana MÁS RECIENTE cerrable? Solo entonces anclar es el default
+ *  seguro. Es la más reciente si su cierre no es anterior al de la semana en
+ *  curso (no es un backfill) y no retrocede el ancla vigente. */
+function isMostRecentClosableWeek(d: WeeklyCloseSnapshotDTO): boolean {
+  const thisEnd = new Date(d.weekEndDate).getTime();
+  if (
+    d.nextClosingWeekEndDate &&
+    thisEnd < new Date(d.nextClosingWeekEndDate).getTime()
+  ) {
+    return false;
+  }
+  return !wouldRewindAnchor(d);
+}
+
 /**
  * Drawer único para cerrar la semana del flujo de caja:
  *   Paso 1: confirmar saldo banco real (reusa /bank-balance/adjust)
@@ -42,7 +67,18 @@ export function WeekCloseDrawer({
   const [snap, setSnap] = useState<WeeklyCloseSnapshotDTO | null>(null);
   const [loading, setLoading] = useState(false);
   const [committing, setCommitting] = useState(false);
-  const [anchor, setAnchor] = useState(true);
+  // El anchor solo viene marcado por defecto si esta es la semana MÁS RECIENTE
+  // cerrable. Para semanas atrasadas (backfill de cierres) el default es false:
+  // cerrarlas es correcto, pero anclarlas retrocedería la proyección. El valor
+  // real se deriva del snapshot al abrir (ver refresh()).
+  const [anchor, setAnchor] = useState(false);
+  // Solo se fija el default de anchor una vez por apertura del drawer, para no
+  // pisar la elección del usuario cuando refresh() se dispara tras una acción
+  // del paso 2.
+  const anchorInitialized = useRef(false);
+  // El backend rechazó anclar por retroceso del ancla (409): forzamos la
+  // advertencia visible y pedimos reconfirmar en vez de un toast genérico.
+  const [serverFlaggedRewind, setServerFlaggedRewind] = useState(false);
   const [varianceResolution, setVarianceResolution] =
     useState<VarianceResolution>("PENDING");
   // Cierre manual: el usuario sella la semana con un saldo que él define (no el
@@ -68,6 +104,12 @@ export function WeekCloseDrawer({
       const j = await res.json();
       if (!j.success) throw new Error(j.error);
       setSnap(j.data);
+      // Default del anchor = solo si es la semana más reciente cerrable. Se fija
+      // una vez por apertura (no en cada refresh de acción del paso 2).
+      if (!anchorInitialized.current) {
+        setAnchor(isMostRecentClosableWeek(j.data));
+        anchorInitialized.current = true;
+      }
       // Prefill del monto manual con el proyectado al cierre (buen punto de
       // partida) si el campo aún está vacío.
       setForcedBalance((prev) =>
@@ -82,10 +124,12 @@ export function WeekCloseDrawer({
 
   useEffect(() => {
     if (!open) return;
-    // Reset del formulario manual al abrir cada semana.
+    // Reset del formulario manual y del estado de anclaje al abrir cada semana.
     setManual(isFutureWeek);
     setForcedBalance("");
     setManualReason("");
+    anchorInitialized.current = false;
+    setServerFlaggedRewind(false);
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, weekEndIso]);
@@ -97,6 +141,12 @@ export function WeekCloseDrawer({
       Number.isFinite(forcedBalanceNum) &&
       manualReason.trim().length >= 5);
 
+  // Anclar esta semana retrocedería el ancla (weekEnd < ancla vigente). La
+  // advertencia se activa solo cuando el usuario tiene el anchor marcado, o
+  // cuando el backend lo bloqueó por un retroceso que el cliente no detectó.
+  const wouldRewind = snap ? wouldRewindAnchor(snap) : false;
+  const rewindActive = anchor && (wouldRewind || serverFlaggedRewind);
+
   async function handleCommit() {
     if (!snap) return;
     if (!manualValid) {
@@ -105,10 +155,15 @@ export function WeekCloseDrawer({
     }
     setCommitting(true);
     try {
+      // Solo autorizamos el retroceso del ancla si la advertencia ya se mostró
+      // (anchor marcado sobre una semana anterior al ancla, o el backend lo
+      // marcó vía 409) — o sea, el usuario lo vio y aun así confirmó.
+      const allowAnchorRewind = anchor && (wouldRewind || serverFlaggedRewind);
       const body = manual
         ? {
             weekEnd: weekEndIso,
             anchor,
+            allowAnchorRewind,
             mode: "manual" as const,
             forcedBalanceClp: Math.round(forcedBalanceNum),
             manualReason: manualReason.trim(),
@@ -116,6 +171,7 @@ export function WeekCloseDrawer({
         : {
             weekEnd: weekEndIso,
             anchor,
+            allowAnchorRewind,
             varianceResolution,
           };
       const res = await fetch("/api/finance/cashflow/weekly-close", {
@@ -124,6 +180,15 @@ export function WeekCloseDrawer({
         body: JSON.stringify(body),
       });
       const j = await res.json();
+      if (res.status === 409 && j.code === "ANCHOR_REWIND") {
+        // El backend detectó el retroceso (el ancla cambió bajo nuestros pies):
+        // mostramos la advertencia y pedimos reconfirmar, sin toast genérico.
+        setServerFlaggedRewind(true);
+        toast.warning(
+          "Anclar esta semana retrocedería la proyección. Revisá el aviso y confirmá de nuevo.",
+        );
+        return;
+      }
       if (!j.success) throw new Error(j.error);
       toast.success(anchor ? "Semana cerrada y anclada" : "Semana cerrada");
       onCommitted();
@@ -233,6 +298,8 @@ export function WeekCloseDrawer({
                     ? Math.round(forcedBalanceNum)
                     : undefined
                 }
+                rewindActive={rewindActive}
+                currentAnchorBalanceClp={snap.currentAnchor?.balanceClp ?? null}
               />
             </>
           )}
