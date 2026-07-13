@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
       weekStartDate: snapshot.weekStartDate.toISOString(),
       weekEndDate: snapshot.weekEndDate.toISOString(),
       bankBalanceClp: snapshot.bankBalanceClp,
+      openingBalanceClp: snapshot.openingBalanceClp,
       projectedBalanceClp: snapshot.projectedBalanceClp,
       varianceClp: snapshot.varianceClp,
       unassignedBank: snapshot.unassignedBank.map((u) => ({

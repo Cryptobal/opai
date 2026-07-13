@@ -5,6 +5,9 @@ export interface WeeklyCloseSnapshotDTO {
   weekStartDate: string;
   weekEndDate: string;
   bankBalanceClp: number;
+  /** Saldo banco al abrir la semana (cierre del día previo al weekStart).
+   *  Base real de la ecuación apertura + ingresos − egresos = cierre. */
+  openingBalanceClp: number;
   projectedBalanceClp: number;
   varianceClp: number;
   unassignedBank: Array<{

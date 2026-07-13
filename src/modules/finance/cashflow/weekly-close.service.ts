@@ -26,6 +26,10 @@ export interface WeeklyCloseSnapshot {
   weekStartDate: Date;
   weekEndDate: Date;
   bankBalanceClp: number;
+  /** Saldo banco consolidado al ABRIR la semana (cierre del día previo al
+   *  weekStart). Es la base real de la ecuación de cuadratura; la UI la usa
+   *  para mostrar apertura + ingresos − egresos = cierre. */
+  openingBalanceClp: number;
   projectedBalanceClp: number;
   varianceClp: number;
   unassignedBank: Array<{
@@ -50,6 +54,30 @@ export interface WeeklyCloseSnapshot {
   allBank: BankTxSnapshot[];
 }
 
+/** Saldo banco consolidado (todas las cuentas CLP activas) a una fecha de corte.
+ *  Usa el snapshot más reciente ≤ asOf; si no hay snapshot para esa cuenta, cae a
+ *  currentBalance. Mismo criterio que ya usaba el cálculo de bankBalance.
+ *
+ *  TODO: hace un findFirst por cuenta (N+1). Con pocas cuentas CLP por tenant
+ *  (2-3) es aceptable y replica el comportamiento previo; si algún tenant crece
+ *  en cuentas, agrupar en un solo query por lote. */
+async function bankBalanceAsOf(tenantId: string, asOf: Date): Promise<number> {
+  const accounts = await prisma.financeBankAccount.findMany({
+    where: { tenantId, isActive: true, currency: "CLP" },
+    select: { id: true, currentBalance: true },
+  });
+  let total = 0;
+  for (const acc of accounts) {
+    const snap = await prisma.financeBankAccountBalance.findFirst({
+      where: { tenantId, bankAccountId: acc.id, asOfDate: { lte: asOf } },
+      orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
+      select: { balance: true },
+    });
+    total += snap ? Number(snap.balance) : Number(acc.currentBalance ?? 0);
+  }
+  return total;
+}
+
 /**
  * Calcula el snapshot del cierre semanal sin persistirlo. Útil para mostrar
  * el preview de la pantalla de cierre antes de que el usuario decida cerrar.
@@ -63,19 +91,21 @@ export async function computeWeeklyCloseSnapshot(
   const weekStart = weekStartForClosing(weekEnd, dow);
   const weekEndNorm = weekEndForClosing(weekEnd, dow);
 
-  const accounts = await prisma.financeBankAccount.findMany({
-    where: { tenantId, isActive: true, currency: "CLP" },
-    select: { id: true, currentBalance: true },
-  });
-  let bankBalance = 0;
-  for (const acc of accounts) {
-    const snap = await prisma.financeBankAccountBalance.findFirst({
-      where: { tenantId, bankAccountId: acc.id, asOfDate: { lte: weekEndNorm } },
-      orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
-      select: { balance: true },
-    });
-    bankBalance += snap ? Number(snap.balance) : Number(acc.currentBalance ?? 0);
-  }
+  // Saldo banco al CERRAR la semana (lo que hay en el banco el último día).
+  const bankBalance = await bankBalanceAsOf(tenantId, weekEndNorm);
+
+  // Saldo banco al ABRIR la semana (cierre del día anterior al weekStart).
+  //
+  // BUG CORREGIDO: antes se usaba `proj.openingBalanceClp`, que es el saldo del
+  // banco HOY (resolveOpeningBalance se llama sin asOfDate en projection.service),
+  // NO el saldo al abrir la semana que se está cerrando. Al cerrar una semana
+  // pasada, la fórmula sumaba los movimientos de ESA semana sobre el saldo de HOY
+  // → la varianza salía desplazada por todo lo que se movió entre medio, y era
+  // justamente el número con el que se decide si la semana cuadra.
+  const openingBalance = await bankBalanceAsOf(
+    tenantId,
+    new Date(weekStart.getTime() - 86_400_000),
+  );
 
   const proj = await buildProjection(tenantId, {
     from: weekStart,
@@ -83,7 +113,7 @@ export async function computeWeeklyCloseSnapshot(
     granularity: "weekly",
   });
   const projectedBalance =
-    proj.openingBalanceClp + proj.totals.totalIncome - proj.totals.totalExpense;
+    openingBalance + proj.totals.totalIncome - proj.totals.totalExpense;
   const variance = bankBalance - projectedBalance;
 
   const unassignedTxs = await prisma.financeBankTransaction.findMany({
@@ -198,6 +228,7 @@ export async function computeWeeklyCloseSnapshot(
     weekStartDate: weekStart,
     weekEndDate: weekEndNorm,
     bankBalanceClp: bankBalance,
+    openingBalanceClp: openingBalance,
     projectedBalanceClp: projectedBalance,
     varianceClp: variance,
     unassignedBank: unassignedTxs.map((t) => ({
