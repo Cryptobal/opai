@@ -15,10 +15,10 @@ export const WINDOW_WEEKS = 8;
  *  este rango es recorte en cliente: instantáneo y siempre consistente (cada
  *  semana se computa una única vez). Solo si el usuario se sale del rango se
  *  pide una extensión. */
-const PRELOAD_BACK = 16;
-const PRELOAD_FWD = 30;
+const PRELOAD_BACK = 14;
+const PRELOAD_FWD = 20;
 /** Cuántas semanas extra se traen al llegar a un borde del rango cargado. */
-const EXTEND_WEEKS = 16;
+const EXTEND_WEEKS = 12;
 
 interface GridWindowOpts {
   /** Semanas hacia atrás desde la semana foco (default 2 en desktop). */
@@ -88,14 +88,17 @@ export function useGridWindow(initial: ProjectionMatrix, opts: GridWindowOpts) {
       from: Date,
       to: Date,
       computeStart: (buckets: ProjectionMatrix["buckets"]) => number,
+      // `blocking` deshabilita las flechas mientras carga (extensión de borde /
+      // refresh). La precarga corre en silencio para no "apagar" el selector.
+      blocking = true,
     ) => {
       const token = ++loadToken.current;
-      setLoading(true);
+      if (blocking) setLoading(true);
       try {
         const next = await fetchRange(from, to);
         if (token !== loadToken.current) return;
         if (!next) {
-          toast.error("No se pudieron cargar esas semanas");
+          if (blocking) toast.error("No se pudieron cargar esas semanas");
           return;
         }
         rangeRef.current = { from, to };
@@ -104,26 +107,40 @@ export function useGridWindow(initial: ProjectionMatrix, opts: GridWindowOpts) {
           clampStart(next.buckets.length, windowWeeks, computeStart(next.buckets)),
         );
       } catch {
-        if (token === loadToken.current) {
+        if (blocking && token === loadToken.current) {
           toast.error("Error de red al cargar semanas");
         }
       } finally {
-        if (token === loadToken.current) setLoading(false);
+        if (blocking && token === loadToken.current) setLoading(false);
       }
     },
     [fetchRange, windowWeeks],
   );
 
   // Precarga amplia UNA vez, tras el primer paint (que ya mostró las 8 semanas
-  // del server). A partir de acá la navegación es recorte en cliente.
+  // del server). Corre EN SILENCIO (blocking=false): las flechas quedan activas
+  // trabajando sobre las 8 semanas iniciales, y preserva la semana visible para
+  // no dar un salto cuando llega el rango amplio.
   useEffect(() => {
     if (preloadedRef.current) return;
     preloadedRef.current = true;
     const today = new Date();
+    const focusKey =
+      initial.buckets[
+        clampStart(
+          initial.buckets.length,
+          windowWeeks,
+          currentBucketIndex(initial.buckets) - opts.weeksBack,
+        )
+      ]?.key ?? null;
     void loadRange(
       subWeeks(today, PRELOAD_BACK),
       addWeeks(today, PRELOAD_FWD),
-      (b) => currentBucketIndex(b) - opts.weeksBack,
+      (b) => {
+        const i = focusKey ? b.findIndex((x) => x.key === focusKey) : -1;
+        return i >= 0 ? i : currentBucketIndex(b) - opts.weeksBack;
+      },
+      false,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
