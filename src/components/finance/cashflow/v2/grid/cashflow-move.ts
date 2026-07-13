@@ -38,7 +38,15 @@ export interface MoveInput {
  *  (`_dte:<uuid>`, `_orphan`, `_periodic:<source>`). No es un UUID: no debe ir a
  *  la rama `itemId` del router (Zod exige uuid → 400 "Invalid UUID"). */
 function isSyntheticItemId(id: string | null): boolean {
-  return !!id && (id.startsWith("_dte:") || id.startsWith("_orphan") || id.startsWith("_periodic"));
+  return (
+    !!id &&
+    (id.startsWith("_dte:") ||
+      id.startsWith("_orphan") ||
+      id.startsWith("_periodic") ||
+      id.startsWith("_extra:") ||
+      id.startsWith("_conc:") ||
+      id.startsWith("_group:"))
+  );
 }
 
 export async function moveViaApi(input: MoveInput): Promise<MoveResult> {
@@ -58,6 +66,16 @@ export async function moveViaApi(input: MoveInput): Promise<MoveResult> {
           body: JSON.stringify({ newDate }),
         },
       );
+    } else if (dteId) {
+      // Factura/borrador (con o sin item de contrato): override de fecha de
+      // visibilidad. Si hay itemId pero también dteId y la cuota aún no está
+      // materializada, upsert-and-act suele devolver 400 (la cuota del DTE
+      // ya vive en otra fecha).
+      res = await fetch(`/api/finance/cashflow/dtes/${dteId}/move`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newDate }),
+      });
     } else if (itemId) {
       res = await fetch(`/api/finance/cashflow/occurrences/upsert-and-act`, {
         method: "POST",
@@ -67,14 +85,7 @@ export async function moveViaApi(input: MoveInput): Promise<MoveResult> {
           itemId,
           originalDate,
           newDate,
-          dteId: dteId ?? undefined,
         }),
-      });
-    } else if (dteId) {
-      res = await fetch(`/api/finance/cashflow/dtes/${dteId}/move`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newDate }),
       });
     } else {
       return { ok: false, error: "Esta cuota no se puede mover" };

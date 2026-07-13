@@ -81,7 +81,7 @@ describe("moveViaApi — itemId sintético", () => {
 });
 
 describe("moveViaApi — itemId real (caso normal, sin cambios)", () => {
-  it("itemId uuid real → sigue yendo a upsert-and-act", async () => {
+  it("itemId uuid real sin dteId → sigue yendo a upsert-and-act", async () => {
     const res = await moveViaApi({
       occurrenceId: null,
       itemId: REAL_ITEM_UUID,
@@ -97,5 +97,19 @@ describe("moveViaApi — itemId real (caso normal, sin cambios)", () => {
     const body = JSON.parse((init as RequestInit).body as string);
     expect(body.itemId).toBe(REAL_ITEM_UUID);
     expect(body.action).toBe("move");
+  });
+
+  it("itemId uuid real CON dteId (factura EXTRA) → usa dtes/[dteId]/move", async () => {
+    const res = await moveViaApi({
+      occurrenceId: null,
+      itemId: REAL_ITEM_UUID,
+      dteId: REAL_DTE_UUID,
+      originalDate,
+      newDate,
+    });
+
+    expect(res.ok).toBe(true);
+    const [url] = fetchMock.mock.calls[0];
+    expect(url).toBe(`/api/finance/cashflow/dtes/${REAL_DTE_UUID}/move`);
   });
 });

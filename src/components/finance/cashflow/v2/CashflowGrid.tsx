@@ -13,6 +13,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+import { toast } from "sonner";
 import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
 import { cn } from "@/lib/utils";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
@@ -157,10 +158,36 @@ export function CashflowGrid({
     router.refresh();
   }, [refresh, router]);
 
-  const { move, moveGroup, undoPayload, clearUndo } = useGridMove({
+  const { move, moveGroup, undoPayload, clearUndo, pushUndo } = useGridMove({
     buckets,
     refresh: refreshAll,
   });
+
+  async function handleHiddenFromFlow(undo: {
+    label: string;
+    dteId: string | null;
+    occurrenceId: string | null;
+  }) {
+    const { restoreToFlowViaApi } = await import("./grid/cashflow-hide");
+    toast.success(`«${undo.label}» ocultado del flujo`);
+    await refreshAll();
+    pushUndo({
+      occurrenceName: undo.label,
+      destLabel: "ocultado del flujo",
+      undo: async () => {
+        const res = await restoreToFlowViaApi({
+          dteId: undo.dteId,
+          occurrenceId: undo.occurrenceId,
+        });
+        if (!res.ok) {
+          toast.error(res.error ?? "No se pudo deshacer");
+          return;
+        }
+        toast.success("Restaurado al flujo");
+        await refreshAll();
+      },
+    });
+  }
 
   // Sensors: puntero (mouse + touch) con activación por long-press (delay +
   // tolerance) para NO secuestrar el scroll táctil de la grilla. Un scroll
@@ -347,6 +374,7 @@ export function CashflowGrid({
                 bucketMeta={bucketMeta}
                 advanced={effectiveAdvanced}
                 onAmountSaved={refreshAll}
+                onHiddenFromFlow={handleHiddenFromFlow}
                 isMobile={isMobile}
                 editableAmounts={false}
               />
@@ -360,6 +388,7 @@ export function CashflowGrid({
                 bucketMeta={bucketMeta}
                 advanced={effectiveAdvanced}
                 onAmountSaved={refreshAll}
+                onHiddenFromFlow={handleHiddenFromFlow}
                 isMobile={isMobile}
                 editableAmounts
               />

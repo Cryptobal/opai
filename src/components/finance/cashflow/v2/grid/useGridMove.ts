@@ -171,5 +171,6 @@ export function useGridMove(opts: {
     submitting,
     undoPayload,
     clearUndo: useCallback(() => setUndoPayload(null), []),
+    pushUndo: useCallback((payload: UndoPayload) => setUndoPayload(payload), []),
   };
 }

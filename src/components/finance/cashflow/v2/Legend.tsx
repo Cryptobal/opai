@@ -1,4 +1,4 @@
-import { Lock, ArrowLeftRight, FileText } from "lucide-react";
+import { Lock, ArrowLeftRight, FileText, EyeOff } from "lucide-react";
 import { CellStatusPill } from "@/components/finance/cashflow/CellStatusPill";
 
 /** Mini-leyenda reducida de las affordances esenciales del detalle. */
@@ -23,7 +23,10 @@ export function Legend() {
           <Lock className="h-3.5 w-3.5" /> candado = conciliado (fijo)
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <ArrowLeftRight className="h-3.5 w-3.5" /> flechas = mover de semana
+          <ArrowLeftRight className="h-3.5 w-3.5" /> arrastrar = mover de semana
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <EyeOff className="h-3.5 w-3.5" /> ojo = ocultar del flujo
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="rounded-ds-sm bg-ds-surface-3 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-ds-text-2">

@@ -42,6 +42,7 @@ interface BlockActionsPayload {
   response_url?: string;
   actions?: Array<{ action_id?: string; value?: string }>;
   container?: { channel_id?: string; message_ts?: string; is_ephemeral?: boolean };
+  trigger_id?: string;
 }
 
 type Pending = NonNullable<Awaited<ReturnType<typeof prisma.slackPendingAction.findFirst>>>;
@@ -150,6 +151,29 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
   const action = payload.actions?.[0];
   const actionId = action?.action_id;
   const pendingId = action?.value;
+
+  // DTE recibido: acuse/reclamo oficial al SII desde la tarjeta.
+  if (actionId?.startsWith("dteacuse_")) {
+    const { handleDteAcuseAction } = await import("./finance/dte-received");
+    await handleDteAcuseAction(payload);
+    return;
+  }
+
+  // DTE recibido: abre el selector de centro de costo conservando el mensaje
+  // de origen para refrescar la tarjeta al terminar.
+  if (actionId === "dtecc_open" && pendingId && payload.trigger_id && teamId && slackUserId) {
+    const { openModalByCallback } = await import("./modals/dispatch");
+    await openModalByCallback({
+      teamId,
+      triggerId: payload.trigger_id,
+      callbackId: "opai_dte_cost_center",
+      slackUserId,
+      channelId: payload.container?.channel_id,
+      messageTs: payload.container?.message_ts,
+      arg: pendingId,
+    });
+    return;
+  }
 
   // Hub de acciones (Fase 7): "Abrir" apila el modal de la acción (views.push).
   if (actionId?.startsWith("opai_action_open")) {

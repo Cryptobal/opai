@@ -37,6 +37,7 @@ import {
 } from "./real-balance.helper";
 import { computeCreditNoteImpact } from "../billing/credit-note-impact.helper";
 import { loadDteDateOverrides } from "./dte-date-override.service";
+import { loadExcludedDteIds } from "./dte-exclusion.service";
 
 type CategoryLite = Pick<
   FinanceCashflowCategory,
@@ -1292,6 +1293,10 @@ export async function buildProjection(
   const linkedDteIds = new Set(
     allOccurrences.map((o) => o.dteId).filter((x): x is string => !!x),
   );
+  // Facturas ocultadas manualmente del flujo (no del SII). Se cargan acá
+  // para excluirlas del query de huérfanos y, más abajo, de allOccurrences.
+  const excludedDteIds = await loadExcludedDteIds(tenantId);
+  const orphanExcludeIds = new Set<string>([...linkedDteIds, ...excludedDteIds]);
   const orphanDtes = await prisma.financeDte.findMany({
     where: {
       tenantId,
@@ -1310,7 +1315,7 @@ export async function buildProjection(
       // Estado de resultados / libro IVA usan la fórmula F29 del
       // sales-aggregator (bruto + ND − NC) independientemente.
       voidedByCreditNoteId: null,
-      id: linkedDteIds.size > 0 ? { notIn: Array.from(linkedDteIds) } : undefined,
+      id: orphanExcludeIds.size > 0 ? { notIn: Array.from(orphanExcludeIds) } : undefined,
     },
     select: {
       id: true,
@@ -1618,8 +1623,14 @@ export async function buildProjection(
   }
   // Mismo criterio de bucket que placement (ISO semanal). weekClosingDow del
   // config aplica al cierre manual, no aún a buildBuckets/ placement.
+  // Filtra facturas ocultadas del flujo (exclude-flow) antes de consolidar —
+  // así no suman ni generan filas EXTRA.
+  const occurrencesForConsolidate =
+    excludedDteIds.size === 0
+      ? allOccurrences
+      : allOccurrences.filter((o) => !o.dteId || !excludedDteIds.has(o.dteId));
   const occurrences = consolidateIncomeOccurrences(
-    allOccurrences,
+    occurrencesForConsolidate,
     grossByDteId,
     range.granularity,
     undefined,

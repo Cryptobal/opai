@@ -86,6 +86,65 @@ export interface AcuseResponse {
   rawResponse?: unknown;
 }
 
+type SimpleApiAcuseBody = {
+  TrackId?: number | string;
+  trackId?: number | string;
+  Estado?: string;
+  Mensaje?: string;
+  mensaje?: string;
+  Descripcion?: string;
+  descripcion?: string;
+  Response?: string;
+  response?: string;
+};
+
+/**
+ * SimpleAPI responde HTTP 200 incluso cuando el WS del SII rechaza la acción.
+ * El resultado tributario real viene en `descripcion` y, según la versión,
+ * dentro del XML serializado en `response`. Código SII 0 = OK; cualquier otro
+ * código es rechazo. "Evento registrado previamente" se trata como éxito
+ * idempotente: el evento solicitado ya existe en el SII.
+ */
+export function interpretAcuseBody(body: SimpleApiAcuseBody | null): {
+  success: boolean | null;
+  description?: string;
+} {
+  if (!body) return { success: null };
+  const xml = typeof body.response === "string"
+    ? body.response
+    : typeof body.Response === "string"
+      ? body.Response
+      : "";
+  const description = String(
+    body.descripcion ??
+      body.Descripcion ??
+      body.mensaje ??
+      body.Mensaje ??
+      xml.match(/<(?:descripcion|glosa|mensaje)[^>]*>([\s\S]*?)<\//i)?.[1] ??
+      "",
+  ).trim();
+  const normalized = description
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  if (/accion completada ok|evento registrado previamente/.test(normalized)) {
+    return { success: true, description };
+  }
+  if (description) return { success: false, description };
+
+  const codeMatch = xml.match(
+    /<(?:cod(?:igo)?respuesta|codigo_respuesta|cod_resp)[^>]*>\s*(-?\d+)\s*<\//i,
+  );
+  if (codeMatch) {
+    return {
+      success: Number(codeMatch[1]) === 0,
+      description: Number(codeMatch[1]) === 0 ? "Acción completada OK" : `Código SII ${codeMatch[1]}`,
+    };
+  }
+  return { success: null };
+}
+
 /**
  * Notifica una sola acción de acuse/aceptación/reclamo al SII.
  *
@@ -152,14 +211,17 @@ export async function acuseRecibidoSimpleApi(
 
   // Respuesta típica: JSON con `TrackId` y/o un mensaje de éxito.
   // Algunos endpoints SimpleAPI devuelven solo string "OK" o un XML.
-  const json = result.bodyJson as
-    | {
-        TrackId?: number | string;
-        trackId?: number | string;
-        Estado?: string;
-        Mensaje?: string;
-      }
-    | null;
+  const json = result.bodyJson as SimpleApiAcuseBody | null;
+
+  const interpreted = interpretAcuseBody(json);
+  if (interpreted.success === false) {
+    return {
+      success: false,
+      httpStatus: result.status,
+      error: `SII rechazó la acción: ${interpreted.description ?? "respuesta no exitosa"}`,
+      rawResponse: json ?? result.bodyText,
+    };
+  }
 
   const trackId = json?.TrackId ?? json?.trackId;
 

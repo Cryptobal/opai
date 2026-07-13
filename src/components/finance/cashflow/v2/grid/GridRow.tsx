@@ -24,6 +24,7 @@ export function GridRow({
   bucketMeta,
   advanced,
   onAmountSaved,
+  onHiddenFromFlow,
   isMobile,
   editableAmounts,
   expandable,
@@ -38,6 +39,8 @@ export function GridRow({
   advanced?: boolean;
   /** Refresca la proyección tras editar/revertir el monto de una casilla. */
   onAmountSaved?: () => void;
+  /** Tras ocultar del flujo (factura/programación). */
+  onHiddenFromFlow?: (undo: import("./CellFlowActions").HideUndoPayload) => void;
   /** Móvil: editar por tap + lápiz de affordance en las celdas editables. */
   isMobile?: boolean;
   /** La sección admite editar montos (solo Egresos; ver GridCell). */
@@ -153,6 +156,7 @@ export function GridRow({
             isGroup={!!group}
             groupOccurrences={group?.occurrencesByBucket.get(b.key)}
             onAmountSaved={onAmountSaved}
+            onHiddenFromFlow={onHiddenFromFlow}
             isMobile={isMobile}
             editableAmounts={editableAmounts}
           />

@@ -4,6 +4,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { notifyReceivedDte } from "@/lib/integrations/slack/finance/dte-received";
 
 // ── Types ──
 
@@ -361,7 +362,7 @@ export async function registerReceivedDte(
   });
   const code = `RCV-${String(count + 1).padStart(6, "0")}`;
 
-  return prisma.financeDte.create({
+  const created = await prisma.financeDte.create({
     data: {
       tenantId,
       direction: "RECEIVED",
@@ -394,6 +395,11 @@ export async function registerReceivedDte(
       supplier: { select: { id: true, name: true, rut: true } },
     },
   });
+
+  await notifyReceivedDte(tenantId, created.id).catch((err) =>
+    console.error("[dte-received] notificación de nuevo DTE falló:", err),
+  );
+  return created;
 }
 
 /**

@@ -29,12 +29,9 @@ export default async function DtesRecibidosPage() {
   }
 
   const tenantId = session.user.tenantId;
-  const canManage =
-    hasFacturacionCapability(perms, "facturacion_issue") ||
-    hasFacturacionCapability(perms, "facturacion_credit_note") ||
-    hasFacturacionCapability(perms, "facturacion_void") ||
-    hasFacturacionCapability(perms, "facturacion_resend_email") ||
-    hasFacturacionCapability(perms, "facturacion_configure");
+  // Registrar, editar, acusar y vincular centros de costo en DTEs recibidos
+  // comparten la capability granular que usan sus APIs.
+  const canManage = hasFacturacionCapability(perms, "facturacion_create_draft");
 
   const suppliers = await prisma.financeSupplier.findMany({
     where: { tenantId },

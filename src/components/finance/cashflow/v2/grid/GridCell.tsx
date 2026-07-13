@@ -13,6 +13,7 @@ import { GridChip } from "./GridChip";
 import { GridDraggableChip } from "./GridDraggableChip";
 import { cellChip } from "./grid-helpers";
 import { AmountCellEditor } from "./AmountCellEditor";
+import { CellFlowActions, type HideUndoPayload } from "./CellFlowActions";
 import type { GridDragData } from "./useGridMove";
 
 /**
@@ -35,6 +36,7 @@ export function GridCell({
   isGroup = false,
   groupOccurrences,
   onAmountSaved,
+  onHiddenFromFlow,
   isMobile = false,
   editableAmounts = false,
 }: {
@@ -57,6 +59,8 @@ export function GridCell({
   groupOccurrences?: { id: string; amountClp: number }[];
   /** Se llama tras guardar/revertir un monto para refrescar la proyección. */
   onAmountSaved?: () => void;
+  /** Tras ocultar del flujo: el padre refresca y arma undo. */
+  onHiddenFromFlow?: (undo: HideUndoPayload) => void;
   /** Móvil: habilita el editar por tap y muestra el lápiz de affordance. */
   isMobile?: boolean;
   /** La sección admite editar montos (solo Egresos). Los Ingresos vienen de la
@@ -102,6 +106,17 @@ export function GridCell({
   // (GridChip locked) comunica el estado de las fijas.
   const showOverrideBadge = hasOverride && canEdit;
 
+  // Ocultar del flujo: facturas (dteId) o programaciones individuales. No en
+  // grupos consolidados (sueldos) ni celdas fijas/cerradas.
+  const canHideFromFlow =
+    !!onHiddenFromFlow &&
+    dndEnabled &&
+    !closed &&
+    !isGroup &&
+    amount !== 0 &&
+    !chip?.locked &&
+    (!!value?.dteId || !!value?.occurrenceId || !!itemId);
+
   // Disparadores de edición según dispositivo. La regla de gestos en móvil es:
   //  - tap corto  → nada (evita aperturas accidentales por roces).
   //  - long-press → arrastrar la cuota (drag: delay 180ms + movimiento).
@@ -120,6 +135,27 @@ export function GridCell({
       lastTapRef.current = now;
     }
   }
+
+  const chipNode =
+    canDrag && value ? (
+      <GridDraggableChip
+        itemId={itemId}
+        itemName={itemName}
+        value={value}
+        bucketKey={bucketKey}
+        amount={amount}
+        variant={chip!.variant}
+        locked={chip!.locked}
+        title={chip!.title}
+      />
+    ) : chip ? (
+      <GridChip
+        amount={amount}
+        variant={chip.variant}
+        locked={chip.locked}
+        title={chip.title}
+      />
+    ) : null;
 
   return (
     <td
@@ -145,31 +181,28 @@ export function GridCell({
           : undefined
       }
     >
-      {amount !== 0 && chip ? (
+      {amount !== 0 && chipNode ? (
         <span
           className={cn(
             "relative inline-flex",
             showOverrideBadge && "rounded-ds-sm ring-1 ring-inset ring-primary/60",
           )}
         >
-          {canDrag && value ? (
-            <GridDraggableChip
-              itemId={itemId}
-              itemName={itemName}
-              value={value}
-              bucketKey={bucketKey}
-              amount={amount}
-              variant={chip.variant}
-              locked={chip.locked}
-              title={chip.title}
-            />
+          {canHideFromFlow && value ? (
+            <CellFlowActions
+              target={{
+                dteId: value.dteId ?? null,
+                occurrenceId: value.occurrenceId,
+                itemId,
+                originalDate: value.scheduledDate,
+                label: itemName,
+              }}
+              onHidden={(undo) => onHiddenFromFlow?.(undo)}
+            >
+              {chipNode}
+            </CellFlowActions>
           ) : (
-            <GridChip
-              amount={amount}
-              variant={chip.variant}
-              locked={chip.locked}
-              title={chip.title}
-            />
+            chipNode
           )}
           {showOverrideBadge && (
             <Pencil

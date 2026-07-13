@@ -73,6 +73,9 @@ export async function POST(req: NextRequest) {
       if (callbackId === "opai_turno_extra") {
         const { handleTurnoExtraGuardiaSuggestion } = await import("@/lib/integrations/slack/actions/turno-extra");
         options = await handleTurnoExtraGuardiaSuggestion(payload as never);
+      } else if (callbackId === "opai_dte_cost_center") {
+        const { handleDteCostCenterSuggestion } = await import("@/lib/integrations/slack/finance/dte-received");
+        options = await handleDteCostCenterSuggestion(payload as never);
       } else {
         const { handleSaveNoteSuggestion } = await import("@/lib/integrations/slack/deal-rooms/save-note");
         options = await handleSaveNoteSuggestion(payload as never);

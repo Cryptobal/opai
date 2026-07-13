@@ -6791,8 +6791,9 @@ model FinanceDte {
   attachments           FinanceDteAttachment[]
   emailLogs             FinanceDteEmailLog[]
   recurringRuns         FinanceDteRecurringRun[]
-  cashflowOccurrences   FinanceCashflowOccurrence[]      @relation("OccurrenceToDte")
-  cashflowDateOverrides FinanceCashflowDteDateOverride[]
+  cashflowOccurrences    FinanceCashflowOccurrence[]       @relation("OccurrenceToDte")
+  cashflowDateOverrides  FinanceCashflowDteDateOverride[]
+  cashflowFlowExclusions FinanceCashflowDteFlowExclusion[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -8174,6 +8175,24 @@ model FinanceCashflowDteDateOverride {
   @@unique([tenantId, dteId], map: "uq_cashflow_dte_date_override")
   @@index([tenantId, customDate], map: "idx_cashflow_dte_date_override_custom")
   @@map("finance_cashflow_dte_date_overrides")
+  @@schema("finance")
+}
+
+/// Oculta un DTE del flujo de caja sin tocar Facturación ni el SII.
+/// Caso típico: factura EXTRA emitida sobre un cobro ya pagado/conciliado —
+/// debe existir en Facturación pero no sumar en la proyección. Reversible.
+model FinanceCashflowDteFlowExclusion {
+  id        String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String     @map("tenant_id")
+  dteId     String     @map("dte_id") @db.Uuid
+  dte       FinanceDte @relation(fields: [dteId], references: [id], onDelete: Cascade)
+  reason    String?
+  createdBy String     @map("created_by")
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, dteId], map: "uq_cashflow_dte_flow_exclusion")
+  @@index([tenantId], map: "idx_cashflow_dte_flow_exclusion_tenant")
+  @@map("finance_cashflow_dte_flow_exclusions")
   @@schema("finance")
 }
 
