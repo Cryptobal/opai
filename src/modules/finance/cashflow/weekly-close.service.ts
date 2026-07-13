@@ -478,6 +478,52 @@ export async function persistWeeklyClose(
   });
 }
 
+/**
+ * Reabre (desbloquea) una semana ya cerrada: borra el registro de cierre y,
+ * si el cierre había generado una occurrence de ajuste manual, la elimina
+ * también para no dejar movimientos huérfanos.
+ *
+ * La semana se ubica por rango [weekStart, weekEnd] normalizado (mismo criterio
+ * que listWeekCloseStatus / computeWeeklyCloseSnapshot), robusto a la
+ * representación de fecha con que se serializó el cierre.
+ *
+ * Devuelve si la semana era el ancla vigente para que la UI pueda advertir el
+ * impacto: al reabrir el ancla la proyección pierde su punto base.
+ */
+export async function reopenWeeklyClose(
+  tenantId: string,
+  weekEnd: Date,
+): Promise<{ weekEndDate: Date; wasAnchor: boolean }> {
+  const cfg = await getOrCreateCashflowConfig(tenantId);
+  const dow = cfg.weekClosingDow ?? 5;
+  const weekStart = weekStartForClosing(weekEnd, dow);
+  const weekEndNorm = weekEndForClosing(weekEnd, dow);
+
+  const close = await prisma.financeCashflowWeeklyClose.findFirst({
+    where: {
+      tenantId,
+      weekEndDate: { gte: weekStart, lte: weekEndNorm },
+    },
+    select: {
+      id: true,
+      isAnchor: true,
+      adjustOccurrenceId: true,
+      weekEndDate: true,
+    },
+  });
+  if (!close) throw new Error("La semana no está cerrada");
+
+  return prisma.$transaction(async (tx) => {
+    if (close.adjustOccurrenceId) {
+      await tx.financeCashflowOccurrence
+        .delete({ where: { id: close.adjustOccurrenceId } })
+        .catch(() => {});
+    }
+    await tx.financeCashflowWeeklyClose.delete({ where: { id: close.id } });
+    return { weekEndDate: close.weekEndDate, wasAnchor: close.isAnchor };
+  });
+}
+
 export async function nextWeekClosingDate(tenantId: string): Promise<Date> {
   const cfg = await getOrCreateCashflowConfig(tenantId);
   const dow = cfg.weekClosingDow ?? 5;

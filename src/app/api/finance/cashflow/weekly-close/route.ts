@@ -5,6 +5,7 @@ import { hasCapability } from "@/lib/permissions";
 import {
   computeWeeklyCloseSnapshot,
   persistWeeklyClose,
+  reopenWeeklyClose,
   nextWeekClosingDate,
   listRecentCloses,
 } from "@/modules/finance/cashflow/weekly-close.service";
@@ -86,5 +87,42 @@ export async function POST(request: NextRequest) {
       { success: false, error: message },
       { status: 400 },
     );
+  }
+}
+
+/**
+ * DELETE /api/finance/cashflow/weekly-close?weekEnd=ISO
+ *
+ * Reabre (desbloquea) una semana cerrada. Requiere cashflow_manage (misma
+ * capacidad que cerrarla). Alimenta el candado de cada fila del panel
+ * "Semanas por cerrar".
+ */
+export async function DELETE(request: NextRequest) {
+  const ctx = await requireAuth();
+  if (!ctx) return unauthorized();
+  const perms = await resolveApiPerms(ctx);
+  if (!hasCapability(perms, "cashflow_manage")) {
+    return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
+  }
+  const weekEndParam = new URL(request.url).searchParams.get("weekEnd");
+  if (!weekEndParam) {
+    return NextResponse.json(
+      { success: false, error: "weekEnd requerido" },
+      { status: 400 },
+    );
+  }
+  const weekEnd = new Date(weekEndParam);
+  if (Number.isNaN(weekEnd.getTime())) {
+    return NextResponse.json(
+      { success: false, error: "weekEnd inválido" },
+      { status: 400 },
+    );
+  }
+  try {
+    const reopened = await reopenWeeklyClose(ctx.tenantId, weekEnd);
+    return NextResponse.json({ success: true, data: reopened });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Error";
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }
