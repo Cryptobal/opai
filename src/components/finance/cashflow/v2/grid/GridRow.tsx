@@ -148,6 +148,7 @@ export function GridRow({
             source={row.item.source}
             value={row.valueByBucket.get(b.key)}
             bucketKey={b.key}
+            weekLabel={b.label}
             isCurrent={i === currentIdx}
             dndEnabled={dndEnabled}
             closed={meta?.closed ?? false}

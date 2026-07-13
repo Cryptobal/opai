@@ -365,6 +365,16 @@ export async function POST(request: NextRequest) {
           take: totalImported,
           select: { id: true, transactionDate: true, description: true, amount: true },
         });
+        // Saldo total tras el import: el import setea currentBalance =
+        // closingBalance de la cartola, así que re-consultamos el valor fresco.
+        const acctFresh = await prisma.financeBankAccount.findUnique({
+          where: { id: targetAccount.id },
+          select: { currentBalance: true },
+        });
+        const accountBalanceClp =
+          acctFresh?.currentBalance != null
+            ? Number(acctFresh.currentBalance)
+            : null;
         slackData = await buildBankMovementsSlackData(
           tenantId,
           accountLabel,
@@ -375,6 +385,7 @@ export async function POST(request: NextRequest) {
             description: t.description,
             amount: t.amount.toNumber(),
           })),
+          accountBalanceClp,
         );
       } catch (blocksErr) {
         console.error("[inbound/cartola] blocks conciliación error:", blocksErr);

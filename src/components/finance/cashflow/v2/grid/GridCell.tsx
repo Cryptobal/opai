@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ import { GridDraggableChip } from "./GridDraggableChip";
 import { cellChip } from "./grid-helpers";
 import { AmountCellEditor } from "./AmountCellEditor";
 import { CellFlowActions, type HideUndoPayload } from "./CellFlowActions";
+import { CellActionSheet } from "./CellActionSheet";
 import type { GridDragData } from "./useGridMove";
 
 /**
@@ -28,6 +29,7 @@ export function GridCell({
   source,
   value,
   bucketKey,
+  weekLabel,
   isCurrent,
   dndEnabled,
   closed = false,
@@ -45,6 +47,8 @@ export function GridCell({
   source: FinanceCashflowItemSource;
   value: ProjectionRowItemValue | undefined;
   bucketKey: string;
+  /** Etiqueta legible de la semana (ej. "13 may") para el sheet de acciones. */
+  weekLabel?: string;
   isCurrent: boolean;
   dndEnabled: boolean;
   /** Semana sellada (cierre): sin arrastre ni drop, atenuada. */
@@ -68,9 +72,9 @@ export function GridCell({
   editableAmounts?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
-  // Timestamp del último tap para detectar el doble-tap en móvil (ver comentario
-  // sobre los disparadores de edición más abajo).
-  const lastTapRef = useRef(0);
+  // Sheet de acciones (ver detalle · editar · ocultar · ver factura) que abre al
+  // tocar la celda. Centraliza lo que antes estaba disperso (doble-clic, ojo).
+  const [sheetOpen, setSheetOpen] = useState(false);
   const amount = value?.amount ?? 0;
   const chip = value ? cellChip(value, source) : null;
   const canDrag = dndEnabled && !closed && amount !== 0 && !!chip?.draggable;
@@ -119,23 +123,14 @@ export function GridCell({
     chip?.variant !== "VOIDED" &&
     (!!value?.dteId || !!value?.occurrenceId || !!itemId);
 
-  // Disparadores de edición según dispositivo. La regla de gestos en móvil es:
-  //  - tap corto  → nada (evita aperturas accidentales por roces).
-  //  - long-press → arrastrar la cuota (drag: delay 180ms + movimiento).
-  //  - doble-tap  → editar el monto (abre el modal), análogo al doble-clic de
-  //    desktop pero adaptado a touch.
-  // Desktop: doble-clic (no colisiona con el drag, que es single-click + arrastre).
-  // El doble-tap se detecta comparando el tap actual con el anterior dentro de
-  // una ventana de ~300ms sobre la misma casilla; un tap suelto sin movimiento
-  // no arranca el drag (no alcanza el long-press) y cae en este handler.
-  function handleMobileTap() {
-    const now = Date.now();
-    if (now - lastTapRef.current < 300) {
-      lastTapRef.current = 0;
-      setEditing(true);
-    } else {
-      lastTapRef.current = now;
-    }
+  // Interacción unificada (desktop + móvil): un toque/clic sobre una celda con
+  // movimiento abre el sheet de acciones (ver detalle · editar · ocultar · ver
+  // factura). El long-press sigue siendo el arrastre para mover (delay 180ms);
+  // un toque corto no lo dispara y cae acá.
+  const canOpenSheet = amount !== 0 && !!chip;
+  function handleCellClick() {
+    if (!canOpenSheet) return;
+    setSheetOpen(true);
   }
 
   const chipNode =
@@ -162,26 +157,17 @@ export function GridCell({
   return (
     <td
       ref={setDropRef}
-      onDoubleClick={!isMobile && canEdit ? () => setEditing(true) : undefined}
-      onClick={isMobile && canEdit ? handleMobileTap : undefined}
+      onClick={canOpenSheet ? handleCellClick : undefined}
       className={cn(
         "relative border-l border-ds-border-subtle px-1.5 py-1.5 text-center align-middle",
         isCurrent && "bg-primary/[0.04]",
         closed && "bg-ds-surface-2/50 opacity-60",
         isAnchor && "border-r-2 border-r-primary",
         validTarget && "bg-primary/10 ring-2 ring-inset ring-primary",
-        canEdit && (isMobile ? "cursor-pointer" : "cursor-text"),
+        canOpenSheet && "cursor-pointer",
       )}
-      aria-label={
-        canEdit && isMobile ? "Doble toque para editar el monto" : undefined
-      }
-      title={
-        canEdit
-          ? isMobile
-            ? "Doble toque para editar el monto"
-            : "Doble clic para editar el monto"
-          : undefined
-      }
+      aria-label={canOpenSheet ? `Ver acciones de ${itemName}` : undefined}
+      title={canOpenSheet ? "Toca para ver acciones" : undefined}
     >
       {amount !== 0 && chipNode ? (
         <span
@@ -235,6 +221,31 @@ export function GridCell({
           hasOverride={hasOverride}
           onClose={() => setEditing(false)}
           onSaved={() => onAmountSaved?.()}
+        />
+      )}
+      {canOpenSheet && value && chip && (
+        <CellActionSheet
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          itemName={itemName}
+          weekLabel={weekLabel ?? bucketKey}
+          amount={amount}
+          actualAmount={actual}
+          variant={chip.variant}
+          statusTitle={chip.title}
+          dteId={value.dteId ?? null}
+          dteFolio={value.dteFolio ?? null}
+          canEdit={canEdit}
+          onEdit={() => setEditing(true)}
+          canHide={canHideFromFlow}
+          hideTarget={{
+            dteId: value.dteId ?? null,
+            occurrenceId: value.occurrenceId,
+            itemId,
+            originalDate: value.scheduledDate,
+            label: itemName,
+          }}
+          onHidden={(undo) => onHiddenFromFlow?.(undo)}
         />
       )}
       {advanced && actual !== null && (

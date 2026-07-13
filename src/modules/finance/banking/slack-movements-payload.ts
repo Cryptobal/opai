@@ -76,6 +76,7 @@ export async function buildBankMovementsSlackData(
   accountLabel: string,
   summary: string,
   txs: InsertedMovement[],
+  accountBalanceClp?: number | null,
 ): Promise<BankMovementsSlackData> {
   const tooMany = txs.length > MAX_INLINE;
 
@@ -96,7 +97,7 @@ export async function buildBankMovementsSlackData(
     }),
   );
 
-  const input = { summary, accountLabel, movements };
+  const input = { summary, accountLabel, movements, accountBalanceClp };
   return {
     __customBlocks: buildBankMovementsBlocks(input),
     __customText: buildBankMovementsText(input),

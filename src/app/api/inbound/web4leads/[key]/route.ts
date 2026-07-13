@@ -298,6 +298,9 @@ export async function POST(
           description: t.description,
           amount: t.amount.toNumber(),
         })),
+        // Saldo total tras el lote: el balance del movimiento más reciente
+        // (el mismo que actualizó currentBalance arriba).
+        lastWithBalance?.balance ?? null,
       );
     } catch (blocksErr) {
       console.error("[inbound/web4leads] blocks conciliación error:", blocksErr);

@@ -13,6 +13,7 @@
  */
 
 import { shortDate, signedCLP, buildBankMovementsBody } from "@/lib/finance/bank-movements-summary";
+import { formatCLP } from "@/lib/utils";
 
 /**
  * Umbral de layout: por sobre esto NO incrustamos botones por movimiento
@@ -46,6 +47,9 @@ export interface BankMovementsBlocksInput {
   summary: string;
   accountLabel: string;
   movements: MovementForBlocks[];
+  /** Saldo total de la cuenta tras estos movimientos (CLP). Si viene, se
+   *  muestra en el encabezado ("Saldo cuenta: $X"). */
+  accountBalanceClp?: number | null;
 }
 
 const DESC_MAX = 70;
@@ -61,12 +65,23 @@ function netOf(movements: MovementForBlocks[]): number {
   return movements.reduce((acc, m) => acc + (Number.isFinite(m.amount) ? m.amount : 0), 0);
 }
 
-function headerBlocks(summary: string, movements: MovementForBlocks[]): unknown[] {
+function headerBlocks(
+  summary: string,
+  movements: MovementForBlocks[],
+  accountBalanceClp?: number | null,
+): unknown[] {
+  const balanceLine =
+    accountBalanceClp != null && Number.isFinite(accountBalanceClp)
+      ? `\n*Saldo cuenta* ${formatCLP(accountBalanceClp)}`
+      : "";
   return [
     { type: "header", text: pt("🏦 Movimientos bancarios") },
     {
       type: "section",
-      text: { type: "mrkdwn", text: `${summary}\n*Neto* ${signedCLP(netOf(movements))}` },
+      text: {
+        type: "mrkdwn",
+        text: `${summary}\n*Neto* ${signedCLP(netOf(movements))}${balanceLine}`,
+      },
     },
     { type: "divider" },
   ];
@@ -139,8 +154,8 @@ export function renderMovementBlocks(m: MovementForBlocks): unknown[] {
 
 /** Arma la tarjeta completa. Lotes > MAX_INLINE caen al layout resumido. */
 export function buildBankMovementsBlocks(input: BankMovementsBlocksInput): unknown[] {
-  const { summary, movements } = input;
-  const blocks = headerBlocks(summary, movements);
+  const { summary, movements, accountBalanceClp } = input;
+  const blocks = headerBlocks(summary, movements, accountBalanceClp);
 
   if (movements.length > MAX_INLINE) {
     blocks.push({
@@ -159,7 +174,7 @@ export function buildBankMovementsBlocks(input: BankMovementsBlocksInput): unkno
 
 /** Texto de fallback (accesibilidad / notificaciones sin Block Kit). */
 export function buildBankMovementsText(input: BankMovementsBlocksInput): string {
-  return buildBankMovementsBody({
+  const body = buildBankMovementsBody({
     summary: input.summary,
     movements: input.movements.map((m) => ({
       transactionDate: m.transactionDate,
@@ -167,4 +182,8 @@ export function buildBankMovementsText(input: BankMovementsBlocksInput): string 
       amount: m.amount,
     })),
   });
+  const { accountBalanceClp } = input;
+  return accountBalanceClp != null && Number.isFinite(accountBalanceClp)
+    ? `${body}\n\nSaldo cuenta: ${formatCLP(accountBalanceClp)}`
+    : body;
 }
