@@ -441,14 +441,24 @@ export async function buildProjection(
   tenantId: string,
   range: ProjectionRange,
 ): Promise<ProjectionMatrix> {
-  // Alinea `from` al inicio del bucket que lo contiene (lunes ISO en weekly,
-  // día 1 en monthly). Sin esto, si el caller pasa una fecha a mitad de
-  // semana, las bank tx y occurrences del inicio de esa misma semana quedan
-  // fuera del filtro `gte: from` y el bucket actual aparece con varianza
-  // inflada — causa de drifts distintos entre la cuadratura (from=today) y
-  // el header de flujo de caja (from=startOfWeek).
+  // Alinea AMBOS extremos del rango a los bordes del bucket que los contiene:
+  // `from` → inicio del bucket (lunes ISO en weekly, día 1 en monthly),
+  // `to`   → FIN del bucket (domingo ISO / último día del mes).
+  //
+  // Alinear `from` evita que, al pasar una fecha a mitad de semana, las bank tx
+  // y occurrences del inicio de esa misma semana queden fuera del filtro
+  // `gte: from` (varianza inflada, drifts distintos entre cuadratura y header).
+  //
+  // Sin alinear `to`, `buildBuckets()` creaba la semana ISO COMPLETA del día
+  // del borde, pero todos los filtros SQL (`lte: range.to`) cortaban a mitad de
+  // esa semana. Resultado: la última columna mostraba un subtotal incompleto, y
+  // la MISMA semana daba montos distintos según fuera borde o interior de la
+  // ventana visible (descuadre reportado en la Sem 27). Alinear `to` al fin del
+  // bucket hace que cada semana se compute SIEMPRE con sus 7 días → un bucket
+  // tiene un único valor posible, independiente del rango pedido.
   const alignedFrom = bucketBoundsFor(range.from, range.granularity).start;
-  range = { ...range, from: alignedFrom };
+  const alignedTo = bucketBoundsFor(range.to, range.granularity).end;
+  range = { ...range, from: alignedFrom, to: alignedTo };
 
   // config, categories y la lista de items no dependen entre sí (cada uno
   // toma solo tenantId), así que se resuelven en paralelo en vez de tres
