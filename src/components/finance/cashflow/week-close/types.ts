@@ -5,6 +5,9 @@ export interface WeeklyCloseSnapshotDTO {
   weekStartDate: string;
   weekEndDate: string;
   bankBalanceClp: number;
+  /** Saldo banco al abrir la semana (cierre del día previo al weekStart).
+   *  Base real de la ecuación apertura + ingresos − egresos = cierre. */
+  openingBalanceClp: number;
   projectedBalanceClp: number;
   varianceClp: number;
   unassignedBank: Array<{
@@ -23,9 +26,20 @@ export interface WeeklyCloseSnapshotDTO {
     kind: "INCOME" | "EXPENSE";
     categoryCode: string;
   }>;
+  /** Ancla vigente del tenant (cierre con isAnchor=true). Null si no hay. El
+   *  drawer lo usa para detectar el retroceso del ancla y su impacto en CLP. */
+  currentAnchor?: { weekEndDate: string; balanceClp: number } | null;
+  /** Cierre (weekEnd) de la semana en curso. Referencia para decidir si la
+   *  semana que se cierra es la más reciente (default de anclar). */
+  nextClosingWeekEndDate?: string;
 }
 
 export type VarianceResolution = "ADJUSTED" | "ACCEPTED" | "PENDING";
+
+/** Umbral de descuadre "significativo" de la varianza de un cierre. Por debajo
+ *  se trata como cuadre (ruido de redondeo); en o por encima se resalta. Fuente
+ *  única para el paso 3 del cierre y el panel de semanas por cerrar. */
+export const VARIANCE_DRIFT_THRESHOLD_CLP = 50_000;
 
 export const fmtCLP = new Intl.NumberFormat("es-CL", {
   style: "currency",

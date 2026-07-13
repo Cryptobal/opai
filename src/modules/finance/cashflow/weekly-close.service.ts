@@ -1,5 +1,6 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
+import { getISOWeek } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { getOrCreateCashflowConfig } from "./config.service";
 import { weekStartForClosing, weekEndForClosing } from "./recurrence-engine";
@@ -26,6 +27,10 @@ export interface WeeklyCloseSnapshot {
   weekStartDate: Date;
   weekEndDate: Date;
   bankBalanceClp: number;
+  /** Saldo banco consolidado al ABRIR la semana (cierre del día previo al
+   *  weekStart). Es la base real de la ecuación de cuadratura; la UI la usa
+   *  para mostrar apertura + ingresos − egresos = cierre. */
+  openingBalanceClp: number;
   projectedBalanceClp: number;
   varianceClp: number;
   unassignedBank: Array<{
@@ -50,6 +55,30 @@ export interface WeeklyCloseSnapshot {
   allBank: BankTxSnapshot[];
 }
 
+/** Saldo banco consolidado (todas las cuentas CLP activas) a una fecha de corte.
+ *  Usa el snapshot más reciente ≤ asOf; si no hay snapshot para esa cuenta, cae a
+ *  currentBalance. Mismo criterio que ya usaba el cálculo de bankBalance.
+ *
+ *  TODO: hace un findFirst por cuenta (N+1). Con pocas cuentas CLP por tenant
+ *  (2-3) es aceptable y replica el comportamiento previo; si algún tenant crece
+ *  en cuentas, agrupar en un solo query por lote. */
+async function bankBalanceAsOf(tenantId: string, asOf: Date): Promise<number> {
+  const accounts = await prisma.financeBankAccount.findMany({
+    where: { tenantId, isActive: true, currency: "CLP" },
+    select: { id: true, currentBalance: true },
+  });
+  let total = 0;
+  for (const acc of accounts) {
+    const snap = await prisma.financeBankAccountBalance.findFirst({
+      where: { tenantId, bankAccountId: acc.id, asOfDate: { lte: asOf } },
+      orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
+      select: { balance: true },
+    });
+    total += snap ? Number(snap.balance) : Number(acc.currentBalance ?? 0);
+  }
+  return total;
+}
+
 /**
  * Calcula el snapshot del cierre semanal sin persistirlo. Útil para mostrar
  * el preview de la pantalla de cierre antes de que el usuario decida cerrar.
@@ -63,19 +92,34 @@ export async function computeWeeklyCloseSnapshot(
   const weekStart = weekStartForClosing(weekEnd, dow);
   const weekEndNorm = weekEndForClosing(weekEnd, dow);
 
-  const accounts = await prisma.financeBankAccount.findMany({
-    where: { tenantId, isActive: true, currency: "CLP" },
-    select: { id: true, currentBalance: true },
+  // Saldo banco al CERRAR la semana (lo que hay en el banco el último día).
+  const bankBalance = await bankBalanceAsOf(tenantId, weekEndNorm);
+
+  // Saldo banco al ABRIR la semana (cierre del día anterior al weekStart).
+  //
+  // BUG CORREGIDO: antes se usaba `proj.openingBalanceClp`, que es el saldo del
+  // banco HOY (resolveOpeningBalance se llama sin asOfDate en projection.service),
+  // NO el saldo al abrir la semana que se está cerrando. Al cerrar una semana
+  // pasada, la fórmula sumaba los movimientos de ESA semana sobre el saldo de HOY
+  // → la varianza salía desplazada por todo lo que se movió entre medio, y era
+  // justamente el número con el que se decide si la semana cuadra.
+  const computedOpening = await bankBalanceAsOf(
+    tenantId,
+    new Date(weekStart.getTime() - 86_400_000),
+  );
+
+  // B4: si la semana ya está cerrada y su apertura quedó congelada, se prefiere
+  // ese valor sellado para que la varianza del cierre no cambie retroactivamente
+  // al corregir un snapshot bancario del pasado. Cierres previos a la migración
+  // (openingBalanceClp null) siguen usando el valor calculado.
+  const sealed = await prisma.financeCashflowWeeklyClose.findFirst({
+    where: { tenantId, weekEndDate: weekEndNorm },
+    select: { openingBalanceClp: true },
   });
-  let bankBalance = 0;
-  for (const acc of accounts) {
-    const snap = await prisma.financeBankAccountBalance.findFirst({
-      where: { tenantId, bankAccountId: acc.id, asOfDate: { lte: weekEndNorm } },
-      orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
-      select: { balance: true },
-    });
-    bankBalance += snap ? Number(snap.balance) : Number(acc.currentBalance ?? 0);
-  }
+  const openingBalance =
+    sealed?.openingBalanceClp != null
+      ? Number(sealed.openingBalanceClp)
+      : computedOpening;
 
   const proj = await buildProjection(tenantId, {
     from: weekStart,
@@ -83,7 +127,7 @@ export async function computeWeeklyCloseSnapshot(
     granularity: "weekly",
   });
   const projectedBalance =
-    proj.openingBalanceClp + proj.totals.totalIncome - proj.totals.totalExpense;
+    openingBalance + proj.totals.totalIncome - proj.totals.totalExpense;
   const variance = bankBalance - projectedBalance;
 
   const unassignedTxs = await prisma.financeBankTransaction.findMany({
@@ -198,6 +242,7 @@ export async function computeWeeklyCloseSnapshot(
     weekStartDate: weekStart,
     weekEndDate: weekEndNorm,
     bankBalanceClp: bankBalance,
+    openingBalanceClp: openingBalance,
     projectedBalanceClp: projectedBalance,
     varianceClp: variance,
     unassignedBank: unassignedTxs.map((t) => ({
@@ -237,6 +282,10 @@ export interface PersistWeeklyCloseInput {
   forcedBalanceClp?: number;
   /** Requerido si mode=manual (min 5 chars): por qué se forzó el saldo. */
   manualReason?: string;
+  /** Confirmación explícita para anclar una semana MÁS ANTIGUA que el ancla
+   *  vigente. Sin esto, ese caso se rechaza (ANCHOR_REWIND) porque retrocedería
+   *  el ancla de la proyección y desplomaría toda la caja proyectada. */
+  allowAnchorRewind?: boolean;
 }
 
 /** Resuelve la categoría para el ajuste de cierre manual: prefiere la categoría
@@ -301,6 +350,26 @@ export async function persistWeeklyClose(
 
   return prisma.$transaction(async (tx) => {
     if (anchor) {
+      // El anchor rebasa runningProjected para TODOS los buckets futuros
+      // (projection.service:2110). Anclar una semana MÁS ANTIGUA que el anchor
+      // vigente hace que la proyección completa retroceda al saldo de esa semana
+      // -- un desplome silencioso de toda la caja proyectada. Se exige
+      // confirmación explícita del caller.
+      const currentAnchor = await tx.financeCashflowWeeklyClose.findFirst({
+        where: { tenantId, isAnchor: true },
+        select: { weekEndDate: true },
+      });
+      if (
+        currentAnchor &&
+        snap.weekEndDate < currentAnchor.weekEndDate &&
+        !input.allowAnchorRewind
+      ) {
+        throw new Error(
+          "ANCHOR_REWIND: anclar esta semana retrocederia el ancla de la proyeccion. " +
+            "Confirma explicitamente si es lo que quieres.",
+        );
+      }
+
       await tx.financeCashflowWeeklyClose.updateMany({
         where: { tenantId, isAnchor: true },
         data: { isAnchor: false },
@@ -365,6 +434,9 @@ export async function persistWeeklyClose(
     });
     const data = {
       bankBalanceClp: snap.bankBalanceClp,
+      // Congela el saldo de apertura al momento del cierre (B4): un cierre es un
+      // hecho inmutable, no debe recalcularse si luego se corrige una cartola.
+      openingBalanceClp: snap.openingBalanceClp,
       projectedBalanceClp: snap.projectedBalanceClp,
       varianceClp: snap.varianceClp,
       unassignedBankCount: snap.unassignedBank.length,
@@ -418,4 +490,142 @@ export async function listRecentCloses(tenantId: string, limit = 12) {
     orderBy: { weekEndDate: "desc" },
     take: limit,
   });
+}
+
+export interface WeekCloseStatus {
+  weekStartDate: Date;
+  weekEndDate: Date;
+  label: string; // "Sem 27"
+  state: "CLOSED" | "OPEN" | "CURRENT" | "FUTURE";
+  isAnchor: boolean;
+  isManual: boolean;
+  bankBalanceClp: number | null; // null si no está cerrada
+  /** Saldo de apertura congelado del cierre (B4). null si la semana no está
+   *  cerrada o es un cierre previo a la migración (sin valor persistido). */
+  openingBalanceClp: number | null;
+  varianceClp: number | null;
+  varianceResolution: string | null;
+}
+
+/**
+ * Secuencia de semanas desde el cierre más antiguo (o `sinceWeeks` atrás) hasta
+ * la semana en curso, con su estado de cierre. Revela los HUECOS: semanas
+ * pasadas sin cerrar que hoy no aparecen en ningún lado de la UI.
+ *
+ * La secuencia de weekEnds se deriva de weekEndForClosing + cfg.weekClosingDow
+ * (misma lógica de semana que la grilla) y se cruza contra los cierres
+ * registrados por rango de la semana (robusto a la representación de fecha).
+ */
+export async function listWeekCloseStatus(
+  tenantId: string,
+  sinceWeeks = 12,
+): Promise<WeekCloseStatus[]> {
+  const cfg = await getOrCreateCashflowConfig(tenantId);
+  const dow = cfg.weekClosingDow ?? 5;
+  const today = new Date();
+  const currentWeekEnd = weekEndForClosing(today, dow);
+
+  // Extiende la ventana hacia atrás si el cierre más antiguo es anterior a
+  // sinceWeeks, para no ocultar huecos viejos. Cap defensivo a 104 semanas.
+  const oldest = await prisma.financeCashflowWeeklyClose.findFirst({
+    where: { tenantId },
+    orderBy: { weekEndDate: "asc" },
+    select: { weekEndDate: true },
+  });
+  let weeksBack = sinceWeeks;
+  if (oldest) {
+    const diff = Math.ceil(
+      (currentWeekEnd.getTime() - oldest.weekEndDate.getTime()) / (7 * 86_400_000),
+    );
+    if (diff > weeksBack) weeksBack = diff;
+  }
+  weeksBack = Math.min(Math.max(weeksBack, 0), 104);
+
+  const weeks: Array<{ weekStart: Date; weekEnd: Date }> = [];
+  for (let i = weeksBack; i >= 0; i--) {
+    const d = new Date(currentWeekEnd);
+    d.setDate(d.getDate() - 7 * i);
+    weeks.push({
+      weekStart: weekStartForClosing(d, dow),
+      weekEnd: weekEndForClosing(d, dow),
+    });
+  }
+
+  const closes = await prisma.financeCashflowWeeklyClose.findMany({
+    where: { tenantId, weekEndDate: { gte: weeks[0].weekStart } },
+    select: {
+      weekEndDate: true,
+      bankBalanceClp: true,
+      openingBalanceClp: true,
+      forcedBalanceClp: true,
+      varianceClp: true,
+      isAnchor: true,
+      isManual: true,
+      varianceResolution: true,
+    },
+  });
+
+  const todayMs = today.getTime();
+  return weeks.map(({ weekStart, weekEnd }) => {
+    // Un cierre pertenece a la semana si su weekEndDate cae en [start, end]
+    // (independiente de la hora/zona con que se serializó la fecha).
+    const close = closes.find(
+      (c) =>
+        c.weekEndDate.getTime() >= weekStart.getTime() &&
+        c.weekEndDate.getTime() <= weekEnd.getTime(),
+    );
+    let state: WeekCloseStatus["state"];
+    if (close) state = "CLOSED";
+    else if (weekStart.getTime() <= todayMs && todayMs <= weekEnd.getTime())
+      state = "CURRENT";
+    else if (weekStart.getTime() > todayMs) state = "FUTURE";
+    else state = "OPEN"; // pasada y sin cierre = el hueco
+
+    return {
+      weekStartDate: weekStart,
+      weekEndDate: weekEnd,
+      label: `Sem ${getISOWeek(weekEnd)}`,
+      state,
+      isAnchor: close?.isAnchor ?? false,
+      isManual: close?.isManual ?? false,
+      bankBalanceClp: close
+        ? Number(
+            close.isManual && close.forcedBalanceClp != null
+              ? close.forcedBalanceClp
+              : close.bankBalanceClp,
+          )
+        : null,
+      // Prefiere el saldo de apertura persistido (B4); null en cierres viejos.
+      openingBalanceClp:
+        close?.openingBalanceClp != null ? Number(close.openingBalanceClp) : null,
+      varianceClp: close ? Number(close.varianceClp) : null,
+      varianceResolution: close?.varianceResolution ?? null,
+    };
+  });
+}
+
+/** Ancla vigente del tenant (cierre con isAnchor=true) con su saldo base ya
+ *  resuelto (forcedBalanceClp si fue manual, si no el saldo banco). Null si no
+ *  hay ancla. La UI del cierre lo usa para detectar el retroceso del ancla y
+ *  mostrar el impacto en CLP antes de confirmar. */
+export async function getActiveAnchorClose(
+  tenantId: string,
+): Promise<{ weekEndDate: Date; balanceClp: number } | null> {
+  const a = await prisma.financeCashflowWeeklyClose.findFirst({
+    where: { tenantId, isAnchor: true },
+    orderBy: { weekEndDate: "desc" },
+    select: {
+      weekEndDate: true,
+      bankBalanceClp: true,
+      isManual: true,
+      forcedBalanceClp: true,
+    },
+  });
+  if (!a) return null;
+  return {
+    weekEndDate: a.weekEndDate,
+    balanceClp: Number(
+      a.isManual && a.forcedBalanceClp != null ? a.forcedBalanceClp : a.bankBalanceClp,
+    ),
+  };
 }

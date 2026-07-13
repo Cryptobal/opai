@@ -1,22 +1,34 @@
 "use client";
 
-import { Landmark, CalendarCheck, AlertTriangle, CheckCircle2 } from "lucide-react";
+import {
+  Landmark,
+  CalendarCheck,
+  AlertTriangle,
+  CheckCircle2,
+  Lock,
+} from "lucide-react";
 import type { ComponentType } from "react";
+import { getISOWeek } from "date-fns";
 import { cn } from "@/lib/utils";
-import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
+import type {
+  ProjectionMatrix,
+  ProjectionAnchorInfo,
+} from "@/modules/finance/cashflow/types";
 import { fmtCLP } from "./format";
 import { currentBucketIndex } from "./projection-helpers";
 
-type Tone = "info" | "ok" | "danger";
+type Tone = "info" | "ok" | "warn" | "danger";
 
 const TONE_BG: Record<Tone, string> = {
   info: "bg-status-info-soft text-status-info-fg",
   ok: "bg-status-ok-soft text-status-ok-fg",
+  warn: "bg-status-warn-soft text-status-warn-fg",
   danger: "bg-status-danger-soft text-status-danger-fg",
 };
 const TONE_VALUE: Record<Tone, string> = {
   info: "text-ds-text-1",
   ok: "text-status-ok-fg",
+  warn: "text-status-warn-fg",
   danger: "text-status-danger-fg",
 };
 
@@ -56,11 +68,57 @@ function CompactKPI({ label, value, hint, Icon, tone }: KpiProps) {
   );
 }
 
+/** Etiqueta "Sem NN" de un bucket a partir de su fecha de cierre (mismo criterio
+ *  que el panel de semanas por cerrar). */
+function weekLabel(end: Date): string {
+  return `Sem ${getISOWeek(new Date(end))}`;
+}
+
+/**
+ * Chip de frescura del ancla: una proyección anclada hace varias semanas
+ * arrastra error (la caja futura parte de un saldo viejo). Se muestra junto al
+ * saldo para que el usuario sepa de dónde arranca la proyección.
+ */
+function AnchorChip({ anchor }: { anchor: ProjectionAnchorInfo | null }) {
+  let tone: Tone = "ok";
+  let Icon = Lock;
+  let text: string;
+  if (!anchor) {
+    tone = "warn";
+    Icon = AlertTriangle;
+    text = "Sin ancla · proyecta desde el saldo de hoy";
+  } else {
+    const weeksAgo = Math.floor(
+      (Date.now() - new Date(anchor.weekEndDate).getTime()) / (7 * 86_400_000),
+    );
+    const sem = weekLabel(new Date(anchor.weekEndDate));
+    if (weeksAgo > 2) {
+      tone = "warn";
+      Icon = AlertTriangle;
+      text = `Ancla de hace ${weeksAgo} semanas · ${sem}`;
+    } else {
+      text = `Anclado en ${sem}`;
+    }
+  }
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-ds-md px-2 py-1 text-[12px] font-medium",
+        TONE_BG[tone],
+      )}
+    >
+      <Icon className="h-3 w-3 shrink-0" />
+      {text}
+    </span>
+  );
+}
+
 /**
  * 3 KPIs compactos one-line para que entren en mobile sin romperse:
- *   - SALDO BANCO HOY: saldo consolidado real de hoy.
+ *   - SALDO BANCO HOY: saldo consolidado real de hoy (+ chip de frescura del ancla).
  *   - CIERRE DE LA SEMANA: saldo proyectado al cerrar la semana actual (fijo).
- *   - PRÓXIMO DÉFICIT: primer bucket en rojo, o "Sin déficits" si todo bien.
+ *   - QUIEBRE DE CAJA: la semana en que la caja se pone en rojo (+ horizonte y
+ *     monto faltante), o "Sin quiebre" si la proyección se mantiene positiva.
  */
 export function HealthHeader({ projection }: { projection: ProjectionMatrix }) {
   const opening = projection.openingBalanceClp;
@@ -68,44 +126,55 @@ export function HealthHeader({ projection }: { projection: ProjectionMatrix }) {
   const todayBucket = todayIdx >= 0 ? projection.buckets[todayIdx] : null;
   const todayClosing =
     todayIdx >= 0 ? projection.cumulativePoints[todayIdx]?.projectedClp ?? opening : opening;
+
   const firstGap = projection.cumulativePoints.find((p) => p.projectedClp < 0) ?? null;
-  const gapLabel = firstGap
-    ? projection.buckets.find((b) => b.key === firstGap.bucketKey)?.label ?? firstGap.bucketKey
+  const gapBucket = firstGap
+    ? projection.buckets.find((b) => b.key === firstGap.bucketKey) ?? null
     : null;
+  const gapIdx = gapBucket
+    ? projection.buckets.findIndex((b) => b.key === gapBucket.key)
+    : -1;
+  // Semanas hasta el quiebre = distancia en buckets desde hoy (granularidad
+  // semanal). El horizonte positivo es cuántas semanas cubre la proyección.
+  const weeksToGap = gapIdx >= 0 ? Math.max(0, gapIdx - Math.max(todayIdx, 0)) : 0;
+  const forwardWeeks = Math.max(1, projection.buckets.length - Math.max(todayIdx, 0));
 
   return (
-    <div className="grid grid-cols-3 gap-2 sm:gap-3">
-      <CompactKPI
-        label="Saldo banco hoy"
-        value={fmtCLP.format(opening)}
-        hint="real, todas tus cuentas"
-        Icon={Landmark}
-        tone="info"
-      />
-      <CompactKPI
-        label="Cierre de la semana"
-        value={fmtCLP.format(todayClosing)}
-        hint={todayBucket ? `al cerrar ${todayBucket.label}` : "semana actual"}
-        Icon={CalendarCheck}
-        tone={todayClosing >= 0 ? "ok" : "danger"}
-      />
-      {firstGap ? (
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <CompactKPI
-          label="Próximo déficit"
-          value={fmtCLP.format(firstGap.projectedClp)}
-          hint={gapLabel ? `primera en rojo · ${gapLabel}` : "primera semana en rojo"}
-          Icon={AlertTriangle}
-          tone="danger"
+          label="Saldo banco hoy"
+          value={fmtCLP.format(opening)}
+          hint="real, todas tus cuentas"
+          Icon={Landmark}
+          tone="info"
         />
-      ) : (
         <CompactKPI
-          label="Próximo déficit"
-          value="Sin déficits"
-          hint="proyección en positivo"
-          Icon={CheckCircle2}
-          tone="ok"
+          label="Cierre de la semana"
+          value={fmtCLP.format(todayClosing)}
+          hint={todayBucket ? `al cerrar ${todayBucket.label}` : "semana actual"}
+          Icon={CalendarCheck}
+          tone={todayClosing >= 0 ? "ok" : "danger"}
         />
-      )}
+        {firstGap && gapBucket ? (
+          <CompactKPI
+            label="Sin caja en"
+            value={weekLabel(gapBucket.end)}
+            hint={`en ${weeksToGap} ${weeksToGap === 1 ? "semana" : "semanas"} · faltan ${fmtCLP.format(Math.abs(firstGap.projectedClp))}`}
+            Icon={AlertTriangle}
+            tone={weeksToGap <= 4 ? "danger" : "warn"}
+          />
+        ) : (
+          <CompactKPI
+            label="Quiebre de caja"
+            value="Sin quiebre"
+            hint={`caja positiva las próximas ${forwardWeeks} semanas`}
+            Icon={CheckCircle2}
+            tone="ok"
+          />
+        )}
+      </div>
+      <AnchorChip anchor={projection.anchor} />
     </div>
   );
 }
