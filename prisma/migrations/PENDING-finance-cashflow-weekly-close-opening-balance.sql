@@ -1,0 +1,50 @@
+-- ============================================================================
+-- PENDING MIGRATION — NO EJECUTAR SIN APROBACIÓN DE CARLOS (B4 · cierre semanal)
+-- ============================================================================
+--
+-- Congela el saldo de apertura de la semana en el cierre semanal. Un cierre debe
+-- ser un HECHO INMUTABLE: hoy el saldo de apertura se recalcula desde los
+-- snapshots bancarios en cada lectura (computeWeeklyCloseSnapshot), así que
+-- corregir una cartola del pasado cambia retroactivamente la varianza de un
+-- cierre ya sellado. La columna guarda ese saldo al momento del cierre.
+--
+-- Columna NULLABLE: los cierres previos a esta migración no la tienen y el
+-- código cae al valor calculado (compatibilidad hacia atrás).
+--
+-- CAMBIO SEGURO: es una columna aditiva nullable, sin backfill ni datos
+-- destructivos. No requiere ventana de mantención.
+--
+-- ── SQL a ejecutar (tabla real: finance.finance_cashflow_weekly_close) ──────
+--
+--    ALTER TABLE finance.finance_cashflow_weekly_close
+--      ADD COLUMN opening_balance_clp DECIMAL(14, 2);
+--
+-- ── Estado del código en esta rama ──────────────────────────────────────────
+--
+-- A DIFERENCIA de otras migraciones PENDING, schema.prisma YA declara la
+-- columna (model FinanceCashflowWeeklyClose → openingBalanceClp) y el código la
+-- consume:
+--   - persistWeeklyClose congela snap.openingBalanceClp al cerrar.
+--   - computeWeeklyCloseSnapshot prefiere el valor sellado al re-consultar.
+--   - listWeekCloseStatus lo expone (null en cierres viejos).
+--
+-- Por eso el cliente Prisma YA tipa la columna. IMPORTANTE: este código NO debe
+-- desplegarse hasta aplicar el ALTER anterior; si no, los INSERT/SELECT que
+-- referencian opening_balance_clp fallarán contra una DB sin la columna. La
+-- migración y el código van acoplados: aplicar el SQL, luego desplegar.
+--
+-- Precisión DECIMAL(14, 2): se eligió para ser consistente con las demás
+-- columnas de dinero de la tabla (bank_balance_clp, variance_clp, etc.). El
+-- prompt sugería DECIMAL(18, 2); si prefieres esa precisión, ajústala aquí y en
+-- schema.prisma antes de aplicar.
+--
+-- ── Pasos de aplicación (cuando Carlos apruebe) ─────────────────────────────
+--
+-- 1) Ejecutar el ALTER de arriba contra la DB (o promover este archivo a un
+--    folder de migración con timestamp y `prisma migrate deploy`).
+-- 2) `npx prisma generate` (schema.prisma ya tiene la columna declarada).
+-- 3) Desplegar el código de esta rama.
+--
+-- IMPORTANTE: `prisma migrate deploy` IGNORA los archivos PENDING-*.sql en la
+-- raíz de migrations/. No se aplica solo.
+-- ============================================================================

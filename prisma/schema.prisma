@@ -8243,6 +8243,12 @@ model FinanceCashflowWeeklyClose {
   isAnchor                Boolean  @default(false) @map("is_anchor")
   varianceResolution      String?  @map("variance_resolution") @db.VarChar(20)
 
+  /// Saldo banco al ABRIR la semana, congelado al momento del cierre. Sin esto,
+  /// la varianza de un cierre sellado se recalcula (y cambia) si luego se corrige
+  /// un snapshot bancario del pasado. Nullable: los cierres previos a esta
+  /// migración no lo tienen y siguen leyendo el valor calculado.
+  openingBalanceClp       Decimal? @map("opening_balance_clp") @db.Decimal(14, 2)
+
   // Cierre manual: escape al saldo del banco. Cuando isManual=true,
   // closedBalanceClp = forcedBalanceClp, manualReason es obligatorio, y
   // adjustOccurrenceId apunta a la occurrence creada para que la fórmula

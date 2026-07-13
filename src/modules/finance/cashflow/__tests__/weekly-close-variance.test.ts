@@ -20,6 +20,7 @@ vi.mock("@/lib/prisma", () => ({
     financeBankAccountBalance: { findFirst: vi.fn() },
     financeBankTransaction: { findMany: vi.fn() },
     financeCashflowOccurrence: { findMany: vi.fn() },
+    financeCashflowWeeklyClose: { findFirst: vi.fn() },
     crmInstallation: { findMany: vi.fn() },
   },
 }));
@@ -44,6 +45,7 @@ const accountFindMany = prisma.financeBankAccount.findMany as unknown as ReturnT
 const balanceFindFirst = prisma.financeBankAccountBalance.findFirst as unknown as ReturnType<typeof vi.fn>;
 const txFindMany = prisma.financeBankTransaction.findMany as unknown as ReturnType<typeof vi.fn>;
 const occFindMany = prisma.financeCashflowOccurrence.findMany as unknown as ReturnType<typeof vi.fn>;
+const closeFindFirst = prisma.financeCashflowWeeklyClose.findFirst as unknown as ReturnType<typeof vi.fn>;
 const buildProjectionMock = buildProjection as unknown as ReturnType<typeof vi.fn>;
 
 /** Saldo del banco HOY (lo que retorna resolveOpeningBalance sin asOfDate y que
@@ -72,6 +74,8 @@ function setupScenario(opts: {
   });
   txFindMany.mockResolvedValue([]);
   occFindMany.mockResolvedValue([]);
+  // Semana no sellada (B4): sin apertura congelada, se usa la calculada.
+  closeFindFirst.mockResolvedValue(null);
   buildProjectionMock.mockResolvedValue({
     openingBalanceClp: SALDO_HOY,
     totals: { totalIncome: opts.totalIncome, totalExpense: opts.totalExpense },
@@ -151,5 +155,25 @@ describe("computeWeeklyCloseSnapshot · varianza", () => {
     // La apertura es el saldo real al abrir la semana (30M), no el saldo de hoy.
     expect(snap.openingBalanceClp).toBe(30_000_000);
     expect(snap.openingBalanceClp).not.toBe(SALDO_HOY);
+  });
+
+  it("cierre sellado (B4): prefiere el openingBalanceClp congelado sobre el recalculado", async () => {
+    // El banco pasado se "corrigió" (apertura ahora calcularía 28M), pero el
+    // cierre ya sellado congeló su apertura en 30M: la varianza no debe cambiar.
+    setupScenario({
+      openBalance: 28_000_000,
+      closeBalance: 34_000_000,
+      totalIncome: 10_000_000,
+      totalExpense: 6_000_000,
+      splitDate: new Date("2026-05-12"),
+    });
+    closeFindFirst.mockResolvedValue({ openingBalanceClp: 30_000_000 });
+
+    const snap = await computeWeeklyCloseSnapshot("t1", pastWeekEnd);
+
+    // Usa la apertura congelada (30M), no la recalculada (28M).
+    expect(snap.openingBalanceClp).toBe(30_000_000);
+    // 34M − (30M + 10M − 6M) = 0, estable pese a la corrección del snapshot.
+    expect(snap.varianceClp).toBe(0);
   });
 });

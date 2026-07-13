@@ -103,10 +103,23 @@ export async function computeWeeklyCloseSnapshot(
   // pasada, la fórmula sumaba los movimientos de ESA semana sobre el saldo de HOY
   // → la varianza salía desplazada por todo lo que se movió entre medio, y era
   // justamente el número con el que se decide si la semana cuadra.
-  const openingBalance = await bankBalanceAsOf(
+  const computedOpening = await bankBalanceAsOf(
     tenantId,
     new Date(weekStart.getTime() - 86_400_000),
   );
+
+  // B4: si la semana ya está cerrada y su apertura quedó congelada, se prefiere
+  // ese valor sellado para que la varianza del cierre no cambie retroactivamente
+  // al corregir un snapshot bancario del pasado. Cierres previos a la migración
+  // (openingBalanceClp null) siguen usando el valor calculado.
+  const sealed = await prisma.financeCashflowWeeklyClose.findFirst({
+    where: { tenantId, weekEndDate: weekEndNorm },
+    select: { openingBalanceClp: true },
+  });
+  const openingBalance =
+    sealed?.openingBalanceClp != null
+      ? Number(sealed.openingBalanceClp)
+      : computedOpening;
 
   const proj = await buildProjection(tenantId, {
     from: weekStart,
@@ -421,6 +434,9 @@ export async function persistWeeklyClose(
     });
     const data = {
       bankBalanceClp: snap.bankBalanceClp,
+      // Congela el saldo de apertura al momento del cierre (B4): un cierre es un
+      // hecho inmutable, no debe recalcularse si luego se corrige una cartola.
+      openingBalanceClp: snap.openingBalanceClp,
       projectedBalanceClp: snap.projectedBalanceClp,
       varianceClp: snap.varianceClp,
       unassignedBankCount: snap.unassignedBank.length,
@@ -484,6 +500,9 @@ export interface WeekCloseStatus {
   isAnchor: boolean;
   isManual: boolean;
   bankBalanceClp: number | null; // null si no está cerrada
+  /** Saldo de apertura congelado del cierre (B4). null si la semana no está
+   *  cerrada o es un cierre previo a la migración (sin valor persistido). */
+  openingBalanceClp: number | null;
   varianceClp: number | null;
   varianceResolution: string | null;
 }
@@ -537,6 +556,7 @@ export async function listWeekCloseStatus(
     select: {
       weekEndDate: true,
       bankBalanceClp: true,
+      openingBalanceClp: true,
       forcedBalanceClp: true,
       varianceClp: true,
       isAnchor: true,
@@ -575,6 +595,9 @@ export async function listWeekCloseStatus(
               : close.bankBalanceClp,
           )
         : null,
+      // Prefiere el saldo de apertura persistido (B4); null en cierres viejos.
+      openingBalanceClp:
+        close?.openingBalanceClp != null ? Number(close.openingBalanceClp) : null,
       varianceClp: close ? Number(close.varianceClp) : null,
       varianceResolution: close?.varianceResolution ?? null,
     };

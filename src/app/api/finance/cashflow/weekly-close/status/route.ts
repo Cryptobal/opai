@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
       isAnchor: w.isAnchor,
       isManual: w.isManual,
       bankBalanceClp: w.bankBalanceClp,
+      openingBalanceClp: w.openingBalanceClp,
       varianceClp: w.varianceClp,
       varianceResolution: w.varianceResolution,
     })),
