@@ -9,6 +9,9 @@ interface Props {
   onAnchorChange: (v: boolean) => void;
   varianceResolution: VarianceResolution;
   onVarianceResolutionChange: (v: VarianceResolution) => void;
+  /** Saldo mostrado como base del ancla. En cierre manual es el monto que el
+   *  usuario definió; si no viene, se usa el saldo banco del snapshot. */
+  displayBalanceClp?: number;
 }
 
 /**
@@ -25,7 +28,9 @@ export function WeekCloseStep3Anchor({
   onAnchorChange,
   varianceResolution,
   onVarianceResolutionChange,
+  displayBalanceClp,
 }: Props) {
+  const baseBalanceClp = displayBalanceClp ?? snap.bankBalanceClp;
   const hasDrift = Math.abs(snap.varianceClp) >= 50_000;
   const weekEndLabel = new Date(snap.weekEndDate).toLocaleDateString("es-CL", {
     day: "2-digit",
@@ -59,7 +64,7 @@ export function WeekCloseStep3Anchor({
           {anchor ? (
             <p className="text-xs text-muted-foreground mt-1">
               Las semanas futuras partirán desde{" "}
-              <strong>{fmtCLP.format(snap.bankBalanceClp)}</strong>. Las semanas
+              <strong>{fmtCLP.format(baseBalanceClp)}</strong>. Las semanas
               anteriores quedarán congeladas como histórico al cierre del{" "}
               {weekEndLabel}.
             </p>

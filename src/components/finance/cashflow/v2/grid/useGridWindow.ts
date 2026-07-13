@@ -51,6 +51,10 @@ export function useGridWindow(
   });
   // Semana foco de la ventana: la navegación la mueve y recarga alrededor.
   const focusRef = useRef<Date>(new Date());
+  // Token para invalidar cargas en vuelo: si el usuario pulsa "Hoy" mientras
+  // una navegación previa aún está buscando, esa respuesta tardía no debe
+  // pisar la matriz restaurada.
+  const loadToken = useRef(0);
 
   // Si el server refresca la proyección inicial (router.refresh tras un move o
   // cierre) y estamos parados en el bloque "hoy", adoptamos la nueva matriz.
@@ -80,9 +84,11 @@ export function useGridWindow(
 
   const load = useCallback(
     async (from: Date, to: Date) => {
+      const token = ++loadToken.current;
       setLoading(true);
       try {
         const next = await fetchRange(from, to);
+        if (token !== loadToken.current) return; // superada por otra acción
         if (!next) {
           toast.error("No se pudieron cargar esas semanas");
           return;
@@ -90,9 +96,11 @@ export function useGridWindow(
         rangeRef.current = { from, to };
         setActive(next);
       } catch {
-        toast.error("Error de red al cargar semanas");
+        if (token === loadToken.current) {
+          toast.error("Error de red al cargar semanas");
+        }
       } finally {
-        setLoading(false);
+        if (token === loadToken.current) setLoading(false);
       }
     },
     [fetchRange],
@@ -119,10 +127,22 @@ export function useGridWindow(
     loadFocus(addWeeks(focusRef.current, step));
   }, [loadFocus, step]);
 
-  // Vuelve a la ventana "hoy" (mismo encuadre que el primer render del server).
+  // Vuelve a la ventana "hoy". Restaura la matriz que el server ya calculó en
+  // el primer render (autoridad para "hoy"): es instantáneo (sin red, sin lag)
+  // y garantiza que los números coincidan EXACTAMENTE con la carga inicial. El
+  // re-fetch anterior pedía una ventana basada en `new Date()` sin alinear a la
+  // semana del server, así que "volver a hoy" mostraba valores levemente
+  // distintos y a veces parecía quedarse pegado.
   const goToday = useCallback(() => {
-    loadFocus(new Date());
-  }, [loadFocus]);
+    loadToken.current++; // invalida cualquier carga en vuelo
+    rangeRef.current = {
+      from: toDate(initial.range.from),
+      to: toDate(initial.range.to),
+    };
+    focusRef.current = new Date();
+    setActive(initial);
+    setLoading(false);
+  }, [initial]);
 
   // Re-trae el rango en pantalla (tras un move/cierre en un bloque histórico).
   const refresh = useCallback(async () => {

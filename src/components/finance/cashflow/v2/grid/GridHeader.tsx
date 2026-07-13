@@ -65,7 +65,10 @@ export function GridHeader({
           const isCurrent = i === currentIdx;
           const meta = bucketMeta?.get(b.key);
           const closed = meta?.closed ?? false;
-          const showClose = canManage && isCurrent && !closed;
+          // "Cerrar" en la semana actual y en las futuras abiertas: permite
+          // sellar por adelantado (p.ej. la próxima semana) con saldo manual.
+          const showClose =
+            canManage && !closed && currentIdx >= 0 && i >= currentIdx;
           const dayLabel = monday
             .toLocaleDateString("es-CL", {
               day: "numeric",
