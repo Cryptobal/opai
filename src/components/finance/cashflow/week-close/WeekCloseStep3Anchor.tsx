@@ -1,7 +1,7 @@
 "use client";
 import { AlertTriangle, Lock, Unlock } from "lucide-react";
 import type { WeeklyCloseSnapshotDTO, VarianceResolution } from "./types";
-import { fmtCLP } from "./types";
+import { fmtCLP, VARIANCE_DRIFT_THRESHOLD_CLP } from "./types";
 
 interface Props {
   snap: WeeklyCloseSnapshotDTO;
@@ -38,7 +38,7 @@ export function WeekCloseStep3Anchor({
   currentAnchorBalanceClp = null,
 }: Props) {
   const baseBalanceClp = displayBalanceClp ?? snap.bankBalanceClp;
-  const hasDrift = Math.abs(snap.varianceClp) >= 50_000;
+  const hasDrift = Math.abs(snap.varianceClp) >= VARIANCE_DRIFT_THRESHOLD_CLP;
   // Impacto del retroceso: la proyección pasaría de partir del saldo del ancla
   // vigente (Y) al saldo de esta semana (X). Delta = Y − X (positivo = baja).
   const anchorDelta =

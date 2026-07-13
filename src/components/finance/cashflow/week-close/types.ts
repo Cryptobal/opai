@@ -36,6 +36,11 @@ export interface WeeklyCloseSnapshotDTO {
 
 export type VarianceResolution = "ADJUSTED" | "ACCEPTED" | "PENDING";
 
+/** Umbral de descuadre "significativo" de la varianza de un cierre. Por debajo
+ *  se trata como cuadre (ruido de redondeo); en o por encima se resalta. Fuente
+ *  única para el paso 3 del cierre y el panel de semanas por cerrar. */
+export const VARIANCE_DRIFT_THRESHOLD_CLP = 50_000;
+
 export const fmtCLP = new Intl.NumberFormat("es-CL", {
   style: "currency",
   currency: "CLP",

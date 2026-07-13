@@ -1,5 +1,6 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
+import { getISOWeek } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { getOrCreateCashflowConfig } from "./config.service";
 import { weekStartForClosing, weekEndForClosing } from "./recurrence-engine";
@@ -472,6 +473,111 @@ export async function listRecentCloses(tenantId: string, limit = 12) {
     where: { tenantId },
     orderBy: { weekEndDate: "desc" },
     take: limit,
+  });
+}
+
+export interface WeekCloseStatus {
+  weekStartDate: Date;
+  weekEndDate: Date;
+  label: string; // "Sem 27"
+  state: "CLOSED" | "OPEN" | "CURRENT" | "FUTURE";
+  isAnchor: boolean;
+  isManual: boolean;
+  bankBalanceClp: number | null; // null si no está cerrada
+  varianceClp: number | null;
+  varianceResolution: string | null;
+}
+
+/**
+ * Secuencia de semanas desde el cierre más antiguo (o `sinceWeeks` atrás) hasta
+ * la semana en curso, con su estado de cierre. Revela los HUECOS: semanas
+ * pasadas sin cerrar que hoy no aparecen en ningún lado de la UI.
+ *
+ * La secuencia de weekEnds se deriva de weekEndForClosing + cfg.weekClosingDow
+ * (misma lógica de semana que la grilla) y se cruza contra los cierres
+ * registrados por rango de la semana (robusto a la representación de fecha).
+ */
+export async function listWeekCloseStatus(
+  tenantId: string,
+  sinceWeeks = 12,
+): Promise<WeekCloseStatus[]> {
+  const cfg = await getOrCreateCashflowConfig(tenantId);
+  const dow = cfg.weekClosingDow ?? 5;
+  const today = new Date();
+  const currentWeekEnd = weekEndForClosing(today, dow);
+
+  // Extiende la ventana hacia atrás si el cierre más antiguo es anterior a
+  // sinceWeeks, para no ocultar huecos viejos. Cap defensivo a 104 semanas.
+  const oldest = await prisma.financeCashflowWeeklyClose.findFirst({
+    where: { tenantId },
+    orderBy: { weekEndDate: "asc" },
+    select: { weekEndDate: true },
+  });
+  let weeksBack = sinceWeeks;
+  if (oldest) {
+    const diff = Math.ceil(
+      (currentWeekEnd.getTime() - oldest.weekEndDate.getTime()) / (7 * 86_400_000),
+    );
+    if (diff > weeksBack) weeksBack = diff;
+  }
+  weeksBack = Math.min(Math.max(weeksBack, 0), 104);
+
+  const weeks: Array<{ weekStart: Date; weekEnd: Date }> = [];
+  for (let i = weeksBack; i >= 0; i--) {
+    const d = new Date(currentWeekEnd);
+    d.setDate(d.getDate() - 7 * i);
+    weeks.push({
+      weekStart: weekStartForClosing(d, dow),
+      weekEnd: weekEndForClosing(d, dow),
+    });
+  }
+
+  const closes = await prisma.financeCashflowWeeklyClose.findMany({
+    where: { tenantId, weekEndDate: { gte: weeks[0].weekStart } },
+    select: {
+      weekEndDate: true,
+      bankBalanceClp: true,
+      forcedBalanceClp: true,
+      varianceClp: true,
+      isAnchor: true,
+      isManual: true,
+      varianceResolution: true,
+    },
+  });
+
+  const todayMs = today.getTime();
+  return weeks.map(({ weekStart, weekEnd }) => {
+    // Un cierre pertenece a la semana si su weekEndDate cae en [start, end]
+    // (independiente de la hora/zona con que se serializó la fecha).
+    const close = closes.find(
+      (c) =>
+        c.weekEndDate.getTime() >= weekStart.getTime() &&
+        c.weekEndDate.getTime() <= weekEnd.getTime(),
+    );
+    let state: WeekCloseStatus["state"];
+    if (close) state = "CLOSED";
+    else if (weekStart.getTime() <= todayMs && todayMs <= weekEnd.getTime())
+      state = "CURRENT";
+    else if (weekStart.getTime() > todayMs) state = "FUTURE";
+    else state = "OPEN"; // pasada y sin cierre = el hueco
+
+    return {
+      weekStartDate: weekStart,
+      weekEndDate: weekEnd,
+      label: `Sem ${getISOWeek(weekEnd)}`,
+      state,
+      isAnchor: close?.isAnchor ?? false,
+      isManual: close?.isManual ?? false,
+      bankBalanceClp: close
+        ? Number(
+            close.isManual && close.forcedBalanceClp != null
+              ? close.forcedBalanceClp
+              : close.bankBalanceClp,
+          )
+        : null,
+      varianceClp: close ? Number(close.varianceClp) : null,
+      varianceResolution: close?.varianceResolution ?? null,
+    };
   });
 }
 

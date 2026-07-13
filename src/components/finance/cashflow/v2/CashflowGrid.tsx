@@ -26,6 +26,7 @@ import { ManualCloseStreakBanner, type CloseLite } from "./ManualCloseStreakBann
 import { Legend } from "./Legend";
 import { UndoToast } from "./UndoToast";
 import { WeekCloseDrawer } from "../week-close/WeekCloseDrawer";
+import { WeekClosePanel } from "../week-close/WeekClosePanel";
 import { currentBucketIndex } from "./projection-helpers";
 import { useGridWindow } from "./grid/useGridWindow";
 import { GridHeader } from "./grid/GridHeader";
@@ -142,6 +143,9 @@ export function CashflowGrid({
   );
   // Semana en proceso de cierre (Opción A): abre el WeekCloseDrawer existente.
   const [closeWeekEndIso, setCloseWeekEndIso] = useState<string | null>(null);
+  // Se incrementa tras cada cierre/move para que el panel de semanas por cerrar
+  // vuelva a consultar su estado.
+  const [panelReloadKey, setPanelReloadKey] = useState(0);
   // La grilla se muestra siempre en vista simple (Ingresos · Egresos · Saldo),
   // sin fila de desviación (Drift) ni badges de IPC/headcount. El antiguo toggle
   // "Avanzado" que revelaba esa información contable fue retirado.
@@ -152,6 +156,7 @@ export function CashflowGrid({
   const refreshAll = useCallback(async () => {
     await refresh();
     router.refresh();
+    setPanelReloadKey((k) => k + 1);
   }, [refresh, router]);
 
   const { move, moveGroup, undoPayload, clearUndo, pushUndo } = useGridMove({
@@ -302,6 +307,12 @@ export function CashflowGrid({
       <BancaTabsHeader active="cashflow" />
       {recentCloses && <ManualCloseStreakBanner recentCloses={recentCloses} />}
       <HealthHeader projection={projection} />
+
+      <WeekClosePanel
+        onCloseWeek={setCloseWeekEndIso}
+        reloadKey={panelReloadKey}
+        currentBankBalanceClp={projection.openingBalanceClp}
+      />
 
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-ds-text-1">
