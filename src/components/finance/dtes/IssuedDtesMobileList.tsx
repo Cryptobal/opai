@@ -445,7 +445,10 @@ export function IssuedDtesMobileList({
                     {d.additionalReferences &&
                       d.additionalReferences.length > 0 && (
                         <div className="mb-1">
-                          <ReferenceBadges refs={d.additionalReferences} />
+                          <ReferenceBadges
+                            refs={d.additionalReferences}
+                            variant="row"
+                          />
                         </div>
                       )}
                     {fantasyName && !sameName ? (

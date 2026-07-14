@@ -263,7 +263,7 @@ export function IssuedDtesTable({
     {
       id: "receiverName",
       header: "Receptor",
-      width: "w-[260px]",
+      width: "w-[220px]",
       cell: (row) => {
         const accountName = row.crmAccount?.name?.trim() || null;
         const legalName = row.receiverName?.trim() || "";
@@ -315,11 +315,15 @@ export function IssuedDtesTable({
     },
     {
       // Referencias adicionales del documento (OC, HES, Contrato...). "—"
-      // cuando el DTE no declara ninguna.
+      // cuando el DTE no declara ninguna. Centrada y en dos filas (tipo /
+      // folio) para leerse completa sin truncar el folio.
       id: "references",
       header: "Referencias",
-      width: "w-[132px]",
-      cell: (row) => <ReferenceBadges refs={row.additionalReferences} />,
+      align: "center",
+      width: "w-[128px]",
+      cell: (row) => (
+        <ReferenceBadges refs={row.additionalReferences} variant="column" />
+      ),
     },
     {
       id: "totalAmount",
