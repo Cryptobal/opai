@@ -13,6 +13,25 @@ export async function loadDteDateOverrides(
   return new Map(rows.map((r) => [r.dteId, r.customDate.toISOString().slice(0, 10)]));
 }
 
+/**
+ * IDs de DTE cuyo override de fecha (customDate) cae dentro del rango
+ * [from, to]. Necesario porque la query de "huérfanos" de la proyección filtra
+ * por fecha de EMISIÓN, pero un DTE movido hacia adelante se UBICA por su
+ * override: sin esto, una factura emitida antes de la ventana pero corrida a
+ * una semana visible nunca se traería (zona muerta). Ver projection.service.
+ */
+export async function loadDteIdsWithOverrideInRange(
+  tenantId: string,
+  from: Date,
+  to: Date,
+): Promise<string[]> {
+  const rows = await prisma.financeCashflowDteDateOverride.findMany({
+    where: { tenantId, customDate: { gte: from, lte: to } },
+    select: { dteId: true },
+  });
+  return rows.map((r) => r.dteId);
+}
+
 export async function upsertDteDateOverride(args: {
   tenantId: string;
   dteId: string;

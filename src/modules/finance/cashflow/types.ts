@@ -105,6 +105,13 @@ export interface VirtualOccurrence {
    *  sub-fila propia en buildRows (badge "+ EXTRA") en vez de colapsar en la
    *  celda del contrato, donde sólo era visible en el popover. */
   isExtraInvoice?: boolean;
+  /** Programación (proyección pura, sin dteId) que quedó en el MISMO bucket que
+   *  una factura real del mismo cliente+instalación — típicamente porque el
+   *  usuario MOVIÓ la factura a esa semana. En vez de descartarla (fusión), el
+   *  flujo la conserva como fila aparte con badge "PROGRAMADA": ambas suman y el
+   *  usuario decide manualmente si borra la programación. La marca la exime del
+   *  dedup de conciliación para que nunca se oculte. */
+  collidesWithInvoice?: boolean;
 }
 
 export interface ProjectionRange {
@@ -273,6 +280,10 @@ export interface ProjectionRowItemDetail {
    *  (ver isExtraInvoice en VirtualOccurrence). La UI la pinta con badge
    *  "+ EXTRA" colgando del cliente. */
   isExtraInvoice?: boolean;
+  /** Sub-fila de una programación que quedó junto a una factura movida en la
+   *  misma semana (ver collidesWithInvoice en VirtualOccurrence). La UI la pinta
+   *  con badge "PROGRAMADA" para que el usuario sepa que puede borrarla. */
+  collidesWithInvoice?: boolean;
   /** Sub-fila que agrupa N movimientos de conciliación de una misma cuenta
    *  (ver isConciliacion en VirtualOccurrence). Cuando es true, `children`
    *  trae el desglose y la UI la pinta expandible. */

@@ -45,7 +45,10 @@ import { GridChip } from "./grid/GridChip";
 import { buildBucketMeta, itemRowsForKind } from "./grid/grid-helpers";
 import { expenseRows } from "./grid/expense-grouping";
 import { useGridMove, type GridDragData } from "./grid/useGridMove";
+import { applyOptimisticMove, type PendingMove } from "./grid/optimistic-move";
+import { moveViaApi } from "./grid/cashflow-move";
 import { QuotaMoveSelector } from "./grid/QuotaMoveSelector";
+import { CashflowFolioSearch } from "./grid/CashflowFolioSearch";
 import {
   movableOccurrencesInCell,
   occurrenceVariant,
@@ -97,7 +100,7 @@ export function CashflowGrid({
   // viewport existente (no crear uno nuevo).
   const isMobile = useIsMobileViewport(768);
   const windowWeeks = isMobile ? MOBILE_WINDOW_WEEKS : undefined; // undefined → 8
-  const { active, loading, goPrev, goNext, goToday, refresh } = useGridWindow(
+  const { active, loading, goPrev, goNext, goToday, goToWeek, refresh } = useGridWindow(
     projection,
     {
       weeksBack: isMobile ? MOBILE_WEEKS_BACK : weeksBack,
@@ -116,15 +119,25 @@ export function CashflowGrid({
     () => currentBucketIndex(visibleBuckets),
     [visibleBuckets],
   );
+  // Move optimista: mientras el refresh de red viaja, las filas se muestran con
+  // la cuota ya movida (celda vieja vacía, chip en la nueva). Se limpia cuando
+  // el refresh trae el estado real. `applyOptimisticMove` es idempotente (si el
+  // origen ya está en 0 no re-aplica), así evita el doble-move en el render
+  // intermedio entre `refresh()` y limpiar el pending.
+  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
+  const displayRows = useMemo(
+    () => applyOptimisticMove(active.rows, pendingMove),
+    [active.rows, pendingMove],
+  );
   const incomeRows = useMemo(
-    () => itemRowsForKind(active.rows, "INCOME"),
-    [active.rows],
+    () => itemRowsForKind(displayRows, "INCOME"),
+    [displayRows],
   );
   // Egresos agrupados: una línea por tipo de gasto (sueldos/previred/turnos
   // suman todas las instalaciones); el resto queda como filas individuales.
   const expenseGridRows = useMemo(
-    () => expenseRows(active.rows),
-    [active.rows],
+    () => expenseRows(displayRows),
+    [displayRows],
   );
   const balanceByBucket = useMemo(
     () =>
@@ -165,6 +178,30 @@ export function CashflowGrid({
     router.refresh();
     setPanelReloadKey((k) => k + 1);
   }, [refresh, router]);
+
+  // Buscador de folios: corre una factura a la semana elegida (override de
+  // fecha vía dtes/[id]/move), navega la ventana hasta ahí y refresca.
+  const runFolioTo = useCallback(
+    async (dteId: string, date: Date) => {
+      const newDate = date.toISOString().slice(0, 10);
+      const r = await moveViaApi({
+        occurrenceId: null,
+        itemId: null,
+        dteId,
+        originalDate: newDate,
+        newDate,
+      });
+      if (!r.ok) {
+        toast.error(r.error ?? "No se pudo correr la factura");
+        return { ok: false, error: r.error };
+      }
+      toast.success("Factura movida");
+      goToWeek(date);
+      await refreshAll();
+      return { ok: true };
+    },
+    [goToWeek, refreshAll],
+  );
 
   // Semanas con cierre real (registro en DB), para pintar un candado accionable
   // en CADA columna cerrada de la grilla. La grilla solo conoce el ancla activo,
@@ -250,6 +287,9 @@ export function CashflowGrid({
   const { move, moveGroup, undoPayload, clearUndo, pushUndo } = useGridMove({
     buckets,
     refresh: refreshAll,
+    onOptimistic: (itemId, fromBucketKey, toBucketKey) =>
+      setPendingMove({ itemId, fromBucketKey, toBucketKey }),
+    clearOptimistic: () => setPendingMove(null),
   });
 
   async function handleHiddenFromFlow(undo: {
@@ -396,10 +436,18 @@ export function CashflowGrid({
       {recentCloses && <ManualCloseStreakBanner recentCloses={recentCloses} />}
       <HealthHeader projection={projection} />
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-ds-text-1">
           Planilla de flujo · {isMobile ? "3" : "8"} semanas
         </h2>
+        {!isMobile && (
+          <CashflowFolioSearch
+            buckets={buckets}
+            canManage={canManage}
+            onRun={runFolioTo}
+            onLocate={goToWeek}
+          />
+        )}
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -415,13 +463,13 @@ export function CashflowGrid({
             dir="prev"
             onClick={goPrev}
             loading={loading}
-            label={isMobile ? "Semana anterior" : "8 semanas anteriores"}
+            label={isMobile ? "Semana anterior" : "Semanas anteriores (solapa 1)"}
           />
           <NavButton
             dir="next"
             onClick={goNext}
             loading={loading}
-            label={isMobile ? "Semana siguiente" : "8 semanas siguientes"}
+            label={isMobile ? "Semana siguiente" : "Semanas siguientes (solapa 1)"}
           />
         </div>
       </div>

@@ -57,6 +57,7 @@ export function GridRow({
   const childCount = row.item.children?.length ?? 0;
   const open = expandable?.open ?? false;
   const isExtra = !!row.item.isExtraInvoice;
+  const isDupProjection = !!row.item.collidesWithInvoice;
   return (
     <tr
       className={cn(
@@ -107,6 +108,14 @@ export function GridRow({
               title="Factura adicional de la misma semana"
             >
               + EXTRA
+            </span>
+          )}
+          {isDupProjection && (
+            <span
+              className="shrink-0 rounded-ds-sm bg-tint-amber-soft px-1 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-tint-amber-fg"
+              title="Programación que quedó junto a una factura movida. Revisa su fecha (hover en la celda) y bórrala si está duplicada."
+            >
+              Programada
             </span>
           )}
           {isUf && (

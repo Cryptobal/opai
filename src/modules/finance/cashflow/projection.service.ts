@@ -36,7 +36,10 @@ import {
   type BalanceTx,
 } from "./real-balance.helper";
 import { computeCreditNoteImpact } from "../billing/credit-note-impact.helper";
-import { loadDteDateOverrides } from "./dte-date-override.service";
+import {
+  loadDteDateOverrides,
+  loadDteIdsWithOverrideInRange,
+} from "./dte-date-override.service";
 import { loadExcludedDteIds } from "./dte-exclusion.service";
 
 type CategoryLite = Pick<
@@ -390,7 +393,7 @@ export function markExtraInvoices(
  *
  * Egresos y demás (no INCOME) pasan sin tocar.
  */
-function consolidateIncomeOccurrences(
+export function consolidateIncomeOccurrences(
   occs: VirtualOccurrence[],
   grossByDteId: Map<string, number>,
   granularity: ProjectionRange["granularity"],
@@ -425,16 +428,23 @@ function consolidateIncomeOccurrences(
     set.add(bKey);
     dteBucketKeysByInstall.set(k, set);
   }
-  const keptProjections = projections.filter((p) => {
+  // Antes descartábamos la proyección cuando un DTE caía en su mismo bucket
+  // (fusión). Ahora la CONSERVAMOS y solo la MARCAMOS `collidesWithInvoice`:
+  // el flujo la muestra como fila aparte (badge "PROGRAMADA") junto a la
+  // factura, ambas suman y el usuario decide si borra la programación. Caso
+  // típico: el usuario movió una factura a la semana de una programación de
+  // otro período. La marca la exime del dedup de conciliación (ver
+  // filterOccurrencesWithConciliationPriority) para que nunca se oculte.
+  for (const p of projections) {
     const installKey = `${p.crmAccountId ?? ""}|${p.installationId ?? ""}`;
     const dteBuckets = dteBucketKeysByInstall.get(installKey);
-    if (!dteBuckets || dteBuckets.size === 0) return true;
+    if (!dteBuckets || dteBuckets.size === 0) continue;
     const placement = p.effectiveDate ?? p.scheduledDate;
     const pBucket = bucketKeyFor(placement, granularity, weekClosingDow);
-    return !dteBuckets.has(pBucket);
-  });
+    if (dteBuckets.has(pBucket)) p.collidesWithInvoice = true;
+  }
 
-  return [...other, ...dteOccs, ...keptProjections];
+  return [...other, ...dteOccs, ...projections];
 }
 
 export async function buildProjection(
@@ -1307,10 +1317,22 @@ export async function buildProjection(
   // para excluirlas del query de huérfanos y, más abajo, de allOccurrences.
   const excludedDteIds = await loadExcludedDteIds(tenantId);
   const orphanExcludeIds = new Set<string>([...linkedDteIds, ...excludedDteIds]);
+  // Facturas cuya fecha de VISIBILIDAD (override) cae en la ventana aunque su
+  // emisión quede fuera. Sin esto, una factura emitida antes del rango pero
+  // corrida (override) a una semana visible caía en zona muerta: la query las
+  // filtra por emisión, pero se UBICAN por el override → nunca se traían.
+  const overriddenInRangeIds = (
+    await loadDteIdsWithOverrideInRange(tenantId, range.from, range.to)
+  ).filter((id) => !orphanExcludeIds.has(id));
   const orphanDtes = await prisma.financeDte.findMany({
     where: {
       tenantId,
-      date: { gte: range.from, lte: range.to },
+      OR: [
+        { date: { gte: range.from, lte: range.to } },
+        ...(overriddenInRangeIds.length > 0
+          ? [{ id: { in: overriddenInRangeIds } }]
+          : []),
+      ],
       // Excluimos anuladas y rechazadas — no representan flujo real.
       siiStatus: { notIn: ["ANNULLED", "REJECTED"] },
       // Excluimos NC/ND (56/61): ajustan al DTE original, no son flujo
@@ -2291,6 +2313,23 @@ function incomeMovementKey(o: VirtualOccurrence): string | null {
 export function filterOccurrencesWithConciliationPriority(
   occurrences: VirtualOccurrence[],
 ): VirtualOccurrence[] {
+  // Programaciones que se topan con una factura movida (`collidesWithInvoice`)
+  // NUNCA se ocultan: son una fila aparte que el usuario cura a mano. Se sacan
+  // del dedup y se re-agregan intactas, sin tocar la lógica existente para el
+  // resto (que sigue idéntica cuando no hay ninguna marcada).
+  const exempt = occurrences.filter(
+    (o) => o.collidesWithInvoice === true && !o.dteId,
+  );
+  if (exempt.length === 0) return filterConciliationPriorityInner(occurrences);
+  const rest = occurrences.filter(
+    (o) => !(o.collidesWithInvoice === true && !o.dteId),
+  );
+  return [...filterConciliationPriorityInner(rest), ...exempt];
+}
+
+function filterConciliationPriorityInner(
+  occurrences: VirtualOccurrence[],
+): VirtualOccurrence[] {
   if (occurrences.length === 0) return occurrences;
   // 1) La programación manda: ocultar proyección-sombra cuando su celda tiene DTE.
   const afterShadow = filterShadowProjectionsWithDtePriority(occurrences);
@@ -2453,13 +2492,20 @@ function buildRows(
       // la celda del contrato (donde sólo vivía en el popover). Su aporte al
       // subtotal es idéntico al que tenía colapsada: sólo cambia la sub-fila.
       const isExtra = !!o.isExtraInvoice && !!o.dteId;
+      // Programación que quedó junto a una factura movida: sub-fila propia
+      // (`_prog:<itemId>:<fecha>`) para NO fusionarse con la celda del contrato
+      // (donde ahora vive la factura). Ambas filas suman; el usuario borra la
+      // que sobra. Solo aplica a proyección pura (sin dteId) con item.
+      const isDupProjection = !!o.collidesWithInvoice && !o.dteId && !!o.itemId;
       const key = isPeriodicGroup
         ? `_periodic:${o.source}`
         : isConciliacionMove
           ? `_conc:${o.bankTransactionId}`
           : isExtra
             ? `_extra:${o.dteId}`
-            : (o.itemId ?? (o.dteId ? `_dte:${o.dteId}` : "_orphan"));
+            : isDupProjection
+              ? `_prog:${o.itemId}:${o.scheduledDate.toISOString().slice(0, 10)}`
+              : (o.itemId ?? (o.dteId ? `_dte:${o.dteId}` : "_orphan"));
 
       // Fila de factura DTE: huérfana (_dte:) o extra (_extra:). Va SIEMPRE
       // anclada a una cuenta: si el DTE resuelve cliente → su nombre; si no,
@@ -2504,6 +2550,7 @@ function buildRows(
           modoCobro: o.modoCobro ?? "DIRECTO",
           isConciliacion: isConciliacionMove,
           isExtraInvoice: isExtra,
+          collidesWithInvoice: isDupProjection,
           values: buckets.map((b) => ({
             bucketKey: b.key,
             amount: 0,

@@ -31,6 +31,15 @@ export interface MovementMatch {
   direction: "ISSUED" | "RECEIVED";
   counterpartyName: string;
   amountPending: number;
+  /** Contexto extra para que el usuario confirme CON QUÉ concilia. Opcionales:
+   *  el mensaje solo pinta las líneas que vengan. */
+  counterpartyRut?: string | null;
+  /** Fecha de emisión del DTE (ISO "YYYY-MM-DD"). */
+  dteDate?: string | null;
+  /** Glosa/nota del DTE. */
+  glosa?: string | null;
+  /** Instalación asociada al DTE. */
+  installationName?: string | null;
 }
 
 export interface MovementForBlocks {
@@ -105,12 +114,20 @@ export function renderMovementBlocks(m: MovementForBlocks): unknown[] {
 
   if (m.match) {
     const kind = m.match.direction === "RECEIVED" ? "compra" : "venta";
+    // Contexto extra para confirmar CON QUÉ se concilia (RUT, fecha, instalación
+    // y glosa del DTE). Solo pintamos las líneas que vengan.
+    const details: string[] = [];
+    if (m.match.counterpartyRut) details.push(`RUT ${m.match.counterpartyRut}`);
+    if (m.match.dteDate) details.push(`emitida ${shortDate(m.match.dteDate)}`);
+    if (m.match.installationName) details.push(m.match.installationName);
+    const detailLine = details.length ? `\n↳ ${details.join(" · ")}` : "";
+    const glosaLine = m.match.glosa ? `\n↳ _${cleanDesc(m.match.glosa)}_` : "";
     blocks.push({
       type: "context",
       block_id: ctxBlockId(m.bankTxId),
       elements: [{
         type: "mrkdwn",
-        text: `↳ Coincide con ${kind} *F-${m.match.folio}* · ${m.match.counterpartyName} · pendiente ${signedCLP(m.match.amountPending)}`,
+        text: `↳ Coincide con ${kind} *F-${m.match.folio}* · ${m.match.counterpartyName} · pendiente ${signedCLP(m.match.amountPending)}${detailLine}${glosaLine}`,
       }],
     });
     blocks.push({

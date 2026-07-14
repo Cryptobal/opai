@@ -232,6 +232,9 @@ export interface CandidateDte {
   /** Nombre de la instalación asociada al DTE (de su creación/programación).
    *  Null si el DTE no tiene installationId o la instalación fue borrada. */
   installationName: string | null;
+  /** Glosa/nota del DTE (`FinanceDte.notes`). Sirve para dar contexto en el
+   *  mensaje de conciliación de Slack ("con qué se está conciliando"). */
+  glosa: string | null;
 }
 
 /** Candidato de cesión a factoring (Fase 4). El monto a matchear es
@@ -588,6 +591,7 @@ export async function findDteCandidates(
     installationName: d.installationId
       ? instNames.get(d.installationId) ?? null
       : null,
+    glosa: d.notes ?? null,
   }));
 }
 
@@ -700,6 +704,7 @@ export async function findDteCandidatesForBulk(
     installationName: d.installationId
       ? instNames.get(d.installationId) ?? null
       : null,
+    glosa: d.notes ?? null,
   }));
 }
 

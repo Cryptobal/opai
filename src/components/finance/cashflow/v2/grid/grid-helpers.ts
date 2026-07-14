@@ -239,6 +239,15 @@ export interface CellChip {
   title: string;
 }
 
+/** "20 jul" a partir de un yyyy-MM-dd. timeZone UTC para no correr el día. */
+function formatDayMonth(scheduledDate: string): string {
+  return new Intl.DateTimeFormat("es-CL", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(toDate(scheduledDate));
+}
+
 export function cellChip(
   value: ProjectionRowItemValue,
   source: FinanceCashflowItemSource,
@@ -265,6 +274,16 @@ export function cellChip(
   }
   if (variant === "OVERDUE" && value.daysOverdue) {
     title += ` · ${value.daysOverdue}d de mora`;
+  }
+  // Fecha a la que corresponde la cuota (día/mes reales), no solo la columna
+  // semanal. Deja ver si una PROGRAMADA/BORRADOR es una que viene o quedó vieja
+  // (para decidir si eliminarla). No aplica a pagadas/anuladas ni conciliadas.
+  if (
+    (variant === "PROJECTED" || variant === "DRAFT") &&
+    value.reconciled !== true &&
+    value.scheduledDate
+  ) {
+    title += ` · ${formatDayMonth(value.scheduledDate)}`;
   }
   if (value.dteFolio) title += ` · N° ${value.dteFolio}`;
   return { variant, locked, draggable, title };

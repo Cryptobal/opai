@@ -34,8 +34,12 @@ const ymd = (d: string | Date) => toDate(d).toISOString().slice(0, 10);
 export function useGridMove(opts: {
   buckets: ProjectionBucket[];
   refresh: () => void | Promise<void>;
+  /** Aplica el move en la UI antes del refresh de red (vacía celda vieja ya). */
+  onOptimistic?: (itemId: string, fromBucketKey: string, toBucketKey: string) => void;
+  /** Limpia el estado optimista (tras refresh o si el move falla/revierte). */
+  clearOptimistic?: () => void;
 }) {
-  const { buckets, refresh } = opts;
+  const { buckets, refresh, onOptimistic, clearOptimistic } = opts;
   const [submitting, setSubmitting] = useState(false);
   const [undoPayload, setUndoPayload] = useState<UndoPayload | null>(null);
 
@@ -44,6 +48,11 @@ export function useGridMove(opts: {
       const to = buckets.find((b) => b.key === toBucketKey);
       const from = buckets.find((b) => b.key === drag.fromBucketKey);
       if (!to || !from || to.key === from.key) return;
+
+      // Optimista: vacía la celda de origen y pinta el destino de inmediato,
+      // sin esperar el round-trip. Requiere itemId real (las filas de item);
+      // los grupos de egreso usan moveGroup y no pasan por acá.
+      if (drag.itemId) onOptimistic?.(drag.itemId, from.key, to.key);
 
       setSubmitting(true);
       const result = await moveViaApi({
@@ -56,6 +65,7 @@ export function useGridMove(opts: {
       setSubmitting(false);
 
       if (!result.ok) {
+        clearOptimistic?.(); // revierte: el chip vuelve a su celda original
         const msg = result.error ?? "No se pudo mover";
         toast.error(msg, {
           duration: msg.toLowerCase().includes("cerrada") ? 6000 : 4000,
@@ -70,6 +80,7 @@ export function useGridMove(opts: {
         );
       }
       await refresh();
+      clearOptimistic?.(); // el refresh ya trae el estado real; suelta el parche
 
       // Undo: mueve la cuota de vuelta a su semana original. Tras el move la
       // cuota vive en `to`, así que el reverse parte de ahí.
@@ -88,7 +99,7 @@ export function useGridMove(opts: {
         },
       });
     },
-    [buckets, refresh],
+    [buckets, refresh, onOptimistic, clearOptimistic],
   );
 
   // Mueve un grupo de egreso (sueldos/previred/turnos) como unidad: todas las
@@ -162,7 +173,7 @@ export function useGridMove(opts: {
         },
       });
     },
-    [buckets, refresh],
+    [buckets, refresh, onOptimistic, clearOptimistic],
   );
 
   return {

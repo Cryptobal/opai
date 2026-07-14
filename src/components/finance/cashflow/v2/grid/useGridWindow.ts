@@ -14,7 +14,10 @@ interface GridWindowOpts {
   weeksBack: number;
   /** Ancho de la ventana en semanas (default 8; 3 en móvil). */
   windowWeeks?: number;
-  /** Cuántas semanas desplaza cada flecha (default = windowWeeks). */
+  /** Cuántas semanas desplaza cada flecha. Default = `windowWeeks - 1` para
+   *  solapar UNA semana entre vistas: la primera columna de la vista nueva es
+   *  la última de la anterior, así se puede arrastrar una cuota de una vista a
+   *  la siguiente sin que "caiga al vacío". */
   step?: number;
 }
 
@@ -37,7 +40,10 @@ function initialAnchor(weeksBack: number): Date {
  */
 export function useGridWindow(initial: ProjectionMatrix, opts: GridWindowOpts) {
   const windowWeeks = opts.windowWeeks ?? WINDOW_WEEKS;
-  const step = opts.step ?? windowWeeks;
+  // Solape de 1 semana: avanzamos `windowWeeks - 1` para que la última columna
+  // de la vista actual reaparezca como primera de la siguiente (y viceversa).
+  // Clamp a 1 por si `windowWeeks` fuese 1.
+  const step = opts.step ?? Math.max(1, windowWeeks - 1);
   const { ensureRange, resolve, invalidate, loading, version } =
     useWeekCache(initial);
 
@@ -79,11 +85,21 @@ export function useGridWindow(initial: ProjectionMatrix, opts: GridWindowOpts) {
     void goTo(initialAnchor(opts.weeksBack));
   }, [goTo, opts.weeksBack]);
 
+  /** Navega para que la semana ISO de `date` sea la PRIMERA columna visible.
+   *  Usado por el buscador de folios: al traer/ubicar una factura, saltamos a
+   *  su semana. Deja 0 semanas de contexto atrás; suficiente para verla. */
+  const goToWeek = useCallback(
+    (date: Date) => {
+      void goTo(startOfIsoWeekUTC(date));
+    },
+    [goTo],
+  );
+
   // Tras un move/cierre: invalida y re-trae la ventana actual (preserva ancla).
   const refresh = useCallback(async () => {
     invalidate();
     await ensureRange(slots[0].start, slots[slots.length - 1].end);
   }, [invalidate, ensureRange, slots]);
 
-  return { active, loading, goPrev, goNext, goToday, refresh };
+  return { active, loading, goPrev, goNext, goToday, goToWeek, refresh };
 }

@@ -44,6 +44,10 @@ function pickExactMatch(
         c.direction === "RECEIVED"
           ? c.issuerName || c.receiverName || "proveedor"
           : c.receiverName || c.issuerName || "cliente";
+      const counterpartyRut =
+        c.direction === "RECEIVED"
+          ? c.issuerRut || c.receiverRut
+          : c.receiverRut || c.issuerRut;
       return {
         dteId: c.id,
         folio: c.folio,
@@ -51,6 +55,10 @@ function pickExactMatch(
         direction: c.direction,
         counterpartyName: counterparty,
         amountPending: c.amountPending,
+        counterpartyRut: counterpartyRut ?? null,
+        dteDate: c.issuedAt ? c.issuedAt.slice(0, 10) : null,
+        glosa: c.glosa ?? null,
+        installationName: c.installationName ?? null,
       };
     }
   }
