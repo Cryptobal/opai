@@ -35,7 +35,6 @@ import { ManualCloseStreakBanner, type CloseLite } from "./ManualCloseStreakBann
 import { Legend } from "./Legend";
 import { UndoToast } from "./UndoToast";
 import { WeekCloseDrawer } from "../week-close/WeekCloseDrawer";
-import { WeekClosePanel } from "../week-close/WeekClosePanel";
 import { currentBucketIndex } from "./projection-helpers";
 import { useGridWindow } from "./grid/useGridWindow";
 import { GridHeader } from "./grid/GridHeader";
@@ -152,8 +151,7 @@ export function CashflowGrid({
   );
   // Semana en proceso de cierre (Opción A): abre el WeekCloseDrawer existente.
   const [closeWeekEndIso, setCloseWeekEndIso] = useState<string | null>(null);
-  // Se incrementa tras cada cierre/move para que el panel de semanas por cerrar
-  // vuelva a consultar su estado.
+  // Se incrementa tras cada cierre/move para refrescar candados de columnas.
   const [panelReloadKey, setPanelReloadKey] = useState(0);
   // La grilla se muestra siempre en vista simple (Ingresos · Egresos · Saldo),
   // sin fila de desviación (Drift) ni badges de IPC/headcount. El antiguo toggle
@@ -170,8 +168,8 @@ export function CashflowGrid({
 
   // Semanas con cierre real (registro en DB), para pintar un candado accionable
   // en CADA columna cerrada de la grilla. La grilla solo conoce el ancla activo,
-  // así que la lista precisa de cierres viene del endpoint de estado (mismo que
-  // el panel). Se refresca junto al panel tras cerrar / reabrir.
+  // así que la lista precisa de cierres viene del endpoint de estado. Se refresca
+  // tras cerrar / reabrir.
   const [closedWeeks, setClosedWeeks] = useState<
     { weekStartMs: number; weekEndIso: string; isAnchor: boolean }[]
   >([]);
@@ -206,7 +204,7 @@ export function CashflowGrid({
     };
   }, [panelReloadKey]);
 
-  // Semana cuya reapertura se está confirmando (candado en la columna / panel).
+  // Semana cuya reapertura se está confirmando (candado en la columna).
   const [reopenTarget, setReopenTarget] = useState<{
     weekEndIso: string;
     isAnchor: boolean;
@@ -224,7 +222,7 @@ export function CashflowGrid({
   );
 
   // Reabre (desbloquea) la semana confirmada: deshace el cierre en el backend y
-  // refresca panel + grilla + KPIs.
+  // refresca grilla + KPIs.
   const confirmReopen = useCallback(async () => {
     if (!reopenTarget) return;
     setReopening(true);
@@ -397,14 +395,6 @@ export function CashflowGrid({
       <BancaTabsHeader active="cashflow" />
       {recentCloses && <ManualCloseStreakBanner recentCloses={recentCloses} />}
       <HealthHeader projection={projection} />
-
-      <WeekClosePanel
-        onCloseWeek={setCloseWeekEndIso}
-        onReopenWeek={requestReopen}
-        canManage={canManage}
-        reloadKey={panelReloadKey}
-        currentBankBalanceClp={projection.openingBalanceClp}
-      />
 
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-ds-text-1">
