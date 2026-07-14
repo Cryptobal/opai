@@ -269,6 +269,13 @@
     --safe-area-bottom: env(safe-area-inset-bottom, 0px);
     --safe-area-left: env(safe-area-inset-left, 0px);
     --safe-area-right: env(safe-area-inset-right, 0px);
+    /* Medido en runtime por PlatformAwareBottomNav (portales PWA). */
+    --portal-bottom-nav-height: 5.5rem;
+  }
+
+  /* Reserva espacio para la barra inferior fija de portales (Rondas, Cliente, Guardia…). */
+  .portal-above-bottom-nav {
+    padding-bottom: var(--portal-bottom-nav-height, 5.5rem);
   }
 
   * {
@@ -1133,6 +1140,12 @@ html {
       -webkit-backdrop-filter: blur(24px) saturate(170%);
       border: 1px solid rgba(255, 255, 255, 0.1) !important;
       box-shadow: 0 16px 40px rgba(0, 0, 0, 0.34);
+    }
+
+    /* En portales PWA el contenedor padre ya reserva --portal-bottom-nav-height;
+       el input solo necesita un pequeño respiro, no duplicar safe-area. */
+    html:has([data-portal-bottom-nav]) .opai-chat-mobile-input {
+      margin-bottom: 0.55rem;
     }
 
     .opai-chat-mobile-input-inner {

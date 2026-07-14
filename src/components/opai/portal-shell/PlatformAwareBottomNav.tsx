@@ -1,8 +1,39 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePlatform } from "@/hooks/usePlatform";
+
+/** Expone `--portal-bottom-nav-height` (px desde el tope del nav hasta el borde inferior del viewport). */
+function usePortalBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      const clearance = Math.ceil(window.innerHeight - rect.top);
+      document.documentElement.style.setProperty(
+        "--portal-bottom-nav-height",
+        `${clearance}px`,
+      );
+    };
+
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener("resize", update);
+    window.visualViewport?.addEventListener("resize", update);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+      window.visualViewport?.removeEventListener("resize", update);
+      document.documentElement.style.removeProperty("--portal-bottom-nav-height");
+    };
+  }, [ref]);
+}
 
 export interface NavItem<TId extends string = string> {
   id: TId;
@@ -31,6 +62,9 @@ export function PlatformAwareBottomNav<TId extends string = string>({
   forceVariant = "auto",
   className,
 }: PlatformAwareBottomNavProps<TId>) {
+  const navRef = useRef<HTMLElement>(null);
+  usePortalBottomNavHeight(navRef);
+
   const detected = usePlatform();
   const variant: "ios" | "android" =
     forceVariant === "auto"
@@ -42,6 +76,8 @@ export function PlatformAwareBottomNav<TId extends string = string>({
   if (variant === "ios") {
     return (
       <nav
+        ref={navRef}
+        data-portal-bottom-nav=""
         className={cn(
           "fixed z-50 left-3 right-3 bottom-3 opai-liquid-glass rounded-full px-2 py-2 flex gap-1",
           className,
@@ -99,6 +135,8 @@ export function PlatformAwareBottomNav<TId extends string = string>({
 
   return (
     <nav
+      ref={navRef}
+      data-portal-bottom-nav=""
       className={cn(
         "fixed z-50 bottom-0 left-0 right-0 opai-m3e-nav pt-2 px-2 flex justify-around",
         className,

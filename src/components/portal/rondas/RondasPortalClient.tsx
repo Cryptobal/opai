@@ -686,7 +686,7 @@ export function RondasPortalClient() {
       )}
 
       {screen === "chat" && session && (
-        <div className="flex-1 min-h-0 overflow-hidden pb-16">
+        <div className="flex-1 min-h-0 overflow-hidden portal-above-bottom-nav">
           <ChatRondasPortal session={session} onBack={() => setScreen("mis-rondas")} />
         </div>
       )}
@@ -696,7 +696,7 @@ export function RondasPortalClient() {
       )}
 
       {screen === "incidente" && session && (
-        <div className="flex-1 min-h-0 flex flex-col pb-16">
+        <div className="flex-1 min-h-0 flex flex-col portal-above-bottom-nav">
           <ReportarIncidente
             asScreen
             session={session}

@@ -351,7 +351,7 @@ function PortalClienteShell() {
       )}
 
       {activeSection === "chat" ? (
-        <div className="flex-1 min-h-0 overflow-hidden pb-16">
+        <div className="flex-1 min-h-0 overflow-hidden portal-above-bottom-nav">
           <ChatClientePortal session={session} />
         </div>
       ) : (
