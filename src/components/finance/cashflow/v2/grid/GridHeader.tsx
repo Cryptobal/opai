@@ -20,14 +20,34 @@ export function GridHeader({
   bucketMeta,
   canManage,
   onCloseWeek,
+  onReopenWeek,
+  closedWeeks,
 }: {
   buckets: ProjectionBucket[];
   currentIdx: number;
   bucketMeta?: Map<string, BucketMeta>;
   canManage: boolean;
   onCloseWeek: (weekEndIso: string) => void;
+  /** Reabre (desbloquea) una semana cerrada desde el candado de su columna. */
+  onReopenWeek?: (
+    weekEndIso: string,
+    opts: { isAnchor: boolean; label: string },
+  ) => void;
+  /** Semanas con cierre real (registro en DB), para el candado por columna. El
+   *  `weekStartMs` (sábado del cierre dow) cae en una única semana ISO de la
+   *  grilla, así que mapea 1:1 a la columna que la contiene. */
+  closedWeeks?: { weekStartMs: number; weekEndIso: string; isAnchor: boolean }[];
 }) {
   const bands = monthBands(buckets);
+  // Cierre real que cae en una columna ISO: su sábado (weekStart del cierre dow)
+  // está dentro de [lunes, domingo] de esa semana ISO. Devuelve el cierre para
+  // pintar un candado accionable en CADA columna cerrada (no solo en la ancla).
+  const closeForBucket = (b: ProjectionBucket) => {
+    if (!closedWeeks?.length) return undefined;
+    const s = toDate(b.start).getTime();
+    const e = toDate(b.end).getTime();
+    return closedWeeks.find((c) => c.weekStartMs >= s && c.weekStartMs <= e);
+  };
   return (
     // Header sticky-top: ambas filas (bandas de mes + semanas) quedan fijas
     // arriba al hacer scroll vertical dentro del contenedor scrollable. El
@@ -108,11 +128,36 @@ export function GridHeader({
                 <button
                   type="button"
                   onClick={() => onCloseWeek(toDate(b.end).toISOString())}
-                  className="mt-1 inline-flex h-7 items-center gap-1 rounded-ds-sm border border-primary/40 px-1.5 text-[11px] font-medium text-primary transition-colors hover:bg-primary/10"
+                  className="mt-1 inline-flex h-7 items-center gap-1 rounded-ds-sm border border-status-warn-border bg-status-warn-soft px-1.5 text-[11px] font-medium text-status-warn-fg transition-colors hover:brightness-95"
                 >
                   <Lock className="h-3 w-3" aria-hidden /> Cerrar
                 </button>
               )}
+              {/* Semana con cierre real → candado accionable: reabre SOLO esa
+                  semana. Se apunta al weekEnd del registro (no a la fecha de la
+                  columna) para que el backend borre exactamente ese cierre. */}
+              {canManage &&
+                onReopenWeek &&
+                (() => {
+                  const close = closeForBucket(b);
+                  if (!close) return null;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onReopenWeek(close.weekEndIso, {
+                          isAnchor: close.isAnchor,
+                          label: `S${isoWeek(monday)}`,
+                        })
+                      }
+                      aria-label="Reabrir semana"
+                      title="Semana cerrada · reabrir"
+                      className="mt-1 inline-flex h-7 w-7 items-center justify-center rounded-ds-sm border border-ds-border-default text-ds-text-3 transition-colors hover:border-status-warn-border hover:bg-status-warn-soft hover:text-status-warn-fg"
+                    >
+                      <Lock className="h-3 w-3" aria-hidden />
+                    </button>
+                  );
+                })()}
             </th>
           );
         })}

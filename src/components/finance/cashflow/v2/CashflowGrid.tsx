@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -15,6 +15,15 @@ import {
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import type {
@@ -159,29 +168,86 @@ export function CashflowGrid({
     setPanelReloadKey((k) => k + 1);
   }, [refresh, router]);
 
-  // Reabre (desbloquea) una semana cerrada desde el candado de su fila. Deshace
-  // el cierre en el backend y refresca panel + grilla + KPIs.
-  const handleReopenWeek = useCallback(
-    async (weekEndIso: string) => {
+  // Semanas con cierre real (registro en DB), para pintar un candado accionable
+  // en CADA columna cerrada de la grilla. La grilla solo conoce el ancla activo,
+  // así que la lista precisa de cierres viene del endpoint de estado (mismo que
+  // el panel). Se refresca junto al panel tras cerrar / reabrir.
+  const [closedWeeks, setClosedWeeks] = useState<
+    { weekStartMs: number; weekEndIso: string; isAnchor: boolean }[]
+  >([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
       try {
-        const res = await fetch(
-          `/api/finance/cashflow/weekly-close?weekEnd=${encodeURIComponent(weekEndIso)}`,
-          { method: "DELETE" },
-        );
+        const res = await fetch("/api/finance/cashflow/weekly-close/status");
         const j = await res.json();
-        if (!j.success) throw new Error(j.error);
-        toast.success(
-          j.data?.wasAnchor
-            ? "Semana reabierta · la proyección perdió su ancla"
-            : "Semana reabierta",
-        );
-        await refreshAll();
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Error al reabrir");
+        if (cancelled || !j.success) return;
+        const cw = (
+          j.data as Array<{
+            weekStartDate: string;
+            weekEndDate: string;
+            state: string;
+            isAnchor: boolean;
+          }>
+        )
+          .filter((w) => w.state === "CLOSED")
+          .map((w) => ({
+            weekStartMs: Date.parse(w.weekStartDate),
+            weekEndIso: w.weekEndDate,
+            isAnchor: w.isAnchor,
+          }));
+        setClosedWeeks(cw);
+      } catch {
+        /* silencioso: sin datos, la grilla simplemente no muestra candados */
       }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [panelReloadKey]);
+
+  // Semana cuya reapertura se está confirmando (candado en la columna / panel).
+  const [reopenTarget, setReopenTarget] = useState<{
+    weekEndIso: string;
+    isAnchor: boolean;
+    label: string;
+  } | null>(null);
+  const [reopening, setReopening] = useState(false);
+
+  // Abre el diálogo de confirmación. Las columnas son angostas para confirmar
+  // inline, así que la confirmación vive en un diálogo central.
+  const requestReopen = useCallback(
+    (weekEndIso: string, opts: { isAnchor: boolean; label: string }) => {
+      setReopenTarget({ weekEndIso, ...opts });
     },
-    [refreshAll],
+    [],
   );
+
+  // Reabre (desbloquea) la semana confirmada: deshace el cierre en el backend y
+  // refresca panel + grilla + KPIs.
+  const confirmReopen = useCallback(async () => {
+    if (!reopenTarget) return;
+    setReopening(true);
+    try {
+      const res = await fetch(
+        `/api/finance/cashflow/weekly-close?weekEnd=${encodeURIComponent(reopenTarget.weekEndIso)}`,
+        { method: "DELETE" },
+      );
+      const j = await res.json();
+      if (!j.success) throw new Error(j.error);
+      toast.success(
+        j.data?.wasAnchor
+          ? "Semana reabierta · la proyección perdió su ancla"
+          : "Semana reabierta",
+      );
+      setReopenTarget(null);
+      await refreshAll();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al reabrir");
+    } finally {
+      setReopening(false);
+    }
+  }, [reopenTarget, refreshAll]);
 
   const { move, moveGroup, undoPayload, clearUndo, pushUndo } = useGridMove({
     buckets,
@@ -334,7 +400,7 @@ export function CashflowGrid({
 
       <WeekClosePanel
         onCloseWeek={setCloseWeekEndIso}
-        onReopenWeek={handleReopenWeek}
+        onReopenWeek={requestReopen}
         canManage={canManage}
         reloadKey={panelReloadKey}
         currentBankBalanceClp={projection.openingBalanceClp}
@@ -395,6 +461,8 @@ export function CashflowGrid({
               bucketMeta={bucketMeta}
               canManage={canManage}
               onCloseWeek={setCloseWeekEndIso}
+              onReopenWeek={requestReopen}
+              closedWeeks={closedWeeks}
             />
             <tbody>
               <GridSection
@@ -474,6 +542,34 @@ export function CashflowGrid({
         onClose={() => setCloseWeekEndIso(null)}
         onCommitted={refreshAll}
       />
+
+      <Dialog
+        open={reopenTarget != null}
+        onOpenChange={(o) => !o && !reopening && setReopenTarget(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reabrir semana {reopenTarget?.label}</DialogTitle>
+            <DialogDescription>
+              La semana volverá a estado abierto y podrás volver a editarla.
+              {reopenTarget?.isAnchor &&
+                " Es la semana ancla: la proyección perderá su punto base hasta que ancles otra semana."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setReopenTarget(null)}
+              disabled={reopening}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={confirmReopen} disabled={reopening}>
+              {reopening ? "Reabriendo…" : "Reabrir semana"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
