@@ -11,6 +11,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { fmt } from "@/components/finance/cashflow/MatrixHelpers";
 import type { ProjectionBucket } from "@/modules/finance/cashflow/types";
 import { toDate } from "../format";
@@ -48,7 +49,6 @@ export function CashflowFolioSearch({ buckets, canManage, onRun, onLocate }: Pro
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<DteFlowSearchResult | null>(null);
-  const [running, setRunning] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
   // Debounce del fetch: 250ms tras el último tecleo.
@@ -96,14 +96,15 @@ export function CashflowFolioSearch({ buckets, canManage, onRun, onLocate }: Pro
 
   async function runTo(bucketStart: Date) {
     if (!selected) return;
-    setRunning(true);
-    const r = await onRun(selected.dteId, bucketStart);
-    setRunning(false);
-    if (!r.ok) return; // el toast de error lo emite onRun
+    const dteId = selected.dteId;
+    // Cerramos el modal AL INSTANTE; el move + refresh de la grilla corren en
+    // background (onRun usa refreshAt, que re-trae fresca la semana destino y
+    // ancla ahí). Así el cambio se ve reflejado solo, sin recargar la página.
     setSelected(null);
     setQ("");
     setResults([]);
     setOpen(false);
+    await onRun(dteId, bucketStart); // el toast (éxito/error) lo emite onRun
   }
 
   return (
@@ -205,26 +206,33 @@ export function CashflowFolioSearch({ buckets, canManage, onRun, onLocate }: Pro
                       O córrela a una de estas semanas:
                     </p>
                     <div className="grid grid-cols-2 gap-1.5">
-                      {buckets.map((b) => (
-                        <Button
-                          key={b.key}
-                          size="sm"
-                          variant="outline"
-                          disabled={running || b.key === selected.weekKey}
-                          onClick={() => runTo(toDate(b.start))}
-                          className="justify-start text-[12px]"
-                        >
-                          {b.label}
-                          {b.key === selected.weekKey ? " (aquí)" : ""}
-                        </Button>
-                      ))}
+                      {buckets.map((b) => {
+                        const isHere = b.key === selected.weekKey;
+                        return (
+                          <Button
+                            key={b.key}
+                            size="sm"
+                            // La semana actual va coloreada (primary) para
+                            // ubicarla de un vistazo; igual es clickable.
+                            variant={isHere ? "default" : "outline"}
+                            onClick={() => runTo(toDate(b.start))}
+                            className={cn(
+                              "justify-start text-[12px]",
+                              isHere && "ring-1 ring-primary",
+                            )}
+                          >
+                            {b.label}
+                            {isHere ? " · aquí" : ""}
+                          </Button>
+                        );
+                      })}
                     </div>
                   </>
                 )}
               </div>
 
               <DialogFooter>
-                <Button variant="ghost" onClick={() => setSelected(null)} disabled={running}>
+                <Button variant="ghost" onClick={() => setSelected(null)}>
                   Cerrar
                 </Button>
               </DialogFooter>

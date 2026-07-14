@@ -101,5 +101,21 @@ export function useGridWindow(initial: ProjectionMatrix, opts: GridWindowOpts) {
     await ensureRange(slots[0].start, slots[slots.length - 1].end);
   }, [invalidate, ensureRange, slots]);
 
-  return { active, loading, goPrev, goNext, goToday, goToWeek, refresh };
+  /** Mover-y-mostrar atómico: invalida el caché, re-trae FRESCA la ventana que
+   *  arranca en la semana de `date` y ancla ahí. A diferencia de `goToWeek` +
+   *  `refresh` (que sufren un race: el refresh re-fetchea la ventana vieja por
+   *  closure stale), esto garantiza que la semana destino se ve al instante sin
+   *  recargar. Usado por el buscador de folios tras correr una factura. */
+  const refreshAt = useCallback(
+    async (date: Date) => {
+      const anchor = startOfIsoWeekUTC(date);
+      const target = weekSlots(anchor, windowWeeks);
+      invalidate();
+      await ensureRange(target[0].start, target[target.length - 1].end);
+      setAnchorDate(anchor);
+    },
+    [invalidate, ensureRange, windowWeeks],
+  );
+
+  return { active, loading, goPrev, goNext, goToday, goToWeek, refreshAt, refresh };
 }

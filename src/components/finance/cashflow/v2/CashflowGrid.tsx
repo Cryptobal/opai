@@ -100,7 +100,7 @@ export function CashflowGrid({
   // viewport existente (no crear uno nuevo).
   const isMobile = useIsMobileViewport(768);
   const windowWeeks = isMobile ? MOBILE_WINDOW_WEEKS : undefined; // undefined → 8
-  const { active, loading, goPrev, goNext, goToday, goToWeek, refresh } = useGridWindow(
+  const { active, loading, goPrev, goNext, goToday, goToWeek, refreshAt, refresh } = useGridWindow(
     projection,
     {
       weeksBack: isMobile ? MOBILE_WEEKS_BACK : weeksBack,
@@ -196,11 +196,14 @@ export function CashflowGrid({
         return { ok: false, error: r.error };
       }
       toast.success("Factura movida");
-      goToWeek(date);
-      await refreshAll();
+      // Mover-y-mostrar atómico: re-trae FRESCA la ventana de la semana destino
+      // y ancla ahí (sin el race de goToWeek+refresh). El cambio se ve al toque.
+      await refreshAt(date);
+      router.refresh(); // KPIs del HealthHeader (props del server)
+      setPanelReloadKey((k) => k + 1);
       return { ok: true };
     },
-    [goToWeek, refreshAll],
+    [refreshAt, router],
   );
 
   // Semanas con cierre real (registro en DB), para pintar un candado accionable
