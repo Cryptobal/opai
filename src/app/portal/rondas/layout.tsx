@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 export default function PortalRondasLayout({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="text-[#f5f5f5] antialiased"
+      className="text-[#f5f5f5] antialiased flex flex-col"
       style={{
         // Fixed-viewport scroll shell — see marcacion/layout.tsx for the full
         // rationale. Scrolling inside this container (instead of growing the
@@ -52,7 +52,7 @@ export default function PortalRondasLayout({ children }: { children: React.React
       <PlatformDataAttribute />
       <BadgeClear />
       <TerrenoModeSwitcher active="rondas" />
-      {children}
+      <div className="flex-1 min-h-0 overflow-hidden">{children}</div>
     </div>
   );
 }

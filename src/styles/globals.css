@@ -1142,10 +1142,23 @@ html {
       box-shadow: 0 16px 40px rgba(0, 0, 0, 0.34);
     }
 
-    /* En portales PWA el contenedor padre ya reserva --portal-bottom-nav-height;
-       el input solo necesita un pequeño respiro, no duplicar safe-area. */
+    /*
+     * Portales PWA (Rondas, Cliente, Guardia): el input va anclado al viewport
+     * por encima del nav fijo. El padding del contenedor padre no alcanza porque
+     * el shell puede desbordar 100svh (safe-area + TerrenoModeSwitcher).
+     */
     html:has([data-portal-bottom-nav]) .opai-chat-mobile-input {
-      margin-bottom: 0.55rem;
+      position: fixed;
+      left: 0.75rem;
+      right: 0.75rem;
+      bottom: calc(var(--portal-bottom-nav-height, 5.5rem) + 0.35rem);
+      z-index: 45;
+      margin: 0 !important;
+    }
+
+    html:has([data-portal-bottom-nav]) .opai-chat-mobile-messages {
+      padding-bottom: calc(var(--portal-bottom-nav-height, 5.5rem) + 5rem) !important;
+      scroll-padding-bottom: calc(var(--portal-bottom-nav-height, 5.5rem) + 5rem);
     }
 
     .opai-chat-mobile-input-inner {

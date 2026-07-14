@@ -5,7 +5,7 @@ import { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePlatform } from "@/hooks/usePlatform";
 
-/** Expone `--portal-bottom-nav-height` (px desde el tope del nav hasta el borde inferior del viewport). */
+/** Expone `--portal-bottom-nav-height` (px desde el tope del nav hasta el borde inferior visible). */
 function usePortalBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
     const el = ref.current;
@@ -13,7 +13,10 @@ function usePortalBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
 
     const update = () => {
       const rect = el.getBoundingClientRect();
-      const clearance = Math.ceil(window.innerHeight - rect.top);
+      const vp = window.visualViewport;
+      const viewportBottom = vp ? vp.offsetTop + vp.height : window.innerHeight;
+      // +8px de colchón para evitar solapamiento por subpíxeles / blur del nav.
+      const clearance = Math.max(0, Math.ceil(viewportBottom - rect.top) + 8);
       document.documentElement.style.setProperty(
         "--portal-bottom-nav-height",
         `${clearance}px`,
@@ -25,11 +28,13 @@ function usePortalBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
     ro.observe(el);
     window.addEventListener("resize", update);
     window.visualViewport?.addEventListener("resize", update);
+    window.visualViewport?.addEventListener("scroll", update);
 
     return () => {
       ro.disconnect();
       window.removeEventListener("resize", update);
       window.visualViewport?.removeEventListener("resize", update);
+      window.visualViewport?.removeEventListener("scroll", update);
       document.documentElement.style.removeProperty("--portal-bottom-nav-height");
     };
   }, [ref]);

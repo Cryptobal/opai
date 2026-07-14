@@ -558,10 +558,7 @@ export function RondasPortalClient() {
   const needsGuardWarning = authMode === "ready" && !currentGuard;
 
   return (
-    <div
-      className="flex flex-col overflow-hidden"
-      style={{ height: "100svh", minHeight: "100svh" }}
-    >
+    <div className="flex flex-col overflow-hidden h-full min-h-0">
       {isOffline && (
         <div
           className="fixed top-0 inset-x-0 z-50 bg-status-warn px-4 text-center text-sm font-medium text-white"
@@ -686,7 +683,7 @@ export function RondasPortalClient() {
       )}
 
       {screen === "chat" && session && (
-        <div className="flex-1 min-h-0 overflow-hidden portal-above-bottom-nav">
+        <div className="flex-1 min-h-0 overflow-hidden">
           <ChatRondasPortal session={session} onBack={() => setScreen("mis-rondas")} />
         </div>
       )}
