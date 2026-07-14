@@ -6,6 +6,8 @@
  * sin duplicar.
  */
 
+import type { DteAdditionalRef } from "./references";
+
 export interface DteRow {
   id: string;
   dteType: number;
@@ -26,6 +28,12 @@ export interface DteRow {
   emailStatus: string | null;
   referenceType: number | null;
   referenceFolio: number | null;
+  /**
+   * Referencias adicionales no-DTE (OC, HES, Contrato, Resolución...) que
+   * el documento declara al SII. Se pintan como badges en la columna
+   * "Referencias". Vacío/omitido si el DTE no declara ninguna.
+   */
+  additionalReferences?: DteAdditionalRef[];
   /** False para DTEs importados de CSV/RCV (no tienen XML local). */
   hasXml?: boolean;
   /** Centro de costo: cliente CRM + instalación. */

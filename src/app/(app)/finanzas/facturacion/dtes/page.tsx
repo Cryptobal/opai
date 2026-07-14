@@ -12,6 +12,7 @@ import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus, X } from "lucide-react";
 import { DtesEmitidosClient } from "@/components/finance/dtes/DtesEmitidosClient";
+import { normalizeAdditionalRefs } from "@/components/finance/dtes/shared/references";
 
 interface SearchParams {
   siiStatus?: string;
@@ -212,6 +213,7 @@ export default async function DtesEmitidosPage({
       emailStatus: d.emailStatus,
       referenceType: d.referenceType,
       referenceFolio: d.referenceFolio,
+      additionalReferences: normalizeAdditionalRefs(d.additionalReferences),
       hasXml,
       crmAccountId: d.crmAccountId,
       installationId: d.installationId,

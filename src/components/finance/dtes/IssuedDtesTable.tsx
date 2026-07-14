@@ -15,6 +15,7 @@ import { SiiStatusPill } from "./SiiStatusPill";
 import { CessionBadge } from "./CessionBadge";
 import { LinkedNoteBadge } from "./LinkedNoteBadge";
 import { RelationRow } from "./RelationRow";
+import { ReferenceBadges } from "./ReferenceBadges";
 import { DteAmountCell } from "./shared/DteAmountCell";
 import { formatCalendarDateDisplay } from "@/lib/fx-date";
 import type { DteRow, DteSortKey } from "./shared/types";
@@ -311,6 +312,14 @@ export function IssuedDtesTable({
           </div>
         );
       },
+    },
+    {
+      // Referencias adicionales del documento (OC, HES, Contrato...). "—"
+      // cuando el DTE no declara ninguna.
+      id: "references",
+      header: "Referencias",
+      width: "w-[132px]",
+      cell: (row) => <ReferenceBadges refs={row.additionalReferences} />,
     },
     {
       id: "totalAmount",

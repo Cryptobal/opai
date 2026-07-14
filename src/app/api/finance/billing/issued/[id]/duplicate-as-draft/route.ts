@@ -3,6 +3,7 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasFacturacionCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { createDraftDte } from "@/modules/finance/billing/dte-draft.service";
+import { formatDateOnlyUtcYmd } from "@/lib/fx-date";
 
 /**
  * POST /api/finance/billing/issued/[id]/duplicate-as-draft
@@ -42,8 +43,41 @@ export async function POST(
       );
     }
 
+    // Preservar referencias en el duplicado. Dos bloques distintos:
+    //   1. La referencia escalar al DTE original (referenceType/Folio/...),
+    //      típica de NC/ND. Sólo la reconstruimos si viene poblada.
+    //   2. Las referencias adicionales no-DTE (OC, HES, Contrato...) que van
+    //      en el JSON `additionalReferences`. Su shape persistido ya es
+    //      { tipoDocRef, folioRef, fchRef, razonRef }; lo pasamos con un
+    //      guard defensivo. Sin esto el borrador salía sin OC/HES.
+    const reference =
+      original.referenceType != null && original.referenceFolio != null
+        ? {
+            docId: original.referenceDteId ?? undefined,
+            type: original.referenceType,
+            folio: original.referenceFolio,
+            date: original.referenceDate
+              ? formatDateOnlyUtcYmd(original.referenceDate)
+              : "",
+            code: (original.referenceCode ?? 1) as 1 | 2 | 3,
+            reason: original.referenceReason ?? "",
+          }
+        : undefined;
+    const additionalReferences = Array.isArray(original.additionalReferences)
+      ? (original.additionalReferences as Array<Record<string, unknown>>)
+          .filter((r) => r && typeof r === "object" && r.tipoDocRef != null)
+          .map((r) => ({
+            tipoDocRef: String(r.tipoDocRef),
+            folioRef: r.folioRef != null ? String(r.folioRef) : "",
+            fchRef: typeof r.fchRef === "string" ? r.fchRef : "",
+            razonRef: typeof r.razonRef === "string" ? r.razonRef : "",
+          }))
+      : undefined;
+
     const draft = await createDraftDte(ctx.tenantId, ctx.userId, {
       dteType: original.dteType,
+      reference,
+      additionalReferences,
       receiverRut: original.receiverRut,
       receiverName: original.receiverName,
       receiverEmail: original.receiverEmail ?? undefined,

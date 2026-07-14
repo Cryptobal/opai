@@ -47,6 +47,7 @@ import { IssuedDteSlideOver } from "./IssuedDteSlideOver";
 import { CobranzaSendDialog } from "@/components/finance/cashflow/CobranzaSendDialog";
 import { useDteFilters } from "./hooks/useDteFilters";
 import { fmtCLP, sortDteRows } from "./shared/constants";
+import { normalizeAdditionalRefs } from "./shared/references";
 import type {
   DteRow,
   CostCenterOption,
@@ -348,6 +349,9 @@ export function DtesEmitidosClient({
               emailStatus: (d.emailStatus as string | null) ?? null,
               referenceType: (d.referenceType as number | null) ?? null,
               referenceFolio: (d.referenceFolio as number | null) ?? null,
+              additionalReferences: normalizeAdditionalRefs(
+                d.additionalReferences,
+              ),
               hasXml: Boolean(d.hasXml),
               crmAccountId: (d.crmAccountId as string | null) ?? null,
               installationId: (d.installationId as string | null) ?? null,
@@ -545,7 +549,18 @@ export function DtesEmitidosClient({
   const handleCloneDraft = async (id: string) => {
     setCloningDraft(id);
     try {
-      const res = await fetch(`/api/finance/billing/drafts/${id}/duplicate`, {
+      // La misma acción "Duplicar como borrador" aparece en filas borrador
+      // (siiStatus=DRAFT) y en filas ya emitidas. Cada una usa un endpoint
+      // distinto: el de drafts sólo matchea DRAFT y el de emitidas sólo
+      // matchea no-DRAFT. Sin este branch, duplicar una factura emitida (p.ej.
+      // una con NC asociada) pegaba al endpoint de drafts y devolvía
+      // "Borrador no encontrado o ya fue emitido".
+      const row = dtes.find((d) => d.id === id);
+      const isDraft = row?.siiStatus === "DRAFT";
+      const url = isDraft
+        ? `/api/finance/billing/drafts/${id}/duplicate`
+        : `/api/finance/billing/issued/${id}/duplicate-as-draft`;
+      const res = await fetch(url, {
         method: "POST",
       });
       const json = await res.json().catch(() => ({}));

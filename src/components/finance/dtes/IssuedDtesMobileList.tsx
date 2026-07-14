@@ -49,6 +49,7 @@ import { SiiStatusPill } from "./SiiStatusPill";
 import { CessionBadge } from "./CessionBadge";
 import { LinkedNoteBadge } from "./LinkedNoteBadge";
 import { RelationRow } from "./RelationRow";
+import { ReferenceBadges } from "./ReferenceBadges";
 import { fmtCLPSmart } from "./shared/constants";
 import { DteAmountCell } from "./shared/DteAmountCell";
 import type { DteRow } from "./shared/types";
@@ -441,6 +442,12 @@ export function IssuedDtesMobileList({
                         />
                       </div>
                     )}
+                    {d.additionalReferences &&
+                      d.additionalReferences.length > 0 && (
+                        <div className="mb-1">
+                          <ReferenceBadges refs={d.additionalReferences} />
+                        </div>
+                      )}
                     {fantasyName && !sameName ? (
                       <Link
                         href={`/crm/accounts/${d.crmAccount?.id}?tab=contracts`}
