@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { occurrenceBucketKey } from "./bucket-matcher";
 import { resolveUfForOccurrence } from "./uf-resolver";
+import { filterCashflowItemsForProjection } from "./projection-item-filter";
 
 export interface MatchDraftToOccurrenceInput {
   tenantId: string;
@@ -73,7 +74,7 @@ export async function matchDraftToOccurrence(
   const dateFrom = new Date(expectedMs - MAX_WINDOW_DAYS * 86_400_000);
   const dateTo = new Date(expectedMs + MAX_WINDOW_DAYS * 86_400_000);
 
-  const items = await prisma.financeCashflowItem.findMany({
+  const itemsRaw = await prisma.financeCashflowItem.findMany({
     where: {
       tenantId: input.tenantId,
       isActive: true,
@@ -90,11 +91,22 @@ export async function matchDraftToOccurrence(
     },
     select: {
       id: true, recurrence: true, installationId: true,
+      // source/crmAccountId/sourceRefId: para aplicar el MISMO filtro soberano
+      // que usa la proyección (RECURRING_DTE manda sobre CONTRACT).
+      source: true, crmAccountId: true, sourceRefId: true,
       // amount/currency/UF: para desambiguar por MONTO cuando una instalación
       // tiene cobro partido en varios items (ej. Transmat 80% / 20%).
       amount: true, currency: true, ufFixingPolicy: true, ufFixingDay: true,
     },
   });
+  // Fuente de verdad única: si existe una programación recurrente
+  // (RECURRING_DTE) para la cuenta/instalación, el item CONTRACT del tab
+  // Contratos NO se considera (misma regla que buildProjection). Sin esto el
+  // matcher enganchaba la factura al item CONTRACT y la grilla mostraba DOS
+  // filas para el mismo cobro: la factura (sobre CONTRACT, que la proyección ya
+  // no expande) + la PROGRAMADA (sobre el RECURRING_DTE). Ahora la factura
+  // engancha al MISMO item soberano que la programada y colapsan en una celda.
+  const items = filterCashflowItemsForProjection(itemsRaw);
   if (items.length === 0) return null;
 
   // Matching por bucket: la occurrence candidata debe caer en el mismo
