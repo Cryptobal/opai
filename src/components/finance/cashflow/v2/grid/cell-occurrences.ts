@@ -64,7 +64,26 @@ export function movableOccurrencesInCell(
 ): VirtualOccurrence[] {
   if (!itemId) return [];
   const inCell = bucket.occurrences.filter((o) => o.itemId === itemId);
-  return visibleInCell(inCell).filter(isMovableOccurrence);
+  const movable = visibleInCell(inCell).filter(isMovableOccurrence);
+  // Dedup por identidad estable: la MISMA factura (mismo dteId) puede llegar
+  // dos veces al bucket —la occurrence materializada al emitir + la ubicada por
+  // override de fecha— y el selector "¿cuál cuota mover?" la mostraba repetida
+  // (dos «N° 1757» idénticos). Colapsamos por dteId; sin dteId, por occurrence
+  // id; y como último recurso por item+fecha. Facturas distintas (dteId
+  // distinto) o cuotas de fechas distintas siguen siendo entradas separadas.
+  const seen = new Set<string>();
+  const out: VirtualOccurrence[] = [];
+  for (const o of movable) {
+    const key = o.dteId
+      ? `dte:${o.dteId}`
+      : o.id
+        ? `occ:${o.id}`
+        : `proj:${o.itemId}:${ymd(o.scheduledDate)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(o);
+  }
+  return out;
 }
 
 /** Variant (pill de color) de una occurrence individual para el selector. */
