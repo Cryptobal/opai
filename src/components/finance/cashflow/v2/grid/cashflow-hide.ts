@@ -5,6 +5,8 @@
  * - Sin dteId → cancelar la occurrence (programación) / restaurar a PROJECTED.
  */
 
+import { unwrapProgItemId } from "./cashflow-move";
+
 export type HideResult =
   | { ok: true; occurrenceId?: string | null }
   | { ok: false; error?: string };
@@ -32,7 +34,12 @@ function isSyntheticItemId(id: string | null): boolean {
 
 export async function hideFromFlowViaApi(input: HideInput): Promise<HideResult> {
   const { dteId, occurrenceId, originalDate } = input;
-  const itemId = isSyntheticItemId(input.itemId) ? null : input.itemId;
+  // `_prog:<uuid>:<fecha>` (programación duplicada junto a una factura movida)
+  // envuelve un itemId REAL: se desenvuelve para cancelar la cuota de ese item
+  // en `originalDate`, en vez de mandar el `_prog:…` crudo (400 "Invalid UUID").
+  const itemId =
+    unwrapProgItemId(input.itemId) ??
+    (isSyntheticItemId(input.itemId) ? null : input.itemId);
 
   try {
     if (dteId) {

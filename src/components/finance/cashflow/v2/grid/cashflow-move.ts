@@ -49,12 +49,25 @@ function isSyntheticItemId(id: string | null): boolean {
   );
 }
 
+/** Fila de programación duplicada (`_prog:<uuid>:<yyyy-mm-dd>`, la que aparece
+ *  junto a una factura movida). A diferencia de los otros sintéticos, ENVUELVE
+ *  un itemId REAL del contrato: al mover/ocultar hay que desenvolverlo para
+ *  materializar la cuota de ese item en `originalDate`. Sin esto, el `_prog:…`
+ *  crudo llegaba a upsert-and-act y Zod lo rechazaba (400 "Invalid UUID"). */
+export function unwrapProgItemId(id: string | null): string | null {
+  if (!id || !id.startsWith("_prog:")) return null;
+  return id.slice("_prog:".length).split(":")[0] || null;
+}
+
 export async function moveViaApi(input: MoveInput): Promise<MoveResult> {
   const { occurrenceId, dteId, originalDate, newDate } = input;
   // Un itemId sintético (fila huérfana `_dte:`, `_orphan`, `_periodic`) NO es un
   // UUID real: lo anulamos para que el router caiga a la rama dteId (DTE huérfano →
-  // dtes/[dteId]/move) en vez de mandar basura a upsert-and-act.
-  const itemId = isSyntheticItemId(input.itemId) ? null : input.itemId;
+  // dtes/[dteId]/move) en vez de mandar basura a upsert-and-act. La fila `_prog:`
+  // sí es movible: se desenvuelve al itemId real que lleva embebido.
+  const itemId =
+    unwrapProgItemId(input.itemId) ??
+    (isSyntheticItemId(input.itemId) ? null : input.itemId);
   let res: Response;
   try {
     if (occurrenceId) {
