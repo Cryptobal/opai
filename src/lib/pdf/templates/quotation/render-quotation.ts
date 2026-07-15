@@ -105,10 +105,18 @@ export interface QuotationPDFProps {
     description: string;
     monthlyValue: string;
   }>;
+  /** Líneas de pago único (se cobran una sola vez, fuera del precio mensual). */
+  additionalOneTime?: Array<{
+    product: string;
+    description: string;
+    value: string;
+  }>;
   totals: {
     subtotalGuards: string;
     subtotalAdditional: string;
     totalNet: string;
+    /** Suma de pagos únicos (formateada). Solo se muestra si hay líneas únicas. */
+    oneTimeTotal?: string;
   };
   conditions: {
     paymentTerms: string;
@@ -483,6 +491,7 @@ export async function renderQuotationToBuffer(
     templateSections: sec,
     costsByCategory,
     additionalLines,
+    additionalOneTime,
     laborBreakdown,
     complianceItems,
   } = props;
@@ -504,6 +513,8 @@ export async function renderQuotationToBuffer(
     PAYMENT_LABELS[conditions.paymentTerms] || conditions.paymentTerms;
   const hasAdditional = additionalServices.length > 0;
   const hasDetailedAdditional = (additionalLines?.length ?? 0) > 0;
+  const oneTimeLines = additionalOneTime ?? [];
+  const hasOneTime = sec.showAdditionalServices && oneTimeLines.length > 0;
   // Fix 1: Strip trailing SECURITY/SEGURIDAD from brand name
   const rawBrandName =
     companyConfig.brandNameUpper ?? companyConfig.commercialName?.toUpperCase() ?? 'EMPRESA';
@@ -693,8 +704,8 @@ export async function renderQuotationToBuffer(
     { label: 'Producto / Servicio', flex: 2, align: 'left' as const },
     { label: 'Descripcion', flex: 2, align: 'left' as const },
     { label: 'Tipo', flex: 0.8, align: 'center' as const },
-    { label: 'Recurrencia', flex: 0.8, align: 'center' as const },
-    { label: 'Valor Mensual', flex: 1.3, align: 'right' as const },
+    { label: 'Cobro', flex: 0.8, align: 'center' as const },
+    { label: 'Valor', flex: 1.3, align: 'right' as const },
   ];
 
   const buildDetailedAddTable = (num: number) =>
@@ -716,9 +727,49 @@ export async function renderQuotationToBuffer(
           e(Text, { style: [s.tblCell, { flex: 2 }] }, line.nombre),
           e(Text, { style: [s.tblCell, { flex: 2 }] }, line.descripcion || '-'),
           e(Text, { style: [s.tblCell, { flex: 0.8, textAlign: 'center' as const }] }, line.tipo),
-          e(Text, { style: [s.tblCell, { flex: 0.8, textAlign: 'center' as const }] }, line.recurrencia === 'unico' ? 'Unico (prorrateado)' : line.recurrencia),
+          e(Text, { style: [s.tblCell, { flex: 0.8, textAlign: 'center' as const }] }, line.recurrencia === 'unico' ? 'Pago único' : 'Mensual'),
           e(Text, { style: [s.tblCellBold, { flex: 1.3, textAlign: 'right' as const }] }, line.precioVentaFmt),
         ),
+      ),
+    );
+
+  /* ─── Pago único table (se cobra una sola vez, fuera del precio mensual) ─── */
+  const oneTimeHeaders = [
+    { label: 'Producto / Servicio', flex: 2, align: 'left' as const },
+    { label: 'Descripcion', flex: 3, align: 'left' as const },
+    { label: 'Valor (una vez)', flex: 1.5, align: 'right' as const },
+  ];
+
+  const buildOneTimeTable = (num: number) =>
+    e(
+      View,
+      { wrap: false },
+      sectionTitle('Pago inicial único (se cobra una sola vez)', num),
+      e(
+        View,
+        { style: s.tblHeader },
+        ...oneTimeHeaders.map((h, i) =>
+          e(
+            Text,
+            { key: i, style: [s.tblHeaderCell, { flex: h.flex, textAlign: h.align }] },
+            h.label,
+          ),
+        ),
+      ),
+      ...oneTimeLines.map((svc, i) =>
+        e(
+          View,
+          { key: i, style: s.tblRow },
+          e(Text, { style: [s.tblCell, { flex: 2 }] }, svc.product),
+          e(Text, { style: [s.tblCell, { flex: 3 }] }, svc.description),
+          e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, svc.value),
+        ),
+      ),
+      e(
+        View,
+        { style: [s.tblRow, { backgroundColor: C.slate50 }] },
+        e(Text, { style: [s.tblCellBold, { flex: 5, textAlign: 'right' as const, paddingRight: 8 }] }, 'Subtotal pago único'),
+        e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, totals.oneTimeTotal ?? ''),
       ),
     );
 
@@ -943,6 +994,7 @@ export async function renderQuotationToBuffer(
           e(Text, { style: s.grandTotalLabel }, 'PRECIO VENTA MENSUAL NETO'),
           e(Text, { style: s.grandTotalAmount }, totals.totalNet),
         ),
+        hasOneTime && !showDetailedAdditional ? buildOneTimeTable(nextNum()) : null,
         e(Text, { style: s.netNote }, 'Valores netos. IVA se factura segun ley vigente.'),
       ),
       pageFooter(),

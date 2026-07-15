@@ -330,8 +330,12 @@ export interface CpqQuoteCostSummary {
   financialRatePct?: number;
   policyRatePct?: number;
   additionalLinesDetails: AdditionalLineDetail[];
+  /** Total recurrente (líneas "mensual"), con margen. Alimenta el precio mensual. */
   additionalLinesTotalBase: number;
   additionalLinesTotalWithMargin: number;
+  /** Total de pagos únicos (líneas "unico"): valor íntegro, se cobra una sola vez. */
+  additionalLinesOneTimeBase: number;
+  additionalLinesOneTimeWithMargin: number;
   costsByCategory: CostByCategory[];
   marginMode: string;
   laborCost: number;

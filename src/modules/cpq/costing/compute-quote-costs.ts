@@ -27,6 +27,8 @@ interface QuoteCostSummary {
   additionalLinesDetails: AdditionalLineDetail[];
   additionalLinesTotalBase: number;
   additionalLinesTotalWithMargin: number;
+  additionalLinesOneTimeBase: number;
+  additionalLinesOneTimeWithMargin: number;
   costsByCategory: CostByCategory[];
   marginMode: string;
   laborCost: number;
@@ -62,27 +64,33 @@ function calculateAdditionalLines(
     cantidad?: number | null;
     marginPct?: unknown;
   }>,
-  contractDuration: number,
 ): {
+  /** Totales RECURRENTES (líneas "mensual"). Alimentan el precio mensual. */
   totalBase: number;
   totalWithMargin: number;
+  /** Totales de PAGO ÚNICO (líneas "unico"): valor íntegro, se cobra una sola vez.
+   *  No se prorratea ni se suma al mensual — se muestra como subtotal aparte. */
+  totalOneTimeBase: number;
+  totalOneTimeWithMargin: number;
   details: AdditionalLineDetail[];
 } {
   const details: AdditionalLineDetail[] = [];
   let totalBase = 0;
   let totalWithMargin = 0;
+  let totalOneTimeBase = 0;
+  let totalOneTimeWithMargin = 0;
 
   for (const line of lines) {
-    let monthlyBase = safeNumber(line.precio) * (line.cantidad ?? 1);
+    const isOneTime = line.recurrencia === "unico";
+    // Valor íntegro, SIN prorratear. El pago único se factura una sola vez y
+    // vive en su propio subtotal; todo lo demás ("mensual", legado "por_evento")
+    // es recurrente y alimenta el precio mensual.
+    const base = safeNumber(line.precio) * (line.cantidad ?? 1);
 
-    if (line.recurrencia === "unico" && contractDuration > 0) {
-      monthlyBase = monthlyBase / contractDuration;
-    }
-
-    let monthlyWithMargin = monthlyBase;
+    let withMargin = base;
     const marginPct = line.marginPct ? safeNumber(line.marginPct) : 0;
     if (marginPct > 0 && marginPct < 100) {
-      monthlyWithMargin = monthlyBase / (1 - marginPct / 100);
+      withMargin = base / (1 - marginPct / 100);
     }
 
     details.push({
@@ -90,16 +98,27 @@ function calculateAdditionalLines(
       nombre: line.nombre,
       tipo: line.tipo ?? "servicio",
       recurrencia: line.recurrencia ?? "mensual",
-      precioBase: monthlyBase,
+      precioBase: base,
       marginPct,
-      precioConMargen: monthlyWithMargin,
+      precioConMargen: withMargin,
     });
 
-    totalBase += monthlyBase;
-    totalWithMargin += monthlyWithMargin;
+    if (isOneTime) {
+      totalOneTimeBase += base;
+      totalOneTimeWithMargin += withMargin;
+    } else {
+      totalBase += base;
+      totalWithMargin += withMargin;
+    }
   }
 
-  return { totalBase, totalWithMargin, details };
+  return {
+    totalBase,
+    totalWithMargin,
+    totalOneTimeBase,
+    totalOneTimeWithMargin,
+    details,
+  };
 }
 
 /* ── Category slug matcher ── */
@@ -498,7 +517,7 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
 
   /* ── §2.3 — Additional lines with margin & proration ── */
 
-  const addlResult = calculateAdditionalLines(additionalLines, contractDuration);
+  const addlResult = calculateAdditionalLines(additionalLines);
 
   /* ── Monthly totals ── */
 
@@ -595,6 +614,8 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     additionalLinesDetails: addlResult.details,
     additionalLinesTotalBase: addlResult.totalBase,
     additionalLinesTotalWithMargin: addlResult.totalWithMargin,
+    additionalLinesOneTimeBase: addlResult.totalOneTimeBase,
+    additionalLinesOneTimeWithMargin: addlResult.totalOneTimeWithMargin,
     costsByCategory,
     marginMode,
     laborCost,

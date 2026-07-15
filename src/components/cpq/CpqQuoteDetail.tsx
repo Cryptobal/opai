@@ -1305,8 +1305,27 @@ export function CpqQuoteDetail({
   }, [costItems, vehicles, infrastructure, costSummary?.totalGuards]);
 
   // Additional lines total
+  // Precio de venta de una línea (con su margen propio). Mismo criterio que el
+  // servidor (calculateAdditionalLines) para que el sidebar cuadre con el PDF.
+  const lineSellPrice = (l: CpqQuoteAdditionalLine) => {
+    const base = Number(l.precio || 0) * Number(l.cantidad || 1);
+    const m = Number(l.marginPct || 0);
+    return m > 0 && m < 100 ? base / (1 - m / 100) : base;
+  };
+  // Recurrente (mensual): alimenta el total mensual. El pago único NO se prorratea
+  // ni entra al mensual — se muestra aparte como "Pago inicial único".
   const additionalLinesTotal = useMemo(
-    () => additionalLines.reduce((s, l) => s + Number(l.precio || 0), 0),
+    () =>
+      additionalLines
+        .filter((l) => (l.recurrencia ?? "mensual") !== "unico")
+        .reduce((s, l) => s + lineSellPrice(l), 0),
+    [additionalLines]
+  );
+  const additionalLinesOneTimeTotal = useMemo(
+    () =>
+      additionalLines
+        .filter((l) => (l.recurrencia ?? "mensual") === "unico")
+        .reduce((s, l) => s + lineSellPrice(l), 0),
     [additionalLines]
   );
 
@@ -1566,7 +1585,7 @@ export function CpqQuoteDetail({
            overflow-x-clip en el wrapper (no -hidden): hidden rompe
            position: sticky al crear scroll container — clip recorta igual
            sin establecer contexto de scroll, así el sticky usa el viewport. */}
-      <div className="sticky top-[53px] z-20 bg-background border-b border-border/60 shadow-sm -mx-4 px-3 pt-1.5 pb-2 mb-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:hidden">
+      <div className="sticky top-[53px] z-20 bg-background border-b border-border/60 shadow-sm -mx-4 px-3 pt-1.5 pb-2 mb-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 lg:hidden">
       {/* Row 1: back · code · status · acciones */}
       <div className="flex items-center gap-1.5 min-w-0">
         <Link href="/crm/cotizaciones" className="shrink-0 -ml-1">
@@ -1856,9 +1875,9 @@ export function CpqQuoteDetail({
            como en enviada: cuando está enviada, el aside expone Generar PDF /
            Enviar propuesta para que el usuario siga operando sin volver a
            borrador. */}
-      <div className="grid gap-3 min-w-0 overflow-x-clip xl:items-start xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid gap-3 min-w-0 overflow-x-clip lg:items-start lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="space-y-2 min-w-0">
-      <div className="hidden xl:flex items-center justify-between gap-4 rounded-lg border border-border/60 bg-card/55 px-4 py-3 shadow-sm">
+      <div className="hidden lg:flex items-center justify-between gap-4 rounded-lg border border-border/60 bg-card/55 px-4 py-3 shadow-sm">
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/crm/cotizaciones" className="shrink-0">
             <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
@@ -2437,7 +2456,6 @@ export function CpqQuoteDetail({
               const mPct = Number(line.marginPct || 0);
               const precioVenta = mPct > 0 && mPct < 100 ? precioBase / (1 - mPct / 100) : precioBase;
               const isUnico = line.recurrencia === "unico";
-              const precioMensual = isUnico && quoteForm.contractDuration > 0 ? precioVenta / quoteForm.contractDuration : precioVenta;
 
               return (
                 <div key={idx} className="rounded-lg border border-border/50 bg-muted/5 p-2.5">
@@ -2491,8 +2509,7 @@ export function CpqQuoteDetail({
                         {/* Recurrencia */}
                         {([
                           { value: "mensual", label: "Mensual" },
-                          { value: "unico", label: "Único" },
-                          { value: "por_evento", label: "Por evento" },
+                          { value: "unico", label: "Pago único" },
                         ] as const).map((r) => (
                           <button
                             key={r.value}
@@ -2563,41 +2580,31 @@ export function CpqQuoteDetail({
                       <div className="flex flex-col items-start sm:items-end">
                         <div className="flex items-baseline gap-1">
                           <CpqDualCurrencyAmount
-                            clp={precioMensual}
+                            clp={precioVenta}
                             currency={crmContext.currency || "CLP"}
                             ufValue={ufValue}
                             size="sm"
                             inline
-                            primaryClassName="text-[13px] font-bold"
+                            primaryClassName={cn("text-[13px] font-bold", isUnico && "text-status-warn-fg")}
                           />
-                          <span className="text-xs text-muted-foreground font-normal">/mes</span>
+                          <span className="text-xs text-muted-foreground font-normal">
+                            {isUnico ? "pago único" : "/mes"}
+                          </span>
                         </div>
                         {isUnico && (
+                          <span className="text-[11px] text-status-warn-fg">Se cobra una sola vez</span>
+                        )}
+                        {mPct > 0 && (
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <span>Inv:</span>
+                            <span>Base:</span>
                             <CpqDualCurrencyAmount
-                              clp={precioVenta}
+                              clp={precioBase}
                               currency={crmContext.currency || "CLP"}
                               ufValue={ufValue}
                               size="xs"
                               inline
                               hideSecondary
                               primaryClassName="text-muted-foreground"
-                            />
-                            <span>÷ {quoteForm.contractDuration}m</span>
-                          </div>
-                        )}
-                        {mPct > 0 && (
-                          <div className="flex items-center gap-1 text-xs text-status-ok-fg">
-                            <span>Venta:</span>
-                            <CpqDualCurrencyAmount
-                              clp={precioVenta}
-                              currency={crmContext.currency || "CLP"}
-                              ufValue={ufValue}
-                              size="xs"
-                              inline
-                              hideSecondary
-                              primaryClassName="text-status-ok-fg"
                             />
                           </div>
                         )}
@@ -3072,8 +3079,12 @@ export function CpqQuoteDetail({
 
       </div>{/* end main column */}
 
-      <aside className="hidden xl:block min-w-0">
-        <div className="sticky top-4 space-y-3">
+      <aside className="hidden lg:block min-w-0">
+        {/* Centro de control fijo: se queda pegado al hacer scroll y, si la
+            tarjeta supera el alto de pantalla, scrollea dentro de sí misma
+            (max-h + overflow) para no perder nunca el Total mensual ni dejar
+            fuera de alcance los botones de abajo. */}
+        <div className="sticky top-4 space-y-3 max-h-[calc(100vh-2rem)] overflow-y-auto pr-0.5">
           <Card className="overflow-hidden border-border/70 bg-card/80 shadow-sm">
             <div className="border-b border-border/50 bg-muted/20 px-4 py-3">
               <div className="flex items-center justify-between gap-3">
@@ -3114,6 +3125,34 @@ export function CpqQuoteDetail({
                   </Badge>
                 </div>
               </div>
+
+              {additionalLinesOneTimeTotal > 0 && (
+                <div className="rounded-xl border border-status-warn-border bg-status-warn-soft/40 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-status-warn-fg">
+                        Pago inicial único
+                      </p>
+                      <div className="mt-1">
+                        <CpqDualCurrencyAmount
+                          clp={additionalLinesOneTimeTotal}
+                          currency={crmContext.currency || "CLP"}
+                          ufValue={ufValue}
+                          size="sm"
+                          align="left"
+                          primaryClassName="text-base font-bold"
+                        />
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="border-status-warn-border bg-background/50 text-[11px] text-status-warn-fg">
+                      Una vez
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Se cobra una sola vez, fuera del total mensual.
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div className="rounded-lg border border-border/60 bg-background/45 p-3">

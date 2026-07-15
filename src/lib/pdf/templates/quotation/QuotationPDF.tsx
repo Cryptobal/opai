@@ -991,7 +991,7 @@ function AdditionalServicesDetailed({
   const rows = lines.map((l) => [
     { value: l.nombre },
     { value: l.tipo },
-    { value: l.recurrencia === 'unico' ? 'Único (prorrateado)' : l.recurrencia },
+    { value: l.recurrencia === 'unico' ? 'Pago único' : 'Mensual' },
     { value: l.precioVentaFmt, bold: true },
   ]);
 

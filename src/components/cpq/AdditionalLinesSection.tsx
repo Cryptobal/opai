@@ -47,8 +47,7 @@ const LINE_TYPES = [
 
 const RECURRENCE_TYPES = [
   { value: "mensual", label: "Mensual" },
-  { value: "unico", label: "Único" },
-  { value: "por_evento", label: "Por evento" },
+  { value: "unico", label: "Pago único" },
 ] as const;
 
 export function AdditionalLinesSection({ lines, onChange, contractDuration = 12, isLocked, onSaveToCatalog, currency = "CLP", ufValue }: AdditionalLinesSectionProps) {
@@ -113,13 +112,19 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
     }
   };
 
-  const total = lines.reduce((sum, line) => {
+  // Precio de venta de una línea (con su margen). El pago único va a su propio
+  // subtotal (valor íntegro, sin prorratear); lo demás alimenta el mensual.
+  const lineSell = (line: AdditionalLineItem) => {
     const base = Number(line.precio || 0) * Number(line.cantidad || 1);
     const mPct = Number(line.marginPct || 0);
-    const venta = mPct > 0 && mPct < 100 ? base / (1 - mPct / 100) : base;
-    const isUnico = line.recurrencia === "unico";
-    return sum + (isUnico && contractDuration > 0 ? venta / contractDuration : venta);
-  }, 0);
+    return mPct > 0 && mPct < 100 ? base / (1 - mPct / 100) : base;
+  };
+  const total = lines
+    .filter((l) => (l.recurrencia ?? "mensual") !== "unico")
+    .reduce((sum, line) => sum + lineSell(line), 0);
+  const oneTimeTotal = lines
+    .filter((l) => (l.recurrencia ?? "mensual") === "unico")
+    .reduce((sum, line) => sum + lineSell(line), 0);
 
   return (
     <div className="space-y-2">
@@ -128,7 +133,6 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
         const mPct = Number(line.marginPct || 0);
         const precioVenta = mPct > 0 && mPct < 100 ? precioBase / (1 - mPct / 100) : precioBase;
         const isUnico = line.recurrencia === "unico";
-        const precioMensual = isUnico && contractDuration > 0 ? precioVenta / contractDuration : precioVenta;
 
         return (
           <div key={idx} className="rounded-lg border border-border/50 bg-muted/5 p-2.5">
@@ -257,29 +261,14 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
             <div className="flex items-center justify-end gap-1 mt-1 text-xs">
               <span className="text-muted-foreground">Venta:</span>
               <CpqDualCurrencyAmount
-                clp={precioMensual}
+                clp={precioVenta}
                 currency={currency}
                 ufValue={ufValue}
                 size="xs"
                 inline
-                primaryClassName="font-semibold text-tint-violet-fg"
+                primaryClassName={cn("font-semibold", isUnico ? "text-status-warn-fg" : "text-tint-violet-fg")}
               />
-              <span className="text-muted-foreground">/mes</span>
-              {isUnico && (
-                <span className="text-muted-foreground">
-                  (
-                  <CpqDualCurrencyAmount
-                    clp={precioVenta}
-                    currency={currency}
-                    ufValue={ufValue}
-                    size="xs"
-                    inline
-                    hideSecondary
-                    primaryClassName="text-muted-foreground"
-                  />
-                  {` / ${contractDuration}m)`}
-                </span>
-              )}
+              <span className="text-muted-foreground">{isUnico ? "pago único" : "/mes"}</span>
             </div>
           </div>
         );
@@ -293,7 +282,7 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
 
       {lines.length > 0 && (
         <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "pt-1 border-t border-tint-violet-fg/20 text-xs")}>
-          <span className="text-sm font-medium text-tint-violet-fg break-words min-w-0">Total líneas adicionales</span>
+          <span className="text-sm font-medium text-tint-violet-fg break-words min-w-0">Total mensual adicionales</span>
           <div className={cpqBreakdownAmount()}>
             <CpqDualCurrencyAmount
               clp={total}
@@ -301,6 +290,23 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
               ufValue={ufValue}
               size="sm"
               primaryClassName="font-bold text-tint-violet-fg"
+            />
+          </div>
+        </div>
+      )}
+
+      {oneTimeTotal > 0 && (
+        <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "text-xs")}>
+          <span className="text-sm font-medium text-status-warn-fg break-words min-w-0">
+            Pago inicial único <span className="font-normal text-muted-foreground">(una vez)</span>
+          </span>
+          <div className={cpqBreakdownAmount()}>
+            <CpqDualCurrencyAmount
+              clp={oneTimeTotal}
+              currency={currency}
+              ufValue={ufValue}
+              size="sm"
+              primaryClassName="font-bold text-status-warn-fg"
             />
           </div>
         </div>

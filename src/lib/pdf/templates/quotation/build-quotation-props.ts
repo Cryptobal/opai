@@ -178,9 +178,18 @@ export async function buildQuotationProps(
     console.error('[PDF] computeCpqQuoteCosts failed — breakdown/labor/costsByCategory will be empty:', err);
   }
 
+  // Recurrente (mensual) vs pago único: el único NO se prorratea ni entra al
+  // precio mensual; se muestra como subtotal aparte "Pago inicial único".
   const totalAdditionalLines = summary
     ? summary.additionalLinesTotalWithMargin
-    : additionalLines.reduce((sum, l) => sum + Number(l.precio), 0);
+    : additionalLines
+        .filter((l) => (l.recurrencia ?? 'mensual') !== 'unico')
+        .reduce((sum, l) => sum + Number(l.precio), 0);
+  const totalOneTimeLines = summary
+    ? summary.additionalLinesOneTimeWithMargin
+    : additionalLines
+        .filter((l) => (l.recurrencia ?? 'mensual') === 'unico')
+        .reduce((sum, l) => sum + Number(l.precio), 0);
 
   // Pricing parameters
   const marginPct = Number(quote.parameters?.marginPct ?? 13);
@@ -556,7 +565,10 @@ export async function buildQuotationProps(
       installationName: quote.installation?.name || undefined,
     },
     positions,
+    // Tabla simple: solo líneas RECURRENTES (mensual). Los pagos únicos van en
+    // su propia tabla (additionalOneTime) para no mezclarse con el mensual.
     additionalServices: additionalLines
+      .filter((l) => (l.recurrencia ?? 'mensual') !== 'unico')
       .filter((l) => {
         const pdfLine = additionalLinesPDFRaw.find((p) => p.nombre === l.nombre);
         const value = pdfLine ? pdfLine.precioVenta : Number(l.precio);
@@ -571,10 +583,27 @@ export async function buildQuotationProps(
           monthlyValue,
         };
       }),
+    additionalOneTime: additionalLines
+      .filter((l) => (l.recurrencia ?? 'mensual') === 'unico')
+      .filter((l) => {
+        const pdfLine = additionalLinesPDFRaw.find((p) => p.nombre === l.nombre);
+        const value = pdfLine ? pdfLine.precioVenta : Number(l.precio);
+        return value > 0;
+      })
+      .map((l) => {
+        const pdfLine = additionalLinesPDFRaw.find((p) => p.nombre === l.nombre);
+        const value = pdfLine ? pdfLine.precioVentaFmt : fmt(Number(l.precio));
+        return {
+          product: String(l.nombre),
+          description: l.descripcion ? String(l.descripcion) : '-',
+          value,
+        };
+      }),
     totals: {
       subtotalGuards: fmt(totalSalePrice),
       subtotalAdditional: fmt(totalAdditionalLines),
       totalNet: grandTotal > 0 ? fmt(grandTotal) : 'N/A',
+      oneTimeTotal: totalOneTimeLines > 0 ? fmt(totalOneTimeLines) : undefined,
     },
     conditions: {
       paymentTerms: quote.paymentTerms || 'contrafactura',
