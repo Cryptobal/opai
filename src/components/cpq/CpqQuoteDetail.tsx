@@ -1877,7 +1877,7 @@ export function CpqQuoteDetail({
            borrador. */}
       <div className="grid gap-3 min-w-0 overflow-x-clip lg:items-start lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="space-y-2 min-w-0">
-      <div className="hidden lg:flex items-center justify-between gap-4 rounded-lg border border-border/60 bg-card/55 px-4 py-3 shadow-sm">
+      <div className="hidden lg:flex sticky top-2 z-30 items-center justify-between gap-4 rounded-lg border border-border/60 bg-card/85 backdrop-blur-md px-4 py-3 shadow-md">
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/crm/cotizaciones" className="shrink-0">
             <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
@@ -1903,6 +1903,35 @@ export function CpqQuoteDetail({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {/* KPIs siempre visibles en la barra fija: al hacer scroll, el Total
+              mensual (y margen/dotación en pantallas anchas) siguen a la vista
+              aunque el Centro de Control ya haya bajado. */}
+          <div className="hidden lg:flex items-stretch overflow-hidden rounded-lg border border-border/60 bg-background/40">
+            <div className="flex flex-col justify-center px-3 py-1">
+              <span className="text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">Total mensual</span>
+              <CpqDualCurrencyAmount
+                clp={billingMonthlyTotal}
+                currency={crmContext.currency || "CLP"}
+                ufValue={ufValue}
+                size="sm"
+                align="left"
+                inline
+                primaryClassName="text-sm font-bold text-status-ok-fg"
+              />
+            </div>
+            <div className="hidden xl:flex flex-col justify-center border-l border-border/50 px-3 py-1">
+              <span className="text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">Margen</span>
+              <span className={cn("text-sm font-bold leading-tight", marginPct >= 15 ? "text-status-ok-fg" : marginPct >= 10 ? "text-status-warn-fg" : "text-status-danger-fg")}>
+                {Number(marginPct || 0).toFixed(1)}%
+              </span>
+            </div>
+            <div className="hidden xl:flex flex-col justify-center border-l border-border/50 px-3 py-1">
+              <span className="text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">Dotación</span>
+              <span className="flex items-center gap-1 text-sm font-bold leading-tight text-status-info-fg">
+                <Users className="h-3.5 w-3.5" />{stats.totalGuards}
+              </span>
+            </div>
+          </div>
           {crmContext.accountId ? (
             <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5">
               <Label htmlFor="cpq-portal-visible-desktop" className="cursor-pointer text-xs font-medium text-muted-foreground">
@@ -3080,11 +3109,10 @@ export function CpqQuoteDetail({
       </div>{/* end main column */}
 
       <aside className="hidden lg:block min-w-0">
-        {/* Centro de control fijo: se queda pegado al hacer scroll y, si la
-            tarjeta supera el alto de pantalla, scrollea dentro de sí misma
-            (max-h + overflow) para no perder nunca el Total mensual ni dejar
-            fuera de alcance los botones de abajo. */}
-        <div className="sticky top-4 space-y-3 max-h-[calc(100vh-2rem)] overflow-y-auto pr-0.5">
+        {/* Centro de control en flujo normal: sube y baja con la página, sin
+            scroll interno. Los KPIs clave (total mensual, margen, dotación)
+            viven en la barra superior fija, así que no se pierden al scrollear. */}
+        <div className="space-y-3">
           <Card className="overflow-hidden border-border/70 bg-card/80 shadow-sm">
             <div className="border-b border-border/50 bg-muted/20 px-4 py-3">
               <div className="flex items-center justify-between gap-3">
