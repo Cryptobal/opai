@@ -42,7 +42,15 @@ export function useWeekCache(initial: ProjectionMatrix) {
         to: to.toISOString(),
         granularity: "weekly",
       });
-      const r = await fetch(`/api/finance/cashflow/projection?${qs}`);
+      // `no-store`: tras un move/ocultar, `refresh()` re-pide EXACTAMENTE la
+      // misma ventana (mismo from/to → misma URL). Con el caché HTTP por
+      // defecto el navegador devolvía la respuesta vieja y la fila ocultada no
+      // desaparecía / la movida no aparecía hasta recargar a mano. El buscador
+      // de folios no sufría esto porque salta a otro rango (URL nueva). La
+      // proyección es estado vivo: nunca debe servirse cacheada.
+      const r = await fetch(`/api/finance/cashflow/projection?${qs}`, {
+        cache: "no-store",
+      });
       const j = await r.json();
       return j?.success ? (j.data as ProjectionMatrix) : null;
     },

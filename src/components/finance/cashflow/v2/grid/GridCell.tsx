@@ -144,6 +144,7 @@ export function GridCell({
         variant={chip!.variant}
         locked={chip!.locked}
         title={chip!.title}
+        caption={chip!.caption}
       />
     ) : chip ? (
       <GridChip
@@ -151,6 +152,7 @@ export function GridCell({
         variant={chip.variant}
         locked={chip.locked}
         title={chip.title}
+        caption={chip.caption}
       />
     ) : null;
 

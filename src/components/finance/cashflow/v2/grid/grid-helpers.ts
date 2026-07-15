@@ -237,6 +237,10 @@ export interface CellChip {
   locked: boolean;
   draggable: boolean;
   title: string;
+  /** Etiqueta sutil abajo-derecha del monto: folio de la factura ("N° 1725") o,
+   *  si es programada/borrador sin folio, la fecha real de la cuota ("1 ago").
+   *  Reemplaza la necesidad de hover para leer folio/fecha. */
+  caption: string | null;
 }
 
 /** "20 jul" a partir de un yyyy-MM-dd. timeZone UTC para no correr el día. */
@@ -286,5 +290,15 @@ export function cellChip(
     title += ` · ${formatDayMonth(value.scheduledDate)}`;
   }
   if (value.dteFolio) title += ` · N° ${value.dteFolio}`;
-  return { variant, locked, draggable, title };
+  // Caption sutil bajo el monto: prioriza el folio (factura), y si no hay folio
+  // pero es una programada/borrador, muestra la fecha real de la cuota. Así el
+  // folio/fecha se leen sin hover (antes solo estaban en el title).
+  const scheduledCaption =
+    (variant === "PROJECTED" || variant === "DRAFT") &&
+    value.reconciled !== true &&
+    value.scheduledDate
+      ? formatDayMonth(value.scheduledDate)
+      : null;
+  const caption = value.dteFolio ? `N° ${value.dteFolio}` : scheduledCaption;
+  return { variant, locked, draggable, title, caption };
 }

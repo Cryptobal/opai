@@ -20,6 +20,7 @@ export function GridDraggableChip({
   variant,
   locked,
   title,
+  caption,
 }: {
   itemId: string;
   itemName: string;
@@ -29,6 +30,7 @@ export function GridDraggableChip({
   variant: React.ComponentProps<typeof GridChip>["variant"];
   locked: boolean;
   title: string;
+  caption?: string | null;
 }) {
   const data: GridDragData = {
     kind: "grid-chip",
@@ -53,7 +55,14 @@ export function GridDraggableChip({
       {...listeners}
       {...attributes}
     >
-      <GridChip amount={amount} variant={variant} locked={locked} draggable title={title} />
+      <GridChip
+        amount={amount}
+        variant={variant}
+        locked={locked}
+        draggable
+        title={title}
+        caption={caption}
+      />
     </span>
   );
 }

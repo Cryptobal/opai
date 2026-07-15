@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { fmt } from "@/components/finance/cashflow/MatrixHelpers";
 import type { ProjectionBucket } from "@/modules/finance/cashflow/types";
 import { toDate } from "../format";
+import { isCurrentBucket } from "../projection-helpers";
 
 interface DteFlowSearchResult {
   dteId: string;
@@ -207,22 +208,29 @@ export function CashflowFolioSearch({ buckets, canManage, onRun, onLocate }: Pro
                     </p>
                     <div className="grid grid-cols-2 gap-1.5">
                       {buckets.map((b) => {
+                        // "aquí" = la semana donde HOY está la factura (primary,
+                        // rellena). "hoy" = la semana actual del calendario, para
+                        // ubicarla de un vistazo al decidir a cuál correrla.
                         const isHere = b.key === selected.weekKey;
+                        const isNow = isCurrentBucket(b);
                         return (
                           <Button
                             key={b.key}
                             size="sm"
-                            // La semana actual va coloreada (primary) para
-                            // ubicarla de un vistazo; igual es clickable.
                             variant={isHere ? "default" : "outline"}
                             onClick={() => runTo(toDate(b.start))}
                             className={cn(
                               "justify-start text-[12px]",
                               isHere && "ring-1 ring-primary",
+                              // Semana actual (no la de la factura): borde y
+                              // texto de acento para identificarla sin rellenar.
+                              !isHere &&
+                                isNow &&
+                                "border-primary text-primary ring-1 ring-primary/40",
                             )}
                           >
                             {b.label}
-                            {isHere ? " · aquí" : ""}
+                            {isHere ? " · aquí" : isNow ? " · hoy" : ""}
                           </Button>
                         );
                       })}

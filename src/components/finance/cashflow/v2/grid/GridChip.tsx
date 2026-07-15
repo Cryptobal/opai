@@ -30,6 +30,7 @@ export function GridChip({
   draggable = false,
   elevated = false,
   title,
+  caption,
 }: {
   amount: number;
   variant: PillVariant;
@@ -41,19 +42,28 @@ export function GridChip({
    *  se lea "agarrado y flotando" mientras sigue al dedo. */
   elevated?: boolean;
   title?: string;
+  /** Folio ("N° 1725") o fecha ("1 ago") sutil abajo-derecha del monto. */
+  caption?: string | null;
 }) {
   return (
     <span
       title={title}
       className={cn(
-        "inline-flex min-h-[30px] items-center justify-center gap-1 rounded-ds-sm px-1.5 py-1 font-mono text-[12px] font-medium tabular-nums",
+        "inline-flex min-h-[30px] flex-col justify-center gap-0.5 rounded-ds-sm px-1.5 py-1 font-mono text-[12px] font-medium tabular-nums",
         CHIP[variant],
         draggable && "cursor-grab active:cursor-grabbing",
         elevated && "scale-105 shadow-lg ring-2 ring-inset ring-primary/50",
       )}
     >
-      {locked && <Lock className="h-3 w-3 shrink-0 opacity-70" aria-hidden />}
-      {fmt.format(amount)}
+      <span className="inline-flex items-center justify-center gap-1 leading-none">
+        {locked && <Lock className="h-3 w-3 shrink-0 opacity-70" aria-hidden />}
+        {fmt.format(amount)}
+      </span>
+      {caption && (
+        <span className="-mb-0.5 self-end text-[9px] font-normal leading-none opacity-55">
+          {caption}
+        </span>
+      )}
     </span>
   );
 }

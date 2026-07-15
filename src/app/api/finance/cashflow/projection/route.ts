@@ -4,6 +4,10 @@ import { hasCapability } from "@/lib/permissions";
 import { buildProjection } from "@/modules/finance/cashflow/projection.service";
 import { projectionQuerySchema } from "@/lib/validations/cashflow";
 
+// Estado vivo: nunca cachear. La grilla re-pide la misma ventana tras
+// mover/ocultar y debe recibir datos frescos (ver useWeekCache.fetchRange).
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
