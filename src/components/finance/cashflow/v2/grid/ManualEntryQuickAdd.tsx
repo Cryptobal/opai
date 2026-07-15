@@ -32,10 +32,16 @@ interface ConceptOption {
 
 /**
  * Construye las opciones de concepto a partir de las filas reales del flujo,
- * filtradas por tipo (ingreso/egreso). Incluye tanto la categoría (ej.
- * "Sueldos líquidos", "Previred") como cada ítem/cliente (ej. "Aguas Andinas").
- * Así el movimiento manual cae en la sección correcta en vez de amontonarse al
- * fondo en la categoría por defecto.
+ * filtradas por tipo (ingreso/egreso).
+ *
+ * Regla de INGRESOS: al flujo entran los DTE recurrentes (item soberano). El
+ * `source=CONTRACT` es un duplicado del contrato — NO se ofrece como concepto
+ * (evita listar "Contrato X" o "Ventas por Contrato"). Se listan:
+ *   - los ítems/clientes reales de cada categoría (DTE recurrentes, manuales…),
+ *   - o, si la categoría no tiene ítems propios, la categoría misma (buckets
+ *     manuales tipo "Préstamo de socios", "Otros ingresos").
+ * Prefiere el ítem sobre la etiqueta de categoría para no duplicar ("DTE
+ * Recurrente" + sus clientes). Los egresos no tienen el problema de CONTRACT.
  */
 function buildConceptOptions(
   rows: ProjectionRow[],
@@ -43,27 +49,35 @@ function buildConceptOptions(
 ): ConceptOption[] {
   const seen = new Set<string>();
   const out: ConceptOption[] = [];
+  const push = (name: string, categoryId: string | null, hint?: string) => {
+    const nm = name.trim();
+    if (!nm) return;
+    const key = nm.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ name: nm, categoryId, hint: hint?.trim() || undefined });
+  };
+
   for (const row of rows) {
     if (row.kind !== kind) continue;
-    const catName = row.categoryName?.trim();
-    if (catName) {
-      const key = catName.toLowerCase();
-      if (!seen.has(key)) {
-        seen.add(key);
-        out.push({ name: catName, categoryId: row.categoryId });
+    const items = row.items ?? [];
+    // Ingresos: fuera los ítems de contrato (duplican al DTE recurrente soberano).
+    const usable =
+      kind === "INCOME" ? items.filter((i) => i.source !== "CONTRACT") : items;
+    // Categoría puramente de contrato → no ofrecer nada de ella.
+    if (kind === "INCOME" && items.length > 0 && usable.length === 0) continue;
+
+    if (usable.length > 0) {
+      for (const it of usable) {
+        push(
+          it.itemName || "",
+          row.categoryId,
+          it.crmAccountName || row.categoryName || undefined,
+        );
       }
-    }
-    for (const it of row.items ?? []) {
-      const nm = (it.itemName || "").trim();
-      if (!nm) continue;
-      const key = nm.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push({
-        name: nm,
-        categoryId: row.categoryId,
-        hint: it.crmAccountName?.trim() || catName || undefined,
-      });
+    } else {
+      // Categoría sin ítems propios (bucket manual: préstamo socios, otros…).
+      push(row.categoryName || "", row.categoryId);
     }
   }
   return out.sort((a, b) => a.name.localeCompare(b.name, "es"));
