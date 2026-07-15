@@ -456,6 +456,7 @@ export function CashflowGrid({
           {canManage && (
             <ManualEntryQuickAdd
               buckets={visibleBuckets}
+              rows={active.rows}
               onCreated={refreshAll}
             />
           )}

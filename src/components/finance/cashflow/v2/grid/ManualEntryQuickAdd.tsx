@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Check, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { ProjectionBucket } from "@/modules/finance/cashflow/types";
+import type { ProjectionBucket, ProjectionRow } from "@/modules/finance/cashflow/types";
 import { toDate } from "../format";
 import { formatThousands, parseAmount } from "../amount-format";
 import { isCurrentBucket } from "../projection-helpers";
@@ -21,6 +21,53 @@ import { createManualEntryViaApi } from "./cashflow-create";
 
 /** yyyy-MM-dd de una fecha (ISO string o Date). */
 const ymd = (d: string | Date) => toDate(d).toISOString().slice(0, 10);
+
+/** Concepto elegible en el selector: un nombre real del flujo + su categoría. */
+interface ConceptOption {
+  name: string;
+  categoryId: string | null;
+  /** Pista secundaria (cliente / categoría) para desambiguar en la lista. */
+  hint?: string;
+}
+
+/**
+ * Construye las opciones de concepto a partir de las filas reales del flujo,
+ * filtradas por tipo (ingreso/egreso). Incluye tanto la categoría (ej.
+ * "Sueldos líquidos", "Previred") como cada ítem/cliente (ej. "Aguas Andinas").
+ * Así el movimiento manual cae en la sección correcta en vez de amontonarse al
+ * fondo en la categoría por defecto.
+ */
+function buildConceptOptions(
+  rows: ProjectionRow[],
+  kind: "INCOME" | "EXPENSE",
+): ConceptOption[] {
+  const seen = new Set<string>();
+  const out: ConceptOption[] = [];
+  for (const row of rows) {
+    if (row.kind !== kind) continue;
+    const catName = row.categoryName?.trim();
+    if (catName) {
+      const key = catName.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push({ name: catName, categoryId: row.categoryId });
+      }
+    }
+    for (const it of row.items ?? []) {
+      const nm = (it.itemName || "").trim();
+      if (!nm) continue;
+      const key = nm.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        name: nm,
+        categoryId: row.categoryId,
+        hint: it.crmAccountName?.trim() || catName || undefined,
+      });
+    }
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name, "es"));
+}
 
 /**
  * Alta manual de un ingreso/egreso para PROYECTAR a mano en el flujo (ej.
@@ -31,17 +78,35 @@ const ymd = (d: string | Date) => toDate(d).toISOString().slice(0, 10);
  */
 export function ManualEntryQuickAdd({
   buckets,
+  rows,
   onCreated,
 }: {
   /** Semanas visibles, para elegir en cuál cae la cuota. */
   buckets: ProjectionBucket[];
+  /** Filas actuales del flujo, para ofrecer los conceptos que ya existen. */
+  rows: ProjectionRow[];
   /** Refresca la grilla tras crear (la fila nueva aparece sola). */
   onCreated: () => void | Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<"INCOME" | "EXPENSE">("INCOME");
   const [name, setName] = useState("");
+  /** Categoría del concepto elegido; null cuando el concepto es libre. */
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [suggestOpen, setSuggestOpen] = useState(false);
   const [rawAmount, setRawAmount] = useState("");
+
+  const conceptOptions = useMemo(
+    () => buildConceptOptions(rows, kind),
+    [rows, kind],
+  );
+  const filteredOptions = useMemo(() => {
+    const q = name.trim().toLowerCase();
+    const base = q
+      ? conceptOptions.filter((o) => o.name.toLowerCase().includes(q))
+      : conceptOptions;
+    return base.slice(0, 40);
+  }, [conceptOptions, name]);
   const currentKey = useMemo(
     () => buckets.find((b) => isCurrentBucket(b))?.key ?? buckets[0]?.key ?? "",
     [buckets],
@@ -58,8 +123,24 @@ export function ManualEntryQuickAdd({
 
   function reset() {
     setName("");
+    setCategoryId(null);
+    setSuggestOpen(false);
     setRawAmount("");
     setKind("INCOME");
+  }
+
+  /** Cambia ingreso/egreso: los conceptos difieren, así que limpia la selección. */
+  function selectKind(k: "INCOME" | "EXPENSE") {
+    setKind(k);
+    setName("");
+    setCategoryId(null);
+    setSuggestOpen(false);
+  }
+
+  function pickConcept(opt: ConceptOption) {
+    setName(opt.name);
+    setCategoryId(opt.categoryId);
+    setSuggestOpen(false);
   }
 
   async function submit() {
@@ -84,6 +165,9 @@ export function ManualEntryQuickAdd({
       name: concept,
       amountClp: amount,
       scheduledDate: ymd(bucket.start),
+      // Si el concepto salió del selector, hereda su categoría → la fila cae en
+      // la sección correcta y no al fondo de la categoría por defecto.
+      categoryId,
     });
     setBusy(false);
     if (!res.ok) {
@@ -133,7 +217,7 @@ export function ManualEntryQuickAdd({
                 <button
                   key={k}
                   type="button"
-                  onClick={() => setKind(k)}
+                  onClick={() => selectKind(k)}
                   className={cn(
                     "h-9 rounded-ds-md border text-[13px] transition-colors",
                     kind === k
@@ -148,18 +232,75 @@ export function ManualEntryQuickAdd({
               ))}
             </div>
 
-            {/* Concepto */}
-            <label className="flex flex-col gap-1">
-              <span className="text-[12px] text-ds-text-3">Concepto</span>
-              <input
-                autoFocus
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ej. Anticipo Polpaico"
-                maxLength={200}
-                className="h-10 rounded-ds-md border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </label>
+            {/* Concepto — selector de los conceptos que ya existen en el flujo
+                (clientes/contratos para ingresos; sueldos/previred/etc para
+                egresos). También se puede escribir uno nuevo. */}
+            <div className="flex flex-col gap-1">
+              <span className="text-[12px] text-ds-text-3">
+                Concepto
+                <span className="ml-1 text-ds-text-3/70">
+                  · {kind === "INCOME" ? "cliente / contrato" : "tipo de egreso"}
+                </span>
+              </span>
+              <div className="relative">
+                <input
+                  autoFocus
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    setCategoryId(null);
+                    setSuggestOpen(true);
+                  }}
+                  onFocus={() => setSuggestOpen(true)}
+                  placeholder={
+                    kind === "INCOME"
+                      ? "Buscar cliente o escribir concepto…"
+                      : "Buscar egreso o escribir concepto…"
+                  }
+                  maxLength={200}
+                  className="h-10 w-full rounded-ds-md border border-ds-border-default bg-ds-surface-1 px-3 pr-9 text-[13px] text-ds-text-1 placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setSuggestOpen((v) => !v)}
+                  className="absolute right-1 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center text-ds-text-3 hover:text-ds-text-1"
+                  aria-label="Ver conceptos"
+                >
+                  <ChevronDown className={cn("h-4 w-4 transition-transform", suggestOpen && "rotate-180")} />
+                </button>
+
+                {suggestOpen && filteredOptions.length > 0 && (
+                  <div className="absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-ds-md border border-ds-border-default bg-ds-surface-1 py-1 shadow-lg">
+                    {filteredOptions.map((opt) => {
+                      const active = opt.name.toLowerCase() === name.trim().toLowerCase();
+                      return (
+                        <button
+                          key={`${opt.name}-${opt.categoryId ?? "x"}`}
+                          type="button"
+                          onClick={() => pickConcept(opt)}
+                          className={cn(
+                            "flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] transition-colors hover:bg-ds-surface-2",
+                            active ? "text-ds-text-1" : "text-ds-text-2",
+                          )}
+                        >
+                          <Check className={cn("h-3.5 w-3.5 shrink-0", active ? "opacity-100 text-status-ok-fg" : "opacity-0")} />
+                          <span className="min-w-0 flex-1 truncate">{opt.name}</span>
+                          {opt.hint && opt.hint.toLowerCase() !== opt.name.toLowerCase() && (
+                            <span className="shrink-0 truncate text-[11px] text-ds-text-3">{opt.hint}</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              {name.trim() && categoryId === null && (
+                <span className="text-[11px] text-ds-text-3">
+                  Concepto nuevo · caerá en la categoría general de {kind === "INCOME" ? "ingresos" : "egresos"}
+                </span>
+              )}
+            </div>
 
             {/* Monto */}
             <label className="flex flex-col gap-1">
@@ -167,6 +308,7 @@ export function ManualEntryQuickAdd({
               <input
                 value={rawAmount}
                 inputMode="numeric"
+                onFocus={() => setSuggestOpen(false)}
                 onChange={(e) => setRawAmount(formatThousands(e.target.value))}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void submit();
