@@ -112,14 +112,8 @@ export async function computeWeeklyCloseSnapshot(
   // ese valor sellado para que la varianza del cierre no cambie retroactivamente
   // al corregir un snapshot bancario del pasado. Cierres previos a la migración
   // (openingBalanceClp null) siguen usando el valor calculado.
-  const sealed = await prisma.financeCashflowWeeklyClose.findFirst({
-    where: { tenantId, weekEndDate: weekEndNorm },
-    select: { openingBalanceClp: true },
-  });
-  const openingBalance =
-    sealed?.openingBalanceClp != null
-      ? Number(sealed.openingBalanceClp)
-      : computedOpening;
+  const sealedOpening = await fetchSealedOpeningBalance(tenantId, weekEndNorm);
+  const openingBalance = sealedOpening ?? computedOpening;
 
   const proj = await buildProjection(tenantId, {
     from: weekStart,
@@ -530,11 +524,20 @@ export async function nextWeekClosingDate(tenantId: string): Promise<Date> {
   return weekEndForClosing(new Date(), dow);
 }
 
+/** Historial ligero de cierres. Solo pide los campos que consumen los call
+ *  sites (banner de cierres manuales, historial opcional del drawer). Importante:
+ *  NO hacer findMany sin `select`: Prisma leería todas las columnas del schema
+ *  (p. ej. `opening_balance_clp`) y rompe /finanzas/flujo-caja si la migración
+ *  aún no corrió en la DB de producción. */
 export async function listRecentCloses(tenantId: string, limit = 12) {
   return prisma.financeCashflowWeeklyClose.findMany({
     where: { tenantId },
     orderBy: { weekEndDate: "desc" },
     take: limit,
+    select: {
+      isManual: true,
+      weekEndDate: true,
+    },
   });
 }
 
@@ -551,6 +554,75 @@ export interface WeekCloseStatus {
   openingBalanceClp: number | null;
   varianceClp: number | null;
   varianceResolution: string | null;
+}
+
+type WeekCloseRow = {
+  weekEndDate: Date;
+  bankBalanceClp: Prisma.Decimal;
+  forcedBalanceClp: Prisma.Decimal | null;
+  varianceClp: Prisma.Decimal;
+  isAnchor: boolean;
+  isManual: boolean;
+  varianceResolution: string | null;
+  openingBalanceClp?: Prisma.Decimal | null;
+};
+
+/** Saldo de apertura congelado de un cierre sellado (B4), o null si no existe /
+ *  la columna aún no migró. */
+async function fetchSealedOpeningBalance(
+  tenantId: string,
+  weekEnd: Date,
+): Promise<number | null> {
+  try {
+    const sealed = await prisma.financeCashflowWeeklyClose.findFirst({
+      where: { tenantId, weekEndDate: weekEnd },
+      select: { openingBalanceClp: true },
+    });
+    return sealed?.openingBalanceClp != null
+      ? Number(sealed.openingBalanceClp)
+      : null;
+  } catch (e) {
+    const code =
+      e && typeof e === "object" && "code" in e
+        ? (e as { code: string }).code
+        : null;
+    if (code === "P2022") return null;
+    throw e;
+  }
+}
+
+/** Cierres en un rango para el panel de estado. Si `opening_balance_clp` aún
+ *  no existe en la DB (migración pendiente), reintenta sin esa columna y deja
+ *  el saldo congelado en null (fallback al valor calculado). */
+async function fetchWeekClosesSince(
+  tenantId: string,
+  weekStart: Date,
+): Promise<WeekCloseRow[]> {
+  const baseSelect = {
+    weekEndDate: true,
+    bankBalanceClp: true,
+    forcedBalanceClp: true,
+    varianceClp: true,
+    isAnchor: true,
+    isManual: true,
+    varianceResolution: true,
+  } as const;
+  try {
+    return await prisma.financeCashflowWeeklyClose.findMany({
+      where: { tenantId, weekEndDate: { gte: weekStart } },
+      select: { ...baseSelect, openingBalanceClp: true },
+    });
+  } catch (e) {
+    const code =
+      e && typeof e === "object" && "code" in e
+        ? (e as { code: string }).code
+        : null;
+    if (code !== "P2022") throw e;
+    return prisma.financeCashflowWeeklyClose.findMany({
+      where: { tenantId, weekEndDate: { gte: weekStart } },
+      select: baseSelect,
+    });
+  }
 }
 
 /**
@@ -597,19 +669,7 @@ export async function listWeekCloseStatus(
     });
   }
 
-  const closes = await prisma.financeCashflowWeeklyClose.findMany({
-    where: { tenantId, weekEndDate: { gte: weeks[0].weekStart } },
-    select: {
-      weekEndDate: true,
-      bankBalanceClp: true,
-      openingBalanceClp: true,
-      forcedBalanceClp: true,
-      varianceClp: true,
-      isAnchor: true,
-      isManual: true,
-      varianceResolution: true,
-    },
-  });
+  const closes = await fetchWeekClosesSince(tenantId, weeks[0].weekStart);
 
   const todayMs = today.getTime();
   return weeks.map(({ weekStart, weekEnd }) => {
