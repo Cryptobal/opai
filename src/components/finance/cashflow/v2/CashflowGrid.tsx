@@ -49,6 +49,7 @@ import { applyOptimisticMove, type PendingMove } from "./grid/optimistic-move";
 import { moveViaApi } from "./grid/cashflow-move";
 import { QuotaMoveSelector } from "./grid/QuotaMoveSelector";
 import { CashflowFolioSearch } from "./grid/CashflowFolioSearch";
+import { ManualEntryQuickAdd } from "./grid/ManualEntryQuickAdd";
 import {
   movableOccurrencesInCell,
   occurrenceVariant,
@@ -452,6 +453,12 @@ export function CashflowGrid({
           />
         )}
         <div className="flex items-center gap-1">
+          {canManage && (
+            <ManualEntryQuickAdd
+              buckets={visibleBuckets}
+              onCreated={refreshAll}
+            />
+          )}
           <button
             type="button"
             onClick={goToday}
