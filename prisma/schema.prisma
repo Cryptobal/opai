@@ -7044,6 +7044,23 @@ model FinanceDteRecurringTemplate {
   ///   - NEXT_MONTH: mes siguiente al run. Casos especiales.
   periodPolicy String @default("CURRENT_MONTH") @map("period_policy")
 
+  /// ¿Cuándo se emite la factura real a partir de esta programación?
+  ///   - AL_EMITIR (default): el mismo día en que corre la programación
+  ///     (frequency/dayOfMonth). Comportamiento histórico.
+  ///   - DIA_ESPECIFICO: el día `facturaDay` del mes indicado por
+  ///     `facturaMesRelativo` (típico: programo el 20, facturo el 1 del
+  ///     mes siguiente tras OK del cliente a la proforma/EP).
+  /// Solo afecta DÓNDE se proyecta la cuota en el flujo de caja mientras
+  /// no exista la factura real; el cron sigue corriendo en la frecuencia
+  /// configurada y el DTE emitido siempre manda.
+  facturaTiming      String @default("AL_EMITIR") @map("factura_timing")
+  /// Día de emisión de la factura (1-31, -1 = último día del mes).
+  /// Solo si facturaTiming=DIA_ESPECIFICO.
+  facturaDay         Int?   @map("factura_day")
+  /// MISMO_MES | MES_SIGUIENTE respecto del mes de la programación.
+  /// Solo si facturaTiming=DIA_ESPECIFICO.
+  facturaMesRelativo String @default("MES_SIGUIENTE") @map("factura_mes_relativo")
+
   // ── Ajuste de IPC (modo manual con alerta) ──
   /// Indica que esta programación tiene reajuste periódico de IPC. NO modifica
   /// montos automáticamente: solo dispara un AVISO cuando se acerca la fecha de
