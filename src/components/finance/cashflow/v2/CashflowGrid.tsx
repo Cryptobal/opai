@@ -53,6 +53,7 @@ import {
   type PendingHide,
   type PendingAmount,
 } from "./grid/optimistic-move";
+import { deriveCumulative } from "./grid/derive-balance";
 import { moveViaApi } from "./grid/cashflow-move";
 import { QuotaMoveSelector } from "./grid/QuotaMoveSelector";
 import { CashflowFolioSearch } from "./grid/CashflowFolioSearch";
@@ -159,11 +160,17 @@ export function CashflowGrid({
     () => expenseRows(displayRows),
     [displayRows],
   );
-  const balanceByBucket = useMemo(
-    () =>
-      new Map(active.cumulativeBalances.map((b) => [b.bucketKey, b.balanceClp])),
-    [active.cumulativeBalances],
-  );
+  const balanceByBucket = useMemo(() => {
+    // Fila FC: saldo derivado de displayRows (incluye optimistas) — reacciona
+    // al instante sin esperar la re-proyección de red.
+    const derived = deriveCumulative(
+      buckets,
+      displayRows,
+      active.openingBalanceClp,
+      active.anchor,
+    );
+    return new Map(derived.map((b) => [b.bucketKey, b.balanceClp]));
+  }, [buckets, displayRows, active.openingBalanceClp, active.anchor]);
   // Estado de sellado por bucket (cierre / ancla) desde el anchor activo de la
   // proyección del bloque visible.
   const bucketMeta = useMemo(
@@ -171,7 +178,9 @@ export function CashflowGrid({
     [buckets, active.anchor],
   );
   // Drift acumulado por bucket (banco real − proyectado) — solo se pinta en
-  // modo avanzado.
+  // modo avanzado (hoy apagado). Depende de conciliaciones bancarias: NO es
+  // derivable client-side desde displayRows; sigue leyendo cumulativePoints
+  // del server/caché.
   const driftByBucket = useMemo(
     () =>
       new Map(
