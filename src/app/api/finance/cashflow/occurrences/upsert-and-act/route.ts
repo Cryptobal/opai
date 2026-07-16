@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
         success: true,
         data,
         overwrote: result.overwrote ?? null,
+        clearedCancelled: result.clearedCancelled ?? false,
       });
     } catch (e) {
       if (e instanceof OccurrenceCollisionError) {

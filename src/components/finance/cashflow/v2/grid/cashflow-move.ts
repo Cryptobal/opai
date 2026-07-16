@@ -18,6 +18,8 @@ export type MoveResult =
   | {
       ok: true;
       overwrote?: { occurrenceId: string; itemName: string } | null;
+      /** Se limpió una cuota eliminada (lápida CANCELLED) que ocupaba el destino. */
+      clearedCancelled?: boolean;
       projection?: ProjectionMatrix;
     }
   | { ok: false; conflict?: MoveConflict; error?: string; status?: number };
@@ -97,6 +99,7 @@ export async function moveViaApi(input: MoveInput): Promise<MoveResult> {
     return {
       ok: true,
       overwrote: j.overwrote ?? null,
+      clearedCancelled: j.clearedCancelled ?? false,
       projection: j?.data?.projection,
     };
   }

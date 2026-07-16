@@ -94,6 +94,11 @@ export function useGridMove(opts: {
         return;
       }
       toast.success(`Movido a ${to.label}`);
+      if (result.clearedCancelled) {
+        toast.info("Se limpió una cuota eliminada que ocupaba esa fecha", {
+          duration: 4000,
+        });
+      }
       if (result.overwrote) {
         toast.info(
           `Sobrescribió la proyección de ${result.overwrote.itemName} en ${to.label}`,

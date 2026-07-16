@@ -275,6 +275,30 @@ async function levelOfOccurrence(
 
 interface ResolveCollisionResult {
   overwrote?: { occurrenceId: string; itemName: string };
+  /** Se borró una lápida CANCELLED que ocupaba la fecha destino. */
+  clearedCancelled?: boolean;
+}
+
+/**
+ * Una occurrence CANCELLED sin DTE, sin banco y sin ajuste de cierre es una
+ * "lápida": existe solo para que la proyección no se regenere en esa fecha.
+ * Es invisible en la grilla, así que jamás debe bloquear un move/create del
+ * usuario. Si la occurrence entrante ocupará ese slot, la lápida sobra:
+ * se borra y el slot queda para la entrante (que sigue suprimiendo la
+ * regeneración por ocupar la unique [itemId, scheduledDate]).
+ */
+function isCancelledTombstone(o: {
+  status: FinanceCashflowOccurrenceStatus;
+  dteId: string | null;
+  bankTransactionId: string | null;
+  isClosingAdjust: boolean;
+}): boolean {
+  return (
+    o.status === "CANCELLED" &&
+    o.dteId == null &&
+    o.bankTransactionId == null &&
+    !o.isClosingAdjust
+  );
 }
 
 /**
@@ -305,6 +329,15 @@ async function resolveCollisionAndMove(args: {
   });
 
   if (collision && collision.id !== occurrenceId) {
+    // CASO LÁPIDA: la del destino es una cuota eliminada (CANCELLED puro). Es
+    // invisible en la grilla, así que bloquear acá sería un error fantasma
+    // ("Ya existe otra cuota..." contra algo que el usuario no ve). Se borra y
+    // la entrante ocupa el slot, preservando la supresión de la regeneración.
+    if (isCancelledTombstone(collision)) {
+      await prisma.financeCashflowOccurrence.delete({ where: { id: collision.id } });
+      out.clearedCancelled = true;
+      // cae al update final sin lanzar OccurrenceCollisionError
+    } else {
     // CASO SOMBRA: la occurrence que movemos tiene DTE (factura real) y la del
     // destino es una proyección pura del MISMO item (sin DTE/banco/cierre). Es
     // la sombra que el motor ya oculta; al mover la factura encima, la
@@ -387,6 +420,7 @@ async function resolveCollisionAndMove(args: {
         probe.setDate(probe.getDate() + direction);
         target = await findFreeDate(tenantId, itemId, probe, occurrenceId, direction);
       }
+    }
     }
     }
   }
@@ -680,7 +714,12 @@ export type MaterializeAndActInput =
 export async function materializeAndAct(
   tenantId: string,
   input: MaterializeAndActInput,
-): Promise<FinanceCashflowOccurrence & { overwrote?: { occurrenceId: string; itemName: string } }> {
+): Promise<
+  FinanceCashflowOccurrence & {
+    overwrote?: { occurrenceId: string; itemName: string };
+    clearedCancelled?: boolean;
+  }
+> {
   const item = await prisma.financeCashflowItem.findFirst({
     where: { id: input.itemId, tenantId, isActive: true },
     select: {
@@ -772,7 +811,11 @@ export async function materializeAndAct(
     const moved = await prisma.financeCashflowOccurrence.findUniqueOrThrow({
       where: { id: existing.id },
     });
-    return moveResult.overwrote ? { ...moved, overwrote: moveResult.overwrote } : moved;
+    return {
+      ...moved,
+      ...(moveResult.overwrote && { overwrote: moveResult.overwrote }),
+      ...(moveResult.clearedCancelled && { clearedCancelled: true }),
+    };
   }
 
   // input.action === "amount" (única alternativa restante por el discriminated union)

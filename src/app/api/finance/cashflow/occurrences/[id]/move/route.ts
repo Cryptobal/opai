@@ -48,6 +48,7 @@ export async function POST(
         return NextResponse.json({
           success: true,
           overwrote: result?.overwrote ?? null,
+          clearedCancelled: result?.clearedCancelled ?? false,
         });
       }
       const data = await withPartialProjection(
@@ -58,6 +59,7 @@ export async function POST(
       return NextResponse.json({
         success: true,
         overwrote: result?.overwrote ?? null,
+        clearedCancelled: result?.clearedCancelled ?? false,
         data,
       });
     } catch (e) {
