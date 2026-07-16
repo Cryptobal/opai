@@ -212,6 +212,12 @@ export async function buildQuotationProps(
       0,
     );
 
+  /**
+   * Cotización "solo adicionales": sin puestos ni guardias, todo el valor está en
+   * las líneas adicionales. Las secciones guard-céntricas del PDF no aplican.
+   */
+  const hasGuards = quote.positions.length > 0 && totalGuards > 0;
+
   const currency = (quote.currency || 'CLP') as 'CLP' | 'UF';
   const ufVal = currency === 'UF' ? await getUfValue() : 0;
 
@@ -470,6 +476,19 @@ export async function buildQuotationProps(
   }
   const templateSections: ProposalTemplateSections = { ...DEFAULT_TEMPLATE_SECTIONS, ...effectiveSections };
 
+  // Sin guardias, las secciones derivadas de la dotación quedan vacías o sin
+  // sentido (tabla de puestos en 0, "Caseta 0,00 UF", OS-10). Se fuerzan off
+  // sobre el template ya resuelto, independiente del slug elegido.
+  if (!hasGuards) {
+    templateSections.showPositionsTable = false;
+    templateSections.showLaborDetail = false;
+    templateSections.showCostBreakdown = false;
+    templateSections.showCostSummaryByCategory = false;
+    templateSections.showComplianceSection = false;
+    templateSections.showTechnicalSpecs = false;
+    breakdown = undefined;
+  }
+
   {
     const activeFlags = Object.entries(templateSections)
       .filter(([, v]) => v === true)
@@ -480,7 +499,7 @@ export async function buildQuotationProps(
   }
 
   /* ── CostsByCategory from summary ── */
-  const costsByCategory = summary?.costsByCategory ?? [];
+  const costsByCategory = hasGuards ? (summary?.costsByCategory ?? []) : [];
 
   /* ── Additional lines with extended fields (exclude zero-value lines) ── */
   const additionalLinesPDFRaw: AdditionalLinePDF[] = (summary?.additionalLinesDetails ?? []).map((d) => ({
@@ -537,8 +556,25 @@ export async function buildQuotationProps(
     complianceItems = DEFAULT_COMPLIANCE_ITEMS;
   }
 
+  /* ── Included items ──
+   * quote.includedItems trae los defaults guard-céntricos que siembra
+   * applyDefaultQuoteIncludes (OS-10, cobertura por ausencias, etc.). Sin
+   * guardias solo se muestran los ítems que el usuario agregó a mano; si no
+   * hay, la sección "El servicio incluye" no se renderiza.
+   * La quote ya fue validada por tenantId, así que scopear por quoteId basta.
+   */
+  let includedItems: string[] = quote.includedItems || [];
+  if (!hasGuards) {
+    const customIncludes = await prisma.cpqQuoteIncludesItem.findMany({
+      where: { quoteId: quoteId, showInPdf: true, source: 'custom' },
+      orderBy: { sortOrder: 'asc' },
+      select: { text: true },
+    });
+    includedItems = customIncludes.map((i) => i.text);
+  }
+
   console.log(
-    `[PDF] Data: summary=${!!summary}, breakdown=${!!breakdown}, positions=${quote.positions.length}, costsByCategory=${costsByCategory.length}, laborBreakdown=${!!laborBreakdown}, additionalLinesPDF=${additionalLinesPDF.length}`,
+    `[PDF] Data: summary=${!!summary}, breakdown=${!!breakdown}, positions=${quote.positions.length}, hasGuards=${hasGuards}, costsByCategory=${costsByCategory.length}, laborBreakdown=${!!laborBreakdown}, additionalLinesPDF=${additionalLinesPDF.length}`,
   );
 
   // Fix 2: Default vigencia to createdAt + 60 days when not set
@@ -620,7 +656,7 @@ export async function buildQuotationProps(
       brandNameUpper: companyConfig.brandNameUpper || undefined,
       logoUrl: companyConfig.brandingLogoWhite || companyConfig.brandingLogoFull || companyConfig.logoUrl || undefined,
     },
-    includedItems: quote.includedItems || [],
+    includedItems,
     aiDescription: sanitizeAiDescription(quote.aiDescription),
     serviceDetail: quote.serviceDetail || undefined,
     breakdown,

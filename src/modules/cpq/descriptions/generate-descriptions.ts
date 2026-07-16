@@ -7,6 +7,15 @@
 import { prisma } from "@/lib/prisma";
 import { aiService } from "@/lib/ai-service";
 
+/**
+ * Detecta respuestas en las que el LLM se niega a redactar o pide más datos.
+ * Ese texto nunca debe persistirse ni llegar al PDF: se reintenta y, si
+ * persiste, se usa un fallback determinístico.
+ * Compartido con el render del PDF y con /api/ai/quote-service-detail.
+ */
+export const AI_REFUSAL_REGEX =
+  /no puedo (completar|generar)|falta información crítica|necesito que completes/i;
+
 export async function generateQuoteDescription(
   quoteId: string,
   options?: { tenantId?: string; userId?: string; customInstruction?: string }

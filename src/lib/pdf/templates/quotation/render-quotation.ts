@@ -13,6 +13,7 @@
 
 import type { QuoteBreakdownData } from '@/types/cpq-breakdown';
 import type { ProposalTemplateSections, CostByCategory } from '@/types/cpq';
+import { AI_REFUSAL_REGEX } from '@/modules/cpq/descriptions/generate-descriptions';
 
 export interface AdditionalLinePDF {
   nombre: string;
@@ -485,7 +486,7 @@ export async function renderQuotationToBuffer(
     conditions,
     companyConfig,
     includedItems,
-    aiDescription,
+    aiDescription: rawAiDescription,
     serviceDetail,
     breakdown,
     templateSections: sec,
@@ -495,6 +496,11 @@ export async function renderQuotationToBuffer(
     laborBreakdown,
     complianceItems,
   } = props;
+
+  // Cotizaciones antiguas pueden traer guardado un rechazo del LLM ("No puedo
+  // completar esta propuesta..."). Nunca se imprime, aunque ya esté en la BD.
+  const aiDescription =
+    rawAiDescription && AI_REFUSAL_REGEX.test(rawAiDescription) ? undefined : rawAiDescription;
 
   const dateStr = new Date().toLocaleDateString('es-CL');
   // Fix 2: validUntil always has a value (default: createdAt + 60 days)
@@ -515,6 +521,10 @@ export async function renderQuotationToBuffer(
   const hasDetailedAdditional = (additionalLines?.length ?? 0) > 0;
   const oneTimeLines = additionalOneTime ?? [];
   const hasOneTime = sec.showAdditionalServices && oneTimeLines.length > 0;
+  // Cotización solo de pagos únicos: no hay valor mensual que mostrar, el gran
+  // total pasa a ser el pago único (si no, totals.totalNet llega en 'N/A').
+  const onlyOneTime =
+    positions.length === 0 && !hasAdditional && oneTimeLines.length > 0 && !!totals.oneTimeTotal;
   // Fix 1: Strip trailing SECURITY/SEGURIDAD from brand name
   const rawBrandName =
     companyConfig.brandNameUpper ?? companyConfig.commercialName?.toUpperCase() ?? 'EMPRESA';
@@ -691,12 +701,15 @@ export async function renderQuotationToBuffer(
           e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, svc.monthlyValue),
         ),
       ),
-      e(
-        View,
-        { style: [s.tblRow, { backgroundColor: C.slate50 }] },
-        e(Text, { style: [s.tblCellBold, { flex: 5, textAlign: 'right' as const, paddingRight: 8 }] }, 'Subtotal adicionales'),
-        e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, totals.subtotalAdditional),
-      ),
+      // Sin puestos el subtotal repite el gran total: se omite.
+      positions.length > 0
+        ? e(
+            View,
+            { style: [s.tblRow, { backgroundColor: C.slate50 }] },
+            e(Text, { style: [s.tblCellBold, { flex: 5, textAlign: 'right' as const, paddingRight: 8 }] }, 'Subtotal adicionales'),
+            e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, totals.subtotalAdditional),
+          )
+        : null,
     );
 
   /* ─── Detailed additional services table (detailed/tender) ─── */
@@ -978,7 +991,7 @@ export async function renderQuotationToBuffer(
         View,
         { style: s.body },
         sec.showCompanyIntro && aiDescription ? e(Text, { style: s.description }, aiDescription) : null,
-        sec.showPositionsTable
+        sec.showPositionsTable && positions.length > 0
           ? e(
               View,
               { wrap: false },
@@ -991,8 +1004,16 @@ export async function renderQuotationToBuffer(
         e(
           View,
           { style: s.grandTotal, wrap: false },
-          e(Text, { style: s.grandTotalLabel }, 'PRECIO VENTA MENSUAL NETO'),
-          e(Text, { style: s.grandTotalAmount }, totals.totalNet),
+          e(
+            Text,
+            { style: s.grandTotalLabel },
+            onlyOneTime ? 'PAGO UNICO NETO' : 'PRECIO VENTA MENSUAL NETO',
+          ),
+          e(
+            Text,
+            { style: s.grandTotalAmount },
+            onlyOneTime ? (totals.oneTimeTotal as string) : totals.totalNet,
+          ),
         ),
         hasOneTime && !showDetailedAdditional ? buildOneTimeTable(nextNum()) : null,
         e(Text, { style: s.netNote }, 'Valores netos. IVA se factura segun ley vigente.'),
