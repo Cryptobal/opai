@@ -12,6 +12,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { formatWeekdaysLong } from "@/lib/cpq/weekdays";
+import { AI_REFUSAL_REGEX } from "@/modules/cpq/descriptions/generate-descriptions";
 
 export async function POST(request: NextRequest) {
   try {
@@ -149,6 +150,21 @@ export async function POST(request: NextRequest) {
       includedItems.push(`Otros: ${oNames}`);
     }
 
+    // Additional lines: en una cotización sin guardias son el único contenido,
+    // y hasta ahora el generador no las veía.
+    const additionalLines = await prisma.cpqQuoteAdditionalLine.findMany({
+      where: { quoteId },
+      orderBy: { orden: "asc" },
+    });
+    for (const l of additionalLines) {
+      const recurrencia = (l.recurrencia ?? "mensual") === "unico" ? "pago único" : "mensual";
+      includedItems.push(
+        `${l.nombre}${l.descripcion ? `: ${l.descripcion}` : ""} (${recurrencia})`,
+      );
+    }
+
+    const hasGuards = quote.positions.length > 0 && totalGuardiasEfectivos > 0;
+
     // Get account name
     let accountName = quote.clientName || "Cliente";
     if (quote.accountId) {
@@ -165,7 +181,46 @@ export async function POST(request: NextRequest) {
       : "- No hay ítems adicionales configurados";
 
     const cfg = await getTenantCompanyConfig(ctx.tenantId);
-    const prompt = `Eres el Gerente Comercial de ${cfg.commercialName}, empresa de seguridad privada profesional en Chile.
+
+    const extraInstruction = `${
+      customInstruction?.trim()
+        ? `\n\nINSTRUCCIÓN ADICIONAL DEL USUARIO (aplicar al texto): ${customInstruction.trim()}`
+        : ""
+    }${
+      quote.serviceDetail?.trim() && customInstruction?.trim()
+        ? `\n\nTEXTO ACTUAL A REFINAR:\n${quote.serviceDetail.trim()}`
+        : ""
+    }`;
+
+    const noGuardsPrompt = `Eres el Gerente Comercial de ${cfg.commercialName}, empresa de seguridad privada profesional en Chile.
+
+CONTEXTO: Necesitas crear un detalle profesional de lo que incluye esta propuesta. Es una cotización de productos/servicios adicionales, SIN dotación de guardias. Este texto irá en la propuesta económica, justo debajo de la descripción del servicio y antes del total.
+
+DATOS:
+- Cliente: ${accountName}
+${installationName ? `- Instalación: ${installationName}` : ""}
+
+ÍTEMS COTIZADOS:
+${itemsList}
+
+INSTRUCCIONES:
+1. Crea un texto profesional que detalle lo que incluye la propuesta
+2. Usa formato de lista con viñetas (•) para cada ítem
+3. Cada ítem debe empezar con "Incluye" o un verbo similar (Incorpora, Contempla, etc.)
+4. NO mencionar costos ni precios
+5. Ser específico con cada ítem, usando su descripción; si es pago único, indícalo (ej: "Contempla traslado de instalación y retiro (pago único)")
+6. Máximo 5-6 líneas
+7. Tono profesional y claro
+8. PROHIBIDO mencionar guardias, dotación, puestos, turnos o vigilancia con personal: esta cotización NO incluye personal
+9. PROHIBIDO inventar ítems que no estén en la lista
+10. OBLIGATORIO: SIEMPRE genera el texto con los datos disponibles. NUNCA respondas que falta información, NUNCA hagas preguntas, NUNCA digas que no puedes completar la propuesta.
+
+Formato esperado (ejemplo):
+La propuesta contempla:
+• Incluye arriendo mensual de garita de vigilancia
+• Contempla traslado de instalación y retiro (pago único)${extraInstruction}`;
+
+    const guardsPrompt = `Eres el Gerente Comercial de ${cfg.commercialName}, empresa de seguridad privada profesional en Chile.
 
 CONTEXTO: Necesitas crear un detalle profesional de lo que incluye el servicio de seguridad propuesto. Este texto irá en la propuesta económica, justo debajo de la descripción del servicio y antes del total.
 
@@ -193,6 +248,7 @@ INSTRUCCIONES:
 10. Si hay alimentación, detallar los tipos de comida
 11. OBLIGATORIO: En el primer ítem (dotación de guardias) debes describir explícitamente los DÍAS de trabajo de cada tipo de puesto, usando lenguaje claro para el cliente. Por ejemplo: "todos los días (24x7)", "de lunes a viernes", "fines de semana (sábado y domingo)", "viernes a domingo", "entre semana" + "fines de semana" si hay puestos con distintos días. No uses solo "Lun, Mar..."; traduce a cómo lo entiende el cliente (ej: 2 guardias por puesto en 9 puestos nocturnos entre semana).
 12. OBLIGATORIO: Considera explícitamente la relación "número de puestos" x "guardias por puesto" en la redacción, no la simplifiques a solo guardias totales.
+13. OBLIGATORIO: SIEMPRE genera el texto con los datos disponibles. NUNCA respondas que falta información, NUNCA hagas preguntas, NUNCA digas que no puedes completar la propuesta.
 
 Formato esperado (ejemplo):
 El servicio contempla:
@@ -201,19 +257,36 @@ El servicio contempla:
 • Incorpora exámenes preocupacionales y de drogas
 • Incluye alimentación (desayuno y colación)
 • Incluye equipos operativos: celular con plan de datos
-• Incluye sistema de gestión operacional${
-      customInstruction?.trim()
-        ? `\n\nINSTRUCCIÓN ADICIONAL DEL USUARIO (aplicar al texto): ${customInstruction.trim()}`
-        : ""
-    }${
-      quote.serviceDetail?.trim() && customInstruction?.trim()
-        ? `\n\nTEXTO ACTUAL A REFINAR:\n${quote.serviceDetail.trim()}`
-        : ""
-    }`;
+• Incluye sistema de gestión operacional${extraInstruction}`;
 
-    const serviceDetail = (
+    const prompt = hasGuards ? guardsPrompt : noGuardsPrompt;
+
+    let serviceDetail = (
       await aiService.generateText(prompt, { maxTokens: 600, temperature: 0.5 }, { tenantId: ctx.tenantId })
     ).trim();
+
+    // Un rechazo del LLM no puede persistirse ni llegar al PDF: se reintenta
+    // reforzando y, si insiste, se devuelve error para que se edite a mano.
+    if (AI_REFUSAL_REGEX.test(serviceDetail)) {
+      const retryPrompt = `${prompt}
+
+RECORDATORIO FINAL: Tu respuesta anterior no fue válida. Genera SIEMPRE el detalle con los datos entregados, aunque te parezcan incompletos. No pidas información, no hagas preguntas y no digas que no puedes completar la propuesta.`;
+      serviceDetail = (
+        await aiService.generateText(retryPrompt, { maxTokens: 600, temperature: 0.5 }, { tenantId: ctx.tenantId })
+      ).trim();
+    }
+
+    if (AI_REFUSAL_REGEX.test(serviceDetail) || !serviceDetail) {
+      console.warn(`[CPQ-AI] LLM refusal persistente en detalle de ${quote.code}; no se guarda`);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "No fue posible generar el detalle, edítalo manualmente",
+          code: "AI_REFUSAL",
+        },
+        { status: 422 },
+      );
+    }
 
     // Save to quote
     await prisma.cpqQuote.update({
