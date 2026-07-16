@@ -10,6 +10,7 @@ import {
   sliceMatrix,
 } from "./week-cache-merge";
 import {
+  capGapWeeks,
   endOfIsoWeekUTC,
   findMissingGap,
   type WeekSlot,
@@ -19,6 +20,9 @@ import {
  * Caché de semanas ya proyectadas, indexada por `bucketKey`.
  *
  * Navegar dentro de lo cacheado es instantáneo. Solo se piden los HUECOS.
+ * Los huecos largos se piden en chunks de `FETCH_CHUNK_WEEKS` para que la
+ * grilla pinte progreso (evita un solo buildProjection de 16–24 semanas que
+ * cuelga o timeout en Vercel → skeleton eterno).
  * Fetches paralelos de rangos distintos son válidos y se fusionan; el token
  * de invalidación solo descarta respuestas lanzadas ANTES de un invalidate.
  */
@@ -32,7 +36,7 @@ export function useWeekCache(initial: ProjectionMatrix) {
   /** Solo se incrementa en invalidate / invalidateWeeks. */
   const invalidationToken = useRef(0);
   const inflightRef = useRef(0);
-  /** Dedup: mismo hueco en vuelo reusa la misma promise. */
+  /** Dedup: mismo hueco pedido en vuelo reusa la misma promise. */
   const flightRef = useRef<{
     fromMs: number;
     toMs: number;
@@ -49,6 +53,7 @@ export function useWeekCache(initial: ProjectionMatrix) {
       const r = await fetch(`/api/finance/cashflow/projection?${qs}`, {
         cache: "no-store",
       });
+      if (!r.ok) return null;
       const j = await r.json();
       return j?.success ? (j.data as ProjectionMatrix) : null;
     },
@@ -81,22 +86,45 @@ export function useWeekCache(initial: ProjectionMatrix) {
       let promise!: Promise<void>;
       promise = (async () => {
         try {
-          const next = await fetchRange(gap.first, endOfIsoWeekUTC(gap.last));
-          // Respuesta lanzada antes de un invalidate → datos viejos, se descarta.
-          if (token !== invalidationToken.current) return;
-          if (!next) {
-            toast.error("No se pudieron cargar esas semanas");
-            return;
+          // Chunks secuenciales: cada merge pinta columnas nuevas (version++).
+          // Re-evalúa el hueco tras cada chunk por si un fetch paralelo ya
+          // cubrió parte del rango. Guarda anti-bucle si el server no aporta keys.
+          let guardFirstMs: number | null = null;
+          while (token === invalidationToken.current) {
+            const keys = new Set(
+              mergedRef.current.buckets.map((b) => b.key),
+            );
+            const remaining = findMissingGap(
+              keys,
+              from,
+              to,
+              staleRef.current,
+            );
+            if (!remaining) break;
+            if (guardFirstMs === remaining.first.getTime()) {
+              toast.error("No se pudieron cargar esas semanas");
+              return;
+            }
+            guardFirstMs = remaining.first.getTime();
+
+            const chunk = capGapWeeks(remaining);
+            const next = await fetchRange(
+              chunk.first,
+              endOfIsoWeekUTC(chunk.last),
+            );
+            if (token !== invalidationToken.current) return;
+            if (!next) {
+              toast.error("No se pudieron cargar esas semanas");
+              return;
+            }
+            const replace = staleRef.current;
+            if (replace) staleRef.current = false;
+            mergedRef.current = mergeMatrix(
+              replace ? null : mergedRef.current,
+              next,
+            );
+            setVersion((v) => v + 1);
           }
-          // Reemplazo desde null solo si stale sigue true al mergear; el primer
-          // merge post-invalidate lo consume para que fetches paralelos fusionen.
-          const replace = staleRef.current;
-          if (replace) staleRef.current = false;
-          mergedRef.current = mergeMatrix(
-            replace ? null : mergedRef.current,
-            next,
-          );
-          setVersion((v) => v + 1);
         } catch {
           if (token === invalidationToken.current) {
             toast.error("Error de red al cargar semanas");

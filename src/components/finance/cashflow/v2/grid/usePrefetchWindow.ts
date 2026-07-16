@@ -9,20 +9,32 @@ type EnsureRange = (from: Date, to: Date) => Promise<void>;
  * Prefetch en idle de las ventanas adyacentes (siguiente, luego anterior).
  * Solo desktop — en móvil no se llama (ahorro de datos / batería).
  *
- * Guarda: no corre si `loading` (fetch de usuario en vuelo). Cancela si el
- * ancla/horizonte cambió antes del idle (token de generación).
+ * Guarda: no corre si `loading` o si la ventana visible aún tiene columnas
+ * pendientes (prioridad al fill visible; evita competir con chunks de 24s).
+ * Cancela si el ancla/horizonte cambió antes del idle (token de generación).
  */
 export function usePrefetchWindow(opts: {
   enabled: boolean;
   anchorDate: Date;
   windowWeeks: number;
   loading: boolean;
+  /** Columnas visibles aún sin datos — si > 0, no prefetch. */
+  pendingCount?: number;
   ensureRange: EnsureRange;
 }) {
-  const { enabled, anchorDate, windowWeeks, loading, ensureRange } = opts;
+  const {
+    enabled,
+    anchorDate,
+    windowWeeks,
+    loading,
+    pendingCount = 0,
+    ensureRange,
+  } = opts;
   const genRef = useRef(0);
   const loadingRef = useRef(loading);
   loadingRef.current = loading;
+  const pendingRef = useRef(pendingCount);
+  pendingRef.current = pendingCount;
 
   useEffect(() => {
     if (!enabled) return;
@@ -32,14 +44,20 @@ export function usePrefetchWindow(opts: {
 
     const run = () => {
       if (gen !== genRef.current) return;
-      if (loadingRef.current) return;
+      if (loadingRef.current || pendingRef.current > 0) return;
       const nextFrom = addWeeksUTC(anchor, weeks);
       const nextTo = endOfIsoWeekUTC(addWeeksUTC(anchor, 2 * weeks - 1));
       const prevFrom = addWeeksUTC(anchor, -weeks);
       const prevTo = endOfIsoWeekUTC(addWeeksUTC(anchor, -1));
       void (async () => {
         await ensureRange(nextFrom, nextTo);
-        if (gen !== genRef.current || loadingRef.current) return;
+        if (
+          gen !== genRef.current ||
+          loadingRef.current ||
+          pendingRef.current > 0
+        ) {
+          return;
+        }
         await ensureRange(prevFrom, prevTo);
       })();
     };
@@ -73,5 +91,5 @@ export function usePrefetchWindow(opts: {
       }
       if (timeoutId != null) clearTimeout(timeoutId);
     };
-  }, [enabled, anchorDate, windowWeeks, ensureRange]);
+  }, [enabled, anchorDate, windowWeeks, ensureRange, loading, pendingCount]);
 }
