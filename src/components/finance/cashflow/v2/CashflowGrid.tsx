@@ -124,11 +124,13 @@ export function CashflowGrid({
   });
 
   // Prefetch ventanas adyacentes solo en desktop (ahorro de datos en móvil).
+  // Espera a que la ventana visible esté completa para no competir con chunks.
   usePrefetchWindow({
     enabled: !isMobile,
     anchorDate,
     windowWeeks: activeWindowWeeks,
     loading,
+    pendingCount: pendingKeys.size,
     ensureRange,
   });
   const buckets = active.buckets;

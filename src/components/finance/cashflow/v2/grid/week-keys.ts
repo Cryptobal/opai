@@ -103,9 +103,12 @@ export function weekSlots(anchor: Date, count: number): WeekSlot[] {
 }
 
 /**
- * Hueco contiguo de semanas faltantes en `[from, to]`.
+ * Primer hueco **contiguo** de semanas faltantes en `[from, to]`.
  * Si `stale`, toda la ventana cuenta como faltante.
  * Null si no hay huecos (todo cacheado).
+ *
+ * Se corta al primer bucket ya presente: no abarca huecos discontinuos
+ * (así `ensureRange` puede chunkear y re-consultar sin re-pedir lo cacheado).
  */
 export function findMissingGap(
   presentKeys: Set<string>,
@@ -124,10 +127,27 @@ export function findMissingGap(
     if (stale || !presentKeys.has(weekKey(cur))) {
       if (!firstMissing) firstMissing = cur;
       lastMissing = cur;
+    } else if (firstMissing) {
+      break;
     }
   }
   if (!firstMissing || !lastMissing) return null;
   return { first: firstMissing, last: lastMissing };
+}
+
+/** Máx. semanas por request de proyección (buildProjection es caro). */
+export const FETCH_CHUNK_WEEKS = 4;
+
+/** Recorta un hueco a como máximo `maxWeeks` desde `first`. */
+export function capGapWeeks(
+  gap: { first: Date; last: Date },
+  maxWeeks: number = FETCH_CHUNK_WEEKS,
+): { first: Date; last: Date } {
+  const capped = addWeeksUTC(gap.first, Math.max(1, maxWeeks) - 1);
+  return {
+    first: gap.first,
+    last: capped.getTime() < gap.last.getTime() ? capped : gap.last,
+  };
 }
 
 /** Bucket vacío (montos en 0) para un slot aún no cacheado. Con navegación
