@@ -302,7 +302,9 @@
     @apply bg-background text-foreground antialiased;
     font-family: "Inter Variable", "Inter", system-ui, -apple-system, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-    overflow-x: hidden;
+    /* clip (no hidden): evita scroll horizontal sin crear scroll container
+       que rompe position:sticky en hijos (barra KPIs cotización, EntityDetail, etc.). */
+    overflow-x: clip;
     overflow-wrap: break-word;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -463,9 +465,10 @@
    Mobile: Prevent horizontal overflow globally
    html+body guard prevents any child from pushing
    the document wider than the viewport.
+   Usar clip (no hidden) para no romper position:sticky.
    ============================================ */
 html {
-  overflow-x: hidden;
+  overflow-x: clip;
   max-width: 100%;
 }
 

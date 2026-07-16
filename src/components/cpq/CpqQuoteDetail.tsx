@@ -56,7 +56,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Loader2, Building2, Plus, MessageCircle, Send, Check, CheckCircle2, Briefcase, Phone, PencilLine, Sparkles, CalendarDays, FileSignature, Eye } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Loader2, Building2, Plus, MessageCircle, Send, Check, CheckCircle2, Briefcase, Phone, PencilLine, Sparkles, CalendarDays, FileSignature, Eye, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
@@ -364,6 +364,27 @@ export function CpqQuoteDetail({
     }
   }, [quote?.status]);
   const [guardsBreakdownOpen, setGuardsBreakdownOpen] = useState(false);
+  /** Centro de control (aside derecho): contraíble para dar más ancho a Datos/Desglose/Puestos. */
+  const [controlCenterOpen, setControlCenterOpen] = useState(true);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("cpq-control-center-open");
+      if (saved === "0") setControlCenterOpen(false);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  const toggleControlCenter = useCallback(() => {
+    setControlCenterOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("cpq-control-center-open", next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
   const [pdfPreviewMode, setPdfPreviewMode] = useState<CpqPdfPreviewMode>("presentacion");
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
@@ -1870,14 +1891,10 @@ export function CpqQuoteDetail({
       )}
       </div>{/* end sticky header */}
 
-      {/* -- Detail workspace --
-           Layout 2 columnas (main + aside Centro de control) tanto en borrador
-           como en enviada: cuando está enviada, el aside expone Generar PDF /
-           Enviar propuesta para que el usuario siga operando sin volver a
-           borrador. */}
-      <div className="grid gap-3 min-w-0 overflow-x-clip lg:items-start lg:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="space-y-2 min-w-0">
-      <div className="hidden lg:flex sticky top-2 z-30 items-center justify-between gap-4 rounded-lg border border-border/60 bg-card/85 backdrop-blur-md px-4 py-3 shadow-md">
+      {/* -- Desktop sticky KPI bar (fuera del grid: sticky respecto al viewport) --
+           top-12 = debajo del topbar fijo (h-12). Sin overflow-x en el path
+           hacia el viewport (html/body usan clip). */}
+      <div className="hidden lg:flex sticky top-12 z-30 items-center justify-between gap-4 rounded-lg border border-border/60 bg-card/95 backdrop-blur-md px-4 py-3 shadow-md">
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/crm/cotizaciones" className="shrink-0">
             <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
@@ -1903,12 +1920,9 @@ export function CpqQuoteDetail({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {/* KPIs siempre visibles en la barra fija: al hacer scroll, el Total
-              mensual (y margen/dotación en pantallas anchas) siguen a la vista
-              aunque el Centro de Control ya haya bajado. */}
           <div className="hidden lg:flex items-stretch overflow-hidden rounded-lg border border-border/60 bg-background/40">
             <div className="flex flex-col justify-center px-3 py-1">
-              <span className="text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">Total mensual</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total mensual</span>
               <CpqDualCurrencyAmount
                 clp={billingMonthlyTotal}
                 currency={crmContext.currency || "CLP"}
@@ -1920,13 +1934,13 @@ export function CpqQuoteDetail({
               />
             </div>
             <div className="hidden xl:flex flex-col justify-center border-l border-border/50 px-3 py-1">
-              <span className="text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">Margen</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Margen</span>
               <span className={cn("text-sm font-bold leading-tight", marginPct >= 15 ? "text-status-ok-fg" : marginPct >= 10 ? "text-status-warn-fg" : "text-status-danger-fg")}>
                 {Number(marginPct || 0).toFixed(1)}%
               </span>
             </div>
             <div className="hidden xl:flex flex-col justify-center border-l border-border/50 px-3 py-1">
-              <span className="text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">Dotación</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Dotación</span>
               <span className="flex items-center gap-1 text-sm font-bold leading-tight text-status-info-fg">
                 <Users className="h-3.5 w-3.5" />{stats.totalGuards}
               </span>
@@ -1946,6 +1960,17 @@ export function CpqQuoteDetail({
               {portalVisibilitySaving ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden /> : null}
             </div>
           ) : null}
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            className="h-9 w-9"
+            aria-label={controlCenterOpen ? "Contraer centro de control" : "Expandir centro de control"}
+            title={controlCenterOpen ? "Contraer centro de control" : "Expandir centro de control"}
+            onClick={toggleControlCenter}
+          >
+            {controlCenterOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+          </Button>
           <div className="relative">
             <Button
               type="button"
@@ -2008,6 +2033,20 @@ export function CpqQuoteDetail({
           </div>
         </div>
       </div>
+
+      {/* -- Detail workspace --
+           Layout 2 columnas (main + aside Centro de control) tanto en borrador
+           como en enviada. El aside se puede contraer para ensanchar Datos /
+           Condiciones / Desglose / Puestos. */}
+      <div
+        className={cn(
+          "grid gap-3 min-w-0 lg:items-start",
+          controlCenterOpen
+            ? "lg:grid-cols-[minmax(0,1fr)_340px]"
+            : "lg:grid-cols-1"
+        )}
+      >
+      <div className="space-y-2 min-w-0">
       {/* -- Section: Datos (scroll-mt-32: visible below sticky header when scrolled) -- */}
       <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
         <button type="button" onClick={() => setSecDatos(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
@@ -3108,15 +3147,15 @@ export function CpqQuoteDetail({
 
       </div>{/* end main column */}
 
+      {controlCenterOpen ? (
       <aside className="hidden lg:block min-w-0">
-        {/* Centro de control en flujo normal: sube y baja con la página, sin
-            scroll interno. Los KPIs clave (total mensual, margen, dotación)
-            viven en la barra superior fija, así que no se pierden al scrollear. */}
+        {/* Centro de control: contraíble desde la barra sticky o desde este header.
+            KPIs clave viven también en la barra superior sticky. */}
         <div className="space-y-3">
           <Card className="overflow-hidden border-border/70 bg-card/80 shadow-sm">
             <div className="border-b border-border/50 bg-muted/20 px-4 py-3">
               <div className="flex items-center justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Centro de control
                   </p>
@@ -3124,9 +3163,22 @@ export function CpqQuoteDetail({
                     Resumen comercial
                   </p>
                 </div>
-                <span className="shrink-0 rounded-md border border-border/60 bg-background/50 px-2 py-1 text-xs font-medium text-muted-foreground">
-                  {quote.code}
-                </span>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <span className="rounded-md border border-border/60 bg-background/50 px-2 py-1 text-xs font-medium text-muted-foreground">
+                    {quote.code}
+                  </span>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    aria-label="Contraer centro de control"
+                    title="Contraer centro de control"
+                    onClick={toggleControlCenter}
+                  >
+                    <PanelRightClose className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -3287,6 +3339,7 @@ export function CpqQuoteDetail({
           </Card>
         </div>
       </aside>
+      ) : null}
 
       </div>{/* end detail workspace */}
 
