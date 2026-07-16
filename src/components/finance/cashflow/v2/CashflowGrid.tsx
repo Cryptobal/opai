@@ -47,6 +47,7 @@ import { GridBalanceRow } from "./grid/GridBalanceRow";
 import { GridDriftRow } from "./grid/GridDriftRow";
 import { GridChip } from "./grid/GridChip";
 import { buildBucketMeta, cellChip, itemRowsForKind } from "./grid/grid-helpers";
+import { buildConceptOptions } from "./grid/concept-options";
 import { expenseRows } from "./grid/expense-grouping";
 import { useGridMove, type GridDragData } from "./grid/useGridMove";
 import { useCashflowMutations } from "./grid/useCashflowMutations";
@@ -162,6 +163,14 @@ export function CashflowGrid({
   );
   const incomeRows = useMemo(
     () => itemRowsForKind(displayRows, "INCOME"),
+    [displayRows],
+  );
+  const incomeOptions = useMemo(
+    () => buildConceptOptions(displayRows, "INCOME"),
+    [displayRows],
+  );
+  const expenseOptions = useMemo(
+    () => buildConceptOptions(displayRows, "EXPENSE"),
     [displayRows],
   );
   // Egresos agrupados: una línea por tipo de gasto (sueldos/previred/turnos
@@ -572,6 +581,7 @@ export function CashflowGrid({
               <GridSection
                 label="Ingresos"
                 tone="ok"
+                kind="INCOME"
                 rows={incomeRows}
                 buckets={visibleBuckets}
                 currentIdx={currentIdx}
@@ -585,10 +595,12 @@ export function CashflowGrid({
                 isMobile={isMobile}
                 editableAmounts={canManage}
                 pendingKeys={pendingKeys}
+                conceptOptions={incomeOptions}
               />
               <GridSection
                 label="Egresos"
                 tone="warn"
+                kind="EXPENSE"
                 rows={expenseGridRows}
                 buckets={visibleBuckets}
                 currentIdx={currentIdx}
@@ -602,6 +614,7 @@ export function CashflowGrid({
                 isMobile={isMobile}
                 editableAmounts={canManage}
                 pendingKeys={pendingKeys}
+                conceptOptions={expenseOptions}
               />
               <GridBalanceRow
                 buckets={visibleBuckets}
