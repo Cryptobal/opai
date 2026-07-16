@@ -12,7 +12,6 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
 import { Button } from "@/components/ui/button";
@@ -24,7 +23,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import type {
   ProjectionMatrix,
@@ -39,8 +37,8 @@ import { WeekCloseDrawer } from "../week-close/WeekCloseDrawer";
 import { currentBucketIndex } from "./projection-helpers";
 import { useGridWindow } from "./grid/useGridWindow";
 import { useHorizon } from "./grid/useHorizon";
-import { HorizonSelector } from "./grid/HorizonSelector";
 import { usePrefetchWindow } from "./grid/usePrefetchWindow";
+import { GridToolbar } from "./grid/GridToolbar";
 import { GridHeader } from "./grid/GridHeader";
 import { GridSection } from "./grid/GridSection";
 import { GridBalanceRow } from "./grid/GridBalanceRow";
@@ -54,7 +52,6 @@ import { useCashflowMutations } from "./grid/useCashflowMutations";
 import { deriveCumulative } from "./grid/derive-balance";
 import { moveViaApi } from "./grid/cashflow-move";
 import { QuotaMoveSelector } from "./grid/QuotaMoveSelector";
-import { CashflowFolioSearch } from "./grid/CashflowFolioSearch";
 import {
   movableOccurrencesInCell,
   occurrenceVariant,
@@ -508,45 +505,19 @@ export function CashflowGrid({
         isMobile={isMobile}
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold text-ds-text-1">
-          Planilla de flujo · {isMobile ? "3" : horizon} semanas
-        </h2>
-        {!isMobile && (
-          <CashflowFolioSearch
-            buckets={buckets}
-            canManage={canManage}
-            onRun={runFolioTo}
-            onLocate={goToWeek}
-          />
-        )}
-        <div className="flex items-center gap-1">
-          {!isMobile && (
-            <HorizonSelector value={horizon} onChange={setHorizon} />
-          )}
-          <button
-            type="button"
-            onClick={goToday}
-            aria-label="Volver a hoy"
-            title="Volver a la semana actual"
-            className="mr-1 inline-flex h-9 items-center gap-1.5 rounded-ds-md border border-ds-border-default px-2.5 text-[12px] text-ds-text-2 transition-colors hover:bg-ds-surface-2 hover:text-ds-text-1"
-          >
-            <CalendarDays className="h-3.5 w-3.5" /> Hoy
-          </button>
-          <NavButton
-            dir="prev"
-            onClick={goPrev}
-            loading={loading}
-            label="Semana anterior"
-          />
-          <NavButton
-            dir="next"
-            onClick={goNext}
-            loading={loading}
-            label="Semana siguiente"
-          />
-        </div>
-      </div>
+      <GridToolbar
+        isMobile={isMobile}
+        horizon={horizon}
+        setHorizon={setHorizon}
+        buckets={buckets}
+        canManage={canManage}
+        loading={loading}
+        onRunFolio={runFolioTo}
+        onLocate={goToWeek}
+        onToday={goToday}
+        onPrev={goPrev}
+        onNext={goNext}
+      />
 
       <DndContext
         sensors={sensors}
@@ -696,31 +667,5 @@ export function CashflowGrid({
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function NavButton({
-  dir,
-  onClick,
-  loading,
-  label,
-}: {
-  dir: "prev" | "next";
-  onClick: () => void;
-  loading: boolean;
-  label: string;
-}) {
-  const Icon = dir === "prev" ? ChevronLeft : ChevronRight;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      aria-busy={loading || undefined}
-      className="inline-flex h-10 w-10 sm:h-9 sm:w-9 items-center justify-center rounded-ds-md border border-ds-border-default text-ds-text-2 transition-colors hover:bg-ds-surface-2 hover:text-ds-text-1"
-    >
-      <Icon className={cn("h-4 w-4", loading && "motion-safe:animate-pulse")} />
-    </button>
   );
 }

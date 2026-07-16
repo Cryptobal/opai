@@ -100,7 +100,8 @@ export function useWeekCache(initial: ProjectionMatrix) {
 
       const token = ++loadToken.current;
       setLoading(true);
-      const promise = (async () => {
+      let promise!: Promise<void>;
+      promise = (async () => {
         try {
           const next = await fetchRange(gapFrom, endOfIsoWeekUTC(gapTo));
           if (token !== loadToken.current) return; // respuesta stale, se descarta

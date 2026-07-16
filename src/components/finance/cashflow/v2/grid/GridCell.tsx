@@ -371,6 +371,10 @@ export function GridCell({
           onHidden={(undo) =>
             onHiddenFromFlow?.({ ...undo, itemId, bucketKey })
           }
+          source={source}
+          hasAmountOverride={value.hasAmountOverride}
+          scheduledDate={value.scheduledDate}
+          bucketStart={bucketStart}
         />
       )}
       {advanced && actual !== null && (
