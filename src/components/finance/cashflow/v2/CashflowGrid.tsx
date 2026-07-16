@@ -39,6 +39,7 @@ import { currentBucketIndex } from "./projection-helpers";
 import { useGridWindow } from "./grid/useGridWindow";
 import { useHorizon } from "./grid/useHorizon";
 import { HorizonSelector } from "./grid/HorizonSelector";
+import { usePrefetchWindow } from "./grid/usePrefetchWindow";
 import { GridHeader } from "./grid/GridHeader";
 import { GridSection } from "./grid/GridSection";
 import { GridBalanceRow } from "./grid/GridBalanceRow";
@@ -113,10 +114,22 @@ export function CashflowGrid({
     refreshAt,
     refresh,
     refreshWeeks,
+    ensureRange,
+    anchorDate,
+    windowWeeks: activeWindowWeeks,
   } = useGridWindow(projection, {
     weeksBack: isMobile ? MOBILE_WEEKS_BACK : weeksBack,
     windowWeeks,
     step: 1,
+  });
+
+  // Prefetch ventanas adyacentes solo en desktop (ahorro de datos en móvil).
+  usePrefetchWindow({
+    enabled: !isMobile,
+    anchorDate,
+    windowWeeks: activeWindowWeeks,
+    loading,
+    ensureRange,
   });
   const buckets = active.buckets;
   // El hook ya entrega EXACTAMENTE `windowWeeks` buckets (3 en móvil, 8 en
