@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
-import { dropWeeks, mergeMatrix, sliceMatrix } from "./week-cache-merge";
+import { dropWeeks, mergeMatrix, replaceWeeks, sliceMatrix } from "./week-cache-merge";
 import {
   addWeeksUTC,
   endOfIsoWeekUTC,
@@ -15,16 +15,10 @@ import {
 /**
  * Caché de semanas ya proyectadas, indexada por `bucketKey`.
  *
- * Reemplaza el patrón anterior (recargar un RANGO completo en cada navegación),
- * que recomputaba todas las semanas —15 queries + expandRecurrence de todos los
- * ítems— y además hacía que una misma semana pudiera devolver valores distintos
- * según el rango pedido.
- *
- * Ahora: una semana se pide UNA vez, se guarda y se reusa. Navegar dentro de lo
- * cacheado es instantáneo (cero red). Sólo se piden los HUECOS. No existe el
- * modo `blocking=false`: `loading` es `true` mientras hay fetch en vuelo, así
- * las flechas quedan deshabilitadas y no puede colarse un clic a medio camino
- * (origen del bug de la flecha pegada).
+ * Navegar dentro de lo cacheado es instantáneo. Solo se piden los HUECOS.
+ * `loading` indica fetch en vuelo (prefetch / UI), pero las flechas NO se
+ * bloquean: el ancla se mueve al instante y las columnas pendientes muestran
+ * skeleton hasta que el merge actualiza `version`.
  */
 export function useWeekCache(initial: ProjectionMatrix) {
   const mergedRef = useRef<ProjectionMatrix>(initial);
@@ -34,6 +28,12 @@ export function useWeekCache(initial: ProjectionMatrix) {
   const [version, setVersion] = useState(0);
   const [loading, setLoading] = useState(false);
   const loadToken = useRef(0);
+  /** Dedup: mismo hueco en vuelo reusa la misma promise. */
+  const flightRef = useRef<{
+    fromMs: number;
+    toMs: number;
+    promise: Promise<void>;
+  } | null>(null);
 
   const fetchRange = useCallback(
     async (from: Date, to: Date): Promise<ProjectionMatrix | null> => {
@@ -56,6 +56,12 @@ export function useWeekCache(initial: ProjectionMatrix) {
     },
     [],
   );
+
+  /** Keys presentes en el caché (se recalcula con cada merge / poda). */
+  const presentKeys = useMemo(() => {
+    void version;
+    return new Set(mergedRef.current.buckets.map((b) => b.key));
+  }, [version]);
 
   /** Garantiza que todas las semanas de `[from, to]` estén cacheadas. Si ya lo
    *  están (y el caché no está stale) retorna sin fetch ni setState. Si faltan,
@@ -81,26 +87,43 @@ export function useWeekCache(initial: ProjectionMatrix) {
         }
       }
       if (!firstMissing || !lastMissing) return; // todo cacheado
+
+      const gapFrom = firstMissing;
+      const gapTo = lastMissing;
+      const fromMs = gapFrom.getTime();
+      const toMs = gapTo.getTime();
+      const flight = flightRef.current;
+      if (flight && flight.fromMs === fromMs && flight.toMs === toMs) {
+        await flight.promise;
+        return;
+      }
+
       const token = ++loadToken.current;
       setLoading(true);
-      try {
-        const next = await fetchRange(firstMissing, endOfIsoWeekUTC(lastMissing));
-        if (token !== loadToken.current) return; // respuesta stale, se descarta
-        if (!next) {
-          toast.error("No se pudieron cargar esas semanas");
-          return;
+      let promise!: Promise<void>;
+      promise = (async () => {
+        try {
+          const next = await fetchRange(gapFrom, endOfIsoWeekUTC(gapTo));
+          if (token !== loadToken.current) return; // respuesta stale, se descarta
+          if (!next) {
+            toast.error("No se pudieron cargar esas semanas");
+            return;
+          }
+          // Tras invalidate() se reemplaza desde cero; si no, se fusiona.
+          mergedRef.current = mergeMatrix(stale ? null : mergedRef.current, next);
+          staleRef.current = false;
+          setVersion((v) => v + 1);
+        } catch {
+          if (token === loadToken.current) {
+            toast.error("Error de red al cargar semanas");
+          }
+        } finally {
+          if (flightRef.current?.promise === promise) flightRef.current = null;
+          if (token === loadToken.current) setLoading(false);
         }
-        // Tras invalidate() se reemplaza desde cero; si no, se fusiona.
-        mergedRef.current = mergeMatrix(stale ? null : mergedRef.current, next);
-        staleRef.current = false;
-        setVersion((v) => v + 1);
-      } catch {
-        if (token === loadToken.current) {
-          toast.error("Error de red al cargar semanas");
-        }
-      } finally {
-        if (token === loadToken.current) setLoading(false);
-      }
+      })();
+      flightRef.current = { fromMs, toMs, promise };
+      await promise;
     },
     [fetchRange],
   );
@@ -129,5 +152,20 @@ export function useWeekCache(initial: ProjectionMatrix) {
     setVersion((v) => v + 1);
   }, []);
 
-  return { ensureRange, resolve, invalidate, invalidateWeeks, loading, version };
+  /** Parche F4: aplica proyección parcial (incoming gana) sin fetch. */
+  const patchMatrix = useCallback((incoming: ProjectionMatrix) => {
+    mergedRef.current = replaceWeeks(mergedRef.current, incoming);
+    setVersion((v) => v + 1);
+  }, []);
+
+  return {
+    ensureRange,
+    resolve,
+    invalidate,
+    invalidateWeeks,
+    patchMatrix,
+    loading,
+    version,
+    presentKeys,
+  };
 }

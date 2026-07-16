@@ -6,12 +6,18 @@ import {
   excludeDteFromFlow,
   includeDteInFlow,
 } from "@/modules/finance/cashflow/dte-exclusion.service";
+import {
+  returnRangeField,
+  withPartialProjection,
+} from "@/modules/finance/cashflow/partial-projection";
 
-const bodySchema = z.object({
-  /** true = ocultar del flujo; false = restaurar. */
-  exclude: z.boolean(),
-  reason: z.string().max(200).optional().nullable(),
-});
+const bodySchema = z
+  .object({
+    /** true = ocultar del flujo; false = restaurar. */
+    exclude: z.boolean(),
+    reason: z.string().max(200).optional().nullable(),
+  })
+  .merge(returnRangeField);
 
 /**
  * POST /api/finance/cashflow/dtes/[dteId]/exclude-flow
@@ -45,10 +51,12 @@ export async function POST(
       await includeDteInFlow(ctx.tenantId, dteId);
     }
 
-    return NextResponse.json({
-      success: true,
-      data: { dteId, excluded: parsed.data.exclude },
-    });
+    const data = await withPartialProjection(
+      ctx.tenantId,
+      parsed.data.returnRange,
+      { dteId, excluded: parsed.data.exclude },
+    );
+    return NextResponse.json({ success: true, data });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Error interno";
     console.error("[Finance/Cashflow] POST dtes/exclude-flow:", error);

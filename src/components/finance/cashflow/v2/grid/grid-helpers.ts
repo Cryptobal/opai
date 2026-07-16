@@ -25,6 +25,10 @@ export interface GridItemRow {
   item: ProjectionRowItemDetail;
   /** Lookup de valor por bucketKey para pintar cada celda en O(1). */
   valueByBucket: Map<string, ProjectionRowItemValue>;
+  /** Kind de la sección (INCOME/EXPENSE) — necesario para create inline. */
+  kind?: FinanceCashflowItemKind;
+  /** Categoría de la fila padre — create manual la reutiliza si existe. */
+  categoryId?: string | null;
   /** Presente SOLO en filas de egreso agrupado (B3): la fila suma N
    *  instalaciones de un mismo tipo de gasto (sueldos/previred/turnos).
    *  `source` identifica el tipo; `occurrencesByBucket` lista, por bucket, las
@@ -44,6 +48,7 @@ export function childGridRow(item: ProjectionRowItemDetail): GridItemRow {
   return {
     item,
     valueByBucket: new Map(item.values.map((v) => [v.bucketKey, v])),
+    kind: "EXPENSE",
   };
 }
 
@@ -55,11 +60,15 @@ export function itemRowsForKind(
 ): GridItemRow[] {
   const items = rows
     .filter((r) => r.kind === kind)
-    .flatMap((r) => r.items);
-  const gridRows = items.map((item) => ({
-    item,
-    valueByBucket: new Map(item.values.map((v) => [v.bucketKey, v])),
-  }));
+    .flatMap((r) =>
+      r.items.map((item) => ({
+        item,
+        valueByBucket: new Map(item.values.map((v) => [v.bucketKey, v])),
+        kind: r.kind,
+        categoryId: r.categoryId,
+      })),
+    );
+  const gridRows = items;
   gridRows.sort((a, b) =>
     itemSortKey(a.item).localeCompare(itemSortKey(b.item), "es", {
       sensitivity: "base",
@@ -301,4 +310,36 @@ export function cellChip(
       : null;
   const caption = value.dteFolio ? `N° ${value.dteFolio}` : scheduledCaption;
   return { variant, locked, draggable, title, caption };
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** Item real (UUID) vs sintético (`_dte:`, `_orphan`, `_group:`, …). */
+export function isRealItemId(id: string | null | undefined): boolean {
+  return !!id && UUID_RE.test(id);
+}
+
+/**
+ * ¿Se puede editar el monto de esta celda?
+ * - Semana cerrada / pagada / conciliada / anulada → no.
+ * - EXPENSE abierto → sí (si hay target materializado, lo chequea el caller).
+ * - INCOME: solo MANUAL o borrador (DRAFT). Facturada/programada fija ("la factura manda").
+ */
+export function canEditValue(
+  value: ProjectionRowItemValue | undefined,
+  source: FinanceCashflowItemSource,
+  kind: FinanceCashflowItemKind,
+  closed: boolean,
+): boolean {
+  if (closed) return false;
+  if (!value || value.amount === 0) return false;
+  const status = value.cellStatus ?? "PROJECTED";
+  if (status === "PAID" || status === "VOIDED" || value.reconciled === true) {
+    return false;
+  }
+  if (kind === "EXPENSE") return true;
+  if (source === "MANUAL") return true;
+  if (status === "DRAFT") return true;
+  return false;
 }

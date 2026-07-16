@@ -21,12 +21,14 @@ export function GridDriftRow({
   driftByBucket,
   currentIdx,
   bucketMeta,
+  pendingKeys,
 }: {
   buckets: ProjectionBucket[];
   /** bucketKey → drift acumulado (cumulativeBankVarianceClp); null = futuro. */
   driftByBucket: Map<string, number | null>;
   currentIdx: number;
   bucketMeta?: Map<string, BucketMeta>;
+  pendingKeys?: Set<string>;
 }) {
   return (
     <tr className="border-t border-ds-border-default bg-ds-surface-1">
@@ -34,6 +36,22 @@ export function GridDriftRow({
         Drift acumulado
       </td>
       {buckets.map((b, i) => {
+        if (pendingKeys?.has(b.key)) {
+          return (
+            <td
+              key={b.key}
+              className={cn(
+                "border-l border-ds-border-subtle px-1.5 py-1.5",
+                i === currentIdx && "bg-primary/[0.04]",
+              )}
+            >
+              <span
+                aria-hidden
+                className="mx-auto block h-3 w-10 rounded-ds-sm bg-ds-surface-3 motion-safe:animate-pulse"
+              />
+            </td>
+          );
+        }
         const drift = driftByBucket.get(b.key) ?? null;
         const meta = bucketMeta?.get(b.key);
         return (

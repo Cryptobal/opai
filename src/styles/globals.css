@@ -627,6 +627,17 @@ html {
 }
 .cell-just-updated { animation: cell-flash 1s ease-out; }
 
+/* Cashflow F2: chip aterriza al crear/mover (respeta prefers-reduced-motion global) */
+@keyframes cf-chip-land {
+  0% { transform: scale(0.85); }
+  70% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+.cf-chip-land {
+  animation: cf-chip-land 300ms ease-out;
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 35%, transparent);
+}
+
 /* Monitor: EN VIVO beacon */
 @keyframes live-beacon {
   0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }

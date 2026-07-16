@@ -1,14 +1,13 @@
 /**
  * Ocultar / restaurar una cuota en el flujo de caja.
- *
- * - Con dteId → exclude-flow (no toca Facturación/SII).
- * - Sin dteId → cancelar la occurrence (programación) / restaurar a PROJECTED.
  */
 
+import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
 import { unwrapProgItemId } from "./cashflow-move";
+import type { ClientReturnRange } from "./return-range-client";
 
 export type HideResult =
-  | { ok: true; occurrenceId?: string | null }
+  | { ok: true; occurrenceId?: string | null; projection?: ProjectionMatrix }
   | { ok: false; error?: string };
 
 export interface HideInput {
@@ -16,8 +15,8 @@ export interface HideInput {
   occurrenceId: string | null;
   itemId: string | null;
   originalDate: string;
-  /** Nombre para toasts / undo. */
   label: string;
+  returnRange?: ClientReturnRange;
 }
 
 function isSyntheticItemId(id: string | null): boolean {
@@ -33,13 +32,11 @@ function isSyntheticItemId(id: string | null): boolean {
 }
 
 export async function hideFromFlowViaApi(input: HideInput): Promise<HideResult> {
-  const { dteId, occurrenceId, originalDate } = input;
-  // `_prog:<uuid>:<fecha>` (programación duplicada junto a una factura movida)
-  // envuelve un itemId REAL: se desenvuelve para cancelar la cuota de ese item
-  // en `originalDate`, en vez de mandar el `_prog:…` crudo (400 "Invalid UUID").
+  const { dteId, occurrenceId, originalDate, returnRange } = input;
   const itemId =
     unwrapProgItemId(input.itemId) ??
     (isSyntheticItemId(input.itemId) ? null : input.itemId);
+  const rangeBody = returnRange ? { returnRange } : {};
 
   try {
     if (dteId) {
@@ -48,11 +45,11 @@ export async function hideFromFlowViaApi(input: HideInput): Promise<HideResult> 
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ exclude: true }),
+          body: JSON.stringify({ exclude: true, ...rangeBody }),
         },
       );
       const j = await res.json().catch(() => null);
-      if (j?.success) return { ok: true };
+      if (j?.success) return { ok: true, projection: j?.data?.projection };
       return { ok: false, error: j?.error ?? "No se pudo ocultar" };
     }
 
@@ -62,11 +59,17 @@ export async function hideFromFlowViaApi(input: HideInput): Promise<HideResult> 
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "CANCELLED" }),
+          body: JSON.stringify({ status: "CANCELLED", ...rangeBody }),
         },
       );
       const j = await res.json().catch(() => null);
-      if (j?.success) return { ok: true, occurrenceId };
+      if (j?.success) {
+        return {
+          ok: true,
+          occurrenceId,
+          projection: j?.data?.projection,
+        };
+      }
       return { ok: false, error: j?.error ?? "No se pudo ocultar" };
     }
 
@@ -78,10 +81,17 @@ export async function hideFromFlowViaApi(input: HideInput): Promise<HideResult> 
           action: "cancel",
           itemId,
           originalDate,
+          ...rangeBody,
         }),
       });
       const j = await res.json().catch(() => null);
-      if (j?.success) return { ok: true, occurrenceId: j?.data?.id ?? null };
+      if (j?.success) {
+        return {
+          ok: true,
+          occurrenceId: j?.data?.id ?? null,
+          projection: j?.data?.projection,
+        };
+      }
       return { ok: false, error: j?.error ?? "No se pudo ocultar" };
     }
 
@@ -94,7 +104,9 @@ export async function hideFromFlowViaApi(input: HideInput): Promise<HideResult> 
 export async function restoreToFlowViaApi(input: {
   dteId: string | null;
   occurrenceId: string | null;
+  returnRange?: ClientReturnRange;
 }): Promise<HideResult> {
+  const rangeBody = input.returnRange ? { returnRange: input.returnRange } : {};
   try {
     if (input.dteId) {
       const res = await fetch(
@@ -102,11 +114,11 @@ export async function restoreToFlowViaApi(input: {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ exclude: false }),
+          body: JSON.stringify({ exclude: false, ...rangeBody }),
         },
       );
       const j = await res.json().catch(() => null);
-      if (j?.success) return { ok: true };
+      if (j?.success) return { ok: true, projection: j?.data?.projection };
       return { ok: false, error: j?.error ?? "No se pudo restaurar" };
     }
 
@@ -116,11 +128,17 @@ export async function restoreToFlowViaApi(input: {
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "PROJECTED" }),
+          body: JSON.stringify({ status: "PROJECTED", ...rangeBody }),
         },
       );
       const j = await res.json().catch(() => null);
-      if (j?.success) return { ok: true, occurrenceId: input.occurrenceId };
+      if (j?.success) {
+        return {
+          ok: true,
+          occurrenceId: input.occurrenceId,
+          projection: j?.data?.projection,
+        };
+      }
       return { ok: false, error: j?.error ?? "No se pudo restaurar" };
     }
 

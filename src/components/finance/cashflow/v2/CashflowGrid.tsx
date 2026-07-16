@@ -12,7 +12,6 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { BancaTabsHeader } from "@/components/finance/BancaTabsHeader";
 import { Button } from "@/components/ui/button";
@@ -24,33 +23,35 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import type {
   ProjectionMatrix,
   ProjectionAnchorInfo,
 } from "@/modules/finance/cashflow/types";
 import { HealthHeader } from "./HealthHeader";
+import { FlowMiniChart } from "./grid/FlowMiniChart";
 import { ManualCloseStreakBanner, type CloseLite } from "./ManualCloseStreakBanner";
 import { Legend } from "./Legend";
 import { UndoToast } from "./UndoToast";
 import { WeekCloseDrawer } from "../week-close/WeekCloseDrawer";
 import { currentBucketIndex } from "./projection-helpers";
 import { useGridWindow } from "./grid/useGridWindow";
+import { useHorizon } from "./grid/useHorizon";
+import { usePrefetchWindow } from "./grid/usePrefetchWindow";
+import { GridToolbar } from "./grid/GridToolbar";
 import { GridHeader } from "./grid/GridHeader";
 import { GridSection } from "./grid/GridSection";
 import { GridBalanceRow } from "./grid/GridBalanceRow";
 import { GridDriftRow } from "./grid/GridDriftRow";
 import { GridChip } from "./grid/GridChip";
-import { buildBucketMeta, itemRowsForKind } from "./grid/grid-helpers";
+import { buildBucketMeta, cellChip, itemRowsForKind } from "./grid/grid-helpers";
+import { buildConceptOptions } from "./grid/concept-options";
 import { expenseRows } from "./grid/expense-grouping";
 import { useGridMove, type GridDragData } from "./grid/useGridMove";
 import { useCashflowMutations } from "./grid/useCashflowMutations";
 import { deriveCumulative } from "./grid/derive-balance";
 import { moveViaApi } from "./grid/cashflow-move";
 import { QuotaMoveSelector } from "./grid/QuotaMoveSelector";
-import { CashflowFolioSearch } from "./grid/CashflowFolioSearch";
-import { ManualEntryQuickAdd } from "./grid/ManualEntryQuickAdd";
 import {
   movableOccurrencesInCell,
   occurrenceVariant,
@@ -97,18 +98,39 @@ export function CashflowGrid({
   weeksBack = GRID_WEEKS_BACK_DEFAULT,
 }: CashflowGridProps) {
   const router = useRouter();
-  // Móvil: ventana de 3 columnas (anterior/actual/siguiente), navegación de a 1
-  // semana. Desktop: 8 columnas, navegación por bloque. Reutiliza el hook de
-  // viewport existente (no crear uno nuevo).
+  // Móvil: 3 columnas, step 1. Desktop: horizonte configurable, step 1 (F3).
   const isMobile = useIsMobileViewport(768);
-  const windowWeeks = isMobile ? MOBILE_WINDOW_WEEKS : undefined; // undefined → 8
-  const { active, loading, goPrev, goNext, goToday, goToWeek, refreshAt, refresh, refreshWeeks } =
-    useGridWindow(projection, {
-      weeksBack: isMobile ? MOBILE_WEEKS_BACK : weeksBack,
-      windowWeeks,
-      step: isMobile ? 1 : undefined,
-    },
-  );
+  const { horizon, setHorizon } = useHorizon();
+  const windowWeeks = isMobile ? MOBILE_WINDOW_WEEKS : horizon;
+  const {
+    active,
+    loading,
+    pendingKeys,
+    goPrev,
+    goNext,
+    goToday,
+    goToWeek,
+    refreshAt,
+    refresh,
+    refreshWeeks,
+    ensureRange,
+    patchMatrix,
+    anchorDate,
+    windowWeeks: activeWindowWeeks,
+  } = useGridWindow(projection, {
+    weeksBack: isMobile ? MOBILE_WEEKS_BACK : weeksBack,
+    windowWeeks,
+    step: 1,
+  });
+
+  // Prefetch ventanas adyacentes solo en desktop (ahorro de datos en móvil).
+  usePrefetchWindow({
+    enabled: !isMobile,
+    anchorDate,
+    windowWeeks: activeWindowWeeks,
+    loading,
+    ensureRange,
+  });
   const buckets = active.buckets;
   // El hook ya entrega EXACTAMENTE `windowWeeks` buckets (3 en móvil, 8 en
   // desktop) desde el ancla de navegación. El doble recorte móvil anterior
@@ -126,11 +148,12 @@ export function CashflowGrid({
     beginMove,
     clearPending,
     handleAmountSaved,
+    handleCreated,
     handleHiddenFromFlow,
     undoPayload,
     clearUndo,
     pushUndo,
-  } = useCashflowMutations({ refreshWeeks });
+  } = useCashflowMutations({ refreshWeeks, patchMatrix });
 
   const displayRows = useMemo(
     () => displayRowsOf(active.rows),
@@ -138,6 +161,14 @@ export function CashflowGrid({
   );
   const incomeRows = useMemo(
     () => itemRowsForKind(displayRows, "INCOME"),
+    [displayRows],
+  );
+  const incomeOptions = useMemo(
+    () => buildConceptOptions(displayRows, "INCOME"),
+    [displayRows],
+  );
+  const expenseOptions = useMemo(
+    () => buildConceptOptions(displayRows, "EXPENSE"),
     [displayRows],
   );
   // Egresos agrupados: una línea por tipo de gasto (sueldos/previred/turnos
@@ -191,12 +222,6 @@ export function CashflowGrid({
   // sin fila de desviación (Drift) ni badges de IPC/headcount. El antiguo toggle
   // "Avanzado" que revelaba esa información contable fue retirado.
   const effectiveAdvanced = false;
-
-  // Create/folio: aún sin keys precisas → refresh de la ventana visible.
-  // HealthHeader ya lee del caché client + derivedPoints → sin router.refresh.
-  const refreshGrid = useCallback(async () => {
-    await refresh();
-  }, [refresh]);
 
   // Cierre/reapertura: ancla + candados globales cambian → refresh full +
   // props del server + re-fetch de weekly-close/status.
@@ -315,10 +340,45 @@ export function CashflowGrid({
   const { move, moveGroup } = useGridMove({
     buckets,
     refreshWeeks,
+    patchMatrix,
     onOptimistic: beginMove,
     clearOptimistic: clearPending,
     pushUndo,
   });
+
+  const handleContextMove = useCallback(
+    (args: {
+      itemId: string;
+      itemName: string;
+      fromBucketKey: string;
+      toBucketKey: string;
+      value:
+        | import("@/modules/finance/cashflow/types").ProjectionRowItemValue
+        | undefined;
+      source: import("@/modules/finance/cashflow/types").FinanceCashflowItemSource;
+    }) => {
+      const { itemId, itemName, fromBucketKey, toBucketKey, value, source } =
+        args;
+      if (!value || value.amount === 0) return;
+      const chip = cellChip(value, source);
+      void move(
+        {
+          kind: "grid-chip",
+          itemId,
+          itemName,
+          occurrenceId: value.occurrenceId,
+          dteId: value.dteId ?? null,
+          originalDate: value.scheduledDate,
+          fromBucketKey,
+          amount: value.amount,
+          variant: chip.variant,
+          locked: chip.locked,
+        },
+        toBucketKey,
+      );
+    },
+    [move],
+  );
 
   // Sensors: puntero (mouse + touch) con activación por long-press (delay +
   // tolerance) para NO secuestrar el scroll táctil de la grilla. Un scroll
@@ -437,51 +497,29 @@ export function CashflowGrid({
       <BancaTabsHeader active="cashflow" />
       {recentCloses && <ManualCloseStreakBanner recentCloses={recentCloses} />}
       <HealthHeader projection={active} derivedPoints={derivedCumulative} />
+      <FlowMiniChart
+        buckets={visibleBuckets}
+        rows={displayRows}
+        openingBalanceClp={active.openingBalanceClp}
+        anchor={active.anchor}
+        currentIdx={currentIdx}
+        onSelectWeek={goToWeek}
+        isMobile={isMobile}
+      />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold text-ds-text-1">
-          Planilla de flujo · {isMobile ? "3" : "8"} semanas
-        </h2>
-        {!isMobile && (
-          <CashflowFolioSearch
-            buckets={buckets}
-            canManage={canManage}
-            onRun={runFolioTo}
-            onLocate={goToWeek}
-          />
-        )}
-        <div className="flex items-center gap-1">
-          {canManage && (
-            <ManualEntryQuickAdd
-              buckets={visibleBuckets}
-              rows={active.rows}
-              onCreated={refreshGrid}
-            />
-          )}
-          <button
-            type="button"
-            onClick={goToday}
-            disabled={loading}
-            aria-label="Volver a hoy"
-            title="Volver a la semana actual"
-            className="mr-1 inline-flex h-9 items-center gap-1.5 rounded-ds-md border border-ds-border-default px-2.5 text-[12px] text-ds-text-2 transition-colors hover:bg-ds-surface-2 hover:text-ds-text-1 disabled:opacity-40"
-          >
-            <CalendarDays className="h-3.5 w-3.5" /> Hoy
-          </button>
-          <NavButton
-            dir="prev"
-            onClick={goPrev}
-            loading={loading}
-            label={isMobile ? "Semana anterior" : "Semanas anteriores (solapa 1)"}
-          />
-          <NavButton
-            dir="next"
-            onClick={goNext}
-            loading={loading}
-            label={isMobile ? "Semana siguiente" : "Semanas siguientes (solapa 1)"}
-          />
-        </div>
-      </div>
+      <GridToolbar
+        isMobile={isMobile}
+        horizon={horizon}
+        setHorizon={setHorizon}
+        buckets={buckets}
+        canManage={canManage}
+        loading={loading}
+        onRunFolio={runFolioTo}
+        onLocate={goToWeek}
+        onToday={goToday}
+        onPrev={goPrev}
+        onNext={goNext}
+      />
 
       <DndContext
         sensors={sensors}
@@ -510,11 +548,13 @@ export function CashflowGrid({
               onCloseWeek={setCloseWeekEndIso}
               onReopenWeek={requestReopen}
               closedWeeks={closedWeeks}
+              pendingKeys={pendingKeys}
             />
             <tbody>
               <GridSection
                 label="Ingresos"
                 tone="ok"
+                kind="INCOME"
                 rows={incomeRows}
                 buckets={visibleBuckets}
                 currentIdx={currentIdx}
@@ -522,13 +562,18 @@ export function CashflowGrid({
                 bucketMeta={bucketMeta}
                 advanced={effectiveAdvanced}
                 onAmountSaved={handleAmountSaved}
+                onCreated={handleCreated}
                 onHiddenFromFlow={handleHiddenFromFlow}
+                onContextMove={handleContextMove}
                 isMobile={isMobile}
-                editableAmounts={false}
+                editableAmounts={canManage}
+                pendingKeys={pendingKeys}
+                conceptOptions={incomeOptions}
               />
               <GridSection
                 label="Egresos"
                 tone="warn"
+                kind="EXPENSE"
                 rows={expenseGridRows}
                 buckets={visibleBuckets}
                 currentIdx={currentIdx}
@@ -536,15 +581,20 @@ export function CashflowGrid({
                 bucketMeta={bucketMeta}
                 advanced={effectiveAdvanced}
                 onAmountSaved={handleAmountSaved}
+                onCreated={handleCreated}
                 onHiddenFromFlow={handleHiddenFromFlow}
+                onContextMove={handleContextMove}
                 isMobile={isMobile}
-                editableAmounts
+                editableAmounts={canManage}
+                pendingKeys={pendingKeys}
+                conceptOptions={expenseOptions}
               />
               <GridBalanceRow
                 buckets={visibleBuckets}
                 balanceByBucket={balanceByBucket}
                 currentIdx={currentIdx}
                 bucketMeta={bucketMeta}
+                pendingKeys={pendingKeys}
               />
               {effectiveAdvanced && (
                 <GridDriftRow
@@ -552,6 +602,7 @@ export function CashflowGrid({
                   driftByBucket={driftByBucket}
                   currentIdx={currentIdx}
                   bucketMeta={bucketMeta}
+                  pendingKeys={pendingKeys}
                 />
               )}
             </tbody>
@@ -618,31 +669,5 @@ export function CashflowGrid({
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function NavButton({
-  dir,
-  onClick,
-  loading,
-  label,
-}: {
-  dir: "prev" | "next";
-  onClick: () => void;
-  loading: boolean;
-  label: string;
-}) {
-  const Icon = dir === "prev" ? ChevronLeft : ChevronRight;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={loading}
-      aria-label={label}
-      title={label}
-      className="inline-flex h-9 w-9 items-center justify-center rounded-ds-md border border-ds-border-default text-ds-text-2 transition-colors hover:bg-ds-surface-2 hover:text-ds-text-1 disabled:opacity-40"
-    >
-      <Icon className={cn("h-4 w-4", loading && "animate-pulse")} />
-    </button>
   );
 }

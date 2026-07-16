@@ -5,25 +5,24 @@ import { cn } from "@/lib/utils";
 import type { ProjectionBucket } from "@/modules/finance/cashflow/types";
 import { fmt } from "@/components/finance/cashflow/MatrixHelpers";
 import type { BucketMeta } from "./grid-helpers";
+import { PendingColumnPulse } from "./PendingColumnPulse";
 
 /**
  * Fila FC — saldo acumulado proyectado por semana (verde ≥ 0, rojo < 0).
- * Horizontal, sellada abajo (sticky) para leer la trayectoria del saldo
- * mientras se hace scroll de las secciones. En la semana anclada muestra el
- * saldo anclado (ícono de ancla + línea de frontera); las semanas cerradas van
- * atenuadas.
+ * Sticky bottom para leer la trayectoria mientras se hace scroll.
  */
 export function GridBalanceRow({
   buckets,
   balanceByBucket,
   currentIdx,
   bucketMeta,
+  pendingKeys,
 }: {
   buckets: ProjectionBucket[];
-  /** bucketKey → saldo acumulado proyectado (cumulativeBalances). */
   balanceByBucket: Map<string, number>;
   currentIdx: number;
   bucketMeta?: Map<string, BucketMeta>;
+  pendingKeys?: Set<string>;
 }) {
   return (
     <tr className="sticky bottom-0 z-10 border-t-2 border-ds-border-strong bg-ds-surface-2 font-semibold">
@@ -31,6 +30,19 @@ export function GridBalanceRow({
         FC · saldo acumulado
       </td>
       {buckets.map((b, i) => {
+        if (pendingKeys?.has(b.key)) {
+          return (
+            <td
+              key={b.key}
+              className={cn(
+                "border-l border-ds-border-subtle bg-ds-surface-2 px-1.5 py-2",
+                i === currentIdx && "bg-primary/[0.06]",
+              )}
+            >
+              <PendingColumnPulse />
+            </td>
+          );
+        }
         const bal = balanceByBucket.get(b.key);
         const hasBal = bal !== undefined;
         const negative = hasBal && bal < 0;

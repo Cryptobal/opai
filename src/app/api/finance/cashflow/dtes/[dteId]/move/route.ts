@@ -3,6 +3,10 @@ import { z } from "zod";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
 import { moveDteByOverride } from "@/modules/finance/cashflow/dte-date-override.service";
+import {
+  returnRangeField,
+  withPartialProjection,
+} from "@/modules/finance/cashflow/partial-projection";
 
 const moveSchema = z
   .object({
@@ -10,6 +14,7 @@ const moveSchema = z
     daysFromCurrent: z.number().int().optional(),
     reason: z.string().optional(),
   })
+  .merge(returnRangeField)
   .refine(
     (v) => v.newDate !== undefined || v.daysFromCurrent !== undefined,
     "Falta newDate o daysFromCurrent",
@@ -37,7 +42,12 @@ export async function POST(
       daysFromCurrent: parsed.data.daysFromCurrent ?? null,
       reason: parsed.data.reason ?? null,
     });
-    return NextResponse.json({ success: true, data: result });
+    const data = await withPartialProjection(
+      ctx.tenantId,
+      parsed.data.returnRange,
+      result,
+    );
+    return NextResponse.json({ success: true, data });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Error interno";
     console.error("[Finance/Cashflow] POST dtes/move:", error);

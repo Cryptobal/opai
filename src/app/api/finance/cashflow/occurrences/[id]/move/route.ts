@@ -6,6 +6,10 @@ import {
   moveOccurrence,
   OccurrenceCollisionError,
 } from "@/modules/finance/cashflow/occurrence.service";
+import {
+  returnRangeField,
+  withPartialProjection,
+} from "@/modules/finance/cashflow/partial-projection";
 
 const moveSchema = z
   .object({
@@ -13,6 +17,7 @@ const moveSchema = z
     daysFromCurrent: z.number().int().optional(),
     resolveStrategy: z.enum(["replace", "next_free"]).optional(),
   })
+  .merge(returnRangeField)
   .refine(
     (v) => v.newDate !== undefined || v.daysFromCurrent !== undefined,
     "Falta newDate o daysFromCurrent",
@@ -38,9 +43,22 @@ export async function POST(
         daysFromCurrent: parsed.data.daysFromCurrent ?? null,
         resolveStrategy: parsed.data.resolveStrategy,
       });
+      // Sin returnRange: respuesta idéntica a la histórica (sin `data`).
+      if (!parsed.data.returnRange) {
+        return NextResponse.json({
+          success: true,
+          overwrote: result?.overwrote ?? null,
+        });
+      }
+      const data = await withPartialProjection(
+        ctx.tenantId,
+        parsed.data.returnRange,
+        {},
+      );
       return NextResponse.json({
         success: true,
         overwrote: result?.overwrote ?? null,
+        data,
       });
     } catch (e) {
       if (e instanceof OccurrenceCollisionError) {

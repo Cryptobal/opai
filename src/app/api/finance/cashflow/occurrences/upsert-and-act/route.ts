@@ -7,6 +7,12 @@ import {
   OccurrenceCollisionError,
 } from "@/modules/finance/cashflow/occurrence.service";
 import { upsertAndActSchema } from "@/lib/validations/cashflow";
+import {
+  returnRangeField,
+  withPartialProjection,
+} from "@/modules/finance/cashflow/partial-projection";
+
+const bodySchema = upsertAndActSchema.and(returnRangeField);
 
 /**
  * POST /api/finance/cashflow/occurrences/upsert-and-act
@@ -23,7 +29,7 @@ export async function POST(request: NextRequest) {
     if (!hasCapability(perms, "cashflow_manage")) {
       return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
     }
-    const parsed = await parseBody(request, upsertAndActSchema);
+    const parsed = await parseBody(request, bodySchema);
     if (parsed.error) return parsed.error;
     try {
       if (parsed.data.action === "create") {
@@ -35,12 +41,22 @@ export async function POST(request: NextRequest) {
           categoryId: parsed.data.categoryId ?? null,
           notes: parsed.data.notes ?? null,
         });
-        return NextResponse.json({ success: true, data: { id: occ.id } });
+        const data = await withPartialProjection(
+          ctx.tenantId,
+          parsed.data.returnRange,
+          { id: occ.id },
+        );
+        return NextResponse.json({ success: true, data });
       }
       const result = await materializeAndAct(ctx.tenantId, parsed.data);
+      const data = await withPartialProjection(
+        ctx.tenantId,
+        parsed.data.returnRange,
+        { id: result.id },
+      );
       return NextResponse.json({
         success: true,
-        data: { id: result.id },
+        data,
         overwrote: result.overwrote ?? null,
       });
     } catch (e) {

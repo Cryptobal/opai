@@ -1,37 +1,49 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { Pencil } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
+  FinanceCashflowItemKind,
   FinanceCashflowItemSource,
   ProjectionRowItemValue,
 } from "@/modules/finance/cashflow/types";
 import { fmt } from "@/components/finance/cashflow/MatrixHelpers";
 import { GridChip } from "./GridChip";
 import { GridDraggableChip } from "./GridDraggableChip";
-import { cellChip } from "./grid-helpers";
-import { AmountCellEditor } from "./AmountCellEditor";
+import { canEditValue, cellChip, type BucketMeta } from "./grid-helpers";
+import { InlineCellEditor } from "./InlineCellEditor";
 import {
   CellFlowActions,
   type HiddenFromFlowPayload,
 } from "./CellFlowActions";
 import { CellActionSheet } from "./CellActionSheet";
+import { CellContextMenu, openWeekTargets } from "./CellContextMenu";
+import { hideFromFlowViaApi } from "./cashflow-hide";
+import { createManualEntryViaApi } from "./cashflow-create";
+import { rangeFromBucketKeys } from "./return-range-client";
+import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
+import { toast } from "sonner";
 import type { GridDragData } from "./useGridMove";
+import type { ProjectionBucket } from "@/modules/finance/cashflow/types";
+import { toDate } from "../format";
+
+const ymd = (d: string | Date) => toDate(d).toISOString().slice(0, 10);
 
 /**
- * Celda de la grilla (item × semana). Cuando el arrastre está habilitado y la
- * cuota es movible (no pagada, source arrastrable, semana abierta), el chip se
- * vuelve draggable y la celda droppable — el drop dispara el move unificado en
- * el padre. Solo son destino válido las columnas de la MISMA fila.
+ * Celda de la grilla (item × semana). Vacía + editable → click abre create
+ * inline; con cuota → sheet al tap, edit por dbl-click / menú (F2).
  */
 export function GridCell({
   itemId,
   itemName,
   source,
+  kind = "EXPENSE",
+  categoryId = null,
   value,
   bucketKey,
+  bucketStart,
   weekLabel,
   isCurrent,
   dndEnabled,
@@ -41,66 +53,89 @@ export function GridCell({
   isGroup = false,
   groupOccurrences,
   onAmountSaved,
+  onCreated,
   onHiddenFromFlow,
+  onTabNext,
+  forceEditing = null,
+  onForceEditingConsumed,
   isMobile = false,
   editableAmounts = false,
+  buckets = [],
+  bucketMeta,
+  onContextMove,
 }: {
   itemId: string;
   itemName: string;
   source: FinanceCashflowItemSource;
+  kind?: FinanceCashflowItemKind;
+  categoryId?: string | null;
   value: ProjectionRowItemValue | undefined;
   bucketKey: string;
-  /** Etiqueta legible de la semana (ej. "13 may") para el sheet de acciones. */
+  /** Lunes de la semana — scheduledDate al crear. */
+  bucketStart: string | Date;
   weekLabel?: string;
   isCurrent: boolean;
   dndEnabled: boolean;
-  /** Semana sellada (cierre): sin arrastre ni drop, atenuada. */
   closed?: boolean;
-  /** Semana anclada: dibuja la línea de ancla (borde derecho de acento). */
   isAnchor?: boolean;
-  /** Modo avanzado: revela el monto real conciliado y la varianza (Δ). */
   advanced?: boolean;
-  /** La fila es un egreso agrupado (B4B): editar el total reparte proporcional
-   *  entre las instalaciones de `groupOccurrences`. */
   isGroup?: boolean;
   groupOccurrences?: { id: string; amountClp: number }[];
-  /** Se llama tras guardar/revertir un monto para refrescar la proyección. */
   onAmountSaved?: (patch?: {
     itemId: string;
     bucketKey: string;
     amount?: number;
+    projection?: ProjectionMatrix;
   }) => void;
-  /** Tras ocultar del flujo: el padre refresca y arma undo. */
+  onCreated?: (patch: {
+    itemId: string;
+    bucketKey: string;
+    amount: number;
+    projection?: ProjectionMatrix;
+  }) => void;
   onHiddenFromFlow?: (undo: HiddenFromFlowPayload) => void;
-  /** Móvil: habilita el editar por tap y muestra el lápiz de affordance. */
+  onTabNext?: () => void;
+  /** Abre el editor (create) desde el padre (Tab desde semana anterior). */
+  forceEditing?: "create" | "edit" | null;
+  onForceEditingConsumed?: () => void;
   isMobile?: boolean;
-  /** La sección admite editar montos (solo Egresos). Los Ingresos vienen de la
-   *  factura y no se editan desde el flujo, así que la sección los pasa false. */
   editableAmounts?: boolean;
+  buckets?: ProjectionBucket[];
+  bucketMeta?: Map<string, BucketMeta>;
+  /** Move desde el menú contextual (misma vía que el drag). */
+  onContextMove?: (toBucketKey: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  // Sheet de acciones (ver detalle · editar · ocultar · ver factura) que abre al
-  // tocar la celda. Centraliza lo que antes estaba disperso (doble-clic, ojo).
+  const [editing, setEditing] = useState<"edit" | "create" | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  useEffect(() => {
+    if (!forceEditing) return;
+    setEditing(forceEditing);
+    onForceEditingConsumed?.();
+  }, [forceEditing, onForceEditingConsumed]);
+
   const amount = value?.amount ?? 0;
   const chip = value ? cellChip(value, source) : null;
   const canDrag = dndEnabled && !closed && amount !== 0 && !!chip?.draggable;
-  // Editar monto: la casilla debe tener un target materializado (occurrence
-  // individual o instalaciones del grupo), semana abierta y permisos. Las
-  // pagadas (locked) no se editan — el backend igual las rechaza.
   const editTarget = isGroup
     ? (groupOccurrences?.length ?? 0) > 0
     : !!value?.occurrenceId;
   const canEdit =
     editableAmounts &&
     dndEnabled &&
-    !closed &&
-    amount !== 0 &&
     editTarget &&
-    !chip?.locked;
-  // Varianza (real − proyectado): oculta por defecto, visible en avanzado.
+    canEditValue(value, source, kind, closed);
+  const canCreate =
+    editableAmounts &&
+    dndEnabled &&
+    !closed &&
+    !isGroup &&
+    amount === 0;
   const actual = value?.actualAmount ?? null;
   const variance = actual !== null ? actual - amount : null;
+  const hasOverride = value?.hasAmountOverride ?? false;
+  const showOverrideBadge = hasOverride && canEdit;
+  const activeEditing = editing;
 
   const { setNodeRef: setDropRef, isOver, active } = useDroppable({
     id: `drop::${itemId}::${bucketKey}`,
@@ -110,19 +145,6 @@ export function GridCell({
   const activeItemId = (active?.data.current as GridDragData | undefined)?.itemId;
   const validTarget = isOver && activeItemId === itemId;
 
-  const hasOverride = value?.hasAmountOverride ?? false;
-  // El lápiz/anillo "editado manualmente" solo tiene sentido en celdas
-  // editables. En una celda fija (conciliada) el monto override es el del
-  // banco, no una edición manual — mostrarlo ahí era engañoso. El candado
-  // (GridChip locked) comunica el estado de las fijas.
-  const showOverrideBadge = hasOverride && canEdit;
-
-  // Ocultar del flujo: el usuario debe poder sacar del flujo CUALQUIER fila que
-  // quiera, incluidas las conciliadas/pagadas ("fijas"). Es reversible (deshacer
-  // / restaurar) y NO borra la factura ni toca el banco: solo deja de contarla
-  // en la proyección. Basta una referencia concreta (factura dteId, programación
-  // occurrenceId o item real). No aplica a grupos consolidados (sueldos: son un
-  // agregado de varias instalaciones) ni a semanas cerradas (selladas).
   const canHideFromFlow =
     !!onHiddenFromFlow &&
     dndEnabled &&
@@ -131,14 +153,58 @@ export function GridCell({
     amount !== 0 &&
     (!!value?.dteId || !!value?.occurrenceId || !!itemId);
 
-  // Interacción unificada (desktop + móvil): un toque/clic sobre una celda con
-  // movimiento abre el sheet de acciones (ver detalle · editar · ocultar · ver
-  // factura). El long-press sigue siendo el arrastre para mover (delay 180ms);
-  // un toque corto no lo dispara y cae acá.
   const canOpenSheet = amount !== 0 && !!chip;
-  function handleCellClick() {
-    if (!canOpenSheet) return;
-    setSheetOpen(true);
+  const openWeeks = openWeekTargets(buckets, bucketMeta, bucketKey);
+  const locked = !!chip?.locked;
+
+  async function hideFromMenu() {
+    if (!value || !onHiddenFromFlow) return;
+    const returnRange = rangeFromBucketKeys([bucketKey]);
+    const res = await hideFromFlowViaApi({
+      dteId: value.dteId ?? null,
+      occurrenceId: value.occurrenceId,
+      itemId,
+      originalDate: value.scheduledDate,
+      label: itemName,
+      returnRange,
+    });
+    if (!res.ok) {
+      toast.error(res.error ?? "No se pudo ocultar");
+      return;
+    }
+    onHiddenFromFlow({
+      label: itemName,
+      dteId: value.dteId ?? null,
+      occurrenceId: res.occurrenceId ?? value.occurrenceId,
+      itemId,
+      bucketKey,
+      projection: res.projection,
+    });
+  }
+
+  async function duplicateTo(toKey: string) {
+    const dest = buckets.find((b) => b.key === toKey);
+    if (!dest || amount === 0) return;
+    const returnRange = rangeFromBucketKeys([toKey]);
+    const res = await createManualEntryViaApi({
+      kind,
+      name: itemName,
+      amountClp: Math.round(amount),
+      scheduledDate: ymd(dest.start),
+      categoryId,
+      returnRange,
+    });
+    if (!res.ok) {
+      toast.error(res.error ?? "No se pudo duplicar");
+      return;
+    }
+    toast.success(`Duplicado en ${dest.label}`);
+    onCreated?.({
+      itemId: res.id ?? itemId,
+      bucketKey: toKey,
+      amount: Math.round(amount),
+      projection: res.projection,
+    });
   }
 
   const chipNode =
@@ -168,80 +234,137 @@ export function GridCell({
     <td
       ref={setDropRef}
       className={cn(
-        "relative border-l border-ds-border-subtle px-1.5 py-1.5 text-center align-middle",
+        "group/cell relative border-l border-ds-border-subtle px-1.5 py-1.5 text-center align-middle",
         isCurrent && "bg-primary/[0.04]",
         closed && "bg-ds-surface-2/50 opacity-60",
         isAnchor && "border-r-2 border-r-primary",
         validTarget && "bg-primary/10 ring-2 ring-inset ring-primary",
+        canCreate && "cursor-pointer",
       )}
+      onClick={() => {
+        if (canCreate && !activeEditing) setEditing("create");
+      }}
+      onDoubleClick={(e) => {
+        if (!canEdit) return;
+        e.stopPropagation();
+        setEditing("edit");
+      }}
     >
-      {amount !== 0 && chipNode ? (
-        <span
-          // El onClick va en el chip (no en el <td>): el sheet se renderiza como
-          // hermano dentro del td y sus eventos de portal burbujean por el árbol
-          // de React hasta el td; si el handler estuviera en el td, cerrar el
-          // sheet (X / click fuera) reabriría el sheet (parpadeo). El chip no es
-          // ancestro del portal, así que no recibe esos eventos.
-          onClick={canOpenSheet ? handleCellClick : undefined}
-          role={canOpenSheet ? "button" : undefined}
-          title={canOpenSheet ? "Ver acciones" : undefined}
-          className={cn(
-            "relative inline-flex",
-            canOpenSheet && "cursor-pointer",
-            showOverrideBadge && "rounded-ds-sm ring-1 ring-inset ring-primary/60",
-          )}
-        >
-          {canHideFromFlow && value ? (
-            <CellFlowActions
-              target={{
-                dteId: value.dteId ?? null,
-                occurrenceId: value.occurrenceId,
-                itemId,
-                originalDate: value.scheduledDate,
-                label: itemName,
-              }}
-              onHidden={(undo) => onHiddenFromFlow?.({ ...undo, itemId, bucketKey })}
-            >
-              {chipNode}
-            </CellFlowActions>
-          ) : (
-            chipNode
-          )}
-          {showOverrideBadge && (
-            <Pencil
-              className="absolute -right-1 -top-1 h-2.5 w-2.5 text-primary"
-              aria-label="Monto editado manualmente"
-            />
-          )}
-        </span>
-      ) : (
-        <span className="text-[12px] text-ds-text-4">·</span>
-      )}
-      {/* Affordance "editar" en móvil: lápiz neutro en la esquina inferior
-          (distinto del badge de override —primary, arriba a la derecha—). Es
-          decorativo (pointer-events-none): el tap lo captura el onClick de la
-          celda, así nunca bloquea el long-press del chip arrastrable. */}
+      <CellContextMenu
+        itemName={itemName}
+        weekLabel={weekLabel ?? bucketKey}
+        amount={amount}
+        statusTitle={chip?.title ?? "Vacía"}
+        kindLabel={kind === "INCOME" ? "ingreso" : "egreso"}
+        empty={amount === 0}
+        closed={closed}
+        locked={locked}
+        canEdit={canEdit}
+        canHide={canHideFromFlow}
+        canMove={canDrag}
+        dteId={value?.dteId}
+        dteFolio={value?.dteFolio}
+        openWeeks={openWeeks}
+        onAddHere={() => setEditing("create")}
+        onEdit={() => setEditing("edit")}
+        onMoveTo={(k) => onContextMove?.(k)}
+        onDuplicateTo={(k) => void duplicateTo(k)}
+        onOpenDetail={() => setSheetOpen(true)}
+        onHide={() => void hideFromMenu()}
+      >
+        {amount !== 0 && chipNode ? (
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              if (canOpenSheet) setSheetOpen(true);
+            }}
+            role={canOpenSheet ? "button" : undefined}
+            title={canOpenSheet ? "Ver acciones" : undefined}
+            tabIndex={canOpenSheet ? 0 : undefined}
+            className={cn(
+              "relative inline-flex",
+              canOpenSheet && "cursor-pointer",
+              showOverrideBadge &&
+                "rounded-ds-sm ring-1 ring-inset ring-primary/60",
+            )}
+          >
+            {canHideFromFlow && value ? (
+              <CellFlowActions
+                target={{
+                  dteId: value.dteId ?? null,
+                  occurrenceId: value.occurrenceId,
+                  itemId,
+                  originalDate: value.scheduledDate,
+                  label: itemName,
+                }}
+                onHidden={(undo) =>
+                  onHiddenFromFlow?.({ ...undo, itemId, bucketKey })
+                }
+              >
+                {chipNode}
+              </CellFlowActions>
+            ) : (
+              chipNode
+            )}
+            {showOverrideBadge && (
+              <Pencil
+                className="absolute -right-1 -top-1 h-2.5 w-2.5 text-primary"
+                aria-label="Monto editado manualmente"
+              />
+            )}
+          </span>
+        ) : (
+          <span className="relative inline-flex h-8 w-full items-center justify-center">
+            <span className="text-[12px] text-ds-text-4 group-hover/cell:opacity-0">
+              ·
+            </span>
+            {canCreate && (
+              <Plus
+                className="pointer-events-none absolute h-4 w-4 text-ds-text-4 opacity-0 transition-opacity group-hover/cell:opacity-70"
+                aria-hidden
+              />
+            )}
+          </span>
+        )}
+      </CellContextMenu>
       {isMobile && canEdit && (
         <Pencil
           className="pointer-events-none absolute bottom-0.5 right-1 h-3 w-3 text-ds-text-3"
           aria-hidden
         />
       )}
-      {editing && (
-        <AmountCellEditor
+      {activeEditing && (
+        <InlineCellEditor
+          mode={activeEditing}
           currentAmount={amount}
           isGroup={isGroup}
           occurrenceId={value?.occurrenceId ?? null}
           groupOccurrences={groupOccurrences}
           hasOverride={hasOverride}
-          onClose={() => setEditing(false)}
-          onSaved={(optimisticAmount) =>
+          itemId={itemId}
+          itemName={itemName}
+          kind={kind}
+          categoryId={categoryId}
+          scheduledDate={ymd(bucketStart)}
+          returnRange={rangeFromBucketKeys([bucketKey])}
+          onClose={() => setEditing(null)}
+          onSaved={(optimisticAmount, projection) =>
             onAmountSaved?.({
               itemId,
               bucketKey,
               ...(optimisticAmount != null ? { amount: optimisticAmount } : {}),
+              projection,
             })
           }
+          onCreated={(patch) =>
+            onCreated?.({
+              itemId: patch.itemId,
+              bucketKey,
+              amount: patch.amount,
+              projection: patch.projection,
+            })
+          }
+          onTabNext={onTabNext}
         />
       )}
       {canOpenSheet && value && chip && (
@@ -257,7 +380,7 @@ export function GridCell({
           dteId={value.dteId ?? null}
           dteFolio={value.dteFolio ?? null}
           canEdit={canEdit}
-          onEdit={() => setEditing(true)}
+          onEdit={() => setEditing("edit")}
           canHide={canHideFromFlow}
           hideTarget={{
             dteId: value.dteId ?? null,
@@ -266,12 +389,18 @@ export function GridCell({
             originalDate: value.scheduledDate,
             label: itemName,
           }}
-          onHidden={(undo) => onHiddenFromFlow?.({ ...undo, itemId, bucketKey })}
+          onHidden={(undo) =>
+            onHiddenFromFlow?.({ ...undo, itemId, bucketKey })
+          }
+          source={source}
+          hasAmountOverride={value.hasAmountOverride}
+          scheduledDate={value.scheduledDate}
+          bucketStart={bucketStart}
         />
       )}
       {advanced && actual !== null && (
         <div
-          className="mt-0.5 font-mono text-[11px] tabular-nums text-ds-text-3"
+          className="mt-0.5 font-mono text-[12px] tabular-nums text-ds-text-3"
           title="Real conciliado (banco)"
         >
           {fmt.format(actual)}

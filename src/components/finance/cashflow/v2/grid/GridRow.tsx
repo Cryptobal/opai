@@ -1,20 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ProjectionBucket } from "@/modules/finance/cashflow/types";
 import { GridCell } from "./GridCell";
+import { PendingColumnPulse } from "./PendingColumnPulse";
 import { rowLabels, type BucketMeta, type GridItemRow } from "./grid-helpers";
 
 /**
  * Fila de la grilla para una línea de contrato/instalación. Columna cliente
- * sticky (cliente + tag instalación/nickname + badge UF) y una celda por
- * semana con el chip de cuota (color por etapa del DTE, arrastrable). El
- * sellado por cierre (`bucketMeta`) atenúa y bloquea las semanas cerradas.
- *
- * Cuando la fila es una cuenta de egreso agrupada (B3), `expandable` la
- * convierte en clickeable con un caret accesible; sus movimientos se renderizan
- * como filas hijas (`isChild`) indentadas.
+ * sticky y una celda por semana. Tab en create salta a la semana siguiente
+ * abierta y vacía de la misma fila.
  */
 export function GridRow({
   row,
@@ -24,36 +21,45 @@ export function GridRow({
   bucketMeta,
   advanced,
   onAmountSaved,
+  onCreated,
   onHiddenFromFlow,
+  onContextMove,
   isMobile,
   editableAmounts,
   expandable,
   isChild,
+  pendingKeys,
 }: {
   row: GridItemRow;
   buckets: ProjectionBucket[];
   currentIdx: number;
   dndEnabled: boolean;
   bucketMeta?: Map<string, BucketMeta>;
-  /** Modo avanzado: revela badge IPC y headcount en la columna cliente. */
   advanced?: boolean;
-  /** Refresca la proyección tras editar/revertir el monto de una casilla.
-   *  `patch` (solo cuota individual) pinta el nuevo monto al instante. */
   onAmountSaved?: (patch?: {
     itemId: string;
     bucketKey: string;
     amount?: number;
   }) => void;
-  /** Tras ocultar del flujo (factura/programación), con celda para optimista. */
+  onCreated?: (patch: {
+    itemId: string;
+    bucketKey: string;
+    amount: number;
+  }) => void;
   onHiddenFromFlow?: (undo: import("./CellFlowActions").HiddenFromFlowPayload) => void;
-  /** Móvil: editar por tap + lápiz de affordance en las celdas editables. */
+  onContextMove?: (args: {
+    itemId: string;
+    itemName: string;
+    fromBucketKey: string;
+    toBucketKey: string;
+    value: import("@/modules/finance/cashflow/types").ProjectionRowItemValue | undefined;
+    source: import("@/modules/finance/cashflow/types").FinanceCashflowItemSource;
+  }) => void;
   isMobile?: boolean;
-  /** La sección admite editar montos (solo Egresos; ver GridCell). */
   editableAmounts?: boolean;
-  /** Fila expandible (cuenta de conciliación): caret + toggle. */
   expandable?: { open: boolean; onToggle: () => void };
-  /** Sub-fila hija de una cuenta expandida: indentada y atenuada. */
   isChild?: boolean;
+  pendingKeys?: Set<string>;
 }) {
   const group = row.group;
   const { primary, tag } = rowLabels(row.item);
@@ -63,6 +69,22 @@ export function GridRow({
   const open = expandable?.open ?? false;
   const isExtra = !!row.item.isExtraInvoice;
   const isDupProjection = !!row.item.collidesWithInvoice;
+  const kind = row.kind ?? "EXPENSE";
+  const [forceEditKey, setForceEditKey] = useState<string | null>(null);
+
+  function tabToNext(fromKey: string) {
+    const idx = buckets.findIndex((b) => b.key === fromKey);
+    for (let i = idx + 1; i < buckets.length; i++) {
+      const b = buckets[i];
+      const meta = bucketMeta?.get(b.key);
+      if (meta?.closed) continue;
+      const amt = row.valueByBucket.get(b.key)?.amount ?? 0;
+      if (amt !== 0) continue;
+      setForceEditKey(b.key);
+      return;
+    }
+  }
+
   return (
     <tr
       className={cn(
@@ -118,7 +140,7 @@ export function GridRow({
           {isDupProjection && (
             <span
               className="shrink-0 rounded-ds-sm bg-tint-amber-soft px-1 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-tint-amber-fg"
-              title="Programación que quedó junto a una factura movida. Revisa su fecha (hover en la celda) y bórrala si está duplicada."
+              title="Programación que quedó junto a una factura movida."
             >
               Programada
             </span>
@@ -154,14 +176,30 @@ export function GridRow({
       </td>
       {buckets.map((b, i) => {
         const meta = bucketMeta?.get(b.key);
+        if (pendingKeys?.has(b.key)) {
+          return (
+            <td
+              key={b.key}
+              className={cn(
+                "border-l border-ds-border-subtle bg-ds-surface-2/40 px-1.5 py-2",
+                i === currentIdx && "bg-primary/[0.04]",
+              )}
+            >
+              <PendingColumnPulse />
+            </td>
+          );
+        }
         return (
           <GridCell
             key={b.key}
             itemId={row.item.itemId}
             itemName={row.item.nickname ?? row.item.itemName}
             source={row.item.source}
+            kind={kind}
+            categoryId={row.categoryId ?? null}
             value={row.valueByBucket.get(b.key)}
             bucketKey={b.key}
+            bucketStart={b.start}
             weekLabel={b.label}
             isCurrent={i === currentIdx}
             dndEnabled={dndEnabled}
@@ -171,9 +209,28 @@ export function GridRow({
             isGroup={!!group}
             groupOccurrences={group?.occurrencesByBucket.get(b.key)}
             onAmountSaved={onAmountSaved}
+            onCreated={onCreated}
             onHiddenFromFlow={onHiddenFromFlow}
+            onTabNext={() => tabToNext(b.key)}
+            forceEditing={forceEditKey === b.key ? "create" : null}
+            onForceEditingConsumed={() => setForceEditKey(null)}
             isMobile={isMobile}
             editableAmounts={editableAmounts}
+            buckets={buckets}
+            bucketMeta={bucketMeta}
+            onContextMove={
+              onContextMove
+                ? (toKey) =>
+                    onContextMove({
+                      itemId: row.item.itemId,
+                      itemName: row.item.nickname ?? row.item.itemName,
+                      fromBucketKey: b.key,
+                      toBucketKey: toKey,
+                      value: row.valueByBucket.get(b.key),
+                      source: row.item.source,
+                    })
+                : undefined
+            }
           />
         );
       })}

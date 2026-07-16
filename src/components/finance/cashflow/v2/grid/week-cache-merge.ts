@@ -24,29 +24,48 @@ const sumAmount = (vs: ProjectionRowItemValue[]) =>
 const sumActual = (vs: ProjectionRowItemValue[]) =>
   vs.reduce((s, v) => s + (v.actualAmount ?? 0), 0);
 
-/** Une dos listas indexadas por bucketKey; la primera (base) gana en conflicto. */
+/** Une dos listas indexadas por bucketKey; la primera (prefer) gana en conflicto. */
 function mergeByBucketKey<T extends { bucketKey: string }>(
-  base: T[],
-  next: T[],
+  prefer: T[],
+  fallback: T[],
 ): T[] {
   const m = new Map<string, T>();
-  for (const v of base) m.set(v.bucketKey, v);
-  for (const v of next) if (!m.has(v.bucketKey)) m.set(v.bucketKey, v);
+  for (const v of prefer) m.set(v.bucketKey, v);
+  for (const v of fallback) if (!m.has(v.bucketKey)) m.set(v.bucketKey, v);
   return [...m.values()];
 }
 
-/** Merge de filas por (kind · categoría) e items por itemId; base gana en las
- *  keys de bucket ya presentes. Recalcula totales desde los values fusionados. */
-function mergeRows(
+/**
+ * Valores por bucket: keys en `patchKeys` salen del incoming (si no vienen,
+ * se eliminan); el resto de base queda intacto.
+ */
+function replaceValuesByPatchKeys<T extends { bucketKey: string }>(
+  base: T[],
+  incoming: T[],
+  patchKeys: Set<string>,
+): T[] {
+  const m = new Map<string, T>();
+  for (const v of base) {
+    if (!patchKeys.has(v.bucketKey)) m.set(v.bucketKey, v);
+  }
+  for (const v of incoming) {
+    if (patchKeys.has(v.bucketKey)) m.set(v.bucketKey, v);
+  }
+  return [...m.values()];
+}
+
+/** Merge de filas por (kind · categoría) e items por itemId. */
+function combineRows(
   base: ProjectionRow[],
   incoming: ProjectionRow[],
+  mergeBucketVals: <T extends { bucketKey: string }>(a: T[], b: T[]) => T[],
 ): ProjectionRow[] {
   const order: string[] = [];
   const groups = new Map<
     string,
     { row: ProjectionRow; items: Map<string, ProjectionRowItemDetail> }
   >();
-  const ingest = (rows: ProjectionRow[]) => {
+  const ingest = (rows: ProjectionRow[], isIncoming: boolean) => {
     for (const row of rows) {
       const gk = `${row.kind}|${row.categoryCode}`;
       let g = groups.get(gk);
@@ -55,13 +74,26 @@ function mergeRows(
         groups.set(gk, g);
         order.push(gk);
       }
-      g.row = { ...g.row, values: mergeByBucketKey(g.row.values, row.values) };
+      if (isIncoming) {
+        g.row = {
+          ...g.row,
+          ...row,
+          values: mergeBucketVals(g.row.values, row.values),
+        };
+      } else {
+        g.row = {
+          ...g.row,
+          values: mergeBucketVals(row.values, g.row.values),
+        };
+      }
       for (const item of row.items) {
         const prev = g.items.get(item.itemId);
-        const values = mergeByBucketKey(prev?.values ?? [], item.values);
+        const values = isIncoming
+          ? mergeBucketVals(prev?.values ?? [], item.values)
+          : mergeBucketVals(item.values, prev?.values ?? []);
         g.items.set(item.itemId, {
           ...(prev ?? item),
-          ...item, // metadata más reciente
+          ...item,
           values,
           total: sumAmount(values),
           totalActual: sumActual(values),
@@ -69,13 +101,32 @@ function mergeRows(
       }
     }
   };
-  ingest(base);
-  ingest(incoming);
+  ingest(base, false);
+  ingest(incoming, true);
   return order.map((gk) => {
     const g = groups.get(gk)!;
     const items = [...g.items.values()];
     return { ...g.row, items, total: items.reduce((s, i) => s + i.total, 0) };
   });
+}
+
+/** Merge de filas: base gana en las keys de bucket ya presentes. */
+function mergeRows(
+  base: ProjectionRow[],
+  incoming: ProjectionRow[],
+): ProjectionRow[] {
+  return combineRows(base, incoming, mergeByBucketKey);
+}
+
+/** Filas con parche: keys del incoming ganan; ausentes en incoming se dropean. */
+function replaceRows(
+  base: ProjectionRow[],
+  incoming: ProjectionRow[],
+  patchKeys: Set<string>,
+): ProjectionRow[] {
+  return combineRows(base, incoming, (a, b) =>
+    replaceValuesByPatchKeys(a, b, patchKeys),
+  );
 }
 
 /** Fusiona `incoming` sobre `base`. `base=null` (invalidate) parte de cero. */
@@ -101,6 +152,44 @@ export function mergeMatrix(
       base.cumulativePoints,
       incoming.cumulativePoints,
     ),
+  };
+}
+
+/**
+ * Parche F4: para cada `bucketKey` de `incoming`, buckets / values /
+ * cumulative* se reemplazan (incoming gana). Keys de base fuera del parche
+ * quedan intactas. Filas/items nuevos del incoming se agregan.
+ */
+export function replaceWeeks(
+  base: ProjectionMatrix,
+  incoming: ProjectionMatrix,
+): ProjectionMatrix {
+  const patchKeys = new Set(incoming.buckets.map((b) => b.key));
+  if (patchKeys.size === 0) return base;
+
+  const bucketsByKey = new Map(base.buckets.map((b) => [b.key, b]));
+  for (const b of incoming.buckets) bucketsByKey.set(b.key, b);
+  const buckets = [...bucketsByKey.values()].sort(
+    (a, b) => toDate(a.start).getTime() - toDate(b.start).getTime(),
+  );
+
+  return {
+    ...base,
+    buckets,
+    rows: replaceRows(base.rows, incoming.rows, patchKeys),
+    cumulativeBalances: replaceValuesByPatchKeys(
+      base.cumulativeBalances,
+      incoming.cumulativeBalances,
+      patchKeys,
+    ),
+    cumulativePoints: replaceValuesByPatchKeys(
+      base.cumulativePoints,
+      incoming.cumulativePoints,
+      patchKeys,
+    ),
+    // Ancla / opening del server parcial pueden ser más frescos tras mutación.
+    anchor: incoming.anchor ?? base.anchor,
+    openingBalanceClp: incoming.openingBalanceClp ?? base.openingBalanceClp,
   };
 }
 

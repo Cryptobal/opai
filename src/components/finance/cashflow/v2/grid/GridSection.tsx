@@ -4,7 +4,9 @@ import { Fragment, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { ProjectionBucket } from "@/modules/finance/cashflow/types";
 import { fmt } from "@/components/finance/cashflow/MatrixHelpers";
+import { AddConceptRow } from "./AddConceptRow";
 import { GridRow } from "./GridRow";
+import type { ConceptOption } from "./concept-options";
 import {
   childGridRow,
   sectionBucketTotals,
@@ -13,13 +15,13 @@ import {
 } from "./grid-helpers";
 
 /**
- * Sección de la grilla (Ingresos o Egresos): banda de título con tono
- * semántico, una fila por línea de contrato/instalación y una fila de subtotal
- * por semana. Ingresos van arriba, Egresos abajo.
+ * Sección Ingresos/Egresos: banda de título CON totales por semana (F3),
+ * filas de ítems, y fila fantasma "+ Agregar…" si se puede editar.
  */
 export function GridSection({
   label,
   tone,
+  kind,
   rows,
   buckets,
   currentIdx,
@@ -27,12 +29,17 @@ export function GridSection({
   bucketMeta,
   advanced,
   onAmountSaved,
+  onCreated,
   onHiddenFromFlow,
+  onContextMove,
   isMobile,
   editableAmounts,
+  pendingKeys,
+  conceptOptions,
 }: {
   label: string;
   tone: "ok" | "warn";
+  kind: "INCOME" | "EXPENSE";
   rows: GridItemRow[];
   buckets: ProjectionBucket[];
   currentIdx: number;
@@ -44,14 +51,25 @@ export function GridSection({
     bucketKey: string;
     amount?: number;
   }) => void;
+  onCreated?: (patch: {
+    itemId: string;
+    bucketKey: string;
+    amount: number;
+  }) => void;
   onHiddenFromFlow?: (undo: import("./CellFlowActions").HiddenFromFlowPayload) => void;
-  /** Móvil: editar por tap + lápiz de affordance en las celdas editables. */
+  onContextMove?: (args: {
+    itemId: string;
+    itemName: string;
+    fromBucketKey: string;
+    toBucketKey: string;
+    value: import("@/modules/finance/cashflow/types").ProjectionRowItemValue | undefined;
+    source: import("@/modules/finance/cashflow/types").FinanceCashflowItemSource;
+  }) => void;
   isMobile?: boolean;
-  /** La sección admite editar montos (solo Egresos; ver GridCell). */
   editableAmounts?: boolean;
+  pendingKeys?: Set<string>;
+  conceptOptions?: ConceptOption[];
 }) {
-  // Cuentas de conciliación expandidas (keyed por itemId). Colapsadas por
-  // defecto: set vacío al montar.
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -65,19 +83,55 @@ export function GridSection({
     tone === "ok"
       ? "bg-status-ok-soft text-status-ok-fg"
       : "bg-status-warn-soft text-status-warn-fg";
-  const totalTone = tone === "ok" ? "text-status-ok-fg" : "text-status-warn-fg";
+  const totalTone =
+    tone === "ok" ? "text-status-ok-fg" : "text-status-warn-fg";
+
   return (
     <>
-      <tr className={headTone}>
+      <tr className={cn("border-b border-ds-border-subtle", headTone)}>
         <td
-          colSpan={buckets.length + 1}
           className={cn(
-            "p-1.5 text-[11px] font-mono uppercase tracking-[0.08em]",
+            "sticky left-0 z-10 max-md:max-w-[128px] border-r border-ds-border-default p-1.5 text-[12px] font-mono uppercase tracking-[0.08em]",
             headTone,
           )}
         >
-          <span className="sticky left-2 inline-block">{label}</span>
+          {label}
         </td>
+        {totals.map((t, i) => {
+          const key = buckets[i].key;
+          if (pendingKeys?.has(key)) {
+            return (
+              <td
+                key={key}
+                className={cn(
+                  "border-l border-ds-border-subtle px-1.5 py-1.5",
+                  headTone,
+                )}
+              >
+                <span
+                  aria-hidden
+                  className="mx-auto block h-3 w-10 rounded-ds-sm bg-ds-surface-3/60 motion-safe:animate-pulse"
+                />
+              </td>
+            );
+          }
+          const meta = bucketMeta?.get(key);
+          return (
+            <td
+              key={key}
+              className={cn(
+                "border-l border-ds-border-subtle px-1.5 py-1.5 text-center font-mono text-[12px] tabular-nums text-ds-text-3",
+                headTone,
+                t !== 0 && totalTone,
+                i === currentIdx && "bg-primary/[0.06]",
+                meta?.closed && "opacity-60",
+                meta?.anchor && "border-r-2 border-r-primary",
+              )}
+            >
+              {t !== 0 ? fmt.format(t) : "·"}
+            </td>
+          );
+        })}
       </tr>
       {rows.length === 0 ? (
         <tr className="border-b border-ds-border-subtle">
@@ -92,7 +146,8 @@ export function GridSection({
         rows.map((row) => {
           const itemId = row.item.itemId;
           const isExpandableRow =
-            !!row.item.isConciliacionGroup && (row.item.children?.length ?? 0) > 0;
+            !!row.item.isConciliacionGroup &&
+            (row.item.children?.length ?? 0) > 0;
           const open = expanded.has(itemId);
           return (
             <Fragment key={itemId}>
@@ -104,9 +159,12 @@ export function GridSection({
                 bucketMeta={bucketMeta}
                 advanced={advanced}
                 onAmountSaved={onAmountSaved}
+                onCreated={onCreated}
                 onHiddenFromFlow={onHiddenFromFlow}
+                onContextMove={onContextMove}
                 isMobile={isMobile}
                 editableAmounts={editableAmounts}
+                pendingKeys={pendingKeys}
                 expandable={
                   isExpandableRow
                     ? { open, onToggle: () => toggle(itemId) }
@@ -125,9 +183,12 @@ export function GridSection({
                     bucketMeta={bucketMeta}
                     advanced={advanced}
                     onAmountSaved={onAmountSaved}
+                    onCreated={onCreated}
                     onHiddenFromFlow={onHiddenFromFlow}
+                    onContextMove={onContextMove}
                     isMobile={isMobile}
                     editableAmounts={editableAmounts}
+                    pendingKeys={pendingKeys}
                     isChild
                   />
                 ))}
@@ -135,29 +196,16 @@ export function GridSection({
           );
         })
       )}
-      {/* Subtotal por semana */}
-      <tr className="border-b border-ds-border-default bg-ds-surface-2 font-medium">
-        <td className="sticky left-0 z-10 max-md:max-w-[128px] border-r border-ds-border-default bg-ds-surface-2 p-2 text-[12px] text-ds-text-1">
-          Subtotal {label.toLowerCase()}
-        </td>
-        {totals.map((t, i) => {
-          const meta = bucketMeta?.get(buckets[i].key);
-          return (
-            <td
-              key={buckets[i].key}
-              className={cn(
-                "border-l border-ds-border-subtle px-1.5 py-1.5 text-center font-mono text-[12px] tabular-nums",
-                totalTone,
-                i === currentIdx && "bg-primary/[0.04]",
-                meta?.closed && "opacity-60",
-                meta?.anchor && "border-r-2 border-r-primary",
-              )}
-            >
-              {t !== 0 ? fmt.format(t) : "·"}
-            </td>
-          );
-        })}
-      </tr>
+      {editableAmounts && onCreated && conceptOptions && (
+        <AddConceptRow
+          kind={kind}
+          buckets={buckets}
+          currentIdx={currentIdx}
+          bucketMeta={bucketMeta}
+          options={conceptOptions}
+          onCreated={onCreated}
+        />
+      )}
     </>
   );
 }

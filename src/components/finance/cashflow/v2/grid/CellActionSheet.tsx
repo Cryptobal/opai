@@ -22,6 +22,8 @@ import type { PillVariant } from "@/components/finance/cashflow/CellStatusPill";
 import { fmt } from "@/components/finance/cashflow/MatrixHelpers";
 import { hideFromFlowViaApi, type HideInput } from "./cashflow-hide";
 import type { HideUndoPayload } from "./CellFlowActions";
+import { CellHistory } from "./CellHistory";
+import type { FinanceCashflowItemSource } from "@/modules/finance/cashflow/types";
 
 interface Props {
   open: boolean;
@@ -41,6 +43,11 @@ interface Props {
   canHide: boolean;
   hideTarget: HideInput;
   onHidden: (undo: HideUndoPayload) => void;
+  /** Best-effort historial (F3). */
+  source?: FinanceCashflowItemSource | null;
+  hasAmountOverride?: boolean;
+  scheduledDate?: string | null;
+  bucketStart?: string | Date | null;
 }
 
 /**
@@ -65,6 +72,10 @@ export function CellActionSheet({
   canHide,
   hideTarget,
   onHidden,
+  source,
+  hasAmountOverride,
+  scheduledDate,
+  bucketStart,
 }: Props) {
   const [confirmingHide, setConfirmingHide] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -109,6 +120,13 @@ export function CellActionSheet({
           )}
           {dteFolio != null && <Row label="Factura" value={`N° ${dteFolio}`} />}
         </dl>
+
+        <CellHistory
+          source={source}
+          hasAmountOverride={hasAmountOverride}
+          scheduledDate={scheduledDate}
+          bucketStart={bucketStart}
+        />
 
         <div className="mt-5 space-y-2 border-t border-ds-border-subtle pt-4">
           {canEdit && (

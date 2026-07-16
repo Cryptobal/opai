@@ -180,12 +180,88 @@ export function applyOptimisticAmounts(
   });
 }
 
-/** Entrada de la cola de mutaciones optimistas (F1). Cada una se limpia por
+/** Celda creada optimistamente (create inline): pinta el monto en la celda
+ *  vacía hasta que refreshWeeks reconcilie. */
+export interface PendingCreate {
+  itemId: string;
+  bucketKey: string;
+  amount: number;
+}
+
+/** Inserta/fija el monto de una celda creada (puro). Si el bucket no existía
+ *  en values, lo agrega. */
+export function applyOptimisticCreates(
+  rows: ProjectionRow[],
+  creates: PendingCreate[],
+): ProjectionRow[] {
+  if (creates.length === 0) return rows;
+  const byItem = new Map<string, Map<string, number>>();
+  for (const c of creates) {
+    if (!c.itemId) continue;
+    const m = byItem.get(c.itemId) ?? new Map<string, number>();
+    m.set(c.bucketKey, c.amount);
+    byItem.set(c.itemId, m);
+  }
+  return rows.map((row) => {
+    if (!(row.items ?? []).some((it) => byItem.has(it.itemId))) return row;
+    const deltaByBucket = new Map<string, number>();
+    const items = (row.items ?? []).map((it) => {
+      const m = byItem.get(it.itemId);
+      if (!m) return it;
+      const values = [...it.values];
+      for (const [bucketKey, amount] of m) {
+        const idx = values.findIndex((v) => v.bucketKey === bucketKey);
+        if (idx >= 0) {
+          const prev = values[idx].amount;
+          deltaByBucket.set(
+            bucketKey,
+            (deltaByBucket.get(bucketKey) ?? 0) + (amount - prev),
+          );
+          values[idx] = {
+            ...values[idx],
+            amount,
+            occurrenceId: values[idx].occurrenceId ?? `tmp-create`,
+          };
+        } else {
+          deltaByBucket.set(
+            bucketKey,
+            (deltaByBucket.get(bucketKey) ?? 0) + amount,
+          );
+          values.push({
+            bucketKey,
+            amount,
+            actualAmount: null,
+            occurrenceId: `tmp-create`,
+            scheduledDate: "",
+            dteId: null,
+            cellStatus: "PROJECTED",
+          });
+        }
+      }
+      return { ...it, values };
+    });
+    // Asegurar bucket-sum de la fila también tiene las keys nuevas.
+    let rowValues = row.values ?? [];
+    for (const [bucketKey, delta] of deltaByBucket) {
+      if (!rowValues.some((v) => v.bucketKey === bucketKey)) {
+        rowValues = [...rowValues, { bucketKey, amount: 0 }];
+      }
+    }
+    return {
+      ...row,
+      items,
+      values: reflectBucketDeltas({ ...row, values: rowValues }, deltaByBucket),
+    };
+  });
+}
+
+/** Entrada de la cola de mutaciones optimistas (F1/F2). Cada una se limpia por
  *  `id` al reconciliar — nunca un clear global. */
 export type PendingEntry =
   | ({ id: string; kind: "move" } & PendingMove)
   | ({ id: string; kind: "hide" } & PendingHide)
-  | ({ id: string; kind: "amount" } & PendingAmount);
+  | ({ id: string; kind: "amount" } & PendingAmount)
+  | ({ id: string; kind: "create" } & PendingCreate);
 
 export function newPendingId(): string {
   return `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -207,7 +283,8 @@ export function applyAllPending(
   for (const p of pending) {
     if (p.kind === "move") out = applyOptimisticMove(out, p);
     else if (p.kind === "hide") out = applyOptimisticHides(out, [p]);
-    else out = applyOptimisticAmounts(out, [p]);
+    else if (p.kind === "amount") out = applyOptimisticAmounts(out, [p]);
+    else out = applyOptimisticCreates(out, [p]);
   }
   return out;
 }
