@@ -1,21 +1,21 @@
 /**
- * Guardado/reverso del monto de una celda (B4B). Encapsula el endpoint
- * `POST /api/finance/cashflow/occurrences/[id]/amount` (override manual) para:
- *  - una occurrence individual (IVA, factura de venta, etc.), y
- *  - una celda de grupo (sueldos/previred/turnos): el usuario edita el TOTAL de
- *    la semana y se reparte proporcional entre las N instalaciones, así el
- *    subtotal y la fila FC cuadran sin schema nuevo.
- * `amountClp: null` limpia el override y restaura el monto calculado.
+ * Guardado/reverso del monto de una celda. Encapsula
+ * `POST /api/finance/cashflow/occurrences/[id]/amount`.
  */
+
+import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
+import type { ClientReturnRange } from "./return-range-client";
 
 export interface AmountResult {
   ok: boolean;
   error?: string;
+  projection?: ProjectionMatrix;
 }
 
 async function patchAmount(
   occurrenceId: string,
   amountClp: number | null,
+  returnRange?: ClientReturnRange,
 ): Promise<AmountResult> {
   try {
     const res = await fetch(
@@ -23,11 +23,16 @@ async function patchAmount(
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amountClp }),
+        body: JSON.stringify({
+          amountClp,
+          ...(returnRange ? { returnRange } : {}),
+        }),
       },
     );
     const j = await res.json().catch(() => null);
-    if (j?.success) return { ok: true };
+    if (j?.success) {
+      return { ok: true, projection: j?.data?.projection };
+    }
     return { ok: false, error: j?.error ?? "No se pudo guardar el monto" };
   } catch {
     return { ok: false, error: "Error de red al guardar el monto" };
@@ -38,16 +43,11 @@ async function patchAmount(
 export function saveOccurrenceAmount(
   occurrenceId: string,
   amountClp: number | null,
+  returnRange?: ClientReturnRange,
 ): Promise<AmountResult> {
-  return patchAmount(occurrenceId, amountClp);
+  return patchAmount(occurrenceId, amountClp, returnRange);
 }
 
-/**
- * Reparte `newTotal` proporcional a los montos actuales de las occurrences del
- * grupo. Redondea a peso y ajusta el resto en la occurrence de mayor monto para
- * que la suma sea exactamente `newTotal`. Cada parte queda ≥ 1 (el endpoint
- * exige monto positivo). Si el total actual es 0, reparte en partes iguales.
- */
 export function distributeGroupAmount(
   occurrences: { id: string; amountClp: number }[],
   newTotal: number,
@@ -65,7 +65,6 @@ export function distributeGroupAmount(
       amountClp: Math.max(1, Math.round((o.amountClp * newTotal) / currentTotal)),
     }));
   }
-  // Ajuste del resto de redondeo en la parte más grande.
   const sum = parts.reduce((s, p) => s + p.amountClp, 0);
   const diff = newTotal - sum;
   if (diff !== 0) {
@@ -78,37 +77,60 @@ export function distributeGroupAmount(
   return parts;
 }
 
-/** Edita el total de una celda de grupo repartiéndolo entre sus occurrences. */
+/**
+ * Edita el total de un grupo. N POSTs en paralelo; solo el ÚLTIMO pide
+ * `returnRange` para no ejecutar buildProjection N veces (F4).
+ */
 export async function saveGroupAmount(
   occurrences: { id: string; amountClp: number }[],
   newTotal: number,
+  returnRange?: ClientReturnRange,
 ): Promise<AmountResult> {
   const parts = distributeGroupAmount(occurrences, newTotal);
   if (parts.length === 0) return { ok: false, error: "Grupo sin cuotas editables" };
   const results = await Promise.all(
-    parts.map((p) => patchAmount(p.id, p.amountClp)),
+    parts.map((p, i) =>
+      patchAmount(
+        p.id,
+        p.amountClp,
+        i === parts.length - 1 ? returnRange : undefined,
+      ),
+    ),
   );
   const failed = results.filter((r) => !r.ok);
+  const projection = results.find((r) => r.projection)?.projection;
   if (failed.length === parts.length) {
     return { ok: false, error: failed[0].error ?? "No se pudo guardar" };
   }
   if (failed.length > 0) {
-    return { ok: true, error: `${failed.length} cuota(s) no se guardaron` };
+    return {
+      ok: true,
+      error: `${failed.length} cuota(s) no se guardaron`,
+      projection,
+    };
   }
-  return { ok: true };
+  return { ok: true, projection };
 }
 
-/** Revierte el override de todas las occurrences pasadas (restaura calculado). */
 export async function revertAmount(
   occurrenceIds: string[],
+  returnRange?: ClientReturnRange,
 ): Promise<AmountResult> {
   if (occurrenceIds.length === 0) return { ok: false, error: "Sin cuotas" };
+  // Solo el último pide proyección (mismo criterio que saveGroupAmount).
   const results = await Promise.all(
-    occurrenceIds.map((id) => patchAmount(id, null)),
+    occurrenceIds.map((id, i) =>
+      patchAmount(
+        id,
+        null,
+        i === occurrenceIds.length - 1 ? returnRange : undefined,
+      ),
+    ),
   );
   const failed = results.filter((r) => !r.ok);
+  const projection = results.find((r) => r.projection)?.projection;
   if (failed.length === occurrenceIds.length) {
     return { ok: false, error: failed[0].error ?? "No se pudo revertir" };
   }
-  return { ok: true };
+  return { ok: true, projection };
 }

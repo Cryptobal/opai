@@ -10,6 +10,8 @@ import { ConceptTypeahead } from "./ConceptTypeahead";
 import type { ConceptOption } from "./concept-options";
 import { ymd } from "./cell-occurrences";
 import type { BucketMeta } from "./grid-helpers";
+import { rangeFromBucketKeys } from "./return-range-client";
+import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
 
 type Phase =
   | { step: "idle" }
@@ -37,6 +39,7 @@ export function AddConceptRow({
     itemId: string;
     bucketKey: string;
     amount: number;
+    projection?: ProjectionMatrix;
   }) => void;
 }) {
   const [phase, setPhase] = useState<Phase>({ step: "idle" });
@@ -84,6 +87,7 @@ export function AddConceptRow({
       amountClp: amount,
       scheduledDate: ymd(b.start),
       categoryId: phase.concept.categoryId,
+      returnRange: rangeFromBucketKeys([b.key]),
     });
     setBusy(false);
     if (!res.ok) {
@@ -94,6 +98,7 @@ export function AddConceptRow({
       itemId: res.id ?? `tmp-${Date.now()}`,
       bucketKey: b.key,
       amount,
+      projection: res.projection,
     });
     toast.success(`«${phase.concept.name}» agregado`);
     if (thenTab) {

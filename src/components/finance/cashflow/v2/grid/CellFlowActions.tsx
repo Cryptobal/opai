@@ -14,6 +14,7 @@ import {
   hideFromFlowViaApi,
   type HideInput,
 } from "./cashflow-hide";
+import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
 
 export type HideUndoPayload = {
   label: string;
@@ -26,6 +27,8 @@ export type HideUndoPayload = {
 export type HiddenFromFlowPayload = HideUndoPayload & {
   itemId: string | null;
   bucketKey: string;
+  /** F4: proyección parcial del POST de hide, si vino. */
+  projection?: ProjectionMatrix;
 };
 
 interface Props {

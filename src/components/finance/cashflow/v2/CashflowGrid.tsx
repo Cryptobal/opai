@@ -114,6 +114,7 @@ export function CashflowGrid({
     refresh,
     refreshWeeks,
     ensureRange,
+    patchMatrix,
     anchorDate,
     windowWeeks: activeWindowWeeks,
   } = useGridWindow(projection, {
@@ -152,7 +153,7 @@ export function CashflowGrid({
     undoPayload,
     clearUndo,
     pushUndo,
-  } = useCashflowMutations({ refreshWeeks });
+  } = useCashflowMutations({ refreshWeeks, patchMatrix });
 
   const displayRows = useMemo(
     () => displayRowsOf(active.rows),
@@ -339,6 +340,7 @@ export function CashflowGrid({
   const { move, moveGroup } = useGridMove({
     buckets,
     refreshWeeks,
+    patchMatrix,
     onOptimistic: beginMove,
     clearOptimistic: clearPending,
     pushUndo,

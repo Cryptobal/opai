@@ -1,17 +1,11 @@
 /**
  * Move unificado de una cuota entre semanas. Encapsula los 3 caminos que ya
  * existían dispersos (occurrence materializada / occurrence virtual desde su
- * item / DTE huérfano) detrás de un solo llamado, para que la grilla exponga
- * un único gesto de arrastre. Es la misma lógica de `performMove` de
- * `CashflowV2Shell`, extraída a una función pura (sin estado de React) para
- * reutilizarla sin duplicarla.
- *
- * Router de endpoint según los identificadores disponibles:
- *  - occurrenceId → POST occurrences/[id]/move
- *  - itemId       → POST occurrences/upsert-and-act (materializa al mover;
- *                   manda dteId para que la cuota quede "fuerte")
- *  - dteId        → POST dtes/[dteId]/move (override de fecha de visibilidad)
+ * item / DTE huérfano) detrás de un solo llamado.
  */
+
+import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
+import type { ClientReturnRange } from "./return-range-client";
 
 export type MoveConflict = {
   existingOccurrenceId: string;
@@ -21,7 +15,11 @@ export type MoveConflict = {
 };
 
 export type MoveResult =
-  | { ok: true; overwrote?: { occurrenceId: string; itemName: string } | null }
+  | {
+      ok: true;
+      overwrote?: { occurrenceId: string; itemName: string } | null;
+      projection?: ProjectionMatrix;
+    }
   | { ok: false; conflict?: MoveConflict; error?: string; status?: number };
 
 export interface MoveInput {
@@ -32,11 +30,10 @@ export interface MoveInput {
   originalDate: string;
   /** Lunes de la semana destino (yyyy-MM-dd). */
   newDate: string;
+  /** F4: pedir proyección parcial del rango afectado. */
+  returnRange?: ClientReturnRange;
 }
 
-/** itemId sintético que produce buildRows para filas sin FinanceCashflowItem real
- *  (`_dte:<uuid>`, `_orphan`, `_periodic:<source>`). No es un UUID: no debe ir a
- *  la rama `itemId` del router (Zod exige uuid → 400 "Invalid UUID"). */
 function isSyntheticItemId(id: string | null): boolean {
   return (
     !!id &&
@@ -49,22 +46,13 @@ function isSyntheticItemId(id: string | null): boolean {
   );
 }
 
-/** Fila de programación duplicada (`_prog:<uuid>:<yyyy-mm-dd>`, la que aparece
- *  junto a una factura movida). A diferencia de los otros sintéticos, ENVUELVE
- *  un itemId REAL del contrato: al mover/ocultar hay que desenvolverlo para
- *  materializar la cuota de ese item en `originalDate`. Sin esto, el `_prog:…`
- *  crudo llegaba a upsert-and-act y Zod lo rechazaba (400 "Invalid UUID"). */
 export function unwrapProgItemId(id: string | null): string | null {
   if (!id || !id.startsWith("_prog:")) return null;
   return id.slice("_prog:".length).split(":")[0] || null;
 }
 
 export async function moveViaApi(input: MoveInput): Promise<MoveResult> {
-  const { occurrenceId, dteId, originalDate, newDate } = input;
-  // Un itemId sintético (fila huérfana `_dte:`, `_orphan`, `_periodic`) NO es un
-  // UUID real: lo anulamos para que el router caiga a la rama dteId (DTE huérfano →
-  // dtes/[dteId]/move) en vez de mandar basura a upsert-and-act. La fila `_prog:`
-  // sí es movible: se desenvuelve al itemId real que lleva embebido.
+  const { occurrenceId, dteId, originalDate, newDate, returnRange } = input;
   const itemId =
     unwrapProgItemId(input.itemId) ??
     (isSyntheticItemId(input.itemId) ? null : input.itemId);
@@ -76,18 +64,14 @@ export async function moveViaApi(input: MoveInput): Promise<MoveResult> {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ newDate }),
+          body: JSON.stringify({ newDate, ...(returnRange ? { returnRange } : {}) }),
         },
       );
     } else if (dteId) {
-      // Factura/borrador (con o sin item de contrato): override de fecha de
-      // visibilidad. Si hay itemId pero también dteId y la cuota aún no está
-      // materializada, upsert-and-act suele devolver 400 (la cuota del DTE
-      // ya vive en otra fecha).
       res = await fetch(`/api/finance/cashflow/dtes/${dteId}/move`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newDate }),
+        body: JSON.stringify({ newDate, ...(returnRange ? { returnRange } : {}) }),
       });
     } else if (itemId) {
       res = await fetch(`/api/finance/cashflow/occurrences/upsert-and-act`, {
@@ -98,6 +82,7 @@ export async function moveViaApi(input: MoveInput): Promise<MoveResult> {
           itemId,
           originalDate,
           newDate,
+          ...(returnRange ? { returnRange } : {}),
         }),
       });
     } else {
@@ -108,7 +93,13 @@ export async function moveViaApi(input: MoveInput): Promise<MoveResult> {
   }
 
   const j = await res.json().catch(() => null);
-  if (j?.success) return { ok: true, overwrote: j.overwrote ?? null };
+  if (j?.success) {
+    return {
+      ok: true,
+      overwrote: j.overwrote ?? null,
+      projection: j?.data?.projection,
+    };
+  }
   if (res.status === 409 && j?.conflict) {
     return {
       ok: false,

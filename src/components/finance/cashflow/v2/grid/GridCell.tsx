@@ -22,6 +22,8 @@ import { CellActionSheet } from "./CellActionSheet";
 import { CellContextMenu, openWeekTargets } from "./CellContextMenu";
 import { hideFromFlowViaApi } from "./cashflow-hide";
 import { createManualEntryViaApi } from "./cashflow-create";
+import { rangeFromBucketKeys } from "./return-range-client";
+import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
 import { toast } from "sonner";
 import type { GridDragData } from "./useGridMove";
 import type { ProjectionBucket } from "@/modules/finance/cashflow/types";
@@ -83,11 +85,13 @@ export function GridCell({
     itemId: string;
     bucketKey: string;
     amount?: number;
+    projection?: ProjectionMatrix;
   }) => void;
   onCreated?: (patch: {
     itemId: string;
     bucketKey: string;
     amount: number;
+    projection?: ProjectionMatrix;
   }) => void;
   onHiddenFromFlow?: (undo: HiddenFromFlowPayload) => void;
   onTabNext?: () => void;
@@ -155,12 +159,14 @@ export function GridCell({
 
   async function hideFromMenu() {
     if (!value || !onHiddenFromFlow) return;
+    const returnRange = rangeFromBucketKeys([bucketKey]);
     const res = await hideFromFlowViaApi({
       dteId: value.dteId ?? null,
       occurrenceId: value.occurrenceId,
       itemId,
       originalDate: value.scheduledDate,
       label: itemName,
+      returnRange,
     });
     if (!res.ok) {
       toast.error(res.error ?? "No se pudo ocultar");
@@ -172,25 +178,33 @@ export function GridCell({
       occurrenceId: res.occurrenceId ?? value.occurrenceId,
       itemId,
       bucketKey,
+      projection: res.projection,
     });
   }
 
   async function duplicateTo(toKey: string) {
     const dest = buckets.find((b) => b.key === toKey);
     if (!dest || amount === 0) return;
+    const returnRange = rangeFromBucketKeys([toKey]);
     const res = await createManualEntryViaApi({
       kind,
       name: itemName,
       amountClp: Math.round(amount),
       scheduledDate: ymd(dest.start),
       categoryId,
+      returnRange,
     });
     if (!res.ok) {
       toast.error(res.error ?? "No se pudo duplicar");
       return;
     }
     toast.success(`Duplicado en ${dest.label}`);
-    onCreated?.({ itemId, bucketKey: toKey, amount: Math.round(amount) });
+    onCreated?.({
+      itemId: res.id ?? itemId,
+      bucketKey: toKey,
+      amount: Math.round(amount),
+      projection: res.projection,
+    });
   }
 
   const chipNode =
@@ -332,16 +346,23 @@ export function GridCell({
           kind={kind}
           categoryId={categoryId}
           scheduledDate={ymd(bucketStart)}
+          returnRange={rangeFromBucketKeys([bucketKey])}
           onClose={() => setEditing(null)}
-          onSaved={(optimisticAmount) =>
+          onSaved={(optimisticAmount, projection) =>
             onAmountSaved?.({
               itemId,
               bucketKey,
               ...(optimisticAmount != null ? { amount: optimisticAmount } : {}),
+              projection,
             })
           }
           onCreated={(patch) =>
-            onCreated?.({ itemId: patch.itemId, bucketKey, amount: patch.amount })
+            onCreated?.({
+              itemId: patch.itemId,
+              bucketKey,
+              amount: patch.amount,
+              projection: patch.projection,
+            })
           }
           onTabNext={onTabNext}
         />

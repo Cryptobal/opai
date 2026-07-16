@@ -10,6 +10,8 @@ import {
   saveInlineCreate,
   saveInlineEdit,
 } from "./inline-cell-save";
+import type { ClientReturnRange } from "./return-range-client";
+import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
 
 export type InlineEditorMode = "edit" | "create";
 
@@ -29,6 +31,7 @@ export function InlineCellEditor({
   kind,
   categoryId,
   scheduledDate,
+  returnRange,
   onClose,
   onSaved,
   onCreated,
@@ -45,9 +48,17 @@ export function InlineCellEditor({
   kind: "INCOME" | "EXPENSE";
   categoryId?: string | null;
   scheduledDate: string;
+  returnRange?: ClientReturnRange;
   onClose: () => void;
-  onSaved: (optimisticAmount?: number) => void;
-  onCreated?: (patch: { itemId: string; amount: number }) => void;
+  onSaved: (
+    optimisticAmount?: number,
+    projection?: ProjectionMatrix,
+  ) => void;
+  onCreated?: (patch: {
+    itemId: string;
+    amount: number;
+    projection?: ProjectionMatrix;
+  }) => void;
   onTabNext?: () => void;
 }) {
   const [raw, setRaw] = useState(() =>
@@ -68,12 +79,13 @@ export function InlineCellEditor({
       return;
     }
     setBusy(true);
-    const { res, optimistic, noop } = await saveInlineEdit({
+    const { res, optimistic, noop, projection } = await saveInlineEdit({
       amount,
       currentAmount,
       isGroup,
       occurrenceId,
       groupOccurrences,
+      returnRange,
     });
     setBusy(false);
     if (noop) {
@@ -82,18 +94,23 @@ export function InlineCellEditor({
     }
     if (res.ok) {
       toast.success(res.error ? `Monto actualizado · ${res.error}` : "Monto actualizado");
-      onSaved(optimistic);
+      onSaved(optimistic, projection);
       onClose();
     } else toast.error(res.error ?? "No se pudo guardar");
   }
 
   async function revert() {
     setBusy(true);
-    const res = await revertInlineEdit({ isGroup, occurrenceId, groupOccurrences });
+    const res = await revertInlineEdit({
+      isGroup,
+      occurrenceId,
+      groupOccurrences,
+      returnRange,
+    });
     setBusy(false);
     if (res.ok) {
       toast.success("Monto restaurado");
-      onSaved();
+      onSaved(undefined, res.projection);
       onClose();
     } else toast.error(res.error ?? "No se pudo guardar");
   }
@@ -112,6 +129,7 @@ export function InlineCellEditor({
       kind,
       categoryId,
       scheduledDate,
+      returnRange,
     });
     setBusy(false);
     if (!res.ok) {
@@ -119,7 +137,11 @@ export function InlineCellEditor({
       return;
     }
     toast.success("Cuota agregada");
-    onCreated?.({ itemId, amount });
+    onCreated?.({
+      itemId: res.id ?? itemId,
+      amount,
+      projection: res.projection,
+    });
     onClose();
     if (thenTab) onTabNext?.();
   }

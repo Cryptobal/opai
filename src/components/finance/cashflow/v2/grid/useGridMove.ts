@@ -2,21 +2,22 @@
 
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import type { ProjectionBucket } from "@/modules/finance/cashflow/types";
+import type {
+  ProjectionBucket,
+  ProjectionMatrix,
+} from "@/modules/finance/cashflow/types";
 import type { PillVariant } from "@/components/finance/cashflow/CellStatusPill";
 import type { UndoPayload } from "../UndoToast";
 import { toDate } from "../format";
 import { moveViaApi } from "./cashflow-move";
+import { rangeFromBucketKeys } from "./return-range-client";
 
-/** Datos que viajan con el chip arrastrado (dnd-kit `data`). Traen todo lo
- *  necesario para el move unificado y para pintar el overlay de arrastre. */
 export interface GridDragData {
   kind: "grid-chip";
   itemId: string | null;
   itemName: string;
   occurrenceId: string | null;
   dteId: string | null;
-  /** Fecha actual de la cuota (yyyy-MM-dd) — identifica la occurrence al mover. */
   originalDate: string;
   fromBucketKey: string;
   amount: number;
@@ -27,27 +28,38 @@ export interface GridDragData {
 const ymd = (d: string | Date) => toDate(d).toISOString().slice(0, 10);
 
 /**
- * Orquesta el move desde la grilla: API unificada, toasts, reconciliación
- * selectiva (`refreshWeeks` de origen+destino) y undo de 5s. El optimista vive
- * en la cola de `useCashflowMutations` (beginMove / clearPending por id).
+ * Move desde la grilla. F4: pide returnRange y parchea si viene projection;
+ * si no, fallback refreshWeeks.
  */
 export function useGridMove(opts: {
   buckets: ProjectionBucket[];
   refreshWeeks: (keys: string[]) => Promise<void>;
-  /** Push move optimista; retorna id de la entrada en la cola. */
+  patchMatrix?: (incoming: ProjectionMatrix) => void;
   onOptimistic?: (
     itemId: string,
     fromBucketKey: string,
     toBucketKey: string,
   ) => string;
-  /** Remueve SOLO ese pending por id (tras settle o error). */
   clearOptimistic?: (id: string) => void;
-  /** Registra el undo de 5s (cola compartida con hide). */
   pushUndo: (payload: UndoPayload) => void;
 }) {
-  const { buckets, refreshWeeks, onOptimistic, clearOptimistic, pushUndo } =
-    opts;
+  const {
+    buckets,
+    refreshWeeks,
+    patchMatrix,
+    onOptimistic,
+    clearOptimistic,
+    pushUndo,
+  } = opts;
   const [submitting, setSubmitting] = useState(false);
+
+  const reconcile = useCallback(
+    async (keys: string[], projection?: ProjectionMatrix) => {
+      if (projection && patchMatrix) patchMatrix(projection);
+      else await refreshWeeks(keys);
+    },
+    [patchMatrix, refreshWeeks],
+  );
 
   const move = useCallback(
     async (drag: GridDragData, toBucketKey: string) => {
@@ -60,6 +72,8 @@ export function useGridMove(opts: {
         pendingId = onOptimistic?.(drag.itemId, from.key, to.key);
       }
 
+      const keys = [from.key, to.key];
+      const returnRange = rangeFromBucketKeys(keys);
       setSubmitting(true);
       const result = await moveViaApi({
         occurrenceId: drag.occurrenceId,
@@ -67,10 +81,10 @@ export function useGridMove(opts: {
         dteId: drag.dteId,
         originalDate: drag.originalDate,
         newDate: ymd(to.start),
+        returnRange,
       });
       setSubmitting(false);
 
-      const keys = [from.key, to.key];
       if (!result.ok) {
         if (pendingId) clearOptimistic?.(pendingId);
         const msg = result.error ?? "No se pudo mover";
@@ -86,52 +100,64 @@ export function useGridMove(opts: {
           { duration: 4000 },
         );
       }
-      await refreshWeeks(keys);
+      await reconcile(keys, result.projection);
       if (pendingId) clearOptimistic?.(pendingId);
 
       pushUndo({
         occurrenceName: drag.itemName,
         destLabel: to.label,
         undo: async () => {
-          await moveViaApi({
+          const undoRes = await moveViaApi({
             occurrenceId: drag.occurrenceId,
             itemId: drag.itemId,
             dteId: drag.dteId,
             originalDate: ymd(to.start),
             newDate: ymd(from.start),
+            returnRange,
           });
-          await refreshWeeks(keys);
+          await reconcile(keys, undoRes.ok ? undoRes.projection : undefined);
         },
       });
     },
-    [buckets, refreshWeeks, onOptimistic, clearOptimistic, pushUndo],
+    [buckets, reconcile, onOptimistic, clearOptimistic, pushUndo],
   );
 
   const moveGroup = useCallback(
-    async (opts: {
+    async (groupOpts: {
       occurrenceIds: string[];
       label: string;
       fromBucketKey: string;
       toBucketKey: string;
       skippedPaid?: number;
     }) => {
-      const to = buckets.find((b) => b.key === opts.toBucketKey);
-      const from = buckets.find((b) => b.key === opts.fromBucketKey);
-      if (!to || !from || to.key === from.key || opts.occurrenceIds.length === 0) {
+      const to = buckets.find((b) => b.key === groupOpts.toBucketKey);
+      const from = buckets.find((b) => b.key === groupOpts.fromBucketKey);
+      if (
+        !to ||
+        !from ||
+        to.key === from.key ||
+        groupOpts.occurrenceIds.length === 0
+      ) {
         return;
       }
 
       const newDate = ymd(to.start);
       const keys = [from.key, to.key];
+      const returnRange = rangeFromBucketKeys(keys);
       setSubmitting(true);
+      // Solo el último pide proyección (evitar N buildProjection).
       const results = await Promise.all(
-        opts.occurrenceIds.map((id) =>
+        groupOpts.occurrenceIds.map((id, i) =>
           moveViaApi({
             occurrenceId: id,
             itemId: null,
             dteId: null,
             originalDate: ymd(from.start),
             newDate,
+            returnRange:
+              i === groupOpts.occurrenceIds.length - 1
+                ? returnRange
+                : undefined,
           }),
         ),
       );
@@ -144,35 +170,48 @@ export function useGridMove(opts: {
         return;
       }
       const skipped =
-        opts.skippedPaid && opts.skippedPaid > 0
-          ? ` · ${opts.skippedPaid} pagada${opts.skippedPaid > 1 ? "s" : ""} no se movieron`
+        groupOpts.skippedPaid && groupOpts.skippedPaid > 0
+          ? ` · ${groupOpts.skippedPaid} pagada${groupOpts.skippedPaid > 1 ? "s" : ""} no se movieron`
           : "";
-      toast.success(`${opts.label} movido a ${to.label}${skipped}`);
+      toast.success(`${groupOpts.label} movido a ${to.label}${skipped}`);
       if (failed > 0) {
-        toast.warning(`${failed} cuota${failed > 1 ? "s" : ""} no se pudieron mover`);
+        toast.warning(
+          `${failed} cuota${failed > 1 ? "s" : ""} no se pudieron mover`,
+        );
       }
-      await refreshWeeks(keys);
+      const projection = results.find(
+        (r): r is Extract<typeof r, { ok: true }> => r.ok && !!r.projection,
+      )?.projection;
+      await reconcile(keys, projection);
 
       pushUndo({
-        occurrenceName: opts.label,
+        occurrenceName: groupOpts.label,
         destLabel: to.label,
         undo: async () => {
-          await Promise.all(
-            opts.occurrenceIds.map((id) =>
+          const undoResults = await Promise.all(
+            groupOpts.occurrenceIds.map((id, i) =>
               moveViaApi({
                 occurrenceId: id,
                 itemId: null,
                 dteId: null,
                 originalDate: newDate,
                 newDate: ymd(from.start),
+                returnRange:
+                  i === groupOpts.occurrenceIds.length - 1
+                    ? returnRange
+                    : undefined,
               }),
             ),
           );
-          await refreshWeeks(keys);
+          const undoProj = undoResults.find(
+            (r): r is Extract<typeof r, { ok: true }> =>
+              r.ok && !!r.projection,
+          )?.projection;
+          await reconcile(keys, undoProj);
         },
       });
     },
-    [buckets, refreshWeeks, pushUndo],
+    [buckets, reconcile, pushUndo],
   );
 
   return { move, moveGroup, submitting };
