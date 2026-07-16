@@ -109,9 +109,8 @@ export function CashflowGrid({
   // viewport existente (no crear uno nuevo).
   const isMobile = useIsMobileViewport(768);
   const windowWeeks = isMobile ? MOBILE_WINDOW_WEEKS : undefined; // undefined → 8
-  const { active, loading, goPrev, goNext, goToday, goToWeek, refreshAt, refresh } = useGridWindow(
-    projection,
-    {
+  const { active, loading, goPrev, goNext, goToday, goToWeek, refreshAt, refresh } =
+    useGridWindow(projection, {
       weeksBack: isMobile ? MOBILE_WEEKS_BACK : weeksBack,
       windowWeeks,
       step: isMobile ? 1 : undefined,
@@ -160,17 +159,22 @@ export function CashflowGrid({
     () => expenseRows(displayRows),
     [displayRows],
   );
-  const balanceByBucket = useMemo(() => {
-    // Fila FC: saldo derivado de displayRows (incluye optimistas) — reacciona
-    // al instante sin esperar la re-proyección de red.
-    const derived = deriveCumulative(
-      buckets,
-      displayRows,
-      active.openingBalanceClp,
-      active.anchor,
-    );
-    return new Map(derived.map((b) => [b.bucketKey, b.balanceClp]));
-  }, [buckets, displayRows, active.openingBalanceClp, active.anchor]);
+  // Saldo FC derivado una sola vez: alimenta la fila de grilla y los KPIs
+  // de cierre/quiebre del HealthHeader (reacciona al optimista).
+  const derivedCumulative = useMemo(
+    () =>
+      deriveCumulative(
+        buckets,
+        displayRows,
+        active.openingBalanceClp,
+        active.anchor,
+      ),
+    [buckets, displayRows, active.openingBalanceClp, active.anchor],
+  );
+  const balanceByBucket = useMemo(
+    () => new Map(derivedCumulative.map((b) => [b.bucketKey, b.balanceClp])),
+    [derivedCumulative],
+  );
   // Estado de sellado por bucket (cierre / ancla) desde el anchor activo de la
   // proyección del bloque visible.
   const bucketMeta = useMemo(
@@ -193,16 +197,23 @@ export function CashflowGrid({
   );
   // Semana en proceso de cierre (Opción A): abre el WeekCloseDrawer existente.
   const [closeWeekEndIso, setCloseWeekEndIso] = useState<string | null>(null);
-  // Se incrementa tras cada cierre/move para refrescar candados de columnas.
+  // Se incrementa tras cierre/reapertura para refrescar candados de columnas.
+  // Un move/edit/hide NO cambia candados → no tocar este key en ese camino.
   const [panelReloadKey, setPanelReloadKey] = useState(0);
   // La grilla se muestra siempre en vista simple (Ingresos · Egresos · Saldo),
   // sin fila de desviación (Drift) ni badges de IPC/headcount. El antiguo toggle
   // "Avanzado" que revelaba esa información contable fue retirado.
   const effectiveAdvanced = false;
 
-  // Refresca tanto el bloque visible (re-fetch del rango) como los props del
-  // server (KPIs de HealthHeader) tras un move/cierre.
-  const refreshAll = useCallback(async () => {
+  // Reconciliación de grilla tras mutación (move/amount/hide/create/folio).
+  // HealthHeader ya lee del caché client + derivedPoints → sin router.refresh.
+  const refreshGrid = useCallback(async () => {
+    await refresh();
+  }, [refresh]);
+
+  // Cierre/reapertura: ancla + candados globales cambian → refresh full +
+  // props del server + re-fetch de weekly-close/status.
+  const refreshAfterClose = useCallback(async () => {
     await refresh();
     router.refresh();
     setPanelReloadKey((k) => k + 1);
@@ -226,13 +237,11 @@ export function CashflowGrid({
       }
       toast.success("Factura movida");
       // Mover-y-mostrar atómico: re-trae FRESCA la ventana de la semana destino
-      // y ancla ahí (sin el race de goToWeek+refresh). El cambio se ve al toque.
+      // y ancla ahí. KPIs salen del caché (HealthHeader) — sin router.refresh.
       await refreshAt(date);
-      router.refresh(); // KPIs del HealthHeader (props del server)
-      setPanelReloadKey((k) => k + 1);
       return { ok: true };
     },
-    [refreshAt, router],
+    [refreshAt],
   );
 
   // Semanas con cierre real (registro en DB), para pintar un candado accionable
@@ -308,17 +317,17 @@ export function CashflowGrid({
           : "Semana reabierta",
       );
       setReopenTarget(null);
-      await refreshAll();
+      await refreshAfterClose();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error al reabrir");
     } finally {
       setReopening(false);
     }
-  }, [reopenTarget, refreshAll]);
+  }, [reopenTarget, refreshAfterClose]);
 
   const { move, moveGroup, undoPayload, clearUndo, pushUndo } = useGridMove({
     buckets,
-    refresh: refreshAll,
+    refresh: refreshGrid,
     onOptimistic: (itemId, fromBucketKey, toBucketKey) =>
       setPendingMove({ itemId, fromBucketKey, toBucketKey }),
     clearOptimistic: () => setPendingMove(null),
@@ -329,10 +338,10 @@ export function CashflowGrid({
   const handleAmountSaved = useCallback(
     async (patch?: { itemId: string; bucketKey: string; amount: number }) => {
       if (patch?.itemId) setPendingAmounts((p) => [...p, patch]);
-      await refreshAll();
+      await refreshGrid();
       setPendingAmounts([]);
     },
-    [refreshAll],
+    [refreshGrid],
   );
 
   async function handleHiddenFromFlow(undo: {
@@ -348,7 +357,7 @@ export function CashflowGrid({
       setPendingHides((p) => [...p, { itemId: undo.itemId!, bucketKey: undo.bucketKey }]);
     }
     toast.success(`«${undo.label}» ocultado del flujo`);
-    await refreshAll();
+    await refreshGrid();
     setPendingHides([]);
     pushUndo({
       occurrenceName: undo.label,
@@ -363,7 +372,7 @@ export function CashflowGrid({
           return;
         }
         toast.success("Restaurado al flujo");
-        await refreshAll();
+        await refreshGrid();
       },
     });
   }
@@ -484,7 +493,7 @@ export function CashflowGrid({
     <div className="min-w-0 space-y-4">
       <BancaTabsHeader active="cashflow" />
       {recentCloses && <ManualCloseStreakBanner recentCloses={recentCloses} />}
-      <HealthHeader projection={projection} />
+      <HealthHeader projection={active} derivedPoints={derivedCumulative} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-ds-text-1">
@@ -503,7 +512,7 @@ export function CashflowGrid({
             <ManualEntryQuickAdd
               buckets={visibleBuckets}
               rows={active.rows}
-              onCreated={refreshAll}
+              onCreated={refreshGrid}
             />
           )}
           <button
@@ -635,7 +644,7 @@ export function CashflowGrid({
         open={closeWeekEndIso != null}
         weekEndIso={closeWeekEndIso ?? ""}
         onClose={() => setCloseWeekEndIso(null)}
-        onCommitted={refreshAll}
+        onCommitted={refreshAfterClose}
       />
 
       <Dialog

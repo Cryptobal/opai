@@ -119,15 +119,28 @@ function AnchorChip({ anchor }: { anchor: ProjectionAnchorInfo | null }) {
  *   - CIERRE DE LA SEMANA: saldo proyectado al cerrar la semana actual (fijo).
  *   - QUIEBRE DE CAJA: la semana en que la caja se pone en rojo (+ horizonte y
  *     monto faltante), o "Sin quiebre" si la proyección se mantiene positiva.
+ *
+ * `projection` = matriz activa del caché client (no la del server RSC).
+ * `derivedPoints` = saldo FC derivado de displayRows (incluye optimistas) —
+ *   alimenta cierre de semana y quiebre. El saldo banco hoy NO depende de
+ *   mutaciones de grilla y sale de `projection.openingBalanceClp`.
  */
-export function HealthHeader({ projection }: { projection: ProjectionMatrix }) {
+export function HealthHeader({
+  projection,
+  derivedPoints,
+}: {
+  projection: ProjectionMatrix;
+  derivedPoints: { bucketKey: string; balanceClp: number }[];
+}) {
   const opening = projection.openingBalanceClp;
   const todayIdx = currentBucketIndex(projection.buckets);
   const todayBucket = todayIdx >= 0 ? projection.buckets[todayIdx] : null;
   const todayClosing =
-    todayIdx >= 0 ? projection.cumulativePoints[todayIdx]?.projectedClp ?? opening : opening;
+    todayIdx >= 0
+      ? derivedPoints[todayIdx]?.balanceClp ?? opening
+      : opening;
 
-  const firstGap = projection.cumulativePoints.find((p) => p.projectedClp < 0) ?? null;
+  const firstGap = derivedPoints.find((p) => p.balanceClp < 0) ?? null;
   const gapBucket = firstGap
     ? projection.buckets.find((b) => b.key === firstGap.bucketKey) ?? null
     : null;
@@ -160,7 +173,7 @@ export function HealthHeader({ projection }: { projection: ProjectionMatrix }) {
           <CompactKPI
             label="Sin caja en"
             value={weekLabel(gapBucket.end)}
-            hint={`en ${weeksToGap} ${weeksToGap === 1 ? "semana" : "semanas"} · faltan ${fmtCLP.format(Math.abs(firstGap.projectedClp))}`}
+            hint={`en ${weeksToGap} ${weeksToGap === 1 ? "semana" : "semanas"} · faltan ${fmtCLP.format(Math.abs(firstGap.balanceClp))}`}
             Icon={AlertTriangle}
             tone={weeksToGap <= 4 ? "danger" : "warn"}
           />
