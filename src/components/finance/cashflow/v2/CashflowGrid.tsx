@@ -37,6 +37,8 @@ import { UndoToast } from "./UndoToast";
 import { WeekCloseDrawer } from "../week-close/WeekCloseDrawer";
 import { currentBucketIndex } from "./projection-helpers";
 import { useGridWindow } from "./grid/useGridWindow";
+import { useHorizon } from "./grid/useHorizon";
+import { HorizonSelector } from "./grid/HorizonSelector";
 import { GridHeader } from "./grid/GridHeader";
 import { GridSection } from "./grid/GridSection";
 import { GridBalanceRow } from "./grid/GridBalanceRow";
@@ -100,7 +102,9 @@ export function CashflowGrid({
   // semana. Desktop: 8 columnas, navegación por bloque. Reutiliza el hook de
   // viewport existente (no crear uno nuevo).
   const isMobile = useIsMobileViewport(768);
-  const windowWeeks = isMobile ? MOBILE_WINDOW_WEEKS : undefined; // undefined → 8
+  const { horizon, setHorizon } = useHorizon();
+  // Móvil: 3 columnas. Desktop: horizonte configurable (8/16/24/32).
+  const windowWeeks = isMobile ? MOBILE_WINDOW_WEEKS : horizon;
   const { active, loading, goPrev, goNext, goToday, goToWeek, refreshAt, refresh, refreshWeeks } =
     useGridWindow(projection, {
       weeksBack: isMobile ? MOBILE_WEEKS_BACK : weeksBack,
@@ -468,7 +472,7 @@ export function CashflowGrid({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-ds-text-1">
-          Planilla de flujo · {isMobile ? "3" : "8"} semanas
+          Planilla de flujo · {isMobile ? "3" : horizon} semanas
         </h2>
         {!isMobile && (
           <CashflowFolioSearch
@@ -479,6 +483,9 @@ export function CashflowGrid({
           />
         )}
         <div className="flex items-center gap-1">
+          {!isMobile && (
+            <HorizonSelector value={horizon} onChange={setHorizon} />
+          )}
           <button
             type="button"
             onClick={goToday}
