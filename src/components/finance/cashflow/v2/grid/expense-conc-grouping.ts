@@ -88,5 +88,5 @@ export function buildConcRow(
     totalActual,
   };
 
-  return { item, valueByBucket };
+  return { item, valueByBucket, kind: "EXPENSE" as const };
 }

@@ -190,6 +190,7 @@ function buildGroupRow(
   return {
     item,
     valueByBucket,
+    kind: "EXPENSE" as const,
     group: { source, occurrencesByBucket },
   };
 }

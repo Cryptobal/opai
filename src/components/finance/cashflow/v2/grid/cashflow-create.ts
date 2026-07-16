@@ -37,3 +37,32 @@ export async function createManualEntryViaApi(
     return { ok: false, error: "Error de red al crear" };
   }
 }
+
+/**
+ * Materializa (si hace falta) la cuota de un item REAL en `originalDate` y fija
+ * el monto. Usa `action:"amount"` de upsert-and-act — misma vía que mueve
+ * cuotas virtuales en cashflow-move.
+ */
+export async function materializeItemAmountViaApi(input: {
+  itemId: string;
+  originalDate: string;
+  amountClp: number;
+}): Promise<CreateResult> {
+  try {
+    const res = await fetch(`/api/finance/cashflow/occurrences/upsert-and-act`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "amount",
+        itemId: input.itemId,
+        originalDate: input.originalDate,
+        amountClp: input.amountClp,
+      }),
+    });
+    const j = await res.json().catch(() => null);
+    if (j?.success) return { ok: true, id: j?.data?.id ?? null };
+    return { ok: false, error: j?.error ?? "No se pudo crear la cuota" };
+  } catch {
+    return { ok: false, error: "Error de red al crear" };
+  }
+}

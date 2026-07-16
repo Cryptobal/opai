@@ -36,7 +36,8 @@ export function useCashflowMutations(opts: {
       entry:
         | { kind: "move"; itemId: string; fromBucketKey: string; toBucketKey: string }
         | { kind: "hide"; itemId: string; bucketKey: string }
-        | { kind: "amount"; itemId: string; bucketKey: string; amount: number },
+        | { kind: "amount"; itemId: string; bucketKey: string; amount: number }
+        | { kind: "create"; itemId: string; bucketKey: string; amount: number },
     ): string => {
       const id = newPendingId();
       setPending((p) => [...p, { ...entry, id }]);
@@ -90,6 +91,20 @@ export function useCashflowMutations(opts: {
     [push, settle, refreshWeeks],
   );
 
+  /** Tras create inline: pinta la celda y reconcilia la semana. */
+  const handleCreated = useCallback(
+    async (patch: { itemId: string; bucketKey: string; amount: number }) => {
+      const id = push({
+        kind: "create",
+        itemId: patch.itemId,
+        bucketKey: patch.bucketKey,
+        amount: patch.amount,
+      });
+      await settle(id, [patch.bucketKey]);
+    },
+    [push, settle],
+  );
+
   const handleHiddenFromFlow = useCallback(
     async (undo: HiddenFromFlowPayload) => {
       const { restoreToFlowViaApi } = await import("./cashflow-hide");
@@ -130,6 +145,7 @@ export function useCashflowMutations(opts: {
     beginMove,
     clearPending: remove,
     handleAmountSaved,
+    handleCreated,
     handleHiddenFromFlow,
     undoPayload,
     clearUndo,

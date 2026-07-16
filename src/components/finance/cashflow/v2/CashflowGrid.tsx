@@ -126,6 +126,7 @@ export function CashflowGrid({
     beginMove,
     clearPending,
     handleAmountSaved,
+    handleCreated,
     handleHiddenFromFlow,
     undoPayload,
     clearUndo,
@@ -522,9 +523,10 @@ export function CashflowGrid({
                 bucketMeta={bucketMeta}
                 advanced={effectiveAdvanced}
                 onAmountSaved={handleAmountSaved}
+                onCreated={handleCreated}
                 onHiddenFromFlow={handleHiddenFromFlow}
                 isMobile={isMobile}
-                editableAmounts={false}
+                editableAmounts={canManage}
               />
               <GridSection
                 label="Egresos"
@@ -536,9 +538,10 @@ export function CashflowGrid({
                 bucketMeta={bucketMeta}
                 advanced={effectiveAdvanced}
                 onAmountSaved={handleAmountSaved}
+                onCreated={handleCreated}
                 onHiddenFromFlow={handleHiddenFromFlow}
                 isMobile={isMobile}
-                editableAmounts
+                editableAmounts={canManage}
               />
               <GridBalanceRow
                 buckets={visibleBuckets}

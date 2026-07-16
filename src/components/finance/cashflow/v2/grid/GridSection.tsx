@@ -27,6 +27,7 @@ export function GridSection({
   bucketMeta,
   advanced,
   onAmountSaved,
+  onCreated,
   onHiddenFromFlow,
   isMobile,
   editableAmounts,
@@ -43,6 +44,11 @@ export function GridSection({
     itemId: string;
     bucketKey: string;
     amount?: number;
+  }) => void;
+  onCreated?: (patch: {
+    itemId: string;
+    bucketKey: string;
+    amount: number;
   }) => void;
   onHiddenFromFlow?: (undo: import("./CellFlowActions").HiddenFromFlowPayload) => void;
   /** Móvil: editar por tap + lápiz de affordance en las celdas editables. */
@@ -104,6 +110,7 @@ export function GridSection({
                 bucketMeta={bucketMeta}
                 advanced={advanced}
                 onAmountSaved={onAmountSaved}
+                onCreated={onCreated}
                 onHiddenFromFlow={onHiddenFromFlow}
                 isMobile={isMobile}
                 editableAmounts={editableAmounts}
@@ -125,6 +132,7 @@ export function GridSection({
                     bucketMeta={bucketMeta}
                     advanced={advanced}
                     onAmountSaved={onAmountSaved}
+                    onCreated={onCreated}
                     onHiddenFromFlow={onHiddenFromFlow}
                     isMobile={isMobile}
                     editableAmounts={editableAmounts}
