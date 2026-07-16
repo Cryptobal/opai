@@ -6,12 +6,16 @@ import {
   setOccurrenceAmountOverride,
   clearOccurrenceAmountOverride,
 } from "@/modules/finance/cashflow/occurrence.service";
+import {
+  returnRangeField,
+  withPartialProjection,
+} from "@/modules/finance/cashflow/partial-projection";
 
-// amountClp: número > 0 fija el override manual; null limpia el override y
-// restaura el monto calculado (revertir edición manual).
-const amountSchema = z.object({
-  amountClp: z.number().positive().nullable(),
-});
+const amountSchema = z
+  .object({
+    amountClp: z.number().positive().nullable(),
+  })
+  .merge(returnRangeField);
 
 export async function POST(
   request: NextRequest,
@@ -32,7 +36,15 @@ export async function POST(
     } else {
       await setOccurrenceAmountOverride(ctx.tenantId, id, parsed.data.amountClp);
     }
-    return NextResponse.json({ success: true });
+    if (!parsed.data.returnRange) {
+      return NextResponse.json({ success: true });
+    }
+    const data = await withPartialProjection(
+      ctx.tenantId,
+      parsed.data.returnRange,
+      {},
+    );
+    return NextResponse.json({ success: true, data });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Error interno";
     return NextResponse.json({ success: false, error: msg }, { status: 400 });
