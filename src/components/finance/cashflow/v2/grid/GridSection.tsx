@@ -39,7 +39,11 @@ export function GridSection({
   dndEnabled: boolean;
   bucketMeta?: Map<string, BucketMeta>;
   advanced?: boolean;
-  onAmountSaved?: (patch?: { itemId: string; bucketKey: string; amount: number }) => void;
+  onAmountSaved?: (patch?: {
+    itemId: string;
+    bucketKey: string;
+    amount?: number;
+  }) => void;
   onHiddenFromFlow?: (undo: import("./CellFlowActions").HiddenFromFlowPayload) => void;
   /** Móvil: editar por tap + lápiz de affordance en las celdas editables. */
   isMobile?: boolean;

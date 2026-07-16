@@ -104,6 +104,40 @@ export function mergeMatrix(
   };
 }
 
+/**
+ * Elimina de la matriz las semanas cuyas `key ∈ keys` (buckets, values de
+ * filas/items, cumulativeBalances/Points). Puro: no muta. Tras `dropWeeks`,
+ * `ensureRange` ve huecos (`!present.has(weekKey)`) y re-fetchea sólo ese rango;
+ * el merge posterior (base gana) rellena sin conflicto porque las keys ya no
+ * están en base.
+ */
+export function dropWeeks(
+  matrix: ProjectionMatrix,
+  keys: string[],
+): ProjectionMatrix {
+  if (keys.length === 0) return matrix;
+  const drop = new Set(keys);
+  const keep = (bucketKey: string) => !drop.has(bucketKey);
+  return {
+    ...matrix,
+    buckets: matrix.buckets.filter((b) => keep(b.key)),
+    rows: matrix.rows.map((row) => ({
+      ...row,
+      values: row.values.filter((v) => keep(v.bucketKey)),
+      items: row.items.map((item) => ({
+        ...item,
+        values: item.values.filter((v) => keep(v.bucketKey)),
+      })),
+    })),
+    cumulativeBalances: matrix.cumulativeBalances.filter((p) =>
+      keep(p.bucketKey),
+    ),
+    cumulativePoints: matrix.cumulativePoints.filter((p) =>
+      keep(p.bucketKey),
+    ),
+  };
+}
+
 /** Recorta la matriz fusionada a las columnas visibles (en el orden de `slots`).
  *  Cada slot resuelve a su bucket cacheado o a un placeholder vacío. */
 export function sliceMatrix(

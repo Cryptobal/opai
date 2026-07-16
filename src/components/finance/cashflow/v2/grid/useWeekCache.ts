@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
-import { mergeMatrix, sliceMatrix } from "./week-cache-merge";
+import { dropWeeks, mergeMatrix, sliceMatrix } from "./week-cache-merge";
 import {
   addWeeksUTC,
   endOfIsoWeekUTC,
@@ -118,5 +118,16 @@ export function useWeekCache(initial: ProjectionMatrix) {
     staleRef.current = true;
   }, []);
 
-  return { ensureRange, resolve, invalidate, loading, version };
+  /**
+   * Poda selectiva: quita del caché sólo las semanas en `keys` (sin tocar
+   * `staleRef`). El próximo `ensureRange` las detecta como huecos y re-fetchea
+   * solo ese rango. Usado tras mutaciones de grilla (move/amount/hide).
+   */
+  const invalidateWeeks = useCallback((keys: string[]) => {
+    if (keys.length === 0) return;
+    mergedRef.current = dropWeeks(mergedRef.current, keys);
+    setVersion((v) => v + 1);
+  }, []);
+
+  return { ensureRange, resolve, invalidate, invalidateWeeks, loading, version };
 }

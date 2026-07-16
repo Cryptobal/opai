@@ -65,7 +65,11 @@ export function GridCell({
   isGroup?: boolean;
   groupOccurrences?: { id: string; amountClp: number }[];
   /** Se llama tras guardar/revertir un monto para refrescar la proyección. */
-  onAmountSaved?: (patch?: { itemId: string; bucketKey: string; amount: number }) => void;
+  onAmountSaved?: (patch?: {
+    itemId: string;
+    bucketKey: string;
+    amount?: number;
+  }) => void;
   /** Tras ocultar del flujo: el padre refresca y arma undo. */
   onHiddenFromFlow?: (undo: HiddenFromFlowPayload) => void;
   /** Móvil: habilita el editar por tap y muestra el lápiz de affordance. */
@@ -232,11 +236,11 @@ export function GridCell({
           hasOverride={hasOverride}
           onClose={() => setEditing(false)}
           onSaved={(optimisticAmount) =>
-            onAmountSaved?.(
-              optimisticAmount != null
-                ? { itemId, bucketKey, amount: optimisticAmount }
-                : undefined,
-            )
+            onAmountSaved?.({
+              itemId,
+              bucketKey,
+              ...(optimisticAmount != null ? { amount: optimisticAmount } : {}),
+            })
           }
         />
       )}
