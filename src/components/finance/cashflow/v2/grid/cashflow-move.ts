@@ -34,6 +34,11 @@ export interface MoveInput {
   newDate: string;
   /** F4: pedir proyección parcial del rango afectado. */
   returnRange?: ClientReturnRange;
+  /**
+   * Cómo resolver una colisión ya conocida (reintento tras un 409). El endpoint
+   * de DTE no la acepta: mueve por override de fecha y nunca colisiona.
+   */
+  resolveStrategy?: "replace" | "next_free";
 }
 
 function isSyntheticItemId(id: string | null): boolean {
@@ -54,7 +59,8 @@ export function unwrapProgItemId(id: string | null): string | null {
 }
 
 export async function moveViaApi(input: MoveInput): Promise<MoveResult> {
-  const { occurrenceId, dteId, originalDate, newDate, returnRange } = input;
+  const { occurrenceId, dteId, originalDate, newDate, returnRange, resolveStrategy } =
+    input;
   const itemId =
     unwrapProgItemId(input.itemId) ??
     (isSyntheticItemId(input.itemId) ? null : input.itemId);
@@ -66,7 +72,11 @@ export async function moveViaApi(input: MoveInput): Promise<MoveResult> {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ newDate, ...(returnRange ? { returnRange } : {}) }),
+          body: JSON.stringify({
+            newDate,
+            ...(resolveStrategy ? { resolveStrategy } : {}),
+            ...(returnRange ? { returnRange } : {}),
+          }),
         },
       );
     } else if (dteId) {
@@ -84,6 +94,7 @@ export async function moveViaApi(input: MoveInput): Promise<MoveResult> {
           itemId,
           originalDate,
           newDate,
+          ...(resolveStrategy ? { resolveStrategy } : {}),
           ...(returnRange ? { returnRange } : {}),
         }),
       });

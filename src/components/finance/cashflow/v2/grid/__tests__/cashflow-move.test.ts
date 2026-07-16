@@ -113,3 +113,97 @@ describe("moveViaApi — itemId real (caso normal, sin cambios)", () => {
     expect(url).toBe(`/api/finance/cashflow/dtes/${REAL_DTE_UUID}/move`);
   });
 });
+
+describe("moveViaApi — resolveStrategy", () => {
+  const OCC_ID = "33333333-3333-4333-8333-333333333333";
+
+  it("occurrence materializada: propaga resolveStrategy al body", async () => {
+    await moveViaApi({
+      occurrenceId: OCC_ID,
+      itemId: null,
+      dteId: null,
+      originalDate,
+      newDate,
+      resolveStrategy: "replace",
+    });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(`/api/finance/cashflow/occurrences/${OCC_ID}/move`);
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body.resolveStrategy).toBe("replace");
+    expect(body.newDate).toBe(newDate);
+  });
+
+  it("upsert-and-act: propaga resolveStrategy al body", async () => {
+    await moveViaApi({
+      occurrenceId: null,
+      itemId: REAL_ITEM_UUID,
+      dteId: null,
+      originalDate,
+      newDate,
+      resolveStrategy: "next_free",
+    });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/finance/cashflow/occurrences/upsert-and-act");
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body.resolveStrategy).toBe("next_free");
+  });
+
+  it("sin resolveStrategy: la clave no viaja en el body", async () => {
+    await moveViaApi({
+      occurrenceId: OCC_ID,
+      itemId: null,
+      dteId: null,
+      originalDate,
+      newDate,
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body).not.toHaveProperty("resolveStrategy");
+  });
+
+  it("409 con conflict: devuelve el conflicto para que la UI abra el modal", async () => {
+    const conflict = {
+      existingOccurrenceId: "occ-x",
+      targetDate: "2026-07-13",
+      suggestedFreeDate: "2026-07-14",
+      reason: "same_level" as const,
+    };
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 409,
+      json: async () => ({ success: false, conflict, error: "Ya existe otra cuota" }),
+    } as unknown as Response);
+
+    const res = await moveViaApi({
+      occurrenceId: OCC_ID,
+      itemId: null,
+      dteId: null,
+      originalDate,
+      newDate,
+    });
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.conflict).toEqual(conflict);
+      expect(res.status).toBe(409);
+    }
+  });
+
+  it("clearedCancelled viaja en el resultado ok", async () => {
+    fetchMock.mockResolvedValueOnce(
+      okJson({ success: true, clearedCancelled: true }),
+    );
+    const res = await moveViaApi({
+      occurrenceId: OCC_ID,
+      itemId: null,
+      dteId: null,
+      originalDate,
+      newDate,
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.clearedCancelled).toBe(true);
+  });
+});

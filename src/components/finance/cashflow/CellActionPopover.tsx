@@ -27,6 +27,7 @@ import { es } from "date-fns/locale";
 import type { CashflowCellStatus, CellDteSummary } from "@/modules/finance/cashflow/types";
 import { CellStatusPill, pillVariantFor } from "./CellStatusPill";
 import { CobranzaSendDialog } from "./CobranzaSendDialog";
+import { MoveConflictDialog } from "./MoveConflictDialog";
 
 const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
 
@@ -41,6 +42,8 @@ interface ConflictInfo {
   existingOccurrenceId: string;
   targetDate: string;
   suggestedFreeDate: string;
+  /** Ausente en respuestas viejas: se asume same_level. */
+  reason?: "same_level" | "target_is_stronger";
   originalArgs: { newDate?: string; daysFromCurrent?: number };
 }
 
@@ -455,48 +458,18 @@ export function CellActionPopover({
 
           {conflict ? (
             <div className="space-y-3">
-              <div className="flex items-start gap-2 px-1">
-                <AlertCircle className="h-5 w-5 text-status-warn-fg shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-[13px] font-semibold text-ds-text-1">
-                    Hay otra cuota en {formatDateLabel(conflict.targetDate)}
-                  </p>
-                  <p className="text-[12px] text-ds-text-3 mt-0.5">
-                    ¿Cómo querés resolver el conflicto?
-                  </p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Button
-                  variant="outline"
-                  onClick={() => resolveConflict("replace")}
-                  disabled={busy !== null}
-                  className="w-full h-11 sm:h-10 text-[13px] justify-start"
-                >
-                  Reemplazar la otra cuota
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => resolveConflict("next_free")}
-                  disabled={busy !== null}
-                  className="w-full h-11 sm:h-10 text-[13px] justify-start"
-                >
-                  Mover a {formatDateLabel(conflict.suggestedFreeDate)}
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={cancelConflict}
-                  disabled={busy !== null}
-                  className="w-full h-11 sm:h-10 text-[13px]"
-                >
-                  Cancelar
-                </Button>
-              </div>
-              {busy === "resolve" && (
-                <div className="flex items-center justify-center gap-2 text-[13px] text-ds-text-3">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Aplicando…
-                </div>
-              )}
+              <MoveConflictDialog
+                open
+                conflict={{
+                  itemName: "la cuota",
+                  targetDateLabel: formatDateLabel(conflict.targetDate),
+                  suggestedFreeDateLabel: formatDateLabel(conflict.suggestedFreeDate),
+                  reason: conflict.reason ?? "same_level",
+                }}
+                onResolve={resolveConflict}
+                onCancel={cancelConflict}
+                busy={busy !== null}
+              />
               {error && (
                 <div className="flex items-start gap-2 px-3 py-2 rounded-ds-md bg-status-warn-soft border border-status-warn-fg/20">
                   <AlertCircle className="h-4 w-4 text-status-warn-fg shrink-0 mt-0.5" />

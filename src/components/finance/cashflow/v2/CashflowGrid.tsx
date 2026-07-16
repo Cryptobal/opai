@@ -47,7 +47,17 @@ import { GridChip } from "./grid/GridChip";
 import { buildBucketMeta, cellChip, itemRowsForKind } from "./grid/grid-helpers";
 import { buildConceptOptions } from "./grid/concept-options";
 import { expenseRows } from "./grid/expense-grouping";
-import { useGridMove, type GridDragData } from "./grid/useGridMove";
+import {
+  useGridMove,
+  dayLabel as conflictDayLabel,
+  type GridDragData,
+  type MoveConflictRetry,
+} from "./grid/useGridMove";
+import type { MoveConflict } from "./grid/cashflow-move";
+import {
+  MoveConflictDialog,
+  type MoveConflictInfo,
+} from "@/components/finance/cashflow/MoveConflictDialog";
 import { useCashflowMutations } from "./grid/useCashflowMutations";
 import { deriveCumulative } from "./grid/derive-balance";
 import { moveViaApi } from "./grid/cashflow-move";
@@ -339,6 +349,43 @@ export function CashflowGrid({
     }
   }, [reopenTarget, refreshAfterClose]);
 
+  // Colisión al mover (409): el usuario decide en el modal. `retry` reintenta
+  // el mismo move con la estrategia elegida.
+  const [moveConflict, setMoveConflict] = useState<{
+    info: MoveConflictInfo;
+    retry: MoveConflictRetry;
+  } | null>(null);
+  const [resolvingConflict, setResolvingConflict] = useState(false);
+
+  const handleMoveConflict = useCallback(
+    (conflict: MoveConflict, retry: MoveConflictRetry) => {
+      setMoveConflict({
+        info: {
+          itemName: "la cuota",
+          targetDateLabel: conflictDayLabel(conflict.targetDate),
+          suggestedFreeDateLabel: conflictDayLabel(conflict.suggestedFreeDate),
+          reason: conflict.reason,
+        },
+        retry,
+      });
+    },
+    [],
+  );
+
+  const resolveMoveConflict = useCallback(
+    async (strategy: "replace" | "next_free") => {
+      if (!moveConflict) return;
+      setResolvingConflict(true);
+      try {
+        await moveConflict.retry(strategy);
+        setMoveConflict(null);
+      } finally {
+        setResolvingConflict(false);
+      }
+    },
+    [moveConflict],
+  );
+
   const { move, moveGroup } = useGridMove({
     buckets,
     refreshWeeks,
@@ -346,6 +393,7 @@ export function CashflowGrid({
     onOptimistic: beginMove,
     clearOptimistic: clearPending,
     pushUndo,
+    onConflict: handleMoveConflict,
   });
 
   const handleContextMove = useCallback(
@@ -625,6 +673,24 @@ export function CashflowGrid({
 
       <Legend />
       <UndoToast payload={undoPayload} onDismiss={clearUndo} />
+
+      <Dialog
+        open={moveConflict != null}
+        onOpenChange={(o) => !o && !resolvingConflict && setMoveConflict(null)}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Resolver conflicto al mover</DialogTitle>
+          </DialogHeader>
+          <MoveConflictDialog
+            open={moveConflict != null}
+            conflict={moveConflict?.info ?? null}
+            onResolve={resolveMoveConflict}
+            onCancel={() => setMoveConflict(null)}
+            busy={resolvingConflict}
+          />
+        </DialogContent>
+      </Dialog>
 
       {multiMove && (
         <QuotaMoveSelector
