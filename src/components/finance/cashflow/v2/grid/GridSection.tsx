@@ -29,6 +29,7 @@ export function GridSection({
   onAmountSaved,
   onCreated,
   onHiddenFromFlow,
+  onContextMove,
   isMobile,
   editableAmounts,
 }: {
@@ -51,6 +52,14 @@ export function GridSection({
     amount: number;
   }) => void;
   onHiddenFromFlow?: (undo: import("./CellFlowActions").HiddenFromFlowPayload) => void;
+  onContextMove?: (args: {
+    itemId: string;
+    itemName: string;
+    fromBucketKey: string;
+    toBucketKey: string;
+    value: import("@/modules/finance/cashflow/types").ProjectionRowItemValue | undefined;
+    source: import("@/modules/finance/cashflow/types").FinanceCashflowItemSource;
+  }) => void;
   /** Móvil: editar por tap + lápiz de affordance en las celdas editables. */
   isMobile?: boolean;
   /** La sección admite editar montos (solo Egresos; ver GridCell). */
@@ -112,6 +121,7 @@ export function GridSection({
                 onAmountSaved={onAmountSaved}
                 onCreated={onCreated}
                 onHiddenFromFlow={onHiddenFromFlow}
+                onContextMove={onContextMove}
                 isMobile={isMobile}
                 editableAmounts={editableAmounts}
                 expandable={
@@ -134,6 +144,7 @@ export function GridSection({
                     onAmountSaved={onAmountSaved}
                     onCreated={onCreated}
                     onHiddenFromFlow={onHiddenFromFlow}
+                    onContextMove={onContextMove}
                     isMobile={isMobile}
                     editableAmounts={editableAmounts}
                     isChild

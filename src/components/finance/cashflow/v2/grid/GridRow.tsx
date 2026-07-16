@@ -22,6 +22,7 @@ export function GridRow({
   onAmountSaved,
   onCreated,
   onHiddenFromFlow,
+  onContextMove,
   isMobile,
   editableAmounts,
   expandable,
@@ -44,6 +45,14 @@ export function GridRow({
     amount: number;
   }) => void;
   onHiddenFromFlow?: (undo: import("./CellFlowActions").HiddenFromFlowPayload) => void;
+  onContextMove?: (args: {
+    itemId: string;
+    itemName: string;
+    fromBucketKey: string;
+    toBucketKey: string;
+    value: import("@/modules/finance/cashflow/types").ProjectionRowItemValue | undefined;
+    source: import("@/modules/finance/cashflow/types").FinanceCashflowItemSource;
+  }) => void;
   isMobile?: boolean;
   editableAmounts?: boolean;
   expandable?: { open: boolean; onToggle: () => void };
@@ -191,6 +200,21 @@ export function GridRow({
             onForceEditingConsumed={() => setForceEditKey(null)}
             isMobile={isMobile}
             editableAmounts={editableAmounts}
+            buckets={buckets}
+            bucketMeta={bucketMeta}
+            onContextMove={
+              onContextMove
+                ? (toKey) =>
+                    onContextMove({
+                      itemId: row.item.itemId,
+                      itemName: row.item.nickname ?? row.item.itemName,
+                      fromBucketKey: b.key,
+                      toBucketKey: toKey,
+                      value: row.valueByBucket.get(b.key),
+                      source: row.item.source,
+                    })
+                : undefined
+            }
           />
         );
       })}

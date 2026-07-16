@@ -42,7 +42,7 @@ import { GridSection } from "./grid/GridSection";
 import { GridBalanceRow } from "./grid/GridBalanceRow";
 import { GridDriftRow } from "./grid/GridDriftRow";
 import { GridChip } from "./grid/GridChip";
-import { buildBucketMeta, itemRowsForKind } from "./grid/grid-helpers";
+import { buildBucketMeta, cellChip, itemRowsForKind } from "./grid/grid-helpers";
 import { expenseRows } from "./grid/expense-grouping";
 import { useGridMove, type GridDragData } from "./grid/useGridMove";
 import { useCashflowMutations } from "./grid/useCashflowMutations";
@@ -321,6 +321,40 @@ export function CashflowGrid({
     pushUndo,
   });
 
+  const handleContextMove = useCallback(
+    (args: {
+      itemId: string;
+      itemName: string;
+      fromBucketKey: string;
+      toBucketKey: string;
+      value:
+        | import("@/modules/finance/cashflow/types").ProjectionRowItemValue
+        | undefined;
+      source: import("@/modules/finance/cashflow/types").FinanceCashflowItemSource;
+    }) => {
+      const { itemId, itemName, fromBucketKey, toBucketKey, value, source } =
+        args;
+      if (!value || value.amount === 0) return;
+      const chip = cellChip(value, source);
+      void move(
+        {
+          kind: "grid-chip",
+          itemId,
+          itemName,
+          occurrenceId: value.occurrenceId,
+          dteId: value.dteId ?? null,
+          originalDate: value.scheduledDate,
+          fromBucketKey,
+          amount: value.amount,
+          variant: chip.variant,
+          locked: chip.locked,
+        },
+        toBucketKey,
+      );
+    },
+    [move],
+  );
+
   // Sensors: puntero (mouse + touch) con activación por long-press (delay +
   // tolerance) para NO secuestrar el scroll táctil de la grilla. Un scroll
   // rápido no alcanza el delay; si el dedo se mueve >8px antes del delay se
@@ -525,6 +559,7 @@ export function CashflowGrid({
                 onAmountSaved={handleAmountSaved}
                 onCreated={handleCreated}
                 onHiddenFromFlow={handleHiddenFromFlow}
+                onContextMove={handleContextMove}
                 isMobile={isMobile}
                 editableAmounts={canManage}
               />
@@ -540,6 +575,7 @@ export function CashflowGrid({
                 onAmountSaved={handleAmountSaved}
                 onCreated={handleCreated}
                 onHiddenFromFlow={handleHiddenFromFlow}
+                onContextMove={handleContextMove}
                 isMobile={isMobile}
                 editableAmounts={canManage}
               />

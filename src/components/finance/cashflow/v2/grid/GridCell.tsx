@@ -12,14 +12,19 @@ import type {
 import { fmt } from "@/components/finance/cashflow/MatrixHelpers";
 import { GridChip } from "./GridChip";
 import { GridDraggableChip } from "./GridDraggableChip";
-import { canEditValue, cellChip } from "./grid-helpers";
+import { canEditValue, cellChip, type BucketMeta } from "./grid-helpers";
 import { InlineCellEditor } from "./InlineCellEditor";
 import {
   CellFlowActions,
   type HiddenFromFlowPayload,
 } from "./CellFlowActions";
 import { CellActionSheet } from "./CellActionSheet";
+import { CellContextMenu, openWeekTargets } from "./CellContextMenu";
+import { hideFromFlowViaApi } from "./cashflow-hide";
+import { createManualEntryViaApi } from "./cashflow-create";
+import { toast } from "sonner";
 import type { GridDragData } from "./useGridMove";
+import type { ProjectionBucket } from "@/modules/finance/cashflow/types";
 import { toDate } from "../format";
 
 const ymd = (d: string | Date) => toDate(d).toISOString().slice(0, 10);
@@ -53,6 +58,9 @@ export function GridCell({
   onForceEditingConsumed,
   isMobile = false,
   editableAmounts = false,
+  buckets = [],
+  bucketMeta,
+  onContextMove,
 }: {
   itemId: string;
   itemName: string;
@@ -88,6 +96,10 @@ export function GridCell({
   onForceEditingConsumed?: () => void;
   isMobile?: boolean;
   editableAmounts?: boolean;
+  buckets?: ProjectionBucket[];
+  bucketMeta?: Map<string, BucketMeta>;
+  /** Move desde el menú contextual (misma vía que el drag). */
+  onContextMove?: (toBucketKey: string) => void;
 }) {
   const [editing, setEditing] = useState<"edit" | "create" | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -138,6 +150,48 @@ export function GridCell({
     (!!value?.dteId || !!value?.occurrenceId || !!itemId);
 
   const canOpenSheet = amount !== 0 && !!chip;
+  const openWeeks = openWeekTargets(buckets, bucketMeta, bucketKey);
+  const locked = !!chip?.locked;
+
+  async function hideFromMenu() {
+    if (!value || !onHiddenFromFlow) return;
+    const res = await hideFromFlowViaApi({
+      dteId: value.dteId ?? null,
+      occurrenceId: value.occurrenceId,
+      itemId,
+      originalDate: value.scheduledDate,
+      label: itemName,
+    });
+    if (!res.ok) {
+      toast.error(res.error ?? "No se pudo ocultar");
+      return;
+    }
+    onHiddenFromFlow({
+      label: itemName,
+      dteId: value.dteId ?? null,
+      occurrenceId: res.occurrenceId ?? value.occurrenceId,
+      itemId,
+      bucketKey,
+    });
+  }
+
+  async function duplicateTo(toKey: string) {
+    const dest = buckets.find((b) => b.key === toKey);
+    if (!dest || amount === 0) return;
+    const res = await createManualEntryViaApi({
+      kind,
+      name: itemName,
+      amountClp: Math.round(amount),
+      scheduledDate: ymd(dest.start),
+      categoryId,
+    });
+    if (!res.ok) {
+      toast.error(res.error ?? "No se pudo duplicar");
+      return;
+    }
+    toast.success(`Duplicado en ${dest.label}`);
+    onCreated?.({ itemId, bucketKey: toKey, amount: Math.round(amount) });
+  }
 
   const chipNode =
     canDrag && value ? (
@@ -182,58 +236,83 @@ export function GridCell({
         setEditing("edit");
       }}
     >
-      {amount !== 0 && chipNode ? (
-        <span
-          onClick={(e) => {
-            e.stopPropagation();
-            if (canOpenSheet) setSheetOpen(true);
-          }}
-          role={canOpenSheet ? "button" : undefined}
-          title={canOpenSheet ? "Ver acciones" : undefined}
-          className={cn(
-            "relative inline-flex",
-            canOpenSheet && "cursor-pointer",
-            showOverrideBadge && "rounded-ds-sm ring-1 ring-inset ring-primary/60",
-          )}
-        >
-          {canHideFromFlow && value ? (
-            <CellFlowActions
-              target={{
-                dteId: value.dteId ?? null,
-                occurrenceId: value.occurrenceId,
-                itemId,
-                originalDate: value.scheduledDate,
-                label: itemName,
-              }}
-              onHidden={(undo) =>
-                onHiddenFromFlow?.({ ...undo, itemId, bucketKey })
-              }
-            >
-              {chipNode}
-            </CellFlowActions>
-          ) : (
-            chipNode
-          )}
-          {showOverrideBadge && (
-            <Pencil
-              className="absolute -right-1 -top-1 h-2.5 w-2.5 text-primary"
-              aria-label="Monto editado manualmente"
-            />
-          )}
-        </span>
-      ) : (
-        <span className="relative inline-flex h-8 w-full items-center justify-center">
-          <span className="text-[12px] text-ds-text-4 group-hover/cell:opacity-0">
-            ·
+      <CellContextMenu
+        itemName={itemName}
+        weekLabel={weekLabel ?? bucketKey}
+        amount={amount}
+        statusTitle={chip?.title ?? "Vacía"}
+        kindLabel={kind === "INCOME" ? "ingreso" : "egreso"}
+        empty={amount === 0}
+        closed={closed}
+        locked={locked}
+        canEdit={canEdit}
+        canHide={canHideFromFlow}
+        canMove={canDrag}
+        dteId={value?.dteId}
+        dteFolio={value?.dteFolio}
+        openWeeks={openWeeks}
+        onAddHere={() => setEditing("create")}
+        onEdit={() => setEditing("edit")}
+        onMoveTo={(k) => onContextMove?.(k)}
+        onDuplicateTo={(k) => void duplicateTo(k)}
+        onOpenDetail={() => setSheetOpen(true)}
+        onHide={() => void hideFromMenu()}
+      >
+        {amount !== 0 && chipNode ? (
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              if (canOpenSheet) setSheetOpen(true);
+            }}
+            role={canOpenSheet ? "button" : undefined}
+            title={canOpenSheet ? "Ver acciones" : undefined}
+            tabIndex={canOpenSheet ? 0 : undefined}
+            className={cn(
+              "relative inline-flex",
+              canOpenSheet && "cursor-pointer",
+              showOverrideBadge &&
+                "rounded-ds-sm ring-1 ring-inset ring-primary/60",
+            )}
+          >
+            {canHideFromFlow && value ? (
+              <CellFlowActions
+                target={{
+                  dteId: value.dteId ?? null,
+                  occurrenceId: value.occurrenceId,
+                  itemId,
+                  originalDate: value.scheduledDate,
+                  label: itemName,
+                }}
+                onHidden={(undo) =>
+                  onHiddenFromFlow?.({ ...undo, itemId, bucketKey })
+                }
+              >
+                {chipNode}
+              </CellFlowActions>
+            ) : (
+              chipNode
+            )}
+            {showOverrideBadge && (
+              <Pencil
+                className="absolute -right-1 -top-1 h-2.5 w-2.5 text-primary"
+                aria-label="Monto editado manualmente"
+              />
+            )}
           </span>
-          {canCreate && (
-            <Plus
-              className="pointer-events-none absolute h-4 w-4 text-ds-text-4 opacity-0 transition-opacity group-hover/cell:opacity-70"
-              aria-hidden
-            />
-          )}
-        </span>
-      )}
+        ) : (
+          <span className="relative inline-flex h-8 w-full items-center justify-center">
+            <span className="text-[12px] text-ds-text-4 group-hover/cell:opacity-0">
+              ·
+            </span>
+            {canCreate && (
+              <Plus
+                className="pointer-events-none absolute h-4 w-4 text-ds-text-4 opacity-0 transition-opacity group-hover/cell:opacity-70"
+                aria-hidden
+              />
+            )}
+          </span>
+        )}
+      </CellContextMenu>
       {isMobile && canEdit && (
         <Pencil
           className="pointer-events-none absolute bottom-0.5 right-1 h-3 w-3 text-ds-text-3"
