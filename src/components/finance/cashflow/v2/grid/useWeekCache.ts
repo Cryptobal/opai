@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
-import { dropWeeks, mergeMatrix, sliceMatrix } from "./week-cache-merge";
+import { dropWeeks, mergeMatrix, replaceWeeks, sliceMatrix } from "./week-cache-merge";
 import {
   addWeeksUTC,
   endOfIsoWeekUTC,
@@ -152,11 +152,18 @@ export function useWeekCache(initial: ProjectionMatrix) {
     setVersion((v) => v + 1);
   }, []);
 
+  /** Parche F4: aplica proyección parcial (incoming gana) sin fetch. */
+  const patchMatrix = useCallback((incoming: ProjectionMatrix) => {
+    mergedRef.current = replaceWeeks(mergedRef.current, incoming);
+    setVersion((v) => v + 1);
+  }, []);
+
   return {
     ensureRange,
     resolve,
     invalidate,
     invalidateWeeks,
+    patchMatrix,
     loading,
     version,
     presentKeys,

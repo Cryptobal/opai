@@ -49,6 +49,7 @@ export function useGridWindow(initial: ProjectionMatrix, opts: GridWindowOpts) {
     resolve,
     invalidate,
     invalidateWeeks,
+    patchMatrix,
     loading,
     version,
     presentKeys,
@@ -152,6 +153,7 @@ export function useGridWindow(initial: ProjectionMatrix, opts: GridWindowOpts) {
     refresh,
     refreshWeeks,
     ensureRange,
+    patchMatrix,
     anchorDate,
     windowWeeks,
   };
