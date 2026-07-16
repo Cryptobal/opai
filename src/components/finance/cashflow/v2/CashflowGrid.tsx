@@ -45,7 +45,14 @@ import { GridChip } from "./grid/GridChip";
 import { buildBucketMeta, itemRowsForKind } from "./grid/grid-helpers";
 import { expenseRows } from "./grid/expense-grouping";
 import { useGridMove, type GridDragData } from "./grid/useGridMove";
-import { applyOptimisticMove, type PendingMove } from "./grid/optimistic-move";
+import {
+  applyOptimisticMove,
+  applyOptimisticHides,
+  applyOptimisticAmounts,
+  type PendingMove,
+  type PendingHide,
+  type PendingAmount,
+} from "./grid/optimistic-move";
 import { moveViaApi } from "./grid/cashflow-move";
 import { QuotaMoveSelector } from "./grid/QuotaMoveSelector";
 import { CashflowFolioSearch } from "./grid/CashflowFolioSearch";
@@ -126,9 +133,21 @@ export function CashflowGrid({
   // origen ya está en 0 no re-aplica), así evita el doble-move en el render
   // intermedio entre `refresh()` y limpiar el pending.
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
+  // Optimista para ocultar/editar-monto: la celda cambia AL INSTANTE y el
+  // refresh de red reconcilia después (mismo patrón que el move). Sin esto, cada
+  // borrado/edición esperaba el round-trip completo de re-proyección (lento).
+  const [pendingHides, setPendingHides] = useState<PendingHide[]>([]);
+  const [pendingAmounts, setPendingAmounts] = useState<PendingAmount[]>([]);
   const displayRows = useMemo(
-    () => applyOptimisticMove(active.rows, pendingMove),
-    [active.rows, pendingMove],
+    () =>
+      applyOptimisticAmounts(
+        applyOptimisticHides(
+          applyOptimisticMove(active.rows, pendingMove),
+          pendingHides,
+        ),
+        pendingAmounts,
+      ),
+    [active.rows, pendingMove, pendingHides, pendingAmounts],
   );
   const incomeRows = useMemo(
     () => itemRowsForKind(displayRows, "INCOME"),
@@ -296,14 +315,32 @@ export function CashflowGrid({
     clearOptimistic: () => setPendingMove(null),
   });
 
+  // Editar monto: pinta el nuevo valor al instante (optimista) y reconcilia con
+  // el refresh. En grupo/revert llega sin patch → solo refresh.
+  const handleAmountSaved = useCallback(
+    async (patch?: { itemId: string; bucketKey: string; amount: number }) => {
+      if (patch?.itemId) setPendingAmounts((p) => [...p, patch]);
+      await refreshAll();
+      setPendingAmounts([]);
+    },
+    [refreshAll],
+  );
+
   async function handleHiddenFromFlow(undo: {
     label: string;
     dteId: string | null;
     occurrenceId: string | null;
+    itemId: string | null;
+    bucketKey: string;
   }) {
     const { restoreToFlowViaApi } = await import("./grid/cashflow-hide");
+    // Vacía la celda al instante; el refresh confirma y limpia el optimista.
+    if (undo.itemId) {
+      setPendingHides((p) => [...p, { itemId: undo.itemId!, bucketKey: undo.bucketKey }]);
+    }
     toast.success(`«${undo.label}» ocultado del flujo`);
     await refreshAll();
+    setPendingHides([]);
     pushUndo({
       occurrenceName: undo.label,
       destLabel: "ocultado del flujo",
@@ -523,7 +560,7 @@ export function CashflowGrid({
                 dndEnabled={canManage}
                 bucketMeta={bucketMeta}
                 advanced={effectiveAdvanced}
-                onAmountSaved={refreshAll}
+                onAmountSaved={handleAmountSaved}
                 onHiddenFromFlow={handleHiddenFromFlow}
                 isMobile={isMobile}
                 editableAmounts={false}
@@ -537,7 +574,7 @@ export function CashflowGrid({
                 dndEnabled={canManage}
                 bucketMeta={bucketMeta}
                 advanced={effectiveAdvanced}
-                onAmountSaved={refreshAll}
+                onAmountSaved={handleAmountSaved}
                 onHiddenFromFlow={handleHiddenFromFlow}
                 isMobile={isMobile}
                 editableAmounts

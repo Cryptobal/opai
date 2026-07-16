@@ -36,7 +36,9 @@ export function AmountCellEditor({
   groupOccurrences?: { id: string; amountClp: number }[];
   hasOverride: boolean;
   onClose: () => void;
-  onSaved: () => void;
+  /** `optimisticAmount` = nuevo monto para pintar la celda al instante (solo en
+   *  edición de una cuota individual; en grupo/revert va undefined → refresh). */
+  onSaved: (optimisticAmount?: number) => void;
 }) {
   const [raw, setRaw] = useState(() => formatThousands(String(Math.round(currentAmount))));
   const [busy, setBusy] = useState(false);
@@ -48,10 +50,10 @@ export function AmountCellEditor({
     inputRef.current?.scrollIntoView({ block: "center" });
   }, []);
 
-  function finish(res: AmountResult, okMsg: string) {
+  function finish(res: AmountResult, okMsg: string, optimisticAmount?: number) {
     if (res.ok) {
       toast.success(res.error ? `${okMsg} · ${res.error}` : okMsg);
-      onSaved();
+      onSaved(optimisticAmount);
       onClose();
     } else {
       toast.error(res.error ?? "No se pudo guardar");
@@ -75,7 +77,9 @@ export function AmountCellEditor({
         ? await saveOccurrenceAmount(occurrenceId, amount)
         : { ok: false, error: "Cuota sin materializar" };
     setBusy(false);
-    finish(res, "Monto actualizado");
+    // Optimista solo en cuota individual (en grupo el total se reparte
+    // proporcional entre N instalaciones; ahí dejamos que el refresh mande).
+    finish(res, "Monto actualizado", isGroup ? undefined : amount);
   }
 
   async function revert() {

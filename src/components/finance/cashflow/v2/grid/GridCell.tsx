@@ -13,7 +13,10 @@ import { GridChip } from "./GridChip";
 import { GridDraggableChip } from "./GridDraggableChip";
 import { cellChip } from "./grid-helpers";
 import { AmountCellEditor } from "./AmountCellEditor";
-import { CellFlowActions, type HideUndoPayload } from "./CellFlowActions";
+import {
+  CellFlowActions,
+  type HiddenFromFlowPayload,
+} from "./CellFlowActions";
 import { CellActionSheet } from "./CellActionSheet";
 import type { GridDragData } from "./useGridMove";
 
@@ -62,9 +65,9 @@ export function GridCell({
   isGroup?: boolean;
   groupOccurrences?: { id: string; amountClp: number }[];
   /** Se llama tras guardar/revertir un monto para refrescar la proyección. */
-  onAmountSaved?: () => void;
+  onAmountSaved?: (patch?: { itemId: string; bucketKey: string; amount: number }) => void;
   /** Tras ocultar del flujo: el padre refresca y arma undo. */
-  onHiddenFromFlow?: (undo: HideUndoPayload) => void;
+  onHiddenFromFlow?: (undo: HiddenFromFlowPayload) => void;
   /** Móvil: habilita el editar por tap y muestra el lápiz de affordance. */
   isMobile?: boolean;
   /** La sección admite editar montos (solo Egresos). Los Ingresos vienen de la
@@ -193,7 +196,7 @@ export function GridCell({
                 originalDate: value.scheduledDate,
                 label: itemName,
               }}
-              onHidden={(undo) => onHiddenFromFlow?.(undo)}
+              onHidden={(undo) => onHiddenFromFlow?.({ ...undo, itemId, bucketKey })}
             >
               {chipNode}
             </CellFlowActions>
@@ -228,7 +231,13 @@ export function GridCell({
           groupOccurrences={groupOccurrences}
           hasOverride={hasOverride}
           onClose={() => setEditing(false)}
-          onSaved={() => onAmountSaved?.()}
+          onSaved={(optimisticAmount) =>
+            onAmountSaved?.(
+              optimisticAmount != null
+                ? { itemId, bucketKey, amount: optimisticAmount }
+                : undefined,
+            )
+          }
         />
       )}
       {canOpenSheet && value && chip && (
@@ -253,7 +262,7 @@ export function GridCell({
             originalDate: value.scheduledDate,
             label: itemName,
           }}
-          onHidden={(undo) => onHiddenFromFlow?.(undo)}
+          onHidden={(undo) => onHiddenFromFlow?.({ ...undo, itemId, bucketKey })}
         />
       )}
       {advanced && actual !== null && (

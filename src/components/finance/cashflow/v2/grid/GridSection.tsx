@@ -39,8 +39,8 @@ export function GridSection({
   dndEnabled: boolean;
   bucketMeta?: Map<string, BucketMeta>;
   advanced?: boolean;
-  onAmountSaved?: () => void;
-  onHiddenFromFlow?: (undo: import("./CellFlowActions").HideUndoPayload) => void;
+  onAmountSaved?: (patch?: { itemId: string; bucketKey: string; amount: number }) => void;
+  onHiddenFromFlow?: (undo: import("./CellFlowActions").HiddenFromFlowPayload) => void;
   /** Móvil: editar por tap + lápiz de affordance en las celdas editables. */
   isMobile?: boolean;
   /** La sección admite editar montos (solo Egresos; ver GridCell). */

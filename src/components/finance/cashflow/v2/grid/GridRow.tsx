@@ -37,10 +37,11 @@ export function GridRow({
   bucketMeta?: Map<string, BucketMeta>;
   /** Modo avanzado: revela badge IPC y headcount en la columna cliente. */
   advanced?: boolean;
-  /** Refresca la proyección tras editar/revertir el monto de una casilla. */
-  onAmountSaved?: () => void;
-  /** Tras ocultar del flujo (factura/programación). */
-  onHiddenFromFlow?: (undo: import("./CellFlowActions").HideUndoPayload) => void;
+  /** Refresca la proyección tras editar/revertir el monto de una casilla.
+   *  `patch` (solo cuota individual) pinta el nuevo monto al instante. */
+  onAmountSaved?: (patch?: { itemId: string; bucketKey: string; amount: number }) => void;
+  /** Tras ocultar del flujo (factura/programación), con celda para optimista. */
+  onHiddenFromFlow?: (undo: import("./CellFlowActions").HiddenFromFlowPayload) => void;
   /** Móvil: editar por tap + lápiz de affordance en las celdas editables. */
   isMobile?: boolean;
   /** La sección admite editar montos (solo Egresos; ver GridCell). */

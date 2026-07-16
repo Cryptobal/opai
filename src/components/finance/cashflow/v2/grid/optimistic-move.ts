@@ -76,3 +76,106 @@ export function applyOptimisticMove(
     return { ...row, items, values };
   });
 }
+
+/** Celda ocultada del flujo, aplicada ANTES de que vuelva el refresh: se vacía
+ *  al instante (amount 0, sin ids) para que la fila desaparezca sin esperar la
+ *  re-proyección de red. */
+export interface PendingHide {
+  itemId: string;
+  bucketKey: string;
+}
+
+/** Monto editado, aplicado ANTES del refresh: la celda muestra el nuevo valor
+ *  al instante en vez de esperar el round-trip. */
+export interface PendingAmount {
+  itemId: string;
+  bucketKey: string;
+  amount: number;
+}
+
+/** Suma un delta por bucket al bucket-sum de la fila (header del cliente), para
+ *  que el subtotal no quede inconsistente durante el segundo del refresh. */
+function reflectBucketDeltas(
+  row: ProjectionRow,
+  deltaByBucket: Map<string, number>,
+): ProjectionRow["values"] {
+  if (deltaByBucket.size === 0) return row.values ?? [];
+  return (row.values ?? []).map((v) =>
+    deltaByBucket.has(v.bucketKey)
+      ? { ...v, amount: v.amount + (deltaByBucket.get(v.bucketKey) ?? 0) }
+      : v,
+  );
+}
+
+/** Vacía optimistamente las celdas ocultadas (amount 0, sin ids → pinta "·" y
+ *  no es arrastrable). Puro. Idempotente: una celda ya en 0 no vuelve a tocarse. */
+export function applyOptimisticHides(
+  rows: ProjectionRow[],
+  hides: PendingHide[],
+): ProjectionRow[] {
+  if (hides.length === 0) return rows;
+  const byItem = new Map<string, Set<string>>();
+  for (const h of hides) {
+    if (!h.itemId) continue;
+    const set = byItem.get(h.itemId) ?? new Set<string>();
+    set.add(h.bucketKey);
+    byItem.set(h.itemId, set);
+  }
+  return rows.map((row) => {
+    if (!(row.items ?? []).some((it) => byItem.has(it.itemId))) return row;
+    const deltaByBucket = new Map<string, number>();
+    const items = (row.items ?? []).map((it) => {
+      const buckets = byItem.get(it.itemId);
+      if (!buckets) return it;
+      const values = it.values.map((v) => {
+        if (buckets.has(v.bucketKey) && v.amount !== 0) {
+          deltaByBucket.set(
+            v.bucketKey,
+            (deltaByBucket.get(v.bucketKey) ?? 0) - v.amount,
+          );
+          return { ...v, amount: 0, occurrenceId: null, dteId: null };
+        }
+        return v;
+      });
+      return { ...it, values };
+    });
+    return { ...row, items, values: reflectBucketDeltas(row, deltaByBucket) };
+  });
+}
+
+/** Fija optimistamente el nuevo monto de las celdas editadas (mantiene ids para
+ *  que sigan editables/arrastrables). Puro. */
+export function applyOptimisticAmounts(
+  rows: ProjectionRow[],
+  amounts: PendingAmount[],
+): ProjectionRow[] {
+  if (amounts.length === 0) return rows;
+  const byItem = new Map<string, Map<string, number>>();
+  for (const a of amounts) {
+    if (!a.itemId) continue;
+    const m = byItem.get(a.itemId) ?? new Map<string, number>();
+    m.set(a.bucketKey, a.amount);
+    byItem.set(a.itemId, m);
+  }
+  return rows.map((row) => {
+    if (!(row.items ?? []).some((it) => byItem.has(it.itemId))) return row;
+    const deltaByBucket = new Map<string, number>();
+    const items = (row.items ?? []).map((it) => {
+      const m = byItem.get(it.itemId);
+      if (!m) return it;
+      const values = it.values.map((v) => {
+        if (m.has(v.bucketKey)) {
+          const next = m.get(v.bucketKey) ?? v.amount;
+          deltaByBucket.set(
+            v.bucketKey,
+            (deltaByBucket.get(v.bucketKey) ?? 0) + (next - v.amount),
+          );
+          return { ...v, amount: next };
+        }
+        return v;
+      });
+      return { ...it, values };
+    });
+    return { ...row, items, values: reflectBucketDeltas(row, deltaByBucket) };
+  });
+}

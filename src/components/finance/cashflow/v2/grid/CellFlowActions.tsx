@@ -21,6 +21,13 @@ export type HideUndoPayload = {
   occurrenceId: string | null;
 };
 
+/** Igual que HideUndoPayload pero con la celda (itemId+bucketKey) para poder
+ *  vaciarla optimistamente antes de que vuelva el refresh. */
+export type HiddenFromFlowPayload = HideUndoPayload & {
+  itemId: string | null;
+  bucketKey: string;
+};
+
 interface Props {
   target: HideInput;
   /** Semana cerrada, pagada o sin permisos. */
