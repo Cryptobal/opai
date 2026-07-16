@@ -249,11 +249,15 @@ export function CotizacionCard({
                   />
                 )}
 
-                {/* Section 5: El Servicio Incluye */}
-                <ProposalServicioIncluye
-                  items={detail.includedItems}
-                  sectionNumber={++sn}
-                />
+                {/* Section 5: El Servicio Incluye — sin guardias solo si el
+                    usuario cargó ítems (los defaults son guard-céntricos) */}
+                {(detail.positions.length > 0 || (detail.includedItems?.length ?? 0) > 0) && (
+                  <ProposalServicioIncluye
+                    items={detail.includedItems}
+                    hasGuards={detail.positions.length > 0}
+                    sectionNumber={++sn}
+                  />
+                )}
 
                 {/* Section 6: Detalle del Servicio */}
                 {(detail.serviceDetail || detail.aiDescription) && (

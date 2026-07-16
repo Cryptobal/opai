@@ -21,16 +21,22 @@ const DEFAULT_ITEMS = [
 
 interface ProposalServicioIncluyeProps {
   items?: string[];
+  /** Sin guardias los DEFAULT_ITEMS (OS-10, reemplazos) no aplican: sin items, no se renderiza. */
+  hasGuards: boolean;
   sectionNumber: number;
   className?: string;
 }
 
 export function ProposalServicioIncluye({
   items,
+  hasGuards,
   sectionNumber,
   className,
 }: ProposalServicioIncluyeProps) {
-  const displayItems = items && items.length > 0 ? items : DEFAULT_ITEMS;
+  const hasItems = !!items && items.length > 0;
+  if (!hasItems && !hasGuards) return null;
+
+  const displayItems = hasItems ? items : DEFAULT_ITEMS;
 
   return (
     <div className={cn("rounded-xl border border-slate-700/50 bg-slate-800/50 p-4 space-y-3", className)}>
