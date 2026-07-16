@@ -340,6 +340,25 @@ export const recurringTemplateSchema = z.object({
   periodPolicy: z
     .enum(["CURRENT_MONTH", "PREVIOUS_MONTH", "NEXT_MONTH"])
     .default("CURRENT_MONTH"),
+  // ¿Cuándo se emite la factura real a partir de esta programación? Solo mueve
+  // DÓNDE se proyecta la cuota en el flujo mientras no exista la factura; el
+  // cron sigue corriendo en la frecuencia configurada.
+  //   - AL_EMITIR (default): el mismo día del run. Comportamiento histórico.
+  //   - DIA_ESPECIFICO: el día `facturaDay` del mes que indica
+  //     `facturaMesRelativo` (programo el 20, facturo el 1 del mes siguiente).
+  facturaTiming: z.enum(["AL_EMITIR", "DIA_ESPECIFICO"]).default("AL_EMITIR"),
+  // 1-31, o -1 = último día del mes. Requerido con DIA_ESPECIFICO.
+  facturaDay: optNull(
+    z
+      .number()
+      .int()
+      .refine((v) => v === -1 || (v >= 1 && v <= 31), {
+        message: "El día debe estar entre 1 y 31, o -1 para el último día del mes.",
+      }),
+  ),
+  facturaMesRelativo: z
+    .enum(["MISMO_MES", "MES_SIGUIENTE"])
+    .default("MES_SIGUIENTE"),
   // Reajuste IPC (modo manual con alerta). El cron NO modifica montos:
   // solo avisa cuando se acerca la fecha de reajuste para que el usuario
   // ingrese el % real editando las líneas. Ver cron ipc-alerts-recurring.
@@ -368,6 +387,14 @@ export const recurringTemplateSchema = z.object({
       code: z.ZodIssueCode.custom,
       path: ["ipcAdjustmentMonths"],
       message: "Indicá cada cuántos meses se reajusta el IPC.",
+    });
+  }
+  // Sin día de emisión, DIA_ESPECIFICO no sabe dónde ubicar la cuota.
+  if (data.facturaTiming === "DIA_ESPECIFICO" && data.facturaDay == null) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["facturaDay"],
+      message: "Indicá el día en que se emite la factura.",
     });
   }
 });

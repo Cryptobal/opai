@@ -181,6 +181,15 @@ export async function PATCH(
             ? (body.ufFixingDay ?? null)
             : null,
         periodPolicy: body.periodPolicy,
+        // Con AL_EMITIR el resto del timing no aplica: se normaliza para que la
+        // plantilla no arrastre un día huérfano si el usuario vuelve atrás.
+        facturaTiming: body.facturaTiming,
+        facturaDay:
+          body.facturaTiming === "DIA_ESPECIFICO" ? (body.facturaDay ?? null) : null,
+        facturaMesRelativo:
+          body.facturaTiming === "DIA_ESPECIFICO"
+            ? body.facturaMesRelativo
+            : "MES_SIGUIENTE",
         hasIpcAdjustment: body.hasIpcAdjustment ?? false,
         ipcAdjustmentMonths: body.hasIpcAdjustment
           ? (body.ipcAdjustmentMonths ?? null)
