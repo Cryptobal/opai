@@ -110,17 +110,18 @@ export function GridCell({
   // (GridChip locked) comunica el estado de las fijas.
   const showOverrideBadge = hasOverride && canEdit;
 
-  // Ocultar del flujo: facturas (dteId) o programaciones individuales. No en
-  // grupos consolidados (sueldos), celdas fijas/cerradas ni anuladas (el
-  // backend ya las filtra; si alguna llega, no mostrar el ojo).
+  // Ocultar del flujo: el usuario debe poder sacar del flujo CUALQUIER fila que
+  // quiera, incluidas las conciliadas/pagadas ("fijas"). Es reversible (deshacer
+  // / restaurar) y NO borra la factura ni toca el banco: solo deja de contarla
+  // en la proyección. Basta una referencia concreta (factura dteId, programación
+  // occurrenceId o item real). No aplica a grupos consolidados (sueldos: son un
+  // agregado de varias instalaciones) ni a semanas cerradas (selladas).
   const canHideFromFlow =
     !!onHiddenFromFlow &&
     dndEnabled &&
     !closed &&
     !isGroup &&
     amount !== 0 &&
-    !chip?.locked &&
-    chip?.variant !== "VOIDED" &&
     (!!value?.dteId || !!value?.occurrenceId || !!itemId);
 
   // Interacción unificada (desktop + móvil): un toque/clic sobre una celda con
