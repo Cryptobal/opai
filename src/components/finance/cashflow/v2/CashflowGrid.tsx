@@ -31,6 +31,7 @@ import type {
   ProjectionAnchorInfo,
 } from "@/modules/finance/cashflow/types";
 import { HealthHeader } from "./HealthHeader";
+import { FlowMiniChart } from "./grid/FlowMiniChart";
 import { ManualCloseStreakBanner, type CloseLite } from "./ManualCloseStreakBanner";
 import { Legend } from "./Legend";
 import { UndoToast } from "./UndoToast";
@@ -488,6 +489,15 @@ export function CashflowGrid({
       <BancaTabsHeader active="cashflow" />
       {recentCloses && <ManualCloseStreakBanner recentCloses={recentCloses} />}
       <HealthHeader projection={active} derivedPoints={derivedCumulative} />
+      <FlowMiniChart
+        buckets={visibleBuckets}
+        rows={displayRows}
+        openingBalanceClp={active.openingBalanceClp}
+        anchor={active.anchor}
+        currentIdx={currentIdx}
+        onSelectWeek={goToWeek}
+        isMobile={isMobile}
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-ds-text-1">
