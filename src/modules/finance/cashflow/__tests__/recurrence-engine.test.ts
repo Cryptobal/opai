@@ -209,3 +209,111 @@ describe("calcularFechaEmisionProyectada — placement = emisión, NO cobro", ()
     expect(d!.getUTCDate()).toBe(6);
   });
 });
+
+describe("calcularFechaEmisionProyectada — facturaTiming del espejo RECURRING_DTE", () => {
+  // Shape con el que `recurring-dte-sync` construye el espejo. Asserts en UTC:
+  // la función retorna fechas UTC y así el test no depende del timezone del
+  // runner (Mac UTC-4 vs Vercel UTC).
+  const espejo = (over: Record<string, unknown> = {}) => ({
+    // El timing NO toca el cobro: el espejo siempre manda 0.
+    diasCobroDesdeFactura: 0,
+    emiteProforma: false,
+    diaEmisionProforma: null,
+    diasFacturaDesdeProforma: null,
+    diaEmisionFactura: null,
+    mesFacturaRelativo: "MISMO_MES",
+    dayOfMonth: null,
+    ...over,
+  });
+
+  it("AL_EMITIR: retorna null → la cuota cae el día de la programación (legacy dayOfMonth=20)", () => {
+    // Espejo de una plantilla AL_EMITIR: diaEmisionFactura null.
+    const d = calcularFechaEmisionProyectada(
+      espejo({ dayOfMonth: 20 }),
+      2026,
+      6, // julio
+    );
+    expect(d).toBeNull();
+  });
+
+  it("DIA_ESPECIFICO día 1 + MES_SIGUIENTE: la programación de julio factura el 1-ago", () => {
+    const d = calcularFechaEmisionProyectada(
+      espejo({ diaEmisionFactura: 1, mesFacturaRelativo: "MES_SIGUIENTE", dayOfMonth: 20 }),
+      2026,
+      6, // julio
+    );
+    expect(d).not.toBeNull();
+    expect(d!.toISOString().slice(0, 10)).toBe("2026-08-01");
+  });
+
+  it("DIA_ESPECIFICO: ciclos consecutivos → 1-ago, 1-sep, 1-oct", () => {
+    const meses = [6, 7, 8]; // jul, ago, sep
+    const fechas = meses.map(
+      (m) =>
+        calcularFechaEmisionProyectada(
+          espejo({ diaEmisionFactura: 1, mesFacturaRelativo: "MES_SIGUIENTE", dayOfMonth: 20 }),
+          2026,
+          m,
+        )!.toISOString().slice(0, 10),
+    );
+    expect(fechas).toEqual(["2026-08-01", "2026-09-01", "2026-10-01"]);
+  });
+
+  it("DIA_ESPECIFICO con MISMO_MES: factura el día indicado del propio mes", () => {
+    const d = calcularFechaEmisionProyectada(
+      espejo({ diaEmisionFactura: 5, mesFacturaRelativo: "MISMO_MES", dayOfMonth: 20 }),
+      2026,
+      6,
+    );
+    expect(d!.toISOString().slice(0, 10)).toBe("2026-07-05");
+  });
+
+  it("facturaDay=-1: último día del mes DESTINO, no del mes del servicio", () => {
+    // MISMO_MES: último de julio.
+    const mismo = calcularFechaEmisionProyectada(
+      espejo({ diaEmisionFactura: -1, mesFacturaRelativo: "MISMO_MES", dayOfMonth: 20 }),
+      2026,
+      6,
+    );
+    expect(mismo!.toISOString().slice(0, 10)).toBe("2026-07-31");
+
+    // MES_SIGUIENTE desde febrero: último de MARZO (31), no 28-mar.
+    const siguiente = calcularFechaEmisionProyectada(
+      espejo({ diaEmisionFactura: -1, mesFacturaRelativo: "MES_SIGUIENTE", dayOfMonth: 20 }),
+      2026,
+      1, // febrero
+    );
+    expect(siguiente!.toISOString().slice(0, 10)).toBe("2026-03-31");
+  });
+
+  it("facturaDay=31 + MES_SIGUIENTE cayendo en febrero: clamp al 28 (2026 no bisiesto)", () => {
+    const d = calcularFechaEmisionProyectada(
+      espejo({ diaEmisionFactura: 31, mesFacturaRelativo: "MES_SIGUIENTE", dayOfMonth: 20 }),
+      2026,
+      0, // servicio enero → factura febrero
+    );
+    expect(d!.toISOString().slice(0, 10)).toBe("2026-02-28");
+  });
+
+  it("facturaDay=31 + MES_SIGUIENTE en año bisiesto: clamp al 29", () => {
+    const d = calcularFechaEmisionProyectada(
+      espejo({ diaEmisionFactura: 31, mesFacturaRelativo: "MES_SIGUIENTE", dayOfMonth: 20 }),
+      2028,
+      0, // servicio enero 2028 → febrero bisiesto
+    );
+    expect(d!.toISOString().slice(0, 10)).toBe("2028-02-29");
+  });
+
+  it("MES_SIGUIENTE en diciembre: rueda al año siguiente", () => {
+    const d = calcularFechaEmisionProyectada(
+      espejo({ diaEmisionFactura: 1, mesFacturaRelativo: "MES_SIGUIENTE", dayOfMonth: 20 }),
+      2026,
+      11, // diciembre
+    );
+    expect(d!.toISOString().slice(0, 10)).toBe("2027-01-01");
+  });
+
+  it("el timing no aplica a items sin ningún calendario: retorna null", () => {
+    expect(calcularFechaEmisionProyectada(espejo({ dayOfMonth: 5 }), 2026, 6)).toBeNull();
+  });
+});

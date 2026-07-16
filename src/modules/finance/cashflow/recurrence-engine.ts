@@ -16,11 +16,20 @@ import {
  * NO en la fecha de cobro: manda el DTE emitido, la programación es el
  * último recurso. `diasCobroDesdeFactura` ya no desplaza la celda.
  *
- *   - Si `diasCobroDesdeFactura > 0`: usa el ciclo proforma → factura para
+ * Se activa con CUALQUIER calendario explícito:
+ *   - `diasCobroDesdeFactura > 0`: usa el ciclo proforma → factura para
  *     resolver el día de emisión (sin sumar el lag de cobro).
- *   - Si es 0 (default legacy): retorna null, el caller usa el comportamiento
- *     legacy (`dayOfMonth` del mes del servicio) — que también es el día de
- *     emisión.
+ *   - `diaEmisionFactura != null`: la factura sale ese día (opcionalmente del
+ *     mes siguiente vía `mesFacturaRelativo`). Es el caso de las plantillas
+ *     recurrentes con facturaTiming=DIA_ESPECIFICO: programo el 20, facturo el
+ *     1 del mes siguiente.
+ *   - ciclo de proforma completo configurado.
+ * Sin ninguno de esos: retorna null y el caller usa el comportamiento legacy
+ * (`dayOfMonth` del mes del servicio) — que también es el día de emisión.
+ *
+ * Los ítems CONTRACT/OTHER del CRM llegan acá ya neutralizados por
+ * `itemForRecurrenceExpansion`, así que su celda la sigue mandando `dayOfMonth`
+ * aunque tengan calendario de cobro configurado.
  *
  * Regla clave (alineada con FIX 2): cuando `emiteProforma=true`, el
  * rollover al mes siguiente está implícito en `setUTCDate(diaProf +
@@ -42,7 +51,13 @@ export function calcularFechaEmisionProyectada(
   servicioYear: number,
   servicioMonth: number,
 ): Date | null {
-  if (item.diasCobroDesdeFactura === 0) return null;
+  const hasCalendario =
+    item.diasCobroDesdeFactura > 0 ||
+    item.diaEmisionFactura != null ||
+    (item.emiteProforma &&
+      item.diaEmisionProforma != null &&
+      item.diasFacturaDesdeProforma != null);
+  if (!hasCalendario) return null;
 
   let fechaFactura: Date;
   if (
@@ -65,18 +80,20 @@ export function calcularFechaEmisionProyectada(
       fechaProforma.getUTCDate() + item.diasFacturaDesdeProforma,
     );
   } else {
-    const ultDiaMes = new Date(
-      Date.UTC(servicioYear, servicioMonth + 1, 0),
+    // El mes destino se resuelve ANTES de clampear el día: si se clampea contra
+    // el mes del servicio y recién después se suma el mes, el día se desborda
+    // (31-ene + 1 mes → 3-mar en JS) y `-1` deja de ser "último día" del mes
+    // que corresponde (28-feb + 1 mes → 28-mar). Date.UTC absorbe el rollover
+    // de diciembre → enero del año siguiente.
+    const targetMonth =
+      item.mesFacturaRelativo === "MES_SIGUIENTE" ? servicioMonth + 1 : servicioMonth;
+    const ultDiaMesDestino = new Date(
+      Date.UTC(servicioYear, targetMonth + 1, 0),
     ).getUTCDate();
     const diaFact = item.diaEmisionFactura ?? item.dayOfMonth ?? 5;
     const diaFactClamp =
-      diaFact === -1 ? ultDiaMes : Math.min(diaFact, ultDiaMes);
-    fechaFactura = new Date(
-      Date.UTC(servicioYear, servicioMonth, diaFactClamp),
-    );
-    if (item.mesFacturaRelativo === "MES_SIGUIENTE") {
-      fechaFactura.setUTCMonth(fechaFactura.getUTCMonth() + 1);
-    }
+      diaFact === -1 ? ultDiaMesDestino : Math.min(diaFact, ultDiaMesDestino);
+    fechaFactura = new Date(Date.UTC(servicioYear, targetMonth, diaFactClamp));
   }
 
   // El flujo de caja ubica el ingreso recurrente en la fecha de EMISIÓN del

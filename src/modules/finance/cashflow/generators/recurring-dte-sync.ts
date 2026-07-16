@@ -84,6 +84,9 @@ export async function syncRecurringDteItem(
       endDate: true,
       ufFixingPolicy: true,
       ufFixingDay: true,
+      facturaTiming: true,
+      facturaDay: true,
+      facturaMesRelativo: true,
       installationId: true,
       crmAccountId: true,
       contractDocumentId: true,
@@ -164,6 +167,22 @@ export async function syncRecurringDteItem(
   }
 
   const recurrence = FREQUENCY_TO_RECURRENCE[tpl.frequency] ?? "MONTHLY";
+
+  // Timing de emisión de la factura real. Con DIA_ESPECIFICO la cuota se
+  // proyecta el día en que sale la factura (ej. el 1 del mes siguiente), no el
+  // día en que corre la programación (el 20). El cobro NO se toca:
+  // diasCobroDesdeFactura queda en 0 — el calendario de cobro es otra cosa y
+  // este espejo no lo modela.
+  const usaDiaEspecifico = tpl.facturaTiming === "DIA_ESPECIFICO";
+  const facturaTimingData = {
+    diaEmisionFactura: usaDiaEspecifico ? (tpl.facturaDay ?? 1) : null,
+    mesFacturaRelativo: usaDiaEspecifico ? tpl.facturaMesRelativo : "MISMO_MES",
+    emiteProforma: false,
+    diaEmisionProforma: null,
+    diasFacturaDesdeProforma: null,
+    diasCobroDesdeFactura: 0,
+  };
+
   const data = {
     tenantId,
     categoryId: cat.id,
@@ -186,6 +205,7 @@ export async function syncRecurringDteItem(
         ? (tpl.dayOfWeek ?? new Date(tpl.startDate).getDay())
         : null,
     monthOfYear: recurrence === "YEARLY" ? tpl.monthOfYear : null,
+    ...facturaTimingData,
     startDate: tpl.startDate,
     endDate: tpl.endDate,
     installationId: tpl.installationId,
@@ -199,6 +219,10 @@ export async function syncRecurringDteItem(
       existing.dayOfMonth !== data.dayOfMonth ||
       existing.dayOfWeek !== data.dayOfWeek ||
       existing.monthOfYear !== data.monthOfYear ||
+      // El timing de la factura mueve la celda: si cambia, las cuotas
+      // PROYECTADAS viejas quedan en la fecha equivocada y hay que regenerarlas.
+      existing.diaEmisionFactura !== data.diaEmisionFactura ||
+      existing.mesFacturaRelativo !== data.mesFacturaRelativo ||
       existing.startDate.getTime() !== data.startDate.getTime() ||
       (existing.endDate?.getTime() ?? null) !== (data.endDate?.getTime() ?? null);
     if (scheduleChanged) {

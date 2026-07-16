@@ -206,3 +206,132 @@ describe("backfillRecurringDteItems", () => {
     expect(stats.created).toBe(2);
   });
 });
+
+describe("syncRecurringDteItem — facturaTiming → espejo", () => {
+  type Mock = ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    (prisma.financeCashflowCategory.findFirst as Mock).mockResolvedValue({ id: "cat-1" });
+    (prisma.financeCashflowItem.findFirst as Mock).mockResolvedValue(null);
+    (prisma.financeCashflowItem.create as Mock).mockResolvedValue({ id: "item-1" });
+  });
+
+  it("AL_EMITIR: espejo sin calendario → la cuota cae el día de la programación", async () => {
+    (prisma.financeDteRecurringTemplate.findFirst as Mock).mockResolvedValue(
+      makeTpl({
+        dayOfMonth: 20,
+        facturaTiming: "AL_EMITIR",
+        facturaDay: null,
+        facturaMesRelativo: "MES_SIGUIENTE",
+      }),
+    );
+
+    await syncRecurringDteItem(TENANT, "tpl-1");
+
+    const { data } = (prisma.financeCashflowItem.create as Mock).mock.calls[0][0];
+    expect(data.dayOfMonth).toBe(20);
+    expect(data.diaEmisionFactura).toBeNull();
+    expect(data.mesFacturaRelativo).toBe("MISMO_MES");
+    // El timing nunca toca el cobro.
+    expect(data.diasCobroDesdeFactura).toBe(0);
+    expect(data.emiteProforma).toBe(false);
+  });
+
+  it("DIA_ESPECIFICO: mapea facturaDay/facturaMesRelativo al calendario del espejo", async () => {
+    (prisma.financeDteRecurringTemplate.findFirst as Mock).mockResolvedValue(
+      makeTpl({
+        dayOfMonth: 20,
+        facturaTiming: "DIA_ESPECIFICO",
+        facturaDay: 1,
+        facturaMesRelativo: "MES_SIGUIENTE",
+      }),
+    );
+
+    await syncRecurringDteItem(TENANT, "tpl-1");
+
+    const { data } = (prisma.financeCashflowItem.create as Mock).mock.calls[0][0];
+    // dayOfMonth sigue siendo el día de la programación (cuando corre el cron).
+    expect(data.dayOfMonth).toBe(20);
+    expect(data.diaEmisionFactura).toBe(1);
+    expect(data.mesFacturaRelativo).toBe("MES_SIGUIENTE");
+    expect(data.diasCobroDesdeFactura).toBe(0);
+    expect(data.diaEmisionProforma).toBeNull();
+    expect(data.diasFacturaDesdeProforma).toBeNull();
+  });
+
+  it("DIA_ESPECIFICO sin facturaDay: cae a 1", async () => {
+    (prisma.financeDteRecurringTemplate.findFirst as Mock).mockResolvedValue(
+      makeTpl({ facturaTiming: "DIA_ESPECIFICO", facturaDay: null, facturaMesRelativo: "MISMO_MES" }),
+    );
+
+    await syncRecurringDteItem(TENANT, "tpl-1");
+
+    const { data } = (prisma.financeCashflowItem.create as Mock).mock.calls[0][0];
+    expect(data.diaEmisionFactura).toBe(1);
+  });
+
+  it("needsUpdate: cambiar facturaDay limpia las cuotas PROYECTADAS viejas", async () => {
+    (prisma.financeDteRecurringTemplate.findFirst as Mock).mockResolvedValue(
+      makeTpl({
+        dayOfMonth: 20,
+        facturaTiming: "DIA_ESPECIFICO",
+        facturaDay: 5,
+        facturaMesRelativo: "MES_SIGUIENTE",
+      }),
+    );
+    // Espejo existente con el timing anterior (día 1).
+    (prisma.financeCashflowItem.findFirst as Mock).mockResolvedValue({
+      id: "item-1",
+      isActive: true,
+      recurrence: "MONTHLY",
+      dayOfMonth: 20,
+      dayOfWeek: null,
+      monthOfYear: null,
+      diaEmisionFactura: 1,
+      mesFacturaRelativo: "MES_SIGUIENTE",
+      startDate: new Date("2026-01-01"),
+      endDate: null,
+    });
+
+    await syncRecurringDteItem(TENANT, "tpl-1");
+
+    expect(prisma.financeCashflowOccurrence.deleteMany).toHaveBeenCalledTimes(1);
+    const delArg = (prisma.financeCashflowOccurrence.deleteMany as Mock).mock.calls[0][0];
+    expect(delArg.where).toMatchObject({
+      tenantId: TENANT,
+      itemId: "item-1",
+      status: "PROJECTED",
+      dteId: null,
+      bankTransactionId: null,
+    });
+    const updArg = (prisma.financeCashflowItem.update as Mock).mock.calls[0][0];
+    expect(updArg.data.diaEmisionFactura).toBe(5);
+  });
+
+  it("needsUpdate: sin cambios de timing NO borra cuotas", async () => {
+    (prisma.financeDteRecurringTemplate.findFirst as Mock).mockResolvedValue(
+      makeTpl({
+        dayOfMonth: 20,
+        facturaTiming: "DIA_ESPECIFICO",
+        facturaDay: 1,
+        facturaMesRelativo: "MES_SIGUIENTE",
+      }),
+    );
+    (prisma.financeCashflowItem.findFirst as Mock).mockResolvedValue({
+      id: "item-1",
+      isActive: true,
+      recurrence: "MONTHLY",
+      dayOfMonth: 20,
+      dayOfWeek: null,
+      monthOfYear: null,
+      diaEmisionFactura: 1,
+      mesFacturaRelativo: "MES_SIGUIENTE",
+      startDate: new Date("2026-01-01"),
+      endDate: null,
+    });
+
+    await syncRecurringDteItem(TENANT, "tpl-1");
+
+    expect(prisma.financeCashflowOccurrence.deleteMany).not.toHaveBeenCalled();
+  });
+});
