@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ProjectionBucket } from "@/modules/finance/cashflow/types";
 import { GridCell } from "./GridCell";
+import { PendingColumnPulse } from "./PendingColumnPulse";
 import { rowLabels, type BucketMeta, type GridItemRow } from "./grid-helpers";
 
 /**
@@ -27,6 +28,7 @@ export function GridRow({
   editableAmounts,
   expandable,
   isChild,
+  pendingKeys,
 }: {
   row: GridItemRow;
   buckets: ProjectionBucket[];
@@ -57,6 +59,7 @@ export function GridRow({
   editableAmounts?: boolean;
   expandable?: { open: boolean; onToggle: () => void };
   isChild?: boolean;
+  pendingKeys?: Set<string>;
 }) {
   const group = row.group;
   const { primary, tag } = rowLabels(row.item);
@@ -173,6 +176,19 @@ export function GridRow({
       </td>
       {buckets.map((b, i) => {
         const meta = bucketMeta?.get(b.key);
+        if (pendingKeys?.has(b.key)) {
+          return (
+            <td
+              key={b.key}
+              className={cn(
+                "border-l border-ds-border-subtle bg-ds-surface-2/40 px-1.5 py-2",
+                i === currentIdx && "bg-primary/[0.04]",
+              )}
+            >
+              <PendingColumnPulse />
+            </td>
+          );
+        }
         return (
           <GridCell
             key={b.key}

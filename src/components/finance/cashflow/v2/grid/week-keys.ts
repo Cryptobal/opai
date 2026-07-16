@@ -102,9 +102,9 @@ export function weekSlots(anchor: Date, count: number): WeekSlot[] {
   });
 }
 
-/** Bucket vacío (montos en 0) para un slot aún no cacheado. Nunca debería
- *  pintarse (ensureRange corre antes), pero evita un `undefined` que rompa el
- *  render si una key no resolvió. */
+/** Bucket vacío (montos en 0) para un slot aún no cacheado. Con navegación
+ *  sin bloqueo (F3) se pinta temporalmente mientras `pendingKeys` muestra
+ *  skeleton; al llegar el fetch, `version` recomputa y reemplaza el vacío. */
 export function emptyBucket(slot: WeekSlot): ProjectionBucket {
   return {
     key: slot.key,

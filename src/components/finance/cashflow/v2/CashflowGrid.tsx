@@ -98,20 +98,26 @@ export function CashflowGrid({
   weeksBack = GRID_WEEKS_BACK_DEFAULT,
 }: CashflowGridProps) {
   const router = useRouter();
-  // Móvil: ventana de 3 columnas (anterior/actual/siguiente), navegación de a 1
-  // semana. Desktop: 8 columnas, navegación por bloque. Reutiliza el hook de
-  // viewport existente (no crear uno nuevo).
+  // Móvil: 3 columnas, step 1. Desktop: horizonte configurable, step 1 (F3).
   const isMobile = useIsMobileViewport(768);
   const { horizon, setHorizon } = useHorizon();
-  // Móvil: 3 columnas. Desktop: horizonte configurable (8/16/24/32).
   const windowWeeks = isMobile ? MOBILE_WINDOW_WEEKS : horizon;
-  const { active, loading, goPrev, goNext, goToday, goToWeek, refreshAt, refresh, refreshWeeks } =
-    useGridWindow(projection, {
-      weeksBack: isMobile ? MOBILE_WEEKS_BACK : weeksBack,
-      windowWeeks,
-      step: isMobile ? 1 : undefined,
-    },
-  );
+  const {
+    active,
+    loading,
+    pendingKeys,
+    goPrev,
+    goNext,
+    goToday,
+    goToWeek,
+    refreshAt,
+    refresh,
+    refreshWeeks,
+  } = useGridWindow(projection, {
+    weeksBack: isMobile ? MOBILE_WEEKS_BACK : weeksBack,
+    windowWeeks,
+    step: 1,
+  });
   const buckets = active.buckets;
   // El hook ya entrega EXACTAMENTE `windowWeeks` buckets (3 en móvil, 8 en
   // desktop) desde el ancla de navegación. El doble recorte móvil anterior
@@ -489,10 +495,9 @@ export function CashflowGrid({
           <button
             type="button"
             onClick={goToday}
-            disabled={loading}
             aria-label="Volver a hoy"
             title="Volver a la semana actual"
-            className="mr-1 inline-flex h-9 items-center gap-1.5 rounded-ds-md border border-ds-border-default px-2.5 text-[12px] text-ds-text-2 transition-colors hover:bg-ds-surface-2 hover:text-ds-text-1 disabled:opacity-40"
+            className="mr-1 inline-flex h-9 items-center gap-1.5 rounded-ds-md border border-ds-border-default px-2.5 text-[12px] text-ds-text-2 transition-colors hover:bg-ds-surface-2 hover:text-ds-text-1"
           >
             <CalendarDays className="h-3.5 w-3.5" /> Hoy
           </button>
@@ -500,13 +505,13 @@ export function CashflowGrid({
             dir="prev"
             onClick={goPrev}
             loading={loading}
-            label={isMobile ? "Semana anterior" : "Semanas anteriores (solapa 1)"}
+            label="Semana anterior"
           />
           <NavButton
             dir="next"
             onClick={goNext}
             loading={loading}
-            label={isMobile ? "Semana siguiente" : "Semanas siguientes (solapa 1)"}
+            label="Semana siguiente"
           />
         </div>
       </div>
@@ -538,6 +543,7 @@ export function CashflowGrid({
               onCloseWeek={setCloseWeekEndIso}
               onReopenWeek={requestReopen}
               closedWeeks={closedWeeks}
+              pendingKeys={pendingKeys}
             />
             <tbody>
               <GridSection
@@ -555,6 +561,7 @@ export function CashflowGrid({
                 onContextMove={handleContextMove}
                 isMobile={isMobile}
                 editableAmounts={canManage}
+                pendingKeys={pendingKeys}
               />
               <GridSection
                 label="Egresos"
@@ -571,12 +578,14 @@ export function CashflowGrid({
                 onContextMove={handleContextMove}
                 isMobile={isMobile}
                 editableAmounts={canManage}
+                pendingKeys={pendingKeys}
               />
               <GridBalanceRow
                 buckets={visibleBuckets}
                 balanceByBucket={balanceByBucket}
                 currentIdx={currentIdx}
                 bucketMeta={bucketMeta}
+                pendingKeys={pendingKeys}
               />
               {effectiveAdvanced && (
                 <GridDriftRow
@@ -584,6 +593,7 @@ export function CashflowGrid({
                   driftByBucket={driftByBucket}
                   currentIdx={currentIdx}
                   bucketMeta={bucketMeta}
+                  pendingKeys={pendingKeys}
                 />
               )}
             </tbody>
@@ -669,12 +679,12 @@ function NavButton({
     <button
       type="button"
       onClick={onClick}
-      disabled={loading}
       aria-label={label}
       title={label}
-      className="inline-flex h-9 w-9 items-center justify-center rounded-ds-md border border-ds-border-default text-ds-text-2 transition-colors hover:bg-ds-surface-2 hover:text-ds-text-1 disabled:opacity-40"
+      aria-busy={loading || undefined}
+      className="inline-flex h-10 w-10 sm:h-9 sm:w-9 items-center justify-center rounded-ds-md border border-ds-border-default text-ds-text-2 transition-colors hover:bg-ds-surface-2 hover:text-ds-text-1"
     >
-      <Icon className={cn("h-4 w-4", loading && "animate-pulse")} />
+      <Icon className={cn("h-4 w-4", loading && "motion-safe:animate-pulse")} />
     </button>
   );
 }

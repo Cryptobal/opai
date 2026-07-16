@@ -32,6 +32,7 @@ export function GridSection({
   onContextMove,
   isMobile,
   editableAmounts,
+  pendingKeys,
 }: {
   label: string;
   tone: "ok" | "warn";
@@ -64,6 +65,7 @@ export function GridSection({
   isMobile?: boolean;
   /** La sección admite editar montos (solo Egresos; ver GridCell). */
   editableAmounts?: boolean;
+  pendingKeys?: Set<string>;
 }) {
   // Cuentas de conciliación expandidas (keyed por itemId). Colapsadas por
   // defecto: set vacío al montar.
@@ -124,6 +126,7 @@ export function GridSection({
                 onContextMove={onContextMove}
                 isMobile={isMobile}
                 editableAmounts={editableAmounts}
+                pendingKeys={pendingKeys}
                 expandable={
                   isExpandableRow
                     ? { open, onToggle: () => toggle(itemId) }
@@ -147,6 +150,7 @@ export function GridSection({
                     onContextMove={onContextMove}
                     isMobile={isMobile}
                     editableAmounts={editableAmounts}
+                    pendingKeys={pendingKeys}
                     isChild
                   />
                 ))}
@@ -160,10 +164,27 @@ export function GridSection({
           Subtotal {label.toLowerCase()}
         </td>
         {totals.map((t, i) => {
-          const meta = bucketMeta?.get(buckets[i].key);
+          const key = buckets[i].key;
+          if (pendingKeys?.has(key)) {
+            return (
+              <td
+                key={key}
+                className={cn(
+                  "border-l border-ds-border-subtle bg-ds-surface-2 px-1.5 py-1.5",
+                  i === currentIdx && "bg-primary/[0.04]",
+                )}
+              >
+                <span
+                  aria-hidden
+                  className="mx-auto block h-3 w-10 rounded-ds-sm bg-ds-surface-3 motion-safe:animate-pulse"
+                />
+              </td>
+            );
+          }
+          const meta = bucketMeta?.get(key);
           return (
             <td
-              key={buckets[i].key}
+              key={key}
               className={cn(
                 "border-l border-ds-border-subtle px-1.5 py-1.5 text-center font-mono text-[12px] tabular-nums",
                 totalTone,

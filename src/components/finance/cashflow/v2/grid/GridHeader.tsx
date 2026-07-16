@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import type { ProjectionBucket } from "@/modules/finance/cashflow/types";
 import { toDate } from "../format";
 import { monthBands, isoWeek, type BucketMeta } from "./grid-helpers";
+import { PendingColumnPulse } from "./PendingColumnPulse";
 
 /**
  * Header de dos filas de la grilla:
@@ -22,6 +23,7 @@ export function GridHeader({
   onCloseWeek,
   onReopenWeek,
   closedWeeks,
+  pendingKeys,
 }: {
   buckets: ProjectionBucket[];
   currentIdx: number;
@@ -37,6 +39,8 @@ export function GridHeader({
    *  `weekStartMs` (sábado del cierre dow) cae en una única semana ISO de la
    *  grilla, así que mapea 1:1 a la columna que la contiene. */
   closedWeeks?: { weekStartMs: number; weekEndIso: string; isAnchor: boolean }[];
+  /** Columnas aún no cacheadas → skeleton en vez de fechas/acciones. */
+  pendingKeys?: Set<string>;
 }) {
   const bands = monthBands(buckets);
   // Cierre real que cae en una columna ISO: su sábado (weekStart del cierre dow)
@@ -85,11 +89,16 @@ export function GridHeader({
           const isCurrent = i === currentIdx;
           const meta = bucketMeta?.get(b.key);
           const closed = meta?.closed ?? false;
+          const pending = pendingKeys?.has(b.key) ?? false;
           // "Cerrar" en la semana actual y en las anteriores abiertas: el
           // cierre sella hacia atrás (semanas ya transcurridas). Las futuras no
           // se cierran (aún no ocurren).
           const showClose =
-            canManage && !closed && currentIdx >= 0 && i <= currentIdx;
+            !pending &&
+            canManage &&
+            !closed &&
+            currentIdx >= 0 &&
+            i <= currentIdx;
           const dayLabel = monday
             .toLocaleDateString("es-CL", {
               day: "numeric",
@@ -101,63 +110,70 @@ export function GridHeader({
             <th
               key={b.key}
               className={cn(
-                "min-w-[86px] border-l border-ds-border-default px-1.5 py-1.5 text-center align-top",
+                "min-w-[86px] border-l border-ds-border-default bg-ds-surface-1 px-1.5 py-1.5 text-center align-top",
                 isCurrent && "bg-primary/10",
                 closed && "bg-ds-surface-2/50 opacity-70",
+                pending && "bg-ds-surface-2/80",
                 meta?.anchor && "border-r-2 border-r-primary",
               )}
             >
-              <div
-                className={cn(
-                  "flex items-center justify-center gap-1 text-[11px] font-mono uppercase tracking-[0.08em]",
-                  isCurrent ? "text-primary" : "text-ds-text-4",
-                )}
-              >
-                {closed && <Lock className="h-2.5 w-2.5" aria-hidden />}
-                S{isoWeek(monday)}
-              </div>
-              <div
-                className={cn(
-                  "text-[12px] font-medium",
-                  isCurrent ? "text-primary" : "text-ds-text-2",
-                )}
-              >
-                {dayLabel}
-              </div>
-              {showClose && (
-                <button
-                  type="button"
-                  onClick={() => onCloseWeek(toDate(b.end).toISOString())}
-                  className="mt-1 inline-flex h-7 items-center gap-1 rounded-ds-sm border border-status-warn-border bg-status-warn-soft px-1.5 text-[11px] font-medium text-status-warn-fg transition-colors hover:brightness-95"
-                >
-                  <Lock className="h-3 w-3" aria-hidden /> Cerrar
-                </button>
-              )}
-              {/* Semana con cierre real → candado accionable: reabre SOLO esa
-                  semana. Se apunta al weekEnd del registro (no a la fecha de la
-                  columna) para que el backend borre exactamente ese cierre. */}
-              {canManage &&
-                onReopenWeek &&
-                (() => {
-                  const close = closeForBucket(b);
-                  if (!close) return null;
-                  return (
+              {pending ? (
+                <div className="flex flex-col items-center gap-1.5 py-1">
+                  <PendingColumnPulse className="w-8" />
+                  <PendingColumnPulse className="h-2.5 w-12" />
+                </div>
+              ) : (
+                <>
+                  <div
+                    className={cn(
+                      "flex items-center justify-center gap-1 text-[11px] font-mono uppercase tracking-[0.08em]",
+                      isCurrent ? "text-primary" : "text-ds-text-4",
+                    )}
+                  >
+                    {closed && <Lock className="h-2.5 w-2.5" aria-hidden />}
+                    S{isoWeek(monday)}
+                  </div>
+                  <div
+                    className={cn(
+                      "text-[12px] font-medium",
+                      isCurrent ? "text-primary" : "text-ds-text-2",
+                    )}
+                  >
+                    {dayLabel}
+                  </div>
+                  {showClose && (
                     <button
                       type="button"
-                      onClick={() =>
-                        onReopenWeek(close.weekEndIso, {
-                          isAnchor: close.isAnchor,
-                          label: `S${isoWeek(monday)}`,
-                        })
-                      }
-                      aria-label="Reabrir semana"
-                      title="Semana cerrada · reabrir"
-                      className="mt-1 inline-flex h-7 w-7 items-center justify-center rounded-ds-sm border border-ds-border-default text-ds-text-3 transition-colors hover:border-status-warn-border hover:bg-status-warn-soft hover:text-status-warn-fg"
+                      onClick={() => onCloseWeek(toDate(b.end).toISOString())}
+                      className="mt-1 inline-flex h-7 items-center gap-1 rounded-ds-sm border border-status-warn-border bg-status-warn-soft px-1.5 text-[11px] font-medium text-status-warn-fg transition-colors hover:brightness-95"
                     >
-                      <Lock className="h-3 w-3" aria-hidden />
+                      <Lock className="h-3 w-3" aria-hidden /> Cerrar
                     </button>
-                  );
-                })()}
+                  )}
+                  {canManage &&
+                    onReopenWeek &&
+                    (() => {
+                      const close = closeForBucket(b);
+                      if (!close) return null;
+                      return (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onReopenWeek(close.weekEndIso, {
+                              isAnchor: close.isAnchor,
+                              label: `S${isoWeek(monday)}`,
+                            })
+                          }
+                          aria-label="Reabrir semana"
+                          title="Semana cerrada · reabrir"
+                          className="mt-1 inline-flex h-7 w-7 items-center justify-center rounded-ds-sm border border-ds-border-default text-ds-text-3 transition-colors hover:border-status-warn-border hover:bg-status-warn-soft hover:text-status-warn-fg"
+                        >
+                          <Lock className="h-3 w-3" aria-hidden />
+                        </button>
+                      );
+                    })()}
+                </>
+              )}
             </th>
           );
         })}
