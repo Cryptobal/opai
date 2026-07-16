@@ -23,10 +23,13 @@ export function Legend() {
           <Lock className="h-3.5 w-3.5" /> candado = conciliado (fijo)
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <ArrowLeftRight className="h-3.5 w-3.5" /> arrastrar = mover de semana
+          <ArrowLeftRight className="h-3.5 w-3.5" /> arrastrar / click derecho = mover
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <EyeOff className="h-3.5 w-3.5" /> ojo = ocultar del flujo
+          <EyeOff className="h-3.5 w-3.5" /> ocultar del flujo
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          click en celda vacía = agregar cuota
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="rounded-ds-sm bg-ds-surface-3 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-ds-text-2">

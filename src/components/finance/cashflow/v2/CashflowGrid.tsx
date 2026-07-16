@@ -50,7 +50,6 @@ import { deriveCumulative } from "./grid/derive-balance";
 import { moveViaApi } from "./grid/cashflow-move";
 import { QuotaMoveSelector } from "./grid/QuotaMoveSelector";
 import { CashflowFolioSearch } from "./grid/CashflowFolioSearch";
-import { ManualEntryQuickAdd } from "./grid/ManualEntryQuickAdd";
 import {
   movableOccurrencesInCell,
   occurrenceVariant,
@@ -192,12 +191,6 @@ export function CashflowGrid({
   // sin fila de desviación (Drift) ni badges de IPC/headcount. El antiguo toggle
   // "Avanzado" que revelaba esa información contable fue retirado.
   const effectiveAdvanced = false;
-
-  // Create/folio: aún sin keys precisas → refresh de la ventana visible.
-  // HealthHeader ya lee del caché client + derivedPoints → sin router.refresh.
-  const refreshGrid = useCallback(async () => {
-    await refresh();
-  }, [refresh]);
 
   // Cierre/reapertura: ancla + candados globales cambian → refresh full +
   // props del server + re-fetch de weekly-close/status.
@@ -486,13 +479,6 @@ export function CashflowGrid({
           />
         )}
         <div className="flex items-center gap-1">
-          {canManage && (
-            <ManualEntryQuickAdd
-              buckets={visibleBuckets}
-              rows={active.rows}
-              onCreated={refreshGrid}
-            />
-          )}
           <button
             type="button"
             onClick={goToday}
