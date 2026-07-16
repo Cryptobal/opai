@@ -39,7 +39,11 @@ export function GridRow({
   advanced?: boolean;
   /** Refresca la proyección tras editar/revertir el monto de una casilla.
    *  `patch` (solo cuota individual) pinta el nuevo monto al instante. */
-  onAmountSaved?: (patch?: { itemId: string; bucketKey: string; amount: number }) => void;
+  onAmountSaved?: (patch?: {
+    itemId: string;
+    bucketKey: string;
+    amount?: number;
+  }) => void;
   /** Tras ocultar del flujo (factura/programación), con celda para optimista. */
   onHiddenFromFlow?: (undo: import("./CellFlowActions").HiddenFromFlowPayload) => void;
   /** Móvil: editar por tap + lápiz de affordance en las celdas editables. */

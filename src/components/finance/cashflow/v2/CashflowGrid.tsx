@@ -45,14 +45,7 @@ import { GridChip } from "./grid/GridChip";
 import { buildBucketMeta, itemRowsForKind } from "./grid/grid-helpers";
 import { expenseRows } from "./grid/expense-grouping";
 import { useGridMove, type GridDragData } from "./grid/useGridMove";
-import {
-  applyOptimisticMove,
-  applyOptimisticHides,
-  applyOptimisticAmounts,
-  type PendingMove,
-  type PendingHide,
-  type PendingAmount,
-} from "./grid/optimistic-move";
+import { useCashflowMutations } from "./grid/useCashflowMutations";
 import { deriveCumulative } from "./grid/derive-balance";
 import { moveViaApi } from "./grid/cashflow-move";
 import { QuotaMoveSelector } from "./grid/QuotaMoveSelector";
@@ -109,7 +102,7 @@ export function CashflowGrid({
   // viewport existente (no crear uno nuevo).
   const isMobile = useIsMobileViewport(768);
   const windowWeeks = isMobile ? MOBILE_WINDOW_WEEKS : undefined; // undefined → 8
-  const { active, loading, goPrev, goNext, goToday, goToWeek, refreshAt, refresh } =
+  const { active, loading, goPrev, goNext, goToday, goToWeek, refreshAt, refresh, refreshWeeks } =
     useGridWindow(projection, {
       weeksBack: isMobile ? MOBILE_WEEKS_BACK : weeksBack,
       windowWeeks,
@@ -127,27 +120,21 @@ export function CashflowGrid({
     () => currentBucketIndex(visibleBuckets),
     [visibleBuckets],
   );
-  // Move optimista: mientras el refresh de red viaja, las filas se muestran con
-  // la cuota ya movida (celda vieja vacía, chip en la nueva). Se limpia cuando
-  // el refresh trae el estado real. `applyOptimisticMove` es idempotente (si el
-  // origen ya está en 0 no re-aplica), así evita el doble-move en el render
-  // intermedio entre `refresh()` y limpiar el pending.
-  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
-  // Optimista para ocultar/editar-monto: la celda cambia AL INSTANTE y el
-  // refresh de red reconcilia después (mismo patrón que el move). Sin esto, cada
-  // borrado/edición esperaba el round-trip completo de re-proyección (lento).
-  const [pendingHides, setPendingHides] = useState<PendingHide[]>([]);
-  const [pendingAmounts, setPendingAmounts] = useState<PendingAmount[]>([]);
+
+  const {
+    displayRowsOf,
+    beginMove,
+    clearPending,
+    handleAmountSaved,
+    handleHiddenFromFlow,
+    undoPayload,
+    clearUndo,
+    pushUndo,
+  } = useCashflowMutations({ refreshWeeks });
+
   const displayRows = useMemo(
-    () =>
-      applyOptimisticAmounts(
-        applyOptimisticHides(
-          applyOptimisticMove(active.rows, pendingMove),
-          pendingHides,
-        ),
-        pendingAmounts,
-      ),
-    [active.rows, pendingMove, pendingHides, pendingAmounts],
+    () => displayRowsOf(active.rows),
+    [displayRowsOf, active.rows],
   );
   const incomeRows = useMemo(
     () => itemRowsForKind(displayRows, "INCOME"),
@@ -205,7 +192,7 @@ export function CashflowGrid({
   // "Avanzado" que revelaba esa información contable fue retirado.
   const effectiveAdvanced = false;
 
-  // Reconciliación de grilla tras mutación (move/amount/hide/create/folio).
+  // Create/folio: aún sin keys precisas → refresh de la ventana visible.
   // HealthHeader ya lee del caché client + derivedPoints → sin router.refresh.
   const refreshGrid = useCallback(async () => {
     await refresh();
@@ -325,57 +312,13 @@ export function CashflowGrid({
     }
   }, [reopenTarget, refreshAfterClose]);
 
-  const { move, moveGroup, undoPayload, clearUndo, pushUndo } = useGridMove({
+  const { move, moveGroup } = useGridMove({
     buckets,
-    refresh: refreshGrid,
-    onOptimistic: (itemId, fromBucketKey, toBucketKey) =>
-      setPendingMove({ itemId, fromBucketKey, toBucketKey }),
-    clearOptimistic: () => setPendingMove(null),
+    refreshWeeks,
+    onOptimistic: beginMove,
+    clearOptimistic: clearPending,
+    pushUndo,
   });
-
-  // Editar monto: pinta el nuevo valor al instante (optimista) y reconcilia con
-  // el refresh. En grupo/revert llega sin patch → solo refresh.
-  const handleAmountSaved = useCallback(
-    async (patch?: { itemId: string; bucketKey: string; amount: number }) => {
-      if (patch?.itemId) setPendingAmounts((p) => [...p, patch]);
-      await refreshGrid();
-      setPendingAmounts([]);
-    },
-    [refreshGrid],
-  );
-
-  async function handleHiddenFromFlow(undo: {
-    label: string;
-    dteId: string | null;
-    occurrenceId: string | null;
-    itemId: string | null;
-    bucketKey: string;
-  }) {
-    const { restoreToFlowViaApi } = await import("./grid/cashflow-hide");
-    // Vacía la celda al instante; el refresh confirma y limpia el optimista.
-    if (undo.itemId) {
-      setPendingHides((p) => [...p, { itemId: undo.itemId!, bucketKey: undo.bucketKey }]);
-    }
-    toast.success(`«${undo.label}» ocultado del flujo`);
-    await refreshGrid();
-    setPendingHides([]);
-    pushUndo({
-      occurrenceName: undo.label,
-      destLabel: "ocultado del flujo",
-      undo: async () => {
-        const res = await restoreToFlowViaApi({
-          dteId: undo.dteId,
-          occurrenceId: undo.occurrenceId,
-        });
-        if (!res.ok) {
-          toast.error(res.error ?? "No se pudo deshacer");
-          return;
-        }
-        toast.success("Restaurado al flujo");
-        await refreshGrid();
-      },
-    });
-  }
 
   // Sensors: puntero (mouse + touch) con activación por long-press (delay +
   // tolerance) para NO secuestrar el scroll táctil de la grilla. Un scroll

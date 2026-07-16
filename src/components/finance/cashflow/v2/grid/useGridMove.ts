@@ -27,21 +27,27 @@ export interface GridDragData {
 const ymd = (d: string | Date) => toDate(d).toISOString().slice(0, 10);
 
 /**
- * Orquesta el move desde la grilla: llama al endpoint unificado, muestra
- * toasts (éxito / colisión 409 / semana cerrada), refresca el bloque visible y
- * arma el undo de 5s (que revierte moviendo la cuota de vuelta a su semana).
+ * Orquesta el move desde la grilla: API unificada, toasts, reconciliación
+ * selectiva (`refreshWeeks` de origen+destino) y undo de 5s. El optimista vive
+ * en la cola de `useCashflowMutations` (beginMove / clearPending por id).
  */
 export function useGridMove(opts: {
   buckets: ProjectionBucket[];
-  refresh: () => void | Promise<void>;
-  /** Aplica el move en la UI antes del refresh de red (vacía celda vieja ya). */
-  onOptimistic?: (itemId: string, fromBucketKey: string, toBucketKey: string) => void;
-  /** Limpia el estado optimista (tras refresh o si el move falla/revierte). */
-  clearOptimistic?: () => void;
+  refreshWeeks: (keys: string[]) => Promise<void>;
+  /** Push move optimista; retorna id de la entrada en la cola. */
+  onOptimistic?: (
+    itemId: string,
+    fromBucketKey: string,
+    toBucketKey: string,
+  ) => string;
+  /** Remueve SOLO ese pending por id (tras settle o error). */
+  clearOptimistic?: (id: string) => void;
+  /** Registra el undo de 5s (cola compartida con hide). */
+  pushUndo: (payload: UndoPayload) => void;
 }) {
-  const { buckets, refresh, onOptimistic, clearOptimistic } = opts;
+  const { buckets, refreshWeeks, onOptimistic, clearOptimistic, pushUndo } =
+    opts;
   const [submitting, setSubmitting] = useState(false);
-  const [undoPayload, setUndoPayload] = useState<UndoPayload | null>(null);
 
   const move = useCallback(
     async (drag: GridDragData, toBucketKey: string) => {
@@ -49,10 +55,10 @@ export function useGridMove(opts: {
       const from = buckets.find((b) => b.key === drag.fromBucketKey);
       if (!to || !from || to.key === from.key) return;
 
-      // Optimista: vacía la celda de origen y pinta el destino de inmediato,
-      // sin esperar el round-trip. Requiere itemId real (las filas de item);
-      // los grupos de egreso usan moveGroup y no pasan por acá.
-      if (drag.itemId) onOptimistic?.(drag.itemId, from.key, to.key);
+      let pendingId: string | undefined;
+      if (drag.itemId) {
+        pendingId = onOptimistic?.(drag.itemId, from.key, to.key);
+      }
 
       setSubmitting(true);
       const result = await moveViaApi({
@@ -64,8 +70,9 @@ export function useGridMove(opts: {
       });
       setSubmitting(false);
 
+      const keys = [from.key, to.key];
       if (!result.ok) {
-        clearOptimistic?.(); // revierte: el chip vuelve a su celda original
+        if (pendingId) clearOptimistic?.(pendingId);
         const msg = result.error ?? "No se pudo mover";
         toast.error(msg, {
           duration: msg.toLowerCase().includes("cerrada") ? 6000 : 4000,
@@ -79,12 +86,10 @@ export function useGridMove(opts: {
           { duration: 4000 },
         );
       }
-      await refresh();
-      clearOptimistic?.(); // el refresh ya trae el estado real; suelta el parche
+      await refreshWeeks(keys);
+      if (pendingId) clearOptimistic?.(pendingId);
 
-      // Undo: mueve la cuota de vuelta a su semana original. Tras el move la
-      // cuota vive en `to`, así que el reverse parte de ahí.
-      setUndoPayload({
+      pushUndo({
         occurrenceName: drag.itemName,
         destLabel: to.label,
         undo: async () => {
@@ -95,18 +100,13 @@ export function useGridMove(opts: {
             originalDate: ymd(to.start),
             newDate: ymd(from.start),
           });
-          await refresh();
+          await refreshWeeks(keys);
         },
       });
     },
-    [buckets, refresh, onOptimistic, clearOptimistic],
+    [buckets, refreshWeeks, onOptimistic, clearOptimistic, pushUndo],
   );
 
-  // Mueve un grupo de egreso (sueldos/previred/turnos) como unidad: todas las
-  // instalaciones de esa semana se aplazan/adelantan juntas a la semana destino.
-  // Estado optimista vía refresh; un solo UndoToast revierte todas. Las cuotas
-  // pagadas ya vienen excluidas de `occurrenceIds` (su value.occurrenceId es
-  // null); `skippedPaid` solo alimenta el texto informativo del toast.
   const moveGroup = useCallback(
     async (opts: {
       occurrenceIds: string[];
@@ -122,6 +122,7 @@ export function useGridMove(opts: {
       }
 
       const newDate = ymd(to.start);
+      const keys = [from.key, to.key];
       setSubmitting(true);
       const results = await Promise.all(
         opts.occurrenceIds.map((id) =>
@@ -150,11 +151,9 @@ export function useGridMove(opts: {
       if (failed > 0) {
         toast.warning(`${failed} cuota${failed > 1 ? "s" : ""} no se pudieron mover`);
       }
-      await refresh();
+      await refreshWeeks(keys);
 
-      // Undo: las occurrences movidas conservan su id (mismo registro, nueva
-      // fecha), así que las devolvemos todas a la semana original.
-      setUndoPayload({
+      pushUndo({
         occurrenceName: opts.label,
         destLabel: to.label,
         undo: async () => {
@@ -169,19 +168,12 @@ export function useGridMove(opts: {
               }),
             ),
           );
-          await refresh();
+          await refreshWeeks(keys);
         },
       });
     },
-    [buckets, refresh, onOptimistic, clearOptimistic],
+    [buckets, refreshWeeks, pushUndo],
   );
 
-  return {
-    move,
-    moveGroup,
-    submitting,
-    undoPayload,
-    clearUndo: useCallback(() => setUndoPayload(null), []),
-    pushUndo: useCallback((payload: UndoPayload) => setUndoPayload(payload), []),
-  };
+  return { move, moveGroup, submitting };
 }

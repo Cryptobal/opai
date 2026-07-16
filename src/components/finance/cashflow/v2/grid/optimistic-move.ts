@@ -179,3 +179,36 @@ export function applyOptimisticAmounts(
     return { ...row, items, values: reflectBucketDeltas(row, deltaByBucket) };
   });
 }
+
+/** Entrada de la cola de mutaciones optimistas (F1). Cada una se limpia por
+ *  `id` al reconciliar — nunca un clear global. */
+export type PendingEntry =
+  | ({ id: string; kind: "move" } & PendingMove)
+  | ({ id: string; kind: "hide" } & PendingHide)
+  | ({ id: string; kind: "amount" } & PendingAmount);
+
+export function newPendingId(): string {
+  return `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function removePendingById(
+  pending: PendingEntry[],
+  id: string,
+): PendingEntry[] {
+  return pending.filter((p) => p.id !== id);
+}
+
+/** Aplica la cola completa en orden (puro). Varios amounts/hides coexisten. */
+export function applyAllPending(
+  rows: ProjectionRow[],
+  pending: PendingEntry[],
+): ProjectionRow[] {
+  let out = rows;
+  for (const p of pending) {
+    if (p.kind === "move") out = applyOptimisticMove(out, p);
+    else if (p.kind === "hide") out = applyOptimisticHides(out, [p]);
+    else out = applyOptimisticAmounts(out, [p]);
+  }
+  return out;
+}
+
