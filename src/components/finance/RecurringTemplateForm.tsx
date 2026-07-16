@@ -54,6 +54,10 @@ import {
 } from "@/modules/finance/billing/placeholders";
 import { formatCLP, formatUFSuffix } from "@/lib/utils";
 import { normalizeEmailAddress, normalizeEmailList } from "@/lib/email-address";
+import {
+  FacturaTimingSection,
+  type FacturaTimingValue,
+} from "./recurring/FacturaTimingSection";
 
 const fmtCLP = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -197,6 +201,17 @@ export function RecurringTemplateForm({
   const [periodPolicy, setPeriodPolicy] = React.useState<
     "CURRENT_MONTH" | "PREVIOUS_MONTH" | "NEXT_MONTH"
   >("CURRENT_MONTH");
+
+  // ── Timing de la factura real: dónde se proyecta la cuota en el flujo
+  // mientras la factura no exista. AL_EMITIR = comportamiento histórico.
+  const [facturaTiming, setFacturaTiming] = React.useState<FacturaTimingValue>({
+    facturaTiming: "AL_EMITIR",
+    facturaDay: "1",
+    facturaMesRelativo: "MES_SIGUIENTE",
+  });
+  // El motor solo aplica timing a MONTHLY/YEARLY (weekly/biweekly no tienen
+  // "mes de la factura").
+  const supportsFacturaTiming = frequency === "monthly" || frequency === "yearly";
 
   // ── Reajuste IPC (modo manual con alerta) ──
   // No modifica montos: el cron solo AVISA cuando se acerca la fecha de
@@ -391,6 +406,12 @@ export function RecurringTemplateForm({
         setUfFixingPolicy(t.ufFixingPolicy ?? "LAST_DAY_MONTH");
         setUfFixingDay(t.ufFixingDay != null ? String(t.ufFixingDay) : "1");
         setPeriodPolicy(t.periodPolicy ?? "CURRENT_MONTH");
+        setFacturaTiming({
+          facturaTiming: t.facturaTiming === "DIA_ESPECIFICO" ? "DIA_ESPECIFICO" : "AL_EMITIR",
+          facturaDay: t.facturaDay != null ? String(t.facturaDay) : "1",
+          facturaMesRelativo:
+            t.facturaMesRelativo === "MISMO_MES" ? "MISMO_MES" : "MES_SIGUIENTE",
+        });
         setHasIpcAdjustment(!!t.hasIpcAdjustment);
         setIpcAdjustmentMonths(
           t.ipcAdjustmentMonths != null ? String(t.ipcAdjustmentMonths) : "12",
@@ -759,6 +780,17 @@ export function RecurringTemplateForm({
           ? parseInt(ufFixingDay, 10)
           : null,
       periodPolicy,
+      // Solo mensual/anual soportan timing; en weekly/biweekly la sección se
+      // oculta y la plantilla queda en el comportamiento histórico.
+      facturaTiming: supportsFacturaTiming ? facturaTiming.facturaTiming : "AL_EMITIR",
+      facturaDay:
+        supportsFacturaTiming && facturaTiming.facturaTiming === "DIA_ESPECIFICO"
+          ? parseInt(facturaTiming.facturaDay, 10)
+          : null,
+      facturaMesRelativo:
+        supportsFacturaTiming && facturaTiming.facturaTiming === "DIA_ESPECIFICO"
+          ? facturaTiming.facturaMesRelativo
+          : "MES_SIGUIENTE",
       hasIpcAdjustment,
       ipcAdjustmentMonths: hasIpcAdjustment
         ? parseInt(ipcAdjustmentMonths, 10)
@@ -1446,6 +1478,17 @@ export function RecurringTemplateForm({
                     </p>
                   </div>
                 </div>
+
+                {/* Timing de la factura real: dónde cae la cuota en el flujo
+                    de caja mientras la factura no exista. */}
+                <FacturaTimingSection
+                  value={facturaTiming}
+                  onChange={setFacturaTiming}
+                  progDayOfMonth={
+                    supportsFacturaTiming ? parseInt(dayOfMonth, 10) || 1 : null
+                  }
+                  frequency={frequency}
+                />
 
                 {hasUfLine && (
                   <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 space-y-2">
