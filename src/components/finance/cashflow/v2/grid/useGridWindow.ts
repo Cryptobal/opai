@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
 import { useWeekCache } from "./useWeekCache";
 import {
@@ -33,13 +33,10 @@ function initialAnchor(weeksBack: number): Date {
 /**
  * Ventana de semanas sobre un caché por `bucketKey` (`useWeekCache`).
  *
- * El estado de navegación es UN ANCLA DE FECHA (la primera columna visible), no
- * un índice sobre un array volátil.
- *
- * Contrato F3: `goTo` mueve el ancla **inmediato** y dispara `ensureRange` en
- * background. `resolve` rellena keys faltantes con `emptyBucket`; las columnas
- * pendientes se exponen en `pendingKeys` para skeleton. Es seguro porque el
- * ancla es fecha estable (el bug histórico de índice volátil ya no aplica).
+ * El estado de navegación es UN ANCLA DE FECHA (la primera columna visible).
+ * `goTo` solo mueve el ancla; un `useEffect` sobre `slots` es la única fuente
+ * de verdad del fetch de la ventana visible (mount con horizonte persistido,
+ * cambio de horizonte, navegación). `ensureRange` es idempotente sin huecos.
  */
 export function useGridWindow(initial: ProjectionMatrix, opts: GridWindowOpts) {
   const windowWeeks = opts.windowWeeks ?? WINDOW_WEEKS;
@@ -78,15 +75,18 @@ export function useGridWindow(initial: ProjectionMatrix, opts: GridWindowOpts) {
     return pending;
   }, [slots, presentKeys]);
 
-  // Ancla primero → UI inmediata; fetch después (skeleton en pendingKeys).
-  const goTo = useCallback(
-    (nextAnchor: Date) => {
-      setAnchorDate(nextAnchor);
-      const target = weekSlots(nextAnchor, windowWeeks);
-      void ensureRange(target[0].start, target[target.length - 1].end);
-    },
-    [ensureRange, windowWeeks],
-  );
+  // La ventana visible SIEMPRE se garantiza contra el caché: cubre el mount
+  // con horizonte persistido ≠ 8, el cambio de horizonte en caliente y la
+  // navegación. Idempotente: si no hay huecos, ensureRange retorna sin red.
+  useEffect(() => {
+    if (slots.length === 0) return;
+    void ensureRange(slots[0].start, slots[slots.length - 1].end);
+  }, [slots, ensureRange]);
+
+  // Solo mueve el ancla; el efecto de arriba dispara el fetch.
+  const goTo = useCallback((nextAnchor: Date) => {
+    setAnchorDate(nextAnchor);
+  }, []);
 
   const goPrev = useCallback(() => {
     goTo(addWeeksUTC(anchorDate, -step));
