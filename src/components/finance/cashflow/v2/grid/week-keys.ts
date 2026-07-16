@@ -26,6 +26,21 @@ export function isoWeekNumber(date: Date): number {
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
 }
 
+/**
+ * Reconstruye el lunes ISO (00:00 UTC) de una key `YYYY-Www`.
+ * Null si el formato no es parseable (caller debe caer a refresh completo).
+ */
+export function parseWeekKey(key: string): Date | null {
+  const m = /^(\d{4})-W(\d{2})$/.exec(key);
+  if (!m) return null;
+  const isoYear = Number(m[1]);
+  const week = Number(m[2]);
+  if (week < 1 || week > 53) return null;
+  // La semana 1 ISO es la que contiene el 4 de enero.
+  const week1Monday = startOfIsoWeekUTC(new Date(Date.UTC(isoYear, 0, 4)));
+  return addWeeksUTC(week1Monday, week - 1);
+}
+
 /** Key `YYYY-Www` (año-semana ISO) del día UTC de `date`. */
 export function weekKey(date: Date): string {
   const d = new Date(

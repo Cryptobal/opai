@@ -3,7 +3,13 @@
 import { useCallback, useMemo, useState } from "react";
 import type { ProjectionMatrix } from "@/modules/finance/cashflow/types";
 import { useWeekCache } from "./useWeekCache";
-import { addWeeksUTC, startOfIsoWeekUTC, weekSlots } from "./week-keys";
+import {
+  addWeeksUTC,
+  endOfIsoWeekUTC,
+  parseWeekKey,
+  startOfIsoWeekUTC,
+  weekSlots,
+} from "./week-keys";
 
 /** Total de columnas (semanas) visibles a la vez en la grilla (desktop). En
  *  móvil la ventana se estrecha a 3 vía la opción `windowWeeks`. */
@@ -44,7 +50,7 @@ export function useGridWindow(initial: ProjectionMatrix, opts: GridWindowOpts) {
   // de la vista actual reaparezca como primera de la siguiente (y viceversa).
   // Clamp a 1 por si `windowWeeks` fuese 1.
   const step = opts.step ?? Math.max(1, windowWeeks - 1);
-  const { ensureRange, resolve, invalidate, loading, version } =
+  const { ensureRange, resolve, invalidate, invalidateWeeks, loading, version } =
     useWeekCache(initial);
 
   const [anchorDate, setAnchorDate] = useState<Date>(() =>
@@ -95,11 +101,36 @@ export function useGridWindow(initial: ProjectionMatrix, opts: GridWindowOpts) {
     [goTo],
   );
 
-  // Tras un move/cierre: invalida y re-trae la ventana actual (preserva ancla).
+  // Tras un cierre/reapertura: invalida TODO y re-trae la ventana actual
+  // (preserva ancla). Afecta anclas y candados globales — no usar en move/edit.
   const refresh = useCallback(async () => {
     invalidate();
     await ensureRange(slots[0].start, slots[slots.length - 1].end);
   }, [invalidate, ensureRange, slots]);
+
+  /**
+   * Reconciliación selectiva tras mutación: poda solo las semanas afectadas y
+   * re-fetchea el rango mínimo que las cubre. Preferimos keys (`YYYY-Www`) porque
+   * el caller ya las tiene del move/amount/hide; `parseWeekKey` reconstruye las
+   * fechas (menos código que forzar al caller a pasar Dates). Si alguna key no
+   * parsea, cae a `refresh()` full.
+   */
+  const refreshWeeks = useCallback(
+    async (keys: string[]) => {
+      const unique = [...new Set(keys.filter(Boolean))];
+      if (unique.length === 0) return;
+      const dates = unique.map(parseWeekKey);
+      if (dates.some((d) => d == null)) {
+        await refresh();
+        return;
+      }
+      const starts = dates as Date[];
+      starts.sort((a, b) => a.getTime() - b.getTime());
+      invalidateWeeks(unique);
+      await ensureRange(starts[0], endOfIsoWeekUTC(starts[starts.length - 1]));
+    },
+    [invalidateWeeks, ensureRange, refresh],
+  );
 
   /** Mover-y-mostrar atómico: invalida el caché, re-trae FRESCA la ventana que
    *  arranca en la semana de `date` y ancla ahí. A diferencia de `goToWeek` +
@@ -117,5 +148,15 @@ export function useGridWindow(initial: ProjectionMatrix, opts: GridWindowOpts) {
     [invalidate, ensureRange, windowWeeks],
   );
 
-  return { active, loading, goPrev, goNext, goToday, goToWeek, refreshAt, refresh };
+  return {
+    active,
+    loading,
+    goPrev,
+    goNext,
+    goToday,
+    goToWeek,
+    refreshAt,
+    refresh,
+    refreshWeeks,
+  };
 }
