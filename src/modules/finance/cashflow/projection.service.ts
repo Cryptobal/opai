@@ -478,9 +478,10 @@ export async function buildProjection(
     getOrCreateCashflowConfig(tenantId),
     listCategories(tenantId),
     // Excluimos source=PAYROLL (legacy pre-split): reemplazado por
-    // PAYROLL_LIQUIDO + PAYROLL_PREVIRED. Los ítems source=CONTRACT son los
-    // contratos CRM vigentes (Document → FinanceCashflowItem vía el tab
-    // Contratos de cada cuenta) y deben incluirse en la proyección.
+    // PAYROLL_LIQUIDO + PAYROLL_PREVIRED. Los ítems source=CONTRACT (contratos
+    // CRM del tab Contratos) se traen aquí como metadato pero NO se proyectan:
+    // filterCashflowItemsForProjection los excluye (el contrato no entra al
+    // flujo; mandan los DTE recurrentes/emitidos y los borradores).
     listItems(tenantId, { isActive: true }),
   ]);
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
@@ -543,8 +544,9 @@ export async function buildProjection(
     });
   }
 
-  // Programación recurrente (RECURRING_DTE) manda el placement; CONTRACT se
-  // oculta cuando hay espejo recurrente para la misma cuenta+instalación.
+  // Al flujo entran DTE recurrentes/emitidos y borradores: CONTRACT nunca
+  // proyecta fila propia (el contrato no entra). Las facturas emitidas de un
+  // contrato sin programación recurrente caen a su propia fila (Path 2).
   const items = filterCashflowItemsForProjection(itemsAfterRecurringSanity);
   // FinanceCashflowItem.installationId no tiene @relation, así que resolvemos
   // los nombres en un lookup batch por tenant. Pick mínimo para no traer overhead.

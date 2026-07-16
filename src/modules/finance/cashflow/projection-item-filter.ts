@@ -18,11 +18,17 @@ function isContractLikeItem(it: CashflowItemLike): boolean {
 }
 
 /**
- * Fuente de verdad para placement en flujo de caja: Programación recurrente
- * (`RECURRING_DTE` espejo de FinanceDteRecurringTemplate). Si hay al menos
- * un espejo recurrente activo para cliente+instalación, el ítem CONTRACT del
- * tab Contratos CRM no se proyecta (evita día de pago legacy vs dayOfMonth de
- * la plantilla). Sin recurrente, el CONTRACT sigue proyectando solo.
+ * Fuente de verdad para placement en flujo de caja: al flujo SOLO entran los
+ * DTE (recurrentes y emitidos) y los borradores de factura.
+ *
+ * - `source=CONTRACT` NO entra NUNCA: el contrato por sí mismo no proyecta.
+ *   Un contrato sin DTE recurrente emitido no aparece en el flujo. El item
+ *   CONTRACT sigue existiendo en DB (tab Contratos CRM) como metadato, pero no
+ *   genera fila ni engancha facturas: una factura emitida de un contrato sin
+ *   programación recurrente cae a su propia fila (Path 2 del proyector) con su
+ *   monto real. Las facturas recurrentes se proyectan desde `RECURRING_DTE`.
+ * - `OTHER` con `sourceRefId` (contrato-like legacy) se oculta solo cuando hay
+ *   un espejo recurrente activo para la misma cuenta+instalación.
  */
 export function filterCashflowItemsForProjection<T extends CashflowItemLike>(
   items: T[],
@@ -34,6 +40,8 @@ export function filterCashflowItemsForProjection<T extends CashflowItemLike>(
     }
   }
   return items.filter((i) => {
+    // El contrato no entra al flujo: mandan los DTE recurrentes/emitidos.
+    if (i.source === "CONTRACT") return false;
     if (!isContractLikeItem(i) || !i.crmAccountId) return true;
     return !recurringKeys.has(installKey(i.crmAccountId, i.installationId));
   });

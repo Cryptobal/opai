@@ -49,9 +49,24 @@ describe("filterCashflowItemsForProjection (RECURRING_DTE manda)", () => {
     expect(filterCashflowItemsForProjection(items)).toHaveLength(1);
   });
 
-  it("deja CONTRACT si no hay recurrente para esa instalación", () => {
+  it("oculta CONTRACT SIEMPRE, aunque no haya recurrente (el contrato no entra al flujo)", () => {
     const items = [
       { source: "CONTRACT", crmAccountId: acc, installationId: inst },
+    ];
+    // El contrato por sí mismo no proyecta: al flujo solo entran DTE
+    // recurrentes/emitidos y borradores. La factura emitida de este contrato
+    // caería a su propia fila (Path 2) con su monto real.
+    expect(filterCashflowItemsForProjection(items)).toHaveLength(0);
+  });
+
+  it("mantiene OTHER-con-sourceRefId cuando NO hay recurrente (no es CONTRACT puro)", () => {
+    const items = [
+      {
+        source: "OTHER",
+        crmAccountId: acc,
+        installationId: inst,
+        sourceRefId: "doc-1",
+      },
     ];
     expect(filterCashflowItemsForProjection(items)).toHaveLength(1);
   });
