@@ -102,6 +102,34 @@ export function weekSlots(anchor: Date, count: number): WeekSlot[] {
   });
 }
 
+/**
+ * Hueco contiguo de semanas faltantes en `[from, to]`.
+ * Si `stale`, toda la ventana cuenta como faltante.
+ * Null si no hay huecos (todo cacheado).
+ */
+export function findMissingGap(
+  presentKeys: Set<string>,
+  from: Date,
+  to: Date,
+  stale: boolean,
+): { first: Date; last: Date } | null {
+  let firstMissing: Date | null = null;
+  let lastMissing: Date | null = null;
+  const last = startOfIsoWeekUTC(to).getTime();
+  for (
+    let cur = startOfIsoWeekUTC(from);
+    cur.getTime() <= last;
+    cur = addWeeksUTC(cur, 1)
+  ) {
+    if (stale || !presentKeys.has(weekKey(cur))) {
+      if (!firstMissing) firstMissing = cur;
+      lastMissing = cur;
+    }
+  }
+  if (!firstMissing || !lastMissing) return null;
+  return { first: firstMissing, last: lastMissing };
+}
+
 /** Bucket vacío (montos en 0) para un slot aún no cacheado. Con navegación
  *  sin bloqueo (F3) se pinta temporalmente mientras `pendingKeys` muestra
  *  skeleton; al llegar el fetch, `version` recomputa y reemplaza el vacío. */
