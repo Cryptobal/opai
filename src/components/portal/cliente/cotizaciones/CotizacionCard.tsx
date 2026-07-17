@@ -231,12 +231,15 @@ export function CotizacionCard({
                   />
                 )}
 
-                {/* Section 3: Cumplimiento Normativo */}
-                <CompliancePortal
-                  numbered={true}
-                  sectionNumber={++sn}
-                  items={detail.complianceItems}
-                />
+                {/* Section 3: Cumplimiento Normativo — habla de vigilantes,
+                    jornada y accidentes del trabajo: sin dotación no aplica */}
+                {detail.positions.length > 0 && (
+                  <CompliancePortal
+                    numbered={true}
+                    sectionNumber={++sn}
+                    items={detail.complianceItems}
+                  />
+                )}
 
                 {/* Section 4: Condiciones Comerciales */}
                 {(detail.paymentTerms || detail.contractDuration || detail.serviceStartDays != null || detail.validUntil) && (
@@ -268,8 +271,11 @@ export function CotizacionCard({
                   />
                 )}
 
-                {/* Section 7: Tecnología OPAI */}
-                <ProposalTecnologia sectionNumber={++sn} />
+                {/* Section 7: Tecnología OPAI — el set por defecto es de
+                    operación con guardias (rondas, Trust Score, anti-doble turno) */}
+                {detail.positions.length > 0 && (
+                  <ProposalTecnologia sectionNumber={++sn} />
+                )}
 
                 {/* Section 8: Estructura de Costos */}
                 {detail.costBreakdown && (
@@ -353,6 +359,7 @@ export function CotizacionCard({
                   clientName={detail.clientName}
                   installationName={detail.installationName}
                   quoteTitle={detail.quoteName ?? detail.name}
+                  hasGuards={detail.positions.length > 0}
                   onApprove={onApprove}
                   onReject={onReject}
                   onConsult={onConsult}

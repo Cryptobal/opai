@@ -405,7 +405,12 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   const emailText = await render(portalInviteEmailComponent, { plainText: true });
 
   const attachments: { filename: string; content: Buffer; contentType: string }[] = [];
-  if (includeProposalPdf) {
+  // La Propuesta Técnica es un dossier del servicio de guardias (dotación,
+  // organigrama, SLA en sitio, OS-10, plan de contingencia por inasistencia).
+  // En una cotización sin puestos nada de eso existe: el documento le hablaría
+  // al cliente de un servicio que no le estamos vendiendo. No se adjunta.
+  const proposalPdfApplies = includeProposalPdf && quote.positions.length > 0;
+  if (proposalPdfApplies) {
     try {
       const { fileName: proposalFileName, ...proposalProps } = await buildProposalProps(quoteId, tenantId);
       const proposalBuffer = await renderProposalToBufferFromProps(proposalProps);

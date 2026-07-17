@@ -21,6 +21,11 @@ interface ProposalTotalAccionesProps {
   clientName?: string | null;
   installationName?: string | null;
   quoteTitle?: string | null;
+  /**
+   * La cotización incluye dotación de guardias. Si es false, la propuesta
+   * técnica (dossier del servicio con personal) no aplica y no se ofrece.
+   */
+  hasGuards: boolean;
   onApprove?: () => void;
   onReject?: () => void;
   onConsult?: () => void;
@@ -39,6 +44,7 @@ export function ProposalTotalAcciones({
   clientName,
   installationName,
   quoteTitle,
+  hasGuards,
   onApprove,
   onReject,
   onConsult,
@@ -177,15 +183,17 @@ export function ProposalTotalAcciones({
           {pdfLoading ? "Generando..." : "Propuesta económica"}
         </button>
 
-        <button
-          type="button"
-          onClick={handleDownloadProposalPdf}
-          disabled={proposalPdfLoading}
-          className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg border border-status-info-border text-status-info-fg hover:text-status-info-fg hover:border-status-info-border text-sm transition-colors disabled:opacity-50"
-        >
-          {proposalPdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-          {proposalPdfLoading ? "Generando..." : "Propuesta técnica"}
-        </button>
+        {hasGuards && (
+          <button
+            type="button"
+            onClick={handleDownloadProposalPdf}
+            disabled={proposalPdfLoading}
+            className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg border border-status-info-border text-status-info-fg hover:text-status-info-fg hover:border-status-info-border text-sm transition-colors disabled:opacity-50"
+          >
+            {proposalPdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+            {proposalPdfLoading ? "Generando..." : "Propuesta técnica"}
+          </button>
+        )}
 
         {onConsult && (
           <button

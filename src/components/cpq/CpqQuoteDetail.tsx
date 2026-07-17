@@ -3445,6 +3445,7 @@ export function CpqQuoteDetail({
                 email: qc.email,
                 roleTitle: null,
               }}
+              hasGuards={positions.length > 0}
               disabled={
                 !quote ||
                 (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||

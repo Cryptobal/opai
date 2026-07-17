@@ -36,6 +36,11 @@ interface SendPortalProposalModalProps {
   dealId: string;
   /** Contacto principal de la cotización (por defecto destinatario) */
   quoteContact: ContactRow;
+  /**
+   * La cotización incluye dotación de guardias. Si es false, la Propuesta
+   * Técnica no aplica (es un dossier de servicio con personal) y no se ofrece.
+   */
+  hasGuards: boolean;
   disabled?: boolean;
   onBeforeSend?: () => Promise<void>;
   /** Tras envío OK (para WhatsApp, refresh, etc.) */
@@ -62,6 +67,7 @@ export function SendPortalProposalModal({
   defaultEmailSubject,
   dealId,
   quoteContact,
+  hasGuards,
   disabled,
   onBeforeSend,
   onComplete,
@@ -199,7 +205,10 @@ export function SendPortalProposalModal({
           bccEmails: bccExtra,
           emailSubject: emailSubject.trim(),
           includeQuotationPdf,
-          includeProposalPdf,
+          // Sin dotación la propuesta técnica no aplica: aunque el estado
+          // quedara en true (se marcó y después se borraron los puestos), no se
+          // manda. El backend igual lo revalida.
+          includeProposalPdf: hasGuards && includeProposalPdf,
           attachmentIds: Array.from(selectedAttachmentIds),
           followUp: {
             include: decision.includeFollowUp,
@@ -372,16 +381,23 @@ export function SendPortalProposalModal({
                     <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
                     PDF cotización (económica)
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-sm">
-                    <input
-                      type="checkbox"
-                      checked={includeProposalPdf}
-                      onChange={(e) => setIncludeProposalPdf(e.target.checked)}
-                      className="rounded border-border"
-                    />
-                    <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                    Propuesta técnica (PDF extendido)
-                  </label>
+                  {hasGuards ? (
+                    <label className="flex items-center gap-2 cursor-pointer text-sm">
+                      <input
+                        type="checkbox"
+                        checked={includeProposalPdf}
+                        onChange={(e) => setIncludeProposalPdf(e.target.checked)}
+                        className="rounded border-border"
+                      />
+                      <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                      Propuesta técnica (PDF extendido)
+                    </label>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Esta cotización no incluye dotación de guardias: la propuesta
+                      técnica no aplica y no se envía.
+                    </p>
+                  )}
                   {quoteAttachments.length > 0 && (
                     <>
                       <div className="border-t border-border/40 my-1" />

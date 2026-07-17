@@ -45,6 +45,36 @@ export interface ProposalAIContent {
   sectoresRelevantes: string[];
 }
 
+/**
+ * Contenido determinístico para cuando la IA falla (rechazo, respuesta que no
+ * parsea como JSON, timeout). Se arma con lo que ya escribió el ejecutivo
+ * —descripción y detalle de servicio— para no inventar nada. El PDF sale sin
+ * IA en vez de no salir.
+ */
+export function fallbackProposalAIContent(input: {
+  companyName: string;
+  installationName?: string;
+  aiDescription?: string | null;
+  serviceDetail?: string | null;
+  industry?: string;
+}): ProposalAIContent {
+  const lugar = input.installationName?.trim()
+    ? ` — ${input.installationName.trim()}`
+    : '';
+  const desc = input.aiDescription?.trim();
+  const detalle = input.serviceDetail?.trim();
+  return {
+    descripcionBreve: `Propuesta para ${input.companyName}${lugar}`,
+    resumenEjecutivo:
+      desc || `Propuesta de servicio preparada para ${input.companyName}${lugar}.`,
+    analisisNecesidades:
+      detalle || 'El alcance del servicio se detalla en las secciones siguientes.',
+    sectoresRelevantes: input.industry?.trim()
+      ? [input.industry.trim()]
+      : ['Corporativo/Oficinas'],
+  };
+}
+
 const SECTORES_DISPONIBLES = [
   'Logística y Bodegas',
   'Manufactura e Industria',

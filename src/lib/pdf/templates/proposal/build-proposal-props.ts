@@ -8,7 +8,7 @@ import { getTenantCompanyConfig } from '@/lib/tenant-config';
 import { computeCpqQuoteCosts } from '@/modules/cpq/costing/compute-quote-costs';
 import { formatCurrency, formatUFSuffix } from '@/lib/utils';
 import { getUfValue, clpToUf } from '@/lib/uf';
-import { generateProposalAIContent } from './proposal-ai';
+import { generateProposalAIContent, fallbackProposalAIContent } from './proposal-ai';
 import { buildCpqQuotePdfFileName } from '@/lib/pdf/cpq-quote-pdf-filename';
 import { formatWeekdaysLong, formatCoverageSchedule } from '@/lib/cpq/weekdays';
 import { resolveAccountLogo } from '@/lib/crm/account-logo';
@@ -55,6 +55,20 @@ export interface ProposalProps {
     subtotalFormatted: string;
     specifications?: string;
   }>;
+  /**
+   * Líneas de pago único (recurrencia="unico"). Van aparte de `items` porque no
+   * son parte de la inversión mensual ni del total mensual: se cobran una vez.
+   */
+  oneTimeItems?: Array<{
+    index: number;
+    description: string;
+    quantity: number;
+    subtotal: number;
+    subtotalFormatted: string;
+    specifications?: string;
+  }>;
+  /** Suma de `oneTimeItems`, ya formateada. undefined si no hay pagos únicos. */
+  oneTimeTotalFormatted?: string;
   totalNeto: number;
   totalNetoFormatted: string;
   currency: string;
@@ -213,16 +227,38 @@ export async function buildProposalProps(
     });
   }
 
+  // Las líneas de pago único NO entran a `items`: esa tabla es "Inversión
+  // Mensual" y su total (grandTotal) suma solo lo recurrente
+  // (additionalLinesTotalWithMargin excluye `recurrencia === "unico"`). Antes se
+  // mezclaban acá y el PDF listaba filas que el total no sumaba —además de
+  // mostrar un traslado de pago único bajo la columna "VALOR MENSUAL". Van a su
+  // propia tabla, igual que en el PDF económico.
+  const oneTimeItems: ProposalProps['oneTimeItems'] = [];
+  let oneTimeIdx = 1;
+
   for (const line of quote.additionalLines) {
     const precio = Number(line.precio);
     if (precio <= 0) continue;
     const pdfLine = costSummary?.additionalLinesDetails?.find((d) => d.nombre === line.nombre);
     const subTotal = pdfLine ? pdfLine.precioConMargen : precio;
+    const esUnico = (line.recurrencia ?? 'mensual') === 'unico';
+
+    if (esUnico) {
+      oneTimeItems.push({
+        index: oneTimeIdx++,
+        description: line.nombre,
+        quantity: line.cantidad ?? 1,
+        subtotal: subTotal,
+        subtotalFormatted: fmt(subTotal),
+        specifications: line.descripcion ?? undefined,
+      });
+      continue;
+    }
 
     items.push({
       index: idx++,
       description: line.nombre,
-      quantity: 1,
+      quantity: line.cantidad ?? 1,
       unitPrice: subTotal,
       subtotal: subTotal,
       unitPriceFormatted: fmt(subTotal),
@@ -230,6 +266,12 @@ export async function buildProposalProps(
       specifications: line.descripcion ?? undefined,
     });
   }
+
+  const totalOneTimeLines =
+    costSummary?.additionalLinesOneTimeWithMargin ??
+    quote.additionalLines
+      .filter((l) => (l.recurrencia ?? 'mensual') === 'unico')
+      .reduce((s, l) => s + Number(l.precio), 0);
 
   // Nombres de servicio definidos por el ejecutivo en la matriz de puestos
   // (CpqServiceGroup). Se ignoran placeholders genéricos como "Servicio nuevo".
@@ -384,36 +426,53 @@ export async function buildProposalProps(
     aiContent = cached;
   } else {
     const staffingDetails = `${totalGuards} guardias en régimen ${staffingRegime}`;
-    aiContent = await generateProposalAIContent({
-      companyName,
-      companyIndustry: account?.industry ?? undefined,
-      companySegment: account?.segment ?? undefined,
-      contactName,
-      contactPosition,
-      serviceName: serviceNameForAi,
-      staffingDetails,
-      coverageSchedule,
-      monthlyTotal: grandTotal,
-      installationName,
-      installationCity: installation?.city ?? undefined,
-      items: items.map((i) => ({
-        description: i.description,
-        quantity: i.quantity,
-        unitPrice: i.unitPrice,
-        specifications: i.specifications,
-      })),
-      existingAiDescription: quote.aiDescription ?? undefined,
-      existingServiceDetail: quote.serviceDetail ?? undefined,
-      providerName: companyConfig.commercialName || undefined,
-    }, tenantId);
+    // La IA es un adorno del documento, no su columna vertebral: si falla
+    // (rechazo del modelo, respuesta en prosa que no parsea como JSON, timeout),
+    // el PDF igual tiene que salir. Antes esta llamada no tenía try/catch y una
+    // sola respuesta mala tumbaba el documento entero con 500 — en el botón del
+    // portal y en el adjunto del correo. Mismo criterio que costSummary/breakdown.
+    try {
+      aiContent = await generateProposalAIContent({
+        companyName,
+        companyIndustry: account?.industry ?? undefined,
+        companySegment: account?.segment ?? undefined,
+        contactName,
+        contactPosition,
+        serviceName: serviceNameForAi,
+        staffingDetails,
+        coverageSchedule,
+        monthlyTotal: grandTotal,
+        installationName,
+        installationCity: installation?.city ?? undefined,
+        items: items.map((i) => ({
+          description: i.description,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          specifications: i.specifications,
+        })),
+        existingAiDescription: quote.aiDescription ?? undefined,
+        existingServiceDetail: quote.serviceDetail ?? undefined,
+        providerName: companyConfig.commercialName || undefined,
+      }, tenantId);
 
-    await prisma.cpqQuote.update({
-      where: { id: quotationId },
-      data: {
-        proposalAiContent: aiContent as object,
-        proposalAiGeneratedAt: new Date(),
-      },
-    });
+      await prisma.cpqQuote.update({
+        where: { id: quotationId },
+        data: {
+          proposalAiContent: aiContent as object,
+          proposalAiGeneratedAt: new Date(),
+        },
+      });
+    } catch (err) {
+      console.error('[PDF] generateProposalAIContent falló — se usa fallback sin IA:', err);
+      // No se cachea: la próxima generación vuelve a intentar con la IA.
+      aiContent = fallbackProposalAIContent({
+        companyName,
+        installationName,
+        aiDescription: quote.aiDescription,
+        serviceDetail: quote.serviceDetail,
+        industry: account?.industry ?? undefined,
+      });
+    }
   }
 
   let breakdown: QuoteBreakdownData | undefined;
@@ -780,6 +839,8 @@ export async function buildProposalProps(
     supervisionFrequency,
 
     items,
+    oneTimeItems: oneTimeItems.length > 0 ? oneTimeItems : undefined,
+    oneTimeTotalFormatted: totalOneTimeLines > 0 ? fmt(totalOneTimeLines) : undefined,
     totalNeto: grandTotal,
     totalNetoFormatted: fmt(grandTotal),
     currency: currency === 'UF' ? 'UF' : 'CLP',

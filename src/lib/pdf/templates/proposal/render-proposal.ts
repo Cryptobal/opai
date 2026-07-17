@@ -367,7 +367,7 @@ export async function renderProposalToBufferFromProps(
     companyName, companyLogo, quotationCode, proposalDate, contactName, contactPosition,
     ai, serviceType, installationName, installationCity, installationAddress, serviceDetail, coverageSchedule,
     staffingCount, staffingRegime, supervisionFrequency,
-    items, totalNetoFormatted, paymentTerms, regimeExplanation,
+    items, oneTimeItems, oneTimeTotalFormatted, totalNetoFormatted, paymentTerms, regimeExplanation,
     companyConfig, companyStats, proposalMetrics, clientLogosWithNames, providerLogo,
     breakdown, resourceBreakdown, includedItems,
   } = props;
@@ -1192,6 +1192,35 @@ export async function renderProposalToBufferFromProps(
         e(Text, { style: s.grandTotalLabel }, 'TOTAL MENSUAL NETO'),
         e(Text, { style: s.grandTotalAmount }, totalNetoFormatted),
       ),
+      // Pago único: tabla propia. No se mezcla con la mensual porque no se
+      // cobra todos los meses ni entra al TOTAL MENSUAL NETO.
+      ...(oneTimeItems && oneTimeItems.length > 0
+        ? [
+            e(View, { key: 'onetime', style: { marginTop: 10 } },
+              e(Text, { style: s.sectionSubtitle }, 'Pago único (se cobra una vez)'),
+              e(View, { style: s.tblHeader },
+                e(Text, { style: [s.tblHeaderCell, { flex: 0.5, textAlign: 'center' as const }] }, '#'),
+                e(Text, { style: [s.tblHeaderCell, { flex: 3 }] }, 'ÍTEM'),
+                e(Text, { style: [s.tblHeaderCell, { flex: 0.8, textAlign: 'center' as const }] }, 'CANT'),
+                e(Text, { style: [s.tblHeaderCell, { flex: 1.5, textAlign: 'right' as const }] }, 'VALOR'),
+              ),
+              ...oneTimeItems.map((item, i) =>
+                e(View, { key: i, style: s.tblRow },
+                  e(Text, { style: [s.tblCell, { flex: 0.5, textAlign: 'center' as const }] }, String(item.index)),
+                  e(Text, { style: [s.tblCell, { flex: 3 }] }, item.description),
+                  e(Text, { style: [s.tblCell, { flex: 0.8, textAlign: 'center' as const }] }, String(item.quantity)),
+                  e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, item.subtotalFormatted),
+                ),
+              ),
+              oneTimeTotalFormatted
+                ? e(View, { style: s.grandTotal },
+                    e(Text, { style: s.grandTotalLabel }, 'TOTAL PAGO ÚNICO NETO'),
+                    e(Text, { style: s.grandTotalAmount }, oneTimeTotalFormatted),
+                  )
+                : null,
+            ),
+          ]
+        : []),
       e(Text, { style: { fontFamily: F.sans, fontSize: 7, color: C.textLighter, marginTop: 4, textAlign: 'right' as const } }, 'Valores netos. IVA se factura según ley vigente.'),
       e(View, { style: [s.cardTeal, { marginTop: 8 }] },
         e(Text, { style: s.cardTitle }, 'Condiciones de pago'),
