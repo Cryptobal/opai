@@ -176,6 +176,11 @@ export async function PATCH(
       createdBy: ctx.userId,
     });
 
+    if ("serviceStartDate" in raw) {
+      const { renderStartCanvasForDeal } = await import("@/lib/integrations/slack/deal-rooms/start-canvas");
+      await renderStartCanvasForDeal(ctx.tenantId, id).catch(() => {});
+    }
+
     return NextResponse.json({ success: true, data: deal });
   } catch (error) {
     console.error("Error updating deal:", error);

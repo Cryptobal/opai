@@ -384,6 +384,16 @@ function adjudicadoRowBlocks(d: AdjudicadoDeal, ctx: DrillCtx): unknown[] {
       ? { type: "button", action_id: "pipe_deal_room", value: d.id, text: pt("🏠 Abrir sala") }
       : null;
   if (roomBtn) out.push({ type: "actions", block_id: `opai_adjroom_${d.id}`, elements: [roomBtn] });
+  if (ctx.canWrite) {
+    out.push({
+      type: "actions",
+      block_id: `opai_adj_act_${d.id}`,
+      elements: [
+        { type: "button", action_id: "pipe_adj_date", value: d.id, text: pt("📅 Fecha inicio") },
+        { type: "button", action_id: "pipe_adj_stage", value: d.id, text: pt("🔀 Cambiar etapa") },
+      ],
+    });
+  }
   out.push({ type: "divider" });
   return out;
 }
@@ -627,6 +637,23 @@ export async function handlePipelineAction(payload: {
       if (payload.view?.id && stageId) await slackUpdateView(workspace.botToken, payload.view.id, await renderDrill(tenantId, teamId, canWrite, stageId, r.ok ? "🎉 Negocio marcado como ganado." : `⚠️ ${r.error}`));
       return;
     }
+  }
+
+  // Adjudicados (drill): editar fecha de inicio o cambiar etapa.
+  if (action.action_id === "pipe_adj_date" && canWrite && payload.trigger_id) {
+    const dealId = action.value;
+    if (!dealId) return;
+    const { openStartDateModal } = await import("./deal-start-date");
+    await openStartDateModal(workspace.botToken, payload.trigger_id, tenantId, dealId, true);
+    return;
+  }
+  if (action.action_id === "pipe_adj_stage" && canWrite && payload.trigger_id) {
+    const dealId = action.value;
+    if (!dealId) return;
+    await slackPushView(workspace.botToken, payload.trigger_id, await advanceView(tenantId, dealId)).catch((e) =>
+      console.error("[slack] pipe_adj_stage push falló:", e),
+    );
+    return;
   }
 }
 

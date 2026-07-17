@@ -291,6 +291,12 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     await handleStaleDealAction(payload as never);
     return;
   }
+  // Adjudicados con fecha de inicio vencida: actualizar fecha / pasar a Activo.
+  if (actionId?.startsWith("dealstart_")) {
+    const { handleOverdueStartAction } = await import("./comercial/deal-start-overdue");
+    await handleOverdueStartAction(payload as never);
+    return;
+  }
   // Bandeja de documentos por vencer (Fase 18): abrir / filtros / paginación.
   if (actionId?.startsWith("docstray_")) {
     const { handleDocsTrayAction } = await import("./docs/tray-dispatch");

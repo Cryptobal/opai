@@ -15,6 +15,7 @@ import { misRendicionesModal } from "./mis-rendiciones";
 import { leadsTrayModal, leadsTrayNuevosModal } from "../comercial/leads-tray";
 import { discardLeadModal } from "../comercial/lead-modals";
 import { pipelineModal, advanceStageModal, dealNoteModal, dealInteractionModal, dealLostModal } from "../comercial/pipeline";
+import { dealStartDateModal } from "../comercial/deal-start-date";
 import { dealSearchModal } from "../comercial/deal-search";
 import { accountSearchModal } from "../comercial/account-search-modal";
 import { myDealsModal } from "../comercial/my-deals-tray";
@@ -28,7 +29,7 @@ import { dteCostCenterModal } from "../finance/dte-received";
 const MODALS: ModalDef[] = [
   hubModal, trayModal, trayOverdueModal, inboxModal, rejectReasonModal, misRendicionesModal,
   leadsTrayModal, leadsTrayNuevosModal, discardLeadModal,
-  pipelineModal, advanceStageModal, dealNoteModal, dealInteractionModal, dealLostModal, dealSearchModal, accountSearchModal, myDealsModal,
+  pipelineModal, advanceStageModal, dealNoteModal, dealInteractionModal, dealLostModal, dealStartDateModal, dealSearchModal, accountSearchModal, myDealsModal,
   quotesTrayModal, quotesTrayFiltered("sent"), quotesTrayFiltered("draft"), quotesTrayFiltered("accepted"), quotesTrayFiltered("rejected"),
   saveNoteModal, docsTrayModal, docTrackModal, docDismissModal,
   asistCaminoModal, dteCostCenterModal,

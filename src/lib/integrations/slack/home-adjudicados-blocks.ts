@@ -12,6 +12,7 @@ import { canView, canEdit } from "@/lib/permissions";
 import { getTenantForTeam, getWorkspaceForTenant } from "./workspace";
 import { resolveLinkedAdmin } from "./user-link";
 import { slackOpenView } from "./api";
+import { handleStartDateOpenAction } from "./comercial/deal-start-date";
 
 const pt = (text: string) => ({ type: "plain_text", text, emoji: true });
 
@@ -56,6 +57,7 @@ function adjudicadoRow(d: AdjudicadoDeal): unknown[] {
       block_id: `opai_home_adj_${d.id}`,
       elements: [
         { type: "button", action_id: "home_adj_open", url: `${getCanonicalSiteUrl()}/crm/deals/${d.id}`, text: pt("Abrir →") },
+        { type: "button", action_id: "home_adj_date", value: d.id, text: pt("📅 Fecha inicio") },
         { type: "button", action_id: "home_adj_stage", value: d.id, text: pt("🔀 Cambiar etapa") },
       ],
     },
@@ -76,18 +78,23 @@ export function adjudicadosSectionBlocks(deals: AdjudicadoDeal[]): unknown[] {
   return blocks;
 }
 
-/** Acciones del bloque Adjudicados en la App Home. `home_adj_open` es un
- *  botón url (no llega aquí); solo `home_adj_stage` requiere backend. */
+/** Acciones del bloque Adjudicados en la App Home. `home_adj_open` es url (no llega aquí). */
 export async function handleHomeAdjudicadoAction(payload: {
   team?: { id?: string }; user?: { id?: string }; trigger_id?: string;
   actions?: Array<{ action_id?: string; value?: string }>;
 }): Promise<void> {
+  const actionId = payload.actions?.[0]?.action_id;
+  if (actionId === "home_adj_date") {
+    await handleStartDateOpenAction(payload, "home_adj_date", false);
+    return;
+  }
+  if (actionId !== "home_adj_stage") return;
+
   const teamId = payload.team?.id;
   const slackUserId = payload.user?.id;
   const action = payload.actions?.[0];
-  if (!teamId || !slackUserId || action?.action_id !== "home_adj_stage") return;
+  if (!teamId || !slackUserId || !action?.value || !payload.trigger_id) return;
   const dealId = action.value;
-  if (!dealId || !payload.trigger_id) return;
   const resolved = await getTenantForTeam(teamId);
   if (!resolved) return;
   const workspace = await getWorkspaceForTenant(resolved.tenantId);
