@@ -228,7 +228,18 @@ export function dropWeeks(
 }
 
 /** Recorta la matriz fusionada a las columnas visibles (en el orden de `slots`).
- *  Cada slot resuelve a su bucket cacheado o a un placeholder vacío. */
+ *  Cada slot resuelve a su bucket cacheado o a un placeholder vacío.
+ *
+ *  Los items sin ningún `value` dentro de la ventana se DESCARTAN. `buildRows`
+ *  garantiza "el item existe ⟺ tuvo ≥1 cuota en el rango pedido", pero
+ *  `mergeMatrix` acumula items de TODOS los rangos fetcheados (el prefetch de
+ *  las ventanas adyacentes, los chunks) y rompe esa invariante: sin este filtro
+ *  un item que solo vive en semanas no visibles sobrevive con `values: []` y se
+ *  pinta como una fila fantasma vacía (típicamente las keys sintéticas por
+ *  fecha: `_prog:`, `_extra:`, `_dte:`). Se filtra acá y no en el render porque
+ *  este es el punto donde se rompe la invariante de rango — y así también cubre
+ *  a `expenseRows`, cuyo group row lee `items[0].values`. No toca `row.values`
+ *  (nivel categoría): la fila FC de saldo deriva de ahí (ver derive-balance). */
 export function sliceMatrix(
   merged: ProjectionMatrix,
   slots: WeekSlot[],
@@ -246,10 +257,12 @@ export function sliceMatrix(
     rows: merged.rows.map((row) => ({
       ...row,
       values: row.values.filter((v) => keys.has(v.bucketKey)),
-      items: row.items.map((item) => ({
-        ...item,
-        values: item.values.filter((v) => keys.has(v.bucketKey)),
-      })),
+      items: row.items
+        .map((item) => ({
+          ...item,
+          values: item.values.filter((v) => keys.has(v.bucketKey)),
+        }))
+        .filter((item) => item.values.length > 0),
     })),
     cumulativeBalances: merged.cumulativeBalances.filter((p) =>
       keys.has(p.bucketKey),
