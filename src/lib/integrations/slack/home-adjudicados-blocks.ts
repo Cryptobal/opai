@@ -11,7 +11,7 @@ import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 import { canView, canEdit } from "@/lib/permissions";
 import { getTenantForTeam, getWorkspaceForTenant } from "./workspace";
 import { resolveLinkedAdmin } from "./user-link";
-import { slackPushView } from "./api";
+import { slackOpenView } from "./api";
 
 const pt = (text: string) => ({ type: "plain_text", text, emoji: true });
 
@@ -95,7 +95,7 @@ export async function handleHomeAdjudicadoAction(payload: {
   const linked = await resolveLinkedAdmin(workspace, slackUserId);
   if (!linked || !canView(linked.perms, "crm", "deals") || !canEdit(linked.perms, "crm", "deals")) return;
   const { advanceView } = await import("./comercial/pipeline");
-  await slackPushView(workspace.botToken, payload.trigger_id, await advanceView(workspace.tenantId, dealId)).catch((e) =>
-    console.error("[slack] home_adj_stage push falló:", e),
+  await slackOpenView(workspace.botToken, payload.trigger_id, await advanceView(workspace.tenantId, dealId)).catch((e) =>
+    console.error("[slack] home_adj_stage open falló:", e),
   );
 }
