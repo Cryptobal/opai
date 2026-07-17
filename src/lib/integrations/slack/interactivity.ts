@@ -236,6 +236,13 @@ export async function handleInteractivity(payload: BlockActionsPayload): Promise
     return;
   }
 
+  // Bloque "Adjudicados por iniciar" de la App Home: cambiar etapa.
+  if (actionId?.startsWith("home_adj_")) {
+    const { handleHomeAdjudicadoAction } = await import("./home-adjudicados-blocks");
+    await handleHomeAdjudicadoAction(payload as never);
+    return;
+  }
+
   // Pipeline comercial (Fase 15): overview → drill + acciones de deal.
   if (actionId?.startsWith("pipe_")) {
     const { handlePipelineAction } = await import("./comercial/pipeline");

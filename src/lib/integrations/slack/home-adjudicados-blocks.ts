@@ -8,6 +8,10 @@
 import type { AdjudicadoDeal } from "./comercial/adjudicados";
 import { clp } from "./comercial/deal-common";
 import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
+import { canView, canEdit } from "@/lib/permissions";
+import { getTenantForTeam, getWorkspaceForTenant } from "./workspace";
+import { resolveLinkedAdmin } from "./user-link";
+import { slackPushView } from "./api";
 
 const pt = (text: string) => ({ type: "plain_text", text, emoji: true });
 
@@ -37,7 +41,7 @@ function countdownLabel(start: Date | null): string {
   return `${prefix}${rel}`;
 }
 
-/** Fila de un adjudicado: cuenta + negocio, countdown · monto, botón "Abrir". */
+/** Fila de un adjudicado: cuenta + negocio, countdown · monto, acciones Abrir / Cambiar etapa. */
 function adjudicadoRow(d: AdjudicadoDeal): unknown[] {
   const account = (d.accountName || "Cliente").trim() || "Cliente";
   const title = (d.title || "Negocio").trim() || "Negocio";
@@ -45,17 +49,16 @@ function adjudicadoRow(d: AdjudicadoDeal): unknown[] {
     .filter(Boolean)
     .join("  ·  ");
   return [
-    {
-      type: "section",
-      text: { type: "mrkdwn", text: `*${account}*\n${title}` },
-      accessory: {
-        type: "button",
-        action_id: "home_adjudicado_open",
-        url: `${getCanonicalSiteUrl()}/crm/deals/${d.id}`,
-        text: pt("Abrir →"),
-      },
-    },
+    { type: "section", text: { type: "mrkdwn", text: `*${account}*\n${title}` } },
     { type: "context", elements: [{ type: "mrkdwn", text: meta }] },
+    {
+      type: "actions",
+      block_id: `opai_home_adj_${d.id}`,
+      elements: [
+        { type: "button", action_id: "home_adj_open", url: `${getCanonicalSiteUrl()}/crm/deals/${d.id}`, text: pt("Abrir →") },
+        { type: "button", action_id: "home_adj_stage", value: d.id, text: pt("🔀 Cambiar etapa") },
+      ],
+    },
   ];
 }
 
@@ -71,4 +74,28 @@ export function adjudicadosSectionBlocks(deals: AdjudicadoDeal[]): unknown[] {
   ];
   for (const d of deals) blocks.push(...adjudicadoRow(d));
   return blocks;
+}
+
+/** Acciones del bloque Adjudicados en la App Home. `home_adj_open` es un
+ *  botón url (no llega aquí); solo `home_adj_stage` requiere backend. */
+export async function handleHomeAdjudicadoAction(payload: {
+  team?: { id?: string }; user?: { id?: string }; trigger_id?: string;
+  actions?: Array<{ action_id?: string; value?: string }>;
+}): Promise<void> {
+  const teamId = payload.team?.id;
+  const slackUserId = payload.user?.id;
+  const action = payload.actions?.[0];
+  if (!teamId || !slackUserId || action?.action_id !== "home_adj_stage") return;
+  const dealId = action.value;
+  if (!dealId || !payload.trigger_id) return;
+  const resolved = await getTenantForTeam(teamId);
+  if (!resolved) return;
+  const workspace = await getWorkspaceForTenant(resolved.tenantId);
+  if (!workspace) return;
+  const linked = await resolveLinkedAdmin(workspace, slackUserId);
+  if (!linked || !canView(linked.perms, "crm", "deals") || !canEdit(linked.perms, "crm", "deals")) return;
+  const { advanceView } = await import("./comercial/pipeline");
+  await slackPushView(workspace.botToken, payload.trigger_id, await advanceView(workspace.tenantId, dealId)).catch((e) =>
+    console.error("[slack] home_adj_stage push falló:", e),
+  );
 }
