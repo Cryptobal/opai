@@ -201,6 +201,8 @@ interface Props {
 }
 
 type StatusFilter = "ALL" | "ACTIVE" | "PAUSED";
+// Filtro por defecto de la vista: mostramos solo las plantillas activas.
+const DEFAULT_STATUS_FILTER: StatusFilter = "ACTIVE";
 type RecurringSortField =
   | "name"
   | "client"
@@ -299,7 +301,8 @@ export function RecurringClient({
 
   // ── Filtros + buscador ──
   const [search, setSearch] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("ALL");
+  const [statusFilter, setStatusFilter] =
+    React.useState<StatusFilter>(DEFAULT_STATUS_FILTER);
   const [sortField, setSortField] = React.useState<RecurringSortField>("name");
   const [sortDir, setSortDir] = React.useState<TableSortDir>("asc");
   const [autoSendErrorsOnly, setAutoSendErrorsOnly] = React.useState(false);
@@ -500,11 +503,13 @@ export function RecurringClient({
   }, [templates, search, statusFilter, sortField, sortDir, autoSendErrorsOnly]);
 
   const hasActiveFilters =
-    !!search.trim() || statusFilter !== "ALL" || autoSendErrorsOnly;
+    !!search.trim() ||
+    statusFilter !== DEFAULT_STATUS_FILTER ||
+    autoSendErrorsOnly;
 
   const clearFilters = () => {
     setSearch("");
-    setStatusFilter("ALL");
+    setStatusFilter(DEFAULT_STATUS_FILTER);
     setAutoSendErrorsOnly(false);
   };
 
