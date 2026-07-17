@@ -433,7 +433,7 @@ export async function advanceView(tenantId: string, dealId: string): Promise<Sla
   const stages = await prisma.crmPipelineStage.findMany({ where: { tenantId, isActive: true }, orderBy: { order: "asc" }, select: { id: true, name: true } });
   return {
     type: "modal", callback_id: "pipe_advance", private_metadata: packMetadata({ kind: "pipe_advance", dealId }),
-    title: modalTitle("Avanzar etapa"), submit: pt("Mover"), close: pt("Cancelar"),
+    title: modalTitle("Cambiar etapa"), submit: pt("Mover"), close: pt("Cancelar"),
     blocks: [{ type: "input", block_id: "stage", label: pt("Nueva etapa"), element: { type: "static_select", action_id: "v", options: stages.map((s) => ({ text: pt(s.name), value: s.id })) } }],
   };
 }
@@ -642,7 +642,7 @@ export const pipelineModal: ModalDef = {
 };
 
 export const advanceStageModal: ModalDef = {
-  callbackId: "pipe_advance", title: "Avanzar etapa",
+  callbackId: "pipe_advance", title: "Cambiar etapa",
   requires: (perms) => canEdit(perms, "crm", "deals"),
   build: async (ctx) => advanceView(ctx.tenantId, ""), // fallback; el open real (push) prellena el dealId
   submit: async (ctx: ModalSubmitContext) => {
@@ -650,7 +650,10 @@ export const advanceStageModal: ModalDef = {
     const stageId = ctx.state.stage?.v?.selected_option?.value;
     if (!stageId) return { ack: { response_action: "errors", errors: { stage: "Elige una etapa." } } };
     const r = await changeDealStage({ tenantId: ctx.tenantId, userId: ctx.linked.adminId, dealId, stageId });
-    return done("Avanzar etapa", r.kind === "ok" ? "⏩ Negocio movido de etapa." : "⚠️ No se pudo mover.");
+    if (r.kind === "ok") return done("Cambiar etapa", "🔀 Negocio movido de etapa.");
+    if (r.kind === "needs_start_date")
+      return { ack: { response_action: "errors", errors: { stage: "Esta etapa requiere fecha de inicio del servicio. Agrégala en OPAI (ficha del negocio) y vuelve a mover." } } };
+    return done("Cambiar etapa", "⚠️ No se pudo mover el negocio.");
   },
 };
 
