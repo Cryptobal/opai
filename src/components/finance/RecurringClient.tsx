@@ -70,6 +70,7 @@ import {
   SortableColumnHeader,
   type TableSortDir,
 } from "@/components/finance/programacion/SortableColumnHeader";
+import { formatFacturaEmisionRule } from "@/components/finance/recurring/format-factura-emision";
 
 const FREQ_LABELS: Record<string, string> = {
   monthly: "Mensual",
@@ -97,6 +98,10 @@ export type RecurringTemplateRow = {
   nextRunAt: string | null;
   lastRunAt: string | null;
   runCount: number;
+  /** Cuándo se emite la factura real vs. cuándo corre la programación. */
+  facturaTiming?: "AL_EMITIR" | "DIA_ESPECIFICO" | null;
+  facturaDay?: number | null;
+  facturaMesRelativo?: "MISMO_MES" | "MES_SIGUIENTE" | null;
   ufFixingPolicy?: string;
   ufFixingDay?: number | null;
   /**
@@ -146,6 +151,15 @@ const UF_POLICY_LABEL: Record<string, string> = {
   LAST_DAY_MONTH: "UF: fin del mes",
   CUSTOM_DAY: "UF: día específico",
 };
+
+function renderFacturaEmisionRule(t: RecurringTemplateRow) {
+  const rule = formatFacturaEmisionRule(t);
+  return (
+    <Tag variant={rule.deferred ? "info" : "neutral"} size="sm">
+      {rule.text}
+    </Tag>
+  );
+}
 
 function formatFrequency(t: RecurringTemplateRow): string {
   const base = FREQ_LABELS[t.frequency] ?? t.frequency;
@@ -652,7 +666,7 @@ export function RecurringClient({
       id: "frequency",
       header: (
         <SortableColumnHeader
-          label="Frecuencia"
+          label="Programación"
           field="frequency"
           sortField={sortField}
           sortDir={sortDir}
@@ -663,6 +677,12 @@ export function RecurringClient({
       cell: (t) => (
         <span className="text-xs">{formatFrequency(t)}</span>
       ),
+    },
+    {
+      id: "facturaEmision",
+      header: "Emisión factura",
+      width: "w-[168px]",
+      cell: (t) => renderFacturaEmisionRule(t),
     },
     {
       id: "nextRun",
@@ -1177,12 +1197,18 @@ export function RecurringClient({
                         </Tag>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-2.5 text-xs">
                       <div>
                         <span className="block text-xs font-mono uppercase tracking-[0.08em] text-ds-text-4">
-                          Frecuencia
+                          Programación
                         </span>
                         <span className="text-ds-text-1">{formatFrequency(t)}</span>
+                      </div>
+                      <div>
+                        <span className="block text-xs font-mono uppercase tracking-[0.08em] text-ds-text-4">
+                          Emisión factura
+                        </span>
+                        <div className="mt-0.5">{renderFacturaEmisionRule(t)}</div>
                       </div>
                       <div>
                         <span className="block text-xs font-mono uppercase tracking-[0.08em] text-ds-text-4">
