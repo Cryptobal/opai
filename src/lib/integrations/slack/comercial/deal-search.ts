@@ -138,6 +138,7 @@ function resultRowBlocks(d: FoundDeal, ctx: SearchRenderCtx): unknown[] {
   else if (ctx.canWrite) btns.push({ type: "button", action_id: "dsearch_room", value: d.id, text: pt("🏠 Abrir sala") });
   btns.push({ type: "button", action_id: "dsearch_open", url: dealOpaiUrl(d.id), text: pt("🔗 Abrir en OPAI") });
   if (ctx.canWrite) btns.push({ type: "button", action_id: "dsearch_interaction", value: d.id, text: pt("➕ Interacción") });
+  if (ctx.canWrite) btns.push({ type: "button", action_id: "dsearch_stage", value: d.id, text: pt("🔀 Cambiar etapa") });
   if (wa && /^https:\/\//.test(wa)) btns.push({ type: "button", action_id: "dsearch_wa", url: wa, text: pt("🟢 WhatsApp") });
   return [section, { type: "actions", block_id: `opai_dsearch_${d.id}`, elements: btns }];
 }
@@ -277,6 +278,17 @@ export async function handleDealSearchAction(payload: {
     const { interactionView } = await import("./pipeline");
     await slackPushView(workspace.botToken, payload.trigger_id, interactionView(dealId)).catch((e) =>
       console.error("[slack] dsearch_interaction push falló:", e),
+    );
+    return;
+  }
+
+  // 🔀 Cambiar etapa: apila el modal de etapas (reutiliza advanceView + submit pipe_advance).
+  if (action.action_id === "dsearch_stage") {
+    const dealId = action.value;
+    if (!dealId || !canWrite || !payload.trigger_id) return;
+    const { advanceView } = await import("./pipeline");
+    await slackPushView(workspace.botToken, payload.trigger_id, await advanceView(tenantId, dealId)).catch((e) =>
+      console.error("[slack] dsearch_stage push falló:", e),
     );
     return;
   }
