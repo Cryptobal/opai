@@ -39,6 +39,7 @@ import { ContractEditor } from "@/components/docs/ContractEditor";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
+import { DealChecklistSection } from "./deal/DealChecklistSection";
 import { NotesSection } from "./NotesSection";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
@@ -482,6 +483,7 @@ export function CrmDealDetailClient({
   const [quoteCreateOpen, setQuoteCreateOpen] = useState(false);
   const [selectedQuoteId, setSelectedQuoteId] = useState("");
   const [linkedQuotes, setLinkedQuotes] = useState<DealQuote[]>(deal.quotes || []);
+  const [checklistOpenCount, setChecklistOpenCount] = useState(0);
   const [activeQuotationId, setActiveQuotationId] = useState<string | null>(
     deal.activeQuotationId ?? null
   );
@@ -1856,6 +1858,13 @@ export function CrmDealDetailClient({
             })}
           </CrmRelatedRecordGrid>
         ),
+    },
+    {
+      id: "checklist",
+      label: "Checklist",
+      icon: ListChecks,
+      count: checklistOpenCount,
+      content: <DealChecklistSection dealId={deal.id} onCountChange={setChecklistOpenCount} />,
     },
     {
       id: "tickets",
