@@ -43,49 +43,7 @@ import {
   resolveEffectiveModel,
   trimHistory,
 } from "@/lib/ai/help-chat-shared";
-
-type ProviderType = "openai" | "anthropic" | "google";
-
-/**
- * Mensaje 'user': sin attachments → string simple (comportamiento actual).
- * Con attachments → content multimodal en el shape del proveedor activo.
- */
-function buildUserMessage(
-  text: string,
-  attachments: Array<{ mimeType: string; dataBase64: string; name?: string }> | undefined,
-  provider: ProviderType,
-): Record<string, unknown> {
-  const valid = (attachments ?? []).filter((a) =>
-    /^image\/(png|jpe?g|webp|gif)$/.test(a.mimeType) || a.mimeType === "application/pdf",
-  );
-  if (valid.length === 0) return { role: "user", content: text };
-
-  if (provider === "anthropic") {
-    const parts: Array<Record<string, unknown>> = [{ type: "text", text }];
-    for (const a of valid) {
-      parts.push(
-        a.mimeType === "application/pdf"
-          ? { type: "document", source: { type: "base64", media_type: a.mimeType, data: a.dataBase64 } }
-          : { type: "image", source: { type: "base64", media_type: a.mimeType, data: a.dataBase64 } },
-      );
-    }
-    return { role: "user", content: parts };
-  }
-  if (provider === "google") {
-    const parts: Array<Record<string, unknown>> = [{ text }];
-    for (const a of valid) parts.push({ inline_data: { mime_type: a.mimeType, data: a.dataBase64 } });
-    return { role: "user", content: parts };
-  }
-  const parts: Array<Record<string, unknown>> = [{ type: "text", text }];
-  for (const a of valid) {
-    parts.push(
-      a.mimeType === "application/pdf"
-        ? { type: "text", text: `[Adjunto PDF '${a.name ?? "documento"}' no procesable por este modelo; su texto ya fue extraído e inyectado como contexto si fue posible.]` }
-        : { type: "image_url", image_url: { url: `data:${a.mimeType};base64,${a.dataBase64}` } },
-    );
-  }
-  return { role: "user", content: parts };
-}
+import { buildUserMessage } from "@/lib/ai/help-chat-multimodal";
 
 const MAX_TOOL_STEPS = 12;
 // Tope de escrituras diferidas por turno: cada una genera su propia tarjeta

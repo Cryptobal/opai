@@ -5,6 +5,9 @@ import { hasCapability } from "@/lib/permissions";
 import { canUseAiHelpChat, getAiHelpChatConfig } from "@/lib/ai/help-chat-config";
 import { retrieveDocsContext, retrieveTemplatesContext } from "@/lib/ai/help-chat-retrieval";
 import { getToolDefinitionsV2, executeToolCallV2 } from "@/lib/ai/help-chat-tools-v2";
+import { buildUserMessage, type MultimodalAttachment } from "@/lib/ai/help-chat-multimodal";
+import { getFileBuffer } from "@/lib/storage";
+import { extractText } from "@/lib/knowledge/extract";
 import type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
 import { buildHelpChatSystemPromptV2 } from "@/lib/ai/help-chat-system-prompt-v2";
 import { parseVisualBlocks } from "@/lib/ai/help-chat-visual-types";
@@ -128,7 +131,21 @@ export async function POST(request: NextRequest) {
     conversationId?: unknown;
     pageContext?: unknown;
     pathname?: unknown;
+    attachments?: unknown;
   };
+
+  /* Adjuntos del chat web: referencias livianas al staging de R2 (subidas por
+   * /api/ai/help-chat/attachments). El binario se reconstruye server-side desde
+   * la stagedKey; aquí solo llegan metadatos. */
+  const attachmentRefs = (Array.isArray(body.attachments) ? body.attachments : [])
+    .map((a) => (a && typeof a === "object" ? (a as Record<string, unknown>) : {}))
+    .map((a) => ({
+      stagedKey: typeof a.stagedKey === "string" ? a.stagedKey : "",
+      fileName: typeof a.fileName === "string" ? a.fileName : "archivo",
+      mimeType: typeof a.mimeType === "string" ? a.mimeType : "",
+    }))
+    .filter((a) => a.stagedKey.includes("chat-staged") && a.mimeType)
+    .slice(0, 4);
 
   /* page context (Notion-like): the user is currently viewing an entity */
   type PageContext = HelpChatPageContext;
@@ -258,6 +275,49 @@ export async function POST(request: NextRequest) {
 
   const configWithModel: HelpChatAIConfig = { ...aiConfig, model: effectiveModel };
 
+  /* Adjuntos: reconstruye visión (imágenes/PDF) y texto extraído (Excel/Word/PDF)
+   * desde R2 con las stagedKeys. Arma un bloque de contexto con el manifiesto para
+   * que attach_file_to_entity pueda adjuntarlos a una entidad con su stagedKey. */
+  const IMAGE_MIME_RE = /^image\/(png|jpe?g|webp|gif)$/;
+  const MULTIMODAL_MIME_RE = /^(image\/(png|jpe?g|webp|gif)|application\/pdf)$/;
+  const MAX_EXTRACT_CHARS = 12_000;
+  const visionAttachments: MultimodalAttachment[] = [];
+  let attachmentsContext: string | null = null;
+  if (attachmentRefs.length > 0) {
+    const manifest: string[] = [];
+    const extracted: string[] = [];
+    for (const ref of attachmentRefs) {
+      let buffer: Buffer;
+      try {
+        buffer = await getFileBuffer(ref.stagedKey, 10 * 1024 * 1024);
+      } catch (err) {
+        console.error("[help-chat] no se pudo leer adjunto staged:", err);
+        continue;
+      }
+      manifest.push(`- ${ref.fileName} · ${ref.mimeType} · ${buffer.length} bytes · stagedKey=${ref.stagedKey}`);
+      if (MULTIMODAL_MIME_RE.test(ref.mimeType)) {
+        visionAttachments.push({ mimeType: ref.mimeType, dataBase64: buffer.toString("base64"), name: ref.fileName });
+      }
+      if (!IMAGE_MIME_RE.test(ref.mimeType)) {
+        try {
+          const text = (await extractText(buffer, ref.mimeType)).slice(0, MAX_EXTRACT_CHARS);
+          if (text.trim()) extracted.push(`[Contenido extraído de '${ref.fileName}']:\n${text}`);
+        } catch {
+          /* mime no extraíble: la visión (si aplica) sigue disponible */
+        }
+      }
+    }
+    const blocks: string[] = [];
+    if (manifest.length) {
+      blocks.push(
+        `El usuario adjuntó archivos ya almacenados en staging. Para adjuntar uno a una entidad (deal/cuenta/instalación/lead) usa attach_file_to_entity con su stagedKey EXACTO:\n${manifest.join("\n")}`,
+      );
+    }
+    if (extracted.length) blocks.push(extracted.join("\n\n"));
+    attachmentsContext = blocks.length ? blocks.join("\n\n") : null;
+  }
+  const hasAttachments = visionAttachments.length > 0 || attachmentsContext !== null;
+
   /* build messages (kept in OpenAI format; provider layer converts) */
   const fallback = fallbackMessage();
   const todayLabel = new Date().toLocaleString("es-CL", { dateStyle: "full", timeStyle: "short" });
@@ -303,8 +363,9 @@ REGLAS DE CONTEXTO DE MÓDULO:
     { role: "system", content: `Contexto documental y base de conocimiento relevante:\n${docsContext || "(sin bloques relevantes encontrados)"}` },
     ...(pageContextSystemMessage ? [{ role: "system", content: pageContextSystemMessage }] : []),
     ...(moduleContextSystemMessage ? [{ role: "system", content: moduleContextSystemMessage }] : []),
+    ...(attachmentsContext ? [{ role: "system", content: attachmentsContext }] : []),
     ...trimmedHistory.map(m => ({ role: m.role, content: m.content })),
-    { role: "user", content: userMessage },
+    buildUserMessage(userMessage, visionAttachments, aiConfig.providerType),
   ];
 
   const allowWrites = cfg.allowWrites;
@@ -339,7 +400,7 @@ REGLAS DE CONTEXTO DE MÓDULO:
         // AI flashar y luego ser reemplazada por "Te refieres a X > Y..." (el
         // famoso bug de la "segunda respuesta rara").
         const inferredFunctionalAnswer = resolveFunctionalIntent(userMessage, appBaseUrl);
-        if (inferredFunctionalAnswer && shouldUseInferredAnswerUpfront(userMessage)) {
+        if (inferredFunctionalAnswer && shouldUseInferredAnswerUpfront(userMessage) && !hasAttachments) {
           usedInferredAnswer = true;
           fullText = normalizeAssistantLinks(inferredFunctionalAnswer, appBaseUrl);
           // Stream chunked para que se vea como streaming natural en el cliente.

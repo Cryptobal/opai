@@ -11,6 +11,7 @@ import {
   Link2,
   Loader2,
   MessageCircle,
+  Paperclip,
   Plus,
   Send,
   Sparkles,
@@ -19,6 +20,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type {
   VisualBlock,
@@ -1119,6 +1121,8 @@ export function AiHelpChatWidgetV2() {
   const [streamingStarted, setStreamingStarted] = useState(false);
   const [persistenceEnabled, setPersistenceEnabled] = useState(true);
   const [activeToolName, setActiveToolName] = useState<string | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [staging, setStaging] = useState(false);
   const pageContext = useChatPageContext();
   const clearPageContext = useClearChatPageContext();
   const pathname = usePathname();
@@ -1130,6 +1134,7 @@ export function AiHelpChatWidgetV2() {
   // aquí para que el useEffect que carga mensajes desde DB no clobere el estado
   // local mientras la respuesta del asistente aún no se persiste.
   const skipMessageFetchRef = useRef<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scrollDesktopRef = useRef<HTMLDivElement | null>(null);
   const scrollMobileRef = useRef<HTMLDivElement | null>(null);
   const textareaDesktopRef = useRef<HTMLTextAreaElement | null>(null);
@@ -1254,15 +1259,66 @@ export function AiHelpChatWidgetV2() {
     setMessages([]);
   };
 
+  const addFiles = (list: FileList | null) => {
+    if (!list?.length) return;
+    setPendingFiles((prev) => {
+      const merged = [...prev];
+      for (const f of Array.from(list)) {
+        if (merged.length >= 4) {
+          toast.error("Máximo 4 archivos por mensaje.");
+          break;
+        }
+        if (f.size > 10_000_000) {
+          toast.error(`${f.name} supera 10MB.`);
+          continue;
+        }
+        if (merged.some((m) => m.name === f.name && m.size === f.size)) continue;
+        merged.push(f);
+      }
+      return merged;
+    });
+  };
+  const removeFile = (idx: number) => setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
+
   const sendMessage = async (overrideText?: string) => {
-    const text = (overrideText ?? input).trim();
-    if (!text || sending) return;
+    const typed = (overrideText ?? input).trim();
+    const text = typed || (pendingFiles.length > 0 ? "Revisa el archivo adjunto y dime qué contiene." : "");
+    if (!text || sending || staging) return;
+
+    // 1) Adjuntos: primero los subimos a staging (R2). Si falla, abortamos sin
+    // tocar el hilo — el usuario conserva su texto y sus archivos.
+    let attachmentRefs: Array<{ stagedKey: string; fileName: string; mimeType: string; size: number }> = [];
+    const filesToSend = pendingFiles;
+    if (filesToSend.length > 0) {
+      setStaging(true);
+      try {
+        const fd = new FormData();
+        for (const f of filesToSend) fd.append("files", f);
+        const upRes = await fetch("/api/ai/help-chat/attachments", { method: "POST", body: fd });
+        const upJson = (await upRes.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          attachments?: Array<{ stagedKey: string; fileName: string; mimeType: string; size: number }>;
+        };
+        if (!upRes.ok || !upJson?.ok || !upJson.attachments?.length) {
+          throw new Error(upJson?.error || "No se pudo subir el archivo");
+        }
+        attachmentRefs = upJson.attachments;
+      } catch (err) {
+        setStaging(false);
+        toast.error(err instanceof Error ? err.message : "No se pudo subir el archivo");
+        return;
+      }
+      setStaging(false);
+      setPendingFiles([]);
+    }
+
     setStreamingStarted(false);
 
     const optimisticUser: ChatMessage = {
       id: `tmp-user-${Date.now()}`,
       role: "user",
-      content: text,
+      content: attachmentRefs.length > 0 ? `${text}\n\n📎 ${attachmentRefs.map((a) => a.fileName).join(", ")}` : text,
       createdAt: new Date().toISOString(),
     };
     const streamingAssistant: ChatMessage = {
@@ -1284,6 +1340,7 @@ export function AiHelpChatWidgetV2() {
           conversationId: activeConversationId ?? undefined,
           pageContext: pageContext ?? undefined,
           pathname: pathname ?? undefined,
+          attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
         }),
       });
 
@@ -1589,7 +1646,51 @@ export function AiHelpChatWidgetV2() {
       </div>
 
       <div className={cn("border-t border-white/[0.08] p-3", mobile && "pb-[calc(env(safe-area-inset-bottom)+0.75rem)]")}>
+        {pendingFiles.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {pendingFiles.map((f, i) => (
+              <span
+                key={`${f.name}-${f.size}-${i}`}
+                className="inline-flex max-w-[200px] items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2 py-1 text-xs text-white/80"
+              >
+                <Paperclip className="h-3 w-3 shrink-0" />
+                <span className="truncate">{f.name}</span>
+                <button
+                  type="button"
+                  onClick={() => removeFile(i)}
+                  aria-label={`Quitar ${f.name}`}
+                  className="shrink-0 text-white/55 hover:text-white"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         <div className="flex items-end gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.xlsx,.xls,.csv,.docx,image/png,image/jpeg,image/webp,image/gif,application/pdf"
+            className="hidden"
+            onChange={(e) => {
+              addFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={sending || staging || pendingFiles.length >= 4}
+            aria-label="Adjuntar archivo"
+            title="Adjuntar imagen, PDF, Excel o Word (máx. 10MB)"
+            className="shrink-0 text-white/75 hover:text-white hover:bg-white/5"
+          >
+            <Paperclip className="h-4 w-4" />
+          </Button>
           <textarea
             ref={mobile ? textareaMobileRef : textareaDesktopRef}
             rows={1}
@@ -1611,10 +1712,10 @@ export function AiHelpChatWidgetV2() {
             type="button"
             size="icon"
             onClick={() => void sendMessage()}
-            disabled={sending || !input.trim()}
+            disabled={sending || staging || (!input.trim() && pendingFiles.length === 0)}
             className="bg-gradient-to-br from-status-info to-status-ok text-white shadow-[0_8px_24px_rgba(16,185,129,0.25)] shrink-0"
           >
-            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {sending || staging ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
       </div>
