@@ -44,6 +44,49 @@ import {
   trimHistory,
 } from "@/lib/ai/help-chat-shared";
 
+type ProviderType = "openai" | "anthropic" | "google";
+
+/**
+ * Mensaje 'user': sin attachments → string simple (comportamiento actual).
+ * Con attachments → content multimodal en el shape del proveedor activo.
+ */
+function buildUserMessage(
+  text: string,
+  attachments: Array<{ mimeType: string; dataBase64: string; name?: string }> | undefined,
+  provider: ProviderType,
+): Record<string, unknown> {
+  const valid = (attachments ?? []).filter((a) =>
+    /^image\/(png|jpe?g|webp|gif)$/.test(a.mimeType) || a.mimeType === "application/pdf",
+  );
+  if (valid.length === 0) return { role: "user", content: text };
+
+  if (provider === "anthropic") {
+    const parts: Array<Record<string, unknown>> = [{ type: "text", text }];
+    for (const a of valid) {
+      parts.push(
+        a.mimeType === "application/pdf"
+          ? { type: "document", source: { type: "base64", media_type: a.mimeType, data: a.dataBase64 } }
+          : { type: "image", source: { type: "base64", media_type: a.mimeType, data: a.dataBase64 } },
+      );
+    }
+    return { role: "user", content: parts };
+  }
+  if (provider === "google") {
+    const parts: Array<Record<string, unknown>> = [{ text }];
+    for (const a of valid) parts.push({ inline_data: { mime_type: a.mimeType, data: a.dataBase64 } });
+    return { role: "user", content: parts };
+  }
+  const parts: Array<Record<string, unknown>> = [{ type: "text", text }];
+  for (const a of valid) {
+    parts.push(
+      a.mimeType === "application/pdf"
+        ? { type: "text", text: `[Adjunto PDF '${a.name ?? "documento"}' no procesable por este modelo; su texto ya fue extraído e inyectado como contexto si fue posible.]` }
+        : { type: "image_url", image_url: { url: `data:${a.mimeType};base64,${a.dataBase64}` } },
+    );
+  }
+  return { role: "user", content: parts };
+}
+
 const MAX_TOOL_STEPS = 12;
 // Tope de escrituras diferidas por turno: cada una genera su propia tarjeta
 // de confirmación en Slack; más de 5 satura el mensaje y el TTL de 15 min.
@@ -111,6 +154,11 @@ export interface RunHelpChatTurnInput {
   allowWrites: boolean;
   /** Contexto situado opcional (p. ej. canal que el usuario mira en el panel de IA de Slack). */
   contextHint?: string;
+  /**
+   * Adjuntos multimodales opcionales (imágenes/PDF) para IA con visión: binario base64
+   * + mimeType. Solo tipos soportados (image/png|jpeg|webp|gif, application/pdf).
+   */
+  attachments?: Array<{ mimeType: string; dataBase64: string; name?: string }>;
 }
 
 /**
@@ -209,7 +257,7 @@ export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<Help
       content: `Contexto documental y base de conocimiento relevante:\n${docsContext || "(sin bloques relevantes encontrados)"}`,
     },
     ...trimmedHistory.map((m) => ({ role: m.role, content: m.content })),
-    { role: "user", content: userMessage },
+    buildUserMessage(userMessage, input.attachments, aiConfig.providerType),
   ];
   if (input.contextHint) {
     messages.splice(2, 0, { role: "system", content: input.contextHint });

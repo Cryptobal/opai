@@ -12,7 +12,7 @@ import {
   getUfUtmIndicators,
   searchGuardiasByNameOrRut,
 } from "@/lib/ai/help-chat-tools";
-import { getFileBuffer } from "@/lib/storage";
+import { getFileBuffer, STORAGE_PROVIDER } from "@/lib/storage";
 import { extractText } from "@/lib/knowledge/extract";
 import {
   createLeadSchema,
@@ -132,6 +132,23 @@ function baseToolDefinitions() {
 
 function v2ToolDefinitions() {
   return [
+    {
+      type: "function" as const,
+      function: {
+        name: "list_deal_tasks",
+        description:
+          "Lista las tareas/checklist de un deal con su estado (open/done) y vencimiento. Úsala cuando pregunten '¿qué falta de la licitación X?' o pidan ver los pendientes de un negocio.",
+        parameters: {
+          type: "object",
+          properties: {
+            dealId: { type: "string", description: "UUID del deal. OBLIGATORIO." },
+            status: { type: "string", enum: ["open", "done", "all"], description: "Filtro (default all)." },
+          },
+          required: ["dealId"],
+          additionalProperties: false,
+        },
+      },
+    },
     {
       type: "function" as const,
       function: {
@@ -685,6 +702,73 @@ function v2ToolDefinitions() {
 
 function writeToolDefinitions() {
   return [
+    {
+      type: "function" as const,
+      function: {
+        name: "add_deal_note",
+        description:
+          "Guarda una nota en el timeline de un negocio (deal). Úsala cuando el usuario pida registrar un resumen, decisión, acuerdo o análisis en el negocio ('guarda esto como nota', 'deja registro en el negocio'). El contenido debe ser el texto final listo para leerse en el timeline (claro y conciso). Requiere dealId (resuélvelo con search_deals si te dan el nombre).",
+        parameters: {
+          type: "object",
+          properties: {
+            dealId: { type: "string", description: "UUID del deal. OBLIGATORIO." },
+            content: { type: "string", description: "Texto de la nota (máx ~2000 caracteres)." },
+          },
+          required: ["dealId", "content"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "create_deal_checklist",
+        description:
+          "Crea VARIAS tareas (checklist) asociadas a un deal de una sola vez. Úsala para transformar los requisitos de unas bases de licitación en una lista de pendientes accionable (ej: 'Garantía de seriedad', 'Certificado OS-10 vigente', 'Balance clasificado'). Máx. 25 ítems por llamada. Requiere dealId (resuélvelo con search_deals si te dan el nombre).",
+        parameters: {
+          type: "object",
+          properties: {
+            dealId: { type: "string", description: "UUID del deal. OBLIGATORIO." },
+            items: {
+              type: "array",
+              maxItems: 25,
+              items: {
+                type: "object",
+                properties: {
+                  title: { type: "string", description: "Texto del pendiente (claro y accionable)." },
+                  dueAt: { type: "string", description: "Vencimiento ISO YYYY-MM-DD (opcional)." },
+                },
+                required: ["title"],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ["dealId", "items"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "attach_file_to_entity",
+        description:
+          "Adjunta un archivo YA SUBIDO a staging (el usuario lo mandó por el chat; su stagedKey viene en el contexto del sistema) a una entidad CRM: deal, account, installation, lead o contact. Crea el registro de archivo y su vínculo. Úsala cuando el usuario pida 'adjunta este archivo al negocio X' / 'guarda las bases en la licitación Y'. Requiere stagedKey EXACTO del manifiesto y el entityId (resuélvelo con search_deals/search_accounts si te dieron el nombre).",
+        parameters: {
+          type: "object",
+          properties: {
+            stagedKey: { type: "string", description: "storageKey del staging (del manifiesto del sistema). OBLIGATORIO, cópialo EXACTO." },
+            fileName: { type: "string", description: "Nombre del archivo (del manifiesto)." },
+            mimeType: { type: "string", description: "MIME type (del manifiesto)." },
+            size: { type: "number", description: "Tamaño en bytes (del manifiesto)." },
+            entityType: { type: "string", enum: ["deal", "account", "installation", "lead", "contact"] },
+            entityId: { type: "string", description: "UUID de la entidad destino." },
+          },
+          required: ["stagedKey", "fileName", "mimeType", "entityType", "entityId"],
+          additionalProperties: false,
+        },
+      },
+    },
     {
       type: "function" as const,
       function: {
@@ -1803,6 +1887,9 @@ export const PREVIEW_TO_CONFIRM: Record<string, { confirmToolName: string; label
  * español para el resumen de la tarjeta. Las `preview_*` NO son escrituras.
  */
 export const WRITE_TOOL_LABELS: Record<string, string> = {
+  attach_file_to_entity: "Adjuntar archivo a entidad",
+  create_deal_checklist: "Crear checklist del negocio",
+  add_deal_note: "Guardar nota en el negocio",
   create_lead: "Crear lead",
   create_account: "Crear cuenta / cliente",
   create_contact: "Crear contacto",
@@ -1841,6 +1928,16 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
 /** Descripción humana corta de una escritura diferida para la tarjeta de Slack. */
 export function describeWriteArgs(toolName: string, args: Record<string, unknown>): string {
   const label = WRITE_TOOL_LABELS[toolName] ?? toolName;
+  if (toolName === "attach_file_to_entity") {
+    return `${label} · Adjuntar '${String(args.fileName ?? "archivo")}' a ${String(args.entityType ?? "entidad")}`.slice(0, 140);
+  }
+  if (toolName === "create_deal_checklist") {
+    const n = Array.isArray(args.items) ? args.items.length : 0;
+    return `${label} · Crear ${n} pendientes en el deal`;
+  }
+  if (toolName === "add_deal_note") {
+    return `${label} · Nota en deal: "${String(args.content ?? "").slice(0, 60)}…"`;
+  }
   if (toolName === "bulk_update_installations") {
     const status = args.status ?? "?";
     const scope =
@@ -6814,6 +6911,220 @@ async function toolGetProfitability(
   return { ok: true, data };
 }
 
+async function toolAttachFileToEntity(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  const stagedKey = typeof args.stagedKey === "string" ? args.stagedKey.trim() : "";
+  const fileName = typeof args.fileName === "string" ? args.fileName.trim() : "";
+  const mimeType = typeof args.mimeType === "string" ? args.mimeType.trim() : "";
+  const size = typeof args.size === "number" && Number.isFinite(args.size) ? Math.trunc(args.size) : 0;
+  const entityType = typeof args.entityType === "string" ? args.entityType : "";
+  const entityId = typeof args.entityId === "string" ? args.entityId : "";
+  const RESOURCE: Record<string, "deals" | "accounts" | "installations" | "leads" | "contacts"> = {
+    deal: "deals",
+    account: "accounts",
+    installation: "installations",
+    lead: "leads",
+    contact: "contacts",
+  };
+  const resource = RESOURCE[entityType];
+  if (!resource) {
+    await logAiAction({ tenantId, userId, toolName: "attach_file_to_entity", args, status: "validation_error", errorMessage: "entityType inválido", startedAt: t0 });
+    return { ok: false, error: "entityType inválido: usa deal, account, installation, lead o contact." };
+  }
+  if (!canEdit(perms, "crm", resource)) {
+    await logAiAction({ tenantId, userId, toolName: "attach_file_to_entity", args, status: "denied", errorMessage: `Sin permiso crm.${resource}.edit`, startedAt: t0 });
+    return { ok: false, error: `No tienes permiso para adjuntar archivos a ${entityType} en este tenant.` };
+  }
+  if (!stagedKey || !stagedKey.includes("chat-staged")) {
+    await logAiAction({ tenantId, userId, toolName: "attach_file_to_entity", args, status: "validation_error", errorMessage: "stagedKey inválido", startedAt: t0 });
+    return { ok: false, error: "stagedKey inválido: debe venir del manifiesto de archivos del chat." };
+  }
+  if (!fileName || !mimeType || !entityId) {
+    await logAiAction({ tenantId, userId, toolName: "attach_file_to_entity", args, status: "validation_error", errorMessage: "Faltan datos", startedAt: t0 });
+    return { ok: false, error: "Faltan datos: fileName, mimeType y entityId." };
+  }
+  const table: Record<string, () => Promise<{ id: string } | null>> = {
+    deal: () => prisma.crmDeal.findFirst({ where: { id: entityId, tenantId }, select: { id: true } }),
+    account: () => prisma.crmAccount.findFirst({ where: { id: entityId, tenantId }, select: { id: true } }),
+    installation: () => prisma.crmInstallation.findFirst({ where: { id: entityId, tenantId }, select: { id: true } }),
+    lead: () => prisma.crmLead.findFirst({ where: { id: entityId, tenantId }, select: { id: true } }),
+    contact: () => prisma.crmContact.findFirst({ where: { id: entityId, tenantId }, select: { id: true } }),
+  };
+  const exists = await table[entityType]();
+  if (!exists) {
+    await logAiAction({ tenantId, userId, toolName: "attach_file_to_entity", args, status: "validation_error", errorMessage: "Entidad inexistente", startedAt: t0 });
+    return { ok: false, error: `La entidad ${entityType} no existe en tu empresa.` };
+  }
+  try {
+    const file = await prisma.crmFile.create({
+      data: {
+        tenantId,
+        fileName,
+        mimeType,
+        size,
+        storageProvider: STORAGE_PROVIDER,
+        storageKey: stagedKey,
+        createdBy: userId,
+      },
+    });
+    await prisma.crmFileLink.create({
+      data: { tenantId, fileId: file.id, entityType, entityId },
+    });
+    // Nota de hito automática en el timeline del negocio (solo deals).
+    if (entityType === "deal") {
+      await prisma.crmNote.create({
+        data: {
+          tenantId,
+          entityType: "deal",
+          entityId,
+          content: `OPAI: adjunté el archivo '${fileName}' al negocio desde el chat.`,
+          createdBy: userId,
+        },
+      }).catch((e) => console.error("[ai] nota de hito adjunto falló:", e));
+    }
+    await logAiAction({ tenantId, userId, toolName: "attach_file_to_entity", args, status: "success", resultEntityId: file.id, resultEntityType: "crm_file", startedAt: t0 });
+    return {
+      ok: true,
+      data: {
+        fileId: file.id,
+        fileName,
+        entityType,
+        entityId,
+        url: `/api/crm/files/${file.id}/download`,
+        message: `Archivo '${fileName}' adjuntado. Ya puedo leerlo en cualquier sesión con get_entity_documents + read_document.`,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "attach_file_to_entity", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo adjuntar el archivo: ${msg}` };
+  }
+}
+
+async function toolCreateDealChecklist(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!canEdit(perms, "crm", "deals")) {
+    await logAiAction({ tenantId, userId, toolName: "create_deal_checklist", args, status: "denied", errorMessage: "Sin permiso crm.deals.edit", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para editar negocios en este tenant." };
+  }
+  const dealId = typeof args.dealId === "string" ? args.dealId : "";
+  const rawItems = Array.isArray(args.items) ? (args.items as Array<Record<string, unknown>>) : [];
+  const items = rawItems
+    .map((it) => ({
+      title: typeof it.title === "string" ? it.title.trim() : "",
+      dueAt: typeof it.dueAt === "string" && /^\d{4}-\d{2}-\d{2}/.test(it.dueAt) ? new Date(it.dueAt) : null,
+    }))
+    .filter((it) => it.title.length > 0)
+    .slice(0, 25);
+  if (!dealId || items.length === 0) {
+    await logAiAction({ tenantId, userId, toolName: "create_deal_checklist", args, status: "validation_error", errorMessage: "Requiere dealId e items", startedAt: t0 });
+    return { ok: false, error: "Requiere dealId e items con title." };
+  }
+  const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, tenantId }, select: { id: true, title: true } });
+  if (!deal) {
+    await logAiAction({ tenantId, userId, toolName: "create_deal_checklist", args, status: "validation_error", errorMessage: "Deal inexistente", startedAt: t0 });
+    return { ok: false, error: "El deal no existe en tu empresa." };
+  }
+  try {
+    await prisma.crmTask.createMany({
+      data: items.map((it) => ({
+        tenantId,
+        dealId,
+        title: it.title,
+        status: "open",
+        type: "checklist",
+        dueAt: it.dueAt ?? undefined,
+        assignedTo: userId,
+      })),
+    });
+    await prisma.crmNote.create({
+      data: {
+        tenantId,
+        entityType: "deal",
+        entityId: dealId,
+        content: `OPAI: creé un checklist de ${items.length} pendientes para este negocio (${items.slice(0, 3).map((i) => i.title).join(", ")}${items.length > 3 ? "…" : ""}).`,
+        createdBy: userId,
+      },
+    }).catch((e) => console.error("[ai] nota de hito checklist falló:", e));
+    await logAiAction({ tenantId, userId, toolName: "create_deal_checklist", args, status: "success", resultEntityId: dealId, resultEntityType: "crm_deal", startedAt: t0 });
+    return { ok: true, data: { dealId, dealTitle: deal.title, created: items.length, url: `/crm/deals/${dealId}` } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "create_deal_checklist", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo crear el checklist: ${msg}` };
+  }
+}
+
+async function toolAddDealNote(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!canEdit(perms, "crm", "deals")) {
+    await logAiAction({ tenantId, userId, toolName: "add_deal_note", args, status: "denied", errorMessage: "Sin permiso crm.deals.edit", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para escribir notas en negocios en este tenant." };
+  }
+  const dealId = typeof args.dealId === "string" ? args.dealId : "";
+  const content = typeof args.content === "string" ? args.content.trim().slice(0, 2000) : "";
+  if (!dealId || !content) {
+    await logAiAction({ tenantId, userId, toolName: "add_deal_note", args, status: "validation_error", errorMessage: "Requiere dealId y content", startedAt: t0 });
+    return { ok: false, error: "Requiere dealId y content." };
+  }
+  const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, tenantId }, select: { id: true, title: true } });
+  if (!deal) {
+    await logAiAction({ tenantId, userId, toolName: "add_deal_note", args, status: "validation_error", errorMessage: "Deal inexistente", startedAt: t0 });
+    return { ok: false, error: "El deal no existe en tu empresa." };
+  }
+  try {
+    const note = await prisma.crmNote.create({
+      data: { tenantId, entityType: "deal", entityId: dealId, content, createdBy: userId },
+      select: { id: true, createdAt: true },
+    });
+    await logAiAction({ tenantId, userId, toolName: "add_deal_note", args, status: "success", resultEntityId: note.id, resultEntityType: "crm_note", startedAt: t0 });
+    return { ok: true, data: { noteId: note.id, dealId, dealTitle: deal.title, url: `/crm/deals/${dealId}` } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "add_deal_note", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo guardar la nota: ${msg}` };
+  }
+}
+
+async function toolListDealTasks(tenantId: string, args: Record<string, unknown>): Promise<unknown> {
+  const dealId = typeof args.dealId === "string" ? args.dealId : "";
+  const status = typeof args.status === "string" ? args.status : "all";
+  if (!dealId) return { ok: false, error: "Requiere dealId." };
+  const tasks = await prisma.crmTask.findMany({
+    where: { tenantId, dealId, ...(status === "all" ? {} : { status }) },
+    orderBy: [{ status: "asc" }, { dueAt: "asc" }, { createdAt: "asc" }],
+    take: 50,
+    select: { id: true, title: true, status: true, dueAt: true, type: true },
+  });
+  const open = tasks.filter((t) => t.status !== "done").length;
+  return {
+    ok: true,
+    data: {
+      dealId,
+      total: tasks.length,
+      open,
+      done: tasks.length - open,
+      tasks: tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, dueAt: t.dueAt?.toISOString() ?? null })),
+      url: `/crm/deals/${dealId}`,
+    },
+  };
+}
+
 export async function executeToolCallV2(
   toolName: string,
   args: Record<string, unknown>,
@@ -6864,6 +7175,10 @@ export async function executeToolCallV2(
   if (toolName === "create_ticket") return await toolCreateTicket(tenantId, userId, perms, args);
   if (toolName === "create_reminder") return await toolCreateReminder(tenantId, userId, args);
   if (toolName === "complete_reminder") return await toolCompleteReminder(tenantId, userId, args);
+  if (toolName === "attach_file_to_entity") return await toolAttachFileToEntity(tenantId, userId, perms, args);
+  if (toolName === "create_deal_checklist") return await toolCreateDealChecklist(tenantId, userId, perms, args);
+  if (toolName === "list_deal_tasks") return await toolListDealTasks(tenantId, args);
+  if (toolName === "add_deal_note") return await toolAddDealNote(tenantId, userId, perms, args);
   if (toolName === "get_my_reminders") return await toolGetMyReminders(tenantId, userId);
   if (toolName === "transition_ticket") return await toolTransitionTicket(tenantId, userId, perms, args);
   if (toolName === "take_ticket") return await toolTakeTicket(tenantId, userId, perms, args);

@@ -319,7 +319,12 @@ function convertMessagesForAnthropic(msgs: Array<Record<string, unknown>>): {
       continue;
     }
 
-    out.push({ role: String(msg.role), content: String(msg.content ?? "") });
+    // Mensaje 'user': si el content ya viene como array multimodal (texto + imagen/
+    // documento en el shape de Anthropic), pásalo tal cual; si es string, normaliza.
+    out.push({
+      role: String(msg.role),
+      content: Array.isArray(msg.content) ? msg.content : String(msg.content ?? ""),
+    });
   }
 
   // Devolvemos el system como array de bloques: el primero (todos los system
@@ -571,9 +576,11 @@ function convertMessagesForGemini(msgs: Array<Record<string, unknown>>): {
       continue;
     }
 
+    // Mensaje 'user': si el content ya viene como array de parts multimodales (texto +
+    // inline_data), úsalo como parts; si es string, envuélvelo en un part de texto.
     contents.push({
       role: "user",
-      parts: [{ text: String(msg.content ?? "") }],
+      parts: Array.isArray(msg.content) ? (msg.content as unknown[]) : [{ text: String(msg.content ?? "") }],
     });
   }
 
