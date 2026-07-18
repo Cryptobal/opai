@@ -12,7 +12,7 @@ import {
   getUfUtmIndicators,
   searchGuardiasByNameOrRut,
 } from "@/lib/ai/help-chat-tools";
-import { getFileBuffer } from "@/lib/storage";
+import { getFileBuffer, STORAGE_PROVIDER } from "@/lib/storage";
 import { extractText } from "@/lib/knowledge/extract";
 import {
   createLeadSchema,
@@ -685,6 +685,27 @@ function v2ToolDefinitions() {
 
 function writeToolDefinitions() {
   return [
+    {
+      type: "function" as const,
+      function: {
+        name: "attach_file_to_entity",
+        description:
+          "Adjunta un archivo YA SUBIDO a staging (el usuario lo mandó por el chat; su stagedKey viene en el contexto del sistema) a una entidad CRM: deal, account, installation, lead o contact. Crea el registro de archivo y su vínculo. Úsala cuando el usuario pida 'adjunta este archivo al negocio X' / 'guarda las bases en la licitación Y'. Requiere stagedKey EXACTO del manifiesto y el entityId (resuélvelo con search_deals/search_accounts si te dieron el nombre).",
+        parameters: {
+          type: "object",
+          properties: {
+            stagedKey: { type: "string", description: "storageKey del staging (del manifiesto del sistema). OBLIGATORIO, cópialo EXACTO." },
+            fileName: { type: "string", description: "Nombre del archivo (del manifiesto)." },
+            mimeType: { type: "string", description: "MIME type (del manifiesto)." },
+            size: { type: "number", description: "Tamaño en bytes (del manifiesto)." },
+            entityType: { type: "string", enum: ["deal", "account", "installation", "lead", "contact"] },
+            entityId: { type: "string", description: "UUID de la entidad destino." },
+          },
+          required: ["stagedKey", "fileName", "mimeType", "entityType", "entityId"],
+          additionalProperties: false,
+        },
+      },
+    },
     {
       type: "function" as const,
       function: {
@@ -1803,6 +1824,7 @@ export const PREVIEW_TO_CONFIRM: Record<string, { confirmToolName: string; label
  * español para el resumen de la tarjeta. Las `preview_*` NO son escrituras.
  */
 export const WRITE_TOOL_LABELS: Record<string, string> = {
+  attach_file_to_entity: "Adjuntar archivo a entidad",
   create_lead: "Crear lead",
   create_account: "Crear cuenta / cliente",
   create_contact: "Crear contacto",
@@ -1841,6 +1863,9 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
 /** Descripción humana corta de una escritura diferida para la tarjeta de Slack. */
 export function describeWriteArgs(toolName: string, args: Record<string, unknown>): string {
   const label = WRITE_TOOL_LABELS[toolName] ?? toolName;
+  if (toolName === "attach_file_to_entity") {
+    return `${label} · Adjuntar '${String(args.fileName ?? "archivo")}' a ${String(args.entityType ?? "entidad")}`.slice(0, 140);
+  }
   if (toolName === "bulk_update_installations") {
     const status = args.status ?? "?";
     const scope =
@@ -6814,6 +6839,101 @@ async function toolGetProfitability(
   return { ok: true, data };
 }
 
+async function toolAttachFileToEntity(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  const stagedKey = typeof args.stagedKey === "string" ? args.stagedKey.trim() : "";
+  const fileName = typeof args.fileName === "string" ? args.fileName.trim() : "";
+  const mimeType = typeof args.mimeType === "string" ? args.mimeType.trim() : "";
+  const size = typeof args.size === "number" && Number.isFinite(args.size) ? Math.trunc(args.size) : 0;
+  const entityType = typeof args.entityType === "string" ? args.entityType : "";
+  const entityId = typeof args.entityId === "string" ? args.entityId : "";
+  const RESOURCE: Record<string, "deals" | "accounts" | "installations" | "leads" | "contacts"> = {
+    deal: "deals",
+    account: "accounts",
+    installation: "installations",
+    lead: "leads",
+    contact: "contacts",
+  };
+  const resource = RESOURCE[entityType];
+  if (!resource) {
+    await logAiAction({ tenantId, userId, toolName: "attach_file_to_entity", args, status: "validation_error", errorMessage: "entityType inválido", startedAt: t0 });
+    return { ok: false, error: "entityType inválido: usa deal, account, installation, lead o contact." };
+  }
+  if (!canEdit(perms, "crm", resource)) {
+    await logAiAction({ tenantId, userId, toolName: "attach_file_to_entity", args, status: "denied", errorMessage: `Sin permiso crm.${resource}.edit`, startedAt: t0 });
+    return { ok: false, error: `No tienes permiso para adjuntar archivos a ${entityType} en este tenant.` };
+  }
+  if (!stagedKey || !stagedKey.includes("chat-staged")) {
+    await logAiAction({ tenantId, userId, toolName: "attach_file_to_entity", args, status: "validation_error", errorMessage: "stagedKey inválido", startedAt: t0 });
+    return { ok: false, error: "stagedKey inválido: debe venir del manifiesto de archivos del chat." };
+  }
+  if (!fileName || !mimeType || !entityId) {
+    await logAiAction({ tenantId, userId, toolName: "attach_file_to_entity", args, status: "validation_error", errorMessage: "Faltan datos", startedAt: t0 });
+    return { ok: false, error: "Faltan datos: fileName, mimeType y entityId." };
+  }
+  const table: Record<string, () => Promise<{ id: string } | null>> = {
+    deal: () => prisma.crmDeal.findFirst({ where: { id: entityId, tenantId }, select: { id: true } }),
+    account: () => prisma.crmAccount.findFirst({ where: { id: entityId, tenantId }, select: { id: true } }),
+    installation: () => prisma.crmInstallation.findFirst({ where: { id: entityId, tenantId }, select: { id: true } }),
+    lead: () => prisma.crmLead.findFirst({ where: { id: entityId, tenantId }, select: { id: true } }),
+    contact: () => prisma.crmContact.findFirst({ where: { id: entityId, tenantId }, select: { id: true } }),
+  };
+  const exists = await table[entityType]();
+  if (!exists) {
+    await logAiAction({ tenantId, userId, toolName: "attach_file_to_entity", args, status: "validation_error", errorMessage: "Entidad inexistente", startedAt: t0 });
+    return { ok: false, error: `La entidad ${entityType} no existe en tu empresa.` };
+  }
+  try {
+    const file = await prisma.crmFile.create({
+      data: {
+        tenantId,
+        fileName,
+        mimeType,
+        size,
+        storageProvider: STORAGE_PROVIDER,
+        storageKey: stagedKey,
+        createdBy: userId,
+      },
+    });
+    await prisma.crmFileLink.create({
+      data: { tenantId, fileId: file.id, entityType, entityId },
+    });
+    // Nota de hito automática en el timeline del negocio (solo deals).
+    if (entityType === "deal") {
+      await prisma.crmNote.create({
+        data: {
+          tenantId,
+          entityType: "deal",
+          entityId,
+          content: `OPAI: adjunté el archivo '${fileName}' al negocio desde el chat.`,
+          createdBy: userId,
+        },
+      }).catch((e) => console.error("[ai] nota de hito adjunto falló:", e));
+    }
+    await logAiAction({ tenantId, userId, toolName: "attach_file_to_entity", args, status: "success", resultEntityId: file.id, resultEntityType: "crm_file", startedAt: t0 });
+    return {
+      ok: true,
+      data: {
+        fileId: file.id,
+        fileName,
+        entityType,
+        entityId,
+        url: `/api/crm/files/${file.id}/download`,
+        message: `Archivo '${fileName}' adjuntado. Ya puedo leerlo en cualquier sesión con get_entity_documents + read_document.`,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "attach_file_to_entity", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo adjuntar el archivo: ${msg}` };
+  }
+}
+
 export async function executeToolCallV2(
   toolName: string,
   args: Record<string, unknown>,
@@ -6864,6 +6984,7 @@ export async function executeToolCallV2(
   if (toolName === "create_ticket") return await toolCreateTicket(tenantId, userId, perms, args);
   if (toolName === "create_reminder") return await toolCreateReminder(tenantId, userId, args);
   if (toolName === "complete_reminder") return await toolCompleteReminder(tenantId, userId, args);
+  if (toolName === "attach_file_to_entity") return await toolAttachFileToEntity(tenantId, userId, perms, args);
   if (toolName === "get_my_reminders") return await toolGetMyReminders(tenantId, userId);
   if (toolName === "transition_ticket") return await toolTransitionTicket(tenantId, userId, perms, args);
   if (toolName === "take_ticket") return await toolTakeTicket(tenantId, userId, perms, args);
