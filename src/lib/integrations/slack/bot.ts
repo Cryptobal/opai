@@ -60,6 +60,24 @@ function pickAudioFile(files: SlackFile[] | undefined): SlackFile | null {
   return null;
 }
 
+const MAX_DOC_BYTES = 10_000_000;
+const IMAGE_MIME_RE = /^image\/(png|jpe?g|webp|gif)$/;
+const DOC_MIME_RE =
+  /^(application\/pdf|application\/vnd\.openxmlformats-officedocument\.(spreadsheetml\.sheet|wordprocessingml\.document)|application\/vnd\.ms-excel|text\/csv)$/;
+
+/** Adjuntos procesables: imágenes + documentos (PDF/Excel/Word/CSV), hasta N. */
+function pickProcessableFiles(files: SlackFile[] | undefined, max = 4): SlackFile[] {
+  if (!files?.length) return [];
+  return files
+    .filter(
+      (f) =>
+        (IMAGE_MIME_RE.test(f.mimetype ?? "") || DOC_MIME_RE.test(f.mimetype ?? "")) &&
+        (f.size ?? 0) <= MAX_DOC_BYTES &&
+        f.url_private,
+    )
+    .slice(0, max);
+}
+
 function stripMention(text: string): string {
   return text.replace(/<@[A-Z0-9]+>/g, "").replace(/\s+/g, " ").trim();
 }
@@ -135,17 +153,27 @@ export async function handleBotEvent(teamId: string, event: SlackBotEvent): Prom
   const files = event.files ?? [];
   const fileCount = event.subtype === "file_share" ? files.length : 0;
   const audioFile = event.subtype === "file_share" ? pickAudioFile(files) : null;
+  const processableFiles = event.subtype === "file_share" ? pickProcessableFiles(files) : [];
 
-  // DM con adjunto no-audio sin texto: aviso explícito (nunca silencio).
-  if (fileCount > 0 && !userMessage && !audioFile) {
+  // Adjunto no procesable (ni audio, ni imagen, ni PDF/Excel/Word) y sin texto: aviso.
+  if (fileCount > 0 && !userMessage && !audioFile && processableFiles.length === 0) {
     await slackPostMessage(token, {
       channel: channelId,
-      text: "Recibí tu archivo 📎. Por ahora no puedo leer adjuntos en Slack; escríbeme la instrucción en texto y te ayudo al tiro.",
+      text: "Recibí tu archivo 📎, pero solo puedo procesar imágenes (PNG/JPG), PDF, Excel, Word o notas de voz (máx. 10MB). Convierte el archivo o escríbeme la instrucción en texto.",
       thread_ts: threadTs,
-    }).catch((err) => console.error("[slack] no se pudo responder a file_share sin texto:", err));
+    }).catch((err) => console.error("[slack] adjunto no soportado sin texto:", err));
     return;
   }
-  if (!userMessage && !audioFile) return;
+  // Adjunto procesable sin instrucción: pregunta qué hacer (un archivo solo es ambiguo).
+  if (processableFiles.length > 0 && !userMessage && !audioFile) {
+    await slackPostMessage(token, {
+      channel: channelId,
+      text: "Recibí tu archivo 📎. ¿Qué hago con él? Ej: 'adjúntalo al negocio Licitación P&G y crea el checklist de documentos que piden las bases'.",
+      thread_ts: threadTs,
+    }).catch(() => {});
+    return;
+  }
+  if (!userMessage && !audioFile && processableFiles.length === 0) return;
 
   // Gate de vínculo: usuario no vinculado = cero datos, solo el flujo de vínculo.
   const linked = await resolveLinkedAdmin(workspace, slackUserId);
@@ -224,12 +252,11 @@ export async function handleBotEvent(teamId: string, event: SlackBotEvent): Prom
     }
   }
 
-  const nonAudioAttachments = fileCount > 0 && (!audioFile || files.length > 1);
-  if (nonAudioAttachments) {
-    const n = audioFile ? fileCount - 1 : fileCount;
-    if (n > 0) {
-      userMessage += `\n\n[El usuario adjuntó ${n} archivo(s); no están disponibles para lectura en este turno.]`;
-    }
+  // Solo advertimos por archivos que NO pudimos procesar (ni audio ni procesables:
+  // imágenes/PDF/Excel/Word/CSV). Los procesables se manejan aparte más abajo.
+  const unprocessableCount = fileCount - (audioFile ? 1 : 0) - processableFiles.length;
+  if (unprocessableCount > 0) {
+    userMessage += `\n\n[El usuario adjuntó ${unprocessableCount} archivo(s) que no puedo leer; no están disponibles en este turno.]`;
   }
 
   try {
@@ -242,6 +269,20 @@ export async function handleBotEvent(teamId: string, event: SlackBotEvent): Prom
     const contextHint =
       (await buildDealRoomContextHint(workspace.tenantId, channelId).catch(() => null)) ??
       (await buildContextHint(workspace, slackUserId));
+
+    // Adjuntos: descarga, staging en R2 y preparación de contexto para el runner.
+    let attachments: Array<{ mimeType: string; dataBase64: string; name?: string }> | undefined;
+    let attachmentsHint: string | undefined;
+    if (processableFiles.length > 0) {
+      const { prepareSlackAttachments } = await import("./bot-attachments");
+      const prepared = await prepareSlackAttachments(processableFiles, token, workspace.tenantId);
+      attachments = prepared.multimodal.length > 0 ? prepared.multimodal : undefined;
+      attachmentsHint = prepared.contextHint;
+      if (prepared.extractedContext) {
+        userMessage = `${userMessage}\n\n${prepared.extractedContext}`;
+      }
+    }
+
     const result = await runHelpChatTurn({
       tenantId: workspace.tenantId,
       userId: linked.adminId,
@@ -250,7 +291,8 @@ export async function handleBotEvent(teamId: string, event: SlackBotEvent): Prom
       history: prior,
       userMessage,
       allowWrites: cfg.allowWrites,
-      contextHint,
+      contextHint: [contextHint, attachmentsHint].filter(Boolean).join("\n") || undefined,
+      attachments,
     });
 
     const blocks: unknown[] = [assistantSection(toSlackMarkdown(result.text))];
