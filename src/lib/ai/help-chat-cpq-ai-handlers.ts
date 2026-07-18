@@ -275,6 +275,16 @@ export async function aiTool_update_quote_status(
   }
 }
 
+/** Deriva "Día"/"Noche" desde el rango horario de un turno; "" si es ambiguo. */
+function deriveShiftLabel(start?: string, end?: string): string {
+  if (!start) return "";
+  const h = parseInt(start.slice(0, 2), 10);
+  if (!Number.isFinite(h)) return "";
+  if (h >= 6 && h < 18) return "Día";
+  if (h >= 18 || h < 6) return "Noche";
+  return "";
+}
+
 async function buildInsertBodiesFromArgs(
   tenantId: string,
   args: Record<string, unknown>,
@@ -361,8 +371,19 @@ async function buildInsertBodiesFromArgs(
             : Number(args.numGuards) || 1,
       ),
     );
-    const customName =
-      slots.length > 1 ? `${asStr(args, "puestoLabelPrefix") ?? "Puesto"} · ${slot.name}` : asStr(args, "customName");
+    // El nombre que dio el usuario (customName) manda SIEMPRE. Si un coveragePattern
+    // expande varios slots (día/noche), conservamos SU nombre y anexamos el turno para
+    // distinguirlos, en vez de reemplazarlo por el genérico del catálogo (slot.name).
+    const userName = asStr(args, "customName")?.trim();
+    const prefix = asStr(args, "puestoLabelPrefix")?.trim();
+    let customName: string | undefined;
+    if (slots.length > 1) {
+      const shiftLabel = deriveShiftLabel(slot.shiftStart, slot.shiftEnd);
+      const baseLabel = userName || prefix || slot.name;
+      customName = shiftLabel ? `${baseLabel} (${shiftLabel})` : `${baseLabel} · ${slot.name}`;
+    } else {
+      customName = userName || prefix;
+    }
 
     out.push({
       puestoTrabajoId: puestoId,
