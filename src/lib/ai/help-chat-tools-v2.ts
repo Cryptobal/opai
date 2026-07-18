@@ -135,6 +135,23 @@ function v2ToolDefinitions() {
     {
       type: "function" as const,
       function: {
+        name: "list_deal_tasks",
+        description:
+          "Lista las tareas/checklist de un deal con su estado (open/done) y vencimiento. Úsala cuando pregunten '¿qué falta de la licitación X?' o pidan ver los pendientes de un negocio.",
+        parameters: {
+          type: "object",
+          properties: {
+            dealId: { type: "string", description: "UUID del deal. OBLIGATORIO." },
+            status: { type: "string", enum: ["open", "done", "all"], description: "Filtro (default all)." },
+          },
+          required: ["dealId"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
         name: "search_accounts",
         description: "Busca cuentas CRM (clientes/prospectos) por nombre o RUT; devuelve industria y conteos de instalaciones y negocios.",
         parameters: {
@@ -685,6 +702,35 @@ function v2ToolDefinitions() {
 
 function writeToolDefinitions() {
   return [
+    {
+      type: "function" as const,
+      function: {
+        name: "create_deal_checklist",
+        description:
+          "Crea VARIAS tareas (checklist) asociadas a un deal de una sola vez. Úsala para transformar los requisitos de unas bases de licitación en una lista de pendientes accionable (ej: 'Garantía de seriedad', 'Certificado OS-10 vigente', 'Balance clasificado'). Máx. 25 ítems por llamada. Requiere dealId (resuélvelo con search_deals si te dan el nombre).",
+        parameters: {
+          type: "object",
+          properties: {
+            dealId: { type: "string", description: "UUID del deal. OBLIGATORIO." },
+            items: {
+              type: "array",
+              maxItems: 25,
+              items: {
+                type: "object",
+                properties: {
+                  title: { type: "string", description: "Texto del pendiente (claro y accionable)." },
+                  dueAt: { type: "string", description: "Vencimiento ISO YYYY-MM-DD (opcional)." },
+                },
+                required: ["title"],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ["dealId", "items"],
+          additionalProperties: false,
+        },
+      },
+    },
     {
       type: "function" as const,
       function: {
@@ -1825,6 +1871,7 @@ export const PREVIEW_TO_CONFIRM: Record<string, { confirmToolName: string; label
  */
 export const WRITE_TOOL_LABELS: Record<string, string> = {
   attach_file_to_entity: "Adjuntar archivo a entidad",
+  create_deal_checklist: "Crear checklist del negocio",
   create_lead: "Crear lead",
   create_account: "Crear cuenta / cliente",
   create_contact: "Crear contacto",
@@ -1865,6 +1912,10 @@ export function describeWriteArgs(toolName: string, args: Record<string, unknown
   const label = WRITE_TOOL_LABELS[toolName] ?? toolName;
   if (toolName === "attach_file_to_entity") {
     return `${label} · Adjuntar '${String(args.fileName ?? "archivo")}' a ${String(args.entityType ?? "entidad")}`.slice(0, 140);
+  }
+  if (toolName === "create_deal_checklist") {
+    const n = Array.isArray(args.items) ? args.items.length : 0;
+    return `${label} · Crear ${n} pendientes en el deal`;
   }
   if (toolName === "bulk_update_installations") {
     const status = args.status ?? "?";
@@ -6934,6 +6985,89 @@ async function toolAttachFileToEntity(
   }
 }
 
+async function toolCreateDealChecklist(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!canEdit(perms, "crm", "deals")) {
+    await logAiAction({ tenantId, userId, toolName: "create_deal_checklist", args, status: "denied", errorMessage: "Sin permiso crm.deals.edit", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para editar negocios en este tenant." };
+  }
+  const dealId = typeof args.dealId === "string" ? args.dealId : "";
+  const rawItems = Array.isArray(args.items) ? (args.items as Array<Record<string, unknown>>) : [];
+  const items = rawItems
+    .map((it) => ({
+      title: typeof it.title === "string" ? it.title.trim() : "",
+      dueAt: typeof it.dueAt === "string" && /^\d{4}-\d{2}-\d{2}/.test(it.dueAt) ? new Date(it.dueAt) : null,
+    }))
+    .filter((it) => it.title.length > 0)
+    .slice(0, 25);
+  if (!dealId || items.length === 0) {
+    await logAiAction({ tenantId, userId, toolName: "create_deal_checklist", args, status: "validation_error", errorMessage: "Requiere dealId e items", startedAt: t0 });
+    return { ok: false, error: "Requiere dealId e items con title." };
+  }
+  const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, tenantId }, select: { id: true, title: true } });
+  if (!deal) {
+    await logAiAction({ tenantId, userId, toolName: "create_deal_checklist", args, status: "validation_error", errorMessage: "Deal inexistente", startedAt: t0 });
+    return { ok: false, error: "El deal no existe en tu empresa." };
+  }
+  try {
+    await prisma.crmTask.createMany({
+      data: items.map((it) => ({
+        tenantId,
+        dealId,
+        title: it.title,
+        status: "open",
+        type: "checklist",
+        dueAt: it.dueAt ?? undefined,
+        assignedTo: userId,
+      })),
+    });
+    await prisma.crmNote.create({
+      data: {
+        tenantId,
+        entityType: "deal",
+        entityId: dealId,
+        content: `OPAI: creé un checklist de ${items.length} pendientes para este negocio (${items.slice(0, 3).map((i) => i.title).join(", ")}${items.length > 3 ? "…" : ""}).`,
+        createdBy: userId,
+      },
+    }).catch((e) => console.error("[ai] nota de hito checklist falló:", e));
+    await logAiAction({ tenantId, userId, toolName: "create_deal_checklist", args, status: "success", resultEntityId: dealId, resultEntityType: "crm_deal", startedAt: t0 });
+    return { ok: true, data: { dealId, dealTitle: deal.title, created: items.length, url: `/crm/deals/${dealId}` } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "create_deal_checklist", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo crear el checklist: ${msg}` };
+  }
+}
+
+async function toolListDealTasks(tenantId: string, args: Record<string, unknown>): Promise<unknown> {
+  const dealId = typeof args.dealId === "string" ? args.dealId : "";
+  const status = typeof args.status === "string" ? args.status : "all";
+  if (!dealId) return { ok: false, error: "Requiere dealId." };
+  const tasks = await prisma.crmTask.findMany({
+    where: { tenantId, dealId, ...(status === "all" ? {} : { status }) },
+    orderBy: [{ status: "asc" }, { dueAt: "asc" }, { createdAt: "asc" }],
+    take: 50,
+    select: { id: true, title: true, status: true, dueAt: true, type: true },
+  });
+  const open = tasks.filter((t) => t.status !== "done").length;
+  return {
+    ok: true,
+    data: {
+      dealId,
+      total: tasks.length,
+      open,
+      done: tasks.length - open,
+      tasks: tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, dueAt: t.dueAt?.toISOString() ?? null })),
+      url: `/crm/deals/${dealId}`,
+    },
+  };
+}
+
 export async function executeToolCallV2(
   toolName: string,
   args: Record<string, unknown>,
@@ -6985,6 +7119,8 @@ export async function executeToolCallV2(
   if (toolName === "create_reminder") return await toolCreateReminder(tenantId, userId, args);
   if (toolName === "complete_reminder") return await toolCompleteReminder(tenantId, userId, args);
   if (toolName === "attach_file_to_entity") return await toolAttachFileToEntity(tenantId, userId, perms, args);
+  if (toolName === "create_deal_checklist") return await toolCreateDealChecklist(tenantId, userId, perms, args);
+  if (toolName === "list_deal_tasks") return await toolListDealTasks(tenantId, args);
   if (toolName === "get_my_reminders") return await toolGetMyReminders(tenantId, userId);
   if (toolName === "transition_ticket") return await toolTransitionTicket(tenantId, userId, perms, args);
   if (toolName === "take_ticket") return await toolTakeTicket(tenantId, userId, perms, args);
