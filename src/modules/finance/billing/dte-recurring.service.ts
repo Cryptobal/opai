@@ -7,7 +7,6 @@
  * nuevo). Idempotencia: si lastRunAt = today, no duplica.
  */
 import { prisma } from "@/lib/prisma";
-import { todayChileStr } from "@/lib/fx-date";
 import { Prisma } from "@prisma/client";
 import type { FinanceDteRecurringTemplate } from "@prisma/client";
 import { createDraftDte, type DraftDteInput } from "./dte-draft.service";
@@ -326,7 +325,7 @@ function templateLineToDraftLine(
 function templateToDraftInput(
   t: FinanceDteRecurringTemplate,
   ctx: PlaceholderContext,
-  opts: { ufValue: number | null; billingPeriod: string },
+  opts: { ufValue: number | null; billingPeriod: string; issueDate: string },
 ): DraftDteInput {
   const rawLines = (t.lines as TemplateLine[] | null) ?? [];
   const lines = rawLines.map((l) =>
@@ -380,6 +379,7 @@ function templateToDraftInput(
     // adelanto/atraso manual se hace en el editor, no acá (el cron es la cuota
     // normal del mes).
     recurringTemplateId: t.id,
+    issueDate: opts.issueDate,
     billingPeriod: opts.billingPeriod,
   };
 }
@@ -572,16 +572,24 @@ export async function runTemplate(
     // pesos. Por eso no pasamos `ufOverride` — `computeDteAmounts` ve
     // currency=CLP y no intenta resolver UF (no hay UF "global" en este
     // modelo).
-    // Período de caja de esta cuota = mes de emisión (Chile), igual que la
-    // DTE.date que pone createDraftDte. Es la cuota "normal" del mes; adelantos
-    // se hacen manualmente desde el editor.
-    const billingPeriod = todayChileStr().slice(0, 7);
+    // Ancla = la ocurrencia que se está cumpliendo (nextRunAt), no hoy. Fallback
+    // a la primera ocurrencia (plantilla sin schedule) o hoy en último caso.
+    const issueAnchor = template.nextRunAt ?? computeNextRunAt(template) ?? new Date();
+    const issueDate = computeRecurringIssueYmd(template, issueAnchor);
+    // Período de caja = mes de SERVICIO (mes de la programación). Para
+    // DIA_ESPECIFICO/MES_SIGUIENTE la factura sale el mes siguiente pero factura
+    // el período del mes de la programación (igual que estadoPagoPeriodoMode=
+    // PREVIOUS). Anclar a nextRunAt lo hace robusto a runs atrasados.
+    const billingPeriod = `${issueAnchor.getUTCFullYear()}-${String(
+      issueAnchor.getUTCMonth() + 1,
+    ).padStart(2, "0")}`;
     const draft = await createDraftDte(
       tenantId,
       template.createdBy,
       templateToDraftInput(template, ctx, {
         ufValue: ufContextValue,
         billingPeriod,
+        issueDate,
       }),
     );
 
