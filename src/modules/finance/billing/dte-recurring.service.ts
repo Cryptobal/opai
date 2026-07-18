@@ -157,6 +157,46 @@ export function computeNextRunAt(template: ComputeInput, fromDate?: Date): Date 
 }
 
 /**
+ * YYYY-MM-DD (UTC) con clamp de día al mes destino; -1 = último día.
+ */
+function toIssueYmd(year: number, monthZeroIdx: number, day: number): string {
+  // Date.UTC absorbe el rollover dic → ene del año siguiente.
+  const norm = new Date(Date.UTC(year, monthZeroIdx, 1));
+  const y = norm.getUTCFullYear();
+  const m = norm.getUTCMonth();
+  const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  const d = day === -1 ? last : Math.min(Math.max(day, 1), last);
+  return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+/**
+ * Fecha de EMISIÓN (campo `date` del DTE) de la cuota que se está generando.
+ * Espeja `calcularFechaEmisionProyectada` (cashflow) para que el borrador nazca
+ * con la MISMA fecha que el flujo proyectó:
+ *   - AL_EMITIR: el día de la programación (mes del anchor + dayOfMonth).
+ *   - DIA_ESPECIFICO: facturaDay del mes indicado por facturaMesRelativo
+ *     (MISMO_MES / MES_SIGUIENTE) relativo al mes de la programación.
+ * `anchor` = la ocurrencia que se cumple (nextRunAt), NO hoy: si el cron corre
+ * tarde o es el primer run de onboarding, la factura igual queda fechada el día
+ * correcto (antes usaba todayChileStr y se corría de fecha).
+ */
+export function computeRecurringIssueYmd(
+  template: Pick<
+    FinanceDteRecurringTemplate,
+    "facturaTiming" | "facturaDay" | "facturaMesRelativo" | "dayOfMonth"
+  >,
+  anchor: Date,
+): string {
+  const y = anchor.getUTCFullYear();
+  const m = anchor.getUTCMonth();
+  if (template.facturaTiming === "DIA_ESPECIFICO" && template.facturaDay != null) {
+    const targetMonth = template.facturaMesRelativo === "MES_SIGUIENTE" ? m + 1 : m;
+    return toIssueYmd(y, targetMonth, template.facturaDay);
+  }
+  return toIssueYmd(y, m, template.dayOfMonth ?? 1);
+}
+
+/**
  * Shape de cada línea en el JSON `lines` del template. Algunos campos
  * son extras opcionales que el form de plantilla agrega para
  * preservar la "intención" del usuario:
