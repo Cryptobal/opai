@@ -705,6 +705,23 @@ function writeToolDefinitions() {
     {
       type: "function" as const,
       function: {
+        name: "add_deal_note",
+        description:
+          "Guarda una nota en el timeline de un negocio (deal). Úsala cuando el usuario pida registrar un resumen, decisión, acuerdo o análisis en el negocio ('guarda esto como nota', 'deja registro en el negocio'). El contenido debe ser el texto final listo para leerse en el timeline (claro y conciso). Requiere dealId (resuélvelo con search_deals si te dan el nombre).",
+        parameters: {
+          type: "object",
+          properties: {
+            dealId: { type: "string", description: "UUID del deal. OBLIGATORIO." },
+            content: { type: "string", description: "Texto de la nota (máx ~2000 caracteres)." },
+          },
+          required: ["dealId", "content"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
         name: "create_deal_checklist",
         description:
           "Crea VARIAS tareas (checklist) asociadas a un deal de una sola vez. Úsala para transformar los requisitos de unas bases de licitación en una lista de pendientes accionable (ej: 'Garantía de seriedad', 'Certificado OS-10 vigente', 'Balance clasificado'). Máx. 25 ítems por llamada. Requiere dealId (resuélvelo con search_deals si te dan el nombre).",
@@ -1872,6 +1889,7 @@ export const PREVIEW_TO_CONFIRM: Record<string, { confirmToolName: string; label
 export const WRITE_TOOL_LABELS: Record<string, string> = {
   attach_file_to_entity: "Adjuntar archivo a entidad",
   create_deal_checklist: "Crear checklist del negocio",
+  add_deal_note: "Guardar nota en el negocio",
   create_lead: "Crear lead",
   create_account: "Crear cuenta / cliente",
   create_contact: "Crear contacto",
@@ -1916,6 +1934,9 @@ export function describeWriteArgs(toolName: string, args: Record<string, unknown
   if (toolName === "create_deal_checklist") {
     const n = Array.isArray(args.items) ? args.items.length : 0;
     return `${label} · Crear ${n} pendientes en el deal`;
+  }
+  if (toolName === "add_deal_note") {
+    return `${label} · Nota en deal: "${String(args.content ?? "").slice(0, 60)}…"`;
   }
   if (toolName === "bulk_update_installations") {
     const status = args.status ?? "?";
@@ -7044,6 +7065,42 @@ async function toolCreateDealChecklist(
   }
 }
 
+async function toolAddDealNote(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!canEdit(perms, "crm", "deals")) {
+    await logAiAction({ tenantId, userId, toolName: "add_deal_note", args, status: "denied", errorMessage: "Sin permiso crm.deals.edit", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para escribir notas en negocios en este tenant." };
+  }
+  const dealId = typeof args.dealId === "string" ? args.dealId : "";
+  const content = typeof args.content === "string" ? args.content.trim().slice(0, 2000) : "";
+  if (!dealId || !content) {
+    await logAiAction({ tenantId, userId, toolName: "add_deal_note", args, status: "validation_error", errorMessage: "Requiere dealId y content", startedAt: t0 });
+    return { ok: false, error: "Requiere dealId y content." };
+  }
+  const deal = await prisma.crmDeal.findFirst({ where: { id: dealId, tenantId }, select: { id: true, title: true } });
+  if (!deal) {
+    await logAiAction({ tenantId, userId, toolName: "add_deal_note", args, status: "validation_error", errorMessage: "Deal inexistente", startedAt: t0 });
+    return { ok: false, error: "El deal no existe en tu empresa." };
+  }
+  try {
+    const note = await prisma.crmNote.create({
+      data: { tenantId, entityType: "deal", entityId: dealId, content, createdBy: userId },
+      select: { id: true, createdAt: true },
+    });
+    await logAiAction({ tenantId, userId, toolName: "add_deal_note", args, status: "success", resultEntityId: note.id, resultEntityType: "crm_note", startedAt: t0 });
+    return { ok: true, data: { noteId: note.id, dealId, dealTitle: deal.title, url: `/crm/deals/${dealId}` } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "add_deal_note", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo guardar la nota: ${msg}` };
+  }
+}
+
 async function toolListDealTasks(tenantId: string, args: Record<string, unknown>): Promise<unknown> {
   const dealId = typeof args.dealId === "string" ? args.dealId : "";
   const status = typeof args.status === "string" ? args.status : "all";
@@ -7121,6 +7178,7 @@ export async function executeToolCallV2(
   if (toolName === "attach_file_to_entity") return await toolAttachFileToEntity(tenantId, userId, perms, args);
   if (toolName === "create_deal_checklist") return await toolCreateDealChecklist(tenantId, userId, perms, args);
   if (toolName === "list_deal_tasks") return await toolListDealTasks(tenantId, args);
+  if (toolName === "add_deal_note") return await toolAddDealNote(tenantId, userId, perms, args);
   if (toolName === "get_my_reminders") return await toolGetMyReminders(tenantId, userId);
   if (toolName === "transition_ticket") return await toolTransitionTicket(tenantId, userId, perms, args);
   if (toolName === "take_ticket") return await toolTakeTicket(tenantId, userId, perms, args);
