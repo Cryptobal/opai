@@ -7,7 +7,6 @@
  * nuevo). Idempotencia: si lastRunAt = today, no duplica.
  */
 import { prisma } from "@/lib/prisma";
-import { todayChileStr } from "@/lib/fx-date";
 import { Prisma } from "@prisma/client";
 import type { FinanceDteRecurringTemplate } from "@prisma/client";
 import { createDraftDte, type DraftDteInput } from "./dte-draft.service";
@@ -157,6 +156,46 @@ export function computeNextRunAt(template: ComputeInput, fromDate?: Date): Date 
 }
 
 /**
+ * YYYY-MM-DD (UTC) con clamp de día al mes destino; -1 = último día.
+ */
+function toIssueYmd(year: number, monthZeroIdx: number, day: number): string {
+  // Date.UTC absorbe el rollover dic → ene del año siguiente.
+  const norm = new Date(Date.UTC(year, monthZeroIdx, 1));
+  const y = norm.getUTCFullYear();
+  const m = norm.getUTCMonth();
+  const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  const d = day === -1 ? last : Math.min(Math.max(day, 1), last);
+  return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+/**
+ * Fecha de EMISIÓN (campo `date` del DTE) de la cuota que se está generando.
+ * Espeja `calcularFechaEmisionProyectada` (cashflow) para que el borrador nazca
+ * con la MISMA fecha que el flujo proyectó:
+ *   - AL_EMITIR: el día de la programación (mes del anchor + dayOfMonth).
+ *   - DIA_ESPECIFICO: facturaDay del mes indicado por facturaMesRelativo
+ *     (MISMO_MES / MES_SIGUIENTE) relativo al mes de la programación.
+ * `anchor` = la ocurrencia que se cumple (nextRunAt), NO hoy: si el cron corre
+ * tarde o es el primer run de onboarding, la factura igual queda fechada el día
+ * correcto (antes usaba todayChileStr y se corría de fecha).
+ */
+export function computeRecurringIssueYmd(
+  template: Pick<
+    FinanceDteRecurringTemplate,
+    "facturaTiming" | "facturaDay" | "facturaMesRelativo" | "dayOfMonth"
+  >,
+  anchor: Date,
+): string {
+  const y = anchor.getUTCFullYear();
+  const m = anchor.getUTCMonth();
+  if (template.facturaTiming === "DIA_ESPECIFICO" && template.facturaDay != null) {
+    const targetMonth = template.facturaMesRelativo === "MES_SIGUIENTE" ? m + 1 : m;
+    return toIssueYmd(y, targetMonth, template.facturaDay);
+  }
+  return toIssueYmd(y, m, template.dayOfMonth ?? 1);
+}
+
+/**
  * Shape de cada línea en el JSON `lines` del template. Algunos campos
  * son extras opcionales que el form de plantilla agrega para
  * preservar la "intención" del usuario:
@@ -286,7 +325,7 @@ function templateLineToDraftLine(
 function templateToDraftInput(
   t: FinanceDteRecurringTemplate,
   ctx: PlaceholderContext,
-  opts: { ufValue: number | null; billingPeriod: string },
+  opts: { ufValue: number | null; billingPeriod: string; issueDate: string },
 ): DraftDteInput {
   const rawLines = (t.lines as TemplateLine[] | null) ?? [];
   const lines = rawLines.map((l) =>
@@ -340,6 +379,7 @@ function templateToDraftInput(
     // adelanto/atraso manual se hace en el editor, no acá (el cron es la cuota
     // normal del mes).
     recurringTemplateId: t.id,
+    issueDate: opts.issueDate,
     billingPeriod: opts.billingPeriod,
   };
 }
@@ -532,16 +572,24 @@ export async function runTemplate(
     // pesos. Por eso no pasamos `ufOverride` — `computeDteAmounts` ve
     // currency=CLP y no intenta resolver UF (no hay UF "global" en este
     // modelo).
-    // Período de caja de esta cuota = mes de emisión (Chile), igual que la
-    // DTE.date que pone createDraftDte. Es la cuota "normal" del mes; adelantos
-    // se hacen manualmente desde el editor.
-    const billingPeriod = todayChileStr().slice(0, 7);
+    // Ancla = la ocurrencia que se está cumpliendo (nextRunAt), no hoy. Fallback
+    // a la primera ocurrencia (plantilla sin schedule) o hoy en último caso.
+    const issueAnchor = template.nextRunAt ?? computeNextRunAt(template) ?? new Date();
+    const issueDate = computeRecurringIssueYmd(template, issueAnchor);
+    // Período de caja = mes de SERVICIO (mes de la programación). Para
+    // DIA_ESPECIFICO/MES_SIGUIENTE la factura sale el mes siguiente pero factura
+    // el período del mes de la programación (igual que estadoPagoPeriodoMode=
+    // PREVIOUS). Anclar a nextRunAt lo hace robusto a runs atrasados.
+    const billingPeriod = `${issueAnchor.getUTCFullYear()}-${String(
+      issueAnchor.getUTCMonth() + 1,
+    ).padStart(2, "0")}`;
     const draft = await createDraftDte(
       tenantId,
       template.createdBy,
       templateToDraftInput(template, ctx, {
         ufValue: ufContextValue,
         billingPeriod,
+        issueDate,
       }),
     );
 

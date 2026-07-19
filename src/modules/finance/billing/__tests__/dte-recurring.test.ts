@@ -7,7 +7,40 @@ vi.hoisted(() => {
   process.env.RESEND_API_KEY ??= "test_resend_key_for_tests";
 });
 
-import { computeNextRunAt } from "../dte-recurring.service";
+import { computeNextRunAt, computeRecurringIssueYmd } from "../dte-recurring.service";
+
+const baseTiming = {
+  facturaTiming: "AL_EMITIR" as const,
+  facturaDay: null as number | null,
+  facturaMesRelativo: "MES_SIGUIENTE",
+  dayOfMonth: 1 as number | null,
+};
+
+describe("computeRecurringIssueYmd", () => {
+  it("AL_EMITIR: fecha = dia de la programacion del mes del anchor", () => {
+    expect(computeRecurringIssueYmd(baseTiming, new Date(Date.UTC(2026, 7, 1)))).toBe("2026-08-01");
+  });
+
+  it("AL_EMITIR corrida tarde: sigue fechada el dia de la programacion", () => {
+    // Onboarding: nextRunAt Jul 1 aunque el cron corra Jul 17 -> factura Jul 1
+    expect(computeRecurringIssueYmd(baseTiming, new Date(Date.UTC(2026, 6, 1)))).toBe("2026-07-01");
+  });
+
+  it("DIA_ESPECIFICO MES_SIGUIENTE (Pine: prog 20 -> factura 1 mes sig)", () => {
+    const pine = { ...baseTiming, facturaTiming: "DIA_ESPECIFICO" as const, facturaDay: 1, dayOfMonth: 20 };
+    expect(computeRecurringIssueYmd(pine, new Date(Date.UTC(2026, 7, 20)))).toBe("2026-09-01");
+  });
+
+  it("DIA_ESPECIFICO MISMO_MES", () => {
+    const t = { ...baseTiming, facturaTiming: "DIA_ESPECIFICO" as const, facturaDay: 5, facturaMesRelativo: "MISMO_MES", dayOfMonth: 20 };
+    expect(computeRecurringIssueYmd(t, new Date(Date.UTC(2026, 7, 20)))).toBe("2026-08-05");
+  });
+
+  it("rollover diciembre -> enero + clamp de ultimo dia", () => {
+    const t = { ...baseTiming, facturaTiming: "DIA_ESPECIFICO" as const, facturaDay: -1, dayOfMonth: 20 };
+    expect(computeRecurringIssueYmd(t, new Date(Date.UTC(2026, 11, 20)))).toBe("2027-01-31");
+  });
+});
 
 const monthlyTpl = (overrides: Partial<Parameters<typeof computeNextRunAt>[0]> = {}) => ({
   frequency: "monthly" as const,
