@@ -47,13 +47,13 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   incompleta: { label: "Incompleta", color: "bg-status-warn-soft text-status-warn-fg" },
   en_curso: { label: "En curso", color: "bg-status-info-soft text-status-info-fg" },
   no_realizada: { label: "No realizada", color: "bg-status-danger-soft text-status-danger-fg" },
-  pendiente: { label: "Pendiente", color: "bg-gray-500/20 text-gray-400" },
-  cerrada_auto: { label: "Cerrada auto", color: "bg-gray-500/20 text-gray-400" },
-  cerrada_admin: { label: "Cerrada admin", color: "bg-gray-500/20 text-gray-400" },
+  pendiente: { label: "Pendiente", color: "bg-muted text-muted-foreground" },
+  cerrada_auto: { label: "Cerrada auto", color: "bg-muted text-muted-foreground" },
+  cerrada_admin: { label: "Cerrada admin", color: "bg-muted text-muted-foreground" },
 };
 
 function trustBadge(score: number | null) {
-  if (score == null || score === 0) return { color: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400", label: "-" };
+  if (score == null || score === 0) return { color: "bg-muted text-muted-foreground", label: "-" };
   if (score >= 80) return { color: "bg-status-ok-soft text-status-ok-fg", label: `${score}%` };
   if (score >= 60) return { color: "bg-status-warn-soft text-status-warn-fg", label: `${score}%` };
   return { color: "bg-status-danger-soft text-status-danger-fg", label: `${score}%` };
@@ -267,7 +267,7 @@ export function InstalacionRondasTab({ installationId }: { installationId: strin
           <tbody className="divide-y divide-border">
             {paginated.map((row) => {
               const isExpanded = expandedId === row.id;
-              const statusInfo = STATUS_LABELS[row.status] ?? { label: row.status, color: "bg-gray-100 text-gray-600" };
+              const statusInfo = STATUS_LABELS[row.status] ?? { label: row.status, color: "bg-muted text-muted-foreground" };
               const trust = trustBadge(row.trustScore);
               return (
                 <Fragment key={row.id}>

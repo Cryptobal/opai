@@ -46,7 +46,7 @@ interface PlanData {
 const planOrder = ['free', 'starter', 'profesional', 'enterprise'];
 
 const planBadge: Record<string, string> = {
-  free: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+  free: 'bg-muted text-muted-foreground',
   starter: 'bg-status-info-soft text-status-info-fg',
   profesional: 'bg-status-info-soft text-status-info-fg',
   enterprise: 'bg-tint-violet text-tint-violet-fg',
@@ -117,7 +117,7 @@ export function MiPlanClient() {
 
   if (!data?.plan) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-8 text-center text-gray-500">
+      <div className="rounded-lg border border-border bg-card p-8 text-center text-muted-foreground">
         No hay un plan configurado para tu cuenta.
       </div>
     );
@@ -134,14 +134,14 @@ export function MiPlanClient() {
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Mi Plan</h1>
 
       {/* Current plan card */}
-      <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+      <div className="rounded-xl border border-border bg-card opai-glass-m p-6">
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                 Plan {plan.plan.charAt(0).toUpperCase() + plan.plan.slice(1)}
               </h2>
-              <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${planBadge[plan.plan] ?? 'bg-gray-100 text-gray-700'}`}>
+              <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${planBadge[plan.plan] ?? 'bg-muted text-muted-foreground'}`}>
                 {plan.billingStatus}
               </span>
             </div>
@@ -164,15 +164,15 @@ export function MiPlanClient() {
 
         {/* Limits */}
         <div className="mt-4 grid grid-cols-3 gap-4">
-          <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 text-center">
+          <div className="rounded-lg bg-muted opai-glass-soft-m p-3 text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400">Guardias</p>
             <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{plan.maxGuards === 9999 ? 'Sin limite' : plan.maxGuards}</p>
           </div>
-          <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 text-center">
+          <div className="rounded-lg bg-muted opai-glass-soft-m p-3 text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400">Admins</p>
             <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{plan.maxAdmins}</p>
           </div>
-          <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 text-center">
+          <div className="rounded-lg bg-muted opai-glass-soft-m p-3 text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400">Almacenamiento</p>
             <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{plan.maxStorageMb >= 10000 ? `${plan.maxStorageMb / 1000} GB` : `${plan.maxStorageMb} MB`}</p>
           </div>
@@ -180,7 +180,7 @@ export function MiPlanClient() {
       </div>
 
       {/* Enabled modules */}
-      <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+      <div className="rounded-xl border border-border bg-card opai-glass-m p-6">
         <h3 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">Modulos incluidos</h3>
         <div className="flex flex-wrap gap-2">
           {modules.map((m) => (
@@ -193,7 +193,7 @@ export function MiPlanClient() {
 
       {/* Active add-ons */}
       {addons.length > 0 && (
-        <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+        <div className="rounded-xl border border-border bg-card opai-glass-m p-6">
           <h3 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">Add-ons activos</h3>
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
             {addons.map((a) => (
@@ -234,7 +234,7 @@ export function MiPlanClient() {
 
       {/* Plan comparison */}
       {planCatalog.length > 0 && currentPlanIdx < planOrder.length - 1 && (
-        <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+        <div className="rounded-xl border border-border bg-card opai-glass-m p-6">
           <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Planes disponibles</h3>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             {planCatalog.map((cp) => {
@@ -248,7 +248,7 @@ export function MiPlanClient() {
                       ? 'border-status-info-border bg-status-info-soft/30'
                       : cp.featured
                         ? 'border-status-info-border'
-                        : 'border-gray-200 dark:border-gray-700'
+                        : 'border-border'
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -294,7 +294,7 @@ export function MiPlanClient() {
       {/* Upgrade modal */}
       {upgradeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="mx-4 w-full max-w-md rounded-xl bg-white dark:bg-gray-900 p-6 shadow-xl">
+          <div className="mx-4 w-full max-w-md rounded-xl bg-card opai-glass-strong-m border border-border p-6 shadow-xl">
             {sent ? (
               <div className="text-center">
                 <p className="text-lg font-semibold text-status-ok-fg">Solicitud enviada</p>
@@ -309,7 +309,7 @@ export function MiPlanClient() {
                   Tu solicitud sera revisada por nuestro equipo. Te contactaremos para coordinar la activacion.
                 </p>
                 <textarea
-                  className="mt-4 w-full rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm"
+                  className="mt-4 w-full rounded-lg border border-border bg-background text-foreground px-3 py-2 text-sm"
                   rows={3}
                   placeholder="Mensaje opcional..."
                   value={upgradeMessage}
@@ -322,7 +322,7 @@ export function MiPlanClient() {
                       setUpgradeModal(null);
                       setUpgradeMessage('');
                     }}
-                    className="rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                    className="rounded-lg border border-border px-4 py-2 text-sm text-foreground/80 hover:bg-muted"
                   >
                     Cancelar
                   </button>

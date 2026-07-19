@@ -64,7 +64,7 @@ const STATUS_CONFIG: Record<
   queued: {
     label: "En cola",
     icon: Clock,
-    className: "bg-gray-100 text-gray-600 border-gray-200",
+    className: "bg-muted text-muted-foreground border-border",
   },
   sent: {
     label: "Enviado",

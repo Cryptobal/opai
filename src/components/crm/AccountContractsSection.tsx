@@ -1429,7 +1429,7 @@ export function AccountContractsSection({
   const getStatusConfig = (status: string) =>
     DOC_STATUS_CONFIG[status] ?? {
       label: status,
-      color: "bg-gray-100 text-gray-700",
+      color: "bg-muted text-foreground/80",
     };
 
   const getSignatureLabel = (
@@ -1442,11 +1442,11 @@ export function AccountContractsSection({
         label: signedAt
           ? `Firma externa · ${formatDate(signedAt)}`
           : "Firma externa",
-        color: "bg-slate-100 text-slate-700",
+        color: "bg-muted text-foreground/80",
       };
     }
     const map: Record<string, { label: string; color: string }> = {
-      draft: { label: "Firma pendiente", color: "bg-gray-100 text-gray-600" },
+      draft: { label: "Firma pendiente", color: "bg-muted text-muted-foreground" },
       pending: {
         label: "Enviada a firma",
         color: "bg-status-warn-soft text-status-warn-fg",
@@ -1683,7 +1683,7 @@ export function AccountContractsSection({
                     {isUpload && (
                       <Badge
                         variant="outline"
-                        className="text-[10px] px-1.5 py-0 bg-slate-100 text-slate-700"
+                        className="text-[10px] px-1.5 py-0 bg-muted text-foreground/80"
                       >
                         Subido manualmente
                       </Badge>

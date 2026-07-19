@@ -24,7 +24,7 @@ const MONTHS = [
 const STATUS_COLORS: Record<string, string> = {
   OPEN: "bg-status-info-soft text-status-info-fg border-status-info-border",
   PROCESSING: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
-  CLOSED: "bg-slate-500/15 text-slate-400 border-slate-500/30",
+  CLOSED: "bg-muted text-muted-foreground border-border",
   PAID: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
 };
 
