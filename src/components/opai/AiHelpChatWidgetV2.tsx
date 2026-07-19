@@ -1124,6 +1124,14 @@ export function AiHelpChatWidgetV2() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [staging, setStaging] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Trigger externo (mobile): el orbe OPAI de la isla nav emite `opai-ai-open`.
+  useEffect(() => {
+    const open = () => setOpen(true);
+    window.addEventListener("opai-ai-open", open);
+    return () => window.removeEventListener("opai-ai-open", open);
+  }, []);
+
   const pageContext = useChatPageContext();
   const clearPageContext = useClearChatPageContext();
   const pathname = usePathname();
@@ -1737,13 +1745,14 @@ export function AiHelpChatWidgetV2() {
 
   return (
     <>
+      {/* FAB — sólo desktop (mobile usa el orbe OPAI de la isla nav). */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed right-4 md:right-6 z-40 h-12 w-12 rounded-full bg-gradient-to-br from-status-info via-status-ok to-status-info text-white shadow-[0_10px_30px_rgba(16,185,129,0.4)] transition-transform hover:scale-[1.05] bottom-[calc(var(--bottom-nav-height,56px)+1rem)] lg:bottom-6"
+        className="hidden lg:flex items-center justify-center fixed right-6 z-40 h-12 w-12 rounded-full bg-gradient-to-br from-primary via-primary to-primary/80 text-white shadow-[0_10px_30px_hsl(var(--primary)/0.4)] transition-transform hover:scale-[1.05] lg:bottom-6"
         aria-label="Abrir OPAI Intelligence"
       >
-        <MessageCircle className="mx-auto h-5 w-5" />
+        <MessageCircle className="h-5 w-5" />
       </button>
 
       {open ? (

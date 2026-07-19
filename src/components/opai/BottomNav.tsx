@@ -9,7 +9,7 @@ import {
   ChevronLeft, ChevronDown, MoreHorizontal,
   Landmark, Wallet, FolderOpen, FileBarChart, Clock,
   Settings, Monitor, Eye, Sun, Moon, User, LogOut,
-  Check, Receipt, Calculator, FileText, SlidersHorizontal,
+  Check, Receipt, Calculator, FileText, SlidersHorizontal, Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -19,7 +19,7 @@ import { hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
 import { useTenantModules } from '@/contexts/TenantModulesContext';
 import { ChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
 import { RoleSwitcher } from '@/components/navbar/RoleSwitcher';
-import { useIsIOS } from '@/hooks/usePlatform';
+import { useScrollDirection } from '@/hooks/useScrollDirection';
 import { useTheme } from './ThemeProvider';
 import {
   Sheet,
@@ -35,7 +35,8 @@ function useBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
     const el = ref.current;
     if (!el) return;
     const update = () => {
-      document.documentElement.style.setProperty('--bottom-nav-height', `${el.offsetHeight}px`);
+      // Isla flotante: la altura reservada incluye el gap de 10px + un margen.
+      document.documentElement.style.setProperty('--bottom-nav-height', `${el.offsetHeight + 12}px`);
     };
     update();
     const ro = new ResizeObserver(update);
@@ -164,7 +165,7 @@ export function BottomNav({ userRole }: BottomNavProps) {
   const { enabledModules } = useTenantModules();
   const navRef = useRef<HTMLElement>(null);
   const navConfig = useNavConfig();
-  const isIOS = useIsIOS();
+  const hidden = useScrollDirection(60);
   useBottomNavHeight(navRef);
 
   // State override: when user taps back in ModuleSubNav, show MainNav without navigating
@@ -200,26 +201,45 @@ export function BottomNav({ userRole }: BottomNavProps) {
     <nav
       ref={navRef}
       className={cn(
-        "fixed inset-x-0 bottom-0 z-40 lg:hidden",
-        // iOS PWA / Safari: Liquid Glass real (backdrop-filter fuerte + fondo muy translúcido).
-        // Android / otros: chapa opaca clásica (no tocamos el aspecto previo).
-        isIOS
-          ? "opai-liquid-glass-bar"
-          : "border-t border-border/30 bg-background/95 backdrop-blur-xl",
+        // Liquid Glass v1 — isla flotante despegada de los bordes, con orbe OPAI
+        // a la derecha. Hide-on-scroll-down / show-on-scroll-up. iOS === Android.
+        "fixed left-3 right-3 z-40 lg:hidden flex items-end gap-2",
+        "motion-safe:transition-transform motion-safe:duration-300 ease-out",
       )}
       style={{
-        bottom: 0,
-        paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)",
+        bottom: "calc(env(safe-area-inset-bottom) + 10px)",
+        transform: hidden ? "translateY(calc(100% + 16px))" : "none",
       }}
     >
-      <div className="flex items-center justify-around min-h-[56px] px-1">
+      <div className="opai-glass-strong flex-1 min-w-0 flex items-center justify-around h-16 px-1 overflow-hidden">
         {isInModule ? (
           <ModuleSubNav items={moduleItems} activeModule={activeModule!} pathname={pathname} onBack={() => setForceMainNav(true)} />
         ) : (
           <MainNav pathname={pathname} userRole={userRole} navConfig={navConfig} />
         )}
       </div>
+      <OpaiOrb />
     </nav>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   ORBE OPAI — botón glass-teal integrado a la derecha de la isla.
+   Reemplaza el FAB del widget AI en mobile (desktop mantiene su panel).
+   Al tocarlo emite `opai-ai-open`; el widget lo escucha y se abre.
+   ════════════════════════════════════════════════════ */
+
+function OpaiOrb() {
+  return (
+    <button
+      type="button"
+      onClick={() => window.dispatchEvent(new CustomEvent("opai-ai-open"))}
+      aria-label="Abrir OPAI Intelligence"
+      className="opai-orb relative shrink-0 h-16 w-16 rounded-full overflow-hidden active:scale-95 motion-safe:transition-transform"
+    >
+      <span aria-hidden className="opai-orb-sweep absolute inset-0 rounded-full" />
+      <Sparkles className="relative mx-auto h-6 w-6 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" />
+    </button>
   );
 }
 
@@ -239,10 +259,10 @@ function MainNav({ pathname, userRole, navConfig }: { pathname: string; userRole
               key={item.key}
               type="button"
               onClick={() => setMasOpen(true)}
-              className="relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] px-3 py-1 active:scale-95 transition-all text-muted-foreground"
+              className="relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[52px] px-3 py-1 active:scale-95 transition-all text-muted-foreground"
             >
-              <item.icon className="h-5 w-5" />
-              <span className="text-[11px] font-medium leading-tight">{item.label}</span>
+              <item.icon className="h-[21px] w-[21px]" />
+              <span className="text-[10px] font-medium leading-tight">{item.label}</span>
             </button>
           );
         }
@@ -254,15 +274,13 @@ function MainNav({ pathname, userRole, navConfig }: { pathname: string; userRole
             key={item.key}
             href={item.href}
             className={cn(
-              "relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] px-3 py-1 active:scale-95 transition-all",
-              isActive ? "text-status-ok-fg" : "text-muted-foreground"
+              "relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[52px] px-3 py-1 active:scale-95 transition-all",
+              isActive ? "text-primary" : "text-muted-foreground"
             )}
           >
-            <item.icon className="h-5 w-5" />
-            {isActive && (
-              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-status-ok animate-in fade-in duration-200" />
-            )}
-            <span className="text-[11px] font-medium leading-tight">{item.label}</span>
+            {isActive && <span aria-hidden className="opai-nav-pill" />}
+            <item.icon className="relative h-[21px] w-[21px]" />
+            <span className="relative text-[10px] font-medium leading-tight">{item.label}</span>
           </Link>
         );
       })}
@@ -656,10 +674,10 @@ function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: Bottom
       <button
         type="button"
         onClick={onBack}
-        className="relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] px-2 py-1 active:scale-95 transition-all text-muted-foreground border-r border-border/20 mr-1"
+        className="relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[52px] px-2 py-1 active:scale-95 transition-all text-muted-foreground border-r border-white/10 mr-1"
         aria-label="Volver"
       >
-        <ChevronLeft className="h-5 w-5" />
+        <ChevronLeft className="h-[21px] w-[21px]" />
         <span className="text-[10px] font-medium leading-tight">{MODULE_LABELS[activeModule] || ''}</span>
       </button>
 
@@ -673,17 +691,15 @@ function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: Bottom
 
         const content = (
           <>
-            <Icon className="h-5 w-5" />
-            {isActive && (
-              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-status-ok animate-in fade-in duration-200" />
-            )}
-            <span className="text-[11px] font-medium leading-tight truncate max-w-[60px]">{item.label}</span>
+            {isActive && <span aria-hidden className="opai-nav-pill" />}
+            <Icon className="relative h-[21px] w-[21px]" />
+            <span className="relative text-[10px] font-medium leading-tight truncate max-w-[60px]">{item.label}</span>
           </>
         );
 
         const itemClass = cn(
-          "relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] flex-1 px-1 py-1 active:scale-95 transition-all",
-          isActive ? "text-status-ok-fg" : "text-muted-foreground"
+          "relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[52px] flex-1 px-1 py-1 active:scale-95 transition-all",
+          isActive ? "text-primary" : "text-muted-foreground"
         );
 
         if (isChatToggle) {
@@ -705,10 +721,10 @@ function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: Bottom
       <button
         type="button"
         onClick={() => setOverflowOpen(true)}
-        className="relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] px-2 py-1 active:scale-95 transition-all text-muted-foreground"
+        className="relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[52px] px-2 py-1 active:scale-95 transition-all text-muted-foreground"
       >
-        <MoreHorizontal className="h-5 w-5" />
-        <span className="text-[11px] font-medium leading-tight">Más</span>
+        <MoreHorizontal className="h-[21px] w-[21px]" />
+        <span className="text-[10px] font-medium leading-tight">Más</span>
       </button>
 
       {/* Overflow + customizer sheet */}

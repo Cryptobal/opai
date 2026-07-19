@@ -106,10 +106,9 @@ function AppShellInner({
         {sidebar && (
           <header
             className={cn(
+              // Liquid Glass v1 — header glass unificado (iOS === Android), sin gate de plataforma.
               "fixed top-0 left-0 right-0 z-30 flex min-h-12 items-center justify-between lg:hidden",
-              isIOS
-                ? "opai-liquid-glass-bar-top"
-                : "border-b border-border/50 bg-background/95 backdrop-blur-md",
+              "opai-liquid-glass-bar-top",
             )}
             style={{
               paddingLeft: 'max(env(safe-area-inset-left), 0.75rem)',
