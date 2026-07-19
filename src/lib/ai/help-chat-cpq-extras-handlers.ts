@@ -388,3 +388,84 @@ export async function aiTool_update_quote(
     return { ok: false, error: hcMapQuoteResolveError(e) };
   }
 }
+
+/** Normaliza un teléfono chileno a dígitos con prefijo país para wa.me (mismo criterio que el módulo de envío). */
+function normalizeWaPhone(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const cleaned = raw.replace(/[^\d+]/g, "");
+  if (!cleaned) return null;
+  if (/^9\d{8}$/.test(cleaned)) return `56${cleaned}`;
+  if (cleaned.startsWith("+")) return cleaned.slice(1);
+  return cleaned;
+}
+
+/**
+ * Devuelve el link vigente del portal cliente de una cotización YA ENVIADA
+ * (deal.proposalLink) para compartirlo por WhatsApp. NO envía nada ni genera
+ * invitaciones nuevas. Lectura: solo dispatcher.
+ */
+export async function aiTool_get_quote_share_link(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+  pageContext: PageCx,
+): Promise<unknown> {
+  const t0 = Date.now();
+  const TOOL = "get_quote_share_link";
+  if (!hcCanReadQuotes(perms)) {
+    await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "denied", errorMessage: "perm", startedAt: t0 });
+    return { ok: false, error: "Sin permiso para ver cotizaciones." };
+  }
+  try {
+    const resolved = await resolveAiHelpChatCpqQuote(tenantId, asStr(args, "quoteIdOrCode"), pageContext);
+    const quote = await prisma.cpqQuote.findFirst({
+      where: { id: resolved.id, tenantId },
+      select: { id: true, code: true, clientName: true, dealId: true, contactId: true },
+    });
+    if (!quote) throw new Error("QUOTE_NOT_FOUND");
+
+    // dealId/contactId son escalares (CPQ y CRM en schemas distintos) → lookups tenant-scoped.
+    const deal = quote.dealId
+      ? await prisma.crmDeal.findFirst({ where: { id: quote.dealId, tenantId }, select: { title: true, proposalLink: true } })
+      : null;
+    const portalUrl = deal?.proposalLink ?? null;
+    if (!portalUrl) {
+      await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "validation_error", errorMessage: "not_sent", startedAt: t0 });
+      return {
+        ok: false,
+        error: "Esta cotización todavía no tiene link de portal (no se ha enviado). Envíala primero con send_quote_proposal y luego te doy el link listo para WhatsApp.",
+      };
+    }
+
+    const contact = quote.contactId
+      ? await prisma.crmContact.findFirst({ where: { id: quote.contactId, tenantId }, select: { firstName: true, lastName: true, phone: true } })
+      : null;
+    const clientName =
+      quote.clientName ??
+      (contact ? `${contact.firstName} ${contact.lastName}`.trim() : null);
+    const message = `Hola, te comparto nuestra propuesta de servicios de seguridad: ${portalUrl}`;
+    const phone = normalizeWaPhone(contact?.phone);
+    const whatsappUrl = phone
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+      : `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+    await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "success", resultEntityId: quote.id, resultEntityType: "cpq_quote", startedAt: t0 });
+    return {
+      ok: true,
+      data: {
+        quoteId: quote.id,
+        quoteCode: quote.code,
+        portalUrl,
+        dealTitle: deal?.title ?? null,
+        clientName,
+        whatsappPhone: phone,
+        whatsappUrl,
+      },
+    };
+  } catch (e) {
+    const raw = e instanceof Error ? e.message : String(e);
+    await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "internal_error", errorMessage: raw, startedAt: t0 });
+    return { ok: false, error: hcMapQuoteResolveError(e) };
+  }
+}

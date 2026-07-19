@@ -78,6 +78,7 @@ import {
   aiTool_update_quote_status,
 } from "@/lib/ai/help-chat-cpq-ai-handlers";
 import {
+  aiTool_get_quote_share_link,
   aiTool_manage_quote_extras,
   aiTool_update_quote,
 } from "@/lib/ai/help-chat-cpq-extras-handlers";
@@ -483,6 +484,20 @@ function v2ToolDefinitions() {
                 "Código CPQ (ej. CPQ-2026-001), texto de búsqueda o UUID. Opcional cuando hay página de cotización abierta.",
             },
           },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "get_quote_share_link",
+        description:
+          "Devuelve el link vigente del portal cliente de una cotización YA ENVIADA (deal.proposalLink o el registro del portal), para compartirlo por WhatsApp u otro canal. NO envía nada ni genera invitaciones nuevas. Si la cotización nunca se ha enviado, devuelve ok:false indicando que primero debe enviarse con send_quote_proposal.",
+        parameters: {
+          type: "object",
+          properties: { quoteIdOrCode: { type: "string" } },
+          required: ["quoteIdOrCode"],
           additionalProperties: false,
         },
       },
@@ -7469,6 +7484,8 @@ export async function executeToolCallV2(
         };
       case "get_quote_detail":
         return await toolGetQuoteDetail(tenantId, perms, args, pageContext);
+      case "get_quote_share_link":
+        return await aiTool_get_quote_share_link(tenantId, userId, perms, args, pageContext);
       case "get_entity_documents":
         return {
           ok: true,
