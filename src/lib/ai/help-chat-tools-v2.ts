@@ -81,6 +81,7 @@ import {
   aiTool_manage_quote_extras,
   aiTool_update_quote,
 } from "@/lib/ai/help-chat-cpq-extras-handlers";
+import { parseGoogleMapsUrl, buildDealMapsUrl } from "@/lib/google-maps-url";
 export type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
 
 function baseToolDefinitions() {
@@ -1235,6 +1236,9 @@ function writeToolDefinitions() {
             status: { type: "string", enum: ["prospect", "active", "inactive"], description: "Default prospect." },
             notes: { type: "string" },
             teMontoClp: { type: "number", description: "Monto base de turnos extra en CLP." },
+            googleMapsUrl: { type: "string", description: "Link de Google Maps de la ubicación; el sistema extrae lat/lng automáticamente." },
+            lat: { type: "number" },
+            lng: { type: "number" },
           },
           required: ["accountId", "name"],
           additionalProperties: false,
@@ -1366,6 +1370,7 @@ function writeToolDefinitions() {
             commune: { type: "string" },
             lat: { type: "number" },
             lng: { type: "number" },
+            googleMapsUrl: { type: "string", description: "Link de Google Maps de la ubicación; el sistema extrae lat/lng automáticamente." },
             status: { type: "string", enum: ["prospect", "active", "inactive"] },
             geoRadiusM: { type: "number", description: "Radio del geofence en metros (10-1000)." },
             teMontoClp: { type: "number", description: "Monto base TE en CLP." },
@@ -2265,6 +2270,8 @@ async function toolSearchInstallations(
       status: true,
       city: true,
       address: true,
+      lat: true,
+      lng: true,
       accountId: true,
       account: { select: { name: true } },
       supervisorAssignments: {
@@ -2284,6 +2291,7 @@ async function toolSearchInstallations(
     address: r.address,
     accountId: r.accountId,
     accountName: r.account?.name ?? null,
+    mapsUrl: r.lat != null && r.lng != null ? buildDealMapsUrl({ lat: r.lat, lng: r.lng }) : null,
     supervisor: r.supervisorAssignments[0]?.supervisor
       ? {
           id: r.supervisorAssignments[0].supervisor.id,
@@ -4067,7 +4075,17 @@ async function toolCreateInstallation(
     await logAiAction({ tenantId, userId, toolName: "create_installation", args, status: "denied", errorMessage: "Sin permiso crm.installations.edit", startedAt: t0 });
     return { ok: false, error: "No tienes permiso para crear instalaciones." };
   }
-  const parsed = createInstallationSchema.safeParse(args);
+  const gmapCreate = typeof args.googleMapsUrl === "string" ? args.googleMapsUrl.trim() : "";
+  let installArgs: Record<string, unknown> = args;
+  if (gmapCreate && !(typeof args.lat === "number" && typeof args.lng === "number")) {
+    const coords = parseGoogleMapsUrl(gmapCreate);
+    if (!coords) {
+      await logAiAction({ tenantId, userId, toolName: "create_installation", args, status: "validation_error", errorMessage: "google_maps_parse", startedAt: t0 });
+      return { ok: false, error: "No pude extraer coordenadas de ese link de Google Maps. Si es un link corto (maps.app.goo.gl), ábrelo y copia la URL completa del navegador (la que incluye @lat,lng), o dame la dirección exacta." };
+    }
+    installArgs = { ...args, lat: coords.lat, lng: coords.lng };
+  }
+  const parsed = createInstallationSchema.safeParse(installArgs);
   if (!parsed.success) {
     const msg = parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ");
     await logAiAction({ tenantId, userId, toolName: "create_installation", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
@@ -4151,6 +4169,7 @@ async function toolCreateInstallation(
         commune: installation.commune,
         address: installation.address,
         status: installation.status,
+        mapsUrl: body.lat != null && body.lng != null ? buildDealMapsUrl({ lat: body.lat, lng: body.lng }) : null,
       },
     };
   } catch (e) {
@@ -4626,6 +4645,17 @@ async function toolUpdateInstallation(
   }
   const rest = { ...args };
   delete (rest as Record<string, unknown>).id;
+  const gmapUpdate = typeof rest.googleMapsUrl === "string" ? (rest.googleMapsUrl as string).trim() : "";
+  delete (rest as Record<string, unknown>).googleMapsUrl;
+  if (gmapUpdate && !(typeof rest.lat === "number" && typeof rest.lng === "number")) {
+    const coords = parseGoogleMapsUrl(gmapUpdate);
+    if (!coords) {
+      await logAiAction({ tenantId, userId, toolName: "update_installation", args, status: "validation_error", errorMessage: "google_maps_parse", startedAt: t0 });
+      return { ok: false, error: "No pude extraer coordenadas de ese link de Google Maps. Si es un link corto (maps.app.goo.gl), ábrelo y copia la URL completa del navegador (la que incluye @lat,lng), o dame la dirección exacta." };
+    }
+    rest.lat = coords.lat;
+    rest.lng = coords.lng;
+  }
   const parsed = updateInstallationSchema.safeParse(rest);
   if (!parsed.success) {
     const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
@@ -4699,6 +4729,7 @@ async function toolUpdateInstallation(
         status: installation!.status,
         accountId: installation!.accountId,
         accountName: installation!.account?.name ?? null,
+        mapsUrl: installation!.lat != null && installation!.lng != null ? buildDealMapsUrl({ lat: installation!.lat, lng: installation!.lng }) : null,
         changedFields: diff.changedFields,
         previousValues: Object.fromEntries(Object.entries(diff.changes).map(([k, v]) => [k, v.from])),
       },
