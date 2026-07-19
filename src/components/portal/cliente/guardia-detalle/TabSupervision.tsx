@@ -10,7 +10,7 @@ interface Props {
 export function TabSupervision({ supervision }: Props) {
   if (supervision.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 gap-2 text-zinc-500">
+      <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
         <Eye className="h-8 w-8" />
         <p className="text-sm text-center px-6">
           Sin evaluaciones de supervisión publicadas para este guardia.
@@ -30,7 +30,7 @@ export function TabSupervision({ supervision }: Props) {
             <div>
               <p className="text-sm font-medium">{s.supervisorName}</p>
               {s.visitDate && (
-                <p className="text-[11px] text-zinc-500">
+                <p className="text-[11px] text-muted-foreground">
                   {new Date(s.visitDate).toLocaleString("es-CL", {
                     dateStyle: "medium",
                     timeStyle: "short",
@@ -50,7 +50,7 @@ export function TabSupervision({ supervision }: Props) {
             <ScoreCell label="Protocolo" value={s.protocolScore} />
           </div>
           {s.observation && (
-            <p className="text-xs text-zinc-400 mt-3 leading-relaxed">
+            <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
               {s.observation}
             </p>
           )}
@@ -63,10 +63,10 @@ export function TabSupervision({ supervision }: Props) {
 function ScoreCell({ label, value }: { label: string; value: number | null }) {
   return (
     <div className="rounded bg-white/[0.03] py-2">
-      <div className="text-lg font-mono font-semibold text-status-info-fg">
+      <div className="text-lg font-mono font-semibold text-primary">
         {value ?? "—"}
       </div>
-      <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
     </div>

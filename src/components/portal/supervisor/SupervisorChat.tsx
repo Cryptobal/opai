@@ -213,22 +213,22 @@ export function SupervisorChat({ session }: Props) {
                 <button
                   key={ch.id}
                   onClick={() => setSelectedChannel(ch)}
-                  className="flex items-center gap-3 h-14 px-4 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors text-left w-full"
+                  className="flex items-center gap-3 h-14 px-4 rounded-xl bg-card opai-glass-soft-m border border-border hover:border-border transition-colors text-left w-full"
                 >
-                  <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-blue-500/15 flex items-center justify-center">
+                  <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center">
                     {isDm ? (
-                      <MessageSquare size={16} className="text-blue-400" />
+                      <MessageSquare size={16} className="text-primary" />
                     ) : (
-                      <span className="text-sm font-bold text-blue-400">#</span>
+                      <span className="text-sm font-bold text-primary">#</span>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate">
-                      {!isDm && <span className="text-zinc-500 mr-0.5">#</span>}
+                      {!isDm && <span className="text-muted-foreground mr-0.5">#</span>}
                       {ch.name}
                     </p>
                     {ch.lastMessagePreview && (
-                      <p className="text-xs text-zinc-500 truncate">{ch.lastMessagePreview}</p>
+                      <p className="text-xs text-muted-foreground truncate">{ch.lastMessagePreview}</p>
                     )}
                   </div>
                   {ch.unreadCount > 0 && (
@@ -249,10 +249,10 @@ export function SupervisorChat({ session }: Props) {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-[rgba(255,255,255,0.06)] flex-shrink-0">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border flex-shrink-0">
         <button
           onClick={() => setSelectedChannel(null)}
-          className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300"
+          className="p-2 rounded-lg bg-card opai-glass-soft-m border border-border text-muted-foreground"
         >
           <ArrowLeft size={18} />
         </button>
@@ -289,8 +289,8 @@ export function SupervisorChat({ session }: Props) {
       </div>
 
       {/* Input */}
-      <div className="flex items-center gap-2 px-3 py-3 border-t border-[rgba(255,255,255,0.06)] bg-[#0d1220] flex-shrink-0">
-        <div className="flex-1 flex items-center bg-[#141a2a] rounded-xl border border-[rgba(255,255,255,0.06)] focus-within:border-[rgba(45,212,191,0.3)] transition-colors">
+      <div className="flex items-center gap-2 px-3 py-3 border-t border-border bg-card opai-glass-soft-m flex-shrink-0">
+        <div className="flex-1 flex items-center bg-muted rounded-xl border border-border focus-within:border-[rgba(45,212,191,0.3)] transition-colors">
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}

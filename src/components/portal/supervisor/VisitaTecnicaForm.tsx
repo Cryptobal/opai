@@ -417,8 +417,8 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
   if (loadingVisita) {
     return (
       <div className="flex flex-col h-full items-center justify-center gap-3 py-20">
-        <Loader2 className="animate-spin text-zinc-500" size={32} />
-        <p className="text-sm text-zinc-400">Cargando visita...</p>
+        <Loader2 className="animate-spin text-muted-foreground" size={32} />
+        <p className="text-sm text-muted-foreground">Cargando visita...</p>
       </div>
     );
   }
@@ -426,16 +426,16 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800 flex-shrink-0">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border flex-shrink-0">
         <button
           onClick={handleBackClick}
-          className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300"
+          className="p-2 rounded-lg bg-muted border border-border text-muted-foreground"
         >
           <ArrowLeft size={18} />
         </button>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium">{visitaId ? "Visita técnica" : "Nueva Visita Técnica"}</p>
-          <p className="text-[11px] text-zinc-500">
+          <p className="text-[11px] text-muted-foreground">
             Paso {step + 1} de {STEPS.length}: {STEPS[step]}
           </p>
           {!initialVisitaId && (
@@ -444,7 +444,7 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
             </p>
           )}
         </div>
-        {saving && <Loader2 size={16} className="animate-spin text-zinc-500 flex-shrink-0" />}
+        {saving && <Loader2 size={16} className="animate-spin text-muted-foreground flex-shrink-0" />}
       </div>
 
       {/* Progress */}
@@ -453,7 +453,7 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
           <div
             key={i}
             className={`flex-1 h-1 rounded-full transition-colors ${
-              i <= step ? "bg-blue-500" : "bg-zinc-800"
+              i <= step ? "bg-blue-500" : "bg-muted"
             }`}
           />
         ))}
@@ -515,11 +515,11 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
       </div>
 
       {/* Footer */}
-      <div className="flex gap-2 px-4 py-3 border-t border-zinc-800 flex-shrink-0">
+      <div className="flex gap-2 px-4 py-3 border-t border-border flex-shrink-0">
         {step > 0 && (
           <button
             onClick={() => setStep((s) => s - 1)}
-            className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-zinc-800 text-zinc-300 text-sm font-medium hover:bg-zinc-700 transition-colors"
+            className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-muted text-muted-foreground text-sm font-medium hover:bg-muted transition-colors"
           >
             <ArrowLeft size={16} />
             Anterior
@@ -659,7 +659,7 @@ function Step1({
         ) : (
           <div className="flex flex-col gap-2">
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 autoFocus
                 value={searchQuery}
@@ -670,11 +670,11 @@ function Step1({
             </div>
             {searching && (
               <div className="flex justify-center py-2">
-                <Loader2 size={16} className="animate-spin text-zinc-500" />
+                <Loader2 size={16} className="animate-spin text-muted-foreground" />
               </div>
             )}
             {searchResults.length > 0 && (
-              <div className="flex flex-col gap-1 max-h-48 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900 p-1">
+              <div className="flex flex-col gap-1 max-h-48 overflow-y-auto rounded-lg border border-border bg-card opai-glass-soft-m p-1">
                 {searchResults.map((r) => (
                   <button
                     key={r.id}
@@ -684,16 +684,16 @@ function Step1({
                       setSearchMode(false);
                       setSearchQuery("");
                     }}
-                    className="text-left px-3 py-2 rounded-md hover:bg-zinc-800 transition-colors"
+                    className="text-left px-3 py-2 rounded-md hover:bg-muted transition-colors"
                   >
-                    <p className="text-xs font-medium text-zinc-200 truncate">{r.name}</p>
-                    <p className="text-[10px] text-zinc-500 truncate">{r.accountName}</p>
+                    <p className="text-xs font-medium text-foreground truncate">{r.name}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{r.accountName}</p>
                   </button>
                 ))}
               </div>
             )}
             {!searching && searchQuery.length >= 2 && searchResults.length === 0 && (
-              <p className="text-xs text-zinc-600 text-center py-2">Sin resultados</p>
+              <p className="text-xs text-muted-foreground text-center py-2">Sin resultados</p>
             )}
             <button
               type="button"
@@ -701,7 +701,7 @@ function Step1({
                 setSearchMode(false);
                 setSearchQuery("");
               }}
-              className="text-xs text-zinc-500 hover:text-zinc-300 self-start"
+              className="text-xs text-muted-foreground hover:text-foreground self-start"
             >
               Volver a mis instalaciones
             </button>
@@ -710,9 +710,9 @@ function Step1({
       </Field>
 
       {inst && "address" in inst && inst.address && (
-        <div className="flex items-start gap-2 p-3 rounded-xl bg-zinc-900 border border-zinc-800">
-          <MapPin size={14} className="text-zinc-500 mt-0.5 flex-shrink-0" />
-          <p className="text-xs text-zinc-400">{inst.address}</p>
+        <div className="flex items-start gap-2 p-3 rounded-xl bg-card opai-glass-soft-m border border-border">
+          <MapPin size={14} className="text-muted-foreground mt-0.5 flex-shrink-0" />
+          <p className="text-xs text-muted-foreground">{inst.address}</p>
         </div>
       )}
 
@@ -721,7 +721,7 @@ function Step1({
           <div className="flex flex-col items-center gap-2">
             <CheckCircle2 size={40} className="text-emerald-400" />
             <p className="text-sm text-emerald-400 font-medium">Check-in registrado</p>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted-foreground">
               {new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
             </p>
           </div>
@@ -738,8 +738,8 @@ function Step1({
                 <MapPin size={28} className="text-white" />
               )}
             </button>
-            <p className="text-sm text-zinc-400">Toca para registrar check-in</p>
-            <p className="text-xs text-zinc-600">Opcional — puedes continuar sin check-in</p>
+            <p className="text-sm text-muted-foreground">Toca para registrar check-in</p>
+            <p className="text-xs text-muted-foreground">Opcional — puedes continuar sin check-in</p>
           </>
         )}
       </div>
@@ -773,7 +773,7 @@ function Step2({ form, set }: { form: FormData; set: <K extends keyof FormData>(
               className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 form.hasSecurityCurrently === v
                   ? "bg-blue-600 text-white"
-                  : "bg-zinc-900 border border-zinc-800 text-zinc-400"
+                  : "bg-muted border border-border text-muted-foreground"
               }`}
             >
               {v ? "Sí" : "No"}
@@ -859,7 +859,7 @@ function Step3({ form, set }: { form: FormData; set: <K extends keyof FormData>(
 
   return (
     <div className="flex flex-col gap-3 py-4">
-      <p className="text-xs text-zinc-500">Indica qué servicios adicionales requiere la instalación.</p>
+      <p className="text-xs text-muted-foreground">Indica qué servicios adicionales requiere la instalación.</p>
       {services.map(({ key, notesKey, label }) => (
         <div key={key} className="flex flex-col gap-2">
           <button
@@ -867,13 +867,13 @@ function Step3({ form, set }: { form: FormData; set: <K extends keyof FormData>(
             className={`flex items-center justify-between w-full p-3.5 rounded-xl border transition-colors ${
               form[key]
                 ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
-                : "bg-zinc-900 border-zinc-800 text-zinc-400"
+                : "bg-muted border-border text-muted-foreground"
             }`}
           >
             <span className="text-sm font-medium">{label}</span>
             <div
               className={`w-5 h-5 rounded flex items-center justify-center ${
-                form[key] ? "bg-blue-500" : "bg-zinc-800"
+                form[key] ? "bg-blue-500" : "bg-muted"
               }`}
             >
               {form[key] && <CheckCircle2 size={12} className="text-white" />}
@@ -972,7 +972,7 @@ function Step4({
           <button
             onClick={() => photoRef.current?.click()}
             disabled={uploadingPhoto}
-            className="w-16 h-16 rounded-lg bg-zinc-900 border border-zinc-800 border-dashed flex items-center justify-center text-zinc-500 hover:border-zinc-600 transition-colors disabled:opacity-50"
+            className="w-16 h-16 rounded-lg bg-muted border border-border border-dashed flex items-center justify-center text-muted-foreground hover:border-border transition-colors disabled:opacity-50"
           >
             {uploadingPhoto ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
           </button>
@@ -1022,7 +1022,7 @@ function Step5({
 }) {
   return (
     <div className="flex flex-col gap-4 py-4">
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-muted-foreground">
         Datos del contacto que presenció la visita y su opinión. La firma es opcional — puedes completar la visita sin ella.
       </p>
 
@@ -1061,10 +1061,10 @@ function Step5({
       {/* Signature */}
       <Field label="Firma del contacto (opcional)">
         {signatureUrl ? (
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-900 border border-emerald-500/30">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-muted border border-emerald-500/30">
             <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0" />
             <p className="text-xs text-emerald-400 flex-1">Firma guardada</p>
-            <button onClick={onClearSignature} className="text-zinc-500">
+            <button onClick={onClearSignature} className="text-muted-foreground">
               <X size={14} />
             </button>
           </div>
@@ -1074,7 +1074,7 @@ function Step5({
               ref={canvasRef}
               width={320}
               height={120}
-              className="w-full rounded-xl bg-zinc-900 border border-zinc-700 touch-none"
+              className="w-full rounded-xl bg-zinc-900 border border-border touch-none"
               style={{ cursor: "crosshair" }}
               onMouseDown={onStartDraw}
               onMouseMove={onDraw}
@@ -1087,7 +1087,7 @@ function Step5({
             <div className="flex gap-2">
               <button
                 onClick={onClearSignature}
-                className="flex-1 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs hover:bg-zinc-800 transition-colors"
+                className="flex-1 py-2 rounded-lg bg-muted border border-border text-muted-foreground text-xs hover:bg-muted transition-colors"
               >
                 Limpiar
               </button>
@@ -1135,7 +1135,7 @@ function Step5({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] font-medium text-zinc-500">{label}</label>
+      <label className="text-[11px] font-medium text-muted-foreground">{label}</label>
       {children}
     </div>
   );

@@ -112,13 +112,13 @@ export function SupervisorTurnosExtra({ onCreateTE, onIngresoTE }: Props) {
         </div>
       </div>
 
-      <div className="flex gap-1 bg-zinc-900 rounded-lg p-1">
+      <div className="flex gap-1 bg-muted opai-glass-soft-m rounded-lg p-1">
         {TABS.map(({ id, label }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
             className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              tab === id ? "bg-zinc-700 text-white" : "text-zinc-500"
+              tab === id ? "bg-card text-foreground" : "text-muted-foreground"
             }`}
           >
             {label}
@@ -174,14 +174,14 @@ function TECard({
   });
 
   return (
-    <div className="rounded-xl bg-zinc-900 border border-zinc-800 overflow-hidden">
+    <div className="rounded-xl bg-card opai-glass-soft-m border border-border overflow-hidden">
       <div className="flex items-center gap-3 p-4">
         <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-purple-500/15 flex items-center justify-center">
           <Clock size={18} className="text-purple-400" />
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium truncate">{te.guardiaName}</p>
-          <p className="text-xs text-zinc-500 truncate">{te.installationName}</p>
+          <p className="text-xs text-muted-foreground truncate">{te.installationName}</p>
           <p className="text-xs text-zinc-600 mt-0.5">
             {dateStr} ·{" "}
             {te.tipo === "hora_extra" ? `${te.horasExtra ?? "?"} hrs extra` : "Turno extra"}
@@ -203,7 +203,7 @@ function TECard({
       </div>
 
       {showActions && (
-        <div className="flex border-t border-zinc-800">
+        <div className="flex border-t border-border">
           <button
             onClick={onReject}
             disabled={actioning}
@@ -212,7 +212,7 @@ function TECard({
             <XCircle size={14} />
             Rechazar
           </button>
-          <div className="w-px bg-zinc-800" />
+          <div className="w-px bg-border" />
           <button
             onClick={onApprove}
             disabled={actioning}

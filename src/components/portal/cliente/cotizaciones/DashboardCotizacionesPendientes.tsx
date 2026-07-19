@@ -31,7 +31,7 @@ export function DashboardCotizacionesPendientes({
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="animate-pulse h-32 rounded-xl bg-zinc-800/50 mb-6" />;
+  if (loading) return <div className="animate-pulse h-32 rounded-xl bg-muted mb-6" />;
   if (quotes.length === 0) return null;
 
   const navigateSection = isProspect ? "propuesta" : "cotizaciones";
@@ -47,8 +47,8 @@ export function DashboardCotizacionesPendientes({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-info opacity-75" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-status-info" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
               </span>
               <h3 className="text-sm font-semibold text-white">
                 Tu propuesta de seguridad está lista
@@ -111,8 +111,8 @@ export function DashboardCotizacionesPendientes({
       <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-info opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-status-info" />
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
           </span>
           <span className="text-sm font-medium text-white">
             Tienes {quotes.length} propuesta{quotes.length !== 1 ? "s" : ""} abierta{quotes.length !== 1 ? "s" : ""}
@@ -127,10 +127,10 @@ export function DashboardCotizacionesPendientes({
               className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] transition-colors text-left"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <FileText className="w-4 h-4 text-status-info-fg shrink-0" />
+                <FileText className="w-4 h-4 text-primary shrink-0" />
                 <span className="text-xs text-zinc-300 truncate">{q.code}</span>
               </div>
-              <span className="text-xs font-medium text-status-info-fg shrink-0 ml-2">
+              <span className="text-xs font-medium text-primary shrink-0 ml-2">
                 {formatCurrency(q.monthlyCost, q.currency === "UF" ? "UF" : "CLP")}/mes
               </span>
             </button>
@@ -140,7 +140,7 @@ export function DashboardCotizacionesPendientes({
         {quotes.length > 3 && (
           <button
             onClick={() => onNavigateToDetail(navigateSection)}
-            className="text-xs text-status-info-fg hover:text-status-info-fg transition-colors"
+            className="text-xs text-primary hover:text-primary transition-colors"
           >
             Ver todas en Propuestas →
           </button>
@@ -168,25 +168,24 @@ function ProspectQuoteCard({
 
   return (
     <div
-      className={`rounded-xl p-4 border border-white/[0.06] transition-all hover:-translate-y-0.5 ${className ?? ""}`}
-      style={{ background: "linear-gradient(145deg, #1E293B, #1A2332)" }}
+      className={`rounded-xl p-4 border border-border bg-card opai-glass-soft-m transition-all hover:-translate-y-0.5 ${className ?? ""}`}
     >
       <div className="flex justify-between items-start mb-2">
-        <span className="text-xs text-zinc-400">{quote.code}</span>
+        <span className="text-xs text-muted-foreground">{quote.code}</span>
         <span className={cn("text-xs px-2 py-0.5 rounded-full", badgeCls)}>
           {badgeLabel}
         </span>
       </div>
-      <div className="text-lg font-bold text-white mb-1">{displayCost}</div>
-      <div className="text-xs text-zinc-400 mb-1">
+      <div className="text-lg font-bold text-foreground mb-1">{displayCost}</div>
+      <div className="text-xs text-muted-foreground mb-1">
         <span className="block">{quote.clientName ?? quote.name ?? quote.code}</span>
         {(quote.installationName || quote.quoteName) && (
-          <span className="block mt-0.5 text-zinc-500">
+          <span className="block mt-0.5 text-muted-foreground">
             {[quote.installationName, quote.quoteName].filter(Boolean).join(" · ")}
           </span>
         )}
       </div>
-      <div className="text-xs text-zinc-500 mb-3">
+      <div className="text-xs text-muted-foreground mb-3">
         {quote.totalPositions} puesto{quote.totalPositions !== 1 ? "s" : ""} · {quote.totalGuards} guardia{quote.totalGuards !== 1 ? "s" : ""}
       </div>
       <button

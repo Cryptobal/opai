@@ -81,13 +81,13 @@ export function ExportButton({
         Exportar
       </button>
       {open && (
-        <div className="absolute right-0 mt-1 min-w-[160px] rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl z-20">
+        <div className="absolute right-0 mt-1 min-w-[160px] rounded-lg border border-border bg-card opai-glass-strong-m shadow-xl z-20">
           <button
             type="button"
             onClick={() => handle("csv")}
             className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/[0.05] text-left"
           >
-            <FileText className="h-3.5 w-3.5 text-zinc-400" />
+            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
             CSV
           </button>
           <button

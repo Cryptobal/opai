@@ -19,14 +19,14 @@ const TONES: Record<Documento["estado"], string> = {
   vigente: "text-status-ok-fg bg-status-ok-soft border-status-ok-border",
   por_vencer: "text-status-warn-fg bg-status-warn-soft border-status-warn-border",
   vencido: "text-status-danger-fg bg-status-danger-soft border-status-danger-border",
-  pendiente: "text-zinc-400 bg-white/[0.03] border-white/[0.06]",
-  no_aplica: "text-zinc-500 bg-white/[0.03] border-white/[0.06]",
+  pendiente: "text-muted-foreground bg-white/[0.03] border-white/[0.06]",
+  no_aplica: "text-muted-foreground bg-white/[0.03] border-white/[0.06]",
 };
 
 export function TabDocumentos({ documentos }: Props) {
   if (documentos.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 gap-2 text-zinc-500">
+      <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
         <FileText className="h-8 w-8" />
         <p className="text-sm">Sin documentos registrados.</p>
       </div>
@@ -39,11 +39,11 @@ export function TabDocumentos({ documentos }: Props) {
           key={i}
           className="flex items-center gap-3 rounded-lg bg-white/[0.02] px-3 py-2.5"
         >
-          <FileText className="h-4 w-4 text-zinc-500 flex-shrink-0 mt-0.5" />
+          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-sm break-words">{d.tipo}</p>
             {d.expiresAt && (
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-[11px] text-muted-foreground">
                 Vence {new Date(d.expiresAt).toLocaleDateString("es-CL")}
               </p>
             )}
@@ -60,7 +60,7 @@ export function TabDocumentos({ documentos }: Props) {
               rel="noopener noreferrer"
               className="p-1 rounded hover:bg-white/10 transition-colors"
             >
-              <Eye className="h-3.5 w-3.5 text-zinc-400" />
+              <Eye className="h-3.5 w-3.5 text-muted-foreground" />
             </a>
           )}
         </div>

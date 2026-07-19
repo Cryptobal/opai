@@ -8,16 +8,16 @@ interface GpsStatusProps {
 export function GpsStatusIndicator({ accuracy, isWatching }: GpsStatusProps) {
   if (!isWatching) {
     return (
-      <div className="flex items-center gap-1.5 rounded-lg bg-gray-800/80 px-2.5 py-1.5 backdrop-blur-sm">
-        <SignalIcon bars={0} color="text-gray-500" />
-        <span className="text-xs font-medium text-gray-500">Sin GPS</span>
+      <div className="flex items-center gap-1.5 rounded-lg bg-card opai-glass-soft-m px-2.5 py-1.5">
+        <SignalIcon bars={0} color="text-muted-foreground" />
+        <span className="text-xs font-medium text-muted-foreground">Sin GPS</span>
       </div>
     );
   }
 
   if (accuracy == null) {
     return (
-      <div className="flex items-center gap-1.5 rounded-lg bg-gray-800/80 px-2.5 py-1.5 backdrop-blur-sm">
+      <div className="flex items-center gap-1.5 rounded-lg bg-card opai-glass-soft-m px-2.5 py-1.5">
         <SignalIcon bars={1} color="text-status-warn-fg" />
         <span className="text-xs font-medium text-status-warn-fg animate-pulse">Buscando...</span>
       </div>
@@ -27,10 +27,10 @@ export function GpsStatusIndicator({ accuracy, isWatching }: GpsStatusProps) {
   const { label, color, bars } = getGpsLevel(accuracy);
 
   return (
-    <div className="flex items-center gap-1.5 rounded-lg bg-gray-800/80 px-2.5 py-1.5 backdrop-blur-sm">
+    <div className="flex items-center gap-1.5 rounded-lg bg-card opai-glass-soft-m px-2.5 py-1.5">
       <SignalIcon bars={bars} color={color} />
       <span className={`text-xs font-medium ${color}`}>{label}</span>
-      <span className="text-xs text-gray-500">{Math.round(accuracy)}m</span>
+      <span className="text-xs text-muted-foreground">{Math.round(accuracy)}m</span>
     </div>
   );
 }

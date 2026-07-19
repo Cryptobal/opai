@@ -17,13 +17,13 @@ interface Props {
 
 export function SupervisorVisitaWizard({ onClose, onComplete }: Props) {
   return (
-    <div className="fixed inset-0 z-50 bg-[#0a0a0f] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-card opai-glass-strong-m border border-border flex flex-col overflow-hidden">
       {/* Mobile close bar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 flex-shrink-0">
-        <span className="text-sm font-medium text-zinc-200">Visita de supervisión</span>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
+        <span className="text-sm font-medium text-foreground">Visita de supervisión</span>
         <button
           onClick={onClose}
-          className="p-2 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+          className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           aria-label="Cerrar wizard"
         >
           <X size={18} />

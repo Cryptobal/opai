@@ -61,10 +61,9 @@ function Card({ children, className }: { children: React.ReactNode; className?: 
   return (
     <div
       className={cn(
-        'rounded-xl border border-white/[0.06] p-4',
+        'rounded-xl border border-border bg-card opai-glass-soft-m p-4',
         className
       )}
-      style={{ background: 'linear-gradient(145deg, #1E293B, #1A2332)' }}
     >
       {children}
     </div>
@@ -74,8 +73,8 @@ function Card({ children, className }: { children: React.ReactNode; className?: 
 function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <Icon className="h-4 w-4 text-status-info-fg" />
-      <h3 className="text-sm font-semibold text-white">{title}</h3>
+      <Icon className="h-4 w-4 text-primary" />
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
     </div>
   )
 }
@@ -130,13 +129,13 @@ function InputField({
 }) {
   return (
     <div>
-      <label className="text-xs text-zinc-400 mb-1 block">{label}</label>
+      <label className="text-xs text-muted-foreground mb-1 block">{label}</label>
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-status-info-border transition-colors"
+        className="w-full h-9 rounded-lg border border-border bg-muted px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-status-info-border transition-colors"
       />
     </div>
   )
@@ -369,14 +368,14 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
   if (error || !data) {
     return (
-      <div className="flex items-center justify-center h-64 text-zinc-400 text-sm">
+      <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
         {error || 'Sin datos'}
       </div>
     )
@@ -389,10 +388,10 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
       {/* ── Header ── */}
       <div>
         <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Building2 className="h-5 w-5 text-status-info-fg" />
+          <Building2 className="h-5 w-5 text-primary" />
           Datos de tu empresa
         </h2>
-        <p className="text-xs text-zinc-500 mt-1">Información comercial y de contacto</p>
+        <p className="text-xs text-muted-foreground mt-1">Información comercial y de contacto</p>
       </div>
 
       {/* ── 1. Datos de la empresa ── */}
@@ -401,7 +400,7 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <InputField label="Razón social" value={legalName} onChange={setLegalName} placeholder="Razón social" />
           <div>
-            <label className="block text-[11px] text-zinc-400 mb-1 uppercase tracking-wider">RUT</label>
+            <label className="block text-[11px] text-muted-foreground mb-1 uppercase tracking-wider">RUT</label>
             <input
               type="text"
               value={rut}
@@ -414,8 +413,8 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
               }}
               placeholder="12.345.678-9"
               className={cn(
-                'w-full h-9 rounded-lg border bg-zinc-800 px-3 text-sm text-white focus:outline-none',
-                rutError ? 'border-status-danger-border focus:border-status-danger' : 'border-zinc-700 focus:border-status-info-border',
+                'w-full h-9 rounded-lg border bg-muted px-3 text-sm text-foreground focus:outline-none',
+                rutError ? 'border-status-danger-border focus:border-status-danger' : 'border-border focus:border-status-info-border',
               )}
             />
             {rutError && (
@@ -437,7 +436,7 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
         <SectionHeader icon={Users} title="Representantes legales" />
 
         {representantes.length === 0 && (
-          <p className="text-xs text-zinc-500 mb-3">Sin representantes legales registrados.</p>
+          <p className="text-xs text-muted-foreground mb-3">Sin representantes legales registrados.</p>
         )}
 
         <p className="text-[11px] text-status-warn-fg/70 mb-3">
@@ -448,17 +447,17 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
           {representantes.map((rep) => (
             <div
               key={rep.id}
-              className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 px-3 py-2 space-y-2"
+              className="rounded-lg border border-border bg-muted px-3 py-2 space-y-2"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-white break-words">{rep.nombre}</p>
-                  <p className="text-xs text-zinc-400">{rep.rut}</p>
+                  <p className="text-sm text-foreground break-words">{rep.nombre}</p>
+                  <p className="text-xs text-muted-foreground">{rep.rut}</p>
                 </div>
                 <button
                   onClick={() => deleteRepresentante(rep.id)}
                   disabled={deletingRepId === rep.id}
-                  className="text-zinc-500 hover:text-status-danger-fg transition-colors p-1 shrink-0"
+                  className="text-muted-foreground hover:text-status-danger-fg transition-colors p-1 shrink-0"
                 >
                   {deletingRepId === rep.id ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -478,8 +477,8 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
                   }
                   placeholder="Email de firma (requerido)"
                   className={cn(
-                    'flex-1 h-8 rounded-lg border bg-zinc-900 px-3 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-status-info-border transition-colors',
-                    !rep.email ? 'border-status-warn-border' : 'border-zinc-700'
+                    'flex-1 h-8 rounded-lg border bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-status-info-border transition-colors',
+                    !rep.email ? 'border-status-warn-border' : 'border-border'
                   )}
                 />
                 <SaveButton
@@ -500,14 +499,14 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
               value={newRepNombre}
               onChange={(e) => setNewRepNombre(e.target.value)}
               placeholder="Nombre"
-              className="flex-1 h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-status-info-border transition-colors"
+              className="flex-1 h-9 rounded-lg border border-border bg-muted px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-status-info-border transition-colors"
             />
             <input
               type="text"
               value={newRepRut}
               onChange={(e) => setNewRepRut(e.target.value)}
               placeholder="RUT"
-              className="flex-1 h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-status-info-border transition-colors"
+              className="flex-1 h-9 rounded-lg border border-border bg-muted px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-status-info-border transition-colors"
             />
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
@@ -516,12 +515,12 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
               value={newRepEmail}
               onChange={(e) => setNewRepEmail(e.target.value)}
               placeholder="Email de firma"
-              className="flex-1 h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-status-info-border transition-colors"
+              className="flex-1 h-9 rounded-lg border border-border bg-muted px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-status-info-border transition-colors"
             />
             <button
               onClick={addRepresentante}
               disabled={addingRep || !newRepNombre.trim() || !newRepRut.trim()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-700 hover:bg-zinc-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-muted hover:bg-muted/80 text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
             >
               {addingRep ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -545,11 +544,11 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
             onChange={setFechaEscritura}
           />
           <div>
-            <label className="text-xs text-zinc-400 mb-1 block">Tipo escritura</label>
+            <label className="text-xs text-muted-foreground mb-1 block">Tipo escritura</label>
             <select
               value={tipoEscritura}
               onChange={(e) => setTipoEscritura(e.target.value)}
-              className="w-full h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white focus:outline-none focus:border-status-info-border transition-colors appearance-none"
+              className="w-full h-9 rounded-lg border border-border bg-muted px-3 text-sm text-foreground focus:outline-none focus:border-status-info-border transition-colors appearance-none"
             >
               <option value="">Seleccionar...</option>
               <option value="Escritura pública">Escritura pública</option>
@@ -568,13 +567,13 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
       <Card>
         <SectionHeader icon={Contact} title="Contactos" />
         {contacts.length === 0 && (
-          <p className="text-xs text-zinc-500">Sin contactos registrados.</p>
+          <p className="text-xs text-muted-foreground">Sin contactos registrados.</p>
         )}
         <div className="space-y-3">
           {contacts.map((c) => (
             <div
               key={c.id}
-              className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 p-3 space-y-2"
+              className="rounded-lg border border-border bg-muted p-3 space-y-2"
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <InputField
@@ -614,13 +613,13 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
       <Card>
         <SectionHeader icon={MapPin} title="Instalaciones" />
         {installations.length === 0 && (
-          <p className="text-xs text-zinc-500">Sin instalaciones activas.</p>
+          <p className="text-xs text-muted-foreground">Sin instalaciones activas.</p>
         )}
         <div className="space-y-3">
           {installations.map((inst) => (
             <div
               key={inst.id}
-              className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 p-3 space-y-2"
+              className="rounded-lg border border-border bg-muted p-3 space-y-2"
             >
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <InputField

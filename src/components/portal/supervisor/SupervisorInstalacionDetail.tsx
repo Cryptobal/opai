@@ -95,19 +95,19 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
       <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300"
+          className="p-2 rounded-lg bg-card opai-glass-soft-m border border-border text-muted-foreground"
         >
           <ArrowLeft size={18} />
         </button>
         <div className="min-w-0">
           <h2 className="text-base font-semibold truncate">{installation.name}</h2>
-          <p className="text-xs text-zinc-500 truncate">{installation.accountName}</p>
+          <p className="text-xs text-muted-foreground truncate">{installation.accountName}</p>
         </div>
         <span
           className={`ml-auto flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full ${
             installation.status === "active"
               ? "bg-emerald-500/15 text-emerald-400"
-              : "bg-zinc-700 text-zinc-400"
+              : "bg-muted text-muted-foreground"
           }`}
         >
           {installation.status === "active" ? "Activa" : installation.status === "inactive" ? "Inactiva" : "Prospecto"}
@@ -116,7 +116,7 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
 
       {/* Address */}
       {installation.address && (
-        <div className="flex items-center gap-2 text-sm text-zinc-400">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <MapPin size={14} />
           <span>{installation.address}</span>
         </div>
@@ -124,14 +124,14 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
 
       {/* Pairing Code */}
       {installation.pairingCode && (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+        <div className="rounded-xl border border-border bg-card opai-glass-soft-m p-4">
           <div className="flex items-center gap-2 mb-3">
             <LinkIcon size={14} className="text-blue-400" />
-            <span className="text-sm font-medium text-zinc-200">Código de Pareo</span>
+            <span className="text-sm font-medium text-foreground">Código de Pareo</span>
           </div>
           <div className="flex items-center gap-3">
-            <div className="rounded-lg border border-zinc-700 bg-zinc-900 px-5 py-3">
-              <span className="font-mono text-2xl font-bold tracking-[0.25em] text-zinc-100">
+            <div className="rounded-lg border border-border bg-muted px-5 py-3">
+              <span className="font-mono text-2xl font-bold tracking-[0.25em] text-foreground">
                 {installation.pairingCode}
               </span>
             </div>
@@ -141,7 +141,7 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
               }}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-zinc-300 hover:border-zinc-700 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-card opai-glass-soft-m border border-border text-sm text-muted-foreground hover:border-border transition-colors"
             >
               {copied ? (
                 <>
@@ -156,7 +156,7 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
               )}
             </button>
           </div>
-          <p className="mt-2 text-xs text-zinc-600">
+          <p className="mt-2 text-xs text-muted-foreground">
             Ingresa este código en el dispositivo para vincularlo a esta instalación.
           </p>
         </div>
@@ -173,10 +173,10 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
           <button
             key={action}
             onClick={() => onAction(action, installation.id)}
-            className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors"
+            className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-card opai-glass-soft-m border border-border hover:border-border transition-colors"
           >
             <Icon size={18} className={color} />
-            <span className="text-[10px] text-zinc-400 text-center leading-tight">{label}</span>
+            <span className="text-[10px] text-muted-foreground text-center leading-tight">{label}</span>
           </button>
         ))}
       </div>
@@ -184,15 +184,15 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
       {/* Visita Técnica CTA */}
       <button
         onClick={() => onAction("visita-tecnica", installation.id)}
-        className="flex items-center gap-3 w-full p-3.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-blue-800 hover:bg-blue-950/20 transition-colors"
+        className="flex items-center gap-3 w-full p-3.5 rounded-xl bg-card opai-glass-soft-m border border-border hover:border-blue-800 hover:bg-blue-950/20 transition-colors"
       >
         <Briefcase size={16} className="text-blue-400 flex-shrink-0" />
-        <span className="text-sm text-zinc-300">Nueva visita técnica comercial</span>
+        <span className="text-sm text-muted-foreground">Nueva visita técnica comercial</span>
       </button>
 
       {loading ? (
         <div className="flex justify-center py-10">
-          <Loader2 className="animate-spin text-zinc-600" size={24} />
+          <Loader2 className="animate-spin text-muted-foreground" size={24} />
         </div>
       ) : (
         <>
@@ -211,22 +211,22 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
                   return (
                   <div
                     key={g.id}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-900/50"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted"
                   >
-                    <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-400 font-medium">
+                    <div className="w-7 h-7 rounded-full bg-card flex items-center justify-center text-xs text-muted-foreground font-medium">
                       {initials}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm text-zinc-200 truncate">
+                      <p className="text-sm text-foreground truncate">
                         {g.guardName}
                       </p>
-                      {g.guardRut && <p className="text-xs text-zinc-500">{g.guardRut}</p>}
+                      {g.guardRut && <p className="text-xs text-muted-foreground">{g.guardRut}</p>}
                     </div>
                   </div>
                   );
                 })}
                 {guards.length > 5 && (
-                  <p className="text-xs text-zinc-600 text-center">+{guards.length - 5} más</p>
+                  <p className="text-xs text-muted-foreground text-center">+{guards.length - 5} más</p>
                 )}
               </div>
             )}
@@ -237,12 +237,12 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
             {!lastVisit ? (
               <EmptyState title="Sin visitas registradas" compact inline />
             ) : (
-              <div className="px-3 py-2 rounded-lg bg-zinc-900/50 flex items-center justify-between">
+              <div className="px-3 py-2 rounded-lg bg-muted flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-zinc-200">
+                  <p className="text-sm text-foreground">
                     {new Date(lastVisit.checkInAt).toLocaleDateString("es-CL")}
                   </p>
-                  <p className="text-xs text-zinc-500 capitalize">{lastVisit.status}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{lastVisit.status}</p>
                 </div>
                 {lastVisit.healthScore != null && (
                   <span
@@ -274,7 +274,7 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
                 {findings.map((f) => (
                   <div
                     key={f.id}
-                    className="px-3 py-2 rounded-lg bg-zinc-900/50 flex items-start gap-2"
+                    className="px-3 py-2 rounded-lg bg-muted flex items-start gap-2"
                   >
                     <span
                       className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${
@@ -282,10 +282,10 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
                           ? "bg-red-400"
                           : f.severity === "high"
                           ? "bg-amber-400"
-                          : "bg-zinc-500"
+                          : "bg-muted-foreground"
                       }`}
                     />
-                    <p className="text-xs text-zinc-300 line-clamp-2">{f.description}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{f.description}</p>
                   </div>
                 ))}
               </div>
@@ -309,12 +309,12 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800">
-        <span className="text-zinc-400">{icon}</span>
-        <span className="text-sm font-medium text-zinc-200">{title}</span>
+    <div className="rounded-xl border border-border bg-card opai-glass-soft-m overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+        <span className="text-muted-foreground">{icon}</span>
+        <span className="text-sm font-medium text-foreground">{title}</span>
         {count != null && (
-          <span className="ml-auto text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">
+          <span className="ml-auto text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
             {count}
           </span>
         )}

@@ -98,13 +98,13 @@ function StatusBadge({ status }: { status: string }) {
   }
   if (status === "cerrada_auto") {
     return (
-      <span className="rounded-full bg-gray-500/20 px-2 py-0.5 text-xs font-medium text-gray-400">
+      <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
         Cerrada auto
       </span>
     );
   }
   return (
-    <span className="rounded-full bg-gray-700/50 px-2 py-0.5 text-xs font-medium text-gray-400">
+    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
       {status}
     </span>
   );
@@ -276,22 +276,22 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
       onClick={handleBackdropClick}
     >
       <div
-        className="relative mx-auto my-4 w-full max-w-2xl rounded-2xl border border-white/10 bg-gray-900 shadow-2xl overflow-hidden"
+        className="relative mx-auto my-4 w-full max-w-2xl rounded-2xl border border-border bg-card opai-glass-strong-m shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-white/10 px-4 py-3">
+        <div className="flex items-start justify-between border-b border-border px-4 py-3">
           <div className="flex-1 min-w-0">
             {loading ? (
-              <div className="h-5 w-40 animate-pulse rounded bg-gray-700" />
+              <div className="h-5 w-40 animate-pulse rounded bg-muted" />
             ) : detail ? (
               <>
-                <h3 className="truncate text-base font-semibold text-white">
+                <h3 className="truncate text-base font-semibold text-foreground">
                   {detail.templateName}
                 </h3>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   {detail.completedAt && (
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-muted-foreground">
                       {formatDateTime(detail.completedAt)}
                     </span>
                   )}
@@ -299,14 +299,14 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
                 </div>
               </>
             ) : (
-              <h3 className="text-base font-semibold text-white">
+              <h3 className="text-base font-semibold text-foreground">
                 Detalle de ronda
               </h3>
             )}
           </div>
           <button
             onClick={onClose}
-            className="ml-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-800 text-gray-400 transition-colors hover:bg-gray-700 active:bg-gray-600"
+            className="ml-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors hover:bg-muted/80 active:bg-muted/70"
             aria-label="Cerrar"
           >
             <X className="h-4 w-4" />
@@ -317,7 +317,7 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
         {loading && (
           <div className="flex flex-col items-center justify-center py-20">
             <svg
-              className="h-8 w-8 animate-spin text-status-info-fg"
+              className="h-8 w-8 animate-spin text-primary"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
@@ -336,7 +336,7 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               />
             </svg>
-            <p className="mt-3 text-sm text-gray-400">Cargando detalle...</p>
+            <p className="mt-3 text-sm text-muted-foreground">Cargando detalle...</p>
           </div>
         )}
 
@@ -352,13 +352,13 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
           <>
             {/* Stats row */}
             <div className="grid grid-cols-3 gap-px bg-white/5">
-              <div className="flex flex-col items-center py-3 bg-gray-900/80">
-                <span className="text-xl font-bold text-status-info-fg">
+              <div className="flex flex-col items-center py-3 bg-muted">
+                <span className="text-xl font-bold text-primary">
                   {Math.round(detail.porcentajeCompletado)}%
                 </span>
-                <span className="mt-0.5 text-xs text-gray-500">Completado</span>
+                <span className="mt-0.5 text-xs text-muted-foreground">Completado</span>
               </div>
-              <div className="flex flex-col items-center py-3 bg-gray-900/80">
+              <div className="flex flex-col items-center py-3 bg-muted">
                 <span
                   className={`text-xl font-bold ${
                     detail.trustScore >= 80
@@ -370,21 +370,21 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
                 >
                   {detail.trustScore}
                 </span>
-                <span className="mt-0.5 text-xs text-gray-500">Trust score</span>
+                <span className="mt-0.5 text-xs text-muted-foreground">Trust score</span>
               </div>
-              <div className="flex flex-col items-center py-3 bg-gray-900/80">
-                <span className="text-xl font-bold text-white">
+              <div className="flex flex-col items-center py-3 bg-muted">
+                <span className="text-xl font-bold text-foreground">
                   {detail.checkpointsCompletados}/{detail.checkpointsTotal}
                 </span>
-                <span className="mt-0.5 text-xs text-gray-500">Checkpoints</span>
+                <span className="mt-0.5 text-xs text-muted-foreground">Checkpoints</span>
               </div>
             </div>
 
             {/* Duration */}
             {detail.durationMinutes != null && (
-              <div className="border-b border-white/5 px-4 py-2 text-xs text-gray-500">
+              <div className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
                 Duración:{" "}
-                <span className="text-gray-300">
+                <span className="text-foreground/80">
                   {detail.durationMinutes >= 60
                     ? `${Math.floor(detail.durationMinutes / 60)}h ${detail.durationMinutes % 60}m`
                     : `${detail.durationMinutes} min`}
@@ -392,17 +392,17 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
                 {detail.installationName && (
                   <span className="ml-3">
                     Instalación:{" "}
-                    <span className="text-gray-300">{detail.installationName}</span>
+                    <span className="text-foreground/80">{detail.installationName}</span>
                   </span>
                 )}
               </div>
             )}
 
             {/* Map */}
-            <div className="border-b border-white/10">
+            <div className="border-b border-border">
               <div ref={mapRef} className="h-[260px] w-full" />
               {/* Map legend */}
-              <div className="flex flex-wrap items-center gap-3 bg-gray-900/90 px-4 py-2 text-xs text-gray-500">
+              <div className="flex flex-wrap items-center gap-3 bg-muted px-4 py-2 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <span className="inline-block h-2 w-4 rounded bg-status-ok" />
                   Ruta caminada
@@ -428,11 +428,11 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
 
             {/* Checkpoint list */}
             {detail.routeSnapshot && detail.routeSnapshot.length > 0 && (
-              <div className="border-b border-white/10">
-                <h4 className="px-4 pt-3 pb-1 text-xs font-bold uppercase tracking-wider text-gray-500">
+              <div className="border-b border-border">
+                <h4 className="px-4 pt-3 pb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Checkpoints
                 </h4>
-                <div className="divide-y divide-white/5">
+                <div className="divide-y divide-border">
                   {detail.routeSnapshot.map((cp) => {
                     const isCompleted =
                       cp.status === "completed" || cp.status === "COMPLETED";
@@ -450,14 +450,14 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
                         ) : (
                           <XCircle className="h-4 w-4 shrink-0 text-status-danger-fg" />
                         )}
-                        <span className="flex-1 text-sm text-gray-300">
-                          <span className="mr-2 text-xs text-gray-600">
+                        <span className="flex-1 text-sm text-foreground/80">
+                          <span className="mr-2 text-xs text-muted-foreground">
                             {cp.orderIndex}.
                           </span>
                           {cp.name}
                         </span>
                         {marcacion?.timestamp && (
-                          <span className="text-xs text-gray-600">
+                          <span className="text-xs text-muted-foreground">
                             {formatTimestamp(marcacion.timestamp)}
                           </span>
                         )}
@@ -466,7 +466,7 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
                             onClick={() =>
                               setExpandedPhoto(marcacion.fotoEvidenciaUrl!)
                             }
-                            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-gray-800 transition-colors hover:border-status-info-border"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted transition-colors hover:border-primary"
                           >
                             <img
                               src={marcacion.fotoEvidenciaUrl}
@@ -482,7 +482,7 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
                               }}
                             />
                             <ImageIcon
-                              className="h-4 w-4 text-gray-500"
+                              className="h-4 w-4 text-muted-foreground"
                               style={{ display: "none" }}
                             />
                           </button>
@@ -497,27 +497,27 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
             {/* Marcaciones list (fallback when no routeSnapshot) */}
             {(!detail.routeSnapshot || detail.routeSnapshot.length === 0) &&
               detail.marcaciones.length > 0 && (
-                <div className="border-b border-white/10">
-                  <h4 className="px-4 pt-3 pb-1 text-xs font-bold uppercase tracking-wider text-gray-500">
+                <div className="border-b border-border">
+                  <h4 className="px-4 pt-3 pb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Marcaciones
                   </h4>
-                  <div className="divide-y divide-white/5">
+                  <div className="divide-y divide-border">
                     {detail.marcaciones.map((m, i) => (
                       <div
                         key={i}
                         className="flex items-center gap-3 px-4 py-2.5"
                       >
                         <CheckCircle2 className="h-4 w-4 shrink-0 text-status-ok-fg" />
-                        <span className="flex-1 text-sm text-gray-300">
+                        <span className="flex-1 text-sm text-foreground/80">
                           {m.checkpointName ?? "Checkpoint"}
                         </span>
-                        <span className="text-xs text-gray-600">
+                        <span className="text-xs text-muted-foreground">
                           {formatTimestamp(m.timestamp)}
                         </span>
                         {m.fotoEvidenciaUrl && (
                           <button
                             onClick={() => setExpandedPhoto(m.fotoEvidenciaUrl!)}
-                            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-gray-800 transition-colors hover:border-status-info-border"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted transition-colors hover:border-primary"
                           >
                             <img
                               src={m.fotoEvidenciaUrl}
@@ -539,7 +539,7 @@ export function HistorialRondaModal({ ejecucionId, session, onClose }: Props) {
             {/* Empty state */}
             {(!detail.routeSnapshot || detail.routeSnapshot.length === 0) &&
               detail.marcaciones.length === 0 && (
-                <div className="px-4 py-8 text-center text-sm text-gray-600">
+                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                   Sin datos de checkpoints para esta ronda.
                 </div>
               )}

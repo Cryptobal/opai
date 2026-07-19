@@ -39,7 +39,7 @@ export function PortalDocumentos({ session, selectedInstallation, isProspect }: 
           <OpaiBadge text="Cumplimiento automático" variant="default" />
           {isProspect && <PreviewBadge />}
         </h2>
-        <p className="text-xs text-zinc-500 mt-0.5">
+        <p className="text-xs text-muted-foreground mt-0.5">
           {isProspect
             ? "Documentación 100% digital — Cero papel, cero excusas"
             : "Contratos, OS-10, antecedentes — Todo en un solo lugar"}
@@ -47,7 +47,7 @@ export function PortalDocumentos({ session, selectedInstallation, isProspect }: 
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 mb-4 bg-zinc-800/50 p-1 rounded-lg">
+      <div className="flex gap-1 mb-4 bg-muted opai-glass-soft-m p-1 rounded-lg">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -57,8 +57,8 @@ export function PortalDocumentos({ session, selectedInstallation, isProspect }: 
               className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors flex-1 justify-center",
                 activeTab === tab.id
-                  ? "bg-zinc-700 text-white"
-                  : "text-zinc-400 hover:text-zinc-300"
+                  ? "bg-card opai-glass-soft-m text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               <Icon className="h-4 w-4" />
@@ -140,8 +140,8 @@ function PortalCuentaDocumentos({ isProspect }: { isProspect?: boolean }) {
     return (
       <div className="text-center py-16">
         <FolderOpen className="h-10 w-10 text-zinc-600 mx-auto mb-3" />
-        <p className="text-sm font-medium text-zinc-400">Sin documentos disponibles</p>
-        <p className="text-xs text-zinc-500 mt-1">Tu proveedor compartirá documentos importantes aquí.</p>
+        <p className="text-sm font-medium text-muted-foreground">Sin documentos disponibles</p>
+        <p className="text-xs text-muted-foreground mt-1">Tu proveedor compartirá documentos importantes aquí.</p>
       </div>
     );
   }
@@ -191,7 +191,7 @@ function PortalInstalacionDocumentos({ installationId, isProspect }: { installat
 
   if (!installationId) {
     return (
-      <div className="text-center py-16 text-zinc-500 text-sm">
+      <div className="text-center py-16 text-muted-foreground text-sm">
         Selecciona una instalación para ver sus documentos.
       </div>
     );
@@ -209,8 +209,8 @@ function PortalInstalacionDocumentos({ installationId, isProspect }: { installat
     return (
       <div className="text-center py-16">
         <FolderOpen className="h-10 w-10 text-zinc-600 mx-auto mb-3" />
-        <p className="text-sm font-medium text-zinc-400">Sin documentos disponibles</p>
-        <p className="text-xs text-zinc-500 mt-1">La documentación se actualiza automáticamente con cada cambio operativo.</p>
+        <p className="text-sm font-medium text-muted-foreground">Sin documentos disponibles</p>
+        <p className="text-xs text-muted-foreground mt-1">La documentación se actualiza automáticamente con cada cambio operativo.</p>
       </div>
     );
   }
@@ -250,8 +250,8 @@ function FolderFileTree({ folders, files }: { folders: FolderItem[]; files: File
           <div key={folder.id} className="rounded-lg border border-white/[0.07] bg-white/[0.02] overflow-hidden">
             <div className="flex items-center gap-2 px-3 py-2.5 bg-white/[0.04] border-b border-white/[0.06]">
               <Folder className="h-4 w-4 text-status-info-fg/70 shrink-0" />
-              <span className="text-sm font-medium text-zinc-300">{folder.name}</span>
-              <span className="ml-auto text-xs text-zinc-500">{folderFiles.length} archivo{folderFiles.length !== 1 ? "s" : ""}</span>
+              <span className="text-sm font-medium text-muted-foreground">{folder.name}</span>
+              <span className="ml-auto text-xs text-muted-foreground">{folderFiles.length} archivo{folderFiles.length !== 1 ? "s" : ""}</span>
             </div>
             {folderFiles.length === 0 ? (
               <p className="px-4 py-3 text-xs text-zinc-600">Carpeta vacía</p>
@@ -278,7 +278,7 @@ function FileRow({ file }: { file: FileItem }) {
       <FileText className="h-7 w-7 text-status-info-fg/60 shrink-0 mt-0.5" />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium break-all">{file.fileName}</p>
-        <p className="text-xs text-zinc-500">{formatBytes(file.size)}</p>
+        <p className="text-xs text-muted-foreground">{formatBytes(file.size)}</p>
       </div>
       {file.publicUrl && (
         <div className="flex items-center gap-1 shrink-0">
@@ -289,7 +289,7 @@ function FileRow({ file }: { file: FileItem }) {
             className="p-2 rounded hover:bg-white/10 transition-colors"
             title="Ver"
           >
-            <ExternalLink className="h-4 w-4 text-zinc-400" />
+            <ExternalLink className="h-4 w-4 text-muted-foreground" />
           </a>
           <a
             href={`${file.publicUrl}?download=true`}
@@ -297,7 +297,7 @@ function FileRow({ file }: { file: FileItem }) {
             className="p-2 rounded hover:bg-white/10 transition-colors"
             title="Descargar"
           >
-            <Download className="h-4 w-4 text-zinc-400" />
+            <Download className="h-4 w-4 text-muted-foreground" />
           </a>
         </div>
       )}

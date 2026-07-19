@@ -28,14 +28,14 @@ export function CompliancePortal({
   const displayItems = items && items.length > 0 ? items : DEFAULT_COMPLIANCE_ITEMS;
 
   return (
-    <div className={cn("rounded-xl border border-slate-700/50 bg-slate-800/50 p-4 space-y-3", className)}>
+    <div className={cn("rounded-xl border border-border bg-card opai-glass-soft-m p-4 space-y-3", className)}>
       <div className="flex items-center gap-2.5">
         <ShieldCheck className="h-5 w-5 text-status-ok-fg" />
         <h3 className={cn(
-          "font-bold text-white",
+          "font-bold text-foreground",
           numbered ? "text-xl" : "text-sm",
         )}>
-          {numbered && sectionNumber ? <span className="text-status-info-fg">{sectionNumber}. </span> : null}
+          {numbered && sectionNumber ? <span className="text-primary">{sectionNumber}. </span> : null}
           Cumplimiento Normativo
         </h3>
       </div>
@@ -43,7 +43,7 @@ export function CompliancePortal({
         {displayItems.map((item) => (
           <div key={item} className="flex items-start gap-2.5">
             <CheckCircle2 className="w-4 h-4 text-status-ok-fg mt-0.5 shrink-0" />
-            <span className="text-sm text-slate-300">{item}</span>
+            <span className="text-sm text-muted-foreground">{item}</span>
           </div>
         ))}
       </div>

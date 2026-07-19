@@ -47,7 +47,7 @@ export function CostBreakdownPortal({
 
   return (
     <div className={cn("space-y-3", className)}>
-      <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+      <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
         {prefix}Desglose de costos
       </h4>
 
@@ -56,7 +56,7 @@ export function CostBreakdownPortal({
         if (!cats.length) return null;
         return (
           <div key={type} className="space-y-2">
-            <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
               {TYPE_LABELS[type]}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -73,14 +73,14 @@ export function CostBreakdownPortal({
                     )}
                   >
                     <div className={cn(CPQ_BREAKDOWN_ROW, "text-xs")}>
-                      <span className="font-semibold text-zinc-200 break-words min-w-0">{displayName}</span>
+                      <span className="font-semibold text-foreground break-words min-w-0">{displayName}</span>
                       <span className={cpqBreakdownAmount("font-bold text-teal-400")}>{fmt(cat.subtotal)}</span>
                     </div>
                     <div className="flex flex-wrap gap-1">
                       {cat.items.map((item, i) => (
                         <span
                           key={i}
-                          className="inline-flex items-center rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-zinc-400"
+                          className="inline-flex items-center rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-muted-foreground"
                         >
                           {item.name}
                         </span>

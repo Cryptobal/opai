@@ -136,11 +136,11 @@ export function SupervisorTickets({ installations }: Props) {
 
       {/* Create form */}
       {showCreate && (
-        <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-4 flex flex-col gap-3">
-          <p className="text-sm font-medium text-zinc-200">Nuevo ticket</p>
+        <div className="rounded-xl border border-border bg-card opai-glass-soft-m p-4 flex flex-col gap-3">
+          <p className="text-sm font-medium text-foreground">Nuevo ticket</p>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] text-zinc-500">Instalación</label>
+            <label className="text-[11px] text-muted-foreground">Instalación</label>
             <select
               value={formInstallId}
               onChange={(e) => setFormInstallId(e.target.value)}
@@ -154,7 +154,7 @@ export function SupervisorTickets({ installations }: Props) {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] text-zinc-500">Título *</label>
+            <label className="text-[11px] text-muted-foreground">Título *</label>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -164,7 +164,7 @@ export function SupervisorTickets({ installations }: Props) {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] text-zinc-500">Descripción</label>
+            <label className="text-[11px] text-muted-foreground">Descripción</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -175,7 +175,7 @@ export function SupervisorTickets({ installations }: Props) {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] text-zinc-500">Prioridad</label>
+            <label className="text-[11px] text-muted-foreground">Prioridad</label>
             <div className="flex gap-2">
               {(["p1", "p2", "p3", "p4"] as const).map((p) => (
                 <button
@@ -215,18 +215,18 @@ export function SupervisorTickets({ installations }: Props) {
           {items.map((t) => (
             <div
               key={t.id}
-              className="p-4 rounded-xl bg-zinc-900 border border-zinc-800 flex flex-col gap-1.5"
+              className="p-4 rounded-xl bg-card opai-glass-soft-m border border-border flex flex-col gap-1.5"
             >
               <div className="flex items-center gap-2">
                 <span className={`text-[10px] font-mono font-medium ${PRIORITY_COLOR[t.priority] ?? "text-zinc-400"}`}>
                   {t.priority?.toUpperCase()}
                 </span>
-                <span className="text-[10px] text-zinc-500 font-mono">{t.code}</span>
-                <span className="ml-auto text-[10px] text-zinc-500">
+                <span className="text-[10px] text-muted-foreground font-mono">{t.code}</span>
+                <span className="ml-auto text-[10px] text-muted-foreground">
                   {STATUS_LABEL[t.status] ?? t.status}
                 </span>
               </div>
-              <p className="text-sm text-zinc-200">{t.title}</p>
+              <p className="text-sm text-foreground">{t.title}</p>
               <p className="text-[10px] text-zinc-600">
                 {new Date(t.createdAt).toLocaleDateString("es-CL")}
               </p>

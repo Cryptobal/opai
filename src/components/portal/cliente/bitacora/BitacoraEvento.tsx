@@ -41,7 +41,7 @@ const SEVERITY_TONES: Record<
   info: {
     bg: "bg-white/[0.02]",
     dot: "bg-zinc-500",
-    icon: "text-zinc-400",
+    icon: "text-muted-foreground",
   },
   success: {
     bg: "bg-status-ok-soft/30",
@@ -78,9 +78,9 @@ export function BitacoraEventoItem({ ev }: { ev: TimelineEvent }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className="text-sm truncate">{ev.title}</p>
-          <span className="text-[10px] text-zinc-500 flex-shrink-0">{hora}</span>
+          <span className="text-[10px] text-muted-foreground flex-shrink-0">{hora}</span>
         </div>
-        <div className="flex items-center gap-2 text-[11px] text-zinc-500 mt-0.5">
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
           {ev.installationName && (
             <span className="truncate">{ev.installationName}</span>
           )}
@@ -92,7 +92,7 @@ export function BitacoraEventoItem({ ev }: { ev: TimelineEvent }) {
           )}
         </div>
         {ev.detail && (
-          <p className="text-[11px] text-zinc-400 mt-1 line-clamp-2">
+          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
             {ev.detail}
           </p>
         )}

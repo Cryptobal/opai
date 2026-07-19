@@ -10,7 +10,7 @@ interface Props {
 export function TabExamenes({ examenes }: Props) {
   if (examenes.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 gap-2 text-zinc-500">
+      <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
         <GraduationCap className="h-8 w-8" />
         <p className="text-sm text-center px-6">
           Este guardia aún no ha rendido exámenes de protocolos en esta
@@ -30,7 +30,7 @@ export function TabExamenes({ examenes }: Props) {
             <Icono estado={e.estado} />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium break-words">{e.examenTitulo}</p>
-              <div className="flex items-center gap-2 text-[11px] text-zinc-500 mt-1">
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-1">
                 {e.completedAt && (
                   <span>
                     {new Date(e.completedAt).toLocaleDateString("es-CL")}
@@ -58,6 +58,6 @@ function Icono({ estado }: { estado: ExamenProtocolo["estado"] }) {
   if (estado === "reprobado")
     return <XCircle className="h-5 w-5 text-status-danger-fg flex-shrink-0" />;
   if (estado === "expirado")
-    return <XCircle className="h-5 w-5 text-zinc-500 flex-shrink-0" />;
+    return <XCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />;
   return <Clock className="h-5 w-5 text-status-warn-fg flex-shrink-0" />;
 }

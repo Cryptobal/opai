@@ -23,7 +23,7 @@ export function TabDesempeno({ desempeno }: Props) {
             </div>
             {desempeno.nivel && (
               <div className="text-right">
-                <p className="text-[10px] uppercase tracking-wider text-zinc-500">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
                   Nivel
                 </p>
                 <p className="text-sm text-status-info-fg mt-1">{desempeno.nivel}</p>
@@ -56,13 +56,13 @@ export function TabDesempeno({ desempeno }: Props) {
           tone={
             desempeno.incidentesUltimos30Dias > 0
               ? "text-status-warn-fg bg-status-warn-soft border-status-warn-border"
-              : "text-zinc-400 bg-white/[0.03] border-white/[0.06]"
+              : "text-muted-foreground bg-white/[0.03] border-white/[0.06]"
           }
         />
       </div>
       {desempeno.trustScore == null && (
-        <p className="text-xs text-zinc-500 text-center py-4">
-          <TrendingUp className="h-5 w-5 mx-auto mb-2 text-zinc-600" />
+        <p className="text-xs text-muted-foreground text-center py-4">
+          <TrendingUp className="h-5 w-5 mx-auto mb-2 text-muted-foreground" />
           Aún no hay Trust Score calculado para este guardia.
         </p>
       )}

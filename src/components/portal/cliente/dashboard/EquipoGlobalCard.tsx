@@ -59,10 +59,10 @@ export function EquipoGlobalCard({ onNavigate, isProspect }: Props) {
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-status-info-fg" />
+          <Users className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-semibold">Mi equipo</h3>
         </div>
-        <div className="flex items-center gap-1 text-xs text-zinc-500">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <span>Ver detalle</span>
           <ChevronRight className="h-3.5 w-3.5" />
         </div>
@@ -139,9 +139,9 @@ function Stat({
 }) {
   return (
     <div className="rounded-lg bg-white/[0.03] border border-white/[0.04] p-2.5">
-      <Icon className="h-3.5 w-3.5 text-zinc-500 mb-1" />
+      <Icon className="h-3.5 w-3.5 text-muted-foreground mb-1" />
       <div className={`text-lg font-mono font-semibold ${tone}`}>{value}</div>
-      <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
     </div>

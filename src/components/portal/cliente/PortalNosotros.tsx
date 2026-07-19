@@ -199,7 +199,7 @@ export function PortalNosotros({ onNavigate }: Props) {
           >
             {branding.companyName}
           </h1>
-          <p className="text-zinc-400 text-sm mb-2">El único sistema operativo completo de seguridad en Chile</p>
+          <p className="text-muted-foreground text-sm mb-2">El único sistema operativo completo de seguridad en Chile</p>
           <OpaiBadge text="19 capacidades integradas" />
         </div>
       </FadeIn>
@@ -207,19 +207,18 @@ export function PortalNosotros({ onNavigate }: Props) {
       {/* ── Stats ── */}
       <div>
         <FadeIn>
-          <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 px-1">En números</h2>
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-1">En números</h2>
         </FadeIn>
         <div className="grid grid-cols-2 gap-3">
           {STATS.map(({ value, label, color, bg }, i) => (
             <FadeIn key={label} delay={i * 80}>
               <div
                 className={`rounded-xl p-4 bg-gradient-to-br ${bg} border border-white/[0.06]`}
-                style={{ backdropFilter: "blur(8px)" }}
               >
                 <div className={`text-2xl font-bold ${color} mb-1`}>
                   <AnimatedNumber target={value} />
                 </div>
-                <div className="text-xs text-zinc-400">{label}</div>
+                <div className="text-xs text-muted-foreground">{label}</div>
               </div>
             </FadeIn>
           ))}
@@ -232,15 +231,14 @@ export function PortalNosotros({ onNavigate }: Props) {
         return (
           <div key={tier.tier}>
             <FadeIn>
-              <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 px-1">{tier.tier}</h2>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-1">{tier.tier}</h2>
             </FadeIn>
             <div className="space-y-3">
               {tier.items.map(({ icon: Icon, title, desc }, i) => (
                 <FadeIn key={title} delay={i * 80}>
                   <div
-                    className="rounded-xl p-4 flex gap-4 transition-all hover:scale-[1.01]"
+                    className="rounded-xl p-4 flex gap-4 transition-all hover:scale-[1.01] bg-card opai-glass-soft-m"
                     style={{
-                      background: "linear-gradient(145deg, rgba(30,41,59,0.8), rgba(26,35,50,0.8))",
                       border: `1px solid ${colors.borderColor}`,
                     }}
                   >
@@ -251,8 +249,8 @@ export function PortalNosotros({ onNavigate }: Props) {
                       <Icon className={`w-5 h-5 ${colors.iconColor}`} />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-white mb-1">{title}</h3>
-                      <p className="text-xs text-zinc-400 leading-relaxed">{desc}</p>
+                      <h3 className="text-sm font-semibold text-foreground mb-1">{title}</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
                     </div>
                   </div>
                 </FadeIn>
@@ -275,7 +273,7 @@ export function PortalNosotros({ onNavigate }: Props) {
             <LivePulse />
             <h2 className="text-sm font-semibold text-status-ok-fg">Monitoreo de rondas en vivo</h2>
           </div>
-          <p className="text-xs text-zinc-400 leading-relaxed mb-4">
+          <p className="text-xs text-muted-foreground leading-relaxed mb-4">
             Cada ronda queda registrada con evidencia verificable. Siga en tiempo real los recorridos de cada guardia,
             con checkpoints GPS, fotos y notificaciones instantáneas.
           </p>
@@ -283,7 +281,7 @@ export function PortalNosotros({ onNavigate }: Props) {
             {RONDAS_FEATURES.map(({ icon: Icon, label, color }) => (
               <div key={label} className="flex items-center gap-2 rounded-lg bg-white/[0.04] px-3 py-2">
                 <Icon className={`w-3.5 h-3.5 ${color} shrink-0`} />
-                <span className="text-[11px] text-zinc-300">{label}</span>
+                <span className="text-[11px] text-muted-foreground">{label}</span>
               </div>
             ))}
           </div>
@@ -293,19 +291,18 @@ export function PortalNosotros({ onNavigate }: Props) {
       {/* ── Certifications ── */}
       <div>
         <FadeIn>
-          <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 px-1">Certificaciones</h2>
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-1">Certificaciones</h2>
         </FadeIn>
         <div className="grid grid-cols-2 gap-3">
           {CERTS.map(({ name, desc }, i) => (
             <FadeIn key={name} delay={i * 60}>
               <div
-                className="rounded-xl p-3 border border-white/[0.06] flex items-start gap-2.5"
-                style={{ background: "linear-gradient(145deg, rgba(30,41,59,0.6), rgba(26,35,50,0.6))" }}
+                className="rounded-xl p-3 border border-white/[0.06] flex items-start gap-2.5 bg-card opai-glass-soft-m"
               >
                 <CheckCircle2 className="w-4 h-4 text-status-info-fg mt-0.5 flex-shrink-0" />
                 <div>
-                  <span className="text-sm text-white font-semibold block">{name}</span>
-                  <span className="text-[10px] text-zinc-500">{desc}</span>
+                  <span className="text-sm text-foreground font-semibold block">{name}</span>
+                  <span className="text-[10px] text-muted-foreground">{desc}</span>
                 </div>
               </div>
             </FadeIn>
@@ -316,7 +313,7 @@ export function PortalNosotros({ onNavigate }: Props) {
       {/* ── CTA ── */}
       <FadeIn delay={200}>
         <div className="text-center pt-2 space-y-4">
-          <p className="text-xs text-zinc-500">¿Tienes preguntas sobre nuestros servicios?</p>
+          <p className="text-xs text-muted-foreground">¿Tienes preguntas sobre nuestros servicios?</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             {onNavigate && (
               <button
@@ -340,15 +337,15 @@ export function PortalNosotros({ onNavigate }: Props) {
       {/* ── Footer ── */}
       <FadeIn>
         <div className="text-center pt-4 pb-4 space-y-1">
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted-foreground">
             Plataforma{" "}
-            <span className="font-medium text-zinc-400">OPAI</span>
+            <span className="font-medium text-muted-foreground">OPAI</span>
             {" · Desarrollado por "}
             <a
               href="https://lx3.ai"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-zinc-300 transition-colors text-zinc-400"
+              className="underline underline-offset-2 hover:text-foreground transition-colors text-muted-foreground"
             >
               LX3.ai
             </a>

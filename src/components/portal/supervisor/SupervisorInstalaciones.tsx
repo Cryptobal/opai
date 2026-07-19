@@ -65,18 +65,18 @@ export function SupervisorInstalaciones({ tenantInstallations, onSelect }: Props
 
       {/* Search */}
       <div className="relative">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Buscar instalación..."
-          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full bg-muted border border-border rounded-lg pl-9 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
       {loading ? (
         <div className="flex justify-center py-10">
-          <Loader2 className="animate-spin text-zinc-600" size={24} />
+          <Loader2 className="animate-spin text-muted-foreground" size={24} />
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
@@ -106,16 +106,16 @@ function InstallationCard({
   return (
     <button
       onClick={() => onSelect(installation)}
-      className="flex items-center gap-3 p-4 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors text-left w-full"
+      className="flex items-center gap-3 p-4 rounded-xl bg-card opai-glass-soft-m border border-border hover:border-border transition-colors text-left w-full"
     >
-      <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center">
-        <MapPin size={16} className="text-blue-400" />
+      <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
+        <MapPin size={16} className="text-primary" />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium truncate">{installation.name}</p>
-        <p className="text-xs text-zinc-500 truncate">{installation.accountName}</p>
+        <p className="text-xs text-muted-foreground truncate">{installation.accountName}</p>
         {installation.address && (
-          <p className="text-xs text-zinc-600 truncate mt-0.5">{installation.address}</p>
+          <p className="text-xs text-muted-foreground truncate mt-0.5">{installation.address}</p>
         )}
         {installation.pairingCode && (
           <span
@@ -124,7 +124,7 @@ function InstallationCard({
               e.stopPropagation();
               navigator.clipboard.writeText(installation.pairingCode!);
             }}
-            className="flex items-center gap-1 mt-1 text-xs text-blue-400 hover:text-blue-300 cursor-pointer"
+            className="flex items-center gap-1 mt-1 text-xs text-primary hover:text-primary/80 cursor-pointer"
             title="Copiar código de pareo"
           >
             <Copy size={10} />
@@ -132,7 +132,7 @@ function InstallationCard({
           </span>
         )}
       </div>
-      <ChevronRight size={14} className="text-zinc-600 flex-shrink-0" />
+      <ChevronRight size={14} className="text-muted-foreground flex-shrink-0" />
     </button>
   );
 }

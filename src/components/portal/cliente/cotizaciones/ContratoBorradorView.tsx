@@ -237,7 +237,7 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-status-info-fg" />
-        <p className="text-sm text-slate-400">Cargando borrador de contrato...</p>
+        <p className="text-sm text-muted-foreground">Cargando borrador de contrato...</p>
       </div>
     );
   }
@@ -246,7 +246,7 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <AlertTriangle className="h-8 w-8 text-status-warn-fg" />
-        <p className="text-sm text-slate-300">{error}</p>
+        <p className="text-sm text-foreground/80">{error}</p>
         <button onClick={onBack} className="mt-2 text-sm text-status-info-fg hover:text-status-info-fg underline underline-offset-2">
           Volver a la propuesta
         </button>
@@ -265,21 +265,21 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
       {/* Header + Download */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors">
+          <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-4 w-4" />
             Volver
           </button>
-          <div className="h-4 w-px bg-slate-700" />
+          <div className="h-4 w-px bg-border" />
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-status-info-fg" />
-            <h3 className="text-sm font-semibold text-white">Borrador de Contrato</h3>
+            <h3 className="text-sm font-semibold text-foreground">Borrador de Contrato</h3>
           </div>
         </div>
 
         <button
           onClick={handleDownloadPdf}
           disabled={pdfLoading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 text-slate-300 hover:text-white hover:border-white/20 text-xs font-medium transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-border text-xs font-medium transition-colors disabled:opacity-50"
         >
           {pdfLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           {pdfLoading ? "Generando..." : "Descargar PDF"}
@@ -310,7 +310,7 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
                 )}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-medium text-slate-200">Cláusula {s.clauseNumber}</span>
+                  <span className="font-medium text-foreground">Cláusula {s.clauseNumber}</span>
                   <span className={cn(
                     "text-[10px] px-2 py-0.5 rounded",
                     s.status === "pending" ? "bg-status-warn-soft text-status-warn-fg" :
@@ -320,9 +320,9 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
                     {s.status === "pending" ? "Pendiente de revisión" : s.status === "approved" ? "Aprobada" : "Rechazada"}
                   </span>
                 </div>
-                {s.clientNote && <p className="text-slate-400 italic mb-1">Nota: {s.clientNote}</p>}
+                {s.clientNote && <p className="text-muted-foreground italic mb-1">Nota: {s.clientNote}</p>}
                 {s.adminComment && (
-                  <p className="text-slate-300 mt-1">
+                  <p className="text-foreground/80 mt-1">
                     <span className="font-medium">Respuesta:</span> {s.adminComment}
                   </p>
                 )}
@@ -379,12 +379,12 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
 
       {/* Contractual fields */}
       {hasContractual && (
-        <div className="rounded-xl border border-slate-700/30 bg-slate-800/30 p-3">
+        <div className="rounded-xl border border-border bg-muted opai-glass-soft-m p-3">
           <div className="flex items-start gap-2">
-            <Info className="h-3.5 w-3.5 text-slate-500 mt-0.5 shrink-0" />
-            <p className="text-[11px] text-slate-500 leading-relaxed">
+            <Info className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
               Los campos marcados como{" "}
-              <span className="inline-block bg-slate-200 text-slate-600 px-1 py-0.5 rounded text-[10px] italic">A definir al firmar</span>{" "}
+              <span className="inline-block bg-muted text-muted-foreground px-1 py-0.5 rounded text-[10px] italic">A definir al firmar</span>{" "}
               serán completados al momento de formalizar el contrato (
               {data.contractualFields.map((f) => f.label).join(", ")}).
             </p>
@@ -414,60 +414,60 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
       </div>
 
       {/* Disclaimer */}
-      <p className="text-center text-[10px] text-slate-600 px-4">
+      <p className="text-center text-[10px] text-muted-foreground px-4">
         Este es un borrador informativo basado en la propuesta comercial. El contrato definitivo será preparado y enviado formalmente para su revisión y firma.
       </p>
 
       {/* Edit suggestion modal */}
       {editModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto space-y-4">
+          <div className="bg-card opai-glass-strong-m border border-border rounded-xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-white">
+              <h3 className="text-base font-semibold text-foreground">
                 Sugerir edición — {editModal.clauseTitle}
               </h3>
-              <button onClick={() => setEditModal(null)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setEditModal(null)} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <div>
-              <label className="text-xs text-slate-400 block mb-1.5">Texto original de la cláusula</label>
-              <div className="text-sm bg-zinc-800 border border-zinc-700 rounded-lg p-3 max-h-40 overflow-y-auto whitespace-pre-wrap text-slate-300">
+              <label className="text-xs text-muted-foreground block mb-1.5">Texto original de la cláusula</label>
+              <div className="text-sm bg-muted border border-border rounded-lg p-3 max-h-40 overflow-y-auto whitespace-pre-wrap text-foreground/80">
                 {editModal.originalText}
               </div>
             </div>
 
             <div>
-              <label className="text-xs text-slate-400 block mb-1.5">Su propuesta de modificación</label>
+              <label className="text-xs text-muted-foreground block mb-1.5">Su propuesta de modificación</label>
               <textarea
                 value={editForm.suggestedContent}
                 onChange={(e) => setEditForm((f) => ({ ...f, suggestedContent: e.target.value }))}
-                className="w-full h-44 bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-teal-500 resize-y"
+                className="w-full h-44 bg-muted border border-border rounded-lg p-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-teal-500 resize-y"
               />
             </div>
 
             <div>
-              <label className="text-xs text-slate-400 block mb-1.5">Motivo o nota (opcional)</label>
+              <label className="text-xs text-muted-foreground block mb-1.5">Motivo o nota (opcional)</label>
               <textarea
                 value={editForm.clientNote}
                 onChange={(e) => setEditForm((f) => ({ ...f, clientNote: e.target.value }))}
                 placeholder="Explique brevemente por qué solicita esta modificación..."
-                className="w-full h-20 bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-teal-500 resize-y"
+                className="w-full h-20 bg-muted border border-border rounded-lg p-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-teal-500 resize-y"
               />
             </div>
 
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setEditModal(null)}
-                className="px-4 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 rounded-lg border border-zinc-700 text-slate-300"
+                className="px-4 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg border border-border text-muted-foreground"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSubmitSuggestion}
                 disabled={submitting || !editForm.suggestedContent.trim()}
-                className="flex items-center gap-2 px-4 py-2 text-sm bg-status-info hover:bg-status-info rounded-lg text-white font-medium disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-primary hover:bg-primary/90 rounded-lg text-primary-foreground font-medium disabled:opacity-50"
               >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 {submitting ? "Enviando..." : "Enviar sugerencia"}

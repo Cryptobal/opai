@@ -61,7 +61,7 @@ export function PortalProtocolosLista({ selectedInstallation }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-status-info-fg" />
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
   }
@@ -70,7 +70,7 @@ export function PortalProtocolosLista({ selectedInstallation }: Props) {
     return (
       <div className="text-center py-16">
         <BookOpen className="h-10 w-10 text-zinc-600 mx-auto mb-3" />
-        <p className="text-sm text-zinc-400">No hay protocolos disponibles</p>
+        <p className="text-sm text-muted-foreground">No hay protocolos disponibles</p>
       </div>
     );
   }
@@ -102,17 +102,17 @@ export function PortalProtocolosLista({ selectedInstallation }: Props) {
               className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-white/[0.02] transition-colors"
             >
               {isExpanded ? (
-                <ChevronDown className="h-4 w-4 text-zinc-400 shrink-0" />
+                <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
               ) : (
-                <ChevronRight className="h-4 w-4 text-zinc-400 shrink-0" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
               )}
-              <BookOpen className="h-4 w-4 text-status-info-fg shrink-0" />
+              <BookOpen className="h-4 w-4 text-primary shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium break-words">{protocol.title}</p>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[10px] text-zinc-500">{protocol.version}</span>
+                  <span className="text-[10px] text-muted-foreground">{protocol.version}</span>
                   <span className="text-[10px] text-zinc-600">·</span>
-                  <span className="text-[10px] text-zinc-500">
+                  <span className="text-[10px] text-muted-foreground">
                     {new Date(protocol.updatedAt).toLocaleDateString("es-CL", {
                       day: "2-digit",
                       month: "short",
@@ -124,7 +124,7 @@ export function PortalProtocolosLista({ selectedInstallation }: Props) {
                       "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border",
                       protocol.status === "active"
                         ? "text-status-ok-fg bg-status-ok-soft border-status-ok-border"
-                        : "text-zinc-400 bg-zinc-500/10 border-zinc-500/20",
+                        : "text-muted-foreground bg-muted border-border",
                     )}
                   >
                     {protocol.status === "active" ? "Vigente" : "Borrador"}
@@ -142,13 +142,13 @@ export function PortalProtocolosLista({ selectedInstallation }: Props) {
               <div className="px-4 pb-4 space-y-4 border-t border-white/5 pt-3">
                 {protocol.sections.map((section, sIdx) => (
                   <div key={sIdx}>
-                    <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                       {section.title}
                     </h4>
                     <ul className="space-y-1.5">
                       {section.items.map((item, iIdx) => (
-                        <li key={iIdx} className="flex items-start gap-2 text-sm text-zinc-400">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-status-info-fg mt-0.5 shrink-0" />
+                        <li key={iIdx} className="flex items-start gap-2 text-sm text-muted-foreground">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
                           {item}
                         </li>
                       ))}
@@ -174,7 +174,7 @@ export function PortalProtocolosLista({ selectedInstallation }: Props) {
                 {needsSign && (
                   <button
                     onClick={() => setSigningId(protocol.id)}
-                    className="w-full mt-3 h-10 rounded-lg bg-status-info hover:bg-status-info text-white text-sm font-semibold flex items-center justify-center gap-2"
+                    className="w-full mt-3 h-10 rounded-lg bg-primary hover:bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2"
                   >
                     <FileCheck2 className="w-4 h-4" />
                     {acceptance ? "Firmar nueva versión" : "Aceptar y firmar protocolo"}

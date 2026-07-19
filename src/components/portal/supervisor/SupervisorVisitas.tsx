@@ -115,7 +115,7 @@ export function SupervisorVisitas({ onNewVisit, onSelectVisit }: Props) {
         <h2 className="text-lg font-semibold">Visitas de Supervisión</h2>
         <button
           onClick={onNewVisit}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-500 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
         >
           <Plus size={14} />
           Nueva
@@ -123,13 +123,13 @@ export function SupervisorVisitas({ onNewVisit, onSelectVisit }: Props) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-zinc-900 rounded-lg p-1">
+      <div className="flex gap-1 bg-muted rounded-lg p-1">
         {TABS.map(({ id, label }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
             className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              tab === id ? "bg-zinc-700 text-white" : "text-zinc-500"
+              tab === id ? "bg-card text-foreground" : "text-muted-foreground"
             }`}
           >
             {label}
@@ -139,7 +139,7 @@ export function SupervisorVisitas({ onNewVisit, onSelectVisit }: Props) {
 
       {loading ? (
         <div className="flex justify-center py-10">
-          <Loader2 className="animate-spin text-zinc-600" size={24} />
+          <Loader2 className="animate-spin text-muted-foreground" size={24} />
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
@@ -154,7 +154,7 @@ export function SupervisorVisitas({ onNewVisit, onSelectVisit }: Props) {
             tab === "en_curso" ? (
               <button
                 onClick={onNewVisit}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium"
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium"
               >
                 Iniciar visita
               </button>
@@ -196,7 +196,7 @@ function VisitCard({
   return (
     <button
       onClick={onSelect}
-      className="flex items-center gap-3 p-4 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors text-left w-full"
+      className="flex items-center gap-3 p-4 rounded-xl bg-card opai-glass-soft-m border border-border hover:border-border transition-colors text-left w-full"
     >
       <div
         className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${cfg.bg}`}
@@ -205,8 +205,8 @@ function VisitCard({
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium truncate">{visit.installationName}</p>
-        <p className="text-xs text-zinc-500 truncate">{visit.accountName}</p>
-        <p className="text-xs text-zinc-600 mt-0.5">
+        <p className="text-xs text-muted-foreground truncate">{visit.accountName}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
           {dateStr} · {timeStr}
           {visit.durationMinutes ? ` · ${visit.durationMinutes} min` : ""}
         </p>
@@ -229,7 +229,7 @@ function VisitCard({
             {cfg.label}
           </span>
         )}
-        <ChevronRight size={14} className="text-zinc-600" />
+        <ChevronRight size={14} className="text-muted-foreground" />
       </div>
     </button>
   );

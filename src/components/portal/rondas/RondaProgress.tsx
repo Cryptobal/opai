@@ -9,12 +9,12 @@ export function RondaProgress({ completed, total }: Props) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-sm">
-        <span className="text-gray-400">
+        <span className="text-muted-foreground">
           {completed}/{total} checkpoints
         </span>
-        <span className="font-medium text-gray-300">{pct}%</span>
+        <span className="font-medium text-foreground/80">{pct}%</span>
       </div>
-      <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-800">
+      <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{

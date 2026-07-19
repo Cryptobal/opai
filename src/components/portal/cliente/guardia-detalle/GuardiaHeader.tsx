@@ -29,12 +29,12 @@ export function GuardiaHeader({ info }: Props) {
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-semibold break-words">{info.nombre}</h1>
           {info.installation && (
-            <div className="flex items-center gap-1.5 text-sm text-zinc-400 mt-0.5">
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
               <Building2 className="h-3.5 w-3.5 shrink-0" />
               <span className="break-words">{info.installation.name}</span>
             </div>
           )}
-          <div className="flex items-center gap-3 mt-2 text-xs text-zinc-500">
+          <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
             {info.antiguedadMeses > 0 && (
               <span>{info.antiguedadMeses} meses en el equipo</span>
             )}
@@ -83,7 +83,7 @@ function Os10Badge({
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500 bg-white/[0.03] border border-white/[0.06] rounded-full px-2 py-0.5">
+    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-white/[0.03] border border-white/[0.06] rounded-full px-2 py-0.5">
       OS-10 pendiente
     </span>
   );

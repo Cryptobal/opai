@@ -220,25 +220,25 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
   return (
     <div className="flex flex-1 overflow-hidden flex-col bg-[#0a0a0f]">
       {/* Header */}
-      <header className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800/50 bg-zinc-900/80 backdrop-blur">
-        <button onClick={onBack} className="text-zinc-400 hover:text-zinc-200 transition-colors">
+      <header className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card opai-glass-strong-m">
+        <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex-1 min-w-0">
-          <h2 className="text-sm font-semibold text-zinc-100 truncate">
+          <h2 className="text-sm font-semibold text-foreground truncate">
             {channelName || "Chat"}
           </h2>
-          <p className="text-[10px] text-zinc-500">Chat de instalación</p>
+          <p className="text-[10px] text-muted-foreground">Chat de instalación</p>
         </div>
       </header>
 
       {isLoading ? (
         <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : !channelId ? (
         <div className="flex-1 flex items-center justify-center p-6">
-          <p className="text-zinc-400 text-sm text-center">No hay chat disponible.</p>
+          <p className="text-muted-foreground text-sm text-center">No hay chat disponible.</p>
         </div>
       ) : (
         <>
@@ -250,7 +250,7 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
           >
             {loadingMore && (
               <div className="flex justify-center py-2">
-                <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
               </div>
             )}
             {messages.map((msg, idx) => {
@@ -267,7 +267,7 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
                       <div className="mt-1 space-y-1">
                         {msg.attachments.map((att, i) => (
                           <a key={i} href={att.fileUrl} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-2 text-xs text-[#2dd4bf] hover:text-teal-300">
+                            className="flex items-center gap-2 text-xs text-primary hover:text-teal-300">
                             {att.fileName}
                           </a>
                         ))}
@@ -282,20 +282,20 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
 
           {/* Reply banner */}
           {replyTo && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-zinc-800/50 border-t border-zinc-800">
+            <div className="flex items-center gap-2 px-4 py-2 bg-muted opai-glass-soft-m border-t border-border">
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-teal-400">Respondiendo a {replyTo.senderName}</p>
-                <p className="text-xs text-zinc-400 truncate">{replyTo.content}</p>
+                <p className="text-[10px] text-primary">Respondiendo a {replyTo.senderName}</p>
+                <p className="text-xs text-muted-foreground truncate">{replyTo.content}</p>
               </div>
-              <button onClick={() => setReplyTo(null)} className="text-zinc-500 hover:text-zinc-300">
+              <button onClick={() => setReplyTo(null)} className="text-muted-foreground hover:text-foreground">
                 <X className="h-4 w-4" />
               </button>
             </div>
           )}
 
           {/* Input */}
-          <div className="px-4 py-3 border-t border-[rgba(255,255,255,0.06)] bg-[#0d1220] pb-[env(safe-area-inset-bottom)]">
-            <div className="flex items-end gap-2 bg-[#141a2a] rounded-xl border border-[rgba(255,255,255,0.06)] focus-within:border-[rgba(45,212,191,0.3)] px-3 py-2">
+          <div className="px-4 py-3 border-t border-[rgba(255,255,255,0.06)] bg-card opai-glass-soft-m pb-[env(safe-area-inset-bottom)]">
+            <div className="flex items-end gap-2 bg-muted rounded-xl border border-[rgba(255,255,255,0.06)] focus-within:border-[rgba(45,212,191,0.3)] px-3 py-2">
               <textarea
                 ref={inputRef}
                 value={inputText}
@@ -303,13 +303,13 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
                 onKeyDown={handleKeyDown}
                 placeholder="Escribe un mensaje..."
                 rows={1}
-                className="flex-1 resize-none bg-transparent text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none max-h-28"
+                className="flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none max-h-28"
                 style={{ minHeight: "38px" }}
               />
               <button
                 onClick={handleSend}
                 disabled={!inputText.trim() || isSending}
-                className="h-[38px] w-[38px] rounded-lg bg-[#2dd4bf] flex items-center justify-center text-zinc-900 disabled:opacity-40 hover:bg-teal-300 transition-colors shrink-0"
+                className="h-[38px] w-[38px] rounded-lg bg-primary flex items-center justify-center text-primary-foreground disabled:opacity-40 hover:bg-teal-300 transition-colors shrink-0"
               >
                 {isSending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

@@ -111,17 +111,17 @@ export function PortalReportes({ session, isProspect }: Props) {
             <h2 className="text-base font-semibold">Reportes</h2>
             <PreviewBadge />
           </div>
-          <p className="text-xs text-zinc-400 mt-0.5">
+          <p className="text-xs text-muted-foreground mt-0.5">
             Informes detallados de tu servicio de seguridad
           </p>
         </div>
-        <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-5 space-y-3">
-          <p className="text-sm text-zinc-300 font-medium">Reportes mensuales automáticos</p>
-          <ul className="space-y-2 text-xs text-zinc-400">
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Métricas de cumplimiento y operación</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Evaluación de guardias y desempeño</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Recomendaciones de mejora</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Descarga en PDF</li>
+        <div className="bg-card opai-glass-soft-m border border-border rounded-xl p-5 space-y-3">
+          <p className="text-sm text-muted-foreground font-medium">Reportes mensuales automáticos</p>
+          <ul className="space-y-2 text-xs text-muted-foreground">
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-primary" />Métricas de cumplimiento y operación</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-primary" />Evaluación de guardias y desempeño</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-primary" />Recomendaciones de mejora</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-primary" />Descarga en PDF</li>
           </ul>
         </div>
       </div>
@@ -131,7 +131,7 @@ export function PortalReportes({ session, isProspect }: Props) {
   /* ── Loading ── */
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-40 gap-2 text-zinc-400">
+      <div className="flex items-center justify-center h-40 gap-2 text-muted-foreground">
         <Loader2 className="h-5 w-5 animate-spin" />
         <span className="text-sm">Cargando reportes...</span>
       </div>
@@ -145,7 +145,7 @@ export function PortalReportes({ session, isProspect }: Props) {
         <p className="text-sm">{error}</p>
         <button
           onClick={fetchReportes}
-          className="text-xs underline text-zinc-400 hover:text-zinc-200"
+          className="text-xs underline text-muted-foreground hover:text-zinc-200"
         >
           Reintentar
         </button>
@@ -156,10 +156,10 @@ export function PortalReportes({ session, isProspect }: Props) {
   /* ── Empty state ── */
   if (reportes.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4 text-zinc-500 px-6">
+      <div className="flex flex-col items-center justify-center h-64 gap-4 text-muted-foreground px-6">
         <BarChart3 className="h-10 w-10 text-zinc-700" />
         <div className="text-center">
-          <p className="text-sm font-medium text-zinc-400">
+          <p className="text-sm font-medium text-muted-foreground">
             Sin reportes disponibles aún
           </p>
           <p className="text-xs mt-1">
@@ -175,7 +175,7 @@ export function PortalReportes({ session, isProspect }: Props) {
     <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 pb-24 space-y-3">
       <div className="mb-4">
         <h2 className="text-base font-semibold">Reportes</h2>
-        <p className="text-xs text-zinc-400 mt-0.5">
+        <p className="text-xs text-muted-foreground mt-0.5">
           Informes detallados de tu servicio de seguridad
         </p>
       </div>
@@ -189,7 +189,7 @@ export function PortalReportes({ session, isProspect }: Props) {
         return (
           <div
             key={reporte.id}
-            className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 flex items-center gap-4"
+            className="rounded-xl border border-border bg-card opai-glass-soft-m p-4 flex items-center gap-4"
           >
             {/* Icon */}
             <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-status-info-soft flex items-center justify-center">
@@ -203,7 +203,7 @@ export function PortalReportes({ session, isProspect }: Props) {
               </p>
               <div className="flex items-center gap-2 mt-0.5">
                 {reporte.installationId && (
-                  <span className="text-xs text-zinc-500 truncate">
+                  <span className="text-xs text-muted-foreground truncate">
                     Instalación: {installationMap[reporte.installationId] ?? reporte.installationId.slice(0, 8) + "..."}
                   </span>
                 )}

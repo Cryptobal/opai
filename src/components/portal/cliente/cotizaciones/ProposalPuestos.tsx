@@ -59,10 +59,10 @@ export function ProposalPuestos({
   );
 
   return (
-    <div className={cn("rounded-xl border border-slate-700/50 bg-slate-800/50 p-4 space-y-3", className)}>
-      <h3 className="text-xl font-bold text-white">
-        <span className="text-status-info-fg">{sectionNumber}.</span> Puestos de Trabajo ·{" "}
-        <span className="text-slate-300">
+    <div className={cn("rounded-xl border border-border bg-card opai-glass-soft-m p-4 space-y-3", className)}>
+      <h3 className="text-xl font-bold text-foreground">
+        <span className="text-primary">{sectionNumber}.</span> Puestos de Trabajo ·{" "}
+        <span className="text-muted-foreground">
           {totalGuards} guardia{totalGuards !== 1 ? "s" : ""}
         </span>
       </h3>
@@ -70,10 +70,10 @@ export function ProposalPuestos({
       {/* Mobile: card view */}
       <div className="md:hidden space-y-3">
         {groups.map((g) => (
-          <div key={g.id} className="rounded-lg border border-white/[0.08] bg-white/[0.03] p-2 space-y-2">
+          <div key={g.id} className="rounded-lg border border-border bg-muted p-2 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-white">{g.name}</span>
-              <span className="text-[10px] uppercase tracking-wide text-status-info-fg">
+              <span className="text-sm font-semibold text-foreground">{g.name}</span>
+              <span className="text-[10px] uppercase tracking-wide text-primary">
                 {g.pattern.replace("-", "/")}
               </span>
             </div>
@@ -85,7 +85,7 @@ export function ProposalPuestos({
         {ungrouped.length > 0 && (
           <div className="space-y-2">
             {groups.length > 0 && (
-              <div className="text-[10px] uppercase tracking-wide text-slate-500">Sin agrupar</div>
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Sin agrupar</div>
             )}
             {ungrouped.map((pos) => (
               <PositionMobileCard key={pos.id} pos={pos} fmt={fmt} />
@@ -98,7 +98,7 @@ export function ProposalPuestos({
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-xs min-w-[540px]">
           <thead>
-            <tr className="text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-700">
+            <tr className="text-muted-foreground uppercase text-[10px] tracking-wider border-b border-border">
               <th className="text-left py-2 pr-3 font-medium">Puesto</th>
               <th className="text-center py-2 pr-3 font-medium">G</th>
               <th className="text-center py-2 pr-3 font-medium">Cant</th>
@@ -107,7 +107,7 @@ export function ProposalPuestos({
               <th className="text-right py-2 font-medium">Valor Mensual</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-700/50">
+          <tbody className="divide-y divide-border">
             {groups.map((g) => (
               <GroupRows key={g.id} group={g} fmt={fmt} />
             ))}
@@ -117,7 +117,7 @@ export function ProposalPuestos({
                   <tr>
                     <td
                       colSpan={6}
-                      className="py-1.5 text-[10px] uppercase tracking-wide text-slate-500 bg-slate-900/30"
+                      className="py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground bg-muted"
                     >
                       Sin agrupar
                     </td>
@@ -130,8 +130,8 @@ export function ProposalPuestos({
             )}
           </tbody>
           <tfoot>
-            <tr className="border-t border-slate-600">
-              <td colSpan={5} className="py-2.5 text-sm font-bold text-white">
+            <tr className="border-t border-border">
+              <td colSpan={5} className="py-2.5 text-sm font-bold text-foreground">
                 PRECIO VENTA MENSUAL NETO
               </td>
               <td className="py-2.5 text-right text-sm font-bold text-status-ok-fg font-mono">
@@ -144,11 +144,11 @@ export function ProposalPuestos({
 
       {/* Mobile total */}
       <div className="md:hidden flex items-center justify-between rounded-lg bg-status-ok-soft border border-status-ok-border px-3 py-2">
-        <span className="text-xs font-bold text-white">PRECIO VENTA MENSUAL NETO</span>
+        <span className="text-xs font-bold text-foreground">PRECIO VENTA MENSUAL NETO</span>
         <span className="text-sm font-bold text-status-ok-fg font-mono">{fmt(monthlyCost)}</span>
       </div>
 
-      <p className="text-[10px] text-slate-500 text-right">
+      <p className="text-[10px] text-muted-foreground text-right">
         Valores netos. IVA se factura según ley vigente.
       </p>
     </div>
@@ -157,12 +157,12 @@ export function ProposalPuestos({
 
 function PositionMobileCard({ pos, fmt }: { pos: Position; fmt: (v: number) => string }) {
   return (
-    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 space-y-1">
-      <div className="text-sm font-medium text-slate-200">
+    <div className="rounded-lg border border-border bg-muted p-3 space-y-1">
+      <div className="text-sm font-medium text-foreground">
         {pos.customName ?? `Puesto ${pos.numPuestos ?? ""}`}
       </div>
       <div className="flex items-center justify-between text-xs">
-        <span className="text-slate-500">
+        <span className="text-muted-foreground">
           {pos.numGuards ?? "—"} guardia{(pos.numGuards ?? 0) !== 1 ? "s" : ""} ·{" "}
           {pos.numPuestos ?? 1} puesto{(pos.numPuestos ?? 1) !== 1 ? "s" : ""}
         </span>
@@ -170,7 +170,7 @@ function PositionMobileCard({ pos, fmt }: { pos: Position; fmt: (v: number) => s
           {fmt(pos.displayPrice ?? pos.monthlyPositionCost)}
         </span>
       </div>
-      <div className="text-[11px] text-slate-500">
+      <div className="text-[11px] text-muted-foreground">
         {formatHorario(pos.startTime, pos.endTime)} · {formatWeekdays(pos.weekdays)}
       </div>
     </div>
@@ -180,13 +180,13 @@ function PositionMobileCard({ pos, fmt }: { pos: Position; fmt: (v: number) => s
 function PositionRow({ pos, fmt }: { pos: Position; fmt: (v: number) => string }) {
   return (
     <tr>
-      <td className="py-2 pr-3 text-slate-200 font-medium">
+      <td className="py-2 pr-3 text-foreground font-medium">
         {pos.customName ?? `Puesto ${pos.numPuestos ?? ""}`}
       </td>
-      <td className="py-2 pr-3 text-center text-slate-300">{pos.numGuards ?? "—"}</td>
-      <td className="py-2 pr-3 text-center text-slate-300">{pos.numPuestos ?? 1}</td>
-      <td className="py-2 pr-3 text-slate-400">{formatWeekdays(pos.weekdays)}</td>
-      <td className="py-2 pr-3 text-slate-400">{formatHorario(pos.startTime, pos.endTime)}</td>
+      <td className="py-2 pr-3 text-center text-muted-foreground">{pos.numGuards ?? "—"}</td>
+      <td className="py-2 pr-3 text-center text-muted-foreground">{pos.numPuestos ?? 1}</td>
+      <td className="py-2 pr-3 text-muted-foreground">{formatWeekdays(pos.weekdays)}</td>
+      <td className="py-2 pr-3 text-muted-foreground">{formatHorario(pos.startTime, pos.endTime)}</td>
       <td className="py-2 text-right text-status-ok-fg font-mono font-semibold">
         {fmt(pos.displayPrice ?? pos.monthlyPositionCost)}
       </td>
@@ -199,8 +199,8 @@ function GroupRows({ group, fmt }: { group: GroupBucket; fmt: (v: number) => str
     <>
       <tr>
         <td colSpan={6} className="pt-3 pb-1 text-[11px] uppercase tracking-wide">
-          <span className="text-white font-semibold normal-case text-sm">{group.name}</span>
-          <span className="ml-2 text-status-info-fg">{group.pattern.replace("-", "/")}</span>
+          <span className="text-foreground font-semibold normal-case text-sm">{group.name}</span>
+          <span className="ml-2 text-primary">{group.pattern.replace("-", "/")}</span>
         </td>
       </tr>
       {group.items.map((pos) => (

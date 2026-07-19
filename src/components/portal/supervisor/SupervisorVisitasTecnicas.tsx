@@ -106,7 +106,7 @@ export function SupervisorVisitasTecnicas({ installations, onNew, onSelect, init
             className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
               filter === f
                 ? "bg-blue-600 text-white"
-                : "bg-zinc-900 border border-zinc-800 text-zinc-400"
+                : "bg-muted border border-border text-muted-foreground"
             }`}
           >
             {f === "todos" ? "Todas" : f === "programada" ? (
@@ -129,7 +129,7 @@ export function SupervisorVisitasTecnicas({ installations, onNew, onSelect, init
 
       {loading ? (
         <div className="flex justify-center py-10">
-          <Loader2 className="animate-spin text-zinc-600" size={24} />
+          <Loader2 className="animate-spin text-muted-foreground" size={24} />
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
@@ -150,7 +150,7 @@ export function SupervisorVisitasTecnicas({ installations, onNew, onSelect, init
                 className={`p-4 rounded-xl border transition-colors flex flex-col gap-1.5 ${
                   isProgramada
                     ? "bg-orange-950/30 border-orange-800/40"
-                    : "bg-zinc-900 border-zinc-800"
+                    : "bg-card opai-glass-soft-m border-border"
                 }`}
               >
                 <button
@@ -164,8 +164,8 @@ export function SupervisorVisitasTecnicas({ installations, onNew, onSelect, init
                       {cfg.label}
                     </span>
                   </div>
-                  <p className="text-xs text-zinc-400 truncate">{v.installation?.name ?? "—"}</p>
-                  <div className="flex items-center gap-3 text-[10px] text-zinc-600">
+                  <p className="text-xs text-muted-foreground truncate">{v.installation?.name ?? "—"}</p>
+                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                     {isProgramada && scheduledDate ? (
                       <span className="text-orange-400 font-medium">
                         📅 {new Date(scheduledDate).toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" })}

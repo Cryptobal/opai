@@ -9,7 +9,7 @@ const STATUS_CONFIG = {
   normal: { label: 'Normal', color: 'text-status-ok-fg bg-status-ok-soft' },
   novedad: { label: 'Con novedades', color: 'text-status-warn-fg bg-status-warn-soft' },
   critico: { label: 'Critico', color: 'text-status-danger-fg bg-status-danger-soft' },
-  no_aplica: { label: 'N/A', color: 'text-zinc-500 bg-zinc-800' },
+  no_aplica: { label: 'N/A', color: 'text-muted-foreground bg-muted' },
 }
 
 interface Props {
@@ -26,7 +26,7 @@ export function PortalPosta({ selectedInstallation }: Props) {
 
   if (loading) return (
     <div className="flex items-center justify-center h-48">
-      <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
     </div>
   )
 
@@ -34,11 +34,11 @@ export function PortalPosta({ selectedInstallation }: Props) {
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto">
       <div className="mb-4 flex items-start justify-between gap-2">
         <div>
-          <h2 className="text-white font-semibold text-lg flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-status-info-fg" /> Bitácora digital
+          <h2 className="text-foreground font-semibold text-lg flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-primary" /> Bitácora digital
             {isDemo && <PreviewBadge />}
           </h2>
-          <p className="text-xs text-zinc-500 mt-1 ml-7">Registro digital de novedades — Adiós al cuaderno</p>
+          <p className="text-xs text-muted-foreground mt-1 ml-7">Registro digital de novedades — Adiós al cuaderno</p>
         </div>
         <ExportButton
           baseName="bitacora"
@@ -68,7 +68,7 @@ export function PortalPosta({ selectedInstallation }: Props) {
       {records.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <BookOpen className="h-8 w-8 text-zinc-700 mb-3" />
-          <p className="text-sm font-medium text-zinc-400">Sin novedades registradas</p>
+          <p className="text-sm font-medium text-muted-foreground">Sin novedades registradas</p>
           <p className="text-xs text-zinc-600 mt-1">La bitácora digital reemplaza el cuaderno físico con trazabilidad completa.</p>
         </div>
       ) : (
@@ -84,17 +84,17 @@ export function PortalPosta({ selectedInstallation }: Props) {
                 })
               : '-'
             return (
-              <div key={r.id} className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-4 space-y-2">
+              <div key={r.id} className="bg-card opai-glass-soft-m border border-border rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-white text-sm font-medium">{dateLabel}</span>
+                  <span className="text-foreground text-sm font-medium">{dateLabel}</span>
                   <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', cfg.color)}>
                     {cfg.label}
                   </span>
                 </div>
-                <div className="flex gap-4 text-xs text-zinc-400">
+                <div className="flex gap-4 text-xs text-muted-foreground">
                   <span>
                     Guardias:{' '}
-                    <span className="text-white font-medium">
+                    <span className="text-foreground font-medium">
                       {r.guardiasPresentes ?? 0}/{r.guardiasRequeridos ?? 0}
                     </span>
                   </span>
@@ -102,9 +102,9 @@ export function PortalPosta({ selectedInstallation }: Props) {
                     <span>Central: {r.controlNocturno.centralOperatorName}</span>
                   )}
                 </div>
-                {r.notes && <p className="text-zinc-400 text-xs">{r.notes}</p>}
+                {r.notes && <p className="text-muted-foreground text-xs">{r.notes}</p>}
                 {r.controlNocturno?.generalNotes && (
-                  <p className="text-zinc-500 text-xs border-t border-zinc-700 pt-2 mt-2">
+                  <p className="text-muted-foreground text-xs border-t border-border pt-2 mt-2">
                     {r.controlNocturno.generalNotes}
                   </p>
                 )}

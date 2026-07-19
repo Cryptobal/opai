@@ -56,15 +56,15 @@ export function ProposalDesgloseRecursos({
   if (allCats.length === 0) return null;
 
   return (
-    <div className={cn("rounded-xl border border-slate-700/50 overflow-hidden", className)}>
+    <div className={cn("rounded-xl border border-border overflow-hidden", className)}>
       <button
         type="button"
         onClick={() => setIsOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/50 hover:bg-slate-800/70 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 bg-card opai-glass-soft-m hover:bg-muted transition-colors"
       >
         <div className="flex items-center gap-2.5">
           <Package className="h-5 w-5 text-violet-400" />
-          <h3 className="text-xl font-bold text-white">
+          <h3 className="text-xl font-bold text-foreground">
             <span className="text-violet-400">{sectionNumber}.</span> Desglose de Equipamiento y Recursos
           </h3>
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 font-medium">
@@ -73,15 +73,15 @@ export function ProposalDesgloseRecursos({
         </div>
         <ChevronDown
           className={cn(
-            "h-5 w-5 text-slate-500 transition-transform",
+            "h-5 w-5 text-muted-foreground transition-transform",
             isOpen && "rotate-180",
           )}
         />
       </button>
 
       {isOpen && (
-        <div className="px-4 py-4 bg-slate-800/30 space-y-3">
-          <div className="flex items-center gap-4 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04] text-[10px] text-slate-500">
+        <div className="px-4 py-4 bg-muted space-y-3">
+          <div className="flex items-center gap-4 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04] text-[10px] text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-sm bg-status-info" />
               <span>Costos Directos</span>
@@ -110,7 +110,7 @@ export function ProposalDesgloseRecursos({
                     <span className={cn("text-xs font-bold uppercase tracking-wider", color)}>
                       {cat.category}
                     </span>
-                    <span className="text-[9px] text-slate-500">
+                    <span className="text-[9px] text-muted-foreground">
                       ({cat.items.length} {cat.items.length === 1 ? "ítem" : "ítems"})
                     </span>
                   </div>
@@ -120,7 +120,7 @@ export function ProposalDesgloseRecursos({
                     </span>
                     <ChevronDown
                       className={cn(
-                        "h-3.5 w-3.5 text-slate-500 transition-transform",
+                        "h-3.5 w-3.5 text-muted-foreground transition-transform",
                         isExpanded && "rotate-180",
                       )}
                     />
@@ -133,23 +133,23 @@ export function ProposalDesgloseRecursos({
                       <div key={itemIdx} className="group">
                         <div className="flex items-center justify-between py-1">
                           <div className="flex-1 min-w-0">
-                            <span className="text-xs text-slate-300 font-medium">
+                            <span className="text-xs text-foreground/80 font-medium">
                               {item.name}
                             </span>
                             {item.unit && (
-                              <span className="ml-2 text-[9px] text-slate-600">
+                              <span className="ml-2 text-[9px] text-muted-foreground">
                                 {item.unit}
                               </span>
                             )}
                           </div>
-                          <span className="text-xs font-mono text-slate-400 shrink-0 ml-2">
+                          <span className="text-xs font-mono text-muted-foreground shrink-0 ml-2">
                             {fmt(item.amount)}
                           </span>
                         </div>
                         {item.technicalSpecs && (
                           <div className="flex items-start gap-1.5 pl-2 pb-1.5">
-                            <Info className="h-3 w-3 text-slate-600 shrink-0 mt-0.5" />
-                            <p className="text-[10px] text-slate-500 italic leading-relaxed">
+                            <Info className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+                            <p className="text-[10px] text-muted-foreground italic leading-relaxed">
                               {item.technicalSpecs}
                             </p>
                           </div>
@@ -163,11 +163,11 @@ export function ProposalDesgloseRecursos({
           })}
 
           <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-violet-600/15 border border-violet-500/25">
-            <span className="text-sm font-bold text-white">TOTAL EQUIPAMIENTO Y RECURSOS</span>
+            <span className="text-sm font-bold text-foreground">TOTAL EQUIPAMIENTO Y RECURSOS</span>
             <span className="text-lg font-bold text-violet-400 font-mono">{fmt(grandTotal)}</span>
           </div>
 
-          <p className="text-[10px] text-slate-500 text-right">
+          <p className="text-[10px] text-muted-foreground text-right">
             Montos mensuales · Especificaciones sujetas a disponibilidad
           </p>
         </div>

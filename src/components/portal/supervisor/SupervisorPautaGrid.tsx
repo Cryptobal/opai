@@ -159,24 +159,24 @@ export function SupervisorPautaGrid({ installations }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-xs text-zinc-500 uppercase tracking-wider">Pauta mensual</p>
+      <p className="text-xs text-muted-foreground uppercase tracking-wider">Pauta mensual</p>
 
       <select
         value={selectedId}
         onChange={(e) => setSelectedId(e.target.value)}
-        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-full bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
       >
         {installations.map((i) => (
           <option key={i.id} value={i.id}>{i.name}</option>
         ))}
       </select>
 
-      <div className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5">
-        <button onClick={prevMonth} className="p-1 text-zinc-400 hover:text-white">
+      <div className="flex items-center justify-between bg-card opai-glass-soft-m border border-border rounded-xl px-4 py-2.5">
+        <button onClick={prevMonth} className="p-1 text-muted-foreground hover:text-foreground">
           <ChevronLeft size={16} />
         </button>
         <span className="text-xs font-medium capitalize">{monthLabel}</span>
-        <button onClick={nextMonth} className="p-1 text-zinc-400 hover:text-white">
+        <button onClick={nextMonth} className="p-1 text-muted-foreground hover:text-foreground">
           <ChevronRight size={16} />
         </button>
       </div>
@@ -201,23 +201,23 @@ export function SupervisorPautaGrid({ installations }: Props) {
             const workDays = Array.from(row.cells.values()).filter(c => c.item?.shiftCode === 'T').length;
             const totalCells = row.cells.size;
             return (
-              <div key={`${row.puestoId}-${row.slotNumber}`} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
-                {isFirst && <div className="text-[11px] font-medium text-zinc-200 truncate mb-1">{row.puestoName}</div>}
+              <div key={`${row.puestoId}-${row.slotNumber}`} className="rounded-lg border border-border bg-card opai-glass-soft-m p-3">
+                {isFirst && <div className="text-[11px] font-medium text-foreground truncate mb-1">{row.puestoName}</div>}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-zinc-400 truncate min-w-0">{row.guardiaName}</span>
-                  <span className="text-[10px] text-zinc-500 shrink-0">S{row.slotNumber} · {workDays}/{totalCells} días</span>
+                  <span className="text-[11px] text-muted-foreground truncate min-w-0">{row.guardiaName}</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0">S{row.slotNumber} · {workDays}/{totalCells} días</span>
                 </div>
               </div>
             );
           })}
         </div>
         {/* Desktop: full grid table */}
-        <div className="hidden md:block rounded-xl border border-zinc-800 overflow-hidden">
+        <div className="hidden md:block rounded-xl border border-border overflow-hidden">
           <div className="overflow-x-auto scrollbar-hide">
             <table className="w-full text-[10px] border-collapse">
               <thead>
-                <tr className="border-b border-zinc-800">
-                  <th className="sticky left-0 z-10 bg-zinc-950 text-left pl-2 pr-1 py-1.5 min-w-[100px] text-[10px] font-medium text-zinc-400">
+                <tr className="border-b border-border">
+                  <th className="sticky left-0 z-10 bg-card text-left pl-2 pr-1 py-1.5 min-w-[100px] text-[10px] font-medium text-muted-foreground">
                     Puesto / Guardia
                   </th>
                   {days.map((d) => {
@@ -253,15 +253,15 @@ export function SupervisorPautaGrid({ installations }: Props) {
                   return (
                     <tr
                       key={`${row.puestoId}-${row.slotNumber}`}
-                      className={isFirst ? "border-t border-zinc-800" : ""}
+                      className={isFirst ? "border-t border-border" : ""}
                     >
-                      <td className="sticky left-0 z-10 bg-zinc-950 pl-2 pr-1 py-1 align-top min-w-[100px]">
+                      <td className="sticky left-0 z-10 bg-card pl-2 pr-1 py-1 align-top min-w-[100px]">
                         {isFirst && (
-                          <div className="text-[10px] font-medium text-zinc-200 truncate max-w-[120px] leading-tight">
+                          <div className="text-[10px] font-medium text-foreground truncate max-w-[120px] leading-tight">
                             {row.puestoName}
                           </div>
                         )}
-                        <div className="text-[9px] text-zinc-500 truncate max-w-[120px] leading-tight flex items-center gap-1">
+                        <div className="text-[9px] text-muted-foreground truncate max-w-[120px] leading-tight flex items-center gap-1">
                           <span className="text-zinc-600 font-mono">S{row.slotNumber}</span>
                           <span className="truncate">
                             {row.guardiaName}
@@ -334,7 +334,7 @@ export function SupervisorPautaGrid({ installations }: Props) {
             </table>
           </div>
           {/* Legend */}
-          <div className="flex flex-wrap gap-x-3 gap-y-1 px-3 py-2 border-t border-zinc-800 text-[8px] text-zinc-500">
+          <div className="flex flex-wrap gap-x-3 gap-y-1 px-3 py-2 border-t border-border text-[8px] text-muted-foreground">
             <span><span className="inline-block w-3 h-3 rounded bg-amber-500/20 border border-amber-500/30 align-middle mr-0.5" /> TD</span>
             <span><span className="inline-block w-3 h-3 rounded bg-indigo-500/20 border border-indigo-500/30 align-middle mr-0.5" /> TN</span>
             <span><span className="inline-block w-3 h-3 rounded bg-zinc-700/30 border border-zinc-600/20 align-middle mr-0.5" /> Descanso</span>

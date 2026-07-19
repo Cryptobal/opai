@@ -356,7 +356,7 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
       <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300"
+          className="p-2 rounded-lg bg-muted opai-glass-soft-m border border-border text-muted-foreground"
         >
           <ArrowLeft size={18} />
         </button>
@@ -373,7 +373,7 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
               className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${
                 type === t
                   ? "bg-emerald-600 text-white"
-                  : "bg-zinc-900 border border-zinc-800 text-zinc-400"
+                  : "bg-muted opai-glass-soft-m border border-border text-muted-foreground"
               }`}
             >
               {t === "PURCHASE" ? "Compra / Gasto" : "Kilometraje"}
@@ -392,7 +392,7 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0"
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full bg-muted opai-glass-soft-m border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
             />
           </Field>
 
@@ -405,7 +405,7 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
                   className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${
                     docType === d
                       ? "bg-zinc-700 text-white"
-                      : "bg-zinc-900 border border-zinc-800 text-zinc-400"
+                      : "bg-muted opai-glass-soft-m border border-border text-muted-foreground"
                   }`}
                 >
                   {d === "BOLETA" ? "Boleta" : d === "FACTURA" ? "Factura" : "Sin respaldo"}
@@ -450,15 +450,15 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
               value={tollAmount}
               onChange={(e) => setTollAmount(e.target.value)}
               placeholder="0"
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full bg-muted opai-glass-soft-m border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
             />
-            <p className="text-[10px] text-zinc-500 mt-1">Costo de peajes/TAG. Se suma al total.</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Costo de peajes/TAG. Se suma al total.</p>
           </Field>
 
           {/* Cost breakdown */}
           {(estimating || estimate) && startLocation && endLocation && (
-            <div className="rounded-lg bg-zinc-900 border border-zinc-800 p-3 space-y-1.5">
-              <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
+            <div className="rounded-lg bg-card opai-glass-soft-m border border-border p-3 space-y-1.5">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                 Cálculo estimado
                 {estimating && <Loader2 size={11} className="animate-spin" />}
               </p>
@@ -471,8 +471,8 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
                   {estimate.tollAmount > 0 && (
                     <Row label="Peaje / TAG" value={fmtCLP(estimate.tollAmount)} />
                   )}
-                  <div className="flex justify-between border-t border-zinc-700 pt-1 font-medium text-sm">
-                    <span className="text-white">Total</span>
+                  <div className="flex justify-between border-t border-border pt-1 font-medium text-sm">
+                    <span className="text-foreground">Total</span>
                     <span className="text-emerald-400">{fmtCLP(estimate.totalAmount)}</span>
                   </div>
                   {estimate.source === "haversine" && (
@@ -495,7 +495,7 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
             className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${
               !forThirdParty
                 ? "bg-emerald-600 text-white"
-                : "bg-zinc-900 border border-zinc-800 text-zinc-400"
+                : "bg-muted opai-glass-soft-m border border-border text-muted-foreground"
             }`}
           >
             Para mí
@@ -505,7 +505,7 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
             className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${
               forThirdParty
                 ? "bg-emerald-600 text-white"
-                : "bg-zinc-900 border border-zinc-800 text-zinc-400"
+                : "bg-muted opai-glass-soft-m border border-border text-muted-foreground"
             }`}
           >
             Para un guardia
@@ -526,29 +526,29 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
                 beneficiaryDebounceRef.current = setTimeout(() => searchBeneficiary(v), 250);
               }}
               placeholder="Buscar por nombre, código o RUT..."
-              className={`w-full bg-zinc-900 border rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
-                beneficiaryGuardiaId ? "border-emerald-500/50" : "border-zinc-800"
+              className={`w-full bg-muted border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                beneficiaryGuardiaId ? "border-emerald-500/50" : "border-border"
               }`}
             />
             {beneficiarySearching && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <Loader2 size={14} className="animate-spin text-zinc-500" />
+                <Loader2 size={14} className="animate-spin text-muted-foreground" />
               </div>
             )}
             {beneficiaryGuardiaId && (
               <button
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
                 onClick={() => { setBeneficiaryGuardiaId(null); setBeneficiaryName(""); }}
               >
                 <X size={14} />
               </button>
             )}
             {beneficiaryOpen && beneficiaryResults.length > 0 && (
-              <ul className="absolute left-0 right-0 z-50 mt-1 max-h-48 overflow-auto rounded-lg border border-zinc-700 bg-zinc-900 py-1 text-sm shadow-xl">
+              <ul className="absolute left-0 right-0 z-50 mt-1 max-h-48 overflow-auto rounded-lg border border-border bg-card opai-glass-strong-m py-1 text-sm shadow-xl">
                 {beneficiaryResults.map((g) => (
                   <li
                     key={g.id}
-                    className="cursor-pointer px-3 py-2.5 hover:bg-zinc-800 text-white"
+                    className="cursor-pointer px-3 py-2.5 hover:bg-accent text-foreground"
                     onClick={() => {
                       setBeneficiaryGuardiaId(g.id);
                       setBeneficiaryName(g.nombreCompleto);
@@ -557,8 +557,8 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
                     }}
                   >
                     <span className="font-medium">{g.nombreCompleto}</span>
-                    {g.rut && <span className="ml-2 text-xs text-zinc-500">{g.rut}</span>}
-                    {g.code && <span className="ml-2 text-xs text-zinc-500">Cód. {g.code}</span>}
+                    {g.rut && <span className="ml-2 text-xs text-muted-foreground">{g.rut}</span>}
+                    {g.code && <span className="ml-2 text-xs text-muted-foreground">Cód. {g.code}</span>}
                   </li>
                 ))}
               </ul>
@@ -576,7 +576,7 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          className="w-full bg-muted opai-glass-soft-m border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
         />
       </Field>
 
@@ -587,7 +587,7 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Detalle del gasto..."
           rows={2}
-          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none"
+          className="w-full bg-muted opai-glass-soft-m border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none"
         />
       </Field>
 
@@ -603,17 +603,17 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
             className="hidden"
           />
           {attachmentPreview ? (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-zinc-900 border border-emerald-500/30">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted border border-emerald-500/30">
               <img src={attachmentPreview} alt="comprobante" className="w-12 h-12 object-cover rounded-md" />
               <p className="text-xs text-emerald-400 flex-1">Comprobante listo</p>
-              <button onClick={() => { setAttachmentFile(null); setAttachmentPreview(null); }} className="text-zinc-500">
+              <button onClick={() => { setAttachmentFile(null); setAttachmentPreview(null); }} className="text-muted-foreground">
                 <X size={14} />
               </button>
             </div>
           ) : (
             <button
               onClick={() => fileRef.current?.click()}
-              className="flex items-center gap-2 w-full p-3 rounded-lg bg-zinc-900 border border-zinc-800 border-dashed text-zinc-400 hover:border-zinc-600 transition-colors"
+              className="flex items-center gap-2 w-full p-3 rounded-lg bg-muted opai-glass-soft-m border border-border border-dashed text-muted-foreground hover:border-foreground/40 transition-colors"
             >
               <Camera size={16} />
               <span className="text-sm">Tomar foto del comprobante</span>
@@ -627,7 +627,7 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
         <button
           onClick={() => handleSubmit(true)}
           disabled={submitting}
-          className="flex-1 py-3 rounded-xl bg-zinc-800 text-zinc-300 text-sm font-medium hover:bg-zinc-700 disabled:opacity-50 transition-colors"
+          className="flex-1 py-3 rounded-xl bg-muted text-foreground/80 text-sm font-medium hover:bg-accent disabled:opacity-50 transition-colors"
         >
           Guardar borrador
         </button>
@@ -647,7 +647,7 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium text-zinc-400">{label}</label>
+      <label className="text-xs font-medium text-muted-foreground">{label}</label>
       {children}
     </div>
   );
@@ -656,8 +656,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between">
-      <span className="text-zinc-500">{label}</span>
-      <span className="text-zinc-300">{value}</span>
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-foreground">{value}</span>
     </div>
   );
 }
@@ -691,7 +691,7 @@ function LocationField({
           className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
             mode === "gps"
               ? "bg-emerald-600 text-white"
-              : "bg-zinc-900 border border-zinc-800 text-zinc-400"
+              : "bg-muted opai-glass-soft-m border border-border text-muted-foreground"
           }`}
         >
           <Navigation size={12} />
@@ -702,7 +702,7 @@ function LocationField({
           className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
             mode === "installation"
               ? "bg-emerald-600 text-white"
-              : "bg-zinc-900 border border-zinc-800 text-zinc-400"
+              : "bg-muted opai-glass-soft-m border border-border text-muted-foreground"
           }`}
         >
           <Building2 size={12} />
@@ -739,7 +739,7 @@ function LocationField({
               });
             }
           }}
-          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          className="w-full bg-muted opai-glass-soft-m border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
         >
           <option value="">
             {installations.length === 0
@@ -755,7 +755,7 @@ function LocationField({
       )}
 
       {mode === "installation" && location?.address && (
-        <p className="text-[11px] text-zinc-400 mt-1 flex items-center gap-1">
+        <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
           <Building2 size={11} />
           {location.address}
         </p>

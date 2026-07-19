@@ -90,7 +90,7 @@ const ESTADO_CFG: Record<
   },
   sin_gps: {
     label: "Sin GPS",
-    color: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
+    color: "bg-muted text-muted-foreground border-border",
     Icon: HelpCircle,
   },
   sin_foto: {
@@ -125,9 +125,9 @@ function MetodoBadge({ metodoId }: { metodoId: string | null }) {
     foto: { label: "Foto", cls: "bg-status-info-soft text-status-info-fg" },
     pin_fallback: { label: "PIN", cls: "bg-status-warn-soft text-status-warn-fg" },
     rut_pin: { label: "RUT+PIN", cls: "bg-status-warn-soft text-status-warn-fg" },
-    manual: { label: "Manual", cls: "bg-slate-500/20 text-slate-300" },
+    manual: { label: "Manual", cls: "bg-muted text-muted-foreground" },
   };
-  const m = map[metodoId] ?? { label: metodoId, cls: "bg-slate-500/20 text-slate-300" };
+  const m = map[metodoId] ?? { label: metodoId, cls: "bg-muted text-muted-foreground" };
   return (
     <span
       className={cn(
@@ -171,7 +171,7 @@ function KpiTile({
   onClick?: () => void;
 }) {
   const toneCls = {
-    neutral: "text-zinc-300",
+    neutral: "text-muted-foreground",
     emerald: "text-status-ok-fg",
     amber: "text-status-warn-fg",
     red: "text-status-danger-fg",
@@ -190,7 +190,7 @@ function KpiTile({
       <p className={cn("text-base font-bold tabular-nums leading-tight", toneCls)}>
         {value}
       </p>
-      <p className="text-[10px] text-zinc-500 uppercase tracking-wider mt-0.5">
+      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">
         {label}
       </p>
     </button>
@@ -276,7 +276,7 @@ export function PortalMarcaciones({ session, selectedInstallation }: Props) {
 
   if (!installationId) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-2 text-slate-500">
+      <div className="flex flex-col items-center justify-center py-20 gap-2 text-muted-foreground">
         <AlertTriangle className="h-8 w-8 opacity-40" />
         <p className="text-sm">No hay instalaciones asignadas</p>
       </div>
@@ -294,9 +294,9 @@ export function PortalMarcaciones({ session, selectedInstallation }: Props) {
         <div>
           <div className="flex items-center gap-2">
             <UserCheck className="h-5 w-5 text-status-info-fg" />
-            <h2 className="text-base font-semibold text-white">Marcaciones</h2>
+            <h2 className="text-base font-semibold text-foreground">Marcaciones</h2>
           </div>
-          <p className="text-xs text-slate-500 mt-1">{installationName}</p>
+          <p className="text-xs text-muted-foreground mt-1">{installationName}</p>
         </div>
         <ExportButton
           baseName={`marcaciones_${installationName}_${days}d`}
@@ -381,7 +381,7 @@ export function PortalMarcaciones({ session, selectedInstallation }: Props) {
         <select
           value={tipo}
           onChange={(e) => setTipo(e.target.value)}
-          className="h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-2 text-xs text-white focus:outline-none"
+          className="h-9 rounded-lg border border-border bg-background px-2 text-xs text-foreground focus:outline-none"
         >
           {TIPO_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -392,7 +392,7 @@ export function PortalMarcaciones({ session, selectedInstallation }: Props) {
         <select
           value={estado}
           onChange={(e) => setEstado(e.target.value)}
-          className="h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-2 text-xs text-white focus:outline-none"
+          className="h-9 rounded-lg border border-border bg-background px-2 text-xs text-foreground focus:outline-none"
         >
           {ESTADO_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -401,20 +401,20 @@ export function PortalMarcaciones({ session, selectedInstallation }: Props) {
           ))}
         </select>
         <div className="flex-1 relative min-w-[140px]">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <input
             type="text"
             placeholder="Buscar guardia..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="w-full h-9 rounded-lg border border-zinc-700 bg-zinc-800 pl-7 pr-2 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-teal-500/50"
+            className="w-full h-9 rounded-lg border border-border bg-background pl-7 pr-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-teal-500/50"
           />
         </div>
       </div>
 
       {/* Lista */}
       {loading ? (
-        <div className="flex items-center justify-center py-20 gap-2 text-slate-400">
+        <div className="flex items-center justify-center py-20 gap-2 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span className="text-sm">Cargando marcaciones...</span>
         </div>
@@ -424,7 +424,7 @@ export function PortalMarcaciones({ session, selectedInstallation }: Props) {
           <p className="text-sm">{error}</p>
         </div>
       ) : marcaciones.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-500">
+        <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
           <Clock className="h-10 w-10 opacity-40" />
           <p className="text-sm">Sin marcaciones en este periodo</p>
           {(tipo || estado || q) && (
@@ -443,7 +443,7 @@ export function PortalMarcaciones({ session, selectedInstallation }: Props) {
       ) : (
         Array.from(grouped.entries()).map(([date, items]) => (
           <div key={date} className="space-y-2">
-            <p className="text-xs font-medium text-slate-500 capitalize sticky top-0 bg-[#0f1419] py-1 z-10">
+            <p className="text-xs font-medium text-muted-foreground capitalize sticky top-0 bg-background py-1 z-10">
               {date}
             </p>
 
@@ -477,13 +477,13 @@ export function PortalMarcaciones({ session, selectedInstallation }: Props) {
                       >
                         {isEntrada ? "Entrada" : "Salida"}
                       </span>
-                      <span className="text-sm text-white truncate">
+                      <span className="text-sm text-foreground truncate">
                         {m.guardiaName}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <EstadoChip estado={m.estado} />
-                      <span className="text-xs text-slate-400 font-mono">{time}</span>
+                      <span className="text-xs text-muted-foreground font-mono">{time}</span>
                     </div>
                   </div>
 
@@ -562,7 +562,7 @@ function GpsLabel({
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] text-slate-500">
+    <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
       <MapPin className="h-2.5 w-2.5" />
       Sin GPS
     </span>

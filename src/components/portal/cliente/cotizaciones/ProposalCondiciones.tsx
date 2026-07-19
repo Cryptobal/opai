@@ -24,9 +24,9 @@ export function ProposalCondiciones({
   if (!hasAny) return null;
 
   return (
-    <div className={cn("rounded-xl border border-slate-700/50 bg-slate-800/50 p-4 space-y-3", className)}>
-      <h3 className="text-xl font-bold text-white">
-        <span className="text-status-info-fg">{sectionNumber}.</span> Condiciones Comerciales
+    <div className={cn("rounded-xl border border-border bg-card opai-glass-soft-m p-4 space-y-3", className)}>
+      <h3 className="text-xl font-bold text-foreground">
+        <span className="text-primary">{sectionNumber}.</span> Condiciones Comerciales
       </h3>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -49,9 +49,9 @@ export function ProposalCondiciones({
 
 function Card({ label, value, capitalize }: { label: string; value: string; capitalize?: boolean }) {
   return (
-    <div className="rounded-lg bg-white/[0.04] border border-white/[0.06] px-3 py-2.5">
-      <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">{label}</p>
-      <p className={cn("text-sm text-slate-200 font-medium", capitalize && "capitalize")}>{value}</p>
+    <div className="rounded-lg bg-muted border border-border px-3 py-2.5">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{label}</p>
+      <p className={cn("text-sm text-foreground font-medium", capitalize && "capitalize")}>{value}</p>
     </div>
   );
 }

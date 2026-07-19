@@ -96,7 +96,7 @@ export function AutoMarkToast({
             </button>
             <button
               onClick={onDismiss}
-              className="flex-1 rounded-lg border border-gray-600/40 bg-gray-800/40 px-3 py-2 text-sm font-medium text-gray-300 transition-colors active:bg-gray-700/60"
+              className="flex-1 rounded-lg border border-border bg-muted px-3 py-2 text-sm font-medium text-foreground/80 transition-colors active:bg-muted/70"
             >
               Continuar
             </button>

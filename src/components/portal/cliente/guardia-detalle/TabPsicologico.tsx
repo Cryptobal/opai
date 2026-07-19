@@ -25,7 +25,7 @@ const BAND_LABELS: Record<"ALTO" | "MEDIO" | "BAJO", { label: string; tone: stri
 export function TabPsicologico({ psicologico }: Props) {
   if (!psicologico || !psicologico.tieneEvaluacion || !psicologico.band) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 gap-2 text-zinc-500">
+      <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
         <Brain className="h-8 w-8" />
         <p className="text-sm text-center px-6">
           Este guardia aún no cuenta con evaluación psicolaboral publicada.
@@ -42,7 +42,7 @@ export function TabPsicologico({ psicologico }: Props) {
         <div className="flex items-center gap-3">
           <Brain className="h-6 w-6 text-status-info-fg" />
           <div className="flex-1">
-            <p className="text-xs uppercase tracking-wider text-zinc-500">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">
               Resultado de evaluación
             </p>
             <span
@@ -53,7 +53,7 @@ export function TabPsicologico({ psicologico }: Props) {
           </div>
         </div>
         {psicologico.scoredAt && (
-          <p className="text-[11px] text-zinc-500 mt-3">
+          <p className="text-[11px] text-muted-foreground mt-3">
             Evaluado el{" "}
             {new Date(psicologico.scoredAt).toLocaleDateString("es-CL")}
           </p>
@@ -65,7 +65,7 @@ export function TabPsicologico({ psicologico }: Props) {
           </div>
         )}
       </div>
-      <p className="text-[11px] text-zinc-500 leading-relaxed px-1">
+      <p className="text-[11px] text-muted-foreground leading-relaxed px-1">
         Evaluación realizada conforme a protocolo interno de selección. Solo se
         comparte la banda de ajuste general; los detalles de dimensiones y
         puntajes son reservados por normativa de privacidad.

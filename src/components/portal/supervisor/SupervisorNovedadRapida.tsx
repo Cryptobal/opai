@@ -65,13 +65,13 @@ export function SupervisorNovedadRapida({ installations, defaultInstallationId, 
           />
 
           {/* Panel */}
-          <div className="relative bg-zinc-950 border-t border-zinc-800 rounded-t-2xl p-4 pb-safe flex flex-col gap-4">
+          <div className="relative bg-card opai-glass-strong-m border-t border-border rounded-t-2xl p-4 pb-safe flex flex-col gap-4">
             {/* Header */}
             <div className="flex items-center justify-between">
               <h3 className="text-base font-semibold">Novedad rápida</h3>
               <button
                 onClick={() => setOpen(false)}
-                className="p-2 rounded-lg text-zinc-500 hover:text-zinc-300"
+                className="p-2 rounded-lg text-muted-foreground hover:text-foreground"
               >
                 <X size={18} />
               </button>
@@ -82,7 +82,7 @@ export function SupervisorNovedadRapida({ installations, defaultInstallationId, 
               <select
                 value={installationId}
                 onChange={(e) => setInstallationId(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500"
               >
                 {installations.map((i) => (
                   <option key={i.id} value={i.id}>
@@ -103,7 +103,7 @@ export function SupervisorNovedadRapida({ installations, defaultInstallationId, 
                       ? type === "ALERT"
                         ? "bg-red-600 text-white"
                         : "bg-zinc-700 text-white"
-                      : "bg-zinc-900 text-zinc-500 border border-zinc-800"
+                      : "bg-muted text-muted-foreground border border-border"
                   }`}
                 >
                   {type === "GENERAL" ? "General" : "Alerta"}
@@ -117,7 +117,7 @@ export function SupervisorNovedadRapida({ installations, defaultInstallationId, 
               onChange={(e) => setContent(e.target.value)}
               placeholder="Describe la novedad..."
               rows={4}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
+              className="w-full bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
               autoFocus
             />
 

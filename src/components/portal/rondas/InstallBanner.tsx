@@ -19,8 +19,8 @@ export function InstallBanner() {
   if (!show) return null;
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-40 bg-gray-900 border-t border-gray-700 px-4 py-3 flex items-center gap-3">
-      <p className="flex-1 text-base text-gray-200">
+    <div className="fixed bottom-0 inset-x-0 z-40 bg-card opai-glass-strong-m border-t border-border px-4 py-3 flex items-center gap-3">
+      <p className="flex-1 text-base text-foreground">
         Instalar Rondas para acceso rápido
       </p>
       <button
@@ -43,7 +43,7 @@ export function InstallBanner() {
       </button>
       <button
         onClick={() => setShow(false)}
-        className="text-gray-500 text-sm"
+        className="text-muted-foreground text-sm"
         aria-label="Descartar"
       >
         No

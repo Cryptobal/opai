@@ -102,7 +102,7 @@ export function SupervisorCrearTE({ installations, onBack, onCreated }: Props) {
       <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300"
+          className="p-2 rounded-lg bg-card opai-glass-soft-m border border-border text-muted-foreground"
         >
           <ArrowLeft size={18} />
         </button>
@@ -125,7 +125,7 @@ export function SupervisorCrearTE({ installations, onBack, onCreated }: Props) {
       {/* Guardia */}
       <Field label="Guardia *">
         {loadingGuards ? (
-          <div className="flex items-center gap-2 text-zinc-500 text-sm py-2">
+          <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
             <Loader2 size={14} className="animate-spin" /> Cargando guardias...
           </div>
         ) : (
@@ -164,7 +164,7 @@ export function SupervisorCrearTE({ installations, onBack, onCreated }: Props) {
               className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${
                 tipo === t
                   ? "bg-purple-600 text-white"
-                  : "bg-zinc-900 border border-zinc-800 text-zinc-400"
+                  : "bg-muted opai-glass-soft-m border border-border text-muted-foreground"
               }`}
             >
               {t === "turno_extra" ? "Turno extra" : "Horas extra"}
@@ -252,7 +252,7 @@ export function SupervisorCrearTE({ installations, onBack, onCreated }: Props) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium text-zinc-400">{label}</label>
+      <label className="text-xs font-medium text-muted-foreground">{label}</label>
       {children}
     </div>
   );

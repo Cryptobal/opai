@@ -102,7 +102,7 @@ export function VisitaTecnicaDetail({ visitaId, onBack }: Props) {
       <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300"
+          className="p-2 rounded-lg bg-card opai-glass-soft-m border border-border text-muted-foreground"
         >
           <ArrowLeft size={18} />
         </button>
@@ -113,23 +113,23 @@ export function VisitaTecnicaDetail({ visitaId, onBack }: Props) {
       </div>
 
       {/* Meta */}
-      <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-800 flex flex-col gap-2">
+      <div className="p-4 rounded-xl bg-card opai-glass-soft-m border border-border flex flex-col gap-2">
         {visita.installation && (
           <div className="flex items-start gap-2">
-            <Building2 size={14} className="text-zinc-500 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-zinc-300">{visita.installation.name}</p>
+            <Building2 size={14} className="text-muted-foreground mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-muted-foreground">{visita.installation.name}</p>
           </div>
         )}
         {visita.installation?.address && (
           <div className="flex items-start gap-2">
-            <MapPin size={14} className="text-zinc-500 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-zinc-400">{visita.installation.address}</p>
+            <MapPin size={14} className="text-muted-foreground mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-muted-foreground">{visita.installation.address}</p>
           </div>
         )}
         {visita.checkInAt && (
           <div className="flex items-center gap-2">
-            <Clock size={14} className="text-zinc-500 flex-shrink-0" />
-            <p className="text-xs text-zinc-400">
+            <Clock size={14} className="text-muted-foreground flex-shrink-0" />
+            <p className="text-xs text-muted-foreground">
               Check-in: {new Date(visita.checkInAt).toLocaleString("es-CL")}
               {visita.durationMinutes && ` · ${visita.durationMinutes} min`}
             </p>
@@ -174,20 +174,20 @@ export function VisitaTecnicaDetail({ visitaId, onBack }: Props) {
         <Section title="Informe" icon={<FileText size={14} />}>
           {visita.generalReport && (
             <div className="flex flex-col gap-1">
-              <p className="text-[10px] text-zinc-500">Informe general</p>
-              <p className="text-xs text-zinc-300 leading-relaxed">{visita.generalReport}</p>
+              <p className="text-[10px] text-muted-foreground">Informe general</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{visita.generalReport}</p>
             </div>
           )}
           {visita.securityRisks && (
             <div className="flex flex-col gap-1">
-              <p className="text-[10px] text-zinc-500">Riesgos de seguridad</p>
-              <p className="text-xs text-zinc-300 leading-relaxed">{visita.securityRisks}</p>
+              <p className="text-[10px] text-muted-foreground">Riesgos de seguridad</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{visita.securityRisks}</p>
             </div>
           )}
           {visita.recommendations && (
             <div className="flex flex-col gap-1">
-              <p className="text-[10px] text-zinc-500">Recomendaciones</p>
-              <p className="text-xs text-zinc-300 leading-relaxed">{visita.recommendations}</p>
+              <p className="text-[10px] text-muted-foreground">Recomendaciones</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{visita.recommendations}</p>
             </div>
           )}
         </Section>
@@ -212,19 +212,19 @@ export function VisitaTecnicaDetail({ visitaId, onBack }: Props) {
           {visita.surveyVisitOpinion && <Row label="Opinión de la visita" value={visita.surveyVisitOpinion} />}
           {visita.surveyExpectations && (
             <div className="flex flex-col gap-1">
-              <p className="text-[10px] text-zinc-500">Expectativas</p>
-              <p className="text-xs text-zinc-300">{visita.surveyExpectations}</p>
+              <p className="text-[10px] text-muted-foreground">Expectativas</p>
+              <p className="text-xs text-muted-foreground">{visita.surveyExpectations}</p>
             </div>
           )}
           {visita.surveyCurrentPainPoints && (
             <div className="flex flex-col gap-1">
-              <p className="text-[10px] text-zinc-500">Problemas actuales</p>
-              <p className="text-xs text-zinc-300">{visita.surveyCurrentPainPoints}</p>
+              <p className="text-[10px] text-muted-foreground">Problemas actuales</p>
+              <p className="text-xs text-muted-foreground">{visita.surveyCurrentPainPoints}</p>
             </div>
           )}
           {visita.surveySignatureUrl && (
             <div className="flex flex-col gap-1">
-              <p className="text-[10px] text-zinc-500">Firma</p>
+              <p className="text-[10px] text-muted-foreground">Firma</p>
               <img src={visita.surveySignatureUrl} alt="firma" className="h-16 object-contain rounded-lg bg-zinc-950" />
             </div>
           )}
@@ -236,10 +236,10 @@ export function VisitaTecnicaDetail({ visitaId, onBack }: Props) {
 
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-3 p-4 rounded-xl bg-zinc-900 border border-zinc-800">
+    <div className="flex flex-col gap-3 p-4 rounded-xl bg-card opai-glass-soft-m border border-border">
       <div className="flex items-center gap-2">
-        <span className="text-zinc-500">{icon}</span>
-        <p className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">{title}</p>
+        <span className="text-muted-foreground">{icon}</span>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{title}</p>
       </div>
       {children}
     </div>
@@ -249,8 +249,8 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <p className="text-[11px] text-zinc-500">{label}</p>
-      <p className="text-xs text-zinc-300 text-right">{value}</p>
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className="text-xs text-muted-foreground text-right">{value}</p>
     </div>
   );
 }
@@ -260,9 +260,9 @@ function ServiceRow({ label, notes }: { label: string; notes: string | null }) {
     <div className="flex flex-col gap-0.5">
       <div className="flex items-center gap-2">
         <CheckCircle2 size={12} className="text-emerald-400 flex-shrink-0" />
-        <p className="text-xs text-zinc-300">{label}</p>
+        <p className="text-xs text-muted-foreground">{label}</p>
       </div>
-      {notes && <p className="text-[11px] text-zinc-500 ml-5">{notes}</p>}
+      {notes && <p className="text-[11px] text-muted-foreground ml-5">{notes}</p>}
     </div>
   );
 }

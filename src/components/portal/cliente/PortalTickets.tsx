@@ -81,14 +81,14 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   open: { label: 'Abierto', color: 'text-status-info-fg bg-status-info-soft' },
   in_progress: { label: 'En proceso', color: 'text-status-warn-fg bg-status-warn-soft' },
   resolved: { label: 'Resuelto', color: 'text-status-ok-fg bg-status-ok-soft' },
-  closed: { label: 'Cerrado', color: 'text-zinc-500 bg-zinc-800' },
+  closed: { label: 'Cerrado', color: 'text-muted-foreground bg-muted' },
 }
 
 const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
   p1: { label: 'P1', color: 'text-status-danger-fg bg-status-danger-soft border-status-danger-border' },
   p2: { label: 'P2', color: 'text-status-warn-fg bg-status-warn-soft border-status-warn-border' },
-  p3: { label: 'P3', color: 'text-zinc-400 bg-zinc-700/50 border-zinc-600/20' },
-  p4: { label: 'P4', color: 'text-zinc-500 bg-zinc-800 border-zinc-700/20' },
+  p3: { label: 'P3', color: 'text-muted-foreground bg-muted border-border' },
+  p4: { label: 'P4', color: 'text-muted-foreground bg-muted border-border' },
 }
 
 function formatDate(iso: string) {
@@ -222,14 +222,14 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
         {/* Back */}
         <button
           onClick={() => setSelectedTicket(null)}
-          className="flex items-center gap-1.5 text-zinc-400 text-sm mb-4 hover:text-zinc-200 transition-colors"
+          className="flex items-center gap-1.5 text-muted-foreground text-sm mb-4 hover:text-foreground transition-colors"
         >
           <ChevronLeft className="h-4 w-4" />
           Volver a tickets
         </button>
 
         {/* Ticket header */}
-        <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-4 mb-4">
+        <div className="bg-card opai-glass-soft-m border border-border rounded-xl p-4 mb-4">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className={cn('text-xs px-2 py-0.5 rounded border font-medium', priorityCfg.color)}>
               {priorityCfg.label}
@@ -237,32 +237,32 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
             <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', statusCfg.color)}>
               {statusCfg.label}
             </span>
-            <span className="text-xs text-zinc-500">{selectedTicket.code}</span>
+            <span className="text-xs text-muted-foreground">{selectedTicket.code}</span>
           </div>
-          <h2 className="text-white font-semibold text-base mb-1">{selectedTicket.title}</h2>
+          <h2 className="text-foreground font-semibold text-base mb-1">{selectedTicket.title}</h2>
           {selectedTicket.description && (
-            <p className="text-zinc-400 text-sm whitespace-pre-wrap">{selectedTicket.description}</p>
+            <p className="text-muted-foreground text-sm whitespace-pre-wrap">{selectedTicket.description}</p>
           )}
-          <p className="text-zinc-600 text-xs mt-2">{formatDate(selectedTicket.createdAt)}</p>
+          <p className="text-muted-foreground text-xs mt-2">{formatDate(selectedTicket.createdAt)}</p>
         </div>
 
         {/* Comments */}
         <div className="flex-1 space-y-3 mb-4">
-          <h3 className="text-zinc-400 text-xs font-medium uppercase tracking-wide flex items-center gap-1.5">
+          <h3 className="text-muted-foreground text-xs font-medium uppercase tracking-wide flex items-center gap-1.5">
             <MessageSquare className="h-3.5 w-3.5" />
             Comentarios
           </h3>
 
           {ticketLoading ? (
             <div className="flex items-center justify-center h-16">
-              <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
           ) : (selectedTicket.comments ?? []).length === 0 ? (
-            <p className="text-zinc-600 text-sm text-center py-6">Sin comentarios aún</p>
+            <p className="text-muted-foreground text-sm text-center py-6">Sin comentarios aún</p>
           ) : (
             (selectedTicket.comments ?? []).map((comment) => (
-              <div key={comment.id} className="bg-zinc-800/40 border border-zinc-700/30 rounded-xl p-3">
-                <p className="text-zinc-300 text-sm whitespace-pre-wrap">{comment.body}</p>
+              <div key={comment.id} className="bg-muted opai-glass-soft-m border border-border rounded-xl p-3">
+                <p className="text-muted-foreground text-sm whitespace-pre-wrap">{comment.body}</p>
                 {comment.attachments && comment.attachments.length > 0 && (
                   <div className="mt-2 space-y-1.5">
                     {comment.attachments.map((a) => {
@@ -273,25 +273,25 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
                           href={a.fileUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-2 bg-zinc-900/60 border border-zinc-700/40 rounded-lg px-2.5 py-1.5 hover:bg-zinc-900 transition-colors"
+                          className="flex items-center gap-2 bg-muted border border-border rounded-lg px-2.5 py-1.5 hover:bg-muted transition-colors"
                         >
-                          <div className="shrink-0 h-9 w-9 rounded bg-zinc-700/70 flex items-center justify-center overflow-hidden">
+                          <div className="shrink-0 h-9 w-9 rounded bg-muted flex items-center justify-center overflow-hidden">
                             {isImage ? (
                               <img src={a.fileUrl} alt="" className="h-full w-full object-cover" />
                             ) : (
-                              <FileText className="h-4 w-4 text-zinc-400" />
+                              <FileText className="h-4 w-4 text-muted-foreground" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs text-zinc-200 break-all">{a.fileName}</p>
-                            <p className="text-[10px] text-zinc-500">{formatBytes(a.fileSize)}</p>
+                            <p className="text-xs text-foreground break-all">{a.fileName}</p>
+                            <p className="text-[10px] text-muted-foreground">{formatBytes(a.fileSize)}</p>
                           </div>
                         </a>
                       )
                     })}
                   </div>
                 )}
-                <p className="text-zinc-600 text-xs mt-1.5">{formatDateTime(comment.createdAt)}</p>
+                <p className="text-muted-foreground text-xs mt-1.5">{formatDateTime(comment.createdAt)}</p>
               </div>
             ))
           )}
@@ -305,16 +305,16 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
                 {commentAttachments.map((a) => (
                   <div
                     key={a.id}
-                    className="flex items-center gap-2 bg-zinc-800 border border-zinc-700 rounded-lg px-2.5 py-1.5"
+                    className="flex items-center gap-2 bg-muted border border-border rounded-lg px-2.5 py-1.5"
                   >
-                    <Paperclip className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                    <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-zinc-200 break-all">{a.fileName}</p>
-                      <p className="text-[10px] text-zinc-500">{formatBytes(a.fileSize)}</p>
+                      <p className="text-xs text-foreground break-all">{a.fileName}</p>
+                      <p className="text-[10px] text-muted-foreground">{formatBytes(a.fileSize)}</p>
                     </div>
                     <button
                       onClick={() => setCommentAttachments((p) => p.filter((x) => x.id !== a.id))}
-                      className="p-1 rounded hover:bg-white/10 text-zinc-400"
+                      className="p-1 rounded hover:bg-white/10 text-muted-foreground"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -337,7 +337,7 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
                 type="button"
                 onClick={() => commentFileInputRef.current?.click()}
                 disabled={uploadingComment || commentAttachments.length >= 5}
-                className="h-10 w-10 shrink-0 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 flex items-center justify-center text-zinc-400"
+                className="h-10 w-10 shrink-0 rounded-lg border border-border bg-muted hover:bg-muted disabled:opacity-40 flex items-center justify-center text-muted-foreground"
                 title="Adjuntar archivo"
                 aria-label="Adjuntar archivo"
               >
@@ -352,7 +352,7 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder="Escribe un comentario..."
-                className="flex-1 h-10 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                className="flex-1 h-10 rounded-lg border border-border bg-muted px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                 onKeyDown={(e) => e.key === 'Enter' && submitComment()}
               />
               <button
@@ -382,7 +382,7 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
     <div className="px-4 py-4 pb-28 max-w-lg mx-auto relative">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-white font-semibold text-lg flex items-center gap-2">
+        <h2 className="text-foreground font-semibold text-lg flex items-center gap-2">
           <Ticket className="h-5 w-5 text-status-info-fg" />
           Tickets de Soporte
         </h2>
@@ -438,7 +438,7 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
       </div>
 
       {/* Status filter tabs */}
-      <div className="flex gap-1 mb-4 bg-zinc-800/50 p-1 rounded-xl overflow-x-auto">
+      <div className="flex gap-1 mb-4 bg-muted p-1 rounded-xl overflow-x-auto">
         {STATUS_FILTERS.map((f) => (
           <button
             key={f.value}
@@ -447,7 +447,7 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
               'flex-1 min-w-fit px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap',
               activeStatus === f.value
                 ? 'bg-status-info text-white shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
+                : 'text-muted-foreground hover:text-foreground'
             )}
           >
             {f.label}
@@ -458,13 +458,13 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
       {/* Ticket list */}
       {loading ? (
         <div className="flex items-center justify-center h-48">
-          <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       ) : tickets.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-48 gap-2 text-zinc-600">
+        <div className="flex flex-col items-center justify-center h-48 gap-2 text-muted-foreground">
           <Ticket className="h-8 w-8" />
-          <p className="text-sm font-medium text-zinc-400">{activeStatus ? 'Sin tickets en este estado' : 'No hay tickets abiertos'}</p>
-          <p className="text-xs text-zinc-600">¿Necesitas reportar algo? Crea un ticket y nuestro equipo responderá.</p>
+          <p className="text-sm font-medium text-muted-foreground">{activeStatus ? 'Sin tickets en este estado' : 'No hay tickets abiertos'}</p>
+          <p className="text-xs text-muted-foreground">¿Necesitas reportar algo? Crea un ticket y nuestro equipo responderá.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -475,7 +475,7 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
               <button
                 key={ticket.id}
                 onClick={() => openTicket(ticket)}
-                className="w-full text-left bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-4 hover:border-zinc-600/50 hover:bg-zinc-800 transition-all active:scale-[0.99]"
+                className="w-full text-left bg-card opai-glass-soft-m border border-border rounded-xl p-4 hover:border-border hover:bg-muted transition-all active:scale-[0.99]"
               >
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                   <span className={cn('text-xs px-2 py-0.5 rounded border font-medium', priorityCfg.color)}>
@@ -485,14 +485,14 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
                     {statusCfg.label}
                   </span>
                   {ticket.ticketType && (
-                    <span className="text-xs text-zinc-500">{ticket.ticketType.name}</span>
+                    <span className="text-xs text-muted-foreground">{ticket.ticketType.name}</span>
                   )}
                 </div>
-                <p className="text-white text-sm font-medium leading-snug">{ticket.title}</p>
+                <p className="text-foreground text-sm font-medium leading-snug">{ticket.title}</p>
                 <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                  <p className="text-zinc-500 text-xs">{formatDate(ticket.createdAt)}</p>
+                  <p className="text-muted-foreground text-xs">{formatDate(ticket.createdAt)}</p>
                   {ticket.installationId && installationNameMap[ticket.installationId] && (
-                    <span className="text-xs text-zinc-500">
+                    <span className="text-xs text-muted-foreground">
                       📍 {installationNameMap[ticket.installationId]}
                     </span>
                   )}

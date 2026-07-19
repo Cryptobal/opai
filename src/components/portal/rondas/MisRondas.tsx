@@ -10,7 +10,7 @@ import { HistorialRondaModal } from "./HistorialRondaModal";
 // Lazy-load RondaMap to avoid SSR issues with Leaflet
 const RondaMap = dynamic(() => import("./RondaMap"), {
   ssr: false,
-  loading: () => <div className="h-[120px] animate-pulse rounded-lg bg-zinc-900" />,
+  loading: () => <div className="h-[120px] animate-pulse rounded-lg bg-muted" />,
 });
 
 // ---------------------------------------------------------------------------
@@ -464,12 +464,12 @@ export function MisRondas({
 
         {/* Title row + refresh */}
         <div className="mb-1 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-white">Mis Rondas</h2>
+          <h2 className="text-2xl font-bold text-foreground">Mis Rondas</h2>
           <div className="flex items-center gap-2">
             {onShowTour && (
               <button
                 onClick={onShowTour}
-                className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-800 text-gray-400 transition-colors active:bg-gray-700"
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors active:bg-muted/70"
                 aria-label="Ayuda"
                 title="Ver tour de ayuda"
               >
@@ -481,7 +481,7 @@ export function MisRondas({
             {/* Info button: explains round logic */}
             <button
               onClick={() => setShowInfoModal(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-800 text-status-info-fg transition-colors active:bg-gray-700"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-status-info-fg transition-colors active:bg-muted/70"
               aria-label="Cómo funcionan las rondas"
               title="Cómo funcionan las rondas"
             >
@@ -493,7 +493,7 @@ export function MisRondas({
             <button
               onClick={fetchRondas}
               disabled={loading}
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-800 text-gray-300 transition-colors hover:bg-gray-700 active:bg-gray-600 disabled:opacity-50"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-foreground/80 transition-colors hover:bg-muted/80 active:bg-muted/70 disabled:opacity-50"
               aria-label="Actualizar"
               title="Actualizar lista de rondas"
             >
@@ -516,7 +516,7 @@ export function MisRondas({
         </div>
 
         {/* Date header */}
-        <p className="mb-4 text-sm text-gray-500">{dateHeader}</p>
+        <p className="mb-4 text-sm text-muted-foreground">{dateHeader}</p>
 
         {/* Ad-hoc ronda button */}
         <button
@@ -525,7 +525,7 @@ export function MisRondas({
           disabled={blockIniciarLibre}
           className={`mb-2 flex w-full items-center justify-center gap-2 rounded-xl border py-4 text-lg font-semibold transition-colors ${
             blockIniciarLibre
-              ? "border-gray-700/30 bg-gray-900/20 text-gray-600 cursor-not-allowed opacity-50"
+              ? "border-border bg-muted text-muted-foreground cursor-not-allowed opacity-50"
               : "border-status-info-border bg-status-info-soft text-status-info-fg hover:brightness-110 active:brightness-95"
           }`}
           style={{ minHeight: 56 }}
@@ -568,7 +568,7 @@ export function MisRondas({
         {loading && rondas.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20">
             <svg
-              className="h-10 w-10 animate-spin text-status-info-fg"
+              className="h-10 w-10 animate-spin text-primary"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
@@ -587,7 +587,7 @@ export function MisRondas({
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               />
             </svg>
-            <p className="mt-4 text-lg text-gray-400">Cargando rondas...</p>
+            <p className="mt-4 text-lg text-muted-foreground">Cargando rondas...</p>
           </div>
         )}
 
@@ -596,7 +596,7 @@ export function MisRondas({
           <div className="flex flex-col items-center justify-center py-20">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-16 w-16 text-gray-700"
+              className="h-16 w-16 text-muted-foreground"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -608,7 +608,7 @@ export function MisRondas({
                 d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
               />
             </svg>
-            <p className="mt-4 text-lg text-gray-400">No hay rondas programadas para hoy</p>
+            <p className="mt-4 text-lg text-muted-foreground">No hay rondas programadas para hoy</p>
           </div>
         )}
 
@@ -633,7 +633,7 @@ export function MisRondas({
                         ? "text-status-danger-fg"
                         : section.key === "completadas"
                           ? "text-status-ok-fg"
-                          : "text-gray-400";
+                          : "text-muted-foreground";
 
               return (
                 <div key={section.key}>
@@ -662,7 +662,7 @@ export function MisRondas({
                     {isCollapsible && (
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
-                        className={`ml-auto h-4 w-4 text-gray-500 transition-transform ${
+                        className={`ml-auto h-4 w-4 text-muted-foreground transition-transform ${
                           !isCollapsed ? "rotate-180" : ""
                         }`}
                         fill="none"
@@ -705,7 +705,7 @@ export function MisRondas({
           {/* Section separator */}
           <div className="mb-3 flex items-center gap-3">
             <div className="h-px flex-1 bg-white/5" />
-            <span className="text-xs font-bold uppercase tracking-wider text-gray-600">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Mis rondas realizadas
             </span>
             <div className="h-px flex-1 bg-white/5" />
@@ -714,7 +714,7 @@ export function MisRondas({
           {historialLoading && (
             <div className="flex items-center justify-center py-8">
               <svg
-                className="h-6 w-6 animate-spin text-status-info-fg"
+                className="h-6 w-6 animate-spin text-primary"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -737,7 +737,7 @@ export function MisRondas({
           )}
 
           {!historialLoading && historial.length === 0 && (
-            <p className="py-6 text-center text-sm text-gray-600">
+            <p className="py-6 text-center text-sm text-muted-foreground">
               Sin rondas registradas en los últimos 30 días
             </p>
           )}
@@ -760,11 +760,11 @@ export function MisRondas({
       {/* Cerrar ronda desde lista (motivo obligatorio) */}
       {closeModalEjecucionId && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-6">
-          <div className="w-full max-w-sm rounded-2xl border border-gray-700 bg-gray-900 p-6">
-            <h2 className="mb-3 text-lg font-semibold text-white">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-card opai-glass-strong-m p-6">
+            <h2 className="mb-3 text-lg font-semibold text-foreground">
               Cerrar ronda
             </h2>
-            <p className="mb-3 text-sm text-gray-400">
+            <p className="mb-3 text-sm text-muted-foreground">
               Vas a cerrar la ronda antes de marcar todos los puntos. Explica el motivo para dejar registro.
             </p>
             <textarea
@@ -773,7 +773,7 @@ export function MisRondas({
               placeholder="Ej: Emergencia, acceso cerrado, fin de turno..."
               maxLength={500}
               rows={4}
-              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-status-warn-border focus:outline-none"
+              className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-status-warn-border focus:outline-none"
               disabled={closeSubmitting}
               autoComplete="off"
             />
@@ -798,7 +798,7 @@ export function MisRondas({
                   setCloseReason("");
                   setCloseError("");
                 }}
-                className="flex-1 rounded-xl border border-gray-700 bg-gray-800 py-3 text-base font-medium text-gray-300 transition-colors hover:bg-gray-700"
+                className="flex-1 rounded-xl border border-border bg-muted py-3 text-base font-medium text-foreground/80 transition-colors hover:bg-muted/80"
               >
                 Volver
               </button>
@@ -831,42 +831,42 @@ export function MisRondas({
           onClick={() => setShowInfoModal(false)}
         >
           <div
-            className="max-h-[85dvh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-2xl border-t border-gray-700 bg-[#0d0d14] p-6 pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))]"
+            className="max-h-[85dvh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-2xl border-t border-border bg-card opai-glass-strong-m p-6 pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-white">Cómo funcionan las rondas</h3>
+              <h3 className="text-base font-semibold text-foreground">Cómo funcionan las rondas</h3>
               <button
                 onClick={() => setShowInfoModal(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-800 text-gray-400"
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            <div className="space-y-4 text-sm text-gray-300">
+            <div className="space-y-4 text-sm text-foreground/80">
               <section>
                 <p className="mb-1 font-semibold text-status-info-fg">Rondas Programadas</p>
-                <ul className="space-y-1.5 text-gray-400">
-                  <li>• Puedes iniciar una ronda desde su hora programada hasta la <strong className="text-gray-200">mitad del tiempo</strong> entre rondas (ej: si las rondas son cada 1 hora, tienes hasta 30 min para comenzar).</li>
-                  <li>• Si no la inicias en ese tiempo, la ronda queda como <strong className="text-gray-200">No Realizada</strong>.</li>
-                  <li>• Si la ronda está en curso cuando comienza la siguiente, <strong className="text-gray-200">se cierra automáticamente</strong>. Recibirás un aviso 5 minutos antes.</li>
+                <ul className="space-y-1.5 text-muted-foreground">
+                  <li>• Puedes iniciar una ronda desde su hora programada hasta la <strong className="text-foreground">mitad del tiempo</strong> entre rondas (ej: si las rondas son cada 1 hora, tienes hasta 30 min para comenzar).</li>
+                  <li>• Si no la inicias en ese tiempo, la ronda queda como <strong className="text-foreground">No Realizada</strong>.</li>
+                  <li>• Si la ronda está en curso cuando comienza la siguiente, <strong className="text-foreground">se cierra automáticamente</strong>. Recibirás un aviso 5 minutos antes.</li>
                   <li>• No puedes tener dos rondas programadas en curso al mismo tiempo.</li>
                 </ul>
               </section>
               <section>
                 <p className="mb-1 font-semibold text-status-info-fg">Ronda Libre</p>
-                <ul className="space-y-1.5 text-gray-400">
-                  <li>• Puedes iniciarla <strong className="text-gray-200">en cualquier momento</strong>, siempre que no haya una ronda programada en curso o pendiente.</li>
+                <ul className="space-y-1.5 text-muted-foreground">
+                  <li>• Puedes iniciarla <strong className="text-foreground">en cualquier momento</strong>, siempre que no haya una ronda programada en curso o pendiente.</li>
                   <li>• Funciona igual que una ronda programada: debes marcar los checkpoints dentro del radio de geocerca.</li>
-                  <li>• Se cierra automáticamente tras <strong className="text-gray-200">30 minutos de inactividad</strong> (sin marcar puntos).</li>
+                  <li>• Se cierra automáticamente tras <strong className="text-foreground">30 minutos de inactividad</strong> (sin marcar puntos).</li>
                 </ul>
               </section>
               <section>
                 <p className="mb-1 font-semibold text-status-info-fg">Marcación de Checkpoints</p>
-                <ul className="space-y-1.5 text-gray-400">
-                  <li>• Solo se registra como válida si estás <strong className="text-gray-200">dentro del radio del checkpoint</strong> (geocerca).</li>
+                <ul className="space-y-1.5 text-muted-foreground">
+                  <li>• Solo se registra como válida si estás <strong className="text-foreground">dentro del radio del checkpoint</strong> (geocerca).</li>
                   <li>• Si el checkpoint tiene QR, debes escanearlo <em>y</em> estar dentro del radio.</li>
                   <li>• Cada punto solo puede marcarse una vez por ronda.</li>
                 </ul>
@@ -902,7 +902,7 @@ function HistorialCard({
       ? "bg-status-ok-soft text-status-ok-fg"
       : item.status === "incompleta"
         ? "bg-status-warn-soft text-status-warn-fg"
-        : "bg-gray-700/50 text-gray-400";
+        : "bg-muted text-muted-foreground";
   const statusLabel =
     item.status === "completada"
       ? "Completada"
@@ -923,14 +923,14 @@ function HistorialCard({
     <button
       type="button"
       onClick={onTap}
-      className="w-full rounded-xl border border-gray-800 bg-gray-900/60 px-4 py-3 text-left transition-colors hover:border-gray-700 hover:bg-gray-900/80 active:bg-gray-800/80"
+      className="w-full rounded-xl border border-border bg-card opai-glass-soft-m px-4 py-3 text-left transition-colors hover:bg-muted active:bg-muted/80"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-gray-200">
+          <p className="truncate text-sm font-medium text-foreground">
             {item.templateName}
           </p>
-          <p className="mt-0.5 text-xs text-gray-500">{dateStr}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{dateStr}</p>
         </div>
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${statusBg}`}
@@ -938,7 +938,7 @@ function HistorialCard({
           {statusLabel}
         </span>
       </div>
-      <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
+      <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
         <span>
           {item.checkpointsCompletados}/{item.checkpointsTotal} CP ·{" "}
           {Math.round(item.porcentajeCompletado)}%
@@ -955,7 +955,7 @@ function HistorialCard({
         )}
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          className="ml-auto h-3.5 w-3.5 shrink-0 text-gray-700"
+          className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -1033,8 +1033,8 @@ function RondaCard({
       : isNoRealizada
         ? "border-status-danger-border bg-status-danger-soft/30"
         : isCompletada
-          ? "border-gray-800/50 bg-gray-900/30"
-          : "border-gray-800 bg-gray-900/60";
+          ? "border-border bg-card opai-glass-soft-m"
+          : "border-border bg-card opai-glass-soft-m";
 
   return (
     <div className={`rounded-2xl border p-4 transition-colors ${borderClass}`}>
@@ -1042,7 +1042,7 @@ function RondaCard({
       <div className="mb-2 flex items-start justify-between gap-2">
         <h3
           className={`text-lg font-semibold ${
-            isCompletada || isNoRealizada ? "text-gray-500" : "text-white"
+            isCompletada || isNoRealizada ? "text-muted-foreground" : "text-foreground"
           }`}
         >
           {ronda.templateName}
@@ -1068,7 +1068,7 @@ function RondaCard({
               Cerrada admin
             </span>
           )}
-          <span className={`text-sm ${isCompletada || isNoRealizada ? "text-gray-600" : "text-gray-400"}`}>
+          <span className={`text-sm ${isCompletada || isNoRealizada ? "text-muted-foreground/70" : "text-muted-foreground"}`}>
             {formatTime(ronda.scheduledAt)}
           </span>
         </div>
@@ -1085,8 +1085,8 @@ function RondaCard({
                 : isNoRealizada
                   ? "text-status-danger-fg"
                   : isProxima
-                    ? "text-gray-400"
-                    : "text-gray-500"
+                    ? "text-muted-foreground"
+                    : "text-muted-foreground"
           }`}
         >
           {timeInfo}
@@ -1096,13 +1096,13 @@ function RondaCard({
       {/* Progress bar for en_curso */}
       {isEnCurso && (
         <div className="mb-3">
-          <div className="mb-1 flex items-center justify-between text-xs text-gray-400">
+          <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
             <span>
               {ronda.checkpointsCompletados}/{ronda.checkpointsTotal} checkpoints
             </span>
             <span>{Math.round(progress)}%</span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-gray-800">
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
             <div
               className="h-full rounded-full bg-status-info transition-all"
               style={{ width: `${progress}%` }}
@@ -1113,7 +1113,7 @@ function RondaCard({
 
       {/* Checkpoint info for actionable cards */}
       {!isEnCurso && !isCompletada && !isNoRealizada && (
-        <p className="mb-2 text-sm text-gray-500">
+        <p className="mb-2 text-sm text-muted-foreground">
           {ronda.checkpointsTotal} checkpoints
           {ronda.estimatedDurationMin ? ` \u00B7 ~${ronda.estimatedDurationMin} min` : ""}
         </p>
@@ -1122,11 +1122,11 @@ function RondaCard({
       {/* Completada: score */}
       {isCompletada && (
         <div className="mb-2 flex items-center gap-3 text-sm">
-          <span className="text-gray-500">
+          <span className="text-muted-foreground">
             {ronda.checkpointsCompletados}/{ronda.checkpointsTotal} checkpoints
           </span>
           {ronda.porcentajeCompletado != null && (
-            <span className="text-gray-500">
+            <span className="text-muted-foreground">
               {Math.round(ronda.porcentajeCompletado)}%
             </span>
           )}

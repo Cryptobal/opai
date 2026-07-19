@@ -66,10 +66,9 @@ export function CotizacionCard({
     return (
       <div
         className={cn(
-          "rounded-xl border border-white/[0.06] overflow-hidden transition-all hover:border-status-info-border",
+          "rounded-xl border border-border bg-card opai-glass-soft-m overflow-hidden transition-all hover:border-status-info-border",
           className,
         )}
-        style={{ background: "linear-gradient(145deg, #1E293B, #1A2332)" }}
       >
         <button
           onClick={onToggleExpand}
@@ -87,17 +86,17 @@ export function CotizacionCard({
             {(cotizacion.installationName || cotizacion.quoteName) && (
               <div className="mt-0.5 space-y-0.5">
                 {cotizacion.installationName && (
-                  <p className="text-xs text-zinc-500 truncate">{cotizacion.installationName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{cotizacion.installationName}</p>
                 )}
                 {cotizacion.quoteName && (
-                  <p className="text-xs text-zinc-400 truncate">{cotizacion.quoteName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{cotizacion.quoteName}</p>
                 )}
               </div>
             )}
             <div className="flex items-center gap-4 mt-1.5 flex-wrap">
-              <span className="text-sm font-semibold text-status-info-fg">
+              <span className="text-sm font-semibold text-primary">
                 {formatCurrency(cotizacion.monthlyCost, cotizacion.currency === "UF" ? "UF" : "CLP")}
-                <span className="text-xs font-normal text-zinc-500"> /mes</span>
+                <span className="text-xs font-normal text-muted-foreground"> /mes</span>
                 {seemsCurrencyWrong(cotizacion.monthlyCost, cotizacion.currency) && (
                   <span className="inline-flex items-center gap-0.5 ml-1.5 text-[10px] text-status-warn-fg">
                     <AlertTriangle className="h-3 w-3" />
@@ -108,7 +107,7 @@ export function CotizacionCard({
                 {cotizacion.totalPositions} puesto{cotizacion.totalPositions !== 1 ? "s" : ""} · {cotizacion.totalGuards} guardia{cotizacion.totalGuards !== 1 ? "s" : ""}
               </span>
               {cotizacion.validUntil && (
-                <span className="text-xs text-zinc-500">
+                <span className="text-xs text-muted-foreground">
                   Válida hasta {formatDate(cotizacion.validUntil)}
                 </span>
               )}
@@ -124,14 +123,13 @@ export function CotizacionCard({
   return (
     <div
       className={cn(
-        "rounded-xl overflow-hidden transition-all",
+        "rounded-xl overflow-hidden transition-all bg-card opai-glass-soft-m",
         canAct
           ? "border border-status-info-border shadow-lg shadow-teal-500/5"
-          : "border border-white/[0.06]",
+          : "border border-border",
         "hover:border-status-info-border",
         className,
       )}
-      style={{ background: "linear-gradient(145deg, #1E293B, #1A2332)" }}
     >
       {/* Card header — clickable */}
       <button
@@ -155,18 +153,18 @@ export function CotizacionCard({
           {(cotizacion.installationName || cotizacion.quoteName) && (
             <div className="mt-0.5 space-y-0.5">
               {cotizacion.installationName && (
-                <p className="text-xs text-zinc-500 truncate">{cotizacion.installationName}</p>
+                <p className="text-xs text-muted-foreground truncate">{cotizacion.installationName}</p>
               )}
               {cotizacion.quoteName && (
-                <p className="text-xs text-zinc-400 truncate">{cotizacion.quoteName}</p>
+                <p className="text-xs text-muted-foreground truncate">{cotizacion.quoteName}</p>
               )}
             </div>
           )}
-          <p className="text-xs text-zinc-500 mt-0.5">{cotizacion.code}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{cotizacion.code}</p>
           <div className="flex items-center gap-4 mt-2 flex-wrap">
-            <span className="text-sm font-semibold text-status-info-fg">
+            <span className="text-sm font-semibold text-primary">
               {formatCurrency(cotizacion.monthlyCost, cotizacion.currency === "UF" ? "UF" : "CLP")}
-              <span className="text-xs font-normal text-zinc-500"> /mes</span>
+              <span className="text-xs font-normal text-muted-foreground"> /mes</span>
               {seemsCurrencyWrong(cotizacion.monthlyCost, cotizacion.currency) && (
                 <span className="inline-flex items-center gap-0.5 ml-1.5 text-[10px] text-status-warn-fg" title="El monto parece no corresponder a la moneda indicada">
                   <AlertTriangle className="h-3 w-3" />
@@ -175,7 +173,7 @@ export function CotizacionCard({
               )}
             </span>
             {cotizacion.validUntil && (
-              <span className="text-xs text-zinc-500">
+              <span className="text-xs text-muted-foreground">
                 Válida hasta {formatDate(cotizacion.validUntil)}
               </span>
             )}
@@ -186,16 +184,16 @@ export function CotizacionCard({
         </div>
         <div className="shrink-0 mt-1">
           {isExpanded
-            ? <ChevronUp className="w-4 h-4 text-zinc-500" />
-            : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+            ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
+            : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
         </div>
       </button>
 
       {/* Expanded detail */}
       {isExpanded && (
-        <div className="border-t border-white/[0.06] px-4 py-4 space-y-8">
+        <div className="border-t border-border px-4 py-4 space-y-8">
           {detailLoading && (
-            <div className="flex items-center gap-2 text-zinc-400 text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <Loader2 className="w-4 h-4 animate-spin" />
               Cargando detalle...
             </div>
@@ -299,9 +297,9 @@ export function CotizacionCard({
 
                 {/* Documentos adjuntos */}
                 {detail.attachments && detail.attachments.length > 0 && (
-                  <div className="rounded-xl border border-slate-700/50 bg-slate-800/50 p-4">
-                    <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-1.5 mb-3">
-                      <Paperclip className="h-4 w-4 text-slate-400" />
+                  <div className="rounded-xl border border-border bg-card opai-glass-soft-m p-4">
+                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-1.5 mb-3">
+                      <Paperclip className="h-4 w-4 text-muted-foreground" />
                       Documentos adjuntos
                     </h4>
                     <ul className="space-y-1.5">
@@ -310,7 +308,7 @@ export function CotizacionCard({
                           key={att.id}
                           className="flex items-center justify-between gap-2 rounded-md bg-white/[0.04] px-2.5 py-2 text-xs"
                         >
-                          <span className="break-all text-slate-300 font-medium min-w-0">{att.fileName}</span>
+                          <span className="break-all text-foreground/80 font-medium min-w-0">{att.fileName}</span>
                           <div className="flex items-center gap-2 shrink-0">
                             {att.publicUrl && (
                               <>
@@ -342,9 +340,9 @@ export function CotizacionCard({
 
                 {/* Notes */}
                 {detail.notes && (
-                  <div className="rounded-xl border border-slate-700/50 bg-slate-800/50 p-4">
-                    <h4 className="text-sm font-semibold text-slate-200 mb-2">Notas</h4>
-                    <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">{detail.notes}</p>
+                  <div className="rounded-xl border border-border bg-card opai-glass-soft-m p-4">
+                    <h4 className="text-sm font-semibold text-foreground mb-2">Notas</h4>
+                    <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line">{detail.notes}</p>
                   </div>
                 )}
 

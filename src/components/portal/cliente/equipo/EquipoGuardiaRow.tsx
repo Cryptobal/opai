@@ -25,7 +25,7 @@ export function EquipoGuardiaRow({ guardia, onOpen }: Props) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium break-words">{guardia.nombre}</p>
-        <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
           <Os10Pill estado={os10Estado} />
           {resumen.vencidos > 0 && (
             <span className="text-status-danger-fg">
@@ -43,7 +43,7 @@ export function EquipoGuardiaRow({ guardia, onOpen }: Props) {
       {hasAlerts && (
         <AlertTriangle className="h-4 w-4 text-status-warn-fg flex-shrink-0" />
       )}
-      <ChevronRight className="h-4 w-4 text-zinc-500 flex-shrink-0" />
+      <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
     </button>
   );
 }
@@ -74,7 +74,7 @@ function Os10Pill({ estado }: { estado: GuardiaSummary["os10Estado"] }) {
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] text-zinc-500">
+    <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
       <Shield className="h-3 w-3" />
       Pendiente
     </span>

@@ -127,7 +127,7 @@ export function RondaCompletada({
       {/* ============ Header ============ */}
       <header
         className={
-          "sticky top-0 z-10 border-b border-gray-800 px-4 py-3 " +
+          "sticky top-0 z-10 border-b border-border px-4 py-3 " +
           (isIOS ? "opai-ios-surface-sheet-top" : "")
         }
         style={isIOS ? undefined : { backgroundColor: "#0a0a0f" }}
@@ -186,7 +186,7 @@ export function RondaCompletada({
               </svg>
               <div className="absolute flex flex-col items-center">
                 <span className="text-3xl font-bold text-white">{clampedScore}</span>
-                <span className="text-xs text-gray-400">Trust Score</span>
+                <span className="text-xs text-muted-foreground">Trust Score</span>
               </div>
             </div>
 
@@ -195,9 +195,9 @@ export function RondaCompletada({
             </p>
           </>
         ) : (
-          <div className="w-full max-w-sm rounded-2xl border border-gray-700 bg-gray-900/50 px-4 py-6 text-center">
-            <p className="text-sm font-medium text-gray-300">Ronda libre</p>
-            <p className="mt-2 text-xs text-gray-500 leading-relaxed">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-card opai-glass-soft-m px-4 py-6 text-center">
+            <p className="text-sm font-medium text-foreground/80">Ronda libre</p>
+            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
               El Trust Score solo aplica a rondas programadas con plantilla. Tu recorrido quedó registrado para
               reportes y mapa.
             </p>
@@ -212,19 +212,19 @@ export function RondaCompletada({
           }) as [string, TrustBreakdownEntry][];
           if (entries.length === 0) return null;
           return (
-            <div className="w-full max-w-sm rounded-2xl border border-gray-800 bg-gray-900/60 p-4 space-y-2.5">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            <div className="w-full max-w-sm rounded-2xl border border-border bg-card opai-glass-soft-m p-4 space-y-2.5">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Desglose del Score
               </p>
               {entries.map(([key, val]) => (
                 <div key={key} className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-muted-foreground">
                       {BREAKDOWN_LABELS[key] ?? key}
                     </span>
                     <span className="text-xs font-medium text-white tabular-nums">{val.score}</span>
                   </div>
-                  <div className="h-2 rounded-full bg-gray-800 overflow-hidden">
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-700"
                       style={{
@@ -240,11 +240,11 @@ export function RondaCompletada({
         })()}
 
         {/* ---- Expanded Summary Card ---- */}
-        <div className="w-full max-w-sm rounded-2xl border border-gray-800 bg-gray-900/60 p-5">
+        <div className="w-full max-w-sm rounded-2xl border border-border bg-card opai-glass-soft-m p-5">
           <div className="space-y-3">
             {/* Completado */}
             <div className="flex items-center justify-between">
-              <span className="text-base text-gray-400">
+              <span className="text-base text-muted-foreground">
                 {"\u2705"} Completado
               </span>
               <span className="text-base font-medium text-white">
@@ -254,7 +254,7 @@ export function RondaCompletada({
 
             {/* Duracion */}
             <div className="flex items-center justify-between">
-              <span className="text-base text-gray-400">
+              <span className="text-base text-muted-foreground">
                 {"\u23F1\uFE0F"} Duraci&oacute;n
               </span>
               <span className="text-base font-medium text-white">
@@ -265,7 +265,7 @@ export function RondaCompletada({
             {/* Puntos */}
             {completedCount !== null && totalCount !== null && (
               <div className="flex items-center justify-between">
-                <span className="text-base text-gray-400">
+                <span className="text-base text-muted-foreground">
                   {"\uD83D\uDCCD"} Puntos
                 </span>
                 <span className="text-base font-medium text-white">
@@ -276,7 +276,7 @@ export function RondaCompletada({
 
             {/* Puntualidad */}
             <div className="flex items-center justify-between">
-              <span className="text-base text-gray-400">
+              <span className="text-base text-muted-foreground">
                 {"\u23F0"} Puntualidad
               </span>
               <span
@@ -290,7 +290,7 @@ export function RondaCompletada({
 
             {/* Omitidos */}
             <div className="flex items-center justify-between">
-              <span className="text-base text-gray-400">
+              <span className="text-base text-muted-foreground">
                 {"\uD83D\uDEAB"} Omitidos
               </span>
               <span
@@ -304,9 +304,9 @@ export function RondaCompletada({
 
             {/* Notas del guardia */}
             {notes && (
-              <div className="border-t border-gray-800 pt-3 mt-1">
-                <span className="text-sm text-gray-500">Comentario:</span>
-                <p className="mt-1 text-sm text-gray-300 italic">&ldquo;{notes}&rdquo;</p>
+              <div className="border-t border-border pt-3 mt-1">
+                <span className="text-sm text-muted-foreground">Comentario:</span>
+                <p className="mt-1 text-sm text-foreground/80 italic">&ldquo;{notes}&rdquo;</p>
               </div>
             )}
           </div>
@@ -327,7 +327,7 @@ export function RondaCompletada({
                     key={idx}
                     className={`rounded-xl border p-3 ${
                       isCompleted
-                        ? "border-gray-800 bg-gray-900/60"
+                        ? "border-border bg-card opai-glass-soft-m"
                         : isGeoNv
                           ? "border-status-warn-border bg-status-warn-soft/25"
                           : "border-status-danger-border bg-status-danger-soft/30"
@@ -351,7 +351,7 @@ export function RondaCompletada({
                           >
                             {cp.name}
                           </span>
-                          <span className="shrink-0 text-xs text-gray-500">
+                          <span className="shrink-0 text-xs text-muted-foreground">
                             {isCompleted && cp.timestamp
                               ? formatTime(cp.timestamp)
                               : isGeoNv && cp.timestamp
@@ -390,17 +390,17 @@ export function RondaCompletada({
                               </span>
                             )}
                             {cp.distanceM != null && (
-                              <span className="rounded-md bg-gray-700/50 px-1.5 py-0.5 text-xs text-gray-400">
+                              <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                                 {Math.round(cp.distanceM)}m al punto
                               </span>
                             )}
                             {cp.geoAccuracyM != null && (
-                              <span className="rounded-md bg-gray-700/50 px-1.5 py-0.5 text-xs text-gray-400">
+                              <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                                 precisión ±{Math.round(cp.geoAccuracyM)}m
                               </span>
                             )}
                             {cp.geoConfidence && (
-                              <span className="rounded-md bg-gray-700/50 px-1.5 py-0.5 text-xs text-gray-400">
+                              <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                                 conf. {cp.geoConfidence}
                               </span>
                             )}

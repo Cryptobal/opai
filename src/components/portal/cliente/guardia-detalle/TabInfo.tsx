@@ -42,7 +42,7 @@ export function TabInfo({ data }: Props) {
       </div>
       {historial.length > 0 && (
         <div>
-          <p className="text-xs uppercase tracking-wider text-zinc-500 mb-2 px-1">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2 px-1">
             Historial
           </p>
           <div className="space-y-1.5">
@@ -51,10 +51,10 @@ export function TabInfo({ data }: Props) {
                 key={`${h.createdAt}-${i}`}
                 className="flex items-start gap-3 rounded-lg bg-white/[0.02] px-3 py-2"
               >
-                <div className="h-1.5 w-1.5 rounded-full bg-status-info mt-2 flex-shrink-0" />
+                <div className="h-1.5 w-1.5 rounded-full bg-primary mt-2 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm">{h.summary}</p>
-                  <p className="text-[11px] text-zinc-500">
+                  <p className="text-[11px] text-muted-foreground">
                     {new Date(h.createdAt).toLocaleDateString("es-CL")}
                   </p>
                 </div>
@@ -78,9 +78,9 @@ function InfoRow({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <Icon className="h-4 w-4 text-zinc-500 mt-0.5 flex-shrink-0" />
+      <Icon className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] uppercase tracking-wider text-zinc-500">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
           {label}
         </p>
         <p className="text-sm break-words">{value}</p>

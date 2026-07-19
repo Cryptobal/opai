@@ -37,9 +37,9 @@ export function ProposalManoDeObra({
     currency === "UF" && ufValue && ufValue > 0 ? fmtUF(n / ufValue) : fmtCLP(n);
 
   return (
-    <div className={cn("rounded-xl border border-slate-700/50 bg-slate-800/50 p-4 space-y-4", className)}>
-      <h3 className="text-xl font-bold text-white">
-        <span className="text-status-info-fg">{sectionNumber}.</span> Detalle de Mano de Obra
+    <div className={cn("rounded-xl border border-border bg-card opai-glass-soft-m p-4 space-y-4", className)}>
+      <h3 className="text-xl font-bold text-foreground">
+        <span className="text-primary">{sectionNumber}.</span> Detalle de Mano de Obra
       </h3>
 
       {positionDetails.map((pos, idx) => {
@@ -50,13 +50,13 @@ export function ProposalManoDeObra({
           <div key={idx} className="rounded-lg border border-white/[0.06] overflow-hidden">
             {/* Position header */}
             <div className="bg-white/[0.04] px-3 py-2 border-b border-white/[0.06]">
-              <h4 className="text-sm font-semibold text-slate-200">
+              <h4 className="text-sm font-semibold text-foreground">
                 {pos.name} · {pos.totalGuardsInPosition} guardia{pos.totalGuardsInPosition !== 1 ? "s" : ""}
               </h4>
             </div>
 
             {/* Breakdown rows */}
-            <div className="divide-y divide-slate-700/30">
+            <div className="divide-y divide-border">
               <Row label="Sueldo base imponible" value={fmt(pos.baseSalary / Math.max(1, pos.totalGuardsInPosition))} />
               <Row label="Gratificación legal" value={fmt(pos.gratification / Math.max(1, pos.totalGuardsInPosition))} />
               <Row label="Total haberes imponibles" value={fmt(pos.totalImponible / Math.max(1, pos.totalGuardsInPosition))} bold />
@@ -79,11 +79,11 @@ export function ProposalManoDeObra({
       {/* Totals */}
       <div className="rounded-lg bg-white/[0.04] border border-white/[0.06] p-3 space-y-2">
         <div className="flex items-center justify-between text-sm">
-          <span className="font-semibold text-slate-300">Total guardias</span>
-          <span className="font-bold text-white">{totalGuardias}</span>
+          <span className="font-semibold text-foreground/80">Total guardias</span>
+          <span className="font-bold text-foreground">{totalGuardias}</span>
         </div>
         <div className="flex items-center justify-between text-sm">
-          <span className="font-bold text-white">Total mensual mano de obra</span>
+          <span className="font-bold text-foreground">Total mensual mano de obra</span>
           <span className="font-bold text-status-ok-fg font-mono">{fmt(totalMensual)}</span>
         </div>
       </div>
@@ -114,8 +114,8 @@ function Row({
       <span
         className={cn(
           "text-xs",
-          indent ? "pl-3 text-slate-500" : "text-slate-300",
-          bold && "font-semibold text-slate-200",
+          indent ? "pl-3 text-muted-foreground" : "text-foreground/80",
+          bold && "font-semibold text-foreground",
         )}
       >
         {label}
@@ -123,8 +123,8 @@ function Row({
       <span
         className={cn(
           "text-xs font-mono",
-          bold ? "font-semibold text-slate-200" : "text-slate-400",
-          highlight && "text-white font-bold",
+          bold ? "font-semibold text-foreground" : "text-muted-foreground",
+          highlight && "text-foreground font-bold",
         )}
       >
         {value}

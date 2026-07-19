@@ -186,19 +186,19 @@ export function ReportarIncidente({
   }
 
   const rootClassName = asScreen
-    ? "flex-1 flex flex-col min-h-0 bg-[#0A0F1C]"
-    : "fixed inset-0 z-[60] flex flex-col bg-black/90";
+    ? "flex-1 flex flex-col min-h-0 bg-card opai-glass-soft-m"
+    : "fixed inset-0 z-[60] flex flex-col bg-card opai-glass-strong-m border border-border";
 
   return (
     <div className={rootClassName}>
       {/* Sticky header */}
       <div className="flex shrink-0 items-center justify-between px-5 pt-5 pb-3">
-        <h2 className="text-xl font-bold text-white">
+        <h2 className="text-xl font-bold text-foreground">
           {"\u{1F6A8}"} Reportar Incidente
         </h2>
         <button
           onClick={onClose}
-          className="rounded-lg bg-zinc-800 p-2 text-gray-400 hover:bg-zinc-700 hover:text-white"
+          className="rounded-lg bg-muted p-2 text-muted-foreground hover:bg-muted/80 hover:text-foreground"
           aria-label={asScreen ? "Volver" : "Cerrar"}
         >
           <svg
@@ -222,7 +222,7 @@ export function ReportarIncidente({
 
         {/* Incident type grid */}
         <div>
-          <label className="mb-2 block text-sm font-medium text-gray-200">
+          <label className="mb-2 block text-sm font-medium text-foreground">
             Tipo de incidente
           </label>
           <div className="grid grid-cols-3 gap-2">
@@ -234,7 +234,7 @@ export function ReportarIncidente({
                 className={`flex min-h-20 flex-col items-center justify-center gap-1 rounded-xl border-2 p-2 text-center transition-colors ${
                   tipo === t.id
                     ? "border-status-info bg-status-info-soft text-white"
-                    : "border-zinc-700 bg-zinc-800 text-gray-400 hover:border-zinc-600"
+                    : "border-border bg-muted text-muted-foreground hover:border-primary"
                 }`}
               >
                 <span className="text-2xl">{t.icon}</span>
@@ -246,7 +246,7 @@ export function ReportarIncidente({
 
         {/* Photo section */}
         <div>
-          <label className="mb-2 block text-sm font-medium text-gray-200">
+          <label className="mb-2 block text-sm font-medium text-foreground">
             Foto (opcional)
           </label>
           {photoPreview ? (
@@ -259,7 +259,7 @@ export function ReportarIncidente({
               <button
                 type="button"
                 onClick={() => setShowCamera(true)}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 py-2 text-sm text-gray-200 hover:bg-zinc-700"
+                className="w-full rounded-lg border border-border bg-muted py-2 text-sm text-foreground hover:bg-muted/80"
               >
                 Cambiar
               </button>
@@ -268,7 +268,7 @@ export function ReportarIncidente({
             <button
               type="button"
               onClick={() => setShowCamera(true)}
-              className="flex w-full min-h-14 items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-700 bg-zinc-800 py-3 text-sm text-gray-400 hover:border-zinc-600 hover:text-gray-200"
+              className="flex w-full min-h-14 items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted py-3 text-sm text-muted-foreground hover:border-primary hover:text-foreground"
             >
               <svg
                 className="h-5 w-5"
@@ -295,7 +295,7 @@ export function ReportarIncidente({
 
         {/* Description */}
         <div>
-          <label className="mb-2 block text-sm font-medium text-gray-200">
+          <label className="mb-2 block text-sm font-medium text-foreground">
             Descripci&oacute;n <span className="text-status-danger-fg">*</span>
           </label>
           <textarea
@@ -305,9 +305,9 @@ export function ReportarIncidente({
             maxLength={500}
             required
             placeholder="Describe el incidente..."
-            className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white placeholder-gray-500 focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info-border"
+            className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info-border"
           />
-          <p className="mt-1 text-right text-xs text-gray-500">
+          <p className="mt-1 text-right text-xs text-muted-foreground">
             {descripcion.length}/500
           </p>
         </div>
@@ -319,7 +319,7 @@ export function ReportarIncidente({
               {"\u{1F4CD}"} Ubicaci&oacute;n capturada {"\u2705"}
             </p>
           ) : gpsStatus === "loading" ? (
-            <p className="text-gray-400">
+            <p className="text-muted-foreground">
               {"\u{1F4CD}"} Obteniendo ubicaci&oacute;n...
             </p>
           ) : (
@@ -332,13 +332,13 @@ export function ReportarIncidente({
         {/* Checkpoint link */}
         {checkpoints && checkpoints.length > 0 && (
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-200">
+            <label className="mb-2 block text-sm font-medium text-foreground">
               Checkpoint asociado
             </label>
             <select
               value={selectedCheckpointId}
               onChange={(e) => setSelectedCheckpointId(e.target.value)}
-              className="w-full min-h-14 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-white focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info-border"
+              className="w-full min-h-14 rounded-lg border border-border bg-muted px-3 py-2 text-foreground focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info-border"
             >
               <option value="">Sin checkpoint</option>
               {checkpoints.map((cp) => (

@@ -107,7 +107,7 @@ export function PhotoCapture({ onCapture, onClose }: Props) {
             <button onClick={retake} className="flex-1 rounded-xl bg-gray-700 py-4 text-lg text-white">
               Repetir
             </button>
-            <button onClick={confirm} className="flex-1 rounded-xl bg-status-info py-4 text-lg font-semibold text-white">
+            <button onClick={confirm} className="flex-1 rounded-xl bg-primary py-4 text-lg font-semibold text-white">
               Usar Foto
             </button>
           </div>

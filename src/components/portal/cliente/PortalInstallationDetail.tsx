@@ -85,7 +85,7 @@ export function PortalInstallationDetail({
 
   if (loading && !installation) {
     return (
-      <div className="flex items-center justify-center h-40 gap-2 text-zinc-400">
+      <div className="flex items-center justify-center h-40 gap-2 text-muted-foreground">
         <Loader2 className="w-5 h-5 animate-spin" />
         <span className="text-sm">Cargando instalación...</span>
       </div>
@@ -95,10 +95,10 @@ export function PortalInstallationDetail({
   if (!installation) {
     return (
       <div className="p-4 space-y-4">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-zinc-400 hover:text-white text-sm transition-colors">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground text-sm transition-colors">
           <ArrowLeft className="w-4 h-4" /> Volver
         </button>
-        <p className="text-zinc-500 text-sm">Instalación no encontrada.</p>
+        <p className="text-muted-foreground text-sm">Instalación no encontrada.</p>
       </div>
     )
   }
@@ -110,24 +110,24 @@ export function PortalInstallationDetail({
       {/* Back button */}
       <button
         onClick={onBack}
-        className="flex items-center gap-1.5 text-zinc-400 hover:text-white text-sm transition-colors"
+        className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground text-sm transition-colors"
       >
         <ArrowLeft className="w-4 h-4" /> Instalaciones
       </button>
 
       {/* Header */}
-      <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4 space-y-3">
+      <div className="bg-card opai-glass-soft-m border border-border rounded-xl p-4 space-y-3">
         <div className="flex items-start gap-3">
           <div className="bg-status-info-soft rounded-lg p-3 flex-shrink-0">
             <Building2 className="h-6 w-6 text-status-info-fg" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-white truncate">{installation.name}</h2>
+              <h2 className="text-lg font-semibold text-foreground truncate">{installation.name}</h2>
               {isProspect && <PreviewBadge />}
             </div>
             {(installation.address || installation.commune) && (
-              <div className="flex items-center gap-1.5 mt-1 text-zinc-400 text-sm">
+              <div className="flex items-center gap-1.5 mt-1 text-muted-foreground text-sm">
                 <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
                 <span className="truncate">
                   {[installation.address, installation.commune].filter(Boolean).join(', ')}
@@ -139,18 +139,18 @@ export function PortalInstallationDetail({
 
         {/* KPIs for demo/preview */}
         {demoSummary && (
-          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-zinc-700/50">
+          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border">
             <div className="text-center">
               <p className="text-lg font-bold text-status-info-fg">{demoSummary.compliance}%</p>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Cumplimiento</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Cumplimiento</p>
             </div>
             <div className="text-center">
               <p className="text-lg font-bold text-status-info-fg">{demoSummary.completedRounds}/{demoSummary.totalRounds}</p>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Rondas hoy</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Rondas hoy</p>
             </div>
             <div className="text-center">
               <p className="text-lg font-bold text-tint-violet-fg">{demoSummary.trustScore}</p>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Trust Score</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Trust Score</p>
             </div>
           </div>
         )}
@@ -158,20 +158,20 @@ export function PortalInstallationDetail({
 
       {/* Quick actions */}
       <div>
-        <h3 className="text-sm font-medium text-zinc-400 mb-3">Acciones rápidas</h3>
+        <h3 className="text-sm font-medium text-muted-foreground mb-3">Acciones rápidas</h3>
         <div className="grid grid-cols-1 gap-2">
           {QUICK_ACTIONS.map((action) => (
             <button
               key={action.id}
               onClick={() => onNavigate(action.id)}
-              className="flex items-center gap-3 p-3 bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 rounded-xl transition-colors text-left"
+              className="flex items-center gap-3 p-3 bg-card opai-glass-soft-m hover:bg-muted border border-border rounded-xl transition-colors text-left"
             >
-              <div className="bg-zinc-700/50 rounded-lg p-2 flex-shrink-0">
-                <action.icon className="h-4 w-4 text-zinc-300" />
+              <div className="bg-muted rounded-lg p-2 flex-shrink-0">
+                <action.icon className="h-4 w-4 text-muted-foreground" />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-medium text-white">{action.label}</p>
-                <p className="text-xs text-zinc-500">{action.desc}</p>
+                <p className="text-sm font-medium text-foreground">{action.label}</p>
+                <p className="text-xs text-muted-foreground">{action.desc}</p>
               </div>
             </button>
           ))}
@@ -181,7 +181,7 @@ export function PortalInstallationDetail({
       {/* Checklist de documentación física */}
       {!isDemo && (
         <div>
-          <h3 className="text-sm font-medium text-zinc-400 mb-3">
+          <h3 className="text-sm font-medium text-muted-foreground mb-3">
             Documentación en terreno
           </h3>
           <PortalDocsFisicosChecklist installationId={installationId} />
@@ -190,12 +190,12 @@ export function PortalInstallationDetail({
 
       {/* Equipo de seguridad asignado */}
       {isDemo ? (
-        <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
+        <div className="bg-card opai-glass-soft-m border border-border rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <Shield className="w-4 h-4 text-status-info-fg" />
-            <h3 className="text-sm font-medium text-white">Equipo de seguridad</h3>
+            <h3 className="text-sm font-medium text-foreground">Equipo de seguridad</h3>
           </div>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted-foreground">
             Esta instalación cuenta con 4 guardias asignados en turnos rotativos.
           </p>
         </div>
@@ -203,7 +203,7 @@ export function PortalInstallationDetail({
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Shield className="w-4 h-4 text-status-info-fg" />
-            <h3 className="text-sm font-medium text-zinc-400">
+            <h3 className="text-sm font-medium text-muted-foreground">
               Equipo de seguridad asignado
             </h3>
           </div>

@@ -1136,11 +1136,11 @@ export function RondaActiva({
       {/* ============ Confirmation Modal (incomplete checkpoints) ============ */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6">
-          <div className="w-full max-w-sm rounded-2xl border border-gray-700 bg-gray-900 p-6">
-            <h2 className="mb-3 text-lg font-semibold text-white">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-card opai-glass-strong-m p-6">
+            <h2 className="mb-3 text-lg font-semibold text-foreground">
               Checkpoints pendientes
             </h2>
-            <p className="mb-2 text-base text-gray-300">
+            <p className="mb-2 text-base text-foreground/80">
               Te faltan{" "}
               <span className="font-semibold text-status-warn-fg">
                 {incompleteCheckpoints.length}
@@ -1149,14 +1149,14 @@ export function RondaActiva({
             </p>
             <ul className="mb-4 max-h-40 space-y-1 overflow-y-auto">
               {incompleteCheckpoints.map((c) => (
-                <li key={c.id} className="flex items-center gap-2 text-sm text-gray-400">
+                <li key={c.id} className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-status-warn" />
                   {c.name}
                   {c.isRequired && <span className="text-xs text-status-danger-fg">(obligatorio)</span>}
                 </li>
               ))}
             </ul>
-            <p className="mb-2 text-sm text-gray-500">
+            <p className="mb-2 text-sm text-muted-foreground">
               Indica por que no pudiste completar todos los puntos:
             </p>
             <textarea
@@ -1165,7 +1165,7 @@ export function RondaActiva({
               placeholder="Ej: Acceso bloqueado, zona en mantenimiento..."
               maxLength={500}
               rows={3}
-              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-status-warn-border focus:outline-none"
+              className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-status-warn-border focus:outline-none"
             />
             <p className={`mb-3 mt-1 text-xs ${incompleteNotes.trim().length > 0 && incompleteNotes.trim().length < 3 ? "text-status-warn-fg/70" : "text-transparent"}`}>
               Minimo 3 caracteres
@@ -1173,7 +1173,7 @@ export function RondaActiva({
             <div className="flex gap-3">
               <button
                 onClick={cancelConfirmModal}
-                className="flex-1 rounded-xl border border-gray-700 bg-gray-800 py-3 text-base font-medium text-gray-300 transition-colors hover:bg-gray-700"
+                className="flex-1 rounded-xl border border-border bg-muted py-3 text-base font-medium text-foreground/80 transition-colors hover:bg-muted/80"
               >
                 Seguir ronda
               </button>
@@ -1192,7 +1192,7 @@ export function RondaActiva({
       {/* ============ Auto-Complete Celebration Modal ============ */}
       {showAutoCompleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6">
-          <div className="w-full max-w-sm rounded-2xl border border-status-ok-border bg-gray-900 p-6 text-center">
+          <div className="w-full max-w-sm rounded-2xl border border-status-ok-border bg-card opai-glass-strong-m p-6 text-center">
             <div className="mb-3 flex justify-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-status-ok-soft">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-status-ok-fg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -1200,13 +1200,13 @@ export function RondaActiva({
                 </svg>
               </div>
             </div>
-            <h2 className="mb-2 text-xl font-bold text-white">
+            <h2 className="mb-2 text-xl font-bold text-foreground">
               Ronda Completa!
             </h2>
-            <p className="mb-1 text-base text-gray-300">
+            <p className="mb-1 text-base text-foreground/80">
               Todos los checkpoints han sido marcados.
             </p>
-            <p className="mb-5 text-sm text-gray-500">
+            <p className="mb-5 text-sm text-muted-foreground">
               {completedCount}/{total} puntos &middot; {formatElapsed(elapsedSeconds)}
             </p>
             <button
@@ -1221,7 +1221,7 @@ export function RondaActiva({
             </button>
             <button
               onClick={() => setShowAutoCompleteModal(false)}
-              className="mt-2 w-full rounded-xl border border-gray-700 bg-gray-800 py-3 text-sm font-medium text-gray-400 transition-colors hover:bg-gray-700"
+              className="mt-2 w-full rounded-xl border border-border bg-muted py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/80"
             >
               Seguir revisando
             </button>

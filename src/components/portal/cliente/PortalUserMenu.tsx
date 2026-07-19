@@ -40,28 +40,28 @@ export function PortalUserMenu({ session, onNotificaciones, onLogout }: Props) {
         <div className="h-6 w-6 rounded-full bg-status-info-soft text-status-info-fg text-[10px] font-semibold flex items-center justify-center shrink-0">
           {initials}
         </div>
-        <span className="text-xs text-zinc-300 max-w-[90px] truncate hidden sm:block">{shortName}</span>
-        <ChevronDown className={cn("h-3.5 w-3.5 text-zinc-500 transition-transform", open && "rotate-180")} />
+        <span className="text-xs text-muted-foreground max-w-[90px] truncate hidden sm:block">{shortName}</span>
+        <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1.5 min-w-[180px] z-50">
+        <div className="absolute right-0 top-10 bg-card opai-glass-strong-m border border-border rounded-xl shadow-xl py-1.5 min-w-[180px] z-50">
           <button
             onClick={() => { setOpen(false); onNotificaciones(); }}
-            className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors"
+            className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
           >
-            <Bell className="h-4 w-4 text-zinc-400" />
+            <Bell className="h-4 w-4 text-muted-foreground" />
             Notificaciones
           </button>
-          <div className="my-1 border-t border-zinc-700" />
+          <div className="my-1 border-t border-border" />
           <button
             onClick={() => { setOpen(false); onLogout(); }}
-            className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-status-danger-fg hover:bg-zinc-700 transition-colors"
+            className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-status-danger-fg hover:bg-muted transition-colors"
           >
             <LogOut className="h-4 w-4" />
             Salir
           </button>
-          <div className="flex justify-center px-4 py-2 border-t border-zinc-700">
+          <div className="flex justify-center px-4 py-2 border-t border-border">
             <SwitchPortalButton />
           </div>
         </div>

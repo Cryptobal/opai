@@ -54,16 +54,16 @@ export function ProposalEstructuraCostos({
     (breakdown.other ?? 0);
 
   return (
-    <div className={cn("rounded-xl border border-slate-700/50 overflow-hidden", className)}>
+    <div className={cn("rounded-xl border border-border overflow-hidden", className)}>
       {/* Header — clickable to toggle */}
       <button
         type="button"
         onClick={() => setIsOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/50 hover:bg-slate-800/70 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 bg-card opai-glass-soft-m hover:bg-muted transition-colors"
       >
         <div className="flex items-center gap-2.5">
           <BarChart3 className="h-5 w-5 text-status-info-fg" />
-          <h3 className="text-xl font-bold text-white">
+          <h3 className="text-xl font-bold text-foreground">
             <span className="text-status-info-fg">{sectionNumber}.</span> Estructura de Costos
           </h3>
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-status-info-soft text-status-info-fg font-medium">
@@ -72,14 +72,14 @@ export function ProposalEstructuraCostos({
         </div>
         <ChevronDown
           className={cn(
-            "h-5 w-5 text-slate-500 transition-transform",
+            "h-5 w-5 text-muted-foreground transition-transform",
             isOpen && "rotate-180",
           )}
         />
       </button>
 
       {isOpen && (
-        <div className="px-4 py-4 bg-slate-800/30 space-y-3">
+        <div className="px-4 py-4 bg-muted space-y-3">
           {/* Mano de Obra */}
           <CostSection
             title="Mano de Obra"
@@ -156,8 +156,8 @@ export function ProposalEstructuraCostos({
 
           {/* Subtotal */}
           <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.06]">
-            <span className="text-xs font-semibold text-slate-400">Subtotal costos base</span>
-            <span className="text-xs font-mono font-semibold text-slate-300">{fmt(breakdown.subtotalBase)}</span>
+            <span className="text-xs font-semibold text-muted-foreground">Subtotal costos base</span>
+            <span className="text-xs font-mono font-semibold text-foreground/80">{fmt(breakdown.subtotalBase)}</span>
           </div>
 
           {/* Margin */}
@@ -183,8 +183,8 @@ export function ProposalEstructuraCostos({
           {/* Valor Hora por Puesto */}
           {breakdown.positions.length > 0 && (
             <div className="space-y-2 pt-2">
-              <h4 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                <Clock className="h-4 w-4 text-slate-400" />
+              <h4 className="text-sm font-semibold text-foreground/80 flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
                 Valor Hora de Venta por Puesto
               </h4>
               {breakdown.positions.map((pos) => (
@@ -192,9 +192,9 @@ export function ProposalEstructuraCostos({
                   key={pos.id}
                   className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06]"
                 >
-                  <span className="text-xs text-slate-300">
+                  <span className="text-xs text-foreground/80">
                     {pos.name}{" "}
-                    <span className="text-slate-500">
+                    <span className="text-muted-foreground">
                       ({pos.totalGuardsInPosition} guardia{pos.totalGuardsInPosition !== 1 ? "s" : ""})
                     </span>
                   </span>
@@ -206,7 +206,7 @@ export function ProposalEstructuraCostos({
             </div>
           )}
 
-          <p className="text-[10px] text-slate-500 text-right">
+          <p className="text-[10px] text-muted-foreground text-right">
             Valores netos · IVA se factura según ley vigente
           </p>
         </div>
@@ -257,8 +257,8 @@ function CostRow({
       <span
         className={cn(
           "text-xs",
-          indent ? "pl-3 text-slate-500" : "text-slate-400",
-          bold && "font-medium text-slate-300",
+          indent ? "pl-3 text-muted-foreground" : "text-muted-foreground",
+          bold && "font-medium text-foreground/80",
         )}
       >
         {label}
@@ -266,7 +266,7 @@ function CostRow({
       <span
         className={cn(
           "text-xs font-mono",
-          bold ? "font-medium text-slate-300" : "text-slate-500",
+          bold ? "font-medium text-foreground/80" : "text-muted-foreground",
         )}
       >
         {value}

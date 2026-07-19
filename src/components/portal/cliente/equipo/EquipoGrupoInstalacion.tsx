@@ -42,7 +42,7 @@ export function EquipoGrupoInstalacion({
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold truncate">{installation.name}</p>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted-foreground">
             {resumen.total} guardia{resumen.total !== 1 ? "s" : ""}
             {hasAlerts ? (
               <>
@@ -64,15 +64,15 @@ export function EquipoGrupoInstalacion({
           </p>
         </div>
         {open ? (
-          <ChevronUp className="h-4 w-4 text-zinc-500" />
+          <ChevronUp className="h-4 w-4 text-muted-foreground" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-zinc-500" />
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
         )}
       </button>
       {open && (
         <div className="border-t border-white/[0.06] px-3 py-3 space-y-1.5">
           {guardias.length === 0 ? (
-            <p className="text-xs text-zinc-500 px-2 py-4 text-center">
+            <p className="text-xs text-muted-foreground px-2 py-4 text-center">
               Sin guardias asignados a esta instalación.
             </p>
           ) : (

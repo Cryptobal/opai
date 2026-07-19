@@ -85,7 +85,7 @@ const STATUS_CONFIG: Record<
 
 const FALLBACK_STATUS = {
   label: "Ronda",
-  color: "bg-zinc-800 text-zinc-400",
+  color: "bg-muted text-muted-foreground",
   icon: Clock,
 } as const;
 
@@ -238,7 +238,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -251,13 +251,13 @@ export function PortalRondas({ selectedInstallation }: Props) {
       <div className="max-w-lg mx-auto px-4 py-4 pb-24">
         <button
           onClick={() => setSelected(null)}
-          className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 mb-4"
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4"
         >
           ← Volver
         </button>
 
         {/* Summary card */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 mb-4">
+        <div className="bg-card opai-glass-soft-m border border-border rounded-xl p-4 mb-4">
           <div className="flex items-center justify-between mb-3">
             <span
               className={cn(
@@ -267,7 +267,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
             >
               <Icon className="h-3.5 w-3.5" /> {cfg.label}
             </span>
-            <span className="text-xs text-zinc-400 tabular-nums">
+            <span className="text-xs text-muted-foreground tabular-nums">
               {new Date(selected.scheduledAt).toLocaleString("es-CL", {
                 day: "2-digit",
                 month: "short",
@@ -280,9 +280,9 @@ export function PortalRondas({ selectedInstallation }: Props) {
           </div>
 
           {selected.guardia && (
-            <p className="text-xs text-zinc-400 mb-3">
+            <p className="text-xs text-muted-foreground mb-3">
               Guardia:{" "}
-              <span className="text-zinc-200">
+              <span className="text-foreground">
                 {selected.guardia.persona.firstName}{" "}
                 {selected.guardia.persona.lastName}
               </span>
@@ -291,42 +291,42 @@ export function PortalRondas({ selectedInstallation }: Props) {
 
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
-              <p className="text-lg font-bold text-white">
+              <p className="text-lg font-bold text-foreground">
                 {Math.round(selected.porcentajeCompletado)}%
               </p>
-              <p className="text-[10px] text-zinc-500">Completado</p>
+              <p className="text-[10px] text-muted-foreground">Completado</p>
             </div>
             <div>
-              <p className="text-lg font-bold text-white">
+              <p className="text-lg font-bold text-foreground">
                 {selected.trustScore}
               </p>
-              <p className="text-[10px] text-zinc-500">Trust Score</p>
+              <p className="text-[10px] text-muted-foreground">Trust Score</p>
             </div>
             <div>
-              <p className="text-lg font-bold text-white">
+              <p className="text-lg font-bold text-foreground">
                 {selected.durationMinutes ?? "--"}
               </p>
-              <p className="text-[10px] text-zinc-500">Minutos</p>
+              <p className="text-[10px] text-muted-foreground">Minutos</p>
             </div>
           </div>
 
           <div className="mt-3">
-            <div className="flex justify-between text-[10px] text-zinc-500 mb-1">
+            <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
               <span>Checkpoints</span>
               <span>
                 {selected.checkpointsCompletados}/{selected.checkpointsTotal}
               </span>
             </div>
-            <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
               <div
-                className="h-full bg-status-info rounded-full transition-all"
+                className="h-full bg-primary rounded-full transition-all"
                 style={{ width: `${selected.porcentajeCompletado}%` }}
               />
             </div>
           </div>
 
           {selected.notes && (
-            <p className="mt-3 text-xs text-zinc-400 border-t border-zinc-800 pt-3">
+            <p className="mt-3 text-xs text-muted-foreground border-t border-border pt-3">
               {selected.notes}
             </p>
           )}
@@ -334,7 +334,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
 
         {/* Mapa del recorrido */}
         <div className="mb-4">
-          <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
             Recorrido y puntos
           </h3>
           <RondaMapView ejecucionId={selected.id} height={320} />
@@ -343,27 +343,27 @@ export function PortalRondas({ selectedInstallation }: Props) {
         {/* Incidentes */}
         {selected.incidentes.length > 0 && (
           <div className="mb-4">
-            <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
               Incidentes ({selected.incidentes.length})
             </h3>
             <div className="space-y-2">
               {selected.incidentes.map((inc) => (
                 <div
                   key={inc.id}
-                  className="bg-zinc-900 border border-status-danger-border rounded-lg p-3"
+                  className="bg-card opai-glass-soft-m border border-status-danger-border rounded-lg p-3"
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-medium text-status-danger-fg">
                       {inc.tipo.replace(/_/g, " ")}
                     </span>
-                    <span className="text-[10px] text-zinc-500">
+                    <span className="text-[10px] text-muted-foreground">
                       {new Date(inc.createdAt).toLocaleTimeString("es-CL", {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
                     </span>
                   </div>
-                  <p className="text-xs text-zinc-300">{inc.descripcion}</p>
+                  <p className="text-xs text-muted-foreground">{inc.descripcion}</p>
                 </div>
               ))}
             </div>
@@ -372,7 +372,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
 
         {/* Checkpoints / marcaciones */}
         <div>
-          <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
             Checkpoints ({selected.marcaciones.length})
           </h3>
           {selected.marcaciones.length === 0 ? (
@@ -382,7 +382,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
               {selected.marcaciones.map((m) => (
                 <div
                   key={m.id}
-                  className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2"
+                  className="flex items-center gap-3 bg-muted opai-glass-soft-m border border-border rounded-lg px-3 py-2"
                 >
                   <div
                     className={cn(
@@ -391,14 +391,14 @@ export function PortalRondas({ selectedInstallation }: Props) {
                     )}
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-zinc-300 truncate">
+                    <p className="text-xs text-muted-foreground truncate">
                       {m.note || "Sin nota"}
                     </p>
                     <p className="text-[10px] text-zinc-600">
                       {m.geoValidada ? "GPS validado" : "GPS no validado"}
                     </p>
                   </div>
-                  <span className="text-[10px] text-zinc-500 flex-shrink-0">
+                  <span className="text-[10px] text-muted-foreground flex-shrink-0">
                     {new Date(m.timestamp).toLocaleTimeString("es-CL", {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -418,11 +418,11 @@ export function PortalRondas({ selectedInstallation }: Props) {
     <div className="max-w-lg mx-auto px-4 py-4 pb-24">
       <div className="mb-4">
         <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-status-info-fg" />
+          <MapPin className="h-4 w-4 text-primary" />
           <h2 className="text-base font-semibold">Rondas en tiempo real</h2>
           {isDemo && <PreviewBadge />}
           <OpaiBadge variant="live" />
-          <span className="text-xs text-zinc-500 ml-auto">
+          <span className="text-xs text-muted-foreground ml-auto">
             {rondas.length}
             {hasMore ? "+" : ""} registros
           </span>
@@ -458,9 +458,9 @@ export function PortalRondas({ selectedInstallation }: Props) {
           />
         </div>
         {isProspect ? (
-          <p className="text-xs text-zinc-500 mt-1 ml-6">Monitoreo GPS con geofencing automático</p>
+          <p className="text-xs text-muted-foreground mt-1 ml-6">Monitoreo GPS con geofencing automático</p>
         ) : (
-          <p className="text-xs text-zinc-500 mt-1 ml-6">Monitoreo GPS en vivo de tus instalaciones</p>
+          <p className="text-xs text-muted-foreground mt-1 ml-6">Monitoreo GPS en vivo de tus instalaciones</p>
         )}
       </div>
 
@@ -475,7 +475,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
               "text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors",
               range === opt.key
                 ? "bg-status-info-soft border-status-info-border text-status-info-fg"
-                : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200",
+                : "bg-muted border-border text-muted-foreground hover:border-border hover:text-foreground",
             )}
           >
             {opt.label}
@@ -495,7 +495,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
       {rondas.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <MapPin className="h-8 w-8 text-zinc-700 mb-3" />
-          <p className="text-sm font-medium text-zinc-400">No hay rondas en este rango</p>
+          <p className="text-sm font-medium text-muted-foreground">No hay rondas en este rango</p>
           <p className="text-xs text-zinc-600 mt-1">
             Prueba extender el rango a {range === "7d" ? "30" : "90"} días.
           </p>
@@ -510,7 +510,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
                 key={r.id}
                 onClick={() => loadDetail(r.id)}
                 disabled={loadingDetail}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3.5 text-left hover:border-zinc-700 transition-colors active:bg-zinc-800 disabled:opacity-60"
+                className="w-full bg-card opai-glass-soft-m border border-border rounded-xl p-3.5 text-left hover:border-border transition-colors active:bg-muted disabled:opacity-60"
               >
                 <div className="flex items-center justify-between mb-2">
                   <span
@@ -523,7 +523,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
                     <Icon className="h-3 w-3" /> {cfg.label}
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-zinc-400 tabular-nums">
+                    <span className="text-[11px] text-muted-foreground tabular-nums">
                       {new Date(r.scheduledAt).toLocaleString("es-CL", {
                         day: "2-digit",
                         month: "short",
@@ -541,29 +541,29 @@ export function PortalRondas({ selectedInstallation }: Props) {
                 </div>
 
                 {r.guardia && (
-                  <p className="text-[10px] text-zinc-500 mb-1.5">
+                  <p className="text-[10px] text-muted-foreground mb-1.5">
                     {r.guardia.persona.firstName} {r.guardia.persona.lastName}
                   </p>
                 )}
 
                 <div className="flex items-center gap-3">
                   <div className="flex-1">
-                    <div className="flex justify-between text-[10px] text-zinc-500 mb-0.5">
+                    <div className="flex justify-between text-[10px] text-muted-foreground mb-0.5">
                       <span>
                         {r.checkpointsCompletados}/{r.checkpointsTotal}{" "}
                         checkpoints
                       </span>
                       <span>{Math.round(r.porcentajeCompletado)}%</span>
                     </div>
-                    <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-1 bg-muted rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-status-info rounded-full"
+                        className="h-full bg-primary rounded-full"
                         style={{ width: `${r.porcentajeCompletado}%` }}
                       />
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-semibold text-white">
+                    <p className="text-sm font-semibold text-foreground">
                       {r.trustScore}
                     </p>
                     <p className="text-[10px] text-zinc-600">trust</p>
@@ -577,7 +577,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
             <button
               onClick={() => load("append")}
               disabled={loadingMore}
-              className="w-full text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded-xl py-3 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full text-xs text-muted-foreground hover:text-foreground border border-border hover:border-border rounded-xl py-3 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {loadingMore ? (
                 <>

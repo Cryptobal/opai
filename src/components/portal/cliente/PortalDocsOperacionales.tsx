@@ -59,8 +59,8 @@ function StatusBadge({ status, expiresAt }: { status: string; expiresAt?: string
     vigente: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
     por_vencer: "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
     vencido: "bg-status-danger-soft text-status-danger-fg border-status-danger-border",
-    no_aplica: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
-    sin_documento: "bg-zinc-500/10 text-zinc-500 border-zinc-500/20",
+    no_aplica: "bg-muted text-muted-foreground border-border",
+    sin_documento: "bg-muted text-muted-foreground border-border",
   };
   const labels: Record<string, string> = {
     vigente: "Vigente",
@@ -139,8 +139,8 @@ export function PortalDocsOperacionales({ selectedInstallation, isProspect }: Pr
     return (
       <div className="text-center py-16">
         <ShieldCheck className="h-10 w-10 text-zinc-600 mx-auto mb-3" />
-        <p className="text-sm font-medium text-zinc-400">Sin documentos operacionales disponibles</p>
-        <p className="text-xs text-zinc-500 mt-1">La documentación normativa se actualiza automáticamente.</p>
+        <p className="text-sm font-medium text-muted-foreground">Sin documentos operacionales disponibles</p>
+        <p className="text-xs text-muted-foreground mt-1">La documentación normativa se actualiza automáticamente.</p>
       </div>
     );
   }
@@ -157,14 +157,14 @@ export function PortalDocsOperacionales({ selectedInstallation, isProspect }: Pr
     <div className="space-y-4">
       {/* Installation selector */}
       {instalaciones.length > 1 && (
-        <div className="flex gap-1 bg-zinc-800/50 p-1 rounded-lg overflow-x-auto">
+        <div className="flex gap-1 bg-muted p-1 rounded-lg overflow-x-auto">
           {instalaciones.map((inst) => (
             <button
               key={inst.id}
               onClick={() => setActiveInstId(inst.id)}
               className={cn(
                 "px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap",
-                activeInstId === inst.id ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-zinc-300"
+                activeInstId === inst.id ? "bg-card text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
               {inst.nombre}
@@ -191,13 +191,13 @@ export function PortalDocsOperacionales({ selectedInstallation, isProspect }: Pr
               <p className="text-sm font-medium text-status-warn-fg">
                 Cumplimiento normativo: {active.cumplimiento.porcentaje}%
               </p>
-              <p className="text-xs text-zinc-400 mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {active.cumplimiento.vigentes} de {active.cumplimiento.total} documentos vigentes
               </p>
             </div>
             <p className="text-2xl font-bold text-status-warn-fg">{active.cumplimiento.porcentaje}%</p>
           </div>
-          <div className="mt-2 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+          <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
             <div
               className="h-full rounded-full bg-status-warn transition-all"
               style={{ width: `${active.cumplimiento.porcentaje}%` }}
@@ -226,7 +226,7 @@ export function PortalDocsOperacionales({ selectedInstallation, isProspect }: Pr
         onToggle={() => toggleSection("instalacion")}
       >
         {active.documentos.instalacion.length === 0 ? (
-          <p className="text-xs text-zinc-500 py-2">Sin documentos de instalación cargados.</p>
+          <p className="text-xs text-muted-foreground py-2">Sin documentos de instalación cargados.</p>
         ) : (
           active.documentos.instalacion.map((d, i) => (
             <DocRow key={i} doc={d} />
@@ -242,7 +242,7 @@ export function PortalDocsOperacionales({ selectedInstallation, isProspect }: Pr
         onToggle={() => toggleSection("guardias")}
       >
         {active.documentos.guardias.length === 0 ? (
-          <p className="text-xs text-zinc-500 py-2">Sin personal asignado.</p>
+          <p className="text-xs text-muted-foreground py-2">Sin personal asignado.</p>
         ) : (
           <div className="space-y-2">
             {active.documentos.guardias.map((g, i) => (
@@ -274,9 +274,9 @@ function PortalSection({
         className="flex items-center gap-2 w-full px-3 py-2.5 bg-white/[0.04] border-b border-white/[0.06] text-left"
         onClick={onToggle}
       >
-        {expanded ? <ChevronDown className="h-3.5 w-3.5 text-zinc-500" /> : <ChevronRight className="h-3.5 w-3.5 text-zinc-500" />}
-        <span className="text-sm font-medium text-zinc-300 flex-1">{title}</span>
-        <span className="text-xs text-zinc-500">{count}</span>
+        {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+        <span className="text-sm font-medium text-muted-foreground flex-1">{title}</span>
+        <span className="text-xs text-muted-foreground">{count}</span>
       </button>
       {expanded && <div className="divide-y divide-white/[0.04] px-3 py-1">{children}</div>}
     </div>
@@ -290,7 +290,7 @@ function DocRow({ doc }: { doc: DocPortal }) {
       <div className="flex-1 min-w-0">
         <p className="text-sm break-words">{doc.tipo}</p>
         {doc.expiresAt && (
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted-foreground">
             Vence: {new Intl.DateTimeFormat("es-CL", { timeZone: "UTC" }).format(new Date(doc.expiresAt))}
           </p>
         )}
@@ -299,10 +299,10 @@ function DocRow({ doc }: { doc: DocPortal }) {
       {doc.fileUrl && (
         <div className="flex items-center gap-1 shrink-0">
           <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded hover:bg-white/10 transition-colors" title="Ver">
-            <ExternalLink className="h-3.5 w-3.5 text-zinc-400" />
+            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
           </a>
           <a href={`${doc.fileUrl}?download=true`} download={doc.fileName} className="p-1.5 rounded hover:bg-white/10 transition-colors" title="Descargar">
-            <Download className="h-3.5 w-3.5 text-zinc-400" />
+            <Download className="h-3.5 w-3.5 text-muted-foreground" />
           </a>
         </div>
       )}
@@ -320,8 +320,8 @@ function GuardiaCard({ guardia }: { guardia: GuardiaPortal }) {
         className="flex items-center gap-2 w-full px-2.5 py-2 text-left hover:bg-white/[0.03] transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
-        {expanded ? <ChevronDown className="h-3 w-3 text-zinc-500" /> : <ChevronRight className="h-3 w-3 text-zinc-500" />}
-        <User className="h-3.5 w-3.5 text-zinc-500" />
+        {expanded ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+        <User className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-sm flex-1">{guardia.nombre}</span>
         {guardia.rut && <span className="text-xs text-zinc-600">{guardia.rut}</span>}
         <span className={cn(

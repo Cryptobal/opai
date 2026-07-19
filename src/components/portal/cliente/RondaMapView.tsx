@@ -330,7 +330,7 @@ export function RondaMapView({ ejecucionId, height = 320 }: Props) {
   if (error) {
     return (
       <div
-        className="flex flex-col items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/60 text-xs text-zinc-400"
+        className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card opai-glass-soft-m text-xs text-muted-foreground"
         style={{ height }}
       >
         <MapPin className="h-5 w-5 opacity-60" />
@@ -349,17 +349,17 @@ export function RondaMapView({ ejecucionId, height = 320 }: Props) {
   return (
     <div className="space-y-2">
       <div
-        className="relative rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900"
+        className="relative rounded-xl overflow-hidden border border-border bg-zinc-900"
         style={{ height }}
       >
         {loading && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-zinc-900/80">
-            <Loader2 className="h-6 w-6 animate-spin text-status-info-fg" />
-            <span className="text-xs text-zinc-400">Cargando recorrido…</span>
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <span className="text-xs text-muted-foreground">Cargando recorrido…</span>
           </div>
         )}
         {!loading && !hasAnyCoord && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-zinc-900/90 text-zinc-500">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-zinc-900/90 text-muted-foreground">
             <MapPin className="h-6 w-6 opacity-60" />
             <span className="text-xs">Sin datos de ubicación para esta ronda</span>
           </div>
@@ -368,8 +368,8 @@ export function RondaMapView({ ejecucionId, height = 320 }: Props) {
       </div>
 
       {payload && hasAnyCoord && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-500">
-          <span className="text-status-info-fg/90">{SOURCE_LABEL[payload.routeSource]}</span>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+          <span className="text-primary/90">{SOURCE_LABEL[payload.routeSource]}</span>
           <span className="text-zinc-600">·</span>
           <span className="flex items-center gap-1">
             <span className="inline-block h-2 w-3 rounded bg-status-ok" /> Trazo

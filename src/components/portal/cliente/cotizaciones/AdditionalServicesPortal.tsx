@@ -40,7 +40,7 @@ export function AdditionalServicesPortal({
 
   return (
     <div className={cn("space-y-2", className)}>
-      <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+      <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
         {prefix}Servicios adicionales
       </h4>
       <div className="divide-y divide-white/[0.04] rounded-lg border border-white/[0.06] overflow-hidden">
@@ -54,16 +54,16 @@ export function AdditionalServicesPortal({
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-zinc-200 truncate">{line.nombre}</span>
-                  <span className="shrink-0 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-zinc-400">
+                  <span className="text-xs font-medium text-foreground truncate">{line.nombre}</span>
+                  <span className="shrink-0 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-muted-foreground">
                     {tipoLabel}
                   </span>
                 </div>
                 {line.descripcion && (
-                  <p className="text-[10px] text-zinc-500 mt-0.5 line-clamp-2">{line.descripcion}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{line.descripcion}</p>
                 )}
               </div>
-              <span className="shrink-0 text-xs font-semibold text-teal-400 whitespace-nowrap">
+              <span className="shrink-0 text-xs font-semibold text-primary whitespace-nowrap">
                 {fmt(line.precio)}{suffix}
               </span>
             </div>

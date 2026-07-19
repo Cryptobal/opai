@@ -96,7 +96,7 @@ export function GuardSelectorHeader({
   const noGuard = !currentGuardId;
 
   return (
-    <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-white/5 px-4 py-2.5 opai-ios-surface-sheet-top">
+    <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border px-4 py-2.5 opai-ios-surface-sheet-top">
       <div className="flex items-center gap-2 mb-1">
         <MapPin className="h-3.5 w-3.5 text-status-info-fg shrink-0" />
         <span className="text-xs text-status-info-fg truncate font-medium">
@@ -131,13 +131,13 @@ export function GuardSelectorHeader({
         </button>
 
         {open && (
-          <div className="absolute left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto rounded-lg border border-white/10 bg-gray-800 shadow-xl z-20">
+          <div className="absolute left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto rounded-lg border border-border bg-card opai-glass-strong-m shadow-xl z-20">
             {loading && guards.length === 0 ? (
               <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : guards.length === 0 ? (
-              <p className="text-xs text-zinc-500 text-center py-3">
+              <p className="text-xs text-muted-foreground text-center py-3">
                 No hay guardias asignados
               </p>
             ) : (
@@ -149,7 +149,7 @@ export function GuardSelectorHeader({
                   className={`w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-white/5 ${
                     g.id === currentGuardId
                       ? "text-status-info-fg bg-status-info-soft/30"
-                      : "text-zinc-200"
+                      : "text-foreground"
                   }`}
                 >
                   <span className="flex flex-wrap items-center justify-between gap-2">

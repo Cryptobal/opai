@@ -33,10 +33,10 @@ export function GardServiceIncludes({
   return (
     <div className={cn("rounded-xl border border-white/[0.06] bg-white/[0.02] p-4", className)}>
       <div className="flex items-center gap-2 mb-3">
-        <h4 className="text-sm font-semibold text-zinc-200">
+        <h4 className="text-sm font-semibold text-foreground">
           Qué incluye{brandName ? ` con ${brandName}` : ""}
         </h4>
-        <span className="text-[10px] uppercase tracking-wider bg-teal-500/10 text-teal-400/70 rounded-full px-2 py-0.5 font-medium">
+        <span className="text-[10px] uppercase tracking-wider bg-primary/10 text-primary/70 rounded-full px-2 py-0.5 font-medium">
           Tecnología OPAI
         </span>
       </div>
@@ -44,12 +44,12 @@ export function GardServiceIncludes({
         {visibleItems.map((item) => (
           <div key={item} className="flex items-start gap-2">
             <Check className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
-            <span className="text-xs text-zinc-300">{item}</span>
+            <span className="text-xs text-muted-foreground">{item}</span>
           </div>
         ))}
       </div>
       {variant === "compact" && allItems.length > 5 && (
-        <p className="text-[10px] text-zinc-500 mt-2">
+        <p className="text-[10px] text-muted-foreground mt-2">
           +{allItems.length - 5} servicios incluidos más
         </p>
       )}

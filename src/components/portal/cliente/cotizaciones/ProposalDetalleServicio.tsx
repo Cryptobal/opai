@@ -19,12 +19,12 @@ export function ProposalDetalleServicio({
   if (!text) return null;
 
   return (
-    <div className={cn("rounded-xl border border-slate-700/50 bg-slate-800/50 p-4 space-y-3", className)}>
-      <h3 className="text-xl font-bold text-white">
-        <span className="text-status-info-fg">{sectionNumber}.</span> Detalle del Servicio de Seguridad
+    <div className={cn("rounded-xl border border-border bg-card opai-glass-soft-m p-4 space-y-3", className)}>
+      <h3 className="text-xl font-bold text-foreground">
+        <span className="text-primary">{sectionNumber}.</span> Detalle del Servicio de Seguridad
       </h3>
 
-      <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">
+      <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
         {text}
       </p>
     </div>

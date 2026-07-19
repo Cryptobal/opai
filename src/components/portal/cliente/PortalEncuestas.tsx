@@ -26,7 +26,7 @@ interface Encuesta {
 /* ── Helpers ── */
 
 function StarRating({ value, max = 5 }: { value: number | null; max?: number }) {
-  if (value === null) return <span className="text-xs text-zinc-500">N/A</span>
+  if (value === null) return <span className="text-xs text-muted-foreground">N/A</span>
   const filled = Math.round(value)
   return (
     <span className="flex items-center gap-0.5">
@@ -39,7 +39,7 @@ function StarRating({ value, max = 5 }: { value: number | null; max?: number }) 
           )}
         />
       ))}
-      <span className="text-xs text-zinc-400 ml-1">{value.toFixed(1)}</span>
+      <span className="text-xs text-muted-foreground ml-1">{value.toFixed(1)}</span>
     </span>
   )
 }
@@ -93,36 +93,36 @@ function EncuestaCard({
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <div className="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
+    <div className="bg-card opai-glass-soft-m rounded-xl border border-border overflow-hidden">
       {/* Header row */}
       <button
-        className="w-full flex items-start gap-3 p-4 text-left hover:bg-zinc-800/50 transition-colors"
+        className="w-full flex items-start gap-3 p-4 text-left hover:bg-muted transition-colors"
         onClick={() => setExpanded((v) => !v)}
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-zinc-400">{formatDate(encuesta.createdAt)}</span>
+            <span className="text-xs text-muted-foreground">{formatDate(encuesta.createdAt)}</span>
             <span className="text-xs text-zinc-600">·</span>
-            <span className="text-xs font-medium text-zinc-300 truncate">{installationName}</span>
+            <span className="text-xs font-medium text-muted-foreground truncate">{installationName}</span>
           </div>
           <div className="mt-1.5 flex items-center gap-3 flex-wrap">
             <StarRating value={encuesta.averageScore} />
             <NpsBadge score={encuesta.npsScore} />
           </div>
           {encuesta.contactName && (
-            <p className="text-[10px] text-zinc-500 mt-1">Por: {encuesta.contactName}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Por: {encuesta.contactName}</p>
           )}
         </div>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 text-zinc-500 flex-shrink-0 mt-0.5" />
+          <ChevronUp className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-zinc-500 flex-shrink-0 mt-0.5" />
+          <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
         )}
       </button>
 
       {/* Expanded detail */}
       {expanded && (
-        <div className="px-4 pb-4 space-y-3 border-t border-zinc-800 pt-3">
+        <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
           {/* Individual scores */}
           <div className="grid grid-cols-1 gap-2">
             {SCORE_LABELS.map(({ key, label }) => {
@@ -130,7 +130,7 @@ function EncuestaCard({
               if (val === null) return null
               return (
                 <div key={key} className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-zinc-400 flex-1">{label}</span>
+                  <span className="text-xs text-muted-foreground flex-1">{label}</span>
                   <StarRating value={val} />
                 </div>
               )
@@ -140,7 +140,7 @@ function EncuestaCard({
           {/* NPS */}
           {encuesta.npsScore !== null && (
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-zinc-400">NPS Score</span>
+              <span className="text-xs text-muted-foreground">NPS Score</span>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-zinc-200">{encuesta.npsScore}/10</span>
                 <NpsBadge score={encuesta.npsScore} />
@@ -150,9 +150,9 @@ function EncuestaCard({
 
           {/* Comments */}
           {encuesta.additionalComments && (
-            <div className="bg-zinc-800/50 rounded-lg p-3">
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wide mb-1">Comentarios</p>
-              <p className="text-xs text-zinc-300 leading-relaxed">{encuesta.additionalComments}</p>
+            <div className="bg-muted rounded-lg p-3">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Comentarios</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{encuesta.additionalComments}</p>
             </div>
           )}
         </div>
@@ -242,24 +242,24 @@ export function PortalEncuestas({ session, isProspect }: Props) {
     <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24 space-y-4">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <ClipboardList className="h-5 w-5 text-status-info-fg" />
+        <ClipboardList className="h-5 w-5 text-primary" />
         <h2 className="text-base font-semibold">Encuestas de satisfacción</h2>
       </div>
-      <p className="text-xs text-zinc-500 -mt-2">
+      <p className="text-xs text-muted-foreground -mt-2">
         Tu opinión mejora nuestro servicio — Feedback directo
       </p>
 
       {/* Content */}
       {loading ? (
         <div className="flex items-center justify-center h-48">
-          <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : error ? (
         <div className="flex items-center justify-center h-48">
           <p className="text-xs text-status-danger-fg">{error}</p>
         </div>
       ) : encuestas.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-48 gap-3 text-zinc-500">
+        <div className="flex flex-col items-center justify-center h-48 gap-3 text-muted-foreground">
           <ClipboardList className="h-10 w-10 text-zinc-700" />
           <p className="text-sm">No hay encuestas pendientes</p>
           <p className="text-xs text-zinc-600 text-center max-w-xs">

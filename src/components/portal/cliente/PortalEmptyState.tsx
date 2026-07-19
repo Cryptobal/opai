@@ -34,9 +34,9 @@ export function PortalEmptyState({
 
   return (
     <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-      <Icon className="h-12 w-12 text-zinc-600 mb-4" />
-      <p className="text-sm font-medium text-zinc-300 mb-1">{title}</p>
-      <p className="text-xs text-zinc-500 max-w-sm mx-auto leading-relaxed">
+      <Icon className="h-12 w-12 text-muted-foreground mb-4" />
+      <p className="text-sm font-medium text-muted-foreground mb-1">{title}</p>
+      <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
         {message}
       </p>
 
@@ -53,7 +53,7 @@ export function PortalEmptyState({
           {secondaryCta && (
             <button
               onClick={secondaryCta.action}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-border text-muted-foreground hover:bg-muted transition-colors"
             >
               {secondaryCta.label}
             </button>

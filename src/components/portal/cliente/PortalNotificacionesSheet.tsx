@@ -85,25 +85,25 @@ export function PortalNotificacionesSheet({ session, open, onClose }: Props) {
       />
 
       {/* Sheet — en iOS usa Liquid Glass; en otras plataformas queda igual */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-900 border-t border-zinc-700 rounded-t-2xl max-h-[85dvh] overflow-y-auto opai-ios-surface-sheet-bottom">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border rounded-t-2xl max-h-[85dvh] overflow-y-auto opai-ios-surface-sheet-bottom">
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
-          <div className="h-1 w-10 rounded-full bg-zinc-700" />
+          <div className="h-1 w-10 rounded-full bg-muted" />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <Bell className="h-4 w-4 text-status-warn-fg" />
-            <h2 className="text-sm font-semibold text-zinc-100">Preferencias de notificaciones</h2>
+            <h2 className="text-sm font-semibold text-foreground">Preferencias de notificaciones</h2>
           </div>
           <div className="flex items-center gap-2">
-            {isSaving && <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-500" />}
+            {isSaving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-zinc-800 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-muted transition-colors"
             >
-              <X className="h-4 w-4 text-zinc-400" />
+              <X className="h-4 w-4 text-muted-foreground" />
             </button>
           </div>
         </div>
@@ -112,7 +112,7 @@ export function PortalNotificacionesSheet({ session, open, onClose }: Props) {
         <div className="px-4 py-3 pb-8">
           {isLoading ? (
             <div className="flex items-center justify-center h-40">
-              <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
             <>
@@ -120,13 +120,13 @@ export function PortalNotificacionesSheet({ session, open, onClose }: Props) {
               <div className="flex items-center gap-2 px-2 mb-2">
                 <div className="flex-1" />
                 <div className="flex items-center gap-4 shrink-0">
-                  <span className="text-[10px] text-zinc-600 uppercase tracking-wider w-8 text-center flex flex-col items-center gap-0.5">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider w-8 text-center flex flex-col items-center gap-0.5">
                     <Mail className="h-3.5 w-3.5" />Email
                   </span>
-                  <span className="text-[10px] text-zinc-600 uppercase tracking-wider w-8 text-center flex flex-col items-center gap-0.5">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider w-8 text-center flex flex-col items-center gap-0.5">
                     <Smartphone className="h-3.5 w-3.5" />Push
                   </span>
-                  <span className="text-[10px] text-zinc-600 uppercase tracking-wider w-8 text-center">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider w-8 text-center">
                     Activo
                   </span>
                 </div>
@@ -147,8 +147,8 @@ export function PortalNotificacionesSheet({ session, open, onClose }: Props) {
                       }`}
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-zinc-100">{meta.label}</p>
-                        <p className="text-[11px] text-zinc-500 leading-tight">{meta.desc}</p>
+                        <p className="text-sm font-medium text-foreground">{meta.label}</p>
+                        <p className="text-[11px] text-muted-foreground leading-tight">{meta.desc}</p>
                       </div>
                       <div className="flex items-center gap-4 shrink-0">
                         <button
@@ -157,7 +157,7 @@ export function PortalNotificacionesSheet({ session, open, onClose }: Props) {
                           className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
                             cfg.channels.email && cfg.isActive
                               ? "bg-status-info-soft text-status-info-fg"
-                              : "bg-zinc-800/50 text-zinc-600"
+                              : "bg-muted text-muted-foreground"
                           } disabled:cursor-not-allowed`}
                         >
                           <Mail className="h-4 w-4" />
@@ -168,7 +168,7 @@ export function PortalNotificacionesSheet({ session, open, onClose }: Props) {
                           className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
                             cfg.channels.push && cfg.isActive
                               ? "bg-status-warn-soft text-status-warn-fg"
-                              : "bg-zinc-800/50 text-zinc-600"
+                              : "bg-muted text-muted-foreground"
                           } disabled:cursor-not-allowed`}
                         >
                           <Smartphone className="h-4 w-4" />
@@ -176,7 +176,7 @@ export function PortalNotificacionesSheet({ session, open, onClose }: Props) {
                         <button
                           onClick={() => toggle(cfg.alertType, "isActive")}
                           className={`w-8 h-5 rounded-full relative transition-colors ${
-                            cfg.isActive ? "bg-status-info" : "bg-zinc-700"
+                            cfg.isActive ? "bg-primary" : "bg-muted"
                           }`}
                         >
                           <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${

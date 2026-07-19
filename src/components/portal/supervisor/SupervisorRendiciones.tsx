@@ -85,13 +85,13 @@ export function SupervisorRendiciones({ adminId, onCreateRendicion }: Props) {
         </button>
       </div>
 
-      <div className="flex gap-1 bg-zinc-900 rounded-lg p-1 overflow-x-auto">
+      <div className="flex gap-1 bg-muted opai-glass-soft-m rounded-lg p-1 overflow-x-auto">
         {TABS.map(({ id, label }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
             className={`flex-shrink-0 py-1.5 px-3 rounded-md text-xs font-medium transition-colors ${
-              tab === id ? "bg-zinc-700 text-white" : "text-zinc-500"
+              tab === id ? "bg-card text-foreground" : "text-muted-foreground"
             }`}
           >
             {label}
@@ -106,7 +106,7 @@ export function SupervisorRendiciones({ adminId, onCreateRendicion }: Props) {
 
       {loading ? (
         <div className="flex justify-center py-10">
-          <Loader2 className="animate-spin text-zinc-600" size={24} />
+          <Loader2 className="animate-spin text-muted-foreground" size={24} />
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
@@ -132,22 +132,22 @@ export function SupervisorRendiciones({ adminId, onCreateRendicion }: Props) {
             return (
               <div
                 key={r.id}
-                className="flex items-center gap-3 p-4 rounded-xl bg-zinc-900 border border-zinc-800"
+                className="flex items-center gap-3 p-4 rounded-xl bg-card opai-glass-soft-m border border-border"
               >
-                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center">
-                  <Receipt size={16} className="text-zinc-400" />
+                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
+                  <Receipt size={16} className="text-muted-foreground" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium">{r.code}</p>
-                    <span className="text-xs text-zinc-500">
+                    <span className="text-xs text-muted-foreground">
                       {r.type === "PURCHASE" ? "Compra" : "Kilometraje"}
                     </span>
                   </div>
-                  <p className="text-xs text-zinc-500 truncate">
+                  <p className="text-xs text-muted-foreground truncate">
                     {r.description ?? "Sin descripción"}
                   </p>
-                  <p className="text-xs text-zinc-600 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {new Date(r.date).toLocaleDateString("es-CL")} ·{" "}
                     ${r.amount.toLocaleString("es-CL")}
                   </p>

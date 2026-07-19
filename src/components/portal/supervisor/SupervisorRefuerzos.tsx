@@ -121,8 +121,8 @@ export function SupervisorRefuerzos({ installations }: Props) {
 
       {/* Create form */}
       {showCreate && (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 flex flex-col gap-3">
-          <p className="text-sm font-medium text-zinc-200">Nueva solicitud de refuerzo</p>
+        <div className="rounded-xl border border-border bg-card opai-glass-soft-m p-4 flex flex-col gap-3">
+          <p className="text-sm font-medium text-foreground">Nueva solicitud de refuerzo</p>
 
           <FormRow label="Instalación">
             <select
@@ -212,7 +212,7 @@ export function SupervisorRefuerzos({ installations }: Props) {
             return (
               <div
                 key={r.id}
-                className="p-4 rounded-xl bg-zinc-900 border border-zinc-800 flex flex-col gap-1.5"
+                className="p-4 rounded-xl bg-card opai-glass-soft-m border border-border flex flex-col gap-1.5"
               >
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium">
@@ -220,7 +220,7 @@ export function SupervisorRefuerzos({ installations }: Props) {
                   </p>
                   <span className={`text-[10px] ${cfg.color}`}>{cfg.label}</span>
                 </div>
-                <p className="text-xs text-zinc-500">{r.installation?.name ?? "—"}</p>
+                <p className="text-xs text-muted-foreground">{r.installation?.name ?? "—"}</p>
                 <p className="text-xs text-zinc-600">
                   {new Date(r.startAt).toLocaleDateString("es-CL")} →{" "}
                   {new Date(r.endAt).toLocaleDateString("es-CL")} ·{" "}
@@ -252,7 +252,7 @@ export function SupervisorRefuerzos({ installations }: Props) {
 function FormRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-[11px] font-medium text-zinc-500">{label}</label>
+      <label className="text-[11px] font-medium text-muted-foreground">{label}</label>
       {children}
     </div>
   );

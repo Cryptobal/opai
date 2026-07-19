@@ -56,12 +56,12 @@ export function CotizacionRejectDialog({
           <DialogDescription className="sr-only">Formulario para rechazar la propuesta</DialogDescription>
         </DialogHeader>
 
-        <p className="text-sm text-zinc-400">
-          Estás rechazando: <span className="text-zinc-200 font-medium">&ldquo;{quoteName}&rdquo;</span>
+        <p className="text-sm text-muted-foreground">
+          Estás rechazando: <span className="text-foreground font-medium">&ldquo;{quoteName}&rdquo;</span>
         </p>
 
         <div className="space-y-3">
-          <p className="text-xs text-zinc-500">¿Nos ayudas a mejorar? (opcional)</p>
+          <p className="text-xs text-muted-foreground">¿Nos ayudas a mejorar? (opcional)</p>
           <div className="flex flex-wrap gap-2">
             {REJECTION_REASONS.map((reason) => (
               <button
@@ -72,7 +72,7 @@ export function CotizacionRejectDialog({
                   "text-xs px-3 py-1.5 rounded-full border transition-colors",
                   selectedReason === reason
                     ? "border-status-danger-border bg-status-danger-soft text-status-danger-fg"
-                    : "border-zinc-700 text-zinc-400 hover:border-zinc-500",
+                    : "border-border text-muted-foreground hover:border-muted-foreground",
                 )}
               >
                 {reason}
@@ -84,7 +84,7 @@ export function CotizacionRejectDialog({
             onChange={(e) => setComment(e.target.value)}
             placeholder="Comentario adicional..."
             rows={2}
-            className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-red-600 resize-none"
+            className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-xs text-foreground placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-red-600 resize-none"
           />
         </div>
 
@@ -102,7 +102,7 @@ export function CotizacionRejectDialog({
             type="button"
             onClick={() => onOpenChange(false)}
             disabled={loading}
-            className="h-10 rounded-lg border border-zinc-700 text-zinc-400 text-sm hover:text-zinc-200 transition-colors"
+            className="h-10 rounded-lg border border-border text-muted-foreground text-sm hover:text-foreground transition-colors"
           >
             Volver
           </button>

@@ -39,7 +39,7 @@ export function BitacoraFiltros({ filtro, onFiltro, days, onDays }: Props) {
               className={`whitespace-nowrap text-xs px-3 py-1 rounded-full border transition-colors ${
                 active
                   ? "bg-status-info-soft border-status-info-border text-status-info-fg"
-                  : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700"
+                  : "bg-muted border-border text-muted-foreground hover:border-border"
               }`}
             >
               {c.label}
@@ -58,7 +58,7 @@ export function BitacoraFiltros({ filtro, onFiltro, days, onDays }: Props) {
             className={`text-[11px] px-2.5 py-1 rounded-full border ${
               days === d
                 ? "bg-status-info-soft border-status-info-border text-status-info-fg"
-                : "bg-zinc-900 border-zinc-800 text-zinc-400"
+                : "bg-muted border-border text-muted-foreground"
             }`}
           >
             {d}d
