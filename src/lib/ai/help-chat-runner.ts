@@ -8,7 +8,7 @@
  *
  * Diferencia clave para transportes externos: las escrituras se DIFIEREN. Las
  * tools de escritura (directas o `preview_*`) nunca persisten aquí; se exponen
- * como `pendingConfirmations` (hasta 5 por turno) para que tarjetas
+ * como `pendingConfirmations` (hasta 8 por turno) para que tarjetas
  * interactivas independientes las ejecuten al confirmar. Las `preview_*`
  * (solo cálculo, no persisten) sí se ejecutan para mostrar montos reales.
  */
@@ -47,8 +47,8 @@ import { buildUserMessage } from "@/lib/ai/help-chat-multimodal";
 
 const MAX_TOOL_STEPS = 12;
 // Tope de escrituras diferidas por turno: cada una genera su propia tarjeta
-// de confirmación en Slack; más de 5 satura el mensaje y el TTL de 15 min.
-const MAX_PENDING_WRITES = 5;
+// de confirmación en Slack; más de 8 satura el mensaje y el TTL de 15 min.
+const MAX_PENDING_WRITES = 8;
 
 export interface PendingConfirmation {
   previewToolName?: string;
@@ -123,7 +123,7 @@ export interface RunHelpChatTurnInput {
  * Ejecuta un turno completo del asistente y devuelve el texto final ya
  * normalizado (links absolutos, sin bloques `:::visual/:::suggestions`),
  * el número de tools usadas y — si aplica — las escrituras pendientes de
- * confirmación (máx. 5 por turno).
+ * confirmación (máx. 8 por turno).
  */
 export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<HelpChatTurnResult> {
   const t0 = Date.now();
@@ -279,7 +279,7 @@ export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<Help
             executed: false,
             status: "limit_reached",
             message:
-              "Máximo 5 acciones por turno. Pide al usuario confirmar estas y luego continuar con el resto.",
+              "Máximo 8 acciones por turno. Pide al usuario confirmar estas y luego continuar con el resto.",
           };
         } else {
           pendings.push({
@@ -294,7 +294,7 @@ export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<Help
             executed: false,
             status: "pending_confirmation",
             message:
-              "Acción PREPARADA pero NO ejecutada; se ejecutará solo cuando el usuario presione Confirmar en Slack. Si el usuario pidió VARIAS acciones, puedes preparar las siguientes (máx. 5 por turno). Al final resume en 1-2 frases QUÉ quedará pendiente de confirmar. NO afirmes que algo ya está hecho.",
+              "Acción PREPARADA pero NO ejecutada; se ejecutará solo cuando el usuario presione Confirmar en Slack. Si el usuario pidió VARIAS acciones, puedes preparar las siguientes (máx. 8 por turno). Al final resume en 1-2 frases QUÉ quedará pendiente de confirmar. NO afirmes que algo ya está hecho.",
           };
         }
       } else {
@@ -317,7 +317,7 @@ export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<Help
               executed: false,
               status: "limit_reached",
               message:
-                "Máximo 5 acciones por turno. Pide al usuario confirmar estas y luego continuar con el resto.",
+                "Máximo 8 acciones por turno. Pide al usuario confirmar estas y luego continuar con el resto.",
             };
           } else {
             // Si describeWriteArgs aporta detalle más allá de la etiqueta base,
