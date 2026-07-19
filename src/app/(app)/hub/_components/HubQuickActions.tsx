@@ -99,10 +99,9 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
           type="button"
           onClick={() => setOpen(true)}
           className={cn(
-            'group relative flex h-11 w-full items-center justify-between gap-2 overflow-hidden rounded-full',
-            'border border-primary/30 bg-gradient-to-r from-primary/15 via-primary/10 to-primary/5',
-            'px-4 text-sm font-semibold text-primary shadow-sm',
-            'transition-all active:scale-[0.99] hover:border-primary/50 hover:shadow-md',
+            'group relative flex h-12 w-full items-center justify-between gap-2 overflow-hidden opai-glass-pill',
+            'px-4 text-sm font-semibold text-primary',
+            'transition-all active:scale-[0.99]',
           )}
           aria-label={`Abrir acciones rápidas (${actions.length})`}
         >
@@ -110,7 +109,7 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
             <span
               className={cn(
                 'flex h-7 w-7 items-center justify-center rounded-full',
-                'bg-primary text-primary-foreground shadow-sm',
+                'bg-primary text-primary-foreground shadow-[0_0_16px_hsl(var(--primary)/0.55)]',
               )}
             >
               <Zap className="h-3.5 w-3.5" />

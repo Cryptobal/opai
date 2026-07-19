@@ -21,7 +21,7 @@ import { NotificationSidePanel } from '@/components/notifications/NotificationSi
 import { useNotifications } from '@/contexts/NotificationContext';
 import { PlatformDataAttribute } from '@/components/opai/portal-shell';
 import { useIsIOS } from '@/hooks/usePlatform';
-import { AutoBreadcrumbs, BreadcrumbTrailingProvider } from '@/components/opai-ds';
+import { AutoBreadcrumbs, BreadcrumbTrailingProvider, GlassAmbient } from '@/components/opai-ds';
 
 export interface AppShellProps {
   sidebar?: ReactNode;
@@ -100,15 +100,15 @@ function AppShellInner({
   return (
     <>
       <PlatformDataAttribute />
+      <GlassAmbient />
       <div className="relative min-h-[100dvh] overflow-x-clip">
         {/* ── Mobile topbar (redesigned — no hamburger, no sidebar) ── */}
         {sidebar && (
           <header
             className={cn(
+              // Liquid Glass v1 — header glass unificado (iOS === Android), sin gate de plataforma.
               "fixed top-0 left-0 right-0 z-30 flex min-h-12 items-center justify-between lg:hidden",
-              isIOS
-                ? "opai-liquid-glass-bar-top"
-                : "border-b border-border/50 bg-background/95 backdrop-blur-md",
+              "opai-liquid-glass-bar-top",
             )}
             style={{
               paddingLeft: 'max(env(safe-area-inset-left), 0.75rem)',

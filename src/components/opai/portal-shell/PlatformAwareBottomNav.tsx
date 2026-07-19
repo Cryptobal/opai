@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { usePlatform } from "@/hooks/usePlatform";
 
 /** Expone `--portal-bottom-nav-height` (px desde el tope del nav hasta el borde inferior visible). */
 function usePortalBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
@@ -69,125 +68,70 @@ export function PlatformAwareBottomNav<TId extends string = string>({
 }: PlatformAwareBottomNavProps<TId>) {
   const navRef = useRef<HTMLElement>(null);
   usePortalBottomNavHeight(navRef);
-
-  const detected = usePlatform();
-  const variant: "ios" | "android" =
-    forceVariant === "auto"
-      ? detected === "ios"
-        ? "ios"
-        : "android"
-      : forceVariant;
-
-  if (variant === "ios") {
-    return (
-      <nav
-        ref={navRef}
-        data-portal-bottom-nav=""
-        className={cn(
-          "fixed z-50 left-3 right-3 bottom-3 opai-liquid-glass rounded-full px-2 py-2 flex gap-1",
-          className,
-        )}
-        style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
-        aria-label="Navegación principal"
-      >
-        {items.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = tab.id === activeId;
-          const showBadge = typeof tab.badge === "number" && tab.badge > 0;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => onSelect(tab.id)}
-              className={cn(
-                "flex-1 flex flex-col items-center justify-center py-2 rounded-full transition-all",
-                isActive && "opai-liquid-glass-nav-item-active",
-                tab.variant === "danger" && "text-status-danger-fg",
-                tab.variant === "warning" && "text-status-warn-fg",
-              )}
-              aria-label={tab.label}
-              aria-current={isActive ? "page" : undefined}
-            >
-              <div className="relative">
-                <Icon
-                  size={20}
-                  strokeWidth={isActive ? 2.5 : 2}
-                  className={cn(
-                    isActive ? "text-white opai-icon-bounce" : "text-white/60",
-                    tab.variant === "danger" && !isActive && "text-status-danger-fg",
-                    tab.variant === "warning" && !isActive && "text-status-warn-fg",
-                  )}
-                />
-                {showBadge && (
-                  <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-status-warn text-white text-[9px] font-bold px-1 leading-none">
-                    {tab.badge! > 9 ? "9+" : tab.badge}
-                  </span>
-                )}
-              </div>
-              <span
-                className={cn(
-                  "font-display text-[10px] mt-0.5 font-semibold",
-                  isActive ? "text-white" : "text-white/50",
-                )}
-              >
-                {tab.label}
-              </span>
-            </button>
-          );
-        })}
-      </nav>
-    );
-  }
+  // `forceVariant` se mantiene por compatibilidad de API pero ya no cambia el
+  // material: Liquid Glass v1 usa una sola isla glass en todas las plataformas.
+  void forceVariant;
 
   return (
     <nav
       ref={navRef}
       data-portal-bottom-nav=""
       className={cn(
-        "fixed z-50 bottom-0 left-0 right-0 opai-m3e-nav pt-2 px-2 flex justify-around",
+        // Isla glass única (iOS === Android), despegada de los bordes.
+        "fixed z-50 left-3 right-3 bottom-[calc(env(safe-area-inset-bottom,0px)+10px)] opai-glass-strong px-2 py-2 flex gap-1",
         className,
       )}
-      style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}
       aria-label="Navegación principal"
     >
       {items.map((tab) => {
         const Icon = tab.icon;
         const isActive = tab.id === activeId;
         const showBadge = typeof tab.badge === "number" && tab.badge > 0;
+        const danger = tab.variant === "danger";
+        const warning = tab.variant === "warning";
+        const activeColor = danger
+          ? "text-status-danger-fg"
+          : warning
+            ? "text-status-warn-fg"
+            : "text-primary";
         return (
           <button
             key={tab.id}
             onClick={() => onSelect(tab.id)}
-            className="flex-1 flex flex-col items-center justify-center py-1"
+            className="relative flex-1 flex flex-col items-center justify-center min-h-[52px] py-1 rounded-full transition-all active:scale-95"
             aria-label={tab.label}
             aria-current={isActive ? "page" : undefined}
           >
-            <div
-              className={cn(
-                "relative px-5 py-1 rounded-full flex items-center justify-center transition-all",
-                isActive && "opai-m3e-pill opai-pill-indicator",
-                tab.variant === "danger" && isActive && "!bg-status-danger",
-                tab.variant === "warning" && isActive && "!bg-status-warn",
-              )}
-            >
+            {isActive && (
+              <span
+                aria-hidden
+                className={cn(
+                  "opai-nav-pill",
+                  danger && "opai-nav-pill-danger",
+                  warning && "opai-nav-pill-warning",
+                )}
+              />
+            )}
+            <div className="relative">
               <Icon
-                size={isActive ? 22 : 20}
+                size={21}
                 strokeWidth={isActive ? 2.5 : 2}
                 className={cn(
-                  isActive ? "text-white opai-icon-bounce" : "text-white/60",
-                  tab.variant === "danger" && !isActive && "text-status-danger-fg",
-                  tab.variant === "warning" && !isActive && "text-status-warn-fg",
+                  isActive ? cn(activeColor, "opai-icon-bounce") : "text-white/60",
+                  danger && !isActive && "text-status-danger-fg",
+                  warning && !isActive && "text-status-warn-fg",
                 )}
               />
               {showBadge && (
-                <span className="absolute -top-1 right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-status-warn text-white text-[9px] font-bold px-1 leading-none">
+                <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-status-warn text-white text-[9px] font-bold px-1 leading-none">
                   {tab.badge! > 9 ? "9+" : tab.badge}
                 </span>
               )}
             </div>
             <span
               className={cn(
-                "font-display text-[10px] mt-1 font-semibold",
-                isActive ? "text-[#3385FF]" : "text-white/55",
+                "relative font-display text-[10px] mt-0.5 font-semibold",
+                isActive ? activeColor : "text-white/55",
               )}
             >
               {tab.label}

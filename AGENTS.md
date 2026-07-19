@@ -206,6 +206,19 @@ Total: 54 tests verdes que protegen el patrón.
 > **Esta sección es ley para Cursor / Claude Code / cualquier agente.**
 > El módulo Inventario es la referencia visual. Migrar a este patrón es obligatorio para cada módulo.
 
+### Liquid Glass v1 (material móvil)
+
+Un único material Liquid Glass aplica al 100% de pantallas **mobile (`< lg`, 1023px)** — idéntico en iOS y Android (sin gate de plataforma). Desktop queda intacto. Tokens `--glass-*` en `globals.css`; el fondo `GlassAmbient` (aurora) es lo que el vidrio refracta.
+
+- **Un material, 3 intensidades** (radios concéntricos 16/22/26, pill 999):
+  - `.opai-glass-soft` — fill translúcido **SIN** `backdrop-filter` (filas, celdas, chips, elementos internos).
+  - `.opai-glass` — base con blur (cards nivel página, popovers).
+  - `.opai-glass-strong` — blur fuerte (barras, sheets, modales, header flotante, isla nav).
+- **Regla de performance (crítica):** `backdrop-filter` SOLO en superficies contenedoras. Filas/celdas/chips usan `glass-soft`. Máx ~10 superficies con blur por viewport. En grids/tablas densas: el contenedor es glass, las celdas **jamás**.
+- **Acento:** teal brand (`hsl(var(--primary))`). Nada de paletas azul/índigo propias.
+- **Fallbacks obligatorios:** `@supports not (backdrop-filter)` y `prefers-reduced-transparency` → opaco `hsl(var(--card))` sin blur; `prefers-reduced-motion` → sin animaciones. Tema claro vía overrides `:root:not(.dark)`.
+- Superficies overlay compartidas conservan los nombres `opai-ios-surface-*` (ya no gateadas por plataforma; scope `@media (max-width:1023px)`).
+
 ### 1. Solo se permiten primitives de `@/components/opai-ds`
 
 ```ts

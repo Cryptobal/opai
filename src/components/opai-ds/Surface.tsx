@@ -40,6 +40,20 @@ const ELEVATION_SHADOW: Record<Elevation, string> = {
   4: "shadow-ds-lg",
 };
 
+/**
+ * Liquid Glass v1 — cascada mobile (< lg). Cada elevación mapea a una
+ * intensidad del material glass. Las clases `-m` sólo tienen efecto dentro
+ * de `@media (max-width:1023px)` (definidas en globals.css), así el vidrio
+ * llega a todos los consumidores de Surface sin tocar cada página. Desktop
+ * conserva `bg-ds-surface-*` intacto.
+ */
+const ELEVATION_GLASS_M: Record<Elevation, string> = {
+  1: "opai-glass-soft-m",
+  2: "opai-glass-m",
+  3: "opai-glass-strong-m",
+  4: "opai-glass-strong-m",
+};
+
 const PADDING: Record<Padding, string> = {
   none: "",
   sm: "p-3 sm:p-3.5",
@@ -99,6 +113,8 @@ export const Surface = forwardRef<HTMLDivElement, SurfaceProps>(
           "rounded-ds-lg border border-ds-border-default",
           ELEVATION_BG[elevation],
           !flat && ELEVATION_SHADOW[elevation],
+          // Liquid Glass v1 — cascada mobile (sin efecto en desktop)
+          ELEVATION_GLASS_M[elevation],
           PADDING[padding],
           // states
           selected && "border-primary/50 ring-1 ring-primary/30",

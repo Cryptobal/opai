@@ -1124,6 +1124,14 @@ export function AiHelpChatWidgetV2() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [staging, setStaging] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Trigger externo (mobile): el orbe OPAI de la isla nav emite `opai-ai-open`.
+  useEffect(() => {
+    const open = () => setOpen(true);
+    window.addEventListener("opai-ai-open", open);
+    return () => window.removeEventListener("opai-ai-open", open);
+  }, []);
+
   const pageContext = useChatPageContext();
   const clearPageContext = useClearChatPageContext();
   const pathname = usePathname();
@@ -1498,11 +1506,13 @@ export function AiHelpChatWidgetV2() {
     <>
       <div
         className={cn(
-          "flex items-center justify-between border-b border-white/[0.08] px-4 py-3 bg-gradient-to-r from-status-info-soft via-status-ok-soft to-status-info-soft",
+          "flex items-center justify-between border-b border-white/[0.08] px-4 py-3 bg-gradient-to-r from-[hsl(var(--primary)/0.16)] via-[hsl(var(--primary)/0.07)] to-transparent",
         )}
       >
-        <div className="flex items-center gap-2 text-base font-semibold text-white">
-          <Sparkles className="h-5 w-5 text-status-info-fg" />
+        <div className="flex items-center gap-2 font-display text-[17px] font-extrabold text-white">
+          <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 shadow-[0_0_18px_hsl(var(--primary)/0.5)]">
+            <Sparkles className="h-4 w-4 text-white" />
+          </span>
           OPAI Intelligence
         </div>
         <button
@@ -1516,11 +1526,11 @@ export function AiHelpChatWidgetV2() {
       </div>
 
       {pageContext ? (
-        <div className="border-b border-status-info-border px-3 py-2 bg-gradient-to-r from-status-info-soft/30 to-status-ok-soft/30">
+        <div className="border-b border-[hsl(var(--primary)/0.28)] px-3 py-2 bg-[hsl(var(--primary)/0.08)]">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-3.5 w-3.5 shrink-0 text-status-info-fg" />
+            <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] uppercase tracking-wide text-status-info-fg/70">Hablando sobre</p>
+              <p className="text-[10px] uppercase tracking-wide text-primary/70">Hablando sobre</p>
               <p className="text-xs font-medium text-white truncate" title={pageContext.entityName}>{pageContext.entityName}</p>
             </div>
             <button
@@ -1571,7 +1581,9 @@ export function AiHelpChatWidgetV2() {
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 px-2 text-center">
-            <Sparkles className="h-10 w-10 text-status-info-fg/90 mb-3" />
+            <span className="mb-3 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/60 shadow-[0_0_28px_hsl(var(--primary)/0.5)] animate-pulse">
+              <Sparkles className="h-6 w-6 text-white" />
+            </span>
             <p className="text-sm font-medium text-white mb-1">¿En qué te ayudo?</p>
             <p className="text-xs text-white/50 mb-4">Pregunta por módulos, datos del tenant o cómo usar OPAI.</p>
             <div className="flex flex-col gap-2 w-full max-w-xs">
@@ -1580,7 +1592,7 @@ export function AiHelpChatWidgetV2() {
                   key={q}
                   type="button"
                   onClick={() => void sendMessage(q)}
-                  className="rounded-full border border-status-info-border bg-gradient-to-r from-status-info-soft/30 to-status-ok-soft/30 px-3 py-2 text-xs text-status-info-fg hover:brightness-110 transition"
+                  className="rounded-full border border-[hsl(var(--primary)/0.28)] bg-[hsl(var(--primary)/0.10)] px-3 py-2 text-xs text-primary hover:brightness-110 transition"
                 >
                   {q}
                 </button>
@@ -1595,7 +1607,7 @@ export function AiHelpChatWidgetV2() {
                 className={cn(
                   "max-w-[95%] rounded-2xl px-3 py-2.5 text-sm",
                   msg.role === "user"
-                    ? "ml-auto bg-gradient-to-br from-status-info to-status-ok text-white border border-white/10"
+                    ? "ml-auto bg-gradient-to-br from-[hsl(var(--primary)/0.30)] to-[hsl(var(--primary)/0.14)] text-white border border-[hsl(var(--primary)/0.3)]"
                     : "mr-auto bg-white/[0.04] text-white/95 border border-white/[0.06]",
                 )}
               >
@@ -1625,7 +1637,7 @@ export function AiHelpChatWidgetV2() {
                     key={`follow-${q}`}
                     type="button"
                     onClick={() => void sendMessage(q)}
-                    className="rounded-full border border-status-info-border bg-gradient-to-r from-status-info-soft/30 to-status-ok-soft/30 px-3 py-1.5 text-[11px] text-status-info-fg hover:brightness-110 transition"
+                    className="rounded-full border border-[hsl(var(--primary)/0.28)] bg-[hsl(var(--primary)/0.10)] px-3 py-1.5 text-[11px] text-primary hover:brightness-110 transition"
                   >
                     {q}
                   </button>
@@ -1719,14 +1731,14 @@ export function AiHelpChatWidgetV2() {
               void sendMessage();
             }}
             autoComplete="off"
-            className="flex-1 resize-none rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/35 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-status-info-border max-h-40 overflow-y-auto leading-snug"
+            className="flex-1 resize-none rounded-full border border-white/15 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/35 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/50 max-h-40 overflow-y-auto leading-snug"
           />
           <Button
             type="button"
             size="icon"
             onClick={() => void sendMessage()}
             disabled={sending || staging || (!input.trim() && pendingFiles.length === 0)}
-            className="bg-gradient-to-br from-status-info to-status-ok text-white shadow-[0_8px_24px_rgba(16,185,129,0.25)] shrink-0"
+            className="h-[46px] w-[46px] rounded-full bg-gradient-to-br from-primary to-primary/75 text-white shadow-[0_8px_24px_hsl(var(--primary)/0.4)] shrink-0"
           >
             {sending || staging ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
@@ -1737,13 +1749,14 @@ export function AiHelpChatWidgetV2() {
 
   return (
     <>
+      {/* FAB — sólo desktop (mobile usa el orbe OPAI de la isla nav). */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed right-4 md:right-6 z-40 h-12 w-12 rounded-full bg-gradient-to-br from-status-info via-status-ok to-status-info text-white shadow-[0_10px_30px_rgba(16,185,129,0.4)] transition-transform hover:scale-[1.05] bottom-[calc(var(--bottom-nav-height,56px)+1rem)] lg:bottom-6"
+        className="hidden lg:flex items-center justify-center fixed right-6 z-40 h-12 w-12 rounded-full bg-gradient-to-br from-primary via-primary to-primary/80 text-white shadow-[0_10px_30px_hsl(var(--primary)/0.4)] transition-transform hover:scale-[1.05] lg:bottom-6"
         aria-label="Abrir OPAI Intelligence"
       >
-        <MessageCircle className="mx-auto h-5 w-5" />
+        <MessageCircle className="h-5 w-5" />
       </button>
 
       {open ? (
@@ -1755,7 +1768,7 @@ export function AiHelpChatWidgetV2() {
           />
 
           <div
-            className={`hidden md:flex fixed right-6 bottom-24 z-50 w-[440px] h-[72vh] max-h-[720px] flex-col rounded-2xl border border-status-info-border bg-[#1a1a2e]/98 backdrop-blur-xl shadow-2xl overflow-hidden text-white ${isDragging ? "ring-2 ring-status-info-border" : ""}`}
+            className={`hidden md:flex fixed right-6 bottom-24 z-50 w-[440px] h-[72vh] max-h-[720px] flex-col rounded-2xl border border-ds-border-default bg-ds-surface-3 backdrop-blur-xl shadow-2xl overflow-hidden text-white ${isDragging ? "ring-2 ring-primary/50" : ""}`}
             onDragOver={(e) => {
               e.preventDefault();
               if (!isDragging) setIsDragging(true);
@@ -1771,13 +1784,21 @@ export function AiHelpChatWidgetV2() {
           >
             {panelShell(false)}
             {isDragging ? (
-              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-status-info-border bg-[#1a1a2e]/80 backdrop-blur-sm">
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-primary/40 bg-ds-surface-3/80 backdrop-blur-sm">
                 <span className="text-sm font-medium text-white/90">Suelta para adjuntar</span>
               </div>
             ) : null}
           </div>
 
-          <div className="md:hidden fixed inset-0 z-50 flex flex-col bg-[#1a1a2e] text-white pt-[env(safe-area-inset-top)]">
+          <div
+            className="md:hidden fixed inset-x-0 bottom-0 z-50 flex h-[88dvh] flex-col overflow-hidden text-white opai-glass-strong"
+            style={{ borderTopLeftRadius: 26, borderTopRightRadius: 26 }}
+          >
+            <span
+              aria-hidden
+              className="mx-auto mt-2 mb-1 block h-1.5 w-10 rounded-full"
+              style={{ background: "var(--glass-grabber)" }}
+            />
             {panelShell(true)}
           </div>
         </>

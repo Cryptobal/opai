@@ -42,7 +42,7 @@ export function AppNavigation({ userRole, presentations = [] }: AppNavigationPro
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-sm border-b border-white/10">
+    <header className="sticky top-0 z-40 opai-liquid-glass-bar-top">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16">
           {/* Logo */}
@@ -133,8 +133,8 @@ export function AppNavigation({ userRole, presentations = [] }: AppNavigationPro
 
       {/* Panel de Notificaciones */}
       {showNotifications && notifications.length > 0 && (
-        <div className="absolute top-16 right-4 z-50 w-80 sm:w-96 bg-slate-900 rounded-xl border border-white/10 shadow-2xl max-h-[70vh] overflow-y-auto">
-          <div className="flex items-center justify-between p-4 border-b border-white/10 sticky top-0 bg-slate-900">
+        <div className="absolute top-16 right-4 z-50 w-80 sm:w-96 opai-glass-strong rounded-xl border border-white/10 shadow-2xl max-h-[70vh] overflow-y-auto">
+          <div className="flex items-center justify-between p-4 border-b border-white/10 sticky top-0 opai-glass-strong">
             <div>
               <h3 className="text-lg font-bold text-white">Notificaciones</h3>
               <p className="text-xs text-white/60">
