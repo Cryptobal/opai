@@ -1123,6 +1123,7 @@ export function AiHelpChatWidgetV2() {
   const [activeToolName, setActiveToolName] = useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [staging, setStaging] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const pageContext = useChatPageContext();
   const clearPageContext = useClearChatPageContext();
   const pathname = usePathname();
@@ -1697,6 +1698,18 @@ export function AiHelpChatWidgetV2() {
             placeholder="Escribe tu pregunta..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onPaste={(e) => {
+              const files = Array.from(e.clipboardData?.items ?? [])
+                .filter((it) => it.kind === "file")
+                .map((it) => it.getAsFile())
+                .filter((f): f is File => f !== null);
+              if (files.length > 0) {
+                e.preventDefault();
+                const dt = new DataTransfer();
+                for (const f of files) dt.items.add(f);
+                addFiles(dt.files);
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key !== "Enter") return;
               if (e.nativeEvent.isComposing) return;
@@ -1741,8 +1754,27 @@ export function AiHelpChatWidgetV2() {
             aria-hidden="true"
           />
 
-          <div className="hidden md:flex fixed right-6 bottom-24 z-50 w-[440px] h-[72vh] max-h-[720px] flex-col rounded-2xl border border-status-info-border bg-[#1a1a2e]/98 backdrop-blur-xl shadow-2xl overflow-hidden text-white">
+          <div
+            className={`hidden md:flex fixed right-6 bottom-24 z-50 w-[440px] h-[72vh] max-h-[720px] flex-col rounded-2xl border border-status-info-border bg-[#1a1a2e]/98 backdrop-blur-xl shadow-2xl overflow-hidden text-white ${isDragging ? "ring-2 ring-status-info-border" : ""}`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (!isDragging) setIsDragging(true);
+            }}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              addFiles(e.dataTransfer.files);
+              setIsDragging(false);
+            }}
+          >
             {panelShell(false)}
+            {isDragging ? (
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-status-info-border bg-[#1a1a2e]/80 backdrop-blur-sm">
+                <span className="text-sm font-medium text-white/90">Suelta para adjuntar</span>
+              </div>
+            ) : null}
           </div>
 
           <div className="md:hidden fixed inset-0 z-50 flex flex-col bg-[#1a1a2e] text-white pt-[env(safe-area-inset-top)]">
