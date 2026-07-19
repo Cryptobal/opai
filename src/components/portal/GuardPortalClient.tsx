@@ -784,25 +784,25 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
 
   return (
     <div className="rounded-xl border shadow-sm overflow-hidden">
-      {/* ── Idle: show the big button ── */}
+      {/* ── Idle: lens estrella (sólo presentación; la lógica no cambia) ── */}
       {step === "idle" && (
-        <button
-          onClick={handleStartMarcacion}
-          className="w-full flex items-center gap-4 bg-status-ok-soft hover:bg-status-ok-soft active:bg-status-ok-soft p-4 transition-colors text-left"
-        >
-          <div className="h-12 w-12 rounded-xl bg-status-ok flex items-center justify-center shrink-0">
-            <Fingerprint className="h-6 w-6 text-white" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-status-ok-fg dark:text-status-ok-fg">
+        <div className="flex flex-col items-center gap-3 py-7">
+          <button
+            onClick={handleStartMarcacion}
+            className="opai-marca-lens relative h-[196px] w-[196px] rounded-full flex flex-col items-center justify-center active:scale-95 transition-transform"
+            aria-label="Marcar asistencia"
+          >
+            <span aria-hidden className="opai-marca-ring absolute inset-0 rounded-full" />
+            <Fingerprint className="relative h-14 w-14 text-primary" />
+            <span className="relative mt-2 text-sm font-bold text-primary">
               Marcar Asistencia
-            </p>
-            <p className="text-xs text-status-ok-fg/70">
-              Registra tu entrada o salida desde tu celular
-            </p>
-          </div>
-          <Navigation className="h-5 w-5 text-status-ok-fg shrink-0" />
-        </button>
+            </span>
+          </button>
+          <span className="inline-flex items-center gap-1.5 opai-glass-soft rounded-full px-3 py-1.5 text-xs font-medium text-status-ok-fg">
+            <MapPin className="h-3.5 w-3.5" />
+            Registra tu entrada o salida
+          </span>
+        </div>
       )}
 
       {/* ── Requesting GPS ── */}

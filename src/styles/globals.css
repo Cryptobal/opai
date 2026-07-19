@@ -948,6 +948,40 @@ html {
   from { opacity: 0; transform: translateX(-50%) scale(0.6); }
   to { opacity: 1; transform: translateX(-50%) scale(1); }
 }
+/* Variantes semánticas del pill (portales: pánico / alerta) */
+.opai-nav-pill-danger {
+  background: linear-gradient(180deg, hsl(var(--ds-danger) / 0.28), hsl(var(--ds-danger) / 0.10));
+  box-shadow: 0 0 18px hsl(var(--ds-danger) / 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.opai-nav-pill-warning {
+  background: linear-gradient(180deg, hsl(var(--ds-warn) / 0.28), hsl(var(--ds-warn) / 0.10));
+  box-shadow: 0 0 18px hsl(var(--ds-warn) / 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* ── Marcación (Guardia) — botón "lens" estrella ─────────────── */
+.opai-marca-lens {
+  background:
+    radial-gradient(circle at 38% 30%, rgba(255, 255, 255, 0.22), transparent 46%),
+    radial-gradient(circle at center, hsl(var(--primary) / 0.16), hsl(var(--primary) / 0.07) 60%, transparent 76%);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    var(--glass-specular),
+    0 12px 40px hsl(var(--primary) / 0.35),
+    inset 0 0 40px hsl(var(--primary) / 0.10);
+  backdrop-filter: var(--glass-blur-3);
+  -webkit-backdrop-filter: var(--glass-blur-3);
+}
+.opai-marca-ring {
+  border: 2px solid hsl(var(--primary) / 0.5);
+  animation: ringPulse 2.6s ease-out infinite;
+}
+@keyframes ringPulse {
+  0% { transform: scale(0.96); opacity: 0.7; }
+  75%, 100% { transform: scale(1.15); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .opai-marca-ring { animation: none; }
+}
 
 /* ── Orbe OPAI (isla nav) — glass teal + sweep cónico ─────────── */
 .opai-orb {
