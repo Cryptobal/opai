@@ -10,16 +10,20 @@ interface HubAlertsBannerProps {
   alerts: HubAlert[];
 }
 
+// Liquid Glass v1 — banners tintados translúcidos (gradiente + blur-1).
 const severityStyles = {
-  critical: 'border-status-danger-border bg-status-danger-soft text-status-danger-fg',
-  warning: 'border-status-warn-border bg-status-warn-soft text-status-warn-fg',
-  info: 'border-status-info-border bg-status-info-soft text-status-info-fg',
+  critical:
+    'border-[hsl(var(--ds-danger)/0.28)] bg-gradient-to-b from-[hsl(var(--ds-danger)/0.14)] to-[hsl(var(--ds-danger)/0.05)] backdrop-blur-[16px] backdrop-saturate-150 text-status-danger-fg',
+  warning:
+    'border-[hsl(var(--ds-warn)/0.28)] bg-gradient-to-b from-[hsl(var(--ds-warn)/0.14)] to-[hsl(var(--ds-warn)/0.05)] backdrop-blur-[16px] backdrop-saturate-150 text-status-warn-fg',
+  info:
+    'border-[hsl(var(--ds-info)/0.28)] bg-gradient-to-b from-[hsl(var(--ds-info)/0.14)] to-[hsl(var(--ds-info)/0.05)] backdrop-blur-[16px] backdrop-saturate-150 text-status-info-fg',
 } as const;
 
 const severityIconBg = {
-  critical: 'bg-status-danger-soft',
-  warning: 'bg-status-warn-soft',
-  info: 'bg-status-info-soft',
+  critical: 'bg-[hsl(var(--ds-danger)/0.16)]',
+  warning: 'bg-[hsl(var(--ds-warn)/0.16)]',
+  info: 'bg-[hsl(var(--ds-info)/0.16)]',
 } as const;
 
 const severityIcons = {

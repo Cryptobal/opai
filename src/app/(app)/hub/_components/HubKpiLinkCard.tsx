@@ -16,16 +16,18 @@ const VARIANT_VALUE_COLOR: Record<KpiVariant, string> = {
   teal: 'text-primary',
 };
 
-const VARIANT_ACCENT: Record<KpiVariant, string> = {
+/** Liquid Glass v1 — el acento pasa de rail izquierdo a glow radial en la
+ *  esquina superior (color semántico). La card hereda el vidrio vía Surface. */
+const VARIANT_GLOW: Record<KpiVariant, string> = {
   default: '',
-  blue: 'before:bg-primary',
-  emerald: 'before:bg-status-ok',
-  purple: 'before:bg-primary',
-  amber: 'before:bg-status-warn',
-  red: 'before:bg-status-danger',
-  indigo: 'before:bg-primary',
-  sky: 'before:bg-primary',
-  teal: 'before:bg-primary',
+  blue: 'bg-primary',
+  emerald: 'bg-status-ok',
+  purple: 'bg-primary',
+  amber: 'bg-status-warn',
+  red: 'bg-status-danger',
+  indigo: 'bg-primary',
+  sky: 'bg-primary',
+  teal: 'bg-primary',
 };
 
 const TREND_ICON: Record<TrendType, typeof ArrowUpRight> = {
@@ -63,15 +65,20 @@ export function HubKpiLinkCard({
         tappable
         className={cn(
           'relative overflow-hidden p-3.5 sm:p-4 min-h-[78px] sm:min-h-[92px] h-full transition-all duration-200 hover:ring-2 hover:ring-primary/25 hover:shadow-md hover:-translate-y-0.5',
-          variant !== 'default' && [
-            'before:absolute before:left-0 before:top-3 before:bottom-3 before:w-[2px] before:rounded-r',
-            VARIANT_ACCENT[variant],
-          ],
           alert && 'border-status-danger/30 bg-status-danger/5',
         )}
       >
-        <div className="flex items-start justify-between gap-2">
-          <span className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4 min-w-0">
+        {variant !== 'default' && (
+          <span
+            aria-hidden
+            className={cn(
+              'pointer-events-none absolute -top-4 -right-4 h-16 w-16 rounded-full blur-[26px] opacity-50',
+              VARIANT_GLOW[variant],
+            )}
+          />
+        )}
+        <div className="relative flex items-start justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-[9.5px] font-mono uppercase tracking-[0.08em] text-ds-text-4 min-w-0">
             <span className="truncate">{title}</span>
             {titleInfoTooltip != null && (
               <span
@@ -94,7 +101,7 @@ export function HubKpiLinkCard({
           )}
         </div>
 
-        <div className="mt-1.5 flex items-baseline gap-2">
+        <div className="relative mt-1.5 flex items-baseline gap-2">
           <span
             className={cn(
               'font-display text-2xl sm:text-[28px] font-bold leading-none ds-num',
