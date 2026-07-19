@@ -77,7 +77,10 @@ import {
   aiTool_update_quote_position,
   aiTool_update_quote_status,
 } from "@/lib/ai/help-chat-cpq-ai-handlers";
-import { aiTool_manage_quote_extras } from "@/lib/ai/help-chat-cpq-extras-handlers";
+import {
+  aiTool_manage_quote_extras,
+  aiTool_update_quote,
+} from "@/lib/ai/help-chat-cpq-extras-handlers";
 export type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
 
 function baseToolDefinitions() {
@@ -722,6 +725,30 @@ function writeToolDefinitions() {
             recurring: { type: "boolean", description: "Solo kind=cost. true = costo mensual recurrente (default); false = one-time amortizado en el contrato." },
           },
           required: ["quoteIdOrCode", "action"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "update_quote",
+        description:
+          "Edita los campos generales de una cotización (nombre, validez, condiciones comerciales, notas). Para puestos usa add/update_quote_position; para margen update_quote_margin; para estado update_quote_status; para adicionales manage_quote_extras; para bullets Incluye manage_quote_includes.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string", description: "Código CPQ-XXXX-XXX o UUID. OBLIGATORIO." },
+            name: { type: "string", description: "Nombre interno de la cotización." },
+            clientName: { type: "string", description: "Nombre del cliente que aparece en la propuesta." },
+            validUntil: { type: "string", description: "Validez de la oferta (YYYY-MM-DD). String vacío la limpia." },
+            notes: { type: "string", description: "Notas comerciales de la cotización." },
+            paymentTerms: { type: "string", description: "Condiciones de pago (ej. contrafactura, 30 días)." },
+            serviceStartDays: { type: "number", description: "Inicio del servicio en X días desde la firma." },
+            contractDuration: { type: "number", description: "Duración del contrato en meses." },
+            isOngoingService: { type: "boolean", description: "Servicio indefinido/continuo." },
+          },
+          required: ["quoteIdOrCode"],
           additionalProperties: false,
         },
       },
@@ -1940,6 +1967,7 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   remove_quote_position: "Eliminar puesto de la cotización",
   manage_quote_includes: "Modificar los incluidos de la cotización",
   manage_quote_extras: "Editar adicionales de cotización",
+  update_quote: "Editar datos generales de la cotización",
   send_quote_proposal: "Enviar propuesta de cotización",
   create_invoice_draft: "Crear borrador de factura",
   create_credit_note_draft: "Crear nota de crédito",
@@ -7222,6 +7250,7 @@ export async function executeToolCallV2(
   if (toolName === "get_quote_proposal") return await aiTool_get_quote_proposal(tenantId, userId, perms, args, pageContext);
   if (toolName === "manage_quote_includes") return await aiTool_manage_quote_includes(tenantId, userId, perms, args, pageContext);
   if (toolName === "manage_quote_extras") return await aiTool_manage_quote_extras(tenantId, userId, perms, args, pageContext);
+  if (toolName === "update_quote") return await aiTool_update_quote(tenantId, userId, perms, args, pageContext);
   if (toolName === "preview_send_quote_proposal")
     return await aiTool_preview_send_quote_proposal(tenantId, userId, perms, args, pageContext);
   if (toolName === "send_quote_proposal") return await aiTool_send_quote_proposal(tenantId, userId, perms, args, pageContext);

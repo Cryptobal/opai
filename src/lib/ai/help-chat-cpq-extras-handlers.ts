@@ -319,3 +319,72 @@ export async function aiTool_manage_quote_extras(
     return { ok: false, error: hcMapQuoteResolveError(e) };
   }
 }
+
+/**
+ * Edita campos GENERALES/comerciales de una cotización (nombre, cliente, validez,
+ * notas, condiciones de pago, inicio y duración de servicio). Replica el mapeo del
+ * PATCH `/api/cpq/quotes/[id]` (subset comercial; no toca puestos/margen/estado/CRM).
+ */
+export async function aiTool_update_quote(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+  pageContext: PageCx,
+): Promise<unknown> {
+  const t0 = Date.now();
+  const TOOL = "update_quote";
+  if (!hcCanWriteQuotes(perms)) {
+    await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "denied", errorMessage: "perm", startedAt: t0 });
+    return { ok: false, error: "Sin permiso para editar cotizaciones." };
+  }
+  try {
+    const quote = await resolveAiHelpChatCpqQuote(tenantId, asStr(args, "quoteIdOrCode"), pageContext);
+
+    const data: Prisma.CpqQuoteUpdateManyMutationInput = {};
+    const has = (k: string) => Object.prototype.hasOwnProperty.call(args, k) && args[k] !== undefined;
+
+    if (has("name")) data.name = asStr(args, "name") ?? null;
+    if (has("clientName")) data.clientName = asStr(args, "clientName") ?? null;
+    if (has("notes")) data.notes = asStr(args, "notes") ?? null;
+    if (has("paymentTerms")) data.paymentTerms = asStr(args, "paymentTerms") ?? "contrafactura";
+    if (has("serviceStartDays")) data.serviceStartDays = numArg(args, "serviceStartDays") ?? 5;
+    if (has("contractDuration")) data.contractDuration = numArg(args, "contractDuration") ?? 12;
+    if (has("isOngoingService")) data.isOngoingService = Boolean(args.isOngoingService);
+    if (has("validUntil")) {
+      const raw = asStr(args, "validUntil");
+      if (!raw) {
+        data.validUntil = null;
+      } else {
+        const d = new Date(raw);
+        if (Number.isNaN(d.getTime())) {
+          await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "validation_error", errorMessage: "validUntil", startedAt: t0 });
+          return { ok: false, error: "validUntil inválida. Usa formato YYYY-MM-DD." };
+        }
+        data.validUntil = d;
+      }
+    }
+
+    if (Object.keys(data).length === 0) {
+      await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "validation_error", errorMessage: "nofields", startedAt: t0 });
+      return { ok: false, error: "Indica al menos un campo a cambiar (name, clientName, validUntil, notes, paymentTerms, serviceStartDays, contractDuration, isOngoingService)." };
+    }
+
+    const res = await prisma.cpqQuote.updateMany({ where: { id: quote.id, tenantId }, data });
+    if (res.count !== 1) throw new Error("QUOTE_NOT_FOUND");
+
+    const updated = await prisma.cpqQuote.findFirst({
+      where: { id: quote.id, tenantId },
+      select: {
+        id: true, code: true, name: true, clientName: true, validUntil: true, notes: true,
+        paymentTerms: true, serviceStartDays: true, contractDuration: true, isOngoingService: true,
+      },
+    });
+    await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "success", resultEntityId: quote.id, resultEntityType: "cpq_quote", startedAt: t0 });
+    return { ok: true, data: { ...updated, changedFields: Object.keys(data) } };
+  } catch (e) {
+    const raw = e instanceof Error ? e.message : String(e);
+    await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "internal_error", errorMessage: raw, startedAt: t0 });
+    return { ok: false, error: hcMapQuoteResolveError(e) };
+  }
+}
