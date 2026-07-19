@@ -3,6 +3,7 @@ import { ServiceWorkerRegistrar } from "@/components/portal/rondas/ServiceWorker
 import { BadgeClear } from "@/components/pwa/BadgeClear";
 import { TerrenoModeSwitcher } from "@/components/portal/TerrenoModeSwitcher";
 import { PlatformDataAttribute } from "@/components/opai/portal-shell";
+import { GlassAmbient } from "@/components/opai-ds/GlassAmbient";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -52,6 +53,7 @@ export default function PortalMarcacionLayout({ children }: { children: React.Re
         paddingBottom: 'var(--safe-area-bottom)',
       }}
     >
+      <GlassAmbient />
       <ServiceWorkerRegistrar scope="/portal/marcacion" />
       <PlatformDataAttribute />
       <BadgeClear />

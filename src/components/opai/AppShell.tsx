@@ -21,7 +21,7 @@ import { NotificationSidePanel } from '@/components/notifications/NotificationSi
 import { useNotifications } from '@/contexts/NotificationContext';
 import { PlatformDataAttribute } from '@/components/opai/portal-shell';
 import { useIsIOS } from '@/hooks/usePlatform';
-import { AutoBreadcrumbs, BreadcrumbTrailingProvider } from '@/components/opai-ds';
+import { AutoBreadcrumbs, BreadcrumbTrailingProvider, GlassAmbient } from '@/components/opai-ds';
 
 export interface AppShellProps {
   sidebar?: ReactNode;
@@ -100,6 +100,7 @@ function AppShellInner({
   return (
     <>
       <PlatformDataAttribute />
+      <GlassAmbient />
       <div className="relative min-h-[100dvh] overflow-x-clip">
         {/* ── Mobile topbar (redesigned — no hamburger, no sidebar) ── */}
         {sidebar && (

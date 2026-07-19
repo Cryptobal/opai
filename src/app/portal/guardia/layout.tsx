@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegistrar } from "@/components/portal/rondas/ServiceWorkerRegistrar";
 import { BadgeClear } from "@/components/pwa/BadgeClear";
 import { PlatformDataAttribute } from "@/components/opai/portal-shell";
+import { GlassAmbient } from "@/components/opai-ds/GlassAmbient";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -28,6 +29,7 @@ export const metadata: Metadata = {
 export default function PortalGuardiaLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh" style={{ paddingTop: 'var(--safe-area-top)' }}>
+      <GlassAmbient />
       <ServiceWorkerRegistrar scope="/portal/guardia" />
       <PlatformDataAttribute />
       <BadgeClear />

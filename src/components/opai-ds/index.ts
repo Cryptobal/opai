@@ -47,4 +47,5 @@ export { SwipeTabs, type SwipeTabsProps, type SwipeTabItem } from "./SwipeTabs";
 export { ModuleSubNav, type ModuleSubNavProps } from "./ModuleSubNav";
 export { PageShell, type PageShellProps } from "./PageShell";
 export { ConfigShell, type ConfigShellProps } from "./ConfigShell";
+export { GlassAmbient } from "./GlassAmbient";
 export { thresholdFromScore, type Threshold } from "./tokens";

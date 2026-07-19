@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { GlassAmbient } from "@/components/opai-ds/GlassAmbient";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -33,6 +34,7 @@ export default function PortalTerrenoLayout({
       className="min-h-dvh text-foreground antialiased"
       style={{ paddingTop: "var(--safe-area-top)" }}
     >
+      <GlassAmbient />
       {children}
     </div>
   );

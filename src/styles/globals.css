@@ -888,6 +888,48 @@ html {
   }
 }
 
+/* ════════════════════════════════════════════════════════════
+   Surface cascade (mobile) — variantes -m definidas SOLO dentro del
+   media query. Surface añade la clase según elevation y así el glass
+   llega a todos los consumidores sin tocar cada página. Se declaran
+   SIN @layer para ganarle a las utilities bg-ds-surface-* de Tailwind.
+   (No fijan border-radius: Surface conserva su rounded-ds-lg.)
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 1023px) {
+  .opai-glass-soft-m {
+    background: var(--glass-fill-soft);
+    border-color: var(--glass-border);
+    box-shadow: var(--glass-specular);
+  }
+  .opai-glass-m {
+    background: var(--glass-fill);
+    backdrop-filter: var(--glass-blur-2);
+    -webkit-backdrop-filter: var(--glass-blur-2);
+    border-color: var(--glass-border);
+    box-shadow: var(--glass-specular), var(--glass-shadow);
+  }
+  .opai-glass-strong-m {
+    background: var(--glass-fill-strong);
+    backdrop-filter: var(--glass-blur-3);
+    -webkit-backdrop-filter: var(--glass-blur-3);
+    border-color: var(--glass-border);
+    box-shadow: var(--glass-specular), var(--glass-shadow);
+  }
+}
+
+/* ── Aurora ambiental (GlassAmbient) ─────────────────────────── */
+@keyframes glassDrift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33% { transform: translate3d(4%, -3%, 0) scale(1.08); }
+  66% { transform: translate3d(-3%, 4%, 0) scale(0.94); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glass-ambient-blob { animation: none !important; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass-ambient { display: none !important; }
+}
+
 /* ── Animaciones compartidas ─────────────────────────── */
 
 @keyframes opaiPillGrow {
