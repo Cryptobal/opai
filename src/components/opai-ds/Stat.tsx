@@ -31,12 +31,14 @@ const VARIANT_VALUE_COLOR: Record<StatVariant, string> = {
   brand:   "text-primary",
 };
 
-const VARIANT_ACCENT: Record<StatVariant, string> = {
+/** Liquid Glass v1 — el acento pasa de riel izquierdo a glow radial en la
+ *  esquina superior (color semántico). Cascada a todos los KPIs del app. */
+const VARIANT_GLOW: Record<StatVariant, string> = {
   default: "",
-  ok:      "before:bg-status-ok",
-  warn:    "before:bg-status-warn",
-  danger:  "before:bg-status-danger",
-  brand:   "before:bg-primary",
+  ok:      "bg-status-ok",
+  warn:    "bg-status-warn",
+  danger:  "bg-status-danger",
+  brand:   "bg-primary",
 };
 
 export interface StatProps {
@@ -116,15 +118,19 @@ export function Stat({
       onClick={onClick}
       className={cn(
         "relative overflow-hidden p-3.5 sm:p-4 min-h-[78px] sm:min-h-[92px]",
-        // Acento lateral 2px solo en variantes con color
-        variant !== "default" && [
-          "before:absolute before:left-0 before:top-3 before:bottom-3 before:w-[2px] before:rounded-r",
-          VARIANT_ACCENT[variant],
-        ],
         className,
       )}
     >
-      <div className="flex items-start justify-between gap-2">
+      {variant !== "default" && (
+        <span
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute -top-4 -right-4 h-16 w-16 rounded-full blur-[26px] opacity-50",
+            VARIANT_GLOW[variant],
+          )}
+        />
+      )}
+      <div className="relative flex items-start justify-between gap-2">
         <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
           {label}
         </span>
@@ -141,7 +147,7 @@ export function Stat({
         })()}
       </div>
 
-      <div className="mt-1.5 flex items-baseline gap-2">
+      <div className="relative mt-1.5 flex items-baseline gap-2">
         <span
           className={cn(
             "font-display text-2xl sm:text-[28px] font-bold leading-none ds-num",

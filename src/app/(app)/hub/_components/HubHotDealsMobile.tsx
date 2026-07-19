@@ -49,7 +49,7 @@ export function HubHotDealsMobile({ deals, sellerFirstName: _sellerFirstName, te
             <div className="p-3">
               {/* Line 1: rank + empresa + score */}
               <div className="flex flex-wrap items-center gap-2">
-                <span className={`flex-none w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center ${rank <= 3 ? 'bg-status-info-soft text-status-info-fg' : 'bg-primary/10 text-muted-foreground'}`}>
+                <span className={`flex-none w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center ${rank <= 3 ? 'bg-primary/15 text-primary' : 'bg-primary/10 text-muted-foreground'}`}>
                   {rank}
                 </span>
                 <span className="text-base font-medium break-words flex-1 min-w-0">{deal.companyName}</span>
@@ -72,7 +72,7 @@ export function HubHotDealsMobile({ deals, sellerFirstName: _sellerFirstName, te
                     {' '}<TrendIcon trend={deal.viewTrend} />
                   </span>
                 )}
-                <span className="text-sm font-medium text-status-info-fg ml-auto tabular-nums">
+                <span className="text-sm font-medium text-primary ml-auto tabular-nums">
                   {deal.amount > 0 ? `${formatCLP(Math.round(deal.amount))}/mes` : '—'}
                 </span>
               </div>

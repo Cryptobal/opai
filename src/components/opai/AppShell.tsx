@@ -105,17 +105,15 @@ function AppShellInner({
         {/* ── Mobile topbar (redesigned — no hamburger, no sidebar) ── */}
         {sidebar && (
           <header
-            className={cn(
-              // Liquid Glass v1 — header glass unificado (iOS === Android), sin gate de plataforma.
-              "fixed top-0 left-0 right-0 z-30 flex min-h-12 items-center justify-between lg:hidden",
-              "opai-liquid-glass-bar-top",
-            )}
+            className="fixed top-0 left-0 right-0 z-30 lg:hidden pointer-events-none"
             style={{
               paddingLeft: 'max(env(safe-area-inset-left), 0.75rem)',
               paddingRight: 'max(env(safe-area-inset-right), 0.75rem)',
-              paddingTop: 'env(safe-area-inset-top)',
+              paddingTop: 'calc(env(safe-area-inset-top) + 8px)',
             }}
           >
+            {/* Liquid Glass v1 — isla flotante despegada de los bordes (iOS === Android). */}
+            <div className="pointer-events-auto opai-glass-strong flex min-h-12 items-center justify-between rounded-[22px] pl-3 pr-1">
             {/* Left: Logo */}
             <Link href="/hub" className="flex items-center gap-2 hover:opacity-80 shrink-0">
               <ThemeLogo width={28} height={28} className="h-7 w-7" />
@@ -155,6 +153,7 @@ function AppShellInner({
                 )}
               </button>
             </div>
+            </div>
           </header>
         )}
 
@@ -180,7 +179,7 @@ function AppShellInner({
         <div
           className={cn(
             'transition-[padding,margin] duration-300 ease-out min-w-0',
-            'pt-[calc(3rem+env(safe-area-inset-top,0px))] lg:pt-12', // espacio para topbar fija (min-h-12 = 3rem) en mobile y desktop
+            'pt-[calc(4rem+env(safe-area-inset-top,0px))] lg:pt-12', // isla flotante (safe + 8px + 48px + 8px gap) en mobile; desktop 3rem
             isSidebarOpen ? 'lg:pl-64' : 'lg:pl-[72px]',
             anyPanelOpen && 'xl:mr-[400px]',
             className

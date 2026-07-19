@@ -64,7 +64,7 @@ export function HubHotDealRow({ deal, rank }: Props) {
                 {' '}<TrendIcon trend={deal.viewTrend} />
               </span>
             )}
-            <span className="text-sm font-medium text-status-info-fg ml-auto">
+            <span className="text-sm font-medium text-primary ml-auto">
               {deal.amount > 0 ? `${formatCLP(Math.round(deal.amount))}/mes` : '—'}
             </span>
           </div>
@@ -216,7 +216,7 @@ export function HubHotDealTableRow({ deal, rank }: Props) {
         <HeatIndicator score={deal.heatScore} />
       </td>
       <td className="px-2 py-2 text-right whitespace-nowrap">
-        <span className="text-sm font-medium text-status-info-fg">
+        <span className="text-sm font-medium text-primary">
           {deal.amount > 0 ? `${formatCLP(Math.round(deal.amount))}/mes` : '—'}
         </span>
       </td>

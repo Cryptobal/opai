@@ -78,11 +78,11 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
 
   return (
     <HubCollapsibleSection
-      icon={<span className="h-2.5 w-2.5 rounded-full bg-status-info inline-block" />}
+      icon={<span className="h-2.5 w-2.5 rounded-full bg-primary inline-block" />}
       title="Hub de Cierre"
       badge={
         <div className="flex items-center gap-2">
-          <span className="text-sm font-bold tabular-nums text-status-info-fg">
+          <span className="text-sm font-bold tabular-nums text-primary">
             {negotiationFormatted} negociando
           </span>
         </div>
@@ -111,7 +111,7 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
                 <div className="flex items-center gap-2 mb-1">
                   <Flame className="h-3.5 w-3.5 text-status-warn-fg" />
                   <p className="text-sm font-bold">Propuestas calientes</p>
-                  <span className="text-xs text-status-info-fg font-bold tabular-nums bg-status-info-soft rounded px-1.5 py-0.5">
+                  <span className="text-xs text-primary font-bold tabular-nums bg-primary/12 rounded px-1.5 py-0.5">
                     {hotDeals.length}
                   </span>
                 </div>
