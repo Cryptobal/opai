@@ -6,8 +6,7 @@ import { canUseAiHelpChat, getAiHelpChatConfig } from "@/lib/ai/help-chat-config
 import { retrieveDocsContext, retrieveTemplatesContext } from "@/lib/ai/help-chat-retrieval";
 import { getToolDefinitionsV2, executeToolCallV2 } from "@/lib/ai/help-chat-tools-v2";
 import { buildUserMessage, type MultimodalAttachment } from "@/lib/ai/help-chat-multimodal";
-import { getFileBuffer } from "@/lib/storage";
-import { extractText } from "@/lib/knowledge/extract";
+import { buildAttachmentsContext } from "@/lib/ai/help-chat-attachments-context";
 import type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
 import { buildHelpChatSystemPromptV2 } from "@/lib/ai/help-chat-system-prompt-v2";
 import { parseVisualBlocks } from "@/lib/ai/help-chat-visual-types";
@@ -183,6 +182,7 @@ export async function POST(request: NextRequest) {
     persistenceEnabled && typeof body.conversationId === "string" ? body.conversationId : undefined;
 
   let conversation: { id: string } | null = null;
+  let savedUserMessage: { id: string } | null = null;
   if (persistenceEnabled) {
     conversation = existingConversationId
       ? await prisma.aiChatConversation.findFirst({
@@ -200,23 +200,53 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  /* save user message */
+  /* save user message (con sus adjuntos en metadata para reinyectarlos en turnos futuros) */
   if (persistenceEnabled && conversation) {
-    await prisma.aiChatMessage.create({
-      data: { conversationId: conversation.id, tenantId: ctx.tenantId, role: "user", content: userMessage },
+    savedUserMessage = await prisma.aiChatMessage.create({
+      data: {
+        conversationId: conversation.id,
+        tenantId: ctx.tenantId,
+        role: "user",
+        content: userMessage,
+        ...(attachmentRefs.length > 0 ? { metadata: { attachments: attachmentRefs } } : {}),
+      },
+      select: { id: true },
     });
   }
 
   /* load conversation history */
   let conversationHistory: Array<{ role: string; content: string }> = [];
+  /* Adjuntos de turnos anteriores del hilo: el archivo subido a una conversación
+   * queda disponible TODO el hilo (manifiesto + texto extraído cacheado). Vive
+   * fuera del if para existir siempre (vacío sin persistencia). */
+  type ThreadAttachment = { stagedKey: string; fileName: string; mimeType: string; extractedText?: string };
+  const threadAttachments: ThreadAttachment[] = [];
   if (persistenceEnabled && conversation) {
     const historyMessages = await prisma.aiChatMessage.findMany({
       where: { conversationId: conversation.id },
-      select: { role: true, content: true, createdAt: true },
+      select: { role: true, content: true, createdAt: true, metadata: true },
       orderBy: [{ createdAt: "asc" }],
       take: 24,
     });
     conversationHistory = historyMessages.slice(0, -1).map((m: { role: string; content: string }) => ({ role: m.role, content: m.content }));
+
+    const seen = new Set(attachmentRefs.map((a) => a.stagedKey));
+    for (const m of historyMessages.slice(0, -1)) {
+      const meta = m.metadata as { attachments?: Array<Record<string, unknown>> } | null;
+      for (const a of meta?.attachments ?? []) {
+        const stagedKey = typeof a.stagedKey === "string" ? a.stagedKey : "";
+        if (!stagedKey || seen.has(stagedKey)) continue;
+        seen.add(stagedKey);
+        threadAttachments.push({
+          stagedKey,
+          fileName: typeof a.fileName === "string" ? a.fileName : "archivo",
+          mimeType: typeof a.mimeType === "string" ? a.mimeType : "",
+          extractedText: typeof a.extractedText === "string" ? a.extractedText : undefined,
+        });
+      }
+    }
+    // Conserva los 6 más recientes del hilo (los últimos en orden cronológico).
+    if (threadAttachments.length > 6) threadAttachments.splice(0, threadAttachments.length - 6);
   }
 
   /* retrieval (docs + templates + knowledge bases) */
@@ -275,46 +305,29 @@ export async function POST(request: NextRequest) {
 
   const configWithModel: HelpChatAIConfig = { ...aiConfig, model: effectiveModel };
 
-  /* Adjuntos: reconstruye visión (imágenes/PDF) y texto extraído (Excel/Word/PDF)
-   * desde R2 con las stagedKeys. Arma un bloque de contexto con el manifiesto para
-   * que attach_file_to_entity pueda adjuntarlos a una entidad con su stagedKey. */
-  const IMAGE_MIME_RE = /^image\/(png|jpe?g|webp|gif)$/;
-  const MULTIMODAL_MIME_RE = /^(image\/(png|jpe?g|webp|gif)|application\/pdf)$/;
-  const MAX_EXTRACT_CHARS = 12_000;
-  const visionAttachments: MultimodalAttachment[] = [];
-  let attachmentsContext: string | null = null;
-  if (attachmentRefs.length > 0) {
-    const manifest: string[] = [];
-    const extracted: string[] = [];
-    for (const ref of attachmentRefs) {
-      let buffer: Buffer;
-      try {
-        buffer = await getFileBuffer(ref.stagedKey, 10 * 1024 * 1024);
-      } catch (err) {
-        console.error("[help-chat] no se pudo leer adjunto staged:", err);
-        continue;
-      }
-      manifest.push(`- ${ref.fileName} · ${ref.mimeType} · ${buffer.length} bytes · stagedKey=${ref.stagedKey}`);
-      if (MULTIMODAL_MIME_RE.test(ref.mimeType)) {
-        visionAttachments.push({ mimeType: ref.mimeType, dataBase64: buffer.toString("base64"), name: ref.fileName });
-      }
-      if (!IMAGE_MIME_RE.test(ref.mimeType)) {
-        try {
-          const text = (await extractText(buffer, ref.mimeType)).slice(0, MAX_EXTRACT_CHARS);
-          if (text.trim()) extracted.push(`[Contenido extraído de '${ref.fileName}']:\n${text}`);
-        } catch {
-          /* mime no extraíble: la visión (si aplica) sigue disponible */
-        }
-      }
-    }
-    const blocks: string[] = [];
-    if (manifest.length) {
-      blocks.push(
-        `El usuario adjuntó archivos ya almacenados en staging. Para adjuntar uno a una entidad (deal/cuenta/instalación/lead) usa attach_file_to_entity con su stagedKey EXACTO:\n${manifest.join("\n")}`,
-      );
-    }
-    if (extracted.length) blocks.push(extracted.join("\n\n"));
-    attachmentsContext = blocks.length ? blocks.join("\n\n") : null;
+  /* Adjuntos del turno actual + del hilo: el helper reconstruye visión
+   * (imágenes/PDF) y texto extraído (Excel/Word/PDF). El texto de turnos previos
+   * viene cacheado en metadata (sin re-bajar de R2). Ver help-chat-attachments-context. */
+  const { visionAttachments, attachmentsContext, freshExtractions } =
+    attachmentRefs.length > 0 || threadAttachments.length > 0
+      ? await buildAttachmentsContext({ attachmentRefs, threadAttachments })
+      : {
+          visionAttachments: [] as MultimodalAttachment[],
+          attachmentsContext: null as string | null,
+          freshExtractions: [] as Array<{ stagedKey: string; extractedText: string }>,
+        };
+
+  /* Cachea best-effort el texto extraído del turno actual en el mensaje user para
+   * reinyectarlo en turnos siguientes. JAMÁS rompe el stream por esto. */
+  if (savedUserMessage && freshExtractions.length > 0) {
+    const savedId = savedUserMessage.id;
+    const enriched = attachmentRefs.map((r) => {
+      const extractedText = freshExtractions.find((f) => f.stagedKey === r.stagedKey)?.extractedText?.slice(0, 12_000);
+      return extractedText ? { ...r, extractedText } : { ...r };
+    });
+    void prisma.aiChatMessage
+      .update({ where: { id: savedId }, data: { metadata: { attachments: enriched } } })
+      .catch((e) => console.error("[help-chat] cache de extractedText falló:", e));
   }
   const hasAttachments = visionAttachments.length > 0 || attachmentsContext !== null;
 
