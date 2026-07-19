@@ -307,7 +307,6 @@ async function buildInsertBodiesFromArgs(
   tenantId: string,
   args: Record<string, unknown>,
   defaults: Awaited<ReturnType<typeof pickDefaultCpqCatalogIds>>,
-  serviceGroupId: string,
 ): Promise<InsertPositionBody[]> {
   const afpName = asStr(args, "afpName");
   const healthSystem = asStr(args, "healthSystem");
@@ -428,7 +427,6 @@ async function buildInsertBodiesFromArgs(
 
     out.push({
       puestoTrabajoId: puestoId,
-      serviceGroupId,
       weekdays: wk,
       startTime: slot.shiftStart ?? "08:00",
       endTime: slot.shiftEnd ?? "18:00",
@@ -469,18 +467,23 @@ export async function aiTool_add_quote_position(
         "serviceName es obligatorio: indica el nombre del servicio/puesto físico (ej: 'Portería Central + Jefe de Turno'). Un servicio por puesto.",
       );
     }
+
+    const defaults = await pickDefaultCpqCatalogIds(tenantId);
+    let bodies = await buildInsertBodiesFromArgs(tenantId, args, defaults);
+
+    const forceSingle = Boolean(args.forceSingleSlot);
+    if (forceSingle && bodies.length > 1) bodies = bodies.slice(0, 1);
+
+    // El servicio se crea SOLO tras validar los puestos (sueldo, patrón, días): así
+    // un error de validación no deja grupos vacíos en la cotización. resolveOrCreate
+    // lo reutiliza por nombre, de modo que el reintento cae en el mismo servicio.
     const svc = await resolveOrCreateServiceGroup({
       tenantId,
       quoteId: quote.id,
       name: serviceNameArg,
       coveragePattern: typeof args.coveragePattern === "string" ? args.coveragePattern : undefined,
     });
-
-    const defaults = await pickDefaultCpqCatalogIds(tenantId);
-    let bodies = await buildInsertBodiesFromArgs(tenantId, args, defaults, svc.id);
-
-    const forceSingle = Boolean(args.forceSingleSlot);
-    if (forceSingle && bodies.length > 1) bodies = bodies.slice(0, 1);
+    bodies = bodies.map((b) => ({ ...b, serviceGroupId: svc.id }));
 
     const created: string[] = [];
     for (const body of bodies) {
