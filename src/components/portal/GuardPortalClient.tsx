@@ -34,7 +34,6 @@ import {
   UserCheck,
   CircleCheck,
   CircleX,
-  Navigation,
   Camera,
   Package,
   Siren,
