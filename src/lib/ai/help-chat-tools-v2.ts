@@ -77,6 +77,7 @@ import {
   aiTool_update_quote_position,
   aiTool_update_quote_status,
 } from "@/lib/ai/help-chat-cpq-ai-handlers";
+import { aiTool_manage_quote_extras } from "@/lib/ai/help-chat-cpq-extras-handlers";
 export type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
 
 function baseToolDefinitions() {
@@ -702,6 +703,29 @@ function v2ToolDefinitions() {
 
 function writeToolDefinitions() {
   return [
+    {
+      type: "function" as const,
+      function: {
+        name: "manage_quote_extras",
+        description:
+          "Lista o edita las LÍNEAS ADICIONALES de una cotización: costos extra (kind='cost': equipamiento, tecnología, movilización, otros), uniformes (kind='uniform') y exámenes (kind='exam'). Úsala cuando pidan 'agrega un adicional', 'suma cámaras por $X', 'incluye 2 exámenes preocupacionales', 'cambia el precio del uniforme', 'elimina la línea de movilización'. action=list para ver el estado actual (hazlo SIEMPRE antes de editar y después de editar para verificar). Cada cambio recalcula el total mensual de la cotización.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string", description: "Código CPQ-XXXX-XXX o UUID. OBLIGATORIO." },
+            kind: { type: "string", enum: ["cost", "uniform", "exam"], description: "Tipo de línea. OBLIGATORIO salvo action=list (list sin kind devuelve los tres grupos)." },
+            action: { type: "string", enum: ["list", "add", "update", "remove"] },
+            itemId: { type: "string", description: "UUID del ítem (update/remove)." },
+            name: { type: "string", description: "Nombre/descripcion de la línea (add; en cost también update)." },
+            quantity: { type: "number", description: "Cantidad (solo kind=cost)." },
+            unitPrice: { type: "number", description: "Precio unitario CLP (add/update)." },
+            recurring: { type: "boolean", description: "Solo kind=cost. true = costo mensual recurrente (default); false = one-time amortizado en el contrato." },
+          },
+          required: ["quoteIdOrCode", "action"],
+          additionalProperties: false,
+        },
+      },
+    },
     {
       type: "function" as const,
       function: {
@@ -1915,6 +1939,7 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   update_quote_position: "Actualizar puesto de la cotización",
   remove_quote_position: "Eliminar puesto de la cotización",
   manage_quote_includes: "Modificar los incluidos de la cotización",
+  manage_quote_extras: "Editar adicionales de cotización",
   send_quote_proposal: "Enviar propuesta de cotización",
   create_invoice_draft: "Crear borrador de factura",
   create_credit_note_draft: "Crear nota de crédito",
@@ -7196,6 +7221,7 @@ export async function executeToolCallV2(
   if (toolName === "remove_quote_position") return await aiTool_remove_quote_position(tenantId, userId, perms, args, pageContext);
   if (toolName === "get_quote_proposal") return await aiTool_get_quote_proposal(tenantId, userId, perms, args, pageContext);
   if (toolName === "manage_quote_includes") return await aiTool_manage_quote_includes(tenantId, userId, perms, args, pageContext);
+  if (toolName === "manage_quote_extras") return await aiTool_manage_quote_extras(tenantId, userId, perms, args, pageContext);
   if (toolName === "preview_send_quote_proposal")
     return await aiTool_preview_send_quote_proposal(tenantId, userId, perms, args, pageContext);
   if (toolName === "send_quote_proposal") return await aiTool_send_quote_proposal(tenantId, userId, perms, args, pageContext);
