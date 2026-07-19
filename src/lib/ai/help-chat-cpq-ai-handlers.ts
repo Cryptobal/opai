@@ -294,6 +294,15 @@ async function buildInsertBodiesFromArgs(
   const healthSystem = asStr(args, "healthSystem");
   const healthPlanPct = typeof args.healthPlanPct === "number" ? args.healthPlanPct : undefined;
 
+  // Un puesto = un servicio con nombre identificable. El código lo garantiza
+  // (el prompt solo guía): sin customName/puestoLabelPrefix no se crea el puesto.
+  const requestedPositionName = asStr(args, "customName") || asStr(args, "puestoLabelPrefix");
+  if (!requestedPositionName) {
+    throw new Error(
+      "customName es obligatorio: cada puesto debe tener un nombre identificable del servicio real (ej: 'Portería Central + Jefe de Turno', 'Ingreso Camiones'). Vuelve a llamar add_quote_position con customName.",
+    );
+  }
+
   async function inferBaseSalary(): Promise<number> {
     const liqRaw = typeof args.targetNetMonthlyLiquid === "number" ? args.targetNetMonthlyLiquid : Number(args.targetNetMonthlyLiquid);
     if (typeof liqRaw === "number" && Number.isFinite(liqRaw) && liqRaw > 0) {
@@ -306,6 +315,12 @@ async function buildInsertBodiesFromArgs(
     }
     const bs = typeof args.baseSalary === "number" ? args.baseSalary : Number(args.baseSalary);
     if (!Number.isFinite(bs) || bs <= 0) throw new Error("Falta baseSalary o targetNetMonthlyLiquid válido.");
+    if (bs < 100_000)
+      throw new Error(
+        `baseSalary=${bs} parece incompleto: los sueldos van en CLP completos. ¿Quisiste decir $${(bs * 1000).toLocaleString("es-CL")}? Reintenta con el monto completo.`,
+      );
+    if (bs > 5_000_000)
+      throw new Error(`baseSalary=${bs} está fuera de rango razonable para un puesto de seguridad. Verifica el monto y reintenta.`);
     return Math.round(bs);
   }
 
