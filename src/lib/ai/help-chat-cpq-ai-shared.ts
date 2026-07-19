@@ -98,7 +98,7 @@ export async function hcSyncIncludesArray(quoteId: string) {
 export async function hcRolIdForSlot(
   tenantId: string,
   slot: ExpandedShiftSlot,
-  fallbackRolId: string,
+  _fallbackRolId: string,
   rolNameArg?: string,
 ) {
   if (slot.rolShiftPattern) {
@@ -112,7 +112,16 @@ export async function hcRolIdForSlot(
     const sug = await resolveRolPreferPattern(tenantId, rn);
     if (sug?.id) return sug.id;
   }
-  return fallbackRolId;
+  // PROHIBIDO asignar silenciosamente el primer rol del catálogo (provocaba
+  // puestos 14x14 fantasma). Sin patrón derivable ni rolName: error accionable.
+  const available = await prisma.cpqRol.findMany({
+    where: { OR: [{ tenantId }, { tenantId: null }], active: true },
+    select: { name: true },
+    take: 12,
+  });
+  throw new Error(
+    `No pude determinar el patrón de turno del puesto (horario ${slot.shiftStart}-${slot.shiftEnd}). Indica shiftPattern o rolName explícito. Roles disponibles: ${available.map((r) => r.name).join(", ")}.`,
+  );
 }
 
 /**

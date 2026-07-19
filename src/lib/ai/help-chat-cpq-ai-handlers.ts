@@ -286,6 +286,23 @@ function deriveShiftLabel(start?: string, end?: string): string {
   return "";
 }
 
+/**
+ * Deriva el patrón de turno chileno desde horario+días cuando el usuario no lo
+ * especifica: jornadas de ~12h => 4x4; L-V diurno de ~8-9h => 5x2. Devuelve
+ * undefined si es ambiguo (el resolver exigirá patrón explícito en vez de
+ * caer silenciosamente al primer rol del catálogo).
+ */
+function derivePatternFromSchedule(start: string, end: string, weekdaysCount: number): string | undefined {
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  if (![sh, sm, eh, em].every(Number.isFinite)) return undefined;
+  let hours = eh + em / 60 - (sh + sm / 60);
+  if (hours <= 0) hours += 24; // turno nocturno que cruza medianoche
+  if (hours >= 11) return "4x4";
+  if (hours >= 7 && hours <= 10 && weekdaysCount <= 5) return "5x2";
+  return undefined;
+}
+
 async function buildInsertBodiesFromArgs(
   tenantId: string,
   args: Record<string, unknown>,
@@ -356,7 +373,11 @@ async function buildInsertBodiesFromArgs(
             : typeof args.numGuards === "string"
               ? Number(args.numGuards)
               : undefined,
-        rolShiftPattern: undefined,
+        rolShiftPattern: derivePatternFromSchedule(
+          asStr(args, "startTime") ?? "08:00",
+          asStr(args, "endTime") ?? "18:00",
+          (normalizeWeekdays(wkStrings) as unknown[]).length,
+        ),
       },
     ];
   }
