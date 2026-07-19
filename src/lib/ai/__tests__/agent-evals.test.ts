@@ -205,17 +205,17 @@ describe("agent evals — runHelpChatTurn", () => {
     ]);
   });
 
-  it("6ª escritura en un turno: 5 pendings y sin ejecutar writes", async () => {
-    const writes = Array.from({ length: 6 }, (_, i) =>
+  it("9ª escritura en un turno: 8 pendings y sin ejecutar writes", async () => {
+    const writes = Array.from({ length: 9 }, (_, i) =>
       tc(`w${i}`, "update_installation", { id: `33333333-3333-4333-8333-${String(i).padStart(12, "0")}`, status: "inactive" }),
     );
     script({ toolCalls: writes }, { tokens: "Máximo de acciones alcanzado." });
 
-    const result = await runHelpChatTurn(baseInput("inactiva estas 6 instalaciones ya"));
+    const result = await runHelpChatTurn(baseInput("inactiva estas 9 instalaciones ya"));
 
-    expect(result.pendingConfirmations?.length).toBe(5);
+    expect(result.pendingConfirmations?.length).toBe(8);
     expect(hoisted.executeCalls.filter((c) => WRITE_TOOL_NAMES.has(c.name)).length).toBe(0);
-    expect(result.toolCallsUsed).toBe(6);
+    expect(result.toolCallsUsed).toBe(9);
   });
 
   it("lectura pura tickets vencidos: tool ejecutada, cero pendings", async () => {

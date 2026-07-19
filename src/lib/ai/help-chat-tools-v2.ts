@@ -77,6 +77,12 @@ import {
   aiTool_update_quote_position,
   aiTool_update_quote_status,
 } from "@/lib/ai/help-chat-cpq-ai-handlers";
+import {
+  aiTool_get_quote_share_link,
+  aiTool_manage_quote_extras,
+  aiTool_update_quote,
+} from "@/lib/ai/help-chat-cpq-extras-handlers";
+import { parseGoogleMapsUrl, buildDealMapsUrl } from "@/lib/google-maps-url";
 export type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
 
 function baseToolDefinitions() {
@@ -485,6 +491,20 @@ function v2ToolDefinitions() {
     {
       type: "function" as const,
       function: {
+        name: "get_quote_share_link",
+        description:
+          "Devuelve el link vigente del portal cliente de una cotización YA ENVIADA (deal.proposalLink o el registro del portal), para compartirlo por WhatsApp u otro canal. NO envía nada ni genera invitaciones nuevas. Si la cotización nunca se ha enviado, devuelve ok:false indicando que primero debe enviarse con send_quote_proposal.",
+        parameters: {
+          type: "object",
+          properties: { quoteIdOrCode: { type: "string" } },
+          required: ["quoteIdOrCode"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
         name: "search_contacts",
         description: "Busca contactos CRM por nombre, email o cargo; incluye la cuenta asociada.",
         parameters: {
@@ -702,6 +722,53 @@ function v2ToolDefinitions() {
 
 function writeToolDefinitions() {
   return [
+    {
+      type: "function" as const,
+      function: {
+        name: "manage_quote_extras",
+        description:
+          "Lista o edita las LÍNEAS ADICIONALES de una cotización: costos extra (kind='cost': equipamiento, tecnología, movilización, otros), uniformes (kind='uniform') y exámenes (kind='exam'). Úsala cuando pidan 'agrega un adicional', 'suma cámaras por $X', 'incluye 2 exámenes preocupacionales', 'cambia el precio del uniforme', 'elimina la línea de movilización'. action=list para ver el estado actual (hazlo SIEMPRE antes de editar y después de editar para verificar). Cada cambio recalcula el total mensual de la cotización.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string", description: "Código CPQ-XXXX-XXX o UUID. OBLIGATORIO." },
+            kind: { type: "string", enum: ["cost", "uniform", "exam"], description: "Tipo de línea. OBLIGATORIO salvo action=list (list sin kind devuelve los tres grupos)." },
+            action: { type: "string", enum: ["list", "add", "update", "remove"] },
+            itemId: { type: "string", description: "UUID del ítem (update/remove)." },
+            name: { type: "string", description: "Nombre/descripcion de la línea (add; en cost también update)." },
+            quantity: { type: "number", description: "Cantidad (solo kind=cost)." },
+            unitPrice: { type: "number", description: "Precio unitario CLP (add/update)." },
+            recurring: { type: "boolean", description: "Solo kind=cost. true = costo mensual recurrente (default); false = one-time amortizado en el contrato." },
+          },
+          required: ["quoteIdOrCode", "action"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "update_quote",
+        description:
+          "Edita los campos generales de una cotización (nombre, validez, condiciones comerciales, notas). Para puestos usa add/update_quote_position; para margen update_quote_margin; para estado update_quote_status; para adicionales manage_quote_extras; para bullets Incluye manage_quote_includes.",
+        parameters: {
+          type: "object",
+          properties: {
+            quoteIdOrCode: { type: "string", description: "Código CPQ-XXXX-XXX o UUID. OBLIGATORIO." },
+            name: { type: "string", description: "Nombre interno de la cotización." },
+            clientName: { type: "string", description: "Nombre del cliente que aparece en la propuesta." },
+            validUntil: { type: "string", description: "Validez de la oferta (YYYY-MM-DD). String vacío la limpia." },
+            notes: { type: "string", description: "Notas comerciales de la cotización." },
+            paymentTerms: { type: "string", description: "Condiciones de pago (ej. contrafactura, 30 días)." },
+            serviceStartDays: { type: "number", description: "Inicio del servicio en X días desde la firma." },
+            contractDuration: { type: "number", description: "Duración del contrato en meses." },
+            isOngoingService: { type: "boolean", description: "Servicio indefinido/continuo." },
+          },
+          required: ["quoteIdOrCode"],
+          additionalProperties: false,
+        },
+      },
+    },
     {
       type: "function" as const,
       function: {
@@ -1184,6 +1251,9 @@ function writeToolDefinitions() {
             status: { type: "string", enum: ["prospect", "active", "inactive"], description: "Default prospect." },
             notes: { type: "string" },
             teMontoClp: { type: "number", description: "Monto base de turnos extra en CLP." },
+            googleMapsUrl: { type: "string", description: "Link de Google Maps de la ubicación; el sistema extrae lat/lng automáticamente." },
+            lat: { type: "number" },
+            lng: { type: "number" },
           },
           required: ["accountId", "name"],
           additionalProperties: false,
@@ -1315,6 +1385,7 @@ function writeToolDefinitions() {
             commune: { type: "string" },
             lat: { type: "number" },
             lng: { type: "number" },
+            googleMapsUrl: { type: "string", description: "Link de Google Maps de la ubicación; el sistema extrae lat/lng automáticamente." },
             status: { type: "string", enum: ["prospect", "active", "inactive"] },
             geoRadiusM: { type: "number", description: "Radio del geofence en metros (10-1000)." },
             teMontoClp: { type: "number", description: "Monto base TE en CLP." },
@@ -1915,6 +1986,8 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   update_quote_position: "Actualizar puesto de la cotización",
   remove_quote_position: "Eliminar puesto de la cotización",
   manage_quote_includes: "Modificar los incluidos de la cotización",
+  manage_quote_extras: "Editar adicionales de cotización",
+  update_quote: "Editar datos generales de la cotización",
   send_quote_proposal: "Enviar propuesta de cotización",
   create_invoice_draft: "Crear borrador de factura",
   create_credit_note_draft: "Crear nota de crédito",
@@ -2212,6 +2285,8 @@ async function toolSearchInstallations(
       status: true,
       city: true,
       address: true,
+      lat: true,
+      lng: true,
       accountId: true,
       account: { select: { name: true } },
       supervisorAssignments: {
@@ -2231,6 +2306,7 @@ async function toolSearchInstallations(
     address: r.address,
     accountId: r.accountId,
     accountName: r.account?.name ?? null,
+    mapsUrl: r.lat != null && r.lng != null ? buildDealMapsUrl({ lat: r.lat, lng: r.lng }) : null,
     supervisor: r.supervisorAssignments[0]?.supervisor
       ? {
           id: r.supervisorAssignments[0].supervisor.id,
@@ -4014,7 +4090,17 @@ async function toolCreateInstallation(
     await logAiAction({ tenantId, userId, toolName: "create_installation", args, status: "denied", errorMessage: "Sin permiso crm.installations.edit", startedAt: t0 });
     return { ok: false, error: "No tienes permiso para crear instalaciones." };
   }
-  const parsed = createInstallationSchema.safeParse(args);
+  const gmapCreate = typeof args.googleMapsUrl === "string" ? args.googleMapsUrl.trim() : "";
+  let installArgs: Record<string, unknown> = args;
+  if (gmapCreate && !(typeof args.lat === "number" && typeof args.lng === "number")) {
+    const coords = parseGoogleMapsUrl(gmapCreate);
+    if (!coords) {
+      await logAiAction({ tenantId, userId, toolName: "create_installation", args, status: "validation_error", errorMessage: "google_maps_parse", startedAt: t0 });
+      return { ok: false, error: "No pude extraer coordenadas de ese link de Google Maps. Si es un link corto (maps.app.goo.gl), ábrelo y copia la URL completa del navegador (la que incluye @lat,lng), o dame la dirección exacta." };
+    }
+    installArgs = { ...args, lat: coords.lat, lng: coords.lng };
+  }
+  const parsed = createInstallationSchema.safeParse(installArgs);
   if (!parsed.success) {
     const msg = parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ");
     await logAiAction({ tenantId, userId, toolName: "create_installation", args, status: "validation_error", errorMessage: msg, startedAt: t0 });
@@ -4098,6 +4184,7 @@ async function toolCreateInstallation(
         commune: installation.commune,
         address: installation.address,
         status: installation.status,
+        mapsUrl: body.lat != null && body.lng != null ? buildDealMapsUrl({ lat: body.lat, lng: body.lng }) : null,
       },
     };
   } catch (e) {
@@ -4573,6 +4660,17 @@ async function toolUpdateInstallation(
   }
   const rest = { ...args };
   delete (rest as Record<string, unknown>).id;
+  const gmapUpdate = typeof rest.googleMapsUrl === "string" ? (rest.googleMapsUrl as string).trim() : "";
+  delete (rest as Record<string, unknown>).googleMapsUrl;
+  if (gmapUpdate && !(typeof rest.lat === "number" && typeof rest.lng === "number")) {
+    const coords = parseGoogleMapsUrl(gmapUpdate);
+    if (!coords) {
+      await logAiAction({ tenantId, userId, toolName: "update_installation", args, status: "validation_error", errorMessage: "google_maps_parse", startedAt: t0 });
+      return { ok: false, error: "No pude extraer coordenadas de ese link de Google Maps. Si es un link corto (maps.app.goo.gl), ábrelo y copia la URL completa del navegador (la que incluye @lat,lng), o dame la dirección exacta." };
+    }
+    rest.lat = coords.lat;
+    rest.lng = coords.lng;
+  }
   const parsed = updateInstallationSchema.safeParse(rest);
   if (!parsed.success) {
     const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
@@ -4646,6 +4744,7 @@ async function toolUpdateInstallation(
         status: installation!.status,
         accountId: installation!.accountId,
         accountName: installation!.account?.name ?? null,
+        mapsUrl: installation!.lat != null && installation!.lng != null ? buildDealMapsUrl({ lat: installation!.lat, lng: installation!.lng }) : null,
         changedFields: diff.changedFields,
         previousValues: Object.fromEntries(Object.entries(diff.changes).map(([k, v]) => [k, v.from])),
       },
@@ -7196,6 +7295,8 @@ export async function executeToolCallV2(
   if (toolName === "remove_quote_position") return await aiTool_remove_quote_position(tenantId, userId, perms, args, pageContext);
   if (toolName === "get_quote_proposal") return await aiTool_get_quote_proposal(tenantId, userId, perms, args, pageContext);
   if (toolName === "manage_quote_includes") return await aiTool_manage_quote_includes(tenantId, userId, perms, args, pageContext);
+  if (toolName === "manage_quote_extras") return await aiTool_manage_quote_extras(tenantId, userId, perms, args, pageContext);
+  if (toolName === "update_quote") return await aiTool_update_quote(tenantId, userId, perms, args, pageContext);
   if (toolName === "preview_send_quote_proposal")
     return await aiTool_preview_send_quote_proposal(tenantId, userId, perms, args, pageContext);
   if (toolName === "send_quote_proposal") return await aiTool_send_quote_proposal(tenantId, userId, perms, args, pageContext);
@@ -7383,6 +7484,8 @@ export async function executeToolCallV2(
         };
       case "get_quote_detail":
         return await toolGetQuoteDetail(tenantId, perms, args, pageContext);
+      case "get_quote_share_link":
+        return await aiTool_get_quote_share_link(tenantId, userId, perms, args, pageContext);
       case "get_entity_documents":
         return {
           ok: true,
