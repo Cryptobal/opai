@@ -18,6 +18,7 @@ import {
   hcPositionsOrdered,
   hcRolIdForSlot,
   hcSyncIncludesArray,
+  resolveOrCreateServiceGroup,
 } from "@/lib/ai/help-chat-cpq-ai-shared";
 import { resolveAiHelpChatCpqQuote } from "@/lib/ai/help-chat-ai-cpq-quote";
 import { cloneCpqQuote } from "@/modules/cpq/clone-quote.service";
@@ -289,17 +290,20 @@ async function buildInsertBodiesFromArgs(
   tenantId: string,
   args: Record<string, unknown>,
   defaults: Awaited<ReturnType<typeof pickDefaultCpqCatalogIds>>,
+  serviceGroupId: string,
 ): Promise<InsertPositionBody[]> {
   const afpName = asStr(args, "afpName");
   const healthSystem = asStr(args, "healthSystem");
   const healthPlanPct = typeof args.healthPlanPct === "number" ? args.healthPlanPct : undefined;
 
   // Un puesto = un servicio con nombre identificable. El código lo garantiza
-  // (el prompt solo guía): sin customName/puestoLabelPrefix no se crea el puesto.
-  const requestedPositionName = asStr(args, "customName") || asStr(args, "puestoLabelPrefix");
+  // (el prompt solo guía): el nombre sale de customName/puestoLabelPrefix o, en su
+  // defecto, del serviceName (obligatorio) que ya nombra el puesto físico.
+  const requestedPositionName =
+    asStr(args, "customName") || asStr(args, "puestoLabelPrefix") || asStr(args, "serviceName");
   if (!requestedPositionName) {
     throw new Error(
-      "customName es obligatorio: cada puesto debe tener un nombre identificable del servicio real (ej: 'Portería Central + Jefe de Turno', 'Ingreso Camiones'). Vuelve a llamar add_quote_position con customName.",
+      "Falta el nombre del puesto: indica serviceName (obligatorio) o customName con un nombre identificable del servicio real (ej: 'Portería Central + Jefe de Turno', 'Ingreso Camiones').",
     );
   }
 
@@ -391,17 +395,19 @@ async function buildInsertBodiesFromArgs(
     // distinguirlos, en vez de reemplazarlo por el genérico del catálogo (slot.name).
     const userName = asStr(args, "customName")?.trim();
     const prefix = asStr(args, "puestoLabelPrefix")?.trim();
+    const svcName = asStr(args, "serviceName")?.trim();
     let customName: string | undefined;
     if (slots.length > 1) {
       const shiftLabel = deriveShiftLabel(slot.shiftStart, slot.shiftEnd);
-      const baseLabel = userName || prefix || slot.name;
+      const baseLabel = userName || prefix || svcName || slot.name;
       customName = shiftLabel ? `${baseLabel} (${shiftLabel})` : `${baseLabel} · ${slot.name}`;
     } else {
-      customName = userName || prefix;
+      customName = userName || prefix || svcName;
     }
 
     out.push({
       puestoTrabajoId: puestoId,
+      serviceGroupId,
       weekdays: wk,
       startTime: slot.shiftStart ?? "08:00",
       endTime: slot.shiftEnd ?? "18:00",
@@ -435,8 +441,22 @@ export async function aiTool_add_quote_position(
   }
   try {
     const quote = await resolveAiHelpChatCpqQuote(tenantId, asStr(args, "quoteIdOrCode"), pageContext);
+
+    const serviceNameArg = typeof args.serviceName === "string" ? args.serviceName.trim() : "";
+    if (!serviceNameArg) {
+      throw new Error(
+        "serviceName es obligatorio: indica el nombre del servicio/puesto físico (ej: 'Portería Central + Jefe de Turno'). Un servicio por puesto.",
+      );
+    }
+    const svc = await resolveOrCreateServiceGroup({
+      tenantId,
+      quoteId: quote.id,
+      name: serviceNameArg,
+      coveragePattern: typeof args.coveragePattern === "string" ? args.coveragePattern : undefined,
+    });
+
     const defaults = await pickDefaultCpqCatalogIds(tenantId);
-    let bodies = await buildInsertBodiesFromArgs(tenantId, args, defaults);
+    let bodies = await buildInsertBodiesFromArgs(tenantId, args, defaults, svc.id);
 
     const forceSingle = Boolean(args.forceSingleSlot);
     if (forceSingle && bodies.length > 1) bodies = bodies.slice(0, 1);
@@ -466,6 +486,7 @@ export async function aiTool_add_quote_position(
       ok: true,
       data: {
         quoteId: quote.id,
+        service: { id: svc.id, name: svc.name, created: svc.created },
         addedPositionIds: created,
         positions: pmap,
         url: `/crm/cotizaciones/${quote.id}`,
@@ -474,12 +495,19 @@ export async function aiTool_add_quote_position(
   } catch (e) {
     const raw = e instanceof Error ? e.message : String(e);
     const vr = ["QUOTE_REF_MISSING", "QUOTE_NOT_FOUND"].includes(raw);
+    const isValidation =
+      vr ||
+      raw.includes("baseSalary") ||
+      raw.includes("serviceName") ||
+      raw.includes("turno del puesto") ||
+      raw.includes("nombre del puesto") ||
+      raw.includes("Días vacíos");
     await hcAiLog({
       tenantId,
       userId,
       toolName: "add_quote_position",
       args,
-      status: vr || raw.includes("baseSalary") ? "validation_error" : "internal_error",
+      status: isValidation ? "validation_error" : "internal_error",
       errorMessage: raw,
       startedAt: t0,
     });
@@ -513,8 +541,15 @@ export async function aiTool_preview_update_quote_position(
     }
 
     const body: Record<string, unknown> = {};
-    const allowed = ["customName","description","weekdays","startTime","endTime","numGuards","numPuestos","cargoId","rolId","puestoTrabajoId","baseSalary","afpName","healthSystem","healthPlanPct"];
+    const allowed = ["customName","description","weekdays","startTime","endTime","numGuards","numPuestos","cargoId","rolId","puestoTrabajoId","baseSalary","afpName","healthSystem","healthPlanPct","serviceGroupId"];
     for (const k of allowed) if (args[k] !== undefined) body[k] = args[k];
+
+    // serviceName: mueve el turno a ese servicio (lo crea si no existe en la cotización).
+    const serviceNameMove = asStr(args, "serviceName");
+    if (serviceNameMove) {
+      const svc = await resolveOrCreateServiceGroup({ tenantId, quoteId: quote.id, name: serviceNameMove });
+      body.serviceGroupId = svc.id;
+    }
 
     const posBefore = await prisma.cpqPosition.findFirst({
       where: { id: positionId, quoteId: quote.id },
@@ -603,6 +638,7 @@ function mergeArgsIntoPatch(args: Record<string, unknown>): Record<string, unkno
     "afpName",
     "healthSystem",
     "healthPlanPct",
+    "serviceGroupId",
     "forceRecalculate",
     "cargoName",
     "rolName",

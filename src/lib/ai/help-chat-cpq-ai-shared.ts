@@ -115,6 +115,42 @@ export async function hcRolIdForSlot(
   return fallbackRolId;
 }
 
+/**
+ * Resuelve el CpqServiceGroup de una cotización por nombre (case-insensitive).
+ * Si no existe, lo crea (coveragePattern y displayOrder al final). Un "servicio"
+ * agrupa los turnos de UN puesto físico (ej. "Portería Central + Jefe de Turno").
+ */
+export async function resolveOrCreateServiceGroup(opts: {
+  tenantId: string;
+  quoteId: string;
+  name: string;
+  coveragePattern?: string;
+}): Promise<{ id: string; name: string; created: boolean }> {
+  const name = opts.name.trim();
+  if (!name) throw new Error("serviceName vacío.");
+  const existing = await prisma.cpqServiceGroup.findFirst({
+    where: { tenantId: opts.tenantId, quoteId: opts.quoteId, name: { equals: name, mode: "insensitive" } },
+    select: { id: true, name: true },
+  });
+  if (existing) return { ...existing, created: false };
+  const last = await prisma.cpqServiceGroup.findFirst({
+    where: { tenantId: opts.tenantId, quoteId: opts.quoteId },
+    orderBy: { displayOrder: "desc" },
+    select: { displayOrder: true },
+  });
+  const created = await prisma.cpqServiceGroup.create({
+    data: {
+      tenantId: opts.tenantId,
+      quoteId: opts.quoteId,
+      name,
+      coveragePattern: opts.coveragePattern ?? "custom",
+      displayOrder: (last?.displayOrder ?? 0) + 1,
+    },
+    select: { id: true, name: true },
+  });
+  return { ...created, created: true };
+}
+
 export function hcMapQuoteResolveError(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e);
   if (msg.includes("ambig")) return msg;

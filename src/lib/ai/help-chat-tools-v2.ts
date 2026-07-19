@@ -971,7 +971,13 @@ function writeToolDefinitions() {
             afpName: { type: "string" },
             healthSystem: { type: "string" },
             healthPlanPct: { type: "number" },
+            serviceName: {
+              type: "string",
+              description:
+                "OBLIGATORIO. Nombre del SERVICIO (puesto físico) que agrupa los turnos de esta llamada, tal como debe verse en la cotización (ej: 'Portería Central + Jefe de Turno', 'Ingreso camiones Til Til-Quilín'). UN servicio por puesto físico del SoW/bases: NUNCA mezcles puestos distintos en el mismo serviceName.",
+            },
           },
+          required: ["serviceName"],
           additionalProperties: false,
         },
       },
@@ -1007,6 +1013,7 @@ function writeToolDefinitions() {
             customName: { type: "string" },
             description: { type: "string" },
             forceRecalculate: { type: "boolean" },
+            serviceName: { type: "string", description: "Mueve el turno a este servicio; si no existe en la cotización, se crea." },
           },
           additionalProperties: false,
         },
@@ -3166,7 +3173,7 @@ async function toolGetQuoteDetail(
       where: { id: resolved.id, tenantId },
       include: {
         positions: {
-          include: { puestoTrabajo: true, cargo: true, rol: true },
+          include: { puestoTrabajo: true, cargo: true, rol: true, serviceGroup: { select: { id: true, name: true, displayOrder: true } } },
           orderBy: { createdAt: "asc" },
         },
         parameters: true,
@@ -3213,6 +3220,33 @@ async function toolGetQuoteDetail(
 
     const proposalSections = summarizeProposalAiContent(quote.proposalAiContent ?? null);
 
+    // Estructura REAL por servicio (para que el bot verifique el estado tras escribir).
+    const svcGroups = new Map<string, { name: string; displayOrder: number; positions: unknown[] }>();
+    const ungroupedPositions: unknown[] = [];
+    for (const p of quote.positions) {
+      const entry = {
+        customName: p.customName?.trim() || null,
+        puesto: p.puestoTrabajo?.name ?? null,
+        rol: p.rol?.name ?? null,
+        guards: p.numGuards,
+        schedule: `${formatWeekdaysShort(p.weekdays)} ${p.startTime}-${p.endTime}`,
+      };
+      if (p.serviceGroup) {
+        const g = svcGroups.get(p.serviceGroup.id) ?? {
+          name: p.serviceGroup.name,
+          displayOrder: p.serviceGroup.displayOrder ?? 0,
+          positions: [] as unknown[],
+        };
+        g.positions.push(entry);
+        svcGroups.set(p.serviceGroup.id, g);
+      } else {
+        ungroupedPositions.push(entry);
+      }
+    }
+    const services = [...svcGroups.values()]
+      .sort((a, b) => a.displayOrder - b.displayOrder)
+      .map((g) => ({ name: g.name, positionsCount: g.positions.length, positions: g.positions }));
+
     return {
       ok: true,
       data: {
@@ -3231,6 +3265,8 @@ async function toolGetQuoteDetail(
             : null,
         },
         positions: positionsOut,
+        services,
+        ungroupedPositions,
         costBreakdown: {
           monthlyPositions: costs.monthlyPositions,
           monthlyHolidayAdjustment: costs.monthlyHolidayAdjustment,
