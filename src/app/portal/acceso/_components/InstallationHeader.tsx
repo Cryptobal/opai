@@ -18,21 +18,21 @@ export function InstallationHeader({
   onChangeGuard,
 }: InstallationHeaderProps) {
   return (
-    <header className="sticky top-0 z-30 border-b border-gray-800/60 bg-[#0A0F1C]/95 px-4 py-3 backdrop-blur-md">
+    <header className="sticky top-0 z-30 border-b border-border bg-card opai-glass-strong-m px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         {/* Left: Installation info */}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-white">
+          <p className="truncate text-sm font-semibold text-foreground">
             {installationName}
           </p>
           <button
             type="button"
             onClick={onChangeGuard}
-            className="flex items-center gap-1 text-xs text-gray-400 transition-colors active:text-status-info-fg"
+            className="flex items-center gap-1 text-xs text-muted-foreground transition-colors active:text-primary"
           >
             <UserRoundCheck className="h-3 w-3 shrink-0" />
             <span className="break-words">{guardName}</span>
-            <span className="text-xs text-gray-500">· Cambiar</span>
+            <span className="text-xs text-muted-foreground">· Cambiar</span>
           </button>
         </div>
 

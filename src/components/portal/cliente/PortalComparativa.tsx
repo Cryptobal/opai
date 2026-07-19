@@ -51,10 +51,10 @@ export function PortalComparativa({ session, isProspect }: Props) {
           <h2 className="text-base font-semibold">Comparativa de desempeño</h2>
           <PreviewBadge />
         </div>
-        <p className="text-xs text-zinc-500">Compara el rendimiento entre tus instalaciones</p>
-        <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-5 space-y-3">
-          <p className="text-sm text-zinc-300 font-medium">Benchmarks del servicio</p>
-          <ul className="space-y-2 text-xs text-zinc-400">
+        <p className="text-xs text-muted-foreground">Compara el rendimiento entre tus instalaciones</p>
+        <div className="bg-card opai-glass-soft-m border border-border rounded-xl p-5 space-y-3">
+          <p className="text-sm text-muted-foreground font-medium">Benchmarks del servicio</p>
+          <ul className="space-y-2 text-xs text-muted-foreground">
             <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Compara rendimiento entre instalaciones</li>
             <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Métricas de rondas, asistencia y tickets</li>
             <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-status-info" />Ranking automático de instalaciones</li>
@@ -109,7 +109,7 @@ export function PortalComparativa({ session, isProspect }: Props) {
   if (session.installations.length < 2) {
     return (
       <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24">
-        <div className="flex flex-col items-center justify-center h-64 gap-3 text-zinc-500">
+        <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
           <GitCompare className="h-10 w-10 text-zinc-600" />
           <p className="text-sm font-medium">Comparativa de desempeño</p>
           <p className="text-xs text-zinc-600 text-center max-w-xs">
@@ -129,7 +129,7 @@ export function PortalComparativa({ session, isProspect }: Props) {
       <div className="flex items-center gap-2">
         <GitCompare className="h-5 w-5 text-status-info-fg" />
         <h2 className="text-base font-semibold">Comparativa de desempeño</h2>
-        <span className="text-xs text-zinc-500 ml-auto">Últimos 30 días</span>
+        <span className="text-xs text-muted-foreground ml-auto">Últimos 30 días</span>
       </div>
 
       {/* Metric selector */}
@@ -142,7 +142,7 @@ export function PortalComparativa({ session, isProspect }: Props) {
               'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
               metric === m
                 ? 'bg-status-info-soft text-status-info-fg border border-status-info-border'
-                : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-700'
+                : 'bg-muted text-muted-foreground hover:text-foreground border border-border'
             )}
           >
             {METRIC_LABELS[m]}
@@ -151,10 +151,10 @@ export function PortalComparativa({ session, isProspect }: Props) {
       </div>
 
       {/* Chart */}
-      <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4">
+      <div className="bg-card opai-glass-soft-m rounded-xl border border-border p-4">
         {loading ? (
           <div className="flex items-center justify-center h-48">
-            <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : error ? (
           <div className="flex items-center justify-center h-48">
@@ -162,7 +162,7 @@ export function PortalComparativa({ session, isProspect }: Props) {
           </div>
         ) : data.length === 0 ? (
           <div className="flex items-center justify-center h-48">
-            <p className="text-xs text-zinc-500">Sin datos en el periodo seleccionado</p>
+            <p className="text-xs text-muted-foreground">Sin datos en el periodo seleccionado</p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={200}>
@@ -195,12 +195,12 @@ export function PortalComparativa({ session, isProspect }: Props) {
 
       {/* Ranking table */}
       {!loading && !error && sorted.length > 0 && (
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
-          <div className="px-4 py-3 border-b border-zinc-800 flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-zinc-400" />
-            <span className="text-xs font-medium text-zinc-300">Ranking de instalaciones</span>
+        <div className="bg-card opai-glass-soft-m rounded-xl border border-border overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs font-medium text-muted-foreground">Ranking de instalaciones</span>
           </div>
-          <div className="divide-y divide-zinc-800">
+          <div className="divide-y divide-border">
             {sorted.map((row, idx) => (
               <div key={row.installationId} className="flex items-center gap-3 px-4 py-3">
                 {/* Rank badge */}
@@ -226,10 +226,10 @@ export function PortalComparativa({ session, isProspect }: Props) {
                 />
 
                 {/* Name */}
-                <span className="text-sm text-zinc-200 flex-1 truncate">{row.installationName}</span>
+                <span className="text-sm text-foreground flex-1 truncate">{row.installationName}</span>
 
                 {/* Value */}
-                <span className="text-sm font-semibold text-zinc-100">
+                <span className="text-sm font-semibold text-foreground">
                   {row.value}{suffix}
                 </span>
               </div>

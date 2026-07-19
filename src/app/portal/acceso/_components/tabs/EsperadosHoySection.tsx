@@ -81,7 +81,7 @@ export default function EsperadosHoySection({
   if (loading) {
     return (
       <div className="space-y-3">
-        <div className="h-6 w-48 rounded bg-[#1F2937] animate-pulse" />
+        <div className="h-6 w-48 rounded bg-muted animate-pulse" />
         {Array.from({ length: 3 }).map((_, i) => (
           <SkeletonCard key={i} />
         ))}
@@ -103,13 +103,13 @@ export default function EsperadosHoySection({
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-[#F9FAFB]">
-          <CalendarCheck className="h-5 w-5 text-[#06B6D4]" />
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+          <CalendarCheck className="h-5 w-5 text-primary" />
           Esperados Hoy
         </h2>
         <Badge
           variant="outline"
-          className="border-[#374151] text-[#9CA3AF]"
+          className="border-border text-muted-foreground"
         >
           {preregistrations.length} total
         </Badge>
@@ -127,9 +127,9 @@ export default function EsperadosHoySection({
 
       {/* List */}
       {sortedList.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-[#374151] bg-[#111827] py-12 px-4">
-          <Inbox className="h-12 w-12 text-[#374151]" />
-          <p className="mt-3 text-sm font-medium text-[#9CA3AF]">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card opai-glass-soft-m py-12 px-4">
+          <Inbox className="h-12 w-12 text-muted-foreground" />
+          <p className="mt-3 text-sm font-medium text-muted-foreground">
             No hay visitas pre-registradas para hoy
           </p>
         </div>
@@ -147,16 +147,16 @@ export default function EsperadosHoySection({
             return (
               <div
                 key={prereg.id}
-                className="rounded-lg border border-[#374151] bg-[#111827] p-4 space-y-2"
+                className="rounded-lg border border-border bg-card opai-glass-soft-m p-4 space-y-2"
               >
                 {/* Top row: name + status */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[#F9FAFB] break-words">
+                    <p className="text-sm font-medium text-foreground break-words">
                       {prereg.visitorName}
                     </p>
                     {prereg.visitorRut && (
-                      <p className="text-sm text-[#9CA3AF]">
+                      <p className="text-sm text-muted-foreground">
                         {formatRut(prereg.visitorRut)}
                       </p>
                     )}
@@ -171,7 +171,7 @@ export default function EsperadosHoySection({
                 </div>
 
                 {/* Details */}
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-[#9CA3AF]">
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
                   {prereg.visitorCompany && (
                     <span className="flex items-center gap-1">
                       <Building2 className="h-3 w-3" />
@@ -194,7 +194,7 @@ export default function EsperadosHoySection({
 
                 {/* Purpose */}
                 {prereg.purpose && (
-                  <p className="text-sm text-[#9CA3AF] italic">
+                  <p className="text-sm text-muted-foreground italic">
                     {prereg.purpose}
                   </p>
                 )}

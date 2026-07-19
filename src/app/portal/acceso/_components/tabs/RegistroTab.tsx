@@ -27,7 +27,7 @@ function getBadgeColorClasses(type: AccessRecordType): string {
     case "staff":
       return "border-status-ok-border bg-status-ok-soft text-status-ok-fg";
     default:
-      return "border-zinc-700 bg-zinc-800 text-zinc-300";
+      return "border-border bg-muted text-muted-foreground";
   }
 }
 
@@ -99,8 +99,8 @@ export default function RegistroTab({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-[#F9FAFB]">Registro de Acceso</h2>
-        <p className="mt-1 text-sm text-[#9CA3AF]">
+        <h2 className="text-lg font-semibold text-foreground">Registro de Acceso</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
           Registra ingresos y salidas de personas y vehiculos.
         </p>
       </div>
@@ -116,28 +116,28 @@ export default function RegistroTab({
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-lg font-bold text-[#10B981] tracking-wide">REGISTRAR ENTRADA</p>
-            <p className="text-sm text-[#9CA3AF]">Persona o vehiculo ingresa a la instalacion</p>
+            <p className="text-sm text-muted-foreground">Persona o vehiculo ingresa a la instalacion</p>
           </div>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveFlow("exit")}
-          className="group relative flex items-center gap-4 rounded-2xl border-2 border-[#374151] bg-[#111827] p-5 text-left transition-all active:scale-[0.98] active:bg-[#1F2937]"
+          className="group relative flex items-center gap-4 rounded-2xl border-2 border-border bg-card opai-glass-soft-m p-5 text-left transition-all active:scale-[0.98] active:bg-muted"
         >
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#1F2937]">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-muted">
             <ArrowDownLeft className="h-7 w-7 text-[#F59E0B]" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-lg font-bold text-[#F9FAFB] tracking-wide">REGISTRAR SALIDA</p>
-            <p className="text-sm text-[#9CA3AF]">Persona o vehiculo sale de la instalacion</p>
+            <p className="text-lg font-bold text-foreground tracking-wide">REGISTRAR SALIDA</p>
+            <p className="text-sm text-muted-foreground">Persona o vehiculo sale de la instalacion</p>
           </div>
         </button>
       </div>
 
       {enabledTypes.length > 0 && (
         <div className="space-y-2">
-          <p className="text-sm font-medium uppercase tracking-wider text-[#9CA3AF]">
+          <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
             Tipos habilitados
           </p>
           <div className="flex flex-wrap gap-2">

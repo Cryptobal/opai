@@ -84,7 +84,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-zinc-400">
+      <label className="text-xs font-medium text-muted-foreground">
         {label}
         {required && <span className="text-status-danger-fg ml-0.5">*</span>}
       </label>
@@ -94,7 +94,7 @@ function Field({
 }
 
 const inputCls =
-  "w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-teal-600 transition";
+  "w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-teal-600 transition";
 
 /* ══════════════════════════════════════════════════════════ */
 
@@ -248,7 +248,7 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
 
   if (step === "done") {
     return (
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5 mt-4 space-y-4">
+      <div className="rounded-xl border border-border bg-card opai-glass-soft-m p-5 mt-4 space-y-4">
         <div className="flex items-center gap-2 text-status-ok-fg font-medium text-sm">
           <CheckCircle className="w-5 h-5" />
           Datos de contrato recibidos
@@ -256,7 +256,7 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
         {signatureToken ? (
           <PortalSignContract signatureToken={signatureToken} />
         ) : (
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-muted-foreground">
             Un ejecutivo revisará tu información y te contactará pronto para continuar el proceso de
             contratación.
           </p>
@@ -266,13 +266,13 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
   }
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5 mt-4 space-y-5">
-      <h3 className="text-sm font-semibold text-zinc-200">Datos para el contrato</h3>
+    <div className="rounded-xl border border-border bg-card opai-glass-soft-m p-5 mt-4 space-y-5">
+      <h3 className="text-sm font-semibold text-foreground">Datos para el contrato</h3>
 
       <StepIndicator current={step} />
 
       {loadingPrefill && (
-        <div className="flex items-center gap-2 text-xs text-zinc-500">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
           Cargando datos de la empresa…
         </div>
@@ -357,7 +357,7 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
           <div className="flex justify-between pt-1">
             <button
               onClick={goBack}
-              className="flex items-center gap-1.5 px-4 h-9 rounded-lg border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-sm transition-colors"
+              className="flex items-center gap-1.5 px-4 h-9 rounded-lg border border-border text-muted-foreground hover:text-foreground text-sm transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
               Atras
@@ -377,13 +377,13 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
       {/* ── Step 3: Contactos operativos ── */}
       {step === "contactos" && (
         <div className="space-y-4">
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted-foreground">
             Agrega los contactos operativos que coordinaran el servicio.
           </p>
           {contactos.map((c, idx) => (
             <div
               key={idx}
-              className="rounded-lg border border-zinc-800 p-3 space-y-3 relative"
+              className="rounded-lg border border-border p-3 space-y-3 relative"
             >
               {contactos.length > 1 && (
                 <button
@@ -452,16 +452,16 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
           )}
 
           {/* Summary */}
-          <div className="rounded-lg bg-zinc-800/40 border border-zinc-800 p-3 space-y-1.5 text-xs text-zinc-400">
-            <p className="font-semibold text-zinc-300 mb-2">Resumen</p>
+          <div className="rounded-lg bg-muted opai-glass-soft-m border border-border p-3 space-y-1.5 text-xs text-muted-foreground">
+            <p className="font-semibold text-muted-foreground mb-2">Resumen</p>
             <p>
-              <span className="text-zinc-500">Empresa:</span> {empresa.legalName} ({empresa.rut})
+              <span className="text-muted-foreground">Empresa:</span> {empresa.legalName} ({empresa.rut})
             </p>
             <p>
-              <span className="text-zinc-500">Dirección:</span> {empresa.address}
+              <span className="text-muted-foreground">Dirección:</span> {empresa.address}
             </p>
             <p>
-              <span className="text-zinc-500">Facturación:</span> {facturacion.email} —{" "}
+              <span className="text-muted-foreground">Facturación:</span> {facturacion.email} —{" "}
               {facturacion.paymentMethod}
             </p>
           </div>
@@ -469,7 +469,7 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
           <div className="flex justify-between pt-1">
             <button
               onClick={goBack}
-              className="flex items-center gap-1.5 px-4 h-9 rounded-lg border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-sm transition-colors"
+              className="flex items-center gap-1.5 px-4 h-9 rounded-lg border border-border text-muted-foreground hover:text-foreground text-sm transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
               Atras

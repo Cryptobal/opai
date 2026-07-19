@@ -41,7 +41,7 @@ interface Props {
 const PRIORITY_OPTIONS = [
   { value: 'p1', label: 'P1 — Critico', color: 'text-status-danger-fg' },
   { value: 'p2', label: 'P2 — Alto', color: 'text-status-warn-fg' },
-  { value: 'p3', label: 'P3 — Normal', color: 'text-zinc-300' },
+  { value: 'p3', label: 'P3 — Normal', color: 'text-muted-foreground' },
 ]
 
 export function PortalCreateTicket({ session: _session, selectedInstallation, onCreated, onClose }: Props) {
@@ -145,16 +145,16 @@ export function PortalCreateTicket({ session: _session, selectedInstallation, on
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-lg bg-zinc-900 border border-zinc-700/50 rounded-t-2xl sm:rounded-2xl shadow-2xl">
+      <div className="w-full max-w-lg bg-card opai-glass-strong-m border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2">
             <Ticket className="h-5 w-5 text-status-info-fg" />
-            <h2 className="text-white font-semibold">Nuevo Ticket</h2>
+            <h2 className="text-foreground font-semibold">Nuevo Ticket</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-zinc-800 transition-colors text-zinc-400"
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -165,7 +165,7 @@ export function PortalCreateTicket({ session: _session, selectedInstallation, on
           {/* Ticket Type */}
           {ticketTypes.length > 0 && (
             <div>
-              <label className="text-xs text-zinc-400 mb-1.5 block font-medium">
+              <label className="text-xs text-muted-foreground mb-1.5 block font-medium">
                 Tipo de solicitud
               </label>
               <select
@@ -175,7 +175,7 @@ export function PortalCreateTicket({ session: _session, selectedInstallation, on
                   const selected = ticketTypes.find((t) => t.id === e.target.value)
                   if (selected) setPriority(selected.defaultPriority)
                 }}
-                className="w-full h-10 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                className="w-full h-10 rounded-lg border border-border bg-muted px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               >
                 <option value="">Seleccionar tipo...</option>
                 {ticketTypes.map((t) => (
@@ -189,7 +189,7 @@ export function PortalCreateTicket({ session: _session, selectedInstallation, on
 
           {/* Title */}
           <div>
-            <label className="text-xs text-zinc-400 mb-1.5 block font-medium">
+            <label className="text-xs text-muted-foreground mb-1.5 block font-medium">
               Titulo <span className="text-status-danger-fg">*</span>
             </label>
             <input
@@ -198,7 +198,7 @@ export function PortalCreateTicket({ session: _session, selectedInstallation, on
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Describe el problema brevemente"
               maxLength={200}
-              className="w-full h-10 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              className="w-full h-10 rounded-lg border border-border bg-muted px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               required
               autoFocus
             />
@@ -206,7 +206,7 @@ export function PortalCreateTicket({ session: _session, selectedInstallation, on
 
           {/* Description */}
           <div>
-            <label className="text-xs text-zinc-400 mb-1.5 block font-medium">
+            <label className="text-xs text-muted-foreground mb-1.5 block font-medium">
               Descripcion
             </label>
             <textarea
@@ -215,13 +215,13 @@ export function PortalCreateTicket({ session: _session, selectedInstallation, on
               placeholder="Agrega mas detalles sobre el incidente o solicitud..."
               rows={4}
               maxLength={2000}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
             />
           </div>
 
           {/* Priority */}
           <div>
-            <label className="text-xs text-zinc-400 mb-1.5 block font-medium">
+            <label className="text-xs text-muted-foreground mb-1.5 block font-medium">
               Prioridad
             </label>
             <div className="flex gap-2">
@@ -234,13 +234,13 @@ export function PortalCreateTicket({ session: _session, selectedInstallation, on
                     'flex-1 h-9 rounded-lg border text-xs font-medium transition-all',
                     priority === opt.value
                       ? 'border-status-info-border bg-status-info-soft text-status-info-fg'
-                      : 'border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600'
+                      : 'border-border bg-muted text-muted-foreground hover:border-border'
                   )}
                 >
                   <span className={cn('block text-xs leading-tight', opt.color)}>
                     {opt.value.toUpperCase()}
                   </span>
-                  <span className="block text-[10px] text-zinc-500 leading-tight">
+                  <span className="block text-[10px] text-muted-foreground leading-tight">
                     {opt.value === 'p1' ? 'Critico' : opt.value === 'p2' ? 'Alto' : 'Normal'}
                   </span>
                 </button>
@@ -250,8 +250,8 @@ export function PortalCreateTicket({ session: _session, selectedInstallation, on
 
           {/* Attachments */}
           <div>
-            <label className="text-xs text-zinc-400 mb-1.5 block font-medium">
-              Adjuntos <span className="text-zinc-500 font-normal">(opcional, máx {MAX_ATTACHMENTS})</span>
+            <label className="text-xs text-muted-foreground mb-1.5 block font-medium">
+              Adjuntos <span className="text-muted-foreground font-normal">(opcional, máx {MAX_ATTACHMENTS})</span>
             </label>
 
             <input
@@ -270,23 +270,23 @@ export function PortalCreateTicket({ session: _session, selectedInstallation, on
                   return (
                     <div
                       key={a.id}
-                      className="flex items-center gap-2 bg-zinc-800 border border-zinc-700 rounded-lg px-2.5 py-1.5"
+                      className="flex items-center gap-2 bg-muted border border-border rounded-lg px-2.5 py-1.5"
                     >
-                      <div className="shrink-0 h-7 w-7 rounded bg-zinc-700/70 flex items-center justify-center overflow-hidden">
+                      <div className="shrink-0 h-7 w-7 rounded bg-muted flex items-center justify-center overflow-hidden">
                         {isImage ? (
                           <img src={a.fileUrl} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <FileText className="h-3.5 w-3.5 text-zinc-400" />
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-zinc-200 break-all">{a.fileName}</p>
-                        <p className="text-[10px] text-zinc-500">{formatBytes(a.fileSize)}</p>
+                        <p className="text-xs text-foreground break-all">{a.fileName}</p>
+                        <p className="text-[10px] text-muted-foreground">{formatBytes(a.fileSize)}</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => removeAttachment(a.id)}
-                        className="p-1 rounded hover:bg-white/10 text-zinc-400"
+                        className="p-1 rounded hover:bg-white/10 text-muted-foreground"
                         aria-label="Quitar"
                       >
                         <X className="h-3.5 w-3.5" />
@@ -301,7 +301,7 @@ export function PortalCreateTicket({ session: _session, selectedInstallation, on
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading || attachments.length >= MAX_ATTACHMENTS}
-              className="w-full h-9 rounded-lg border border-dashed border-zinc-700 bg-zinc-800/40 hover:border-zinc-600 hover:bg-zinc-800 disabled:opacity-40 text-xs text-zinc-400 flex items-center justify-center gap-1.5 transition-colors"
+              className="w-full h-9 rounded-lg border border-dashed border-border bg-muted/40 hover:border-border hover:bg-muted disabled:opacity-40 text-xs text-muted-foreground flex items-center justify-center gap-1.5 transition-colors"
             >
               {uploading ? (
                 <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Subiendo…</>
@@ -320,7 +320,7 @@ export function PortalCreateTicket({ session: _session, selectedInstallation, on
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 h-10 rounded-lg border border-zinc-700 bg-zinc-800 text-sm text-zinc-300 hover:bg-zinc-700 transition-colors"
+              className="flex-1 h-10 rounded-lg border border-border bg-muted text-sm text-muted-foreground hover:bg-muted transition-colors"
             >
               Cancelar
             </button>

@@ -70,13 +70,13 @@ function SetupContent() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-zinc-900 border-zinc-800">
+      <Card className="w-full max-w-md bg-card opai-glass-soft-m border-border">
         <CardHeader className="text-center pb-4">
           <div className="flex justify-center mb-3">
-            <Shield className="h-10 w-10 text-status-info-fg" />
+            <Shield className="h-10 w-10 text-primary" />
           </div>
-          <CardTitle className="text-white text-xl">Portal de Clientes OPAI</CardTitle>
-          <CardDescription className="text-zinc-400 text-sm">
+          <CardTitle className="text-foreground text-xl">Portal de Clientes OPAI</CardTitle>
+          <CardDescription className="text-muted-foreground text-sm">
             {state === 'loading' && 'Verificando enlace de acceso...'}
             {state === 'valid' && (firstName ? `Bienvenido, ${firstName}` : 'Crea tu PIN de acceso')}
             {state === 'invalid' && 'Enlace de acceso inválido'}
@@ -87,14 +87,14 @@ function SetupContent() {
         <CardContent>
           {state === 'loading' && (
             <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 text-status-info-fg animate-spin" />
+              <Loader2 className="h-8 w-8 text-primary animate-spin" />
             </div>
           )}
 
           {(state === 'invalid' || state === 'expired') && (
             <div className="text-center space-y-4 py-4">
               <AlertCircle className="h-10 w-10 text-status-danger-fg mx-auto" />
-              <p className="text-zinc-400 text-sm">
+              <p className="text-muted-foreground text-sm">
                 {state === 'expired'
                   ? 'Este enlace expiró (válido 48 horas). Contacta a tu ejecutivo Gard para solicitar un nuevo acceso.'
                   : 'Este enlace no es válido. Verifica que la URL sea correcta o solicita un nuevo acceso.'}
@@ -105,34 +105,34 @@ function SetupContent() {
           {state === 'valid' && (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="text-zinc-400 text-xs mb-1.5 block">RUT de la empresa</label>
+                <label className="text-muted-foreground text-xs mb-1.5 block">RUT de la empresa</label>
                 <Input
                   value={rut}
                   disabled
-                  className="bg-zinc-800 border-zinc-700 text-zinc-400 cursor-not-allowed"
+                  className="bg-muted border-border text-muted-foreground cursor-not-allowed"
                 />
               </div>
               <div>
-                <label className="text-zinc-400 text-xs mb-1.5 block">Crear PIN (4 dígitos)</label>
+                <label className="text-muted-foreground text-xs mb-1.5 block">Crear PIN (4 dígitos)</label>
                 <Input
                   type="password"
                   value={pin}
                   onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
                   placeholder="••••"
-                  className="bg-zinc-800 border-zinc-700 text-white tracking-[0.5em] text-center"
+                  className="bg-muted border-border text-foreground tracking-[0.5em] text-center"
                   inputMode="numeric"
                   autoComplete="new-password"
                   maxLength={4}
                 />
               </div>
               <div>
-                <label className="text-zinc-400 text-xs mb-1.5 block">Confirmar PIN</label>
+                <label className="text-muted-foreground text-xs mb-1.5 block">Confirmar PIN</label>
                 <Input
                   type="password"
                   value={pinConfirm}
                   onChange={e => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))}
                   placeholder="••••"
-                  className="bg-zinc-800 border-zinc-700 text-white tracking-[0.5em] text-center"
+                  className="bg-muted border-border text-foreground tracking-[0.5em] text-center"
                   inputMode="numeric"
                   autoComplete="new-password"
                   maxLength={4}
@@ -147,7 +147,7 @@ function SetupContent() {
               <Button
                 type="submit"
                 disabled={submitting || pin.length < 4}
-                className="w-full bg-status-info hover:brightness-110 text-white"
+                className="w-full bg-primary hover:brightness-110 text-primary-foreground"
               >
                 {submitting ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Configurando...</>
@@ -161,7 +161,7 @@ function SetupContent() {
           {state === 'success' && (
             <div className="text-center space-y-4 py-4">
               <CheckCircle className="h-10 w-10 text-status-ok-fg mx-auto" />
-              <p className="text-zinc-300 text-sm">Redirigiendo al portal...</p>
+              <p className="text-muted-foreground text-sm">Redirigiendo al portal...</p>
             </div>
           )}
         </CardContent>
@@ -174,7 +174,7 @@ export default function SetupPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 text-status-info-fg animate-spin" />
+        <Loader2 className="h-8 w-8 text-primary animate-spin" />
       </div>
     }>
       <SetupContent />

@@ -131,28 +131,28 @@ export function PortalCommandPalette({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-xl rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl overflow-hidden"
+        className="w-full max-w-xl rounded-xl border border-border bg-card opai-glass-strong-m shadow-2xl overflow-hidden"
       >
         <Command shouldFilter={false} className="flex flex-col">
-          <div className="flex items-center gap-2 px-3 py-2.5 border-b border-zinc-800">
-            <Search className="h-4 w-4 text-zinc-500" />
+          <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
+            <Search className="h-4 w-4 text-muted-foreground" />
             <Command.Input
               value={query}
               onValueChange={setQuery}
               placeholder="Buscar secciones, guardias, instalaciones, tickets..."
-              className="flex-1 bg-transparent text-sm outline-none placeholder:text-zinc-500"
+              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               autoFocus
             />
-            <kbd className="text-[10px] text-zinc-500 border border-zinc-700 rounded px-1.5 py-0.5">
+            <kbd className="text-[10px] text-muted-foreground border border-border rounded px-1.5 py-0.5">
               Esc
             </kbd>
           </div>
           <Command.List className="max-h-[50vh] overflow-y-auto p-1">
             {loading && (
-              <div className="text-xs text-zinc-500 px-3 py-2">Buscando...</div>
+              <div className="text-xs text-muted-foreground px-3 py-2">Buscando...</div>
             )}
             {!loading && groups.length === 0 && (
-              <Command.Empty className="text-xs text-zinc-500 px-3 py-4 text-center">
+              <Command.Empty className="text-xs text-muted-foreground px-3 py-4 text-center">
                 Sin resultados
               </Command.Empty>
             )}
@@ -160,7 +160,7 @@ export function PortalCommandPalette({
               <Command.Group
                 key={g.label}
                 heading={g.label}
-                className="[&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-zinc-500 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5"
+                className="[&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5"
               >
                 {g.items.map((item) => {
                   const Icon =
@@ -178,13 +178,13 @@ export function PortalCommandPalette({
                       key={`${item.type}_${item.id}`}
                       value={`${item.type}_${item.id}_${item.title}`}
                       onSelect={() => handleSelect(item)}
-                      className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-sm data-[selected=true]:bg-zinc-800"
+                      className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-sm data-[selected=true]:bg-muted"
                     >
-                      <Icon className="h-4 w-4 text-zinc-400 flex-shrink-0" />
+                      <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="truncate">{item.title}</p>
                         {(item.subtitle || item.hint) && (
-                          <p className="text-[11px] text-zinc-500 truncate">
+                          <p className="text-[11px] text-muted-foreground truncate">
                             {item.subtitle || item.hint}
                           </p>
                         )}

@@ -26,7 +26,7 @@ export default function WizardStepper({ steps, currentStep }: WizardStepperProps
                     transition-all duration-300
                     ${isCompleted ? "bg-status-ok text-white" : ""}
                     ${isActive ? "bg-status-info text-white ring-2 ring-status-info/40 ring-offset-2 ring-offset-gray-900" : ""}
-                    ${isUpcoming ? "bg-gray-700 text-gray-400 border border-gray-600" : ""}
+                    ${isUpcoming ? "bg-muted text-muted-foreground border border-border" : ""}
                   `}
                 >
                   {isCompleted ? (
@@ -48,7 +48,7 @@ export default function WizardStepper({ steps, currentStep }: WizardStepperProps
                     mt-1.5 text-xs font-medium text-center max-w-[72px] leading-tight
                     ${isCompleted ? "text-status-ok-fg" : ""}
                     ${isActive ? "text-status-info-fg" : ""}
-                    ${isUpcoming ? "text-gray-500" : ""}
+                    ${isUpcoming ? "text-muted-foreground" : ""}
                   `}
                 >
                   {step}
@@ -61,7 +61,7 @@ export default function WizardStepper({ steps, currentStep }: WizardStepperProps
                   <div
                     className={`
                       h-0.5 w-full transition-all duration-300
-                      ${index < currentStep ? "bg-status-ok" : "bg-gray-700"}
+                      ${index < currentStep ? "bg-status-ok" : "bg-border"}
                     `}
                   />
                 </div>

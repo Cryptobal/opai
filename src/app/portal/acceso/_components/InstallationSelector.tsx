@@ -62,16 +62,16 @@ export function InstallationSelector({ guardId, onSelect }: InstallationSelector
   }, [guardId]);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[#0A0F1C] px-5 py-8">
+    <div className="flex min-h-dvh flex-col bg-background px-5 py-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-status-info-soft">
-          <Building2 className="h-6 w-6 text-status-info-fg" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+          <Building2 className="h-6 w-6 text-primary" />
         </div>
-        <h1 className="mt-4 text-xl font-bold text-white">
+        <h1 className="mt-4 text-xl font-bold text-foreground">
           Selecciona tu instalacion
         </h1>
-        <p className="mt-1 text-sm text-gray-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           Elige la instalacion donde te encuentras trabajando hoy.
         </p>
       </div>
@@ -80,8 +80,8 @@ export function InstallationSelector({ guardId, onSelect }: InstallationSelector
       {loading && (
         <div className="flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-status-info-fg" />
-            <p className="text-sm text-gray-400">Cargando instalaciones...</p>
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Cargando instalaciones...</p>
           </div>
         </div>
       )}
@@ -95,7 +95,7 @@ export function InstallationSelector({ guardId, onSelect }: InstallationSelector
           <button
             type="button"
             onClick={fetchInstallations}
-            className="flex items-center gap-2 rounded-xl bg-gray-800 px-4 py-2.5 text-sm text-gray-300 transition-colors active:bg-gray-700"
+            className="flex items-center gap-2 rounded-xl bg-muted px-4 py-2.5 text-sm text-foreground/80 transition-colors active:bg-muted/70"
           >
             <RefreshCw className="h-4 w-4" />
             Reintentar
@@ -106,19 +106,19 @@ export function InstallationSelector({ guardId, onSelect }: InstallationSelector
       {/* Empty */}
       {!loading && !error && installations.length === 0 && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4">
-          <div className="rounded-xl border border-gray-800 bg-gray-900/50 px-6 py-8 text-center">
-            <Building2 className="mx-auto h-10 w-10 text-gray-600" />
-            <p className="mt-3 text-sm text-gray-400">
+          <div className="rounded-xl border border-border bg-card opai-glass-soft-m px-6 py-8 text-center">
+            <Building2 className="mx-auto h-10 w-10 text-muted-foreground" />
+            <p className="mt-3 text-sm text-muted-foreground">
               No tienes instalaciones asignadas.
             </p>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-muted-foreground">
               Contacta a tu supervisor para que te asigne una instalacion.
             </p>
           </div>
           <button
             type="button"
             onClick={fetchInstallations}
-            className="flex items-center gap-2 rounded-xl bg-gray-800 px-4 py-2.5 text-sm text-gray-300 transition-colors active:bg-gray-700"
+            className="flex items-center gap-2 rounded-xl bg-muted px-4 py-2.5 text-sm text-foreground/80 transition-colors active:bg-muted/70"
           >
             <RefreshCw className="h-4 w-4" />
             Reintentar
@@ -134,21 +134,21 @@ export function InstallationSelector({ guardId, onSelect }: InstallationSelector
               key={inst.id}
               type="button"
               onClick={() => onSelect(inst)}
-              className="flex w-full items-start gap-4 rounded-xl border border-gray-800 bg-gray-900/50 p-4 text-left transition-colors active:border-status-info-border active:bg-status-info-soft"
+              className="flex w-full items-start gap-4 rounded-xl border border-border bg-card opai-glass-soft-m p-4 text-left transition-colors active:border-primary active:bg-primary/10"
             >
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-status-info-soft">
-                <Building2 className="h-5 w-5 text-status-info-fg" />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                <Building2 className="h-5 w-5 text-primary" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-medium text-white">{inst.name}</p>
+                <p className="font-medium text-foreground">{inst.name}</p>
                 {inst.address && (
-                  <p className="mt-0.5 flex items-center gap-1 text-sm text-gray-400">
+                  <p className="mt-0.5 flex items-center gap-1 text-sm text-muted-foreground">
                     <MapPin className="h-3 w-3 shrink-0 mt-0.5" />
                     <span className="break-words">{inst.address}</span>
                   </p>
                 )}
               </div>
-              <span className="mt-0.5 text-gray-500">&#8250;</span>
+              <span className="mt-0.5 text-muted-foreground">&#8250;</span>
             </button>
           ))}
         </div>

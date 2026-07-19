@@ -157,7 +157,7 @@ export function PortalClienteNav({
       {moreOpen && (
         <div
           ref={moreRef}
-          className="fixed right-3 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-2 min-w-[200px] max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto z-[60]"
+          className="fixed right-3 bg-card opai-glass-strong-m border border-border rounded-xl shadow-xl py-2 min-w-[200px] max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto z-[60]"
           style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
         >
           {(Object.keys(GROUPED_ITEMS) as NavGroup[]).map((group, gIdx) => {
@@ -165,8 +165,8 @@ export function PortalClienteNav({
             if (groupItems.length === 0) return null
             return (
               <div key={group}>
-                {gIdx > 0 && <div className="border-t border-zinc-700 my-2" />}
-                <p className="px-4 py-1 text-[10px] text-zinc-500 uppercase tracking-wider font-medium">
+                {gIdx > 0 && <div className="border-t border-border my-2" />}
+                <p className="px-4 py-1 text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
                   {GROUP_LABELS[group]}
                 </p>
                 {groupItems.map((id) => {
@@ -182,7 +182,7 @@ export function PortalClienteNav({
                       }}
                       className={cn(
                         'flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors',
-                        active ? 'text-status-info-fg bg-status-info-soft' : 'text-zinc-300 hover:bg-zinc-700',
+                        active ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:bg-muted',
                       )}
                     >
                       <Icon className="h-4 w-4 flex-shrink-0" />

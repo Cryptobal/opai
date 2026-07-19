@@ -60,28 +60,28 @@ function MenuItem({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-xl border border-[#374151] bg-[#111827] px-4 py-3.5 text-left transition-colors active:scale-[0.99] active:bg-[#1F2937]"
+      className="flex w-full items-center gap-3 rounded-xl border border-border bg-card opai-glass-soft-m px-4 py-3.5 text-left transition-colors active:scale-[0.99] active:bg-muted"
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1F2937] text-[#06B6D4]">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-primary">
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-[#F9FAFB]">{label}</p>
+        <p className="text-sm font-medium text-foreground">{label}</p>
         {description && (
-          <p className="truncate text-sm text-[#9CA3AF]">{description}</p>
+          <p className="truncate text-sm text-muted-foreground">{description}</p>
         )}
       </div>
       {badge !== undefined && badge !== null && (
         <Badge
           variant="outline"
-          className="shrink-0 border-[#06B6D4]/30 bg-[#06B6D4]/10 text-[#06B6D4] text-xs"
+          className="shrink-0 border-primary/30 bg-primary/10 text-primary text-xs"
         >
           {badge}
         </Badge>
       )}
       {rightContent}
       {showChevron && (
-        <ChevronRight className="h-4 w-4 shrink-0 text-[#374151]" />
+        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
       )}
     </button>
   );
@@ -90,7 +90,7 @@ function MenuItem({
 // ── Separator ───────────────────────────────────────────────────────────────
 
 function MenuSeparator() {
-  return <div className="my-2 border-t border-[#374151]/50" />;
+  return <div className="my-2 border-t border-border/50" />;
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -147,7 +147,7 @@ export default function MasTab({
         <button
           type="button"
           onClick={() => setActiveSection(null)}
-          className="flex items-center gap-2 text-sm text-[#06B6D4] hover:text-[#22D3EE]"
+          className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
         >
           <ArrowLeft className="h-4 w-4" />
           Volver
@@ -163,7 +163,7 @@ export default function MasTab({
         <button
           type="button"
           onClick={() => setActiveSection(null)}
-          className="flex items-center gap-2 text-sm text-[#06B6D4] hover:text-[#22D3EE]"
+          className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
         >
           <ArrowLeft className="h-4 w-4" />
           Volver
@@ -179,7 +179,7 @@ export default function MasTab({
         <button
           type="button"
           onClick={() => setActiveSection(null)}
-          className="flex items-center gap-2 text-sm text-[#06B6D4] hover:text-[#22D3EE]"
+          className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
         >
           <ArrowLeft className="h-4 w-4" />
           Volver
@@ -195,7 +195,7 @@ export default function MasTab({
         <button
           type="button"
           onClick={() => setActiveSection(null)}
-          className="flex items-center gap-2 text-sm text-[#06B6D4] hover:text-[#22D3EE]"
+          className="flex items-center gap-2 text-sm text-primary hover:text-primary/80"
         >
           <ArrowLeft className="h-4 w-4" />
           Volver
@@ -214,7 +214,7 @@ export default function MasTab({
 
   return (
     <div className="space-y-2">
-      <h2 className="mb-4 text-lg font-semibold text-[#F9FAFB]">
+      <h2 className="mb-4 text-lg font-semibold text-foreground">
         Mas opciones
       </h2>
 
@@ -222,16 +222,16 @@ export default function MasTab({
       <button
         type="button"
         onClick={onChangeGuard}
-        className="flex w-full items-center gap-3 rounded-xl border border-[#06B6D4]/20 bg-[#06B6D4]/5 px-4 py-3.5 text-left transition-colors active:bg-[#06B6D4]/10"
+        className="flex w-full items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3.5 text-left transition-colors active:bg-primary/10"
       >
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#06B6D4]/10 text-[#06B6D4]">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <UserRoundCheck className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-[#9CA3AF]">Guardia en Turno</p>
-          <p className="text-sm font-medium text-[#F9FAFB]">{guardName}</p>
+          <p className="text-sm text-muted-foreground">Guardia en Turno</p>
+          <p className="text-sm font-medium text-foreground">{guardName}</p>
         </div>
-        <span className="text-xs font-medium text-[#06B6D4]">Cambiar</span>
+        <span className="text-xs font-medium text-primary">Cambiar</span>
       </button>
 
       <MenuSeparator />
@@ -269,18 +269,18 @@ export default function MasTab({
       <MenuSeparator />
 
       {/* Device info */}
-      <div className="rounded-xl border border-[#374151] bg-[#111827] px-4 py-4">
+      <div className="rounded-xl border border-border bg-card opai-glass-soft-m px-4 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1F2937] text-[#9CA3AF]">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
             <Smartphone className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-[#9CA3AF]">
+            <p className="text-sm font-medium text-muted-foreground">
               Este Dispositivo
             </p>
-            <p className="text-sm text-[#F9FAFB]">{installationName}</p>
+            <p className="text-sm text-foreground">{installationName}</p>
             {pairedDate && (
-              <p className="text-sm text-[#6B7280]">
+              <p className="text-sm text-muted-foreground">
                 Vinculado: {pairedDate}
               </p>
             )}
@@ -310,8 +310,8 @@ export default function MasTab({
 
       {/* Version */}
       <div className="flex items-center gap-2 px-2 py-1">
-        <Info className="h-3.5 w-3.5 text-[#4B5563]" />
-        <span className="text-xs text-[#4B5563]">
+        <Info className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="text-xs text-muted-foreground">
           Control de Acceso v1.0.0
         </span>
       </div>

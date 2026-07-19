@@ -39,7 +39,7 @@ export function ContratosEnRevisionCard() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="animate-pulse h-24 rounded-xl bg-zinc-800/50" />;
+  if (loading) return <div className="animate-pulse h-24 rounded-xl bg-muted" />;
   if (contracts.length === 0) return null;
 
   return (
@@ -49,7 +49,7 @@ export function ContratosEnRevisionCard() {
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-warn opacity-75" />
           <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-status-warn" />
         </span>
-        <span className="text-sm font-medium text-white">
+        <span className="text-sm font-medium text-foreground">
           Tienes {contracts.length} contrato{contracts.length !== 1 ? "s" : ""} en revisión
         </span>
       </div>
@@ -65,7 +65,7 @@ export function ContratosEnRevisionCard() {
           >
             <div className="flex items-center gap-3 min-w-0">
               <FileSignature className="w-4 h-4 text-status-warn-fg shrink-0" />
-              <span className="text-xs text-zinc-300 truncate">{c.title}</span>
+              <span className="text-xs text-muted-foreground truncate">{c.title}</span>
             </div>
             <span className="text-xs font-medium text-status-warn-fg shrink-0 ml-2">
               Revisar &rarr;

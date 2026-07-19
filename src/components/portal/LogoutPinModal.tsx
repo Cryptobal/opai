@@ -104,22 +104,22 @@ export function LogoutPinModal({ open, deviceToken, onConfirm, onCancel }: Logou
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm px-6">
-      <div className="w-full max-w-xs rounded-2xl border border-zinc-800 bg-[#0A0F1C] p-6 shadow-2xl">
+      <div className="w-full max-w-xs rounded-2xl bg-card opai-glass-strong-m border border-border p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <Lock className="h-5 w-5 text-status-info-fg" />
-            <h2 className="text-base font-semibold text-white">PIN de seguridad</h2>
+            <h2 className="text-base font-semibold text-foreground">PIN de seguridad</h2>
           </div>
           <button
             type="button"
             onClick={handleCancel}
-            className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300 transition-colors"
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <p className="text-xs text-zinc-400 mb-5">
+        <p className="text-xs text-muted-foreground mb-5">
           Ingresa el PIN para cerrar sesión en este dispositivo.
         </p>
 
@@ -142,7 +142,7 @@ export function LogoutPinModal({ open, deviceToken, onConfirm, onCancel }: Logou
               onKeyDown={(e) => handleKeyDown(i, e)}
               disabled={loading}
               autoFocus={i === 0}
-              className="w-12 h-14 text-center text-xl font-bold rounded-xl border border-zinc-700 bg-zinc-900/60 text-white outline-none transition-colors focus:border-status-info-border focus:ring-1 focus:ring-status-info-border"
+              className="w-12 h-14 text-center text-xl font-bold rounded-xl border border-border bg-muted text-foreground outline-none transition-colors focus:border-status-info-border focus:ring-1 focus:ring-status-info-border"
             />
           ))}
         </div>
@@ -152,7 +152,7 @@ export function LogoutPinModal({ open, deviceToken, onConfirm, onCancel }: Logou
             type="button"
             onClick={handleCancel}
             disabled={loading}
-            className="flex-1 rounded-xl border border-zinc-700 px-4 py-3 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-800 disabled:opacity-50"
+            className="flex-1 rounded-xl border border-border px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
           >
             Cancelar
           </button>

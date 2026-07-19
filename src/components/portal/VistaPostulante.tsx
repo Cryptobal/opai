@@ -128,7 +128,7 @@ function TabButton({ icon, label, active, onClick }: { icon: React.ReactNode; la
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors ${active ? "text-status-info-fg" : "text-muted-foreground"}`}
+      className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors ${active ? "text-primary" : "text-muted-foreground"}`}
     >
       {icon}
       <span className="text-[10px] font-medium">{label}</span>
@@ -198,7 +198,7 @@ function OfertasDisponibles({ guardiaId }: { guardiaId: string }) {
         {offers.length} oferta{offers.length !== 1 ? "s" : ""} ordenadas por compatibilidad
       </p>
       {offers.map((offer) => (
-        <div key={offer.id} className="rounded-xl border bg-card p-4 space-y-3">
+        <div key={offer.id} className="rounded-xl border border-border bg-card opai-glass-soft-m p-4 space-y-3">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               <h3 className="text-sm font-semibold break-words">{offer.titulo}</h3>
@@ -289,9 +289,9 @@ function MisPostulaciones({ guardiaId }: { guardiaId: string }) {
     <div className="py-4 space-y-3">
       <h2 className="text-lg font-bold">Mis postulaciones</h2>
       {applications.map((app) => {
-        const statusCfg = STATUS_LABELS[app.status] ?? { label: app.status, color: "bg-zinc-500/15 text-zinc-400" };
+        const statusCfg = STATUS_LABELS[app.status] ?? { label: app.status, color: "bg-muted text-muted-foreground" };
         return (
-          <div key={app.id} className="rounded-xl border bg-card p-4 space-y-2">
+          <div key={app.id} className="rounded-xl border border-border bg-card opai-glass-soft-m p-4 space-y-2">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-semibold break-words">{app.jobPosting.titulo}</h3>
@@ -317,10 +317,10 @@ function PerfilPostulante({ session }: { session: GuardSession }) {
   return (
     <div className="py-4 space-y-4">
       <h2 className="text-lg font-bold">Mi perfil</h2>
-      <div className="rounded-xl border bg-card p-4 space-y-3">
+      <div className="rounded-xl border border-border bg-card opai-glass-soft-m p-4 space-y-3">
         <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-full bg-status-info-soft flex items-center justify-center">
-            <User className="h-6 w-6 text-status-info-fg" />
+          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+            <User className="h-6 w-6 text-primary" />
           </div>
           <div>
             <p className="text-sm font-semibold">{session.firstName} {session.lastName}</p>

@@ -135,9 +135,9 @@ export default function InicioTab({
     return (
       <div className="space-y-4">
         {/* Greeting skeleton */}
-        <div className="rounded-xl border border-[#374151] bg-[#111827] p-5 animate-pulse">
-          <div className="h-5 bg-[#1F2937] rounded w-2/3 mb-2" />
-          <div className="h-4 bg-[#1F2937] rounded w-1/2" />
+        <div className="rounded-xl border border-border bg-card opai-glass-soft-m p-5 animate-pulse">
+          <div className="h-5 bg-muted rounded w-2/3 mb-2" />
+          <div className="h-4 bg-muted rounded w-1/2" />
         </div>
 
         {/* Metric cards skeleton */}
@@ -165,7 +165,7 @@ export default function InicioTab({
           <p className="text-lg font-semibold text-status-info-fg">
             {greeting}, {guardName.split(" ")[0]}
           </p>
-          <p className="mt-1 text-sm text-[#9CA3AF]">{installationName}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{installationName}</p>
         </div>
 
         {/* ── Metric Cards ─────────────────────────────────────────── */}
@@ -210,10 +210,10 @@ export default function InicioTab({
                 >
                   <AlertTriangle className="h-4 w-4 shrink-0 text-[#F59E0B] mt-0.5" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[#F9FAFB] break-words">
+                    <p className="text-sm font-medium text-foreground break-words">
                       {record.fullName || record.vehiclePlate || "Sin identificar"}
                     </p>
-                    <p className="text-sm text-[#9CA3AF]">
+                    <p className="text-sm text-muted-foreground">
                       Lleva {formatDuration(elapsed)} en sitio
                     </p>
                   </div>
@@ -231,15 +231,15 @@ export default function InicioTab({
 
         {/* ── Recent Activity Timeline ─────────────────────────────── */}
         <div className="space-y-3">
-          <h3 className="flex items-center gap-2 text-base font-semibold text-[#F9FAFB]">
+          <h3 className="flex items-center gap-2 text-base font-semibold text-foreground">
             <Activity className="h-4 w-4 text-[#06B6D4]" />
             Actividad reciente
           </h3>
 
           {recentRecords.length === 0 ? (
-            <div className="rounded-xl border border-[#374151] bg-[#111827] p-8 text-center">
+            <div className="rounded-xl border border-border bg-card opai-glass-soft-m p-8 text-center">
               <Clock className="mx-auto h-8 w-8 text-[#374151]" />
-              <p className="mt-2 text-sm text-[#9CA3AF]">
+              <p className="mt-2 text-sm text-muted-foreground">
                 No hay actividad reciente
               </p>
             </div>
@@ -260,7 +260,7 @@ export default function InicioTab({
                     key={record.id}
                     type="button"
                     onClick={() => setSelectedRecord(record)}
-                    className="flex w-full items-center gap-3 rounded-lg border border-[#374151] bg-[#111827] p-3 text-left transition-colors active:bg-[#1F2937]"
+                    className="flex w-full items-center gap-3 rounded-lg border border-border bg-card opai-glass-soft-m p-3 text-left transition-colors active:bg-muted"
                   >
                     {/* Type icon */}
                     <div
@@ -284,17 +284,17 @@ export default function InicioTab({
 
                     {/* Name and details */}
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-[#F9FAFB] break-words">
+                      <p className="text-sm font-medium text-foreground break-words">
                         {record.fullName || record.vehiclePlate || "Sin identificar"}
                       </p>
-                      <p className="text-sm text-[#9CA3AF] break-words">
+                      <p className="text-sm text-muted-foreground break-words">
                         {record.company || tc.label}
                       </p>
                     </div>
 
                     {/* Time */}
                     <div className="shrink-0 text-right">
-                      <p className="text-xs font-medium text-[#9CA3AF]">
+                      <p className="text-xs font-medium text-muted-foreground">
                         {timeStr}
                       </p>
                       <Badge
@@ -321,15 +321,15 @@ export default function InicioTab({
       {/* ── Record Detail Modal ────────────────────────────────────── */}
       {selectedRecord && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-t-2xl border-t border-[#374151] bg-[#111827] p-5 pb-8 animate-in slide-in-from-bottom duration-300">
+          <div className="w-full max-w-lg rounded-t-2xl border-t border-border bg-card opai-glass-strong-m p-5 pb-8 animate-in slide-in-from-bottom duration-300">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-[#F9FAFB]">
+              <h3 className="text-base font-semibold text-foreground">
                 Detalle del Registro
               </h3>
               <button
                 onClick={() => setSelectedRecord(null)}
-                className="rounded-full p-1 text-[#9CA3AF] hover:bg-[#1F2937] hover:text-[#F9FAFB]"
+                className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -350,7 +350,7 @@ export default function InicioTab({
                 </div>
                 <Badge
                   variant="outline"
-                  className="border-[#374151] text-[#9CA3AF]"
+                  className="border-border text-muted-foreground"
                 >
                   {RECORD_TYPE_CONFIG[selectedRecord.recordType]?.label ?? selectedRecord.recordType}
                 </Badge>
@@ -367,7 +367,7 @@ export default function InicioTab({
               </div>
 
               {/* Fields */}
-              <div className="grid gap-2 rounded-lg border border-[#374151] bg-[#0A0F1C] p-4">
+              <div className="grid gap-2 rounded-lg border border-border bg-muted p-4">
                 {selectedRecord.fullName && (
                   <DetailRow label="Nombre" value={selectedRecord.fullName} />
                 )}
@@ -430,8 +430,8 @@ export default function InicioTab({
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4">
-      <span className="text-xs text-[#9CA3AF] shrink-0">{label}</span>
-      <span className="text-sm text-[#F9FAFB] text-right">{value}</span>
+      <span className="text-xs text-muted-foreground shrink-0">{label}</span>
+      <span className="text-sm text-foreground text-right">{value}</span>
     </div>
   );
 }

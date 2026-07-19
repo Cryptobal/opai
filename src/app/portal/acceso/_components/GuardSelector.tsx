@@ -75,17 +75,17 @@ export function GuardSelector({
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[#0A0F1C] px-6 py-10">
+    <div className="flex min-h-dvh flex-col bg-card opai-glass-soft-m px-6 py-10">
       {/* Installation name */}
       <div className="flex items-center gap-2 mb-8">
-        <Building2 className="h-5 w-5 text-status-info-fg shrink-0" />
-        <span className="text-sm font-medium text-gray-300 truncate">
+        <Building2 className="h-5 w-5 text-primary shrink-0" />
+        <span className="text-sm font-medium text-foreground/80 truncate">
           {installationName}
         </span>
       </div>
 
       {/* Title */}
-      <h1 className="text-2xl font-bold text-white mb-6">
+      <h1 className="text-2xl font-bold text-foreground mb-6">
         ¿Quién está de turno?
       </h1>
 
@@ -99,8 +99,8 @@ export function GuardSelector({
       {loading ? (
         <div className="flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-status-info-fg" />
-            <p className="text-sm text-gray-400">Cargando guardias...</p>
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Cargando guardias...</p>
           </div>
         </div>
       ) : (
@@ -111,14 +111,14 @@ export function GuardSelector({
               type="button"
               disabled={selecting !== null}
               onClick={() => handleSelect(guard)}
-              className="flex w-full items-center gap-3 rounded-xl border border-gray-700 bg-[#111827] px-4 py-4 text-left transition-colors hover:border-status-info-border hover:bg-gray-800/80 active:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex w-full items-center gap-3 rounded-xl border border-border bg-muted opai-glass-soft-m px-4 py-4 text-left transition-colors hover:border-primary hover:bg-accent/80 active:bg-accent disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {selecting === guard.id ? (
-                <Loader2 className="h-5 w-5 animate-spin text-status-info-fg shrink-0" />
+                <Loader2 className="h-5 w-5 animate-spin text-primary shrink-0" />
               ) : (
-                <User className="h-5 w-5 text-gray-400 shrink-0" />
+                <User className="h-5 w-5 text-muted-foreground shrink-0" />
               )}
-              <span className="text-sm font-medium text-white">
+              <span className="text-sm font-medium text-foreground">
                 {guard.name}
               </span>
             </button>
@@ -129,10 +129,10 @@ export function GuardSelector({
             type="button"
             disabled={selecting !== null}
             onClick={onSkip}
-            className="flex w-full items-center gap-3 rounded-xl border border-gray-700/50 bg-gray-900/50 px-4 py-4 text-left transition-colors hover:border-gray-600 hover:bg-gray-800/50 active:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex w-full items-center gap-3 rounded-xl border border-border/50 bg-muted/50 px-4 py-4 text-left transition-colors hover:border-border hover:bg-accent/50 active:bg-accent disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <UserPlus className="h-5 w-5 text-gray-500 shrink-0" />
-            <span className="text-sm text-gray-400">Otro guardia...</span>
+            <UserPlus className="h-5 w-5 text-muted-foreground shrink-0" />
+            <span className="text-sm text-muted-foreground">Otro guardia...</span>
           </button>
         </div>
       )}

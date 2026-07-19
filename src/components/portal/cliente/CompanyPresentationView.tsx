@@ -242,7 +242,7 @@ export function CompanyPresentationView({ contactId }: Props) {
               key={stat.label}
               className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-center"
             >
-              <p className="text-2xl font-bold text-status-info-fg tabular-nums">{stat.value}</p>
+              <p className="text-2xl font-bold text-primary tabular-nums">{stat.value}</p>
               <p className="text-[11px] text-zinc-400 mt-1">{stat.label}</p>
             </div>
           ))}

@@ -121,8 +121,8 @@ export default function HistorialSection({
   if (loading) {
     return (
       <div className="space-y-3">
-        <div className="h-6 w-48 rounded bg-[#1F2937] animate-pulse" />
-        <div className="h-10 rounded-lg bg-[#1F2937] animate-pulse" />
+        <div className="h-6 w-48 rounded bg-muted animate-pulse" />
+        <div className="h-10 rounded-lg bg-muted animate-pulse" />
         {Array.from({ length: 5 }).map((_, i) => (
           <SkeletonCard key={i} />
         ))}
@@ -133,27 +133,27 @@ export default function HistorialSection({
   return (
     <div className="space-y-4">
       {/* Header */}
-      <h2 className="flex items-center gap-2 text-lg font-semibold text-[#F9FAFB]">
-        <History className="h-5 w-5 text-[#06B6D4]" />
+      <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+        <History className="h-5 w-5 text-primary" />
         Historial de Registros
       </h2>
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF]" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por nombre, RUT o patente..."
-          className="pl-9 bg-[#111827] border-[#374151] text-[#F9FAFB] placeholder:text-[#9CA3AF]"
+          className="pl-9 bg-muted border-border text-foreground placeholder:text-muted-foreground"
         />
       </div>
 
       {/* Records */}
       {records.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-[#374151] bg-[#111827] py-12 px-4">
-          <Inbox className="h-12 w-12 text-[#374151]" />
-          <p className="mt-3 text-sm font-medium text-[#9CA3AF]">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card opai-glass-soft-m py-12 px-4">
+          <Inbox className="h-12 w-12 text-muted-foreground" />
+          <p className="mt-3 text-sm font-medium text-muted-foreground">
             {search
               ? "Sin resultados para la búsqueda"
               : "No hay registros en el historial"}
@@ -177,7 +177,7 @@ export default function HistorialSection({
             return (
               <div
                 key={record.id}
-                className="flex items-center gap-3 rounded-lg border border-[#374151] bg-[#111827] p-3"
+                className="flex items-center gap-3 rounded-lg border border-border bg-card opai-glass-soft-m p-3"
               >
                 {/* Type icon */}
                 <div
@@ -201,15 +201,15 @@ export default function HistorialSection({
 
                 {/* Name and details */}
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-[#F9FAFB] truncate">
+                  <p className="text-sm font-medium text-foreground truncate">
                     {record.fullName ||
                       record.vehiclePlate ||
                       "Sin identificar"}
                   </p>
-                  <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     {record.rut && <span>{formatRut(record.rut)}</span>}
                     {record.rut && record.company && (
-                      <span className="text-[#374151]">|</span>
+                      <span className="text-muted-foreground">|</span>
                     )}
                     {record.company && <span>{record.company}</span>}
                   </div>
@@ -217,8 +217,8 @@ export default function HistorialSection({
 
                 {/* Time + status */}
                 <div className="shrink-0 text-right">
-                  <p className="text-xs text-[#9CA3AF]">{dateStr}</p>
-                  <p className="text-xs font-medium text-[#9CA3AF]">
+                  <p className="text-xs text-muted-foreground">{dateStr}</p>
+                  <p className="text-xs font-medium text-muted-foreground">
                     {timeStr}
                   </p>
                   <Badge
@@ -242,7 +242,7 @@ export default function HistorialSection({
               type="button"
               onClick={loadMore}
               disabled={loadingMore}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#374151] bg-[#111827] py-3 text-sm text-[#9CA3AF] transition-colors active:bg-[#1F2937]"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card opai-glass-soft-m py-3 text-sm text-muted-foreground transition-colors active:bg-muted"
             >
               {loadingMore ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

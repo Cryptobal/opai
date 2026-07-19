@@ -148,7 +148,7 @@ function TrendBadge({ value, suffix = "" }: { value: number; suffix?: string }) 
       </span>
     );
   return (
-    <span className="text-zinc-500 text-[10px] flex items-center gap-0.5">
+    <span className="text-muted-foreground text-[10px] flex items-center gap-0.5">
       <Minus className="h-3 w-3" /> 0{suffix}
     </span>
   );
@@ -177,7 +177,7 @@ function KpiCard({
       : "border-white/10";
   return (
     <div className={cn("rounded-xl border bg-white/[0.02] p-3", borderCls)}>
-      <p className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1">
+      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
         {label}
       </p>
       <p className="text-xl font-bold tabular-nums">{value}</p>
@@ -311,9 +311,9 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
           {session.firstName ? `Hola, ${session.firstName}` : `Bienvenido a ${branding.companyName}`}
         </h1>
         {isProspect ? (
-          <p className="text-sm text-zinc-400 mt-1">Este es tu centro de comando de seguridad</p>
+          <p className="text-sm text-muted-foreground mt-1">Este es tu centro de comando de seguridad</p>
         ) : (
-          instName && <p className="text-sm text-zinc-300 mt-1 font-medium">{instName}</p>
+          instName && <p className="text-sm text-muted-foreground mt-1 font-medium">{instName}</p>
         )}
       </div>
 
@@ -332,7 +332,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
               📋 Presentación personalizada
             </div>
             <div className="text-base font-bold text-white mb-0.5">Conoce {branding.companyName}</div>
-            <div className="text-xs text-zinc-400">Descubre nuestros servicios y diferenciadores →</div>
+            <div className="text-xs text-muted-foreground">Descubre nuestros servicios y diferenciadores →</div>
           </button>
           {session.commercialPresentationUrl && (
             <button
@@ -347,7 +347,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
                 🏢 Perfil de empresa
               </div>
               <div className="text-base font-bold text-white mb-0.5">Ver perfil comercial</div>
-              <div className="text-xs text-zinc-400">Experiencia, tecnología, certificaciones →</div>
+              <div className="text-xs text-muted-foreground">Experiencia, tecnología, certificaciones →</div>
             </button>
           )}
         </div>
@@ -401,7 +401,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
               <KpiCard
                 label="Rondas completadas"
                 value={`${s.completedRounds}/${s.totalRounds}`}
-                trend={<span className="text-[10px] text-zinc-500">este mes</span>}
+                trend={<span className="text-[10px] text-muted-foreground">este mes</span>}
                 color="blue"
               />
               <KpiCard
@@ -414,7 +414,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
                 label="Atención"
                 value={String(attentionCount)}
                 trend={
-                  <span className="text-[10px] text-zinc-500">
+                  <span className="text-[10px] text-muted-foreground">
                     {(s.incompleteRounds ?? 0)} incompletas · {(s.missedRounds ?? 0)} no realizadas
                   </span>
                 }
@@ -425,7 +425,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
               />
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-12 rounded-xl border border-white/5 bg-white/[0.01] text-zinc-500">
+            <div className="flex flex-col items-center justify-center py-12 rounded-xl border border-white/5 bg-white/[0.01] text-muted-foreground">
               <BarChart3 className="h-10 w-10 mb-3 opacity-40" />
               <p className="text-sm font-medium">Sin datos operacionales este mes</p>
               <p className="text-xs opacity-60 mt-1">Los datos aparecerán cuando se registren rondas</p>
@@ -474,7 +474,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
                     "px-2 py-0.5 rounded text-[10px] font-medium transition-colors",
                     daysRange === d
                       ? "bg-status-info text-white"
-                      : "bg-white/5 text-zinc-400 hover:bg-white/10"
+                      : "bg-white/5 text-muted-foreground hover:bg-white/10"
                   )}
                 >
                   {d}d
@@ -484,7 +484,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
           </div>
           <div className="h-[160px] sm:h-[200px]">
             {chartData.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-xs text-zinc-500">
+              <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
                 Sin datos
               </div>
             ) : (
@@ -558,19 +558,19 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
           <div className="space-y-2">
             {activity.data!.map((a) => {
               const Icon = ICON_COMPONENTS[a.icon] ?? Clock;
-              const colorCls = ICON_COLORS[a.icon] ?? "text-zinc-400";
+              const colorCls = ICON_COLORS[a.icon] ?? "text-muted-foreground";
               return (
                 <div
                   key={a.id}
                   className="flex items-start gap-3 py-1.5 border-b border-white/5 last:border-0"
                 >
-                  <span className="text-[10px] text-zinc-500 w-14 shrink-0 tabular-nums pt-0.5">
+                  <span className="text-[10px] text-muted-foreground w-14 shrink-0 tabular-nums pt-0.5">
                     {formatActivityTimestamp(a.timestamp)}
                   </span>
                   <Icon className={cn("h-4 w-4 shrink-0 mt-0.5", colorCls)} />
                   <div className="min-w-0">
                     <p className="text-sm">{a.text}</p>
-                    {a.detail && <p className="text-[10px] text-zinc-400 break-words">{a.detail}</p>}
+                    {a.detail && <p className="text-[10px] text-muted-foreground break-words">{a.detail}</p>}
                   </div>
                 </div>
               );
@@ -602,7 +602,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-white mb-0.5">{card.title}</p>
-                      <p className="text-xs text-zinc-400 leading-relaxed">{card.desc}</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{card.desc}</p>
                     </div>
                     <ArrowRight className="w-4 h-4 text-zinc-600 shrink-0 mt-1" />
                   </div>
@@ -619,7 +619,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
           style={{ background: "linear-gradient(145deg, rgba(30,41,59,0.8), rgba(26,35,50,0.8))" }}
         >
           <h3 className="text-base font-bold text-white mb-2">¿Por qué ninguna otra empresa tiene esto?</h3>
-          <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed mb-5">
+          <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed mb-5">
             {branding.companyName} desarrolló su propia tecnología. No usamos software genérico. OPAI fue diseñado
             exclusivamente para seguridad privada.
           </p>
@@ -638,7 +638,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
             </button>
             <button
               onClick={() => onNavigate("chat")}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium border border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium border border-border text-muted-foreground hover:bg-muted"
             >
               Hablar con mi ejecutivo
             </button>
@@ -660,7 +660,7 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
             <p className="text-sm font-medium">
               {session.ejecutivoName || `Equipo ${branding.companyName}`}
             </p>
-            <p className="text-xs text-zinc-500">Ejecutivo asignado</p>
+            <p className="text-xs text-muted-foreground">Ejecutivo asignado</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -680,9 +680,9 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
         </div>
       )}
 
-      <footer className="text-center text-xs text-zinc-500 pt-4 pb-8 space-y-1">
+      <footer className="text-center text-xs text-muted-foreground pt-4 pb-8 space-y-1">
         <p>
-          {branding.companyName} · Plataforma <span className="font-medium text-zinc-400">OPAI</span> · Desarrollado
+          {branding.companyName} · Plataforma <span className="font-medium text-muted-foreground">OPAI</span> · Desarrollado
           por{" "}
           <a
             href="https://lx3.ai"
@@ -729,14 +729,14 @@ function RondaEnCursoHero({
           <p className="text-sm font-medium text-white leading-tight">
             Ronda en ejecución · {rondaEnCurso.checkpointsCompletados}/{rondaEnCurso.checkpointsTotal} checkpoints
           </p>
-          <p className="text-[11px] text-zinc-400 mt-0.5">
+          <p className="text-[11px] text-muted-foreground mt-0.5">
             {rondaEnCurso.guardiaName ?? "Guardia"}
             {rondaEnCurso.startedAt
               ? ` · inició ${timeAgo(rondaEnCurso.startedAt)}`
               : ""}
           </p>
         </div>
-        <ArrowRight className="h-4 w-4 text-zinc-400 shrink-0" />
+        <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
       </div>
       <div className="mt-3">
         <div className="h-1 bg-black/30 rounded-full overflow-hidden">
@@ -784,7 +784,7 @@ function ServiceStatusHero({
           border: "border-white/10",
           bg: "bg-white/[0.02]",
           icon: MapPin,
-          color: "text-zinc-300",
+          color: "text-muted-foreground",
         };
 
   const Icon = tone.icon;
@@ -813,12 +813,12 @@ function ServiceStatusHero({
             Última ronda
           </p>
           <p className="text-sm font-medium text-white leading-tight">{statusText}</p>
-          <p className="text-[11px] text-zinc-400 mt-0.5">
+          <p className="text-[11px] text-muted-foreground mt-0.5">
             {timeAgo(lastRound.timestamp)}
             {lastRound.guardiaName ? ` · ${lastRound.guardiaName}` : ""}
           </p>
         </div>
-        <ArrowRight className="h-4 w-4 text-zinc-500 shrink-0" />
+        <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
       </div>
     </button>
   );
@@ -849,27 +849,27 @@ function TeamCard({
       <div className="flex items-center gap-2 mb-3">
         <UserCheck className="h-4 w-4 text-status-info-fg" />
         <p className="text-sm font-semibold text-white">Equipo asignado</p>
-        <ArrowRight className="h-3.5 w-3.5 text-zinc-500 ml-auto" />
+        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground ml-auto" />
       </div>
       <div className="grid grid-cols-3 gap-2 text-center">
         <div>
           <p className="text-lg font-bold text-white tabular-nums">{team.size}</p>
-          <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Guardias</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Guardias</p>
         </div>
         <div>
           <p className="text-lg font-bold text-status-ok-fg tabular-nums">{team.os10Vigente}</p>
-          <p className="text-[10px] text-zinc-500 uppercase tracking-wider">OS-10 OK</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">OS-10 OK</p>
         </div>
         <div>
           <p
             className={cn(
               "text-lg font-bold tabular-nums",
-              bad ? "text-status-danger-fg" : warn ? "text-status-warn-fg" : "text-zinc-500"
+              bad ? "text-status-danger-fg" : warn ? "text-status-warn-fg" : "text-muted-foreground"
             )}
           >
             {team.os10PorVencer + team.os10Vencido}
           </p>
-          <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Atención</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Atención</p>
         </div>
       </div>
     </button>
@@ -891,11 +891,11 @@ function TicketsCard({
       <div className="flex items-center gap-2 mb-3">
         <Ticket className="h-4 w-4 text-status-info-fg" />
         <p className="text-sm font-semibold text-white">Tickets abiertos</p>
-        <ArrowRight className="h-3.5 w-3.5 text-zinc-500 ml-auto" />
+        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground ml-auto" />
       </div>
       <div className="flex items-center gap-3">
         <p className="text-3xl font-bold text-white tabular-nums">{count}</p>
-        <p className="text-xs text-zinc-400 leading-tight">
+        <p className="text-xs text-muted-foreground leading-tight">
           {count === 1 ? "ticket abierto" : "tickets abiertos"} en seguimiento
         </p>
       </div>

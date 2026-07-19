@@ -331,7 +331,7 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -339,7 +339,7 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
   if (!channelId) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-center p-6">
-        <p className="text-zinc-400 text-sm">No hay chat disponible para tu instalación actual.</p>
+        <p className="text-muted-foreground text-sm">No hay chat disponible para tu instalación actual.</p>
       </div>
     );
   }
@@ -347,13 +347,13 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800 bg-zinc-900/50">
-        <div className="h-8 w-8 rounded-full bg-status-info-soft flex items-center justify-center">
-          <span className="text-status-info-fg text-xs font-bold">#</span>
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card opai-glass-soft-m">
+        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+          <span className="text-primary text-xs font-bold">#</span>
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-zinc-100">{channelName}</h3>
-          <p className="text-[10px] text-zinc-500">Chat de instalación</p>
+          <h3 className="text-sm font-semibold text-foreground">{channelName}</h3>
+          <p className="text-[10px] text-muted-foreground">Chat de instalación</p>
         </div>
       </div>
 
@@ -365,7 +365,7 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
       >
         {loadingMore && (
           <div className="flex justify-center py-2">
-            <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           </div>
         )}
         {messages.map((msg, idx) => {
@@ -379,7 +379,7 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
               <React.Fragment key={msg.id}>
                 {showDateDivider && <ChatDateDivider label={formatDateLabel(msg.createdAt)} />}
                 <div className="flex justify-center py-1">
-                  <span className="text-[10px] text-zinc-500 italic">{msg.content}</span>
+                  <span className="text-[10px] text-muted-foreground italic">{msg.content}</span>
                 </div>
               </React.Fragment>
             );
@@ -397,7 +397,7 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
                         href={att.fileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-xs text-[#2dd4bf] hover:text-status-info-fg"
+                        className="flex items-center gap-2 text-xs text-primary hover:text-primary/80"
                       >
                         {att.fileName}
                       </a>
@@ -413,12 +413,12 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
 
       {/* Reply banner */}
       {replyTo && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-zinc-800/50 border-t border-zinc-800">
+        <div className="flex items-center gap-2 px-4 py-2 bg-muted border-t border-border">
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] text-status-info-fg">Respondiendo a {replyTo.senderName}</p>
-            <p className="text-xs text-zinc-400 truncate">{replyTo.content}</p>
+            <p className="text-[10px] text-primary">Respondiendo a {replyTo.senderName}</p>
+            <p className="text-xs text-muted-foreground truncate">{replyTo.content}</p>
           </div>
-          <button onClick={() => setReplyTo(null)} className="text-zinc-500 hover:text-zinc-300">
+          <button onClick={() => setReplyTo(null)} className="text-muted-foreground hover:text-foreground">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -426,18 +426,18 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
 
       {/* File previews */}
       {pendingFiles.length > 0 && (
-        <div className="flex items-center gap-2 px-4 py-2 border-t border-zinc-800 overflow-x-auto">
+        <div className="flex items-center gap-2 px-4 py-2 border-t border-border overflow-x-auto">
           {pendingFiles.map((file, idx) => (
             <div key={idx} className="relative shrink-0 group">
               {file.type.startsWith("image/") ? (
-                <div className="h-12 w-12 rounded-lg overflow-hidden border border-zinc-700">
+                <div className="h-12 w-12 rounded-lg overflow-hidden border border-border">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={URL.createObjectURL(file)} alt={file.name} className="h-full w-full object-cover" />
                 </div>
               ) : (
-                <div className="flex h-12 w-12 flex-col items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800/50">
-                  <FileIcon className="h-4 w-4 text-zinc-400" />
-                  <span className="text-[8px] text-zinc-500 truncate max-w-[40px]">
+                <div className="flex h-12 w-12 flex-col items-center justify-center rounded-lg border border-border bg-muted">
+                  <FileIcon className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-[8px] text-muted-foreground truncate max-w-[40px]">
                     {file.name.split(".").pop()?.toUpperCase()}
                   </span>
                 </div>
@@ -445,7 +445,7 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
               <button
                 type="button"
                 onClick={() => removePendingFile(idx)}
-                className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-zinc-700 text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-status-danger"
+                className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-muted text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:bg-status-danger"
               >
                 <X className="h-2.5 w-2.5" />
               </button>
@@ -455,13 +455,13 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
       )}
 
       {/* Input */}
-      <div className="px-4 py-3 border-t border-[rgba(255,255,255,0.06)] bg-[#0d1220]">
-        <div className="flex items-end gap-2 bg-[#141a2a] rounded-xl border border-[rgba(255,255,255,0.06)] focus-within:border-[rgba(45,212,191,0.3)] px-3 transition-colors">
+      <div className="px-4 py-3 border-t border-border bg-card opai-glass-soft-m">
+        <div className="flex items-end gap-2 bg-muted rounded-xl border border-border focus-within:border-primary/30 px-3 transition-colors">
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={pendingFiles.length >= 5}
-            className="h-[38px] w-[38px] shrink-0 rounded-lg flex items-center justify-center text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="h-[38px] w-[38px] shrink-0 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             title="Adjuntar archivo"
           >
             <Paperclip className="h-4 w-4" />
@@ -482,13 +482,13 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
             onPaste={handlePaste}
             placeholder="Escribe un mensaje..."
             rows={1}
-            className="flex-1 resize-none bg-transparent py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none max-h-28"
+            className="flex-1 resize-none bg-transparent py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none max-h-28"
             style={{ minHeight: "38px" }}
           />
           <button
             onClick={handleSend}
             disabled={(!inputText.trim() && pendingFiles.length === 0) || isSending}
-            className="h-[38px] w-[38px] rounded-lg bg-[#2dd4bf] flex items-center justify-center text-zinc-900 disabled:opacity-40 hover:brightness-110 transition-colors"
+            className="h-[38px] w-[38px] rounded-lg bg-primary flex items-center justify-center text-primary-foreground disabled:opacity-40 hover:brightness-110 transition-colors"
           >
             {isSending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -498,7 +498,7 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
           </button>
         </div>
         {isUploading && (
-          <p className="text-[10px] text-zinc-500 mt-1 ml-11">Subiendo archivos...</p>
+          <p className="text-[10px] text-muted-foreground mt-1 ml-11">Subiendo archivos...</p>
         )}
       </div>
     </div>

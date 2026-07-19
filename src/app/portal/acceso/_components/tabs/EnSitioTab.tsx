@@ -84,8 +84,8 @@ function FilterChip({
       onClick={onClick}
       className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
         active
-          ? "bg-[#06B6D4]/20 text-[#06B6D4] border border-[#06B6D4]/40"
-          : "bg-[#1F2937] text-[#9CA3AF] border border-[#374151] active:bg-[#374151]"
+          ? "bg-primary/20 text-primary border border-primary/40"
+          : "bg-muted text-muted-foreground border border-border active:bg-accent"
       }`}
     >
       {label}
@@ -232,15 +232,15 @@ export default function EnSitioTab({
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="h-5 w-40 rounded bg-[#1F2937] animate-pulse" />
-          <div className="h-5 w-5 rounded bg-[#1F2937] animate-pulse" />
+          <div className="h-5 w-40 rounded bg-muted animate-pulse" />
+          <div className="h-5 w-5 rounded bg-muted animate-pulse" />
         </div>
-        <div className="h-10 rounded-lg bg-[#1F2937] animate-pulse" />
+        <div className="h-10 rounded-lg bg-muted animate-pulse" />
         <div className="flex gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="h-8 w-16 rounded-full bg-[#1F2937] animate-pulse"
+              className="h-8 w-16 rounded-full bg-muted animate-pulse"
             />
           ))}
         </div>
@@ -256,20 +256,20 @@ export default function EnSitioTab({
       {/* ── Header with counts ────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4 text-sm">
-          <span className="flex items-center gap-1.5 text-[#F9FAFB]">
-            <Users className="h-4 w-4 text-[#06B6D4]" />
+          <span className="flex items-center gap-1.5 text-foreground">
+            <Users className="h-4 w-4 text-primary" />
             <span className="font-semibold">{counts.persons}</span>
-            <span className="text-[#9CA3AF]">personas</span>
+            <span className="text-muted-foreground">personas</span>
           </span>
-          <span className="flex items-center gap-1.5 text-[#F9FAFB]">
+          <span className="flex items-center gap-1.5 text-foreground">
             <Car className="h-4 w-4 text-[#A855F7]" />
             <span className="font-semibold">{counts.vehicles}</span>
-            <span className="text-[#9CA3AF]">vehiculos</span>
+            <span className="text-muted-foreground">vehiculos</span>
           </span>
         </div>
         <button
           onClick={fetchRecords}
-          className="rounded-lg p-2 text-[#9CA3AF] hover:bg-[#1F2937] hover:text-[#F9FAFB] transition-colors"
+          className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
           <RefreshCw className="h-4 w-4" />
         </button>
@@ -277,12 +277,12 @@ export default function EnSitioTab({
 
       {/* ── Search ────────────────────────────────────────────────── */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF]" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por nombre, RUT o patente..."
-          className="pl-9 bg-[#111827] border-[#374151] text-[#F9FAFB] placeholder:text-[#9CA3AF]"
+          className="pl-9 bg-muted border-border text-foreground placeholder:text-muted-foreground"
         />
       </div>
 
@@ -331,9 +331,9 @@ export default function EnSitioTab({
 
       {/* ── Records List ──────────────────────────────────────────── */}
       {filteredRecords.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-[#374151] bg-[#111827] py-12 px-4">
-          <Inbox className="h-12 w-12 text-[#374151]" />
-          <p className="mt-3 text-sm font-medium text-[#9CA3AF]">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card opai-glass-soft-m py-12 px-4">
+          <Inbox className="h-12 w-12 text-muted-foreground" />
+          <p className="mt-3 text-sm font-medium text-muted-foreground">
             {search || filterType !== "all" || filterTime !== "all"
               ? "Sin resultados para los filtros aplicados"
               : "No hay personas o vehiculos en sitio"}
@@ -353,7 +353,7 @@ export default function EnSitioTab({
             return (
               <div
                 key={record.id}
-                className={`rounded-lg border border-[#374151] border-l-4 ${LEFT_BORDER_COLORS[color]} bg-[#111827] p-3`}
+                className={`rounded-lg border border-border border-l-4 ${LEFT_BORDER_COLORS[color]} bg-card p-3`}
               >
                 <div className="flex items-start justify-between gap-2">
                   {/* Left: info */}
@@ -362,31 +362,31 @@ export default function EnSitioTab({
                     <div className="flex items-center gap-2 mb-1">
                       <Badge
                         variant="outline"
-                        className="flex items-center gap-1 border-[#374151] text-[#9CA3AF] text-xs px-1.5 py-0"
+                        className="flex items-center gap-1 border-border text-muted-foreground text-xs px-1.5 py-0"
                       >
                         {TYPE_ICONS[record.recordType]}
                         {tc.label}
                       </Badge>
                     </div>
 
-                    <p className="text-sm font-medium text-[#F9FAFB] break-words">
+                    <p className="text-sm font-medium text-foreground break-words">
                       {record.fullName ||
                         record.vehiclePlate ||
                         "Sin identificar"}
                     </p>
 
                     {/* RUT and company */}
-                    <div className="mt-0.5 flex items-center gap-2 text-sm text-[#9CA3AF]">
+                    <div className="mt-0.5 flex items-center gap-2 text-sm text-muted-foreground">
                       {record.rut && <span>{formatRut(record.rut)}</span>}
                       {record.rut && record.company && (
-                        <span className="text-[#374151]">|</span>
+                        <span className="text-muted-foreground">|</span>
                       )}
                       {record.company && <span>{record.company}</span>}
                     </div>
 
                     {/* Time info */}
                     <div className="mt-1.5 flex items-center gap-2">
-                      <span className="flex items-center gap-1 text-xs text-[#9CA3AF]">
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
                         {entryTimeStr}
                       </span>
@@ -405,7 +405,7 @@ export default function EnSitioTab({
                     variant="outline"
                     onClick={() => handleQuickExit(record.id)}
                     disabled={exitingId === record.id}
-                    className="shrink-0 border-[#374151] text-[#9CA3AF] hover:bg-[#EF4444]/10 hover:text-[#EF4444] hover:border-[#EF4444]/30"
+                    className="shrink-0 border-border text-muted-foreground hover:bg-[#EF4444]/10 hover:text-[#EF4444] hover:border-[#EF4444]/30"
                   >
                     {exitingId === record.id ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

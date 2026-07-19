@@ -88,7 +88,7 @@ export default function ListasControlSection({
   if (loading) {
     return (
       <div className="space-y-3">
-        <div className="h-6 w-48 rounded bg-[#1F2937] animate-pulse" />
+        <div className="h-6 w-48 rounded bg-muted animate-pulse" />
         {Array.from({ length: 4 }).map((_, i) => (
           <SkeletonCard key={i} />
         ))}
@@ -99,8 +99,8 @@ export default function ListasControlSection({
   return (
     <div className="space-y-4">
       {/* Header */}
-      <h2 className="flex items-center gap-2 text-lg font-semibold text-[#F9FAFB]">
-        <Shield className="h-5 w-5 text-[#06B6D4]" />
+      <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+        <Shield className="h-5 w-5 text-primary" />
         Listas de Control
       </h2>
 
@@ -124,12 +124,12 @@ export default function ListasControlSection({
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF]" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por nombre, RUT o empresa..."
-          className="pl-9 bg-[#111827] border-[#374151] text-[#F9FAFB] placeholder:text-[#9CA3AF]"
+          className="pl-9 bg-muted border-border text-foreground placeholder:text-muted-foreground"
         />
       </div>
 
@@ -148,8 +148,8 @@ export default function ListasControlSection({
             onClick={() => setFilter(key)}
             className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
               filter === key
-                ? "bg-[#06B6D4]/20 text-[#06B6D4] border border-[#06B6D4]/40"
-                : "bg-[#1F2937] text-[#9CA3AF] border border-[#374151] active:bg-[#374151]"
+                ? "bg-primary/20 text-primary border border-primary/40"
+                : "bg-muted text-muted-foreground border border-border active:bg-border"
             }`}
           >
             {label}
@@ -159,9 +159,9 @@ export default function ListasControlSection({
 
       {/* Entries list */}
       {filteredEntries.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-[#374151] bg-[#111827] py-12 px-4">
-          <Inbox className="h-12 w-12 text-[#374151]" />
-          <p className="mt-3 text-sm font-medium text-[#9CA3AF]">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card opai-glass-soft-m py-12 px-4">
+          <Inbox className="h-12 w-12 text-border" />
+          <p className="mt-3 text-sm font-medium text-muted-foreground">
             {search || filter !== "all"
               ? "Sin resultados para los filtros aplicados"
               : "No hay entradas en las listas de control"}
@@ -175,10 +175,10 @@ export default function ListasControlSection({
             return (
               <div
                 key={entry.id}
-                className={`rounded-lg border border-l-4 bg-[#111827] p-3 ${
+                className={`rounded-lg border border-l-4 bg-card opai-glass-soft-m p-3 ${
                   isWhitelist
-                    ? "border-[#374151] border-l-[#10B981]"
-                    : "border-[#374151] border-l-[#EF4444]"
+                    ? "border-border border-l-[#10B981]"
+                    : "border-border border-l-[#EF4444]"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -202,18 +202,18 @@ export default function ListasControlSection({
                       {!entry.isActive && (
                         <Badge
                           variant="outline"
-                          className="text-xs px-1.5 py-0 border-[#9CA3AF]/30 text-[#9CA3AF]"
+                          className="text-xs px-1.5 py-0 border-border text-muted-foreground"
                         >
                           Inactivo
                         </Badge>
                       )}
                     </div>
 
-                    <p className="text-sm font-medium text-[#F9FAFB] truncate">
+                    <p className="text-sm font-medium text-foreground truncate">
                       {entry.fullName}
                     </p>
 
-                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-[#9CA3AF]">
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                       {entry.rut && <span>{formatRut(entry.rut)}</span>}
                       {entry.vehiclePlate && (
                         <span className="font-mono">🚗 {entry.vehiclePlate}</span>
@@ -233,7 +233,7 @@ export default function ListasControlSection({
                     )}
 
                     {(entry.validFrom || entry.validUntil) && (
-                      <p className="mt-1 flex items-center gap-1 text-xs text-[#9CA3AF]">
+                      <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3" />
                         {entry.validFrom && `Desde ${entry.validFrom}`}
                         {entry.validFrom && entry.validUntil && " — "}

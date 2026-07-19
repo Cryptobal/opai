@@ -35,13 +35,13 @@ export default function ForgotPinPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-zinc-900 border-zinc-800">
+      <Card className="w-full max-w-md bg-card opai-glass-soft-m border-border">
         <CardHeader className="text-center pb-4">
           <div className="flex justify-center mb-3">
-            <Shield className="h-10 w-10 text-status-info-fg" />
+            <Shield className="h-10 w-10 text-primary" />
           </div>
-          <CardTitle className="text-white text-xl">Recuperar acceso</CardTitle>
-          <CardDescription className="text-zinc-400 text-sm">
+          <CardTitle className="text-foreground text-xl">Recuperar acceso</CardTitle>
+          <CardDescription className="text-muted-foreground text-sm">
             Ingresa el correo con el que accedes al portal. Te enviaremos un enlace para crear un nuevo PIN.
           </CardDescription>
         </CardHeader>
@@ -49,13 +49,13 @@ export default function ForgotPinPage() {
           {!sent ? (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="text-zinc-400 text-xs mb-1.5 block">Correo electrónico</label>
+                <label className="text-muted-foreground text-xs mb-1.5 block">Correo electrónico</label>
                 <Input
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="tu@empresa.com"
-                  className="bg-zinc-800 border-zinc-700 text-white"
+                  className="bg-muted border-border text-foreground"
                   autoFocus
                   autoComplete="email"
                 />
@@ -64,7 +64,7 @@ export default function ForgotPinPage() {
               <Button
                 type="submit"
                 disabled={loading || !email.trim()}
-                className="w-full bg-status-info hover:brightness-110 text-white"
+                className="w-full bg-primary hover:brightness-110 text-primary-foreground"
               >
                 {loading ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Enviando...</>
@@ -75,7 +75,7 @@ export default function ForgotPinPage() {
               <div className="text-center">
                 <Link
                   href="/portal/cliente"
-                  className="inline-flex items-center gap-1 text-zinc-500 text-sm hover:text-zinc-300 transition-colors"
+                  className="inline-flex items-center gap-1 text-muted-foreground text-sm hover:text-foreground transition-colors"
                 >
                   <ArrowLeft className="h-3 w-3" /> Volver al login
                 </Link>
@@ -84,11 +84,11 @@ export default function ForgotPinPage() {
           ) : (
             <div className="text-center space-y-4 py-4">
               <CheckCircle className="h-10 w-10 text-status-ok-fg mx-auto" />
-              <p className="text-zinc-300 text-sm">
+              <p className="text-muted-foreground text-sm">
                 Si ese correo tiene acceso al portal, recibirás un email con el enlace para restablecer tu PIN. Revisa también la carpeta de spam.
               </p>
               <Link href="/portal/cliente">
-                <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
+                <Button variant="outline" className="border-border text-muted-foreground hover:bg-muted">
                   <ArrowLeft className="h-4 w-4 mr-2" /> Volver al login
                 </Button>
               </Link>

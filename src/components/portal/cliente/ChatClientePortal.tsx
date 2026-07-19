@@ -83,7 +83,7 @@ export function ChatClientePortal({ session }: ChatClientePortalProps) {
   if (!autoSelectDone) {
     return (
       <div className="flex flex-1 items-center justify-center h-full">
-        <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }

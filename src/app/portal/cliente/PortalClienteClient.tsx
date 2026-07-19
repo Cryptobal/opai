@@ -274,7 +274,7 @@ function PortalClienteShell() {
   return (
     <div className={`flex flex-col ${activeSection === "chat" ? "h-dvh" : "min-h-dvh"}`}>
       {activeSection !== "chat" && (
-        <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/50">
+        <header className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-3">
             {session.accountLogoUrl && !headerLogoBroken ? (
               <img
@@ -293,7 +293,7 @@ function PortalClienteShell() {
                   OPAI
                 </span>
               </div>
-              <p className="text-sm text-zinc-400 truncate max-w-[200px] sm:max-w-none">
+              <p className="text-sm text-muted-foreground truncate max-w-[200px] sm:max-w-none">
                 {session.accountName}
               </p>
             </div>
@@ -304,16 +304,16 @@ function PortalClienteShell() {
               type="button"
               onClick={() => setCommandOpen(true)}
               title="Buscar (⌘K)"
-              className="hidden sm:inline-flex items-center gap-1.5 text-[11px] text-zinc-400 border border-zinc-700 rounded px-2 py-1 hover:bg-white/5"
+              className="hidden sm:inline-flex items-center gap-1.5 text-[11px] text-muted-foreground border border-border rounded px-2 py-1 hover:bg-white/5"
             >
               <span>Buscar</span>
-              <kbd className="text-[9px] bg-zinc-800 rounded px-1">⌘K</kbd>
+              <kbd className="text-[9px] bg-muted rounded px-1">⌘K</kbd>
             </button>
             <button
               type="button"
               onClick={() => setCommandOpen(true)}
               aria-label="Buscar"
-              className="sm:hidden text-zinc-400 hover:text-white p-1"
+              className="sm:hidden text-muted-foreground hover:text-white p-1"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"

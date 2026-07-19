@@ -90,7 +90,7 @@ export default function ResumenTurnoSection({
   if (loading) {
     return (
       <div className="space-y-3">
-        <div className="h-6 w-48 rounded bg-[#1F2937] animate-pulse" />
+        <div className="h-6 w-48 rounded bg-muted animate-pulse" />
         <div className="grid grid-cols-2 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
             <SkeletonCard key={i} />
@@ -109,11 +109,11 @@ export default function ResumenTurnoSection({
     <div className="space-y-5">
       {/* Header */}
       <div>
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-[#F9FAFB]">
-          <ClipboardList className="h-5 w-5 text-[#06B6D4]" />
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+          <ClipboardList className="h-5 w-5 text-primary" />
           Resumen del Turno
         </h2>
-        <p className="mt-1 text-sm text-[#9CA3AF]">
+        <p className="mt-1 text-sm text-muted-foreground">
           Guardia: {guardName} — Inicio: {shiftTimeStr}
         </p>
       </div>
@@ -153,7 +153,7 @@ export default function ResumenTurnoSection({
       {/* Breakdown by type */}
       {stats?.byType && (
         <div className="space-y-3">
-          <h3 className="text-base font-semibold text-[#F9FAFB]">
+          <h3 className="text-base font-semibold text-foreground">
             Desglose por Tipo
           </h3>
           <div className="space-y-2">
@@ -165,7 +165,7 @@ export default function ResumenTurnoSection({
                 return (
                   <div
                     key={type}
-                    className="flex items-center justify-between rounded-lg border border-[#374151] bg-[#111827] p-3"
+                    className="flex items-center justify-between rounded-lg border border-border bg-card opai-glass-soft-m p-3"
                   >
                     <div className="flex items-center gap-2">
                       <Badge
@@ -176,7 +176,7 @@ export default function ResumenTurnoSection({
                         {tc.label}
                       </Badge>
                     </div>
-                    <span className="text-lg font-bold text-[#F9FAFB]">
+                    <span className="text-lg font-bold text-foreground">
                       {count}
                     </span>
                   </div>
@@ -184,7 +184,7 @@ export default function ResumenTurnoSection({
               })}
 
             {Object.values(stats.byType).every((v) => v === 0) && (
-              <p className="text-center text-sm text-[#9CA3AF] py-4">
+              <p className="text-center text-sm text-muted-foreground py-4">
                 Sin registros por tipo
               </p>
             )}
