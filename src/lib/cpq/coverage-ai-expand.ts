@@ -41,7 +41,7 @@ export function expandCoveragePatternQuery(queryRaw: string): ExpandedShiftSlot[
       shiftEnd: p.shiftEnd,
       daysOfWeek: p.daysOfWeek,
       guardsCount: p.guardsCount,
-      rolShiftPattern: p.rolShiftPattern,
+      rolShiftPattern: p.rolShiftPattern ?? p.shiftPattern,
     }));
   }
 
@@ -56,7 +56,7 @@ export function expandCoveragePatternQuery(queryRaw: string): ExpandedShiftSlot[
         shiftEnd: p.shiftEnd,
         daysOfWeek: p.daysOfWeek,
         guardsCount: p.guardsCount,
-        rolShiftPattern: p.rolShiftPattern,
+        rolShiftPattern: p.rolShiftPattern ?? p.shiftPattern,
       }));
     }
   }
