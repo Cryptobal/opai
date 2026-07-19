@@ -161,7 +161,15 @@ export function CpqQuoteDetail({
           entityId: quote.id,
           entityName: quote.name || quote.code || "Cotización",
           entityUrl: `/crm/cotizaciones/${quote.id}`,
-          extra: quote.clientName ? `Cliente: ${quote.clientName}` : undefined,
+          extra:
+            [
+              quote.clientName ? `Cliente: ${quote.clientName}` : null,
+              quote.dealId
+                ? `Negocio asociado (dealId: ${quote.dealId}) — para adjuntar archivos, crear checklist o notas usa ese dealId directamente`
+                : "Sin negocio asociado",
+            ]
+              .filter(Boolean)
+              .join(" · ") || undefined,
         }
       : null,
   );
