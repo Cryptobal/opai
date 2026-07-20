@@ -279,3 +279,95 @@ Env ya existentes: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GMAIL_TOKEN_SECR
 Migración nueva **aditiva**: `20261019000000_add_agenda_custom_address` (ALTER TABLE
 ADD COLUMN nullable; aplicar con el flujo habitual del equipo — **no** `migrate
 deploy` desde el agente).
+
+---
+
+## QA v3 — Auditoría dirigida (Correos con IA · Agenda Google · Espejo Drive total)
+
+Base: rama sobre `main` con toda la feature GW (v1 + v2). Gate limpio (`prisma
+generate && tsc --noEmit`, exit 0) antes de tocar código.
+
+### A1 · Switches rotos (Drive "Tipos a espejar" + Calendar "Preferencias")
+
+- `src/components/configuracion/google-drive/DriveMirrorToggles.tsx:26-41` y
+  `src/components/configuracion/google-calendar/CalendarPrefsList.tsx:29-43`
+  implementan un toggle custom `<button role="switch">` con thumb
+  `absolute top-0.5` (sin `left`, se apoya sólo en `translate-x`) que se sale del
+  track. **Fix:** usar `src/components/ui/switch.tsx` (DS). El Switch DS es `h-5 w-9`;
+  los toggles custom eran `h-7 w-12` → extender el Switch con prop `size` (`sm|md`).
+
+### A2 · Brand-mark verde móvil + saludo/fecha
+
+- El "cuadro verde con cuadraditos" NO es un elemento del header (`AppShell.tsx`
+  sólo tiene `ThemeLogo` + "OPAI" + Search/Chat/Bell). Es el **icon tile de
+  `HubGreeting`**: `HubGreeting.tsx:28-35` pasa `icon={<LayoutDashboard/>}` +
+  `iconTone="primary"` a `PageHero`, que en móvil lo renderiza como `IconTile`
+  `sm:hidden` (`PageHero.tsx:84-92`) con `bg-primary/15` (`IconBubble.tsx:41`) →
+  caja verde con el ícono grid-de-cuadrados. **Eliminar `HubGreeting` resuelve A2
+  completo** (saludo + fecha + brand-mark). Render en
+  `hub/_components/HubClientWrapper.tsx:172`. Orden actual del hub:
+  HubGreeting(172) → HubQuickActions(173) → HubAlertsBanner(174) → AgendaHubCard(175).
+- Selector "Propietario" = `RoleSwitcher` (`TopbarActions.tsx:58` desktop /
+  `BottomNav.tsx:389` móvil, dentro del sheet "Más"). **Se mantiene intacto.**
+
+### A3 · Sync Gmail insuficiente
+
+- `src/modules/crm/email/gmail-sync.service.ts`: `messages.list` de máx. 20
+  (`maxResults` clamp 1-100, cron pasa 30) de INBOX + 20 de SENT por corrida, sin
+  paginación (`pageToken`), sin backfill histórico, sin `historyId`.
+- Matching por **subject** (`thread-linking.ts:upsertLinkedThread`) — NO por Gmail
+  threadId; el thread NO guarda `emailAccountId` ni `providerThreadId`. El auto-link
+  thread→deal (cuenta con 1 deal abierto) del fix v2 SÍ corre
+  (`thread-linking.ts:36-43`).
+- Fix v2 del criterio ampliado (`deal-thread-scope.ts:getDealEmailScope` +
+  `buildDealThreadWhere`) ya operativo en `/api/crm/emails`.
+- Endpoint manual: `GET /api/crm/gmail/sync` (existe; sólo GET, wrapper fino).
+- Cuerpos/adjuntos: `src/lib/gmail-message-content.ts` (extrae html/text; **no**
+  expone `filename`/`attachmentId` → extender para B7). Token refresh Gmail: el
+  cliente `getGmailClient` (`src/lib/gmail.ts`) usa el refresh_token nativo de
+  googleapis; `tokens.ts` (`withFreshToken`) es sólo para Drive/Calendar.
+
+### A4 · Agenda no lee eventos de Google
+
+- `listAgenda(tenantId, from, to)` (`agenda-list.ts`) sólo lee visitas, técnicas y
+  licitaciones — cero `events.list`. La ruta `/api/agenda` tiene `session.user.id`.
+- Cliente reutilizable listo: `getCalendarClientForUser(tenantId, userId)`
+  (`clients.ts:35`) → `{ calendar, accountId, calendarId }`. Dedup por
+  `AgendaEventLink.googleEventId` (`schema:11711`).
+
+### A5 · Espejo Drive limitado a 3 tipos
+
+- Modelo de archivos CRM: **`CrmFile`** (`schema:2747`) + **`CrmFileLink`**
+  (`schema:2767`, `entityType`/`entityId`), R2 key en `storageKey`. Puntos de
+  attach: `src/app/api/crm/files/upload/route.ts:84-105` (UI),
+  `help-chat-tools-v2.ts:7120-7133` (tool `attach_staged_file`),
+  `webhook/inbound-email/route.ts` y `leads/[id]/approve/route.ts`.
+- Hooks Drive: `drive-enqueue-hooks.ts` (`enqueueBillingPdfToDrive`,
+  `enqueueQuotePdfToDrive`) → `enqueueDriveExport` → `DriveExportOutbox`. El worker
+  `flushDriveOutbox` sube vía `uploadR2ToDrive` (cualquier mime). `mirrorConfig`
+  chequea `config[docType] === false` → nuevos tipos `negocios`/`personas` default
+  true. Config: `drive-mirror-config.ts` (`SUPPORTED_DOC_TYPES`, `DEFAULT_MIRROR_CONFIG`).
+
+### A6 · Presión DB (mitigación en código)
+
+- `/api/badge/count` (`route.ts`, `dynamic="force-dynamic"`, sin cache) corre 3-4
+  queries por request. Cliente ya poll a **60s** (`hooks/useBadgeSync.ts:38`) pero
+  también re-sincroniza en `visibilitychange` y mensajes SW → **cachear el endpoint
+  60s/usuario** dedupe esas ráfagas.
+- Ensure-column: NO está en `/hub`, vive en `src/lib/prisma.ts:24-49`
+  (`$executeRawUnsafe('ALTER TABLE crm.deals ADD COLUMN IF NOT EXISTS
+  active_quotation_id …')`, memoizado 1×/proceso vía `$extends` en cada op de
+  `crmDeal`). La columna ya existe en el schema (`schema:2505`) pero **no hay
+  migración** que la cree → borrar el ensure y agregar migración idempotente.
+
+### A7 · Login Google (`CallbackRouteError`)
+
+- Corrección de consola (redirect `/api/auth/callback/google` en el cliente OAuth).
+  Sólo verificar/loguear; acción de Carlos.
+
+### Cambios de schema previstos (todos aditivos, ALTER ADD COLUMN)
+
+- `crm.email_accounts.sync_state jsonb` (B3).
+- `crm.email_threads.email_account_id uuid` + `provider_thread_id text` (B3/B6).
+- `crm.email_threads.lead_id uuid` + índice (B7).
+- Migración idempotente para `crm.deals.active_quotation_id` (B8).
