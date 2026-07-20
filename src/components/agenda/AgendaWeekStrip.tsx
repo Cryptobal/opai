@@ -11,13 +11,14 @@ export type WeekItem = {
   allDay: boolean;
   syncStatus: string | null;
   dealId?: string | null;
+  assignedUserId?: string | null;
 };
 
 type Props = {
   weekStart: Date;
   items: WeekItem[];
   compact?: boolean;
-  onDayClick?: (day: Date) => void;
+  days?: number;
   onVisitClick?: (item: WeekItem) => void;
   onLicClick?: (item: WeekItem) => void;
 };
@@ -28,35 +29,36 @@ function startOfDay(d: Date) {
   return x;
 }
 
-/** Semana comercial: 7 columnas (día actual resaltado con primary). */
 export function AgendaWeekStrip({
   weekStart,
   items,
   compact,
-  onDayClick,
+  days = 7,
   onVisitClick,
   onLicClick,
 }: Props) {
   const today = startOfDay(new Date()).getTime();
-  const days = Array.from({ length: 7 }, (_, i) => {
+  const cols = Array.from({ length: days }, (_, i) => {
     const d = startOfDay(weekStart);
     d.setDate(d.getDate() + i);
     return d;
   });
 
   return (
-    <div className={`grid gap-2 ${compact ? "grid-cols-4 sm:grid-cols-7" : "grid-cols-1 sm:grid-cols-7"}`}>
-      {days.map((day) => {
+    <div
+      className={`grid gap-2 ${
+        compact ? "grid-cols-4 sm:grid-cols-7" : "grid-cols-1 sm:grid-cols-7"
+      }`}
+    >
+      {cols.map((day) => {
         const key = day.toDateString();
-        const isToday = day.getTime() === today;
         const dayItems = items.filter((i) => new Date(i.start).toDateString() === key);
         return (
           <AgendaDayColumn
             key={key}
             day={day}
             items={dayItems}
-            isToday={isToday}
-            onHeaderClick={onDayClick ? () => onDayClick(day) : undefined}
+            isToday={day.getTime() === today}
             onVisitClick={onVisitClick}
             onLicClick={onLicClick}
           />
