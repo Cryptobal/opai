@@ -35,6 +35,7 @@ import {
   CONFIG_CATEGORIES,
   getModule,
   isNodeVisible,
+  pathMatchesNode,
   type NavNode,
   type VisibilityContext,
 } from "@/lib/nav/registry";
@@ -74,7 +75,7 @@ function useConfigCategories(): { groups: CategoryGroup[]; activeItem: NavNode |
 
     const allItems = groups.flatMap((g) => g.items);
     const activeItem = allItems
-      .filter((i) => pathname === i.href || pathname.startsWith(i.href + "/"))
+      .filter((i) => pathMatchesNode(pathname, i))
       .sort((a, b) => b.href.length - a.href.length)[0];
 
     return { groups, activeItem };

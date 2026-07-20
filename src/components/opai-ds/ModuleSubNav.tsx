@@ -77,6 +77,7 @@ function nodeToTabItem(node: NavNode): SwipeTabItem {
     label: node.shortLabel ?? node.label,
     icon: node.icon,
     exactMatch: node.exactMatch,
+    activePaths: node.activePaths,
   };
 }
 

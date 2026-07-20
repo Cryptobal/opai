@@ -37,6 +37,8 @@ export interface BottomNavItem {
   icon: LucideIcon;
   /** When true, only matches when pathname === href exactly. */
   exactMatch?: boolean;
+  /** Rutas adicionales que activan este item (familias de rutas hermanas). */
+  activePaths?: string[];
 }
 
 /* ── Helpers ── */
@@ -48,6 +50,7 @@ function nodeToBottomNavItem(node: NavNode): BottomNavItem {
     label: node.shortLabel ?? node.label,
     icon: node.icon,
     exactMatch: node.exactMatch,
+    activePaths: node.activePaths,
   };
 }
 

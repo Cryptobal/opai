@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getBottomNavItems, type BottomNavItem } from '@/lib/module-nav';
+import { pathMatchesNode } from '@/lib/nav/registry';
 import { usePermissions } from '@/lib/permissions-context';
 import { hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
 import { useTenantModules } from '@/contexts/TenantModulesContext';
@@ -659,13 +660,10 @@ function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: Bottom
 
   // Longest-prefix-wins matching across the items in this module so a deep
   // route like /finanzas/reportes/eerr resaltea "EERR" en vez de "Dashboard"
-  // (que tiene exactMatch:true sobre /finanzas/reportes).
+  // (que tiene exactMatch:true sobre /finanzas/reportes). Usa el matcher
+  // canónico del registry (soporta activePaths).
   const activeHref = orderedItems
-    .filter((i) =>
-      i.exactMatch
-        ? pathname === i.href
-        : pathname === i.href || pathname.startsWith(i.href + '/'),
-    )
+    .filter((i) => pathMatchesNode(pathname, i))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   return (

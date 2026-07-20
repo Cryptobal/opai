@@ -144,6 +144,12 @@ export interface NavNode extends NavVisibility {
   children?: NavNode[];
   /** When true, only matches when pathname === href exactly (used for "Inicio"/"Dashboard"-like items) */
   exactMatch?: boolean;
+  /** Rutas adicionales que pertenecen a este nodo para efectos de estado
+   *  activo y breadcrumbs. Se matchean con la misma regla que `href`
+   *  (prefijo, salvo que el path termine explícitamente igual). Útil para
+   *  familias de rutas hermanas planas (ej. Banca: /finanzas/flujo-caja,
+   *  /finanzas/conciliacion viven fuera de /finanzas/bancos). */
+  activePaths?: string[];
   /** Badge configuration */
   badge?: NavBadge;
   /** Short label for the bottom nav (mobile) when the regular label is too long.
@@ -203,6 +209,23 @@ export function isNodeVisible(node: NavVisibility, ctx: VisibilityContext): bool
 /** Filter children of a node by visibility rules */
 export function filterChildren(node: NavNode, ctx: VisibilityContext): NavNode[] {
   return (node.children ?? []).filter((c) => isNodeVisible(c, ctx));
+}
+
+/** Matching canónico de un nodo contra un pathname. Único lugar donde vive
+ *  la regla — todos los consumidores (sidebar, bottom nav, breadcrumbs,
+ *  SwipeTabs, ConfigShell) deben usar esto en vez de duplicar la lógica. */
+export function pathMatchesNode(
+  pathname: string,
+  node: Pick<NavNode, "href" | "exactMatch" | "activePaths">,
+): boolean {
+  const matchOne = (base: string) =>
+    node.exactMatch
+      ? pathname === base
+      : pathname === base || pathname.startsWith(base + "/");
+  if (matchOne(node.href)) return true;
+  return (node.activePaths ?? []).some((p) =>
+    pathname === p || pathname.startsWith(p + "/"),
+  );
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -711,15 +734,8 @@ export function getModule(key: string): NavNode | undefined {
 /** Find which top-level module owns this pathname (longest-prefix wins) */
 export function findActiveModule(pathname: string): NavNode | undefined {
   let best: { node: NavNode; len: number } | undefined;
-  const visit = (node: NavNode) => {
-    if (pathname === node.href || pathname.startsWith(node.href + "/")) {
-      const len = node.href.length;
-      if (!best || len > best.len) best = { node, len };
-    }
-    node.children?.forEach(visit);
-  };
   for (const m of NAV_MODULES) {
-    if (pathname === m.href || pathname.startsWith(m.href + "/")) {
+    if (pathMatchesNode(pathname, m)) {
       const len = m.href.length;
       if (!best || len > best.len) best = { node: m, len };
     }
@@ -750,7 +766,7 @@ export function findN3Parent(pathname: string): NavNode | undefined {
   const visit = (node: NavNode, depth: number) => {
     // Solo nodos con children y a profundidad >= 1 (sub-módulo o más)
     if (depth >= 1 && node.children && node.children.length > 0) {
-      if (pathname === node.href || pathname.startsWith(node.href + "/")) {
+      if (pathMatchesNode(pathname, node)) {
         const len = node.href.length;
         if (!best || len > best.len) best = { node, len };
       }
