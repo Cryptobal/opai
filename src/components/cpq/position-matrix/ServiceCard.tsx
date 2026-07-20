@@ -238,6 +238,7 @@ export function ServiceCard({ group, rows, adapter, totalCost, expandedRowId, on
                     currency={adapter.currency}
                     ufValue={adapter.ufValue}
                     disableLivePreview={adapter.disableLivePreview}
+                    quoteId={adapter.quoteId ?? null}
                     onUpdate={(patch) => adapter.onUpdateRow(row.id, patch)}
                     onClone={() => adapter.onCloneRow(row.id)}
                     onDelete={() => setDeleteTarget({ kind: "row", id: row.id })}

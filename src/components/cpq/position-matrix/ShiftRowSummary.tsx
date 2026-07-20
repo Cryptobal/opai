@@ -3,7 +3,7 @@
  */
 "use client";
 
-import { ChevronDown, Loader2, Moon, Sun } from "lucide-react";
+import { ChevronDown, Loader2, Moon, NotebookPen, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import { isNightShift, diasLabel, analizarTurno } from "./shift-utils";
@@ -79,6 +79,12 @@ export function ShiftRowSummary({
           <span>·</span>
           <JornadaHoursChip analysis={jornada} variant="compact" />
         </div>
+        {row.description?.trim() ? (
+          <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] italic text-muted-foreground">
+            <NotebookPen className="h-3 w-3 shrink-0 text-primary" />
+            <span className="truncate">{row.description}</span>
+          </span>
+        ) : null}
       </div>
 
       <div className="hidden shrink-0 flex-col items-end sm:flex">

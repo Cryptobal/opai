@@ -25,6 +25,8 @@ interface Props {
   currency: string;
   ufValue?: number | null;
   disableLivePreview?: boolean;
+  /** id de la cotización CPQ. Si viene, habilita "Redactar con IA". null en modo Lead. */
+  quoteId?: string | null;
   onUpdate: (patch: ShiftPatch) => void;
   onClone: () => void;
   onDelete: () => void;
@@ -33,7 +35,17 @@ interface Props {
 
 type Draft = Pick<
   NormalizedShift,
-  "customName" | "puestoId" | "cargoId" | "rolId" | "inicio" | "fin" | "dias" | "guardias" | "nPuestos" | "bruto"
+  | "customName"
+  | "puestoId"
+  | "cargoId"
+  | "rolId"
+  | "inicio"
+  | "fin"
+  | "dias"
+  | "guardias"
+  | "nPuestos"
+  | "bruto"
+  | "description"
 >;
 
 const LABEL = "text-xs font-medium uppercase tracking-wide text-muted-foreground";
@@ -45,6 +57,7 @@ export function ShiftRowEditor({
   currency,
   ufValue,
   disableLivePreview,
+  quoteId = null,
   onUpdate,
   onClone,
   onDelete,
@@ -61,6 +74,7 @@ export function ShiftRowEditor({
     guardias: row.guardias,
     nPuestos: row.nPuestos || 1,
     bruto: row.bruto,
+    description: row.description ?? "",
   }));
   const ref = useRef(draft);
   ref.current = draft;
@@ -215,6 +229,26 @@ export function ShiftRowEditor({
             </span>
           </div>
         </Field>
+      </div>
+
+      <div className="space-y-1.5 rounded-lg border border-primary/30 bg-primary/[0.04] p-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <Label className={LABEL}>Observaciones del turno</Label>
+          <span className="font-mono text-[10px] text-muted-foreground">
+            {(draft.description ?? "").length}/500
+          </span>
+        </div>
+        <textarea
+          value={draft.description ?? ""}
+          maxLength={500}
+          rows={3}
+          placeholder="Funciones, protocolos o particularidades de este turno…"
+          onChange={(e) => apply({ description: e.target.value })}
+          className="w-full resize-y rounded-md border border-border bg-card px-2.5 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        />
+        <p className="flex items-center gap-1 text-[10.5px] text-muted-foreground">
+          Aparece en el PDF económico, la propuesta técnica y el portal del cliente.
+        </p>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2">
