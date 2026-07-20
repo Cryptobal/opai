@@ -19,7 +19,12 @@ function normalizeCompromisos(v: unknown): RadarCompromiso[] {
       const fechaISO = asStr(o.fechaISO);
       return { quien, que, fechaISO } as RadarCompromiso;
     })
-    .filter((c) => c.que && /^\d{4}-\d{2}-\d{2}$/.test(c.fechaISO));
+    .filter(
+      (c) =>
+        c.que &&
+        /^\d{4}-\d{2}-\d{2}$/.test(c.fechaISO) &&
+        !Number.isNaN(new Date(`${c.fechaISO}T12:00:00.000Z`).getTime()),
+    );
 }
 
 function normalize(raw: Record<string, unknown>): RadarClassification {

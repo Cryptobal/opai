@@ -22,7 +22,9 @@ export async function GET() {
     prisma.crmRadarItem.count({ where }),
     prisma.crmRadarItem.findMany({
       where,
-      orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
+      // nulls first: leads/señales (sin dueAt) arriba — no se entierran bajo
+      // compromisos con fecha; luego los fechados por vencimiento ascendente.
+      orderBy: [{ dueAt: { sort: "asc", nulls: "first" } }, { createdAt: "desc" }],
       take: 5,
       select: {
         id: true, kind: true, status: true, title: true, summary: true,

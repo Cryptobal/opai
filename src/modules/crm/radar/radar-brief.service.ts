@@ -44,6 +44,9 @@ export async function processCalendarBriefs(params: {
   for (const ev of events) {
     const startIso = ev.start?.dateTime; // solo eventos con hora (no all-day)
     if (ev.status === "cancelled" || !ev.id || !startIso) continue;
+    // events.list devuelve también eventos que solapan la ventana; sáltate los
+    // que ya empezaron (reuniones en curso) para no avisar de una reunión pasada.
+    if (new Date(startIso).getTime() < now) continue;
     const attendees = ev.attendees ?? [];
     if (!attendees.some((a) => a.email && !a.self)) continue; // sin asistentes externos
 

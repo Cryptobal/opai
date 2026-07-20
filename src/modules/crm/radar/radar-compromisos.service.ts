@@ -31,14 +31,18 @@ async function processOne(item: Item, now: Date): Promise<boolean> {
   const fecha = typeof cmp.fechaISO === "string" ? cmp.fechaISO : "";
   const nombre = await scopeName(item.tenantId, item.dealId, item.accountId);
 
-  // quien = nosotros → recordatorio el mismo día del compromiso.
+  // quien = nosotros → recordatorio el mismo día del compromiso (una sola vez).
   if (quien === "nosotros") {
-    if (!sameUtcDay(item.dueAt, now)) return false;
+    if (!sameUtcDay(item.dueAt, now) || payload.reminderAlertedAt) return false;
     await dispatchPersonalSlackDm({
       tenantId: item.tenantId, adminId: item.userId, typeKey: "radar_comercial",
       title: "⏰ Compromiso de hoy", body: `Hoy te comprometiste a ${que} con ${nombre}.`,
       category: "Radar Comercial",
       actions: [{ label: "Ver negocio", url: scopeLink(item.dealId, item.accountId), style: "primary" }],
+    });
+    await prisma.crmRadarItem.update({
+      where: { id: item.id },
+      data: { payload: { ...payload, reminderAlertedAt: now.toISOString() } as Prisma.InputJsonValue },
     });
     return true;
   }
@@ -47,8 +51,13 @@ async function processOne(item: Item, now: Date): Promise<boolean> {
   if (item.dueAt >= startOfUtcDay(now)) return false;
 
   if (item.threadId) {
+    // Respondió = inbound en/después del día del compromiso (evita falso nag si
+    // el cliente contesta el mismo día antes del mediodía UTC).
     const inbound = await prisma.crmEmailMessage.findFirst({
-      where: { tenantId: item.tenantId, threadId: item.threadId, direction: "in", sentAt: { gt: item.dueAt } },
+      where: {
+        tenantId: item.tenantId, threadId: item.threadId, direction: "in",
+        sentAt: { gte: startOfUtcDay(item.dueAt) },
+      },
       select: { id: true },
     });
     if (inbound) {
@@ -78,7 +87,7 @@ export async function processAllCompromisos(deadlineMs: number): Promise<number>
   const items = await prisma.crmRadarItem.findMany({
     where: { kind: "compromiso", status: "PENDING" },
     orderBy: { dueAt: "asc" },
-    take: 300,
+    take: 500,
     select: {
       id: true, tenantId: true, userId: true, title: true,
       threadId: true, dealId: true, accountId: true, dueAt: true, payload: true,

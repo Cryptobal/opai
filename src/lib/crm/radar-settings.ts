@@ -21,15 +21,9 @@ export async function setRadarComercialEnabled(
   enabled: boolean,
 ): Promise<void> {
   const value = enabled ? "true" : "false";
-  const existing = await prisma.setting.findFirst({
-    where: { tenantId, key: KEY },
-    select: { id: true },
+  await prisma.setting.upsert({
+    where: { tenantId_key: { tenantId, key: KEY } },
+    update: { value },
+    create: { tenantId, key: KEY, value, type: "boolean", category: "radar_comercial" },
   });
-  if (existing) {
-    await prisma.setting.update({ where: { id: existing.id }, data: { value } });
-  } else {
-    await prisma.setting.create({
-      data: { tenantId, key: KEY, value, type: "boolean", category: "radar_comercial" },
-    });
-  }
 }

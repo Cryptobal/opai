@@ -7424,7 +7424,7 @@ async function toolGetRadarItems(
   }
   const items = await prisma.crmRadarItem.findMany({
     where,
-    orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
+    orderBy: [{ dueAt: { sort: "asc", nulls: "first" } }, { createdAt: "desc" }],
     take: 20,
     select: {
       id: true, kind: true, status: true, title: true, summary: true,

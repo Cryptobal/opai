@@ -30,8 +30,8 @@ export function parseISODate(iso: string | null | undefined): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/** Fecha de hoy en formato ISO (YYYY-MM-DD), zona horaria de Chile. */
+/** Fecha de hoy (YYYY-MM-DD) en zona horaria de Chile (America/Santiago). */
 export function hoyISO(now: Date): string {
-  // America/Santiago ≈ UTC-3/-4; usamos toISOString base (suficiente para "hoy").
-  return now.toISOString().slice(0, 10);
+  // en-CA formatea como YYYY-MM-DD; el timeZone evita el corrimiento de día por UTC.
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago" }).format(now);
 }

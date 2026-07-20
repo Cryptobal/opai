@@ -617,3 +617,20 @@ v3**, que dispara el usuario a mano al confirmar "Crear lead con IA".
 Requisitos de entorno (ya presentes por v3): `GMAIL_TOKEN_SECRET`, OAuth Google
 (Gmail + Calendar), Slack workspace activo + `SlackUserLink` por usuario,
 proveedor de IA OpenAI configurado por tenant. **NO MERGE**: PR en modo borrador.
+
+### Correcciones post-review (revisión adversarial del diff)
+
+- **Feed del hub**: orden `dueAt asc **nulls first**` (leads/señales sin fecha
+  arriba) para que los compromisos con fecha no entierren los leads en la card.
+- **Compromisos**: la detección de respuesta del cliente usa `sentAt ≥ inicio
+  del día del compromiso` (evita falso follow-up si contesta antes del mediodía
+  UTC); el recordatorio propio (`quien=nosotros`) es idempotente
+  (`reminderAlertedAt`) para no duplicar el DM si el cron se re-dispara; ventana
+  de escaneo ampliada a 500.
+- **Briefs**: se saltan reuniones ya en curso (evento que solapa la ventana pero
+  ya empezó) para no avisar de una reunión pasada.
+- **Fecha "hoy"** del clasificador ahora en `America/Santiago` (no UTC), para no
+  correr un día las fechas relativas de compromisos ("te confirmo el jueves").
+- **Kill-switch**: `setRadarComercialEnabled` usa `upsert` (evita carrera 500).
+- **Compromisos con fecha inválida** (regex-válida pero inexistente) se descartan
+  en la normalización antes de crear el item.
