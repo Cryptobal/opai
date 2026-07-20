@@ -11682,6 +11682,7 @@ model AgendaVisita {
   startAt        DateTime  @map("start_at") @db.Timestamptz(6)
   endAt          DateTime  @map("end_at") @db.Timestamptz(6)
   notes          String?   @db.Text
+  customAddress  String?   @map("custom_address") @db.Text // dirección libre para tipo "otra" sin instalación
   contactIds     Json?     @map("contact_ids")
   status         String    @default("programada") // programada|completada|cancelada|reprogramada
   resultNote     String?   @map("result_note") @db.Text

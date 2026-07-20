@@ -79,7 +79,10 @@ export async function POST(request: NextRequest) {
     startAt,
     endAt,
     notes: body.notes ?? null,
+    customAddress: body.customAddress ?? null,
     contactIds: body.contactIds ?? null,
+    syncCalendar: body.syncCalendar,
+    inviteContacts: body.inviteContacts,
   });
   return NextResponse.json(result, { status: 201 });
 }
