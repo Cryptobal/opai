@@ -4,6 +4,11 @@ import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmt } from "@/components/finance/cashflow/MatrixHelpers";
 import type { PillVariant } from "@/components/finance/cashflow/CellStatusPill";
+import { GestionGlyphs } from "./GestionGlyphs";
+import type {
+  CashflowCellStatus,
+  CellGestionSummary,
+} from "@/modules/finance/cashflow/types";
 
 /**
  * Borde izquierdo de estado (3px) — tokens DS / status / tint.
@@ -33,6 +38,9 @@ export function GridChip({
   title,
   caption,
   landing = false,
+  gestion = null,
+  emiteProforma = false,
+  cellStatus,
 }: {
   amount: number;
   variant: PillVariant;
@@ -43,6 +51,10 @@ export function GridChip({
   caption?: string | null;
   /** Flash de aterrizaje (create/move). */
   landing?: boolean;
+  /** Gestión de cobro (proforma/EP/OC) → micro-glifos junto al monto. */
+  gestion?: CellGestionSummary | null;
+  emiteProforma?: boolean;
+  cellStatus?: CashflowCellStatus;
 }) {
   return (
     <span
@@ -59,6 +71,11 @@ export function GridChip({
       <span className="inline-flex items-center justify-center gap-1 leading-none">
         {locked && <Lock className="h-3 w-3 shrink-0 opacity-70" aria-hidden />}
         {fmt.format(amount)}
+        <GestionGlyphs
+          gestion={gestion}
+          emiteProforma={emiteProforma}
+          cellStatus={cellStatus}
+        />
       </span>
       {caption && (
         <span className="-mb-0.5 self-end text-[12px] font-normal leading-none text-ds-text-4">

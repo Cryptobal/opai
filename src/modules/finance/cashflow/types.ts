@@ -7,6 +7,10 @@ import type {
   FinanceCashflowConfig,
 } from "@prisma/client";
 import type { OpeningBalanceBreakdown } from "./opening-balance.service";
+// `import type` se borra en compilación: no arrastra el módulo server-only
+// (dte-draft.service importa @/lib/prisma) al bundle de cliente. Mismo patrón
+// que el import de @prisma/client de arriba.
+import type { DraftProformaStatus } from "@/modules/finance/billing/dte-draft.service";
 
 export type {
   FinanceCashflowItem,
@@ -17,6 +21,22 @@ export type {
   FinanceCashflowConfig,
   OpeningBalanceBreakdown,
 };
+
+/** Gestión de cobro previa/paralela a la factura, derivada del FinanceDte
+ *  vinculado (proforma, estado de pago, OC). null en proyecciones puras sin
+ *  ninguna gestión activa. Se stampa a nivel de celda (igual que cellStatus)
+ *  con el DTE "principal" de la celda. */
+export interface CellGestionSummary {
+  proformaRequired: boolean;
+  proformaStatus: DraftProformaStatus; // NONE|SENT|VIEWED|APPROVED|REJECTED
+  proformaSentAt: string | null; // ISO
+  proformaLastRecipient: string | null;
+  epRequired: boolean;
+  epStatus: DraftProformaStatus;
+  epSentAt: string | null;
+  /** Folio de la OC (additionalReferences con tipoDocRef "801"). */
+  ocFolio: string | null;
+}
 
 export interface VirtualOccurrence {
   id: string | null;
@@ -88,6 +108,12 @@ export interface VirtualOccurrence {
   cellStatus?: CashflowCellStatus;
   /** Folio del DTE de la celda (si está facturada). null/undefined = sin folio. */
   dteFolio?: number | null;
+  /** Gestión de cobro (proforma/EP/OC) del DTE de la celda, para pintar los
+   *  micro-glifos en el detalle por movimiento. null = sin gestión activa. */
+  gestion?: CellGestionSummary | null;
+  /** El item de origen emite proforma antes de facturar (habilita el glifo
+   *  "pendiente" ámbar en cuotas PROJECTED puras sin DTE). */
+  emiteProforma?: boolean;
   /** Días de mora de la celda (si está vencida). */
   daysOverdue?: number;
   /** true cuando el DTE está cedido a factoring Y el depósito del cesionario
@@ -188,6 +214,9 @@ export interface ProjectionRowItemValue {
   /** Folio del DTE vinculado, si existe. Usado en el tooltip de la celda
    *  para mostrar "Factura N° {folio}" al hacer hover. */
   dteFolio?: number | null;
+  /** Gestión de cobro (proforma/EP/OC) del DTE "principal" de la celda —
+   *  stampada junto a cellStatus/dteFolio. null en proyecciones puras. */
+  gestion?: CellGestionSummary | null;
   /** Monto bruto (totalAmount) del DTE vinculado en CLP. Sirve como
    *  fuente del botón "Igualar a factura" en el popover de la celda:
    *  el bruto es lo que debe quedar en la línea, y el costo de
@@ -228,6 +257,8 @@ export interface CellDteSummary {
   daysOverdue: number;
   hasDateOverride: boolean;
   originalDate: string;
+  /** Gestión de cobro (proforma/EP/OC) de este DTE, para el popover multi-factura. */
+  gestion?: CellGestionSummary;
 }
 
 export interface ProjectionRowItemDetail {
@@ -248,6 +279,9 @@ export interface ProjectionRowItemDetail {
   source: FinanceCashflowItemSource;
   /** Código del contrato CpqQuote o ref similar para mostrar en badge. */
   sourceRefCode: string | null;
+  /** El item emite proforma antes de facturar (FinanceCashflowItem.emiteProforma).
+   *  Habilita el glifo "pendiente" ámbar en celdas PROJECTED puras sin DTE. */
+  emiteProforma?: boolean;
   /** Reajuste IPC configurado en el item. Permite mostrar badge permanente
    *  en la UI (no solo cuando hay ajuste PENDING próximo). */
   hasIpcAdjustment: boolean;

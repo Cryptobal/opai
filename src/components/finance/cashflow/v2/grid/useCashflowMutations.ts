@@ -137,7 +137,7 @@ export function useCashflowMutations(opts: {
           bucketKey: undo.bucketKey,
         });
       }
-      toast.success(`«${undo.label}» ocultado del flujo`);
+      toast.success(undo.successLabel ?? `«${undo.label}» ocultado del flujo`);
       if (id) await settle(id, [undo.bucketKey], undo.projection);
       else if (undo.projection && patchMatrix) patchMatrix(undo.projection);
       else await refreshWeeks([undo.bucketKey]);

@@ -23,7 +23,9 @@ import type {
   FinanceCashflowCategory,
   CumulativeBalancePoint,
   CashflowCellStatus,
+  CellGestionSummary,
 } from "./types";
+import type { DraftAdditionalReference } from "../billing/dte-draft.service";
 import { eachDayOfInterval } from "date-fns";
 
 import { matchOccurrencesToBankLinks, type BankLinkSlim } from "./account-matcher";
@@ -316,6 +318,57 @@ export function isBankBornManualExpense(
     item.installationId == null &&
     bankTransactionId != null
   );
+}
+
+/** Folio de la OC (primer `additionalReferences[].tipoDocRef === "801"`) del
+ *  Json del DTE. Json malformado (no-array, entradas nulas) → null sin throw.
+ *  NO inventa códigos SII: solo lee el 801 que ya escribió la gestión de cobro. */
+function extractOcFolio(refs: unknown): string | null {
+  if (!Array.isArray(refs)) return null;
+  const arr = refs as DraftAdditionalReference[];
+  for (const r of arr) {
+    if (
+      r &&
+      typeof r === "object" &&
+      r.tipoDocRef === "801" &&
+      typeof r.folioRef === "string" &&
+      r.folioRef.trim().length > 0
+    ) {
+      return r.folioRef;
+    }
+  }
+  return null;
+}
+
+/** Resumen de gestión de cobro (proforma/EP/OC) derivado del FinanceDte
+ *  vinculado. `null` si el DTE no tiene ninguna gestión activa
+ *  (`!requireProforma && !requireEstadoPago && sin OC`) — así las proyecciones
+ *  puras no cargan glifos de ruido. */
+export function gestionFromDte(d: {
+  requireProforma: boolean | null;
+  proformaStatus: string | null;
+  proformaSentAt: Date | null;
+  proformaLastRecipient: string | null;
+  requireEstadoPago: boolean | null;
+  estadoPagoStatus: string | null;
+  estadoPagoSentAt: Date | null;
+  additionalReferences: unknown;
+}): CellGestionSummary | null {
+  const ocFolio = extractOcFolio(d.additionalReferences);
+  const proformaRequired = !!d.requireProforma;
+  const epRequired = !!d.requireEstadoPago;
+  if (!proformaRequired && !epRequired && !ocFolio) return null;
+  return {
+    proformaRequired,
+    proformaStatus: (d.proformaStatus ??
+      "NONE") as CellGestionSummary["proformaStatus"],
+    proformaSentAt: d.proformaSentAt ? d.proformaSentAt.toISOString() : null,
+    proformaLastRecipient: d.proformaLastRecipient ?? null,
+    epRequired,
+    epStatus: (d.estadoPagoStatus ?? "NONE") as CellGestionSummary["epStatus"],
+    epSentAt: d.estadoPagoSentAt ? d.estadoPagoSentAt.toISOString() : null,
+    ocFolio,
+  };
 }
 
 /**
@@ -911,6 +964,7 @@ export async function buildProjection(
         varianceClp: null,
         hasIpcAdjustment: !!item.hasIpcAdjustment,
         ipcAdjustmentMonths: item.ipcAdjustmentMonths ?? null,
+        emiteProforma: !!item.emiteProforma,
         dteId: mat?.dteId ?? null,
         nickname: item.nickname ?? null,
         modoCobro:
@@ -1814,6 +1868,7 @@ export async function buildProjection(
   );
   const dteStatusById = new Map<string, DteStatusSlim>();
   const dteFolioById = new Map<string, number | null>();
+  const gestionByDteId = new Map<string, CellGestionSummary | null>();
   const dteGrossById = new Map<string, number>();
   const dteIssueDateById = new Map<string, string>();
   const dteDueDateById = new Map<string, string | null>();
@@ -1852,6 +1907,16 @@ export async function buildProjection(
           amountPaid: true,
           amountPending: true,
           reconciledAt: true,
+          // Gestión de cobro (proforma/EP/OC) — se stampa en la celda junto a
+          // cellStatus para pintar los micro-glifos del chip.
+          requireProforma: true,
+          proformaStatus: true,
+          proformaSentAt: true,
+          proformaLastRecipient: true,
+          requireEstadoPago: true,
+          estadoPagoStatus: true,
+          estadoPagoSentAt: true,
+          additionalReferences: true,
         },
       }),
       prisma.financeFactoringOperation.findMany({
@@ -1886,6 +1951,7 @@ export async function buildProjection(
         creditedNetAmount: Number(d.creditedNetAmount),
       });
       dteFolioById.set(d.id, d.folio ?? null);
+      gestionByDteId.set(d.id, gestionFromDte(d));
       const grossPostNc = computeCreditNoteImpact({
         totalAmount: Number(d.totalAmount),
         netAmount: Number(d.netAmount),
@@ -1980,6 +2046,7 @@ export async function buildProjection(
     dteVoidedAtById,
     dteCreditedNetAmountById,
     dteDateOverrideById,
+    gestionByDteId,
   );
 
   // ── Etapa del ciclo por CELDA (item+bucket), stampada en las occurrences ──
@@ -2024,6 +2091,7 @@ export async function buildProjection(
         o.daysOverdue = cs.daysOverdue;
       }
       o.dteFolio = dteFolioById.get(o.dteId) ?? null;
+      o.gestion = gestionByDteId.get(o.dteId) ?? null;
       o.factoringCollected = collectedFactoringDteIds.has(o.dteId);
       continue;
     }
@@ -2032,6 +2100,7 @@ export async function buildProjection(
     if (!cell) continue;
     o.cellStatus = cell.status;
     o.dteFolio = cell.folio;
+    o.gestion = gestionByDteId.get(cell.dteId) ?? null;
     o.daysOverdue = cell.daysOverdue;
     o.dteId = cell.dteId; // habilita el deep-link del folio en la fila
     o.factoringCollected = cell.factoringCollected;
@@ -2431,6 +2500,7 @@ function buildRows(
   dteVoidedAtById: Map<string, string | null>,
   dteCreditedNetAmountById: Map<string, number>,
   dteDateOverrideById: Map<string, string>,
+  gestionByDteId: Map<string, CellGestionSummary | null>,
 ): ProjectionRow[] {
   const rows: ProjectionRow[] = [];
   for (const cat of categories) {
@@ -2542,6 +2612,7 @@ function buildRows(
           currency: o.currency,
           source: o.source,
           sourceRefCode: null,
+          emiteProforma: isPeriodicGroup ? false : o.emiteProforma,
           hasIpcAdjustment: isPeriodicGroup ? false : o.hasIpcAdjustment,
           ipcAdjustmentMonths: isPeriodicGroup ? null : o.ipcAdjustmentMonths,
           headcount:
@@ -2565,6 +2636,7 @@ function buildRows(
             dteGrossAmount: null,
             daysOverdue: 0,
             reconciled: false,
+            gestion: null as CellGestionSummary | null,
             dtes: [] as import("./types").CellDteSummary[],
           })),
           total: 0,
@@ -2663,6 +2735,11 @@ function buildRows(
             cell.dteFolio = derived.dteId
               ? (dteFolioById.get(derived.dteId) ?? null)
               : null;
+            // gestion stampada junto a cellStatus: es la del DTE "principal"
+            // de la celda (el que define la etapa). null si no tiene gestión.
+            cell.gestion = derived.dteId
+              ? (gestionByDteId.get(derived.dteId) ?? null)
+              : null;
             cell.dteGrossAmount = derived.dteId
               ? (dteGrossById.get(derived.dteId) ?? null)
               : null;
@@ -2701,6 +2778,7 @@ function buildRows(
               daysOverdue: effectiveDaysOverdue,
               hasDateOverride: !!overrideDateStr && overrideDateStr !== issueDateStr,
               originalDate: issueDateStr,
+              gestion: gestionByDteId.get(o.dteId) ?? undefined,
             });
             cell.dtes = dtes;
           }

@@ -20,6 +20,9 @@ export type HideUndoPayload = {
   label: string;
   dteId: string | null;
   occurrenceId: string | null;
+  /** Copy de éxito a medida (ej. "Programación duplicada quitada — queda solo la
+   *  factura"). Si se omite, se usa el genérico «{label}» ocultado del flujo. */
+  successLabel?: string;
 };
 
 /** Igual que HideUndoPayload pero con la celda (itemId+bucketKey) para poder
