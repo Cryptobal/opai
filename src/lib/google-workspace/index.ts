@@ -1,4 +1,4 @@
-export { DRIVE_SCOPES, CALENDAR_SCOPES } from "./scopes";
+export { DRIVE_SCOPES, CALENDAR_SCOPES, grantIncludesScopes } from "./scopes";
 export {
   buildState,
   verifyState,

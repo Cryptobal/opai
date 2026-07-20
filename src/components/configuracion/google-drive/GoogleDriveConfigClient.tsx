@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { HardDrive } from "lucide-react";
 import { SectionHeader, Surface, Tag, Spinner } from "@/components/opai-ds";
+import { Button } from "@/components/ui/button";
+import { OAuthResultBanner } from "@/components/configuracion/OAuthResultBanner";
 import { DriveMirrorToggles } from "./DriveMirrorToggles";
 import { DriveTreePreview } from "./DriveTreePreview";
 import { DriveActivityTable, type DriveOutboxRow } from "./DriveActivityTable";
@@ -71,6 +73,11 @@ export function GoogleDriveConfigClient() {
 
   return (
     <div className="ds-page-enter space-y-6">
+      <OAuthResultBanner
+        param="drive"
+        startHref="/api/integrations/google-drive/oauth/start"
+        onConnected={load}
+      />
       <Surface elevation={1} padding="md" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -90,20 +97,15 @@ export function GoogleDriveConfigClient() {
         </div>
         <div className="flex flex-wrap gap-2">
           {!connected ? (
-            <a
-              href="/api/integrations/google-drive/oauth/start"
-              className="inline-flex h-10 items-center rounded-xl bg-primary px-4 text-[13px] font-medium text-primary-foreground ds-tap sm:h-9"
-            >
-              Conectar Drive
-            </a>
+            <Button asChild>
+              <a href="/api/integrations/google-drive/oauth/start">
+                <HardDrive className="mr-1.5 h-4 w-4" /> Conectar Drive
+              </a>
+            </Button>
           ) : (
-            <button
-              type="button"
-              onClick={() => void disconnect()}
-              className="inline-flex h-10 items-center rounded-xl border border-ds-border-default px-4 text-[13px] text-ds-text-2 ds-tap sm:h-9"
-            >
+            <Button variant="outline" size="sm" onClick={() => void disconnect()}>
               Desconectar
-            </button>
+            </Button>
           )}
         </div>
       </Surface>

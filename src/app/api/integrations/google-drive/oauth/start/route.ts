@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
   const url = client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
+    include_granted_scopes: true,
     scope: [...DRIVE_SCOPES],
     state,
   });
