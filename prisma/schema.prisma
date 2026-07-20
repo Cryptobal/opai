@@ -11682,6 +11682,7 @@ model AgendaVisita {
   startAt        DateTime  @map("start_at") @db.Timestamptz(6)
   endAt          DateTime  @map("end_at") @db.Timestamptz(6)
   notes          String?   @db.Text
+  customAddress  String?   @map("custom_address") @db.Text // dirección libre para tipo "otra" sin instalación
   contactIds     Json?     @map("contact_ids")
   status         String    @default("programada") // programada|completada|cancelada|reprogramada
   resultNote     String?   @map("result_note") @db.Text
@@ -11709,6 +11710,7 @@ model AgendaEventLink {
   calendarAccountId String?   @map("calendar_account_id")
   googleEventId     String?   @map("google_event_id")
   googleCalendarId  String?   @map("google_calendar_id")
+  htmlLink          String?   @map("html_link") @db.Text // URL del evento en Google Calendar
   allDay            Boolean   @default(false) @map("all_day")
   syncStatus        String    @default("PENDING") // PENDING|SYNCED|ERROR|CANCELLED
   lastError         String?   @map("last_error") @db.Text

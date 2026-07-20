@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { CalendarDays } from "lucide-react";
-import { SectionHeader, Surface, Tag, Spinner } from "@/components/opai-ds";
+import { Surface, Tag, Spinner } from "@/components/opai-ds";
+import { Button } from "@/components/ui/button";
+import { OAuthResultBanner } from "@/components/configuracion/OAuthResultBanner";
+import { CalendarPrefsList } from "./CalendarPrefsList";
+import { CalendarTeamList } from "./CalendarTeamList";
 
 type TeamRow = { userId: string; name: string; email: string; connected: boolean };
 
@@ -12,13 +16,6 @@ type Status = {
   calendarId: string;
   prefs: Record<string, boolean>;
   team: TeamRow[];
-};
-
-const PREF_LABELS: Record<string, string> = {
-  inviteContacts: "Invitar contactos al evento",
-  slackReminderPrevDay: "Recordatorio Slack día anterior",
-  licitacionesAllDay: "Licitaciones como día completo",
-  digestMonday: "Digest semanal (lunes)",
 };
 
 export function GoogleCalendarConfigClient() {
@@ -78,6 +75,11 @@ export function GoogleCalendarConfigClient() {
 
   return (
     <div className="ds-page-enter space-y-6">
+      <OAuthResultBanner
+        param="cal"
+        startHref="/api/integrations/google-calendar/oauth/start"
+        onConnected={load}
+      />
       <Surface elevation={1} padding="md" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -97,35 +99,22 @@ export function GoogleCalendarConfigClient() {
         </div>
         <div className="flex flex-wrap gap-2">
           {!connected ? (
-            <a
-              href="/api/integrations/google-calendar/oauth/start"
-              className="inline-flex h-10 items-center rounded-xl bg-primary px-4 text-[13px] font-medium text-primary-foreground ds-tap sm:h-9"
-            >
-              Conectar Calendar
-            </a>
+            <Button asChild>
+              <a href="/api/integrations/google-calendar/oauth/start">
+                <CalendarDays className="mr-1.5 h-4 w-4" /> Conectar Calendar
+              </a>
+            </Button>
           ) : (
             <>
-              <button
-                type="button"
-                onClick={() => void patch({ createDedicated: true })}
-                className="inline-flex h-10 items-center rounded-xl border border-ds-border-default px-4 text-[13px] text-ds-text-2 ds-tap sm:h-9"
-              >
+              <Button variant="outline" size="sm" onClick={() => void patch({ createDedicated: true })}>
                 Usar “Opai · Visitas”
-              </button>
-              <button
-                type="button"
-                onClick={() => void patch({ calendarId: "primary" })}
-                className="inline-flex h-10 items-center rounded-xl border border-ds-border-default px-4 text-[13px] text-ds-text-2 ds-tap sm:h-9"
-              >
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => void patch({ calendarId: "primary" })}>
                 Usar primary
-              </button>
-              <button
-                type="button"
-                onClick={() => void disconnect()}
-                className="inline-flex h-10 items-center rounded-xl border border-ds-border-default px-4 text-[13px] text-ds-text-2 ds-tap sm:h-9"
-              >
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => void disconnect()}>
                 Desconectar
-              </button>
+              </Button>
             </>
           )}
         </div>
@@ -135,62 +124,10 @@ export function GoogleCalendarConfigClient() {
       </Surface>
 
       {connected && (
-        <Surface elevation={1} padding="md" className="space-y-3">
-          <SectionHeader title="Preferencias" hint="Se guardan en tu cuenta Calendar" />
-          <ul className="space-y-2">
-            {Object.entries(PREF_LABELS).map(([key, label]) => (
-              <li
-                key={key}
-                className="flex items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-2.5"
-              >
-                <span className="text-[13px] text-ds-text-2">{label}</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={Boolean(prefs[key])}
-                  onClick={() => void patch({ prefs: { [key]: !prefs[key] } })}
-                  className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ds-tap ${
-                    prefs[key] ? "bg-primary" : "bg-ds-surface-3"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 h-6 w-6 rounded-full bg-background shadow transition-transform ${
-                      prefs[key] ? "translate-x-5" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </Surface>
+        <CalendarPrefsList prefs={prefs} onToggle={(key, value) => void patch({ prefs: { [key]: value } })} />
       )}
 
-      {(data?.team?.length ?? 0) > 0 && (
-        <Surface elevation={1} padding="md" className="space-y-3">
-          <SectionHeader title="Equipo" hint="Quién tiene Calendar conectado" />
-          <ul className="divide-y divide-ds-border-subtle rounded-xl border border-ds-border-subtle">
-            {data!.team.map((u) => (
-              <li key={u.userId} className="flex items-center justify-between gap-2 px-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] font-medium text-ds-text-1">{u.name}</p>
-                  <p className="truncate text-[12px] text-ds-text-4">{u.email}</p>
-                </div>
-                {u.connected ? (
-                  <Tag variant="ok" size="sm">Conectado</Tag>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={copyInviteLink}
-                    className="h-10 rounded-xl border border-ds-border-default px-3 text-[12px] text-ds-text-2 ds-tap sm:h-9"
-                  >
-                    {copied ? "Link copiado" : "Invitar"}
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </Surface>
-      )}
+      <CalendarTeamList team={data?.team ?? []} copied={copied} onInvite={copyInviteLink} />
     </div>
   );
 }

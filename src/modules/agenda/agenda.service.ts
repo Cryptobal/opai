@@ -13,7 +13,11 @@ export async function createAgendaVisita(input: {
   startAt: Date;
   endAt: Date;
   notes?: string | null;
+  customAddress?: string | null;
   contactIds?: string[] | null;
+  // Toggles del modal (defaults desde prefs de la config).
+  syncCalendar?: boolean;
+  inviteContacts?: boolean;
 }) {
   const visita = await prisma.agendaVisita.create({
     data: {
@@ -27,12 +31,19 @@ export async function createAgendaVisita(input: {
       startAt: input.startAt,
       endAt: input.endAt,
       notes: input.notes ?? null,
+      customAddress: input.customAddress ?? null,
       contactIds: input.contactIds ?? undefined,
       createdBy: input.createdBy,
       status: "programada",
     },
   });
-  const sync = await syncAgendaVisitaToCalendar(input.tenantId, visita.id);
+  // Si el usuario destildó "crear evento en Calendar", la visita queda sin evento.
+  const sync =
+    input.syncCalendar === false
+      ? { syncStatus: "SKIPPED" }
+      : await syncAgendaVisitaToCalendar(input.tenantId, visita.id, "upsert", {
+          inviteContacts: input.inviteContacts,
+        });
   return { visita, sync };
 }
 

@@ -29,7 +29,11 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     where: { sourceType_sourceId: { sourceType: "agenda_visita", sourceId: id } },
   });
 
-  return NextResponse.json({ visita, syncStatus: link?.syncStatus ?? "PENDING" });
+  return NextResponse.json({
+    visita,
+    syncStatus: link?.syncStatus ?? "PENDING",
+    htmlLink: link?.htmlLink ?? null,
+  });
 }
 
 export async function PATCH(request: NextRequest, ctx: Ctx) {

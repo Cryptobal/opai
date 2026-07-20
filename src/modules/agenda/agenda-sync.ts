@@ -17,6 +17,7 @@ export async function syncAgendaVisitaToCalendar(
   tenantId: string,
   visitaId: string,
   mode: "upsert" | "delete" = "upsert",
+  opts?: { inviteContacts?: boolean },
 ): Promise<{ syncStatus: string }> {
   const visita = await prisma.agendaVisita.findFirst({
     where: { id: visitaId, tenantId },
@@ -59,7 +60,7 @@ export async function syncAgendaVisitaToCalendar(
       typeLabel: TYPE_LABELS[visita.type] ?? "Visita",
       accountName: visita.account?.name ?? "Sin cuenta",
       installationName: visita.installation?.name,
-      address: visita.installation?.address,
+      address: visita.installation?.address ?? visita.customAddress,
       notes: visita.notes,
       contacts: contacts.map((c) => ({
         name: `${c.firstName} ${c.lastName}`.trim(),
@@ -68,7 +69,7 @@ export async function syncAgendaVisitaToCalendar(
         email: c.email,
       })),
       opaiUrl: `${getCanonicalSiteUrl()}/opai/agenda?visita=${visita.id}`,
-      inviteContacts: prefs.inviteContacts !== false,
+      inviteContacts: opts?.inviteContacts ?? prefs.inviteContacts !== false,
     },
   );
 

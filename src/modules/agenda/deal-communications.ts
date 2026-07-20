@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getDealEmailScope, buildDealThreadWhere } from "@/modules/crm/email/deal-thread-scope";
 
 /** Contexto de solo lectura para tool IA / resumen de licitación. */
 export async function getDealCommunications(tenantId: string, dealId: string) {
@@ -8,9 +9,17 @@ export async function getDealCommunications(tenantId: string, dealId: string) {
   });
   if (!deal) return null;
 
+  // Criterio ampliado: correos del deal + correos de la cuenta (aunque el thread
+  // no esté atado al deal) → la IA tiene contexto igual.
+  const scope = (await getDealEmailScope(tenantId, dealId)) ?? {
+    accountId: null,
+    contactIds: [],
+  };
+  const threadWhere = buildDealThreadWhere(tenantId, dealId, scope);
+
   const [threads, quotes, notes] = await Promise.all([
     prisma.crmEmailThread.findMany({
-      where: { tenantId, dealId },
+      where: threadWhere,
       orderBy: { lastMessageAt: "desc" },
       take: 10,
       include: {
@@ -60,6 +69,8 @@ export async function getDealCommunications(tenantId: string, dealId: string) {
       asunto: m.subject,
       extracto: (m.textBody || "").slice(0, 200),
       direction: m.direction,
+      // true = correo de la cuenta (no atado directamente a este deal).
+      deCuenta: t.dealId !== dealId,
     })),
   );
   emails.sort((a, b) => b.fecha.localeCompare(a.fecha));

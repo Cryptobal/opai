@@ -15,6 +15,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmView } from "@/lib/api-auth-crm";
 import { normalizeEmailAddress } from "@/lib/email-address";
 import { requireTenantModule } from '@/lib/require-module';
+import { getDealEmailScope, buildDealThreadWhere } from "@/modules/crm/email/deal-thread-scope";
 
 function buildEmailCandidates(values: Array<string | null | undefined>): string[] {
   const candidates = values.flatMap((value) => {
@@ -90,12 +91,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Build thread filter
-    const threadWhere: Record<string, unknown> = {
-      tenantId: ctx.tenantId,
-    };
-    if (dealId) threadWhere.dealId = dealId;
-    if (accountId) threadWhere.accountId = accountId;
+    // Build thread filter. Para un deal usamos el criterio ampliado (deal +
+    // correos de la cuenta) para que el timeline muestre contexto aunque el
+    // thread no esté atado al deal.
+    let threadWhere: Record<string, unknown> = { tenantId: ctx.tenantId };
+    if (dealId) {
+      const scope = (await getDealEmailScope(ctx.tenantId, dealId)) ?? {
+        accountId: null,
+        contactIds: [],
+      };
+      threadWhere = buildDealThreadWhere(ctx.tenantId, dealId, scope);
+    } else if (accountId) {
+      threadWhere.accountId = accountId;
+    }
 
     // If filtering by contact, include linked threads and email matches
     if (contactId) {

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { Surface, Tag, Spinner } from "@/components/opai-ds";
+import { Button } from "@/components/ui/button";
+import { NuevaVisitaModal } from "@/components/agenda/NuevaVisitaModal";
 
 type VisitRow = {
   id: string;
@@ -23,6 +24,8 @@ type Props = {
 export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
   const [rows, setRows] = useState<VisitRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,28 +49,29 @@ export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [dealId]);
+  }, [dealId, refreshKey]);
 
   const nextTecnica = rows
     .filter((r) => r.type === "tecnica" && r.status !== "completada")
     .sort((a, b) => a.start.localeCompare(b.start))[0];
 
-  const agendaHref = `/opai/agenda?dealId=${dealId}${
-    accountId ? `&accountId=${accountId}` : ""
-  }${installationId ? `&installationId=${installationId}` : ""}&nueva=1`;
-
   return (
     <Surface elevation={1} padding="md" className="space-y-3">
+      <NuevaVisitaModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        dealId={dealId}
+        accountId={accountId}
+        installationId={installationId}
+        onCreated={() => setRefreshKey((k) => k + 1)}
+      />
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium uppercase tracking-wide text-ds-text-3">
           Visitas del negocio
         </p>
-        <Link
-          href={agendaHref}
-          className="h-10 rounded-xl border border-ds-border-default px-3 text-[12px] text-ds-text-2 ds-tap sm:h-9 inline-flex items-center"
-        >
+        <Button variant="outline" size="sm" onClick={() => setModalOpen(true)}>
           Agendar visita
-        </Link>
+        </Button>
       </div>
       {nextTecnica && (
         <p className="text-[12px] text-ds-text-3">

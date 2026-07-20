@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Surface } from "@/components/opai-ds";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { VISIT_TYPES } from "./nueva-visita/types";
+import { AccountField } from "./nueva-visita/AccountField";
+import { InstallationField } from "./nueva-visita/InstallationField";
+import { ContactsField } from "./nueva-visita/ContactsField";
+import { ScheduleFields } from "./nueva-visita/ScheduleFields";
+import { TogglesField } from "./nueva-visita/TogglesField";
+import { useNuevaVisita } from "./nueva-visita/useNuevaVisita";
 
-const TYPES = [
-  { id: "tecnica", label: "Técnica" },
-  { id: "cliente", label: "Cliente" },
-  { id: "supervision", label: "Supervisión" },
-  { id: "otra", label: "Otra" },
-] as const;
+const INPUT =
+  "h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9";
 
 type Props = {
   open: boolean;
@@ -19,145 +22,128 @@ type Props = {
   onCreated?: () => void;
 };
 
-export function NuevaVisitaModal({
-  open,
-  onOpenChange,
-  dealId,
-  accountId: initialAccountId,
-  installationId: initialInstallationId,
-  onCreated,
-}: Props) {
-  const [type, setType] = useState<(typeof TYPES)[number]["id"]>("cliente");
-  const [title, setTitle] = useState("");
-  const [assignedUserId, setAssignedUserId] = useState("");
-  const [startAt, setStartAt] = useState("");
-  const [notes, setNotes] = useState("");
-  const [accountId, setAccountId] = useState(initialAccountId ?? "");
-  const [installationId, setInstallationId] = useState(initialInstallationId ?? "");
-  const [team, setTeam] = useState<Array<{ userId: string; name: string; connected: boolean }>>([]);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    setAccountId(initialAccountId ?? "");
-    setInstallationId(initialInstallationId ?? "");
-    fetch("/api/integrations/google-calendar/status")
-      .then((r) => r.json())
-      .then((j) => {
-        const list = j.team ?? [];
-        setTeam(list);
-        setAssignedUserId((prev) => prev || list[0]?.userId || "");
-      })
-      .catch(() => undefined);
-  }, [open, initialAccountId, initialInstallationId]);
-
-  if (!open) return null;
-
-  const tecnicaBlocked = type === "tecnica" && (!accountId || !installationId);
-
-  async function submit() {
-    if (!assignedUserId || !startAt || tecnicaBlocked) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/agenda/visitas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type,
-          title: title || `Visita ${type}`,
-          assignedUserId,
-          startAt: new Date(startAt).toISOString(),
-          notes,
-          accountId: accountId || null,
-          installationId: installationId || null,
-          dealId: dealId || null,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setError(json.error || "No se pudo crear");
-        return;
-      }
-      setToast(`Creada · sync ${json.sync?.syncStatus ?? "PENDING"}`);
-      onCreated?.();
-      onOpenChange(false);
-    } finally {
-      setSaving(false);
-    }
-  }
+export function NuevaVisitaModal(props: Props) {
+  const { open, onOpenChange } = props;
+  const { form, set, team, saving, error, tecnicaBlocked, canSubmit, submit } =
+    useNuevaVisita(props);
+  const showExtras = form.type !== "tecnica";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <Surface elevation={2} padding="md" className="w-full max-w-lg space-y-4">
-        <div className="flex items-center justify-between">
-          <p className="font-display text-base font-semibold text-ds-text-1">Nueva visita</p>
-          <button type="button" onClick={() => onOpenChange(false)} className="text-[13px] text-ds-text-3">
-            Cerrar
-          </button>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Nueva visita</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-1.5">
+            {VISIT_TYPES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => set("type", t.id)}
+                className={`h-10 rounded-full px-3 text-[12px] ds-tap sm:h-9 ${
+                  form.type === t.id
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-ds-surface-2 text-ds-text-2"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <AccountField
+            value={form.account}
+            onSelect={(a) => {
+              set("account", a);
+              set("installationId", "");
+              set("contactIds", []);
+            }}
+            onClear={() => {
+              set("account", null);
+              set("installationId", "");
+              set("contactIds", []);
+            }}
+          />
+
+          <InstallationField
+            accountId={form.account?.id ?? null}
+            value={form.installationId}
+            onChange={(id) => set("installationId", id)}
+            allowCustom={form.type === "otra"}
+            customAddress={form.customAddress}
+            onCustomAddress={(v) => set("customAddress", v)}
+          />
+
+          {tecnicaBlocked && (
+            <p className="text-[12px] text-status-warn-fg">
+              La visita técnica requiere cuenta e instalación.
+            </p>
+          )}
+
+          <input
+            className={INPUT}
+            placeholder="Título (opcional)"
+            value={form.title}
+            onChange={(e) => set("title", e.target.value)}
+          />
+
+          <ScheduleFields
+            date={form.date}
+            time={form.time}
+            durationMin={form.durationMin}
+            onDate={(v) => set("date", v)}
+            onTime={(v) => set("time", v)}
+            onDuration={(v) => set("durationMin", v)}
+          />
+
+          <select
+            className={INPUT}
+            value={form.assignedUserId}
+            onChange={(e) => set("assignedUserId", e.target.value)}
+          >
+            <option value="">Asignado…</option>
+            {team.map((u) => (
+              <option key={u.userId} value={u.userId}>
+                {u.name} {u.connected ? "· Calendar ✓" : "· sin Calendar"}
+              </option>
+            ))}
+          </select>
+
+          {showExtras && (
+            <ContactsField
+              accountId={form.account?.id ?? null}
+              selected={form.contactIds}
+              onChange={(ids) => set("contactIds", ids)}
+            />
+          )}
+
+          <textarea
+            className="min-h-[64px] w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-[13px]"
+            placeholder="Notas"
+            value={form.notes}
+            onChange={(e) => set("notes", e.target.value)}
+          />
+
+          {showExtras && (
+            <TogglesField
+              values={{
+                createEvent: form.createEvent,
+                inviteContacts: form.inviteContacts,
+                slackReminder: form.slackReminder,
+              }}
+              onToggle={(key, value) => set(key, value)}
+            />
+          )}
+
+          {error && <p className="text-[12px] text-status-danger-fg">{error}</p>}
+
+          <Button className="w-full" disabled={saving || !canSubmit} onClick={() => void submit()}>
+            {saving ? "Agendando…" : "Agendar visita"}
+          </Button>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {TYPES.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setType(t.id)}
-              className={`h-10 rounded-full px-3 text-[12px] ds-tap sm:h-9 ${
-                type === t.id ? "bg-primary text-primary-foreground" : "bg-ds-surface-2 text-ds-text-2"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-        {tecnicaBlocked && (
-          <p className="text-[12px] text-status-warn-fg">
-            Visita técnica requiere cuenta e instalación (prefijá desde el negocio).
-          </p>
-        )}
-        <input
-          className="h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9"
-          placeholder="Título"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <input
-          type="datetime-local"
-          className="h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9"
-          value={startAt}
-          onChange={(e) => setStartAt(e.target.value)}
-        />
-        <select
-          className="h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9"
-          value={assignedUserId}
-          onChange={(e) => setAssignedUserId(e.target.value)}
-        >
-          <option value="">Asignado…</option>
-          {team.map((u) => (
-            <option key={u.userId} value={u.userId}>
-              {u.name} {u.connected ? "· Calendar ✓" : "· sin Calendar"}
-            </option>
-          ))}
-        </select>
-        <textarea
-          className="min-h-[72px] w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-[13px]"
-          placeholder="Notas"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-        {error && <p className="text-[12px] text-status-danger-fg">{error}</p>}
-        {toast && <p className="text-[12px] text-status-ok-fg">{toast}</p>}
-        <button
-          type="button"
-          disabled={saving || !assignedUserId || !startAt || tecnicaBlocked}
-          onClick={() => void submit()}
-          className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-primary text-[13px] font-medium text-primary-foreground disabled:opacity-50 ds-tap sm:h-9"
-        >
-          {saving ? "Creando…" : "Crear visita"}
-        </button>
-      </Surface>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

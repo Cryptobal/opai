@@ -74,12 +74,14 @@ export async function syncEventLink(
     };
 
     let googleEventId = link.googleEventId;
+    let htmlLink = link.htmlLink;
     if (googleEventId) {
-      await calendar.events.patch({
+      const patched = await calendar.events.patch({
         calendarId: link.googleCalendarId || calendarId,
         eventId: googleEventId,
         requestBody: body,
       });
+      htmlLink = patched.data.htmlLink ?? htmlLink;
     } else {
       const created = await calendar.events.insert({
         calendarId,
@@ -87,6 +89,7 @@ export async function syncEventLink(
         sendUpdates: payload.attendees?.length ? "all" : "none",
       });
       googleEventId = created.data.id ?? null;
+      htmlLink = created.data.htmlLink ?? null;
     }
 
     await prisma.agendaEventLink.update({
@@ -95,6 +98,7 @@ export async function syncEventLink(
         googleEventId,
         googleCalendarId: calendarId,
         calendarAccountId: accountId,
+        htmlLink,
         allDay,
         syncStatus: "SYNCED",
         lastSyncAt: new Date(),
