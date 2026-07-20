@@ -139,10 +139,42 @@ Reutilizan `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`. Tokens con `GMAIL_TOKEN_
 
 ---
 
-## QA (rellenar en Bloque 11)
+## QA (Bloque 11 — checklist para Carlos)
 
-- [ ] Conectar Drive → toggle → factura de prueba encolada
-- [ ] Conectar Calendar → crear visita → evento con ubicación y contactos
-- [ ] Marcar deal licitación → all-day + aparece en agenda y hub
-- [ ] Reprogramar desde Google → refleja en OPAI
-- [ ] Tool IA `get_deal_communications` responde comunicaciones de un deal
+Preview: desplegar rama `feat/google-workspace-agenda` (Vercel Preview).  
+Migración: `prisma/migrations/20261018000000_google_workspace_agenda/migration.sql` (solo aditiva; aplicar en preview/staging con el flujo habitual del equipo — **no** `migrate deploy` desde este agente).
+
+### Env vars a cargar en Vercel (Preview + Prod)
+
+| Variable | Ejemplo |
+|----------|---------|
+| `GOOGLE_DRIVE_REDIRECT_URI` | `https://<host>/api/integrations/google-drive/oauth/callback` |
+| `GOOGLE_CALENDAR_REDIRECT_URI` | `https://<host>/api/integrations/google-calendar/oauth/callback` |
+| `GOOGLE_CALENDAR_WEBHOOK_URL` | `https://<host>/api/webhook/google-calendar` |
+
+Ya existentes: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GMAIL_TOKEN_SECRET`, `CRON_SECRET`.
+
+### Crons nuevos (`vercel.json`)
+
+| Schedule | Path |
+|----------|------|
+| `*/2 * * * *` | `/api/cron/flush-drive-outbox` |
+| `0 11 * * *` | `/api/cron/licitacion-reminders` |
+| `0 11 * * 1` | `/api/cron/agenda-digest` |
+| `*/10 * * * *` | `/api/cron/gmail-sync-all` |
+| `0 5 * * *` | `/api/cron/calendar-channel-renew` |
+
+### Flujos a validar en Preview
+
+1. **Drive:** Config → Integraciones → Google Drive → conectar cuenta tenant → activar toggles `cotizacion`/`factura`/`licitacion` → emitir/enviar factura o cotización → verificar fila en “Actividad reciente” (`DriveExportOutbox`) y archivo en Drive bajo `Clientes/...` (y `Licitaciones/...` si aplica).
+2. **Calendar:** Config → Google Calendar → conectar usuario → crear visita en `/opai/agenda` → evento en calendario del asignado con ubicación/notas; badge sync SYNCED o PENDING si el asignado no tiene Calendar.
+3. **Licitación:** Deal → toggle Licitación + `fechaEntrega` → evento all-day del owner de cuenta; aparece en Agenda + widget Hub; T-7/T-3/T-1 vía cron Slack (si Slack activo).
+4. **Sync inverso:** reprogramar/cancelar el evento en Google → webhook/incremental actualiza `startAt`/`status` en OPAI (no borra registros).
+5. **Correos / IA:** cron `gmail-sync-all` atribuye `emailAccountId`; tool chat `get_deal_communications`; drawer licitación → “Generar” resumen (≤3 frases; “Sin comunicaciones…” si vacío).
+6. **Hub:** card Agenda con hoy + 3 días; “Ampliar” a 7; “Abrir agenda” → `/opai/agenda`.
+
+### Notas
+
+- Mockup HTML de referencia **no** estaba en el repo; UI alineada a DS v3 + copy del prompt.
+- Tipos Drive ocultos (EEPP/liquidación/informe): sin persistencia PDF → TODO en código.
+- `CrmDeal.technicalVisitDate` no se escribe; visitas 1:N vía `DealVisitasCard`.

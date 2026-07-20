@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { CalendarDays } from "lucide-react";
 import { PageHero, Surface, EmptyState, Spinner } from "@/components/opai-ds";
 import { AgendaWeekStrip, type WeekItem } from "./AgendaWeekStrip";
-import { AgendaFilters, type TypeFilter } from "./AgendaFilters";
 import { LicitacionesList, type LicRow } from "./LicitacionesList";
 import { VisitList } from "./VisitList";
+import { AgendaFilters, type TypeFilter } from "./AgendaFilters";
 import { NuevaVisitaModal } from "./NuevaVisitaModal";
 import { VisitDrawer } from "./VisitDrawer";
 import { LicitacionDrawer } from "./LicitacionDrawer";
@@ -23,8 +23,6 @@ function mondayOf(d: Date) {
 
 export function AgendaPageClient() {
   const search = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
   const [items, setItems] = useState<WeekItem[]>([]);
   const [lics, setLics] = useState<LicRow[]>([]);
@@ -34,15 +32,6 @@ export function AgendaPageClient() {
   const [modalOpen, setModalOpen] = useState(false);
   const [visitaId, setVisitaId] = useState<string | null>(null);
   const [licId, setLicId] = useState<string | null>(null);
-
-  const clearParams = useCallback(
-    (keys: string[]) => {
-      const next = new URLSearchParams(search.toString());
-      keys.forEach((k) => next.delete(k));
-      router.replace(next.size ? `${pathname}?${next.toString()}` : pathname, { scroll: false });
-    },
-    [search, router, pathname],
-  );
 
   const ctx = useMemo(
     () => ({
@@ -80,14 +69,27 @@ export function AgendaPageClient() {
     if (search.get("licitacion")) setLicId(search.get("licitacion"));
   }, [search]);
 
-  const filtered = items.filter(
-    (i) =>
-      (typeFilter === "todos" || i.type === typeFilter) &&
-      (!assignedUserId || i.assignedUserId === assignedUserId),
+  const filtered = items.filter((i) => {
+    if (typeFilter !== "todos" && i.type !== typeFilter) return false;
+    if (assignedUserId && i.assignedUserId !== assignedUserId) return false;
+    return true;
+  });
+
+  const weekLabel = weekStart.toLocaleDateString("es-CL", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
+  const nuevaVisitaBtn = (
+    <button
+      type="button"
+      onClick={() => setModalOpen(true)}
+      className="inline-flex h-10 items-center rounded-xl bg-primary px-4 text-[13px] font-medium text-primary-foreground ds-tap sm:h-9"
+    >
+      Nueva visita
+    </button>
   );
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6);
-  const weekLabel = `${weekStart.toLocaleDateString("es-CL", { day: "numeric", month: "short" })} – ${weekEnd.toLocaleDateString("es-CL", { day: "numeric", month: "short" })}`;
 
   return (
     <div className="ds-page-enter space-y-6">
@@ -97,15 +99,7 @@ export function AgendaPageClient() {
         title="Agenda"
         subtitle="Visitas y licitaciones"
         description="Semana comercial unificada: visitas OPAI + Google Calendar"
-        actions={
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            className="inline-flex h-10 items-center rounded-xl bg-primary px-4 text-[13px] font-medium text-primary-foreground ds-tap sm:h-9"
-          >
-            Nueva visita
-          </button>
-        }
+        actions={nuevaVisitaBtn}
       />
 
       <AgendaFilters
@@ -134,15 +128,7 @@ export function AgendaPageClient() {
           icon={CalendarDays}
           title="Sin visitas esta semana — agenda la primera"
           description="Creá una visita a cliente, supervisión u otra desde el botón Nueva visita."
-          action={
-            <button
-              type="button"
-              onClick={() => setModalOpen(true)}
-              className="inline-flex h-10 items-center rounded-xl bg-primary px-4 text-[13px] font-medium text-primary-foreground ds-tap sm:h-9"
-            >
-              Nueva visita
-            </button>
-          }
+          action={nuevaVisitaBtn}
         />
       ) : (
         <AgendaWeekStrip
