@@ -223,7 +223,7 @@ export async function buildProposalProps(
       subtotal: salePrice,
       unitPriceFormatted: fmt(unitPrice),
       subtotalFormatted: fmt(salePrice),
-      specifications: undefined,
+      specifications: (pos.description ?? '').trim() || undefined,
     });
   }
 
@@ -301,10 +301,12 @@ export async function buildProposalProps(
           const pn = p.customName || p.puestoTrabajo?.name || 'Puesto';
           const guards = p.numGuards * (p.numPuestos || 1);
           const schedule = `${p.startTime || '-'}-${p.endTime || '-'}`;
-          return `${pn} (${guards} guardia(s), ${schedule})`;
+          const obs = (p.description ?? '').trim();
+          return `${pn} (${guards} guardia(s), ${schedule})${obs ? ` — ${obs.slice(0, 180)}` : ''}`;
         })
         .join('; ');
-      return `${g.name}${posDesc ? `: ${posDesc}` : ''}`;
+      const notes = (g.notes ?? '').trim();
+      return `${g.name}${notes ? ` [${notes.slice(0, 140)}]` : ''}${posDesc ? `: ${posDesc}` : ''}`;
     });
     // Puestos sin grupo, si los hubiera.
     const ungrouped = positions.filter((p) => !p.serviceGroupId);

@@ -41,6 +41,7 @@ function patchToBody(patch: ShiftPatch): Record<string, unknown> {
   if (patch.guardias !== undefined) body.numGuards = patch.guardias;
   if (patch.nPuestos !== undefined) body.numPuestos = patch.nPuestos;
   if (patch.bruto !== undefined) body.baseSalary = patch.bruto;
+  if (patch.description !== undefined) body.description = patch.description?.trim() ? patch.description.trim() : null;
   return body;
 }
 
@@ -68,6 +69,7 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
         liquido: p.netSalary != null ? Number(p.netSalary) : null,
         costo: Number(p.monthlyPositionCost),
         costoPorGuardia: Number(p.employerCost),
+        description: p.description ?? null,
       })),
     [positions]
   );
@@ -319,6 +321,7 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
     currency,
     ufValue,
     readOnly,
+    quoteId,
     savingRowId,
     onAddRow,
     onUpdateRow,

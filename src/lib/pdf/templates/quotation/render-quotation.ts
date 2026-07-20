@@ -100,6 +100,12 @@ export interface QuotationPDFProps {
     days: string;
     schedule: string;
     monthlyValue: string;
+    /** Observaciones del turno (sublínea bajo el nombre del puesto). */
+    description?: string;
+    /** Nombre del servicio para agrupar en bandas. null = "Sin agrupar". */
+    serviceGroupName?: string | null;
+    /** Color hex del servicio (para el punto de la banda). */
+    serviceGroupColor?: string | null;
   }>;
   additionalServices: Array<{
     product: string;
@@ -639,18 +645,84 @@ export async function renderQuotationToBuffer(
     ),
   );
 
-  const posRows = positions.map((p, i) =>
+  // Sublínea de observaciones bajo el nombre del puesto (mockup aprobado):
+  // filete izquierdo teal + gris tenue.
+  const posDescStyle = {
+    fontSize: 6.5,
+    color: C.slate500,
+    marginTop: 1.5,
+    paddingLeft: 4,
+    borderLeftWidth: 1.5,
+    borderLeftColor: C.teal,
+    lineHeight: 1.35,
+  };
+
+  const renderPosRow = (p: (typeof positions)[number], i: number) =>
     e(
       View,
-      { key: i, style: s.tblRow },
-      e(Text, { style: [s.tblCell, { flex: 2.5 }] }, p.name),
+      { key: `pos-${i}`, style: s.tblRow },
+      e(
+        View,
+        { style: { flex: 2.5 } },
+        e(Text, { style: s.tblCell }, p.name),
+        p.description ? e(Text, { style: posDescStyle }, p.description) : null,
+      ),
       e(Text, { style: [s.tblCell, { flex: 0.5, textAlign: 'center' as const }] }, String(p.guards)),
       e(Text, { style: [s.tblCell, { flex: 0.5, textAlign: 'center' as const }] }, String(p.quantity)),
       e(Text, { style: [s.tblCell, { flex: 1.5, paddingRight: 10 }] }, p.days),
       e(Text, { style: [s.tblCell, { flex: 1.2 }] }, p.schedule),
       e(Text, { style: [s.tblCellBold, { flex: 1.3, textAlign: 'right' as const }] }, p.monthlyValue),
-    ),
-  );
+    );
+
+  // Banda de grupo por servicio (mockup aprobado): punto de color + nombre.
+  const renderGroupBand = (name: string, color: string | null | undefined, key: string) =>
+    e(
+      View,
+      {
+        key,
+        style: {
+          flexDirection: 'row' as const,
+          alignItems: 'center' as const,
+          backgroundColor: C.slate50,
+          borderBottom: `0.5 solid ${C.slate200}`,
+          paddingVertical: 3,
+          paddingHorizontal: 6,
+        },
+      },
+      e(View, {
+        style: { width: 7, height: 7, borderRadius: 2, backgroundColor: color || C.slate400, marginRight: 5 },
+      }),
+      e(
+        Text,
+        {
+          style: {
+            fontFamily: F.sans,
+            fontSize: 6.5,
+            fontWeight: 700,
+            color: C.navy,
+            textTransform: 'uppercase' as const,
+            letterSpacing: 0.5,
+          },
+        },
+        name,
+      ),
+    );
+
+  // Solo se insertan bandas si al menos una posición tiene servicio con nombre.
+  // Sin grupos, la tabla se construye igual que antes (comportamiento intacto).
+  const anyGrouped = positions.some((p) => (p.serviceGroupName ?? '').trim());
+  const posRows: unknown[] = [];
+  let lastBand: string | null = null;
+  positions.forEach((p, i) => {
+    if (anyGrouped) {
+      const label = (p.serviceGroupName ?? '').trim() || 'SIN AGRUPAR';
+      if (label !== lastBand) {
+        posRows.push(renderGroupBand(label, p.serviceGroupColor, `band-${i}`));
+        lastBand = label;
+      }
+    }
+    posRows.push(renderPosRow(p, i));
+  });
 
   const posSubtotal = hasAdditional
     ? e(

@@ -64,6 +64,7 @@ import {
   ChevronDown,
   ChevronRight,
   RotateCcw,
+  NotebookPen,
 } from "lucide-react";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
@@ -784,6 +785,11 @@ function GridRow({ row, adapter, readOnly, leadingCell, color, onRequestDelete }
               {night ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
             </span>
           )}
+          {row.description?.trim() ? (
+            <span title={row.description} className="inline-flex shrink-0" aria-label="Tiene observaciones">
+              <NotebookPen className="h-3.5 w-3.5 text-primary" />
+            </span>
+          ) : null}
           <div className="flex flex-wrap items-center gap-1">
             <select className={cn(FIELD, "w-[60px] font-mono")} value={draft.inicio} disabled={disabled} onChange={(e) => apply({ inicio: e.target.value })}>
               {HOURS_24.map((t) => <option key={t} value={t}>{t}</option>)}

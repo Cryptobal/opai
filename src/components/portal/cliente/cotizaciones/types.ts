@@ -30,6 +30,8 @@ export interface QuoteSummary {
 export interface Position {
   id: string;
   customName: string | null;
+  /** Observaciones del turno (visibles en la propuesta del cliente). */
+  description?: string | null;
   numGuards: number | null;
   numPuestos: number | null;
   startTime: string | null;
