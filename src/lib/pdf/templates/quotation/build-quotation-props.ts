@@ -255,9 +255,28 @@ export async function buildQuotationProps(
     0,
   );
 
-  const positions = quote.positions.map(
+  // Orden de presentación: agrupar por servicio (displayOrder, luego nombre) y
+  // dentro del grupo por hora de inicio. Se ordena una COPIA — los reduce de
+  // totales siguen operando sobre quote.positions en su orden original.
+  const sortedPositionsForPdf = [...quote.positions].sort(
+    (
+      a: { serviceGroup?: { name: string; displayOrder?: number | null } | null; startTime?: string | null },
+      b: { serviceGroup?: { name: string; displayOrder?: number | null } | null; startTime?: string | null },
+    ) => {
+      const aOrder = a.serviceGroup?.displayOrder ?? 999;
+      const bOrder = b.serviceGroup?.displayOrder ?? 999;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      const aName = a.serviceGroup?.name ?? '';
+      const bName = b.serviceGroup?.name ?? '';
+      if (aName !== bName) return aName.localeCompare(bName);
+      return (a.startTime ?? '').localeCompare(b.startTime ?? '');
+    },
+  );
+
+  const positions = sortedPositionsForPdf.map(
     (pos: {
       customName?: string | null;
+      description?: string | null;
       puestoTrabajo?: { name: string } | null;
       numGuards: number;
       numPuestos?: number;
@@ -265,6 +284,7 @@ export async function buildQuotationProps(
       endTime?: string | null;
       weekdays?: string[] | null;
       monthlyPositionCost: unknown;
+      serviceGroup?: { name: string; displayOrder?: number | null; colorHex?: string | null } | null;
     }) => {
       const guardsInPos = pos.numGuards * (pos.numPuestos || 1);
       const proportion = totalGuards > 0 ? guardsInPos / totalGuards : 0;
@@ -284,6 +304,9 @@ export async function buildQuotationProps(
         days: formatWeekdaysLong(pos.weekdays),
         schedule: `${pos.startTime || '-'} - ${pos.endTime || '-'}`,
         monthlyValue: fmt(salePrice),
+        description: (pos.description ?? '').trim() || undefined,
+        serviceGroupName: pos.serviceGroup?.name ?? null,
+        serviceGroupColor: pos.serviceGroup?.colorHex ?? null,
       };
     },
   );
