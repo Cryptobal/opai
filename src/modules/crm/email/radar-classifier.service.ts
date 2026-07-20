@@ -3,6 +3,7 @@ import { isRadarComercialEnabled } from "@/lib/crm/radar-settings";
 import { classifyThread, generateDraftReply } from "./radar-classify-ai";
 import { generateThreadRadarItems, type CreatedRadarItem } from "./radar-items";
 import { stripHtml, hoyISO } from "./radar-util";
+import { dispatchRadarAlert } from "@/lib/crm/radar-alerts";
 
 /** Máx. de hilos a clasificar por corrida (cola FIFO por fecha). */
 const MAX_PER_RUN = 20;
@@ -96,11 +97,20 @@ async function classifyOne(
     });
   }
 
-  return generateThreadRadarItems({
+  const created = await generateThreadRadarItems({
     tenantId, userId, threadId: thread.id, fromEmail: lastInbound.fromEmail,
     leadId: thread.leadId, dealId: thread.dealId, accountId: thread.accountId,
     classification, draftReply,
   });
+
+  // Alertas Slack DM + in-app para lead nuevo / señal de compra (B3).
+  // Los compromisos alertan al vencer (B7), no aquí.
+  for (const it of created) {
+    if (it.kind === "nuevo_lead" || it.kind === "senal_compra") {
+      await dispatchRadarAlert(it.id);
+    }
+  }
+  return created;
 }
 
 /**

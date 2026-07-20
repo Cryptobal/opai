@@ -76,7 +76,12 @@ export async function generateThreadRadarItems(params: {
       threadId: params.threadId,
       accountId: params.accountId,
       dedupeKey: `thread:${params.threadId}:lead`,
-      payload: { draftReply: params.draftReply, senales: c.senalesCompra, categoria: c.categoria },
+      payload: {
+        draftReply: params.draftReply,
+        senales: c.senalesCompra,
+        categoria: c.categoria,
+        remitente: params.fromEmail,
+      },
     });
     if (r) created.push(r);
   }

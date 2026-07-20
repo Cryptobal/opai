@@ -9,9 +9,14 @@ import { CorreoAttachments } from "./CorreoAttachments";
 import { LeadFromEmailPanel } from "./LeadFromEmailPanel";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 
-type Props = { threadId: string | null; onClose: () => void; onChanged?: () => void };
+type Props = {
+  threadId: string | null;
+  onClose: () => void;
+  onChanged?: () => void;
+  autoExtract?: boolean; // deep-link ?extract=1: abre el panel de extracción con IA
+};
 
-export function CorreoDrawer({ threadId, onClose, onChanged }: Props) {
+export function CorreoDrawer({ threadId, onClose, onChanged, autoExtract }: Props) {
   const [detail, setDetail] = useState<CorreoDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -32,6 +37,11 @@ export function CorreoDrawer({ threadId, onClose, onChanged }: Props) {
     setAiOpen(false);
     void load();
   }, [load]);
+
+  // ?extract=1: al cargar el hilo sin lead, abre el panel de IA (auto-extracción).
+  useEffect(() => {
+    if (autoExtract && detail && !detail.thread.leadId) setAiOpen(true);
+  }, [autoExtract, detail]);
 
   async function associate(accountId: string) {
     if (!threadId) return;

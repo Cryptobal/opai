@@ -26,6 +26,8 @@ export interface PersonalDmInput {
   link?: string | null;
   critical?: boolean;
   phone?: string | null;
+  /** Botones url con etiqueta propia (≤5). Reemplaza el botón "Ver en OPAI". */
+  actions?: Array<{ label: string; url: string; style?: "primary" | "danger" }> | null;
 }
 
 export async function dispatchPersonalSlackDm(input: PersonalDmInput): Promise<void> {
@@ -53,6 +55,7 @@ export async function dispatchPersonalSlackDm(input: PersonalDmInput): Promise<v
     link: input.link,
     critical: input.critical,
     phone: input.phone,
+    actions: input.actions,
   });
 
   // Dedupe por (dm, tipo, título) dentro del minuto — evita duplicar reintentos.

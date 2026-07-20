@@ -32,6 +32,7 @@ export function CorreosClient() {
   const [filter, setFilter] = useState<CorreoFilterKey>("todos");
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [autoExtract, setAutoExtract] = useState(false);
 
   async function fetchPage(cur: string | null, reset: boolean) {
     setLoading(true);
@@ -48,6 +49,15 @@ export function CorreosClient() {
 
   useEffect(() => {
     void fetchPage(null, true);
+    // Deep-link del radar: ?thread={id}[&extract=1] abre el drawer.
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      const t = sp.get("thread");
+      if (t) {
+        setOpenId(t);
+        setAutoExtract(sp.get("extract") === "1");
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -99,7 +109,14 @@ export function CorreosClient() {
       ) : (
         <Surface elevation={1} padding="none" className="divide-y divide-ds-border-subtle overflow-hidden">
           {filtered.map((t) => (
-            <CorreoRow key={t.id} thread={t} onOpen={() => setOpenId(t.id)} />
+            <CorreoRow
+              key={t.id}
+              thread={t}
+              onOpen={() => {
+                setOpenId(t.id);
+                setAutoExtract(false);
+              }}
+            />
           ))}
         </Surface>
       )}
@@ -119,7 +136,11 @@ export function CorreosClient() {
 
       <CorreoDrawer
         threadId={openId}
-        onClose={() => setOpenId(null)}
+        autoExtract={autoExtract}
+        onClose={() => {
+          setOpenId(null);
+          setAutoExtract(false);
+        }}
         onChanged={() => void fetchPage(null, true)}
       />
     </div>
