@@ -178,3 +178,55 @@ Ya existentes: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GMAIL_TOKEN_SECRET`,
 - Mockup HTML de referencia **no** estaba en el repo; UI alineada a DS v3 + copy del prompt.
 - Tipos Drive ocultos (EEPP/liquidación/informe): sin persistencia PDF → TODO en código.
 - `CrmDeal.technicalVisitDate` no se escribe; visitas 1:N vía `DealVisitasCard`.
+
+---
+
+## QA v2 — Auditoría dirigida (fix post-QA de Carlos)
+
+Fecha: 2026-07-20 · Rama: `claude/google-workspace-qa-fixes-v2-akvx4o` (desde `main` @ `ecbe700`)
+Gate pre-cambio: `npx prisma generate` OK · `NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit` OK (0 errores).
+Crons confirmados en `vercel.json`: `flush-drive-outbox` (`*/2`), `licitacion-reminders` (`0 11`), `agenda-digest` (`0 11 * * 1`), `gmail-sync-all` (`*/10`), `calendar-channel-renew` (`0 5`). ✅
+
+### H1 · OAuth — `oauth/start` correcto, errores invisibles en callback/config
+
+- **`oauth/start` (Drive + Calendar):** ambos usan `client.generateAuthUrl({ access_type: "offline", prompt: "consent", scope, state })`. `access_type`, `prompt`, `scope` y `state` **presentes y correctos** (confirma H1). **Faltan** `include_granted_scopes: true` y `login_hint` en ambos.
+  Evidencia: `src/app/api/integrations/google-drive/oauth/start/route.ts:32-37`, `src/app/api/integrations/google-calendar/oauth/start/route.ts:29-34`. `state` = HMAC firmado stateless en `src/lib/google-workspace/oauth.ts:17-22` (`buildState`).
+- **`oauth/callback` (ambos):** **nunca** leen `searchParams.get("error")` de Google → un `access_denied` (sin `code`) cae en el guard `if (!code || !state)` y redirige a `?drive=error`/`?cal=error`, indistinguible de un fallo interno. Logs con `console.warn` (no `console.error`), **sin paso** (state|exchange|userinfo|db) — todo colapsa a `error` genérico. **No** hay validación de `tokens.scope` → no existe la razón `missing_scope`. Redirects hoy: `error`, `invalid_state`, `missing_env`, `missing_tokens`, `connected`.
+  Evidencia: `google-drive/oauth/callback/route.ts:20-31,39-41,86-90`; `google-calendar/oauth/callback/route.ts:26-36,44-46,76-84`.
+- **Config clients:** `GoogleDriveConfigClient.tsx` (127 líneas) y `GoogleCalendarConfigClient.tsx` (196 líneas) **no** usan `useSearchParams` ni leen `cal=`/`drive=`; el estado conectado sale solo del fetch de estado on-mount. **No** hay banner ni toast de resultado. Botón conectar = `<a href>` crudo con `bg-primary` (no usa el `<Button>` DS). → éxito y fallo invisibles (confirma H1b/H6).
+
+### H2 · Modal "Nueva visita" incompleto
+
+`src/components/agenda/NuevaVisitaModal.tsx` (163 líneas). Acepta props `{dealId, accountId, installationId, onCreated}` y calcula `tecnicaBlocked` (L58), pero **solo renderiza** type-pills, título, `datetime-local` (startAt), asignado y notas. **Falta**: buscador de cuenta, select de instalación + dirección/Maps, dirección libre, contactos multiselect, duración, toggles. El POST a `/api/agenda/visitas` **no envía `endAt`** (L68-77) → el server fija +60 min (`visitas/route.ts:38-41`). Overlay `fixed inset-0` presente pero **sin** Escape / click-fuera / focus-trap / blur. Confirma H2.
+
+### H3 · Toggle "Marcar como licitación" sin datepicker
+
+`src/components/crm/DealLicitacionCard.tsx`: el toggle llama `save(!enabled, fecha)` de inmediato (L68); `save` valida `nextEnabled && !nextFecha` → error "La fecha de entrega es obligatoria" y `return` **antes** de setear `enabled=true` (L20-23). Como el `<input type="date">` está bajo `{enabled && …}` (L80-91), el datepicker **nunca** aparece. **Causa raíz confirmada.** El server ya está listo: `PATCH /api/crm/deals/[id]` dispara `syncLicitacionToCalendar` (route.ts:189-195) y el hook hace upsert all-day en el calendario del `account.ownerId` con `syncStatus=PENDING` si no hay Calendar (`agenda-sync.ts:141-197`).
+
+### H4 · "Agendar visita" desde el negocio no abre modal
+
+`src/components/crm/DealVisitasCard.tsx` (110 líneas): el botón es un `<Link href={agendaHref}>` a `/opai/agenda?…&nueva=1` (L55-70) → navega fuera perdiendo contexto. La card **sí** lista la unión `AgendaVisita` + `OpsVisitaTecnica` (+ licitación) vía `/api/agenda` filtrado client-side por `dealId` (L33-40; `agenda-list.ts` mergea 3 modelos). `accountId`/`installationId` ya llegan como props desde `CrmDealDetailClient.tsx:2071-2075` (nullable). Confirma H4; el criterio 4.3 (unión) ya se cumple.
+Nota: el deep-link `/opai/agenda?nueva=1&dealId=…&accountId=…` **ya funciona** en `AgendaPageClient.tsx:36-70,160-167` (Bloque 4.1b ya implementado).
+
+### H5 · Correos del negocio sin `dealId` (IA sin contexto)
+
+`src/modules/crm/email/gmail-sync.service.ts` matchea el thread **solo por `subject`** dentro del tenant (L117-127); **nunca** resuelve contacto/cuenta ni setea `thread.dealId`/`contactId`/`accountId` → todo synced queda con FKs null. Consumidores:
+- (a) Tab "Correos" del deal = `EmailHistoryList` → `/api/crm/emails?dealId=` que **ya** rescata por match de email-address contra contactos del deal (`emails/route.ts:167-213`), ignora `thread.dealId`.
+- (b) `get_deal_communications` (`help-chat-tools-v2.ts:7395`) y (c) resumen/comunicaciones IA (`agenda/licitaciones/[dealId]/{resumen,comunicaciones}/route.ts`) usan `getDealCommunications` con filtro **estricto** `where:{ tenantId, dealId }` (`deal-communications.ts:12-15`) → **vacío** para correos synced. Confirma H5.
+
+### H6 · UI fuera de estándar DS · H7 · Hub
+
+- Config Drive/Calendar: botones `<a>` crudos, sin banner de error, sin toast (ver H1). DS ref: Slack config usa `<Button>` (`@/components/ui/button`), `<Badge variant="success">`, `sonner` toast, banners `bg-status-ok-soft`/`bg-status-danger-soft` (tokens `--ds-ok-soft`/`--ds-danger-soft` mapeados a `status-*` en `tailwind.config.js:111-123`).
+- **H7:** `AgendaHubCard` **sí** está montada (`HubClientWrapper.tsx:175`, gated `hubPerms.hasCrm`). Contenido: hoy destacado + 3 días compactos + Ampliar(7) + Abrir agenda ✅. **Falta**: los ítems all-day/licitación se pintan como prefijo `"◆ "` (L117) en vez de chips.
+
+### Schema — campos ausentes (migraciones aditivas necesarias)
+
+| Necesita | Modelo (schema/tabla) | ¿Existe? |
+|---|---|---|
+| `customAddress` | `AgendaVisita` (`public` / `agenda_visitas`) | **NO** → add `custom_address` |
+| `htmlLink` | `AgendaEventLink` (`public` / `agenda_event_links`) | **NO** → add `html_link` (Bloque 7.4) |
+| dirección/comuna/geo instalación | `CrmInstallation` | `address`, `city`, `commune`, `lat Float?`, `lng Float?` (nombres en inglés; sin PostGIS) |
+| `dealId`/`accountId`/`contactId` thread | `CrmEmailThread` (`crm`/`email_threads`) | **SÍ** (los tres, `@db.Uuid`) |
+| responsable licitación | `CrmDeal` | `ownerId`/`responsable` **NO** → se usa `CrmAccount.ownerId` |
+
+Nombrado de migraciones: `YYYYMMDDHHMMSS_add_<campo>` con prefijo numérico > `20261018000000` (la última migración de la feature). Se usarán prefijos `20261019…`.
