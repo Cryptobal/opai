@@ -34,7 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PageHero } from "@/components/opai-ds";
+import { PageHero, useSetBreadcrumbTrailing } from "@/components/opai-ds";
 import { ContractEditor } from "./ContractEditor";
 import { SignatureRequestModal } from "./SignatureRequestModal";
 import { SendForReviewModal } from "./SendForReviewModal";
@@ -96,6 +96,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [doc, setDoc] = useState<DocDocument | null>(null);
+  useSetBreadcrumbTrailing(doc?.title);
 
   // Contexto de página para OPAI Intelligence (chat contextual tipo Notion)
   useRegisterChatPageContext(

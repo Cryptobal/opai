@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Stat } from "@/components/opai-ds";
+import { Stat, useSetBreadcrumbTrailing } from "@/components/opai-ds";
 import {
   Dialog,
   DialogContent,
@@ -105,6 +105,9 @@ function formatCLP(val: string | number): string {
 export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
   const router = useRouter();
   const [period, setPeriod] = useState<PeriodData | null>(null);
+  useSetBreadcrumbTrailing(
+    period ? `${MONTHS[period.month - 1]} ${period.year}` : undefined,
+  );
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [consolidating, setConsolidating] = useState(false);

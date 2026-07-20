@@ -14,7 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { EmptyState } from "@/components/opai-ds";
+import { EmptyState, useSetBreadcrumbTrailing } from "@/components/opai-ds";
 import { CreatePositionModal } from "@/components/cpq/CreatePositionModal";
 import { CpqServiceGroupCard } from "@/components/cpq/CpqServiceGroupCard";
 import { CreateServiceModal } from "@/components/cpq/CreateServiceModal";
@@ -151,6 +151,7 @@ export function CpqQuoteDetail({
   const router = useRouter();
   const { resolve: resolveWaTemplate } = useWaTemplate();
   const [quote, setQuote] = useState<CpqQuote | null>(null);
+  useSetBreadcrumbTrailing(quote?.code ?? quote?.name);
 
   // Contexto de página para OPAI Intelligence (chat contextual tipo Notion).
   // Mientras la cotización carga, el hook recibe null y no registra contexto.

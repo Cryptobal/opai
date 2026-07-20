@@ -21,6 +21,7 @@ import {
   Skeleton,
   thresholdFromScore,
   type Threshold,
+  useSetBreadcrumbTrailing,
 } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { SectionComplianceList } from "@/components/opai/conocimiento/SectionComplianceList";
@@ -84,6 +85,7 @@ type DispatchHistory = {
 export function DetalleClient({ installationId }: { installationId: string }) {
   const router = useRouter();
   const [data, setData] = useState<InstallationDetailResult | null>(null);
+  useSetBreadcrumbTrailing(data?.installation.name);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [heatmapOpen, setHeatmapOpen] = useState(true);

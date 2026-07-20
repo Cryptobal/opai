@@ -11,6 +11,7 @@ import { Surface } from "@/components/opai-ds/Surface";
 import { SectionHeader } from "@/components/opai-ds/SectionHeader";
 import { Tag, type TagVariant } from "@/components/opai-ds/Tag";
 import { Skeleton } from "@/components/opai-ds/Skeleton";
+import { useSetBreadcrumbTrailing } from "@/components/opai-ds";
 
 type Step = {
   id: string;
@@ -67,6 +68,9 @@ export function OnboardingHub({
   accountId: string;
 }) {
   const [data, setData] = useState<Onboarding | null>(null);
+  useSetBreadcrumbTrailing(
+    data?.account?.name ?? data?.installation?.name ?? `#${onboardingId.slice(0, 8)}`,
+  );
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
