@@ -267,6 +267,10 @@ export const NAV_MODULES: NavNode[] = [
     icon: TrendingUp,
     module: "crm",
     tenantModule: "crm",
+    // /opai/agenda es hermano plano de /crm (vive bajo /opai por convención
+    // de rutas transversales), así que se declara para que
+    // findActiveModule/breadcrumbs lo resuelvan al módulo Comercial.
+    activePaths: ["/opai/agenda"],
     children: [
       { key: "crm-leads", href: "/crm/leads", label: "Leads", icon: Users, module: "crm", submodule: "leads", badge: { notesKey: "lead" } },
       { key: "crm-accounts", href: "/crm/accounts", label: "Cuentas", icon: Building2, module: "crm", submodule: "accounts", badge: { notesKey: "account" } },

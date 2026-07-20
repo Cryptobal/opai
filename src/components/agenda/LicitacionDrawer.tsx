@@ -10,7 +10,18 @@ type Props = {
   onAgendar?: () => void;
 };
 
+type Deal = {
+  title: string;
+  amount: number;
+  fechaEntrega: string | null;
+  account?: { name: string } | null;
+  stage?: { name: string } | null;
+};
+type VisitRow = { id: string; type: string; start: string; status: string };
+
 export function LicitacionDrawer({ dealId, onClose, onAgendar }: Props) {
+  const [deal, setDeal] = useState<Deal | null>(null);
+  const [visits, setVisits] = useState<VisitRow[]>([]);
   const [comms, setComms] = useState<{
     emails: Array<{ fecha: string; de: string; asunto: string; direction: string }>;
     quotes: Array<{ codigo: string; monto: number; estado: string }>;
@@ -21,13 +32,34 @@ export function LicitacionDrawer({ dealId, onClose, onAgendar }: Props) {
 
   useEffect(() => {
     if (!dealId) return;
+    setDeal(null);
+    setComms(null);
+    setSummary(null);
+    fetch(`/api/crm/deals/${dealId}`)
+      .then((r) => r.json())
+      .then((j) => setDeal(j.data ?? null))
+      .catch(() => setDeal(null));
     fetch(`/api/agenda/licitaciones/${dealId}/comunicaciones`)
       .then((r) => r.json())
       .then(setComms)
       .catch(() => setComms(null));
+    const from = new Date();
+    from.setMonth(from.getMonth() - 3);
+    const to = new Date();
+    to.setMonth(to.getMonth() + 3);
+    fetch(`/api/agenda?from=${from.toISOString()}&to=${to.toISOString()}`)
+      .then((r) => r.json())
+      .then((j) =>
+        setVisits((j.items ?? []).filter((i: VisitRow & { dealId?: string }) => i.dealId === dealId)),
+      )
+      .catch(() => setVisits([]));
   }, [dealId]);
 
   if (!dealId) return null;
+
+  const daysLeft = deal?.fechaEntrega
+    ? Math.round((new Date(deal.fechaEntrega).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86_400_000)
+    : null;
 
   async function generateSummary() {
     setLoadingSummary(true);
@@ -49,13 +81,22 @@ export function LicitacionDrawer({ dealId, onClose, onAgendar }: Props) {
         onClick={(e: MouseEvent) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <p className="font-display text-base font-semibold">Licitación</p>
-          <button type="button" onClick={onClose} className="text-[13px] text-ds-text-3">
+          <p className="truncate font-display text-base font-semibold">{deal?.title || "Licitación"}</p>
+          <button type="button" onClick={onClose} className="shrink-0 text-[13px] text-ds-text-3">
             Cerrar
           </button>
         </div>
+        <p className="text-[13px] text-ds-text-3">
+          {deal?.account?.name} · {deal?.stage?.name || "Sin etapa"} · $
+          {(deal?.amount ?? 0).toLocaleString("es-CL")}
+        </p>
 
         <div className="flex flex-wrap gap-2">
+          {daysLeft != null && (
+            <Tag size="sm" variant={daysLeft <= 3 ? "danger" : daysLeft <= 7 ? "warn" : "neutral"}>
+              Entrega T-{daysLeft}
+            </Tag>
+          )}
           <Tag size="sm" variant={comms?.checklist.cotizacion ? "ok" : "warn"}>
             Cotización {comms?.checklist.cotizacion ? "✓" : "pendiente"}
           </Tag>
@@ -63,6 +104,19 @@ export function LicitacionDrawer({ dealId, onClose, onAgendar }: Props) {
             Correos {comms?.checklist.correos ? "✓" : "0"}
           </Tag>
         </div>
+
+        {visits.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-xs uppercase tracking-wide text-ds-text-4">Visitas vinculadas</p>
+            <ul className="space-y-1">
+              {visits.map((v) => (
+                <li key={v.id} className="rounded-lg bg-ds-surface-2 px-2 py-1.5 text-[12px] text-ds-text-2">
+                  {v.type} · {new Date(v.start).toLocaleString("es-CL")} · {v.status}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="space-y-2">
           <p className="text-xs uppercase tracking-wide text-ds-text-4">Conversación</p>
