@@ -43,6 +43,7 @@ export function GridCell({
   categoryId = null,
   value,
   emiteProforma = false,
+  isDupProjection = false,
   bucketKey,
   bucketStart,
   weekLabel,
@@ -73,6 +74,8 @@ export function GridCell({
   value: ProjectionRowItemValue | undefined;
   /** El item emite proforma (habilita el glifo "pendiente" en PROJECTED puro). */
   emiteProforma?: boolean;
+  /** La fila es una programación duplicada junto a una factura (collidesWithInvoice). */
+  isDupProjection?: boolean;
   bucketKey: string;
   /** Lunes de la semana — scheduledDate al crear. */
   bucketStart: string | Date;
@@ -411,6 +414,7 @@ export function GridCell({
           currentBucketKey={bucketKey}
           onMoveTo={(k) => onContextMove?.(k)}
           canMove={!!canDrag}
+          isDupProjection={isDupProjection && !value.dteId}
         />
       )}
       {advanced && actual !== null && (

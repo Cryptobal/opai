@@ -63,6 +63,9 @@ interface Props {
   onMoveTo?: (bucketKey: string) => void;
   /** Habilita "Mover a" (misma condición que el drag: canDrag). */
   canMove?: boolean;
+  /** La cuota de la celda es la proyección pura que quedó junto a una factura
+   *  (collidesWithInvoice, sin dteId): ofrece "Quitar programación duplicada". */
+  isDupProjection?: boolean;
 }
 
 /**
@@ -96,11 +99,12 @@ export function CellActionSheet({
   openWeeks = [],
   onMoveTo,
   canMove = false,
+  isDupProjection = false,
 }: Props) {
   const [confirmingHide, setConfirmingHide] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  async function doHide() {
+  async function doHide(successLabel?: string) {
     setBusy(true);
     const res = await hideFromFlowViaApi(hideTarget);
     setBusy(false);
@@ -114,6 +118,7 @@ export function CellActionSheet({
       label: hideTarget.label,
       dteId: hideTarget.dteId,
       occurrenceId: res.occurrenceId ?? hideTarget.occurrenceId,
+      ...(successLabel ? { successLabel } : {}),
     });
   }
 
@@ -155,6 +160,26 @@ export function CellActionSheet({
         />
 
         <div className="mt-5 space-y-2 border-t border-ds-border-subtle pt-4">
+          {isDupProjection && canHide && (
+            <Button
+              variant="outline"
+              className="h-11 w-full justify-start border-status-danger-border text-[13px] text-status-danger-fg hover:bg-status-danger-soft sm:h-10"
+              disabled={busy}
+              onClick={() =>
+                void doHide(
+                  "Programación duplicada quitada — queda solo la factura",
+                )
+              }
+            >
+              {busy ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <EyeOff className="mr-2 h-4 w-4" />
+              )}
+              Quitar programación duplicada (ya está facturada)
+            </Button>
+          )}
+
           {canEdit && (
             <Button
               variant="outline"
@@ -181,6 +206,7 @@ export function CellActionSheet({
           )}
 
           {canHide &&
+            !isDupProjection &&
             (confirmingHide ? (
               <div className="rounded-ds-md border border-status-danger-border bg-status-danger-soft/40 p-3 space-y-2">
                 <p className="text-[13px] text-ds-text-1">

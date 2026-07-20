@@ -199,6 +199,7 @@ export function GridRow({
             categoryId={row.categoryId ?? null}
             value={row.valueByBucket.get(b.key)}
             emiteProforma={row.item.emiteProforma ?? false}
+            isDupProjection={isDupProjection}
             bucketKey={b.key}
             bucketStart={b.start}
             weekLabel={b.label}
