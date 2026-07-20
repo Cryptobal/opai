@@ -13,6 +13,7 @@
 "use client";
 
 import {
+  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -65,7 +66,9 @@ import {
   ChevronRight,
   RotateCcw,
   NotebookPen,
+  Sparkles,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import { HOURS_24, WEEKDAY_ORDER, isNightShift, analizarTurno } from "./shift-utils";
@@ -449,6 +452,15 @@ function GroupBlock({
 
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(group?.name ?? "");
+  // Turnos con la fila de observaciones desplegada (inline, debajo de la fila).
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+  const toggleObservations = (id: string) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const totalGuards = rows.reduce((s, r) => s + r.guardias * (r.nPuestos || 1), 0);
   const totalPtos = rows.reduce((s, r) => s + (r.nPuestos || 1), 0);
@@ -460,8 +472,11 @@ function GroupBlock({
     setEditingName(false);
   };
 
-  // Filas físicas del grupo: solo los turnos (mínimo 1 para el placeholder vacío).
-  const physicalRowCount = Math.max(rows.length, 1);
+  // Filas físicas del grupo: los turnos + cada fila de observaciones desplegada
+  // (mínimo 1 para el placeholder vacío). El rowSpan de la celda de servicio
+  // debe cuadrar con el total de <tr> del grupo, o la grilla se desalinea.
+  const expandedCount = rows.reduce((n, r) => n + (expandedIds.has(r.id) ? 1 : 0), 0);
+  const physicalRowCount = Math.max(rows.length + expandedCount, 1);
 
   const serviceCell = (ref?: Ref<HTMLTableCellElement>) => (
     <td
@@ -647,17 +662,26 @@ function GroupBlock({
           </td>
         </tr>
       ) : (
-        rows.map((row, idx) => (
-          <GridRow
-            key={row.id}
-            row={row}
-            adapter={adapter}
-            readOnly={readOnly}
-            color={color}
-            leadingCell={leadingFor(idx === 0 ? setNodeRef : undefined)}
-            onRequestDelete={() => onRequestDeleteRow(row.id)}
-          />
-        ))
+        rows.map((row, idx) => {
+          const expanded = expandedIds.has(row.id);
+          return (
+            <Fragment key={row.id}>
+              <GridRow
+                row={row}
+                adapter={adapter}
+                readOnly={readOnly}
+                color={color}
+                leadingCell={leadingFor(idx === 0 ? setNodeRef : undefined)}
+                observationsOpen={expanded}
+                onToggleObservations={() => toggleObservations(row.id)}
+                onRequestDelete={() => onRequestDeleteRow(row.id)}
+              />
+              {expanded && (
+                <ObservationRow row={row} adapter={adapter} readOnly={readOnly} color={color} />
+              )}
+            </Fragment>
+          );
+        })
       )}
     </>
   );
@@ -671,6 +695,9 @@ interface GridRowProps {
   readOnly?: boolean;
   leadingCell?: ReactNode;
   color: string;
+  /** Fila de observaciones desplegada debajo de esta fila. */
+  observationsOpen: boolean;
+  onToggleObservations: () => void;
   onRequestDelete: () => void;
 }
 
@@ -694,7 +721,16 @@ function rowDraftOf(row: NormalizedShift): RowDraft {
   };
 }
 
-function GridRow({ row, adapter, readOnly, leadingCell, color, onRequestDelete }: GridRowProps) {
+function GridRow({
+  row,
+  adapter,
+  readOnly,
+  leadingCell,
+  color,
+  observationsOpen,
+  onToggleObservations,
+  onRequestDelete,
+}: GridRowProps) {
   const { catalogs, currency, ufValue, savingRowId } = adapter;
   const [draft, setDraft] = useState<RowDraft>(() => rowDraftOf(row));
   const ref = useRef(draft);
@@ -785,11 +821,6 @@ function GridRow({ row, adapter, readOnly, leadingCell, color, onRequestDelete }
               {night ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
             </span>
           )}
-          {row.description?.trim() ? (
-            <span title={row.description} className="inline-flex shrink-0" aria-label="Tiene observaciones">
-              <NotebookPen className="h-3.5 w-3.5 text-primary" />
-            </span>
-          ) : null}
           <div className="flex flex-wrap items-center gap-1">
             <select className={cn(FIELD, "w-[60px] font-mono")} value={draft.inicio} disabled={disabled} onChange={(e) => apply({ inicio: e.target.value })}>
               {HOURS_24.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -862,6 +893,26 @@ function GridRow({ row, adapter, readOnly, leadingCell, color, onRequestDelete }
       <td className="px-1 py-1" style={{ borderRight: `4px solid ${color}` }}>
         <div className="flex items-center justify-end gap-0.5">
           {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn("h-7 w-7", observationsOpen && "bg-primary/10 text-primary")}
+            onClick={onToggleObservations}
+            aria-expanded={observationsOpen}
+            aria-label={observationsOpen ? "Ocultar observaciones" : "Observaciones del turno"}
+            title={
+              row.description?.trim()
+                ? "Ver / editar observaciones"
+                : readOnly
+                  ? "Sin observaciones"
+                  : "Agregar observaciones"
+            }
+          >
+            <NotebookPen
+              className={cn("h-3.5 w-3.5", row.description?.trim() ? "text-primary" : "text-muted-foreground")}
+            />
+          </Button>
           {!readOnly && (
             <>
               <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => adapter.onCloneRow(row.id)} title="Duplicar turno">
@@ -872,6 +923,116 @@ function GridRow({ row, adapter, readOnly, leadingCell, color, onRequestDelete }
               </Button>
             </>
           )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+/* ─────────────────────────  Fila de observaciones (desplegable inline) ───────────────────────── */
+
+interface ObservationRowProps {
+  row: NormalizedShift;
+  adapter: PositionMatrixAdapter;
+  readOnly?: boolean;
+  color: string;
+}
+
+/**
+ * Sub-fila a todo el ancho (bajo la celda de servicio con rowSpan) que edita
+ * `description`. Reusa el mismo endpoint de IA y el mismo patch (`description`)
+ * que el editor de tarjetas → ambas vistas quedan sincronizadas.
+ */
+function ObservationRow({ row, adapter, readOnly, color }: ObservationRowProps) {
+  const quoteId = adapter.quoteId;
+  const [value, setValue] = useState(row.description ?? "");
+  const lastProp = useRef(row.description ?? "");
+  useEffect(() => {
+    const incoming = row.description ?? "";
+    if (incoming !== lastProp.current) {
+      lastProp.current = incoming;
+      setValue(incoming);
+    }
+  }, [row.description]);
+
+  const change = (v: string) => {
+    setValue(v);
+    lastProp.current = v;
+    adapter.onUpdateRow(row.id, { description: v });
+  };
+
+  const [aiLoading, setAiLoading] = useState(false);
+  const handleAi = async () => {
+    if (!quoteId) return;
+    setAiLoading(true);
+    try {
+      const res = await fetch("/api/ai/position-description", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quoteId,
+          positionId: row.id,
+          customInstruction: value.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "No se pudo redactar");
+      // El endpoint ya persistió; este change re-PATCHea el mismo texto (idempotente).
+      change(data.data.description);
+      toast.success("Observaciones redactadas");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo redactar");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  return (
+    <tr className="border-b border-border/60 bg-primary/[0.03]">
+      <td colSpan={REST_COLS} className="px-3 py-2.5" style={{ borderRight: `4px solid ${color}` }}>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Observaciones del turno
+            </span>
+            <div className="flex items-center gap-2">
+              {!readOnly && quoteId ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1.5 text-xs"
+                  disabled={aiLoading}
+                  onClick={handleAi}
+                >
+                  {aiLoading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  )}
+                  Redactar con IA
+                </Button>
+              ) : null}
+              <span className="font-mono text-[10px] text-muted-foreground">{value.length}/500</span>
+            </div>
+          </div>
+          {readOnly ? (
+            <p className="whitespace-pre-wrap text-[13px] text-foreground">
+              {value.trim() ? value : <span className="text-muted-foreground">Sin observaciones.</span>}
+            </p>
+          ) : (
+            <textarea
+              value={value}
+              maxLength={500}
+              rows={2}
+              placeholder="Funciones, protocolos o particularidades de este turno…"
+              onChange={(e) => change(e.target.value)}
+              className="w-full resize-y rounded-md border border-border bg-card px-2.5 py-2 text-[13px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            />
+          )}
+          <p className="text-[10.5px] text-muted-foreground">
+            Aparece en el PDF económico, la propuesta técnica y el portal del cliente.
+          </p>
         </div>
       </td>
     </tr>
