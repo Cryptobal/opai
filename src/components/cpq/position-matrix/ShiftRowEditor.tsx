@@ -9,7 +9,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Copy, Trash2, Check, ArrowLeftRight } from "lucide-react";
+import { Copy, Trash2, Check, ArrowLeftRight, Sparkles, Loader2 } from "lucide-react";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import { toast } from "sonner";
@@ -88,6 +88,33 @@ export function ShiftRowEditor({
     }
     setDraft(next);
     onUpdate(next);
+  };
+
+  const [aiLoading, setAiLoading] = useState(false);
+  const handleAiDescription = async () => {
+    if (!quoteId) return;
+    setAiLoading(true);
+    try {
+      const res = await fetch("/api/ai/position-description", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quoteId,
+          positionId: row.id,
+          customInstruction: draft.description?.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "No se pudo redactar");
+      // El endpoint YA persistió; este apply re-PATCHea el mismo texto (debounce,
+      // idempotente) y mantiene el estado local del editor coherente.
+      apply({ description: data.data.description });
+      toast.success("Observaciones redactadas");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo redactar");
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const toggleDay = (d: string) => {
@@ -234,9 +261,28 @@ export function ShiftRowEditor({
       <div className="space-y-1.5 rounded-lg border border-primary/30 bg-primary/[0.04] p-2.5">
         <div className="flex items-center justify-between gap-2">
           <Label className={LABEL}>Observaciones del turno</Label>
-          <span className="font-mono text-[10px] text-muted-foreground">
-            {(draft.description ?? "").length}/500
-          </span>
+          <div className="flex items-center gap-2">
+            {quoteId ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-xs"
+                disabled={aiLoading}
+                onClick={handleAiDescription}
+              >
+                {aiLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                )}
+                Redactar con IA
+              </Button>
+            ) : null}
+            <span className="font-mono text-[10px] text-muted-foreground">
+              {(draft.description ?? "").length}/500
+            </span>
+          </div>
         </div>
         <textarea
           value={draft.description ?? ""}
