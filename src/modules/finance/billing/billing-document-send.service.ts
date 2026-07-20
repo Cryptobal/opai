@@ -18,6 +18,8 @@ import { resolveBrandColors } from "@/modules/finance/billing/billing-doc-config
 import { render } from "@react-email/render";
 import { createElement } from "react";
 import { BillingDocumentEmail } from "@/emails/BillingDocumentEmail";
+import { ensureClientActionToken } from "@/modules/finance/billing/cobro-confirmation.service";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 
 export type BillingDocVariant = "PROFORMA" | "ESTADO_DE_PAGO";
 
@@ -47,6 +49,12 @@ export interface SendBillingDocumentInput {
    *   - false → MANUAL_PROFORMA / MANUAL_ESTADO_PAGO (default)
    */
   isAutoFromCron?: boolean;
+  /**
+   * Si viene, el envío es un RECORDATORIO de confirmación (cron cobro-reminders):
+   * cambia subject (prefijo "Recordatorio · ") + intro + kind transaccional.
+   * `index` = número de recordatorio (1..3). Mantiene CTA y adjunta el PDF.
+   */
+  reminder?: { index: number };
 }
 
 export interface SendBillingDocumentResult {
@@ -328,8 +336,15 @@ export async function sendBillingDocument(
           currency: "CLP",
           minimumFractionDigits: 0,
         }).format(n);
+  // Token + URL de la landing pública de confirmación (/cobro/[token]).
+  // Idempotente: mientras el token no expire, siempre el mismo. Se expone en
+  // tokenVars para que las plantillas custom del tenant usen {{confirmUrl}}.
+  const confirmToken = await ensureClientActionToken(tenantId, input.dteId);
+  const confirmUrl = `${getCanonicalSiteUrl()}/cobro/${confirmToken}`;
+
   const tokenVars: Record<string, string> = {
     razonSocial: dte.receiverName,
+    confirmUrl,
     folio: dte.folio > 0 ? String(dte.folio) : billingProps.document.folio,
     tipo: billingProps.document.dteTypeName,
     total: fmtCurrency(billingProps.totals.totalAmount),
@@ -350,7 +365,8 @@ export async function sendBillingDocument(
     (input.variant === "PROFORMA"
       ? tenantConfig?.proformaEmailSubject || DEFAULT_PROFORMA_SUBJECT
       : tenantConfig?.estadoPagoEmailSubject || DEFAULT_ESTADO_PAGO_SUBJECT);
-  const subject = renderTemplate(subjectTemplate, tokenVars);
+  const baseSubject = renderTemplate(subjectTemplate, tokenVars);
+  const subject = input.reminder ? `Recordatorio · ${baseSubject}` : baseSubject;
 
   // Intro HTML.
   const rawIntro = input.customIntroHtml ?? null;
@@ -358,11 +374,20 @@ export async function sendBillingDocument(
     input.variant === "PROFORMA"
       ? tenantConfig?.proformaEmailIntro
       : tenantConfig?.estadoPagoEmailIntro;
+  const reminderIntro = input.reminder
+    ? `<p>Estimado/a <strong>${
+        billingProps.receptor.contactName ?? dte.receiverName
+      }</strong>,</p><p>Aún no recibimos la confirmación de esta ${
+        input.variant === "PROFORMA" ? "proforma" : "estado de pago"
+      }. Toma un minuto — y si ya tienes el N° de OC, puedes dejarlo en el mismo paso.</p>`
+    : null;
   const introHtml = rawIntro
     ? rawIntro
-    : tenantIntro
-      ? renderTemplate(tenantIntro, tokenVars).replace(/\n/g, "<br/>")
-      : null;
+    : reminderIntro
+      ? reminderIntro
+      : tenantIntro
+        ? renderTemplate(tenantIntro, tokenVars).replace(/\n/g, "<br/>")
+        : null;
 
   // Render email HTML.
   const emailEl = createElement(BillingDocumentEmail, {
@@ -398,6 +423,14 @@ export async function sendBillingDocument(
     website: company.website || "",
     emailContact: company.emailContact || company.email || "",
     senderName: company.commercialName || company.companyName || "",
+    ctaUrl: confirmUrl,
+    ctaLabel:
+      input.variant === "PROFORMA"
+        ? "Revisar y confirmar proforma"
+        : "Revisar y confirmar estado de pago",
+    ctaSubtext: `Sin clave ni registro — enlace personal y seguro para ${
+      billingProps.receptor.contactName ?? dte.receiverName
+    }.`,
   });
   const html = await render(emailEl);
 
@@ -418,8 +451,14 @@ export async function sendBillingDocument(
   const { successKind, failKind } = variantToKinds(input.variant);
 
   // Kind del catálogo transaccional — determina toggles + routing por módulo.
-  const transactionalKind =
-    input.variant === "PROFORMA" ? "dte_proforma_sent" : "dte_payment_statement_sent";
+  // Los recordatorios usan su propio kind (toggle independiente del envío).
+  const transactionalKind = input.reminder
+    ? input.variant === "PROFORMA"
+      ? "dte_proforma_reminder"
+      : "dte_payment_statement_reminder"
+    : input.variant === "PROFORMA"
+      ? "dte_proforma_sent"
+      : "dte_payment_statement_sent";
 
   try {
     const result = await sendTenantEmail({

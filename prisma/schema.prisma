@@ -6415,6 +6415,16 @@ enum FinanceProformaStatus {
   @@schema("finance")
 }
 
+/// Acción del cliente sobre una proforma/EP desde la landing pública /cobro/[token].
+enum FinanceDteClientAction {
+  VIEWED
+  APPROVED
+  REJECTED
+  OC_ADDED
+
+  @@schema("finance")
+}
+
 /// Tipo de envío de email registrado en FinanceDteEmailLog.
 ///   - AUTO_RECEIVER:           envío automático al receptor tras aceptación SII.
 ///   - AUTO_BACKOFFICE:         XML al contador externo configurado en
@@ -6782,6 +6792,14 @@ model FinanceDte {
   estadoPagoSentCount           Int                   @default(0) @map("estado_pago_sent_count")
   estadoPagoLastRecipient       String?               @map("estado_pago_last_recipient")
 
+  // ── Confirmación del cliente (landing pública /cobro/[token]) ──
+  /// Token URL-safe de la landing pública /cobro/[token]. Único por DTE.
+  clientActionToken    String?   @unique @map("client_action_token")
+  clientActionTokenExp DateTime? @map("client_action_token_exp") @db.Timestamptz(6)
+  /// Recordatorios de confirmación enviados (máx 3).
+  cobroReminderCount   Int       @default(0) @map("cobro_reminder_count")
+  cobroLastReminderAt  DateTime? @map("cobro_last_reminder_at") @db.Timestamptz(6)
+
   notes     String?
   createdBy String  @map("created_by")
 
@@ -6794,6 +6812,7 @@ model FinanceDte {
   cashflowOccurrences    FinanceCashflowOccurrence[]       @relation("OccurrenceToDte")
   cashflowDateOverrides  FinanceCashflowDteDateOverride[]
   cashflowFlowExclusions FinanceCashflowDteFlowExclusion[]
+  clientEvents           FinanceDteClientEvent[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -6812,6 +6831,31 @@ model FinanceDte {
   @@index([tenantId, estadoPagoStatus], map: "idx_finance_dte_estado_pago_status")
   @@index([tenantId, voidedByCreditNoteId], map: "idx_finance_dte_voided")
   @@map("finance_dtes")
+  @@schema("finance")
+}
+
+/// Bitácora de acciones del cliente sobre una proforma/EP desde la landing
+/// pública /cobro/[token] (auditoría Ley 21.719: quién, cuándo, desde dónde).
+model FinanceDteClientEvent {
+  id       String @id @default(uuid()) @db.Uuid
+  // tenant_id es TEXT en finance (igual que FinanceDte / FinanceDteEmailLog),
+  // NO uuid: los tenantId del módulo finance no son UUID canónicos.
+  tenantId String @map("tenant_id")
+  dteId    String @map("dte_id") @db.Uuid
+  /// "PROFORMA" | "ESTADO_DE_PAGO" — misma convención string del send service.
+  variant    String
+  action     FinanceDteClientAction
+  actorEmail String?                @map("actor_email")
+  comment    String?
+  ocFolio    String?                @map("oc_folio")
+  ip         String?
+  userAgent  String?                @map("user_agent")
+  createdAt  DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  dte FinanceDte @relation(fields: [dteId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, dteId])
+  @@map("finance_dte_client_event")
   @@schema("finance")
 }
 
