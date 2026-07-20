@@ -1033,6 +1033,11 @@ function writeToolDefinitions() {
             cargoName: { type: "string" },
             rolName: { type: "string" },
             customName: { type: "string" },
+            description: {
+              type: "string",
+              description:
+                "Observaciones del puesto: funciones, protocolos y particularidades tomadas TEXTUALMENTE del SoW/bases (resumen fiel, máx ~500 caracteres). Aparecen bajo el puesto en el PDF, la propuesta técnica y el portal del cliente. No inventar nada que el documento no diga.",
+            },
             puestoLabelPrefix: { type: "string", description: "Prefijo si coveragePattern crea varios slots." },
             forceSingleSlot: { type: "boolean", description: "true = sólo primera plantilla resultado." },
             afpName: { type: "string" },
