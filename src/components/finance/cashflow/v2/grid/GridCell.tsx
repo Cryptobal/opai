@@ -276,6 +276,8 @@ export function GridCell({
         canMove={canDrag}
         dteId={value?.dteId}
         dteFolio={value?.dteFolio}
+        source={source}
+        itemId={itemId}
         openWeeks={openWeeks}
         onAddHere={() => setEditing("create")}
         onEdit={() => setEditing("edit")}

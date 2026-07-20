@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Pencil, EyeOff, FileText, Loader2 } from "lucide-react";
+import { Pencil, EyeOff, FileText, Loader2, CalendarDays } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -20,6 +20,7 @@ import type { HideUndoPayload } from "./CellFlowActions";
 import type { WeekTarget } from "./CellContextMenu";
 import { CellHistory } from "./CellHistory";
 import { GestionGlyphs } from "./GestionGlyphs";
+import { programacionHrefForCashflowItem } from "./programacion-link";
 import type {
   CashflowCellStatus,
   CellGestionSummary,
@@ -103,6 +104,10 @@ export function CellActionSheet({
 }: Props) {
   const [confirmingHide, setConfirmingHide] = useState(false);
   const [busy, setBusy] = useState(false);
+  const programacionHref = programacionHrefForCashflowItem(
+    source,
+    hideTarget.itemId,
+  );
 
   async function doHide(successLabel?: string) {
     setBusy(true);
@@ -201,6 +206,18 @@ export function CellActionSheet({
             >
               <Link href={`/finanzas/facturacion/dtes?dte=${dteId}`}>
                 <FileText className="mr-2 h-4 w-4" /> Ver factura
+              </Link>
+            </Button>
+          )}
+
+          {programacionHref && (
+            <Button
+              asChild
+              variant="outline"
+              className="h-11 w-full justify-start text-[13px] sm:h-10"
+            >
+              <Link href={programacionHref}>
+                <CalendarDays className="mr-2 h-4 w-4" /> Ver programación
               </Link>
             </Button>
           )}

@@ -19,7 +19,7 @@
  */
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { es } from "date-fns/locale";
 import {
   Loader2,
@@ -286,6 +286,7 @@ export function RecurringClient({
   onChange,
 }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [templates, setTemplates] = React.useState<RecurringTemplateRow[]>(initialTemplates);
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [reloading, setReloading] = React.useState(false);
@@ -355,6 +356,38 @@ export function RecurringClient({
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Deep-link desde Flujo de Caja (?openCashflowItem=… o ?openTemplateId=…):
+  // abre el modal de la plantilla recurrente correspondiente.
+  const openTemplateId = searchParams.get("openTemplateId");
+  const openCashflowItem = searchParams.get("openCashflowItem");
+  React.useEffect(() => {
+    if (openTemplateId) {
+      setEditingId(openTemplateId);
+      return;
+    }
+    if (!openCashflowItem) return;
+    const ctrl = new AbortController();
+    fetch(`/api/finance/cashflow/items/${openCashflowItem}`, {
+      signal: ctrl.signal,
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        const templateId =
+          j?.success && j.data?.source === "RECURRING_DTE"
+            ? (j.data.sourceRefId as string | null | undefined)
+            : null;
+        if (templateId) setEditingId(templateId);
+        else if (j?.success === false) {
+          toast.error("No se pudo abrir la programación");
+        }
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        toast.error("No se pudo abrir la programación");
+      });
+    return () => ctrl.abort();
+  }, [openCashflowItem, openTemplateId]);
 
   // Plantilla esperando elección de modo de agenda para el run manual
   // (solo cuando la próxima corrida programada está en el futuro).

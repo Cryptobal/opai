@@ -13,8 +13,12 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { fmt } from "@/components/finance/cashflow/MatrixHelpers";
-import type { ProjectionBucket } from "@/modules/finance/cashflow/types";
+import type {
+  FinanceCashflowItemSource,
+  ProjectionBucket,
+} from "@/modules/finance/cashflow/types";
 import type { BucketMeta } from "./grid-helpers";
+import { programacionHrefForCashflowItem } from "./programacion-link";
 
 export interface WeekTarget {
   key: string;
@@ -51,6 +55,8 @@ export function CellContextMenu({
   canMove,
   dteId,
   dteFolio,
+  source,
+  itemId,
   openWeeks,
   onAddHere,
   onEdit,
@@ -73,6 +79,8 @@ export function CellContextMenu({
   canMove: boolean;
   dteId?: string | null;
   dteFolio?: number | null;
+  source?: FinanceCashflowItemSource | null;
+  itemId?: string | null;
   openWeeks: WeekTarget[];
   onAddHere: () => void;
   onEdit: () => void;
@@ -81,6 +89,7 @@ export function CellContextMenu({
   onOpenDetail: () => void;
   onHide: () => void;
 }) {
+  const programacionHref = programacionHrefForCashflowItem(source, itemId);
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -116,6 +125,11 @@ export function CellContextMenu({
                 <Link href={`/finanzas/facturacion/dtes?dte=${dteId}`}>
                   Ver factura{dteFolio != null ? ` N° ${dteFolio}` : ""}
                 </Link>
+              </ContextMenuItem>
+            )}
+            {programacionHref && (
+              <ContextMenuItem asChild>
+                <Link href={programacionHref}>Ver programación</Link>
               </ContextMenuItem>
             )}
             <ContextMenuItem onSelect={onOpenDetail}>Ver detalle e historial</ContextMenuItem>
@@ -160,6 +174,11 @@ export function CellContextMenu({
                 <Link href={`/finanzas/facturacion/dtes?dte=${dteId}`}>
                   Ver factura{dteFolio != null ? ` N° ${dteFolio}` : ""}
                 </Link>
+              </ContextMenuItem>
+            )}
+            {programacionHref && (
+              <ContextMenuItem asChild>
+                <Link href={programacionHref}>Ver programación</Link>
               </ContextMenuItem>
             )}
             <ContextMenuItem onSelect={onOpenDetail}>Ver detalle e historial</ContextMenuItem>
