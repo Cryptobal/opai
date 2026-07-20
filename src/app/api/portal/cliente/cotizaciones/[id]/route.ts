@@ -49,6 +49,7 @@ export async function GET(
         select: {
           id: true,
           customName: true,
+          description: true,
           numGuards: true,
           numPuestos: true,
           startTime: true,

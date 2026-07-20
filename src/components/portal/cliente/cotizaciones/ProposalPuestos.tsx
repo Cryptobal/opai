@@ -173,6 +173,11 @@ function PositionMobileCard({ pos, fmt }: { pos: Position; fmt: (v: number) => s
       <div className="text-[11px] text-muted-foreground">
         {formatHorario(pos.startTime, pos.endTime)} · {formatWeekdays(pos.weekdays)}
       </div>
+      {pos.description?.trim() ? (
+        <div className="mt-1.5 border-l-2 border-primary/60 pl-2 text-[11px] italic leading-snug text-muted-foreground">
+          {pos.description}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -182,6 +187,11 @@ function PositionRow({ pos, fmt }: { pos: Position; fmt: (v: number) => string }
     <tr>
       <td className="py-2 pr-3 text-foreground font-medium">
         {pos.customName ?? `Puesto ${pos.numPuestos ?? ""}`}
+        {pos.description?.trim() ? (
+          <div className="mt-1 border-l-2 border-primary/60 pl-2 text-[10.5px] font-normal italic leading-snug text-muted-foreground">
+            {pos.description}
+          </div>
+        ) : null}
       </td>
       <td className="py-2 pr-3 text-center text-muted-foreground">{pos.numGuards ?? "—"}</td>
       <td className="py-2 pr-3 text-center text-muted-foreground">{pos.numPuestos ?? 1}</td>
