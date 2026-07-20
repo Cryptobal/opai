@@ -90,6 +90,10 @@ export async function POST(request: NextRequest) {
         expectedCloseDate: body.expectedCloseDate
           ? new Date(body.expectedCloseDate)
           : null,
+        isLicitacion: Boolean(body.isLicitacion),
+        fechaEntrega: body.isLicitacion && body.fechaEntrega
+          ? new Date(`${body.fechaEntrega}T12:00:00Z`)
+          : null,
         status: "open",
       },
       include: {

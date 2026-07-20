@@ -267,10 +267,15 @@ export const NAV_MODULES: NavNode[] = [
     icon: TrendingUp,
     module: "crm",
     tenantModule: "crm",
+    // /opai/agenda es hermano plano de /crm (vive bajo /opai por convención
+    // de rutas transversales), así que se declara para que
+    // findActiveModule/breadcrumbs lo resuelvan al módulo Comercial.
+    activePaths: ["/opai/agenda"],
     children: [
       { key: "crm-leads", href: "/crm/leads", label: "Leads", icon: Users, module: "crm", submodule: "leads", badge: { notesKey: "lead" } },
       { key: "crm-accounts", href: "/crm/accounts", label: "Cuentas", icon: Building2, module: "crm", submodule: "accounts", badge: { notesKey: "account" } },
       { key: "crm-deals", href: "/crm/deals", label: "Negocios", icon: TrendingUp, module: "crm", submodule: "deals", badge: { notesKey: "deal" } },
+      { key: "crm-agenda", href: "/opai/agenda", label: "Agenda", icon: CalendarDays, module: "crm", submodule: "deals" },
       { key: "crm-contacts", href: "/crm/contacts", label: "Contactos", icon: Contact, module: "crm", submodule: "contacts", badge: { notesKey: "contact" } },
       { key: "crm-quotes", href: "/crm/cotizaciones", label: "Cotizaciones", icon: DollarSign, module: "crm", submodule: "quotes", tenantModule: "cpq", badge: { notesKey: "quotation" } },
       { key: "crm-installations", href: "/crm/installations", label: "Instalaciones", icon: MapPin, module: "crm", submodule: "installations", badge: { notesKey: "installation" } },

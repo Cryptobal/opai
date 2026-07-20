@@ -41,6 +41,8 @@ import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCa
 import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
 import { DealChecklistSection } from "./deal/DealChecklistSection";
 import { NotesSection } from "./NotesSection";
+import { DealLicitacionCard } from "./DealLicitacionCard";
+import { DealVisitasCard } from "./DealVisitasCard";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
@@ -177,6 +179,8 @@ export type DealDetail = {
   proposalLink?: string | null;
   proposalSentAt?: string | null;
   serviceStartDate?: string | null;
+  isLicitacion?: boolean;
+  fechaEntrega?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   /** Nombre real del canal de Slack de la sala (sincronizado desde Slack); null si no hay sala. */
@@ -1984,7 +1988,7 @@ export function CrmDealDetailClient({
         breadcrumbHrefs={["/crm", "/crm/deals"]}
         header={{
           avatar: { initials: dealTitle.charAt(0).toUpperCase() },
-          title: dealTitle,
+          title: deal.isLicitacion ? `${dealTitle} · Licitación` : dealTitle,
           status: statusBadge,
           actions: headerActions,
           extra: primaryPhone ? (
@@ -2032,6 +2036,7 @@ export function CrmDealDetailClient({
         activeTab={effectiveTab}
         onTabChange={setActiveTab}
         leftPanel={
+          <>
           <DealAboutCard
             account={deal.account ? { id: deal.account.id, name: deal.account.name } : null}
             primaryContact={
@@ -2057,6 +2062,19 @@ export function CrmDealDetailClient({
             }}
             installation={dealInstallation}
           />
+          <div className="mt-4 space-y-4">
+            <DealLicitacionCard
+              dealId={deal.id}
+              isLicitacion={Boolean(deal.isLicitacion)}
+              fechaEntrega={deal.fechaEntrega ?? null}
+            />
+            <DealVisitasCard
+              dealId={deal.id}
+              accountId={deal.account?.id}
+              installationId={dealInstallation?.id}
+            />
+          </div>
+          </>
         }
         rightPanel={
           <div className="lg:flex lg:flex-col">

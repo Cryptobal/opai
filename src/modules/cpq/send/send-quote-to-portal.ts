@@ -26,6 +26,7 @@ import {
 import { buildPortalClienteInviteUrl } from "@/lib/portal-cliente-url";
 import { getWaTemplate } from "@/lib/whatsapp-templates";
 import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
+import { enqueueQuotePdfToDrive } from "@/lib/google-workspace/drive-enqueue-hooks";
 
 export interface SendQuoteToPortalOptions {
   quoteId: string;
@@ -432,6 +433,12 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
         filename: quotationFileName,
         content: quotationBuffer,
         contentType: "application/pdf",
+      });
+      void enqueueQuotePdfToDrive({
+        tenantId,
+        quoteId,
+        pdfBuffer: quotationBuffer,
+        fileName: quotationFileName,
       });
     } catch (err) {
       console.warn("[CPQ] Could not generate quotation PDF for portal invite:", err);

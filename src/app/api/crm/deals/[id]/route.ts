@@ -97,6 +97,16 @@ export async function PATCH(
       const v = raw.serviceStartDate as string | null | undefined;
       data.serviceStartDate = v ? new Date(`${v}T12:00:00Z`) : null;
     }
+    if ("fechaEntrega" in raw) {
+      const v = raw.fechaEntrega as string | null | undefined;
+      data.fechaEntrega = v ? new Date(`${v}T12:00:00Z`) : null;
+    }
+    if (raw.isLicitacion === true && !raw.fechaEntrega && !existing.fechaEntrega) {
+      return NextResponse.json(
+        { success: false, error: "fechaEntrega es requerida para licitaciones" },
+        { status: 400 },
+      );
+    }
 
     if ("activeQuotationId" in raw) {
       const nextActiveQuotationId = raw.activeQuotationId as string | null | undefined;
@@ -175,6 +185,14 @@ export async function PATCH(
       },
       createdBy: ctx.userId,
     });
+
+    if ("isLicitacion" in raw || "fechaEntrega" in raw || "status" in raw) {
+      void import("@/modules/agenda/agenda-sync").then(({ syncLicitacionToCalendar }) =>
+        syncLicitacionToCalendar(ctx.tenantId, id).catch((err) =>
+          console.warn("[deals] licitacion calendar sync:", err),
+        ),
+      );
+    }
 
     if ("serviceStartDate" in raw) {
       const { renderStartCanvasForDeal } = await import("@/lib/integrations/slack/deal-rooms/start-canvas");

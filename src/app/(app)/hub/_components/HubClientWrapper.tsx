@@ -14,6 +14,7 @@ import { HubQuickActions } from './HubQuickActions';
 import { HubAlertsBanner } from './HubAlertsBanner';
 import { HubPulsoNegocio } from './HubPulsoNegocio';
 import { HubCrmSection } from './HubCrmSection';
+import { AgendaHubCard } from '@/components/agenda/AgendaHubCard';
 import { HubContratosClienteSection } from './HubContratosClienteSection';
 import { HubOperationsSection } from './HubOperationsSection';
 import { HubInstallationHealthSection } from './HubInstallationHealthSection';
@@ -171,6 +172,7 @@ export function HubClientWrapper({
       <HubGreeting firstName={firstName} pendingFollowUpsCount={pendingFollowUpsCount} />
       <HubQuickActions perms={hubPerms} />
       <HubAlertsBanner alerts={alerts} />
+      {hubPerms.hasCrm ? <AgendaHubCard /> : null}
 
       {isEditing ? (
         <HubCustomizeBar

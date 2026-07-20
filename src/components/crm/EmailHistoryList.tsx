@@ -47,6 +47,8 @@ export type EmailMessage = {
   bounceType?: string | null;
   source: string;
   followUpLogId?: string | null;
+  emailAccountId?: string | null;
+  sentByName?: string | null;
   htmlBody?: string | null;
   textBody?: string | null;
   thread?: {
@@ -390,7 +392,7 @@ export function EmailHistoryList({
                     <p className="text-sm font-medium truncate">{msg.subject}</p>
                     <p className="text-xs text-muted-foreground truncate">
                       {msg.direction === "out"
-                        ? `Para: ${msg.toEmails.join(", ")}`
+                        ? `Para: ${msg.toEmails.join(", ")}${msg.sentByName ? ` · por ${msg.sentByName}` : ""}`
                         : `De: ${msg.fromEmail}`}
                     </p>
                   </div>

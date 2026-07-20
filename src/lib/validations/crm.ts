@@ -226,6 +226,8 @@ export const createDealSchema = z.object({
   probability: z.number().min(0).max(100).default(0),
   expectedCloseDate: z.string().optional(),
   serviceStartDate: z.string().optional().nullable(),
+  isLicitacion: z.boolean().optional(),
+  fechaEntrega: z.string().optional().nullable(),
   activeQuotationId: z.string().uuid("activeQuotationId inválido").optional().nullable(),
   proposalLink: z.string().trim().max(1000).optional().nullable(),
   // Vincular o crear instalación junto con el deal. Si la instalación

@@ -40,6 +40,33 @@ function addMessageEmailFilters(
   }
 }
 
+async function withSentByNames<T extends { emailAccountId?: string | null }>(
+  tenantId: string,
+  messages: T[],
+): Promise<Array<T & { sentByName: string | null }>> {
+  const accountIds = Array.from(
+    new Set(messages.map((m) => m.emailAccountId).filter(Boolean) as string[]),
+  );
+  if (accountIds.length === 0) {
+    return messages.map((m) => ({ ...m, sentByName: null }));
+  }
+  const accounts = await prisma.crmEmailAccount.findMany({
+    where: { tenantId, id: { in: accountIds } },
+    select: { id: true, userId: true },
+  });
+  const userIds = Array.from(new Set(accounts.map((a) => a.userId)));
+  const users = await prisma.admin.findMany({
+    where: { tenantId, id: { in: userIds } },
+    select: { id: true, name: true },
+  });
+  const userName = new Map(users.map((u) => [u.id, u.name]));
+  const accountUser = new Map(accounts.map((a) => [a.id, a.userId]));
+  return messages.map((m) => {
+    const uid = m.emailAccountId ? accountUser.get(m.emailAccountId) : null;
+    return { ...m, sentByName: uid ? userName.get(uid) ?? null : null };
+  });
+}
+
 export async function GET(request: NextRequest) {
   try {
     const modCheck = await requireTenantModule('crm');
@@ -121,7 +148,8 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      return NextResponse.json({ success: true, data: messages });
+      const withNames = await withSentByNames(ctx.tenantId, messages);
+      return NextResponse.json({ success: true, data: withNames });
     }
 
     // Default: filter by thread
@@ -197,7 +225,8 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ success: true, data: messages });
+    const withNames = await withSentByNames(ctx.tenantId, messages);
+    return NextResponse.json({ success: true, data: withNames });
   } catch (error) {
     console.error("Error fetching emails:", error);
     return NextResponse.json(

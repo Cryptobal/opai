@@ -279,6 +279,8 @@ export default async function CrmDealDetailPage({
   initialDeal.proposalLink = deal.proposalLink ?? null;
   initialDeal.proposalSentAt = deal.proposalSentAt ? deal.proposalSentAt.toISOString() : null;
   initialDeal.serviceStartDate = deal.serviceStartDate ? deal.serviceStartDate.toISOString() : null;
+  initialDeal.isLicitacion = Boolean(deal.isLicitacion);
+  initialDeal.fechaEntrega = deal.fechaEntrega ? deal.fechaEntrega.toISOString() : null;
   initialDeal.status = deal.status;
   initialDeal.slackChannelName = dealSlackRoom?.slackChannelName ?? null;
   initialDeal.activeQuotationId = (deal as any).activeQuotationId ?? null;
