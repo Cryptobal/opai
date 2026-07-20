@@ -538,3 +538,82 @@ toggle DS Switch en Configuración → Asistente IA.
   auto-diferido/confirmado por `WRITE_TOOL_NAMES`).
 - **DS**: `Surface`/`IconBubble`/`Tag`/`EmptyState`/`Spinner`/`Button`/`Switch` (barrel
   `@/components/opai-ds` + `@/components/ui`), tints `tint-*`, sin hex, archivos <150 líneas.
+
+## Radar v4 · resultado — bloques implementados y QA
+
+Rama `claude/radar-comercial-v4-vps5a7` (desde `main`, tras v3 #642). 9 commits,
+gate `prisma generate && tsc --noEmit` limpio (0 errores) en cada bloque.
+
+### Bloques
+
+| # | Commit | Entregable |
+| --- | --- | --- |
+| B0 | `chore(radar)` | Auditoría v4 + verificación de prerrequisitos (esta sección "Radar v4"). |
+| B1 | `feat(radar) modelo` | `CrmRadarItem` (crm.radar_items) + 6 campos IA en `email_threads`. Migración única aditiva. |
+| B2 | `feat(radar) clasificación` | Clasificador `gpt-4o-mini` en `syncGmailAccount` (máx. 20/corrida, FIFO), RadarItems + kill-switch + toggle DS. |
+| B3 | `feat(radar) alertas` | Slack DM (url-buttons propios) + notify() in-app; bandeja soporta `?thread=` y `?extract=1`. |
+| B4 | `feat(hub) card` | `RadarComercialCard` + endpoints `GET /api/crm/radar` y `PATCH /api/crm/radar/[id]`. |
+| B5 | `feat(crm) respuesta` | Envío en hilo (In-Reply-To/References), panel "Respuesta sugerida", KPI de respuesta. |
+| B6 | `feat(radar) brief` | Cron `radar-briefs` (`*/10`), match asistentes→CRM, brief `gpt-4o-mini`, Slack DM + item brief. |
+| B7 | `feat(radar) compromisos` | Cron `radar-compromisos` (`0 12 * * *`), follow-ups del cliente + recordatorio propio. |
+| B8 | `feat(ai) tools` | `get_radar_items` (read) + `resolve_radar_item` (write confirmada) + §26 del orquestador. |
+
+### QA end-to-end (validar en Preview)
+
+1. **Lead nuevo**: correo externo pidiendo cotización → siguiente corrida de
+   `gmail-sync-all` clasifica el hilo (intención alta) → RadarItem `nuevo_lead`
+   con `draftReply` → DM Slack ("📡 Posible lead detectado") + notificación in-app
+   + card del hub. Botón "Crear lead con IA" abre la bandeja con la extracción
+   corriendo → confirmar → lead creado. En el drawer: "Respuesta sugerida por IA"
+   → editar → Enviar → el cliente recibe la respuesta **en el mismo hilo** y el
+   item queda DONE. KPI "⚡ Respuesta media" registra el tiempo.
+2. **Señal de compra**: correo sobre un negocio/cuenta existente con señales
+   ("¿me pasas los plazos?") → RadarItem `senal_compra` → DM "🔥 Señal de compra
+   en {negocio}" con botón "Abrir negocio".
+3. **Brief pre-reunión**: reunión real en Google Calendar con un contacto CRM,
+   30-40 min antes → DM "📋 Tu reunión de las {hora} con {cuenta}" con el brief
+   accionable, **una sola vez** (dedupe `brief:{googleEventId}`); el item se
+   auto-DONE al pasar la hora.
+4. **Compromiso**: correo con "te confirmamos el jueves" (hilo con deal/cuenta)
+   → item `compromiso` dueAt jueves → si el viernes 12:00 UTC no hubo respuesta
+   → DM "⏰ {Cuenta} quedó de … y no ha respondido" con follow-up redactado listo
+   para enviar (botón "Ver follow-up" abre el drawer con el borrador + Enviar).
+   Los compromisos `quien=nosotros` recuerdan el mismo día a las 12:00.
+5. **Chatbot**: "¿llegó algo comercial hoy?" / "¿qué tengo pendiente?" → el bot
+   llama `get_radar_items` y lista los ítems con resumen y siguiente paso.
+   "márcalo como hecho" → `resolve_radar_item` (confirmación diferida).
+6. **Kill-switch**: Configuración → Asistente IA → apagar "Radar Comercial" →
+   la clasificación, los crons y la card quedan en silencio para el tenant.
+
+### Costos / presupuesto de tokens
+
+Solo `gpt-4o-mini` corre en el radar (clasificación, borradores, briefs,
+follow-ups). El único uso de `gpt-4o` sigue siendo la **extracción de lead del
+v3**, que dispara el usuario a mano al confirmar "Crear lead con IA".
+
+- Clasificación ≈ 500 tokens/correo (entrada acotada a 3.000 chars + salida JSON
+  ~120 tokens). Borrador de respuesta ≈ 300 tokens adicionales solo para leads
+  de intención alta.
+- Con ~100 correos/día → ~50k tokens/día de clasificación ≈ **centavos/día** con
+  `gpt-4o-mini`. Tope duro de 20 clasificaciones por corrida (× 6 corridas/hora)
+  evita picos.
+- Briefs: 1 llamada `gpt-4o-mini` por reunión con cuenta CRM (dedupe evita
+  repetir). Follow-ups: 1 llamada solo al vencer sin respuesta, una única vez.
+
+### Checklist de validación para Carlos (Preview)
+
+- [ ] Migración `20261021000000_radar_comercial_v4` aplica limpia (tabla
+      `crm.radar_items` + 6 columnas nuevas en `crm.email_threads`).
+- [ ] Cron `gmail-sync-all` (`*/10`): tras una corrida, hilos con inbound quedan
+      con `ai_category`/`ai_intent`/`ai_summary` y aparecen RadarItems.
+- [ ] Slack DM llega con el resumen y los botones abren el deep-link correcto.
+- [ ] Card "Radar Comercial" visible en el hub (bajo acciones rápidas), con ✓/✕.
+- [ ] Envío de respuesta llega **en el mismo hilo** de Gmail (In-Reply-To).
+- [ ] Crons nuevos en `vercel.json`: `radar-briefs` (`*/10`), `radar-compromisos`
+      (`0 12 * * *`) — requieren `CRON_SECRET` (ya configurado).
+- [ ] Toggle del kill-switch enciende/apaga el radar por tenant.
+- [ ] En logs: solo `gpt-4o-mini` en clasificación/briefs/follow-ups.
+
+Requisitos de entorno (ya presentes por v3): `GMAIL_TOKEN_SECRET`, OAuth Google
+(Gmail + Calendar), Slack workspace activo + `SlackUserLink` por usuario,
+proveedor de IA OpenAI configurado por tenant. **NO MERGE**: PR en modo borrador.
