@@ -1658,7 +1658,7 @@ export function AiHelpChatWidgetV2() {
         ) : null}
       </div>
 
-      <div className={cn("border-t border-white/[0.08] p-3", mobile && "pb-[calc(env(safe-area-inset-bottom)+0.75rem)]")}>
+      <div className={cn("shrink-0 border-t border-white/[0.08] p-3", mobile && "pb-[calc(env(safe-area-inset-bottom)+0.75rem)]")}>
         {pendingFiles.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1.5">
             {pendingFiles.map((f, i) => (
@@ -1731,7 +1731,7 @@ export function AiHelpChatWidgetV2() {
               void sendMessage();
             }}
             autoComplete="off"
-            className="flex-1 resize-none rounded-full border border-white/15 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/35 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/50 max-h-40 overflow-y-auto leading-snug"
+            className="min-h-[46px] flex-1 resize-none rounded-xl border border-white/15 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder:text-white/35 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/50 max-h-40 overflow-y-auto leading-snug"
           />
           <Button
             type="button"
