@@ -1,4 +1,5 @@
 import type {
+  CellGestionSummary,
   FinanceCashflowItemKind,
   FinanceCashflowItemSource,
   ProjectionAnchorInfo,
@@ -7,6 +8,7 @@ import type {
   ProjectionRowItemDetail,
   ProjectionRowItemValue,
 } from "@/modules/finance/cashflow/types";
+import type { DraftProformaStatus } from "@/modules/finance/billing/dte-draft.service";
 import {
   pillVariantFor,
   type PillVariant,
@@ -250,6 +252,30 @@ export interface CellChip {
    *  si es programada/borrador sin folio, la fecha real de la cuota ("1 ago").
    *  Reemplaza la necesidad de hover para leer folio/fecha. */
   caption: string | null;
+  /** Gestión de cobro (proforma/EP/OC) para los micro-glifos del chip. */
+  gestion: CellGestionSummary | null;
+  /** El item emite proforma (habilita el glifo "pendiente" en PROJECTED puro). */
+  emiteProforma: boolean;
+}
+
+/** Texto compacto del estado de un documento para el title del chip. */
+function docStatusText(
+  status: DraftProformaStatus,
+  sentAt: string | null,
+  recipient: string | null,
+): string {
+  switch (status) {
+    case "SENT":
+      return `enviada${sentAt ? ` ${formatDayMonth(sentAt.slice(0, 10))}` : ""}${recipient ? ` a ${recipient}` : ""}`;
+    case "VIEWED":
+      return "vista por el cliente";
+    case "APPROVED":
+      return "aprobada por el cliente";
+    case "REJECTED":
+      return "corrección solicitada";
+    default:
+      return "pendiente de enviar";
+  }
 }
 
 /** "20 jul" a partir de un yyyy-MM-dd. timeZone UTC para no correr el día. */
@@ -264,6 +290,7 @@ function formatDayMonth(scheduledDate: string): string {
 export function cellChip(
   value: ProjectionRowItemValue,
   source: FinanceCashflowItemSource,
+  emiteProforma = false,
 ): CellChip {
   const status = value.cellStatus ?? "PROJECTED";
   const variant = pillVariantFor({
@@ -309,7 +336,21 @@ export function cellChip(
       ? formatDayMonth(value.scheduledDate)
       : null;
   const caption = value.dteFolio ? `N° ${value.dteFolio}` : scheduledCaption;
-  return { variant, locked, draggable, title, caption };
+  // Gestión de cobro: una línea por glifo visible en el title compuesto. Los
+  // glifos propios (GestionGlyphs) llevan además su title individual.
+  const gestion = value.gestion ?? null;
+  if (gestion) {
+    if (gestion.proformaRequired) {
+      title += `\nProforma: ${docStatusText(gestion.proformaStatus, gestion.proformaSentAt, gestion.proformaLastRecipient)}`;
+    }
+    if (gestion.epRequired) {
+      title += `\nEstado de pago: ${docStatusText(gestion.epStatus, gestion.epSentAt, null)}`;
+    }
+    if (gestion.ocFolio) title += `\nOC ${gestion.ocFolio}`;
+  } else if (emiteProforma && status === "PROJECTED") {
+    title += `\nProforma: pendiente de emitir`;
+  }
+  return { variant, locked, draggable, title, caption, gestion, emiteProforma };
 }
 
 const UUID_RE =

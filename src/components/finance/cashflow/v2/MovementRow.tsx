@@ -11,6 +11,7 @@ import type { VirtualOccurrence } from "@/modules/finance/cashflow/types";
 import { fmtCLP } from "./format";
 import { canDeleteOccurrence, type OccMeta } from "./projection-helpers";
 import { FolioChip } from "./FolioChip";
+import { GestionGlyphs } from "./grid/GestionGlyphs";
 
 interface Props {
   occurrence: VirtualOccurrence;
@@ -137,6 +138,11 @@ export function MovementRow({
       <div className="flex items-center gap-1.5">
         <CellStatusPill variant={variant} />
         <FolioChip folio={folio} dteId={occ.dteId ?? meta?.dteId} />
+        <GestionGlyphs
+          gestion={occ.gestion}
+          emiteProforma={occ.emiteProforma}
+          cellStatus={cellStatus}
+        />
         {isUf && (
           <span className="rounded-ds-sm bg-ds-surface-3 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.04em] text-ds-text-2">
             UF

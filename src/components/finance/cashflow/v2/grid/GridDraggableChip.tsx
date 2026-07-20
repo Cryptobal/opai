@@ -2,7 +2,11 @@
 
 import { useDraggable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
-import type { ProjectionRowItemValue } from "@/modules/finance/cashflow/types";
+import type {
+  CashflowCellStatus,
+  CellGestionSummary,
+  ProjectionRowItemValue,
+} from "@/modules/finance/cashflow/types";
 import { GridChip } from "./GridChip";
 import type { GridDragData } from "./useGridMove";
 
@@ -21,6 +25,9 @@ export function GridDraggableChip({
   locked,
   title,
   caption,
+  gestion = null,
+  emiteProforma = false,
+  cellStatus,
 }: {
   itemId: string;
   itemName: string;
@@ -31,6 +38,9 @@ export function GridDraggableChip({
   locked: boolean;
   title: string;
   caption?: string | null;
+  gestion?: CellGestionSummary | null;
+  emiteProforma?: boolean;
+  cellStatus?: CashflowCellStatus;
 }) {
   const data: GridDragData = {
     kind: "grid-chip",
@@ -62,6 +72,9 @@ export function GridDraggableChip({
         draggable
         title={title}
         caption={caption}
+        gestion={gestion}
+        emiteProforma={emiteProforma}
+        cellStatus={cellStatus}
       />
     </span>
   );

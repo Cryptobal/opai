@@ -42,6 +42,7 @@ export function GridCell({
   kind = "EXPENSE",
   categoryId = null,
   value,
+  emiteProforma = false,
   bucketKey,
   bucketStart,
   weekLabel,
@@ -70,6 +71,8 @@ export function GridCell({
   kind?: FinanceCashflowItemKind;
   categoryId?: string | null;
   value: ProjectionRowItemValue | undefined;
+  /** El item emite proforma (habilita el glifo "pendiente" en PROJECTED puro). */
+  emiteProforma?: boolean;
   bucketKey: string;
   /** Lunes de la semana — scheduledDate al crear. */
   bucketStart: string | Date;
@@ -115,7 +118,7 @@ export function GridCell({
   }, [forceEditing, onForceEditingConsumed]);
 
   const amount = value?.amount ?? 0;
-  const chip = value ? cellChip(value, source) : null;
+  const chip = value ? cellChip(value, source, emiteProforma) : null;
   const canDrag = dndEnabled && !closed && amount !== 0 && !!chip?.draggable;
   const editTarget = isGroup
     ? (groupOccurrences?.length ?? 0) > 0
@@ -219,6 +222,9 @@ export function GridCell({
         locked={chip!.locked}
         title={chip!.title}
         caption={chip!.caption}
+        gestion={chip!.gestion}
+        emiteProforma={chip!.emiteProforma}
+        cellStatus={value.cellStatus}
       />
     ) : chip ? (
       <GridChip
@@ -227,6 +233,9 @@ export function GridCell({
         locked={chip.locked}
         title={chip.title}
         caption={chip.caption}
+        gestion={chip.gestion}
+        emiteProforma={chip.emiteProforma}
+        cellStatus={value?.cellStatus}
       />
     ) : null;
 
@@ -396,6 +405,8 @@ export function GridCell({
           hasAmountOverride={value.hasAmountOverride}
           scheduledDate={value.scheduledDate}
           bucketStart={bucketStart}
+          gestion={value.gestion}
+          emiteProforma={emiteProforma}
         />
       )}
       {advanced && actual !== null && (

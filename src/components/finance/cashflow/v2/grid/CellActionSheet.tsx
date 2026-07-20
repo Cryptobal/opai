@@ -16,6 +16,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { CellStatusPill } from "@/components/finance/cashflow/CellStatusPill";
 import type { PillVariant } from "@/components/finance/cashflow/CellStatusPill";
@@ -23,7 +24,15 @@ import { fmt } from "@/components/finance/cashflow/MatrixHelpers";
 import { hideFromFlowViaApi, type HideInput } from "./cashflow-hide";
 import type { HideUndoPayload } from "./CellFlowActions";
 import { CellHistory } from "./CellHistory";
-import type { FinanceCashflowItemSource } from "@/modules/finance/cashflow/types";
+import { GestionGlyphs } from "./GestionGlyphs";
+import type {
+  CashflowCellStatus,
+  CellGestionSummary,
+  FinanceCashflowItemSource,
+} from "@/modules/finance/cashflow/types";
+import type { DraftProformaStatus } from "@/modules/finance/billing/dte-draft.service";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 interface Props {
   open: boolean;
@@ -48,6 +57,9 @@ interface Props {
   hasAmountOverride?: boolean;
   scheduledDate?: string | null;
   bucketStart?: string | Date | null;
+  /** Gestión de cobro (proforma/EP/OC) de la celda — bloque informativo. */
+  gestion?: CellGestionSummary | null;
+  emiteProforma?: boolean;
 }
 
 /**
@@ -76,6 +88,8 @@ export function CellActionSheet({
   hasAmountOverride,
   scheduledDate,
   bucketStart,
+  gestion,
+  emiteProforma = false,
 }: Props) {
   const [confirmingHide, setConfirmingHide] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -120,6 +134,12 @@ export function CellActionSheet({
           )}
           {dteFolio != null && <Row label="Factura" value={`N° ${dteFolio}`} />}
         </dl>
+
+        <GestionSection
+          gestion={gestion ?? null}
+          emiteProforma={emiteProforma}
+          cellStatus={variantToCellStatus(variant)}
+        />
 
         <CellHistory
           source={source}
@@ -228,6 +248,132 @@ function Row({
       >
         {value}
       </dd>
+    </div>
+  );
+}
+
+/** PillVariant → CashflowCellStatus (aprox.) para que GestionGlyphs decida el
+ *  caso PAID (sólo aprobada/OC) y el "pendiente" en PROJECTED. */
+function variantToCellStatus(v: PillVariant): CashflowCellStatus {
+  switch (v) {
+    case "PAID":
+      return "PAID";
+    case "DRAFT":
+      return "DRAFT";
+    case "INVOICED":
+    case "OVERDUE":
+      return "INVOICED";
+    case "FACTORING":
+    case "FACTORING_COLLECTED":
+      return "CEDED";
+    case "VOIDED":
+      return "VOIDED";
+    default:
+      return "PROJECTED";
+  }
+}
+
+function docText(
+  status: DraftProformaStatus,
+  sentAt: string | null,
+  recipient: string | null,
+): string {
+  switch (status) {
+    case "SENT":
+      return `Enviada${sentAt ? ` ${format(new Date(sentAt), "d MMM HH:mm", { locale: es })}` : ""}${recipient ? ` · ${recipient}` : ""}`;
+    case "VIEWED":
+      return "Vista por el cliente";
+    case "APPROVED":
+      return "Aprobada por el cliente";
+    case "REJECTED":
+      return "Corrección solicitada";
+    default:
+      return "Pendiente de enviar";
+  }
+}
+
+/** Bloque informativo de gestión de cobro: proforma / estado de pago / OC.
+ *  Filas no aplicables atenuadas (opacity-50). No renderiza si no hay nada. */
+function GestionSection({
+  gestion,
+  emiteProforma,
+  cellStatus,
+}: {
+  gestion: CellGestionSummary | null;
+  emiteProforma: boolean;
+  cellStatus: CashflowCellStatus;
+}) {
+  const hasProforma = !!gestion?.proformaRequired;
+  const hasEp = !!gestion?.epRequired;
+  const ocFolio = gestion?.ocFolio ?? null;
+  const pendingProjection =
+    !gestion && emiteProforma && cellStatus === "PROJECTED";
+  if (!hasProforma && !hasEp && !ocFolio && !pendingProjection) return null;
+
+  return (
+    <div className="mt-5 space-y-2 border-t border-ds-border-subtle pt-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-[13px] font-medium text-ds-text-2">
+          Gestión de cobro
+        </h3>
+        <GestionGlyphs
+          gestion={gestion}
+          emiteProforma={emiteProforma}
+          cellStatus={cellStatus}
+          size="sm"
+        />
+      </div>
+      <GestionRow
+        label="Proforma"
+        applicable={hasProforma || pendingProjection}
+        value={
+          hasProforma
+            ? docText(
+                gestion!.proformaStatus,
+                gestion!.proformaSentAt,
+                gestion!.proformaLastRecipient,
+              )
+            : pendingProjection
+              ? "Pendiente de emitir"
+              : "No requerida"
+        }
+      />
+      <GestionRow
+        label="Estado de pago"
+        applicable={hasEp}
+        value={
+          hasEp ? docText(gestion!.epStatus, gestion!.epSentAt, null) : "No requerido"
+        }
+      />
+      <GestionRow
+        label="OC del cliente"
+        applicable={!!ocFolio}
+        value={ocFolio ? `N° ${ocFolio}` : "Sin OC"}
+      />
+    </div>
+  );
+}
+
+function GestionRow({
+  label,
+  applicable,
+  value,
+}: {
+  label: string;
+  applicable: boolean;
+  value: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-baseline justify-between gap-4 text-[13px]",
+        !applicable && "opacity-50",
+      )}
+    >
+      <span className="shrink-0 text-ds-text-3">{label}</span>
+      <span className="text-right font-mono text-[12px] text-ds-text-4">
+        {value}
+      </span>
     </div>
   );
 }

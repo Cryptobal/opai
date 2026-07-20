@@ -1,5 +1,29 @@
 import { Lock, ArrowLeftRight, FileText, EyeOff } from "lucide-react";
 import { CellStatusPill } from "@/components/finance/cashflow/CellStatusPill";
+import { GestionGlyphs } from "./grid/GestionGlyphs";
+import type { CellGestionSummary } from "@/modules/finance/cashflow/types";
+
+/** Fixture de gestión para la leyenda (reusa GestionGlyphs, sin SVG duplicado). */
+function gFixture(overrides: Partial<CellGestionSummary>): CellGestionSummary {
+  return {
+    proformaRequired: false,
+    proformaStatus: "NONE",
+    proformaSentAt: null,
+    proformaLastRecipient: null,
+    epRequired: false,
+    epStatus: "NONE",
+    epSentAt: null,
+    ocFolio: null,
+    ...overrides,
+  };
+}
+
+const GESTION_LEGEND: { label: string; gestion: CellGestionSummary }[] = [
+  { label: "proforma enviada", gestion: gFixture({ proformaRequired: true, proformaStatus: "SENT" }) },
+  { label: "aprobada por cliente", gestion: gFixture({ proformaRequired: true, proformaStatus: "APPROVED" }) },
+  { label: "estado de pago enviado", gestion: gFixture({ epRequired: true, epStatus: "SENT" }) },
+  { label: "OC recibida", gestion: gFixture({ ocFolio: "4500-8812" }) },
+];
 
 /** Mini-leyenda reducida de las affordances esenciales del detalle. */
 export function Legend() {
@@ -46,6 +70,15 @@ export function Legend() {
           </span>{" "}
           = 2ª+ factura de la misma semana
         </span>
+      </div>
+      {/* Gestión de cobro: micro-glifos del chip (proforma/EP/OC) */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span className="mr-1 font-medium">Gestión:</span>
+        {GESTION_LEGEND.map(({ label, gestion }) => (
+          <span key={label} className="inline-flex items-center gap-1.5">
+            <GestionGlyphs gestion={gestion} size="sm" /> {label}
+          </span>
+        ))}
       </div>
     </div>
   );
