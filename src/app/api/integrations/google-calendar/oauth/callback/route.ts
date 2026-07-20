@@ -72,6 +72,11 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Registrar push channel (best-effort; cron renueva).
+    void fetch(`${origin}/api/cron/calendar-channel-renew`, {
+      headers: { authorization: `Bearer ${process.env.CRON_SECRET ?? ""}` },
+    }).catch(() => undefined);
+
     return NextResponse.redirect(`${dest}?cal=connected`);
   } catch (err) {
     console.warn("[google-calendar] callback error:", err);

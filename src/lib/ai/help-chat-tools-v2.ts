@@ -212,6 +212,22 @@ function v2ToolDefinitions() {
     {
       type: "function" as const,
       function: {
+        name: "get_deal_communications",
+        description:
+          "Solo lectura: últimos correos, cotizaciones y notas de un negocio (útil para licitaciones). Puedes pasar dealId o query (nombre del negocio).",
+        parameters: {
+          type: "object",
+          properties: {
+            dealId: { type: "string", description: "UUID del negocio." },
+            query: { type: "string", description: "Nombre del negocio para resolver dentro del tenant." },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
         name: "search_installations",
         description:
           "Busca instalaciones por nombre, dirección, ciudad o nombre del cliente (cuenta); incluye supervisor asignado si existe. Acepta filtros accountId/status. Para 'las instalaciones del cliente X' puedes llamarla directo con query: 'X'.",
@@ -7376,6 +7392,24 @@ export async function executeToolCallV2(
             typeof args.limit === "number" ? args.limit : 10,
           ),
         };
+      case "get_deal_communications": {
+        const { getDealCommunications } = await import("@/modules/agenda/deal-communications");
+        let dealId = typeof args.dealId === "string" ? args.dealId : "";
+        if (!dealId && typeof args.query === "string" && args.query.trim()) {
+          const found = await prisma.crmDeal.findFirst({
+            where: {
+              tenantId,
+              title: { contains: args.query.trim(), mode: "insensitive" },
+            },
+            select: { id: true },
+          });
+          dealId = found?.id ?? "";
+        }
+        if (!dealId) return { ok: false, error: "Debes indicar dealId o query" };
+        const data = await getDealCommunications(tenantId, dealId);
+        if (!data) return { ok: false, error: "Negocio no encontrado" };
+        return { ok: true, data };
+      }
       case "search_installations":
         return {
           ok: true,
