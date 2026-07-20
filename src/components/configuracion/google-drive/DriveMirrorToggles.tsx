@@ -1,6 +1,6 @@
 "use client";
 
-import { SUPPORTED_DOC_TYPES } from "@/lib/google-workspace/drive-outbox";
+import { SUPPORTED_DOC_TYPES } from "@/lib/google-workspace/drive-mirror-config";
 
 const LABELS: Record<string, string> = {
   cotizacion: "Cotizaciones",

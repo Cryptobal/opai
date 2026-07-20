@@ -1,17 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { uploadR2ToDrive } from "./drive.service";
+import {
+  DEFAULT_MIRROR_CONFIG,
+  SUPPORTED_DOC_TYPES,
+  type SupportedDocType,
+} from "./drive-mirror-config";
 
-export const SUPPORTED_DOC_TYPES = ["cotizacion", "factura", "licitacion"] as const;
-export type SupportedDocType = (typeof SUPPORTED_DOC_TYPES)[number];
-
-export const DEFAULT_MIRROR_CONFIG: Record<string, boolean> = {
-  cotizacion: true,
-  factura: true,
-  estado_pago: false,
-  liquidacion: false,
-  informe_supervision: false,
-  licitacion: true,
-};
+export { DEFAULT_MIRROR_CONFIG, SUPPORTED_DOC_TYPES, type SupportedDocType };
 
 function asConfig(raw: unknown): Record<string, boolean> {
   const base = { ...DEFAULT_MIRROR_CONFIG };

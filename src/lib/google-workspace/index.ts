@@ -18,10 +18,9 @@ export { ensureFolderPath, uploadR2ToDrive } from "./drive.service";
 export {
   SUPPORTED_DOC_TYPES,
   DEFAULT_MIRROR_CONFIG,
-  enqueueDriveExport,
-  flushDriveOutbox,
   type SupportedDocType,
-} from "./drive-outbox";
+} from "./drive-mirror-config";
+export { enqueueDriveExport, flushDriveOutbox } from "./drive-outbox";
 export {
   enqueueBillingPdfToDrive,
   enqueueQuotePdfToDrive,

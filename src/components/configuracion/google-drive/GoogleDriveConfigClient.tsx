@@ -6,7 +6,7 @@ import { SectionHeader, Surface, Tag, Spinner } from "@/components/opai-ds";
 import { DriveMirrorToggles } from "./DriveMirrorToggles";
 import { DriveTreePreview } from "./DriveTreePreview";
 import { DriveActivityTable, type DriveOutboxRow } from "./DriveActivityTable";
-import { DEFAULT_MIRROR_CONFIG } from "@/lib/google-workspace/drive-outbox";
+import { DEFAULT_MIRROR_CONFIG } from "@/lib/google-workspace/drive-mirror-config";
 
 type ConfigResponse = {
   connected: boolean;
