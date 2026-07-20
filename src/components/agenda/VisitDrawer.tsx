@@ -20,6 +20,7 @@ export function VisitDrawer({ visitaId, onClose, onChanged }: Props) {
       installation?: { address?: string | null; lat?: number | null; lng?: number | null } | null;
     };
     syncStatus: string;
+    htmlLink?: string | null;
   } | null>(null);
   const [resultNote, setResultNote] = useState("");
   const [newStart, setNewStart] = useState("");
@@ -79,6 +80,16 @@ export function VisitDrawer({ visitaId, onClose, onChanged }: Props) {
         </div>
         {data?.visita.notes && (
           <p className="text-[13px] text-ds-text-2">{data.visita.notes}</p>
+        )}
+        {data?.htmlLink && (
+          <a
+            href={data.htmlLink}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-ds-border-default text-[13px] text-ds-text-2 ds-tap sm:h-9"
+          >
+            Ver en Google Calendar
+          </a>
         )}
         <div className="space-y-2">
           <label className="text-[12px] text-ds-text-3">Reprogramar</label>

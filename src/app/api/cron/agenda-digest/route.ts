@@ -58,10 +58,42 @@ export async function GET(req: NextRequest) {
       })
       .join("\n");
 
+    // Licitaciones con entrega futura y SIN visita agendada (accionable).
+    const futuras = await prisma.crmDeal.findMany({
+      where: { tenantId, isLicitacion: true, status: "open", fechaEntrega: { gte: from } },
+      select: { id: true, title: true, fechaEntrega: true },
+      take: 50,
+    });
+    const conVisita = new Set<string>();
+    if (futuras.length) {
+      const ids = futuras.map((d) => d.id);
+      const [av, vt] = await Promise.all([
+        prisma.agendaVisita.findMany({
+          where: { tenantId, dealId: { in: ids }, status: { not: "cancelada" } },
+          select: { dealId: true },
+        }),
+        prisma.opsVisitaTecnica.findMany({
+          where: { tenantId, dealId: { in: ids } },
+          select: { dealId: true },
+        }),
+      ]);
+      for (const r of [...av, ...vt]) if (r.dealId) conVisita.add(r.dealId);
+    }
+    const sinVisita = futuras.filter((d) => !conVisita.has(d.id));
+    const sinVisitaLines = sinVisita
+      .map((d) => {
+        const days = d.fechaEntrega
+          ? Math.round((d.fechaEntrega.getTime() - from.getTime()) / 86_400_000)
+          : "?";
+        return `• ${d.title} (T-${days})`;
+      })
+      .join("\n");
+
     const text = [
       `Agenda semanal OPAI`,
       `${visitas} visita(s) programadas`,
       deals.length ? `Licitaciones:\n${licLines}` : "Sin entregas de licitación esta semana",
+      ...(sinVisita.length ? [`⚠ Licitaciones sin visita agendada:\n${sinVisitaLines}`] : []),
     ].join("\n");
 
     const dayKey = from.toISOString().slice(0, 10);

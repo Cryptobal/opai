@@ -1996,12 +1996,39 @@ export function CrmDealDetailClient({
         return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : licitacion.fechaEntrega;
       })()
     : null;
+  const daysToEntrega = licitacion.fechaEntrega
+    ? Math.ceil(
+        (new Date(`${licitacion.fechaEntrega.slice(0, 10)}T12:00:00`).getTime() - Date.now()) /
+          86_400_000,
+      )
+    : null;
+  const countdown =
+    daysToEntrega == null
+      ? null
+      : daysToEntrega < 0
+        ? { text: "vencida", tone: "bg-status-danger-soft text-status-danger-fg" }
+        : daysToEntrega === 0
+          ? { text: "entrega hoy", tone: "bg-status-danger-soft text-status-danger-fg" }
+          : {
+              text: `entrega en ${daysToEntrega}d`,
+              tone:
+                daysToEntrega <= 3
+                  ? "bg-status-danger-soft text-status-danger-fg"
+                  : daysToEntrega <= 7
+                    ? "bg-status-warn-soft text-status-warn-fg"
+                    : "bg-ds-surface-2 text-ds-text-3",
+            };
   const headerExtra =
     licitacion.isLicitacion || primaryPhone ? (
       <div className="flex flex-wrap items-center gap-2">
         {licitacion.isLicitacion && (
           <span className="inline-flex items-center rounded-full bg-tint-violet px-2.5 py-1 text-[12px] font-medium text-tint-violet-fg">
             Licitación{entregaLabel ? ` · entrega ${entregaLabel}` : ""}
+          </span>
+        )}
+        {licitacion.isLicitacion && countdown && (
+          <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-medium ${countdown.tone}`}>
+            {countdown.text}
           </span>
         )}
         {primaryPhone && (

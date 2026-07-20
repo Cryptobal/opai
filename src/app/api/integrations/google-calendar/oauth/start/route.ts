@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
     access_type: "offline",
     prompt: "consent",
     include_granted_scopes: true,
+    login_hint: session.user.email ?? undefined,
     scope: [...CALENDAR_SCOPES],
     state,
   });
