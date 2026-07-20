@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { useSetBreadcrumbTrailing } from "@/components/opai-ds";
 import {
   ArrowLeft,
   MapPin,
@@ -47,6 +48,11 @@ interface Props {
 export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
   const router = useRouter();
   const [alerta, setAlerta] = useState<AlertaDetalle | null>(null);
+  useSetBreadcrumbTrailing(
+    alerta
+      ? alerta.installation?.name ?? alerta.libreComuna ?? alerta.libreAddress ?? `#${alertaId.slice(0, 8)}`
+      : undefined,
+  );
   const [loading, setLoading] = useState(true);
 
   const fetchAlerta = useCallback(async () => {

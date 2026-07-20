@@ -22,7 +22,7 @@
 
 import { useMemo } from "react";
 import { usePathname } from "next/navigation";
-import { NAV_MODULES, type NavNode } from "@/lib/nav/registry";
+import { NAV_MODULES, pathMatchesNode, type NavNode } from "@/lib/nav/registry";
 import { Breadcrumbs, type BreadcrumbItem } from "./Breadcrumbs";
 import { useBreadcrumbTrailing } from "./BreadcrumbTrailingContext";
 
@@ -37,20 +37,13 @@ export interface AutoBreadcrumbsProps {
 }
 
 /**
- * Devuelve true si `pathname` cae dentro del subárbol del nodo, respetando
- * `exactMatch`: cuando exactMatch=true, sólo iguala con `===`. Si no,
- * acepta prefix `/...` (sub-rutas del nodo).
- */
-function nodeMatches(pathname: string, node: NavNode): boolean {
-  if (node.exactMatch) return pathname === node.href;
-  return pathname === node.href || pathname.startsWith(node.href + "/");
-}
-
-/**
  * Construye el trail de breadcrumb. En cada nivel elige el HIJO MÁS
  * ESPECÍFICO (longest href que matchee), no el primero. Esto evita que
  * "Inicio" (href=/finanzas, exactMatch=true) gane sobre "Ventas"
  * (href=/finanzas/facturacion) cuando navegamos a /finanzas/facturacion/dtes.
+ *
+ * El matching usa `pathMatchesNode` (registry) — mismo matcher canónico que
+ * sidebar/bottom nav/SwipeTabs, con soporte para `activePaths`.
  */
 function findTrail(pathname: string): NavNode[] {
   const trail: NavNode[] = [];
@@ -58,7 +51,7 @@ function findTrail(pathname: string): NavNode[] {
   // Pick the best matching top-level module by longest href.
   let topMatch: NavNode | undefined;
   for (const m of NAV_MODULES) {
-    if (nodeMatches(pathname, m)) {
+    if (pathMatchesNode(pathname, m)) {
       if (!topMatch || m.href.length > topMatch.href.length) topMatch = m;
     }
   }
@@ -70,7 +63,7 @@ function findTrail(pathname: string): NavNode[] {
   while (cursor.children && cursor.children.length > 0) {
     let best: NavNode | undefined;
     for (const c of cursor.children) {
-      if (nodeMatches(pathname, c)) {
+      if (pathMatchesNode(pathname, c)) {
         if (!best || c.href.length > best.href.length) best = c;
       }
     }

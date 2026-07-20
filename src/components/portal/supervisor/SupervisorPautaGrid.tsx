@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Calendar, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import { formatPersonName } from "@/lib/personas";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
 

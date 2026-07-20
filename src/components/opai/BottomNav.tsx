@@ -14,9 +14,11 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getBottomNavItems, type BottomNavItem } from '@/lib/module-nav';
+import { findActiveModule, pathMatchesNode } from '@/lib/nav/registry';
 import { usePermissions } from '@/lib/permissions-context';
 import { hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
 import { useTenantModules } from '@/contexts/TenantModulesContext';
+import { useRoleSimulation } from '@/contexts/RoleSimulationContext';
 import { ChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
 import { RoleSwitcher } from '@/components/navbar/RoleSwitcher';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
@@ -145,16 +147,22 @@ function useNavConfig() {
 
 /* ── Module route detection (is the user inside a specific module?) ── */
 
+/** Mapea key del registry → context key legacy usado por MODULE_LABELS y
+ *  el storage de orden (`opai-bottom-nav-<context>`). Mantiene backcompat
+ *  con preferencias ya guardadas por usuarios. Módulos sin sub-nav contextual
+ *  (hub, portales, compliance, chat) se omiten → getActiveModule devuelve null. */
+const REGISTRY_TO_CONTEXT: Record<string, string> = {
+  crm: "crm", ops: "ops", personas: "personas", payroll: "payroll",
+  finance: "finanzas", config: "config", docs: "docs", reportes_dt: "reportes_dt",
+};
+
+/** Deriva el módulo activo del registry (findActiveModule = matchea NAV_MODULES
+ *  top-level con pathMatchesNode, longest-href-wins → activePaths gratis).
+ *  Reemplaza los prefijos hardcodeados que la fuente única vino a eliminar. */
 function getActiveModule(pathname: string): string | null {
-  if (pathname.startsWith("/crm")) return "crm";
-  if (pathname.startsWith("/ops")) return "ops";
-  if (pathname.startsWith("/personas")) return "personas";
-  if (pathname.startsWith("/payroll")) return "payroll";
-  if (pathname.startsWith("/finanzas")) return "finanzas";
-  if (pathname.startsWith("/opai/configuracion")) return "config";
-  if (pathname.startsWith("/opai/documentos") || pathname.startsWith("/opai/documentos-operativos")) return "docs";
-  if (pathname.startsWith("/reportes/dt")) return "reportes_dt";
-  return null;
+  const node = findActiveModule(pathname);
+  if (!node) return null;
+  return REGISTRY_TO_CONTEXT[node.key] ?? null;
 }
 
 /* ── Main export ── */
@@ -163,6 +171,7 @@ export function BottomNav({ userRole }: BottomNavProps) {
   const pathname = usePathname();
   const permissions = usePermissions();
   const { enabledModules } = useTenantModules();
+  const { effectiveRole } = useRoleSimulation();
   const navRef = useRef<HTMLElement>(null);
   const navConfig = useNavConfig();
   const hidden = useScrollDirection(60);
@@ -194,7 +203,8 @@ export function BottomNav({ userRole }: BottomNavProps) {
   // EntityDetailLayout (like HubSpot / Salesforce). The bottom nav always
   // shows module-level navigation so the user can jump between entity lists.
   const activeModule = getActiveModule(pathname);
-  const moduleItems = activeModule ? getBottomNavItems(pathname, permsOrRole, enabledModules) : [];
+  const isAdmin = effectiveRole === 'owner' || effectiveRole === 'admin';
+  const moduleItems = activeModule ? getBottomNavItems(pathname, permsOrRole, enabledModules, isAdmin) : [];
   const isInModule = !forceMainNav && !!activeModule && moduleItems.length > 0;
 
   return (
@@ -659,13 +669,10 @@ function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: Bottom
 
   // Longest-prefix-wins matching across the items in this module so a deep
   // route like /finanzas/reportes/eerr resaltea "EERR" en vez de "Dashboard"
-  // (que tiene exactMatch:true sobre /finanzas/reportes).
+  // (que tiene exactMatch:true sobre /finanzas/reportes). Usa el matcher
+  // canónico del registry (soporta activePaths).
   const activeHref = orderedItems
-    .filter((i) =>
-      i.exactMatch
-        ? pathname === i.href
-        : pathname === i.href || pathname.startsWith(i.href + '/'),
-    )
+    .filter((i) => pathMatchesNode(pathname, i))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   return (

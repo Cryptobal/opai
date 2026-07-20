@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { ContractEditor } from "./ContractEditor";
 import { DOC_CATEGORIES, DOC_MODULES, WA_USAGE_SLUGS } from "@/lib/docs/token-registry";
 import { toast } from "sonner";
+import { useSetBreadcrumbTrailing } from "@/components/opai-ds";
 
 interface DocTemplateEditorClientProps {
   templateId?: string;
@@ -28,6 +29,7 @@ export function DocTemplateEditorClient({
   const [saving, setSaving] = useState(false);
 
   const [name, setName] = useState("");
+  useSetBreadcrumbTrailing(name || undefined);
   const [description, setDescription] = useState("");
   const [module, setModule] = useState("crm");
   const [category, setCategory] = useState("");

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
 
 interface Refuerzo {

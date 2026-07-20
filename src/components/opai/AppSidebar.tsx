@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { ChevronRight, LogOut, LucideIcon, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import { useChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
+import { pathMatchesNode } from '@/lib/nav/registry';
 import { ThemeLogo } from './ThemeLogo';
 import { SignOutDialog } from './SignOutDialog';
 
@@ -15,6 +16,8 @@ export interface NavSubItem {
   icon?: LucideIcon;
   children?: NavSubItem[];
   badge?: number;
+  /** Rutas adicionales que activan este item (familias de rutas hermanas). */
+  activePaths?: string[];
 }
 
 export interface NavItem {
@@ -24,6 +27,8 @@ export interface NavItem {
   show?: boolean;
   children?: NavSubItem[];
   badge?: number;
+  /** Rutas adicionales que activan este item (familias de rutas hermanas). */
+  activePaths?: string[];
 }
 
 export interface AppSidebarProps {
@@ -88,7 +93,8 @@ export function AppSidebar({
   };
 
   const isItemActive = useCallback(
-    (href: string) => pathname === href || pathname?.startsWith(href + '/'),
+    (item: Pick<NavItem, 'href' | 'activePaths'>) =>
+      pathMatchesNode(pathname ?? '/', item),
     [pathname]
   );
 
@@ -97,8 +103,8 @@ export function AppSidebar({
     for (const item of navItems) {
       if (item.children && item.children.length > 0) {
         const isModuleActive =
-          isItemActive(item.href) ||
-          item.children.some((child) => isItemActive(child.href));
+          isItemActive(item) ||
+          item.children.some((child) => isItemActive(child));
         if (isModuleActive) {
           setExpandedSections((prev) => {
             if (prev.size === 1 && prev.has(item.href)) return prev;
@@ -189,8 +195,8 @@ export function AppSidebar({
             const isChatToggle = item.href === '/chat';
             const isModuleActive = isChatToggle
               ? chatCtx.isPanelOpen
-              : (isItemActive(item.href) ||
-                (hasChildren && item.children!.some((child) => isItemActive(child.href))));
+              : (isItemActive(item) ||
+                (hasChildren && item.children!.some((child) => isItemActive(child))));
             const isExpanded = expandedSections.has(item.href);
             const Icon = item.icon;
 
@@ -388,7 +394,7 @@ export function AppSidebar({
                   >
                     <div className="ml-3 border-l border-border/60 pl-0 space-y-px py-0.5">
                       {item.children!.map((child) => {
-                        const isChildActive = isItemActive(child.href);
+                        const isChildActive = isItemActive(child);
                         const ChildIcon = child.icon;
 
                         return (
@@ -453,7 +459,7 @@ export function AppSidebar({
                       `child.children` que la data pueda traer. El N3 se
                       muestra arriba del contenido vía `<ModuleSubNav>`. */}
                   {flyout.item.children.map((child) => {
-                    const isChildActive = isItemActive(child.href);
+                    const isChildActive = isItemActive(child);
                     const ChildIcon = child.icon;
 
                     return (

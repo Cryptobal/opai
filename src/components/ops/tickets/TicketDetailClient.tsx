@@ -68,6 +68,7 @@ import {
 import { TicketApprovalTimeline } from "./TicketApprovalTimeline";
 import { TicketFindingCard } from "./TicketFindingCard";
 import { SlaBar } from "./TicketsClient";
+import { useSetBreadcrumbTrailing } from "@/components/opai-ds";
 import {
   useReplyTemplates,
   renderTemplate,
@@ -95,6 +96,7 @@ interface TicketEvent {
 export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }: TicketDetailClientProps) {
   const router = useRouter();
   const [ticket, setTicket] = useState<Ticket | null>(null);
+  useSetBreadcrumbTrailing(ticket?.title ?? ticket?.code);
   const [comments, setComments] = useState<TicketComment[]>([]);
   const [events, setEvents] = useState<TicketEvent[]>([]);
   const [loading, setLoading] = useState(true);

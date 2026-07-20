@@ -29,6 +29,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { pathMatchesNode } from "@/lib/nav/registry";
 import type { LucideIcon } from "lucide-react";
 
 export interface SwipeTabItem {
@@ -38,6 +39,8 @@ export interface SwipeTabItem {
   icon?: LucideIcon;
   /** When true, only matches when pathname === href exactly */
   exactMatch?: boolean;
+  /** Rutas adicionales que activan este tab (familias de rutas hermanas). */
+  activePaths?: string[];
   /** Optional badge (number or short string like "99+") */
   badge?: string | number;
 }
@@ -66,11 +69,7 @@ export function SwipeTabs({
   // Longest-prefix-wins so /finanzas/reportes/eerr highlights "Estado de Resultado"
   // not the parent /finanzas/reportes (Dashboard).
   const activeHref = items
-    .filter((i) =>
-      i.exactMatch
-        ? pathname === i.href
-        : pathname === i.href || pathname?.startsWith(i.href + "/"),
-    )
+    .filter((i) => pathMatchesNode(pathname ?? "/", i))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   // Auto-scroll active tab into view (centered) on mount and when active changes

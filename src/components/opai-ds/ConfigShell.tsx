@@ -31,32 +31,41 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { usePermissions } from "@/lib/permissions-context";
 import { useTenantModules } from "@/contexts/TenantModulesContext";
+import { useRoleSimulation } from "@/contexts/RoleSimulationContext";
 import {
   CONFIG_CATEGORIES,
   getModule,
   isNodeVisible,
+  pathMatchesNode,
   type NavNode,
   type VisibilityContext,
 } from "@/lib/nav/registry";
 
 const COLLAPSED_KEY = "opai.configShell.collapsed";
 
-interface CategoryGroup {
+export interface CategoryGroup {
   key: string;
   label: string;
   items: NavNode[];
 }
 
-function useConfigCategories(): { groups: CategoryGroup[]; activeItem: NavNode | undefined } {
+/** Hook compartido: grupos de Configuración (por categoría) ya filtrados por
+ *  permisos + tenant + isAdmin, leídos desde el registry. Lo consumen tanto el
+ *  sub-sidebar (ConfigShell) como el home de Configuración (ConfigHomeClient),
+ *  garantizando UNA sola taxonomía. */
+export function useConfigCategories(): { groups: CategoryGroup[]; activeItem: NavNode | undefined } {
   const pathname = usePathname() ?? "/";
   const permissions = usePermissions();
   const { isModuleEnabled } = useTenantModules();
+  const { effectiveRole } = useRoleSimulation();
+  // Rol efectivo: al simular un rol no-admin, los ítems admin deben ocultarse.
+  const isAdmin = effectiveRole === "owner" || effectiveRole === "admin";
 
   return useMemo(() => {
     const config = getModule("config");
     const ctx: VisibilityContext = {
       perms: permissions,
-      isAdmin: false,
+      isAdmin,
       isModuleEnabled,
     };
     const visibleItems = (config?.children ?? []).filter((c) => isNodeVisible(c, ctx));
@@ -74,11 +83,11 @@ function useConfigCategories(): { groups: CategoryGroup[]; activeItem: NavNode |
 
     const allItems = groups.flatMap((g) => g.items);
     const activeItem = allItems
-      .filter((i) => pathname === i.href || pathname.startsWith(i.href + "/"))
+      .filter((i) => pathMatchesNode(pathname, i))
       .sort((a, b) => b.href.length - a.href.length)[0];
 
     return { groups, activeItem };
-  }, [pathname, permissions, isModuleEnabled]);
+  }, [pathname, permissions, isModuleEnabled, isAdmin]);
 }
 
 /* ──────────────────────────────────────────────────────────── */

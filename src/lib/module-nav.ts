@@ -37,6 +37,8 @@ export interface BottomNavItem {
   icon: LucideIcon;
   /** When true, only matches when pathname === href exactly. */
   exactMatch?: boolean;
+  /** Rutas adicionales que activan este item (familias de rutas hermanas). */
+  activePaths?: string[];
 }
 
 /* ── Helpers ── */
@@ -48,6 +50,7 @@ function nodeToBottomNavItem(node: NavNode): BottomNavItem {
     label: node.shortLabel ?? node.label,
     icon: node.icon,
     exactMatch: node.exactMatch,
+    activePaths: node.activePaths,
   };
 }
 
@@ -65,6 +68,7 @@ export function getBottomNavItems(
   pathname: string,
   roleOrPerms: string | RolePermissions,
   enabledModules?: Set<string>,
+  isAdmin = false,
 ): BottomNavItem[] {
   const perms: RolePermissions =
     typeof roleOrPerms === "string"
@@ -73,7 +77,7 @@ export function getBottomNavItems(
 
   const ctx: VisibilityContext = {
     perms,
-    isAdmin: false, // bottom nav is contextual; admin-only nodes are filtered separately
+    isAdmin, // el caller (BottomNav) deriva isAdmin del rol efectivo simulado
     isModuleEnabled: (mod: string) => !enabledModules || enabledModules.has(mod),
   };
 

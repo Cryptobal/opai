@@ -66,7 +66,9 @@ El registry tiene 4 niveles:
 - **N2** (sub-módulos): hijos directos de un módulo. Ej. CRM → [Leads,
   Cuentas, Contactos, Negocios, Cotizaciones, Prospección, Instalaciones].
 - **N3** (sub-secciones): hijos de un N2. Ej. Finanzas → Reportes →
-  [Dashboard, EERR, Balance, Ventas, Compras, Rentabilidad, Mayor].
+  [Dashboard, EERR, Balance, Ventas, Compras, Rentabilidad, Mayor]; y
+  Finanzas → Banca → [Flujo de Caja, Conciliación, Cuentas y cartolas]
+  (rutas hermanas planas unidas vía `activePaths`, ver abajo).
 - **N4** (drill-down detalle): páginas `[id]` con `EntityDetailLayout` y
   `ChipTabs` (CRM, plan futuro para resto).
 
@@ -82,6 +84,21 @@ El registry tiene 4 niveles:
   show?: (perms) => boolean;    // custom AND-combined predicate
 }
 ```
+
+### Matching de rutas: `pathMatchesNode` + `activePaths`
+
+`pathMatchesNode(pathname, node)` es el **matcher canónico** — el único lugar
+donde vive la regla (prefijo `href + "/"`, o `===` si `exactMatch`). Todos los
+consumidores (sidebar, bottom nav, breadcrumbs, `SwipeTabs`, `ConfigShell`,
+`findActiveModule`/`findN3Parent`) lo usan; no dupliques la lógica.
+
+Un nodo puede declarar `activePaths: string[]` — rutas hermanas planas que le
+"pertenecen" para estado activo + breadcrumbs, sin mover carpetas. Ejemplo:
+**Banca** (`href: /finanzas/bancos`) declara
+`activePaths: ["/finanzas/flujo-caja", "/finanzas/conciliacion"]` para que esas
+rutas hermanas activen el N2 Banca y produzcan el breadcrumb correcto. Igual el
+módulo Documentos declara `/opai/documentos-operativos` (hermano plano de
+`/opai/documentos`).
 
 ### Cómo se renderiza cada nivel
 
@@ -124,6 +141,9 @@ las pages hijas sin nav local. Ejemplos:
 - `src/app/(app)/ops/inventario/layout.tsx`
 - `src/app/(app)/finanzas/reportes/layout.tsx`
 - `src/app/(app)/finanzas/facturacion/layout.tsx`
+- `src/app/(app)/finanzas/flujo-caja/layout.tsx` (`moduleKey="finance-banca"`;
+  Conciliación y Bancos montan el mismo `<ModuleSubNav moduleKey="finance-banca" />`
+  por page porque no comparten prefijo de ruta con flujo-caja).
 
 ### Configuración (`/opai/configuracion`) — sub-sidebar
 
@@ -132,13 +152,28 @@ Usa `<ConfigShell>` con sub-sidebar interno (Slack/Notion settings):
 
 - Desktop: sidebar persistente 240px a la izquierda, content a la derecha.
 - Mobile: trigger button con drawer.
-- En la home `/opai/configuracion` (root) NO se renderiza el sidebar
-  — el grid de tarjetas existente hace de navegador.
+- En la home `/opai/configuracion` (root) el sub-sidebar SÍ se renderiza
+  **siempre** (decisión de usuario): la lista de secciones a la izquierda es
+  referencia de navegación constante, igual que en las subpáginas.
+
+**Una sola fuente de verdad**: el home (`ConfigHomeClient` → buscador +
+accesos rápidos) y el sub-sidebar (`ConfigShell`) leen del mismo hook
+`useConfigCategories()` (exportado desde `@/components/opai-ds`), que deriva
+del registry. No existe más un `CONFIG_SECTIONS` hardcodeado con taxonomía
+paralela. La búsqueda profunda tab-level (ej. "Tolerancia de atraso") sigue
+viviendo en `src/lib/configuracion/search-index.ts` como complemento.
 
 Las categorías están en `CONFIG_CATEGORIES` del registry: General,
 Permisos, Comunicación, Plantillas, Módulos, Inteligencia Artificial.
 
-Cada nodo hijo de `config` tiene `category: "general" | "permisos" | …`.
+Cada nodo hijo de `config` tiene `category: "general" | "permisos" | …` y
+`description` (usado por las tarjetas del home y la búsqueda).
+
+**Plantillas de correo**: el ítem `config-email-templates` fue eliminado del
+registry (la página `/opai/configuracion/email-templates` era un `redirect`
+al home). Las plantillas de correo se gestionan en **Gestión Documental →
+Templates** (módulo Mail). Los correos transaccionales por-empresa se
+activan/desactivan en **Correos automáticos** (`config-correos-automaticos`).
 
 ### Páginas detalle (`[id]` y `[id]/sub`)
 

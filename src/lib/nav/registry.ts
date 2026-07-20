@@ -144,11 +144,20 @@ export interface NavNode extends NavVisibility {
   children?: NavNode[];
   /** When true, only matches when pathname === href exactly (used for "Inicio"/"Dashboard"-like items) */
   exactMatch?: boolean;
+  /** Rutas adicionales que pertenecen a este nodo para efectos de estado
+   *  activo y breadcrumbs. Se matchean con la misma regla que `href`
+   *  (prefijo, salvo que el path termine explícitamente igual). Útil para
+   *  familias de rutas hermanas planas (ej. Banca: /finanzas/flujo-caja,
+   *  /finanzas/conciliacion viven fuera de /finanzas/bancos). */
+  activePaths?: string[];
   /** Badge configuration */
   badge?: NavBadge;
   /** Short label for the bottom nav (mobile) when the regular label is too long.
    *  If absent, `label` is used. */
   shortLabel?: string;
+  /** One-line description (used by the Config home cards / search to explain
+   *  what a section does). Poblado principalmente en los hijos de `config`. */
+  description?: string;
   /** When true, this node is shown in the sidebar but not in the bottom nav contextual menu.
    *  Useful for "Inicio" of a module that already shows when you tap the module from the main nav. */
   hideInBottomNav?: boolean;
@@ -203,6 +212,23 @@ export function isNodeVisible(node: NavVisibility, ctx: VisibilityContext): bool
 /** Filter children of a node by visibility rules */
 export function filterChildren(node: NavNode, ctx: VisibilityContext): NavNode[] {
   return (node.children ?? []).filter((c) => isNodeVisible(c, ctx));
+}
+
+/** Matching canónico de un nodo contra un pathname. Único lugar donde vive
+ *  la regla — todos los consumidores (sidebar, bottom nav, breadcrumbs,
+ *  SwipeTabs, ConfigShell) deben usar esto en vez de duplicar la lógica. */
+export function pathMatchesNode(
+  pathname: string,
+  node: Pick<NavNode, "href" | "exactMatch" | "activePaths">,
+): boolean {
+  const matchOne = (base: string) =>
+    node.exactMatch
+      ? pathname === base
+      : pathname === base || pathname.startsWith(base + "/");
+  if (matchOne(node.href)) return true;
+  return (node.activePaths ?? []).some((p) =>
+    pathname === p || pathname.startsWith(p + "/"),
+  );
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -302,6 +328,9 @@ export const NAV_MODULES: NavNode[] = [
             capability: "rendicion_pay",
             module: "finance",
             submodule: "rendiciones",
+            // Detalle vivo /finanzas/pagos/[id] pertenece a este N3 (la lista
+            // /finanzas/pagos es redirect legacy a /finanzas/rendiciones/pagos).
+            activePaths: ["/finanzas/pagos"],
           },
         ],
       },
@@ -338,7 +367,8 @@ export const NAV_MODULES: NavNode[] = [
           { key: "cv-cesiones", href: "/finanzas/facturacion/cesiones", label: "Cesiones", icon: DollarSign, module: "finance", submodule: "facturacion" },
         ],
       },
-      // Banca — restringido a owner/admin (banking_view)
+      // Banca — restringido a owner/admin (banking_view). Con N3:
+      // Flujo de Caja / Conciliación / Cuentas y cartolas.
       {
         key: "finance-banca",
         href: "/finanzas/bancos",
@@ -347,10 +377,38 @@ export const NAV_MODULES: NavNode[] = [
         module: "finance",
         submodule: "contabilidad",
         show: (perms) => hasCapability(perms, "banking_view"),
+        // Rutas hermanas planas que pertenecen a Banca (histórico: /bancos
+        // redirige a /flujo-caja como landing; ver bancos/page.tsx).
+        activePaths: ["/finanzas/flujo-caja", "/finanzas/conciliacion"],
+        children: [
+          {
+            key: "banca-flujo-caja",
+            href: "/finanzas/flujo-caja",
+            label: "Flujo de Caja",
+            shortLabel: "Flujo",
+            icon: TrendingUp,
+            capability: "cashflow_view",
+          },
+          {
+            key: "banca-conciliacion",
+            href: "/finanzas/conciliacion",
+            label: "Conciliación",
+            shortLabel: "Concil.",
+            icon: CheckCircle2,
+            module: "finance",
+            submodule: "contabilidad",
+          },
+          {
+            key: "banca-cuentas",
+            href: "/finanzas/bancos",
+            label: "Cuentas y cartolas",
+            shortLabel: "Cuentas",
+            icon: Landmark,
+            exactMatch: true,
+            show: (perms) => hasCapability(perms, "banking_view"),
+          },
+        ],
       },
-      // Flujo de Caja vive como tab dentro de /finanzas/bancos.
-      // Mantenemos la ruta /finanzas/flujo-caja accesible pero ya no es un
-      // N3 propio en el nav (2026-05-11).
       // Contabilidad — restringido a owner/admin (accounting_view)
       {
         key: "finance-contabilidad",
@@ -588,6 +646,10 @@ export const NAV_MODULES: NavNode[] = [
     icon: FolderOpen,
     module: "docs",
     tenantModule: "documentos",
+    // /opai/documentos-operativos es hermano plano de /opai/documentos (no es
+    // sub-ruta con "/"), así que se declara para que findActiveModule/breadcrumbs
+    // lo resuelvan al módulo Documentos.
+    activePaths: ["/opai/documentos-operativos"],
     children: [
       { key: "docs-gestion", href: "/opai/documentos", label: "Gestión", icon: FolderOpen, module: "docs", submodule: "gestion", badge: { notesKey: "document" }, exactMatch: true },
       { key: "docs-operativos", href: "/opai/documentos-operativos", label: "Operativos", icon: ClipboardCheck, module: "docs", submodule: "operativos" },
@@ -625,38 +687,38 @@ export const NAV_MODULES: NavNode[] = [
     hideInSidebar: true,
     children: [
       // ── General ──
-      { key: "config-empresa", href: "/opai/configuracion/empresa", label: "Empresa", icon: Building2, module: "config", submodule: "empresa", category: "general" },
-      { key: "config-mi-plan", href: "/opai/configuracion/mi-plan", label: "Mi Plan", icon: Sparkles, module: "config", submodule: "mi_plan", category: "general" },
-      { key: "config-cumplimiento", href: "/opai/configuracion/cumplimiento", label: "Cumplimiento", icon: Shield, module: "config", submodule: "cumplimiento", category: "general" },
-      { key: "config-auditoria", href: "/opai/configuracion/auditoria", label: "Auditoría", icon: FileBarChart, module: "config", submodule: "auditoria", category: "general" },
+      { key: "config-empresa", href: "/opai/configuracion/empresa", label: "Empresa", icon: Building2, module: "config", submodule: "empresa", category: "general", description: "Razón social, RUT, dirección, representante legal" },
+      { key: "config-mi-plan", href: "/opai/configuracion/mi-plan", label: "Mi Plan", icon: Sparkles, module: "config", submodule: "mi_plan", category: "general", description: "Plan actual, módulos, add-ons y solicitar upgrade" },
+      { key: "config-cumplimiento", href: "/opai/configuracion/cumplimiento", label: "Cumplimiento", icon: Shield, module: "config", submodule: "cumplimiento", category: "general", description: "Contacto del DPO y estado del DPA" },
+      { key: "config-auditoria", href: "/opai/configuracion/auditoria", label: "Auditoría", icon: FileBarChart, module: "config", submodule: "auditoria", category: "general", description: "Registro de acciones y cambios por usuario" },
       // ── Permisos ──
-      { key: "config-usuarios", href: "/opai/configuracion/usuarios", label: "Usuarios", icon: Users, module: "config", submodule: "usuarios", category: "permisos" },
-      { key: "config-roles", href: "/opai/configuracion/roles", label: "Roles y Permisos", shortLabel: "Roles", icon: KeyRound, module: "config", submodule: "roles", category: "permisos" },
-      { key: "config-grupos", href: "/opai/configuracion/grupos", label: "Grupos", icon: Users, module: "config", submodule: "grupos", category: "permisos" },
+      { key: "config-usuarios", href: "/opai/configuracion/usuarios", label: "Usuarios", icon: Users, module: "config", submodule: "usuarios", category: "permisos", description: "Gestión de usuarios y asignación de roles" },
+      { key: "config-roles", href: "/opai/configuracion/roles", label: "Roles y Permisos", shortLabel: "Roles", icon: KeyRound, module: "config", submodule: "roles", category: "permisos", description: "Configurar permisos por módulo y submódulo" },
+      { key: "config-grupos", href: "/opai/configuracion/grupos", label: "Grupos", icon: Users, module: "config", submodule: "grupos", category: "permisos", description: "Grupos organizacionales para cadenas de aprobación" },
       // ── Comunicación ──
-      { key: "config-integraciones", href: "/opai/configuracion/integraciones", label: "Integraciones", icon: Plug, module: "config", submodule: "integraciones", category: "comunicacion" },
-      { key: "config-notificaciones", href: "/opai/configuracion/notificaciones", label: "Notificaciones", shortLabel: "Notif.", icon: Bell, module: "config", submodule: "notificaciones", category: "comunicacion" },
-      { key: "config-firmas", href: "/opai/configuracion/firmas", label: "Firmas", icon: PenLine, module: "config", submodule: "firmas", category: "comunicacion" },
-      { key: "config-email-templates", href: "/opai/configuracion/email-templates", label: "Plantillas Email", shortLabel: "Emails", icon: Mail, category: "comunicacion" },
+      { key: "config-integraciones", href: "/opai/configuracion/integraciones", label: "Integraciones", icon: Plug, module: "config", submodule: "integraciones", category: "comunicacion", description: "Gmail y conectores externos" },
+      { key: "config-notificaciones", href: "/opai/configuracion/notificaciones", label: "Notificaciones", shortLabel: "Notif.", icon: Bell, module: "config", submodule: "notificaciones", category: "comunicacion", description: "Parámetros globales" },
+      { key: "config-correos-automaticos", href: "/opai/configuracion/correos-automaticos", label: "Correos automáticos", shortLabel: "Correos", icon: Mail, adminOnly: true, category: "comunicacion", description: "Activa o desactiva los correos transaccionales que OPAI envía desde tu empresa" },
+      { key: "config-firmas", href: "/opai/configuracion/firmas", label: "Firmas", icon: PenLine, module: "config", submodule: "firmas", category: "comunicacion", description: "Firmas para correos salientes" },
       // ── Plantillas ──
-      { key: "config-categorias", href: "/opai/configuracion/categorias-plantillas", label: "Categorías Plantillas", shortLabel: "Categorías", icon: FolderTree, module: "config", submodule: "categorias", category: "plantillas" },
-      { key: "config-documentos-operacionales", href: "/opai/configuracion/documentos-operacionales", label: "Documentos Operacionales", shortLabel: "Docs Op.", icon: ClipboardCheck, module: "config", submodule: "documentos_operacionales", category: "plantillas" },
+      { key: "config-categorias", href: "/opai/configuracion/categorias-plantillas", label: "Categorías Plantillas", shortLabel: "Categorías", icon: FolderTree, module: "config", submodule: "categorias", category: "plantillas", description: "Categorías por módulo para Gestión Documental" },
+      { key: "config-documentos-operacionales", href: "/opai/configuracion/documentos-operacionales", label: "Documentos Operacionales", shortLabel: "Docs Op.", icon: ClipboardCheck, module: "config", submodule: "documentos_operacionales", category: "plantillas", description: "OS10, seguros, documentos por instalación, guardias" },
       // ── Configuración de módulos ──
-      { key: "config-crm", href: "/opai/configuracion/crm", label: "CRM", icon: TrendingUp, module: "config", submodule: "crm", category: "modulos" },
-      { key: "config-cpq", href: "/opai/configuracion/cpq", label: "CPQ", icon: DollarSign, module: "config", submodule: "cpq", category: "modulos" },
-      { key: "config-payroll", href: "/opai/configuracion/payroll", label: "Payroll", icon: Calculator, module: "config", submodule: "payroll", category: "modulos" },
-      { key: "config-ops", href: "/opai/configuracion/ops", label: "Operaciones", shortLabel: "Ops", icon: ClipboardList, module: "config", submodule: "ops", category: "modulos" },
-      { key: "config-tipos-ticket", href: "/opai/configuracion/tipos-ticket", label: "Tipos de ticket", shortLabel: "Tickets", icon: Ticket, module: "config", submodule: "tipos_ticket", category: "modulos" },
-      { key: "config-finanzas", href: "/opai/configuracion/finanzas", label: "Finanzas", icon: Landmark, module: "config", submodule: "finanzas", category: "modulos" },
-      { key: "config-alertas-cobertura", href: "/opai/configuracion/alertas-cobertura", label: "Alertas Cobertura", shortLabel: "Alertas", icon: Siren, module: "config", submodule: "alertas_cobertura", category: "modulos" },
-      { key: "config-ats", href: "/opai/configuracion/ats", label: "ATS", icon: Briefcase, module: "config", submodule: "ats", category: "modulos" },
-      { key: "config-gamificacion", href: "/opai/configuracion/gamificacion", label: "Gamificación", icon: Trophy, module: "config", submodule: "gamificacion", category: "modulos" },
-      { key: "config-psicolaboral", href: "/opai/configuracion/psicolaboral", label: "Psicolaboral", icon: Brain, module: "config", submodule: "psicolaboral", category: "modulos" },
-      { key: "config-conocimiento", href: "/opai/configuracion/conocimiento", label: "Conocimiento", icon: GraduationCap, module: "config", submodule: "conocimiento", category: "modulos" },
-      { key: "config-informes-vulnerabilidad", href: "/opai/configuracion/informes-vulnerabilidad", label: "Informes Vulnerabilidad", shortLabel: "Vulnerab.", icon: ShieldAlert, module: "config", submodule: "informes_vulnerabilidad", category: "modulos" },
+      { key: "config-crm", href: "/opai/configuracion/crm", label: "CRM", icon: TrendingUp, module: "config", submodule: "crm", category: "modulos", description: "Pipeline y automatizaciones" },
+      { key: "config-cpq", href: "/opai/configuracion/cpq", label: "CPQ", icon: DollarSign, module: "config", submodule: "cpq", category: "modulos", description: "Catálogo, parámetros y pricing" },
+      { key: "config-payroll", href: "/opai/configuracion/payroll", label: "Payroll", icon: Calculator, module: "config", submodule: "payroll", category: "modulos", description: "Parámetros legales y versiones" },
+      { key: "config-ops", href: "/opai/configuracion/ops", label: "Operaciones", shortLabel: "Ops", icon: ClipboardList, module: "config", submodule: "ops", category: "modulos", description: "Marcaciones, emails y parámetros" },
+      { key: "config-tipos-ticket", href: "/opai/configuracion/tipos-ticket", label: "Tipos de ticket", shortLabel: "Tickets", icon: Ticket, module: "config", submodule: "tipos_ticket", category: "modulos", description: "Solicitudes, aprobación y SLA" },
+      { key: "config-finanzas", href: "/opai/configuracion/finanzas", label: "Finanzas", icon: Landmark, module: "config", submodule: "finanzas", category: "modulos", description: "Rendiciones, kilometraje y reglas" },
+      { key: "config-alertas-cobertura", href: "/opai/configuracion/alertas-cobertura", label: "Alertas Cobertura", shortLabel: "Alertas", icon: Siren, module: "config", submodule: "alertas_cobertura", category: "modulos", description: "Oleadas, tiempos y canales" },
+      { key: "config-ats", href: "/opai/configuracion/ats", label: "ATS", icon: Briefcase, module: "config", submodule: "ats", category: "modulos", description: "Match score, canales y distribución" },
+      { key: "config-gamificacion", href: "/opai/configuracion/gamificacion", label: "Gamificación", icon: Trophy, module: "config", submodule: "gamificacion", category: "modulos", description: "Pesos, niveles, puntos y badges" },
+      { key: "config-psicolaboral", href: "/opai/configuracion/psicolaboral", label: "Psicolaboral", icon: Brain, module: "config", submodule: "psicolaboral", category: "modulos", description: "Pesos, umbrales y plantillas de invitación" },
+      { key: "config-conocimiento", href: "/opai/configuracion/conocimiento", label: "Conocimiento", icon: GraduationCap, module: "config", submodule: "conocimiento", category: "modulos", description: "Frecuencia de exámenes recurrentes, recordatorios y deadlines" },
+      { key: "config-informes-vulnerabilidad", href: "/opai/configuracion/informes-vulnerabilidad", label: "Informes Vulnerabilidad", shortLabel: "Vulnerab.", icon: ShieldAlert, module: "config", submodule: "informes_vulnerabilidad", category: "modulos", description: "Configura las secciones de informes generados por IA" },
       // ── Inteligencia ──
-      { key: "config-asistente-ia", href: "/opai/configuracion/asistente-ia", label: "Asistente IA", icon: Brain, module: "config", submodule: "asistente_ia", category: "ia" },
-      { key: "config-ia", href: "/opai/configuracion/inteligencia-artificial", label: "Proveedores de IA", shortLabel: "IA", icon: KeyRound, module: "config", submodule: "inteligencia_artificial", category: "ia" },
+      { key: "config-asistente-ia", href: "/opai/configuracion/asistente-ia", label: "Asistente IA", icon: Brain, module: "config", submodule: "asistente_ia", category: "ia", description: "Control de roles, acceso y alcance del chat conversacional" },
+      { key: "config-ia", href: "/opai/configuracion/inteligencia-artificial", label: "Proveedores de IA", shortLabel: "IA", icon: KeyRound, module: "config", submodule: "inteligencia_artificial", category: "ia", description: "Conecta tu propia API key (OpenAI, Anthropic, Google) y elige el modelo" },
     ],
   },
 
@@ -711,15 +773,8 @@ export function getModule(key: string): NavNode | undefined {
 /** Find which top-level module owns this pathname (longest-prefix wins) */
 export function findActiveModule(pathname: string): NavNode | undefined {
   let best: { node: NavNode; len: number } | undefined;
-  const visit = (node: NavNode) => {
-    if (pathname === node.href || pathname.startsWith(node.href + "/")) {
-      const len = node.href.length;
-      if (!best || len > best.len) best = { node, len };
-    }
-    node.children?.forEach(visit);
-  };
   for (const m of NAV_MODULES) {
-    if (pathname === m.href || pathname.startsWith(m.href + "/")) {
+    if (pathMatchesNode(pathname, m)) {
       const len = m.href.length;
       if (!best || len > best.len) best = { node: m, len };
     }
@@ -750,7 +805,7 @@ export function findN3Parent(pathname: string): NavNode | undefined {
   const visit = (node: NavNode, depth: number) => {
     // Solo nodos con children y a profundidad >= 1 (sub-módulo o más)
     if (depth >= 1 && node.children && node.children.length > 0) {
-      if (pathname === node.href || pathname.startsWith(node.href + "/")) {
+      if (pathMatchesNode(pathname, node)) {
         const len = node.href.length;
         if (!best || len > best.len) best = { node, len };
       }
@@ -814,6 +869,14 @@ export function getContextualBottomNavNodes(pathname: string): NavNode[] {
     const ops = getModule("ops");
     const sup = ops?.children?.find((c) => c.key === "ops-supervision");
     if (sup?.children) return sup.children;
+  }
+
+  // Banca — familia de rutas hermanas planas (flujo-caja, conciliacion, bancos)
+  const BANCA_ROUTES = ["/finanzas/bancos", "/finanzas/flujo-caja", "/finanzas/conciliacion"];
+  if (BANCA_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/"))) {
+    const fin = getModule("finance");
+    const banca = fin?.children?.find((c) => c.key === "finance-banca");
+    if (banca?.children) return banca.children;
   }
 
   // Default: top-level children of active module

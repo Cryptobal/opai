@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import {
   ModuleSubNav,
   PageHero,
+  useSetBreadcrumbTrailing,
   Surface,
   SectionHeader,
   Tag,
@@ -137,6 +138,7 @@ function trackOrRefLabel(ref: string | null): string {
 
 export function FactoringOperationDetail({ operation: op, canIssue }: Props) {
   const router = useRouter();
+  useSetBreadcrumbTrailing(op.code);
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancelReason, setCancelReason] = useState("");

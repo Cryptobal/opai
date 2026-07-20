@@ -33,7 +33,7 @@ export function ConfigPageLayout({
         <div className="space-y-3">
           <Link
             href={backHref}
-            className="inline-flex items-center gap-1 text-sm text-primary/90 hover:text-primary transition-colors -ml-0.5"
+            className="inline-flex lg:hidden items-center gap-1 text-sm text-primary/90 hover:text-primary transition-colors -ml-0.5"
           >
             <ChevronLeft className="h-4 w-4" />
             <span>{backLabel}</span>

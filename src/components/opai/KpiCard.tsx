@@ -49,44 +49,44 @@ export function KpiCard({
 }: KpiCardProps) {
   const trendIcons = { up: ArrowUp, down: ArrowDown, neutral: Minus };
   const trendColors = {
-    up: 'text-emerald-400',
-    down: 'text-red-400',
+    up: 'text-status-ok-fg',
+    down: 'text-status-danger-fg',
     neutral: 'text-muted-foreground',
   };
 
   const variantBg: Record<KpiVariant, string> = {
     default: 'border-border bg-card',
-    blue: 'border-blue-500/25 bg-blue-500/10',
-    emerald: 'border-emerald-500/25 bg-emerald-500/10',
-    purple: 'border-purple-500/25 bg-purple-500/10',
-    amber: 'border-amber-500/25 bg-amber-500/10',
-    red: 'border-red-500/25 bg-red-500/10',
-    indigo: 'border-indigo-500/25 bg-indigo-500/10',
-    sky: 'border-sky-500/25 bg-sky-500/10',
+    blue: 'border-status-info-border bg-status-info-soft',
+    emerald: 'border-status-ok-border bg-status-ok-soft',
+    purple: 'border-tint-violet/25 bg-tint-violet/10',
+    amber: 'border-status-warn-border bg-status-warn-soft',
+    red: 'border-status-danger-border bg-status-danger-soft',
+    indigo: 'border-tint-violet/25 bg-tint-violet/10',
+    sky: 'border-tint-sky/25 bg-tint-sky/10',
     teal: 'border-primary/25 bg-primary/10',
   };
 
   const variantIconBg: Record<KpiVariant, string> = {
     default: 'p-1.5 rounded-lg bg-muted text-muted-foreground',
-    blue: 'p-1.5 rounded-lg bg-blue-500/15 text-blue-400',
-    emerald: 'p-1.5 rounded-lg bg-emerald-500/15 text-emerald-400',
-    purple: 'p-1.5 rounded-lg bg-purple-500/15 text-purple-400',
-    amber: 'p-1.5 rounded-lg bg-amber-500/15 text-amber-400',
-    red: 'p-1.5 rounded-lg bg-red-500/15 text-red-400',
-    indigo: 'p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400',
-    sky: 'p-1.5 rounded-lg bg-sky-500/15 text-sky-400',
+    blue: 'p-1.5 rounded-lg bg-status-info-soft text-status-info-fg',
+    emerald: 'p-1.5 rounded-lg bg-status-ok-soft text-status-ok-fg',
+    purple: 'p-1.5 rounded-lg bg-tint-violet/15 text-tint-violet-fg',
+    amber: 'p-1.5 rounded-lg bg-status-warn-soft text-status-warn-fg',
+    red: 'p-1.5 rounded-lg bg-status-danger-soft text-status-danger-fg',
+    indigo: 'p-1.5 rounded-lg bg-tint-violet/15 text-tint-violet-fg',
+    sky: 'p-1.5 rounded-lg bg-tint-sky/15 text-tint-sky-fg',
     teal: 'p-1.5 rounded-lg bg-primary/15 text-primary',
   };
 
   const variantText: Record<KpiVariant, string> = {
     default: 'text-foreground',
-    blue: 'text-blue-400',
-    emerald: 'text-emerald-400',
-    purple: 'text-purple-400',
-    amber: 'text-amber-400',
-    red: 'text-red-400',
-    indigo: 'text-indigo-400',
-    sky: 'text-sky-400',
+    blue: 'text-status-info-fg',
+    emerald: 'text-status-ok-fg',
+    purple: 'text-tint-violet-fg',
+    amber: 'text-status-warn-fg',
+    red: 'text-status-danger-fg',
+    indigo: 'text-tint-violet-fg',
+    sky: 'text-tint-sky-fg',
     teal: 'text-primary',
   };
 

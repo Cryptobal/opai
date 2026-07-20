@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSetBreadcrumbTrailing } from "@/components/opai-ds";
 import {
   DndContext,
   closestCenter,
@@ -664,6 +665,7 @@ export default function TemplateEditorClient({
   const isNew = !templateId || templateId === "new";
 
   const [nombre, setNombre] = useState("");
+  useSetBreadcrumbTrailing(nombre || (isNew ? "Nueva plantilla" : undefined));
   const [asunto, setAsunto] = useState("");
   const [tipo, setTipo] = useState<"ONBOARDING" | "BIENVENIDA_SITIO" | "RECORDATORIO" | "GENERAL">("ONBOARDING");
   const [blocks, setBlocks] = useState<EmailBlock[]>([]);
