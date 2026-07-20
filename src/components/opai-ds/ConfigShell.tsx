@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { usePermissions } from "@/lib/permissions-context";
 import { useTenantModules } from "@/contexts/TenantModulesContext";
+import { useRoleSimulation } from "@/contexts/RoleSimulationContext";
 import {
   CONFIG_CATEGORIES,
   getModule,
@@ -52,12 +53,15 @@ function useConfigCategories(): { groups: CategoryGroup[]; activeItem: NavNode |
   const pathname = usePathname() ?? "/";
   const permissions = usePermissions();
   const { isModuleEnabled } = useTenantModules();
+  const { effectiveRole } = useRoleSimulation();
+  // Rol efectivo: al simular un rol no-admin, los ítems admin deben ocultarse.
+  const isAdmin = effectiveRole === "owner" || effectiveRole === "admin";
 
   return useMemo(() => {
     const config = getModule("config");
     const ctx: VisibilityContext = {
       perms: permissions,
-      isAdmin: false,
+      isAdmin,
       isModuleEnabled,
     };
     const visibleItems = (config?.children ?? []).filter((c) => isNodeVisible(c, ctx));
@@ -79,7 +83,7 @@ function useConfigCategories(): { groups: CategoryGroup[]; activeItem: NavNode |
       .sort((a, b) => b.href.length - a.href.length)[0];
 
     return { groups, activeItem };
-  }, [pathname, permissions, isModuleEnabled]);
+  }, [pathname, permissions, isModuleEnabled, isAdmin]);
 }
 
 /* ──────────────────────────────────────────────────────────── */

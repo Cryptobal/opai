@@ -18,6 +18,7 @@ import { pathMatchesNode } from '@/lib/nav/registry';
 import { usePermissions } from '@/lib/permissions-context';
 import { hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
 import { useTenantModules } from '@/contexts/TenantModulesContext';
+import { useRoleSimulation } from '@/contexts/RoleSimulationContext';
 import { ChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
 import { RoleSwitcher } from '@/components/navbar/RoleSwitcher';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
@@ -164,6 +165,7 @@ export function BottomNav({ userRole }: BottomNavProps) {
   const pathname = usePathname();
   const permissions = usePermissions();
   const { enabledModules } = useTenantModules();
+  const { effectiveRole } = useRoleSimulation();
   const navRef = useRef<HTMLElement>(null);
   const navConfig = useNavConfig();
   const hidden = useScrollDirection(60);
@@ -195,7 +197,8 @@ export function BottomNav({ userRole }: BottomNavProps) {
   // EntityDetailLayout (like HubSpot / Salesforce). The bottom nav always
   // shows module-level navigation so the user can jump between entity lists.
   const activeModule = getActiveModule(pathname);
-  const moduleItems = activeModule ? getBottomNavItems(pathname, permsOrRole, enabledModules) : [];
+  const isAdmin = effectiveRole === 'owner' || effectiveRole === 'admin';
+  const moduleItems = activeModule ? getBottomNavItems(pathname, permsOrRole, enabledModules, isAdmin) : [];
   const isInModule = !forceMainNav && !!activeModule && moduleItems.length > 0;
 
   return (
