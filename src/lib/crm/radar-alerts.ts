@@ -1,19 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notify } from "@/lib/notifications/notify";
 import { dispatchPersonalSlackDm } from "@/lib/integrations/slack/personal-dm";
-
-/** Nombre del negocio o cuenta para el encabezado de la señal de compra. */
-async function scopeName(dealId: string | null, accountId: string | null): Promise<string> {
-  if (dealId) {
-    const d = await prisma.crmDeal.findUnique({ where: { id: dealId }, select: { title: true } });
-    if (d?.title) return d.title;
-  }
-  if (accountId) {
-    const a = await prisma.crmAccount.findUnique({ where: { id: accountId }, select: { name: true } });
-    if (a?.name) return a.name;
-  }
-  return "cuenta";
-}
+import { scopeName } from "@/lib/crm/radar-scope";
 
 /**
  * Alerta de un RadarItem `nuevo_lead` / `senal_compra`: DM personal de Slack
@@ -55,7 +43,7 @@ export async function dispatchRadarAlert(itemId: string): Promise<void> {
     }
 
     if (item.kind === "senal_compra") {
-      const nombre = await scopeName(item.dealId, item.accountId);
+      const nombre = await scopeName(item.tenantId, item.dealId, item.accountId);
       const body = item.summary || "Señales de intención de compra";
       const link = item.dealId ? `/crm/deals/${item.dealId}` : `/crm/accounts/${item.accountId}`;
       await dispatchPersonalSlackDm({

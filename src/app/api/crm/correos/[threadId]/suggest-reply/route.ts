@@ -21,13 +21,27 @@ async function loadThreadReply(tenantId: string, threadId: string) {
       orderBy: { sentAt: "desc" },
       select: { fromEmail: true, textBody: true, htmlBody: true },
     }),
-    prisma.crmRadarItem.findFirst({
-      where: { tenantId, threadId, kind: "nuevo_lead" },
+    prisma.crmRadarItem.findMany({
+      where: { tenantId, threadId, kind: { in: ["nuevo_lead", "compromiso"] } },
       orderBy: { createdAt: "desc" },
+      take: 5,
       select: { id: true, payload: true },
     }),
   ]);
-  return { thread, lastInbound, radar };
+  return { thread, lastInbound, radars: radar };
+}
+
+/** Extrae el primer borrador disponible (draftReply | draftFollowUp) + su id. */
+function pickDraft(radars: { id: string; payload: unknown }[]): { draft: string | null; radarItemId: string | null } {
+  for (const r of radars) {
+    const p = (r.payload as Record<string, unknown> | null) ?? {};
+    const d =
+      (typeof p.draftReply === "string" && p.draftReply) ||
+      (typeof p.draftFollowUp === "string" && p.draftFollowUp) ||
+      null;
+    if (d) return { draft: d as string, radarItemId: r.id };
+  }
+  return { draft: null, radarItemId: radars[0]?.id ?? null };
 }
 
 export async function GET(_req: NextRequest, { params }: Ctx) {
@@ -38,11 +52,10 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const { threadId } = await params;
   const data = await loadThreadReply(ctx.tenantId, threadId);
   if (!data) return NextResponse.json({ error: "Hilo no encontrado" }, { status: 404 });
-  const payload = (data.radar?.payload as Record<string, unknown> | null) ?? {};
-  const draft = typeof payload.draftReply === "string" ? payload.draftReply : null;
+  const { draft, radarItemId } = pickDraft(data.radars);
   return NextResponse.json({
     draft,
-    radarItemId: data.radar?.id ?? null,
+    radarItemId,
     to: data.lastInbound?.fromEmail ?? null,
     subject: data.thread.subject,
   });
