@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Receipt, Plus, Loader2, ChevronRight } from "lucide-react";
-import { EmptyState } from "@/components/opai/EmptyState";
+import { EmptyState } from "@/components/opai-ds";
 
 interface Rendicion {
   id: string;
