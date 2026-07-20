@@ -6,6 +6,7 @@ import { PageHero, Surface, EmptyState, Spinner } from "@/components/opai-ds";
 import { CorreosFilters, type CorreoFilterKey } from "./CorreosFilters";
 import { CorreoRow } from "./CorreoRow";
 import { CorreoDrawer } from "./CorreoDrawer";
+import { ResponseKpiChip } from "./ResponseKpiChip";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 
 function matchesFilter(t: CorreoThreadDTO, f: CorreoFilterKey): boolean {
@@ -49,7 +50,6 @@ export function CorreosClient() {
 
   useEffect(() => {
     void fetchPage(null, true);
-    // Deep-link del radar: ?thread={id}[&extract=1] abre el drawer.
     if (typeof window !== "undefined") {
       const sp = new URLSearchParams(window.location.search);
       const t = sp.get("thread");
@@ -83,6 +83,7 @@ export function CorreosClient() {
         description="Hilos de tu Gmail vinculados a cuentas, negocios y leads"
       />
 
+      <div className="flex justify-end"><ResponseKpiChip /></div>
       <CorreosFilters
         filter={filter}
         onFilter={setFilter}
