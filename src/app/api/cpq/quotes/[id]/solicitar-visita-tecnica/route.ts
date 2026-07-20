@@ -136,6 +136,13 @@ export async function POST(
       },
     });
 
+    // Sync Google Calendar (best-effort; no bloquea el flujo CPQ).
+    void import("@/modules/agenda/agenda-sync").then(({ syncVisitaTecnicaToCalendar }) =>
+      syncVisitaTecnicaToCalendar(ctx.tenantId, visita.id).catch((err) =>
+        console.warn("[solicitar-visita-tecnica] calendar sync:", err),
+      ),
+    );
+
     // Construir link Google Maps
     const { installation } = quote;
     const mapsUrl = installation.address
