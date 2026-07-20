@@ -141,6 +141,10 @@ describe("nav registry", () => {
     it("finds Finanzas for /finanzas/reportes/eerr", () => {
       expect(findActiveModule("/finanzas/reportes/eerr")?.key).toBe("finance");
     });
+    it("finds Documentos for /opai/documentos-operativos (hermano plano vía activePaths)", () => {
+      expect(findActiveModule("/opai/documentos-operativos")?.key).toBe("docs");
+      expect(findActiveModule("/opai/documentos-operativos/algo")?.key).toBe("docs");
+    });
     it("returns undefined for unknown path", () => {
       expect(findActiveModule("/unknown/path")).toBeUndefined();
     });

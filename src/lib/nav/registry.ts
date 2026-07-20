@@ -646,6 +646,10 @@ export const NAV_MODULES: NavNode[] = [
     icon: FolderOpen,
     module: "docs",
     tenantModule: "documentos",
+    // /opai/documentos-operativos es hermano plano de /opai/documentos (no es
+    // sub-ruta con "/"), así que se declara para que findActiveModule/breadcrumbs
+    // lo resuelvan al módulo Documentos.
+    activePaths: ["/opai/documentos-operativos"],
     children: [
       { key: "docs-gestion", href: "/opai/documentos", label: "Gestión", icon: FolderOpen, module: "docs", submodule: "gestion", badge: { notesKey: "document" }, exactMatch: true },
       { key: "docs-operativos", href: "/opai/documentos-operativos", label: "Operativos", icon: ClipboardCheck, module: "docs", submodule: "operativos" },
