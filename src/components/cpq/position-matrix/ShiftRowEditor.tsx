@@ -13,7 +13,14 @@ import { Copy, Trash2, Check, ArrowLeftRight, Sparkles, Loader2 } from "lucide-r
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import { toast } from "sonner";
-import { HOURS_24, WEEKDAY_ORDER, analizarTurno, DEFAULT_COLACION_MIN } from "./shift-utils";
+import { HOLIDAY_DAY, onlyRealWeekdays } from "@/lib/cpq/weekdays";
+import {
+  HOURS_24,
+  WEEKDAY_ORDER,
+  analizarTurno,
+  DEFAULT_COLACION_MIN,
+  defaultDiasForRol,
+} from "./shift-utils";
 import { JornadaHoursChip } from "./JornadaHoursChip";
 import { CatalogPicker } from "./CatalogPicker";
 import { useLiquidoPreview } from "./useLiquidoPreview";
@@ -85,6 +92,12 @@ export function ShiftRowEditor({
     if (patch.rolId !== undefined) {
       const rolSalary = catalogs.roles.find((r) => r.id === next.rolId)?.salary;
       if (rolSalary != null && rolSalary > 0) next = { ...next, bruto: rolSalary };
+      const rolName = catalogs.roles.find((r) => r.id === next.rolId)?.name;
+      const defDias = defaultDiasForRol(rolName);
+      if (defDias) {
+        const keepF = ref.current.dias.includes(HOLIDAY_DAY);
+        next = { ...next, dias: keepF ? [...defDias, HOLIDAY_DAY] : defDias };
+      }
     }
     setDraft(next);
     onUpdate(next);
@@ -120,7 +133,7 @@ export function ShiftRowEditor({
   const toggleDay = (d: string) => {
     const has = ref.current.dias.includes(d);
     const next = has ? ref.current.dias.filter((x) => x !== d) : [...ref.current.dias, d];
-    if (!next.length) {
+    if (onlyRealWeekdays(next).length === 0) {
       toast.error("Debe quedar al menos un día");
       return;
     }
@@ -208,9 +221,13 @@ export function ShiftRowEditor({
         </div>
         <div>
           <Label className={LABEL}>Días</Label>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {WEEKDAY_ORDER.map((d) => {
+          <div className="mt-1 flex flex-wrap items-center gap-1">
+            {WEEKDAY_ORDER.map((d, idx) => {
               const on = draft.dias.includes(d);
+              const activeCls =
+                idx < 5
+                  ? "border-primary/40 bg-primary/15 text-primary"
+                  : "border-tint-violet-fg/30 bg-tint-violet text-tint-violet-fg";
               return (
                 <button
                   key={d}
@@ -218,13 +235,32 @@ export function ShiftRowEditor({
                   onClick={() => toggleDay(d)}
                   className={cn(
                     "h-9 min-w-[2.25rem] rounded-md border px-1.5 text-xs font-semibold transition-colors",
-                    on ? "border-primary/40 bg-primary/15 text-primary" : "border-border bg-card text-muted-foreground hover:bg-muted/40"
+                    on ? activeCls : "border-border bg-card text-muted-foreground hover:bg-muted/40",
                   )}
                 >
                   {d}
                 </button>
               );
             })}
+            <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
+            {(() => {
+              const on = draft.dias.includes(HOLIDAY_DAY);
+              return (
+                <button
+                  type="button"
+                  title="Cubre festivos"
+                  onClick={() => toggleDay(HOLIDAY_DAY)}
+                  className={cn(
+                    "h-9 min-w-[2.25rem] rounded-md border px-1.5 text-xs font-semibold transition-colors",
+                    on
+                      ? "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
+                      : "border-dashed border-border bg-card text-muted-foreground hover:bg-muted/40",
+                  )}
+                >
+                  F
+                </button>
+              );
+            })()}
           </div>
         </div>
       </div>

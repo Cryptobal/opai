@@ -11,6 +11,7 @@ import { normalizeWeekdays } from "@/lib/cpq/weekdays";
 import { useCpqCatalogs } from "@/lib/cpq/use-cpq-catalogs";
 import { resolveSalaryFromRole, resolveTemplateRowCatalog } from "@/lib/cpq/resolve-cpq-role-from-shift-pattern";
 import type { CpqPosition, CpqServiceGroup } from "@/types/cpq";
+import { defaultDiasForRol } from "./shift-utils";
 import type {
   NormalizedGroup,
   NormalizedShift,
@@ -113,6 +114,11 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
             baseSalary: resolveSalaryFromRole(defaults.rolId, roles, seed?.bruto ?? 550000),
           };
 
+      const defaultDias =
+        seed?.dias ??
+        defaultDiasForRol(roles.find((r) => r.id === rolId)?.name) ??
+        ["Lun", "Mar", "Mié", "Jue", "Vie"];
+
       const res = await fetch(`/api/cpq/quotes/${quoteId}/positions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -121,7 +127,7 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
           cargoId: defaults.cargoId,
           rolId,
           serviceGroupId,
-          weekdays: seed?.dias ?? ["Lun", "Mar", "Mié", "Jue", "Vie"],
+          weekdays: defaultDias,
           startTime: seed?.inicio ?? "08:00",
           endTime: seed?.fin ?? "20:00",
           numGuards: seed?.guardias ?? 1,
@@ -296,6 +302,28 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
     [quoteId, refresh]
   );
 
+  const onReorderRows = useCallback(
+    async (_groupKey: string | null, orderedIds: string[]) => {
+      try {
+        const res = await fetch(`/api/cpq/quotes/${quoteId}/positions/reorder`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: orderedIds.map((id, displayOrder) => ({ id, displayOrder })),
+          }),
+        });
+        const d = await res.json();
+        if (!d.success) throw new Error(d.error || "Error");
+        refresh();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "No se pudo reordenar";
+        toast.error(msg);
+        refresh();
+      }
+    },
+    [quoteId, refresh]
+  );
+
   const onCloneGroup = useCallback(
     async (groupKey: string) => {
       try {
@@ -332,6 +360,7 @@ export function usePositionMatrixCpq(opts: Opts): PositionMatrixAdapter {
     onSetGroupColor,
     onCloneGroup,
     onReorderGroups,
+    onReorderRows,
     onAddGroup,
   };
 }

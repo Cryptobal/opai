@@ -62,6 +62,7 @@ export interface CpqPosition {
   calculatedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  displayOrder: number;
   puestoTrabajo?: CpqPuestoTrabajo;
   cargo?: CpqCargo;
   rol?: CpqRol;

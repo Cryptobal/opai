@@ -71,11 +71,19 @@ import {
 import { toast } from "sonner";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
-import { HOURS_24, WEEKDAY_ORDER, isNightShift, analizarTurno } from "./shift-utils";
+import { HOLIDAY_DAY, onlyRealWeekdays } from "@/lib/cpq/weekdays";
+import {
+  HOURS_24,
+  WEEKDAY_ORDER,
+  isNightShift,
+  analizarTurno,
+  defaultDiasForRol,
+} from "./shift-utils";
 import { JornadaHoursChip } from "./JornadaHoursChip";
 import { resolveServiceColor, SERVICE_COLOR_PALETTE } from "./service-colors";
 import { CatalogPicker } from "./CatalogPicker";
 import { useGridColWidths, type GridColKey } from "./useGridColWidths";
+import { SortableGridRow } from "./SortableGridRow";
 import type { NormalizedGroup, NormalizedShift, PositionMatrixAdapter, ShiftPatch } from "./types";
 
 const FIELD =
@@ -462,9 +470,45 @@ function GroupBlock({
       return next;
     });
 
+  const groupKey = group?.key ?? null;
+  const rowIdsSignature = rows.map((r) => r.id).join("|");
+  const [rowOrder, setRowOrder] = useState<string[]>(() => rows.map((r) => r.id));
+  useEffect(() => {
+    setRowOrder(rows.map((r) => r.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowIdsSignature]);
+
+  const rowById = useMemo(() => {
+    const m = new Map<string, NormalizedShift>();
+    for (const r of rows) m.set(r.id, r);
+    return m;
+  }, [rows]);
+  const orderedRows = useMemo(
+    () => rowOrder.map((id) => rowById.get(id)).filter((r): r is NormalizedShift => !!r),
+    [rowOrder, rowById],
+  );
+
+  const rowSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor),
+  );
+  // Contexto DnD anidado si el adapter soporta reorder; el grip solo con 2+ filas.
+  const rowDndContext = !!adapter.onReorderRows;
+  const rowDndEnabled = rowDndContext && orderedRows.length > 1;
+
+  const handleRowDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = rowOrder.indexOf(String(active.id));
+    const newIndex = rowOrder.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const next = arrayMove(rowOrder, oldIndex, newIndex);
+    setRowOrder(next);
+    adapter.onReorderRows?.(groupKey, next);
+  };
+
   const totalGuards = rows.reduce((s, r) => s + r.guardias * (r.nPuestos || 1), 0);
   const totalPtos = rows.reduce((s, r) => s + (r.nPuestos || 1), 0);
-  const groupKey = group?.key ?? null;
 
   const saveName = () => {
     const name = draftName.trim();
@@ -475,8 +519,8 @@ function GroupBlock({
   // Filas físicas del grupo: los turnos + cada fila de observaciones desplegada
   // (mínimo 1 para el placeholder vacío). El rowSpan de la celda de servicio
   // debe cuadrar con el total de <tr> del grupo, o la grilla se desalinea.
-  const expandedCount = rows.reduce((n, r) => n + (expandedIds.has(r.id) ? 1 : 0), 0);
-  const physicalRowCount = Math.max(rows.length + expandedCount, 1);
+  const expandedCount = orderedRows.reduce((n, r) => n + (expandedIds.has(r.id) ? 1 : 0), 0);
+  const physicalRowCount = Math.max(orderedRows.length + expandedCount, 1);
 
   const serviceCell = (ref?: Ref<HTMLTableCellElement>) => (
     <td
@@ -661,8 +705,38 @@ function GroupBlock({
             )}
           </td>
         </tr>
+      ) : rowDndContext ? (
+        <DndContext
+          sensors={rowSensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleRowDragEnd}
+        >
+          <SortableContext items={rowOrder} strategy={verticalListSortingStrategy}>
+            {orderedRows.map((row, idx) => {
+              const expanded = expandedIds.has(row.id);
+              return (
+                <Fragment key={row.id}>
+                  <GridRow
+                    row={row}
+                    adapter={adapter}
+                    readOnly={readOnly}
+                    color={color}
+                    enableRowDrag={rowDndEnabled}
+                    leadingCell={leadingFor(idx === 0 ? setNodeRef : undefined)}
+                    observationsOpen={expanded}
+                    onToggleObservations={() => toggleObservations(row.id)}
+                    onRequestDelete={() => onRequestDeleteRow(row.id)}
+                  />
+                  {expanded && (
+                    <ObservationRow row={row} adapter={adapter} readOnly={readOnly} color={color} />
+                  )}
+                </Fragment>
+              );
+            })}
+          </SortableContext>
+        </DndContext>
       ) : (
-        rows.map((row, idx) => {
+        orderedRows.map((row, idx) => {
           const expanded = expandedIds.has(row.id);
           return (
             <Fragment key={row.id}>
@@ -695,6 +769,8 @@ interface GridRowProps {
   readOnly?: boolean;
   leadingCell?: ReactNode;
   color: string;
+  /** Habilita grip DnD de turno (contexto anidado del grupo). */
+  enableRowDrag?: boolean;
   /** Fila de observaciones desplegada debajo de esta fila. */
   observationsOpen: boolean;
   onToggleObservations: () => void;
@@ -727,6 +803,7 @@ function GridRow({
   readOnly,
   leadingCell,
   color,
+  enableRowDrag = false,
   observationsOpen,
   onToggleObservations,
   onRequestDelete,
@@ -751,6 +828,12 @@ function GridRow({
     if (patch.rolId !== undefined) {
       const rolSalary = catalogs.roles.find((r) => r.id === next.rolId)?.salary;
       if (rolSalary != null && rolSalary > 0) next = { ...next, bruto: rolSalary };
+      const rolName = catalogs.roles.find((r) => r.id === next.rolId)?.name;
+      const defDias = defaultDiasForRol(rolName);
+      if (defDias) {
+        const keepF = ref.current.dias.includes(HOLIDAY_DAY);
+        next = { ...next, dias: keepF ? [...defDias, HOLIDAY_DAY] : defDias };
+      }
     }
     setDraft(next);
     lastSig.current = JSON.stringify(next);
@@ -760,7 +843,7 @@ function GridRow({
   const toggleDay = (d: string) => {
     const has = ref.current.dias.includes(d);
     const next = has ? ref.current.dias.filter((x) => x !== d) : [...ref.current.dias, d];
-    if (!next.length) return;
+    if (onlyRealWeekdays(next).length === 0) return;
     apply({ dias: next });
   };
 
@@ -771,12 +854,23 @@ function GridRow({
   const jornada = analizarTurno({ inicio: draft.inicio, fin: draft.fin, dias: draft.dias, rolName });
 
   return (
-    <tr className="border-b border-border/60 hover:bg-muted/20 [&>td]:align-middle">
+    <SortableGridRow id={row.id} sortable={enableRowDrag}>
+      {({ setNodeRef, style, grip }) => (
+    <tr
+      ref={setNodeRef}
+      style={style}
+      className="group/row border-b border-border/60 hover:bg-muted/20 [&>td]:align-middle"
+    >
       {leadingCell}
 
       {/* Puesto */}
       <td className="border-r border-border px-2 py-1">
-        <CatalogPicker kind="puesto" value={draft.puestoId} disabled={disabled} onChange={(id) => apply({ puestoId: id })} />
+        <div className="flex items-center gap-1">
+          {grip}
+          <div className="min-w-0 flex-1">
+            <CatalogPicker kind="puesto" value={draft.puestoId} disabled={disabled} onChange={(id) => apply({ puestoId: id })} />
+          </div>
+        </div>
       </td>
 
       {/* Cargo */}
@@ -836,9 +930,13 @@ function GridRow({
 
       {/* Días */}
       <td className="border-r border-border px-2 py-1">
-        <div className="flex flex-wrap gap-0.5">
-          {WEEKDAY_ORDER.map((d) => {
+        <div className="flex flex-wrap items-center gap-0.5">
+          {WEEKDAY_ORDER.map((d, idx) => {
             const on = draft.dias.includes(d);
+            const activeCls =
+              idx < 5
+                ? "border-primary/40 bg-primary/15 text-primary"
+                : "border-tint-violet-fg/30 bg-tint-violet text-tint-violet-fg";
             return (
               <button
                 key={d}
@@ -847,7 +945,7 @@ function GridRow({
                 onClick={() => toggleDay(d)}
                 className={cn(
                   "h-7 w-6 rounded border text-[12px] font-semibold transition-colors",
-                  on ? "border-primary/40 bg-primary/15 text-primary" : "border-border bg-card text-muted-foreground hover:bg-muted/40"
+                  on ? activeCls : "border-border bg-card text-muted-foreground hover:bg-muted/40",
                 )}
                 title={d}
               >
@@ -855,6 +953,26 @@ function GridRow({
               </button>
             );
           })}
+          <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
+          {(() => {
+            const on = draft.dias.includes(HOLIDAY_DAY);
+            return (
+              <button
+                type="button"
+                disabled={disabled}
+                title="Cubre festivos"
+                onClick={() => toggleDay(HOLIDAY_DAY)}
+                className={cn(
+                  "h-7 w-6 rounded border text-[12px] font-semibold transition-colors",
+                  on
+                    ? "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
+                    : "border-dashed border-border bg-card text-muted-foreground hover:bg-muted/40",
+                )}
+              >
+                F
+              </button>
+            );
+          })()}
         </div>
       </td>
 
@@ -892,12 +1010,12 @@ function GridRow({
       {/* Acciones (borde derecho con el color del servicio para cerrar la fila) */}
       <td className="px-1 py-1" style={{ borderRight: `4px solid ${color}` }}>
         <div className="flex items-center justify-end gap-0.5">
-          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+          {saving && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />}
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className={cn("h-7 w-7", observationsOpen && "bg-primary/10 text-primary")}
+            className={cn("h-7 w-7 shrink-0", observationsOpen && "bg-primary/10 text-primary")}
             onClick={onToggleObservations}
             aria-expanded={observationsOpen}
             aria-label={observationsOpen ? "Ocultar observaciones" : "Observaciones del turno"}
@@ -915,10 +1033,10 @@ function GridRow({
           </Button>
           {!readOnly && (
             <>
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => adapter.onCloneRow(row.id)} title="Duplicar turno">
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => adapter.onCloneRow(row.id)} title="Duplicar turno">
                 <Copy className="h-3.5 w-3.5" />
               </Button>
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={onRequestDelete} title="Eliminar turno">
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-destructive" onClick={onRequestDelete} title="Eliminar turno">
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </>
@@ -926,6 +1044,8 @@ function GridRow({
         </div>
       </td>
     </tr>
+      )}
+    </SortableGridRow>
   );
 }
 

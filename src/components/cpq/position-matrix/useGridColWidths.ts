@@ -11,16 +11,16 @@ export type GridColKey =
 // la columna a su ancho por defecto (autoajuste).
 const DEFAULTS: Record<GridColKey, number> = {
   servicio: 200, puesto: 148, cargo: 112, rol: 90, horario: 190,
-  dias: 210, guardias: 88, ptos: 88, costo: 172, acciones: 56,
+  dias: 262, guardias: 88, ptos: 88, costo: 172, acciones: 104,
 };
 
 const MIN: Record<GridColKey, number> = {
   servicio: 150, puesto: 96, cargo: 84, rol: 70, horario: 130,
-  dias: 60, guardias: 72, ptos: 70, costo: 112, acciones: 48,
+  dias: 96, guardias: 72, ptos: 70, costo: 112, acciones: 96,
 };
 
-// v7: columna costo más ancha (líquido + mano de obra en una sola línea).
-const STORAGE_KEY = "cpq-grid-col-widths-v7";
+// v8: chip F en Días + fix ancho columna acciones.
+const STORAGE_KEY = "cpq-grid-col-widths-v8";
 
 export function useGridColWidths() {
   const [widths, setWidths] = useState<Record<GridColKey, number>>(DEFAULTS);

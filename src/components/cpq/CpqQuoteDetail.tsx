@@ -19,6 +19,7 @@ import { CreatePositionModal } from "@/components/cpq/CreatePositionModal";
 import { CpqServiceGroupCard } from "@/components/cpq/CpqServiceGroupCard";
 import { CreateServiceModal } from "@/components/cpq/CreateServiceModal";
 import { CpqPositionCard } from "@/components/cpq/CpqPositionCard";
+import { CpqStatusBadge } from "@/components/cpq/CpqStatusBadge";
 import { PositionMatrix } from "@/components/cpq/position-matrix";
 import { usePositionMatrixCpq } from "@/components/cpq/position-matrix/usePositionMatrixCpq";
 import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
@@ -194,7 +195,6 @@ export function CpqQuoteDetail({
   const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
   const [generatingContract, setGeneratingContract] = useState(false);
   const [contractTemplates, setContractTemplates] = useState<{ id: string; name: string }[]>([]);
-  const [statusChangePending, setStatusChangePending] = useState<"draft" | "sent" | null>(null);
   const [changingStatus, setChangingStatus] = useState(false);
   const [portalVisibilitySaving, setPortalVisibilitySaving] = useState(false);
   const [sendingDotacion, setSendingDotacion] = useState(false);
@@ -992,7 +992,6 @@ export function CpqQuoteDetail({
       if (!data.success) throw new Error(data.error || "Error");
       setQuote(data.data);
       setQuoteForm((prev) => ({ ...prev, status: newStatus }));
-      setStatusChangePending(null);
       toast.success(newStatus === "draft" ? "Cotizacion en borrador. Ya puedes editar." : "Cotizacion marcada como enviada.");
     } catch (error) {
       console.error("Error updating status:", error);
@@ -1506,22 +1505,6 @@ export function CpqQuoteDetail({
     Boolean(quote) &&
     (positions.length > 0 || (additionalLines?.length ?? 0) > 0) &&
     Boolean(crmContext.accountId && crmContext.contactId && crmContext.dealId);
-  const quoteStatusLabel =
-    quote?.status === "sent"
-      ? "Enviada"
-      : quote?.status === "draft"
-        ? "Borrador"
-        : quote?.status === "approved"
-          ? "Aprobada"
-          : quote?.status === "rejected"
-            ? "Rechazada"
-            : quote?.status ?? "Sin estado";
-  const quoteStatusClassName = cn(
-    quote?.status === "sent" && "border-status-info-border text-status-info-fg dark:text-status-info-fg",
-    quote?.status === "draft" && "border-status-warn-border text-status-warn-fg dark:text-status-warn-fg",
-    quote?.status === "approved" && "border-status-ok-border text-status-ok-fg dark:text-status-ok-fg",
-    quote?.status === "rejected" && "border-status-danger-border text-status-danger-fg dark:text-status-danger-fg"
-  );
   const portalReadinessItems = [
     { label: "Cliente", ready: Boolean(crmContext.accountId) },
     { label: "Contacto", ready: Boolean(crmContext.contactId) },
@@ -1627,15 +1610,12 @@ export function CpqQuoteDetail({
           <h1 className="text-[15px] sm:text-base font-bold tracking-tight truncate min-w-0">
             {quote.code}
           </h1>
-          <Badge
-            variant="outline"
-            className={cn(
-              "h-5 shrink-0 px-1.5 text-[10px] font-medium whitespace-nowrap",
-              quoteStatusClassName
-            )}
-          >
-            {quoteStatusLabel}
-          </Badge>
+          <CpqStatusBadge
+            status={quote.status}
+            changing={changingStatus}
+            size="sm"
+            onToggle={() => void handleStatusChange(quote.status === "sent" ? "draft" : "sent")}
+          />
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <div className="hidden lg:flex xl:hidden items-center gap-1 border-r border-border/60 pr-2 mr-1">
@@ -1675,18 +1655,6 @@ export function CpqQuoteDetail({
               );
             })()}
           </div>
-          {/* Desktop: acciones de estado (en móvil van al menú ⋮ para no duplicar el badge de estado) */}
-          <div className="hidden lg:flex xl:hidden items-center gap-1">
-            {quote.status === "sent" ? (
-              <Button size="sm" variant="outline" className="h-7 px-2 text-sm" onClick={() => setStatusChangePending("draft")} disabled={changingStatus}>
-                {changingStatus ? "..." : "Marcar borrador"}
-              </Button>
-            ) : (
-              <Button size="sm" variant="outline" className="h-7 px-2 text-sm border-status-ok-border text-status-ok-fg dark:text-status-ok-fg hover:bg-status-ok-soft" onClick={() => setStatusChangePending("sent")} disabled={changingStatus}>
-                {changingStatus ? "..." : "Marcar enviada"}
-              </Button>
-            )}
-          </div>
           {/* Overflow menu for secondary actions */}
           <div className="relative">
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setOverflowMenuOpen((v) => !v)}>
@@ -1724,7 +1692,7 @@ export function CpqQuoteDetail({
                   {quote.status === "sent" ? (
                     <button
                       className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent"
-                      onClick={() => { setOverflowMenuOpen(false); setStatusChangePending("draft"); }}
+                      onClick={() => { setOverflowMenuOpen(false); void handleStatusChange("draft"); }}
                       disabled={changingStatus}
                     >
                       <PencilLine className="h-3.5 w-3.5" /> Volver a borrador (editar)
@@ -1732,7 +1700,7 @@ export function CpqQuoteDetail({
                   ) : (
                     <button
                       className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent"
-                      onClick={() => { setOverflowMenuOpen(false); setStatusChangePending("sent"); }}
+                      onClick={() => { setOverflowMenuOpen(false); void handleStatusChange("sent"); }}
                       disabled={changingStatus}
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" /> Marcar como enviada
@@ -1918,9 +1886,12 @@ export function CpqQuoteDetail({
                   {quote.name}
                 </span>
               )}
-              <Badge variant="outline" className={cn("h-6 shrink-0 text-xs font-medium", quoteStatusClassName)}>
-                {quoteStatusLabel}
-              </Badge>
+              <CpqStatusBadge
+                status={quote.status}
+                changing={changingStatus}
+                size="md"
+                onToggle={() => void handleStatusChange(quote.status === "sent" ? "draft" : "sent")}
+              />
             </div>
             <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
               <span className="truncate" title={`${selectedAccountName}${selectedContactName !== "Sin contacto" ? ` · ${selectedContactName}` : ""}`}>{selectedAccountName}{selectedContactName !== "Sin contacto" ? ` · ${selectedContactName}` : ""}</span>
@@ -1998,7 +1969,7 @@ export function CpqQuoteDetail({
                   {quote.status === "sent" ? (
                     <button
                       className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent"
-                      onClick={() => { setOverflowMenuOpen(false); setStatusChangePending("draft"); }}
+                      onClick={() => { setOverflowMenuOpen(false); void handleStatusChange("draft"); }}
                       disabled={changingStatus}
                     >
                       <PencilLine className="h-3.5 w-3.5" /> Volver a borrador (editar)
@@ -2006,7 +1977,7 @@ export function CpqQuoteDetail({
                   ) : (
                     <button
                       className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent"
-                      onClick={() => { setOverflowMenuOpen(false); setStatusChangePending("sent"); }}
+                      onClick={() => { setOverflowMenuOpen(false); void handleStatusChange("sent"); }}
                       disabled={changingStatus}
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" /> Marcar como enviada
@@ -3595,46 +3566,6 @@ export function CpqQuoteDetail({
           <DialogFooter>
             <Button variant="ghost" className="w-full text-muted-foreground text-xs" onClick={() => setVisitaTecnicaWaModalOpen(false)}>
               Omitir
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirmacion Volver a borrador */}
-      <Dialog open={statusChangePending === "draft"} onOpenChange={(v) => !v && setStatusChangePending(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Volver a borrador</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Volver esta cotizacion a borrador? Podras editar los valores nuevamente. La cotización seguirá visible en el portal del cliente (puedes desactivarlo con el interruptor &quot;Visible en portal del cliente&quot;). Para marcarla como enviada otra vez, usa &quot;Marcar como enviada&quot;.
-          </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setStatusChangePending(null)} disabled={changingStatus}>
-              Cancelar
-            </Button>
-            <Button onClick={() => void handleStatusChange("draft")} disabled={changingStatus}>
-              {changingStatus ? "Guardando..." : "Volver a borrador"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirmacion Marcar como enviada */}
-      <Dialog open={statusChangePending === "sent"} onOpenChange={(v) => !v && setStatusChangePending(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Marcar como enviada</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Marcar esta cotizacion como enviada? Una vez enviada, no podrás modificar nada hasta que la vuelvas a borrador. Aun así podrás reenviar la propuesta al cliente las veces que necesites.
-          </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setStatusChangePending(null)} disabled={changingStatus}>
-              Cancelar
-            </Button>
-            <Button onClick={() => void handleStatusChange("sent")} disabled={changingStatus}>
-              {changingStatus ? "Guardando..." : "Marcar como enviada"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -39,7 +39,7 @@ export async function GET(
             cargo: true,
             rol: true,
           },
-          orderBy: { createdAt: "asc" },
+          orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
         },
       },
     });

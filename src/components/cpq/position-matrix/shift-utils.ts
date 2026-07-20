@@ -8,6 +8,8 @@ import {
   formatWeekdaysShort,
   WEEKDAY_ORDER,
 } from "@/components/cpq/utils";
+import type { Weekday } from "@/lib/cpq/weekdays";
+import { onlyRealWeekdays } from "@/lib/cpq/weekdays";
 import { COVERAGE_PATTERNS } from "@/lib/cpq/coverage-patterns";
 import {
   analizarJornada,
@@ -79,6 +81,24 @@ export function regimenFromRolName(rolName: string | null | undefined): Regimen 
   return "ordinaria";
 }
 
+/**
+ * Días marcados por defecto para un rol NxN. Reglas Gard:
+ *  - rotativos (work === off o work >= 7): todos los días (4x4, 7x7, 14x14)
+ *  - 2x5: solo Sáb-Dom
+ *  - resto con 1 <= work <= 6: primeros `work` días desde Lun (5x2→Lun-Vie, 6x1→Lun-Sáb)
+ *  - sin patrón NxN: null (no tocar los días actuales)
+ */
+export function defaultDiasForRol(rolName: string | null | undefined): Weekday[] | null {
+  const p = parseRolPattern(rolName);
+  if (!p) return null;
+  if (p.work === p.off || p.work >= 7) return [...WEEKDAY_ORDER];
+  if (p.work === 2 && p.off === 5) return ["Sáb", "Dom"];
+  if (p.work >= 1 && p.work <= 6) {
+    return WEEKDAY_ORDER.slice(0, p.work) as Weekday[];
+  }
+  return null;
+}
+
 /** Analiza un turno para el desglose de horas/jornada de la UI. */
 export function analizarTurno(input: {
   inicio: string;
@@ -93,7 +113,7 @@ export function analizarTurno(input: {
   return analizarJornada({
     inicio: input.inicio,
     fin: input.fin,
-    dias: input.dias,
+    dias: onlyRealWeekdays(input.dias),
     colacionMin: input.colacionMin ?? DEFAULT_COLACION_MIN,
     regimen,
     ciclo:

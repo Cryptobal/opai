@@ -4,7 +4,7 @@ import { createCrmHistoryLog } from "@/lib/crm-history";
 import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-cost";
 import { buildCpqStyleEmployerCostInput } from "@/lib/cpq/cpq-employer-cost-input";
 import { refreshQuoteTotals } from "@/modules/cpq/costing/compute-quote-costs";
-import { normalizeWeekdays } from "@/lib/cpq/weekdays";
+import { normalizeWeekdays, onlyRealWeekdays } from "@/lib/cpq/weekdays";
 
 export type InsertPositionBody = {
   puestoTrabajoId: string;
@@ -38,7 +38,7 @@ export async function insertQuotePosition(opts: {
   const body = opts.body;
 
   const normalizedWeekdays = normalizeWeekdays(body.weekdays);
-  if (!body.puestoTrabajoId || normalizedWeekdays.length === 0) {
+  if (!body.puestoTrabajoId || onlyRealWeekdays(normalizedWeekdays).length === 0) {
     throw new Error("VALIDATION_FIELDS");
   }
   if (
@@ -167,7 +167,7 @@ export async function patchQuotePosition(opts: {
 
   if (updateData.weekdays !== undefined) {
     const normalized = normalizeWeekdays(updateData.weekdays as string[]);
-    if (normalized.length === 0) throw new Error("WEEKDAYS_INVALID");
+    if (onlyRealWeekdays(normalized).length === 0) throw new Error("WEEKDAYS_INVALID");
     updateData.weekdays = normalized;
   }
 

@@ -10,7 +10,7 @@ import { makeServiceGroupKey } from "@/lib/crm/lead-service-group";
 import { normalizeWeekdays } from "@/lib/cpq/weekdays";
 import { resolveSalaryFromRole, resolveTemplateRowCatalog } from "@/lib/cpq/resolve-cpq-role-from-shift-pattern";
 import type { LeadCpqConfig, LeadPositionItem } from "@/components/crm/LeadInstallationCpq";
-import { isNightShift } from "./shift-utils";
+import { defaultDiasForRol, isNightShift } from "./shift-utils";
 import type {
   CpqCatalogOption,
   NormalizedGroup,
@@ -122,6 +122,10 @@ export function usePositionMatrixLead(opts: Opts): PositionMatrixAdapter {
           rolId: defaults.rolId,
           baseSalary: resolveSalaryFromRole(defaults.rolId, cpqRoles, seed?.bruto ?? 550000),
         };
+    const dias =
+      seed?.dias ??
+      defaultDiasForRol(cpqRoles.find((r) => r.id === rolId)?.name) ??
+      DEFAULT_DIAS;
     return {
       puestoTrabajoId: defaults.puestoTrabajoId,
       puesto: defaults.puesto,
@@ -133,7 +137,7 @@ export function usePositionMatrixLead(opts: Opts): PositionMatrixAdapter {
       numPuestos: seed?.nPuestos ?? 1,
       horaInicio: inicio,
       horaFin: seed?.fin ?? "20:00",
-      dias: seed?.dias ?? DEFAULT_DIAS,
+      dias,
       ...(group
         ? {
             serviceGroupKey: group.key,
@@ -205,6 +209,25 @@ export function usePositionMatrixLead(opts: Opts): PositionMatrixAdapter {
       const seeds = templateRows?.length ? templateRows : [undefined];
       const newItems = seeds.map((seed) => buildRow(seed, group));
       update({ positions: [...positions, ...newItems] });
+    },
+    onReorderRows: (groupKey, orderedIds) => {
+      const idSet = new Set(orderedIds);
+      const byId = new Map(positions.map((p, i) => [String(i), { p, i }] as const));
+      const reordered = orderedIds
+        .map((id) => byId.get(id)?.p)
+        .filter((p): p is LeadPositionItem => Boolean(p));
+      const next: LeadPositionItem[] = [];
+      let ri = 0;
+      for (let i = 0; i < positions.length; i++) {
+        const p = positions[i];
+        const key = p.serviceGroupKey ?? null;
+        if (key === groupKey && idSet.has(String(i))) {
+          next.push(reordered[ri++]);
+        } else {
+          next.push(p);
+        }
+      }
+      update({ positions: next });
     },
   };
 }
