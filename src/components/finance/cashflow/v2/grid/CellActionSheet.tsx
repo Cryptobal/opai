@@ -2,13 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  Pencil,
-  EyeOff,
-  FileText,
-  Move,
-  Loader2,
-} from "lucide-react";
+import { Pencil, EyeOff, FileText, Loader2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -23,6 +17,7 @@ import type { PillVariant } from "@/components/finance/cashflow/CellStatusPill";
 import { fmt } from "@/components/finance/cashflow/MatrixHelpers";
 import { hideFromFlowViaApi, type HideInput } from "./cashflow-hide";
 import type { HideUndoPayload } from "./CellFlowActions";
+import type { WeekTarget } from "./CellContextMenu";
 import { CellHistory } from "./CellHistory";
 import { GestionGlyphs } from "./GestionGlyphs";
 import type {
@@ -60,13 +55,21 @@ interface Props {
   /** Gestión de cobro (proforma/EP/OC) de la celda — bloque informativo. */
   gestion?: CellGestionSummary | null;
   emiteProforma?: boolean;
+  /** Semanas abiertas destino para "Mover a" (excluye la actual). */
+  openWeeks?: WeekTarget[];
+  currentBucketKey?: string;
+  /** Mueve la cuota a otra semana — MISMA vía que el menú contextual
+   *  (onContextMove → useGridMove, con conflicto y undo). */
+  onMoveTo?: (bucketKey: string) => void;
+  /** Habilita "Mover a" (misma condición que el drag: canDrag). */
+  canMove?: boolean;
 }
 
 /**
  * Sheet de acciones al tocar una celda con movimiento. Centraliza en un solo
  * lugar lo que antes estaba disperso (doble-clic para editar, ojo al hover para
- * ocultar): ver detalle, editar monto, ocultar del flujo y ver la factura. El
- * mover sigue siendo por arrastre (se indica como hint).
+ * ocultar): ver detalle, editar monto, mover a otra semana en un toque
+ * (paridad móvil con el menú contextual), ocultar del flujo y ver la factura.
  */
 export function CellActionSheet({
   open,
@@ -90,6 +93,9 @@ export function CellActionSheet({
   bucketStart,
   gestion,
   emiteProforma = false,
+  openWeeks = [],
+  onMoveTo,
+  canMove = false,
 }: Props) {
   const [confirmingHide, setConfirmingHide] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -217,10 +223,34 @@ export function CellActionSheet({
               </Button>
             ))}
 
-          <div className="flex items-center gap-2 px-1 pt-1 text-[12px] text-ds-text-3">
-            <Move className="h-3.5 w-3.5 shrink-0" />
-            Para mover a otra semana, arrastrá el monto en la planilla.
-          </div>
+          {canMove && onMoveTo && (
+            <div className="border-t border-ds-border-subtle pt-3">
+              <p className="mb-2 px-1 text-[12px] font-medium text-ds-text-3">
+                Mover a
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <span
+                  className="inline-flex min-h-[38px] items-center rounded-ds-sm border border-ds-border-subtle px-3 font-mono text-[12px] text-ds-text-4 opacity-60"
+                  aria-disabled="true"
+                >
+                  {weekLabel} · aquí
+                </span>
+                {openWeeks.map((w) => (
+                  <button
+                    key={w.key}
+                    type="button"
+                    onClick={() => {
+                      onOpenChange(false);
+                      onMoveTo(w.key);
+                    }}
+                    className="inline-flex min-h-[38px] items-center rounded-ds-sm border border-ds-border-default px-3 font-mono text-[12px] text-ds-text-1 transition-colors hover:border-primary focus-visible:border-primary"
+                  >
+                    {w.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </SheetContent>
     </Sheet>

@@ -407,6 +407,10 @@ export function GridCell({
           bucketStart={bucketStart}
           gestion={value.gestion}
           emiteProforma={emiteProforma}
+          openWeeks={openWeeks}
+          currentBucketKey={bucketKey}
+          onMoveTo={(k) => onContextMove?.(k)}
+          canMove={!!canDrag}
         />
       )}
       {advanced && actual !== null && (
