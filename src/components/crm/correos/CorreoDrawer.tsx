@@ -1,24 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useState, type MouseEvent } from "react";
-import { ExternalLink, Paperclip } from "lucide-react";
+import { CheckCircle2, ExternalLink, Sparkles } from "lucide-react";
 import { Surface, Tag, Spinner } from "@/components/opai-ds";
 import { AsociarCuenta } from "./AsociarCuenta";
 import { CorreoMessages } from "./CorreoMessages";
+import { CorreoAttachments } from "./CorreoAttachments";
+import { LeadFromEmailPanel } from "./LeadFromEmailPanel";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
-
-function fmtSize(bytes: number): string {
-  if (bytes <= 0) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
 
 type Props = { threadId: string | null; onClose: () => void; onChanged?: () => void };
 
 export function CorreoDrawer({ threadId, onClose, onChanged }: Props) {
   const [detail, setDetail] = useState<CorreoDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!threadId) return;
@@ -33,6 +29,7 @@ export function CorreoDrawer({ threadId, onClose, onChanged }: Props) {
 
   useEffect(() => {
     setDetail(null);
+    setAiOpen(false);
     void load();
   }, [load]);
 
@@ -106,25 +103,32 @@ export function CorreoDrawer({ threadId, onClose, onChanged }: Props) {
               </div>
             </div>
 
-            {detail.attachments.length > 0 && (
-              <div className="space-y-1.5">
-                <p className="text-[12px] font-medium text-ds-text-3">
-                  Adjuntos ({detail.attachments.length})
-                </p>
-                <ul className="space-y-1">
-                  {detail.attachments.map((a) => (
-                    <li
-                      key={`${a.messageId}-${a.attachmentId}`}
-                      className="flex items-center gap-2 rounded-lg border border-ds-border-subtle bg-ds-surface-1 px-2.5 py-1.5 text-[13px] text-ds-text-2"
-                    >
-                      <Paperclip className="h-3.5 w-3.5 shrink-0 text-ds-text-4" />
-                      <span className="min-w-0 flex-1 truncate">{a.filename}</span>
-                      <span className="shrink-0 text-[12px] text-ds-text-4">{fmtSize(a.size)}</span>
-                    </li>
-                  ))}
-                </ul>
+            {detail.thread.leadId ? (
+              <div className="flex items-center gap-2 rounded-xl border border-status-ok-border bg-status-ok-soft p-2.5 text-[13px] text-status-ok-fg">
+                <CheckCircle2 className="h-4 w-4" /> Lead creado desde este correo.
               </div>
+            ) : aiOpen ? (
+              <LeadFromEmailPanel
+                threadId={detail.thread.id}
+                hasAccount={Boolean(detail.thread.accountId)}
+                onClose={() => setAiOpen(false)}
+                onCreated={() => {
+                  setAiOpen(false);
+                  void load();
+                  onChanged?.();
+                }}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAiOpen(true)}
+                className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-primary text-[13px] font-medium text-primary-foreground ds-tap"
+              >
+                <Sparkles className="h-4 w-4" /> Crear lead con IA
+              </button>
             )}
+
+            <CorreoAttachments items={detail.attachments} />
 
             <CorreoMessages messages={detail.messages} />
           </>
