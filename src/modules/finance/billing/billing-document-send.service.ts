@@ -20,6 +20,7 @@ import { createElement } from "react";
 import { BillingDocumentEmail } from "@/emails/BillingDocumentEmail";
 import { ensureClientActionToken } from "@/modules/finance/billing/cobro-confirmation.service";
 import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
+import { enqueueBillingPdfToDrive } from "@/lib/google-workspace/drive-enqueue-hooks";
 
 export type BillingDocVariant = "PROFORMA" | "ESTADO_DE_PAGO";
 
@@ -541,6 +542,16 @@ export async function sendBillingDocument(
       resendId: result.resendId,
       status: "sent",
       sentBy: input.triggeredBy,
+    });
+
+    // Espejo Drive (best-effort; no bloquea el envío).
+    void enqueueBillingPdfToDrive({
+      tenantId,
+      dteId: input.dteId,
+      pdfBuffer: Buffer.from(pdfBuffer),
+      fileName: filename,
+      accountName: account?.name ?? dte.receiverName,
+      installationName: null,
     });
 
     return {

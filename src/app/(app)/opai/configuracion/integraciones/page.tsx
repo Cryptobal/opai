@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plug, Slack, ChevronRight, Server } from "lucide-react";
+import { Plug, Slack, ChevronRight, Server, HardDrive } from "lucide-react";
 
 export default async function IntegracionesPage() {
   const session = await auth();
@@ -22,7 +22,7 @@ export default async function IntegracionesPage() {
 
   const tenantId = session.user.tenantId;
   const isAdmin = ["owner", "admin"].includes(session.user.role ?? "");
-  const [gmailAccount, slackWorkspace, mcpKeyCount] = await Promise.all([
+  const [gmailAccount, slackWorkspace, driveWorkspace, mcpKeyCount] = await Promise.all([
     prisma.crmEmailAccount.findFirst({
       where: {
         tenantId,
@@ -32,9 +32,11 @@ export default async function IntegracionesPage() {
       },
     }),
     prisma.slackWorkspace.findUnique({ where: { tenantId }, select: { status: true } }),
+    prisma.googleDriveWorkspace.findUnique({ where: { tenantId }, select: { status: true } }),
     prisma.mcpApiKey.count({ where: { tenantId, revokedAt: null } }),
   ]);
   const slackConnected = slackWorkspace?.status === "ACTIVE";
+  const driveConnected = driveWorkspace?.status === "ACTIVE";
   const mcpConnected = mcpKeyCount > 0;
 
   return (
@@ -45,6 +47,28 @@ export default async function IntegracionesPage() {
     >
       <div className="space-y-4">
         <IntegrationsGmailClient connected={Boolean(gmailAccount)} />
+
+        <Link href="/opai/configuracion/integraciones/google-drive" className="block">
+          <Card className="transition-colors hover:bg-muted/40">
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary ring-1 ring-primary/20">
+                  <HardDrive className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <CardTitle>Google Drive</CardTitle>
+                  <CardDescription>Espejo documental de facturas y cotizaciones a Drive.</CardDescription>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Badge variant={driveConnected ? "success" : "secondary"}>
+                  {driveConnected ? "Conectado" : "Sin conectar"}
+                </Badge>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </CardHeader>
+          </Card>
+        </Link>
 
         <Link href="/opai/configuracion/integraciones/slack" className="block">
           <Card className="transition-colors hover:bg-muted/40">
