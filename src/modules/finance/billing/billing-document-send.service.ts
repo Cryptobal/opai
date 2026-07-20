@@ -49,6 +49,12 @@ export interface SendBillingDocumentInput {
    *   - false → MANUAL_PROFORMA / MANUAL_ESTADO_PAGO (default)
    */
   isAutoFromCron?: boolean;
+  /**
+   * Si viene, el envío es un RECORDATORIO de confirmación (cron cobro-reminders):
+   * cambia subject (prefijo "Recordatorio · ") + intro + kind transaccional.
+   * `index` = número de recordatorio (1..3). Mantiene CTA y adjunta el PDF.
+   */
+  reminder?: { index: number };
 }
 
 export interface SendBillingDocumentResult {
@@ -359,7 +365,8 @@ export async function sendBillingDocument(
     (input.variant === "PROFORMA"
       ? tenantConfig?.proformaEmailSubject || DEFAULT_PROFORMA_SUBJECT
       : tenantConfig?.estadoPagoEmailSubject || DEFAULT_ESTADO_PAGO_SUBJECT);
-  const subject = renderTemplate(subjectTemplate, tokenVars);
+  const baseSubject = renderTemplate(subjectTemplate, tokenVars);
+  const subject = input.reminder ? `Recordatorio · ${baseSubject}` : baseSubject;
 
   // Intro HTML.
   const rawIntro = input.customIntroHtml ?? null;
@@ -367,11 +374,20 @@ export async function sendBillingDocument(
     input.variant === "PROFORMA"
       ? tenantConfig?.proformaEmailIntro
       : tenantConfig?.estadoPagoEmailIntro;
+  const reminderIntro = input.reminder
+    ? `<p>Estimado/a <strong>${
+        billingProps.receptor.contactName ?? dte.receiverName
+      }</strong>,</p><p>Aún no recibimos la confirmación de esta ${
+        input.variant === "PROFORMA" ? "proforma" : "estado de pago"
+      }. Toma un minuto — y si ya tienes el N° de OC, puedes dejarlo en el mismo paso.</p>`
+    : null;
   const introHtml = rawIntro
     ? rawIntro
-    : tenantIntro
-      ? renderTemplate(tenantIntro, tokenVars).replace(/\n/g, "<br/>")
-      : null;
+    : reminderIntro
+      ? reminderIntro
+      : tenantIntro
+        ? renderTemplate(tenantIntro, tokenVars).replace(/\n/g, "<br/>")
+        : null;
 
   // Render email HTML.
   const emailEl = createElement(BillingDocumentEmail, {
@@ -435,8 +451,14 @@ export async function sendBillingDocument(
   const { successKind, failKind } = variantToKinds(input.variant);
 
   // Kind del catálogo transaccional — determina toggles + routing por módulo.
-  const transactionalKind =
-    input.variant === "PROFORMA" ? "dte_proforma_sent" : "dte_payment_statement_sent";
+  // Los recordatorios usan su propio kind (toggle independiente del envío).
+  const transactionalKind = input.reminder
+    ? input.variant === "PROFORMA"
+      ? "dte_proforma_reminder"
+      : "dte_payment_statement_reminder"
+    : input.variant === "PROFORMA"
+      ? "dte_proforma_sent"
+      : "dte_payment_statement_sent";
 
   try {
     const result = await sendTenantEmail({
