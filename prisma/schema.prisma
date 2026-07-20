@@ -2212,6 +2212,7 @@ model CrmAccount {
   opsRefuerzoSolicitudes OpsRefuerzoSolicitud[]
   encuestasCliente       OpsEncuestaCliente[]
   visitasTecnicas        OpsVisitaTecnica[]
+  agendaVisitas          AgendaVisita[]
   portalEjecutivo        Admin?                      @relation("PortalEjecutivo", fields: [portalEjecutivoId], references: [id])
   representantesLegales  AccountRepresentanteLegal[]
   personeria             AccountPersoneria?
@@ -2348,6 +2349,7 @@ model CrmInstallation {
   encuestasCliente                    OpsEncuestaCliente[]
   chatChannels                        ChatChannel[]
   visitasTecnicas                     OpsVisitaTecnica[]
+  agendaVisitas                       AgendaVisita[]
   accessControlConfig                 AccessControlConfig?
   accessControlRecordTypes            AccessControlRecordType[]
   accessControlLists                  AccessControlList[]
@@ -2513,6 +2515,8 @@ model CrmDeal {
   driveFolderLink     String?   @map("drive_folder_link")
   installationName    String?   @map("installation_name")
   technicalVisitDate  DateTime? @map("technical_visit_date") @db.Date
+  isLicitacion        Boolean   @default(false) @map("is_licitacion")
+  fechaEntrega        DateTime? @map("fecha_entrega") @db.Date
   service             String?
   street              String?
   address             String?
@@ -2535,6 +2539,7 @@ model CrmDeal {
   followUpLogs           CrmFollowUpLog[]
   dealContacts           CrmDealContact[]
   visitasTecnicas        OpsVisitaTecnica[]
+  agendaVisitas          AgendaVisita[]
   activatedInstallations CrmInstallation[]     @relation("crm_installation_activated_by_deal")
 
   @@index([tenantId], map: "idx_crm_deals_tenant")
@@ -2542,6 +2547,7 @@ model CrmDeal {
   @@index([stageId], map: "idx_crm_deals_stage")
   @@index([accountId], map: "idx_crm_deals_account")
   @@index([createdAt(sort: Desc)], map: "idx_crm_deals_created_desc")
+  @@index([tenantId, isLicitacion, fechaEntrega], map: "idx_crm_deals_licitacion")
   @@map("deals")
   @@schema("crm")
 }
@@ -2677,9 +2683,10 @@ model CrmEmailMessage {
   bounceType     String?   @map("bounce_type")
 
   // ── References ──
-  signatureId   String? @map("signature_id") @db.Uuid
-  followUpLogId String? @map("followup_log_id") @db.Uuid
-  source        String  @default("manual") // manual, followup, gmail
+  signatureId    String? @map("signature_id") @db.Uuid
+  followUpLogId  String? @map("followup_log_id") @db.Uuid
+  emailAccountId String? @map("email_account_id") @db.Uuid
+  source         String  @default("manual") // manual, followup, gmail
 
   thread CrmEmailThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
@@ -2688,6 +2695,7 @@ model CrmEmailMessage {
   @@index([sentAt], map: "idx_crm_email_messages_sent")
   @@index([resendId], map: "idx_crm_email_messages_resend")
   @@index([followUpLogId], map: "idx_crm_email_messages_followup")
+  @@index([emailAccountId], map: "idx_crm_email_messages_account")
   @@map("email_messages")
   @@schema("crm")
 }
@@ -11579,5 +11587,139 @@ model McpApiKey {
   @@index([tenantId, revokedAt], map: "idx_mcp_api_keys_tenant_revoked")
   @@index([keyHash], map: "idx_mcp_api_keys_hash")
   @@map("mcp_api_keys")
+  @@schema("public")
+}
+
+/// Conexión Google Drive a nivel tenant (cuenta corporativa). Scope drive.file.
+model GoogleDriveWorkspace {
+  id              String    @id @default(cuid())
+  tenantId        String    @unique @map("tenant_id")
+  googleEmail     String    @map("google_email")
+  accessTokenEnc  String    @map("access_token_enc") @db.Text
+  refreshTokenEnc String    @map("refresh_token_enc") @db.Text
+  tokenExpiresAt  DateTime? @map("token_expires_at")
+  rootFolderId    String?   @map("root_folder_id")
+  mirrorConfig    Json      @default("{}") @map("mirror_config")
+  status          String    @default("ACTIVE") // ACTIVE | REVOKED
+  connectedBy     String    @map("connected_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("google_drive_workspaces")
+  @@schema("public")
+}
+
+/// Cache de carpetas Drive por path normalizado (evita listar en cada upload).
+model DriveFolderCache {
+  id            String   @id @default(cuid())
+  tenantId      String   @map("tenant_id")
+  pathKey       String   @map("path_key")
+  driveFolderId String   @map("drive_folder_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@unique([tenantId, pathKey], map: "uq_drive_folder_cache_tenant_path")
+  @@index([tenantId], map: "idx_drive_folder_cache_tenant")
+  @@map("drive_folder_cache")
+  @@schema("public")
+}
+
+/// Outbox espejo documental OPAI → Google Drive (reintentos vía cron).
+model DriveExportOutbox {
+  id         String    @id @default(cuid())
+  tenantId   String    @map("tenant_id")
+  docType    String    @map("doc_type") // cotizacion|factura|estado_pago|liquidacion|informe_supervision|licitacion
+  sourceType String    @map("source_type")
+  sourceId   String    @map("source_id")
+  r2Key      String?   @map("r2_key")
+  fileName   String    @map("file_name")
+  targetPath String    @map("target_path")
+  driveFileId String?  @map("drive_file_id")
+  status     String    @default("PENDING") // PENDING|SENT|ERROR
+  attempts   Int       @default(0)
+  lastError  String?   @map("last_error") @db.Text
+  createdAt  DateTime  @default(now()) @map("created_at")
+  sentAt     DateTime? @map("sent_at")
+
+  @@index([tenantId, status], map: "idx_drive_export_outbox_tenant_status")
+  @@map("drive_export_outbox")
+  @@schema("public")
+}
+
+/// Conexión Google Calendar por usuario (eventos de visitas/licitaciones).
+model GoogleCalendarAccount {
+  id              String    @id @default(cuid())
+  tenantId        String    @map("tenant_id")
+  userId          String    @map("user_id")
+  googleEmail     String    @map("google_email")
+  accessTokenEnc  String    @map("access_token_enc") @db.Text
+  refreshTokenEnc String    @map("refresh_token_enc") @db.Text
+  tokenExpiresAt  DateTime? @map("token_expires_at")
+  calendarId      String    @default("primary") @map("calendar_id")
+  prefs           Json      @default("{}")
+  status          String    @default("ACTIVE") // ACTIVE | REVOKED
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  eventLinks AgendaEventLink[]
+
+  @@unique([tenantId, userId], map: "uq_google_calendar_account_tenant_user")
+  @@index([tenantId], map: "idx_google_calendar_account_tenant")
+  @@map("google_calendar_accounts")
+  @@schema("public")
+}
+
+/// Visitas a cliente / supervisión programada / otra (no técnicas ni OpsVisitaSupervision).
+model AgendaVisita {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String    @map("tenant_id")
+  type           String // cliente|supervision|otra
+  title          String
+  accountId      String?   @map("account_id") @db.Uuid
+  installationId String?   @map("installation_id") @db.Uuid
+  dealId         String?   @map("deal_id") @db.Uuid
+  assignedUserId String    @map("assigned_user_id")
+  startAt        DateTime  @map("start_at") @db.Timestamptz(6)
+  endAt          DateTime  @map("end_at") @db.Timestamptz(6)
+  notes          String?   @db.Text
+  contactIds     Json?     @map("contact_ids")
+  status         String    @default("programada") // programada|completada|cancelada|reprogramada
+  resultNote     String?   @map("result_note") @db.Text
+  createdBy      String    @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account      CrmAccount?      @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  installation CrmInstallation? @relation(fields: [installationId], references: [id], onDelete: SetNull)
+  deal         CrmDeal?         @relation(fields: [dealId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, startAt], map: "idx_agenda_visitas_tenant_start")
+  @@index([tenantId, assignedUserId], map: "idx_agenda_visitas_tenant_assigned")
+  @@index([dealId], map: "idx_agenda_visitas_deal")
+  @@map("agenda_visitas")
+  @@schema("public")
+}
+
+/// Vínculo OPAI ↔ evento Google Calendar (visitas agenda, técnicas, licitaciones).
+model AgendaEventLink {
+  id                String    @id @default(cuid())
+  tenantId          String    @map("tenant_id")
+  sourceType        String    @map("source_type") // agenda_visita|visita_tecnica|licitacion
+  sourceId          String    @map("source_id")
+  calendarAccountId String?   @map("calendar_account_id")
+  googleEventId     String?   @map("google_event_id")
+  googleCalendarId  String?   @map("google_calendar_id")
+  allDay            Boolean   @default(false) @map("all_day")
+  syncStatus        String    @default("PENDING") // PENDING|SYNCED|ERROR|CANCELLED
+  lastError         String?   @map("last_error") @db.Text
+  lastSyncAt        DateTime? @map("last_sync_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  calendarAccount GoogleCalendarAccount? @relation(fields: [calendarAccountId], references: [id], onDelete: SetNull)
+
+  @@unique([sourceType, sourceId], map: "uq_agenda_event_link_source")
+  @@index([tenantId], map: "idx_agenda_event_link_tenant")
+  @@index([googleEventId], map: "idx_agenda_event_link_google_event")
+  @@map("agenda_event_links")
   @@schema("public")
 }
