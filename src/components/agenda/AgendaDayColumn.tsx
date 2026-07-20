@@ -2,6 +2,7 @@
 
 import { VisitChip } from "./VisitChip";
 import { LicAllDayChip } from "./LicAllDayChip";
+import { GoogleEventChip } from "./GoogleEventChip";
 import type { WeekItem } from "./AgendaWeekStrip";
 
 type Props = {
@@ -29,8 +30,9 @@ export function AgendaDayColumn({
   onLicClick,
 }: Props) {
   const today = startOfDay(new Date()).getTime();
-  const allDay = items.filter((i) => i.allDay);
-  const timed = items.filter((i) => !i.allDay);
+  const google = items.filter((i) => i.source === "google");
+  const allDay = items.filter((i) => i.allDay && i.source !== "google");
+  const timed = items.filter((i) => !i.allDay && i.source !== "google");
 
   return (
     <div
@@ -72,7 +74,16 @@ export function AgendaDayColumn({
             onClick={() => onVisitClick?.(i)}
           />
         ))}
-        {allDay.length === 0 && timed.length === 0 && (
+        {google.map((i) => (
+          <GoogleEventChip
+            key={`google-${i.id}`}
+            title={i.title}
+            start={i.start}
+            allDay={i.allDay}
+            htmlLink={i.htmlLink}
+          />
+        ))}
+        {allDay.length === 0 && timed.length === 0 && google.length === 0 && (
           <p className="text-[12px] text-ds-text-4">—</p>
         )}
       </div>

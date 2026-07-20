@@ -12,6 +12,7 @@ export type WeekItem = {
   syncStatus: string | null;
   dealId?: string | null;
   assignedUserId?: string | null;
+  htmlLink?: string | null;
 };
 
 type Props = {

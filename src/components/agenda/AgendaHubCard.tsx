@@ -5,15 +5,8 @@ import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import { Surface, Tag, Spinner, EmptyState } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
-
-type Item = {
-  id: string;
-  type: string;
-  title: string;
-  start: string;
-  allDay: boolean;
-  syncStatus: string | null;
-};
+import { AgendaHubDays } from "./AgendaHubDays";
+import { type HubAgendaItem as Item, hhmm } from "./agenda-hub-item";
 
 function startOfDay(d: Date) {
   const x = new Date(d);
@@ -79,61 +72,45 @@ export function AgendaHubCard() {
               <p className="text-[13px] text-ds-text-3">Sin visitas hoy</p>
             ) : (
               <ul className="space-y-1">
-                {todayItems.map((i) => (
-                  <li
-                    key={`${i.type}-${i.id}`}
-                    className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-[13px] ${
-                      i.allDay ? "bg-tint-violet/60" : "bg-ds-surface-2"
-                    }`}
-                  >
-                    <span className={`truncate ${i.allDay ? "text-tint-violet-fg" : "text-ds-text-1"}`}>
-                      {i.allDay
-                        ? `Licitación · ${i.title}`
-                        : `${new Date(i.start).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })} · ${i.title}`}
-                    </span>
-                    {!i.allDay && i.syncStatus && (
-                      <Tag variant={i.syncStatus === "SYNCED" ? "ok" : "warn"} size="sm">
-                        {i.syncStatus}
-                      </Tag>
-                    )}
-                  </li>
-                ))}
+                {todayItems.map((i) =>
+                  i.source === "google" ? (
+                    <li key={`google-${i.id}`}>
+                      <a
+                        href={i.htmlLink || undefined}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between gap-2 rounded-lg bg-ds-surface-3 px-2 py-1.5 text-[13px] text-ds-text-2"
+                      >
+                        <span className="truncate">
+                          {i.allDay ? i.title : `${hhmm(i.start)} · ${i.title}`}
+                        </span>
+                        <span className="shrink-0 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
+                          Google
+                        </span>
+                      </a>
+                    </li>
+                  ) : (
+                    <li
+                      key={`${i.type}-${i.id}`}
+                      className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-[13px] ${
+                        i.allDay ? "bg-tint-violet/60" : "bg-ds-surface-2"
+                      }`}
+                    >
+                      <span className={`truncate ${i.allDay ? "text-tint-violet-fg" : "text-ds-text-1"}`}>
+                        {i.allDay ? `Licitación · ${i.title}` : `${hhmm(i.start)} · ${i.title}`}
+                      </span>
+                      {!i.allDay && i.syncStatus && (
+                        <Tag variant={i.syncStatus === "SYNCED" ? "ok" : "warn"} size="sm">
+                          {i.syncStatus}
+                        </Tag>
+                      )}
+                    </li>
+                  ),
+                )}
               </ul>
             )}
           </div>
-          <div className={`grid gap-2 ${expanded ? "grid-cols-2 sm:grid-cols-7" : "grid-cols-3"}`}>
-            {days.slice(1).map((d) => {
-              const dayItems = items.filter((i) => new Date(i.start).toDateString() === d.toDateString());
-              return (
-                <div key={d.toISOString()} className="rounded-xl border border-ds-border-subtle p-2">
-                  <p className="mb-1 text-[12px] font-medium text-ds-text-3">
-                    {d.toLocaleDateString("es-CL", { weekday: "short", day: "numeric" })}
-                  </p>
-                  <ul className="space-y-1">
-                    {dayItems.slice(0, 3).map((i) =>
-                      i.allDay ? (
-                        <li
-                          key={`${i.type}-${i.id}`}
-                          className="truncate rounded-md bg-tint-violet/60 px-1.5 py-0.5 text-[12px] text-tint-violet-fg"
-                          title={`Licitación · ${i.title}`}
-                        >
-                          {i.title}
-                        </li>
-                      ) : (
-                        <li key={`${i.type}-${i.id}`} className="truncate text-[12px] text-ds-text-2">
-                          {new Date(i.start).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })} ·{" "}
-                          {i.title}
-                        </li>
-                      ),
-                    )}
-                    {dayItems.length === 0 && (
-                      <li className="text-[12px] text-ds-text-4">—</li>
-                    )}
-                  </ul>
-                </div>
-              );
-            })}
-          </div>
+          <AgendaHubDays items={items} days={days} expanded={expanded} />
         </div>
       )}
     </Surface>

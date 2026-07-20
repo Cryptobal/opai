@@ -9,7 +9,7 @@ type Props = {
 
 export function VisitList({ items, onSelect }: Props) {
   const upcoming = items
-    .filter((i) => !i.allDay && new Date(i.start) >= new Date())
+    .filter((i) => i.source !== "google" && !i.allDay && new Date(i.start) >= new Date())
     .slice(0, 12);
 
   if (upcoming.length === 0) {

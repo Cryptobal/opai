@@ -1,11 +1,12 @@
-export type AgendaItemSource = "agenda_visita" | "visita_tecnica" | "licitacion";
+export type AgendaItemSource = "agenda_visita" | "visita_tecnica" | "licitacion" | "google";
 
 export type AgendaItemType =
   | "cliente"
   | "supervision"
   | "otra"
   | "tecnica"
-  | "licitacion";
+  | "licitacion"
+  | "google";
 
 export type AgendaListItem = {
   id: string;
@@ -23,6 +24,8 @@ export type AgendaListItem = {
   syncStatus: string | null;
   dealId: string | null;
   status: string;
+  /** Sólo eventos Google: URL del evento en Google Calendar (abre en pestaña nueva). */
+  htmlLink?: string | null;
 };
 
 export type LicitacionListItem = {
