@@ -71,7 +71,14 @@ import {
 import { toast } from "sonner";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
-import { HOURS_24, WEEKDAY_ORDER, isNightShift, analizarTurno } from "./shift-utils";
+import { HOLIDAY_DAY, onlyRealWeekdays } from "@/lib/cpq/weekdays";
+import {
+  HOURS_24,
+  WEEKDAY_ORDER,
+  isNightShift,
+  analizarTurno,
+  defaultDiasForRol,
+} from "./shift-utils";
 import { JornadaHoursChip } from "./JornadaHoursChip";
 import { resolveServiceColor, SERVICE_COLOR_PALETTE } from "./service-colors";
 import { CatalogPicker } from "./CatalogPicker";
@@ -751,6 +758,12 @@ function GridRow({
     if (patch.rolId !== undefined) {
       const rolSalary = catalogs.roles.find((r) => r.id === next.rolId)?.salary;
       if (rolSalary != null && rolSalary > 0) next = { ...next, bruto: rolSalary };
+      const rolName = catalogs.roles.find((r) => r.id === next.rolId)?.name;
+      const defDias = defaultDiasForRol(rolName);
+      if (defDias) {
+        const keepF = ref.current.dias.includes(HOLIDAY_DAY);
+        next = { ...next, dias: keepF ? [...defDias, HOLIDAY_DAY] : defDias };
+      }
     }
     setDraft(next);
     lastSig.current = JSON.stringify(next);
@@ -760,7 +773,7 @@ function GridRow({
   const toggleDay = (d: string) => {
     const has = ref.current.dias.includes(d);
     const next = has ? ref.current.dias.filter((x) => x !== d) : [...ref.current.dias, d];
-    if (!next.length) return;
+    if (onlyRealWeekdays(next).length === 0) return;
     apply({ dias: next });
   };
 
@@ -836,9 +849,13 @@ function GridRow({
 
       {/* Días */}
       <td className="border-r border-border px-2 py-1">
-        <div className="flex flex-wrap gap-0.5">
-          {WEEKDAY_ORDER.map((d) => {
+        <div className="flex flex-wrap items-center gap-0.5">
+          {WEEKDAY_ORDER.map((d, idx) => {
             const on = draft.dias.includes(d);
+            const activeCls =
+              idx < 5
+                ? "border-primary/40 bg-primary/15 text-primary"
+                : "border-tint-violet-fg/30 bg-tint-violet text-tint-violet-fg";
             return (
               <button
                 key={d}
@@ -847,7 +864,7 @@ function GridRow({
                 onClick={() => toggleDay(d)}
                 className={cn(
                   "h-7 w-6 rounded border text-[12px] font-semibold transition-colors",
-                  on ? "border-primary/40 bg-primary/15 text-primary" : "border-border bg-card text-muted-foreground hover:bg-muted/40"
+                  on ? activeCls : "border-border bg-card text-muted-foreground hover:bg-muted/40",
                 )}
                 title={d}
               >
@@ -855,6 +872,26 @@ function GridRow({
               </button>
             );
           })}
+          <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
+          {(() => {
+            const on = draft.dias.includes(HOLIDAY_DAY);
+            return (
+              <button
+                type="button"
+                disabled={disabled}
+                title="Cubre festivos"
+                onClick={() => toggleDay(HOLIDAY_DAY)}
+                className={cn(
+                  "h-7 w-6 rounded border text-[12px] font-semibold transition-colors",
+                  on
+                    ? "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
+                    : "border-dashed border-border bg-card text-muted-foreground hover:bg-muted/40",
+                )}
+              >
+                F
+              </button>
+            );
+          })()}
         </div>
       </td>
 
@@ -892,12 +929,12 @@ function GridRow({
       {/* Acciones (borde derecho con el color del servicio para cerrar la fila) */}
       <td className="px-1 py-1" style={{ borderRight: `4px solid ${color}` }}>
         <div className="flex items-center justify-end gap-0.5">
-          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+          {saving && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />}
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className={cn("h-7 w-7", observationsOpen && "bg-primary/10 text-primary")}
+            className={cn("h-7 w-7 shrink-0", observationsOpen && "bg-primary/10 text-primary")}
             onClick={onToggleObservations}
             aria-expanded={observationsOpen}
             aria-label={observationsOpen ? "Ocultar observaciones" : "Observaciones del turno"}
@@ -915,10 +952,10 @@ function GridRow({
           </Button>
           {!readOnly && (
             <>
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => adapter.onCloneRow(row.id)} title="Duplicar turno">
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => adapter.onCloneRow(row.id)} title="Duplicar turno">
                 <Copy className="h-3.5 w-3.5" />
               </Button>
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={onRequestDelete} title="Eliminar turno">
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-destructive" onClick={onRequestDelete} title="Eliminar turno">
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </>
