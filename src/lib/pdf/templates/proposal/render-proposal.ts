@@ -1183,7 +1183,12 @@ export async function renderProposalToBufferFromProps(
       ...items.map((item, i) =>
         e(View, { key: i, style: s.tblRow },
           e(Text, { style: [s.tblCell, { flex: 0.5, textAlign: 'center' as const }] }, String(item.index)),
-          e(Text, { style: [s.tblCell, { flex: 3 }] }, item.description),
+          e(View, { style: { flex: 3 } },
+            e(Text, { style: s.tblCell }, item.description),
+            item.specifications
+              ? e(Text, { style: { fontSize: 6.5, color: C.textLight, marginTop: 1.5, paddingLeft: 4, borderLeftWidth: 1.5, borderLeftColor: C.teal, lineHeight: 1.35 } }, item.specifications)
+              : null,
+          ),
           e(Text, { style: [s.tblCell, { flex: 0.8, textAlign: 'center' as const }] }, String(item.quantity)),
           e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, item.subtotalFormatted),
         ),
@@ -1207,7 +1212,12 @@ export async function renderProposalToBufferFromProps(
               ...oneTimeItems.map((item, i) =>
                 e(View, { key: i, style: s.tblRow },
                   e(Text, { style: [s.tblCell, { flex: 0.5, textAlign: 'center' as const }] }, String(item.index)),
-                  e(Text, { style: [s.tblCell, { flex: 3 }] }, item.description),
+                  e(View, { style: { flex: 3 } },
+                    e(Text, { style: s.tblCell }, item.description),
+                    item.specifications
+                      ? e(Text, { style: { fontSize: 6.5, color: C.textLight, marginTop: 1.5, paddingLeft: 4, borderLeftWidth: 1.5, borderLeftColor: C.teal, lineHeight: 1.35 } }, item.specifications)
+                      : null,
+                  ),
                   e(Text, { style: [s.tblCell, { flex: 0.8, textAlign: 'center' as const }] }, String(item.quantity)),
                   e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, item.subtotalFormatted),
                 ),
