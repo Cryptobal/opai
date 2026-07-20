@@ -16,15 +16,21 @@ export async function GET(req: NextRequest) {
     take: 50,
   });
 
+  // Deadline compartido entre casillas para no exceder maxDuration (60s).
+  const deadlineMs = Date.now() + 50_000;
   let ok = 0;
   let failed = 0;
+  let synced = 0;
   for (const acc of accounts) {
+    if (Date.now() >= deadlineMs) break;
     try {
-      await syncGmailAccount({
+      const r = await syncGmailAccount({
         tenantId: acc.tenantId,
         emailAccountId: acc.id,
-        maxResults: 30,
+        maxResults: 300,
+        deadlineMs,
       });
+      synced += r.syncedCount;
       ok++;
     } catch (err) {
       failed++;
@@ -32,5 +38,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, syncedAccounts: ok, failed });
+  return NextResponse.json({ ok: true, syncedAccounts: ok, failed, synced });
 }
