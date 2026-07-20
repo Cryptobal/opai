@@ -1,15 +1,26 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X, ArrowRight, Command } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  searchConfig,
+  searchConfigSettings,
   type ConfigSearchResult,
 } from "@/lib/configuracion/search-index";
+import type { CategoryGroup } from "@/components/opai-ds";
 
-export function ConfigSearch() {
+function normalize(str: string): string {
+  return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+interface ConfigSearchProps {
+  /** Grupos de configuración (del registry, vía useConfigCategories). Fuente
+   *  única de las SECCIONES buscables. */
+  groups: CategoryGroup[];
+}
+
+export function ConfigSearch({ groups }: ConfigSearchProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ConfigSearchResult[]>([]);
@@ -18,11 +29,41 @@ export function ConfigSearch() {
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Secciones buscables derivadas del registry (una sola taxonomía).
+  const sectionIndex = useMemo(
+    () =>
+      groups.flatMap((g) =>
+        g.items.map((node) => ({
+          searchable: normalize(`${node.label} ${node.description ?? ""}`),
+          result: {
+            type: "section" as const,
+            sectionId: node.key,
+            sectionLabel: node.label,
+            label: node.label,
+            description: node.description,
+            group: g.label,
+            href: node.href,
+          },
+        })),
+      ),
+    [groups],
+  );
+
   useEffect(() => {
-    const r = searchConfig(query);
-    setResults(r);
+    if (!query || query.length < 2) {
+      setResults([]);
+      setSelectedIndex(0);
+      return;
+    }
+    const q = normalize(query);
+    const sectionResults = sectionIndex
+      .filter((s) => s.searchable.includes(q))
+      .map((s) => s.result);
+    // Configuraciones profundas (tab-level) — se mantienen desde el índice.
+    const settingResults = searchConfigSettings(query);
+    setResults([...sectionResults, ...settingResults]);
     setSelectedIndex(0);
-  }, [query]);
+  }, [query, sectionIndex]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {

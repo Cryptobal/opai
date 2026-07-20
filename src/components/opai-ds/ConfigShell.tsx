@@ -43,13 +43,17 @@ import {
 
 const COLLAPSED_KEY = "opai.configShell.collapsed";
 
-interface CategoryGroup {
+export interface CategoryGroup {
   key: string;
   label: string;
   items: NavNode[];
 }
 
-function useConfigCategories(): { groups: CategoryGroup[]; activeItem: NavNode | undefined } {
+/** Hook compartido: grupos de Configuración (por categoría) ya filtrados por
+ *  permisos + tenant + isAdmin, leídos desde el registry. Lo consumen tanto el
+ *  sub-sidebar (ConfigShell) como el home de Configuración (ConfigHomeClient),
+ *  garantizando UNA sola taxonomía. */
+export function useConfigCategories(): { groups: CategoryGroup[]; activeItem: NavNode | undefined } {
   const pathname = usePathname() ?? "/";
   const permissions = usePermissions();
   const { isModuleEnabled } = useTenantModules();

@@ -411,6 +411,14 @@ function normalize(str: string): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+/** Solo las configuraciones profundas (tab-level) del índice. Las SECCIONES
+ *  ahora se derivan del registry (una sola taxonomía), pero las entradas de
+ *  ajuste específico (ej. "Tolerancia de atraso") no viven en el registry, así
+ *  que se siguen sirviendo desde acá para no perder búsqueda profunda. */
+export function searchConfigSettings(query: string): ConfigSearchResult[] {
+  return searchConfig(query).filter((r) => r.type === "setting");
+}
+
 export function searchConfig(query: string): ConfigSearchResult[] {
   if (!query || query.length < 2) return [];
 

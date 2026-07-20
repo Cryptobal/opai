@@ -31,7 +31,6 @@ export { CommandPalette } from './CommandPalette';
 // Page Components
 export { IntegrationsGmailClient } from './IntegrationsGmailClient';
 export { EmailTemplatesClient } from './EmailTemplatesClient';
-export { ConfigBackLink } from './ConfigBackLink';
 export { AiProvidersConfigClient } from './AiProvidersConfigClient';
 export { SectionNav } from './SectionNav';
 export type { SectionNavItem } from './SectionNav';
