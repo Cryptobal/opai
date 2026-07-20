@@ -72,6 +72,7 @@ export function usePositionMatrixLead(opts: Opts): PositionMatrixAdapter {
           liquido: pre ? pre.netSalary : null,
           costoPorGuardia: pre ? pre.employerCostPerGuard : null,
           costo: pre ? pre.employerCostPerGuard * guards : null,
+          description: p.description ?? null,
         };
       }),
     [positions, payrollPreview, catalogDefaults]
@@ -108,6 +109,7 @@ export function usePositionMatrixLead(opts: Opts): PositionMatrixAdapter {
     if (patch.guardias !== undefined) out.cantidad = patch.guardias;
     if (patch.nPuestos !== undefined) out.numPuestos = patch.nPuestos;
     if (patch.bruto !== undefined) out.baseSalary = patch.bruto;
+    if (patch.description !== undefined) out.description = patch.description?.trim() || null;
     return out;
   };
 

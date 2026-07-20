@@ -37,6 +37,8 @@ export interface NormalizedShift {
   costo?: number | null;
   /** costo empresa por guardia */
   costoPorGuardia?: number | null;
+  /** Observaciones del turno (aparecen en PDF, propuesta y portal). */
+  description?: string | null;
 }
 
 export interface NormalizedGroup {
@@ -52,7 +54,17 @@ export interface NormalizedGroup {
 export type ShiftPatch = Partial<
   Pick<
     NormalizedShift,
-    "customName" | "puestoId" | "cargoId" | "rolId" | "inicio" | "fin" | "dias" | "guardias" | "nPuestos" | "bruto"
+    | "customName"
+    | "puestoId"
+    | "cargoId"
+    | "rolId"
+    | "inicio"
+    | "fin"
+    | "dias"
+    | "guardias"
+    | "nPuestos"
+    | "bruto"
+    | "description"
   >
 >;
 
@@ -80,6 +92,8 @@ export interface PositionMatrixAdapter {
   currency: string;
   ufValue?: number | null;
   readOnly?: boolean;
+  /** id de la cotización CPQ (undefined en modo Lead). Habilita acciones server-side como redactar con IA. */
+  quoteId?: string | null;
   /** id de la fila persistiéndose (muestra spinner). Opcional. */
   savingRowId?: string | null;
   /**

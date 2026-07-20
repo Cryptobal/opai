@@ -38,6 +38,8 @@ export interface LeadPositionItem {
   puestoTrabajoId?: string;
   puesto: string;
   customName?: string;
+  /** Observaciones del turno (aparecen en PDF, propuesta y portal). */
+  description?: string | null;
   cargoId?: string;
   rolId?: string;
   baseSalary?: number;
