@@ -398,6 +398,14 @@ export function EmailHistoryList({
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {dealId && msg.thread && msg.thread.dealId !== dealId && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] border-tint-violet-fg/30 text-tint-violet-fg"
+                    >
+                      Correo de la cuenta
+                    </Badge>
+                  )}
                   {msg.source === "followup" && (
                     <Badge
                       variant="outline"

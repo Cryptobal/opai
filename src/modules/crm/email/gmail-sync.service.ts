@@ -3,6 +3,7 @@ import { decryptText } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
 import { extractEmailAddresses, normalizeEmailAddress } from "@/lib/email-address";
 import { extractGmailMessageBodies, type GmailMessagePart } from "@/lib/gmail-message-content";
+import { upsertLinkedThread } from "./thread-linking";
 
 function getHeader(headers: { name?: string | null; value?: string | null }[], name: string) {
   return headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value || "";
@@ -114,17 +115,18 @@ export async function syncGmailAccount(params: {
       continue;
     }
 
-    const thread =
-      (await prisma.crmEmailThread.findFirst({
-        where: { tenantId: params.tenantId, subject },
-      })) ??
-      (await prisma.crmEmailThread.create({
-        data: {
-          tenantId: params.tenantId,
-          subject,
-          lastMessageAt: sentOrReceivedAt,
-        },
-      }));
+    // Vincular el thread a contacto/cuenta/deal por las direcciones de la
+    // contraparte (excluyendo la casilla propia). Backfill conservador.
+    const ownEmail = normalizeEmailAddress(emailAccount.email);
+    const counterpartyEmails = [fromEmail, ...toEmails, ...ccEmails].filter(
+      (e) => e && normalizeEmailAddress(e) !== ownEmail,
+    );
+    const thread = await upsertLinkedThread({
+      tenantId: params.tenantId,
+      subject,
+      lastMessageAt: sentOrReceivedAt,
+      counterpartyEmails,
+    });
 
     await prisma.crmEmailMessage.create({
       data: {
@@ -148,10 +150,6 @@ export async function syncGmailAccount(params: {
       },
     });
     syncedCount += 1;
-    await prisma.crmEmailThread.update({
-      where: { id: thread.id },
-      data: { lastMessageAt: sentOrReceivedAt },
-    });
   }
 
   return { syncedCount, fetched: messages.length };
