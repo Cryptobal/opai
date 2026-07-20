@@ -369,5 +369,85 @@ generate && tsc --noEmit`, exit 0) antes de tocar código.
 
 - `crm.email_accounts.sync_state jsonb` (B3).
 - `crm.email_threads.email_account_id uuid` + `provider_thread_id text` (B3/B6).
-- `crm.email_threads.lead_id uuid` + índice (B7).
+- `crm.email_threads.lead_id uuid` + índice (B7 → adelantado a B6 porque el badge
+  y el filtro de la bandeja lo leen).
 - Migración idempotente para `crm.deals.active_quotation_id` (B8).
+
+---
+
+## QA v3 · resultado — fixes aplicados y checklist de validación
+
+Gate limpio en cada bloque (`prisma generate && tsc --noEmit`, exit 0). Tests
+tocados en verde: nav registry (50) + AI agent-evals/intents (19).
+
+### Migraciones nuevas (todas aditivas — aplicar con el flujo del equipo, no `migrate deploy` desde el agente)
+
+- `20261020000000_gmail_sync_state` — `email_accounts.sync_state`,
+  `email_threads.email_account_id` + `provider_thread_id` + índice.
+- `20261020000100_drive_outbox_mimetype` — `drive_export_outbox.mime_type`.
+- `20261020000200_email_thread_attachment_count` — `email_threads.attachment_count`
+  + `email_threads.lead_id` + índice.
+- `20261020000300_ensure_deal_active_quotation_id` — `deals.active_quotation_id`
+  (idempotente; reemplaza el ensure de runtime).
+
+### Fixes por bloque
+
+- **B1 — Switches DS:** `DriveMirrorToggles` y `CalendarPrefsList` usan el `Switch`
+  del DS (prop `size` nueva: `sm|md|lg`; `md` intacto para el resto de la app).
+  Thumb siempre dentro del track.
+- **B2 — Hub:** eliminado `HubGreeting` (saludo + fecha + el icon-tile verde con
+  `LayoutDashboard` que en móvil se veía como "cuadro verde con cuadraditos").
+  Primer bloque del hub = Acciones rápidas → AgendaHubCard. `RoleSwitcher`
+  ("Propietario") intacto.
+- **B3 — Sync Gmail:** backfill 120d INBOX+SENT paginado (budget/deadline,
+  reanudable) + incremental por `historyId` (fallback a 404). Guarda TODOS los
+  threads con `emailAccountId` + `providerThreadId`; matching a contacto/cuenta/deal
+  como enriquecimiento. `POST /api/crm/gmail/sync`. `rematchThreadsForContact`.
+- **B4 — Agenda Google:** `/api/agenda` mergea `events.list(primary)` del usuario
+  (cache 5 min, dedup por `AgendaEventLink.googleEventId`), chip neutro
+  `GoogleEventChip` → abre en Google. Aparece en semana, día y `AgendaHubCard`.
+  Degradación silenciosa + hint "Reconectar Calendar".
+- **B5 — Espejo Drive total:** toggles `negocios` + `personas`; `enqueueCrmFileToDrive`
+  engancha la subida UI y la tool `attach_staged_file` → `Negocios/{Año}/{Deal}`,
+  `Clientes/{Cuenta}/Personas/{Contacto}`, `.../Documentos`. Worker sube cualquier
+  mime (mime_type).
+- **B6 — Bandeja Correos:** `/crm/correos` (nav bajo Comercial), lista con badges +
+  filtros + buscador + "Sincronizar ahora" + paginación; drawer con cuerpo/adjuntos,
+  "Asociar a cuenta" y "Abrir en Gmail".
+- **B7 — Lead con IA:** `POST /extract` (propuesta) + `POST /create-lead` (crea lead
+  + adjuntos + contacto/negocio licitación + `syncLicitacionToCalendar`, read-after-
+  write); card violeta editable en el drawer; tool `create_lead_from_email`.
+- **B8 — Presión DB:** badge count cacheado 60s/usuario; ensure-column de runtime
+  removido → migración idempotente.
+
+### Checklist de validación (preview / prod — requiere OAuth + DB reales)
+
+- [ ] **Switches:** Drive "Tipos a espejar" y Calendar "Preferencias" con el thumb
+  dentro del track en on/off; foco visible.
+- [ ] **Hub móvil (390px):** sin saludo/fecha ni cuadro verde; primer contenido =
+  Acciones rápidas + AgendaHubCard; selector Propietario sigue en el sheet "Más".
+- [ ] **Correos P&G:** tras 2-3 corridas del cron, el deal P&G muestra el hilo con
+  `martinez.d.2@pg.com` y `get_deal_communications` lo devuelve.
+- [ ] **Agenda Google:** los eventos del Gmail de Carlos aparecen en `/opai/agenda`
+  y el hub deja de decir "no hay agenda". Token revocado → hint "Reconectar Calendar".
+- [ ] **Drive negocios:** adjuntar un archivo a un negocio (chat IA o UI) → aparece en
+  `Negocios/2026/{deal}/` y en "Actividad reciente" de la config.
+- [ ] **Bandeja Correos:** filtros Todos/Con cuenta/Sin asociar/Con adjuntos/Leads,
+  buscador, drawer con adjuntos y "Asociar a cuenta".
+- [ ] **Lead con IA:** correo con PDF de bases → "Crear lead con IA" → extracción
+  editable con % de confianza → confirmar → lead con contacto + adjuntos y (si
+  licitación + cuenta) negocio con fecha en la agenda. Igual desde el chatbot con
+  `create_lead_from_email`.
+
+### A7 · Login Google (acción de consola — Carlos)
+
+`CallbackRouteError` (provider google) para 2 usuarios: falta el redirect
+`/api/auth/callback/google` en el cliente OAuth nuevo de Google Cloud Console.
+No hay corrección de código — verificar/agregar el redirect autorizado.
+
+### 2 acciones de consola pendientes (Carlos)
+
+1. **Neon compute** — subir el compute del proyecto Neon (palanca principal del
+   `out of memory`; el código de B8 sólo baja presión).
+2. **Redirect login Google** — agregar `/api/auth/callback/google` a los Authorized
+   redirect URIs del cliente OAuth (A7).
