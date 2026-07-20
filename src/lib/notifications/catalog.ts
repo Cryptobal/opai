@@ -45,6 +45,12 @@ const adminBell = (email = false): NotificationChannelDefaults => ({ bell: true,
 export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
   // ── CRM - Leads ──
   {
+    key: 'radar_comercial', label: 'Radar comercial',
+    description: 'Lead detectado, señal de compra o compromiso pendiente en tus correos',
+    module: 'crm', submodule: 'leads', category: 'CRM - Radar',
+    audiences: ['admin'], defaults: { admin: adminBell() },
+  },
+  {
     key: 'new_lead', label: 'Nuevo lead',
     description: 'Cuando llega un nuevo lead desde formulario o email',
     module: 'crm', submodule: 'leads', category: 'CRM - Leads',

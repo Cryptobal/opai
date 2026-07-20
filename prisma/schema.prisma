@@ -2647,6 +2647,15 @@ model CrmEmailThread {
   attachmentCount  Int       @default(0) @map("attachment_count")
   subject          String
   lastMessageAt    DateTime? @map("last_message_at") @db.Timestamptz(6)
+
+  // ── Radar Comercial v4 — clasificación IA del hilo ──
+  aiCategory     String?   @map("ai_category") // cotizacion|licitacion|consulta_comercial|facturacion|operacional|otro
+  aiIntent       String?   @map("ai_intent") // alta|media|baja
+  aiSummary      String?   @map("ai_summary") // resumen 1 línea
+  aiClassifiedAt DateTime? @map("ai_classified_at") @db.Timestamptz(6)
+  firstInboundAt DateTime? @map("first_inbound_at") @db.Timestamptz(6) // primer mensaje externo del hilo
+  firstReplyAt   DateTime? @map("first_reply_at") @db.Timestamptz(6) // primera respuesta interna al inbound
+
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -2658,6 +2667,32 @@ model CrmEmailThread {
   @@index([leadId], map: "idx_crm_email_threads_lead")
   @@index([emailAccountId, providerThreadId], map: "idx_crm_email_threads_account_provider")
   @@map("email_threads")
+  @@schema("crm")
+}
+
+/// Radar Comercial v4 — alertas accionables (lead nuevo, señal de compra,
+/// compromiso con fecha, brief pre-reunión). La IA sugiere; el usuario decide.
+/// Nunca envía correos ni crea leads solo. Upsert idempotente por `dedupeKey`.
+model CrmRadarItem {
+  id        String    @id @default(cuid())
+  tenantId  String    @map("tenant_id")
+  userId    String    @map("user_id") // dueño de la alerta (dueño del emailAccount / asignado)
+  kind      String // nuevo_lead | senal_compra | compromiso | brief
+  status    String    @default("PENDING") // PENDING | DONE | DISMISSED
+  title     String
+  summary   String?
+  threadId  String?   @map("thread_id") // CrmEmailThread.id
+  dealId    String?   @map("deal_id")
+  accountId String?   @map("account_id")
+  dueAt     DateTime? @map("due_at") @db.Timestamptz(6)
+  dedupeKey String?   @map("dedupe_key") // p.ej. brief:{googleEventId} | thread:{id}:lead
+  payload   Json?     @db.JsonB // { draftReply?, senales?, compromiso?, eventHtmlLink?, draftFollowUp? }
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, dedupeKey], map: "uq_radar_items_tenant_dedupe")
+  @@index([tenantId, userId, status, createdAt], map: "idx_radar_items_tenant_user_status")
+  @@map("radar_items")
   @@schema("crm")
 }
 

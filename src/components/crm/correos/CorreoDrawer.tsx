@@ -3,15 +3,21 @@
 import { useCallback, useEffect, useState, type MouseEvent } from "react";
 import { CheckCircle2, ExternalLink, Sparkles } from "lucide-react";
 import { Surface, Tag, Spinner } from "@/components/opai-ds";
-import { AsociarCuenta } from "./AsociarCuenta";
+import { CorreoAssociationBar } from "./CorreoAssociationBar";
 import { CorreoMessages } from "./CorreoMessages";
 import { CorreoAttachments } from "./CorreoAttachments";
 import { LeadFromEmailPanel } from "./LeadFromEmailPanel";
+import { SuggestedReplyPanel } from "./SuggestedReplyPanel";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 
-type Props = { threadId: string | null; onClose: () => void; onChanged?: () => void };
+type Props = {
+  threadId: string | null;
+  onClose: () => void;
+  onChanged?: () => void;
+  autoExtract?: boolean; // deep-link ?extract=1: abre el panel de extracción con IA
+};
 
-export function CorreoDrawer({ threadId, onClose, onChanged }: Props) {
+export function CorreoDrawer({ threadId, onClose, onChanged, autoExtract }: Props) {
   const [detail, setDetail] = useState<CorreoDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -32,6 +38,11 @@ export function CorreoDrawer({ threadId, onClose, onChanged }: Props) {
     setAiOpen(false);
     void load();
   }, [load]);
+
+  useEffect(() => {
+    // ?extract=1: al cargar el hilo sin lead, abre el panel de IA.
+    if (autoExtract && detail && !detail.thread.leadId) setAiOpen(true);
+  }, [autoExtract, detail]);
 
   async function associate(accountId: string) {
     if (!threadId) return;
@@ -93,15 +104,7 @@ export function CorreoDrawer({ threadId, onClose, onChanged }: Props) {
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-2.5">
-              <span className="text-[12px] text-ds-text-3">Asociación:</span>
-              <span className="text-[13px] text-ds-text-1">
-                {detail.thread.accountName || "Sin cuenta"}
-              </span>
-              <div className="ml-auto">
-                <AsociarCuenta onSelect={associate} />
-              </div>
-            </div>
+            <CorreoAssociationBar accountName={detail.thread.accountName} onSelect={associate} />
 
             {detail.thread.leadId ? (
               <div className="flex items-center gap-2 rounded-xl border border-status-ok-border bg-status-ok-soft p-2.5 text-[13px] text-status-ok-fg">
@@ -127,6 +130,12 @@ export function CorreoDrawer({ threadId, onClose, onChanged }: Props) {
                 <Sparkles className="h-4 w-4" /> Crear lead con IA
               </button>
             )}
+
+            <SuggestedReplyPanel
+              threadId={detail.thread.id}
+              subject={detail.thread.subject}
+              onSent={() => { void load(); onChanged?.(); }}
+            />
 
             <CorreoAttachments items={detail.attachments} />
 

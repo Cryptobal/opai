@@ -451,3 +451,186 @@ No hay corrección de código — verificar/agregar el redirect autorizado.
    `out of memory`; el código de B8 sólo baja presión).
 2. **Redirect login Google** — agregar `/api/auth/callback/google` a los Authorized
    redirect URIs del cliente OAuth (A7).
+
+---
+
+## Radar v4 — Auditoría y verificación de prerrequisitos (B0)
+
+Prompt v4: **Radar Comercial** — alertas IA de correos, brief pre-reunión y
+seguimiento de compromisos, sobre la tubería v3. IA sugiere, el core
+determinístico decide: el radar **nunca** envía correos ni crea leads solo.
+
+### Verificación de prerrequisitos v3 (STOP gate)
+
+| Prerrequisito v3 | Estado | Evidencia |
+| --- | --- | --- |
+| Sync incremental (`syncState`) + backfill | ✅ PRESENTE | `src/modules/crm/email/gmail-sync.service.ts` → `syncGmailAccount()`; estado en `CrmEmailAccount.syncState`; `gmail-backfill.ts` (120d) / `gmail-incremental.ts` (`historyId`). Cron `gmail-sync-all` (`*/10`). |
+| Bandeja `/crm/correos` con drawer | ✅ PRESENTE | `src/app/(app)/crm/correos/page.tsx` → `CorreosClient.tsx` + `CorreoDrawer.tsx`. |
+| Deep-link `?thread=` | ⚠️ AUSENTE | El drawer abre por estado local (`openId`), no lee `?thread=`. **No es bloqueante**: se implementa en B3 junto con `?extract=1` (mismo cambio en `CorreosClient`). La fundación (bandeja + drawer) está presente. |
+| `email-to-lead.service.ts` + endpoints | ✅ PRESENTE | `email-to-lead.service.ts` (`extractLeadFromThread`) + `email-to-lead-create.service.ts` (`createLeadFromExtraction`). Rutas `POST /api/crm/correos/[threadId]/extract` y `.../create-lead`. |
+| `CrmEmailThread.leadId` | ✅ PRESENTE | `schema.prisma` línea 2644 (`lead_id`, indexado). |
+| Eventos Google en agenda | ✅ PRESENTE | `src/modules/agenda/google-events.ts` (`listGoogleCalendarEvents`), dedup por `AgendaEventLink.googleEventId` (QA v3 · A4). |
+
+**Decisión:** los prerrequisitos sustantivos están presentes. El único hueco
+(`?thread=`) es una afordancia de UI trivial que además está dentro del alcance
+de B3. **Se continúa** (no hay STOP).
+
+### Auditoría de piezas a reutilizar (B0.3)
+
+**(a) `POST /api/crm/gmail/send`** — `src/app/api/crm/gmail/send/route.ts`. Envía por
+**Gmail API** (`gmail.users.messages.send({ userId:"me", requestBody:{ raw } })`),
+no Resend. Body: `{ to, cc?, bcc?, subject, html?, text?, dealId?, accountId?, contactId? }`.
+**NO responde en hilo**: no pasa `threadId` a `requestBody` ni setea `In-Reply-To`/
+`References` (`buildRawEmail` solo emite `From/To/Cc/Bcc/Subject/MIME`). El thread se
+matchea por `subject` exacto. `CrmEmailThread.providerThreadId` sí guarda el threadId de
+Gmail (poblado en inbound por `gmail-message-upsert.ts`). El RFC `Message-ID` no se
+persiste. → **B5 extiende** el route: aceptar `threadId` interno, pasar el `providerThreadId`
+de Gmail a `requestBody.threadId`, y setear `In-Reply-To`/`References` leyendo el header
+`Message-ID` del último inbound (`messages.get(format:"metadata")`). Extender, no duplicar.
+
+**(b) Slack personal DM** — `src/lib/integrations/slack/personal-dm.ts` →
+`dispatchPersonalSlackDm({ tenantId, adminId, typeKey, title, body, category, link, critical })`.
+Resuelve el canal DM vía `SlackUserLink.dmChannelId` (lazy `conversations.open`),
+arma bloques con `buildNotificationBlocks` (`blocks.ts`) y encola en `SlackOutbox`
+(`enqueueOutboxRow` + `trySendOutboxRow`). El builder emite **un** botón url "Ver en OPAI".
+Los botones son **url-buttons Block Kit** (campo `url`, sin callback/interactividad).
+Drenado por cron `flush-slack-outbox` (`*/2`) vía `chat.postMessage` (postea `payload.blocks`).
+→ **B3 extiende** `dispatchPersonalSlackDm` con `actions?: {label,url,style?}[]` opcional para
+botones con etiqueta propia ("Crear lead con IA", "Ver correo", "Abrir negocio", "Ver follow-up").
+
+**(c) Notificaciones in-app** — modelo `Notification` (schema crm, líneas 2042-2060):
+`{ type, title, message, data(Json), read, link }`, **sin `userId`** (fila tenant-wide;
+lectura por-usuario vía `NotificationReadState`). Targeting por-usuario = `data.targetUserId`
+(filtrado en `bell-visibility.ts`). Orquestador `notify()` en `src/lib/notifications/notify.ts`:
+`notify({ tenantId, type, targetType:'ADMIN', targetIds:[adminId], title, body, link, data })`.
+`type` se resuelve contra el catálogo de tipos. → **B3** usa `notify()` con targeting a `userId`
+y `link` de deep-link.
+
+**(d) System prompt del orquestador comercial** — `src/lib/ai/help-chat-system-prompt-v2.ts`,
+constante `VISUAL_PROTOCOL` (lista numerada; §13 escritura CRM, §24 "Verdad Verificada",
+§25 flujo comercial). `buildHelpChatSystemPromptV2()` = base + `VISUAL_PROTOCOL`. → **B8**
+agrega una sección nueva instruyendo consultar el radar ante "¿qué tengo pendiente?".
+
+**(e) Setting por tenant (kill-switch)** — modelo `Setting` (public, único `[tenantId,key]`).
+No hay helper genérico get/set; patrón de referencia `help-chat-config.ts`. → **B2** crea
+helper `src/lib/crm/radar-settings.ts` con clave `radar_comercial_enabled` (default `true`),
+toggle DS Switch en Configuración → Asistente IA.
+
+### Infra confirmada para v4
+
+- **AI**: `aiService.generateJSONWithModel(prompt, "gpt-4o-mini", maxTokens, { tenantId })`
+  → JSON parseado, fuerza `gpt-4o-mini` (clasificación, drafts, briefs, follow-ups).
+  La extracción de lead del v3 sigue con el modelo por tenant (puede ser `gpt-4o`).
+- **Choke point de clasificación**: `syncGmailAccount()` — tras `runBackfill`/`runIncremental`,
+  paso de clasificación FIFO acotado (máx. 20/corrida, respeta `deadlineMs`).
+  `direction === "in"` = inbound externo (no existe concepto de dominio del tenant;
+  la única identidad propia es `emailAccount.email`).
+- **Hub**: card estática en `HubClientWrapper.tsx` (~línea 171), gate `hubPerms.hasCrm`
+  (+ setting radar leído por la card). Espejo de `AgendaHubCard.tsx` (`Surface`, `IconBubble`,
+  `Tag`, `EmptyState`, `Spinner`, tint `tint-violet`).
+- **Calendar (brief)**: `getCalendarClientForUser(tenantId, userId)` →
+  `calendar.events.list({ calendarId, timeMin, timeMax, singleEvents:true, orderBy:"startTime" })`;
+  asistentes en `ev.attendees[]`. Espejo de `google-events.ts` (nunca lanza).
+- **Cron**: guard `Authorization: Bearer ${CRON_SECRET}`; nuevas entradas en `vercel.json`
+  `radar-briefs` (`*/10`) y `radar-compromisos` (`0 12 * * *`).
+- **Chatbot tools**: editar `help-chat-tools-v2.ts` en 3 puntos (definición + dispatch +
+  `WRITE_TOOL_LABELS` para el write). `get_radar_items` (read), `resolve_radar_item` (write,
+  auto-diferido/confirmado por `WRITE_TOOL_NAMES`).
+- **DS**: `Surface`/`IconBubble`/`Tag`/`EmptyState`/`Spinner`/`Button`/`Switch` (barrel
+  `@/components/opai-ds` + `@/components/ui`), tints `tint-*`, sin hex, archivos <150 líneas.
+
+## Radar v4 · resultado — bloques implementados y QA
+
+Rama `claude/radar-comercial-v4-vps5a7` (desde `main`, tras v3 #642). 9 commits,
+gate `prisma generate && tsc --noEmit` limpio (0 errores) en cada bloque.
+
+### Bloques
+
+| # | Commit | Entregable |
+| --- | --- | --- |
+| B0 | `chore(radar)` | Auditoría v4 + verificación de prerrequisitos (esta sección "Radar v4"). |
+| B1 | `feat(radar) modelo` | `CrmRadarItem` (crm.radar_items) + 6 campos IA en `email_threads`. Migración única aditiva. |
+| B2 | `feat(radar) clasificación` | Clasificador `gpt-4o-mini` en `syncGmailAccount` (máx. 20/corrida, FIFO), RadarItems + kill-switch + toggle DS. |
+| B3 | `feat(radar) alertas` | Slack DM (url-buttons propios) + notify() in-app; bandeja soporta `?thread=` y `?extract=1`. |
+| B4 | `feat(hub) card` | `RadarComercialCard` + endpoints `GET /api/crm/radar` y `PATCH /api/crm/radar/[id]`. |
+| B5 | `feat(crm) respuesta` | Envío en hilo (In-Reply-To/References), panel "Respuesta sugerida", KPI de respuesta. |
+| B6 | `feat(radar) brief` | Cron `radar-briefs` (`*/10`), match asistentes→CRM, brief `gpt-4o-mini`, Slack DM + item brief. |
+| B7 | `feat(radar) compromisos` | Cron `radar-compromisos` (`0 12 * * *`), follow-ups del cliente + recordatorio propio. |
+| B8 | `feat(ai) tools` | `get_radar_items` (read) + `resolve_radar_item` (write confirmada) + §26 del orquestador. |
+
+### QA end-to-end (validar en Preview)
+
+1. **Lead nuevo**: correo externo pidiendo cotización → siguiente corrida de
+   `gmail-sync-all` clasifica el hilo (intención alta) → RadarItem `nuevo_lead`
+   con `draftReply` → DM Slack ("📡 Posible lead detectado") + notificación in-app
+   + card del hub. Botón "Crear lead con IA" abre la bandeja con la extracción
+   corriendo → confirmar → lead creado. En el drawer: "Respuesta sugerida por IA"
+   → editar → Enviar → el cliente recibe la respuesta **en el mismo hilo** y el
+   item queda DONE. KPI "⚡ Respuesta media" registra el tiempo.
+2. **Señal de compra**: correo sobre un negocio/cuenta existente con señales
+   ("¿me pasas los plazos?") → RadarItem `senal_compra` → DM "🔥 Señal de compra
+   en {negocio}" con botón "Abrir negocio".
+3. **Brief pre-reunión**: reunión real en Google Calendar con un contacto CRM,
+   30-40 min antes → DM "📋 Tu reunión de las {hora} con {cuenta}" con el brief
+   accionable, **una sola vez** (dedupe `brief:{googleEventId}`); el item se
+   auto-DONE al pasar la hora.
+4. **Compromiso**: correo con "te confirmamos el jueves" (hilo con deal/cuenta)
+   → item `compromiso` dueAt jueves → si el viernes 12:00 UTC no hubo respuesta
+   → DM "⏰ {Cuenta} quedó de … y no ha respondido" con follow-up redactado listo
+   para enviar (botón "Ver follow-up" abre el drawer con el borrador + Enviar).
+   Los compromisos `quien=nosotros` recuerdan el mismo día a las 12:00.
+5. **Chatbot**: "¿llegó algo comercial hoy?" / "¿qué tengo pendiente?" → el bot
+   llama `get_radar_items` y lista los ítems con resumen y siguiente paso.
+   "márcalo como hecho" → `resolve_radar_item` (confirmación diferida).
+6. **Kill-switch**: Configuración → Asistente IA → apagar "Radar Comercial" →
+   la clasificación, los crons y la card quedan en silencio para el tenant.
+
+### Costos / presupuesto de tokens
+
+Solo `gpt-4o-mini` corre en el radar (clasificación, borradores, briefs,
+follow-ups). El único uso de `gpt-4o` sigue siendo la **extracción de lead del
+v3**, que dispara el usuario a mano al confirmar "Crear lead con IA".
+
+- Clasificación ≈ 500 tokens/correo (entrada acotada a 3.000 chars + salida JSON
+  ~120 tokens). Borrador de respuesta ≈ 300 tokens adicionales solo para leads
+  de intención alta.
+- Con ~100 correos/día → ~50k tokens/día de clasificación ≈ **centavos/día** con
+  `gpt-4o-mini`. Tope duro de 20 clasificaciones por corrida (× 6 corridas/hora)
+  evita picos.
+- Briefs: 1 llamada `gpt-4o-mini` por reunión con cuenta CRM (dedupe evita
+  repetir). Follow-ups: 1 llamada solo al vencer sin respuesta, una única vez.
+
+### Checklist de validación para Carlos (Preview)
+
+- [ ] Migración `20261021000000_radar_comercial_v4` aplica limpia (tabla
+      `crm.radar_items` + 6 columnas nuevas en `crm.email_threads`).
+- [ ] Cron `gmail-sync-all` (`*/10`): tras una corrida, hilos con inbound quedan
+      con `ai_category`/`ai_intent`/`ai_summary` y aparecen RadarItems.
+- [ ] Slack DM llega con el resumen y los botones abren el deep-link correcto.
+- [ ] Card "Radar Comercial" visible en el hub (bajo acciones rápidas), con ✓/✕.
+- [ ] Envío de respuesta llega **en el mismo hilo** de Gmail (In-Reply-To).
+- [ ] Crons nuevos en `vercel.json`: `radar-briefs` (`*/10`), `radar-compromisos`
+      (`0 12 * * *`) — requieren `CRON_SECRET` (ya configurado).
+- [ ] Toggle del kill-switch enciende/apaga el radar por tenant.
+- [ ] En logs: solo `gpt-4o-mini` en clasificación/briefs/follow-ups.
+
+Requisitos de entorno (ya presentes por v3): `GMAIL_TOKEN_SECRET`, OAuth Google
+(Gmail + Calendar), Slack workspace activo + `SlackUserLink` por usuario,
+proveedor de IA OpenAI configurado por tenant. **NO MERGE**: PR en modo borrador.
+
+### Correcciones post-review (revisión adversarial del diff)
+
+- **Feed del hub**: orden `dueAt asc **nulls first**` (leads/señales sin fecha
+  arriba) para que los compromisos con fecha no entierren los leads en la card.
+- **Compromisos**: la detección de respuesta del cliente usa `sentAt ≥ inicio
+  del día del compromiso` (evita falso follow-up si contesta antes del mediodía
+  UTC); el recordatorio propio (`quien=nosotros`) es idempotente
+  (`reminderAlertedAt`) para no duplicar el DM si el cron se re-dispara; ventana
+  de escaneo ampliada a 500.
+- **Briefs**: se saltan reuniones ya en curso (evento que solapa la ventana pero
+  ya empezó) para no avisar de una reunión pasada.
+- **Fecha "hoy"** del clasificador ahora en `America/Santiago` (no UTC), para no
+  correr un día las fechas relativas de compromisos ("te confirmo el jueves").
+- **Kill-switch**: `setRadarComercialEnabled` usa `upsert` (evita carrera 500).
+- **Compromisos con fecha inválida** (regex-válida pero inexistente) se descartan
+  en la normalización antes de crear el item.

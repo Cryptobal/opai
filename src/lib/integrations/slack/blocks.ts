@@ -17,6 +17,11 @@ export interface NotificationBlocksInput {
   phone?: string | null;
   /** Pares clave-valor de contexto (≤6) renderizados como sección `fields`. */
   fields?: Array<{ label: string; value: string }> | null;
+  /**
+   * Botones url con etiqueta propia (≤5). Si se define, reemplaza al botón
+   * "Ver en OPAI" derivado de `link`. Siguen siendo url-buttons (sin callback).
+   */
+  actions?: Array<{ label: string; url: string; style?: "primary" | "danger" }> | null;
 }
 
 const HEADER_MAX = 150;
@@ -97,7 +102,18 @@ export function buildNotificationBlocks(input: NotificationBlocksInput): {
     elements: [{ type: "mrkdwn", text: `${input.category} · OPAI` }],
   });
 
-  if (input.link) {
+  const customActions = (input.actions ?? []).filter((a) => a.label && a.url).slice(0, 5);
+  if (customActions.length) {
+    blocks.push({
+      type: "actions",
+      elements: customActions.map((a) => ({
+        type: "button",
+        text: { type: "plain_text", text: a.label.slice(0, 75), emoji: true },
+        url: toAbsolute(a.url),
+        ...(a.style ? { style: a.style } : {}),
+      })),
+    });
+  } else if (input.link) {
     blocks.push({
       type: "actions",
       elements: [

@@ -1,0 +1,95 @@
+import { aiService } from "@/lib/ai-service";
+import type { RadarClassification, RadarCompromiso } from "./radar-types";
+import { clampText } from "./radar-util";
+
+const CATEGORIAS = ["cotizacion", "licitacion", "consulta_comercial", "facturacion", "operacional", "otro"];
+const INTENCIONES = ["alta", "media", "baja"];
+
+function asStr(v: unknown): string {
+  return typeof v === "string" ? v.trim() : "";
+}
+
+function normalizeCompromisos(v: unknown): RadarCompromiso[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((c) => {
+      const o = (c || {}) as Record<string, unknown>;
+      const quien = asStr(o.quien) === "nosotros" ? "nosotros" : "cliente";
+      const que = clampText(asStr(o.que), 160);
+      const fechaISO = asStr(o.fechaISO);
+      return { quien, que, fechaISO } as RadarCompromiso;
+    })
+    .filter(
+      (c) =>
+        c.que &&
+        /^\d{4}-\d{2}-\d{2}$/.test(c.fechaISO) &&
+        !Number.isNaN(new Date(`${c.fechaISO}T12:00:00.000Z`).getTime()),
+    );
+}
+
+function normalize(raw: Record<string, unknown>): RadarClassification {
+  const categoria = CATEGORIAS.includes(asStr(raw.categoria)) ? asStr(raw.categoria) : "otro";
+  const intencion = INTENCIONES.includes(asStr(raw.intencion)) ? asStr(raw.intencion) : "baja";
+  const senales = Array.isArray(raw.senalesCompra)
+    ? raw.senalesCompra.map((s) => clampText(asStr(s), 120)).filter(Boolean).slice(0, 6)
+    : [];
+  return {
+    categoria: categoria as RadarClassification["categoria"],
+    intencion: intencion as RadarClassification["intencion"],
+    resumen: clampText(asStr(raw.resumen), 140),
+    requiereRespuesta: raw.requiereRespuesta !== false,
+    senalesCompra: senales,
+    compromisos: normalizeCompromisos(raw.compromisos),
+  };
+}
+
+/** Clasifica un correo entrante externo con `gpt-4o-mini` (JSON estricto). */
+export async function classifyThread(input: {
+  tenantId: string;
+  subject: string;
+  fromEmail: string;
+  body: string;
+  hoyISO: string;
+}): Promise<RadarClassification | null> {
+  const prompt = `Eres un clasificador comercial de una empresa de seguridad privada en Chile. Clasifica el correo ENTRANTE de abajo. Responde SOLO un JSON válido con esta forma exacta:
+{"categoria":"cotizacion|licitacion|consulta_comercial|facturacion|operacional|otro","intencion":"alta|media|baja","resumen":"1 línea en español","requiereRespuesta":true,"senalesCompra":["pide plazos"],"compromisos":[{"quien":"cliente|nosotros","que":"...","fechaISO":"YYYY-MM-DD"}]}
+Reglas:
+- intencion "alta" solo si hay interés comercial claro (pide cotización, precios, plazos, reunión).
+- senalesCompra: frases breves que reflejen intención de compra; [] si no hay.
+- compromisos: promesas con fecha de cualquiera de las partes ("te confirmamos el jueves"); fechaISO absoluta (hoy es ${input.hoyISO}); [] si no hay.
+- resumen: máx 140 caracteres, sin saludos.
+Asunto: ${clampText(input.subject, 200)}
+Remitente: ${input.fromEmail}
+Cuerpo:
+${clampText(input.body, 3000)}`;
+  try {
+    const raw = (await aiService.generateJSONWithModel(prompt, "gpt-4o-mini", 500, {
+      tenantId: input.tenantId,
+    })) as Record<string, unknown>;
+    return normalize(raw || {});
+  } catch {
+    return null; // degradación elegante: se reintenta en la próxima corrida
+  }
+}
+
+/** Redacta un borrador de respuesta breve y profesional (jamás se envía solo). */
+export async function generateDraftReply(input: {
+  tenantId: string;
+  subject: string;
+  fromEmail: string;
+  body: string;
+  resumen: string;
+}): Promise<string | null> {
+  const prompt = `Redacta un BORRADOR de respuesta breve y profesional en español chileno neutro a este correo entrante de un prospecto de seguridad privada. NO inventes precios ni datos. Estructura: (1) acusar recibo, (2) 1-2 preguntas clave para avanzar, (3) próximo paso claro. Máx 90 palabras. Devuelve SOLO el texto del correo, sin asunto ni firma.
+Resumen: ${input.resumen}
+Correo de ${input.fromEmail} (${clampText(input.subject, 160)}):
+${clampText(input.body, 2000)}`;
+  try {
+    const txt = await aiService.generateText(prompt, { maxTokens: 300, temperature: 0.4 }, {
+      tenantId: input.tenantId,
+    });
+    return txt?.trim() || null;
+  } catch {
+    return null;
+  }
+}

@@ -11,6 +11,7 @@ import { decryptText } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
 import { normalizeEmailAddress, normalizeEmailList } from "@/lib/email-address";
 import { requireTenantModule } from '@/lib/require-module';
+import { resolveReplyContext } from "@/modules/crm/email/gmail-reply";
 
 function buildRawEmail({
   from,
@@ -20,6 +21,8 @@ function buildRawEmail({
   subject,
   html,
   text,
+  inReplyTo,
+  references,
 }: {
   from: string;
   to: string;
@@ -28,6 +31,8 @@ function buildRawEmail({
   subject: string;
   html?: string;
   text?: string;
+  inReplyTo?: string;
+  references?: string;
 }) {
   const headers = [
     `From: ${from}`,
@@ -35,6 +40,8 @@ function buildRawEmail({
     cc?.length ? `Cc: ${cc.join(", ")}` : null,
     bcc?.length ? `Bcc: ${bcc.join(", ")}` : null,
     `Subject: ${subject}`,
+    inReplyTo ? `In-Reply-To: ${inReplyTo}` : null,
+    references ? `References: ${references}` : null,
     "MIME-Version: 1.0",
     html
       ? 'Content-Type: text/html; charset="UTF-8"'
@@ -60,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const { to, cc = [], bcc = [], subject, html, text, dealId, accountId, contactId } = body;
+    const { to, cc = [], bcc = [], subject, html, text, dealId, accountId, contactId, threadId } = body;
 
     if (!to || !subject) {
       return NextResponse.json(
@@ -131,6 +138,13 @@ export async function POST(request: NextRequest) {
     }
 
     const gmail = getGmailClient(accessToken, refreshToken);
+
+    // Modo respuesta en hilo: si viene threadId (CrmEmailThread interno), agrupa
+    // en el mismo hilo de Gmail y agrega headers In-Reply-To/References.
+    const replyCtx = threadId
+      ? await resolveReplyContext({ gmail, tenantId: ctx.tenantId, threadId })
+      : null;
+
     const raw = buildRawEmail({
       from: emailAccount.email,
       to,
@@ -139,37 +153,43 @@ export async function POST(request: NextRequest) {
       subject,
       html: finalHtml || undefined,
       text: finalHtml ? undefined : text,
+      inReplyTo: replyCtx?.inReplyTo ?? undefined,
+      references: replyCtx?.references ?? undefined,
     });
 
     const response = await gmail.users.messages.send({
       userId: "me",
-      requestBody: { raw },
+      requestBody: { raw, ...(replyCtx?.gmailThreadId ? { threadId: replyCtx.gmailThreadId } : {}) },
     });
 
     const messageId = response.data.id;
 
-    const thread = await prisma.crmEmailThread.findFirst({
-      where: {
-        tenantId: ctx.tenantId,
-        subject,
-        accountId: accountId || null,
-        contactId: contactId || null,
-        dealId: dealId || null,
-      },
-    });
-
-    const threadRecord = thread
-      ? thread
-      : await prisma.crmEmailThread.create({
-          data: {
+    const thread = replyCtx
+      ? null
+      : await prisma.crmEmailThread.findFirst({
+          where: {
             tenantId: ctx.tenantId,
             subject,
             accountId: accountId || null,
             contactId: contactId || null,
             dealId: dealId || null,
-            lastMessageAt: new Date(),
           },
         });
+
+    const threadRecord = replyCtx
+      ? { id: replyCtx.threadId }
+      : thread
+        ? thread
+        : await prisma.crmEmailThread.create({
+            data: {
+              tenantId: ctx.tenantId,
+              subject,
+              accountId: accountId || null,
+              contactId: contactId || null,
+              dealId: dealId || null,
+              lastMessageAt: new Date(),
+            },
+          });
 
     const message = await prisma.crmEmailMessage.create({
       data: {
@@ -196,7 +216,11 @@ export async function POST(request: NextRequest) {
 
     await prisma.crmEmailThread.update({
       where: { id: threadRecord.id },
-      data: { lastMessageAt: new Date() },
+      data: {
+        lastMessageAt: new Date(),
+        // primera respuesta interna al inbound → registra firstReplyAt (KPI).
+        ...(replyCtx && !replyCtx.firstReplyAt ? { firstReplyAt: new Date() } : {}),
+      },
     });
 
     return NextResponse.json({

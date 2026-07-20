@@ -4,6 +4,7 @@ import { getGmailClient } from "@/lib/gmail";
 import { readSyncState, writeSyncState, type SyncRunArgs } from "./gmail-sync-state";
 import { runBackfill } from "./gmail-backfill";
 import { runIncremental } from "./gmail-incremental";
+import { classifyAccountThreads } from "./radar-classifier.service";
 
 const DEFAULT_BUDGET = 300;
 const TIME_BUDGET_MS = 45_000;
@@ -57,5 +58,16 @@ export async function syncGmailAccount(params: {
   const mode: "backfill" | "incremental" = state.backfillDone ? "incremental" : "backfill";
   const result = mode === "backfill" ? await runBackfill(runArgs) : await runIncremental(runArgs);
   await writeSyncState(emailAccount.id, result.state);
+
+  // Radar Comercial v4: tras el upsert de mensajes, clasifica los hilos con
+  // inbound nuevo (máx. 20/corrida, FIFO) y genera RadarItems. Best-effort:
+  // nunca lanza ni bloquea el sync.
+  await classifyAccountThreads({
+    tenantId: params.tenantId,
+    emailAccountId: emailAccount.id,
+    userId: emailAccount.userId,
+    deadlineMs: params.deadlineMs,
+  });
+
   return { syncedCount: result.synced, fetched: result.fetched, mode };
 }
