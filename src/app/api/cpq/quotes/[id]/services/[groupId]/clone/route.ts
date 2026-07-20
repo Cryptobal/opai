@@ -46,6 +46,7 @@ export async function POST(
 
     const sourcePositions = await prisma.cpqPosition.findMany({
       where: { serviceGroupId: groupId, quoteId: id },
+      orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
     });
 
     const lastOrder = await prisma.cpqServiceGroup.findFirst({
@@ -69,12 +70,14 @@ export async function POST(
         },
       });
 
+      let posOrder = 0;
       for (const pos of sourcePositions) {
         const { id: _id, createdAt: _ca, updatedAt: _ua, ...posData } = pos;
         await tx.cpqPosition.create({
           data: {
             ...posData,
             serviceGroupId: group.id,
+            displayOrder: posOrder++,
             payrollSnapshot:
               posData.payrollSnapshot === null
                 ? Prisma.JsonNull

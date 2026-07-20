@@ -1661,6 +1661,7 @@ model CpqPosition {
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   serviceGroupId      String?   @map("service_group_id") @db.Uuid
+  displayOrder        Int       @default(0) @map("display_order")
 
   quote         CpqQuote         @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   puestoTrabajo CpqPuestoTrabajo @relation(fields: [puestoTrabajoId], references: [id])

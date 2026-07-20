@@ -47,6 +47,17 @@ export async function POST(
       );
     }
 
+    // Clone al final del grupo (displayOrder = max del grupo + 1)
+    const maxInGroup = await prisma.cpqPosition.findFirst({
+      where: {
+        quoteId,
+        serviceGroupId: original.serviceGroupId ?? null,
+      },
+      orderBy: { displayOrder: "desc" },
+      select: { displayOrder: true },
+    });
+    const nextDisplayOrder = (maxInGroup?.displayOrder ?? -1) + 1;
+
     // Clone the position (Prisma JSON fields need JsonNull for null, not literal null)
     // customName: null para que el título se derive de cargo + puestoTrabajo (sin sufijo "copia")
     const { id: _id, createdAt: _ca, updatedAt: _ua, ...posData } = original;
@@ -54,6 +65,7 @@ export async function POST(
       data: {
         ...posData,
         customName: null,
+        displayOrder: nextDisplayOrder,
         payrollSnapshot:
           posData.payrollSnapshot === null
             ? Prisma.JsonNull
