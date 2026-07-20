@@ -286,6 +286,24 @@ function hasActionVerb(message: string): boolean {
   return ACTION_VERB_MARKERS.some((marker) => matchesWholeWord(message, marker));
 }
 
+// Preguntas meta / de seguimiento sobre lo que el propio asistente acaba de
+// hacer o decir (ej. "por que le pusiste ese nombre?", "por que hiciste X?",
+// "por que creaste eso?"). NO son preguntas de navegación: dependen del
+// contexto conversacional, así que nunca deben resolverse con la plantilla de
+// módulo — hay que dejar que el LLM responda con el hilo. Sin esto, un simple
+// "por que le pusiste como nombre X?" caía en la plantilla de un módulo al
+// azar (ej. Ops > Turnos extra) por el "como" y el scorer difuso.
+const META_FOLLOWUP_MARKERS = [
+  "por que", "porque",
+  "pusiste", "hiciste", "creaste", "elegiste", "escogiste",
+  "llamaste", "nombraste", "guardaste", "usaste", "dijiste",
+  "asignaste", "asociaste", "seleccionaste", "generaste", "pediste",
+];
+
+function isMetaFollowUpQuestion(message: string): boolean {
+  return META_FOLLOWUP_MARKERS.some((marker) => matchesWholeWord(message, marker));
+}
+
 /**
  * Detecta intención de escritura/mutación en el mensaje crudo (verbos de
  * acción con word-boundary sobre el texto normalizado). La usa el model
@@ -1198,12 +1216,21 @@ export function shouldUseInferredAnswerUpfront(userMessage: string): boolean {
   // Verbos de acción sobre entidad ("actualiza", "cambia", "quién", etc.)
   // requieren tools, no la plantilla de navegación.
   if (hasActionVerb(msg)) return false;
+  // Preguntas de seguimiento sobre lo que el bot acaba de hacer ("por que le
+  // pusiste ese nombre?") necesitan el hilo, no una plantilla de módulo.
+  if (isMetaFollowUpQuestion(msg)) return false;
   if (isDataHeavyQuestion(msg)) return false;
   return isFunctionalQuestion(msg);
 }
 
 export function resolveFunctionalIntent(userMessage: string, appBaseUrl: string): string | null {
   const msg = normalize(userMessage);
+
+  // Preguntas meta/de seguimiento nunca deben resolverse con plantilla de
+  // módulo: son sobre el hilo, no sobre navegación. Deja que responda el LLM.
+  if (isMetaFollowUpQuestion(msg)) {
+    return null;
+  }
 
   if (isInstallHomeScreenQuestion(msg)) {
     return buildInstallHomeScreenAnswer();
