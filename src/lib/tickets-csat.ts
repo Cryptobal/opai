@@ -9,6 +9,14 @@ export function generateCsatToken(): string {
 }
 
 /**
+ * Alias semántico de `generateCsatToken` para el portal externo de cobro
+ * (landing pública /cobro/[token]). Mismo esquema: 24 bytes base64url,
+ * URL-safe, imposible de adivinar. Se reutiliza el mismo helper para no
+ * duplicar la generación de tokens públicos.
+ */
+export const generatePublicActionToken = generateCsatToken;
+
+/**
  * Por defecto el token expira a 30 días post-resolución. Suficiente para
  * que el cliente conteste sin ser eterno (evita votos artificialmente
  * tardíos que distorsionen el dashboard).
