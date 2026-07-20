@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { extractEmailAddresses, normalizeEmailAddress } from "@/lib/email-address";
-import { extractGmailMessageBodies, type GmailMessagePart } from "@/lib/gmail-message-content";
+import {
+  extractGmailMessageBodies,
+  extractGmailAttachments,
+  type GmailMessagePart,
+} from "@/lib/gmail-message-content";
 import { upsertLinkedThread } from "./thread-linking";
 import type { EmailAccountLite } from "./gmail-sync-state";
 import type { gmail_v1 } from "googleapis";
@@ -93,5 +97,13 @@ export async function upsertGmailMessage(params: {
       ...common,
     },
   });
+
+  const attachments = extractGmailAttachments(payload as GmailMessagePart | undefined).length;
+  if (attachments > 0) {
+    await prisma.crmEmailThread.update({
+      where: { id: thread.id },
+      data: { attachmentCount: { increment: attachments } },
+    });
+  }
   return true;
 }

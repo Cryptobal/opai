@@ -2641,8 +2641,10 @@ model CrmEmailThread {
   accountId        String?   @map("account_id") @db.Uuid
   contactId        String?   @map("contact_id") @db.Uuid
   dealId           String?   @map("deal_id") @db.Uuid
+  leadId           String?   @map("lead_id") @db.Uuid
   emailAccountId   String?   @map("email_account_id") @db.Uuid
   providerThreadId String?   @map("provider_thread_id")
+  attachmentCount  Int       @default(0) @map("attachment_count")
   subject          String
   lastMessageAt    DateTime? @map("last_message_at") @db.Timestamptz(6)
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -2653,6 +2655,7 @@ model CrmEmailThread {
   @@index([tenantId], map: "idx_crm_email_threads_tenant")
   @@index([accountId], map: "idx_crm_email_threads_account")
   @@index([dealId], map: "idx_crm_email_threads_deal")
+  @@index([leadId], map: "idx_crm_email_threads_lead")
   @@index([emailAccountId, providerThreadId], map: "idx_crm_email_threads_account_provider")
   @@map("email_threads")
   @@schema("crm")
