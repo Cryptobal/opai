@@ -50,6 +50,10 @@ export interface BillingDocumentEmailProps {
   emailContact: string;
   senderName?: string;
   portalUrl?: string;
+  /** CTA a la landing pública de confirmación (/cobro/[token]). Si no viene, no se renderiza. */
+  ctaUrl?: string | null;
+  ctaLabel?: string | null;
+  ctaSubtext?: string | null;
 }
 
 export const BillingDocumentEmail = ({
@@ -76,6 +80,9 @@ export const BillingDocumentEmail = ({
   emailContact = "",
   senderName = "Equipo Comercial",
   portalUrl,
+  ctaUrl = null,
+  ctaLabel = null,
+  ctaSubtext = null,
 }: BillingDocumentEmailProps) => {
   const previewText = `${documentTitle} · ${brandName}`;
 
@@ -217,6 +224,18 @@ export const BillingDocumentEmail = ({
               </table>
             </Section>
 
+            {ctaUrl ? (
+              <Section style={ctaSection}>
+                <Button
+                  href={ctaUrl}
+                  style={{ ...ctaButton, backgroundColor: brandPrimaryColor }}
+                >
+                  {ctaLabel || "Revisar y confirmar"}
+                </Button>
+                {ctaSubtext ? <Text style={ctaSubtextStyle}>{ctaSubtext}</Text> : null}
+              </Section>
+            ) : null}
+
             <Hr style={divider} />
 
             <Text style={text}>
@@ -324,6 +343,25 @@ const portalSection = {
   backgroundColor: "#f1f5f9",
   borderRadius: "8px",
   border: "1px solid #e2e8f0",
+};
+const ctaSection = { margin: "24px 0", textAlign: "center" as const };
+const ctaButton = {
+  color: "#ffffff",
+  padding: "14px 24px",
+  borderRadius: "8px",
+  fontWeight: "600" as const,
+  fontSize: "15px",
+  textDecoration: "none",
+  display: "block" as const,
+  width: "100%",
+  boxSizing: "border-box" as const,
+  textAlign: "center" as const,
+};
+const ctaSubtextStyle = {
+  color: "#94a3b8",
+  fontSize: "12px",
+  textAlign: "center" as const,
+  margin: "10px 0 0",
 };
 const portalText = {
   color: "#334155",

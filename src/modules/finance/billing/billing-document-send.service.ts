@@ -18,6 +18,8 @@ import { resolveBrandColors } from "@/modules/finance/billing/billing-doc-config
 import { render } from "@react-email/render";
 import { createElement } from "react";
 import { BillingDocumentEmail } from "@/emails/BillingDocumentEmail";
+import { ensureClientActionToken } from "@/modules/finance/billing/cobro-confirmation.service";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 
 export type BillingDocVariant = "PROFORMA" | "ESTADO_DE_PAGO";
 
@@ -328,8 +330,15 @@ export async function sendBillingDocument(
           currency: "CLP",
           minimumFractionDigits: 0,
         }).format(n);
+  // Token + URL de la landing pública de confirmación (/cobro/[token]).
+  // Idempotente: mientras el token no expire, siempre el mismo. Se expone en
+  // tokenVars para que las plantillas custom del tenant usen {{confirmUrl}}.
+  const confirmToken = await ensureClientActionToken(tenantId, input.dteId);
+  const confirmUrl = `${getCanonicalSiteUrl()}/cobro/${confirmToken}`;
+
   const tokenVars: Record<string, string> = {
     razonSocial: dte.receiverName,
+    confirmUrl,
     folio: dte.folio > 0 ? String(dte.folio) : billingProps.document.folio,
     tipo: billingProps.document.dteTypeName,
     total: fmtCurrency(billingProps.totals.totalAmount),
@@ -398,6 +407,14 @@ export async function sendBillingDocument(
     website: company.website || "",
     emailContact: company.emailContact || company.email || "",
     senderName: company.commercialName || company.companyName || "",
+    ctaUrl: confirmUrl,
+    ctaLabel:
+      input.variant === "PROFORMA"
+        ? "Revisar y confirmar proforma"
+        : "Revisar y confirmar estado de pago",
+    ctaSubtext: `Sin clave ni registro — enlace personal y seguro para ${
+      billingProps.receptor.contactName ?? dte.receiverName
+    }.`,
   });
   const html = await render(emailEl);
 
