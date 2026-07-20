@@ -153,7 +153,7 @@ export function EditPositionModal({ quoteId, position, open, onOpenChange, onUpd
       const res = await fetch(`/api/cpq/quotes/${quoteId}/positions/${position.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, customName: resolvedName || null, healthPlanPct }),
+        body: JSON.stringify({ ...form, customName: resolvedName || null, description: form.description.trim() || null, healthPlanPct }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || "Error");
@@ -299,6 +299,20 @@ export function EditPositionModal({ quoteId, position, open, onOpenChange, onUpd
                 </div>
               )}
             </div>
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Observaciones del turno
+            </Label>
+            <textarea
+              value={form.description}
+              maxLength={500}
+              rows={3}
+              placeholder="Funciones, protocolos o particularidades de este turno…"
+              onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+              className="mt-1 w-full resize-y rounded-md border border-input bg-card px-2.5 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            />
           </div>
 
           <div className="flex items-center justify-between border-t pt-3">
