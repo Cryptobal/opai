@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { listAgenda } from "@/modules/agenda/agenda.service";
+import { listGoogleCalendarEvents } from "@/modules/agenda/google-events";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -21,6 +22,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "fechas inválidas" }, { status: 400 });
   }
 
-  const items = await listAgenda(session.user.tenantId, from, to);
-  return NextResponse.json({ items });
+  const [opai, google] = await Promise.all([
+    listAgenda(session.user.tenantId, from, to),
+    listGoogleCalendarEvents(session.user.tenantId, session.user.id, from, to),
+  ]);
+  const items = [...opai, ...google.items].sort((a, b) => a.start.localeCompare(b.start));
+  return NextResponse.json({ items, googleStatus: google.status });
 }

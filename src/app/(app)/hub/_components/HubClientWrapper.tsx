@@ -9,7 +9,6 @@
 import { useState } from 'react';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Pencil } from 'lucide-react';
-import { HubGreeting } from './HubGreeting';
 import { HubQuickActions } from './HubQuickActions';
 import { HubAlertsBanner } from './HubAlertsBanner';
 import { HubPulsoNegocio } from './HubPulsoNegocio';
@@ -89,8 +88,6 @@ export function HubClientWrapper({
 }: HubClientWrapperProps) {
   const [isEditing, setIsEditing] = useState(false);
 
-  const pendingFollowUpsCount = closingData?.kpis.followUpsOverdueCount ?? 0;
-
   const dataBag: HubSectionDataBag = {
     closingData,
     opsMetrics,
@@ -169,7 +166,6 @@ export function HubClientWrapper({
 
   return (
     <div className="space-y-4 min-w-0 max-w-screen-2xl">
-      <HubGreeting firstName={firstName} pendingFollowUpsCount={pendingFollowUpsCount} />
       <HubQuickActions perms={hubPerms} />
       <HubAlertsBanner alerts={alerts} />
       {hubPerms.hasCrm ? <AgendaHubCard /> : null}

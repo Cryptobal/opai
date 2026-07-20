@@ -2623,6 +2623,8 @@ model CrmEmailAccount {
   refreshTokenEncrypted String?   @map("refresh_token_encrypted")
   tokenExpiresAt        DateTime? @map("token_expires_at") @db.Timestamptz(6)
   status                String    @default("active")
+  // Estado de sync incremental: { backfillPageToken?, backfillDone?, lastHistoryId?, lastSyncAt }
+  syncState             Json?     @map("sync_state")
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -2634,21 +2636,27 @@ model CrmEmailAccount {
 }
 
 model CrmEmailThread {
-  id            String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId      String    @map("tenant_id")
-  accountId     String?   @map("account_id") @db.Uuid
-  contactId     String?   @map("contact_id") @db.Uuid
-  dealId        String?   @map("deal_id") @db.Uuid
-  subject       String
-  lastMessageAt DateTime? @map("last_message_at") @db.Timestamptz(6)
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String    @map("tenant_id")
+  accountId        String?   @map("account_id") @db.Uuid
+  contactId        String?   @map("contact_id") @db.Uuid
+  dealId           String?   @map("deal_id") @db.Uuid
+  leadId           String?   @map("lead_id") @db.Uuid
+  emailAccountId   String?   @map("email_account_id") @db.Uuid
+  providerThreadId String?   @map("provider_thread_id")
+  attachmentCount  Int       @default(0) @map("attachment_count")
+  subject          String
+  lastMessageAt    DateTime? @map("last_message_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   messages CrmEmailMessage[]
 
   @@index([tenantId], map: "idx_crm_email_threads_tenant")
   @@index([accountId], map: "idx_crm_email_threads_account")
   @@index([dealId], map: "idx_crm_email_threads_deal")
+  @@index([leadId], map: "idx_crm_email_threads_lead")
+  @@index([emailAccountId, providerThreadId], map: "idx_crm_email_threads_account_provider")
   @@map("email_threads")
   @@schema("crm")
 }
@@ -11633,6 +11641,7 @@ model DriveExportOutbox {
   sourceId   String    @map("source_id")
   r2Key      String?   @map("r2_key")
   fileName   String    @map("file_name")
+  mimeType   String?   @map("mime_type")
   targetPath String    @map("target_path")
   driveFileId String?  @map("drive_file_id")
   status     String    @default("PENDING") // PENDING|SENT|ERROR

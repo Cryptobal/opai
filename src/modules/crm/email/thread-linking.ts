@@ -45,23 +45,38 @@ export async function resolveThreadLinks(
 }
 
 /**
- * Busca (por subject) o crea el thread y, al hacerlo, vincula contacto/cuenta/deal.
+ * Busca o crea el thread y, al hacerlo, vincula contacto/cuenta/deal.
+ *
+ * Matching: por `providerThreadId` (id de hilo Gmail) + `emailAccountId` del
+ * dueño cuando está disponible; si no, por `subject` (legacy). Un thread legacy
+ * matcheado por subject se "adopta" seteándole providerThreadId/emailAccountId.
+ *
  * En threads existentes hace backfill SOLO de los FKs que estén null — nunca
- * sobreescribe un dealId (u otro vínculo) ya seteado.
+ * sobreescribe un dealId (u otro vínculo) ya seteado. `lastMessageAt` sólo
+ * avanza hacia adelante (nunca lo retrocede el backfill de mensajes viejos).
  */
 export async function upsertLinkedThread(params: {
   tenantId: string;
   subject: string;
   lastMessageAt: Date;
   counterpartyEmails: string[];
+  emailAccountId?: string | null;
+  providerThreadId?: string | null;
 }): Promise<{ id: string }> {
-  const { tenantId, subject, lastMessageAt } = params;
+  const { tenantId, subject, lastMessageAt, emailAccountId, providerThreadId } = params;
   const links = await resolveThreadLinks(tenantId, params.counterpartyEmails);
 
-  const existing = await prisma.crmEmailThread.findFirst({
-    where: { tenantId, subject },
-    select: { id: true, contactId: true, accountId: true, dealId: true },
-  });
+  const existing =
+    (providerThreadId && emailAccountId
+      ? await prisma.crmEmailThread.findFirst({
+          where: { tenantId, emailAccountId, providerThreadId },
+          select: { id: true, contactId: true, accountId: true, dealId: true, lastMessageAt: true },
+        })
+      : null) ??
+    (await prisma.crmEmailThread.findFirst({
+      where: { tenantId, subject },
+      select: { id: true, contactId: true, accountId: true, dealId: true, lastMessageAt: true },
+    }));
 
   if (!existing) {
     return prisma.crmEmailThread.create({
@@ -69,6 +84,8 @@ export async function upsertLinkedThread(params: {
         tenantId,
         subject,
         lastMessageAt,
+        emailAccountId: emailAccountId ?? null,
+        providerThreadId: providerThreadId ?? null,
         contactId: links.contactId,
         accountId: links.accountId,
         dealId: links.dealId,
@@ -77,14 +94,57 @@ export async function upsertLinkedThread(params: {
     });
   }
 
+  const advanceLastMsg =
+    !existing.lastMessageAt || lastMessageAt > existing.lastMessageAt;
   await prisma.crmEmailThread.update({
     where: { id: existing.id },
     data: {
-      lastMessageAt,
+      ...(advanceLastMsg ? { lastMessageAt } : {}),
+      ...(emailAccountId ? { emailAccountId } : {}),
+      ...(providerThreadId ? { providerThreadId } : {}),
       ...(existing.contactId == null && links.contactId ? { contactId: links.contactId } : {}),
       ...(existing.accountId == null && links.accountId ? { accountId: links.accountId } : {}),
       ...(existing.dealId == null && links.dealId ? { dealId: links.dealId } : {}),
     },
   });
   return { id: existing.id };
+}
+
+/**
+ * Re-match retroactivo liviano: al crear un contacto nuevo, vincula los threads
+ * existentes de ese email que aún no tengan contactId. Setea contactId (+ accountId
+ * y dealId si la cuenta tiene 1 deal abierto). Devuelve cuántos threads tocó.
+ */
+export async function rematchThreadsForContact(
+  tenantId: string,
+  contactEmail: string,
+): Promise<number> {
+  const email = contactEmail?.trim().toLowerCase();
+  if (!email) return 0;
+  const links = await resolveThreadLinks(tenantId, [email]);
+  if (!links.contactId) return 0;
+
+  const orphans = await prisma.crmEmailThread.findMany({
+    where: {
+      tenantId,
+      contactId: null,
+      messages: { some: { fromEmail: { equals: email, mode: "insensitive" } } },
+    },
+    select: { id: true, accountId: true, dealId: true },
+    take: 200,
+  });
+
+  let touched = 0;
+  for (const t of orphans) {
+    await prisma.crmEmailThread.update({
+      where: { id: t.id },
+      data: {
+        contactId: links.contactId,
+        ...(t.accountId == null && links.accountId ? { accountId: links.accountId } : {}),
+        ...(t.dealId == null && links.dealId ? { dealId: links.dealId } : {}),
+      },
+    });
+    touched += 1;
+  }
+  return touched;
 }

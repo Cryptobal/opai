@@ -1,28 +1,29 @@
 import { prisma } from "@/lib/prisma";
 import { decryptText } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
-import { extractEmailAddresses, normalizeEmailAddress } from "@/lib/email-address";
-import { extractGmailMessageBodies, type GmailMessagePart } from "@/lib/gmail-message-content";
-import { upsertLinkedThread } from "./thread-linking";
+import { readSyncState, writeSyncState, type SyncRunArgs } from "./gmail-sync-state";
+import { runBackfill } from "./gmail-backfill";
+import { runIncremental } from "./gmail-incremental";
 
-function getHeader(headers: { name?: string | null; value?: string | null }[], name: string) {
-  return headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value || "";
-}
+const DEFAULT_BUDGET = 300;
+const TIME_BUDGET_MS = 45_000;
 
-function parseDateHeader(value: string): Date {
-  if (!value) return new Date();
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
-}
-
-/** Sync incremental de una casilla Gmail. Setea emailAccountId en mensajes nuevos. */
+/**
+ * Sync de una casilla Gmail. Decide backfill (histórico 120d paginado) o
+ * incremental (`historyId`) según `syncState`. Guarda TODOS los threads del
+ * usuario; el matching a contacto/cuenta/deal es enriquecimiento.
+ *
+ * @param maxResults  budget de mensajes por corrida (default 300).
+ * @param deadlineMs  timestamp absoluto para cortar (el cron lo comparte entre
+ *                    casillas para no exceder su maxDuration).
+ */
 export async function syncGmailAccount(params: {
   tenantId: string;
   emailAccountId: string;
   maxResults?: number;
+  deadlineMs?: number;
   createdByUserId?: string | null;
-}): Promise<{ syncedCount: number; fetched: number }> {
-  const maxResults = Math.min(Math.max(params.maxResults ?? 20, 1), 100);
+}): Promise<{ syncedCount: number; fetched: number; mode: "backfill" | "incremental" }> {
   const emailAccount = await prisma.crmEmailAccount.findFirst({
     where: {
       id: params.emailAccountId,
@@ -42,115 +43,19 @@ export async function syncGmailAccount(params: {
     : undefined;
   const gmail = getGmailClient(accessToken, refreshToken);
 
-  const [inboxList, sentList] = await Promise.all([
-    gmail.users.messages.list({ userId: "me", maxResults, labelIds: ["INBOX"] }),
-    gmail.users.messages.list({ userId: "me", maxResults, labelIds: ["SENT"] }),
-  ]);
+  const state = readSyncState(emailAccount.syncState);
+  const runArgs: SyncRunArgs = {
+    gmail,
+    tenantId: params.tenantId,
+    emailAccount: { id: emailAccount.id, email: emailAccount.email, userId: emailAccount.userId },
+    state,
+    budget: Math.max(params.maxResults ?? DEFAULT_BUDGET, 1),
+    deadline: params.deadlineMs ?? Date.now() + TIME_BUDGET_MS,
+    createdByUserId: params.createdByUserId,
+  };
 
-  const uniqueMessages = new Map<string, { id?: string | null }>();
-  for (const message of [
-    ...(inboxList.data.messages || []),
-    ...(sentList.data.messages || []),
-  ]) {
-    if (message.id) uniqueMessages.set(message.id, message);
-  }
-  const messages = Array.from(uniqueMessages.values());
-  let syncedCount = 0;
-
-  for (const message of messages) {
-    if (!message.id) continue;
-    const existing = await prisma.crmEmailMessage.findFirst({
-      where: { providerMessageId: message.id, tenantId: params.tenantId },
-    });
-    const shouldBackfill = Boolean(existing) && !existing?.htmlBody && !existing?.textBody;
-    if (existing && !shouldBackfill) continue;
-
-    const full = await gmail.users.messages.get({
-      userId: "me",
-      id: message.id,
-      format: "full",
-    });
-    const payload = full.data.payload;
-    const headers = payload?.headers || [];
-    const subject = getHeader(headers, "Subject") || "Sin asunto";
-    const fromHeader = getHeader(headers, "From");
-    const toHeader = getHeader(headers, "To");
-    const ccHeader = getHeader(headers, "Cc");
-    const bccHeader = getHeader(headers, "Bcc");
-    const dateHeader = getHeader(headers, "Date");
-    const labelIds = full.data.labelIds || [];
-    const direction = labelIds.includes("SENT") ? "out" : "in";
-    const fromEmail =
-      extractEmailAddresses(fromHeader)[0] ||
-      normalizeEmailAddress(emailAccount.email);
-    const toEmails = extractEmailAddresses(toHeader);
-    const ccEmails = extractEmailAddresses(ccHeader);
-    const bccEmails = extractEmailAddresses(bccHeader);
-    const sentOrReceivedAt = parseDateHeader(dateHeader);
-    const { htmlBody, textBody } = extractGmailMessageBodies(
-      payload as GmailMessagePart | undefined,
-    );
-    const snippet = full.data.snippet?.trim() || null;
-
-    if (existing) {
-      await prisma.crmEmailMessage.update({
-        where: { id: existing.id },
-        data: {
-          direction,
-          fromEmail,
-          toEmails,
-          ccEmails,
-          bccEmails,
-          subject,
-          htmlBody,
-          textBody: textBody || snippet,
-          sentAt: sentOrReceivedAt,
-          receivedAt: direction === "in" ? sentOrReceivedAt : null,
-          status: direction === "out" ? "sent" : "received",
-          source: "gmail",
-          emailAccountId: emailAccount.id,
-        },
-      });
-      syncedCount += 1;
-      continue;
-    }
-
-    // Vincular el thread a contacto/cuenta/deal por las direcciones de la
-    // contraparte (excluyendo la casilla propia). Backfill conservador.
-    const ownEmail = normalizeEmailAddress(emailAccount.email);
-    const counterpartyEmails = [fromEmail, ...toEmails, ...ccEmails].filter(
-      (e) => e && normalizeEmailAddress(e) !== ownEmail,
-    );
-    const thread = await upsertLinkedThread({
-      tenantId: params.tenantId,
-      subject,
-      lastMessageAt: sentOrReceivedAt,
-      counterpartyEmails,
-    });
-
-    await prisma.crmEmailMessage.create({
-      data: {
-        tenantId: params.tenantId,
-        threadId: thread.id,
-        providerMessageId: message.id,
-        direction,
-        fromEmail,
-        toEmails,
-        ccEmails,
-        bccEmails,
-        subject,
-        htmlBody,
-        textBody: textBody || snippet,
-        sentAt: sentOrReceivedAt,
-        receivedAt: direction === "in" ? sentOrReceivedAt : null,
-        createdBy: params.createdByUserId ?? emailAccount.userId,
-        status: direction === "out" ? "sent" : "received",
-        source: "gmail",
-        emailAccountId: emailAccount.id,
-      },
-    });
-    syncedCount += 1;
-  }
-
-  return { syncedCount, fetched: messages.length };
+  const mode: "backfill" | "incremental" = state.backfillDone ? "incremental" : "backfill";
+  const result = mode === "backfill" ? await runBackfill(runArgs) : await runIncremental(runArgs);
+  await writeSyncState(emailAccount.id, result.state);
+  return { syncedCount: result.synced, fetched: result.fetched, mode };
 }

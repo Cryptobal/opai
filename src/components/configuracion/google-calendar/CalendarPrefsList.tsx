@@ -1,6 +1,7 @@
 "use client";
 
 import { SectionHeader, Surface } from "@/components/opai-ds";
+import { Switch } from "@/components/ui/switch";
 
 const PREF_LABELS: Record<string, string> = {
   inviteContacts: "Invitar contactos al evento",
@@ -26,21 +27,12 @@ export function CalendarPrefsList({
             className="flex items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-2.5"
           >
             <span className="text-[13px] text-ds-text-2">{label}</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={Boolean(prefs[key])}
-              onClick={() => onToggle(key, !prefs[key])}
-              className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ds-tap ${
-                prefs[key] ? "bg-primary" : "bg-ds-surface-3"
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 h-6 w-6 rounded-full bg-background shadow transition-transform ${
-                  prefs[key] ? "translate-x-5" : "translate-x-0.5"
-                }`}
-              />
-            </button>
+            <Switch
+              size="lg"
+              checked={Boolean(prefs[key])}
+              onCheckedChange={(v) => onToggle(key, v)}
+              aria-label={label}
+            />
           </li>
         ))}
       </ul>

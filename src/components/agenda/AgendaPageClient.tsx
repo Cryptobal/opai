@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import { PageHero, Surface, EmptyState, Spinner } from "@/components/opai-ds";
 import { AgendaWeekStrip, type WeekItem } from "./AgendaWeekStrip";
@@ -26,6 +27,7 @@ export function AgendaPageClient() {
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
   const [items, setItems] = useState<WeekItem[]>([]);
   const [lics, setLics] = useState<LicRow[]>([]);
+  const [googleStatus, setGoogleStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("todos");
   const [assignedUserId, setAssignedUserId] = useState("");
@@ -53,6 +55,7 @@ export function AgendaPageClient() {
         fetch("/api/agenda/licitaciones").then((r) => r.json()),
       ]);
       setItems(a.items ?? []);
+      setGoogleStatus(a.googleStatus ?? null);
       setLics(l.items ?? []);
     } finally {
       setLoading(false);
@@ -120,6 +123,18 @@ export function AgendaPageClient() {
           setWeekStart(d);
         }}
       />
+
+      {googleStatus === "error" && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2 text-[13px] text-status-warn-fg">
+          <span>No pudimos leer tu Google Calendar (token expirado o revocado).</span>
+          <Link
+            href="/opai/configuracion/integraciones/google-calendar"
+            className="shrink-0 font-medium underline underline-offset-2"
+          >
+            Reconectar Calendar
+          </Link>
+        </div>
+      )}
 
       {loading ? (
         <Spinner className="mx-auto" />

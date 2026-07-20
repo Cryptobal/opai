@@ -13,6 +13,7 @@ import {
   searchGuardiasByNameOrRut,
 } from "@/lib/ai/help-chat-tools";
 import { getFileBuffer, STORAGE_PROVIDER } from "@/lib/storage";
+import { enqueueCrmFileToDrive } from "@/lib/google-workspace/drive-enqueue-hooks";
 import { extractText } from "@/lib/knowledge/extract";
 import {
   createLeadSchema,
@@ -875,6 +876,24 @@ function writeToolDefinitions() {
             serviceType: { type: "string", description: "Tipo de servicio de seguridad solicitado." },
             notes: { type: "string", description: "Notas u observaciones." },
           },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "create_lead_from_email",
+        description:
+          "Crea un lead a partir de un correo de la bandeja Correos usando IA (analiza cuerpo + adjuntos). Flujo en dos pasos: (1) llamá SIN confirm para obtener la propuesta y mostrársela al usuario; (2) cuando el usuario confirme, volvé a llamar con confirm=true. Requiere el threadId del correo (está en la bandeja Correos / drawer del hilo). Si el usuario dice 'el último correo de X', pedile que lo abra en Correos para copiar el threadId.",
+        parameters: {
+          type: "object",
+          properties: {
+            threadId: { type: "string", description: "ID del hilo de correo (de la bandeja Correos). OBLIGATORIO." },
+            confirm: { type: "boolean", description: "Omitido/false = devolver la propuesta para revisar; true = crear el lead." },
+            mode: { type: "string", enum: ["lead", "lead_y_negocio"], description: "lead_y_negocio crea también un negocio de licitación si el correo es licitación y el hilo está asociado a una cuenta." },
+          },
+          required: ["threadId"],
           additionalProperties: false,
         },
       },
@@ -1990,6 +2009,7 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   create_deal_checklist: "Crear checklist del negocio",
   add_deal_note: "Guardar nota en el negocio",
   create_lead: "Crear lead",
+  create_lead_from_email: "Crear lead desde correo",
   create_account: "Crear cuenta / cliente",
   create_contact: "Crear contacto",
   create_deal: "Crear deal",
@@ -3849,6 +3869,59 @@ async function toolCreateLead(
     const msg = e instanceof Error ? e.message : "Error desconocido";
     await logAiAction({ tenantId, userId, toolName: "create_lead", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
     return { ok: false, error: `No se pudo crear el lead: ${msg}` };
+  }
+}
+
+async function toolCreateLeadFromEmail(
+  tenantId: string,
+  userId: string,
+  perms: RolePermissions,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const t0 = Date.now();
+  if (!canEdit(perms, "crm", "leads")) {
+    await logAiAction({ tenantId, userId, toolName: "create_lead_from_email", args, status: "denied", errorMessage: "Sin permiso crm.leads.edit", startedAt: t0 });
+    return { ok: false, error: "No tienes permiso para crear leads en este tenant." };
+  }
+  const threadId = typeof args.threadId === "string" ? args.threadId.trim() : "";
+  const confirm = args.confirm === true;
+  const mode = args.mode === "lead_y_negocio" ? "lead_y_negocio" : "lead";
+  if (!threadId) {
+    return { ok: false, error: "Necesito el threadId del correo (abrilo en la bandeja Correos)." };
+  }
+  const account = await prisma.crmEmailAccount.findFirst({
+    where: { tenantId, userId, provider: "gmail", status: "active" },
+    select: { id: true },
+  });
+  if (!account) return { ok: false, error: "No tenés Gmail conectado para leer el correo." };
+  try {
+    const { extractLeadFromThread } = await import("@/modules/crm/email/email-to-lead.service");
+    const result = await extractLeadFromThread({ tenantId, emailAccountId: account.id, threadId });
+    if (!result) return { ok: false, error: "No encontré ese hilo de correo." };
+    if (!confirm) {
+      return {
+        ok: true,
+        needsConfirmation: true,
+        proposal: result.proposal,
+        sources: result.sources,
+        message: "Mostrale al usuario esta propuesta y pedile confirmación. Para crear, volvé a llamar con confirm=true (y mode=lead_y_negocio si quiere el negocio de licitación).",
+      };
+    }
+    const { createLeadFromExtraction } = await import("@/modules/crm/email/email-to-lead-create.service");
+    const created = await createLeadFromExtraction({
+      tenantId, userId, emailAccountId: account.id, threadId,
+      proposal: result.proposal, mode, stagedFiles: result.stagedFiles,
+    });
+    if (!created.ok) {
+      await logAiAction({ tenantId, userId, toolName: "create_lead_from_email", args, status: "internal_error", errorMessage: created.error, startedAt: t0 });
+      return { ok: false, error: created.error };
+    }
+    await logAiAction({ tenantId, userId, toolName: "create_lead_from_email", args, status: "success", resultEntityId: created.leadId, resultEntityType: "crm_lead", startedAt: t0 });
+    return { ok: true, data: { leadId: created.leadId, url: created.leadUrl, dealId: created.dealId, contactId: created.contactId, note: created.note } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    await logAiAction({ tenantId, userId, toolName: "create_lead_from_email", args, status: "internal_error", errorMessage: msg, startedAt: t0 });
+    return { ok: false, error: `No se pudo crear el lead desde el correo: ${msg}` };
   }
 }
 
@@ -7131,6 +7204,13 @@ async function toolAttachFileToEntity(
     await prisma.crmFileLink.create({
       data: { tenantId, fileId: file.id, entityType, entityId },
     });
+    // Espejo Drive (negocios/personas/instalaciones) — no bloquea la respuesta.
+    void enqueueCrmFileToDrive({
+      tenantId,
+      entityType,
+      entityId,
+      file: { id: file.id, storageKey: stagedKey, fileName, mimeType },
+    });
     // Nota de hito automática en el timeline del negocio (solo deals).
     if (entityType === "deal") {
       await prisma.crmNote.create({
@@ -7294,6 +7374,7 @@ export async function executeToolCallV2(
   if (legacy !== null) return legacy;
 
   if (toolName === "create_lead") return await toolCreateLead(tenantId, userId, perms, args);
+  if (toolName === "create_lead_from_email") return await toolCreateLeadFromEmail(tenantId, userId, perms, args);
   if (toolName === "create_account") return await toolCreateAccount(tenantId, userId, perms, args);
   if (toolName === "create_contact") return await toolCreateContact(tenantId, userId, perms, args);
   if (toolName === "create_deal") return await toolCreateDeal(tenantId, userId, perms, args);

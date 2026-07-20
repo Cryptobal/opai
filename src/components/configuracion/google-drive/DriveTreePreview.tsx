@@ -4,10 +4,15 @@ type Props = { config: Record<string, boolean> };
 
 export function DriveTreePreview({ config }: Props) {
   const lines: string[] = ["Opai/"];
-  if (config.cotizacion || config.factura) {
+  if (config.cotizacion || config.factura || config.personas) {
     lines.push("  Clientes/{Cuenta}/{Instalación}/");
     if (config.cotizacion) lines.push("    Cotizaciones/");
     if (config.factura) lines.push("    Facturas/");
+    lines.push("    Documentos/");
+    if (config.personas) lines.push("  Clientes/{Cuenta}/Personas/{Contacto}/");
+  }
+  if (config.negocios) {
+    lines.push("  Negocios/{Año}/{NombreDeal}/");
   }
   if (config.licitacion) {
     lines.push("  Licitaciones/{Año}/{NombreDeal}/");

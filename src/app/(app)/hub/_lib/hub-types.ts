@@ -291,11 +291,6 @@ export interface GroupedActivity {
 /* Component props                                                    */
 /* ------------------------------------------------------------------ */
 
-export interface HubGreetingProps {
-  firstName: string;
-  pendingFollowUpsCount: number;
-}
-
 export interface HubQuickActionsProps {
   perms: HubPerms;
 }
