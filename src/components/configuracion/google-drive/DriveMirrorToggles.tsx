@@ -7,6 +7,8 @@ const LABELS: Record<string, string> = {
   cotizacion: "Cotizaciones",
   factura: "Facturas / documentos de cobro",
   licitacion: "Licitaciones (copia extra)",
+  negocios: "Documentos de negocios",
+  personas: "Documentos de contactos / personas",
 };
 
 type Props = {

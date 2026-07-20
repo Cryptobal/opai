@@ -13,6 +13,7 @@ import {
   searchGuardiasByNameOrRut,
 } from "@/lib/ai/help-chat-tools";
 import { getFileBuffer, STORAGE_PROVIDER } from "@/lib/storage";
+import { enqueueCrmFileToDrive } from "@/lib/google-workspace/drive-enqueue-hooks";
 import { extractText } from "@/lib/knowledge/extract";
 import {
   createLeadSchema,
@@ -7130,6 +7131,13 @@ async function toolAttachFileToEntity(
     });
     await prisma.crmFileLink.create({
       data: { tenantId, fileId: file.id, entityType, entityId },
+    });
+    // Espejo Drive (negocios/personas/instalaciones) — no bloquea la respuesta.
+    void enqueueCrmFileToDrive({
+      tenantId,
+      entityType,
+      entityId,
+      file: { id: file.id, storageKey: stagedKey, fileName, mimeType },
     });
     // Nota de hito automática en el timeline del negocio (solo deals).
     if (entityType === "deal") {

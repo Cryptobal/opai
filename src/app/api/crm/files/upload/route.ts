@@ -9,6 +9,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { uploadFile, STORAGE_PROVIDER } from "@/lib/storage";
 import { requireTenantModule } from '@/lib/require-module';
+import { enqueueCrmFileToDrive } from "@/lib/google-workspace/drive-enqueue-hooks";
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME = new Set([
@@ -101,6 +102,19 @@ export async function POST(request: NextRequest) {
         entityType,
         entityId,
         folderId: folderId || null,
+      },
+    });
+
+    // Espejo Drive (negocios/personas/instalaciones) — no bloquea la respuesta.
+    void enqueueCrmFileToDrive({
+      tenantId: ctx.tenantId,
+      entityType,
+      entityId,
+      file: {
+        id: crmFile.id,
+        storageKey: crmFile.storageKey,
+        fileName: crmFile.fileName,
+        mimeType: crmFile.mimeType,
       },
     });
 

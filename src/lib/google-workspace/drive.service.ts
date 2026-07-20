@@ -94,6 +94,8 @@ export async function uploadR2ToDrive(params: {
   r2Key: string;
   fileName: string;
   targetSegments: string[];
+  /** Content-Type original del archivo. Default pdf (compat con filas legacy). */
+  mimeType?: string | null;
 }): Promise<string | null> {
   const drive = await getDriveClientForTenant(params.tenantId);
   if (!drive) return null;
@@ -108,7 +110,7 @@ export async function uploadR2ToDrive(params: {
       parents: [parentId],
     },
     media: {
-      mimeType: "application/pdf",
+      mimeType: params.mimeType || "application/pdf",
       body: Readable.from(buffer),
     },
     fields: "id",

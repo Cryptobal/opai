@@ -1,9 +1,39 @@
 import { uploadFile } from "@/lib/storage";
 import { enqueueDriveExport } from "./drive-outbox";
+import { resolveCrmFileTarget } from "./drive-crm-target";
 
 function safeSegment(name: string | null | undefined, fallback: string): string {
   const raw = (name || fallback).trim() || fallback;
   return raw.replace(/[\\/]/g, "-").slice(0, 80);
+}
+
+/**
+ * Espeja a Drive un archivo YA subido a R2 (CrmFile) adjunto a una entidad CRM.
+ * Solo hacia adelante (sin backfill). Nunca lanza — el mirror no debe romper la
+ * subida del archivo.
+ */
+export async function enqueueCrmFileToDrive(params: {
+  tenantId: string;
+  entityType: string;
+  entityId: string;
+  file: { id: string; storageKey: string; fileName: string; mimeType: string };
+}): Promise<void> {
+  try {
+    const target = await resolveCrmFileTarget(params.tenantId, params.entityType, params.entityId);
+    if (!target) return; // entidad no espejada (lead/guardia) o inexistente
+    await enqueueDriveExport({
+      tenantId: params.tenantId,
+      docType: target.docType,
+      sourceType: `crm_file_${params.entityType}`,
+      sourceId: params.file.id,
+      r2Key: params.file.storageKey,
+      fileName: params.file.fileName,
+      mimeType: params.file.mimeType,
+      targetPath: target.path,
+    });
+  } catch (err) {
+    console.warn("[drive-mirror] enqueueCrmFileToDrive falló:", err);
+  }
 }
 
 /** Encola PDF de factura/proforma hacia Drive (nunca lanza). */

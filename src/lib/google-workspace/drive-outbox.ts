@@ -25,6 +25,7 @@ export async function enqueueDriveExport(params: {
   sourceId: string;
   r2Key?: string | null;
   fileName: string;
+  mimeType?: string | null;
   targetPath: string;
 }): Promise<string | null> {
   const ws = await prisma.googleDriveWorkspace.findFirst({
@@ -47,6 +48,7 @@ export async function enqueueDriveExport(params: {
       sourceId: params.sourceId,
       r2Key: params.r2Key,
       fileName: params.fileName,
+      mimeType: params.mimeType ?? null,
       targetPath: params.targetPath,
       status: "PENDING",
     },
@@ -77,6 +79,7 @@ export async function flushDriveOutbox(limit = 20): Promise<{ sent: number; fail
         tenantId: item.tenantId,
         r2Key: item.r2Key,
         fileName: item.fileName,
+        mimeType: item.mimeType,
         targetSegments: segments,
       });
       if (!driveFileId) throw new Error("uploadR2ToDrive devolvió null");
