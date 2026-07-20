@@ -230,3 +230,52 @@ Nota: el deep-link `/opai/agenda?nueva=1&dealId=…&accountId=…` **ya funciona
 | responsable licitación | `CrmDeal` | `ownerId`/`responsable` **NO** → se usa `CrmAccount.ownerId` |
 
 Nombrado de migraciones: `YYYYMMDDHHMMSS_add_<campo>` con prefijo numérico > `20261018000000` (la última migración de la feature). Se usarán prefijos `20261019…`.
+
+---
+
+## QA v2 · resultado — fixes aplicados y checklist de validación
+
+Gate por bloque (`npx prisma generate && npx tsc --noEmit`) verde en los 6 bloques.
+Commits atómicos por bloque, rama `claude/google-workspace-qa-fixes-v2-akvx4o`.
+
+### Causa raíz del error OAuth (para Carlos)
+
+El `?cal=error` del QA **no** era un bug de código: era `access_denied`, porque la
+pantalla "Google no ha verificado esta aplicación" no se completó. Se resuelve en
+Cloud Console → Pantalla de consentimiento → **Audience = Interna** (todos @gard.cl).
+Mientras tanto: Configuración avanzada → "Ir a Opai". El código **no** hace
+workarounds; ahora simplemente **hace visible** el motivo real (banner "Cancelaste
+la autorización en Google…") en vez de un error genérico silencioso.
+
+### Fixes por bloque
+
+| Bloque | Commit | Qué cambió |
+|---|---|---|
+| B1 OAuth | `fix(google): scopes…` | `include_granted_scopes:true` en start; callback lee `error` de Google → `?cal=/drive=google_<error>`, valida `tokens.scope` → `missing_scope`, `console.error` con paso; banner DS + toast + Reintentar en config; botones a `<Button>` DS. |
+| B2 Modal | `fix(agenda): modal…` | Modal completo (buscador de cuenta, instalación+dirección+Maps, dirección libre, contactos, duración→endAt, toggles) sobre Dialog DS (Escape/click-fuera/focus-trap). |
+| B3 Licitación | `fix(crm): datepicker…` | Toggle solo cambia estado local → datepicker aparece; persistencia al elegir fecha; badge tint-violet en card y header. |
+| B4 Visitas | `fix(crm): agendar…` | "Agendar visita" abre el modal in-place con prefill; refresh de la card. |
+| B5 Correos | `fix(crm): correos…` | Vinculación thread→deal en sync + criterio ampliado (deal + cuenta) en los 3 consumidores; etiqueta "Correo de la cuenta". |
+| B6 UI/Hub | `docs(agenda): qa v2…` | Chips de licitación día-completo en `AgendaHubCard`; botones DS; este doc. |
+
+### Checklist de validación (preview / prod)
+
+> Requiere OAuth + DB reales (no ejecutable desde el agente). Verificar en preview:
+
+- [ ] **Drive:** Config → Google Drive → Conectar → volver → **banner verde** + badge "Conectado" + email. Toast "Conexión completada".
+- [ ] **Calendar:** ídem en Google Calendar.
+- [ ] **Cancelar en Google:** en la pantalla de consentimiento, "Cancelar" → **banner rojo** "Cancelaste la autorización en Google — reintentá y aceptá los permisos" + botón **Reintentar**. (Ya no es un error genérico.)
+- [ ] **Permisos parciales:** destildar un scope → banner "Faltan permisos…" (`missing_scope`).
+- [ ] **Nueva visita:** modal → buscar cuenta (debounce), elegir instalación (ver dirección + link Maps), o dirección libre en "Otra", duración, contactos, toggles → "Agendar visita" → toast según sync (evento creado / PENDING sin Calendar / sin evento si toggle off).
+- [ ] **Prefill:** desde un negocio → "Agendar visita" abre el modal con cuenta/instalación bloqueadas ("Cambiar"); la visita queda vinculada y la card se refresca.
+- [ ] **Licitación:** deal → toggle → **aparece el datepicker** → elegir fecha → badge violet "Licitación · entrega {fecha}" en header + card; la licitación aparece como **chip día-completo** en `/opai/agenda` y en el widget del hub; evento all-day en el calendario del responsable (o PENDING si no tiene Calendar).
+- [ ] **Correos:** en un deal cuya cuenta tiene contactos con correos sincronizados, la pestaña "Correos" muestra el hilo (con "· por {usuario}" en salientes y "Correo de la cuenta" en los ampliados); `get_deal_communications` y el resumen IA de licitación devuelven contenido.
+- [ ] **Cron:** `GET /api/cron/gmail-sync-all` con `Authorization: Bearer $CRON_SECRET` sincroniza las casillas activas (revisar logs `[gmail-sync-all]`).
+
+### Notas de configuración (Vercel)
+
+Env ya existentes: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GMAIL_TOKEN_SECRET`,
+`CRON_SECRET`, `GOOGLE_DRIVE_REDIRECT_URI`, `GOOGLE_CALENDAR_REDIRECT_URI`.
+Migración nueva **aditiva**: `20261019000000_add_agenda_custom_address` (ALTER TABLE
+ADD COLUMN nullable; aplicar con el flujo habitual del equipo — **no** `migrate
+deploy` desde el agente).

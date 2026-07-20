@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import { Surface, Tag, Spinner, EmptyState } from "@/components/opai-ds";
+import { Button } from "@/components/ui/button";
 
 type Item = {
   id: string;
@@ -52,19 +53,12 @@ export function AgendaHubCard() {
           <p className="font-display text-sm font-semibold text-ds-text-1">Agenda</p>
         </div>
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className="h-10 rounded-xl border border-ds-border-default px-3 text-[12px] text-ds-text-2 ds-tap sm:h-9"
-          >
+          <Button variant="outline" size="sm" onClick={() => setExpanded((v) => !v)}>
             {expanded ? "Compactar" : "Ampliar"}
-          </button>
-          <Link
-            href="/opai/agenda"
-            className="inline-flex h-10 items-center rounded-xl bg-primary px-3 text-[12px] font-medium text-primary-foreground ds-tap sm:h-9"
-          >
-            Abrir agenda
-          </Link>
+          </Button>
+          <Button asChild size="sm">
+            <Link href="/opai/agenda">Abrir agenda</Link>
+          </Button>
         </div>
       </div>
 
@@ -88,12 +82,16 @@ export function AgendaHubCard() {
                 {todayItems.map((i) => (
                   <li
                     key={`${i.type}-${i.id}`}
-                    className="flex items-center justify-between gap-2 rounded-lg bg-ds-surface-2 px-2 py-1.5 text-[13px]"
+                    className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-[13px] ${
+                      i.allDay ? "bg-tint-violet/60" : "bg-ds-surface-2"
+                    }`}
                   >
-                    <span className="truncate text-ds-text-1">
-                      {i.allDay ? i.title : `${new Date(i.start).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })} · ${i.title}`}
+                    <span className={`truncate ${i.allDay ? "text-tint-violet-fg" : "text-ds-text-1"}`}>
+                      {i.allDay
+                        ? `Licitación · ${i.title}`
+                        : `${new Date(i.start).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })} · ${i.title}`}
                     </span>
-                    {i.syncStatus && (
+                    {!i.allDay && i.syncStatus && (
                       <Tag variant={i.syncStatus === "SYNCED" ? "ok" : "warn"} size="sm">
                         {i.syncStatus}
                       </Tag>
@@ -112,12 +110,22 @@ export function AgendaHubCard() {
                     {d.toLocaleDateString("es-CL", { weekday: "short", day: "numeric" })}
                   </p>
                   <ul className="space-y-1">
-                    {dayItems.slice(0, 3).map((i) => (
-                      <li key={`${i.type}-${i.id}`} className="truncate text-[12px] text-ds-text-2">
-                        {i.allDay ? "◆ " : ""}
-                        {i.title}
-                      </li>
-                    ))}
+                    {dayItems.slice(0, 3).map((i) =>
+                      i.allDay ? (
+                        <li
+                          key={`${i.type}-${i.id}`}
+                          className="truncate rounded-md bg-tint-violet/60 px-1.5 py-0.5 text-[12px] text-tint-violet-fg"
+                          title={`Licitación · ${i.title}`}
+                        >
+                          {i.title}
+                        </li>
+                      ) : (
+                        <li key={`${i.type}-${i.id}`} className="truncate text-[12px] text-ds-text-2">
+                          {new Date(i.start).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })} ·{" "}
+                          {i.title}
+                        </li>
+                      ),
+                    )}
                     {dayItems.length === 0 && (
                       <li className="text-[12px] text-ds-text-4">—</li>
                     )}
