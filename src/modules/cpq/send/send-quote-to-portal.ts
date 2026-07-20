@@ -434,23 +434,11 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
         content: quotationBuffer,
         contentType: "application/pdf",
       });
-      // Espejo Drive (best-effort).
-      const dealForMirror = quote.dealId
-        ? await prisma.crmDeal.findFirst({
-            where: { id: quote.dealId, tenantId },
-            select: { title: true, isLicitacion: true },
-          })
-        : null;
       void enqueueQuotePdfToDrive({
         tenantId,
         quoteId,
         pdfBuffer: quotationBuffer,
         fileName: quotationFileName,
-        accountName: account.name,
-        installationName: quote.installation?.name,
-        dealId: quote.dealId,
-        dealTitle: dealForMirror?.title,
-        isLicitacion: Boolean(dealForMirror?.isLicitacion),
       });
     } catch (err) {
       console.warn("[CPQ] Could not generate quotation PDF for portal invite:", err);

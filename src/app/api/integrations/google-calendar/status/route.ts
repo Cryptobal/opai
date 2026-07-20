@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { getCalendarClientForUser } from "@/lib/google-workspace";
 
 export async function GET() {
@@ -83,9 +84,11 @@ export async function PATCH(request: NextRequest) {
   }
 
   const prefs = {
-    ...(typeof account.prefs === "object" && account.prefs ? account.prefs : {}),
+    ...(typeof account.prefs === "object" && account.prefs && !Array.isArray(account.prefs)
+      ? (account.prefs as Record<string, unknown>)
+      : {}),
     ...(body.prefs ?? {}),
-  };
+  } as Prisma.InputJsonValue;
 
   const updated = await prisma.googleCalendarAccount.update({
     where: { id: account.id },
