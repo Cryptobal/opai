@@ -115,5 +115,7 @@ export interface PositionMatrixAdapter {
   onCloneGroup?(groupKey: string): void;
   /** Reordena los servicios manualmente (drag & drop). Recibe las keys en el nuevo orden. */
   onReorderGroups?(orderedKeys: string[]): void;
+  /** Reordena los turnos dentro de un servicio (drag & drop). */
+  onReorderRows?(groupKey: string | null, orderedIds: string[]): void;
   onAddGroup(name: string, templateRows?: TemplateRowSeed[]): void;
 }
