@@ -451,3 +451,90 @@ No hay corrección de código — verificar/agregar el redirect autorizado.
    `out of memory`; el código de B8 sólo baja presión).
 2. **Redirect login Google** — agregar `/api/auth/callback/google` a los Authorized
    redirect URIs del cliente OAuth (A7).
+
+---
+
+## Radar v4 — Auditoría y verificación de prerrequisitos (B0)
+
+Prompt v4: **Radar Comercial** — alertas IA de correos, brief pre-reunión y
+seguimiento de compromisos, sobre la tubería v3. IA sugiere, el core
+determinístico decide: el radar **nunca** envía correos ni crea leads solo.
+
+### Verificación de prerrequisitos v3 (STOP gate)
+
+| Prerrequisito v3 | Estado | Evidencia |
+| --- | --- | --- |
+| Sync incremental (`syncState`) + backfill | ✅ PRESENTE | `src/modules/crm/email/gmail-sync.service.ts` → `syncGmailAccount()`; estado en `CrmEmailAccount.syncState`; `gmail-backfill.ts` (120d) / `gmail-incremental.ts` (`historyId`). Cron `gmail-sync-all` (`*/10`). |
+| Bandeja `/crm/correos` con drawer | ✅ PRESENTE | `src/app/(app)/crm/correos/page.tsx` → `CorreosClient.tsx` + `CorreoDrawer.tsx`. |
+| Deep-link `?thread=` | ⚠️ AUSENTE | El drawer abre por estado local (`openId`), no lee `?thread=`. **No es bloqueante**: se implementa en B3 junto con `?extract=1` (mismo cambio en `CorreosClient`). La fundación (bandeja + drawer) está presente. |
+| `email-to-lead.service.ts` + endpoints | ✅ PRESENTE | `email-to-lead.service.ts` (`extractLeadFromThread`) + `email-to-lead-create.service.ts` (`createLeadFromExtraction`). Rutas `POST /api/crm/correos/[threadId]/extract` y `.../create-lead`. |
+| `CrmEmailThread.leadId` | ✅ PRESENTE | `schema.prisma` línea 2644 (`lead_id`, indexado). |
+| Eventos Google en agenda | ✅ PRESENTE | `src/modules/agenda/google-events.ts` (`listGoogleCalendarEvents`), dedup por `AgendaEventLink.googleEventId` (QA v3 · A4). |
+
+**Decisión:** los prerrequisitos sustantivos están presentes. El único hueco
+(`?thread=`) es una afordancia de UI trivial que además está dentro del alcance
+de B3. **Se continúa** (no hay STOP).
+
+### Auditoría de piezas a reutilizar (B0.3)
+
+**(a) `POST /api/crm/gmail/send`** — `src/app/api/crm/gmail/send/route.ts`. Envía por
+**Gmail API** (`gmail.users.messages.send({ userId:"me", requestBody:{ raw } })`),
+no Resend. Body: `{ to, cc?, bcc?, subject, html?, text?, dealId?, accountId?, contactId? }`.
+**NO responde en hilo**: no pasa `threadId` a `requestBody` ni setea `In-Reply-To`/
+`References` (`buildRawEmail` solo emite `From/To/Cc/Bcc/Subject/MIME`). El thread se
+matchea por `subject` exacto. `CrmEmailThread.providerThreadId` sí guarda el threadId de
+Gmail (poblado en inbound por `gmail-message-upsert.ts`). El RFC `Message-ID` no se
+persiste. → **B5 extiende** el route: aceptar `threadId` interno, pasar el `providerThreadId`
+de Gmail a `requestBody.threadId`, y setear `In-Reply-To`/`References` leyendo el header
+`Message-ID` del último inbound (`messages.get(format:"metadata")`). Extender, no duplicar.
+
+**(b) Slack personal DM** — `src/lib/integrations/slack/personal-dm.ts` →
+`dispatchPersonalSlackDm({ tenantId, adminId, typeKey, title, body, category, link, critical })`.
+Resuelve el canal DM vía `SlackUserLink.dmChannelId` (lazy `conversations.open`),
+arma bloques con `buildNotificationBlocks` (`blocks.ts`) y encola en `SlackOutbox`
+(`enqueueOutboxRow` + `trySendOutboxRow`). El builder emite **un** botón url "Ver en OPAI".
+Los botones son **url-buttons Block Kit** (campo `url`, sin callback/interactividad).
+Drenado por cron `flush-slack-outbox` (`*/2`) vía `chat.postMessage` (postea `payload.blocks`).
+→ **B3 extiende** `dispatchPersonalSlackDm` con `actions?: {label,url,style?}[]` opcional para
+botones con etiqueta propia ("Crear lead con IA", "Ver correo", "Abrir negocio", "Ver follow-up").
+
+**(c) Notificaciones in-app** — modelo `Notification` (schema crm, líneas 2042-2060):
+`{ type, title, message, data(Json), read, link }`, **sin `userId`** (fila tenant-wide;
+lectura por-usuario vía `NotificationReadState`). Targeting por-usuario = `data.targetUserId`
+(filtrado en `bell-visibility.ts`). Orquestador `notify()` en `src/lib/notifications/notify.ts`:
+`notify({ tenantId, type, targetType:'ADMIN', targetIds:[adminId], title, body, link, data })`.
+`type` se resuelve contra el catálogo de tipos. → **B3** usa `notify()` con targeting a `userId`
+y `link` de deep-link.
+
+**(d) System prompt del orquestador comercial** — `src/lib/ai/help-chat-system-prompt-v2.ts`,
+constante `VISUAL_PROTOCOL` (lista numerada; §13 escritura CRM, §24 "Verdad Verificada",
+§25 flujo comercial). `buildHelpChatSystemPromptV2()` = base + `VISUAL_PROTOCOL`. → **B8**
+agrega una sección nueva instruyendo consultar el radar ante "¿qué tengo pendiente?".
+
+**(e) Setting por tenant (kill-switch)** — modelo `Setting` (public, único `[tenantId,key]`).
+No hay helper genérico get/set; patrón de referencia `help-chat-config.ts`. → **B2** crea
+helper `src/lib/crm/radar-settings.ts` con clave `radar_comercial_enabled` (default `true`),
+toggle DS Switch en Configuración → Asistente IA.
+
+### Infra confirmada para v4
+
+- **AI**: `aiService.generateJSONWithModel(prompt, "gpt-4o-mini", maxTokens, { tenantId })`
+  → JSON parseado, fuerza `gpt-4o-mini` (clasificación, drafts, briefs, follow-ups).
+  La extracción de lead del v3 sigue con el modelo por tenant (puede ser `gpt-4o`).
+- **Choke point de clasificación**: `syncGmailAccount()` — tras `runBackfill`/`runIncremental`,
+  paso de clasificación FIFO acotado (máx. 20/corrida, respeta `deadlineMs`).
+  `direction === "in"` = inbound externo (no existe concepto de dominio del tenant;
+  la única identidad propia es `emailAccount.email`).
+- **Hub**: card estática en `HubClientWrapper.tsx` (~línea 171), gate `hubPerms.hasCrm`
+  (+ setting radar leído por la card). Espejo de `AgendaHubCard.tsx` (`Surface`, `IconBubble`,
+  `Tag`, `EmptyState`, `Spinner`, tint `tint-violet`).
+- **Calendar (brief)**: `getCalendarClientForUser(tenantId, userId)` →
+  `calendar.events.list({ calendarId, timeMin, timeMax, singleEvents:true, orderBy:"startTime" })`;
+  asistentes en `ev.attendees[]`. Espejo de `google-events.ts` (nunca lanza).
+- **Cron**: guard `Authorization: Bearer ${CRON_SECRET}`; nuevas entradas en `vercel.json`
+  `radar-briefs` (`*/10`) y `radar-compromisos` (`0 12 * * *`).
+- **Chatbot tools**: editar `help-chat-tools-v2.ts` en 3 puntos (definición + dispatch +
+  `WRITE_TOOL_LABELS` para el write). `get_radar_items` (read), `resolve_radar_item` (write,
+  auto-diferido/confirmado por `WRITE_TOOL_NAMES`).
+- **DS**: `Surface`/`IconBubble`/`Tag`/`EmptyState`/`Spinner`/`Button`/`Switch` (barrel
+  `@/components/opai-ds` + `@/components/ui`), tints `tint-*`, sin hex, archivos <150 líneas.
