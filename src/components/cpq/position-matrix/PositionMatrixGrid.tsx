@@ -83,6 +83,7 @@ import { JornadaHoursChip } from "./JornadaHoursChip";
 import { resolveServiceColor, SERVICE_COLOR_PALETTE } from "./service-colors";
 import { CatalogPicker } from "./CatalogPicker";
 import { useGridColWidths, type GridColKey } from "./useGridColWidths";
+import { SortableGridRow } from "./SortableGridRow";
 import type { NormalizedGroup, NormalizedShift, PositionMatrixAdapter, ShiftPatch } from "./types";
 
 const FIELD =
@@ -469,9 +470,45 @@ function GroupBlock({
       return next;
     });
 
+  const groupKey = group?.key ?? null;
+  const rowIdsSignature = rows.map((r) => r.id).join("|");
+  const [rowOrder, setRowOrder] = useState<string[]>(() => rows.map((r) => r.id));
+  useEffect(() => {
+    setRowOrder(rows.map((r) => r.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowIdsSignature]);
+
+  const rowById = useMemo(() => {
+    const m = new Map<string, NormalizedShift>();
+    for (const r of rows) m.set(r.id, r);
+    return m;
+  }, [rows]);
+  const orderedRows = useMemo(
+    () => rowOrder.map((id) => rowById.get(id)).filter((r): r is NormalizedShift => !!r),
+    [rowOrder, rowById],
+  );
+
+  const rowSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor),
+  );
+  // Contexto DnD anidado si el adapter soporta reorder; el grip solo con 2+ filas.
+  const rowDndContext = !!adapter.onReorderRows;
+  const rowDndEnabled = rowDndContext && orderedRows.length > 1;
+
+  const handleRowDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = rowOrder.indexOf(String(active.id));
+    const newIndex = rowOrder.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const next = arrayMove(rowOrder, oldIndex, newIndex);
+    setRowOrder(next);
+    adapter.onReorderRows?.(groupKey, next);
+  };
+
   const totalGuards = rows.reduce((s, r) => s + r.guardias * (r.nPuestos || 1), 0);
   const totalPtos = rows.reduce((s, r) => s + (r.nPuestos || 1), 0);
-  const groupKey = group?.key ?? null;
 
   const saveName = () => {
     const name = draftName.trim();
@@ -482,8 +519,8 @@ function GroupBlock({
   // Filas físicas del grupo: los turnos + cada fila de observaciones desplegada
   // (mínimo 1 para el placeholder vacío). El rowSpan de la celda de servicio
   // debe cuadrar con el total de <tr> del grupo, o la grilla se desalinea.
-  const expandedCount = rows.reduce((n, r) => n + (expandedIds.has(r.id) ? 1 : 0), 0);
-  const physicalRowCount = Math.max(rows.length + expandedCount, 1);
+  const expandedCount = orderedRows.reduce((n, r) => n + (expandedIds.has(r.id) ? 1 : 0), 0);
+  const physicalRowCount = Math.max(orderedRows.length + expandedCount, 1);
 
   const serviceCell = (ref?: Ref<HTMLTableCellElement>) => (
     <td
@@ -668,8 +705,38 @@ function GroupBlock({
             )}
           </td>
         </tr>
+      ) : rowDndContext ? (
+        <DndContext
+          sensors={rowSensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleRowDragEnd}
+        >
+          <SortableContext items={rowOrder} strategy={verticalListSortingStrategy}>
+            {orderedRows.map((row, idx) => {
+              const expanded = expandedIds.has(row.id);
+              return (
+                <Fragment key={row.id}>
+                  <GridRow
+                    row={row}
+                    adapter={adapter}
+                    readOnly={readOnly}
+                    color={color}
+                    enableRowDrag={rowDndEnabled}
+                    leadingCell={leadingFor(idx === 0 ? setNodeRef : undefined)}
+                    observationsOpen={expanded}
+                    onToggleObservations={() => toggleObservations(row.id)}
+                    onRequestDelete={() => onRequestDeleteRow(row.id)}
+                  />
+                  {expanded && (
+                    <ObservationRow row={row} adapter={adapter} readOnly={readOnly} color={color} />
+                  )}
+                </Fragment>
+              );
+            })}
+          </SortableContext>
+        </DndContext>
       ) : (
-        rows.map((row, idx) => {
+        orderedRows.map((row, idx) => {
           const expanded = expandedIds.has(row.id);
           return (
             <Fragment key={row.id}>
@@ -702,6 +769,8 @@ interface GridRowProps {
   readOnly?: boolean;
   leadingCell?: ReactNode;
   color: string;
+  /** Habilita grip DnD de turno (contexto anidado del grupo). */
+  enableRowDrag?: boolean;
   /** Fila de observaciones desplegada debajo de esta fila. */
   observationsOpen: boolean;
   onToggleObservations: () => void;
@@ -734,6 +803,7 @@ function GridRow({
   readOnly,
   leadingCell,
   color,
+  enableRowDrag = false,
   observationsOpen,
   onToggleObservations,
   onRequestDelete,
@@ -784,12 +854,23 @@ function GridRow({
   const jornada = analizarTurno({ inicio: draft.inicio, fin: draft.fin, dias: draft.dias, rolName });
 
   return (
-    <tr className="border-b border-border/60 hover:bg-muted/20 [&>td]:align-middle">
+    <SortableGridRow id={row.id} sortable={enableRowDrag}>
+      {({ setNodeRef, style, grip }) => (
+    <tr
+      ref={setNodeRef}
+      style={style}
+      className="group/row border-b border-border/60 hover:bg-muted/20 [&>td]:align-middle"
+    >
       {leadingCell}
 
       {/* Puesto */}
       <td className="border-r border-border px-2 py-1">
-        <CatalogPicker kind="puesto" value={draft.puestoId} disabled={disabled} onChange={(id) => apply({ puestoId: id })} />
+        <div className="flex items-center gap-1">
+          {grip}
+          <div className="min-w-0 flex-1">
+            <CatalogPicker kind="puesto" value={draft.puestoId} disabled={disabled} onChange={(id) => apply({ puestoId: id })} />
+          </div>
+        </div>
       </td>
 
       {/* Cargo */}
@@ -963,6 +1044,8 @@ function GridRow({
         </div>
       </td>
     </tr>
+      )}
+    </SortableGridRow>
   );
 }
 
