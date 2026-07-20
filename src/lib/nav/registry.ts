@@ -325,6 +325,9 @@ export const NAV_MODULES: NavNode[] = [
             capability: "rendicion_pay",
             module: "finance",
             submodule: "rendiciones",
+            // Detalle vivo /finanzas/pagos/[id] pertenece a este N3 (la lista
+            // /finanzas/pagos es redirect legacy a /finanzas/rendiciones/pagos).
+            activePaths: ["/finanzas/pagos"],
           },
         ],
       },
@@ -361,7 +364,8 @@ export const NAV_MODULES: NavNode[] = [
           { key: "cv-cesiones", href: "/finanzas/facturacion/cesiones", label: "Cesiones", icon: DollarSign, module: "finance", submodule: "facturacion" },
         ],
       },
-      // Banca — restringido a owner/admin (banking_view)
+      // Banca — restringido a owner/admin (banking_view). Con N3:
+      // Flujo de Caja / Conciliación / Cuentas y cartolas.
       {
         key: "finance-banca",
         href: "/finanzas/bancos",
@@ -370,10 +374,38 @@ export const NAV_MODULES: NavNode[] = [
         module: "finance",
         submodule: "contabilidad",
         show: (perms) => hasCapability(perms, "banking_view"),
+        // Rutas hermanas planas que pertenecen a Banca (histórico: /bancos
+        // redirige a /flujo-caja como landing; ver bancos/page.tsx).
+        activePaths: ["/finanzas/flujo-caja", "/finanzas/conciliacion"],
+        children: [
+          {
+            key: "banca-flujo-caja",
+            href: "/finanzas/flujo-caja",
+            label: "Flujo de Caja",
+            shortLabel: "Flujo",
+            icon: TrendingUp,
+            capability: "cashflow_view",
+          },
+          {
+            key: "banca-conciliacion",
+            href: "/finanzas/conciliacion",
+            label: "Conciliación",
+            shortLabel: "Concil.",
+            icon: CheckCircle2,
+            module: "finance",
+            submodule: "contabilidad",
+          },
+          {
+            key: "banca-cuentas",
+            href: "/finanzas/bancos",
+            label: "Cuentas y cartolas",
+            shortLabel: "Cuentas",
+            icon: Landmark,
+            exactMatch: true,
+            show: (perms) => hasCapability(perms, "banking_view"),
+          },
+        ],
       },
-      // Flujo de Caja vive como tab dentro de /finanzas/bancos.
-      // Mantenemos la ruta /finanzas/flujo-caja accesible pero ya no es un
-      // N3 propio en el nav (2026-05-11).
       // Contabilidad — restringido a owner/admin (accounting_view)
       {
         key: "finance-contabilidad",
@@ -830,6 +862,14 @@ export function getContextualBottomNavNodes(pathname: string): NavNode[] {
     const ops = getModule("ops");
     const sup = ops?.children?.find((c) => c.key === "ops-supervision");
     if (sup?.children) return sup.children;
+  }
+
+  // Banca — familia de rutas hermanas planas (flujo-caja, conciliacion, bancos)
+  const BANCA_ROUTES = ["/finanzas/bancos", "/finanzas/flujo-caja", "/finanzas/conciliacion"];
+  if (BANCA_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/"))) {
+    const fin = getModule("finance");
+    const banca = fin?.children?.find((c) => c.key === "finance-banca");
+    if (banca?.children) return banca.children;
   }
 
   // Default: top-level children of active module

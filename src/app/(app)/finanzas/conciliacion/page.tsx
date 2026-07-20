@@ -7,7 +7,7 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
+import { PageHero, ModuleSubNav } from "@/components/opai-ds";
 import { GitMerge } from "lucide-react";
 import { ConciliacionClient } from "@/components/finance/ConciliacionClient";
 
@@ -38,6 +38,7 @@ export default async function ConciliacionPage() {
         subtitle="matching de movimientos"
         description="Conciliación de movimientos bancarios con registros contables."
       />
+      <ModuleSubNav moduleKey="finance-banca" />
       <ConciliacionClient bankAccounts={bankAccounts} canManage={canManage} />
     </div>
   );

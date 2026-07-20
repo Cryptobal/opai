@@ -5,6 +5,7 @@ import {
   findActiveModule,
   findN3Parent,
   getContextualBottomNavNodes,
+  pathMatchesNode,
   type VisibilityContext,
 } from "../registry";
 import { getDefaultPermissions } from "@/lib/permissions";
@@ -163,6 +164,62 @@ describe("nav registry", () => {
 
     it("returns undefined for /hub (no N3)", () => {
       expect(findN3Parent("/hub")).toBeUndefined();
+    });
+  });
+
+  describe("Banca — N3 + activePaths (rutas hermanas planas)", () => {
+    const finance = NAV_MODULES.find((m) => m.key === "finance")!;
+    const banca = finance.children!.find((c) => c.key === "finance-banca")!;
+
+    it("finance-banca tiene N3 (flujo-caja / conciliación / cuentas)", () => {
+      const childKeys = (banca.children ?? []).map((c) => c.key);
+      expect(childKeys).toEqual([
+        "banca-flujo-caja",
+        "banca-conciliacion",
+        "banca-cuentas",
+      ]);
+    });
+
+    it("findActiveModule resuelve finance para /finanzas/flujo-caja", () => {
+      expect(findActiveModule("/finanzas/flujo-caja")?.key).toBe("finance");
+    });
+
+    it("pathMatchesNode true para sub-ruta de un activePath de Banca", () => {
+      expect(pathMatchesNode("/finanzas/flujo-caja/cierre", banca)).toBe(true);
+    });
+
+    it("findN3Parent resuelve finance-banca para /finanzas/flujo-caja (activePaths)", () => {
+      expect(findN3Parent("/finanzas/flujo-caja")?.key).toBe("finance-banca");
+    });
+
+    it("trail de /finanzas/conciliacion = [Finanzas, Banca, Conciliación]", () => {
+      // Nivel 1: módulo top-level
+      expect(findActiveModule("/finanzas/conciliacion")?.key).toBe("finance");
+      // Nivel 2: N2 Banca (via activePaths)
+      expect(pathMatchesNode("/finanzas/conciliacion", banca)).toBe(true);
+      // Nivel 3: N3 Conciliación
+      const concil = banca.children!.find((c) => c.key === "banca-conciliacion")!;
+      expect(pathMatchesNode("/finanzas/conciliacion", concil)).toBe(true);
+      expect([finance.label, banca.label, concil.label]).toEqual([
+        "Finanzas",
+        "Banca",
+        "Conciliación",
+      ]);
+    });
+
+    it("getContextualBottomNavNodes devuelve Banca N3 para rutas de Banca", () => {
+      for (const r of ["/finanzas/bancos", "/finanzas/flujo-caja", "/finanzas/conciliacion"]) {
+        const keys = getContextualBottomNavNodes(r).map((n) => n.key);
+        expect(keys).toContain("banca-flujo-caja");
+        expect(keys).toContain("banca-conciliacion");
+        expect(keys).toContain("banca-cuentas");
+      }
+    });
+
+    it("rend-historial-pagos reclama /finanzas/pagos vía activePaths", () => {
+      const rend = finance.children!.find((c) => c.key === "finance-rendiciones")!;
+      const pagos = rend.children!.find((c) => c.key === "rend-historial-pagos")!;
+      expect(pathMatchesNode("/finanzas/pagos/abc123", pagos)).toBe(true);
     });
   });
 
