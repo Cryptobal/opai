@@ -7,6 +7,7 @@ import {
   ensureDealDriveFolderAndBackfill,
   getDealDriveFolderStatus,
 } from "@/lib/google-workspace/drive-deal-folder";
+import { importDealFilesFromDrive } from "@/lib/google-workspace/drive-deal-import";
 
 async function assertDeal(tenantId: string, dealId: string) {
   const deal = await prisma.crmDeal.findFirst({
@@ -43,7 +44,7 @@ export async function GET(
 }
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -58,6 +59,13 @@ export async function POST(
     const { id } = await params;
     if (!(await assertDeal(ctx.tenantId, id))) {
       return NextResponse.json({ success: false, error: "Negocio no encontrado" }, { status: 404 });
+    }
+
+    // Body opcional: { action: "import" } → Drive→OPAI; sin body → ensure carpeta.
+    const body = await request.json().catch(() => null);
+    if (body && typeof body === "object" && (body as { action?: string }).action === "import") {
+      const data = await importDealFilesFromDrive(ctx.tenantId, id);
+      return NextResponse.json({ success: true, data });
     }
 
     const data = await ensureDealDriveFolderAndBackfill(ctx.tenantId, id);

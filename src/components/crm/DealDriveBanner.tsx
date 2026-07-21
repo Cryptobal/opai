@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ExternalLink, FolderOpen, Loader2 } from "lucide-react";
+import { Download, ExternalLink, FolderOpen, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Surface } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
+import { shouldAutoImport, useDealDriveImport } from "./useDealDriveImport";
 
 type DriveStatus = {
   connected: boolean;
@@ -13,12 +14,13 @@ type DriveStatus = {
   fileCount: number;
 };
 
-type Props = { dealId: string };
+type Props = { dealId: string; onImported?: () => void };
 
-export function DealDriveBanner({ dealId }: Props) {
+export function DealDriveBanner({ dealId, onImported }: Props) {
   const [status, setStatus] = useState<DriveStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
+  const { importing, runImport } = useDealDriveImport(dealId, onImported);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -36,6 +38,14 @@ export function DealDriveBanner({ dealId }: Props) {
     setLoading(true);
     void fetchStatus();
   }, [fetchStatus]);
+
+  // Auto-pull al montar el tab Documentos: "subo a Drive → abro OPAI →
+  // aparece" sin clicks (throttle 5 min por deal).
+  useEffect(() => {
+    if (!status?.hasFolder) return;
+    if (!shouldAutoImport(dealId)) return;
+    void runImport(true);
+  }, [status?.hasFolder, dealId, runImport]);
 
   async function handleCreate() {
     setWorking(true);
@@ -83,12 +93,28 @@ export function DealDriveBanner({ dealId }: Props) {
         )}
       </div>
       {status.hasFolder && status.folderUrl ? (
-        <Button variant="outline" size="sm" className="h-10 sm:h-9" asChild>
-          <a href={status.folderUrl} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-            Abrir en Drive
-          </a>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-10 sm:h-9"
+            disabled={importing}
+            onClick={() => void runImport(false)}
+          >
+            {importing ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5 mr-1.5" />
+            )}
+            Traer desde Drive
+          </Button>
+          <Button variant="outline" size="sm" className="h-10 sm:h-9" asChild>
+            <a href={status.folderUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+              Abrir en Drive
+            </a>
+          </Button>
+        </div>
       ) : (
         <Button
           size="sm"

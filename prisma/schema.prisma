@@ -2805,12 +2805,14 @@ model CrmFile {
   storageKey      String   @map("storage_key")
   portalVisible   Boolean  @default(false) @map("portal_visible")
   createdBy       String?  @map("created_by")
+  driveFileId     String?  @map("drive_file_id") // origen Drive (import bilateral)
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   links CrmFileLink[]
 
   @@index([tenantId], map: "idx_crm_files_tenant")
   @@index([createdAt(sort: Desc)], map: "idx_crm_files_created_desc")
+  @@index([driveFileId], map: "idx_crm_files_drive_file")
   @@map("files")
   @@schema("crm")
 }
