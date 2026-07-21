@@ -8,6 +8,7 @@ import {
   encryptToken,
   grantIncludesScopes,
   CALENDAR_SCOPES,
+  safeCalendarReturnPath,
 } from "@/lib/google-workspace";
 
 const DEFAULT_PREFS = {
@@ -24,10 +25,10 @@ function googleErrorSlug(raw: string): string {
 
 export async function GET(request: NextRequest) {
   const origin = new URL(request.url).origin;
-  const dest = `${origin}/opai/configuracion/integraciones/google-calendar`;
+  const defaultDest = `${origin}/opai/configuracion/integraciones/google-calendar`;
   const session = await auth();
   if (!session?.user) {
-    return NextResponse.redirect(`${origin}/opai/login?callbackUrl=${dest}`);
+    return NextResponse.redirect(`${origin}/opai/login?callbackUrl=${defaultDest}`);
   }
 
   const { searchParams } = new URL(request.url);
@@ -36,19 +37,27 @@ export async function GET(request: NextRequest) {
   const googleError = searchParams.get("error");
   if (googleError) {
     console.error("[gcal-oauth]", "google", googleError);
-    return NextResponse.redirect(`${dest}?cal=${googleErrorSlug(googleError)}`);
+    return NextResponse.redirect(`${defaultDest}?cal=${googleErrorSlug(googleError)}`);
   }
   const code = searchParams.get("code");
   const state = searchParams.get("state");
-  if (!code || !state) return NextResponse.redirect(`${dest}?cal=error`);
+  if (!code || !state) return NextResponse.redirect(`${defaultDest}?cal=error`);
 
   const decoded = verifyState(state);
   if (!decoded || decoded.userId !== session.user.id) {
-    return NextResponse.redirect(`${dest}?cal=invalid_state`);
+    return NextResponse.redirect(`${defaultDest}?cal=invalid_state`);
   }
 
+  const returnPath = safeCalendarReturnPath(decoded.returnPath);
+  const dest = returnPath ? `${origin}${returnPath}` : defaultDest;
+  const withCal = (slug: string) => {
+    const u = new URL(dest);
+    u.searchParams.set("cal", slug);
+    return u.toString();
+  };
+
   const client = getCalendarOAuthClient();
-  if (!client) return NextResponse.redirect(`${dest}?cal=missing_env`);
+  if (!client) return NextResponse.redirect(withCal("missing_env"));
 
   let step: "exchange" | "scope" | "userinfo" | "db" = "exchange";
   try {
@@ -56,14 +65,14 @@ export async function GET(request: NextRequest) {
     client.setCredentials(tokens);
     step = "scope";
     if (!grantIncludesScopes(tokens.scope, CALENDAR_SCOPES)) {
-      return NextResponse.redirect(`${dest}?cal=missing_scope`);
+      return NextResponse.redirect(withCal("missing_scope"));
     }
     step = "userinfo";
     const oauth2 = google.oauth2({ version: "v2", auth: client });
     const me = await oauth2.userinfo.get();
     const googleEmail = me.data.email;
     if (!googleEmail || !tokens.access_token || !tokens.refresh_token) {
-      return NextResponse.redirect(`${dest}?cal=missing_tokens`);
+      return NextResponse.redirect(withCal("missing_tokens"));
     }
 
     step = "db";
@@ -99,9 +108,9 @@ export async function GET(request: NextRequest) {
       headers: { authorization: `Bearer ${process.env.CRON_SECRET ?? ""}` },
     }).catch((err) => console.warn("[gcal-oauth]", "channel-renew", err));
 
-    return NextResponse.redirect(`${dest}?cal=connected`);
+    return NextResponse.redirect(withCal("connected"));
   } catch (err) {
     console.error("[gcal-oauth]", step, err);
-    return NextResponse.redirect(`${dest}?cal=error`);
+    return NextResponse.redirect(withCal("error"));
   }
 }

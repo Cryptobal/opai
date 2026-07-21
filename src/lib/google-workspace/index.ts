@@ -2,6 +2,7 @@ export { DRIVE_SCOPES, CALENDAR_SCOPES, grantIncludesScopes } from "./scopes";
 export {
   buildState,
   verifyState,
+  safeCalendarReturnPath,
   getDriveOAuthClient,
   getCalendarOAuthClient,
 } from "./oauth";

@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { CalendarDays } from "lucide-react";
+import { toast } from "sonner";
 import { PageHero, Surface, EmptyState, Spinner } from "@/components/opai-ds";
 import { addDaysChile, startOfDayChile, ymdInChile } from "@/lib/dates-cl";
 import { AgendaWeekStrip, type WeekItem } from "./AgendaWeekStrip";
@@ -13,6 +13,9 @@ import { AgendaFilters, type TypeFilter } from "./AgendaFilters";
 import { NuevaVisitaModal } from "./NuevaVisitaModal";
 import { VisitDrawer } from "./VisitDrawer";
 import { LicitacionDrawer } from "./LicitacionDrawer";
+
+const CAL_RECONNECT_HREF =
+  "/api/integrations/google-calendar/oauth/start?return=/opai/agenda";
 
 /** Lunes 00:00 America/Santiago de la semana que contiene `d`. */
 function mondayOfChile(d: Date) {
@@ -65,11 +68,22 @@ export function AgendaPageClient() {
     void load();
   }, [load]);
 
+  const calHandled = useRef(false);
   useEffect(() => {
     if (search.get("nueva") === "1") setModalOpen(true);
     if (search.get("visita")) setVisitaId(search.get("visita"));
     if (search.get("licitacion")) setLicId(search.get("licitacion"));
-  }, [search]);
+    const cal = search.get("cal");
+    if (!cal || calHandled.current) return;
+    calHandled.current = true;
+    if (cal === "connected") {
+      toast.success("Calendar conectado — tus eventos ya aparecen");
+      void load();
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete("cal");
+    window.history.replaceState({}, "", url.pathname + url.search);
+  }, [search, load]);
 
   const filtered = items.filter((i) => {
     if (typeFilter !== "todos" && i.type !== typeFilter) return false;
@@ -116,15 +130,23 @@ export function AgendaPageClient() {
         onNextWeek={() => setWeekStart(addDaysChile(weekStart, 7))}
       />
 
+      {(googleStatus === "missing_scope" || googleStatus === "insufficient_scopes") && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">
+          <span>
+            Reconectá tu Calendar para ver tus eventos — Opai necesita permiso de lectura
+          </span>
+          <a href={CAL_RECONNECT_HREF} className="shrink-0 font-medium underline underline-offset-2">
+            Reconectar
+          </a>
+        </div>
+      )}
+
       {googleStatus === "error" && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2 text-[13px] text-status-warn-fg">
           <span>No pudimos leer tu Google Calendar (token expirado o revocado).</span>
-          <Link
-            href="/opai/configuracion/integraciones/google-calendar"
-            className="shrink-0 font-medium underline underline-offset-2"
-          >
+          <a href={CAL_RECONNECT_HREF} className="shrink-0 font-medium underline underline-offset-2">
             Reconectar Calendar
-          </Link>
+          </a>
         </div>
       )}
 
