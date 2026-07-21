@@ -72,6 +72,7 @@ export function CorreoDrawerContent({
         accountName={detail.thread.accountName}
         dealId={detail.thread.dealId}
         dealTitle={detail.thread.dealTitle}
+        subject={detail.thread.subject}
         onAssociate={onAssociate}
       />
       {detail.thread.leadId ? (
