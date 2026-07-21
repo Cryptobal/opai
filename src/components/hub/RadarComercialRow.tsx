@@ -8,18 +8,34 @@ type Props = {
   item: RadarItemDTO;
   busy: boolean;
   onResolve: (id: string, status: "DONE" | "DISMISSED") => void;
+  onOpenThread: (threadId: string) => void;
 };
 
-export function RadarComercialRow({ item, busy, onResolve }: Props) {
+export function RadarComercialRow({ item, busy, onResolve, onOpenThread }: Props) {
   const cta = ctaFor(item);
+  const threadId = item.threadId;
   return (
     <li className="flex items-start gap-2.5 rounded-lg bg-ds-surface-2 px-2.5 py-2">
       <span className="text-base leading-5" aria-hidden>
         {kindIcon(item.kind)}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-medium text-ds-text-1">{item.title}</p>
-        {item.summary && <p className="truncate text-[12px] text-ds-text-3">{item.summary}</p>}
+        {threadId ? (
+          // Tocar el título/resumen abre el correo real (lectura de contexto).
+          <button
+            type="button"
+            onClick={() => onOpenThread(threadId)}
+            className="block w-full text-left ds-tap"
+          >
+            <p className="truncate text-[13px] font-medium text-ds-text-1">{item.title}</p>
+            {item.summary && <p className="truncate text-[12px] text-ds-text-3">{item.summary}</p>}
+          </button>
+        ) : (
+          <>
+            <p className="truncate text-[13px] font-medium text-ds-text-1">{item.title}</p>
+            {item.summary && <p className="truncate text-[12px] text-ds-text-3">{item.summary}</p>}
+          </>
+        )}
         <Link href={cta.href} className="mt-0.5 inline-block text-[12px] font-medium text-primary ds-tap">
           {cta.label} →
         </Link>

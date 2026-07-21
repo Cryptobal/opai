@@ -1,5 +1,6 @@
 import { aiService } from "@/lib/ai-service";
 import type { RadarClassification, RadarCompromiso } from "./radar-types";
+import type { LeadFeedback } from "./radar-feedback";
 import { clampText } from "./radar-util";
 
 const CATEGORIAS = ["cotizacion", "licitacion", "consulta_comercial", "facturacion", "operacional", "otro"];
@@ -43,6 +44,21 @@ function normalize(raw: Record<string, unknown>): RadarClassification {
   };
 }
 
+/**
+ * Bloque de calibración few-shot desde las decisiones ✓/✗ del usuario:
+ * aprende qué considera lead real y qué descarta. Vacío si no hay historial.
+ */
+function feedbackBlock(examples?: LeadFeedback): string {
+  const approved = examples?.approved ?? [];
+  const rejected = examples?.rejected ?? [];
+  if (approved.length === 0 && rejected.length === 0) return "";
+  const lines = ["", "Calibración según decisiones previas de este usuario (contexto, no reglas absolutas):"];
+  if (approved.length) lines.push(`- Los consideró LEADS REALES: ${approved.map((s) => `"${s}"`).join("; ")}`);
+  if (rejected.length) lines.push(`- Los DESCARTÓ (no eran leads): ${rejected.map((s) => `"${s}"`).join("; ")}`);
+  lines.push('Usa este patrón para calibrar "intencion" y si el correo es un lead comercial.');
+  return lines.join("\n");
+}
+
 /** Clasifica un correo entrante externo con `gpt-4o-mini` (JSON estricto). */
 export async function classifyThread(input: {
   tenantId: string;
@@ -50,6 +66,7 @@ export async function classifyThread(input: {
   fromEmail: string;
   body: string;
   hoyISO: string;
+  examples?: LeadFeedback;
 }): Promise<RadarClassification | null> {
   const prompt = `Eres un clasificador comercial de una empresa de seguridad privada en Chile. Clasifica el correo ENTRANTE de abajo. Responde SOLO un JSON válido con esta forma exacta:
 {"categoria":"cotizacion|licitacion|consulta_comercial|facturacion|operacional|otro","intencion":"alta|media|baja","resumen":"1 línea en español","requiereRespuesta":true,"senalesCompra":["pide plazos"],"compromisos":[{"quien":"cliente|nosotros","que":"...","fechaISO":"YYYY-MM-DD"}]}
@@ -57,7 +74,7 @@ Reglas:
 - intencion "alta" solo si hay interés comercial claro (pide cotización, precios, plazos, reunión).
 - senalesCompra: frases breves que reflejen intención de compra; [] si no hay.
 - compromisos: promesas con fecha de cualquiera de las partes ("te confirmamos el jueves"); fechaISO absoluta (hoy es ${input.hoyISO}); [] si no hay.
-- resumen: máx 140 caracteres, sin saludos.
+- resumen: máx 140 caracteres, sin saludos.${feedbackBlock(input.examples)}
 Asunto: ${clampText(input.subject, 200)}
 Remitente: ${input.fromEmail}
 Cuerpo:

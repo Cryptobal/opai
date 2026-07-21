@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { isRadarComercialEnabled } from "@/lib/crm/radar-settings";
 import { classifyThread, generateDraftReply } from "./radar-classify-ai";
+import { getLeadFeedbackExamples, type LeadFeedback } from "./radar-feedback";
 import { generateThreadRadarItems, isNewLeadCandidate, type CreatedRadarItem } from "./radar-items";
 import type { RadarClassification } from "./radar-types";
 import { stripHtml, hoyISO } from "./radar-util";
@@ -192,6 +193,7 @@ async function classifyOne(
   tenantId: string,
   userId: string,
   threadId: string,
+  feedback?: LeadFeedback,
 ): Promise<CreatedRadarItem[]> {
   const thread = await prisma.crmEmailThread.findFirst({
     where: { id: threadId, tenantId },
@@ -222,6 +224,7 @@ async function classifyOne(
   const body = (lastInbound.textBody || stripHtml(lastInbound.htmlBody)).trim();
   const classification = await classifyThread({
     tenantId, subject: thread.subject, fromEmail: lastInbound.fromEmail, body, hoyISO: hoyISO(now),
+    examples: feedback,
   });
   if (!classification) {
     await prisma.crmEmailThread.update({ where: { id: thread.id }, data: { ...base, aiClassifiedAt: now } });
@@ -290,10 +293,12 @@ export async function classifyAccountThreads(params: {
     items.push(...promoted);
 
     const candidates = await pickCandidateThreads(params.tenantId, params.emailAccountId);
+    // Few-shot desde el feedback ✓/✗ del usuario: una sola query por corrida.
+    const feedback = await getLeadFeedbackExamples(params.tenantId, params.userId);
     let classified = 0;
     for (const t of candidates) {
       if (Date.now() >= deadline) break;
-      const created = await classifyOne(params.tenantId, params.userId, t.id);
+      const created = await classifyOne(params.tenantId, params.userId, t.id, feedback);
       items.push(...created);
       classified++;
     }
