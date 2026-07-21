@@ -7,18 +7,21 @@ import { invalidateCorreoFolderCounts } from "./correos-folder-counts";
 import type { EmailAccountLite } from "./gmail-sync-state";
 
 const TRASH_IMPORT_CAP = 25;
+const INBOX_IMPORT_CAP = 50;
 
 /**
- * Sweep global degradado: solo importa TRASH/SPAM preexistente y aplica
- * pertenencia positiva a sets (refuerzo). El estado inbox/archivado lo
- * resuelven el incremental + self-heal por-hilo — aquí NO se archiva.
+ * Sweep global degradado: aplica pertenencia positiva a sets (refuerzo) e
+ * importa hilos que existen en Gmail pero no localmente — INBOX primero
+ * (hilos perdidos en ventanas muertas del historyId que jamás entrarían a
+ * Recibidos), luego TRASH/SPAM. El estado inbox/archivado por-hilo lo
+ * resuelven el incremental + self-heal — aquí NO se archiva.
  */
 export async function reconcileGmailFolders(params: {
   gmail: gmail_v1.Gmail;
   tenantId: string;
   emailAccount: EmailAccountLite;
   deadline: number;
-}): Promise<{ updated: number; importedTrash: number; complete: boolean }> {
+}): Promise<{ updated: number; importedTrash: number; importedInbox: number; complete: boolean }> {
   const { gmail, tenantId, emailAccount, deadline } = params;
   try {
     // INBOX: más páginas para reforzar pertenencia positiva (self-heal cubre el resto).
@@ -69,36 +72,49 @@ export async function reconcileGmailFolders(params: {
       updated += res.count;
     }
 
-    const importedTrash = await importMissingTrashThreads({
+    // INBOX primero (lo que el usuario ve en Recibidos), papelera después.
+    const importedInbox = await importMissingThreads({
+      gmail,
+      tenantId,
+      emailAccount,
+      deadline,
+      threadIds: Array.from(inboxSet.ids).filter((tid) => !localIds.has(tid)),
+      cap: INBOX_IMPORT_CAP,
+    });
+    const importedTrash = await importMissingThreads({
       gmail,
       tenantId,
       emailAccount,
       deadline,
       threadIds: Array.from(trashSet.ids).filter((tid) => !localIds.has(tid)),
+      cap: TRASH_IMPORT_CAP,
     });
 
     invalidateCorreoFolderCounts(tenantId, emailAccount.id);
-    return { updated, importedTrash, complete: setsComplete };
+    return { updated, importedTrash, importedInbox, complete: setsComplete };
   } catch (err) {
     console.warn("[gmail] reconcileGmailFolders:", err);
-    return { updated: 0, importedTrash: 0, complete: false };
+    return { updated: 0, importedTrash: 0, importedInbox: 0, complete: false };
   }
 }
 
 /**
- * Importa hilos que solo existen en la papelera de Gmail (cap 25/corrida):
- * upsert del último mensaje + flags del hilo (unión de labels) → Papelera.
+ * Importa hilos que existen en Gmail pero no localmente (INBOX o TRASH):
+ * upsert del último mensaje + flags del hilo (unión de labels). Los hilos
+ * INBOX perdidos en ventanas muertas del historyId no tienen otra vía de
+ * entrada — el incremental solo ve cambios nuevos.
  */
-async function importMissingTrashThreads(params: {
+async function importMissingThreads(params: {
   gmail: gmail_v1.Gmail;
   tenantId: string;
   emailAccount: EmailAccountLite;
   deadline: number;
   threadIds: string[];
+  cap: number;
 }): Promise<number> {
   const { gmail, tenantId, emailAccount, deadline } = params;
   let imported = 0;
-  for (const tid of params.threadIds.slice(0, TRASH_IMPORT_CAP)) {
+  for (const tid of params.threadIds.slice(0, params.cap)) {
     if (Date.now() >= deadline) break;
     try {
       const res = await gmail.users.threads.get({ userId: "me", id: tid, format: "metadata" });
