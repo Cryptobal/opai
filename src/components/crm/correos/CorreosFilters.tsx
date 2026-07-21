@@ -8,7 +8,7 @@ export type CorreoChipKey = "todos" | "con_cuenta" | "sin_asociar" | "con_adjunt
 // Espejo de Gmail: no hay bandeja "Archivados" — los archivados viven dentro
 // de "Todos". El tipo `archived` se mantiene solo por compat de deep-links.
 const TABS: { key: CorreoFolderTab; label: string }[] = [
-  { key: "inbox", label: "Recibidos" },
+  { key: "inbox", label: "Bandeja de entrada" },
   { key: "snoozed", label: "Pospuestos" },
   { key: "all", label: "Todos" },
   { key: "trash", label: "Papelera" },

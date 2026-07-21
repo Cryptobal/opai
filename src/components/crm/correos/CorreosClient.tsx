@@ -13,7 +13,6 @@ import { CorreoRowSwipe } from "./CorreoRowSwipe";
 import { CorreoDrawer } from "./CorreoDrawer";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
 import { CorreosSyncBanner } from "./CorreosSyncBanner";
-import { ResponseKpiChip } from "./ResponseKpiChip";
 import { snoozeThread } from "./correo-thread-action-client";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 
@@ -135,24 +134,26 @@ export function CorreosClient() {
 
   return (
     <div className="ds-page-enter space-y-5">
-      <PageHero icon={Mail} iconTone="primary" title="Correos" subtitle="Bandeja comercial"
-        description="Hilos de tu Gmail vinculados a cuentas, negocios y leads" />
+      {/* Sticky header respeta notch / Dynamic Island en iOS */}
+      <div className="sticky top-0 z-10 -mx-1 space-y-5 bg-background/80 px-1 pb-2 pt-[env(safe-area-inset-top,0px)] backdrop-blur-sm lg:static lg:bg-transparent lg:pt-0 lg:backdrop-blur-none">
+        <PageHero icon={Mail} iconTone="primary" title="Correos" subtitle="Bandeja comercial"
+          description="Hilos de tu Gmail vinculados a cuentas, negocios y leads" />
 
-      <CorreosSyncBanner backfillDone={backfillDone} totalThreads={totalThreads}
-        onConnected={() => void fetchPage(null, true)} />
+        <CorreosSyncBanner backfillDone={backfillDone} totalThreads={totalThreads}
+          onConnected={() => void fetchPage(null, true)} />
 
-      {connected && !canModify && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">
-          <span>Reconectá Gmail para habilitar archivar y eliminar</span>
-          <a href="/api/crm/gmail/connect" className="font-medium underline underline-offset-2">
-            Reconectar Gmail
-          </a>
-        </div>
-      )}
+        {connected && !canModify && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">
+            <span>Reconectá Gmail para habilitar archivar y eliminar</span>
+            <a href="/api/crm/gmail/connect" className="font-medium underline underline-offset-2">
+              Reconectar Gmail
+            </a>
+          </div>
+        )}
 
-      <div className="flex justify-end"><ResponseKpiChip /></div>
-      <CorreosFilters folder={folder} onFolder={setFolder} chip={chip} onChip={setChip}
-        counts={counts} query={query} onQuery={setQuery} onSync={syncNow} syncing={syncing} />
+        <CorreosFilters folder={folder} onFolder={setFolder} chip={chip} onChip={setChip}
+          counts={counts} query={query} onQuery={setQuery} onSync={syncNow} syncing={syncing} />
+      </div>
 
       {!connected ? (
         <EmptyState icon={Mail} title="Conectá tu Gmail" description="Conectá tu casilla en Integraciones." />
