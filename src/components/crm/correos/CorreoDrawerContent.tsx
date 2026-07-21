@@ -91,7 +91,13 @@ export function CorreoDrawerContent({
         </button>
       )}
       <SuggestedReplyPanel threadId={detail.thread.id} subject={detail.thread.subject} onSent={onRefresh} />
-      <CorreoAttachments items={detail.attachments} threadId={detail.thread.id} />
+      <CorreoAttachments
+        items={detail.attachments}
+        threadId={detail.thread.id}
+        dealId={detail.thread.dealId}
+        dealTitle={detail.thread.dealTitle}
+        accountId={detail.thread.accountId}
+      />
       <CorreoMessages messages={detail.messages} />
     </>
   );

@@ -2,6 +2,7 @@
 
 import { Download, File, FileText, Image as ImageIcon } from "lucide-react";
 import type { CorreoAttachmentDTO } from "@/modules/crm/email/correos.types";
+import { CorreoAttachmentSave } from "./CorreoAttachmentSave";
 
 function fmtSize(bytes: number): string {
   if (bytes <= 0) return "";
@@ -19,9 +20,15 @@ function iconFor(mime: string) {
 export function CorreoAttachments({
   items,
   threadId,
+  dealId,
+  dealTitle,
+  accountId,
 }: {
   items: CorreoAttachmentDTO[];
   threadId: string;
+  dealId: string | null;
+  dealTitle: string | null;
+  accountId: string | null;
 }) {
   if (items.length === 0) return null;
   return (
@@ -56,6 +63,14 @@ export function CorreoAttachments({
               >
                 <Download className="h-4 w-4" />
               </a>
+              <CorreoAttachmentSave
+                threadId={threadId}
+                messageId={a.messageId}
+                attachmentId={a.attachmentId}
+                dealId={dealId}
+                dealTitle={dealTitle}
+                accountId={accountId}
+              />
             </li>
           );
         })}
