@@ -1,5 +1,6 @@
 import { upsertGmailMessage } from "./gmail-message-upsert";
 import { refreshThreadLabelsBatch } from "./gmail-refresh-threads";
+import { collectHistoryPage, processHistoryPage, type PageCounters } from "./gmail-incremental-page";
 import type { GmailSyncState, SyncRunArgs, SyncRunResult } from "./gmail-sync-state";
 
 const FALLBACK_QUERY = "newer_than:7d (in:inbox OR in:sent)";
@@ -9,11 +10,15 @@ function statusOf(err: unknown): number | undefined {
   return e?.code ?? e?.status ?? e?.response?.status;
 }
 
-async function processIds(
-  args: SyncRunArgs,
-  ids: string[],
-): Promise<{ synced: number; fetched: number; threadIds: Set<string> }> {
+/** Sync corto por query (cuando no hay historyId o expiró). Re-captura lastHistoryId. */
+async function fallbackSync(args: SyncRunArgs): Promise<SyncRunResult> {
   const { gmail, tenantId, emailAccount, budget, deadline, createdByUserId } = args;
+  const list = await gmail.users.messages.list({
+    userId: "me",
+    q: FALLBACK_QUERY,
+    maxResults: Math.min(budget, 50),
+  });
+  const ids = (list.data.messages ?? []).map((m) => m.id).filter((x): x is string => Boolean(x));
   let synced = 0;
   let fetched = 0;
   const threadIds = new Set<string>();
@@ -24,25 +29,12 @@ async function processIds(
     if (res.wrote) synced += 1;
     if (res.providerThreadId) threadIds.add(res.providerThreadId);
   }
-  return { synced, fetched, threadIds };
-}
-
-/** Sync corto por query (cuando no hay historyId o expiró). Re-captura lastHistoryId. */
-async function fallbackSync(args: SyncRunArgs): Promise<SyncRunResult> {
-  const { gmail } = args;
-  const list = await gmail.users.messages.list({
-    userId: "me",
-    q: FALLBACK_QUERY,
-    maxResults: Math.min(args.budget, 50),
-  });
-  const ids = (list.data.messages ?? []).map((m) => m.id).filter((x): x is string => Boolean(x));
-  const { synced, fetched, threadIds } = await processIds(args, ids);
   await refreshThreadLabelsBatch({
     gmail,
-    tenantId: args.tenantId,
-    emailAccountId: args.emailAccount.id,
+    tenantId,
+    emailAccountId: emailAccount.id,
     threadIds,
-    deadline: args.deadline,
+    deadline,
   });
 
   let lastHistoryId = args.state.lastHistoryId ?? null;
@@ -57,54 +49,53 @@ async function fallbackSync(args: SyncRunArgs): Promise<SyncRunResult> {
 }
 
 /**
- * Incremental por `users.history.list(startHistoryId)`. Trae sólo lo nuevo
- * (`messageAdded`). Si el historyId expiró (404) → fallback corto reiniciando
- * `lastHistoryId`.
+ * Incremental por `users.history.list(startHistoryId)`, procesado POR PÁGINA:
+ * cada página se upserta y refresca ANTES de pedir la siguiente, y solo al
+ * completarla se avanza el `historyId` comprometido. Si budget/deadline corta
+ * a mitad de página, se persiste el historyId de la última página completada
+ * (o el original) → la próxima corrida retoma sin perder cambios de labels.
+ * Si el historyId expiró (404) → fallback corto reiniciando `lastHistoryId`.
  */
 export async function runIncremental(args: SyncRunArgs): Promise<SyncRunResult> {
   const startHistoryId = args.state.lastHistoryId;
   if (!startHistoryId) return fallbackSync(args);
 
   try {
-    const ids = new Set<string>();
-    const labelThreadIds = new Set<string>();
-    let pageToken: string | undefined;
+    const counters: PageCounters = { synced: 0, fetched: 0 };
+    let committedHistoryId = startHistoryId;
     let newestHistoryId = startHistoryId;
+    let pageToken: string | undefined;
+    let allPagesDone = true;
+
     do {
       const res = await args.gmail.users.history.list({
         userId: "me",
         startHistoryId,
-        historyTypes: ["messageAdded", "labelAdded", "labelRemoved"],
+        historyTypes: ["messageAdded", "labelAdded", "labelRemoved", "messageDeleted"],
         maxResults: 100,
         pageToken,
       });
       if (res.data.historyId) newestHistoryId = String(res.data.historyId);
-      for (const h of res.data.history ?? []) {
-        for (const ma of h.messagesAdded ?? []) {
-          if (ma.message?.id) ids.add(ma.message.id);
-        }
-        for (const la of [...(h.labelsAdded ?? []), ...(h.labelsRemoved ?? [])]) {
-          if (la.message?.threadId) labelThreadIds.add(la.message.threadId);
-        }
+      const page = collectHistoryPage(res.data.history ?? []);
+      const completed = await processHistoryPage(args, page, counters);
+      if (!completed) {
+        allPagesDone = false;
+        break;
       }
+      if (page.maxHistoryRecordId) committedHistoryId = page.maxHistoryRecordId;
       pageToken = res.data.nextPageToken ?? undefined;
-    } while (pageToken && ids.size < args.budget && Date.now() < args.deadline);
+      if (pageToken && (counters.fetched >= args.budget || Date.now() >= args.deadline)) {
+        allPagesDone = false;
+        break;
+      }
+    } while (pageToken);
 
-    const { synced, fetched, threadIds } = await processIds(args, Array.from(ids));
-    for (const tid of threadIds) labelThreadIds.add(tid);
-    await refreshThreadLabelsBatch({
-      gmail: args.gmail,
-      tenantId: args.tenantId,
-      emailAccountId: args.emailAccount.id,
-      threadIds: labelThreadIds,
-      deadline: args.deadline,
-    });
     const state: GmailSyncState = {
       ...args.state,
-      lastHistoryId: newestHistoryId,
+      lastHistoryId: allPagesDone ? newestHistoryId : committedHistoryId,
       lastSyncAt: new Date().toISOString(),
     };
-    return { synced, fetched, state };
+    return { synced: counters.synced, fetched: counters.fetched, state };
   } catch (err) {
     if (statusOf(err) === 404) return fallbackSync(args);
     throw err;
