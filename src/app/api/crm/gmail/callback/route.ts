@@ -87,13 +87,22 @@ export async function GET(request: NextRequest) {
       grantedScopes: tokens.scope ?? null,
     };
 
+    let accountId: string;
     if (existing) {
-      await prisma.crmEmailAccount.update({
-        where: { id: existing.id },
-        data,
-      });
+      await prisma.crmEmailAccount.update({ where: { id: existing.id }, data });
+      accountId = existing.id;
     } else {
-      await prisma.crmEmailAccount.create({ data });
+      const created = await prisma.crmEmailAccount.create({ data, select: { id: true } });
+      accountId = created.id;
+    }
+
+    // Gmail push (opt-in por env): registra el watch Pub/Sub. Best-effort — no
+    // bloquea ni rompe el connect si el push no está configurado.
+    try {
+      const { registerGmailWatch } = await import("@/modules/crm/email/gmail-watch");
+      await registerGmailWatch(accountId);
+    } catch (e) {
+      console.warn("[gmail] registerGmailWatch en callback falló:", e);
     }
 
     return NextResponse.redirect(`${origin}/crm/correos?gmail=connected`);

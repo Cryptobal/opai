@@ -16,10 +16,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Gmail push (opt-in por env): renueva los watch Pub/Sub próximos a vencer.
+  // No-op si el push no está configurado. Best-effort, no bloquea el calendario.
+  let gmailWatchRenewed = 0;
+  try {
+    const { renewGmailWatches } = await import("@/modules/crm/email/gmail-watch");
+    gmailWatchRenewed = await renewGmailWatches();
+  } catch (err) {
+    console.warn("[calendar-channel-renew] renewGmailWatches falló", err);
+  }
+
   const webhook = calendarWebhookUrl();
   if (!webhook) {
     console.warn("[calendar-channel-renew] GOOGLE_CALENDAR_WEBHOOK_URL ausente");
-    return NextResponse.json({ ok: true, skipped: true });
+    return NextResponse.json({ ok: true, skipped: true, gmailWatchRenewed });
   }
 
   const accounts = await prisma.googleCalendarAccount.findMany({
@@ -78,5 +88,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, renewed });
+  return NextResponse.json({ ok: true, renewed, gmailWatchRenewed });
 }
