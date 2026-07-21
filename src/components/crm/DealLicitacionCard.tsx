@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Tag, Surface } from "@/components/opai-ds";
 import { Switch } from "@/components/ui/switch";
+import { LicitacionSyncBadge } from "./LicitacionSyncBadge";
 
 type Props = {
   dealId: string;
@@ -11,11 +12,6 @@ type Props = {
   fechaEntrega: string | null;
   onUpdated?: (next: { isLicitacion: boolean; fechaEntrega: string | null }) => void;
 };
-
-function fmt(d: string): string {
-  const [y, m, day] = d.split("-");
-  return day && m && y ? `${day}-${m}-${y}` : d;
-}
 
 export function DealLicitacionCard({ dealId, isLicitacion, fechaEntrega, onUpdated }: Props) {
   const initial = fechaEntrega?.slice(0, 10) ?? "";
@@ -71,11 +67,11 @@ export function DealLicitacionCard({ dealId, isLicitacion, fechaEntrega, onUpdat
 
   return (
     <Surface elevation={1} padding="md" className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-ds-text-3">Licitación</p>
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <p className="shrink-0 text-xs font-medium uppercase tracking-wide text-ds-text-3">Licitación</p>
         {enabled && savedFecha && (
-          <Tag variant="neutral" size="sm" className="bg-tint-violet text-tint-violet-fg">
-            Licitación · entrega {fmt(savedFecha)}
+          <Tag variant="neutral" size="sm" className="max-w-full truncate bg-tint-violet text-tint-violet-fg">
+            Licitación
           </Tag>
         )}
       </div>
@@ -118,6 +114,7 @@ export function DealLicitacionCard({ dealId, isLicitacion, fechaEntrega, onUpdat
           {!savedFecha && (
             <p className="text-[12px] text-ds-text-4">Elegí la fecha de entrega para activar la licitación.</p>
           )}
+          {savedFecha && <LicitacionSyncBadge dealId={dealId} refreshKey={savedFecha} />}
         </div>
       )}
       {error && <p className="text-[12px] text-status-danger-fg">{error}</p>}
