@@ -1,4 +1,19 @@
 import { prisma } from "@/lib/prisma";
+import {
+  sanitizeAgents,
+  type AiAgentModule,
+  type AiAgentProfile,
+} from "@/lib/ai/help-chat-agents";
+
+export {
+  AI_AGENT_MODULES,
+  AGENT_INSTRUCTIONS_MAX,
+  resolveAgentModule,
+  pickAgentInstructionsForPrompt,
+  sanitizeAgents,
+  type AiAgentModule,
+  type AiAgentProfile,
+} from "@/lib/ai/help-chat-agents";
 
 export const AI_HELP_CHAT_DEFAULT_ROLES = ["owner", "admin", "editor"] as const;
 
@@ -7,6 +22,8 @@ export type AiHelpChatConfig = {
   allowedRoles: string[];
   allowDataQuestions: boolean;
   allowWrites: boolean;
+  /** Perfiles de agente por módulo; vacío = sin instrucciones custom. */
+  agents: Partial<Record<AiAgentModule, AiAgentProfile>>;
 };
 
 const DEFAULT_CONFIG: AiHelpChatConfig = {
@@ -14,6 +31,7 @@ const DEFAULT_CONFIG: AiHelpChatConfig = {
   allowedRoles: [...AI_HELP_CHAT_DEFAULT_ROLES],
   allowDataQuestions: true,
   allowWrites: true,
+  agents: {},
 };
 
 function configKey(tenantId: string): string {
@@ -34,7 +52,7 @@ function normalizeRoles(input: unknown): string[] {
 
 export function sanitizeAiHelpChatConfig(raw: unknown): AiHelpChatConfig {
   if (!raw || typeof raw !== "object") {
-    return { ...DEFAULT_CONFIG };
+    return { ...DEFAULT_CONFIG, agents: {} };
   }
 
   const obj = raw as Record<string, unknown>;
@@ -48,6 +66,7 @@ export function sanitizeAiHelpChatConfig(raw: unknown): AiHelpChatConfig {
     allowDataQuestions,
     allowWrites:
       typeof obj.allowWrites === "boolean" ? obj.allowWrites : allowDataQuestions,
+    agents: sanitizeAgents(obj.agents),
   };
 }
 
@@ -57,12 +76,12 @@ export async function getAiHelpChatConfig(tenantId: string): Promise<AiHelpChatC
     select: { value: true },
   });
 
-  if (!setting?.value) return { ...DEFAULT_CONFIG };
+  if (!setting?.value) return { ...DEFAULT_CONFIG, agents: {} };
 
   try {
     return sanitizeAiHelpChatConfig(JSON.parse(setting.value));
   } catch {
-    return { ...DEFAULT_CONFIG };
+    return { ...DEFAULT_CONFIG, agents: {} };
   }
 }
 

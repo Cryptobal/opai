@@ -7310,7 +7310,14 @@ async function toolCreateDealChecklist(
   const items = rawItems
     .map((it) => ({
       title: typeof it.title === "string" ? it.title.trim() : "",
-      dueAt: typeof it.dueAt === "string" && /^\d{4}-\d{2}-\d{2}/.test(it.dueAt) ? it.dueAt : null,
+      // Fecha-solo (YYYY-MM-DD) → mediodía UTC para que el día calendario no se
+      // corra en Chile (UTC-4): 00:00Z se mostraba como el día ANTERIOR.
+      dueAt:
+        typeof it.dueAt === "string" && /^\d{4}-\d{2}-\d{2}$/.test(it.dueAt)
+          ? new Date(`${it.dueAt}T12:00:00Z`)
+          : typeof it.dueAt === "string" && !Number.isNaN(Date.parse(it.dueAt))
+            ? new Date(it.dueAt)
+            : null,
     }))
     .filter((it) => it.title.length > 0)
     .slice(0, 25);
@@ -7331,10 +7338,8 @@ async function toolCreateDealChecklist(
         title: it.title,
         status: "open",
         type: "checklist",
-        // Fecha-solo (YYYY-MM-DD) → mediodía UTC para que el día calendario no
-        // se corra en Chile (UTC-4): 00:00Z se mostraba como el día anterior.
-        // (dueAt ya viene validado como YYYY-MM-DD | null en el map de arriba.)
-        dueAt: it.dueAt ? new Date(`${it.dueAt}T12:00:00Z`) : undefined,
+        // dueAt ya viene como Date | null (mediodía UTC si era YYYY-MM-DD).
+        dueAt: it.dueAt ?? undefined,
         assignedTo: userId,
       })),
     });
