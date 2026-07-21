@@ -52,6 +52,7 @@ import {
   Wallet,
   EyeOff,
   RotateCcw,
+  RefreshCw,
   Settings2,
   BarChart3,
   CheckCircle2,
@@ -280,6 +281,7 @@ export function BancosClient({
           accounts={accounts}
           canManage={canManage}
           accountPlans={accountPlans}
+          onAccountsChanged={() => router.refresh()}
         />
       )}
       {activeTab === "analysis" && (
@@ -897,10 +899,12 @@ function TransactionsTab({
   accounts,
   canManage,
   accountPlans,
+  onAccountsChanged,
 }: {
   accounts: BankAccountRow[];
   canManage: boolean;
   accountPlans: AccountOption[];
+  onAccountsChanged: () => void;
 }) {
   const [selectedAccount, setSelectedAccount] = useState(
     accounts.length > 0 ? accounts[0].id : ""
@@ -946,6 +950,11 @@ function TransactionsTab({
     const a = accounts.find((x) => x.id === selectedAccount);
     return a ? `${a.bankName} · ${a.accountNumber}` : "Sin cuenta";
   }, [accounts, selectedAccount]);
+  const selectedAccountRow = useMemo(
+    () => accounts.find((x) => x.id === selectedAccount) ?? null,
+    [accounts, selectedAccount],
+  );
+  const [recalculatingBalance, setRecalculatingBalance] = useState(false);
   // Diálogo "Ocultar movimiento"
   const [hideDialog, setHideDialog] = useState<TransactionRow | null>(null);
   const [hideReason, setHideReason] = useState("");
@@ -1062,6 +1071,43 @@ function TransactionsTab({
     page,
     pageSize,
   ]);
+
+  const recalculateAccountBalance = useCallback(async () => {
+    if (!selectedAccount) return;
+    setRecalculatingBalance(true);
+    try {
+      const res = await fetch(
+        `/api/finance/banking/accounts/${selectedAccount}/recalculate-balance`,
+        { method: "POST" },
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error || "No se pudo recalcular el saldo");
+      }
+      const d = json.data as {
+        previousBalanceClp: number;
+        resolvedBalanceClp: number;
+        txCount: number;
+        anchorBalanceClp: number;
+      };
+      toast.success(
+        `Saldo actualizado: ${fmtCLP.format(d.resolvedBalanceClp)}` +
+          (d.txCount > 0
+            ? ` (ancla ${fmtCLP.format(d.anchorBalanceClp)} + ${d.txCount} mov.)`
+            : ""),
+      );
+      onAccountsChanged();
+      if (d.previousBalanceClp !== d.resolvedBalanceClp) {
+        await loadTransactions();
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Error al recalcular saldo",
+      );
+    } finally {
+      setRecalculatingBalance(false);
+    }
+  }, [selectedAccount, onAccountsChanged, loadTransactions]);
 
   // Resetea a la página 1 cuando cambian filtros (cuenta, fechas, búsqueda, orden, visibilidad o sub-tab)
   useEffect(() => {
@@ -1723,6 +1769,40 @@ function TransactionsTab({
 
   return (
     <div className="space-y-4 pb-24">
+      {selectedAccountRow && (
+        <div className="rounded-lg border border-ds-border-default bg-ds-surface-2 px-3 py-2.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-[12px] uppercase tracking-wide text-ds-text-3">
+              Saldo en banco (cuenta)
+            </p>
+            <p className="font-display text-lg font-semibold tabular-nums">
+              {fmtCLP.format(selectedAccountRow.currentBalance)}
+            </p>
+            <p className="text-[12px] text-ds-text-3 mt-0.5">
+              Desde último snapshot + movimientos visibles hasta hoy
+            </p>
+          </div>
+          {canManage && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-10 sm:h-9 shrink-0 self-start sm:self-auto"
+              disabled={recalculatingBalance || !selectedAccount}
+              onClick={recalculateAccountBalance}
+              title="Recalcula el saldo real sumando movimientos posteriores al último snapshot de cartola"
+            >
+              {recalculatingBalance ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5 sm:mr-1.5" />
+              )}
+              Recalcular saldo
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Filters — compactos en mobile (resumen + chevron), inline en desktop */}
       {isMobile && (
         <div className="rounded-lg border border-border bg-card/50 px-3 flex items-center gap-2 min-h-[48px]">
