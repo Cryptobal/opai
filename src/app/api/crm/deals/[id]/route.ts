@@ -188,8 +188,8 @@ export async function PATCH(
 
     if ("isLicitacion" in raw || "fechaEntrega" in raw || "status" in raw) {
       void import("@/modules/agenda/agenda-sync").then(({ syncLicitacionToCalendar }) =>
-        syncLicitacionToCalendar(ctx.tenantId, id).catch((err) =>
-          console.warn("[deals] licitacion calendar sync:", err),
+        syncLicitacionToCalendar(ctx.tenantId, id, "upsert", { actorUserId: ctx.userId }).catch(
+          (err) => console.warn("[deals] licitacion calendar sync:", err),
         ),
       );
     }

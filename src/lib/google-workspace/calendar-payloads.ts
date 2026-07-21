@@ -72,18 +72,25 @@ export function buildVisitaEventPayload(
   };
 }
 
+/**
+ * Evento all-day multi-día: banda continua desde que se marca la licitación
+ * (`rangeStartYmd`) hasta el día de entrega inclusive (end exclusivo +1).
+ */
 export function buildLicitacionEventPayload(deal: {
   title: string;
   fechaEntrega: Date;
+  rangeStartYmd: string;
   opaiUrl: string;
 }): CalendarEventPayload {
-  const start = deal.fechaEntrega.toISOString().slice(0, 10);
+  const entregaYmd = deal.fechaEntrega.toISOString().slice(0, 10);
+  const start = deal.rangeStartYmd <= entregaYmd ? deal.rangeStartYmd : entregaYmd;
   const endDate = new Date(deal.fechaEntrega);
   endDate.setUTCDate(endDate.getUTCDate() + 1);
   const end = endDate.toISOString().slice(0, 10);
+  const [, mm, dd] = entregaYmd.split("-");
 
   return {
-    summary: `ENTREGA · ${deal.title}`,
+    summary: `LICITACIÓN · ${deal.title} · entrega ${dd}-${mm}`,
     description: `Licitación en OPAI: ${deal.opaiUrl}`,
     start: { date: start },
     end: { date: end },

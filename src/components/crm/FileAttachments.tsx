@@ -498,7 +498,9 @@ export function FileAttachments({
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-4">
-          {entityType === "deal" && <DealDriveBanner dealId={entityId} />}
+          {entityType === "deal" && (
+            <DealDriveBanner dealId={entityId} onImported={() => void fetchFiles()} />
+          )}
           {loading ? (
             <FileListSkeleton />
           ) : (

@@ -13,6 +13,29 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Paso 1: reprocesar links PENDING de licitaciones (dueño sin Calendar al
+  // momento del sync). Cap 20 por corrida, agrupado por tenant.
+  let retriedPending = 0;
+  try {
+    const pending = await prisma.agendaEventLink.findMany({
+      where: { sourceType: "licitacion", syncStatus: "PENDING" },
+      select: { tenantId: true },
+      distinct: ["tenantId"],
+      take: 5,
+    });
+    const { retryPendingAgendaLinks } = await import("@/modules/agenda/agenda-retry-pending");
+    for (const p of pending) {
+      const { retried } = await retryPendingAgendaLinks({
+        tenantId: p.tenantId,
+        sourceType: "licitacion",
+        cap: 20,
+      });
+      retriedPending += retried;
+    }
+  } catch (err) {
+    console.warn("[calendar] retry pending licitaciones:", err);
+  }
+
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   const max = new Date(today);
@@ -47,5 +70,5 @@ export async function GET(req: NextRequest) {
     sent++;
   }
 
-  return NextResponse.json({ ok: true, sent });
+  return NextResponse.json({ ok: true, sent, retriedPending });
 }

@@ -11,7 +11,7 @@ import { TogglesField } from "./nueva-visita/TogglesField";
 import { useNuevaVisita } from "./nueva-visita/useNuevaVisita";
 
 const INPUT =
-  "h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9";
+  "h-10 w-full min-w-0 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9";
 
 type Props = {
   open: boolean;
@@ -32,11 +32,12 @@ export function NuevaVisitaModal(props: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Nueva visita</DialogTitle>
+          <DialogTitle className="pr-8">Nueva visita</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-1.5">
+        {/* Cuerpo con scroll propio; el footer queda fijo fuera del scroll. */}
+        <div className="max-h-[min(70vh,640px)] min-w-0 w-full space-y-3 overflow-y-auto pr-1 -mr-1">
+          <div className="flex min-w-0 flex-wrap gap-1.5">
             {VISIT_TYPES.map((t) => (
               <button
                 key={t.id}
@@ -124,7 +125,7 @@ export function NuevaVisitaModal(props: Props) {
           )}
 
           <textarea
-            className="min-h-[64px] w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-[13px]"
+            className="min-h-[64px] w-full min-w-0 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-[13px]"
             placeholder="Notas"
             value={form.notes}
             onChange={(e) => set("notes", e.target.value)}
@@ -142,8 +143,13 @@ export function NuevaVisitaModal(props: Props) {
           )}
 
           {error && <p className="text-[12px] text-status-danger-fg">{error}</p>}
+        </div>
 
-          <Button className="w-full" disabled={saving || !canSubmit} onClick={() => void submit()}>
+        <div className="flex justify-end gap-2 border-t border-ds-border-default pt-3">
+          <Button variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button disabled={saving || !canSubmit} onClick={() => void submit()}>
             {saving ? "Agendando…" : "Agendar visita"}
           </Button>
         </div>

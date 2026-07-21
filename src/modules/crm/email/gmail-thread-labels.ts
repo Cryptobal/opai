@@ -1,18 +1,39 @@
 import { prisma } from "@/lib/prisma";
 
-/** Deriva flags locales desde labelIds de un hilo Gmail. */
+/** Flags crudos derivados de la unión de labels de TODOS los mensajes del hilo. */
 export function flagsFromLabelIds(labelIds: string[] | null | undefined) {
   const labels = labelIds ?? [];
-  const trashed = labels.includes("TRASH");
-  const inInbox = labels.includes("INBOX");
   return {
-    trashedAt: trashed ? new Date() : null,
-    archivedAt: !trashed && !inInbox ? new Date() : null,
+    inInbox: labels.includes("INBOX"),
+    inSpam: labels.includes("SPAM"),
+    inTrash: labels.includes("TRASH"),
     isUnread: labels.includes("UNREAD"),
   };
 }
 
-/** Persiste espejo local de labels (INBOX / UNREAD / TRASH). */
+type ThreadStateFields = {
+  archivedAt: Date | null;
+  trashedAt: Date | null;
+  spamAt: Date | null;
+};
+
+/**
+ * Semántica de hilo Gmail (labels = unión de todos los mensajes).
+ * Prioridad: INBOX > SPAM > TRASH > archivado. Conserva timestamps ya
+ * seteados (no los pisa con un `now` nuevo si el estado no cambió).
+ */
+export function deriveThreadState(
+  flags: ReturnType<typeof flagsFromLabelIds>,
+  current: ThreadStateFields,
+  now = new Date(),
+): ThreadStateFields {
+  if (flags.inInbox) return { archivedAt: null, trashedAt: null, spamAt: null };
+  if (flags.inSpam) return { archivedAt: null, trashedAt: null, spamAt: current.spamAt ?? now };
+  if (flags.inTrash) return { archivedAt: null, trashedAt: current.trashedAt ?? now, spamAt: null };
+  return { archivedAt: current.archivedAt ?? now, trashedAt: null, spamAt: null };
+}
+
+/** Persiste espejo local de labels del hilo (INBOX / SPAM / TRASH / UNREAD). */
 export async function applyThreadLabelFlags(params: {
   tenantId: string;
   emailAccountId: string;
@@ -20,12 +41,30 @@ export async function applyThreadLabelFlags(params: {
   labelIds: string[] | null | undefined;
 }): Promise<void> {
   const flags = flagsFromLabelIds(params.labelIds);
-  await prisma.crmEmailThread.updateMany({
-    where: {
-      tenantId: params.tenantId,
-      emailAccountId: params.emailAccountId,
-      providerThreadId: params.providerThreadId,
-    },
-    data: flags,
+  const where = {
+    tenantId: params.tenantId,
+    emailAccountId: params.emailAccountId,
+    providerThreadId: params.providerThreadId,
+  };
+  const current = await prisma.crmEmailThread.findFirst({
+    where,
+    select: { archivedAt: true, trashedAt: true, spamAt: true, isUnread: true },
   });
+  if (!current) return;
+
+  const next = deriveThreadState(flags, current);
+  const data: Partial<ThreadStateFields & { isUnread: boolean }> = {};
+  if ((next.archivedAt?.getTime() ?? null) !== (current.archivedAt?.getTime() ?? null)) {
+    data.archivedAt = next.archivedAt;
+  }
+  if ((next.trashedAt?.getTime() ?? null) !== (current.trashedAt?.getTime() ?? null)) {
+    data.trashedAt = next.trashedAt;
+  }
+  if ((next.spamAt?.getTime() ?? null) !== (current.spamAt?.getTime() ?? null)) {
+    data.spamAt = next.spamAt;
+  }
+  if (flags.isUnread !== current.isUnread) data.isUnread = flags.isUnread;
+  if (Object.keys(data).length === 0) return;
+
+  await prisma.crmEmailThread.updateMany({ where, data });
 }

@@ -2650,9 +2650,10 @@ model CrmEmailThread {
   subject          String
   lastMessageAt    DateTime? @map("last_message_at") @db.Timestamptz(6)
 
-  // ── Estado espejo Gmail (archivar / papelera / leído) ──
+  // ── Estado espejo Gmail (archivar / papelera / spam / leído) ──
   archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
   trashedAt  DateTime? @map("trashed_at") @db.Timestamptz(6)
+  spamAt     DateTime? @map("spam_at") @db.Timestamptz(6)
   isUnread   Boolean   @default(false) @map("is_unread")
 
   // ── Radar Comercial v4 — clasificación IA del hilo ──
@@ -2804,12 +2805,14 @@ model CrmFile {
   storageKey      String   @map("storage_key")
   portalVisible   Boolean  @default(false) @map("portal_visible")
   createdBy       String?  @map("created_by")
+  driveFileId     String?  @map("drive_file_id") // origen Drive (import bilateral)
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   links CrmFileLink[]
 
   @@index([tenantId], map: "idx_crm_files_tenant")
   @@index([createdAt(sort: Desc)], map: "idx_crm_files_created_desc")
+  @@index([driveFileId], map: "idx_crm_files_drive_file")
   @@map("files")
   @@schema("crm")
 }
@@ -11765,6 +11768,7 @@ model AgendaEventLink {
   googleCalendarId  String?   @map("google_calendar_id")
   htmlLink          String?   @map("html_link") @db.Text // URL del evento en Google Calendar
   allDay            Boolean   @default(false) @map("all_day")
+  rangeStartYmd     String?   @map("range_start_ymd") // inicio del rango all-day (licitaciones)
   syncStatus        String    @default("PENDING") @map("sync_status") // PENDING|SYNCED|ERROR|CANCELLED
   lastError         String?   @map("last_error") @db.Text
   lastSyncAt        DateTime? @map("last_sync_at")

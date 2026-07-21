@@ -7,7 +7,7 @@ import { listCorreoThreads, type CorreoListFilter } from "@/modules/crm/email/co
 import { countCorreoFolders } from "@/modules/crm/email/correos-folder-counts";
 
 function parseFolder(raw: string | null): CorreoListFilter {
-  if (raw === "archived" || raw === "trash") return raw;
+  if (raw === "archived" || raw === "all" || raw === "trash") return raw;
   return "inbox";
 }
 
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
     counts,
     canModify: hasGmailModify(account.grantedScopes),
     backfillDone: Boolean(syncRaw.backfillDone),
-    totalThreads: counts.inbox + counts.archived + counts.trash,
+    totalThreads: counts.all + counts.trash,
     lastSyncAt: syncRaw.lastSyncAt ?? null,
   });
 }

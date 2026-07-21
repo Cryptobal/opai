@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 export type CorreoFolderCounts = {
   inbox: number;
   archived: number;
+  all: number;
   trash: number;
 };
 
@@ -11,7 +12,11 @@ type CacheEntry = { at: number; counts: CorreoFolderCounts };
 const CACHE_TTL_MS = 60_000;
 const cache = new Map<string, CacheEntry>();
 
-/** Conteos por pestaña (inbox / archivados / papelera). Cache 60s por casilla. */
+/**
+ * Conteos por pestaña (recibidos / archivados / todos / papelera). El spam
+ * queda excluido de todas menos papelera (que solo mira trashedAt), como en
+ * Gmail. Cache 60s por casilla.
+ */
 export async function countCorreoFolders(params: {
   tenantId: string;
   emailAccountId: string;
@@ -21,19 +26,22 @@ export async function countCorreoFolders(params: {
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.counts;
 
   const base = { tenantId: params.tenantId, emailAccountId: params.emailAccountId };
-  const [inbox, archived, trash] = await Promise.all([
+  const [inbox, archived, all, trash] = await Promise.all([
     prisma.crmEmailThread.count({
-      where: { ...base, trashedAt: null, archivedAt: null },
+      where: { ...base, trashedAt: null, archivedAt: null, spamAt: null },
     }),
     prisma.crmEmailThread.count({
-      where: { ...base, trashedAt: null, archivedAt: { not: null } },
+      where: { ...base, trashedAt: null, spamAt: null, archivedAt: { not: null } },
+    }),
+    prisma.crmEmailThread.count({
+      where: { ...base, trashedAt: null, spamAt: null },
     }),
     prisma.crmEmailThread.count({
       where: { ...base, trashedAt: { not: null } },
     }),
   ]);
 
-  const counts = { inbox, archived, trash };
+  const counts = { inbox, archived, all, trash };
   cache.set(key, { at: Date.now(), counts });
   return counts;
 }
