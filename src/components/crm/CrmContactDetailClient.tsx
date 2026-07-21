@@ -33,6 +33,7 @@ import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import {
   Mail,
+  Mailbox,
   Phone,
   Briefcase,
   Pencil,
@@ -56,6 +57,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FileAttachments } from "./FileAttachments";
 import { CreateDealModal } from "./CreateDealModal";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
+import { SendPresentationDialog } from "./SendPresentationDialog";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
 
@@ -192,6 +194,7 @@ export function CrmContactDetailClient({
   const [contact, setContact] = useState(initialContact);
   const [contactDeals, setContactDeals] = useState(deals);
   const [startingChat, setStartingChat] = useState(false);
+  const [sendPresentationOpen, setSendPresentationOpen] = useState(false);
   const fullName = [contact.firstName, contact.lastName].filter(Boolean).join(" ");
 
   // Handler reutilizado desde headerActions para no duplicar UI entre `extra`
@@ -478,6 +481,17 @@ export function CrmContactDetailClient({
       icon: Mail,
       onClick: () => setEmailOpen(true),
       hidden: !gmailConnected || !contact.email,
+    },
+    {
+      label: "Enviar presentación",
+      icon: Mailbox,
+      onClick: () => {
+        if (!contact.email?.trim()) {
+          toast.error("El contacto no tiene email; agrégalo antes de enviar la presentación.");
+          return;
+        }
+        setSendPresentationOpen(true);
+      },
     },
     {
       label: contact.portalEnabled ? "Iniciar chat externo" : "Chat (portal no activo)",
@@ -944,6 +958,22 @@ export function CrmContactDetailClient({
       </Dialog>
 
       <ConfirmDialog open={deleteConfirm} onOpenChange={setDeleteConfirm} title="Eliminar contacto" description="El contacto será eliminado permanentemente." onConfirm={deleteContact} />
+
+      <SendPresentationDialog
+        open={sendPresentationOpen}
+        onOpenChange={setSendPresentationOpen}
+        contact={{
+          id: contact.id,
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          email: contact.email,
+          account: contact.account
+            ? { id: contact.account.id, name: contact.account.name }
+            : null,
+        }}
+        installations={installations}
+        onSent={() => router.refresh()}
+      />
     </>
   );
 }
