@@ -1,72 +1,78 @@
 import { prisma } from "@/lib/prisma";
 import { gmailClientForAccount } from "./gmail-account-client";
-import { writeSyncState, readSyncState } from "./gmail-sync-state";
+import { readSyncState, writeSyncState } from "./gmail-sync-state";
 
-/**
- * Gmail push (opt-in por env): requiere `GMAIL_PUSH_TOKEN` (verificación del
- * webhook) y `GMAIL_PUBSUB_TOPIC` (topic Pub/Sub). Sin ambos, todo el bloque es
- * no-op y el polling del cron sigue siendo la red de seguridad.
- */
-export function gmailPushEnabled(): boolean {
-  return Boolean(process.env.GMAIL_PUSH_TOKEN && process.env.GMAIL_PUBSUB_TOPIC);
-}
+const PUSH_ENABLED = process.env.GMAIL_PUSH_ENABLED === "true";
+const TOPIC = process.env.GMAIL_PUSH_TOPIC ?? "";
 
-/**
- * Registra/renueva el `users.watch` de una casilla hacia el topic Pub/Sub y
- * guarda `watchExpiration` en el syncState. Best-effort: nunca lanza; no-op si
- * el push no está configurado o la casilla no está conectada.
- */
-export async function registerGmailWatch(emailAccountId: string): Promise<boolean> {
-  if (!gmailPushEnabled()) return false;
+export type GmailWatchAccount = {
+  id: string;
+  accessTokenEncrypted: string | null;
+  refreshTokenEncrypted: string | null;
+  syncState?: unknown;
+};
+
+type WatchResult = { skipped: true } | { error: true } | { ok: true };
+
+/** Registra `users.watch` hacia Pub/Sub. Opt-in por env; nunca lanza. */
+export async function registerGmailWatch(account: GmailWatchAccount): Promise<WatchResult> {
+  if (!PUSH_ENABLED || !TOPIC) return { skipped: true };
+
+  const gmail = gmailClientForAccount(account);
+  if (!gmail) return { error: true };
+
   try {
-    const account = await prisma.crmEmailAccount.findUnique({
-      where: { id: emailAccountId },
-      select: {
-        provider: true,
-        status: true,
-        accessTokenEncrypted: true,
-        refreshTokenEncrypted: true,
-      },
-    });
-    if (!account || account.provider !== "gmail" || account.status !== "active") return false;
-    const gmail = gmailClientForAccount(account);
-    if (!gmail) return false;
-
     const res = await gmail.users.watch({
       userId: "me",
       requestBody: {
-        topicName: process.env.GMAIL_PUBSUB_TOPIC,
+        topicName: TOPIC,
         labelIds: ["INBOX"],
         labelFilterAction: "include",
       },
     });
-    await writeSyncState(emailAccountId, {
-      watchExpiration: res.data.expiration ? Number(res.data.expiration) : Date.now() + 7 * 86400_000,
+
+    const prior = readSyncState(account.syncState);
+    await writeSyncState(account.id, {
+      watch: {
+        historyId: res.data.historyId ?? prior.watch?.historyId ?? null,
+        expiration: res.data.expiration
+          ? Number(res.data.expiration)
+          : Date.now() + 7 * 86400_000,
+        registeredAt: new Date().toISOString(),
+      },
     });
-    return true;
+    return { ok: true };
   } catch (err) {
-    console.warn("[gmail-watch] registerGmailWatch falló", emailAccountId, err);
-    return false;
+    console.warn("[gmail] watch register falló", { emailAccountId: account.id, err });
+    return { error: true };
   }
 }
 
-/**
- * Renueva los watch próximos a vencer (< 48h). Pensado como paso diario del
- * cron. Cap 40 casillas por corrida. No-op sin push configurado.
- */
-export async function renewGmailWatches(now: number = Date.now()): Promise<number> {
-  if (!gmailPushEnabled()) return 0;
-  const horizon = now + 48 * 3600_000;
-  const accounts = await prisma.crmEmailAccount.findMany({
-    where: { provider: "gmail", status: "active" },
-    select: { id: true, syncState: true },
-    take: 40,
-  });
-  let renewed = 0;
-  for (const acc of accounts) {
-    const exp = readSyncState(acc.syncState).watchExpiration;
-    if (exp && exp > horizon) continue;
-    if (await registerGmailWatch(acc.id)) renewed++;
+/** Detiene el watch activo y limpia `syncState.watch`. Best-effort. */
+export async function stopGmailWatch(account: GmailWatchAccount): Promise<void> {
+  if (!PUSH_ENABLED) return;
+
+  const gmail = gmailClientForAccount(account);
+  if (gmail) {
+    try {
+      await gmail.users.stop({ userId: "me" });
+    } catch (err) {
+      console.warn("[gmail] watch stop falló", { emailAccountId: account.id, err });
+    }
   }
-  return renewed;
+
+  const next = readSyncState(account.syncState);
+  delete next.watch;
+  await prisma.crmEmailAccount.update({
+    where: { id: account.id },
+    data: { syncState: next },
+  });
+}
+
+/** true si el watch vence en menos de 24h (Google renueva ~7 días). */
+export function needsWatchRenewal(account: { syncState?: unknown }): boolean {
+  if (!PUSH_ENABLED) return false;
+  const exp = readSyncState(account.syncState).watch?.expiration;
+  if (!exp) return true;
+  return exp - Date.now() < 24 * 3600_000;
 }

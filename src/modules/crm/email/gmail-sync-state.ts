@@ -19,8 +19,17 @@ export type GmailSyncState = {
   lastRadarRunAt?: string | null;
   /** Nº de hilos analizados por el Radar en la última corrida. */
   lastRadarClassified?: number;
-  /** Vencimiento (ms epoch) del `users.watch` de Gmail push, si está activo. */
-  watchExpiration?: number | null;
+  /** Estado del `users.watch` Pub/Sub (Gmail push). */
+  watch?: {
+    historyId?: string | null;
+    expiration?: number;
+    registeredAt?: string;
+  };
+  /** Coalescing anti-tormenta del webhook push. */
+  push?: {
+    lastPushAt?: string;
+    lastPushHistoryId?: string;
+  };
 };
 
 export type EmailAccountLite = { id: string; email: string; userId: string };
