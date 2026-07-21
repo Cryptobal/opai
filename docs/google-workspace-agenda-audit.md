@@ -766,3 +766,37 @@ Rama: `feat/gw-v5-pulido` · **NO mergeada**.
 
 Cuentas Gmail conectadas antes de v5 tienen `grantedScopes` null → banner
 "Reconectá Gmail para habilitar archivar y eliminar" hasta re-OAuth.
+
+---
+
+## QA v6 — Pulido fino (render HTML · multi-calendario · onboarding)
+
+Fecha: 2026-07-20  
+Rama: `feat/gw-v6-pulido-fino` (desde `main` @ `fb45da356` + merge `fix/calendar-scope-reconsent`)  
+Gate pre-cambio: `npx prisma generate` OK · `NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit` OK (0 errores).
+
+### Prerrequisito
+
+- Mergeado `fix/calendar-scope-reconsent`: omite `include_granted_scopes` en OAuth Calendar/Drive.
+  Sin él, reconectar Calendar sigue dando 403 insufficient scopes.
+
+### Hallazgos auditoría
+
+| Área | Estado | Detalle |
+|------|--------|---------|
+| `gmail-message-content.ts` | ✅ Extrae HTML | `extractGmailMessageBodies` ya recorre MIME y devuelve `htmlBody` + `textBody`. Upsert y `/api/crm/emails/[id]/content` persisten ambos. |
+| Drawer `/crm/correos` | ❌ Solo plain | `CorreoMessages.tsx` usa `textBody` o strip de tags → "Cobertura Nocturna" se ve descuartizado. |
+| Pestaña Correos deal | ❌ Solo plain | `EmailHistoryList.getEmailBodyText` prioriza `textBody` / strip HTML; modal sin render HTML. |
+| Sanitización HTML | ❌ Ausente | No hay `isomorphic-dompurify` en deps directas (`dompurify` solo transitivo vía `jspdf`). |
+| `google-events.ts` | ✅ Multi-cal (v5) | `calendarList.list` → selected, máx. 6, events.list, tope 60, dedupe `googleEventId`, cache 5 min + calendarIds, chip `calendarName`. |
+| Status scope en agenda | ❌ Gap | 403 por cal se salta, pero status global queda `ok` con lista vacía. Banner solo cubre `error`. |
+| "Posible lead" | ⚠️ Falso positivo | Heurística sin excluir no-reply / dominio tenant. |
+| Snippet fila bandeja | ⚠️ | Corta 140 de `textBody`; plain basura MIME satura la fila. |
+
+### Plan por bloque
+
+1. **B1** — Sanitizar + render HTML en drawer y timeline deal; toggle Ver texto.
+2. **B2** — Verificar multi-cal (ya v5); endurecer detección 403 → status `missing_scope`.
+3. **B3** — Banner reconexión agenda + toast; pulir filas + excluir sistema de "Posible lead".
+4. **B4** — QA checklist + push (NO merge).
+
