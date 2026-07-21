@@ -1,16 +1,39 @@
+import { fromZonedTime, toZonedTime } from "date-fns-tz";
+
+export const CHILE_TZ = "America/Santiago";
+
 /**
  * Devuelve la fecha actual en zona horaria America/Santiago como YYYY-MM-DD.
  * Usar esta función SIEMPRE que se quiera el "hoy" del usuario chileno,
  * en vez de new Date() o getUTC*.
  */
-export function todayInChile(): string {
-  const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Santiago",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  return fmt.format(new Date());
+export function todayInChile(now: Date = new Date()): string {
+  return now.toLocaleDateString("en-CA", { timeZone: CHILE_TZ });
+}
+
+/** YYYY-MM-DD de un instante en America/Santiago. */
+export function ymdInChile(d: Date): string {
+  return d.toLocaleDateString("en-CA", { timeZone: CHILE_TZ });
+}
+
+/** Inicio del día Chile (00:00 America/Santiago) como instante UTC. */
+export function startOfDayChile(utcDate: Date = new Date()): Date {
+  const local = toZonedTime(utcDate, CHILE_TZ);
+  local.setHours(0, 0, 0, 0);
+  return fromZonedTime(local, CHILE_TZ);
+}
+
+/** Suma días calendario en Chile y devuelve el inicio de ese día (UTC). */
+export function addDaysChile(utcDate: Date, days: number): Date {
+  const local = toZonedTime(startOfDayChile(utcDate), CHILE_TZ);
+  local.setDate(local.getDate() + days);
+  local.setHours(0, 0, 0, 0);
+  return fromZonedTime(local, CHILE_TZ);
+}
+
+/** Medianoche UTC del YYYY-MM-DD (para comparar columnas @db.Date). */
+export function utcDateFromYmd(ymd: string): Date {
+  return new Date(`${ymd.slice(0, 10)}T00:00:00.000Z`);
 }
 
 /**

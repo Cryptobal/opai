@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import { PageHero, Surface, EmptyState, Spinner } from "@/components/opai-ds";
+import { addDaysChile, startOfDayChile, ymdInChile } from "@/lib/dates-cl";
 import { AgendaWeekStrip, type WeekItem } from "./AgendaWeekStrip";
 import { LicitacionesList, type LicRow } from "./LicitacionesList";
 import { VisitList } from "./VisitList";
@@ -13,18 +14,17 @@ import { NuevaVisitaModal } from "./NuevaVisitaModal";
 import { VisitDrawer } from "./VisitDrawer";
 import { LicitacionDrawer } from "./LicitacionDrawer";
 
-function mondayOf(d: Date) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  const day = x.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  x.setDate(x.getDate() + diff);
-  return x;
+/** Lunes 00:00 America/Santiago de la semana que contiene `d`. */
+function mondayOfChile(d: Date) {
+  const start = startOfDayChile(d);
+  const dow = new Date(`${ymdInChile(start)}T12:00:00.000Z`).getUTCDay();
+  const diff = dow === 0 ? -6 : 1 - dow;
+  return addDaysChile(start, diff);
 }
 
 export function AgendaPageClient() {
   const search = useSearchParams();
-  const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
+  const [weekStart, setWeekStart] = useState(() => mondayOfChile(new Date()));
   const [items, setItems] = useState<WeekItem[]>([]);
   const [lics, setLics] = useState<LicRow[]>([]);
   const [googleStatus, setGoogleStatus] = useState<string | null>(null);
@@ -46,9 +46,8 @@ export function AgendaPageClient() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const from = weekStart;
-    const to = new Date(weekStart);
-    to.setDate(to.getDate() + 7);
+    const from = startOfDayChile(weekStart);
+    const to = addDaysChile(from, 7);
     try {
       const [a, l] = await Promise.all([
         fetch(`/api/agenda?from=${from.toISOString()}&to=${to.toISOString()}`).then((r) => r.json()),
@@ -82,6 +81,7 @@ export function AgendaPageClient() {
     day: "numeric",
     month: "short",
     year: "numeric",
+    timeZone: "America/Santiago",
   });
 
   const nuevaVisitaBtn = (
@@ -111,17 +111,9 @@ export function AgendaPageClient() {
         assignedUserId={assignedUserId}
         onAssignedChange={setAssignedUserId}
         weekLabel={weekLabel}
-        onPrevWeek={() => {
-          const d = new Date(weekStart);
-          d.setDate(d.getDate() - 7);
-          setWeekStart(d);
-        }}
-        onToday={() => setWeekStart(mondayOf(new Date()))}
-        onNextWeek={() => {
-          const d = new Date(weekStart);
-          d.setDate(d.getDate() + 7);
-          setWeekStart(d);
-        }}
+        onPrevWeek={() => setWeekStart(addDaysChile(weekStart, -7))}
+        onToday={() => setWeekStart(mondayOfChile(new Date()))}
+        onNextWeek={() => setWeekStart(addDaysChile(weekStart, 7))}
       />
 
       {googleStatus === "error" && (

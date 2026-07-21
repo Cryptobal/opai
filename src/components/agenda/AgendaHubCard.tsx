@@ -5,14 +5,9 @@ import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import { Surface, Tag, Spinner, EmptyState } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
+import { addDaysChile, startOfDayChile, todayInChile, ymdInChile } from "@/lib/dates-cl";
 import { AgendaHubDays } from "./AgendaHubDays";
 import { type HubAgendaItem as Item, hhmm } from "./agenda-hub-item";
-
-function startOfDay(d: Date) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
 
 export function AgendaHubCard() {
   const [items, setItems] = useState<Item[]>([]);
@@ -20,9 +15,8 @@ export function AgendaHubCard() {
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    const from = startOfDay(new Date());
-    const to = new Date(from);
-    to.setDate(to.getDate() + (expanded ? 7 : 4));
+    const from = startOfDayChile(new Date());
+    const to = addDaysChile(from, expanded ? 7 : 4);
     fetch(`/api/agenda?from=${from.toISOString()}&to=${to.toISOString()}`)
       .then((r) => r.json())
       .then((j) => setItems(j.items ?? []))
@@ -30,13 +24,11 @@ export function AgendaHubCard() {
       .finally(() => setLoading(false));
   }, [expanded]);
 
-  const todayKey = startOfDay(new Date()).toDateString();
-  const todayItems = items.filter((i) => new Date(i.start).toDateString() === todayKey);
-  const days = Array.from({ length: expanded ? 7 : 4 }, (_, i) => {
-    const d = startOfDay(new Date());
-    d.setDate(d.getDate() + i);
-    return d;
-  });
+  const todayKey = todayInChile();
+  const todayItems = items.filter((i) => ymdInChile(new Date(i.start)) === todayKey);
+  const days = Array.from({ length: expanded ? 7 : 4 }, (_, i) =>
+    addDaysChile(new Date(), i),
+  );
 
   return (
     <Surface elevation={1} padding="md" className="space-y-3">

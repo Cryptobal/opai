@@ -1,5 +1,6 @@
 "use client";
 
+import { addDaysChile, startOfDayChile, todayInChile, ymdInChile } from "@/lib/dates-cl";
 import { AgendaDayColumn } from "./AgendaDayColumn";
 
 export type WeekItem = {
@@ -25,12 +26,6 @@ type Props = {
   onLicClick?: (item: WeekItem) => void;
 };
 
-function startOfDay(d: Date) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
 export function AgendaWeekStrip({
   weekStart,
   items,
@@ -39,12 +34,10 @@ export function AgendaWeekStrip({
   onVisitClick,
   onLicClick,
 }: Props) {
-  const today = startOfDay(new Date()).getTime();
-  const cols = Array.from({ length: days }, (_, i) => {
-    const d = startOfDay(weekStart);
-    d.setDate(d.getDate() + i);
-    return d;
-  });
+  const todayKey = todayInChile();
+  const cols = Array.from({ length: days }, (_, i) =>
+    addDaysChile(startOfDayChile(weekStart), i),
+  );
 
   return (
     <div
@@ -53,14 +46,14 @@ export function AgendaWeekStrip({
       }`}
     >
       {cols.map((day) => {
-        const key = day.toDateString();
-        const dayItems = items.filter((i) => new Date(i.start).toDateString() === key);
+        const key = ymdInChile(day);
+        const dayItems = items.filter((i) => ymdInChile(new Date(i.start)) === key);
         return (
           <AgendaDayColumn
             key={key}
             day={day}
             items={dayItems}
-            isToday={day.getTime() === today}
+            isToday={key === todayKey}
             onVisitClick={onVisitClick}
             onLicClick={onLicClick}
           />
