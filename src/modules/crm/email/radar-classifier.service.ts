@@ -29,25 +29,33 @@ function firstReply(msgs: Msg[], inboundAt: Date | null): Date | null {
   return m?.sentAt ?? null;
 }
 
+const COMMERCIAL_CATEGORIES = ["cotizacion", "licitacion", "consulta_comercial"] as const;
+
 /**
- * Reset del backlog quemado (una vez por corrida, barato): re-encola hilos
- * comerciales recientes que quedaron con `aiClassifiedAt` marcado pero
- * `aiCategory NULL` — corridas que nunca llegaron a la IA (deadline muerto) o
- * donde la IA falló. Como candidato exige `aiClassifiedAt < lastMessageAt`,
- * sin este reset nunca re-entrarían aunque sean novedad real.
+ * Reset del backlog quemado (una vez por corrida, barato):
+ * 1) `aiCategory NULL` + clasificado en 7d (IA no corrió / falló)
+ * 2) categoría no-comercial + inbound < 3d (clasificación previa errónea)
+ * Sin este reset nunca re-entrarían al candidato (`aiClassifiedAt < lastMessageAt`).
  */
 async function resetBurnedBacklog(tenantId: string, emailAccountId: string): Promise<void> {
-  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  await prisma.crmEmailThread.updateMany({
+  const cutoff7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const cutoff3 = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+  const res = await prisma.crmEmailThread.updateMany({
     where: {
       tenantId,
       emailAccountId,
       aiClassifiedAt: { not: null },
-      aiCategory: null,
-      lastMessageAt: { gte: cutoff },
+      OR: [
+        { aiCategory: null, lastMessageAt: { gte: cutoff7 } },
+        {
+          aiCategory: { notIn: [...COMMERCIAL_CATEGORIES] },
+          lastMessageAt: { gte: cutoff3 },
+        },
+      ],
     },
     data: { aiClassifiedAt: null },
   });
+  console.warn(`[radar] reset ${res.count}`, { emailAccountId });
 }
 
 /**
