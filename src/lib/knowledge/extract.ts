@@ -10,10 +10,14 @@ export async function extractText(
   }
 
   if (mimeType === 'application/pdf') {
-    const { PDFParse } = await import('pdf-parse');
-    const parser = new PDFParse({ data: buffer });
-    const result = await parser.getText();
-    return result.text;
+    // unpdf: build serverless de pdf.js SIN canvas/DOM — funciona en Vercel.
+    // pdf-parse quedó descartado: su dep nativa @napi-rs/canvas no llega a la
+    // lambda (el file tracer no sigue su require dinámico) y el import lanza
+    // "ReferenceError: DOMMatrix is not defined" en producción.
+    const { extractText: unpdfExtract, getDocumentProxy } = await import('unpdf');
+    const pdf = await getDocumentProxy(new Uint8Array(buffer));
+    const { text } = await unpdfExtract(pdf, { mergePages: true });
+    return Array.isArray(text) ? text.join('\n') : text;
   }
 
   if (

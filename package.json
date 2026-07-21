@@ -137,7 +137,6 @@
     "node-forge": "^1.4.0",
     "openai": "^6.18.0",
     "pdf-lib": "^1.17.1",
-    "pdf-parse": "^2.4.5",
     "playwright-core": "^1.58.2",
     "pusher": "^5.3.2",
     "pusher-js": "^8.4.0",
@@ -156,6 +155,7 @@
     "svix": "^1.88.0",
     "tailwind-merge": "^3.4.0",
     "twilio": "^5.13.1",
+    "unpdf": "^1.6.2",
     "web-push": "^3.6.7",
     "xml-crypto": "^6.1.2",
     "zod": "^4.3.6"
