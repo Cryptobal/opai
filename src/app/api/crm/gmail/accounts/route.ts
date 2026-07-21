@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireTenantModule } from "@/lib/require-module";
+import { stopGmailWatch } from "@/modules/crm/email/gmail-watch";
 
 export const dynamic = "force-dynamic";
 
@@ -43,9 +44,17 @@ export async function DELETE(request: NextRequest) {
   // El registro debe pertenecer al tenant del solicitante (aislamiento).
   const acc = await prisma.crmEmailAccount.findFirst({
     where: { id, tenantId, provider: "gmail" },
-    select: { id: true, email: true },
+    select: {
+      id: true,
+      email: true,
+      syncState: true,
+      accessTokenEncrypted: true,
+      refreshTokenEncrypted: true,
+    },
   });
   if (!acc) return NextResponse.json({ error: "not_found" }, { status: 404 });
+
+  void stopGmailWatch(acc).catch(() => {});
 
   await prisma.crmEmailAccount.update({
     where: { id: acc.id },

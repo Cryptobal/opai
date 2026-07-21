@@ -10,6 +10,7 @@ import { getGmailOAuthClient } from "@/lib/gmail";
 import { encryptText } from "@/lib/crypto";
 import { createHmac } from "crypto";
 import { requireTenantModule } from '@/lib/require-module';
+import { registerGmailWatch } from "@/modules/crm/email/gmail-watch";
 
 const STATE_SECRET = process.env.GMAIL_TOKEN_SECRET || "dev-secret";
 
@@ -96,13 +97,17 @@ export async function GET(request: NextRequest) {
       accountId = created.id;
     }
 
-    // Gmail push (opt-in por env): registra el watch Pub/Sub. Best-effort — no
-    // bloquea ni rompe el connect si el push no está configurado.
-    try {
-      const { registerGmailWatch } = await import("@/modules/crm/email/gmail-watch");
-      await registerGmailWatch(accountId);
-    } catch (e) {
-      console.warn("[gmail] registerGmailWatch en callback falló:", e);
+    const account = await prisma.crmEmailAccount.findUnique({
+      where: { id: accountId },
+      select: {
+        id: true,
+        accessTokenEncrypted: true,
+        refreshTokenEncrypted: true,
+        syncState: true,
+      },
+    });
+    if (account) {
+      void registerGmailWatch(account).catch(() => {});
     }
 
     return NextResponse.redirect(`${origin}/crm/correos?gmail=connected`);
