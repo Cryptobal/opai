@@ -68,8 +68,12 @@ export async function buildAttachmentsContext(params: {
           freshExtractions.push({ stagedKey: ref.stagedKey, extractedText: text });
           pushExtracted(ref.fileName, text, "");
         }
-      } catch {
-        /* mime no extraíble: la visión (si aplica) sigue disponible */
+      } catch (e) {
+        console.error("[help-chat] extractText (adjunto) falló", {
+          mimeType: ref.mimeType, stagedKey: ref.stagedKey,
+          err: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+        });
+        /* la visión (si aplica) sigue disponible */
       }
     }
   }

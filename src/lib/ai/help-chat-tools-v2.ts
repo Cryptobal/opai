@@ -3768,10 +3768,15 @@ async function readBinaryFile(opts: {
     try {
       text = await extractText(buffer, opts.mimeType);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "no soportado";
+      console.error("[help-chat] extractText falló", {
+        mimeType: opts.mimeType,
+        storageKey: opts.storageKey,
+        title: opts.title,
+        err: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+      });
       return {
         ok: false,
-        error: `No fue posible extraer texto del archivo (${opts.mimeType}): ${msg}. Sugerencia: descárgalo desde la app.`,
+        error: `No pude extraer el texto de '${opts.title}' en este momento (error interno al procesar el PDF). Puedes descargarlo con el botón y, si quieres, dime qué necesitas de la licitación (puestos, plazos, montos, documentación) y lo estructuramos en OPAI.`,
       };
     }
     const fullText = text.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
