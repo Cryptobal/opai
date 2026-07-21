@@ -11,8 +11,10 @@ import {
 } from "./CorreosFilters";
 import { CorreoRowSwipe } from "./CorreoRowSwipe";
 import { CorreoDrawer } from "./CorreoDrawer";
+import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
 import { CorreosSyncBanner } from "./CorreosSyncBanner";
 import { ResponseKpiChip } from "./ResponseKpiChip";
+import { snoozeThread } from "./correo-thread-action-client";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 
 function matchesChip(t: CorreoThreadDTO, f: CorreoChipKey): boolean {
@@ -37,6 +39,7 @@ type Counts = {
   archived: number;
   all: number;
   trash: number;
+  snoozed: number;
 } | null;
 
 export function CorreosClient() {
@@ -54,6 +57,7 @@ export function CorreosClient() {
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [autoExtract, setAutoExtract] = useState(false);
+  const [snoozeId, setSnoozeId] = useState<string | null>(null);
 
   async function fetchPage(cur: string | null, reset: boolean, nextFolder?: CorreoFolderTab) {
     setLoading(true);
@@ -85,7 +89,7 @@ export function CorreosClient() {
     // Deep-links: "archived" ya no es pestaña → normalizar a "Todos".
     const f = sp.get("folder");
     if (f === "archived") setFolder("all");
-    else if (f === "all" || f === "trash" || f === "inbox") setFolder(f);
+    else if (f === "all" || f === "trash" || f === "inbox" || f === "snoozed") setFolder(f);
   }, []);
 
   useEffect(() => {
@@ -158,6 +162,7 @@ export function CorreosClient() {
             <CorreoRowSwipe key={t.id} thread={t} canModify={canModify}
               onChanged={() => void fetchPage(null, true)}
               onRemove={removeThreadLocally}
+              onSnooze={() => setSnoozeId(t.id)}
               onOpen={() => { setOpenId(t.id); setAutoExtract(false); }} />
           ))}
         </Surface>
@@ -175,6 +180,17 @@ export function CorreosClient() {
       <CorreoDrawer threadId={openId} autoExtract={autoExtract} canModify={canModify}
         onClose={() => { setOpenId(null); setAutoExtract(false); }}
         onChanged={() => void fetchPage(null, true)} />
+
+      <CorreoSnoozeSheet
+        open={snoozeId !== null}
+        onClose={() => setSnoozeId(null)}
+        onConfirm={(iso, label) => {
+          const id = snoozeId;
+          if (!id) return;
+          removeThreadLocally(id);
+          void snoozeThread(id, iso, `Pospuesto hasta ${label}`, () => void fetchPage(null, true));
+        }}
+      />
     </div>
   );
 }

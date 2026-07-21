@@ -1,10 +1,20 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Paperclip, Sparkles, TrendingUp, CheckCircle2 } from "lucide-react";
+import { Clock, Paperclip, Sparkles, TrendingUp, CheckCircle2 } from "lucide-react";
 import { Tag } from "@/components/opai-ds";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 import { CorreoThreadActions } from "./CorreoThreadActions";
+
+function snoozeLabel(iso: string): string {
+  return new Date(iso).toLocaleString("es-CL", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Santiago",
+  });
+}
 
 function relativeTime(iso: string | null): string {
   if (!iso) return "";
@@ -76,6 +86,16 @@ export function CorreoRow({
           )}
           {thread.possibleLead && (
             <Tag variant="warn" size="sm" icon={Sparkles}>Posible lead</Tag>
+          )}
+          {thread.snoozedUntil && (
+            <Tag
+              variant="neutral"
+              size="sm"
+              icon={Clock}
+              className="bg-tint-violet/30 border-tint-violet/40 text-tint-violet-fg"
+            >
+              hasta {snoozeLabel(thread.snoozedUntil)}
+            </Tag>
           )}
         </div>
       </button>

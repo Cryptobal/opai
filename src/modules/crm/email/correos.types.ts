@@ -16,6 +16,7 @@ export type CorreoThreadDTO = {
   isUnread: boolean;
   archivedAt: string | null;
   trashedAt: string | null;
+  snoozedUntil: string | null;
 };
 
 export type CorreoMessageDTO = {

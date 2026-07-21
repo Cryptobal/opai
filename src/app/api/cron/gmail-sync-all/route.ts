@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { syncGmailAccount } from "@/modules/crm/email/gmail-sync.service";
+import { wakeSnoozedThreads } from "@/modules/crm/email/gmail-snooze";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -8,6 +9,14 @@ export const maxDuration = 60;
 export async function GET(req: NextRequest) {
   if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Paso inicial: despertar los hilos pospuestos ya vencidos (best-effort).
+  let woke = 0;
+  try {
+    woke = await wakeSnoozedThreads();
+  } catch (err) {
+    console.warn("[gmail-sync-all] wakeSnoozedThreads falló", err);
   }
 
   const accounts = await prisma.crmEmailAccount.findMany({
@@ -48,5 +57,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, syncedAccounts: ok, failed, synced });
+  return NextResponse.json({ ok: true, syncedAccounts: ok, failed, synced, woke });
 }

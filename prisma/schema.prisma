@@ -2655,6 +2655,9 @@ model CrmEmailThread {
   trashedAt  DateTime? @map("trashed_at") @db.Timestamptz(6)
   spamAt     DateTime? @map("spam_at") @db.Timestamptz(6)
   isUnread   Boolean   @default(false) @map("is_unread")
+  // Snooze propio de OPAI (Gmail no expone su snooze por API): al posponer se
+  // saca de INBOX en Gmail y vuelve solo al despertar (cron).
+  snoozedUntil DateTime? @map("snoozed_until") @db.Timestamptz(6)
 
   // ── Radar Comercial v4 — clasificación IA del hilo ──
   aiCategory     String?   @map("ai_category") // cotizacion|licitacion|consulta_comercial|facturacion|operacional|otro
@@ -2674,6 +2677,7 @@ model CrmEmailThread {
   @@index([dealId], map: "idx_crm_email_threads_deal")
   @@index([leadId], map: "idx_crm_email_threads_lead")
   @@index([emailAccountId, providerThreadId], map: "idx_crm_email_threads_account_provider")
+  @@index([tenantId, snoozedUntil], map: "idx_crm_email_threads_snoozed")
   @@map("email_threads")
   @@schema("crm")
 }

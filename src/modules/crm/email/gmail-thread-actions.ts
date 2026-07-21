@@ -3,17 +3,31 @@ import { prisma } from "@/lib/prisma";
 import { gmailClientForAccount } from "./gmail-account-client";
 import { applyThreadLabelFlags } from "./gmail-thread-labels";
 
-export type CorreoAction = "archive" | "unarchive" | "trash" | "markRead" | "markUnread";
+export type CorreoAction =
+  | "archive"
+  | "unarchive"
+  | "trash"
+  | "markRead"
+  | "markUnread"
+  | "snooze"
+  | "unsnooze";
 
 /**
  * Ejecuta una acción de bandeja contra Gmail y SOLO entonces persiste local.
  * trash = Papelera (recuperable); nunca delete permanente.
+ *
+ * Snooze: la API pública de Gmail NO expone su snooze nativo (no hay label
+ * `SNOOZED` accesible ni endpoint). Se implementa el snooze propio de OPAI
+ * espejado como los clientes third-party: al posponer se saca de INBOX en
+ * Gmail (`removeLabelIds:["INBOX"]`) y el hilo vuelve solo al despertar
+ * (`addLabelIds:["INBOX"]`, cron). `snoozeUntil` es obligatorio para "snooze".
  */
 export async function runCorreoThreadAction(params: {
   tenantId: string;
   userId: string;
   threadId: string;
   action: CorreoAction;
+  snoozeUntil?: Date;
 }): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
   const thread = await prisma.crmEmailThread.findFirst({
     where: { id: params.threadId, tenantId: params.tenantId },
@@ -67,6 +81,31 @@ export async function runCorreoThreadAction(params: {
       await prisma.crmEmailThread.update({
         where: { id: thread.id },
         data: { archivedAt: null, trashedAt: null },
+      });
+      return { ok: true };
+    }
+    if (params.action === "snooze") {
+      if (!params.snoozeUntil) return { ok: false, error: "snoozeUntil requerido", status: 400 };
+      await gmail.users.threads.modify({
+        userId: "me",
+        id: tid,
+        requestBody: { removeLabelIds: ["INBOX"] },
+      });
+      await prisma.crmEmailThread.update({
+        where: { id: thread.id },
+        data: { snoozedUntil: params.snoozeUntil, archivedAt: null, trashedAt: null },
+      });
+      return { ok: true };
+    }
+    if (params.action === "unsnooze") {
+      await gmail.users.threads.modify({
+        userId: "me",
+        id: tid,
+        requestBody: { addLabelIds: ["INBOX"] },
+      });
+      await prisma.crmEmailThread.update({
+        where: { id: thread.id },
+        data: { snoozedUntil: null },
       });
       return { ok: true };
     }
