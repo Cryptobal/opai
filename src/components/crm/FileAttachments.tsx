@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { DealDriveBanner } from "@/components/crm/DealDriveBanner";
 
 export type FileAttachmentItem = {
   id: string;
@@ -497,6 +498,7 @@ export function FileAttachments({
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-4">
+          {entityType === "deal" && <DealDriveBanner dealId={entityId} />}
           {loading ? (
             <FileListSkeleton />
           ) : (

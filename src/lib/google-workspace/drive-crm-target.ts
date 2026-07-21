@@ -10,7 +10,7 @@ export type CrmFileTarget = { docType: string; path: string };
 /**
  * Resuelve docType (gate del mirrorConfig) + carpeta Drive destino para un
  * archivo adjunto a una entidad CRM:
- *   deal         → Negocios/{Año}/{NombreDeal}/            (docType "negocios")
+ *   deal         → Negocios/{Año}/{NombreDeal}/ o Licitaciones/{Año}/{NombreDeal} si isLicitacion
  *   contact      → Clientes/{Cuenta}/Personas/{Contacto}/ (docType "personas")
  *   account      → Clientes/{Cuenta}/General/Documentos/  (docType "documentos")
  *   installation → Clientes/{Cuenta}/{Instalación}/Documentos/
@@ -26,10 +26,14 @@ export async function resolveCrmFileTarget(
     case "deal": {
       const deal = await prisma.crmDeal.findFirst({
         where: { id: entityId, tenantId },
-        select: { title: true },
+        select: { title: true, isLicitacion: true },
       });
       if (!deal) return null;
-      return { docType: "negocios", path: `Negocios/${year}/${seg(deal.title, entityId)}` };
+      const name = seg(deal.title, entityId);
+      if (deal.isLicitacion) {
+        return { docType: "licitacion", path: `Licitaciones/${year}/${name}` };
+      }
+      return { docType: "negocios", path: `Negocios/${year}/${name}` };
     }
     case "contact": {
       const c = await prisma.crmContact.findFirst({

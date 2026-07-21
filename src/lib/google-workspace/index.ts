@@ -27,6 +27,10 @@ export {
   enqueueQuotePdfToDrive,
 } from "./drive-enqueue-hooks";
 export {
+  getDealDriveFolderStatus,
+  ensureDealDriveFolderAndBackfill,
+} from "./drive-deal-folder";
+export {
   buildVisitaEventPayload,
   buildLicitacionEventPayload,
 } from "./calendar-payloads";
