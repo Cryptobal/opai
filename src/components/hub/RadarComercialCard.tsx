@@ -111,13 +111,19 @@ export function RadarComercialCard() {
       {loading ? (
         <Spinner className="mx-auto" />
       ) : items.length === 0 ? (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <EmptyState
             icon={Radar}
             title="Radar sin novedades"
             description="Te aviso cuando detecte un lead o compromiso."
             compact
           />
+          <div className="flex justify-center">
+            <Button variant="outline" size="sm" onClick={() => void scan()} disabled={scanning}>
+              <RefreshCw className={`h-4 w-4 ${scanning ? "animate-spin" : ""}`} />
+              <span className="ml-1.5">{scanning ? "Buscando…" : "Buscar novedades"}</span>
+            </Button>
+          </div>
           {lastRun && <p className="text-center text-[12px] text-ds-text-4">{lastRun}</p>}
         </div>
       ) : (

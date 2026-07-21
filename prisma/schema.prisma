@@ -2743,6 +2743,9 @@ model CrmEmailMessage {
   followUpLogId  String? @map("followup_log_id") @db.Uuid
   emailAccountId String? @map("email_account_id") @db.Uuid
   source         String  @default("manual") // manual, followup, gmail
+  // Labels Gmail del mensaje (INBOX/SPAM/TRASH/UNREAD…). Fuente local para
+  // derivar estado de hilo sin listados globales.
+  labelIds       String[] @default([]) @map("label_ids")
 
   thread CrmEmailThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 

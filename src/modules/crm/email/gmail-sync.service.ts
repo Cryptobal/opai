@@ -5,6 +5,7 @@ import { readSyncState, writeSyncState, type SyncRunArgs } from "./gmail-sync-st
 import { runBackfill } from "./gmail-backfill";
 import { runIncremental } from "./gmail-incremental";
 import { reconcileGmailFolders } from "./gmail-folder-reconcile";
+import { selfHealInbox } from "./gmail-inbox-selfheal";
 import { classifyAccountThreads } from "./radar-classifier.service";
 
 const DEFAULT_BUDGET = 300;
@@ -32,11 +33,14 @@ export async function syncGmailAccount(params: {
   deadlineMs?: number;
   createdByUserId?: string | null;
   forceReconcile?: boolean;
+  /** Presupuesto mínimo del self-heal (ms). El botón "Sincronizar" pasa ~10s. */
+  selfHealBudgetMs?: number;
 }): Promise<{
   syncedCount: number;
   fetched: number;
   mode: "backfill" | "incremental";
   reconcile: "ok" | "partial" | "skipped";
+  healed: number;
 }> {
   const emailAccount = await prisma.crmEmailAccount.findFirst({
     where: {
@@ -89,9 +93,23 @@ export async function syncGmailAccount(params: {
     });
   }
 
-  // Fase 3 — sweep de reconciliación total con throttle de 10 min: el botón
-  // "Sincronizar ahora" queda en solo-incremental (rápido) y el cron garantiza
-  // que Recibidos/Papelera/Spam cuadren con Gmail cada 10 min.
+  // Fase 3 — self-heal por-hilo (Recibidos) ANTES del sweep: verificación
+  // positiva barata que repara archivado erróneo sin depender de sets globales.
+  let healed = 0;
+  const healRemaining = globalDeadline - Date.now();
+  const minHeal = Math.max(params.selfHealBudgetMs ?? 8_000, 8_000);
+  if (mode === "incremental" && healRemaining >= 3_000) {
+    const healBudget = Math.min(Math.max(minHeal, healRemaining - 2_000), healRemaining);
+    const heal = await selfHealInbox({
+      gmail,
+      tenantId: params.tenantId,
+      emailAccountId: emailAccount.id,
+      deadline: Date.now() + healBudget,
+    });
+    healed = heal.healed;
+  }
+
+  // Fase 4 — sweep global (solo TRASH/SPAM + refuerzo positivo) con throttle.
   let reconcile: "ok" | "partial" | "skipped" = "skipped";
   const sweepDue =
     state.lastReconcileComplete !== true ||
@@ -113,5 +131,5 @@ export async function syncGmailAccount(params: {
     });
   }
 
-  return { syncedCount: result.synced, fetched: result.fetched, mode, reconcile };
+  return { syncedCount: result.synced, fetched: result.fetched, mode, reconcile, healed };
 }

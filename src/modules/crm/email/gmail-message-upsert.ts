@@ -56,6 +56,11 @@ export async function upsertGmailMessage(params: {
   const providerThreadId = full.data.threadId ?? null;
 
   if (existing && !shouldBackfill) {
+    // Refrescar labels aunque el body no cambie (fuente local de estado de hilo).
+    await prisma.crmEmailMessage.update({
+      where: { id: existing.id },
+      data: { labelIds },
+    });
     return { wrote: false, providerThreadId };
   }
   const fromEmail =
@@ -82,6 +87,7 @@ export async function upsertGmailMessage(params: {
     status: direction === "out" ? "sent" : "received",
     source: "gmail",
     emailAccountId: emailAccount.id,
+    labelIds,
   };
 
   if (existing) {

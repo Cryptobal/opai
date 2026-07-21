@@ -138,9 +138,26 @@ export async function runCorreoThreadAction(params: {
 }
 
 /**
+ * Persiste `labelIds` por mensaje desde `threads.get` (format minimal).
+ * Mantiene fresca la fuente local usada por `deriveThreadStateFromMessages`.
+ */
+async function writeMessageLabels(
+  tenantId: string,
+  threadMessages: Array<{ id?: string | null; labelIds?: string[] | null }>,
+): Promise<void> {
+  for (const m of threadMessages) {
+    if (!m.id) continue;
+    await prisma.crmEmailMessage.updateMany({
+      where: { tenantId, providerMessageId: m.id },
+      data: { labelIds: m.labelIds ?? [] },
+    });
+  }
+}
+
+/**
  * Refresca flags locales leyendo el hilo en Gmail (unión de labels de todos
  * sus mensajes). Un 404 significa hilo eliminado permanentemente en Gmail →
- * se marca como papelera local.
+ * se marca como papelera local. Además escribe labelIds por mensaje.
  */
 export async function refreshThreadLabelsFromGmail(params: {
   gmail: gmail_v1.Gmail;
@@ -154,8 +171,10 @@ export async function refreshThreadLabelsFromGmail(params: {
       id: params.providerThreadId,
       format: "minimal",
     });
+    const messages = res.data.messages ?? [];
+    await writeMessageLabels(params.tenantId, messages);
     const all = new Set<string>();
-    for (const m of res.data.messages ?? []) {
+    for (const m of messages) {
       for (const l of m.labelIds ?? []) all.add(l);
     }
     await applyThreadLabelFlags({
