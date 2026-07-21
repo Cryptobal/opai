@@ -872,3 +872,63 @@ Gate pre-cambio: `npx prisma generate` OK · `NODE_OPTIONS=--max-old-space-size=
 - `AgendaVisita.lat` / `AgendaVisita.lng` (opcionales) si Places guarda coords.
 - Ningún cambio no-aditivo en `CrmEmailThread` (`dealId` ya existe).
 
+---
+
+## QA v7 — Verificación de cierre
+
+Rama: `feat/gw-v7-correos-producto` · **NO mergeada** — validar en preview Vercel.
+
+### Commits
+
+| Bloque | Mensaje |
+|--------|---------|
+| B0 | `chore(gw): auditoría v7` |
+| B1 | `feat(crm): bandeja espejo de Gmail con pestañas y estado bidireccional` |
+| B2 | `feat(crm): lector de correo mobile-first con asociación a cuenta y negocio` |
+| B3 | `feat(crm): feedback real de conexión y sincronización de gmail` |
+| B4 | `feat(agenda): direcciones con places autocomplete y switches DS en visita/calendar` |
+| B5 | `feat(drive): estado y creación on-demand de carpeta drive por negocio con backfill` |
+
+### Checklist manual (Carlos) — desktop + móvil 390px
+
+#### B1 — Bandeja espejo
+- [ ] Pestañas **Bandeja de entrada / Archivados / Papelera** con conteos.
+- [ ] Chips secundarios: Con cuenta, Sin asociar, Con adjuntos, Leads creados.
+- [ ] Archivar en Gmail → tras sync aparece en Archivados de Opai.
+- [ ] Archivar en Opai → sale de INBOX en Gmail.
+- [ ] Eliminar en Opai → Papelera (nunca delete permanente).
+
+#### B2 — Lector mobile-first
+- [ ] Móvil: hilo abre a pantalla completa; header sticky + barra inferior Archivar/Eliminar/No leído/Responder (≥44px).
+- [ ] "Cobertura Nocturna" se lee como tarjeta limpia (fondo canvas claro).
+- [ ] Mensajes anteriores colapsados; último abierto.
+- [ ] Asociación cuenta + negocio ≤3 taps (ej. Danilo → P&G → Licitación P&G).
+- [ ] Desktop: drawer ancho actual.
+
+#### B3 — Feedback
+- [ ] OAuth Gmail aterriza en `/crm/correos?gmail=connected` con banner verde.
+- [ ] "Sincronizar ahora" → spinner + toast `"X hilos nuevos · Y actualizados"`.
+- [ ] Si backfill en curso: banner "Importación inicial en progreso…".
+
+#### B4 — Visita / Calendar
+- [ ] Switches Nueva visita activos: thumb no se sale (DS Switch).
+- [ ] Calendar prefs: ya usaban Switch DS — verificar visual.
+- [ ] Dirección Places: "El Peñón" sugiere y guarda dirección completa (+ lat/lng si Places responde).
+- [ ] Si Places falla (`ApiNotActivatedMapError`): campo texto libre sigue permitiendo guardar. **Nota:** habilitar Places API (New) en el proyecto de Maps si no está.
+
+#### B5 — Drive por negocio
+- [ ] Pestaña Documentos del deal: cinta Google Drive.
+- [ ] Licitación S&T (u otra): "Crear carpeta en Drive" → crea + sube docs existentes → pasa a "Abrir en Drive".
+- [ ] Docs nuevos post-carpeta siguen el espejo automático.
+
+### Migraciones
+
+- `20260721000000_agenda_visita_lat_lng` — `lat`/`lng` nullable en `agenda_visitas` (aditiva).
+- Aplicar en preview/prod con el pipeline habitual (no `db push` local a Neon si hay drift de índices).
+
+### Notas para Carlos
+
+1. Validar en **preview Vercel**, no mergear a main hasta OK.
+2. Places: si no hay sugerencias, chequear consola Google Cloud → Places API (New).
+3. Drive on-demand requiere workspace Drive ACTIVE del tenant.
+
