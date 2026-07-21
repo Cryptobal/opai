@@ -88,7 +88,11 @@ export function EmisionConfirmDialog(props: EmisionConfirmProps) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && !loading && onClose()}>
-      <DialogContent className="max-w-lg">
+      {/* z-[70]: por encima de DteEditModal (z-60) cuando se emite desde Programación */}
+      <DialogContent
+        overlayClassName="z-[70]"
+        className="z-[70] max-w-lg"
+      >
         <DialogHeader>
           <DialogTitle>Confirmar emisión al SII</DialogTitle>
           <DialogDescription>{tipoNombre}</DialogDescription>

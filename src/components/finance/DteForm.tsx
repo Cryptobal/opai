@@ -2045,7 +2045,10 @@ export function DteForm({
 
       {/* Import pending billable items dialog */}
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent
+          overlayClassName="z-[70]"
+          className="z-[70] max-w-lg"
+        >
           <DialogHeader>
             <DialogTitle>Importar items pendientes</DialogTitle>
           </DialogHeader>

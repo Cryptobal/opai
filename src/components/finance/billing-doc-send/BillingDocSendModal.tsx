@@ -249,7 +249,10 @@ export function BillingDocSendModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent
+        overlayClassName="z-[70]"
+        className="z-[70] max-w-2xl"
+      >
         <DialogHeader>
           <DialogTitle>Enviar {variantLabel}</DialogTitle>
           <DialogDescription>

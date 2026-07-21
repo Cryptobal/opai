@@ -100,7 +100,10 @@ export function PdfPreviewDialog(props: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-[1400px] h-[95vh] flex flex-col p-0 gap-0 sm:max-w-[1400px]">
+      <DialogContent
+        overlayClassName="z-[70]"
+        className="z-[70] w-[95vw] max-w-[1400px] h-[95vh] flex flex-col p-0 gap-0 sm:max-w-[1400px]"
+      >
         <DialogHeader className="px-6 py-4 border-b shrink-0 flex-row items-center justify-between gap-2 space-y-0">
           <DialogTitle className="font-display flex items-center gap-2">
             {isPreview && <Eye className="h-4 w-4 text-status-warn-fg" />}
