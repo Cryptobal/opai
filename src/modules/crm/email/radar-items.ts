@@ -5,6 +5,22 @@ import { shortHash } from "./radar-util";
 
 export type CreatedRadarItem = { id: string; kind: string };
 
+/**
+ * ¿Es novedad de lead? `intencion "alta"`, o `"media"` cuando la categoría es
+ * cotización/licitación (una solicitud de cotización siempre es novedad), y el
+ * hilo aún no está asociado a un lead/negocio. Usado tanto para crear el item
+ * como para decidir si vale la pena redactar un borrador de respuesta.
+ */
+export function isNewLeadCandidate(
+  c: Pick<RadarClassification, "intencion" | "categoria">,
+  leadId: string | null,
+  dealId: string | null,
+): boolean {
+  if (leadId || dealId) return false;
+  if (c.intencion === "alta") return true;
+  return c.intencion === "media" && (c.categoria === "cotizacion" || c.categoria === "licitacion");
+}
+
 /** Upsert idempotente por (tenant, dedupeKey). Devuelve el item si se creó. */
 export async function upsertRadarItem(params: {
   tenantId: string;
@@ -66,7 +82,7 @@ export async function generateThreadRadarItems(params: {
   const c = params.classification;
   const created: CreatedRadarItem[] = [];
 
-  if (c.intencion === "alta" && !params.leadId && !params.dealId) {
+  if (isNewLeadCandidate(c, params.leadId, params.dealId)) {
     const r = await upsertRadarItem({
       tenantId: params.tenantId,
       userId: params.userId,
