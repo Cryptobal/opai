@@ -29,7 +29,8 @@ interface ComputedQuincena {
  * el montoAnticipo vive en la ficha del guardia, no en el puesto, y los
  * guardias rotan entre instalaciones.
  */
-async function computeFromFichas(
+// Exportada: el derivador de egresos del Flujo v3 la reutiliza en LECTURA.
+export async function computeFromFichas(
   tenantId: string,
 ): Promise<ComputedQuincena | null> {
   const rows = await prisma.opsGuardia.findMany({

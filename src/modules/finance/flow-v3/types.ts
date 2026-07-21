@@ -56,10 +56,13 @@ export const UNMATCHED_EXPENSE_KEY = "__unmatched_expense__";
 /** Referencia mínima de fila para el match de derivadores. */
 export interface FlowRowRef {
   id: string;
+  name: string;
+  section?: string;
+  mapping?: string;
   crmAccountId: string | null;
   installationId: string | null;
   categoryId: string | null;
-  name: string;
+  supplierId?: string | null;
 }
 
 export function pushCommitted(
