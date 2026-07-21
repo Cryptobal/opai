@@ -26,6 +26,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     attachmentId?: string;
     dealId?: string;
     accountId?: string;
+    filename?: string;
+    size?: number;
   };
   if (!body.messageId || !body.attachmentId) {
     return NextResponse.json({ error: "messageId y attachmentId requeridos" }, { status: 400 });
@@ -66,6 +68,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     threadId,
     messageId: body.messageId,
     attachmentId: body.attachmentId,
+    filenameHint: typeof body.filename === "string" ? body.filename : null,
+    sizeHint: typeof body.size === "number" && body.size > 0 ? body.size : null,
   });
   if (!att.ok) return NextResponse.json({ error: att.error }, { status: att.status });
 

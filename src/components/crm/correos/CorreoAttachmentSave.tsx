@@ -18,6 +18,9 @@ type Props = {
   threadId: string;
   messageId: string;
   attachmentId: string;
+  /** Hints para re-ubicar el adjunto si el attachmentId de Gmail rotó. */
+  filename: string;
+  size: number;
   dealId: string | null;
   dealTitle: string | null;
   accountId: string | null;
@@ -31,7 +34,16 @@ const BTN =
  * cuenta, popover para guardar en la cuenta o en uno de sus negocios. Sin
  * asociación queda deshabilitado. Los negocios se espejan a Drive.
  */
-export function CorreoAttachmentSave({ threadId, messageId, attachmentId, dealId, dealTitle, accountId }: Props) {
+export function CorreoAttachmentSave({
+  threadId,
+  messageId,
+  attachmentId,
+  filename,
+  size,
+  dealId,
+  dealTitle,
+  accountId,
+}: Props) {
   const [saving, setSaving] = useState(false);
   const [deals, setDeals] = useState<DealOpt[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -42,7 +54,7 @@ export function CorreoAttachmentSave({ threadId, messageId, attachmentId, dealId
       const res = await fetch(`/api/crm/correos/${threadId}/attachments/save`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId, attachmentId, ...target }),
+        body: JSON.stringify({ messageId, attachmentId, filename, size, ...target }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error || "Error");

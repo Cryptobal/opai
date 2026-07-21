@@ -22,6 +22,11 @@ export async function fetchGmailAttachment(params: {
   /** providerMessageId de Gmail. */
   messageId: string;
   attachmentId: string;
+  /** Fallback de matching: los attachmentId de Gmail son efímeros (rotan
+   *  entre llamadas); si el id listado ya venció, se re-ubica el adjunto por
+   *  nombre (+tamaño) dentro del mensaje y se usa el id fresco. */
+  filenameHint?: string | null;
+  sizeHint?: number | null;
 }): Promise<GmailAttachmentResult> {
   const { tenantId, userId, threadId, messageId, attachmentId } = params;
 
@@ -50,15 +55,27 @@ export async function fetchGmailAttachment(params: {
     if (msg.data.threadId !== thread.providerThreadId) {
       return { ok: false, status: 404, error: "Mensaje no encontrado" };
     }
-    const meta = extractGmailAttachments(msg.data.payload as GmailMessagePart | undefined).find(
-      (a) => a.attachmentId === attachmentId,
-    );
+    const atts = extractGmailAttachments(msg.data.payload as GmailMessagePart | undefined);
+    const meta =
+      atts.find((a) => a.attachmentId === attachmentId) ??
+      (params.filenameHint
+        ? atts.find(
+            (a) =>
+              a.filename === params.filenameHint &&
+              (params.sizeHint == null || a.size === params.sizeHint),
+          )
+        : undefined);
     if (!meta) return { ok: false, status: 404, error: "Adjunto no encontrado" };
     if (meta.size > MAX_ATTACHMENT_BYTES) {
       return { ok: false, status: 413, error: "Adjunto demasiado grande (máx 25 MB)" };
     }
 
-    const att = await gmail.users.messages.attachments.get({ userId: "me", messageId, id: attachmentId });
+    // Siempre el id fresco del mensaje recién bajado, nunca el listado stale.
+    const att = await gmail.users.messages.attachments.get({
+      userId: "me",
+      messageId,
+      id: meta.attachmentId,
+    });
     const data = att.data.data;
     if (!data) return { ok: false, status: 404, error: "Adjunto vacío" };
     const buffer = Buffer.from(data, "base64url");
