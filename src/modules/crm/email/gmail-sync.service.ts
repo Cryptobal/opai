@@ -9,15 +9,21 @@ import { classifyAccountThreads } from "./radar-classifier.service";
 
 const DEFAULT_BUDGET = 300;
 const TIME_BUDGET_MS = 45_000;
+/** Frecuencia mínima entre sweeps completos de reconciliación (throttle). */
+const RECONCILE_TTL_MS = 10 * 60_000;
 
 /**
  * Sync de una casilla Gmail. Decide backfill (histórico 120d paginado) o
  * incremental (`historyId`) según `syncState`. Guarda TODOS los threads del
  * usuario; el matching a contacto/cuenta/deal es enriquecimiento.
  *
- * @param maxResults  budget de mensajes por corrida (default 300).
- * @param deadlineMs  timestamp absoluto para cortar (el cron lo comparte entre
- *                    casillas para no exceder su maxDuration).
+ * El deadline global se reparte por fases para que ninguna corra con las
+ * sobras muertas: incremental/backfill (55%), radar (hasta 12s), sweep (resto).
+ *
+ * @param maxResults      budget de mensajes por corrida (default 300).
+ * @param deadlineMs      timestamp absoluto para cortar (el cron lo comparte
+ *                        entre casillas para no exceder su maxDuration).
+ * @param forceReconcile  fuerza el sweep aunque el throttle de 10 min no venza.
  */
 export async function syncGmailAccount(params: {
   tenantId: string;
@@ -25,7 +31,13 @@ export async function syncGmailAccount(params: {
   maxResults?: number;
   deadlineMs?: number;
   createdByUserId?: string | null;
-}): Promise<{ syncedCount: number; fetched: number; mode: "backfill" | "incremental" }> {
+  forceReconcile?: boolean;
+}): Promise<{
+  syncedCount: number;
+  fetched: number;
+  mode: "backfill" | "incremental";
+  reconcile: "ok" | "partial" | "skipped";
+}> {
   const emailAccount = await prisma.crmEmailAccount.findFirst({
     where: {
       id: params.emailAccountId,
@@ -46,13 +58,17 @@ export async function syncGmailAccount(params: {
   const gmail = getGmailClient(accessToken, refreshToken);
 
   const state = readSyncState(emailAccount.syncState);
+  const globalDeadline = params.deadlineMs ?? Date.now() + TIME_BUDGET_MS;
+  const total = Math.max(globalDeadline - Date.now(), 0);
+
+  // Fase 1 — incremental/backfill con presupuesto propio (55% del total).
   const runArgs: SyncRunArgs = {
     gmail,
     tenantId: params.tenantId,
     emailAccount: { id: emailAccount.id, email: emailAccount.email, userId: emailAccount.userId },
     state,
     budget: Math.max(params.maxResults ?? DEFAULT_BUDGET, 1),
-    deadline: params.deadlineMs ?? Date.now() + TIME_BUDGET_MS,
+    deadline: Date.now() + Math.floor(total * 0.55),
     createdByUserId: params.createdByUserId,
   };
 
@@ -60,26 +76,42 @@ export async function syncGmailAccount(params: {
   const result = mode === "backfill" ? await runBackfill(runArgs) : await runIncremental(runArgs);
   await writeSyncState(emailAccount.id, result.state);
 
-  // Sweep de reconciliación total: garantiza que Recibidos/Papelera/Spam
-  // cuadren con Gmail en cada sync incremental (best-effort, deadline-aware).
-  if (mode === "incremental") {
-    await reconcileGmailFolders({
-      gmail,
+  // Fase 2 — Radar Comercial ANTES del sweep, con presupuesto reservado
+  // (hasta 12s): clasifica hilos con inbound nuevo y genera RadarItems.
+  // Best-effort: nunca lanza ni bloquea el sync.
+  const radarRemaining = globalDeadline - Date.now();
+  if (radarRemaining > 0) {
+    await classifyAccountThreads({
       tenantId: params.tenantId,
-      emailAccount: runArgs.emailAccount,
-      deadline: runArgs.deadline,
+      emailAccountId: emailAccount.id,
+      userId: emailAccount.userId,
+      deadlineMs: Date.now() + Math.min(12_000, radarRemaining * 0.6),
     });
   }
 
-  // Radar Comercial v4: tras el upsert de mensajes, clasifica los hilos con
-  // inbound nuevo (máx. 20/corrida, FIFO) y genera RadarItems. Best-effort:
-  // nunca lanza ni bloquea el sync.
-  await classifyAccountThreads({
-    tenantId: params.tenantId,
-    emailAccountId: emailAccount.id,
-    userId: emailAccount.userId,
-    deadlineMs: params.deadlineMs,
-  });
+  // Fase 3 — sweep de reconciliación total con throttle de 10 min: el botón
+  // "Sincronizar ahora" queda en solo-incremental (rápido) y el cron garantiza
+  // que Recibidos/Papelera/Spam cuadren con Gmail cada 10 min.
+  let reconcile: "ok" | "partial" | "skipped" = "skipped";
+  const sweepDue =
+    state.lastReconcileComplete !== true ||
+    !state.lastReconcileAt ||
+    Date.now() - Date.parse(state.lastReconcileAt) > RECONCILE_TTL_MS ||
+    params.forceReconcile === true;
+  const sweepRemaining = globalDeadline - Date.now();
+  if (mode === "incremental" && sweepDue && sweepRemaining >= 5_000) {
+    const sweepResult = await reconcileGmailFolders({
+      gmail,
+      tenantId: params.tenantId,
+      emailAccount: runArgs.emailAccount,
+      deadline: Date.now() + Math.max(sweepRemaining, 8_000),
+    });
+    reconcile = sweepResult.complete ? "ok" : "partial";
+    await writeSyncState(emailAccount.id, {
+      lastReconcileAt: new Date().toISOString(),
+      lastReconcileComplete: sweepResult.complete,
+    });
+  }
 
-  return { syncedCount: result.synced, fetched: result.fetched, mode };
+  return { syncedCount: result.synced, fetched: result.fetched, mode, reconcile };
 }
