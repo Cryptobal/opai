@@ -6,6 +6,7 @@ import {
   canUseAiHelpChat,
   getAiHelpChatConfig,
   saveAiHelpChatConfig,
+  type AiHelpChatConfig,
 } from "@/lib/ai/help-chat-config";
 
 export async function GET() {
@@ -55,9 +56,10 @@ export async function POST(request: NextRequest) {
       allowedRoles?: unknown;
       allowDataQuestions?: unknown;
       allowWrites?: unknown;
+      agents?: unknown;
     };
 
-    const updated = await saveAiHelpChatConfig(ctx.tenantId, {
+    const partial: Partial<AiHelpChatConfig> = {
       enabled: typeof body.enabled === "boolean" ? body.enabled : undefined,
       allowedRoles: Array.isArray(body.allowedRoles)
         ? body.allowedRoles.filter((r): r is string => typeof r === "string")
@@ -65,7 +67,13 @@ export async function POST(request: NextRequest) {
       allowDataQuestions:
         typeof body.allowDataQuestions === "boolean" ? body.allowDataQuestions : undefined,
       allowWrites: typeof body.allowWrites === "boolean" ? body.allowWrites : undefined,
-    });
+    };
+    // `agents` se sanitiza en saveAiHelpChatConfig (módulos válidos, máx 2000 chars).
+    if (body.agents !== undefined) {
+      partial.agents = body.agents as AiHelpChatConfig["agents"];
+    }
+
+    const updated = await saveAiHelpChatConfig(ctx.tenantId, partial);
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {

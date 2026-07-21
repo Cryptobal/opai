@@ -5,13 +5,33 @@ import { Bot, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ROLES } from "@/lib/role-policy";
+import {
+  AiHelpChatAgentsEditor,
+  type AgentsState,
+} from "@/components/opai/AiHelpChatAgentsEditor";
+import { sanitizeAgents } from "@/lib/ai/help-chat-agents";
 
 type ConfigResponse = {
   enabled: boolean;
   allowedRoles: string[];
   allowDataQuestions: boolean;
   allowWrites: boolean;
+  agents: AgentsState;
 };
+
+function pickConfig(data: Record<string, unknown>): ConfigResponse {
+  const allowDataQuestions = Boolean(data.allowDataQuestions);
+  return {
+    enabled: Boolean(data.enabled),
+    allowedRoles: Array.isArray(data.allowedRoles)
+      ? data.allowedRoles.filter((r): r is string => typeof r === "string")
+      : ["owner", "admin", "editor"],
+    allowDataQuestions,
+    allowWrites:
+      typeof data.allowWrites === "boolean" ? data.allowWrites : allowDataQuestions,
+    agents: sanitizeAgents(data.agents),
+  };
+}
 
 const ROLE_LABELS: Record<string, string> = {
   owner: "Propietario",
@@ -37,6 +57,7 @@ export function AiHelpChatConfigClient() {
     allowedRoles: ["owner", "admin", "editor"],
     allowDataQuestions: true,
     allowWrites: true,
+    agents: {},
   });
 
   const roleSet = useMemo(() => new Set(config.allowedRoles), [config.allowedRoles]);
@@ -47,17 +68,7 @@ export function AiHelpChatConfigClient() {
       const res = await fetch("/api/ai/help-chat/config");
       const json = await res.json();
       if (json.success && json.data) {
-        setConfig({
-          enabled: Boolean(json.data.enabled),
-          allowedRoles: Array.isArray(json.data.allowedRoles)
-            ? json.data.allowedRoles
-            : ["owner", "admin", "editor"],
-          allowDataQuestions: Boolean(json.data.allowDataQuestions),
-          allowWrites:
-            typeof json.data.allowWrites === "boolean"
-              ? json.data.allowWrites
-              : Boolean(json.data.allowDataQuestions),
-        });
+        setConfig(pickConfig(json.data as Record<string, unknown>));
       }
     } catch {
       toast.error("No se pudo cargar la configuración del asistente");
@@ -93,15 +104,7 @@ export function AiHelpChatConfigClient() {
       }
       toast.success("Configuración del asistente guardada");
       if (json.data) {
-        setConfig({
-          enabled: Boolean(json.data.enabled),
-          allowedRoles: Array.isArray(json.data.allowedRoles) ? json.data.allowedRoles : [],
-          allowDataQuestions: Boolean(json.data.allowDataQuestions),
-          allowWrites:
-            typeof json.data.allowWrites === "boolean"
-              ? json.data.allowWrites
-              : Boolean(json.data.allowDataQuestions),
-        });
+        setConfig(pickConfig(json.data as Record<string, unknown>));
       }
     } catch (error) {
       toast.error((error as Error).message || "No se pudo guardar");
@@ -191,6 +194,11 @@ export function AiHelpChatConfigClient() {
           ))}
         </div>
       </section>
+
+      <AiHelpChatAgentsEditor
+        agents={config.agents}
+        onChange={(agents) => setConfig((prev) => ({ ...prev, agents }))}
+      />
 
       <div className="flex justify-end">
         <Button onClick={() => void save()} disabled={saving} className="gap-2">

@@ -2,7 +2,11 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
-import { canUseAiHelpChat, getAiHelpChatConfig } from "@/lib/ai/help-chat-config";
+import {
+  canUseAiHelpChat,
+  getAiHelpChatConfig,
+  pickAgentInstructionsForPrompt,
+} from "@/lib/ai/help-chat-config";
 import { retrieveDocsContext, retrieveTemplatesContext } from "@/lib/ai/help-chat-retrieval";
 import { getToolDefinitionsV2, executeToolCallV2 } from "@/lib/ai/help-chat-tools-v2";
 import { buildUserMessage, type MultimodalAttachment } from "@/lib/ai/help-chat-multimodal";
@@ -345,6 +349,7 @@ export async function POST(request: NextRequest) {
     retrievalHasEvidence,
     userName: userDisplayName,
     userRole: ctx.userRole,
+    agentInstructions: pickAgentInstructionsForPrompt(cfg.agents, currentPathname),
   });
 
   const pageContextSystemMessage = pageContext

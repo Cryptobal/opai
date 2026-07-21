@@ -7338,7 +7338,10 @@ async function toolCreateDealChecklist(
         title: it.title,
         status: "open",
         type: "checklist",
-        dueAt: it.dueAt ?? undefined,
+        // Fecha-solo (YYYY-MM-DD) → mediodía UTC para que el día calendario no
+        // se corra en Chile (UTC-4): 00:00Z se mostraba como el día anterior.
+        // (dueAt ya viene validado como YYYY-MM-DD | null en el map de arriba.)
+        dueAt: it.dueAt ? new Date(`${it.dueAt}T12:00:00Z`) : undefined,
         assignedTo: userId,
       })),
     });

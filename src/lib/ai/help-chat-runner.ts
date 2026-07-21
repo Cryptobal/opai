@@ -15,7 +15,7 @@
 
 import { prisma } from "@/lib/prisma";
 import type { RolePermissions } from "@/lib/permissions";
-import { getAiHelpChatConfig } from "@/lib/ai/help-chat-config";
+import { getAiHelpChatConfig, pickAgentInstructionsForPrompt } from "@/lib/ai/help-chat-config";
 import { retrieveDocsContext, retrieveTemplatesContext } from "@/lib/ai/help-chat-retrieval";
 import {
   getToolDefinitionsV2,
@@ -205,6 +205,8 @@ export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<Help
     retrievalHasEvidence,
     userName: userDisplayName,
     userRole,
+    // Slack / canales externos: sin pathname → solo agente global
+    agentInstructions: pickAgentInstructionsForPrompt(cfg.agents),
   });
 
   const trimmedHistory = trimHistory(input.history);
