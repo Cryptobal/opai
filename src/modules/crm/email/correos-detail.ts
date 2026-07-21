@@ -29,7 +29,7 @@ export async function getCorreoDetail(params: {
       where: { threadId: thread.id, tenantId },
       orderBy: { sentAt: "asc" },
       select: {
-        id: true, direction: true, fromEmail: true, toEmails: true,
+        id: true, direction: true, fromEmail: true, toEmails: true, ccEmails: true,
         subject: true, htmlBody: true, textBody: true, sentAt: true,
       },
     }),

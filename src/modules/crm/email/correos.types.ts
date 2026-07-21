@@ -24,6 +24,7 @@ export type CorreoMessageDTO = {
   direction: string;
   fromEmail: string;
   toEmails: string[];
+  ccEmails: string[];
   subject: string;
   htmlBody: string | null;
   textBody: string | null;

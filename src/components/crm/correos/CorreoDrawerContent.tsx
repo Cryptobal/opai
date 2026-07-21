@@ -67,6 +67,16 @@ export function CorreoDrawerContent({
           </a>
         )}
       </div>
+      {/* Orden estilo Gmail: correo → adjuntos (plegados) → acciones CRM →
+          respuesta al final. */}
+      <CorreoMessages messages={detail.messages} />
+      <CorreoAttachments
+        items={detail.attachments}
+        threadId={detail.thread.id}
+        dealId={detail.thread.dealId}
+        dealTitle={detail.thread.dealTitle}
+        accountId={detail.thread.accountId}
+      />
       <CorreoAssociationBar
         accountId={detail.thread.accountId}
         accountName={detail.thread.accountName}
@@ -91,15 +101,8 @@ export function CorreoDrawerContent({
           <Sparkles className="h-4 w-4" /> Crear lead con IA
         </button>
       )}
-      <SuggestedReplyPanel threadId={detail.thread.id} subject={detail.thread.subject} onSent={onRefresh} />
-      <CorreoAttachments
-        items={detail.attachments}
-        threadId={detail.thread.id}
-        dealId={detail.thread.dealId}
-        dealTitle={detail.thread.dealTitle}
-        accountId={detail.thread.accountId}
-      />
-      <CorreoMessages messages={detail.messages} />
+      {/* key: resetea asunto/borrador al cambiar de hilo. */}
+      <SuggestedReplyPanel key={detail.thread.id} threadId={detail.thread.id} subject={detail.thread.subject} onSent={onRefresh} />
     </>
   );
 }

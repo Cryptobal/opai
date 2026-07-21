@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, File, FileText, Image as ImageIcon } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, File, FileText, Image as ImageIcon, Paperclip } from "lucide-react";
 import type { CorreoAttachmentDTO } from "@/modules/crm/email/correos.types";
 import { CorreoAttachmentSave } from "./CorreoAttachmentSave";
 import { CorreoAttachmentViewer, type ViewerFile } from "./CorreoAttachmentViewer";
@@ -39,10 +39,22 @@ export function CorreoAttachments({
   accountId: string | null;
 }) {
   const [viewer, setViewer] = useState<ViewerFile | null>(null);
+  // Plegados por defecto (como Gmail): con muchos adjuntos la lista se comía
+  // la ventana del lector.
+  const [open, setOpen] = useState(false);
   if (items.length === 0) return null;
   return (
     <div className="space-y-1.5">
-      <p className="text-[12px] font-medium text-ds-text-3">Adjuntos ({items.length})</p>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex h-9 w-full items-center gap-1.5 rounded-lg text-left text-[12px] font-medium text-ds-text-3 ds-tap"
+      >
+        {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        <Paperclip className="h-3.5 w-3.5" />
+        Adjuntos ({items.length})
+      </button>
+      {open && (
       <ul className="space-y-1">
         {items.map((a) => {
           const Icon = iconFor(a.mimeType);
@@ -85,6 +97,7 @@ export function CorreoAttachments({
           );
         })}
       </ul>
+      )}
       <CorreoAttachmentViewer file={viewer} onClose={() => setViewer(null)} />
     </div>
   );

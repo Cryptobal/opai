@@ -13,14 +13,26 @@ function snippet(m: CorreoMessageDTO): string {
 function ExpandedBlock({ m }: { m: CorreoMessageDTO }) {
   return (
     <div className="rounded-xl border border-ds-border-subtle bg-ds-surface-1 p-3">
-      <div className="mb-1 flex items-center justify-between gap-2 text-[12px] text-ds-text-4">
-        <span className="truncate">
-          {m.direction === "out" ? "Para: " : "De: "}
-          {m.direction === "out" ? m.toEmails.join(", ") || "—" : m.fromEmail}
-        </span>
-        <span className="shrink-0">
-          {m.sentAt ? new Date(m.sentAt).toLocaleString("es-CL") : ""}
-        </span>
+      {/* Cabecera estilo Gmail: De / Para / CC visibles antes del cuerpo. */}
+      <div className="mb-2 space-y-0.5 border-b border-ds-border-subtle pb-2 text-[12px] text-ds-text-4">
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate">
+            <span className="font-medium text-ds-text-3">De:</span> {m.fromEmail || "—"}
+          </span>
+          <span className="shrink-0">
+            {m.sentAt ? new Date(m.sentAt).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" }) : ""}
+          </span>
+        </div>
+        {m.toEmails.length > 0 && (
+          <p className="truncate">
+            <span className="font-medium text-ds-text-3">Para:</span> {m.toEmails.join(", ")}
+          </p>
+        )}
+        {m.ccEmails.length > 0 && (
+          <p className="truncate">
+            <span className="font-medium text-ds-text-3">CC:</span> {m.ccEmails.join(", ")}
+          </p>
+        )}
       </div>
       <EmailHtmlBody htmlBody={m.htmlBody} textBody={m.textBody} />
     </div>
