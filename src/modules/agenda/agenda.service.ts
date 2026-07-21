@@ -14,6 +14,8 @@ export async function createAgendaVisita(input: {
   endAt: Date;
   notes?: string | null;
   customAddress?: string | null;
+  lat?: number | null;
+  lng?: number | null;
   contactIds?: string[] | null;
   // Toggles del modal (defaults desde prefs de la config).
   syncCalendar?: boolean;
@@ -32,6 +34,8 @@ export async function createAgendaVisita(input: {
       endAt: input.endAt,
       notes: input.notes ?? null,
       customAddress: input.customAddress ?? null,
+      lat: input.lat ?? null,
+      lng: input.lng ?? null,
       contactIds: input.contactIds ?? undefined,
       createdBy: input.createdBy,
       status: "programada",

@@ -80,6 +80,8 @@ export async function POST(request: NextRequest) {
     endAt,
     notes: body.notes ?? null,
     customAddress: body.customAddress ?? null,
+    lat: typeof body.lat === "number" ? body.lat : null,
+    lng: typeof body.lng === "number" ? body.lng : null,
     contactIds: body.contactIds ?? null,
     syncCalendar: body.syncCalendar,
     inviteContacts: body.inviteContacts,

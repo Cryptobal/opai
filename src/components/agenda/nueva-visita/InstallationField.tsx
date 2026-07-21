@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { MapPin } from "lucide-react";
+import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { mapsHref, type InstallationOption } from "./types";
 
 const INPUT =
@@ -14,6 +15,7 @@ export function InstallationField({
   allowCustom,
   customAddress,
   onCustomAddress,
+  onCustomCoords,
 }: {
   accountId: string | null;
   value: string;
@@ -21,6 +23,7 @@ export function InstallationField({
   allowCustom: boolean;
   customAddress: string;
   onCustomAddress: (v: string) => void;
+  onCustomCoords?: (lat: number | null, lng: number | null) => void;
 }) {
   const [list, setList] = useState<InstallationOption[]>([]);
   const seq = useRef(0);
@@ -40,6 +43,12 @@ export function InstallationField({
   }, [accountId]);
 
   const selected = list.find((i) => i.id === value) ?? null;
+
+  function onPlace(result: AddressResult) {
+    onCustomAddress(result.address);
+    const hasCoords = result.lat !== 0 || result.lng !== 0;
+    onCustomCoords?.(hasCoords ? result.lat : null, hasCoords ? result.lng : null);
+  }
 
   return (
     <div className="space-y-1.5">
@@ -76,11 +85,11 @@ export function InstallationField({
       )}
 
       {allowCustom && !value && (
-        <input
-          className={INPUT}
-          placeholder="O dirección libre (para visitas sin instalación)"
+        <AddressAutocomplete
           value={customAddress}
-          onChange={(e) => onCustomAddress(e.target.value)}
+          onChange={onPlace}
+          placeholder="Dirección (ej. El Peñón)…"
+          showMap={false}
         />
       )}
     </div>

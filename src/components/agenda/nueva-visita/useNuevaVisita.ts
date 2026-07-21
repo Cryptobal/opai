@@ -9,6 +9,8 @@ export type FormState = {
   account: AccountOption | null;
   installationId: string;
   customAddress: string;
+  lat: number | null;
+  lng: number | null;
   date: string;
   time: string;
   durationMin: number;
@@ -26,6 +28,8 @@ const emptyForm = (installationId?: string | null): FormState => ({
   account: null,
   installationId: installationId ?? "",
   customAddress: "",
+  lat: null,
+  lng: null,
   date: "",
   time: "",
   durationMin: 60,
@@ -107,6 +111,8 @@ export function useNuevaVisita(props: {
           accountId: accId,
           installationId: form.installationId || null,
           customAddress: form.installationId ? null : form.customAddress || null,
+          lat: form.installationId ? null : form.lat,
+          lng: form.installationId ? null : form.lng,
           dealId: dealId || null,
           contactIds: form.contactIds.length ? form.contactIds : null,
           syncCalendar: form.createEvent,

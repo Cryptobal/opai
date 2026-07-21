@@ -71,9 +71,13 @@ export function NuevaVisitaModal(props: Props) {
             accountId={form.account?.id ?? null}
             value={form.installationId}
             onChange={(id) => set("installationId", id)}
-            allowCustom={form.type === "otra"}
+            allowCustom={form.type === "otra" || form.type === "cliente"}
             customAddress={form.customAddress}
             onCustomAddress={(v) => set("customAddress", v)}
+            onCustomCoords={(lat, lng) => {
+              set("lat", lat);
+              set("lng", lng);
+            }}
           />
 
           {tecnicaBlocked && (
