@@ -112,6 +112,25 @@ export function resolveAgentModule(pathname: string): AiAgentModule | null {
   return null;
 }
 
+/** Extrae instrucciones activas para el system prompt (solo enabled + texto). */
+export function pickAgentInstructionsForPrompt(
+  agents: AiHelpChatConfig["agents"],
+  pathname?: string | null,
+): { global?: string; module?: { key: string; text: string } } | undefined {
+  const global =
+    agents.global?.enabled && agents.global.instructions
+      ? agents.global.instructions
+      : undefined;
+  const modKey = pathname ? resolveAgentModule(pathname) : null;
+  const modProfile = modKey ? agents[modKey] : undefined;
+  const module =
+    modKey && modProfile?.enabled && modProfile.instructions
+      ? { key: modKey, text: modProfile.instructions }
+      : undefined;
+  if (!global && !module) return undefined;
+  return { global, module };
+}
+
 export async function getAiHelpChatConfig(tenantId: string): Promise<AiHelpChatConfig> {
   const setting = await prisma.setting.findFirst({
     where: { key: configKey(tenantId) },
