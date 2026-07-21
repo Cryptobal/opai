@@ -4,9 +4,19 @@ import { useEffect, useState } from "react";
 import { Sparkles, Send, Users } from "lucide-react";
 import { Spinner } from "@/components/opai-ds";
 import { ReplyRecipientsField, isValidEmail } from "./ReplyRecipientsField";
+import { RichTextEditor } from "./RichTextEditor";
 
 type ReplyAll = { to: string[]; cc: string[] };
 type Props = { threadId: string; subject: string; onSent: () => void };
+
+/** Borrador IA (texto plano) → HTML seguro para el editor. */
+function textToHtml(t: string): string {
+  return t
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br>");
+}
 
 /**
  * Sección "Respuesta sugerida por IA" del drawer: textarea editable precargado
@@ -22,6 +32,10 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
   const [radarItemId, setRadarItemId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [instructions, setInstructions] = useState("");
+  // Asunto editable (como Gmail), precargado con Re:.
+  const [replySubject, setReplySubject] = useState(() =>
+    subject.toLowerCase().startsWith("re:") ? subject : `Re: ${subject}`,
+  );
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<"gen" | "send" | null>(null);
 
@@ -32,7 +46,7 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
         setTo(d.to ? [String(d.to).toLowerCase()] : []);
         setReplyAll(d.replyAll ?? null);
         setRadarItemId(d.radarItemId ?? null);
-        if (d.draft) setDraft(d.draft);
+        if (d.draft) setDraft(textToHtml(d.draft));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -46,14 +60,15 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ instructions: instructions.trim() || undefined }),
       }).then((r) => r.json());
-      if (d.draft) setDraft(d.draft);
+      if (d.draft) setDraft(textToHtml(d.draft));
     } finally {
       setBusy(null);
     }
   }
 
   const allValid = [...to, ...cc, ...bcc].every(isValidEmail);
-  const canSend = to.length > 0 && allValid && draft.trim().length > 0;
+  const draftText = draft.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
+  const canSend = to.length > 0 && allValid && draftText.length > 0;
   const replyAllVisible =
     replyAll &&
     (replyAll.cc.length > 0 || replyAll.to.some((e) => !to.includes(e)) || replyAll.to.length !== to.length);
@@ -69,11 +84,10 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
     if (!canSend) return;
     setBusy("send");
     try {
-      const reSubject = subject.toLowerCase().startsWith("re:") ? subject : `Re: ${subject}`;
       const res = await fetch("/api/crm/gmail/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId, to, cc, bcc, subject: reSubject, html: draft.replace(/\n/g, "<br>") }),
+        body: JSON.stringify({ threadId, to, cc, bcc, subject: replySubject.trim() || subject, html: draft }),
       });
       if (res.ok) {
         if (radarItemId) {
@@ -126,12 +140,18 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
           <ReplyRecipientsField label="CCO" values={bcc} onChange={setBcc} />
         </>
       )}
-      <textarea
+      <div className="flex items-center gap-2">
+        <span className="w-10 shrink-0 text-[12px] text-ds-text-3">Asunto</span>
+        <input
+          value={replySubject}
+          onChange={(e) => setReplySubject(e.target.value)}
+          className="h-9 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1"
+        />
+      </div>
+      <RichTextEditor
         value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        rows={5}
+        onChange={setDraft}
         placeholder="Escribí o generá una respuesta…"
-        className="w-full resize-y rounded-lg border border-ds-border-default bg-ds-surface-1 p-2 text-[13px] text-ds-text-1"
       />
       <input
         value={instructions}
