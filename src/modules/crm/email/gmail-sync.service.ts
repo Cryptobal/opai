@@ -103,7 +103,10 @@ export async function syncGmailAccount(params: {
     (mode === "incremental" || params.forceReconcile === true || params.selfHealBudgetMs != null);
   let healed = 0;
   if (runRemoteHeal) {
-    const healBudget = Math.min(Math.max(minHeal, healRemaining - 2_000), healRemaining);
+    // Cap 15s: sin tope, el heal remoto consumía todo el presupuesto restante
+    // y el sweep (fase 4, que importa hilos INBOX faltantes) quedaba con <5s
+    // y se saltaba siempre en el cron.
+    const healBudget = Math.min(Math.max(minHeal, healRemaining - 2_000), healRemaining, 15_000);
     const heal = await selfHealInbox({
       gmail,
       tenantId: params.tenantId,

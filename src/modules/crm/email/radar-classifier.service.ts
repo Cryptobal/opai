@@ -52,7 +52,15 @@ async function resetBurnedBacklog(tenantId: string, emailAccountId: string): Pro
       leadId: null,
       dealId: null,
       OR: [
-        { aiCategory: null, lastMessageAt: { gte: cutoff14 } },
+        // Solo hilos CON inbound: los solo-salientes se marcan procesados con
+        // categoría NULL a propósito — sin este filtro entraban en loop
+        // (reset → candidato → marca → reset…) y monopolizaban la cola,
+        // dejando sin turno a las cotizaciones reales.
+        {
+          aiCategory: null,
+          lastMessageAt: { gte: cutoff14 },
+          messages: { some: { direction: "in" } },
+        },
         {
           aiCategory: { notIn: [...COMMERCIAL_CATEGORIES] },
           lastMessageAt: { gte: cutoff3 },
@@ -94,16 +102,22 @@ async function preMarkStaleThreads(tenantId: string, emailAccountId: string): Pr
 
 /**
  * Selecciona hilos de la casilla con inbound nuevo (aiClassifiedAt < último
- * mensaje), ventana de 14 días y lo más nuevo primero.
+ * mensaje), ventana de 14 días y lo más nuevo primero. Exige al menos un
+ * mensaje entrante: los hilos solo-salientes no se pueden clasificar y solo
+ * quemaban cupos de la cola (20/corrida).
  */
 async function pickCandidateThreads(tenantId: string, emailAccountId: string) {
   return prisma.$queryRaw<{ id: string }[]>`
-    SELECT "id" FROM "crm"."email_threads"
-    WHERE "tenant_id" = ${tenantId} AND "email_account_id" = ${emailAccountId}::uuid
-      AND "last_message_at" IS NOT NULL
-      AND "last_message_at" >= now() - interval '14 days'
-      AND ("ai_classified_at" IS NULL OR "ai_classified_at" < "last_message_at")
-    ORDER BY "last_message_at" DESC
+    SELECT t."id" FROM "crm"."email_threads" t
+    WHERE t."tenant_id" = ${tenantId} AND t."email_account_id" = ${emailAccountId}::uuid
+      AND t."last_message_at" IS NOT NULL
+      AND t."last_message_at" >= now() - interval '14 days'
+      AND (t."ai_classified_at" IS NULL OR t."ai_classified_at" < t."last_message_at")
+      AND EXISTS (
+        SELECT 1 FROM "crm"."email_messages" m
+        WHERE m."thread_id" = t."id" AND m."direction" = 'in'
+      )
+    ORDER BY t."last_message_at" DESC
     LIMIT ${MAX_PER_RUN}`;
 }
 

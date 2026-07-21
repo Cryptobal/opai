@@ -118,6 +118,9 @@ export async function listCorreoThreads(params: {
   const items: CorreoThreadDTO[] = page.map((r) => {
     const msg = r.messages[0];
     const from = msg?.fromEmail ?? null;
+    // Solo keywords comerciales en el asunto. Un adjunto por sí solo NO es
+    // señal de lead (comprobantes bancarios, facturas y reportes traen
+    // adjuntos y generaban falsos "Posible lead").
     const kw = KEYWORDS.some((k) => r.subject.toLowerCase().includes(k));
     const system = isSystemSender(from, tenantDomains);
     const snippet =
@@ -137,7 +140,7 @@ export async function listCorreoThreads(params: {
       attachmentCount: r.attachmentCount,
       messageCount: r._count.messages,
       providerThreadId: r.providerThreadId,
-      possibleLead: !system && !r.accountId && !r.leadId && (r.attachmentCount > 0 || kw),
+      possibleLead: !system && !r.accountId && !r.leadId && kw,
       isUnread: r.isUnread,
       archivedAt: r.archivedAt?.toISOString() ?? null,
       trashedAt: r.trashedAt?.toISOString() ?? null,
