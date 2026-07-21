@@ -4,6 +4,7 @@ import { getGmailClient } from "@/lib/gmail";
 import { readSyncState, writeSyncState, type SyncRunArgs } from "./gmail-sync-state";
 import { runBackfill } from "./gmail-backfill";
 import { runIncremental } from "./gmail-incremental";
+import { reconcileGmailFolders } from "./gmail-folder-reconcile";
 import { classifyAccountThreads } from "./radar-classifier.service";
 
 const DEFAULT_BUDGET = 300;
@@ -58,6 +59,17 @@ export async function syncGmailAccount(params: {
   const mode: "backfill" | "incremental" = state.backfillDone ? "incremental" : "backfill";
   const result = mode === "backfill" ? await runBackfill(runArgs) : await runIncremental(runArgs);
   await writeSyncState(emailAccount.id, result.state);
+
+  // Sweep de reconciliación total: garantiza que Recibidos/Papelera/Spam
+  // cuadren con Gmail en cada sync incremental (best-effort, deadline-aware).
+  if (mode === "incremental") {
+    await reconcileGmailFolders({
+      gmail,
+      tenantId: params.tenantId,
+      emailAccount: runArgs.emailAccount,
+      deadline: runArgs.deadline,
+    });
+  }
 
   // Radar Comercial v4: tras el upsert de mensajes, clasifica los hilos con
   // inbound nuevo (máx. 20/corrida, FIFO) y genera RadarItems. Best-effort:

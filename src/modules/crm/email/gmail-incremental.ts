@@ -1,6 +1,7 @@
 import { upsertGmailMessage } from "./gmail-message-upsert";
 import { refreshThreadLabelsBatch } from "./gmail-refresh-threads";
 import { collectHistoryPage, processHistoryPage, type PageCounters } from "./gmail-incremental-page";
+import { reconcileGmailFolders } from "./gmail-folder-reconcile";
 import type { GmailSyncState, SyncRunArgs, SyncRunResult } from "./gmail-sync-state";
 
 const FALLBACK_QUERY = "newer_than:7d (in:inbox OR in:sent)";
@@ -36,6 +37,9 @@ async function fallbackSync(args: SyncRunArgs): Promise<SyncRunResult> {
     threadIds,
     deadline,
   });
+  // La query de fallback excluye TRASH/SPAM: el sweep reconcilia los cambios
+  // (borrados/archivados) perdidos durante la ventana muerta del historyId.
+  await reconcileGmailFolders({ gmail, tenantId, emailAccount, deadline });
 
   let lastHistoryId = args.state.lastHistoryId ?? null;
   try {
