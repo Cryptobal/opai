@@ -13,17 +13,27 @@ const KEYWORDS = ["cotiz", "licitac", "servicio", "propuesta", "bases", "presupu
 export type CorreoListFilter = "inbox" | "archived" | "all" | "trash" | "snoozed";
 
 /**
+ * "No pospuesto" null-safe. NUNCA usar `NOT: { snoozedUntil: { gt: now } }`:
+ * Prisma genera `NOT (snoozed_until > $1)` y la lógica ternaria de SQL
+ * excluye los NULL (NULL > x → NULL → NOT NULL → NULL) — como casi todos los
+ * hilos tienen `snoozedUntil` NULL, Recibidos quedaba VACÍO.
+ */
+export function notSnoozedWhere(now: Date) {
+  return { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: now } }] };
+}
+
+/**
  * Spam excluido de todo menos papelera (que solo mira trashedAt), como Gmail.
  * Recibidos excluye los pospuestos vigentes (`snoozedUntil > now`); Pospuestos
  * es su propia carpeta.
  */
-function folderWhere(folder: CorreoListFilter) {
+export function folderWhere(folder: CorreoListFilter) {
   const now = new Date();
   if (folder === "trash") return { trashedAt: { not: null } };
   if (folder === "snoozed") return { trashedAt: null, spamAt: null, snoozedUntil: { gt: now } };
   if (folder === "archived") return { trashedAt: null, spamAt: null, archivedAt: { not: null } };
   if (folder === "all") return { trashedAt: null, spamAt: null };
-  return { trashedAt: null, spamAt: null, archivedAt: null, NOT: { snoozedUntil: { gt: now } } };
+  return { trashedAt: null, spamAt: null, archivedAt: null, ...notSnoozedWhere(now) };
 }
 
 /** Lista paginada (cursor por fecha) de hilos de la casilla del usuario. */

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { notSnoozedWhere } from "./correos-list";
 
 export type CorreoFolderCounts = {
   inbox: number;
@@ -29,7 +30,9 @@ export async function countCorreoFolders(params: {
 
   const base = { tenantId: params.tenantId, emailAccountId: params.emailAccountId };
   const now = new Date();
-  const notSnoozed = { NOT: { snoozedUntil: { gt: now } } };
+  // Null-safe: el patrón NOT excluía los hilos con snoozedUntil NULL (ver
+  // notSnoozedWhere en correos-list.ts) y el contador de Recibidos daba 0.
+  const notSnoozed = notSnoozedWhere(now);
   const [inbox, inboxUnread, archived, all, trash, snoozed] = await Promise.all([
     prisma.crmEmailThread.count({
       where: { ...base, trashedAt: null, archivedAt: null, spamAt: null, ...notSnoozed },
