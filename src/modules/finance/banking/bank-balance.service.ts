@@ -16,6 +16,110 @@ import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import type { FinanceBalanceSource } from "@prisma/client";
 
+export interface ResolvedAccountBalance {
+  anchorSnapshotDate: Date | null;
+  anchorBalanceClp: number;
+  txDeltaClp: number;
+  txCount: number;
+  resolvedBalanceClp: number;
+}
+
+function toLocalDateOnly(date: Date): Date {
+  return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
+/**
+ * Resuelve el saldo de una cuenta a una fecha: snapshot más reciente ≤ fecha
+ * + Σ movimientos visibles posteriores al snapshot. Sin snapshot, devuelve
+ * `currentBalance` (no se puede derivar solo desde movimientos).
+ */
+export async function resolveAccountBalanceFromMovements(
+  tenantId: string,
+  bankAccountId: string,
+  asOfDate?: Date,
+): Promise<ResolvedAccountBalance> {
+  const account = await prisma.financeBankAccount.findFirst({
+    where: { id: bankAccountId, tenantId },
+    select: { currentBalance: true },
+  });
+  if (!account) {
+    throw new Error("Cuenta bancaria no encontrada");
+  }
+
+  const todayDate = toLocalDateOnly(asOfDate ?? new Date());
+
+  const anchor = await prisma.financeBankAccountBalance.findFirst({
+    where: {
+      tenantId,
+      bankAccountId,
+      asOfDate: { lte: todayDate },
+    },
+    orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
+    select: { balance: true, asOfDate: true },
+  });
+
+  if (!anchor) {
+    const fallback = Number(account.currentBalance ?? 0);
+    return {
+      anchorSnapshotDate: null,
+      anchorBalanceClp: fallback,
+      txDeltaClp: 0,
+      txCount: 0,
+      resolvedBalanceClp: fallback,
+    };
+  }
+
+  const txAgg = await prisma.financeBankTransaction.aggregate({
+    where: {
+      tenantId,
+      bankAccountId,
+      hiddenAt: null,
+      transactionDate: { gt: anchor.asOfDate, lte: todayDate },
+    },
+    _sum: { amount: true },
+    _count: { _all: true },
+  });
+
+  const anchorBalanceClp = Number(anchor.balance);
+  const txDeltaClp = Number(txAgg._sum.amount ?? 0);
+
+  return {
+    anchorSnapshotDate: anchor.asOfDate,
+    anchorBalanceClp,
+    txDeltaClp,
+    txCount: txAgg._count._all,
+    resolvedBalanceClp: anchorBalanceClp + txDeltaClp,
+  };
+}
+
+/**
+ * Recalcula y persiste `currentBalance` desde snapshot + movimientos.
+ * Idempotente: conviene llamarlo tras cada import o cambio de movimientos.
+ */
+export async function syncCurrentBalanceFromMovements(
+  tenantId: string,
+  bankAccountId: string,
+  asOfDate?: Date,
+): Promise<ResolvedAccountBalance> {
+  const resolved = await resolveAccountBalanceFromMovements(
+    tenantId,
+    bankAccountId,
+    asOfDate,
+  );
+
+  if (resolved.anchorSnapshotDate != null) {
+    await prisma.financeBankAccount.update({
+      where: { id: bankAccountId },
+      data: {
+        currentBalance: new Decimal(resolved.resolvedBalanceClp),
+        balanceUpdatedAt: new Date(),
+      },
+    });
+  }
+
+  return resolved;
+}
+
 export interface SetBalanceSnapshotInput {
   bankAccountId: string;
   asOfDate: string; // YYYY-MM-DD
@@ -54,20 +158,14 @@ export async function setBalanceSnapshot(
     },
   });
 
-  // Si este snapshot es el más reciente, actualizar el saldo "actual".
+  // Si este snapshot es el más reciente, alinear currentBalance con snapshot + tx.
   const latest = await prisma.financeBankAccountBalance.findFirst({
     where: { tenantId, bankAccountId: input.bankAccountId },
     orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
-    select: { id: true, balance: true, asOfDate: true },
+    select: { id: true },
   });
   if (latest?.id === created.id) {
-    await prisma.financeBankAccount.update({
-      where: { id: input.bankAccountId },
-      data: {
-        currentBalance: created.balance,
-        balanceUpdatedAt: created.asOfDate,
-      },
-    });
+    await syncCurrentBalanceFromMovements(tenantId, input.bankAccountId);
   }
 
   return created;
@@ -106,16 +204,5 @@ export async function deleteBalanceSnapshot(
 
   await prisma.financeBankAccountBalance.delete({ where: { id: snapshotId } });
 
-  // Recalcular currentBalance con el snapshot más reciente que quede.
-  const latest = await prisma.financeBankAccountBalance.findFirst({
-    where: { tenantId, bankAccountId },
-    orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
-  });
-  await prisma.financeBankAccount.update({
-    where: { id: bankAccountId },
-    data: {
-      currentBalance: latest?.balance ?? null,
-      balanceUpdatedAt: latest?.asOfDate ?? null,
-    },
-  });
+  await syncCurrentBalanceFromMovements(tenantId, bankAccountId);
 }

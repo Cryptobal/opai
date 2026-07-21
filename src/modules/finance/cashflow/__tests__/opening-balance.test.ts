@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    financeBankAccount: { findMany: vi.fn() },
+    financeBankAccount: { findMany: vi.fn(), findFirst: vi.fn() },
     financeBankAccountBalance: { findFirst: vi.fn() },
     financeBankTransaction: { aggregate: vi.fn() },
   },
@@ -12,11 +12,15 @@ import { prisma } from "@/lib/prisma";
 import { resolveOpeningBalance } from "../opening-balance.service";
 
 const findMany = prisma.financeBankAccount.findMany as unknown as ReturnType<typeof vi.fn>;
+const findAccountFirst = prisma.financeBankAccount.findFirst as unknown as ReturnType<
+  typeof vi.fn
+>;
 const findFirst = prisma.financeBankAccountBalance.findFirst as unknown as ReturnType<typeof vi.fn>;
 const aggregate = prisma.financeBankTransaction.aggregate as unknown as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   findMany.mockReset();
+  findAccountFirst.mockReset();
   findFirst.mockReset();
   aggregate.mockReset();
 });
@@ -26,6 +30,7 @@ describe("resolveOpeningBalance", () => {
     findMany.mockResolvedValueOnce([
       { id: "a1", bankName: "X", accountNumber: "1", currentBalance: 1_000_000 },
     ]);
+    findAccountFirst.mockResolvedValueOnce({ currentBalance: 1_000_000 });
     findFirst.mockResolvedValueOnce(null);
 
     const r = await resolveOpeningBalance("t1");
@@ -39,6 +44,7 @@ describe("resolveOpeningBalance", () => {
     findMany.mockResolvedValueOnce([
       { id: "a1", bankName: "X", accountNumber: "1", currentBalance: 0 },
     ]);
+    findAccountFirst.mockResolvedValueOnce({ currentBalance: 0 });
     findFirst.mockResolvedValueOnce({
       asOfDate: new Date("2026-05-01"),
       balance: 500_000,
@@ -60,6 +66,7 @@ describe("resolveOpeningBalance", () => {
       { id: "a1", bankName: "X", accountNumber: "1", currentBalance: 0 },
       { id: "a2", bankName: "Y", accountNumber: "2", currentBalance: 0 },
     ]);
+    findAccountFirst.mockResolvedValue({ currentBalance: 0 });
     findFirst.mockResolvedValue({
       asOfDate: new Date("2026-05-01"),
       balance: 100_000,
@@ -75,6 +82,7 @@ describe("resolveOpeningBalance", () => {
     findMany.mockResolvedValueOnce([
       { id: "a1", bankName: "X", accountNumber: "1", currentBalance: null },
     ]);
+    findAccountFirst.mockResolvedValueOnce({ currentBalance: null });
     findFirst.mockResolvedValueOnce(null);
     const r = await resolveOpeningBalance("t1");
     expect(r.totalClp).toBe(0);
@@ -84,6 +92,7 @@ describe("resolveOpeningBalance", () => {
     findMany.mockResolvedValueOnce([
       { id: "a1", bankName: "X", accountNumber: "1", currentBalance: 0 },
     ]);
+    findAccountFirst.mockResolvedValueOnce({ currentBalance: 0 });
     findFirst.mockResolvedValueOnce({
       asOfDate: new Date("2026-05-01"),
       balance: 100_000,
@@ -106,6 +115,7 @@ describe("resolveOpeningBalance", () => {
     findMany.mockResolvedValueOnce([
       { id: "a1", bankName: "X", accountNumber: "1", currentBalance: 999 },
     ]);
+    findAccountFirst.mockResolvedValueOnce({ currentBalance: 999 });
     // Simula el orderBy del service: el findFirst devuelve el snapshot
     // más reciente. Si el usuario acaba de hacer un ajuste MANUAL hoy
     // con balance=12_500_000, ese es el que llega.

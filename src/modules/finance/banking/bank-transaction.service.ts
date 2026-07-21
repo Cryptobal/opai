@@ -12,6 +12,7 @@ import {
   type BulkAutoMatchSummary,
 } from "./auto-match-payment.service";
 import { recognizeRutsForTransactions } from "./rut-recognition.service";
+import { syncCurrentBalanceFromMovements } from "./bank-balance.service";
 
 /**
  * Genera un `apiTransactionId` determinístico para una transacción importada
@@ -548,13 +549,6 @@ export async function importBankTransactions(
   // qué cartola fijó qué saldo (la fecha del snapshot es la fecha de la última
   // transacción de la cartola, que aproxima el "Fecha hasta" del extracto).
   if (closingBalance !== null && closingBalance !== undefined) {
-    await prisma.financeBankAccount.update({
-      where: { id: bankAccountId },
-      data: {
-        currentBalance: new Decimal(closingBalance),
-        balanceUpdatedAt: new Date(),
-      },
-    });
     const lastTxDate = transactions.reduce<string | null>((acc, tx) => {
       if (!acc || tx.transactionDate > acc) return tx.transactionDate;
       return acc;
@@ -572,6 +566,10 @@ export async function importBankTransactions(
         },
       });
     }
+  }
+
+  if (result.count > 0) {
+    await syncCurrentBalanceFromMovements(tenantId, bankAccountId);
   }
 
   // Auto-match contra DTEs pendientes. Solo corre si tenemos userId
@@ -727,16 +725,7 @@ export async function createBankTransaction(
     },
   });
 
-  // Update bank account balance if balance was provided
-  if (data.balance != null) {
-    await prisma.financeBankAccount.update({
-      where: { id: data.bankAccountId },
-      data: {
-        currentBalance: new Decimal(data.balance),
-        balanceUpdatedAt: new Date(),
-      },
-    });
-  }
+  await syncCurrentBalanceFromMovements(tenantId, data.bankAccountId);
 
   return transaction;
 }
@@ -754,7 +743,7 @@ export async function hideTransaction(
 ): Promise<void> {
   const tx = await prisma.financeBankTransaction.findFirst({
     where: { id: txId, tenantId },
-    select: { id: true, hiddenAt: true },
+    select: { id: true, hiddenAt: true, bankAccountId: true },
   });
   if (!tx) throw new Error("Movimiento no encontrado");
   if (tx.hiddenAt) return; // ya oculto, idempotente
@@ -784,6 +773,8 @@ export async function hideTransaction(
       },
     });
   });
+
+  await syncCurrentBalanceFromMovements(tenantId, tx.bankAccountId);
 }
 
 /**
@@ -801,6 +792,12 @@ export async function bulkHideTransactions(
   const trimmedReason = reason.trim().slice(0, 500);
   if (!trimmedReason) throw new Error("Motivo requerido");
 
+  const targets = await prisma.financeBankTransaction.findMany({
+    where: { tenantId, id: { in: txIds }, hiddenAt: null },
+    select: { id: true, bankAccountId: true },
+  });
+  if (targets.length === 0) return 0;
+
   const result = await prisma.$transaction(async (tx2) => {
     // Desvincular occurrences asociadas a estos txs.
     await tx2.financeCashflowOccurrence.updateMany({
@@ -813,7 +810,7 @@ export async function bulkHideTransactions(
       },
     });
     return tx2.financeBankTransaction.updateMany({
-      where: { tenantId, id: { in: txIds }, hiddenAt: null },
+      where: { tenantId, id: { in: targets.map((t) => t.id) }, hiddenAt: null },
       data: {
         hiddenAt: new Date(),
         hiddenById: userId ?? null,
@@ -823,6 +820,14 @@ export async function bulkHideTransactions(
       },
     });
   });
+
+  const accountIds = [...new Set(targets.map((t) => t.bankAccountId))];
+  await Promise.all(
+    accountIds.map((bankAccountId) =>
+      syncCurrentBalanceFromMovements(tenantId, bankAccountId),
+    ),
+  );
+
   return result.count;
 }
 
@@ -835,7 +840,7 @@ export async function unhideTransaction(
 ): Promise<void> {
   const tx = await prisma.financeBankTransaction.findFirst({
     where: { id: txId, tenantId },
-    select: { id: true, hiddenAt: true },
+    select: { id: true, hiddenAt: true, bankAccountId: true },
   });
   if (!tx) throw new Error("Movimiento no encontrado");
   if (!tx.hiddenAt) return;
@@ -844,4 +849,6 @@ export async function unhideTransaction(
     where: { id: txId },
     data: { hiddenAt: null, hiddenById: null, hiddenReason: null },
   });
+
+  await syncCurrentBalanceFromMovements(tenantId, tx.bankAccountId);
 }

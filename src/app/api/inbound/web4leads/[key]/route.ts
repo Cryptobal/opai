@@ -40,6 +40,7 @@ import {
 import { notify } from "@/lib/notifications/notify";
 import { buildBankMovementsBody } from "@/lib/finance/bank-movements-summary";
 import { buildBankMovementsSlackData } from "@/modules/finance/banking/slack-movements-payload";
+import { syncCurrentBalanceFromMovements } from "@/modules/finance/banking/bank-balance.service";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -247,25 +248,15 @@ export async function POST(
   const imported = result.count;
   const duplicates = payload.movements.length - imported;
 
-  // 7. Saldo + apiLastSync. El balance más reciente es el del movimiento de
-  //    fecha más alta (ordenamos, no confiamos en el orden de llegada).
-  const lastWithBalance = [...payload.movements]
-    .filter((m) => typeof m.balance === "number" && Number.isFinite(m.balance))
-    .sort((a, b) => a.transactionDate.localeCompare(b.transactionDate))
-    .pop();
-
+  let syncedBalance: number | null = null;
   if (imported > 0) {
+    const resolved = await syncCurrentBalanceFromMovements(tenantId, account.id);
+    syncedBalance = resolved.resolvedBalanceClp;
     await prisma.financeBankAccount.update({
       where: { id: account.id },
       data: {
         apiLastSync: new Date(),
         apiProvider: "WEB4LEADS",
-        ...(lastWithBalance?.balance != null
-          ? {
-              currentBalance: new Prisma.Decimal(lastWithBalance.balance),
-              balanceUpdatedAt: new Date(),
-            }
-          : {}),
       },
     });
   }
@@ -298,9 +289,7 @@ export async function POST(
           description: t.description,
           amount: t.amount.toNumber(),
         })),
-        // Saldo total tras el lote: el balance del movimiento más reciente
-        // (el mismo que actualizó currentBalance arriba).
-        lastWithBalance?.balance ?? null,
+        syncedBalance,
       );
     } catch (blocksErr) {
       console.error("[inbound/web4leads] blocks conciliación error:", blocksErr);
