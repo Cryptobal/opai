@@ -37,13 +37,17 @@ export function CorreoAssociationBar({
 
   return (
     <div className="space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-2.5">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[12px] text-ds-text-3">Asociación:</span>
-        <span className="text-[13px] text-ds-text-1">{accountName || "Sin cuenta"}</span>
-        {dealTitle && (
-          <span className="text-[12px] text-ds-text-3">· {dealTitle}</span>
-        )}
-        <div className="ml-auto">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="text-[12px] text-ds-text-3">Asociación:</span>
+          <span className="min-w-0 truncate text-[13px] text-ds-text-1">
+            {accountName || "Sin cuenta"}
+          </span>
+          {dealTitle && (
+            <span className="min-w-0 truncate text-[12px] text-ds-text-3">· {dealTitle}</span>
+          )}
+        </div>
+        <div className="w-full sm:ml-auto sm:w-auto">
           <AsociarCuenta onSelect={(id) => onAssociate({ accountId: id, dealId: null })} />
         </div>
       </div>

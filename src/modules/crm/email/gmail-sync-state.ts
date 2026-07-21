@@ -11,6 +11,10 @@ export type GmailSyncState = {
   lastHistoryId?: string | null;
   /** ISO de la última corrida. */
   lastSyncAt?: string;
+  /** ISO del último sweep de reconciliación de carpetas. */
+  lastReconcileAt?: string | null;
+  /** true si el último sweep corrió con los 3 sets completos. */
+  lastReconcileComplete?: boolean;
 };
 
 export type EmailAccountLite = { id: string; email: string; userId: string };

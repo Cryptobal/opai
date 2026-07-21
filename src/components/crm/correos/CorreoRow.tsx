@@ -30,7 +30,8 @@ export function CorreoRow({
   onChanged?: () => void;
 }) {
   const unread = thread.isUnread;
-  const line2 = [thread.subject || "(sin asunto)", thread.snippet].filter(Boolean).join(" · ");
+  const subject = thread.subject || "(sin asunto)";
+  const line2 = [subject, thread.snippet].filter(Boolean).join(" · ");
 
   return (
     <div className="group relative flex w-full items-stretch border-b border-ds-border-subtle last:border-0">
@@ -48,8 +49,9 @@ export function CorreoRow({
             {relativeTime(thread.lastMessageAt)}
           </span>
         </div>
-        <p className="truncate text-[13px] text-ds-text-3" title={line2}>
-          {line2}
+        <p className="truncate text-[13px]" title={line2}>
+          <span className={unread ? "font-semibold text-ds-text-1" : "text-ds-text-3"}>{subject}</span>
+          {thread.snippet && <span className="text-ds-text-3"> · {thread.snippet}</span>}
         </p>
         <div className="flex flex-wrap items-center gap-1 pt-0.5">
           {thread.accountId ? (

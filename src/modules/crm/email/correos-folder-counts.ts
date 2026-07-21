@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 
 export type CorreoFolderCounts = {
   inbox: number;
+  inboxUnread: number;
   archived: number;
   all: number;
   trash: number;
@@ -26,9 +27,12 @@ export async function countCorreoFolders(params: {
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.counts;
 
   const base = { tenantId: params.tenantId, emailAccountId: params.emailAccountId };
-  const [inbox, archived, all, trash] = await Promise.all([
+  const [inbox, inboxUnread, archived, all, trash] = await Promise.all([
     prisma.crmEmailThread.count({
       where: { ...base, trashedAt: null, archivedAt: null, spamAt: null },
+    }),
+    prisma.crmEmailThread.count({
+      where: { ...base, trashedAt: null, archivedAt: null, spamAt: null, isUnread: true },
     }),
     prisma.crmEmailThread.count({
       where: { ...base, trashedAt: null, spamAt: null, archivedAt: { not: null } },
@@ -41,7 +45,7 @@ export async function countCorreoFolders(params: {
     }),
   ]);
 
-  const counts = { inbox, archived, all, trash };
+  const counts = { inbox, inboxUnread, archived, all, trash };
   cache.set(key, { at: Date.now(), counts });
   return counts;
 }

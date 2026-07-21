@@ -28,14 +28,36 @@ function firstReply(msgs: Msg[], inboundAt: Date | null): Date | null {
   return m?.sentAt ?? null;
 }
 
-/** Selecciona hilos de la casilla con inbound nuevo (aiClassifiedAt < último mensaje). */
+/**
+ * Pre-marcado barato (sin IA): saca del backlog los hilos históricos del
+ * backfill (>14 días sin clasificar) para que la cola de candidatos no se
+ * queme con hilos viejos.
+ */
+async function preMarkStaleThreads(tenantId: string, emailAccountId: string): Promise<void> {
+  const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  await prisma.crmEmailThread.updateMany({
+    where: {
+      tenantId,
+      emailAccountId,
+      aiClassifiedAt: null,
+      lastMessageAt: { lt: cutoff },
+    },
+    data: { aiClassifiedAt: new Date() },
+  });
+}
+
+/**
+ * Selecciona hilos de la casilla con inbound nuevo (aiClassifiedAt < último
+ * mensaje), ventana de 14 días y lo más nuevo primero.
+ */
 async function pickCandidateThreads(tenantId: string, emailAccountId: string) {
   return prisma.$queryRaw<{ id: string }[]>`
     SELECT "id" FROM "crm"."email_threads"
     WHERE "tenant_id" = ${tenantId} AND "email_account_id" = ${emailAccountId}::uuid
       AND "last_message_at" IS NOT NULL
+      AND "last_message_at" >= now() - interval '14 days'
       AND ("ai_classified_at" IS NULL OR "ai_classified_at" < "last_message_at")
-    ORDER BY "last_message_at" ASC
+    ORDER BY "last_message_at" DESC
     LIMIT ${MAX_PER_RUN}`;
 }
 
@@ -129,6 +151,7 @@ export async function classifyAccountThreads(params: {
   try {
     if (!(await isRadarComercialEnabled(params.tenantId))) return { classified: 0, items };
     const deadline = params.deadlineMs ?? Date.now() + 20_000;
+    await preMarkStaleThreads(params.tenantId, params.emailAccountId);
     const candidates = await pickCandidateThreads(params.tenantId, params.emailAccountId);
     let classified = 0;
     for (const t of candidates) {
@@ -137,6 +160,12 @@ export async function classifyAccountThreads(params: {
       items.push(...created);
       classified++;
     }
+    console.warn("[radar] corrida", {
+      emailAccountId: params.emailAccountId,
+      classified,
+      items: items.length,
+      msLeft: deadline - Date.now(),
+    });
     return { classified, items };
   } catch (err) {
     console.warn("[radar] clasificación falló", params.emailAccountId, err);
