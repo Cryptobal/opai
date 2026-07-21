@@ -800,3 +800,38 @@ Gate pre-cambio: `npx prisma generate` OK · `NODE_OPTIONS=--max-old-space-size=
 3. **B3** — Banner reconexión agenda + toast; pulir filas + excluir sistema de "Posible lead".
 4. **B4** — QA checklist + push (NO merge).
 
+## QA v6 — Verificación de cierre
+
+Rama: `feat/gw-v6-pulido-fino` · **NO mergeada**.
+
+### Commits
+
+| Bloque | Mensaje |
+|--------|---------|
+| Prereq | `fix(google): quitar include_granted_scopes…` + merge |
+| B0 | `chore(gw): auditoría v6` |
+| B1 | `fix(crm): render HTML sanitizado del cuerpo del correo en drawer y timeline` |
+| B2 | `feat(agenda): lectura de todos los calendarios visibles del usuario` |
+| B3 | `feat(crm): onboarding de reconexión de calendar y pulido de filas de bandeja` |
+
+### Cambios clave
+
+- **HTML correo:** `sanitizeEmailHtml` (`isomorphic-dompurify`) + `<EmailHtmlBody>` en drawer `/crm/correos` y modal de pestaña Correos del deal. Toggle Ver texto / Ver original.
+- **Multi-cal:** ya en v5; v6 endurece 403 → `googleStatus: missing_scope`, filtra `accessRole` reader+.
+- **Onboarding:** banner agenda + OAuth `?return=/opai/agenda` + toast al conectar.
+- **Bandeja:** asunto prominente, snippet ≤140 limpio; "Posible lead" excluye no-reply y dominios del tenant/mailbox corporativo.
+
+### Checklist manual (Carlos)
+
+- [ ] **HTML drawer:** abrir "Cobertura Nocturna" → se ve como tarjeta (no números sueltos); toggle "Ver texto" funciona.
+- [ ] **HTML deal:** pestaña Correos de un negocio → mismo render HTML sanitizado.
+- [ ] **Solo-texto:** un correo plain sigue legible con saltos de línea.
+- [ ] **Multi-cal:** tras reconectar Calendar (sin include_granted_scopes), eventos Gard Security (Visita Técnica, Reunión Semanal, Kick Off) en `/opai/agenda` y hub.
+- [ ] **Banner scope:** con token incompleto, banner "Reconectá tu Calendar…" + botón → OAuth → toast "Calendar conectado — tus eventos ya aparecen".
+- [ ] **Fila bandeja:** "Cobertura Nocturna" compacta (asunto + 1 línea snippet).
+- [ ] **Sin falso lead:** correos `notificaciones@` / `no-reply@` / dominio tenant **no** muestran "Posible lead".
+
+### Migraciones
+
+Ninguna nueva (solo código + dep `isomorphic-dompurify`).
+
