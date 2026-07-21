@@ -1,0 +1,111 @@
+/**
+ * Tipos compartidos de los derivadores del Flujo v3.
+ *
+ * Convención de signos: todos los montos de celdas son MAGNITUDES POSITIVAS
+ * (bruto CLP), salvo el plan de FINANCIAMIENTO que es signado. El signo del
+ * flujo lo pone la sección: INGRESOS y FINANCIAMIENTO suman, el resto resta.
+ */
+
+export interface CommittedItem {
+  kind: "dte" | "scheduled";
+  dteId?: string;
+  templateId?: string;
+  folio?: number;
+  /** Nombre visible: cliente/proveedor/hito (popover). */
+  label: string;
+  /** Fecha estimada de cobro/pago (YYYY-MM-DD). */
+  fecha: string;
+  /** CLP bruto (magnitud). */
+  monto: number;
+  /** Solo kind=scheduled: término de la programación (null = sin término). */
+  endDate?: string | null;
+}
+
+export interface CommittedCell {
+  total: number;
+  items: CommittedItem[];
+}
+
+/** rowId (o UNMATCHED_*) → lunes ISO YYYY-MM-DD → celda. */
+export type CommittedByRow = Map<string, Map<string, CommittedCell>>;
+
+export interface RealItem {
+  bankTransactionId: string;
+  /** Folio del DTE conciliado, si el link apunta a uno. */
+  folio?: number;
+  dteId?: string;
+  label: string;
+  /** Fecha real del movimiento (YYYY-MM-DD). */
+  fecha: string;
+  /** CLP (magnitud). */
+  monto: number;
+}
+
+export interface RealCell {
+  total: number;
+  items: RealItem[];
+}
+
+export type RealByRow = Map<string, Map<string, RealCell>>;
+
+/** Ingresos sin fila (cuenta sin fila propia) → fila fallback "Otros clientes". */
+export const UNMATCHED_INCOME_KEY = "__unmatched_income__";
+/** Egresos sin fila/categoría → fila fallback "Otros gastos". */
+export const UNMATCHED_EXPENSE_KEY = "__unmatched_expense__";
+
+/** Referencia mínima de fila para el match de derivadores. */
+export interface FlowRowRef {
+  id: string;
+  crmAccountId: string | null;
+  installationId: string | null;
+  categoryId: string | null;
+  name: string;
+}
+
+export function pushCommitted(
+  map: CommittedByRow,
+  rowKey: string,
+  weekYmd: string,
+  item: CommittedItem,
+): void {
+  let byWeek = map.get(rowKey);
+  if (!byWeek) {
+    byWeek = new Map();
+    map.set(rowKey, byWeek);
+  }
+  const cell = byWeek.get(weekYmd) ?? { total: 0, items: [] };
+  cell.total += item.monto;
+  cell.items.push(item);
+  byWeek.set(weekYmd, cell);
+}
+
+export function pushReal(
+  map: RealByRow,
+  rowKey: string,
+  weekYmd: string,
+  item: RealItem,
+): void {
+  let byWeek = map.get(rowKey);
+  if (!byWeek) {
+    byWeek = new Map();
+    map.set(rowKey, byWeek);
+  }
+  const cell = byWeek.get(weekYmd) ?? { total: 0, items: [] };
+  cell.total += item.monto;
+  cell.items.push(item);
+  byWeek.set(weekYmd, cell);
+}
+
+/** Suma días a un YMD (UTC puro). */
+export function addDaysYmd(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d + days));
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Término de pago default cuando no hay dueDate ni término configurado.
+ * Ni CrmAccount ni FinanceDteRecurringTemplate tienen término de pago en el
+ * schema (ver AUDIT.md §3.1) — 30 días es el estándar B2B chileno.
+ */
+export const DEFAULT_COLLECTION_LAG_DAYS = 30;
