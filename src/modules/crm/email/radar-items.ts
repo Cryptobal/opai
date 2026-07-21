@@ -5,11 +5,17 @@ import { shortHash } from "./radar-util";
 
 export type CreatedRadarItem = { id: string; kind: string };
 
+const COMMERCIAL_LEAD_CATEGORIES = new Set([
+  "cotizacion",
+  "licitacion",
+  "consulta_comercial",
+]);
+
 /**
  * ¿Es novedad de lead? `intencion "alta"`, o `"media"` cuando la categoría es
- * cotización/licitación (una solicitud de cotización siempre es novedad), y el
- * hilo aún no está asociado a un lead/negocio. Usado tanto para crear el item
- * como para decidir si vale la pena redactar un borrador de respuesta.
+ * comercial (cotización / licitación / consulta), y el hilo aún no está
+ * asociado a un lead/negocio. Usado tanto para crear el item como para
+ * decidir si vale la pena redactar un borrador de respuesta.
  */
 export function isNewLeadCandidate(
   c: Pick<RadarClassification, "intencion" | "categoria">,
@@ -18,7 +24,7 @@ export function isNewLeadCandidate(
 ): boolean {
   if (leadId || dealId) return false;
   if (c.intencion === "alta") return true;
-  return c.intencion === "media" && (c.categoria === "cotizacion" || c.categoria === "licitacion");
+  return c.intencion === "media" && COMMERCIAL_LEAD_CATEGORIES.has(c.categoria);
 }
 
 /** Upsert idempotente por (tenant, dedupeKey). Devuelve el item si se creó. */

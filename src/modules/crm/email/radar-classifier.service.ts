@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { isRadarComercialEnabled } from "@/lib/crm/radar-settings";
 import { classifyThread, generateDraftReply } from "./radar-classify-ai";
 import { generateThreadRadarItems, isNewLeadCandidate, type CreatedRadarItem } from "./radar-items";
+import type { RadarClassification } from "./radar-types";
 import { stripHtml, hoyISO } from "./radar-util";
 import { writeSyncState } from "./gmail-sync-state";
 import { dispatchRadarAlert } from "@/lib/crm/radar-alerts";
@@ -35,21 +36,35 @@ const COMMERCIAL_CATEGORIES = ["cotizacion", "licitacion", "consulta_comercial"]
  * Reset del backlog quemado (una vez por corrida, barato):
  * 1) `aiCategory NULL` + clasificado en 7d (IA no corrió / falló)
  * 2) categoría no-comercial + inbound < 3d (clasificación previa errónea)
+ * 3) asunto con keywords de cotización + no-comercial + 30d (re-clasificar)
  * Sin este reset nunca re-entrarían al candidato (`aiClassifiedAt < lastMessageAt`).
  */
 async function resetBurnedBacklog(tenantId: string, emailAccountId: string): Promise<void> {
   const cutoff7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const cutoff3 = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+  const cutoff30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const res = await prisma.crmEmailThread.updateMany({
     where: {
       tenantId,
       emailAccountId,
       aiClassifiedAt: { not: null },
+      leadId: null,
+      dealId: null,
       OR: [
         { aiCategory: null, lastMessageAt: { gte: cutoff7 } },
         {
           aiCategory: { notIn: [...COMMERCIAL_CATEGORIES] },
           lastMessageAt: { gte: cutoff3 },
+        },
+        {
+          aiCategory: { notIn: [...COMMERCIAL_CATEGORIES] },
+          lastMessageAt: { gte: cutoff30 },
+          OR: [
+            { subject: { contains: "cotiz", mode: "insensitive" } },
+            { subject: { contains: "presupuesto", mode: "insensitive" } },
+            { subject: { contains: "propuesta", mode: "insensitive" } },
+            { subject: { contains: "licitac", mode: "insensitive" } },
+          ],
         },
       ],
     },
@@ -89,6 +104,94 @@ async function pickCandidateThreads(tenantId: string, emailAccountId: string) {
       AND ("ai_classified_at" IS NULL OR "ai_classified_at" < "last_message_at")
     ORDER BY "last_message_at" DESC
     LIMIT ${MAX_PER_RUN}`;
+}
+
+/**
+ * Promueve hilos YA clasificados como comerciales (cotización/licitación/
+ * consulta) que nunca generaron RadarItem — típico cuando se clasificaron
+ * antes de ampliar umbrales, o cuando el sync cortó tras marcar aiCategory
+ * sin crear el item. No gasta IA: reusa la clasificación persistida.
+ */
+async function promoteClassifiedCommercialThreads(params: {
+  tenantId: string;
+  emailAccountId: string;
+  userId: string;
+  limit?: number;
+}): Promise<CreatedRadarItem[]> {
+  const limit = params.limit ?? 15;
+  const rows = await prisma.$queryRaw<
+    {
+      id: string;
+      subject: string | null;
+      lead_id: string | null;
+      deal_id: string | null;
+      account_id: string | null;
+      ai_category: string;
+      ai_intent: string;
+      ai_summary: string | null;
+    }[]
+  >`
+    SELECT t.id, t.subject, t.lead_id, t.deal_id, t.account_id,
+           t.ai_category, t.ai_intent, t.ai_summary
+    FROM crm.email_threads t
+    WHERE t.tenant_id = ${params.tenantId}
+      AND t.email_account_id = ${params.emailAccountId}::uuid
+      AND t.lead_id IS NULL
+      AND t.deal_id IS NULL
+      AND t.ai_category IN ('cotizacion', 'licitacion', 'consulta_comercial')
+      AND t.ai_intent IN ('alta', 'media')
+      AND t.last_message_at >= now() - interval '30 days'
+      AND NOT EXISTS (
+        SELECT 1 FROM crm.radar_items r
+        WHERE r.tenant_id = t.tenant_id
+          AND r.dedupe_key = ('thread:' || t.id || ':lead')
+      )
+      AND EXISTS (
+        SELECT 1 FROM crm.email_messages m
+        WHERE m.thread_id = t.id AND m.direction = 'in'
+      )
+    ORDER BY t.last_message_at DESC
+    LIMIT ${limit}
+  `;
+
+  const created: CreatedRadarItem[] = [];
+  for (const row of rows) {
+    const classification: RadarClassification = {
+      categoria: row.ai_category as RadarClassification["categoria"],
+      intencion: row.ai_intent as RadarClassification["intencion"],
+      resumen: row.ai_summary ?? "",
+      requiereRespuesta: true,
+      senalesCompra: [],
+      compromisos: [],
+    };
+    if (!isNewLeadCandidate(classification, row.lead_id, row.deal_id)) continue;
+
+    const lastInbound = await prisma.crmEmailMessage.findFirst({
+      where: { threadId: row.id, direction: "in" },
+      orderBy: { receivedAt: "desc" },
+      select: { fromEmail: true },
+    });
+    if (!lastInbound?.fromEmail) continue;
+
+    const items = await generateThreadRadarItems({
+      tenantId: params.tenantId,
+      userId: params.userId,
+      threadId: row.id,
+      fromEmail: lastInbound.fromEmail,
+      leadId: row.lead_id,
+      dealId: row.deal_id,
+      accountId: row.account_id,
+      classification,
+      draftReply: null,
+    });
+    for (const it of items) {
+      created.push(it);
+      if (it.kind === "nuevo_lead" || it.kind === "senal_compra") {
+        await dispatchRadarAlert(it.id);
+      }
+    }
+  }
+  return created;
 }
 
 async function classifyOne(
@@ -183,6 +286,15 @@ export async function classifyAccountThreads(params: {
     const deadline = params.deadlineMs ?? Date.now() + 20_000;
     await resetBurnedBacklog(params.tenantId, params.emailAccountId);
     await preMarkStaleThreads(params.tenantId, params.emailAccountId);
+
+    // Primero: promover cotizaciones/consultas ya clasificadas sin RadarItem.
+    const promoted = await promoteClassifiedCommercialThreads({
+      tenantId: params.tenantId,
+      emailAccountId: params.emailAccountId,
+      userId: params.userId,
+    });
+    items.push(...promoted);
+
     const candidates = await pickCandidateThreads(params.tenantId, params.emailAccountId);
     let classified = 0;
     for (const t of candidates) {

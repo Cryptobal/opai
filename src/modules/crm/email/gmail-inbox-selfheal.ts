@@ -3,9 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { flagsFromLabelIds } from "./gmail-thread-labels";
 import { invalidateCorreoFolderCounts } from "./correos-folder-counts";
 
-const LOOKBACK_MS = 30 * 24 * 60 * 60 * 1000;
-const CANDIDATE_CAP = 200;
-const CHECK_CAP = 60;
+/** Alineado al backfill (120d): el daño del sweep viejo afectó todo el histórico. */
+const LOOKBACK_MS = 120 * 24 * 60 * 60 * 1000;
+const CANDIDATE_CAP = 400;
+/** Verificaciones remotas por corrida (API Gmail). El heal local no tiene este tope. */
+const CHECK_CAP = 120;
 
 function unionLabelIds(
   messages: Array<{ labelIds?: string[] | null }>,
@@ -18,20 +20,83 @@ function unionLabelIds(
 }
 
 /**
+ * Reparación instantánea (sin API Gmail): hilos con `archivedAt` seteado pero
+ * cuyos mensajes locales aún tienen label `INBOX`. Es el residuo típico del
+ * sweep viejo que archivaba en masa sin tocar `labelIds` de los mensajes.
+ */
+export async function healInboxFromLocalLabels(params: {
+  tenantId: string;
+  emailAccountId: string;
+}): Promise<number> {
+  const { tenantId, emailAccountId } = params;
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT DISTINCT t.id
+    FROM crm.email_threads t
+    INNER JOIN crm.email_messages m ON m.thread_id = t.id
+    WHERE t.tenant_id = ${tenantId}
+      AND t.email_account_id = ${emailAccountId}::uuid
+      AND t.archived_at IS NOT NULL
+      AND t.trashed_at IS NULL
+      AND t.spam_at IS NULL
+      AND m.label_ids @> ARRAY['INBOX']::text[]
+  `;
+  if (rows.length === 0) return 0;
+  const res = await prisma.crmEmailThread.updateMany({
+    where: {
+      tenantId,
+      emailAccountId,
+      id: { in: rows.map((r) => r.id) },
+      archivedAt: { not: null },
+      trashedAt: null,
+      spamAt: null,
+    },
+    data: { archivedAt: null },
+  });
+  if (res.count > 0) invalidateCorreoFolderCounts(tenantId, emailAccountId);
+  return res.count;
+}
+
+/**
  * Self-heal de Recibidos: verificación positiva por-hilo contra Gmail.
  * No depende de sets globales ni de completitud — repara archivado erróneo
  * y archiva localmente lo que Gmail ya sacó de INBOX.
+ *
+ * Orden: (1) heal local por labelIds, (2) chequeo remoto priorizando
+ * archivados locales (restaurar a inbox).
  */
 export async function selfHealInbox(params: {
   gmail: gmail_v1.Gmail;
   tenantId: string;
   emailAccountId: string;
   deadline: number;
-}): Promise<{ healed: number; checked: number }> {
+}): Promise<{ healed: number; checked: number; localHealed: number }> {
   const { gmail, tenantId, emailAccountId, deadline } = params;
+
+  // Capturar ids restaurados localmente para re-verificarlos primero contra
+  // Gmail (labels locales pueden estar stale → evitar falso-inbox).
+  const localCandidates = await prisma.$queryRaw<{ id: string; provider_thread_id: string | null }[]>`
+    SELECT t.id, t.provider_thread_id
+    FROM crm.email_threads t
+    WHERE t.tenant_id = ${tenantId}
+      AND t.email_account_id = ${emailAccountId}::uuid
+      AND t.archived_at IS NOT NULL
+      AND t.trashed_at IS NULL
+      AND t.spam_at IS NULL
+      AND EXISTS (
+        SELECT 1 FROM crm.email_messages m
+        WHERE m.thread_id = t.id AND m.label_ids @> ARRAY['INBOX']::text[]
+      )
+    ORDER BY t.last_message_at DESC NULLS LAST
+    LIMIT ${CANDIDATE_CAP}
+  `;
+  const localHealed = await healInboxFromLocalLabels({ tenantId, emailAccountId });
+
   const since = new Date(Date.now() - LOOKBACK_MS);
   const base = { tenantId, emailAccountId, trashedAt: null, spamAt: null };
 
+  // Priorizar: (1) recién restaurados locales → confirmar INBOX en Gmail,
+  // (2) archivados restantes, (3) inbox local que podría necesitar archivar.
+  const localIds = new Set(localCandidates.map((t) => t.id));
   const [archived, inInbox] = await Promise.all([
     prisma.crmEmailThread.findMany({
       where: { ...base, archivedAt: { not: null }, lastMessageAt: { gte: since } },
@@ -40,19 +105,34 @@ export async function selfHealInbox(params: {
       take: CANDIDATE_CAP,
     }),
     prisma.crmEmailThread.findMany({
-      where: { ...base, archivedAt: null, lastMessageAt: { gte: since } },
+      where: {
+        ...base,
+        archivedAt: null,
+        lastMessageAt: { gte: since },
+        ...(localIds.size > 0 ? { id: { notIn: Array.from(localIds) } } : {}),
+      },
       select: { id: true, providerThreadId: true },
       orderBy: { lastMessageAt: "desc" },
-      take: CANDIDATE_CAP,
+      take: Math.min(CANDIDATE_CAP, 80),
     }),
   ]);
 
-  const candidates = [
-    ...archived.map((t) => ({ ...t, expect: "inbox" as const })),
+  type Expect = "inbox" | "archive" | "confirm";
+  const candidates: Array<{ id: string; providerThreadId: string | null; expect: Expect }> = [
+    // confirm: recién restaurados por labels locales — si Gmail ya no tiene
+    // INBOX, re-archivar (labels stale).
+    ...localCandidates.map((t) => ({
+      id: t.id,
+      providerThreadId: t.provider_thread_id,
+      expect: "confirm" as const,
+    })),
+    ...archived
+      .filter((t) => !localIds.has(t.id))
+      .map((t) => ({ ...t, expect: "inbox" as const })),
     ...inInbox.map((t) => ({ ...t, expect: "archive" as const })),
   ].slice(0, CHECK_CAP);
 
-  let healed = 0;
+  let healed = localHealed;
   let checked = 0;
   const toInbox: string[] = [];
   const toArchive: string[] = [];
@@ -70,13 +150,14 @@ export async function selfHealInbox(params: {
       const flags = flagsFromLabelIds(unionLabelIds(res.data.messages ?? []));
       if (t.expect === "inbox" && flags.inInbox) toInbox.push(t.id);
       if (
-        t.expect === "archive" &&
+        (t.expect === "archive" || t.expect === "confirm") &&
         !flags.inInbox &&
         !flags.inTrash &&
         !flags.inSpam
       ) {
         toArchive.push(t.id);
       }
+      // confirm + aún en INBOX: no-op (ya restaurado localmente).
     } catch (err) {
       const e = err as { code?: number; status?: number; response?: { status?: number } };
       const status = e?.code ?? e?.status ?? e?.response?.status;
@@ -102,6 +183,6 @@ export async function selfHealInbox(params: {
     });
     healed += r.count;
   }
-  if (healed > 0) invalidateCorreoFolderCounts(tenantId, emailAccountId);
-  return { healed, checked };
+  if (healed > localHealed) invalidateCorreoFolderCounts(tenantId, emailAccountId);
+  return { healed, checked, localHealed };
 }

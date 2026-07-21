@@ -21,8 +21,9 @@ export async function reconcileGmailFolders(params: {
 }): Promise<{ updated: number; importedTrash: number; complete: boolean }> {
   const { gmail, tenantId, emailAccount, deadline } = params;
   try {
-    // INBOX maxPages=2: ya no necesitamos el set exhaustivo (self-heal/incremental).
-    const inboxSet = await listGmailThreadIdSet({ gmail, labelId: "INBOX", maxPages: 2, deadline });
+    // INBOX: más páginas para reforzar pertenencia positiva (self-heal cubre el resto).
+    // 10×500 ≈ hasta ~5k mensajes; `complete` sigue indicando si el set quedó parcial.
+    const inboxSet = await listGmailThreadIdSet({ gmail, labelId: "INBOX", maxPages: 10, deadline });
     const trashSet = await listGmailThreadIdSet({ gmail, labelId: "TRASH", maxPages: 4, deadline });
     const spamSet = await listGmailThreadIdSet({ gmail, labelId: "SPAM", maxPages: 2, deadline });
     const setsComplete = inboxSet.complete && spamSet.complete && trashSet.complete;
