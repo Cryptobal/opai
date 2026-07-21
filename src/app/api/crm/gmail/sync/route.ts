@@ -43,11 +43,27 @@ async function handle(request: NextRequest) {
     createdByUserId: session.user.id,
   });
 
+  const refreshed = await prisma.crmEmailAccount.findUnique({
+    where: { id: emailAccount.id },
+    select: { syncState: true },
+  });
+  const syncState =
+    refreshed?.syncState && typeof refreshed.syncState === "object" && !Array.isArray(refreshed.syncState)
+      ? (refreshed.syncState as { backfillDone?: boolean; lastSyncAt?: string })
+      : {};
+  const totalThreads = await prisma.crmEmailThread.count({
+    where: { tenantId: session.user.tenantId, emailAccountId: emailAccount.id },
+  });
+
   return NextResponse.json({
     success: true,
     count: result.syncedCount,
+    syncedCount: result.syncedCount,
     fetched: result.fetched,
     mode: result.mode,
+    backfillDone: Boolean(syncState.backfillDone),
+    totalThreads,
+    lastSyncAt: syncState.lastSyncAt ?? null,
   });
 }
 
