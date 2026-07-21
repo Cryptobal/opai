@@ -34,13 +34,14 @@ const COMMERCIAL_CATEGORIES = ["cotizacion", "licitacion", "consulta_comercial"]
 
 /**
  * Reset del backlog quemado (una vez por corrida, barato):
- * 1) `aiCategory NULL` + clasificado en 7d (IA no corrió / falló)
+ * 1) `aiCategory NULL` + clasificado en 14d (IA no corrió / falló — ej. bug
+ *    de modelo/proveedor que devolvía null en TODAS las corridas)
  * 2) categoría no-comercial + inbound < 3d (clasificación previa errónea)
  * 3) asunto con keywords de cotización + no-comercial + 30d (re-clasificar)
  * Sin este reset nunca re-entrarían al candidato (`aiClassifiedAt < lastMessageAt`).
  */
 async function resetBurnedBacklog(tenantId: string, emailAccountId: string): Promise<void> {
-  const cutoff7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const cutoff14 = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
   const cutoff3 = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
   const cutoff30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const res = await prisma.crmEmailThread.updateMany({
@@ -51,7 +52,7 @@ async function resetBurnedBacklog(tenantId: string, emailAccountId: string): Pro
       leadId: null,
       dealId: null,
       OR: [
-        { aiCategory: null, lastMessageAt: { gte: cutoff7 } },
+        { aiCategory: null, lastMessageAt: { gte: cutoff14 } },
         {
           aiCategory: { notIn: [...COMMERCIAL_CATEGORIES] },
           lastMessageAt: { gte: cutoff3 },

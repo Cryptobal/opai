@@ -10,6 +10,7 @@ import {
   getAIConfigForTenant,
 } from "@/lib/platform-ai-service";
 import { AIError, classifyProviderError } from "@/lib/ai-errors";
+import { modelBelongsToProvider } from "@/lib/ai-model-match";
 
 export type AIConfig = {
   providerType: string;
@@ -163,9 +164,13 @@ export class AIService {
     const config = await this.getActiveConfig(ctx);
     if (!config) throw new AIError("AI_NOT_CONFIGURED", "No hay un proveedor de IA configurado.");
 
-    const effectiveConfig: AIConfig = opts?.modelOverride
-      ? { ...config, modelId: opts.modelOverride }
-      : config;
+    // Solo aplicar el override si pertenece al proveedor activo; si no,
+    // usar el modelo default (ej: override "gpt-4o-mini" con Anthropic activo
+    // fallaría con "model not found").
+    const effectiveConfig: AIConfig =
+      opts?.modelOverride && modelBelongsToProvider(opts.modelOverride, config.providerType)
+        ? { ...config, modelId: opts.modelOverride }
+        : config;
     const maxTokens = opts?.maxTokens ?? 2048;
 
     let rawText: string;
@@ -189,6 +194,11 @@ export class AIService {
   /**
    * Generates JSON with explicit model override. Useful when a feature needs
    * a different model than the tenant default (e.g. vision on a smaller model).
+   *
+   * El override solo aplica si el modelo pertenece al proveedor activo.
+   * Ej: pedir "gpt-4o-mini" con Anthropic activo enviaría un modelo OpenAI a
+   * la API de Anthropic → "model not found" → el feature falla silencioso.
+   * En ese caso se usa el modelo default del proveedor activo.
    */
   async generateJSONWithModel(
     prompt: string,
@@ -199,7 +209,9 @@ export class AIService {
     const config = await this.getActiveConfig(ctx);
     if (!config) throw new AIError("AI_NOT_CONFIGURED", "No hay un proveedor de IA configurado.");
 
-    const effectiveConfig: AIConfig = { ...config, modelId: modelOverride };
+    const effectiveConfig: AIConfig = modelBelongsToProvider(modelOverride, config.providerType)
+      ? { ...config, modelId: modelOverride }
+      : config;
 
     let rawText: string;
     switch (effectiveConfig.providerType) {
