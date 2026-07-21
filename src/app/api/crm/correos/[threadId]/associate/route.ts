@@ -1,4 +1,4 @@
-/** POST /api/crm/correos/[threadId]/associate — vincula el hilo a una cuenta. */
+/** POST /api/crm/correos/[threadId]/associate — vincula hilo a cuenta y/o negocio. */
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -6,6 +6,7 @@ import { requireTenantModule } from "@/lib/require-module";
 import { normalizeEmailAddress } from "@/lib/email-address";
 
 type Ctx = { params: Promise<{ threadId: string }> };
+type Body = { accountId?: string | null; dealId?: string | null };
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   const mod = await requireTenantModule("crm");
@@ -24,23 +25,52 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!account) return NextResponse.json({ error: "Gmail no conectado" }, { status: 400 });
 
   const { threadId } = await ctx.params;
-  const body = (await req.json().catch(() => ({}))) as { accountId?: string | null };
-  const accountId = typeof body.accountId === "string" ? body.accountId : null;
+  const body = (await req.json().catch(() => ({}))) as Body;
 
   const thread = await prisma.crmEmailThread.findFirst({
     where: { id: threadId, tenantId, emailAccountId: account.id },
-    select: { id: true },
+    select: { id: true, accountId: true, dealId: true },
   });
   if (!thread) return NextResponse.json({ error: "Hilo no encontrado" }, { status: 404 });
 
-  const crmAccount = accountId
-    ? await prisma.crmAccount.findFirst({ where: { id: accountId, tenantId }, select: { id: true, name: true } })
+  const hasAccountId = "accountId" in body;
+  const hasDealId = "dealId" in body;
+  let newAccountId = hasAccountId
+    ? typeof body.accountId === "string"
+      ? body.accountId
+      : null
+    : thread.accountId;
+  let newDealId = hasDealId
+    ? typeof body.dealId === "string"
+      ? body.dealId
+      : null
+    : thread.dealId;
+
+  if (!newAccountId) newDealId = null;
+  else if (hasAccountId && body.accountId !== thread.accountId && !hasDealId) newDealId = null;
+
+  const crmAccount = newAccountId
+    ? await prisma.crmAccount.findFirst({
+        where: { id: newAccountId, tenantId },
+        select: { id: true, name: true },
+      })
     : null;
-  if (accountId && !crmAccount) {
+  if (newAccountId && !crmAccount) {
     return NextResponse.json({ error: "Cuenta no encontrada" }, { status: 404 });
   }
 
-  // Re-match de contacto dentro de la cuenta por los emails del hilo.
+  let dealTitle: string | null = null;
+  if (newAccountId && newDealId) {
+    const deal = await prisma.crmDeal.findFirst({
+      where: { id: newDealId, tenantId, accountId: newAccountId, status: "open" },
+      select: { id: true, title: true },
+    });
+    if (!deal) return NextResponse.json({ error: "Negocio no encontrado" }, { status: 404 });
+    dealTitle = deal.title;
+  } else if (newDealId) {
+    newDealId = null;
+  }
+
   let contactId: string | null = null;
   if (crmAccount) {
     const messages = await prisma.crmEmailMessage.findMany({
@@ -61,13 +91,19 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   await prisma.crmEmailThread.update({
     where: { id: thread.id },
-    data: { accountId: crmAccount?.id ?? null, ...(contactId ? { contactId } : {}) },
+    data: {
+      accountId: crmAccount?.id ?? null,
+      dealId: newDealId,
+      contactId: crmAccount ? contactId : null,
+    },
   });
 
   return NextResponse.json({
     ok: true,
     accountId: crmAccount?.id ?? null,
     accountName: crmAccount?.name ?? null,
+    dealId: newDealId,
+    dealTitle,
     contactId,
   });
 }

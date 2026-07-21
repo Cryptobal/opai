@@ -2,9 +2,15 @@
 
 import { useState } from "react";
 import type { CorreoMessageDTO } from "@/modules/crm/email/correos.types";
+import { emailPlainFallback } from "@/lib/sanitize-email-html";
 import { EmailHtmlBody } from "./EmailHtmlBody";
 
-function MessageBlock({ m }: { m: CorreoMessageDTO }) {
+function snippet(m: CorreoMessageDTO): string {
+  const plain = emailPlainFallback(m.htmlBody, m.textBody);
+  return plain.replace(/\s+/g, " ").trim().slice(0, 120);
+}
+
+function ExpandedBlock({ m }: { m: CorreoMessageDTO }) {
   return (
     <div className="rounded-xl border border-ds-border-subtle bg-ds-surface-1 p-3">
       <div className="mb-1 flex items-center justify-between gap-2 text-[12px] text-ds-text-4">
@@ -21,9 +27,28 @@ function MessageBlock({ m }: { m: CorreoMessageDTO }) {
   );
 }
 
-/** Último mensaje expandido + anteriores colapsados. */
+function CollapsedCard({ m, onExpand }: { m: CorreoMessageDTO; onExpand: () => void }) {
+  const from = m.direction === "out" ? m.toEmails[0] || "—" : m.fromEmail;
+  return (
+    <button
+      type="button"
+      onClick={onExpand}
+      className="flex w-full flex-col gap-0.5 rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2 text-left ds-tap hover:bg-ds-surface-3"
+    >
+      <div className="flex items-center justify-between gap-2 text-[12px]">
+        <span className="truncate font-medium text-ds-text-2">{from}</span>
+        <span className="shrink-0 text-ds-text-4">
+          {m.sentAt ? new Date(m.sentAt).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" }) : ""}
+        </span>
+      </div>
+      <p className="truncate text-[12px] text-ds-text-4">{snippet(m)}</p>
+    </button>
+  );
+}
+
+/** Último mensaje expandido; anteriores en tarjetas colapsadas. */
 export function CorreoMessages({ messages }: { messages: CorreoMessageDTO[] }) {
-  const [showAll, setShowAll] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   if (messages.length === 0) {
     return <p className="text-[13px] text-ds-text-4">Sin mensajes.</p>;
   }
@@ -32,19 +57,14 @@ export function CorreoMessages({ messages }: { messages: CorreoMessageDTO[] }) {
 
   return (
     <div className="space-y-2">
-      {older.length > 0 && (
-        <button
-          type="button"
-          onClick={() => setShowAll((v) => !v)}
-          className="text-[12px] text-primary ds-tap"
-        >
-          {showAll
-            ? "Ocultar anteriores"
-            : `Ver ${older.length} mensaje${older.length !== 1 ? "s" : ""} anterior${older.length !== 1 ? "es" : ""}`}
-        </button>
+      {older.map((m) =>
+        expanded.has(m.id) ? (
+          <ExpandedBlock key={m.id} m={m} />
+        ) : (
+          <CollapsedCard key={m.id} m={m} onExpand={() => setExpanded((s) => new Set(s).add(m.id))} />
+        ),
       )}
-      {showAll && older.map((m) => <MessageBlock key={m.id} m={m} />)}
-      <MessageBlock m={last} />
+      <ExpandedBlock m={last} />
     </div>
   );
 }

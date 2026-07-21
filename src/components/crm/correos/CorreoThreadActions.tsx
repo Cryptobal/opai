@@ -1,27 +1,19 @@
 "use client";
 
 import { Archive, Mail, MailOpen, Trash2 } from "lucide-react";
-import { toast } from "sonner";
 import type { CorreoAction } from "@/modules/crm/email/gmail-thread-actions";
+import { CorreoThreadActionsBar } from "./CorreoThreadActionsBar";
+import { runCorreoAction } from "./correo-thread-action-client";
 
 type Props = {
   threadId: string;
   isUnread: boolean;
   archived: boolean;
   canModify: boolean;
-  variant?: "row" | "drawer";
+  variant?: "row" | "drawer" | "mobile-bar";
   onDone?: () => void;
+  onReply?: () => void;
 };
-
-async function postAction(threadId: string, action: CorreoAction) {
-  const res = await fetch(`/api/crm/correos/${threadId}/action`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action }),
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body?.error || "Error");
-}
 
 export function CorreoThreadActions({
   threadId,
@@ -30,24 +22,20 @@ export function CorreoThreadActions({
   canModify,
   variant = "row",
   onDone,
+  onReply,
 }: Props) {
   if (!canModify) return null;
 
-  async function run(action: CorreoAction, okMsg: string, undo?: CorreoAction) {
-    try {
-      await postAction(threadId, action);
-      if (undo) {
-        toast.success(okMsg, {
-          action: {
-            label: "Deshacer",
-            onClick: () => void postAction(threadId, undo).then(() => onDone?.()),
-          },
-        });
-      } else toast.success(okMsg);
-      onDone?.();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "No se pudo completar");
-    }
+  if (variant === "mobile-bar") {
+    return (
+      <CorreoThreadActionsBar
+        threadId={threadId}
+        isUnread={isUnread}
+        archived={archived}
+        onDone={onDone}
+        onReply={onReply}
+      />
+    );
   }
 
   const drawer = variant === "drawer";
@@ -55,19 +43,20 @@ export function CorreoThreadActions({
     ? "inline-flex h-10 items-center gap-1.5 rounded-xl border border-ds-border-default px-3 text-[13px] ds-tap sm:h-9"
     : "inline-flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-3 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-ds-surface-3 hover:text-ds-text-1 ds-tap";
 
+  function act(action: CorreoAction, okMsg: string, undo?: CorreoAction) {
+    void runCorreoAction(threadId, action, okMsg, onDone, undo);
+  }
+
   return (
-    <div className={drawer ? "flex flex-wrap gap-2" : "flex items-center gap-0.5"} onClick={(e) => e.stopPropagation()}>
+    <div
+      className={drawer ? "hidden flex-wrap gap-2 md:flex" : "hidden items-center gap-0.5 md:flex"}
+      onClick={(e) => e.stopPropagation()}
+    >
       <button
         type="button"
         className={btn}
         title={archived ? "Desarchivar" : "Archivar"}
-        onClick={() =>
-          void run(
-            archived ? "unarchive" : "archive",
-            archived ? "Restaurado a bandeja" : "Archivado",
-            archived ? undefined : "unarchive",
-          )
-        }
+        onClick={() => act(archived ? "unarchive" : "archive", archived ? "Restaurado a bandeja" : "Archivado", archived ? undefined : "unarchive")}
       >
         <Archive className="h-4 w-4" />
         {drawer && <span>{archived ? "Desarchivar" : "Archivar"}</span>}
@@ -77,7 +66,7 @@ export function CorreoThreadActions({
         className={btn}
         title="Eliminar"
         onClick={() => {
-          if (confirm("¿Mover a la Papelera de Gmail?")) void run("trash", "Movido a la Papelera");
+          if (confirm("¿Mover a la Papelera de Gmail?")) act("trash", "Movido a la Papelera");
         }}
       >
         <Trash2 className="h-4 w-4" />
@@ -87,12 +76,7 @@ export function CorreoThreadActions({
         type="button"
         className={btn}
         title={isUnread ? "Marcar leído" : "Marcar no leído"}
-        onClick={() =>
-          void run(
-            isUnread ? "markRead" : "markUnread",
-            isUnread ? "Marcado como leído" : "Marcado como no leído",
-          )
-        }
+        onClick={() => act(isUnread ? "markRead" : "markUnread", isUnread ? "Marcado como leído" : "Marcado como no leído")}
       >
         {isUnread ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
         {drawer && <span>{isUnread ? "Leído" : "No leído"}</span>}

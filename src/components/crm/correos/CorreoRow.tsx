@@ -30,34 +30,28 @@ export function CorreoRow({
   onChanged?: () => void;
 }) {
   const unread = thread.isUnread;
+  const line2 = [thread.subject || "(sin asunto)", thread.snippet].filter(Boolean).join(" · ");
+
   return (
     <div className="group relative flex w-full items-stretch border-b border-ds-border-subtle last:border-0">
       <button
         type="button"
         onClick={onOpen}
-        className="flex min-w-0 flex-1 flex-col gap-1.5 px-3 py-3 text-left ds-tap hover:bg-ds-surface-2"
+        className="flex min-w-0 flex-1 flex-col gap-1 px-3 py-3 text-left ds-tap hover:bg-ds-surface-2"
       >
-        <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-[12px] text-ds-text-3">
+        <div className="flex items-center gap-2">
+          {unread && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" aria-hidden />}
+          <span className={`min-w-0 flex-1 truncate text-[13px] ${unread ? "font-semibold text-ds-text-1" : "text-ds-text-2"}`}>
             {thread.fromEmail || "—"}
           </span>
           <span className="shrink-0 text-[12px] text-ds-text-4">
             {relativeTime(thread.lastMessageAt)}
           </span>
         </div>
-        <p
-          className={`truncate text-[14px] leading-snug text-ds-text-1 ${
-            unread ? "font-semibold" : "font-medium"
-          }`}
-        >
-          {thread.subject || "(sin asunto)"}
+        <p className="truncate text-[13px] text-ds-text-3" title={line2}>
+          {line2}
         </p>
-        {thread.snippet && (
-          <p className="truncate text-[12px] text-ds-text-4" title={thread.snippet}>
-            {thread.snippet}
-          </p>
-        )}
-        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+        <div className="flex flex-wrap items-center gap-1 pt-0.5">
           {thread.accountId ? (
             <Tag variant="brand" size="sm">{thread.accountName || "Cuenta"}</Tag>
           ) : (
@@ -65,23 +59,21 @@ export function CorreoRow({
           )}
           {thread.dealId && (
             <Tag variant="info" size="sm" icon={TrendingUp}>
-              Negocio · {thread.dealTitle || "—"}
+              {thread.dealTitle || "Negocio"}
             </Tag>
           )}
           {thread.attachmentCount > 0 && (
-            <Tag variant="neutral" size="sm" icon={Paperclip}>
-              {thread.attachmentCount}
-            </Tag>
+            <Tag variant="neutral" size="sm" icon={Paperclip}>{thread.attachmentCount}</Tag>
           )}
           {thread.leadId && (
-            <Tag variant="ok" size="sm" icon={CheckCircle2}>Lead creado</Tag>
+            <Tag variant="ok" size="sm" icon={CheckCircle2}>Lead</Tag>
           )}
           {thread.possibleLead && (
             <Tag variant="warn" size="sm" icon={Sparkles}>Posible lead</Tag>
           )}
         </div>
       </button>
-      <div className="flex items-center pr-2">
+      <div className="hidden items-center pr-2 md:flex">
         <CorreoThreadActions
           threadId={thread.id}
           isUnread={unread}

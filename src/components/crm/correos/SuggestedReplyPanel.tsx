@@ -69,7 +69,7 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
   if (!to) return null; // hilo sin inbound: responder no aplica
 
   return (
-    <div className="space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-3">
+    <div id="correo-suggested-reply" className="space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-3">
       <div className="flex items-center gap-2">
         <Sparkles className="h-4 w-4 text-tint-violet-fg" />
         <p className="text-[13px] font-semibold text-ds-text-1">Respuesta sugerida por IA</p>
