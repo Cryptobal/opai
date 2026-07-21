@@ -10,12 +10,14 @@ import {
 
 const KEYWORDS = ["cotiz", "licitac", "servicio", "propuesta", "bases", "presupuesto"];
 
-export type CorreoListFilter = "inbox" | "archived" | "trash";
+export type CorreoListFilter = "inbox" | "archived" | "all" | "trash";
 
+/** Spam excluido de todo menos papelera (que solo mira trashedAt), como Gmail. */
 function folderWhere(folder: CorreoListFilter) {
   if (folder === "trash") return { trashedAt: { not: null } };
-  if (folder === "archived") return { trashedAt: null, archivedAt: { not: null } };
-  return { trashedAt: null, archivedAt: null };
+  if (folder === "archived") return { trashedAt: null, spamAt: null, archivedAt: { not: null } };
+  if (folder === "all") return { trashedAt: null, spamAt: null };
+  return { trashedAt: null, spamAt: null, archivedAt: null };
 }
 
 /** Lista paginada (cursor por fecha) de hilos de la casilla del usuario. */

@@ -2,24 +2,25 @@
 
 import { RefreshCw, Search } from "lucide-react";
 
-export type CorreoFolderTab = "inbox" | "archived" | "trash";
+export type CorreoFolderTab = "inbox" | "archived" | "all" | "trash";
 export type CorreoChipKey = "todos" | "con_cuenta" | "sin_asociar" | "con_adjuntos" | "leads_creados";
 
 const TABS: { key: CorreoFolderTab; label: string }[] = [
-  { key: "inbox", label: "Bandeja de entrada" },
+  { key: "inbox", label: "Recibidos" },
   { key: "archived", label: "Archivados" },
+  { key: "all", label: "Todos" },
   { key: "trash", label: "Papelera" },
 ];
 
 const CHIPS: { key: CorreoChipKey; label: string }[] = [
-  { key: "todos", label: "Todos" },
+  { key: "todos", label: "Todas las asociaciones" },
   { key: "con_cuenta", label: "Con cuenta" },
   { key: "sin_asociar", label: "Sin asociar" },
   { key: "con_adjuntos", label: "Con adjuntos" },
   { key: "leads_creados", label: "Leads creados" },
 ];
 
-type Counts = { inbox: number; archived: number; trash: number } | null;
+type Counts = { inbox: number; archived: number; all: number; trash: number } | null;
 
 type Props = {
   folder: CorreoFolderTab;
