@@ -135,8 +135,9 @@ export function CorreosClient() {
 
   return (
     <div className="ds-page-enter space-y-5">
-      {/* Sticky bajo la isla móvil (mismo offset que AppShell), no bajo el notch */}
-      <div className="sticky top-[calc(4rem+env(safe-area-inset-top,0px))] z-10 -mx-1 space-y-5 bg-background/80 px-1 pb-2 backdrop-blur-sm lg:static lg:top-auto lg:bg-transparent lg:backdrop-blur-none">
+      {/* El encabezado se desplaza con el scroll: recupera pantalla en móvil
+          (antes todo el hero quedaba fijo y solo scrolleaba la lista). */}
+      <div className="space-y-5">
         <PageHero icon={Mail} iconTone="primary" title="Correos" subtitle="Bandeja comercial"
           description="Hilos de tu Gmail vinculados a cuentas, negocios y leads" />
 
@@ -151,7 +152,11 @@ export function CorreosClient() {
             </a>
           </div>
         )}
+      </div>
 
+      {/* Solo los filtros quedan fijos bajo la isla móvil: tabs siempre a mano
+          sin el bloque grande del hero robando espacio. */}
+      <div className="sticky top-[calc(4rem+env(safe-area-inset-top,0px))] z-10 -mx-1 bg-background/80 px-1 py-2 backdrop-blur-sm lg:static lg:top-auto lg:bg-transparent lg:px-0 lg:py-0 lg:backdrop-blur-none">
         <CorreosFilters folder={folder} onFolder={setFolder} chip={chip} onChip={setChip}
           counts={counts} query={query} onQuery={setQuery} onSync={syncNow} syncing={syncing} />
       </div>
