@@ -53,12 +53,15 @@ export function GmailAccountsManager() {
     }
   };
 
-  if (!accounts || accounts.length <= 1) return null; // nada que administrar
+  if (!accounts || accounts.length === 0) return null;
 
   return (
     <div className="mt-4 rounded-xl border border-ds-border-1 bg-ds-surface-1 p-3">
-      <p className="mb-2 text-[12px] font-medium uppercase tracking-wide text-ds-text-4">
-        Casillas conectadas ({accounts.length})
+      <p className="mb-1 text-[12px] font-medium uppercase tracking-wide text-ds-text-4">
+        Casillas de correo del equipo ({accounts.length})
+      </p>
+      <p className="mb-2 text-[12px] text-ds-text-4">
+        Cuentas de Gmail conectadas a este espacio. Desconectá las que ya no uses.
       </p>
       <ul className="flex flex-col gap-1.5">
         {accounts.map((acc) => (
