@@ -11756,7 +11756,7 @@ model AgendaEventLink {
   googleCalendarId  String?   @map("google_calendar_id")
   htmlLink          String?   @map("html_link") @db.Text // URL del evento en Google Calendar
   allDay            Boolean   @default(false) @map("all_day")
-  syncStatus        String    @default("PENDING") // PENDING|SYNCED|ERROR|CANCELLED
+  syncStatus        String    @default("PENDING") @map("sync_status") // PENDING|SYNCED|ERROR|CANCELLED
   lastError         String?   @map("last_error") @db.Text
   lastSyncAt        DateTime? @map("last_sync_at")
   createdAt         DateTime  @default(now()) @map("created_at")
