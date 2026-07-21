@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EmailContentSkeleton } from "@/components/ui/skeleton";
+import { EmailHtmlBody } from "@/components/crm/correos/EmailHtmlBody";
 
 export type EmailMessage = {
   id: string;
@@ -123,33 +124,6 @@ function formatDate(dateStr: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function stripHtmlTags(value: string): string {
-  return value
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<(br|\/p|\/div|\/li|\/h[1-6])>/gi, "\n")
-    .replace(/<li>/gi, "- ")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .trim();
-}
-
-function getEmailBodyText(msg: EmailMessage): string {
-  const textBody = msg.textBody?.trim();
-  if (textBody) return textBody;
-
-  const htmlBody = msg.htmlBody?.trim();
-  if (htmlBody) {
-    const plain = stripHtmlTags(htmlBody);
-    if (plain) return plain;
-  }
-
-  return "No hay contenido del correo disponible.";
 }
 
 function TrackingBadges({ msg }: { msg: EmailMessage }) {
@@ -503,8 +477,11 @@ export function EmailHistoryList({
               !selectedEmail.textBody ? (
                 <EmailContentSkeleton />
               ) : (
-                <div className="rounded-md border p-3 text-sm whitespace-pre-wrap break-all leading-relaxed max-w-full overflow-x-hidden">
-                  {getEmailBodyText(selectedEmail)}
+                <div className="rounded-md border border-ds-border-subtle p-3 max-w-full overflow-x-hidden">
+                  <EmailHtmlBody
+                    htmlBody={selectedEmail.htmlBody ?? null}
+                    textBody={selectedEmail.textBody ?? null}
+                  />
                 </div>
               )}
               {onReply && (
