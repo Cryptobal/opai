@@ -42,16 +42,17 @@ async function handle(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Gmail no conectado" }, { status: 400 });
   }
 
-  // Incremental + radar + self-heal (~10s) para reparar Recibidos. `?force=1`
-  // además fuerza el sweep global (papelera/spam).
+  // Sync manual: siempre forceReconcile + self-heal amplio para reparar
+  // Recibidos vacío (espejo INBOX de Gmail). `?force=0` desactiva el sweep.
+  const forceParam = request.nextUrl.searchParams.get("force");
   const result = await syncGmailAccount({
     tenantId: session.user.tenantId,
     emailAccountId: emailAccount.id,
     maxResults,
     deadlineMs: Date.now() + 50_000,
     createdByUserId: session.user.id,
-    forceReconcile: request.nextUrl.searchParams.get("force") === "1",
-    selfHealBudgetMs: 10_000,
+    forceReconcile: forceParam !== "0",
+    selfHealBudgetMs: 15_000,
   });
 
   const refreshed = await prisma.crmEmailAccount.findUnique({

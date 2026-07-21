@@ -99,7 +99,8 @@ export function CorreosClient() {
   async function syncNow() {
     setSyncing(true);
     try {
-      const r = await fetch("/api/crm/gmail/sync", { method: "POST" }).then((x) => x.json());
+      // force=1: sweep INBOX/TRASH + self-heal para reparar Recibidos vacío.
+      const r = await fetch("/api/crm/gmail/sync?force=1", { method: "POST" }).then((x) => x.json());
       if (!r.success) {
         toast.error(r.error || "No se pudo sincronizar");
       } else {

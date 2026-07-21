@@ -5,7 +5,7 @@ import { readSyncState, writeSyncState, type SyncRunArgs } from "./gmail-sync-st
 import { runBackfill } from "./gmail-backfill";
 import { runIncremental } from "./gmail-incremental";
 import { reconcileGmailFolders } from "./gmail-folder-reconcile";
-import { selfHealInbox } from "./gmail-inbox-selfheal";
+import { healInboxFromLocalLabels, selfHealInbox } from "./gmail-inbox-selfheal";
 import { classifyAccountThreads } from "./radar-classifier.service";
 
 const DEFAULT_BUDGET = 300;
@@ -93,12 +93,16 @@ export async function syncGmailAccount(params: {
     });
   }
 
-  // Fase 3 — self-heal por-hilo (Recibidos) ANTES del sweep: verificación
-  // positiva barata que repara archivado erróneo sin depender de sets globales.
-  let healed = 0;
+  // Fase 3 — self-heal Recibidos ANTES del sweep.
+  // Heal local (instantáneo) siempre; remoto por-hilo cuando hay presupuesto
+  // (incremental, force, o sync manual con selfHealBudgetMs).
   const healRemaining = globalDeadline - Date.now();
   const minHeal = Math.max(params.selfHealBudgetMs ?? 8_000, 8_000);
-  if (mode === "incremental" && healRemaining >= 3_000) {
+  const runRemoteHeal =
+    healRemaining >= 3_000 &&
+    (mode === "incremental" || params.forceReconcile === true || params.selfHealBudgetMs != null);
+  let healed = 0;
+  if (runRemoteHeal) {
     const healBudget = Math.min(Math.max(minHeal, healRemaining - 2_000), healRemaining);
     const heal = await selfHealInbox({
       gmail,
@@ -107,6 +111,11 @@ export async function syncGmailAccount(params: {
       deadline: Date.now() + healBudget,
     });
     healed = heal.healed;
+  } else {
+    healed = await healInboxFromLocalLabels({
+      tenantId: params.tenantId,
+      emailAccountId: emailAccount.id,
+    });
   }
 
   // Fase 4 — sweep global (solo TRASH/SPAM + refuerzo positivo) con throttle.
@@ -115,9 +124,10 @@ export async function syncGmailAccount(params: {
     state.lastReconcileComplete !== true ||
     !state.lastReconcileAt ||
     Date.now() - Date.parse(state.lastReconcileAt) > RECONCILE_TTL_MS ||
-    params.forceReconcile === true;
+    params.forceReconcile === true ||
+    healed > 0;
   const sweepRemaining = globalDeadline - Date.now();
-  if (mode === "incremental" && sweepDue && sweepRemaining >= 5_000) {
+  if ((mode === "incremental" || params.forceReconcile === true) && sweepDue && sweepRemaining >= 5_000) {
     const sweepResult = await reconcileGmailFolders({
       gmail,
       tenantId: params.tenantId,
