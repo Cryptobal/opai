@@ -1,9 +1,20 @@
 "use client";
 
-import { Paperclip, Sparkles, TrendingUp, CheckCircle2 } from "lucide-react";
+import type { ReactNode } from "react";
+import { Clock, Paperclip, Sparkles, TrendingUp, CheckCircle2 } from "lucide-react";
 import { Tag } from "@/components/opai-ds";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 import { CorreoThreadActions } from "./CorreoThreadActions";
+
+function snoozeLabel(iso: string): string {
+  return new Date(iso).toLocaleString("es-CL", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Santiago",
+  });
+}
 
 function relativeTime(iso: string | null): string {
   if (!iso) return "";
@@ -23,11 +34,14 @@ export function CorreoRow({
   onOpen,
   canModify,
   onChanged,
+  trailing,
 }: {
   thread: CorreoThreadDTO;
   onOpen: () => void;
   canModify: boolean;
   onChanged?: () => void;
+  /** Slot final (kebab móvil). Si viene, reemplaza a las acciones hover. */
+  trailing?: ReactNode;
 }) {
   const unread = thread.isUnread;
   const subject = thread.subject || "(sin asunto)";
@@ -73,17 +87,31 @@ export function CorreoRow({
           {thread.possibleLead && (
             <Tag variant="warn" size="sm" icon={Sparkles}>Posible lead</Tag>
           )}
+          {thread.snoozedUntil && (
+            <Tag
+              variant="neutral"
+              size="sm"
+              icon={Clock}
+              className="bg-tint-violet/30 border-tint-violet/40 text-tint-violet-fg"
+            >
+              hasta {snoozeLabel(thread.snoozedUntil)}
+            </Tag>
+          )}
         </div>
       </button>
-      <div className="hidden items-center pr-2 md:flex">
-        <CorreoThreadActions
-          threadId={thread.id}
-          isUnread={unread}
-          archived={Boolean(thread.archivedAt)}
-          canModify={canModify}
-          onDone={onChanged}
-        />
-      </div>
+      {trailing ? (
+        <div className="flex items-center pr-1">{trailing}</div>
+      ) : (
+        <div className="hidden items-center pr-2 md:flex">
+          <CorreoThreadActions
+            threadId={thread.id}
+            isUnread={unread}
+            archived={Boolean(thread.archivedAt)}
+            canModify={canModify}
+            onDone={onChanged}
+          />
+        </div>
+      )}
     </div>
   );
 }

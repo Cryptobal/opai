@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, Mail, MailOpen, Trash2 } from "lucide-react";
+import { Archive, Clock, Mail, MailOpen, Reply, Trash2 } from "lucide-react";
 import type { CorreoAction } from "@/modules/crm/email/gmail-thread-actions";
 import { CorreoThreadActionsBar } from "./CorreoThreadActionsBar";
 import { runCorreoAction } from "./correo-thread-action-client";
@@ -13,6 +13,10 @@ type Props = {
   variant?: "row" | "drawer" | "mobile-bar";
   onDone?: () => void;
   onReply?: () => void;
+  /** Cierra el lector tras archivar/eliminar (drawer/mobile-bar). */
+  onClose?: () => void;
+  /** Abre el sheet de posponer (Bloque 3). */
+  onSnooze?: () => void;
 };
 
 export function CorreoThreadActions({
@@ -23,6 +27,8 @@ export function CorreoThreadActions({
   variant = "row",
   onDone,
   onReply,
+  onClose,
+  onSnooze,
 }: Props) {
   if (!canModify) return null;
 
@@ -34,6 +40,8 @@ export function CorreoThreadActions({
         archived={archived}
         onDone={onDone}
         onReply={onReply}
+        onClose={onClose}
+        onSnooze={onSnooze}
       />
     );
   }
@@ -47,6 +55,12 @@ export function CorreoThreadActions({
     void runCorreoAction(threadId, action, okMsg, onDone, undo);
   }
 
+  // drawer: archivar/eliminar cierran el lector y ofrecen "Deshacer".
+  function closeAfter(action: "archive" | "trash", okMsg: string) {
+    void runCorreoAction(threadId, action, okMsg, onDone, "unarchive");
+    onClose?.();
+  }
+
   return (
     <div
       className={drawer ? "hidden flex-wrap gap-2 md:flex" : "hidden items-center gap-0.5 md:flex"}
@@ -56,7 +70,13 @@ export function CorreoThreadActions({
         type="button"
         className={btn}
         title={archived ? "Desarchivar" : "Archivar"}
-        onClick={() => act(archived ? "unarchive" : "archive", archived ? "Restaurado a bandeja" : "Archivado", archived ? undefined : "unarchive")}
+        onClick={() =>
+          archived
+            ? act("unarchive", "Restaurado a bandeja")
+            : drawer
+              ? closeAfter("archive", "Archivado")
+              : act("archive", "Archivado", "unarchive")
+        }
       >
         <Archive className="h-4 w-4" />
         {drawer && <span>{archived ? "Desarchivar" : "Archivar"}</span>}
@@ -66,6 +86,7 @@ export function CorreoThreadActions({
         className={btn}
         title="Eliminar"
         onClick={() => {
+          if (drawer) return closeAfter("trash", "Movido a la Papelera");
           if (confirm("¿Mover a la Papelera de Gmail?")) act("trash", "Movido a la Papelera");
         }}
       >
@@ -81,6 +102,18 @@ export function CorreoThreadActions({
         {isUnread ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
         {drawer && <span>{isUnread ? "Leído" : "No leído"}</span>}
       </button>
+      {drawer && onSnooze && (
+        <button type="button" className={btn} title="Posponer" onClick={() => onSnooze()}>
+          <Clock className="h-4 w-4" />
+          <span>Posponer</span>
+        </button>
+      )}
+      {drawer && onReply && (
+        <button type="button" className={btn} title="Responder" onClick={() => onReply()}>
+          <Reply className="h-4 w-4" />
+          <span>Responder</span>
+        </button>
+      )}
     </div>
   );
 }

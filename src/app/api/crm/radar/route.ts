@@ -18,7 +18,7 @@ export async function GET() {
   if (!enabled) return NextResponse.json({ enabled: false, total: 0, items: [] });
 
   const where = { tenantId: ctx.tenantId, userId: ctx.userId, status: "PENDING" };
-  const [total, items] = await Promise.all([
+  const [total, items, accounts] = await Promise.all([
     prisma.crmRadarItem.count({ where }),
     prisma.crmRadarItem.findMany({
       where,
@@ -32,7 +32,30 @@ export async function GET() {
         payload: true, createdAt: true,
       },
     }),
+    prisma.crmEmailAccount.findMany({
+      where: { tenantId: ctx.tenantId, userId: ctx.userId, provider: "gmail", status: "active" },
+      select: { syncState: true },
+    }),
   ]);
 
-  return NextResponse.json({ enabled: true, total, items });
+  // meta: la corrida más reciente entre las casillas del usuario.
+  let lastRunAt: string | null = null;
+  let lastClassified = 0;
+  for (const a of accounts) {
+    const s =
+      a.syncState && typeof a.syncState === "object" && !Array.isArray(a.syncState)
+        ? (a.syncState as { lastRadarRunAt?: string | null; lastRadarClassified?: number })
+        : {};
+    if (s.lastRadarRunAt && (!lastRunAt || s.lastRadarRunAt > lastRunAt)) {
+      lastRunAt = s.lastRadarRunAt;
+      lastClassified = Number(s.lastRadarClassified) || 0;
+    }
+  }
+
+  return NextResponse.json({
+    enabled: true,
+    total,
+    items,
+    meta: { lastRunAt, lastClassified },
+  });
 }

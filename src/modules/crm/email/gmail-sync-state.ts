@@ -15,6 +15,12 @@ export type GmailSyncState = {
   lastReconcileAt?: string | null;
   /** true si el último sweep corrió con los 3 sets completos. */
   lastReconcileComplete?: boolean;
+  /** ISO de la última corrida del Radar Comercial sobre esta casilla. */
+  lastRadarRunAt?: string | null;
+  /** Nº de hilos analizados por el Radar en la última corrida. */
+  lastRadarClassified?: number;
+  /** Vencimiento (ms epoch) del `users.watch` de Gmail push, si está activo. */
+  watchExpiration?: number | null;
 };
 
 export type EmailAccountLite = { id: string; email: string; userId: string };

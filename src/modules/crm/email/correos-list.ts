@@ -10,14 +10,20 @@ import {
 
 const KEYWORDS = ["cotiz", "licitac", "servicio", "propuesta", "bases", "presupuesto"];
 
-export type CorreoListFilter = "inbox" | "archived" | "all" | "trash";
+export type CorreoListFilter = "inbox" | "archived" | "all" | "trash" | "snoozed";
 
-/** Spam excluido de todo menos papelera (que solo mira trashedAt), como Gmail. */
+/**
+ * Spam excluido de todo menos papelera (que solo mira trashedAt), como Gmail.
+ * Recibidos excluye los pospuestos vigentes (`snoozedUntil > now`); Pospuestos
+ * es su propia carpeta.
+ */
 function folderWhere(folder: CorreoListFilter) {
+  const now = new Date();
   if (folder === "trash") return { trashedAt: { not: null } };
+  if (folder === "snoozed") return { trashedAt: null, spamAt: null, snoozedUntil: { gt: now } };
   if (folder === "archived") return { trashedAt: null, spamAt: null, archivedAt: { not: null } };
   if (folder === "all") return { trashedAt: null, spamAt: null };
-  return { trashedAt: null, spamAt: null, archivedAt: null };
+  return { trashedAt: null, spamAt: null, archivedAt: null, NOT: { snoozedUntil: { gt: now } } };
 }
 
 /** Lista paginada (cursor por fecha) de hilos de la casilla del usuario. */
@@ -32,17 +38,22 @@ export async function listCorreoThreads(params: {
   const limit = Math.min(Math.max(params.limit ?? 30, 1), 100);
   const cursorDate = params.cursor ? new Date(params.cursor) : null;
   const folder = params.folder ?? "inbox";
+  // Pospuestos ordena por vencimiento ascendente (lo próximo a despertar arriba).
+  const isSnoozed = folder === "snoozed";
+  const hasCursor = cursorDate && !Number.isNaN(cursorDate.getTime());
   const [rows, company] = await Promise.all([
     prisma.crmEmailThread.findMany({
       where: {
         tenantId: params.tenantId,
         emailAccountId: params.emailAccountId,
         ...folderWhere(folder),
-        ...(cursorDate && !Number.isNaN(cursorDate.getTime())
-          ? { lastMessageAt: { lt: cursorDate } }
+        ...(hasCursor
+          ? isSnoozed
+            ? { snoozedUntil: { gt: cursorDate } }
+            : { lastMessageAt: { lt: cursorDate } }
           : {}),
       },
-      orderBy: { lastMessageAt: "desc" },
+      orderBy: isSnoozed ? { snoozedUntil: "asc" } : { lastMessageAt: "desc" },
       take: limit + 1,
       select: {
         id: true,
@@ -55,6 +66,7 @@ export async function listCorreoThreads(params: {
         attachmentCount: true,
         archivedAt: true,
         trashedAt: true,
+        snoozedUntil: true,
         isUnread: true,
         messages: {
           select: { fromEmail: true, textBody: true, htmlBody: true },
@@ -129,9 +141,13 @@ export async function listCorreoThreads(params: {
       isUnread: r.isUnread,
       archivedAt: r.archivedAt?.toISOString() ?? null,
       trashedAt: r.trashedAt?.toISOString() ?? null,
+      snoozedUntil: r.snoozedUntil?.toISOString() ?? null,
     };
   });
 
-  const nextCursor = hasMore ? page[page.length - 1].lastMessageAt?.toISOString() ?? null : null;
+  const last = page[page.length - 1];
+  const nextCursor = hasMore
+    ? (isSnoozed ? last?.snoozedUntil : last?.lastMessageAt)?.toISOString() ?? null
+    : null;
   return { items, nextCursor };
 }

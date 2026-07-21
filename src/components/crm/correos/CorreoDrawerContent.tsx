@@ -17,6 +17,9 @@ type Props = {
   setAiOpen: (v: boolean) => void;
   onAssociate: (p: { accountId: string | null; dealId: string | null }) => void;
   onRefresh: () => void;
+  onClose?: () => void;
+  onReply?: () => void;
+  onSnooze?: () => void;
 };
 
 export function CorreoDrawerContent({
@@ -26,6 +29,9 @@ export function CorreoDrawerContent({
   setAiOpen,
   onAssociate,
   onRefresh,
+  onClose,
+  onReply,
+  onSnooze,
 }: Props) {
   const gmailUrl = detail.thread.providerThreadId
     ? `https://mail.google.com/mail/u/0/#all/${detail.thread.providerThreadId}`
@@ -41,6 +47,9 @@ export function CorreoDrawerContent({
           canModify
           variant="drawer"
           onDone={onRefresh}
+          onClose={onClose}
+          onReply={onReply}
+          onSnooze={onSnooze}
         />
       )}
       <div className="flex flex-wrap items-center gap-2">
@@ -63,6 +72,7 @@ export function CorreoDrawerContent({
         accountName={detail.thread.accountName}
         dealId={detail.thread.dealId}
         dealTitle={detail.thread.dealTitle}
+        subject={detail.thread.subject}
         onAssociate={onAssociate}
       />
       {detail.thread.leadId ? (
@@ -82,7 +92,13 @@ export function CorreoDrawerContent({
         </button>
       )}
       <SuggestedReplyPanel threadId={detail.thread.id} subject={detail.thread.subject} onSent={onRefresh} />
-      <CorreoAttachments items={detail.attachments} />
+      <CorreoAttachments
+        items={detail.attachments}
+        threadId={detail.thread.id}
+        dealId={detail.thread.dealId}
+        dealTitle={detail.thread.dealTitle}
+        accountId={detail.thread.accountId}
+      />
       <CorreoMessages messages={detail.messages} />
     </>
   );

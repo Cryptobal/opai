@@ -14,6 +14,8 @@ const ACTIONS = new Set<CorreoAction>([
   "trash",
   "markRead",
   "markUnread",
+  "snooze",
+  "unsnooze",
 ]);
 
 export async function POST(
@@ -29,9 +31,18 @@ export async function POST(
   }
 
   const { threadId } = await ctx.params;
-  const body = (await req.json().catch(() => ({}))) as { action?: string };
+  const body = (await req.json().catch(() => ({}))) as { action?: string; snoozeUntil?: string };
   if (!body.action || !ACTIONS.has(body.action as CorreoAction)) {
     return NextResponse.json({ error: "action inválida" }, { status: 400 });
+  }
+
+  let snoozeUntil: Date | undefined;
+  if (body.action === "snooze") {
+    const d = body.snoozeUntil ? new Date(body.snoozeUntil) : null;
+    if (!d || Number.isNaN(d.getTime()) || d.getTime() <= Date.now()) {
+      return NextResponse.json({ error: "snoozeUntil inválido" }, { status: 400 });
+    }
+    snoozeUntil = d;
   }
 
   const account = await prisma.crmEmailAccount.findFirst({
@@ -55,6 +66,7 @@ export async function POST(
     userId: session.user.id,
     threadId,
     action: body.action as CorreoAction,
+    snoozeUntil,
   });
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });

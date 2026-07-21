@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { AsociarCuenta } from "./AsociarCuenta";
+import { QuickDealCreate } from "./QuickDealCreate";
 
 type DealOpt = { id: string; title: string };
+
+const CREATE = "__create__";
 
 /** Barra de asociación: cuenta + negocio opcional del drawer de correos. */
 export function CorreoAssociationBar({
@@ -11,18 +14,22 @@ export function CorreoAssociationBar({
   accountName,
   dealId,
   dealTitle,
+  subject,
   onAssociate,
 }: {
   accountId: string | null;
   accountName: string | null;
   dealId: string | null;
   dealTitle: string | null;
+  subject?: string;
   onAssociate: (p: { accountId: string | null; dealId: string | null }) => void;
 }) {
   const [deals, setDeals] = useState<DealOpt[]>([]);
   const [loadingDeals, setLoadingDeals] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
+    setCreating(false);
     if (!accountId) {
       setDeals([]);
       return;
@@ -51,19 +58,20 @@ export function CorreoAssociationBar({
           <AsociarCuenta onSelect={(id) => onAssociate({ accountId: id, dealId: null })} />
         </div>
       </div>
-      {accountId && (
+      {accountId && !creating && (
         <label className="flex flex-col gap-1">
           <span className="text-[12px] text-ds-text-3">Negocio (opcional)</span>
           <select
             className="h-10 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 sm:h-9"
             value={dealId ?? ""}
             disabled={loadingDeals}
-            onChange={(e) =>
-              onAssociate({
-                accountId,
-                dealId: e.target.value || null,
-              })
-            }
+            onChange={(e) => {
+              if (e.target.value === CREATE) {
+                setCreating(true);
+                return;
+              }
+              onAssociate({ accountId, dealId: e.target.value || null });
+            }}
           >
             <option value="">Sin negocio</option>
             {dealId && !deals.some((d) => d.id === dealId) && (
@@ -74,8 +82,20 @@ export function CorreoAssociationBar({
                 {d.title}
               </option>
             ))}
+            <option value={CREATE}>＋ Crear negocio…</option>
           </select>
         </label>
+      )}
+      {accountId && creating && (
+        <QuickDealCreate
+          accountId={accountId}
+          defaultTitle={subject ?? ""}
+          onCreated={(newDealId) => {
+            setCreating(false);
+            onAssociate({ accountId, dealId: newDealId });
+          }}
+          onCancel={() => setCreating(false)}
+        />
       )}
     </div>
   );

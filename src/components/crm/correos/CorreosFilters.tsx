@@ -2,13 +2,14 @@
 
 import { RefreshCw, Search } from "lucide-react";
 
-export type CorreoFolderTab = "inbox" | "archived" | "all" | "trash";
+export type CorreoFolderTab = "inbox" | "archived" | "all" | "trash" | "snoozed";
 export type CorreoChipKey = "todos" | "con_cuenta" | "sin_asociar" | "con_adjuntos" | "leads_creados";
 
 // Espejo de Gmail: no hay bandeja "Archivados" — los archivados viven dentro
 // de "Todos". El tipo `archived` se mantiene solo por compat de deep-links.
 const TABS: { key: CorreoFolderTab; label: string }[] = [
   { key: "inbox", label: "Recibidos" },
+  { key: "snoozed", label: "Pospuestos" },
   { key: "all", label: "Todos" },
   { key: "trash", label: "Papelera" },
 ];
@@ -27,6 +28,7 @@ type Counts = {
   archived: number;
   all: number;
   trash: number;
+  snoozed: number;
 } | null;
 
 type Props = {

@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { isRadarComercialEnabled } from "@/lib/crm/radar-settings";
 import { classifyThread, generateDraftReply } from "./radar-classify-ai";
-import { generateThreadRadarItems, type CreatedRadarItem } from "./radar-items";
+import { generateThreadRadarItems, isNewLeadCandidate, type CreatedRadarItem } from "./radar-items";
 import { stripHtml, hoyISO } from "./radar-util";
+import { writeSyncState } from "./gmail-sync-state";
 import { dispatchRadarAlert } from "@/lib/crm/radar-alerts";
 
 /** Máx. de hilos a clasificar por corrida (cola FIFO por fecha). */
@@ -26,6 +27,27 @@ function firstReply(msgs: Msg[], inboundAt: Date | null): Date | null {
   if (!inboundAt) return null;
   const m = msgs.find((x) => x.direction === "out" && x.sentAt && x.sentAt > inboundAt);
   return m?.sentAt ?? null;
+}
+
+/**
+ * Reset del backlog quemado (una vez por corrida, barato): re-encola hilos
+ * comerciales recientes que quedaron con `aiClassifiedAt` marcado pero
+ * `aiCategory NULL` — corridas que nunca llegaron a la IA (deadline muerto) o
+ * donde la IA falló. Como candidato exige `aiClassifiedAt < lastMessageAt`,
+ * sin este reset nunca re-entrarían aunque sean novedad real.
+ */
+async function resetBurnedBacklog(tenantId: string, emailAccountId: string): Promise<void> {
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  await prisma.crmEmailThread.updateMany({
+    where: {
+      tenantId,
+      emailAccountId,
+      aiClassifiedAt: { not: null },
+      aiCategory: null,
+      lastMessageAt: { gte: cutoff },
+    },
+    data: { aiClassifiedAt: null },
+  });
 }
 
 /**
@@ -113,7 +135,7 @@ async function classifyOne(
   });
 
   let draftReply: string | null = null;
-  if (classification.intencion === "alta" && !thread.leadId && !thread.dealId) {
+  if (isNewLeadCandidate(classification, thread.leadId, thread.dealId)) {
     draftReply = await generateDraftReply({
       tenantId, subject: thread.subject, fromEmail: lastInbound.fromEmail, body, resumen: classification.resumen,
     });
@@ -151,6 +173,7 @@ export async function classifyAccountThreads(params: {
   try {
     if (!(await isRadarComercialEnabled(params.tenantId))) return { classified: 0, items };
     const deadline = params.deadlineMs ?? Date.now() + 20_000;
+    await resetBurnedBacklog(params.tenantId, params.emailAccountId);
     await preMarkStaleThreads(params.tenantId, params.emailAccountId);
     const candidates = await pickCandidateThreads(params.tenantId, params.emailAccountId);
     let classified = 0;
@@ -160,6 +183,11 @@ export async function classifyAccountThreads(params: {
       items.push(...created);
       classified++;
     }
+    // Estado visible de la última corrida (para el card del hub). Best-effort.
+    await writeSyncState(params.emailAccountId, {
+      lastRadarRunAt: new Date().toISOString(),
+      lastRadarClassified: classified,
+    }).catch(() => {});
     console.warn("[radar] corrida", {
       emailAccountId: params.emailAccountId,
       classified,

@@ -7,7 +7,7 @@ import { listCorreoThreads, type CorreoListFilter } from "@/modules/crm/email/co
 import { countCorreoFolders } from "@/modules/crm/email/correos-folder-counts";
 
 function parseFolder(raw: string | null): CorreoListFilter {
-  if (raw === "archived" || raw === "all" || raw === "trash") return raw;
+  if (raw === "archived" || raw === "all" || raw === "trash" || raw === "snoozed") return raw;
   return "inbox";
 }
 

@@ -40,9 +40,13 @@ export async function reconcileGmailFolders(params: {
 
     const threads = await prisma.crmEmailThread.findMany({
       where: { tenantId, emailAccountId: emailAccount.id, providerThreadId: { not: null } },
-      select: { id: true, providerThreadId: true, archivedAt: true, trashedAt: true, spamAt: true },
+      select: {
+        id: true, providerThreadId: true, archivedAt: true, trashedAt: true,
+        spamAt: true, snoozedUntil: true,
+      },
     });
 
+    const nowTs = Date.now();
     const toInbox: string[] = [];
     const toSpam: string[] = [];
     const toTrash: string[] = [];
@@ -51,13 +55,16 @@ export async function reconcileGmailFolders(params: {
     for (const t of threads) {
       const tid = t.providerThreadId as string;
       localIds.add(tid);
+      // Snooze es estado LOCAL: un pospuesto vigente no está en INBOX de Gmail y
+      // eso es consistente — no lo archives residualmente ni lo toques.
+      const snoozed = t.snoozedUntil ? t.snoozedUntil.getTime() > nowTs : false;
       if (inboxSet.ids.has(tid)) {
         if (t.archivedAt || t.trashedAt || t.spamAt) toInbox.push(t.id);
       } else if (spamSet.ids.has(tid)) {
         if (!t.spamAt || t.trashedAt || t.archivedAt) toSpam.push(t.id);
       } else if (trashSet.ids.has(tid)) {
         if (!t.trashedAt || t.spamAt || t.archivedAt) toTrash.push(t.id);
-      } else if (setsComplete && (!t.archivedAt || t.trashedAt || t.spamAt)) {
+      } else if (setsComplete && !snoozed && (!t.archivedAt || t.trashedAt || t.spamAt)) {
         toArchived.push(t.id);
       }
     }

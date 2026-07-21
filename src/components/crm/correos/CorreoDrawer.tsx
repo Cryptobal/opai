@@ -5,6 +5,8 @@ import { Spinner } from "@/components/opai-ds";
 import { CorreoReaderShell } from "./CorreoReaderShell";
 import { CorreoDrawerContent } from "./CorreoDrawerContent";
 import { CorreoThreadActions } from "./CorreoThreadActions";
+import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
+import { snoozeThread } from "./correo-thread-action-client";
 import { useMarkCorreoRead } from "./useMarkCorreoRead";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 
@@ -20,6 +22,7 @@ export function CorreoDrawer({ threadId, onClose, onChanged, autoExtract, canMod
   const [detail, setDetail] = useState<CorreoDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [snoozeOpen, setSnoozeOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!threadId) return;
@@ -67,6 +70,8 @@ export function CorreoDrawer({ threadId, onClose, onChanged, autoExtract, canMod
     detail?.messages.find((m) => m.direction !== "out")?.fromEmail ??
     detail?.messages[0]?.fromEmail ??
     "";
+  const scrollToReply = () =>
+    document.getElementById("correo-suggested-reply")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   return (
     <CorreoReaderShell
@@ -82,9 +87,9 @@ export function CorreoDrawer({ threadId, onClose, onChanged, autoExtract, canMod
             archived={Boolean(detail.thread.archivedAt)}
             canModify
             variant="mobile-bar"
-            onReply={() =>
-              document.getElementById("correo-suggested-reply")?.scrollIntoView({ behavior: "smooth", block: "start" })
-            }
+            onReply={scrollToReply}
+            onClose={onClose}
+            onSnooze={() => setSnoozeOpen(true)}
             onDone={refresh}
           />
         ) : null
@@ -102,8 +107,22 @@ export function CorreoDrawer({ threadId, onClose, onChanged, autoExtract, canMod
           setAiOpen={setAiOpen}
           onAssociate={associate}
           onRefresh={refresh}
+          onClose={onClose}
+          onReply={scrollToReply}
+          onSnooze={() => setSnoozeOpen(true)}
         />
       )}
+      <CorreoSnoozeSheet
+        open={snoozeOpen}
+        onClose={() => setSnoozeOpen(false)}
+        onConfirm={(iso, label) => {
+          if (!detail) return;
+          void snoozeThread(detail.thread.id, iso, `Pospuesto hasta ${label}`, () => {
+            onChanged?.();
+          });
+          onClose();
+        }}
+      />
     </CorreoReaderShell>
   );
 }
