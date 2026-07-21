@@ -25,7 +25,7 @@ function buildRawEmail({
   references,
 }: {
   from: string;
-  to: string;
+  to: string[];
   cc?: string[];
   bcc?: string[];
   subject: string;
@@ -36,7 +36,7 @@ function buildRawEmail({
 }) {
   const headers = [
     `From: ${from}`,
-    `To: ${to}`,
+    `To: ${to.join(", ")}`,
     cc?.length ? `Cc: ${cc.join(", ")}` : null,
     bcc?.length ? `Bcc: ${bcc.join(", ")}` : null,
     `Subject: ${subject}`,
@@ -69,7 +69,11 @@ export async function POST(request: NextRequest) {
 
     const { to, cc = [], bcc = [], subject, html, text, dealId, accountId, contactId, threadId } = body;
 
-    if (!to || !subject) {
+    // `to` acepta string (compat) o string[] (Para editable / Responder a todos).
+    const toList = (Array.isArray(to) ? to : [to]).filter(
+      (v: unknown): v is string => typeof v === "string" && v.trim().length > 0,
+    );
+    if (toList.length === 0 || !subject) {
       return NextResponse.json(
         { success: false, error: "to y subject son requeridos" },
         { status: 400 }
@@ -78,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     const ccList = Array.isArray(cc) ? cc : [cc];
     const bccList = Array.isArray(bcc) ? bcc : [bcc];
-    const normalizedToEmails = normalizeEmailList([to]);
+    const normalizedToEmails = normalizeEmailList(toList);
     const normalizedCcEmails = normalizeEmailList(ccList);
     const normalizedBccEmails = normalizeEmailList(bccList);
 
@@ -147,7 +151,7 @@ export async function POST(request: NextRequest) {
 
     const raw = buildRawEmail({
       from: emailAccount.email,
-      to,
+      to: toList,
       cc: ccList,
       bcc: bccList,
       subject,
@@ -200,7 +204,7 @@ export async function POST(request: NextRequest) {
         fromEmail: normalizeEmailAddress(emailAccount.email),
         toEmails: normalizedToEmails.length
           ? normalizedToEmails
-          : [normalizeEmailAddress(to)],
+          : toList.map(normalizeEmailAddress),
         ccEmails: normalizedCcEmails,
         bccEmails: normalizedBccEmails,
         subject,

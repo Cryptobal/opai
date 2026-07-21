@@ -5,6 +5,7 @@ import { requireTenantModule } from "@/lib/require-module";
 import { prisma } from "@/lib/prisma";
 import { generateDraftReply } from "@/modules/crm/email/radar-classify-ai";
 import { stripHtml } from "@/modules/crm/email/radar-util";
+import { computeReplyAllRecipients } from "@/modules/crm/email/reply-recipients";
 
 export const maxDuration = 60;
 type Ctx = { params: Promise<{ threadId: string }> };
@@ -12,14 +13,14 @@ type Ctx = { params: Promise<{ threadId: string }> };
 async function loadThreadReply(tenantId: string, threadId: string) {
   const thread = await prisma.crmEmailThread.findFirst({
     where: { id: threadId, tenantId },
-    select: { id: true, subject: true },
+    select: { id: true, subject: true, emailAccountId: true },
   });
   if (!thread) return null;
   const [lastInbound, radar] = await Promise.all([
     prisma.crmEmailMessage.findFirst({
       where: { threadId, tenantId, direction: "in" },
       orderBy: { sentAt: "desc" },
-      select: { fromEmail: true, textBody: true, htmlBody: true },
+      select: { fromEmail: true, toEmails: true, ccEmails: true, textBody: true, htmlBody: true },
     }),
     prisma.crmRadarItem.findMany({
       where: { tenantId, threadId, kind: { in: ["nuevo_lead", "compromiso"] } },
@@ -53,10 +54,35 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const data = await loadThreadReply(ctx.tenantId, threadId);
   if (!data) return NextResponse.json({ error: "Hilo no encontrado" }, { status: 404 });
   const { draft, radarItemId } = pickDraft(data.radars);
+
+  // Casilla propia (para excluirla del "Responder a todos"): la del hilo o la
+  // activa del usuario como fallback.
+  let ownEmail = "";
+  const account = data.thread.emailAccountId
+    ? await prisma.crmEmailAccount.findFirst({
+        where: { id: data.thread.emailAccountId, tenantId: ctx.tenantId },
+        select: { email: true },
+      })
+    : await prisma.crmEmailAccount.findFirst({
+        where: { tenantId: ctx.tenantId, userId: ctx.userId, provider: "gmail", status: "active" },
+        select: { email: true },
+      });
+  if (account?.email) ownEmail = account.email;
+
+  const replyAll = data.lastInbound
+    ? computeReplyAllRecipients({
+        fromEmail: data.lastInbound.fromEmail,
+        toEmails: data.lastInbound.toEmails ?? [],
+        ccEmails: data.lastInbound.ccEmails ?? [],
+        ownEmail,
+      })
+    : null;
+
   return NextResponse.json({
     draft,
     radarItemId,
     to: data.lastInbound?.fromEmail ?? null,
+    replyAll,
     subject: data.thread.subject,
   });
 }

@@ -1,18 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sparkles, Send } from "lucide-react";
+import { Sparkles, Send, Users } from "lucide-react";
 import { Spinner } from "@/components/opai-ds";
+import { ReplyRecipientsField, isValidEmail } from "./ReplyRecipientsField";
 
+type ReplyAll = { to: string[]; cc: string[] };
 type Props = { threadId: string; subject: string; onSent: () => void };
 
 /**
  * Sección "Respuesta sugerida por IA" del drawer: textarea editable precargado
- * con el borrador del radar (o generado on-demand) + envío en el mismo hilo.
- * Al enviar: marca el RadarItem DONE y refresca el timeline.
+ * con el borrador del radar (o generado on-demand) + envío en el mismo hilo,
+ * con Para editable, Responder a todos y CC/CCO.
  */
 export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
-  const [to, setTo] = useState<string | null>(null);
+  const [to, setTo] = useState<string[]>([]);
+  const [cc, setCc] = useState<string[]>([]);
+  const [bcc, setBcc] = useState<string[]>([]);
+  const [showCcBcc, setShowCcBcc] = useState(false);
+  const [replyAll, setReplyAll] = useState<ReplyAll | null>(null);
   const [radarItemId, setRadarItemId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
@@ -22,7 +28,8 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
     fetch(`/api/crm/correos/${threadId}/suggest-reply`)
       .then((r) => r.json())
       .then((d) => {
-        setTo(d.to ?? null);
+        setTo(d.to ? [String(d.to).toLowerCase()] : []);
+        setReplyAll(d.replyAll ?? null);
         setRadarItemId(d.radarItemId ?? null);
         if (d.draft) setDraft(d.draft);
       })
@@ -40,15 +47,28 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
     }
   }
 
+  const allValid = [...to, ...cc, ...bcc].every(isValidEmail);
+  const canSend = to.length > 0 && allValid && draft.trim().length > 0;
+  const replyAllVisible =
+    replyAll &&
+    (replyAll.cc.length > 0 || replyAll.to.some((e) => !to.includes(e)) || replyAll.to.length !== to.length);
+
+  function applyReplyAll() {
+    if (!replyAll) return;
+    setTo(replyAll.to);
+    setCc(replyAll.cc);
+    if (replyAll.cc.length > 0) setShowCcBcc(true);
+  }
+
   async function send() {
-    if (!to || !draft.trim()) return;
+    if (!canSend) return;
     setBusy("send");
     try {
       const reSubject = subject.toLowerCase().startsWith("re:") ? subject : `Re: ${subject}`;
       const res = await fetch("/api/crm/gmail/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId, to, subject: reSubject, html: draft.replace(/\n/g, "<br>") }),
+        body: JSON.stringify({ threadId, to, cc, bcc, subject: reSubject, html: draft.replace(/\n/g, "<br>") }),
       });
       if (res.ok) {
         if (radarItemId) {
@@ -66,7 +86,7 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
   }
 
   if (loading) return <Spinner className="mx-auto" />;
-  if (!to) return null; // hilo sin inbound: responder no aplica
+  if (to.length === 0 && !replyAll) return null; // hilo sin inbound: responder no aplica
 
   return (
     <div id="correo-suggested-reply" className="space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-3">
@@ -74,6 +94,33 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
         <Sparkles className="h-4 w-4 text-tint-violet-fg" />
         <p className="text-[13px] font-semibold text-ds-text-1">Respuesta sugerida por IA</p>
       </div>
+      <ReplyRecipientsField label="Para" values={to} onChange={setTo} />
+      <div className="flex items-center gap-3">
+        {replyAllVisible && (
+          <button
+            type="button"
+            onClick={applyReplyAll}
+            className="inline-flex items-center gap-1 text-[12px] text-ds-text-2 underline underline-offset-2 ds-tap"
+          >
+            <Users className="h-3.5 w-3.5" /> Responder a todos
+          </button>
+        )}
+        {!showCcBcc && (
+          <button
+            type="button"
+            onClick={() => setShowCcBcc(true)}
+            className="text-[12px] text-ds-text-3 underline underline-offset-2 ds-tap"
+          >
+            CC/CCO
+          </button>
+        )}
+      </div>
+      {showCcBcc && (
+        <>
+          <ReplyRecipientsField label="CC" values={cc} onChange={setCc} />
+          <ReplyRecipientsField label="CCO" values={bcc} onChange={setBcc} />
+        </>
+      )}
       <textarea
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -93,7 +140,7 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
         <button
           type="button"
           onClick={send}
-          disabled={busy !== null || !draft.trim()}
+          disabled={busy !== null || !canSend}
           className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50"
         >
           <Send className="h-4 w-4" /> {busy === "send" ? "Enviando…" : "Enviar respuesta"}
