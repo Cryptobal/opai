@@ -134,8 +134,8 @@ export function CorreosClient() {
 
   return (
     <div className="ds-page-enter space-y-5">
-      {/* Sticky header respeta notch / Dynamic Island en iOS */}
-      <div className="sticky top-0 z-10 -mx-1 space-y-5 bg-background/80 px-1 pb-2 pt-[env(safe-area-inset-top,0px)] backdrop-blur-sm lg:static lg:bg-transparent lg:pt-0 lg:backdrop-blur-none">
+      {/* Sticky bajo la isla móvil (mismo offset que AppShell), no bajo el notch */}
+      <div className="sticky top-[calc(4rem+env(safe-area-inset-top,0px))] z-10 -mx-1 space-y-5 bg-background/80 px-1 pb-2 backdrop-blur-sm lg:static lg:top-auto lg:bg-transparent lg:backdrop-blur-none">
         <PageHero icon={Mail} iconTone="primary" title="Correos" subtitle="Bandeja comercial"
           description="Hilos de tu Gmail vinculados a cuentas, negocios y leads" />
 
