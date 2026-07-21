@@ -16,6 +16,11 @@ const MESSAGES: Record<string, { tone: Tone; text: string }> = {
     text: "Cancelaste la autorización en Google — reintentá y aceptá los permisos.",
   },
   invalid_state: { tone: "danger", text: "La sesión de conexión expiró, reintentá." },
+  invalid_user: { tone: "danger", text: "La sesión no coincide — iniciá sesión de nuevo." },
+  missing_email: {
+    tone: "danger",
+    text: "Google no devolvió el email de la casilla. Reintentá la conexión.",
+  },
   missing_env: {
     tone: "danger",
     text: "Faltan variables de entorno en el servidor. Avisá a soporte.",
@@ -35,7 +40,10 @@ const MESSAGES: Record<string, { tone: Tone; text: string }> = {
   error: { tone: "danger", text: "No se pudo completar la conexión, reintentá." },
 };
 
-function resolveMessage(value: string): { tone: Tone; text: string } {
+function resolveMessage(value: string, param: BannerProps["param"]): { tone: Tone; text: string } {
+  if (value === "connected" && param === "gmail") {
+    return { tone: "ok", text: "Gmail conectado — ya podés sincronizar tu bandeja." };
+  }
   const known = MESSAGES[value];
   if (known) return known;
   if (value.startsWith("google_")) {
@@ -47,13 +55,8 @@ function resolveMessage(value: string): { tone: Tone; text: string } {
   return MESSAGES.error;
 }
 
-/**
- * Lee el query param de resultado (`cal=`/`drive=`) que deja el callback OAuth,
- * muestra un banner DS (ok/danger) + toast, ofrece "Reintentar" y limpia el
- * param de la URL. Ningún resultado queda invisible.
- */
 type BannerProps = {
-  param: "cal" | "drive";
+  param: "cal" | "drive" | "gmail";
   startHref: string;
   onConnected?: () => void;
 };
@@ -77,21 +80,20 @@ function OAuthResultBannerInner({ param, startHref, onConnected }: BannerProps) 
     if (!value || handled.current) return;
     handled.current = true;
     setResult(value);
-    const info = resolveMessage(value);
+    const info = resolveMessage(value, param);
     if (info.tone === "ok") {
       toast.success(info.text);
       onConnected?.();
     } else {
       toast.error(info.text);
     }
-    // Limpiar el param de la URL tras mostrar (sin recargar).
     const url = new URL(window.location.href);
     url.searchParams.delete(param);
     window.history.replaceState({}, "", url.pathname + url.search);
   }, [sp, param, onConnected]);
 
   if (!result) return null;
-  const info = resolveMessage(result);
+  const info = resolveMessage(result, param);
   const toneClass =
     info.tone === "ok"
       ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg"

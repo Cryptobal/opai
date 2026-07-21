@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       provider: "gmail",
       status: "active",
     },
-    select: { id: true, email: true, grantedScopes: true },
+    select: { id: true, email: true, grantedScopes: true, syncState: true },
   });
   if (!account) {
     return NextResponse.json({ connected: false, items: [], nextCursor: null, counts: null });
@@ -48,6 +48,10 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
+  const syncRaw =
+    account.syncState && typeof account.syncState === "object" && !Array.isArray(account.syncState)
+      ? (account.syncState as { backfillDone?: boolean; lastSyncAt?: string })
+      : {};
   const { hasGmailModify } = await import("@/lib/gmail");
   return NextResponse.json({
     connected: true,
@@ -56,5 +60,8 @@ export async function GET(req: NextRequest) {
     nextCursor,
     counts,
     canModify: hasGmailModify(account.grantedScopes),
+    backfillDone: Boolean(syncRaw.backfillDone),
+    totalThreads: counts.inbox + counts.archived + counts.trash,
+    lastSyncAt: syncRaw.lastSyncAt ?? null,
   });
 }

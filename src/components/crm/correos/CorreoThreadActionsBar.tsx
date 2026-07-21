@@ -14,7 +14,7 @@ type Props = {
 /** Barra inferior sticky mobile: archivar, eliminar, leído, responder. */
 export function CorreoThreadActionsBar({ threadId, isUnread, archived, onDone, onReply }: Props) {
   const item =
-    "flex flex-1 flex-col items-center justify-center gap-0.5 rounded-lg text-[11px] text-ds-text-2 ds-tap";
+    "flex flex-1 flex-col items-center justify-center gap-0.5 rounded-lg text-[12px] text-ds-text-2 ds-tap";
 
   return (
     <div className="grid h-full grid-cols-4 gap-1" onClick={(e) => e.stopPropagation()}>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Mail } from "lucide-react";
+import { toast } from "sonner";
 import { PageHero, Surface, EmptyState, Spinner } from "@/components/opai-ds";
 import {
   CorreosFilters,
@@ -10,6 +11,7 @@ import {
 } from "./CorreosFilters";
 import { CorreoRow } from "./CorreoRow";
 import { CorreoDrawer } from "./CorreoDrawer";
+import { CorreosSyncBanner } from "./CorreosSyncBanner";
 import { ResponseKpiChip } from "./ResponseKpiChip";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 
@@ -37,6 +39,8 @@ export function CorreosClient() {
   const [counts, setCounts] = useState<Counts>(null);
   const [connected, setConnected] = useState(true);
   const [canModify, setCanModify] = useState(false);
+  const [backfillDone, setBackfillDone] = useState<boolean | null>(null);
+  const [totalThreads, setTotalThreads] = useState(0);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [folder, setFolder] = useState<CorreoFolderTab>("inbox");
@@ -56,6 +60,8 @@ export function CorreosClient() {
       setConnected(r.connected !== false);
       setCanModify(Boolean(r.canModify));
       setCounts(r.counts ?? null);
+      setBackfillDone(typeof r.backfillDone === "boolean" ? r.backfillDone : null);
+      setTotalThreads(Number(r.totalThreads) || 0);
       setItems((prev) => (reset ? r.items ?? [] : [...prev, ...(r.items ?? [])]));
       setCursor(r.nextCursor ?? null);
     } finally {
@@ -64,13 +70,11 @@ export function CorreosClient() {
   }
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const sp = new URLSearchParams(window.location.search);
-      const t = sp.get("thread");
-      if (t) {
-        setOpenId(t);
-        setAutoExtract(sp.get("extract") === "1");
-      }
+    const sp = new URLSearchParams(window.location.search);
+    const t = sp.get("thread");
+    if (t) {
+      setOpenId(t);
+      setAutoExtract(sp.get("extract") === "1");
     }
   }, []);
 
@@ -82,8 +86,20 @@ export function CorreosClient() {
   async function syncNow() {
     setSyncing(true);
     try {
-      await fetch("/api/crm/gmail/sync", { method: "POST" });
+      const r = await fetch("/api/crm/gmail/sync", { method: "POST" }).then((x) => x.json());
+      if (!r.success) {
+        toast.error(r.error || "No se pudo sincronizar");
+      } else {
+        const neu = Number(r.syncedCount) || 0;
+        const upd = Math.max((Number(r.fetched) || 0) - neu, 0);
+        toast.success(`${neu} hilos nuevos · ${upd} actualizados`);
+        if (r.backfillDone === false) {
+          toast.message(`Importación inicial en progreso (${r.totalThreads ?? 0} hilos)`);
+        }
+      }
       await fetchPage(null, true);
+    } catch {
+      toast.error("No se pudo sincronizar");
     } finally {
       setSyncing(false);
     }
@@ -93,13 +109,11 @@ export function CorreosClient() {
 
   return (
     <div className="ds-page-enter space-y-5">
-      <PageHero
-        icon={Mail}
-        iconTone="primary"
-        title="Correos"
-        subtitle="Bandeja comercial"
-        description="Hilos de tu Gmail vinculados a cuentas, negocios y leads"
-      />
+      <PageHero icon={Mail} iconTone="primary" title="Correos" subtitle="Bandeja comercial"
+        description="Hilos de tu Gmail vinculados a cuentas, negocios y leads" />
+
+      <CorreosSyncBanner backfillDone={backfillDone} totalThreads={totalThreads}
+        onConnected={() => void fetchPage(null, true)} />
 
       {connected && !canModify && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">

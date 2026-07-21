@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
   const session = await auth();
   if (!session?.user) {
-    return NextResponse.redirect(`${origin}/opai/login?callbackUrl=/crm/deals`);
+    return NextResponse.redirect(`${origin}/opai/login?callbackUrl=/crm/correos`);
   }
 
   const { searchParams } = new URL(request.url);
@@ -33,17 +33,17 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state");
 
   if (!code || !state) {
-    return NextResponse.redirect(`${origin}/crm/deals?gmail=error`);
+    return NextResponse.redirect(`${origin}/crm/correos?gmail=error`);
   }
 
   const [payload, signature] = state.split(".");
   if (!payload || !signature || signState(payload) !== signature) {
-    return NextResponse.redirect(`${origin}/crm/deals?gmail=invalid_state`);
+    return NextResponse.redirect(`${origin}/crm/correos?gmail=invalid_state`);
   }
 
   const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
   if (decoded.userId !== session.user.id) {
-    return NextResponse.redirect(`${origin}/crm/deals?gmail=invalid_user`);
+    return NextResponse.redirect(`${origin}/crm/correos?gmail=invalid_user`);
   }
 
   try {
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     const emailAddress = profile.data.emailAddress;
 
     if (!emailAddress) {
-      return NextResponse.redirect(`${origin}/crm/deals?gmail=missing_email`);
+      return NextResponse.redirect(`${origin}/crm/correos?gmail=missing_email`);
     }
 
     const accessToken = tokens.access_token || "";
@@ -96,9 +96,9 @@ export async function GET(request: NextRequest) {
       await prisma.crmEmailAccount.create({ data });
     }
 
-    return NextResponse.redirect(`${origin}/crm/deals?gmail=connected`);
+    return NextResponse.redirect(`${origin}/crm/correos?gmail=connected`);
   } catch (error) {
     console.error("Gmail OAuth callback error:", error);
-    return NextResponse.redirect(`${origin}/crm/deals?gmail=error`);
+    return NextResponse.redirect(`${origin}/crm/correos?gmail=error`);
   }
 }

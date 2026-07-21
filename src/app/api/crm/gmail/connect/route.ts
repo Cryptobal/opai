@@ -23,12 +23,12 @@ export async function GET(request: NextRequest) {
 
   const session = await auth();
   if (!session?.user) {
-    return NextResponse.redirect(`${origin}/opai/login?callbackUrl=/crm/deals`);
+    return NextResponse.redirect(`${origin}/opai/login?callbackUrl=/crm/correos`);
   }
 
   const tenantId = session.user.tenantId;
   if (!tenantId) {
-    return NextResponse.redirect(`${origin}/opai/login?callbackUrl=/crm/deals`);
+    return NextResponse.redirect(`${origin}/opai/login?callbackUrl=/crm/correos`);
   }
   const payload = JSON.stringify({
     userId: session.user.id,
