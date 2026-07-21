@@ -9,10 +9,9 @@ import type { EmailAccountLite } from "./gmail-sync-state";
 const TRASH_IMPORT_CAP = 25;
 
 /**
- * Sweep de reconciliación total contra Gmail: clasifica cada hilo local según
- * los sets reales de INBOX/SPAM/TRASH (prioridad INBOX > SPAM > TRASH >
- * archivado) e importa hilos de papelera que nunca llegaron (backfill los
- * excluye por diseño). Best-effort: nunca lanza hacia el caller.
+ * Sweep global degradado: solo importa TRASH/SPAM preexistente y aplica
+ * pertenencia positiva a sets (refuerzo). El estado inbox/archivado lo
+ * resuelven el incremental + self-heal por-hilo — aquí NO se archiva.
  */
 export async function reconcileGmailFolders(params: {
   gmail: gmail_v1.Gmail;
@@ -22,50 +21,33 @@ export async function reconcileGmailFolders(params: {
 }): Promise<{ updated: number; importedTrash: number; complete: boolean }> {
   const { gmail, tenantId, emailAccount, deadline } = params;
   try {
-    const inboxSet = await listGmailThreadIdSet({ gmail, labelId: "INBOX", maxPages: 6, deadline });
+    // INBOX maxPages=2: ya no necesitamos el set exhaustivo (self-heal/incremental).
+    const inboxSet = await listGmailThreadIdSet({ gmail, labelId: "INBOX", maxPages: 2, deadline });
     const trashSet = await listGmailThreadIdSet({ gmail, labelId: "TRASH", maxPages: 4, deadline });
     const spamSet = await listGmailThreadIdSet({ gmail, labelId: "SPAM", maxPages: 2, deadline });
-    // Un set parcial (corte por deadline/maxPages) sigue sirviendo para la
-    // clasificación positiva, pero la AUSENCIA en él no prueba nada: el
-    // bucket residual "resto → archivado" solo es válido con los 3 completos.
     const setsComplete = inboxSet.complete && spamSet.complete && trashSet.complete;
-    if (!setsComplete) {
-      console.warn("[gmail] sweep parcial — se omite archivado residual", {
-        emailAccountId: emailAccount.id,
-        inbox: inboxSet.complete,
-        spam: spamSet.complete,
-        trash: trashSet.complete,
-      });
-    }
 
     const threads = await prisma.crmEmailThread.findMany({
       where: { tenantId, emailAccountId: emailAccount.id, providerThreadId: { not: null } },
       select: {
-        id: true, providerThreadId: true, archivedAt: true, trashedAt: true,
-        spamAt: true, snoozedUntil: true,
+        id: true, providerThreadId: true, archivedAt: true, trashedAt: true, spamAt: true,
       },
     });
 
-    const nowTs = Date.now();
     const toInbox: string[] = [];
     const toSpam: string[] = [];
     const toTrash: string[] = [];
-    const toArchived: string[] = [];
     const localIds = new Set<string>();
     for (const t of threads) {
       const tid = t.providerThreadId as string;
       localIds.add(tid);
-      // Snooze es estado LOCAL: un pospuesto vigente no está en INBOX de Gmail y
-      // eso es consistente — no lo archives residualmente ni lo toques.
-      const snoozed = t.snoozedUntil ? t.snoozedUntil.getTime() > nowTs : false;
+      // Solo pertenencia positiva (confiable aun con sets parciales).
       if (inboxSet.ids.has(tid)) {
         if (t.archivedAt || t.trashedAt || t.spamAt) toInbox.push(t.id);
       } else if (spamSet.ids.has(tid)) {
         if (!t.spamAt || t.trashedAt || t.archivedAt) toSpam.push(t.id);
       } else if (trashSet.ids.has(tid)) {
         if (!t.trashedAt || t.spamAt || t.archivedAt) toTrash.push(t.id);
-      } else if (setsComplete && !snoozed && (!t.archivedAt || t.trashedAt || t.spamAt)) {
-        toArchived.push(t.id);
       }
     }
 
@@ -75,7 +57,6 @@ export async function reconcileGmailFolders(params: {
       [toInbox, { archivedAt: null, trashedAt: null, spamAt: null }],
       [toSpam, { archivedAt: null, trashedAt: null, spamAt: now }],
       [toTrash, { archivedAt: null, trashedAt: now, spamAt: null }],
-      [toArchived, { archivedAt: now, trashedAt: null, spamAt: null }],
     ];
     let updated = 0;
     for (const [ids, data] of groups) {
