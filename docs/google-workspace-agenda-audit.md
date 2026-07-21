@@ -835,3 +835,40 @@ Rama: `feat/gw-v6-pulido-fino` · **NO mergeada**.
 
 Ninguna nueva (solo código + dep `isomorphic-dompurify`).
 
+---
+
+## QA v7 — Correos nivel producto (espejo Gmail · lector mobile · Maps · Drive)
+
+Fecha: 2026-07-21  
+Rama: `feat/gw-v7-correos-producto` (desde `main` @ `2e0b4f85f`)  
+Gate pre-cambio: `npx prisma generate` OK · `NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit` OK tras fix menor en `help-chat-tools-v2` (Date vs string en checklist; `unpdf` ya en deps).
+
+### Hallazgos auditoría
+
+| Área | Estado | Detalle |
+|------|--------|---------|
+| `CrmEmailThread` | ✅ Campos listos | `archivedAt`, `trashedAt`, `isUnread`, `dealId`, `accountId`, `leadId`. **No** hay columna `labelIds` (flags derivados). |
+| Sync labels Gmail→Opai | 🟡 Parcial | `flagsFromLabelIds` + `applyThreadLabelFlags` OK. Incremental llama `refreshThreadLabelsFromGmail` en `labelAdded/Removed`. Lista solo `folder: inbox\|archived` y **siempre excluye** `trashedAt != null` → no hay pestaña Papelera. Chip "Archivados" mezclado con filtros secundarios. |
+| Acciones Opai→Gmail | ✅ v5 | `gmail-thread-actions` archive/trash/unread vía `modify`/`trash` (sin `messages.delete`). |
+| `gmail-message-content.ts` | ✅ v6 | Extrae HTML+texto MIME. |
+| Lector / drawer | 🟡 | `EmailHtmlBody` + sanitize existen; drawer lateral `max-w-lg` en móvil (no sheet fullscreen). Canvas HTML sin fondo claro forzado. Asociación solo cuenta (`associate` no acepta `dealId`). |
+| Callback Gmail | ❌ Legacy | `/api/crm/gmail/callback` redirige a `/crm/deals?gmail=…`. `OAuthResultBanner` solo acepta `param: "cal"\|"drive"`; página correos no lo monta. |
+| Sync feedback | 🟡 | Endpoint ya devuelve `syncedCount/fetched/backfillDone/totalThreads`. UI pone "Sincronizando…" pero **no toast** con resultado. |
+| Switches rotos | ❌ | `TogglesField` (Nueva visita) usa switch casero `h-7 w-12` + `translate-x-5` (thumb se sale). `CalendarPrefsList` ya usa `@/components/ui/switch` (arreglado en `fb45da3`). Migrar casero → `Switch` DS. |
+| Dirección visita | ❌ | `customAddress` texto libre; `AgendaVisita` **sin** `lat`/`lng` (aditivo si se agregan). `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` existe. |
+| Drive por negocio | 🟡 | Path `Negocios/{año}/{deal}` vía `resolveCrmFileTarget`; cache en `DriveFolderCache` por `pathKey`. Espejo solo **hacia adelante** (`enqueueCrmFileToDrive`). Pestaña Documentos (`FileAttachments`) **sin** cinta estado carpeta ni botón crear+backfill. Licitaciones usan path aparte `Licitaciones/{año}/{deal}` en quotes. |
+
+### Plan por bloque
+
+1. **B1** — Pestañas Inbox/Archivados/Papelera + conteos; asegurar flags en backfill; folder `trash` en list API.
+2. **B2** — Sheet mobile-first, canvas HTML claro, asociación cuenta+negocio (`dealId`).
+3. **B3** — Callback → `/crm/correos?gmail=`; banner `param:"gmail"`; toast sync con conteos + progreso backfill.
+4. **B4** — Switch DS en Nueva visita (+ barrido caseros visibles); Places autocomplete on-demand + `lat`/`lng` aditivos.
+5. **B5** — Cinta Drive en Documentos del deal; crear carpeta on-demand + backfill R2→Drive.
+6. **B6** — QA checklist + push (NO merge).
+
+### Migraciones previstas (solo aditivas)
+
+- `AgendaVisita.lat` / `AgendaVisita.lng` (opcionales) si Places guarda coords.
+- Ningún cambio no-aditivo en `CrmEmailThread` (`dealId` ya existe).
+
