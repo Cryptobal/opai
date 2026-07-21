@@ -29,7 +29,10 @@ export async function GET(request: NextRequest) {
   const url = client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
-    include_granted_scopes: true,
+    // include_granted_scopes se omite a propósito: con la cuenta ya
+    // habiendo autorizado Opai para Gmail, la fusión de scopes previos
+    // devolvía un token SIN calendar.events → 403 "insufficient scopes".
+    // Forzar un consentimiento explícito y aislado garantiza el scope.
     login_hint: session.user.email ?? undefined,
     scope: [...CALENDAR_SCOPES],
     state,
