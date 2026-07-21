@@ -26,6 +26,10 @@ export type AgendaListItem = {
   status: string;
   /** Sólo eventos Google: URL del evento en Google Calendar (abre en pestaña nueva). */
   htmlLink?: string | null;
+  /** Nombre del calendario cuando no es el primary (tooltip / subtítulo). */
+  calendarName?: string | null;
+  /** googleEventId crudo (sin prefijo de calendarId) para dedupe. */
+  googleEventId?: string | null;
 };
 
 export type LicitacionListItem = {

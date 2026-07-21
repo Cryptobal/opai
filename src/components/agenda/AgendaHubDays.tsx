@@ -24,7 +24,11 @@ export function AgendaHubDays({
             <ul className="space-y-1">
               {dayItems.slice(0, 3).map((i) =>
                 i.source === "google" ? (
-                  <li key={`google-${i.id}`} className="truncate text-[12px] text-ds-text-3" title={i.title}>
+                  <li
+                    key={`google-${i.id}`}
+                    className="truncate text-[12px] text-ds-text-3"
+                    title={i.calendarName ? `${i.title} · ${i.calendarName}` : i.title}
+                  >
                     <a href={i.htmlLink || undefined} target="_blank" rel="noopener noreferrer">
                       ◷ {i.allDay ? i.title : `${hhmm(i.start)} · ${i.title}`}
                     </a>

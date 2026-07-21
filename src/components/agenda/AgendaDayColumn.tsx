@@ -81,6 +81,7 @@ export function AgendaDayColumn({
             start={i.start}
             allDay={i.allDay}
             htmlLink={i.htmlLink}
+            calendarName={i.calendarName}
           />
         ))}
         {allDay.length === 0 && timed.length === 0 && google.length === 0 && (

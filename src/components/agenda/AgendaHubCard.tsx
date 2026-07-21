@@ -84,8 +84,11 @@ export function AgendaHubCard() {
                         <span className="truncate">
                           {i.allDay ? i.title : `${hhmm(i.start)} · ${i.title}`}
                         </span>
-                        <span className="shrink-0 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
-                          Google
+                        <span
+                          className="max-w-[40%] shrink-0 truncate text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-4"
+                          title={i.calendarName || "Google Calendar"}
+                        >
+                          {i.calendarName || "Google"}
                         </span>
                       </a>
                     </li>

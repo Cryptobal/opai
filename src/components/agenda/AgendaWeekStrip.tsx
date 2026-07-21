@@ -13,6 +13,7 @@ export type WeekItem = {
   dealId?: string | null;
   assignedUserId?: string | null;
   htmlLink?: string | null;
+  calendarName?: string | null;
 };
 
 type Props = {
