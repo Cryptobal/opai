@@ -61,6 +61,21 @@ export async function upsertGmailMessage(params: {
       where: { id: existing.id },
       data: { labelIds },
     });
+    // Adopción de hilos legacy: mensajes creados por otras vías (web4leads,
+    // seguimiento, envío CRM) matchearon por subject a hilos SIN
+    // emailAccountId/providerThreadId. La bandeja filtra por emailAccountId,
+    // así que esos hilos jamás aparecían en Recibidos y el import del sweep
+    // los re-visitaba infinitamente (el mensaje "ya existe" → early return).
+    if (providerThreadId) {
+      await prisma.crmEmailThread.updateMany({
+        where: {
+          id: existing.threadId,
+          tenantId,
+          OR: [{ emailAccountId: null }, { providerThreadId: null }],
+        },
+        data: { emailAccountId: emailAccount.id, providerThreadId },
+      });
+    }
     return { wrote: false, providerThreadId };
   }
   const fromEmail =
