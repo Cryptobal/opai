@@ -125,6 +125,13 @@ const nextConfig = {
     'pdf-lib',
     'bwip-js',
     'fast-xml-parser',
+    // ── pdf-parse usa pdfjs-dist (worker .mjs) + @napi-rs/canvas
+    // (binario nativo .node). Si se bundlean, extractText() lanza en runtime
+    // en Vercel y el chatbot "no puede leer PDFs". Externalizar = require
+    // natural desde node_modules, worker y binario cargan bien.
+    'pdf-parse',
+    'pdfjs-dist',
+    '@napi-rs/canvas',
   ],
   experimental: {
     staleTimes: {
