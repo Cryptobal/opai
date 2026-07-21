@@ -106,7 +106,11 @@ export function CorreosClient() {
       } else {
         const neu = Number(r.syncedCount) || 0;
         const upd = Math.max((Number(r.fetched) || 0) - neu, 0);
+        const healed = Number(r.healed) || 0;
         toast.success(`${neu} hilos nuevos · ${upd} actualizados`);
+        if (healed > 0) {
+          toast.message(`${healed} correos restaurados a Recibidos`);
+        }
         if (r.backfillDone === false) {
           toast.message(`Importación inicial en progreso (${r.totalThreads ?? 0} hilos)`);
         }

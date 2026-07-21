@@ -9,6 +9,10 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireTenantModule } from "@/lib/require-module";
 import { syncGmailAccount } from "@/modules/crm/email/gmail-sync.service";
+import {
+  countCorreoFolders,
+  invalidateCorreoFolderCounts,
+} from "@/modules/crm/email/correos-folder-counts";
 
 export const maxDuration = 60;
 
@@ -38,15 +42,16 @@ async function handle(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Gmail no conectado" }, { status: 400 });
   }
 
-  // Con el throttle de 10 min, la corrida normal ejecuta solo incremental
-  // (+radar corto) → responde en segundos. `?force=1` fuerza el sweep completo.
+  // Incremental + radar + self-heal (~10s) para reparar Recibidos. `?force=1`
+  // además fuerza el sweep global (papelera/spam).
   const result = await syncGmailAccount({
     tenantId: session.user.tenantId,
     emailAccountId: emailAccount.id,
     maxResults,
-    deadlineMs: Date.now() + 40_000,
+    deadlineMs: Date.now() + 50_000,
     createdByUserId: session.user.id,
     forceReconcile: request.nextUrl.searchParams.get("force") === "1",
+    selfHealBudgetMs: 10_000,
   });
 
   const refreshed = await prisma.crmEmailAccount.findUnique({
@@ -61,10 +66,11 @@ async function handle(request: NextRequest) {
     where: { tenantId: session.user.tenantId, emailAccountId: emailAccount.id },
   });
 
-  const { invalidateCorreoFolderCounts } = await import(
-    "@/modules/crm/email/correos-folder-counts"
-  );
   invalidateCorreoFolderCounts(session.user.tenantId, emailAccount.id);
+  const counts = await countCorreoFolders({
+    tenantId: session.user.tenantId,
+    emailAccountId: emailAccount.id,
+  });
 
   return NextResponse.json({
     success: true,
@@ -73,6 +79,8 @@ async function handle(request: NextRequest) {
     fetched: result.fetched,
     mode: result.mode,
     reconcile: result.reconcile,
+    healed: result.healed,
+    inboxCount: counts.inbox,
     backfillDone: Boolean(syncState.backfillDone),
     totalThreads,
     lastSyncAt: syncState.lastSyncAt ?? null,

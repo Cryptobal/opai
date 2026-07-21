@@ -33,6 +33,8 @@ export async function syncGmailAccount(params: {
   deadlineMs?: number;
   createdByUserId?: string | null;
   forceReconcile?: boolean;
+  /** Presupuesto mínimo del self-heal (ms). El botón "Sincronizar" pasa ~10s. */
+  selfHealBudgetMs?: number;
 }): Promise<{
   syncedCount: number;
   fetched: number;
@@ -95,8 +97,9 @@ export async function syncGmailAccount(params: {
   // positiva barata que repara archivado erróneo sin depender de sets globales.
   let healed = 0;
   const healRemaining = globalDeadline - Date.now();
+  const minHeal = Math.max(params.selfHealBudgetMs ?? 8_000, 8_000);
   if (mode === "incremental" && healRemaining >= 3_000) {
-    const healBudget = Math.max(8_000, Math.min(healRemaining - 2_000, 12_000));
+    const healBudget = Math.min(Math.max(minHeal, healRemaining - 2_000), healRemaining);
     const heal = await selfHealInbox({
       gmail,
       tenantId: params.tenantId,
