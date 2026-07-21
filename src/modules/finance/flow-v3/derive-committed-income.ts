@@ -15,11 +15,11 @@ import {
   computeRecurringIssueYmd,
 } from "@/modules/finance/billing/dte-recurring-schedule";
 import { weekStartYmd, ymdToDate } from "./weeks";
+import { buildIncomeMatcher } from "./row-match";
 import {
   addDaysYmd,
   DEFAULT_COLLECTION_LAG_DAYS,
   pushCommitted,
-  UNMATCHED_INCOME_KEY,
   type CommittedByRow,
   type FlowRowRef,
 } from "./types";
@@ -78,24 +78,6 @@ export interface CommittedIncomeArgs {
   coveredPeriods: Set<string>;
 }
 
-function buildRowIndex(rows: FlowRowRef[]) {
-  const exact = new Map<string, string>();
-  const generic = new Map<string, string>();
-  for (const r of rows) {
-    if (!r.crmAccountId) continue;
-    if (r.installationId) exact.set(`${r.crmAccountId}::${r.installationId}`, r.id);
-    else if (!generic.has(r.crmAccountId)) generic.set(r.crmAccountId, r.id);
-  }
-  return (accountId: string | null, installationId: string | null): string => {
-    if (!accountId) return UNMATCHED_INCOME_KEY;
-    if (installationId) {
-      const hit = exact.get(`${accountId}::${installationId}`);
-      if (hit) return hit;
-    }
-    return generic.get(accountId) ?? UNMATCHED_INCOME_KEY;
-  };
-}
-
 /** Semana (lunes YMD) de cobro estimada, clampeada a la semana actual si venció. */
 function collectionWeek(fechaYmd: string, todayYmd: string): { week: string; fecha: string } {
   const currentWeek = weekStartYmd(ymdToDate(todayYmd) ?? new Date());
@@ -109,7 +91,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
   const firstWeek = args.weeks[0];
   const lastWeek = args.weeks[args.weeks.length - 1];
   const inRange = (w: string) => w >= firstWeek && w <= lastWeek;
-  const matchRow = buildRowIndex(args.rows);
+  const matchRow = buildIncomeMatcher(args.rows);
 
   for (const d of args.dtes) {
     const est = d.dueDateYmd ?? addDaysYmd(d.dateYmd, DEFAULT_COLLECTION_LAG_DAYS);

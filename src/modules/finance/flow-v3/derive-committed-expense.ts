@@ -11,6 +11,7 @@
  *     SUPPLIER del proveedor → CATEGORY de sus cuentas contables → fallback.
  */
 import { weekStartYmd, ymdToDate } from "./weeks";
+import { buildExpenseIndexes, matchExpenseRow } from "./row-match";
 import {
   pushCommitted,
   UNMATCHED_EXPENSE_KEY,
@@ -63,26 +64,6 @@ const MILESTONE_ROW_MAP: Record<
   f29: { categoryCode: "EGR_IVA_F29", canonicalNames: ["iva f29", "f29 (iva + ppm)", "f29"] },
 };
 
-const norm = (s: string) => s.trim().toLowerCase();
-
-function buildIndexes(rows: FlowRowRef[], categoryCodeById: Map<string, string>) {
-  const byCategoryId = new Map<string, string>();
-  const byCategoryCode = new Map<string, string>();
-  const bySupplierId = new Map<string, string>();
-  const byName = new Map<string, string>();
-  for (const r of rows) {
-    if (r.categoryId) {
-      if (!byCategoryId.has(r.categoryId)) byCategoryId.set(r.categoryId, r.id);
-      const code = categoryCodeById.get(r.categoryId);
-      if (code && !byCategoryCode.has(code)) byCategoryCode.set(code, r.id);
-    }
-    if (r.supplierId && !bySupplierId.has(r.supplierId)) bySupplierId.set(r.supplierId, r.id);
-    const n = norm(r.name);
-    if (!byName.has(n)) byName.set(n, r.id);
-  }
-  return { byCategoryId, byCategoryCode, bySupplierId, byName };
-}
-
 /** Semana de pago; si venció, clampea a la semana actual (pagable ya). */
 function payWeek(fechaYmd: string, todayYmd: string): string {
   const currentWeek = weekStartYmd(ymdToDate(todayYmd) ?? new Date());
@@ -96,7 +77,7 @@ export function deriveCommittedExpense(args: CommittedExpenseArgs): CommittedByR
   const firstWeek = args.weeks[0];
   const lastWeek = args.weeks[args.weeks.length - 1];
   const inRange = (w: string) => w >= firstWeek && w <= lastWeek;
-  const idx = buildIndexes(args.rows, args.categoryCodeById);
+  const idx = buildExpenseIndexes(args.rows, args.categoryCodeById);
 
   for (const m of args.milestones) {
     if (m.amountClp <= 0) continue;
@@ -127,10 +108,10 @@ export function deriveCommittedExpense(args: CommittedExpenseArgs): CommittedByR
       })();
     const week = payWeek(est, args.todayYmd);
     if (!inRange(week)) continue;
-    const rowKey =
-      (d.supplierId ? idx.bySupplierId.get(d.supplierId) : undefined) ??
-      (d.categoryId ? idx.byCategoryId.get(d.categoryId) : undefined) ??
-      UNMATCHED_EXPENSE_KEY;
+    const rowKey = matchExpenseRow(idx, {
+      supplierId: d.supplierId,
+      categoryId: d.categoryId,
+    });
     pushCommitted(out, rowKey, week, {
       kind: "dte",
       dteId: d.id,
