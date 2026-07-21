@@ -31,7 +31,13 @@ function matchesQuery(t: CorreoThreadDTO, q: string): boolean {
   );
 }
 
-type Counts = { inbox: number; archived: number; all: number; trash: number } | null;
+type Counts = {
+  inbox: number;
+  inboxUnread?: number;
+  archived: number;
+  all: number;
+  trash: number;
+} | null;
 
 export function CorreosClient() {
   const [items, setItems] = useState<CorreoThreadDTO[]>([]);

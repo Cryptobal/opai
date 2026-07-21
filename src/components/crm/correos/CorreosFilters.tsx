@@ -21,7 +21,13 @@ const CHIPS: { key: CorreoChipKey; label: string }[] = [
   { key: "leads_creados", label: "Leads creados" },
 ];
 
-type Counts = { inbox: number; archived: number; all: number; trash: number } | null;
+type Counts = {
+  inbox: number;
+  inboxUnread?: number;
+  archived: number;
+  all: number;
+  trash: number;
+} | null;
 
 type Props = {
   folder: CorreoFolderTab;
@@ -73,21 +79,32 @@ export function CorreosFilters({
       <div className="flex gap-1 overflow-x-auto scrollbar-none">
         {TABS.map((t) => {
           const n = counts?.[t.key];
+          const unread = t.key === "inbox" ? counts?.inboxUnread ?? 0 : 0;
+          const active = folder === t.key;
           return (
             <button
               key={t.key}
               type="button"
               onClick={() => onFolder(t.key)}
-              className={`h-10 shrink-0 rounded-xl px-3 text-[13px] ds-tap sm:h-9 ${
-                folder === t.key
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-ds-surface-2 text-ds-text-2"
+              className={`inline-flex h-10 shrink-0 items-center rounded-xl px-3 text-[13px] ds-tap sm:h-9 ${
+                active ? "bg-primary text-primary-foreground" : "bg-ds-surface-2 text-ds-text-2"
               }`}
             >
               {t.label}
               {typeof n === "number" ? (
                 <span className="ml-1.5 opacity-80">{n}</span>
               ) : null}
+              {unread > 0 && (
+                <span
+                  className={`ml-1.5 rounded-full px-1.5 text-[11px] font-medium ${
+                    active
+                      ? "bg-primary-foreground/20 text-primary-foreground"
+                      : "bg-primary text-primary-foreground"
+                  }`}
+                >
+                  {unread}
+                </span>
+              )}
             </button>
           );
         })}
