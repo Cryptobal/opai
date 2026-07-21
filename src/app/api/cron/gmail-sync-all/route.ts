@@ -35,6 +35,16 @@ export async function GET(req: NextRequest) {
     } catch (err) {
       failed++;
       console.warn("[gmail-sync-all] cuenta falló", acc.email, err);
+      // Token irrecuperable (revocado, cliente OAuth cambiado, cuenta huérfana):
+      // marcar revoked para que deje de reintentarse en cada corrida. El usuario
+      // la reactiva reconectando (connect emite un token nuevo y status=active).
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/invalid_grant|unauthorized_client|invalid_client/i.test(msg)) {
+        await prisma.crmEmailAccount
+          .update({ where: { id: acc.id }, data: { status: "revoked" } })
+          .catch(() => {});
+        console.warn("[gmail-sync-all] cuenta auto-desactivada (token muerto):", acc.email);
+      }
     }
   }
 
