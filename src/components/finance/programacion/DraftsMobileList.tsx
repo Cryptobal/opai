@@ -13,7 +13,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { fmtCLP } from "@/components/finance/dtes/shared/constants";
 import { DocumentTag } from "@/components/finance/dtes/DocumentTag";
 import { DocStatusIcon, OcReferenceChip } from "./SendStatusIcons";
-import { DraftDetailSheet } from "./DraftDetailSheet";
+import { DteEditModal } from "@/components/finance/DteEditModal";
 import {
   SortableColumnHeader,
   toggleTableSort,
@@ -60,10 +60,11 @@ function compareDrafts(a: DraftListItem, b: DraftListItem, field: DraftSortField
   }
 }
 
-export function DraftsMobileList({ canIssue, canManage }: Props) {
+export function DraftsMobileList({ canIssue, canManage: _canManage }: Props) {
   const [drafts, setDrafts] = useState<DraftListItem[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [openDetailId, setOpenDetailId] = useState<string | null>(null);
+  /** Editor completo (DteForm) en modal — sin sheet intermedio ni navegar a /emitir. */
+  const [openEditId, setOpenEditId] = useState<string | null>(null);
   const [issuing, setIssuing] = useState<string | null>(null);
   const [confirmingDraft, setConfirmingDraft] = useState<DraftListItem | null>(null);
   const [sortField, setSortField] = useState<DraftSortField>("receptor");
@@ -414,17 +415,17 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
                 elevation={1}
                 padding="sm"
                 tappable
-                onClick={() => setOpenDetailId(d.id)}
+                onClick={() => setOpenEditId(d.id)}
                 className="cursor-pointer"
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    setOpenDetailId(d.id);
+                    setOpenEditId(d.id);
                   }
                 }}
-                aria-label={`Ver detalle del borrador para ${d.receiverName ?? "sin cliente"} por ${fmtCLP.format(d.totalAmount)}`}
+                aria-label={`Editar borrador para ${d.receiverName ?? "sin cliente"} por ${fmtCLP.format(d.totalAmount)}`}
               >
                 {/* Header chips */}
                 <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -525,10 +526,10 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setOpenDetailId(d.id)}
+                    onClick={() => setOpenEditId(d.id)}
                     className="flex-1 justify-center h-11"
                   >
-                    Ver detalle
+                    Editar
                   </Button>
                   {canIssue && (
                     <Button
@@ -562,7 +563,7 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
           rows={sortedDrafts}
           layout="fixed"
           rowKey={(d) => d.id}
-          onRowClick={(d) => setOpenDetailId(d.id)}
+          onRowClick={(d) => setOpenEditId(d.id)}
           empty={
             <EmptyState
               icon={FileText}
@@ -574,16 +575,19 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
         />
       </div>
 
-      {openDetailId && (
-        <DraftDetailSheet
-          draftId={openDetailId}
-          open={!!openDetailId}
-          onOpenChange={(o) => !o && setOpenDetailId(null)}
-          canIssue={canIssue}
-          canManage={canManage}
-          onAfterMutation={loadDrafts}
-        />
-      )}
+      <DteEditModal
+        open={!!openEditId}
+        draftId={openEditId}
+        onClose={() => setOpenEditId(null)}
+        onSaved={() => {
+          setOpenEditId(null);
+          void loadDrafts();
+        }}
+        onIssued={() => {
+          setOpenEditId(null);
+          void loadDrafts();
+        }}
+      />
 
       <ConfirmDialog
         open={!!confirmingDraft}
