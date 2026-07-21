@@ -199,6 +199,8 @@ const fmtCLP = new Intl.NumberFormat("es-CL", {
   minimumFractionDigits: 0,
 });
 
+const fmtNumber = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
+
 const EMPTY_FORM = {
   bankCode: "",
   bankName: "",
@@ -955,6 +957,9 @@ function TransactionsTab({
     [accounts, selectedAccount],
   );
   const [recalculatingBalance, setRecalculatingBalance] = useState(false);
+  const [manualBalanceDigits, setManualBalanceDigits] = useState("");
+  const [manualBalanceNote, setManualBalanceNote] = useState("");
+  const [savingManualBalance, setSavingManualBalance] = useState(false);
   // Diálogo "Ocultar movimiento"
   const [hideDialog, setHideDialog] = useState<TransactionRow | null>(null);
   const [hideReason, setHideReason] = useState("");
@@ -1108,6 +1113,60 @@ function TransactionsTab({
       setRecalculatingBalance(false);
     }
   }, [selectedAccount, onAccountsChanged, loadTransactions]);
+
+  useEffect(() => {
+    if (!selectedAccountRow) {
+      setManualBalanceDigits("");
+      return;
+    }
+    setManualBalanceDigits(String(Math.round(selectedAccountRow.currentBalance)));
+    setManualBalanceNote("");
+  }, [selectedAccountRow?.id, selectedAccountRow?.currentBalance]);
+
+  const saveManualAccountBalance = useCallback(async () => {
+    if (!selectedAccount || !manualBalanceDigits) return;
+    const value = Number(manualBalanceDigits);
+    if (!Number.isFinite(value)) {
+      toast.error("Ingresá un saldo válido");
+      return;
+    }
+    setSavingManualBalance(true);
+    try {
+      const res = await fetch(
+        `/api/finance/banking/accounts/${selectedAccount}/set-current-balance`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            balance: value,
+            note: manualBalanceNote.trim() || undefined,
+          }),
+        },
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error || "No se pudo fijar el saldo");
+      }
+      const d = json.data as { balanceClp: number; previousBalanceClp: number };
+      toast.success(`Saldo fijado: ${fmtCLP.format(d.balanceClp)}`);
+      onAccountsChanged();
+      if (d.previousBalanceClp !== d.balanceClp) {
+        await loadTransactions();
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Error al fijar saldo",
+      );
+    } finally {
+      setSavingManualBalance(false);
+    }
+  }, [
+    selectedAccount,
+    manualBalanceDigits,
+    manualBalanceNote,
+    onAccountsChanged,
+    loadTransactions,
+  ]);
 
   // Resetea a la página 1 cuando cambian filtros (cuenta, fechas, búsqueda, orden, visibilidad o sub-tab)
   useEffect(() => {
@@ -1770,35 +1829,88 @@ function TransactionsTab({
   return (
     <div className="space-y-4 pb-24">
       {selectedAccountRow && (
-        <div className="rounded-lg border border-ds-border-default bg-ds-surface-2 px-3 py-2.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-[12px] uppercase tracking-wide text-ds-text-3">
-              Saldo en banco (cuenta)
-            </p>
-            <p className="font-display text-lg font-semibold tabular-nums">
-              {fmtCLP.format(selectedAccountRow.currentBalance)}
-            </p>
-            <p className="text-[12px] text-ds-text-3 mt-0.5">
-              Desde último snapshot + movimientos visibles hasta hoy
-            </p>
+        <div className="rounded-lg border border-ds-border-default bg-ds-surface-2 px-3 py-3 space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[12px] uppercase tracking-wide text-ds-text-3">
+                Saldo en banco (cuenta)
+              </p>
+              <p className="font-display text-lg font-semibold tabular-nums">
+                {fmtCLP.format(selectedAccountRow.currentBalance)}
+              </p>
+              <p className="text-[12px] text-ds-text-3 mt-0.5">
+                Fijá el saldo que ves hoy en el banco, o recalculá desde cartola
+                + movimientos
+              </p>
+            </div>
+            {canManage && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-10 sm:h-9 shrink-0 self-start"
+                disabled={recalculatingBalance || !selectedAccount}
+                onClick={recalculateAccountBalance}
+                title="Recalcula sumando movimientos posteriores al último snapshot"
+              >
+                {recalculatingBalance ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
+                ) : (
+                  <RefreshCw className="h-3.5 w-3.5 sm:mr-1.5" />
+                )}
+                Recalcular saldo
+              </Button>
+            )}
           </div>
+
           {canManage && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-10 sm:h-9 shrink-0 self-start sm:self-auto"
-              disabled={recalculatingBalance || !selectedAccount}
-              onClick={recalculateAccountBalance}
-              title="Recalcula el saldo real sumando movimientos posteriores al último snapshot de cartola"
-            >
-              {recalculatingBalance ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
-              ) : (
-                <RefreshCw className="h-3.5 w-3.5 sm:mr-1.5" />
-              )}
-              Recalcular saldo
-            </Button>
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end border-t border-ds-border-subtle pt-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="tx-manual-balance">Saldo actual (manual)</Label>
+                <Input
+                  id="tx-manual-balance"
+                  inputMode="numeric"
+                  className="h-10 sm:h-9 font-mono tabular-nums"
+                  placeholder="0"
+                  value={
+                    manualBalanceDigits
+                      ? fmtNumber.format(Number(manualBalanceDigits))
+                      : ""
+                  }
+                  onChange={(e) =>
+                    setManualBalanceDigits(e.target.value.replace(/\D/g, ""))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="tx-manual-balance-note">Nota (opcional)</Label>
+                <Input
+                  id="tx-manual-balance-note"
+                  className="h-10 sm:h-9"
+                  placeholder="Ej. según app Santander"
+                  value={manualBalanceNote}
+                  onChange={(e) => setManualBalanceNote(e.target.value)}
+                />
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                className="h-10 sm:h-9 w-full sm:w-auto"
+                disabled={
+                  savingManualBalance ||
+                  !selectedAccount ||
+                  !manualBalanceDigits
+                }
+                onClick={saveManualAccountBalance}
+              >
+                {savingManualBalance ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
+                ) : (
+                  <Pencil className="h-3.5 w-3.5 sm:mr-1.5" />
+                )}
+                Fijar saldo
+              </Button>
+            </div>
           )}
         </div>
       )}
