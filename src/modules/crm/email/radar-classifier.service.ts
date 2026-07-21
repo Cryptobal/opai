@@ -30,52 +30,31 @@ function firstReply(msgs: Msg[], inboundAt: Date | null): Date | null {
   return m?.sentAt ?? null;
 }
 
-const COMMERCIAL_CATEGORIES = ["cotizacion", "licitacion", "consulta_comercial"] as const;
-
 /**
- * Reset del backlog quemado (una vez por corrida, barato):
- * 1) `aiCategory NULL` + clasificado en 14d (IA no corrió / falló — ej. bug
- *    de modelo/proveedor que devolvía null en TODAS las corridas)
- * 2) categoría no-comercial + inbound < 3d (clasificación previa errónea)
- * 3) asunto con keywords de cotización + no-comercial + 30d (re-clasificar)
- * Sin este reset nunca re-entrarían al candidato (`aiClassifiedAt < lastMessageAt`).
+ * Reset del backlog quemado (una vez por corrida, barato): re-encola SOLO los
+ * hilos con inbound cuya clasificación IA no corrió o falló (`aiCategory`
+ * NULL). Una vez que un hilo tiene categoría real, NO se re-clasifica salvo
+ * que llegue un mensaje nuevo (`aiClassifiedAt < lastMessageAt` en el picker).
+ *
+ * Importante: NO resetear hilos ya clasificados como no-comerciales. Esa
+ * variante re-encolaba cada corrida las facturas/comprobantes más nuevos y,
+ * con la cola newest-first + presupuesto ~8 hilos, re-clasificaba lo mismo
+ * en loop sin llegar nunca a las cotizaciones más antiguas (starvation).
  */
 async function resetBurnedBacklog(tenantId: string, emailAccountId: string): Promise<void> {
   const cutoff14 = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-  const cutoff3 = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-  const cutoff30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const res = await prisma.crmEmailThread.updateMany({
     where: {
       tenantId,
       emailAccountId,
       aiClassifiedAt: { not: null },
+      aiCategory: null,
       leadId: null,
       dealId: null,
-      OR: [
-        // Solo hilos CON inbound: los solo-salientes se marcan procesados con
-        // categoría NULL a propósito — sin este filtro entraban en loop
-        // (reset → candidato → marca → reset…) y monopolizaban la cola,
-        // dejando sin turno a las cotizaciones reales.
-        {
-          aiCategory: null,
-          lastMessageAt: { gte: cutoff14 },
-          messages: { some: { direction: "in" } },
-        },
-        {
-          aiCategory: { notIn: [...COMMERCIAL_CATEGORIES] },
-          lastMessageAt: { gte: cutoff3 },
-        },
-        {
-          aiCategory: { notIn: [...COMMERCIAL_CATEGORIES] },
-          lastMessageAt: { gte: cutoff30 },
-          OR: [
-            { subject: { contains: "cotiz", mode: "insensitive" } },
-            { subject: { contains: "presupuesto", mode: "insensitive" } },
-            { subject: { contains: "propuesta", mode: "insensitive" } },
-            { subject: { contains: "licitac", mode: "insensitive" } },
-          ],
-        },
-      ],
+      lastMessageAt: { gte: cutoff14 },
+      // Solo hilos CON inbound: los solo-salientes se marcan procesados con
+      // categoría NULL a propósito.
+      messages: { some: { direction: "in" } },
     },
     data: { aiClassifiedAt: null },
   });
