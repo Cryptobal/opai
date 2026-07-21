@@ -1,11 +1,11 @@
 /**
- * Construye los props de una PRESENTACIÓN INSTITUCIONAL de empresa a partir
- * del mismo template de Propuesta Técnica (render-proposal), pero SIN valores
- * comerciales ni características del servicio (dotación, horarios, inversión).
+ * Construye los props de una PRESENTACIÓN INSTITUCIONAL de empresa para el
+ * renderer comercial 16:9, SIN valores comerciales ni características del
+ * servicio (dotación, horarios, inversión).
  *
  * No depende de una cotización (CpqQuote): se arma solo con la configuración
  * del tenant + el nombre del cliente/contacto. Así el documento descargable en
- * el portal del cliente siempre refleja los cambios visuales del template.
+ * el portal y el PDF adjunto al correo comparten siempre la misma versión.
  *
  * Patrón: buildInstitutionalPresentationProps(tenantId, input) → ProposalProps
  */

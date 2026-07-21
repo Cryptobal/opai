@@ -27,6 +27,15 @@ export async function renderProposalToBuffer(
 export async function renderProposalToBufferFromProps(
   props: ProposalProps,
 ): Promise<Buffer> {
+  if (props.variant === 'institutional') {
+    const { renderInstitutionalPresentationToBufferFromProps } = await import(
+      './render-institutional-presentation'
+    );
+    return renderInstitutionalPresentationToBufferFromProps(
+      props as ProposalProps & { portalUrl?: string }
+    );
+  }
+
   // eslint-disable-next-line no-eval
   const nodeRequire = eval('require') as NodeRequire;
   const React = nodeRequire('react');
@@ -372,9 +381,10 @@ export async function renderProposalToBufferFromProps(
     breakdown, resourceBreakdown, includedItems,
   } = props;
 
-  /* Variante institucional: presentación de empresa SIN valores comerciales ni
-   * características del servicio (dotación, horarios, inversión). */
-  const isInstitutional = props.variant === 'institutional';
+  /* La variante institucional ya fue delegada al renderer 16:9 al inicio. Se
+   * conserva esta bandera booleana para mantener legible el template técnico
+   * mientras se retiran gradualmente sus ramas institucionales legacy. */
+  const isInstitutional: boolean = false;
   const docLabel = isInstitutional ? 'PRESENTACIÓN' : 'PROPUESTA TÉCNICA';
 
   /* Métricas configurables por tenant (vacío = no se muestran, nunca inventar) */

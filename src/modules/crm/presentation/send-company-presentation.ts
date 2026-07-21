@@ -26,6 +26,8 @@ import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { getTenantPresentationContent } from "@/lib/tenant-presentation";
 import { normalizeEmailList, normalizeEmailAddress } from "@/lib/email-address";
 import { formatChileanPhone } from "@/lib/text-format";
+import { buildInstitutionalPresentationProps } from "@/lib/pdf/templates/proposal/build-presentation-props";
+import { renderProposalToBufferFromProps } from "@/lib/pdf/templates/proposal/render-proposal";
 
 /** Emoji por `key` de sección para los beneficios del email. */
 const SECTION_EMOJI: Record<string, string> = {
@@ -130,7 +132,11 @@ export async function sendCompanyPresentation(
 
   const contact = await prisma.crmContact.findFirst({
     where: { id: contactId, tenantId },
-    include: { account: { select: { name: true } } },
+    include: {
+      account: {
+        select: { name: true, industry: true, segment: true },
+      },
+    },
   });
   if (!contact) {
     throw new SendPresentationError("Contacto no encontrado", "contact_not_found");
@@ -205,20 +211,55 @@ export async function sendCompanyPresentation(
 
   let emailId: string | null = null;
   if (sendEmail) {
-    const html = await render(
-      CompanyPresentationEmail({
-        contactName: contactFullName,
-        companyName: contact.account.name,
-        email: toEmail,
-        pin: portalPinPlain ?? undefined,
+    const emailComponent = CompanyPresentationEmail({
+      contactName: contactFullName,
+      companyName: contact.account.name,
+      email: toEmail,
+      pin: portalPinPlain ?? undefined,
+      portalUrl,
+      ejecutivoName,
+      notes,
+      brandName: tenantCfg.commercialName,
+      logoUrl: tenantCfg.logoUrl || tenantCfg.brandingLogoWhite || "",
+      benefits,
+    });
+
+    let presentationAttachment: {
+      filename: string;
+      content: Buffer;
+      contentType: "application/pdf";
+    };
+    try {
+      const { fileName, ...presentationProps } =
+        await buildInstitutionalPresentationProps(tenantId, {
+          companyName: contact.account.name,
+          contactName: contactFullName,
+          contactPosition: contact.roleTitle ?? undefined,
+          industry: contact.account.industry,
+          segment: contact.account.segment,
+        });
+      const presentationWithPortal = {
+        ...presentationProps,
         portalUrl,
-        ejecutivoName,
-        notes,
-        brandName: tenantCfg.commercialName,
-        logoUrl: tenantCfg.logoUrl || tenantCfg.brandingLogoWhite || "",
-        benefits,
-      }),
-    );
+      };
+      const pdfBuffer = await renderProposalToBufferFromProps(
+        presentationWithPortal,
+      );
+      presentationAttachment = {
+        filename: fileName,
+        content: pdfBuffer,
+        contentType: "application/pdf",
+      };
+    } catch (error) {
+      console.error("[CRM] sendCompanyPresentation PDF:", error);
+      throw new SendPresentationError(
+        "No se pudo generar el PDF de la presentación",
+        "email_failed",
+      );
+    }
+
+    const html = await render(emailComponent);
+    const text = await render(emailComponent, { plainText: true });
 
     const emailCfg = await getTenantEmailConfig(tenantId);
     const emailResult = await resend.emails.send({
@@ -229,6 +270,8 @@ export async function sendCompanyPresentation(
       bcc: bcc.length > 0 ? bcc : undefined,
       subject: `Presentación institucional — ${tenantCfg.commercialName} · ${contact.account.name}`,
       html,
+      text,
+      attachments: [presentationAttachment],
     });
 
     if (emailResult.error) {

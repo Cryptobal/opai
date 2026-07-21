@@ -2,10 +2,9 @@
  * API Route: GET /api/portal/cliente/presentation/pdf
  *
  * Genera y entrega (on-demand) la PRESENTACIÓN INSTITUCIONAL de empresa en PDF
- * para que el cliente la descargue desde el portal. Es el mismo template de la
- * Propuesta Técnica (render-proposal) en variante 'institutional': SIN valores
- * comerciales ni características del servicio. Al ser on-demand, siempre refleja
- * los cambios del template.
+ * para que el cliente la descargue desde el portal. Usa el renderer comercial
+ * 16:9 en variante 'institutional': SIN valores comerciales ni características
+ * del servicio. Al ser on-demand, siempre refleja la versión más reciente.
  *
  * Auth: sesión del portal del cliente (requirePortalClienteAuth).
  */

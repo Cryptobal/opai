@@ -13,6 +13,7 @@ import {
   Heading,
   Html,
   Img,
+  Link,
   Preview,
   Section,
   Text,
@@ -74,7 +75,7 @@ export const CompanyPresentationEmail = ({
 }: CompanyPresentationEmailProps) => {
   const benefitItems =
     benefits && benefits.length > 0 ? benefits : DEFAULT_BENEFITS;
-  const previewText = `${companyName} — Presentación de servicios de ${brandName}`;
+  const previewText = `${companyName} — Presentación en PDF y acceso al portal de ${brandName}`;
 
   return (
     <Html>
@@ -143,8 +144,17 @@ export const CompanyPresentationEmail = ({
           {/* CTA */}
           <Section style={ctaSection}>
             <Button style={ctaButton} href={portalUrl}>
-              Ver Presentación →
+              Abrir presentación en el portal →
             </Button>
+            <Text style={attachmentNote}>
+              También encontrarás la presentación comercial en PDF adjunta a este correo.
+            </Text>
+            <Text style={directLinkText}>
+              Enlace directo:{" "}
+              <Link href={portalUrl} style={directLink}>
+                {portalUrl}
+              </Link>
+            </Text>
           </Section>
 
           <Hr style={divider} />
@@ -351,6 +361,26 @@ const ctaButton: React.CSSProperties = {
   fontWeight: "700",
   textDecoration: "none",
   display: "inline-block",
+};
+
+const attachmentNote: React.CSSProperties = {
+  color: "#94a3b8",
+  fontSize: "12px",
+  lineHeight: "1.5",
+  margin: "16px 0 8px",
+};
+
+const directLinkText: React.CSSProperties = {
+  color: "#64748b",
+  fontSize: "11px",
+  lineHeight: "1.5",
+  margin: "0",
+  wordBreak: "break-all" as const,
+};
+
+const directLink: React.CSSProperties = {
+  color: "#14b8a6",
+  textDecoration: "underline",
 };
 
 const divider: React.CSSProperties = {
