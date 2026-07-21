@@ -634,3 +634,45 @@ proveedor de IA OpenAI configurado por tenant. **NO MERGE**: PR en modo borrador
 - **Kill-switch**: `setRadarComercialEnabled` usa `upsert` (evita carrera 500).
 - **Compromisos con fecha inválida** (regex-válida pero inexistente) se descartan
   en la normalización antes de crear el item.
+
+---
+
+## QA v5 — Pulido post-QA (auditoría + drift)
+
+Fecha: 2026-07-20  
+Rama: `feat/gw-v5-pulido` (desde `main` @ `7c07523a6` + cherry-pick hotfix `fix/agenda-eventlink-syncstatus-map`)
+
+### Prerrequisito hotfix
+
+`AgendaEventLink.syncStatus` → `@map("sync_status")` (commit cherry-picked).
+Sin esto `/api/agenda` falla con P2022 y no se pinta ningún evento (Google,
+visitas ni licitaciones) en agenda ni hub.
+
+### Drift schema ↔ DB (solo lectura)
+
+```
+npx prisma migrate diff --from-url "$DATABASE_URL" \
+  --to-schema-datamodel prisma/schema.prisma --script > /tmp/drift.sql
+```
+
+**Resultado:** sin columnas/tablas faltantes en Google Workspace ni CRM email.
+El diff (~79 líneas) es ruido de defaults/índices/FK rename en finance/
+access_control/push/vra — **no** requiere migración correctiva para GW.
+
+### Auditoría `@map` (modelos nuevos)
+
+Revisados: `GoogleDriveWorkspace`, `GoogleCalendarAccount`, `DriveFolderCache`,
+`DriveExportOutbox`, `AgendaVisita`, `AgendaEventLink`, `CrmRadarItem`,
+`CrmEmailThread`, `CrmEmailAccount`.
+
+- Todos los campos camelCase tienen `@map` snake_case.
+- Único bug conocido (`syncStatus`) ya corregido por el hotfix.
+- Sin candidatos adicionales faltantes de `@map`.
+
+### Alcance v5 (bloques siguientes)
+
+1. Multi-calendario (leer todos los visibles, no solo `primary`)
+2. Feedback de progreso del sync Gmail en Integraciones
+3. UX Drive: copy + "Crear estructura ahora"
+4. Ventanas horarias `America/Santiago` + hub móvil limpio
+5. Acciones de bandeja (`gmail.modify`: archivar / papelera / leído)
