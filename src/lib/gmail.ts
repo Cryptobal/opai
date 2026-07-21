@@ -1,9 +1,15 @@
 import { google } from "googleapis";
 
-export const GMAIL_SCOPES = [
-  "https://www.googleapis.com/auth/gmail.send",
-  "https://www.googleapis.com/auth/gmail.readonly",
-];
+/** modify incluye read/labels; send se mantiene aparte. */
+export const GMAIL_MODIFY_SCOPE = "https://www.googleapis.com/auth/gmail.modify";
+export const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
+
+export const GMAIL_SCOPES = [GMAIL_SEND_SCOPE, GMAIL_MODIFY_SCOPE];
+
+export function hasGmailModify(grantedScopes: string | null | undefined): boolean {
+  if (!grantedScopes) return false;
+  return grantedScopes.split(/[\s,]+/).includes(GMAIL_MODIFY_SCOPE);
+}
 
 export function getGmailOAuthClient() {
   const clientId = process.env.GOOGLE_CLIENT_ID;

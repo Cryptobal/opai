@@ -3,6 +3,7 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { Surface, Tag, Spinner } from "@/components/opai-ds";
+import { todayInChile, utcDateFromYmd } from "@/lib/dates-cl";
 
 type Props = {
   dealId: string | null;
@@ -58,7 +59,11 @@ export function LicitacionDrawer({ dealId, onClose, onAgendar }: Props) {
   if (!dealId) return null;
 
   const daysLeft = deal?.fechaEntrega
-    ? Math.round((new Date(deal.fechaEntrega).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86_400_000)
+    ? Math.round(
+        (utcDateFromYmd(String(deal.fechaEntrega).slice(0, 10)).getTime() -
+          utcDateFromYmd(todayInChile()).getTime()) /
+          86_400_000,
+      )
     : null;
 
   async function generateSummary() {

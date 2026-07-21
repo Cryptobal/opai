@@ -5,7 +5,9 @@ import { IntegrationsGmailClient } from "@/components/opai";
 import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { prisma } from "@/lib/prisma";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { readSyncState } from "@/modules/crm/email/gmail-sync-state";
+import { hasGmailModify } from "@/lib/gmail";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plug, Slack, ChevronRight, Server, HardDrive, CalendarDays } from "lucide-react";
 
@@ -31,6 +33,7 @@ export default async function IntegracionesPage() {
           provider: "gmail",
           status: "active",
         },
+        select: { id: true, syncState: true, grantedScopes: true },
       }),
       prisma.slackWorkspace.findUnique({ where: { tenantId }, select: { status: true } }),
       prisma.googleDriveWorkspace.findUnique({ where: { tenantId }, select: { status: true } }),
@@ -40,6 +43,12 @@ export default async function IntegracionesPage() {
       }),
       prisma.mcpApiKey.count({ where: { tenantId, revokedAt: null } }),
     ]);
+  const gmailSyncState = gmailAccount ? readSyncState(gmailAccount.syncState) : null;
+  const gmailThreadCount = gmailAccount
+    ? await prisma.crmEmailThread.count({
+        where: { tenantId, emailAccountId: gmailAccount.id },
+      })
+    : 0;
   const slackConnected = slackWorkspace?.status === "ACTIVE";
   const driveConnected = driveWorkspace?.status === "ACTIVE";
   const calendarConnected = calendarAccount?.status === "ACTIVE";
@@ -52,7 +61,19 @@ export default async function IntegracionesPage() {
       icon={<Plug className="h-[18px] w-[18px]" />}
     >
       <div className="space-y-4">
-        <IntegrationsGmailClient connected={Boolean(gmailAccount)} />
+        <IntegrationsGmailClient
+          connected={Boolean(gmailAccount)}
+          initialSync={
+            gmailAccount
+              ? {
+                  backfillDone: Boolean(gmailSyncState?.backfillDone),
+                  totalThreads: gmailThreadCount,
+                  lastSyncAt: gmailSyncState?.lastSyncAt ?? null,
+                  canModify: hasGmailModify(gmailAccount.grantedScopes),
+                }
+              : null
+          }
+        />
 
         <Link href="/opai/configuracion/integraciones/google-drive" className="block">
           <Card className="transition-colors hover:bg-muted/40">
@@ -63,7 +84,9 @@ export default async function IntegracionesPage() {
                 </div>
                 <div className="min-w-0">
                   <CardTitle>Google Drive</CardTitle>
-                  <CardDescription>Espejo documental de facturas y cotizaciones a Drive.</CardDescription>
+                  <CardDescription>
+                    Espejo documental: cotizaciones, facturas, licitaciones, negocios y personas
+                  </CardDescription>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">

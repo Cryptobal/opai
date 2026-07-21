@@ -108,23 +108,6 @@ export function getTodayChile(): string {
   });
 }
 
-/**
- * Returns a greeting based on the current hour in Chile timezone.
- */
-export function getGreeting(): string {
-  const hour = parseInt(
-    new Date().toLocaleString('en-US', {
-      timeZone: 'America/Santiago',
-      hour: 'numeric',
-      hour12: false,
-    }),
-    10,
-  );
-  if (hour < 12) return 'Buenos días';
-  if (hour < 20) return 'Buenas tardes';
-  return 'Buenas noches';
-}
-
 /* ------------------------------------------------------------------ */
 /* Phone normalization for WhatsApp / tel: links                      */
 /* ------------------------------------------------------------------ */

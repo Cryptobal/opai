@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
+import { todayInChile, utcDateFromYmd, ymdInChile } from "@/lib/dates-cl";
 import type { AgendaListItem, LicitacionListItem } from "./agenda.types";
 
-function daysBetween(from: Date, to: Date): number {
-  const ms = to.setHours(0, 0, 0, 0) - from.setHours(0, 0, 0, 0);
+function daysBetweenYmd(fromYmd: string, toYmd: string): number {
+  const ms = utcDateFromYmd(toYmd).getTime() - utcDateFromYmd(fromYmd).getTime();
   return Math.round(ms / 86_400_000);
 }
 
@@ -40,7 +41,11 @@ export async function listAgenda(
       where: {
         tenantId,
         isLicitacion: true,
-        fechaEntrega: { gte: from, lt: to },
+        // @db.Date: comparar por calendario Chile, no por instante UTC del from client.
+        fechaEntrega: {
+          gte: utcDateFromYmd(ymdInChile(from)),
+          lt: utcDateFromYmd(ymdInChile(to)),
+        },
         status: "open",
       },
       include: {
@@ -105,6 +110,7 @@ export async function listAgenda(
 
   for (const d of deals) {
     if (!d.fechaEntrega) continue;
+    // @db.Date → YYYY-MM-DD estable; noon UTC mantiene el mismo día en Chile.
     const day = d.fechaEntrega.toISOString().slice(0, 10);
     const ownerId = d.account.ownerId ?? "";
     items.push({
@@ -112,8 +118,8 @@ export async function listAgenda(
       source: "licitacion",
       type: "licitacion",
       title: `ENTREGA · ${d.title}`,
-      start: `${day}T00:00:00.000Z`,
-      end: `${day}T23:59:59.999Z`,
+      start: `${day}T12:00:00.000Z`,
+      end: `${day}T12:00:00.000Z`,
       allDay: true,
       assignedUserId: ownerId,
       assignedName: ownerId ? nameMap.get(ownerId) ?? null : null,
@@ -151,10 +157,12 @@ export async function listLicitacionesEnCarpeta(
     select: { id: true, name: true },
   });
   const nameMap = new Map(owners.map((a) => [a.id, a.name]));
-  const today = new Date();
+  const todayYmd = todayInChile();
 
   return deals.map((d) => {
-    const fecha = d.fechaEntrega ?? today;
+    const fechaYmd = d.fechaEntrega
+      ? d.fechaEntrega.toISOString().slice(0, 10)
+      : todayYmd;
     return {
       id: d.id,
       title: d.title,
@@ -162,8 +170,8 @@ export async function listLicitacionesEnCarpeta(
       amount: Number(d.amount),
       ownerId: d.account.ownerId,
       ownerName: d.account.ownerId ? nameMap.get(d.account.ownerId) ?? null : null,
-      fechaEntrega: fecha.toISOString().slice(0, 10),
-      daysLeft: daysBetween(new Date(today), new Date(fecha)),
+      fechaEntrega: fechaYmd,
+      daysLeft: daysBetweenYmd(todayYmd, fechaYmd),
       syncStatus: syncMap.get(d.id) ?? null,
       stageName: d.stage?.name ?? null,
     };

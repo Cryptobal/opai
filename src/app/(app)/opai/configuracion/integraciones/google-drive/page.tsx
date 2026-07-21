@@ -19,7 +19,7 @@ export default async function GoogleDriveIntegrationPage() {
   return (
     <ConfigPageLayout
       title="Google Drive"
-      description="Espejo documental unidireccional OPAI → Drive (cuenta corporativa del tenant)"
+      description="Espejo documental: cotizaciones, facturas, licitaciones, negocios y personas"
       icon={<HardDrive className="h-[18px] w-[18px]" />}
       backHref="/opai/configuracion/integraciones"
       backLabel="Integraciones"

@@ -1,5 +1,6 @@
 "use client";
 
+import { todayInChile, utcDateFromYmd, ymdInChile } from "@/lib/dates-cl";
 import { VisitChip } from "./VisitChip";
 import { LicAllDayChip } from "./LicAllDayChip";
 import { GoogleEventChip } from "./GoogleEventChip";
@@ -14,12 +15,6 @@ type Props = {
   onLicClick?: (item: WeekItem) => void;
 };
 
-function startOfDay(d: Date) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
 /** Columna de un día: header + chips de licitación (all-day) + visitas. */
 export function AgendaDayColumn({
   day,
@@ -29,7 +24,7 @@ export function AgendaDayColumn({
   onVisitClick,
   onLicClick,
 }: Props) {
-  const today = startOfDay(new Date()).getTime();
+  const todayYmd = todayInChile();
   const google = items.filter((i) => i.source === "google");
   const allDay = items.filter((i) => i.allDay && i.source !== "google");
   const timed = items.filter((i) => !i.allDay && i.source !== "google");
@@ -48,12 +43,17 @@ export function AgendaDayColumn({
           isToday ? "text-primary" : "text-ds-text-3"
         }`}
       >
-        {day.toLocaleDateString("es-CL", { weekday: "short", day: "numeric" })}
+        {day.toLocaleDateString("es-CL", {
+          weekday: "short",
+          day: "numeric",
+          timeZone: "America/Santiago",
+        })}
       </button>
       <div className="space-y-1.5">
         {allDay.map((i) => {
+          const itemYmd = ymdInChile(new Date(i.start));
           const daysLeft = Math.round(
-            (startOfDay(new Date(i.start)).getTime() - today) / 86_400_000,
+            (utcDateFromYmd(itemYmd).getTime() - utcDateFromYmd(todayYmd).getTime()) / 86_400_000,
           );
           return (
             <LicAllDayChip
@@ -81,6 +81,7 @@ export function AgendaDayColumn({
             start={i.start}
             allDay={i.allDay}
             htmlLink={i.htmlLink}
+            calendarName={i.calendarName}
           />
         ))}
         {allDay.length === 0 && timed.length === 0 && google.length === 0 && (

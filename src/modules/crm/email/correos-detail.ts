@@ -11,7 +11,16 @@ export async function getCorreoDetail(params: {
   const { tenantId, emailAccountId, threadId } = params;
   const thread = await prisma.crmEmailThread.findFirst({
     where: { id: threadId, tenantId, emailAccountId },
-    select: { id: true, subject: true, accountId: true, dealId: true, leadId: true, providerThreadId: true },
+    select: {
+      id: true,
+      subject: true,
+      accountId: true,
+      dealId: true,
+      leadId: true,
+      providerThreadId: true,
+      isUnread: true,
+      archivedAt: true,
+    },
   });
   if (!thread) return null;
 
@@ -58,6 +67,8 @@ export async function getCorreoDetail(params: {
       dealTitle: deal?.title ?? null,
       leadId: thread.leadId,
       providerThreadId: thread.providerThreadId,
+      isUnread: thread.isUnread,
+      archivedAt: thread.archivedAt?.toISOString() ?? null,
     },
     messages: messages.map((m) => ({ ...m, sentAt: m.sentAt?.toISOString() ?? null })),
     attachments,
