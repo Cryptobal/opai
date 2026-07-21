@@ -82,7 +82,9 @@ export default async function IntegracionesPage() {
                 </div>
                 <div className="min-w-0">
                   <CardTitle>Google Drive</CardTitle>
-                  <CardDescription>Espejo documental de facturas y cotizaciones a Drive.</CardDescription>
+                  <CardDescription>
+                    Espejo documental: cotizaciones, facturas, licitaciones, negocios y personas
+                  </CardDescription>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
