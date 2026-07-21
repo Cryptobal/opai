@@ -76,6 +76,10 @@ export function CorreosClient() {
       setOpenId(t);
       setAutoExtract(sp.get("extract") === "1");
     }
+    // Deep-links: "archived" ya no es pestaña → normalizar a "Todos".
+    const f = sp.get("folder");
+    if (f === "archived") setFolder("all");
+    else if (f === "all" || f === "trash" || f === "inbox") setFolder(f);
   }, []);
 
   useEffect(() => {
