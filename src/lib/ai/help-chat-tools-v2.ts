@@ -854,7 +854,7 @@ function writeToolDefinitions() {
       function: {
         name: "create_deal_checklist",
         description:
-          "Crea VARIAS tareas (checklist) asociadas a un deal de una sola vez. Úsala para transformar los requisitos de unas bases de licitación en una lista de pendientes accionable (ej: 'Garantía de seriedad', 'Certificado OS-10 vigente', 'Balance clasificado'). Máx. 25 ítems por llamada. Requiere dealId (resuélvelo con search_deals si te dan el nombre).",
+          "Crea VARIAS tareas (checklist) asociadas a un deal de una sola vez. Úsala para transformar los requisitos de unas bases de licitación en una lista de pendientes accionable (ej: 'Garantía de seriedad', 'Certificado OS-10 vigente', 'Balance clasificado'). Máx. 25 ítems por llamada. Requiere dealId (resuélvelo con search_deals si te dan el nombre). Si las bases traen fechas/plazos, asigna dueAt (YYYY-MM-DD) al ítem correspondiente; tras crear, ADVIERTE al usuario cuáles fechas ya están vencidas respecto a hoy y cuáles son las más próximas.",
         parameters: {
           type: "object",
           properties: {
@@ -7331,7 +7331,13 @@ async function toolCreateDealChecklist(
         title: it.title,
         status: "open",
         type: "checklist",
-        dueAt: it.dueAt ?? undefined,
+        // Fecha-solo (YYYY-MM-DD) → mediodía UTC para que el día calendario no
+        // se corra en Chile (UTC-4): 00:00Z se mostraba como el día anterior.
+        dueAt: it.dueAt
+          ? /^\d{4}-\d{2}-\d{2}$/.test(it.dueAt)
+            ? new Date(`${it.dueAt}T12:00:00Z`)
+            : new Date(it.dueAt)
+          : undefined,
         assignedTo: userId,
       })),
     });
