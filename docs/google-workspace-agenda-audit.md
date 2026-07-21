@@ -676,3 +676,93 @@ Revisados: `GoogleDriveWorkspace`, `GoogleCalendarAccount`, `DriveFolderCache`,
 3. UX Drive: copy + "Crear estructura ahora"
 4. Ventanas horarias `America/Santiago` + hub móvil limpio
 5. Acciones de bandeja (`gmail.modify`: archivar / papelera / leído)
+
+---
+
+## QA v5 — Verificación de cierre (pulido)
+
+Rama: `feat/gw-v5-pulido` · **NO mergeada**.
+
+### Commits
+
+| Bloque | Mensaje |
+|--------|---------|
+| Hotfix (prereq) | `fix(agenda): @map(sync_status) faltante en AgendaEventLink.syncStatus` |
+| B0 | `chore(gw): auditoría v5 y verificación de drift` |
+| B1 | `feat(agenda): eventos de todos los calendarios visibles del usuario` |
+| B2 | `feat(crm): feedback de progreso del sync gmail en integraciones` |
+| B3 | `feat(drive): copy actualizado y creación manual de estructura inicial` |
+| B4 | `fix(agenda): ventanas horarias en America/Santiago y hub móvil limpio` |
+| B5 | `feat(crm): acciones de bandeja gmail (archivar, papelera, leído) con gmail.modify` |
+
+### Migración aditiva nueva
+
+- `20261022000000_gmail_mailbox_actions` — `granted_scopes` + `archived_at` /
+  `trashed_at` / `is_unread` (IF NOT EXISTS). Aplicar en preview vía flujo del equipo
+  (**no** `migrate deploy` desde el agente).
+
+### Checklist manual (Carlos)
+
+- [ ] **Hotfix P2022:** `/api/agenda` responde 200; agenda + hub muestran visitas/licitaciones.
+- [ ] **Multi-calendario:** eventos del calendario secundario "Gard Security" (y otros
+      visibles/selected) aparecen en `/opai/agenda` y hub; chip muestra nombre si no es primary.
+- [ ] **Hora Santiago:** a las 21:30 CL, licitación con entrega HOY aparece en hub y agenda.
+- [ ] **Gmail sync feedback:** card Integraciones muestra histórico en progreso o "Al día · N hilos";
+      link "Ver bandeja →"; botón sync con "+N nuevos".
+- [ ] **Drive:** copy actualizado; "Crear estructura ahora" crea Opai/Clientes,
+      Negocios/{año}, Licitaciones/{año} + fila en actividad; nota bajo el árbol.
+- [ ] **Hub móvil:** sin saludo/ícono verde sobre título (`HubGreeting` ya eliminado en v3;
+      `getGreeting` muerto borrado de `hub-utils`).
+- [ ] **Bandeja acciones:** reconectar Gmail **una vez** (scope `gmail.modify`).
+      Archivar → sale de INBOX en Gmail; Eliminar → Papelera Gmail; leído/no leído espejado;
+      archive hecho en Gmail se refleja en Opai tras el cron; filtro "Archivados".
+
+### Nota OAuth
+
+Cuentas Gmail conectadas antes de v5 tienen `grantedScopes` null → banner
+"Reconectá Gmail para habilitar archivar y eliminar" hasta re-OAuth.
+
+---
+
+## QA v5 — Verificación de cierre (pulido)
+
+Rama: `feat/gw-v5-pulido` · **NO mergeada**.
+
+### Commits
+
+| Bloque | Mensaje |
+|--------|---------|
+| Hotfix (prereq) | `fix(agenda): @map(sync_status) faltante en AgendaEventLink.syncStatus` |
+| B0 | `chore(gw): auditoría v5 y verificación de drift` |
+| B1 | `feat(agenda): eventos de todos los calendarios visibles del usuario` |
+| B2 | `feat(crm): feedback de progreso del sync gmail en integraciones` |
+| B3 | `feat(drive): copy actualizado y creación manual de estructura inicial` |
+| B4 | `fix(agenda): ventanas horarias en America/Santiago y hub móvil limpio` |
+| B5 | `feat(crm): acciones de bandeja gmail (archivar, papelera, leído) con gmail.modify` |
+
+### Migración aditiva nueva
+
+- `20261022000000_gmail_mailbox_actions` — `granted_scopes` + `archived_at` /
+  `trashed_at` / `is_unread` (IF NOT EXISTS). Aplicar en preview vía flujo del equipo
+  (**no** `migrate deploy` desde el agente).
+
+### Checklist manual (Carlos)
+
+- [ ] **Hotfix P2022:** `/api/agenda` responde 200; agenda + hub muestran visitas/licitaciones.
+- [ ] **Multi-calendario:** eventos del calendario secundario "Gard Security" (y otros
+      visibles/selected) aparecen en `/opai/agenda` y hub; chip muestra nombre si no es primary.
+- [ ] **Hora Santiago:** a las 21:30 CL, licitación con entrega HOY aparece en hub y agenda.
+- [ ] **Gmail sync feedback:** card Integraciones muestra histórico en progreso o "Al día · N hilos";
+      link "Ver bandeja →"; botón sync con "+N nuevos".
+- [ ] **Drive:** copy actualizado; "Crear estructura ahora" crea Opai/Clientes,
+      Negocios/{año}, Licitaciones/{año} + fila en actividad; nota bajo el árbol.
+- [ ] **Hub móvil:** sin saludo/ícono verde sobre título (`HubGreeting` ya eliminado en v3;
+      `getGreeting` muerto borrado de `hub-utils`).
+- [ ] **Bandeja acciones:** reconectar Gmail **una vez** (scope `gmail.modify`).
+      Archivar → sale de INBOX en Gmail; Eliminar → Papelera Gmail; leído/no leído espejado;
+      archive hecho en Gmail se refleja en Opai tras el cron; filtro "Archivados".
+
+### Nota OAuth
+
+Cuentas Gmail conectadas antes de v5 tienen `grantedScopes` null → banner
+"Reconectá Gmail para habilitar archivar y eliminar" hasta re-OAuth.
