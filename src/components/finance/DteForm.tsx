@@ -71,6 +71,18 @@ interface AccountOption {
 interface Props {
   availableTypes: number[];
   accounts: AccountOption[];
+  /**
+   * Override del draftId de la URL. Permite embeber el form en un modal
+   * (ej. desde Programación → Borradores → "Editar completo") sin navegar
+   * a /finanzas/facturacion/emitir.
+   */
+  draftId?: string | null;
+  /** Si se pasa, Cancelar llama esto en vez de router.push. */
+  onCancel?: () => void;
+  /** Si se pasa, tras guardar borrador llama esto en vez de navegar. */
+  onSaved?: () => void;
+  /** Si se pasa, tras emitir llama esto en vez de navegar a DTEs. */
+  onIssued?: () => void;
 }
 
 interface DteLine extends LineDetailValue {
@@ -127,7 +139,14 @@ const fmtCLP = new Intl.NumberFormat("es-CL", {
 
 /* ── Component ── */
 
-export function DteForm({ availableTypes, accounts }: Props) {
+export function DteForm({
+  availableTypes,
+  accounts,
+  draftId: draftIdProp,
+  onCancel,
+  onSaved,
+  onIssued,
+}: Props) {
   const router = useRouter();
 
   const [dteType, setDteType] = useState(String(availableTypes[0] ?? 33));
@@ -293,13 +312,15 @@ export function DteForm({ availableTypes, accounts }: Props) {
     alwaysSend: boolean;
   }>({ emails: [], alwaysSend: false });
 
-  // Identificador del borrador en edición. Si viene en URL, cargamos los
-  // datos del borrador y al guardar usamos PATCH en lugar de POST de creación.
+  // Identificador del borrador en edición. Prop (modal embebido) tiene
+  // prioridad sobre la URL; si viene, cargamos el borrador y al guardar
+  // usamos PATCH en lugar de POST de creación.
   const searchParams = useSearchParams();
-  const draftIdParam = searchParams?.get("draftId") ?? null;
+  const draftIdParam = draftIdProp ?? searchParams?.get("draftId") ?? null;
   const asDraftFlag = searchParams?.get("asDraft") === "true";
   // Pestaña de origen: al guardar un borrador volvemos a donde estaba el usuario
   // (DTEs Emitidos vs Programación) en vez de mandarlo siempre a Programación.
+  // En modo modal (onSaved/onCancel) no se usa: el caller maneja el cierre.
   const fromParam = searchParams?.get("from") ?? null;
   const draftReturnPath =
     fromParam === "dtes"
@@ -985,8 +1006,12 @@ export function DteForm({ availableTypes, accounts }: Props) {
       }
       toast.success("DTE emitido exitosamente");
       setConfirmOpen(false);
-      router.push("/finanzas/facturacion/dtes");
-      router.refresh();
+      if (onIssued) {
+        onIssued();
+      } else {
+        router.push("/finanzas/facturacion/dtes");
+        router.refresh();
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error inesperado");
     } finally {
@@ -1140,8 +1165,12 @@ export function DteForm({ availableTypes, accounts }: Props) {
         throw new Error(err.error || "Error al guardar borrador");
       }
       toast.success(draftIdParam ? "Borrador actualizado" : "Borrador creado");
-      router.push(draftReturnPath);
-      router.refresh();
+      if (onSaved) {
+        onSaved();
+      } else {
+        router.push(draftReturnPath);
+        router.refresh();
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error inesperado");
     } finally {
@@ -1867,7 +1896,10 @@ export function DteForm({ availableTypes, accounts }: Props) {
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
         <Button
           variant="outline"
-          onClick={() => router.push("/finanzas/facturacion")}
+          onClick={() => {
+            if (onCancel) onCancel();
+            else router.push("/finanzas/facturacion");
+          }}
           disabled={saving || previewLoading}
         >
           Cancelar

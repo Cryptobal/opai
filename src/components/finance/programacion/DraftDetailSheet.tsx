@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { formatCalendarDateDisplay } from "@/lib/fx-date";
@@ -39,6 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { fmtCLP } from "@/components/finance/dtes/shared/constants";
 import { DocumentTag } from "@/components/finance/dtes/DocumentTag";
+import { DteEditModal } from "@/components/finance/DteEditModal";
 import { DocStatusIcon, OcReferenceChip } from "./SendStatusIcons";
 import type {
   DraftDetailItem,
@@ -64,13 +64,14 @@ export function DraftDetailSheet({
   canManage,
   onAfterMutation,
 }: Props) {
-  const router = useRouter();
   const [draft, setDraft] = useState<DraftDetailItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState<SendVariant | null>(null);
   const [issuing, setIssuing] = useState(false);
   const [confirmingIssue, setConfirmingIssue] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  /** Editor completo embebido (mismo DteForm que /emitir), sin navegar. */
+  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -178,11 +179,24 @@ export function DraftDetailSheet({
   }
 
   function handleEditFull() {
-    router.push(`/finanzas/facturacion/emitir?draftId=${draftId}&from=programacion`);
+    setEditOpen(true);
   }
 
+  // Mientras el editor completo está abierto ocultamos el sheet (mismo z-50)
+  // pero mantenemos el componente montado para no perder draftId / estado.
+  const sheetOpen = open && !editOpen;
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <>
+    <Sheet
+      open={sheetOpen}
+      onOpenChange={(o) => {
+        // Ignorar cierre programático al abrir el editor; solo propagar
+        // interacciones del usuario sobre el sheet de detalle.
+        if (editOpen) return;
+        onOpenChange(o);
+      }}
+    >
       <SheetContent
         side="bottom"
         className="sm:max-w-2xl sm:mx-auto sm:rounded-t-2xl h-[92dvh] sm:h-[88dvh] flex flex-col p-0 gap-0 overflow-hidden"
@@ -537,6 +551,22 @@ export function DraftDetailSheet({
         )}
       </SheetContent>
     </Sheet>
+
+    <DteEditModal
+      open={editOpen}
+      draftId={draftId}
+      onClose={() => setEditOpen(false)}
+      onSaved={() => {
+        void refreshDetail();
+        onAfterMutation();
+      }}
+      onIssued={() => {
+        // El borrador ya no existe: cerrar detalle y refrescar lista.
+        onOpenChange(false);
+        onAfterMutation();
+      }}
+    />
+    </>
   );
 }
 

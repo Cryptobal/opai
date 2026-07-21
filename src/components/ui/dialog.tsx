@@ -32,13 +32,16 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, onPointerDownOutside, onInteractOutside, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    /** Clase extra para el overlay (ej. z-[60] al apilar sobre un Sheet). */
+    overlayClassName?: string;
+  }
+>(({ className, children, onPointerDownOutside, onInteractOutside, overlayClassName, ...props }, ref) => {
   const keyboardOffset = useKeyboardOffset();
 
   return (
     <DialogPortal>
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         ref={ref}
         onPointerDownOutside={(e) => {
