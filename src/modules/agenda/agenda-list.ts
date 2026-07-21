@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { todayInChile, utcDateFromYmd, ymdInChile } from "@/lib/dates-cl";
+import { expandLicitacionAgendaItems } from "./agenda-list-licitacion";
 import type { AgendaListItem, LicitacionListItem } from "./agenda.types";
 
 function daysBetweenYmd(fromYmd: string, toYmd: string): number {
@@ -41,11 +42,10 @@ export async function listAgenda(
       where: {
         tenantId,
         isLicitacion: true,
-        // @db.Date: comparar por calendario Chile, no por instante UTC del from client.
-        fechaEntrega: {
-          gte: utcDateFromYmd(ymdInChile(from)),
-          lt: utcDateFromYmd(ymdInChile(to)),
-        },
+        // @db.Date: comparar por calendario Chile. Sin cota superior: el rango
+        // "corriendo" (rangeStartYmd → entrega) puede pisar la ventana aunque
+        // la entrega caiga después de `to`.
+        fechaEntrega: { gte: utcDateFromYmd(ymdInChile(from)) },
         status: "open",
       },
       include: {
@@ -54,7 +54,7 @@ export async function listAgenda(
     }),
     prisma.agendaEventLink.findMany({
       where: { tenantId },
-      select: { sourceType: true, sourceId: true, syncStatus: true },
+      select: { sourceType: true, sourceId: true, syncStatus: true, rangeStartYmd: true },
     }),
     prisma.admin.findMany({
       where: { tenantId },
@@ -63,6 +63,11 @@ export async function listAgenda(
   ]);
 
   const syncMap = new Map(links.map((l) => [`${l.sourceType}:${l.sourceId}`, l.syncStatus]));
+  const rangeStartMap = new Map(
+    links
+      .filter((l) => l.sourceType === "licitacion" && l.rangeStartYmd)
+      .map((l) => [l.sourceId, l.rangeStartYmd as string]),
+  );
   const nameMap = new Map(admins.map((a) => [a.id, a.name]));
   const items: AgendaListItem[] = [];
 
@@ -108,28 +113,28 @@ export async function listAgenda(
     });
   }
 
+  const fromYmd = ymdInChile(from);
+  const toYmdExcl = ymdInChile(to);
   for (const d of deals) {
     if (!d.fechaEntrega) continue;
-    // @db.Date → YYYY-MM-DD estable; noon UTC mantiene el mismo día en Chile.
-    const day = d.fechaEntrega.toISOString().slice(0, 10);
-    const ownerId = d.account.ownerId ?? "";
-    items.push({
-      id: d.id,
-      source: "licitacion",
-      type: "licitacion",
-      title: `ENTREGA · ${d.title}`,
-      start: `${day}T12:00:00.000Z`,
-      end: `${day}T12:00:00.000Z`,
-      allDay: true,
-      assignedUserId: ownerId,
-      assignedName: ownerId ? nameMap.get(ownerId) ?? null : null,
-      accountName: d.account.name,
-      installationName: null,
-      address: null,
-      syncStatus: syncMap.get(`licitacion:${d.id}`) ?? null,
-      dealId: d.id,
-      status: d.status,
-    });
+    const ownerId = d.account.ownerId ?? null;
+    items.push(
+      ...expandLicitacionAgendaItems({
+        deal: {
+          id: d.id,
+          title: d.title,
+          status: d.status,
+          fechaEntrega: d.fechaEntrega,
+          accountName: d.account.name,
+          ownerId,
+          ownerName: ownerId ? nameMap.get(ownerId) ?? null : null,
+        },
+        rangeStartYmd: rangeStartMap.get(d.id) ?? ymdInChile(d.updatedAt),
+        fromYmd,
+        toYmdExcl,
+        syncStatus: syncMap.get(`licitacion:${d.id}`) ?? null,
+      }),
+    );
   }
 
   items.sort((a, b) => a.start.localeCompare(b.start));
