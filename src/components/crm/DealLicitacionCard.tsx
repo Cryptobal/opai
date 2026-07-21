@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Tag, Surface } from "@/components/opai-ds";
+import { Switch } from "@/components/ui/switch";
 
 type Props = {
   dealId: string;
@@ -80,22 +81,13 @@ export function DealLicitacionCard({ dealId, isLicitacion, fechaEntrega, onUpdat
       </div>
       <label className="flex items-center justify-between gap-3 text-[13px] text-ds-text-2">
         <span>Marcar como licitación</span>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={enabled}
+        <Switch
+          size="lg"
+          checked={enabled}
           disabled={saving}
-          onClick={onToggle}
-          className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ds-tap ${
-            enabled ? "bg-primary" : "bg-ds-surface-3"
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 h-6 w-6 rounded-full bg-background shadow transition-transform ${
-              enabled ? "translate-x-5" : "translate-x-0.5"
-            }`}
-          />
-        </button>
+          onCheckedChange={() => onToggle()}
+          className="ds-tap"
+        />
       </label>
       {enabled && (
         <div className="space-y-1.5">

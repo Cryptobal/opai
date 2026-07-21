@@ -120,25 +120,35 @@ function AddItemPopover({
   const filtered = items.filter((i) =>
     i.name.toLowerCase().includes(search.toLowerCase())
   );
+  if (items.length === 0) {
+    return (
+      <p className="mt-1.5 text-center text-[12px] text-muted-foreground py-1.5">
+        Todos los ítems de {label} ya están agregados
+      </p>
+    );
+  }
   return (
     <Popover open={open} onOpenChange={(v) => { setOpen(v); if (v) setSearch(""); }}>
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="w-full mt-1.5 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border/60 py-2 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
+          className="w-full mt-1.5 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/30 bg-primary/5 py-2.5 text-[13px] font-medium text-primary hover:border-primary/50 hover:bg-primary/10 transition-colors"
         >
-          <Plus className="h-3 w-3" />
-          Agregar ítem a {label}
+          <Plus className="h-3.5 w-3.5" />
+          Agregar ítem
         </button>
       </PopoverTrigger>
       <PopoverContent className="p-2 w-64" align="start">
+        <p className="px-1 pb-1.5 text-[12px] font-medium text-muted-foreground">
+          Agregar a {label}
+        </p>
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
           <Input
             placeholder="Buscar ítem..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-7 text-xs pl-7"
+            className="h-10 sm:h-8 text-[13px] pl-7"
             autoFocus
           />
         </div>
@@ -148,13 +158,13 @@ function AddItemPopover({
               key={item.id}
               type="button"
               onClick={() => { onSelect(item.id); setOpen(false); }}
-              className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-accent transition-colors"
+              className="w-full text-left px-2 py-2 rounded text-[13px] hover:bg-accent transition-colors"
             >
               + {item.name}
             </button>
           ))}
           {filtered.length === 0 && (
-            <p className="px-2 py-1.5 text-xs text-muted-foreground">Sin resultados</p>
+            <p className="px-2 py-1.5 text-[12px] text-muted-foreground">Sin resultados</p>
           )}
         </div>
       </PopoverContent>
@@ -964,7 +974,7 @@ export function CpqQuoteCosts({
   const renderSimpleItemCard = (
     item: CpqCatalogItem,
     sel: { unitPriceOverride?: number | null; technicalSpecs?: string | null; priceLogic?: string } | undefined,
-    onOverride: (v: number) => void,
+    onOverride: (v: number | null) => void,
     onRemove: () => void,
     onSpecsChange?: (specs: string | null) => void
   ) => {
@@ -1002,14 +1012,22 @@ export function CpqQuoteCosts({
           </span>
         )}
       </div>
-      <Input
-        type="text"
-        inputMode="numeric"
-        placeholder="Precio mensual"
-        value={sel?.unitPriceOverride != null ? fmtN(Number(sel.unitPriceOverride)) : ""}
-        onChange={(e) => onOverride(toNumber(e.target.value))}
-        className={inputClass}
-      />
+      <div className="space-y-1">
+        <label className="text-[12px] text-muted-foreground">
+          Precio / {unitLabel} (vacío = base)
+        </label>
+        <Input
+          type="text"
+          inputMode="numeric"
+          placeholder={fmtN(Number(item.basePrice))}
+          value={sel?.unitPriceOverride != null ? fmtN(Number(sel.unitPriceOverride)) : ""}
+          onChange={(e) => {
+            const raw = e.target.value.trim();
+            onOverride(raw === "" ? null : toNumber(raw));
+          }}
+          className={inputClass}
+        />
+      </div>
       {onSpecsChange && (
         <div className="mt-1.5 space-y-1">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -1043,16 +1061,26 @@ export function CpqQuoteCosts({
         </button>
       </div>
       <div className="text-sm text-muted-foreground mb-1.5">
-        Base: {formatCurrency(Number(item.basePrice))} / {unitLabel}
+        Base catálogo: {formatCurrency(Number(item.basePrice))} / {unitLabel}
       </div>
-      <Input
-        type="text"
-        inputMode="numeric"
-        placeholder="Precio mensual"
-        value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
-        onChange={(e) => upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })}
-        className={inputClass}
-      />
+      <div className="space-y-1">
+        <label className="text-[12px] text-muted-foreground">
+          Precio / {unitLabel} (vacío = base)
+        </label>
+        <Input
+          type="text"
+          inputMode="numeric"
+          placeholder={fmtN(Number(item.basePrice))}
+          value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
+          onChange={(e) => {
+            const raw = e.target.value.trim();
+            upsertCostItem(item, {
+              unitPriceOverride: raw === "" ? null : toNumber(raw),
+            });
+          }}
+          className={inputClass}
+        />
+      </div>
       <div className="mt-1.5 space-y-1">
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Especificaciones técnicas
@@ -1322,6 +1350,16 @@ export function CpqQuoteCosts({
               .filter((item) => meals.find((m) => m.mealType.toLowerCase() === item.name.toLowerCase() && m.isEnabled))
               .map((item) => {
                 const meal = meals.find((m) => m.mealType.toLowerCase() === item.name.toLowerCase());
+                const mealsPerDay = meal?.mealsPerDay ?? 0;
+                const daysOfService = meal?.daysOfService ?? 0;
+                const unitPrice =
+                  meal?.priceOverride != null && meal.priceOverride !== undefined
+                    ? Number(meal.priceOverride)
+                    : Number(item.basePrice);
+                const monthlyTotal = Math.round(
+                  normalizeUnitPrice(unitPrice, item.unit) * mealsPerDay * daysOfService
+                );
+                const unitLabel = item.unit || "comida";
                 return (
                   <div key={item.id} className="p-2.5 rounded-lg bg-card border border-border/50">
                     <div className="flex items-center justify-between mb-1.5">
@@ -1330,11 +1368,62 @@ export function CpqQuoteCosts({
                         <Trash2 className="h-3 w-3" />
                       </button>
                     </div>
-                    <div className="text-sm text-muted-foreground mb-1.5">Base: {formatCurrency(Number(item.basePrice))} / {item.unit || "ud"}</div>
+                    <div className="text-sm text-muted-foreground mb-1.5">
+                      Base catálogo: {formatCurrency(Number(item.basePrice))} / {unitLabel}
+                    </div>
                     <div className="grid grid-cols-2 gap-1.5">
-                      <Input type="text" inputMode="numeric" placeholder="Comidas/día" value={fmtN(meal?.mealsPerDay ?? 0)} onChange={(e) => updateMeal(item.name, { mealsPerDay: toNumber(e.target.value) })} className={inputClass} />
-                      <Input type="text" inputMode="numeric" placeholder="Días/mes" value={fmtN(meal?.daysOfService ?? 0)} onChange={(e) => updateMeal(item.name, { daysOfService: toNumber(e.target.value) })} className={inputClass} />
-                      <Input type="text" inputMode="numeric" placeholder="Precio mensual" value={meal?.priceOverride != null ? fmtN(Number(meal.priceOverride)) : ""} onChange={(e) => updateMeal(item.name, { priceOverride: toNumber(e.target.value) })} className={cn(inputClass, "col-span-2")} />
+                      <div className="space-y-1">
+                        <label className="text-[12px] text-muted-foreground">Comidas / día</label>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="ej. 1"
+                          value={mealsPerDay ? fmtN(mealsPerDay) : ""}
+                          onChange={(e) => updateMeal(item.name, { mealsPerDay: toNumber(e.target.value) })}
+                          className={inputClass}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[12px] text-muted-foreground">Días / mes</label>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="ej. 30"
+                          value={daysOfService ? fmtN(daysOfService) : ""}
+                          onChange={(e) => updateMeal(item.name, { daysOfService: toNumber(e.target.value) })}
+                          className={inputClass}
+                        />
+                      </div>
+                      <div className="space-y-1 col-span-2">
+                        <label className="text-[12px] text-muted-foreground">
+                          Precio / {unitLabel} (vacío = base)
+                        </label>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder={fmtN(Number(item.basePrice))}
+                          value={meal?.priceOverride != null ? fmtN(Number(meal.priceOverride)) : ""}
+                          onChange={(e) => {
+                            const raw = e.target.value.trim();
+                            updateMeal(item.name, {
+                              priceOverride: raw === "" ? null : toNumber(raw),
+                            });
+                          }}
+                          className={inputClass}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-2.5 py-1.5 mt-2 text-[12px]">
+                      <span className="text-muted-foreground min-w-0 break-words">
+                        {formatCurrency(unitPrice)} × {mealsPerDay || 0} × {daysOfService || 0}
+                      </span>
+                      <CpqDualCurrencyAmount
+                        clp={monthlyTotal}
+                        currency={displayCurrency}
+                        ufValue={ufValue}
+                        size="xs"
+                        primaryClassName="text-foreground font-semibold shrink-0"
+                      />
                     </div>
                     <div className="mt-1.5 space-y-1">
                       <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
