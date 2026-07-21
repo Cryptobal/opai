@@ -29,7 +29,9 @@ export async function countCorreoFolders(params: {
 
   const base = { tenantId: params.tenantId, emailAccountId: params.emailAccountId };
   const now = new Date();
-  const notSnoozed = { NOT: { snoozedUntil: { gt: now } } };
+  // OR incluye NULL: `NOT { gt }` dejaría fuera las filas sin snooze (NULL) y
+  // Recibidos contaría 0. Ver folderWhere en correos-list.ts.
+  const notSnoozed = { OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: now } }] };
   const [inbox, inboxUnread, archived, all, trash, snoozed] = await Promise.all([
     prisma.crmEmailThread.count({
       where: { ...base, trashedAt: null, archivedAt: null, spamAt: null, ...notSnoozed },

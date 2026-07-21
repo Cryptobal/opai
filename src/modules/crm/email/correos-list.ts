@@ -16,6 +16,10 @@ export type CorreoListFilter = "inbox" | "archived" | "all" | "trash" | "snoozed
  * Spam excluido de todo menos papelera (que solo mira trashedAt), como Gmail.
  * Recibidos excluye los pospuestos vigentes (`snoozedUntil > now`); Pospuestos
  * es su propia carpeta.
+ *
+ * OJO NULL: se usa `OR: [null, <= now]` en vez de `NOT: { gt }` porque en SQL
+ * `NOT (snoozed_until > now)` es NULL (no TRUE) para filas sin snooze y las
+ * dejaría fuera — vaciando Recibidos por completo.
  */
 function folderWhere(folder: CorreoListFilter) {
   const now = new Date();
@@ -23,7 +27,12 @@ function folderWhere(folder: CorreoListFilter) {
   if (folder === "snoozed") return { trashedAt: null, spamAt: null, snoozedUntil: { gt: now } };
   if (folder === "archived") return { trashedAt: null, spamAt: null, archivedAt: { not: null } };
   if (folder === "all") return { trashedAt: null, spamAt: null };
-  return { trashedAt: null, spamAt: null, archivedAt: null, NOT: { snoozedUntil: { gt: now } } };
+  return {
+    trashedAt: null,
+    spamAt: null,
+    archivedAt: null,
+    OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: now } }],
+  };
 }
 
 /** Lista paginada (cursor por fecha) de hilos de la casilla del usuario. */
