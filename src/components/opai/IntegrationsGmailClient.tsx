@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { GmailAccountsManager } from "./GmailAccountsManager";
 
 export type GmailSyncSummary = {
   backfillDone: boolean;
@@ -118,6 +119,7 @@ export function IntegrationsGmailClient({
             </span>
           </div>
         )}
+        <GmailAccountsManager />
       </CardContent>
     </Card>
   );
