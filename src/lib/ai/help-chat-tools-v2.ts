@@ -7333,11 +7333,8 @@ async function toolCreateDealChecklist(
         type: "checklist",
         // Fecha-solo (YYYY-MM-DD) → mediodía UTC para que el día calendario no
         // se corra en Chile (UTC-4): 00:00Z se mostraba como el día anterior.
-        dueAt: it.dueAt
-          ? /^\d{4}-\d{2}-\d{2}$/.test(it.dueAt)
-            ? new Date(`${it.dueAt}T12:00:00Z`)
-            : new Date(it.dueAt)
-          : undefined,
+        // (dueAt ya viene validado como YYYY-MM-DD | null en el map de arriba.)
+        dueAt: it.dueAt ? new Date(`${it.dueAt}T12:00:00Z`) : undefined,
         assignedTo: userId,
       })),
     });
