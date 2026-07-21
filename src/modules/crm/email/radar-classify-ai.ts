@@ -96,8 +96,13 @@ export async function generateDraftReply(input: {
   fromEmail: string;
   body: string;
   resumen: string;
+  /** Indicaciones del usuario para guiar la respuesta (opcional). */
+  instructions?: string | null;
 }): Promise<string | null> {
-  const prompt = `Redacta un BORRADOR de respuesta breve y profesional en español chileno neutro a este correo entrante de un prospecto de seguridad privada. NO inventes precios ni datos. Estructura: (1) acusar recibo, (2) 1-2 preguntas clave para avanzar, (3) próximo paso claro. Máx 90 palabras. Devuelve SOLO el texto del correo, sin asunto ni firma.
+  const extra = input.instructions?.trim()
+    ? `\nIndicaciones del usuario (tienen prioridad sobre la estructura anterior): ${clampText(input.instructions.trim(), 500)}`
+    : "";
+  const prompt = `Redacta un BORRADOR de respuesta breve y profesional en español chileno neutro a este correo entrante de un prospecto de seguridad privada. NO inventes precios ni datos. Estructura: (1) acusar recibo, (2) 1-2 preguntas clave para avanzar, (3) próximo paso claro. Máx 90 palabras. Devuelve SOLO el texto del correo, sin asunto ni firma.${extra}
 Resumen: ${input.resumen}
 Correo de ${input.fromEmail} (${clampText(input.subject, 160)}):
 ${clampText(input.body, 2000)}`;

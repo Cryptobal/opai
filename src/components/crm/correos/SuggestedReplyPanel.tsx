@@ -21,6 +21,7 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
   const [replyAll, setReplyAll] = useState<ReplyAll | null>(null);
   const [radarItemId, setRadarItemId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [instructions, setInstructions] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<"gen" | "send" | null>(null);
 
@@ -40,7 +41,11 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
   async function suggest() {
     setBusy("gen");
     try {
-      const d = await fetch(`/api/crm/correos/${threadId}/suggest-reply`, { method: "POST" }).then((r) => r.json());
+      const d = await fetch(`/api/crm/correos/${threadId}/suggest-reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instructions: instructions.trim() || undefined }),
+      }).then((r) => r.json());
       if (d.draft) setDraft(d.draft);
     } finally {
       setBusy(null);
@@ -127,6 +132,12 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
         rows={5}
         placeholder="Escribí o generá una respuesta…"
         className="w-full resize-y rounded-lg border border-ds-border-default bg-ds-surface-1 p-2 text-[13px] text-ds-text-1"
+      />
+      <input
+        value={instructions}
+        onChange={(e) => setInstructions(e.target.value)}
+        placeholder="Indicaciones para la IA (opcional): ej. proponé reunión el jueves…"
+        className="h-9 w-full rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1"
       />
       <div className="flex gap-2">
         <button

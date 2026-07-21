@@ -87,7 +87,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   });
 }
 
-export async function POST(_req: NextRequest, { params }: Ctx) {
+export async function POST(req: NextRequest, { params }: Ctx) {
   const mod = await requireTenantModule("crm");
   if (!mod.authorized) return mod.response;
   const ctx = await requireAuth();
@@ -95,6 +95,9 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
   const { threadId } = await params;
   const data = await loadThreadReply(ctx.tenantId, threadId);
   if (!data?.lastInbound) return NextResponse.json({ error: "Sin correo entrante" }, { status: 404 });
+  const payload = (await req.json().catch(() => ({}))) as { instructions?: unknown };
+  const instructions =
+    typeof payload.instructions === "string" ? payload.instructions.slice(0, 1000) : null;
   const body = (data.lastInbound.textBody || stripHtml(data.lastInbound.htmlBody)).trim();
   const draft = await generateDraftReply({
     tenantId: ctx.tenantId,
@@ -102,6 +105,7 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
     fromEmail: data.lastInbound.fromEmail,
     body,
     resumen: "",
+    instructions,
   });
   return NextResponse.json({ draft, to: data.lastInbound.fromEmail });
 }
