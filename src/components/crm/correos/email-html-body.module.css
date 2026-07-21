@@ -1,0 +1,46 @@
+/* Sandbox local: el HTML de terceros no pisa tokens globales. */
+.root {
+  max-width: 42rem;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.55;
+  color: hsl(var(--ds-text-2, var(--foreground)));
+  word-break: break-word;
+}
+
+.root :global(a) {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.root :global(img) {
+  max-width: 100%;
+  height: auto;
+}
+
+.root :global(table) {
+  border-collapse: collapse;
+  max-width: 100%;
+  margin: 0.5rem 0;
+}
+
+.root :global(td),
+.root :global(th) {
+  border: 1px solid hsl(var(--ds-border-subtle, var(--border)));
+  padding: 0.35rem 0.5rem;
+  vertical-align: top;
+}
+
+.root :global(p),
+.root :global(div),
+.root :global(li) {
+  margin: 0.35em 0;
+}
+
+.root :global(blockquote) {
+  margin: 0.5rem 0;
+  padding-left: 0.75rem;
+  border-left: 3px solid hsl(var(--ds-border-default, var(--border)));
+  color: hsl(var(--ds-text-3, var(--muted-foreground)));
+}

@@ -2,12 +2,7 @@
 
 import { useState } from "react";
 import type { CorreoMessageDTO } from "@/modules/crm/email/correos.types";
-
-function bodyText(m: CorreoMessageDTO): string {
-  if (m.textBody?.trim()) return m.textBody.trim();
-  if (m.htmlBody) return m.htmlBody.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  return "(sin contenido)";
-}
+import { EmailHtmlBody } from "./EmailHtmlBody";
 
 function MessageBlock({ m }: { m: CorreoMessageDTO }) {
   return (
@@ -21,7 +16,7 @@ function MessageBlock({ m }: { m: CorreoMessageDTO }) {
           {m.sentAt ? new Date(m.sentAt).toLocaleString("es-CL") : ""}
         </span>
       </div>
-      <p className="whitespace-pre-wrap break-words text-[13px] text-ds-text-2">{bodyText(m)}</p>
+      <EmailHtmlBody htmlBody={m.htmlBody} textBody={m.textBody} />
     </div>
   );
 }
@@ -43,7 +38,9 @@ export function CorreoMessages({ messages }: { messages: CorreoMessageDTO[] }) {
           onClick={() => setShowAll((v) => !v)}
           className="text-[12px] text-primary ds-tap"
         >
-          {showAll ? "Ocultar anteriores" : `Ver ${older.length} mensaje${older.length !== 1 ? "s" : ""} anterior${older.length !== 1 ? "es" : ""}`}
+          {showAll
+            ? "Ocultar anteriores"
+            : `Ver ${older.length} mensaje${older.length !== 1 ? "s" : ""} anterior${older.length !== 1 ? "es" : ""}`}
         </button>
       )}
       {showAll && older.map((m) => <MessageBlock key={m.id} m={m} />)}
