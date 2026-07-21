@@ -13,7 +13,6 @@ import { CorreoRowSwipe } from "./CorreoRowSwipe";
 import { CorreoDrawer } from "./CorreoDrawer";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
 import { CorreosSyncBanner } from "./CorreosSyncBanner";
-import { ResponseKpiChip } from "./ResponseKpiChip";
 import { snoozeThread } from "./correo-thread-action-client";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 
@@ -146,7 +145,6 @@ export function CorreosClient() {
         </div>
       )}
 
-      <div className="flex justify-end"><ResponseKpiChip /></div>
       <CorreosFilters folder={folder} onFolder={setFolder} chip={chip} onChip={setChip}
         counts={counts} query={query} onQuery={setQuery} onSync={syncNow} syncing={syncing} />
 
