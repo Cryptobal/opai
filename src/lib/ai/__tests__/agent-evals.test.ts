@@ -44,7 +44,9 @@ vi.mock("@/lib/ai/help-chat-config", () => ({
     allowedRoles: ["owner"],
     allowDataQuestions: true,
     allowWrites: true,
+    agents: {},
   })),
+  pickAgentInstructionsForPrompt: vi.fn(() => undefined),
 }));
 
 vi.mock("@/lib/ai/help-chat-retrieval", () => ({
