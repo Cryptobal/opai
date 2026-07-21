@@ -17,6 +17,9 @@ type Props = {
   setAiOpen: (v: boolean) => void;
   onAssociate: (p: { accountId: string | null; dealId: string | null }) => void;
   onRefresh: () => void;
+  onClose?: () => void;
+  onReply?: () => void;
+  onSnooze?: () => void;
 };
 
 export function CorreoDrawerContent({
@@ -26,6 +29,9 @@ export function CorreoDrawerContent({
   setAiOpen,
   onAssociate,
   onRefresh,
+  onClose,
+  onReply,
+  onSnooze,
 }: Props) {
   const gmailUrl = detail.thread.providerThreadId
     ? `https://mail.google.com/mail/u/0/#all/${detail.thread.providerThreadId}`
@@ -41,6 +47,9 @@ export function CorreoDrawerContent({
           canModify
           variant="drawer"
           onDone={onRefresh}
+          onClose={onClose}
+          onReply={onReply}
+          onSnooze={onSnooze}
         />
       )}
       <div className="flex flex-wrap items-center gap-2">

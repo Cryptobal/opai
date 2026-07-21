@@ -67,6 +67,8 @@ export function CorreoDrawer({ threadId, onClose, onChanged, autoExtract, canMod
     detail?.messages.find((m) => m.direction !== "out")?.fromEmail ??
     detail?.messages[0]?.fromEmail ??
     "";
+  const scrollToReply = () =>
+    document.getElementById("correo-suggested-reply")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   return (
     <CorreoReaderShell
@@ -82,9 +84,8 @@ export function CorreoDrawer({ threadId, onClose, onChanged, autoExtract, canMod
             archived={Boolean(detail.thread.archivedAt)}
             canModify
             variant="mobile-bar"
-            onReply={() =>
-              document.getElementById("correo-suggested-reply")?.scrollIntoView({ behavior: "smooth", block: "start" })
-            }
+            onReply={scrollToReply}
+            onClose={onClose}
             onDone={refresh}
           />
         ) : null
@@ -102,6 +103,8 @@ export function CorreoDrawer({ threadId, onClose, onChanged, autoExtract, canMod
           setAiOpen={setAiOpen}
           onAssociate={associate}
           onRefresh={refresh}
+          onClose={onClose}
+          onReply={scrollToReply}
         />
       )}
     </CorreoReaderShell>

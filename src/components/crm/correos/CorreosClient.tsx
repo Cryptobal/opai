@@ -9,7 +9,7 @@ import {
   type CorreoChipKey,
   type CorreoFolderTab,
 } from "./CorreosFilters";
-import { CorreoRow } from "./CorreoRow";
+import { CorreoRowSwipe } from "./CorreoRowSwipe";
 import { CorreoDrawer } from "./CorreoDrawer";
 import { CorreosSyncBanner } from "./CorreosSyncBanner";
 import { ResponseKpiChip } from "./ResponseKpiChip";
@@ -115,6 +115,14 @@ export function CorreosClient() {
     }
   }
 
+  /** Remoción optimista tras archivar/eliminar; los counts se corrigen al revalidar. */
+  function removeThreadLocally(id: string) {
+    setItems((prev) => prev.filter((t) => t.id !== id));
+    setCounts((c) =>
+      c ? { ...c, inbox: Math.max(0, c.inbox - 1), all: Math.max(0, c.all - 1) } : c,
+    );
+  }
+
   const filtered = items.filter((t) => matchesChip(t, chip) && matchesQuery(t, query));
 
   return (
@@ -147,8 +155,9 @@ export function CorreosClient() {
       ) : (
         <Surface elevation={1} padding="none" className="overflow-hidden">
           {filtered.map((t) => (
-            <CorreoRow key={t.id} thread={t} canModify={canModify}
+            <CorreoRowSwipe key={t.id} thread={t} canModify={canModify}
               onChanged={() => void fetchPage(null, true)}
+              onRemove={removeThreadLocally}
               onOpen={() => { setOpenId(t.id); setAutoExtract(false); }} />
           ))}
         </Surface>

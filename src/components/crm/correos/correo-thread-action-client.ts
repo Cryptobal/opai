@@ -22,6 +22,7 @@ export async function runCorreoAction(
     await postAction(threadId, action);
     if (undo) {
       toast.success(okMsg, {
+        duration: 5000,
         action: {
           label: "Deshacer",
           onClick: () => void postAction(threadId, undo).then(() => onDone?.()),

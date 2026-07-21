@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Paperclip, Sparkles, TrendingUp, CheckCircle2 } from "lucide-react";
 import { Tag } from "@/components/opai-ds";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
@@ -23,11 +24,14 @@ export function CorreoRow({
   onOpen,
   canModify,
   onChanged,
+  trailing,
 }: {
   thread: CorreoThreadDTO;
   onOpen: () => void;
   canModify: boolean;
   onChanged?: () => void;
+  /** Slot final (kebab móvil). Si viene, reemplaza a las acciones hover. */
+  trailing?: ReactNode;
 }) {
   const unread = thread.isUnread;
   const subject = thread.subject || "(sin asunto)";
@@ -75,15 +79,19 @@ export function CorreoRow({
           )}
         </div>
       </button>
-      <div className="hidden items-center pr-2 md:flex">
-        <CorreoThreadActions
-          threadId={thread.id}
-          isUnread={unread}
-          archived={Boolean(thread.archivedAt)}
-          canModify={canModify}
-          onDone={onChanged}
-        />
-      </div>
+      {trailing ? (
+        <div className="flex items-center pr-1">{trailing}</div>
+      ) : (
+        <div className="hidden items-center pr-2 md:flex">
+          <CorreoThreadActions
+            threadId={thread.id}
+            isUnread={unread}
+            archived={Boolean(thread.archivedAt)}
+            canModify={canModify}
+            onDone={onChanged}
+          />
+        </div>
+      )}
     </div>
   );
 }
