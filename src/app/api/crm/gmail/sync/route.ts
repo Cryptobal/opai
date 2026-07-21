@@ -55,6 +55,11 @@ async function handle(request: NextRequest) {
     where: { tenantId: session.user.tenantId, emailAccountId: emailAccount.id },
   });
 
+  const { invalidateCorreoFolderCounts } = await import(
+    "@/modules/crm/email/correos-folder-counts"
+  );
+  invalidateCorreoFolderCounts(session.user.tenantId, emailAccount.id);
+
   return NextResponse.json({
     success: true,
     count: result.syncedCount,

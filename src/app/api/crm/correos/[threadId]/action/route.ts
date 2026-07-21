@@ -41,7 +41,7 @@ export async function POST(
       provider: "gmail",
       status: "active",
     },
-    select: { grantedScopes: true },
+    select: { id: true, grantedScopes: true },
   });
   if (!hasGmailModify(account?.grantedScopes)) {
     return NextResponse.json(
@@ -58,6 +58,12 @@ export async function POST(
   });
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
+  }
+  if (account) {
+    const { invalidateCorreoFolderCounts } = await import(
+      "@/modules/crm/email/correos-folder-counts"
+    );
+    invalidateCorreoFolderCounts(session.user.tenantId, account.id);
   }
   return NextResponse.json({ ok: true, action: body.action });
 }

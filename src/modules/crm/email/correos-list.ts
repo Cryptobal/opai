@@ -10,7 +10,13 @@ import {
 
 const KEYWORDS = ["cotiz", "licitac", "servicio", "propuesta", "bases", "presupuesto"];
 
-export type CorreoListFilter = "inbox" | "archived";
+export type CorreoListFilter = "inbox" | "archived" | "trash";
+
+function folderWhere(folder: CorreoListFilter) {
+  if (folder === "trash") return { trashedAt: { not: null } };
+  if (folder === "archived") return { trashedAt: null, archivedAt: { not: null } };
+  return { trashedAt: null, archivedAt: null };
+}
 
 /** Lista paginada (cursor por fecha) de hilos de la casilla del usuario. */
 export async function listCorreoThreads(params: {
@@ -29,8 +35,7 @@ export async function listCorreoThreads(params: {
       where: {
         tenantId: params.tenantId,
         emailAccountId: params.emailAccountId,
-        trashedAt: null,
-        ...(folder === "archived" ? { archivedAt: { not: null } } : { archivedAt: null }),
+        ...folderWhere(folder),
         ...(cursorDate && !Number.isNaN(cursorDate.getTime())
           ? { lastMessageAt: { lt: cursorDate } }
           : {}),
@@ -47,6 +52,7 @@ export async function listCorreoThreads(params: {
         providerThreadId: true,
         attachmentCount: true,
         archivedAt: true,
+        trashedAt: true,
         isUnread: true,
         messages: {
           select: { fromEmail: true, textBody: true, htmlBody: true },
@@ -120,6 +126,7 @@ export async function listCorreoThreads(params: {
       possibleLead: !system && !r.accountId && !r.leadId && (r.attachmentCount > 0 || kw),
       isUnread: r.isUnread,
       archivedAt: r.archivedAt?.toISOString() ?? null,
+      trashedAt: r.trashedAt?.toISOString() ?? null,
     };
   });
 

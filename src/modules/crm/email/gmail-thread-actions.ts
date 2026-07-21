@@ -54,7 +54,7 @@ export async function runCorreoThreadAction(params: {
       });
       await prisma.crmEmailThread.update({
         where: { id: thread.id },
-        data: { archivedAt: new Date() },
+        data: { archivedAt: new Date(), trashedAt: null },
       });
       return { ok: true };
     }
@@ -62,11 +62,11 @@ export async function runCorreoThreadAction(params: {
       await gmail.users.threads.modify({
         userId: "me",
         id: tid,
-        requestBody: { addLabelIds: ["INBOX"] },
+        requestBody: { addLabelIds: ["INBOX"], removeLabelIds: ["TRASH"] },
       });
       await prisma.crmEmailThread.update({
         where: { id: thread.id },
-        data: { archivedAt: null },
+        data: { archivedAt: null, trashedAt: null },
       });
       return { ok: true };
     }

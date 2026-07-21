@@ -3,14 +3,17 @@
 import { useEffect, useState } from "react";
 import { Mail } from "lucide-react";
 import { PageHero, Surface, EmptyState, Spinner } from "@/components/opai-ds";
-import { CorreosFilters, type CorreoFilterKey } from "./CorreosFilters";
+import {
+  CorreosFilters,
+  type CorreoChipKey,
+  type CorreoFolderTab,
+} from "./CorreosFilters";
 import { CorreoRow } from "./CorreoRow";
 import { CorreoDrawer } from "./CorreoDrawer";
 import { ResponseKpiChip } from "./ResponseKpiChip";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 
-function matchesFilter(t: CorreoThreadDTO, f: CorreoFilterKey): boolean {
-  if (f === "archivados") return true; // server ya filtró
+function matchesChip(t: CorreoThreadDTO, f: CorreoChipKey): boolean {
   if (f === "con_cuenta") return Boolean(t.accountId);
   if (f === "sin_asociar") return !t.accountId;
   if (f === "con_adjuntos") return t.attachmentCount > 0;
@@ -26,28 +29,33 @@ function matchesQuery(t: CorreoThreadDTO, q: string): boolean {
   );
 }
 
+type Counts = { inbox: number; archived: number; trash: number } | null;
+
 export function CorreosClient() {
   const [items, setItems] = useState<CorreoThreadDTO[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
+  const [counts, setCounts] = useState<Counts>(null);
   const [connected, setConnected] = useState(true);
   const [canModify, setCanModify] = useState(false);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [filter, setFilter] = useState<CorreoFilterKey>("todos");
+  const [folder, setFolder] = useState<CorreoFolderTab>("inbox");
+  const [chip, setChip] = useState<CorreoChipKey>("todos");
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [autoExtract, setAutoExtract] = useState(false);
 
-  async function fetchPage(cur: string | null, reset: boolean, folder?: CorreoFilterKey) {
+  async function fetchPage(cur: string | null, reset: boolean, nextFolder?: CorreoFolderTab) {
     setLoading(true);
     try {
-      const f = folder ?? filter;
+      const f = nextFolder ?? folder;
       const qs = new URLSearchParams();
       if (cur) qs.set("cursor", cur);
-      if (f === "archivados") qs.set("folder", "archived");
+      if (f !== "inbox") qs.set("folder", f);
       const r = await fetch(`/api/crm/correos?${qs}`).then((x) => x.json());
       setConnected(r.connected !== false);
       setCanModify(Boolean(r.canModify));
+      setCounts(r.counts ?? null);
       setItems((prev) => (reset ? r.items ?? [] : [...prev, ...(r.items ?? [])]));
       setCursor(r.nextCursor ?? null);
     } finally {
@@ -67,9 +75,9 @@ export function CorreosClient() {
   }, []);
 
   useEffect(() => {
-    void fetchPage(null, true, filter);
+    void fetchPage(null, true, folder);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  }, [folder]);
 
   async function syncNow() {
     setSyncing(true);
@@ -81,7 +89,7 @@ export function CorreosClient() {
     }
   }
 
-  const filtered = items.filter((t) => matchesFilter(t, filter) && matchesQuery(t, query));
+  const filtered = items.filter((t) => matchesChip(t, chip) && matchesQuery(t, query));
 
   return (
     <div className="ds-page-enter space-y-5">
@@ -103,7 +111,8 @@ export function CorreosClient() {
       )}
 
       <div className="flex justify-end"><ResponseKpiChip /></div>
-      <CorreosFilters filter={filter} onFilter={setFilter} query={query} onQuery={setQuery} onSync={syncNow} syncing={syncing} />
+      <CorreosFilters folder={folder} onFolder={setFolder} chip={chip} onChip={setChip}
+        counts={counts} query={query} onQuery={setQuery} onSync={syncNow} syncing={syncing} />
 
       {!connected ? (
         <EmptyState icon={Mail} title="Conectá tu Gmail" description="Conectá tu casilla en Integraciones." />
@@ -114,13 +123,9 @@ export function CorreosClient() {
       ) : (
         <Surface elevation={1} padding="none" className="overflow-hidden">
           {filtered.map((t) => (
-            <CorreoRow
-              key={t.id}
-              thread={t}
-              canModify={canModify}
+            <CorreoRow key={t.id} thread={t} canModify={canModify}
               onChanged={() => void fetchPage(null, true)}
-              onOpen={() => { setOpenId(t.id); setAutoExtract(false); }}
-            />
+              onOpen={() => { setOpenId(t.id); setAutoExtract(false); }} />
           ))}
         </Surface>
       )}

@@ -3,7 +3,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireTenantModule } from "@/lib/require-module";
-import { listCorreoThreads } from "@/modules/crm/email/correos-list";
+import { listCorreoThreads, type CorreoListFilter } from "@/modules/crm/email/correos-list";
+import { countCorreoFolders } from "@/modules/crm/email/correos-folder-counts";
+
+function parseFolder(raw: string | null): CorreoListFilter {
+  if (raw === "archived" || raw === "trash") return raw;
+  return "inbox";
+}
 
 export async function GET(req: NextRequest) {
   const mod = await requireTenantModule("crm");
@@ -24,18 +30,23 @@ export async function GET(req: NextRequest) {
     select: { id: true, email: true, grantedScopes: true },
   });
   if (!account) {
-    return NextResponse.json({ connected: false, items: [], nextCursor: null });
+    return NextResponse.json({ connected: false, items: [], nextCursor: null, counts: null });
   }
 
-  const folderParam = req.nextUrl.searchParams.get("folder");
-  const folder = folderParam === "archived" ? "archived" : "inbox";
-  const { items, nextCursor } = await listCorreoThreads({
-    tenantId: session.user.tenantId,
-    emailAccountId: account.id,
-    mailboxEmail: account.email,
-    cursor: req.nextUrl.searchParams.get("cursor"),
-    folder,
-  });
+  const folder = parseFolder(req.nextUrl.searchParams.get("folder"));
+  const [{ items, nextCursor }, counts] = await Promise.all([
+    listCorreoThreads({
+      tenantId: session.user.tenantId,
+      emailAccountId: account.id,
+      mailboxEmail: account.email,
+      cursor: req.nextUrl.searchParams.get("cursor"),
+      folder,
+    }),
+    countCorreoFolders({
+      tenantId: session.user.tenantId,
+      emailAccountId: account.id,
+    }),
+  ]);
 
   const { hasGmailModify } = await import("@/lib/gmail");
   return NextResponse.json({
@@ -43,6 +54,7 @@ export async function GET(req: NextRequest) {
     email: account.email,
     items,
     nextCursor,
+    counts,
     canModify: hasGmailModify(account.grantedScopes),
   });
 }
