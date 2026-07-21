@@ -55,7 +55,10 @@ export async function GET(request: NextRequest) {
     const { tokens } = await client.getToken(code);
     client.setCredentials(tokens);
     step = "scope";
+    // Diagnóstico permanente: dejar rastro en logs de qué concedió Google.
+    console.log("[gcal-oauth] scopes recibidos:", tokens.scope ?? "(vacío)");
     if (!grantIncludesScopes(tokens.scope, CALENDAR_SCOPES)) {
+      console.error("[gcal-oauth] missing_scope — grant sin calendar.events");
       return NextResponse.redirect(`${dest}?cal=missing_scope`);
     }
     step = "userinfo";
