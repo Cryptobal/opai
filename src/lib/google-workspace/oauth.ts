@@ -8,17 +8,35 @@ import {
   tokenSecret,
 } from "./env";
 
-export type OAuthState = { tenantId: string; userId: string; ts: number };
+export type OAuthState = {
+  tenantId: string;
+  userId: string;
+  ts: number;
+  /** Path interno seguro (ej. /opai/agenda) para volver tras OAuth. */
+  returnPath?: string;
+};
 
 function signState(payload: string): string {
   return createHmac("sha256", tokenSecret()).update(payload).digest("hex");
 }
 
-export function buildState(input: { tenantId: string; userId: string }): string {
+export function buildState(input: {
+  tenantId: string;
+  userId: string;
+  returnPath?: string;
+}): string {
   const payload = Buffer.from(
     JSON.stringify({ ...input, ts: Date.now() } satisfies OAuthState),
   ).toString("base64url");
   return `${payload}.${signState(payload)}`;
+}
+
+/** Solo paths internos de agenda/config Calendar (anti open-redirect). */
+export function safeCalendarReturnPath(raw: string | null | undefined): string | undefined {
+  if (!raw) return undefined;
+  if (raw === "/opai/agenda" || raw.startsWith("/opai/agenda?")) return raw;
+  if (raw === "/opai/configuracion/integraciones/google-calendar") return raw;
+  return undefined;
 }
 
 export function verifyState(state: string): OAuthState | null {

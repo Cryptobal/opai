@@ -38,20 +38,24 @@ export function CorreoRow({
         className="flex min-w-0 flex-1 flex-col gap-1.5 px-3 py-3 text-left ds-tap hover:bg-ds-surface-2"
       >
         <div className="flex items-center justify-between gap-2">
-          <span
-            className={`truncate text-[13px] text-ds-text-1 ${unread ? "font-semibold" : "font-medium"}`}
-          >
+          <span className="truncate text-[12px] text-ds-text-3">
             {thread.fromEmail || "—"}
           </span>
           <span className="shrink-0 text-[12px] text-ds-text-4">
             {relativeTime(thread.lastMessageAt)}
           </span>
         </div>
-        <p className={`truncate text-[13px] text-ds-text-2 ${unread ? "font-semibold" : ""}`}>
+        <p
+          className={`truncate text-[14px] leading-snug text-ds-text-1 ${
+            unread ? "font-semibold" : "font-medium"
+          }`}
+        >
           {thread.subject || "(sin asunto)"}
         </p>
         {thread.snippet && (
-          <p className="truncate text-[12px] text-ds-text-4">{thread.snippet}</p>
+          <p className="truncate text-[12px] text-ds-text-4" title={thread.snippet}>
+            {thread.snippet}
+          </p>
         )}
         <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
           {thread.accountId ? (

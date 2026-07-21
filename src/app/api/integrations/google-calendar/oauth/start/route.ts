@@ -4,6 +4,7 @@ import {
   buildState,
   getCalendarOAuthClient,
   CALENDAR_SCOPES,
+  safeCalendarReturnPath,
 } from "@/lib/google-workspace";
 
 export async function GET(request: NextRequest) {
@@ -22,9 +23,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const returnPath = safeCalendarReturnPath(
+    new URL(request.url).searchParams.get("return"),
+  );
   const state = buildState({
     tenantId: session.user.tenantId,
     userId: session.user.id,
+    ...(returnPath ? { returnPath } : {}),
   });
   const url = client.generateAuthUrl({
     access_type: "offline",

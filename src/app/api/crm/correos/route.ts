@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
   const { items, nextCursor } = await listCorreoThreads({
     tenantId: session.user.tenantId,
     emailAccountId: account.id,
+    mailboxEmail: account.email,
     cursor: req.nextUrl.searchParams.get("cursor"),
     folder,
   });
