@@ -16,20 +16,35 @@ type CalMeta = { id: string; summary: string; primary: boolean };
 type CalFetch = { items: AgendaListItem[]; scopeError: boolean };
 
 async function listVisibleCalendars(calendar: calendar_v3.Calendar): Promise<CalMeta[]> {
-  const res = await calendar.calendarList.list({
-    fields: "items(id,summary,selected,accessRole,primary)",
-    maxResults: 50,
-  });
-  const readable = new Set(["owner", "writer", "reader"]);
-  const items = (res.data.items ?? []).filter(
-    (c) => c.id && c.selected !== false && (!c.accessRole || readable.has(c.accessRole)),
-  );
-  items.sort((a, b) => Number(!!b.primary) - Number(!!a.primary));
-  return items.slice(0, MAX_CALENDARS).map((c) => ({
-    id: c.id!,
-    summary: c.summary?.trim() || c.id!,
-    primary: !!c.primary,
-  }));
+  const PRIMARY_ONLY: CalMeta[] = [{ id: "primary", summary: "primary", primary: true }];
+  try {
+    const res = await calendar.calendarList.list({
+      fields: "items(id,summary,selected,accessRole,primary)",
+      maxResults: 50,
+    });
+    const readable = new Set(["owner", "writer", "reader"]);
+    const items = (res.data.items ?? []).filter(
+      (c) => c.id && c.selected !== false && (!c.accessRole || readable.has(c.accessRole)),
+    );
+    items.sort((a, b) => Number(!!b.primary) - Number(!!a.primary));
+    const mapped = items.slice(0, MAX_CALENDARS).map((c) => ({
+      id: c.id!,
+      summary: c.summary?.trim() || c.id!,
+      primary: !!c.primary,
+    }));
+    return mapped.length > 0 ? mapped : PRIMARY_ONLY;
+  } catch (err) {
+    // calendar.events NO autoriza calendarList.list (requiere calendar.readonly).
+    // Tokens emitidos solo con calendar.events reventaban aquí y tumbaban TODA
+    // la agenda (banner "Reconectar" eterno). Fallback: leer solo el calendario
+    // principal, que calendar.events sí permite. El multi-calendario se activa
+    // solo cuando el grant incluye calendar.readonly (reconexión futura).
+    if (isInsufficientScopeError(err)) {
+      console.warn("[agenda] calendarList sin scope — fallback a primary");
+      return PRIMARY_ONLY;
+    }
+    throw err;
+  }
 }
 
 async function eventsFromCalendar(

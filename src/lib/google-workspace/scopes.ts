@@ -17,6 +17,10 @@ export const DRIVE_SCOPES = [
 export const CALENDAR_SCOPES = [
   ...IDENTITY_SCOPES,
   "https://www.googleapis.com/auth/calendar.events",
+  // calendarList.list (multi-calendario de la agenda) NO está cubierto por
+  // calendar.events — requiere lectura de calendarios. Sin este scope, los
+  // tokens solo-events caen al fallback primary de google-events.ts.
+  "https://www.googleapis.com/auth/calendar.readonly",
 ] as const;
 
 /**
