@@ -6,6 +6,7 @@ import { Radar, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Surface, Spinner, EmptyState, Tag } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
+import { CorreoDrawer } from "@/components/crm/correos/CorreoDrawer";
 import { RadarComercialRow } from "./RadarComercialRow";
 import type { RadarItemDTO } from "./radar-hub-item";
 
@@ -34,6 +35,9 @@ export function RadarComercialCard() {
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  // Hilo abierto en el lector: permite leer el correo real (solo lectura)
+  // antes de aprobar/descartar la novedad, sin salir del hub.
+  const [readerThreadId, setReaderThreadId] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -91,13 +95,15 @@ export function RadarComercialCard() {
 
   return (
     <Surface elevation={1} padding="md" className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Radar className="h-4 w-4 text-tint-violet-fg" />
+      {/* flex-wrap: en móvil las acciones bajan a su propia línea en vez de
+          cortarse contra el borde derecho ("Ver correos" quedaba clippeado). */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <Radar className="h-4 w-4 shrink-0 text-tint-violet-fg" />
           <p className="font-display text-sm font-semibold text-ds-text-1">Radar Comercial</p>
           {total > 0 && <Tag variant="brand" size="sm">{total}</Tag>}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => void scan()} disabled={scanning}>
             <RefreshCw className={`h-4 w-4 ${scanning ? "animate-spin" : ""}`} />
             <span className="ml-1.5">{scanning ? "Buscando…" : "Buscar novedades"}</span>
@@ -129,10 +135,23 @@ export function RadarComercialCard() {
       ) : (
         <ul className="space-y-1.5">
           {items.map((i) => (
-            <RadarComercialRow key={i.id} item={i} busy={busy === i.id} onResolve={resolve} />
+            <RadarComercialRow
+              key={i.id}
+              item={i}
+              busy={busy === i.id}
+              onResolve={resolve}
+              onOpenThread={setReaderThreadId}
+            />
           ))}
         </ul>
       )}
+
+      {/* Lector solo-lectura del correo asociado a la novedad. */}
+      <CorreoDrawer
+        threadId={readerThreadId}
+        canModify={false}
+        onClose={() => setReaderThreadId(null)}
+      />
     </Surface>
   );
 }
