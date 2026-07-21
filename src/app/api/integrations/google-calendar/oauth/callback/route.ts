@@ -108,6 +108,13 @@ export async function GET(request: NextRequest) {
       headers: { authorization: `Bearer ${process.env.CRON_SECRET ?? ""}` },
     }).catch((err) => console.warn("[gcal-oauth]", "channel-renew", err));
 
+    // Reintentar links PENDING (licitaciones/visitas que esperaban Calendar).
+    void import("@/modules/agenda/agenda-retry-pending")
+      .then(({ retryPendingAgendaLinks }) =>
+        retryPendingAgendaLinks({ tenantId: decoded.tenantId, actorUserId: session.user.id }),
+      )
+      .catch((err) => console.warn("[calendar] retry post-oauth:", err));
+
     return NextResponse.redirect(withCal("connected"));
   } catch (err) {
     console.error("[gcal-oauth]", step, err);

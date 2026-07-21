@@ -1,10 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
-import {
-  buildVisitaEventPayload,
-  buildLicitacionEventPayload,
-  syncEventLink,
-} from "@/lib/google-workspace";
+import { buildVisitaEventPayload, syncEventLink } from "@/lib/google-workspace";
+
+export { syncLicitacionToCalendar } from "./agenda-sync-licitacion";
 
 const TYPE_LABELS: Record<string, string> = {
   cliente: "Cliente",
@@ -134,64 +132,6 @@ export async function syncVisitaTecnicaToCalendar(
       sourceType: "visita_tecnica",
       sourceId: visita.id,
       assignedUserId: visita.userId,
-    },
-    payload,
-  );
-}
-
-export async function syncLicitacionToCalendar(
-  tenantId: string,
-  dealId: string,
-  mode: "upsert" | "delete" = "upsert",
-): Promise<{ syncStatus: string }> {
-  const deal = await prisma.crmDeal.findFirst({
-    where: { id: dealId, tenantId },
-    include: { account: { select: { ownerId: true } } },
-  });
-  if (!deal) return { syncStatus: "ERROR" };
-
-  const assignedUserId = deal.account.ownerId;
-  if (!assignedUserId) {
-    await prisma.agendaEventLink.upsert({
-      where: { sourceType_sourceId: { sourceType: "licitacion", sourceId: dealId } },
-      create: {
-        tenantId,
-        sourceType: "licitacion",
-        sourceId: dealId,
-        allDay: true,
-        syncStatus: "PENDING",
-      },
-      update: { syncStatus: "PENDING", allDay: true },
-    });
-    return { syncStatus: "PENDING" };
-  }
-
-  if (mode === "delete" || !deal.isLicitacion || !deal.fechaEntrega || deal.status !== "open") {
-    return syncEventLink(
-      {
-        tenantId,
-        sourceType: "licitacion",
-        sourceId: dealId,
-        assignedUserId,
-        allDay: true,
-      },
-      null,
-    );
-  }
-
-  const payload = buildLicitacionEventPayload({
-    title: deal.title,
-    fechaEntrega: deal.fechaEntrega,
-    opaiUrl: `${getCanonicalSiteUrl()}/crm/deals/${deal.id}`,
-  });
-
-  return syncEventLink(
-    {
-      tenantId,
-      sourceType: "licitacion",
-      sourceId: dealId,
-      assignedUserId,
-      allDay: true,
     },
     payload,
   );
