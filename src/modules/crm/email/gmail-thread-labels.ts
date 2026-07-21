@@ -68,3 +68,36 @@ export async function applyThreadLabelFlags(params: {
 
   await prisma.crmEmailThread.updateMany({ where, data });
 }
+
+/**
+ * Deriva el estado del hilo desde los `labelIds` ya persistidos en sus
+ * mensajes locales (unión). Si no hay labels (backfill viejo), no toca —
+ * deja que el refresh remoto los pueble.
+ */
+export async function deriveThreadStateFromMessages(
+  tenantId: string,
+  emailAccountId: string,
+  providerThreadId: string,
+): Promise<void> {
+  const messages = await prisma.crmEmailMessage.findMany({
+    where: {
+      tenantId,
+      emailAccountId,
+      thread: { providerThreadId },
+    },
+    select: { labelIds: true },
+  });
+  if (messages.length === 0) return;
+  const all = new Set<string>();
+  for (const m of messages) {
+    for (const l of m.labelIds) all.add(l);
+  }
+  if (all.size === 0) return;
+
+  await applyThreadLabelFlags({
+    tenantId,
+    emailAccountId,
+    providerThreadId,
+    labelIds: Array.from(all),
+  });
+}
