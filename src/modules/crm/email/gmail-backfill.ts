@@ -1,4 +1,5 @@
 import { upsertGmailMessage } from "./gmail-message-upsert";
+import { refreshThreadLabelsBatch } from "./gmail-refresh-threads";
 import type { GmailSyncState, SyncRunArgs, SyncRunResult } from "./gmail-sync-state";
 
 /** INBOX + SENT de los últimos 120 días (excluye spam/trash/chats). */
@@ -9,6 +10,8 @@ const PAGE_SIZE = 100;
  * Backfill histórico paginado. Avanza `backfillPageToken` entre corridas hasta
  * agotar la query → `backfillDone: true` y captura `lastHistoryId` de arranque
  * para el incremental. Respeta budget de mensajes y deadline de tiempo.
+ * Al final refresca el estado de labels de cada hilo tocado (por hilo, no por
+ * mensaje: un SENT individual no debe archivar el hilo).
  */
 export async function runBackfill(args: SyncRunArgs): Promise<SyncRunResult> {
   const { gmail, tenantId, emailAccount, budget, deadline, createdByUserId } = args;
@@ -16,6 +19,7 @@ export async function runBackfill(args: SyncRunArgs): Promise<SyncRunResult> {
   let synced = 0;
   let fetched = 0;
   let backfillDone = false;
+  const touchedThreadIds = new Set<string>();
 
   while (fetched < budget && Date.now() < deadline) {
     const list = await gmail.users.messages.list({
@@ -27,9 +31,9 @@ export async function runBackfill(args: SyncRunArgs): Promise<SyncRunResult> {
     for (const m of list.data.messages ?? []) {
       if (!m.id) continue;
       fetched += 1;
-      if (await upsertGmailMessage({ gmail, tenantId, emailAccount, messageId: m.id, createdByUserId })) {
-        synced += 1;
-      }
+      const res = await upsertGmailMessage({ gmail, tenantId, emailAccount, messageId: m.id, createdByUserId });
+      if (res.wrote) synced += 1;
+      if (res.providerThreadId) touchedThreadIds.add(res.providerThreadId);
       if (fetched >= budget || Date.now() >= deadline) break;
     }
     pageToken = list.data.nextPageToken ?? undefined;
@@ -38,6 +42,14 @@ export async function runBackfill(args: SyncRunArgs): Promise<SyncRunResult> {
       break;
     }
   }
+
+  await refreshThreadLabelsBatch({
+    gmail,
+    tenantId,
+    emailAccountId: emailAccount.id,
+    threadIds: touchedThreadIds,
+    deadline,
+  });
 
   const state: GmailSyncState = {
     ...args.state,

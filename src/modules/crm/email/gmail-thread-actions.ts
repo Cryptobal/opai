@@ -98,7 +98,11 @@ export async function runCorreoThreadAction(params: {
   }
 }
 
-/** Refresca flags locales leyendo el hilo en Gmail. */
+/**
+ * Refresca flags locales leyendo el hilo en Gmail (unión de labels de todos
+ * sus mensajes). Un 404 significa hilo eliminado permanentemente en Gmail →
+ * se marca como papelera local.
+ */
 export async function refreshThreadLabelsFromGmail(params: {
   gmail: gmail_v1.Gmail;
   tenantId: string;
@@ -122,6 +126,20 @@ export async function refreshThreadLabelsFromGmail(params: {
       labelIds: Array.from(all),
     });
   } catch (err) {
-    console.error("[gmail] refreshThreadLabelsFromGmail:", err);
+    const e = err as { code?: number; status?: number; response?: { status?: number } };
+    const status = e?.code ?? e?.status ?? e?.response?.status;
+    if (status === 404) {
+      await prisma.crmEmailThread.updateMany({
+        where: {
+          tenantId: params.tenantId,
+          emailAccountId: params.emailAccountId,
+          providerThreadId: params.providerThreadId,
+          trashedAt: null,
+        },
+        data: { trashedAt: new Date(), archivedAt: null, spamAt: null },
+      });
+      return;
+    }
+    console.warn("[gmail] refreshThreadLabelsFromGmail:", err);
   }
 }
