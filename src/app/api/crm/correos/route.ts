@@ -21,17 +21,27 @@ export async function GET(req: NextRequest) {
       provider: "gmail",
       status: "active",
     },
-    select: { id: true, email: true },
+    select: { id: true, email: true, grantedScopes: true },
   });
   if (!account) {
     return NextResponse.json({ connected: false, items: [], nextCursor: null });
   }
 
+  const folderParam = req.nextUrl.searchParams.get("folder");
+  const folder = folderParam === "archived" ? "archived" : "inbox";
   const { items, nextCursor } = await listCorreoThreads({
     tenantId: session.user.tenantId,
     emailAccountId: account.id,
     cursor: req.nextUrl.searchParams.get("cursor"),
+    folder,
   });
 
-  return NextResponse.json({ connected: true, email: account.email, items, nextCursor });
+  const { hasGmailModify } = await import("@/lib/gmail");
+  return NextResponse.json({
+    connected: true,
+    email: account.email,
+    items,
+    nextCursor,
+    canModify: hasGmailModify(account.grantedScopes),
+  });
 }

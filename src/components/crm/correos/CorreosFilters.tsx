@@ -7,7 +7,8 @@ export type CorreoFilterKey =
   | "con_cuenta"
   | "sin_asociar"
   | "con_adjuntos"
-  | "leads_creados";
+  | "leads_creados"
+  | "archivados";
 
 const CHIPS: { key: CorreoFilterKey; label: string }[] = [
   { key: "todos", label: "Todos" },
@@ -15,6 +16,7 @@ const CHIPS: { key: CorreoFilterKey; label: string }[] = [
   { key: "sin_asociar", label: "Sin asociar" },
   { key: "con_adjuntos", label: "Con adjuntos" },
   { key: "leads_creados", label: "Leads creados" },
+  { key: "archivados", label: "Archivados" },
 ];
 
 type Props = {

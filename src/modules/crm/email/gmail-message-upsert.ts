@@ -6,6 +6,7 @@ import {
   type GmailMessagePart,
 } from "@/lib/gmail-message-content";
 import { upsertLinkedThread } from "./thread-linking";
+import { applyThreadLabelFlags } from "./gmail-thread-labels";
 import type { EmailAccountLite } from "./gmail-sync-state";
 import type { gmail_v1 } from "googleapis";
 
@@ -36,14 +37,31 @@ export async function upsertGmailMessage(params: {
     where: { providerMessageId: messageId, tenantId },
   });
   const shouldBackfill = Boolean(existing) && !existing?.htmlBody && !existing?.textBody;
-  if (existing && !shouldBackfill) return false;
 
-  const full = await gmail.users.messages.get({ userId: "me", id: messageId, format: "full" });
+  const full = await gmail.users.messages.get({
+    userId: "me",
+    id: messageId,
+    format: existing && !shouldBackfill ? "metadata" : "full",
+    metadataHeaders: ["Subject", "From", "To", "Cc", "Bcc", "Date"],
+  });
   const payload = full.data.payload;
   const headers = payload?.headers || [];
   const subject = getHeader(headers, "Subject") || "Sin asunto";
   const labelIds = full.data.labelIds || [];
   const direction = labelIds.includes("SENT") ? "out" : "in";
+  const providerThreadId = full.data.threadId ?? null;
+
+  if (existing && !shouldBackfill) {
+    if (providerThreadId) {
+      await applyThreadLabelFlags({
+        tenantId,
+        emailAccountId: emailAccount.id,
+        providerThreadId,
+        labelIds,
+      });
+    }
+    return false;
+  }
   const fromEmail =
     extractEmailAddresses(getHeader(headers, "From"))[0] ||
     normalizeEmailAddress(emailAccount.email);
@@ -72,6 +90,14 @@ export async function upsertGmailMessage(params: {
 
   if (existing) {
     await prisma.crmEmailMessage.update({ where: { id: existing.id }, data: common });
+    if (providerThreadId) {
+      await applyThreadLabelFlags({
+        tenantId,
+        emailAccountId: emailAccount.id,
+        providerThreadId,
+        labelIds,
+      });
+    }
     return true;
   }
 
@@ -85,7 +111,7 @@ export async function upsertGmailMessage(params: {
     lastMessageAt: sentOrReceivedAt,
     counterpartyEmails,
     emailAccountId: emailAccount.id,
-    providerThreadId: full.data.threadId ?? null,
+    providerThreadId,
   });
 
   await prisma.crmEmailMessage.create({
@@ -98,6 +124,14 @@ export async function upsertGmailMessage(params: {
     },
   });
 
+  if (providerThreadId) {
+    await applyThreadLabelFlags({
+      tenantId,
+      emailAccountId: emailAccount.id,
+      providerThreadId,
+      labelIds,
+    });
+  }
   const attachments = extractGmailAttachments(payload as GmailMessagePart | undefined).length;
   if (attachments > 0) {
     await prisma.crmEmailThread.update({

@@ -84,6 +84,7 @@ export async function GET(request: NextRequest) {
       refreshTokenEncrypted: refreshToken ? encryptText(refreshToken, tokenSecret) : null,
       tokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
       status: "active",
+      grantedScopes: tokens.scope ?? null,
     };
 
     if (existing) {

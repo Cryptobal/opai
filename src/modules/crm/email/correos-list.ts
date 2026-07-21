@@ -3,19 +3,26 @@ import type { CorreoThreadDTO } from "./correos.types";
 
 const KEYWORDS = ["cotiz", "licitac", "servicio", "propuesta", "bases", "presupuesto"];
 
+export type CorreoListFilter = "inbox" | "archived";
+
 /** Lista paginada (cursor por fecha) de hilos de la casilla del usuario. */
 export async function listCorreoThreads(params: {
   tenantId: string;
   emailAccountId: string;
   cursor?: string | null;
   limit?: number;
+  /** inbox = no archivados ni papelera; archived = archivados (sin papelera). */
+  folder?: CorreoListFilter;
 }): Promise<{ items: CorreoThreadDTO[]; nextCursor: string | null }> {
   const limit = Math.min(Math.max(params.limit ?? 30, 1), 100);
   const cursorDate = params.cursor ? new Date(params.cursor) : null;
+  const folder = params.folder ?? "inbox";
   const rows = await prisma.crmEmailThread.findMany({
     where: {
       tenantId: params.tenantId,
       emailAccountId: params.emailAccountId,
+      trashedAt: null,
+      ...(folder === "archived" ? { archivedAt: { not: null } } : { archivedAt: null }),
       ...(cursorDate && !Number.isNaN(cursorDate.getTime())
         ? { lastMessageAt: { lt: cursorDate } }
         : {}),
@@ -31,6 +38,8 @@ export async function listCorreoThreads(params: {
       lastMessageAt: true,
       providerThreadId: true,
       attachmentCount: true,
+      archivedAt: true,
+      isUnread: true,
       messages: { select: { fromEmail: true, textBody: true }, orderBy: { sentAt: "desc" }, take: 1 },
       _count: { select: { messages: true } },
     },
@@ -42,10 +51,16 @@ export async function listCorreoThreads(params: {
   const dealIds = Array.from(new Set(page.map((r) => r.dealId).filter(Boolean) as string[]));
   const [accounts, deals] = await Promise.all([
     accountIds.length
-      ? prisma.crmAccount.findMany({ where: { tenantId: params.tenantId, id: { in: accountIds } }, select: { id: true, name: true } })
+      ? prisma.crmAccount.findMany({
+          where: { tenantId: params.tenantId, id: { in: accountIds } },
+          select: { id: true, name: true },
+        })
       : [],
     dealIds.length
-      ? prisma.crmDeal.findMany({ where: { tenantId: params.tenantId, id: { in: dealIds } }, select: { id: true, title: true } })
+      ? prisma.crmDeal.findMany({
+          where: { tenantId: params.tenantId, id: { in: dealIds } },
+          select: { id: true, title: true },
+        })
       : [],
   ]);
   const accMap = new Map(accounts.map((a) => [a.id, a.name]));
@@ -68,6 +83,8 @@ export async function listCorreoThreads(params: {
       messageCount: r._count.messages,
       providerThreadId: r.providerThreadId,
       possibleLead: !r.accountId && !r.leadId && (r.attachmentCount > 0 || kw),
+      isUnread: r.isUnread,
+      archivedAt: r.archivedAt?.toISOString() ?? null,
     };
   });
 

@@ -2625,6 +2625,8 @@ model CrmEmailAccount {
   status                String    @default("active")
   // Estado de sync incremental: { backfillPageToken?, backfillDone?, lastHistoryId?, lastSyncAt }
   syncState             Json?     @map("sync_state")
+  /// Scopes OAuth concedidos (espacio-separados), p.ej. para detectar gmail.modify.
+  grantedScopes         String?   @map("granted_scopes") @db.Text
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -2647,6 +2649,11 @@ model CrmEmailThread {
   attachmentCount  Int       @default(0) @map("attachment_count")
   subject          String
   lastMessageAt    DateTime? @map("last_message_at") @db.Timestamptz(6)
+
+  // ── Estado espejo Gmail (archivar / papelera / leído) ──
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
+  trashedAt  DateTime? @map("trashed_at") @db.Timestamptz(6)
+  isUnread   Boolean   @default(false) @map("is_unread")
 
   // ── Radar Comercial v4 — clasificación IA del hilo ──
   aiCategory     String?   @map("ai_category") // cotizacion|licitacion|consulta_comercial|facturacion|operacional|otro

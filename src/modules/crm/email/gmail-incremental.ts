@@ -1,4 +1,5 @@
 import { upsertGmailMessage } from "./gmail-message-upsert";
+import { refreshThreadLabelsFromGmail } from "./gmail-thread-actions";
 import type { GmailSyncState, SyncRunArgs, SyncRunResult } from "./gmail-sync-state";
 
 const FALLBACK_QUERY = "newer_than:7d (in:inbox OR in:sent)";
@@ -55,13 +56,14 @@ export async function runIncremental(args: SyncRunArgs): Promise<SyncRunResult> 
 
   try {
     const ids = new Set<string>();
+    const labelThreadIds = new Set<string>();
     let pageToken: string | undefined;
     let newestHistoryId = startHistoryId;
     do {
       const res = await args.gmail.users.history.list({
         userId: "me",
         startHistoryId,
-        historyTypes: ["messageAdded"],
+        historyTypes: ["messageAdded", "labelAdded", "labelRemoved"],
         maxResults: 100,
         pageToken,
       });
@@ -70,11 +72,23 @@ export async function runIncremental(args: SyncRunArgs): Promise<SyncRunResult> 
         for (const ma of h.messagesAdded ?? []) {
           if (ma.message?.id) ids.add(ma.message.id);
         }
+        for (const la of [...(h.labelsAdded ?? []), ...(h.labelsRemoved ?? [])]) {
+          if (la.message?.threadId) labelThreadIds.add(la.message.threadId);
+        }
       }
       pageToken = res.data.nextPageToken ?? undefined;
     } while (pageToken && ids.size < args.budget && Date.now() < args.deadline);
 
     const { synced, fetched } = await processIds(args, Array.from(ids));
+    for (const tid of labelThreadIds) {
+      if (Date.now() >= args.deadline) break;
+      await refreshThreadLabelsFromGmail({
+        gmail: args.gmail,
+        tenantId: args.tenantId,
+        emailAccountId: args.emailAccount.id,
+        providerThreadId: tid,
+      });
+    }
     const state: GmailSyncState = {
       ...args.state,
       lastHistoryId: newestHistoryId,

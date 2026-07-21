@@ -6,6 +6,7 @@ import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { prisma } from "@/lib/prisma";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { readSyncState } from "@/modules/crm/email/gmail-sync-state";
+import { hasGmailModify } from "@/lib/gmail";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plug, Slack, ChevronRight, Server, HardDrive, CalendarDays } from "lucide-react";
@@ -32,7 +33,7 @@ export default async function IntegracionesPage() {
           provider: "gmail",
           status: "active",
         },
-        select: { id: true, syncState: true },
+        select: { id: true, syncState: true, grantedScopes: true },
       }),
       prisma.slackWorkspace.findUnique({ where: { tenantId }, select: { status: true } }),
       prisma.googleDriveWorkspace.findUnique({ where: { tenantId }, select: { status: true } }),
@@ -68,6 +69,7 @@ export default async function IntegracionesPage() {
                   backfillDone: Boolean(gmailSyncState?.backfillDone),
                   totalThreads: gmailThreadCount,
                   lastSyncAt: gmailSyncState?.lastSyncAt ?? null,
+                  canModify: hasGmailModify(gmailAccount.grantedScopes),
                 }
               : null
           }

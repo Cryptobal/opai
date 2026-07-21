@@ -8,16 +8,18 @@ import { CorreoMessages } from "./CorreoMessages";
 import { CorreoAttachments } from "./CorreoAttachments";
 import { LeadFromEmailPanel } from "./LeadFromEmailPanel";
 import { SuggestedReplyPanel } from "./SuggestedReplyPanel";
+import { CorreoThreadActions } from "./CorreoThreadActions";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 
 type Props = {
   threadId: string | null;
   onClose: () => void;
   onChanged?: () => void;
-  autoExtract?: boolean; // deep-link ?extract=1: abre el panel de extracción con IA
+  autoExtract?: boolean;
+  canModify?: boolean;
 };
 
-export function CorreoDrawer({ threadId, onClose, onChanged, autoExtract }: Props) {
+export function CorreoDrawer({ threadId, onClose, onChanged, autoExtract, canModify }: Props) {
   const [detail, setDetail] = useState<CorreoDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -76,6 +78,19 @@ export function CorreoDrawer({ threadId, onClose, onChanged, autoExtract }: Prop
             Cerrar
           </button>
         </div>
+        {detail && canModify && (
+          <CorreoThreadActions
+            threadId={detail.thread.id}
+            isUnread={detail.thread.isUnread}
+            archived={Boolean(detail.thread.archivedAt)}
+            canModify
+            variant="drawer"
+            onDone={() => {
+              void load();
+              onChanged?.();
+            }}
+          />
+        )}
 
         {loading && !detail ? (
           <Spinner className="mx-auto" />

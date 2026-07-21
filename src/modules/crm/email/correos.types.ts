@@ -13,6 +13,8 @@ export type CorreoThreadDTO = {
   messageCount: number;
   providerThreadId: string | null;
   possibleLead: boolean;
+  isUnread: boolean;
+  archivedAt: string | null;
 };
 
 export type CorreoMessageDTO = {
@@ -44,6 +46,8 @@ export type CorreoDetail = {
     dealTitle: string | null;
     leadId: string | null;
     providerThreadId: string | null;
+    isUnread: boolean;
+    archivedAt: string | null;
   };
   messages: CorreoMessageDTO[];
   attachments: CorreoAttachmentDTO[];

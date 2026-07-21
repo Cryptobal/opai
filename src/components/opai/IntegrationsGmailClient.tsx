@@ -12,6 +12,7 @@ export type GmailSyncSummary = {
   backfillDone: boolean;
   totalThreads: number;
   lastSyncAt: string | null;
+  canModify?: boolean;
 };
 
 function minutesAgo(iso: string | null): number | null {
@@ -84,6 +85,14 @@ export function IntegrationsGmailClient({
                 ? statusLabel(sync)
                 : "Tu cuenta Gmail está conectada. El histórico avanza solo vía cron."}
             </p>
+            {sync && sync.canModify === false && (
+              <p className="rounded-lg border border-status-warn-border bg-status-warn-soft px-2.5 py-2 text-[13px] text-status-warn-fg">
+                Reconectá Gmail para habilitar archivar y eliminar{" "}
+                <a href="/api/crm/gmail/connect" className="font-medium underline underline-offset-2">
+                  Reconectar
+                </a>
+              </p>
+            )}
             {passResult && <p className="text-[13px] text-status-ok-fg">{passResult}</p>}
             {error && <p className="text-[13px] text-status-danger-fg">{error}</p>}
             <div className="flex flex-wrap items-center gap-2">
