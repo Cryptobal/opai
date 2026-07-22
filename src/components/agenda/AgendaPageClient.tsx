@@ -5,14 +5,15 @@ import { useSearchParams } from "next/navigation";
 import { CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { PageHero, Surface, EmptyState, Spinner } from "@/components/opai-ds";
-import { addDaysChile, startOfDayChile } from "@/lib/dates-cl";
+import { addDaysChile, startOfDayChile, utcDateFromYmd, ymdInChile } from "@/lib/dates-cl";
 import { AgendaWeekStrip, type WeekItem } from "./AgendaWeekStrip";
 import { LicitacionesList, type LicRow } from "./LicitacionesList";
 import { VisitList } from "./VisitList";
-import { AgendaFilters, type TypeFilter } from "./AgendaFilters";
+import { AgendaFilters, type AgendaView, type TypeFilter } from "./AgendaFilters";
 import { NuevaVisitaModal } from "./NuevaVisitaModal";
 import { VisitDrawer } from "./VisitDrawer";
 import { LicitacionDrawer } from "./LicitacionDrawer";
+import { TaskDrawer } from "./TaskDrawer";
 
 const CAL_RECONNECT_HREF =
   "/api/integrations/google-calendar/oauth/start?return=/opai/agenda";
@@ -26,10 +27,12 @@ export function AgendaPageClient() {
   const [googleStatus, setGoogleStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("todos");
+  const [view, setView] = useState<AgendaView>("todo");
   const [assignedUserId, setAssignedUserId] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [visitaId, setVisitaId] = useState<string | null>(null);
   const [licId, setLicId] = useState<string | null>(null);
+  const [taskItem, setTaskItem] = useState<WeekItem | null>(null);
 
   const ctx = useMemo(
     () => ({
@@ -79,10 +82,40 @@ export function AgendaPageClient() {
   }, [search, load]);
 
   const filtered = items.filter((i) => {
-    if (typeFilter !== "todos" && i.type !== typeFilter) return false;
+    const isTask = i.source === "tarea";
+    if (view === "tareas" && !isTask) return false;
+    if (view === "reuniones" && isTask) return false;
+    // Los chips de tipo aplican solo a reuniones/visitas, no a tareas.
+    if (!isTask && typeFilter !== "todos" && i.type !== typeFilter) return false;
     if (assignedUserId && i.assignedUserId !== assignedUserId) return false;
     return true;
   });
+
+  /** Drop de una tarea sobre otra columna: conserva la hora, cambia el día. */
+  const onTaskDrop = useCallback(
+    async (taskId: string, day: Date) => {
+      const t = items.find((i) => i.source === "tarea" && i.id === taskId);
+      if (!t) return;
+      const due = new Date(t.start);
+      const diffDays = Math.round(
+        (utcDateFromYmd(ymdInChile(day)).getTime() - utcDateFromYmd(ymdInChile(due)).getTime()) / 86_400_000,
+      );
+      if (diffDays === 0) return;
+      const next = new Date(due.getTime() + diffDays * 86_400_000);
+      const r = await fetch(`/api/crm/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dueAt: next.toISOString(), allDay: t.allDay }),
+      }).catch(() => null);
+      if (r?.ok) {
+        toast.success("Tarea movida");
+        void load();
+      } else {
+        toast.error("No se pudo mover la tarea");
+      }
+    },
+    [items, load],
+  );
 
   const weekLabel = weekStart.toLocaleDateString("es-CL", {
     day: "numeric",
@@ -113,6 +146,8 @@ export function AgendaPageClient() {
       />
 
       <AgendaFilters
+        view={view}
+        onViewChange={setView}
         typeFilter={typeFilter}
         onTypeChange={setTypeFilter}
         assignedUserId={assignedUserId}
@@ -145,14 +180,16 @@ export function AgendaPageClient() {
 
       {loading ? (
         <Spinner className="mx-auto" />
-      ) : filtered.length === 0 ? (
+      ) : items.length === 0 ? (
         <EmptyState
           icon={CalendarDays}
-          title="Sin visitas esta semana — agenda la primera"
-          description="Creá una visita a cliente, supervisión u otra desde el botón Nueva visita."
+          title="Semana libre — agenda una visita o tarea"
+          description="Creá una visita desde acá, o una tarea desde un correo o negocio."
           action={nuevaVisitaBtn}
         />
       ) : (
+        // La grilla siempre visible aunque un filtro deje la semana vacía
+        // (el calendario no desaparece, como en Notion Calendar).
         <AgendaWeekStrip
           weekStart={weekStart}
           items={filtered}
@@ -160,6 +197,8 @@ export function AgendaPageClient() {
             if (i.source === "agenda_visita") setVisitaId(i.id);
           }}
           onLicClick={(i) => setLicId(i.dealId || i.id)}
+          onTaskClick={setTaskItem}
+          onTaskDrop={(id, day) => void onTaskDrop(id, day)}
         />
       )}
 
@@ -200,6 +239,7 @@ export function AgendaPageClient() {
           setModalOpen(true);
         }}
       />
+      <TaskDrawer task={taskItem} onClose={() => setTaskItem(null)} onChanged={() => void load()} />
     </div>
   );
 }

@@ -14,6 +14,9 @@ type Props = {
   onHeaderClick?: () => void;
   onVisitClick?: (item: WeekItem) => void;
   onLicClick?: (item: WeekItem) => void;
+  onTaskClick?: (item: WeekItem) => void;
+  /** Drop de una tarea arrastrada sobre este día (desktop). */
+  onTaskDrop?: (taskId: string, day: Date) => void;
 };
 
 /** Columna de un día: header + chips de licitación (all-day) + visitas. */
@@ -24,6 +27,8 @@ export function AgendaDayColumn({
   onHeaderClick,
   onVisitClick,
   onLicClick,
+  onTaskClick,
+  onTaskDrop,
 }: Props) {
   const todayYmd = todayInChile();
   const tareas = items.filter((i) => i.source === "tarea");
@@ -33,6 +38,16 @@ export function AgendaDayColumn({
 
   return (
     <div
+      onDragOver={(e) => {
+        if (onTaskDrop && e.dataTransfer.types.includes("application/x-opai-task")) e.preventDefault();
+      }}
+      onDrop={(e) => {
+        const id = e.dataTransfer.getData("application/x-opai-task");
+        if (id && onTaskDrop) {
+          e.preventDefault();
+          onTaskDrop(id, day);
+        }
+      }}
       className={`min-h-[120px] rounded-xl border p-2 ${
         isToday ? "border-primary bg-primary/5" : "border-ds-border-subtle bg-ds-surface-1"
       }`}
@@ -87,7 +102,14 @@ export function AgendaDayColumn({
           />
         ))}
         {tareas.map((i) => (
-          <TaskChip key={`tarea-${i.id}`} title={i.title} start={i.start} allDay={i.allDay} href={i.href ?? null} />
+          <TaskChip
+            key={`tarea-${i.id}`}
+            id={i.id}
+            title={i.title}
+            start={i.start}
+            allDay={i.allDay}
+            onClick={() => onTaskClick?.(i)}
+          />
         ))}
         {allDay.length === 0 && timed.length === 0 && google.length === 0 && tareas.length === 0 && (
           <p className="text-[12px] text-ds-text-4">—</p>

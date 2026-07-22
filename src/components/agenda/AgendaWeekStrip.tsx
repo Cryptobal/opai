@@ -25,6 +25,8 @@ type Props = {
   days?: number;
   onVisitClick?: (item: WeekItem) => void;
   onLicClick?: (item: WeekItem) => void;
+  onTaskClick?: (item: WeekItem) => void;
+  onTaskDrop?: (taskId: string, day: Date) => void;
 };
 
 export function AgendaWeekStrip({
@@ -34,6 +36,8 @@ export function AgendaWeekStrip({
   days = 7,
   onVisitClick,
   onLicClick,
+  onTaskClick,
+  onTaskDrop,
 }: Props) {
   const todayKey = todayInChile();
   const cols = Array.from({ length: days }, (_, i) =>
@@ -57,6 +61,8 @@ export function AgendaWeekStrip({
             isToday={key === todayKey}
             onVisitClick={onVisitClick}
             onLicClick={onLicClick}
+            onTaskClick={onTaskClick}
+            onTaskDrop={onTaskDrop}
           />
         );
       })}
