@@ -197,8 +197,19 @@ export async function PATCH(
     }
 
     if ("serviceStartDate" in raw) {
-      const { renderStartCanvasForDeal } = await import("@/lib/integrations/slack/deal-rooms/start-canvas");
-      await renderStartCanvasForDeal(ctx.tenantId, id).catch(() => {});
+      // Mantener alineadas la ficha CRM, el onboarding y el canvas Slack.
+      // El update principal ya persistió el deal; este helper sincroniza las
+      // superficies dependientes y evita que onboarding conserve la fecha vieja.
+      const { updateDealStartDate } = await import(
+        "@/lib/crm/update-deal-start-date"
+      );
+      const value = raw.serviceStartDate as string | null | undefined;
+      await updateDealStartDate({
+        tenantId: ctx.tenantId,
+        userId: ctx.userId,
+        dealId: id,
+        serviceStartDate: value || null,
+      });
     }
 
     return NextResponse.json({ success: true, data: deal });
