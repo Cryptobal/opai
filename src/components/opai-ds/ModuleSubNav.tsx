@@ -91,15 +91,16 @@ export function ModuleSubNav({
 }: ModuleSubNavProps) {
   const pathname = usePathname() ?? "/";
   const permissions = usePermissions();
-  const { isModuleEnabled } = useTenantModules();
+  const { isModuleEnabled, hasFeatureFlag } = useTenantModules();
 
   const ctx: VisibilityContext = useMemo(
     () => ({
       perms: permissions,
       isAdmin: false, // sub-nav doesn't need admin checks
       isModuleEnabled,
+      hasTenantFlag: hasFeatureFlag,
     }),
-    [permissions, isModuleEnabled],
+    [permissions, isModuleEnabled, hasFeatureFlag],
   );
 
   // Determine N3 parent: explicit moduleKey wins, else auto-detect from path

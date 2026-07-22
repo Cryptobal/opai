@@ -15,7 +15,7 @@ type SyncAction = "created" | "updated" | "deactivated" | "reactivated" | "noop"
  */
 const WORKER_DEDUCTION_FALLBACK = 0.17;
 
-interface PayrollAmounts {
+export interface PayrollAmounts {
   /** Líquido total mensual a guardias (lo que se transfiere fin de mes). */
   liquido: number;
   /** Pago a PreviRed (imposiciones trab + aportes empleador). */
@@ -25,7 +25,9 @@ interface PayrollAmounts {
   name: string | null;
 }
 
-async function computeMonthlyPayrollForInstallation(
+// Exportada: el derivador de egresos del Flujo v3 la reutiliza en LECTURA
+// (deriva hitos mensuales sin materializar items).
+export async function computeMonthlyPayrollForInstallation(
   tenantId: string,
   installationId: string,
 ): Promise<PayrollAmounts | null> {

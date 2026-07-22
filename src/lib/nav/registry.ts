@@ -190,6 +190,9 @@ export interface VisibilityContext {
   isModuleEnabled: (mod: string) => boolean;
   /** True when the user role matches owner/admin/rrhh — used by compliance module. */
   isComplianceVisible?: boolean;
+  /** Feature flags finos del tenant (TenantModule.config JSONB). Opcional:
+   *  las superficies que no lo proveen se comportan como flag OFF. */
+  hasTenantFlag?: (flag: string) => boolean;
 }
 
 export function isNodeVisible(node: NavVisibility, ctx: VisibilityContext): boolean {
@@ -387,6 +390,19 @@ export const NAV_MODULES: NavNode[] = [
         // redirige a /flujo-caja como landing; ver bancos/page.tsx).
         activePaths: ["/finanzas/flujo-caja", "/finanzas/conciliacion"],
         children: [
+          // Flujo de Caja: entrada única que cambia de destino con el flag
+          // cashflowPlanillaV3 (Modo Planilla v3). Flag ON → planilla; OFF →
+          // módulo actual. El módulo viejo sigue accesible por ruta directa
+          // con banner "versión anterior" (ver flujo-caja/page.tsx).
+          {
+            key: "banca-flujo-planilla",
+            href: "/finanzas/flujo-caja/planilla",
+            label: "Flujo de Caja",
+            shortLabel: "Flujo",
+            icon: TrendingUp,
+            capability: "cashflow_view",
+            show: (_perms, ctx) => ctx?.hasTenantFlag?.("cashflowPlanillaV3") === true,
+          },
           {
             key: "banca-flujo-caja",
             href: "/finanzas/flujo-caja",
@@ -394,6 +410,7 @@ export const NAV_MODULES: NavNode[] = [
             shortLabel: "Flujo",
             icon: TrendingUp,
             capability: "cashflow_view",
+            show: (_perms, ctx) => ctx?.hasTenantFlag?.("cashflowPlanillaV3") !== true,
           },
           {
             key: "banca-conciliacion",

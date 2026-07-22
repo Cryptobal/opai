@@ -69,6 +69,7 @@ export function getBottomNavItems(
   roleOrPerms: string | RolePermissions,
   enabledModules?: Set<string>,
   isAdmin = false,
+  featureFlags?: Set<string>,
 ): BottomNavItem[] {
   const perms: RolePermissions =
     typeof roleOrPerms === "string"
@@ -79,6 +80,7 @@ export function getBottomNavItems(
     perms,
     isAdmin, // el caller (BottomNav) deriva isAdmin del rol efectivo simulado
     isModuleEnabled: (mod: string) => !enabledModules || enabledModules.has(mod),
+    hasTenantFlag: (flag: string) => featureFlags?.has(flag) === true,
   };
 
   const candidates = getContextualBottomNavNodes(pathname);

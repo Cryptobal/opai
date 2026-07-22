@@ -10,6 +10,8 @@ import { buildProjection } from "@/modules/finance/cashflow/projection.service";
 import { listRecentCloses } from "@/modules/finance/cashflow/weekly-close.service";
 import { ensureCashflowSynced } from "@/modules/finance/cashflow/auto-sync";
 import { addWeeks, subWeeks } from "date-fns";
+import Link from "next/link";
+import { isTenantFeatureFlagEnabled } from "@/lib/tenant-modules";
 import { CashflowGrid } from "@/components/finance/cashflow/v2/CashflowGrid";
 
 // Semanas del primer render en el server. Total = 8 (BACK + hoy + FORWARD).
@@ -77,12 +79,30 @@ export default async function FlujoCajaPage({
   });
   const recentCloses = await listRecentCloses(tenantId, 6);
 
+  // Flag Modo Planilla v3: cuando está ON, la nav apunta a /planilla y esta
+  // ruta directa queda como "versión anterior" con banner (el módulo viejo
+  // sigue intacto y funcional; su retiro es un PR posterior).
+  const planillaV3 = await isTenantFeatureFlagEnabled(tenantId, "cashflowPlanillaV3");
+
   // Grilla densa (planilla) como vista por defecto. Reemplaza a CashflowV2Shell
   // y a la ruta legacy `?v=1` (CashflowTabs/WeeklyMatrix/MonthlyMatrix), ambas
   // retiradas. La proyección se serializa a JSON (fechas → ISO string; la
   // grilla las consume con toDate()).
   return (
     <div className="space-y-4 min-w-0">
+      {planillaV3 && (
+        <div className="flex items-center justify-between gap-2 rounded-md border border-status-warn-border bg-status-warn-soft px-3 py-1.5 text-xs text-status-warn-fg">
+          <span>
+            Estás viendo la <strong>versión anterior</strong> del Flujo de Caja.
+          </span>
+          <Link
+            href="/finanzas/flujo-caja/planilla"
+            className="shrink-0 font-medium text-primary underline-offset-2 hover:underline"
+          >
+            Ir al Modo Planilla →
+          </Link>
+        </div>
+      )}
       <CashflowGrid
         projection={JSON.parse(JSON.stringify(projection))}
         canManage={canManage}

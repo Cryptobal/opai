@@ -177,11 +177,29 @@ describe("nav registry", () => {
 
     it("finance-banca tiene N3 (flujo-caja / conciliación / cuentas)", () => {
       const childKeys = (banca.children ?? []).map((c) => c.key);
+      // banca-flujo-planilla y banca-flujo-caja son gemelos excluyentes por el
+      // flag cashflowPlanillaV3 (v3): solo uno es visible a la vez.
       expect(childKeys).toEqual([
+        "banca-flujo-planilla",
         "banca-flujo-caja",
         "banca-conciliacion",
         "banca-cuentas",
       ]);
+    });
+
+    it("los gemelos de Flujo de Caja se excluyen mutuamente por flag", () => {
+      const planilla = banca.children!.find((c) => c.key === "banca-flujo-planilla")!;
+      const viejo = banca.children!.find((c) => c.key === "banca-flujo-caja")!;
+      const permsAny = {} as never;
+      const off = { hasTenantFlag: () => false } as never;
+      const on = { hasTenantFlag: (f: string) => f === "cashflowPlanillaV3" } as never;
+      expect(planilla.show!(permsAny, off)).toBe(false);
+      expect(viejo.show!(permsAny, off)).toBe(true);
+      expect(planilla.show!(permsAny, on)).toBe(true);
+      expect(viejo.show!(permsAny, on)).toBe(false);
+      // Sin ctx (superficies sin flag): comportamiento actual.
+      expect(planilla.show!(permsAny, undefined)).toBe(false);
+      expect(viejo.show!(permsAny, undefined)).toBe(true);
     });
 
     it("findActiveModule resuelve finance para /finanzas/flujo-caja", () => {

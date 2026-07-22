@@ -6,6 +6,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 // ── Definición de módulos y planes ──
 
@@ -146,4 +147,41 @@ export async function getTenantModulesList(
 ): Promise<string[]> {
   const modules = await getTenantEnabledModules(tenantId);
   return Array.from(modules);
+}
+
+// ── Feature flags finos por tenant (TenantModule.config JSONB) ──
+// Un flag es una key con valor truthy dentro del `config` de cualquier fila
+// TenantModule del tenant (ej. module="finanzas", config={cashflowPlanillaV3:true}).
+// Mecanismo aditivo: cero migración, se administra con un UPDATE al JSONB.
+
+const flagCache = new Map<string, { flags: Set<string>; ts: number }>();
+
+export async function getTenantFeatureFlags(tenantId: string): Promise<Set<string>> {
+  const cached = flagCache.get(tenantId);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.flags;
+
+  const rows = await prisma.tenantModule.findMany({
+    where: { tenantId, enabled: true, config: { not: Prisma.DbNull } },
+    select: { config: true },
+  });
+  const flags = new Set<string>();
+  for (const r of rows) {
+    const cfg = r.config as Record<string, unknown> | null;
+    if (!cfg || typeof cfg !== "object") continue;
+    for (const [k, v] of Object.entries(cfg)) if (v === true) flags.add(k);
+  }
+  flagCache.set(tenantId, { flags, ts: Date.now() });
+  return flags;
+}
+
+export async function getTenantFeatureFlagsList(tenantId: string): Promise<string[]> {
+  return Array.from(await getTenantFeatureFlags(tenantId));
+}
+
+export async function isTenantFeatureFlagEnabled(
+  tenantId: string,
+  flag: string,
+): Promise<boolean> {
+  const flags = await getTenantFeatureFlags(tenantId);
+  return flags.has(flag);
 }

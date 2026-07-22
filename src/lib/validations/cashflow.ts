@@ -38,6 +38,11 @@ export const updateCashflowConfigSchema = z.object({
   writeOffMaxPercent: z.number().min(0).max(0.1).optional(),
   writeOffShortPaymentAccountId: z.string().uuid().nullable().optional(),
   writeOffOverPaymentAccountId: z.string().uuid().nullable().optional(),
+  // ── Flujo v3 (Modo Planilla) ──
+  // Días de cobro/pago estimado cuando el documento no trae vencimiento.
+  collectionLagDays: z.number().int().min(0).max(180).optional(),
+  // Umbral CLP del semáforo del saldo (ámbar bajo este valor).
+  flowWarnThresholdClp: z.number().int().min(0).max(1_000_000_000).optional(),
 });
 
 export const createCashflowCategorySchema = z.object({

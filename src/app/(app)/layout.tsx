@@ -6,7 +6,7 @@ import { AppLayoutClient } from '@/components/opai/AppLayoutClient';
 import { resolvePermissions } from '@/lib/permissions-server';
 import { PermissionsProvider } from '@/lib/permissions-context';
 import { ImpersonateBanner } from '@/components/platform/ImpersonateBanner';
-import { getTenantModulesList } from '@/lib/tenant-modules';
+import { getTenantModulesList, getTenantFeatureFlagsList } from '@/lib/tenant-modules';
 import { TenantModulesProvider } from '@/contexts/TenantModulesContext';
 import { DpaConsentBanner } from '@/components/DpaConsentBanner';
 
@@ -42,7 +42,7 @@ export default async function AppLayout({
   }
 
   // Resolver permisos, refrescar nombre/email desde BD, y cargar módulos del tenant.
-  const [permissions, dbUser, tenantModules] = await Promise.all([
+  const [permissions, dbUser, tenantModules, tenantFlags] = await Promise.all([
     resolvePermissions({
       role: session.user.role,
       roleTemplateId: session.user.roleTemplateId,
@@ -54,6 +54,9 @@ export default async function AppLayout({
     session.user.tenantId
       ? getTenantModulesList(session.user.tenantId)
       : Promise.resolve([] as string[]),
+    session.user.tenantId
+      ? getTenantFeatureFlagsList(session.user.tenantId)
+      : Promise.resolve([] as string[]),
   ]);
 
   const isImpersonating = (session as any).impersonating === true;
@@ -63,7 +66,7 @@ export default async function AppLayout({
     <>
       {isImpersonating && <ImpersonateBanner />}
       <PermissionsProvider permissions={permissions}>
-        <TenantModulesProvider initialModules={tenantModules}>
+        <TenantModulesProvider initialModules={tenantModules} initialFlags={tenantFlags}>
           <AppLayoutClient
             userName={dbUser?.name ?? session.user?.name}
             userEmail={dbUser?.email ?? session.user?.email}

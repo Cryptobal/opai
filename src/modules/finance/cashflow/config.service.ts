@@ -66,6 +66,8 @@ export async function updateCashflowConfig(
     writeOffMaxPercent: number;
     writeOffShortPaymentAccountId: string | null;
     writeOffOverPaymentAccountId: string | null;
+    collectionLagDays: number;
+    flowWarnThresholdClp: number;
   }>,
 ): Promise<FinanceCashflowConfig> {
   await getOrCreateCashflowConfig(tenantId);

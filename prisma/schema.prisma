@@ -8101,6 +8101,13 @@ model FinanceCashflowConfig {
   /// Umbral en CLP para auto-excluir comisiones bancarias del cómputo de
   /// cuadratura. Default 10.000 = comisiones bajo este monto son ruido.
   bankCommissionThresholdClp     Int                    @default(10000) @map("bank_commission_threshold_clp")
+  /// ── Flujo v3 (Modo Planilla) ──
+  /// Días entre emisión y cobro/pago estimado cuando el documento no trae
+  /// vencimiento (y el proveedor no tiene término propio). Default 30.
+  collectionLagDays              Int                    @default(30) @map("collection_lag_days")
+  /// Umbral CLP del semáforo del saldo en la planilla (ámbar bajo este
+  /// valor, rojo bajo 0). Default $8.000.000.
+  flowWarnThresholdClp           Int                    @default(8000000) @map("flow_warn_threshold_clp")
   createdAt                      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -8391,6 +8398,82 @@ model FinanceCashflowWeeklyClose {
   @@unique([tenantId, weekEndDate], map: "uq_cashflow_weekly_close")
   @@index([tenantId, weekEndDate(sort: Desc)], map: "idx_cashflow_weekly_close_tenant_date")
   @@map("finance_cashflow_weekly_close")
+  @@schema("finance")
+}
+
+// ── FLUJO DE CAJA v3 "Modo Planilla" ──
+// Modelo mínimo del refactor: la FILA de la planilla y la CELDA de plan.
+// Comprometido y Real NO se persisten — se derivan en lectura desde
+// FinanceDte / FinanceDteRecurringTemplate / FinanceBankTransaction / payroll
+// (ver src/modules/finance/flow-v3/). Convive con FinanceCashflowItem/
+// Occurrence (módulo viejo) sin tocarlos; la limpieza es un PR posterior.
+
+enum FlowSection {
+  INGRESOS
+  REMUNERACIONES
+  IMPUESTOS
+  GAV
+  FINANCIAMIENTO
+  OTROS
+
+  @@schema("finance")
+}
+
+enum FlowRowMapping {
+  /// Fila de ingreso mapeada a cuenta CRM + instalación (derivadores DTE/programación).
+  ACCOUNT_INSTALLATION
+  /// Fila de egreso mapeada a FinanceCashflowCategory (real/comprometido por categoría).
+  CATEGORY
+  /// Fila mapeada a FinanceSupplier.
+  SUPPLIER
+  /// Fila manual: solo plan del usuario + hitos por nombre canónico (payroll/F29).
+  MANUAL
+
+  @@schema("finance")
+}
+
+model FinanceFlowRow {
+  id             String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String         @map("tenant_id")
+  section        FlowSection
+  name           String
+  orderIndex     Int            @map("order_index")
+  mapping        FlowRowMapping @default(MANUAL)
+  crmAccountId   String?        @map("crm_account_id") @db.Uuid
+  installationId String?        @map("installation_id") @db.Uuid
+  /// Reutiliza FinanceCashflowCategory para egresos (sin FK dura: la categoría
+  /// pertenece al módulo viejo que se retirará; validación a nivel servicio).
+  categoryId     String?        @map("category_id") @db.Uuid
+  supplierId     String?        @map("supplier_id") @db.Uuid
+  /// Fila dada de baja (cuenta cerrada). No se borra: el histórico de plan
+  /// queda y el matrix la incluye solo si tiene movimiento en la ventana.
+  archivedAt     DateTime?      @map("archived_at") @db.Timestamptz(6)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  planCells FinanceFlowPlanCell[]
+
+  @@index([tenantId, section, orderIndex], map: "idx_finance_flow_row_tenant_section")
+  @@index([tenantId, crmAccountId, installationId], map: "idx_finance_flow_row_account_inst")
+  @@map("finance_flow_rows")
+  @@schema("finance")
+}
+
+model FinanceFlowPlanCell {
+  id        String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String         @map("tenant_id")
+  rowId     String         @map("row_id") @db.Uuid
+  row       FinanceFlowRow @relation(fields: [rowId], references: [id], onDelete: Cascade)
+  /// Lunes ISO de la semana (@db.Date, sin hora). Clave natural de la celda.
+  weekStart DateTime       @map("week_start") @db.Date
+  /// Monto plan BRUTO en CLP, signado: FINANCIAMIENTO puede ser negativo.
+  amount    Decimal        @db.Decimal(14, 2)
+  updatedBy String?        @map("updated_by")
+  updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, rowId, weekStart], map: "uq_finance_flow_plan_cell")
+  @@index([tenantId, weekStart], map: "idx_finance_flow_plan_cell_week")
+  @@map("finance_flow_plan_cells")
   @@schema("finance")
 }
 
