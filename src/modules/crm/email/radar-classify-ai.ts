@@ -89,6 +89,26 @@ ${clampText(input.body, 3000)}`;
   }
 }
 
+/** Sugiere el próximo paso comercial como título de tarea (imperativo, breve). */
+export async function suggestNextStepTask(input: {
+  tenantId: string;
+  subject: string;
+  fromEmail: string;
+  body: string;
+}): Promise<string | null> {
+  const prompt = `Del correo entrante de un prospecto de seguridad privada, dame el PRÓXIMO PASO comercial como título de tarea: en imperativo, breve (máx 8 palabras), sin fecha ni saludos. Ejemplos: "Enviar propuesta firmada", "Agendar reunión de kickoff", "Llamar para confirmar dotación". Devuelve SOLO el título.
+De ${input.fromEmail} (${clampText(input.subject, 160)}):
+${clampText(input.body, 1500)}`;
+  try {
+    const txt = await aiService.generateText(prompt, { maxTokens: 40, temperature: 0.3 }, {
+      tenantId: input.tenantId,
+    });
+    return txt?.trim().replace(/^["']|["']$/g, "").slice(0, 120) || null;
+  } catch {
+    return null;
+  }
+}
+
 /** Redacta un borrador de respuesta breve y profesional (jamás se envía solo). */
 export async function generateDraftReply(input: {
   tenantId: string;
