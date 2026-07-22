@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/select";
 import { EmailHistoryList, type EmailMessage } from "@/components/crm/EmailHistoryList";
 import { EmailSenderSelect } from "@/components/crm/EmailSenderSelect";
+import { RecipientTypeaheadInput } from "@/components/crm/RecipientTypeaheadInput";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
@@ -2249,7 +2250,7 @@ export function CrmDealDetailClient({
                 <Label>Para</Label>
                 {!showCcBcc && <button type="button" onClick={() => setShowCcBcc(true)} className="text-[11px] text-primary hover:underline">CC / BCC</button>}
               </div>
-              <Input value={emailTo} onChange={(e) => setEmailTo(e.target.value)} placeholder="correo@cliente.com" disabled={sending} />
+              <RecipientTypeaheadInput value={emailTo} onChange={setEmailTo} disabled={sending} />
             </div>
             {showCcBcc && (
               <div className="grid gap-3 sm:grid-cols-2">

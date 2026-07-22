@@ -2419,6 +2419,7 @@ model CrmContact {
   dealContacts                  CrmDealContact[]
   companyPresentations          CrmCompanyPresentation[]
   accessControlReportRecipients AccessControlReportRecipient[]
+  emailRecipients               CrmEmailRecipient[]
 
   @@index([tenantId], map: "idx_crm_contacts_tenant")
   @@index([accountId], map: "idx_crm_contacts_account")
@@ -2676,6 +2677,30 @@ model CrmGmailSyncJob {
   @@index([leaseUntil], map: "idx_crm_gmail_sync_jobs_lease")
   @@index([tenantId], map: "idx_crm_gmail_sync_jobs_tenant")
   @@map("gmail_sync_jobs")
+  @@schema("crm")
+}
+
+/// Frecency de destinatarios por usuario (C21a, §7): fuente "reciente" del
+/// autocompletado To/CC/BCC. Email normalizado lowercase; contactId FK suave
+/// a CrmContact (ON DELETE SET NULL) para enriquecer con el nombre del CRM.
+model CrmEmailRecipient {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String   @map("tenant_id")
+  userId      String   @map("user_id")
+  email       String
+  displayName String?  @map("display_name")
+  source      String   @default("send")
+  sendCount   Int      @default(0) @map("send_count")
+  firstSentAt DateTime @default(now()) @map("first_sent_at") @db.Timestamptz(6)
+  lastSentAt  DateTime @default(now()) @map("last_sent_at") @db.Timestamptz(6)
+  contactId   String?  @map("contact_id") @db.Uuid
+
+  contact CrmContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, userId, email], map: "uq_crm_email_recipients_user_email")
+  @@index([tenantId, userId, lastSentAt(sort: Desc)], map: "idx_crm_email_recipients_recent")
+  @@index([tenantId, userId, sendCount(sort: Desc)], map: "idx_crm_email_recipients_frequent")
+  @@map("email_recipients")
   @@schema("crm")
 }
 

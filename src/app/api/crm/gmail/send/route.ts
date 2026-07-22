@@ -35,6 +35,7 @@ import {
 } from "@/modules/crm/email/gmail-staging-storage";
 import { auditEmailAction } from "@/lib/audit-email";
 import { captureEmailError } from "@/modules/crm/email/email-observability";
+import { recordRecipients } from "@/modules/crm/email/email-recipients";
 
 export const maxDuration = 60;
 
@@ -410,6 +411,15 @@ export async function POST(request: NextRequest) {
           deleteFile(attachment.storageKey),
         ),
       );
+      // C21a: frecency de destinatarios tras envío exitoso (nunca lanza).
+      await recordRecipients({
+        tenantId: ctx.tenantId,
+        userId: ctx.userId,
+        to: normalizedToEmails,
+        cc: normalizedCcEmails,
+        bcc: normalizedBccEmails,
+        sentAt,
+      });
       await broadcastGmailMailboxChanged({
         tenantId: ctx.tenantId,
         userId: ctx.userId,
