@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAgendaAccess } from "@/lib/api-auth-agenda";
 import { listLicitacionesEnCarpeta } from "@/modules/agenda/agenda.service";
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const items = await listLicitacionesEnCarpeta(session.user.tenantId);
+  const access = await requireAgendaAccess();
+  if (!access.ok) return access.response;
+  const items = await listLicitacionesEnCarpeta(access.ctx.tenantId);
   return NextResponse.json({ items });
 }

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  requireAgendaAccess,
+  canMutateVisita,
+  visitaForbidden,
+} from "@/lib/api-auth-agenda";
 import {
   cancelAgendaVisita,
   completeAgendaVisita,
@@ -9,14 +13,13 @@ import {
 
 type Ctx = { params: Promise<{ id: string }> };
 
-export async function GET(_req: NextRequest, ctx: Ctx) {
-  const session = await auth();
-  if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const { id } = await ctx.params;
+export async function GET(_req: NextRequest, routeCtx: Ctx) {
+  const access = await requireAgendaAccess();
+  if (!access.ok) return access.response;
+  const { ctx } = access;
+  const { id } = await routeCtx.params;
   const visita = await prisma.agendaVisita.findFirst({
-    where: { id, tenantId: session.user.tenantId },
+    where: { id, tenantId: ctx.tenantId },
     include: {
       account: { select: { id: true, name: true } },
       installation: { select: { id: true, name: true, address: true, lat: true, lng: true } },
@@ -36,14 +39,24 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   });
 }
 
-export async function PATCH(request: NextRequest, ctx: Ctx) {
-  const session = await auth();
-  if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const { id } = await ctx.params;
+async function loadOwnedVisita(tenantId: string, id: string) {
+  return prisma.agendaVisita.findFirst({
+    where: { id, tenantId },
+    select: { id: true, createdBy: true, assignedUserId: true, dealId: true },
+  });
+}
+
+export async function PATCH(request: NextRequest, routeCtx: Ctx) {
+  const access = await requireAgendaAccess();
+  if (!access.ok) return access.response;
+  const { ctx } = access;
+  const { id } = await routeCtx.params;
   const body = await request.json();
-  const tenantId = session.user.tenantId;
+  const tenantId = ctx.tenantId;
+
+  const existing = await loadOwnedVisita(tenantId, id);
+  if (!existing) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
+  if (!canMutateVisita(ctx, existing)) return visitaForbidden();
 
   if (body.action === "complete") {
     const result = await completeAgendaVisita(tenantId, id, body.resultNote ?? "");
@@ -59,7 +72,7 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
           entityId: result.visita.dealId,
           action: "visita_completada",
           details: { resultNote: body.resultNote, visitaId: id },
-          createdBy: session.user.id,
+          createdBy: ctx.userId,
         });
       } catch {
         // history es best-effort
@@ -89,13 +102,17 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
   return NextResponse.json({ error: "Acción no soportada" }, { status: 400 });
 }
 
-export async function DELETE(_req: NextRequest, ctx: Ctx) {
-  const session = await auth();
-  if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const { id } = await ctx.params;
-  const result = await cancelAgendaVisita(session.user.tenantId, id);
+export async function DELETE(_req: NextRequest, routeCtx: Ctx) {
+  const access = await requireAgendaAccess();
+  if (!access.ok) return access.response;
+  const { ctx } = access;
+  const { id } = await routeCtx.params;
+
+  const existing = await loadOwnedVisita(ctx.tenantId, id);
+  if (!existing) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
+  if (!canMutateVisita(ctx, existing)) return visitaForbidden();
+
+  const result = await cancelAgendaVisita(ctx.tenantId, id);
   if (!result) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
   return NextResponse.json(result);
 }

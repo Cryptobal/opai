@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAgendaAccess } from "@/lib/api-auth-agenda";
 import { getDealCommunications } from "@/modules/agenda/deal-communications";
 
 type Ctx = { params: Promise<{ dealId: string }> };
 
 export async function GET(_req: NextRequest, ctx: Ctx) {
-  const session = await auth();
-  if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await requireAgendaAccess();
+  if (!access.ok) return access.response;
   const { dealId } = await ctx.params;
-  const data = await getDealCommunications(session.user.tenantId, dealId);
+  const data = await getDealCommunications(access.ctx.tenantId, dealId);
   if (!data) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   return NextResponse.json({

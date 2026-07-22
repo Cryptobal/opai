@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAgendaAccess } from "@/lib/api-auth-agenda";
 import { aiService } from "@/lib/ai-service";
 import { getDealCommunications } from "@/modules/agenda/deal-communications";
 
 type Ctx = { params: Promise<{ dealId: string }> };
 
 export async function POST(_req: NextRequest, ctx: Ctx) {
-  const session = await auth();
-  if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await requireAgendaAccess();
+  if (!access.ok) return access.response;
   const { dealId } = await ctx.params;
-  const data = await getDealCommunications(session.user.tenantId, dealId);
+  const data = await getDealCommunications(access.ctx.tenantId, dealId);
   if (!data) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   if (data.emails.length === 0 && data.quotes.length === 0) {
@@ -29,7 +27,7 @@ export async function POST(_req: NextRequest, ctx: Ctx) {
   const summary = await aiService.generateText(
     prompt,
     { maxTokens: 400, temperature: 0.2 },
-    { tenantId: session.user.tenantId },
+    { tenantId: access.ctx.tenantId },
   );
 
   return NextResponse.json({ summary });
