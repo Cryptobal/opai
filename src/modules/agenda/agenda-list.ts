@@ -13,7 +13,7 @@ export async function listAgenda(
   tenantId: string,
   from: Date,
   to: Date,
-  /** Con userId, incluye las tareas con fecha de ESE usuario en la agenda. */
+  /** Con userId, incluye las tareas del equipo en la agenda del usuario autenticado. */
   userId?: string,
 ): Promise<AgendaListItem[]> {
   const [visitas, tecnicas, deals, links, admins] = await Promise.all([
@@ -141,7 +141,7 @@ export async function listAgenda(
   }
 
   if (userId) {
-    items.push(...(await listAgendaTasks(tenantId, userId, from, to)));
+    items.push(...(await listAgendaTasks(tenantId, from, to)));
   }
 
   items.sort((a, b) => a.start.localeCompare(b.start));

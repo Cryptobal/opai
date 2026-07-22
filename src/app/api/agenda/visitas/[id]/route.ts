@@ -80,6 +80,7 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
       id,
       new Date(body.startAt),
       new Date(body.endAt),
+      typeof body.assignedUserId === "string" ? body.assignedUserId : undefined,
     );
     if (!result) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
     return NextResponse.json(result);

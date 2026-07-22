@@ -1,0 +1,307 @@
+import { fromZonedTime, toZonedTime } from "date-fns-tz";
+import {
+  addDaysChile,
+  CHILE_TZ,
+  startOfDayChile,
+  ymdInChile,
+} from "@/lib/dates-cl";
+import type {
+  AgendaCalendarItem,
+  AgendaSchedule,
+  AgendaViewMode,
+} from "./agenda-calendar.types";
+
+export const CALENDAR_START_HOUR = 7;
+export const CALENDAR_END_HOUR = 21;
+export const CALENDAR_SLOT_MINUTES = 15;
+export const CALENDAR_HOUR_HEIGHT = 84;
+
+const MINUTES_PER_DAY = 24 * 60;
+const MIN_EVENT_MINUTES = 30;
+const MAX_EVENT_MINUTES = 12 * 60;
+
+export type CalendarRange = {
+  from: Date;
+  to: Date;
+  days: Date[];
+};
+
+export type TimedLayoutItem = {
+  item: AgendaCalendarItem;
+  startMinute: number;
+  endMinute: number;
+  column: number;
+  columnCount: number;
+};
+
+function zonedLocalDate(date: Date): Date {
+  return toZonedTime(date, CHILE_TZ);
+}
+
+function fromChileLocalDate(date: Date): Date {
+  return fromZonedTime(date, CHILE_TZ);
+}
+
+export function startOfWeekChile(date: Date): Date {
+  const local = zonedLocalDate(startOfDayChile(date));
+  const mondayOffset = (local.getDay() + 6) % 7;
+  local.setDate(local.getDate() - mondayOffset);
+  local.setHours(0, 0, 0, 0);
+  return fromChileLocalDate(local);
+}
+
+export function startOfMonthChile(date: Date): Date {
+  const local = zonedLocalDate(startOfDayChile(date));
+  local.setDate(1);
+  local.setHours(0, 0, 0, 0);
+  return fromChileLocalDate(local);
+}
+
+export function addMonthsChile(date: Date, amount: number): Date {
+  const local = zonedLocalDate(startOfMonthChile(date));
+  local.setMonth(local.getMonth() + amount);
+  local.setDate(1);
+  local.setHours(0, 0, 0, 0);
+  return fromChileLocalDate(local);
+}
+
+export function monthGridDays(anchor: Date): Date[] {
+  const first = startOfMonthChile(anchor);
+  const start = startOfWeekChile(first);
+  return Array.from({ length: 42 }, (_, index) => addDaysChile(start, index));
+}
+
+export function visibleCalendarRange(
+  anchor: Date,
+  view: AgendaViewMode,
+  multiDays: number,
+): CalendarRange {
+  if (view === "month") {
+    const days = monthGridDays(anchor);
+    return {
+      from: days[0],
+      to: addDaysChile(days[days.length - 1], 1),
+      days,
+    };
+  }
+
+  const count = view === "day" ? 1 : view === "week" ? 7 : clamp(multiDays, 2, 6);
+  const from = view === "week" ? startOfWeekChile(anchor) : startOfDayChile(anchor);
+  const days = Array.from({ length: count }, (_, index) => addDaysChile(from, index));
+  return { from, to: addDaysChile(from, count), days };
+}
+
+export function navigateCalendar(
+  anchor: Date,
+  view: AgendaViewMode,
+  multiDays: number,
+  direction: -1 | 1,
+): Date {
+  if (view === "month") return addMonthsChile(anchor, direction);
+  const amount = view === "week" ? 7 : view === "day" ? 1 : clamp(multiDays, 2, 6);
+  return addDaysChile(anchor, amount * direction);
+}
+
+export function minutesInChile(date: Date): number {
+  const local = zonedLocalDate(date);
+  return local.getHours() * 60 + local.getMinutes();
+}
+
+export function dateAtChileSlot(dateKey: string, minute: number): Date {
+  const safeMinute = clamp(Math.round(minute), 0, MINUTES_PER_DAY - 1);
+  const hours = Math.floor(safeMinute / 60);
+  const minutes = safeMinute % 60;
+  const local = new Date(
+    Number(dateKey.slice(0, 4)),
+    Number(dateKey.slice(5, 7)) - 1,
+    Number(dateKey.slice(8, 10)),
+    hours,
+    minutes,
+    0,
+    0,
+  );
+  return fromChileLocalDate(local);
+}
+
+export function snapMinutes(minute: number, step = CALENDAR_SLOT_MINUTES): number {
+  return Math.round(minute / step) * step;
+}
+
+export function eventDurationMinutes(item: AgendaCalendarItem): number {
+  const start = new Date(item.start).getTime();
+  const end = new Date(item.end).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+    return item.source === "tarea" ? 30 : 60;
+  }
+  return clamp(Math.round((end - start) / 60_000), MIN_EVENT_MINUTES, MAX_EVENT_MINUTES);
+}
+
+export function moveItemToSlot(
+  item: AgendaCalendarItem,
+  dateKey: string,
+  minute: number,
+  allDay = false,
+): AgendaSchedule {
+  const duration = eventDurationMinutes(item);
+  const targetMinute = allDay ? 9 * 60 : snapMinutes(minute);
+  const start = dateAtChileSlot(dateKey, targetMinute);
+  return {
+    start,
+    end: new Date(start.getTime() + duration * 60_000),
+    allDay: item.source === "tarea" ? allDay : false,
+  };
+}
+
+export function moveItemToDay(
+  item: AgendaCalendarItem,
+  dateKey: string,
+): AgendaSchedule {
+  return moveItemToSlot(item, dateKey, minutesInChile(new Date(item.start)), item.allDay);
+}
+
+export function resizedSchedule(
+  item: AgendaCalendarItem,
+  deltaPixels: number,
+  hourHeight = CALENDAR_HOUR_HEIGHT,
+): AgendaSchedule {
+  const currentDuration = eventDurationMinutes(item);
+  const deltaMinutes = (deltaPixels / hourHeight) * 60;
+  const duration = clamp(
+    snapMinutes(currentDuration + deltaMinutes),
+    MIN_EVENT_MINUTES,
+    MAX_EVENT_MINUTES,
+  );
+  const start = new Date(item.start);
+  return {
+    start,
+    end: new Date(start.getTime() + duration * 60_000),
+    allDay: false,
+  };
+}
+
+export function calendarSlotMinutes(): number[] {
+  const start = CALENDAR_START_HOUR * 60;
+  const end = CALENDAR_END_HOUR * 60;
+  const slots: number[] = [];
+  for (let minute = start; minute < end; minute += CALENDAR_SLOT_MINUTES) {
+    slots.push(minute);
+  }
+  return slots;
+}
+
+export function layoutTimedItems(items: AgendaCalendarItem[]): TimedLayoutItem[] {
+  const dayStart = CALENDAR_START_HOUR * 60;
+  const dayEnd = CALENDAR_END_HOUR * 60;
+  const timed = items
+    .filter((item) => !item.allDay)
+    .map((item) => {
+      const rawStart = minutesInChile(new Date(item.start));
+      const rawEnd = rawStart + eventDurationMinutes(item);
+      return {
+        item,
+        rawStart,
+        rawEnd,
+      };
+    })
+    .filter((entry) => entry.rawEnd > dayStart && entry.rawStart < dayEnd)
+    .map(({ item, rawStart, rawEnd }) => ({
+      item,
+      startMinute: clamp(rawStart, dayStart, dayEnd - MIN_EVENT_MINUTES),
+      endMinute: clamp(rawEnd, dayStart + MIN_EVENT_MINUTES, dayEnd),
+    }))
+    .sort((a, b) => a.startMinute - b.startMinute || b.endMinute - a.endMinute);
+
+  const result: TimedLayoutItem[] = [];
+  let group: typeof timed = [];
+  let groupEnd = -1;
+
+  const flushGroup = () => {
+    if (group.length === 0) return;
+    const columnEnds: number[] = [];
+    const placed = group.map((entry) => {
+      let column = columnEnds.findIndex((endMinute) => endMinute <= entry.startMinute);
+      if (column === -1) {
+        column = columnEnds.length;
+        columnEnds.push(entry.endMinute);
+      } else {
+        columnEnds[column] = entry.endMinute;
+      }
+      return { ...entry, column };
+    });
+    const columnCount = Math.max(1, columnEnds.length);
+    result.push(...placed.map((entry) => ({ ...entry, columnCount })));
+    group = [];
+    groupEnd = -1;
+  };
+
+  for (const entry of timed) {
+    if (group.length > 0 && entry.startMinute >= groupEnd) flushGroup();
+    group.push(entry);
+    groupEnd = Math.max(groupEnd, entry.endMinute);
+  }
+  flushGroup();
+  return result;
+}
+
+export function formatAgendaTime(date: Date): string {
+  return date.toLocaleTimeString("es-CL", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: CHILE_TZ,
+  });
+}
+
+export function formatAgendaPeriod(
+  anchor: Date,
+  view: AgendaViewMode,
+  multiDays: number,
+): string {
+  const { days } = visibleCalendarRange(anchor, view, multiDays);
+  if (view === "month") {
+    return anchor.toLocaleDateString("es-CL", {
+      month: "long",
+      year: "numeric",
+      timeZone: CHILE_TZ,
+    });
+  }
+  const first = days[0];
+  const last = days[days.length - 1];
+  if (ymdInChile(first) === ymdInChile(last)) {
+    return first.toLocaleDateString("es-CL", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: CHILE_TZ,
+    });
+  }
+  const firstLabel = first.toLocaleDateString("es-CL", {
+    day: "numeric",
+    month: "short",
+    timeZone: CHILE_TZ,
+  });
+  const lastLabel = last.toLocaleDateString("es-CL", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: CHILE_TZ,
+  });
+  return `${firstLabel} – ${lastLabel}`;
+}
+
+export function isMovableAgendaItem(item: AgendaCalendarItem): boolean {
+  return item.source === "agenda_visita" || item.source === "tarea";
+}
+
+export function isResizableAgendaItem(item: AgendaCalendarItem): boolean {
+  return item.source === "agenda_visita" && !item.allDay;
+}
+
+export function itemKey(item: AgendaCalendarItem): string {
+  return `${item.source}:${item.id}`;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
