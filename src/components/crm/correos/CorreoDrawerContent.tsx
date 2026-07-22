@@ -5,6 +5,7 @@ import { Tag } from "@/components/opai-ds";
 import { CorreoAssociationBar } from "./CorreoAssociationBar";
 import { CorreoMessages } from "./CorreoMessages";
 import { CorreoAttachments } from "./CorreoAttachments";
+import { CorreoTasksPanel } from "./CorreoTasksPanel";
 import { LeadFromEmailPanel } from "./LeadFromEmailPanel";
 import { SuggestedReplyPanel } from "./SuggestedReplyPanel";
 import { CorreoThreadActions } from "./CorreoThreadActions";
@@ -102,6 +103,7 @@ export function CorreoDrawerContent({
           <Sparkles className="h-4 w-4" /> Crear lead con IA
         </button>
       )}
+      <CorreoTasksPanel key={`tasks-${detail.thread.id}`} threadId={detail.thread.id} subject={detail.thread.subject} />
       {/* key: resetea asunto/borrador al cambiar de hilo. */}
       <SuggestedReplyPanel key={detail.thread.id} threadId={detail.thread.id} subject={detail.thread.subject} onSent={onRefresh} />
     </>
