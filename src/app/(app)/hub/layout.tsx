@@ -30,6 +30,7 @@ export default async function HubLayout({
         icon={<LayoutDashboard />}
         iconVariant="brand"
         actions={<HubIntegrationStatus status={integrations} />}
+        className="hidden sm:block"
       />
 
       <div className="min-w-0">{children}</div>
