@@ -22,10 +22,42 @@ y el polling del cron sigue siendo la red de seguridad.
 | --- | --- |
 | `GMAIL_PUSH_ENABLED=true` | Activa `users.watch` y el webhook |
 | `GMAIL_PUSH_TOPIC` | Topic donde Gmail publica |
-| `GMAIL_PUSH_TOKEN` | Verifica el push subscription |
+| `GMAIL_PUSH_TOKEN` | Verifica el push subscription (token en query, legacy) |
+| `GMAIL_PUSH_AUDIENCE` | Audience del JWT OIDC = URL pública del webhook (ej. `https://www.opai.cl/api/webhook/gmail`) |
+| `GMAIL_PUSH_SA_EMAIL` | Service account que Pub/Sub usa para firmar el JWT OIDC |
+| `GMAIL_PUSH_OIDC_REQUIRED` | `true` = rechaza con 403 pushes sin JWT OIDC válido; ausente/`false` = modo transición (acepta con token de query y loggea el estado del JWT) |
 | `PUSHER_APP_ID`, `PUSHER_KEY`, `PUSHER_SECRET`, `PUSHER_CLUSTER` | Emisión privada server-side |
 | `NEXT_PUBLIC_PUSHER_KEY`, `NEXT_PUBLIC_PUSHER_CLUSTER` | Suscripción del navegador |
 | `R2_*` | Staging de adjuntos salientes |
+
+## Autenticación OIDC del push (V3)
+
+Pub/Sub puede firmar cada push con un JWT OIDC. El webhook lo verifica con
+`google-auth-library` (`verifyIdToken`): firma contra los certs de Google,
+`aud` = `GMAIL_PUSH_AUDIENCE`, issuer de Google y
+`email`/`email_verified` = `GMAIL_PUSH_SA_EMAIL`.
+
+Para que Pub/Sub envíe el token hay que actualizar la suscripción (la service
+account necesita el rol `roles/iam.serviceAccountTokenCreator` para
+`service-{PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccount.com`, y el caller
+`iam.serviceAccounts.actAs` sobre ella):
+
+```bash
+gcloud pubsub subscriptions update opai-gmail-push \
+  --project=maps-v1-453322 \
+  --push-endpoint="https://www.opai.cl/api/webhook/gmail?token={GMAIL_PUSH_TOKEN}" \
+  --push-auth-service-account="{GMAIL_PUSH_SA_EMAIL}" \
+  --push-auth-token-audience="https://www.opai.cl/api/webhook/gmail"
+```
+
+Despliegue seguro en dos pasos:
+
+1. Deploy con `GMAIL_PUSH_AUDIENCE` + `GMAIL_PUSH_SA_EMAIL` y
+   `GMAIL_PUSH_OIDC_REQUIRED` ausente (modo transición). Ejecutar el
+   `gcloud … update` de arriba y verificar en logs que desaparece el warning
+   `push sin OIDC válido`.
+2. Setear `GMAIL_PUSH_OIDC_REQUIRED=true`. Desde ahí, un push sin JWT válido
+   recibe 403. Rollback: volver a quitar la variable.
 
 ## Cómo funciona en OPAI
 

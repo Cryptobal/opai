@@ -1,5 +1,24 @@
 import DOMPurify from "isomorphic-dompurify";
 
+/** GIF 1x1 transparente: placeholder de imágenes remotas bloqueadas. */
+export const BLOCKED_IMG_PLACEHOLDER =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+/**
+ * Flag de rollback (V4): con NEXT_PUBLIC_EMAIL_BLOCK_REMOTE_IMAGES=false se
+ * vuelve al comportamiento anterior (imágenes remotas cargan al abrir).
+ * Por defecto las imágenes remotas quedan bloqueadas (privacidad: pixels de
+ * tracking no disparan al abrir el correo).
+ */
+export function remoteImageBlockingEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_EMAIL_BLOCK_REMOTE_IMAGES !== "false";
+}
+
+export type SanitizeEmailOptions = {
+  /** Reescribe imágenes remotas a un placeholder (default: según flag env). */
+  blockRemoteImages?: boolean;
+};
+
 const ALLOWED_TAGS = [
   "a", "b", "blockquote", "br", "caption", "code", "col", "colgroup",
   "div", "em", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "i", "img",
@@ -13,9 +32,13 @@ const ALLOWED_ATTR = [
   "cellspacing", "style", "class", "loading",
 ];
 
-/** Sanitiza HTML de correo: sin scripts; links externos seguros; imgs lazy. */
-export function sanitizeEmailHtml(html: string): string {
+/** Sanitiza HTML de correo: sin scripts; links externos seguros; imgs lazy.
+ * Con `blockRemoteImages` (default según flag env) las imágenes externas se
+ * reescriben a un placeholder guardando el original en `data-blocked-src`;
+ * las inline `cid:` y `data:` no se tocan. */
+export function sanitizeEmailHtml(html: string, options?: SanitizeEmailOptions): string {
   if (!html.trim()) return "";
+  const blockImages = options?.blockRemoteImages ?? remoteImageBlockingEnabled();
   const clean = DOMPurify.sanitize(html, {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
@@ -23,7 +46,11 @@ export function sanitizeEmailHtml(html: string): string {
     FORBID_TAGS: ["script", "iframe", "object", "embed", "form", "input", "style"],
     FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover"],
   });
-  // Post-pass: forzar target/rel en <a> y loading en <img>.
+  // Post-pass: forzar target/rel en <a>, loading en <img> y (si aplica) el
+  // bloqueo de imágenes remotas. Corre DESPUÉS de DOMPurify: como
+  // ALLOW_DATA_ATTR=false, un data-blocked-src inyectado por el remitente ya
+  // fue eliminado — el único que sobrevive es el que agregamos aquí, con un
+  // src que ya pasó el filtro de esquemas de DOMPurify.
   return clean
     .replace(/<a\b([^>]*)>/gi, (_m, attrs: string) => {
       let a = attrs;
@@ -32,11 +59,26 @@ export function sanitizeEmailHtml(html: string): string {
       else a = a.replace(/\brel\s*=\s*(['"])(.*?)\1/i, 'rel="noopener noreferrer"');
       return `<a${a}>`;
     })
-    .replace(/<img\b([^>]*)>/gi, (_m, attrs: string) => {
+    .replace(/<img\b([^>]*?)(\/?)>/gi, (_m, attrs: string, selfClose: string) => {
       let a = attrs;
+      if (blockImages) {
+        const srcMatch = a.match(/\bsrc\s*=\s*(['"])(.*?)\1/i);
+        // Solo http(s) y protocol-relative son "remotas"; cid:/data: quedan.
+        if (srcMatch && /^(https?:)?\/\//i.test(srcMatch[2])) {
+          a = a.replace(
+            srcMatch[0],
+            `src="${BLOCKED_IMG_PLACEHOLDER}" data-blocked-src="${srcMatch[2]}"`,
+          );
+        }
+      }
       if (!/\bloading\s*=/i.test(a)) a += ' loading="lazy"';
-      return `<img${a}>`;
+      return `<img${a}${selfClose}>`;
     });
+}
+
+/** true si el HTML sanitizado contiene imágenes remotas bloqueadas. */
+export function hasBlockedImages(sanitizedHtml: string): boolean {
+  return sanitizedHtml.includes("data-blocked-src=");
 }
 
 /** Plain legible desde HTML o texto (saltos de línea). */

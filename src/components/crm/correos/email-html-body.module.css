@@ -1,4 +1,15 @@
-/* Sandbox aislado del tema app: fondo claro fijo para HTML de correo. */
+/* Iframe sandbox: el documento interno (buildEmailSrcDoc) trae sus propios
+ * estilos; aquí solo el contenedor. */
+.frame {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 0.75rem;
+  background-color: hsl(0 0% 100%);
+}
+
+/* Sandbox aislado del tema app: fondo claro fijo para HTML de correo.
+ * (Render legacy, solo con NEXT_PUBLIC_EMAIL_IFRAME_SANDBOX=false.) */
 .root {
   width: 100%;
   max-width: none;
