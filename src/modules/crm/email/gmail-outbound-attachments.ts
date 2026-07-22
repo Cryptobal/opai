@@ -1,11 +1,15 @@
 export const MAX_EMAIL_ATTACHMENTS = 10;
-export const MAX_EMAIL_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+// Gmail expresa el límite en MB decimales. Usar 25 MiB supera por sí solo el
+// máximo de 35 MB del mensaje MIME una vez aplicado base64.
+export const MAX_EMAIL_ATTACHMENT_BYTES = 25_000_000;
+export const MAX_GMAIL_RAW_MESSAGE_BYTES = 35_000_000;
 
 const BLOCKED_EXTENSIONS = new Set([
   "ade",
   "adp",
   "apk",
   "appx",
+  "appxbundle",
   "bat",
   "bin",
   "cab",
@@ -13,8 +17,13 @@ const BLOCKED_EXTENSIONS = new Set([
   "cmd",
   "com",
   "cpl",
+  "diagcab",
+  "diagcfg",
+  "diagpkg",
   "dll",
   "dmg",
+  "ex",
+  "ex_",
   "exe",
   "hta",
   "img",
@@ -22,13 +31,17 @@ const BLOCKED_EXTENSIONS = new Set([
   "iso",
   "isp",
   "jar",
+  "jnlp",
   "js",
   "jse",
   "lib",
   "lnk",
   "mde",
+  "mjs",
   "msc",
   "msi",
+  "msix",
+  "msixbundle",
   "msp",
   "mst",
   "nsh",
@@ -41,10 +54,12 @@ const BLOCKED_EXTENSIONS = new Set([
   "vb",
   "vbe",
   "vbs",
+  "vhd",
   "vxd",
   "wsc",
   "wsf",
   "wsh",
+  "xll",
 ]);
 
 const BLOCKED_MIME_TYPES = new Set([
@@ -76,8 +91,11 @@ export function isBlockedEmailAttachment(
   fileName: string,
   mimeType: string,
 ): boolean {
-  const ext = fileName.includes(".")
-    ? fileName.slice(fileName.lastIndexOf(".") + 1).toLowerCase()
+  const normalizedName = fileName.trim().replace(/[.\s]+$/, "");
+  const ext = normalizedName.includes(".")
+    ? normalizedName
+        .slice(normalizedName.lastIndexOf(".") + 1)
+        .toLowerCase()
     : "";
   return BLOCKED_EXTENSIONS.has(ext) || BLOCKED_MIME_TYPES.has(mimeType.toLowerCase());
 }

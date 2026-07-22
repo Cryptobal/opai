@@ -17,6 +17,12 @@ describe("gmail outbound attachments", () => {
     expect(
       isBlockedEmailAttachment("script.txt", "application/x-sh"),
     ).toBe(true);
+    expect(
+      isBlockedEmailAttachment("instalador.msixbundle", "application/zip"),
+    ).toBe(true);
+    expect(
+      isBlockedEmailAttachment("plugin.xll. ", "application/octet-stream"),
+    ).toBe(true);
   });
 
   it("aísla keys por tenant y usuario", () => {

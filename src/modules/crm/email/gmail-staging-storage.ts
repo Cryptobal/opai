@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   DeleteObjectsCommand,
+  GetObjectCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
   S3Client,
@@ -31,14 +32,48 @@ function getBucket(): string {
 
 export async function getStagedEmailFileMetadata(
   storageKey: string,
-): Promise<{ size: number; mimeType: string | null }> {
+): Promise<{ size: number; mimeType: string | null; eTag: string | null }> {
   const response = await getR2Client().send(
     new HeadObjectCommand({ Bucket: getBucket(), Key: storageKey }),
   );
   return {
     size: Number(response.ContentLength ?? 0),
     mimeType: response.ContentType ?? null,
+    eTag: response.ETag ?? null,
   };
+}
+
+/**
+ * Descarga exactamente la versión verificada por HEAD. El If-Match cierra la
+ * carrera donde una URL PUT aún vigente reemplazaba el objeto entre HEAD y GET.
+ */
+export async function getStagedEmailFileBuffer(params: {
+  storageKey: string;
+  expectedSize: number;
+  eTag: string | null;
+}): Promise<Buffer> {
+  const response = await getR2Client().send(
+    new GetObjectCommand({
+      Bucket: getBucket(),
+      Key: params.storageKey,
+      ...(params.eTag ? { IfMatch: params.eTag } : {}),
+    }),
+  );
+  const declaredSize = Number(response.ContentLength);
+  if (
+    !Number.isFinite(declaredSize) ||
+    declaredSize !== params.expectedSize
+  ) {
+    throw new Error("El tamaño del adjunto cambió durante la subida");
+  }
+  if (!response.Body) {
+    throw new Error("Adjunto vacío o no encontrado en storage");
+  }
+  const bytes = await response.Body.transformToByteArray();
+  if (bytes.byteLength !== params.expectedSize) {
+    throw new Error("El tamaño real del adjunto no coincide");
+  }
+  return Buffer.from(bytes);
 }
 
 export async function deleteStagedEmailFilesOlderThanPrefix(opts: {

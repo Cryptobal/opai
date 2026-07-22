@@ -54,4 +54,26 @@ describe("buildGmailRawMessage", () => {
       "Asunto Bcc: attacker@example.com",
     );
   });
+
+  it("codifica caracteres reservados del filename* MIME", () => {
+    const message = decode(
+      buildGmailRawMessage({
+        from: "yo@example.com",
+        to: ["cliente@example.com"],
+        subject: "Adjunto",
+        text: "Archivo",
+        attachments: [
+          {
+            fileName: "O'Brien (final)*.pdf",
+            mimeType: "application/pdf",
+            content: Buffer.from("pdf"),
+          },
+        ],
+      }),
+    );
+
+    expect(message).toContain(
+      "filename*=UTF-8''O%27Brien%20%28final%29%2A.pdf",
+    );
+  });
 });

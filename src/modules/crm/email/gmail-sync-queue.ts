@@ -4,7 +4,10 @@ import { invalidateCorreoFolderCounts } from "./correos-folder-counts";
 import { broadcastGmailMailboxChanged } from "./gmail-realtime";
 import { syncGmailAccount } from "./gmail-sync.service";
 
-const LEASE_MS = 55_000;
+// Todas las rutas que ejecutan el worker tienen maxDuration <= 60 s. El lease
+// debe sobrevivir a la invocación para que un cron no arranque otro worker
+// mientras el anterior todavía puede persistir un historyId más antiguo.
+const LEASE_MS = 70_000;
 const MAX_ERROR_LENGTH = 1_000;
 
 export function gmailSyncRetryDelayMs(attempts: number): number {
@@ -84,28 +87,6 @@ export async function processGmailSyncJob(params: {
 }): Promise<GmailSyncProcessResult> {
   const now = new Date();
   const leaseToken = randomUUID();
-  const claimed = await prisma.crmGmailSyncJob.updateMany({
-    where: {
-      emailAccountId: params.emailAccountId,
-      availableAt: { lte: now },
-      OR: [
-        {
-          pending: true,
-          OR: [{ leaseUntil: null }, { leaseUntil: { lt: now } }],
-        },
-        { leaseUntil: { lt: now } },
-      ],
-    },
-    data: {
-      pending: false,
-      leaseToken,
-      leaseUntil: new Date(now.getTime() + LEASE_MS),
-      lastStartedAt: now,
-      attempts: { increment: 1 },
-    },
-  });
-  if (claimed.count === 0) return { status: "busy" };
-
   const job = await prisma.crmGmailSyncJob.findUnique({
     where: { emailAccountId: params.emailAccountId },
     include: {
@@ -120,12 +101,41 @@ export async function processGmailSyncJob(params: {
       },
     },
   });
-  if (!job?.emailAccount || job.leaseToken !== leaseToken) {
-    return { status: "missing" };
-  }
+  if (!job?.emailAccount) return { status: "missing" };
 
   const profile =
     params.profile ?? (job.maintenanceRequested ? "maintenance" : "delta");
+  // Un delta explícito no satisface una solicitud de mantenimiento ya
+  // pendiente. Conservamos pending=true para que el flush la procese apenas se
+  // libere el lease. Un mantenimiento, en cambio, consume el flag al reclamar.
+  const keepPending = profile === "delta" && job.maintenanceRequested;
+  const claimed = await prisma.crmGmailSyncJob.updateMany({
+    where: {
+      id: job.id,
+      requestedAt: job.requestedAt,
+      maintenanceRequested: job.maintenanceRequested,
+      availableAt: { lte: now },
+      OR: [
+        {
+          pending: true,
+          OR: [{ leaseUntil: null }, { leaseUntil: { lt: now } }],
+        },
+        { leaseUntil: { lt: now } },
+      ],
+    },
+    data: {
+      pending: keepPending,
+      ...(profile === "maintenance"
+        ? { maintenanceRequested: false }
+        : {}),
+      leaseToken,
+      leaseUntil: new Date(now.getTime() + LEASE_MS),
+      lastStartedAt: now,
+      attempts: { increment: 1 },
+    },
+  });
+  if (claimed.count === 0) return { status: "busy" };
+
   try {
     const result = await syncGmailAccount({
       tenantId: job.emailAccount.tenantId,
@@ -148,9 +158,6 @@ export async function processGmailSyncJob(params: {
         attempts: 0,
         lastError: null,
         lastCompletedAt: new Date(),
-        ...(profile === "maintenance"
-          ? { maintenanceRequested: false }
-          : {}),
       },
     });
     invalidateCorreoFolderCounts(
@@ -166,11 +173,34 @@ export async function processGmailSyncJob(params: {
     return { status: "processed", ...result };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const backoffMs = gmailSyncRetryDelayMs(job.attempts);
-    await prisma.crmGmailSyncJob.updateMany({
-      where: { id: job.id, leaseToken },
+    if (/invalid_grant|unauthorized_client|invalid_client/i.test(message)) {
+      await prisma.crmGmailSyncJob.updateMany({
+        where: { id: job.id, leaseToken },
+        data: {
+          pending: false,
+          maintenanceRequested: false,
+          leaseToken: null,
+          leaseUntil: null,
+          lastError: message.slice(0, MAX_ERROR_LENGTH),
+        },
+      });
+      await prisma.crmEmailAccount
+        .update({
+          where: { id: job.emailAccount.id },
+          data: { status: "revoked" },
+        })
+        .catch(() => {});
+      throw error;
+    }
+
+    const backoffMs = gmailSyncRetryDelayMs(job.attempts + 1);
+    const retried = await prisma.crmGmailSyncJob.updateMany({
+      where: { id: job.id, leaseToken, requestedAt: job.requestedAt },
       data: {
         pending: true,
+        ...(profile === "maintenance"
+          ? { maintenanceRequested: true }
+          : {}),
         reason: "retry",
         availableAt: new Date(Date.now() + backoffMs),
         leaseToken: null,
@@ -178,13 +208,22 @@ export async function processGmailSyncJob(params: {
         lastError: message.slice(0, MAX_ERROR_LENGTH),
       },
     });
-    if (/invalid_grant|unauthorized_client|invalid_client/i.test(message)) {
-      await prisma.crmEmailAccount
-        .update({
-          where: { id: job.emailAccount.id },
-          data: { status: "revoked" },
-        })
-        .catch(() => {});
+    if (retried.count === 0) {
+      // Llegó otra solicitud durante la corrida: no le imponemos el backoff ni
+      // reemplazamos su razón, pero sí liberamos nuestro lease y restauramos un
+      // mantenimiento fallido para que la solicitud nueva no lo haga perder.
+      await prisma.crmGmailSyncJob.updateMany({
+        where: { id: job.id, leaseToken },
+        data: {
+          pending: true,
+          ...(profile === "maintenance"
+            ? { maintenanceRequested: true }
+            : {}),
+          leaseToken: null,
+          leaseUntil: null,
+          lastError: message.slice(0, MAX_ERROR_LENGTH),
+        },
+      });
     }
     throw error;
   }

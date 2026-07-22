@@ -101,8 +101,12 @@ export async function GET(req: NextRequest) {
         },
       });
 
-      for (const acc of gmailAccounts) {
-        if (!needsWatchRenewal(acc)) continue;
+      // Filtrar antes de aplicar el límite evita que las mismas primeras 50
+      // casillas bloqueen para siempre la renovación de las siguientes.
+      const dueGmailAccounts = gmailAccounts
+        .filter(needsWatchRenewal)
+        .slice(0, 50);
+      for (const acc of dueGmailAccounts) {
         const result = await registerGmailWatch(acc);
         if ("ok" in result && result.ok) gmailWatchRenewed++;
       }

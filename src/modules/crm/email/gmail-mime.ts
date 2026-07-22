@@ -92,7 +92,12 @@ function attachmentDisposition(fileName: string): string {
     .replace(/[\\/\x00-\x1f\x7f"]/g, "_")
     .slice(0, 200) || "archivo";
   const ascii = clean.replace(/[^\x20-\x7e]/g, "_");
-  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(clean)}`;
+  const encoded = encodeURIComponent(clean.toWellFormed()).replace(
+    /['()*]/g,
+    (character) =>
+      `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
 }
 
 /**

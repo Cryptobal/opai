@@ -22,6 +22,36 @@ type StoredPreferences = {
   previewLines?: CorreoPreviewLines;
 };
 
+export function parseCorreosViewPreferences(
+  raw: string | null,
+): StoredPreferences {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+    const candidate = parsed as Record<string, unknown>;
+    const preferences: StoredPreferences = {};
+    if (
+      typeof candidate.panelWidth === "number" &&
+      Number.isFinite(candidate.panelWidth)
+    ) {
+      preferences.panelWidth = candidate.panelWidth;
+    }
+    if (
+      candidate.previewLines === 1 ||
+      candidate.previewLines === 2 ||
+      candidate.previewLines === 3
+    ) {
+      preferences.previewLines = candidate.previewLines;
+    }
+    return preferences;
+  } catch {
+    return {};
+  }
+}
+
 export function clampCorreoPanelWidth(width: number, containerWidth: number): number {
   const safeContainer = Math.max(containerWidth, MIN_PANEL_WIDTH);
   const max = Math.max(
@@ -51,12 +81,13 @@ export function useCorreosViewPreferences(
   );
 
   useEffect(() => {
-    let stored: StoredPreferences = {};
+    let raw: string | null = null;
     try {
-      stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as StoredPreferences;
+      raw = localStorage.getItem(STORAGE_KEY);
     } catch {
-      // Preferencias corruptas: se restauran defaults.
+      // Storage deshabilitado: usar defaults.
     }
+    const stored = parseCorreosViewPreferences(raw);
     const width = containerWidth();
     setPanelWidth(
       clampCorreoPanelWidth(
@@ -79,10 +110,14 @@ export function useCorreosViewPreferences(
   useEffect(() => {
     if (!hydrated) return;
     const timer = window.setTimeout(() => {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ panelWidth, previewLines }),
-      );
+      try {
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({ panelWidth, previewLines }),
+        );
+      } catch {
+        // Safari/private mode puede bloquear storage: la vista sigue operativa.
+      }
     }, 120);
     return () => window.clearTimeout(timer);
   }, [hydrated, panelWidth, previewLines]);

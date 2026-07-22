@@ -17,6 +17,10 @@ import { snoozeThread } from "./correo-thread-action-client";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 import { useCorreosRealtime } from "./useCorreosRealtime";
 import { useCorreosViewPreferences } from "./useCorreosViewPreferences";
+import {
+  closeCorreoThreadInHistory,
+  openCorreoThreadInHistory,
+} from "./correo-thread-history";
 
 function matchesChip(t: CorreoThreadDTO, f: CorreoChipKey): boolean {
   if (f === "con_cuenta") return Boolean(t.accountId);
@@ -197,27 +201,16 @@ export function CorreosClient() {
   }
 
   function openThread(id: string) {
-    const url = new URL(window.location.href);
-    url.searchParams.set("thread", id);
-    url.searchParams.delete("extract");
-    const nextState = { ...(window.history.state ?? {}), correoThread: true };
-    if (openId) window.history.replaceState(nextState, "", url);
-    else window.history.pushState(nextState, "", url);
+    openCorreoThreadInHistory(id, openId !== null);
     setOpenId(id);
     setAutoExtract(false);
   }
 
   function closeThread() {
-    if (window.history.state?.correoThread) {
-      window.history.back();
-      return;
+    if (closeCorreoThreadInHistory() === "replaced") {
+      setOpenId(null);
+      setAutoExtract(false);
     }
-    const url = new URL(window.location.href);
-    url.searchParams.delete("thread");
-    url.searchParams.delete("extract");
-    window.history.replaceState(window.history.state, "", url);
-    setOpenId(null);
-    setAutoExtract(false);
   }
 
   const filtered = items.filter((t) => matchesChip(t, chip) && matchesQuery(t, query));

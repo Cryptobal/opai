@@ -15,19 +15,23 @@ import { buildGmailRawMessage } from "@/modules/crm/email/gmail-mime";
 import {
   MAX_EMAIL_ATTACHMENTS,
   MAX_EMAIL_ATTACHMENT_BYTES,
+  MAX_GMAIL_RAW_MESSAGE_BYTES,
   isBlockedEmailAttachment,
   isOwnedEmailAttachmentKey,
   sanitizeEmailAttachmentName,
   type StagedEmailAttachment,
 } from "@/modules/crm/email/gmail-outbound-attachments";
-import { deleteFile, getFileBuffer } from "@/lib/storage";
+import { deleteFile } from "@/lib/storage";
 import { upsertLinkedThread } from "@/modules/crm/email/thread-linking";
 import { broadcastGmailMailboxChanged } from "@/modules/crm/email/gmail-realtime";
 import {
   enqueueGmailSyncJob,
   processGmailSyncJob,
 } from "@/modules/crm/email/gmail-sync-queue";
-import { getStagedEmailFileMetadata } from "@/modules/crm/email/gmail-staging-storage";
+import {
+  getStagedEmailFileBuffer,
+  getStagedEmailFileMetadata,
+} from "@/modules/crm/email/gmail-staging-storage";
 
 export const maxDuration = 60;
 
@@ -187,8 +191,8 @@ export async function POST(request: NextRequest) {
       const metadata = await getStagedEmailFileMetadata(attachment.storageKey);
       if (
         metadata.size !== attachment.size ||
-        (metadata.mimeType != null &&
-          metadata.mimeType !== attachment.mimeType) ||
+        !metadata.eTag ||
+        metadata.mimeType !== attachment.mimeType ||
         actualAttachmentBytes + metadata.size > MAX_EMAIL_ATTACHMENT_BYTES
       ) {
         return NextResponse.json(
@@ -199,7 +203,11 @@ export async function POST(request: NextRequest) {
           { status: 400 },
         );
       }
-      const content = await getFileBuffer(attachment.storageKey, metadata.size);
+      const content = await getStagedEmailFileBuffer({
+        storageKey: attachment.storageKey,
+        expectedSize: metadata.size,
+        eTag: metadata.eTag,
+      });
       actualAttachmentBytes += content.length;
       outboundAttachments.push({
         fileName: attachment.fileName,
@@ -271,6 +279,18 @@ export async function POST(request: NextRequest) {
       references: replyCtx?.references ?? undefined,
       attachments: outboundAttachments,
     });
+    if (
+      Buffer.byteLength(raw, "base64url") > MAX_GMAIL_RAW_MESSAGE_BYTES
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "El mensaje completo supera el máximo de 35 MB de Gmail; reducí los adjuntos",
+        },
+        { status: 400 },
+      );
+    }
 
     const response = await gmail.users.messages.send({
       userId: "me",
@@ -306,23 +326,6 @@ export async function POST(request: NextRequest) {
           isInbound: false,
         });
 
-    await prisma.crmEmailThread.update({
-      where: { id: threadRecord.id },
-      data: {
-        emailAccountId: emailAccount.id,
-        ...(providerThreadId ? { providerThreadId } : {}),
-        ...(typeof accountId === "string" && accountId ? { accountId } : {}),
-        ...(typeof contactId === "string" && contactId ? { contactId } : {}),
-        ...(typeof dealId === "string" && dealId ? { dealId } : {}),
-        ...(outboundAttachments.length > 0
-          ? { attachmentCount: { increment: outboundAttachments.length } }
-          : {}),
-        ...(replyCtx && !replyCtx.firstReplyAt
-          ? { firstReplyAt: sentAt }
-          : {}),
-      },
-    });
-
     const messageData = {
       tenantId: ctx.tenantId,
       threadId: threadRecord.id,
@@ -343,18 +346,49 @@ export async function POST(request: NextRequest) {
       emailAccountId: emailAccount.id,
       labelIds: ["SENT"],
     };
-    const message = messageId
-      ? await prisma.crmEmailMessage.upsert({
-          where: {
-            emailAccountId_providerMessageId: {
-              emailAccountId: emailAccount.id,
-              providerMessageId: messageId,
+    const message = await prisma.$transaction(async (tx) => {
+      const existingMessage = messageId
+        ? await tx.crmEmailMessage.findUnique({
+            where: {
+              emailAccountId_providerMessageId: {
+                emailAccountId: emailAccount.id,
+                providerMessageId: messageId,
+              },
             },
-          },
-          create: messageData,
-          update: messageData,
-        })
-      : await prisma.crmEmailMessage.create({ data: messageData });
+            select: { id: true },
+          })
+        : null;
+
+      await tx.crmEmailThread.update({
+        where: { id: threadRecord.id },
+        data: {
+          emailAccountId: emailAccount.id,
+          ...(providerThreadId ? { providerThreadId } : {}),
+          ...(typeof accountId === "string" && accountId ? { accountId } : {}),
+          ...(typeof contactId === "string" && contactId
+            ? { contactId }
+            : {}),
+          ...(typeof dealId === "string" && dealId ? { dealId } : {}),
+          ...(!existingMessage && outboundAttachments.length > 0
+            ? {
+                attachmentCount: {
+                  increment: outboundAttachments.length,
+                },
+              }
+            : {}),
+          ...(replyCtx && !replyCtx.firstReplyAt
+            ? { firstReplyAt: sentAt }
+            : {}),
+        },
+      });
+
+      return existingMessage
+        ? tx.crmEmailMessage.update({
+            where: { id: existingMessage.id },
+            data: messageData,
+          })
+        : tx.crmEmailMessage.create({ data: messageData });
+    });
 
     after(async () => {
       await Promise.allSettled(
