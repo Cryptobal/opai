@@ -5,7 +5,7 @@ import Link from "next/link";
 import { CheckCircle2, ExternalLink, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Surface } from "@/components/opai-ds";
-import type { WeekItem } from "./AgendaWeekStrip";
+import type { WeekItem } from "./agenda-calendar.types";
 
 type Props = {
   task: WeekItem | null;
