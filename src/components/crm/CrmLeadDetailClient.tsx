@@ -960,7 +960,33 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
     const emailExtracted =
       meta?.extracted && typeof meta.extracted === "object" && !Array.isArray(meta.extracted)
         ? (meta.extracted as Record<string, unknown>)
-        : null;
+        : meta?.extraction && typeof meta.extraction === "object" && !Array.isArray(meta.extraction)
+          ? (() => {
+              const ex = meta.extraction as Record<string, unknown>;
+              const contacto =
+                ex.contacto && typeof ex.contacto === "object" && !Array.isArray(ex.contacto)
+                  ? (ex.contacto as Record<string, unknown>)
+                  : {};
+              return {
+                rut: typeof ex.rut === "string" ? ex.rut : "",
+                contactRole:
+                  typeof contacto.cargo === "string"
+                    ? contacto.cargo
+                    : typeof ex.contactRole === "string"
+                      ? ex.contactRole
+                      : "",
+                legalName: typeof ex.legalName === "string" ? ex.legalName : "",
+                address: typeof ex.direccion === "string" ? ex.direccion : typeof ex.address === "string" ? ex.address : "",
+                city: typeof ex.ciudad === "string" ? ex.ciudad : typeof ex.city === "string" ? ex.city : "",
+                commune:
+                  typeof ex.instalacionComuna === "string"
+                    ? ex.instalacionComuna
+                    : typeof ex.commune === "string"
+                      ? ex.commune
+                      : "",
+              } as Record<string, unknown>;
+            })()
+          : null;
     const leadDotacion = (meta?.dotacion as DotacionItem[] | undefined) || [];
 
     const str = (source: Record<string, unknown> | null, key: string): string =>
@@ -982,7 +1008,11 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
       contactLastName: lead.lastName || "",
       email: lead.email || "",
       phone: lead.phone || "",
-      dealTitle: str(draft, "dealTitle") || `Oportunidad ${lead.companyName || fullName || ""}`.trim(),
+      dealTitle:
+        str(draft, "dealTitle") ||
+        (typeof meta?.nombreCotizacion === "string" ? meta.nombreCotizacion : "") ||
+        str(emailExtracted, "nombreCotizacion") ||
+        `Oportunidad ${lead.companyName || fullName || ""}`.trim(),
       rut: str(draft, "rut") || str(companyEnrichment, "accountRut") || str(emailExtracted, "rut") || "",
       industry: str(draft, "industry") || str(companyEnrichment, "industry") || lead.industry || "",
       segment: str(draft, "segment") || str(companyEnrichment, "segment") || "",
@@ -1026,11 +1056,17 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
       const leadCommune = ((lead as any).commune || "").trim();
       const leadCity = ((lead as any).city || "").trim();
       const instAddress = leadAddress || [leadCommune, leadCity].filter(Boolean).join(", ");
+      const extractionName =
+        meta?.extraction && typeof meta.extraction === "object" && !Array.isArray(meta.extraction)
+          ? (meta.extraction as Record<string, unknown>).instalacionNombre
+          : null;
       const firstInst = createEmptyInstallation(
-        defaultInstallationNameFromLead(lead.companyName, leadCommune),
-        instAddress,
-        leadCity,
-        leadCommune,
+        (typeof extractionName === "string" && extractionName.trim()
+          ? extractionName
+          : defaultInstallationNameFromLead(lead.companyName, leadCommune)),
+        instAddress || str(emailExtracted, "address"),
+        leadCity || str(emailExtracted, "city"),
+        leadCommune || str(emailExtracted, "commune"),
       );
       if (leadLat != null) firstInst.lat = leadLat;
       if (leadLng != null) firstInst.lng = leadLng;
