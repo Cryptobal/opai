@@ -91,6 +91,42 @@ export function AgendaPageClient() {
     return true;
   });
 
+  /** Drop de una visita sobre otra columna: reprograma (misma hora y duración)
+   *  y el server actualiza el evento en Google Calendar. */
+  const onVisitDrop = useCallback(
+    async (visitaId: string, day: Date) => {
+      const v = items.find((i) => i.source === "agenda_visita" && i.id === visitaId);
+      if (!v) return;
+      const start = new Date(v.start);
+      const diffDays = Math.round(
+        (utcDateFromYmd(ymdInChile(day)).getTime() - utcDateFromYmd(ymdInChile(start)).getTime()) / 86_400_000,
+      );
+      if (diffDays === 0) return;
+      const end = v.end ? new Date(v.end) : new Date(start.getTime() + 60 * 60_000);
+      const shift = diffDays * 86_400_000;
+      const r = await fetch(`/api/agenda/visitas/${visitaId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startAt: new Date(start.getTime() + shift).toISOString(),
+          endAt: new Date(end.getTime() + shift).toISOString(),
+        }),
+      }).catch(() => null);
+      if (r?.ok) {
+        const data = (await r.json().catch(() => ({}))) as { sync?: { syncStatus?: string } };
+        toast.success(
+          data.sync?.syncStatus === "SYNCED"
+            ? "Reunión reprogramada · Google Calendar actualizado"
+            : "Reunión reprogramada (sync a Google pendiente)",
+        );
+        void load();
+      } else {
+        toast.error("No se pudo reprogramar la reunión");
+      }
+    },
+    [items, load],
+  );
+
   /** Drop de una tarea sobre otra columna: conserva la hora, cambia el día. */
   const onTaskDrop = useCallback(
     async (taskId: string, day: Date) => {
@@ -199,6 +235,7 @@ export function AgendaPageClient() {
           onLicClick={(i) => setLicId(i.dealId || i.id)}
           onTaskClick={setTaskItem}
           onTaskDrop={(id, day) => void onTaskDrop(id, day)}
+          onVisitDrop={(id, day) => void onVisitDrop(id, day)}
         />
       )}
 

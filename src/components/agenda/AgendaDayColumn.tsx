@@ -17,6 +17,8 @@ type Props = {
   onTaskClick?: (item: WeekItem) => void;
   /** Drop de una tarea arrastrada sobre este día (desktop). */
   onTaskDrop?: (taskId: string, day: Date) => void;
+  /** Drop de una visita OPAI: reprograma y actualiza Google Calendar. */
+  onVisitDrop?: (visitaId: string, day: Date) => void;
 };
 
 /** Columna de un día: header + chips de licitación (all-day) + visitas. */
@@ -29,6 +31,7 @@ export function AgendaDayColumn({
   onLicClick,
   onTaskClick,
   onTaskDrop,
+  onVisitDrop,
 }: Props) {
   const todayYmd = todayInChile();
   const tareas = items.filter((i) => i.source === "tarea");
@@ -39,13 +42,23 @@ export function AgendaDayColumn({
   return (
     <div
       onDragOver={(e) => {
-        if (onTaskDrop && e.dataTransfer.types.includes("application/x-opai-task")) e.preventDefault();
+        const t = e.dataTransfer.types;
+        if (
+          (onTaskDrop && t.includes("application/x-opai-task")) ||
+          (onVisitDrop && t.includes("application/x-opai-visita"))
+        ) {
+          e.preventDefault();
+        }
       }}
       onDrop={(e) => {
-        const id = e.dataTransfer.getData("application/x-opai-task");
-        if (id && onTaskDrop) {
+        const taskId = e.dataTransfer.getData("application/x-opai-task");
+        const visitaId = e.dataTransfer.getData("application/x-opai-visita");
+        if (taskId && onTaskDrop) {
           e.preventDefault();
-          onTaskDrop(id, day);
+          onTaskDrop(taskId, day);
+        } else if (visitaId && onVisitDrop) {
+          e.preventDefault();
+          onVisitDrop(visitaId, day);
         }
       }}
       className={`min-h-[120px] rounded-xl border p-2 ${
@@ -89,6 +102,8 @@ export function AgendaDayColumn({
             start={i.start}
             syncStatus={i.syncStatus}
             onClick={() => onVisitClick?.(i)}
+            // Solo visitas OPAI: técnicas y eventos Google no se reprograman desde acá.
+            draggableId={i.source === "agenda_visita" ? i.id : undefined}
           />
         ))}
         {google.map((i) => (
