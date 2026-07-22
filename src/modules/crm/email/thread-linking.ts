@@ -52,8 +52,10 @@ export async function resolveThreadLinks(
  * matcheado por subject se "adopta" seteándole providerThreadId/emailAccountId.
  *
  * En threads existentes hace backfill SOLO de los FKs que estén null — nunca
- * sobreescribe un dealId (u otro vínculo) ya seteado. `lastMessageAt` sólo
- * avanza hacia adelante (nunca lo retrocede el backfill de mensajes viejos).
+ * sobreescribe un dealId (u otro vínculo) ya seteado. `lastMessageAt` solo
+ * avanza con correos RECIBIDOS (isInbound): así la bandeja se ordena por el
+ * último inbound, como Gmail, y responder no reordena el hilo. En un thread
+ * nuevo sí toma la fecha del primer mensaje (sea cual sea su dirección).
  */
 export async function upsertLinkedThread(params: {
   tenantId: string;
@@ -62,8 +64,11 @@ export async function upsertLinkedThread(params: {
   counterpartyEmails: string[];
   emailAccountId?: string | null;
   providerThreadId?: string | null;
+  /** El mensaje que gatilla el upsert es entrante. Default true (compat). */
+  isInbound?: boolean;
 }): Promise<{ id: string }> {
   const { tenantId, subject, lastMessageAt, emailAccountId, providerThreadId } = params;
+  const isInbound = params.isInbound !== false;
   const links = await resolveThreadLinks(tenantId, params.counterpartyEmails);
 
   const existing =
@@ -94,8 +99,9 @@ export async function upsertLinkedThread(params: {
     });
   }
 
+  // Solo los recibidos reordenan la bandeja (los enviados no bumpean el hilo).
   const advanceLastMsg =
-    !existing.lastMessageAt || lastMessageAt > existing.lastMessageAt;
+    isInbound && (!existing.lastMessageAt || lastMessageAt > existing.lastMessageAt);
   await prisma.crmEmailThread.update({
     where: { id: existing.id },
     data: {

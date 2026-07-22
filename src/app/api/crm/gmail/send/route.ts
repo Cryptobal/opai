@@ -223,14 +223,15 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    await prisma.crmEmailThread.update({
-      where: { id: threadRecord.id },
-      data: {
-        lastMessageAt: new Date(),
-        // primera respuesta interna al inbound → registra firstReplyAt (KPI).
-        ...(replyCtx && !replyCtx.firstReplyAt ? { firstReplyAt: new Date() } : {}),
-      },
-    });
+    // Responder NO reordena la bandeja: el orden lo manda el último correo
+    // RECIBIDO (como Gmail). Solo se registra firstReplyAt (KPI de respuesta)
+    // en la primera respuesta al inbound; lastMessageAt no se toca.
+    if (replyCtx && !replyCtx.firstReplyAt) {
+      await prisma.crmEmailThread.update({
+        where: { id: threadRecord.id },
+        data: { firstReplyAt: new Date() },
+      });
+    }
 
     return NextResponse.json({
       success: true,

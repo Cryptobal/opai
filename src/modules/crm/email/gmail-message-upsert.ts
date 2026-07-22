@@ -121,6 +121,8 @@ export async function upsertGmailMessage(params: {
     counterpartyEmails,
     emailAccountId: emailAccount.id,
     providerThreadId,
+    // Los enviados (incluidas respuestas hechas fuera de OPAI) no reordenan.
+    isInbound: direction === "in",
   });
 
   await prisma.crmEmailMessage.create({
