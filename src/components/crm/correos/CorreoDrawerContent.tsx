@@ -78,6 +78,7 @@ export function CorreoDrawerContent({
         accountId={detail.thread.accountId}
       />
       <CorreoAssociationBar
+        threadId={detail.thread.id}
         accountId={detail.thread.accountId}
         accountName={detail.thread.accountName}
         dealId={detail.thread.dealId}

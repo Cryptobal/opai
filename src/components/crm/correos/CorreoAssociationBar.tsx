@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Sparkles } from "lucide-react";
 import { AsociarCuenta } from "./AsociarCuenta";
 import { QuickDealCreate } from "./QuickDealCreate";
 
 type DealOpt = { id: string; title: string };
+type AccountSuggestion = { id: string; name: string; reason: string };
 
 const CREATE = "__create__";
 
 /** Barra de asociación: cuenta + negocio opcional del drawer de correos. */
 export function CorreoAssociationBar({
+  threadId,
   accountId,
   accountName,
   dealId,
@@ -17,6 +20,7 @@ export function CorreoAssociationBar({
   subject,
   onAssociate,
 }: {
+  threadId?: string;
   accountId: string | null;
   accountName: string | null;
   dealId: string | null;
@@ -27,6 +31,7 @@ export function CorreoAssociationBar({
   const [deals, setDeals] = useState<DealOpt[]>([]);
   const [loadingDeals, setLoadingDeals] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [suggestions, setSuggestions] = useState<AccountSuggestion[]>([]);
 
   useEffect(() => {
     setCreating(false);
@@ -41,6 +46,22 @@ export function CorreoAssociationBar({
       .catch(() => setDeals([]))
       .finally(() => setLoadingDeals(false));
   }, [accountId]);
+
+  // Sugerencias de cuenta (IA por dominio) solo cuando el hilo no tiene cuenta.
+  useEffect(() => {
+    if (accountId || !threadId) {
+      setSuggestions([]);
+      return;
+    }
+    let alive = true;
+    fetch(`/api/crm/correos/${threadId}/suggest-account`)
+      .then((r) => r.json())
+      .then((j) => alive && setSuggestions(j.suggestions ?? []))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [accountId, threadId]);
 
   return (
     <div className="space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-2.5">
@@ -58,6 +79,25 @@ export function CorreoAssociationBar({
           <AsociarCuenta onSelect={(id) => onAssociate({ accountId: id, dealId: null })} />
         </div>
       </div>
+
+      {!accountId && suggestions.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex items-center gap-1 text-[12px] text-ds-text-3">
+            <Sparkles className="h-3.5 w-3.5 text-tint-violet-fg" /> Sugerencia:
+          </span>
+          {suggestions.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              title={s.reason}
+              onClick={() => onAssociate({ accountId: s.id, dealId: null })}
+              className="inline-flex items-center rounded-full border border-ds-border-default bg-ds-surface-1 px-2.5 py-1 text-[12px] text-ds-text-1 ds-tap hover:border-primary"
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
       {accountId && !creating && (
         <label className="flex flex-col gap-1">
           <span className="text-[12px] text-ds-text-3">Negocio (opcional)</span>
