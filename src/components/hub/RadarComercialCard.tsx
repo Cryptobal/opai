@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, Radar, RefreshCw } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronRight, Radar, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Surface, Spinner, EmptyState, Tag } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
@@ -118,6 +118,12 @@ export function RadarComercialCard() {
           <Button variant="outline" size="sm" onClick={() => void scan()} disabled={scanning}>
             <RefreshCw className={`h-4 w-4 ${scanning ? "animate-spin" : ""}`} />
             <span className="ml-1.5">{scanning ? "Buscando…" : "Buscar novedades"}</span>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/crm/mi-semana">
+              <CalendarDays className="h-4 w-4" />
+              <span className="ml-1.5">Mi semana</span>
+            </Link>
           </Button>
           <Button asChild variant="outline" size="sm">
             <Link href="/crm/correos">Ver correos</Link>
