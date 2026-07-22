@@ -7,7 +7,7 @@ import {
   canView,
   hasCapability,
   hasModuleAccess,
-  resolvePagePerms,
+  resolveHubPagePerms,
 } from "@/lib/permissions-server";
 import type { FinanceCaps, HubPerms } from "./hub-types";
 
@@ -23,7 +23,7 @@ export const getHubRequestContext = cache(async () => {
     redirect("/opai/login?callbackUrl=/hub");
   }
 
-  const perms = await resolvePagePerms(session.user);
+  const perms = await resolveHubPagePerms(session.user);
   const financeCaps: FinanceCaps = {
     banking_view: hasCapability(perms, "banking_view"),
     cashflow_view: hasCapability(perms, "cashflow_view"),

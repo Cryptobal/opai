@@ -35,7 +35,7 @@
 import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { useTenantModules } from "@/contexts/TenantModulesContext";
-import { usePermissions } from "@/lib/permissions-context";
+import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
 import {
   findChildByKey,
   findN3Parent,
@@ -90,7 +90,7 @@ export function ModuleSubNav({
   disableAutoSuppress = false,
 }: ModuleSubNavProps) {
   const pathname = usePathname() ?? "/";
-  const permissions = usePermissions();
+  const permissions = useEffectivePermissions();
   const { isModuleEnabled, hasFeatureFlag } = useTenantModules();
 
   const ctx: VisibilityContext = useMemo(

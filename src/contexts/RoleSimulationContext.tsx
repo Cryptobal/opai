@@ -4,7 +4,8 @@
  * RoleSimulationContext — Permite a propietarios y administradores
  * simular temporalmente cualquier otro rol del sistema.
  *
- * - Solo visual/frontend, nunca afecta datos reales ni tokens.
+ * - Solo visual/frontend para navegación; el Hub lee la cookie en el server
+ *   para no filtrar KPIs sensibles al simular otro rol.
  * - Se guarda en sessionStorage (se limpia al cerrar el browser).
  * - Al cerrar sesión se limpia siempre.
  * - Lista de roles + permisos vienen de la BD (no hardcoded).
@@ -25,6 +26,11 @@ import {
     EMPTY_PERMISSIONS,
     type RolePermissions,
 } from '@/lib/permissions';
+import {
+    SIMULATED_ROLE_SESSION_KEY,
+    setSimulatedRoleCookie,
+} from '@/lib/role-simulation';
+import { useRouter } from 'next/navigation';
 
 // ── Tipos ──
 
@@ -41,10 +47,9 @@ export interface SimulableRole {
     permissions: RolePermissions | null;
 }
 
-/** Roles reales que pueden usar el RoleSwitcher */
 const ALLOWED_REAL_ROLES = ['owner', 'admin'];
 
-const SESSION_KEY = 'opai_simulated_role';
+const SESSION_KEY = SIMULATED_ROLE_SESSION_KEY;
 
 /** Evento global que dispara un refetch de la lista de roles */
 export const ROLES_UPDATED_EVENT = 'opai-roles-updated';
@@ -133,6 +138,7 @@ export function RoleSimulationProvider({
     realRole,
     realPermissions,
 }: RoleSimulationProviderProps) {
+    const router = useRouter();
     const canSimulate = ALLOWED_REAL_ROLES.includes(realRole);
 
     const [simulatedRole, setSimulatedRole] = useState<string | null>(null);
@@ -202,9 +208,11 @@ export function RoleSimulationProvider({
             const stored = sessionStorage.getItem(SESSION_KEY);
             if (stored && roles.some((r) => r.slug === stored)) {
                 setSimulatedRole(stored);
+                setSimulatedRoleCookie(stored);
             } else if (stored && !roles.some((r) => r.slug === stored)) {
                 // El rol ya no existe (fue eliminado): limpiar
                 sessionStorage.removeItem(SESSION_KEY);
+                setSimulatedRoleCookie(null);
             }
         } catch {
             // SSR o sessionStorage no disponible
@@ -220,8 +228,10 @@ export function RoleSimulationProvider({
             } catch {
                 // sessionStorage no disponible
             }
+            setSimulatedRoleCookie(slug);
+            router.refresh();
         },
-        [canSimulate],
+        [canSimulate, router],
     );
 
     const stopSimulation = useCallback(() => {
@@ -231,7 +241,9 @@ export function RoleSimulationProvider({
         } catch {
             // sessionStorage no disponible
         }
-    }, []);
+        setSimulatedRoleCookie(null);
+        router.refresh();
+    }, [router]);
 
     const isSimulating = canSimulate && simulatedRole !== null && simulatedRole !== realRole;
     const effectiveRole = isSimulating ? simulatedRole! : realRole;

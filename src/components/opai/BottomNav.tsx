@@ -149,9 +149,9 @@ function useNavConfig() {
 
 /** Mapea key del registry → context key legacy usado por MODULE_LABELS y
  *  el storage de orden (`opai-bottom-nav-<context>`). Mantiene backcompat
- *  con preferencias ya guardadas por usuarios. Módulos sin sub-nav contextual
- *  (hub, portales, compliance, chat) se omiten → getActiveModule devuelve null. */
+ *  con preferencias ya guardadas por usuarios. */
 const REGISTRY_TO_CONTEXT: Record<string, string> = {
+  hub: "hub",
   crm: "crm", ops: "ops", personas: "personas", payroll: "payroll",
   finance: "finanzas", config: "config", docs: "docs", reportes_dt: "reportes_dt",
 };
@@ -170,8 +170,8 @@ function getActiveModule(pathname: string): string | null {
 export function BottomNav({ userRole }: BottomNavProps) {
   const pathname = usePathname();
   const permissions = usePermissions();
+  const { effectiveRole, effectivePermissions, isSimulating } = useRoleSimulation();
   const { enabledModules, featureFlags } = useTenantModules();
-  const { effectiveRole } = useRoleSimulation();
   const navRef = useRef<HTMLElement>(null);
   const navConfig = useNavConfig();
   const hidden = useScrollDirection(60);
@@ -194,8 +194,9 @@ export function BottomNav({ userRole }: BottomNavProps) {
   const isCpqDetail = /^\/crm\/cotizaciones\/[^/]+$/.test(pathname);
   if (isCpqDetail) return null;
 
-  const permsOrRole = permissions.modules && Object.keys(permissions.modules).length > 0
-    ? permissions
+  const activePerms = isSimulating ? effectivePermissions : permissions;
+  const permsOrRole = activePerms.modules && Object.keys(activePerms.modules).length > 0
+    ? activePerms
     : userRole;
 
   // Determine which mode to show.

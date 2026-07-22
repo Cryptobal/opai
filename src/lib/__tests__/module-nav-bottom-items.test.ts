@@ -216,4 +216,14 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     const items = getBottomNavItems("/crm", "guardia", ALL_ENABLED);
     expect(items).toEqual([]);
   });
+
+  it("Hub comercial → vision tabs (Resumen, Comercial, Operaciones, Finanzas…)", () => {
+    const items = getBottomNavItems("/hub/comercial", "owner", ALL_ENABLED);
+    const hrefs = items.map((i) => i.href);
+    expect(hrefs).toContain("/hub");
+    expect(hrefs).toContain("/hub/comercial");
+    expect(hrefs).toContain("/hub/operaciones");
+    expect(hrefs).toContain("/hub/finanzas");
+    expect(hrefs).toContain("/hub/personas");
+  });
 });

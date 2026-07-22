@@ -5,6 +5,11 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { cookies } from "next/headers";
+import {
+  SIMULATED_ROLE_COOKIE,
+  canUserSimulateRoles,
+} from "@/lib/role-simulation";
 import {
   type RolePermissions,
   getDefaultPermissions,
@@ -257,13 +262,71 @@ export type { ModuleKey, CapabilityKey, FacturacionCapability };
 interface SessionUser {
   role: string;
   roleTemplateId?: string | null;
+  tenantId?: string;
   [key: string]: unknown;
+}
+
+/**
+ * Resuelve permisos desde un slug de rol (simulación de owner/admin en el Hub).
+ * Usa template de BD del tenant si existe; si no, defaults del sistema.
+ */
+export async function resolvePermissionsByRoleSlug(
+  slug: string,
+  tenantId: string,
+): Promise<RolePermissions> {
+  const normalizedSlug = normalizeRole(slug);
+  const defaultPerms = getDefaultPermissions(normalizedSlug);
+
+  const template = await prisma.roleTemplate.findFirst({
+    where: { tenantId, slug: normalizedSlug },
+    select: { permissions: true, slug: true },
+  });
+
+  if (template?.permissions) {
+    const merged = mergeRolePermissions(
+      defaultPerms,
+      template.permissions as unknown as RolePermissions,
+    );
+    return ensureSupervisorSupervisionAccess(normalizedSlug, merged);
+  }
+
+  return ensureSupervisorSupervisionAccess(normalizedSlug, defaultPerms);
+}
+
+/**
+ * Resuelve permisos para páginas del Hub respetando simulación de rol (cookie).
+ * Solo owner/admin pueden simular.
+ */
+export async function resolveHubPagePerms(user: SessionUser): Promise<RolePermissions> {
+  const realRole = normalizeRole(user.role);
+  const realPerms = await resolvePagePerms(user);
+
+  if (!canUserSimulateRoles(realRole)) {
+    return realPerms;
+  }
+
+  const simulatedSlug = (await cookies()).get(SIMULATED_ROLE_COOKIE)?.value;
+  if (!simulatedSlug) {
+    return realPerms;
+  }
+
+  const normalized = normalizeRole(decodeURIComponent(simulatedSlug));
+  if (normalized === realRole) {
+    return realPerms;
+  }
+
+  const tenantId = user.tenantId;
+  if (!tenantId) {
+    return realPerms;
+  }
+
+  return resolvePermissionsByRoleSlug(normalized, tenantId);
 }
 
 /**
  * Resolver permisos desde la sesión de auth.
  * Usa el cache del template (5min TTL) así que es barato.
- * 
+ *
  * Uso en page.tsx:
  *   const perms = await resolvePagePerms(session.user);
  *   if (!canView(perms, "ops")) redirect("/hub");
