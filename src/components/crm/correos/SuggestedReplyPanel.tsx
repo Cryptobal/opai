@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Sparkles, Send, Users } from "lucide-react";
+import { toast } from "sonner";
 import { Spinner } from "@/components/opai-ds";
 import { ReplyRecipientsField, isValidEmail } from "./ReplyRecipientsField";
 import { RichTextEditor } from "./RichTextEditor";
@@ -89,16 +90,25 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ threadId, to, cc, bcc, subject: replySubject.trim() || subject, html: draft }),
       });
-      if (res.ok) {
-        if (radarItemId) {
-          await fetch(`/api/crm/radar/${radarItemId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "DONE" }),
-          }).catch(() => {});
-        }
-        onSent();
+      const data = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
+      // Antes esto fallaba en silencio: sin toast de error ni de éxito, "no
+      // pasaba nada" al tocar Enviar aunque el server rechazara el correo.
+      if (!res.ok || data.success === false) {
+        toast.error(data.error || "No se pudo enviar la respuesta");
+        return;
       }
+      toast.success("Respuesta enviada por Gmail");
+      setDraft("");
+      if (radarItemId) {
+        await fetch(`/api/crm/radar/${radarItemId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "DONE" }),
+        }).catch(() => {});
+      }
+      onSent();
+    } catch {
+      toast.error("No se pudo enviar la respuesta");
     } finally {
       setBusy(null);
     }

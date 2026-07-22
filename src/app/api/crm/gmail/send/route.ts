@@ -13,6 +13,11 @@ import { normalizeEmailAddress, normalizeEmailList } from "@/lib/email-address";
 import { requireTenantModule } from '@/lib/require-module';
 import { resolveReplyContext } from "@/modules/crm/email/gmail-reply";
 
+/** RFC 2047: los headers MIME son ASCII — un asunto con acentos va codificado. */
+function encodeHeaderWord(s: string): string {
+  return /[^\x20-\x7e]/.test(s) ? `=?UTF-8?B?${Buffer.from(s, "utf8").toString("base64")}?=` : s;
+}
+
 function buildRawEmail({
   from,
   to,
@@ -39,7 +44,7 @@ function buildRawEmail({
     `To: ${to.join(", ")}`,
     cc?.length ? `Cc: ${cc.join(", ")}` : null,
     bcc?.length ? `Bcc: ${bcc.join(", ")}` : null,
-    `Subject: ${subject}`,
+    `Subject: ${encodeHeaderWord(subject)}`,
     inReplyTo ? `In-Reply-To: ${inReplyTo}` : null,
     references ? `References: ${references}` : null,
     "MIME-Version: 1.0",
@@ -237,9 +242,20 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error sending Gmail:", error);
+    const e = error as { code?: number; status?: number; response?: { status?: number } };
+    const status = e?.code ?? e?.status ?? e?.response?.status;
+    if (status === 401 || status === 403) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Gmail rechazó el envío (permisos). Reconectá tu casilla desde Integraciones.",
+        },
+        { status: 403 },
+      );
+    }
     return NextResponse.json(
-      { success: false, error: "Failed to send email" },
-      { status: 500 }
+      { success: false, error: "No se pudo enviar el correo por Gmail" },
+      { status: 502 }
     );
   }
 }
