@@ -32,6 +32,8 @@ import {
   getStagedEmailFileBuffer,
   getStagedEmailFileMetadata,
 } from "@/modules/crm/email/gmail-staging-storage";
+import { auditEmailAction } from "@/lib/audit-email";
+import { captureEmailError } from "@/modules/crm/email/email-observability";
 
 export const maxDuration = 60;
 
@@ -404,6 +406,22 @@ export async function POST(request: NextRequest) {
       });
     });
 
+    void auditEmailAction({
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+      userEmail: ctx.userEmail,
+      action: "send",
+      entityType: "email_message",
+      entityId: message.id,
+      meta: {
+        threadId: threadRecord.id,
+        providerMessageId: messageId ?? null,
+        emailAccountId: emailAccount.id,
+        attachments: outboundAttachments.length,
+        isReply: Boolean(replyCtx),
+      },
+    });
+
     return NextResponse.json({
       success: true,
       data: {
@@ -413,7 +431,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error sending Gmail:", error);
+    captureEmailError(error, { scope: "send" });
     if (acceptedByGmail) {
       const accepted = acceptedByGmail;
       after(async () => {

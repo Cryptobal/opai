@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireTenantModule } from "@/lib/require-module";
 import { listCorreoThreads, type CorreoListFilter } from "@/modules/crm/email/correos-list";
 import { countCorreoFolders } from "@/modules/crm/email/correos-folder-counts";
+import { isGmailSyncParked } from "@/modules/crm/email/gmail-sync-queue";
 import { gmailMailboxChannel } from "@/modules/crm/email/gmail-realtime";
 
 function parseFolder(raw: string | null): CorreoListFilter {
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
   }
 
   const folder = parseFolder(req.nextUrl.searchParams.get("folder"));
-  const [{ items, nextCursor }, counts] = await Promise.all([
+  const [{ items, nextCursor }, counts, syncParked] = await Promise.all([
     listCorreoThreads({
       tenantId: session.user.tenantId,
       emailAccountId: account.id,
@@ -47,6 +48,7 @@ export async function GET(req: NextRequest) {
       tenantId: session.user.tenantId,
       emailAccountId: account.id,
     }),
+    isGmailSyncParked(account.id),
   ]);
 
   const syncRaw =
@@ -68,5 +70,6 @@ export async function GET(req: NextRequest) {
     backfillDone: Boolean(syncRaw.backfillDone),
     totalThreads: counts.all + counts.trash,
     lastSyncAt: syncRaw.lastSyncAt ?? null,
+    syncParked,
   });
 }

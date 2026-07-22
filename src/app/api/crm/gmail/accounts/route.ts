@@ -18,6 +18,8 @@ import { decryptText, getGmailTokenSecret } from "@/lib/crypto";
 import { requireTenantModule } from "@/lib/require-module";
 import { revokeGoogleToken } from "@/modules/crm/email/gmail-revoke";
 import { stopGmailWatch } from "@/modules/crm/email/gmail-watch";
+import { auditEmailAction } from "@/lib/audit-email";
+import { captureEmailError } from "@/modules/crm/email/email-observability";
 
 export const dynamic = "force-dynamic";
 // El DELETE hace hasta dos llamadas a Google (users.stop + revoke), ambas con
@@ -121,9 +123,10 @@ export async function DELETE(request: NextRequest) {
         : null;
     if (token) upstreamRevoked = await revokeGoogleToken(token);
   } catch (error) {
-    console.error("[gmail] no se pudo revocar el grant en Google", {
+    captureEmailError(error, {
+      scope: "revocacion-upstream",
+      tenantId: ctx.tenantId,
       emailAccountId: acc.id,
-      error,
     });
   }
 
@@ -135,6 +138,16 @@ export async function DELETE(request: NextRequest) {
       refreshTokenEncrypted: null,
       tokenExpiresAt: null,
     },
+  });
+
+  void auditEmailAction({
+    tenantId: ctx.tenantId,
+    userId: ctx.userId,
+    userEmail: ctx.userEmail,
+    action: "disconnect_account",
+    entityType: "email_account",
+    entityId: acc.id,
+    meta: { mailbox: acc.email, ownerUserId: acc.userId, upstreamRevoked },
   });
 
   return NextResponse.json({ ok: true, email: acc.email, upstreamRevoked });

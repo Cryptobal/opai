@@ -70,6 +70,12 @@ export function CorreoDrawerContent({
       </div>
       {/* Orden estilo Gmail: correo → adjuntos (plegados) → acciones CRM →
           respuesta al final. */}
+      {detail.degraded && (
+        <div className="rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">
+          No se pudieron cargar los adjuntos de este hilo desde Gmail. Reintentá
+          en unos segundos.
+        </div>
+      )}
       <CorreoMessages messages={detail.messages} />
       <CorreoAttachments
         items={detail.attachments}

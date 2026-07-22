@@ -2679,6 +2679,25 @@ model CrmGmailSyncJob {
   @@schema("crm")
 }
 
+/// DLQ de sync Gmail (§7 auditoría): jobs veneno aparcados tras superar el
+/// umbral de reintentos. `resolvedAt` marca reactivación (manual o por
+/// reconexión). Un job aparcado no se reintenta hasta resolverse.
+model CrmEmailSyncDeadLetter {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String    @map("tenant_id")
+  emailAccountId String    @map("email_account_id") @db.Uuid
+  reason         String    @db.Text
+  payload        Json?
+  attempts       Int       @default(0)
+  parkedAt       DateTime  @default(now()) @map("parked_at") @db.Timestamptz(6)
+  resolvedAt     DateTime? @map("resolved_at") @db.Timestamptz(6)
+
+  @@index([tenantId], map: "idx_crm_email_sync_dlq_tenant")
+  @@index([emailAccountId, resolvedAt], map: "idx_crm_email_sync_dlq_account")
+  @@map("email_sync_dead_letters")
+  @@schema("crm")
+}
+
 model CrmEmailThread {
   id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId         String    @map("tenant_id")

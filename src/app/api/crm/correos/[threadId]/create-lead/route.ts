@@ -6,6 +6,7 @@ import { requireTenantModule } from "@/lib/require-module";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { createLeadFromExtraction } from "@/modules/crm/email/email-to-lead-create.service";
 import type { CreateLeadMode, LeadExtraction, StagedFile } from "@/modules/crm/email/email-to-lead.types";
+import { auditEmailAction } from "@/lib/audit-email";
 
 type Ctx = { params: Promise<{ threadId: string }> };
 
@@ -44,6 +45,18 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     mode,
     stagedFiles: Array.isArray(body.stagedFiles) ? body.stagedFiles : [],
   });
+
+  if (result.ok) {
+    void auditEmailAction({
+      tenantId: authCtx.tenantId,
+      userId: authCtx.userId,
+      userEmail: authCtx.userEmail,
+      action: "create_lead",
+      entityType: "crm_lead",
+      entityId: (result as { leadId?: string }).leadId ?? null,
+      meta: { threadId, mode },
+    });
+  }
 
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

@@ -54,4 +54,7 @@ export type CorreoDetail = {
   };
   messages: CorreoMessageDTO[];
   attachments: CorreoAttachmentDTO[];
+  /** true si Gmail falló al cargar el hilo: los adjuntos pueden faltar y la
+   * UI debe avisar en vez de mostrar una lista vacía silenciosa (B3). */
+  degraded: boolean;
 };

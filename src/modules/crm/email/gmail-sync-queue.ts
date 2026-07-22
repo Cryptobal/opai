@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { invalidateCorreoFolderCounts } from "./correos-folder-counts";
+import { captureEmailError } from "./email-observability";
 import { broadcastGmailMailboxChanged } from "./gmail-realtime";
 import { syncGmailAccount } from "./gmail-sync.service";
 
@@ -9,6 +10,80 @@ import { syncGmailAccount } from "./gmail-sync.service";
 // mientras el anterior todavía puede persistir un historyId más antiguo.
 const LEASE_MS = 70_000;
 const MAX_ERROR_LENGTH = 1_000;
+
+/** Umbral de parking (T14): un job que falla esta cantidad de veces seguidas
+ * se aparca en la DLQ y deja de reintentarse (env para ajustar sin deploy). */
+export const GMAIL_SYNC_PARK_THRESHOLD = Math.max(
+  2,
+  Number(process.env.GMAIL_SYNC_PARK_THRESHOLD ?? 10),
+);
+
+/** true si la casilla tiene un dead letter sin resolver (job aparcado). */
+export async function isGmailSyncParked(emailAccountId: string): Promise<boolean> {
+  const parked = await prisma.crmEmailSyncDeadLetter.findFirst({
+    where: { emailAccountId, resolvedAt: null },
+    select: { id: true },
+  });
+  return Boolean(parked);
+}
+
+/**
+ * Aparca el job en la DLQ: upsert lógico (una fila abierta por casilla — un
+ * re-enqueue posterior que vuelva a fallar actualiza la fila en vez de
+ * acumular duplicados), job fuera de la cola y alerta Sentry de nivel error.
+ */
+async function parkGmailSyncJob(params: {
+  jobId: string;
+  leaseToken: string;
+  tenantId: string;
+  emailAccountId: string;
+  attempts: number;
+  reason: string;
+  error: unknown;
+  payload: Record<string, unknown>;
+}): Promise<void> {
+  const existing = await prisma.crmEmailSyncDeadLetter.findFirst({
+    where: { emailAccountId: params.emailAccountId, resolvedAt: null },
+    select: { id: true },
+  });
+  if (existing) {
+    await prisma.crmEmailSyncDeadLetter.update({
+      where: { id: existing.id },
+      data: {
+        reason: params.reason.slice(0, MAX_ERROR_LENGTH),
+        payload: params.payload as never,
+        attempts: params.attempts,
+        parkedAt: new Date(),
+      },
+    });
+  } else {
+    await prisma.crmEmailSyncDeadLetter.create({
+      data: {
+        tenantId: params.tenantId,
+        emailAccountId: params.emailAccountId,
+        reason: params.reason.slice(0, MAX_ERROR_LENGTH),
+        payload: params.payload as never,
+        attempts: params.attempts,
+      },
+    });
+  }
+  await prisma.crmGmailSyncJob.updateMany({
+    where: { id: params.jobId, leaseToken: params.leaseToken },
+    data: {
+      pending: false,
+      maintenanceRequested: false,
+      leaseToken: null,
+      leaseUntil: null,
+      lastError: params.reason.slice(0, MAX_ERROR_LENGTH),
+    },
+  });
+  captureEmailError(params.error, {
+    scope: "sync-queue-parked",
+    tenantId: params.tenantId,
+    emailAccountId: params.emailAccountId,
+    extra: { attempts: params.attempts, threshold: GMAIL_SYNC_PARK_THRESHOLD },
+  });
+}
 
 export function gmailSyncRetryDelayMs(attempts: number): number {
   return Math.min(
@@ -160,6 +235,12 @@ export async function processGmailSyncJob(params: {
         lastCompletedAt: new Date(),
       },
     });
+    // Una corrida exitosa resuelve cualquier dead letter abierto: la casilla
+    // dejó de estar envenenada y el banner de parked se apaga solo.
+    await prisma.crmEmailSyncDeadLetter.updateMany({
+      where: { emailAccountId: job.emailAccount.id, resolvedAt: null },
+      data: { resolvedAt: new Date() },
+    });
     invalidateCorreoFolderCounts(
       job.emailAccount.tenantId,
       job.emailAccount.id,
@@ -190,6 +271,29 @@ export async function processGmailSyncJob(params: {
           data: { status: "revoked" },
         })
         .catch(() => {});
+      throw error;
+    }
+
+    // T14: la corrida actual es el intento job.attempts + 1 (el claim ya
+    // incrementó). Al llegar al umbral el job se aparca en la DLQ y no se
+    // programa más retry; un enqueue posterior (push/manual) puede revivirlo.
+    const attemptNumber = job.attempts + 1;
+    if (attemptNumber >= GMAIL_SYNC_PARK_THRESHOLD) {
+      await parkGmailSyncJob({
+        jobId: job.id,
+        leaseToken,
+        tenantId: job.emailAccount.tenantId,
+        emailAccountId: job.emailAccount.id,
+        attempts: attemptNumber,
+        reason: message,
+        error,
+        payload: {
+          reason: job.reason,
+          profile,
+          requestedHistoryId: job.requestedHistoryId ?? null,
+          requestedAt: job.requestedAt.toISOString(),
+        },
+      });
       throw error;
     }
 
@@ -260,7 +364,11 @@ export async function flushGmailSyncJobs(params?: {
       else busy += 1;
     } catch (error) {
       failed += 1;
-      console.warn("[gmail-sync-queue] job falló", job.emailAccountId, error);
+      captureEmailError(error, {
+        scope: "sync-queue-flush",
+        emailAccountId: job.emailAccountId,
+        level: "warning",
+      });
     }
   }
   return { processed, busy, failed };

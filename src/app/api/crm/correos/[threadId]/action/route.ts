@@ -8,6 +8,7 @@ import {
   type CorreoAction,
 } from "@/modules/crm/email/gmail-thread-actions";
 import { broadcastGmailMailboxChanged } from "@/modules/crm/email/gmail-realtime";
+import { auditEmailAction } from "@/lib/audit-email";
 
 const ACTIONS = new Set<CorreoAction>([
   "archive",
@@ -83,5 +84,15 @@ export async function POST(
       reason: `action:${body.action}`,
     });
   }
+  void auditEmailAction({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    userEmail: session.user.email,
+    action: body.action as CorreoAction,
+    entityType: "email_thread",
+    entityId: threadId,
+    meta: snoozeUntil ? { snoozeUntil: snoozeUntil.toISOString() } : undefined,
+  });
+
   return NextResponse.json({ ok: true, action: body.action });
 }

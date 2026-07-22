@@ -10,6 +10,7 @@ import { getGmailOAuthClient } from "@/lib/gmail";
 import { encryptText, getGmailTokenSecret } from "@/lib/crypto";
 import { createHmac } from "crypto";
 import { requireTenantModule } from '@/lib/require-module';
+import { auditEmailAction } from "@/lib/audit-email";
 import { registerGmailWatch } from "@/modules/crm/email/gmail-watch";
 import {
   enqueueGmailSyncJob,
@@ -110,6 +111,16 @@ export async function GET(request: NextRequest) {
       const created = await prisma.crmEmailAccount.create({ data, select: { id: true } });
       accountId = created.id;
     }
+
+    void auditEmailAction({
+      tenantId: decoded.tenantId,
+      userId: session.user.id,
+      userEmail: session.user.email,
+      action: "connect_account",
+      entityType: "email_account",
+      entityId: accountId,
+      meta: { mailbox: emailAddress, reconnect: Boolean(existing) },
+    });
 
     const account = await prisma.crmEmailAccount.findUnique({
       where: { id: accountId },

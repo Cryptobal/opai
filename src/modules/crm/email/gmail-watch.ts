@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { captureEmailError } from "./email-observability";
 import { gmailClientForAccount } from "./gmail-account-client";
 import { readSyncState, writeSyncState } from "./gmail-sync-state";
 
@@ -42,7 +43,11 @@ export async function registerGmailWatch(account: GmailWatchAccount): Promise<Wa
     });
     return { ok: true };
   } catch (err) {
-    console.warn("[gmail] watch register falló", { emailAccountId: account.id, err });
+    captureEmailError(err, {
+      scope: "watch-register",
+      emailAccountId: account.id,
+      level: "warning",
+    });
     return { error: true };
   }
 }
@@ -56,7 +61,11 @@ export async function stopGmailWatch(account: GmailWatchAccount): Promise<void> 
     try {
       await gmail.users.stop({ userId: "me" });
     } catch (err) {
-      console.warn("[gmail] watch stop falló", { emailAccountId: account.id, err });
+      captureEmailError(err, {
+        scope: "watch-stop",
+        emailAccountId: account.id,
+        level: "warning",
+      });
     }
   }
 

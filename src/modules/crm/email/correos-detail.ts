@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { extractGmailAttachments, type GmailMessagePart } from "@/lib/gmail-message-content";
 import { gmailClientForAccount } from "./gmail-account-client";
 import { hydrateMissingThreadMessages } from "./correos-detail-hydrate";
+import { captureEmailError } from "./email-observability";
 import type { CorreoDetail, CorreoAttachmentDTO } from "./correos.types";
 
 /**
@@ -38,6 +39,9 @@ export async function getCorreoDetail(params: {
   });
 
   let attachments: CorreoAttachmentDTO[] = [];
+  // B3: si Gmail falla no devolvemos adjuntos vacíos en silencio — el hilo
+  // sale con degraded=true y la UI muestra el aviso de reintento.
+  let degraded = false;
   if (thread.providerThreadId && emailAccount) {
     const gmail = gmailClientForAccount(emailAccount);
     if (gmail) {
@@ -63,7 +67,13 @@ export async function getCorreoDetail(params: {
           messages: gmailMessages,
         });
       } catch (err) {
-        console.error("[correos] detalle del hilo Gmail falló:", err);
+        degraded = true;
+        captureEmailError(err, {
+          scope: "detalle-hilo",
+          tenantId,
+          emailAccountId,
+          threadId: thread.id,
+        });
       }
     }
   }
@@ -100,5 +110,6 @@ export async function getCorreoDetail(params: {
     },
     messages: messages.map((m) => ({ ...m, sentAt: m.sentAt?.toISOString() ?? null })),
     attachments,
+    degraded,
   };
 }

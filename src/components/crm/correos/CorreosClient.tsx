@@ -55,6 +55,7 @@ export function CorreosClient() {
   const [canModify, setCanModify] = useState(false);
   const [backfillDone, setBackfillDone] = useState<boolean | null>(null);
   const [totalThreads, setTotalThreads] = useState(0);
+  const [syncParked, setSyncParked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [folder, setFolder] = useState<CorreoFolderTab>("inbox");
@@ -98,6 +99,7 @@ export function CorreosClient() {
       setBackfillDone(typeof r.backfillDone === "boolean" ? r.backfillDone : null);
       setLastSyncAt(typeof r.lastSyncAt === "string" ? r.lastSyncAt : null);
       setTotalThreads(Number(r.totalThreads) || 0);
+      setSyncParked(r.syncParked === true);
       setItems((prev) => (reset ? r.items ?? [] : [...prev, ...(r.items ?? [])]));
       setCursor(r.nextCursor ?? null);
     } finally {
@@ -224,7 +226,7 @@ export function CorreosClient() {
           description="Hilos de tu Gmail vinculados a cuentas, negocios y leads" />
 
         <CorreosSyncBanner backfillDone={backfillDone} totalThreads={totalThreads}
-          onConnected={() => void fetchPage(null, true)} />
+          syncParked={syncParked} onConnected={() => void fetchPage(null, true)} />
 
         {connected && !canModify && (
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">

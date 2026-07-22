@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireTenantModule } from "@/lib/require-module";
 import { normalizeEmailAddress } from "@/lib/email-address";
+import { auditEmailAction } from "@/lib/audit-email";
 
 type Ctx = { params: Promise<{ threadId: string }> };
 type Body = { accountId?: string | null; dealId?: string | null };
@@ -92,6 +93,20 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   await prisma.crmEmailThread.update({
     where: { id: thread.id },
     data: {
+      accountId: crmAccount?.id ?? null,
+      dealId: newDealId,
+      contactId: crmAccount ? contactId : null,
+    },
+  });
+
+  void auditEmailAction({
+    tenantId,
+    userId: session.user.id,
+    userEmail: session.user.email,
+    action: "associate",
+    entityType: "email_thread",
+    entityId: thread.id,
+    meta: {
       accountId: crmAccount?.id ?? null,
       dealId: newDealId,
       contactId: crmAccount ? contactId : null,

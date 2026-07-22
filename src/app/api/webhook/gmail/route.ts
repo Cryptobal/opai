@@ -7,6 +7,7 @@ import {
   enqueueGmailSyncJob,
   processGmailSyncJob,
 } from "@/modules/crm/email/gmail-sync-queue";
+import { captureEmailError } from "@/modules/crm/email/email-observability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -129,16 +130,19 @@ export async function POST(req: NextRequest) {
               deadlineMs: Date.now() + 25_000,
             });
           } catch (err) {
-            console.warn("[gmail] push delta falló; queda en retry", {
+            captureEmailError(err, {
+              scope: "push-delta",
+              tenantId: account.tenantId,
               emailAccountId: account.id,
-              err,
+              level: "warning",
+              extra: { note: "queda en retry" },
             });
           }
         }),
       );
     });
   } catch (err) {
-    console.warn("[gmail] push enqueue falló", err);
+    captureEmailError(err, { scope: "push-enqueue", level: "warning" });
   }
 
   return new NextResponse(null, { status: 204 });

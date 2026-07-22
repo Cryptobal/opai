@@ -7,6 +7,11 @@ const mocks = vi.hoisted(() => ({
   updateEmailAccount: vi.fn(),
   syncGmailAccount: vi.fn(),
   broadcastGmailMailboxChanged: vi.fn(),
+  dlqFindFirst: vi.fn(),
+  dlqCreate: vi.fn(),
+  dlqUpdate: vi.fn(),
+  dlqUpdateMany: vi.fn(),
+  captureEmailError: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -19,7 +24,16 @@ vi.mock("@/lib/prisma", () => ({
     crmEmailAccount: {
       update: mocks.updateEmailAccount,
     },
+    crmEmailSyncDeadLetter: {
+      findFirst: mocks.dlqFindFirst,
+      create: mocks.dlqCreate,
+      update: mocks.dlqUpdate,
+      updateMany: mocks.dlqUpdateMany,
+    },
   },
+}));
+vi.mock("../email-observability", () => ({
+  captureEmailError: mocks.captureEmailError,
 }));
 vi.mock("../correos-folder-counts", () => ({
   invalidateCorreoFolderCounts: vi.fn(),
@@ -33,7 +47,9 @@ vi.mock("../gmail-sync.service", () => ({
 
 import {
   enqueueGmailSyncJob,
+  GMAIL_SYNC_PARK_THRESHOLD,
   gmailSyncRetryDelayMs,
+  isGmailSyncParked,
   processGmailSyncJob,
 } from "../gmail-sync-queue";
 
@@ -43,6 +59,10 @@ describe("gmail sync queue", () => {
     mocks.updateMany.mockResolvedValue({ count: 1 });
     mocks.broadcastGmailMailboxChanged.mockResolvedValue(undefined);
     mocks.updateEmailAccount.mockResolvedValue({});
+    mocks.dlqFindFirst.mockResolvedValue(null);
+    mocks.dlqCreate.mockResolvedValue({});
+    mocks.dlqUpdate.mockResolvedValue({});
+    mocks.dlqUpdateMany.mockResolvedValue({ count: 0 });
     mocks.syncGmailAccount.mockResolvedValue({
       syncedCount: 1,
       fetched: 1,
@@ -152,6 +172,142 @@ describe("gmail sync queue", () => {
         }),
       }),
     );
+  });
+
+  it("aparca el job en la DLQ al superar el umbral de reintentos (T14)", async () => {
+    const requestedAt = new Date("2026-07-22T12:00:00.000Z");
+    mocks.findUnique.mockResolvedValue({
+      id: "job",
+      // attempts previos = umbral - 1: esta corrida es el intento del umbral.
+      attempts: GMAIL_SYNC_PARK_THRESHOLD - 1,
+      reason: "push",
+      requestedAt,
+      requestedHistoryId: "h-1",
+      maintenanceRequested: false,
+      emailAccount: {
+        id: "account",
+        tenantId: "tenant",
+        userId: "user",
+        email: "user@example.com",
+        status: "active",
+      },
+    });
+    mocks.syncGmailAccount.mockRejectedValue(new Error("veneno persistente"));
+
+    await expect(
+      processGmailSyncJob({ emailAccountId: "account" }),
+    ).rejects.toThrow("veneno persistente");
+
+    // Dead letter insertado con contexto del job.
+    expect(mocks.dlqCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          tenantId: "tenant",
+          emailAccountId: "account",
+          attempts: GMAIL_SYNC_PARK_THRESHOLD,
+          reason: expect.stringContaining("veneno"),
+        }),
+      }),
+    );
+    // El job queda parked: fuera de la cola, sin retry programado.
+    const parkUpdate = mocks.updateMany.mock.calls[1][0];
+    expect(parkUpdate.data).toEqual(
+      expect.objectContaining({ pending: false, leaseToken: null }),
+    );
+    expect(parkUpdate.data.availableAt).toBeUndefined();
+    // Alerta Sentry de nivel error.
+    expect(mocks.captureEmailError).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ scope: "sync-queue-parked" }),
+    );
+  });
+
+  it("bajo el umbral sigue reintentando con backoff (sin DLQ)", async () => {
+    mocks.findUnique.mockResolvedValue({
+      id: "job",
+      attempts: GMAIL_SYNC_PARK_THRESHOLD - 2,
+      reason: "push",
+      requestedAt: new Date("2026-07-22T12:00:00.000Z"),
+      maintenanceRequested: false,
+      emailAccount: {
+        id: "account",
+        tenantId: "tenant",
+        userId: "user",
+        email: "user@example.com",
+        status: "active",
+      },
+    });
+    mocks.syncGmailAccount.mockRejectedValue(new Error("temporal"));
+
+    await expect(
+      processGmailSyncJob({ emailAccountId: "account" }),
+    ).rejects.toThrow("temporal");
+
+    expect(mocks.dlqCreate).not.toHaveBeenCalled();
+    expect(mocks.updateMany.mock.calls[1][0].data).toEqual(
+      expect.objectContaining({ pending: true, reason: "retry" }),
+    );
+  });
+
+  it("re-parking actualiza el dead letter abierto en vez de duplicar", async () => {
+    mocks.findUnique.mockResolvedValue({
+      id: "job",
+      attempts: GMAIL_SYNC_PARK_THRESHOLD + 3,
+      reason: "push",
+      requestedAt: new Date("2026-07-22T12:00:00.000Z"),
+      maintenanceRequested: false,
+      emailAccount: {
+        id: "account",
+        tenantId: "tenant",
+        userId: "user",
+        email: "user@example.com",
+        status: "active",
+      },
+    });
+    mocks.dlqFindFirst.mockResolvedValue({ id: "dlq-1" });
+    mocks.syncGmailAccount.mockRejectedValue(new Error("sigue roto"));
+
+    await expect(
+      processGmailSyncJob({ emailAccountId: "account" }),
+    ).rejects.toThrow("sigue roto");
+
+    expect(mocks.dlqCreate).not.toHaveBeenCalled();
+    expect(mocks.dlqUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "dlq-1" } }),
+    );
+  });
+
+  it("una corrida exitosa resuelve los dead letters abiertos", async () => {
+    mocks.findUnique.mockResolvedValue({
+      id: "job",
+      attempts: 0,
+      reason: "push",
+      requestedAt: new Date("2026-07-22T12:00:00.000Z"),
+      maintenanceRequested: false,
+      emailAccount: {
+        id: "account",
+        tenantId: "tenant",
+        userId: "user",
+        email: "user@example.com",
+        status: "active",
+      },
+    });
+
+    await processGmailSyncJob({ emailAccountId: "account" });
+
+    expect(mocks.dlqUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { emailAccountId: "account", resolvedAt: null },
+        data: expect.objectContaining({ resolvedAt: expect.any(Date) }),
+      }),
+    );
+  });
+
+  it("isGmailSyncParked refleja la existencia de un dead letter abierto", async () => {
+    mocks.dlqFindFirst.mockResolvedValue({ id: "dlq-1" });
+    expect(await isGmailSyncParked("account")).toBe(true);
+    mocks.dlqFindFirst.mockResolvedValue(null);
+    expect(await isGmailSyncParked("account")).toBe(false);
   });
 
   it("detiene el job cuando Gmail revoca las credenciales", async () => {
