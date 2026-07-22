@@ -11923,3 +11923,155 @@ model AgendaEventLink {
   @@map("agenda_event_links")
   @@schema("public")
 }
+
+// ═══════════════ Calendar v2 (agenda-v1 brief · auditoría Parte 4) ═══════════════
+// Modelo aditivo: convive con AgendaVisita/AgendaEventLink hasta la migración final.
+
+/// Evento canónico OPAI. Fuente de verdad para todo lo creado en OPAI.
+model CalendarEvent {
+  id           String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId     String  @map("tenant_id")
+  calendarId   String? @db.Uuid // futuro: calendarios OPAI compartidos
+  kind         String  @default("event") // event|visita_cliente|visita_tecnica|supervision|licitacion|tarea_bloqueada
+  title        String
+  description  String? @db.Text
+  location     String? @db.Text
+  lat          Float?
+  lng          Float?
+  startAt      DateTime @db.Timestamptz(6)
+  endAt        DateTime @db.Timestamptz(6)
+  allDay       Boolean  @default(false)
+  timezone     String   @default("America/Santiago")
+  status       String   @default("confirmed") // confirmed|tentative|cancelled|completed
+  transparency String   @default("busy") // busy|free|tentative  (E09)
+  visibility   String   @default("tenant") // tenant|participants|private (E08)
+  // Contexto operacional OPAI (O01)
+  accountId      String? @db.Uuid
+  installationId String? @db.Uuid
+  dealId         String? @db.Uuid
+  createdBy String    @map("created_by")
+  version   Int       @default(1) // optimistic concurrency + sync ordering
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6) // soft delete: los sync necesitan ver tumbas
+
+  participants  CalendarEventParticipant[]
+  externals     CalendarExternalAttendee[]
+  reminders     CalendarEventReminder[]
+  providerLinks CalendarProviderLink[]
+
+  @@index([tenantId, startAt])
+  @@index([tenantId, deletedAt, startAt])
+  @@map("calendar_events")
+  @@schema("public")
+}
+
+/// Usuarios internos OPAI en el evento. Separa "responsable" de "invitado" (requisito owner).
+model CalendarEventParticipant {
+  id             String    @id @default(cuid())
+  tenantId       String
+  eventId        String    @db.Uuid
+  userId         String // Admin.id
+  role           String // organizer | owner | required | optional | watcher
+  responseStatus String    @default("needs_action") // needs_action|accepted|declined|tentative
+  invitedAt      DateTime  @default(now())
+  respondedAt    DateTime?
+
+  event CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([tenantId, userId, responseStatus]) // "mi agenda" + badge de invitaciones
+  @@map("calendar_event_participants")
+  @@schema("public")
+}
+
+/// Externos por email (contactos CRM u otros).
+model CalendarExternalAttendee {
+  id             String  @id @default(cuid())
+  tenantId       String
+  eventId        String  @db.Uuid
+  email          String
+  name           String?
+  crmContactId   String? @db.Uuid // opcional: vínculo a CrmContact
+  optional       Boolean @default(false)
+  responseStatus String  @default("needs_action") // leído de Google en sync
+  event          CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, email])
+  @@map("calendar_external_attendees")
+  @@schema("public")
+}
+
+model CalendarEventReminder {
+  id            String @id @default(cuid())
+  tenantId      String
+  eventId       String @db.Uuid
+  method        String // push|email|slack|popup
+  minutesBefore Int
+  event         CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("calendar_event_reminders")
+  @@schema("public")
+}
+
+/// Vínculo evento OPAI ↔ evento en un proveedor, POR PARTICIPANTE.
+/// Reemplaza el modelo "1 evento = 1 calendario del assignedUser": cada participante
+/// interno con cuenta conectada obtiene SU copia (o invitación) sin delete+recreate.
+model CalendarProviderLink {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  eventId            String    @db.Uuid
+  provider           String    @default("google") // google|microsoft (I02 futuro)
+  providerAccountId  String // GoogleCalendarAccount.id
+  providerCalendarId String
+  providerEventId    String?
+  htmlLink           String?   @db.Text
+  role               String    @default("organizer") // organizer (dueño de la copia) | attendee (invitado vía attendees[]) | attendee_copy (interno sin Google, copia pendiente)
+  syncStatus         String    @default("PENDING") // PENDING|SYNCED|ERROR|CANCELLED
+  lastError          String?   @db.Text
+  etag               String? // ETag Google → updates condicionales
+  localVersion       Int       @default(0) // CalendarEvent.version reflejada
+  lastSyncAt         DateTime?
+  event              CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, provider, providerAccountId])
+  @@index([tenantId, provider, providerEventId]) // resolución O(1) en webhook (arregla B3)
+  @@index([tenantId, syncStatus])
+  @@map("calendar_provider_links")
+  @@schema("public")
+}
+
+/// Estado de sincronización incremental por cuenta+calendario (saca syncToken/channel de prefs Json).
+model CalendarSyncCursor {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  provider           String    @default("google")
+  providerAccountId  String
+  providerCalendarId String    @default("primary")
+  syncToken          String?   @db.Text
+  channelId          String?
+  resourceId         String?
+  channelExpiresAt   DateTime?
+  lastFullSyncAt     DateTime?
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([provider, providerAccountId, providerCalendarId], map: "calendar_sync_cursors_provider_account_calendar_key")
+  @@index([channelId]) // lookup directo del webhook
+  @@map("calendar_sync_cursors")
+  @@schema("public")
+}
+
+/// Auditoría (C12): quién cambió qué.
+model CalendarAuditEvent {
+  id        String   @id @default(cuid())
+  tenantId  String
+  eventId   String   @db.Uuid
+  actorId   String? // null = sistema/sync
+  action    String // created|updated|rescheduled|reassigned|cancelled|completed|rsvp|synced_in
+  payload   Json     @default("{}") // diff mínimo
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, eventId, createdAt])
+  @@map("calendar_audit_events")
+  @@schema("public")
+}
