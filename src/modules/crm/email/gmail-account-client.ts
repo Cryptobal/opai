@@ -1,4 +1,4 @@
-import { decryptText, encryptText } from "@/lib/crypto";
+import { decryptText, encryptText, getGmailTokenSecret } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
 import { prisma } from "@/lib/prisma";
 import {
@@ -17,7 +17,7 @@ export function gmailClientForAccount(account: {
   refreshTokenEncrypted: string | null;
 }): gmail_v1.Gmail | null {
   if (!account.accessTokenEncrypted) return null;
-  const secret = process.env.GMAIL_TOKEN_SECRET || "dev-secret";
+  const secret = getGmailTokenSecret();
   const accessToken = decryptText(account.accessTokenEncrypted, secret);
   const refreshToken = account.refreshTokenEncrypted
     ? decryptText(account.refreshTokenEncrypted, secret)

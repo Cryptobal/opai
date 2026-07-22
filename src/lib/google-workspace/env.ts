@@ -1,5 +1,7 @@
 /** Helpers de env con degradación elegante (patrón trimEnv). */
 
+import { getGmailTokenSecret } from "@/lib/crypto";
+
 export function trimEnv(v: string | undefined): string | undefined {
   return v?.trim() || undefined;
 }
@@ -12,8 +14,12 @@ export function googleClientSecret(): string | undefined {
   return trimEnv(process.env.GOOGLE_CLIENT_SECRET);
 }
 
+// Fail-closed: sin GMAIL_TOKEN_SECRET no se firman ni descifran tokens
+// (aquí no aplica la degradación elegante — un secreto por defecto permitiría
+// forjar firmas HMAC y descifrar tokens persistidos). Se conserva el trim
+// histórico de este módulo: sus tokens se cifraron con el valor trimmed.
 export function tokenSecret(): string {
-  return trimEnv(process.env.GMAIL_TOKEN_SECRET) || "dev-secret";
+  return getGmailTokenSecret().trim();
 }
 
 export function driveRedirectUri(): string | undefined {

@@ -11,13 +11,16 @@ type Account = {
   email: string;
   status: string;
   updatedAt: string;
+  /** Email del dueño de la casilla; solo presente para Owner/Admin. */
+  ownerEmail?: string | null;
 };
 
 /**
- * Lista TODAS las casillas Gmail del tenant y permite desconectar cualquiera.
- * Útil para limpiar cuentas huérfanas o de ex-integrantes cuyo token murió
- * (aparecen aquí aunque no estén en la lista de Usuarios). Desconectar corta la
- * conexión y borra los tokens; los hilos ya sincronizados se conservan.
+ * Lista las casillas Gmail propias del usuario; Owner/Admin ven todas las del
+ * tenant (con el email del dueño) y pueden desconectar cualquiera. Útil para
+ * limpiar cuentas huérfanas o de ex-integrantes cuyo token murió (aparecen
+ * aquí aunque no estén en la lista de Usuarios). Desconectar revoca el grant
+ * en Google y borra los tokens; los hilos ya sincronizados se conservan.
  */
 export function GmailAccountsManager() {
   const [accounts, setAccounts] = useState<Account[] | null>(null);
@@ -47,7 +50,20 @@ export function GmailAccountsManager() {
       const res = await fetch(`/api/crm/gmail/accounts?id=${encodeURIComponent(acc.id)}`, {
         method: "DELETE",
       });
-      if (res.ok) await load();
+      if (res.ok) {
+        const data = (await res.json().catch(() => null)) as {
+          upstreamRevoked?: boolean;
+        } | null;
+        // La desconexión local procede aunque Google falle; avisar para que el
+        // permiso pueda retirarse a mano en myaccount.google.com/permissions.
+        if (data && data.upstreamRevoked === false) {
+          alert(
+            `${acc.email} quedó desconectada de OPAI, pero no se pudo revocar el acceso en Google. ` +
+              "Revocá el acceso de OPAI manualmente en myaccount.google.com/permissions (cuenta del dueño de la casilla).",
+          );
+        }
+        await load();
+      }
     } finally {
       setBusy(null);
     }
@@ -74,6 +90,11 @@ export function GmailAccountsManager() {
               <Badge variant={acc.status === "active" ? "success" : "secondary"}>
                 {acc.status === "active" ? "activa" : "desconectada"}
               </Badge>
+              {acc.ownerEmail && acc.ownerEmail !== acc.email && (
+                <span className="ml-1 text-[12px] text-ds-text-4">
+                  dueño: {acc.ownerEmail}
+                </span>
+              )}
             </span>
             {acc.status === "active" && (
               <Button

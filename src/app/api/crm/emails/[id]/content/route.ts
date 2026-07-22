@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmView } from "@/lib/api-auth-crm";
-import { decryptText } from "@/lib/crypto";
+import { decryptText, getGmailTokenSecret } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
 import {
   extractGmailMessageBodies,
@@ -66,7 +66,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
       );
     }
 
-    const tokenSecret = process.env.GMAIL_TOKEN_SECRET || "dev-secret";
+    const tokenSecret = getGmailTokenSecret();
     const accessToken = decryptText(emailAccount.accessTokenEncrypted, tokenSecret);
     const refreshToken = emailAccount.refreshTokenEncrypted
       ? decryptText(emailAccount.refreshTokenEncrypted, tokenSecret)

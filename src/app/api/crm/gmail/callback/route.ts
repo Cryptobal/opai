@@ -7,7 +7,7 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getGmailOAuthClient } from "@/lib/gmail";
-import { encryptText } from "@/lib/crypto";
+import { encryptText, getGmailTokenSecret } from "@/lib/crypto";
 import { createHmac } from "crypto";
 import { requireTenantModule } from '@/lib/require-module';
 import { registerGmailWatch } from "@/modules/crm/email/gmail-watch";
@@ -16,12 +16,12 @@ import {
   processGmailSyncJob,
 } from "@/modules/crm/email/gmail-sync-queue";
 
-const STATE_SECRET = process.env.GMAIL_TOKEN_SECRET || "dev-secret";
-
 export const maxDuration = 60;
 
+// El secreto se resuelve por request (no a nivel de módulo) para que el build
+// no dependa de la env y el error fail-closed ocurra en el request.
 function signState(payload: string) {
-  return createHmac("sha256", STATE_SECRET).update(payload).digest("hex");
+  return createHmac("sha256", getGmailTokenSecret()).update(payload).digest("hex");
 }
 
 export async function GET(request: NextRequest) {
@@ -44,7 +44,15 @@ export async function GET(request: NextRequest) {
   }
 
   const [payload, signature] = state.split(".");
-  if (!payload || !signature || signState(payload) !== signature) {
+  let stateValid = false;
+  try {
+    stateValid = Boolean(payload && signature) && signState(payload) === signature;
+  } catch (error) {
+    // Fail-closed pero sin 500 crudo (ej. GMAIL_TOKEN_SECRET ausente).
+    console.error("Gmail OAuth callback: error verificando state:", error);
+    return NextResponse.redirect(`${origin}/crm/correos?gmail=error`);
+  }
+  if (!stateValid) {
     return NextResponse.redirect(`${origin}/crm/correos?gmail=invalid_state`);
   }
 
@@ -71,7 +79,7 @@ export async function GET(request: NextRequest) {
 
     const accessToken = tokens.access_token || "";
     const refreshToken = tokens.refresh_token || "";
-    const tokenSecret = process.env.GMAIL_TOKEN_SECRET || "dev-secret";
+    const tokenSecret = getGmailTokenSecret();
 
     const existing = await prisma.crmEmailAccount.findFirst({
       where: {
