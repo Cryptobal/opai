@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Bold, Italic, List, Underline } from "lucide-react";
+import { Bold, Italic, List, ListOrdered, Underline } from "lucide-react";
 
 type Props = {
   /** HTML del contenido. */
@@ -38,7 +38,8 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
     ["bold", Bold, "Negrita"],
     ["italic", Italic, "Cursiva"],
     ["underline", Underline, "Subrayado"],
-    ["insertUnorderedList", List, "Lista"],
+    ["insertUnorderedList", List, "Lista con viñetas"],
+    ["insertOrderedList", ListOrdered, "Lista numerada"],
   ];
 
   return (
