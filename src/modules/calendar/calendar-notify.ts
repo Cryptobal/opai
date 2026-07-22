@@ -48,6 +48,8 @@ export async function notifyCalendarEvent(input: {
   eventId: string;
   kind: CalendarNotifyKind;
   actorId?: string | null;
+  /** Restringe los destinatarios (ej: solo los recién invitados). */
+  targetUserIds?: string[];
 }): Promise<{ delivered: number }> {
   const event = await prisma.calendarEvent.findFirst({
     where: { id: input.eventId, tenantId: input.tenantId },
@@ -55,9 +57,11 @@ export async function notifyCalendarEvent(input: {
   });
   if (!event) return { delivered: 0 };
 
-  const targetIds = [
-    ...new Set(event.participants.map((p) => p.userId)),
-  ].filter((id) => id !== input.actorId);
+  const participantIds = new Set(event.participants.map((p) => p.userId));
+  const base = input.targetUserIds
+    ? input.targetUserIds.filter((id) => participantIds.has(id))
+    : [...participantIds];
+  const targetIds = [...new Set(base)].filter((id) => id !== input.actorId);
   if (!targetIds.length) return { delivered: 0 };
 
   const { notify } = await import("@/lib/notifications/notify");

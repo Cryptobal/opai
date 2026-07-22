@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/dialog";
 import { Tag } from "@/components/opai-ds";
 import { cn } from "@/lib/utils";
+import { CHILE_TZ } from "@/lib/dates-cl";
+import { dateAtChileSlot } from "../agenda-calendar-utils";
 import { hhmmChile, TYPE_LABELS } from "./agenda-mobile-utils";
 import { ContextBlock, ParticipantsBlock, type DetailExternal, type DetailParticipant } from "./AgendaDetailBlocks";
 
@@ -36,14 +38,16 @@ type Props = {
   visitaId: string | null;
   onClose: () => void;
   onChanged: () => void;
-  onReprogram?: (detail: VisitaDetail["visita"]) => void;
 };
 
 /** Detalle móvil (spec §6): bottom sheet glass con snap 50/100 y Dialog DS. */
-export function AgendaDetailSheet({ visitaId, onClose, onChanged, onReprogram }: Props) {
+export function AgendaDetailSheet({ visitaId, onClose, onChanged }: Props) {
   const [detail, setDetail] = useState<VisitaDetail | null>(null);
   const [snap, setSnap] = useState<"half" | "full">("half");
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [reprogramOpen, setReprogramOpen] = useState(false);
+  const [newDate, setNewDate] = useState("");
+  const [newTime, setNewTime] = useState("");
   const [busy, setBusy] = useState(false);
   const dragStart = useRef<number | null>(null);
 
@@ -178,11 +182,16 @@ export function AgendaDetailSheet({ visitaId, onClose, onChanged, onReprogram }:
           className="flex shrink-0 gap-2 border-t border-ds-border-subtle px-4 pt-3"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
         >
-          {onReprogram && v && (
+          {v && (
             <button
               type="button"
               disabled={busy}
-              onClick={() => onReprogram(v)}
+              onClick={() => {
+                const local = new Date(v.startAt).toLocaleString("sv-SE", { timeZone: CHILE_TZ });
+                setNewDate(local.slice(0, 10));
+                setNewTime(local.slice(11, 16));
+                setReprogramOpen(true);
+              }}
               className="h-11 flex-1 rounded-xl border border-ds-border-default text-[13px] font-medium text-ds-text-1 ds-tap"
             >
               Reprogramar
@@ -207,6 +216,50 @@ export function AgendaDetailSheet({ visitaId, onClose, onChanged, onReprogram }:
           </button>
         </div>
       </div>
+
+      <Dialog open={reprogramOpen} onOpenChange={setReprogramOpen}>
+        <DialogContent className="sm:max-w-sm" onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>Reprogramar</DialogTitle>
+          </DialogHeader>
+          <div className="flex gap-2">
+            <input
+              type="date"
+              value={newDate}
+              onChange={(e) => setNewDate(e.target.value)}
+              className="h-11 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9"
+            />
+            <input
+              type="time"
+              value={newTime}
+              onChange={(e) => setNewTime(e.target.value)}
+              className="h-11 w-28 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9"
+            />
+          </div>
+          <button
+            type="button"
+            disabled={busy || !newDate || !newTime}
+            onClick={() => {
+              if (!v) return;
+              const [hh, mm] = newTime.split(":").map(Number);
+              const startAt = dateAtChileSlot(newDate, hh * 60 + mm);
+              const durationMs =
+                new Date(v.endAt).getTime() - new Date(v.startAt).getTime();
+              setReprogramOpen(false);
+              void act(
+                {
+                  startAt: startAt.toISOString(),
+                  endAt: new Date(startAt.getTime() + Math.max(durationMs, 15 * 60_000)).toISOString(),
+                },
+                "Visita reprogramada",
+              );
+            }}
+            className="h-11 w-full rounded-xl bg-primary text-[13px] font-semibold text-primary-foreground ds-tap sm:h-9"
+          >
+            Guardar nuevo horario
+          </button>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={confirmCancel} onOpenChange={setConfirmCancel}>
         <DialogContent className="sm:max-w-sm" onClick={(e) => e.stopPropagation()}>

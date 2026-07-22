@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     users: users.map((u) => ({
       userId: u.userId,
+      hasGoogle: u.hasGoogle,
       busy: u.busy.map((b) => ({
         start: b.start.toISOString(),
         end: b.end.toISOString(),

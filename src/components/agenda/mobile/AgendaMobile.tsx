@@ -9,9 +9,9 @@ import type {
   AgendaTypeFilter,
 } from "../agenda-calendar.types";
 import { LicitacionDrawer } from "../LicitacionDrawer";
-import { NuevaVisitaModal } from "../NuevaVisitaModal";
 import { AgendaDayView } from "./AgendaDayView";
 import { AgendaDetailSheet } from "./AgendaDetailSheet";
+import { EventComposer } from "./EventComposer";
 import { AgendaFab } from "./AgendaFab";
 import { AgendaListView } from "./AgendaListView";
 import { AgendaMonthView } from "./AgendaMonthView";
@@ -43,6 +43,7 @@ export function AgendaMobile() {
   const [visitaId, setVisitaId] = useState<string | null>(null);
   const [licId, setLicId] = useState<string | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [composerDate, setComposerDate] = useState<string | null>(null);
 
   // Prefs móviles con clave propia (B13 del audit).
   useEffect(() => {
@@ -105,7 +106,10 @@ export function AgendaMobile() {
           onRetry={() => void reload()}
           onSelect={handleSelect}
           onChanged={() => void reload()}
-          onCreateAt={() => setComposerOpen(true)}
+          onCreateAt={(ymd) => {
+            setComposerDate(ymd);
+            setComposerOpen(true);
+          }}
         />
       )}
       {view === "day" && (
@@ -126,7 +130,12 @@ export function AgendaMobile() {
         />
       )}
 
-      <AgendaFab onClick={() => setComposerOpen(true)} />
+      <AgendaFab
+        onClick={() => {
+          setComposerDate(selectedYmd);
+          setComposerOpen(true);
+        }}
+      />
 
       <AgendaMobileFilterSheet
         open={filtersOpen}
@@ -140,9 +149,11 @@ export function AgendaMobile() {
         onClose={() => setFiltersOpen(false)}
       />
 
-      <NuevaVisitaModal
+      <EventComposer
         open={composerOpen}
-        onOpenChange={setComposerOpen}
+        users={users}
+        prefillDate={composerDate}
+        onClose={() => setComposerOpen(false)}
         onCreated={() => void reload()}
       />
       <AgendaDetailSheet

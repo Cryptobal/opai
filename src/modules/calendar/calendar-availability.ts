@@ -8,7 +8,7 @@ import { mergeBusyIntervals, type BusyInterval } from "./calendar-intervals";
 
 const GOOGLE_FREEBUSY_TIMEOUT_MS = 3500;
 
-export type UserAvailability = { userId: string; busy: BusyInterval[] };
+export type UserAvailability = { userId: string; busy: BusyInterval[]; hasGoogle: boolean };
 
 export async function getUsersBusy(
   tenantId: string,
@@ -98,8 +98,15 @@ export async function getUsersBusy(
     });
   }
 
+  const googleAccounts = await prisma.googleCalendarAccount.findMany({
+    where: { tenantId, userId: { in: userIds }, status: "ACTIVE" },
+    select: { userId: true },
+  });
+  const withGoogle = new Set(googleAccounts.map((a) => a.userId));
+
   await Promise.all(
     userIds.map(async (userId) => {
+      if (!withGoogle.has(userId)) return;
       const google = await googleBusyForUser(tenantId, userId, from, to);
       for (const slot of google) push(userId, slot);
     }),
@@ -108,6 +115,7 @@ export async function getUsersBusy(
   return userIds.map((userId) => ({
     userId,
     busy: mergeBusyIntervals(byUser.get(userId) ?? []),
+    hasGoogle: withGoogle.has(userId),
   }));
 }
 
