@@ -5,7 +5,8 @@ import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import { Surface, Tag, Spinner, EmptyState } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
-import { addDaysChile, startOfDayChile, todayInChile, ymdInChile } from "@/lib/dates-cl";
+import { addDaysChile, startOfDayChile, todayInChile } from "@/lib/dates-cl";
+import { agendaItemDayKey } from "./agenda-calendar-utils";
 import { AgendaHubDays } from "./AgendaHubDays";
 import { type HubAgendaItem as Item, hhmm } from "./agenda-hub-item";
 
@@ -25,7 +26,7 @@ export function AgendaHubCard() {
   }, [expanded]);
 
   const todayKey = todayInChile();
-  const todayItems = items.filter((i) => ymdInChile(new Date(i.start)) === todayKey);
+  const todayItems = items.filter((i) => agendaItemDayKey(i) === todayKey);
   const days = Array.from({ length: expanded ? 7 : 4 }, (_, i) =>
     addDaysChile(new Date(), i),
   );

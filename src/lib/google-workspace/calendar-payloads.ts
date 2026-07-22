@@ -1,5 +1,7 @@
 /** Payloads de eventos Google Calendar (visitas y licitaciones). */
 
+const CHILE_TZ = "America/Santiago";
+
 export type VisitaEventCtx = {
   typeLabel: string;
   accountName: string;
@@ -59,8 +61,8 @@ export function buildVisitaEventPayload(
     summary,
     description,
     location: ctx.address || undefined,
-    start: { dateTime: visita.startAt.toISOString() },
-    end: { dateTime: visita.endAt.toISOString() },
+    start: { dateTime: visita.startAt.toISOString(), timeZone: CHILE_TZ },
+    end: { dateTime: visita.endAt.toISOString(), timeZone: CHILE_TZ },
     attendees: attendees?.length ? attendees : undefined,
     reminders: {
       useDefault: false,

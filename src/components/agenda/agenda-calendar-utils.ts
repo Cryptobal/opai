@@ -102,6 +102,18 @@ export function navigateCalendar(
   return addDaysChile(anchor, amount * direction);
 }
 
+/**
+ * Día (ymd Chile) al que pertenece un item. Los all-day llegan como ymd puro
+ * ("YYYY-MM-DD") sin zona: se agrupan por ese string tal cual — pasarlos por
+ * `new Date()` los correría un día en servidores UTC (audit B6).
+ */
+export function agendaItemDayKey(item: Pick<AgendaCalendarItem, "start" | "allDay">): string {
+  if (item.allDay && /^\d{4}-\d{2}-\d{2}$/.test(item.start)) {
+    return item.start;
+  }
+  return ymdInChile(new Date(item.start));
+}
+
 export function minutesInChile(date: Date): number {
   const local = zonedLocalDate(date);
   return local.getHours() * 60 + local.getMinutes();

@@ -27,6 +27,7 @@ import {
   CALENDAR_HOUR_HEIGHT,
   CALENDAR_SLOT_MINUTES,
   CALENDAR_START_HOUR,
+  agendaItemDayKey,
   calendarSlotMinutes,
   itemKey,
   layoutTimedItems,
@@ -86,7 +87,7 @@ export function AgendaCalendarGrid({
     const map = new Map<string, AgendaCalendarItem[]>();
     for (const day of days) map.set(ymdInChile(day), []);
     for (const item of items) {
-      const key = ymdInChile(new Date(item.start));
+      const key = agendaItemDayKey(item);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(item);
     }

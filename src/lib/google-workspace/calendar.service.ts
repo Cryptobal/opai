@@ -44,10 +44,13 @@ export async function syncEventLink(
   try {
     if (payload === null) {
       if (link.googleEventId) {
+        // sendUpdates:"all" — si el evento tenía asistentes, Google les avisa
+        // de la cancelación (sin asistentes es un no-op).
         await calendar.events
           .delete({
             calendarId: link.googleCalendarId || calendarId,
             eventId: link.googleEventId,
+            sendUpdates: "all",
           })
           .catch(() => undefined);
       }
@@ -80,6 +83,7 @@ export async function syncEventLink(
         calendarId: link.googleCalendarId || calendarId,
         eventId: googleEventId,
         requestBody: body,
+        sendUpdates: payload.attendees?.length ? "all" : "none",
       });
       htmlLink = patched.data.htmlLink ?? htmlLink;
     } else {

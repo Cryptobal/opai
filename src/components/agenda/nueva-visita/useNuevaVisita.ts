@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { dateAtChileSlot } from "../agenda-calendar-utils";
 import type { AccountOption, TeamMember, VisitType } from "./types";
 
 export type FormState = {
@@ -93,7 +94,9 @@ export function useNuevaVisita(props: {
 
   const submit = useCallback(async () => {
     if (!canSubmit) return;
-    const startAt = new Date(`${form.date}T${form.time}`);
+    // Ancla la fecha/hora elegida a America/Santiago, no a la TZ del navegador.
+    const [hh, mm] = form.time.split(":").map(Number);
+    const startAt = dateAtChileSlot(form.date, hh * 60 + mm);
     const endAt = new Date(startAt.getTime() + form.durationMin * 60_000);
     setSaving(true);
     setError(null);
