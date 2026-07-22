@@ -2591,17 +2591,21 @@ model CrmDealQuote {
 }
 
 model CrmTask {
-  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId   String    @map("tenant_id")
-  dealId     String?   @map("deal_id") @db.Uuid
-  leadId     String?   @map("lead_id") @db.Uuid
-  title      String
-  status     String    @default("open")
-  type       String    @default("followup")
-  dueAt      DateTime? @map("due_at") @db.Timestamptz(6)
-  assignedTo String?   @map("assigned_to")
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id            String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String    @map("tenant_id")
+  dealId        String?   @map("deal_id") @db.Uuid
+  leadId        String?   @map("lead_id") @db.Uuid
+  // Tareas nacidas de un correo: cuenta/contacto asociados + hilo de origen.
+  accountId     String?   @map("account_id") @db.Uuid
+  contactId     String?   @map("contact_id") @db.Uuid
+  emailThreadId String?   @map("email_thread_id") @db.Uuid
+  title         String
+  status        String    @default("open")
+  type          String    @default("followup")
+  dueAt         DateTime? @map("due_at") @db.Timestamptz(6)
+  assignedTo    String?   @map("assigned_to")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   deal CrmDeal? @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
@@ -2609,6 +2613,8 @@ model CrmTask {
   @@index([status], map: "idx_crm_tasks_status")
   @@index([dueAt], map: "idx_crm_tasks_due")
   @@index([dealId], map: "idx_crm_tasks_deal")
+  @@index([accountId], map: "idx_crm_tasks_account")
+  @@index([emailThreadId], map: "idx_crm_tasks_email_thread")
   @@map("tasks")
   @@schema("crm")
 }
