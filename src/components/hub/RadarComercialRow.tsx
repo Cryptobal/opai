@@ -24,7 +24,7 @@ export function RadarComercialRow({ item, busy, onResolve, onOpenThread }: Props
   const body = (
     <>
       {label && (
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-ds-text-4">{label}</p>
+        <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">{label}</p>
       )}
       <p className="truncate text-[13px] font-medium text-ds-text-1">{title}</p>
       {item.summary && <p className="truncate text-[12px] text-ds-text-3">{item.summary}</p>}
