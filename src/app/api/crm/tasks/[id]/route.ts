@@ -36,7 +36,9 @@ export async function PATCH(
     }
 
     const body = await request.json().catch(() => ({}));
-    const data: { title?: string; status?: string; dueAt?: Date | null } = {};
+    const data: { title?: string; status?: string; dueAt?: Date | null; allDay?: boolean } = {};
+
+    if (body?.allDay !== undefined) data.allDay = body.allDay === true;
 
     if (body?.title !== undefined) {
       const title = typeof body.title === "string" ? body.title.trim() : "";
@@ -64,7 +66,7 @@ export async function PATCH(
     const task = await prisma.crmTask.update({
       where: { id },
       data,
-      select: { id: true, title: true, status: true, type: true, dueAt: true, createdAt: true },
+      select: { id: true, title: true, status: true, type: true, dueAt: true, allDay: true, createdAt: true },
     });
 
     return NextResponse.json({ success: true, data: task });
