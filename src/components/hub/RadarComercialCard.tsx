@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Radar, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronRight, Radar, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Surface, Spinner, EmptyState, Tag } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,9 @@ export function RadarComercialCard() {
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  // Contraído por defecto: al entrar al hub el radar no roba pantalla; el
+  // badge del header muestra cuántas novedades hay pendientes.
+  const [expanded, setExpanded] = useState(false);
   // Hilo abierto en el lector: permite leer el correo real (solo lectura)
   // antes de aprobar/descartar la novedad, sin salir del hub.
   const [readerThreadId, setReaderThreadId] = useState<string | null>(null);
@@ -93,16 +96,24 @@ export function RadarComercialCard() {
 
   const lastRun = fmtLastRun(meta);
 
+  const ChevronIcon = expanded ? ChevronDown : ChevronRight;
+
   return (
     <Surface elevation={1} padding="md" className="space-y-3">
       {/* flex-wrap: en móvil las acciones bajan a su propia línea en vez de
           cortarse contra el borde derecho ("Ver correos" quedaba clippeado). */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="flex min-w-0 items-center gap-2 ds-tap"
+          aria-expanded={expanded}
+        >
+          <ChevronIcon className="h-4 w-4 shrink-0 text-ds-text-4" />
           <Radar className="h-4 w-4 shrink-0 text-tint-violet-fg" />
           <p className="font-display text-sm font-semibold text-ds-text-1">Radar Comercial</p>
           {total > 0 && <Tag variant="brand" size="sm">{total}</Tag>}
-        </div>
+        </button>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => void scan()} disabled={scanning}>
             <RefreshCw className={`h-4 w-4 ${scanning ? "animate-spin" : ""}`} />
@@ -114,37 +125,38 @@ export function RadarComercialCard() {
         </div>
       </div>
 
-      {loading ? (
-        <Spinner className="mx-auto" />
-      ) : items.length === 0 ? (
-        <div className="space-y-3">
-          <EmptyState
-            icon={Radar}
-            title="Radar sin novedades"
-            description="Te aviso cuando detecte un lead o compromiso."
-            compact
-          />
-          <div className="flex justify-center">
-            <Button variant="outline" size="sm" onClick={() => void scan()} disabled={scanning}>
-              <RefreshCw className={`h-4 w-4 ${scanning ? "animate-spin" : ""}`} />
-              <span className="ml-1.5">{scanning ? "Buscando…" : "Buscar novedades"}</span>
-            </Button>
-          </div>
-          {lastRun && <p className="text-center text-[12px] text-ds-text-4">{lastRun}</p>}
-        </div>
-      ) : (
-        <ul className="space-y-1.5">
-          {items.map((i) => (
-            <RadarComercialRow
-              key={i.id}
-              item={i}
-              busy={busy === i.id}
-              onResolve={resolve}
-              onOpenThread={setReaderThreadId}
+      {expanded &&
+        (loading ? (
+          <Spinner className="mx-auto" />
+        ) : items.length === 0 ? (
+          <div className="space-y-3">
+            <EmptyState
+              icon={Radar}
+              title="Radar sin novedades"
+              description="Te aviso cuando detecte un lead o compromiso."
+              compact
             />
-          ))}
-        </ul>
-      )}
+            <div className="flex justify-center">
+              <Button variant="outline" size="sm" onClick={() => void scan()} disabled={scanning}>
+                <RefreshCw className={`h-4 w-4 ${scanning ? "animate-spin" : ""}`} />
+                <span className="ml-1.5">{scanning ? "Buscando…" : "Buscar novedades"}</span>
+              </Button>
+            </div>
+            {lastRun && <p className="text-center text-[12px] text-ds-text-4">{lastRun}</p>}
+          </div>
+        ) : (
+          <ul className="space-y-1.5">
+            {items.map((i) => (
+              <RadarComercialRow
+                key={i.id}
+                item={i}
+                busy={busy === i.id}
+                onResolve={resolve}
+                onOpenThread={setReaderThreadId}
+              />
+            ))}
+          </ul>
+        ))}
 
       {/* Lector solo-lectura del correo asociado a la novedad. */}
       <CorreoDrawer

@@ -7,8 +7,9 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/crm/radar — feed del hub: RadarItems PENDING del usuario (tenant-
- * scoped), ordenados por (dueAt asc nulls last, createdAt desc). Devuelve el
- * total pendiente + hasta 5 items. Si el radar está apagado → enabled=false.
+ * scoped), ordenados por (dueAt asc nulls first, createdAt desc). Devuelve el
+ * total pendiente + los items (el card los muestra plegados). Si el radar está
+ * apagado → enabled=false.
  */
 export async function GET() {
   const ctx = await requireAuth();
@@ -25,7 +26,7 @@ export async function GET() {
       // nulls first: leads/señales (sin dueAt) arriba — no se entierran bajo
       // compromisos con fecha; luego los fechados por vencimiento ascendente.
       orderBy: [{ dueAt: { sort: "asc", nulls: "first" } }, { createdAt: "desc" }],
-      take: 5,
+      take: 50,
       select: {
         id: true, kind: true, status: true, title: true, summary: true,
         threadId: true, dealId: true, accountId: true, dueAt: true,
