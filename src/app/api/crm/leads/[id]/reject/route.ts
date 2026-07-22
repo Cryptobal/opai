@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { rejectLeadSchema } from "@/lib/validations/crm";
-import { decryptText } from "@/lib/crypto";
+import { decryptText, getGmailTokenSecret } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
 import { normalizeEmailAddress, normalizeEmailList } from "@/lib/email-address";
 import { requireTenantModule } from '@/lib/require-module';
@@ -188,7 +188,7 @@ export async function POST(
         );
       }
 
-      const tokenSecret = process.env.GMAIL_TOKEN_SECRET || "dev-secret";
+      const tokenSecret = getGmailTokenSecret();
       const accessToken = decryptText(emailAccount.accessTokenEncrypted, tokenSecret);
       const refreshToken = emailAccount.refreshTokenEncrypted
         ? decryptText(emailAccount.refreshTokenEncrypted, tokenSecret)

@@ -9,8 +9,10 @@ function verifyChannelToken(token: string | null): boolean {
   if (!token) return false;
   const [payload, sig] = token.split(".");
   if (!payload || !sig) return false;
-  const expected = createHmac("sha256", tokenSecret()).update(payload).digest("hex");
   try {
+    // tokenSecret() es fail-closed (lanza sin GMAIL_TOKEN_SECRET): tratarlo
+    // como token inválido (401) en vez de 500, que Google reintentaría.
+    const expected = createHmac("sha256", tokenSecret()).update(payload).digest("hex");
     return timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
   } catch {
     return false;
