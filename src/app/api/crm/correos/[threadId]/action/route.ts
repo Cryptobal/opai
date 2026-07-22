@@ -7,6 +7,7 @@ import {
   runCorreoThreadAction,
   type CorreoAction,
 } from "@/modules/crm/email/gmail-thread-actions";
+import { broadcastGmailMailboxChanged } from "@/modules/crm/email/gmail-realtime";
 
 const ACTIONS = new Set<CorreoAction>([
   "archive",
@@ -76,6 +77,11 @@ export async function POST(
       "@/modules/crm/email/correos-folder-counts"
     );
     invalidateCorreoFolderCounts(session.user.tenantId, account.id);
+    await broadcastGmailMailboxChanged({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      reason: `action:${body.action}`,
+    });
   }
   return NextResponse.json({ ok: true, action: body.action });
 }

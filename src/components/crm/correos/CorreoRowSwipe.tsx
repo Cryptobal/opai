@@ -6,6 +6,7 @@ import { CorreoRow } from "./CorreoRow";
 import { CorreoRowMenu } from "./CorreoRowMenu";
 import { runCorreoAction } from "./correo-thread-action-client";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
+import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
 
 const THRESHOLD = 96;
 
@@ -19,6 +20,8 @@ type Props = {
   onRemove?: (id: string) => void;
   /** Abre el sheet de posponer (Bloque 3). */
   onSnooze?: () => void;
+  selected?: boolean;
+  previewLines?: CorreoPreviewLines;
 };
 
 /**
@@ -26,7 +29,16 @@ type Props = {
  * → derecha archiva, ← izquierda elimina, ambos con "Deshacer". En desktop la
  * fila queda como hoy (acciones hover). Kebab siempre visible en móvil.
  */
-export function CorreoRowSwipe({ thread, canModify, onOpen, onChanged, onRemove, onSnooze }: Props) {
+export function CorreoRowSwipe({
+  thread,
+  canModify,
+  onOpen,
+  onChanged,
+  onRemove,
+  onSnooze,
+  selected,
+  previewLines,
+}: Props) {
   const [coarse, setCoarse] = useState(false);
   const [dx, setDx] = useState(0);
   const [leaving, setLeaving] = useState(false);
@@ -39,7 +51,14 @@ export function CorreoRowSwipe({ thread, canModify, onOpen, onChanged, onRemove,
 
   if (!coarse) {
     return (
-      <CorreoRow thread={thread} canModify={canModify} onOpen={onOpen} onChanged={onChanged} />
+      <CorreoRow
+        thread={thread}
+        canModify={canModify}
+        onOpen={onOpen}
+        onChanged={onChanged}
+        selected={selected}
+        previewLines={previewLines}
+      />
     );
   }
 
@@ -101,6 +120,8 @@ export function CorreoRowSwipe({ thread, canModify, onOpen, onChanged, onRemove,
           onOpen={onOpen}
           onChanged={onChanged}
           trailing={menu}
+          selected={selected}
+          previewLines={previewLines}
         />
       </div>
     </div>

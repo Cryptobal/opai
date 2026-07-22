@@ -1400,6 +1400,7 @@ const DS_SOURCE_PATHS = [
   "src/components/opai-ds/SwipeTabs.tsx",
   "src/components/opai-ds/ModuleSubNav.tsx",
   "src/components/opai-ds/ConfigShell.tsx",
+  "src/components/opai-ds/AttachmentPicker.tsx",
 ];
 // Nota: NO incluye index.ts ni tokens.ts. Esos son barrel/helpers, no
 // definen patrones visuales y deben seguir las mismas reglas que app code.

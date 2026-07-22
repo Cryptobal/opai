@@ -3,7 +3,7 @@
  * GET - Callback OAuth Gmail
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getGmailOAuthClient } from "@/lib/gmail";
@@ -11,8 +11,14 @@ import { encryptText } from "@/lib/crypto";
 import { createHmac } from "crypto";
 import { requireTenantModule } from '@/lib/require-module';
 import { registerGmailWatch } from "@/modules/crm/email/gmail-watch";
+import {
+  enqueueGmailSyncJob,
+  processGmailSyncJob,
+} from "@/modules/crm/email/gmail-sync-queue";
 
 const STATE_SECRET = process.env.GMAIL_TOKEN_SECRET || "dev-secret";
+
+export const maxDuration = 60;
 
 function signState(payload: string) {
   return createHmac("sha256", STATE_SECRET).update(payload).digest("hex");
@@ -107,7 +113,22 @@ export async function GET(request: NextRequest) {
       },
     });
     if (account) {
-      void registerGmailWatch(account).catch(() => {});
+      await enqueueGmailSyncJob({
+        tenantId: decoded.tenantId,
+        emailAccountId: account.id,
+        reason: "oauth",
+        maintenance: true,
+      });
+      after(async () => {
+        await Promise.allSettled([
+          registerGmailWatch(account),
+          processGmailSyncJob({
+            emailAccountId: account.id,
+            profile: "maintenance",
+            deadlineMs: Date.now() + 50_000,
+          }),
+        ]);
+      });
     }
 
     return NextResponse.redirect(`${origin}/crm/correos?gmail=connected`);

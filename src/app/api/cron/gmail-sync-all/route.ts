@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { syncGmailAccount } from "@/modules/crm/email/gmail-sync.service";
 import { wakeSnoozedThreads } from "@/modules/crm/email/gmail-snooze";
+import {
+  enqueueGmailSyncJob,
+  processGmailSyncJob,
+} from "@/modules/crm/email/gmail-sync-queue";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -22,6 +25,7 @@ export async function GET(req: NextRequest) {
   const accounts = await prisma.crmEmailAccount.findMany({
     where: { status: "active", provider: "gmail" },
     select: { id: true, tenantId: true, email: true },
+    orderBy: { updatedAt: "asc" },
     take: 50,
   });
 
@@ -33,27 +37,25 @@ export async function GET(req: NextRequest) {
   for (const acc of accounts) {
     if (Date.now() >= deadlineMs) break;
     try {
-      const r = await syncGmailAccount({
+      await enqueueGmailSyncJob({
         tenantId: acc.tenantId,
         emailAccountId: acc.id,
+        reason: "cron",
+        maintenance: true,
+      });
+      const r = await processGmailSyncJob({
+        emailAccountId: acc.id,
+        profile: "maintenance",
         maxResults: 300,
         deadlineMs,
       });
-      synced += r.syncedCount;
-      ok++;
+      if (r.status === "processed") {
+        synced += r.syncedCount;
+        ok++;
+      }
     } catch (err) {
       failed++;
       console.warn("[gmail-sync-all] cuenta falló", acc.email, err);
-      // Token irrecuperable (revocado, cliente OAuth cambiado, cuenta huérfana):
-      // marcar revoked para que deje de reintentarse en cada corrida. El usuario
-      // la reactiva reconectando (connect emite un token nuevo y status=active).
-      const msg = err instanceof Error ? err.message : String(err);
-      if (/invalid_grant|unauthorized_client|invalid_client/i.test(msg)) {
-        await prisma.crmEmailAccount
-          .update({ where: { id: acc.id }, data: { status: "revoked" } })
-          .catch(() => {});
-        console.warn("[gmail-sync-all] cuenta auto-desactivada (token muerto):", acc.email);
-      }
     }
   }
 

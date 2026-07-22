@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireTenantModule } from "@/lib/require-module";
 import { listCorreoThreads, type CorreoListFilter } from "@/modules/crm/email/correos-list";
 import { countCorreoFolders } from "@/modules/crm/email/correos-folder-counts";
+import { gmailMailboxChannel } from "@/modules/crm/email/gmail-realtime";
 
 function parseFolder(raw: string | null): CorreoListFilter {
   if (raw === "archived" || raw === "all" || raw === "trash" || raw === "snoozed") return raw;
@@ -59,6 +60,10 @@ export async function GET(req: NextRequest) {
     items,
     nextCursor,
     counts,
+    realtimeChannel: gmailMailboxChannel(
+      session.user.tenantId,
+      session.user.id,
+    ),
     canModify: hasGmailModify(account.grantedScopes),
     backfillDone: Boolean(syncRaw.backfillDone),
     totalThreads: counts.all + counts.trash,

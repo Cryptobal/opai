@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { Sparkles, Send, Users } from "lucide-react";
 import { toast } from "sonner";
-import { Spinner } from "@/components/opai-ds";
+import { AttachmentPicker, Spinner } from "@/components/opai-ds";
 import { ReplyRecipientsField, isValidEmail } from "./ReplyRecipientsField";
 import { RichTextEditor } from "./RichTextEditor";
+import { useEmailAttachments } from "./useEmailAttachments";
 
 type ReplyAll = { to: string[]; cc: string[] };
 type Props = { threadId: string; subject: string; onSent: () => void };
@@ -25,6 +26,7 @@ function textToHtml(t: string): string {
  * con Para editable, Responder a todos y CC/CCO.
  */
 export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
+  const attachments = useEmailAttachments();
   const [to, setTo] = useState<string[]>([]);
   const [cc, setCc] = useState<string[]>([]);
   const [bcc, setBcc] = useState<string[]>([]);
@@ -69,7 +71,12 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
 
   const allValid = [...to, ...cc, ...bcc].every(isValidEmail);
   const draftText = draft.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
-  const canSend = to.length > 0 && allValid && draftText.length > 0;
+  const canSend =
+    to.length > 0 &&
+    allValid &&
+    draftText.length > 0 &&
+    !attachments.uploading &&
+    !attachments.hasErrors;
   const replyAllVisible =
     replyAll &&
     (replyAll.cc.length > 0 || replyAll.to.some((e) => !to.includes(e)) || replyAll.to.length !== to.length);
@@ -88,17 +95,31 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
       const res = await fetch("/api/crm/gmail/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId, to, cc, bcc, subject: replySubject.trim() || subject, html: draft }),
+        body: JSON.stringify({
+          threadId,
+          to,
+          cc,
+          bcc,
+          subject: replySubject.trim() || subject,
+          html: draft,
+          attachments: attachments.readyAttachments,
+        }),
       });
-      const data = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: string;
+        warning?: string;
+      };
       // Antes esto fallaba en silencio: sin toast de error ni de éxito, "no
       // pasaba nada" al tocar Enviar aunque el server rechazara el correo.
       if (!res.ok || data.success === false) {
         toast.error(data.error || "No se pudo enviar la respuesta");
         return;
       }
-      toast.success("Respuesta enviada por Gmail");
+      if (data.warning) toast.message(data.warning);
+      else toast.success("Respuesta enviada por Gmail");
       setDraft("");
+      attachments.resetAfterSend();
       if (radarItemId) {
         await fetch(`/api/crm/radar/${radarItemId}`, {
           method: "PATCH",
@@ -162,6 +183,13 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
         value={draft}
         onChange={setDraft}
         placeholder="Escribí o generá una respuesta…"
+      />
+      <AttachmentPicker
+        items={attachments.items}
+        onFiles={attachments.addFiles}
+        onRemove={attachments.remove}
+        onRetry={attachments.retry}
+        disabled={busy !== null}
       />
       <input
         value={instructions}

@@ -1,5 +1,6 @@
-import { decryptText } from "@/lib/crypto";
+import { decryptText, encryptText } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
+import { prisma } from "@/lib/prisma";
 import {
   extractGmailAttachments,
   type GmailMessagePart,
@@ -11,6 +12,7 @@ export type ThreadAttachment = GmailAttachmentMeta & { messageId: string };
 
 /** Cliente Gmail a partir de una casilla (tokens cifrados). Null si no conectada. */
 export function gmailClientForAccount(account: {
+  id?: string;
   accessTokenEncrypted: string | null;
   refreshTokenEncrypted: string | null;
 }): gmail_v1.Gmail | null {
@@ -20,7 +22,24 @@ export function gmailClientForAccount(account: {
   const refreshToken = account.refreshTokenEncrypted
     ? decryptText(account.refreshTokenEncrypted, secret)
     : undefined;
-  return getGmailClient(accessToken, refreshToken);
+  return getGmailClient(accessToken, refreshToken, async (tokens) => {
+    if (!account.id || (!tokens.access_token && !tokens.refresh_token && !tokens.expiry_date)) {
+      return;
+    }
+    await prisma.crmEmailAccount.update({
+      where: { id: account.id },
+      data: {
+        ...(tokens.access_token
+          ? { accessTokenEncrypted: encryptText(tokens.access_token, secret) }
+          : {}),
+        ...(tokens.refresh_token
+          ? { refreshTokenEncrypted: encryptText(tokens.refresh_token, secret) }
+          : {}),
+        ...(tokens.expiry_date ? { tokenExpiresAt: new Date(tokens.expiry_date) } : {}),
+        ...(tokens.scope ? { grantedScopes: tokens.scope } : {}),
+      },
+    });
+  });
 }
 
 /** Adjuntos (metadata) de un hilo Gmail: filename, mime, size, attachmentId. */

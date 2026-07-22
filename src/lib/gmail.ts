@@ -6,6 +6,13 @@ export const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
 
 export const GMAIL_SCOPES = [GMAIL_SEND_SCOPE, GMAIL_MODIFY_SCOPE];
 
+export type GmailRefreshedTokens = {
+  access_token?: string | null;
+  refresh_token?: string | null;
+  expiry_date?: number | null;
+  scope?: string;
+};
+
 export function hasGmailModify(grantedScopes: string | null | undefined): boolean {
   if (!grantedScopes) return false;
   return grantedScopes.split(/[\s,]+/).includes(GMAIL_MODIFY_SCOPE);
@@ -23,11 +30,22 @@ export function getGmailOAuthClient() {
   return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 }
 
-export function getGmailClient(accessToken: string, refreshToken?: string) {
+export function getGmailClient(
+  accessToken: string,
+  refreshToken?: string,
+  onTokens?: (tokens: GmailRefreshedTokens) => void | Promise<void>,
+) {
   const client = getGmailOAuthClient();
   client.setCredentials({
     access_token: accessToken,
     refresh_token: refreshToken,
   });
+  if (onTokens) {
+    client.on("tokens", (tokens) => {
+      void Promise.resolve(onTokens(tokens)).catch((error) => {
+        console.warn("[gmail] no se pudo persistir el token refrescado", error);
+      });
+    });
+  }
   return google.gmail({ version: "v1", auth: client });
 }

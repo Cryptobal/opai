@@ -37,9 +37,11 @@ async function fallbackSync(args: SyncRunArgs): Promise<SyncRunResult> {
     threadIds,
     deadline,
   });
-  // La query de fallback excluye TRASH/SPAM: el sweep reconcilia los cambios
-  // (borrados/archivados) perdidos durante la ventana muerta del historyId.
-  await reconcileGmailFolders({ gmail, tenantId, emailAccount, deadline });
+  // La query de fallback excluye TRASH/SPAM. El sweep recupera esos cambios
+  // en mantenimiento; el webhook realtime lo omite para mantener baja latencia.
+  if (args.maintenance !== false) {
+    await reconcileGmailFolders({ gmail, tenantId, emailAccount, deadline });
+  }
 
   let lastHistoryId = args.state.lastHistoryId ?? null;
   try {

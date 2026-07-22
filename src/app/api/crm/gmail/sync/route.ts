@@ -8,7 +8,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireTenantModule } from "@/lib/require-module";
-import { syncGmailAccount } from "@/modules/crm/email/gmail-sync.service";
+import {
+  enqueueGmailSyncJob,
+  processGmailSyncJob,
+} from "@/modules/crm/email/gmail-sync-queue";
 import {
   countCorreoFolders,
   invalidateCorreoFolderCounts,
@@ -45,15 +48,31 @@ async function handle(request: NextRequest) {
   // Sync manual: siempre forceReconcile + self-heal amplio para reparar
   // Recibidos vacío (espejo INBOX de Gmail). `?force=0` desactiva el sweep.
   const forceParam = request.nextUrl.searchParams.get("force");
-  const result = await syncGmailAccount({
+  await enqueueGmailSyncJob({
     tenantId: session.user.tenantId,
     emailAccountId: emailAccount.id,
+    reason: "manual",
+    maintenance: true,
+  });
+  const processed = await processGmailSyncJob({
+    emailAccountId: emailAccount.id,
+    profile: "maintenance",
     maxResults,
     deadlineMs: Date.now() + 50_000,
     createdByUserId: session.user.id,
     forceReconcile: forceParam !== "0",
     selfHealBudgetMs: 15_000,
   });
+  const result =
+    processed.status === "processed"
+      ? processed
+      : {
+          syncedCount: 0,
+          fetched: 0,
+          mode: "incremental" as const,
+          reconcile: "skipped" as const,
+          healed: 0,
+        };
 
   const refreshed = await prisma.crmEmailAccount.findUnique({
     where: { id: emailAccount.id },
@@ -75,6 +94,7 @@ async function handle(request: NextRequest) {
 
   return NextResponse.json({
     success: true,
+    queued: processed.status !== "processed",
     count: result.syncedCount,
     syncedCount: result.syncedCount,
     fetched: result.fetched,

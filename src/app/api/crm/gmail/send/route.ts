@@ -3,64 +3,43 @@
  * POST - Enviar correo con Gmail conectado
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
-import { decryptText } from "@/lib/crypto";
-import { getGmailClient } from "@/lib/gmail";
 import { normalizeEmailAddress, normalizeEmailList } from "@/lib/email-address";
 import { requireTenantModule } from '@/lib/require-module';
 import { resolveReplyContext } from "@/modules/crm/email/gmail-reply";
+import { gmailClientForAccount } from "@/modules/crm/email/gmail-account-client";
+import { buildGmailRawMessage } from "@/modules/crm/email/gmail-mime";
+import {
+  MAX_EMAIL_ATTACHMENTS,
+  MAX_EMAIL_ATTACHMENT_BYTES,
+  isBlockedEmailAttachment,
+  isOwnedEmailAttachmentKey,
+  sanitizeEmailAttachmentName,
+  type StagedEmailAttachment,
+} from "@/modules/crm/email/gmail-outbound-attachments";
+import { deleteFile, getFileBuffer } from "@/lib/storage";
+import { upsertLinkedThread } from "@/modules/crm/email/thread-linking";
+import { broadcastGmailMailboxChanged } from "@/modules/crm/email/gmail-realtime";
+import {
+  enqueueGmailSyncJob,
+  processGmailSyncJob,
+} from "@/modules/crm/email/gmail-sync-queue";
+import { getStagedEmailFileMetadata } from "@/modules/crm/email/gmail-staging-storage";
 
-/** RFC 2047: los headers MIME son ASCII — un asunto con acentos va codificado. */
-function encodeHeaderWord(s: string): string {
-  return /[^\x20-\x7e]/.test(s) ? `=?UTF-8?B?${Buffer.from(s, "utf8").toString("base64")}?=` : s;
-}
-
-function buildRawEmail({
-  from,
-  to,
-  cc,
-  bcc,
-  subject,
-  html,
-  text,
-  inReplyTo,
-  references,
-}: {
-  from: string;
-  to: string[];
-  cc?: string[];
-  bcc?: string[];
-  subject: string;
-  html?: string;
-  text?: string;
-  inReplyTo?: string;
-  references?: string;
-}) {
-  const headers = [
-    `From: ${from}`,
-    `To: ${to.join(", ")}`,
-    cc?.length ? `Cc: ${cc.join(", ")}` : null,
-    bcc?.length ? `Bcc: ${bcc.join(", ")}` : null,
-    `Subject: ${encodeHeaderWord(subject)}`,
-    inReplyTo ? `In-Reply-To: ${inReplyTo}` : null,
-    references ? `References: ${references}` : null,
-    "MIME-Version: 1.0",
-    html
-      ? 'Content-Type: text/html; charset="UTF-8"'
-      : 'Content-Type: text/plain; charset="UTF-8"',
-  ]
-    .filter(Boolean)
-    .join("\r\n");
-
-  const body = html || text || "";
-  const raw = `${headers}\r\n\r\n${body}`;
-  return Buffer.from(raw).toString("base64url");
-}
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
+  let acceptedByGmail: {
+    providerMessageId: string | null;
+    providerThreadId: string | null;
+    tenantId: string;
+    userId: string;
+    emailAccountId: string;
+    storageKeys: string[];
+  } | null = null;
   try {
     const modCheck = await requireTenantModule('crm');
     if (!modCheck.authorized) return modCheck.response;
@@ -72,24 +51,92 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const { to, cc = [], bcc = [], subject, html, text, dealId, accountId, contactId, threadId } = body;
+    const {
+      to,
+      cc = [],
+      bcc = [],
+      subject,
+      html,
+      text,
+      dealId,
+      accountId,
+      contactId,
+      threadId,
+      attachments: rawAttachments = [],
+    } = body;
 
     // `to` acepta string (compat) o string[] (Para editable / Responder a todos).
     const toList = (Array.isArray(to) ? to : [to]).filter(
       (v: unknown): v is string => typeof v === "string" && v.trim().length > 0,
     );
-    if (toList.length === 0 || !subject) {
+    if (
+      toList.length === 0 ||
+      typeof subject !== "string" ||
+      !subject.trim()
+    ) {
       return NextResponse.json(
         { success: false, error: "to y subject son requeridos" },
         { status: 400 }
       );
     }
 
-    const ccList = Array.isArray(cc) ? cc : [cc];
-    const bccList = Array.isArray(bcc) ? bcc : [bcc];
+    const ccList = (Array.isArray(cc) ? cc : [cc]).filter(
+      (value: unknown): value is string => typeof value === "string",
+    );
+    const bccList = (Array.isArray(bcc) ? bcc : [bcc]).filter(
+      (value: unknown): value is string => typeof value === "string",
+    );
     const normalizedToEmails = normalizeEmailList(toList);
     const normalizedCcEmails = normalizeEmailList(ccList);
     const normalizedBccEmails = normalizeEmailList(bccList);
+    const stagedAttachments: StagedEmailAttachment[] = [];
+    if (!Array.isArray(rawAttachments)) {
+      return NextResponse.json(
+        { success: false, error: "attachments inválido" },
+        { status: 400 },
+      );
+    }
+    if (rawAttachments.length > MAX_EMAIL_ATTACHMENTS) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Máximo ${MAX_EMAIL_ATTACHMENTS} adjuntos por correo`,
+        },
+        { status: 400 },
+      );
+    }
+    for (const value of rawAttachments) {
+      if (
+        !value ||
+        typeof value !== "object" ||
+        typeof value.storageKey !== "string" ||
+        typeof value.fileName !== "string" ||
+        typeof value.mimeType !== "string" ||
+        typeof value.size !== "number" ||
+        !Number.isFinite(value.size) ||
+        value.size <= 0
+      ) {
+        return NextResponse.json(
+          { success: false, error: "Metadata de adjunto inválida" },
+          { status: 400 },
+        );
+      }
+      stagedAttachments.push({
+        storageKey: value.storageKey,
+        fileName: sanitizeEmailAttachmentName(value.fileName),
+        mimeType: value.mimeType,
+        size: value.size,
+      });
+    }
+    if (
+      stagedAttachments.reduce((sum, attachment) => sum + attachment.size, 0) >
+      MAX_EMAIL_ATTACHMENT_BYTES
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Los adjuntos superan 25 MB en total" },
+        { status: 400 },
+      );
+    }
 
     const emailAccount = await prisma.crmEmailAccount.findFirst({
       where: {
@@ -107,14 +154,62 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const tokenSecret = process.env.GMAIL_TOKEN_SECRET || "dev-secret";
-    const accessToken = decryptText(emailAccount.accessTokenEncrypted, tokenSecret);
-    const refreshToken = emailAccount.refreshTokenEncrypted
-      ? decryptText(emailAccount.refreshTokenEncrypted, tokenSecret)
-      : undefined;
+    const outboundAttachments: Array<{
+      fileName: string;
+      mimeType: string;
+      content: Buffer;
+    }> = [];
+    let actualAttachmentBytes = 0;
+    for (const attachment of stagedAttachments) {
+      if (
+        !isOwnedEmailAttachmentKey({
+          storageKey: attachment.storageKey,
+          tenantId: ctx.tenantId,
+          userId: ctx.userId,
+        })
+      ) {
+        return NextResponse.json(
+          { success: false, error: "Adjunto no autorizado" },
+          { status: 403 },
+        );
+      }
+      if (
+        isBlockedEmailAttachment(attachment.fileName, attachment.mimeType)
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Gmail no permite adjuntar “${attachment.fileName}”`,
+          },
+          { status: 400 },
+        );
+      }
+      const metadata = await getStagedEmailFileMetadata(attachment.storageKey);
+      if (
+        metadata.size !== attachment.size ||
+        (metadata.mimeType != null &&
+          metadata.mimeType !== attachment.mimeType) ||
+        actualAttachmentBytes + metadata.size > MAX_EMAIL_ATTACHMENT_BYTES
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `La metadata de “${attachment.fileName}” no coincide con la subida`,
+          },
+          { status: 400 },
+        );
+      }
+      const content = await getFileBuffer(attachment.storageKey, metadata.size);
+      actualAttachmentBytes += content.length;
+      outboundAttachments.push({
+        fileName: attachment.fileName,
+        mimeType: attachment.mimeType,
+        content,
+      });
+    }
 
     // ── Inyectar firma del usuario ──
-    let finalHtml = html || "";
+    let finalHtml = typeof html === "string" ? html : "";
     let signatureId: string | null = null;
 
     try {
@@ -146,7 +241,13 @@ export async function POST(request: NextRequest) {
       console.error("Error cargando firma:", sigError);
     }
 
-    const gmail = getGmailClient(accessToken, refreshToken);
+    const gmail = gmailClientForAccount(emailAccount);
+    if (!gmail) {
+      return NextResponse.json(
+        { success: false, error: "Gmail no conectado" },
+        { status: 400 },
+      );
+    }
 
     // Modo respuesta en hilo: si viene threadId (CrmEmailThread interno), agrupa
     // en el mismo hilo de Gmail y agrega headers In-Reply-To/References.
@@ -154,16 +255,21 @@ export async function POST(request: NextRequest) {
       ? await resolveReplyContext({ gmail, tenantId: ctx.tenantId, threadId })
       : null;
 
-    const raw = buildRawEmail({
+    const raw = buildGmailRawMessage({
       from: emailAccount.email,
-      to: toList,
-      cc: ccList,
-      bcc: bccList,
-      subject,
+      to: normalizedToEmails,
+      cc: normalizedCcEmails,
+      bcc: normalizedBccEmails,
+      subject: subject.trim(),
       html: finalHtml || undefined,
-      text: finalHtml ? undefined : text,
+      text: finalHtml
+        ? undefined
+        : typeof text === "string"
+          ? text
+          : undefined,
       inReplyTo: replyCtx?.inReplyTo ?? undefined,
       references: replyCtx?.references ?? undefined,
+      attachments: outboundAttachments,
     });
 
     const response = await gmail.users.messages.send({
@@ -172,66 +278,97 @@ export async function POST(request: NextRequest) {
     });
 
     const messageId = response.data.id;
-
-    const thread = replyCtx
-      ? null
-      : await prisma.crmEmailThread.findFirst({
-          where: {
-            tenantId: ctx.tenantId,
-            subject,
-            accountId: accountId || null,
-            contactId: contactId || null,
-            dealId: dealId || null,
-          },
-        });
-
+    const providerThreadId =
+      response.data.threadId ?? replyCtx?.gmailThreadId ?? null;
+    acceptedByGmail = {
+      providerMessageId: messageId ?? null,
+      providerThreadId,
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+      emailAccountId: emailAccount.id,
+      storageKeys: stagedAttachments.map(
+        (attachment) => attachment.storageKey,
+      ),
+    };
+    const sentAt = new Date();
     const threadRecord = replyCtx
       ? { id: replyCtx.threadId }
-      : thread
-        ? thread
-        : await prisma.crmEmailThread.create({
-            data: {
-              tenantId: ctx.tenantId,
-              subject,
-              accountId: accountId || null,
-              contactId: contactId || null,
-              dealId: dealId || null,
-              lastMessageAt: new Date(),
-            },
-          });
+      : await upsertLinkedThread({
+          tenantId: ctx.tenantId,
+          subject: subject.trim(),
+          lastMessageAt: sentAt,
+          counterpartyEmails: [
+            ...normalizedToEmails,
+            ...normalizedCcEmails,
+          ],
+          emailAccountId: emailAccount.id,
+          providerThreadId,
+          isInbound: false,
+        });
 
-    const message = await prisma.crmEmailMessage.create({
+    await prisma.crmEmailThread.update({
+      where: { id: threadRecord.id },
       data: {
-        tenantId: ctx.tenantId,
-        threadId: threadRecord.id,
-        providerMessageId: messageId || null,
-        direction: "out",
-        fromEmail: normalizeEmailAddress(emailAccount.email),
-        toEmails: normalizedToEmails.length
-          ? normalizedToEmails
-          : toList.map(normalizeEmailAddress),
-        ccEmails: normalizedCcEmails,
-        bccEmails: normalizedBccEmails,
-        subject,
-        htmlBody: finalHtml || null,
-        textBody: text || null,
-        sentAt: new Date(),
-        createdBy: ctx.userId,
-        status: "sent",
-        source: "gmail",
-        signatureId,
+        emailAccountId: emailAccount.id,
+        ...(providerThreadId ? { providerThreadId } : {}),
+        ...(typeof accountId === "string" && accountId ? { accountId } : {}),
+        ...(typeof contactId === "string" && contactId ? { contactId } : {}),
+        ...(typeof dealId === "string" && dealId ? { dealId } : {}),
+        ...(outboundAttachments.length > 0
+          ? { attachmentCount: { increment: outboundAttachments.length } }
+          : {}),
+        ...(replyCtx && !replyCtx.firstReplyAt
+          ? { firstReplyAt: sentAt }
+          : {}),
       },
     });
 
-    // Responder NO reordena la bandeja: el orden lo manda el último correo
-    // RECIBIDO (como Gmail). Solo se registra firstReplyAt (KPI de respuesta)
-    // en la primera respuesta al inbound; lastMessageAt no se toca.
-    if (replyCtx && !replyCtx.firstReplyAt) {
-      await prisma.crmEmailThread.update({
-        where: { id: threadRecord.id },
-        data: { firstReplyAt: new Date() },
+    const messageData = {
+      tenantId: ctx.tenantId,
+      threadId: threadRecord.id,
+      providerMessageId: messageId || null,
+      direction: "out",
+      fromEmail: normalizeEmailAddress(emailAccount.email),
+      toEmails: normalizedToEmails,
+      ccEmails: normalizedCcEmails,
+      bccEmails: normalizedBccEmails,
+      subject: subject.trim(),
+      htmlBody: finalHtml || null,
+      textBody: typeof text === "string" ? text : null,
+      sentAt,
+      createdBy: ctx.userId,
+      status: "sent",
+      source: "gmail",
+      signatureId,
+      emailAccountId: emailAccount.id,
+      labelIds: ["SENT"],
+    };
+    const message = messageId
+      ? await prisma.crmEmailMessage.upsert({
+          where: {
+            emailAccountId_providerMessageId: {
+              emailAccountId: emailAccount.id,
+              providerMessageId: messageId,
+            },
+          },
+          create: messageData,
+          update: messageData,
+        })
+      : await prisma.crmEmailMessage.create({ data: messageData });
+
+    after(async () => {
+      await Promise.allSettled(
+        stagedAttachments.map((attachment) =>
+          deleteFile(attachment.storageKey),
+        ),
+      );
+      await broadcastGmailMailboxChanged({
+        tenantId: ctx.tenantId,
+        userId: ctx.userId,
+        reason: "send",
+        syncedCount: 1,
       });
-    }
+    });
 
     return NextResponse.json({
       success: true,
@@ -243,6 +380,53 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error sending Gmail:", error);
+    if (acceptedByGmail) {
+      const accepted = acceptedByGmail;
+      after(async () => {
+        await Promise.allSettled(
+          accepted.storageKeys.map((storageKey) => deleteFile(storageKey)),
+        );
+        await enqueueGmailSyncJob({
+          tenantId: accepted.tenantId,
+          emailAccountId: accepted.emailAccountId,
+          reason: "send",
+        }).catch(() => {});
+        await processGmailSyncJob({
+          emailAccountId: accepted.emailAccountId,
+          profile: "delta",
+          deadlineMs: Date.now() + 20_000,
+        }).catch(() => {});
+        await broadcastGmailMailboxChanged({
+          tenantId: accepted.tenantId,
+          userId: accepted.userId,
+          reason: "send-reconcile",
+          syncedCount: 1,
+        });
+      });
+      return NextResponse.json(
+        {
+          success: true,
+          warning:
+            "Gmail aceptó el correo; OPAI completará el historial en la próxima sincronización.",
+          data: {
+            threadId: null,
+            messageId: null,
+            providerMessageId: accepted.providerMessageId,
+            providerThreadId: accepted.providerThreadId,
+          },
+        },
+        { status: 202 },
+      );
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    if (
+      /Archivo demasiado grande|Archivo vacío|storage|adjunto/i.test(message)
+    ) {
+      return NextResponse.json(
+        { success: false, error: message },
+        { status: 400 },
+      );
+    }
     const e = error as { code?: number; status?: number; response?: { status?: number } };
     const status = e?.code ?? e?.status ?? e?.response?.status;
     if (status === 401 || status === 403) {

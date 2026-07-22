@@ -22,7 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { EmptyState } from "@/components/opai-ds";
+import { AttachmentPicker, EmptyState } from "@/components/opai-ds";
 import { EmailHistoryList, type EmailMessage } from "./EmailHistoryList";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
@@ -60,6 +60,7 @@ import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { SendPresentationDialog } from "./SendPresentationDialog";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
+import { useEmailAttachments } from "./correos/useEmailAttachments";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -249,6 +250,7 @@ export function CrmContactDetailClient({
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [signatureHtml, setSignatureHtml] = useState<string | null>(null);
   const [emailCount, setEmailCount] = useState(initialEmailCount);
+  const emailAttachments = useEmailAttachments();
 
   useEffect(() => {
     fetch("/api/crm/signatures?mine=true")
@@ -368,14 +370,15 @@ export function CrmContactDetailClient({
       const res = await fetch("/api/crm/gmail/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: contact.email, cc, bcc, subject: emailSubject, html: htmlForSend, contactId: contact.id, accountId: contact.account?.id || undefined }),
+        body: JSON.stringify({ to: contact.email, cc, bcc, subject: emailSubject, html: htmlForSend, contactId: contact.id, accountId: contact.account?.id || undefined, attachments: emailAttachments.readyAttachments }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Error enviando email");
       setEmailOpen(false);
-      setEmailBody(""); setEmailTiptapContent(null); setEmailSubject(""); setEmailCc(""); setEmailBcc(""); setShowCcBcc(false); setSelectedTemplateId("");
+      setEmailBody(""); setEmailTiptapContent(null); setEmailSubject(""); setEmailCc(""); setEmailBcc(""); setShowCcBcc(false); setSelectedTemplateId(""); emailAttachments.resetAfterSend();
       setEmailCount((prev) => prev + 1);
-      toast.success("Correo enviado exitosamente");
+      if (data?.warning) toast.message(data.warning);
+      else toast.success("Correo enviado exitosamente");
     } catch (error) { console.error(error); toast.error("No se pudo enviar el correo."); }
     finally { setSending(false); }
   };
@@ -843,7 +846,13 @@ export function CrmContactDetailClient({
       </EntityDetailLayout>
 
       {/* ── Email Compose Modal ── */}
-      <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
+      <Dialog
+        open={emailOpen}
+        onOpenChange={(open) => {
+          if (!open) emailAttachments.discardAll();
+          setEmailOpen(open);
+        }}
+      >
         <DialogContent className="sm:max-w-4xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Enviar correo a {contact.firstName}</DialogTitle>
@@ -888,6 +897,13 @@ export function CrmContactDetailClient({
               <Label>Mensaje</Label>
               <ContractEditor content={emailTiptapContent} onChange={handleTiptapChange} editable={!sending} placeholder="Escribe tu mensaje aquí..." filterModules={["system"]} />
             </div>
+            <AttachmentPicker
+              items={emailAttachments.items}
+              onFiles={emailAttachments.addFiles}
+              onRemove={emailAttachments.remove}
+              onRetry={emailAttachments.retry}
+              disabled={sending}
+            />
             {signatureHtml && (
               <div className="rounded-md border border-border/50 bg-muted/20 p-3">
                 <p className="text-[10px] text-muted-foreground mb-2 uppercase tracking-wider font-medium">Firma (se agrega automáticamente)</p>
@@ -896,8 +912,8 @@ export function CrmContactDetailClient({
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEmailOpen(false)}>Cancelar</Button>
-            <Button onClick={sendEmail} disabled={sending}>{sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Enviar correo</Button>
+            <Button variant="outline" onClick={() => { emailAttachments.discardAll(); setEmailOpen(false); }}>Cancelar</Button>
+            <Button onClick={sendEmail} disabled={sending || emailAttachments.uploading || emailAttachments.hasErrors}>{sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Enviar correo</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

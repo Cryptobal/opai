@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export type ThreadLinks = {
   contactId: string | null;
@@ -73,8 +74,13 @@ export async function upsertLinkedThread(params: {
 
   const existing =
     (providerThreadId && emailAccountId
-      ? await prisma.crmEmailThread.findFirst({
-          where: { tenantId, emailAccountId, providerThreadId },
+      ? await prisma.crmEmailThread.findUnique({
+          where: {
+            emailAccountId_providerThreadId: {
+              emailAccountId,
+              providerThreadId,
+            },
+          },
           select: { id: true, contactId: true, accountId: true, dealId: true, lastMessageAt: true },
         })
       : null) ??
@@ -84,19 +90,40 @@ export async function upsertLinkedThread(params: {
     }));
 
   if (!existing) {
-    return prisma.crmEmailThread.create({
-      data: {
-        tenantId,
-        subject,
-        lastMessageAt,
-        emailAccountId: emailAccountId ?? null,
-        providerThreadId: providerThreadId ?? null,
-        contactId: links.contactId,
-        accountId: links.accountId,
-        dealId: links.dealId,
-      },
-      select: { id: true },
-    });
+    try {
+      return await prisma.crmEmailThread.create({
+        data: {
+          tenantId,
+          subject,
+          lastMessageAt,
+          emailAccountId: emailAccountId ?? null,
+          providerThreadId: providerThreadId ?? null,
+          contactId: links.contactId,
+          accountId: links.accountId,
+          dealId: links.dealId,
+        },
+        select: { id: true },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002" &&
+        emailAccountId &&
+        providerThreadId
+      ) {
+        const winner = await prisma.crmEmailThread.findUnique({
+          where: {
+            emailAccountId_providerThreadId: {
+              emailAccountId,
+              providerThreadId,
+            },
+          },
+          select: { id: true },
+        });
+        if (winner) return winner;
+      }
+      throw error;
+    }
   }
 
   // Solo los recibidos reordenan la bandeja (los enviados no bumpean el hilo).

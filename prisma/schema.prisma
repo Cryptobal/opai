@@ -2638,10 +2638,44 @@ model CrmEmailAccount {
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  syncJob CrmGmailSyncJob?
+
   @@index([tenantId], map: "idx_crm_email_accounts_tenant")
   @@index([userId], map: "idx_crm_email_accounts_user")
   @@index([provider], map: "idx_crm_email_accounts_provider")
   @@map("email_accounts")
+  @@schema("crm")
+}
+
+
+/// Job durable y coalescente por casilla Gmail. `pending` puede volver a true
+/// mientras existe un lease activo; al terminar, el worker procesa la nueva
+/// notificación en otra corrida sin perder el historyId más reciente.
+model CrmGmailSyncJob {
+  id                   String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId             String    @map("tenant_id")
+  emailAccountId       String    @unique(map: "uq_crm_gmail_sync_jobs_account") @map("email_account_id") @db.Uuid
+  pending              Boolean   @default(true)
+  maintenanceRequested Boolean   @default(false) @map("maintenance_requested")
+  reason               String    @default("push")
+  requestedHistoryId   String?   @map("requested_history_id")
+  requestedAt          DateTime  @default(now()) @map("requested_at") @db.Timestamptz(6)
+  availableAt          DateTime  @default(now()) @map("available_at") @db.Timestamptz(6)
+  attempts             Int       @default(0)
+  leaseToken           String?   @map("lease_token")
+  leaseUntil           DateTime? @map("lease_until") @db.Timestamptz(6)
+  lastStartedAt        DateTime? @map("last_started_at") @db.Timestamptz(6)
+  lastCompletedAt      DateTime? @map("last_completed_at") @db.Timestamptz(6)
+  lastError            String?   @map("last_error") @db.Text
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  emailAccount CrmEmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@index([pending, availableAt], map: "idx_crm_gmail_sync_jobs_due")
+  @@index([leaseUntil], map: "idx_crm_gmail_sync_jobs_lease")
+  @@index([tenantId], map: "idx_crm_gmail_sync_jobs_tenant")
+  @@map("gmail_sync_jobs")
   @@schema("crm")
 }
 
@@ -2684,7 +2718,7 @@ model CrmEmailThread {
   @@index([accountId], map: "idx_crm_email_threads_account")
   @@index([dealId], map: "idx_crm_email_threads_deal")
   @@index([leadId], map: "idx_crm_email_threads_lead")
-  @@index([emailAccountId, providerThreadId], map: "idx_crm_email_threads_account_provider")
+  @@unique([emailAccountId, providerThreadId], map: "uq_crm_email_threads_account_provider")
   @@index([tenantId, snoozedUntil], map: "idx_crm_email_threads_snoozed")
   @@map("email_threads")
   @@schema("crm")
@@ -2763,6 +2797,7 @@ model CrmEmailMessage {
   @@index([resendId], map: "idx_crm_email_messages_resend")
   @@index([followUpLogId], map: "idx_crm_email_messages_followup")
   @@index([emailAccountId], map: "idx_crm_email_messages_account")
+  @@unique([emailAccountId, providerMessageId], map: "uq_crm_email_messages_account_provider")
   @@map("email_messages")
   @@schema("crm")
 }

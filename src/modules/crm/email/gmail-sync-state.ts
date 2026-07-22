@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { gmail_v1 } from "googleapis";
 
@@ -24,6 +25,7 @@ export type GmailSyncState = {
     historyId?: string | null;
     expiration?: number;
     registeredAt?: string;
+    scope?: "mailbox";
   };
   /** Coalescing anti-tormenta del webhook push. */
   push?: {
@@ -45,6 +47,8 @@ export type SyncRunArgs = {
   /** Timestamp absoluto (ms) a partir del cual se corta la corrida. */
   deadline: number;
   createdByUserId?: string | null;
+  /** false en el webhook: evita sweeps caros cuando historyId expiró. */
+  maintenance?: boolean;
 };
 
 export type SyncRunResult = { synced: number; fetched: number; state: GmailSyncState };
@@ -56,18 +60,24 @@ export function readSyncState(raw: unknown): GmailSyncState {
   return {};
 }
 
-/** Merge parcial sobre el syncState actual (read-modify-write). */
+/**
+ * Merge JSONB atómico sobre el syncState actual.
+ *
+ * Antes se hacía read-modify-write desde Node y cron + webhook podían pisarse
+ * mutuamente (por ejemplo, perder `lastHistoryId` al renovar el watch).
+ */
 export async function writeSyncState(
   emailAccountId: string,
   patch: GmailSyncState,
 ): Promise<void> {
-  const acc = await prisma.crmEmailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: { syncState: true },
-  });
-  const next = { ...readSyncState(acc?.syncState), ...patch };
-  await prisma.crmEmailAccount.update({
-    where: { id: emailAccountId },
-    data: { syncState: next },
-  });
+  const json = JSON.stringify(patch);
+  await prisma.$executeRaw(
+    Prisma.sql`
+      UPDATE "crm"."email_accounts"
+      SET
+        "sync_state" = COALESCE("sync_state", '{}'::jsonb) || ${json}::jsonb,
+        "updated_at" = NOW()
+      WHERE "id" = ${emailAccountId}::uuid
+    `,
+  );
 }

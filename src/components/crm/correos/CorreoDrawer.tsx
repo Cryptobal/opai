@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type KeyboardEventHandler,
+  type PointerEventHandler,
+} from "react";
 import { Spinner } from "@/components/opai-ds";
 import { CorreoReaderShell } from "./CorreoReaderShell";
 import { CorreoDrawerContent } from "./CorreoDrawerContent";
@@ -16,9 +22,29 @@ type Props = {
   onChanged?: () => void;
   autoExtract?: boolean;
   canModify?: boolean;
+  refreshToken?: number;
+  desktopWidth?: number;
+  onResizePointerDown?: PointerEventHandler<HTMLElement>;
+  onResizeKeyDown?: KeyboardEventHandler<HTMLElement>;
+  onResizeReset?: () => void;
+  desktopMode?: "split" | "overlay";
+  manageBackHistory?: boolean;
 };
 
-export function CorreoDrawer({ threadId, onClose, onChanged, autoExtract, canModify }: Props) {
+export function CorreoDrawer({
+  threadId,
+  onClose,
+  onChanged,
+  autoExtract,
+  canModify,
+  refreshToken = 0,
+  desktopWidth = 560,
+  onResizePointerDown = () => {},
+  onResizeKeyDown = () => {},
+  onResizeReset = () => {},
+  desktopMode = "overlay",
+  manageBackHistory = true,
+}: Props) {
   const [detail, setDetail] = useState<CorreoDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -39,7 +65,7 @@ export function CorreoDrawer({ threadId, onClose, onChanged, autoExtract, canMod
     setDetail(null);
     setAiOpen(false);
     void load();
-  }, [load]);
+  }, [load, refreshToken]);
 
   useEffect(() => {
     if (autoExtract && detail && !detail.thread.leadId) setAiOpen(true);
@@ -79,6 +105,12 @@ export function CorreoDrawer({ threadId, onClose, onChanged, autoExtract, canMod
       onClose={onClose}
       headerFrom={from}
       headerSubject={detail?.thread.subject || "Correo"}
+      desktopWidth={desktopWidth}
+      onResizePointerDown={onResizePointerDown}
+      onResizeKeyDown={onResizeKeyDown}
+      onResizeReset={onResizeReset}
+      desktopMode={desktopMode}
+      manageBackHistory={manageBackHistory}
       mobileActions={
         detail && canModify ? (
           <CorreoThreadActions

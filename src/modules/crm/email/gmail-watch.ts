@@ -26,8 +26,6 @@ export async function registerGmailWatch(account: GmailWatchAccount): Promise<Wa
       userId: "me",
       requestBody: {
         topicName: TOPIC,
-        labelIds: ["INBOX"],
-        labelFilterAction: "include",
       },
     });
 
@@ -39,6 +37,7 @@ export async function registerGmailWatch(account: GmailWatchAccount): Promise<Wa
           ? Number(res.data.expiration)
           : Date.now() + 7 * 86400_000,
         registeredAt: new Date().toISOString(),
+        scope: "mailbox",
       },
     });
     return { ok: true };
@@ -72,7 +71,9 @@ export async function stopGmailWatch(account: GmailWatchAccount): Promise<void> 
 /** true si el watch vence en menos de 24h (Google renueva ~7 días). */
 export function needsWatchRenewal(account: { syncState?: unknown }): boolean {
   if (!PUSH_ENABLED) return false;
-  const exp = readSyncState(account.syncState).watch?.expiration;
+  const watch = readSyncState(account.syncState).watch;
+  if (watch?.scope !== "mailbox") return true;
+  const exp = watch.expiration;
   if (!exp) return true;
   return exp - Date.now() < 24 * 3600_000;
 }

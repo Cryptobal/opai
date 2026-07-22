@@ -1,6 +1,8 @@
 "use client";
 
-import { RefreshCw, Search } from "lucide-react";
+import { AlignJustify, RefreshCw, Search, Wifi, WifiOff } from "lucide-react";
+import type { CorreosRealtimeStatus } from "./useCorreosRealtime";
+import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
 
 export type CorreoFolderTab = "inbox" | "archived" | "all" | "trash" | "snoozed";
 export type CorreoChipKey = "todos" | "con_cuenta" | "sin_asociar" | "con_adjuntos" | "leads_creados";
@@ -41,6 +43,10 @@ type Props = {
   onQuery: (q: string) => void;
   onSync: () => void;
   syncing: boolean;
+  realtimeStatus: CorreosRealtimeStatus;
+  previewLines: CorreoPreviewLines;
+  onPreviewLines: (lines: CorreoPreviewLines) => void;
+  lastSyncAt: string | null;
 };
 
 export function CorreosFilters({
@@ -53,7 +59,17 @@ export function CorreosFilters({
   onQuery,
   onSync,
   syncing,
+  realtimeStatus,
+  previewLines,
+  onPreviewLines,
+  lastSyncAt,
 }: Props) {
+  const lastSyncLabel = lastSyncAt
+    ? new Date(lastSyncAt).toLocaleTimeString("es-CL", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -76,6 +92,46 @@ export function CorreosFilters({
           <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
           {syncing ? "Sincronizando…" : "Sincronizar ahora"}
         </button>
+        <span
+          className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-2 text-[12px] sm:h-9 ${
+            realtimeStatus === "live"
+              ? "text-status-ok-fg"
+              : "text-ds-text-3"
+          }`}
+          aria-live="polite"
+          title={
+            realtimeStatus === "live"
+              ? "Los cambios de Gmail llegan en tiempo real"
+              : "Reconectando; la bandeja se actualiza automáticamente"
+          }
+        >
+          {realtimeStatus === "live" ? (
+            <Wifi className="h-4 w-4" />
+          ) : (
+            <WifiOff className="h-4 w-4" />
+          )}
+          {realtimeStatus === "live"
+            ? "En vivo"
+            : lastSyncLabel
+              ? `Actualizado ${lastSyncLabel}`
+              : "Reconectando"}
+        </span>
+        <label className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-ds-border-default bg-ds-surface-1 px-2 text-[12px] text-ds-text-2 sm:h-9">
+          <AlignJustify className="h-4 w-4" />
+          <span className="sr-only">Líneas de vista previa</span>
+          <select
+            value={previewLines}
+            onChange={(event) =>
+              onPreviewLines(Number(event.target.value) as CorreoPreviewLines)
+            }
+            className="h-full border-0 bg-transparent pr-5 text-[12px] text-ds-text-2 outline-none"
+            aria-label="Líneas de vista previa"
+          >
+            <option value={1}>1 línea</option>
+            <option value={2}>2 líneas</option>
+            <option value={3}>3 líneas</option>
+          </select>
+        </label>
       </div>
 
       <div className="flex gap-1 overflow-x-auto scrollbar-none">
@@ -98,7 +154,7 @@ export function CorreosFilters({
               ) : null}
               {unread > 0 && (
                 <span
-                  className={`ml-1.5 rounded-full px-1.5 text-[11px] font-medium ${
+                  className={`ml-1.5 rounded-full px-1.5 text-[12px] font-medium ${
                     active
                       ? "bg-primary-foreground/20 text-primary-foreground"
                       : "bg-primary text-primary-foreground"

@@ -99,7 +99,6 @@ export async function GET(req: NextRequest) {
           accessTokenEncrypted: true,
           refreshTokenEncrypted: true,
         },
-        take: 50,
       });
 
       for (const acc of gmailAccounts) {

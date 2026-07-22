@@ -10,24 +10,15 @@ export type CorreoFolderCounts = {
   snoozed: number;
 };
 
-type CacheEntry = { at: number; counts: CorreoFolderCounts };
-
-const CACHE_TTL_MS = 60_000;
-const cache = new Map<string, CacheEntry>();
-
 /**
- * Conteos por pestaña (recibidos / archivados / todos / papelera). El spam
- * queda excluido de todas menos papelera (que solo mira trashedAt), como en
- * Gmail. Cache 60s por casilla.
+ * Conteos frescos por pestaña. No se cachean en memoria: en Vercel cada
+ * instancia mantenía una copia distinta durante 60s y el refetch realtime
+ * podía seguir mostrando números viejos.
  */
 export async function countCorreoFolders(params: {
   tenantId: string;
   emailAccountId: string;
 }): Promise<CorreoFolderCounts> {
-  const key = `${params.tenantId}:${params.emailAccountId}`;
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.counts;
-
   const base = { tenantId: params.tenantId, emailAccountId: params.emailAccountId };
   const now = new Date();
   // Null-safe: el patrón NOT excluía los hilos con snoozedUntil NULL (ver
@@ -54,12 +45,10 @@ export async function countCorreoFolders(params: {
     }),
   ]);
 
-  const counts = { inbox, inboxUnread, archived, all, trash, snoozed };
-  cache.set(key, { at: Date.now(), counts });
-  return counts;
+  return { inbox, inboxUnread, archived, all, trash, snoozed };
 }
 
-/** Invalida cache de conteos (tras sync o acción de bandeja). */
-export function invalidateCorreoFolderCounts(tenantId: string, emailAccountId: string) {
-  cache.delete(`${tenantId}:${emailAccountId}`);
+/** Compatibilidad para call sites previos; los conteos ahora siempre son frescos. */
+export function invalidateCorreoFolderCounts(_tenantId: string, _emailAccountId: string) {
+  // no-op
 }

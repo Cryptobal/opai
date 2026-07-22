@@ -48,4 +48,10 @@ export { ModuleSubNav, type ModuleSubNavProps } from "./ModuleSubNav";
 export { PageShell, type PageShellProps } from "./PageShell";
 export { ConfigShell, useConfigCategories, type ConfigShellProps, type CategoryGroup } from "./ConfigShell";
 export { GlassAmbient } from "./GlassAmbient";
+export {
+  AttachmentPicker,
+  type AttachmentPickerProps,
+  type AttachmentPickerItem,
+  type AttachmentPickerItemStatus,
+} from "./AttachmentPicker";
 export { thresholdFromScore, type Threshold } from "./tokens";

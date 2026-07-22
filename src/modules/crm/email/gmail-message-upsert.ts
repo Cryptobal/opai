@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { extractEmailAddresses, normalizeEmailAddress } from "@/lib/email-address";
 import {
   extractGmailMessageBodies,
@@ -37,9 +38,18 @@ export async function upsertGmailMessage(params: {
   createdByUserId?: string | null;
 }): Promise<UpsertGmailMessageResult> {
   const { gmail, tenantId, emailAccount, messageId } = params;
-  const existing = await prisma.crmEmailMessage.findFirst({
-    where: { providerMessageId: messageId, tenantId },
-  });
+  const existing =
+    (await prisma.crmEmailMessage.findUnique({
+      where: {
+        emailAccountId_providerMessageId: {
+          emailAccountId: emailAccount.id,
+          providerMessageId: messageId,
+        },
+      },
+    })) ??
+    (await prisma.crmEmailMessage.findFirst({
+      where: { providerMessageId: messageId, tenantId },
+    }));
   const shouldBackfill = Boolean(existing) && !existing?.htmlBody && !existing?.textBody;
 
   const full = await gmail.users.messages.get({
@@ -125,15 +135,34 @@ export async function upsertGmailMessage(params: {
     isInbound: direction === "in",
   });
 
-  await prisma.crmEmailMessage.create({
-    data: {
-      tenantId,
-      threadId: thread.id,
-      providerMessageId: messageId,
-      createdBy: params.createdByUserId ?? emailAccount.userId,
-      ...common,
-    },
-  });
+  try {
+    await prisma.crmEmailMessage.create({
+      data: {
+        tenantId,
+        threadId: thread.id,
+        providerMessageId: messageId,
+        createdBy: params.createdByUserId ?? emailAccount.userId,
+        ...common,
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      await prisma.crmEmailMessage.update({
+        where: {
+          emailAccountId_providerMessageId: {
+            emailAccountId: emailAccount.id,
+            providerMessageId: messageId,
+          },
+        },
+        data: { threadId: thread.id, ...common },
+      });
+      return { wrote: false, providerThreadId };
+    }
+    throw error;
+  }
 
   const attachments = extractGmailAttachments(payload as GmailMessagePart | undefined).length;
   if (attachments > 0) {

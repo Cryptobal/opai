@@ -1,17 +1,35 @@
 import { prisma } from "@/lib/prisma";
-import { decryptText } from "@/lib/crypto";
-import { getGmailClient } from "@/lib/gmail";
-import { readSyncState, writeSyncState, type SyncRunArgs } from "./gmail-sync-state";
+import {
+  readSyncState,
+  writeSyncState,
+  type GmailSyncState,
+  type SyncRunArgs,
+} from "./gmail-sync-state";
 import { runBackfill } from "./gmail-backfill";
 import { runIncremental } from "./gmail-incremental";
 import { reconcileGmailFolders } from "./gmail-folder-reconcile";
 import { healInboxFromLocalLabels, selfHealInbox } from "./gmail-inbox-selfheal";
 import { classifyAccountThreads } from "./radar-classifier.service";
+import { gmailClientForAccount } from "./gmail-account-client";
 
 const DEFAULT_BUDGET = 300;
 const TIME_BUDGET_MS = 45_000;
 /** Frecuencia mínima entre sweeps completos de reconciliación (throttle). */
 const RECONCILE_TTL_MS = 10 * 60_000;
+
+/** Solo persiste keys que el runner realmente cambió; preserva push/watch concurrentes. */
+export function changedGmailSyncState(
+  previous: GmailSyncState,
+  next: GmailSyncState,
+): GmailSyncState {
+  const patch: Record<string, unknown> = {};
+  for (const key of Object.keys(next) as Array<keyof GmailSyncState>) {
+    if (JSON.stringify(previous[key]) !== JSON.stringify(next[key])) {
+      patch[key] = next[key];
+    }
+  }
+  return patch as GmailSyncState;
+}
 
 /**
  * Sync de una casilla Gmail. Decide backfill (histórico 120d paginado) o
@@ -35,6 +53,11 @@ export async function syncGmailAccount(params: {
   forceReconcile?: boolean;
   /** Presupuesto mínimo del self-heal (ms). El botón "Sincronizar" pasa ~10s. */
   selfHealBudgetMs?: number;
+  /**
+   * `delta` es la ruta crítica del push: solo history/backfill + labels.
+   * `maintenance` agrega Radar, self-heal y reconciliación completa.
+   */
+  profile?: "delta" | "maintenance";
 }): Promise<{
   syncedCount: number;
   fetched: number;
@@ -54,31 +77,45 @@ export async function syncGmailAccount(params: {
     throw new Error("Gmail no conectado");
   }
 
-  const tokenSecret = process.env.GMAIL_TOKEN_SECRET || "dev-secret";
-  const accessToken = decryptText(emailAccount.accessTokenEncrypted, tokenSecret);
-  const refreshToken = emailAccount.refreshTokenEncrypted
-    ? decryptText(emailAccount.refreshTokenEncrypted, tokenSecret)
-    : undefined;
-  const gmail = getGmailClient(accessToken, refreshToken);
+  const gmail = gmailClientForAccount(emailAccount);
+  if (!gmail) throw new Error("Gmail no conectado");
 
   const state = readSyncState(emailAccount.syncState);
   const globalDeadline = params.deadlineMs ?? Date.now() + TIME_BUDGET_MS;
   const total = Math.max(globalDeadline - Date.now(), 0);
+  const maintenance = params.profile !== "delta";
 
-  // Fase 1 — incremental/backfill con presupuesto propio (55% del total).
+  // Fase 1 — la ruta realtime dedica casi todo el presupuesto al delta. La
+  // ruta de mantenimiento reserva 45% para Radar/heal/sweep.
   const runArgs: SyncRunArgs = {
     gmail,
     tenantId: params.tenantId,
     emailAccount: { id: emailAccount.id, email: emailAccount.email, userId: emailAccount.userId },
     state,
     budget: Math.max(params.maxResults ?? DEFAULT_BUDGET, 1),
-    deadline: Date.now() + Math.floor(total * 0.55),
+    deadline: maintenance
+      ? Date.now() + Math.floor(total * 0.55)
+      : Math.max(Date.now(), globalDeadline - 250),
     createdByUserId: params.createdByUserId,
+    maintenance,
   };
 
   const mode: "backfill" | "incremental" = state.backfillDone ? "incremental" : "backfill";
   const result = mode === "backfill" ? await runBackfill(runArgs) : await runIncremental(runArgs);
-  await writeSyncState(emailAccount.id, result.state);
+  await writeSyncState(
+    emailAccount.id,
+    changedGmailSyncState(state, result.state),
+  );
+
+  if (!maintenance) {
+    return {
+      syncedCount: result.synced,
+      fetched: result.fetched,
+      mode,
+      reconcile: "skipped",
+      healed: 0,
+    };
+  }
 
   // Fase 2 — Radar Comercial ANTES del sweep, con presupuesto reservado
   // (hasta 12s): clasifica hilos con inbound nuevo y genera RadarItems.

@@ -5,6 +5,13 @@ import { Clock, Paperclip, Sparkles, TrendingUp, CheckCircle2 } from "lucide-rea
 import { Tag } from "@/components/opai-ds";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 import { CorreoThreadActions } from "./CorreoThreadActions";
+import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
+
+const PREVIEW_LINE_CLASS: Record<CorreoPreviewLines, string> = {
+  1: "line-clamp-1",
+  2: "line-clamp-2",
+  3: "line-clamp-3",
+};
 
 function snoozeLabel(iso: string): string {
   return new Date(iso).toLocaleString("es-CL", {
@@ -35,23 +42,31 @@ export function CorreoRow({
   canModify,
   onChanged,
   trailing,
+  selected = false,
+  previewLines = 2,
 }: {
   thread: CorreoThreadDTO;
   onOpen: () => void;
   canModify: boolean;
   onChanged?: () => void;
+  selected?: boolean;
+  previewLines?: CorreoPreviewLines;
   /** Slot final (kebab móvil). Si viene, reemplaza a las acciones hover. */
   trailing?: ReactNode;
 }) {
   const unread = thread.isUnread;
   const subject = thread.subject || "(sin asunto)";
-  const line2 = [subject, thread.snippet].filter(Boolean).join(" · ");
 
   return (
-    <div className="group relative flex w-full items-stretch border-b border-ds-border-subtle last:border-0">
+    <div
+      className={`group relative flex w-full items-stretch border-b border-ds-border-subtle last:border-0 ${
+        selected ? "border-l-2 border-l-primary bg-primary/5" : ""
+      }`}
+    >
       <button
         type="button"
         onClick={onOpen}
+        aria-current={selected ? "true" : undefined}
         className="flex min-w-0 flex-1 flex-col gap-1 px-3 py-3 text-left ds-tap hover:bg-ds-surface-2"
       >
         <div className="flex items-center gap-2">
@@ -63,10 +78,22 @@ export function CorreoRow({
             {relativeTime(thread.lastMessageAt)}
           </span>
         </div>
-        <p className="truncate text-[13px]" title={line2}>
-          <span className={unread ? "font-semibold text-ds-text-1" : "text-ds-text-3"}>{subject}</span>
-          {thread.snippet && <span className="text-ds-text-3"> · {thread.snippet}</span>}
+        <p
+          className={`line-clamp-1 text-[13px] ${
+            unread ? "font-semibold text-ds-text-1" : "text-ds-text-2"
+          }`}
+          title={subject}
+        >
+          {subject}
         </p>
+        {thread.snippet && (
+          <p
+            className={`${PREVIEW_LINE_CLASS[previewLines]} break-words text-[13px] leading-5 text-ds-text-3`}
+            title={thread.snippet}
+          >
+            {thread.snippet}
+          </p>
+        )}
         <div className="flex flex-wrap items-center gap-1 pt-0.5">
           {thread.accountId ? (
             <Tag variant="brand" size="sm">{thread.accountName || "Cuenta"}</Tag>
