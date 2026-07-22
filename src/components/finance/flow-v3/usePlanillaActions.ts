@@ -89,6 +89,20 @@ export function usePlanillaActions(refetch: () => void) {
     [setTemplateEndDate],
   );
 
+  /** Término de pago POR CONTRATO (días; null = default del tenant). */
+  const setTemplateDiasCobro = useCallback(
+    (templateId: string, diasCobro: number | null) =>
+      run(
+        () =>
+          api(`/api/finance/flow-v3/recurring-templates/${templateId}/dias-cobro`, {
+            method: "PATCH",
+            body: JSON.stringify({ diasCobro }),
+          }),
+        diasCobro != null ? `Cobro a ${diasCobro} días` : "Cobro según config del tenant",
+      ),
+    [run],
+  );
+
   /** Fill-right estilo Sheets (F3): mismo monto en N semanas de una fila. */
   const bulkFill = useCallback(
     (rowId: string, weekStarts: string[], amount: number) =>
@@ -103,5 +117,5 @@ export function usePlanillaActions(refetch: () => void) {
     [run],
   );
 
-  return { busy, createRow, renameRow, archiveRow, setTemplateEndDate, deactivateTemplate, bulkFill };
+  return { busy, createRow, renameRow, archiveRow, setTemplateEndDate, setTemplateDiasCobro, deactivateTemplate, bulkFill };
 }

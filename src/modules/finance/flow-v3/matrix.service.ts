@@ -5,6 +5,7 @@ import {
   addWeeksUTC, defaultHorizon, enumerateWeeks, MAX_RANGE_WEEKS,
   startOfIsoWeekUTC, toYmd, weekStartYmd, ymdToDate,
 } from "./weeks";
+import { ensureFlowBootstrap } from "./bootstrap.service";
 import { loadPlanCells } from "./plan.service";
 import { loadCommittedIncome } from "./load-committed-income";
 import { loadCommittedExpense } from "./load-committed-expense";
@@ -52,6 +53,10 @@ export async function buildFlowMatrix(
   let weeks = enumerateWeeks(fromMonday, toMonday);
   if (weeks.length > MAX_RANGE_WEEKS) weeks = weeks.slice(0, MAX_RANGE_WEEKS);
   const lastWeek = weeks[weeks.length - 1];
+
+  // Primera vez sin filas: bootstrap automático (programaciones activas +
+  // canónicas + backfill de términos por contrato). Nadie corre scripts.
+  await ensureFlowBootstrap(tenantId);
 
   const dbRows = await prisma.financeFlowRow.findMany({ where: { tenantId } });
   const refs: FlowRowRef[] = dbRows.map((r) => ({

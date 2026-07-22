@@ -7,19 +7,23 @@ producción sigue idéntica hasta activarlo. La validación con datos reales
 de este checklist se hace en producción con el flag apagado (URL directa)
 o encendido solo para el tenant de Carlos.
 
-Cómo activar para un tenant (flag JSONB, sin migración):
+## Activación sin fricción (V2 — sin scripts ni SQL)
 
-```sql
-UPDATE tenant_modules
-SET config = COALESCE(config, '{}'::jsonb) || '{"cashflowPlanillaV3": true}'::jsonb
-WHERE tenant_id = '<TENANT_ID>' AND module = 'finanzas';
--- Si el tenant no tiene fila para module='finanzas', crearla con enabled=true.
-```
+- **Filas automáticas**: al abrir `/finanzas/flujo-caja/planilla` por primera
+  vez, si el tenant no tiene filas, se crean solas (una por cuenta+instalación
+  con programación activa + canónicas de egresos). No hay que correr el import.
+- **Términos de pago por contrato**: se backfillean automáticamente desde los
+  `diasCobroDesdeFactura` que ya tenías configurados en el módulo viejo
+  (items CONTRACT/OTHER) hacia la programación equivalente. Cada contrato
+  puede tener el suyo; se edita después desde el popover de la celda
+  ("cobro Nd → Editar").
+- **Activar en navegación**: botón "Activar en navegación" en la toolbar de la
+  planilla (owner/admin) → confirma → escribe el flag `cashflowPlanillaV3` sin
+  SQL y refresca la nav. Reversible con el mismo botón.
 
-La ruta `/finanzas/flujo-caja/planilla` es accesible directo aun con flag OFF
-(para validar sin afectar navegación). Import inicial:
-`TENANT_SLUG=gard npx tsx scripts/flow-v3-import.ts` (+ opcional
-`scripts/flow-v3-seed-plan.json` con `[{ rowName, weekStart, amount }]`).
+La ruta es accesible directo aun con el flag OFF (para validar sin afectar la
+navegación del resto del equipo). El SQL/`scripts/flow-v3-import.ts` siguen
+disponibles como respaldo, pero ya no son necesarios.
 
 ---
 

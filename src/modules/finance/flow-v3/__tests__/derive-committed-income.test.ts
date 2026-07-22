@@ -95,6 +95,20 @@ describe("deriveCommittedIncome — programaciones", () => {
     expect(count).toBeGreaterThanOrEqual(4);
   });
 
+  it("término de pago POR CONTRATO mueve la semana de cobro (diasCobro del template)", () => {
+    // Contrato que cobra a 60 días en vez del default 30: la cuota de ago
+    // (emisión 5-ago) cobra ~4-oct en vez de ~4-sep.
+    const out = deriveCommittedIncome({
+      ...base,
+      templates: [makeTemplate({ diasCobro: 60 })],
+    });
+    const cells = out.get("row-a-i1");
+    // 5-ago + 60d = 4-oct → semana del lunes 2026-09-28.
+    expect(cells?.get("2026-09-28")?.total).toBe(500_000);
+    // Con 30d habría caído en 2026-08-31; con 60d no debe estar ahí.
+    expect(cells?.get("2026-08-31")).toBeUndefined();
+  });
+
   it("dedup: el período cubierto por DTE emitido no se proyecta", () => {
     const out = deriveCommittedIncome({
       ...base,

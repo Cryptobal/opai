@@ -82,6 +82,7 @@ export async function loadCommittedIncome(
         id: true, folio: true, date: true, dueDate: true,
         totalAmount: true, amountPaid: true,
         crmAccountId: true, installationId: true, receiverName: true,
+        recurringTemplateId: true,
       },
     }),
     // Todo DTE colgado de una programación (borrador, emitido o pagado) ocupa
@@ -109,6 +110,7 @@ export async function loadCommittedIncome(
         startDate: true, endDate: true, lastRunAt: true, nextRunAt: true,
         facturaTiming: true, facturaDay: true, facturaMesRelativo: true,
         currency: true, lines: true, dteType: true,
+        diasCobroDesdeFactura: true,
       },
     }),
     prisma.financeCashflowDteFlowExclusion.findMany({
@@ -129,6 +131,7 @@ export async function loadCommittedIncome(
 
   const coveredPeriods = new Set<string>();
   const endDateByTemplate = new Map(templates.map((t) => [t.id, t.endDate]));
+  const diasCobroByTemplate = new Map(templates.map((t) => [t.id, t.diasCobroDesdeFactura]));
   const drafts: ScheduledDraftInput[] = [];
   for (const d of recurringLinked) {
     if (d.recurringTemplateId && d.billingPeriod) {
@@ -145,6 +148,7 @@ export async function loadCommittedIncome(
         crmAccountId: d.crmAccountId,
         installationId: d.installationId,
         templateEndDateYmd: tplEnd ? tplEnd.toISOString().slice(0, 10) : null,
+        templateDiasCobro: diasCobroByTemplate.get(d.recurringTemplateId) ?? null,
       });
     }
   }
@@ -160,6 +164,9 @@ export async function loadCommittedIncome(
       crmAccountId: d.crmAccountId,
       installationId: d.installationId,
       receiverName: d.receiverName ?? "",
+      templateDiasCobro: d.recurringTemplateId
+        ? (diasCobroByTemplate.get(d.recurringTemplateId) ?? null)
+        : null,
     }));
 
   const templateInputs: TemplateProjectionInput[] = templates.map((t) => ({
@@ -179,6 +186,7 @@ export async function loadCommittedIncome(
     facturaDay: t.facturaDay,
     facturaMesRelativo: t.facturaMesRelativo,
     grossPerRunClp: grossPerRunFromLines(t.lines, t.currency, t.dteType, ufValue),
+    diasCobro: t.diasCobroDesdeFactura,
   }));
 
   return deriveCommittedIncome({

@@ -15,6 +15,8 @@ interface Props {
   canManage: boolean;
   onClose: () => void;
   onSetEndDate: (templateId: string, endDate: string | null) => void;
+  /** Término de pago POR CONTRATO (días). null = default del tenant. */
+  onSetDiasCobro: (templateId: string, diasCobro: number | null) => void;
 }
 
 const MAPPING_LABEL: Record<string, string> = {
@@ -26,9 +28,11 @@ const MAPPING_LABEL: Record<string, string> = {
 
 const LAYER_LABEL = { real: "Real", committed: "Comprometido", plan: "Plan", empty: "—" } as const;
 
-export function CellLayersPopover({ state, canManage, onClose, onSetEndDate }: Props) {
+export function CellLayersPopover({ state, canManage, onClose, onSetEndDate, onSetDiasCobro }: Props) {
   const [deferring, setDeferring] = useState<string | null>(null);
   const [newDate, setNewDate] = useState("");
+  const [editingDias, setEditingDias] = useState<string | null>(null);
+  const [newDias, setNewDias] = useState("");
   if (!state) return null;
   const { row, cell } = state;
   const left = Math.max(8, Math.min(state.anchor.left, window.innerWidth - 312));
@@ -97,7 +101,7 @@ export function CellLayersPopover({ state, canManage, onClose, onSetEndDate }: P
                           </button>
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1">
+                        <span className="flex flex-wrap items-center justify-end gap-1">
                           <span>{it.endDate ? `hasta ${fmtShortDate(it.endDate)}` : "sin término"}</span>
                           {canManage && (
                             <button
@@ -106,6 +110,46 @@ export function CellLayersPopover({ state, canManage, onClose, onSetEndDate }: P
                             >
                               Aplazar término
                             </button>
+                          )}
+                          {editingDias === it.templateId ? (
+                            <span className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min={0}
+                                max={180}
+                                value={newDias}
+                                onChange={(e) => setNewDias(e.target.value)}
+                                placeholder="30"
+                                className="h-5 w-14 rounded border border-ds-border-default bg-ds-surface-1 px-1 text-right text-xs text-ds-text-1"
+                              />
+                              <button
+                                className="rounded bg-primary px-1 py-0.5 text-xs text-primary-foreground"
+                                onClick={() => {
+                                  const n = newDias.trim() === "" ? null : Number(newDias);
+                                  onSetDiasCobro(it.templateId!, n);
+                                  onClose();
+                                }}
+                              >
+                                OK
+                              </button>
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1">
+                              <span>
+                                · cobro {it.diasCobro != null ? `${it.diasCobro}d` : "según config"}
+                              </span>
+                              {canManage && (
+                                <button
+                                  className="rounded border border-ds-border-default px-1 py-0.5 text-xs text-primary hover:bg-ds-surface-2"
+                                  onClick={() => {
+                                    setEditingDias(it.templateId!);
+                                    setNewDias(it.diasCobro != null ? String(it.diasCobro) : "");
+                                  }}
+                                >
+                                  Editar
+                                </button>
+                              )}
+                            </span>
                           )}
                         </span>
                       )

@@ -7113,6 +7113,13 @@ model FinanceDteRecurringTemplate {
   /// Cantidad histórica de borradores generados.
   runCount  Int       @default(0) @map("run_count")
 
+  /// Término de pago de ESTE contrato: días entre la emisión de la factura y
+  /// el cobro esperado (Flujo v3 lo usa para ubicar la semana de cobro de
+  /// cuotas proyectadas, borradores y facturas del template sin dueDate).
+  /// NULL = usa el default del tenant (FinanceCashflowConfig.collectionLagDays).
+  /// Cada cliente/contrato paga distinto — por eso vive acá y no global.
+  diasCobroDesdeFactura Int? @map("dias_cobro_desde_factura")
+
   /// Auto-envío del DTE al receptor cuando el USUARIO emita al SII el borrador
   /// generado por esta plantilla (el cron NUNCA emite al SII, solo crea el
   /// borrador). NO controla envíos durante la generación del borrador por el
