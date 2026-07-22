@@ -30,6 +30,27 @@ export function kindIcon(kind: string): string {
   }
 }
 
+/** Etiqueta legible del tipo (para saber de un vistazo qué es cada novedad). */
+export function kindLabel(kind: string): string {
+  switch (kind) {
+    case "nuevo_lead":
+      return "Posible lead";
+    case "senal_compra":
+      return "Señal de compra";
+    case "compromiso":
+      return "Compromiso";
+    case "brief":
+      return "Brief";
+    default:
+      return "Novedad";
+  }
+}
+
+/** Título limpio: quita el ⏰ que arrastran los compromisos viejos (el row ya pinta el emoji del tipo). */
+export function cleanTitle(title: string): string {
+  return title.replace(/^[⏰\s]+/, "");
+}
+
 function scopeHref(item: RadarItemDTO): string {
   if (item.dealId) return `/crm/deals/${item.dealId}`;
   if (item.accountId) return `/crm/accounts/${item.accountId}`;

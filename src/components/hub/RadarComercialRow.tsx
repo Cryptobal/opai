@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Check, X } from "lucide-react";
-import { type RadarItemDTO, kindIcon, ctaFor } from "./radar-hub-item";
+import { type RadarItemDTO, kindIcon, kindLabel, cleanTitle, ctaFor } from "./radar-hub-item";
 
 type Props = {
   item: RadarItemDTO;
@@ -17,6 +17,19 @@ export function RadarComercialRow({ item, busy, onResolve, onOpenThread }: Props
   // Los leads se aprueban/rechazan con etiquetas explícitas: además de resolver
   // la novedad, alimentan el aprendizaje del clasificador (Es lead / No es lead).
   const isLead = item.kind === "nuevo_lead";
+  const title = cleanTitle(item.title);
+  // Etiqueta de tipo salvo en leads (ahí los botones ya lo dejan claro): así
+  // de un vistazo se distingue señal de compra de compromiso.
+  const label = isLead ? null : kindLabel(item.kind);
+  const body = (
+    <>
+      {label && (
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-ds-text-4">{label}</p>
+      )}
+      <p className="truncate text-[13px] font-medium text-ds-text-1">{title}</p>
+      {item.summary && <p className="truncate text-[12px] text-ds-text-3">{item.summary}</p>}
+    </>
+  );
   return (
     <li className="rounded-lg bg-ds-surface-2 px-2.5 py-2">
       <div className="flex items-start gap-2.5">
@@ -31,14 +44,10 @@ export function RadarComercialRow({ item, busy, onResolve, onOpenThread }: Props
               onClick={() => onOpenThread(threadId)}
               className="block w-full text-left ds-tap"
             >
-              <p className="truncate text-[13px] font-medium text-ds-text-1">{item.title}</p>
-              {item.summary && <p className="truncate text-[12px] text-ds-text-3">{item.summary}</p>}
+              {body}
             </button>
           ) : (
-            <>
-              <p className="truncate text-[13px] font-medium text-ds-text-1">{item.title}</p>
-              {item.summary && <p className="truncate text-[12px] text-ds-text-3">{item.summary}</p>}
-            </>
+            body
           )}
           <Link href={cta.href} className="mt-0.5 inline-block text-[12px] font-medium text-primary ds-tap">
             {cta.label} →

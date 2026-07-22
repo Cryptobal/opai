@@ -113,7 +113,7 @@ export async function generateThreadRadarItems(params: {
       tenantId: params.tenantId,
       userId: params.userId,
       kind: "senal_compra",
-      title: "Señal de compra",
+      title: `Señal de compra — ${params.fromEmail}`,
       summary: c.senalesCompra.join(" · ").slice(0, 140),
       threadId: params.threadId,
       dealId: params.dealId,
@@ -130,7 +130,8 @@ export async function generateThreadRadarItems(params: {
         tenantId: params.tenantId,
         userId: params.userId,
         kind: "compromiso",
-        title: `⏰ ${cmp.quien === "nosotros" ? "Nosotros" : "Cliente"}: ${cmp.que} — ${cmp.fechaISO}`,
+        // Sin ⏰ en el título: el row ya pinta el emoji del tipo (evita doble reloj).
+        title: `${cmp.quien === "nosotros" ? "Nosotros" : "Cliente"}: ${cmp.que} — ${cmp.fechaISO}`,
         threadId: params.threadId,
         dealId: params.dealId,
         accountId: params.accountId,
