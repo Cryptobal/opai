@@ -1,8 +1,16 @@
+import type { gmail_v1 } from "googleapis";
 import { prisma } from "@/lib/prisma";
-import { gmailClientForAccount, listThreadAttachments } from "./gmail-account-client";
+import { extractGmailAttachments, type GmailMessagePart } from "@/lib/gmail-message-content";
+import { gmailClientForAccount } from "./gmail-account-client";
+import { hydrateMissingThreadMessages } from "./correos-detail-hydrate";
 import type { CorreoDetail, CorreoAttachmentDTO } from "./correos.types";
 
-/** Detalle de un hilo: mensajes (cuerpos guardados) + adjuntos (metadata Gmail). */
+/**
+ * Detalle de un hilo: cadena completa de mensajes + adjuntos. Un solo
+ * `threads.get format:full` alimenta ambos: la metadata de adjuntos y la
+ * hidratación de mensajes que faltan localmente (hilos importados que solo
+ * persistieron su último mensaje).
+ */
 export async function getCorreoDetail(params: {
   tenantId: string;
   emailAccountId: string;
@@ -24,7 +32,43 @@ export async function getCorreoDetail(params: {
   });
   if (!thread) return null;
 
-  const [messages, account, deal, emailAccount] = await Promise.all([
+  const emailAccount = await prisma.crmEmailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: { email: true, userId: true, accessTokenEncrypted: true, refreshTokenEncrypted: true },
+  });
+
+  let attachments: CorreoAttachmentDTO[] = [];
+  if (thread.providerThreadId && emailAccount) {
+    const gmail = gmailClientForAccount(emailAccount);
+    if (gmail) {
+      try {
+        const res = await gmail.users.threads.get({
+          userId: "me",
+          id: thread.providerThreadId,
+          format: "full",
+        });
+        const gmailMessages: gmail_v1.Schema$Message[] = res.data.messages ?? [];
+        for (const m of gmailMessages) {
+          if (!m.id) continue;
+          for (const att of extractGmailAttachments(m.payload as GmailMessagePart | undefined)) {
+            attachments.push({ ...att, messageId: m.id });
+          }
+        }
+        await hydrateMissingThreadMessages({
+          tenantId,
+          threadId: thread.id,
+          emailAccountId,
+          accountUserId: emailAccount.userId,
+          ownEmail: emailAccount.email,
+          messages: gmailMessages,
+        });
+      } catch (err) {
+        console.error("[correos] detalle del hilo Gmail falló:", err);
+      }
+    }
+  }
+
+  const [messages, account, deal] = await Promise.all([
     prisma.crmEmailMessage.findMany({
       where: { threadId: thread.id, tenantId },
       orderBy: { sentAt: "asc" },
@@ -39,23 +83,7 @@ export async function getCorreoDetail(params: {
     thread.dealId
       ? prisma.crmDeal.findFirst({ where: { id: thread.dealId, tenantId }, select: { title: true } })
       : null,
-    prisma.crmEmailAccount.findUnique({
-      where: { id: emailAccountId },
-      select: { accessTokenEncrypted: true, refreshTokenEncrypted: true },
-    }),
   ]);
-
-  let attachments: CorreoAttachmentDTO[] = [];
-  if (thread.providerThreadId && emailAccount) {
-    const gmail = gmailClientForAccount(emailAccount);
-    if (gmail) {
-      try {
-        attachments = await listThreadAttachments(gmail, thread.providerThreadId);
-      } catch (err) {
-        console.error("[correos] listThreadAttachments falló:", err);
-      }
-    }
-  }
 
   return {
     thread: {
