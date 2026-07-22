@@ -14,21 +14,11 @@ import {
   UNMATCHED_EXPENSE_KEY, UNMATCHED_INCOME_KEY,
   type CommittedByRow, type FlowRowRef, type RealByRow,
 } from "./types";
-import { assembleMatrix, type AssembleRowInput, type FlowMatrixRowDto } from "./matrix-assemble";
-import { reduceMonthly, weeklyColumns, type MatrixColumn } from "./matrix-monthly";
+import { assembleMatrix, type AssembleRowInput } from "./matrix-assemble";
+import { reduceMonthly, weeklyColumns } from "./matrix-monthly";
+import type { FlowMatrixResponse } from "./matrix-types";
 
-export interface FlowMatrixResponse {
-  granularity: "week" | "month";
-  columns: MatrixColumn[];
-  currentWeek: string;
-  todayYmd: string;
-  openingBalance: number;
-  warnThreshold: number;
-  rows: FlowMatrixRowDto[];
-  flows: number[];
-  balances: number[];
-  kpis: { saldoHoy: number; minBalance: number; minWeek: string };
-}
+export type { FlowMatrixResponse } from "./matrix-types";
 
 const SECTION_ORDER = ["INGRESOS", "REMUNERACIONES", "IMPUESTOS", "GAV", "FINANCIAMIENTO", "OTROS"];
 /** Umbral de alerta del saldo (heat bar). TODO: configurable por tenant. */

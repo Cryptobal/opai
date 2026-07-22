@@ -52,7 +52,11 @@ export async function updateTemplateEndDate(
 
   const today = new Date();
   const shouldReactivate = wasEnded && nextRunAt != null && (!endDate || endDate >= today);
-  const shouldDeactivate = tpl.isActive && nextRunAt == null && tpl.lastRunAt != null;
+  // Sin próxima corrida posible bajo el nuevo término → apagar SIEMPRE
+  // (incluida una plantilla nunca corrida: si quedara activa con
+  // lastRunAt=null y nextRunAt=null, el cron la trataría como "nueva sin
+  // schedule" y la correría igual).
+  const shouldDeactivate = tpl.isActive && nextRunAt == null;
 
   await prisma.financeDteRecurringTemplate.update({
     where: { id: tpl.id },
