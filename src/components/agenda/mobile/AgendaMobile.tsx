@@ -10,8 +10,8 @@ import type {
 } from "../agenda-calendar.types";
 import { LicitacionDrawer } from "../LicitacionDrawer";
 import { NuevaVisitaModal } from "../NuevaVisitaModal";
-import { VisitDrawer } from "../VisitDrawer";
 import { AgendaDayView } from "./AgendaDayView";
+import { AgendaDetailSheet } from "./AgendaDetailSheet";
 import { AgendaFab } from "./AgendaFab";
 import { AgendaListView } from "./AgendaListView";
 import { AgendaMonthView } from "./AgendaMonthView";
@@ -145,7 +145,7 @@ export function AgendaMobile() {
         onOpenChange={setComposerOpen}
         onCreated={() => void reload()}
       />
-      <VisitDrawer
+      <AgendaDetailSheet
         visitaId={visitaId}
         onClose={() => setVisitaId(null)}
         onChanged={() => void reload()}

@@ -12,6 +12,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, Surface, Tag } from "@/components/opai-ds";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { CHILE_TZ } from "@/lib/dates-cl";
 import { dateAtChileSlot, formatAgendaTime } from "./agenda-calendar-utils";
 import type { AgendaCalendarItem, AgendaTeamMember } from "./agenda-calendar.types";
@@ -37,6 +43,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
   const [time, setTime] = useState("");
   const [assignedUserId, setAssignedUserId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const [visitDetail, setVisitDetail] = useState<{
     notes: string | null;
     address: string | null;
@@ -313,18 +320,45 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
           <button
             type="button"
             disabled={busy}
-            onClick={() => {
-              if (confirm("¿Cancelar visita?")) {
-                void saveVisit({ action: "cancel" }, "Visita cancelada");
-                onClose();
-              }
-            }}
+            onClick={() => setConfirmCancel(true)}
             className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-status-danger-border text-[13px] text-status-danger-fg ds-tap sm:h-9"
           >
             Cancelar visita
           </button>
         )}
       </div>
+
+      <Dialog open={confirmCancel} onOpenChange={setConfirmCancel}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>¿Cancelar esta visita?</DialogTitle>
+          </DialogHeader>
+          <p className="text-[13px] text-ds-text-3">
+            Se avisará a los participantes y el evento se quitará de Google Calendar.
+          </p>
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setConfirmCancel(false)}
+              className="h-11 flex-1 rounded-xl border border-ds-border-default text-[13px] font-medium ds-tap sm:h-9"
+            >
+              Volver
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setConfirmCancel(false);
+                void saveVisit({ action: "cancel" }, "Visita cancelada");
+                onClose();
+              }}
+              className="h-11 flex-1 rounded-xl bg-status-danger-soft text-[13px] font-semibold text-status-danger-fg ds-tap sm:h-9"
+            >
+              Cancelar visita
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Surface>
   );
 }

@@ -32,10 +32,23 @@ export async function GET(_req: NextRequest, routeCtx: Ctx) {
     where: { sourceType_sourceId: { sourceType: "agenda_visita", sourceId: id } },
   });
 
+  // Detalle v2 (participantes + RSVP) si el espejo existe; best-effort.
+  let v2 = null;
+  try {
+    const { isCalendarV2Enabled } = await import("@/modules/calendar/calendar-flags");
+    if (isCalendarV2Enabled()) {
+      const { getCalendarEventDetail } = await import("@/modules/calendar/calendar-detail");
+      v2 = await getCalendarEventDetail(ctx.tenantId, id);
+    }
+  } catch {
+    v2 = null;
+  }
+
   return NextResponse.json({
     visita,
     syncStatus: link?.syncStatus ?? "PENDING",
     htmlLink: link?.htmlLink ?? null,
+    v2,
   });
 }
 
