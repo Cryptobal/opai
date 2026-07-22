@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AttachmentPicker, EmptyState } from "@/components/opai-ds";
 import { EmailHistoryList, type EmailMessage } from "./EmailHistoryList";
+import { EmailSenderSelect } from "./EmailSenderSelect";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
@@ -241,6 +242,11 @@ export function CrmContactDetailClient({
   const [dealCreateOpen, setDealCreateOpen] = useState(false);
   const [quoteCreateOpen, setQuoteCreateOpen] = useState(false);
   const [sending, setSending] = useState(false);
+  // B2/C02: hilo al que se responde y casilla dueña; casilla elegida al
+  // componer nuevo (ver CrmDealDetailClient para la contraparte).
+  const [replyThreadId, setReplyThreadId] = useState<string | null>(null);
+  const [replyAccountId, setReplyAccountId] = useState<string | null>(null);
+  const [senderAccountId, setSenderAccountId] = useState<string | null>(null);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [emailTiptapContent, setEmailTiptapContent] = useState<any>(null);
@@ -370,12 +376,12 @@ export function CrmContactDetailClient({
       const res = await fetch("/api/crm/gmail/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: contact.email, cc, bcc, subject: emailSubject, html: htmlForSend, contactId: contact.id, accountId: contact.account?.id || undefined, attachments: emailAttachments.readyAttachments }),
+        body: JSON.stringify({ to: contact.email, cc, bcc, subject: emailSubject, html: htmlForSend, contactId: contact.id, accountId: contact.account?.id || undefined, attachments: emailAttachments.readyAttachments, ...(replyThreadId ? { threadId: replyThreadId } : senderAccountId ? { emailAccountId: senderAccountId } : {}) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Error enviando email");
       setEmailOpen(false);
-      setEmailBody(""); setEmailTiptapContent(null); setEmailSubject(""); setEmailCc(""); setEmailBcc(""); setShowCcBcc(false); setSelectedTemplateId(""); emailAttachments.resetAfterSend();
+      setEmailBody(""); setEmailTiptapContent(null); setEmailSubject(""); setEmailCc(""); setEmailBcc(""); setShowCcBcc(false); setSelectedTemplateId(""); setReplyThreadId(null); setReplyAccountId(null); emailAttachments.resetAfterSend();
       setEmailCount((prev) => prev + 1);
       if (data?.warning) toast.message(data.warning);
       else toast.success("Correo enviado exitosamente");
@@ -401,10 +407,19 @@ export function CrmContactDetailClient({
       setEmailBcc("");
       setShowCcBcc(false);
       setSelectedTemplateId("");
+      // B2: responder EN el hilo — threading y casilla se resuelven server-side.
+      setReplyThreadId(message.threadId ?? null);
+      setReplyAccountId(message.emailAccountId ?? null);
       setEmailOpen(true);
     },
     [gmailConnected, contact.email]
   );
+
+  const openNewEmail = useCallback(() => {
+    setReplyThreadId(null);
+    setReplyAccountId(null);
+    setEmailOpen(true);
+  }, []);
 
   // ── Navigate to deal and ensure contact is linked ──
   const [linkingDealId, setLinkingDealId] = useState<string | null>(null);
@@ -482,7 +497,7 @@ export function CrmContactDetailClient({
     {
       label: "Enviar correo",
       icon: Mail,
-      onClick: () => setEmailOpen(true),
+      onClick: openNewEmail,
       hidden: !gmailConnected || !contact.email,
     },
     {
@@ -855,10 +870,15 @@ export function CrmContactDetailClient({
       >
         <DialogContent className="sm:max-w-4xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Enviar correo a {contact.firstName}</DialogTitle>
+            <DialogTitle>{replyThreadId ? `Responder a ${contact.firstName}` : `Enviar correo a ${contact.firstName}`}</DialogTitle>
             <DialogDescription>Se enviará desde tu cuenta Gmail conectada. Tu firma se adjuntará automáticamente.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
+            <EmailSenderSelect
+              value={senderAccountId}
+              onChange={setSenderAccountId}
+              lockedAccountId={replyThreadId ? replyAccountId : null}
+            />
             <div className="space-y-1.5">
               <Label>Plantilla (solo mail)</Label>
               <select className={selectCn} value={selectedTemplateId} onChange={(e) => selectTemplate(e.target.value)} disabled={sending}>

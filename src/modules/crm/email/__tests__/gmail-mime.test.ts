@@ -49,6 +49,49 @@ describe("buildGmailRawMessage", () => {
     expect(message).toContain("Subject: =?UTF-8?B?");
   });
 
+  it("incluye In-Reply-To y References en un reply (threading B2)", () => {
+    const message = decode(
+      buildGmailRawMessage({
+        from: "yo@example.com",
+        to: ["cliente@example.com"],
+        subject: "Re: Cotización",
+        text: "Respuesta",
+        inReplyTo: "<CABC123@mail.gmail.com>",
+        references: "<CAROOT@mail.gmail.com> <CABC123@mail.gmail.com>",
+      }),
+    );
+    expect(message).toContain("In-Reply-To: <CABC123@mail.gmail.com>");
+    expect(message).toContain(
+      "References: <CAROOT@mail.gmail.com> <CABC123@mail.gmail.com>",
+    );
+  });
+
+  it("sin contexto de reply no emite headers de threading", () => {
+    const message = decode(
+      buildGmailRawMessage({
+        from: "yo@example.com",
+        to: ["cliente@example.com"],
+        subject: "Nuevo",
+        text: "Mensaje nuevo",
+      }),
+    );
+    expect(message).not.toContain("In-Reply-To:");
+    expect(message).not.toContain("References:");
+  });
+
+  it("neutraliza inyección de headers vía Message-ID del padre", () => {
+    const message = decode(
+      buildGmailRawMessage({
+        from: "yo@example.com",
+        to: ["cliente@example.com"],
+        subject: "Re: x",
+        text: "r",
+        inReplyTo: "<id@x>\r\nBcc: attacker@example.com",
+      }),
+    );
+    expect(message).not.toContain("\r\nBcc: attacker@example.com");
+  });
+
   it("neutraliza saltos de línea en headers", () => {
     expect(encodeGmailHeaderWord("Asunto\r\nBcc: attacker@example.com")).toBe(
       "Asunto Bcc: attacker@example.com",

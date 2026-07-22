@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EmailHistoryList, type EmailMessage } from "@/components/crm/EmailHistoryList";
+import { EmailSenderSelect } from "@/components/crm/EmailSenderSelect";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
@@ -586,6 +587,11 @@ export function CrmDealDetailClient({
   const [emailOpen, setEmailOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [emailTo, setEmailTo] = useState(deal.primaryContact?.email || "");
+  // B2/C02: hilo al que se responde (threading server-side) y casilla dueña
+  // del hilo (selector fijo en reply); en composición nueva, casilla elegida.
+  const [replyThreadId, setReplyThreadId] = useState<string | null>(null);
+  const [replyAccountId, setReplyAccountId] = useState<string | null>(null);
+  const [senderAccountId, setSenderAccountId] = useState<string | null>(null);
   const [emailCc, setEmailCc] = useState("");
   const [emailBcc, setEmailBcc] = useState("");
   const [showCcBcc, setShowCcBcc] = useState(false);
@@ -1054,10 +1060,10 @@ export function CrmDealDetailClient({
         : emailBody;
       const cc = emailCc.split(",").map((s) => s.trim()).filter(Boolean);
       const bcc = emailBcc.split(",").map((s) => s.trim()).filter(Boolean);
-      const res = await fetch("/api/crm/gmail/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: emailTo, cc, bcc, subject: emailSubject, html: htmlForSend, dealId: deal.id, accountId: deal.account?.id, contactId: deal.primaryContactId, attachments: emailAttachments.readyAttachments }) });
+      const res = await fetch("/api/crm/gmail/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: emailTo, cc, bcc, subject: emailSubject, html: htmlForSend, dealId: deal.id, accountId: deal.account?.id, contactId: deal.primaryContactId, attachments: emailAttachments.readyAttachments, ...(replyThreadId ? { threadId: replyThreadId } : senderAccountId ? { emailAccountId: senderAccountId } : {}) }) });
       const payload = await res.json();
       if (!res.ok) throw new Error(payload?.error);
-      setEmailOpen(false); setEmailBody(""); setEmailTiptapContent(null); setEmailCc(""); setEmailBcc(""); setShowCcBcc(false); emailAttachments.resetAfterSend();
+      setEmailOpen(false); setEmailBody(""); setEmailTiptapContent(null); setEmailCc(""); setEmailBcc(""); setShowCcBcc(false); setReplyThreadId(null); setReplyAccountId(null); emailAttachments.resetAfterSend();
       if (payload?.warning) toast.message(payload.warning);
       else toast.success("Correo enviado exitosamente");
     } catch (error) { console.error(error); toast.error("No se pudo enviar."); }
@@ -1089,10 +1095,20 @@ export function CrmDealDetailClient({
       setEmailBcc("");
       setShowCcBcc(false);
       setSelectedTemplateId("");
+      // B2: responder EN el hilo — el server arma In-Reply-To/References y
+      // usa la casilla dueña del hilo.
+      setReplyThreadId(message.threadId ?? null);
+      setReplyAccountId(message.emailAccountId ?? null);
       setEmailOpen(true);
     },
     [gmailConnected]
   );
+
+  const openNewEmail = useCallback(() => {
+    setReplyThreadId(null);
+    setReplyAccountId(null);
+    setEmailOpen(true);
+  }, []);
 
   // ── Deal contacts handlers ──
   const linkedContactIds = new Set(dealContacts.map((dc) => dc.contactId));
@@ -1631,7 +1647,7 @@ export function CrmDealDetailClient({
           </DropdownMenu>
         )}
         {gmailConnected ? (
-          <Button size="sm" variant="ghost" onClick={() => setEmailOpen(true)}>
+          <Button size="sm" variant="ghost" onClick={openNewEmail}>
             <Send className="h-3.5 w-3.5 mr-1" /> Enviar correo
           </Button>
         ) : (
@@ -1989,7 +2005,7 @@ export function CrmDealDetailClient({
       onClick: handleOpenOnboarding,
       hidden: dealStatus !== "won",
     },
-    { label: "Enviar correo", icon: Mail, onClick: () => setEmailOpen(true), hidden: !gmailConnected },
+    { label: "Enviar correo", icon: Mail, onClick: openNewEmail, hidden: !gmailConnected },
     { label: "Eliminar negocio", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
   ];
 
@@ -2205,10 +2221,15 @@ export function CrmDealDetailClient({
       >
         <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Enviar correo</DialogTitle>
+            <DialogTitle>{replyThreadId ? "Responder correo" : "Enviar correo"}</DialogTitle>
             <DialogDescription>Se enviará desde tu cuenta Gmail conectada. Tu firma se adjuntará automáticamente.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
+            <EmailSenderSelect
+              value={senderAccountId}
+              onChange={setSenderAccountId}
+              lockedAccountId={replyThreadId ? replyAccountId : null}
+            />
             <div className="space-y-1.5">
               <Label>Template</Label>
               <Select value={selectedTemplateId} onValueChange={(v) => selectTemplate(v)} disabled={sending}>

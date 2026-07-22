@@ -28,6 +28,8 @@ import { EmailHtmlBody } from "@/components/crm/correos/EmailHtmlBody";
 export type EmailMessage = {
   id: string;
   providerMessageId?: string | null;
+  /** Hilo interno (CrmEmailThread): necesario para responder EN el hilo (B2). */
+  threadId?: string | null;
   direction: string;
   fromEmail: string;
   toEmails: string[];

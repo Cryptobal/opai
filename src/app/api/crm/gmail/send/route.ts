@@ -10,6 +10,7 @@ import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { normalizeEmailAddress, normalizeEmailList } from "@/lib/email-address";
 import { requireTenantModule } from '@/lib/require-module';
 import { resolveReplyContext } from "@/modules/crm/email/gmail-reply";
+import { resolveSenderAccount } from "@/modules/crm/email/sender-account";
 import { gmailClientForAccount } from "@/modules/crm/email/gmail-account-client";
 import { buildGmailRawMessage } from "@/modules/crm/email/gmail-mime";
 import {
@@ -68,6 +69,7 @@ export async function POST(request: NextRequest) {
       accountId,
       contactId,
       threadId,
+      emailAccountId: requestedEmailAccountId,
       attachments: rawAttachments = [],
     } = body;
 
@@ -144,16 +146,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const emailAccount = await prisma.crmEmailAccount.findFirst({
-      where: {
-        tenantId: ctx.tenantId,
-        userId: ctx.userId,
-        provider: "gmail",
-        status: "active",
-      },
+    // B1: en reply la casilla es la dueña del hilo; en composición nueva la
+    // seleccionada explícitamente (o la única conectada). Nunca findFirst.
+    const senderResult = await resolveSenderAccount({
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+      threadId: typeof threadId === "string" ? threadId : null,
+      emailAccountId:
+        typeof requestedEmailAccountId === "string"
+          ? requestedEmailAccountId
+          : null,
     });
+    if (!senderResult.ok) {
+      return NextResponse.json(
+        { success: false, error: senderResult.error },
+        { status: senderResult.status },
+      );
+    }
+    const emailAccount = senderResult.account;
 
-    if (!emailAccount || !emailAccount.accessTokenEncrypted) {
+    if (!emailAccount.accessTokenEncrypted) {
       return NextResponse.json(
         { success: false, error: "Gmail no conectado" },
         { status: 400 }
