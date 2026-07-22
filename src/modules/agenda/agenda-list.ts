@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { todayInChile, utcDateFromYmd, ymdInChile } from "@/lib/dates-cl";
 import { expandLicitacionAgendaItems } from "./agenda-list-licitacion";
+import { listAgendaTasks } from "./agenda-tasks";
 import type { AgendaListItem, LicitacionListItem } from "./agenda.types";
 
 function daysBetweenYmd(fromYmd: string, toYmd: string): number {
@@ -12,6 +13,8 @@ export async function listAgenda(
   tenantId: string,
   from: Date,
   to: Date,
+  /** Con userId, incluye las tareas con fecha de ESE usuario en la agenda. */
+  userId?: string,
 ): Promise<AgendaListItem[]> {
   const [visitas, tecnicas, deals, links, admins] = await Promise.all([
     prisma.agendaVisita.findMany({
@@ -135,6 +138,10 @@ export async function listAgenda(
         syncStatus: syncMap.get(`licitacion:${d.id}`) ?? null,
       }),
     );
+  }
+
+  if (userId) {
+    items.push(...(await listAgendaTasks(tenantId, userId, from, to)));
   }
 
   items.sort((a, b) => a.start.localeCompare(b.start));

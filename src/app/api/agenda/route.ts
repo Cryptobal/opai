@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   }
 
   const [opai, google] = await Promise.all([
-    listAgenda(session.user.tenantId, from, to),
+    listAgenda(session.user.tenantId, from, to, session.user.id),
     listGoogleCalendarEvents(session.user.tenantId, session.user.id, from, to),
   ]);
   const items = [...opai, ...google.items].sort((a, b) => a.start.localeCompare(b.start));

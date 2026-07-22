@@ -1,4 +1,4 @@
-export type AgendaItemSource = "agenda_visita" | "visita_tecnica" | "licitacion" | "google";
+export type AgendaItemSource = "agenda_visita" | "visita_tecnica" | "licitacion" | "google" | "tarea";
 
 export type AgendaItemType =
   | "cliente"
@@ -6,7 +6,8 @@ export type AgendaItemType =
   | "otra"
   | "tecnica"
   | "licitacion"
-  | "google";
+  | "google"
+  | "tarea";
 
 export type AgendaListItem = {
   id: string;
@@ -30,6 +31,8 @@ export type AgendaListItem = {
   calendarName?: string | null;
   /** googleEventId crudo (sin prefijo de calendarId) para dedupe. */
   googleEventId?: string | null;
+  /** Sólo tareas: deep-link al origen (correo / negocio / cuenta). */
+  href?: string | null;
 };
 
 export type LicitacionListItem = {
