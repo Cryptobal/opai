@@ -4,10 +4,14 @@ import { useEffect, useState } from "react";
 import { CheckSquare, ListTodo, Plus, Sparkles, Square } from "lucide-react";
 import { toast } from "sonner";
 
-type Task = { id: string; title: string; status: string; dueAt: string | null };
+type Task = { id: string; title: string; status: string; dueAt: string | null; allDay: boolean };
 
-function fmtDue(iso: string | null): string {
-  return iso ? new Date(iso).toLocaleDateString("es-CL", { day: "2-digit", month: "short" }) : "";
+function fmtDue(iso: string | null, allDay: boolean): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const day = d.toLocaleDateString("es-CL", { day: "2-digit", month: "short" });
+  if (allDay) return day;
+  return `${day} ${d.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
 /**
@@ -19,6 +23,7 @@ export function CorreoTasksPanel({ threadId, subject }: { threadId: string; subj
   const [tasks, setTasks] = useState<Task[]>([]);
   const [title, setTitle] = useState("");
   const [due, setDue] = useState("");
+  const [time, setTime] = useState("");
   const [busy, setBusy] = useState<"add" | "sug" | null>(null);
 
   useEffect(() => {
@@ -30,17 +35,27 @@ export function CorreoTasksPanel({ threadId, subject }: { threadId: string; subj
 
   async function add() {
     const t = title.trim() || `Seguimiento: ${subject}`;
+    // Sin fecha → tarea sin agenda. Con fecha y hora → aviso a esa hora. Con
+    // fecha sin hora → todo el día (aviso a media mañana). El ISO se arma en la
+    // zona del navegador (la del usuario) para no desfasar el recordatorio.
+    let dueAt: string | undefined;
+    let allDay = false;
+    if (due) {
+      allDay = !time;
+      dueAt = new Date(`${due}T${time || "09:00"}`).toISOString();
+    }
     setBusy("add");
     try {
       const d = await fetch(`/api/crm/correos/${threadId}/tasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: t, dueAt: due || undefined }),
+        body: JSON.stringify({ title: t, dueAt, allDay }),
       }).then((r) => r.json());
       if (d.task) {
         setTasks((p) => [d.task, ...p]);
         setTitle("");
         setDue("");
+        setTime("");
         toast.success("Tarea agendada");
       } else {
         toast.error(d.error || "No se pudo crear la tarea");
@@ -91,7 +106,7 @@ export function CorreoTasksPanel({ threadId, subject }: { threadId: string; subj
               <span className={`min-w-0 flex-1 truncate ${t.status === "done" ? "text-ds-text-4 line-through" : "text-ds-text-1"}`}>
                 {t.title}
               </span>
-              {t.dueAt && <span className="shrink-0 text-[12px] text-ds-text-4">{fmtDue(t.dueAt)}</span>}
+              {t.dueAt && <span className="shrink-0 text-[12px] text-ds-text-4">{fmtDue(t.dueAt, t.allDay)}</span>}
             </li>
           ))}
         </ul>
@@ -119,7 +134,16 @@ export function CorreoTasksPanel({ threadId, subject }: { threadId: string; subj
           type="date"
           value={due}
           onChange={(e) => setDue(e.target.value)}
+          aria-label="Fecha"
           className="h-9 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1"
+        />
+        <input
+          type="time"
+          value={time}
+          onChange={(e) => setTime(e.target.value)}
+          aria-label="Hora de aviso (opcional)"
+          disabled={!due}
+          className="h-9 w-24 shrink-0 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1 disabled:opacity-50"
         />
         <button
           type="button"
@@ -130,6 +154,9 @@ export function CorreoTasksPanel({ threadId, subject }: { threadId: string; subj
           <Plus className="h-4 w-4" /> {busy === "add" ? "Agendando…" : "Agendar"}
         </button>
       </div>
+      {due && !time && (
+        <p className="text-[12px] text-ds-text-4">Sin hora → tarea de todo el día (aviso a media mañana).</p>
+      )}
     </div>
   );
 }

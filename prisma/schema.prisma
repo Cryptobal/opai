@@ -2603,6 +2603,8 @@ model CrmTask {
   status        String    @default("open")
   type          String    @default("followup")
   dueAt         DateTime? @map("due_at") @db.Timestamptz(6)
+  // dueAt sin hora significativa: se agenda "todo el día" (aviso a media mañana).
+  allDay        Boolean   @default(false) @map("all_day")
   assignedTo    String?   @map("assigned_to")
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)

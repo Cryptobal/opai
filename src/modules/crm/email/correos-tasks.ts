@@ -1,16 +1,29 @@
 import { prisma } from "@/lib/prisma";
 
-export type ThreadTaskDTO = { id: string; title: string; status: string; dueAt: string | null };
+export type ThreadTaskDTO = {
+  id: string;
+  title: string;
+  status: string;
+  dueAt: string | null;
+  allDay: boolean;
+};
 
 /** Tareas asociadas a un hilo de correo (las más abiertas/próximas primero). */
 export async function listThreadTasks(tenantId: string, threadId: string): Promise<ThreadTaskDTO[]> {
   const rows = await prisma.crmTask.findMany({
-    where: { tenantId, emailThreadId: threadId },
+    where: { tenantId, emailThreadId: threadId, status: { not: "cancelled" } },
     orderBy: [{ status: "asc" }, { dueAt: "asc" }, { createdAt: "desc" }],
     take: 50,
-    select: { id: true, title: true, status: true, dueAt: true },
+    select: { id: true, title: true, status: true, dueAt: true, allDay: true },
   });
-  return rows.map((t) => ({ id: t.id, title: t.title, status: t.status, dueAt: t.dueAt?.toISOString() ?? null }));
+  return rows.map((t) => ({
+    id: t.id,
+    title: t.title,
+    // 'notified' (recordatorio ya enviado) sigue siendo pendiente para la UI.
+    status: t.status === "notified" || t.status === "notified_no_slack" ? "open" : t.status,
+    dueAt: t.dueAt?.toISOString() ?? null,
+    allDay: t.allDay,
+  }));
 }
 
 /**
@@ -24,6 +37,7 @@ export async function createThreadTask(params: {
   threadId: string;
   title: string;
   dueAt: Date | null;
+  allDay?: boolean;
 }): Promise<ThreadTaskDTO | null> {
   const thread = await prisma.crmEmailThread.findFirst({
     where: { id: params.threadId, tenantId: params.tenantId },
@@ -35,6 +49,7 @@ export async function createThreadTask(params: {
       tenantId: params.tenantId,
       title: params.title,
       dueAt: params.dueAt,
+      allDay: params.dueAt ? Boolean(params.allDay) : false,
       type: params.dueAt ? "reminder" : "followup",
       status: "open",
       assignedTo: params.userId,
@@ -44,7 +59,7 @@ export async function createThreadTask(params: {
       leadId: thread.leadId,
       contactId: thread.contactId,
     },
-    select: { id: true, title: true, status: true, dueAt: true },
+    select: { id: true, title: true, status: true, dueAt: true, allDay: true },
   });
-  return { id: t.id, title: t.title, status: t.status, dueAt: t.dueAt?.toISOString() ?? null };
+  return { id: t.id, title: t.title, status: t.status, dueAt: t.dueAt?.toISOString() ?? null, allDay: t.allDay };
 }

@@ -10,6 +10,7 @@ type AgendaItem = {
   source: "task" | "compromiso";
   title: string;
   dueAt: string | null;
+  allDay: boolean;
   context: string | null;
   href: string | null;
 };
@@ -31,8 +32,11 @@ function bucketOf(dueAt: string | null): (typeof ORDER)[number] {
   return "Más adelante";
 }
 
-function fmtDue(iso: string | null): string {
-  return iso ? new Date(iso).toLocaleDateString("es-CL", { weekday: "short", day: "2-digit", month: "short" }) : "";
+function fmtDue(iso: string | null, allDay: boolean): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const day = d.toLocaleDateString("es-CL", { weekday: "short", day: "2-digit", month: "short" });
+  return allDay ? day : `${day} ${d.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
 export function MiSemanaClient() {
@@ -106,7 +110,7 @@ export function MiSemanaClient() {
                       <div className="flex items-center gap-1.5 text-[12px] text-ds-text-4">
                         {it.source === "compromiso" && <Radar className="h-3 w-3 text-tint-violet-fg" />}
                         {it.context && <span className="truncate">{it.context}</span>}
-                        {it.dueAt && <span className="shrink-0">· {fmtDue(it.dueAt)}</span>}
+                        {it.dueAt && <span className="shrink-0">· {fmtDue(it.dueAt, it.allDay)}</span>}
                       </div>
                     </div>
                     {it.href && (

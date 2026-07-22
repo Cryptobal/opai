@@ -5,6 +5,7 @@ export type AgendaItem = {
   source: "task" | "compromiso";
   title: string;
   dueAt: string | null;
+  allDay: boolean;
   context: string | null;
   href: string | null;
 };
@@ -22,10 +23,12 @@ function clean(title: string): string {
 export async function getMiSemana(tenantId: string, userId: string): Promise<AgendaItem[]> {
   const [tasks, compromisos] = await Promise.all([
     prisma.crmTask.findMany({
-      where: { tenantId, assignedTo: userId, status: "open" },
+      // 'notified'/'notified_no_slack' = recordatorio enviado pero SIGUE
+      // pendiente: mostrarlas hasta que se completen (antes desaparecían).
+      where: { tenantId, assignedTo: userId, status: { notIn: ["done", "cancelled"] } },
       orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
       take: 200,
-      select: { id: true, title: true, dueAt: true, dealId: true, accountId: true, emailThreadId: true },
+      select: { id: true, title: true, dueAt: true, allDay: true, dealId: true, accountId: true, emailThreadId: true },
     }),
     prisma.crmRadarItem.findMany({
       where: { tenantId, userId, kind: "compromiso", status: "PENDING", dueAt: { not: null } },
@@ -68,6 +71,7 @@ export async function getMiSemana(tenantId: string, userId: string): Promise<Age
       source: "task" as const,
       title: clean(t.title),
       dueAt: t.dueAt?.toISOString() ?? null,
+      allDay: t.allDay,
       context: ctxLabel(t.dealId, t.accountId, Boolean(t.emailThreadId)),
       href: link(t.emailThreadId, t.dealId, t.accountId),
     })),
@@ -76,6 +80,8 @@ export async function getMiSemana(tenantId: string, userId: string): Promise<Age
       source: "compromiso" as const,
       title: clean(c.title),
       dueAt: c.dueAt?.toISOString() ?? null,
+      // Los compromisos del Radar son por día (sin hora): todo el día.
+      allDay: true,
       context: ctxLabel(c.dealId, c.accountId, Boolean(c.threadId)),
       href: link(c.threadId, c.dealId, c.accountId),
     })),

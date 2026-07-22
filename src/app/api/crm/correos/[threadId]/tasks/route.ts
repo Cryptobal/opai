@@ -26,7 +26,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (forbidden) return forbidden;
 
   const { threadId } = await params;
-  const body = (await req.json().catch(() => ({}))) as { title?: unknown; dueAt?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { title?: unknown; dueAt?: unknown; allDay?: unknown };
   const title = typeof body.title === "string" ? body.title.trim().slice(0, 200) : "";
   if (!title) return NextResponse.json({ error: "El título es requerido" }, { status: 400 });
 
@@ -35,8 +35,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const d = new Date(body.dueAt);
     if (!Number.isNaN(d.getTime())) dueAt = d;
   }
+  const allDay = body.allDay === true;
 
-  const task = await createThreadTask({ tenantId: ctx.tenantId, userId: ctx.userId, threadId, title, dueAt });
+  const task = await createThreadTask({ tenantId: ctx.tenantId, userId: ctx.userId, threadId, title, dueAt, allDay });
   if (!task) return NextResponse.json({ error: "Hilo no encontrado" }, { status: 404 });
   return NextResponse.json({ task });
 }
