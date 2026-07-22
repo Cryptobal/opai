@@ -3,8 +3,12 @@
  * tabular, primera columna 200px, semanas 86px, padding-x 6px, headers de
  * sección 20px. Objetivo: ≥22 filas visibles en 1440×900.
  */
-export const COL_W = "w-[86px] min-w-[86px] max-w-[86px]";
-export const NAME_W = "w-[200px] min-w-[200px] max-w-[200px]";
+// Mobile (F4): 3 columnas de semana + primera columna angosta = 354px,
+// cabe en 360px sin scroll horizontal; se navega con swipe.
+export const COL_W =
+  "w-[86px] min-w-[86px] max-w-[86px] max-md:w-[78px] max-md:min-w-[78px] max-md:max-w-[78px]";
+export const NAME_W =
+  "w-[200px] min-w-[200px] max-w-[200px] max-md:w-[120px] max-md:min-w-[120px] max-md:max-w-[120px]";
 export const ROW_H = "h-[22px]";
 export const SECTION_H = "h-[20px]";
 

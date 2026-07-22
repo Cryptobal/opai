@@ -18,6 +18,8 @@ export function usePlanillaKeyboard(opts: {
   canEditCell: (rowId: string, colIdx: number) => boolean;
   onCommit: (rowId: string, colIdx: number, raw: string) => void;
   onOpenPopover: (sel: CellSel) => void;
+  /** Ctrl/Cmd+D sobre celda editable: rellenar hacia la derecha (F3). */
+  onFillRight?: (sel: CellSel) => void;
 }) {
   const [sel, setSel] = useState<CellSel | null>(null);
   const [editing, setEditing] = useState<{ sel: CellSel; initial: string } | null>(null);
@@ -62,6 +64,11 @@ export function usePlanillaKeyboard(opts: {
       if (editing) return; // el input inline maneja sus teclas
       if (!sel) return;
       const k = e.key;
+      if ((e.ctrlKey || e.metaKey) && (k === "d" || k === "D")) {
+        e.preventDefault();
+        if (opts.canEditCell(sel.rowId, sel.colIdx)) opts.onFillRight?.(sel);
+        return;
+      }
       if (k === "ArrowDown") { e.preventDefault(); move(1, 0); }
       else if (k === "ArrowUp") { e.preventDefault(); move(-1, 0); }
       else if (k === "ArrowRight") { e.preventDefault(); move(0, 1); }

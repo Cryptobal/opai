@@ -89,5 +89,19 @@ export function usePlanillaActions(refetch: () => void) {
     [setTemplateEndDate],
   );
 
-  return { busy, createRow, renameRow, archiveRow, setTemplateEndDate, deactivateTemplate };
+  /** Fill-right estilo Sheets (F3): mismo monto en N semanas de una fila. */
+  const bulkFill = useCallback(
+    (rowId: string, weekStarts: string[], amount: number) =>
+      run(
+        () =>
+          api("/api/finance/flow-v3/plan/bulk-fill", {
+            method: "POST",
+            body: JSON.stringify({ rowId, weekStarts, amount }),
+          }),
+        `${weekStarts.length} semana${weekStarts.length === 1 ? "" : "s"} rellenada${weekStarts.length === 1 ? "" : "s"}`,
+      ),
+    [run],
+  );
+
+  return { busy, createRow, renameRow, archiveRow, setTemplateEndDate, deactivateTemplate, bulkFill };
 }

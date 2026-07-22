@@ -19,7 +19,12 @@ import {
   type FlowRowRef,
 } from "./types";
 
-export type ExpenseMilestoneKey = "liquido" | "quincena" | "previred" | "f29";
+export type ExpenseMilestoneKey =
+  | "liquido"
+  | "quincena"
+  | "previred"
+  | "f29"
+  | "turnos_extra";
 
 export interface ExpenseMilestoneInput {
   key: ExpenseMilestoneKey;
@@ -62,6 +67,7 @@ const MILESTONE_ROW_MAP: Record<
   quincena: { categoryCode: "EGR_QUINCENA", canonicalNames: ["quincena (anticipos)", "quincena", "anticipos"] },
   previred: { categoryCode: "EGR_PREVIRED", canonicalNames: ["imposiciones (previred)", "previred", "imposiciones"] },
   f29: { categoryCode: "EGR_IVA_F29", canonicalNames: ["iva f29", "f29 (iva + ppm)", "f29"] },
+  turnos_extra: { categoryCode: "EGR_TURNO_EXTRA", canonicalNames: ["turnos extra", "turno extra"] },
 };
 
 /** Semana de pago; si venció, clampea a la semana actual (pagable ya). */

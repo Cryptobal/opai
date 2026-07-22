@@ -76,6 +76,8 @@ export interface CommittedIncomeArgs {
   templates: TemplateProjectionInput[];
   /** Set "templateId::YYYY-MM" de períodos ya cubiertos por un DTE real/borrador. */
   coveredPeriods: Set<string>;
+  /** Término de pago (días) cuando no hay dueDate. Default 30 (config F1). */
+  collectionLagDays?: number;
 }
 
 /** Semana (lunes YMD) de cobro estimada, clampeada a la semana actual si venció. */
@@ -92,9 +94,10 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
   const lastWeek = args.weeks[args.weeks.length - 1];
   const inRange = (w: string) => w >= firstWeek && w <= lastWeek;
   const matchRow = buildIncomeMatcher(args.rows);
+  const lagDays = args.collectionLagDays ?? DEFAULT_COLLECTION_LAG_DAYS;
 
   for (const d of args.dtes) {
-    const est = d.dueDateYmd ?? addDaysYmd(d.dateYmd, DEFAULT_COLLECTION_LAG_DAYS);
+    const est = d.dueDateYmd ?? addDaysYmd(d.dateYmd, lagDays);
     const { week, fecha } = collectionWeek(est, args.todayYmd);
     if (!inRange(week) || d.pendingClp <= 0) continue;
     pushCommitted(out, matchRow(d.crmAccountId, d.installationId), week, {
@@ -108,7 +111,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
   }
 
   for (const dr of args.drafts) {
-    const est = addDaysYmd(dr.dateYmd, DEFAULT_COLLECTION_LAG_DAYS);
+    const est = addDaysYmd(dr.dateYmd, lagDays);
     const { week, fecha } = collectionWeek(est, args.todayYmd);
     if (!inRange(week) || dr.totalClp <= 0) continue;
     pushCommitted(out, matchRow(dr.crmAccountId, dr.installationId), week, {
@@ -137,7 +140,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
       const issueYmd = computeRecurringIssueYmd(tpl, anchor);
       if (issueYmd > lastWeek) break;
       if (!args.coveredPeriods.has(`${tpl.id}::${period}`)) {
-        const est = addDaysYmd(issueYmd, DEFAULT_COLLECTION_LAG_DAYS);
+        const est = addDaysYmd(issueYmd, lagDays);
         const { week, fecha } = collectionWeek(est, args.todayYmd);
         if (inRange(week)) {
           pushCommitted(out, matchRow(tpl.crmAccountId, tpl.installationId), week, {

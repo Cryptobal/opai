@@ -21,7 +21,7 @@ import type { FlowMatrixResponse } from "./matrix-types";
 export type { FlowMatrixResponse } from "./matrix-types";
 
 const SECTION_ORDER = ["INGRESOS", "REMUNERACIONES", "IMPUESTOS", "GAV", "FINANCIAMIENTO", "OTROS"];
-/** Umbral de alerta del saldo (heat bar). TODO: configurable por tenant. */
+/** Fallback del umbral de alerta del saldo si el tenant no tiene config (F2). */
 const WARN_THRESHOLD_CLP = 8_000_000;
 
 const VIRTUAL_ROWS = {
@@ -60,12 +60,16 @@ export async function buildFlowMatrix(
     categoryId: r.categoryId, supplierId: r.supplierId,
   }));
 
-  const [plan, cIncome, cExpense, real, opening] = await Promise.all([
+  const [plan, cIncome, cExpense, real, opening, config] = await Promise.all([
     loadPlanCells(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
     loadCommittedIncome(tenantId, refs, weeks, todayYmd),
     loadCommittedExpense(tenantId, refs, weeks, todayYmd),
     loadReal(tenantId, refs, weeks),
     resolveOpeningBalance(tenantId),
+    prisma.financeCashflowConfig.findUnique({
+      where: { tenantId },
+      select: { flowWarnThresholdClp: true },
+    }),
   ]);
 
   // Ventana enteramente pasada: real del gap (fin de ventana → hoy) para anclar el saldo.
@@ -141,7 +145,7 @@ export async function buildFlowMatrix(
   const base = {
     currentWeek, todayYmd,
     openingBalance: Math.round(opening.currentTotalClp),
-    warnThreshold: WARN_THRESHOLD_CLP,
+    warnThreshold: config?.flowWarnThresholdClp ?? WARN_THRESHOLD_CLP,
     kpis: assembled.kpis,
   };
   if (q.granularity === "month") {

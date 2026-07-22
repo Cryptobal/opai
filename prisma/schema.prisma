@@ -8101,6 +8101,13 @@ model FinanceCashflowConfig {
   /// Umbral en CLP para auto-excluir comisiones bancarias del cómputo de
   /// cuadratura. Default 10.000 = comisiones bajo este monto son ruido.
   bankCommissionThresholdClp     Int                    @default(10000) @map("bank_commission_threshold_clp")
+  /// ── Flujo v3 (Modo Planilla) ──
+  /// Días entre emisión y cobro/pago estimado cuando el documento no trae
+  /// vencimiento (y el proveedor no tiene término propio). Default 30.
+  collectionLagDays              Int                    @default(30) @map("collection_lag_days")
+  /// Umbral CLP del semáforo del saldo en la planilla (ámbar bajo este
+  /// valor, rojo bajo 0). Default $8.000.000.
+  flowWarnThresholdClp           Int                    @default(8000000) @map("flow_warn_threshold_clp")
   createdAt                      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   addWeeksUTC,
   defaultHorizon,
+  startOfIsoWeekUTC,
   toYmd,
   ymdToDate,
 } from "@/modules/finance/flow-v3/weeks";
@@ -13,16 +14,27 @@ import type { FlowMatrixResponse } from "@/modules/finance/flow-v3/matrix-types"
 const STEP_WEEKS = 8;
 
 /**
- * Estado de la planilla: ventana móvil (default hoy−4sem → hoy+12m),
- * navegación por bloques de 8 semanas, toggle semanal/mensual y edición
- * optimista del plan con reconciliación read-after-write.
+ * Estado de la planilla: ventana móvil (default hoy−4sem → hoy+12m; en
+ * viewport mobile 3 semanas: anterior · actual · próxima), navegación por
+ * bloques de 8 semanas (1 en mobile, con swipe) y edición optimista del plan
+ * con reconciliación read-after-write.
  */
-export function usePlanillaMatrix() {
+export function usePlanillaMatrix(opts?: { isMobile?: boolean }) {
+  const isMobile = opts?.isMobile === true;
   const initial = useMemo(() => {
+    if (isMobile) {
+      const monday = startOfIsoWeekUTC(new Date());
+      return { from: toYmd(addWeeksUTC(monday, -1)), to: toYmd(addWeeksUTC(monday, 1)) };
+    }
     const d = defaultHorizon(new Date());
     return { from: toYmd(d.from), to: toYmd(d.to) };
-  }, []);
+  }, [isMobile]);
   const [window, setWindow] = useState(initial);
+
+  // Cambio desktop↔mobile (rotación / resize): resetear a la ventana del modo.
+  useEffect(() => {
+    setWindow(initial);
+  }, [initial]);
   const [granularity, setGranularity] = useState<"week" | "month">("week");
   const [data, setData] = useState<FlowMatrixResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,8 +76,9 @@ export function usePlanillaMatrix() {
     [],
   );
 
-  const goPrev = useCallback(() => shift(-STEP_WEEKS), [shift]);
-  const goNext = useCallback(() => shift(STEP_WEEKS), [shift]);
+  const step = isMobile ? 1 : STEP_WEEKS;
+  const goPrev = useCallback(() => shift(-step), [shift, step]);
+  const goNext = useCallback(() => shift(step), [shift, step]);
   const goToday = useCallback(() => setWindow(initial), [initial]);
   const refetch = useCallback(() => fetchMatrix(window, granularity), [fetchMatrix, window, granularity]);
 

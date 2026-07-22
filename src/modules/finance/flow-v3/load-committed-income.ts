@@ -63,7 +63,11 @@ export async function loadCommittedIncome(
   weeks: string[],
   todayYmd: string,
 ): Promise<CommittedByRow> {
-  const [dtes, recurringLinked, templates, exclusions] = await Promise.all([
+  const [config, dtes, recurringLinked, templates, exclusions] = await Promise.all([
+    prisma.financeCashflowConfig.findUnique({
+      where: { tenantId },
+      select: { collectionLagDays: true },
+    }),
     prisma.financeDte.findMany({
       where: {
         tenantId,
@@ -185,5 +189,6 @@ export async function loadCommittedIncome(
     drafts,
     templates: templateInputs,
     coveredPeriods,
+    collectionLagDays: config?.collectionLagDays ?? undefined,
   });
 }

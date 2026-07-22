@@ -1,8 +1,11 @@
 # Flujo de Caja v3 "Modo Planilla" — QA (B10)
 
-Branch: `claude/flujo-caja-v3-planilla-gy3kmn` · Estado: pendiente de validación
-manual en Vercel preview con datos reales. **NO mergear a main sin aprobación
-explícita de Carlos.**
+Branch: `claude/flujo-caja-v3-planilla-gy3kmn` · Estado: **merge a main
+aprobado explícitamente por Carlos (2026-07-22)** junto con los follow-ups
+F1–F5. El merge NO enciende nada: el flag `cashflowPlanillaV3` nace OFF y
+producción sigue idéntica hasta activarlo. La validación con datos reales
+de este checklist se hace en producción con el flag apagado (URL directa)
+o encendido solo para el tenant de Carlos.
 
 Cómo activar para un tenant (flag JSONB, sin migración):
 
@@ -110,33 +113,48 @@ Diferencias esperadas (explicar, no "corregir" el nuevo para calzar):
 
 ---
 
-## 3. Decisiones/pendientes documentados
+## 3. Follow-ups F1–F5 (implementados post-B10)
 
-1. **Término de pago**: ni CrmAccount ni el template lo tienen → 30 días
-   default (`DEFAULT_COLLECTION_LAG_DAYS`); `FinanceSupplier.paymentTermDays`
-   sí se usa para recibidos. Hacerlo configurable = follow-up.
-2. **F29 comprometido** solo para meses vencidos (DTEs reales, día
+- **F1 Término de pago configurable**: `collectionLagDays` en
+  Configuración → Flujo de Caja (default 30). Se usa cuando el documento no
+  trae vencimiento; `FinanceSupplier.paymentTermDays` sigue mandando para
+  recibidos con proveedor.
+- **F2 Umbral del semáforo configurable**: `flowWarnThresholdClp` en la misma
+  config (default $8M). SALDO ACUMULADO ámbar bajo ese valor, rojo bajo 0.
+- **F3 Rellenar a la derecha**: seleccionar celda editable → **Ctrl/Cmd+D** →
+  diálogo con monto y N semanas → un solo POST bulk-fill (monto 0 borra).
+- **F4 Mobile**: bajo 768px la planilla carga 3 columnas (semana anterior ·
+  actual · próxima), primera columna 120px, y el **swipe** horizontal navega
+  ±1 semana. Sin scroll horizontal.
+- **F5 Turnos extra comprometidos**: TE con `status=approved` y `paidAt=null`
+  aparecen agregados en la fila "Turnos extra" (semana actual, item
+  "Turnos extra por pagar (N aprobados)"). Los TE futuros/estimados siguen
+  siendo Plan del usuario (el promedio histórico del módulo viejo NO se
+  replica — diferencia esperada en compare).
+
+Checklist adicional:
+- [ ] Cambiar término de pago en config mueve las semanas de cobro estimado
+      tras recargar la planilla.
+- [ ] Cambiar umbral en config re-pinta el heat del saldo.
+- [ ] Ctrl+D sobre celda con monto → rellena N semanas a la derecha.
+- [ ] En un teléfono: 3 columnas, swipe izquierda/derecha navega semanas.
+- [ ] Con TE aprobados sin pagar: fila Turnos extra muestra el comprometido.
+
+## 4. Decisiones documentadas
+
+1. **F29 comprometido** solo para meses vencidos (DTEs reales, día
    `ivaPayDay` config, default 12 — el prompt decía 20); meses futuros = Plan.
-3. **Turnos extra** no se derivan en v3 (fila canónica existe; el monto es
-   Plan del usuario). El viejo los descontaba del líquido — diferencia
-   esperada en compare.
-4. **Umbral heat bar** $8M constante (`WARN_THRESHOLD_CLP`) — configurable en
-   follow-up.
-5. **Saldo de ventanas enteramente futuras** ancla en saldo hoy ignorando el
+2. **Saldo de ventanas enteramente futuras** ancla en saldo hoy ignorando el
    gap sin cargar (aprox. documentada; la default siempre incluye hoy).
-6. **DS guard**: 3 warnings `no-tiny-text` en constantes (NUM_CLASS/EYEBROW,
+3. **DS guard**: 3 warnings `no-tiny-text` en constantes (NUM_CLASS/EYEBROW,
    11px mono eyebrow de la densidad Excel) — el checker no ve el trío dentro
    de constantes; cumplen el patrón. `lint:nav` tiene 2 fallas preexistentes
    (bancos/conciliacion, sin diff vs main).
-7. **Mobile**: versión mínima (scroll horizontal + primera columna sticky);
-   swipe de 3 columnas = follow-up.
-8. **Fill-right (bulkFill)**: endpoint y service listos
-   (`POST /plan/bulk-fill`); atajo de teclado en la grilla = follow-up.
-9. **Mockup HTML** no existe en el repo; se implementaron las specs numéricas
+4. **Mockup HTML** no existe en el repo; se implementaron las specs numéricas
    del prompt v3.1.
 
-## 4. Suite automatizada
+## 5. Suite automatizada
 
-`npx vitest run src/modules/finance/flow-v3` → 45 tests (weeks, rows/plan
-services, derivadores ingreso/egreso/real, ensamblador y mensual).
+`npx vitest run src/modules/finance/flow-v3` → 46 tests (weeks, rows/plan
+services, derivadores ingreso/egreso/real/TE, ensamblador y mensual).
 Gate por bloque: `npx prisma generate && npx tsc --noEmit` ✅ en B0–B10.

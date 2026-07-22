@@ -14,6 +14,7 @@ const ROWS: FlowRowRef[] = [
   { id: "row-f29", name: "IVA F29", mapping: "MANUAL", crmAccountId: null, installationId: null, categoryId: null, supplierId: null },
   { id: "row-arriendo", name: "Arriendo", mapping: "CATEGORY", crmAccountId: null, installationId: null, categoryId: "cat-arriendo", supplierId: null },
   { id: "row-prov", name: "Proveedor X", mapping: "SUPPLIER", crmAccountId: null, installationId: null, categoryId: null, supplierId: "sup-1" },
+  { id: "row-te", name: "Turnos extra", mapping: "MANUAL", crmAccountId: null, installationId: null, categoryId: null, supplierId: null },
 ];
 const CODES = new Map([
   ["cat-sueldo", "EGR_SUELDO"],
@@ -46,6 +47,17 @@ describe("deriveCommittedExpense — hitos payroll/F29", () => {
       milestones: [{ key: "quincena", label: "Quincena", dateYmd: "2026-08-14", amountClp: 1_000_000 }],
     });
     expect(out.get(UNMATCHED_EXPENSE_KEY)?.get("2026-08-10")?.total).toBe(1_000_000);
+  });
+
+  it("turnos extra aprobados caen en la fila TE por nombre canónico (F5)", () => {
+    const out = deriveCommittedExpense({
+      ...base,
+      milestones: [{ key: "turnos_extra", label: "Turnos extra por pagar (12 aprobados)", dateYmd: TODAY, amountClp: 840_000 }],
+    });
+    // 2026-07-21 (martes) → semana actual lunes 2026-07-20
+    const cell = out.get("row-te")?.get("2026-07-20");
+    expect(cell?.total).toBe(840_000);
+    expect(cell?.items[0].label).toContain("12 aprobados");
   });
 
   it("hito pasado queda en su semana natural (no clampea)", () => {

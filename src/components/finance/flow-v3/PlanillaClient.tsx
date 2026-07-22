@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
+import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import { usePlanillaMatrix } from "./usePlanillaMatrix";
 import { usePlanillaActions } from "./usePlanillaActions";
 import { PlanillaGrid } from "./PlanillaGrid";
@@ -23,7 +24,8 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: "ok"
 }
 
 export function PlanillaClient({ canManage }: { canManage: boolean }) {
-  const m = usePlanillaMatrix();
+  const isMobile = useIsMobileViewport();
+  const m = usePlanillaMatrix({ isMobile });
   const actions = usePlanillaActions(m.refetch);
   const [addOpen, setAddOpen] = useState(false);
   const [archiving, setArchiving] = useState<FlowMatrixRowDto | null>(null);
@@ -90,10 +92,13 @@ export function PlanillaClient({ canManage }: { canManage: boolean }) {
           <PlanillaGrid
             data={m.data}
             canManage={canManage}
+            busy={actions.busy}
             patchPlan={m.patchPlan}
             onRename={(rowId, name) => void actions.renameRow(rowId, name)}
             onArchive={setArchiving}
             onSetEndDate={(templateId, endDate) => void actions.setTemplateEndDate(templateId, endDate)}
+            onBulkFill={actions.bulkFill}
+            onSwipe={isMobile ? (dir) => (dir === "left" ? m.goNext() : m.goPrev()) : undefined}
           />
         </div>
       ) : (

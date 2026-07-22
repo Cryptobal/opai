@@ -53,12 +53,13 @@ export async function loadCommittedExpense(
   const toYmd = weeks[weeks.length - 1];
   if (!fromYmd || !toYmd) return new Map();
 
-  const [config, installations, categories, receivedRaw, exclusions] = await Promise.all([
+  const [config, installations, categories, receivedRaw, exclusions, pendingTes] = await Promise.all([
     prisma.financeCashflowConfig.findUnique({
       where: { tenantId },
       select: {
         payrollPayDay: true, previRedPayDay: true, quincenaPayDay: true,
         quincenaMode: true, quincenaPctLiquido: true, ivaPayDay: true,
+        collectionLagDays: true,
       },
     }),
     prisma.crmInstallation.findMany({ where: { tenantId }, select: { id: true } }),
@@ -88,6 +89,12 @@ export async function loadCommittedExpense(
     prisma.financeCashflowDteFlowExclusion.findMany({
       where: { tenantId },
       select: { dteId: true },
+    }),
+    // F5: turnos extra APROBADOS y aún no pagados = plata ya comprometida con
+    // los guardias. Los futuros/estimados quedan como Plan del usuario.
+    prisma.opsTurnoExtra.findMany({
+      where: { tenantId, status: "approved", paidAt: null },
+      select: { amountClp: true },
     }),
   ]);
 
@@ -121,6 +128,17 @@ export async function loadCommittedExpense(
       milestones.push({ key: "quincena", label: "Quincena / anticipos", dateYmd: ymdOf(y, m, quincenaDay), amountClp: quincenaTotal });
     if (previRedTotal > 0)
       milestones.push({ key: "previred", label: "Previred (imposiciones)", dateYmd: ymdOf(y, m, previredDay), amountClp: previRedTotal });
+  }
+
+  // ── Turnos extra aprobados por pagar → semana actual (pagables ya) ──
+  const teTotal = pendingTes.reduce((s, t) => s + Number(t.amountClp ?? 0), 0);
+  if (teTotal > 0) {
+    milestones.push({
+      key: "turnos_extra",
+      label: `Turnos extra por pagar (${pendingTes.length} aprobados)`,
+      dateYmd: todayYmd,
+      amountClp: Math.round(teTotal),
+    });
   }
 
   // ── F29: solo períodos VENCIDOS (DTEs reales); se paga el mes siguiente ──
@@ -170,7 +188,7 @@ export async function loadCommittedExpense(
         folio: d.folio,
         dateYmd: d.date.toISOString().slice(0, 10),
         dueDateYmd: d.dueDate ? d.dueDate.toISOString().slice(0, 10) : null,
-        paymentTermDays: d.supplier?.paymentTermDays ?? 30,
+        paymentTermDays: d.supplier?.paymentTermDays ?? config?.collectionLagDays ?? 30,
         pendingClp: Number(d.totalAmount) - Number(d.amountPaid),
         supplierId: d.supplierId,
         categoryId,

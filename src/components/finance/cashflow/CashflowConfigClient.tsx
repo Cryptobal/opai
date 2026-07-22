@@ -55,6 +55,10 @@ interface CashflowConfig {
   writeOffMaxPercent: number;
   writeOffShortPaymentAccountId: string | null;
   writeOffOverPaymentAccountId: string | null;
+  /** Flujo v3: días de cobro/pago estimado sin vencimiento explícito. */
+  collectionLagDays: number;
+  /** Flujo v3: umbral CLP del semáforo del saldo (ámbar bajo este valor). */
+  flowWarnThresholdClp: number;
 }
 
 /** Prisma serializa campos Decimal como string en JSON; esta interfaz refleja esa realidad. */
@@ -407,6 +411,39 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
             />
             <p className="mt-1 text-[12px] text-ds-text-3">
               Un movimiento puede no caer exactamente el día proyectado. Ej: pagaste Movistar el día 7 pero lo proyectaste para el 5 → diferencia de 2 días. Este número es el <strong>máximo de días de diferencia</strong> aceptado. Recomendado: <strong>3 días</strong> para gastos fijos, <strong>5 días</strong> si tu banco demora en procesar.
+            </p>
+          </div>
+          <div>
+            <Label>Término de pago estimado (días) — Planilla v3</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="number"
+              min={0}
+              max={180}
+              value={config.collectionLagDays}
+              onChange={(e) => setField("collectionLagDays", Number(e.target.value))}
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Cuando una factura no trae fecha de vencimiento, la planilla asume
+              que se cobra/paga este número de días después de emitida. Estándar
+              B2B chileno: <strong>30</strong>.
+            </p>
+          </div>
+          <div>
+            <Label>Umbral de alerta del saldo (CLP) — Planilla v3</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="number"
+              min={0}
+              max={1000000000}
+              step={500000}
+              value={config.flowWarnThresholdClp}
+              onChange={(e) => setField("flowWarnThresholdClp", Number(e.target.value))}
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              La fila SALDO ACUMULADO se pinta <strong>ámbar</strong> cuando el
+              saldo proyectado baja de este monto (rojo bajo $0). Ajústalo a tu
+              colchón mínimo de caja.
             </p>
           </div>
           <div>
