@@ -103,6 +103,15 @@ type TicketCounts = {
 type QuickViewKey = "active" | "breached" | "unassigned" | "mine" | "my_team" | "all";
 type AssignedFilter = "any" | "me" | "my_team" | "unassigned";
 
+function isAssignedFilter(value: string | null): value is AssignedFilter {
+  return (
+    value === "any" ||
+    value === "me" ||
+    value === "my_team" ||
+    value === "unassigned"
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════
@@ -115,6 +124,7 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
   const prefillSourceId = searchParams.get("sourceId");
   const prefillTitle = searchParams.get("title");
   const prefillGuardiaId = searchParams.get("guardiaId");
+  const urlAssignedTo = searchParams.get("assignedTo");
 
   // Vista por defecto: el query param manda; si no, usamos la última vista
   // elegida por el usuario (localStorage); si tampoco hay, "cards".
@@ -157,7 +167,9 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
   const [counts, setCounts] = useState<TicketCounts | null>(null);
   // Filtro por defecto: "mi equipo" — los tickets propios se distinguen con
   // un badge "Mío", así que mostramos primero el contexto de equipo.
-  const [assignedFilter, setAssignedFilter] = useState<AssignedFilter>("my_team");
+  const [assignedFilter, setAssignedFilter] = useState<AssignedFilter>(
+    isAssignedFilter(urlAssignedTo) ? urlAssignedTo : "my_team",
+  );
   const [slaOnly, setSlaOnly] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   // Orden por criticidad por defecto: P1 → SLA vencidos → próximos a vencer.
@@ -1247,7 +1259,7 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
         <section className="rounded-xl border border-border bg-ds-surface-1 px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+              <div className="flex items-center gap-2 text-[12px] uppercase tracking-wide text-muted-foreground">
                 <MapPin className="h-3 w-3" />
                 <span>Instalación</span>
               </div>
@@ -1538,7 +1550,7 @@ function TicketCard({
         <div className="flex shrink-0 items-center gap-1.5">
           {isMine && (
             <span
-              className="rounded-md bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary"
+              className="rounded-md bg-primary/15 px-1.5 py-0.5 text-[12px] font-semibold uppercase tracking-wide text-primary"
               title="Asignado a ti"
             >
               Mío
@@ -1546,7 +1558,7 @@ function TicketCard({
           )}
           {/* Pill de prioridad: solo P1/P2 muestran soft bg, P3/P4 son texto */}
           <span
-            className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+            className={`rounded-md px-1.5 py-0.5 text-[12px] font-semibold uppercase tracking-wide ${
               ticket.priority === "p1" || ticket.priority === "p2"
                 ? `${priorityCfg.bg} ${priorityCfg.color}`
                 : `text-muted-foreground bg-muted/60`
@@ -1557,7 +1569,7 @@ function TicketCard({
           </span>
           {breached && !isTerminal && (
             <span
-              className="inline-flex items-center gap-0.5 rounded-md bg-status-danger-soft px-1.5 py-0.5 text-[10px] font-semibold text-status-danger-fg"
+              className="inline-flex items-center gap-0.5 rounded-md bg-status-danger-soft px-1.5 py-0.5 text-[12px] font-semibold text-status-danger-fg"
               title="SLA vencido"
             >
               <AlertTriangle className="h-2.5 w-2.5" />
@@ -1566,7 +1578,7 @@ function TicketCard({
           )}
           {ticket.approvalStatus === "pending" && (
             <span
-              className="inline-flex items-center gap-0.5 rounded-md bg-status-info-soft px-1.5 py-0.5 text-[10px] font-medium text-status-info-fg"
+              className="inline-flex items-center gap-0.5 rounded-md bg-status-info-soft px-1.5 py-0.5 text-[12px] font-medium text-status-info-fg"
               title="Pendiente de aprobación"
             >
               <ShieldCheck className="h-2.5 w-2.5" />
@@ -1597,10 +1609,10 @@ function TicketCard({
       </div>
 
       {/* Fila 2: meta — code · estado · tipo · equipo · responsable */}
-      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[12px] text-muted-foreground">
         <span className="font-mono">{ticket.code}</span>
         <span className="text-border">·</span>
-        <Badge variant={statusCfg.variant} className="px-1.5 py-0 text-[10px] font-medium">
+        <Badge variant={statusCfg.variant} className="px-1.5 py-0 text-[12px] font-medium">
           {statusCfg.label}
         </Badge>
         {typeName && (
@@ -1623,7 +1635,7 @@ function TicketCard({
 
       {/* Fila opcional: hallazgo de supervisión (con su contexto) */}
       {ticket.finding && (
-        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px]">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[12px]">
           <FileText className="h-3 w-3 text-status-warn-fg/80" />
           <span className="font-medium text-status-warn-fg/90">
             {ticket.finding.tipoDocNombre
@@ -1631,7 +1643,7 @@ function TicketCard({
               ?? findingCategoryLabel(ticket.finding.category)}
           </span>
           {ticket.finding.occurrenceCount > 1 && (
-            <span className="rounded bg-status-warn-soft px-1 py-0 text-[10px] font-semibold text-status-warn-fg">
+            <span className="rounded bg-status-warn-soft px-1 py-0 text-[12px] font-semibold text-status-warn-fg">
               ×{ticket.finding.occurrenceCount}
             </span>
           )}
@@ -1643,7 +1655,7 @@ function TicketCard({
 
       {/* Fila opcional: guardia */}
       {ticket.guardiaName && !ticket.finding && (
-        <div className="inline-flex w-fit items-center gap-1 rounded-full bg-status-info-soft px-1.5 py-0.5 text-[11px]">
+        <div className="inline-flex w-fit items-center gap-1 rounded-full bg-status-info-soft px-1.5 py-0.5 text-[12px]">
           <Shield className="h-3 w-3 text-status-info-fg" />
           <span className="font-medium text-status-info-fg">{ticket.guardiaName}</span>
         </div>
@@ -1655,7 +1667,7 @@ function TicketCard({
           {ticket.tags.map((tag) => (
             <span
               key={tag}
-              className="rounded-full bg-primary/10 px-1.5 py-0 text-[10px] font-medium text-primary"
+              className="rounded-full bg-primary/10 px-1.5 py-0 text-[12px] font-medium text-primary"
             >
               {tag}
             </span>
@@ -1672,7 +1684,7 @@ function TicketCard({
               style={{ width: `${slaPercent === 0 ? 100 : Math.max(slaPercent ?? 0, 2)}%` }}
             />
           </div>
-          <div className={`flex shrink-0 items-center gap-1 text-[11px] font-medium tabular-nums ${slaTextColor}`}>
+          <div className={`flex shrink-0 items-center gap-1 text-[12px] font-medium tabular-nums ${slaTextColor}`}>
             <Clock className="h-3 w-3" />
             <span>{slaText}</span>
           </div>
@@ -2168,7 +2180,7 @@ function TicketCreateForm({
             )}
           </div>
 
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[12px] text-muted-foreground">
             Al crear el ticket se enviará un email al contacto con el link de
             seguimiento del portal y un código de acceso público.
           </p>
@@ -2374,7 +2386,7 @@ function TicketCreateForm({
             Arrastra archivos o{" "}
             <span className="text-primary underline">busca en tu PC</span>
           </p>
-          <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+          <p className="text-[12px] text-muted-foreground/60 mt-0.5">
             Hasta {ATT_MAX_FILES} archivos · 25 MB c/u
           </p>
         </div>
@@ -2450,7 +2462,7 @@ function TicketCreateForm({
             </p>
             <div className="space-y-2 rounded-lg border border-border bg-background/40 p-3">
               <div className="flex items-center gap-2">
-                <span className="text-[11px] uppercase tracking-wider text-muted-foreground shrink-0">
+                <span className="text-[12px] uppercase tracking-wider text-muted-foreground shrink-0">
                   Link
                 </span>
                 <code className="text-[13px] font-mono truncate">
@@ -2471,7 +2483,7 @@ function TicketCreateForm({
                 </Button>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[11px] uppercase tracking-wider text-muted-foreground shrink-0">
+                <span className="text-[12px] uppercase tracking-wider text-muted-foreground shrink-0">
                   Código
                 </span>
                 <code className="text-base font-mono font-semibold tracking-widest">

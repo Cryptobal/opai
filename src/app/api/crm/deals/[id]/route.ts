@@ -71,6 +71,8 @@ export async function PATCH(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx, "deals");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
 

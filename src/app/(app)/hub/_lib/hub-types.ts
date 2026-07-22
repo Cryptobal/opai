@@ -22,6 +22,7 @@ export interface HubPerms {
   hasPersonas: boolean;
   canOpenLeads: boolean;
   canOpenDeals: boolean;
+  canEditDeals: boolean;
   canOpenQuotes: boolean;
   canCreateProposal: boolean;
   canConfigureCrm: boolean;
@@ -442,6 +443,24 @@ export interface ClosingPendingLead {
   createdAt: Date;
 }
 
+export interface ClosingDraftLead {
+  id: string;
+  companyName: string | null;
+  contactName: string;
+  source: string | null;
+  updatedAt: Date;
+}
+
+export interface ClosingDraftQuote {
+  id: string;
+  code: string;
+  name: string | null;
+  clientName: string | null;
+  monthlyCost: number;
+  currency: string;
+  updatedAt: Date;
+}
+
 export interface ClosingFunnel {
   leadsCreated: number;
   leadsConverted: number;
@@ -457,6 +476,8 @@ export interface ClosingHubData {
   staleDeals: ClosingStaleDeal[];
   closedDeals: ClosingClosedDeal[];
   pendingLeads: ClosingPendingLead[];
+  draftLeads: ClosingDraftLead[];
+  draftQuotes: ClosingDraftQuote[];
   funnel: ClosingFunnel;
   portalTopUsers: ClosingPortalTopUser[];
   /** Nombre comercial del tenant para mensajes WhatsApp. */

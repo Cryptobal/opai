@@ -17,7 +17,7 @@ export function HubCollapsibleSection({
   icon,
   title,
   badge,
-  defaultOpen = false,
+  defaultOpen = true,
   children,
 }: HubCollapsibleSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);

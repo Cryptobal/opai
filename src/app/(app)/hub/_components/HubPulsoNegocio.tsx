@@ -138,7 +138,7 @@ export function HubPulsoNegocio({
       )}
 
       {showUfNegoc && (
-        <Link href="/crm/deals?status=open" className="block h-full">
+        <Link href="/crm/deals" className="block h-full">
           <Stat
             label="UF negociando"
             value={fmtUF(ufNegoc)}

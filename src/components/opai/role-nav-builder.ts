@@ -150,7 +150,8 @@ export function buildNavItems({
 
   const items: NavItem[] = [];
 
-  // Hub first (no children)
+  // Hub first. Sus vistas agrupadas viven en ModuleSubNav / bottom nav
+  // contextual; no se duplican como árbol dentro del sidebar.
   const hub = NAV_MODULES.find((m) => m.key === 'hub');
   if (hub && isNodeVisible(hub, ctx)) {
     items.push({ href: hub.href, label: hub.label, icon: hub.icon, show: true });

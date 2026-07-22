@@ -10,6 +10,7 @@ import { HubStaleDeals } from './HubStaleDeals';
 import { HubPendingLeads } from './HubPendingLeads';
 import { HubPortalRanking } from './HubPortalRanking';
 import { HubUpcomingProjects } from './HubUpcomingProjects';
+import { HubDraftsPanel } from './HubDraftsPanel';
 import { formatCLP } from '../_lib/hub-utils';
 import type { HubClosingSectionProps } from '../_lib/hub-types';
 
@@ -24,11 +25,24 @@ function getStoredLastSeen(): number {
   }
 }
 
-export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects = [] }: HubClosingSectionProps) {
+export function HubCrmSection({
+  perms,
+  closingData,
+  sellerFirstName,
+  upcomingProjects = [],
+}: HubClosingSectionProps) {
   const [activeTab, setActiveTab] = useState('hot');
   const [leadsLastSeenCount, setLeadsLastSeenCount] = useState(0);
-  const { kpis, hotDeals, staleDeals, closedDeals, pendingLeads, portalTopUsers } = closingData;
-  const { leadsDraftCount } = kpis;
+  const {
+    kpis,
+    hotDeals,
+    staleDeals,
+    closedDeals,
+    pendingLeads,
+    draftLeads,
+    draftQuotes,
+    portalTopUsers,
+  } = closingData;
 
   useEffect(() => {
     setLeadsLastSeenCount(getStoredLastSeen());
@@ -51,26 +65,22 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
   const leadsUnseenCount = Math.max(0, pendingLeads.length - leadsLastSeenCount);
 
   const tabs = [
-    { id: 'hot', label: '🔥 Calientes', badge: hotDeals.length },
+    { id: 'hot', label: 'Calientes', badge: hotDeals.length },
     ...(closedDeals.length > 0
-      ? [{ id: 'closed', label: '✅ Cierres 30d', badge: closedDeals.length }]
+      ? [{ id: 'closed', label: 'Cierres 30d', badge: closedDeals.length }]
       : []),
-    ...(upcomingProjects.length > 0
-      ? [{ id: 'upcoming', label: '📅 Por iniciar', badge: upcomingProjects.length }]
-      : []),
+    {
+      id: 'upcoming',
+      label: 'Por iniciar',
+      badge: upcomingProjects.length,
+    },
     {
       id: 'leads',
       label: 'Leads nuevos',
       badge: leadsUnseenCount,
       badgeVariant: 'alert' as const,
     },
-    {
-      id: 'leads-draft',
-      label: 'Leads borrador',
-      badge: leadsDraftCount,
-      href: '/crm/leads?status=in_review',
-    },
-    { id: 'stale', label: '⚠️ Sin actividad', badge: staleDeals.length },
+    { id: 'stale', label: 'Sin actividad', badge: staleDeals.length },
     ...(portalTopUsers.length > 0
       ? [{ id: 'portal', label: 'Portal' }]
       : []),
@@ -91,6 +101,13 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
     >
       {/* Tabs — unified for mobile and desktop */}
       <div className="space-y-3 mt-2">
+        <HubDraftsPanel
+          quoteCount={kpis.quotesDraftCount}
+          leadCount={kpis.leadsDraftCount}
+          quotes={draftQuotes}
+          leads={draftLeads}
+        />
+
         <ChipTabs
           tabs={tabs}
           activeTab={activeTab}
@@ -154,7 +171,7 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
                   >
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium truncate">{deal.companyName}</div>
-                      <div className="text-[11px] text-muted-foreground truncate">
+                      <div className="truncate text-[12px] text-ds-text-3">
                         {deal.contactName} · {deal.totalPuestos} puestos
                         {deal.closedAt && ` · cerrado ${new Date(deal.closedAt).toLocaleDateString('es-CL')}`}
                       </div>
@@ -169,7 +186,12 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
           </div>
         )}
 
-        {activeTab === 'upcoming' && <HubUpcomingProjects projects={upcomingProjects} />}
+        {activeTab === 'upcoming' && (
+          <HubUpcomingProjects
+            projects={upcomingProjects}
+            canEdit={perms.canEditDeals}
+          />
+        )}
         {activeTab === 'leads' && <HubPendingLeads leads={pendingLeads} />}
         {activeTab === 'stale' && (
           <HubStaleDeals

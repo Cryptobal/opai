@@ -42,6 +42,20 @@ describe("nav registry", () => {
       expect(config.hideInSidebar).toBe(true);
     });
 
+    it("hub groups command-center views as real routes", () => {
+      const hub = NAV_MODULES.find((m) => m.key === "hub")!;
+      expect(hub.children?.map((child) => child.href)).toEqual([
+        "/hub",
+        "/hub/comercial",
+        "/hub/operaciones",
+        "/hub/finanzas",
+        "/hub/personas",
+        "/hub/payroll",
+        "/hub/documentos",
+      ]);
+      expect(hub.children?.[0]?.exactMatch).toBe(true);
+    });
+
     it("finance-compras-ventas children are real routes (no legacy emitir/notas/recurrentes tabs)", () => {
       const finance = NAV_MODULES.find((m) => m.key === "finance")!;
       const ventas = finance.children?.find((c) => c.key === "finance-compras-ventas");
@@ -137,6 +151,10 @@ describe("nav registry", () => {
     });
     it("finds CRM for /crm/leads/123", () => {
       expect(findActiveModule("/crm/leads/123")?.key).toBe("crm");
+    });
+    it("keeps Hub active for grouped command-center routes", () => {
+      expect(findActiveModule("/hub/comercial")?.key).toBe("hub");
+      expect(findActiveModule("/hub/operaciones")?.key).toBe("hub");
     });
     it("finds Finanzas for /finanzas/reportes/eerr", () => {
       expect(findActiveModule("/finanzas/reportes/eerr")?.key).toBe("finance");
@@ -246,6 +264,16 @@ describe("nav registry", () => {
   });
 
   describe("getContextualBottomNavNodes", () => {
+    it("returns Hub grouped views for /hub routes", () => {
+      const keys = getContextualBottomNavNodes("/hub/comercial").map(
+        (node) => node.key,
+      );
+      expect(keys).toContain("hub-summary");
+      expect(keys).toContain("hub-commercial");
+      expect(keys).toContain("hub-operations");
+      expect(keys).toContain("hub-finance");
+    });
+
     it("returns Pautas children for /ops/pauta-mensual", () => {
       const nodes = getContextualBottomNavNodes("/ops/pauta-mensual");
       const keys = nodes.map((n) => n.key);

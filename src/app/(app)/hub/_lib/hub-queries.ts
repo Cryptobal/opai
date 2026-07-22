@@ -182,6 +182,8 @@ export async function getClosingHubData(
     ufValue,
     quotesDraftCount,
     leadsDraftCount,
+    draftQuotesRaw,
+    draftLeadsRaw,
   ] = await Promise.all([
     // All open deals with relations
     prisma.crmDeal.findMany({
@@ -264,6 +266,36 @@ export async function getClosingHubData(
     // Leads borrador (in_review — abiertos en el fondo, sin enviar/aprobar)
     prisma.crmLead.count({
       where: { tenantId, status: 'in_review' },
+    }),
+    // Cotizaciones borrador: listado accionable para continuar dentro del Hub.
+    prisma.cpqQuote.findMany({
+      where: { tenantId, status: 'draft' },
+      orderBy: { updatedAt: 'desc' },
+      take: 8,
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        clientName: true,
+        monthlyCost: true,
+        currency: true,
+        updatedAt: true,
+        parameters: { select: { salePriceMonthly: true } },
+      },
+    }),
+    // Leads in_review: no navegar a una lista opaca; mostrar el contenido inline.
+    prisma.crmLead.findMany({
+      where: { tenantId, status: 'in_review' },
+      orderBy: { updatedAt: 'desc' },
+      take: 8,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        companyName: true,
+        source: true,
+        updatedAt: true,
+      },
     }),
   ]);
 
@@ -750,6 +782,26 @@ export async function getClosingHubData(
     staleDeals,
     closedDeals,
     pendingLeads,
+    draftQuotes: draftQuotesRaw.map((quote) => ({
+      id: quote.id,
+      code: quote.code,
+      name: quote.name,
+      clientName: quote.clientName,
+      monthlyCost: Number(
+        quote.parameters?.salePriceMonthly ?? quote.monthlyCost,
+      ),
+      currency: quote.currency,
+      updatedAt: quote.updatedAt,
+    })),
+    draftLeads: draftLeadsRaw.map((lead) => ({
+      id: lead.id,
+      companyName: lead.companyName,
+      contactName:
+        [lead.firstName, lead.lastName].filter(Boolean).join(' ') ||
+        'Sin contacto',
+      source: lead.source,
+      updatedAt: lead.updatedAt,
+    })),
     portalTopUsers,
     funnel: {
       leadsCreated: newLeads30,
@@ -1595,7 +1647,8 @@ export async function getOpsMetrics(
 export function getAlerts(
   opsMetrics: OpsMetrics | null,
   crmMetrics: CrmMetrics | null,
-  financeMetrics: FinanceMetrics | null,
+  _financeMetrics: FinanceMetrics | null,
+  closingFollowUpsOverdueCount = crmMetrics?.followUpsOverdueCount ?? 0,
 ): HubAlert[] {
   const alerts: HubAlert[] = [];
 
@@ -1622,13 +1675,13 @@ export function getAlerts(
     }
   }
 
-  if (crmMetrics && crmMetrics.followUpsOverdueCount > 0) {
+  if (closingFollowUpsOverdueCount > 0) {
     alerts.push({
       id: 'followups-overdue',
       severity: 'warning',
-      message: `${crmMetrics.followUpsOverdueCount} seguimiento(s) vencido(s)`,
+      message: `${closingFollowUpsOverdueCount} seguimiento(s) vencido(s)`,
       href: '/crm/deals?focus=followup-overdue',
-      count: crmMetrics.followUpsOverdueCount,
+      count: closingFollowUpsOverdueCount,
     });
   }
 
