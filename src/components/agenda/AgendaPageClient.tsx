@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { PageHero, Surface, EmptyState, Spinner } from "@/components/opai-ds";
-import { addDaysChile, startOfDayChile, ymdInChile } from "@/lib/dates-cl";
+import { addDaysChile, startOfDayChile } from "@/lib/dates-cl";
 import { AgendaWeekStrip, type WeekItem } from "./AgendaWeekStrip";
 import { LicitacionesList, type LicRow } from "./LicitacionesList";
 import { VisitList } from "./VisitList";
@@ -17,17 +17,10 @@ import { LicitacionDrawer } from "./LicitacionDrawer";
 const CAL_RECONNECT_HREF =
   "/api/integrations/google-calendar/oauth/start?return=/opai/agenda";
 
-/** Lunes 00:00 America/Santiago de la semana que contiene `d`. */
-function mondayOfChile(d: Date) {
-  const start = startOfDayChile(d);
-  const dow = new Date(`${ymdInChile(start)}T12:00:00.000Z`).getUTCDay();
-  const diff = dow === 0 ? -6 : 1 - dow;
-  return addDaysChile(start, diff);
-}
-
 export function AgendaPageClient() {
   const search = useSearchParams();
-  const [weekStart, setWeekStart] = useState(() => mondayOfChile(new Date()));
+  // Ventana móvil desde HOY (no desde el lunes): no muestra días pasados.
+  const [weekStart, setWeekStart] = useState(() => startOfDayChile(new Date()));
   const [items, setItems] = useState<WeekItem[]>([]);
   const [lics, setLics] = useState<LicRow[]>([]);
   const [googleStatus, setGoogleStatus] = useState<string | null>(null);
@@ -126,7 +119,7 @@ export function AgendaPageClient() {
         onAssignedChange={setAssignedUserId}
         weekLabel={weekLabel}
         onPrevWeek={() => setWeekStart(addDaysChile(weekStart, -7))}
-        onToday={() => setWeekStart(mondayOfChile(new Date()))}
+        onToday={() => setWeekStart(startOfDayChile(new Date()))}
         onNextWeek={() => setWeekStart(addDaysChile(weekStart, 7))}
       />
 
@@ -174,7 +167,7 @@ export function AgendaPageClient() {
         <Surface elevation={1} padding="md" className="space-y-3">
           <p className="text-xs uppercase tracking-wide text-ds-text-4">Próximas visitas</p>
           <VisitList
-            items={filtered}
+            items={filtered.filter((i) => i.source !== "tarea")}
             onSelect={(i) => {
               if (i.source === "agenda_visita") setVisitaId(i.id);
             }}
