@@ -8,6 +8,7 @@ export type HubAgendaItem = {
   syncStatus: string | null;
   htmlLink?: string | null;
   calendarName?: string | null;
+  href?: string | null;
 };
 
 export function hhmm(start: string): string {

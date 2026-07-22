@@ -65,7 +65,19 @@ export function AgendaHubCard() {
             ) : (
               <ul className="space-y-1">
                 {todayItems.map((i) =>
-                  i.source === "google" ? (
+                  i.source === "tarea" ? (
+                    <li key={`tarea-${i.id}`}>
+                      <Link
+                        href={i.href || "/crm/mi-semana"}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/10 px-2 py-1.5 text-[13px] text-ds-text-1 ds-tap"
+                      >
+                        <span className="truncate">
+                          ✓ {i.allDay ? i.title : `${hhmm(i.start)} · ${i.title}`}
+                        </span>
+                        <span className="shrink-0 text-[12px] text-primary">Tarea</span>
+                      </Link>
+                    </li>
+                  ) : i.source === "google" ? (
                     <li key={`google-${i.id}`}>
                       <a
                         href={i.htmlLink || undefined}

@@ -4,6 +4,7 @@ import { todayInChile, utcDateFromYmd, ymdInChile } from "@/lib/dates-cl";
 import { VisitChip } from "./VisitChip";
 import { LicAllDayChip } from "./LicAllDayChip";
 import { GoogleEventChip } from "./GoogleEventChip";
+import { TaskChip } from "./TaskChip";
 import type { WeekItem } from "./AgendaWeekStrip";
 
 type Props = {
@@ -25,9 +26,10 @@ export function AgendaDayColumn({
   onLicClick,
 }: Props) {
   const todayYmd = todayInChile();
+  const tareas = items.filter((i) => i.source === "tarea");
   const google = items.filter((i) => i.source === "google");
-  const allDay = items.filter((i) => i.allDay && i.source !== "google");
-  const timed = items.filter((i) => !i.allDay && i.source !== "google");
+  const allDay = items.filter((i) => i.allDay && i.source !== "google" && i.source !== "tarea");
+  const timed = items.filter((i) => !i.allDay && i.source !== "google" && i.source !== "tarea");
 
   return (
     <div
@@ -84,7 +86,10 @@ export function AgendaDayColumn({
             calendarName={i.calendarName}
           />
         ))}
-        {allDay.length === 0 && timed.length === 0 && google.length === 0 && (
+        {tareas.map((i) => (
+          <TaskChip key={`tarea-${i.id}`} title={i.title} start={i.start} allDay={i.allDay} href={i.href ?? null} />
+        ))}
+        {allDay.length === 0 && timed.length === 0 && google.length === 0 && tareas.length === 0 && (
           <p className="text-[12px] text-ds-text-4">—</p>
         )}
       </div>

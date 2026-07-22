@@ -15,6 +15,7 @@ export type WeekItem = {
   assignedUserId?: string | null;
   htmlLink?: string | null;
   calendarName?: string | null;
+  href?: string | null;
 };
 
 type Props = {

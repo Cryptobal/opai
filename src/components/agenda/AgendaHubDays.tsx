@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ymdInChile } from "@/lib/dates-cl";
 import { type HubAgendaItem, hhmm } from "./agenda-hub-item";
 
@@ -29,7 +30,13 @@ export function AgendaHubDays({
             </p>
             <ul className="space-y-1">
               {dayItems.slice(0, 3).map((i) =>
-                i.source === "google" ? (
+                i.source === "tarea" ? (
+                  <li key={`tarea-${i.id}`} className="truncate text-[12px]">
+                    <Link href={i.href || "/crm/mi-semana"} className="text-primary">
+                      ✓ {i.allDay ? i.title : `${hhmm(i.start)} · ${i.title}`}
+                    </Link>
+                  </li>
+                ) : i.source === "google" ? (
                   <li
                     key={`google-${i.id}`}
                     className="truncate text-[12px] text-ds-text-3"
