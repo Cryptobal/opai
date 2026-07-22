@@ -131,7 +131,26 @@ export async function loadCommittedIncome(
 
   const coveredPeriods = new Set<string>();
   const endDateByTemplate = new Map(templates.map((t) => [t.id, t.endDate]));
-  const diasCobroByTemplate = new Map(templates.map((t) => [t.id, t.diasCobroDesdeFactura]));
+  const diasCobroByTemplate = new Map<string, number | null>(
+    templates.map((t) => [t.id, t.diasCobroDesdeFactura]),
+  );
+
+  // El término por contrato también debe aplicar a facturas/borradores de
+  // programaciones YA TERMINADAS (contrato a plazo cuyas cuentas por cobrar
+  // siguen pendientes). El query de arriba es solo isActive=true; buscamos el
+  // término de los templates referenciados que falten en el mapa.
+  const referencedTemplateIds = new Set<string>();
+  for (const d of dtes) if (d.recurringTemplateId) referencedTemplateIds.add(d.recurringTemplateId);
+  for (const d of recurringLinked) if (d.recurringTemplateId) referencedTemplateIds.add(d.recurringTemplateId);
+  const missingTemplateIds = [...referencedTemplateIds].filter((id) => !diasCobroByTemplate.has(id));
+  if (missingTemplateIds.length > 0) {
+    const extra = await prisma.financeDteRecurringTemplate.findMany({
+      where: { tenantId, id: { in: missingTemplateIds } },
+      select: { id: true, diasCobroDesdeFactura: true },
+    });
+    for (const t of extra) diasCobroByTemplate.set(t.id, t.diasCobroDesdeFactura);
+  }
+
   const drafts: ScheduledDraftInput[] = [];
   for (const d of recurringLinked) {
     if (d.recurringTemplateId && d.billingPeriod) {

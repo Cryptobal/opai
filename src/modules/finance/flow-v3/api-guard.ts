@@ -10,7 +10,10 @@ import { hasCapability } from "@/lib/permissions";
  */
 export async function requireFlowV3(
   capability: "cashflow_view" | "cashflow_manage",
-): Promise<{ ctx: AuthContext; error?: never } | { ctx?: never; error: NextResponse }> {
+): Promise<
+  | { ctx: AuthContext; canManage: boolean; error?: never }
+  | { ctx?: never; canManage?: never; error: NextResponse }
+> {
   const ctx = await requireAuth();
   if (!ctx) return { error: unauthorized() };
   const perms = await resolveApiPerms(ctx);
@@ -19,7 +22,9 @@ export async function requireFlowV3(
       error: NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 }),
     };
   }
-  return { ctx };
+  // `canManage` permite que el caller decida acciones de escritura implícitas
+  // (ej. el auto-bootstrap de la planilla) sin re-resolver permisos.
+  return { ctx, canManage: hasCapability(perms, "cashflow_manage") };
 }
 
 export function flowV3Error(error: unknown, fallback = "Error interno"): NextResponse {

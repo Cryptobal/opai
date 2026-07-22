@@ -41,7 +41,7 @@ function remapSentinels<T>(map: Map<string, T>, keyFor: (sentinel: string) => st
 
 export async function buildFlowMatrix(
   tenantId: string,
-  q: { from?: Date; to?: Date; granularity?: "week" | "month" },
+  q: { from?: Date; to?: Date; granularity?: "week" | "month"; allowBootstrap?: boolean },
 ): Promise<FlowMatrixResponse> {
   const today = new Date();
   const todayYmd = toYmd(today);
@@ -56,7 +56,9 @@ export async function buildFlowMatrix(
 
   // Primera vez sin filas: bootstrap automático (programaciones activas +
   // canónicas + backfill de términos por contrato). Nadie corre scripts.
-  await ensureFlowBootstrap(tenantId);
+  // Solo lo dispara un usuario con permiso de gestión: este GET no debe
+  // escribir cuando lo abre alguien de solo-lectura.
+  if (q.allowBootstrap) await ensureFlowBootstrap(tenantId);
 
   const dbRows = await prisma.financeFlowRow.findMany({ where: { tenantId } });
   const refs: FlowRowRef[] = dbRows.map((r) => ({

@@ -1,7 +1,9 @@
 import "server-only";
+import { Prisma, type FlowSection } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import type { FlowSection } from "@prisma/client";
 import { CANONICAL_FLOW_ROWS } from "./canonical-rows";
+
+type Tx = Prisma.TransactionClient;
 
 /**
  * Auto-bootstrap de la planilla: si el tenant NO tiene ninguna fila, las crea
@@ -13,26 +15,44 @@ import { CANONICAL_FLOW_ROWS } from "./canonical-rows";
  *     configuró términos por contrato) a la programación equivalente —
  *     SOLO cuando el template aún no tiene término propio (null).
  *
- * Idempotente por claves naturales; solo corre completo cuando rowCount=0
- * (una carrera doble en el primerísimo load es inocua: findFirst por fila).
+ * ATOMICIDAD: como FinanceFlowRow no tiene unique en sus claves naturales, dos
+ * primeras cargas concurrentes podrían duplicar filas. Se serializa con un
+ * advisory lock transaccional por tenant + doble chequeo del rowCount dentro
+ * de la transacción (el segundo request encuentra filas y sale sin escribir).
  */
 export async function ensureFlowBootstrap(tenantId: string): Promise<void> {
+  // Fast path sin lock: la enorme mayoría de las cargas ya tienen filas.
   const rowCount = await prisma.financeFlowRow.count({ where: { tenantId } });
   if (rowCount > 0) return;
 
+  await prisma.$transaction(async (tx) => {
+    // Lock por tenant: serializa el primerísimo bootstrap concurrente. Se
+    // libera solo al terminar la transacción. La key combina un namespace fijo
+    // con el tenant para no chocar con otros advisory locks del sistema.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`flow-v3-bootstrap:${tenantId}`})::int8)`;
+
+    // Doble chequeo: si otra request ya sembró, salir sin duplicar.
+    const recount = await tx.financeFlowRow.count({ where: { tenantId } });
+    if (recount > 0) return;
+
+    await runBootstrap(tx, tenantId);
+  });
+}
+
+async function runBootstrap(tx: Tx, tenantId: string): Promise<void> {
   const [templates, categories, oldItems] = await Promise.all([
-    prisma.financeDteRecurringTemplate.findMany({
+    tx.financeDteRecurringTemplate.findMany({
       where: { tenantId, isActive: true, crmAccountId: { not: null } },
       select: {
         id: true, crmAccountId: true, installationId: true,
         diasCobroDesdeFactura: true,
       },
     }),
-    prisma.financeCashflowCategory.findMany({
+    tx.financeCashflowCategory.findMany({
       where: { tenantId },
       select: { id: true, code: true },
     }),
-    prisma.financeCashflowItem.findMany({
+    tx.financeCashflowItem.findMany({
       where: {
         tenantId,
         source: { in: ["CONTRACT", "OTHER"] },
@@ -45,7 +65,7 @@ export async function ensureFlowBootstrap(tenantId: string): Promise<void> {
   ]);
 
   let orderIndex = 0;
-  const ensureRow = async (data: {
+  const createRow = async (data: {
     section: FlowSection;
     name: string;
     mapping: "ACCOUNT_INSTALLATION" | "CATEGORY" | "MANUAL";
@@ -53,16 +73,9 @@ export async function ensureFlowBootstrap(tenantId: string): Promise<void> {
     installationId?: string | null;
     categoryId?: string | null;
   }) => {
-    const where =
-      data.mapping === "ACCOUNT_INSTALLATION"
-        ? {
-            tenantId, mapping: data.mapping,
-            crmAccountId: data.crmAccountId, installationId: data.installationId ?? null,
-          }
-        : { tenantId, section: data.section, name: data.name };
-    const existing = await prisma.financeFlowRow.findFirst({ where, select: { id: true } });
-    if (existing) return;
-    await prisma.financeFlowRow.create({
+    // Bajo el lock + recount=0 no hay filas previas, así que el create es
+    // directo (sin findFirst): claves naturales garantizadas únicas por lote.
+    await tx.financeFlowRow.create({
       data: {
         tenantId, section: data.section, name: data.name, mapping: data.mapping,
         orderIndex: orderIndex++,
@@ -79,20 +92,20 @@ export async function ensureFlowBootstrap(tenantId: string): Promise<void> {
     const key = `${t.crmAccountId}::${t.installationId ?? ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const account = await prisma.crmAccount.findFirst({
+    const account = await tx.crmAccount.findFirst({
       where: { id: t.crmAccountId!, tenantId },
       select: { name: true },
     });
     if (!account) continue;
     let name = account.name;
     if (t.installationId) {
-      const inst = await prisma.crmInstallation.findFirst({
+      const inst = await tx.crmInstallation.findFirst({
         where: { id: t.installationId, tenantId },
         select: { name: true },
       });
       if (inst) name = `${account.name} · ${inst.name}`;
     }
-    await ensureRow({
+    await createRow({
       section: "INGRESOS", name, mapping: "ACCOUNT_INSTALLATION",
       crmAccountId: t.crmAccountId, installationId: t.installationId,
     });
@@ -102,7 +115,7 @@ export async function ensureFlowBootstrap(tenantId: string): Promise<void> {
   const catByCode = new Map(categories.map((c) => [c.code, c.id]));
   for (const c of CANONICAL_FLOW_ROWS) {
     const categoryId = c.categoryCode ? (catByCode.get(c.categoryCode) ?? null) : null;
-    await ensureRow({
+    await createRow({
       section: c.section, name: c.name,
       mapping: categoryId ? "CATEGORY" : "MANUAL", categoryId,
     });
@@ -122,7 +135,7 @@ export async function ensureFlowBootstrap(tenantId: string): Promise<void> {
       termByKey.get(`${t.crmAccountId}::${t.installationId ?? ""}`) ??
       termByKey.get(`${t.crmAccountId}::`);
     if (dias != null) {
-      await prisma.financeDteRecurringTemplate.update({
+      await tx.financeDteRecurringTemplate.update({
         where: { id: t.id },
         data: { diasCobroDesdeFactura: dias },
       });
