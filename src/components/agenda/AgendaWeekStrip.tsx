@@ -2,22 +2,9 @@
 
 import { addDaysChile, startOfDayChile, todayInChile, ymdInChile } from "@/lib/dates-cl";
 import { AgendaDayColumn } from "./AgendaDayColumn";
+import type { AgendaCalendarItem } from "./agenda-calendar.types";
 
-export type WeekItem = {
-  id: string;
-  source: string;
-  type: string;
-  title: string;
-  start: string;
-  end?: string | null;
-  allDay: boolean;
-  syncStatus: string | null;
-  dealId?: string | null;
-  assignedUserId?: string | null;
-  htmlLink?: string | null;
-  calendarName?: string | null;
-  href?: string | null;
-};
+export type WeekItem = AgendaCalendarItem;
 
 type Props = {
   weekStart: Date;

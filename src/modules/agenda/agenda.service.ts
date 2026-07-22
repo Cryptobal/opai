@@ -56,12 +56,41 @@ export async function reprogramAgendaVisita(
   id: string,
   startAt: Date,
   endAt: Date,
+  assignedUserId?: string,
 ) {
   const existing = await prisma.agendaVisita.findFirst({ where: { id, tenantId } });
   if (!existing) return null;
+
+  let nextAssignee = existing.assignedUserId;
+  if (assignedUserId && assignedUserId !== existing.assignedUserId) {
+    const assignee = await prisma.admin.findFirst({
+      where: { id: assignedUserId, tenantId, status: "active" },
+      select: { id: true },
+    });
+    if (!assignee) return null;
+
+    await syncAgendaVisitaToCalendar(tenantId, id, "delete");
+    await prisma.agendaEventLink.updateMany({
+      where: { tenantId, sourceType: "agenda_visita", sourceId: id },
+      data: {
+        googleEventId: null,
+        googleCalendarId: null,
+        calendarAccountId: null,
+        htmlLink: null,
+        syncStatus: "PENDING",
+      },
+    });
+    nextAssignee = assignee.id;
+  }
+
   const visita = await prisma.agendaVisita.update({
     where: { id },
-    data: { startAt, endAt, status: "reprogramada" },
+    data: {
+      startAt,
+      endAt,
+      assignedUserId: nextAssignee,
+      status: "reprogramada",
+    },
   });
   const sync = await syncAgendaVisitaToCalendar(tenantId, id);
   return { visita, sync };

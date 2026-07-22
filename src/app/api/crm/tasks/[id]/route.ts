@@ -1,6 +1,7 @@
 /**
  * API Route: /api/crm/tasks/[id]
- * PATCH  - Actualiza una tarea del checklist { title?, status?, dueAt? }.
+ * PATCH  - Actualiza una tarea del checklist
+ *          { title?, status?, dueAt?, allDay?, assignedTo? }.
  * DELETE - Elimina una tarea del checklist.
  *
  * Multi-tenant: valida que la tarea pertenezca a ctx.tenantId antes de mutar.
@@ -36,9 +37,37 @@ export async function PATCH(
     }
 
     const body = await request.json().catch(() => ({}));
-    const data: { title?: string; status?: string; dueAt?: Date | null; allDay?: boolean } = {};
+    const data: {
+      title?: string;
+      status?: string;
+      dueAt?: Date | null;
+      allDay?: boolean;
+      assignedTo?: string | null;
+    } = {};
 
     if (body?.allDay !== undefined) data.allDay = body.allDay === true;
+    if (body?.assignedTo !== undefined) {
+      if (body.assignedTo === null || body.assignedTo === "") {
+        data.assignedTo = null;
+      } else if (typeof body.assignedTo === "string") {
+        const assignee = await prisma.admin.findFirst({
+          where: { id: body.assignedTo, tenantId: ctx.tenantId, status: "active" },
+          select: { id: true },
+        });
+        if (!assignee) {
+          return NextResponse.json(
+            { success: false, error: "Responsable inválido" },
+            { status: 400 },
+          );
+        }
+        data.assignedTo = assignee.id;
+      } else {
+        return NextResponse.json(
+          { success: false, error: "Responsable inválido" },
+          { status: 400 },
+        );
+      }
+    }
 
     if (body?.title !== undefined) {
       const title = typeof body.title === "string" ? body.title.trim() : "";
@@ -66,7 +95,16 @@ export async function PATCH(
     const task = await prisma.crmTask.update({
       where: { id },
       data,
-      select: { id: true, title: true, status: true, type: true, dueAt: true, allDay: true, createdAt: true },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        type: true,
+        dueAt: true,
+        allDay: true,
+        assignedTo: true,
+        createdAt: true,
+      },
     });
 
     return NextResponse.json({ success: true, data: task });
