@@ -170,7 +170,7 @@ function getActiveModule(pathname: string): string | null {
 export function BottomNav({ userRole }: BottomNavProps) {
   const pathname = usePathname();
   const permissions = usePermissions();
-  const { enabledModules } = useTenantModules();
+  const { enabledModules, featureFlags } = useTenantModules();
   const { effectiveRole } = useRoleSimulation();
   const navRef = useRef<HTMLElement>(null);
   const navConfig = useNavConfig();
@@ -204,7 +204,7 @@ export function BottomNav({ userRole }: BottomNavProps) {
   // shows module-level navigation so the user can jump between entity lists.
   const activeModule = getActiveModule(pathname);
   const isAdmin = effectiveRole === 'owner' || effectiveRole === 'admin';
-  const moduleItems = activeModule ? getBottomNavItems(pathname, permsOrRole, enabledModules, isAdmin) : [];
+  const moduleItems = activeModule ? getBottomNavItems(pathname, permsOrRole, enabledModules, isAdmin, featureFlags) : [];
   const isInModule = !forceMainNav && !!activeModule && moduleItems.length > 0;
 
   return (

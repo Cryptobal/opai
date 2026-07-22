@@ -47,7 +47,7 @@ function AppLayoutClientInner({
   const permissions = isSimulating ? effectivePermissions : realPermissions;
   const isAdmin = userRole === 'owner' || userRole === 'admin';
   const isComplianceVisible = userRole === 'owner' || userRole === 'admin' || userRole === 'rrhh';
-  const { isModuleEnabled } = useTenantModules();
+  const { isModuleEnabled, hasFeatureFlag } = useTenantModules();
 
   const [unreadMentionNotesCount, setUnreadMentionNotesCount] = useState(0);
   const [notesByModule, setNotesByModule] = useState<Record<string, number>>({});
@@ -88,9 +88,10 @@ function AppLayoutClientInner({
         isAdmin,
         isComplianceVisible,
         isModuleEnabled,
+        hasTenantFlag: hasFeatureFlag,
         badges: { unreadMentionNotesCount, notesByModule },
       }),
-    [permissions, isAdmin, isComplianceVisible, isModuleEnabled, unreadMentionNotesCount, notesByModule],
+    [permissions, isAdmin, isComplianceVisible, isModuleEnabled, hasFeatureFlag, unreadMentionNotesCount, notesByModule],
   );
 
   return (

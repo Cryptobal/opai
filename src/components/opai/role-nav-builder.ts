@@ -36,6 +36,8 @@ export interface BuildNavItemsOptions {
   isAdmin: boolean;
   isComplianceVisible: boolean;
   isModuleEnabled: (key: string) => boolean;
+  /** Feature flags finos del tenant (opcional; ausente = todos OFF). */
+  hasTenantFlag?: (flag: string) => boolean;
   badges?: NavBadges;
 }
 
@@ -131,6 +133,7 @@ export function buildNavItems({
   isAdmin,
   isComplianceVisible,
   isModuleEnabled,
+  hasTenantFlag,
   badges,
 }: BuildNavItemsOptions): NavItem[] {
   const notes = badges?.notesByModule ?? {};
@@ -142,6 +145,7 @@ export function buildNavItems({
     isAdmin,
     isModuleEnabled,
     isComplianceVisible,
+    hasTenantFlag,
   };
 
   const items: NavItem[] = [];
