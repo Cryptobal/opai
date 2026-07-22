@@ -78,6 +78,7 @@ import {
   DEFAULT_LEAD_CPQ_CURRENCY,
   type LeadCpqConfig,
 } from "./LeadInstallationCpq";
+import { dotacionToPosition } from "@/lib/crm/lead-dotacion-to-position";
 import { SERVICE_TYPES } from "@/lib/constants";
 import { computeLeadCpqMonthlySaleClp } from "@/lib/crm/lead-cpq-monthly-total";
 import { formatCurrency } from "@/components/cpq/utils";
@@ -133,6 +134,8 @@ type DotacionItem = {
   horaInicio: string;
   horaFin: string;
   dias: string[];
+  /** Observaciones del turno (funciones, protocolos). Vienen del correo y llegan al PDF/portal. */
+  description?: string | null;
 
   /** Agrupación de servicio (persistida dentro del JSON meta del Lead). */
   serviceGroupKey?: string;
@@ -332,6 +335,12 @@ function parseDotacionItemFromMeta(raw: unknown, defaults: InstallationCatalogDe
     horaInicio: typeof d.horaInicio === "string" ? normalizeTimeToHHmm(d.horaInicio, "08:00") : "08:00",
     horaFin: typeof d.horaFin === "string" ? normalizeTimeToHHmm(d.horaFin, "20:00") : "20:00",
     dias: Array.isArray(d.dias) ? normalizeLeadDias(d.dias as string[]) : [...WEEKDAYS],
+    description:
+      typeof d.description === "string"
+        ? d.description
+        : typeof d.descripcion === "string"
+          ? (d.descripcion as string)
+          : undefined,
     serviceGroupKey: typeof d.serviceGroupKey === "string" ? d.serviceGroupKey : undefined,
     serviceGroupName: typeof d.serviceGroupName === "string" ? d.serviceGroupName : undefined,
     serviceGroupPattern:
@@ -1034,10 +1043,10 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
     );
 
     // Restore CPQ configs from metadata
-    const savedCpqConfigs = meta?.cpqConfigs as Record<string, LeadCpqConfig> | undefined;
-    if (savedCpqConfigs && typeof savedCpqConfigs === "object") {
-      setCpqConfigs(savedCpqConfigs);
-    }
+    const savedCpqConfigs =
+      meta?.cpqConfigs && typeof meta.cpqConfigs === "object" && !Array.isArray(meta.cpqConfigs)
+        ? (meta.cpqConfigs as Record<string, LeadCpqConfig>)
+        : {};
 
     const catalogDefaults: InstallationCatalogDefaults = {
       puestoId: defaultPuesto.id,
@@ -1046,8 +1055,9 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
       rolId: defaultRolId,
     };
     const fromInstallationsDraft = parseInstallationsDraftFromMetadata(meta?.installationsDraft, catalogDefaults);
+    let nextInstallations: InstallationDraft[];
     if (fromInstallationsDraft && fromInstallationsDraft.length > 0) {
-      setInstallations(fromInstallationsDraft);
+      nextInstallations = fromInstallationsDraft;
     } else {
       // Build installations from lead data (primer ingreso / sin borrador guardado)
       const leadLat = meta?.lat as number | undefined;
@@ -1096,10 +1106,27 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
           horaInicio: useLeadSchedule ? normalizeTimeToHHmm(d.horaInicio, "08:00") : "08:00",
           horaFin: useLeadSchedule ? normalizeTimeToHHmm(d.horaFin, "20:00") : "20:00",
           dias: useLeadSchedule ? normalizeLeadDias(d.dias) : [...WEEKDAYS],
+          description: typeof d.description === "string" ? d.description : undefined,
         };
       });
-      setInstallations([firstInst]);
+      nextInstallations = [firstInst];
     }
+    setInstallations(nextInstallations);
+
+    // Puentea los puestos del correo/cotizador (guardados en `dotacion`) al editor CPQ
+    // del lead, que lee `positions`. Sólo siembra instalaciones que aún no tienen config
+    // CPQ guardada, para no pisar puestos ya editados a mano ni el trabajo del usuario.
+    const seededCpqConfigs: Record<string, LeadCpqConfig> = { ...savedCpqConfigs };
+    for (const inst of nextInstallations) {
+      if (seededCpqConfigs[inst._key]) continue;
+      if (inst.dotacion.length === 0) continue;
+      seededCpqConfigs[inst._key] = {
+        ...createDefaultLeadCpqConfig(),
+        positions: inst.dotacion.map(dotacionToPosition),
+      };
+    }
+    setCpqConfigs(seededCpqConfigs);
+
     setDetectedCompanyLogoUrl(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead.id, isEditable]);
@@ -1126,6 +1153,38 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
         })),
       }))
     );
+    // Rellenar los IDs de catálogo en las posiciones ya sembradas desde `dotacion`
+    // (los puestos del correo llegan sin IDs; el catálogo carga async después del seed).
+    setCpqConfigs((prev) => {
+      let globalChanged = false;
+      const next: Record<string, LeadCpqConfig> = {};
+      for (const [key, cfg] of Object.entries(prev)) {
+        let cfgChanged = false;
+        const positions = cfg.positions.map((pos) => {
+          const puestoTrabajoId = pos.puestoTrabajoId || defaultPuesto.id;
+          const puesto = pos.puesto || defaultPuesto.name;
+          const cargoId = pos.cargoId || defaultCargoId;
+          const rolId = pos.rolId || defaultRolId;
+          if (
+            puestoTrabajoId === (pos.puestoTrabajoId ?? "") &&
+            puesto === (pos.puesto ?? "") &&
+            cargoId === (pos.cargoId ?? "") &&
+            rolId === (pos.rolId ?? "")
+          ) {
+            return pos;
+          }
+          cfgChanged = true;
+          return { ...pos, puestoTrabajoId, puesto, cargoId, rolId };
+        });
+        if (cfgChanged) {
+          globalChanged = true;
+          next[key] = { ...cfg, positions };
+        } else {
+          next[key] = cfg;
+        }
+      }
+      return globalChanged ? next : prev;
+    });
   }, [isEditable, defaultPuesto.id, defaultPuesto.name, defaultCargoId, defaultRolId]);
 
   // ─── Style helpers ───
