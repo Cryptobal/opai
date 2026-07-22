@@ -80,7 +80,23 @@ export async function createCalendarEvent(input: CreateCalendarEventInput) {
     action: "created",
     payload: { kind: event.kind, title: event.title },
   });
+  await notifySafe(input.tenantId, event.id, "invited", input.createdBy);
   return event;
+}
+
+/** Notificación OPAI best-effort (excluye al actor dentro de notifyCalendarEvent). */
+async function notifySafe(
+  tenantId: string,
+  eventId: string,
+  kind: "invited" | "updated" | "cancelled",
+  actorId?: string | null,
+) {
+  try {
+    const { notifyCalendarEvent } = await import("./calendar-notify");
+    await notifyCalendarEvent({ tenantId, eventId, kind, actorId });
+  } catch (err) {
+    console.warn("[calendar-v2] notify falló:", err instanceof Error ? err.message : err);
+  }
 }
 
 /** El creador siempre queda como organizer; si nadie es owner, el creador lo es. */
@@ -132,6 +148,7 @@ export async function updateCalendarEvent(
         : { fields: Object.keys(patch) }),
     },
   });
+  if (rescheduled) await notifySafe(tenantId, eventId, "updated", actorId);
   return event;
 }
 
@@ -142,6 +159,7 @@ export async function cancelCalendarEvent(tenantId: string, eventId: string, act
   });
   if (res.count === 0) return false;
   await recordCalendarAudit({ tenantId, eventId, actorId, action: "cancelled" });
+  await notifySafe(tenantId, eventId, "cancelled", actorId);
   return true;
 }
 

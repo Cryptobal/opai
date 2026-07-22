@@ -88,6 +88,7 @@ export async function setEventOwner(
   const current = await prisma.calendarEventParticipant.findMany({
     where: { tenantId, eventId, role: "owner" },
   });
+  if (current.some((p) => p.userId === newOwnerId)) return; // no-op: ya es owner
   for (const p of current) {
     if (p.userId !== newOwnerId) {
       await prisma.calendarEventParticipant.update({
@@ -108,4 +109,10 @@ export async function setEventOwner(
     action: "reassigned",
     payload: { newOwnerId, previousOwners: current.map((p) => p.userId) },
   });
+  try {
+    const { notifyCalendarEvent } = await import("./calendar-notify");
+    await notifyCalendarEvent({ tenantId, eventId, kind: "invited", actorId });
+  } catch (err) {
+    console.warn("[calendar-v2] notify reasignación falló:", err);
+  }
 }
