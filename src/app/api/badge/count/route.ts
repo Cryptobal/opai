@@ -3,10 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, type AuthContext } from "@/lib/api-auth";
 import { batchUnreadCounts } from "@/lib/chat";
 import { computeBellUnreadCount } from "@/lib/notifications/bell-visibility";
+import { notSnoozedWhere } from "@/modules/crm/email/correos-list";
 
 export const dynamic = "force-dynamic";
 
-type BadgeCounts = { chat: number; bell: number; total: number };
+type BadgeCounts = { chat: number; bell: number; correo: number; total: number };
 
 // Cache por usuario/instancia (60s): el cliente ya poll cada 60s pero además
 // re-sincroniza en visibilitychange y mensajes del SW; esto dedupe esas ráfagas
@@ -45,7 +46,34 @@ async function computeCounts(ctx: AuthContext): Promise<BadgeCounts> {
   }
 
   const bell = await computeBellUnreadCount(ctx);
-  return { chat, bell, total: chat + bell };
+
+  // Correo (PR-15): hilos no leídos del inbox de las casillas del usuario
+  // (ownership vía email_accounts; misma definición de inbox que la bandeja).
+  let correo = 0;
+  const emailAccounts = await prisma.crmEmailAccount.findMany({
+    where: {
+      tenantId: ctx.tenantId,
+      userId,
+      provider: "gmail",
+      status: "active",
+    },
+    select: { id: true },
+  });
+  if (emailAccounts.length > 0) {
+    correo = await prisma.crmEmailThread.count({
+      where: {
+        tenantId: ctx.tenantId,
+        emailAccountId: { in: emailAccounts.map((a) => a.id) },
+        trashedAt: null,
+        archivedAt: null,
+        spamAt: null,
+        isUnread: true,
+        ...notSnoozedWhere(new Date()),
+      },
+    });
+  }
+
+  return { chat, bell, correo, total: chat + bell + correo };
 }
 
 export async function GET() {

@@ -21,6 +21,12 @@
   ],
   "shortcuts": [
     {
+      "name": "Correos",
+      "short_name": "Correos",
+      "url": "/crm/correos",
+      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
       "name": "CRM",
       "short_name": "CRM",
       "url": "/crm",

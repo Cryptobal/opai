@@ -11,6 +11,7 @@ import { reconcileGmailFolders } from "./gmail-folder-reconcile";
 import { healInboxFromLocalLabels, selfHealInbox } from "./gmail-inbox-selfheal";
 import { classifyAccountThreads } from "./radar-classifier.service";
 import { gmailClientForAccount } from "./gmail-account-client";
+import { notifyNewInboundMail } from "./gmail-new-mail-push";
 
 const DEFAULT_BUDGET = 300;
 const TIME_BUDGET_MS = 45_000;
@@ -81,6 +82,9 @@ export async function syncGmailAccount(params: {
   if (!gmail) throw new Error("Gmail no conectado");
 
   const state = readSyncState(emailAccount.syncState);
+  // PR-15: marca de inicio de corrida — el push de correo nuevo solo cuenta
+  // mensajes insertados después de este punto.
+  const runStartedAt = new Date();
   const globalDeadline = params.deadlineMs ?? Date.now() + TIME_BUDGET_MS;
   const total = Math.max(globalDeadline - Date.now(), 0);
   const maintenance = params.profile !== "delta";
@@ -106,6 +110,19 @@ export async function syncGmailAccount(params: {
     emailAccount.id,
     changedGmailSyncState(state, result.state),
   );
+
+  // PR-15 (C22a): una notificación push por casilla por corrida con los
+  // inbound nuevos. Solo en incremental (el backfill importa histórico y
+  // avisaría por correos viejos). Best-effort: nunca lanza ni frena el sync.
+  if (mode === "incremental" && result.synced > 0) {
+    await notifyNewInboundMail({
+      tenantId: params.tenantId,
+      emailAccountId: emailAccount.id,
+      ownerUserId: emailAccount.userId,
+      ownEmail: emailAccount.email,
+      since: runStartedAt,
+    });
+  }
 
   if (!maintenance) {
     return {

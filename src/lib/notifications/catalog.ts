@@ -115,6 +115,19 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     audiences: ['admin'], defaults: { admin: adminBell(true) },
   },
 
+  // ── CRM - Correos (bandeja Gmail) ──
+  {
+    key: 'correo_nuevo', label: 'Correo nuevo',
+    description: 'Push en el teléfono cuando llega un correo a tu casilla Gmail conectada',
+    module: 'crm', category: 'CRM - Correos',
+    // Solo push (C22a): la campana ya la cubre el badge de la bandeja y el
+    // email sería redundante (¡avisar un correo por correo!). Targeted al
+    // dueño de la casilla; slackDmOnly para no filtrar metadata de correos
+    // a canales compartidos.
+    audiences: ['admin'], defaults: { admin: { bell: false, email: false, push: true } },
+    slackDmOnly: true,
+  },
+
   // ── CRM - Email / Follow-ups ──
   {
     key: 'email_opened', label: 'Email abierto',
