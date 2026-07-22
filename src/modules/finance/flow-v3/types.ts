@@ -37,7 +37,7 @@ export interface RealItem {
   label: string;
   /** Fecha real del movimiento (YYYY-MM-DD). */
   fecha: string;
-  /** CLP (magnitud). */
+  /** CLP SIGNADO por dirección de caja: + abono / − cargo. */
   monto: number;
 }
 

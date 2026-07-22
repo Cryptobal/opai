@@ -59,7 +59,7 @@ describe("deriveReal", () => {
         links: [{ targetType: "EXPENSE", targetId: null, amountClp: 450_000, accountPlanId: "plan-arr" }],
       })],
     });
-    expect(out.get("row-arriendo")?.get("2026-07-13")?.total).toBe(450_000);
+    expect(out.get("row-arriendo")?.get("2026-07-13")?.total).toBe(-450_000);
   });
 
   it("cargo PAYROLL_LIQUIDACION usa el atajo EGR_SUELDO", () => {
@@ -70,7 +70,7 @@ describe("deriveReal", () => {
         links: [{ targetType: "PAYROLL_LIQUIDACION", targetId: "liq-1", amountClp: 2_000_000, accountPlanId: null }],
       })],
     });
-    expect(out.get("row-sueldos")?.get("2026-07-13")?.total).toBe(2_000_000);
+    expect(out.get("row-sueldos")?.get("2026-07-13")?.total).toBe(-2_000_000);
   });
 
   it("movimiento sin match cae en Otros según signo", () => {
@@ -82,7 +82,7 @@ describe("deriveReal", () => {
       ],
     });
     expect(out.get(UNMATCHED_INCOME_KEY)?.get("2026-07-13")?.total).toBe(99_000);
-    expect(out.get(UNMATCHED_EXPENSE_KEY)?.get("2026-07-13")?.total).toBe(55_000);
+    expect(out.get(UNMATCHED_EXPENSE_KEY)?.get("2026-07-13")?.total).toBe(-55_000);
   });
 
   it("remanente parcialmente conciliado va a Otros", () => {

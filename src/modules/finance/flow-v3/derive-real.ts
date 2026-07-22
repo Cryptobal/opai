@@ -119,7 +119,8 @@ export function deriveReal(args: RealArgs): RealByRow {
         dteId: link.targetType.startsWith("DTE") ? (link.targetId ?? undefined) : undefined,
         label: dte?.name ?? tx.description,
         fecha: tx.dateYmd,
-        monto: Math.round(monto),
+        // Signado por dirección de caja: + abono / − cargo.
+        monto: isCredit ? Math.round(monto) : -Math.round(monto),
       });
     }
 
@@ -130,7 +131,7 @@ export function deriveReal(args: RealArgs): RealByRow {
         bankTransactionId: tx.id,
         label: tx.description,
         fecha: tx.dateYmd,
-        monto: Math.round(remainder),
+        monto: isCredit ? Math.round(remainder) : -Math.round(remainder),
       });
     }
   }
