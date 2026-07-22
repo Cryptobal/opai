@@ -131,6 +131,8 @@ function normalizePuesto(raw: unknown): LeadExtractionPuesto | null {
   const p = raw as Record<string, unknown>;
   return {
     nombre: str(p.nombre),
+    tipoPuesto: str(p.tipoPuesto),
+    cargo: str(p.cargo),
     rol: str(p.rol),
     descripcion: str(p.descripcion),
     dias: normalizeDias(p.dias),
@@ -156,6 +158,8 @@ function inferPuestosFromDotacion(
     return [
       {
         nombre: "Turno día",
+        tipoPuesto: null,
+        cargo: null,
         rol: "Guardia",
         descripcion: null,
         dias: [...WEEKDAYS_FULL],
@@ -167,6 +171,8 @@ function inferPuestosFromDotacion(
       },
       {
         nombre: "Turno noche",
+        tipoPuesto: null,
+        cargo: null,
         rol: "Guardia",
         descripcion: null,
         dias: [...WEEKDAYS_FULL],
@@ -181,6 +187,8 @@ function inferPuestosFromDotacion(
   return [
     {
       nombre: "Guardias",
+      tipoPuesto: null,
+      cargo: null,
       rol: "Guardia",
       descripcion: null,
       dias: [...WEEKDAYS_FULL],

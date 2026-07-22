@@ -50,6 +50,8 @@ export function coerceProposal(raw: LeadExtraction | Record<string, unknown>): L
     const x = (item ?? {}) as Record<string, unknown>;
     return {
       nombre: typeof x.nombre === "string" ? x.nombre : null,
+      tipoPuesto: typeof x.tipoPuesto === "string" ? x.tipoPuesto : null,
+      cargo: typeof x.cargo === "string" ? x.cargo : null,
       rol: typeof x.rol === "string" ? x.rol : null,
       descripcion: typeof x.descripcion === "string" ? x.descripcion : null,
       dias: Array.isArray(x.dias) && x.dias.length > 0
@@ -94,8 +96,11 @@ export function coerceProposal(raw: LeadExtraction | Record<string, unknown>): L
 
 function puestosToDotacion(puestos: LeadExtractionPuesto[]) {
   return puestos.map((p) => ({
-    puesto: p.rol || p.nombre || "Guardia",
-    customName: p.nombre || p.rol || undefined,
+    // Tipo de puesto es el catálogo "puesto" del CPQ; rol/nombre como fallback.
+    puesto: p.tipoPuesto || p.rol || p.nombre || "Guardia",
+    cargo: p.cargo || undefined,
+    rol: p.rol || undefined,
+    customName: p.nombre || p.tipoPuesto || p.rol || undefined,
     cantidad: p.numGuards && p.numGuards > 0 ? Math.floor(p.numGuards) : 1,
     numPuestos: p.numPuestos && p.numPuestos > 0 ? Math.floor(p.numPuestos) : 1,
     horaInicio: p.horaInicio || "08:00",
@@ -103,6 +108,7 @@ function puestosToDotacion(puestos: LeadExtractionPuesto[]) {
     dias: p.dias?.length ? p.dias : [...WEEKDAYS_FULL],
     baseSalary: p.sueldoBruto && p.sueldoBruto > 0 ? p.sueldoBruto : undefined,
     serviceGroupName: p.nombre || undefined,
+    description: p.descripcion || undefined,
     shiftType: (p.horaInicio || "").startsWith("20") ? "night" : "day",
   }));
 }

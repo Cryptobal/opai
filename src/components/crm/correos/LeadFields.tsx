@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
+import { useCpqCatalogs } from "@/lib/cpq/use-cpq-catalogs";
 import {
   WEEKDAYS_FULL,
   type LeadExtraction,
@@ -11,6 +12,40 @@ import {
 
 const INPUT =
   "h-10 sm:h-9 w-full rounded-lg border border-ds-border-default bg-ds-surface-1 px-2.5 text-[13px]";
+
+/** Marca festivo en `dias`; el backend la normaliza a "Fer" del CPQ. */
+const FESTIVO = "festivo";
+
+/** Horarios en pasos de 15 min (mismo set que el editor de turnos del CPQ). */
+const HOURS = Array.from({ length: 96 }, (_, i) => {
+  const h = Math.floor(i / 4).toString().padStart(2, "0");
+  const m = ((i % 4) * 15).toString().padStart(2, "0");
+  return `${h}:${m}`;
+});
+
+/** Select de catálogo (tipo puesto / cargo / rol) que preserva el valor del correo. */
+function CatalogSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string | null;
+  onChange: (v: string | null) => void;
+  options: { id: string; name: string }[];
+}) {
+  const inList = Boolean(value) && options.some((o) => o.name === value);
+  return (
+    <select className={INPUT} value={value ?? ""} onChange={(e) => onChange(e.target.value || null)}>
+      <option value="">—</option>
+      {value && !inList ? <option value={value}>{value} (del correo)</option> : null}
+      {options.map((o) => (
+        <option key={o.id} value={o.name}>
+          {o.name}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 function Conf({ v }: { v?: number }) {
   if (v == null) return null;
@@ -63,7 +98,9 @@ function Section({
 
 function emptyPuesto(): LeadExtractionPuesto {
   return {
-    nombre: "Guardias",
+    nombre: null,
+    tipoPuesto: null,
+    cargo: null,
     rol: "Guardia",
     descripcion: null,
     dias: [...WEEKDAYS_FULL],
@@ -92,6 +129,7 @@ export function LeadFields({
   p: LeadExtraction;
   onChange: (next: LeadExtraction) => void;
 }) {
+  const catalogs = useCpqCatalogs();
   const [open, setOpen] = useState({
     contacto: true,
     instalacion: true,
@@ -308,67 +346,91 @@ export function LeadFields({
               className="space-y-2 rounded-lg border border-ds-border-subtle bg-ds-surface-2/50 p-2"
             >
               <div className="flex items-start justify-between gap-2">
-                <div className="grid flex-1 grid-cols-2 gap-2">
-                  <div className="col-span-2 sm:col-span-1">
-                    <Label>Nombre / servicio</Label>
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div>
+                    <Label>Nombre del turno (opcional)</Label>
                     <input
                       className={INPUT}
                       value={row.nombre ?? ""}
+                      placeholder="ej. Control de acceso día"
                       onChange={(e) => updatePuesto(idx, { nombre: e.target.value || null })}
                     />
                   </div>
-                  <div className="col-span-2 sm:col-span-1">
-                    <Label>Rol</Label>
-                    <input
-                      className={INPUT}
-                      value={row.rol ?? ""}
-                      onChange={(e) => updatePuesto(idx, { rol: e.target.value || null })}
-                    />
+                  {/* Tres selectores de catálogo, como el editor de turnos del CPQ. */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <Label>Tipo de puesto</Label>
+                      <CatalogSelect
+                        value={row.tipoPuesto ?? null}
+                        options={catalogs.puestos}
+                        onChange={(v) => updatePuesto(idx, { tipoPuesto: v })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Cargo</Label>
+                      <CatalogSelect
+                        value={row.cargo ?? null}
+                        options={catalogs.cargos}
+                        onChange={(v) => updatePuesto(idx, { cargo: v })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Rol</Label>
+                      <CatalogSelect
+                        value={row.rol ?? null}
+                        options={catalogs.roles}
+                        onChange={(v) => updatePuesto(idx, { rol: v })}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label>Inicio</Label>
-                    <input
-                      type="time"
-                      className={INPUT}
-                      value={row.horaInicio ?? "08:00"}
-                      onChange={(e) => updatePuesto(idx, { horaInicio: e.target.value || null })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Fin</Label>
-                    <input
-                      type="time"
-                      className={INPUT}
-                      value={row.horaFin ?? "20:00"}
-                      onChange={(e) => updatePuesto(idx, { horaFin: e.target.value || null })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Guardias</Label>
-                    <input
-                      type="number"
-                      min={1}
-                      className={INPUT}
-                      value={row.numGuards ?? ""}
-                      onChange={(e) =>
-                        updatePuesto(idx, {
-                          numGuards: e.target.value ? Number(e.target.value) : null,
-                          numPuestos: e.target.value ? Number(e.target.value) : row.numPuestos,
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Sueldo bruto</Label>
-                    <input
-                      type="number"
-                      min={0}
-                      className={INPUT}
-                      value={row.sueldoBruto ?? ""}
-                      onChange={(e) =>
-                        updatePuesto(idx, { sueldoBruto: e.target.value ? Number(e.target.value) : null })
-                      }
-                    />
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div>
+                      <Label>Inicio</Label>
+                      <select
+                        className={`${INPUT} font-mono`}
+                        value={row.horaInicio ?? "08:00"}
+                        onChange={(e) => updatePuesto(idx, { horaInicio: e.target.value || null })}
+                      >
+                        {HOURS.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <Label>Fin</Label>
+                      <select
+                        className={`${INPUT} font-mono`}
+                        value={row.horaFin ?? "20:00"}
+                        onChange={(e) => updatePuesto(idx, { horaFin: e.target.value || null })}
+                      >
+                        {HOURS.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <Label>Guardias</Label>
+                      <input
+                        type="number"
+                        min={1}
+                        className={INPUT}
+                        value={row.numGuards ?? ""}
+                        onChange={(e) =>
+                          updatePuesto(idx, {
+                            numGuards: e.target.value ? Number(e.target.value) : null,
+                            numPuestos: e.target.value ? Number(e.target.value) : row.numPuestos,
+                          })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label>Sueldo bruto</Label>
+                      <input
+                        type="number"
+                        min={0}
+                        className={INPUT}
+                        value={row.sueldoBruto ?? ""}
+                        onChange={(e) =>
+                          updatePuesto(idx, { sueldoBruto: e.target.value ? Number(e.target.value) : null })
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
                 <button
@@ -387,24 +449,48 @@ export function LeadFields({
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
-              <div className="flex flex-wrap gap-1">
-                {WEEKDAYS_FULL.map((day) => {
-                  const on = row.dias.includes(day);
-                  return (
-                    <button
-                      key={day}
-                      type="button"
-                      onClick={() => toggleDay(idx, day)}
-                      className={`h-8 min-w-[36px] rounded-md px-1.5 text-[12px] font-medium ds-tap ${
-                        on
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-ds-surface-3 text-ds-text-3"
-                      }`}
-                    >
-                      {DAY_SHORT[day]}
-                    </button>
-                  );
-                })}
+              <div>
+                <Label>Días</Label>
+                <div className="flex flex-wrap items-center gap-1">
+                  {WEEKDAYS_FULL.map((day) => {
+                    const on = row.dias.includes(day);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => toggleDay(idx, day)}
+                        className={`h-8 min-w-[36px] rounded-md px-1.5 text-[12px] font-medium ds-tap ${
+                          on ? "bg-primary text-primary-foreground" : "bg-ds-surface-3 text-ds-text-3"
+                        }`}
+                      >
+                        {DAY_SHORT[day]}
+                      </button>
+                    );
+                  })}
+                  <span className="mx-0.5 h-4 w-px bg-ds-border-default" aria-hidden />
+                  <button
+                    type="button"
+                    title="Cubre festivos"
+                    onClick={() => toggleDay(idx, FESTIVO)}
+                    className={`h-8 min-w-[36px] rounded-md px-1.5 text-[12px] font-semibold ds-tap ${
+                      row.dias.includes(FESTIVO)
+                        ? "bg-status-warn-soft text-status-warn-fg"
+                        : "border border-dashed border-ds-border-default bg-ds-surface-3 text-ds-text-3"
+                    }`}
+                  >
+                    F
+                  </button>
+                </div>
+              </div>
+              <div>
+                <Label>Observaciones del turno</Label>
+                <textarea
+                  className={`${INPUT} h-16 py-1.5`}
+                  maxLength={500}
+                  placeholder="Funciones, protocolos o particularidades de este turno…"
+                  value={row.descripcion ?? ""}
+                  onChange={(e) => updatePuesto(idx, { descripcion: e.target.value || null })}
+                />
               </div>
             </div>
           ))}

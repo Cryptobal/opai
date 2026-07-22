@@ -7,12 +7,16 @@ export type LeadContacto = {
 
 /** Puesto / turno estructurado extraído del correo (editable antes de crear). */
 export type LeadExtractionPuesto = {
-  /** Nombre del servicio o grupo (ej. "Turno día", "Control de acceso"). */
+  /** Nombre del turno / servicio opcional (ej. "Control de acceso"). */
   nombre: string | null;
-  /** Rol / cargo en texto libre (ej. "Guardia", "Supervisor"). */
+  /** Tipo de puesto (catálogo CPQ por nombre; ej. "Control de Acceso"). */
+  tipoPuesto: string | null;
+  /** Cargo (catálogo CPQ por nombre; ej. "Guardia"). */
+  cargo: string | null;
+  /** Rol / turno (catálogo CPQ por nombre; ej. "4x4", "Guardia"). */
   rol: string | null;
   descripcion: string | null;
-  /** Días en minúsculas sin acento: lunes…domingo. */
+  /** Días en minúsculas sin acento: lunes…domingo. `festivo` = cobertura de feriados. */
   dias: string[];
   horaInicio: string | null; // HH:mm
   horaFin: string | null;
