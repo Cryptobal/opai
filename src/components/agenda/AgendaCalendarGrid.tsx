@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -26,6 +26,7 @@ import {
   CALENDAR_END_HOUR,
   CALENDAR_HOUR_HEIGHT,
   CALENDAR_SLOT_MINUTES,
+  CALENDAR_AUTOSCROLL_HOUR,
   CALENDAR_START_HOUR,
   agendaItemDayKey,
   calendarSlotMinutes,
@@ -71,6 +72,16 @@ export function AgendaCalendarGrid({
   const anchorMonth = ymdInChile(anchor).slice(0, 7);
   const [activeItem, setActiveItem] = useState<AgendaCalendarItem | null>(null);
   const [nowMinute, setNowMinute] = useState(() => minutesInChile(new Date()));
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Con rango 0-24, arrancar mirando las 07:00 (fix B8 del audit).
+  useEffect(() => {
+    if (view === "month") return;
+    scrollRef.current?.scrollTo({
+      top: (CALENDAR_AUTOSCROLL_HOUR - CALENDAR_START_HOUR) * CALENDAR_HOUR_HEIGHT,
+      behavior: "auto",
+    });
+  }, [view, anchorMonth]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -192,6 +203,7 @@ export function AgendaCalendarGrid({
       onDragEnd={handleDragEnd}
     >
       <Surface
+        ref={scrollRef}
         elevation={1}
         padding="none"
         className="max-h-[70vh] overflow-auto shadow-none"

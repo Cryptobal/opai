@@ -11,8 +11,11 @@ import type {
   AgendaViewMode,
 } from "./agenda-calendar.types";
 
-export const CALENDAR_START_HOUR = 7;
-export const CALENDAR_END_HOUR = 21;
+// Rango completo 0-24 (fix B8 del audit: eventos <07 o >21 eran invisibles).
+// La grilla desktop hace auto-scroll inicial a las 07:00.
+export const CALENDAR_START_HOUR = 0;
+export const CALENDAR_END_HOUR = 24;
+export const CALENDAR_AUTOSCROLL_HOUR = 7;
 export const CALENDAR_SLOT_MINUTES = 15;
 export const CALENDAR_HOUR_HEIGHT = 84;
 

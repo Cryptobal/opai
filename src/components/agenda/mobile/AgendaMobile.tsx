@@ -11,8 +11,10 @@ import type {
 import { LicitacionDrawer } from "../LicitacionDrawer";
 import { NuevaVisitaModal } from "../NuevaVisitaModal";
 import { VisitDrawer } from "../VisitDrawer";
+import { AgendaDayView } from "./AgendaDayView";
 import { AgendaFab } from "./AgendaFab";
 import { AgendaListView } from "./AgendaListView";
+import { AgendaMonthView } from "./AgendaMonthView";
 import { AgendaMobileFilterSheet } from "./AgendaMobileFilterSheet";
 import { AgendaMobileHeader } from "./AgendaMobileHeader";
 import {
@@ -94,16 +96,35 @@ export function AgendaMobile() {
         onOpenFilters={() => setFiltersOpen(true)}
       />
 
-      <AgendaListView
-        selectedYmd={selectedYmd}
-        items={filtered}
-        loading={loading}
-        error={error}
-        onRetry={() => void reload()}
-        onSelect={handleSelect}
-        onChanged={() => void reload()}
-        onCreateAt={() => setComposerOpen(true)}
-      />
+      {view === "agenda" && (
+        <AgendaListView
+          selectedYmd={selectedYmd}
+          items={filtered}
+          loading={loading}
+          error={error}
+          onRetry={() => void reload()}
+          onSelect={handleSelect}
+          onChanged={() => void reload()}
+          onCreateAt={() => setComposerOpen(true)}
+        />
+      )}
+      {view === "day" && (
+        <AgendaDayView
+          selectedYmd={selectedYmd}
+          items={filtered}
+          onSelectDate={setSelectedYmd}
+          onSelect={handleSelect}
+        />
+      )}
+      {view === "month" && (
+        <AgendaMonthView
+          selectedYmd={selectedYmd}
+          items={filtered}
+          onSelectDate={setSelectedYmd}
+          onSelect={handleSelect}
+          onChanged={() => void reload()}
+        />
+      )}
 
       <AgendaFab onClick={() => setComposerOpen(true)} />
 
