@@ -26,6 +26,23 @@ export async function syncAgendaVisitaToCalendar(
   });
   if (!visita) return { syncStatus: "ERROR" };
 
+  // Delegación v2: si el evento ya sincroniza vía CalendarProviderLink
+  // (creado por el composer con participantes), UN solo camino de sync —
+  // evita duplicar el evento en Google.
+  const { isCalendarV2Enabled } = await import("@/modules/calendar/calendar-flags");
+  if (isCalendarV2Enabled()) {
+    const v2Link = await prisma.calendarProviderLink.findFirst({
+      where: { tenantId, eventId: visita.id, provider: "google" },
+      select: { id: true },
+    });
+    if (v2Link) {
+      const { syncCalendarEventToGoogle } = await import(
+        "@/modules/calendar/calendar-google-sync"
+      );
+      return syncCalendarEventToGoogle(tenantId, visita.id);
+    }
+  }
+
   // Si el link ya tiene un evento Google creado, seguir sincronizando con la
   // cuenta dueña de ese evento (el organizador), aunque la visita se haya
   // reasignado — jamás patch/delete contra el calendario equivocado (fix B2).

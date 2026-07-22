@@ -43,6 +43,8 @@ export async function createAgendaVisita(input: {
       status: "programada",
     },
   });
+  // Espejo v2 antes del sync: si el sync delega a v2, necesita el estado fresco.
+  if (isCalendarV2Enabled()) await mirrorVisitaToV2(visita, input.createdBy);
   // Si el usuario destildó "crear evento en Calendar", la visita queda sin evento.
   const sync =
     input.syncCalendar === false
@@ -50,7 +52,6 @@ export async function createAgendaVisita(input: {
       : await syncAgendaVisitaToCalendar(input.tenantId, visita.id, "upsert", {
           inviteContacts: input.inviteContacts,
         });
-  if (isCalendarV2Enabled()) await mirrorVisitaToV2(visita, input.createdBy);
   return { visita, sync };
 }
 
@@ -100,8 +101,8 @@ export async function reprogramAgendaVisita(
       status: "reprogramada",
     },
   });
-  const sync = await syncAgendaVisitaToCalendar(tenantId, id);
   if (isCalendarV2Enabled()) await mirrorVisitaToV2(visita);
+  const sync = await syncAgendaVisitaToCalendar(tenantId, id);
   return { visita, sync };
 }
 
@@ -128,8 +129,8 @@ export async function cancelAgendaVisita(tenantId: string, id: string) {
     where: { id },
     data: { status: "cancelada" },
   });
-  const sync = await syncAgendaVisitaToCalendar(tenantId, id, "delete");
   if (isCalendarV2Enabled()) await mirrorVisitaToV2(visita);
+  const sync = await syncAgendaVisitaToCalendar(tenantId, id, "delete");
   return { visita, sync };
 }
 

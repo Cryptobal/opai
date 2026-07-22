@@ -310,7 +310,7 @@ export function AgendaToolbar({
   );
 }
 
-function FilterGroup({
+export function FilterGroup({
   label,
   options,
   value,
