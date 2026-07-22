@@ -20,12 +20,13 @@ interface Props {
   onRename: (rowId: string, name: string) => void;
   onArchive: (row: FlowMatrixRowDto) => void;
   onSetEndDate: (templateId: string, endDate: string | null) => void;
+  onSetDiasCobro: (templateId: string, diasCobro: number | null) => void;
   onBulkFill: (rowId: string, weekStarts: string[], amount: number) => Promise<unknown>;
   /** F4: swipe horizontal en mobile navega ±1 semana. */
   onSwipe?: (dir: "left" | "right") => void;
 }
 
-export function PlanillaGrid({ data, canManage, busy, patchPlan, onRename, onArchive, onSetEndDate, onBulkFill, onSwipe }: Props) {
+export function PlanillaGrid({ data, canManage, busy, patchPlan, onRename, onArchive, onSetEndDate, onSetDiasCobro, onBulkFill, onSwipe }: Props) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [popover, setPopover] = useState<PopoverState | null>(null);
   const [fillRight, setFillRight] = useState<FillRightRequest | null>(null);
@@ -187,6 +188,7 @@ export function PlanillaGrid({ data, canManage, busy, patchPlan, onRename, onArc
         canManage={canManage}
         onClose={() => setPopover(null)}
         onSetEndDate={onSetEndDate}
+        onSetDiasCobro={onSetDiasCobro}
       />
       <FillRightDialog
         request={fillRight}

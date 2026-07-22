@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { ChevronLeft, ChevronRight, Plus, Power } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
@@ -23,13 +25,42 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: "ok"
   );
 }
 
-export function PlanillaClient({ canManage }: { canManage: boolean }) {
+export function PlanillaClient({ canManage, flagOn }: { canManage: boolean; flagOn: boolean }) {
+  const router = useRouter();
   const isMobile = useIsMobileViewport();
   const m = usePlanillaMatrix({ isMobile });
   const actions = usePlanillaActions(m.refetch);
   const [addOpen, setAddOpen] = useState(false);
   const [archiving, setArchiving] = useState<FlowMatrixRowDto | null>(null);
   const [templateWarning, setTemplateWarning] = useState<string[] | null>(null);
+  const [enabled, setEnabled] = useState(flagOn);
+  const [togglingFlag, setTogglingFlag] = useState(false);
+  const [confirmFlag, setConfirmFlag] = useState<null | boolean>(null);
+
+  const toggleFlag = async (next: boolean) => {
+    setTogglingFlag(true);
+    try {
+      const res = await fetch("/api/finance/flow-v3/flag", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: next }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? "Error");
+      setEnabled(json.data.enabled);
+      toast.success(
+        json.data.enabled
+          ? "Modo Planilla activado en la navegación"
+          : "Modo Planilla desactivado (volviste a la versión anterior)",
+      );
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo cambiar el flag");
+    } finally {
+      setTogglingFlag(false);
+      setConfirmFlag(null);
+    }
+  };
 
   const doArchive = async () => {
     if (!archiving) return;
@@ -80,6 +111,23 @@ export function PlanillaClient({ canManage }: { canManage: boolean }) {
               <Plus className="mr-1 h-3.5 w-3.5" /> Agregar concepto
             </Button>
           )}
+          {canManage && (
+            <Button
+              variant={enabled ? "outline" : "default"}
+              size="sm"
+              className="h-7 px-2 text-xs"
+              disabled={togglingFlag}
+              onClick={() => setConfirmFlag(!enabled)}
+              title={
+                enabled
+                  ? "El Modo Planilla es la vista activa en la navegación"
+                  : "Activar el Modo Planilla en la navegación del equipo"
+              }
+            >
+              <Power className="mr-1 h-3.5 w-3.5" />
+              {enabled ? "Activo en navegación" : "Activar en navegación"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -97,6 +145,7 @@ export function PlanillaClient({ canManage }: { canManage: boolean }) {
             onRename={(rowId, name) => void actions.renameRow(rowId, name)}
             onArchive={setArchiving}
             onSetEndDate={(templateId, endDate) => void actions.setTemplateEndDate(templateId, endDate)}
+            onSetDiasCobro={(templateId, dias) => void actions.setTemplateDiasCobro(templateId, dias)}
             onBulkFill={actions.bulkFill}
             onSwipe={isMobile ? (dir) => (dir === "left" ? m.goNext() : m.goPrev()) : undefined}
           />
@@ -130,6 +179,24 @@ export function PlanillaClient({ canManage }: { canManage: boolean }) {
         onConfirm={async () => {
           for (const id of templateWarning ?? []) await actions.deactivateTemplate(id);
           setTemplateWarning(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmFlag != null}
+        onOpenChange={(o) => !o && setConfirmFlag(null)}
+        variant="default"
+        title={confirmFlag ? "Activar Modo Planilla" : "Volver a la versión anterior"}
+        description={
+          confirmFlag
+            ? "La navegación 'Flujo de Caja' de todo el equipo apuntará a esta planilla. El módulo anterior seguirá accesible con un banner. Puedes revertirlo cuando quieras."
+            : "La navegación volverá al Flujo de Caja anterior. Esta planilla seguirá accesible por su URL directa y tus datos quedan intactos."
+        }
+        confirmLabel={confirmFlag ? "Activar" : "Desactivar"}
+        cancelLabel="Cancelar"
+        loading={togglingFlag}
+        onConfirm={() => {
+          if (confirmFlag != null) void toggleFlag(confirmFlag);
         }}
       />
     </div>

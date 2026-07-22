@@ -1,0 +1,144 @@
+import "server-only";
+import { Prisma, type FlowSection } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { CANONICAL_FLOW_ROWS } from "./canonical-rows";
+
+type Tx = Prisma.TransactionClient;
+
+/**
+ * Auto-bootstrap de la planilla: si el tenant NO tiene ninguna fila, las crea
+ * en la primera carga del matrix — nadie corre scripts:
+ *  1. Una fila INGRESOS por cuenta+instalación con programación activa.
+ *  2. Filas canónicas de egresos (CATEGORY si la categoría del viejo existe).
+ *  3. Backfill de término de pago POR CONTRATO: copia diasCobroDesdeFactura
+ *     de los items del módulo viejo (source CONTRACT/OTHER, donde Carlos ya
+ *     configuró términos por contrato) a la programación equivalente —
+ *     SOLO cuando el template aún no tiene término propio (null).
+ *
+ * ATOMICIDAD: como FinanceFlowRow no tiene unique en sus claves naturales, dos
+ * primeras cargas concurrentes podrían duplicar filas. Se serializa con un
+ * advisory lock transaccional por tenant + doble chequeo del rowCount dentro
+ * de la transacción (el segundo request encuentra filas y sale sin escribir).
+ */
+export async function ensureFlowBootstrap(tenantId: string): Promise<void> {
+  // Fast path sin lock: la enorme mayoría de las cargas ya tienen filas.
+  const rowCount = await prisma.financeFlowRow.count({ where: { tenantId } });
+  if (rowCount > 0) return;
+
+  await prisma.$transaction(async (tx) => {
+    // Lock por tenant: serializa el primerísimo bootstrap concurrente. Se
+    // libera solo al terminar la transacción. La key combina un namespace fijo
+    // con el tenant para no chocar con otros advisory locks del sistema.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`flow-v3-bootstrap:${tenantId}`})::int8)`;
+
+    // Doble chequeo: si otra request ya sembró, salir sin duplicar.
+    const recount = await tx.financeFlowRow.count({ where: { tenantId } });
+    if (recount > 0) return;
+
+    await runBootstrap(tx, tenantId);
+  });
+}
+
+async function runBootstrap(tx: Tx, tenantId: string): Promise<void> {
+  const [templates, categories, oldItems] = await Promise.all([
+    tx.financeDteRecurringTemplate.findMany({
+      where: { tenantId, isActive: true, crmAccountId: { not: null } },
+      select: {
+        id: true, crmAccountId: true, installationId: true,
+        diasCobroDesdeFactura: true,
+      },
+    }),
+    tx.financeCashflowCategory.findMany({
+      where: { tenantId },
+      select: { id: true, code: true },
+    }),
+    tx.financeCashflowItem.findMany({
+      where: {
+        tenantId,
+        source: { in: ["CONTRACT", "OTHER"] },
+        isActive: true,
+        diasCobroDesdeFactura: { gt: 0 },
+        crmAccountId: { not: null },
+      },
+      select: { crmAccountId: true, installationId: true, diasCobroDesdeFactura: true },
+    }),
+  ]);
+
+  let orderIndex = 0;
+  const createRow = async (data: {
+    section: FlowSection;
+    name: string;
+    mapping: "ACCOUNT_INSTALLATION" | "CATEGORY" | "MANUAL";
+    crmAccountId?: string | null;
+    installationId?: string | null;
+    categoryId?: string | null;
+  }) => {
+    // Bajo el lock + recount=0 no hay filas previas, así que el create es
+    // directo (sin findFirst): claves naturales garantizadas únicas por lote.
+    await tx.financeFlowRow.create({
+      data: {
+        tenantId, section: data.section, name: data.name, mapping: data.mapping,
+        orderIndex: orderIndex++,
+        crmAccountId: data.crmAccountId ?? null,
+        installationId: data.installationId ?? null,
+        categoryId: data.categoryId ?? null,
+      },
+    });
+  };
+
+  // 1. Filas de ingreso por cuenta+instalación con programación activa.
+  const seen = new Set<string>();
+  for (const t of templates) {
+    const key = `${t.crmAccountId}::${t.installationId ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const account = await tx.crmAccount.findFirst({
+      where: { id: t.crmAccountId!, tenantId },
+      select: { name: true },
+    });
+    if (!account) continue;
+    let name = account.name;
+    if (t.installationId) {
+      const inst = await tx.crmInstallation.findFirst({
+        where: { id: t.installationId, tenantId },
+        select: { name: true },
+      });
+      if (inst) name = `${account.name} · ${inst.name}`;
+    }
+    await createRow({
+      section: "INGRESOS", name, mapping: "ACCOUNT_INSTALLATION",
+      crmAccountId: t.crmAccountId, installationId: t.installationId,
+    });
+  }
+
+  // 2. Filas canónicas.
+  const catByCode = new Map(categories.map((c) => [c.code, c.id]));
+  for (const c of CANONICAL_FLOW_ROWS) {
+    const categoryId = c.categoryCode ? (catByCode.get(c.categoryCode) ?? null) : null;
+    await createRow({
+      section: c.section, name: c.name,
+      mapping: categoryId ? "CATEGORY" : "MANUAL", categoryId,
+    });
+  }
+
+  // 3. Backfill término de pago por contrato desde el módulo viejo.
+  const termByKey = new Map<string, number>();
+  for (const it of oldItems) {
+    const exact = `${it.crmAccountId}::${it.installationId ?? ""}`;
+    if (!termByKey.has(exact)) termByKey.set(exact, it.diasCobroDesdeFactura);
+    const generic = `${it.crmAccountId}::`;
+    if (!termByKey.has(generic)) termByKey.set(generic, it.diasCobroDesdeFactura);
+  }
+  for (const t of templates) {
+    if (t.diasCobroDesdeFactura != null) continue; // término propio ya fijado: no pisar
+    const dias =
+      termByKey.get(`${t.crmAccountId}::${t.installationId ?? ""}`) ??
+      termByKey.get(`${t.crmAccountId}::`);
+    if (dias != null) {
+      await tx.financeDteRecurringTemplate.update({
+        where: { id: t.id },
+        data: { diasCobroDesdeFactura: dias },
+      });
+    }
+  }
+}

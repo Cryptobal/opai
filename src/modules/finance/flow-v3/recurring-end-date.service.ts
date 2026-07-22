@@ -77,3 +77,31 @@ export async function updateTemplateEndDate(
     where: { id: tpl.id, tenantId },
   });
 }
+
+/**
+ * Término de pago POR CONTRATO desde la planilla (días emisión → cobro).
+ * null = volver al default del tenant (collectionLagDays). Cada cliente paga
+ * distinto: este número mueve la semana de cobro de cuotas proyectadas,
+ * borradores y facturas del template sin dueDate.
+ */
+export async function updateTemplateDiasCobro(
+  tenantId: string,
+  templateId: string,
+  diasCobro: number | null,
+): Promise<FinanceDteRecurringTemplate> {
+  const tpl = await prisma.financeDteRecurringTemplate.findFirst({
+    where: { id: templateId, tenantId },
+    select: { id: true },
+  });
+  if (!tpl) throw new Error("Programación no encontrada");
+  if (diasCobro != null && (!Number.isInteger(diasCobro) || diasCobro < 0 || diasCobro > 180)) {
+    throw new Error("diasCobro inválido (0–180 o null)");
+  }
+  await prisma.financeDteRecurringTemplate.update({
+    where: { id: tpl.id },
+    data: { diasCobroDesdeFactura: diasCobro },
+  });
+  return prisma.financeDteRecurringTemplate.findFirstOrThrow({
+    where: { id: tpl.id, tenantId },
+  });
+}

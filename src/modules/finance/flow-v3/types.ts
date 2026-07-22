@@ -19,6 +19,8 @@ export interface CommittedItem {
   monto: number;
   /** Solo kind=scheduled: término de la programación (null = sin término). */
   endDate?: string | null;
+  /** Solo kind=scheduled: término de pago del contrato en días (null = default tenant). */
+  diasCobro?: number | null;
 }
 
 export interface CommittedCell {

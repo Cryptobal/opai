@@ -34,6 +34,8 @@ export interface IssuedDteInput {
   crmAccountId: string | null;
   installationId: string | null;
   receiverName: string;
+  /** Término del contrato origen (template) si la factura viene de uno. */
+  templateDiasCobro?: number | null;
 }
 
 export interface ScheduledDraftInput {
@@ -45,6 +47,7 @@ export interface ScheduledDraftInput {
   crmAccountId: string | null;
   installationId: string | null;
   templateEndDateYmd: string | null;
+  templateDiasCobro?: number | null;
 }
 
 export interface TemplateProjectionInput {
@@ -65,6 +68,8 @@ export interface TemplateProjectionInput {
   facturaMesRelativo: string;
   /** Monto bruto CLP por cuota, ya resuelto por el loader (líneas + IVA + UF). */
   grossPerRunClp: number;
+  /** Término de pago del contrato (null = default del tenant). */
+  diasCobro?: number | null;
 }
 
 export interface CommittedIncomeArgs {
@@ -97,7 +102,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
   const lagDays = args.collectionLagDays ?? DEFAULT_COLLECTION_LAG_DAYS;
 
   for (const d of args.dtes) {
-    const est = d.dueDateYmd ?? addDaysYmd(d.dateYmd, lagDays);
+    const est = d.dueDateYmd ?? addDaysYmd(d.dateYmd, d.templateDiasCobro ?? lagDays);
     const { week, fecha } = collectionWeek(est, args.todayYmd);
     if (!inRange(week) || d.pendingClp <= 0) continue;
     pushCommitted(out, matchRow(d.crmAccountId, d.installationId), week, {
@@ -111,7 +116,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
   }
 
   for (const dr of args.drafts) {
-    const est = addDaysYmd(dr.dateYmd, lagDays);
+    const est = addDaysYmd(dr.dateYmd, dr.templateDiasCobro ?? lagDays);
     const { week, fecha } = collectionWeek(est, args.todayYmd);
     if (!inRange(week) || dr.totalClp <= 0) continue;
     pushCommitted(out, matchRow(dr.crmAccountId, dr.installationId), week, {
@@ -140,7 +145,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
       const issueYmd = computeRecurringIssueYmd(tpl, anchor);
       if (issueYmd > lastWeek) break;
       if (!args.coveredPeriods.has(`${tpl.id}::${period}`)) {
-        const est = addDaysYmd(issueYmd, lagDays);
+        const est = addDaysYmd(issueYmd, tpl.diasCobro ?? lagDays);
         const { week, fecha } = collectionWeek(est, args.todayYmd);
         if (inRange(week)) {
           pushCommitted(out, matchRow(tpl.crmAccountId, tpl.installationId), week, {
@@ -150,6 +155,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
             fecha,
             monto: Math.round(tpl.grossPerRunClp),
             endDate: endYmd,
+            diasCobro: tpl.diasCobro ?? null,
           });
         }
       }

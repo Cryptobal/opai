@@ -26,6 +26,10 @@ export async function GET(request: NextRequest) {
       from: parsed.data.from,
       to: parsed.data.to,
       granularity: parsed.data.horizon,
+      // Solo un usuario con permiso de gestión dispara el auto-bootstrap
+      // (crear filas/backfill). Los de solo-lectura ven la planilla tal cual
+      // esté; nunca provocan escrituras desde este GET.
+      allowBootstrap: guard.canManage,
     });
     return NextResponse.json({ success: true, data });
   } catch (error) {

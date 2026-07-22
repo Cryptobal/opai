@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, hasCapability } from "@/lib/permissions-server";
 import { redirect } from "next/navigation";
+import { isTenantFeatureFlagEnabled } from "@/lib/tenant-modules";
 import { PlanillaClient } from "@/components/finance/flow-v3/PlanillaClient";
 
 /**
@@ -15,6 +16,7 @@ export default async function FlujoPlanillaPage() {
   const perms = await resolvePagePerms(session.user);
   if (!hasCapability(perms, "cashflow_view")) redirect("/finanzas");
   const canManage = hasCapability(perms, "cashflow_manage");
+  const flagOn = await isTenantFeatureFlagEnabled(session.user.tenantId, "cashflowPlanillaV3");
 
-  return <PlanillaClient canManage={canManage} />;
+  return <PlanillaClient canManage={canManage} flagOn={flagOn} />;
 }
