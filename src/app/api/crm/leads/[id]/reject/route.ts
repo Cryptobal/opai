@@ -135,9 +135,11 @@ export async function POST(
     let providerMessageId: string | null = null;
     const normalizedReason = body.reason;
 
-    let finalSubject = body.emailSubject?.trim() || "";
-    let finalBody = body.emailBody?.trim() || "";
-    let resolvedTemplateId: string | null = body.emailTemplateId ?? null;
+    const finalSubject = body.emailSubject?.trim() || "";
+    const finalBody = body.emailBody?.trim() || "";
+    // D2: CrmEmailTemplate eliminado (sin consumidores reales); el campo
+    // emailTemplateId de metadata queda null para compat de shape.
+    const resolvedTemplateId: string | null = null;
 
     if (body.sendEmail) {
       if (!emailTo) {
@@ -145,22 +147,6 @@ export async function POST(
           { success: false, error: "El lead no tiene email para enviar respuesta." },
           { status: 400 }
         );
-      }
-
-      if (body.emailTemplateId) {
-        const template = await prisma.crmEmailTemplate.findFirst({
-          where: { id: body.emailTemplateId, tenantId: ctx.tenantId },
-          select: { id: true, subject: true, body: true },
-        });
-        if (!template) {
-          return NextResponse.json(
-            { success: false, error: "Template de correo no encontrado." },
-            { status: 404 }
-          );
-        }
-        finalSubject = template.subject;
-        finalBody = template.body;
-        resolvedTemplateId = template.id;
       }
 
       if (!finalSubject || !finalBody) {

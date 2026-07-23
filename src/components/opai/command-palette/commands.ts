@@ -1695,16 +1695,6 @@ const configCommands: CommandItem[] = [
     canShow: (role) => hasConfigSubmoduleAccess(role, 'users'),
   },
   {
-    id: 'config-email-templates',
-    label: 'Plantillas de Email',
-    description: 'Plantillas de correo',
-    category: 'config',
-    icon: FileText,
-    href: '/opai/configuracion/email-templates',
-    keywords: ['plantillas email', 'templates correo'],
-    canShow: (role) => hasConfigSubmoduleAccess(role, 'users'),
-  },
-  {
     id: 'config-mi-plan',
     label: 'Mi Plan',
     description: 'Plan y suscripción del tenant',

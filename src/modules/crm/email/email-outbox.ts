@@ -24,7 +24,11 @@ import { Prisma, type CrmEmailOutbox } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { deleteFile } from "@/lib/storage";
 import type { StagedEmailAttachment } from "./gmail-outbound-attachments";
-import { performGmailSend } from "./gmail-send.service";
+import {
+  performGmailSend,
+  type ForwardAttachmentRef,
+  type StagedInlineImage,
+} from "./gmail-send.service";
 import { captureEmailError } from "./email-observability";
 
 export const EMAIL_OUTBOX_MAX_ATTEMPTS = 5;
@@ -52,6 +56,11 @@ export type EmailOutboxPayload = {
   contactId: string | null;
   attachments: StagedEmailAttachment[];
   userEmail: string | null;
+  fromAlias?: string | null;
+  inlineImages?: StagedInlineImage[];
+  forwardFromThreadId?: string | null;
+  forwardAttachments?: ForwardAttachmentRef[];
+  providerDraftId?: string | null;
 };
 
 /** Backoff exponencial del despacho: 30s, 2m, 8m, 30m (cap). */
@@ -140,11 +149,12 @@ export async function cancelOutboxItem(params: {
     where: { id: params.id },
     select: { payload: true },
   });
-  const attachments =
-    (item?.payload as EmailOutboxPayload | null)?.attachments ?? [];
-  await Promise.allSettled(
-    attachments.map((attachment) => deleteFile(attachment.storageKey)),
-  );
+  const payload = item?.payload as EmailOutboxPayload | null;
+  const staged = [
+    ...(payload?.attachments ?? []),
+    ...(payload?.inlineImages ?? []),
+  ];
+  await Promise.allSettled(staged.map((s) => deleteFile(s.storageKey)));
   return { cancelled: true };
 }
 
@@ -183,6 +193,11 @@ export async function dispatchOutboxItem(id: string): Promise<
     accountId: payload.accountId,
     contactId: payload.contactId,
     attachments: payload.attachments,
+    fromAlias: payload.fromAlias ?? null,
+    inlineImages: payload.inlineImages ?? [],
+    forwardFromThreadId: payload.forwardFromThreadId ?? null,
+    forwardAttachments: payload.forwardAttachments ?? [],
+    providerDraftId: payload.providerDraftId ?? null,
   });
 
   if (result.ok) {
@@ -271,9 +286,12 @@ export async function pendingOutboxStorageKeys(): Promise<Set<string>> {
   });
   const keys = new Set<string>();
   for (const row of rows) {
-    const attachments = (row.payload as EmailOutboxPayload | null)?.attachments ?? [];
-    for (const attachment of attachments) {
-      if (attachment?.storageKey) keys.add(attachment.storageKey);
+    const payload = row.payload as EmailOutboxPayload | null;
+    for (const staged of [
+      ...(payload?.attachments ?? []),
+      ...(payload?.inlineImages ?? []),
+    ]) {
+      if (staged?.storageKey) keys.add(staged.storageKey);
     }
   }
   return keys;

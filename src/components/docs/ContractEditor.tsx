@@ -13,6 +13,7 @@ import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
+import Image from "@tiptap/extension-image";
 import { ContractToken } from "./ContractTokenExtension";
 import { PageBreak } from "./PageBreakExtension";
 import { Columns, Column, ColumnsCommands } from "./ColumnsExtension";
@@ -44,6 +45,29 @@ interface ContractEditorProps {
   className?: string;
   filterModules?: string[];
   showPagePreview?: boolean;
+  /** Composer de correo (P06): permite pegar/soltar imágenes como data URL
+   *  (al enviar se convierten en adjuntos inline CID). */
+  enableImages?: boolean;
+  /** Altura compacta para composers embebidos (correo) en vez de página completa. */
+  compact?: boolean;
+}
+
+/** Lee archivos de imagen del clipboard/drop y los inserta como data URL. */
+function insertImageFiles(view: any, files: File[]): boolean {
+  const images = files.filter((f) => f.type.startsWith("image/"));
+  if (images.length === 0) return false;
+  for (const file of images) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const src = typeof reader.result === "string" ? reader.result : null;
+      if (!src) return;
+      const { schema, state } = view;
+      const node = schema.nodes.image?.create({ src });
+      if (node) view.dispatch(state.tr.replaceSelectionWith(node));
+    };
+    reader.readAsDataURL(file);
+  }
+  return true;
 }
 
 export function ContractEditor({
@@ -54,6 +78,8 @@ export function ContractEditor({
   className = "",
   filterModules,
   showPagePreview = true,
+  enableImages = false,
+  compact = false,
 }: ContractEditorProps) {
   // Default to "auto" (full container width) — readable on wide monitors.
   // Users can switch to A4/Carta/Oficio if they want page-width editing.
@@ -103,6 +129,9 @@ export function ContractEditor({
       Columns,
       ColumnsCommands,
       TokenSuggestionExtension.configure({ filterModules: filterModules ?? undefined }),
+      ...(enableImages
+        ? [Image.configure({ allowBase64: true, inline: false })]
+        : []),
     ],
     content: content || {
       type: "doc",
@@ -116,16 +145,25 @@ export function ContractEditor({
     editable,
     editorProps: {
       attributes: {
-        class:
-          "prose prose-invert prose-sm sm:prose-base max-w-none focus:outline-none min-h-[500px] px-8 py-6",
+        class: compact
+          ? "prose prose-invert prose-sm max-w-none focus:outline-none min-h-[160px] px-3 py-2"
+          : "prose prose-invert prose-sm sm:prose-base max-w-none focus:outline-none min-h-[500px] px-8 py-6",
       },
+      ...(enableImages
+        ? {
+            handlePaste: (view: any, event: ClipboardEvent) =>
+              insertImageFiles(view, Array.from(event.clipboardData?.files ?? [])),
+            handleDrop: (view: any, event: DragEvent) =>
+              insertImageFiles(view, Array.from(event.dataTransfer?.files ?? [])),
+          }
+        : {}),
     },
     onUpdate: ({ editor }) => {
       isInternalUpdate.current = true;
       onChange?.(editor.getJSON());
     },
   },
-  [editable, placeholder, filterModules]
+  [editable, placeholder, filterModules, enableImages, compact]
   );
 
   // Warning de clauseIds duplicados (solo console — banner UI queda para iteración futura)

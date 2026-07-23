@@ -8,6 +8,7 @@ import {
 import { runBackfill } from "./gmail-backfill";
 import { runIncremental } from "./gmail-incremental";
 import { reconcileGmailFolders } from "./gmail-folder-reconcile";
+import { syncGmailDrafts } from "./gmail-drafts.service";
 import { healInboxFromLocalLabels, selfHealInbox } from "./gmail-inbox-selfheal";
 import { classifyAccountThreads } from "./radar-classifier.service";
 import { gmailClientForAccount } from "./gmail-account-client";
@@ -172,6 +173,18 @@ export async function syncGmailAccount(params: {
     healed = await healInboxFromLocalLabels({
       tenantId: params.tenantId,
       emailAccountId: emailAccount.id,
+    });
+  }
+
+  // Fase 3.5 — espejo de borradores Gmail→OPAI (C08). Presupuesto corto,
+  // best-effort: un draft creado en Gmail aparece en OPAI y viceversa.
+  const draftsRemaining = globalDeadline - Date.now();
+  if (draftsRemaining >= 3_000) {
+    await syncGmailDrafts({
+      gmail,
+      tenantId: params.tenantId,
+      emailAccount: runArgs.emailAccount,
+      deadline: Date.now() + Math.min(8_000, draftsRemaining * 0.4),
     });
   }
 

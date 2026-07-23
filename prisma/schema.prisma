@@ -2636,6 +2636,9 @@ model CrmEmailAccount {
   syncState             Json?     @map("sync_state")
   /// Scopes OAuth concedidos (espacio-separados), p.ej. para detectar gmail.modify.
   grantedScopes         String?   @map("granted_scopes") @db.Text
+  /// Cache de users.settings.sendAs (aliases de envío): [{ email, displayName,
+  /// isDefault, verificationStatus }]. Se refresca al conectar y bajo demanda.
+  sendAs                Json?     @map("send_as")
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -2862,6 +2865,9 @@ model CrmEmailMessage {
   // Labels Gmail del mensaje (INBOX/SPAM/TRASH/UNREAD…). Fuente local para
   // derivar estado de hilo sin listados globales.
   labelIds       String[] @default([]) @map("label_ids")
+  // ── Borradores Gmail (C08): autosave bidireccional OPAI↔Gmail ──
+  isDraft         Boolean @default(false) @map("is_draft")
+  providerDraftId String? @map("provider_draft_id")
 
   thread CrmEmailThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
@@ -2872,26 +2878,8 @@ model CrmEmailMessage {
   @@index([followUpLogId], map: "idx_crm_email_messages_followup")
   @@index([emailAccountId], map: "idx_crm_email_messages_account")
   @@unique([emailAccountId, providerMessageId], map: "uq_crm_email_messages_account_provider")
+  @@index([emailAccountId, isDraft], map: "idx_crm_email_messages_draft")
   @@map("email_messages")
-  @@schema("crm")
-}
-
-model CrmEmailTemplate {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId  String   @map("tenant_id")
-  name      String
-  subject   String
-  body      String
-  scope     String   @default("global")
-  stageId   String?  @map("stage_id") @db.Uuid
-  createdBy String?  @map("created_by")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  @@index([tenantId], map: "idx_crm_email_templates_tenant")
-  @@index([scope], map: "idx_crm_email_templates_scope")
-  @@index([stageId], map: "idx_crm_email_templates_stage")
-  @@map("email_templates")
   @@schema("crm")
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Mail } from "lucide-react";
+import { Mail, PenLine } from "lucide-react";
 import { toast } from "sonner";
 import { PageHero, Surface, EmptyState, Spinner } from "@/components/opai-ds";
 import {
@@ -12,6 +12,7 @@ import {
 import { CorreoRowSwipe } from "./CorreoRowSwipe";
 import { CorreoDrawer } from "./CorreoDrawer";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
+import { CorreoComposeSheet } from "./CorreoComposeSheet";
 import { CorreosSyncBanner } from "./CorreosSyncBanner";
 import { snoozeThread } from "./correo-thread-action-client";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
@@ -58,6 +59,7 @@ export function CorreosClient() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [autoExtract, setAutoExtract] = useState(false);
   const [snoozeId, setSnoozeId] = useState<string | null>(null);
+  const [composeOpen, setComposeOpen] = useState(false);
   const [realtimeChannel, setRealtimeChannel] = useState<string | null>(null);
   const [realtimeRevision, setRealtimeRevision] = useState(0);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
@@ -250,6 +252,27 @@ export function CorreosClient() {
           onPreviewLines={setPreviewLines} lastSyncAt={lastSyncAt} />
       </div>
 
+      {connected && (
+        <>
+          {/* C13: composición nueva desde la bandeja — botón desktop + FAB móvil. */}
+          <button
+            type="button"
+            onClick={() => setComposeOpen(true)}
+            className="hidden h-9 items-center gap-1.5 rounded-xl bg-primary px-3 text-[13px] font-medium text-primary-foreground ds-tap lg:inline-flex"
+          >
+            <PenLine className="h-4 w-4" /> Redactar
+          </button>
+          <button
+            type="button"
+            aria-label="Redactar correo"
+            onClick={() => setComposeOpen(true)}
+            className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground shadow-lg ds-tap lg:hidden"
+          >
+            <PenLine className="h-4 w-4" /> Redactar
+          </button>
+        </>
+      )}
+
       <div
         ref={workspaceRef}
         className="relative min-w-0 lg:flex lg:items-start lg:gap-4"
@@ -305,6 +328,12 @@ export function CorreosClient() {
           onClose={closeThread}
           onChanged={() => void fetchPage(null, true)} />
       </div>
+
+      <CorreoComposeSheet
+        open={composeOpen}
+        onClose={() => setComposeOpen(false)}
+        onSent={() => void fetchPage(null, true)}
+      />
 
       <CorreoSnoozeSheet
         open={snoozeId !== null}

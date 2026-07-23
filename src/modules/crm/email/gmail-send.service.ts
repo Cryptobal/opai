@@ -30,6 +30,21 @@ import { enqueueGmailSyncJob, processGmailSyncJob } from "./gmail-sync-queue";
 import { captureEmailError } from "./email-observability";
 import { recordRecipients } from "./email-recipients";
 import { appendSignatureOnce } from "./email-signature";
+import { fetchGmailAttachment } from "./gmail-attachment";
+import { getSendAsAliases, resolveFromHeader } from "./gmail-sendas";
+import type { GmailInlineImage } from "./gmail-mime";
+
+/** Imagen inline staged: el HTML la referencia vía `src="cid:<contentId>"`. */
+export type StagedInlineImage = StagedEmailAttachment & { contentId: string };
+
+/** Adjunto original a re-adjuntar en un forward (C13). */
+export type ForwardAttachmentRef = {
+  /** providerMessageId de Gmail del mensaje original. */
+  providerMessageId: string;
+  attachmentId: string;
+  fileName: string;
+  size: number | null;
+};
 
 export type GmailSendInput = {
   tenantId: string;
@@ -47,6 +62,15 @@ export type GmailSendInput = {
   accountId: string | null;
   contactId: string | null;
   attachments: StagedEmailAttachment[];
+  /** Alias sendAs verificado a usar como From (C08). Null = casilla primaria. */
+  fromAlias?: string | null;
+  /** Imágenes inline CID (P06). */
+  inlineImages?: StagedInlineImage[];
+  /** Forward: hilo interno origen + adjuntos originales a re-adjuntar. */
+  forwardFromThreadId?: string | null;
+  forwardAttachments?: ForwardAttachmentRef[];
+  /** Draft de Gmail a eliminar tras el envío exitoso (autosave del composer). */
+  providerDraftId?: string | null;
 };
 
 export type GmailSendResult =
@@ -100,7 +124,11 @@ export async function performGmailSend(input: GmailSendInput): Promise<GmailSend
     providerMessageId: string | null;
     providerThreadId: string | null;
   } | null = null;
-  const storageKeys = input.attachments.map((a) => a.storageKey);
+  const stagedInline = input.inlineImages ?? [];
+  const storageKeys = [
+    ...input.attachments.map((a) => a.storageKey),
+    ...stagedInline.map((a) => a.storageKey),
+  ];
   try {
     const emailAccount = await prisma.crmEmailAccount.findFirst({
       where: {
@@ -156,6 +184,80 @@ export async function performGmailSend(input: GmailSendInput): Promise<GmailSend
       });
     }
 
+    // ── Imágenes inline CID (P06) ──
+    const inlineImages: GmailInlineImage[] = [];
+    for (const image of stagedInline) {
+      if (!image.mimeType.startsWith("image/")) {
+        return {
+          ok: false,
+          status: 400,
+          error: "Solo imágenes pueden ir inline",
+          retryable: false,
+        };
+      }
+      const metadata = await getStagedEmailFileMetadata(image.storageKey);
+      if (
+        metadata.size !== image.size ||
+        !metadata.eTag ||
+        actualAttachmentBytes + metadata.size > MAX_EMAIL_ATTACHMENT_BYTES
+      ) {
+        return {
+          ok: false,
+          status: 400,
+          error: "La imagen inline no coincide con la subida",
+          retryable: false,
+        };
+      }
+      const content = await getStagedEmailFileBuffer({
+        storageKey: image.storageKey,
+        expectedSize: metadata.size,
+        eTag: metadata.eTag,
+      });
+      actualAttachmentBytes += content.length;
+      inlineImages.push({
+        contentId: image.contentId,
+        mimeType: image.mimeType,
+        content,
+        fileName: image.fileName,
+      });
+    }
+
+    // ── Forward: re-adjuntar los originales desde Gmail (C13) ──
+    for (const ref of input.forwardAttachments ?? []) {
+      if (!input.forwardFromThreadId) break;
+      const result = await fetchGmailAttachment({
+        tenantId: input.tenantId,
+        userId: input.userId,
+        threadId: input.forwardFromThreadId,
+        messageId: ref.providerMessageId,
+        attachmentId: ref.attachmentId,
+        filenameHint: ref.fileName,
+        sizeHint: ref.size,
+      });
+      if (!result.ok) {
+        return {
+          ok: false,
+          status: result.status,
+          error: `No se pudo re-adjuntar “${ref.fileName}”: ${result.error}`,
+          retryable: result.status >= 500,
+        };
+      }
+      if (actualAttachmentBytes + result.size > MAX_EMAIL_ATTACHMENT_BYTES) {
+        return {
+          ok: false,
+          status: 400,
+          error: "Los adjuntos reenviados superan 25 MB en total",
+          retryable: false,
+        };
+      }
+      actualAttachmentBytes += result.size;
+      outboundAttachments.push({
+        fileName: result.filename,
+        mimeType: result.mimeType,
+        content: result.buffer,
+      });
+    }
+
     // ── Firma idempotente (R2): solo si el HTML no la contiene ya ──
     let finalHtml = input.html ?? "";
     let signatureId: string | null = null;
@@ -179,8 +281,25 @@ export async function performGmailSend(input: GmailSendInput): Promise<GmailSend
         })
       : null;
 
+    // ── Alias sendAs (C08): From validado contra los aliases verificados ──
+    let fromHeader: string | null = null;
+    let fromEmailUsed = normalizeEmailAddress(emailAccount.email);
+    if (input.fromAlias) {
+      const aliases = await getSendAsAliases(emailAccount);
+      fromHeader = resolveFromHeader(aliases, input.fromAlias);
+      if (!fromHeader) {
+        return {
+          ok: false,
+          status: 400,
+          error: "El alias remitente no está verificado en esta casilla",
+          retryable: false,
+        };
+      }
+      fromEmailUsed = normalizeEmailAddress(input.fromAlias);
+    }
+
     const raw = buildGmailRawMessage({
-      from: emailAccount.email,
+      from: fromHeader ?? emailAccount.email,
       to: input.to,
       cc: input.cc,
       bcc: input.bcc,
@@ -190,6 +309,7 @@ export async function performGmailSend(input: GmailSendInput): Promise<GmailSend
       inReplyTo: replyCtx?.inReplyTo ?? undefined,
       references: replyCtx?.references ?? undefined,
       attachments: outboundAttachments,
+      inlineImages,
     });
     if (Buffer.byteLength(raw, "base64url") > MAX_GMAIL_RAW_MESSAGE_BYTES) {
       return {
@@ -230,7 +350,7 @@ export async function performGmailSend(input: GmailSendInput): Promise<GmailSend
       threadId: threadRecord.id,
       providerMessageId,
       direction: "out",
-      fromEmail: normalizeEmailAddress(emailAccount.email),
+      fromEmail: fromEmailUsed,
       toEmails: input.to,
       ccEmails: input.cc,
       bccEmails: input.bcc,
@@ -282,6 +402,16 @@ export async function performGmailSend(input: GmailSendInput): Promise<GmailSend
     });
 
     // ── Efectos post-envío (nunca lanzan) ──
+    // El autosave deja un draft en Gmail: al enviar de verdad, se descarta.
+    if (input.providerDraftId) {
+      const { deleteGmailDraft } = await import("./gmail-drafts.service");
+      await deleteGmailDraft({
+        gmail,
+        tenantId: input.tenantId,
+        emailAccountId: emailAccount.id,
+        providerDraftId: input.providerDraftId,
+      }).catch(() => {});
+    }
     await Promise.allSettled(storageKeys.map((key) => deleteFile(key)));
     await recordRecipients({
       tenantId: input.tenantId,

@@ -74,6 +74,11 @@ export async function POST(request: NextRequest) {
       attachments: rawAttachments = [],
       idempotencyKey: rawIdempotencyKey,
       scheduledAt: rawScheduledAt,
+      fromAlias: rawFromAlias,
+      inlineImages: rawInlineImages = [],
+      forwardFromThreadId: rawForwardFromThreadId,
+      forwardAttachments: rawForwardAttachments = [],
+      providerDraftId: rawProviderDraftId,
     } = body;
 
     // `to` acepta string (compat) o string[] (Para editable / Responder a todos).
@@ -169,6 +174,91 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ── Imágenes inline CID (P06): staged igual que adjuntos + contentId ──
+    const inlineImages: Array<StagedEmailAttachment & { contentId: string }> = [];
+    if (!Array.isArray(rawInlineImages)) {
+      return NextResponse.json(
+        { success: false, error: "inlineImages inválido" },
+        { status: 400 },
+      );
+    }
+    for (const value of rawInlineImages) {
+      if (
+        !value ||
+        typeof value !== "object" ||
+        typeof value.storageKey !== "string" ||
+        typeof value.contentId !== "string" ||
+        !value.contentId.trim() ||
+        typeof value.fileName !== "string" ||
+        typeof value.mimeType !== "string" ||
+        !value.mimeType.startsWith("image/") ||
+        typeof value.size !== "number" ||
+        !Number.isFinite(value.size) ||
+        value.size <= 0 ||
+        !isOwnedEmailAttachmentKey({
+          storageKey: value.storageKey,
+          tenantId: ctx.tenantId,
+          userId: ctx.userId,
+        })
+      ) {
+        return NextResponse.json(
+          { success: false, error: "Imagen inline inválida" },
+          { status: 400 },
+        );
+      }
+      inlineImages.push({
+        storageKey: value.storageKey,
+        fileName: sanitizeEmailAttachmentName(value.fileName),
+        mimeType: value.mimeType,
+        size: value.size,
+        contentId: value.contentId.trim(),
+      });
+    }
+
+    // ── Forward (C13): refs de adjuntos originales a re-adjuntar ──
+    const forwardAttachments: Array<{
+      providerMessageId: string;
+      attachmentId: string;
+      fileName: string;
+      size: number | null;
+    }> = [];
+    if (!Array.isArray(rawForwardAttachments)) {
+      return NextResponse.json(
+        { success: false, error: "forwardAttachments inválido" },
+        { status: 400 },
+      );
+    }
+    for (const value of rawForwardAttachments) {
+      if (
+        !value ||
+        typeof value !== "object" ||
+        typeof value.providerMessageId !== "string" ||
+        typeof value.attachmentId !== "string" ||
+        typeof value.fileName !== "string"
+      ) {
+        return NextResponse.json(
+          { success: false, error: "Adjunto de reenvío inválido" },
+          { status: 400 },
+        );
+      }
+      forwardAttachments.push({
+        providerMessageId: value.providerMessageId,
+        attachmentId: value.attachmentId,
+        fileName: sanitizeEmailAttachmentName(value.fileName),
+        size: typeof value.size === "number" ? value.size : null,
+      });
+    }
+    const forwardFromThreadId =
+      typeof rawForwardFromThreadId === "string" && rawForwardFromThreadId
+        ? rawForwardFromThreadId
+        : null;
+    if (forwardAttachments.length > 0 && !forwardFromThreadId) {
+      return NextResponse.json(
+        { success: false, error: "forwardFromThreadId es requerido para re-adjuntar" },
+        { status: 400 },
+      );
+    }
+
     const scheduledAt = parseScheduledAt(rawScheduledAt);
     if (scheduledAt === "invalid") {
       return NextResponse.json(
@@ -218,6 +308,17 @@ export async function POST(request: NextRequest) {
       contactId: typeof contactId === "string" && contactId ? contactId : null,
       attachments: stagedAttachments,
       userEmail: ctx.userEmail ?? null,
+      fromAlias:
+        typeof rawFromAlias === "string" && rawFromAlias.trim()
+          ? rawFromAlias.trim().toLowerCase()
+          : null,
+      inlineImages,
+      forwardFromThreadId,
+      forwardAttachments,
+      providerDraftId:
+        typeof rawProviderDraftId === "string" && rawProviderDraftId
+          ? rawProviderDraftId
+          : null,
     };
 
     // ── Rollback: envío directo sin outbox (comportamiento previo) ──

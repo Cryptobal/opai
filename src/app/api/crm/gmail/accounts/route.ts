@@ -30,7 +30,7 @@ export const maxDuration = 30;
  * revocación igual (el stop queda corriendo en background, como antes). */
 const STOP_WATCH_TIMEOUT_MS = 8_000;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const modCheck = await requireTenantModule("crm");
   if (!modCheck.authorized) return modCheck.response;
 
@@ -38,6 +38,10 @@ export async function GET() {
   if (!ctx) return unauthorized();
   const forbidden = await requireCrmView(ctx);
   if (forbidden) return forbidden;
+
+  // C08: `?aliases=1` — anota cada casilla PROPIA activa con sus aliases
+  // sendAs (cacheados con TTL) para el selector de identidad del composer.
+  const withAliases = request.nextUrl.searchParams.get("aliases") === "1";
 
   const elevated = isAdminRole(ctx.userRole);
   const accounts = await prisma.crmEmailAccount.findMany({
@@ -47,9 +51,47 @@ export async function GET() {
       // Usuarios sin rol elevado solo ven sus propias casillas.
       ...(elevated ? {} : { userId: ctx.userId }),
     },
-    select: { id: true, email: true, status: true, userId: true, updatedAt: true },
+    select: {
+      id: true,
+      email: true,
+      status: true,
+      userId: true,
+      updatedAt: true,
+      ...(withAliases
+        ? { sendAs: true, accessTokenEncrypted: true, refreshTokenEncrypted: true }
+        : {}),
+    },
     orderBy: { createdAt: "asc" },
   });
+
+  if (withAliases) {
+    const { getSendAsAliases } = await import(
+      "@/modules/crm/email/gmail-sendas"
+    );
+    const enriched = await Promise.all(
+      accounts.map(async (account) => {
+        const aliases =
+          account.userId === ctx.userId && account.status === "active"
+            ? await getSendAsAliases(
+                account as typeof account & {
+                  sendAs: unknown;
+                  accessTokenEncrypted: string | null;
+                  refreshTokenEncrypted: string | null;
+                },
+              )
+            : [];
+        return {
+          id: account.id,
+          email: account.email,
+          status: account.status,
+          userId: account.userId,
+          updatedAt: account.updatedAt,
+          aliases,
+        };
+      }),
+    );
+    return NextResponse.json({ accounts: enriched });
+  }
 
   if (!elevated) {
     return NextResponse.json({ accounts });
