@@ -32,6 +32,10 @@ export interface AppShellProps {
   className?: string;
 }
 
+/** Rutas que en móvil toman la pantalla completa: sin isla topbar,
+ *  sin breadcrumbs, sin padding de página. BottomNav se mantiene. */
+const IMMERSIVE_MOBILE_PREFIXES = ['/crm/correos'];
+
 /**
  * AppShell - Layout principal
  *
@@ -62,6 +66,7 @@ function AppShellInner({
   className,
 }: AppShellProps) {
   const pathname = usePathname();
+  const isImmersiveMobile = IMMERSIVE_MOBILE_PREFIXES.some((p) => pathname.startsWith(p));
   const chatCtx = useChatSidePanelContext();
   const notifCtx = useNotificationSidePanelContext();
   const { unreadCount: notifUnreadCount } = useNotifications();
@@ -109,7 +114,9 @@ function AppShellInner({
       <GlassAmbient />
       <div className="relative min-h-[100dvh] overflow-x-clip">
         {/* ── Mobile topbar (redesigned — no hamburger, no sidebar) ── */}
-        {sidebar && (
+        {/* En rutas inmersivas el módulo pinta su propio top móvil (la isla
+            ya es lg:hidden, así que desktop no cambia al no renderizarla). */}
+        {sidebar && !isImmersiveMobile && (
           <header
             className="fixed top-0 left-0 right-0 z-30 lg:hidden pointer-events-none"
             style={{
@@ -185,7 +192,11 @@ function AppShellInner({
         <div
           className={cn(
             'transition-[padding,margin] duration-300 ease-out min-w-0',
-            'pt-[calc(4rem+env(safe-area-inset-top,0px))] lg:pt-12', // isla flotante (safe + 8px + 48px + 8px gap) en mobile; desktop 3rem
+            // isla flotante (safe + 8px + 48px + 8px gap) en mobile; desktop 3rem.
+            // Inmersivo: sin isla → solo safe-area arriba en móvil.
+            isImmersiveMobile
+              ? 'pt-[env(safe-area-inset-top,0px)] lg:pt-12'
+              : 'pt-[calc(4rem+env(safe-area-inset-top,0px))] lg:pt-12',
             isSidebarOpen ? 'lg:pl-64' : 'lg:pl-[72px]',
             anyPanelOpen && 'xl:mr-[400px]',
             className
@@ -224,16 +235,25 @@ function AppShellInner({
                 <div
                   data-layout-mode={isSheetFocus ? 'sheet-focus' : undefined}
                   className={cn(
-                    'w-full max-w-full animate-in-page min-w-0',
-                    isSheetFocus
-                      ? // Sheet focus: full-bleed en mobile/tablet (la hoja ocupa
-                        // todo entre topbar y bottom nav); desktop igual que siempre.
-                        'pt-1 pb-0 px-0 lg:pt-0 lg:pb-6 lg:overflow-x-clip lg:px-8 xl:px-10 2xl:px-12'
-                      : 'pt-4 pb-28 lg:pt-0 lg:pb-6 overflow-x-clip px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12',
+                    'w-full max-w-full animate-in-page min-w-0 lg:pt-0 lg:pb-6 lg:px-8 xl:px-10 2xl:px-12',
+                    // Inmersivo móvil (correos): el módulo ocupa todo el ancho
+                    // sin paddings de página y pinta su propio top móvil.
+                    isImmersiveMobile && 'overflow-x-clip pt-0 pb-0 px-0',
+                    // Sheet focus (planilla flujo de caja): full-bleed móvil
+                    // entre topbar y bottom nav; sin overflow-x-clip en móvil
+                    // (el scroll horizontal vive DENTRO de la hoja).
+                    isSheetFocus && 'pt-1 pb-0 px-0 lg:overflow-x-clip',
+                    !isImmersiveMobile && !isSheetFocus &&
+                      'overflow-x-clip pt-4 pb-28 px-4 sm:px-6',
                   )}
                   role="region"
                 >
-                  <div className={cn('pt-1 lg:pt-3 mb-2 lg:mb-3', isSheetFocus && 'hidden lg:block')}>
+                  <div
+                    className={cn(
+                      'lg:pt-3 lg:mb-3',
+                      isImmersiveMobile || isSheetFocus ? 'hidden lg:block' : 'pt-1 mb-2'
+                    )}
+                  >
                     <AutoBreadcrumbs />
                   </div>
                   {children}
