@@ -2,10 +2,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireTenantModule } from "@/lib/require-module";
+import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 
 export async function GET(req: NextRequest) {
-  const mod = await requireTenantModule("crm");
+  const mod = await requireCorreosAccess();
   if (!mod.authorized) return mod.response;
 
   const session = await auth();

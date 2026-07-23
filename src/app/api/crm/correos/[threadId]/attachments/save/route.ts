@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantModule } from "@/lib/require-module";
+import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { prisma } from "@/lib/prisma";
 import { uploadFile, STORAGE_PROVIDER } from "@/lib/storage";
 import { enqueueCrmFileToDrive } from "@/lib/google-workspace/drive-enqueue-hooks";
@@ -16,7 +16,7 @@ type Ctx = { params: Promise<{ threadId: string }> };
  * Idempotente por (entidad, fileName, size).
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
-  const mod = await requireTenantModule("crm");
+  const mod = await requireCorreosAccess();
   if (!mod.authorized) return mod.response;
   const { tenantId, userId } = mod.ctx;
 

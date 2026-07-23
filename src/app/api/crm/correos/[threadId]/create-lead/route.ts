@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { requireTenantModule } from "@/lib/require-module";
+import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { createLeadFromExtraction } from "@/modules/crm/email/email-to-lead-create.service";
 import type { CreateLeadMode, LeadExtraction, StagedFile } from "@/modules/crm/email/email-to-lead.types";
@@ -11,7 +11,7 @@ import { auditEmailAction } from "@/lib/audit-email";
 type Ctx = { params: Promise<{ threadId: string }> };
 
 export async function POST(req: NextRequest, ctx: Ctx) {
-  const mod = await requireTenantModule("crm");
+  const mod = await requireCorreosAccess();
   if (!mod.authorized) return mod.response;
 
   const authCtx = await requireAuth();

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -19,8 +19,9 @@ function fmt(ms: number): string {
  * últimos 30 días.
  */
 export async function GET() {
-  const ctx = await requireAuth();
-  if (!ctx) return unauthorized();
+  const access = await requireCorreosAccess();
+  if (!access.authorized) return access.response;
+  const ctx = access.ctx;
 
   const acc = await prisma.crmEmailAccount.findFirst({
     where: { tenantId: ctx.tenantId, userId: ctx.userId, provider: "gmail", status: "active" },

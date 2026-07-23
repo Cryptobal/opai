@@ -5,7 +5,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { requireTenantModule } from "@/lib/require-module";
+import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { hasGmailModify } from "@/lib/gmail";
 import { prisma } from "@/lib/prisma";
 import {
@@ -33,7 +33,7 @@ const BULK_ACTIONS = new Set<CorreoAction>([
 const MAX_BULK = 100;
 
 export async function POST(req: NextRequest) {
-  const mod = await requireTenantModule("crm");
+  const mod = await requireCorreosAccess();
   if (!mod.authorized) return mod.response;
 
   const session = await auth();

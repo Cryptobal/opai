@@ -1,4 +1,5 @@
 import { aiService } from "@/lib/ai-service";
+import { modelBelongsToProvider } from "@/lib/ai-model-match";
 import { logAiUsage } from "@/lib/platform-ai-service";
 import {
   verticalFromLegacyCategoria,
@@ -17,9 +18,34 @@ function approxTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
+/**
+ * Resuelve el proveedor y modelo EFECTIVOS del tenant para el registro de
+ * telemetría (aiUsageLog). Antes se registraba `providerType: "openai"` fijo,
+ * lo que corrompía la telemetría de tenants con Anthropic/Google.
+ *
+ * Null-safe: si `aiService.getActiveConfig` no está disponible (p. ej. en tests
+ * con mock parcial de aiService) cae a los literales previos, así los tests que
+ * asertan el `model` siguen verdes.
+ */
+async function resolveEffectiveAI(
+  tenantId: string,
+  feature: string,
+  fallbackModel: string,
+  override?: string,
+): Promise<{ providerType: string; model: string }> {
+  const cfg = await aiService.getActiveConfig?.({ tenantId, feature });
+  if (!cfg) return { providerType: "openai", model: fallbackModel };
+  const model =
+    override && modelBelongsToProvider(override, cfg.providerType)
+      ? override
+      : cfg.modelId;
+  return { providerType: cfg.providerType, model };
+}
+
 function logUsage(params: {
   tenantId: string;
   feature: string;
+  providerType: string;
   model: string;
   prompt: string;
   output: string;
@@ -27,7 +53,7 @@ function logUsage(params: {
 }): void {
   logAiUsage({
     tenantId: params.tenantId,
-    providerType: "openai",
+    providerType: params.providerType,
     model: params.model,
     feature: params.feature,
     inputTokens: approxTokens(params.prompt),
@@ -146,10 +172,12 @@ ${wrapUntrusted(
       tenantId: input.tenantId,
       feature: "correo-radar-classify",
     })) as Record<string, unknown>;
+    const eff = await resolveEffectiveAI(input.tenantId, "correo-radar-classify", "gpt-4o-mini", "gpt-4o-mini");
     logUsage({
       tenantId: input.tenantId,
       feature: "correo-radar-classify",
-      model: "gpt-4o-mini",
+      providerType: eff.providerType,
+      model: eff.model,
       prompt,
       output: JSON.stringify(raw ?? {}),
       startedAt,
@@ -178,10 +206,12 @@ ${wrapUntrusted(
       tenantId: input.tenantId,
       feature: "correo-radar-next-step",
     });
+    const eff = await resolveEffectiveAI(input.tenantId, "correo-radar-next-step", "default");
     logUsage({
       tenantId: input.tenantId,
       feature: "correo-radar-next-step",
-      model: "default",
+      providerType: eff.providerType,
+      model: eff.model,
       prompt,
       output: txt ?? "",
       startedAt,
@@ -217,10 +247,12 @@ ${wrapUntrusted(
       tenantId: input.tenantId,
       feature: "correo-suggest-reply",
     });
+    const eff = await resolveEffectiveAI(input.tenantId, "correo-suggest-reply", "default");
     logUsage({
       tenantId: input.tenantId,
       feature: "correo-suggest-reply",
-      model: "default",
+      providerType: eff.providerType,
+      model: eff.model,
       prompt,
       output: txt ?? "",
       startedAt,

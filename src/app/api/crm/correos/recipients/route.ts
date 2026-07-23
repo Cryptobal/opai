@@ -3,13 +3,13 @@
  * Con q vacío devuelve los frecuentes (precarga del caché local del cliente). */
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { requireTenantModule } from "@/lib/require-module";
+import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { suggestRecipients } from "@/modules/crm/email/email-recipients";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const mod = await requireTenantModule("crm");
+  const mod = await requireCorreosAccess();
   if (!mod.authorized) return mod.response;
 
   const session = await auth();

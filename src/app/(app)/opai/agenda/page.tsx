@@ -11,12 +11,12 @@ export default async function AgendaPage() {
     redirect("/opai/login?callbackUrl=/opai/agenda");
   }
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "crm", "deals")) {
+  if (!canView(perms, "productividad", "agenda")) {
     redirect("/hub");
   }
 
   // La Agenda vive fuera del layout de /crm pero la barra superior la resuelve
-  // al módulo Comercial (activePaths en el registry), así los tabs se mantienen.
+  // al nodo Productividad (activePaths en el registry), así los tabs se mantienen.
   return (
     <div className="space-y-3 min-w-0">
       <Suspense

@@ -3,20 +3,24 @@
  *
  * Cubre:
  *  - Sin sesión → 401.
- *  - Sesión sin permiso CRM view → 403.
+ *  - Sesión sin permiso productividad.agenda → 403.
  *  - Módulo crm deshabilitado en tenant → 403.
  *  - GET /api/agenda con permisos → 200.
  *  - PATCH visita ajena sin rol elevado → 403.
  *  - PATCH visita propia (assignedUserId) → 200.
  *  - PATCH visita ajena como admin → 200.
  *  - DELETE visita ajena sin rol → 403.
+ *
+ * Nota: la Agenda migró de `crm.deals` (permiso prestado) a
+ * `productividad.agenda`. El guard `requireAgendaAccess` ahora deriva el ctx del
+ * chequeo de módulo-tenant y resuelve permisos vía `resolveApiPerms`.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { NextRequest } from "next/server";
+import type { RolePermissions } from "@/lib/permissions";
 
-const requireAuthMock = vi.fn();
-const requireCrmViewMock = vi.fn();
 const requireTenantModuleMock = vi.fn();
+const resolveApiPermsMock = vi.fn();
 const visitaFindFirst = vi.fn();
 const linkFindUnique = vi.fn();
 const reprogramMock = vi.fn();
@@ -26,20 +30,17 @@ const completeMock = vi.fn();
 vi.mock("server-only", () => ({}));
 
 vi.mock("@/lib/api-auth", () => ({
-  requireAuth: requireAuthMock,
+  requireAuth: vi.fn(),
   unauthorized: () =>
     new Response(JSON.stringify({ error: "No autorizado" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
     }),
+  resolveApiPerms: resolveApiPermsMock,
 }));
 
 vi.mock("@/lib/require-module", () => ({
   requireTenantModule: requireTenantModuleMock,
-}));
-
-vi.mock("@/lib/api-auth-crm", () => ({
-  requireCrmView: requireCrmViewMock,
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -69,6 +70,17 @@ const CTX = {
   userRole: "member",
 };
 
+const PERMS_WITH_AGENDA: RolePermissions = {
+  modules: { productividad: "view" },
+  submodules: {},
+  capabilities: {},
+};
+const PERMS_WITHOUT_AGENDA: RolePermissions = {
+  modules: {},
+  submodules: {},
+  capabilities: {},
+};
+
 function req(url: string, init?: RequestInit): NextRequest {
   return new Request(url, init) as unknown as NextRequest;
 }
@@ -79,23 +91,23 @@ function routeCtx(id: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  requireTenantModuleMock.mockResolvedValue({ authorized: true });
-  requireAuthMock.mockResolvedValue(CTX);
-  requireCrmViewMock.mockResolvedValue(null);
+  requireTenantModuleMock.mockResolvedValue({ authorized: true, ctx: CTX });
+  resolveApiPermsMock.mockResolvedValue(PERMS_WITH_AGENDA);
 });
 
 describe("GET /api/agenda", () => {
   it("401 sin sesión", async () => {
-    requireAuthMock.mockResolvedValue(null);
+    requireTenantModuleMock.mockResolvedValue({
+      authorized: false,
+      response: new Response(JSON.stringify({ error: "No autorizado" }), { status: 401 }),
+    });
     const { GET } = await import("../route");
     const res = await GET(req("http://x/api/agenda?from=2026-07-01&to=2026-07-08"));
     expect(res.status).toBe(401);
   });
 
-  it("403 sin permiso CRM view", async () => {
-    requireCrmViewMock.mockResolvedValue(
-      new Response(JSON.stringify({ error: "forbidden" }), { status: 403 }),
-    );
+  it("403 sin permiso productividad.agenda", async () => {
+    resolveApiPermsMock.mockResolvedValue(PERMS_WITHOUT_AGENDA);
     const { GET } = await import("../route");
     const res = await GET(req("http://x/api/agenda?from=2026-07-01&to=2026-07-08"));
     expect(res.status).toBe(403);
@@ -158,7 +170,10 @@ describe("PATCH /api/agenda/visitas/[id] — ownership", () => {
   });
 
   it("200 al cancelar visita ajena como admin", async () => {
-    requireAuthMock.mockResolvedValue({ ...CTX, userRole: "admin" });
+    requireTenantModuleMock.mockResolvedValue({
+      authorized: true,
+      ctx: { ...CTX, userRole: "admin" },
+    });
     visitaFindFirst.mockResolvedValue({
       id: "v1",
       createdBy: "otro",

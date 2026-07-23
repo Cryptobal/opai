@@ -28,10 +28,10 @@ describe("resolveNavContext", () => {
     expect(ctx?.title).toBe("PPC");
   });
 
-  it("resuelve una ruta sin N3 (Agenda, hermana plana de Comercial)", () => {
+  it("resuelve una ruta sin N3 (Agenda, hermana plana de Productividad)", () => {
     const ctx = resolveNavContext("/opai/agenda");
-    expect(ctx?.moduleNode.key).toBe("crm");
-    expect(ctx?.node.key).toBe("crm-agenda");
+    expect(ctx?.moduleNode.key).toBe("productividad");
+    expect(ctx?.node.key).toBe("productividad-agenda");
     expect(ctx?.title).toBe("Agenda");
   });
 

@@ -15,6 +15,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { aiService } from "@/lib/ai-service";
+import { modelBelongsToProvider } from "@/lib/ai-model-match";
 import { logAiUsage } from "@/lib/platform-ai-service";
 import { getFileBuffer } from "@/lib/storage";
 import { buildInstallationContext, buildFindingsContext, buildPhotosContext } from "./context-builder";
@@ -87,11 +88,18 @@ Vulnerabilidades disponibles para vincular: ${vulnerabilityKeys.join(", ")}`;
         visibleSector: response.visibleSector ?? null,
       });
 
+      // Proveedor/modelo efectivos del tenant. El override sólo aplica si el
+      // modelo pertenece al proveedor activo; si no, se usa el modelo del tenant.
+      const cfg = await aiService.getActiveConfig?.({ tenantId, feature: "vra_vision" });
       logAiUsage({
         tenantId,
         userId,
-        providerType: "openai",
-        model: VRA_VISION_MODEL_OVERRIDE,
+        providerType: cfg?.providerType ?? "openai",
+        model: cfg
+          ? (modelBelongsToProvider(VRA_VISION_MODEL_OVERRIDE, cfg.providerType)
+              ? VRA_VISION_MODEL_OVERRIDE
+              : cfg.modelId)
+          : VRA_VISION_MODEL_OVERRIDE,
         feature: "vra_vision",
         durationMs: Date.now() - t0,
         metadata: { photoId: photo.id },
@@ -199,11 +207,13 @@ REGLAS DE CALIDAD CRÍTICAS:
   const result = (await aiService.generateJSON(prompt, 4096, { tenantId, feature: "vra_section" })) as VraSectionContent;
   const durationMs = Date.now() - t0;
 
+  // Proveedor/modelo efectivos del tenant (antes se registraba "auto"/"tenant-default").
+  const cfg = await aiService.getActiveConfig?.({ tenantId, feature: "vra_section" });
   logAiUsage({
     tenantId,
     userId,
-    providerType: "auto",
-    model: "tenant-default",
+    providerType: cfg?.providerType ?? "auto",
+    model: cfg?.modelId ?? "tenant-default",
     feature: "vra_section",
     durationMs,
     metadata: { sectionKey: template.key, outputType: template.outputType },

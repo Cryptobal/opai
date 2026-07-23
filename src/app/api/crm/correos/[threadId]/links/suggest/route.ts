@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireTenantModule } from "@/lib/require-module";
+import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { aiService } from "@/lib/ai-service";
 import { logAiUsage } from "@/lib/platform-ai-service";
 import { UNTRUSTED_RULES, wrapUntrusted } from "@/modules/crm/email/ai-untrusted";
@@ -22,7 +22,7 @@ export async function POST(
   _req: NextRequest,
   ctx: { params: Promise<{ threadId: string }> },
 ) {
-  const mod = await requireTenantModule("crm");
+  const mod = await requireCorreosAccess();
   if (!mod.authorized) return mod.response;
   const session = await auth();
   if (!session?.user?.tenantId) {

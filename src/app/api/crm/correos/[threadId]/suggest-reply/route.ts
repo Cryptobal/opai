@@ -1,7 +1,7 @@
 /** GET → borrador existente del radar; POST → genera borrador on-demand (IA). */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { requireTenantModule } from "@/lib/require-module";
+import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { prisma } from "@/lib/prisma";
 import { generateDraftReply } from "@/modules/crm/email/radar-classify-ai";
 import { stripHtml } from "@/modules/crm/email/radar-util";
@@ -46,7 +46,7 @@ function pickDraft(radars: { id: string; payload: unknown }[]): { draft: string 
 }
 
 export async function GET(_req: NextRequest, { params }: Ctx) {
-  const mod = await requireTenantModule("crm");
+  const mod = await requireCorreosAccess();
   if (!mod.authorized) return mod.response;
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
@@ -88,7 +88,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 }
 
 export async function POST(req: NextRequest, { params }: Ctx) {
-  const mod = await requireTenantModule("crm");
+  const mod = await requireCorreosAccess();
   if (!mod.authorized) return mod.response;
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
