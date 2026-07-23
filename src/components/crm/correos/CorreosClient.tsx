@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Mail, PenLine } from "lucide-react";
 import { toast } from "sonner";
-import { PageHero, Surface, EmptyState, Spinner } from "@/components/opai-ds";
+import { Surface, EmptyState, Spinner } from "@/components/opai-ds";
 import {
-  CorreosFilters,
   type CorreoChipKey,
   type CorreoFolderTab,
 } from "./CorreosFilters";
+import { CorreosDesktopRail } from "./CorreosDesktopRail";
+import { CorreosDesktopToolbar } from "./CorreosDesktopToolbar";
 import { CorreosMobileTopBar } from "./CorreosMobileTopBar";
 import { CorreosMobileDrawer } from "./CorreosMobileDrawer";
 import { CorreoSwipeSettingsSheet } from "./CorreoSwipeSettingsSheet";
@@ -18,7 +19,7 @@ import { CorreoDrawer } from "./CorreoDrawer";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
 import { CorreoComposeSheet } from "./CorreoComposeSheet";
 import { CorreoScheduledList } from "./CorreoScheduledList";
-import { CorreoBulkBar, runBulkCorreoAction } from "./CorreoBulkBar";
+import { runBulkCorreoAction } from "./CorreoBulkBar";
 import { useCorreosKeyboard } from "./useCorreosKeyboard";
 import { runCorreoAction } from "./correo-thread-action-client";
 import type { CorreoAction } from "@/modules/crm/email/gmail-thread-actions";
@@ -104,6 +105,8 @@ export function CorreosClient() {
     setPreviewLines,
     swipeConfig,
     setSwipeConfig,
+    railCollapsed,
+    setRailCollapsed,
     resetPanelWidth,
     onResizePointerDown,
     onResizeKeyDown,
@@ -510,17 +513,10 @@ export function CorreosClient() {
         config={swipeConfig}
         onConfig={setSwipeConfig}
       />
-    <div className="ds-page-enter space-y-5 max-lg:pb-28">
-      {/* El encabezado se desplaza con el scroll: recupera pantalla en móvil
-          (antes todo el hero quedaba fijo y solo scrolleaba la lista). */}
-      <div className="space-y-5 max-lg:px-4">
-        {/* En móvil el hero desaparece (modo inmersivo); los banners de estado
-            siguen visibles como franjas delgadas bajo el top móvil. */}
-        <div className="hidden lg:block">
-          <PageHero icon={Mail} iconTone="violet" title="Correos" subtitle="Bandeja comercial"
-            description="Hilos de tu Gmail vinculados a cuentas, negocios y leads" />
-        </div>
-
+    <div className="ds-page-enter space-y-5 max-lg:pb-28 lg:space-y-3">
+      {/* Sin hero en desktop (rediseño Gmail): breadcrumb + tab ya ubican.
+          Los banners de estado quedan como franjas delgadas arriba. */}
+      <div className="space-y-5 max-lg:px-4 lg:space-y-3">
         <CorreosSyncBanner backfillDone={backfillDone} totalThreads={totalThreads}
           syncParked={syncParked} onConnected={() => void fetchPage(null, true)} />
 
@@ -544,57 +540,60 @@ export function CorreosClient() {
         )}
       </div>
 
-      {/* Desktop-only: en móvil los filtros viven en el top Gmail + drawer.
-          Se conserva el -mx-1 histórico para no mover ni un pixel en desktop. */}
-      <div className="-mx-1 hidden lg:block">
-        <CorreosFilters folder={folder} onFolder={setFolder} chip={chip} onChip={setChip}
-          counts={counts} query={query} onQuery={setQuery}
-          semantic={semantic} onSemantic={setSemantic}
-          vertical={vertical} onVertical={setVertical}
-          onSync={syncNow} syncing={syncing}
-          realtimeStatus={realtimeStatus} previewLines={previewLines}
-          onPreviewLines={setPreviewLines} lastSyncAt={lastSyncAt} />
-      </div>
-
-      {connected && (
-        <>
-          {/* C13: composición nueva desde la bandeja — botón desktop + FAB móvil. */}
-          <button
-            type="button"
-            onClick={() => setComposeOpen(true)}
-            className="hidden h-9 items-center gap-1.5 rounded-xl bg-primary px-3 text-[13px] font-medium text-primary-foreground ds-tap lg:inline-flex"
-          >
-            <PenLine className="h-4 w-4" /> Redactar
-          </button>
-          {/* Con un hilo abierto el FAB se oculta: el lector es full-screen
-              y el botón no debe flotar sobre el detalle. */}
-          {!openId && (
-            <button
-              type="button"
-              aria-label="Redactar correo"
-              onClick={() => setComposeOpen(true)}
-              className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground shadow-lg ds-tap lg:hidden"
-            >
-              <PenLine className="h-4 w-4" /> Redactar
-            </button>
-          )}
-        </>
+      {/* C13: FAB móvil de composición (desktop usa Redactar en el riel).
+          Con un hilo abierto el FAB se oculta: el lector es full-screen. */}
+      {connected && !openId && (
+        <button
+          type="button"
+          aria-label="Redactar correo"
+          onClick={() => setComposeOpen(true)}
+          className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground shadow-lg ds-tap lg:hidden"
+        >
+          <PenLine className="h-4 w-4" /> Redactar
+        </button>
       )}
 
       <div
         ref={workspaceRef}
-        className="relative min-w-0 lg:flex lg:items-start lg:gap-4"
+        className="relative min-w-0 lg:flex lg:items-start lg:gap-3"
       >
-        <div className="min-w-0 flex-1 space-y-4 max-lg:px-4">
-          {selectedIds.size > 0 && (
-            <CorreoBulkBar
-              count={selectedIds.size}
-              onClear={clearSelection}
-              onSelectAllVisible={() => setSelectedIds(new Set(filtered.map((t) => t.id)))}
-              onAction={bulkAction}
-              onSnooze={() => setSnoozeId("__bulk__")}
-            />
-          )}
+        {/* Riel desktop contraíble (Gmail): carpetas + filtros + sync. */}
+        <CorreosDesktopRail
+          folder={folder} onFolder={setFolder}
+          chip={chip} onChip={setChip}
+          vertical={vertical} onVertical={setVertical}
+          counts={counts}
+          onCompose={() => setComposeOpen(true)}
+          onSync={syncNow} syncing={syncing}
+          realtimeStatus={realtimeStatus} lastSyncAt={lastSyncAt}
+          collapsed={railCollapsed}
+          onToggleCollapsed={() => setRailCollapsed(!railCollapsed)}
+        />
+        <div className="min-w-0 flex-1 space-y-4 max-lg:px-4 lg:space-y-3">
+          {/* Toolbar desktop: búsqueda/refresh/densidad; con selección muta a
+              acciones masivas (reemplaza a CorreoBulkBar en desktop). */}
+          <CorreosDesktopToolbar
+            canModify={canModify}
+            allChecked={filtered.length > 0 && selectedIds.size === filtered.length}
+            onToggleAll={() =>
+              filtered.length > 0 && selectedIds.size === filtered.length
+                ? clearSelection()
+                : setSelectedIds(new Set(filtered.map((t) => t.id)))
+            }
+            onRefresh={() => void fetchPage(null, true)}
+            query={query} onQuery={setQuery}
+            semantic={semantic} onSemantic={setSemantic}
+            shownCount={filtered.length}
+            totalCount={counts ? ((counts as Record<string, number | undefined>)[folder] ?? null) : null}
+            previewLines={previewLines} onPreviewLines={setPreviewLines}
+            selectedCount={selectedIds.size}
+            allReadSelected={items
+              .filter((t) => selectedIds.has(t.id))
+              .every((t) => !t.isUnread)}
+            onClear={clearSelection}
+            onAction={bulkAction}
+            onSnooze={() => setSnoozeId("__bulk__")}
+          />
           {!connected ? (
             <EmptyState icon={Mail} title="Conectá tu Gmail" description="Conectá tu casilla en Integraciones." />
           ) : folder === "scheduled" ? (

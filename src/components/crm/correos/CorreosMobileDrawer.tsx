@@ -15,13 +15,14 @@ import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
 import { useCloseOnBack } from "./useCloseOnBack";
 import { useFocusTrap } from "./useFocusTrap";
 
-const FOLDER_ICONS: Partial<Record<CorreoFolderTab, LucideIcon>> = {
+// Export: el riel desktop reusa los mismos iconos y puntos categóricos.
+export const FOLDER_ICONS: Partial<Record<CorreoFolderTab, LucideIcon>> = {
   inbox: Inbox, snoozed: Clock, sent: Send, drafts: Pencil,
   scheduled: CalendarClock, starred: Star, all: Mail, spam: ShieldAlert, trash: Trash2,
 };
 
 /** Punto categórico por vertical (tokens tint/status del DS). */
-const VERTICAL_DOTS: Record<string, string> = {
+export const VERTICAL_DOTS: Record<string, string> = {
   operaciones: "bg-tint-sky", rrhh: "bg-tint-teal", comercial: "bg-tint-violet",
   finanzas: "bg-tint-emerald", cobranza: "bg-tint-amber", contratos: "bg-tint-rose",
   incidentes: "bg-status-danger",
