@@ -46,7 +46,7 @@ export function CorreosDesktopRail({
 
   return (
     <div
-      className={`relative hidden shrink-0 transition-[width] duration-150 lg:block lg:sticky lg:top-16 lg:h-[calc(100dvh-5rem)] ${
+      className={`relative hidden shrink-0 transition-[width] duration-150 lg:block lg:sticky lg:top-16 lg:z-30 lg:h-[calc(100dvh-5rem)] ${
         collapsed ? "w-[68px]" : "w-56"
       }`}
     >

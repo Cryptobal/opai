@@ -105,7 +105,14 @@ export async function GET(request: NextRequest) {
 
     let accountId: string;
     if (existing) {
-      await prisma.crmEmailAccount.update({ where: { id: existing.id }, data });
+      // Reconexión: si Google no devolvió un refresh_token nuevo (pasa cuando
+      // el consent ya existía), conservar el guardado — pisarlo con null
+      // rompería la casilla al expirar el access token (~1 h).
+      const { refreshTokenEncrypted, ...rest } = data;
+      await prisma.crmEmailAccount.update({
+        where: { id: existing.id },
+        data: refreshToken ? { ...rest, refreshTokenEncrypted } : rest,
+      });
       accountId = existing.id;
     } else {
       const created = await prisma.crmEmailAccount.create({ data, select: { id: true } });

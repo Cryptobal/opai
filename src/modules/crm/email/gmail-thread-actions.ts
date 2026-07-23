@@ -186,6 +186,28 @@ export async function runCorreoThreadAction(params: {
     return { ok: true };
   } catch (err) {
     console.error("[gmail] thread action failed:", params.action, err);
+    const message = err instanceof Error ? err.message : String(err);
+    // Token revocado/roto: marcar la cuenta para que la UI pida reconexión
+    // (mismo criterio que el worker de sync) en vez de un 502 genérico.
+    if (/invalid_grant|unauthorized_client|invalid_client/i.test(message)) {
+      await prisma.crmEmailAccount
+        .update({ where: { id: account.id }, data: { status: "revoked" } })
+        .catch(() => {});
+      return {
+        ok: false,
+        error: "Gmail rechazó la acción (permisos). Reconectá tu casilla desde Integraciones.",
+        status: 401,
+      };
+    }
+    const e = err as { code?: number; status?: number; response?: { status?: number } };
+    const httpStatus = e?.code ?? e?.status ?? e?.response?.status;
+    if (httpStatus === 401 || httpStatus === 403) {
+      return {
+        ok: false,
+        error: "Gmail rechazó la acción (permisos). Reconectá tu casilla desde Integraciones.",
+        status: 403,
+      };
+    }
     return { ok: false, error: "Gmail rechazó la acción", status: 502 };
   }
 }
