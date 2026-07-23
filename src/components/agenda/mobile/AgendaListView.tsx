@@ -81,9 +81,11 @@ export function AgendaListView({
           <section key={ymd}>
             <div
               className="sticky z-10 -mx-1 px-1"
-              style={{ top: "var(--agenda-mobile-header-h, 150px)" }}
+              style={{
+                top: "calc(env(safe-area-inset-top) + 4rem + var(--agenda-mobile-header-h, 150px))",
+              }}
             >
-              <div className="flex items-center gap-2 bg-background/85 py-1.5">
+              <div className="flex items-center gap-2 bg-background py-1.5">
                 <p
                   className={
                     ymd === days[0] && listDayLabel(ymd).startsWith("HOY")

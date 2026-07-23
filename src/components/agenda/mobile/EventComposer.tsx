@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { Avatar } from "@/components/opai-ds";
 import { cn } from "@/lib/utils";
 import type { AgendaTeamMember } from "../agenda-calendar.types";
 import { AccountField } from "../nueva-visita/AccountField";
 import { InstallationField } from "../nueva-visita/InstallationField";
+import { useQuickCreateTask } from "../desktop/useQuickCreateTask";
 import { ParticipantPicker } from "./ParticipantPicker";
 import { useEventComposer, type ComposerType } from "./useEventComposer";
 import { ComposerToggles } from "./ComposerToggles";
@@ -33,8 +34,17 @@ type Props = {
 export function EventComposer({ open, users, prefillDate, onClose, onCreated }: Props) {
   const { form, set, availability, conflicts, applySuggestion, saving, submit } =
     useEventComposer(open, prefillDate);
+  const task = useQuickCreateTask();
+  const [mode, setMode] = useState<"evento" | "tarea">("evento");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
+
+  // Prefill de la fecha del slot también en la pestaña Tarea.
+  useEffect(() => {
+    if (open && prefillDate) task.set.setDate(prefillDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, prefillDate]);
+
   if (!open) return null;
 
   const usersById = new Map(users.map((u) => [u.id, u]));
@@ -49,7 +59,16 @@ export function EventComposer({ open, users, prefillDate, onClose, onCreated }: 
     setEmailDraft("");
   };
 
+  const currentSaving = mode === "evento" ? saving : task.saving;
+
   const save = async () => {
+    if (mode === "tarea") {
+      if (await task.submit()) {
+        onCreated();
+        onClose();
+      }
+      return;
+    }
     if (await submit()) {
       onCreated();
       onClose();
@@ -58,14 +77,40 @@ export function EventComposer({ open, users, prefillDate, onClose, onCreated }: 
 
   return (
     <div className="opai-glass-strong ds-page-enter fixed inset-0 z-50 flex flex-col rounded-none lg:hidden">
-      <header className="flex shrink-0 items-center justify-between px-4 pb-2 pt-3">
-        <button type="button" onClick={onClose} className="h-11 rounded-xl px-2 text-[13px] text-ds-text-3 ds-tap">
-          Cancelar
-        </button>
-        <p className="text-[14px] font-semibold text-ds-text-1">Nuevo evento</p>
+      {/* Header con safe-area arriba: Cancelar/Guardar quedan bajo el notch y
+          son tocables (antes se ocultaban tras la dynamic island). */}
+      <header
+        className="flex shrink-0 items-center justify-between gap-2 px-4 pb-2"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 10px)" }}
+      >
         <button
           type="button"
-          disabled={saving}
+          onClick={onClose}
+          aria-label="Cerrar"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-ds-text-3 ds-tap"
+        >
+          <X className="h-5 w-5" />
+        </button>
+        <div className="flex items-center gap-0.5 rounded-full bg-ds-surface-2 p-0.5">
+          {(["evento", "tarea"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={cn(
+                "h-9 rounded-full px-4 text-[13px] font-medium capitalize transition-colors ds-tap",
+                mode === m
+                  ? "bg-ds-surface-1 text-ds-text-1 shadow-ds-xs"
+                  : "text-ds-text-3",
+              )}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          disabled={currentSaving}
           onClick={() => void save()}
           className="h-11 rounded-xl px-2 text-[13px] font-semibold text-primary ds-tap disabled:opacity-50"
         >
@@ -73,6 +118,66 @@ export function EventComposer({ open, users, prefillDate, onClose, onCreated }: 
         </button>
       </header>
 
+      {mode === "tarea" ? (
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-4">
+          <input
+            value={task.form.title}
+            onChange={(e) => task.set.setTitle(e.target.value)}
+            placeholder="Título de la tarea"
+            className="h-11 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[14px] outline-none placeholder:text-ds-text-4"
+          />
+          <section className="space-y-2">
+            <p className="text-[12px] font-medium uppercase tracking-wide text-ds-text-4">
+              Vencimiento
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={task.form.date}
+                onChange={(e) => task.set.setDate(e.target.value)}
+                aria-label="Fecha de vencimiento"
+                className="h-11 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px]"
+              />
+              <input
+                type="time"
+                value={task.form.time}
+                onChange={(e) => task.set.setTime(e.target.value)}
+                aria-label="Hora (opcional)"
+                className="h-11 w-28 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px]"
+              />
+            </div>
+            <p className="text-[12px] text-ds-text-4">Sin hora = todo el día</p>
+          </section>
+          <section className="space-y-2">
+            <p className="text-[12px] font-medium uppercase tracking-wide text-ds-text-4">
+              Responsable
+            </p>
+            <select
+              value={task.form.assignedTo}
+              onChange={(e) => task.set.setAssignedTo(e.target.value)}
+              aria-label="Responsable"
+              className="h-11 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px]"
+            >
+              <option value="">Yo (por defecto)</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.name}
+                </option>
+              ))}
+            </select>
+          </section>
+          <section className="space-y-2">
+            <p className="text-[12px] font-medium uppercase tracking-wide text-ds-text-4">
+              Cuenta
+            </p>
+            <AccountField
+              value={task.form.account}
+              onSelect={(a) => task.set.setAccount(a)}
+              onClear={() => task.set.setAccount(null)}
+            />
+          </section>
+        </div>
+      ) : (
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-4">
         <div className="flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TYPES.map((t) => (
@@ -264,6 +369,7 @@ export function EventComposer({ open, users, prefillDate, onClose, onCreated }: 
           onSlackReminder={set.setSlackReminder}
         />
       </div>
+      )}
 
       <div
         className="shrink-0 border-t border-ds-border-subtle px-4 pt-3"
@@ -271,11 +377,15 @@ export function EventComposer({ open, users, prefillDate, onClose, onCreated }: 
       >
         <button
           type="button"
-          disabled={saving}
+          disabled={currentSaving}
           onClick={() => void save()}
           className="h-11 w-full rounded-xl bg-primary text-[14px] font-semibold text-primary-foreground ds-tap disabled:opacity-60"
         >
-          {saving ? "Guardando…" : "Guardar evento"}
+          {currentSaving
+            ? "Guardando…"
+            : mode === "tarea"
+              ? "Guardar tarea"
+              : "Guardar evento"}
         </button>
       </div>
 

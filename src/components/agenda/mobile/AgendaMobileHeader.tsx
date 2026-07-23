@@ -75,7 +75,10 @@ export function AgendaMobileHeader({
   return (
     <header
       ref={headerRef}
-      className="opai-glass-strong sticky top-0 z-30 rounded-b-[26px] rounded-t-none px-3 pb-2 pt-2"
+      // Sticky POR DEBAJO de la isla OPAI (z-20 < isla z-30) para que nunca la
+      // tape; translateZ(0) lo promueve a su capa GPU → sin "tiritón" en el
+      // scroll iOS con el material glass.
+      className="opai-glass-strong sticky top-[calc(env(safe-area-inset-top)+4rem)] z-20 rounded-[26px] px-3 pb-2 pt-2 [transform:translateZ(0)]"
     >
       <div className="flex items-center justify-between gap-2">
         <p className="font-display text-[19px] font-semibold leading-tight text-ds-text-1">
