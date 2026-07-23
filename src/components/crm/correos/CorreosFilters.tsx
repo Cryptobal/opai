@@ -20,7 +20,8 @@ export type CorreoChipKey = "todos" | "con_cuenta" | "sin_asociar" | "con_adjunt
 // Espejo de Gmail: no hay bandeja "Archivados" — los archivados viven dentro
 // de "Todos". El tipo `archived` se mantiene solo por compat de deep-links.
 // "Programados" (PR-12) se alimenta del outbox, no de hilos.
-const TABS: { key: CorreoFolderTab; label: string }[] = [
+// Export: el top y el drawer móviles reusan el mismo catálogo de carpetas.
+export const TABS: { key: CorreoFolderTab; label: string }[] = [
   { key: "inbox", label: "Bandeja de entrada" },
   { key: "snoozed", label: "Pospuestos" },
   { key: "sent", label: "Enviados" },
