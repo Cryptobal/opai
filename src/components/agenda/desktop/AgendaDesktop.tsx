@@ -11,6 +11,7 @@ import {
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Spinner } from "@/components/opai-ds";
+import { cn } from "@/lib/utils";
 import { startOfDayChile, ymdInChile } from "@/lib/dates-cl";
 import { AgendaCalendarGrid } from "../AgendaCalendarGrid";
 import { AgendaInspector } from "../AgendaInspector";
@@ -177,6 +178,11 @@ export function AgendaDesktop() {
     );
   }, []);
 
+  // El contenido del inspector permanece montado durante la animación de cierre.
+  const lastSelectedRef = useRef<AgendaCalendarItem | null>(null);
+  if (selected) lastSelectedRef.current = selected;
+  const inspectorItem = selected ?? lastSelectedRef.current;
+
   const selectedKey = selected ? itemKey(selected) : null;
 
   return (
@@ -257,19 +263,28 @@ export function AgendaDesktop() {
           )}
         </div>
 
-        {selected && (
-          <div className="w-[340px] min-w-0 shrink-0">
-            <AgendaInspector
-              item={selected}
-              users={users}
-              onClose={() => setSelected(null)}
-              onChanged={() => {
-                void load();
-                setSelected(null);
-              }}
-            />
-          </div>
-        )}
+        {/* Push-panel: empuja el grid con transición de ancho, solo on-select. */}
+        <div
+          className={cn(
+            "shrink-0 overflow-hidden transition-[width] duration-200",
+            selected ? "w-[340px]" : "w-0",
+          )}
+          aria-hidden={!selected}
+        >
+          {inspectorItem && (
+            <div className="h-full w-[340px]">
+              <AgendaInspector
+                item={inspectorItem}
+                users={users}
+                onClose={() => setSelected(null)}
+                onChanged={() => {
+                  void load();
+                  setSelected(null);
+                }}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       <NuevaVisitaModal
