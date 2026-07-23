@@ -30,6 +30,7 @@ import {
   sendCrmEmail,
 } from "./email-send-client";
 import { extractInlineImages } from "./email-inline-images";
+import { composerSnapshot, docPlainText, isComposerPristine } from "./composer-draft";
 
 export type EmailComposerMode = "new" | "reply" | "forward";
 
@@ -132,14 +133,39 @@ export function EmailComposer({
   const savingRef = useRef(false);
   const dirtyRef = useRef(false);
   const closedRef = useRef(false);
+  // Estado inicial del composer: un reply/forward llega con destinatarios y
+  // asunto prefijados (y a veces un borrador IA). Abrir/leer un correo NO debe
+  // crear un borrador en Gmail — solo autoguardamos cuando el usuario editó
+  // algo respecto de este baseline.
+  const baselineRef = useRef(
+    composerSnapshot({
+      to: initialTo,
+      cc: initialCc,
+      bcc: [],
+      subject: initialSubject,
+      body: initialContent,
+    }),
+  );
 
-  // Borrador IA u otro contenido inyectado después del mount.
+  // Borrador IA u otro contenido inyectado después del mount: se convierte en
+  // el nuevo baseline (inyectar una sugerencia no cuenta como edición del
+  // usuario; recién al tocarla se guarda).
   useEffect(() => {
-    if (contentEpoch > 0 && initialContent) setContent(initialContent);
+    if (contentEpoch > 0 && initialContent) {
+      setContent(initialContent);
+      baselineRef.current.body = docPlainText(initialContent);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contentEpoch]);
 
   const isReply = mode === "reply";
+
+  /** Sin cambios del usuario respecto del estado inicial → no hay borrador que
+   *  guardar (evita basura en Gmail por el solo hecho de abrir un correo). */
+  const isPristine = useCallback(
+    () => isComposerPristine({ to, cc, bcc, subject, body: content }, baselineRef.current),
+    [to, cc, bcc, subject, content],
+  );
 
   // Identidad: casillas + aliases (solo composición nueva/forward; el reply
   // usa la casilla dueña del hilo, resuelta server-side).
@@ -190,9 +216,10 @@ export function EmailComposer({
   // ── Autosave a Gmail Drafts (C08) ──
   const saveDraft = useCallback(async () => {
     if (savingRef.current || closedRef.current) return;
+    // Sin edición real (reply/forward recién abierto, borrador IA sin tocar,
+    // composición vacía) no se crea ni actualiza nada en Gmail.
+    if (isPristine()) return;
     const html = content ? tiptapToEmailHtml(content) : "";
-    const empty = !subject.trim() && !html.replace(/<[^>]+>/g, "").trim() && to.length === 0;
-    if (empty) return;
     savingRef.current = true;
     try {
       const res = await fetch("/api/crm/gmail/drafts", {
@@ -225,13 +252,18 @@ export function EmailComposer({
     } finally {
       savingRef.current = false;
     }
-  }, [content, subject, to, cc, bcc, threadId, identity]);
+  }, [content, subject, to, cc, bcc, threadId, identity, isPristine]);
 
   useEffect(() => {
-    dirtyRef.current = true;
-    onDirtyChange?.(!isDocEmpty(content) || subject.trim().length > 0);
+    const pristine = isPristine();
+    dirtyRef.current = !pristine;
+    onDirtyChange?.(!pristine);
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
-    autosaveTimerRef.current = setTimeout(() => void saveDraft(), AUTOSAVE_DEBOUNCE_MS);
+    // Sin cambios respecto del estado inicial no se programa autosave: abrir un
+    // correo (que monta el composer de respuesta) ya no genera un borrador.
+    if (!pristine) {
+      autosaveTimerRef.current = setTimeout(() => void saveDraft(), AUTOSAVE_DEBOUNCE_MS);
+    }
     return () => {
       if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     };

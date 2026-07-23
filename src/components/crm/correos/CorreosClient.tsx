@@ -588,10 +588,7 @@ export function CorreosClient() {
           onQuery={setQuery}
           semantic={semantic}
           onSemantic={setSemantic}
-          folder={folder}
           inboxUnread={counts?.inboxUnread ?? 0}
-          realtimeStatus={realtimeStatus}
-          lastSyncAt={lastSyncAt}
         />
       )}
       <CorreosMobileDrawer
