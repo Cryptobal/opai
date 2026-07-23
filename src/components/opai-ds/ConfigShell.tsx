@@ -25,7 +25,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
+import { ChevronLeft, PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -52,8 +52,18 @@ export interface CategoryGroup {
 /** Hook compartido: grupos de Configuración (por categoría) ya filtrados por
  *  permisos + tenant + isAdmin, leídos desde el registry. Lo consumen tanto el
  *  sub-sidebar (ConfigShell) como el home de Configuración (ConfigHomeClient),
- *  garantizando UNA sola taxonomía. */
-export function useConfigCategories(): { groups: CategoryGroup[]; activeItem: NavNode | undefined } {
+ *  garantizando UNA sola taxonomía.
+ *
+ *  Devuelve además:
+ *   - `activeItem`: la sección (hoja) que matchea el pathname (longest-prefix).
+ *   - `activeCategory`: el grupo/categoría activo. Se resuelve por slug cuando
+ *     el pathname es la ruta de una categoría (`/opai/configuracion/<slug>`),
+ *     o por la categoría de `activeItem` en las páginas hoja. */
+export function useConfigCategories(): {
+  groups: CategoryGroup[];
+  activeItem: NavNode | undefined;
+  activeCategory: CategoryGroup | undefined;
+} {
   const pathname = usePathname() ?? "/";
   const permissions = usePermissions();
   const { isModuleEnabled } = useTenantModules();
@@ -86,7 +96,18 @@ export function useConfigCategories(): { groups: CategoryGroup[]; activeItem: Na
       .filter((i) => pathMatchesNode(pathname, i))
       .sort((a, b) => b.href.length - a.href.length)[0];
 
-    return { groups, activeItem };
+    // Categoría activa: por slug de ruta de categoría, o por la del activeItem.
+    const CONFIG_BASE = "/opai/configuracion/";
+    const slug = pathname.startsWith(CONFIG_BASE)
+      ? pathname.slice(CONFIG_BASE.length).split("/")[0]
+      : "";
+    const activeCategory =
+      groups.find((g) => g.key === slug) ??
+      (activeItem
+        ? groups.find((g) => g.key === (activeItem.category ?? "general"))
+        : undefined);
+
+    return { groups, activeItem, activeCategory };
   }, [pathname, permissions, isModuleEnabled, isAdmin]);
 }
 
@@ -181,7 +202,7 @@ export interface ConfigShellProps {
 
 export function ConfigShell({ children }: ConfigShellProps) {
   const pathname = usePathname() ?? "/";
-  const { groups, activeItem } = useConfigCategories();
+  const { groups, activeItem, activeCategory } = useConfigCategories();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -205,18 +226,20 @@ export function ConfigShell({ children }: ConfigShellProps) {
     }
   }, [collapsed, hydrated]);
 
-  // El sidebar se muestra SIEMPRE (incluido en root /opai/configuracion).
-  // Antes en root no se mostraba para no duplicar con el grid de tarjetas
-  // del Home, pero el usuario prefiere ver siempre la lista a la izquierda
-  // como referencia de navegación, igual que en las subpáginas.
-  if (groups.length === 0) {
+  // Root (hub de categorías): sin sidebar ni drawer — las tarjetas del Home
+  // son la navegación. También sin sidebar si no hay categoría activa/visible.
+  const isRoot = pathname === "/opai/configuracion";
+  if (isRoot || groups.length === 0 || !activeCategory) {
     return <div className="min-w-0">{children}</div>;
   }
+
+  // Nivel 2/3: el sidebar se acota SOLO a las secciones de la categoría activa.
+  const sidebarGroups = [activeCategory];
 
   return (
     <TooltipProvider delayDuration={200}>
       <div className={cn("lg:flex min-w-0", collapsed ? "lg:gap-4" : "lg:gap-8")}>
-        {/* Mobile / tablet: trigger button + drawer with all categories */}
+        {/* Mobile / tablet: trigger button + drawer (acotado a la categoría) */}
         <div className="lg:hidden mb-3">
           <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
             <SheetTrigger asChild>
@@ -228,7 +251,7 @@ export function ConfigShell({ children }: ConfigShellProps) {
                 <span className="flex items-center gap-2 min-w-0">
                   <Settings className="h-4 w-4 shrink-0 text-ds-text-3" />
                   <span className="truncate">
-                    {activeItem?.label ?? "Configuración"}
+                    {activeItem?.label ?? activeCategory.label}
                   </span>
                 </span>
                 <span className="text-xs text-ds-text-4">cambiar</span>
@@ -236,10 +259,18 @@ export function ConfigShell({ children }: ConfigShellProps) {
             </SheetTrigger>
             <SheetContent side="left" className="w-[300px] sm:w-[340px] overflow-y-auto">
               <SheetHeader className="text-left mb-4">
-                <SheetTitle>Configuración</SheetTitle>
+                <SheetTitle>{activeCategory.label}</SheetTitle>
               </SheetHeader>
+              <Link
+                href="/opai/configuracion"
+                onClick={() => setDrawerOpen(false)}
+                className="mb-3 inline-flex items-center gap-1 text-[13px] text-primary/90 hover:text-primary transition-colors"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span>Todas las categorías</span>
+              </Link>
               <ConfigSidebar
-                groups={groups}
+                groups={sidebarGroups}
                 activeKey={activeItem?.key}
                 onNavigate={() => setDrawerOpen(false)}
                 variant="drawer"
@@ -258,14 +289,35 @@ export function ConfigShell({ children }: ConfigShellProps) {
           <div className="sticky top-16 max-h-[calc(100vh-5rem)] flex flex-col">
             <div
               className={cn(
-                "flex items-center mb-2 shrink-0",
-                collapsed ? "justify-center" : "justify-between px-2",
+                "flex mb-2 shrink-0",
+                collapsed
+                  ? "flex-col items-center gap-1"
+                  : "items-center justify-between",
               )}
             >
-              {!collapsed && (
-                <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
-                  Secciones
-                </span>
+              {collapsed ? (
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href="/opai/configuracion"
+                      aria-label="Todas las categorías"
+                      className="flex h-7 w-7 items-center justify-center rounded-md text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1 transition-colors"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="text-xs">
+                    Todas las categorías
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Link
+                  href="/opai/configuracion"
+                  className="group inline-flex min-w-0 items-center gap-1 px-1 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4 hover:text-ds-text-2 transition-colors"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{activeCategory.label}</span>
+                </Link>
               )}
               <Tooltip delayDuration={200}>
                 <TooltipTrigger asChild>
@@ -289,7 +341,7 @@ export function ConfigShell({ children }: ConfigShellProps) {
               </Tooltip>
             </div>
             <ConfigSidebar
-              groups={groups}
+              groups={sidebarGroups}
               activeKey={activeItem?.key}
               collapsed={collapsed}
             />
