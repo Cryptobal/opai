@@ -11,10 +11,15 @@ import {
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Spinner } from "@/components/opai-ds";
-import { startOfDayChile } from "@/lib/dates-cl";
+import { startOfDayChile, ymdInChile } from "@/lib/dates-cl";
 import { AgendaCalendarGrid } from "../AgendaCalendarGrid";
 import { AgendaInspector } from "../AgendaInspector";
-import { itemKey, navigateCalendar, visibleCalendarRange } from "../agenda-calendar-utils";
+import {
+  dateAtChileSlot,
+  itemKey,
+  navigateCalendar,
+  visibleCalendarRange,
+} from "../agenda-calendar-utils";
 import type {
   AgendaCalendarItem,
   AgendaContentFilter,
@@ -25,6 +30,7 @@ import { LicitacionDrawer } from "../LicitacionDrawer";
 import { NuevaVisitaModal } from "../NuevaVisitaModal";
 import { VisitDrawer } from "../VisitDrawer";
 import { AgendaDesktopToolbar } from "./AgendaDesktopToolbar";
+import { AgendaRail } from "./AgendaRail";
 import {
   agendaSourceKey,
   readDesktopPrefs,
@@ -151,6 +157,26 @@ export function AgendaDesktop() {
     setSelected(item);
   }, []);
 
+  const visibleDays = useMemo(
+    () => new Set(range.days.map((day) => ymdInChile(day))),
+    [range.days],
+  );
+
+  const sourceCounts = useMemo(() => {
+    const counts: Partial<Record<AgendaSourceKey, number>> = {};
+    for (const item of items) {
+      const key = agendaSourceKey(item);
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return counts;
+  }, [items]);
+
+  const toggleSource = useCallback((key: AgendaSourceKey) => {
+    setHiddenSources((current) =>
+      current.includes(key) ? current.filter((k) => k !== key) : [...current, key],
+    );
+  }, []);
+
   const selectedKey = selected ? itemKey(selected) : null;
 
   return (
@@ -197,6 +223,16 @@ export function AgendaDesktop() {
       />
 
       <div className="flex min-h-0 flex-1 gap-3 pt-3">
+        <AgendaRail
+          collapsed={railCollapsed}
+          anchor={anchor}
+          visibleDays={visibleDays}
+          hiddenSources={hiddenSources}
+          counts={sourceCounts}
+          google={google}
+          onSelectDate={(ymd) => setAnchor(dateAtChileSlot(ymd, 0))}
+          onToggleSource={toggleSource}
+        />
         <div className="min-w-0 flex-1">
           {loading ? (
             <div className="flex h-full items-center justify-center">
