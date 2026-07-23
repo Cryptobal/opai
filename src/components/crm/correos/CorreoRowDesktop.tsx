@@ -10,6 +10,13 @@ import { CorreoThreadActions } from "./CorreoThreadActions";
 import { runCorreoAction } from "./correo-thread-action-client";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
 
+const RADAR_TONE: Record<"warn" | "danger" | "info" | "ok", string> = {
+  warn: "bg-status-warn-soft text-status-warn-fg",
+  danger: "bg-status-danger-soft text-status-danger-fg",
+  info: "bg-status-info-soft text-status-info-fg",
+  ok: "bg-status-ok-soft text-status-ok-fg",
+};
+
 function snoozeShort(iso: string): string {
   return new Date(iso).toLocaleString("es-CL", {
     day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
@@ -119,6 +126,10 @@ export function CorreoRowDesktop({
         {thread.accountId ? (
           <span className="max-w-36 truncate rounded-full bg-primary/10 px-2 py-0.5 text-[12px] leading-4 text-primary">
             {thread.accountName || "Cuenta"}
+          </span>
+        ) : thread.radarBadge ? (
+          <span className={`rounded-full px-2 py-0.5 text-[12px] leading-4 ${RADAR_TONE[thread.radarBadge.tone]}`}>
+            {thread.radarBadge.label}
           </span>
         ) : thread.possibleLead ? (
           <span className="rounded-full bg-status-warn-soft px-2 py-0.5 text-[12px] leading-4 text-status-warn-fg">

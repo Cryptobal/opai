@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { isRadarComercialEnabled } from "@/lib/crm/radar-settings";
+import { getRadarVerticalSettings } from "@/lib/crm/radar-settings";
 import { classifyThread, generateDraftReply } from "./radar-classify-ai";
 import { getLeadFeedbackExamples, type LeadFeedback } from "./radar-feedback";
 import { generateThreadRadarItems, isNewLeadCandidate, type CreatedRadarItem } from "./radar-items";
@@ -184,6 +184,7 @@ async function promoteClassifiedCommercialThreads(params: {
       accountId: row.account_id,
       classification,
       draftReply: null,
+      enabledVerticals: new Set(["comercial"]), // promoción es sólo comercial
     });
     for (const it of items) {
       created.push(it);
@@ -199,6 +200,7 @@ async function classifyOne(
   tenantId: string,
   userId: string,
   threadId: string,
+  enabledVerticals: Set<string>,
   feedback?: LeadFeedback,
 ): Promise<CreatedRadarItem[]> {
   const thread = await prisma.crmEmailThread.findFirst({
@@ -253,7 +255,10 @@ async function classifyOne(
   });
 
   let draftReply: string | null = null;
-  if (isNewLeadCandidate(classification, thread.leadId, thread.dealId)) {
+  if (
+    enabledVerticals.has("comercial") &&
+    isNewLeadCandidate(classification, thread.leadId, thread.dealId)
+  ) {
     draftReply = await generateDraftReply({
       tenantId, subject: thread.subject, fromEmail: lastInbound.fromEmail, body, resumen: classification.resumen,
     });
@@ -262,7 +267,7 @@ async function classifyOne(
   const created = await generateThreadRadarItems({
     tenantId, userId, threadId: thread.id, fromEmail: lastInbound.fromEmail,
     leadId: thread.leadId, dealId: thread.dealId, accountId: thread.accountId,
-    classification, draftReply,
+    classification, draftReply, enabledVerticals,
   });
 
   // Alertas Slack DM + in-app para lead nuevo / señal de compra (B3).
@@ -289,18 +294,26 @@ export async function classifyAccountThreads(params: {
 }): Promise<{ classified: number; items: CreatedRadarItem[] }> {
   const items: CreatedRadarItem[] = [];
   try {
-    if (!(await isRadarComercialEnabled(params.tenantId))) return { classified: 0, items };
+    // Kill-switch multi-vertical: corre si CUALQUIER vertical está habilitada.
+    // Default conservador (sólo comercial ON) preserva el comportamiento previo.
+    const settings = await getRadarVerticalSettings(params.tenantId);
+    const enabledVerticals = new Set(
+      Object.entries(settings).filter(([, v]) => v).map(([k]) => k),
+    );
+    if (enabledVerticals.size === 0) return { classified: 0, items };
     const deadline = params.deadlineMs ?? Date.now() + 20_000;
     await resetBurnedBacklog(params.tenantId, params.emailAccountId);
     await preMarkStaleThreads(params.tenantId, params.emailAccountId);
 
-    // Primero: promover cotizaciones/consultas ya clasificadas sin RadarItem.
-    const promoted = await promoteClassifiedCommercialThreads({
-      tenantId: params.tenantId,
-      emailAccountId: params.emailAccountId,
-      userId: params.userId,
-    });
-    items.push(...promoted);
+    // Promover cotizaciones/consultas ya clasificadas sin RadarItem (sólo comercial).
+    if (enabledVerticals.has("comercial")) {
+      const promoted = await promoteClassifiedCommercialThreads({
+        tenantId: params.tenantId,
+        emailAccountId: params.emailAccountId,
+        userId: params.userId,
+      });
+      items.push(...promoted);
+    }
 
     const candidates = await pickCandidateThreads(params.tenantId, params.emailAccountId);
     // Few-shot desde el feedback ✓/✗ del usuario: una sola query por corrida.
@@ -308,7 +321,7 @@ export async function classifyAccountThreads(params: {
     let classified = 0;
     for (const t of candidates) {
       if (Date.now() >= deadline) break;
-      const created = await classifyOne(params.tenantId, params.userId, t.id, feedback);
+      const created = await classifyOne(params.tenantId, params.userId, t.id, enabledVerticals, feedback);
       items.push(...created);
       classified++;
     }

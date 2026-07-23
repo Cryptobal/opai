@@ -2,6 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import type { CorreoThreadDTO } from "./correos.types";
 import {
+  radarBadgeFor,
+  type RadarCapability,
+  type RadarVertical,
+} from "./radar-types";
+import {
   domainOf,
   isPublicMailDomain,
   isSystemSender,
@@ -108,6 +113,9 @@ export async function listCorreoThreads(params: {
   semantic?: boolean;
   /** A03: filtra por vertical de la clasificación v5. */
   vertical?: string | null;
+  /** F2: capabilities de radar del solicitante — gobiernan el badge por vertical
+   *  (se calcula en servidor; sin capability no hay badge). */
+  radarCaps?: Set<RadarCapability>;
 }): Promise<{ items: CorreoThreadDTO[]; nextCursor: string | null }> {
   const limit = Math.min(Math.max(params.limit ?? 30, 1), 100);
   const cursorDate = params.cursor ? new Date(params.cursor) : null;
@@ -148,6 +156,7 @@ export async function listCorreoThreads(params: {
         params.tenantId,
         company,
         params.mailboxEmail,
+        params.radarCaps,
       ),
       nextCursor: null,
     };
@@ -210,6 +219,7 @@ export async function listCorreoThreads(params: {
     params.tenantId,
     company,
     params.mailboxEmail,
+    params.radarCaps,
   );
 
   const last = page[page.length - 1];
@@ -251,6 +261,7 @@ async function mapThreadRowsInternal(
   tenantId: string,
   company: CompanyConfig,
   mailboxEmail?: string | null,
+  radarCaps?: Set<RadarCapability>,
 ): Promise<CorreoThreadDTO[]> {
   const tenantDomains = new Set<string>();
   for (const e of [
@@ -320,6 +331,10 @@ async function mapThreadRowsInternal(
       spamAt: r.spamAt?.toISOString() ?? null,
       hasDraft: Boolean(msg?.isDraft),
       aiVertical: r.aiVertical,
+      radarBadge: radarBadgeFor(
+        r.aiVertical as RadarVertical | null,
+        radarCaps ?? new Set<RadarCapability>(),
+      ),
     };
   });
 }
