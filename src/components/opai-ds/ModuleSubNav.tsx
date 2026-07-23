@@ -39,6 +39,7 @@ import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
 import {
   findChildByKey,
   findN3Parent,
+  getContextualBottomNavNodes,
   getModule,
   isNodeVisible,
   type NavNode,
@@ -113,11 +114,25 @@ export function ModuleSubNav({
     [permissions, isModuleEnabled, hasFeatureFlag],
   );
 
-  // Determine N3 parent: explicit moduleKey wins, else auto-detect from path
-  const n3Parent: NavNode | undefined = useMemo(() => {
-    if (moduleKey) return getModule(moduleKey) ?? findChildByKey(moduleKey);
-    return findN3Parent(pathname);
-  }, [moduleKey, pathname]);
+  // Nodo forzado por moduleKey (HubMobileViewPicker, algunos detail views).
+  const forcedNode: NavNode | undefined = useMemo(
+    () => (moduleKey ? getModule(moduleKey) ?? findChildByKey(moduleKey) : undefined),
+    [moduleKey],
+  );
+
+  // Secciones a mostrar como tabs:
+  //  - moduleKey explícito → hijos directos de ese nodo (forzado).
+  //  - auto-detect (barra superior) → las secciones contextuales de la ruta,
+  //    MISMA fuente que el bottom nav (getContextualBottomNavNodes): el grupo
+  //    N3 si estás dentro de uno (Pautas, Rondas, Banca…), si no las secciones
+  //    del módulo activo (CRM → Leads/Cuentas…, Finanzas → N2, Hub → vistas).
+  //    Así el topbar siempre muestra las secciones del módulo — a diferencia de
+  //    findN3Parent, que sólo encontraba sub-grupos N3 y dejaba vacías las
+  //    landing de módulo (CRM, Cuentas, Hub).
+  const sectionNodes: NavNode[] = useMemo(() => {
+    if (moduleKey) return forcedNode?.children ?? [];
+    return getContextualBottomNavNodes(pathname);
+  }, [moduleKey, forcedNode, pathname]);
 
   // Auto-suppression: when a moduleKey is forced AND a more-specific child
   // subnav matches the current path, hide this one — the child layout
@@ -141,12 +156,11 @@ export function ModuleSubNav({
 
   const items = useMemo<SwipeTabItem[]>(() => {
     if (shouldSuppress) return [];
-    if (!n3Parent || !n3Parent.children) return [];
-    return n3Parent.children
+    return sectionNodes
       .filter((c) => !c.hideInSubNav)
       .filter((c) => isNodeVisible(c, ctx))
       .map(nodeToTabItem);
-  }, [n3Parent, ctx, shouldSuppress]);
+  }, [sectionNodes, ctx, shouldSuppress]);
 
   if (items.length === 0) return null;
 
