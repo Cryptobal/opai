@@ -32,11 +32,19 @@ const severityIcons = {
   info: Info,
 } as const;
 
+/** Máximo de señales visibles antes de "Ver todo" (inicio breve en móvil). */
+const MAX_VISIBLE_ALERTS = 3;
+
 export function HubAlertsBanner({ alerts }: HubAlertsBannerProps) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [showAll, setShowAll] = useState(false);
 
-  const visible = alerts.filter((a) => !dismissed.has(a.id));
-  if (visible.length === 0) return null;
+  // getAlerts ya ordena por severidad/urgencia; aquí solo se limita.
+  const active = alerts.filter((a) => !dismissed.has(a.id));
+  if (active.length === 0) return null;
+
+  const visible = showAll ? active : active.slice(0, MAX_VISIBLE_ALERTS);
+  const hiddenCount = active.length - visible.length;
 
   const dismiss = (id: string, e: React.MouseEvent) => {
     e.preventDefault();
@@ -88,6 +96,15 @@ export function HubAlertsBanner({ alerts }: HubAlertsBannerProps) {
           </div>
         );
       })}
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          className="min-h-11 w-full rounded-lg text-[13px] font-medium text-primary transition-colors hover:bg-muted/40"
+        >
+          Ver todo ({active.length})
+        </button>
+      )}
     </div>
   );
 }

@@ -73,6 +73,7 @@ export function HubActivitySection({ activities }: HubActivitySectionProps) {
     return grouped.filter((g) => g.category === activeFilter);
   }, [grouped, activeFilter]);
 
+  // Móvil arranca resumida (3 entradas); desktop mantiene 5 antes de expandir.
   const visible = showAll ? filtered : filtered.slice(0, 5);
 
   if (activities.length === 0) return null;
@@ -93,7 +94,7 @@ export function HubActivitySection({ activities }: HubActivitySectionProps) {
               setShowAll(false);
             }}
             className={cn(
-              'rounded-full px-3 py-1 text-[10px] font-medium transition-colors',
+              'rounded-full px-3 py-1 text-[12px] font-medium transition-colors',
               activeFilter === filter.key
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-accent'
@@ -106,10 +107,13 @@ export function HubActivitySection({ activities }: HubActivitySectionProps) {
 
       {/* Grouped log */}
       <div className="space-y-1">
-        {visible.map((entry) => (
+        {visible.map((entry, idx) => (
           <div
             key={entry.key}
-            className="flex items-start gap-2.5 py-2 text-xs"
+            className={cn(
+              'flex items-start gap-2.5 py-2 text-xs',
+              !showAll && idx >= 3 && 'hidden sm:flex',
+            )}
           >
             <span
               className={`mt-1 h-2 w-2 shrink-0 rounded-full ${categoryDotColor[entry.category]}`}
@@ -129,7 +133,7 @@ export function HubActivitySection({ activities }: HubActivitySectionProps) {
                 </span>
               )}
             </div>
-            <span className="shrink-0 text-[10px] text-muted-foreground/70 tabular-nums">
+            <span className="shrink-0 text-[12px] text-muted-foreground/70 tabular-nums">
               {timeAgo(entry.lastTimestamp)}
             </span>
           </div>
@@ -138,19 +142,23 @@ export function HubActivitySection({ activities }: HubActivitySectionProps) {
 
       {/* Show more / link to log */}
       <div className="flex items-center justify-between">
-        {filtered.length > 5 && !showAll && (
+        {filtered.length > 3 && !showAll && (
           <button
             type="button"
             onClick={() => setShowAll(true)}
-            className="text-[10px] font-medium text-primary hover:underline flex items-center gap-0.5"
+            className={cn(
+              'text-[12px] font-medium text-primary hover:underline flex items-center gap-0.5 min-h-11',
+              // Desktop ya muestra 5: el botón solo aplica ahí si hay más de 5.
+              filtered.length <= 5 && 'sm:hidden',
+            )}
           >
-            Ver mas
+            Ver más
             <ChevronDown className="h-3 w-3" />
           </button>
         )}
         <Link
           href="/opai/configuracion/auditoria"
-          className="text-[10px] font-medium text-primary hover:underline ml-auto"
+          className="text-[12px] font-medium text-primary hover:underline ml-auto"
         >
           Ver log completo
         </Link>

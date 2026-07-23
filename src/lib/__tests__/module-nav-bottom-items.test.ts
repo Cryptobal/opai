@@ -217,13 +217,39 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     expect(items).toEqual([]);
   });
 
-  it("Hub comercial → vision tabs (Resumen, Comercial, Operaciones, Finanzas…)", () => {
-    const items = getBottomNavItems("/hub/comercial", "owner", ALL_ENABLED);
+  // ── Hub: el bottom bar es navegación GLOBAL dentro del Centro de Control.
+  // getBottomNavItems devuelve [] para /hub/* → BottomNav renderiza MainNav
+  // (Inicio/Comercial/Operaciones/…) sin flecha contextual de retroceso.
+  // Las vistas del Hub se cambian arriba (ModuleSubNav / HubMobileViewPicker).
+
+  it("Hub root → [] (bottom bar global, sin tabs contextuales del Hub)", () => {
+    expect(getBottomNavItems("/hub", "owner", ALL_ENABLED)).toEqual([]);
+  });
+
+  it("Hub comercial → [] (bottom bar sigue siendo global)", () => {
+    expect(getBottomNavItems("/hub/comercial", "owner", ALL_ENABLED)).toEqual([]);
+  });
+
+  it("Hub operaciones → [] (bottom bar sigue siendo global)", () => {
+    expect(getBottomNavItems("/hub/operaciones", "owner", ALL_ENABLED)).toEqual([]);
+  });
+
+  it("Hub → [] también para vistas finanzas/personas/payroll/documentos", () => {
+    for (const path of [
+      "/hub/finanzas",
+      "/hub/personas",
+      "/hub/payroll",
+      "/hub/documentos",
+    ]) {
+      expect(getBottomNavItems(path, "owner", ALL_ENABLED)).toEqual([]);
+    }
+  });
+
+  it("Entrar a /crm mantiene el comportamiento contextual CRM (no regresiona)", () => {
+    const items = getBottomNavItems("/crm/leads", "owner", ALL_ENABLED);
     const hrefs = items.map((i) => i.href);
-    expect(hrefs).toContain("/hub");
-    expect(hrefs).toContain("/hub/comercial");
-    expect(hrefs).toContain("/hub/operaciones");
-    expect(hrefs).toContain("/hub/finanzas");
-    expect(hrefs).toContain("/hub/personas");
+    expect(hrefs).toContain("/crm/leads");
+    expect(hrefs).toContain("/crm/deals");
+    expect(hrefs).toContain("/crm/accounts");
   });
 });

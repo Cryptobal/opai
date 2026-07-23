@@ -258,6 +258,10 @@ export const NAV_MODULES: NavNode[] = [
     label: "Inicio",
     icon: Grid3x3,
     module: "hub",
+    // hideInBottomNav en TODOS los hijos: el bottom bar móvil es navegación
+    // GLOBAL (Inicio/Comercial/Operaciones/…) también dentro de /hub. Las
+    // vistas del Centro de Control se cambian arriba (ModuleSubNav desktop,
+    // HubMobileViewPicker mobile), nunca desde la isla inferior.
     children: [
       {
         key: "hub-summary",
@@ -266,6 +270,7 @@ export const NAV_MODULES: NavNode[] = [
         icon: Grid3x3,
         module: "hub",
         exactMatch: true,
+        hideInBottomNav: true,
       },
       {
         key: "hub-commercial",
@@ -274,6 +279,7 @@ export const NAV_MODULES: NavNode[] = [
         icon: TrendingUp,
         module: "crm",
         tenantModule: "crm",
+        hideInBottomNav: true,
       },
       {
         key: "hub-operations",
@@ -282,6 +288,7 @@ export const NAV_MODULES: NavNode[] = [
         shortLabel: "Ops",
         icon: Activity,
         module: "ops",
+        hideInBottomNav: true,
       },
       {
         key: "hub-finance",
@@ -290,6 +297,7 @@ export const NAV_MODULES: NavNode[] = [
         icon: Landmark,
         module: "finance",
         tenantModule: "finanzas",
+        hideInBottomNav: true,
       },
       {
         key: "hub-people",
@@ -298,6 +306,7 @@ export const NAV_MODULES: NavNode[] = [
         icon: Users,
         module: "ops",
         submodule: "guardias",
+        hideInBottomNav: true,
       },
       {
         key: "hub-payroll",
@@ -305,6 +314,7 @@ export const NAV_MODULES: NavNode[] = [
         label: "Payroll",
         icon: Wallet,
         module: "payroll",
+        hideInBottomNav: true,
       },
       {
         key: "hub-documents",
@@ -313,6 +323,7 @@ export const NAV_MODULES: NavNode[] = [
         shortLabel: "Docs",
         icon: FolderOpen,
         module: "docs",
+        hideInBottomNav: true,
       },
     ],
   },

@@ -17,6 +17,7 @@ import {
   type DriveOutboxRow,
 } from "@/components/configuracion/google-drive/DriveActivityTable";
 import type { DocsSignals } from "../_lib/hub-types";
+import { HubDomainHeader } from "./HubDomainHeader";
 
 interface DriveConfigResponse {
   connected: boolean;
@@ -46,18 +47,11 @@ export function HubDocumentsView({ signals }: { signals: DocsSignals }) {
 
   return (
     <div className="ds-page-enter min-w-0 space-y-5">
-      <SectionHeader
+      <HubDomainHeader
         title="Documentos"
         hint="Envíos, lecturas y actividad del espejo documental en Google Drive."
-        actions={
-          <Link
-            href="/opai/documentos"
-            className="inline-flex min-h-11 items-center rounded-full border border-primary/30 bg-primary/10 px-4 text-[13px] font-semibold text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            Ir a Documentos
-          </Link>
-        }
-        size="lg"
+        moduleHref="/opai/documentos"
+        moduleLabel="Abrir Documentos"
       />
 
       <StatGrid lgCols={4}>

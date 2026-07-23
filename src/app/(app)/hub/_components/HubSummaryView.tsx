@@ -1,4 +1,6 @@
 import { AgendaHubCard } from "@/components/agenda/AgendaHubCard";
+import { HubEmailProvider } from "@/components/hub/hub-email-context";
+import { RecentEmailCard } from "@/components/hub/RecentEmailCard";
 import { SectionHeader } from "@/components/opai-ds";
 import type {
   ActivityEntry,
@@ -12,6 +14,7 @@ import type {
 } from "../_lib/hub-types";
 import { HubActivitySection } from "./HubActivitySection";
 import { HubAlertsBanner } from "./HubAlertsBanner";
+import { HubMobileViewPicker } from "./HubMobileViewPicker";
 import { HubPulsoNegocio } from "./HubPulsoNegocio";
 import { HubQuickActions } from "./HubQuickActions";
 
@@ -26,6 +29,14 @@ interface HubSummaryViewProps {
   activities: ActivityEntry[];
 }
 
+/**
+ * Inicio del Hub — mobile-first.
+ *
+ * Orden móvil (DOM): accesos directos → selector del Centro de Control →
+ * Mi día (agenda + correos recientes) → Requiere atención → Pulso →
+ * Actividad reciente. En desktop se recompone con `lg:order-*` para
+ * mantener la lectura ejecutiva (pulso y alertas arriba).
+ */
 export function HubSummaryView({
   hubPerms,
   closingData,
@@ -37,38 +48,71 @@ export function HubSummaryView({
   activities,
 }: HubSummaryViewProps) {
   return (
-    <div className="ds-page-enter min-w-0 space-y-5">
-      <HubQuickActions perms={hubPerms} />
-      <HubAlertsBanner alerts={alerts} />
+    <HubEmailProvider enabled={hubPerms.hasCrm}>
+      <div className="ds-page-enter flex min-w-0 flex-col gap-5">
+        {/* 1. Accesos directos */}
+        <div className="min-w-0 lg:order-1">
+          <HubQuickActions perms={hubPerms} />
+        </div>
 
-      <section className="space-y-3" aria-labelledby="hub-business-pulse">
-        <SectionHeader
-          title={<span id="hub-business-pulse">Ahora</span>}
-          hint="Indicadores transversales que requieren una lectura rápida."
-        />
-        <HubPulsoNegocio
-          hubPerms={hubPerms}
-          closingData={closingData}
-          opsMetrics={opsMetrics}
-          financeMetrics={financeMetrics}
-          financeCaps={financeCaps}
-          ticketMetrics={ticketMetrics}
-        />
-      </section>
+        {/* 2. Selector del Centro de Control (solo mobile) */}
+        <div className="min-w-0 lg:order-1 lg:hidden">
+          <HubMobileViewPicker />
+        </div>
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
-        <section className="min-w-0 space-y-3" aria-labelledby="hub-my-day">
+        {/* 3-4. Mi día: agenda + correos recientes */}
+        <section
+          className="min-w-0 space-y-3 lg:order-4"
+          aria-labelledby="hub-my-day"
+        >
           <SectionHeader
             title={<span id="hub-my-day">Mi día</span>}
-            hint="Agenda, tareas y compromisos de los próximos días."
+            hint="Agenda, correos y compromisos de los próximos días."
           />
-          <AgendaHubCard />
+          <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+            <AgendaHubCard />
+            {hubPerms.hasCrm && <RecentEmailCard />}
+          </div>
         </section>
 
-        <section className="min-w-0" aria-label="Actividad reciente">
+        {/* 5. Requiere atención */}
+        {alerts.length > 0 && (
+          <section
+            className="min-w-0 space-y-3 lg:order-2"
+            aria-labelledby="hub-attention"
+          >
+            <SectionHeader
+              title={<span id="hub-attention">Requiere atención</span>}
+              hint="Señales accionables ordenadas por urgencia."
+            />
+            <HubAlertsBanner alerts={alerts} />
+          </section>
+        )}
+
+        {/* 6. Pulso del negocio */}
+        <section
+          className="min-w-0 space-y-3 lg:order-3"
+          aria-labelledby="hub-business-pulse"
+        >
+          <SectionHeader
+            title={<span id="hub-business-pulse">Pulso del negocio</span>}
+            hint="Indicadores transversales que requieren una lectura rápida."
+          />
+          <HubPulsoNegocio
+            hubPerms={hubPerms}
+            closingData={closingData}
+            opsMetrics={opsMetrics}
+            financeMetrics={financeMetrics}
+            financeCaps={financeCaps}
+            ticketMetrics={ticketMetrics}
+          />
+        </section>
+
+        {/* 7. Actividad reciente */}
+        <section className="min-w-0 lg:order-5" aria-label="Actividad reciente">
           <HubActivitySection activities={activities} />
         </section>
       </div>
-    </div>
+    </HubEmailProvider>
   );
 }

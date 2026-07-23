@@ -1664,15 +1664,10 @@ export function getAlerts(
       });
     }
 
-    if (opsMetrics.pendingTE > 0) {
-      alerts.push({
-        id: 'te-pending',
-        severity: 'warning',
-        message: `${opsMetrics.pendingTE} turno(s) extra pendiente(s) de aprobar`,
-        href: '/ops/turnos-extra',
-        count: opsMetrics.pendingTE,
-      });
-    }
+    // Nota: los turnos extra pendientes de aprobar ya NO generan alerta
+    // transversal del Hub (id `te-pending`, eliminada). El flujo de
+    // aprobación vive en /ops/turnos-extra con sus propias notificaciones
+    // y métricas operacionales.
   }
 
   if (closingFollowUpsOverdueCount > 0) {

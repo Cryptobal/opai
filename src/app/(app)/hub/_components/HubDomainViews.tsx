@@ -1,7 +1,5 @@
-import Link from "next/link";
 import { AgendaHubCard } from "@/components/agenda/AgendaHubCard";
 import { RadarComercialCard } from "@/components/hub/RadarComercialCard";
-import { SectionHeader } from "@/components/opai-ds";
 import type {
   AtsMetrics,
   ClosingHubData,
@@ -18,6 +16,7 @@ import type {
 import { HubAtsSection } from "./HubAtsSection";
 import { HubContratosClienteSection } from "./HubContratosClienteSection";
 import { HubCrmSection } from "./HubCrmSection";
+import { HubDomainHeader } from "./HubDomainHeader";
 import { HubFinanzasSection } from "./HubFinanzasSection";
 import { HubInstallationHealthSection } from "./HubInstallationHealthSection";
 import { HubOperationsSection } from "./HubOperationsSection";
@@ -25,17 +24,6 @@ import { HubPayrollSection } from "./HubPayrollSection";
 import { HubPersonasSection } from "./HubPersonasSection";
 import { HubSupervisionSection } from "./HubSupervisionSection";
 import { HubTicketsSection } from "./HubTicketsSection";
-
-function ModuleLink({ href, children }: { href: string; children: string }) {
-  return (
-    <Link
-      href={href}
-      className="inline-flex min-h-11 items-center rounded-full border border-primary/30 bg-primary/10 px-4 text-[13px] font-semibold text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-    >
-      {children}
-    </Link>
-  );
-}
 
 export function HubCommercialView({
   hubPerms,
@@ -50,13 +38,16 @@ export function HubCommercialView({
 }) {
   return (
     <div className="ds-page-enter min-w-0 space-y-5">
-      <SectionHeader
-        title="Comercial"
+      {/* "Control comercial" = dashboard del Hub; "Abrir Comercial" = CRM real */}
+      <HubDomainHeader
+        title="Control comercial"
         hint="Radar, agenda, borradores, negociación, contratos y servicios por iniciar."
-        actions={<ModuleLink href="/crm">Ir a Comercial</ModuleLink>}
-        size="lg"
+        moduleHref="/crm"
+        moduleLabel="Abrir Comercial"
       />
 
+      {/* Móvil: apila Agenda (lista vertical) y luego Radar resumido.
+          Desktop: columnas Agenda + Radar como antes. */}
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.85fr)]">
         <AgendaHubCard />
         <RadarComercialCard />
@@ -85,11 +76,11 @@ export function HubOperationsView({
 }) {
   return (
     <div className="ds-page-enter min-w-0 space-y-5">
-      <SectionHeader
-        title="Operaciones"
+      <HubDomainHeader
+        title="Control operacional"
         hint="Cobertura, tickets, rondas, supervisión y salud de instalaciones."
-        actions={<ModuleLink href="/ops">Ir a Operaciones</ModuleLink>}
-        size="lg"
+        moduleHref="/ops"
+        moduleLabel="Abrir Operaciones"
       />
 
       <HubOperationsSection opsMetrics={opsMetrics} />
@@ -113,11 +104,11 @@ export function HubFinanceView({
 }) {
   return (
     <div className="ds-page-enter min-w-0 space-y-5">
-      <SectionHeader
-        title="Finanzas"
+      <HubDomainHeader
+        title="Control financiero"
         hint="Caja, flujo semanal, facturación, cobranza y rendiciones."
-        actions={<ModuleLink href="/finanzas">Ir a Finanzas</ModuleLink>}
-        size="lg"
+        moduleHref="/finanzas"
+        moduleLabel="Abrir Finanzas"
       />
       <HubFinanzasSection
         financeMetrics={financeMetrics}
@@ -137,13 +128,11 @@ export function HubPeopleView({
 }) {
   return (
     <div className="ds-page-enter min-w-0 space-y-5">
-      <SectionHeader
+      <HubDomainHeader
         title="Personas"
         hint="Dotación, onboarding, documentación, reclutamiento y conocimiento."
-        actions={
-          <ModuleLink href="/personas/guardias">Ir a Personas</ModuleLink>
-        }
-        size="lg"
+        moduleHref="/personas/guardias"
+        moduleLabel="Abrir Personas"
       />
       <HubPersonasSection metrics={personasMetrics} />
       {atsMetrics ? <HubAtsSection metrics={atsMetrics} /> : null}
@@ -154,11 +143,11 @@ export function HubPeopleView({
 export function HubPayrollView({ metrics }: { metrics: PayrollMetrics }) {
   return (
     <div className="ds-page-enter min-w-0 space-y-5">
-      <SectionHeader
+      <HubDomainHeader
         title="Payroll"
         hint="Período activo, anticipos pendientes y fecha del próximo cierre."
-        actions={<ModuleLink href="/payroll">Ir a Payroll</ModuleLink>}
-        size="lg"
+        moduleHref="/payroll"
+        moduleLabel="Abrir Payroll"
       />
       <HubPayrollSection metrics={metrics} />
     </div>

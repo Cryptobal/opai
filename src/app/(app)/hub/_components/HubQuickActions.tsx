@@ -1,5 +1,17 @@
 "use client";
 
+/**
+ * Accesos rápidos del Hub.
+ *
+ * Mobile: tres accesos directos visibles sin abrir sheets — Calendario
+ * (/opai/agenda), Correos (/crm/correos, con badge de no leídos cuando el
+ * conteo ya está disponible vía HubEmailProvider) y Crear (abre el bottom
+ * sheet existente con las acciones de creación rápida). Las acciones
+ * secundarias permanecen dentro del sheet.
+ *
+ * Desktop: botones inline con "Abrir calendario" como primera acción.
+ */
+
 import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -11,15 +23,19 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import {
+  CalendarDays,
   ChevronRight,
   Clock3,
+  Mail,
   MapPin,
+  Plus,
   Receipt,
   UserPlus,
   UserRoundCheck,
   Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useHubEmails } from '@/components/hub/hub-email-context';
 import type { HubQuickActionsProps } from '../_lib/hub-types';
 
 interface QuickAction {
@@ -31,59 +47,92 @@ interface QuickAction {
 
 export function HubQuickActions({ perms }: HubQuickActionsProps) {
   const [open, setOpen] = useState(false);
+  const emails = useHubEmails();
+  const unreadCount = emails?.data?.unreadCount ?? 0;
 
-  const actions: QuickAction[] = [];
+  // Calendario/Correos requieren acceso CRM (Agenda y Correos viven ahí).
+  const hasAgenda = perms.hasCrm;
+
+  const sheetActions: QuickAction[] = [];
 
   if (perms.hasSupervisionCheckin) {
-    actions.push({
+    sheetActions.push({
       href: '/ops/supervision/nueva-visita',
       label: 'Nueva visita',
       icon: <MapPin className="h-4 w-4" />,
     });
   }
   if (perms.hasPersonas) {
-    actions.push({
+    sheetActions.push({
       href: '/personas/guardias/ingreso-te',
       label: 'Ingresar Guardia TE',
       icon: <UserPlus className="h-4 w-4" />,
     });
   }
   if (perms.hasFinanceRendiciones) {
-    actions.push({
+    sheetActions.push({
       href: '/finanzas/rendiciones/nueva',
       label: 'Nueva rendición',
       icon: <Receipt className="h-4 w-4" />,
     });
   }
   if (perms.canMarkAttendance) {
-    actions.push({
+    sheetActions.push({
       href: '/ops/pauta-diaria',
       label: 'Marcar Asistencia',
       icon: <UserRoundCheck className="h-4 w-4" />,
     });
   }
   if (perms.canManageRefuerzos) {
-    actions.push({
+    sheetActions.push({
       href: '/ops/refuerzos',
       label: 'Turnos Refuerzo',
       icon: <Clock3 className="h-4 w-4" />,
     });
   }
 
-  if (actions.length === 0) return null;
+  if (!hasAgenda && sheetActions.length === 0) return null;
 
   // Marcar la primera acción como primary para darle énfasis visual.
-  if (actions[0]) actions[0].primary = true;
+  if (sheetActions[0]) sheetActions[0].primary = true;
+
+  const mobileTileCols =
+    Number(hasAgenda) * 2 + Number(sheetActions.length > 0);
 
   return (
     <>
-      {/* Desktop: inline buttons */}
+      {/* Desktop: inline buttons — calendario primero */}
       <div className="hidden lg:flex flex-wrap gap-2">
-        {actions.map((action) => (
+        {hasAgenda && (
+          <Link href="/opai/agenda">
+            <Button size="sm" className="gap-2 rounded-full hover:shadow-sm">
+              <CalendarDays className="h-4 w-4" />
+              Abrir calendario
+            </Button>
+          </Link>
+        )}
+        {hasAgenda && (
+          <Link href="/crm/correos">
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2 rounded-full hover:shadow-sm"
+            >
+              <Mail className="h-4 w-4" />
+              Correos
+              {unreadCount > 0 && (
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[12px] font-bold leading-none text-primary-foreground">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </Button>
+          </Link>
+        )}
+        {sheetActions.map((action) => (
           <Link key={action.href} href={action.href}>
             <Button
               size="sm"
-              variant={action.primary ? 'default' : 'outline'}
+              variant="outline"
               className="gap-2 rounded-full hover:shadow-sm"
             >
               {action.icon}
@@ -93,41 +142,58 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
         ))}
       </div>
 
-      {/* Mobile: prominent trigger + bottom sheet */}
+      {/* Mobile: accesos directos visibles (sin pill único que esconda todo) */}
       <div className="lg:hidden">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
+        <div
           className={cn(
-            'group relative flex h-12 w-full items-center justify-between gap-2 overflow-hidden opai-glass-pill',
-            'px-4 text-sm font-semibold text-primary',
-            'transition-all active:scale-[0.99]',
+            'grid gap-2',
+            mobileTileCols >= 3 ? 'grid-cols-3' : mobileTileCols === 2 ? 'grid-cols-2' : 'grid-cols-1',
           )}
-          aria-label={`Abrir acciones rápidas (${actions.length})`}
         >
-          <span className="flex items-center gap-2">
-            <span
-              className={cn(
-                'flex h-7 w-7 items-center justify-center rounded-full',
-                'bg-primary text-primary-foreground shadow-[0_0_16px_hsl(var(--primary)/0.55)]',
-              )}
+          {hasAgenda && (
+            <Link
+              href="/opai/agenda"
+              className="flex h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl border border-primary/40 bg-primary/10 text-primary transition-colors active:scale-[0.98] hover:bg-primary/15"
             >
-              <Zap className="h-3.5 w-3.5" />
-            </span>
-            <span className="tracking-tight">Acciones rápidas</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span
-              className={cn(
-                'inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full',
-                'bg-primary px-1.5 text-xs font-bold text-primary-foreground',
-              )}
+              <CalendarDays className="h-5 w-5" />
+              <span className="max-w-full truncate px-1 text-[12px] font-semibold leading-tight">
+                Calendario
+              </span>
+            </Link>
+          )}
+          {hasAgenda && (
+            <Link
+              href="/crm/correos"
+              className="relative flex h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl border border-border/60 bg-muted/30 text-foreground transition-colors active:scale-[0.98] hover:bg-muted/50"
             >
-              {actions.length}
-            </span>
-            <ChevronRight className="h-4 w-4 text-primary/70 transition-transform group-hover:translate-x-0.5" />
-          </span>
-        </button>
+              {unreadCount > 0 && (
+                <span
+                  aria-label={`${unreadCount} correos sin leer`}
+                  className="absolute right-2 top-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[12px] font-bold leading-none text-primary-foreground"
+                >
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+              <Mail className="h-5 w-5" />
+              <span className="max-w-full truncate px-1 text-[12px] font-semibold leading-tight">
+                Correos
+              </span>
+            </Link>
+          )}
+          {sheetActions.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              aria-label={`Crear (${sheetActions.length} acciones)`}
+              className="flex h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl border border-border/60 bg-muted/30 text-foreground transition-colors active:scale-[0.98] hover:bg-muted/50"
+            >
+              <Plus className="h-5 w-5" />
+              <span className="max-w-full truncate px-1 text-[12px] font-semibold leading-tight">
+                Crear
+              </span>
+            </button>
+          )}
+        </div>
 
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetContent
@@ -141,14 +207,14 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
             <SheetHeader className="pb-3 text-left">
               <SheetTitle className="flex items-center gap-2 text-base">
                 <Zap className="h-4 w-4 text-primary" />
-                Acciones rápidas
+                Acciones
               </SheetTitle>
               <SheetDescription className="sr-only">
                 Selecciona una acción
               </SheetDescription>
             </SheetHeader>
             <div className="grid gap-2 max-h-[65vh] overflow-y-auto sm:grid-cols-2">
-              {actions.map((action) => (
+              {sheetActions.map((action) => (
                 <Link
                   key={action.href}
                   href={action.href}
