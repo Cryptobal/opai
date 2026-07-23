@@ -1,5 +1,7 @@
+import type { gmail_v1 } from "googleapis";
 import { upsertGmailMessage } from "./gmail-message-upsert";
 import { refreshThreadLabelsBatch } from "./gmail-refresh-threads";
+import { batchGetGmailMessages } from "./gmail-batch";
 import type { GmailSyncState, SyncRunArgs, SyncRunResult } from "./gmail-sync-state";
 
 /** INBOX + SENT de los últimos 120 días (excluye spam/trash/chats). */
@@ -28,10 +30,33 @@ export async function runBackfill(args: SyncRunArgs): Promise<SyncRunResult> {
       maxResults: PAGE_SIZE,
       pageToken,
     });
-    for (const m of list.data.messages ?? []) {
-      if (!m.id) continue;
+    const pageIds = (list.data.messages ?? [])
+      .map((m) => m.id)
+      .filter((id): id is string => Boolean(id));
+    // S11: fetch de la página en batch (1 llamada por lote vs N gets). Si el
+    // batch falla, el upsert degrada al get individual (prefetched=null).
+    let prefetched = new Map<string, gmail_v1.Schema$Message>();
+    try {
+      prefetched = await batchGetGmailMessages({
+        gmail,
+        accountKey: emailAccount.id,
+        ids: pageIds,
+        format: "full",
+        deadline,
+      });
+    } catch (err) {
+      console.warn("[gmail] backfill batch degradado a gets:", err);
+    }
+    for (const id of pageIds) {
       fetched += 1;
-      const res = await upsertGmailMessage({ gmail, tenantId, emailAccount, messageId: m.id, createdByUserId });
+      const res = await upsertGmailMessage({
+        gmail,
+        tenantId,
+        emailAccount,
+        messageId: id,
+        createdByUserId,
+        prefetched: prefetched.get(id) ?? null,
+      });
       if (res.wrote) synced += 1;
       if (res.providerThreadId) touchedThreadIds.add(res.providerThreadId);
       if (fetched >= budget || Date.now() >= deadline) break;
