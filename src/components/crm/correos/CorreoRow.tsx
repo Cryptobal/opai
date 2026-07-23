@@ -64,6 +64,9 @@ export function CorreoRow({
 }) {
   const unread = thread.isUnread;
   const subject = thread.subject || "(sin asunto)";
+  // Densidad "1 línea": fila compacta real — sin preview ni tags, paddings
+  // reducidos (altura ≈52px). Con 2/3 líneas la fila queda como siempre.
+  const compact = previewLines === 1;
 
   return (
     <div
@@ -74,7 +77,7 @@ export function CorreoRow({
     >
       {onToggleCheck && (
         <label
-          className="flex shrink-0 cursor-pointer items-start px-2 pt-4 ds-tap"
+          className={`flex shrink-0 cursor-pointer items-start px-2 ds-tap ${compact ? "pt-2.5" : "pt-4"}`}
           onClick={(e) => e.stopPropagation()}
         >
           <input
@@ -90,7 +93,9 @@ export function CorreoRow({
         type="button"
         onClick={onOpen}
         aria-current={selected ? "true" : undefined}
-        className="flex min-w-0 flex-1 flex-col gap-1 px-3 py-3 text-left ds-tap hover:bg-ds-surface-2"
+        className={`flex min-w-0 flex-1 flex-col px-3 text-left ds-tap hover:bg-ds-surface-2 ${
+          compact ? "gap-0.5 py-2" : "gap-1 py-3"
+        }`}
       >
         <div className="flex items-center gap-2">
           {unread && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" aria-hidden />}
@@ -109,7 +114,7 @@ export function CorreoRow({
         >
           {subject}
         </p>
-        {thread.snippet && (
+        {!compact && thread.snippet && (
           <p
             className={`${PREVIEW_LINE_CLASS[previewLines]} break-words text-[13px] leading-5 text-ds-text-3`}
             title={thread.snippet}
@@ -117,6 +122,7 @@ export function CorreoRow({
             {thread.snippet}
           </p>
         )}
+        {!compact && (
         <div className="flex flex-wrap items-center gap-1 pt-0.5">
           {thread.accountId ? (
             <Tag variant="brand" size="sm">{thread.accountName || "Cuenta"}</Tag>
@@ -159,6 +165,7 @@ export function CorreoRow({
             </Tag>
           )}
         </div>
+        )}
       </button>
       {trailing ? (
         <div className="flex items-center pr-1">{trailing}</div>

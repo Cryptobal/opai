@@ -11,6 +11,46 @@ import {
 
 export type CorreoPreviewLines = 1 | 2 | 3;
 
+/** Acciones asignables a los gestos de deslizar (todas existen en CorreoAction). */
+export type CorreoSwipeAction = "archive" | "trash" | "snooze" | "read" | "star" | "reply";
+export type CorreoSwipeConfig = {
+  right: [CorreoSwipeAction, CorreoSwipeAction];
+  left: [CorreoSwipeAction, CorreoSwipeAction];
+};
+
+const SWIPE_ACTIONS: readonly CorreoSwipeAction[] = [
+  "archive", "trash", "snooze", "read", "star", "reply",
+];
+
+export const DEFAULT_CORREO_SWIPE_CONFIG: CorreoSwipeConfig = {
+  right: ["archive", "snooze"],
+  left: ["trash", "read"],
+};
+
+function parseSwipePair(
+  value: unknown,
+): [CorreoSwipeAction, CorreoSwipeAction] | null {
+  if (!Array.isArray(value) || value.length !== 2) return null;
+  const [first, second] = value as unknown[];
+  if (
+    !(SWIPE_ACTIONS as readonly unknown[]).includes(first) ||
+    !(SWIPE_ACTIONS as readonly unknown[]).includes(second)
+  ) {
+    return null;
+  }
+  return [first as CorreoSwipeAction, second as CorreoSwipeAction];
+}
+
+/** Config completa o nada: un lado inválido descarta el par guardado. */
+function parseSwipeConfig(value: unknown): CorreoSwipeConfig | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value as Record<string, unknown>;
+  const right = parseSwipePair(candidate.right);
+  const left = parseSwipePair(candidate.left);
+  if (!right || !left) return null;
+  return { right, left };
+}
+
 const STORAGE_KEY = "opai.crm.correos.view.v1";
 const DEFAULT_RATIO = 0.46;
 const MIN_PANEL_WIDTH = 420;
@@ -20,6 +60,7 @@ const KEYBOARD_STEP = 24;
 type StoredPreferences = {
   panelWidth?: number;
   previewLines?: CorreoPreviewLines;
+  swipeConfig?: CorreoSwipeConfig;
 };
 
 export function parseCorreosViewPreferences(
@@ -45,6 +86,10 @@ export function parseCorreosViewPreferences(
       candidate.previewLines === 3
     ) {
       preferences.previewLines = candidate.previewLines;
+    }
+    const swipeConfig = parseSwipeConfig(candidate.swipeConfig);
+    if (swipeConfig) {
+      preferences.swipeConfig = swipeConfig;
     }
     return preferences;
   } catch {
@@ -73,6 +118,9 @@ export function useCorreosViewPreferences(
 ) {
   const [panelWidth, setPanelWidth] = useState(560);
   const [previewLines, setPreviewLines] = useState<CorreoPreviewLines>(2);
+  const [swipeConfig, setSwipeConfig] = useState<CorreoSwipeConfig>(
+    DEFAULT_CORREO_SWIPE_CONFIG,
+  );
   const [hydrated, setHydrated] = useState(false);
 
   const containerWidth = useCallback(
@@ -104,6 +152,9 @@ export function useCorreosViewPreferences(
     ) {
       setPreviewLines(stored.previewLines);
     }
+    if (stored.swipeConfig) {
+      setSwipeConfig(stored.swipeConfig);
+    }
     setHydrated(true);
   }, [containerWidth]);
 
@@ -113,14 +164,14 @@ export function useCorreosViewPreferences(
       try {
         localStorage.setItem(
           STORAGE_KEY,
-          JSON.stringify({ panelWidth, previewLines }),
+          JSON.stringify({ panelWidth, previewLines, swipeConfig }),
         );
       } catch {
         // Safari/private mode puede bloquear storage: la vista sigue operativa.
       }
     }, 120);
     return () => window.clearTimeout(timer);
-  }, [hydrated, panelWidth, previewLines]);
+  }, [hydrated, panelWidth, previewLines, swipeConfig]);
 
   useEffect(() => {
     const node = containerRef.current;
@@ -192,6 +243,8 @@ export function useCorreosViewPreferences(
     panelWidth,
     previewLines,
     setPreviewLines,
+    swipeConfig,
+    setSwipeConfig,
     resetPanelWidth,
     onResizePointerDown,
     onResizeKeyDown,

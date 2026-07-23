@@ -35,4 +35,53 @@ describe("clampCorreoPanelWidth", () => {
       ),
     ).toEqual({});
   });
+
+  it("acepta una configuración de swipe válida", () => {
+    expect(
+      parseCorreosViewPreferences(
+        JSON.stringify({
+          swipeConfig: { right: ["star", "reply"], left: ["snooze", "read"] },
+        }),
+      ),
+    ).toEqual({
+      swipeConfig: { right: ["star", "reply"], left: ["snooze", "read"] },
+    });
+  });
+
+  it("descarta configuraciones de swipe con valores inválidos", () => {
+    // Acción fuera del union.
+    expect(
+      parseCorreosViewPreferences(
+        JSON.stringify({
+          swipeConfig: { right: ["archive", "delete"], left: ["trash", "read"] },
+        }),
+      ),
+    ).toEqual({});
+    // Aridad incorrecta y formas no-array.
+    expect(
+      parseCorreosViewPreferences(
+        JSON.stringify({ swipeConfig: { right: ["archive"], left: ["trash", "read"] } }),
+      ),
+    ).toEqual({});
+    expect(
+      parseCorreosViewPreferences(
+        JSON.stringify({ swipeConfig: { right: "archive", left: ["trash", "read"] } }),
+      ),
+    ).toEqual({});
+    // Un lado inválido descarta el config completo sin tocar el resto.
+    expect(
+      parseCorreosViewPreferences(
+        JSON.stringify({
+          previewLines: 1,
+          swipeConfig: { right: ["archive", "snooze"], left: null },
+        }),
+      ),
+    ).toEqual({ previewLines: 1 });
+  });
+
+  it("sin swipeConfig guardado no inventa uno (el hook aplica los defaults)", () => {
+    expect(
+      parseCorreosViewPreferences(JSON.stringify({ panelWidth: 640 })),
+    ).toEqual({ panelWidth: 640 });
+  });
 });

@@ -9,6 +9,9 @@ import {
   type CorreoChipKey,
   type CorreoFolderTab,
 } from "./CorreosFilters";
+import { CorreosMobileTopBar } from "./CorreosMobileTopBar";
+import { CorreosMobileDrawer } from "./CorreosMobileDrawer";
+import { CorreoSwipeSettingsSheet } from "./CorreoSwipeSettingsSheet";
 import { CorreoRowSwipe } from "./CorreoRowSwipe";
 import { CorreoDrawer } from "./CorreoDrawer";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
@@ -75,6 +78,9 @@ export function CorreosClient() {
   const [autoExtract, setAutoExtract] = useState(false);
   const [snoozeId, setSnoozeId] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
+  // Opción C: drawer lateral móvil (carpetas + filtros + acciones).
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [swipeSettingsOpen, setSwipeSettingsOpen] = useState(false);
   // C12: multi-select para acciones masivas. C20: fila enfocada por j/k.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [focusIndex, setFocusIndex] = useState(-1);
@@ -89,6 +95,8 @@ export function CorreosClient() {
     panelWidth,
     previewLines,
     setPreviewLines,
+    swipeConfig,
+    setSwipeConfig,
     resetPanelWidth,
     onResizePointerDown,
     onResizeKeyDown,
@@ -436,12 +444,55 @@ export function CorreosClient() {
   });
 
   return (
-    <div className="ds-page-enter space-y-5">
+    <>
+      {/* Top móvil tipo Gmail — fuera del root animado para no correr el
+          stagger de ds-page-enter en desktop; sticky contra el scroll de
+          página en modo inmersivo. */}
+      <CorreosMobileTopBar
+        onOpenNav={() => setMobileNavOpen(true)}
+        query={query}
+        onQuery={setQuery}
+        semantic={semantic}
+        onSemantic={setSemantic}
+        folder={folder}
+        inboxUnread={counts?.inboxUnread ?? 0}
+        realtimeStatus={realtimeStatus}
+        lastSyncAt={lastSyncAt}
+      />
+      <CorreosMobileDrawer
+        open={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        folder={folder}
+        onFolder={setFolder}
+        chip={chip}
+        onChip={setChip}
+        vertical={vertical}
+        onVertical={setVertical}
+        counts={counts}
+        previewLines={previewLines}
+        onPreviewLines={setPreviewLines}
+        onSync={syncNow}
+        syncing={syncing}
+        realtimeStatus={realtimeStatus}
+        lastSyncAt={lastSyncAt}
+        onOpenSwipeSettings={() => setSwipeSettingsOpen(true)}
+      />
+      <CorreoSwipeSettingsSheet
+        open={swipeSettingsOpen}
+        onClose={() => setSwipeSettingsOpen(false)}
+        config={swipeConfig}
+        onConfig={setSwipeConfig}
+      />
+    <div className="ds-page-enter space-y-5 max-lg:pb-28">
       {/* El encabezado se desplaza con el scroll: recupera pantalla en móvil
           (antes todo el hero quedaba fijo y solo scrolleaba la lista). */}
-      <div className="space-y-5">
-        <PageHero icon={Mail} iconTone="violet" title="Correos" subtitle="Bandeja comercial"
-          description="Hilos de tu Gmail vinculados a cuentas, negocios y leads" />
+      <div className="space-y-5 max-lg:px-4">
+        {/* En móvil el hero desaparece (modo inmersivo); los banners de estado
+            siguen visibles como franjas delgadas bajo el top móvil. */}
+        <div className="hidden lg:block">
+          <PageHero icon={Mail} iconTone="violet" title="Correos" subtitle="Bandeja comercial"
+            description="Hilos de tu Gmail vinculados a cuentas, negocios y leads" />
+        </div>
 
         <CorreosSyncBanner backfillDone={backfillDone} totalThreads={totalThreads}
           syncParked={syncParked} onConnected={() => void fetchPage(null, true)} />
@@ -466,9 +517,9 @@ export function CorreosClient() {
         )}
       </div>
 
-      {/* Solo los filtros quedan fijos bajo la isla móvil: tabs siempre a mano
-          sin el bloque grande del hero robando espacio. */}
-      <div className="sticky top-[calc(4rem+env(safe-area-inset-top,0px))] z-10 -mx-1 bg-background/80 px-1 py-2 backdrop-blur-sm lg:static lg:top-auto lg:bg-transparent lg:px-0 lg:py-0 lg:backdrop-blur-none">
+      {/* Desktop-only: en móvil los filtros viven en el top Gmail + drawer.
+          Se conserva el -mx-1 histórico para no mover ni un pixel en desktop. */}
+      <div className="-mx-1 hidden lg:block">
         <CorreosFilters folder={folder} onFolder={setFolder} chip={chip} onChip={setChip}
           counts={counts} query={query} onQuery={setQuery}
           semantic={semantic} onSemantic={setSemantic}
@@ -488,14 +539,18 @@ export function CorreosClient() {
           >
             <PenLine className="h-4 w-4" /> Redactar
           </button>
-          <button
-            type="button"
-            aria-label="Redactar correo"
-            onClick={() => setComposeOpen(true)}
-            className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground shadow-lg ds-tap lg:hidden"
-          >
-            <PenLine className="h-4 w-4" /> Redactar
-          </button>
+          {/* Con un hilo abierto el FAB se oculta: el lector es full-screen
+              y el botón no debe flotar sobre el detalle. */}
+          {!openId && (
+            <button
+              type="button"
+              aria-label="Redactar correo"
+              onClick={() => setComposeOpen(true)}
+              className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground shadow-lg ds-tap lg:hidden"
+            >
+              <PenLine className="h-4 w-4" /> Redactar
+            </button>
+          )}
         </>
       )}
 
@@ -503,7 +558,7 @@ export function CorreosClient() {
         ref={workspaceRef}
         className="relative min-w-0 lg:flex lg:items-start lg:gap-4"
       >
-        <div className="min-w-0 flex-1 space-y-4">
+        <div className="min-w-0 flex-1 space-y-4 max-lg:px-4">
           {selectedIds.size > 0 && (
             <CorreoBulkBar
               count={selectedIds.size}
@@ -527,7 +582,11 @@ export function CorreosClient() {
               <EmptyState icon={Mail} title="Sin correos" description="Probá sincronizar o cambiá los filtros." />
             )
           ) : (
-            <Surface elevation={1} padding="none" className="overflow-hidden">
+            <Surface
+              elevation={1}
+              padding="none"
+              className="overflow-hidden max-lg:-mx-4 max-lg:rounded-none max-lg:border-x-0"
+            >
               {searching && loading && (
                 <div className="flex items-center gap-2 border-b border-ds-border-subtle px-4 py-2 text-[12px] text-ds-text-3">
                   <Spinner className="h-3.5 w-3.5" /> Buscando en toda la casilla…
@@ -540,6 +599,7 @@ export function CorreosClient() {
                   checked={selectedIds.has(t.id)}
                   onToggleCheck={canModify ? () => toggleSelect(t.id) : undefined}
                   previewLines={previewLines}
+                  swipeConfig={swipeConfig}
                   onChanged={() => void fetchPage(null, true)}
                   onRemove={removeThreadLocally}
                   onSnooze={() => setSnoozeId(t.id)}
@@ -570,6 +630,11 @@ export function CorreosClient() {
           onChanged={() => void fetchPage(null, true)} />
       </div>
 
+    </div>
+      {/* Fuera del root animado: los hijos de ds-page-enter retienen un
+          transform (fill forwards) que dejaría estos overlays anclados al
+          contenido y bajo la BottomNav en móvil. Aquí su fixed es viewport
+          real; en desktop no cambia nada (son modales). */}
       <CorreoComposeSheet
         open={composeOpen}
         onClose={() => setComposeOpen(false)}
@@ -601,6 +666,6 @@ export function CorreosClient() {
           void snoozeThread(id, iso, `Pospuesto hasta ${label}`, () => void fetchPage(null, true));
         }}
       />
-    </div>
+    </>
   );
 }
