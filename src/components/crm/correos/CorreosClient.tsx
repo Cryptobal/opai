@@ -12,6 +12,7 @@ import {
 import { CorreosMobileTopBar } from "./CorreosMobileTopBar";
 import { CorreosMobileDrawer } from "./CorreosMobileDrawer";
 import { CorreoSwipeSettingsSheet } from "./CorreoSwipeSettingsSheet";
+import { CorreoSelectionBar } from "./CorreoSelectionBar";
 import { CorreoRowSwipe } from "./CorreoRowSwipe";
 import { CorreoDrawer } from "./CorreoDrawer";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
@@ -459,18 +460,32 @@ export function CorreosClient() {
     <>
       {/* Top móvil tipo Gmail — fuera del root animado para no correr el
           stagger de ds-page-enter en desktop; sticky contra el scroll de
-          página en modo inmersivo. */}
-      <CorreosMobileTopBar
-        onOpenNav={() => setMobileNavOpen(true)}
-        query={query}
-        onQuery={setQuery}
-        semantic={semantic}
-        onSemantic={setSemantic}
-        folder={folder}
-        inboxUnread={counts?.inboxUnread ?? 0}
-        realtimeStatus={realtimeStatus}
-        lastSyncAt={lastSyncAt}
-      />
+          página en modo inmersivo. Con selección activa, la barra contextual
+          ocupa el mismo slot sticky (como Gmail). */}
+      {selectionMode ? (
+        <CorreoSelectionBar
+          count={selectedIds.size}
+          allRead={items
+            .filter((t) => selectedIds.has(t.id))
+            .every((t) => !t.isUnread)}
+          onClear={clearSelection}
+          onAction={bulkAction}
+          onSnooze={() => setSnoozeId("__bulk__")}
+          onSelectAllVisible={() => setSelectedIds(new Set(filtered.map((t) => t.id)))}
+        />
+      ) : (
+        <CorreosMobileTopBar
+          onOpenNav={() => setMobileNavOpen(true)}
+          query={query}
+          onQuery={setQuery}
+          semantic={semantic}
+          onSemantic={setSemantic}
+          folder={folder}
+          inboxUnread={counts?.inboxUnread ?? 0}
+          realtimeStatus={realtimeStatus}
+          lastSyncAt={lastSyncAt}
+        />
+      )}
       <CorreosMobileDrawer
         open={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
