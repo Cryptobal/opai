@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { openai } from "@/lib/openai";
+import { getTenantOpenAIClient } from "@/lib/ai/tenant-openai";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 const VALID_GROUP_IDS = new Set([
@@ -111,7 +111,8 @@ Reglas:
 - Si menciona sistema, software, monitoreo: incluye system.
 - Responde SOLO con el array JSON, sin explicación. Ejemplo: ["uniform","exam","equipment","system"]`;
 
-    const completion = await openai.chat.completions.create({
+    const client = await getTenantOpenAIClient(ctx.tenantId);
+    const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       max_tokens: 200,

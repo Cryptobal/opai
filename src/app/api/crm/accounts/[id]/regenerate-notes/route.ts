@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { openai } from "@/lib/openai";
+import { getTenantOpenAIClient } from "@/lib/ai/tenant-openai";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
@@ -80,7 +80,8 @@ Requisitos:
 
 Responde SOLO con el texto de la descripción, sin comillas ni prefijos.`;
 
-    const completion = await openai.chat.completions.create({
+    const client = await getTenantOpenAIClient(ctx.tenantId);
+    const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       max_tokens: 400,
