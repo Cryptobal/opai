@@ -51,6 +51,59 @@ function parseSwipeConfig(value: unknown): CorreoSwipeConfig | null {
   return { right, left };
 }
 
+/** Acciones con atajo de teclado configurable (estilo Gmail). */
+export type CorreoShortcutAction =
+  | "down"
+  | "up"
+  | "open"
+  | "toggleSelect"
+  | "archive"
+  | "trash"
+  | "reply"
+  | "star"
+  | "snooze"
+  | "toggleRead"
+  | "focusSearch";
+export type CorreoShortcuts = Record<CorreoShortcutAction, string>;
+
+const SHORTCUT_ACTIONS: readonly CorreoShortcutAction[] = [
+  "down", "up", "open", "toggleSelect", "archive", "trash",
+  "reply", "star", "snooze", "toggleRead", "focusSearch",
+];
+
+/** Defaults estilo Gmail (s = destacar, b = posponer, como Gmail). */
+export const DEFAULT_CORREO_SHORTCUTS: CorreoShortcuts = {
+  down: "j",
+  up: "k",
+  open: "Enter",
+  toggleSelect: "x",
+  archive: "e",
+  trash: "#",
+  reply: "r",
+  star: "s",
+  snooze: "b",
+  toggleRead: "u",
+  focusSearch: "/",
+};
+
+/** Merge de lo guardado sobre los defaults: solo teclas string no vacías para
+ *  acciones conocidas; el resto conserva el default (nunca deja una acción sin
+ *  atajo). */
+function parseShortcuts(value: unknown): CorreoShortcuts | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value as Record<string, unknown>;
+  const merged: CorreoShortcuts = { ...DEFAULT_CORREO_SHORTCUTS };
+  let touched = false;
+  for (const action of SHORTCUT_ACTIONS) {
+    const key = candidate[action];
+    if (typeof key === "string" && key.length > 0 && key.length <= 12) {
+      merged[action] = key;
+      touched = true;
+    }
+  }
+  return touched ? merged : null;
+}
+
 const STORAGE_KEY = "opai.crm.correos.view.v1";
 const DEFAULT_RATIO = 0.46;
 const MIN_PANEL_WIDTH = 420;
@@ -63,6 +116,10 @@ type StoredPreferences = {
   swipeConfig?: CorreoSwipeConfig;
   /** Riel de carpetas desktop contraído (estilo Gmail, persistente). */
   railCollapsed?: boolean;
+  /** Atajos de teclado configurables (acción → tecla). */
+  shortcuts?: CorreoShortcuts;
+  /** Cargar imágenes remotas de los correos sin pedir confirmación. */
+  alwaysShowImages?: boolean;
 };
 
 export function parseCorreosViewPreferences(
@@ -96,6 +153,13 @@ export function parseCorreosViewPreferences(
     if (typeof candidate.railCollapsed === "boolean") {
       preferences.railCollapsed = candidate.railCollapsed;
     }
+    const shortcuts = parseShortcuts(candidate.shortcuts);
+    if (shortcuts) {
+      preferences.shortcuts = shortcuts;
+    }
+    if (typeof candidate.alwaysShowImages === "boolean") {
+      preferences.alwaysShowImages = candidate.alwaysShowImages;
+    }
     return preferences;
   } catch {
     return {};
@@ -127,6 +191,10 @@ export function useCorreosViewPreferences(
     DEFAULT_CORREO_SWIPE_CONFIG,
   );
   const [railCollapsed, setRailCollapsed] = useState(false);
+  const [shortcuts, setShortcuts] = useState<CorreoShortcuts>(
+    DEFAULT_CORREO_SHORTCUTS,
+  );
+  const [alwaysShowImages, setAlwaysShowImages] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   const containerWidth = useCallback(
@@ -164,6 +232,12 @@ export function useCorreosViewPreferences(
     if (typeof stored.railCollapsed === "boolean") {
       setRailCollapsed(stored.railCollapsed);
     }
+    if (stored.shortcuts) {
+      setShortcuts(stored.shortcuts);
+    }
+    if (typeof stored.alwaysShowImages === "boolean") {
+      setAlwaysShowImages(stored.alwaysShowImages);
+    }
     setHydrated(true);
   }, [containerWidth]);
 
@@ -173,14 +247,17 @@ export function useCorreosViewPreferences(
       try {
         localStorage.setItem(
           STORAGE_KEY,
-          JSON.stringify({ panelWidth, previewLines, swipeConfig, railCollapsed }),
+          JSON.stringify({
+            panelWidth, previewLines, swipeConfig, railCollapsed,
+            shortcuts, alwaysShowImages,
+          }),
         );
       } catch {
         // Safari/private mode puede bloquear storage: la vista sigue operativa.
       }
     }, 120);
     return () => window.clearTimeout(timer);
-  }, [hydrated, panelWidth, previewLines, swipeConfig, railCollapsed]);
+  }, [hydrated, panelWidth, previewLines, swipeConfig, railCollapsed, shortcuts, alwaysShowImages]);
 
   useEffect(() => {
     const node = containerRef.current;
@@ -256,6 +333,10 @@ export function useCorreosViewPreferences(
     setSwipeConfig,
     railCollapsed,
     setRailCollapsed,
+    shortcuts,
+    setShortcuts,
+    alwaysShowImages,
+    setAlwaysShowImages,
     resetPanelWidth,
     onResizePointerDown,
     onResizeKeyDown,
