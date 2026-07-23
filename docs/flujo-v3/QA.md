@@ -306,3 +306,82 @@ financiera ni migraciones.
    checkbox "Asociar a una cuenta CRM" (default ON). Al desmarcarlo se crea un
    ingreso `MANUAL` (libre, sin cuenta), como pidió el owner. El backend ya lo
    permitía (zod INGRESOS+MANUAL); faltaba la opción en el diálogo.
+
+---
+
+## Pulido de planilla (v3 — deshacer, menús, cierre, recurrentes)
+
+Branch: `claude/flujo-caja-v3-pulido-nn4r76`. Cambios de operación de la planilla
+sobre el mismo modelo (solo escribe `FinanceFlowRow`, `FinanceFlowPlanCell`, la
+nueva `FinanceFlowPlanRecurrence` y `FinanceCashflowWeeklyClose`). Ninguna ruta
+nueva escribe en `FinanceDte`, `FinanceDteRecurringTemplate` (salvo los dos PATCH
+de programación que ya existían) ni `FinanceBankTransaction`.
+
+### Diferencias reportadas (§4 hipótesis comprobadas)
+1. **Semana ISO v3 vs semana de cierre v2.** v3 planifica en semanas ISO
+   (lunes→domingo, UTC); v2 cierra en semanas terminadas en `weekClosingDow`
+   (viernes por defecto ⇒ sábado→viernes). El adaptador
+   (`weekly-close.adapter.ts`) **normaliza**: cada semana ISO se representa por
+   su día de cierre v2 (lunes + offset del dow), calculado en UTC para evitar el
+   bug de zona horaria de `date-fns` (getDay local). No se reinterpreta ni se
+   modifica ningún registro de v2. El diálogo muestra la etiqueta ISO; el sello
+   real es la semana de cierre v2 que la contiene (fuzz de ±1–2 días en el borde).
+2. **Occurrence de ajuste del cierre manual.** `persistWeeklyClose` crea una
+   `FinanceCashflowOccurrence` (isClosingAdjust) en el cierre manual. Se verificó
+   que la matriz v3 **no lee occurrences** (`load-committed-income/expense` y
+   `load-real` leen DTE, programaciones y banco). Por eso ese ajuste **no produce
+   filas fantasma en v3** y el cierre manual queda habilitado en esta fase.
+
+### Checklist manual nuevo
+- [ ] **Deshacer/rehacer.** Ctrl+Z revierte la última edición de plan (celda,
+      fill-right o move); Ctrl+Shift+Z / Ctrl+Y rehace; máx. 50 pasos; el foco
+      vuelve a la celda afectada con toast. La pila se limpia al desplazar la
+      ventana (‹ › en un borde) o cambiar de granularidad.
+- [ ] **Popover de celda** solo lectura: sin ningún control de mutación.
+- [ ] **Menú de fila** (botón derecho sobre el concepto y MoreHorizontal, visible
+      en touch): renombrar (MANUAL), cambiar sección (avisa si invierte el signo),
+      cambiar categoría (CATEGORY), Programación → aplazar término / días de cobro
+      con el alcance "todas las cuotas futuras" escrito en el diálogo, egreso
+      recurrente (egresos), archivar/desarchivar, eliminar (deshabilitado con
+      motivo si hay movimiento; 409 → ofrece archivar).
+- [ ] **Menú de celda** (botón derecho / long-press): editar, rellenar, borrar,
+      mover plan a…, ver detalle, ver factura (navega a Facturación). Ítems no
+      aplicables deshabilitados con motivo.
+- [ ] **Drag** (desktop): una celda de plan se arrastra a otra semana abierta de
+      la misma fila (origen a 0, destino suma y lo avisa); comprometido/real no se
+      arrastran (tooltip). Bajo `md` el drag se desactiva; queda "Mover plan a…".
+- [ ] **5 estados** distinguibles a 22px sin abrir la leyenda; folio legible
+      `F°1234` (trunca a `F°…34` con title); la leyenda coincide con lo renderizado.
+- [ ] **Cierre semanal.** "Cerrar semana" en la toolbar: saldo bancario sugerido
+      editable, varianza en vivo, contadores (sin asignar / proy. no cumplidas),
+      notas; si el saldo difiere del banco pide motivo (≥5). Semana sellada →
+      candado en el encabezado y celdas de plan de solo lectura (servidor rechaza).
+      Reabrir requiere confirmación. Semana futura / ya cerrada → rechazadas.
+- [ ] **Saldo del banco.** Toolbar "Banco hoy $X"; botón abre el desglose por
+      cuenta (número enmascarado). Tono warn si la cartola más reciente > 7 días.
+- [ ] **Egreso recurrente.** Diálogo desde el menú de fila (egresos): monto,
+      periodicidad (semanal / quincenal / mensual día N), inicio y término opcional.
+      Materializa celdas de plan hacia adelante hasta `min(endDate, hoy+12m)`;
+      editar reescribe solo futuras (nunca el pasado); mensual día 31 → último día
+      del mes.
+
+### Pruebas automáticas nuevas (Vitest)
+- `usePlanillaHistory` — push/undo/redo, tope 50, limpieza de rehacer, clear.
+- `movePlanCell` — suma en destino (en DB), borrado en origen, transacción,
+  no-op misma semana, rechazo de no-lunes.
+- `recurring-plan.service` — expansión mensual día 31, día 29 en febrero (bisiesto
+  y no), respeto de endDate, no reescritura del pasado en la edición.
+- `deleteRow` — 409 con plan, 409 con comprometido/real, éxito en fila limpia.
+- `weekly-close.adapter` — mapeo semana ISO ↔ día de cierre v2, real vs manual,
+  motivo obligatorio si difiere del banco, rechazo de semana futura.
+- `plan.service` — fila archivada: bloquea plan hacia adelante, permite corregir
+  semanas anteriores al término.
+
+### Pendientes / notas
+- La edición de plan en semanas **pasadas** de filas archivadas está permitida en
+  el servidor (K), pero la UI mantiene las filas archivadas de solo lectura
+  (simplicidad); desarchivar habilita la edición normal.
+- El drag usa DnD nativo de HTML5 (no `dnd-kit`) por costo/densidad de la grilla;
+  cubre el caso celda→celda y se desactiva bajo `md`.
+- Validación con datos reales pendiente en Vercel preview (sin merge a `main` sin
+  aprobación explícita de Carlos).
