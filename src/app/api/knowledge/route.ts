@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
       if (!content || !content.trim()) {
         throw new Error('No se pudo extraer texto del archivo (contenido vacío).');
       }
-      processed = await processDocument({ knowledgeBaseId: kb.id, content });
+      processed = await processDocument({ knowledgeBaseId: kb.id, content, tenantId: kb.tenantId ?? undefined });
     } catch (err) {
       processError = err instanceof Error ? err.message : String(err);
       console.error(`[Knowledge] Error processing ${kb.id}:`, err);
