@@ -16,31 +16,26 @@ function renderPanel(onClose = vi.fn(), onCreated = vi.fn()) {
   return { onClose, onCreated };
 }
 
-/** El cuerpo del panel es de altura fija: cambiar modo/tipo no mueve el layout. */
-function fixedBody(): HTMLElement {
-  const node = document.querySelector<HTMLElement>('[role="dialog"] .h-\\[322px\\]');
-  expect(node).not.toBeNull();
-  return node!;
-}
-
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
 describe("AgendaQuickCreate", () => {
-  it("mantiene el cuerpo a altura fija al cambiar modo y tipo", () => {
+  it("cambia entre modo Evento y Tarea y entre tipos sin scroll interno", () => {
     renderPanel();
-    const body = fixedBody();
-    expect(body.className).toContain("h-[322px]");
 
-    // Cambiar tipo de evento no altera el contenedor fijo.
+    // Cuerpo de altura natural (sin caja fija con scroll interno).
+    const body = document.querySelector<HTMLElement>('[role="dialog"] .overflow-y-auto');
+    expect(body).not.toBeNull();
+    expect(body!.className).not.toContain("h-[322px]");
+
+    // Cambiar tipo de evento intercambia sólo el contenido de la fila.
     fireEvent.click(screen.getByText("Técnica"));
-    expect(fixedBody().className).toContain("h-[322px]");
+    expect(screen.getByText("Participantes")).toBeInTheDocument();
 
-    // Cambiar a Tarea tampoco (mismo alto reservado).
+    // Cambiar a Tarea muestra los campos de tarea.
     fireEvent.click(screen.getByRole("button", { name: "tarea" }));
     expect(screen.getByText("Vence")).toBeInTheDocument();
-    expect(fixedBody().className).toContain("h-[322px]");
   });
 
   it("prefija fecha y hora del slot clickeado", () => {
