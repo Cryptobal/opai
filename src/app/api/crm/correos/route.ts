@@ -43,6 +43,8 @@ export async function GET(req: NextRequest) {
       mailboxEmail: account.email,
       cursor: req.nextUrl.searchParams.get("cursor"),
       folder,
+      // C15: búsqueda server-side sobre toda la casilla sincronizada.
+      q: req.nextUrl.searchParams.get("q"),
     }),
     countCorreoFolders({
       tenantId: session.user.tenantId,

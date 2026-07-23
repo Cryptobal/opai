@@ -30,14 +30,6 @@ function matchesChip(t: CorreoThreadDTO, f: CorreoChipKey): boolean {
   return true;
 }
 
-function matchesQuery(t: CorreoThreadDTO, q: string): boolean {
-  const term = q.trim().toLowerCase();
-  if (!term) return true;
-  return [t.subject, t.fromEmail, t.snippet, t.accountName].some((v) =>
-    v?.toLowerCase().includes(term),
-  );
-}
-
 type Counts = {
   inbox: number;
   inboxUnread?: number;
@@ -61,6 +53,8 @@ export function CorreosClient() {
   const [folder, setFolder] = useState<CorreoFolderTab>("inbox");
   const [chip, setChip] = useState<CorreoChipKey>("todos");
   const [query, setQuery] = useState("");
+  // C15: la búsqueda consulta al servidor (toda la casilla), con debounce.
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [autoExtract, setAutoExtract] = useState(false);
   const [snoozeId, setSnoozeId] = useState<string | null>(null);
@@ -89,6 +83,7 @@ export function CorreosClient() {
       const qs = new URLSearchParams();
       if (cur) qs.set("cursor", cur);
       if (f !== "inbox") qs.set("folder", f);
+      if (debouncedQuery) qs.set("q", debouncedQuery);
       const r = await fetch(`/api/crm/correos?${qs}`).then((x) => x.json());
       setConnected(r.connected !== false);
       setCanModify(Boolean(r.canModify));
@@ -105,7 +100,12 @@ export function CorreosClient() {
     } finally {
       setLoading(false);
     }
-  }, [folder]);
+  }, [folder, debouncedQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -215,7 +215,10 @@ export function CorreosClient() {
     }
   }
 
-  const filtered = items.filter((t) => matchesChip(t, chip) && matchesQuery(t, query));
+  // La búsqueda ya viene filtrada del servidor; los chips siguen siendo
+  // client-side (filtran metadata de asociación ya presente en la página).
+  const filtered = items.filter((t) => matchesChip(t, chip));
+  const searching = debouncedQuery.length > 0;
 
   return (
     <div className="ds-page-enter space-y-5">
@@ -257,9 +260,18 @@ export function CorreosClient() {
           ) : loading && items.length === 0 ? (
             <Spinner className="mx-auto" />
           ) : filtered.length === 0 ? (
-            <EmptyState icon={Mail} title="Sin correos" description="Probá sincronizar o cambiá los filtros." />
+            searching ? (
+              <EmptyState icon={Mail} title="Sin resultados" description="Nada coincide con tu búsqueda en esta carpeta. Probá otros términos u operadores (from:, to:, domain:, before:, after:, has:attachment)." />
+            ) : (
+              <EmptyState icon={Mail} title="Sin correos" description="Probá sincronizar o cambiá los filtros." />
+            )
           ) : (
             <Surface elevation={1} padding="none" className="overflow-hidden">
+              {searching && loading && (
+                <div className="flex items-center gap-2 border-b border-ds-border-subtle px-4 py-2 text-[12px] text-ds-text-3">
+                  <Spinner className="h-3.5 w-3.5" /> Buscando en toda la casilla…
+                </div>
+              )}
               {filtered.map((t) => (
                 <CorreoRowSwipe key={t.id} thread={t} canModify={canModify}
                   selected={openId === t.id}
