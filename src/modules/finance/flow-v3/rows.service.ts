@@ -1,6 +1,11 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { FinanceFlowRow, FlowRowMapping, FlowSection } from "@prisma/client";
+import { addWeeksUTC, enumerateWeeks, startOfIsoWeekUTC, toYmd } from "./weeks";
+import { loadCommittedIncome } from "./load-committed-income";
+import { loadCommittedExpense } from "./load-committed-expense";
+import { loadReal } from "./load-real";
+import type { FlowRowRef } from "./types";
 
 export interface CreateRowInput {
   section: FlowSection;
@@ -10,6 +15,14 @@ export interface CreateRowInput {
   installationId?: string | null;
   categoryId?: string | null;
   supplierId?: string | null;
+}
+
+export interface UpdateRowInput {
+  /** Solo para filas MANUAL (las demás derivan el nombre de su fuente). */
+  name?: string;
+  section?: FlowSection;
+  /** Solo para filas mapping=CATEGORY. null volvería a "sin categoría" (no permitido). */
+  categoryId?: string | null;
 }
 
 export interface ArchiveRowResult {
@@ -94,6 +107,126 @@ export async function renameRow(
   const row = await prisma.financeFlowRow.findFirst({ where: { id: rowId, tenantId } });
   if (!row) throw new Error("Fila no encontrada");
   await prisma.financeFlowRow.update({ where: { id: row.id }, data: { name: name.trim() } });
+  return prisma.financeFlowRow.findFirstOrThrow({ where: { id: rowId, tenantId } });
+}
+
+/**
+ * Edita atributos LOCALES de la fila (nombre manual, sección, categoría). El
+ * nombre solo se cambia en filas MANUAL; la categoría solo en filas CATEGORY, y
+ * se revalida contra el tenant antes de escribir. Cambiar de sección reubica la
+ * fila al final de la sección destino (el signo de su plan cambia — la UI lo
+ * advierte). Read-after-write.
+ */
+export async function updateRow(
+  tenantId: string,
+  rowId: string,
+  input: UpdateRowInput,
+): Promise<FinanceFlowRow> {
+  const row = await prisma.financeFlowRow.findFirst({ where: { id: rowId, tenantId } });
+  if (!row) throw new Error("Fila no encontrada");
+
+  const data: {
+    name?: string;
+    section?: FlowSection;
+    categoryId?: string | null;
+    orderIndex?: number;
+  } = {};
+
+  if (input.name != null) {
+    if (row.mapping !== "MANUAL") {
+      throw new Error("Solo las filas manuales pueden renombrarse");
+    }
+    const trimmed = input.name.trim();
+    if (!trimmed) throw new Error("El nombre no puede estar vacío");
+    data.name = trimmed;
+  }
+
+  if (input.categoryId !== undefined) {
+    if (row.mapping !== "CATEGORY") {
+      throw new Error("Solo las filas de categoría pueden cambiar de categoría");
+    }
+    if (!input.categoryId) throw new Error("categoryId requerido para mapping CATEGORY");
+    const cat = await prisma.financeCashflowCategory.findFirst({
+      where: { id: input.categoryId, tenantId },
+      select: { id: true },
+    });
+    if (!cat) throw new Error("Categoría no encontrada");
+    data.categoryId = input.categoryId;
+  }
+
+  if (input.section != null && input.section !== row.section) {
+    data.section = input.section;
+    const last = await prisma.financeFlowRow.findFirst({
+      where: { tenantId, section: input.section },
+      orderBy: { orderIndex: "desc" },
+      select: { orderIndex: true },
+    });
+    data.orderIndex = (last?.orderIndex ?? -1) + 1;
+  }
+
+  if (Object.keys(data).length > 0) {
+    await prisma.financeFlowRow.update({ where: { id: row.id }, data });
+  }
+  return prisma.financeFlowRow.findFirstOrThrow({ where: { id: rowId, tenantId } });
+}
+
+/** ¿La fila muestra comprometido o real en alguna semana? Reutiliza los mismos
+ *  loaders que la matriz (cero divergencia de matching) sobre una ventana amplia
+ *  acotada (~2 años atrás → ~4 meses adelante). Usado por la guarda de deleteRow. */
+async function rowHasDerivedActivity(
+  tenantId: string,
+  row: FinanceFlowRow,
+): Promise<boolean> {
+  const ref: FlowRowRef = {
+    id: row.id, name: row.name, section: row.section, mapping: row.mapping,
+    crmAccountId: row.crmAccountId, installationId: row.installationId,
+    categoryId: row.categoryId, supplierId: row.supplierId,
+  };
+  const currentMonday = startOfIsoWeekUTC(new Date());
+  const weeks = enumerateWeeks(addWeeksUTC(currentMonday, -104), addWeeksUTC(currentMonday, 16));
+  const todayYmd = toYmd(new Date());
+  const [inc, exp, real] = await Promise.all([
+    loadCommittedIncome(tenantId, [ref], weeks, todayYmd),
+    loadCommittedExpense(tenantId, [ref], weeks, todayYmd),
+    loadReal(tenantId, [ref], weeks),
+  ]);
+  const nonEmpty = (m: Map<string, Map<string, { total: number }>>): boolean => {
+    const byWeek = m.get(row.id);
+    if (!byWeek) return false;
+    for (const cell of byWeek.values()) if (cell.total !== 0) return true;
+    return false;
+  };
+  return nonEmpty(inc) || nonEmpty(exp) || nonEmpty(real);
+}
+
+/**
+ * Elimina físicamente una fila SIN historial. Guarda en el servidor (el 409 no
+ * depende del cliente): rechaza si la fila tiene alguna FinanceFlowPlanCell o si
+ * muestra comprometido/real en alguna semana; en esos casos la UI ofrece
+ * archivar. Eliminar es no-destructivo para las fuentes (DTE/banco se derivan);
+ * solo remueve la fila y, en cascada, sus celdas de plan (vacías por la guarda).
+ */
+export async function deleteRow(tenantId: string, rowId: string): Promise<{ deleted: true }> {
+  const row = await prisma.financeFlowRow.findFirst({ where: { id: rowId, tenantId } });
+  if (!row) throw new Error("Fila no encontrada");
+
+  const planCount = await prisma.financeFlowPlanCell.count({ where: { tenantId, rowId } });
+  if (planCount > 0) {
+    throw new Error("La fila tiene plan histórico: archívala en vez de eliminarla");
+  }
+  if (await rowHasDerivedActivity(tenantId, row)) {
+    throw new Error("La fila tiene comprometido o real: archívala en vez de eliminarla");
+  }
+
+  await prisma.financeFlowRow.delete({ where: { id: row.id } });
+  return { deleted: true };
+}
+
+/** Desarchiva una fila (vuelve a admitir plan y a proyectarse hacia adelante). */
+export async function unarchiveRow(tenantId: string, rowId: string): Promise<FinanceFlowRow> {
+  const row = await prisma.financeFlowRow.findFirst({ where: { id: rowId, tenantId } });
+  if (!row) throw new Error("Fila no encontrada");
+  await prisma.financeFlowRow.update({ where: { id: row.id }, data: { archivedAt: null } });
   return prisma.financeFlowRow.findFirstOrThrow({ where: { id: rowId, tenantId } });
 }
 

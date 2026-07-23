@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import {
   Sheet,
   SheetContent,
@@ -141,7 +142,14 @@ export function BankBalanceSheet({
   };
 
   const handleDelete = async (snapshotId: string) => {
-    if (!confirm("¿Eliminar este registro de saldo? El saldo actual se recalculará al snapshot anterior.")) {
+    if (
+      !(await confirmDialog({
+        description:
+          "¿Eliminar este registro de saldo? El saldo actual se recalculará al snapshot anterior.",
+        variant: "destructive",
+        confirmLabel: "Eliminar",
+      }))
+    ) {
       return;
     }
     setDeleting(snapshotId);

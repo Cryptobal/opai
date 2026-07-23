@@ -3,8 +3,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, Unplug } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 type Account = {
   id: string;
@@ -42,7 +44,10 @@ export function GmailAccountsManager() {
   }, [load]);
 
   const disconnect = async (acc: Account) => {
-    if (!confirm(`¿Desconectar ${acc.email}? Se cortará la sincronización de esta casilla.`)) {
+    if (!(await confirmDialog({
+      description: `¿Desconectar ${acc.email}? Se cortará la sincronización de esta casilla.`,
+      confirmLabel: "Desconectar",
+    }))) {
       return;
     }
     setBusy(acc.id);
@@ -57,7 +62,7 @@ export function GmailAccountsManager() {
         // La desconexión local procede aunque Google falle; avisar para que el
         // permiso pueda retirarse a mano en myaccount.google.com/permissions.
         if (data && data.upstreamRevoked === false) {
-          alert(
+          toast.warning(
             `${acc.email} quedó desconectada de OPAI, pero no se pudo revocar el acceso en Google. ` +
               "Revocá el acceso de OPAI manualmente en myaccount.google.com/permissions (cuenta del dueño de la casilla).",
           );

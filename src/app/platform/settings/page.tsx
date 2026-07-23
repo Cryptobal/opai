@@ -1,13 +1,13 @@
 import Link from 'next/link';
-import { Brain, ListChecks } from 'lucide-react';
+import { BarChart3, ListChecks } from 'lucide-react';
 
 const settingItems = [
   {
-    href: '/platform/settings/ai',
-    icon: Brain,
-    title: 'Proveedor de IA por defecto',
+    href: '/platform/ai/usage',
+    icon: BarChart3,
+    title: 'IA · Consumo',
     description:
-      'Configura el proveedor centralizado de IA. Los tenants pueden sobreescribir con su propia API key.',
+      'Tokens y costo estimado de IA por función, modelo y empresa. Cada tenant usa su propio proveedor de IA.',
   },
   {
     href: '/platform/ai/actions',

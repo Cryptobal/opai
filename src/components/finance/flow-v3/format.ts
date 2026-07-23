@@ -38,6 +38,17 @@ export function fmtShortDate(ymd: string): string {
   return `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(2, 4)}`;
 }
 
+/**
+ * Chip de folio para la celda: "F°1234". Si excede 6 caracteres (folio ≥ 5
+ * dígitos) se trunca a "F°…34" y el `title` conserva el folio completo, para
+ * que quepa en la celda densa sin perder trazabilidad.
+ */
+export function folioChip(folio: number): { text: string; title: string } {
+  const full = `F°${folio}`;
+  if (full.length <= 6) return { text: full, title: full };
+  return { text: `F°…${String(folio).slice(-2)}`, title: full };
+}
+
 /** Clase tipográfica numérica de la grilla (11px mono tabular desktop; el
  *  uppercase/tracking cumple el patrón eyebrow del DS y es no-op sobre
  *  dígitos). En teléfonos sube a 12px (mínimo legible del DS) con leading

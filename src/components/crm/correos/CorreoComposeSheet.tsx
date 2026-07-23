@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { PenLine, X } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { EmailComposer } from "./EmailComposer";
 
 type Props = {
@@ -22,13 +23,19 @@ export function CorreoComposeSheet({ open, onClose, onSent }: Props) {
   if (!open) return null;
 
   const confirmClose = () => {
-    if (
-      !dirty ||
-      window.confirm("¿Cerrar el composer? Tu borrador queda guardado en Borradores.")
-    ) {
+    if (!dirty) {
       setDirty(false);
       onClose();
+      return;
     }
+    void confirmDialog({
+      description: "¿Cerrar el composer? Tu borrador queda guardado en Borradores.",
+    }).then((ok) => {
+      if (ok) {
+        setDirty(false);
+        onClose();
+      }
+    });
   };
 
   return (

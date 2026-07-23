@@ -105,13 +105,35 @@ módulo Documentos declara `/opai/documentos-operativos` (hermano plano de
 | Nivel | Mobile | Desktop |
 |---|---|---|
 | **N1** | Bottom bar items principales (4 + Más) | Sidebar (`AppSidebar`) |
-| **N2** | Bottom bar contextual (cuando estás en módulo) | Sidebar children |
-| **N3** | Bottom bar contextual (al entrar en sub-módulo con N3) | `<ModuleSubNav />` arriba del PageHero |
+| **N2** | Bottom bar contextual (cuando estás en módulo) | Sidebar children (flyout del módulo) |
+| **N3** | Bottom bar contextual (al entrar en sub-módulo con N3) | `<ModuleSubNav />` arriba del PageHero + barra superior (`TopbarSubNav`) |
 | **N4** | `EntityDetailLayout` con `ChipTabs` | `EntityDetailLayout` con `ChipTabs` |
 
 **Importante**: en mobile el SubNav N3 NO se renderiza (oculto con
 `hidden lg:block` por default en `<ModuleSubNav>`). El bottom nav cubre
 ese rol gracias a `getContextualBottomNavNodes`.
+
+### Barra superior desktop (`TopbarSubNav`)
+
+La barra superior del AppShell (desktop) resuelve UNA sola fila y sigue esta
+regla — **es ley, no la vuelvas a "mostrar siempre las secciones del módulo"**:
+
+- **Submódulo (N2) CON sub-secciones (N3)** → selector compacto `[Rendic. ▾]`
+  a la izquierda + tabs N3. El selector permite saltar entre N2; el N3 —donde
+  trabajás— ocupa las tabs. (Finanzas → Rendiciones/Banca/…, Ops → Pautas/
+  Rondas/Inventario/…)
+- **Submódulo SIN N3** (Personas, Payroll, CRM, Docs, Reportes DT, Portales,
+  y las landing sin N3 de Finanzas/Ops) → **barra VACÍA**. Cambiar de submódulo
+  se hace por el **menú lateral** (flyout del ícono del módulo). No se repiten
+  las secciones N2 en la barra: sería redundante con el sidebar.
+- **Excepción HUB**: sus vistas (Resumen/Comercial/Operaciones/…) viven en
+  estas pestañas y no tienen otro punto de navegación en desktop, así que sí se
+  muestran (modo plano, `mod.key === "hub"`).
+
+Corolario: el `href` de un módulo N1 DEBE ser su **raíz** (`/personas`, `/ops`,
+`/finanzas`), nunca un submódulo, para que `pathMatchesNode` resuelva el módulo
+en TODOS sus N2. (Personas apuntaba a `/personas/guardias` y por eso la barra
+solo resolvía en Listado; el resto de submódulos quedaba sin barra.)
 
 ### Patrón estándar para una page
 

@@ -61,6 +61,7 @@ import {
 import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import { FileAttachments } from "./FileAttachments";
 import { CreateDealModal } from "./CreateDealModal";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
@@ -279,7 +280,7 @@ export function CrmContactDetailClient({
   }, []);
 
   const inputCn = "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
-  const selectCn = "flex h-9 min-h-[44px] w-full appearance-none rounded-md border border-input bg-background pl-3 pr-8 py-2 text-sm text-foreground bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_8px_center] bg-no-repeat focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  const selectCn = "flex h-9 min-h-[44px] w-full rounded-md border border-input bg-background pl-3 pr-8 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
   // ── Handlers ──
   const openEdit = () => {
@@ -888,14 +889,18 @@ export function CrmContactDetailClient({
             />
             <div className="space-y-1.5">
               <Label>Plantilla (solo mail)</Label>
-              <select className={selectCn} value={selectedTemplateId} onChange={(e) => selectTemplate(e.target.value)} disabled={sending}>
-                <option value="">Sin plantilla</option>
-                {docTemplatesMail.length > 0 && (
-                  docTemplatesMail.map((t) => (
-                    <option key={t.id} value={`doc:${t.id}`}>{t.name}</option>
-                  ))
-                )}
-              </select>
+              <SimpleSelect
+                className={selectCn}
+                value={selectedTemplateId}
+                onValueChange={(v) => selectTemplate(v)}
+                disabled={sending}
+                options={[
+                  { value: "", label: "Sin plantilla" },
+                  ...(docTemplatesMail.length > 0
+                    ? docTemplatesMail.map((t) => ({ value: `doc:${t.id}`, label: t.name }))
+                    : []),
+                ]}
+              />
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -952,19 +957,18 @@ export function CrmContactDetailClient({
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1.5 md:col-span-2">
               <Label>Cuenta</Label>
-              <select
+              <SimpleSelect
                 className={selectCn}
                 value={editForm.accountId}
-                onChange={(e) => setEditForm((p) => ({ ...p, accountId: e.target.value }))}
+                onValueChange={(v) => setEditForm((p) => ({ ...p, accountId: v }))}
                 disabled={saving}
-              >
-                {contact.account && !accountOptions.find((a) => a.id === contact.account?.id) && (
-                  <option value={contact.account.id}>{contact.account.name}</option>
-                )}
-                {accountOptions.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </select>
+                options={[
+                  ...(contact.account && !accountOptions.find((a) => a.id === contact.account?.id)
+                    ? [{ value: contact.account.id, label: contact.account.name }]
+                    : []),
+                  ...accountOptions.map((a) => ({ value: a.id, label: a.name })),
+                ]}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Nombre *</Label>

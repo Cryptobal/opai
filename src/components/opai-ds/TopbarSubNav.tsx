@@ -1,17 +1,20 @@
 "use client";
 
 /**
- * TopbarSubNav — navegación de secciones del módulo en la barra superior
- * (desktop). Resuelve UNA sola fila, evitando el "dos filas de tabs" que
- * saturaba a los módulos con 3 niveles (Finanzas):
+ * TopbarSubNav — navegación de sub-secciones (N3) del módulo en la barra
+ * superior (desktop). Resuelve UNA sola fila:
  *
- *  - Módulos de 1 nivel (CRM, Personas): fila de tabs con las secciones del
- *    módulo (getContextualBottomNavNodes) — igual que el bottom nav móvil.
- *  - Módulos de 2 niveles (Finanzas → C/V → sub-secciones, Ops → Pautas →
- *    Mensual/Diaria/…): la sección N2 se colapsa en un SELECTOR compacto
- *    `[C/V ▾]` a la izquierda, y las tabs muestran las sub-secciones N3.
+ *  - Submódulo (N2) CON sub-secciones (N3) — Finanzas → Rendiciones →
+ *    Lista/Pagos, Ops → Pautas → Mensual/Diaria/…: el N2 se colapsa en un
+ *    SELECTOR compacto `[Rendic. ▾]` a la izquierda y las tabs muestran el N3.
  *    Así el N2 sigue a un click (sin gastar una fila) y el N3 —donde
  *    realmente trabajas— ocupa las tabs.
+ *  - Submódulo SIN N3 (Personas, Payroll, CRM, Docs, Reportes DT, y las
+ *    landing sin N3 de Finanzas/Ops): la barra queda VACÍA. Cambiar de
+ *    submódulo se hace por el menú lateral (flyout del ícono del módulo); no
+ *    se repiten las secciones N2 acá porque sería redundante con el sidebar.
+ *  - Excepción HUB: sus vistas (Resumen/Comercial/…) VIVEN en estas pestañas
+ *    y no tienen otro punto de navegación en desktop, así que sí se muestran.
  *
  * Filtra por permisos + módulos del tenant, igual que ModuleSubNav.
  */
@@ -61,6 +64,12 @@ export function TopbarSubNav({ className }: { className?: string }) {
 
   const { sections, currentSection, tabs } = useMemo(() => {
     const mod = findActiveModule(pathname);
+    // Módulos con navegación propia (ej. Configuración) no renderizan tabs de
+    // secciones en la topbar. El early return de abajo (tabs.length === 0)
+    // se encarga de no pintar nada.
+    if (mod?.hideInModuleTabs) {
+      return { sections: [] as NavNode[], currentSection: undefined, tabs: [] as SwipeTabItem[] };
+    }
     const n2 = (mod?.children ?? []).filter(
       (c) => !c.hideInSubNav && isNodeVisible(c, ctx),
     );
@@ -77,10 +86,17 @@ export function TopbarSubNav({ className }: { className?: string }) {
         return { sections: n2, currentSection: current, tabs: n3 };
       }
     }
-    // Modo plano: tabs = secciones del módulo (misma fuente que el bottom nav).
-    const plain = getContextualBottomNavNodes(pathname)
-      .filter((c) => !c.hideInSubNav && isNodeVisible(c, ctx))
-      .map(toTab);
+    // Modo plano: la sección activa NO tiene N3. La barra superior queda
+    // reservada para N3, así que NO se repiten las secciones N2 acá (ya viven
+    // en el menú lateral / flyout del módulo). Única excepción: el Hub, cuyas
+    // vistas (Resumen/Comercial/…) viven en estas pestañas y no tienen otro
+    // punto de navegación en desktop.
+    const isHub = mod?.key === "hub";
+    const plain = isHub
+      ? getContextualBottomNavNodes(pathname)
+          .filter((c) => !c.hideInSubNav && isNodeVisible(c, ctx))
+          .map(toTab)
+      : [];
     return { sections: [] as NavNode[], currentSection: undefined, tabs: plain };
   }, [pathname, ctx]);
 

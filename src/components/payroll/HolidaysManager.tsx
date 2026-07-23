@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Loader2, CalendarDays } from "lucide-react";
+import { confirmDialog } from "@/components/ui/confirm-service";
+import { toast } from "sonner";
 
 const MONTHS = [
   "Ene", "Feb", "Mar", "Abr", "May", "Jun",
@@ -90,7 +92,7 @@ export function HolidaysManager() {
       });
       if (!res.ok) {
         const json = await res.json();
-        alert(json.error || "Error");
+        toast.error(json.error || "Error");
         return;
       }
       setModalOpen(false);
@@ -101,7 +103,7 @@ export function HolidaysManager() {
   };
 
   const handleDelete = async (h: Holiday) => {
-    if (!confirm(`¿Eliminar el feriado "${h.name}" (${formatDate(h.date)})?`)) return;
+    if (!(await confirmDialog({ description: `¿Eliminar el feriado "${h.name}" (${formatDate(h.date)})?`, variant: "destructive", confirmLabel: "Eliminar" }))) return;
     try {
       await fetch(`/api/payroll/holidays/${h.id}`, { method: "DELETE" });
       await loadHolidays();

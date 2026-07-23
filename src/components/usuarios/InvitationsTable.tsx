@@ -8,6 +8,7 @@ import { X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 interface Invitation {
   id: string;
@@ -25,7 +26,7 @@ export default function InvitationsTable({ invitations }: Props) {
   const [loading, setLoading] = useState<string | null>(null);
 
   const handleRevoke = async (id: string) => {
-    if (!window.confirm('¿Seguro que deseas revocar esta invitación?')) return;
+    if (!(await confirmDialog({ description: '¿Seguro que deseas revocar esta invitación?' }))) return;
     setLoading(id);
     await revokeInvitation(id);
     setLoading(null);

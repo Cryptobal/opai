@@ -49,18 +49,14 @@ function HeaderRow({ unreadCount }: { unreadCount?: number }) {
         </span>
       </Link>
 
-      {/* Desktop: título + botón (sin pills arriba, el botón se queda) */}
-      <div className="hidden min-w-0 items-center justify-between gap-2 lg:flex">
-        <div className="flex min-w-0 items-center gap-2">
-          <Mail className="h-4 w-4 shrink-0 text-primary" />
-          <p className="truncate font-display text-sm font-semibold text-ds-text-1">
-            Correos recientes
-          </p>
-          {badge}
-        </div>
-        <Button asChild variant="outline" size="sm" className="shrink-0">
-          <Link href="/crm/correos">Ver todos</Link>
-        </Button>
+      {/* Desktop: título. Sin botón "Ver todos" (redundante con el pill Correos
+          de accesos rápidos, igual que en móvil). */}
+      <div className="hidden min-w-0 items-center gap-2 lg:flex">
+        <Mail className="h-4 w-4 shrink-0 text-primary" />
+        <p className="truncate font-display text-sm font-semibold text-ds-text-1">
+          Correos recientes
+        </p>
+        {badge}
       </div>
     </>
   );

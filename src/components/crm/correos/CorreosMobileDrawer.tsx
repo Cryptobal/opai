@@ -114,7 +114,7 @@ export function CorreosMobileDrawer({
                 <Icon className="h-4 w-4 shrink-0" />
                 <span className="min-w-0 flex-1 truncate">{t.label}</span>
                 {unread > 0 && (
-                  <span className="rounded-full bg-primary px-1.5 text-[12px] font-medium text-primary-foreground">{unread}</span>
+                  <span className="rounded-full bg-status-danger px-1.5 text-[12px] font-medium text-white">{unread}</span>
                 )}
                 {typeof n === "number" && <span className="text-[12px] text-ds-text-4">{n}</span>}
               </Item>
@@ -136,22 +136,48 @@ export function CorreosMobileDrawer({
             </Item>
           ))}
 
-          {(onOpenSwipeSettings || onOpenShortcuts) && (
-            <>
-              <SectionTitle>Configuración</SectionTitle>
-              {onOpenSwipeSettings && (
-                <Item onClick={pick(onOpenSwipeSettings)}>
-                  <Settings className="h-4 w-4 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">Gestos de deslizar</span>
-                </Item>
-              )}
-              {onOpenShortcuts && (
-                <Item onClick={pick(onOpenShortcuts)}>
-                  <Keyboard className="h-4 w-4 shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">Atajos de teclado</span>
-                </Item>
-              )}
-            </>
+          <SectionTitle>Configuración</SectionTitle>
+          {/* Densidad: selector Liquid Glass (elegir 1/2/3 líneas), no un ciclo
+              que rota y se cierra. Se aplica en vivo y el drawer queda abierto. */}
+          <div className="flex items-center justify-between gap-3 rounded-xl px-3 py-1.5">
+            <div className="flex min-w-0 items-center gap-3">
+              <AlignJustify className="h-4 w-4 shrink-0 text-ds-text-2" />
+              <span className="truncate text-[13px] text-ds-text-2">Densidad</span>
+            </div>
+            <div
+              role="group"
+              aria-label="Líneas de vista previa"
+              className="opai-glass-pill inline-flex shrink-0 items-center gap-0.5 rounded-full p-0.5"
+            >
+              {([1, 2, 3] as CorreoPreviewLines[]).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => onPreviewLines(n)}
+                  aria-pressed={previewLines === n}
+                  aria-label={`${n} ${n === 1 ? "línea" : "líneas"}`}
+                  className={`inline-flex h-9 min-w-[38px] items-center justify-center rounded-full px-2 text-[13px] font-medium ds-tap ${
+                    previewLines === n
+                      ? "bg-primary text-primary-foreground"
+                      : "text-ds-text-2"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+          {onOpenSwipeSettings && (
+            <Item onClick={pick(onOpenSwipeSettings)}>
+              <Settings className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">Gestos de deslizar</span>
+            </Item>
+          )}
+          {onOpenShortcuts && (
+            <Item onClick={pick(onOpenShortcuts)}>
+              <Keyboard className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">Atajos de teclado</span>
+            </Item>
           )}
         </nav>
 
@@ -163,11 +189,6 @@ export function CorreosMobileDrawer({
               {live ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
               {live ? "En vivo" : lastSyncLabel ?? "Reconectando"}
             </span>
-          </Item>
-          <Item onClick={() => onPreviewLines(((previewLines % 3) + 1) as CorreoPreviewLines)}>
-            <AlignJustify className="h-4 w-4 shrink-0" />
-            <span className="min-w-0 flex-1 truncate">Densidad</span>
-            <span className="text-[12px] text-ds-text-4">{previewLines} {previewLines === 1 ? "línea" : "líneas"}</span>
           </Item>
         </div>
       </div>

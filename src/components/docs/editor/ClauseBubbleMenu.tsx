@@ -18,6 +18,7 @@ import {
   deleteClauseBlock,
 } from "./clause-utils-client";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 interface Props {
   editor: Editor | null;
@@ -76,8 +77,15 @@ export function ClauseBubbleMenu({ editor }: Props) {
     toast.success(`Slug actualizado: ${normalized}`);
   };
 
-  const handleDeleteClause = () => {
-    if (!confirm("¿Eliminar esta cláusula y todo su contenido hasta el próximo título?")) return;
+  const handleDeleteClause = async () => {
+    if (
+      !(await confirmDialog({
+        description: "¿Eliminar esta cláusula y todo su contenido hasta el próximo título?",
+        variant: "destructive",
+        confirmLabel: "Eliminar",
+      }))
+    )
+      return;
     deleteClauseBlock(editor);
     toast.success("Cláusula eliminada");
   };

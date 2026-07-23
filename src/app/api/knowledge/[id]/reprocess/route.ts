@@ -50,7 +50,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     if (!content || !content.trim()) {
       throw new Error('No se pudo extraer texto del archivo (contenido vacío).');
     }
-    const processed = await processDocument({ knowledgeBaseId: id, content });
+    const processed = await processDocument({ knowledgeBaseId: id, content, tenantId: kb.tenantId ?? undefined });
     const updated = await prisma.knowledgeBase.findUnique({ where: { id } });
     return NextResponse.json({ success: true, data: updated, processed });
   } catch (err) {

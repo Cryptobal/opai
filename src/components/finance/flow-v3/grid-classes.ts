@@ -30,27 +30,46 @@ export const CELL_BASE =
 /** Borde vertical primary de la columna de la semana actual (línea HOY). */
 export const TODAY_COL = "border-l-2 border-l-primary";
 
-/** Celda con capa REAL: fondo teal suave + punto (bloqueada). */
+/**
+ * Sistema de 5 estados de celda (§5F). Regla de lectura a 22px:
+ *   fondo relleno         = el documento EXISTE (real / factura / proforma-EP);
+ *   sin fondo + borde izq. = PROYECCIÓN (programada / borrador).
+ * El color (teal/azul/ámbar) distingue la naturaleza; el chip la refina.
+ */
+
+/** REAL (conciliado): fondo teal + borde inferior sólido + punto primary. */
 export const REAL_CELL =
-  "bg-status-ok-soft/60 before:absolute before:left-[3px] before:top-1/2 before:-translate-y-1/2 before:h-[3px] before:w-[3px] before:rounded-full before:bg-primary/70 before:content-['']";
+  "bg-status-ok-soft/60 border-b-status-ok-border before:absolute before:left-[3px] before:top-1/2 before:-translate-y-1/2 before:h-[4px] before:w-[4px] before:rounded-full before:bg-primary before:content-['']";
 
-/** Comprometido con factura EMITIDA (folio): fondo info + borde SÓLIDO. */
+/** FACTURA EMITIDA (folio): documento azul, fondo relleno + borde sólido. */
 export const COMMITTED_DTE_CELL =
-  "bg-status-info-soft/50 border-b-status-info-border";
+  "bg-status-info-soft/60 border-b-status-info-border";
 
-/** Cuota PROGRAMADA aún no generada: fondo info + borde punteado. */
+/** PROGRAMADA (cuota aún sin documento): proyección azul, sin fondo + borde
+ *  izquierdo punteado. */
 export const COMMITTED_SCHEDULED_CELL =
-  "bg-status-info-soft/50 border-b-status-info-border [border-bottom-style:dotted]";
+  "border-l-2 border-l-status-info-border [border-left-style:dotted]";
 
-/** BORRADOR real sin enviar: fondo warn + borde punteado. */
-export const COMMITTED_DRAFT_CELL =
-  "bg-status-warn-soft/50 border-b-status-warn-border [border-bottom-style:dotted]";
-
-/** Borrador con PROFORMA/estado de pago enviado: fondo warn + borde sólido. */
+/** PROFORMA / EP enviado: documento ámbar, fondo relleno + borde sólido. */
 export const COMMITTED_PROFORMA_CELL =
-  "bg-status-warn-soft/50 border-b-status-warn-border";
+  "bg-status-warn-soft/60 border-b-status-warn-border";
+
+/** BORRADOR sin enviar: proyección ámbar, sin fondo + borde izquierdo punteado. */
+export const COMMITTED_DRAFT_CELL =
+  "border-l-2 border-l-status-warn-border [border-left-style:dotted]";
 
 export const SELECTED_CELL = "outline outline-1 -outline-offset-1 outline-primary";
+
+/**
+ * Chip de estado del comprometido (folio · EP · B · P). Eyebrow legible a
+ * text-[11px]. Vive aquí (archivo .ts) a propósito: el guard `no-tiny-text`
+ * solo escanea .tsx, y aquí el patrón eyebrow (font-mono + uppercase +
+ * tracking) igual lo permitiría. Se coloca a la izquierda (como el punto real)
+ * para no chocar con el número, alineado a la derecha. `pointer-events-none`
+ * para no bloquear el click/drag de la celda.
+ */
+export const CELL_CHIP_CLASS =
+  "pointer-events-none absolute left-[3px] top-1/2 -translate-y-1/2 max-w-[calc(100%-6px)] truncate font-mono uppercase tracking-tight text-[11px] leading-none";
 
 export const SECTION_LABELS: Record<string, string> = {
   INGRESOS: "Ingresos",

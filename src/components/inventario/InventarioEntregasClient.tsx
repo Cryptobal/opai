@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 type Product = {
   id: string;
@@ -297,7 +298,7 @@ export function InventarioEntregasClient({ currentUserId, canEdit }: Props) {
     const message = isOwnReversion
       ? "¿Deshacer tu propia entrega? El stock volverá a la bodega de origen."
       : "¿Deshacer esta entrega? El stock volverá a la bodega de origen y se quitará la asignación al guardia.";
-    if (!window.confirm(message)) return;
+    if (!(await confirmDialog({ description: message, variant: "destructive", confirmLabel: "Deshacer" }))) return;
     setUndoingId(m.id);
     try {
       const res = await fetch(`/api/ops/inventario/movements/${m.id}`, { method: "DELETE" });

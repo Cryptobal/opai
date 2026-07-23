@@ -56,23 +56,21 @@ export function AgendaHubCard() {
         </span>
       </Link>
 
-      {/* Desktop: título + acciones (sin pills arriba, los botones se quedan) */}
+      {/* Desktop: título + acción Ampliar. Sin botón "Abrir agenda"
+          (redundante con el pill Calendario de accesos rápidos, igual que en
+          móvil). Ampliar solo aplica a la grilla desktop de días. */}
       <div className="hidden min-w-0 items-center justify-between gap-2 lg:flex">
         <div className="flex min-w-0 items-center gap-2">
           <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
           <p className="truncate font-display text-sm font-semibold text-ds-text-1">Agenda</p>
         </div>
         <div className="flex shrink-0 gap-2">
-          {/* Ampliar solo aplica a la grilla desktop de días */}
           <Button
             variant="outline"
             size="sm"
             onClick={() => setExpanded((v) => !v)}
           >
             {expanded ? "Compactar" : "Ampliar"}
-          </Button>
-          <Button asChild size="sm">
-            <Link href="/opai/agenda">Abrir agenda</Link>
           </Button>
         </div>
       </div>

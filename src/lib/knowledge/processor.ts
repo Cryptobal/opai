@@ -1,12 +1,12 @@
 import { prisma } from '@/lib/prisma';
-import OpenAI from 'openai';
 import { randomUUID } from 'node:crypto';
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { getTenantOpenAIClient } from '@/lib/ai/tenant-openai';
 
 interface ProcessDocumentInput {
   knowledgeBaseId: string;
   content: string;
+  /** Si se pasa, los embeddings se cobran a la key OpenAI del tenant. */
+  tenantId?: string;
 }
 
 const CHUNK_SIZE = 2000;
@@ -37,8 +37,9 @@ export function splitIntoChunks(text: string): string[] {
   return chunks.filter(c => c.length > 50);
 }
 
-export async function generateEmbedding(text: string): Promise<number[]> {
-  const response = await openai.embeddings.create({
+export async function generateEmbedding(text: string, tenantId?: string): Promise<number[]> {
+  const client = await getTenantOpenAIClient(tenantId);
+  const response = await client.embeddings.create({
     model: 'text-embedding-3-small',
     input: text,
   });
@@ -48,12 +49,12 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   return response.data[0].embedding;
 }
 
-export async function processDocument({ knowledgeBaseId, content }: ProcessDocumentInput) {
+export async function processDocument({ knowledgeBaseId, content, tenantId }: ProcessDocumentInput) {
   try {
     const chunks = splitIntoChunks(content);
 
     for (let i = 0; i < chunks.length; i++) {
-      const embedding = await generateEmbedding(chunks[i]);
+      const embedding = await generateEmbedding(chunks[i], tenantId);
       const chunkId = `kc_${randomUUID().replace(/-/g, '').slice(0, 20)}`;
       const vectorLiteral = `[${embedding.join(",")}]`;
 

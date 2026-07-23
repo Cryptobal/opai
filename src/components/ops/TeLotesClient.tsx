@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai-ds";
 import { StatusTag } from "@/components/ops/StatusTag";
 import { FileDown, Layers3 } from "lucide-react";
+import { SimpleSelect } from "@/components/ui/simple-select";
 
 type LoteItem = {
   id: string;
@@ -139,16 +140,17 @@ export function TeLotesClient({
             </div>
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">Estado</label>
-              <select
+              <SimpleSelect
                 className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="all">Todos</option>
-                <option value="pending_payment">Pendiente de pago</option>
-                <option value="draft">Borrador (legado)</option>
-                <option value="paid">Pagado</option>
-              </select>
+                onValueChange={(v) => setStatusFilter(v)}
+                options={[
+                  { value: "all", label: "Todos" },
+                  { value: "pending_payment", label: "Pendiente de pago" },
+                  { value: "draft", label: "Borrador (legado)" },
+                  { value: "paid", label: "Pagado" },
+                ]}
+              />
             </div>
             <div className="flex items-end">
               <Button onClick={handleCreate} disabled={creating}>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { PublicAnswer, PublicItem } from "./types";
 import PsychProgress from "./PsychProgress";
 import PsychItemLikert from "./PsychItemLikert";
@@ -112,7 +113,7 @@ export default function PsychRunning({
       if (isLast) await onFinish();
     } catch (err) {
       console.error(err);
-      alert("No pudimos guardar tu respuesta. Intenta nuevamente.");
+      toast.error("No pudimos guardar tu respuesta. Intenta nuevamente.");
     } finally {
       setBusy(false);
     }

@@ -35,6 +35,7 @@ import { DOC_CATEGORIES, WA_USAGE_SLUGS } from "@/lib/docs/token-registry";
 import type { DocTemplate } from "@/types/docs";
 import { EmptyState } from "@/components/opai-ds";
 import { useCanDelete } from "@/lib/permissions-context";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 function getCategoryLabel(module: string, category: string): string {
   const cats = DOC_CATEGORIES[module];
@@ -168,7 +169,14 @@ function DocTemplatesInner() {
 
   const deleteTemplate = async (id: string) => {
     if (!canDeleteTemplate) return;
-    if (!confirm("¿Desactivar este template?")) return;
+    if (
+      !(await confirmDialog({
+        description: "¿Desactivar este template?",
+        variant: "destructive",
+        confirmLabel: "Desactivar",
+      }))
+    )
+      return;
     try {
       await fetch(`/api/docs/templates/${id}`, { method: "DELETE" });
       setTemplates((prev) => prev.filter((t) => t.id !== id));

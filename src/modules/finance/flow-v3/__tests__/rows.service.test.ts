@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
+vi.mock("../load-committed-income", () => ({ loadCommittedIncome: vi.fn(async () => new Map()) }));
+vi.mock("../load-committed-expense", () => ({ loadCommittedExpense: vi.fn(async () => new Map()) }));
+vi.mock("../load-real", () => ({ loadReal: vi.fn(async () => new Map()) }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     $transaction: vi.fn(),
@@ -9,18 +12,21 @@ vi.mock("@/lib/prisma", () => ({
     financeCashflowCategory: { findFirst: vi.fn() },
     financeSupplier: { findFirst: vi.fn() },
     financeDteRecurringTemplate: { findMany: vi.fn() },
+    financeFlowPlanCell: { count: vi.fn() },
     financeFlowRow: {
       findFirst: vi.fn(),
       findFirstOrThrow: vi.fn(),
       findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      delete: vi.fn(),
     },
   },
 }));
 
 import { prisma } from "@/lib/prisma";
-import { createRow, archiveRow } from "../rows.service";
+import { loadCommittedIncome } from "../load-committed-income";
+import { createRow, archiveRow, deleteRow } from "../rows.service";
 
 const TENANT = "t1";
 const asMock = (fn: unknown) => fn as ReturnType<typeof vi.fn>;
@@ -110,5 +116,38 @@ describe("archiveRow", () => {
     asMock(prisma.financeFlowRow.findFirstOrThrow).mockResolvedValue({ id: "row-2" });
     const res = await archiveRow(TENANT, "row-2");
     expect(res.warning).toBeNull();
+  });
+});
+
+describe("deleteRow", () => {
+  const cleanRow = {
+    id: "row-1", tenantId: TENANT, name: "X", section: "GAV", mapping: "MANUAL",
+    crmAccountId: null, installationId: null, categoryId: null, supplierId: null,
+  };
+
+  it("409 (archívala) si la fila tiene plan histórico", async () => {
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue(cleanRow);
+    asMock(prisma.financeFlowPlanCell.count).mockResolvedValue(3);
+    await expect(deleteRow(TENANT, "row-1")).rejects.toThrow(/archívala/i);
+    expect(prisma.financeFlowRow.delete).not.toHaveBeenCalled();
+  });
+
+  it("409 (archívala) si la fila muestra comprometido/real", async () => {
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue(cleanRow);
+    asMock(prisma.financeFlowPlanCell.count).mockResolvedValue(0);
+    asMock(loadCommittedIncome).mockResolvedValueOnce(
+      new Map([["row-1", new Map([["2026-07-20", { total: 100 }]])]]),
+    );
+    await expect(deleteRow(TENANT, "row-1")).rejects.toThrow(/archívala/i);
+    expect(prisma.financeFlowRow.delete).not.toHaveBeenCalled();
+  });
+
+  it("elimina una fila sin plan ni comprometido ni real", async () => {
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue(cleanRow);
+    asMock(prisma.financeFlowPlanCell.count).mockResolvedValue(0);
+    asMock(prisma.financeFlowRow.delete).mockResolvedValue({});
+    const res = await deleteRow(TENANT, "row-1");
+    expect(res).toEqual({ deleted: true });
+    expect(prisma.financeFlowRow.delete).toHaveBeenCalledWith({ where: { id: "row-1" } });
   });
 });

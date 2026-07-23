@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { FileListSkeleton } from "@/components/ui/skeleton";
 import { FilePreviewModal } from "@/components/ui/FilePreviewModal";
 import {
@@ -683,9 +684,13 @@ export function FileAttachments({
                                       <DropdownMenuItem
                                         className="text-destructive"
                                         onClick={() => {
-                                          if (confirm(`¿Eliminar carpeta "${folder.name}"? Los archivos quedarán sin carpeta.`)) {
-                                            handleDeleteFolder(folder.id);
-                                          }
+                                          void confirmDialog({
+                                            description: `¿Eliminar carpeta "${folder.name}"? Los archivos quedarán sin carpeta.`,
+                                            variant: "destructive",
+                                            confirmLabel: "Eliminar",
+                                          }).then((ok) => {
+                                            if (ok) handleDeleteFolder(folder.id);
+                                          });
                                         }}
                                       >
                                         Eliminar

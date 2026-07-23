@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type MouseEvent } from "react";
 import { Surface } from "@/components/opai-ds";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 type Props = {
   visitaId: string | null;
@@ -129,7 +130,13 @@ export function VisitDrawer({ visitaId, onClose, onChanged }: Props) {
           <button
             type="button"
             onClick={() => {
-              if (confirm("¿Cancelar visita?")) void patch({ action: "cancel" });
+              void confirmDialog({
+                description: "¿Cancelar visita?",
+                variant: "destructive",
+                confirmLabel: "Cancelar visita",
+              }).then((ok) => {
+                if (ok) void patch({ action: "cancel" });
+              });
             }}
             className="h-10 w-full rounded-xl border border-status-danger-border text-[13px] text-status-danger-fg ds-tap sm:h-9"
           >

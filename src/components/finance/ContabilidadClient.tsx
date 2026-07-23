@@ -50,6 +50,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 /* ── Types ── */
 
@@ -1447,9 +1448,9 @@ function PeriodsTab({
 
   const handleGenerateMissing = async (p: PeriodRow) => {
     if (
-      !confirm(
-        `¿Generar los asientos faltantes de ${MONTH_NAMES[p.month - 1]} ${p.year}? Se creará y contabilizará un asiento por cada documento emitido sin asiento.`,
-      )
+      !(await confirmDialog({
+        description: `¿Generar los asientos faltantes de ${MONTH_NAMES[p.month - 1]} ${p.year}? Se creará y contabilizará un asiento por cada documento emitido sin asiento.`,
+      }))
     )
       return;
     setGenerating(p.id);
@@ -1500,7 +1501,12 @@ function PeriodsTab({
   };
 
   const handleClosePeriod = async (id: string) => {
-    if (!confirm("¿Cerrar este período? No se podrán registrar más movimientos.")) return;
+    if (
+      !(await confirmDialog({
+        description: "¿Cerrar este período? No se podrán registrar más movimientos.",
+      }))
+    )
+      return;
     setClosing(id);
     try {
       const close = async (force: boolean) =>
@@ -1515,9 +1521,9 @@ function PeriodsTab({
         // Guarda de cierre: hay documentos sin asiento. Pedir override explícito.
         const err = await res.json();
         const count = typeof err.count === "number" ? err.count : "varios";
-        const forceClose = confirm(
-          `Hay ${count} documento(s) emitido(s) sin asiento en este período.\n\nLo recomendable es generar los asientos faltantes antes de cerrar (botón "Generar asientos faltantes").\n\n¿Cerrar de todos modos? Quedará registrado en la auditoría.`,
-        );
+        const forceClose = await confirmDialog({
+          description: `Hay ${count} documento(s) emitido(s) sin asiento en este período.\n\nLo recomendable es generar los asientos faltantes antes de cerrar (botón "Generar asientos faltantes").\n\n¿Cerrar de todos modos? Quedará registrado en la auditoría.`,
+        });
         if (!forceClose) {
           setClosing(null);
           return;

@@ -49,6 +49,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import {
   Plus,
   Minus,
@@ -916,13 +917,9 @@ function GridRow({
             </span>
           )}
           <div className="flex flex-wrap items-center gap-1">
-            <select className={cn(FIELD, "w-[60px] font-mono")} value={draft.inicio} disabled={disabled} onChange={(e) => apply({ inicio: e.target.value })}>
-              {HOURS_24.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
+            <SimpleSelect className={cn(FIELD, "w-[60px] font-mono")} value={draft.inicio} disabled={disabled} onValueChange={(v) => apply({ inicio: v })} options={HOURS_24.map((t) => ({ value: t, label: t }))} />
             <span className="text-muted-foreground">–</span>
-            <select className={cn(FIELD, "w-[60px] font-mono")} value={draft.fin} disabled={disabled} onChange={(e) => apply({ fin: e.target.value })}>
-              {HOURS_24.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
+            <SimpleSelect className={cn(FIELD, "w-[60px] font-mono")} value={draft.fin} disabled={disabled} onValueChange={(v) => apply({ fin: v })} options={HOURS_24.map((t) => ({ value: t, label: t }))} />
           </div>
           <JornadaHoursChip analysis={jornada} variant="compact" className="w-full" />
         </div>

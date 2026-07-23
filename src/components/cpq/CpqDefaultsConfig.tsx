@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
+import { SimpleSelect } from "@/components/ui/simple-select";
 
 interface Template {
   id: string;
@@ -104,15 +105,12 @@ export function CpqDefaultsConfig() {
 
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">Modo de margen default</label>
-            <select
+            <SimpleSelect
               className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm"
               value={form.defaultMarginMode}
-              onChange={(e) => setForm((p) => ({ ...p, defaultMarginMode: e.target.value }))}
-            >
-              {MARGIN_MODES.map((m) => (
-                <option key={m.value} value={m.value}>{m.label}</option>
-              ))}
-            </select>
+              onValueChange={(v) => setForm((p) => ({ ...p, defaultMarginMode: v }))}
+              options={MARGIN_MODES.map((m) => ({ value: m.value, label: m.label }))}
+            />
             <p className="text-xs text-muted-foreground">
               {MARGIN_MODES.find((m) => m.value === form.defaultMarginMode)?.desc}
             </p>
@@ -120,16 +118,15 @@ export function CpqDefaultsConfig() {
 
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">Template de propuesta default</label>
-            <select
+            <SimpleSelect
               className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm"
               value={form.defaultProposalTemplateId}
-              onChange={(e) => setForm((p) => ({ ...p, defaultProposalTemplateId: e.target.value }))}
-            >
-              <option value="">Sin template default</option>
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
+              onValueChange={(v) => setForm((p) => ({ ...p, defaultProposalTemplateId: v }))}
+              options={[
+                { value: "", label: "Sin template default" },
+                ...templates.map((t) => ({ value: t.id, label: t.name })),
+              ]}
+            />
           </div>
         </div>
 

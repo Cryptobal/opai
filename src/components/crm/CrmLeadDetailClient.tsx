@@ -62,6 +62,7 @@ import { DetailField, DetailFieldGrid } from "./DetailField";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import { toast } from "sonner";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
@@ -2626,9 +2627,12 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>Motivo *</Label>
-              <select className={selectClassName} value={rejectReason} onChange={(e) => setRejectReason(e.target.value as LeadRejectReason)}>
-                {REJECTION_REASON_OPTIONS.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
-              </select>
+              <SimpleSelect
+                className={selectClassName}
+                value={rejectReason}
+                onValueChange={(v) => setRejectReason(v as LeadRejectReason)}
+                options={REJECTION_REASON_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Nota interna</Label>
@@ -2643,10 +2647,15 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
               <div className="space-y-3 rounded-md border border-border p-3">
                 <div className="space-y-1.5">
                   <Label>Template (opcional)</Label>
-                  <select className={selectClassName} value={rejectTemplateId} onChange={(e) => applyRejectTemplate(e.target.value)}>
-                    <option value="">Sin template</option>
-                    {docTemplatesReject.map((t) => (<option key={t.id} value={t.id}>{t.name}</option>))}
-                  </select>
+                  <SimpleSelect
+                    className={selectClassName}
+                    value={rejectTemplateId}
+                    onValueChange={(v) => applyRejectTemplate(v)}
+                    options={[
+                      { value: "", label: "Sin template" },
+                      ...docTemplatesReject.map((t) => ({ value: t.id, label: t.name })),
+                    ]}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Asunto *</Label>

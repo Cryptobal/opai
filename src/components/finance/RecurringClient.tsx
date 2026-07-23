@@ -46,6 +46,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import {
   DataTable,
   EmptyState,
@@ -488,7 +489,7 @@ export function RecurringClient({
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Eliminar esta plantilla? Las corridas históricas se mantienen.")) return;
+    if (!(await confirmDialog({ description: "¿Eliminar esta plantilla? Las corridas históricas se mantienen.", variant: "destructive", confirmLabel: "Eliminar" }))) return;
     setBusyId(id);
     try {
       const res = await fetch(`/api/finance/billing/recurring/${id}`, {

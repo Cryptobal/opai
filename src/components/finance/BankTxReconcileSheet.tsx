@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import {
   Sheet,
   SheetContent,
@@ -635,9 +636,10 @@ export function BankTxReconcileSheet({
   const handleUnreconcile = async () => {
     if (!tx) return;
     if (
-      !window.confirm(
-        "Vas a desconciliar este movimiento y revertir el pago asociado a los DTE. ¿Confirmás?"
-      )
+      !(await confirmDialog({
+        description:
+          "Vas a desconciliar este movimiento y revertir el pago asociado a los DTE. ¿Confirmás?",
+      }))
     ) {
       return;
     }

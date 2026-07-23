@@ -915,6 +915,14 @@ html {
     border-color: var(--glass-border);
     box-shadow: var(--glass-specular), var(--glass-shadow);
   }
+  /* Controles (SelectTrigger, triggers de inputs): fill translúcido + borde
+     glass, SIN blur (regla de performance en controles) y SIN box-shadow para
+     no pisar el focus ring / shadow de estado del control. Theme-aware por los
+     tokens --glass-*. Sin efecto ≥ 1024px. */
+  .opai-glass-control-m {
+    background: var(--glass-fill-soft);
+    border-color: var(--glass-border);
+  }
 }
 
 /* ── Aurora ambiental (GlassAmbient) ─────────────────────────── */

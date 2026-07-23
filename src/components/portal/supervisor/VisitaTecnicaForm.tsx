@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { SimpleSelect } from "@/components/ui/simple-select";
 
 interface Props {
   installations: SupervisorInstallation[];
@@ -634,20 +635,18 @@ function Step1({
       <Field label="Instalación *">
         {!searchMode ? (
           <div className="flex flex-col gap-2">
-            <select
+            <SimpleSelect
               value={installationId}
-              onChange={(e) => {
-                const i = allOptions.find((x) => x.id === e.target.value);
-                onInstallationChange(e.target.value, i?.accountId ?? "");
+              onValueChange={(v) => {
+                const i = allOptions.find((x) => x.id === v);
+                onInstallationChange(v, i?.accountId ?? "");
               }}
               className="form-select"
-            >
-              {allOptions.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.name} — {i.accountName}
-                </option>
-              ))}
-            </select>
+              options={allOptions.map((i) => ({
+                value: i.id,
+                label: `${i.name} — ${i.accountName}`,
+              }))}
+            />
             <button
               type="button"
               onClick={() => setSearchMode(true)}
@@ -805,17 +804,18 @@ function Step2({ form, set }: { form: FormData; set: <K extends keyof FormData>(
       </Field>
 
       <Field label="Tipo de turno">
-        <select
+        <SimpleSelect
           value={form.guardShiftType}
-          onChange={(e) => set("guardShiftType", e.target.value)}
+          onValueChange={(v) => set("guardShiftType", v)}
           className="form-select"
-        >
-          <option value="">Seleccionar...</option>
-          <option value="diurno">Diurno</option>
-          <option value="nocturno">Nocturno</option>
-          <option value="24h">24 horas</option>
-          <option value="rotativo">Rotativo</option>
-        </select>
+          options={[
+            { value: "", label: "Seleccionar..." },
+            { value: "diurno", label: "Diurno" },
+            { value: "nocturno", label: "Nocturno" },
+            { value: "24h", label: "24 horas" },
+            { value: "rotativo", label: "Rotativo" },
+          ]}
+        />
       </Field>
 
       <Field label="Rango salarial (referencial)">
@@ -1033,23 +1033,27 @@ function Step5({
         <input value={form.surveyContactRole} onChange={(e) => set("surveyContactRole", e.target.value)} className="form-input" placeholder="Gerente, Jefe de turno..." />
       </Field>
       <Field label="¿Cómo nos conoció?">
-        <select value={form.surveyHowDidYouHear} onChange={(e) => set("surveyHowDidYouHear", e.target.value)} className="form-select">
-          <option value="">Seleccionar...</option>
-          <option value="referido">Referido</option>
-          <option value="redes_sociales">Redes sociales</option>
-          <option value="google">Google</option>
-          <option value="llamada_comercial">Llamada comercial</option>
-          <option value="otro">Otro</option>
-        </select>
+        <SimpleSelect value={form.surveyHowDidYouHear} onValueChange={(v) => set("surveyHowDidYouHear", v)} className="form-select"
+          options={[
+            { value: "", label: "Seleccionar..." },
+            { value: "referido", label: "Referido" },
+            { value: "redes_sociales", label: "Redes sociales" },
+            { value: "google", label: "Google" },
+            { value: "llamada_comercial", label: "Llamada comercial" },
+            { value: "otro", label: "Otro" },
+          ]}
+        />
       </Field>
       <Field label="Opinión sobre la visita">
-        <select value={form.surveyVisitOpinion} onChange={(e) => set("surveyVisitOpinion", e.target.value)} className="form-select">
-          <option value="">Seleccionar...</option>
-          <option value="excelente">Excelente</option>
-          <option value="buena">Buena</option>
-          <option value="regular">Regular</option>
-          <option value="mala">Mala</option>
-        </select>
+        <SimpleSelect value={form.surveyVisitOpinion} onValueChange={(v) => set("surveyVisitOpinion", v)} className="form-select"
+          options={[
+            { value: "", label: "Seleccionar..." },
+            { value: "excelente", label: "Excelente" },
+            { value: "buena", label: "Buena" },
+            { value: "regular", label: "Regular" },
+            { value: "mala", label: "Mala" },
+          ]}
+        />
       </Field>
       <Field label="Expectativas del servicio">
         <textarea value={form.surveyExpectations} onChange={(e) => set("surveyExpectations", e.target.value)} rows={2} className="form-textarea" placeholder="¿Qué espera del servicio de seguridad?" />

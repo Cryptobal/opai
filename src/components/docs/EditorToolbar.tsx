@@ -54,6 +54,7 @@ import {
 import { TokenPicker } from "./TokenPicker";
 import { InsertSignatureBlockButton } from "./InsertSignatureBlockButton";
 import type { PageType } from "./DocPreviewDialog";
+import { promptDialog } from "@/components/ui/confirm-service";
 
 interface EditorToolbarProps {
   editor: Editor;
@@ -117,12 +118,12 @@ export function EditorToolbar({
     <div className="w-px h-6 bg-border mx-1" />
   );
 
-  const setLink = () => {
+  const setLink = async () => {
     const previousUrl = (editor.getAttributes("link").href as string | undefined) ?? "";
-    const userInput = window.prompt(
-      "Ingresa la URL del hipervínculo (acepta tokens: {{modulo.campo}})",
-      previousUrl || "{{deal.proposalLink}}"
-    );
+    const userInput = await promptDialog({
+      description: "Ingresa la URL del hipervínculo (acepta tokens: {{modulo.campo}})",
+      defaultValue: previousUrl || "{{deal.proposalLink}}",
+    });
     if (userInput === null) return;
 
     const trimmed = userInput.trim();

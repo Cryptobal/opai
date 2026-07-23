@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Surface } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import {
   Select,
   SelectContent,
@@ -425,9 +426,10 @@ export function WeeklyMatrix({
     // de undo. Mejor preguntar antes de disparar — el wizard completo
     // con preview va en una iteración posterior; por ahora un confirm
     // simple evita el caso "le di sin querer y me cambió todo".
-    const proceed = window.confirm(
-      "Auto-match con cartola: vincula automáticamente ocurrencias proyectadas a movimientos bancarios sin conciliar en el rango visible. La acción no tiene deshacer global (cada vínculo se puede revertir individualmente). ¿Continuar?",
-    );
+    const proceed = await confirmDialog({
+      description:
+        "Auto-match con cartola: vincula automáticamente ocurrencias proyectadas a movimientos bancarios sin conciliar en el rango visible. La acción no tiene deshacer global (cada vínculo se puede revertir individualmente). ¿Continuar?",
+    });
     if (!proceed) return;
     setMatching(true);
     setMatchResultMsg(null);

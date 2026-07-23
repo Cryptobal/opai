@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import type { CommittedItem } from "@/modules/finance/flow-v3/types";
 import type { FlowMatrixCellDto, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import { fmtClp, fmtShortDate } from "./format";
 
@@ -12,11 +12,7 @@ export interface PopoverState {
 
 interface Props {
   state: PopoverState | null;
-  canManage: boolean;
   onClose: () => void;
-  onSetEndDate: (templateId: string, endDate: string | null) => void;
-  /** Término de pago POR CONTRATO (días). null = default del tenant. */
-  onSetDiasCobro: (templateId: string, diasCobro: number | null) => void;
 }
 
 const MAPPING_LABEL: Record<string, string> = {
@@ -26,23 +22,44 @@ const MAPPING_LABEL: Record<string, string> = {
   MANUAL: "Manual",
 };
 
-const LAYER_LABEL = { real: "Real", committed: "Comprometido", plan: "Plan", empty: "—" } as const;
+const LAYER_LABEL = { real: "Real", committed: "Comprometido", plan: "Plan", empty: "Sin dato" } as const;
 
-export function CellLayersPopover({ state, canManage, onClose, onSetEndDate, onSetDiasCobro }: Props) {
-  const [deferring, setDeferring] = useState<string | null>(null);
-  const [newDate, setNewDate] = useState("");
-  const [editingDias, setEditingDias] = useState<string | null>(null);
-  const [newDias, setNewDias] = useState("");
+/** Tipo + tono del item comprometido, alineado con el color de la celda (§5F):
+ *  factura/programada = azul (info); borrador/proforma = ámbar (warn). */
+function committedItemMeta(it: CommittedItem): { label: string; tone: string } {
+  if (it.kind === "dte") return { label: `F°${it.folio ?? "?"}`, tone: "text-status-info-fg" };
+  if (it.kind === "draft") {
+    return it.proformaSent
+      ? { label: "EP enviado", tone: "text-status-warn-fg" }
+      : { label: "Borrador", tone: "text-status-warn-fg" };
+  }
+  return { label: "Programada", tone: "text-status-info-fg" };
+}
+
+/**
+ * Visor de SOLO LECTURA de las capas de una celda (§5B). Las acciones de
+ * programación (aplazar término, días de cobro) migraron al menú de fila
+ * (RowContextMenu); aquí no hay ningún control de mutación. Encabezado con la
+ * capa efectiva, tres bloques (Plan / Comprometido / Real) y el mapping de la
+ * fila al pie. Cierra con Esc o click fuera.
+ */
+export function CellLayersPopover({ state, onClose }: Props) {
   if (!state) return null;
   const { row, cell } = state;
-  const left = Math.max(8, Math.min(state.anchor.left, window.innerWidth - 312));
-  const top = Math.min(state.anchor.bottom + 4, window.innerHeight - 320);
+  const left = Math.max(8, Math.min(state.anchor.left, window.innerWidth - 328));
+  const top = Math.min(state.anchor.bottom + 4, window.innerHeight - 340);
 
-  const section = (title: string, active: boolean, body: React.ReactNode) => (
-    <div className={`rounded border px-2 py-1 ${active ? "border-primary/50 bg-ds-surface-2" : "border-ds-border-subtle"}`}>
-      <div className="flex items-center justify-between">
+  const block = (title: string, active: boolean, body: React.ReactNode) => (
+    <div
+      className={`rounded border px-2 py-1.5 ${
+        active ? "border-primary/50 bg-ds-surface-2" : "border-ds-border-subtle"
+      }`}
+    >
+      <div className="mb-0.5 flex items-center justify-between">
         <span className="font-mono text-[11px] uppercase tracking-wide text-ds-text-3">{title}</span>
-        {active && <span className="font-mono text-[8px] uppercase text-primary">efectiva</span>}
+        {active && (
+          <span className="font-mono text-[11px] uppercase tracking-wide text-primary">efectiva</span>
+        )}
       </div>
       {body}
     </div>
@@ -54,7 +71,7 @@ export function CellLayersPopover({ state, canManage, onClose, onSetEndDate, onS
       <div
         role="dialog"
         aria-label={`Capas de ${row.name} · semana ${cell.weekStart}`}
-        className="fixed z-50 w-[304px] space-y-1.5 rounded-lg border border-ds-border-default bg-ds-surface-3 p-2 text-xs shadow-lg"
+        className="fixed z-50 w-[320px] space-y-1.5 rounded-lg border border-ds-border-default bg-ds-surface-3 p-2 text-xs shadow-lg"
         style={{ left, top }}
         onKeyDown={(e) => e.key === "Escape" && onClose()}
       >
@@ -65,120 +82,54 @@ export function CellLayersPopover({ state, canManage, onClose, onSetEndDate, onS
           </span>
         </div>
 
-        {section("Plan", cell.layer === "plan",
-          <div className="text-right text-ds-text-2">{cell.plan !== 0 ? fmtClp(cell.plan) : "sin plan"}</div>,
+        {block(
+          "Plan",
+          cell.layer === "plan",
+          <div className="text-right text-ds-text-2">
+            {cell.plan !== 0 ? fmtClp(cell.plan) : <span className="text-ds-text-4">sin plan</span>}
+          </div>,
         )}
 
-        {section("Comprometido", cell.layer === "committed",
+        {block(
+          "Comprometido",
+          cell.layer === "committed",
           cell.committed && cell.committed.items.length > 0 ? (
-            <ul className="max-h-32 space-y-0.5 overflow-y-auto">
-              {cell.committed.items.map((it, i) => (
-                <li key={i} className="text-ds-text-2">
-                  <div className="flex justify-between gap-2">
-                    <span className="truncate">
-                      {it.kind === "dte"
-                        ? `F°${it.folio ?? "?"} · `
-                        : it.kind === "draft"
-                          ? it.proformaSent
-                            ? "EP enviado · "
-                            : "Borrador · "
-                          : "Prog · "}
-                      {it.label}
-                    </span>
-                    <span className="shrink-0">{fmtClp(it.monto)}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-2 text-xs text-ds-text-4">
-                    <span>{fmtShortDate(it.fecha)}</span>
-                    {it.kind === "scheduled" && it.templateId && (
-                      deferring === it.templateId ? (
-                        <span className="flex items-center gap-1">
-                          <input
-                            type="date"
-                            value={newDate}
-                            onChange={(e) => setNewDate(e.target.value)}
-                            className="h-5 rounded border border-ds-border-default bg-ds-surface-1 px-1 text-xs text-ds-text-1"
-                          />
-                          <button
-                            className="rounded bg-primary px-1 py-0.5 text-xs text-primary-foreground disabled:opacity-50"
-                            disabled={!newDate}
-                            onClick={() => { onSetEndDate(it.templateId!, newDate); onClose(); }}
-                          >
-                            OK
-                          </button>
+            <ul className="max-h-32 space-y-1 overflow-y-auto">
+              {cell.committed.items.map((it, i) => {
+                const meta = committedItemMeta(it);
+                return (
+                  <li key={i} className="text-ds-text-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex min-w-0 items-center gap-1">
+                        <span className={`shrink-0 font-mono text-[11px] uppercase tracking-tight ${meta.tone}`}>
+                          {meta.label}
                         </span>
-                      ) : (
-                        <span className="flex flex-wrap items-center justify-end gap-1">
-                          <span>{it.endDate ? `hasta ${fmtShortDate(it.endDate)}` : "sin término"}</span>
-                          {canManage && (
-                            <button
-                              className="rounded border border-ds-border-default px-1 py-0.5 text-xs text-primary hover:bg-ds-surface-2"
-                              onClick={() => { setDeferring(it.templateId!); setNewDate(it.endDate ?? ""); }}
-                            >
-                              Aplazar término
-                            </button>
-                          )}
-                          {editingDias === it.templateId ? (
-                            <span className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                min={0}
-                                max={180}
-                                value={newDias}
-                                onChange={(e) => setNewDias(e.target.value)}
-                                placeholder="30"
-                                className="h-5 w-14 rounded border border-ds-border-default bg-ds-surface-1 px-1 text-right text-xs text-ds-text-1"
-                              />
-                              <button
-                                className="rounded bg-primary px-1 py-0.5 text-xs text-primary-foreground"
-                                onClick={() => {
-                                  const n = newDias.trim() === "" ? null : Number(newDias);
-                                  onSetDiasCobro(it.templateId!, n);
-                                  onClose();
-                                }}
-                              >
-                                OK
-                              </button>
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1">
-                              <span>
-                                · cobro {it.diasCobro != null ? `${it.diasCobro}d` : "según config"}
-                              </span>
-                              {canManage && (
-                                <button
-                                  className="rounded border border-ds-border-default px-1 py-0.5 text-xs text-primary hover:bg-ds-surface-2"
-                                  onClick={() => {
-                                    setEditingDias(it.templateId!);
-                                    setNewDias(it.diasCobro != null ? String(it.diasCobro) : "");
-                                  }}
-                                >
-                                  Editar
-                                </button>
-                              )}
-                            </span>
-                          )}
-                        </span>
-                      )
-                    )}
-                  </div>
-                </li>
-              ))}
+                        <span className="truncate text-ds-text-3">{it.label}</span>
+                      </span>
+                      <span className="shrink-0 tabular-nums">{fmtClp(it.monto)}</span>
+                    </div>
+                    <div className="text-ds-text-4">{fmtShortDate(it.fecha)}</div>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <div className="text-right text-ds-text-4">—</div>
           ),
         )}
 
-        {section("Real", cell.layer === "real",
+        {block(
+          "Real",
+          cell.layer === "real",
           cell.real && cell.real.items.length > 0 ? (
-            <ul className="max-h-24 space-y-0.5 overflow-y-auto">
+            <ul className="max-h-24 space-y-1 overflow-y-auto">
               {cell.real.items.map((it, i) => (
                 <li key={i} className="flex justify-between gap-2 text-ds-text-2">
                   <span className="truncate">
                     {fmtShortDate(it.fecha)} · {it.label}
                     {it.folio ? ` (F°${it.folio})` : ""}
                   </span>
-                  <span className="shrink-0">{fmtClp(it.monto)}</span>
+                  <span className="shrink-0 tabular-nums">{fmtClp(it.monto)}</span>
                 </li>
               ))}
             </ul>
@@ -189,7 +140,7 @@ export function CellLayersPopover({ state, canManage, onClose, onSetEndDate, onS
 
         <div className="pt-0.5 font-mono text-[11px] uppercase tracking-wide text-ds-text-4">
           Mapping: {MAPPING_LABEL[row.mapping] ?? row.mapping}
-          {row.isArchived ? " · fila cerrada" : ""}
+          {row.isArchived ? " · fila archivada" : ""}
         </div>
       </div>
     </>

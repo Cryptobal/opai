@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { promptDialog } from "@/components/ui/confirm-service";
 
 export function QrScanner({
   onScan,
@@ -12,7 +13,7 @@ export function QrScanner({
       <p className="text-xs text-muted-foreground">
         Escáner QR listo para integración con cámara. Mientras tanto, usa ingreso manual.
       </p>
-      <Button size="sm" className="h-10 w-full" onClick={() => onScan(prompt("Ingresa código QR") ?? "")}>
+      <Button size="sm" className="h-10 w-full" onClick={async () => onScan((await promptDialog({ description: "Ingresa código QR" })) ?? "")}>
         Escanear / ingresar QR
       </Button>
     </div>

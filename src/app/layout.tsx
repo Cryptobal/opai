@@ -6,6 +6,7 @@ import { BadgeClear } from "@/components/pwa/BadgeClear";
 import { PWAProvider } from "@/components/pwa/PWAProvider";
 import { ThemeProvider } from "@/components/opai/ThemeProvider";
 import { Toaster } from "@/components/ui/toaster";
+import { ConfirmHost } from "@/components/ui/confirm-service";
 import { CookieConsentBanner } from "@/components/CookieConsent";
 import { ConditionalAnalytics } from "@/components/ConditionalAnalytics";
 import { PlatformDataAttribute } from "@/components/opai/portal-shell";
@@ -109,6 +110,7 @@ export default function RootLayout({
             {children}
           </PWAProvider>
           <Toaster />
+          <ConfirmHost />
         </ThemeProvider>
         <CookieConsentBanner />
         <Analytics />

@@ -22,6 +22,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Trash2, AlertCircle, Wallet } from "lucide-react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
 
@@ -210,7 +211,15 @@ export function ContractCashflowDialog({
   }
 
   async function handleRemove() {
-    if (!confirm("¿Desvincular este contrato del flujo de caja? Las cuotas pagadas (conciliadas con banco) se conservan.")) return;
+    if (
+      !(await confirmDialog({
+        description:
+          "¿Desvincular este contrato del flujo de caja? Las cuotas pagadas (conciliadas con banco) se conservan.",
+        variant: "destructive",
+        confirmLabel: "Desvincular",
+      }))
+    )
+      return;
     setRemoving(true);
     setError(null);
     try {

@@ -24,6 +24,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import {
   Loader2,
   Download,
@@ -1352,7 +1353,14 @@ export function AccountContractsSection({
   };
 
   const deleteFcItem = async (contractId: string, itemId: string) => {
-    if (!confirm("¿Quitar este ítem del flujo de caja?")) return;
+    if (
+      !(await confirmDialog({
+        description: "¿Quitar este ítem del flujo de caja?",
+        variant: "destructive",
+        confirmLabel: "Quitar",
+      }))
+    )
+      return;
     try {
       const res = await fetch(
         `/api/crm/accounts/${accountId}/contracts/${contractId}/cashflow`,
@@ -1404,7 +1412,13 @@ export function AccountContractsSection({
   };
 
   const deleteContract = async (contract: Contract) => {
-    if (!confirm(`¿Eliminar el contrato "${contract.title}"?\nEsta acción no se puede deshacer.`))
+    if (
+      !(await confirmDialog({
+        description: `¿Eliminar el contrato "${contract.title}"? Esta acción no se puede deshacer.`,
+        variant: "destructive",
+        confirmLabel: "Eliminar",
+      }))
+    )
       return;
     setActionLoading((p) => ({ ...p, [contract.id]: true }));
     try {

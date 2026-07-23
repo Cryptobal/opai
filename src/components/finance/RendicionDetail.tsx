@@ -6,6 +6,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -338,7 +339,7 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
   );
 
   const handleDelete = useCallback(async () => {
-    if (!confirm("¿Eliminar esta rendición? Esta acción no se puede deshacer.")) return;
+    if (!(await confirmDialog({ description: "¿Eliminar esta rendición? Esta acción no se puede deshacer.", variant: "destructive", confirmLabel: "Eliminar" }))) return;
     setLoading("delete");
     try {
       const res = await fetch(`/api/finance/rendiciones/${r.id}`, { method: "DELETE" });

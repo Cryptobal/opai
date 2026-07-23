@@ -1,8 +1,6 @@
 "use client";
 
-import { Menu, Search, Sparkles, Wifi, WifiOff } from "lucide-react";
-import type { CorreosRealtimeStatus } from "./useCorreosRealtime";
-import { TABS, type CorreoFolderTab } from "./CorreosFilters";
+import { Menu, Search, Sparkles } from "lucide-react";
 
 type Props = {
   /** Abre el drawer lateral del módulo (carpetas + filtros + acciones). */
@@ -11,16 +9,15 @@ type Props = {
   onQuery: (q: string) => void;
   semantic: boolean;
   onSemantic: (v: boolean) => void;
-  folder: CorreoFolderTab;
+  /** No leídos de Recibidos: badge rojo sobre el menú (tres líneas). */
   inboxUnread: number;
-  realtimeStatus: CorreosRealtimeStatus;
-  lastSyncAt: string | null;
 };
 
 /**
- * Top móvil tipo Gmail (Opción C): píldora de búsqueda (menú + input + IA)
- * con una línea de contexto de carpeta debajo. Es lo único sticky del módulo
- * en móvil; desktop conserva CorreosFilters intacto.
+ * Top móvil tipo Gmail (Opción C): píldora de búsqueda (menú + input + IA).
+ * Es lo único sticky del módulo en móvil; desktop conserva el riel intacto.
+ * El estado "En vivo" y "Sincronizar" viven en el drawer (tres líneas); acá el
+ * único indicador es el badge rojo de no leídos sobre el menú.
  */
 export function CorreosMobileTopBar({
   onOpenNav,
@@ -28,19 +25,9 @@ export function CorreosMobileTopBar({
   onQuery,
   semantic,
   onSemantic,
-  folder,
   inboxUnread,
-  realtimeStatus,
-  lastSyncAt,
 }: Props) {
-  const folderLabel = TABS.find((t) => t.key === folder)?.label ?? "Correos";
-  const lastSyncLabel = lastSyncAt
-    ? new Date(lastSyncAt).toLocaleTimeString("es-CL", {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : null;
-  const live = realtimeStatus === "live";
+  const unreadLabel = inboxUnread > 99 ? "99+" : String(inboxUnread);
 
   return (
     <div className="pointer-events-none sticky top-[env(safe-area-inset-top,0px)] z-20 lg:hidden">
@@ -56,10 +43,22 @@ export function CorreosMobileTopBar({
           <button
             type="button"
             onClick={onOpenNav}
-            aria-label="Abrir carpetas y filtros"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ds-text-2 ds-tap"
+            aria-label={
+              inboxUnread > 0
+                ? `Abrir carpetas y filtros — ${inboxUnread} sin leer`
+                : "Abrir carpetas y filtros"
+            }
+            className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ds-text-2 ds-tap"
           >
             <Menu className="h-5 w-5" />
+            {inboxUnread > 0 && (
+              <span
+                aria-hidden
+                className="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-status-danger px-1 text-[12px] font-semibold leading-none text-white shadow-ds-xs"
+              >
+                {unreadLabel}
+              </span>
+            )}
           </button>
           <Search aria-hidden className="mx-1 h-4 w-4 shrink-0 text-ds-text-4" />
           <input
@@ -83,38 +82,6 @@ export function CorreosMobileTopBar({
             <Sparkles className="h-3.5 w-3.5" /> IA
           </button>
         </div>
-      </div>
-      <div className="pointer-events-auto mx-3 mb-1 mt-1.5 inline-flex max-w-[calc(100%-1.5rem)] items-center gap-1.5 rounded-full opai-glass-pill px-3 py-1 text-[12px] text-ds-text-3">
-        <span className="truncate font-medium text-ds-text-2">{folderLabel}</span>
-        {folder === "inbox" && inboxUnread > 0 && (
-          <>
-            <span aria-hidden>·</span>
-            <span className="shrink-0">{inboxUnread} sin leer</span>
-          </>
-        )}
-        <span aria-hidden>·</span>
-        <span
-          className={`inline-flex min-w-0 items-center gap-1 ${live ? "text-status-ok-fg" : ""}`}
-          aria-live="polite"
-          title={
-            live
-              ? "Los cambios de Gmail llegan en tiempo real"
-              : "Reconectando; la bandeja se actualiza automáticamente"
-          }
-        >
-          {live ? (
-            <Wifi className="h-3.5 w-3.5 shrink-0" />
-          ) : (
-            <WifiOff className="h-3.5 w-3.5 shrink-0" />
-          )}
-          <span className="truncate">
-            {live
-              ? "En vivo"
-              : lastSyncLabel
-                ? `Actualizado ${lastSyncLabel}`
-                : "Reconectando"}
-          </span>
-        </span>
       </div>
     </div>
   );

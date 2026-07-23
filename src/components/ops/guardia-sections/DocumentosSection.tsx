@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import {
   CalendarDays,
   Check,
@@ -1013,7 +1014,7 @@ export default function DocumentosSection({
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => { setRenamingFolderId(folder.id); setRenameValue(folder.name); }}>Renombrar</DropdownMenuItem>
-                                <DropdownMenuItem className="text-destructive" onClick={() => { if (confirm(`¿Eliminar carpeta "${folder.name}"?`)) handleDeleteFolder(folder.id); }}>Eliminar</DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive" onClick={async () => { if (await confirmDialog({ description: `¿Eliminar carpeta "${folder.name}"?`, variant: "destructive", confirmLabel: "Eliminar" })) handleDeleteFolder(folder.id); }}>Eliminar</DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </>

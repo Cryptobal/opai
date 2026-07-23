@@ -55,6 +55,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import {
   Tabs,
   TabsList,
@@ -765,11 +766,11 @@ function RoleSummaryTab({
         {hasPreset && diff.total > 0 && !disabled && (
           <button
             type="button"
-            onClick={() => {
+            onClick={async () => {
               if (
-                confirm(
-                  `Vas a revertir ${diff.total} cambio${diff.total > 1 ? "s" : ""} y restaurar los permisos por defecto del rol. ¿Continuar?`,
-                )
+                await confirmDialog({
+                  description: `Vas a revertir ${diff.total} cambio${diff.total > 1 ? "s" : ""} y restaurar los permisos por defecto del rol. ¿Continuar?`,
+                })
               ) {
                 onRestorePreset();
               }
@@ -1393,7 +1394,11 @@ export function RoleTemplatesClient({ isOwner }: { isOwner: boolean }) {
   };
 
   const handleDelete = async (template: RoleTemplate) => {
-    if (!confirm(`¿Eliminar el rol "${template.name}"? Esta acción no se puede deshacer.`)) {
+    if (!(await confirmDialog({
+      description: `¿Eliminar el rol "${template.name}"? Esta acción no se puede deshacer.`,
+      variant: "destructive",
+      confirmLabel: "Eliminar",
+    }))) {
       return;
     }
     const res = await fetch(`/api/admin/role-templates/${template.id}`, {

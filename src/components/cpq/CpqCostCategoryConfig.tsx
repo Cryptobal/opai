@@ -14,6 +14,7 @@ import {
 import { Pencil, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { SimpleSelect } from "@/components/ui/simple-select";
 
 interface CostCategory {
   id: string;
@@ -242,29 +243,27 @@ export function CpqCostCategoryConfig() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-muted-foreground">Tipo</label>
-                  <select
+                  <SimpleSelect
                     className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm"
                     value={editForm.type}
-                    onChange={(e) => setEditForm((p) => ({ ...p, type: e.target.value }))}
-                  >
-                    <option value="direct">Directo</option>
-                    <option value="indirect">Indirecto</option>
-                  </select>
+                    onValueChange={(v) => setEditForm((p) => ({ ...p, type: v }))}
+                    options={[
+                      { value: "direct", label: "Directo" },
+                      { value: "indirect", label: "Indirecto" },
+                    ]}
+                  />
                 </div>
               </div>
             )}
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <label className="text-xs text-muted-foreground">Icono</label>
-                <select
+                <SimpleSelect
                   className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm"
                   value={editForm.icon}
-                  onChange={(e) => setEditForm((p) => ({ ...p, icon: e.target.value }))}
-                >
-                  {ICON_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
+                  onValueChange={(v) => setEditForm((p) => ({ ...p, icon: v }))}
+                  options={ICON_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                />
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs text-muted-foreground">Orden</label>

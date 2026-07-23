@@ -12,9 +12,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import { Loader2, Plus, ChevronRight, Calendar } from "lucide-react";
 import { ListToolbar } from "@/components/shared/ListToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
+import { toast } from "sonner";
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -106,7 +108,7 @@ export function PayrollPeriodListClient() {
       });
       if (!res.ok) {
         const json = await res.json();
-        alert(json.error || "Error al crear");
+        toast.error(json.error || "Error al crear");
         return;
       }
       setCreateOpen(false);
@@ -216,19 +218,27 @@ export function PayrollPeriodListClient() {
           <div className="grid gap-3 sm:grid-cols-2 py-2">
             <div className="space-y-1.5">
               <Label className="text-xs">Año</Label>
-              <select className={selectClass} value={newYear} onChange={(e) => setNewYear(Number(e.target.value))}>
-                {[2025, 2026, 2027].map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
+              <SimpleSelect
+                className={selectClass}
+                value={String(newYear)}
+                onValueChange={(v) => setNewYear(Number(v))}
+                options={[2025, 2026, 2027].map((y) => ({
+                  value: String(y),
+                  label: String(y),
+                }))}
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Mes</Label>
-              <select className={selectClass} value={newMonth} onChange={(e) => setNewMonth(Number(e.target.value))}>
-                {MONTHS.map((m, i) => (
-                  <option key={i} value={i + 1}>{m}</option>
-                ))}
-              </select>
+              <SimpleSelect
+                className={selectClass}
+                value={String(newMonth)}
+                onValueChange={(v) => setNewMonth(Number(v))}
+                options={MONTHS.map((m, i) => ({
+                  value: String(i + 1),
+                  label: m,
+                }))}
+              />
             </div>
           </div>
           <DialogFooter>

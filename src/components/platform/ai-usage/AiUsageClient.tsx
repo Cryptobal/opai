@@ -195,11 +195,11 @@ export function AiUsageClient() {
   return (
     <div className="space-y-6 ds-page-enter min-w-0">
       <Link
-        href="/platform/settings/ai"
+        href="/platform/settings"
         className="inline-flex items-center gap-1 text-[13px] text-ds-text-3 hover:text-ds-text-1"
       >
         <ArrowLeft className="h-4 w-4" />
-        Proveedor de IA
+        Configuración
       </Link>
       <PageHero
         icon={<BarChart3 />}

@@ -1,9 +1,10 @@
 "use client";
 
 import { type ReactNode } from "react";
-import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { getConfigCategoryOf, getConfigSectionOf } from "@/lib/nav/registry";
+import { ConfigBreadcrumb, type Crumb } from "@/components/configuracion/ConfigBreadcrumb";
 
 interface ConfigPageLayoutProps {
   title: string;
@@ -12,6 +13,9 @@ interface ConfigPageLayoutProps {
   icon?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
+  /** Override opcional del crumb de sección padre (para subpáginas anidadas
+   *  como integraciones/slack o finanzas/dte). Si se omite, el breadcrumb se
+   *  deriva del registry por longest-prefix. */
   backHref?: string;
   backLabel?: string;
   className?: string;
@@ -23,21 +27,31 @@ export function ConfigPageLayout({
   icon,
   actions,
   children,
-  backHref = "/opai/configuracion",
-  backLabel = "Configuración",
+  backHref,
+  backLabel,
   className,
 }: ConfigPageLayoutProps) {
+  const pathname = usePathname() ?? "";
+  const category = getConfigCategoryOf(pathname);
+  const section = getConfigSectionOf(pathname);
+
+  // Breadcrumb: Configuración / [Categoría] / [Sección padre] / [Página].
+  const crumbs: Crumb[] = [{ label: "Configuración", href: "/opai/configuracion" }];
+  if (category) crumbs.push({ label: category.label, href: category.href });
+  if (backHref) {
+    // Override explícito (subpágina anidada declarando su sección padre).
+    crumbs.push({ label: backLabel ?? section?.label ?? title, href: backHref });
+  } else if (section && section.href !== pathname) {
+    // Subpágina derivada del registry: la sección es un ancestro, no la hoja.
+    crumbs.push({ label: section.label, href: section.href });
+  }
+  crumbs.push({ label: title });
+
   return (
     <div className={cn("space-y-5 min-w-0", className)}>
       <div className="relative overflow-hidden rounded-3xl opai-liquid-glass p-5 sm:p-6">
         <div className="space-y-3">
-          <Link
-            href={backHref}
-            className="inline-flex lg:hidden items-center gap-1 text-sm text-primary/90 hover:text-primary transition-colors -ml-0.5"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            <span>{backLabel}</span>
-          </Link>
+          <ConfigBreadcrumb crumbs={crumbs} />
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3 min-w-0">
               {icon && (

@@ -3,6 +3,8 @@
 import { useMemo } from "react";
 import { CheckCircle2, Clock3, Mail, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { confirmDialog } from "@/components/ui/confirm-service";
+import { toast } from "sonner";
 
 type Recipient = {
   id: string;
@@ -70,7 +72,7 @@ export function SignatureStatusPanel({
     );
     const data = await res.json();
     if (!res.ok || !data.success) {
-      alert(data.error || "No fue posible reenviar");
+      toast.error(data.error || "No fue posible reenviar");
       return;
     }
     onRefresh();
@@ -78,7 +80,7 @@ export function SignatureStatusPanel({
 
   const cancelRequest = async () => {
     if (!activeRequest) return;
-    if (!confirm("¿Cancelar solicitud de firma?")) return;
+    if (!(await confirmDialog({ description: "¿Cancelar solicitud de firma?" }))) return;
     const res = await fetch(`/api/docs/documents/${documentId}/signature-request/cancel`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -86,7 +88,7 @@ export function SignatureStatusPanel({
     });
     const data = await res.json();
     if (!res.ok || !data.success) {
-      alert(data.error || "No fue posible cancelar");
+      toast.error(data.error || "No fue posible cancelar");
       return;
     }
     onRefresh();

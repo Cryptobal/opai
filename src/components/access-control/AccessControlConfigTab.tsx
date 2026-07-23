@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import {
   Settings,
   Save, Loader2, GripVertical, Plus, Trash2, ChevronDown, ChevronUp, Mail, Send, Pencil, Check, X,
@@ -238,7 +239,11 @@ export function AccessControlConfigTab({ installationId, apiBase }: Props) {
    *  Ocurre cuando el tipo fue soft-deleted antes del fix del B1 —
    *  isActive=false en BD pero la key sigue en accessControlConfig. */
   const handleRemoveOrphanedType = async (typeKey: string) => {
-    if (!confirm(`¿Eliminar el tipo "${typeKey}" de la configuración?`)) return;
+    if (!(await confirmDialog({
+      description: `¿Eliminar el tipo "${typeKey}" de la configuración?`,
+      variant: "destructive",
+      confirmLabel: "Eliminar",
+    }))) return;
     try {
       const updatedEnabled = config.enabledRecordTypes.filter((k) => k !== typeKey);
       const cleanJsonKeys = (obj: Record<string, unknown>) =>
@@ -558,7 +563,11 @@ export function AccessControlConfigTab({ installationId, apiBase }: Props) {
   /** Soft-delete a custom record type. Historical records keep their
    *  recordType key — the type just stops appearing in the picker. */
   const handleDeleteCustomType = async (type: CustomRecordType) => {
-    if (!confirm(`¿Eliminar el tipo "${type.label}"? Los registros históricos se conservan.`)) {
+    if (!(await confirmDialog({
+      description: `¿Eliminar el tipo "${type.label}"? Los registros históricos se conservan.`,
+      variant: "destructive",
+      confirmLabel: "Eliminar",
+    }))) {
       return;
     }
     try {

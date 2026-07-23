@@ -1,5 +1,6 @@
 "use client";
 
+import { Lock } from "lucide-react";
 import type { MatrixColumn } from "@/modules/finance/flow-v3/matrix-types";
 import { ymdToDate } from "@/modules/finance/flow-v3/weeks";
 import { fmtDayMonth } from "./format";
@@ -23,6 +24,8 @@ const EYEBROW = "font-mono uppercase tracking-wide text-[11px] leading-none";
 interface Props {
   columns: MatrixColumn[];
   granularity: "week" | "month";
+  /** Lunes ISO de semanas selladas por cierre (candado + celdas de solo lectura). */
+  closedWeeks?: string[];
 }
 
 /**
@@ -32,7 +35,8 @@ interface Props {
  *  3. semana ISO + fecha de inicio (fusionadas).
  * El gutter y Concepto son sticky-left; la esquina resuelve ambos ejes (z-40).
  */
-export function PlanillaHeader({ columns, granularity }: Props) {
+export function PlanillaHeader({ columns, granularity, closedWeeks }: Props) {
+  const closedSet = new Set(closedWeeks ?? []);
   // Fila MES: agrupa columnas consecutivas por monthKey (o año en mensual).
   const groups: Array<{ label: string; span: number }> = [];
   for (const c of columns) {
@@ -104,6 +108,9 @@ export function PlanillaHeader({ columns, granularity }: Props) {
           >
             {granularity === "week" ? (
               <>
+                {closedSet.has(c.weekStart) && (
+                  <Lock className="mr-0.5 inline-block h-2.5 w-2.5 align-[-1px] text-ds-text-4" aria-label="Semana cerrada" />
+                )}
                 <span className={c.isCurrent ? "text-primary" : "text-ds-text-2"}>{c.label}</span>
                 {isQuincenaWeek(c.weekStart) && (
                   <sup className="font-mono text-[8px] text-status-warn-fg">Q</sup>
