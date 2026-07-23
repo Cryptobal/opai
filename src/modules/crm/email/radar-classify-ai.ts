@@ -1,7 +1,37 @@
 import { aiService } from "@/lib/ai-service";
+import { logAiUsage } from "@/lib/platform-ai-service";
 import type { RadarClassification, RadarCompromiso } from "./radar-types";
 import type { LeadFeedback } from "./radar-feedback";
 import { clampText } from "./radar-util";
+import { UNTRUSTED_RULES, wrapUntrusted } from "./ai-untrusted";
+
+/** Versión de los prompts de este módulo (trazabilidad en aiUsageLog). */
+export const RADAR_PROMPT_VERSION = "radar-v5-untrusted";
+
+/** Estimación de tokens (~4 chars/token) — aiService no expone usage real. */
+function approxTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+function logUsage(params: {
+  tenantId: string;
+  feature: string;
+  model: string;
+  prompt: string;
+  output: string;
+  startedAt: number;
+}): void {
+  logAiUsage({
+    tenantId: params.tenantId,
+    providerType: "openai",
+    model: params.model,
+    feature: params.feature,
+    inputTokens: approxTokens(params.prompt),
+    outputTokens: approxTokens(params.output),
+    durationMs: Date.now() - params.startedAt,
+    metadata: { promptVersion: RADAR_PROMPT_VERSION, estimated: true },
+  });
+}
 
 const CATEGORIAS = ["cotizacion", "licitacion", "consulta_comercial", "facturacion", "operacional", "otro"];
 const INTENCIONES = ["alta", "media", "baja"];
@@ -75,14 +105,24 @@ Reglas:
 - senalesCompra: frases breves que reflejen intención de compra; [] si no hay.
 - compromisos: promesas con fecha de cualquiera de las partes ("te confirmamos el jueves"); fechaISO absoluta (hoy es ${input.hoyISO}); [] si no hay.
 - resumen: máx 140 caracteres, sin saludos.${feedbackBlock(input.examples)}
-Asunto: ${clampText(input.subject, 200)}
-Remitente: ${input.fromEmail}
-Cuerpo:
-${clampText(input.body, 3000)}`;
+${UNTRUSTED_RULES}
+Correo a clasificar:
+${wrapUntrusted(
+    `Asunto: ${clampText(input.subject, 200)}\nRemitente: ${input.fromEmail}\nCuerpo:\n${clampText(input.body, 3000)}`,
+  )}`;
+  const startedAt = Date.now();
   try {
     const raw = (await aiService.generateJSONWithModel(prompt, "gpt-4o-mini", 500, {
       tenantId: input.tenantId,
     })) as Record<string, unknown>;
+    logUsage({
+      tenantId: input.tenantId,
+      feature: "correo-radar-classify",
+      model: "gpt-4o-mini",
+      prompt,
+      output: JSON.stringify(raw ?? {}),
+      startedAt,
+    });
     return normalize(raw || {});
   } catch {
     return null; // degradación elegante: se reintenta en la próxima corrida
@@ -97,11 +137,22 @@ export async function suggestNextStepTask(input: {
   body: string;
 }): Promise<string | null> {
   const prompt = `Del correo entrante de un prospecto de seguridad privada, dame el PRÓXIMO PASO comercial como título de tarea: en imperativo, breve (máx 8 palabras), sin fecha ni saludos. Ejemplos: "Enviar propuesta firmada", "Agendar reunión de kickoff", "Llamar para confirmar dotación". Devuelve SOLO el título.
-De ${input.fromEmail} (${clampText(input.subject, 160)}):
-${clampText(input.body, 1500)}`;
+${UNTRUSTED_RULES}
+${wrapUntrusted(
+    `De ${input.fromEmail} (${clampText(input.subject, 160)}):\n${clampText(input.body, 1500)}`,
+  )}`;
+  const startedAt = Date.now();
   try {
     const txt = await aiService.generateText(prompt, { maxTokens: 40, temperature: 0.3 }, {
       tenantId: input.tenantId,
+    });
+    logUsage({
+      tenantId: input.tenantId,
+      feature: "correo-radar-next-step",
+      model: "default",
+      prompt,
+      output: txt ?? "",
+      startedAt,
     });
     return txt?.trim().replace(/^["']|["']$/g, "").slice(0, 120) || null;
   } catch {
@@ -124,11 +175,22 @@ export async function generateDraftReply(input: {
     : "";
   const prompt = `Redacta un BORRADOR de respuesta breve y profesional en español chileno neutro a este correo entrante de un prospecto de seguridad privada. NO inventes precios ni datos. Estructura: (1) acusar recibo, (2) 1-2 preguntas clave para avanzar, (3) próximo paso claro. Máx 90 palabras. Devuelve SOLO el texto del correo, sin asunto ni firma.${extra}
 Resumen: ${input.resumen}
-Correo de ${input.fromEmail} (${clampText(input.subject, 160)}):
-${clampText(input.body, 2000)}`;
+${UNTRUSTED_RULES}
+${wrapUntrusted(
+    `Correo de ${input.fromEmail} (${clampText(input.subject, 160)}):\n${clampText(input.body, 2000)}`,
+  )}`;
+  const startedAt = Date.now();
   try {
     const txt = await aiService.generateText(prompt, { maxTokens: 300, temperature: 0.4 }, {
       tenantId: input.tenantId,
+    });
+    logUsage({
+      tenantId: input.tenantId,
+      feature: "correo-suggest-reply",
+      model: "default",
+      prompt,
+      output: txt ?? "",
+      startedAt,
     });
     return txt?.trim() || null;
   } catch {
