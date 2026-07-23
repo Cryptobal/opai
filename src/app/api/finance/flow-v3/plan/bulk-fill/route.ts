@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { flowV3Error, requireFlowV3 } from "@/modules/finance/flow-v3/api-guard";
 import { bulkFill } from "@/modules/finance/flow-v3/plan.service";
+import { assertV3WeeksWritable } from "@/modules/finance/flow-v3/weekly-close.adapter";
 import { flowPlanBulkFillSchema } from "@/lib/validations/flow-v3";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ export async function POST(request: NextRequest) {
       const issues = parsed.error.issues.map((i) => i.message).join("; ");
       return NextResponse.json({ success: false, error: issues }, { status: 400 });
     }
+    await assertV3WeeksWritable(guard.ctx.tenantId, parsed.data.weekStarts);
     const cells = await bulkFill(
       guard.ctx.tenantId,
       parsed.data.rowId,

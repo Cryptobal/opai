@@ -17,7 +17,8 @@ import {
 } from "./types";
 import { assembleMatrix, type AssembleRowInput } from "./matrix-assemble";
 import { reduceMonthly, weeklyColumns } from "./matrix-monthly";
-import type { FlowMatrixResponse } from "./matrix-types";
+import { listClosedV3Weeks } from "./weekly-close.adapter";
+import type { FlowMatrixResponse, OpeningBalanceDetail } from "./matrix-types";
 
 export type { FlowMatrixResponse } from "./matrix-types";
 
@@ -67,7 +68,7 @@ export async function buildFlowMatrix(
     categoryId: r.categoryId, supplierId: r.supplierId,
   }));
 
-  const [plan, cIncome, cExpense, real, opening, config] = await Promise.all([
+  const [plan, cIncome, cExpense, real, opening, config, closedWeeks] = await Promise.all([
     loadPlanCells(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
     loadCommittedIncome(tenantId, refs, weeks, todayYmd),
     loadCommittedExpense(tenantId, refs, weeks, todayYmd),
@@ -77,6 +78,7 @@ export async function buildFlowMatrix(
       where: { tenantId },
       select: { flowWarnThresholdClp: true },
     }),
+    listClosedV3Weeks(tenantId, weeks),
   ]);
 
   // Ventana enteramente pasada: real del gap (fin de ventana → hoy) para anclar el saldo.
@@ -149,9 +151,33 @@ export async function buildFlowMatrix(
     plan, committed, real: realResolved, realNetAfterWindow,
   });
 
+  // Desglose bancario por cuenta (§5H). El número SIEMPRE se enmascara a los
+  // últimos 4 dígitos: nunca sale el número completo al cliente.
+  const maskAccount = (n: string): string => {
+    const last4 = (n ?? "").replace(/\D/g, "").slice(-4);
+    return last4 ? `••${last4}` : "••••";
+  };
+  const perAccount = opening.perAccount.map((a) => ({
+    bankName: a.bankName,
+    accountMasked: maskAccount(a.accountNumber),
+    balanceClp: Math.round(a.resolvedBalanceClp),
+    lastSnapshotYmd: a.anchorSnapshotDate ? a.anchorSnapshotDate.toISOString().slice(0, 10) : null,
+  }));
+  const lastSnapshotYmd = perAccount.reduce<string | null>(
+    (acc, a) => (a.lastSnapshotYmd && (!acc || a.lastSnapshotYmd > acc) ? a.lastSnapshotYmd : acc),
+    null,
+  );
+  const openingBalanceDetail: OpeningBalanceDetail = {
+    totalClp: Math.round(opening.currentTotalClp),
+    perAccount,
+    lastSnapshotYmd,
+  };
+
   const base = {
     currentWeek, todayYmd,
     openingBalance: Math.round(opening.currentTotalClp),
+    openingBalanceDetail,
+    closedWeeks,
     warnThreshold: config?.flowWarnThresholdClp ?? WARN_THRESHOLD_CLP,
     kpis: assembled.kpis,
   };
