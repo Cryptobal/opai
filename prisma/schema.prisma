@@ -8636,11 +8636,45 @@ model FinanceFlowRow {
   createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  planCells FinanceFlowPlanCell[]
+  planCells       FinanceFlowPlanCell[]
+  planRecurrences FinanceFlowPlanRecurrence[]
 
   @@index([tenantId, section, orderIndex], map: "idx_finance_flow_row_tenant_section")
   @@index([tenantId, crmAccountId, installationId], map: "idx_finance_flow_row_account_inst")
   @@map("finance_flow_rows")
+  @@schema("finance")
+}
+
+enum FlowRecurrenceFrequency {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+
+  @@schema("finance")
+}
+
+// Regla de egreso recurrente de PLAN (§5J). Materializa celdas
+// FinanceFlowPlanCell hacia adelante; la regla se persiste para poder
+// extenderla y editarla (reescribiendo solo las celdas futuras). Aditivo: si
+// se elimina, las celdas ya materializadas quedan como plan normal.
+model FinanceFlowPlanRecurrence {
+  id         String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId   String                  @map("tenant_id")
+  rowId      String                  @map("row_id") @db.Uuid
+  row        FinanceFlowRow          @relation(fields: [rowId], references: [id], onDelete: Cascade)
+  /// Monto BRUTO por ocurrencia en CLP (magnitud; el signo lo pone la sección).
+  amount     Decimal                 @db.Decimal(14, 2)
+  frequency  FlowRecurrenceFrequency
+  /// Solo MONTHLY: día del mes objetivo (1–31; se ajusta al último día si el mes es más corto).
+  dayOfMonth Int?                    @map("day_of_month")
+  startDate  DateTime                @map("start_date") @db.Date
+  endDate    DateTime?               @map("end_date") @db.Date
+  createdBy  String?                 @map("created_by")
+  createdAt  DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId, rowId], map: "idx_finance_flow_plan_recurrence_tenant_row")
+  @@map("finance_flow_plan_recurrences")
   @@schema("finance")
 }
 
