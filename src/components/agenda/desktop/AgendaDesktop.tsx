@@ -249,6 +249,10 @@ export function AgendaDesktop() {
               onSelect={handleSelect}
               onMove={(item, schedule) => void persistSchedule(item, schedule)}
               onResize={(item, schedule) => void persistSchedule(item, schedule)}
+              onOpenDay={(ymd) => {
+                setAnchor(dateAtChileSlot(ymd, 0));
+                setView("day");
+              }}
             />
           )}
         </div>
