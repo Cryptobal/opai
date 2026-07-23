@@ -358,6 +358,31 @@ export const NAV_MODULES: NavNode[] = [
   },
 
   // ═════════════════════════════════════════════════════════
+  // PRODUCTIVIDAD (Correos, Agenda, Tareas, Agentes)
+  // ═════════════════════════════════════════════════════════
+  {
+    key: "productividad",
+    href: "/opai/agenda",
+    label: "Productividad",
+    icon: Sparkles,
+    module: "productividad",
+    // Agenda es la landing accesible a todos los roles con Productividad.
+    // Correos/Tareas/Agentes se declaran como activePaths para que
+    // findActiveModule/breadcrumbs los resuelvan a este nodo.
+    activePaths: ["/crm/correos", "/opai/tareas", "/opai/agentes"],
+    children: [
+      // Correos conserva tenantModule "crm": la casilla Gmail vive en el plan
+      // CRM, así se oculta para tenants sin ese módulo (acoplamiento conocido).
+      { key: "productividad-correos", href: "/crm/correos", label: "Correos", icon: Mail, module: "productividad", submodule: "correos", tenantModule: "crm" },
+      { key: "productividad-agenda", href: "/opai/agenda", label: "Agenda", icon: CalendarDays, module: "productividad", submodule: "agenda" },
+      // TODO F1: activar cuando exista la ruta /opai/tareas
+      // { key: "productividad-tareas", href: "/opai/tareas", label: "Tareas", icon: ClipboardList, module: "productividad", submodule: "tareas" },
+      // TODO F3: activar cuando exista la ruta /opai/agentes
+      // { key: "productividad-agentes", href: "/opai/agentes", label: "Agentes IA", icon: Sparkles, module: "productividad", submodule: "agentes" },
+    ],
+  },
+
+  // ═════════════════════════════════════════════════════════
   // CRM (Comercial)
   // ═════════════════════════════════════════════════════════
   {
@@ -367,16 +392,10 @@ export const NAV_MODULES: NavNode[] = [
     icon: TrendingUp,
     module: "crm",
     tenantModule: "crm",
-    // /opai/agenda es hermano plano de /crm (vive bajo /opai por convención
-    // de rutas transversales), así que se declara para que
-    // findActiveModule/breadcrumbs lo resuelvan al módulo Comercial.
-    activePaths: ["/opai/agenda"],
     children: [
       { key: "crm-leads", href: "/crm/leads", label: "Leads", icon: Users, module: "crm", submodule: "leads", badge: { notesKey: "lead" } },
       { key: "crm-accounts", href: "/crm/accounts", label: "Cuentas", icon: Building2, module: "crm", submodule: "accounts", badge: { notesKey: "account" } },
       { key: "crm-deals", href: "/crm/deals", label: "Negocios", icon: TrendingUp, module: "crm", submodule: "deals", badge: { notesKey: "deal" } },
-      { key: "crm-agenda", href: "/opai/agenda", label: "Agenda", icon: CalendarDays, module: "crm", submodule: "deals" },
-      { key: "crm-correos", href: "/crm/correos", label: "Correos", icon: Mail, module: "crm", submodule: "deals" },
       { key: "crm-contacts", href: "/crm/contacts", label: "Contactos", icon: Contact, module: "crm", submodule: "contacts", badge: { notesKey: "contact" } },
       { key: "crm-quotes", href: "/crm/cotizaciones", label: "Cotizaciones", icon: DollarSign, module: "crm", submodule: "quotes", tenantModule: "cpq", badge: { notesKey: "quotation" } },
       { key: "crm-installations", href: "/crm/installations", label: "Instalaciones", icon: MapPin, module: "crm", submodule: "installations", badge: { notesKey: "installation" } },

@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireTenantModule } from "@/lib/require-module";
+import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { listCorreoThreads, type CorreoListFilter } from "@/modules/crm/email/correos-list";
 import { countCorreoFolders } from "@/modules/crm/email/correos-folder-counts";
 import { getGmailSyncParkedInfo } from "@/modules/crm/email/gmail-sync-queue";
@@ -40,7 +40,7 @@ function parseVertical(raw: string | null): string | null {
 }
 
 export async function GET(req: NextRequest) {
-  const mod = await requireTenantModule("crm");
+  const mod = await requireCorreosAccess();
   if (!mod.authorized) return mod.response;
 
   const session = await auth();

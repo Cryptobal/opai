@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantModule } from "@/lib/require-module";
+import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { fetchGmailAttachment } from "@/modules/crm/email/gmail-attachment";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +40,7 @@ const UNSAFE_INLINE = /html|xml|svg/i;
  * `fn`/`sz` (query) re-ubican el adjunto si el attachmentId de Gmail rotó.
  */
 export async function GET(req: NextRequest, ctx: Ctx) {
-  const mod = await requireTenantModule("crm");
+  const mod = await requireCorreosAccess();
   if (!mod.authorized) return mod.response;
   const { tenantId, userId } = mod.ctx;
 

@@ -345,10 +345,12 @@ export async function extractLeadFromThread(params: {
     raw = (att.images.length
       ? await aiService.generateFromImages(att.images, att.imageMimes, prompt, { maxTokens: 2800 }, { tenantId, feature: "correo-email-to-lead" })
       : await aiService.generateJSON(prompt, 2800, { tenantId, feature: "correo-email-to-lead" })) as Record<string, unknown>;
+    // Proveedor/modelo efectivos del tenant (antes se registraba "openai" fijo).
+    const cfg = await aiService.getActiveConfig?.({ tenantId, feature: "correo-email-to-lead" });
     logAiUsage({
       tenantId,
-      providerType: "openai",
-      model: att.images.length ? "vision-default" : "json-default",
+      providerType: cfg?.providerType ?? "openai",
+      model: cfg?.modelId ?? (att.images.length ? "vision-default" : "json-default"),
       feature: "correo-email-to-lead",
       inputTokens: Math.ceil(prompt.length / 4),
       outputTokens: Math.ceil(JSON.stringify(raw ?? {}).length / 4),

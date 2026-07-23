@@ -1,7 +1,7 @@
 /** POST → sugiere el próximo paso (título de tarea) con IA sobre el hilo. */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { requireTenantModule } from "@/lib/require-module";
+import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { prisma } from "@/lib/prisma";
 import { suggestNextStepTask } from "@/modules/crm/email/radar-classify-ai";
 import { stripHtml } from "@/modules/crm/email/radar-util";
@@ -11,7 +11,7 @@ export const maxDuration = 30;
 type Ctx = { params: Promise<{ threadId: string }> };
 
 export async function POST(_req: NextRequest, { params }: Ctx) {
-  const mod = await requireTenantModule("crm");
+  const mod = await requireCorreosAccess();
   if (!mod.authorized) return mod.response;
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();

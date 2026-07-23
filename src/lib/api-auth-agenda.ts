@@ -7,23 +7,35 @@
  */
 
 import { NextResponse } from "next/server";
-import { requireAuth, unauthorized, type AuthContext } from "./api-auth";
-import { requireCrmView } from "./api-auth-crm";
+import { resolveApiPerms, type AuthContext } from "./api-auth";
 import { requireTenantModule } from "./require-module";
+import { canView } from "./permissions";
 
 export type AgendaAuthResult =
   | { ok: true; ctx: AuthContext }
   | { ok: false; response: NextResponse };
 
+/**
+ * Guard de Agenda. Conserva la capa de módulo-tenant "crm" (la Agenda vive en
+ * el plan CRM) pero el permiso de usuario ahora es `productividad.agenda`
+ * (antes usaba `crm.deals` prestado, lo que dejaba fuera a roles operativos
+ * como Central de Monitoreo que no tienen acceso a Comercial).
+ */
 export async function requireAgendaAccess(): Promise<AgendaAuthResult> {
   const modCheck = await requireTenantModule("crm");
   if (!modCheck.authorized) return { ok: false, response: modCheck.response };
 
-  const ctx = await requireAuth();
-  if (!ctx) return { ok: false, response: unauthorized() };
-
-  const forbidden = await requireCrmView(ctx);
-  if (forbidden) return { ok: false, response: forbidden };
+  const ctx = modCheck.ctx;
+  const perms = await resolveApiPerms(ctx);
+  if (!canView(perms, "productividad", "agenda")) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: "Sin permisos para Agenda" },
+        { status: 403 },
+      ),
+    };
+  }
 
   return { ok: true, ctx };
 }

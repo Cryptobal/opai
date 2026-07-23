@@ -1,7 +1,7 @@
 /** GET → cuentas sugeridas para asociar el hilo (inferencia por dominio). */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { requireTenantModule } from "@/lib/require-module";
+import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { prisma } from "@/lib/prisma";
 import { suggestAccountsForThread } from "@/modules/crm/email/suggest-account";
 
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ threadId: string }> };
 
 export async function GET(_req: NextRequest, { params }: Ctx) {
-  const mod = await requireTenantModule("crm");
+  const mod = await requireCorreosAccess();
   if (!mod.authorized) return mod.response;
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();

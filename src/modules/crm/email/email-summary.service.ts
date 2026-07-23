@@ -141,10 +141,12 @@ export async function summarizeThread(params: {
   } catch {
     return { ok: false, status: 502, error: "La IA no pudo resumir el hilo" };
   }
+  // Proveedor/modelo efectivos del tenant (antes se registraba "openai" fijo).
+  const cfg = await aiService.getActiveConfig?.({ tenantId, feature: "correo-thread-summary" });
   logAiUsage({
     tenantId,
-    providerType: "openai",
-    model: "default",
+    providerType: cfg?.providerType ?? "openai",
+    model: cfg?.modelId ?? "default",
     feature: mode === "full" ? "correo-thread-summary" : "correo-summary-since-read",
     inputTokens: Math.ceil(prompt.length / 4),
     outputTokens: Math.ceil(summary.length / 4),

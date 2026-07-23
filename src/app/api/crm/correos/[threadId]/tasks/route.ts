@@ -2,14 +2,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
-import { requireTenantModule } from "@/lib/require-module";
+import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { listThreadTasks, createThreadTask } from "@/modules/crm/email/correos-tasks";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ threadId: string }> };
 
 export async function GET(_req: NextRequest, { params }: Ctx) {
-  const mod = await requireTenantModule("crm");
+  const mod = await requireCorreosAccess();
   if (!mod.authorized) return mod.response;
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
@@ -18,7 +18,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 }
 
 export async function POST(req: NextRequest, { params }: Ctx) {
-  const mod = await requireTenantModule("crm");
+  const mod = await requireCorreosAccess();
   if (!mod.authorized) return mod.response;
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();

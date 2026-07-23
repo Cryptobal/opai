@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { requireTenantModule } from "@/lib/require-module";
+import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { normalizeEmailAddress } from "@/lib/email-address";
 import { auditEmailAction } from "@/lib/audit-email";
 
@@ -10,7 +10,7 @@ type Ctx = { params: Promise<{ threadId: string }> };
 type Body = { accountId?: string | null; dealId?: string | null };
 
 export async function POST(req: NextRequest, ctx: Ctx) {
-  const mod = await requireTenantModule("crm");
+  const mod = await requireCorreosAccess();
   if (!mod.authorized) return mod.response;
 
   const session = await auth();

@@ -18,6 +18,7 @@ import {
   mergeRolePermissions,
   getEffectiveLevel,
   LEVEL_RANK,
+  applyProductividadCompat,
 } from "@/lib/permissions";
 
 // ── In-memory cache (TTL 5 min) ──
@@ -87,7 +88,7 @@ export async function resolvePermissions(user: {
         select: { slug: true },
       });
       if (tpl?.slug) effectiveRole = normalizeRole(tpl.slug);
-      return ensureSupervisorSupervisionAccess(effectiveRole, merged);
+      return applyProductividadCompat(ensureSupervisorSupervisionAccess(effectiveRole, merged));
     }
 
     const template = await prisma.roleTemplate.findUnique({
@@ -100,12 +101,12 @@ export async function resolvePermissions(user: {
       setCache(user.roleTemplateId, perms);
       if (template.slug) effectiveRole = normalizeRole(template.slug);
       const merged = mergeRolePermissions(defaultPerms, perms);
-      return ensureSupervisorSupervisionAccess(effectiveRole, merged);
+      return applyProductividadCompat(ensureSupervisorSupervisionAccess(effectiveRole, merged));
     }
   }
 
   // Fallback a defaults por rol legacy
-  return ensureSupervisorSupervisionAccess(effectiveRole, defaultPerms);
+  return applyProductividadCompat(ensureSupervisorSupervisionAccess(effectiveRole, defaultPerms));
 }
 
 /**
@@ -287,10 +288,10 @@ export async function resolvePermissionsByRoleSlug(
       defaultPerms,
       template.permissions as unknown as RolePermissions,
     );
-    return ensureSupervisorSupervisionAccess(normalizedSlug, merged);
+    return applyProductividadCompat(ensureSupervisorSupervisionAccess(normalizedSlug, merged));
   }
 
-  return ensureSupervisorSupervisionAccess(normalizedSlug, defaultPerms);
+  return applyProductividadCompat(ensureSupervisorSupervisionAccess(normalizedSlug, defaultPerms));
 }
 
 /**
