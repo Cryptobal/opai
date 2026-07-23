@@ -1,16 +1,20 @@
 "use client";
 
-import type {
-  CSSProperties,
-  KeyboardEventHandler,
-  MouseEvent,
-  PointerEventHandler,
-  ReactNode,
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEventHandler,
+  type MouseEvent,
+  type PointerEventHandler,
+  type ReactNode,
 } from "react";
 import { ChevronLeft } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
 import { cn } from "@/lib/utils";
 import { useCloseOnBack } from "./useCloseOnBack";
+import { useFocusTrap } from "./useFocusTrap";
 
 type Props = {
   open: boolean;
@@ -43,6 +47,21 @@ export function CorreoReaderShell({
   children,
 }: Props) {
   useCloseOnBack(open && manageBackHistory, onClose);
+
+  // C19: en móvil (y overlay desktop) el lector es un modal real — focus-trap
+  // + Escape; en split desktop solo Escape (no atrapa el foco del workspace).
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 1023px)");
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  const isOverlay = isMobile || desktopMode === "overlay";
+  useFocusTrap(panelRef, { active: open, trap: isOverlay, onEscape: onClose });
+
   if (!open) return null;
 
   const style = {
@@ -78,8 +97,13 @@ export function CorreoReaderShell({
         </div>
       )}
       <Surface
+        ref={panelRef}
         elevation={2}
         padding="none"
+        role={isOverlay ? "dialog" : undefined}
+        aria-modal={isOverlay ? "true" : undefined}
+        aria-label={headerSubject || "Correo"}
+        tabIndex={-1}
         className={cn(
           "flex h-full w-full flex-col overflow-hidden lg:border lg:border-ds-border-default",
           desktopMode === "overlay" &&
