@@ -18,13 +18,16 @@ export type CrmEmailQueuedData = {
 };
 
 export type CrmEmailSendResult =
-  | { ok: true; queued: true; data: CrmEmailQueuedData }
+  | { ok: true; queued: true; offline?: false; data: CrmEmailQueuedData }
   | {
       ok: true;
       queued: false;
+      offline?: false;
       warning?: string;
       data: { threadId: string | null; messageId: string | null; providerMessageId: string | null };
     }
+  /** C22b: sin red — quedó en la cola local y saldrá (una sola vez) al reconectar. */
+  | { ok: true; queued: true; offline: true }
   | { ok: false; error: string };
 
 export function newEmailIdempotencyKey(): string {
@@ -36,12 +39,24 @@ export function newEmailIdempotencyKey(): string {
 export async function sendCrmEmail(
   body: Record<string, unknown>,
 ): Promise<CrmEmailSendResult> {
+  let res: Response;
   try {
-    const res = await fetch("/api/crm/gmail/send", {
+    res = await fetch("/api/crm/gmail/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+  } catch {
+    // C22b: sin red — a la cola local. El idempotencyKey ya viaja en el body,
+    // así el flush al reconectar no puede duplicar el envío.
+    if (typeof body.idempotencyKey === "string") {
+      const { queueOfflineSend } = await import("./offline-store");
+      await queueOfflineSend(body);
+      return { ok: true, queued: true, offline: true };
+    }
+    return { ok: false, error: "Sin conexión: no se pudo enviar el correo" };
+  }
+  try {
     const data = (await res.json().catch(() => ({}))) as {
       success?: boolean;
       queued?: boolean;
@@ -68,6 +83,11 @@ export async function sendCrmEmail(
   } catch {
     return { ok: false, error: "No se pudo enviar el correo" };
   }
+}
+
+/** Toast para el caso offline (C22b). */
+export function notifyEmailQueuedOffline(): void {
+  toast.message("Sin conexión: el correo se enviará automáticamente al reconectar");
 }
 
 async function cancelOutboxSend(outboxId: string): Promise<boolean> {

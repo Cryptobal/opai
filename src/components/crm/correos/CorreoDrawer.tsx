@@ -55,7 +55,17 @@ export function CorreoDrawer({
     setLoading(true);
     try {
       const r = await fetch(`/api/crm/correos/${threadId}`);
-      setDetail(r.ok ? await r.json() : null);
+      const data = r.ok ? ((await r.json()) as CorreoDetail) : null;
+      setDetail(data);
+      // C22b: guardar el detalle para lectura offline (sin adjuntos binarios).
+      if (data) {
+        const { saveOfflineDetail } = await import("./offline-store");
+        void saveOfflineDetail(data);
+      }
+    } catch {
+      // Sin red: servir el detalle guardado si existe.
+      const { loadOfflineDetail } = await import("./offline-store");
+      setDetail(await loadOfflineDetail(threadId));
     } finally {
       setLoading(false);
     }

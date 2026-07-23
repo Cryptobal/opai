@@ -18,6 +18,12 @@ import { CorreoBulkBar, runBulkCorreoAction } from "./CorreoBulkBar";
 import { useCorreosKeyboard } from "./useCorreosKeyboard";
 import { runCorreoAction } from "./correo-thread-action-client";
 import type { CorreoAction } from "@/modules/crm/email/gmail-thread-actions";
+import {
+  flushOfflineActions,
+  flushOfflineSends,
+  loadInboxSnapshot,
+  saveInboxSnapshot,
+} from "./offline-store";
 import { CorreosSyncBanner } from "./CorreosSyncBanner";
 import { snoozeThread } from "./correo-thread-action-client";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
@@ -68,6 +74,8 @@ export function CorreosClient() {
   // C12: multi-select para acciones masivas. C20: fila enfocada por j/k.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [focusIndex, setFocusIndex] = useState(-1);
+  // C22b: modo sin conexión — snapshot local + fecha del último guardado.
+  const [offlineSince, setOfflineSince] = useState<string | null>(null);
   const [realtimeChannel, setRealtimeChannel] = useState<string | null>(null);
   const [realtimeRevision, setRealtimeRevision] = useState(0);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
@@ -98,24 +106,82 @@ export function CorreosClient() {
       // cambio de carpeta, invalidación realtime) — tipear o paginar no los paga.
       const wantCounts = reset && !cur && !debouncedQuery;
       if (wantCounts) qs.set("counts", "1");
-      const r = await fetch(`/api/crm/correos?${qs}`).then((x) => x.json());
+      let r: Record<string, unknown> & {
+        connected?: boolean;
+        canModify?: boolean;
+        realtimeChannel?: unknown;
+        counts?: unknown;
+        backfillDone?: unknown;
+        lastSyncAt?: unknown;
+        totalThreads?: unknown;
+        syncParked?: unknown;
+        items?: CorreoThreadDTO[];
+        nextCursor?: string | null;
+      };
+      try {
+        r = await fetch(`/api/crm/correos?${qs}`).then((x) => x.json());
+        setOfflineSince(null);
+      } catch {
+        // C22b: sin red — servir el snapshot local del inbox con banner.
+        if (reset && f === "inbox" && !debouncedQuery) {
+          const snapshot = await loadInboxSnapshot();
+          if (snapshot) {
+            setItems(snapshot.items);
+            setCursor(null);
+            setOfflineSince(snapshot.savedAt);
+            return;
+          }
+        }
+        setOfflineSince(new Date().toISOString());
+        return;
+      }
       setConnected(r.connected !== false);
       setCanModify(Boolean(r.canModify));
       setRealtimeChannel(
         typeof r.realtimeChannel === "string" ? r.realtimeChannel : null,
       );
       // Sin counts en la respuesta se conservan los últimos conocidos.
-      if (r.counts != null) setCounts(r.counts);
+      if (r.counts != null) setCounts(r.counts as Counts);
       setBackfillDone(typeof r.backfillDone === "boolean" ? r.backfillDone : null);
       setLastSyncAt(typeof r.lastSyncAt === "string" ? r.lastSyncAt : null);
       if (r.totalThreads != null) setTotalThreads(Number(r.totalThreads) || 0);
       setSyncParked(r.syncParked === true);
       setItems((prev) => (reset ? r.items ?? [] : [...prev, ...(r.items ?? [])]));
       setCursor(r.nextCursor ?? null);
+      // C22b: snapshot de los últimos 50 hilos del inbox para modo offline.
+      if (reset && f === "inbox" && !debouncedQuery && Array.isArray(r.items)) {
+        void saveInboxSnapshot(r.items);
+      }
     } finally {
       setLoading(false);
     }
   }, [folder, debouncedQuery]);
+
+  // C22b: al reconectar, reconciliar acciones y envíos encolados offline.
+  useEffect(() => {
+    const flush = async () => {
+      const [actions, sends] = await Promise.all([
+        flushOfflineActions(),
+        flushOfflineSends(),
+      ]);
+      if (actions > 0 || sends > 0) {
+        toast.success(
+          [
+            actions > 0 ? `${actions} acción(es) aplicadas` : null,
+            sends > 0 ? `${sends} correo(s) enviados` : null,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        );
+        void fetchPage(null, true);
+      }
+    };
+    window.addEventListener("online", flush);
+    // También al montar (la app pudo reabrirse ya online con cola pendiente).
+    void flush();
+    return () => window.removeEventListener("online", flush);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query.trim()), 300);
@@ -373,6 +439,16 @@ export function CorreosClient() {
 
         <CorreosSyncBanner backfillDone={backfillDone} totalThreads={totalThreads}
           syncParked={syncParked} onConnected={() => void fetchPage(null, true)} />
+
+        {offlineSince && (
+          <div className="rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">
+            Sin conexión — mostrando correos guardados
+            {offlineSince
+              ? ` (actualizados ${new Date(offlineSince).toLocaleString("es-CL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })})`
+              : ""}
+            . Lo que hagas se aplicará al reconectar.
+          </div>
+        )}
 
         {connected && !canModify && (
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">
