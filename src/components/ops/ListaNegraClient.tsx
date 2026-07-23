@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai-ds";
@@ -31,7 +32,7 @@ export function ListaNegraClient({ initialItems }: ListaNegraClientProps) {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const removeFromBlacklist = async (item: BlacklistItem) => {
-    if (!window.confirm("¿Quitar guardia de lista negra?")) return;
+    if (!(await confirmDialog({ description: "¿Quitar guardia de lista negra?" }))) return;
     setUpdatingId(item.id);
     try {
       const response = await fetch(`/api/personas/guardias/${item.id}/lista-negra`, {

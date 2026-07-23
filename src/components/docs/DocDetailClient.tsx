@@ -41,6 +41,7 @@ import { SendForReviewModal } from "./SendForReviewModal";
 import { SignatureStatusPanel } from "./SignatureStatusPanel";
 import { DOC_STATUS_CONFIG, normalizeDocStatus } from "@/lib/docs/token-registry";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import type { DocDocument, DocHistory } from "@/types/docs";
 import { useCanDelete } from "@/lib/permissions-context";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
@@ -310,7 +311,14 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
       toast.error("No tienes permisos para eliminar este documento");
       return;
     }
-    if (!confirm("¿Eliminar este documento permanentemente?")) return;
+    if (
+      !(await confirmDialog({
+        description: "¿Eliminar este documento permanentemente?",
+        variant: "destructive",
+        confirmLabel: "Eliminar",
+      }))
+    )
+      return;
     try {
       await fetch(`/api/docs/documents/${documentId}`, { method: "DELETE" });
       toast.success("Documento eliminado");

@@ -16,6 +16,7 @@ import { formatCurrency, WEEKDAY_ORDER } from "@/components/cpq/utils";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import type { CpqCargo, CpqRol, CpqPuestoTrabajo, CpqPosition } from "@/types/cpq";
 import { Calculator } from "lucide-react";
+import { toast } from "sonner";
 
 interface EditPositionModalProps {
   quoteId: string;
@@ -143,7 +144,7 @@ export function EditPositionModal({ quoteId, position, open, onOpenChange, onUpd
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.weekdays || form.weekdays.length === 0) {
-      alert("Debes seleccionar al menos un día de la semana");
+      toast.error("Debes seleccionar al menos un día de la semana");
       return;
     }
     setLoading(true);

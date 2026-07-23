@@ -50,6 +50,7 @@ import type {
 } from "@/types/cpq";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import {
   Dialog,
   DialogContent,
@@ -1084,9 +1085,12 @@ export function CpqQuoteDetail({
       return;
     }
 
-    const confirmed = window.confirm(
-      "Esta accion reemplazara la dotacion activa de la instalacion con los puestos de esta cotizacion. Continuar?"
-    );
+    const confirmed = await confirmDialog({
+      description:
+        "Esta accion reemplazara la dotacion activa de la instalacion con los puestos de esta cotizacion. Continuar?",
+      variant: "destructive",
+      confirmLabel: "Reemplazar",
+    });
     if (!confirmed) return;
 
     setSendingDotacion(true);
@@ -1140,9 +1144,12 @@ export function CpqQuoteDetail({
 
     // If positions exist, ask whether to replace or add
     if (positions.length > 0) {
-      const replace = window.confirm(
-        `Ya hay ${positions.length} puesto(s).\n\nAceptar = Reemplazar todos\nCancelar = Agregar a los existentes`
-      );
+      const replace = await confirmDialog({
+        description: `Ya hay ${positions.length} puesto(s).`,
+        variant: "destructive",
+        confirmLabel: "Reemplazar todos",
+        cancelLabel: "Agregar a existentes",
+      });
       if (replace) {
         for (const pos of positions) {
           await fetch(`/api/cpq/quotes/${quoteId}/positions/${pos.id}`, { method: "DELETE" }).catch(() => {});
@@ -1461,7 +1468,7 @@ export function CpqQuoteDetail({
   });
 
   const handleAutoGroup = useCallback(async () => {
-    if (!confirm("¿Auto-agrupar los puestos sin agrupar por cargo/puesto?")) return;
+    if (!(await confirmDialog({ description: "¿Auto-agrupar los puestos sin agrupar por cargo/puesto?" }))) return;
     try {
       const r = await fetch(`/api/cpq/quotes/${quoteId}/services/auto-group`, { method: "POST" });
       const d = await r.json();

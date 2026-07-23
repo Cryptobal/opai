@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -664,9 +665,10 @@ function DetailView({
 
   const handleComplete = async () => {
     if (
-      !confirm(
-        "¿Completar esta conciliación? No podrá agregar más conciliaciones después."
-      )
+      !(await confirmDialog({
+        description:
+          "¿Completar esta conciliación? No podrá agregar más conciliaciones después.",
+      }))
     )
       return;
     setCompleting(true);

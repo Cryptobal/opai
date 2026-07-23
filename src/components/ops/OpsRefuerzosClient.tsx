@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { confirmDialog, promptDialog } from "@/components/ui/confirm-service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -566,7 +567,7 @@ export function OpsRefuerzosClient({
   }
 
   async function deleteRefuerzo(item: RefuerzoItem) {
-    const ok = window.confirm("¿Eliminar esta solicitud de refuerzo? Esta acción no se puede deshacer.");
+    const ok = await confirmDialog({ description: "¿Eliminar esta solicitud de refuerzo? Esta acción no se puede deshacer.", variant: "destructive", confirmLabel: "Eliminar" });
     if (!ok) return;
     setLoading(true);
     try {
@@ -589,7 +590,7 @@ export function OpsRefuerzosClient({
     try {
       const body: Record<string, unknown> = { status };
       if (status === "facturado") {
-        const invoiceNumber = window.prompt("Número de factura", item.invoiceNumber ?? "");
+        const invoiceNumber = await promptDialog({ description: "Número de factura", defaultValue: item.invoiceNumber ?? "" });
         if (!invoiceNumber) {
           setLoading(false);
           return;

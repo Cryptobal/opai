@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ChevronRight, Plus } from "lucide-react";
+import { toast } from "sonner";
 
 type Warehouse = {
   id: string;
@@ -84,11 +85,11 @@ export function InventarioBodegasClient() {
         setForm({ name: "", type: "central" });
         fetchWarehouses();
       } else {
-        alert(data.error || "Error al crear bodega");
+        toast.error(data.error || "Error al crear bodega");
       }
     } catch (e) {
       console.error(e);
-      alert("Error al crear bodega");
+      toast.error("Error al crear bodega");
     }
   };
 

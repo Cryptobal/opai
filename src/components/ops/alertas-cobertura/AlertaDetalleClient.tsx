@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useSetBreadcrumbTrailing } from "@/components/opai-ds";
@@ -99,7 +100,7 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
   }, [tenantId, fetchAlerta]);
 
   const handleCancelar = async () => {
-    if (!confirm("¿Cancelar esta alerta de cobertura?")) return;
+    if (!(await confirmDialog({ description: "¿Cancelar esta alerta de cobertura?" }))) return;
     try {
       const res = await fetch(`/api/ops/alertas-cobertura/${alertaId}?action=cancelar`, {
         method: "PATCH",

@@ -16,6 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Check, Pencil } from "lucide-react";
 import { parseSizesInput } from "@/lib/inventory-product-catalog";
+import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 type Size = {
   id: string;
@@ -66,7 +68,7 @@ export function InventarioProductoSizesClient({
         const data = await res.json();
         if (!res.ok) {
           if (String(data.error || "").includes("Ya existe")) continue;
-          alert(data.error || `Error al agregar talla ${sizeCode}`);
+          toast.error(data.error || `Error al agregar talla ${sizeCode}`);
           return;
         }
         if (data.id) {
@@ -82,25 +84,25 @@ export function InventarioProductoSizesClient({
       setSizesText("");
     } catch (e) {
       console.error(e);
-      alert("Error al agregar talla");
+      toast.error("Error al agregar talla");
     }
   };
 
   const handleDeleteSize = async (size: Size) => {
-    if (!confirm(`¿Eliminar talla ${size.sizeCode}?`)) return;
+    if (!(await confirmDialog({ description: `¿Eliminar talla ${size.sizeCode}?`, variant: "destructive", confirmLabel: "Eliminar" }))) return;
     try {
       const res = await fetch(`/api/ops/inventario/products/${productId}/sizes/${size.id}`, {
         method: "DELETE",
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "No se pudo eliminar la talla");
+        toast.error(data.error || "No se pudo eliminar la talla");
         return;
       }
       setSizes((prev) => prev.filter((s) => s.id !== size.id));
     } catch (e) {
       console.error(e);
-      alert("No se pudo eliminar la talla");
+      toast.error("No se pudo eliminar la talla");
     }
   };
 

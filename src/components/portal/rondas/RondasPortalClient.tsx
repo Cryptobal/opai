@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { SplashScreen } from "@/components/pwa/SplashScreen";
 import { LoginScreen } from "./LoginScreen";
 import { DevicePairingScreen } from "./DevicePairingScreen";
@@ -459,7 +460,7 @@ export function RondasPortalClient() {
       const json = await res.json();
       if (!res.ok || !json.success) {
         setLoadingRonda(false);
-        alert(json.error || "No se pudo iniciar la ronda libre");
+        toast.error(json.error || "No se pudo iniciar la ronda libre");
         return;
       }
 

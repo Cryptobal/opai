@@ -13,6 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Pencil, Trash2, Plus } from "lucide-react";
+import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { CategoryAccountsEditor } from "./CategoryAccountsEditor";
 import { CategoryRowExpandable } from "./CategoryRowExpandable";
 
@@ -173,7 +175,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
     const j = await r.json();
     if (!j?.success) {
       setField("autoSales", !enabled);
-      alert(j?.error ?? "Error al actualizar ventas automáticas");
+      toast.error(j?.error ?? "Error al actualizar ventas automáticas");
     }
   }
 
@@ -214,7 +216,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
     });
     const j = await r.json();
     setSavingConfig(false);
-    if (!j?.success) alert(j?.error ?? "Error al guardar");
+    if (!j?.success) toast.error(j?.error ?? "Error al guardar");
   }
 
   async function reloadCategories() {
@@ -276,11 +278,18 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
   }
 
   async function deleteCategory(c: Category) {
-    if (!confirm(`¿Eliminar categoría "${c.name}"?`)) return;
+    if (
+      !(await confirmDialog({
+        description: `¿Eliminar categoría "${c.name}"?`,
+        variant: "destructive",
+        confirmLabel: "Eliminar",
+      }))
+    )
+      return;
     const r = await fetch(`/api/finance/cashflow/categorias/${c.id}`, { method: "DELETE" });
     const j = await r.json();
     if (j?.success) reloadCategories();
-    else alert(j?.error ?? "Error al eliminar");
+    else toast.error(j?.error ?? "Error al eliminar");
   }
 
   return (

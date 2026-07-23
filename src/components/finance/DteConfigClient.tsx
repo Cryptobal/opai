@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import {
   Select,
   SelectContent,
@@ -915,7 +916,7 @@ function CertificateInfo({
     !expired && notAfter < new Date(Date.now() + 30 * 86400000);
 
   async function deleteCert() {
-    if (!confirm("¿Eliminar el certificado?")) return;
+    if (!(await confirmDialog({ description: "¿Eliminar el certificado?", variant: "destructive", confirmLabel: "Eliminar" }))) return;
     setDeleting(true);
     try {
       const res = await fetch(
@@ -1113,9 +1114,11 @@ function CafRow({
 
   async function remove() {
     if (
-      !confirm(
-        `¿Eliminar el CAF tipo ${caf.dteType} (${caf.folioDesde}–${caf.folioHasta})?`
-      )
+      !(await confirmDialog({
+        description: `¿Eliminar el CAF tipo ${caf.dteType} (${caf.folioDesde}–${caf.folioHasta})?`,
+        variant: "destructive",
+        confirmLabel: "Eliminar",
+      }))
     )
       return;
     setBusy(true);

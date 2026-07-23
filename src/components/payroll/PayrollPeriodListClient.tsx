@@ -16,6 +16,7 @@ import { SimpleSelect } from "@/components/ui/simple-select";
 import { Loader2, Plus, ChevronRight, Calendar } from "lucide-react";
 import { ListToolbar } from "@/components/shared/ListToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
+import { toast } from "sonner";
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -107,7 +108,7 @@ export function PayrollPeriodListClient() {
       });
       if (!res.ok) {
         const json = await res.json();
-        alert(json.error || "Error al crear");
+        toast.error(json.error || "Error al crear");
         return;
       }
       setCreateOpen(false);

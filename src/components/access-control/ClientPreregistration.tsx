@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import {
   CalendarClock, Plus, Loader2, Check, X, Edit, Trash2,
 } from "lucide-react";
@@ -158,7 +159,7 @@ export function ClientPreregistration({ installationId, createdBy }: Props) {
   };
 
   const handleCancel = async (id: string) => {
-    if (!confirm("¿Cancelar este pre-registro?")) return;
+    if (!(await confirmDialog({ description: "¿Cancelar este pre-registro?" }))) return;
     try {
       await fetch(`/api/access-control/preregistrations/item/${id}`, {
         method: "PUT",

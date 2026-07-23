@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import {
   AlertTriangle,
   BellOff,
@@ -2014,7 +2015,7 @@ function TicketAttachmentsCard({
   };
 
   const handleDelete = async (att: TicketAttachmentDTO) => {
-    const ok = window.confirm(`¿Eliminar el adjunto "${att.fileName}"?`);
+    const ok = await confirmDialog({ description: `¿Eliminar el adjunto "${att.fileName}"?`, variant: "destructive", confirmLabel: "Eliminar" });
     if (!ok) return;
     setDeletingId(att.id);
     try {

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { promptDialog } from "@/components/ui/confirm-service";
 import {
   AlertTriangle,
   Bookmark,
@@ -795,11 +796,11 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
-                            const next = window.prompt(
-                              "Renombrar vista:",
-                              v.name,
-                            );
+                          onClick={async () => {
+                            const next = await promptDialog({
+                              description: "Renombrar vista:",
+                              defaultValue: v.name,
+                            });
                             if (next && next.trim()) renameView(v.id, next);
                           }}
                           className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"

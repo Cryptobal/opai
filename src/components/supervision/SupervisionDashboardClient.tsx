@@ -15,6 +15,7 @@ import { Stat, StatGrid } from "@/components/opai-ds";
 import { MoreHorizontal, CheckCircle2, XCircle, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 const STATUS_LABELS: Record<string, string> = {
   in_progress: "En progreso",
@@ -100,7 +101,11 @@ export function SupervisionDashboardClient({
 
   async function deleteVisit(visitId: string) {
     if (!canDelete) return;
-    if (!confirm("¿Eliminar esta visita? Esta acción no se puede deshacer.")) return;
+    if (!(await confirmDialog({
+      description: "¿Eliminar esta visita? Esta acción no se puede deshacer.",
+      variant: "destructive",
+      confirmLabel: "Eliminar",
+    }))) return;
     setUpdating(visitId);
     try {
       const res = await fetch(`/api/ops/supervision/${visitId}`, { method: "DELETE" });

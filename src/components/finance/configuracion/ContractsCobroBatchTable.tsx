@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, Save, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -98,20 +99,19 @@ function calcularDuracionMeses(
  * `amount=15.000.000 UF` (= varios cientos de mil millones de pesos).
  *
  * Esta función pide confirmación explícita y limpia el monto, forzando
- * al usuario a re-ingresarlo. Se usa `window.confirm` deliberadamente
- * porque es una decisión rápida en plena edición masiva; abrir un modal
- * shadcn interrumpe el flujo.
+ * al usuario a re-ingresarlo.
  */
-function pedirConfirmacionCambioMoneda(
+async function pedirConfirmacionCambioMoneda(
   monedaActual: "CLP" | "UF",
   monedaNueva: "CLP" | "UF",
-): boolean {
+): Promise<boolean> {
   if (monedaActual === monedaNueva) return true;
-  return window.confirm(
-    `Vas a cambiar la moneda de ${monedaActual} a ${monedaNueva}. ` +
+  return confirmDialog({
+    description:
+      `Vas a cambiar la moneda de ${monedaActual} a ${monedaNueva}. ` +
       `El monto actual NO se convierte automáticamente — vas a tener ` +
       `que re-ingresarlo. ¿Continuar?`,
-  );
+  });
 }
 
 /**
@@ -237,7 +237,7 @@ export function ContractsCobroBatchTable() {
    * es trivial de revertir manualmente (aunque sí se puede recargando
    * antes de guardar).
    */
-  function handleCopyDown<K extends keyof Row>(rowId: string, field: K) {
+  async function handleCopyDown<K extends keyof Row>(rowId: string, field: K) {
     if (!rows) return;
     const sourceIndex = rows.findIndex((r) => r.id === rowId);
     if (sourceIndex === -1) return;
@@ -248,10 +248,11 @@ export function ContractsCobroBatchTable() {
       return;
     }
     if (
-      !window.confirm(
-        `¿Replicar este valor a las ${targetIds.length} filas debajo? ` +
+      !(await confirmDialog({
+        description:
+          `¿Replicar este valor a las ${targetIds.length} filas debajo? ` +
           `Podés cancelar antes de guardar.`,
-      )
+      }))
     ) {
       return;
     }
@@ -519,10 +520,10 @@ export function ContractsCobroBatchTable() {
                   <td className="px-2 py-1.5">
                     <select
                       value={r.currency}
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const nueva = e.target.value as "CLP" | "UF";
                         if (
-                          pedirConfirmacionCambioMoneda(r.currency, nueva)
+                          await pedirConfirmacionCambioMoneda(r.currency, nueva)
                         ) {
                           updateRow(r.id, "currency", nueva);
                           updateRow(r.id, "amount", 0);

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Calendar, Check, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { MarkPaidDialog } from "./MarkPaidDialog";
 import type { WeeklyCloseSnapshotDTO } from "./types";
 import { fmtCLP } from "./types";
@@ -52,7 +53,11 @@ export function UnfulfilledList({ items, onAction }: Props) {
   }
 
   async function cancelOcc(occId: string) {
-    if (!confirm("¿Cancelar esta cuota? La semana queda con menos plata esperada.")) {
+    if (
+      !(await confirmDialog({
+        description: "¿Cancelar esta cuota? La semana queda con menos plata esperada.",
+      }))
+    ) {
       return;
     }
     setBusyId(occId);

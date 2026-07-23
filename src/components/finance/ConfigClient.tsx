@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -249,7 +250,7 @@ function ItemsTab({ initialItems }: { initialItems: ItemData[] }) {
   const existingCategories = Array.from(new Set(items.map((i) => i.category).filter(Boolean))) as string[];
 
   const handleSeedDefaults = useCallback(async () => {
-    if (!confirm("¿Cargar ítems por defecto? Los ítems existentes no se duplicarán.")) return;
+    if (!(await confirmDialog({ description: "¿Cargar ítems por defecto? Los ítems existentes no se duplicarán." }))) return;
     setSeeding(true);
     try {
       const res = await fetch("/api/finance/seed", { method: "POST" });
@@ -347,7 +348,7 @@ function ItemsTab({ initialItems }: { initialItems: ItemData[] }) {
   }, []);
 
   const handleDelete = useCallback(async (id: string) => {
-    if (!confirm("¿Eliminar este ítem?")) return;
+    if (!(await confirmDialog({ description: "¿Eliminar este ítem?", variant: "destructive", confirmLabel: "Eliminar" }))) return;
     try {
       const res = await fetch(`/api/finance/items/${id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -829,7 +830,7 @@ function CostCentersTab({ initialCostCenters }: { initialCostCenters: CostCenter
   }, []);
 
   const handleDelete = useCallback(async (id: string) => {
-    if (!confirm("¿Eliminar este centro de costo?")) return;
+    if (!(await confirmDialog({ description: "¿Eliminar este centro de costo?", variant: "destructive", confirmLabel: "Eliminar" }))) return;
     try {
       const res = await fetch(`/api/finance/cost-centers/${id}`, { method: "DELETE" });
       if (!res.ok) {

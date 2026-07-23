@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { confirmDialog, promptDialog } from "@/components/ui/confirm-service";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Spinner } from "@/components/opai-ds";
@@ -1040,20 +1041,20 @@ export function OpsPautaDiariaClient({
                                 variant="outline"
                                 className="h-8 text-xs px-3 border-status-warn-border text-status-warn-fg hover:bg-status-warn-soft"
                                 disabled={savingId === item.id || isLocked || !canExecuteOps}
-                                onClick={() => {
+                                onClick={async () => {
                                   const te2 = item.turnosExtra?.filter((t: { status: string }) => t.status !== "rejected").sort((a: { status: string }, b: { status: string }) => (TE_PRIORITY[a.status] ?? 9) - (TE_PRIORITY[b.status] ?? 9))[0];
                                   if (te2?.status === "paid" && !canManagePaidTeReset) {
                                     toast.error("No puedes resetear: este TE ya está pagado.");
                                     return;
                                   }
                                   if (te2?.status === "paid" && canManagePaidTeReset) {
-                                    const reason = (window.prompt("Motivo para eliminar TE pagado:") || "").trim();
+                                    const reason = (await promptDialog({ description: "Motivo para eliminar TE pagado:" }) || "").trim();
                                     if (!reason) { toast.error("Debes indicar un motivo."); return; }
                                     void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null, forceDeletePaidTe: true, forceDeleteReason: reason }, "Estado reseteado (override admin)");
                                     return;
                                   }
                                   if (te2 && (te2.status === "pending" || te2.status === "approved")) {
-                                    if (!window.confirm("Se eliminará el TE asociado. ¿Continuar?")) return;
+                                    if (!(await confirmDialog({ description: "Se eliminará el TE asociado. ¿Continuar?", variant: "destructive", confirmLabel: "Eliminar" }))) return;
                                   }
                                   void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null }, "Estado reseteado");
                                 }}
@@ -1115,7 +1116,7 @@ export function OpsPautaDiariaClient({
                               variant="ghost"
                               className="h-8 text-xs px-2 text-muted-foreground"
                               disabled={savingId === item.id || isLocked || !canExecuteOps}
-                              onClick={() => {
+                              onClick={async () => {
                                 const te2 = item.turnosExtra?.filter((t: { status: string }) => t.status !== "rejected").sort((a: { status: string }, b: { status: string }) => (TE_PRIORITY[a.status] ?? 9) - (TE_PRIORITY[b.status] ?? 9))[0];
                                 if (!te2) {
                                   void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null }, "Estado reseteado");
@@ -1123,13 +1124,13 @@ export function OpsPautaDiariaClient({
                                 }
                                 if (te2.status === "paid") {
                                   if (!canManagePaidTeReset) { toast.error("TE pagado. Solicita override a un admin."); return; }
-                                  if (!window.confirm("TE pagado. Se forzará eliminación. ¿Continuar?")) return;
-                                  const reason = (window.prompt("Motivo:") || "").trim();
+                                  if (!(await confirmDialog({ description: "TE pagado. Se forzará eliminación. ¿Continuar?", variant: "destructive", confirmLabel: "Eliminar" }))) return;
+                                  const reason = (await promptDialog({ description: "Motivo:" }) || "").trim();
                                   if (!reason) { toast.error("Debes indicar un motivo."); return; }
                                   void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null, forceDeletePaidTe: true, forceDeleteReason: reason }, "Estado reseteado (override admin)");
                                   return;
                                 }
-                                if (!window.confirm("Se eliminará el TE asociado. ¿Continuar?")) return;
+                                if (!(await confirmDialog({ description: "Se eliminará el TE asociado. ¿Continuar?", variant: "destructive", confirmLabel: "Eliminar" }))) return;
                                 void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null }, "Estado reseteado");
                               }}
                               title="Resetear"

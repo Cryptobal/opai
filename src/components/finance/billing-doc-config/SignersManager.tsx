@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import {
   Dialog,
   DialogContent,
@@ -159,7 +160,13 @@ export function SignersManager() {
   }
 
   async function deleteSigner(s: Signer) {
-    if (!confirm(`¿Desactivar firmante "${s.name}"? Quedará archivado.`))
+    if (
+      !(await confirmDialog({
+        description: `¿Desactivar firmante "${s.name}"? Quedará archivado.`,
+        variant: "destructive",
+        confirmLabel: "Desactivar",
+      }))
+    )
       return;
     try {
       const res = await fetch(`/api/finance/billing/signers/${s.id}`, {

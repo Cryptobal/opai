@@ -69,6 +69,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 
 /* ── Types ── */
@@ -425,7 +426,13 @@ function AccountsTab({
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Eliminar esta cuenta bancaria? Esta acción no se puede deshacer."))
+    if (
+      !(await confirmDialog({
+        description: "¿Eliminar esta cuenta bancaria? Esta acción no se puede deshacer.",
+        variant: "destructive",
+        confirmLabel: "Eliminar",
+      }))
+    )
       return;
     setDeleting(id);
     try {
@@ -1346,9 +1353,10 @@ function TransactionsTab({
 
   const undoReconciliation = async (txId: string) => {
     if (
-      !confirm(
-        "¿Deshacer la conciliación de este movimiento? Se eliminan los vínculos contables y vuelve a estado UNMATCHED."
-      )
+      !(await confirmDialog({
+        description:
+          "¿Deshacer la conciliación de este movimiento? Se eliminan los vínculos contables y vuelve a estado UNMATCHED.",
+      }))
     ) {
       return;
     }
@@ -1369,9 +1377,10 @@ function TransactionsTab({
   const authorizeAll = async () => {
     if (!selectedAccount) return;
     if (
-      !confirm(
-        "¿Autorizar todos los movimientos reconocidos visibles? Crearán los vínculos contables sugeridos por las reglas."
-      )
+      !(await confirmDialog({
+        description:
+          "¿Autorizar todos los movimientos reconocidos visibles? Crearán los vínculos contables sugeridos por las reglas.",
+      }))
     ) {
       return;
     }
@@ -1429,9 +1438,10 @@ function TransactionsTab({
   const runHistoricalAutoMatch = async () => {
     if (!selectedAccount) return;
     if (
-      !confirm(
-        "¿Correr conciliación automática sobre los movimientos sin reconocer? Se evalúan DTEs, turnos extras y reglas (los matches con confianza alta quedan conciliados, los demás como sugerencia)."
-      )
+      !(await confirmDialog({
+        description:
+          "¿Correr conciliación automática sobre los movimientos sin reconocer? Se evalúan DTEs, turnos extras y reglas (los matches con confianza alta quedan conciliados, los demás como sugerencia).",
+      }))
     ) {
       return;
     }

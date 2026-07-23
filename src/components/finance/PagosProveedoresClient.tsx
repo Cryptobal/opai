@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -251,7 +252,13 @@ function PaymentsListTab({ canManage }: { canManage: boolean }) {
   };
 
   const handleCancel = async (id: string) => {
-    if (!confirm("¿Cancelar este pago? Esta accion no se puede deshacer."))
+    if (
+      !(await confirmDialog({
+        description: "¿Cancelar este pago? Esta accion no se puede deshacer.",
+        variant: "destructive",
+        confirmLabel: "Cancelar pago",
+      }))
+    )
       return;
     setActing(id);
     try {

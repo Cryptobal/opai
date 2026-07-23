@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { PlatformKpiCard } from '@/components/platform/PlatformKpiCard';
 import { TenantTable } from '@/components/platform/TenantTable';
 
@@ -89,7 +90,7 @@ export default function PlatformDashboardPage() {
       const data = await res.json();
       window.location.href = data.redirectTo || '/hub';
     } catch {
-      alert('No se pudo iniciar la sesion como este tenant.');
+      toast.error('No se pudo iniciar la sesion como este tenant.');
     }
   }
 

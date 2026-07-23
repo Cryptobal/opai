@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
 import {
   ArrowUpRight,
@@ -539,7 +540,7 @@ export function GuardiaDetailClient({
   };
 
   const handleEliminar = async () => {
-    if (!window.confirm("¿ELIMINAR permanentemente a este guardia y su persona asociada? Esta acción no se puede deshacer.")) return;
+    if (!(await confirmDialog({ description: "¿ELIMINAR permanentemente a este guardia y su persona asociada? Esta acción no se puede deshacer.", variant: "destructive", confirmLabel: "Eliminar" }))) return;
     try {
       const response = await fetch(`/api/personas/guardias/${guardia.id}`, { method: "DELETE" });
       const payload = await response.json();

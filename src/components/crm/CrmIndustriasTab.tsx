@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { promptDialog } from "@/components/ui/confirm-service";
 
 type Industry = {
   id: string;
@@ -133,8 +134,11 @@ export function CrmIndustriasTab() {
                       size="sm"
                       variant="ghost"
                       className="h-7 px-2"
-                      onClick={() => {
-                        const name = window.prompt("Nuevo nombre:", ind.name);
+                      onClick={async () => {
+                        const name = await promptDialog({
+                          description: "Nuevo nombre:",
+                          defaultValue: ind.name,
+                        });
                         if (name != null && name.trim()) updateIndustry(ind.id, name);
                       }}
                       disabled={loadingId === ind.id}

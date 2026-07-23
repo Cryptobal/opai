@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import {
   AlertTriangle,
   Plus,
@@ -155,7 +156,7 @@ export function AlertasCoberturaClient({ userRole, tenantId }: Props) {
   const aceptadas = alertas.filter((a) => a.estado === "ACEPTADA" || a.estado === "PENDIENTE_CONFIRMACION");
 
   const handleCancelar = async (alertaId: string) => {
-    if (!confirm("¿Cancelar esta alerta de cobertura?")) return;
+    if (!(await confirmDialog({ description: "¿Cancelar esta alerta de cobertura?" }))) return;
     try {
       const res = await fetch(`/api/ops/alertas-cobertura/${alertaId}?action=cancelar`, {
         method: "PATCH",

@@ -14,6 +14,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { SimpleSelect } from "@/components/ui/simple-select";
 import { Loader2, Plus, CheckCircle2, DollarSign } from "lucide-react";
+import { confirmDialog } from "@/components/ui/confirm-service";
+import { toast } from "sonner";
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -76,7 +78,7 @@ export function AnticipoProcessClient() {
       });
       if (!res.ok) {
         const json = await res.json();
-        alert(json.error || "Error");
+        toast.error(json.error || "Error");
         return;
       }
       setCreateOpen(false);
@@ -96,7 +98,7 @@ export function AnticipoProcessClient() {
   };
 
   const handlePaid = async (id: string) => {
-    if (!confirm("¿Marcar como pagado?")) return;
+    if (!(await confirmDialog({ description: "¿Marcar como pagado?" }))) return;
     await fetch(`/api/payroll/anticipos/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

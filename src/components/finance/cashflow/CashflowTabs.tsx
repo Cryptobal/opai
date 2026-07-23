@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Search, X } from "lucide-react";
+import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { WeeklyMatrix } from "./WeeklyMatrix";
@@ -215,7 +216,7 @@ export function CashflowTabs({
     });
     const j = await r.json();
     if (!j?.success) {
-      alert(j?.error ?? "No se pudo mover la ocurrencia");
+      toast.error(j?.error ?? "No se pudo mover la ocurrencia");
       return;
     }
     router.refresh();
@@ -240,7 +241,7 @@ export function CashflowTabs({
     });
     const j = await r.json();
     if (!j?.success) {
-      alert(j?.error ?? "No se pudo mover la ocurrencia");
+      toast.error(j?.error ?? "No se pudo mover la ocurrencia");
       return;
     }
     router.refresh();

@@ -39,6 +39,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { cn } from "@/lib/utils";
 
 type Finding = {
@@ -163,7 +164,7 @@ export function VraReportWizardClient({ report: initialReport }: { report: Repor
 
   const handleDeleteReport = async () => {
     const confirmMsg = `¿Eliminar permanentemente este borrador?\n\n"${report.title}"\n\nSe borran ${findings.length} hallazgo(s) y ${photos.length} foto(s) cargados.\n\nEsta acción no se puede deshacer.`;
-    if (!confirm(confirmMsg)) return;
+    if (!(await confirmDialog({ description: confirmMsg, variant: "destructive", confirmLabel: "Eliminar" }))) return;
     setDeleting(true);
     try {
       const res = await fetch(`/api/vra/reports/${report.id}?hard=true`, { method: "DELETE" });
@@ -742,7 +743,7 @@ function Step2Photos({
   };
 
   const handleDelete = async (photoId: string) => {
-    if (!confirm("¿Eliminar esta foto?")) return;
+    if (!(await confirmDialog({ description: "¿Eliminar esta foto?", variant: "destructive", confirmLabel: "Eliminar" }))) return;
     try {
       const res = await fetch(`/api/vra/reports/${reportId}/photos/${photoId}`, {
         method: "DELETE",
@@ -918,7 +919,7 @@ function Step3Findings({
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Eliminar este hallazgo?")) return;
+    if (!(await confirmDialog({ description: "¿Eliminar este hallazgo?", variant: "destructive", confirmLabel: "Eliminar" }))) return;
     try {
       const res = await fetch(`/api/vra/reports/${reportId}/findings/${id}`, {
         method: "DELETE",

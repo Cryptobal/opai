@@ -11,6 +11,8 @@ import {
   RotateCw,
   Loader2,
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { confirmDialog } from '@/components/ui/confirm-service';
 
 interface KnowledgeBase {
   id: string;
@@ -147,7 +149,7 @@ export default function PlatformKnowledgePage() {
       try {
         payload = text ? (JSON.parse(text) as typeof payload) : {};
       } catch {
-        alert('El servidor devolvió una respuesta inválida al subir el archivo.');
+        toast.error('El servidor devolvió una respuesta inválida al subir el archivo.');
         return;
       }
 
@@ -160,7 +162,7 @@ export default function PlatformKnowledgePage() {
         fetchItems();
       } else {
         console.error('Error al subir documento:', payload.error ?? res.status);
-        alert(payload.error ?? 'No se pudo subir el documento.');
+        toast.error(payload.error ?? 'No se pudo subir el documento.');
       }
     } catch (err) {
       console.error('Upload error:', err);
@@ -187,13 +189,13 @@ export default function PlatformKnowledgePage() {
       try {
         payload = text ? JSON.parse(text) : {};
       } catch {
-        alert('Respuesta inválida del servidor al reprocesar.');
+        toast.error('Respuesta inválida del servidor al reprocesar.');
         return;
       }
       if (!res.ok || payload.success === false) {
-        alert(payload.error ?? 'No se pudo reprocesar el documento.');
+        toast.error(payload.error ?? 'No se pudo reprocesar el documento.');
       } else if (payload.processed) {
-        alert(`Reprocesado: ${payload.processed.chunks} chunks generados.`);
+        toast.success(`Reprocesado: ${payload.processed.chunks} chunks generados.`);
       }
       fetchItems();
     } finally {
@@ -202,7 +204,11 @@ export default function PlatformKnowledgePage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Eliminar esta base de conocimiento? Esta acción no se puede deshacer.')) return;
+    if (!(await confirmDialog({
+      description: '¿Eliminar esta base de conocimiento? Esta acción no se puede deshacer.',
+      variant: 'destructive',
+      confirmLabel: 'Eliminar',
+    }))) return;
     setDeleting(id);
     try {
       await fetch(`/api/platform/knowledge/${id}`, { method: 'DELETE' });

@@ -14,6 +14,7 @@ import {
   Loader2,
   Mail,
 } from "lucide-react";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 interface Template {
   id: string;
@@ -87,7 +88,14 @@ export default function TemplatesListClient() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Eliminar esta plantilla?")) return;
+    if (
+      !(await confirmDialog({
+        description: "¿Eliminar esta plantilla?",
+        variant: "destructive",
+        confirmLabel: "Eliminar",
+      }))
+    )
+      return;
     try {
       await fetch(`/api/personas/comunicaciones/templates/${id}`, {
         method: "DELETE",
