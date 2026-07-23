@@ -79,7 +79,7 @@ ${lines.join("\n")}`;
 
   let brief = "";
   try {
-    brief = (await aiService.generateText(prompt, { maxTokens: 400, temperature: 0.4 }, { tenantId }))?.trim() || "";
+    brief = (await aiService.generateText(prompt, { maxTokens: 400, temperature: 0.4 }, { tenantId, feature: "correo-radar-brief" }))?.trim() || "";
   } catch {
     brief = "";
   }

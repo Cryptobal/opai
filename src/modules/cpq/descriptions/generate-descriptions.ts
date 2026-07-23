@@ -196,7 +196,7 @@ Estructura ideal:
   const isRefusal = (text: string) => AI_REFUSAL_REGEX.test(text) || /\?\s*$/.test(text);
 
   let description = sanitize(
-    await aiService.generateText(prompt, { maxTokens: 500, temperature: 0.7 }, { tenantId: options?.tenantId }),
+    await aiService.generateText(prompt, { maxTokens: 500, temperature: 0.7 }, { tenantId: options?.tenantId, feature: "cpq-service-description" }),
   );
 
   // Un rechazo del LLM no puede persistirse: se reintenta reforzando y, si
@@ -206,7 +206,7 @@ Estructura ideal:
 
 RECORDATORIO FINAL: Tu respuesta anterior no fue válida. Genera SIEMPRE el texto narrativo con los datos entregados, aunque te parezcan incompletos. No pidas información, no hagas preguntas y no digas que no puedes completar la propuesta.`;
     description = sanitize(
-      await aiService.generateText(retryPrompt, { maxTokens: 500, temperature: 0.7 }, { tenantId: options?.tenantId }),
+      await aiService.generateText(retryPrompt, { maxTokens: 500, temperature: 0.7 }, { tenantId: options?.tenantId, feature: "cpq-service-description" }),
     );
   }
 

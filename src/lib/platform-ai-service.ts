@@ -9,6 +9,8 @@ import { prisma } from "@/lib/prisma";
 import { decryptApiKey } from "@/lib/ai-encryption";
 import { KNOWN_PROVIDERS } from "@/lib/ai-known-models";
 import { computeCostUSD } from "@/lib/ai-pricing";
+import { moduleForFeature } from "@/lib/ai/ai-feature-modules";
+import { getTenantAiRouting } from "@/lib/ai/tenant-ai-routing";
 
 export type PlatformAIConfig = {
   providerType: string;
@@ -87,15 +89,19 @@ export async function getPlatformAIConfig(): Promise<PlatformAIConfig | null> {
 
 /**
  * Resuelve la config de IA para un tenant específico.
- * Política:
+ * Política (SIN fallback de plataforma — evita que OPAI costee la IA de un
+ * tenant que no configuró la suya):
  *   1. Si el tenant tiene un TenantAiProvider activo con apiKey y modelo → usar ese.
- *   2. Si no → caer al provider de plataforma (getPlatformAIConfig).
- *   3. Si tampoco → null.
+ *   2. Si no → null (el feature debe degradar con "IA no configurada").
+ *
+ * El proveedor de plataforma (getPlatformAIConfig) queda reservado para usos
+ * propios de la plataforma (ej: chatbot de marketing), nunca para cubrir a un
+ * tenant sin configurar.
  */
 export async function getAIConfigForTenant(
   tenantId: string,
 ): Promise<PlatformAIConfig | null> {
-  if (!tenantId) return getPlatformAIConfig();
+  if (!tenantId) return null;
 
   try {
     const provider = await prisma.tenantAiProvider.findFirst({
@@ -138,7 +144,57 @@ export async function getAIConfigForTenant(
     );
   }
 
-  return getPlatformAIConfig();
+  return null;
+}
+
+/**
+ * Resuelve la config de IA para un tenant + feature específico, aplicando el
+ * ruteo por categoría (`ai.routing`). Política:
+ *   1. Determinar la categoría del feature.
+ *   2. Si el tenant tiene un override para esa categoría y el proveedor sigue
+ *      configurado (apiKey) → usar ese proveedor + modelo.
+ *   3. Si no hay override (o el proveedor ruteado ya no existe) → proveedor por
+ *      defecto del tenant (getAIConfigForTenant).
+ *   4. Sin proveedor del tenant → null (NO se cae a la plataforma).
+ */
+export async function getAIConfigForFeature(
+  tenantId: string,
+  feature?: string,
+): Promise<PlatformAIConfig | null> {
+  if (!tenantId) return null;
+
+  const moduleId = moduleForFeature(feature);
+  const routing = await getTenantAiRouting(tenantId);
+  const route = routing[moduleId];
+
+  if (route) {
+    try {
+      const provider = await prisma.tenantAiProvider.findFirst({
+        where: { tenantId, providerType: route.providerType, apiKey: { not: null } },
+        include: { models: { where: { modelId: route.modelId }, take: 1 } },
+      });
+      if (provider?.apiKey) {
+        const fallbackUrl =
+          KNOWN_PROVIDERS.find((kp) => kp.providerType === provider.providerType)
+            ?.defaultBaseUrl ?? "";
+        return {
+          providerType: provider.providerType,
+          modelId: route.modelId,
+          apiKey: decryptApiKey(provider.apiKey),
+          baseUrl: provider.baseUrl || fallbackUrl,
+          displayName: provider.models[0]?.displayName ?? route.modelId,
+        };
+      }
+      // El proveedor ruteado ya no está disponible → cae al default del tenant.
+    } catch (error) {
+      console.warn(
+        "[platform-ai-service] Error resolviendo ruteo por feature:",
+        error,
+      );
+    }
+  }
+
+  return getAIConfigForTenant(tenantId);
 }
 
 /* ── Usage logging ── */

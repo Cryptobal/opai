@@ -111,7 +111,7 @@ ${wrapUntrusted(`Asunto: ${thread.subject}\n${body}`)}`;
   const startedAt = Date.now();
   let raw: Record<string, unknown> = {};
   try {
-    raw = (await aiService.generateJSON(prompt, 500, { tenantId })) as Record<string, unknown>;
+    raw = (await aiService.generateJSON(prompt, 500, { tenantId, feature: "correo-link-suggest" })) as Record<string, unknown>;
   } catch {
     return NextResponse.json({ error: "La IA no pudo sugerir vínculos" }, { status: 502 });
   }

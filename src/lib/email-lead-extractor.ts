@@ -342,7 +342,7 @@ export async function extractLeadFromEmail(params: {
 
   let parsed: Record<string, string>;
   try {
-    const result = await aiService.generateJSON(fullPrompt, 1500, params.tenantId ? { tenantId: params.tenantId } : undefined);
+    const result = await aiService.generateJSON(fullPrompt, 1500, params.tenantId ? { tenantId: params.tenantId, feature: "correo-email-to-lead" } : undefined);
     parsed = result && typeof result === "object" ? (result as Record<string, string>) : {};
   } catch (err) {
     console.warn("[email-lead-extractor] AIService error (NO_AI_CONFIGURED?):", err);

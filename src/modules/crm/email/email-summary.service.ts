@@ -136,7 +136,7 @@ export async function summarizeThread(params: {
   let summary: string;
   try {
     summary = (
-      await aiService.generateText(prompt, { maxTokens: 350, temperature: 0.3 }, { tenantId })
+      await aiService.generateText(prompt, { maxTokens: 350, temperature: 0.3 }, { tenantId, feature: "correo-thread-summary" })
     ).trim();
   } catch {
     return { ok: false, status: 502, error: "La IA no pudo resumir el hilo" };
