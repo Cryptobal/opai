@@ -159,10 +159,9 @@ export function CorreoRowSwipe({
         leaving ? "max-h-0 opacity-0" : "max-h-[240px] opacity-100"
       }`}
     >
-      {/* Arrastre: fondo del color de la acción principal que se llena en
-          proporción al gesto, con el icono anclado al borde (no viaja con la
-          fila) y escala + vibración al armar el swipe largo — estilo Gmail. */}
-      {dragging && (
+      {/* Swipe largo armado: fondo pleno del color de la acción principal con
+          el icono anclado al borde, escala + vibración — "esto se ejecuta". */}
+      {dragging && armed && (
         <div
           aria-hidden
           className={`absolute inset-0 flex items-center ${
@@ -171,17 +170,18 @@ export function CorreoRowSwipe({
           style={{ opacity: 0.35 + 0.65 * progress }}
         >
           <PrimaryIcon
-            className={`mx-6 h-6 w-6 transition-transform duration-150 ${ACTION_STYLE[primary].fg} ${
-              armed ? "scale-125" : "scale-100"
-            }`}
+            className={`mx-6 h-6 w-6 scale-125 transition-transform duration-150 ${ACTION_STYLE[primary].fg}`}
           />
         </div>
       )}
-      {/* Reposo abierto: los 2 botones del lado (74px c/u) desde swipeConfig. */}
+      {/* Los 2 botones del lado (74px c/u, desde swipeConfig): se revelan
+          progresivamente DURANTE el arrastre (el principal pegado al borde
+          aparece primero y el segundo al seguir arrastrando) y quedan
+          abiertos al soltar en el rango corto. */}
       <div
         aria-hidden={!revealed}
         className={`absolute inset-y-0 flex ${side === "right" ? "left-0" : "right-0"} ${
-          dragging ? "invisible" : "transition-[width] duration-150"
+          dragging ? (armed ? "invisible" : "") : "transition-[width] duration-150"
         }`}
         style={{ width: Math.max(Math.abs(dx), SWIPE_OPEN_WIDTH) }}
       >
