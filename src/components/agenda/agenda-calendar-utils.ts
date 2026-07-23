@@ -11,8 +11,11 @@ import type {
   AgendaViewMode,
 } from "./agenda-calendar.types";
 
-export const CALENDAR_START_HOUR = 7;
-export const CALENDAR_END_HOUR = 21;
+// Rango completo 0-24 (fix B8 del audit: eventos <07 o >21 eran invisibles).
+// La grilla desktop hace auto-scroll inicial a las 07:00.
+export const CALENDAR_START_HOUR = 0;
+export const CALENDAR_END_HOUR = 24;
+export const CALENDAR_AUTOSCROLL_HOUR = 7;
 export const CALENDAR_SLOT_MINUTES = 15;
 export const CALENDAR_HOUR_HEIGHT = 84;
 
@@ -100,6 +103,18 @@ export function navigateCalendar(
   if (view === "month") return addMonthsChile(anchor, direction);
   const amount = view === "week" ? 7 : view === "day" ? 1 : clamp(multiDays, 2, 6);
   return addDaysChile(anchor, amount * direction);
+}
+
+/**
+ * Día (ymd Chile) al que pertenece un item. Los all-day llegan como ymd puro
+ * ("YYYY-MM-DD") sin zona: se agrupan por ese string tal cual — pasarlos por
+ * `new Date()` los correría un día en servidores UTC (audit B6).
+ */
+export function agendaItemDayKey(item: Pick<AgendaCalendarItem, "start" | "allDay">): string {
+  if (item.allDay && /^\d{4}-\d{2}-\d{2}$/.test(item.start)) {
+    return item.start;
+  }
+  return ymdInChile(new Date(item.start));
 }
 
 export function minutesInChile(date: Date): number {

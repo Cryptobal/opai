@@ -21,6 +21,9 @@ export type AgendaCalendarItem = {
   href?: string | null;
 };
 
+/** Alias legacy usado por TaskDrawer/VisitList (ex AgendaWeekStrip, retirado). */
+export type WeekItem = AgendaCalendarItem;
+
 export type AgendaTeamMember = {
   id: string;
   name: string;

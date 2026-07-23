@@ -1,6 +1,6 @@
 "use client";
 
-import type { WeekItem } from "./AgendaWeekStrip";
+import type { WeekItem } from "./agenda-calendar.types";
 
 type Props = {
   items: WeekItem[];

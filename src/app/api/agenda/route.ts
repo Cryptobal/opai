@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAgendaAccess } from "@/lib/api-auth-agenda";
 import { listAgenda } from "@/modules/agenda/agenda.service";
 import { listGoogleCalendarEvents } from "@/modules/agenda/google-events";
 
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await requireAgendaAccess();
+  if (!access.ok) return access.response;
+  const { ctx } = access;
 
   const { searchParams } = new URL(request.url);
   const fromStr = searchParams.get("from");
@@ -23,8 +22,8 @@ export async function GET(request: NextRequest) {
   }
 
   const [opai, google] = await Promise.all([
-    listAgenda(session.user.tenantId, from, to, session.user.id),
-    listGoogleCalendarEvents(session.user.tenantId, session.user.id, from, to),
+    listAgenda(ctx.tenantId, from, to, ctx.userId),
+    listGoogleCalendarEvents(ctx.tenantId, ctx.userId, from, to),
   ]);
   const items = [...opai, ...google.items].sort((a, b) => a.start.localeCompare(b.start));
   return NextResponse.json({ items, googleStatus: google.status });

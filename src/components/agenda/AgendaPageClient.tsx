@@ -29,6 +29,8 @@ import { LicitacionDrawer } from "./LicitacionDrawer";
 import { NuevaVisitaModal } from "./NuevaVisitaModal";
 import { VisitList } from "./VisitList";
 import { VisitDrawer } from "./VisitDrawer";
+import { AgendaMobile } from "./mobile/AgendaMobile";
+import { useIsMobileAgenda } from "./mobile/agenda-mobile-utils";
 
 const CAL_RECONNECT_HREF =
   "/api/integrations/google-calendar/oauth/start?return=/opai/agenda";
@@ -84,6 +86,12 @@ function normalizeItem(item: AgendaListItem): AgendaCalendarItem {
 }
 
 export function AgendaPageClient() {
+  const isMobile = useIsMobileAgenda();
+  if (isMobile) return <AgendaMobile />;
+  return <AgendaPageDesktop />;
+}
+
+function AgendaPageDesktop() {
   const search = useSearchParams();
   const [anchor, setAnchor] = useState(() => startOfDayChile(new Date()));
   const [view, setView] = useState<AgendaViewMode>("multi");

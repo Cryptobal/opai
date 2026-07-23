@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAgendaAccess } from "@/lib/api-auth-agenda";
 import {
   createAgendaVisita,
   createVisitaTecnicaFromAgenda,
 } from "@/modules/agenda/agenda.service";
 
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await requireAgendaAccess();
+  if (!access.ok) return access.response;
+  const { ctx } = access;
   const { searchParams } = new URL(request.url);
   const from = searchParams.get("from");
   const to = searchParams.get("to");
@@ -17,21 +16,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "from y to requeridos" }, { status: 400 });
   }
   const { listAgenda } = await import("@/modules/agenda/agenda.service");
-  const items = await listAgenda(
-    session.user.tenantId,
-    new Date(from),
-    new Date(to),
-  );
+  const items = await listAgenda(ctx.tenantId, new Date(from), new Date(to));
   return NextResponse.json({
     items: items.filter((i) => i.source !== "licitacion"),
   });
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await requireAgendaAccess();
+  if (!access.ok) return access.response;
+  const { ctx } = access;
 
   const body = await request.json();
   const type = body.type as string;
@@ -52,7 +46,7 @@ export async function POST(request: NextRequest) {
       );
     }
     const result = await createVisitaTecnicaFromAgenda({
-      tenantId: session.user.tenantId,
+      tenantId: ctx.tenantId,
       assignedUserId: body.assignedUserId,
       accountId: body.accountId,
       installationId: body.installationId,
@@ -68,8 +62,8 @@ export async function POST(request: NextRequest) {
   }
 
   const result = await createAgendaVisita({
-    tenantId: session.user.tenantId,
-    createdBy: session.user.id,
+    tenantId: ctx.tenantId,
+    createdBy: ctx.userId,
     type: type as "cliente" | "supervision" | "otra",
     title: body.title || `Visita ${type}`,
     accountId: body.accountId ?? null,

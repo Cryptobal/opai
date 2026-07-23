@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAgendaAccess } from "@/lib/api-auth-agenda";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -9,16 +9,15 @@ import { prisma } from "@/lib/prisma";
  * cargas pesadas (contract coverage / cashflow) que ese endpoint calcula.
  */
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await requireAgendaAccess();
+  if (!access.ok) return access.response;
+  const { ctx } = access;
   const url = new URL(request.url);
   // Resolución puntual por id: para mostrar el nombre de una cuenta prefijada.
   const id = url.searchParams.get("id");
   if (id) {
     const acc = await prisma.crmAccount.findFirst({
-      where: { id, tenantId: session.user.tenantId },
+      where: { id, tenantId: ctx.tenantId },
       select: { id: true, name: true, rut: true, type: true },
     });
     return NextResponse.json({ items: acc ? [acc] : [] });
@@ -29,7 +28,7 @@ export async function GET(request: NextRequest) {
 
   const items = await prisma.crmAccount.findMany({
     where: {
-      tenantId: session.user.tenantId,
+      tenantId: ctx.tenantId,
       OR: [
         { name: { contains: q, mode: "insensitive" } },
         { rut: { contains: q, mode: "insensitive" } },

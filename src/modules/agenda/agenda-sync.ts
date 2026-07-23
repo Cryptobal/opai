@@ -26,20 +26,42 @@ export async function syncAgendaVisitaToCalendar(
   });
   if (!visita) return { syncStatus: "ERROR" };
 
+  // Delegación v2: si el evento ya sincroniza vía CalendarProviderLink
+  // (creado por el composer con participantes), UN solo camino de sync —
+  // evita duplicar el evento en Google.
+  const { isCalendarV2Enabled } = await import("@/modules/calendar/calendar-flags");
+  if (isCalendarV2Enabled()) {
+    const v2Link = await prisma.calendarProviderLink.findFirst({
+      where: { tenantId, eventId: visita.id, provider: "google" },
+      select: { id: true },
+    });
+    if (v2Link) {
+      const { syncCalendarEventToGoogle } = await import(
+        "@/modules/calendar/calendar-google-sync"
+      );
+      return syncCalendarEventToGoogle(tenantId, visita.id);
+    }
+  }
+
+  // Si el link ya tiene un evento Google creado, seguir sincronizando con la
+  // cuenta dueña de ese evento (el organizador), aunque la visita se haya
+  // reasignado — jamás patch/delete contra el calendario equivocado (fix B2).
+  const syncUserId = await resolveSyncUserId(tenantId, visita.id, visita.assignedUserId);
+
   if (mode === "delete" || visita.status === "cancelada") {
     return syncEventLink(
       {
         tenantId,
         sourceType: "agenda_visita",
         sourceId: visita.id,
-        assignedUserId: visita.assignedUserId,
+        assignedUserId: syncUserId,
       },
       null,
     );
   }
 
   const account = await prisma.googleCalendarAccount.findFirst({
-    where: { tenantId, userId: visita.assignedUserId, status: "ACTIVE" },
+    where: { tenantId, userId: syncUserId, status: "ACTIVE" },
   });
   const prefs = (account?.prefs ?? {}) as { inviteContacts?: boolean };
   const contactIds = Array.isArray(visita.contactIds)
@@ -76,10 +98,28 @@ export async function syncAgendaVisitaToCalendar(
       tenantId,
       sourceType: "agenda_visita",
       sourceId: visita.id,
-      assignedUserId: visita.assignedUserId,
+      assignedUserId: syncUserId,
     },
     payload,
   );
+}
+
+/** Usuario cuya cuenta Google posee el evento del link (o el asignado si no hay evento). */
+async function resolveSyncUserId(
+  tenantId: string,
+  visitaId: string,
+  assignedUserId: string,
+): Promise<string> {
+  const link = await prisma.agendaEventLink.findUnique({
+    where: { sourceType_sourceId: { sourceType: "agenda_visita", sourceId: visitaId } },
+    select: { googleEventId: true, calendarAccountId: true },
+  });
+  if (!link?.googleEventId || !link.calendarAccountId) return assignedUserId;
+  const owner = await prisma.googleCalendarAccount.findFirst({
+    where: { id: link.calendarAccountId, tenantId, status: "ACTIVE" },
+    select: { userId: true },
+  });
+  return owner?.userId ?? assignedUserId;
 }
 
 export async function syncVisitaTecnicaToCalendar(

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -28,6 +28,13 @@ const asMock = (fn: unknown) => fn as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Este archivo prueba el flujo legacy: la reasignación v2 (CALENDAR_V2 on,
+  // sin delete+recreate) se cubre en modules/calendar/__tests__.
+  process.env.CALENDAR_V2 = "0";
+});
+
+afterEach(() => {
+  delete process.env.CALENDAR_V2;
 });
 
 describe("agenda de equipo", () => {

@@ -186,6 +186,36 @@ export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
     audiences: ['admin'], defaults: { admin: adminBell() },
   },
 
+  // ── CRM - Agenda ──
+  {
+    key: 'agenda_invited', label: 'Invitación a evento',
+    description: 'Te agregaron como participante de un evento de agenda',
+    module: 'crm', submodule: 'deals', category: 'CRM - Agenda',
+    audiences: ['admin'], defaults: { admin: adminBell() },
+    slackDmOnly: true,
+  },
+  {
+    key: 'agenda_updated', label: 'Evento reprogramado',
+    description: 'Cambió el horario de un evento de agenda donde participas',
+    module: 'crm', submodule: 'deals', category: 'CRM - Agenda',
+    audiences: ['admin'], defaults: { admin: adminBell() },
+    slackDmOnly: true,
+  },
+  {
+    key: 'agenda_cancelled', label: 'Evento cancelado',
+    description: 'Se canceló un evento de agenda donde participabas',
+    module: 'crm', submodule: 'deals', category: 'CRM - Agenda',
+    audiences: ['admin'], defaults: { admin: adminBell() },
+    slackDmOnly: true,
+  },
+  {
+    key: 'agenda_reminder', label: 'Recordatorio de evento',
+    description: 'Aviso 60 minutos antes de un evento de agenda donde participas',
+    module: 'crm', submodule: 'deals', category: 'CRM - Agenda',
+    audiences: ['admin'], defaults: { admin: adminBell() },
+    slackDmOnly: true,
+  },
+
   // ── CPQ ──
   {
     key: 'quote_sent', label: 'Cotización enviada',

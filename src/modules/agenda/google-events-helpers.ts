@@ -1,6 +1,9 @@
 export function isoFromEventDate(dt?: { dateTime?: string | null; date?: string | null } | null) {
   if (dt?.dateTime) return { iso: dt.dateTime, allDay: false };
-  if (dt?.date) return { iso: `${dt.date}T00:00:00`, allDay: true };
+  // All-day: ymd puro ("YYYY-MM-DD"), sin hora ni zona. Los consumidores deben
+  // agrupar por ese ymd directamente (agendaItemDayKey) y NUNCA pasarlo por
+  // `new Date()`: en un server UTC lo correría al día anterior en Chile.
+  if (dt?.date) return { iso: dt.date, allDay: true };
   return null;
 }
 

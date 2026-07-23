@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { syncAgendaVisitaToCalendar } from "./agenda-sync";
+import { isCalendarV2Enabled } from "@/modules/calendar/calendar-flags";
+import { mirrorVisitaToV2 } from "@/modules/calendar/calendar-mapper";
 
 export async function createAgendaVisita(input: {
   tenantId: string;
@@ -41,6 +43,8 @@ export async function createAgendaVisita(input: {
       status: "programada",
     },
   });
+  // Espejo v2 antes del sync: si el sync delega a v2, necesita el estado fresco.
+  if (isCalendarV2Enabled()) await mirrorVisitaToV2(visita, input.createdBy);
   // Si el usuario destildó "crear evento en Calendar", la visita queda sin evento.
   const sync =
     input.syncCalendar === false
@@ -69,17 +73,22 @@ export async function reprogramAgendaVisita(
     });
     if (!assignee) return null;
 
-    await syncAgendaVisitaToCalendar(tenantId, id, "delete");
-    await prisma.agendaEventLink.updateMany({
-      where: { tenantId, sourceType: "agenda_visita", sourceId: id },
-      data: {
-        googleEventId: null,
-        googleCalendarId: null,
-        calendarAccountId: null,
-        htmlLink: null,
-        syncStatus: "PENDING",
-      },
-    });
+    if (!isCalendarV2Enabled()) {
+      // Legacy (fix B2 pendiente tras flag): delete + recreate en el
+      // calendario del nuevo responsable. Con CALENDAR_V2 el evento Google
+      // del organizador se conserva y solo cambia el participante owner.
+      await syncAgendaVisitaToCalendar(tenantId, id, "delete");
+      await prisma.agendaEventLink.updateMany({
+        where: { tenantId, sourceType: "agenda_visita", sourceId: id },
+        data: {
+          googleEventId: null,
+          googleCalendarId: null,
+          calendarAccountId: null,
+          htmlLink: null,
+          syncStatus: "PENDING",
+        },
+      });
+    }
     nextAssignee = assignee.id;
   }
 
@@ -92,6 +101,7 @@ export async function reprogramAgendaVisita(
       status: "reprogramada",
     },
   });
+  if (isCalendarV2Enabled()) await mirrorVisitaToV2(visita);
   const sync = await syncAgendaVisitaToCalendar(tenantId, id);
   return { visita, sync };
 }
@@ -108,6 +118,7 @@ export async function completeAgendaVisita(
     data: { status: "completada", resultNote },
   });
   // Evento permanece; no se elimina al completar.
+  if (isCalendarV2Enabled()) await mirrorVisitaToV2(visita);
   return { visita };
 }
 
@@ -118,6 +129,7 @@ export async function cancelAgendaVisita(tenantId: string, id: string) {
     where: { id },
     data: { status: "cancelada" },
   });
+  if (isCalendarV2Enabled()) await mirrorVisitaToV2(visita);
   const sync = await syncAgendaVisitaToCalendar(tenantId, id, "delete");
   return { visita, sync };
 }
