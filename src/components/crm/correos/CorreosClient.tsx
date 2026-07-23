@@ -10,6 +10,7 @@ import {
   type CorreoFolderTab,
 } from "./CorreosFilters";
 import { CorreosMobileTopBar } from "./CorreosMobileTopBar";
+import { CorreosMobileDrawer } from "./CorreosMobileDrawer";
 import { CorreoRowSwipe } from "./CorreoRowSwipe";
 import { CorreoDrawer } from "./CorreoDrawer";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
@@ -451,6 +452,23 @@ export function CorreosClient() {
         onSemantic={setSemantic}
         folder={folder}
         inboxUnread={counts?.inboxUnread ?? 0}
+        realtimeStatus={realtimeStatus}
+        lastSyncAt={lastSyncAt}
+      />
+      <CorreosMobileDrawer
+        open={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        folder={folder}
+        onFolder={setFolder}
+        chip={chip}
+        onChip={setChip}
+        vertical={vertical}
+        onVertical={setVertical}
+        counts={counts}
+        previewLines={previewLines}
+        onPreviewLines={setPreviewLines}
+        onSync={syncNow}
+        syncing={syncing}
         realtimeStatus={realtimeStatus}
         lastSyncAt={lastSyncAt}
       />

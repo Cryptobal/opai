@@ -33,7 +33,8 @@ export const TABS: { key: CorreoFolderTab; label: string }[] = [
   { key: "trash", label: "Papelera" },
 ];
 
-const CHIPS: { key: CorreoChipKey; label: string }[] = [
+// Export: el drawer móvil reusa el mismo catálogo de asociaciones.
+export const CHIPS: { key: CorreoChipKey; label: string }[] = [
   { key: "todos", label: "Todas las asociaciones" },
   { key: "con_cuenta", label: "Con cuenta" },
   { key: "sin_asociar", label: "Sin asociar" },
@@ -52,7 +53,8 @@ export const VERTICAL_LABELS: Record<string, string> = {
   incidentes: "Incidentes",
 };
 
-type Counts = {
+// Export: mismos contadores que consume el drawer móvil.
+export type CorreoFolderCounts = {
   inbox: number;
   inboxUnread?: number;
   archived: number;
@@ -63,6 +65,8 @@ type Counts = {
   spam?: number;
   scheduled?: number;
 } | null;
+
+type Counts = CorreoFolderCounts;
 
 type Props = {
   folder: CorreoFolderTab;
