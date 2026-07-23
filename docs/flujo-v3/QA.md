@@ -253,3 +253,24 @@ financiera ni migraciones.
 - Safari iOS (PWA standalone, safe areas reales, momentum) y Chrome Android.
 - Interacciones táctiles de edición (tap/tap-editar) — FC-03/FC-04 traen el
   bottom sheet de celda y acciones móviles de fila.
+
+### FC-01.1 — Feedback de producción del owner (2026-07-23)
+
+1. **Planilla por defecto**: semántica del flag invertida a OPT-OUT. Sin flag
+   → el Modo Planilla es la ruta principal (nav, N3, bottom nav);
+   `cashflowPlanillaLegacy: true` = rollback explícito a la versión anterior
+   (el toggle de la toolbar escribe ambos flags; `cashflowPlanillaV3` se
+   mantiene por compatibilidad). Banner "versión anterior" en la ruta vieja
+   salvo rollback. Tests del registry actualizados.
+2. **Anclaje**: al abrir y con "Hoy", la primera columna de negocio es la
+   semana ANTERIOR y la actual queda segunda (`anchorTargetWeek`).
+3. **Densidad móvil**: fila mínima 15px, fórmula /40 (~43 filas de hoja en un
+   Pro Max) — "un pelo más de aire" pedido tras probar con datos reales.
+4. **Peek de concepto**: en teléfonos, tocar el nombre truncado muestra el
+   nombre completo en un overlay (3 s o segundo tap). El title de desktop se
+   mantiene.
+5. **Scroll vertical**: el documento ya no scrollea en la hoja móvil —
+   `100svh` (no dvh: con la barra de Safari visible sobreestimaba y el
+   documento arrastraba toolbar y encabezados) + candado `sheet-focus-lock`
+   (html/body overflow hidden bajo lg mientras la planilla está montada).
+   Verificado: `docScrollable=false`, headers/toolbar inmóviles.

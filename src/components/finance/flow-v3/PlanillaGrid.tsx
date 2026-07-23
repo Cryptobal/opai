@@ -32,6 +32,13 @@ interface Props {
   scrollerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
+/** Semana de anclaje al abrir/"Hoy": la ANTERIOR a la actual como primera
+ *  columna visible (la actual queda segunda — pedido del owner). */
+export function anchorTargetWeek(data: FlowMatrixResponse): string {
+  const idx = data.columns.findIndex((c) => c.isCurrent);
+  return data.columns[Math.max(0, idx - 1)]?.key ?? data.currentWeek;
+}
+
 /** Desplaza el scroller para que `weekStart` quede como primera semana visible
  *  (después del gutter + Concepto sticky). */
 export function scrollToWeek(el: HTMLElement, weekStart: string, smooth = true) {
@@ -151,9 +158,9 @@ export function PlanillaGrid({
     onFillRight: requestFillRight,
   });
 
-  // Anclaje inicial en teléfonos: la semana actual como primera columna de
-  // negocio visible (el horizonte carga 4 semanas de historia a su izquierda,
-  // accesibles con scroll nativo). Solo una vez por montaje.
+  // Anclaje inicial en teléfonos: semana ANTERIOR primera, actual segunda
+  // (el resto de la historia queda a la izquierda con scroll nativo). Solo
+  // una vez por montaje.
   const anchoredRef = useRef(false);
   useEffect(() => {
     if (anchoredRef.current || data.granularity !== "week") return;
@@ -161,7 +168,7 @@ export function PlanillaGrid({
     if (!el) return;
     anchoredRef.current = true;
     if (window.matchMedia("(max-width: 767px)").matches) {
-      scrollToWeek(el, data.currentWeek, false);
+      scrollToWeek(el, anchorTargetWeek(data), false);
     }
   }, [data, scroller]);
 
