@@ -56,6 +56,12 @@ type Props = {
   onResize: (item: AgendaCalendarItem, schedule: AgendaSchedule) => void;
   /** Vista Mes: abrir un día (cambia a vista Día en el contenedor). */
   onOpenDay?: (dateKey: string) => void;
+  /** Click en celda vacía: quick-create anclado al punto con el slot prefijado. */
+  onSlotClick?: (
+    dateKey: string,
+    minute: number,
+    origin: { x: number; y: number },
+  ) => void;
 };
 
 const GRID_HEIGHT =
@@ -84,6 +90,7 @@ export function AgendaCalendarGrid({
   onMove,
   onResize,
   onOpenDay,
+  onSlotClick,
 }: Props) {
   const anchorMonth = ymdInChile(anchor).slice(0, 7);
   const [activeItem, setActiveItem] = useState<AgendaCalendarItem | null>(null);
@@ -327,6 +334,7 @@ export function AgendaCalendarGrid({
                   nowMinute={nowMinute}
                   onSelect={onSelect}
                   onResize={onResize}
+                  onSlotClick={onSlotClick}
                 />
               );
             })}
@@ -414,6 +422,7 @@ function DayTimeColumn({
   nowMinute,
   onSelect,
   onResize,
+  onSlotClick,
 }: {
   dateKey: string;
   layout: ReturnType<typeof layoutTimedItems>;
@@ -423,6 +432,11 @@ function DayTimeColumn({
   nowMinute: number;
   onSelect: (item: AgendaCalendarItem) => void;
   onResize: (item: AgendaCalendarItem, schedule: AgendaSchedule) => void;
+  onSlotClick?: (
+    dateKey: string,
+    minute: number,
+    origin: { x: number; y: number },
+  ) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `timed:${dateKey}` });
   const isToday = dateKey === todayInChile();
@@ -442,6 +456,9 @@ function DayTimeColumn({
         {slots.map((minute) => (
           <div
             key={minute}
+            onClick={(event) =>
+              onSlotClick?.(dateKey, minute, { x: event.clientX, y: event.clientY })
+            }
             className="absolute inset-x-0 cursor-cell border-b border-ds-border-subtle/70 transition-colors hover:bg-primary/[0.04]"
             style={{
               top: ((minute - CALENDAR_START_HOUR * 60) / 60) * CALENDAR_HOUR_HEIGHT,

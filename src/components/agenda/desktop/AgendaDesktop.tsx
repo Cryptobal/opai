@@ -31,6 +31,7 @@ import { LicitacionDrawer } from "../LicitacionDrawer";
 import { NuevaVisitaModal } from "../NuevaVisitaModal";
 import { VisitDrawer } from "../VisitDrawer";
 import { AgendaDesktopToolbar } from "./AgendaDesktopToolbar";
+import { AgendaQuickCreate, type QuickCreateState } from "./AgendaQuickCreate";
 import { AgendaRail } from "./AgendaRail";
 import {
   agendaSourceKey,
@@ -70,6 +71,7 @@ export function AgendaDesktop() {
   const [typeFilter, setTypeFilter] = useState<AgendaTypeFilter>("todos");
   const [assignedUserIds, setAssignedUserIds] = useState<string[]>([]);
   const [selected, setSelected] = useState<AgendaCalendarItem | null>(null);
+  const [quickCreate, setQuickCreate] = useState<QuickCreateState | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [visitaId, setVisitaId] = useState<string | null>(null);
   const [licId, setLicId] = useState<string | null>(null);
@@ -225,7 +227,7 @@ export function AgendaDesktop() {
         onAssignedUserIdsChange={setAssignedUserIds}
         onContentFilterChange={setContentFilter}
         onTypeFilterChange={setTypeFilter}
-        onCreate={() => setModalOpen(true)}
+        onCreate={() => setQuickCreate({ mode: "evento", origin: null })}
       />
 
       <div className="flex min-h-0 flex-1 gap-3 pt-3">
@@ -259,6 +261,9 @@ export function AgendaDesktop() {
                 setAnchor(dateAtChileSlot(ymd, 0));
                 setView("day");
               }}
+              onSlotClick={(dateKey, minute, origin) =>
+                setQuickCreate({ mode: "evento", origin, dateKey, minute })
+              }
             />
           )}
         </div>
@@ -286,6 +291,15 @@ export function AgendaDesktop() {
           )}
         </div>
       </div>
+
+      {quickCreate && (
+        <AgendaQuickCreate
+          state={quickCreate}
+          users={users}
+          onClose={() => setQuickCreate(null)}
+          onCreated={() => void load()}
+        />
+      )}
 
       <NuevaVisitaModal
         open={modalOpen}
