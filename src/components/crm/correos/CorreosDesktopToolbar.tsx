@@ -12,7 +12,10 @@ type Props = {
   canModify: boolean;
   allChecked: boolean;
   onToggleAll: () => void;
+  /** Sincroniza Gmail (no solo recarga la lista): trae correos nuevos y
+   *  reconcilia carpetas/borradores, como el refresh de Gmail. */
   onRefresh: () => void;
+  syncing: boolean;
   query: string;
   onQuery: (q: string) => void;
   semantic: boolean;
@@ -35,7 +38,7 @@ const BTN = "flex h-8 w-8 items-center justify-center rounded-lg text-ds-text-3 
  *  y densidad; con selección activa muta a las acciones masivas en el mismo
  *  slot (reemplaza a CorreoBulkBar en desktop). */
 export function CorreosDesktopToolbar({
-  canModify, allChecked, onToggleAll, onRefresh, query, onQuery, semantic, onSemantic,
+  canModify, allChecked, onToggleAll, onRefresh, syncing, query, onQuery, semantic, onSemantic,
   shownCount, totalCount, previewLines, onPreviewLines,
   selectedCount, allReadSelected, onClear, onAction, onSnooze,
 }: Props) {
@@ -93,8 +96,14 @@ export function CorreosDesktopToolbar({
         disabled={!canModify}
         ariaLabel="Seleccionar todo lo visible"
       />
-      <button type="button" title="Actualizar" onClick={onRefresh} className={BTN}>
-        <RefreshCw className="h-4 w-4" />
+      <button
+        type="button"
+        title={syncing ? "Sincronizando…" : "Sincronizar ahora"}
+        onClick={onRefresh}
+        disabled={syncing}
+        className={BTN}
+      >
+        <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
       </button>
       <div className="relative min-w-0 max-w-xl flex-1">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ds-text-4" />
