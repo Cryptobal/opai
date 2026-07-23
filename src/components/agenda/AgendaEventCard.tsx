@@ -170,6 +170,8 @@ type CompactProps = {
   selected?: boolean;
   dense?: boolean;
   user?: AgendaTeamMember;
+  /** Overrides puntuales (ej. chips slim de la banda all-day desktop). */
+  className?: string;
   onSelect: (item: AgendaCalendarItem) => void;
 };
 
@@ -178,6 +180,7 @@ export function AgendaCompactEvent({
   selected = false,
   dense = false,
   user,
+  className,
   onSelect,
 }: CompactProps) {
   const movable = isMovableAgendaItem(item);
@@ -204,6 +207,7 @@ export function AgendaCompactEvent({
         movable && "cursor-grab active:cursor-grabbing touch-none",
         selected && "ring-2 ring-primary/35",
         isDragging && "opacity-25",
+        className,
       )}
       title={assigneeName ? `${item.title} · ${assigneeName}` : item.title}
       {...listeners}
@@ -252,7 +256,8 @@ function eventTone(item: AgendaCalendarItem): string {
     return "border-status-info-border bg-status-info-soft text-status-info-fg";
   }
   if (item.type === "licitacion") {
-    return "border-status-danger-border bg-status-danger-soft text-status-danger-fg";
+    // Warn rayado (spec desktop v1): franjas diagonales con el token warn.
+    return "border-status-warn-border bg-status-warn-soft text-status-warn-fg [background-image:repeating-linear-gradient(135deg,transparent_0,transparent_6px,hsl(var(--ds-warn-fg)/0.10)_6px,hsl(var(--ds-warn-fg)/0.10)_12px)]";
   }
   if (item.source === "google") {
     return "border-ds-border-default bg-ds-surface-3 text-ds-text-2";

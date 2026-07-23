@@ -29,6 +29,26 @@ type Props = {
   onChanged: () => void;
 };
 
+type InspectorParticipant = {
+  name: string;
+  responseStatus: string;
+  hasGoogle: boolean;
+};
+
+/** Badge RSVP: ✓ Va / ✗ No va / ? pendiente / ◉ OPAI (sin Google). */
+function RsvpBadge({ participant }: { participant: InspectorParticipant }) {
+  if (!participant.hasGoogle) {
+    return <Tag size="sm" variant="neutral">◉ OPAI</Tag>;
+  }
+  if (participant.responseStatus === "accepted") {
+    return <Tag size="sm" variant="ok">✓ Va</Tag>;
+  }
+  if (participant.responseStatus === "declined") {
+    return <Tag size="sm" variant="danger">✗ No va</Tag>;
+  }
+  return <Tag size="sm" variant="neutral">?</Tag>;
+}
+
 function localParts(iso: string): { date: string; time: string } {
   const d = toZonedTime(new Date(iso), CHILE_TZ);
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -49,6 +69,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
     address: string | null;
     htmlLink: string | null;
     syncStatus: string;
+    participants: InspectorParticipant[];
   } | null>(null);
 
   useEffect(() => {
@@ -71,6 +92,16 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
               null,
             htmlLink: data.htmlLink ?? null,
             syncStatus: data.syncStatus ?? "PENDING",
+            // RSVP v2 (participantes) solo si el espejo CalendarEvent existe.
+            participants: Array.isArray(data.v2?.participants)
+              ? data.v2.participants.map(
+                  (p: { name?: string; responseStatus?: string; hasGoogle?: boolean }) => ({
+                    name: p.name ?? "—",
+                    responseStatus: p.responseStatus ?? "needs_action",
+                    hasGoogle: p.hasGoogle === true,
+                  }),
+                )
+              : [],
           });
         })
         .catch(() => setVisitDetail(null));
@@ -165,7 +196,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
     <Surface
       elevation={2}
       padding="md"
-      className="flex h-full min-h-0 flex-col gap-4 overflow-hidden lg:max-w-sm"
+      className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 space-y-1">
@@ -253,6 +284,23 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
           >
             Guardar cambios
           </button>
+        </div>
+      )}
+
+      {visitDetail && visitDetail.participants.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[12px] font-medium text-ds-text-4">Participantes</p>
+          <ul className="space-y-1">
+            {visitDetail.participants.map((participant) => (
+              <li key={participant.name} className="flex items-center gap-2">
+                <Avatar name={participant.name} size="sm" className="h-6 w-6 text-[12px]" />
+                <span className="min-w-0 flex-1 truncate text-[13px] text-ds-text-2">
+                  {participant.name}
+                </span>
+                <RsvpBadge participant={participant} />
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

@@ -15,7 +15,8 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { Surface } from "@/components/opai-ds";
-import { todayInChile, ymdInChile } from "@/lib/dates-cl";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CHILE_TZ, todayInChile, ymdInChile } from "@/lib/dates-cl";
 import { cn } from "@/lib/utils";
 import {
   AgendaCompactEvent,
@@ -53,10 +54,30 @@ type Props = {
   onSelect: (item: AgendaCalendarItem) => void;
   onMove: (item: AgendaCalendarItem, schedule: AgendaSchedule) => void;
   onResize: (item: AgendaCalendarItem, schedule: AgendaSchedule) => void;
+  /** Vista Mes: abrir un día (cambia a vista Día en el contenedor). */
+  onOpenDay?: (dateKey: string) => void;
+  /** Click en celda vacía: quick-create anclado al punto con el slot prefijado. */
+  onSlotClick?: (
+    dateKey: string,
+    minute: number,
+    origin: { x: number; y: number },
+  ) => void;
 };
 
 const GRID_HEIGHT =
   (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * CALENDAR_HOUR_HEIGHT;
+const ALL_DAY_VISIBLE = 3;
+
+/** Offset actual de Chile como etiqueta corta (GMT-4 / GMT-3 según DST). */
+function gmtLabel(date: Date): string {
+  const part = new Intl.DateTimeFormat("en-US", {
+    timeZone: CHILE_TZ,
+    timeZoneName: "shortOffset",
+  })
+    .formatToParts(date)
+    .find((p) => p.type === "timeZoneName");
+  return part?.value ?? "GMT-4";
+}
 
 export function AgendaCalendarGrid({
   anchor,
@@ -68,6 +89,8 @@ export function AgendaCalendarGrid({
   onSelect,
   onMove,
   onResize,
+  onOpenDay,
+  onSlotClick,
 }: Props) {
   const anchorMonth = ymdInChile(anchor).slice(0, 7);
   const [activeItem, setActiveItem] = useState<AgendaCalendarItem | null>(null);
@@ -151,18 +174,22 @@ export function AgendaCalendarGrid({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <Surface elevation={1} padding="none" className="overflow-x-auto shadow-none">
-          <div className="grid min-w-[760px] grid-cols-7 border-b border-ds-border-subtle bg-ds-surface-2">
+        <Surface
+          elevation={1}
+          padding="none"
+          className="flex h-full max-h-full flex-col overflow-auto shadow-none"
+        >
+          <div className="grid shrink-0 grid-cols-7 border-b border-ds-border-subtle bg-ds-surface-2">
             {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((label) => (
               <div
                 key={label}
-                className="px-2 py-2 text-center text-[12px] font-medium uppercase tracking-wide text-ds-text-4"
+                className="px-2 py-1.5 text-center text-[12px] font-medium uppercase tracking-wide text-ds-text-4"
               >
                 {label}
               </div>
             ))}
           </div>
-          <div className="grid min-w-[760px] grid-cols-7">
+          <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-7">
             {days.map((day) => {
               const key = ymdInChile(day);
               const dayItems = itemsByDay.get(key) ?? [];
@@ -171,13 +198,13 @@ export function AgendaCalendarGrid({
                 <MonthDayCell
                   key={key}
                   dateKey={key}
-                  day={day}
-                  items={dayItems.slice(0, 4)}
-                  overflow={Math.max(0, dayItems.length - 4)}
+                  items={dayItems.slice(0, ALL_DAY_VISIBLE)}
+                  overflow={Math.max(0, dayItems.length - ALL_DAY_VISIBLE)}
                   muted={muted}
                   selectedKey={selectedKey}
                   usersById={usersById}
                   onSelect={onSelect}
+                  onOpenDay={onOpenDay}
                 />
               );
             })}
@@ -194,6 +221,7 @@ export function AgendaCalendarGrid({
     { length: CALENDAR_END_HOUR - CALENDAR_START_HOUR },
     (_, index) => CALENDAR_START_HOUR + index,
   );
+  const columns = `56px repeat(${days.length}, minmax(140px, 1fr))`;
 
   return (
     <DndContext
@@ -206,76 +234,78 @@ export function AgendaCalendarGrid({
         ref={scrollRef}
         elevation={1}
         padding="none"
-        className="max-h-[70vh] overflow-auto shadow-none"
+        className="h-full max-h-full overflow-auto shadow-none"
       >
         <div>
           <div
-            className="sticky top-0 z-30 grid min-w-max border-b border-ds-border-subtle bg-ds-surface-2"
-            style={{ gridTemplateColumns: `56px repeat(${days.length}, minmax(140px, 1fr))` }}
+            className="sticky top-0 z-30 min-w-max border-b border-ds-border-subtle bg-ds-surface-2"
           >
-            <div className="border-r border-ds-border-subtle" />
-            {days.map((day) => {
-              const key = ymdInChile(day);
-              const isToday = key === todayInChile();
-              return (
-                <div
-                  key={`head-${key}`}
-                  className="border-r border-ds-border-subtle px-2 py-2 text-center"
-                >
-                  <p className="text-[12px] uppercase tracking-wide text-ds-text-4">
-                    {day.toLocaleDateString("es-CL", {
-                      weekday: "short",
-                      timeZone: "America/Santiago",
-                    })}
-                  </p>
-                  <p
-                    className={cn(
-                      "mt-0.5 inline-flex h-8 min-w-8 items-center justify-center rounded-full text-[13px] font-semibold",
-                      isToday ? "bg-primary text-primary-foreground" : "text-ds-text-2",
-                    )}
+            <div className="grid" style={{ gridTemplateColumns: columns }}>
+              <div className="flex items-end justify-end border-r border-ds-border-subtle px-1.5 pb-1">
+                <span className="font-mono text-[12px] leading-none text-ds-text-4">
+                  {gmtLabel(anchor)}
+                </span>
+              </div>
+              {days.map((day) => {
+                const key = ymdInChile(day);
+                const isToday = key === todayInChile();
+                return (
+                  <div
+                    key={`head-${key}`}
+                    className="flex items-center justify-center gap-1.5 border-r border-ds-border-subtle px-2 py-1.5"
                   >
-                    {day.toLocaleDateString("es-CL", {
-                      day: "numeric",
-                      timeZone: "America/Santiago",
-                    })}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-
-          <div
-            className="grid min-w-max border-b border-ds-border-subtle"
-            style={{ gridTemplateColumns: `56px repeat(${days.length}, minmax(140px, 1fr))` }}
-          >
-            <div className="border-r border-ds-border-subtle px-2 py-3 text-[12px] text-ds-text-4">
-              Todo el día
+                    <span className="text-[12px] font-medium uppercase tracking-wide text-ds-text-4">
+                      {day.toLocaleDateString("es-CL", {
+                        weekday: "short",
+                        timeZone: CHILE_TZ,
+                      })}
+                    </span>
+                    <span
+                      className={cn(
+                        "inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-[13px] font-semibold",
+                        isToday ? "bg-primary text-primary-foreground" : "text-ds-text-2",
+                      )}
+                    >
+                      {day.toLocaleDateString("es-CL", {
+                        day: "numeric",
+                        timeZone: CHILE_TZ,
+                      })}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-            {days.map((day) => {
-              const key = ymdInChile(day);
-              const allDayItems = (itemsByDay.get(key) ?? []).filter((item) => item.allDay);
-              return (
-                <AllDayColumn
-                  key={`allday-${key}`}
-                  dateKey={key}
-                  items={allDayItems}
-                  selectedKey={selectedKey}
-                  usersById={usersById}
-                  onSelect={onSelect}
-                />
-              );
-            })}
+
+            <div
+              className="grid border-t border-ds-border-subtle"
+              style={{ gridTemplateColumns: columns }}
+            >
+              <div className="border-r border-ds-border-subtle px-1.5 py-1.5 text-right text-[12px] leading-tight text-ds-text-4">
+                Todo el día
+              </div>
+              {days.map((day) => {
+                const key = ymdInChile(day);
+                const allDayItems = (itemsByDay.get(key) ?? []).filter((item) => item.allDay);
+                return (
+                  <AllDayColumn
+                    key={`allday-${key}`}
+                    dateKey={key}
+                    items={allDayItems}
+                    selectedKey={selectedKey}
+                    usersById={usersById}
+                    onSelect={onSelect}
+                  />
+                );
+              })}
+            </div>
           </div>
 
-          <div
-            className="grid min-w-max"
-            style={{ gridTemplateColumns: `56px repeat(${days.length}, minmax(140px, 1fr))` }}
-          >
+          <div className="grid min-w-max" style={{ gridTemplateColumns: columns }}>
             <div className="relative border-r border-ds-border-subtle bg-ds-surface-1">
               {hourLabels.map((hour) => (
                 <div
                   key={hour}
-                  className="border-b border-ds-border-subtle px-2 text-right text-[12px] text-ds-text-4"
+                  className="border-b border-ds-border-subtle px-2 text-right font-mono text-[12px] text-ds-text-4"
                   style={{ height: CALENDAR_HOUR_HEIGHT }}
                 >
                   {String(hour).padStart(2, "0")}:00
@@ -304,6 +334,7 @@ export function AgendaCalendarGrid({
                   nowMinute={nowMinute}
                   onSelect={onSelect}
                   onResize={onResize}
+                  onSlotClick={onSlotClick}
                 />
               );
             })}
@@ -317,6 +348,8 @@ export function AgendaCalendarGrid({
     </DndContext>
   );
 }
+
+const ALL_DAY_CHIP = "h-[22px] min-h-0 sm:h-[22px] rounded";
 
 function AllDayColumn({
   dateKey,
@@ -332,25 +365,50 @@ function AllDayColumn({
   onSelect: (item: AgendaCalendarItem) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `all-day:${dateKey}` });
+  const visible = items.slice(0, ALL_DAY_VISIBLE);
+  const overflow = items.slice(ALL_DAY_VISIBLE);
 
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        "min-h-[52px] space-y-1 border-r border-ds-border-subtle px-1.5 py-2",
+        "max-h-[74px] min-h-[28px] space-y-0.5 overflow-hidden border-r border-ds-border-subtle px-1 py-1",
         isOver && "bg-primary/5",
       )}
     >
-      {items.map((item) => (
+      {visible.map((item) => (
         <AgendaCompactEvent
           key={itemKey(item)}
           item={item}
           dense
           selected={selectedKey === itemKey(item)}
           user={usersById.get(item.assignedUserId)}
+          className={ALL_DAY_CHIP}
           onSelect={onSelect}
         />
       ))}
+      {overflow.length > 0 && (
+        <Popover>
+          <PopoverTrigger className="flex h-[18px] w-full items-center rounded px-1.5 text-left text-[12px] font-medium text-ds-text-3 hover:bg-ds-surface-3 ds-tap">
+            +{overflow.length} más
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            className="w-64 min-w-0 max-w-none space-y-1 rounded-xl border-ds-border-default bg-ds-surface-1 p-1.5 shadow-ds-lg"
+          >
+            {overflow.map((item) => (
+              <AgendaCompactEvent
+                key={itemKey(item)}
+                item={item}
+                dense
+                selected={selectedKey === itemKey(item)}
+                user={usersById.get(item.assignedUserId)}
+                onSelect={onSelect}
+              />
+            ))}
+          </PopoverContent>
+        </Popover>
+      )}
     </div>
   );
 }
@@ -364,6 +422,7 @@ function DayTimeColumn({
   nowMinute,
   onSelect,
   onResize,
+  onSlotClick,
 }: {
   dateKey: string;
   layout: ReturnType<typeof layoutTimedItems>;
@@ -373,6 +432,11 @@ function DayTimeColumn({
   nowMinute: number;
   onSelect: (item: AgendaCalendarItem) => void;
   onResize: (item: AgendaCalendarItem, schedule: AgendaSchedule) => void;
+  onSlotClick?: (
+    dateKey: string,
+    minute: number,
+    origin: { x: number; y: number },
+  ) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `timed:${dateKey}` });
   const isToday = dateKey === todayInChile();
@@ -392,7 +456,10 @@ function DayTimeColumn({
         {slots.map((minute) => (
           <div
             key={minute}
-            className="absolute inset-x-0 border-b border-ds-border-subtle/70"
+            onClick={(event) =>
+              onSlotClick?.(dateKey, minute, { x: event.clientX, y: event.clientY })
+            }
+            className="absolute inset-x-0 cursor-cell border-b border-ds-border-subtle/70 transition-colors hover:bg-primary/[0.04]"
             style={{
               top: ((minute - CALENDAR_START_HOUR * 60) / 60) * CALENDAR_HOUR_HEIGHT,
               height: (CALENDAR_SLOT_MINUTES / 60) * CALENDAR_HOUR_HEIGHT,
@@ -402,12 +469,16 @@ function DayTimeColumn({
 
         {showNow && (
           <div
-            className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-primary"
+            className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-status-danger"
             style={{
               top: ((nowMinute - CALENDAR_START_HOUR * 60) / 60) * CALENDAR_HOUR_HEIGHT,
             }}
           >
-            <span className="absolute -left-1 -top-1.5 h-3 w-3 rounded-full bg-primary" />
+            <span className="absolute -left-1 -top-[5px] h-2 w-2 rounded-full bg-status-danger" />
+            <span className="absolute left-1 -top-[9px] rounded bg-status-danger px-1 font-mono text-[12px] leading-4 text-white">
+              {String(Math.floor(nowMinute / 60)).padStart(2, "0")}:
+              {String(nowMinute % 60).padStart(2, "0")}
+            </span>
           </div>
         )}
 
@@ -441,22 +512,22 @@ function DayTimeColumn({
 
 function MonthDayCell({
   dateKey,
-  day,
   items,
   overflow,
   muted,
   selectedKey,
   usersById,
   onSelect,
+  onOpenDay,
 }: {
   dateKey: string;
-  day: Date;
   items: AgendaCalendarItem[];
   overflow: number;
   muted: boolean;
   selectedKey: string | null;
   usersById: Map<string, AgendaTeamMember>;
   onSelect: (item: AgendaCalendarItem) => void;
+  onOpenDay?: (dateKey: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `month:${dateKey}` });
   const isToday = dateKey === todayInChile();
@@ -464,20 +535,30 @@ function MonthDayCell({
   return (
     <div
       ref={setNodeRef}
+      role={onOpenDay ? "button" : undefined}
+      tabIndex={onOpenDay ? 0 : undefined}
+      onClick={() => onOpenDay?.(dateKey)}
+      onKeyDown={(event) => {
+        if (onOpenDay && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          onOpenDay(dateKey);
+        }
+      }}
       className={cn(
-        "min-h-[120px] space-y-1 border-b border-r border-ds-border-subtle p-1.5",
+        "flex min-h-0 flex-col gap-0.5 overflow-hidden border-b border-r border-ds-border-subtle p-1.5",
         muted && "bg-ds-surface-2/40",
         isOver && "bg-primary/5",
         isToday && "bg-primary/[0.04]",
+        onOpenDay && "cursor-pointer transition-colors hover:bg-ds-surface-2/70",
       )}
     >
       <p
         className={cn(
-          "mb-1 inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-[12px] font-semibold",
+          "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold",
           isToday ? "bg-primary text-primary-foreground" : "text-ds-text-3",
         )}
       >
-        {day.toLocaleDateString("es-CL", { day: "numeric", timeZone: "America/Santiago" })}
+        {Number(dateKey.slice(8, 10))}
       </p>
       {items.map((item) => (
         <AgendaCompactEvent
@@ -486,6 +567,7 @@ function MonthDayCell({
           dense
           selected={selectedKey === itemKey(item)}
           user={usersById.get(item.assignedUserId)}
+          className="h-[22px] min-h-0 shrink-0 sm:h-[22px]"
           onSelect={onSelect}
         />
       ))}
