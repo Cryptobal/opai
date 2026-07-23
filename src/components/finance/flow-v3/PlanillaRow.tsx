@@ -47,7 +47,7 @@ export function PlanillaRow(p: Props) {
           <input
             autoFocus
             defaultValue={row.name}
-            className="h-[calc(var(--plnx-row-h)-4px)] w-full border border-primary bg-ds-surface-2 px-1 text-xs text-ds-text-1 outline-none"
+            className="h-[calc(var(--plnx-row-h)-4px)] max-md:h-7 w-full border border-primary bg-ds-surface-2 px-1 text-xs text-ds-text-1 outline-none"
             onKeyDown={(e) => {
               e.stopPropagation();
               if (e.key === "Enter") {

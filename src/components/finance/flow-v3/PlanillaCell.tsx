@@ -52,7 +52,10 @@ function EditInput({ initial, onCommit, onCancel }: {
         else if (e.key === "Escape") { e.preventDefault(); onCancel(); }
       }}
       onBlur={() => onCommit(value, "none")}
-      className={`h-[calc(var(--plnx-row-h)-2px)] w-full rounded-none border border-primary bg-ds-surface-2 px-1 max-md:px-0.5 text-right text-ds-text-1 outline-none ${NUM_CLASS}`}
+      // max-md:h-7: el CSS global móvil fuerza font-size 16px en inputs
+      // (anti-zoom iOS); a la altura de fila densa (~13px) el texto quedaría
+      // recortado. La fila crece mientras se edita (como en Sheets).
+      className={`h-[calc(var(--plnx-row-h)-2px)] max-md:h-7 w-full rounded-none border border-primary bg-ds-surface-2 px-1 max-md:px-0.5 text-right text-ds-text-1 outline-none ${NUM_CLASS}`}
     />
   );
 }
