@@ -25,6 +25,7 @@ import { useEmailAttachments } from "./useEmailAttachments";
 import {
   newEmailIdempotencyKey,
   notifyEmailQueued,
+  notifyEmailQueuedOffline,
   scheduleSendPresets,
   sendCrmEmail,
 } from "./email-send-client";
@@ -78,6 +79,8 @@ type Props = {
   footerExtras?: React.ReactNode;
   /** Sello de contenido: al cambiar, el composer resetea con initialContent. */
   contentEpoch?: number;
+  /** C22b: notifica al host si hay cambios sin enviar (confirmación de cierre). */
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
 const AUTOSAVE_DEBOUNCE_MS = 3_000;
@@ -107,6 +110,7 @@ export function EmailComposer({
   onClose,
   footerExtras,
   contentEpoch = 0,
+  onDirtyChange,
 }: Props) {
   const attachments = useEmailAttachments();
   const [to, setTo] = useState<string[]>(initialTo);
@@ -225,11 +229,13 @@ export function EmailComposer({
 
   useEffect(() => {
     dirtyRef.current = true;
+    onDirtyChange?.(!isDocEmpty(content) || subject.trim().length > 0);
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     autosaveTimerRef.current = setTimeout(() => void saveDraft(), AUTOSAVE_DEBOUNCE_MS);
     return () => {
       if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saveDraft]);
 
   // Flush al desmontar: cerrar el composer nunca pierde trabajo.
@@ -298,7 +304,8 @@ export function EmailComposer({
       }
       closedRef.current = true;
       if (result.queued) {
-        notifyEmailQueued(result.data);
+        if (result.offline) notifyEmailQueuedOffline();
+        else notifyEmailQueued(result.data);
       } else if (result.warning) {
         toast.message(result.warning);
       } else {

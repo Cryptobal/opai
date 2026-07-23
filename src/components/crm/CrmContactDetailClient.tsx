@@ -28,6 +28,7 @@ import { EmailSenderSelect } from "./EmailSenderSelect";
 import {
   newEmailIdempotencyKey,
   notifyEmailQueued,
+  notifyEmailQueuedOffline,
   sendCrmEmail,
 } from "@/components/crm/correos/email-send-client";
 import { ContractEditor } from "@/components/docs/ContractEditor";
@@ -386,8 +387,10 @@ export function CrmContactDetailClient({
       setEmailOpen(false);
       setEmailBody(""); setEmailTiptapContent(null); setEmailSubject(""); setEmailCc(""); setEmailBcc(""); setShowCcBcc(false); setSelectedTemplateId(""); setReplyThreadId(null); setReplyAccountId(null); emailAttachments.resetAfterSend();
       setEmailCount((prev) => prev + 1);
-      if (result.queued) notifyEmailQueued(result.data);
-      else if (result.warning) toast.message(result.warning);
+      if (result.queued) {
+        if (result.offline) notifyEmailQueuedOffline();
+        else notifyEmailQueued(result.data);
+      } else if (result.warning) toast.message(result.warning);
       else toast.success("Correo enviado exitosamente");
     } catch (error) { console.error(error); toast.error("No se pudo enviar el correo."); }
     finally { setSending(false); }

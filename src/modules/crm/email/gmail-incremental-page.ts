@@ -1,6 +1,7 @@
 import type { gmail_v1 } from "googleapis";
 import { upsertGmailMessage } from "./gmail-message-upsert";
 import { refreshThreadLabelsBatch } from "./gmail-refresh-threads";
+import { batchGetGmailMessages } from "./gmail-batch";
 import type { SyncRunArgs } from "./gmail-sync-state";
 
 export type HistoryPage = {
@@ -46,10 +47,32 @@ export async function processHistoryPage(
 ): Promise<boolean> {
   const { gmail, tenantId, emailAccount, budget, deadline, createdByUserId } = args;
   const threadIds = new Set(page.labelThreadIds);
+  // S11: fetch de los mensajes nuevos de la página en batch; degrada a gets.
+  let prefetched = new Map<string, gmail_v1.Schema$Message>();
+  if (page.ids.size > 1) {
+    try {
+      prefetched = await batchGetGmailMessages({
+        gmail,
+        accountKey: emailAccount.id,
+        ids: Array.from(page.ids),
+        format: "full",
+        deadline,
+      });
+    } catch (err) {
+      console.warn("[gmail] incremental batch degradado a gets:", err);
+    }
+  }
   for (const id of page.ids) {
     if (counters.fetched >= budget || Date.now() >= deadline) return false;
     counters.fetched += 1;
-    const res = await upsertGmailMessage({ gmail, tenantId, emailAccount, messageId: id, createdByUserId });
+    const res = await upsertGmailMessage({
+      gmail,
+      tenantId,
+      emailAccount,
+      messageId: id,
+      createdByUserId,
+      prefetched: prefetched.get(id) ?? null,
+    });
     if (res.wrote) counters.synced += 1;
     if (res.providerThreadId) threadIds.add(res.providerThreadId);
   }

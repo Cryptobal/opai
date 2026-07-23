@@ -10,6 +10,7 @@ import { CorreoTasksPanel } from "./CorreoTasksPanel";
 import { LeadFromEmailPanel } from "./LeadFromEmailPanel";
 import { SuggestedReplyPanel } from "./SuggestedReplyPanel";
 import { CorreoThreadActions } from "./CorreoThreadActions";
+import { CorreoContactPanel } from "./CorreoContactPanel";
 import { EmailComposer } from "./EmailComposer";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 
@@ -108,6 +109,8 @@ export function CorreoDrawerContent({
           en unos segundos.
         </div>
       )}
+      {/* P11: ficha del contacto asociado + últimas conversaciones. */}
+      <CorreoContactPanel key={`contact-${detail.thread.id}`} threadId={detail.thread.id} />
       <CorreoMessages messages={detail.messages} />
       <CorreoAttachments
         items={detail.attachments}

@@ -95,6 +95,7 @@ export function CorreosFilters({
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ds-text-4" />
           <input
+            id="correos-search-input"
             className="h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 pl-9 pr-3 text-[13px] sm:h-9"
             placeholder="Buscar en toda la casilla (from: to: domain: before: after: has:attachment)"
             value={query}

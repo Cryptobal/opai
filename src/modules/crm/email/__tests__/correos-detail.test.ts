@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   threadFindFirst: vi.fn(),
+  threadUpdate: vi.fn(),
   accountFindUnique: vi.fn(),
   messagesFindMany: vi.fn(),
   crmAccountFindFirst: vi.fn(),
@@ -18,7 +19,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    crmEmailThread: { findFirst: mocks.threadFindFirst },
+    crmEmailThread: { findFirst: mocks.threadFindFirst, update: mocks.threadUpdate },
     crmEmailAccount: { findUnique: mocks.accountFindUnique },
     crmEmailMessage: { findMany: mocks.messagesFindMany },
     crmAccount: { findFirst: mocks.crmAccountFindFirst },
@@ -46,11 +47,18 @@ const THREAD = {
   providerThreadId: "prov-1",
   isUnread: false,
   archivedAt: null,
+  starredAt: null,
+  spamAt: null,
+  // Caché C18 frío por default: fuerza el path remoto en estos tests.
+  attachmentsMeta: null,
+  detailCachedAt: null,
+  updatedAt: new Date("2026-07-21T12:00:00.000Z"),
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.threadFindFirst.mockResolvedValue(THREAD);
+  mocks.threadUpdate.mockResolvedValue(THREAD);
   mocks.accountFindUnique.mockResolvedValue({
     email: "casilla@gmail.com",
     userId: "user-1",
@@ -118,5 +126,67 @@ describe("getCorreoDetail — path degradado (B3)", () => {
       threadId: "thr-1",
     });
     expect(detail!.degraded).toBe(false);
+  });
+});
+
+describe("getCorreoDetail — caché de detalle (C18)", () => {
+  it("caché fresco sirve 100% local: cero llamadas a Gmail", async () => {
+    const now = new Date();
+    mocks.threadFindFirst.mockResolvedValue({
+      ...THREAD,
+      attachmentsMeta: [
+        { messageId: "m1", attachmentId: "a1", filename: "f.pdf", mimeType: "application/pdf", size: 10 },
+      ],
+      detailCachedAt: now,
+      updatedAt: now,
+    });
+    const detail = await getCorreoDetail({
+      tenantId: "tenant-1",
+      emailAccountId: "acc-1",
+      threadId: "thr-1",
+    });
+    expect(mocks.gmailClientForAccount).not.toHaveBeenCalled();
+    expect(detail!.attachments).toHaveLength(1);
+    expect(detail!.degraded).toBe(false);
+  });
+
+  it("el sync que toca el hilo (updatedAt > detailCachedAt) invalida el caché", async () => {
+    const cachedAt = new Date(Date.now() - 60_000);
+    mocks.threadFindFirst.mockResolvedValue({
+      ...THREAD,
+      attachmentsMeta: [],
+      detailCachedAt: cachedAt,
+      updatedAt: new Date(), // el sync escribió después del cacheo
+    });
+    const get = vi.fn().mockResolvedValue({ data: { messages: [] } });
+    mocks.gmailClientForAccount.mockReturnValue({ users: { threads: { get } } });
+    await getCorreoDetail({
+      tenantId: "tenant-1",
+      emailAccountId: "acc-1",
+      threadId: "thr-1",
+    });
+    expect(get).toHaveBeenCalled();
+    expect(mocks.threadUpdate).toHaveBeenCalled();
+  });
+
+  it("en fallo remoto con caché viejo, degrada usando el caché (no lista vacía)", async () => {
+    mocks.threadFindFirst.mockResolvedValue({
+      ...THREAD,
+      attachmentsMeta: [
+        { messageId: "m1", attachmentId: "a1", filename: "f.pdf", mimeType: "application/pdf", size: 10 },
+      ],
+      detailCachedAt: new Date(Date.now() - 60 * 60_000), // TTL vencido
+      updatedAt: new Date(Date.now() - 60 * 60_000),
+    });
+    mocks.gmailClientForAccount.mockReturnValue({
+      users: { threads: { get: vi.fn().mockRejectedValue(new Error("boom")) } },
+    });
+    const detail = await getCorreoDetail({
+      tenantId: "tenant-1",
+      emailAccountId: "acc-1",
+      threadId: "thr-1",
+    });
+    expect(detail!.degraded).toBe(true);
+    expect(detail!.attachments).toHaveLength(1);
   });
 });

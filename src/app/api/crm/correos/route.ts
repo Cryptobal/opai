@@ -47,6 +47,10 @@ export async function GET(req: NextRequest) {
   }
 
   const folder = parseFolder(req.nextUrl.searchParams.get("folder"));
+  // C18 (PR-13): los 9 counts NO se calculan en cada request — solo cuando el
+  // cliente los pide (carga inicial, cambio de carpeta, invalidación realtime).
+  // Load-more y tipeo de búsqueda ya no pagan los counts.
+  const wantCounts = req.nextUrl.searchParams.get("counts") === "1";
   const [{ items, nextCursor }, counts, syncParked] = await Promise.all([
     listCorreoThreads({
       tenantId: session.user.tenantId,
@@ -57,10 +61,12 @@ export async function GET(req: NextRequest) {
       // C15: búsqueda server-side sobre toda la casilla sincronizada.
       q: req.nextUrl.searchParams.get("q"),
     }),
-    countCorreoFolders({
-      tenantId: session.user.tenantId,
-      emailAccountId: account.id,
-    }),
+    wantCounts
+      ? countCorreoFolders({
+          tenantId: session.user.tenantId,
+          emailAccountId: account.id,
+        })
+      : null,
     isGmailSyncParked(account.id),
   ]);
 
@@ -81,7 +87,7 @@ export async function GET(req: NextRequest) {
     ),
     canModify: hasGmailModify(account.grantedScopes),
     backfillDone: Boolean(syncRaw.backfillDone),
-    totalThreads: counts.all + counts.trash,
+    totalThreads: counts ? counts.all + counts.trash : null,
     lastSyncAt: syncRaw.lastSyncAt ?? null,
     syncParked,
   });

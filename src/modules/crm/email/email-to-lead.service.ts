@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { aiService } from "@/lib/ai-service";
+import { logAiUsage } from "@/lib/platform-ai-service";
+import { UNTRUSTED_RULES, wrapUntrusted } from "./ai-untrusted";
 import { isGoogleMapsUrl, parseGoogleMapsUrl } from "@/lib/google-maps-url";
 import { gmailClientForAccount } from "./gmail-account-client";
 import { prepareThreadAttachments, type PreparedAttachments } from "./email-to-lead-attachments";
@@ -331,13 +333,28 @@ export async function extractLeadFromThread(params: {
     att = await prepareThreadAttachments(gmail, thread.providerThreadId, tenantId).catch(() => att);
   }
 
-  const prompt = `${SYSTEM}\n\n--- ASUNTO ---\n${thread.subject}\n\n--- CORREO ---\n${bodyText}${att.docText ? `\n\n--- ADJUNTOS (texto) ---${att.docText}` : ""}`;
+  // A13: asunto, cuerpo y texto de adjuntos son de origen externo — van
+  // delimitados como dato no confiable (nunca instrucciones).
+  const prompt = `${SYSTEM}\n\n${UNTRUSTED_RULES}\n${wrapUntrusted(
+    `--- ASUNTO ---\n${thread.subject}\n\n--- CORREO ---\n${bodyText}${att.docText ? `\n\n--- ADJUNTOS (texto) ---${att.docText}` : ""}`,
+  )}`;
 
   let raw: Record<string, unknown>;
+  const startedAt = Date.now();
   try {
     raw = (att.images.length
       ? await aiService.generateFromImages(att.images, att.imageMimes, prompt, { maxTokens: 2800 }, { tenantId })
       : await aiService.generateJSON(prompt, 2800, { tenantId })) as Record<string, unknown>;
+    logAiUsage({
+      tenantId,
+      providerType: "openai",
+      model: att.images.length ? "vision-default" : "json-default",
+      feature: "correo-email-to-lead",
+      inputTokens: Math.ceil(prompt.length / 4),
+      outputTokens: Math.ceil(JSON.stringify(raw ?? {}).length / 4),
+      durationMs: Date.now() - startedAt,
+      metadata: { promptVersion: "email-to-lead-v2-untrusted", estimated: true },
+    });
   } catch (err) {
     console.error("[email-to-lead] IA falló:", err);
     throw new Error("La IA no pudo procesar el correo. Intentá de nuevo.");

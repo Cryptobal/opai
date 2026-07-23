@@ -2779,6 +2779,12 @@ model CrmEmailThread {
   snoozedUntil DateTime? @map("snoozed_until") @db.Timestamptz(6)
   // Espejo del label STARRED de Gmail (C11), bidireccional vía sync/acciones.
   starredAt DateTime? @map("starred_at") @db.Timestamptz(6)
+  // ── Caché de detalle (C18): metadata de adjuntos del hilo + marca de frescura.
+  // Si detailCachedAt >= updatedAt (el sync no tocó el hilo desde el cacheo) y
+  // no venció el TTL, el detalle se sirve 100% desde la BD espejo sin llamar
+  // a threads.get.
+  attachmentsMeta Json?     @map("attachments_meta")
+  detailCachedAt  DateTime? @map("detail_cached_at") @db.Timestamptz(6)
 
   // ── Radar Comercial v4 — clasificación IA del hilo ──
   aiCategory     String?   @map("ai_category") // cotizacion|licitacion|consulta_comercial|facturacion|operacional|otro

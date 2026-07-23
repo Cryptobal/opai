@@ -36,6 +36,8 @@ export async function upsertGmailMessage(params: {
   emailAccount: EmailAccountLite;
   messageId: string;
   createdByUserId?: string | null;
+  /** Mensaje ya bajado (format:full) por el batch (S11): evita el get individual. */
+  prefetched?: gmail_v1.Schema$Message | null;
 }): Promise<UpsertGmailMessageResult> {
   const { gmail, tenantId, emailAccount, messageId } = params;
   const existing =
@@ -52,12 +54,14 @@ export async function upsertGmailMessage(params: {
     }));
   const shouldBackfill = Boolean(existing) && !existing?.htmlBody && !existing?.textBody;
 
-  const full = await gmail.users.messages.get({
-    userId: "me",
-    id: messageId,
-    format: existing && !shouldBackfill ? "metadata" : "full",
-    metadataHeaders: ["Subject", "From", "To", "Cc", "Bcc", "Date"],
-  });
+  const full = params.prefetched
+    ? { data: params.prefetched }
+    : await gmail.users.messages.get({
+        userId: "me",
+        id: messageId,
+        format: existing && !shouldBackfill ? "metadata" : "full",
+        metadataHeaders: ["Subject", "From", "To", "Cc", "Bcc", "Date"],
+      });
   const payload = full.data.payload;
   const headers = payload?.headers || [];
   const subject = getHeader(headers, "Subject") || "Sin asunto";

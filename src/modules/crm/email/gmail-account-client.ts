@@ -1,6 +1,7 @@
 import { decryptText, encryptText, getGmailTokenSecret } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
 import { prisma } from "@/lib/prisma";
+import { wrapGmailClientWithQuota } from "./gmail-adapter";
 import {
   extractGmailAttachments,
   type GmailMessagePart,
@@ -10,7 +11,12 @@ import type { gmail_v1 } from "googleapis";
 
 export type ThreadAttachment = GmailAttachmentMeta & { messageId: string };
 
-/** Cliente Gmail a partir de una casilla (tokens cifrados). Null si no conectada. */
+/**
+ * Cliente Gmail a partir de una casilla (tokens cifrados). Null si no conectada.
+ * ÚNICO constructor de clientes del módulo (S11): el cliente sale envuelto por
+ * el GmailAdapter — token-bucket por casilla + retry de 429/5xx por llamada —
+ * así TODAS las llamadas users.* del repo pasan por la cuota.
+ */
 export function gmailClientForAccount(account: {
   id?: string;
   accessTokenEncrypted: string | null;
@@ -22,7 +28,7 @@ export function gmailClientForAccount(account: {
   const refreshToken = account.refreshTokenEncrypted
     ? decryptText(account.refreshTokenEncrypted, secret)
     : undefined;
-  return getGmailClient(accessToken, refreshToken, async (tokens) => {
+  const client = getGmailClient(accessToken, refreshToken, async (tokens) => {
     if (!account.id || (!tokens.access_token && !tokens.refresh_token && !tokens.expiry_date)) {
       return;
     }
@@ -40,6 +46,7 @@ export function gmailClientForAccount(account: {
       },
     });
   });
+  return wrapGmailClientWithQuota(client, account.id ?? "anon");
 }
 
 /** Adjuntos (metadata) de un hilo Gmail: filename, mime, size, attachmentId. */

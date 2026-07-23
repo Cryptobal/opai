@@ -1,12 +1,21 @@
 import { toast } from "sonner";
 import type { CorreoAction } from "@/modules/crm/email/gmail-thread-actions";
+import { queueOfflineAction } from "./offline-store";
 
 async function postAction(threadId: string, action: CorreoAction, snoozeUntil?: string) {
-  const res = await fetch(`/api/crm/correos/${threadId}/action`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(snoozeUntil ? { action, snoozeUntil } : { action }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`/api/crm/correos/${threadId}/action`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(snoozeUntil ? { action, snoozeUntil } : { action }),
+    });
+  } catch {
+    // C22b: sin red — encolar localmente y reconciliar al reconectar.
+    await queueOfflineAction({ threadId, action, snoozeUntil });
+    toast.message("Sin conexión: la acción se aplicará al reconectar");
+    return;
+  }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body?.error || "Error");
 }
