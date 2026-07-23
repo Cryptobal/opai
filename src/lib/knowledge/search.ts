@@ -35,7 +35,7 @@ export async function searchKnowledge(
   tenantId: string,
   limit: number = 5,
 ): Promise<SearchResult[]> {
-  const queryEmbedding = await generateEmbedding(query);
+  const queryEmbedding = await generateEmbedding(query, tenantId);
   const vectorLiteral = `[${queryEmbedding.join(",")}]`;
 
   const results: RawRow[] = await prisma.$queryRawUnsafe(

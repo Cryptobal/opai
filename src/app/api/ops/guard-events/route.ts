@@ -4,7 +4,8 @@ import { ensureOpsAccess } from "@/lib/ops";
 import { prisma } from "@/lib/prisma";
 import { EVENT_SUBTYPES } from "@/lib/guard-events";
 import { resolveDocument, buildGuardiaEntityData, buildLaborEventEntityData, buildEmpresaEntityData, enrichGuardiaWithSalary } from "@/lib/docs/token-resolver";
-import { openai } from "@/lib/openai";
+import { getTenantOpenAIClient } from "@/lib/ai/tenant-openai";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
 /**
  * GET /api/ops/guard-events — List guard events
@@ -432,7 +433,13 @@ async function autoGenerateAmonestacionDoc(
   const email = guardia.persona.email ?? "";
   const phone = guardia.persona.phoneMobile ?? guardia.persona.phone ?? "";
 
-  const prompt = `Genera una carta formal de amonestación escrita para un guardia de seguridad. La carta debe ser profesional, en español de Chile, y firmada por el representante legal de GARD SEGURIDAD LTDA.
+  const cfg = await getTenantCompanyConfig(tenantId);
+  const empresaNombre = cfg.razonSocial || cfg.companyName || "la empresa";
+  const repLegal = cfg.repLegalNombre
+    ? `${cfg.repLegalNombre}${cfg.repLegalRut ? `, RUT ${cfg.repLegalRut}` : ""}`
+    : "[Representante legal — configurar en Configuración › Empresa]";
+
+  const prompt = `Genera una carta formal de amonestación escrita para un guardia de seguridad. La carta debe ser profesional, en español de Chile, y firmada por el representante legal de ${empresaNombre}.
 
 Datos del guardia:
 - Nombre completo: ${fullName}
@@ -450,12 +457,13 @@ La carta debe incluir:
 3. Referencia: "Amonestación Escrita"
 4. Cuerpo con los hechos que motivan la amonestación
 5. Advertencia de que una reiteración puede derivar en sanciones mayores
-6. Espacio para firma del representante legal (Jorge Andrés Montenegro Fuenzalida, RUT 13.051.246-1) y del trabajador
-7. Pie: "GARD SEGURIDAD LTDA."
+6. Espacio para firma del representante legal (${repLegal}) y del trabajador
+7. Pie: "${empresaNombre}"
 
 Responde SOLO con el HTML de la carta (sin explicaciones). Usa etiquetas HTML simples: <h1>, <h2>, <p>, <strong>, <br/>.`;
 
-  const completion = await openai.chat.completions.create({
+  const client = await getTenantOpenAIClient(tenantId);
+  const completion = await client.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [{ role: "user", content: prompt }],
     temperature: 0.3,

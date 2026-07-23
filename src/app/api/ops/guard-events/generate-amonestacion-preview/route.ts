@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { prisma } from "@/lib/prisma";
-import { openai } from "@/lib/openai";
+import { getTenantOpenAIClient } from "@/lib/ai/tenant-openai";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
 /**
  * POST /api/ops/guard-events/generate-amonestacion-preview
@@ -46,7 +47,13 @@ export async function POST(request: NextRequest) {
     const p = guardia.persona;
     const fullName = `${p.firstName} ${p.lastName}`;
 
-    const prompt = `Genera una carta formal de amonestación escrita para un guardia de seguridad. La carta debe ser profesional, en español de Chile, y firmada por el representante legal de GARD SEGURIDAD LTDA.
+    const cfg = await getTenantCompanyConfig(ctx.tenantId);
+    const empresaNombre = cfg.razonSocial || cfg.companyName || "la empresa";
+    const repLegal = cfg.repLegalNombre
+      ? `${cfg.repLegalNombre}${cfg.repLegalRut ? `, RUT ${cfg.repLegalRut}` : ""}`
+      : "[Representante legal — configurar en Configuración › Empresa]";
+
+    const prompt = `Genera una carta formal de amonestación escrita para un guardia de seguridad. La carta debe ser profesional, en español de Chile, y firmada por el representante legal de ${empresaNombre}.
 
 Datos del guardia:
 - Nombre completo: ${fullName}
@@ -64,12 +71,13 @@ La carta debe incluir:
 3. Referencia: "Amonestación Escrita"
 4. Cuerpo detallado con los hechos que motivan la amonestación basándote en el motivo proporcionado
 5. Advertencia formal de que una reiteración puede derivar en sanciones mayores incluyendo el término del contrato
-6. Espacio para firma del representante legal (Jorge Andrés Montenegro Fuenzalida, RUT 13.051.246-1) y del trabajador
-7. Pie: "GARD SEGURIDAD LTDA."
+6. Espacio para firma del representante legal (${repLegal}) y del trabajador
+7. Pie: "${empresaNombre}"
 
 Responde SOLO con el HTML de la carta. Usa etiquetas HTML: <h1>, <h2>, <p>, <strong>, <br/>. No uses markdown ni explicaciones.`;
 
-    const completion = await openai.chat.completions.create({
+    const client = await getTenantOpenAIClient(ctx.tenantId);
+    const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.3,
