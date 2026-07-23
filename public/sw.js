@@ -1,3 +1,8 @@
+// v12 (2026-07-23): bumped tras FC-01.1 de la planilla de flujo de caja
+// (planilla default en la nav, anclaje en semana anterior, filas más altas,
+// peek del concepto y candado de scroll móvil). v11 fue el bump de FC-01
+// (hoja de cálculo operativa: sheet focus + renderer).
+//
 // v10 (2026-07-23): bumped tras la Ola 1 del Hub / Centro de Control
 // (bottom bar global en /hub, selector móvil de vistas, accesos rápidos
 // Calendario/Correos/Crear, correos recientes, fixes de overflow y de salto
@@ -26,7 +31,7 @@
 // ChunkLoadError → global-error.tsx ("Algo salió mal") en el portal del
 // guardia (y resto de portales) sin que refrescar lo arreglara, porque
 // el navigate handler nunca refrescaba la cache (ver fix abajo).
-const CACHE_NAME = 'opai-v11';
+const CACHE_NAME = 'opai-v12';
 
 // Endpoints de autenticación/sesión que NUNCA deben pasar por la cache del
 // SW. Si una respuesta antigua quedara cacheada, el cliente podría ver una

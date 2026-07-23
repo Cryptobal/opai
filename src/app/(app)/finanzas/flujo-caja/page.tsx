@@ -79,10 +79,10 @@ export default async function FlujoCajaPage({
   });
   const recentCloses = await listRecentCloses(tenantId, 6);
 
-  // Flag Modo Planilla v3: cuando está ON, la nav apunta a /planilla y esta
-  // ruta directa queda como "versión anterior" con banner (el módulo viejo
-  // sigue intacto y funcional; su retiro es un PR posterior).
-  const planillaV3 = await isTenantFeatureFlagEnabled(tenantId, "cashflowPlanillaV3");
+  // Modo Planilla v3 es la ruta principal por defecto; esta ruta directa es
+  // la "versión anterior" con banner, salvo que el tenant haya hecho rollback
+  // explícito (cashflowPlanillaLegacy). El módulo viejo sigue intacto.
+  const planillaV3 = !(await isTenantFeatureFlagEnabled(tenantId, "cashflowPlanillaLegacy"));
 
   // Grilla densa (planilla) como vista por defecto. Reemplaza a CashflowV2Shell
   // y a la ruta legacy `?v=1` (CashflowTabs/WeeklyMatrix/MonthlyMatrix), ambas

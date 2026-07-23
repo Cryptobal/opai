@@ -458,10 +458,10 @@ export const NAV_MODULES: NavNode[] = [
         // redirige a /flujo-caja como landing; ver bancos/page.tsx).
         activePaths: ["/finanzas/flujo-caja", "/finanzas/conciliacion"],
         children: [
-          // Flujo de Caja: entrada única que cambia de destino con el flag
-          // cashflowPlanillaV3 (Modo Planilla v3). Flag ON → planilla; OFF →
-          // módulo actual. El módulo viejo sigue accesible por ruta directa
-          // con banner "versión anterior" (ver flujo-caja/page.tsx).
+          // Flujo de Caja: el Modo Planilla v3 es la ruta principal POR
+          // DEFECTO. El flag cashflowPlanillaLegacy (opt-out) devuelve la nav
+          // al módulo anterior como rollback; el módulo viejo sigue accesible
+          // por ruta directa con banner "versión anterior" (flujo-caja/page).
           {
             key: "banca-flujo-planilla",
             href: "/finanzas/flujo-caja/planilla",
@@ -469,7 +469,7 @@ export const NAV_MODULES: NavNode[] = [
             shortLabel: "Flujo",
             icon: TrendingUp,
             capability: "cashflow_view",
-            show: (_perms, ctx) => ctx?.hasTenantFlag?.("cashflowPlanillaV3") === true,
+            show: (_perms, ctx) => ctx?.hasTenantFlag?.("cashflowPlanillaLegacy") !== true,
           },
           {
             key: "banca-flujo-caja",
@@ -478,7 +478,7 @@ export const NAV_MODULES: NavNode[] = [
             shortLabel: "Flujo",
             icon: TrendingUp,
             capability: "cashflow_view",
-            show: (_perms, ctx) => ctx?.hasTenantFlag?.("cashflowPlanillaV3") !== true,
+            show: (_perms, ctx) => ctx?.hasTenantFlag?.("cashflowPlanillaLegacy") === true,
           },
           {
             key: "banca-conciliacion",

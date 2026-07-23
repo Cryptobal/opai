@@ -1559,25 +1559,34 @@ html {
    isla topbar (4rem + safe-top) y la isla bottom nav
    (--bottom-nav-height la publica BottomNav; el offset inferior de la
    isla es safe-bottom + 10px). El slop final cubre el pt-1 del region
-   y el margen bajo la toolbar. */
+   y el margen bajo la toolbar. 100svh (viewport MÍNIMO, no dvh): con la
+   barra de Safari visible dvh sobreestima y el documento scrollearía,
+   arrastrando toolbar y encabezados. */
 @media (max-width: 1023px) {
   .planilla-sheet {
     --plnx-toolbar-h: 44px;
     --plnx-grid-h: calc(
-      100dvh - 4rem - env(safe-area-inset-top, 0px)
+      100svh - 4rem - env(safe-area-inset-top, 0px)
       - var(--plnx-toolbar-h)
       - var(--bottom-nav-height, 76px)
       - env(safe-area-inset-bottom, 0px)
       - 14px
     );
   }
+  /* Cinturón y tirantes: en la planilla el documento no scrollea nunca —
+     solo el viewport interno de la hoja. PlanillaClient monta/limpia la
+     clase; fuera de la ruta no afecta a nadie. */
+  html.sheet-focus-lock,
+  html.sheet-focus-lock body {
+    height: 100%;
+    overflow: hidden;
+  }
 }
 
-/* Teléfonos (< md): densidad Google Sheets. Gutter 28px, concepto
-   100px, exactamente 4 semanas de negocio en el ancho restante.
-   Fila dinámica según la altura útil real (objetivo: 46 filas de hoja
-   en un Pro Max = 3 headers + 43 filas), piso 13px para tipografía
-   de 12px, techo 18px. */
+/* Teléfonos (< md): densidad Google Sheets con un pelo de aire (feedback
+   del owner): fila mínima 15px, ~40 filas + 3 headers ≈ 43 filas de hoja
+   en un Pro Max. Gutter 28px, concepto 100px, exactamente 4 semanas de
+   negocio en el ancho restante. */
 @media (max-width: 767px) {
   .planilla-sheet {
     --plnx-gutter-w: 28px;
@@ -1587,9 +1596,9 @@ html {
     --plnx-hdr-2: 15px;
     --plnx-hdr-3: 16px;
     --plnx-row-h: clamp(
-      13px,
-      calc((var(--plnx-grid-h) - var(--plnx-hdr-1) - var(--plnx-hdr-2) - var(--plnx-hdr-3)) / 43),
-      18px
+      15px,
+      calc((var(--plnx-grid-h) - var(--plnx-hdr-1) - var(--plnx-hdr-2) - var(--plnx-hdr-3)) / 40),
+      20px
     );
     --plnx-section-h: var(--plnx-row-h);
   }

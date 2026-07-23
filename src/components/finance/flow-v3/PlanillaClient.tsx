@@ -13,7 +13,7 @@ import type { FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import { usePlanillaMatrix } from "./usePlanillaMatrix";
 import { usePlanillaActions } from "./usePlanillaActions";
-import { PlanillaGrid, scrollToWeek } from "./PlanillaGrid";
+import { anchorTargetWeek, PlanillaGrid, scrollToWeek } from "./PlanillaGrid";
 import { AddRowDialog } from "./AddRowDialog";
 import { fmtClp, fmtShortDate } from "./format";
 
@@ -86,14 +86,22 @@ export function PlanillaClient({ canManage, flagOn }: { canManage: boolean; flag
     if (changed) {
       pendingScrollToCurrent.current = true;
     } else if (gridScrollRef.current && m.data) {
-      scrollToWeek(gridScrollRef.current, m.data.currentWeek);
+      scrollToWeek(gridScrollRef.current, anchorTargetWeek(m.data));
     }
   };
   useEffect(() => {
     if (!pendingScrollToCurrent.current || !m.data || !gridScrollRef.current) return;
     pendingScrollToCurrent.current = false;
-    scrollToWeek(gridScrollRef.current, m.data.currentWeek, false);
+    scrollToWeek(gridScrollRef.current, anchorTargetWeek(m.data), false);
   }, [m.data]);
+
+  // Sheet focus móvil: el documento NO scrollea (solo la hoja, internamente).
+  // Sin esto, cualquier desborde vertical mueve toolbar y encabezados. La
+  // clase solo tiene efecto bajo lg (media query en globals.css).
+  useEffect(() => {
+    document.documentElement.classList.add("sheet-focus-lock");
+    return () => document.documentElement.classList.remove("sheet-focus-lock");
+  }, []);
 
   const toggleFlag = async (next: boolean) => {
     setTogglingFlag(true);

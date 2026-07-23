@@ -196,7 +196,7 @@ describe("nav registry", () => {
     it("finance-banca tiene N3 (flujo-caja / conciliación / cuentas)", () => {
       const childKeys = (banca.children ?? []).map((c) => c.key);
       // banca-flujo-planilla y banca-flujo-caja son gemelos excluyentes por el
-      // flag cashflowPlanillaV3 (v3): solo uno es visible a la vez.
+      // flag opt-out cashflowPlanillaLegacy: solo uno es visible a la vez.
       expect(childKeys).toEqual([
         "banca-flujo-planilla",
         "banca-flujo-caja",
@@ -205,19 +205,21 @@ describe("nav registry", () => {
       ]);
     });
 
-    it("los gemelos de Flujo de Caja se excluyen mutuamente por flag", () => {
+    it("los gemelos de Flujo de Caja se excluyen mutuamente por flag (planilla default)", () => {
       const planilla = banca.children!.find((c) => c.key === "banca-flujo-planilla")!;
       const viejo = banca.children!.find((c) => c.key === "banca-flujo-caja")!;
       const permsAny = {} as never;
-      const off = { hasTenantFlag: () => false } as never;
-      const on = { hasTenantFlag: (f: string) => f === "cashflowPlanillaV3" } as never;
-      expect(planilla.show!(permsAny, off)).toBe(false);
-      expect(viejo.show!(permsAny, off)).toBe(true);
-      expect(planilla.show!(permsAny, on)).toBe(true);
-      expect(viejo.show!(permsAny, on)).toBe(false);
-      // Sin ctx (superficies sin flag): comportamiento actual.
-      expect(planilla.show!(permsAny, undefined)).toBe(false);
-      expect(viejo.show!(permsAny, undefined)).toBe(true);
+      const sinFlags = { hasTenantFlag: () => false } as never;
+      const legacy = { hasTenantFlag: (f: string) => f === "cashflowPlanillaLegacy" } as never;
+      // Default (sin flag): la planilla es la ruta principal.
+      expect(planilla.show!(permsAny, sinFlags)).toBe(true);
+      expect(viejo.show!(permsAny, sinFlags)).toBe(false);
+      // Rollback explícito (cashflowPlanillaLegacy): vuelve el módulo viejo.
+      expect(planilla.show!(permsAny, legacy)).toBe(false);
+      expect(viejo.show!(permsAny, legacy)).toBe(true);
+      // Sin ctx (superficies sin flag): default planilla.
+      expect(planilla.show!(permsAny, undefined)).toBe(true);
+      expect(viejo.show!(permsAny, undefined)).toBe(false);
     });
 
     it("findActiveModule resuelve finance para /finanzas/flujo-caja", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -31,6 +31,21 @@ interface Props {
 export function PlanillaRow(p: Props) {
   const { row } = p;
   const [renaming, setRenaming] = useState<string | null>(null);
+  // Peek móvil: el concepto truncado se expande al tocarlo (overlay sobre las
+  // celdas) para ver el cliente completo; se cierra solo o con otro tap.
+  const [peek, setPeek] = useState(false);
+  const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (peekTimer.current) clearTimeout(peekTimer.current); }, []);
+  const togglePeek = () => {
+    if (renaming != null) return;
+    if (!window.matchMedia("(max-width: 767px)").matches) return;
+    if (peekTimer.current) clearTimeout(peekTimer.current);
+    setPeek((v) => {
+      const next = !v;
+      if (next) peekTimer.current = setTimeout(() => setPeek(false), 3000);
+      return next;
+    });
+  };
   const editableRow =
     p.canManage && p.granularity === "week" && !row.isArchived && !row.isVirtual;
 
@@ -41,8 +56,17 @@ export function PlanillaRow(p: Props) {
       </td>
       <th
         scope="row"
+        onClick={togglePeek}
         className={`${NAME_W} ${ROW_H} sticky ${NAME_LEFT} z-10 border-b border-r border-ds-border-subtle/60 bg-ds-surface-1 px-1.5 max-md:px-1 text-left align-middle`}
       >
+        {peek && (
+          <span
+            role="tooltip"
+            className="absolute left-0 top-full z-30 max-w-[78vw] whitespace-normal rounded-md border border-ds-border-default bg-ds-surface-3 px-2 py-1 text-[12px] leading-snug text-ds-text-1 shadow-md"
+          >
+            {row.name}
+          </span>
+        )}
         {renaming != null ? (
           <input
             autoFocus
