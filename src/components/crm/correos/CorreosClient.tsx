@@ -93,6 +93,8 @@ export function CorreosClient() {
     panelWidth,
     previewLines,
     setPreviewLines,
+    swipeConfig,
+    setSwipeConfig,
     resetPanelWidth,
     onResizePointerDown,
     onResizeKeyDown,
@@ -584,6 +586,7 @@ export function CorreosClient() {
                   checked={selectedIds.has(t.id)}
                   onToggleCheck={canModify ? () => toggleSelect(t.id) : undefined}
                   previewLines={previewLines}
+                  swipeConfig={swipeConfig}
                   onChanged={() => void fetchPage(null, true)}
                   onRemove={removeThreadLocally}
                   onSnooze={() => setSnoozeId(t.id)}
