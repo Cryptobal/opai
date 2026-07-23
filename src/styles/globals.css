@@ -1518,3 +1518,111 @@ html {
     box-shadow: inset 0 0 0 1px hsl(0 0% 100% / 0.06);
   }
 }
+
+/* ============================================================
+   Flujo de Caja v3 — Modo Hoja (planilla)
+   Geometría de la hoja de cálculo por CSS variables. La grilla,
+   headers, gutter y celdas consumen estas vars vía clases
+   arbitrarias de Tailwind (w-[var(--plnx-week-w)] etc.).
+   ============================================================ */
+
+/* Sheet focus (mobile/tablet): la ruta de la planilla marca
+   data-layout-mode="sheet-focus" en el content region (AppShell).
+   Los layouts de Finanzas/Banca marcan sus wrappers con
+   .sheet-focus-flat; dentro del modo se anulan sus espaciadores
+   verticales para que la hoja pegue con el topbar. Scoped por data
+   attribute: ninguna otra ruta cambia. */
+@media (max-width: 1023px) {
+  [data-layout-mode="sheet-focus"] .sheet-focus-flat > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0;
+  }
+}
+
+.planilla-sheet {
+  /* Desktop (specs v3.1): fila 22px, concepto 200px, semana 86px,
+     gutter de números 38px, headers letras/mes/semana. */
+  --plnx-gutter-w: 38px;
+  --plnx-name-w: 200px;
+  --plnx-week-w: 86px;
+  --plnx-row-h: 22px;
+  --plnx-section-h: 20px;
+  --plnx-hdr-1: 16px;
+  --plnx-hdr-2: 17px;
+  --plnx-hdr-3: 17px;
+  --plnx-toolbar-h: 36px;
+  /* Altura útil desktop: 100dvh − topbar (3rem) − breadcrumb (~44px)
+     − toolbar planilla (36px + 8px gap) − padding inferior (24px). */
+  --plnx-grid-h: calc(100dvh - 3rem - 44px - var(--plnx-toolbar-h) - 8px - 24px);
+}
+
+/* Mobile + tablet (< lg): sin topbar desktop; la hoja vive entre la
+   isla topbar (4rem + safe-top) y la isla bottom nav
+   (--bottom-nav-height la publica BottomNav; el offset inferior de la
+   isla es safe-bottom + 10px). El slop final cubre el pt-1 del region
+   y el margen bajo la toolbar. */
+@media (max-width: 1023px) {
+  .planilla-sheet {
+    --plnx-toolbar-h: 44px;
+    --plnx-grid-h: calc(
+      100dvh - 4rem - env(safe-area-inset-top, 0px)
+      - var(--plnx-toolbar-h)
+      - var(--bottom-nav-height, 76px)
+      - env(safe-area-inset-bottom, 0px)
+      - 14px
+    );
+  }
+}
+
+/* Teléfonos (< md): densidad Google Sheets. Gutter 28px, concepto
+   100px, exactamente 4 semanas de negocio en el ancho restante.
+   Fila dinámica según la altura útil real (objetivo: 46 filas de hoja
+   en un Pro Max = 3 headers + 43 filas), piso 13px para tipografía
+   de 12px, techo 18px. */
+@media (max-width: 767px) {
+  .planilla-sheet {
+    --plnx-gutter-w: 28px;
+    --plnx-name-w: 100px;
+    --plnx-week-w: calc((100vw - var(--plnx-gutter-w) - var(--plnx-name-w)) / 4);
+    --plnx-hdr-1: 15px;
+    --plnx-hdr-2: 15px;
+    --plnx-hdr-3: 16px;
+    --plnx-row-h: clamp(
+      13px,
+      calc((var(--plnx-grid-h) - var(--plnx-hdr-1) - var(--plnx-hdr-2) - var(--plnx-hdr-3)) / 43),
+      18px
+    );
+    --plnx-section-h: var(--plnx-row-h);
+  }
+}
+
+/* La hoja es una TABLA real también en móvil — excepción explícita al hack
+   genérico "tabla móvil" (table{display:block} de arriba): el scroll vive en
+   el contenedor .planilla-sheet, no en la tabla, y el sticky compuesto
+   (gutter + Concepto + headers) necesita formato de tabla íntegro. */
+@media screen and (max-width: 768px) {
+  .planilla-sheet table {
+    display: table;
+    overflow-x: visible;
+    max-width: none;
+  }
+}
+
+/* Botones INTERNOS de la hoja (chevrons de sección, kebab de fila): densidad
+   de planilla — la regla global de touch targets los inflaría a 44px y con
+   ello cada fila. Las celdas densas no son botones; las acciones táctiles
+   reales (toolbar, sheets, diálogos) mantienen ≥44px. !important porque la
+   regla global usa una cadena :not() de especificidad (0,6,1). */
+@media (hover: none) and (pointer: coarse) {
+  .planilla-sheet table button,
+  .planilla-sheet table [role="button"] {
+    min-height: 0 !important;
+  }
+}
+
+/* Sheet focus: banners no críticos del shell (marcados con data-app-banner)
+   se ocultan en la hoja móvil — el foco es solo la planilla. */
+@media (max-width: 1023px) {
+  [data-layout-mode="sheet-focus"] [data-app-banner] {
+    display: none;
+  }
+}

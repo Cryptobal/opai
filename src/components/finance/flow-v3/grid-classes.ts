@@ -1,19 +1,31 @@
 /**
- * Densidad Excel de la planilla (specs v3.1): fila 22px, numérica 11px mono
- * tabular, primera columna 200px, semanas 86px, padding-x 6px, headers de
- * sección 20px. Objetivo: ≥22 filas visibles en 1440×900.
+ * Geometría de la hoja por CSS variables (--plnx-*, definidas en globals.css
+ * bajo .planilla-sheet). Desktop: fila 22px, concepto 200px, semana 86px,
+ * gutter 38px (≥22 filas de datos en 1440×900). Teléfonos: gutter 28px,
+ * concepto 100px, 4 semanas exactas en el ancho útil y fila dinámica
+ * 13–18px según 100dvh (objetivo 46 filas de hoja en un Pro Max).
  */
-// Mobile (F4): 3 columnas de semana + primera columna angosta = 354px,
-// cabe en 360px sin scroll horizontal; se navega con swipe.
+import type { FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
+
 export const COL_W =
-  "w-[86px] min-w-[86px] max-w-[86px] max-md:w-[78px] max-md:min-w-[78px] max-md:max-w-[78px]";
+  "w-[var(--plnx-week-w)] min-w-[var(--plnx-week-w)] max-w-[var(--plnx-week-w)]";
 export const NAME_W =
-  "w-[200px] min-w-[200px] max-w-[200px] max-md:w-[120px] max-md:min-w-[120px] max-md:max-w-[120px]";
-export const ROW_H = "h-[22px]";
-export const SECTION_H = "h-[20px]";
+  "w-[var(--plnx-name-w)] min-w-[var(--plnx-name-w)] max-w-[var(--plnx-name-w)]";
+/** Gutter fijo con números de fila (como una planilla). */
+export const GUTTER_W =
+  "w-[var(--plnx-gutter-w)] min-w-[var(--plnx-gutter-w)] max-w-[var(--plnx-gutter-w)]";
+export const ROW_H = "h-[var(--plnx-row-h)]";
+export const SECTION_H = "h-[var(--plnx-section-h)]";
+
+/** Offset sticky de la columna Concepto (a la derecha del gutter). */
+export const NAME_LEFT = "left-[var(--plnx-gutter-w)]";
+
+/** Celda del gutter: número de fila, sticky izquierda, tinte de encabezado. */
+export const GUTTER_CELL =
+  "sticky left-0 border-b border-r border-ds-border-subtle/60 bg-ds-surface-2 px-0 text-center align-middle font-mono uppercase tracking-tight text-[11px] leading-none text-ds-text-4";
 
 export const CELL_BASE =
-  "relative px-1.5 text-right align-middle border-b border-r border-ds-border-subtle/60";
+  "relative px-1.5 max-md:px-[3px] text-right align-middle border-b border-r border-ds-border-subtle/60 overflow-hidden whitespace-nowrap";
 
 /** Borde vertical primary de la columna de la semana actual (línea HOY). */
 export const TODAY_COL = "border-l-2 border-l-primary";
@@ -53,4 +65,14 @@ export function displayValue(section: string, layer: string, raw: number): numbe
     return layer === "real" && section === "INGRESOS" ? Math.abs(raw) : raw;
   }
   return Math.abs(raw);
+}
+
+/**
+ * Fila "en cero" durante el horizonte cargado: ninguna celda tiene capa
+ * efectiva (ni plan, ni comprometido, ni real). Con "ocultar ceros" activo
+ * estas filas no se renderizan; las estructurales (secciones, resumen)
+ * siempre permanecen.
+ */
+export function isZeroRow(row: Pick<FlowMatrixRowDto, "cells">): boolean {
+  return row.cells.every((c) => c.layer === "empty");
 }

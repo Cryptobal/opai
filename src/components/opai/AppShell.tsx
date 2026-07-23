@@ -84,6 +84,12 @@ function AppShellInner({
   }, [chatCtx, notifCtx]);
 
   const anyPanelOpen = chatCtx.isPanelOpen || notifCtx.isPanelOpen;
+  // "Sheet focus" (route-scoped): la planilla del flujo de caja es una hoja de
+  // cálculo a pantalla completa en mobile — sin breadcrumbs ni padding
+  // horizontal, solo topbar + hoja + bottom nav. Desktop conserva el shell
+  // normal (sidebar/topbar/breadcrumbs). El data attribute permite a los
+  // layouts intermedios aplanar sus espaciadores solo dentro del modo.
+  const isSheetFocus = pathname === '/finanzas/flujo-caja/planilla';
   // Sidebar default: si el usuario no eligió antes, abrimos en viewports ≥ xl
   // (1280px) para que en pantallas grandes la nav N2 sea visible sin hover.
   // En lg (1024–1279) queda colapsado para no comer ancho.
@@ -227,18 +233,25 @@ function AppShellInner({
               */
               <BreadcrumbTrailingProvider>
                 <div
+                  data-layout-mode={isSheetFocus ? 'sheet-focus' : undefined}
                   className={cn(
-                    'w-full max-w-full animate-in-page min-w-0 overflow-x-clip lg:pt-0 lg:pb-6 lg:px-8 xl:px-10 2xl:px-12',
-                    // Inmersivo móvil: el módulo ocupa todo el ancho sin
-                    // paddings de página; desktop conserva el layout de siempre.
-                    isImmersiveMobile ? 'pt-0 pb-0 px-0' : 'pt-4 pb-28 px-4 sm:px-6'
+                    'w-full max-w-full animate-in-page min-w-0 lg:pt-0 lg:pb-6 lg:px-8 xl:px-10 2xl:px-12',
+                    // Inmersivo móvil (correos): el módulo ocupa todo el ancho
+                    // sin paddings de página y pinta su propio top móvil.
+                    isImmersiveMobile && 'overflow-x-clip pt-0 pb-0 px-0',
+                    // Sheet focus (planilla flujo de caja): full-bleed móvil
+                    // entre topbar y bottom nav; sin overflow-x-clip en móvil
+                    // (el scroll horizontal vive DENTRO de la hoja).
+                    isSheetFocus && 'pt-1 pb-0 px-0 lg:overflow-x-clip',
+                    !isImmersiveMobile && !isSheetFocus &&
+                      'overflow-x-clip pt-4 pb-28 px-4 sm:px-6',
                   )}
                   role="region"
                 >
                   <div
                     className={cn(
                       'lg:pt-3 lg:mb-3',
-                      isImmersiveMobile ? 'hidden lg:block' : 'pt-1 mb-2'
+                      isImmersiveMobile || isSheetFocus ? 'hidden lg:block' : 'pt-1 mb-2'
                     )}
                   >
                     <AutoBreadcrumbs />
