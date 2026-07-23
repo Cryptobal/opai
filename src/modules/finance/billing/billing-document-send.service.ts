@@ -65,12 +65,15 @@ export interface SendBillingDocumentResult {
   pdfBytes?: number;
 }
 
-// La proforma siempre se envía sobre un borrador SIN folio ({{folio}}
-// resolvía a "—" y el asunto salía "Proforma — - CLIENTE"). Usamos el
-// período, que siempre existe.
-const DEFAULT_PROFORMA_SUBJECT = "Proforma {{periodo}} - {{razonSocial}}";
+// Asunto por defecto: "<Documento> - <Cliente> - <Instalación> - <Período>".
+// Mismo formato que sugiere la config UI (BillingDocConfigForm) y que el
+// {{periodo}} sale de la política de período del borrador (ver
+// build-billing-doc-props). La proforma va siempre sobre un borrador SIN folio,
+// por eso el asunto se arma con período/cliente y no con {{folio}}.
+const DEFAULT_PROFORMA_SUBJECT =
+  "Proforma - {{nombreCuenta}} - {{instalacion}} - {{periodo}}";
 const DEFAULT_ESTADO_PAGO_SUBJECT =
-  "Estado de Pago {{periodo}} - {{razonSocial}}";
+  "Estado de Pago - {{nombreCuenta}} - {{instalacion}} - {{periodo}}";
 
 function renderTemplate(
   template: string,
@@ -80,6 +83,26 @@ function renderTemplate(
     const k = key.trim();
     return vars[k] ?? `{{${k}}}`;
   });
+}
+
+/**
+ * Limpia el asunto renderizado cuando un token quedó vacío (típico:
+ * {{instalacion}} sin instalación asignada). Colapsa los separadores " - "
+ * que rodean un segmento vacío ("A -  - B" → "A - B") y quita un separador
+ * colgante al inicio o al final. No toca separadores entre segmentos con
+ * texto real.
+ */
+function cleanupSubjectSeparators(subject: string): string {
+  let out = subject;
+  let prev: string;
+  do {
+    prev = out;
+    out = out.replace(/\s+-\s+-\s+/g, " - ");
+  } while (out !== prev);
+  return out
+    .replace(/^\s*-\s+/, "")
+    .replace(/\s+-\s*$/, "")
+    .trim();
 }
 
 /** Mapea la variante + origen (cron vs manual) a los enum values de BD. */
@@ -366,7 +389,9 @@ export async function sendBillingDocument(
     (input.variant === "PROFORMA"
       ? tenantConfig?.proformaEmailSubject || DEFAULT_PROFORMA_SUBJECT
       : tenantConfig?.estadoPagoEmailSubject || DEFAULT_ESTADO_PAGO_SUBJECT);
-  const baseSubject = renderTemplate(subjectTemplate, tokenVars);
+  const baseSubject = cleanupSubjectSeparators(
+    renderTemplate(subjectTemplate, tokenVars),
+  );
   const subject = input.reminder ? `Recordatorio · ${baseSubject}` : baseSubject;
 
   // Intro HTML.

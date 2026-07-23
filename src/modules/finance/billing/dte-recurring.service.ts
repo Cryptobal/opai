@@ -397,10 +397,34 @@ export async function runTemplate(
     }
 
     const periodPolicy = (template.periodPolicy as PeriodPolicy) ?? "CURRENT_MONTH";
+
+    // Ancla = la ocurrencia que se está cumpliendo (nextRunAt), no hoy. Fallback
+    // a la primera ocurrencia (plantilla sin schedule) o hoy en último caso.
+    const issueAnchor = template.nextRunAt ?? computeNextRunAt(template) ?? new Date();
+    const issueDate = computeRecurringIssueYmd(template, issueAnchor);
+    // Período de caja = mes de SERVICIO (mes de la programación). Para
+    // DIA_ESPECIFICO/MES_SIGUIENTE la factura sale el mes siguiente pero factura
+    // el período del mes de la programación (igual que estadoPagoPeriodoMode=
+    // PREVIOUS). Anclar a nextRunAt lo hace robusto a runs atrasados.
+    const billingPeriod = `${issueAnchor.getUTCFullYear()}-${String(
+      issueAnchor.getUTCMonth() + 1,
+    ).padStart(2, "0")}`;
+
+    // Ancla del placeholder {{periodo}}: primer día (UTC) del mes de
+    // facturación. Anclar a billingPeriod (y NO a `new Date()`) hace que el
+    // {{periodo}} de las líneas sea determinístico e IDÉNTICO al período que
+    // el email/PDF de la proforma / estado de pago reconstruye desde
+    // billingPeriod + periodPolicy (ver build-billing-doc-props). Antes se
+    // usaba la fecha real de ejecución del cron, que en corridas atrasadas
+    // podía caer en otro mes que el rótulo del documento.
+    const periodAnchor = new Date(
+      Date.UTC(issueAnchor.getUTCFullYear(), issueAnchor.getUTCMonth(), 1),
+    );
+
     const ctx: PlaceholderContext = {
       ...buildContext({
         periodPolicy,
-        runDate: new Date(),
+        runDate: periodAnchor,
         uf:
           ufContextValue != null && ufContextDate != null
             ? { value: ufContextValue, date: ufContextDate }
@@ -417,17 +441,6 @@ export async function runTemplate(
     // pesos. Por eso no pasamos `ufOverride` — `computeDteAmounts` ve
     // currency=CLP y no intenta resolver UF (no hay UF "global" en este
     // modelo).
-    // Ancla = la ocurrencia que se está cumpliendo (nextRunAt), no hoy. Fallback
-    // a la primera ocurrencia (plantilla sin schedule) o hoy en último caso.
-    const issueAnchor = template.nextRunAt ?? computeNextRunAt(template) ?? new Date();
-    const issueDate = computeRecurringIssueYmd(template, issueAnchor);
-    // Período de caja = mes de SERVICIO (mes de la programación). Para
-    // DIA_ESPECIFICO/MES_SIGUIENTE la factura sale el mes siguiente pero factura
-    // el período del mes de la programación (igual que estadoPagoPeriodoMode=
-    // PREVIOUS). Anclar a nextRunAt lo hace robusto a runs atrasados.
-    const billingPeriod = `${issueAnchor.getUTCFullYear()}-${String(
-      issueAnchor.getUTCMonth() + 1,
-    ).padStart(2, "0")}`;
     const draft = await createDraftDte(
       tenantId,
       template.createdBy,
