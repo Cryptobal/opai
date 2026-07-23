@@ -76,7 +76,13 @@ export function CellLayersPopover({ state, canManage, onClose, onSetEndDate, onS
                 <li key={i} className="text-ds-text-2">
                   <div className="flex justify-between gap-2">
                     <span className="truncate">
-                      {it.kind === "dte" ? `F°${it.folio ?? "?"} · ` : "Prog · "}
+                      {it.kind === "dte"
+                        ? `F°${it.folio ?? "?"} · `
+                        : it.kind === "draft"
+                          ? it.proformaSent
+                            ? "EP enviado · "
+                            : "Borrador · "
+                          : "Prog · "}
                       {it.label}
                     </span>
                     <span className="shrink-0">{fmtClp(it.monto)}</span>

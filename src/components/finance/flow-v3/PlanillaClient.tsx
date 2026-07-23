@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, Power } from "lucide-react";
+import { ChevronLeft, ChevronRight, Info, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -15,6 +13,7 @@ import { usePlanillaMatrix } from "./usePlanillaMatrix";
 import { usePlanillaActions } from "./usePlanillaActions";
 import { anchorTargetWeek, PlanillaGrid, scrollToWeek } from "./PlanillaGrid";
 import { AddRowDialog } from "./AddRowDialog";
+import { LegendPopover } from "./LegendPopover";
 import { fmtClp, fmtShortDate } from "./format";
 
 const ZEROS_PREF_KEY = "opai-planilla-show-zeros";
@@ -25,17 +24,14 @@ const ZEROS_PREF_KEY = "opai-planilla-show-zeros";
  * todo el espacio restante. En mobile la ruta entra en "sheet focus" (ver
  * AppShell): topbar + hoja + bottom nav, nada más.
  */
-export function PlanillaClient({ canManage, flagOn }: { canManage: boolean; flagOn: boolean }) {
-  const router = useRouter();
+export function PlanillaClient({ canManage }: { canManage: boolean; flagOn?: boolean }) {
   const isMobile = useIsMobileViewport();
   const m = usePlanillaMatrix();
   const actions = usePlanillaActions(m.refetch);
   const [addOpen, setAddOpen] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
   const [archiving, setArchiving] = useState<FlowMatrixRowDto | null>(null);
   const [templateWarning, setTemplateWarning] = useState<string[] | null>(null);
-  const [enabled, setEnabled] = useState(flagOn);
-  const [togglingFlag, setTogglingFlag] = useState(false);
-  const [confirmFlag, setConfirmFlag] = useState<null | boolean>(null);
 
   // Filtro de ceros: filas sin ninguna capa en el horizonte van ocultas por
   // defecto; preferencia persistida por dispositivo.
@@ -103,31 +99,6 @@ export function PlanillaClient({ canManage, flagOn }: { canManage: boolean; flag
     return () => document.documentElement.classList.remove("sheet-focus-lock");
   }, []);
 
-  const toggleFlag = async (next: boolean) => {
-    setTogglingFlag(true);
-    try {
-      const res = await fetch("/api/finance/flow-v3/flag", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: next }),
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error ?? "Error");
-      setEnabled(json.data.enabled);
-      toast.success(
-        json.data.enabled
-          ? "Modo Planilla activado en la navegación"
-          : "Modo Planilla desactivado (volviste a la versión anterior)",
-      );
-      router.refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo cambiar el flag");
-    } finally {
-      setTogglingFlag(false);
-      setConfirmFlag(null);
-    }
-  };
-
   const doArchive = async () => {
     if (!archiving) return;
     const r = await actions.archiveRow(archiving.id);
@@ -189,24 +160,16 @@ export function PlanillaClient({ canManage, flagOn }: { canManage: boolean; flag
             <span className="ml-1 hidden lg:inline">Agregar concepto</span>
           </Button>
         )}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className={navBtn} aria-label="Más acciones">
-              <MoreHorizontal className="h-3.5 w-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            {canManage && (
-              <DropdownMenuItem disabled={togglingFlag} onSelect={() => setConfirmFlag(!enabled)}>
-                <Power className="mr-1.5 h-3.5 w-3.5" />
-                {enabled ? "Desactivar en navegación" : "Activar en navegación"}
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem onSelect={() => router.push("/finanzas/flujo-caja")}>
-              Abrir versión anterior
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button
+          variant="outline"
+          size="sm"
+          className={navBtn}
+          onClick={() => setLegendOpen(true)}
+          aria-label="Qué significan los colores"
+          title="Qué significan los colores"
+        >
+          <Info className="h-3.5 w-3.5" />
+        </Button>
         {/* Saldo / semana crítica como texto compacto (desktop; en mobile la
             fila sticky de Saldo acumulado cumple ese rol). */}
         {kpis && (
@@ -276,23 +239,7 @@ export function PlanillaClient({ canManage, flagOn }: { canManage: boolean; flag
         }}
       />
 
-      <ConfirmDialog
-        open={confirmFlag != null}
-        onOpenChange={(o) => !o && setConfirmFlag(null)}
-        variant="default"
-        title={confirmFlag ? "Activar Modo Planilla" : "Volver a la versión anterior"}
-        description={
-          confirmFlag
-            ? "La navegación 'Flujo de Caja' de todo el equipo apuntará a esta planilla. El módulo anterior seguirá accesible con un banner. Puedes revertirlo cuando quieras."
-            : "La navegación volverá al Flujo de Caja anterior. Esta planilla seguirá accesible por su URL directa y tus datos quedan intactos."
-        }
-        confirmLabel={confirmFlag ? "Activar" : "Desactivar"}
-        cancelLabel="Cancelar"
-        loading={togglingFlag}
-        onConfirm={() => {
-          if (confirmFlag != null) void toggleFlag(confirmFlag);
-        }}
-      />
+      <LegendPopover open={legendOpen} onOpenChange={setLegendOpen} />
     </div>
   );
 }

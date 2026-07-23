@@ -100,6 +100,7 @@ export async function loadCommittedIncome(
         totalAmount: true, receiverName: true,
         crmAccountId: true, installationId: true,
         recurringTemplateId: true, billingPeriod: true,
+        proformaStatus: true,
       },
     }),
     prisma.financeDteRecurringTemplate.findMany({
@@ -166,6 +167,8 @@ export async function loadCommittedIncome(
         receiverName: d.receiverName ?? "",
         crmAccountId: d.crmAccountId,
         installationId: d.installationId,
+        // Proforma/estado de pago ya enviada al cliente (distinción visual).
+        proformaSent: ["SENT", "VIEWED", "APPROVED"].includes(d.proformaStatus),
         templateEndDateYmd: tplEnd ? tplEnd.toISOString().slice(0, 10) : null,
         templateDiasCobro: diasCobroByTemplate.get(d.recurringTemplateId) ?? null,
       });

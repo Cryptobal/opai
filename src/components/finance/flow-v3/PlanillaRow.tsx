@@ -107,9 +107,18 @@ export function PlanillaRow(p: Props) {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
-                  <DropdownMenuItem onSelect={() => setRenaming(row.name)}>
-                    Renombrar
-                  </DropdownMenuItem>
+                  {/* El nombre de una fila asociada a cuenta/instalación,
+                      categoría o proveedor viene de esa fuente — renombrarla
+                      la desincronizaría. Solo las filas manuales se renombran. */}
+                  {row.mapping === "MANUAL" ? (
+                    <DropdownMenuItem onSelect={() => setRenaming(row.name)}>
+                      Renombrar
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem disabled className="text-ds-text-4">
+                      Nombre de {row.mapping === "ACCOUNT_INSTALLATION" ? "la cuenta" : row.mapping === "SUPPLIER" ? "el proveedor" : "la categoría"}
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     className="text-status-danger-fg"
                     onSelect={() => p.onArchive(row)}
