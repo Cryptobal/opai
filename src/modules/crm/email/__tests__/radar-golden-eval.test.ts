@@ -23,6 +23,7 @@ describe.skipIf(!RUN_EVAL)("Radar golden set eval (RADAR_EVAL=1)", () => {
       const { classifyThread } = await import("../radar-classify-ai");
       let categoryHits = 0;
       let intentHits = 0;
+      let verticalHits = 0;
       const failures: string[] = [];
       for (const example of RADAR_GOLDEN_SET) {
         const result = await classifyThread({
@@ -35,14 +36,19 @@ describe.skipIf(!RUN_EVAL)("Radar golden set eval (RADAR_EVAL=1)", () => {
         if (result?.categoria === example.expected.categoria) categoryHits += 1;
         else failures.push(`${example.id}: esperaba ${example.expected.categoria}, dio ${result?.categoria}`);
         if (result && example.expected.intencion.includes(result.intencion)) intentHits += 1;
+        if (result?.vertical === example.expected.vertical) verticalHits += 1;
+        else failures.push(`${example.id}: vertical esperaba ${example.expected.vertical}, dio ${result?.vertical}`);
       }
       const categoryAccuracy = categoryHits / RADAR_GOLDEN_SET.length;
       const intentAccuracy = intentHits / RADAR_GOLDEN_SET.length;
+      const verticalAccuracy = verticalHits / RADAR_GOLDEN_SET.length;
       console.log(
-        `[radar-eval] categoría=${categoryAccuracy.toFixed(2)} intención=${intentAccuracy.toFixed(2)}\n${failures.join("\n")}`,
+        `[radar-eval] categoría=${categoryAccuracy.toFixed(2)} intención=${intentAccuracy.toFixed(2)} vertical=${verticalAccuracy.toFixed(2)}\n${failures.join("\n")}`,
       );
       expect(categoryAccuracy).toBeGreaterThanOrEqual(CATEGORY_THRESHOLD);
       expect(intentAccuracy).toBeGreaterThanOrEqual(INTENT_THRESHOLD);
+      // A03: la vertical también tiene umbral (7 verticales + otro).
+      expect(verticalAccuracy).toBeGreaterThanOrEqual(0.75);
     },
     { timeout: 300_000 },
   );
@@ -58,6 +64,22 @@ describe("golden set — sanidad del fixture", () => {
     );
     const ids = new Set(RADAR_GOLDEN_SET.map((e) => e.id));
     expect(ids.size).toBe(RADAR_GOLDEN_SET.length);
+  });
+
+  it("cubre las 7 verticales v5 + otro (A03)", () => {
+    const verticales = new Set(RADAR_GOLDEN_SET.map((e) => e.expected.vertical));
+    expect(verticales).toEqual(
+      new Set([
+        "operaciones",
+        "rrhh",
+        "comercial",
+        "finanzas",
+        "cobranza",
+        "contratos",
+        "incidentes",
+        "otro",
+      ]),
+    );
   });
 
   it("incluye al menos un caso adversarial de prompt-injection", () => {

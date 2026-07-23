@@ -169,7 +169,8 @@ export async function runCorreoThreadAction(params: {
       });
       await prisma.crmEmailThread.update({
         where: { id: thread.id },
-        data: { isUnread: false },
+        // A02: sella la última lectura (resumen "qué pasó desde entonces").
+        data: { isUnread: false, lastReadAt: new Date() },
       });
       return { ok: true };
     }

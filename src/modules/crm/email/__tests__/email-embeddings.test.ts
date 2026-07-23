@@ -1,0 +1,99 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  embeddingsCreate: vi.fn(),
+  queryRawUnsafe: vi.fn(),
+  executeRawUnsafe: vi.fn(),
+  chunkFindMany: vi.fn(),
+  logAiUsage: vi.fn(),
+}));
+vi.mock("@/lib/openai", () => ({
+  openai: { embeddings: { create: mocks.embeddingsCreate } },
+}));
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    $queryRawUnsafe: mocks.queryRawUnsafe,
+    $executeRawUnsafe: mocks.executeRawUnsafe,
+    crmEmailChunk: { findMany: mocks.chunkFindMany },
+  },
+}));
+vi.mock("@/lib/platform-ai-service", () => ({ logAiUsage: mocks.logAiUsage }));
+
+import {
+  messagePlainText,
+  rankThreadsFromHits,
+  semanticSearchChunks,
+  splitEmailChunks,
+} from "../email-embeddings";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("messagePlainText", () => {
+  it("prefiere textBody y limpia espacios", () => {
+    expect(messagePlainText({ textBody: "  hola\n\nmundo ", htmlBody: null })).toBe("hola mundo");
+  });
+  it("cae a HTML sin tags ni estilos", () => {
+    expect(
+      messagePlainText({
+        textBody: null,
+        htmlBody: "<style>.x{color:red}</style><p>Hola <b>cliente</b>&nbsp;!</p>",
+      }),
+    ).toBe("Hola cliente !");
+  });
+});
+
+describe("splitEmailChunks", () => {
+  it("texto corto = un solo chunk; muy corto = ninguno", () => {
+    expect(splitEmailChunks("Necesitamos cotizar 4 guardias para la bodega.")).toHaveLength(1);
+    expect(splitEmailChunks("ok")).toHaveLength(0);
+  });
+  it("texto largo se parte con overlap", () => {
+    const text = Array.from({ length: 120 }, (_, i) => `Oración número ${i} del correo largo.`).join(" ");
+    const chunks = splitEmailChunks(text);
+    expect(chunks.length).toBeGreaterThan(1);
+    for (const chunk of chunks) expect(chunk.length).toBeLessThanOrEqual(1900);
+  });
+});
+
+describe("rankThreadsFromHits", () => {
+  it("rankea hilos por su mejor chunk (menor distancia)", () => {
+    const ranked = rankThreadsFromHits(
+      [
+        { threadId: "b", messageId: "m", content: "", distance: 0.4 },
+        { threadId: "a", messageId: "m", content: "", distance: 0.2 },
+        { threadId: "b", messageId: "m", content: "", distance: 0.1 },
+      ],
+      5,
+    );
+    expect(ranked).toEqual(["b", "a"]);
+  });
+});
+
+describe("semanticSearchChunks — aislamiento tenant (A07)", () => {
+  it("el retrieval SIEMPRE filtra por tenant_id y email_account_id", async () => {
+    mocks.embeddingsCreate.mockResolvedValue({
+      data: [{ embedding: [0.1, 0.2] }],
+      usage: { total_tokens: 8 },
+    });
+    mocks.queryRawUnsafe.mockResolvedValue([
+      { thread_id: "t1", message_id: "m1", content: "hola", distance: 0.12 },
+    ]);
+    const hits = await semanticSearchChunks({
+      tenantId: "tenant-1",
+      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      query: "quién pidió más guardias",
+    });
+    const [sql, , tenantArg, accountArg] = mocks.queryRawUnsafe.mock.calls[0];
+    expect(sql).toContain("tenant_id = $2");
+    expect(sql).toContain("email_account_id = $3::uuid");
+    expect(tenantArg).toBe("tenant-1");
+    expect(accountArg).toBe("00000000-0000-0000-0000-000000000001");
+    expect(hits[0]).toMatchObject({ threadId: "t1", distance: 0.12 });
+    // Costo de la query visible en logs de uso (A12).
+    expect(mocks.logAiUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ feature: "correo-semantic-query", tenantId: "tenant-1" }),
+    );
+  });
+});

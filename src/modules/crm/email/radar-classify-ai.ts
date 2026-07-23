@@ -1,6 +1,10 @@
 import { aiService } from "@/lib/ai-service";
 import { logAiUsage } from "@/lib/platform-ai-service";
-import type { RadarClassification, RadarCompromiso } from "./radar-types";
+import {
+  verticalFromLegacyCategoria,
+  type RadarClassification,
+  type RadarCompromiso,
+} from "./radar-types";
 import type { LeadFeedback } from "./radar-feedback";
 import { clampText } from "./radar-util";
 import { UNTRUSTED_RULES, wrapUntrusted } from "./ai-untrusted";
@@ -35,6 +39,18 @@ function logUsage(params: {
 
 const CATEGORIAS = ["cotizacion", "licitacion", "consulta_comercial", "facturacion", "operacional", "otro"];
 const INTENCIONES = ["alta", "media", "baja"];
+// A03 (v5): taxonomía vertical completa + urgencia/sentimiento.
+const VERTICALES = [
+  "operaciones",
+  "rrhh",
+  "comercial",
+  "finanzas",
+  "cobranza",
+  "contratos",
+  "incidentes",
+  "otro",
+];
+const SENTIMIENTOS = ["positivo", "neutral", "negativo"];
 
 function asStr(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -61,12 +77,23 @@ function normalizeCompromisos(v: unknown): RadarCompromiso[] {
 function normalize(raw: Record<string, unknown>): RadarClassification {
   const categoria = CATEGORIAS.includes(asStr(raw.categoria)) ? asStr(raw.categoria) : "otro";
   const intencion = INTENCIONES.includes(asStr(raw.intencion)) ? asStr(raw.intencion) : "baja";
+  // v5: si el modelo no da vertical válida, derivarla del mapeo legacy.
+  const vertical = VERTICALES.includes(asStr(raw.vertical))
+    ? asStr(raw.vertical)
+    : verticalFromLegacyCategoria(categoria as RadarClassification["categoria"]);
+  const urgencia = INTENCIONES.includes(asStr(raw.urgencia)) ? asStr(raw.urgencia) : "baja";
+  const sentimiento = SENTIMIENTOS.includes(asStr(raw.sentimiento))
+    ? asStr(raw.sentimiento)
+    : "neutral";
   const senales = Array.isArray(raw.senalesCompra)
     ? raw.senalesCompra.map((s) => clampText(asStr(s), 120)).filter(Boolean).slice(0, 6)
     : [];
   return {
     categoria: categoria as RadarClassification["categoria"],
     intencion: intencion as RadarClassification["intencion"],
+    vertical: vertical as RadarClassification["vertical"],
+    urgencia: urgencia as RadarClassification["urgencia"],
+    sentimiento: sentimiento as RadarClassification["sentimiento"],
     resumen: clampText(asStr(raw.resumen), 140),
     requiereRespuesta: raw.requiereRespuesta !== false,
     senalesCompra: senales,
@@ -98,10 +125,13 @@ export async function classifyThread(input: {
   hoyISO: string;
   examples?: LeadFeedback;
 }): Promise<RadarClassification | null> {
-  const prompt = `Eres un clasificador comercial de una empresa de seguridad privada en Chile. Clasifica el correo ENTRANTE de abajo. Responde SOLO un JSON válido con esta forma exacta:
-{"categoria":"cotizacion|licitacion|consulta_comercial|facturacion|operacional|otro","intencion":"alta|media|baja","resumen":"1 línea en español","requiereRespuesta":true,"senalesCompra":["pide plazos"],"compromisos":[{"quien":"cliente|nosotros","que":"...","fechaISO":"YYYY-MM-DD"}]}
+  const prompt = `Eres un clasificador de correos de una empresa de seguridad privada en Chile. Clasifica el correo ENTRANTE de abajo. Responde SOLO un JSON válido con esta forma exacta:
+{"categoria":"cotizacion|licitacion|consulta_comercial|facturacion|operacional|otro","vertical":"operaciones|rrhh|comercial|finanzas|cobranza|contratos|incidentes|otro","intencion":"alta|media|baja","urgencia":"alta|media|baja","sentimiento":"positivo|neutral|negativo","resumen":"1 línea en español","requiereRespuesta":true,"senalesCompra":["pide plazos"],"compromisos":[{"quien":"cliente|nosotros","que":"...","fechaISO":"YYYY-MM-DD"}]}
 Reglas:
-- intencion "alta" solo si hay interés comercial claro (pide cotización, precios, plazos, reunión).
+- vertical: el ÁREA del negocio a la que pertenece el correo. operaciones = turnos, dotación, pautas, coordinación diaria del servicio; rrhh = postulaciones, contratación de personal, licencias, finiquitos; comercial = cotizaciones, licitaciones, consultas de venta; finanzas = facturas, notas de crédito, estados de pago; cobranza = deudas, pagos atrasados, gestiones de cobro; contratos = renovaciones, términos, anexos, vigencias de contrato de servicio; incidentes = reclamos, robos, fallas graves del servicio, emergencias; otro = nada de lo anterior (newsletters, spam, personal).
+- intencion (comercial): "alta" solo si hay interés comercial claro (pide cotización, precios, plazos, reunión).
+- urgencia: qué tan pronto requiere acción, INDEPENDIENTE de la intención comercial (un reclamo grave es urgencia alta e intención baja).
+- sentimiento: tono del remitente hacia nosotros.
 - senalesCompra: frases breves que reflejen intención de compra; [] si no hay.
 - compromisos: promesas con fecha de cualquiera de las partes ("te confirmamos el jueves"); fechaISO absoluta (hoy es ${input.hoyISO}); [] si no hay.
 - resumen: máx 140 caracteres, sin saludos.${feedbackBlock(input.examples)}

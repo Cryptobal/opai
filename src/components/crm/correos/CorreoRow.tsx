@@ -137,6 +137,11 @@ export function CorreoRow({
           {thread.hasDraft && (
             <Tag variant="warn" size="sm" icon={Pencil}>Borrador</Tag>
           )}
+          {thread.aiVertical && thread.aiVertical !== "otro" && (
+            <Tag variant="neutral" size="sm">
+              {thread.aiVertical.charAt(0).toUpperCase() + thread.aiVertical.slice(1)}
+            </Tag>
+          )}
           {thread.leadId && (
             <Tag variant="ok" size="sm" icon={CheckCircle2}>Lead</Tag>
           )}

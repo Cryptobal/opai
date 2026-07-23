@@ -188,6 +188,19 @@ export async function syncGmailAccount(params: {
     });
   }
 
+  // Fase 3.6 — indexación incremental de embeddings (A07). Solo tras el
+  // backfill de correo (no embeber histórico sin opt-in) y con presupuesto
+  // corto; el histórico va por scripts/backfill-email-embeddings.ts.
+  const embedRemaining = globalDeadline - Date.now();
+  if (state.backfillDone && embedRemaining >= 3_000) {
+    const { indexRecentEmailMessages } = await import("./email-embeddings");
+    await indexRecentEmailMessages({
+      tenantId: params.tenantId,
+      emailAccountId: emailAccount.id,
+      deadline: Date.now() + Math.min(6_000, embedRemaining * 0.3),
+    });
+  }
+
   // Fase 4 — sweep global (solo TRASH/SPAM + refuerzo positivo) con throttle.
   let reconcile: "ok" | "partial" | "skipped" = "skipped";
   const sweepDue =

@@ -80,6 +80,7 @@ const THREAD_LIST_SELECT = {
   snoozedUntil: true,
   starredAt: true,
   spamAt: true,
+  aiVertical: true,
   isUnread: true,
   messages: {
     select: { fromEmail: true, textBody: true, htmlBody: true, isDraft: true },
@@ -103,10 +104,55 @@ export async function listCorreoThreads(params: {
   limit?: number;
   folder?: CorreoListFilter;
   q?: string | null;
+  /** A07: "buscar por significado" — retrieval vectorial en vez de operadores. */
+  semantic?: boolean;
+  /** A03: filtra por vertical de la clasificación v5. */
+  vertical?: string | null;
 }): Promise<{ items: CorreoThreadDTO[]; nextCursor: string | null }> {
   const limit = Math.min(Math.max(params.limit ?? 30, 1), 100);
   const cursorDate = params.cursor ? new Date(params.cursor) : null;
   const folder = params.folder ?? "inbox";
+
+  // Modo semántico: ranking por distancia (sin cursor — una sola página).
+  if (params.semantic && params.q?.trim()) {
+    const { semanticSearchChunks, rankThreadsFromHits } = await import(
+      "./email-embeddings"
+    );
+    const hits = await semanticSearchChunks({
+      tenantId: params.tenantId,
+      emailAccountId: params.emailAccountId,
+      query: params.q.trim(),
+      limit: 40,
+    });
+    const rankedIds = rankThreadsFromHits(hits, limit);
+    if (rankedIds.length === 0) return { items: [], nextCursor: null };
+    const [threads, company] = await Promise.all([
+      prisma.crmEmailThread.findMany({
+        where: {
+          tenantId: params.tenantId,
+          id: { in: rankedIds },
+          trashedAt: null,
+          spamAt: null,
+        },
+        select: THREAD_LIST_SELECT,
+      }),
+      getTenantCompanyConfig(params.tenantId),
+    ]);
+    const order = new Map(rankedIds.map((id, i) => [id, i]));
+    const sorted = threads.sort(
+      (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0),
+    );
+    return {
+      items: await mapThreadRowsInternal(
+        sorted,
+        params.tenantId,
+        company,
+        params.mailboxEmail,
+      ),
+      nextCursor: null,
+    };
+  }
+
   const parsedSearch = parseCorreoSearchQuery(params.q);
   // Pospuestos ordena por vencimiento ascendente (lo próximo a despertar
   // arriba); bajo búsqueda toda carpeta ordena por recencia.
@@ -120,6 +166,7 @@ export async function listCorreoThreads(params: {
           tenantId: params.tenantId,
           emailAccountId: params.emailAccountId,
           ...folderWhere(folder),
+          ...(params.vertical ? { aiVertical: params.vertical } : {}),
           ...(hasCursor && cursorDate
             ? isSnoozed
               ? { snoozedUntil: { gt: cursorDate } }
@@ -137,6 +184,7 @@ export async function listCorreoThreads(params: {
         emailAccountId: params.emailAccountId,
         parsed: parsedSearch,
         folder,
+        vertical: params.vertical ?? null,
         cursorDate: hasCursor ? cursorDate : null,
         take: limit + 1,
       }),
@@ -155,6 +203,55 @@ export async function listCorreoThreads(params: {
     getTenantCompanyConfig(params.tenantId),
   ]);
 
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const items = await mapThreadRowsInternal(
+    page,
+    params.tenantId,
+    company,
+    params.mailboxEmail,
+  );
+
+  const last = page[page.length - 1];
+  const nextCursor = hasMore
+    ? (isSnoozed ? last?.snoozedUntil : last?.lastMessageAt)?.toISOString() ?? null
+    : null;
+  return { items, nextCursor };
+}
+
+type ThreadRow = {
+  id: string;
+  subject: string;
+  accountId: string | null;
+  dealId: string | null;
+  leadId: string | null;
+  lastMessageAt: Date | null;
+  providerThreadId: string | null;
+  attachmentCount: number;
+  archivedAt: Date | null;
+  trashedAt: Date | null;
+  snoozedUntil: Date | null;
+  starredAt: Date | null;
+  spamAt: Date | null;
+  aiVertical: string | null;
+  isUnread: boolean;
+  messages: Array<{
+    fromEmail: string;
+    textBody: string | null;
+    htmlBody: string | null;
+    isDraft: boolean;
+  }>;
+  _count: { messages: number };
+};
+
+type CompanyConfig = Awaited<ReturnType<typeof getTenantCompanyConfig>>;
+
+async function mapThreadRowsInternal(
+  page: ThreadRow[],
+  tenantId: string,
+  company: CompanyConfig,
+  mailboxEmail?: string | null,
+): Promise<CorreoThreadDTO[]> {
   const tenantDomains = new Set<string>();
   for (const e of [
     company.emailFromAddress,
@@ -167,23 +264,21 @@ export async function listCorreoThreads(params: {
     const d = domainOf(e);
     if (d) tenantDomains.add(d);
   }
-  const mailboxDom = domainOf(params.mailboxEmail ?? null);
+  const mailboxDom = domainOf(mailboxEmail ?? null);
   if (mailboxDom && !isPublicMailDomain(mailboxDom)) tenantDomains.add(mailboxDom);
 
-  const hasMore = rows.length > limit;
-  const page = hasMore ? rows.slice(0, limit) : rows;
   const accountIds = Array.from(new Set(page.map((r) => r.accountId).filter(Boolean) as string[]));
   const dealIds = Array.from(new Set(page.map((r) => r.dealId).filter(Boolean) as string[]));
   const [accounts, deals] = await Promise.all([
     accountIds.length
       ? prisma.crmAccount.findMany({
-          where: { tenantId: params.tenantId, id: { in: accountIds } },
+          where: { tenantId, id: { in: accountIds } },
           select: { id: true, name: true },
         })
       : [],
     dealIds.length
       ? prisma.crmDeal.findMany({
-          where: { tenantId: params.tenantId, id: { in: dealIds } },
+          where: { tenantId, id: { in: dealIds } },
           select: { id: true, title: true },
         })
       : [],
@@ -191,7 +286,7 @@ export async function listCorreoThreads(params: {
   const accMap = new Map(accounts.map((a) => [a.id, a.name]));
   const dealMap = new Map(deals.map((d) => [d.id, d.title]));
 
-  const items: CorreoThreadDTO[] = page.map((r) => {
+  return page.map((r) => {
     const msg = r.messages[0];
     const from = msg?.fromEmail ?? null;
     // Solo keywords comerciales en el asunto. Un adjunto por sí solo NO es
@@ -224,12 +319,7 @@ export async function listCorreoThreads(params: {
       starredAt: r.starredAt?.toISOString() ?? null,
       spamAt: r.spamAt?.toISOString() ?? null,
       hasDraft: Boolean(msg?.isDraft),
+      aiVertical: r.aiVertical,
     };
   });
-
-  const last = page[page.length - 1];
-  const nextCursor = hasMore
-    ? (isSnoozed ? last?.snoozedUntil : last?.lastMessageAt)?.toISOString() ?? null
-    : null;
-  return { items, nextCursor };
 }

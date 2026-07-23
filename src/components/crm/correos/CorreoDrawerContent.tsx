@@ -11,6 +11,8 @@ import { LeadFromEmailPanel } from "./LeadFromEmailPanel";
 import { SuggestedReplyPanel } from "./SuggestedReplyPanel";
 import { CorreoThreadActions } from "./CorreoThreadActions";
 import { CorreoContactPanel } from "./CorreoContactPanel";
+import { CorreoSummaryPanel } from "./CorreoSummaryPanel";
+import { CorreoLinksPanel } from "./CorreoLinksPanel";
 import { EmailComposer } from "./EmailComposer";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 
@@ -111,6 +113,10 @@ export function CorreoDrawerContent({
       )}
       {/* P11: ficha del contacto asociado + últimas conversaciones. */}
       <CorreoContactPanel key={`contact-${detail.thread.id}`} threadId={detail.thread.id} />
+      {/* A01/A02: resúmenes on-demand del hilo. */}
+      <CorreoSummaryPanel key={`summary-${detail.thread.id}`} threadId={detail.thread.id} />
+      {/* O01-O04: panel operacional — entidades vinculadas + sugerencia IA. */}
+      <CorreoLinksPanel key={`links-${detail.thread.id}`} threadId={detail.thread.id} />
       <CorreoMessages messages={detail.messages} />
       <CorreoAttachments
         items={detail.attachments}
