@@ -15,8 +15,15 @@ function fmtDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" }) : "";
 }
 
+type ImagePrefs = {
+  alwaysShowImages?: boolean;
+  onAlwaysShowImages?: () => void;
+};
+
 /** Tarjeta de mensaje: cabecera siempre visible (tap = abrir/cerrar) + cuerpo. */
-function MessageCard({ m, open, onToggle }: { m: CorreoMessageDTO; open: boolean; onToggle: () => void }) {
+function MessageCard({
+  m, open, onToggle, alwaysShowImages, onAlwaysShowImages,
+}: { m: CorreoMessageDTO; open: boolean; onToggle: () => void } & ImagePrefs) {
   const who = m.direction === "out" ? m.toEmails[0] || "—" : m.fromEmail;
   const Chevron = open ? ChevronDown : ChevronRight;
   return (
@@ -55,7 +62,12 @@ function MessageCard({ m, open, onToggle }: { m: CorreoMessageDTO; open: boolean
               </p>
             )}
           </div>
-          <EmailHtmlBody htmlBody={m.htmlBody} textBody={m.textBody} />
+          <EmailHtmlBody
+            htmlBody={m.htmlBody}
+            textBody={m.textBody}
+            defaultShowImages={alwaysShowImages}
+            onAlwaysShowImages={onAlwaysShowImages}
+          />
         </div>
       )}
     </div>
@@ -63,7 +75,9 @@ function MessageCard({ m, open, onToggle }: { m: CorreoMessageDTO; open: boolean
 }
 
 /** Cadena del hilo: por defecto el último abierto; todos se abren y cierran. */
-export function CorreoMessages({ messages }: { messages: CorreoMessageDTO[] }) {
+export function CorreoMessages({
+  messages, alwaysShowImages, onAlwaysShowImages,
+}: { messages: CorreoMessageDTO[] } & ImagePrefs) {
   const lastId = messages[messages.length - 1]?.id;
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(lastId ? [lastId] : []));
   if (messages.length === 0) {
@@ -80,7 +94,8 @@ export function CorreoMessages({ messages }: { messages: CorreoMessageDTO[] }) {
   return (
     <div className="space-y-2">
       {messages.map((m) => (
-        <MessageCard key={m.id} m={m} open={expanded.has(m.id)} onToggle={() => toggle(m.id)} />
+        <MessageCard key={m.id} m={m} open={expanded.has(m.id)} onToggle={() => toggle(m.id)}
+          alwaysShowImages={alwaysShowImages} onAlwaysShowImages={onAlwaysShowImages} />
       ))}
     </div>
   );

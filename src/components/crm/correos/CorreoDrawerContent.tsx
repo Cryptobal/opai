@@ -50,6 +50,8 @@ type Props = {
   onClose?: () => void;
   onReply?: () => void;
   onSnooze?: () => void;
+  alwaysShowImages?: boolean;
+  onAlwaysShowImages?: () => void;
 };
 
 export function CorreoDrawerContent({
@@ -62,6 +64,8 @@ export function CorreoDrawerContent({
   onClose,
   onReply,
   onSnooze,
+  alwaysShowImages,
+  onAlwaysShowImages,
 }: Props) {
   const [forwardOpen, setForwardOpen] = useState(false);
   const gmailUrl = detail.thread.providerThreadId
@@ -107,7 +111,11 @@ export function CorreoDrawerContent({
         </div>
       )}
       {/* EL CORREO al frente. */}
-      <CorreoMessages messages={detail.messages} />
+      <CorreoMessages
+        messages={detail.messages}
+        alwaysShowImages={alwaysShowImages}
+        onAlwaysShowImages={onAlwaysShowImages}
+      />
       <CorreoAttachments
         items={detail.attachments}
         threadId={detail.thread.id}

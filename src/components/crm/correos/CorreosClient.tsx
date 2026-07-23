@@ -788,6 +788,8 @@ export function CorreosClient() {
           onResizeReset={resetPanelWidth}
           desktopMode="split"
           manageBackHistory={false}
+          alwaysShowImages={alwaysShowImages}
+          onAlwaysShowImages={() => setAlwaysShowImages(true)}
           onClose={closeThread}
           onChanged={() => void fetchPage(null, true)} />
       </div>
