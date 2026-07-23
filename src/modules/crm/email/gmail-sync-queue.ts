@@ -20,11 +20,21 @@ export const GMAIL_SYNC_PARK_THRESHOLD = Math.max(
 
 /** true si la casilla tiene un dead letter sin resolver (job aparcado). */
 export async function isGmailSyncParked(emailAccountId: string): Promise<boolean> {
+  return (await getGmailSyncParkedInfo(emailAccountId)).parked;
+}
+
+/** Estado de parking + motivo (recortado) para diagnóstico en la UI: sin
+ *  esto, "pausada por errores repetidos" no dice QUÉ falla y la reconexión
+ *  a ciegas no resuelve nada. */
+export async function getGmailSyncParkedInfo(
+  emailAccountId: string,
+): Promise<{ parked: boolean; reason: string | null }> {
   const parked = await prisma.crmEmailSyncDeadLetter.findFirst({
     where: { emailAccountId, resolvedAt: null },
-    select: { id: true },
+    select: { reason: true },
   });
-  return Boolean(parked);
+  if (!parked) return { parked: false, reason: null };
+  return { parked: true, reason: parked.reason?.slice(0, 240) ?? null };
 }
 
 /**

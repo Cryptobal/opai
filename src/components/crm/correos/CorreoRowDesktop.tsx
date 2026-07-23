@@ -2,6 +2,7 @@
 
 import { Paperclip, Star } from "lucide-react";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
+import { CorreoCheckbox } from "./CorreoCheckbox";
 import { CorreoSenderAvatar } from "./CorreoSenderAvatar";
 import { parseSender } from "./correo-sender";
 import { relativeTime } from "./CorreoRow";
@@ -57,13 +58,10 @@ export function CorreoRowDesktop({
       } ${unread && !selected ? "bg-ds-surface-2/40" : ""}`}
     >
       {onToggleCheck && (
-        <input
-          type="checkbox"
+        <CorreoCheckbox
           checked={Boolean(checked)}
           onChange={onToggleCheck}
-          onClick={(e) => e.stopPropagation()}
-          aria-label={`Seleccionar ${subject}`}
-          className="h-4 w-4 shrink-0 cursor-pointer accent-[hsl(var(--primary))]"
+          ariaLabel={`Seleccionar ${subject}`}
         />
       )}
       {canModify && (

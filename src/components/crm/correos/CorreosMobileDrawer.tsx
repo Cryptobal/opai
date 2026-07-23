@@ -3,7 +3,7 @@
 import { useRef, type ReactNode } from "react";
 import {
   AlignJustify, CalendarClock, Clock, Inbox, Mail, Pencil, RefreshCw, Send,
-  ShieldAlert, SlidersHorizontal, Star, Trash2, Wifi, WifiOff, X,
+  Settings, ShieldAlert, Star, Trash2, Wifi, WifiOff, X,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -133,6 +133,16 @@ export function CorreosMobileDrawer({
               <span className="min-w-0 flex-1 truncate">{label}</span>
             </Item>
           ))}
+
+          {onOpenSwipeSettings && (
+            <>
+              <SectionTitle>Configuración</SectionTitle>
+              <Item onClick={pick(onOpenSwipeSettings)}>
+                <Settings className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 flex-1 truncate">Gestos de deslizar</span>
+              </Item>
+            </>
+          )}
         </nav>
 
         <div className="mt-2 border-t border-ds-border-subtle px-2 pb-3 pt-1">
@@ -149,12 +159,6 @@ export function CorreosMobileDrawer({
             <span className="min-w-0 flex-1 truncate">Densidad</span>
             <span className="text-[12px] text-ds-text-4">{previewLines} {previewLines === 1 ? "línea" : "líneas"}</span>
           </Item>
-          {onOpenSwipeSettings && (
-            <Item onClick={pick(onOpenSwipeSettings)}>
-              <SlidersHorizontal className="h-4 w-4 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">Gestos de deslizar</span>
-            </Item>
-          )}
         </div>
       </div>
     </div>

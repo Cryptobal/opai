@@ -98,7 +98,9 @@ export function CorreoThreadActions({
         title="Eliminar"
         onClick={() => {
           if (drawer) return closeAfter("trash", "Movido a la Papelera");
-          if (confirm("¿Mover a la Papelera de Gmail?")) act("trash", "Movido a la Papelera");
+          // Sin confirm(): como Gmail, la papelera es directa y el toast
+          // ofrece Deshacer (unarchive restaura a bandeja).
+          act("trash", "Movido a la Papelera", "unarchive");
         }}
       >
         <Trash2 className="h-4 w-4" />
