@@ -34,9 +34,21 @@ export const TODAY_COL = "border-l-2 border-l-primary";
 export const REAL_CELL =
   "bg-status-ok-soft/60 before:absolute before:left-[3px] before:top-1/2 before:-translate-y-1/2 before:h-[3px] before:w-[3px] before:rounded-full before:bg-primary/70 before:content-['']";
 
-/** Celda con COMPROMETIDO: fondo info suave + borde inferior punteado. */
-export const COMMITTED_CELL =
+/** Comprometido con factura EMITIDA (folio): fondo info + borde SÓLIDO. */
+export const COMMITTED_DTE_CELL =
+  "bg-status-info-soft/50 border-b-status-info-border";
+
+/** Cuota PROGRAMADA aún no generada: fondo info + borde punteado. */
+export const COMMITTED_SCHEDULED_CELL =
   "bg-status-info-soft/50 border-b-status-info-border [border-bottom-style:dotted]";
+
+/** BORRADOR real sin enviar: fondo warn + borde punteado. */
+export const COMMITTED_DRAFT_CELL =
+  "bg-status-warn-soft/50 border-b-status-warn-border [border-bottom-style:dotted]";
+
+/** Borrador con PROFORMA/estado de pago enviado: fondo warn + borde sólido. */
+export const COMMITTED_PROFORMA_CELL =
+  "bg-status-warn-soft/50 border-b-status-warn-border";
 
 export const SELECTED_CELL = "outline outline-1 -outline-offset-1 outline-primary";
 

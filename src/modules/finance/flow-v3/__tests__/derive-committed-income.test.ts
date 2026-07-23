@@ -120,7 +120,7 @@ describe("deriveCommittedIncome — programaciones", () => {
     expect(cells?.get("2026-10-05")?.total).toBe(500_000);
   });
 
-  it("borrador de programación entra como scheduled con su monto real", () => {
+  it("borrador de programación entra como draft con su monto real", () => {
     const out = deriveCommittedIncome({
       ...base,
       drafts: [{
@@ -131,7 +131,20 @@ describe("deriveCommittedIncome — programaciones", () => {
     });
     const cell = out.get("row-a")?.get("2026-08-31");
     expect(cell?.total).toBe(700_000);
-    expect(cell?.items[0]).toMatchObject({ kind: "scheduled", dteId: "draft-1", templateId: "tpl-2" });
+    expect(cell?.items[0]).toMatchObject({ kind: "draft", dteId: "draft-1", templateId: "tpl-2", proformaSent: false });
+  });
+
+  it("borrador con estado de pago enviado marca proformaSent", () => {
+    const out = deriveCommittedIncome({
+      ...base,
+      drafts: [{
+        id: "draft-2", templateId: "tpl-2", dateYmd: "2026-08-01", totalClp: 500_000,
+        receiverName: "Cliente A", crmAccountId: "acc-A", installationId: null,
+        proformaSent: true, templateEndDateYmd: null,
+      }],
+    });
+    const cell = out.get("row-a")?.get("2026-08-31");
+    expect(cell?.items[0]).toMatchObject({ kind: "draft", proformaSent: true });
   });
 });
 

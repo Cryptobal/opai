@@ -7,7 +7,11 @@
  */
 
 export interface CommittedItem {
-  kind: "dte" | "scheduled";
+  /** dte = factura EMITIDA · draft = borrador (aún sin folio) · scheduled =
+   *  cuota programada todavía no generada. */
+  kind: "dte" | "draft" | "scheduled";
+  /** Solo kind=draft: la proforma/estado de pago ya fue enviada al cliente. */
+  proformaSent?: boolean;
   dteId?: string;
   templateId?: string;
   folio?: number;

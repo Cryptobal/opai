@@ -1,3 +1,8 @@
+// v13 (2026-07-23): bumped tras FC-01.2 de la planilla (planilla como única
+// vista de Flujo de Caja, /finanzas/flujo-caja redirige, Cuentas deja de
+// rebotar, capas borrador/EP/programada con leyenda, filas asociadas sin
+// rename, ingreso manual sin cuenta).
+//
 // v12 (2026-07-23): bumped tras FC-01.1 de la planilla de flujo de caja
 // (planilla default en la nav, anclaje en semana anterior, filas más altas,
 // peek del concepto y candado de scroll móvil). v11 fue el bump de FC-01
@@ -31,7 +36,7 @@
 // ChunkLoadError → global-error.tsx ("Algo salió mal") en el portal del
 // guardia (y resto de portales) sin que refrescar lo arreglara, porque
 // el navigate handler nunca refrescaba la cache (ver fix abajo).
-const CACHE_NAME = 'opai-v12';
+const CACHE_NAME = 'opai-v13';
 
 // Endpoints de autenticación/sesión que NUNCA deben pasar por la cache del
 // SW. Si una respuesta antigua quedara cacheada, el cliente podría ver una

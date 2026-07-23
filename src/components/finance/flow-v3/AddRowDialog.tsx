@@ -28,6 +28,8 @@ export function AddRowDialog({ open, onOpenChange, busy, onCreate }: Props) {
   const [installationId, setInstallationId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [manual, setManual] = useState(false);
+  // Ingreso asociado a una cuenta CRM (default) o manual/libre (sin cuenta).
+  const [linkAccount, setLinkAccount] = useState(true);
   const [name, setName] = useState("");
 
   useEffect(() => {
@@ -63,8 +65,11 @@ export function AddRowDialog({ open, onOpenChange, busy, onCreate }: Props) {
     [categories],
   );
 
+  // Ingreso: asociado a cuenta (default) o manual (libre, sin cuenta).
+  const incomeLinked = isIncome && linkAccount;
+
   const autoName = useMemo(() => {
-    if (isIncome && accountId) {
+    if (incomeLinked && accountId) {
       const acc = accounts.find((a) => a.id === accountId)?.label ?? "";
       const inst = installations.find((i) => i.id === installationId)?.label;
       return inst ? `${acc} · ${inst}` : acc;
@@ -73,20 +78,22 @@ export function AddRowDialog({ open, onOpenChange, busy, onCreate }: Props) {
       return categories.find((c) => c.id === categoryId)?.name ?? "";
     }
     return "";
-  }, [isIncome, accountId, installationId, accounts, installations, manual, categoryId, categories]);
+  }, [incomeLinked, isIncome, accountId, installationId, accounts, installations, manual, categoryId, categories]);
 
   const finalName = name.trim() || autoName;
   const canSubmit =
     finalName.length > 0 &&
-    (isIncome ? !!accountId : manual ? true : !!categoryId) &&
+    (isIncome ? (linkAccount ? !!accountId : true) : manual ? true : !!categoryId) &&
     !busy;
 
   const submit = async () => {
     const body = isIncome
-      ? {
-          section, name: finalName, mapping: "ACCOUNT_INSTALLATION",
-          crmAccountId: accountId, installationId: installationId || null,
-        }
+      ? incomeLinked
+        ? {
+            section, name: finalName, mapping: "ACCOUNT_INSTALLATION",
+            crmAccountId: accountId, installationId: installationId || null,
+          }
+        : { section, name: finalName, mapping: "MANUAL" }
       : manual
         ? { section, name: finalName, mapping: "MANUAL" }
         : { section, name: finalName, mapping: "CATEGORY", categoryId };
@@ -115,14 +122,27 @@ export function AddRowDialog({ open, onOpenChange, busy, onCreate }: Props) {
 
           {isIncome ? (
             <>
-              <div className="space-y-1 text-xs text-ds-text-3">
-                <span>Cuenta CRM</span>
-                <SearchableSelect value={accountId} options={accounts} placeholder="Buscar cliente…" onChange={setAccountId} />
-              </div>
-              <div className="space-y-1 text-xs text-ds-text-3">
-                <span>Instalación (opcional: sin instalación = fila genérica de la cuenta)</span>
-                <SearchableSelect value={installationId} options={installations} placeholder="Todas las instalaciones" onChange={setInstallationId} disabled={!accountId} />
-              </div>
+              <label className="flex items-center gap-2 text-xs text-ds-text-2">
+                <input type="checkbox" checked={linkAccount} onChange={(e) => setLinkAccount(e.target.checked)} />
+                Asociar a una cuenta CRM (recomendado: cruza facturas y cobros)
+              </label>
+              {linkAccount ? (
+                <>
+                  <div className="space-y-1 text-xs text-ds-text-3">
+                    <span>Cuenta CRM</span>
+                    <SearchableSelect value={accountId} options={accounts} placeholder="Buscar cliente…" onChange={setAccountId} />
+                  </div>
+                  <div className="space-y-1 text-xs text-ds-text-3">
+                    <span>Instalación (opcional: sin instalación = fila genérica de la cuenta)</span>
+                    <SearchableSelect value={installationId} options={installations} placeholder="Todas las instalaciones" onChange={setInstallationId} disabled={!accountId} />
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-ds-text-4">
+                  Ingreso manual sin cuenta: lo proyectas tú a mano en la planilla
+                  (no se cruza con facturas ni programaciones).
+                </p>
+              )}
             </>
           ) : (
             <>

@@ -30,17 +30,12 @@ export default async function BancosPage({
     redirect("/finanzas/rendiciones");
   }
 
-  // Por preferencia del usuario (2026-05-14): la landing del módulo Banca es
-  // Flujo de Caja. Entradas con `?tab=...` (header strip de Banca) o
-  // `?txId=...` (deep-link desde DTE conciliado) siguen rindiendo /bancos
-  // para mostrar el sub-tab solicitado. Solo redirigimos si el usuario
-  // efectivamente puede ver flujo-caja; un rol con banking_view pero sin
-  // cashflow_view aterriza acá igual (si no, flujo-caja lo botaría a
-  // /finanzas y quedaría sin entrada al módulo).
+  // "Cuentas y cartolas" (N3 de Banca) aterriza acá y muestra las cuentas
+  // bancarias y sus movimientos. Antes redirigía a Flujo de Caja (landing
+  // histórica), pero con la planilla como su propia entrada de nav ese
+  // redirect dejaba "Cuentas" inservible (bounce a una página lenta). El
+  // deep-link `?tab=`/`?txId=` sigue funcionando como antes.
   const sp = await searchParams;
-  if (!sp.tab && !sp.txId && hasCapability(perms, "cashflow_view")) {
-    redirect("/finanzas/flujo-caja");
-  }
 
   const tenantId = session.user.tenantId;
   const canManage = hasCapability(perms, "banking_manage");

@@ -274,3 +274,35 @@ financiera ni migraciones.
    documento arrastraba toolbar y encabezados) + candado `sheet-focus-lock`
    (html/body overflow hidden bajo lg mientras la planilla está montada).
    Verificado: `docScrollable=false`, headers/toolbar inmóviles.
+
+### FC-01.2 — Feedback de producción #2 (2026-07-23)
+
+1. **"Cuentas" no cargaba**: `/finanzas/bancos` (item N3 "Cuentas y cartolas")
+   redirigía a `/finanzas/flujo-caja` (la grilla v2, lenta) en vez de mostrar
+   las cuentas → bounce a una página que a veces caía al offline-fallback del
+   SW. Se eliminó ese redirect: la página muestra cuentas + Movimientos.
+2. **Versión antigua eliminada de la navegación**: `/finanzas/flujo-caja`
+   ahora solo `redirect()` a `/finanzas/flujo-caja/planilla`. El registro de
+   nav dejó una sola entrada de Flujo de Caja (sin el gemelo legacy ni el flag
+   `cashflowPlanillaLegacy`); la toolbar perdió el toggle de flag. El módulo
+   v2 (CashflowGrid, projection, auto-sync) queda como código muerto sin ruta
+   de navegación (su borrado físico es un cleanup posterior — algunos
+   servicios como weekly-close se reusarán en FC-05).
+3. **Perf del matrix**: el cómputo de payroll por instalación pasó de
+   secuencial (N × varios round-trips) a `Promise.all`. Se agregó log de
+   latencia `[Finance/FlowV3] matrix <ms>` para observar tenants lentos en
+   Vercel.
+4. **Capas del comprometido, con leyenda**: se separó el "comprometido" (antes
+   todo azul) en cuatro sub-estados por prioridad, con chip y color propios:
+   factura emitida (azul sólido, folio) · programada sin documento (azul
+   punteado, «P») · estado de pago/proforma enviado (ámbar sólido, «EP») ·
+   borrador sin enviar (ámbar punteado, «B»). Real (pagado) sigue verde, Plan
+   sin fondo. Botón ⓘ en la toolbar abre la leyenda. Nuevo `kind:"draft"` con
+   `proformaSent` derivado de `FinanceDte.proformaStatus`.
+5. **Filas asociadas no se renombran**: solo las filas `MANUAL` permiten
+   renombrar; las de cuenta/categoría/proveedor muestran el origen del nombre
+   deshabilitado (renombrarlas las desincronizaría de su fuente).
+6. **Ingreso sin cuenta**: "Agregar concepto" en INGRESOS ahora tiene un
+   checkbox "Asociar a una cuenta CRM" (default ON). Al desmarcarlo se crea un
+   ingreso `MANUAL` (libre, sin cuenta), como pidió el owner. El backend ya lo
+   permitía (zod INGRESOS+MANUAL); faltaba la opción en el diálogo.

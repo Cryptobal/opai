@@ -99,10 +99,15 @@ export async function loadCommittedExpense(
   ]);
 
   // ── Hitos payroll (dotación planificada, mismos cómputos del módulo viejo) ──
+  // En PARALELO: secuencial eran N instalaciones × varios round-trips cada una
+  // (el hotspot de latencia del matrix en tenants reales). El pool de Prisma
+  // serializa por sobre connection_limit; Promise.all solo satura el pool.
   let liquidoTotal = 0;
   let previRedTotal = 0;
-  for (const inst of installations) {
-    const r = await computeMonthlyPayrollForInstallation(tenantId, inst.id);
+  const payrollByInst = await Promise.all(
+    installations.map((inst) => computeMonthlyPayrollForInstallation(tenantId, inst.id)),
+  );
+  for (const r of payrollByInst) {
     if (r) {
       liquidoTotal += r.liquido;
       previRedTotal += r.previRed;

@@ -203,33 +203,21 @@ describe("nav registry", () => {
     const finance = NAV_MODULES.find((m) => m.key === "finance")!;
     const banca = finance.children!.find((c) => c.key === "finance-banca")!;
 
-    it("finance-banca tiene N3 (flujo-caja / conciliación / cuentas)", () => {
+    it("finance-banca tiene N3 (flujo-caja planilla / conciliación / cuentas)", () => {
       const childKeys = (banca.children ?? []).map((c) => c.key);
-      // banca-flujo-planilla y banca-flujo-caja son gemelos excluyentes por el
-      // flag opt-out cashflowPlanillaLegacy: solo uno es visible a la vez.
+      // La planilla es la ÚNICA entrada de Flujo de Caja (sin gemelo legacy).
       expect(childKeys).toEqual([
         "banca-flujo-planilla",
-        "banca-flujo-caja",
         "banca-conciliacion",
         "banca-cuentas",
       ]);
     });
 
-    it("los gemelos de Flujo de Caja se excluyen mutuamente por flag (planilla default)", () => {
+    it("Flujo de Caja apunta a la planilla", () => {
       const planilla = banca.children!.find((c) => c.key === "banca-flujo-planilla")!;
-      const viejo = banca.children!.find((c) => c.key === "banca-flujo-caja")!;
-      const permsAny = {} as never;
-      const sinFlags = { hasTenantFlag: () => false } as never;
-      const legacy = { hasTenantFlag: (f: string) => f === "cashflowPlanillaLegacy" } as never;
-      // Default (sin flag): la planilla es la ruta principal.
-      expect(planilla.show!(permsAny, sinFlags)).toBe(true);
-      expect(viejo.show!(permsAny, sinFlags)).toBe(false);
-      // Rollback explícito (cashflowPlanillaLegacy): vuelve el módulo viejo.
-      expect(planilla.show!(permsAny, legacy)).toBe(false);
-      expect(viejo.show!(permsAny, legacy)).toBe(true);
-      // Sin ctx (superficies sin flag): default planilla.
-      expect(planilla.show!(permsAny, undefined)).toBe(true);
-      expect(viejo.show!(permsAny, undefined)).toBe(false);
+      expect(planilla.href).toBe("/finanzas/flujo-caja/planilla");
+      // Sin gate por flag: siempre visible con la capability.
+      expect(planilla.show).toBeUndefined();
     });
 
     it("findActiveModule resuelve finance para /finanzas/flujo-caja", () => {
@@ -262,7 +250,7 @@ describe("nav registry", () => {
     it("getContextualBottomNavNodes devuelve Banca N3 para rutas de Banca", () => {
       for (const r of ["/finanzas/bancos", "/finanzas/flujo-caja", "/finanzas/conciliacion"]) {
         const keys = getContextualBottomNavNodes(r).map((n) => n.key);
-        expect(keys).toContain("banca-flujo-caja");
+        expect(keys).toContain("banca-flujo-planilla");
         expect(keys).toContain("banca-conciliacion");
         expect(keys).toContain("banca-cuentas");
       }

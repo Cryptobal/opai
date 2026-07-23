@@ -2,6 +2,8 @@
  * Derivador COMPROMETIDO · ingresos (función pura, cero writes).
  *
  * Capas que produce por fila ACCOUNT_INSTALLATION:
+ *  0. kind="draft": borradores reales de programación (con proformaSent si el
+ *     estado de pago ya se envió al cliente).
  *  1. kind="dte": DTEs emitidos (33/34) no pagados → semana de cobro estimada
  *     (dueDate ?? emisión+30d), clampeada a la semana actual si ya venció.
  *  2. kind="scheduled": borradores de programación (DRAFT con template) y
@@ -46,6 +48,8 @@ export interface ScheduledDraftInput {
   receiverName: string;
   crmAccountId: string | null;
   installationId: string | null;
+  /** Proforma/estado de pago ya enviada al cliente. */
+  proformaSent?: boolean;
   templateEndDateYmd: string | null;
   templateDiasCobro?: number | null;
 }
@@ -120,7 +124,10 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
     const { week, fecha } = collectionWeek(est, args.todayYmd);
     if (!inRange(week) || dr.totalClp <= 0) continue;
     pushCommitted(out, matchRow(dr.crmAccountId, dr.installationId), week, {
-      kind: "scheduled",
+      // Borrador real (ocupa el período de su template) — distinto de una
+      // cuota proyectada: tiene documento y puede llevar proforma enviada.
+      kind: "draft",
+      proformaSent: dr.proformaSent === true,
       dteId: dr.id,
       templateId: dr.templateId,
       label: dr.receiverName,

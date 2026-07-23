@@ -469,14 +469,14 @@ export const NAV_MODULES: NavNode[] = [
         module: "finance",
         submodule: "contabilidad",
         show: (perms) => hasCapability(perms, "banking_view"),
-        // Rutas hermanas planas que pertenecen a Banca (histórico: /bancos
-        // redirige a /flujo-caja como landing; ver bancos/page.tsx).
+        // Rutas hermanas planas que pertenecen a Banca. /finanzas/flujo-caja
+        // (ruta histórica que ahora redirige a la planilla) se mantiene para
+        // que el breadcrumb resuelva durante el redirect.
         activePaths: ["/finanzas/flujo-caja", "/finanzas/conciliacion"],
         children: [
-          // Flujo de Caja: el Modo Planilla v3 es la ruta principal POR
-          // DEFECTO. El flag cashflowPlanillaLegacy (opt-out) devuelve la nav
-          // al módulo anterior como rollback; el módulo viejo sigue accesible
-          // por ruta directa con banner "versión anterior" (flujo-caja/page).
+          // Flujo de Caja: el Modo Planilla es la ÚNICA vista del producto.
+          // La ruta histórica /finanzas/flujo-caja redirige acá; su grilla v2
+          // ya no tiene entrada de navegación (decisión del owner 2026-07-23).
           {
             key: "banca-flujo-planilla",
             href: "/finanzas/flujo-caja/planilla",
@@ -484,16 +484,6 @@ export const NAV_MODULES: NavNode[] = [
             shortLabel: "Flujo",
             icon: TrendingUp,
             capability: "cashflow_view",
-            show: (_perms, ctx) => ctx?.hasTenantFlag?.("cashflowPlanillaLegacy") !== true,
-          },
-          {
-            key: "banca-flujo-caja",
-            href: "/finanzas/flujo-caja",
-            label: "Flujo de Caja",
-            shortLabel: "Flujo",
-            icon: TrendingUp,
-            capability: "cashflow_view",
-            show: (_perms, ctx) => ctx?.hasTenantFlag?.("cashflowPlanillaLegacy") === true,
           },
           {
             key: "banca-conciliacion",

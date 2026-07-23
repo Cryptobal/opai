@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: issues }, { status: 400 });
     }
 
+    const t0 = Date.now();
     const data = await buildFlowMatrix(guard.ctx.tenantId, {
       from: parsed.data.from,
       to: parsed.data.to,
@@ -31,6 +32,10 @@ export async function GET(request: NextRequest) {
       // esté; nunca provocan escrituras desde este GET.
       allowBootstrap: guard.canManage,
     });
+    // Latencia observable en logs de Vercel (diagnóstico de tenants lentos).
+    console.log(
+      `[Finance/FlowV3] matrix ${Date.now() - t0}ms cols=${data.columns.length} rows=${data.rows.length}`,
+    );
     return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error("[Finance/FlowV3] GET matrix:", error);
