@@ -142,7 +142,9 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
         ))}
       </div>
 
-      {/* Mobile: accesos directos visibles (sin pill único que esconda todo) */}
+      {/* Mobile: accesos directos como pills compactos y monocromos.
+          Un solo acento por pantalla: el badge de no leídos en Correos —
+          nada de superficies grandes en verde (diseño aprobado en mockup). */}
       <div className="lg:hidden">
         <div
           className={cn(
@@ -153,10 +155,10 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
           {hasAgenda && (
             <Link
               href="/opai/agenda"
-              className="flex h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl border border-primary/40 bg-primary/10 text-primary transition-colors active:scale-[0.98] hover:bg-primary/15"
+              className="flex h-11 min-w-0 items-center justify-center gap-1 rounded-full border border-border/60 bg-muted/30 px-1 text-foreground transition-colors active:scale-[0.98] hover:bg-muted/50"
             >
-              <CalendarDays className="h-5 w-5" />
-              <span className="max-w-full truncate px-1 text-[12px] font-semibold leading-tight">
+              <CalendarDays className="hidden h-4 w-4 shrink-0 opacity-80 min-[370px]:block" />
+              <span className="min-w-0 truncate text-[13px] font-semibold">
                 Calendario
               </span>
             </Link>
@@ -164,20 +166,20 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
           {hasAgenda && (
             <Link
               href="/crm/correos"
-              className="relative flex h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl border border-border/60 bg-muted/30 text-foreground transition-colors active:scale-[0.98] hover:bg-muted/50"
+              className="flex h-11 min-w-0 items-center justify-center gap-1 rounded-full border border-border/60 bg-muted/30 px-1 text-foreground transition-colors active:scale-[0.98] hover:bg-muted/50"
             >
+              <Mail className="hidden h-4 w-4 shrink-0 opacity-80 min-[370px]:block" />
+              <span className="min-w-0 truncate text-[13px] font-semibold">
+                Correos
+              </span>
               {unreadCount > 0 && (
                 <span
                   aria-label={`${unreadCount} correos sin leer`}
-                  className="absolute right-2 top-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[12px] font-bold leading-none text-primary-foreground"
+                  className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1 text-[12px] font-bold leading-none text-primary-foreground"
                 >
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}
-              <Mail className="h-5 w-5" />
-              <span className="max-w-full truncate px-1 text-[12px] font-semibold leading-tight">
-                Correos
-              </span>
             </Link>
           )}
           {sheetActions.length > 0 && (
@@ -185,10 +187,10 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
               type="button"
               onClick={() => setOpen(true)}
               aria-label={`Crear (${sheetActions.length} acciones)`}
-              className="flex h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl border border-border/60 bg-muted/30 text-foreground transition-colors active:scale-[0.98] hover:bg-muted/50"
+              className="flex h-11 min-w-0 items-center justify-center gap-1 rounded-full border border-border/60 bg-muted/30 px-1 text-foreground transition-colors active:scale-[0.98] hover:bg-muted/50"
             >
-              <Plus className="h-5 w-5" />
-              <span className="max-w-full truncate px-1 text-[12px] font-semibold leading-tight">
+              <Plus className="hidden h-4 w-4 shrink-0 opacity-80 min-[370px]:block" />
+              <span className="min-w-0 truncate text-[13px] font-semibold">
                 Crear
               </span>
             </button>
