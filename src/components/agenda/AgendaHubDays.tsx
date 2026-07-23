@@ -5,7 +5,9 @@ import { ymdInChile } from "@/lib/dates-cl";
 import { agendaItemDayKey } from "./agenda-calendar-utils";
 import { type HubAgendaItem, hhmm } from "./agenda-hub-item";
 
-/** Grilla de próximos días del hub (hoy+1 en adelante), con eventos Google. */
+/** Grilla de próximos días del hub (hoy+1 en adelante), con eventos Google.
+ *  Solo desktop (≥ sm): en móvil la tarjeta usa AgendaHubUpcomingList (lista
+ *  vertical) — las mini-columnas eran ilegibles entre 320 y 430 px. */
 export function AgendaHubDays({
   items,
   days,
@@ -16,12 +18,12 @@ export function AgendaHubDays({
   expanded: boolean;
 }) {
   return (
-    <div className={`grid gap-2 ${expanded ? "grid-cols-2 sm:grid-cols-7" : "grid-cols-3"}`}>
+    <div className={`hidden gap-2 sm:grid ${expanded ? "sm:grid-cols-7" : "sm:grid-cols-3"}`}>
       {days.slice(1).map((d) => {
         const dayKey = ymdInChile(d);
         const dayItems = items.filter((i) => agendaItemDayKey(i) === dayKey);
         return (
-          <div key={dayKey} className="rounded-xl border border-ds-border-subtle p-2">
+          <div key={dayKey} className="min-w-0 rounded-xl border border-ds-border-subtle p-2">
             <p className="mb-1 text-[12px] font-medium text-ds-text-3">
               {d.toLocaleDateString("es-CL", {
                 weekday: "short",

@@ -274,6 +274,14 @@ describe("nav registry", () => {
       expect(keys).toContain("hub-finance");
     });
 
+    it("hub children están todos ocultos del bottom nav (bottom bar global en /hub)", () => {
+      // El selector móvil (HubMobileViewPicker) y el ModuleSubNav desktop
+      // siguen consumiendo estos hijos; solo el bottom nav los excluye.
+      for (const node of getContextualBottomNavNodes("/hub")) {
+        expect(node.hideInBottomNav, `${node.key} debe tener hideInBottomNav`).toBe(true);
+      }
+    });
+
     it("returns Pautas children for /ops/pauta-mensual", () => {
       const nodes = getContextualBottomNavNodes("/ops/pauta-mensual");
       const keys = nodes.map((n) => n.key);
