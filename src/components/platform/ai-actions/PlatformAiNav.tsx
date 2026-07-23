@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Brain, ListChecks, BarChart3 } from "lucide-react";
+import { ListChecks, BarChart3 } from "lucide-react";
 
 const AI_NAV = [
-  { href: "/platform/settings/ai", label: "Proveedor", icon: Brain },
   { href: "/platform/ai/usage", label: "Consumo", icon: BarChart3 },
   { href: "/platform/ai/actions", label: "Acciones", icon: ListChecks },
 ];
