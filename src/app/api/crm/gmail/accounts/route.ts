@@ -30,7 +30,7 @@ export const maxDuration = 30;
  * revocación igual (el stop queda corriendo en background, como antes). */
 const STOP_WATCH_TIMEOUT_MS = 8_000;
 
-export async function GET(request: NextRequest) {
+export async function GET(request?: NextRequest) {
   const modCheck = await requireTenantModule("crm");
   if (!modCheck.authorized) return modCheck.response;
 
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
   // C08: `?aliases=1` — anota cada casilla PROPIA activa con sus aliases
   // sendAs (cacheados con TTL) para el selector de identidad del composer.
-  const withAliases = request.nextUrl.searchParams.get("aliases") === "1";
+  const withAliases = request?.nextUrl?.searchParams.get("aliases") === "1";
 
   const elevated = isAdminRole(ctx.userRole);
   const accounts = await prisma.crmEmailAccount.findMany({

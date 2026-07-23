@@ -1,3 +1,8 @@
+// v9 (2026-07-23): bumped tras las Olas 2-3 de correo (búsqueda server-side,
+// outbox con deshacer/programar, composer Tiptap unificado con drafts,
+// carpetas nuevas, bulk+teclado, offline deliberado con IndexedDB). Purga
+// HTML/chunks v8 en PWAs de larga vida.
+//
 // v8 (2026-07-23): bumped tras la Ola 1 de correo (bloqueo de imágenes,
 // iframe sandbox, typeahead de destinatarios, push de correo nuevo, badge).
 // Fuerza el update del SW en PWAs de larga vida (iOS standalone que solo
@@ -15,7 +20,7 @@
 // ChunkLoadError → global-error.tsx ("Algo salió mal") en el portal del
 // guardia (y resto de portales) sin que refrescar lo arreglara, porque
 // el navigate handler nunca refrescaba la cache (ver fix abajo).
-const CACHE_NAME = 'opai-v8';
+const CACHE_NAME = 'opai-v9';
 
 // Endpoints de autenticación/sesión que NUNCA deben pasar por la cache del
 // SW. Si una respuesta antigua quedara cacheada, el cliente podría ver una
