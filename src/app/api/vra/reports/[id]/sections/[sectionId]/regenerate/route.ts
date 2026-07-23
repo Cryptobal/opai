@@ -104,7 +104,7 @@ Devuelve SOLO el JSON con la estructura adecuada al outputType.`;
     });
 
     const t0 = Date.now();
-    const contentJson = await aiService.generateJSON(prompt, 4096, { tenantId: ctx.tenantId });
+    const contentJson = await aiService.generateJSON(prompt, 4096, { tenantId: ctx.tenantId, feature: "vra_section_regenerate" });
 
     logAiUsage({
       tenantId: ctx.tenantId,

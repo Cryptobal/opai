@@ -214,7 +214,7 @@ export async function generateProposalAIContent(
   tenantId?: string,
 ): Promise<ProposalAIContent> {
   const prompt = input.institutional ? buildInstitutionalPrompt(input) : buildPrompt(input);
-  const raw = await aiService.generateJSON(prompt, 4096, tenantId ? { tenantId } : undefined);
+  const raw = await aiService.generateJSON(prompt, 4096, tenantId ? { tenantId, feature: "proposal-content" } : undefined);
 
   const obj = raw as Record<string, unknown>;
   const descripcionBreve = String(obj.descripcionBreve ?? '').trim();

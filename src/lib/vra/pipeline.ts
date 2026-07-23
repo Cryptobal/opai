@@ -74,7 +74,7 @@ Vulnerabilidades disponibles para vincular: ${vulnerabilityKeys.join(", ")}`;
         [mimeType],
         prompt,
         { maxTokens: 1024, modelOverride: VRA_VISION_MODEL_OVERRIDE },
-        { tenantId },
+        { tenantId, feature: "vra_vision" },
       )) as VraPhotoAnalysis;
 
       results.set(photo.id, {
@@ -196,7 +196,7 @@ REGLAS DE CALIDAD CRÍTICAS:
 - Devolver SOLO el JSON, sin código markdown ni explicaciones adicionales.`;
 
   const t0 = Date.now();
-  const result = (await aiService.generateJSON(prompt, 4096, { tenantId })) as VraSectionContent;
+  const result = (await aiService.generateJSON(prompt, 4096, { tenantId, feature: "vra_section" })) as VraSectionContent;
   const durationMs = Date.now() - t0;
 
   logAiUsage({

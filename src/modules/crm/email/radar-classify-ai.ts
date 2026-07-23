@@ -144,6 +144,7 @@ ${wrapUntrusted(
   try {
     const raw = (await aiService.generateJSONWithModel(prompt, "gpt-4o-mini", 500, {
       tenantId: input.tenantId,
+      feature: "correo-radar-classify",
     })) as Record<string, unknown>;
     logUsage({
       tenantId: input.tenantId,
@@ -175,6 +176,7 @@ ${wrapUntrusted(
   try {
     const txt = await aiService.generateText(prompt, { maxTokens: 40, temperature: 0.3 }, {
       tenantId: input.tenantId,
+      feature: "correo-radar-next-step",
     });
     logUsage({
       tenantId: input.tenantId,
@@ -213,6 +215,7 @@ ${wrapUntrusted(
   try {
     const txt = await aiService.generateText(prompt, { maxTokens: 300, temperature: 0.4 }, {
       tenantId: input.tenantId,
+      feature: "correo-suggest-reply",
     });
     logUsage({
       tenantId: input.tenantId,

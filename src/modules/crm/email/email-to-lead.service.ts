@@ -343,8 +343,8 @@ export async function extractLeadFromThread(params: {
   const startedAt = Date.now();
   try {
     raw = (att.images.length
-      ? await aiService.generateFromImages(att.images, att.imageMimes, prompt, { maxTokens: 2800 }, { tenantId })
-      : await aiService.generateJSON(prompt, 2800, { tenantId })) as Record<string, unknown>;
+      ? await aiService.generateFromImages(att.images, att.imageMimes, prompt, { maxTokens: 2800 }, { tenantId, feature: "correo-email-to-lead" })
+      : await aiService.generateJSON(prompt, 2800, { tenantId, feature: "correo-email-to-lead" })) as Record<string, unknown>;
     logAiUsage({
       tenantId,
       providerType: "openai",

@@ -8,6 +8,9 @@
 import { prisma } from "@/lib/prisma";
 import { decryptApiKey } from "@/lib/ai-encryption";
 import { KNOWN_PROVIDERS } from "@/lib/ai-known-models";
+import { computeCostUSD } from "@/lib/ai-pricing";
+import { moduleForFeature } from "@/lib/ai/ai-feature-modules";
+import { getTenantAiRouting } from "@/lib/ai/tenant-ai-routing";
 
 export type PlatformAIConfig = {
   providerType: string;
@@ -86,15 +89,19 @@ export async function getPlatformAIConfig(): Promise<PlatformAIConfig | null> {
 
 /**
  * Resuelve la config de IA para un tenant específico.
- * Política:
+ * Política (SIN fallback de plataforma — evita que OPAI costee la IA de un
+ * tenant que no configuró la suya):
  *   1. Si el tenant tiene un TenantAiProvider activo con apiKey y modelo → usar ese.
- *   2. Si no → caer al provider de plataforma (getPlatformAIConfig).
- *   3. Si tampoco → null.
+ *   2. Si no → null (el feature debe degradar con "IA no configurada").
+ *
+ * El proveedor de plataforma (getPlatformAIConfig) queda reservado para usos
+ * propios de la plataforma (ej: chatbot de marketing), nunca para cubrir a un
+ * tenant sin configurar.
  */
 export async function getAIConfigForTenant(
   tenantId: string,
 ): Promise<PlatformAIConfig | null> {
-  if (!tenantId) return getPlatformAIConfig();
+  if (!tenantId) return null;
 
   try {
     const provider = await prisma.tenantAiProvider.findFirst({
@@ -137,7 +144,57 @@ export async function getAIConfigForTenant(
     );
   }
 
-  return getPlatformAIConfig();
+  return null;
+}
+
+/**
+ * Resuelve la config de IA para un tenant + feature específico, aplicando el
+ * ruteo por categoría (`ai.routing`). Política:
+ *   1. Determinar la categoría del feature.
+ *   2. Si el tenant tiene un override para esa categoría y el proveedor sigue
+ *      configurado (apiKey) → usar ese proveedor + modelo.
+ *   3. Si no hay override (o el proveedor ruteado ya no existe) → proveedor por
+ *      defecto del tenant (getAIConfigForTenant).
+ *   4. Sin proveedor del tenant → null (NO se cae a la plataforma).
+ */
+export async function getAIConfigForFeature(
+  tenantId: string,
+  feature?: string,
+): Promise<PlatformAIConfig | null> {
+  if (!tenantId) return null;
+
+  const moduleId = moduleForFeature(feature);
+  const routing = await getTenantAiRouting(tenantId);
+  const route = routing[moduleId];
+
+  if (route) {
+    try {
+      const provider = await prisma.tenantAiProvider.findFirst({
+        where: { tenantId, providerType: route.providerType, apiKey: { not: null } },
+        include: { models: { where: { modelId: route.modelId }, take: 1 } },
+      });
+      if (provider?.apiKey) {
+        const fallbackUrl =
+          KNOWN_PROVIDERS.find((kp) => kp.providerType === provider.providerType)
+            ?.defaultBaseUrl ?? "";
+        return {
+          providerType: provider.providerType,
+          modelId: route.modelId,
+          apiKey: decryptApiKey(provider.apiKey),
+          baseUrl: provider.baseUrl || fallbackUrl,
+          displayName: provider.models[0]?.displayName ?? route.modelId,
+        };
+      }
+      // El proveedor ruteado ya no está disponible → cae al default del tenant.
+    } catch (error) {
+      console.warn(
+        "[platform-ai-service] Error resolviendo ruteo por feature:",
+        error,
+      );
+    }
+  }
+
+  return getAIConfigForTenant(tenantId);
 }
 
 /* ── Usage logging ── */
@@ -233,4 +290,148 @@ export async function getUsageStats(filters: UsageFilter = {}): Promise<UsageSta
     totalTokens: g._sum.totalTokens ?? 0,
     totalCost: g._sum.estimatedCost ?? 0,
   }));
+}
+
+/* ── Usage summary (con costo estimado por tarifario) ── */
+
+export type UsageRow = {
+  key: string;
+  label: string;
+  sublabel?: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  costUSD: number;
+  /** false cuando el modelo no está tarifado (costo no estimable). */
+  priced: boolean;
+};
+
+export type UsageSummary = {
+  totals: {
+    requests: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    costUSD: number;
+    /** Requests cuyo modelo no tiene tarifa conocida (costo subestimado). */
+    unpricedRequests: number;
+  };
+  byFeature: UsageRow[];
+  byModel: UsageRow[];
+  byTenant: UsageRow[];
+};
+
+/**
+ * Resumen de consumo de IA con costo estimado a partir del tarifario
+ * (`ai-pricing.ts`). Agrupa por (tenant, feature, modelo, proveedor) en una
+ * sola consulta y consolida en cortes por feature, modelo y tenant.
+ */
+export async function getUsageSummary(filters: UsageFilter = {}): Promise<UsageSummary> {
+  const where: Record<string, unknown> = {};
+  if (filters.tenantId) where.tenantId = filters.tenantId;
+  if (filters.feature) where.feature = filters.feature;
+  if (filters.from || filters.to) {
+    where.createdAt = {
+      ...(filters.from ? { gte: filters.from } : {}),
+      ...(filters.to ? { lte: filters.to } : {}),
+    };
+  }
+
+  const grouped = await prisma.aiUsageLog.groupBy({
+    by: ["tenantId", "feature", "model", "providerType"],
+    where,
+    _count: { id: true },
+    _sum: { inputTokens: true, outputTokens: true, totalTokens: true },
+  });
+
+  const totals = {
+    requests: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    totalTokens: 0,
+    costUSD: 0,
+    unpricedRequests: 0,
+  };
+
+  const featureMap = new Map<string, UsageRow>();
+  const modelMap = new Map<string, UsageRow>();
+  const tenantMap = new Map<string, UsageRow>();
+
+  const bump = (
+    map: Map<string, UsageRow>,
+    key: string,
+    label: string,
+    sublabel: string | undefined,
+    g: (typeof grouped)[number],
+    cost: { usd: number; priced: boolean },
+  ) => {
+    const input = g._sum.inputTokens ?? 0;
+    const output = g._sum.outputTokens ?? 0;
+    const total = g._sum.totalTokens ?? input + output;
+    const existing = map.get(key);
+    if (existing) {
+      existing.requests += g._count.id;
+      existing.inputTokens += input;
+      existing.outputTokens += output;
+      existing.totalTokens += total;
+      existing.costUSD += cost.usd;
+      existing.priced = existing.priced && cost.priced;
+    } else {
+      map.set(key, {
+        key,
+        label,
+        sublabel,
+        requests: g._count.id,
+        inputTokens: input,
+        outputTokens: output,
+        totalTokens: total,
+        costUSD: cost.usd,
+        priced: cost.priced,
+      });
+    }
+  };
+
+  for (const g of grouped) {
+    const input = g._sum.inputTokens ?? 0;
+    const output = g._sum.outputTokens ?? 0;
+    const total = g._sum.totalTokens ?? input + output;
+    const cost = computeCostUSD(g.model, input, output);
+
+    totals.requests += g._count.id;
+    totals.inputTokens += input;
+    totals.outputTokens += output;
+    totals.totalTokens += total;
+    totals.costUSD += cost.usd;
+    if (!cost.priced) totals.unpricedRequests += g._count.id;
+
+    bump(featureMap, g.feature, g.feature, undefined, g, cost);
+    bump(modelMap, `${g.providerType}:${g.model}`, g.model, g.providerType, g, cost);
+    bump(tenantMap, g.tenantId ?? "—", g.tenantId ?? "Sin tenant", undefined, g, cost);
+  }
+
+  // Enriquecer nombres de tenant.
+  const tenantIds = Array.from(tenantMap.keys()).filter((id) => id !== "—");
+  if (tenantIds.length > 0) {
+    const tenants = await prisma.tenant.findMany({
+      where: { id: { in: tenantIds } },
+      select: { id: true, name: true, slug: true },
+    });
+    for (const t of tenants) {
+      const row = tenantMap.get(t.id);
+      if (row) {
+        row.label = t.name;
+        row.sublabel = t.slug;
+      }
+    }
+  }
+
+  const byCost = (a: UsageRow, b: UsageRow) => b.costUSD - a.costUSD || b.totalTokens - a.totalTokens;
+
+  return {
+    totals,
+    byFeature: Array.from(featureMap.values()).sort(byCost),
+    byModel: Array.from(modelMap.values()).sort(byCost),
+    byTenant: Array.from(tenantMap.values()).sort(byCost),
+  };
 }

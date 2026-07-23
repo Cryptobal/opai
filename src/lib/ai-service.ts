@@ -7,7 +7,7 @@
 
 import {
   getPlatformAIConfig,
-  getAIConfigForTenant,
+  getAIConfigForFeature,
 } from "@/lib/platform-ai-service";
 import { AIError, classifyProviderError } from "@/lib/ai-errors";
 import { modelBelongsToProvider } from "@/lib/ai-model-match";
@@ -19,14 +19,20 @@ export type AIConfig = {
   baseUrl: string;
 };
 
+/**
+ * Contexto de una llamada de IA. `feature` habilita el ruteo por categoría
+ * (cada tenant puede elegir proveedor+modelo por categoría de feature).
+ */
+export type AIContext = { tenantId?: string; feature?: string };
+
 export class AIService {
   /**
    * Returns the currently active platform-level provider + default model
    * config, or null if no provider is configured.
    */
-  async getActiveConfig(ctx?: { tenantId?: string }): Promise<AIConfig | null> {
+  async getActiveConfig(ctx?: AIContext): Promise<AIConfig | null> {
     const cfg = ctx?.tenantId
-      ? await getAIConfigForTenant(ctx.tenantId)
+      ? await getAIConfigForFeature(ctx.tenantId, ctx.feature)
       : await getPlatformAIConfig();
     if (!cfg) {
       console.warn("[ai-service] No AI provider configured for ctx", ctx);
@@ -46,7 +52,7 @@ export class AIService {
   async generateJSON(
     prompt: string,
     maxTokens?: number,
-    ctx?: { tenantId?: string },
+    ctx?: AIContext,
   ): Promise<object> {
     const config = await this.getActiveConfig(ctx);
     if (!config) throw new AIError("AI_NOT_CONFIGURED", "No hay un proveedor de IA configurado.");
@@ -76,7 +82,7 @@ export class AIService {
     pdfBase64: string,
     prompt: string,
     maxTokens?: number,
-    ctx?: { tenantId?: string },
+    ctx?: AIContext,
   ): Promise<object> {
     const config = await this.getActiveConfig(ctx);
     if (!config) throw new AIError("AI_NOT_CONFIGURED", "No hay un proveedor de IA configurado.");
@@ -121,7 +127,7 @@ export class AIService {
   async generateText(
     prompt: string,
     opts?: { maxTokens?: number; temperature?: number },
-    ctx?: { tenantId?: string },
+    ctx?: AIContext,
   ): Promise<string> {
     const config = await this.getActiveConfig(ctx);
     if (!config) throw new AIError("AI_NOT_CONFIGURED", "No hay un proveedor de IA configurado.");
@@ -155,7 +161,7 @@ export class AIService {
     mimeTypes: string[],
     prompt: string,
     opts?: { maxTokens?: number; modelOverride?: string },
-    ctx?: { tenantId?: string },
+    ctx?: AIContext,
   ): Promise<object> {
     if (images.length === 0) throw new AIError("AI_INPUT_INVALID", "No hay imágenes para analizar.");
     if (images.length !== mimeTypes.length) {
@@ -204,7 +210,7 @@ export class AIService {
     prompt: string,
     modelOverride: string,
     maxTokens?: number,
-    ctx?: { tenantId?: string },
+    ctx?: AIContext,
   ): Promise<object> {
     const config = await this.getActiveConfig(ctx);
     if (!config) throw new AIError("AI_NOT_CONFIGURED", "No hay un proveedor de IA configurado.");
