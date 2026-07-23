@@ -44,6 +44,7 @@ export {
 export { SubNav, type SubNavItem } from "./SubNav";
 export { SwipeTabs, type SwipeTabsProps, type SwipeTabItem } from "./SwipeTabs";
 export { ModuleSubNav, type ModuleSubNavProps } from "./ModuleSubNav";
+export { TopbarSubNav } from "./TopbarSubNav";
 export { FxIndicator } from "./FxIndicator";
 export { PageToolbar, type PageToolbarProps } from "./PageToolbar";
 export { KPIStrip, type KPIStripProps, type KPIStripItem, type KPIStripVariant } from "./KPIStrip";

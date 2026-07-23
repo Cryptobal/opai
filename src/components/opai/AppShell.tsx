@@ -26,7 +26,7 @@ import {
   FxIndicator,
   GlassAmbient,
   IslandActionProvider,
-  ModuleSubNav,
+  TopbarSubNav,
 } from '@/components/opai-ds';
 import { resolveNavContext } from '@/lib/nav/resolve-context';
 
@@ -198,10 +198,12 @@ function AppShellInner({
             anyPanelOpen && 'right-[400px]',
           )}>
             {/* Zona de tabs: siempre ocupa el espacio disponible (aunque
-                ModuleSubNav devuelva null en rutas sin N3) para empujar el
-                clúster derecho al borde. */}
+                TopbarSubNav devuelva null en rutas sin secciones) para empujar
+                el clúster derecho al borde. TopbarSubNav resuelve una sola fila:
+                secciones del módulo, o selector N2 + tabs N3 en módulos de 3
+                niveles (Finanzas, Ops). */}
             <div className="flex-1 min-w-0 flex items-stretch overflow-hidden pl-3">
-              <ModuleSubNav appearance="topbar" className="flex-1 min-w-0" />
+              <TopbarSubNav className="flex-1 min-w-0" />
             </div>
             {/* Clúster derecho: FX → buscar → acciones. Nunca se comprime. */}
             <div className="flex items-center gap-2 pl-3 pr-4 shrink-0 border-l border-ds-border-subtle">
