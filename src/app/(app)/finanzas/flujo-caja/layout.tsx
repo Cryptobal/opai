@@ -10,7 +10,9 @@ export default async function FlujoCajaLayout({ children }: { children: ReactNod
   const perms = await resolvePagePerms(session.user);
   if (!hasCapability(perms, "cashflow_view")) redirect("/finanzas");
   return (
-    <div className="space-y-4 min-w-0">
+    // sheet-focus-flat: ver AppShell — en el modo hoja móvil de la planilla se
+    // anulan los espaciadores; las demás páginas de flujo-caja no cambian.
+    <div className="space-y-4 min-w-0 sheet-focus-flat">
       <ModuleSubNav moduleKey="finance-banca" />
       {children}
     </div>

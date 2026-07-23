@@ -127,9 +127,11 @@ Diferencias esperadas (explicar, no "corregir" el nuevo para calzar):
   config (default $8M). SALDO ACUMULADO ámbar bajo ese valor, rojo bajo 0.
 - **F3 Rellenar a la derecha**: seleccionar celda editable → **Ctrl/Cmd+D** →
   diálogo con monto y N semanas → un solo POST bulk-fill (monto 0 borra).
-- **F4 Mobile**: bajo 768px la planilla carga 3 columnas (semana anterior ·
+- **F4 Mobile**: ~~bajo 768px la planilla carga 3 columnas (semana anterior ·
   actual · próxima), primera columna 120px, y el **swipe** horizontal navega
-  ±1 semana. Sin scroll horizontal.
+  ±1 semana. Sin scroll horizontal.~~ **Superseded por FC-01 (2026-07-23)**:
+  móvil carga el mismo horizonte que desktop y navega con scroll nativo (ver
+  §6).
 - **F5 Turnos extra comprometidos**: TE con `status=approved` y `paidAt=null`
   aparecen agregados en la fila "Turnos extra" (semana actual, item
   "Turnos extra por pagar (N aprobados)"). Los TE futuros/estimados siguen
@@ -162,3 +164,92 @@ Checklist adicional:
 `npx vitest run src/modules/finance/flow-v3` → 46 tests (weeks, rows/plan
 services, derivadores ingreso/egreso/real/TE, ensamblador y mensual).
 Gate por bloque: `npx prisma generate && npx tsc --noEmit` ✅ en B0–B10.
+
+---
+
+## 6. FC-01 — Hoja de cálculo operativa: shell focus + renderer (2026-07-23)
+
+Primera fase del brief "Flujo de Caja como planilla" (branch
+`claude/ejecuta-esto-1y39mj`). Solo shell + renderer; sin cambios de semántica
+financiera ni migraciones.
+
+### Qué cambió
+
+- **Sheet focus móvil (route-scoped)**: `AppShell` marca
+  `data-layout-mode="sheet-focus"` en `/finanzas/flujo-caja/planilla`. En
+  `< lg`: sin `AutoBreadcrumbs`, sin padding horizontal, sin `overflow-x-clip`
+  sobre el grid y sin banners del shell (`[data-app-banner]`); los layouts de
+  Finanzas/flujo-caja aplanan sus espaciadores (`.sheet-focus-flat`). Se
+  conservan topbar liquid glass, `BottomNav` + orbe y safe areas. Desktop
+  intacto (sidebar/topbar/breadcrumbs).
+- **Anatomía de planilla**: gutter fijo con números de fila (correlativo de la
+  hoja renderizada, incluye secciones y resumen), fila sticky de letras
+  (A = Concepto, B… semanas, AA tras Z — helper `column-letter.ts` con tests),
+  fila de mes/año y fila fusionada `S## · fecha inicio`. Esquina y sticky
+  compuesto con z-index 40/30/20/10 (sin parpadeos en scroll diagonal).
+- **Geometría por CSS variables** (`--plnx-*` en `globals.css`, scope
+  `.planilla-sheet`): desktop fila 22px / concepto 200px / semana 86px /
+  gutter 38px; teléfonos gutter 28px, concepto 100px, semana
+  `(100vw−128px)/4` (Concepto + 4 semanas exactas en el primer viewport) y
+  fila `clamp(13px…18px)` derivada de `100dvh`, safe areas y
+  `--bottom-nav-height` (46 filas de hoja = 3 headers + 43 filas en Pro Max).
+- **Un solo horizonte lógico**: móvil = desktop (hoy−4sem → +12m, 57 columnas
+  ≤ 60). Sin swipe-refetch ni `max-md:overflow-x-hidden`: scroll nativo con
+  momentum; `‹ ›` desplazan 4 (móvil) / 8 (desktop) columnas por scroll y solo
+  desplazan la ventana (un fetch de 8 semanas) al tocar un borde. `Hoy`
+  re-ancla en la semana actual. `AbortController` + generation guard.
+- **Excepciones scoped a reglas globales** (documentadas en `globals.css`):
+  la hoja restaura `display: table` (el hack responsivo global
+  `table{display:block}` rompía el layout y el sticky) y neutraliza el
+  `min-height: 44px` táctil SOLO para botones internos de la hoja (chevrons,
+  kebab) — las celdas densas no son botones; las acciones táctiles reales
+  (toolbar h-10, diálogos) mantienen ≥44px.
+- **Toolbar única de una línea**: `‹ Hoy ›` · Semanas/Meses · Ceros · ＋ ·
+  menú `⋯` (flag de navegación + versión anterior). Sin hero, título ni KPI
+  cards: saldo/mínimo/semana crítica como texto compacto solo desktop (en
+  móvil ese rol lo cumple la fila sticky SALDO).
+- **Ocultar ceros (default ON)**: filas sin ninguna capa en el horizonte se
+  ocultan (`isZeroRow`, tests); contador `visibles/total` en la sección;
+  filas creadas en la sesión quedan exentas; preferencia en localStorage.
+  El teclado navega solo filas visibles.
+- **Montos**: 12px en móvil (mínimo DS); montos ≥10 caracteres bajan a 11px
+  mono-eyebrow (patrón DS aceptado de esta grilla) en vez de recortar dígitos.
+  El kebab de fila es hover-only → oculto en móvil (acciones móviles de fila
+  llegan en FC-04 con bottom sheet).
+
+### Decisiones documentadas (brief vs implementación)
+
+1. **Letras al entrar en móvil**: el horizonte carga 4 semanas de historia, y
+   al entrar la hoja se ancla en la semana ACTUAL como primera columna de
+   negocio (objetivo: entender la caja de hoy en segundos). Por eso las letras
+   visibles al entrar son F–I; A–E quedan visibles al desplazarse al inicio
+   del horizonte. Se preservan las 5 columnas de negocio (Concepto + 4
+   semanas) del brief.
+2. **Footer sticky en móvil**: FLUJO/SALDO quedan sticky (2 filas dentro del
+   presupuesto de 46) — el saldo siempre visible vale más que 2 filas extra.
+3. **`CLAUDE.md` no existe** en el repo (el brief pedía reportarlo).
+
+### Validación (local, Chromium/Playwright)
+
+- `npx vitest run src/components/finance/flow-v3 src/modules/finance/flow-v3`
+  + suites de navegación/AppShell: **150 tests verdes** (10 nuevos:
+  `column-letter`, `zero-rows`).
+- `npx tsc --noEmit` limpio (solo artefacto transitorio de `.next/dev` con el
+  dev server corriendo).
+- `check-ds` exit 0; 2 avisos `no-tiny-text` nuevos en constantes con el trío
+  eyebrow en la misma línea (misma clase de falso positivo ya documentada en
+  §4.3). `lint:nav` sin fallas nuevas (2 preexistentes).
+- Métricas medidas (viewport → filas de hoja simultáneas, ancho semana):
+  - 1440×900: 36 filas (≥22 ✓), semana 86px, 57 columnas montadas.
+  - 430×932: **46 filas** (43 + 3 headers ✓), semana 75.5px, fila 15.6px.
+  - 390×844: 41–44 filas, semana 65.5px, fila 14.3px (piso tipográfico 12px).
+  - 932×430 (landscape): geometría desktop, headers/gutter estables.
+- Funcional verificado en navegador: doble click + tipeo + Enter → PATCH
+  `success` y celda persistida tras recarga; Delete limpia; Ceros ON revela
+  filas cero llenando el viewport; sticky diagonal sin desfases; light/dark.
+
+### Pendiente de validar en dispositivo real
+
+- Safari iOS (PWA standalone, safe areas reales, momentum) y Chrome Android.
+- Interacciones táctiles de edición (tap/tap-editar) — FC-03/FC-04 traen el
+  bottom sheet de celda y acciones móviles de fila.

@@ -6,12 +6,14 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
-import { NAME_W, ROW_H } from "./grid-classes";
+import { GUTTER_CELL, GUTTER_W, NAME_LEFT, NAME_W, ROW_H } from "./grid-classes";
 import { PlanillaCell } from "./PlanillaCell";
 import type { CellSel } from "./usePlanillaKeyboard";
 
 interface Props {
   row: FlowMatrixRowDto;
+  /** Número visible en el gutter (correlativo de la hoja renderizada). */
+  rowNumber: number;
   currentWeek: string;
   canManage: boolean;
   granularity: "week" | "month";
@@ -34,15 +36,18 @@ export function PlanillaRow(p: Props) {
 
   return (
     <tr className={`${ROW_H} group`}>
+      <td aria-hidden className={`${GUTTER_W} ${ROW_H} ${GUTTER_CELL} z-10`}>
+        {p.rowNumber}
+      </td>
       <th
         scope="row"
-        className={`${NAME_W} ${ROW_H} sticky left-0 z-10 border-b border-r border-ds-border-subtle/60 bg-ds-surface-1 px-1.5 text-left align-middle`}
+        className={`${NAME_W} ${ROW_H} sticky ${NAME_LEFT} z-10 border-b border-r border-ds-border-subtle/60 bg-ds-surface-1 px-1.5 max-md:px-1 text-left align-middle`}
       >
         {renaming != null ? (
           <input
             autoFocus
             defaultValue={row.name}
-            className="h-[18px] w-full border border-primary bg-ds-surface-2 px-1 text-xs text-ds-text-1 outline-none"
+            className="h-[calc(var(--plnx-row-h)-4px)] w-full border border-primary bg-ds-surface-2 px-1 text-xs text-ds-text-1 outline-none"
             onKeyDown={(e) => {
               e.stopPropagation();
               if (e.key === "Enter") {
@@ -55,7 +60,7 @@ export function PlanillaRow(p: Props) {
         ) : (
           <span className="flex items-center gap-1">
             <span
-              className={`truncate text-xs ${row.isArchived ? "text-ds-text-3" : "text-ds-text-2"}`}
+              className={`truncate text-xs max-md:text-[12px] max-md:leading-none ${row.isArchived ? "text-ds-text-3" : "text-ds-text-2"}`}
               title={row.name}
             >
               {row.name}
@@ -69,7 +74,9 @@ export function PlanillaRow(p: Props) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="ml-auto shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-ds-surface-2 focus:opacity-100 group-hover:opacity-100"
+                    // Solo desktop: se revela con hover (inexistente en touch);
+                    // las acciones móviles de fila llegan con su bottom sheet.
+                    className="ml-auto hidden shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-ds-surface-2 focus:opacity-100 group-hover:opacity-100 md:block"
                     aria-label={`Acciones ${row.name}`}
                   >
                     <MoreHorizontal className="h-3 w-3 text-ds-text-3" />

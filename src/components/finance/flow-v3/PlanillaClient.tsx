@@ -1,34 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Plus, Power } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, Power } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import { usePlanillaMatrix } from "./usePlanillaMatrix";
 import { usePlanillaActions } from "./usePlanillaActions";
-import { PlanillaGrid } from "./PlanillaGrid";
+import { PlanillaGrid, scrollToWeek } from "./PlanillaGrid";
 import { AddRowDialog } from "./AddRowDialog";
 import { fmtClp, fmtShortDate } from "./format";
 
-function Kpi({ label, value, tone }: { label: string; value: string; tone?: "ok" | "warn" | "danger" }) {
-  const toneClass =
-    tone === "danger" ? "text-status-danger-fg" : tone === "warn" ? "text-status-warn-fg" : "text-ds-text-1";
-  return (
-    <div className="rounded-md border border-ds-border-subtle bg-ds-surface-1 px-2.5 py-1">
-      <div className="font-mono text-[11px] uppercase tracking-wide text-ds-text-4">{label}</div>
-      <div className={`font-mono text-sm tabular-nums ${toneClass}`}>{value}</div>
-    </div>
-  );
-}
+const ZEROS_PREF_KEY = "opai-planilla-show-zeros";
 
+/**
+ * Modo Planilla v3. Una sola toolbar de una línea (sin hero ni KPI cards:
+ * saldo/semana crítica van como texto compacto en desktop) y la hoja ocupando
+ * todo el espacio restante. En mobile la ruta entra en "sheet focus" (ver
+ * AppShell): topbar + hoja + bottom nav, nada más.
+ */
 export function PlanillaClient({ canManage, flagOn }: { canManage: boolean; flagOn: boolean }) {
   const router = useRouter();
   const isMobile = useIsMobileViewport();
-  const m = usePlanillaMatrix({ isMobile });
+  const m = usePlanillaMatrix();
   const actions = usePlanillaActions(m.refetch);
   const [addOpen, setAddOpen] = useState(false);
   const [archiving, setArchiving] = useState<FlowMatrixRowDto | null>(null);
@@ -36,6 +36,64 @@ export function PlanillaClient({ canManage, flagOn }: { canManage: boolean; flag
   const [enabled, setEnabled] = useState(flagOn);
   const [togglingFlag, setTogglingFlag] = useState(false);
   const [confirmFlag, setConfirmFlag] = useState<null | boolean>(null);
+
+  // Filtro de ceros: filas sin ninguna capa en el horizonte van ocultas por
+  // defecto; preferencia persistida por dispositivo.
+  const [showZeros, setShowZeros] = useState(false);
+  useEffect(() => {
+    try {
+      setShowZeros(localStorage.getItem(ZEROS_PREF_KEY) === "true");
+    } catch { /* ignore */ }
+  }, []);
+  const toggleZeros = () =>
+    setShowZeros((v) => {
+      try { localStorage.setItem(ZEROS_PREF_KEY, String(!v)); } catch { /* ignore */ }
+      return !v;
+    });
+
+  // Filas creadas en esta sesión: exentas del filtro de ceros para que la
+  // nueva línea aparezca aunque todavía no tenga montos.
+  const sessionRowIds = useRef<Set<string>>(new Set());
+  const handleCreateRow = async (body: Record<string, unknown>) => {
+    const r = (await actions.createRow(body)) as { id?: string } | null;
+    if (r?.id) sessionRowIds.current.add(r.id);
+    return r;
+  };
+
+  // Navegación ‹/›/Hoy: scroll nativo dentro del horizonte cargado (4/8
+  // columnas por paso). Solo al tocar un borde del horizonte se desplaza la
+  // ventana (un fetch por bloque de 8 semanas, nunca por gesto).
+  const gridScrollRef = useRef<HTMLDivElement | null>(null);
+  const pendingScrollToCurrent = useRef(false);
+  const nav = (dir: -1 | 1) => {
+    const el = gridScrollRef.current;
+    if (!el) return;
+    const weekW = el.querySelector<HTMLElement>("[data-week]")?.offsetWidth ?? 86;
+    const atLeft = el.scrollLeft <= 2;
+    const atRight = el.scrollLeft >= el.scrollWidth - el.clientWidth - 2;
+    if (dir === -1 && atLeft) {
+      m.extendPast(); // scrollLeft se conserva → aparecen las 8 semanas previas
+      return;
+    }
+    if (dir === 1 && atRight) {
+      m.extendFuture();
+      return;
+    }
+    el.scrollBy({ left: dir * (isMobile ? 4 : 8) * weekW, behavior: "smooth" });
+  };
+  const goToday = () => {
+    const changed = m.resetWindow();
+    if (changed) {
+      pendingScrollToCurrent.current = true;
+    } else if (gridScrollRef.current && m.data) {
+      scrollToWeek(gridScrollRef.current, m.data.currentWeek);
+    }
+  };
+  useEffect(() => {
+    if (!pendingScrollToCurrent.current || !m.data || !gridScrollRef.current) return;
+    pendingScrollToCurrent.current = false;
+    scrollToWeek(gridScrollRef.current, m.data.currentWeek, false);
+  }, [m.data]);
 
   const toggleFlag = async (next: boolean) => {
     setTogglingFlag(true);
@@ -72,63 +130,89 @@ export function PlanillaClient({ canManage, flagOn }: { canManage: boolean; flag
   };
 
   const kpis = m.data?.kpis;
-  const minTone = kpis ? (kpis.minBalance < 0 ? "danger" : kpis.minBalance < (m.data?.warnThreshold ?? 0) ? "warn" : "ok") : undefined;
+  const minTone = kpis
+    ? kpis.minBalance < 0
+      ? "text-status-danger-fg"
+      : kpis.minBalance < (m.data?.warnThreshold ?? 0)
+        ? "text-status-warn-fg"
+        : "text-status-ok-fg"
+    : "";
+  const navBtn = "h-10 min-w-10 px-1.5 lg:h-7 lg:min-w-0 lg:px-1.5";
+  const txtBtn = "h-10 px-2.5 text-xs lg:h-7 lg:px-2";
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="mr-1 text-base font-semibold text-ds-text-1">Flujo de Caja · Planilla</h1>
-        {kpis && (
-          <>
-            <Kpi label="Saldo hoy" value={fmtClp(kpis.saldoHoy)} />
-            <Kpi label="Mínimo horizonte" value={fmtClp(kpis.minBalance)} tone={minTone} />
-            <Kpi label="Semana crítica" value={fmtShortDate(kpis.minWeek)} tone={minTone} />
-          </>
-        )}
-        <div className="ml-auto flex items-center gap-1">
-          <Button variant="outline" size="sm" className="h-7 px-1.5" onClick={m.goPrev} aria-label="Semanas anteriores">
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={m.goToday}>
-            Hoy
-          </Button>
-          <Button variant="outline" size="sm" className="h-7 px-1.5" onClick={m.goNext} aria-label="Semanas siguientes">
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Button>
-          <div className="ml-1 flex overflow-hidden rounded-md border border-ds-border-default">
-            {(["week", "month"] as const).map((g) => (
-              <button
-                key={g}
-                onClick={() => m.setGranularity(g)}
-                className={`px-2 py-1 text-xs ${m.granularity === g ? "bg-primary text-primary-foreground" : "bg-ds-surface-1 text-ds-text-3 hover:bg-ds-surface-2"}`}
-              >
-                {g === "week" ? "Semanas" : "Meses"}
-              </button>
-            ))}
-          </div>
-          {canManage && (
-            <Button size="sm" className="ml-1 h-7 px-2 text-xs" onClick={() => setAddOpen(true)}>
-              <Plus className="mr-1 h-3.5 w-3.5" /> Agregar concepto
-            </Button>
-          )}
-          {canManage && (
-            <Button
-              variant={enabled ? "outline" : "default"}
-              size="sm"
-              className="h-7 px-2 text-xs"
-              disabled={togglingFlag}
-              onClick={() => setConfirmFlag(!enabled)}
-              title={
-                enabled
-                  ? "El Modo Planilla es la vista activa en la navegación"
-                  : "Activar el Modo Planilla en la navegación del equipo"
-              }
+    <div className="planilla-sheet">
+      {/* ── Toolbar única de una línea ── */}
+      <div className="mb-1 flex h-[var(--plnx-toolbar-h)] items-center gap-1 overflow-x-auto scrollbar-none px-2 lg:px-0">
+        <Button variant="outline" size="sm" className={navBtn} onClick={() => nav(-1)} aria-label="Semanas anteriores">
+          <ChevronLeft className="h-3.5 w-3.5" />
+        </Button>
+        <Button variant="outline" size="sm" className={txtBtn} onClick={goToday}>
+          Hoy
+        </Button>
+        <Button variant="outline" size="sm" className={navBtn} onClick={() => nav(1)} aria-label="Semanas siguientes">
+          <ChevronRight className="h-3.5 w-3.5" />
+        </Button>
+        <div className="ml-0.5 flex h-10 shrink-0 overflow-hidden rounded-md border border-ds-border-default lg:h-7">
+          {(["week", "month"] as const).map((g) => (
+            <button
+              key={g}
+              onClick={() => m.setGranularity(g)}
+              className={`px-2 text-xs ${m.granularity === g ? "bg-primary text-primary-foreground" : "bg-ds-surface-1 text-ds-text-3 hover:bg-ds-surface-2"}`}
             >
-              <Power className="mr-1 h-3.5 w-3.5" />
-              {enabled ? "Activo en navegación" : "Activar en navegación"}
-            </Button>
-          )}
+              <span className="lg:hidden">{g === "week" ? "Sem" : "Mes"}</span>
+              <span className="hidden lg:inline">{g === "week" ? "Semanas" : "Meses"}</span>
+            </button>
+          ))}
         </div>
+        <Button
+          variant={showZeros ? "default" : "outline"}
+          size="sm"
+          className={`${txtBtn} ml-0.5`}
+          onClick={toggleZeros}
+          aria-pressed={showZeros}
+          title={showZeros ? "Ocultar filas en cero" : "Mostrar filas en cero"}
+        >
+          Ceros
+        </Button>
+        {canManage && (
+          <Button size="sm" className={`${navBtn} ml-0.5 lg:px-2`} onClick={() => setAddOpen(true)} aria-label="Agregar concepto">
+            <Plus className="h-3.5 w-3.5" />
+            <span className="ml-1 hidden lg:inline">Agregar concepto</span>
+          </Button>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className={navBtn} aria-label="Más acciones">
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {canManage && (
+              <DropdownMenuItem disabled={togglingFlag} onSelect={() => setConfirmFlag(!enabled)}>
+                <Power className="mr-1.5 h-3.5 w-3.5" />
+                {enabled ? "Desactivar en navegación" : "Activar en navegación"}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onSelect={() => router.push("/finanzas/flujo-caja")}>
+              Abrir versión anterior
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {/* Saldo / semana crítica como texto compacto (desktop; en mobile la
+            fila sticky de Saldo acumulado cumple ese rol). */}
+        {kpis && (
+          <div className="ml-auto hidden items-center gap-1.5 whitespace-nowrap font-mono text-[11px] uppercase tracking-wide text-ds-text-3 lg:flex">
+            <span>
+              Saldo <span className="text-ds-text-1">{fmtClp(kpis.saldoHoy)}</span>
+            </span>
+            <span aria-hidden>·</span>
+            <span>
+              Mín <span className={minTone}>{fmtClp(kpis.minBalance)}</span>{" "}
+              <span className="text-ds-text-4">({fmtShortDate(kpis.minWeek)})</span>
+            </span>
+          </div>
+        )}
       </div>
 
       {m.loading && !m.data ? (
@@ -147,7 +231,9 @@ export function PlanillaClient({ canManage, flagOn }: { canManage: boolean; flag
             onSetEndDate={(templateId, endDate) => void actions.setTemplateEndDate(templateId, endDate)}
             onSetDiasCobro={(templateId, dias) => void actions.setTemplateDiasCobro(templateId, dias)}
             onBulkFill={actions.bulkFill}
-            onSwipe={isMobile ? (dir) => (dir === "left" ? m.goNext() : m.goPrev()) : undefined}
+            showZeros={showZeros}
+            alwaysVisibleRowIds={sessionRowIds.current}
+            scrollerRef={gridScrollRef}
           />
         </div>
       ) : (
@@ -156,7 +242,7 @@ export function PlanillaClient({ canManage, flagOn }: { canManage: boolean; flag
         </div>
       )}
 
-      <AddRowDialog open={addOpen} onOpenChange={setAddOpen} busy={actions.busy} onCreate={actions.createRow} />
+      <AddRowDialog open={addOpen} onOpenChange={setAddOpen} busy={actions.busy} onCreate={handleCreateRow} />
 
       <ConfirmDialog
         open={archiving != null}

@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   addWeeksUTC,
   defaultHorizon,
-  startOfIsoWeekUTC,
   toYmd,
   ymdToDate,
 } from "@/modules/finance/flow-v3/weeks";
@@ -13,45 +12,46 @@ import type { FlowMatrixResponse } from "@/modules/finance/flow-v3/matrix-types"
 
 const STEP_WEEKS = 8;
 
-/**
- * Estado de la planilla: ventana móvil (default hoy−4sem → hoy+12m; en
- * viewport mobile 3 semanas: anterior · actual · próxima), navegación por
- * bloques de 8 semanas (1 en mobile, con swipe) y edición optimista del plan
- * con reconciliación read-after-write.
- */
-export function usePlanillaMatrix(opts?: { isMobile?: boolean }) {
-  const isMobile = opts?.isMobile === true;
-  const initial = useMemo(() => {
-    if (isMobile) {
-      const monday = startOfIsoWeekUTC(new Date());
-      return { from: toYmd(addWeeksUTC(monday, -1)), to: toYmd(addWeeksUTC(monday, 1)) };
-    }
-    const d = defaultHorizon(new Date());
-    return { from: toYmd(d.from), to: toYmd(d.to) };
-  }, [isMobile]);
-  const [window, setWindow] = useState(initial);
+function initialWindow() {
+  const d = defaultHorizon(new Date());
+  return { from: toYmd(d.from), to: toYmd(d.to) };
+}
 
-  // Cambio desktop↔mobile (rotación / resize): resetear a la ventana del modo.
-  useEffect(() => {
-    setWindow(initial);
-  }, [initial]);
+/**
+ * Estado de la planilla. Móvil y desktop cargan el MISMO horizonte lógico
+ * (hoy−4 semanas → hoy+12 meses, ~57 columnas ≤60 montadas); dentro de él se
+ * navega con scroll nativo, sin refetch. La ventana solo se desplaza (bloques
+ * de 8 semanas, un fetch) cuando el usuario llega al borde del horizonte.
+ * Respuestas fuera de orden se descartan (generation guard + AbortController).
+ * Edición optimista del plan con reconciliación read-after-write.
+ */
+export function usePlanillaMatrix() {
+  const [window_, setWindow] = useState(initialWindow);
   const [granularity, setGranularity] = useState<"week" | "month">("week");
   const [data, setData] = useState<FlowMatrixResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const genRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
   const fetchMatrix = useCallback(
     async (w: { from: string; to: string }, g: "week" | "month") => {
       const gen = ++genRef.current;
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
       setLoading(true);
       try {
         const params = new URLSearchParams({ from: w.from, to: w.to, horizon: g });
-        const res = await fetch(`/api/finance/flow-v3/matrix?${params}`, { cache: "no-store" });
+        const res = await fetch(`/api/finance/flow-v3/matrix?${params}`, {
+          cache: "no-store",
+          signal: ac.signal,
+        });
         const json = await res.json();
         if (gen !== genRef.current) return;
         if (!json.success) throw new Error(json.error ?? "Error");
         setData(json.data as FlowMatrixResponse);
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         if (gen === genRef.current) {
           toast.error(err instanceof Error ? err.message : "No se pudo cargar la planilla");
         }
@@ -63,24 +63,36 @@ export function usePlanillaMatrix(opts?: { isMobile?: boolean }) {
   );
 
   useEffect(() => {
-    void fetchMatrix(window, granularity);
-  }, [window, granularity, fetchMatrix]);
+    void fetchMatrix(window_, granularity);
+  }, [window_, granularity, fetchMatrix]);
 
-  const shift = useCallback(
-    (weeks: number) => {
-      setWindow((w) => ({
-        from: toYmd(addWeeksUTC(ymdToDate(w.from)!, weeks)),
-        to: toYmd(addWeeksUTC(ymdToDate(w.to)!, weeks)),
-      }));
-    },
-    [],
+  /** Desplaza el horizonte completo (solo se usa al llegar a un borde). */
+  const shiftWindow = useCallback((weeks: number) => {
+    setWindow((w) => ({
+      from: toYmd(addWeeksUTC(ymdToDate(w.from)!, weeks)),
+      to: toYmd(addWeeksUTC(ymdToDate(w.to)!, weeks)),
+    }));
+  }, []);
+
+  const extendPast = useCallback(() => shiftWindow(-STEP_WEEKS), [shiftWindow]);
+  const extendFuture = useCallback(() => shiftWindow(STEP_WEEKS), [shiftWindow]);
+
+  /** Vuelve al horizonte default. Devuelve true si hubo cambio (refetch). */
+  const resetWindow = useCallback(() => {
+    const init = initialWindow();
+    let changed = false;
+    setWindow((w) => {
+      if (w.from === init.from && w.to === init.to) return w;
+      changed = true;
+      return init;
+    });
+    return changed;
+  }, []);
+
+  const refetch = useCallback(
+    () => fetchMatrix(window_, granularity),
+    [fetchMatrix, window_, granularity],
   );
-
-  const step = isMobile ? 1 : STEP_WEEKS;
-  const goPrev = useCallback(() => shift(-step), [shift, step]);
-  const goNext = useCallback(() => shift(step), [shift, step]);
-  const goToday = useCallback(() => setWindow(initial), [initial]);
-  const refetch = useCallback(() => fetchMatrix(window, granularity), [fetchMatrix, window, granularity]);
 
   /** PATCH optimista del plan: recalcula efectivo/flujo/saldo en cliente y
    *  reconcilia con la celda que devuelve el server (Verdad Verificada). */
@@ -134,6 +146,6 @@ export function usePlanillaMatrix(opts?: { isMobile?: boolean }) {
 
   return {
     data, loading, granularity, setGranularity,
-    goPrev, goNext, goToday, refetch, patchPlan,
+    extendPast, extendFuture, resetWindow, refetch, patchPlan,
   };
 }

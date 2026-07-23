@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { FlowMatrixResponse, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
-import { SECTION_H, SECTION_LABELS, SECTION_ORDER } from "./grid-classes";
+import {
+  GUTTER_CELL, GUTTER_W, isZeroRow, NAME_LEFT, NAME_W, SECTION_H, SECTION_LABELS, SECTION_ORDER,
+} from "./grid-classes";
 import { parseSignedAmount } from "./format";
 import { PlanillaHeader } from "./PlanillaHeader";
 import { PlanillaRow } from "./PlanillaRow";
@@ -22,17 +24,68 @@ interface Props {
   onSetEndDate: (templateId: string, endDate: string | null) => void;
   onSetDiasCobro: (templateId: string, diasCobro: number | null) => void;
   onBulkFill: (rowId: string, weekStarts: string[], amount: number) => Promise<unknown>;
-  /** F4: swipe horizontal en mobile navega ±1 semana. */
-  onSwipe?: (dir: "left" | "right") => void;
+  /** Mostrar filas completamente en cero (por defecto van ocultas). */
+  showZeros: boolean;
+  /** Filas exentas del filtro de ceros (recién creadas en esta sesión). */
+  alwaysVisibleRowIds?: Set<string>;
+  /** Ref del contenedor scrollable (la toolbar lo usa para ‹/›/Hoy). */
+  scrollerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-export function PlanillaGrid({ data, canManage, busy, patchPlan, onRename, onArchive, onSetEndDate, onSetDiasCobro, onBulkFill, onSwipe }: Props) {
+/** Desplaza el scroller para que `weekStart` quede como primera semana visible
+ *  (después del gutter + Concepto sticky). */
+export function scrollToWeek(el: HTMLElement, weekStart: string, smooth = true) {
+  const th =
+    el.querySelector<HTMLElement>(`[data-week="${weekStart}"]`) ??
+    el.querySelector<HTMLElement>(`[data-week][data-current="true"]`);
+  if (!th) return;
+  const frozen =
+    (el.querySelector<HTMLElement>("[data-plnx-corner]")?.offsetWidth ?? 0) +
+    (el.querySelector<HTMLElement>("[data-plnx-cola]")?.offsetWidth ?? 0);
+  el.scrollTo({ left: Math.max(0, th.offsetLeft - frozen), behavior: smooth ? "smooth" : "auto" });
+}
+
+export function PlanillaGrid({
+  data, canManage, busy, patchPlan, onRename, onArchive, onSetEndDate,
+  onSetDiasCobro, onBulkFill, showZeros, alwaysVisibleRowIds, scrollerRef,
+}: Props) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [popover, setPopover] = useState<PopoverState | null>(null);
   const [fillRight, setFillRight] = useState<FillRightRequest | null>(null);
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const localRef = useRef<HTMLDivElement | null>(null);
+  const scroller = scrollerRef ?? localRef;
 
   const rowById = useMemo(() => new Map(data.rows.map((r) => [r.id, r])), [data.rows]);
+
+  // Secciones con filtro de ceros: las filas sin ninguna capa en el horizonte
+  // se ocultan por defecto; las estructurales (sección/resumen) permanecen.
+  const sections = useMemo(() => {
+    return SECTION_ORDER.map((s) => {
+      const all = data.rows.filter((r) => r.section === s);
+      const rows = showZeros
+        ? all
+        : all.filter((r) => !isZeroRow(r) || alwaysVisibleRowIds?.has(r.id));
+      return { key: s, rows, total: all.length };
+    }).filter((s) => s.total > 0);
+  }, [data.rows, showZeros, alwaysVisibleRowIds]);
+
+  // Numeración del gutter: correlativo de las filas RENDERIZADAS de la hoja
+  // (secciones, datos y resumen), como los números de una planilla.
+  const { numbered, footerStart } = useMemo(() => {
+    let n = 1;
+    const out = sections.map((sec) => {
+      const secNumber = n++;
+      const rows = (collapsed.has(sec.key) ? [] : sec.rows).map((row) => ({ row, number: n++ }));
+      return { ...sec, secNumber, numberedRows: rows };
+    });
+    return { numbered: out, footerStart: n };
+  }, [sections, collapsed]);
+
+  // La navegación por teclado opera SOLO sobre filas visibles.
+  const kbData = useMemo(
+    () => ({ ...data, rows: numbered.flatMap((s) => s.numberedRows.map((x) => x.row)) }),
+    [data, numbered],
+  );
 
   const canEditCell = useCallback(
     (rowId: string, colIdx: number) => {
@@ -91,17 +144,26 @@ export function PlanillaGrid({ data, canManage, busy, patchPlan, onRename, onArc
   );
 
   const kb = usePlanillaKeyboard({
-    data,
+    data: kbData,
     canEditCell,
     onCommit: commit,
     onOpenPopover: (sel) => openPopover(sel),
     onFillRight: requestFillRight,
   });
 
-  const sections = SECTION_ORDER.map((s) => ({
-    key: s,
-    rows: data.rows.filter((r) => r.section === s),
-  })).filter((s) => s.rows.length > 0);
+  // Anclaje inicial en teléfonos: la semana actual como primera columna de
+  // negocio visible (el horizonte carga 4 semanas de historia a su izquierda,
+  // accesibles con scroll nativo). Solo una vez por montaje.
+  const anchoredRef = useRef(false);
+  useEffect(() => {
+    if (anchoredRef.current || data.granularity !== "week") return;
+    const el = scroller.current;
+    if (!el) return;
+    anchoredRef.current = true;
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      scrollToWeek(el, data.currentWeek, false);
+    }
+  }, [data, scroller]);
 
   const toggleSection = (s: string) =>
     setCollapsed((prev) => {
@@ -113,67 +175,74 @@ export function PlanillaGrid({ data, canManage, busy, patchPlan, onRename, onArc
 
   return (
     <div
+      ref={scroller}
       tabIndex={0}
       onKeyDown={kb.onGridKeyDown}
-      className="relative max-h-[calc(100dvh-190px)] overflow-auto overscroll-contain rounded-lg border border-ds-border-default bg-ds-surface-1 outline-none focus-visible:ring-1 focus-visible:ring-primary/40 max-md:overflow-x-hidden"
+      className="planilla-sheet relative max-h-[var(--plnx-grid-h)] overflow-auto overscroll-contain [-webkit-overflow-scrolling:touch] rounded-lg border border-ds-border-default bg-ds-surface-1 outline-none focus-visible:ring-1 focus-visible:ring-primary/40 max-lg:rounded-none max-lg:border-x-0"
       onScroll={() => popover && setPopover(null)}
-      onTouchStart={(e) => {
-        if (!onSwipe) return;
-        touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      }}
-      onTouchEnd={(e) => {
-        if (!onSwipe || !touchStart.current || kb.editing) return;
-        const dx = e.changedTouches[0].clientX - touchStart.current.x;
-        const dy = e.changedTouches[0].clientY - touchStart.current.y;
-        touchStart.current = null;
-        if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-          onSwipe(dx < 0 ? "left" : "right");
-        }
-      }}
     >
       <table className="w-max border-separate border-spacing-0">
         <PlanillaHeader columns={data.columns} granularity={data.granularity} />
-        {sections.map((section) => (
+        {numbered.map((section) => (
           <tbody key={section.key}>
+            {/* El label vive en la columna Concepto (sticky con holgura real);
+                un th colSpan de toda la fila no puede quedarse fijo al hacer
+                scroll horizontal (sin margen de desplazamiento). */}
             <tr className={SECTION_H}>
+              <td aria-hidden className={`${GUTTER_W} ${SECTION_H} ${GUTTER_CELL} z-10`}>
+                {section.secNumber}
+              </td>
               <th
                 scope="rowgroup"
-                colSpan={data.columns.length + 1}
-                className={`${SECTION_H} sticky left-0 z-10 border-b border-ds-border-default bg-ds-surface-2 px-1.5 text-left`}
+                className={`${NAME_W} ${SECTION_H} sticky ${NAME_LEFT} z-10 border-b border-r border-ds-border-default bg-ds-surface-2 px-1.5 max-md:px-1 text-left`}
               >
                 <button
                   onClick={() => toggleSection(section.key)}
-                  className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-ds-text-2"
+                  className="flex w-full min-w-0 items-center gap-1 max-md:gap-0.5 overflow-hidden whitespace-nowrap font-mono text-[11px] uppercase tracking-wide leading-none text-ds-text-2"
                 >
                   {collapsed.has(section.key) ? (
-                    <ChevronRight className="h-3 w-3" />
+                    <ChevronRight className="h-3 w-3 shrink-0 max-md:h-2.5 max-md:w-2.5" />
                   ) : (
-                    <ChevronDown className="h-3 w-3" />
+                    <ChevronDown className="h-3 w-3 shrink-0 max-md:h-2.5 max-md:w-2.5" />
                   )}
-                  {SECTION_LABELS[section.key]}
-                  <span className="text-ds-text-4">({section.rows.length})</span>
+                  <span className="truncate">{SECTION_LABELS[section.key]}</span>
+                  {/* Contador: completo en desktop; en móvil solo si hay filas
+                      ocultas por el filtro de ceros (columna A angosta). */}
+                  {section.rows.length === section.total ? (
+                    <span className="shrink-0 text-ds-text-4 max-md:hidden">({section.total})</span>
+                  ) : (
+                    <span className="shrink-0 text-ds-text-4">
+                      <span className="md:hidden">{section.rows.length}/{section.total}</span>
+                      <span className="max-md:hidden">({section.rows.length}/{section.total})</span>
+                    </span>
+                  )}
                 </button>
               </th>
+              <td
+                aria-hidden
+                colSpan={data.columns.length}
+                className={`${SECTION_H} border-b border-ds-border-default bg-ds-surface-2`}
+              />
             </tr>
-            {!collapsed.has(section.key) &&
-              section.rows.map((row) => (
-                <PlanillaRow
-                  key={row.id}
-                  row={row}
-                  currentWeek={data.currentWeek}
-                  canManage={canManage}
-                  granularity={data.granularity}
-                  sel={kb.sel}
-                  editing={kb.editing}
-                  onSelect={(sel) => { setPopover(null); kb.setSel(sel); }}
-                  onStartEdit={(sel) => { setPopover(null); kb.setSel(sel); kb.startEdit(sel, ""); }}
-                  onCommit={kb.commitEdit}
-                  onCancelEdit={() => kb.setEditing(null)}
-                  onOpenPopover={(sel, anchor) => { kb.setSel(sel); openPopover(sel, anchor); }}
-                  onRename={onRename}
-                  onArchive={onArchive}
-                />
-              ))}
+            {section.numberedRows.map(({ row, number }) => (
+              <PlanillaRow
+                key={row.id}
+                row={row}
+                rowNumber={number}
+                currentWeek={data.currentWeek}
+                canManage={canManage}
+                granularity={data.granularity}
+                sel={kb.sel}
+                editing={kb.editing}
+                onSelect={(sel) => { setPopover(null); kb.setSel(sel); }}
+                onStartEdit={(sel) => { setPopover(null); kb.setSel(sel); kb.startEdit(sel, ""); }}
+                onCommit={kb.commitEdit}
+                onCancelEdit={() => kb.setEditing(null)}
+                onOpenPopover={(sel, anchor) => { kb.setSel(sel); openPopover(sel, anchor); }}
+                onRename={onRename}
+                onArchive={onArchive}
+              />
+            ))}
           </tbody>
         ))}
         <BalanceRow
@@ -181,6 +250,7 @@ export function PlanillaGrid({ data, canManage, busy, patchPlan, onRename, onArc
           flows={data.flows}
           balances={data.balances}
           warnThreshold={data.warnThreshold}
+          startNumber={footerStart}
         />
       </table>
       <CellLayersPopover

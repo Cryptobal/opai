@@ -10,7 +10,10 @@ export default async function FinanzasLayout({ children }: { children: ReactNode
   const perms = await resolvePagePerms(session.user);
   if (!hasModuleAccess(perms, "finance")) redirect("/hub");
   return (
-    <div className="space-y-3 min-w-0">
+    // sheet-focus-flat: en el modo hoja móvil de la planilla (data-layout-mode
+    // en AppShell) estos espaciadores se anulan para que la hoja pegue con el
+    // topbar; en el resto de las rutas no cambia nada.
+    <div className="space-y-3 min-w-0 sheet-focus-flat">
       {/* N2 row de Finanzas: Inicio / Rendic. / C/V / Banca / Contab. / Informes.
           Se muestra SIEMPRE arriba del Hero — el N3 (si existe) lo monta cada
           page debajo del Hero para que el orden sea breadcrumb → N2 → Hero

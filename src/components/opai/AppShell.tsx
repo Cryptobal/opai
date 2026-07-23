@@ -79,6 +79,12 @@ function AppShellInner({
   }, [chatCtx, notifCtx]);
 
   const anyPanelOpen = chatCtx.isPanelOpen || notifCtx.isPanelOpen;
+  // "Sheet focus" (route-scoped): la planilla del flujo de caja es una hoja de
+  // cálculo a pantalla completa en mobile — sin breadcrumbs ni padding
+  // horizontal, solo topbar + hoja + bottom nav. Desktop conserva el shell
+  // normal (sidebar/topbar/breadcrumbs). El data attribute permite a los
+  // layouts intermedios aplanar sus espaciadores solo dentro del modo.
+  const isSheetFocus = pathname === '/finanzas/flujo-caja/planilla';
   // Sidebar default: si el usuario no eligió antes, abrimos en viewports ≥ xl
   // (1280px) para que en pantallas grandes la nav N2 sea visible sin hover.
   // En lg (1024–1279) queda colapsado para no comer ancho.
@@ -215,8 +221,19 @@ function AppShellInner({
                 render their own PageHero + content underneath.
               */
               <BreadcrumbTrailingProvider>
-                <div className="w-full max-w-full pt-4 pb-28 lg:pt-0 lg:pb-6 animate-in-page min-w-0 overflow-x-clip px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12" role="region">
-                  <div className="pt-1 lg:pt-3 mb-2 lg:mb-3">
+                <div
+                  data-layout-mode={isSheetFocus ? 'sheet-focus' : undefined}
+                  className={cn(
+                    'w-full max-w-full animate-in-page min-w-0',
+                    isSheetFocus
+                      ? // Sheet focus: full-bleed en mobile/tablet (la hoja ocupa
+                        // todo entre topbar y bottom nav); desktop igual que siempre.
+                        'pt-1 pb-0 px-0 lg:pt-0 lg:pb-6 lg:overflow-x-clip lg:px-8 xl:px-10 2xl:px-12'
+                      : 'pt-4 pb-28 lg:pt-0 lg:pb-6 overflow-x-clip px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12',
+                  )}
+                  role="region"
+                >
+                  <div className={cn('pt-1 lg:pt-3 mb-2 lg:mb-3', isSheetFocus && 'hidden lg:block')}>
                     <AutoBreadcrumbs />
                   </div>
                   {children}

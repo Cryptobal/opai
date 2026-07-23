@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
-import { fmtCell, formatThousands, NUM_CLASS, parseSignedAmount } from "./format";
+import { fmtCell, formatThousands, NUM_CLASS, numSizeClass, parseSignedAmount } from "./format";
 import {
   CELL_BASE, COL_W, COMMITTED_CELL, displayValue, REAL_CELL, ROW_H, SELECTED_CELL, TODAY_COL,
 } from "./grid-classes";
@@ -52,7 +52,7 @@ function EditInput({ initial, onCommit, onCancel }: {
         else if (e.key === "Escape") { e.preventDefault(); onCancel(); }
       }}
       onBlur={() => onCommit(value, "none")}
-      className={`h-[20px] w-full rounded-none border border-primary bg-ds-surface-2 px-1 text-right text-ds-text-1 outline-none ${NUM_CLASS}`}
+      className={`h-[calc(var(--plnx-row-h)-2px)] w-full rounded-none border border-primary bg-ds-surface-2 px-1 max-md:px-0.5 text-right text-ds-text-1 outline-none ${NUM_CLASS}`}
     />
   );
 }
@@ -77,11 +77,13 @@ export function PlanillaCell(p: Props) {
           ? "text-ds-text-2"
           : "text-ds-text-4";
 
+  const longValue = value !== 0 ? numSizeClass(fmtCell(value)) : "";
+
   return (
     <td
       data-rc={p.dataRc}
       className={[
-        CELL_BASE, COL_W, ROW_H, NUM_CLASS, layerClass, textClass,
+        CELL_BASE, COL_W, ROW_H, NUM_CLASS, longValue, layerClass, textClass,
         p.isCurrentCol ? TODAY_COL : "",
         p.selected ? SELECTED_CELL : "",
         p.editable ? "cursor-cell" : "cursor-default",
