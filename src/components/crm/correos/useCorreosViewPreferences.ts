@@ -61,6 +61,8 @@ type StoredPreferences = {
   panelWidth?: number;
   previewLines?: CorreoPreviewLines;
   swipeConfig?: CorreoSwipeConfig;
+  /** Riel de carpetas desktop contraído (estilo Gmail, persistente). */
+  railCollapsed?: boolean;
 };
 
 export function parseCorreosViewPreferences(
@@ -90,6 +92,9 @@ export function parseCorreosViewPreferences(
     const swipeConfig = parseSwipeConfig(candidate.swipeConfig);
     if (swipeConfig) {
       preferences.swipeConfig = swipeConfig;
+    }
+    if (typeof candidate.railCollapsed === "boolean") {
+      preferences.railCollapsed = candidate.railCollapsed;
     }
     return preferences;
   } catch {
@@ -121,6 +126,7 @@ export function useCorreosViewPreferences(
   const [swipeConfig, setSwipeConfig] = useState<CorreoSwipeConfig>(
     DEFAULT_CORREO_SWIPE_CONFIG,
   );
+  const [railCollapsed, setRailCollapsed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   const containerWidth = useCallback(
@@ -155,6 +161,9 @@ export function useCorreosViewPreferences(
     if (stored.swipeConfig) {
       setSwipeConfig(stored.swipeConfig);
     }
+    if (typeof stored.railCollapsed === "boolean") {
+      setRailCollapsed(stored.railCollapsed);
+    }
     setHydrated(true);
   }, [containerWidth]);
 
@@ -164,14 +173,14 @@ export function useCorreosViewPreferences(
       try {
         localStorage.setItem(
           STORAGE_KEY,
-          JSON.stringify({ panelWidth, previewLines, swipeConfig }),
+          JSON.stringify({ panelWidth, previewLines, swipeConfig, railCollapsed }),
         );
       } catch {
         // Safari/private mode puede bloquear storage: la vista sigue operativa.
       }
     }, 120);
     return () => window.clearTimeout(timer);
-  }, [hydrated, panelWidth, previewLines, swipeConfig]);
+  }, [hydrated, panelWidth, previewLines, swipeConfig, railCollapsed]);
 
   useEffect(() => {
     const node = containerRef.current;
@@ -245,6 +254,8 @@ export function useCorreosViewPreferences(
     setPreviewLines,
     swipeConfig,
     setSwipeConfig,
+    railCollapsed,
+    setRailCollapsed,
     resetPanelWidth,
     onResizePointerDown,
     onResizeKeyDown,

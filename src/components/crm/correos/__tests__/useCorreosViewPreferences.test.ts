@@ -84,4 +84,13 @@ describe("clampCorreoPanelWidth", () => {
       parseCorreosViewPreferences(JSON.stringify({ panelWidth: 640 })),
     ).toEqual({ panelWidth: 640 });
   });
+
+  it("acepta railCollapsed booleano y descarta otros tipos", () => {
+    expect(
+      parseCorreosViewPreferences(JSON.stringify({ railCollapsed: true })),
+    ).toEqual({ railCollapsed: true });
+    expect(
+      parseCorreosViewPreferences(JSON.stringify({ railCollapsed: "sí" })),
+    ).toEqual({});
+  });
 });

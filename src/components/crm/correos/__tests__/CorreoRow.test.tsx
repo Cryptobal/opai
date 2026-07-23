@@ -24,34 +24,32 @@ const thread: CorreoThreadDTO = {
   snoozedUntil: null,
 };
 
-describe("CorreoRow", () => {
-  it("aplica la cantidad de líneas elegida", () => {
+describe("CorreoRow (desktop denso)", () => {
+  it("aplica densidad compacta con 1 línea", () => {
     const { container } = render(
-      <CorreoRow
-        thread={thread}
-        canModify={false}
-        onOpen={vi.fn()}
-        previewLines={3}
-      />,
+      <CorreoRow thread={thread} canModify={false} onOpen={vi.fn()} previewLines={1} />,
     );
-    expect(
-      container.querySelector(`p[title="${thread.snippet}"]`)?.className,
-    ).toContain("line-clamp-3");
+    expect(container.querySelector('[data-density="compact"]')).toBeTruthy();
+  });
+
+  it("muestra remitente limpio y snippet inline en una línea", () => {
+    const { container } = render(
+      <CorreoRow thread={thread} canModify={false} onOpen={vi.fn()} previewLines={2} />,
+    );
+    expect(container.querySelector('[data-density="comfortable"]')).toBeTruthy();
+    // parseSender: email pelado → parte local, no el header crudo.
+    expect(screen.getByText("cliente")).toBeTruthy();
+    expect(screen.getByText(/Este es un extracto/)).toBeTruthy();
   });
 
   it("marca el hilo seleccionado", () => {
     render(
-      <CorreoRow
-        thread={thread}
-        canModify={false}
-        onOpen={vi.fn()}
-        selected
-      />,
+      <CorreoRow thread={thread} canModify={false} onOpen={vi.fn()} selected />,
     );
     expect(
-      screen.getByRole("button", { name: /cliente@example.com/i }).getAttribute(
-        "aria-current",
-      ),
+      screen
+        .getByRole("button", { name: /Propuesta comercial/i })
+        .getAttribute("aria-current"),
     ).toBe("true");
   });
 });

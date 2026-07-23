@@ -94,7 +94,7 @@ export function CorreoRowSwipe({
   if (!coarse) {
     return (
       <CorreoRow thread={thread} canModify={canModify} onOpen={onOpen} onChanged={onChanged}
-        selected={selected} focused={focused} checked={checked}
+        onSnooze={onSnooze} selected={selected} focused={focused} checked={checked}
         onToggleCheck={onToggleCheck} previewLines={previewLines} />
     );
   }

@@ -113,6 +113,16 @@ export function CorreoThreadActions({
         {isUnread ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
         {drawer && <span>{isUnread ? "Leído" : "No leído"}</span>}
       </button>
+      {!drawer && onSnooze && (
+        <button
+          type="button"
+          className={btn}
+          title="Posponer"
+          onClick={() => onSnooze()}
+        >
+          <Clock className="h-4 w-4" />
+        </button>
+      )}
       {drawer && starred !== undefined && (
         <button
           type="button"
