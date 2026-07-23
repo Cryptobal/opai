@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, Clock, Mail, MailOpen, MoreVertical, Trash2 } from "lucide-react";
+import { Archive, Clock, Mail, MailOpen, MoreVertical, ShieldAlert, Star, StarOff, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -64,6 +64,32 @@ export function CorreoRowMenu({
             <Clock className="h-4 w-4" /> Posponer
           </DropdownMenuItem>
         )}
+        <DropdownMenuItem
+          onSelect={() =>
+            void runCorreoAction(
+              thread.id,
+              thread.starredAt ? "unstar" : "star",
+              thread.starredAt ? "Quitado de Destacados" : "Destacado",
+              onChanged,
+            )
+          }
+        >
+          {thread.starredAt ? <StarOff className="h-4 w-4" /> : <Star className="h-4 w-4" />}
+          {thread.starredAt ? "Quitar destacado" : "Destacar"}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => {
+            if (thread.spamAt) {
+              void runCorreoAction(thread.id, "unspam", "Restaurado de Spam", onChanged);
+            } else {
+              onRemove?.(thread.id);
+              void runCorreoAction(thread.id, "spam", "Marcado como spam", onChanged, "unspam");
+            }
+          }}
+        >
+          <ShieldAlert className="h-4 w-4" />
+          {thread.spamAt ? "No es spam" : "Marcar spam"}
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => remove("archive", "Archivado")}>
           <Archive className="h-4 w-4" /> Archivar
         </DropdownMenuItem>

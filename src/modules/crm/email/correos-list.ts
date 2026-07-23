@@ -14,7 +14,16 @@ import {
 
 const KEYWORDS = ["cotiz", "licitac", "servicio", "propuesta", "bases", "presupuesto"];
 
-export type CorreoListFilter = "inbox" | "archived" | "all" | "trash" | "snoozed";
+export type CorreoListFilter =
+  | "inbox"
+  | "archived"
+  | "all"
+  | "trash"
+  | "snoozed"
+  | "sent"
+  | "drafts"
+  | "spam"
+  | "starred";
 
 /**
  * "No pospuesto" null-safe. NUNCA usar `NOT: { snoozedUntil: { gt: now } }`:
@@ -37,6 +46,23 @@ export function folderWhere(folder: CorreoListFilter) {
   if (folder === "snoozed") return { trashedAt: null, spamAt: null, snoozedUntil: { gt: now } };
   if (folder === "archived") return { trashedAt: null, spamAt: null, archivedAt: { not: null } };
   if (folder === "all") return { trashedAt: null, spamAt: null };
+  // C10: Enviados = hilos con al menos un saliente real (label SENT espejado
+  // en direction); Borradores = hilos con draft vivo; Spam y Destacados por
+  // sus timestamps espejo.
+  if (folder === "sent") {
+    return {
+      trashedAt: null,
+      spamAt: null,
+      messages: { some: { direction: "out", isDraft: false } },
+    };
+  }
+  if (folder === "drafts") {
+    return { trashedAt: null, messages: { some: { isDraft: true } } };
+  }
+  if (folder === "spam") return { trashedAt: null, spamAt: { not: null } };
+  if (folder === "starred") {
+    return { trashedAt: null, spamAt: null, starredAt: { not: null } };
+  }
   return { trashedAt: null, spamAt: null, archivedAt: null, ...notSnoozedWhere(now) };
 }
 
@@ -52,9 +78,11 @@ const THREAD_LIST_SELECT = {
   archivedAt: true,
   trashedAt: true,
   snoozedUntil: true,
+  starredAt: true,
+  spamAt: true,
   isUnread: true,
   messages: {
-    select: { fromEmail: true, textBody: true, htmlBody: true },
+    select: { fromEmail: true, textBody: true, htmlBody: true, isDraft: true },
     orderBy: { sentAt: "desc" as const },
     take: 1,
   },
@@ -193,6 +221,9 @@ export async function listCorreoThreads(params: {
       archivedAt: r.archivedAt?.toISOString() ?? null,
       trashedAt: r.trashedAt?.toISOString() ?? null,
       snoozedUntil: r.snoozedUntil?.toISOString() ?? null,
+      starredAt: r.starredAt?.toISOString() ?? null,
+      spamAt: r.spamAt?.toISOString() ?? null,
+      hasDraft: Boolean(msg?.isDraft),
     };
   });
 

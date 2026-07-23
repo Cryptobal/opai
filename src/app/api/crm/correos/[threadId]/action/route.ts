@@ -18,6 +18,10 @@ const ACTIONS = new Set<CorreoAction>([
   "markUnread",
   "snooze",
   "unsnooze",
+  "star",
+  "unstar",
+  "spam",
+  "unspam",
 ]);
 
 export async function POST(

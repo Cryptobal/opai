@@ -8,6 +8,10 @@ export type CorreoFolderCounts = {
   all: number;
   trash: number;
   snoozed: number;
+  drafts: number;
+  spam: number;
+  /** Envíos programados pendientes en el outbox (PR-12). */
+  scheduled: number;
 };
 
 /**
@@ -24,28 +28,48 @@ export async function countCorreoFolders(params: {
   // Null-safe: el patrón NOT excluía los hilos con snoozedUntil NULL (ver
   // notSnoozedWhere en correos-list.ts) y el contador de Recibidos daba 0.
   const notSnoozed = notSnoozedWhere(now);
-  const [inbox, inboxUnread, archived, all, trash, snoozed] = await Promise.all([
-    prisma.crmEmailThread.count({
-      where: { ...base, trashedAt: null, archivedAt: null, spamAt: null, ...notSnoozed },
-    }),
-    prisma.crmEmailThread.count({
-      where: { ...base, trashedAt: null, archivedAt: null, spamAt: null, isUnread: true, ...notSnoozed },
-    }),
-    prisma.crmEmailThread.count({
-      where: { ...base, trashedAt: null, spamAt: null, archivedAt: { not: null } },
-    }),
-    prisma.crmEmailThread.count({
-      where: { ...base, trashedAt: null, spamAt: null },
-    }),
-    prisma.crmEmailThread.count({
-      where: { ...base, trashedAt: { not: null } },
-    }),
-    prisma.crmEmailThread.count({
-      where: { ...base, trashedAt: null, spamAt: null, snoozedUntil: { gt: now } },
-    }),
-  ]);
+  const [inbox, inboxUnread, archived, all, trash, snoozed, drafts, spam, scheduled] =
+    await Promise.all([
+      prisma.crmEmailThread.count({
+        where: { ...base, trashedAt: null, archivedAt: null, spamAt: null, ...notSnoozed },
+      }),
+      prisma.crmEmailThread.count({
+        where: { ...base, trashedAt: null, archivedAt: null, spamAt: null, isUnread: true, ...notSnoozed },
+      }),
+      prisma.crmEmailThread.count({
+        where: { ...base, trashedAt: null, spamAt: null, archivedAt: { not: null } },
+      }),
+      prisma.crmEmailThread.count({
+        where: { ...base, trashedAt: null, spamAt: null },
+      }),
+      prisma.crmEmailThread.count({
+        where: { ...base, trashedAt: { not: null } },
+      }),
+      prisma.crmEmailThread.count({
+        where: { ...base, trashedAt: null, spamAt: null, snoozedUntil: { gt: now } },
+      }),
+      // C10: borradores y spam. Enviados no lleva contador (join caro y Gmail
+      // tampoco lo muestra). La optimización de counts llega en PR-13.
+      prisma.crmEmailMessage.count({
+        where: {
+          tenantId: params.tenantId,
+          emailAccountId: params.emailAccountId,
+          isDraft: true,
+        },
+      }),
+      prisma.crmEmailThread.count({
+        where: { ...base, trashedAt: null, spamAt: { not: null } },
+      }),
+      prisma.crmEmailOutbox.count({
+        where: {
+          tenantId: params.tenantId,
+          emailAccountId: params.emailAccountId,
+          status: "held",
+        },
+      }),
+    ]);
 
-  return { inbox, inboxUnread, archived, all, trash, snoozed };
+  return { inbox, inboxUnread, archived, all, trash, snoozed, drafts, spam, scheduled };
 }
 
 /** Compatibilidad para call sites previos; los conteos ahora siempre son frescos. */

@@ -4,15 +4,31 @@ import { AlignJustify, RefreshCw, Search, Wifi, WifiOff } from "lucide-react";
 import type { CorreosRealtimeStatus } from "./useCorreosRealtime";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
 
-export type CorreoFolderTab = "inbox" | "archived" | "all" | "trash" | "snoozed";
+export type CorreoFolderTab =
+  | "inbox"
+  | "archived"
+  | "all"
+  | "trash"
+  | "snoozed"
+  | "sent"
+  | "drafts"
+  | "spam"
+  | "starred"
+  | "scheduled";
 export type CorreoChipKey = "todos" | "con_cuenta" | "sin_asociar" | "con_adjuntos" | "leads_creados";
 
 // Espejo de Gmail: no hay bandeja "Archivados" — los archivados viven dentro
 // de "Todos". El tipo `archived` se mantiene solo por compat de deep-links.
+// "Programados" (PR-12) se alimenta del outbox, no de hilos.
 const TABS: { key: CorreoFolderTab; label: string }[] = [
   { key: "inbox", label: "Bandeja de entrada" },
   { key: "snoozed", label: "Pospuestos" },
+  { key: "sent", label: "Enviados" },
+  { key: "drafts", label: "Borradores" },
+  { key: "scheduled", label: "Programados" },
+  { key: "starred", label: "Destacados" },
   { key: "all", label: "Todos" },
+  { key: "spam", label: "Spam" },
   { key: "trash", label: "Papelera" },
 ];
 
@@ -31,6 +47,9 @@ type Counts = {
   all: number;
   trash: number;
   snoozed: number;
+  drafts?: number;
+  spam?: number;
+  scheduled?: number;
 } | null;
 
 type Props = {
@@ -136,7 +155,9 @@ export function CorreosFilters({
 
       <div className="flex gap-1 overflow-x-auto scrollbar-none">
         {TABS.map((t) => {
-          const n = counts?.[t.key];
+          const n = counts
+            ? (counts as Record<string, number | undefined>)[t.key]
+            : undefined;
           const unread = t.key === "inbox" ? counts?.inboxUnread ?? 0 : 0;
           const active = folder === t.key;
           return (

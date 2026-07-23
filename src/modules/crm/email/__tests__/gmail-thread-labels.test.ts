@@ -2,20 +2,23 @@ import { describe, expect, it } from "vitest";
 import { deriveThreadState, flagsFromLabelIds } from "../gmail-thread-labels";
 
 describe("flagsFromLabelIds", () => {
-  it("detecta INBOX / SPAM / TRASH / UNREAD", () => {
+  it("detecta INBOX / SPAM / TRASH / UNREAD / STARRED", () => {
     expect(flagsFromLabelIds(["INBOX", "UNREAD"])).toEqual({
       inInbox: true,
       inSpam: false,
       inTrash: false,
       isUnread: true,
+      isStarred: false,
     });
     expect(flagsFromLabelIds(["SPAM"])).toMatchObject({ inSpam: true, inInbox: false });
     expect(flagsFromLabelIds(["TRASH"])).toMatchObject({ inTrash: true });
+    expect(flagsFromLabelIds(["INBOX", "STARRED"])).toMatchObject({ isStarred: true });
     expect(flagsFromLabelIds([])).toEqual({
       inInbox: false,
       inSpam: false,
       inTrash: false,
       isUnread: false,
+      isStarred: false,
     });
   });
 });

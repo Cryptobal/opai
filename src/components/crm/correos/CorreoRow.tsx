@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Clock, Paperclip, Sparkles, TrendingUp, CheckCircle2 } from "lucide-react";
+import { Clock, Paperclip, Pencil, Sparkles, Star, TrendingUp, CheckCircle2 } from "lucide-react";
 import { Tag } from "@/components/opai-ds";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 import { CorreoThreadActions } from "./CorreoThreadActions";
@@ -107,6 +107,12 @@ export function CorreoRow({
           )}
           {thread.attachmentCount > 0 && (
             <Tag variant="neutral" size="sm" icon={Paperclip}>{thread.attachmentCount}</Tag>
+          )}
+          {thread.starredAt && (
+            <Star className="h-3.5 w-3.5 shrink-0 fill-status-warn-fg text-status-warn-fg" aria-label="Destacado" />
+          )}
+          {thread.hasDraft && (
+            <Tag variant="warn" size="sm" icon={Pencil}>Borrador</Tag>
           )}
           {thread.leadId && (
             <Tag variant="ok" size="sm" icon={CheckCircle2}>Lead</Tag>

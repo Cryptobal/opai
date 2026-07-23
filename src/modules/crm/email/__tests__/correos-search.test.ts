@@ -209,6 +209,16 @@ describe("folderWhereSql (paridad con folderWhere de Prisma)", () => {
     expect(cond.sql).toContain("t.snoozed_until >");
     expect(cond.values).toContain(now);
   });
+
+  it("carpetas nuevas: sent/drafts por mensajes, spam/starred por timestamps", () => {
+    const sent = folderWhereSql("sent", now).sql;
+    expect(sent).toContain("m.direction = 'out'");
+    expect(sent).toContain("m.is_draft = false");
+    const drafts = folderWhereSql("drafts", now).sql;
+    expect(drafts).toContain("m.is_draft = true");
+    expect(folderWhereSql("spam", now).sql).toContain("t.spam_at IS NOT NULL");
+    expect(folderWhereSql("starred", now).sql).toContain("t.starred_at IS NOT NULL");
+  });
 });
 
 describe("buildCorreoSearchIdsQuery", () => {

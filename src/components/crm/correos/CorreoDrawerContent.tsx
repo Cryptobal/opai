@@ -75,6 +75,8 @@ export function CorreoDrawerContent({
           threadId={detail.thread.id}
           isUnread={detail.thread.isUnread}
           archived={Boolean(detail.thread.archivedAt)}
+          starred={Boolean(detail.thread.starredAt)}
+          inSpam={Boolean(detail.thread.spamAt)}
           canModify
           variant="drawer"
           onDone={onRefresh}

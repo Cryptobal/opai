@@ -13,6 +13,7 @@ import { CorreoRowSwipe } from "./CorreoRowSwipe";
 import { CorreoDrawer } from "./CorreoDrawer";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
 import { CorreoComposeSheet } from "./CorreoComposeSheet";
+import { CorreoScheduledList } from "./CorreoScheduledList";
 import { CorreosSyncBanner } from "./CorreosSyncBanner";
 import { snoozeThread } from "./correo-thread-action-client";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
@@ -120,7 +121,19 @@ export function CorreosClient() {
     // Deep-links: "archived" ya no es pestaña → normalizar a "Todos".
     const f = sp.get("folder");
     if (f === "archived") setFolder("all");
-    else if (f === "all" || f === "trash" || f === "inbox" || f === "snoozed") setFolder(f);
+    else if (
+      f === "all" ||
+      f === "trash" ||
+      f === "inbox" ||
+      f === "snoozed" ||
+      f === "sent" ||
+      f === "drafts" ||
+      f === "spam" ||
+      f === "starred" ||
+      f === "scheduled"
+    ) {
+      setFolder(f);
+    }
     window.addEventListener("popstate", syncThreadFromUrl);
     return () => window.removeEventListener("popstate", syncThreadFromUrl);
   }, []);
@@ -280,6 +293,9 @@ export function CorreosClient() {
         <div className="min-w-0 flex-1 space-y-4">
           {!connected ? (
             <EmptyState icon={Mail} title="Conectá tu Gmail" description="Conectá tu casilla en Integraciones." />
+          ) : folder === "scheduled" ? (
+            /* PR-12: Programados se alimenta del outbox, no de hilos. */
+            <CorreoScheduledList refreshToken={realtimeRevision} />
           ) : loading && items.length === 0 ? (
             <Spinner className="mx-auto" />
           ) : filtered.length === 0 ? (

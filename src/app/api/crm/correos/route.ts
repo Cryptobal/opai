@@ -9,7 +9,18 @@ import { isGmailSyncParked } from "@/modules/crm/email/gmail-sync-queue";
 import { gmailMailboxChannel } from "@/modules/crm/email/gmail-realtime";
 
 function parseFolder(raw: string | null): CorreoListFilter {
-  if (raw === "archived" || raw === "all" || raw === "trash" || raw === "snoozed") return raw;
+  if (
+    raw === "archived" ||
+    raw === "all" ||
+    raw === "trash" ||
+    raw === "snoozed" ||
+    raw === "sent" ||
+    raw === "drafts" ||
+    raw === "spam" ||
+    raw === "starred"
+  ) {
+    return raw;
+  }
   return "inbox";
 }
 

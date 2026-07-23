@@ -141,6 +141,24 @@ export function folderWhereSql(folder: CorreoListFilter, now: Date): Prisma.Sql 
     return Prisma.sql`t.trashed_at IS NULL AND t.spam_at IS NULL AND t.archived_at IS NOT NULL`;
   }
   if (folder === "all") return Prisma.sql`t.trashed_at IS NULL AND t.spam_at IS NULL`;
+  if (folder === "sent") {
+    return Prisma.sql`t.trashed_at IS NULL AND t.spam_at IS NULL AND EXISTS (
+      SELECT 1 FROM crm.email_messages m
+      WHERE m.thread_id = t.id AND m.direction = 'out' AND m.is_draft = false
+    )`;
+  }
+  if (folder === "drafts") {
+    return Prisma.sql`t.trashed_at IS NULL AND EXISTS (
+      SELECT 1 FROM crm.email_messages m
+      WHERE m.thread_id = t.id AND m.is_draft = true
+    )`;
+  }
+  if (folder === "spam") {
+    return Prisma.sql`t.trashed_at IS NULL AND t.spam_at IS NOT NULL`;
+  }
+  if (folder === "starred") {
+    return Prisma.sql`t.trashed_at IS NULL AND t.spam_at IS NULL AND t.starred_at IS NOT NULL`;
+  }
   return Prisma.sql`t.trashed_at IS NULL AND t.spam_at IS NULL AND t.archived_at IS NULL AND (t.snoozed_until IS NULL OR t.snoozed_until <= ${now})`;
 }
 
