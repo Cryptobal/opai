@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
-import { fmtCell, formatThousands, NUM_CLASS, numSizeClass, parseSignedAmount } from "./format";
+import { fmtCell, folioChip, formatThousands, NUM_CLASS, numSizeClass } from "./format";
 import {
-  CELL_BASE, COL_W, COMMITTED_DRAFT_CELL, COMMITTED_DTE_CELL, COMMITTED_PROFORMA_CELL,
-  COMMITTED_SCHEDULED_CELL, displayValue, REAL_CELL, ROW_H, SELECTED_CELL, TODAY_COL,
+  CELL_BASE, CELL_CHIP_CLASS, COL_W, COMMITTED_DRAFT_CELL, COMMITTED_DTE_CELL,
+  COMMITTED_PROFORMA_CELL, COMMITTED_SCHEDULED_CELL, displayValue, REAL_CELL, ROW_H,
+  SELECTED_CELL, TODAY_COL,
 } from "./grid-classes";
 
 interface Props {
@@ -22,6 +23,17 @@ interface Props {
   onCommit: (raw: string, move: "down" | "right" | "none") => void;
   onCancel: () => void;
   onOpenPopover: (anchor: DOMRect) => void;
+  /** Registra esta celda como objetivo del menú contextual del grid. */
+  onContextTarget: () => void;
+  /** Drag de plan (desktop): la celda es arrastrable (capa plan editable con monto). */
+  draggable: boolean;
+  onDragStartCell: () => void;
+  onDragOverCell: (e: React.DragEvent) => void;
+  onDropCell: () => void;
+  onDragEndCell: () => void;
+  isDropTarget: boolean;
+  /** Título (not-allowed) para celdas comprometido/real cuando el drag está activo. */
+  dragBlockedTitle?: string;
 }
 
 function EditInput({ initial, onCommit, onCancel }: {
@@ -66,9 +78,9 @@ export function PlanillaCell(p: Props) {
   const isEditing = p.editingInitial != null;
   const value = displayValue(p.section, cell.layer, cell.effective);
 
-  // Sub-capa del comprometido, por prioridad: factura emitida (azul sólido) >
-  // proforma/EP enviado (ámbar sólido) > borrador (ámbar punteado) > cuota
-  // programada (azul punteado). El chip resume: folio · EP · B · P.
+  // Sub-capa del comprometido, por prioridad: factura emitida (azul relleno) >
+  // proforma/EP enviado (ámbar relleno) > borrador (ámbar punteado) > cuota
+  // programada (azul punteado). El chip resume: F°folio · EP · B · P.
   const cItems = cell.committed?.items ?? [];
   const hasDte = cItems.some((i) => i.kind === "dte");
   const hasProforma = cItems.some((i) => i.kind === "draft" && i.proformaSent);
@@ -80,16 +92,22 @@ export function PlanillaCell(p: Props) {
       : hasDraft
         ? COMMITTED_DRAFT_CELL
         : COMMITTED_SCHEDULED_CELL;
-  const committedChip =
-    cItems.length > 0
-      ? hasDte
-        ? (cItems.find((i) => i.folio)?.folio?.toString() ?? "F")
+  // Chip: el folio va en su propio color (status-info-fg) para leerse; el resto
+  // (EP · B · P) en ds-text-3 para no competir con el número de la celda (§5F).
+  const dteFolio = hasDte ? cItems.find((i) => i.folio)?.folio : undefined;
+  const chip: { text: string; title?: string; tone: string } | null =
+    cItems.length === 0
+      ? null
+      : hasDte
+        ? {
+            ...(dteFolio != null ? folioChip(dteFolio) : { text: "F°", title: "Factura emitida" }),
+            tone: "text-status-info-fg",
+          }
         : hasProforma
-          ? "EP"
+          ? { text: "EP", tone: "text-ds-text-3" }
           : hasDraft
-            ? "B"
-            : "P"
-      : null;
+            ? { text: "B", tone: "text-ds-text-3" }
+            : { text: "P", tone: "text-ds-text-3" };
   const committedWarnTone = !hasDte && (hasProforma || hasDraft);
 
   const layerClass =
@@ -107,6 +125,9 @@ export function PlanillaCell(p: Props) {
 
   const longValue = value !== 0 ? numSizeClass(fmtCell(value)) : "";
 
+  const cursorClass = p.draggable ? "cursor-grab" : p.editable ? "cursor-cell" : "cursor-default";
+  const dragBlocked = !!p.dragBlockedTitle;
+
   return (
     <td
       data-rc={p.dataRc}
@@ -114,8 +135,17 @@ export function PlanillaCell(p: Props) {
         CELL_BASE, COL_W, ROW_H, NUM_CLASS, longValue, layerClass, textClass,
         p.isCurrentCol ? TODAY_COL : "",
         p.selected ? SELECTED_CELL : "",
-        p.editable ? "cursor-cell" : "cursor-default",
+        cursorClass,
+        p.isDropTarget ? "outline outline-2 -outline-offset-2 outline-primary/70" : "",
+        dragBlocked ? "[cursor:not-allowed]" : "",
       ].join(" ")}
+      title={p.dragBlockedTitle}
+      draggable={p.draggable}
+      onDragStart={p.draggable ? p.onDragStartCell : undefined}
+      onDragOver={p.onDragOverCell}
+      onDrop={p.onDropCell}
+      onDragEnd={p.onDragEndCell}
+      onContextMenu={p.onContextTarget}
       onClick={(e) => {
         p.onSelect();
         if (cell.committed || cell.real || cell.plan !== 0) {
@@ -128,13 +158,9 @@ export function PlanillaCell(p: Props) {
         <EditInput initial={p.editingInitial!} onCommit={p.onCommit} onCancel={p.onCancel} />
       ) : (
         <>
-          {committedChip && cell.layer === "committed" && (
-            <span
-              className={`absolute right-0.5 top-0 font-mono text-[8px] leading-none ${
-                committedWarnTone ? "text-status-warn-fg/80" : "text-status-info-fg/80"
-              }`}
-            >
-              {committedChip}
+          {chip && cell.layer === "committed" && (
+            <span className={`${CELL_CHIP_CLASS} ${chip.tone}`} title={chip.title}>
+              {chip.text}
             </span>
           )}
           {value !== 0 ? fmtCell(value) : ""}

@@ -20,6 +20,10 @@ export function usePlanillaKeyboard(opts: {
   onOpenPopover: (sel: CellSel) => void;
   /** Ctrl/Cmd+D sobre celda editable: rellenar hacia la derecha (F3). */
   onFillRight?: (sel: CellSel) => void;
+  /** Ctrl/Cmd+Z: deshacer la última mutación de plan. */
+  onUndo?: () => void;
+  /** Ctrl/Cmd+Shift+Z / Ctrl+Y: rehacer. */
+  onRedo?: () => void;
 }) {
   const [sel, setSel] = useState<CellSel | null>(null);
   const [editing, setEditing] = useState<{ sel: CellSel; initial: string } | null>(null);
@@ -61,9 +65,22 @@ export function usePlanillaKeyboard(opts: {
 
   const onGridKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (editing) return; // el input inline maneja sus teclas
-      if (!sel) return;
+      if (editing) return; // el input inline maneja sus teclas (tiene stopPropagation)
       const k = e.key;
+      const mod = e.ctrlKey || e.metaKey;
+      // Deshacer / rehacer funcionan aunque no haya celda seleccionada.
+      if (mod && (k === "z" || k === "Z")) {
+        e.preventDefault();
+        if (e.shiftKey) opts.onRedo?.();
+        else opts.onUndo?.();
+        return;
+      }
+      if (mod && (k === "y" || k === "Y")) {
+        e.preventDefault();
+        opts.onRedo?.();
+        return;
+      }
+      if (!sel) return;
       if ((e.ctrlKey || e.metaKey) && (k === "d" || k === "D")) {
         e.preventDefault();
         if (opts.canEditCell(sel.rowId, sel.colIdx)) opts.onFillRight?.(sel);

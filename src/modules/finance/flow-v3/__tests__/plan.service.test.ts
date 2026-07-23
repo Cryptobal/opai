@@ -15,7 +15,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { prisma } from "@/lib/prisma";
-import { upsertCell, bulkFill } from "../plan.service";
+import { upsertCell, bulkFill, movePlanCell } from "../plan.service";
 
 const TENANT = "t1";
 const ROW = "row-1";
@@ -25,7 +25,12 @@ const asMock = (fn: unknown) => fn as ReturnType<typeof vi.fn>;
 beforeEach(() => {
   vi.clearAllMocks();
   asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({ id: ROW, archivedAt: null });
-  asMock(prisma.$transaction).mockImplementation(async (ops: unknown[]) => Promise.all(ops as Promise<unknown>[]));
+  // $transaction admite forma de arreglo (bulkFill) y de callback (movePlanCell).
+  asMock(prisma.$transaction).mockImplementation(async (arg: unknown) =>
+    typeof arg === "function"
+      ? (arg as (tx: typeof prisma) => unknown)(prisma)
+      : Promise.all(arg as Promise<unknown>[]),
+  );
 });
 
 describe("upsertCell", () => {
@@ -55,12 +60,25 @@ describe("upsertCell", () => {
     await expect(upsertCell(TENANT, ROW, "2026-07-21", 100, null)).rejects.toThrow(/lunes ISO/);
   });
 
-  it("rechaza fila archivada", async () => {
+  it("rechaza plan nuevo hacia adelante en fila archivada", async () => {
+    // Archivada la semana del 2026-07-20 (lunes). Escribir esa semana o adelante bloquea.
     asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({
       id: ROW,
-      archivedAt: new Date(),
+      archivedAt: new Date("2026-07-20T00:00:00.000Z"),
     });
-    await expect(upsertCell(TENANT, ROW, WEEK, 100, null)).rejects.toThrow(/archivada/);
+    await expect(upsertCell(TENANT, ROW, "2026-07-27", 100, null)).rejects.toThrow(/archivada/);
+  });
+
+  it("permite corregir plan en semanas anteriores al término de una fila archivada", async () => {
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({
+      id: ROW,
+      archivedAt: new Date("2026-07-20T00:00:00.000Z"),
+    });
+    asMock(prisma.financeFlowPlanCell.upsert).mockResolvedValue({});
+    asMock(prisma.financeFlowPlanCell.findFirst).mockResolvedValue({ amount: "500", updatedBy: null });
+    // 2026-07-13 (< cutoff 2026-07-20) sí es editable.
+    const cell = await upsertCell(TENANT, ROW, "2026-07-13", 500, null);
+    expect(cell.amount).toBe(500);
   });
 
   it("acepta montos negativos (FINANCIAMIENTO)", async () => {
@@ -92,5 +110,51 @@ describe("bulkFill", () => {
     const cells = await bulkFill(TENANT, ROW, ["2026-07-20"], 0, null);
     expect(prisma.financeFlowPlanCell.deleteMany).toHaveBeenCalledOnce();
     expect(cells[0].amount).toBe(0);
+  });
+});
+
+describe("movePlanCell", () => {
+  const FROM = "2026-07-20";
+  const TO = "2026-07-27";
+  const fromMs = Date.UTC(2026, 6, 20);
+  const toMs = Date.UTC(2026, 6, 27);
+
+  const dispatch = (originAmt: string | null, destAmt: string | null) =>
+    asMock(prisma.financeFlowPlanCell.findFirst).mockImplementation(
+      async ({ where }: { where: { weekStart?: Date } }) => {
+        const t = where.weekStart instanceof Date ? where.weekStart.getTime() : null;
+        if (t === fromMs) return originAmt == null ? null : { amount: originAmt };
+        if (t === toMs) return destAmt == null ? null : { amount: destAmt };
+        return null;
+      },
+    );
+
+  it("suma en el destino (en DB) y borra el origen, dentro de una transacción", async () => {
+    dispatch("1000", "500");
+    asMock(prisma.financeFlowPlanCell.upsert).mockResolvedValue({});
+    await movePlanCell(TENANT, ROW, FROM, TO, "u");
+    expect(prisma.$transaction).toHaveBeenCalledOnce();
+    const upsertArgs = asMock(prisma.financeFlowPlanCell.upsert).mock.calls[0][0];
+    expect(upsertArgs.update.amount).toBe(1500);
+    expect(prisma.financeFlowPlanCell.deleteMany).toHaveBeenCalledWith({
+      where: { tenantId: TENANT, rowId: ROW, weekStart: new Date(fromMs) },
+    });
+  });
+
+  it("origen sin monto ⇒ no escribe nada", async () => {
+    dispatch(null, "500");
+    await movePlanCell(TENANT, ROW, FROM, TO, "u");
+    expect(prisma.financeFlowPlanCell.upsert).not.toHaveBeenCalled();
+    expect(prisma.financeFlowPlanCell.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("mover a la misma semana es no-op (sin transacción)", async () => {
+    const r = await movePlanCell(TENANT, ROW, FROM, FROM, "u");
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(r.from.weekStart).toBe(FROM);
+  });
+
+  it("rechaza semana que no sea lunes ISO", async () => {
+    await expect(movePlanCell(TENANT, ROW, FROM, "2026-07-28", "u")).rejects.toThrow(/lunes ISO/);
   });
 });
