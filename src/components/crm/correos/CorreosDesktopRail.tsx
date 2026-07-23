@@ -40,7 +40,7 @@ export function CorreosDesktopRail({
   // Con el riel contraído, los textos aparecen solo durante el peek (hover).
   const lbl = collapsed ? "hidden truncate group-hover/rail:inline" : "truncate";
   const item = (active: boolean) =>
-    `flex h-9 w-full items-center gap-3 rounded-xl text-left text-[13px] ds-tap ${
+    `relative flex h-9 w-full items-center gap-3 rounded-xl text-left text-[13px] ds-tap ${
       collapsed ? "justify-center px-0 group-hover/rail:justify-start group-hover/rail:px-3.5" : "px-3.5"
     } ${active ? "bg-primary/15 font-medium text-primary" : "text-ds-text-2 hover:bg-ds-surface-2"}`;
 
@@ -61,7 +61,9 @@ export function CorreosDesktopRail({
           title={collapsed ? "Expandir menú" : "Contraer menú"}
           aria-label={collapsed ? "Expandir menú de carpetas" : "Contraer menú de carpetas"}
           aria-expanded={!collapsed}
-          className="mx-1.5 mb-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-ds-text-3 ds-tap hover:bg-ds-surface-3"
+          className={`mb-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-ds-text-3 ds-tap hover:bg-ds-surface-3 ${
+            collapsed ? "mx-auto group-hover/rail:mx-1.5" : "mx-1.5"
+          }`}
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -70,7 +72,7 @@ export function CorreosDesktopRail({
           onClick={onCompose}
           className={`mb-2 flex h-11 items-center gap-2.5 rounded-2xl bg-primary/15 text-[13px] font-medium text-primary ds-tap hover:bg-primary/25 ${
             collapsed
-              ? "mx-1.5 w-11 justify-center group-hover/rail:mx-1 group-hover/rail:w-auto group-hover/rail:justify-start group-hover/rail:px-5"
+              ? "mx-auto w-11 justify-center group-hover/rail:mx-1 group-hover/rail:w-auto group-hover/rail:justify-start group-hover/rail:px-5"
               : "mx-1 px-5"
           }`}
         >
@@ -86,8 +88,18 @@ export function CorreosDesktopRail({
             <button key={t.key} type="button" onClick={() => onFolder(t.key)} className={item(folder === t.key)}>
               <Icon className="h-4 w-4 shrink-0" />
               <span className={`${lbl} min-w-0 flex-1`}>{t.label}</span>
+              {/* Riel colapsado: badge rojo de no leídos sobre el ícono (como
+                  Gmail); en el peek/expandido pasa a la píldora inline. */}
+              {unread > 0 && collapsed && (
+                <span
+                  aria-hidden
+                  className="absolute right-1.5 top-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-status-danger px-1 text-[12px] font-semibold leading-none text-white shadow-ds-xs group-hover/rail:hidden"
+                >
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
               {unread > 0 && (
-                <span className={`rounded-full bg-primary px-1.5 text-[12px] font-medium text-primary-foreground ${collapsed ? "hidden group-hover/rail:inline" : ""}`}>
+                <span className={`rounded-full bg-status-danger px-1.5 text-[12px] font-medium text-white ${collapsed ? "hidden group-hover/rail:inline" : ""}`}>
                   {unread}
                 </span>
               )}
