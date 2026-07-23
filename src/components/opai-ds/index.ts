@@ -45,6 +45,7 @@ export {
 export { SubNav, type SubNavItem } from "./SubNav";
 export { SwipeTabs, type SwipeTabsProps, type SwipeTabItem } from "./SwipeTabs";
 export { ModuleSubNav, type ModuleSubNavProps } from "./ModuleSubNav";
+export { FxIndicator } from "./FxIndicator";
 export { PageShell, type PageShellProps } from "./PageShell";
 export { ConfigShell, useConfigCategories, type ConfigShellProps, type CategoryGroup } from "./ConfigShell";
 export { GlassAmbient } from "./GlassAmbient";
