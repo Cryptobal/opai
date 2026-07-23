@@ -1,3 +1,7 @@
+// v14 (2026-07-23): bumped tras el pulido minimalista del inicio móvil del
+// Hub (accesos rápidos como pills monocromos, tarjetas Agenda/Correos sin
+// botones redundantes, headers tocables con chevron). Purga HTML/chunks v13.
+//
 // v13 (2026-07-23): bumped tras FC-01.2 de la planilla (planilla como única
 // vista de Flujo de Caja, /finanzas/flujo-caja redirige, Cuentas deja de
 // rebotar, capas borrador/EP/programada con leyenda, filas asociadas sin
@@ -36,7 +40,7 @@
 // ChunkLoadError → global-error.tsx ("Algo salió mal") en el portal del
 // guardia (y resto de portales) sin que refrescar lo arreglara, porque
 // el navigate handler nunca refrescaba la cache (ver fix abajo).
-const CACHE_NAME = 'opai-v13';
+const CACHE_NAME = 'opai-v14';
 
 // Endpoints de autenticación/sesión que NUNCA deben pasar por la cache del
 // SW. Si una respuesta antigua quedara cacheada, el cliente podría ver una

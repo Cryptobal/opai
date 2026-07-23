@@ -10,7 +10,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Mail, Paperclip, RefreshCw } from "lucide-react";
+import { ChevronRight, Mail, Paperclip, RefreshCw } from "lucide-react";
 import { EmptyState, Surface, Tag } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { cn, timeAgo } from "@/lib/utils";
@@ -27,21 +27,42 @@ function senderLabel(fromEmail: string | null): string {
 }
 
 function HeaderRow({ unreadCount }: { unreadCount?: number }) {
+  const badge = typeof unreadCount === "number" && unreadCount > 0 && (
+    <Tag variant="brand" size="sm" className="shrink-0">{unreadCount} sin leer</Tag>
+  );
   return (
-    <div className="flex min-w-0 items-center justify-between gap-2">
-      <div className="flex min-w-0 items-center gap-2">
+    <>
+      {/* Móvil: sin botón "Ver todos" (redundante con el pill Correos de
+          accesos rápidos) — el header completo es tocable con chevron. */}
+      <Link
+        href="/crm/correos"
+        aria-label="Ver todos los correos"
+        className="flex min-h-11 min-w-0 items-center gap-2 lg:hidden"
+      >
         <Mail className="h-4 w-4 shrink-0 text-primary" />
-        <p className="truncate font-display text-sm font-semibold text-ds-text-1">
+        <p className="min-w-0 truncate font-display text-sm font-semibold text-ds-text-1">
           Correos recientes
         </p>
-        {typeof unreadCount === "number" && unreadCount > 0 && (
-          <Tag variant="brand" size="sm">{unreadCount} sin leer</Tag>
-        )}
+        {badge}
+        <span className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-2 text-ds-text-3">
+          <ChevronRight className="h-4 w-4" />
+        </span>
+      </Link>
+
+      {/* Desktop: título + botón (sin pills arriba, el botón se queda) */}
+      <div className="hidden min-w-0 items-center justify-between gap-2 lg:flex">
+        <div className="flex min-w-0 items-center gap-2">
+          <Mail className="h-4 w-4 shrink-0 text-primary" />
+          <p className="truncate font-display text-sm font-semibold text-ds-text-1">
+            Correos recientes
+          </p>
+          {badge}
+        </div>
+        <Button asChild variant="outline" size="sm" className="shrink-0">
+          <Link href="/crm/correos">Ver todos</Link>
+        </Button>
       </div>
-      <Button asChild variant="outline" size="sm" className="shrink-0">
-        <Link href="/crm/correos">Ver todos</Link>
-      </Button>
-    </div>
+    </>
   );
 }
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, ChevronRight } from "lucide-react";
 import { Surface, Tag, Spinner, EmptyState } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { addDaysChile, startOfDayChile, todayInChile } from "@/lib/dates-cl";
@@ -42,7 +42,22 @@ export function AgendaHubCard() {
 
   return (
     <Surface elevation={1} padding="md" className="min-w-0 space-y-3">
-      <div className="flex min-w-0 items-center justify-between gap-2">
+      {/* Móvil: sin botón "Abrir agenda" (redundante con el pill Calendario
+          de accesos rápidos) — todo el header es tocable con chevron discreto. */}
+      <Link
+        href="/opai/agenda"
+        aria-label="Abrir agenda"
+        className="flex min-h-11 min-w-0 items-center gap-2 lg:hidden"
+      >
+        <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
+        <p className="min-w-0 flex-1 truncate font-display text-sm font-semibold text-ds-text-1">Agenda</p>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-2 text-ds-text-3">
+          <ChevronRight className="h-4 w-4" />
+        </span>
+      </Link>
+
+      {/* Desktop: título + acciones (sin pills arriba, los botones se quedan) */}
+      <div className="hidden min-w-0 items-center justify-between gap-2 lg:flex">
         <div className="flex min-w-0 items-center gap-2">
           <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
           <p className="truncate font-display text-sm font-semibold text-ds-text-1">Agenda</p>
@@ -53,7 +68,6 @@ export function AgendaHubCard() {
             variant="outline"
             size="sm"
             onClick={() => setExpanded((v) => !v)}
-            className="hidden sm:inline-flex"
           >
             {expanded ? "Compactar" : "Ampliar"}
           </Button>

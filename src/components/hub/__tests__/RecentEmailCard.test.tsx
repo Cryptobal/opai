@@ -91,7 +91,10 @@ describe("RecentEmailCard", () => {
   it("muestra el conteo de no leídos y el indicador visual", async () => {
     mockFetchOnce(payload({ unreadCount: 4 }));
     renderCard();
-    await waitFor(() => expect(screen.getByText("4 sin leer")).toBeTruthy());
+    // El badge vive en el header móvil y en el desktop (visibilidad por CSS).
+    await waitFor(() =>
+      expect(screen.getAllByText("4 sin leer").length).toBeGreaterThanOrEqual(1),
+    );
     expect(screen.getByLabelText("No leído")).toBeTruthy();
   });
 
