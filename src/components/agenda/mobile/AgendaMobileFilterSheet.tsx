@@ -1,6 +1,6 @@
 "use client";
 
-import { FilterGroup } from "../AgendaToolbar";
+import { FilterGroup } from "../FilterGroup";
 import type {
   AgendaContentFilter,
   AgendaTeamMember,
