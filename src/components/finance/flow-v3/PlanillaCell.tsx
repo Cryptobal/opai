@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
-import { fmtCell, formatThousands, NUM_CLASS, numSizeClass, parseSignedAmount } from "./format";
+import { fmtCell, folioChip, formatThousands, NUM_CLASS, numSizeClass } from "./format";
 import {
-  CELL_BASE, COL_W, COMMITTED_DRAFT_CELL, COMMITTED_DTE_CELL, COMMITTED_PROFORMA_CELL,
-  COMMITTED_SCHEDULED_CELL, displayValue, REAL_CELL, ROW_H, SELECTED_CELL, TODAY_COL,
+  CELL_BASE, CELL_CHIP_CLASS, COL_W, COMMITTED_DRAFT_CELL, COMMITTED_DTE_CELL,
+  COMMITTED_PROFORMA_CELL, COMMITTED_SCHEDULED_CELL, displayValue, REAL_CELL, ROW_H,
+  SELECTED_CELL, TODAY_COL,
 } from "./grid-classes";
 
 interface Props {
@@ -66,9 +67,9 @@ export function PlanillaCell(p: Props) {
   const isEditing = p.editingInitial != null;
   const value = displayValue(p.section, cell.layer, cell.effective);
 
-  // Sub-capa del comprometido, por prioridad: factura emitida (azul sólido) >
-  // proforma/EP enviado (ámbar sólido) > borrador (ámbar punteado) > cuota
-  // programada (azul punteado). El chip resume: folio · EP · B · P.
+  // Sub-capa del comprometido, por prioridad: factura emitida (azul relleno) >
+  // proforma/EP enviado (ámbar relleno) > borrador (ámbar punteado) > cuota
+  // programada (azul punteado). El chip resume: F°folio · EP · B · P.
   const cItems = cell.committed?.items ?? [];
   const hasDte = cItems.some((i) => i.kind === "dte");
   const hasProforma = cItems.some((i) => i.kind === "draft" && i.proformaSent);
@@ -80,16 +81,22 @@ export function PlanillaCell(p: Props) {
       : hasDraft
         ? COMMITTED_DRAFT_CELL
         : COMMITTED_SCHEDULED_CELL;
-  const committedChip =
-    cItems.length > 0
-      ? hasDte
-        ? (cItems.find((i) => i.folio)?.folio?.toString() ?? "F")
+  // Chip: el folio va en su propio color (status-info-fg) para leerse; el resto
+  // (EP · B · P) en ds-text-3 para no competir con el número de la celda (§5F).
+  const dteFolio = hasDte ? cItems.find((i) => i.folio)?.folio : undefined;
+  const chip: { text: string; title?: string; tone: string } | null =
+    cItems.length === 0
+      ? null
+      : hasDte
+        ? {
+            ...(dteFolio != null ? folioChip(dteFolio) : { text: "F°", title: "Factura emitida" }),
+            tone: "text-status-info-fg",
+          }
         : hasProforma
-          ? "EP"
+          ? { text: "EP", tone: "text-ds-text-3" }
           : hasDraft
-            ? "B"
-            : "P"
-      : null;
+            ? { text: "B", tone: "text-ds-text-3" }
+            : { text: "P", tone: "text-ds-text-3" };
   const committedWarnTone = !hasDte && (hasProforma || hasDraft);
 
   const layerClass =
@@ -128,13 +135,9 @@ export function PlanillaCell(p: Props) {
         <EditInput initial={p.editingInitial!} onCommit={p.onCommit} onCancel={p.onCancel} />
       ) : (
         <>
-          {committedChip && cell.layer === "committed" && (
-            <span
-              className={`absolute right-0.5 top-0 font-mono text-[8px] leading-none ${
-                committedWarnTone ? "text-status-warn-fg/80" : "text-status-info-fg/80"
-              }`}
-            >
-              {committedChip}
+          {chip && cell.layer === "committed" && (
+            <span className={`${CELL_CHIP_CLASS} ${chip.tone}`} title={chip.title}>
+              {chip.text}
             </span>
           )}
           {value !== 0 ? fmtCell(value) : ""}

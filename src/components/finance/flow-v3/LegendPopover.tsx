@@ -9,12 +9,17 @@ interface Props {
   onOpenChange: (v: boolean) => void;
 }
 
-/** Muestra (swatch, título, descripción) de cada capa/estado de celda. */
+/**
+ * Muestra (swatch, título, descripción) de cada estado de celda. Debe coincidir
+ * EXACTAMENTE con lo que renderiza PlanillaCell (grid-classes.ts). Regla: fondo
+ * relleno = documento existe; sin fondo + borde izquierdo punteado = proyección.
+ */
 const ITEMS: Array<{ swatch: string; title: string; desc: string }> = [
   {
-    swatch: "bg-status-ok-soft border border-status-ok-border",
-    title: "Real (pagado)",
-    desc: "Movimiento bancario conciliado — la plata ya entró o salió.",
+    swatch:
+      "bg-status-ok-soft border border-status-ok-border relative before:absolute before:left-[3px] before:top-1/2 before:-translate-y-1/2 before:h-[4px] before:w-[4px] before:rounded-full before:bg-primary before:content-['']",
+    title: "Real (conciliado)",
+    desc: "Movimiento bancario conciliado — la plata ya entró o salió. Punto azul.",
   },
   {
     swatch: "bg-status-info-soft border border-status-info-border",
@@ -22,17 +27,19 @@ const ITEMS: Array<{ swatch: string; title: string; desc: string }> = [
     desc: "DTE con folio, aún por cobrar. Chip con el folio (ej. F°1234).",
   },
   {
-    swatch: "bg-status-info-soft border-b border-dashed border-status-info-border",
+    swatch:
+      "border-y border-r border-ds-border-subtle border-l-2 border-l-status-info-border [border-left-style:dotted]",
     title: "Programada",
     desc: "Cuota proyectada de una programación, todavía sin documento. Chip «P».",
   },
   {
     swatch: "bg-status-warn-soft border border-status-warn-border",
-    title: "Estado de pago / proforma enviado",
+    title: "Proforma / EP enviado",
     desc: "Borrador ya enviado al cliente, pendiente de emitir. Chip «EP».",
   },
   {
-    swatch: "bg-status-warn-soft border-b border-dashed border-status-warn-border",
+    swatch:
+      "border-y border-r border-ds-border-subtle border-l-2 border-l-status-warn-border [border-left-style:dotted]",
     title: "Borrador",
     desc: "Borrador de factura sin enviar. Chip «B».",
   },
