@@ -135,6 +135,7 @@ export async function POST(request: NextRequest) {
         phone: body.phone || null,
         roleTitle: body.roleTitle || null,
         isPrimary: body.isPrimary ?? false,
+        recibeCesion: body.recibeCesion ?? false,
       },
       include: { account: true },
     });

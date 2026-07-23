@@ -45,6 +45,8 @@ export async function POST(request: NextRequest) {
         interestRate: parsed.data.interestRate,
         totals: parsed.data.totals ?? {},
         emailDeudor: parsed.data.emailDeudor || undefined,
+        deudorEmailsByDte: parsed.data.deudorEmailsByDte,
+        notificarDeudor: parsed.data.notificarDeudor,
         notes: parsed.data.notes,
         contactNombre: parsed.data.contactNombre,
         contactFono: parsed.data.contactFono,

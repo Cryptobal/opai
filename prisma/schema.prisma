@@ -2203,6 +2203,11 @@ model CrmAccount {
   contactoEstadoPago   CrmContact?           @relation("AccountEstadoPagoContact", fields: [contactoEstadoPagoId], references: [id], onDelete: SetNull)
   /// Layout de PDF preferido por este cliente al enviar documento de cobro.
   layoutDocumentoCobro BillingDocumentLayout @default(DTE_PREVIEW) @map("layout_documento_cobro")
+  /// Default por-cliente: ¿enviar el aviso de cesión al deudor cuando se
+  /// cede uno de sus DTEs? Si false, la cesión no notifica a este cliente
+  /// aunque tenga contactos con recibeCesion. El operador puede sobreescribir
+  /// por operación desde el modal de cesión.
+  cesionNotificarDeudor Boolean               @default(true) @map("cesion_notificar_deudor")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -2398,6 +2403,10 @@ model CrmContact {
   recibeNotasCredito     Boolean   @default(false) @map("recibe_notas_credito")
   recibeCobranza         Boolean   @default(false) @map("recibe_cobranza")
   recibeOperacional      Boolean   @default(false) @map("recibe_operacional")
+  // Contacto explícitamente configurado para recibir el aviso de cesión
+  // al deudor (Ley 19.983). Default false = falla segura: si nadie está
+  // marcado, la cesión no notifica a nadie (no cae a receiverEmail del DTE).
+  recibeCesion           Boolean   @default(false) @map("recibe_cesion")
   portalPin              String?   @map("portal_pin") // bcrypt hash del PIN de 4-6 dígitos
   /// @deprecated Use portalPin (bcrypt). Plaintext field scheduled for removal.
   portalPinVisible       String?   @map("portal_pin_visible")
@@ -2424,6 +2433,7 @@ model CrmContact {
   @@index([tenantId], map: "idx_crm_contacts_tenant")
   @@index([accountId], map: "idx_crm_contacts_account")
   @@index([createdAt(sort: Desc)], map: "idx_crm_contacts_created_desc")
+  @@index([tenantId, accountId, recibeCesion], map: "idx_crm_contacts_cesion")
   @@map("contacts")
   @@schema("crm")
 }

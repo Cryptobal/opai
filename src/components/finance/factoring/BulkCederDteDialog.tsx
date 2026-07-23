@@ -14,6 +14,7 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -133,6 +134,19 @@ export function BulkCederDteDialog({
   const [simulationUploading, setSimulationUploading] = useState(false);
   const [simulationDragOver, setSimulationDragOver] = useState(false);
 
+  // ── Aviso al deudor ──
+  // Destinatarios resueltos por DTE desde CRM (contactos `recibeCesion`).
+  // Solo lectura: se muestran para que el operador vea a quién se notifica
+  // antes de confirmar. El servidor re-resuelve de forma autoritativa.
+  const [notifyDeudor, setNotifyDeudor] = useState(true);
+  const [avisoOpen, setAvisoOpen] = useState(false);
+  const [recipientsByDte, setRecipientsByDte] = useState<Record<
+    string,
+    { emails: string[]; notificarDeudor: boolean; reason: string; hasAccount: boolean }
+  > | null>(null);
+  const [loadingRecipients, setLoadingRecipients] = useState(false);
+  const [recipientsError, setRecipientsError] = useState(false);
+
   const [results, setResults] = useState<Array<{
     dteId: string;
     operationId?: string;
@@ -149,6 +163,9 @@ export function BulkCederDteDialog({
     if (!open) {
       setSimulation(null);
       setResults(null);
+      setRecipientsByDte(null);
+      setRecipientsError(false);
+      setNotifyDeudor(true);
       return;
     }
     setLoadingCompanies(true);
@@ -159,6 +176,35 @@ export function BulkCederDteDialog({
       })
       .finally(() => setLoadingCompanies(false));
   }, [open]);
+
+  // Resolver destinatarios de cesión por DTE (CRM) al abrir.
+  useEffect(() => {
+    if (!open || dtes.length === 0) return;
+    setLoadingRecipients(true);
+    setRecipientsError(false);
+    fetch("/api/finance/factoring/cesion-recipients", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dteIds: dtes.map((d) => d.id) }),
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.success && j.recipients) setRecipientsByDte(j.recipients);
+        else setRecipientsError(true);
+      })
+      .catch(() => setRecipientsError(true))
+      .finally(() => setLoadingRecipients(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Facturas sin contactos configurados: no notificarán (y fallarán en Octava).
+  const sinDestinatarios = useMemo(
+    () =>
+      recipientsByDte
+        ? dtes.filter((d) => (recipientsByDte[d.id]?.emails.length ?? 0) === 0)
+        : [],
+    [recipientsByDte, dtes],
+  );
 
   const selectedCompany = useMemo(
     () => companies.find((c) => c.id === factoringId) ?? null,
@@ -296,6 +342,9 @@ export function BulkCederDteDialog({
           advanceRate: Number(advanceRate),
           // Tasa efectiva derivada de los inputs CLP del batch.
           interestRate: calc.effectiveMonthlyRate ?? 0,
+          // Aviso al deudor: el servidor resuelve los destinatarios por DTE
+          // desde CRM. Sólo enviamos el opt-out global.
+          notificarDeudor: notifyDeudor,
           totals: {
             montoAGirar: calc.montoAGirar,
             difPrecio: calc.difPrecio,
@@ -720,6 +769,93 @@ export function BulkCederDteDialog({
               label="Tasa efectiva mensual"
               value={`${calc.effectiveMonthlyRate.toFixed(2)}%`}
             />
+          ) : null}
+        </div>
+
+        {/* ── Aviso al deudor ── */}
+        <div className="rounded-lg border border-ds-border-subtle bg-ds-surface-2 p-3 space-y-2">
+          <button
+            type="button"
+            onClick={() => setAvisoOpen((o) => !o)}
+            className="flex w-full items-center justify-between gap-2"
+          >
+            <span className="text-xs uppercase tracking-wide text-ds-text-3 inline-flex items-center gap-2">
+              Aviso al deudor
+              {loadingRecipients ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : null}
+            </span>
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 text-ds-text-3 transition-transform",
+                avisoOpen && "rotate-180",
+              )}
+            />
+          </button>
+
+          <label className="flex items-start gap-2 text-xs text-ds-text-2">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={notifyDeudor}
+              onChange={(e) => setNotifyDeudor(e.target.checked)}
+            />
+            <span>
+              Notificar al deudor por correo
+              <span className="block text-ds-text-3">
+                Se envía a los contactos del cliente marcados “Recibe aviso de
+                cesión” en CRM. Si lo desmarcás, no se envía ningún aviso.
+              </span>
+            </span>
+          </label>
+
+          {/* Advertencia prominente: facturas sin destinatarios. */}
+          {!loadingRecipients && !recipientsError && sinDestinatarios.length > 0 ? (
+            <div className="flex items-start gap-2 rounded-md border border-status-warn-border bg-status-warn-soft px-2.5 py-2 text-xs text-status-warn-fg">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                <strong>{sinDestinatarios.length}</strong> de {dtes.length}{" "}
+                facturas no tienen contactos configurados para el aviso de
+                cesión — no se notificará a su deudor. Con App Octava esas
+                cesiones fallarán (marcá contactos con “Recibe aviso de cesión”
+                en CRM).
+              </span>
+            </div>
+          ) : null}
+
+          {recipientsError ? (
+            <p className="text-xs text-status-danger-fg">
+              No se pudieron cargar los contactos de los clientes.
+            </p>
+          ) : null}
+
+          {avisoOpen && !loadingRecipients && !recipientsError ? (
+            <div className="space-y-1 max-h-40 overflow-y-auto pt-0.5">
+              {dtes.map((d) => {
+                const r = recipientsByDte?.[d.id];
+                const emails = r?.emails ?? [];
+                return (
+                  <div
+                    key={d.id}
+                    className="flex items-start justify-between gap-2 text-[12px]"
+                  >
+                    <span className="truncate text-ds-text-2">
+                      DTE {d.dteType}-{d.folio} · {d.receiverName}
+                    </span>
+                    {emails.length > 0 ? (
+                      <span className="text-right text-ds-text-2 min-w-0 break-words">
+                        {emails.join(", ")}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-status-warn-fg shrink-0">
+                        <AlertCircle className="h-3.5 w-3.5" />
+                        {r && !r.hasAccount ? "Sin cuenta CRM" : "Sin contactos"}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           ) : null}
         </div>
 

@@ -35,6 +35,7 @@ type ContactRow = {
   phone?: string | null;
   roleTitle?: string | null;
   isPrimary?: boolean;
+  recibeCesion?: boolean;
   portalPinVisible?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -59,6 +60,7 @@ type ContactFormState = {
   phone: string;
   roleTitle: string;
   isPrimary: boolean;
+  recibeCesion: boolean;
 };
 
 const DEFAULT_FORM: ContactFormState = {
@@ -69,6 +71,7 @@ const DEFAULT_FORM: ContactFormState = {
   phone: "",
   roleTitle: "",
   isPrimary: false,
+  recibeCesion: false,
 };
 
 export function CrmContactsClient({
@@ -195,6 +198,7 @@ export function CrmContactsClient({
       phone: contact.phone || "",
       roleTitle: contact.roleTitle || "",
       isPrimary: contact.isPrimary || false,
+      recibeCesion: contact.recibeCesion || false,
     });
     setEditOpen(true);
   };
@@ -213,6 +217,7 @@ export function CrmContactsClient({
           phone: form.phone || null,
           roleTitle: form.roleTitle || null,
           isPrimary: form.isPrimary,
+          recibeCesion: form.recibeCesion,
         }),
       });
       const payload = await response.json();
@@ -332,6 +337,22 @@ export function CrmContactsClient({
                     Contacto principal
                   </label>
                 </div>
+                <div className="flex items-start md:col-span-2">
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={form.recibeCesion}
+                      onChange={(event) => updateForm("recibeCesion", event.target.checked)}
+                    />
+                    <span>
+                      Recibe aviso de cesión
+                      <span className="block text-xs text-muted-foreground">
+                        Se le notifica cuando se cede una factura de este cliente a un factoring.
+                      </span>
+                    </span>
+                  </label>
+                </div>
               </div>
               <DialogFooter>
                 <Button onClick={createContact} disabled={loading}>
@@ -399,6 +420,22 @@ export function CrmContactsClient({
                   onChange={(e) => updateForm("isPrimary", e.target.checked)}
                 />
                 Contacto principal
+              </label>
+            </div>
+            <div className="flex items-start md:col-span-2">
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={form.recibeCesion}
+                  onChange={(e) => updateForm("recibeCesion", e.target.checked)}
+                />
+                <span>
+                  Recibe aviso de cesión
+                  <span className="block text-xs text-muted-foreground">
+                    Se le notifica cuando se cede una factura de este cliente a un factoring.
+                  </span>
+                </span>
               </label>
             </div>
           </div>
