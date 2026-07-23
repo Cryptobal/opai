@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { Fingerprint } from "lucide-react";
 import { OpsMarcacionesClient } from "@/components/ops/OpsMarcacionesClient";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 export default async function OpsMarcacionesPage() {
@@ -38,14 +36,7 @@ export default async function OpsMarcacionesPage() {
   });
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<Fingerprint />}
-        iconTone="emerald"
-        title="Marcaciones"
-        subtitle="asistencia digital"
-        description="Registro de marcaciones de asistencia digital. Conforme a Res. Exenta N°38 — DT Chile."
-      />
+    <div className="space-y-4 min-w-0">
       <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <OpsMarcacionesClient
         initialClients={JSON.parse(JSON.stringify(clients))}

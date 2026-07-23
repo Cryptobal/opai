@@ -4,14 +4,12 @@
  */
 
 import { redirect } from "next/navigation";
-import { Coins } from "lucide-react";
 import { auth } from "@/lib/auth";
 import {
   hasFacturacionCapability,
   hasModuleAccess,
   resolvePagePerms,
 } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import {
   getFactoringKpis,
@@ -65,14 +63,7 @@ export default async function FactoringOperationsPage() {
   const factoringOptions = companies.map((c) => ({ id: c.id, label: c.razonSocial }));
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<Coins />}
-        iconTone="teal"
-        title="Cesiones de facturas"
-        subtitle="Factoring electrónico"
-        description="Operaciones de cesión a empresas de factoring, con anticipos, intereses, comisiones y trazabilidad SII."
-      />
+    <div className="space-y-4 min-w-0">
       <FinanceN3Chips submoduleKey="finance-compras-ventas" />
       <CesionesTabs />
       <FactoringOperationsClient

@@ -2,20 +2,17 @@
  * Catálogo per-tenant de empresas de factoring (cesionarios).
  * Bloque 5 factoring v3 — UI con CRUD básico vía DataTable + Dialog.
  *
- * Renderiza el mismo PageHero "Cesiones de facturas" + CesionesTabs que
- * /finanzas/facturacion/cesiones, para que se vea como una sub-sección
- * del mismo módulo.
+ * Renderiza los mismos CesionesTabs que /finanzas/facturacion/cesiones,
+ * para que se vea como una sub-sección del mismo módulo.
  */
 
 import { redirect } from "next/navigation";
-import { Coins } from "lucide-react";
 import { auth } from "@/lib/auth";
 import {
   hasFacturacionCapability,
   hasModuleAccess,
   resolvePagePerms,
 } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import { listFactoringCompanies } from "@/modules/finance/factoring/factoring-companies.service";
 import { getFactoringMetricsByCompany } from "@/modules/finance/factoring/analytics.service";
@@ -74,14 +71,7 @@ export default async function FactoringCompaniesPage() {
   });
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<Coins />}
-        iconTone="teal"
-        title="Cesiones de facturas"
-        subtitle="Factoring electrónico"
-        description="Administra el catálogo de empresas de factoring (cesionarios) y sus tasas habituales."
-      />
+    <div className="space-y-4 min-w-0">
       <FinanceN3Chips submoduleKey="finance-compras-ventas" />
       <CesionesTabs />
       <FactoringCompaniesClient

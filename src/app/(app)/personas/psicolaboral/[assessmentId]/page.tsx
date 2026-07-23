@@ -2,9 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { isTenantModuleEnabled } from "@/lib/tenant-modules";
 import { prisma } from "@/lib/prisma";
-import { PageHero, SetBreadcrumbTrailing } from "@/components/opai-ds";
+import { DetailHeader } from "@/components/opai-ds";
 import { Breadcrumbs } from "@/components/opai-ds";
-import { Brain } from "lucide-react";
 import PsychAssessmentDetail from "@/components/psych/dashboard/PsychAssessmentDetail";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +27,7 @@ export default async function PsychDetailPage({ params }: PageProps) {
   if (!assessment) redirect("/personas/psicolaboral");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Breadcrumbs
         items={[
           { label: "Inicio", href: "/hub" },
@@ -37,13 +36,10 @@ export default async function PsychDetailPage({ params }: PageProps) {
         ]}
         className="mb-2"
       />
-      <SetBreadcrumbTrailing value={assessment.targetName} />
-      <PageHero
-        icon={<Brain />}
-        iconTone="sky"
+      <DetailHeader
         title={assessment.targetName}
-        subtitle="detalle de evaluación"
-        description={`Test: ${assessment.version.name} · Estado: ${assessment.status}`}
+        backHref="/personas/psicolaboral"
+        backLabel="Psicolaboral"
       />
       <PsychAssessmentDetail assessmentId={assessmentId} />
     </div>

@@ -5,9 +5,7 @@ import {
   hasModuleAccess,
   hasFacturacionCapability,
 } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
-import { BookText } from "lucide-react";
 import { FacturacionClient } from "@/components/finance/FacturacionClient";
 
 export default async function LibroIvaPage() {
@@ -40,13 +38,7 @@ export default async function LibroIvaPage() {
   };
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<BookText />}
-        iconTone="teal"
-        title="Libro IVA"
-        description="Resumen mensual de débito e IVA crédito según SII."
-      />
+    <div className="space-y-4 min-w-0">
       <FinanceN3Chips submoduleKey="finance-compras-ventas" />
       <FacturacionClient
         dtes={[]}

@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { PageHero } from "@/components/opai-ds";
+import { PageToolbar } from "@/components/opai-ds";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Save, Plus, Trash2, ChevronDown, Info, Settings as SettingsIcon } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, ChevronDown, Info } from "lucide-react";
 import { toast } from "sonner";
 import { formatNumber, parseLocalizedNumber, cn } from "@/lib/utils";
 
@@ -279,23 +279,16 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
   return (
     <div className="space-y-4">
       {showHeader && (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <PageHero
-            icon={<SettingsIcon />}
-            iconTone="violet"
-            title="Configuración CPQ"
-            subtitle="items, tiers y reglas"
-            description="Catálogo maestro global para todas las cotizaciones"
-          />
-          <div className="flex items-center gap-2">
+        <PageToolbar
+          trailing={
             <Link href="/crm/cotizaciones">
               <Button variant="outline" size="sm" className="gap-2">
                 <ArrowLeft className="h-4 w-4" />
                 Volver
               </Button>
             </Link>
-          </div>
-        </div>
+          }
+        />
       )}
 
       <Card className="p-3 sm:p-4 space-y-2 border-border/40 bg-card/50">

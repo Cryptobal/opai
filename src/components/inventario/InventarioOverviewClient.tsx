@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  PageHero,
+  PageToolbar,
   KPICard,
   KPIGrid,
   Tag,
@@ -130,34 +130,29 @@ export function InventarioOverviewClient({ canEdit }: Props) {
         : "ok";
 
   return (
-    <section className="relative w-full pb-32 space-y-6 ds-page-enter">
-      <PageHero
-        icon={Package}
-        iconTone="emerald"
-        title="Tu operación"
-        subtitle="en una sola vista"
-        description="Stock, movimientos y costo asignado de uniformes y activos. Toca cualquier acceso arriba o desde el menú inferior para entrar al detalle."
-        actions={
-          canEdit ? (
-            <>
-              <InventarioTransferDialog
-                trigger={
-                  <Button size="sm" variant="outline" className="gap-2 h-10">
-                    <ArrowLeftRight className="h-4 w-4" />
-                    <span className="hidden sm:inline">Mover stock</span>
-                  </Button>
-                }
-              />
-              <Link href="/ops/inventario/configuracion">
+    <section className="relative w-full pb-32 space-y-4 ds-page-enter">
+      {canEdit && (
+        <PageToolbar
+          primaryAction={
+            <InventarioTransferDialog
+              trigger={
                 <Button size="sm" variant="outline" className="gap-2 h-10">
-                  <Settings2 className="h-4 w-4" />
-                  <span className="hidden sm:inline">Configuración</span>
+                  <ArrowLeftRight className="h-4 w-4" />
+                  <span className="hidden sm:inline">Mover stock</span>
                 </Button>
-              </Link>
-            </>
-          ) : null
-        }
-      />
+              }
+            />
+          }
+          trailing={
+            <Link href="/ops/inventario/configuracion">
+              <Button size="sm" variant="outline" className="gap-2 h-10">
+                <Settings2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Configuración</span>
+              </Button>
+            </Link>
+          }
+        />
+      )}
 
       {/* KPIs — 4 cards con IconTile prominente arriba (KPICard, no Stat). */}
       <KPIGrid lgCols={4}>

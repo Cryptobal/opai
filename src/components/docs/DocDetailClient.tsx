@@ -34,12 +34,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PageHero, useSetBreadcrumbTrailing } from "@/components/opai-ds";
+import { DetailHeader, useSetBreadcrumbTrailing } from "@/components/opai-ds";
 import { ContractEditor } from "./ContractEditor";
 import { SignatureRequestModal } from "./SignatureRequestModal";
 import { SendForReviewModal } from "./SendForReviewModal";
 import { SignatureStatusPanel } from "./SignatureStatusPanel";
-import { DOC_STATUS_CONFIG, DOC_CATEGORIES, normalizeDocStatus } from "@/lib/docs/token-registry";
+import { DOC_STATUS_CONFIG, normalizeDocStatus } from "@/lib/docs/token-registry";
 import { toast } from "sonner";
 import type { DocDocument, DocHistory } from "@/types/docs";
 import { useCanDelete } from "@/lib/permissions-context";
@@ -83,12 +83,6 @@ const ENTITY_LABELS: Record<string, string> = {
   crm_installation: "Instalación",
   crm_deal: "Negocio",
 };
-
-function getCategoryLabel(module: string, category: string): string {
-  const cats = DOC_CATEGORIES[module];
-  if (!cats) return category;
-  return cats.find((c) => c.key === category)?.label || category;
-}
 
 export function DocDetailClient({ documentId }: DocDetailClientProps) {
   const router = useRouter();
@@ -346,39 +340,23 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
   const statusConfig = DOC_STATUS_CONFIG[doc.status];
   const isEditable = ["draft", "review"].includes(doc.status);
   const isSigned = !!(doc.signedAt || doc.signatureStatus === "completed");
-  const pendingSuggestionsCount = suggestions.filter(
-    (s: any) => s.status === "pending",
-  ).length;
 
   return (
     <div className="space-y-4">
       {/* Header — mobile-first: status pill prominent, actions compact */}
-      <PageHero
-        icon={<FileText />}
-        iconTone="rose"
+      <DetailHeader
+        title={doc.title}
         backHref="/opai/documentos"
         backLabel="Documentos"
-        title={doc.title}
-        description={
-          <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold uppercase tracking-wider border",
-                statusConfig?.color ?? "bg-muted text-muted-foreground border-border",
-              )}
-            >
-              {statusConfig?.label ?? doc.status}
-            </span>
-            {pendingSuggestionsCount > 0 && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-status-warn-soft text-status-warn-fg border border-status-warn-border">
-                {pendingSuggestionsCount} sugerencia(s) del cliente
-              </span>
+        status={
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold uppercase tracking-wider border",
+              statusConfig?.color ?? "bg-muted text-muted-foreground border-border",
             )}
-            <span className="text-xs text-muted-foreground">
-              {doc.module.toUpperCase()} · {getCategoryLabel(doc.module, doc.category)}
-              {doc.template ? ` · ${doc.template.name}` : ""}
-            </span>
-          </div>
+          >
+            {statusConfig?.label ?? doc.status}
+          </span>
         }
         actions={
           <>

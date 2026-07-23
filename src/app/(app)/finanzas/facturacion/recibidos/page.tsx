@@ -8,10 +8,10 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
+import { PageToolbar } from "@/components/opai-ds";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import { Button } from "@/components/ui/button";
-import { FileInput, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { FacturacionClient } from "@/components/finance/FacturacionClient";
 
 export default async function DtesRecibidosPage() {
@@ -51,13 +51,10 @@ export default async function DtesRecibidosPage() {
   };
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<FileInput />}
-        iconTone="teal"
-        title="DTEs Recibidos"
-        description="Documentos tributarios recibidos de proveedores."
-        actions={
+    <div className="space-y-4 min-w-0">
+      <PageToolbar
+        filters={<FinanceN3Chips submoduleKey="finance-compras-ventas" />}
+        primaryAction={
           canManage ? (
             <Button asChild size="sm">
               <Link href="/finanzas/facturacion/recibidos?registrar=1">
@@ -68,7 +65,6 @@ export default async function DtesRecibidosPage() {
           ) : undefined
         }
       />
-      <FinanceN3Chips submoduleKey="finance-compras-ventas" />
       <FacturacionClient
         dtes={[]}
         issuedTotal={0}

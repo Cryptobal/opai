@@ -7,8 +7,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { BookOpen } from "lucide-react";
 import { ContabilidadClient } from "@/components/finance/ContabilidadClient";
 import { countDocumentsWithoutEntry } from "@/modules/finance/accounting/accounting-health.service";
 
@@ -100,14 +98,7 @@ export default async function ContabilidadPage() {
   }));
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<BookOpen />}
-        iconTone="teal"
-        title="Contabilidad"
-        subtitle="plan de cuentas y asientos"
-        description="Plan de cuentas, asientos contables, libro mayor y períodos."
-      />
+    <div className="min-w-0">
       <ContabilidadClient
         accounts={accountsData}
         journalEntries={journalData}

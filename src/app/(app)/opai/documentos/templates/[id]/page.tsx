@@ -1,8 +1,6 @@
-import { FileText } from "lucide-react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DocTemplateEditorClient } from "@/components/docs/DocTemplateEditorClient";
-import { PageHero } from "@/components/opai-ds";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 
 export default async function EditDocTemplatePage({
@@ -22,13 +20,7 @@ export default async function EditDocTemplatePage({
   }
 
   return (
-    <div className="space-y-6 min-w-0">
-<PageHero
-        icon={<FileText />}
-        iconTone="rose"
-        title="Editor de plantilla"
-        subtitle="diseño, tokens y cláusulas"
-      />
+    <div className="min-w-0">
       <DocTemplateEditorClient templateId={id} />
     </div>
   );

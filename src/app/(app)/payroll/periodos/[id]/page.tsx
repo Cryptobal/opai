@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHero } from "@/components/opai-ds";
-import { CalendarDays } from "lucide-react";
+import { DetailHeader } from "@/components/opai-ds";
 import { PayrollPeriodDetailClient } from "@/components/payroll/PayrollPeriodDetailClient";
 interface Props {
   params: Promise<{ id: string }>;
@@ -13,14 +12,8 @@ export default async function PayrollPeriodDetailPage({ params }: Props) {
   const { id } = await params;
 
   return (
-    <div className="space-y-6 min-w-0">
-<PageHero
-        icon={<CalendarDays />}
-        iconTone="amber"
-        title="Detalle del Período"
-        subtitle="liquidaciones, asistencias y archivos"
-        description="Detalle completo del período de pago."
-      />
+    <div className="space-y-4 min-w-0">
+      <DetailHeader title="Detalle del Período" backHref="/payroll/periodos" />
       <PayrollPeriodDetailClient periodId={id} />
     </div>
   );

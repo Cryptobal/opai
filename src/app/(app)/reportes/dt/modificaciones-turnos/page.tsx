@@ -1,6 +1,4 @@
 import { redirect } from "next/navigation";
-import { PageHero } from "@/components/opai-ds";
-import { History } from "lucide-react";
 import { ModificacionesTurnosClient } from "@/components/reportes-dt/ModificacionesTurnosClient";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
@@ -15,14 +13,7 @@ export default async function ModificacionesTurnosPage() {
     orderBy: { name: "asc" },
   });
   return (
-    <div className="space-y-6">
-      <PageHero
-        icon={<History />}
-        iconTone="teal"
-        title="Modificaciones de Turnos"
-        subtitle="Res. N°38 Art. 19"
-        description="Res. Exenta N°38 Art. 19 — DT Chile"
-      />
+    <div className="min-w-0">
       <ModificacionesTurnosClient installations={installations} />
     </div>
   );

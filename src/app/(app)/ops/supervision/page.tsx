@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
-import { LayoutGrid } from "lucide-react";
 import { SupervisionGrilla } from "@/components/supervision/SupervisionGrilla";
 export default async function OpsSupervisionPage({
   searchParams,
@@ -25,14 +23,7 @@ export default async function OpsSupervisionPage({
   const month = params.month ? parseInt(params.month) : now.getMonth() + 1;
 
   return (
-    <div className="space-y-4 min-w-0">
-      <PageHero
-        icon={<LayoutGrid />}
-        iconTone="emerald"
-        title="Grilla de supervisión"
-        subtitle="visitas por instalación y día"
-        description="Vista calendario de visitas de supervisión por instalación, con filtros mensuales y atajos para crear nuevas visitas."
-      />
+    <div className="min-w-0">
       <SupervisionGrilla year={year} month={month} />
     </div>
   );

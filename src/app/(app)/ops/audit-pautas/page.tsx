@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { ShieldCheck } from "lucide-react";
 import {
   PautasAuditTable,
   formatAction,
@@ -104,15 +102,7 @@ export default async function AuditPautasPage({ searchParams }: AuditPautasPageP
   });
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<ShieldCheck />}
-        iconTone="emerald"
-        title="Auditoría de Pautas"
-        subtitle="control y trazabilidad"
-        description="Historial de acciones en pauta mensual, refuerzos y exportaciones"
-      />
-
+    <div className="space-y-4 min-w-0">
       {/* Filters */}
       <form method="GET" className="rounded-xl border border-border bg-card p-4">
         <div className="grid gap-3 md:grid-cols-3">

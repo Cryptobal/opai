@@ -3,9 +3,9 @@
  */
 
 import Link from "next/link";
-import { PageHero, Surface } from "@/components/opai-ds";
+import { Surface } from "@/components/opai-ds";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calculator, FileText, Settings, CalendarDays, Wallet, ClipboardCheck, Banknote } from "lucide-react";
+import { Calculator, FileText, Settings, CalendarDays, Wallet, ClipboardCheck } from "lucide-react";
 
 export default function PayrollDashboard() {
   const modules = [
@@ -47,15 +47,7 @@ export default function PayrollDashboard() {
   ];
 
   return (
-    <div className="space-y-6 min-w-0">
-<PageHero
-        icon={<Banknote />}
-        iconTone="amber"
-        title="Payroll"
-        subtitle="liquidaciones y costeo"
-        description="Sistema de liquidaciones y costeo para Chile."
-      />
-
+    <div className="space-y-4 min-w-0">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 min-w-0">
         {modules.map((item) => {
           const Icon = item.icon;

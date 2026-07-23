@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { hasOpsCapability } from "@/lib/ops-rbac";
-import { PageHero } from "@/components/opai-ds";
-import { UserPlus } from "lucide-react";
 import { GuardiaTeIngresoForm } from "@/components/ops/GuardiaTeIngresoForm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -21,14 +19,7 @@ export default async function GuardiaTeIngresoPage() {
   }
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<UserPlus />}
-        iconTone="sky"
-        title="Ingreso rápido · Guardia Turno Extra"
-        subtitle="registro express para cubrir ausencias"
-        description="Registra un guardia TE para cubrir ausencias. Los datos se guardan en la misma base de guardias con estado Turno Extra."
-      />
+    <div className="min-w-0">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Ficha de ingreso rápido</CardTitle>

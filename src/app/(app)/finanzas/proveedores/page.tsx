@@ -8,9 +8,7 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
-import { Truck } from "lucide-react";
 import { ProveedoresClient } from "@/components/finance/ProveedoresClient";
 
 export default async function ProveedoresPage() {
@@ -65,14 +63,7 @@ export default async function ProveedoresPage() {
   }));
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<Truck />}
-        iconTone="teal"
-        title="Proveedores"
-        subtitle="ficha y condiciones"
-        description="Gestión de proveedores y sus datos bancarios."
-      />
+    <div className="space-y-4 min-w-0">
       <FinanceN3Chips submoduleKey="finance-compras-ventas" />
       <ProveedoresClient
         suppliers={data}

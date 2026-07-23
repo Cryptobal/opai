@@ -1,9 +1,8 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { Layers } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
-import { PageHero, Spinner } from "@/components/opai-ds";
+import { Spinner } from "@/components/opai-ds";
 import { InventarioStockClient } from "@/components/inventario/InventarioStockClient";
 
 export default async function InventarioStockPage() {
@@ -20,14 +19,7 @@ export default async function InventarioStockPage() {
 
   return (
     <div className="min-w-0">
-      <section className="relative w-full pb-32 space-y-6">
-        <PageHero
-          icon={<Layers />}
-          iconTone="emerald"
-          title="Stock por bodega"
-          subtitle="niveles y alertas"
-          description="Vista consolidada del inventario con costo promedio. Alertas automáticas cuando un ítem cae bajo el mínimo."
-        />
+      <section className="relative w-full pb-32 space-y-4">
         <Suspense fallback={<Spinner block label="Cargando stock…" />}>
           <InventarioStockClient canEdit={allowEdit} />
         </Suspense>

@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { Briefcase } from "lucide-react";
 import { AtsDashboardClient } from "@/components/ats/AtsDashboardClient";
 
 export default async function OpsAtsPage() {
@@ -44,14 +42,7 @@ export default async function OpsAtsPage() {
   ]);
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<Briefcase />}
-        iconTone="emerald"
-        title="Reclutamiento"
-        subtitle="pipeline de postulantes"
-        description="Gestión de avisos de empleo y pipeline de candidatos."
-      />
+    <div className="min-w-0">
       <AtsDashboardClient
         initialJobs={JSON.parse(JSON.stringify(jobs))}
         metricas={{

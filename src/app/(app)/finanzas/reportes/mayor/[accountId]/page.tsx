@@ -6,8 +6,7 @@ import {
   canView,
   hasCapability,
 } from "@/lib/permissions-server";
-import { PageHero, SetBreadcrumbTrailing } from "@/components/opai-ds";
-import { BookOpen } from "lucide-react";
+import { DetailHeader, SetBreadcrumbTrailing } from "@/components/opai-ds";
 import { AccountDrillClient } from "@/components/finance/reports/AccountDrillClient";
 import { buildPeriod } from "@/modules/finance/reports/shared/period.helper";
 import { getExtendedLedger } from "@/modules/finance/reports/ledger-extended.service";
@@ -41,12 +40,8 @@ export default async function AccountLedgerPage({
   return (
     <div className="space-y-5">
       <SetBreadcrumbTrailing value={`${account.code} · ${account.name}`} />
-      <PageHero
-        icon={<BookOpen />}
-        iconTone="sky"
+      <DetailHeader
         title={`${account.code} · ${account.name}`}
-        subtitle={account.type.toLowerCase()}
-        description="Movimientos detallados con saldo acumulado."
         backHref="/finanzas/reportes/mayor"
       />
       <AccountDrillClient accountId={accountId} initialPeriod={period} initialData={initial} />

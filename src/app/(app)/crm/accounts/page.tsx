@@ -7,8 +7,6 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getInstallationContractCoverage } from "@/lib/crm/installation-contracts";
-import { PageHero } from "@/components/opai-ds";
-import { Building2 } from "lucide-react";
 import { CrmAccountsClient } from "@/components/crm";
 
 export default async function CrmAccountsPage() {
@@ -142,15 +140,8 @@ export default async function CrmAccountsPage() {
   ));
 
   return (
-    <>
-      <PageHero
-        icon={<Building2 />}
-        iconTone="violet"
-        title="Cuentas"
-        subtitle="prospectos y clientes"
-        description="Listado de empresas en el portafolio. Cada cuenta agrupa sus contactos, instalaciones, negocios, cotizaciones y contratos."
-      />
+    <div className="min-w-0">
       <CrmAccountsClient initialAccounts={initialAccounts} />
-    </>
+    </div>
   );
 }

@@ -7,8 +7,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { FilePlus } from "lucide-react";
 import { JournalEntryForm } from "@/components/finance/JournalEntryForm";
 
 export default async function NuevoAsientoPage() {
@@ -41,14 +39,7 @@ export default async function NuevoAsientoPage() {
   ]);
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<FilePlus />}
-        iconTone="teal"
-        title="Nuevo asiento contable"
-        subtitle="registro manual"
-        description="Registre un asiento contable manual."
-      />
+    <div className="min-w-0">
       <JournalEntryForm accounts={accounts} periods={periods} />
     </div>
   );

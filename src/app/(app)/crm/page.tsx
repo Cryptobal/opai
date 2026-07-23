@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { resolvePagePerms, canView, hasModuleAccess } from '@/lib/permissions-server';
 import { prisma } from '@/lib/prisma';
-import { PageHero, Stat, StatGrid } from '@/components/opai-ds';
+import { Stat, StatGrid } from '@/components/opai-ds';
 import {
   LeadsByMonthChart,
   QuotesByMonthChart,
@@ -17,7 +17,7 @@ import {
 } from '@/components/crm/CrmDashboardCharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
-import { Users, AlertTriangle, Building2, TrendingUp, BarChart3 } from 'lucide-react';
+import { Users, AlertTriangle, Building2, TrendingUp } from 'lucide-react';
 import { getCommercialMetrics, normalizeWindow } from '@/modules/crm/analytics/commercial-metrics';
 
 export const dynamic = 'force-dynamic';
@@ -135,14 +135,7 @@ export default async function CRMPage({ searchParams }: { searchParams: Promise<
   const PERIOD_OPTS: Array<3 | 6 | 12> = [3, 6, 12];
 
   return (
-    <div className="space-y-4 sm:space-y-6 min-w-0 overflow-x-hidden">
-      <PageHero
-        icon={<BarChart3 />}
-        iconTone="violet"
-        title="Pipeline comercial"
-        subtitle="y gestión de clientes"
-        description="Resumen ejecutivo de leads, cuentas activas, pipeline abierto y conversión."
-      />
+    <div className="space-y-4 min-w-0 overflow-x-hidden">
       {/* ─── Resumen ejecutivo ─── */}
       <StatGrid lgCols={4}>
         <Link href="/crm/leads" className="min-w-0">

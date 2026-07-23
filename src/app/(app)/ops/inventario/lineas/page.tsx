@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
-import { Phone } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
 import { InventarioLineasClient } from "@/components/inventario/InventarioLineasClient";
 
 export default async function InventarioLineasPage() {
@@ -17,14 +15,7 @@ export default async function InventarioLineasPage() {
 
   return (
     <div className="min-w-0">
-      <section className="relative w-full pb-32 space-y-6">
-        <PageHero
-          icon={<Phone />}
-          iconTone="emerald"
-          title="Líneas telefónicas"
-          subtitle="SIM cards y números corporativos"
-          description="Gestiona los números asignados a guardias, supervisores e instalaciones. Historial completo de movimientos."
-        />
+      <section className="relative w-full pb-32 space-y-4">
         <InventarioLineasClient />
       </section>
     </div>

@@ -6,8 +6,7 @@ import {
   canView,
   hasCapability,
 } from "@/lib/permissions-server";
-import { PageHero, SetBreadcrumbTrailing } from "@/components/opai-ds";
-import { Building2 } from "lucide-react";
+import { DetailHeader, SetBreadcrumbTrailing } from "@/components/opai-ds";
 import { prisma } from "@/lib/prisma";
 import { ClienteDrillClient } from "@/components/finance/reports/ClienteDrillClient";
 import { buildPeriod } from "@/modules/finance/reports/shared/period.helper";
@@ -52,12 +51,8 @@ export default async function ClienteDrillPage({
   return (
     <div className="space-y-5">
       <SetBreadcrumbTrailing value={account.name} />
-      <PageHero
-        icon={<Building2 />}
-        iconTone="emerald"
+      <DetailHeader
         title={account.name}
-        subtitle={account.industry ?? "Sin sector"}
-        description={`Ficha financiera del cliente · ${account.installations.length} instalación(es)`}
         backHref="/finanzas/reportes/ventas"
       />
       <ClienteDrillClient

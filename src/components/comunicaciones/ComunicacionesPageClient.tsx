@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { PageHero } from "@/components/opai-ds";
 import { ChipTabs } from "@/components/ui/chip-tabs";
-import { Send, History, FileText, MessageSquare } from "lucide-react";
+import { Send, History, FileText } from "lucide-react";
 import TemplatesListClient from "@/components/comunicaciones/TemplatesListClient";
 import EmailComposerClient from "@/components/comunicaciones/EmailComposerClient";
 import EmailHistoryClient from "@/components/comunicaciones/EmailHistoryClient";
@@ -22,16 +21,7 @@ export default function ComunicacionesPageClient({ tenantId }: ComunicacionesPag
   const [tab, setTab] = useState("plantillas");
 
   return (
-    <div className="space-y-6 min-w-0 overflow-x-hidden">
-      <PageHero
-        icon={<MessageSquare />}
-        iconTone="violet"
-        title="Comunicaciones"
-        subtitle="campañas SMS, email y push"
-        description="Gestión de plantillas de email y envío de comunicaciones."
-        backHref="/personas/guardias"
-        backLabel="Personas"
-      />
+    <div className="space-y-4 min-w-0 overflow-x-hidden">
       <ChipTabs tabs={TABS} activeTab={tab} onTabChange={setTab} />
 
       {tab === "plantillas" && <TemplatesListClient />}

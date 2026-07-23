@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { CalendarDays } from "lucide-react";
 import { OpsPautaMensualClient } from "@/components/ops";
 
 export default async function OpsPautaMensualPage() {
@@ -38,14 +36,7 @@ export default async function OpsPautaMensualPage() {
   });
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<CalendarDays />}
-        iconTone="emerald"
-        title="Pauta mensual"
-        subtitle="plan operativo del mes"
-        description="Genera el plan del mes y asigna guardias por puesto y día. Controla las horas planificadas, los turnos extra y las brechas de cobertura."
-      />
+    <div className="min-w-0">
       <OpsPautaMensualClient
         initialClients={JSON.parse(JSON.stringify(clients))}
         currentUserId={session.user.id}

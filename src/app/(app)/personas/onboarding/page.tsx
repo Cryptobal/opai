@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
-import { Sparkles } from "lucide-react";
 import { OnboardingDashboardClient } from "@/components/ops/OnboardingDashboardClient";
 
 export default async function OnboardingPage() {
@@ -18,14 +16,7 @@ export default async function OnboardingPage() {
   const tenantId = session.user.tenantId;
 
   return (
-    <div className="space-y-6 min-w-0 overflow-x-hidden">
-      <PageHero
-        icon={<Sparkles />}
-        iconTone="sky"
-        title="Onboarding"
-        subtitle="estado y progreso de guardias"
-        description="Estado de onboarding de guardias — emails enviados, acceso a portales y progreso."
-      />
+    <div className="min-w-0 overflow-x-hidden">
       <OnboardingDashboardClient
         tenantId={tenantId}
         userRole={session.user.role}

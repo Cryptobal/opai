@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
-import { Truck } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
 import { InventarioEntregasClient } from "@/components/inventario/InventarioEntregasClient";
 
 export default async function InventarioEntregasPage() {
@@ -19,14 +17,7 @@ export default async function InventarioEntregasPage() {
 
   return (
     <div className="min-w-0">
-      <section className="relative w-full pb-32 space-y-6">
-        <PageHero
-          icon={<Truck />}
-          iconTone="emerald"
-          title="Entregas a guardias"
-          subtitle="trazabilidad y firma de recepción"
-          description="Cada entrega descuenta stock de la bodega y queda asociada al guardia y la instalación. El portal del guardia recibe push para confirmar."
-        />
+      <section className="relative w-full pb-32 space-y-4">
         <InventarioEntregasClient currentUserId={session.user.id} canEdit={allowEdit} />
       </section>
     </div>

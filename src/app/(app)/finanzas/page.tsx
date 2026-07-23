@@ -5,7 +5,6 @@ import { resolvePagePerms, hasModuleAccess, hasCapability, canView } from "@/lib
 import { hasFacturacionCapability } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
-import { PageHero } from "@/components/opai-ds";
 import { Surface } from "@/components/opai-ds";
 import {
   Receipt,
@@ -330,15 +329,7 @@ export default async function FinanzasDashboardPage() {
   };
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<Landmark />}
-        iconTone="teal"
-        title="Finanzas"
-        subtitle="resumen del módulo"
-        description="Rendiciones, compras y ventas, banca, contabilidad e informes."
-      />
-
+    <div className="space-y-4 min-w-0">
       {/* KPIs de cabecera — solo los que el usuario puede ver. */}
       {visibleHeadlineKpis.length > 0 && (
         <div

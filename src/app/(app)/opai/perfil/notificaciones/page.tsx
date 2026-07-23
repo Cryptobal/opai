@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHero } from "@/components/opai-ds";
-import { Bell } from "lucide-react";
+import { DetailHeader } from "@/components/opai-ds";
 import { UnifiedNotificationPrefsClient } from "@/components/opai/UnifiedNotificationPrefsClient";
 import { QuietHoursCard } from "@/components/opai/QuietHoursCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,13 +22,9 @@ export default async function MisNotificacionesPage({ searchParams }: Props) {
   const defaultTab = params.tab === "quiet" ? "quiet" : "prefs";
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<Bell />}
-        iconTone="primary"
+    <div className="space-y-4 min-w-0">
+      <DetailHeader
         title="Mis Notificaciones"
-        subtitle="campana, email, push (escritorio + móvil) y Slack"
-        description="Activa o desactiva cada tipo, módulo a módulo. Los cambios aplican solo a ti."
         backHref="/opai/perfil"
         backLabel="Mi Perfil"
       />

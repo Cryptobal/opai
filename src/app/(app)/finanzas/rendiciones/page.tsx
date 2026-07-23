@@ -6,9 +6,7 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
-import { Receipt } from "lucide-react";
 import { RendicionesClient } from "@/components/finance/RendicionesClient";
 
 export default async function RendicionesPage() {
@@ -138,14 +136,7 @@ export default async function RendicionesPage() {
   });
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<Receipt />}
-        iconTone="teal"
-        title="Rendiciones"
-        subtitle="gastos y kilometraje"
-        description="Listado de rendiciones de gastos y kilometraje."
-      />
+    <div className="space-y-4 min-w-0">
       <FinanceN3Chips submoduleKey="finance-rendiciones" />
       <RendicionesClient
         rendiciones={data}

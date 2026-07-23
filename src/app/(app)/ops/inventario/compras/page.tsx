@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
-import { ShoppingCart } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
 import { InventarioComprasClient } from "@/components/inventario/InventarioComprasClient";
 
 export default async function InventarioComprasPage() {
@@ -17,14 +15,7 @@ export default async function InventarioComprasPage() {
 
   return (
     <div className="min-w-0">
-      <section className="relative w-full pb-32 space-y-6">
-        <PageHero
-          icon={<ShoppingCart />}
-          iconTone="emerald"
-          title="Ingresos de inventario"
-          subtitle="compras y abastecimiento"
-          description="Registra cada ingreso a bodega. El stock se actualiza con costo promedio ponderado y queda asociable a futuras facturas."
-        />
+      <section className="relative w-full pb-32 space-y-4">
         <InventarioComprasClient />
       </section>
     </div>

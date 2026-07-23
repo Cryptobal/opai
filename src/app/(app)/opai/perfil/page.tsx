@@ -6,8 +6,6 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { PageHero } from '@/components/opai-ds';
-import { UserCircle2 } from 'lucide-react';
 import { ChangePasswordForm } from '@/components/perfil/ChangePasswordForm';
 import { UserInfo } from '@/components/perfil/UserInfo';
 
@@ -34,15 +32,7 @@ export default async function PerfilPage() {
   };
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<UserCircle2 />}
-        iconTone="primary"
-        title="Mi Perfil"
-        subtitle="cuenta y configuración"
-        description="Gestiona tu cuenta y configuración."
-      />
-
+    <div className="min-w-0">
       <div className="max-w-2xl mx-auto space-y-6">
         <UserInfo user={userData} />
         <ChangePasswordForm />

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CalendarDays, ChevronRight, Radar, Square } from "lucide-react";
-import { PageHero, EmptyState, Spinner } from "@/components/opai-ds";
+import { EmptyState, Spinner } from "@/components/opai-ds";
 
 type AgendaItem = {
   id: string;
@@ -68,14 +68,6 @@ export function MiSemanaClient() {
 
   return (
     <div className="ds-page-enter space-y-5">
-      <PageHero
-        icon={CalendarDays}
-        iconTone="primary"
-        title="Mi semana"
-        subtitle="Agenda comercial"
-        description="Tus tareas y compromisos por vencer, de correos y negocios"
-      />
-
       {loading ? (
         <Spinner className="mx-auto" />
       ) : groups.length === 0 ? (

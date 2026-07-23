@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { Settings } from "lucide-react";
 import { RondasConfiguracionClient } from "@/components/ops/rondas/RondasConfiguracionClient";
 
 export default async function RondasConfiguracionPage() {
@@ -44,14 +42,7 @@ export default async function RondasConfiguracionPage() {
   }));
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<Settings />}
-        iconTone="emerald"
-        title="Configuración de rondas"
-        subtitle="checkpoints, plantillas y programación"
-        description="Define los puntos de control, agrúpalos en plantillas reutilizables y programa cuándo se ejecutan."
-      />
+    <div className="min-w-0">
       <RondasConfiguracionClient
         installations={JSON.parse(JSON.stringify(installations))}
         clients={JSON.parse(JSON.stringify(accounts))}

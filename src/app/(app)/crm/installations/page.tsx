@@ -6,8 +6,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canViewInstallations } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { MapPin } from "lucide-react";
 import { CrmInstallationsListClient } from "@/components/crm";
 
 export default async function CrmInstallationsPage() {
@@ -74,18 +72,11 @@ export default async function CrmInstallationsPage() {
   const initialAccounts = JSON.parse(JSON.stringify(accounts));
 
   return (
-    <>
-      <PageHero
-        icon={<MapPin />}
-        iconTone="violet"
-        title="Instalaciones"
-        subtitle="sedes y ubicaciones de clientes"
-        description="Listado global de instalaciones con su cuenta asociada, dotación de guardias y puestos por cubrir."
-      />
+    <div className="min-w-0">
       <CrmInstallationsListClient
         initialInstallations={initialInstallations}
         accounts={initialAccounts}
       />
-    </>
+    </div>
   );
 }

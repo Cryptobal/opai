@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { ClipboardCheck } from "lucide-react";
 import { OpsPautaDiariaClient } from "@/components/ops";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 export default async function OpsAsistenciaDiariaPage() {
@@ -58,14 +56,7 @@ export default async function OpsAsistenciaDiariaPage() {
   ]);
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<ClipboardCheck />}
-        iconTone="emerald"
-        title="Asistencia diaria"
-        subtitle="control diario y reemplazos"
-        description="Control diario de asistencia, reemplazos y generación de turnos extra. Registra incidencias y aprobaciones del día."
-      />
+    <div className="space-y-4 min-w-0">
       <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <OpsPautaDiariaClient
         initialClients={JSON.parse(JSON.stringify(clients))}

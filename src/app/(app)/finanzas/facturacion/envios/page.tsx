@@ -5,9 +5,7 @@ import {
   hasModuleAccess,
   hasFacturacionCapability,
 } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
-import { Send } from "lucide-react";
 import { EmailHistoryClient } from "@/components/finance/envios/EmailHistoryClient";
 
 export default async function EnviosPage() {
@@ -22,13 +20,7 @@ export default async function EnviosPage() {
   }
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<Send />}
-        iconTone="teal"
-        title="Envíos"
-        description="Histórico mensual de proformas, estados de pago y facturas enviadas por correo: destinatarios, asunto y estado de entrega."
-      />
+    <div className="space-y-4 min-w-0">
       <FinanceN3Chips submoduleKey="finance-compras-ventas" />
       <EmailHistoryClient />
     </div>

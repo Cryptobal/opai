@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
-import { Smartphone } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
 import { InventarioActivosClient } from "@/components/inventario/InventarioActivosClient";
 
 export default async function InventarioActivosPage() {
@@ -17,14 +15,7 @@ export default async function InventarioActivosPage() {
 
   return (
     <div className="min-w-0">
-      <section className="relative w-full pb-32 space-y-6">
-        <PageHero
-          icon={<Smartphone />}
-          iconTone="emerald"
-          title="Activos y equipos"
-          subtitle="celulares, radios y trazabilidad por instalación"
-          description="Asigna activos físicos a instalaciones, controla su estado (disponible, asignado, en mantención) y registra historial."
-        />
+      <section className="relative w-full pb-32 space-y-4">
         <InventarioActivosClient />
       </section>
     </div>
