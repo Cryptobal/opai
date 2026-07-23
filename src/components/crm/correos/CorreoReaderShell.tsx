@@ -10,6 +10,7 @@ import {
   type PointerEventHandler,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { ChevronLeft } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
 import { cn } from "@/lib/utils";
@@ -68,7 +69,7 @@ export function CorreoReaderShell({
     "--correo-panel-width": `${desktopWidth}px`,
   } as CSSProperties;
 
-  return (
+  const overlay = (
     <div
       className={cn(
         "fixed inset-0 z-50 flex justify-end bg-black/40",
@@ -149,4 +150,12 @@ export function CorreoReaderShell({
       </Surface>
     </div>
   );
+
+  // En móvil el lector viaja por portal a <body> (mismo patrón y razón que
+  // BottomNavPortal): los hijos animados de ds-page-enter conservan un
+  // transform con fill forwards que crea containing block + stacking context,
+  // dejando un `fixed` anclado al workspace y por debajo de la BottomNav
+  // (z-40 a nivel body). Portaleado, el z-50 cubre isla, FAB y top inmersivo.
+  // Desktop (split/overlay) queda inline, como siempre.
+  return isMobile ? createPortal(overlay, document.body) : overlay;
 }

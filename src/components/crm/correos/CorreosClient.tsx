@@ -539,14 +539,18 @@ export function CorreosClient() {
           >
             <PenLine className="h-4 w-4" /> Redactar
           </button>
-          <button
-            type="button"
-            aria-label="Redactar correo"
-            onClick={() => setComposeOpen(true)}
-            className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground shadow-lg ds-tap lg:hidden"
-          >
-            <PenLine className="h-4 w-4" /> Redactar
-          </button>
+          {/* Con un hilo abierto el FAB se oculta: el lector es full-screen
+              y el botón no debe flotar sobre el detalle. */}
+          {!openId && (
+            <button
+              type="button"
+              aria-label="Redactar correo"
+              onClick={() => setComposeOpen(true)}
+              className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground shadow-lg ds-tap lg:hidden"
+            >
+              <PenLine className="h-4 w-4" /> Redactar
+            </button>
+          )}
         </>
       )}
 
@@ -626,6 +630,11 @@ export function CorreosClient() {
           onChanged={() => void fetchPage(null, true)} />
       </div>
 
+    </div>
+      {/* Fuera del root animado: los hijos de ds-page-enter retienen un
+          transform (fill forwards) que dejaría estos overlays anclados al
+          contenido y bajo la BottomNav en móvil. Aquí su fixed es viewport
+          real; en desktop no cambia nada (son modales). */}
       <CorreoComposeSheet
         open={composeOpen}
         onClose={() => setComposeOpen(false)}
@@ -657,7 +666,6 @@ export function CorreosClient() {
           void snoozeThread(id, iso, `Pospuesto hasta ${label}`, () => void fetchPage(null, true));
         }}
       />
-    </div>
     </>
   );
 }
