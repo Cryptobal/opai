@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { ReporteDtShell } from "./ReporteDtShell";
 import { cn } from "@/lib/utils";
+import { SimpleSelect } from "@/components/ui/simple-select";
 
 interface Installation { id: string; name: string; }
 
@@ -124,13 +125,12 @@ export function ModificacionesTurnosClient({ installations }: { installations: I
       </div>
       <div>
         <label className="block text-sm text-muted-foreground mb-1">Instalación</label>
-        <select value={installationId} onChange={(e) => setInstallationId(e.target.value)}
-          className="border border-border rounded px-2 py-1.5 text-sm bg-background">
-          <option value="">Todas</option>
-          {installations.map((i) => (
-            <option key={i.id} value={i.id}>{i.name}</option>
-          ))}
-        </select>
+        <SimpleSelect value={installationId} onValueChange={(v) => setInstallationId(v)}
+          className="border border-border rounded px-2 py-1.5 text-sm bg-background"
+          options={[
+            { value: "", label: "Todas" },
+            ...installations.map((i) => ({ value: i.id, label: i.name })),
+          ]} />
       </div>
       <button onClick={fetchData}
         className="px-4 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">

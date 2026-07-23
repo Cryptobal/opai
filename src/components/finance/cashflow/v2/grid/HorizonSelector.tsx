@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import {
   HORIZON_OPTIONS,
   type HorizonWeeks,
@@ -20,18 +21,16 @@ export function HorizonSelector({
 }) {
   return (
     <>
-      <select
+      <SimpleSelect
         aria-label="Horizonte de semanas"
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value) as HorizonWeeks)}
-        className="h-11 rounded-ds-md border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1 sm:hidden"
-      >
-        {HORIZON_OPTIONS.map((h) => (
-          <option key={h} value={h}>
-            {h} semanas
-          </option>
-        ))}
-      </select>
+        value={String(value)}
+        onValueChange={(v) => onChange(Number(v) as HorizonWeeks)}
+        className="h-11 w-auto px-2 text-[13px] sm:hidden"
+        options={HORIZON_OPTIONS.map((h) => ({
+          value: String(h),
+          label: `${h} semanas`,
+        }))}
+      />
       <div
         role="group"
         aria-label="Horizonte de semanas"

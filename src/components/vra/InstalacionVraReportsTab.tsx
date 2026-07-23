@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { cn } from "@/lib/utils";
 
 type UnifiedReport = {
@@ -121,7 +122,7 @@ export function InstalacionVraReportsTab({ installationId }: { installationId: s
   const handleDeleteReport = async (item: UnifiedReport) => {
     if (item.kind !== "vra") return;
     const confirmMsg = `¿Eliminar permanentemente el informe "${item.title}"?\n\nEsto borra el informe, sus hallazgos, fotos y secciones generadas. El PDF en Documentos Operacionales (si existe) se mantiene como histórico.\n\nEsta acción no se puede deshacer.`;
-    if (!confirm(confirmMsg)) return;
+    if (!(await confirmDialog({ description: confirmMsg, variant: "destructive", confirmLabel: "Eliminar" }))) return;
     try {
       const res = await fetch(`/api/vra/reports/${item.id}?hard=true`, { method: "DELETE" });
       const json = await res.json();

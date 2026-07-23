@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronRight, Loader2, Save, Mail, Clock, MessageSquare, ArrowRightLeft, Pause, Bell, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { FormSkeleton } from "@/components/ui/skeleton";
+import { SimpleSelect } from "@/components/ui/simple-select";
 
 type DocTemplate = {
   id: string;
@@ -48,7 +49,7 @@ type FollowUpConfig = {
 };
 
 const selectCn =
-  "flex h-9 min-h-[44px] w-full appearance-none rounded-md border border-input bg-background pl-3 pr-8 py-2 text-sm text-foreground bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_8px_center] bg-no-repeat focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "flex h-9 min-h-[44px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 const inputCn =
   "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
 
@@ -254,17 +255,15 @@ export function FollowUpConfigSection({ className }: FollowUpConfigSectionProps)
                   </div>
                   <div className="space-y-1.5">
                     <Label>Hora de envío</Label>
-                    <select
+                    <SimpleSelect
                       className={selectCn}
-                      value={config.sendHour}
-                      onChange={(e) => update("sendHour", Number(e.target.value))}
-                    >
-                      {Array.from({ length: 24 }, (_, i) => (
-                        <option key={i} value={i}>
-                          {String(i).padStart(2, "0")}:00 hrs
-                        </option>
-                      ))}
-                    </select>
+                      value={String(config.sendHour)}
+                      onValueChange={(v) => update("sendHour", Number(v))}
+                      options={Array.from({ length: 24 }, (_, i) => ({
+                        value: String(i),
+                        label: `${String(i).padStart(2, "0")}:00 hrs`,
+                      }))}
+                    />
                   </div>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
@@ -280,48 +279,39 @@ export function FollowUpConfigSection({ className }: FollowUpConfigSectionProps)
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div className="space-y-1.5">
                     <Label>Template 1er seguimiento</Label>
-                    <select
+                    <SimpleSelect
                       className={selectCn}
                       value={config.firstEmailTemplateId || ""}
-                      onChange={(e) => update("firstEmailTemplateId", e.target.value || null)}
-                    >
-                      <option value="">Sin template (usar default)</option>
-                      {docTemplates.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
+                      onValueChange={(v) => update("firstEmailTemplateId", v || null)}
+                      options={[
+                        { value: "", label: "Sin template (usar default)" },
+                        ...docTemplates.map((t) => ({ value: t.id, label: t.name })),
+                      ]}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Template 2do seguimiento</Label>
-                    <select
+                    <SimpleSelect
                       className={selectCn}
                       value={config.secondEmailTemplateId || ""}
-                      onChange={(e) => update("secondEmailTemplateId", e.target.value || null)}
-                    >
-                      <option value="">Sin template (usar default)</option>
-                      {docTemplates.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
+                      onValueChange={(v) => update("secondEmailTemplateId", v || null)}
+                      options={[
+                        { value: "", label: "Sin template (usar default)" },
+                        ...docTemplates.map((t) => ({ value: t.id, label: t.name })),
+                      ]}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Template 3er seguimiento</Label>
-                    <select
+                    <SimpleSelect
                       className={selectCn}
                       value={config.thirdEmailTemplateId || ""}
-                      onChange={(e) => update("thirdEmailTemplateId", e.target.value || null)}
-                    >
-                      <option value="">Sin template (usar default)</option>
-                      {docTemplates.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
+                      onValueChange={(v) => update("thirdEmailTemplateId", v || null)}
+                      options={[
+                        { value: "", label: "Sin template (usar default)" },
+                        ...docTemplates.map((t) => ({ value: t.id, label: t.name })),
+                      ]}
+                    />
                   </div>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
@@ -413,33 +403,27 @@ export function FollowUpConfigSection({ className }: FollowUpConfigSectionProps)
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label>Etapa destino al enviar 1er seguimiento</Label>
-                    <select
+                    <SimpleSelect
                       className={selectCn}
                       value={config.firstFollowUpStageId || ""}
-                      onChange={(e) => update("firstFollowUpStageId", e.target.value || null)}
-                    >
-                      <option value="">Auto (buscar por nombre)</option>
-                      {openStages.map((stage) => (
-                        <option key={stage.id} value={stage.id}>
-                          {stage.name}
-                        </option>
-                      ))}
-                    </select>
+                      onValueChange={(v) => update("firstFollowUpStageId", v || null)}
+                      options={[
+                        { value: "", label: "Auto (buscar por nombre)" },
+                        ...openStages.map((stage) => ({ value: stage.id, label: stage.name })),
+                      ]}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Etapa destino al enviar 2do seguimiento</Label>
-                    <select
+                    <SimpleSelect
                       className={selectCn}
                       value={config.secondFollowUpStageId || ""}
-                      onChange={(e) => update("secondFollowUpStageId", e.target.value || null)}
-                    >
-                      <option value="">Auto (buscar por nombre)</option>
-                      {openStages.map((stage) => (
-                        <option key={stage.id} value={stage.id}>
-                          {stage.name}
-                        </option>
-                      ))}
-                    </select>
+                      onValueChange={(v) => update("secondFollowUpStageId", v || null)}
+                      options={[
+                        { value: "", label: "Auto (buscar por nombre)" },
+                        ...openStages.map((stage) => ({ value: stage.id, label: stage.name })),
+                      ]}
+                    />
                   </div>
                 </div>
                 <p className="text-[10px] text-muted-foreground">

@@ -34,6 +34,7 @@ import {
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { formatPersonName } from "@/lib/personas";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { toast } from "sonner";
 
 interface SueldoRut {
   structureId: string;
@@ -181,7 +182,7 @@ export function SueldosRutListClient() {
   };
 
   const selectGuard = (g: GuardSearchResult) => {
-    if (g.hasSalaryOverride) { alert("Este guardia ya tiene un sueldo por RUT. Edítalo desde su ficha."); return; }
+    if (g.hasSalaryOverride) { toast.error("Este guardia ya tiene un sueldo por RUT. Edítalo desde su ficha."); return; }
     setSelectedGuard(g); setCreateOpen(false); setConfirmOpen(true);
   };
 
@@ -271,7 +272,7 @@ export function SueldosRutListClient() {
           effectiveFrom: formDateFrom || null, effectiveUntil: formDateUntil || null,
         }),
       });
-      if (!res.ok) { alert((await res.json()).error || "Error"); return; }
+      if (!res.ok) { toast.error((await res.json()).error || "Error"); return; }
       setCreateOpen(false); setSelectedGuard(null); await loadSueldos();
     } catch (err) { console.error(err); }
     finally { setSaving(false); }
@@ -285,7 +286,7 @@ export function SueldosRutListClient() {
         body: JSON.stringify({ effectiveUntil: deactivateDate, isActive: false }),
       });
       if (res.ok) { setDeactivateConfirm(null); await loadSueldos(); }
-      else alert((await res.json()).error || "Error");
+      else toast.error((await res.json()).error || "Error");
     } catch (err) { console.error(err); }
   };
 
@@ -294,7 +295,7 @@ export function SueldosRutListClient() {
     try {
       const res = await fetch(`/api/personas/guardias/${deleteConfirm.guardiaId}/salary-structure`, { method: "DELETE" });
       if (res.ok) { setDeleteConfirm(null); await loadSueldos(); }
-      else alert((await res.json()).error || "Error");
+      else toast.error((await res.json()).error || "Error");
     } catch (err) { console.error(err); }
   };
 

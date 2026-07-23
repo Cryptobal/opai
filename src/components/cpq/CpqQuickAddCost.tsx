@@ -8,6 +8,7 @@ import { formatCurrency } from "@/components/cpq/utils";
 import { Search, X } from "lucide-react";
 import type { CpqCatalogItem } from "@/types/cpq";
 import { toast } from "sonner";
+import { SimpleSelect } from "@/components/ui/simple-select";
 
 type CostType = "per_month" | "per_guard" | "investment";
 
@@ -245,22 +246,23 @@ export function CpqQuickAddCost({
             Guardar en catálogo
           </label>
           {saveToCatalog && (
-            <select
+            <SimpleSelect
               value={catalogType}
-              onChange={(e) => setCatalogType(e.target.value)}
+              onValueChange={setCatalogType}
               className="h-6 text-sm rounded border border-border bg-card px-1 text-foreground"
-            >
-              <option value="other">Otros costos adicionales</option>
-              <option value="uniform">Uniforme</option>
-              <option value="exam">Examen</option>
-              <option value="meal">Alimentación</option>
-              <option value="phone">Teléfono</option>
-              <option value="radio">Radio</option>
-              <option value="flashlight">Linterna</option>
-              <option value="transport">Transporte</option>
-              <option value="infrastructure">Infraestructura</option>
-              <option value="system">Sistema</option>
-            </select>
+              options={[
+                { value: "other", label: "Otros costos adicionales" },
+                { value: "uniform", label: "Uniforme" },
+                { value: "exam", label: "Examen" },
+                { value: "meal", label: "Alimentación" },
+                { value: "phone", label: "Teléfono" },
+                { value: "radio", label: "Radio" },
+                { value: "flashlight", label: "Linterna" },
+                { value: "transport", label: "Transporte" },
+                { value: "infrastructure", label: "Infraestructura" },
+                { value: "system", label: "Sistema" },
+              ]}
+            />
           )}
         </div>
         <Button

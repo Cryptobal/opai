@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import { formatWeekdaysShort, getShiftType, normalizeWeekdays, WEEKDAY_ORDER } from "@/components/cpq/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import {
@@ -22,6 +23,7 @@ import { useCpqCatalogs } from "@/lib/cpq/use-cpq-catalogs";
 import type { CpqPosition } from "@/types/cpq";
 import { Copy, Loader2, Moon, RefreshCw, Sun, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 interface CpqPositionCardProps {
   quoteId: string;
@@ -249,7 +251,14 @@ export function CpqPositionCard({
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("¿Eliminar este puesto?")) return;
+    if (
+      !(await confirmDialog({
+        description: "¿Eliminar este puesto?",
+        variant: "destructive",
+        confirmLabel: "Eliminar",
+      }))
+    )
+      return;
     try {
       await fetch(`/api/cpq/quotes/${quoteId}/positions/${position.id}`, {
         method: "DELETE",
@@ -427,11 +436,12 @@ export function CpqPositionCard({
           </div>
           <div className="space-y-1">
             <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Puestos</Label>
-            <select className={selectCls} value={draft.numPuestos} onChange={(e) => updateDraft({ numPuestos: Number(e.target.value) })}>
-              {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
+            <SimpleSelect
+              className={cn(selectCls, "h-10 sm:h-9")}
+              value={String(draft.numPuestos)}
+              onValueChange={(v) => updateDraft({ numPuestos: Number(v) })}
+              options={Array.from({ length: 20 }, (_, i) => i + 1).map((n) => ({ value: String(n), label: n }))}
+            />
           </div>
           <div className="space-y-1">
             <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Sueldo bruto</Label>
@@ -450,34 +460,34 @@ export function CpqPositionCard({
             {puestos.length > 0 && (
               <div className="space-y-1">
                 <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tipo de puesto</Label>
-                <select className={selectCls} value={draft.puestoTrabajoId} onChange={(e) => updateDraft({ puestoTrabajoId: e.target.value })}>
-                  <option value="">Seleccionar…</option>
-                  {puestos.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
+                <SimpleSelect
+                  className={cn(selectCls, "h-10 sm:h-9")}
+                  value={draft.puestoTrabajoId}
+                  onValueChange={(v) => updateDraft({ puestoTrabajoId: v })}
+                  options={[{ value: "", label: "Seleccionar…" }, ...puestos.map((p) => ({ value: p.id, label: p.name }))]}
+                />
               </div>
             )}
             {cargos.length > 0 && (
               <div className="space-y-1">
                 <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Cargo</Label>
-                <select className={selectCls} value={draft.cargoId} onChange={(e) => updateDraft({ cargoId: e.target.value })}>
-                  <option value="">Seleccionar…</option>
-                  {cargos.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                <SimpleSelect
+                  className={cn(selectCls, "h-10 sm:h-9")}
+                  value={draft.cargoId}
+                  onValueChange={(v) => updateDraft({ cargoId: v })}
+                  options={[{ value: "", label: "Seleccionar…" }, ...cargos.map((c) => ({ value: c.id, label: c.name }))]}
+                />
               </div>
             )}
             {roles.length > 0 && (
               <div className="space-y-1">
                 <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Rol</Label>
-                <select className={selectCls} value={draft.rolId} onChange={(e) => updateDraft({ rolId: e.target.value })}>
-                  <option value="">Seleccionar…</option>
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
-                  ))}
-                </select>
+                <SimpleSelect
+                  className={cn(selectCls, "h-10 sm:h-9")}
+                  value={draft.rolId}
+                  onValueChange={(v) => updateDraft({ rolId: v })}
+                  options={[{ value: "", label: "Seleccionar…" }, ...roles.map((r) => ({ value: r.id, label: r.name }))]}
+                />
               </div>
             )}
           </div>
@@ -532,16 +542,18 @@ export function CpqPositionCard({
             </button>
           </div>
           <div className="flex gap-1">
-            <select className={cn(selectCls, "w-[92px] font-mono")} value={draft.startTime} onChange={(e) => updateDraft({ startTime: e.target.value })}>
-              {HOURS_24.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-            <select className={cn(selectCls, "w-[92px] font-mono")} value={draft.endTime} onChange={(e) => updateDraft({ endTime: e.target.value })}>
-              {HOURS_24.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
+            <SimpleSelect
+              className={cn(selectCls, "w-[92px] font-mono h-10 sm:h-9")}
+              value={draft.startTime}
+              onValueChange={(v) => updateDraft({ startTime: v })}
+              options={HOURS_24.map((t) => ({ value: t, label: t }))}
+            />
+            <SimpleSelect
+              className={cn(selectCls, "w-[92px] font-mono h-10 sm:h-9")}
+              value={draft.endTime}
+              onValueChange={(v) => updateDraft({ endTime: v })}
+              options={HOURS_24.map((t) => ({ value: t, label: t }))}
+            />
           </div>
         </div>
 

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import { formatCurrency, WEEKDAY_ORDER } from "@/components/cpq/utils";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import type { CpqCargo, CpqRol, CpqPuestoTrabajo } from "@/types/cpq";
@@ -242,24 +243,30 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cargo *</Label>
-              <select className={selectClass} value={form.cargoId} onChange={(e) => setForm((p) => ({ ...p, cargoId: e.target.value }))}>
-                <option value="">Selecciona un cargo</option>
-                {cargos.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <SimpleSelect
+                className={selectClass}
+                value={form.cargoId}
+                onValueChange={(v) => setForm((p) => ({ ...p, cargoId: v }))}
+                options={[{ value: "", label: "Selecciona un cargo" }, ...cargos.map((c) => ({ value: c.id, label: c.name }))]}
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tipo de Puesto *</Label>
-              <select className={selectClass} value={form.puestoTrabajoId} onChange={(e) => setForm((p) => ({ ...p, puestoTrabajoId: e.target.value }))}>
-                <option value="">Selecciona un puesto</option>
-                {puestos.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              <SimpleSelect
+                className={selectClass}
+                value={form.puestoTrabajoId}
+                onValueChange={(v) => setForm((p) => ({ ...p, puestoTrabajoId: v }))}
+                options={[{ value: "", label: "Selecciona un puesto" }, ...puestos.map((p) => ({ value: p.id, label: p.name }))]}
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Rol *</Label>
-              <select className={selectClass} value={form.rolId} onChange={(e) => setForm((p) => ({ ...p, rolId: e.target.value }))}>
-                <option value="">Selecciona un rol</option>
-                {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-              </select>
+              <SimpleSelect
+                className={selectClass}
+                value={form.rolId}
+                onValueChange={(v) => setForm((p) => ({ ...p, rolId: v }))}
+                options={[{ value: "", label: "Selecciona un rol" }, ...roles.map((r) => ({ value: r.id, label: r.name }))]}
+              />
             </div>
           </div>
 
@@ -278,15 +285,21 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <Label className="text-xs">Inicio</Label>
-                  <select className={selectClass} value={form.startTime} onChange={(e) => setForm((p) => ({ ...p, startTime: e.target.value }))}>
-                    {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                  <SimpleSelect
+                    className={selectClass}
+                    value={form.startTime}
+                    onValueChange={(v) => setForm((p) => ({ ...p, startTime: v }))}
+                    options={TIME_OPTIONS.map((t) => ({ value: t, label: t }))}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Término</Label>
-                  <select className={selectClass} value={form.endTime} onChange={(e) => setForm((p) => ({ ...p, endTime: e.target.value }))}>
-                    {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                  <SimpleSelect
+                    className={selectClass}
+                    value={form.endTime}
+                    onValueChange={(v) => setForm((p) => ({ ...p, endTime: v }))}
+                    options={TIME_OPTIONS.map((t) => ({ value: t, label: t }))}
+                  />
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -326,9 +339,12 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">N° puestos</Label>
-                <select className="flex h-9 w-20 rounded-md border border-input bg-card px-2 text-sm" value={form.numPuestos} onChange={(e) => setForm((p) => ({ ...p, numPuestos: Number(e.target.value) }))}>
-                  {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
-                </select>
+                <SimpleSelect
+                  className="flex h-9 w-20 rounded-md border border-input bg-card px-2 text-sm"
+                  value={String(form.numPuestos)}
+                  onValueChange={(v) => setForm((p) => ({ ...p, numPuestos: Number(v) }))}
+                  options={Array.from({ length: 20 }, (_, i) => i + 1).map((n) => ({ value: String(n), label: n }))}
+                />
               </div>
 
               <div className="space-y-1.5">

@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, ChevronDown, ChevronRight, Download, ExternalLink, MapPin, QrCode, Camera, Shield } from "lucide-react";
+import { SimpleSelect } from "@/components/ui/simple-select";
 
 interface Marcacion {
   id: string;
@@ -201,34 +202,35 @@ export function InstalacionRondasTab({ installationId }: { installationId: strin
         </div>
         <div>
           <label className="mb-1 block text-xs text-muted-foreground">Guardia</label>
-          <select value={guardFilter} onChange={(e) => { setGuardFilter(e.target.value); setPage(0); }}
-            className="rounded-md border border-border bg-background px-3 py-1.5 text-sm">
-            <option value="all">Todos</option>
-            {guardOptions.map((g) => (
-              <option key={g.id} value={g.id}>{g.name}</option>
-            ))}
-          </select>
+          <SimpleSelect value={guardFilter} onValueChange={(v) => { setGuardFilter(v); setPage(0); }}
+            className="rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+            options={[
+              { value: "all", label: "Todos" },
+              ...guardOptions.map((g) => ({ value: g.id, label: g.name })),
+            ]} />
         </div>
         <div>
           <label className="mb-1 block text-xs text-muted-foreground">Estado</label>
-          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
-            className="rounded-md border border-border bg-background px-3 py-1.5 text-sm">
-            <option value="all">Todos</option>
-            <option value="completada">Completada</option>
-            <option value="incompleta">Incompleta</option>
-            <option value="no_realizada">No realizada</option>
-            <option value="en_curso">En curso</option>
-          </select>
+          <SimpleSelect value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}
+            className="rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+            options={[
+              { value: "all", label: "Todos" },
+              { value: "completada", label: "Completada" },
+              { value: "incompleta", label: "Incompleta" },
+              { value: "no_realizada", label: "No realizada" },
+              { value: "en_curso", label: "En curso" },
+            ]} />
         </div>
         <div>
           <label className="mb-1 block text-xs text-muted-foreground">Trust</label>
-          <select value={trustFilter} onChange={(e) => { setTrustFilter(e.target.value); setPage(0); }}
-            className="rounded-md border border-border bg-background px-3 py-1.5 text-sm">
-            <option value="all">Todos</option>
-            <option value="high">Alto (80%+)</option>
-            <option value="medium">Medio (60-79%)</option>
-            <option value="low">Bajo (&lt;60%)</option>
-          </select>
+          <SimpleSelect value={trustFilter} onValueChange={(v) => { setTrustFilter(v); setPage(0); }}
+            className="rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+            options={[
+              { value: "all", label: "Todos" },
+              { value: "high", label: "Alto (80%+)" },
+              { value: "medium", label: "Medio (60-79%)" },
+              { value: "low", label: "Bajo (<60%)" },
+            ]} />
         </div>
 
         <div className="ml-auto flex gap-2">

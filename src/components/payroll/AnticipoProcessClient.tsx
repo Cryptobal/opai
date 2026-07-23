@@ -12,7 +12,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import { Loader2, Plus, CheckCircle2, DollarSign } from "lucide-react";
+import { confirmDialog } from "@/components/ui/confirm-service";
+import { toast } from "sonner";
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -75,7 +78,7 @@ export function AnticipoProcessClient() {
       });
       if (!res.ok) {
         const json = await res.json();
-        alert(json.error || "Error");
+        toast.error(json.error || "Error");
         return;
       }
       setCreateOpen(false);
@@ -95,7 +98,7 @@ export function AnticipoProcessClient() {
   };
 
   const handlePaid = async (id: string) => {
-    if (!confirm("¿Marcar como pagado?")) return;
+    if (!(await confirmDialog({ description: "¿Marcar como pagado?" }))) return;
     await fetch(`/api/payroll/anticipos/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -166,12 +169,18 @@ export function AnticipoProcessClient() {
           </DialogHeader>
           <div className="space-y-1.5 py-2">
             <Label className="text-xs">Período</Label>
-            <select className={selectClass} value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)}>
-              <option value="">Selecciona...</option>
-              {periods.filter((p) => p.status !== "PAID").map((p) => (
-                <option key={p.id} value={p.id}>{MONTHS[p.month - 1]} {p.year}</option>
-              ))}
-            </select>
+            <SimpleSelect
+              className={selectClass}
+              value={selectedPeriod}
+              onValueChange={(v) => setSelectedPeriod(v)}
+              options={[
+                { value: "", label: "Selecciona..." },
+                ...periods.filter((p) => p.status !== "PAID").map((p) => ({
+                  value: p.id,
+                  label: `${MONTHS[p.month - 1]} ${p.year}`,
+                })),
+              ]}
+            />
             <p className="text-[10px] text-muted-foreground">Se incluirán todos los guardias activos con anticipo configurado.</p>
           </div>
           <DialogFooter>

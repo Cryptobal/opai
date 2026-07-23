@@ -12,6 +12,7 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { cn } from "@/lib/utils";
 
 export type DteAttachment = {
@@ -131,7 +132,14 @@ export function DteAttachmentsCard({ baseUrl, canEdit = true, helpText }: Props)
 
   const handleDelete = useCallback(
     async (att: DteAttachment) => {
-      if (!confirm(`¿Eliminar "${att.filename}"?`)) return;
+      if (
+        !(await confirmDialog({
+          description: `¿Eliminar "${att.filename}"?`,
+          variant: "destructive",
+          confirmLabel: "Eliminar",
+        }))
+      )
+        return;
       const r = await fetch(`${baseUrl}/${att.id}`, { method: "DELETE" });
       const j = await r.json();
       if (!j?.success) {

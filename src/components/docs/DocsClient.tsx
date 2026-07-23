@@ -41,6 +41,7 @@ import { EmptyState } from "@/components/opai-ds";
 import { DOC_STATUS_CONFIG, DOC_CATEGORIES, normalizeDocStatus } from "@/lib/docs/token-registry";
 import type { DocDocument } from "@/types/docs";
 import { useCanDelete } from "@/lib/permissions-context";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 const STATUS_ICONS: Record<string, React.ComponentType<any>> = {
   draft: FileEdit,
@@ -159,7 +160,14 @@ export function DocsClient() {
 
   const deleteDocument = async (id: string) => {
     if (!canDeleteDocument) return;
-    if (!confirm("¿Eliminar este documento?")) return;
+    if (
+      !(await confirmDialog({
+        description: "¿Eliminar este documento?",
+        variant: "destructive",
+        confirmLabel: "Eliminar",
+      }))
+    )
+      return;
     try {
       await fetch(`/api/docs/documents/${id}`, { method: "DELETE" });
       setDocuments((prev) => prev.filter((d) => d.id !== id));

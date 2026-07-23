@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { PhotoCapture } from "./PhotoCapture";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import type { RondasSession } from "./RondasPortalClient";
 
 interface Props {
@@ -335,18 +336,15 @@ export function ReportarIncidente({
             <label className="mb-2 block text-sm font-medium text-foreground">
               Checkpoint asociado
             </label>
-            <select
+            <SimpleSelect
               value={selectedCheckpointId}
-              onChange={(e) => setSelectedCheckpointId(e.target.value)}
+              onValueChange={(v) => setSelectedCheckpointId(v)}
               className="w-full min-h-14 rounded-lg border border-border bg-muted px-3 py-2 text-foreground focus:border-status-info-border focus:outline-none focus:ring-1 focus:ring-status-info-border"
-            >
-              <option value="">Sin checkpoint</option>
-              {checkpoints.map((cp) => (
-                <option key={cp.id} value={cp.id}>
-                  {cp.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: "Sin checkpoint" },
+                ...checkpoints.map((cp) => ({ value: cp.id, label: cp.name })),
+              ]}
+            />
           </div>
         )}
 

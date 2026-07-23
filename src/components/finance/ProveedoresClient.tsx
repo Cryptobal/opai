@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -203,7 +204,13 @@ export function ProveedoresClient({ suppliers, accounts, canManage }: Props) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Eliminar este proveedor? Esta acción no se puede deshacer."))
+    if (
+      !(await confirmDialog({
+        description: "¿Eliminar este proveedor? Esta acción no se puede deshacer.",
+        variant: "destructive",
+        confirmLabel: "Eliminar",
+      }))
+    )
       return;
     setDeleting(id);
     try {

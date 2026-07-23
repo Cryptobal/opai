@@ -10,6 +10,8 @@ import {
   RefreshCw,
   Loader2,
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { confirmDialog } from '@/components/ui/confirm-service';
 
 interface KnowledgeBase {
   id: string;
@@ -125,7 +127,7 @@ export function KnowledgeBaseManager() {
       try {
         payload = text ? (JSON.parse(text) as typeof payload) : {};
       } catch {
-        alert('El servidor devolvió una respuesta inválida al subir el archivo.');
+        toast.error('El servidor devolvió una respuesta inválida al subir el archivo.');
         return;
       }
 
@@ -138,7 +140,7 @@ export function KnowledgeBaseManager() {
         fetchItems();
       } else {
         console.error('Error al subir documento:', payload.error ?? res.status);
-        alert(payload.error ?? 'No se pudo subir el documento.');
+        toast.error(payload.error ?? 'No se pudo subir el documento.');
       }
     } catch (err) {
       console.error('Upload error:', err);
@@ -157,7 +159,7 @@ export function KnowledgeBaseManager() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Eliminar esta base de conocimiento? Esta acción no se puede deshacer.')) return;
+    if (!(await confirmDialog({ description: '¿Eliminar esta base de conocimiento? Esta acción no se puede deshacer.', variant: 'destructive', confirmLabel: 'Eliminar' }))) return;
     setDeleting(id);
     try {
       await fetch(`/api/knowledge/${id}`, { method: 'DELETE' });

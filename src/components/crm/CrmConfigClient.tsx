@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { promptDialog } from "@/components/ui/confirm-service";
 
 type PipelineStage = {
   id: string;
@@ -991,8 +992,11 @@ export function CrmConfigClient({
                           size="sm"
                           variant="ghost"
                           className="h-7 px-2"
-                          onClick={() => {
-                            const name = window.prompt("Nuevo nombre:", ind.name);
+                          onClick={async () => {
+                            const name = await promptDialog({
+                              description: "Nuevo nombre:",
+                              defaultValue: ind.name,
+                            });
                             if (name != null && name.trim()) updateIndustry(ind.id, name);
                           }}
                           disabled={loadingId === ind.id}

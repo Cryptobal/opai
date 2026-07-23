@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Building2, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { Button } from "@/components/ui/button";
 import {
   DataTable,
@@ -72,7 +73,14 @@ export function FactoringCompaniesClient({ initialCompanies, canManage }: Props)
 
   const handleDeactivate = useCallback(
     async (company: FactoringCompanyRow) => {
-      if (!confirm(`¿Desactivar el factoring "${company.razonSocial}"?`)) return;
+      if (
+        !(await confirmDialog({
+          description: `¿Desactivar el factoring "${company.razonSocial}"?`,
+          variant: "destructive",
+          confirmLabel: "Desactivar",
+        }))
+      )
+        return;
       const res = await fetch(`/api/finance/factoring/companies/${company.id}`, {
         method: "DELETE",
       });

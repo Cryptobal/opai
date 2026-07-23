@@ -9,6 +9,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import { Copy, Trash2, Check, ArrowLeftRight, Sparkles, Loader2 } from "lucide-react";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
@@ -184,13 +185,9 @@ export function ShiftRowEditor({
         <div>
           <Label className={LABEL}>Horario</Label>
           <div className="mt-1 flex items-center gap-1.5">
-            <select className={cn(FIELD, "w-[88px] font-mono")} value={draft.inicio} onChange={(e) => apply({ inicio: e.target.value })}>
-              {HOURS_24.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
+            <SimpleSelect className={cn(FIELD, "w-[88px] font-mono")} value={draft.inicio} onValueChange={(v) => apply({ inicio: v })} options={HOURS_24.map((t) => ({ value: t, label: t }))} />
             <span className="text-muted-foreground">–</span>
-            <select className={cn(FIELD, "w-[88px] font-mono")} value={draft.fin} onChange={(e) => apply({ fin: e.target.value })}>
-              {HOURS_24.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
+            <SimpleSelect className={cn(FIELD, "w-[88px] font-mono")} value={draft.fin} onValueChange={(v) => apply({ fin: v })} options={HOURS_24.map((t) => ({ value: t, label: t }))} />
             <Button
               type="button"
               variant="ghost"
@@ -203,16 +200,13 @@ export function ShiftRowEditor({
             </Button>
             <div className="flex items-center gap-1">
               <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Colación</span>
-              <select
+              <SimpleSelect
                 className={cn(FIELD, "w-[68px]")}
-                value={colacionMin}
-                onChange={(e) => setColacionMin(Number(e.target.value))}
+                value={String(colacionMin)}
+                onValueChange={(v) => setColacionMin(Number(v))}
                 title="Minutos de colación (no imputable a la jornada)"
-              >
-                {[0, 30, 45, 60].map((m) => (
-                  <option key={m} value={m}>{m}m</option>
-                ))}
-              </select>
+                options={[0, 30, 45, 60].map((m) => ({ value: String(m), label: `${m}m` }))}
+              />
             </div>
           </div>
           <div className="mt-1.5">
@@ -267,14 +261,10 @@ export function ShiftRowEditor({
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Field label="Guardias">
-          <select className={FIELD} value={draft.guardias} onChange={(e) => apply({ guardias: Number(e.target.value) })}>
-            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
+          <SimpleSelect className={FIELD} value={String(draft.guardias)} onValueChange={(v) => apply({ guardias: Number(v) })} options={Array.from({ length: 10 }, (_, i) => i + 1).map((n) => ({ value: String(n), label: String(n) }))} />
         </Field>
         <Field label="N° Puestos">
-          <select className={FIELD} value={draft.nPuestos} onChange={(e) => apply({ nPuestos: Number(e.target.value) })}>
-            {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
+          <SimpleSelect className={FIELD} value={String(draft.nPuestos)} onValueChange={(v) => apply({ nPuestos: Number(v) })} options={Array.from({ length: 20 }, (_, i) => i + 1).map((n) => ({ value: String(n), label: String(n) }))} />
         </Field>
         <Field label="Sueldo bruto">
           <Input

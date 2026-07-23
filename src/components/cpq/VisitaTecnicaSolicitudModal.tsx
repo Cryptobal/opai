@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import { Loader2, Briefcase, MapPin, MessageCircle, CalendarDays, User, Phone, Check } from "lucide-react";
 import { toast } from "sonner";
 import type { CpqPosition } from "@/types/cpq";
@@ -318,27 +319,21 @@ export function VisitaTecnicaSolicitudModal({
                 disabled={sending}
                 className="bg-background flex-1"
               />
-              <select
+              <SimpleSelect
                 value={scheduledHour}
-                onChange={(e) => setScheduledDateTime(scheduledDate, e.target.value, scheduledMinute)}
+                onValueChange={(v) => setScheduledDateTime(scheduledDate, v, scheduledMinute)}
                 disabled={sending}
                 className="h-9 w-16 rounded-md border border-input bg-background px-2 text-sm"
-              >
-                {HOURS.map((h) => (
-                  <option key={h} value={h}>{h}</option>
-                ))}
-              </select>
+                options={HOURS.map((h) => ({ value: h, label: h }))}
+              />
               <span className="flex items-center text-muted-foreground">:</span>
-              <select
+              <SimpleSelect
                 value={scheduledMinute}
-                onChange={(e) => setScheduledDateTime(scheduledDate, scheduledHour, e.target.value)}
+                onValueChange={(v) => setScheduledDateTime(scheduledDate, scheduledHour, v)}
                 disabled={sending}
                 className="h-9 w-16 rounded-md border border-input bg-background px-2 text-sm"
-              >
-                {MINUTES.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
+                options={MINUTES.map((m) => ({ value: m, label: m }))}
+              />
             </div>
           </div>
 
@@ -350,10 +345,9 @@ export function VisitaTecnicaSolicitudModal({
             {accountId && accountContacts.length > 0 && !loadingContacts ? (
               <>
                 <div className="flex gap-2">
-                  <select
+                  <SimpleSelect
                     value={contactMode === "select" ? selectedContactId || "__none__" : "__manual__"}
-                    onChange={(e) => {
-                      const v = e.target.value;
+                    onValueChange={(v) => {
                       if (v === "__manual__") {
                         setContactMode("manual");
                         setSelectedContactId("");
@@ -364,16 +358,20 @@ export function VisitaTecnicaSolicitudModal({
                     }}
                     className="flex h-9 flex-1 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     disabled={sending}
-                  >
-                    <option value="__none__">Sin contacto</option>
-                    {accountContacts.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {`${c.firstName} ${c.lastName}`.trim()}
-                        {c.phone ? ` · ${c.phone}` : c.email ? ` · ${c.email}` : ""}
-                      </option>
-                    ))}
-                    <option value="__manual__">Otro (ingresar manualmente)</option>
-                  </select>
+                    options={[
+                      { value: "__none__", label: "Sin contacto" },
+                      ...accountContacts.map((c) => ({
+                        value: c.id,
+                        label: (
+                          <>
+                            {`${c.firstName} ${c.lastName}`.trim()}
+                            {c.phone ? ` · ${c.phone}` : c.email ? ` · ${c.email}` : ""}
+                          </>
+                        ),
+                      })),
+                      { value: "__manual__", label: "Otro (ingresar manualmente)" },
+                    ]}
+                  />
                 </div>
                 {contactMode === "manual" && (
                   <div className="grid grid-cols-2 gap-3 pt-1">

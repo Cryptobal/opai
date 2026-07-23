@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { DOC_CATEGORIES, DOC_MODULES } from "@/lib/docs/token-registry";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { Loader2, Plus, Pencil, Trash2, Download } from "lucide-react";
 import { useCanDelete } from "@/lib/permissions-context";
 
@@ -145,7 +146,14 @@ export function DocCategoriesClient() {
       toast.error("No tienes permisos para eliminar categorías");
       return;
     }
-    if (!confirm("¿Eliminar esta categoría? Las plantillas que la usen seguirán existiendo.")) return;
+    if (
+      !(await confirmDialog({
+        description: "¿Eliminar esta categoría? Las plantillas que la usen seguirán existiendo.",
+        variant: "destructive",
+        confirmLabel: "Eliminar",
+      }))
+    )
+      return;
     try {
       const res = await fetch(`/api/docs/categories/${id}`, { method: "DELETE" });
       if (!res.ok) {

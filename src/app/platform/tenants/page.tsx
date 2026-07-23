@@ -4,8 +4,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Plus, Clock, ExternalLink } from 'lucide-react';
+import { toast } from 'sonner';
 import { TenantTable, type TenantRow } from '@/components/platform/TenantTable';
 import { DeleteTenantModal } from '@/components/platform/DeleteTenantModal';
+import { confirmDialog } from '@/components/ui/confirm-service';
 
 interface PendingSignup {
   id: string;
@@ -69,15 +71,17 @@ export default function TenantsListPage() {
       const data = await res.json();
       window.location.href = data.redirectTo || '/hub';
     } catch {
-      alert('No se pudo iniciar sesión como este tenant.');
+      toast.error('No se pudo iniciar sesión como este tenant.');
     }
   };
 
   const handleDeletePending = async (id: string, email: string) => {
     if (
-      !confirm(
-        `¿Eliminar el registro pendiente de ${email}?\n\nEsto permite que el usuario se registre nuevamente con el mismo email.`,
-      )
+      !(await confirmDialog({
+        description: `¿Eliminar el registro pendiente de ${email}?\n\nEsto permite que el usuario se registre nuevamente con el mismo email.`,
+        variant: 'destructive',
+        confirmLabel: 'Eliminar',
+      }))
     )
       return;
     const res = await fetch(`/api/platform/pending-signups?id=${id}`, {
@@ -87,7 +91,7 @@ export default function TenantsListPage() {
       fetchAll();
     } else {
       const data = await res.json();
-      alert(data.error || 'No se pudo eliminar');
+      toast.error(data.error || 'No se pudo eliminar');
     }
   };
 

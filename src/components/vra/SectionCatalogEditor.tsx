@@ -52,6 +52,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 type Template = {
   id: string;
@@ -319,7 +320,7 @@ export function SectionCatalogEditor() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Eliminar esta sección? No se puede deshacer.")) return;
+    if (!(await confirmDialog({ description: "¿Eliminar esta sección? No se puede deshacer.", variant: "destructive", confirmLabel: "Eliminar" }))) return;
     try {
       const res = await fetch(`/api/vra/section-templates/${id}`, {
         method: "DELETE",

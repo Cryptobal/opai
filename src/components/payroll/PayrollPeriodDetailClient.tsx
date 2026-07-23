@@ -27,6 +27,8 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { ChipTabs } from "@/components/ui/chip-tabs";
+import { confirmDialog } from "@/components/ui/confirm-service";
+import { toast } from "sonner";
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -144,11 +146,11 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
       });
       if (res.ok) {
         const json = await res.json();
-        alert(`Asistencias consolidadas: ${json.data.total} guardias (${json.data.created} nuevos, ${json.data.updated} actualizados)`);
+        toast.success(`Asistencias consolidadas: ${json.data.total} guardias (${json.data.created} nuevos, ${json.data.updated} actualizados)`);
         await loadPeriod();
       } else {
         const json = await res.json();
-        alert(json.error || "Error");
+        toast.error(json.error || "Error");
       }
     } finally {
       setConsolidating(false);
@@ -169,23 +171,24 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
 
       if (res.ok) {
         const d = json.data;
-        const confirmApply = confirm(
-          `Archivo parseado:\n` +
-          `- ${d.totalRows} filas totales\n` +
-          `- ${d.matched.length} guardias encontrados en el sistema\n` +
-          `- ${d.unmatched.length} no encontrados\n\n` +
-          `¿Aplicar las asistencias de los ${d.matched.length} guardias encontrados?`
-        );
+        const confirmApply = await confirmDialog({
+          description:
+            `Archivo parseado:\n` +
+            `- ${d.totalRows} filas totales\n` +
+            `- ${d.matched.length} guardias encontrados en el sistema\n` +
+            `- ${d.unmatched.length} no encontrados\n\n` +
+            `¿Aplicar las asistencias de los ${d.matched.length} guardias encontrados?`,
+        });
         if (confirmApply) {
           const applyRes = await fetch(`/api/payroll/attendance/import/${d.importId}/apply`, { method: "POST" });
           if (applyRes.ok) {
             const applyJson = await applyRes.json();
-            alert(`Asistencias aplicadas: ${applyJson.data.total} guardias (${applyJson.data.created} nuevos, ${applyJson.data.updated} actualizados)`);
+            toast.success(`Asistencias aplicadas: ${applyJson.data.total} guardias (${applyJson.data.created} nuevos, ${applyJson.data.updated} actualizados)`);
             await loadPeriod();
           }
         }
       } else {
-        alert(json.error || "Error al importar");
+        toast.error(json.error || "Error al importar");
       }
     } finally {
       setImporting(false);
@@ -194,7 +197,7 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
   };
 
   const handleRunPayroll = async () => {
-    if (!confirm("¿Ejecutar liquidación masiva? Se procesarán los guardias activos con estructura de sueldo configurada.")) return;
+    if (!(await confirmDialog({ description: "¿Ejecutar liquidación masiva? Se procesarán los guardias activos con estructura de sueldo configurada." }))) return;
     setRunning(true);
     setRunResult(null);
     try {
@@ -208,7 +211,7 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
         setRunResult(json.data);
         await loadPeriod();
       } else {
-        alert(json.error || "Error al ejecutar");
+        toast.error(json.error || "Error al ejecutar");
       }
     } finally {
       setRunning(false);
@@ -216,7 +219,7 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
   };
 
   const handleMarkPaid = async () => {
-    if (!confirm("¿Marcar como PAGADO? Las liquidaciones pasarán a estado PAID y serán visibles en la ficha de cada guardia.")) return;
+    if (!(await confirmDialog({ description: "¿Marcar como PAGADO? Las liquidaciones pasarán a estado PAID y serán visibles en la ficha de cada guardia." }))) return;
     try {
       await fetch(`/api/payroll/periodos/${periodId}`, {
         method: "PATCH",
@@ -230,14 +233,14 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
   };
 
   const handleDeletePeriod = async () => {
-    if (!confirm("¿Eliminar este período y todas sus liquidaciones? Esta acción no se puede deshacer.")) return;
+    if (!(await confirmDialog({ description: "¿Eliminar este período y todas sus liquidaciones? Esta acción no se puede deshacer.", variant: "destructive", confirmLabel: "Eliminar" }))) return;
     try {
       const res = await fetch(`/api/payroll/periodos/${periodId}`, { method: "DELETE" });
       if (res.ok) {
         router.push("/payroll/periodos");
       } else {
         const json = await res.json();
-        alert(json.error || "Error al eliminar");
+        toast.error(json.error || "Error al eliminar");
       }
     } catch (err) {
       console.error(err);
@@ -245,7 +248,7 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
   };
 
   const handleReopen = async () => {
-    if (!confirm("¿Reabrir el período? Las liquidaciones volverán a estado DRAFT y dejarán de ser visibles en las fichas de los guardias.")) return;
+    if (!(await confirmDialog({ description: "¿Reabrir el período? Las liquidaciones volverán a estado DRAFT y dejarán de ser visibles en las fichas de los guardias." }))) return;
     try {
       await fetch(`/api/payroll/periodos/${periodId}`, {
         method: "PATCH",
@@ -262,7 +265,7 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
     try {
       const res = await fetch(`/api/payroll/periodos/${periodId}/export?type=${type}`);
       if (!res.ok) {
-        alert("Error al generar archivo");
+        toast.error("Error al generar archivo");
         return;
       }
       const blob = await res.blob();
@@ -280,7 +283,7 @@ export function PayrollPeriodDetailClient({ periodId }: { periodId: string }) {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Download error:", err);
-      alert("Error al descargar");
+      toast.error("Error al descargar");
     }
   };
 

@@ -14,6 +14,7 @@ import {
 import { FileText, Pencil, Plus, Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import type { ProposalTemplateSections } from "@/types/cpq";
 
 interface Template {
@@ -305,20 +306,17 @@ export function CpqTemplateConfig() {
 
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">Estilo de encabezado</label>
-              <select
+              <SimpleSelect
                 className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm"
                 value={editForm.sections.headerStyle ?? "standard"}
-                onChange={(e) =>
+                onValueChange={(v) =>
                   setEditForm((p) => ({
                     ...p,
-                    sections: { ...p.sections, headerStyle: e.target.value as "standard" | "detailed" | "formal" },
+                    sections: { ...p.sections, headerStyle: v as "standard" | "detailed" | "formal" },
                   }))
                 }
-              >
-                {HEADER_STYLE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+                options={HEADER_STYLE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+              />
             </div>
 
             <div className="space-y-2">

@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 type Warehouse = {
   id: string;
@@ -249,7 +250,7 @@ export function InventarioBodegasManager({ canDelete }: Props) {
   };
 
   const handleDelete = async (w: Warehouse) => {
-    if (!window.confirm(`¿Eliminar la bodega "${w.name}"? Solo se permite si no tiene stock ni movimientos.`)) {
+    if (!(await confirmDialog({ description: `¿Eliminar la bodega "${w.name}"? Solo se permite si no tiene stock ni movimientos.`, variant: "destructive", confirmLabel: "Eliminar" }))) {
       return;
     }
     try {

@@ -16,6 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Upload, X, FileSpreadsheet, AlertTriangle, Check, Download, Trash2, Pencil, ShoppingCart } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 type Purchase = {
   id: string;
@@ -258,7 +260,7 @@ export function InventarioComprasClient() {
       (l) => l.variantId && l.quantity > 0 && l.warehouseId
     );
     if (validLines.length === 0) {
-      alert("Agrega al menos una línea válida");
+      toast.error("Agrega al menos una línea válida");
       return;
     }
 
@@ -287,11 +289,11 @@ export function InventarioComprasClient() {
         });
         fetchData();
       } else {
-        alert(data.error || "Error al registrar compra");
+        toast.error(data.error || "Error al registrar compra");
       }
     } catch (e) {
       console.error(e);
-      alert("Error al registrar compra");
+      toast.error("Error al registrar compra");
     }
   };
 
@@ -354,7 +356,7 @@ export function InventarioComprasClient() {
       (l) => l.variantId && l.quantity > 0 && l.warehouseId
     );
     if (validLines.length === 0) {
-      alert("Agrega al menos una línea válida");
+      toast.error("Agrega al menos una línea válida");
       return;
     }
     try {
@@ -378,16 +380,16 @@ export function InventarioComprasClient() {
         setEditingPurchase(null);
         fetchData();
       } else {
-        alert(data.error || "Error al actualizar compra");
+        toast.error(data.error || "Error al actualizar compra");
       }
     } catch (err) {
       console.error(err);
-      alert("Error al actualizar compra");
+      toast.error("Error al actualizar compra");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Eliminar esta compra? Se revertirá el stock asociado.")) return;
+    if (!(await confirmDialog({ description: "¿Eliminar esta compra? Se revertirá el stock asociado.", variant: "destructive", confirmLabel: "Eliminar" }))) return;
     setDeleting(id);
     try {
       const res = await fetch(`/api/ops/inventario/purchases/${id}`, {
@@ -397,11 +399,11 @@ export function InventarioComprasClient() {
       if (data.success) {
         fetchData();
       } else {
-        alert(data.error || "Error al eliminar compra");
+        toast.error(data.error || "Error al eliminar compra");
       }
     } catch (err) {
       console.error(err);
-      alert("Error al eliminar compra");
+      toast.error("Error al eliminar compra");
     } finally {
       setDeleting(null);
     }
@@ -453,7 +455,7 @@ export function InventarioComprasClient() {
         await wb.xlsx.load(await file.arrayBuffer());
         const ws = wb.worksheets[0];
         if (!ws) {
-          alert("El archivo no contiene hojas de cálculo");
+          toast.error("El archivo no contiene hojas de cálculo");
           return;
         }
         const headerRow = ws.getRow(1);
@@ -476,7 +478,7 @@ export function InventarioComprasClient() {
       }
 
       if (rows.length === 0) {
-        alert("El archivo está vacío");
+        toast.error("El archivo está vacío");
         return;
       }
 
@@ -527,7 +529,7 @@ export function InventarioComprasClient() {
       setImportResult(null);
     } catch (err) {
       console.error(err);
-      alert("Error al leer el archivo. Verifica que sea un Excel válido (.xlsx/.csv).");
+      toast.error("Error al leer el archivo. Verifica que sea un Excel válido (.xlsx/.csv).");
     }
 
     // Reset file input
@@ -540,7 +542,7 @@ export function InventarioComprasClient() {
     );
 
     if (validLines.length === 0) {
-      alert("No hay líneas válidas para importar. Verifica los matches de productos.");
+      toast.error("No hay líneas válidas para importar. Verifica los matches de productos.");
       return;
     }
 
@@ -568,11 +570,11 @@ export function InventarioComprasClient() {
         setImportLines([]);
         fetchData();
       } else {
-        alert(data.error || "Error al registrar compra importada");
+        toast.error(data.error || "Error al registrar compra importada");
       }
     } catch (err) {
       console.error(err);
-      alert("Error al enviar la compra");
+      toast.error("Error al enviar la compra");
     } finally {
       setImporting(false);
     }
@@ -635,7 +637,7 @@ export function InventarioComprasClient() {
                     size="sm"
                     onClick={async () => {
                       const res = await fetch("/api/ops/inventario/purchases/template");
-                      if (!res.ok) { alert("Error al descargar plantilla"); return; }
+                      if (!res.ok) { toast.error("Error al descargar plantilla"); return; }
                       const blob = await res.blob();
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement("a");

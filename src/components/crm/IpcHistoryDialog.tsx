@@ -9,6 +9,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -97,9 +98,11 @@ export function IpcHistoryDialog({
 
   async function handleRevert(adjustmentId: string, label: string) {
     if (
-      !window.confirm(
-        `¿Revertir el reajuste de ${label}? Se restaurará el monto anterior y el registro desaparecerá del historial.`,
-      )
+      !(await confirmDialog({
+        description: `¿Revertir el reajuste de ${label}? Se restaurará el monto anterior y el registro desaparecerá del historial.`,
+        variant: "destructive",
+        confirmLabel: "Revertir",
+      }))
     ) {
       return;
     }

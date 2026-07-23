@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -273,7 +274,14 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
   };
 
   const handleDelete = async (rule: Rule) => {
-    if (!confirm(`¿Eliminar la regla "${rule.name}"?`)) return;
+    if (
+      !(await confirmDialog({
+        description: `¿Eliminar la regla "${rule.name}"?`,
+        variant: "destructive",
+        confirmLabel: "Eliminar",
+      }))
+    )
+      return;
     try {
       const res = await fetch(`/api/finance/banking/automatch-rules/${rule.id}`, {
         method: "DELETE",
@@ -298,9 +306,10 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
 
   const handleRunHistorical = async () => {
     if (
-      !confirm(
-        "¿Conciliar histórico? Se toman hasta 2.500 movimientos sin conciliar más recientes (sin filtro de fecha), se evalúan DTE / turnos extra y después las reglas. Si una regla exige revisión humana, el movimiento queda como sugerencia y sigue «Sin conciliar» hasta autorizar."
-      )
+      !(await confirmDialog({
+        description:
+          "¿Conciliar histórico? Se toman hasta 2.500 movimientos sin conciliar más recientes (sin filtro de fecha), se evalúan DTE / turnos extra y después las reglas. Si una regla exige revisión humana, el movimiento queda como sugerencia y sigue «Sin conciliar» hasta autorizar.",
+      }))
     ) {
       return;
     }
@@ -336,12 +345,13 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
       return;
     }
     if (
-      !confirm(
-        `¿Aplicar solo la regla «${rule.name}» a los movimientos sin conciliar ` +
+      !(await confirmDialog({
+        description:
+          `¿Aplicar solo la regla «${rule.name}» a los movimientos sin conciliar ` +
           `de los últimos ${RULE_HISTORICAL_MONTHS_DEFAULT} meses (hasta 2.500, más recientes primero)?\n\n` +
           `Igual corre DTE y turnos extra antes de evaluar esa regla. Las reglas con «Requiere revisión» dejan ` +
           `sugerencias: el estado seguirá «Sin conciliar» hasta que autorices.`,
-      )
+      }))
     ) {
       return;
     }

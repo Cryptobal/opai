@@ -14,6 +14,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -436,7 +437,7 @@ export function AtsPipelineClient({
     action: "pausar" | "cerrar" | "activar" | "republicar",
     confirmMessage?: string,
   ) {
-    if (confirmMessage && !window.confirm(confirmMessage)) return;
+    if (confirmMessage && !(await confirmDialog({ description: confirmMessage }))) return;
     setJobAction(action);
     try {
       const path =

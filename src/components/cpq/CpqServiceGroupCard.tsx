@@ -25,6 +25,7 @@ import { getCoveragePatternMeta } from "@/lib/cpq/coverage-patterns";
 import { cn } from "@/lib/utils";
 import type { CpqPosition, CpqServiceGroup } from "@/types/cpq";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   ShieldCheck,
@@ -88,9 +89,12 @@ export function CpqServiceGroupCard({
   };
 
   const remove = async () => {
-    const cascade = confirm(
-      `¿Eliminar el servicio "${group.name}" y sus ${shifts.length} turno(s)?\n\nAceptar = elimina todo\nCancelar = mantiene los turnos como "Sin agrupar"`
-    );
+    const cascade = await confirmDialog({
+      description: `¿Eliminar el servicio "${group.name}" y sus ${shifts.length} turno(s)?`,
+      variant: "destructive",
+      confirmLabel: "Eliminar todo",
+      cancelLabel: "Mantener turnos",
+    });
     try {
       const url = cascade
         ? `/api/cpq/quotes/${quoteId}/services/${group.id}?cascade=true`

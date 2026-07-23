@@ -38,6 +38,7 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -1437,7 +1438,7 @@ function ReceivedDteDetailDialog({
 
   async function handleDelete(attId: string) {
     if (!dte) return;
-    if (!confirm("¿Eliminar este adjunto?")) return;
+    if (!(await confirmDialog({ description: "¿Eliminar este adjunto?", variant: "destructive", confirmLabel: "Eliminar" }))) return;
     setDeleting(attId);
     try {
       const res = await fetch(

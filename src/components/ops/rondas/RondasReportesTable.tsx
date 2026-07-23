@@ -4,6 +4,7 @@ import { Fragment, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronRight, Camera, Mic, Clock, CheckCircle2, XCircle, AlertTriangle, ExternalLink, MapPin, MapPinned } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 export interface ReporteRow {
   id: string;
@@ -532,9 +533,9 @@ function ExpandedRow({
               )}
               {canSendToCheckpoints && (
                 <button
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
-                    if (window.confirm(`¿Enviar los ${puntosConCoords.length} puntos de esta ronda como checkpoints de ${row.installation}?`)) {
+                    if (await confirmDialog({ description: `¿Enviar los ${puntosConCoords.length} puntos de esta ronda como checkpoints de ${row.installation}?` })) {
                       onSendToCheckpoints(row);
                     }
                   }}
