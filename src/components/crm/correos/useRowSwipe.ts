@@ -10,8 +10,13 @@ export const SWIPE_OPEN_WIDTH = 148;
 const MIN_COMMIT = 36;
 /** Proporción del ancho de fila que dispara la acción principal del lado. */
 export const SWIPE_LONG_RATIO = 0.55;
+/** Rubber-band: pasado el ancho de botones, el arrastre extra se amortigua. */
+const RUBBER_BAND = 0.35;
 /** Píxeles antes de decidir si el gesto es horizontal o scroll vertical. */
 const AXIS_LOCK = 8;
+/** Long-press: umbral de disparo y tolerancia de movimiento (estilo Gmail). */
+const LONG_PRESS_MS = 450;
+const LONG_PRESS_MOVE = 10;
 
 /**
  * Máquina de gestos del swipe de dos niveles: arrastre con pointer events
@@ -22,22 +27,50 @@ const AXIS_LOCK = 8;
 export function useRowSwipe(opts: {
   enabled: boolean;
   onLongSwipe: (side: CorreoSwipeSide) => void;
+  /** Long-press (~450ms sin arrastre) → modo selección. Sigue activo aunque
+   *  el swipe esté deshabilitado (p. ej. durante la selección). */
+  onLongPress?: () => void;
 }) {
-  const { enabled, onLongSwipe } = opts;
+  const { enabled, onLongSwipe, onLongPress } = opts;
+  // `dx` es el desplazamiento VISUAL (con rubber-band); las decisiones de
+  // umbral usan el arrastre real en dxRef.
   const [dx, setDx] = useState(0);
   const [openSide, setOpenSide] = useState<CorreoSwipeSide | null>(null);
   const [dragging, setDragging] = useState(false);
+  /** Progreso 0..1 hacia el umbral largo (para el relleno del fondo). */
+  const [progress, setProgress] = useState(0);
+  /** true cuando el próximo release ejecuta la acción principal. */
+  const [armed, setArmed] = useState(false);
+  const armedRef = useRef(false);
   const rowRef = useRef<HTMLDivElement | null>(null);
   const start = useRef({ x: 0, y: 0, base: 0 });
   const axis = useRef<"h" | "v" | null>(null);
   const dxRef = useRef(0);
   const suppressClick = useRef(false);
+  const longPressTimer = useRef<number | null>(null);
+  const longPressed = useRef(false);
+
+  const clearLongPress = useCallback(() => {
+    if (longPressTimer.current != null) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  useEffect(() => clearLongPress, [clearLongPress]);
+
+  const resetFeedback = useCallback(() => {
+    armedRef.current = false;
+    setArmed(false);
+    setProgress(0);
+  }, []);
 
   const close = useCallback(() => {
     setOpenSide(null);
     dxRef.current = 0;
     setDx(0);
-  }, []);
+    resetFeedback();
+  }, [resetFeedback]);
 
   // Tap o arrastre fuera de la fila (p. ej. otra fila) cierra los botones.
   useEffect(() => {
@@ -53,7 +86,7 @@ export function useRowSwipe(opts: {
   }, [openSide, close]);
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (!enabled) return;
+    if (!enabled && !onLongPress) return;
     start.current = {
       x: event.clientX,
       y: event.clientY,
@@ -61,16 +94,38 @@ export function useRowSwipe(opts: {
     };
     axis.current = null;
     suppressClick.current = false;
+    longPressed.current = false;
+    if (onLongPress) {
+      clearLongPress();
+      longPressTimer.current = window.setTimeout(() => {
+        longPressTimer.current = null;
+        longPressed.current = true;
+        // El click fantasma tras soltar no debe abrir/alternar de nuevo.
+        suppressClick.current = true;
+        navigator.vibrate?.(10);
+        onLongPress();
+      }, LONG_PRESS_MS);
+    }
   }
 
   function onPointerMove(event: PointerEvent<HTMLDivElement>) {
-    if (!enabled) return;
     const rawDx = event.clientX - start.current.x;
     const rawDy = event.clientY - start.current.y;
+    // Moverse cancela el long-press (es scroll o swipe, no una pulsación).
+    if (
+      longPressTimer.current != null &&
+      (Math.abs(rawDx) > LONG_PRESS_MOVE || Math.abs(rawDy) > LONG_PRESS_MOVE)
+    ) {
+      clearLongPress();
+    }
+    // Tras dispararse el long-press, el resto del arrastre se ignora.
+    if (longPressed.current) return;
+    if (!enabled) return;
     if (axis.current === null) {
       if (Math.abs(rawDx) < AXIS_LOCK && Math.abs(rawDy) < AXIS_LOCK) return;
       axis.current = Math.abs(rawDx) > Math.abs(rawDy) ? "h" : "v";
       if (axis.current === "h") {
+        clearLongPress();
         event.currentTarget.setPointerCapture?.(event.pointerId);
         setDragging(true);
       }
@@ -79,10 +134,30 @@ export function useRowSwipe(opts: {
     const width = rowRef.current?.offsetWidth ?? 360;
     const next = Math.max(Math.min(start.current.base + rawDx, width), -width);
     dxRef.current = next;
-    setDx(next);
+    const absRaw = Math.abs(next);
+    // Rubber-band: pasado el ancho de botones el arrastre visual se amortigua.
+    setDx(
+      absRaw <= SWIPE_OPEN_WIDTH
+        ? next
+        : Math.sign(next) * (SWIPE_OPEN_WIDTH + (absRaw - SWIPE_OPEN_WIDTH) * RUBBER_BAND),
+    );
+    setProgress(Math.min(1, absRaw / (width * SWIPE_LONG_RATIO)));
+    const nowArmed = absRaw > width * SWIPE_LONG_RATIO;
+    if (nowArmed !== armedRef.current) {
+      armedRef.current = nowArmed;
+      setArmed(nowArmed);
+      // Feedback háptico al cruzar el umbral de "se va a disparar".
+      if (nowArmed) navigator.vibrate?.(10);
+    }
   }
 
   function onPointerEnd(event: PointerEvent<HTMLDivElement>) {
+    clearLongPress();
+    if (longPressed.current) {
+      longPressed.current = false;
+      axis.current = null;
+      return;
+    }
     const wasHorizontal = axis.current === "h";
     axis.current = null;
     if (!wasHorizontal) return;
@@ -97,12 +172,14 @@ export function useRowSwipe(opts: {
       setOpenSide(null);
       dxRef.current = 0;
       setDx(0);
+      resetFeedback();
       onLongSwipe(side);
     } else if (Math.abs(value) >= MIN_COMMIT) {
       setOpenSide(side);
       const target = side === "right" ? SWIPE_OPEN_WIDTH : -SWIPE_OPEN_WIDTH;
       dxRef.current = target;
       setDx(target);
+      resetFeedback();
     } else {
       close();
     }
@@ -119,6 +196,8 @@ export function useRowSwipe(opts: {
     dx,
     openSide,
     dragging,
+    progress,
+    armed,
     rowRef,
     close,
     wasDragged,

@@ -5,9 +5,11 @@ import { Clock, Paperclip, Pencil, Sparkles, Star, TrendingUp, CheckCircle2 } fr
 import { Tag } from "@/components/opai-ds";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 import { CorreoThreadActions } from "./CorreoThreadActions";
+import { CorreoRowMobile } from "./CorreoRowMobile";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
 
-const PREVIEW_LINE_CLASS: Record<CorreoPreviewLines, string> = {
+// Export: CorreoRowMobile reusa el mismo clamp y la misma hora relativa.
+export const PREVIEW_LINE_CLASS: Record<CorreoPreviewLines, string> = {
   1: "line-clamp-1",
   2: "line-clamp-2",
   3: "line-clamp-3",
@@ -23,7 +25,7 @@ function snoozeLabel(iso: string): string {
   });
 }
 
-function relativeTime(iso: string | null): string {
+export function relativeTime(iso: string | null): string {
   if (!iso) return "";
   const diff = Date.now() - new Date(iso).getTime();
   const min = Math.round(diff / 60_000);
@@ -47,6 +49,8 @@ export function CorreoRow({
   checked,
   onToggleCheck,
   previewLines = 2,
+  mobileGmail = false,
+  onAvatarPress,
 }: {
   thread: CorreoThreadDTO;
   onOpen: () => void;
@@ -61,7 +65,25 @@ export function CorreoRow({
   previewLines?: CorreoPreviewLines;
   /** Slot final (kebab móvil). Si viene, reemplaza a las acciones hover. */
   trailing?: ReactNode;
+  /** Variante móvil estilo Gmail (avatar, sin checkbox ni kebab). */
+  mobileGmail?: boolean;
+  /** Tap en el avatar alterna selección (solo variante móvil). */
+  onAvatarPress?: () => void;
 }) {
+  // La variante móvil delega en CorreoRowMobile; el cuerpo desktop de abajo
+  // (checkbox + hover actions) queda intacto.
+  if (mobileGmail) {
+    return (
+      <CorreoRowMobile
+        thread={thread}
+        onOpen={onOpen}
+        previewLines={previewLines}
+        checked={checked}
+        onAvatarPress={onAvatarPress}
+      />
+    );
+  }
+
   const unread = thread.isUnread;
   const subject = thread.subject || "(sin asunto)";
   // Densidad "1 línea": fila compacta real — sin preview ni tags, paddings

@@ -80,7 +80,8 @@ const BTN =
 
 export function CorreoBulkBar({ count, onClear, onSelectAllVisible, onAction, onSnooze }: Props) {
   return (
-    <div className="sticky top-[calc(4rem+env(safe-area-inset-top,0px))] z-20 flex flex-wrap items-center gap-1 rounded-xl bg-primary px-2 py-1.5 text-primary-foreground shadow-lg lg:top-2">
+    // v2: en móvil la selección usa CorreoSelectionBar; esta barra es desktop.
+    <div className="sticky top-[calc(4rem+env(safe-area-inset-top,0px))] z-20 hidden flex-wrap items-center gap-1 rounded-xl bg-primary px-2 py-1.5 text-primary-foreground shadow-lg lg:top-2 lg:flex">
       <button type="button" aria-label="Deseleccionar todo" onClick={onClear} className={BTN}>
         <X className="h-4 w-4" />
       </button>

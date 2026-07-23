@@ -12,6 +12,7 @@ import {
 import { CorreosMobileTopBar } from "./CorreosMobileTopBar";
 import { CorreosMobileDrawer } from "./CorreosMobileDrawer";
 import { CorreoSwipeSettingsSheet } from "./CorreoSwipeSettingsSheet";
+import { CorreoSelectionBar } from "./CorreoSelectionBar";
 import { CorreoRowSwipe } from "./CorreoRowSwipe";
 import { CorreoDrawer } from "./CorreoDrawer";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
@@ -36,6 +37,7 @@ import {
   closeCorreoThreadInHistory,
   openCorreoThreadInHistory,
 } from "./correo-thread-history";
+import { useCloseOnBack } from "./useCloseOnBack";
 
 function matchesChip(t: CorreoThreadDTO, f: CorreoChipKey): boolean {
   if (f === "con_cuenta") return Boolean(t.accountId);
@@ -81,6 +83,11 @@ export function CorreosClient() {
   // Opción C: drawer lateral móvil (carpetas + filtros + acciones).
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [swipeSettingsOpen, setSwipeSettingsOpen] = useState(false);
+  // v2: táctil (long-press/selección móvil); en desktop nada de esto aplica.
+  const [isCoarse, setIsCoarse] = useState(false);
+  useEffect(() => {
+    setIsCoarse(typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches);
+  }, []);
   // C12: multi-select para acciones masivas. C20: fila enfocada por j/k.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [focusIndex, setFocusIndex] = useState(-1);
@@ -346,9 +353,15 @@ export function CorreosClient() {
       return next;
     });
   }
-  function clearSelection() {
+  const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
-  }
+  }, []);
+  // v2: modo selección móvil (long-press / tap en avatar). Deriva del estado
+  // existente — no hay un segundo estado de selección.
+  const selectionMode = selectedIds.size > 0;
+  // Gesto/botón atrás en móvil limpia la selección antes de salir de la vista
+  // (misma pila LIFO que usa el lector). En desktop no se toca el historial.
+  useCloseOnBack(isCoarse && selectionMode, clearSelection);
   function bulkAction(
     action: CorreoAction,
     okMsg: string,
@@ -447,18 +460,32 @@ export function CorreosClient() {
     <>
       {/* Top móvil tipo Gmail — fuera del root animado para no correr el
           stagger de ds-page-enter en desktop; sticky contra el scroll de
-          página en modo inmersivo. */}
-      <CorreosMobileTopBar
-        onOpenNav={() => setMobileNavOpen(true)}
-        query={query}
-        onQuery={setQuery}
-        semantic={semantic}
-        onSemantic={setSemantic}
-        folder={folder}
-        inboxUnread={counts?.inboxUnread ?? 0}
-        realtimeStatus={realtimeStatus}
-        lastSyncAt={lastSyncAt}
-      />
+          página en modo inmersivo. Con selección activa, la barra contextual
+          ocupa el mismo slot sticky (como Gmail). */}
+      {selectionMode ? (
+        <CorreoSelectionBar
+          count={selectedIds.size}
+          allRead={items
+            .filter((t) => selectedIds.has(t.id))
+            .every((t) => !t.isUnread)}
+          onClear={clearSelection}
+          onAction={bulkAction}
+          onSnooze={() => setSnoozeId("__bulk__")}
+          onSelectAllVisible={() => setSelectedIds(new Set(filtered.map((t) => t.id)))}
+        />
+      ) : (
+        <CorreosMobileTopBar
+          onOpenNav={() => setMobileNavOpen(true)}
+          query={query}
+          onQuery={setQuery}
+          semantic={semantic}
+          onSemantic={setSemantic}
+          folder={folder}
+          inboxUnread={counts?.inboxUnread ?? 0}
+          realtimeStatus={realtimeStatus}
+          lastSyncAt={lastSyncAt}
+        />
+      )}
       <CorreosMobileDrawer
         open={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
@@ -598,12 +625,20 @@ export function CorreosClient() {
                   focused={focusIndex === index}
                   checked={selectedIds.has(t.id)}
                   onToggleCheck={canModify ? () => toggleSelect(t.id) : undefined}
+                  onAvatarPress={canModify ? () => toggleSelect(t.id) : undefined}
+                  onLongPress={canModify ? () => toggleSelect(t.id) : undefined}
+                  selectionMode={selectionMode}
                   previewLines={previewLines}
                   swipeConfig={swipeConfig}
                   onChanged={() => void fetchPage(null, true)}
                   onRemove={removeThreadLocally}
                   onSnooze={() => setSnoozeId(t.id)}
-                  onOpen={() => openThread(t.id)} />
+                  onOpen={() =>
+                    // Solo táctil: en selección el tap alterna. En desktop el
+                    // click sigue abriendo el hilo aunque haya checkboxes
+                    // marcados (comportamiento histórico intacto).
+                    selectionMode && isCoarse ? toggleSelect(t.id) : openThread(t.id)
+                  } />
               ))}
             </Surface>
           )}
