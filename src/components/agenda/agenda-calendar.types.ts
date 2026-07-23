@@ -12,6 +12,10 @@ export type AgendaCalendarItem = {
   dealId: string | null;
   assignedUserId: string;
   assignedName: string | null;
+  /** Multi-responsable (tareas): todos los responsables. `assignedUserId` es el
+   *  primero (compatibilidad). Cada uno ve la tarea en su agenda. */
+  assignedUserIds?: string[];
+  assignedNames?: string[];
   accountName: string | null;
   installationName: string | null;
   address: string | null;

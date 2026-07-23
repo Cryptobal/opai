@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/dialog";
 import { CHILE_TZ } from "@/lib/dates-cl";
 import { dateAtChileSlot, formatAgendaTime } from "./agenda-calendar-utils";
+import { TaskTimePicker } from "./TaskTimePicker";
+import { TaskAssigneePicker } from "./TaskAssigneePicker";
 import type { AgendaCalendarItem, AgendaTeamMember } from "./agenda-calendar.types";
 
 type Props = {
@@ -62,6 +64,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [assignedUserId, setAssignedUserId] = useState("");
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [visitDetail, setVisitDetail] = useState<{
@@ -78,6 +81,13 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
     setDate(parts.date);
     setTime(item.allDay ? "" : parts.time);
     setAssignedUserId(item.assignedUserId ?? "");
+    setAssigneeIds(
+      item.assignedUserIds?.length
+        ? item.assignedUserIds
+        : item.assignedUserId
+          ? [item.assignedUserId]
+          : [],
+    );
     setVisitDetail(null);
 
     if (item.source === "agenda_visita") {
@@ -170,7 +180,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
         {
           dueAt: start.toISOString(),
           allDay,
-          assignedTo: assignedUserId || null,
+          assigneeIds,
         },
         "Tarea actualizada",
       );
@@ -248,33 +258,34 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
               aria-label="Fecha"
               className={inputClass}
             />
-            <input
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              aria-label="Hora"
-              className={`${inputClass} w-28`}
-            />
+            <TaskTimePicker value={time} onChange={setTime} ariaLabel="Hora" />
           </div>
 
-          <label className="block space-y-1.5">
-            <span className="text-[12px] font-medium text-ds-text-4">Responsable</span>
-            <div className="flex items-center gap-2">
-              {assignee && <Avatar name={assignee} size="sm" variant="brand" />}
-              <select
-                value={assignedUserId}
-                onChange={(e) => setAssignedUserId(e.target.value)}
-                className={inputClass}
-              >
-                <option value="">Sin asignar</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.name}
-                  </option>
-                ))}
-              </select>
+          {item.source === "tarea" ? (
+            <div className="space-y-1.5">
+              <span className="text-[12px] font-medium text-ds-text-4">Responsables</span>
+              <TaskAssigneePicker users={users} value={assigneeIds} onChange={setAssigneeIds} />
             </div>
-          </label>
+          ) : (
+            <label className="block space-y-1.5">
+              <span className="text-[12px] font-medium text-ds-text-4">Responsable</span>
+              <div className="flex items-center gap-2">
+                {assignee && <Avatar name={assignee} size="sm" variant="brand" />}
+                <select
+                  value={assignedUserId}
+                  onChange={(e) => setAssignedUserId(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">Sin asignar</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </label>
+          )}
 
           <button
             type="button"

@@ -7,6 +7,8 @@ import { InstallationField } from "../nueva-visita/InstallationField";
 import type { useEventComposer, ComposerType } from "../mobile/useEventComposer";
 import type { useQuickCreateTask } from "./useQuickCreateTask";
 import { QuickCreateParticipants } from "./QuickCreateParticipants";
+import { TaskTimePicker } from "../TaskTimePicker";
+import { TaskAssigneePicker } from "../TaskAssigneePicker";
 
 const EVENT_TYPES: Array<{ id: ComposerType; label: string }> = [
   { id: "cliente", label: "Cliente" },
@@ -171,31 +173,12 @@ export function QuickCreateTaskFields({
             aria-label="Fecha de vencimiento"
             className={cn(INPUT, "w-36")}
           />
-          <input
-            type="time"
-            value={form.time}
-            onChange={(e) => set.setTime(e.target.value)}
-            aria-label="Hora (opcional)"
-            className={cn(INPUT, "w-24")}
-          />
-          <span className="text-[12px] text-ds-text-4">sin hora = todo el día</span>
+          <TaskTimePicker value={form.time} onChange={set.setTime} />
         </div>
       </Row>
 
-      <Row label="Responsable">
-        <select
-          value={form.assignedTo}
-          onChange={(e) => set.setAssignedTo(e.target.value)}
-          aria-label="Responsable"
-          className={cn(INPUT, "w-full")}
-        >
-          <option value="">Yo (por defecto)</option>
-          {users.map((user) => (
-            <option key={user.id} value={user.id}>
-              {user.name}
-            </option>
-          ))}
-        </select>
+      <Row label="Responsables">
+        <TaskAssigneePicker users={users} value={form.assigneeIds} onChange={set.setAssigneeIds} />
       </Row>
 
       <Row label="Cuenta">

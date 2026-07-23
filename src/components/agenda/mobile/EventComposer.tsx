@@ -8,6 +8,8 @@ import type { AgendaTeamMember } from "../agenda-calendar.types";
 import { AccountField } from "../nueva-visita/AccountField";
 import { InstallationField } from "../nueva-visita/InstallationField";
 import { useQuickCreateTask } from "../desktop/useQuickCreateTask";
+import { TaskTimePicker } from "../TaskTimePicker";
+import { TaskAssigneePicker } from "../TaskAssigneePicker";
 import { ParticipantPicker } from "./ParticipantPicker";
 import { useEventComposer, type ComposerType } from "./useEventComposer";
 import { ComposerToggles } from "./ComposerToggles";
@@ -138,33 +140,19 @@ export function EventComposer({ open, users, prefillDate, onClose, onCreated }: 
                 aria-label="Fecha de vencimiento"
                 className="h-11 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px]"
               />
-              <input
-                type="time"
-                value={task.form.time}
-                onChange={(e) => task.set.setTime(e.target.value)}
-                aria-label="Hora (opcional)"
-                className="h-11 w-28 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px]"
-              />
+              <TaskTimePicker value={task.form.time} onChange={task.set.setTime} />
             </div>
             <p className="text-[12px] text-ds-text-4">Sin hora = todo el día</p>
           </section>
           <section className="space-y-2">
             <p className="text-[12px] font-medium uppercase tracking-wide text-ds-text-4">
-              Responsable
+              Responsables
             </p>
-            <select
-              value={task.form.assignedTo}
-              onChange={(e) => task.set.setAssignedTo(e.target.value)}
-              aria-label="Responsable"
-              className="h-11 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px]"
-            >
-              <option value="">Yo (por defecto)</option>
-              {users.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.name}
-                </option>
-              ))}
-            </select>
+            <TaskAssigneePicker
+              users={users}
+              value={task.form.assigneeIds}
+              onChange={task.set.setAssigneeIds}
+            />
           </section>
           <section className="space-y-2">
             <p className="text-[12px] font-medium uppercase tracking-wide text-ds-text-4">

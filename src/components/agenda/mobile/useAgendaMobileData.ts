@@ -86,8 +86,13 @@ export function filterMobileItems(
     if (filters.contentFilter === "reuniones" && isTask) return false;
     if (!isTask && filters.typeFilter !== "todos" && item.type !== filters.typeFilter)
       return false;
-    if (filters.assignedUserId && item.assignedUserId !== filters.assignedUserId)
-      return false;
+    if (filters.assignedUserId) {
+      // Multi-responsable: coincide si CUALQUIER responsable es el filtrado.
+      const itemAssignees = item.assignedUserIds?.length
+        ? item.assignedUserIds
+        : [item.assignedUserId];
+      if (!itemAssignees.includes(filters.assignedUserId)) return false;
+    }
     return true;
   });
 }

@@ -1,52 +1,61 @@
 /**
  * API Route: /api/crm/tasks/[id]
- * PATCH  - Actualiza una tarea del checklist
- *          { title?, status?, dueAt?, allDay?, assignedTo? }.
- * DELETE - Elimina una tarea del checklist.
+ * PATCH  - Actualiza una tarea { title?, status?, dueAt?, allDay?, assignedTo?,
+ *          assigneeIds? }. Si llega `assigneeIds` reemplaza el conjunto completo
+ *          y resincroniza `assignedTo` (= primer responsable). Al pasar a "done"
+ *          registra completedBy/completedAt (idempotente: conserva el primero);
+ *          al reabrir ("open") los limpia.
+ * DELETE - Elimina una tarea (sus responsables caen por FK cascade).
  *
  * Multi-tenant: valida que la tarea pertenezca a ctx.tenantId antes de mutar.
- * Permiso CRM edit sobre deals (el checklist vive en la ficha del negocio).
+ * Permiso: productividad.tareas edit O crm.deals edit.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { requireCrmEdit } from "@/lib/api-auth-crm";
-import { requireTenantModule } from "@/lib/require-module";
+import { requireTasksAccess } from "@/lib/api-auth-tareas";
+
+const MAX_ASSIGNEES = 20;
+
+function parseAssigneeIds(value: unknown): string[] {
+  const raw = Array.isArray(value) ? value : [];
+  const ids = raw.filter((x): x is string => typeof x === "string" && x.length > 0);
+  return [...new Set(ids)].slice(0, MAX_ASSIGNEES);
+}
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const modCheck = await requireTenantModule("crm");
-    if (!modCheck.authorized) return modCheck.response;
-
-    const ctx = await requireAuth();
-    if (!ctx) return unauthorized();
-    const forbidden = await requireCrmEdit(ctx, "deals");
-    if (forbidden) return forbidden;
+    const access = await requireTasksAccess("edit");
+    if (!access.authorized) return access.response;
+    const ctx = access.ctx;
 
     const { id } = await params;
     const existing = await prisma.crmTask.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { id: true },
+      select: { id: true, completedBy: true },
     });
     if (!existing) {
       return NextResponse.json({ success: false, error: "Tarea no encontrada" }, { status: 404 });
     }
 
-    const body = await request.json().catch(() => ({}));
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const data: {
       title?: string;
       status?: string;
       dueAt?: Date | null;
       allDay?: boolean;
       assignedTo?: string | null;
+      completedBy?: string | null;
+      completedAt?: Date | null;
     } = {};
 
     if (body?.allDay !== undefined) data.allDay = body.allDay === true;
-    if (body?.assignedTo !== undefined) {
+
+    // Legacy single `assignedTo` (retrocompat) — sólo si no llega assigneeIds.
+    if (body?.assigneeIds === undefined && body?.assignedTo !== undefined) {
       if (body.assignedTo === null || body.assignedTo === "") {
         data.assignedTo = null;
       } else if (typeof body.assignedTo === "string") {
@@ -54,26 +63,37 @@ export async function PATCH(
           where: { id: body.assignedTo, tenantId: ctx.tenantId, status: "active" },
           select: { id: true },
         });
-        if (!assignee) {
-          return NextResponse.json(
-            { success: false, error: "Responsable inválido" },
-            { status: 400 },
-          );
-        }
+        if (!assignee) return NextResponse.json({ success: false, error: "Responsable inválido" }, { status: 400 });
         data.assignedTo = assignee.id;
       } else {
-        return NextResponse.json(
-          { success: false, error: "Responsable inválido" },
-          { status: 400 },
-        );
+        return NextResponse.json({ success: false, error: "Responsable inválido" }, { status: 400 });
       }
+    }
+
+    // Conjunto multi-responsable.
+    let nextAssignees: string[] | null = null;
+    if (body?.assigneeIds !== undefined) {
+      let ids = parseAssigneeIds(body.assigneeIds);
+      if (ids.length === 0) {
+        // No dejar la tarea huérfana. Nota: CrmTask no tiene createdBy, así que
+        // el fallback es el usuario que edita (no el creador original).
+        ids = [ctx.userId];
+      } else {
+        const valid = await prisma.admin.findMany({
+          where: { id: { in: ids }, tenantId: ctx.tenantId, status: "active" },
+          select: { id: true },
+        });
+        if (valid.length !== ids.length) {
+          return NextResponse.json({ success: false, error: "Responsable inválido" }, { status: 400 });
+        }
+      }
+      nextAssignees = ids;
+      data.assignedTo = ids[0]; // resincroniza denormalización
     }
 
     if (body?.title !== undefined) {
       const title = typeof body.title === "string" ? body.title.trim() : "";
-      if (!title) {
-        return NextResponse.json({ success: false, error: "El título no puede quedar vacío" }, { status: 400 });
-      }
+      if (!title) return NextResponse.json({ success: false, error: "El título no puede quedar vacío" }, { status: 400 });
       data.title = title;
     }
     if (body?.status !== undefined) {
@@ -81,6 +101,16 @@ export async function PATCH(
         return NextResponse.json({ success: false, error: "Estado inválido (open|done)" }, { status: 400 });
       }
       data.status = body.status;
+      if (body.status === "done") {
+        // Idempotente: conserva el primer completedBy.
+        if (!existing.completedBy) {
+          data.completedBy = ctx.userId;
+          data.completedAt = new Date();
+        }
+      } else {
+        data.completedBy = null;
+        data.completedAt = null;
+      }
     }
     if (body?.dueAt !== undefined) {
       if (body.dueAt === null) {
@@ -92,19 +122,24 @@ export async function PATCH(
       }
     }
 
-    const task = await prisma.crmTask.update({
-      where: { id },
-      data,
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        type: true,
-        dueAt: true,
-        allDay: true,
-        assignedTo: true,
-        createdAt: true,
-      },
+    const task = await prisma.$transaction(async (tx) => {
+      const updated = await tx.crmTask.update({
+        where: { id },
+        data,
+        select: {
+          id: true, title: true, status: true, type: true, dueAt: true,
+          allDay: true, assignedTo: true, completedBy: true, completedAt: true, createdAt: true,
+        },
+      });
+      if (nextAssignees) {
+        await tx.crmTaskAssignee.deleteMany({ where: { taskId: id } });
+        await tx.crmTaskAssignee.createMany({
+          data: nextAssignees.map((userId) => ({ taskId: id, userId })),
+          skipDuplicates: true,
+        });
+      }
+      const assignees = await tx.crmTaskAssignee.findMany({ where: { taskId: id }, select: { userId: true } });
+      return { ...updated, assigneeIds: assignees.map((a) => a.userId) };
     });
 
     return NextResponse.json({ success: true, data: task });
@@ -116,16 +151,12 @@ export async function PATCH(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const modCheck = await requireTenantModule("crm");
-    if (!modCheck.authorized) return modCheck.response;
-
-    const ctx = await requireAuth();
-    if (!ctx) return unauthorized();
-    const forbidden = await requireCrmEdit(ctx, "deals");
-    if (forbidden) return forbidden;
+    const access = await requireTasksAccess("edit");
+    if (!access.authorized) return access.response;
+    const ctx = access.ctx;
 
     const { id } = await params;
     const existing = await prisma.crmTask.findFirst({

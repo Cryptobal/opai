@@ -30,6 +30,8 @@ function normalizeItem(item: AgendaListItem): AgendaCalendarItem {
     dealId: item.dealId,
     assignedUserId: item.assignedUserId,
     assignedName: item.assignedName,
+    assignedUserIds: item.assignedUserIds,
+    assignedNames: item.assignedNames,
     accountName: item.accountName,
     installationName: item.installationName,
     address: item.address,
