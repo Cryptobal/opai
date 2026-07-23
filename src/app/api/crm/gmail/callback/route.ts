@@ -4,6 +4,7 @@
  */
 
 import { after, NextRequest, NextResponse } from "next/server";
+import { google } from "googleapis";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getGmailOAuthClient } from "@/lib/gmail";
@@ -67,7 +68,9 @@ export async function GET(request: NextRequest) {
     const { tokens } = await oauthClient.getToken(code);
     oauthClient.setCredentials(tokens);
 
-    const gmail = await (await import("googleapis")).google.gmail({
+    // Import estático (como el resto del módulo email): el dinámico pasaba
+    // por los loader hooks de Sentry y explotaba con el Proxy inválido.
+    const gmail = google.gmail({
       version: "v1",
       auth: oauthClient,
     });
