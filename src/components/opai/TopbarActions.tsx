@@ -53,15 +53,12 @@ export function TopbarActions({
   };
 
   return (
-    <div className={cn("flex items-center gap-2 w-full", className)}>
+    <div className={cn("flex items-center gap-2 shrink-0", className)}>
       {/* Role Switcher (solo owner/admin) */}
       <RoleSwitcher />
 
       {/* Botón Fiscalización DT — Resolución N°38 */}
       <FiscalizacionDTButton userRole={userRole} />
-
-      {/* Spacer */}
-      <div className="flex-1" />
 
       {/* Right icons: Theme → Chat → Notifications → Settings */}
       <ThemeToggle />
