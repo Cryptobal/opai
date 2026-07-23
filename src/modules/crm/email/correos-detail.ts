@@ -6,17 +6,44 @@ import { hydrateMissingThreadMessages } from "./correos-detail-hydrate";
 import { captureEmailError } from "./email-observability";
 import type { CorreoDetail, CorreoAttachmentDTO } from "./correos.types";
 
+/** TTL del caché de detalle; la invalidación real es updatedAt del sync. */
+const DETAIL_CACHE_TTL_MS = 15 * 60_000;
+/** Tolerancia entre detailCachedAt y el @updatedAt que setea el mismo write. */
+const CACHE_WRITE_SKEW_MS = 3_000;
+
+/** true si el detalle puede servirse 100% del espejo local (C18). */
+export function isDetailCacheFresh(
+  thread: {
+    attachmentsMeta: unknown;
+    detailCachedAt: Date | null;
+    updatedAt: Date;
+  },
+  now = new Date(),
+): boolean {
+  if (!thread.detailCachedAt || thread.attachmentsMeta == null) return false;
+  const cachedAt = thread.detailCachedAt.getTime();
+  if (now.getTime() - cachedAt > DETAIL_CACHE_TTL_MS) return false;
+  // El sync (o una acción) tocó el hilo después del cacheo → invalida.
+  return thread.updatedAt.getTime() - cachedAt <= CACHE_WRITE_SKEW_MS;
+}
+
 /**
- * Detalle de un hilo: cadena completa de mensajes + adjuntos. Un solo
- * `threads.get format:full` alimenta ambos: la metadata de adjuntos y la
- * hidratación de mensajes que faltan localmente (hilos importados que solo
- * persistieron su último mensaje).
+ * Detalle de un hilo: cadena completa de mensajes + adjuntos.
+ *
+ * C18 (PR-13): antes cada apertura llamaba `threads.get format:full` en vivo.
+ * Ahora el detalle se sirve desde la BD espejo cuando el caché está fresco
+ * (attachments_meta persistida + detail_cached_at ≥ updatedAt, TTL 15 min);
+ * cualquier escritura del sync sobre el hilo bumpea updatedAt e invalida, y
+ * la señal realtime `mailbox-changed` hace que el cliente re-pida. Solo en
+ * MISS se llama a Gmail (adjuntos + hidratación de mensajes faltantes) y se
+ * persiste el caché. Se loggea HIT/MISS con latencia para medir el p95.
  */
 export async function getCorreoDetail(params: {
   tenantId: string;
   emailAccountId: string;
   threadId: string;
 }): Promise<CorreoDetail | null> {
+  const startedAt = Date.now();
   const { tenantId, emailAccountId, threadId } = params;
   const thread = await prisma.crmEmailThread.findFirst({
     where: { id: threadId, tenantId, emailAccountId },
@@ -31,22 +58,35 @@ export async function getCorreoDetail(params: {
       archivedAt: true,
       starredAt: true,
       spamAt: true,
+      attachmentsMeta: true,
+      detailCachedAt: true,
+      updatedAt: true,
     },
   });
   if (!thread) return null;
 
-  const emailAccount = await prisma.crmEmailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: { email: true, userId: true, accessTokenEncrypted: true, refreshTokenEncrypted: true },
-  });
-
+  const cacheFresh = isDetailCacheFresh(thread);
   let attachments: CorreoAttachmentDTO[] = [];
   // B3: si Gmail falla no devolvemos adjuntos vacíos en silencio — el hilo
   // sale con degraded=true y la UI muestra el aviso de reintento.
   let degraded = false;
-  if (thread.providerThreadId && emailAccount) {
-    const gmail = gmailClientForAccount(emailAccount);
-    if (gmail) {
+
+  if (cacheFresh) {
+    attachments = (thread.attachmentsMeta as CorreoAttachmentDTO[] | null) ?? [];
+  } else if (thread.providerThreadId) {
+    const emailAccount = await prisma.crmEmailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: {
+        email: true,
+        userId: true,
+        accessTokenEncrypted: true,
+        refreshTokenEncrypted: true,
+      },
+    });
+    const gmail = emailAccount
+      ? gmailClientForAccount({ id: emailAccountId, ...emailAccount })
+      : null;
+    if (gmail && emailAccount) {
       try {
         const res = await gmail.users.threads.get({
           userId: "me",
@@ -68,8 +108,19 @@ export async function getCorreoDetail(params: {
           ownEmail: emailAccount.email,
           messages: gmailMessages,
         });
+        // Persistir el caché DESPUÉS de hidratar: la hidratación también
+        // bumpea updatedAt y escribir al final deja detailCachedAt ≥ updatedAt.
+        await prisma.crmEmailThread.update({
+          where: { id: thread.id },
+          data: {
+            attachmentsMeta: attachments as unknown as object,
+            detailCachedAt: new Date(),
+          },
+        });
       } catch (err) {
         degraded = true;
+        // Caché viejo como fallback honesto (mejor que lista vacía).
+        attachments = (thread.attachmentsMeta as CorreoAttachmentDTO[] | null) ?? [];
         captureEmailError(err, {
           scope: "detalle-hilo",
           tenantId,
@@ -96,6 +147,11 @@ export async function getCorreoDetail(params: {
       ? prisma.crmDeal.findFirst({ where: { id: thread.dealId, tenantId }, select: { title: true } })
       : null,
   ]);
+
+  // Métrica simple para el antes/después del p95 (C18).
+  console.log(
+    `[correos] detail ${cacheFresh ? "cache-hit" : "cache-miss"} thread=${thread.id} ms=${Date.now() - startedAt}`,
+  );
 
   return {
     thread: {

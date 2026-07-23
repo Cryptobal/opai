@@ -87,16 +87,21 @@ export function CorreosClient() {
       if (cur) qs.set("cursor", cur);
       if (f !== "inbox") qs.set("folder", f);
       if (debouncedQuery) qs.set("q", debouncedQuery);
+      // C18: counts solo en cargas "reset" sin búsqueda activa (carga inicial,
+      // cambio de carpeta, invalidación realtime) — tipear o paginar no los paga.
+      const wantCounts = reset && !cur && !debouncedQuery;
+      if (wantCounts) qs.set("counts", "1");
       const r = await fetch(`/api/crm/correos?${qs}`).then((x) => x.json());
       setConnected(r.connected !== false);
       setCanModify(Boolean(r.canModify));
       setRealtimeChannel(
         typeof r.realtimeChannel === "string" ? r.realtimeChannel : null,
       );
-      setCounts(r.counts ?? null);
+      // Sin counts en la respuesta se conservan los últimos conocidos.
+      if (r.counts != null) setCounts(r.counts);
       setBackfillDone(typeof r.backfillDone === "boolean" ? r.backfillDone : null);
       setLastSyncAt(typeof r.lastSyncAt === "string" ? r.lastSyncAt : null);
-      setTotalThreads(Number(r.totalThreads) || 0);
+      if (r.totalThreads != null) setTotalThreads(Number(r.totalThreads) || 0);
       setSyncParked(r.syncParked === true);
       setItems((prev) => (reset ? r.items ?? [] : [...prev, ...(r.items ?? [])]));
       setCursor(r.nextCursor ?? null);
@@ -142,9 +147,11 @@ export function CorreosClient() {
     void fetchPage(null, true, folder);
   }, [fetchPage, folder]);
 
+  const lastRefreshAtRef = useRef(0);
   const refreshMailbox = useCallback(() => {
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     refreshTimerRef.current = setTimeout(() => {
+      lastRefreshAtRef.current = Date.now();
       setRealtimeRevision((value) => value + 1);
       void fetchPage(null, true);
     }, 150);
@@ -155,8 +162,14 @@ export function CorreosClient() {
   );
 
   useEffect(() => {
+    // C18: revalidación condicional — con realtime vivo, focus/online no
+    // re-descargan lista+counts si hubo refresh hace <30 s (el canal Pusher
+    // ya habría avisado cualquier cambio). Sin realtime, se refresca igual.
     const refreshVisible = () => {
-      if (document.visibilityState === "visible") refreshMailbox();
+      if (document.visibilityState !== "visible") return;
+      const fresh = Date.now() - lastRefreshAtRef.current < 30_000;
+      if (realtimeStatus === "live" && fresh) return;
+      refreshMailbox();
     };
     window.addEventListener("focus", refreshVisible);
     window.addEventListener("online", refreshVisible);
