@@ -6,9 +6,7 @@ import {
   canView,
   hasCapability,
 } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
-import { FileBarChart } from "lucide-react";
 import { IncomeStatementClient } from "@/components/finance/reports/IncomeStatementClient";
 import { buildPeriod } from "@/modules/finance/reports/shared/period.helper";
 import { getIncomeStatement } from "@/modules/finance/reports/income-statement.service";
@@ -31,13 +29,6 @@ export default async function EerrPage() {
 
   return (
     <div className="space-y-5">
-      <PageHero
-        icon={<FileBarChart />}
-        iconTone="violet"
-        title="Estado de Resultado"
-        subtitle="EE.RR."
-        description="Ingresos, costos y utilidad neta del período. Solo asientos POSTED."
-      />
       <FinanceN3Chips submoduleKey="finance-informes" />
       <IncomeStatementClient initialPeriod={period} initialData={initial} initialCompare />
     </div>

@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canEdit, hasCapability } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { UserCheck } from "lucide-react";
 import { SupervisorAssignmentsClient } from "@/components/supervision/SupervisorAssignmentsClient";
 
 export default async function SupervisionAsignacionesPage() {
@@ -39,14 +37,7 @@ export default async function SupervisionAsignacionesPage() {
   ]);
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<UserCheck />}
-        iconTone="emerald"
-        title="Asignaciones de instalaciones"
-        subtitle="supervisores y áreas"
-        description="Asigna instalaciones a supervisores para habilitar check-in y visitas de supervisión por área."
-      />
+    <div className="min-w-0">
       <SupervisorAssignmentsClient
         supervisors={JSON.parse(JSON.stringify(supervisors))}
         installations={JSON.parse(

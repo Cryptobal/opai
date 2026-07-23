@@ -7,8 +7,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { GitMerge } from "lucide-react";
 import { ConciliacionClient } from "@/components/finance/ConciliacionClient";
 
 export default async function ConciliacionPage() {
@@ -30,14 +28,7 @@ export default async function ConciliacionPage() {
   });
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<GitMerge />}
-        iconTone="teal"
-        title="Conciliación Bancaria"
-        subtitle="matching de movimientos"
-        description="Conciliación de movimientos bancarios con registros contables."
-      />
+    <div className="min-w-0">
       <ConciliacionClient bankAccounts={bankAccounts} canManage={canManage} />
     </div>
   );

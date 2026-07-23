@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { Package } from "lucide-react";
 import { TeLotesClient } from "@/components/ops";
 
 export default async function OpsTurnosExtraLotesPage() {
@@ -34,14 +32,7 @@ export default async function OpsTurnosExtraLotesPage() {
   });
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<Package />}
-        iconTone="amber"
-        title="Lotes de TE"
-        subtitle="agrupación para pago"
-        description="Agrupa turnos aprobados para pago semanal."
-      />
+    <div className="min-w-0">
       <TeLotesClient initialLotes={JSON.parse(JSON.stringify(lotes))} />
     </div>
   );

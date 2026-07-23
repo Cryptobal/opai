@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, hasModuleAccess, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
 import { Stat, StatGrid, Surface } from "@/components/opai-ds";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 import {
@@ -19,7 +18,6 @@ import {
   Ticket,
   Package,
   ClipboardCheck,
-  LayoutGrid,
 } from "lucide-react";
 
 export default async function OpsDashboardPage() {
@@ -141,14 +139,7 @@ export default async function OpsDashboardPage() {
   ];
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<LayoutGrid />}
-        iconTone="emerald"
-        title="Operaciones"
-        subtitle="centro de operaciones"
-        description="Operación diaria: pauta, cobertura, asistencia y control."
-      />
+    <div className="space-y-4 min-w-0">
       <OpsGlobalSearch className="w-full sm:max-w-xs" />
 
       {/* -- KPI Dotación -- */}

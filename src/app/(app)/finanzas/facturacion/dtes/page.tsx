@@ -7,10 +7,10 @@ import {
   hasFacturacionCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
+import { PageToolbar } from "@/components/opai-ds";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import { Button } from "@/components/ui/button";
-import { FileText, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { DtesEmitidosClient } from "@/components/finance/dtes/DtesEmitidosClient";
 import { normalizeAdditionalRefs } from "@/components/finance/dtes/shared/references";
 
@@ -247,13 +247,10 @@ export default async function DtesEmitidosPage({
   void suppliers;
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<FileText />}
-        iconTone="teal"
-        title="DTEs Emitidos"
-        description="Documentos tributarios emitidos al SII."
-        actions={
+    <div className="space-y-4 min-w-0">
+      <PageToolbar
+        filters={<FinanceN3Chips submoduleKey="finance-compras-ventas" />}
+        primaryAction={
           canManage ? (
             <Button asChild size="sm">
               <Link href="/finanzas/facturacion/emitir">
@@ -264,7 +261,6 @@ export default async function DtesEmitidosPage({
           ) : undefined
         }
       />
-      <FinanceN3Chips submoduleKey="finance-compras-ventas" />
       {accountFilterRow && (
         <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
           <span className="text-ds-text-3">Filtrado por cuenta:</span>

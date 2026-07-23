@@ -7,8 +7,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { BarChart3 } from "lucide-react";
 import { RendicionesReportClient } from "@/components/finance/RendicionesReportClient";
 
 export default async function RendicionesReportePage() {
@@ -70,14 +68,7 @@ export default async function RendicionesReportePage() {
   }));
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<BarChart3 />}
-        iconTone="teal"
-        title="Reporte de rendiciones"
-        subtitle="resumen y análisis"
-        description="Resumen y análisis de rendiciones de gastos."
-      />
+    <div className="min-w-0">
       <RendicionesReportClient
         statusSummary={statusSummary}
         typeSummary={typeSummary}

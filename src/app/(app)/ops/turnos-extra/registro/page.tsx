@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { ClipboardClock } from "lucide-react";
 import { TeTurnosClient } from "@/components/ops";
 
 export default async function OpsTurnosExtraRegistroPage() {
@@ -34,14 +32,7 @@ export default async function OpsTurnosExtraRegistroPage() {
   });
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<ClipboardClock />}
-        iconTone="amber"
-        title="Registro de TE"
-        subtitle="captura desde planilla"
-        description="Listado de turnos extra con estado y monto."
-      />
+    <div className="min-w-0">
       <TeTurnosClient initialItems={JSON.parse(JSON.stringify(turnos))} />
     </div>
   );

@@ -8,7 +8,6 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { Breadcrumbs } from "@/components/opai-ds";
 import { CpqQuoteDetail } from "@/components/cpq/CpqQuoteDetail";
-import { CpqIndicators } from "@/components/cpq/CpqIndicators";
 import { z } from "zod";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { buildDefaultPortalInviteEmailSubject } from "@/lib/cpq-portal-email-subject";
@@ -105,9 +104,6 @@ export default async function CrmCotizacionDetailPage({
             { label: quote?.code || id },
           ]}
         />
-      </div>
-      <div className="mb-1">
-        <CpqIndicators />
       </div>
       <CpqQuoteDetail
         quoteId={id}

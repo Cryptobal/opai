@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  PageHero,
   Surface,
   Stat,
   StatGrid,
@@ -140,12 +139,6 @@ export function ConocimientoClient() {
 
   return (
     <section className="relative max-w-md mx-auto md:max-w-3xl lg:max-w-5xl px-4 pt-5 pb-32 ds-page-enter">
-      <PageHero
-        title="El protocolo"
-        subtitle="a través de tu operación"
-        description="Estado de protocolos y conocimiento de tus guardias en cada instalación. Toca cualquier tarjeta para entrar al detalle."
-      />
-
       {/* KPIs */}
       <div className="mt-6">
         <StatGrid lgCols={4}>

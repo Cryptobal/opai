@@ -11,8 +11,6 @@ import {
   collectLinkedQuoteIds,
   resolveDealActiveQuotationSummary,
 } from "@/lib/crm-deal-active-quotation";
-import { PageHero } from "@/components/opai-ds";
-import { TrendingUp } from "lucide-react";
 import { CrmDealsClient } from "@/components/crm";
 import { triggerFollowUpProcessing } from "@/lib/followup-selfheal";
 
@@ -29,14 +27,6 @@ function normalizeDealsFocus(value?: string): DealsFocus {
   if (value === "followup-open") return value;
   if (value === "followup-overdue") return value;
   return "all";
-}
-
-function getDealsFocusText(focus: DealsFocus): string | null {
-  if (focus === "proposals-sent-30d") return "Filtro activo: propuestas enviadas (últimos 30 días)";
-  if (focus === "won-after-proposal-30d") return "Filtro activo: negocios ganados tras propuesta (últimos 30 días)";
-  if (focus === "followup-open") return "Filtro activo: negocios abiertos en seguimiento";
-  if (focus === "followup-overdue") return "Filtro activo: negocios con seguimientos vencidos";
-  return null;
 }
 
 export default async function CrmDealsPage({
@@ -205,20 +195,13 @@ export default async function CrmDealsPage({
   const initialStages = JSON.parse(JSON.stringify(stages));
 
   return (
-    <>
-      <PageHero
-        icon={<TrendingUp />}
-        iconTone="violet"
-        title="Negocios"
-        subtitle="pipeline y oportunidades"
-        description={getDealsFocusText(focus) ?? "Vista de oportunidades comerciales en kanban o lista. Filtra por etapa, foco temporal o seguimientos pendientes."}
-      />
+    <div className="min-w-0">
       <CrmDealsClient
         initialDeals={initialDeals}
         accounts={initialAccounts}
         stages={initialStages}
         initialFocus={focus}
       />
-    </>
+    </div>
   );
 }

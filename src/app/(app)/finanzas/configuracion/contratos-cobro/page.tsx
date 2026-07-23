@@ -5,8 +5,6 @@ import {
   hasModuleAccess,
   hasCapability,
 } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
-import { Settings2 } from "lucide-react";
 import { ContractsCobroBatchTable } from "@/components/finance/configuracion/ContractsCobroBatchTable";
 
 /**
@@ -29,13 +27,7 @@ export default async function ContratosCobroPage() {
   if (!hasCapability(perms, "cashflow_configure")) redirect("/hub");
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<Settings2 />}
-        iconTone="teal"
-        title="Contratos — Ciclo de cobro"
-        description="Centro de configuración masiva del calendario de facturación y cobro por contrato."
-      />
+    <div className="space-y-4 min-w-0">
       <div className="rounded-md border border-ds-border-default bg-ds-surface-1 p-3 text-xs text-ds-text-3">
         Edita el calendario de emisión y cobro de todos los contratos en una
         sola vista. Los cambios se aplican en batch al guardar. Para edición

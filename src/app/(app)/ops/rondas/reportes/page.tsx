@@ -4,8 +4,6 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { formatPersonName } from "@/lib/personas";
-import { PageHero } from "@/components/opai-ds";
-import { BarChart3 } from "lucide-react";
 import { RondasReportesClient } from "@/components/ops/rondas";
 import { asRouteSnapshot, asWalkRoute } from "@/lib/rondas/ejecucion-map-helpers";
 
@@ -205,14 +203,7 @@ export default async function RondasReportesPage({
   const tenantCfg = await getTenantCompanyConfig(tenantId);
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<BarChart3 />}
-        iconTone="emerald"
-        title="Reportes de rondas"
-        subtitle="análisis y compliance"
-        description="Análisis de cumplimiento, trust score, alertas, performance por instalación y por guardia."
-      />
+    <div className="min-w-0">
       <RondasReportesClient
         initialRows={mapped}
         initialTotals={totals}

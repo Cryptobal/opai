@@ -10,9 +10,7 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
-import { Wallet } from "lucide-react";
 import { PagosPageClient } from "@/components/finance/PagosPageClient";
 
 export default async function HistorialPagosPage() {
@@ -74,14 +72,7 @@ export default async function HistorialPagosPage() {
   }));
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<Wallet />}
-        iconTone="violet"
-        title="Historial de pagos"
-        subtitle="rendiciones pagadas"
-        description="Listado histórico de pagos generados. Los nuevos pagos se crean desde la lista de rendiciones."
-      />
+    <div className="space-y-4 min-w-0">
       <FinanceN3Chips submoduleKey="finance-rendiciones" />
       <PagosPageClient
         payments={paymentsData}

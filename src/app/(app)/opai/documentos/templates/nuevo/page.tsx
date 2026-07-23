@@ -1,8 +1,6 @@
-import { FilePlus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DocTemplateEditorClient } from "@/components/docs/DocTemplateEditorClient";
-import { PageHero } from "@/components/opai-ds";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 
 export default async function NewDocTemplatePage() {
@@ -17,13 +15,7 @@ export default async function NewDocTemplatePage() {
   }
 
   return (
-    <div className="space-y-6 min-w-0">
-<PageHero
-        icon={<FilePlus />}
-        iconTone="rose"
-        title="Nueva plantilla"
-        subtitle="crear plantilla de documento"
-      />
+    <div className="min-w-0">
       <DocTemplateEditorClient />
     </div>
   );

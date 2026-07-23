@@ -16,8 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PageHero } from "@/components/opai-ds";
-import { FileText as FileTextIcon } from "lucide-react";
+import { PageToolbar } from "@/components/opai-ds";
 import { ContractEditor } from "./ContractEditor";
 import { DOC_CATEGORIES } from "@/lib/docs/token-registry";
 import { hasContractTokens } from "@/lib/docs/has-tokens";
@@ -259,16 +258,11 @@ export function DocGenerateClient() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <PageHero
-        icon={<FileTextIcon />}
-        iconTone="rose"
-        backHref="/opai/documentos"
-        backLabel="Documentos"
-        title="Nuevo Documento"
-        actions={
-          <TooltipProvider delayDuration={150}>
-            {content && !resolved && hasContractTokens(content) && (
+      {/* Toolbar */}
+      <PageToolbar
+        trailing={
+          content && !resolved && hasContractTokens(content) ? (
+            <TooltipProvider delayDuration={150}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -292,16 +286,18 @@ export function DocGenerateClient() {
                   con datos reales de las entidades asociadas.
                 </TooltipContent>
               </Tooltip>
+            </TooltipProvider>
+          ) : undefined
+        }
+        primaryAction={
+          <Button size="sm" className="gap-1.5" onClick={handleSave} disabled={saving}>
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
             )}
-            <Button size="sm" className="gap-1.5" onClick={handleSave} disabled={saving}>
-              {saving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Save className="h-3.5 w-3.5" />
-              )}
-              Guardar Documento
-            </Button>
-          </TooltipProvider>
+            Guardar Documento
+          </Button>
         }
       />
 

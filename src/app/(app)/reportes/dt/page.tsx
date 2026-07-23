@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { FileBarChart } from "lucide-react";
-import { PageHero } from "@/components/opai-ds";
 
 const REPORTS = [
   { href: "/reportes/dt/asistencia-diaria", label: "Asistencia Diaria", desc: "Listado de asistencia para el período seleccionado (Res. N°38 Art. 4)" },
@@ -11,14 +10,7 @@ const REPORTS = [
 
 export default function ReportesDtPage() {
   return (
-    <div className="space-y-6">
-      <PageHero
-        icon={<FileBarChart />}
-        iconTone="teal"
-        title="Reportes DT"
-        subtitle="Dirección del Trabajo · Res. N°38"
-        description="Reportes obligatorios — Dirección del Trabajo — Res. Exenta N°38."
-      />
+    <div className="min-w-0">
       <div className="grid gap-4 sm:grid-cols-2">
         {REPORTS.map((r) => (
           <Link key={r.href} href={r.href}

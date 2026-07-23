@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { CheckCircle2 } from "lucide-react";
 import { TeTurnosClient } from "@/components/ops";
 
 export default async function OpsTurnosExtraAprobacionesPage() {
@@ -37,14 +35,7 @@ export default async function OpsTurnosExtraAprobacionesPage() {
   });
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<CheckCircle2 />}
-        iconTone="amber"
-        title="Aprobaciones RRHH"
-        subtitle="validación final"
-        description="Aprueba o rechaza turnos extra pendientes."
-      />
+    <div className="min-w-0">
       <TeTurnosClient
         initialItems={JSON.parse(JSON.stringify(turnos))}
         defaultStatusFilter="pending"

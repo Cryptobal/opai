@@ -2,10 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHero, SetBreadcrumbTrailing } from "@/components/opai-ds";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Package } from "lucide-react";
+import { DetailHeader } from "@/components/opai-ds";
 import { InventarioProductoSizesClient } from "@/components/inventario/InventarioProductoSizesClient";
 
 export default async function InventarioProductoPage({
@@ -36,26 +33,12 @@ export default async function InventarioProductoPage({
   if (!product) notFound();
 
   return (
-    <div className="space-y-6 min-w-0">
-      <section className="relative w-full pb-32 space-y-6">
-        <SetBreadcrumbTrailing value={product.name} />
-      <PageHero
-          icon={<Package />}
-          iconTone="emerald"
+    <div className="min-w-0">
+      <section className="relative w-full pb-32 space-y-4">
+        <DetailHeader
           title={product.name}
-          description={
-            product.category === "uniform"
-              ? "Tallas de este producto. Cada talla genera una variante para compras y stock."
-              : "Activo sin tallas (una sola variante)."
-          }
-          actions={
-            <Link href="/ops/inventario/productos">
-              <Button variant="outline" size="sm" className="h-9 gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Volver al catálogo
-              </Button>
-            </Link>
-          }
+          backHref="/ops/inventario/productos"
+          backLabel="Volver al catálogo"
         />
         <InventarioProductoSizesClient
           productId={product.id}

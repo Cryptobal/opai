@@ -1,9 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { isTenantModuleEnabled } from "@/lib/tenant-modules";
-import { PageHero } from "@/components/opai-ds";
 import { Breadcrumbs } from "@/components/opai-ds";
-import { Brain } from "lucide-react";
 import PsychDashboardClient from "@/components/psych/dashboard/PsychDashboardClient";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +32,7 @@ export default async function PsychHomePage() {
   }
 
   return (
-    <div className="space-y-6 min-w-0 overflow-x-hidden">
+    <div className="space-y-4 min-w-0 overflow-x-hidden">
       <Breadcrumbs
         items={[
           { label: "Inicio", href: "/hub" },
@@ -42,13 +40,6 @@ export default async function PsychHomePage() {
           { label: "Psicolaboral" },
         ]}
         className="mb-2"
-      />
-      <PageHero
-        icon={<Brain />}
-        iconTone="sky"
-        title="Evaluación psicolaboral"
-        subtitle="tests y assessments"
-        description="Screening interno de aptitud para guardias de seguridad. Complemento al informe OS-10."
       />
       <PsychDashboardClient />
     </div>

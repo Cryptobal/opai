@@ -1,13 +1,10 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolvePagePerms, canView, canEdit, canDelete, hasCapability } from "@/lib/permissions-server";
-import { PageHero, SetBreadcrumbTrailing } from "@/components/opai-ds";
-import { ClipboardList } from "lucide-react";
+import { DetailHeader } from "@/components/opai-ds";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { VisitaDetailActions } from "@/components/supervision/VisitaDetailActions";
 import { PhotoGallery } from "@/components/supervision/PhotoGallery";
 const STATUS_LABELS: Record<string, string> = {
@@ -151,27 +148,18 @@ export default async function VisitaSupervisionDetailPage({
   const ratings = (visit.ratings as Record<string, number> | null) ?? null;
 
   return (
-    <div className="space-y-6 min-w-0">
-      <SetBreadcrumbTrailing value={`Visita ${visit.installation.name}`} />
-      <PageHero
-        icon={<ClipboardList />}
-        iconTone="emerald"
+    <div className="space-y-4 min-w-0">
+      <DetailHeader
         title={`Visita ${visit.installation.name}`}
-        subtitle="detalle de visita"
-        description={`Check-in: ${formatDateTime(visit.checkInAt)}`}
+        backHref="/ops/supervision"
         actions={
-          <>
-            <Button asChild variant="outline" size="sm">
-              <Link href="/ops/supervision">Volver</Link>
-            </Button>
-            <VisitaDetailActions
-              visitId={visit.id}
-              status={visit.status}
-              canEdit={userCanEdit}
-              canDelete={userCanDelete}
-              canResume={userCanResume}
-            />
-          </>
+          <VisitaDetailActions
+            visitId={visit.id}
+            status={visit.status}
+            canEdit={userCanEdit}
+            canDelete={userCanDelete}
+            canResume={userCanResume}
+          />
         }
       />
 

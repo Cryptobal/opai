@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { ShieldAlert } from "lucide-react";
 import { OpsPpcClient } from "@/components/ops";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 export default async function OpsPpcPage() {
@@ -37,14 +35,7 @@ export default async function OpsPpcPage() {
   });
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<ShieldAlert />}
-        iconTone="emerald"
-        title="Puestos por cubrir"
-        subtitle="brechas de cobertura"
-        description="Visualización de puestos sin guardia asignado o con vacaciones, licencia o permiso. Prioriza coberturas por instalación."
-      />
+    <div className="space-y-4 min-w-0">
       <OpsGlobalSearch className="w-full sm:max-w-xs" />
       <OpsPpcClient initialClients={JSON.parse(JSON.stringify(clients))} />
     </div>

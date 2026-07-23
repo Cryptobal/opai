@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
-import { Warehouse } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canDelete } from "@/lib/permissions-server";
-import { PageHero, Surface } from "@/components/opai-ds";
+import { Surface } from "@/components/opai-ds";
 import { InventarioBodegasManager } from "@/components/inventario/InventarioBodegasManager";
 
 export default async function InventarioBodegasPage() {
@@ -19,14 +18,7 @@ export default async function InventarioBodegasPage() {
 
   return (
     <div className="min-w-0">
-      <section className="relative w-full pb-32 space-y-6">
-        <PageHero
-          icon={<Warehouse />}
-          iconTone="emerald"
-          title="Bodegas virtuales"
-          subtitle="central, supervisores e instalaciones"
-          description="Cada bodega almacena stock independiente. Mueve unidades entre ellas con auditoría completa."
-        />
+      <section className="relative w-full pb-32 space-y-4">
         <Surface elevation={1} padding="md">
           <InventarioBodegasManager canDelete={allowDelete} />
         </Surface>

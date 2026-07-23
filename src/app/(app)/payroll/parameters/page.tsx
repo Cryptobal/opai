@@ -6,8 +6,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DataTable, EmptyState, PageHero, type DataTableColumn } from "@/components/opai-ds";
-import { FileText } from "lucide-react";
+import { DataTable, EmptyState, PageToolbar, type DataTableColumn } from "@/components/opai-ds";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, AlertCircle, Info, Inbox } from "lucide-react";
@@ -56,13 +55,7 @@ export default function PayrollParameters() {
 
   if (error) {
     return (
-      <div className="space-y-4">
-        <PageHero
-          icon={<FileText />}
-          iconTone="amber"
-          title="Parámetros Legales"
-          subtitle="versiones legales vigentes"
-        />
+      <div className="min-w-0">
         <Card className="border-status-danger-border bg-status-danger-soft">
           <CardContent>
             <div className="flex items-start gap-2 pt-4">
@@ -84,15 +77,9 @@ export default function PayrollParameters() {
     formatNumber(v * 100, { minDecimals: decimals, maxDecimals: decimals });
 
   return (
-    <div className="space-y-6 min-w-0">
-{/* Header */}
-      <PageHero
-        icon={<FileText />}
-        iconTone="amber"
-        title="Parámetros Legales Chile"
-        subtitle="versiones vigentes"
-        description={`Vigencia desde ${parameters.effective_from}`}
-        actions={
+    <div className="space-y-4 min-w-0">
+      <PageToolbar
+        trailing={
           <Badge variant="default" className="gap-1.5 text-xs">
             <Calendar className="h-3 w-3" />
             {parameters.effective_from}

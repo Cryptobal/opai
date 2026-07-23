@@ -5,15 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
-  Coins,
   Download,
   Loader2,
   RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  ModuleSubNav,
-  PageHero,
+  DetailHeader,
   useSetBreadcrumbTrailing,
   Surface,
   SectionHeader,
@@ -196,26 +194,15 @@ export function FactoringOperationDetail({ operation: op, canIssue }: Props) {
     : 60;
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<Coins />}
-        iconTone="teal"
+    <div className="space-y-4 min-w-0">
+      <DetailHeader
         title={op.code}
-        subtitle={`Cesión a ${op.factoringCompany}`}
-        description={
-          <span className="inline-flex items-center gap-2">
-            <Tag variant={STATUS_VARIANT[op.status]} size="sm">
-              {STATUS_LABEL[op.status]}
-            </Tag>
-            {op.fechaCesion ? (
-              <span className="text-xs text-ds-text-3">
-                Cedida el {op.fechaCesion}
-              </span>
-            ) : null}
-          </span>
+        status={
+          <Tag variant={STATUS_VARIANT[op.status]} size="sm">
+            {STATUS_LABEL[op.status]}
+          </Tag>
         }
       />
-      <ModuleSubNav moduleKey="finance-compras-ventas" visibility="always" />
 
       {showSiiBanner ? (
         <Surface

@@ -6,8 +6,7 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero, SetBreadcrumbTrailing } from "@/components/opai-ds";
-import { Receipt } from "lucide-react";
+import { DetailHeader, SetBreadcrumbTrailing } from "@/components/opai-ds";
 import { RendicionDetail } from "@/components/finance/RendicionDetail";
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -159,14 +158,11 @@ export default async function RendicionDetailPage({ params }: PageProps) {
   };
 
   return (
-    <div className="space-y-6 min-w-0">
+    <div className="space-y-4 min-w-0">
       <SetBreadcrumbTrailing value={`Rendición ${rendicion.code}`} />
-      <PageHero
-        icon={<Receipt />}
-        iconTone="teal"
+      <DetailHeader
         title={`Rendición ${rendicion.code}`}
-        subtitle="detalle de rendición"
-        description="Detalle de la rendición de gasto."
+        backHref="/finanzas/rendiciones"
       />
       <RendicionDetail
         rendicion={data}

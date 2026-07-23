@@ -6,9 +6,7 @@ import {
   canView,
   hasCapability,
 } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
-import { TrendingUp } from "lucide-react";
 import { ProfitabilityClient } from "@/components/finance/reports/ProfitabilityClient";
 import { buildPeriod } from "@/modules/finance/reports/shared/period.helper";
 import { getProfitability } from "@/modules/finance/reports/profitability.service";
@@ -29,13 +27,6 @@ export default async function RentabilidadPage() {
 
   return (
     <div className="space-y-5">
-      <PageHero
-        icon={<TrendingUp />}
-        iconTone="amber"
-        title="Rentabilidad por cliente"
-        subtitle="ranking margen"
-        description="Margen unitario por centro de costo, con prorrateo de gastos generales."
-      />
       <FinanceN3Chips submoduleKey="finance-informes" />
       <ProfitabilityClient initialPeriod={period} initialData={initial} />
     </div>

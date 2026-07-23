@@ -6,9 +6,7 @@ import {
   hasFacturacionCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
-import { FilePlus } from "lucide-react";
 import { CreditNoteForm } from "@/components/finance/CreditNoteForm";
 
 interface PageProps {
@@ -62,14 +60,7 @@ export default async function NotaDebitoPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<FilePlus />}
-        iconTone="teal"
-        title="Emitir Nota de Débito"
-        subtitle="ajuste al alza"
-        description="Emitir nota de débito electrónica referenciando un DTE."
-      />
+    <div className="space-y-4 min-w-0">
       <FinanceN3Chips submoduleKey="finance-compras-ventas" />
       <CreditNoteForm
         noteType="debit"

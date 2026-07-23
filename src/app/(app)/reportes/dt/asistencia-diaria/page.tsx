@@ -1,6 +1,4 @@
 import { redirect } from "next/navigation";
-import { PageHero } from "@/components/opai-ds";
-import { ClipboardCheck } from "lucide-react";
 import { AsistenciaDiariaClient } from "@/components/reportes-dt/AsistenciaDiariaClient";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
@@ -15,14 +13,7 @@ export default async function AsistenciaDiariaPage() {
     orderBy: { name: "asc" },
   });
   return (
-    <div className="space-y-6">
-      <PageHero
-        icon={<ClipboardCheck />}
-        iconTone="teal"
-        title="Asistencia Diaria"
-        subtitle="Res. N°38 Art. 4"
-        description="Res. Exenta N°38 Art. 4 — DT Chile"
-      />
+    <div className="min-w-0">
       <AsistenciaDiariaClient installations={installations} />
     </div>
   );

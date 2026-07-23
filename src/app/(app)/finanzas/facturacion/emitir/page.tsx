@@ -6,9 +6,7 @@ import {
   hasFacturacionCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
-import { FileText } from "lucide-react";
 import { DteForm } from "@/components/finance/DteForm";
 
 export default async function EmitirDtePage() {
@@ -46,14 +44,7 @@ export default async function EmitirDtePage() {
   const availableTypes = [33, 34];
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<FileText />}
-        iconTone="teal"
-        title="Emitir DTE"
-        subtitle="factura, boleta o guía"
-        description="Emisión de factura electrónica o factura exenta."
-      />
+    <div className="space-y-4 min-w-0">
       <FinanceN3Chips submoduleKey="finance-compras-ventas" />
       <DteForm
         availableTypes={availableTypes}

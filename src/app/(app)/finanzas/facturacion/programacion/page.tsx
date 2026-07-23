@@ -5,9 +5,7 @@ import {
   hasModuleAccess,
   hasFacturacionCapability,
 } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
-import { CalendarDays } from "lucide-react";
 import { BorradoresTab } from "@/components/finance/BorradoresTab";
 import { DraftsMobileList } from "@/components/finance/programacion/DraftsMobileList";
 import { PendingSendsBannerWrapper } from "@/components/finance/programacion/PendingSendsBannerWrapper";
@@ -31,13 +29,7 @@ export default async function ProgramacionPage() {
     hasFacturacionCapability(perms, "facturacion_configure");
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<CalendarDays />}
-        iconTone="teal"
-        title="Programación"
-        description="Borradores pendientes de emitir al SII y plantillas recurrentes que generan DTEs automáticos."
-      />
+    <div className="space-y-4 min-w-0">
       <FinanceN3Chips submoduleKey="finance-compras-ventas" />
 
       <section className="space-y-3">

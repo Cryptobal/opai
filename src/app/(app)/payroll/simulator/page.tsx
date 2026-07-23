@@ -6,7 +6,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { PageHero, Stat } from "@/components/opai-ds";
+import { PageToolbar, Stat } from "@/components/opai-ds";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -157,30 +157,24 @@ export default function PayrollSimulator() {
   const selectedAfp = AFP_OPTIONS.find((a) => a.value === afpName);
 
   return (
-    <div className="space-y-6">
-{/* ── Header ── */}
-      <PageHero
-        icon={<Calculator />}
-        iconTone="amber"
-        title="Simulador de Liquidación"
-        subtitle="cálculo según ley chilena"
-        description="Simulación completa con descuentos legales y costo empleador."
-        actions={
-          <div className="flex items-center gap-2">
-            <div className="hidden items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs sm:flex">
-              <span className="text-muted-foreground">UF</span>
-              <span className="font-mono font-medium">{fmt(ufValue)}</span>
-              <span className="mx-1 text-border">|</span>
-              <span className="text-muted-foreground">UTM</span>
-              <span className="font-mono font-medium">{fmt(utmValue)}</span>
-            </div>
-            <Link href="/payroll/parameters">
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-                <Info className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Parámetros</span>
-              </Button>
-            </Link>
+    <div className="space-y-4">
+      <PageToolbar
+        trailing={
+          <div className="hidden items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs sm:flex">
+            <span className="text-muted-foreground">UF</span>
+            <span className="font-mono font-medium">{fmt(ufValue)}</span>
+            <span className="mx-1 text-border">|</span>
+            <span className="text-muted-foreground">UTM</span>
+            <span className="font-mono font-medium">{fmt(utmValue)}</span>
           </div>
+        }
+        primaryAction={
+          <Link href="/payroll/parameters">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+              <Info className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Parámetros</span>
+            </Button>
+          </Link>
         }
       />
 

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Receipt } from "lucide-react";
 import { auth } from "@/lib/auth";
 import {
   resolvePagePerms,
@@ -10,7 +9,7 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero, Surface, SetBreadcrumbTrailing } from "@/components/opai-ds";
+import { DetailHeader, Surface, SetBreadcrumbTrailing } from "@/components/opai-ds";
 import { DTE_TYPE_LABELS } from "@/components/finance/dtes/shared/constants";
 
 const fmtCLP = new Intl.NumberFormat("es-CL", {
@@ -103,15 +102,9 @@ export default async function FinancePaymentRecordReceiptPage({ params }: PagePr
   });
 
   return (
-    <div className="space-y-6 min-w-0 ds-page-enter">
+    <div className="space-y-4 min-w-0 ds-page-enter">
       <SetBreadcrumbTrailing value={code} />
-      <PageHero
-        icon={<Receipt />}
-        iconTone="teal"
-        title={code}
-        subtitle="Recibo de pago (ERP)"
-        description="Registro contable originado desde conciliación bancaria u otro flujo que creó este documento."
-      />
+      <DetailHeader title={code} backHref="/finanzas/pagos" />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Surface elevation={1} padding="md" className="min-w-0">

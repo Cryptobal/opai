@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
-import { Settings2 } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { canDelete, canView, resolvePagePerms } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
 import { InventarioConfigClient } from "@/components/inventario/InventarioConfigClient";
 
 export default async function InventarioConfiguracionPage() {
@@ -19,14 +17,7 @@ export default async function InventarioConfiguracionPage() {
 
   return (
     <div className="min-w-0">
-      <section className="relative w-full pb-32 space-y-6">
-        <PageHero
-          icon={<Settings2 />}
-          iconTone="emerald"
-          title="Configuración"
-          subtitle="bodegas y auditoría del módulo"
-          description="Gestiona bodegas y revisa el historial de cambios. Toda acción del módulo queda registrada con autor, IP y detalle."
-        />
+      <section className="relative w-full pb-32 space-y-4">
         <InventarioConfigClient canDelete={allowDelete} />
       </section>
     </div>

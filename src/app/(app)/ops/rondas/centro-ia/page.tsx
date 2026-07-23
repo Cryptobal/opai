@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
-import { Sparkles } from "lucide-react";
 import { RondasCentroIaClient } from "@/components/ops/rondas/RondasCentroIaClient";
 
 export default async function RondasCentroIaPage() {
@@ -13,14 +11,7 @@ export default async function RondasCentroIaPage() {
   if (!canView(perms, "ops", "rondas")) redirect("/hub");
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<Sparkles />}
-        iconTone="emerald"
-        title="Centro de Inteligencia Artificial"
-        subtitle="anomalías y predicciones"
-        description="Detección automática de patrones anómalos, recomendaciones operativas y configuración de umbrales para el sistema de IA."
-      />
+    <div className="min-w-0">
       <RondasCentroIaClient />
     </div>
   );

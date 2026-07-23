@@ -6,8 +6,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { Inbox } from "lucide-react";
 import { CrmLeadsClient } from "@/components/crm";
 
 type LeadStatusFilter = "all" | "pending" | "in_review" | "approved" | "rejected";
@@ -47,19 +45,12 @@ export default async function CrmLeadsPage({
   const initialLeads = JSON.parse(JSON.stringify(leads));
 
   return (
-    <>
-      <PageHero
-        icon={<Inbox />}
-        iconTone="violet"
-        title="Prospectos"
-        subtitle="solicitudes entrantes y aprobación manual"
-        description="Revisa, aprueba o rechaza leads recibidos por el cotizador web, email o entrada manual."
-      />
+    <div className="min-w-0">
       <CrmLeadsClient
         initialLeads={initialLeads}
         initialStatusFilter={initialStatusFilter}
         userRole={session.user?.role ?? ""}
       />
-    </>
+    </div>
   );
 }

@@ -9,8 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { PageHero } from '@/components/opai-ds';
-import { Trophy } from 'lucide-react';
+import { DetailHeader } from '@/components/opai-ds';
 import { timeAgo } from '@/lib/utils';
 
 const PORTAL_LABELS: Record<string, string> = {
@@ -92,26 +91,13 @@ export default function PortalRankingPage() {
     );
   }
 
-  const descriptionMap: Record<string, string> = {
-    rondas: `Guardias con más rondas ejecutadas (últimos ${days} días)`,
-    guardia: `Guardias más activos en el portal (últimos ${days} días)`,
-    cliente: `Contactos más activos en el portal (últimos ${days} días)`,
-  };
-
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push('/portales')}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <PageHero
-          icon={<Trophy />}
-          iconTone="sky"
-          title={`Ranking — ${portalLabel}`}
-          subtitle={`últimos ${days} días`}
-          description={descriptionMap[portalId]}
-        />
-      </div>
+      <DetailHeader
+        title={`Ranking — ${portalLabel}`}
+        backHref="/portales"
+        backLabel="Portales"
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px] max-w-xs">

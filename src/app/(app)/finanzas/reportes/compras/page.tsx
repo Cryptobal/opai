@@ -6,9 +6,7 @@ import {
   canView,
   hasCapability,
 } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
-import { Receipt } from "lucide-react";
 import { PurchasesMatrixClient } from "@/components/finance/reports/PurchasesMatrixClient";
 import { buildPeriod } from "@/modules/finance/reports/shared/period.helper";
 import { getPurchasesMatrix } from "@/modules/finance/reports/purchases-matrix.service";
@@ -29,13 +27,6 @@ export default async function ComprasPage() {
 
   return (
     <div className="space-y-5">
-      <PageHero
-        icon={<Receipt />}
-        iconTone="rose"
-        title="Compras por centro de costo"
-        subtitle="heatmap mensual"
-        description="Compras (DTEs RECEIVED) por cliente y mes. Espejo libro IVA compras."
-      />
       <FinanceN3Chips submoduleKey="finance-informes" />
       <PurchasesMatrixClient initialPeriod={period} initialData={initial} />
     </div>

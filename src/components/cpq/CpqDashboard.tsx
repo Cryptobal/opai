@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { PageHero } from "@/components/opai-ds";
+import { PageToolbar } from "@/components/opai-ds";
 import { Stat } from "@/components/opai-ds";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { CpqQuotesList } from "@/components/cpq/CpqQuotesList";
 import { formatCurrency } from "@/components/cpq/utils";
 import type { CpqQuote } from "@/types/cpq";
-import { FileText, Info, Plus, Settings, Globe, LayoutDashboard } from "lucide-react";
+import { FileText, Info, Plus, Settings, Globe } from "lucide-react";
 import { isCpqQuoteListedInClientPortal } from "@/lib/cpq-portal-visibility";
 
 interface CpqDashboardProps {
@@ -80,31 +80,26 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
   }, [quotes, search, statusFilter, portalOnly]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <PageHero
-          icon={<LayoutDashboard />}
-          iconTone="violet"
-          title="CPQ"
-          subtitle="Configure, Price, Quote"
-          description="Cotizador de servicios de seguridad"
-        />
-        <div className="flex items-center gap-2">
-          <CreateQuoteModal onCreated={refresh} variant="quick" />
-          <Link href="/cpq/config">
-            <Button variant="outline" size="sm" className="gap-2 ">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Configurar</span>
-            </Button>
-          </Link>
-          <Link href="/payroll/simulator">
-            <Button variant="outline" size="sm" className="gap-2 ">
-              <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">Payroll</span>
-            </Button>
-          </Link>
-        </div>
-      </div>
+    <div className="space-y-4">
+      <PageToolbar
+        primaryAction={<CreateQuoteModal onCreated={refresh} variant="quick" />}
+        trailing={
+          <>
+            <Link href="/cpq/config">
+              <Button variant="outline" size="sm" className="gap-2 ">
+                <Settings className="h-4 w-4" />
+                <span className="hidden sm:inline">Configurar</span>
+              </Button>
+            </Link>
+            <Link href="/payroll/simulator">
+              <Button variant="outline" size="sm" className="gap-2 ">
+                <FileText className="h-4 w-4" />
+                <span className="hidden sm:inline">Payroll</span>
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <Stat label="Cotizaciones" value={totals.totalQuotes} variant="brand" />

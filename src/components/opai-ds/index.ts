@@ -35,7 +35,6 @@ export { Toolbar, type ToolbarProps } from "./Toolbar";
 export { HeatGrid, type HeatGridProps, type HeatGridRow, type HeatGridColumn } from "./HeatGrid";
 export { Avatar, type AvatarProps, type AvatarVariant } from "./Avatar";
 export { Breadcrumbs, type BreadcrumbsProps, type BreadcrumbItem } from "./Breadcrumbs";
-export { AutoBreadcrumbs, type AutoBreadcrumbsProps } from "./AutoBreadcrumbs";
 export {
   BreadcrumbTrailingProvider,
   useBreadcrumbTrailing,
@@ -55,7 +54,6 @@ export {
   useSetIslandAction,
   type IslandAction,
 } from "./IslandActionContext";
-export { PageShell, type PageShellProps } from "./PageShell";
 export { ConfigShell, useConfigCategories, type ConfigShellProps, type CategoryGroup } from "./ConfigShell";
 export { GlassAmbient } from "./GlassAmbient";
 export {

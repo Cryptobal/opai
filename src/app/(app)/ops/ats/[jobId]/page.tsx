@@ -2,8 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero, SetBreadcrumbTrailing } from "@/components/opai-ds";
-import { Briefcase } from "lucide-react";
+import { DetailHeader } from "@/components/opai-ds";
 import { AtsPipelineClient } from "@/components/ats/AtsPipelineClient";
 import { getAtsConfig } from "@/lib/ats/config";
 
@@ -87,15 +86,8 @@ export default async function AtsPipelinePage({
     .map(([key, cfg]) => ({ key, label: cfg.label }));
 
   return (
-    <div className="space-y-6 min-w-0 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
-      <SetBreadcrumbTrailing value={job.titulo} />
-      <PageHero
-        icon={<Briefcase />}
-        iconTone="emerald"
-        title={job.titulo}
-        subtitle="detalle y pipeline"
-        description={`${job.turno} · ${job.region} · ${job.applications.length} postulantes`}
-      />
+    <div className="space-y-4 min-w-0 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
+      <DetailHeader title={job.titulo} backHref="/ops/ats" />
       <AtsPipelineClient
         job={JSON.parse(JSON.stringify(job))}
         manualChannels={enabledManualChannels}

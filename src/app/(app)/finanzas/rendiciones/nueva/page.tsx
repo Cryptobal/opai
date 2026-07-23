@@ -6,8 +6,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { Receipt } from "lucide-react";
 import { RendicionForm } from "@/components/finance/RendicionForm";
 
 export default async function NuevaRendicionPage() {
@@ -58,14 +56,7 @@ export default async function NuevaRendicionPage() {
   }));
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<Receipt />}
-        iconTone="teal"
-        title="Nueva rendición"
-        subtitle="registro de gastos"
-        description="Crea una nueva rendición de gastos o kilometraje."
-      />
+    <div className="min-w-0">
       <RendicionForm
         items={items.map((i) => ({
           id: i.id,

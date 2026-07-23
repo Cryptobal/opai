@@ -6,8 +6,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { UserCircle } from "lucide-react";
 import { CrmContactsClient } from "@/components/crm";
 
 export default async function CrmContactsPage() {
@@ -35,18 +33,11 @@ export default async function CrmContactsPage() {
   const initialAccounts = JSON.parse(JSON.stringify(accounts));
 
   return (
-    <>
-      <PageHero
-        icon={<UserCircle />}
-        iconTone="violet"
-        title="Contactos"
-        subtitle="personas clave por cliente"
-        description="Directorio de contactos vinculados a cuentas. Cada contacto tiene su historial de comunicación, notas y deals asociados."
-      />
+    <div className="min-w-0">
       <CrmContactsClient
         initialContacts={initialContacts}
         accounts={initialAccounts}
       />
-    </>
+    </div>
   );
 }

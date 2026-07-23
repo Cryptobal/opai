@@ -5,9 +5,7 @@ import {
   hasModuleAccess,
   hasFacturacionCapability,
 } from "@/lib/permissions-server";
-import { PageHero } from "@/components/opai-ds";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
-import { FileText } from "lucide-react";
 import { FacturacionClient } from "@/components/finance/FacturacionClient";
 
 export default async function FoliosPage() {
@@ -40,13 +38,7 @@ export default async function FoliosPage() {
   };
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<FileText />}
-        iconTone="teal"
-        title="Folios"
-        description="Stock disponible de folios CAF por tipo de DTE."
-      />
+    <div className="space-y-4 min-w-0">
       <FinanceN3Chips submoduleKey="finance-compras-ventas" />
       <FacturacionClient
         dtes={[]}

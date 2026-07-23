@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHero } from "@/components/opai-ds";
-import { Banknote } from "lucide-react";
 import { TeLotesClient } from "@/components/ops";
 
 export default async function OpsTurnosExtraPagosPage() {
@@ -37,14 +35,7 @@ export default async function OpsTurnosExtraPagosPage() {
   });
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHero
-        icon={<Banknote />}
-        iconTone="amber"
-        title="Pagos TE"
-        subtitle="liquidación al equipo"
-        description="Historial de lotes pagados y exportables."
-      />
+    <div className="min-w-0">
       <TeLotesClient
         initialLotes={JSON.parse(JSON.stringify(lotes))}
         defaultStatusFilter="paid"
