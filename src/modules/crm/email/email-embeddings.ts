@@ -12,7 +12,7 @@
  */
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import { openai } from "@/lib/openai";
+import { getTenantOpenAIClient } from "@/lib/ai/tenant-openai";
 import { logAiUsage } from "@/lib/platform-ai-service";
 
 export const EMBEDDING_MODEL = "text-embedding-3-small";
@@ -117,11 +117,12 @@ export async function indexEmailMessages(params: {
     });
   }
 
+  const client = await getTenantOpenAIClient(tenantId);
   for (let i = 0; i < pending.length; i += EMBED_BATCH) {
     if (params.deadline && Date.now() >= params.deadline) break;
     const batch = pending.slice(i, i + EMBED_BATCH);
     const startedAt = Date.now();
-    const response = await openai.embeddings.create({
+    const response = await client.embeddings.create({
       model: EMBEDDING_MODEL,
       input: batch.map((c) => c.content),
     });
@@ -234,7 +235,8 @@ export async function semanticSearchChunks(params: {
   limit?: number;
 }): Promise<SemanticHit[]> {
   const startedAt = Date.now();
-  const response = await openai.embeddings.create({
+  const client = await getTenantOpenAIClient(params.tenantId);
+  const response = await client.embeddings.create({
     model: EMBEDDING_MODEL,
     input: params.query.slice(0, 4_000),
   });

@@ -5,7 +5,7 @@
  * detectar desviaciones y generar un párrafo ejecutivo.
  */
 
-import { openai } from "@/lib/openai";
+import { getTenantOpenAIClient } from "@/lib/ai/tenant-openai";
 import { prisma } from "@/lib/prisma";
 
 interface ReportData {
@@ -48,7 +48,8 @@ export async function generateControlNocturnoSummary(
     // Build the analysis prompt
     const prompt = buildPrompt(reportData, history);
 
-    const response = await openai.chat.completions.create({
+    const client = await getTenantOpenAIClient(tenantId);
+    const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
