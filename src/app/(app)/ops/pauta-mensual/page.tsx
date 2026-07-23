@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { ModuleSubNav, PageHero } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
 import { CalendarDays } from "lucide-react";
 import { OpsPautaMensualClient } from "@/components/ops";
 
@@ -39,7 +39,6 @@ export default async function OpsPautaMensualPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <ModuleSubNav moduleKey="ops-pautas" />
       <PageHero
         icon={<CalendarDays />}
         iconTone="emerald"

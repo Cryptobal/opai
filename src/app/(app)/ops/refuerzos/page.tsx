@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canDelete, canEdit, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { ModuleSubNav, PageHero } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
 import { UserPlus } from "lucide-react";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 import { OpsRefuerzosClient } from "@/components/ops";
@@ -75,7 +75,6 @@ export default async function OpsRefuerzosPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <ModuleSubNav moduleKey="ops-pautas" />
       <PageHero
         icon={<UserPlus />}
         iconTone="emerald"

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { LayoutDashboard } from "lucide-react";
-import { ModuleSubNav, PageHero } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
 import { HubIntegrationStatus } from "./_components/HubIntegrationStatus";
 import {
   getHubIntegrationStatus,
@@ -17,12 +17,8 @@ export default async function HubLayout({
 
   return (
     <div className="min-w-0 space-y-5">
-      <ModuleSubNav
-        moduleKey="hub"
-        disableAutoSuppress
-        className="lg:sticky lg:top-12 lg:z-10 lg:bg-background/95"
-      />
-
+      {/* Las vistas del Hub (Resumen / Comercial / Operaciones / …) viven ahora
+          en los tabs de la barra superior (AppShell). El saludo se conserva. */}
       <PageHero
         title={`Buenos días, ${firstName}`}
         subtitle="Centro de comando"
