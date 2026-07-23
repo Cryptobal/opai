@@ -68,6 +68,10 @@ export function CorreosClient() {
   const [counts, setCounts] = useState<Counts>(null);
   const [connected, setConnected] = useState(true);
   const [canModify, setCanModify] = useState(false);
+  // El estado real de conexión/permisos solo se conoce tras el primer fetch;
+  // hasta entonces no mostramos el aviso amarillo "Reconectá Gmail" (evita el
+  // parpadeo al entrar a Correo en móvil y desktop).
+  const [statusReady, setStatusReady] = useState(false);
   const [backfillDone, setBackfillDone] = useState<boolean | null>(null);
   const [totalThreads, setTotalThreads] = useState(0);
   const [syncParked, setSyncParked] = useState(false);
@@ -174,6 +178,7 @@ export function CorreosClient() {
       }
       setConnected(r.connected !== false);
       setCanModify(Boolean(r.canModify));
+      setStatusReady(true);
       setRealtimeChannel(
         typeof r.realtimeChannel === "string" ? r.realtimeChannel : null,
       );
@@ -645,7 +650,7 @@ export function CorreosClient() {
           </div>
         )}
 
-        {connected && !canModify && (
+        {statusReady && connected && !canModify && (
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">
             <span>Reconectá Gmail para habilitar archivar y eliminar</span>
             <a href="/api/crm/gmail/connect" className="font-medium underline underline-offset-2">
