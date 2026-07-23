@@ -1,12 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Sparkles, Send, Users } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { CalendarClock, Sparkles, Send, Users } from "lucide-react";
 import { toast } from "sonner";
 import { AttachmentPicker, Spinner } from "@/components/opai-ds";
 import { ReplyRecipientsField, isValidEmail } from "./ReplyRecipientsField";
 import { RichTextEditor } from "./RichTextEditor";
 import { useEmailAttachments } from "./useEmailAttachments";
+import {
+  newEmailIdempotencyKey,
+  notifyEmailQueued,
+  scheduleSendPresets,
+  sendCrmEmail,
+} from "./email-send-client";
 
 type ReplyAll = { to: string[]; cc: string[] };
 type Props = { threadId: string; subject: string; onSent: () => void };
@@ -41,6 +47,11 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
   );
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<"gen" | "send" | null>(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [customSchedule, setCustomSchedule] = useState("");
+  // Una key por intento de composición: los reintentos (red, doble click)
+  // reusan la misma y el outbox garantiza 1 solo correo (PR-12).
+  const idempotencyKeyRef = useRef(newEmailIdempotencyKey());
 
   useEffect(() => {
     fetch(`/api/crm/correos/${threadId}/suggest-reply`)
@@ -88,37 +99,41 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
     if (replyAll.cc.length > 0) setShowCcBcc(true);
   }
 
-  async function send() {
+  async function send(scheduledAt?: Date) {
     if (!canSend) return;
     setBusy("send");
+    const draftBackup = draft;
     try {
-      const res = await fetch("/api/crm/gmail/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          threadId,
-          to,
-          cc,
-          bcc,
-          subject: replySubject.trim() || subject,
-          html: draft,
-          attachments: attachments.readyAttachments,
-        }),
+      const result = await sendCrmEmail({
+        threadId,
+        to,
+        cc,
+        bcc,
+        subject: replySubject.trim() || subject,
+        html: draft,
+        attachments: attachments.readyAttachments,
+        idempotencyKey: idempotencyKeyRef.current,
+        ...(scheduledAt ? { scheduledAt: scheduledAt.toISOString() } : {}),
       });
-      const data = (await res.json().catch(() => ({}))) as {
-        success?: boolean;
-        error?: string;
-        warning?: string;
-      };
       // Antes esto fallaba en silencio: sin toast de error ni de éxito, "no
       // pasaba nada" al tocar Enviar aunque el server rechazara el correo.
-      if (!res.ok || data.success === false) {
-        toast.error(data.error || "No se pudo enviar la respuesta");
+      if (!result.ok) {
+        toast.error(result.error || "No se pudo enviar la respuesta");
         return;
       }
-      if (data.warning) toast.message(data.warning);
-      else toast.success("Respuesta enviada por Gmail");
+      if (result.queued) {
+        // Deshacer restaura el borrador para seguir editando.
+        notifyEmailQueued(result.data, {
+          onUndone: () => setDraft(draftBackup),
+        });
+      } else if (result.warning) {
+        toast.message(result.warning);
+      } else {
+        toast.success("Respuesta enviada por Gmail");
+      }
+      idempotencyKeyRef.current = newEmailIdempotencyKey();
       setDraft("");
+      setScheduleOpen(false);
       attachments.resetAfterSend();
       if (radarItemId) {
         await fetch(`/api/crm/radar/${radarItemId}`, {
@@ -208,13 +223,62 @@ export function SuggestedReplyPanel({ threadId, subject, onSent }: Props) {
         </button>
         <button
           type="button"
-          onClick={send}
+          onClick={() => void send()}
           disabled={busy !== null || !canSend}
           className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50"
         >
           <Send className="h-4 w-4" /> {busy === "send" ? "Enviando…" : "Enviar respuesta"}
         </button>
+        <button
+          type="button"
+          title="Programar envío"
+          aria-label="Programar envío"
+          onClick={() => setScheduleOpen((v) => !v)}
+          disabled={busy !== null || !canSend}
+          className="inline-flex h-9 items-center justify-center rounded-lg border border-ds-border-default px-2.5 ds-tap disabled:opacity-50"
+        >
+          <CalendarClock className="h-4 w-4" />
+        </button>
       </div>
+      {scheduleOpen && (
+        <div className="space-y-2 rounded-lg border border-ds-border-subtle bg-ds-surface-1 p-2">
+          <p className="text-[12px] text-ds-text-3">Programar envío</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {scheduleSendPresets().map((preset) => (
+              <button
+                key={preset.key}
+                type="button"
+                onClick={() => void send(preset.date)}
+                className="h-9 rounded-full bg-ds-surface-2 px-3 text-[12px] text-ds-text-2 ds-tap"
+              >
+                {preset.label}
+              </button>
+            ))}
+            <input
+              type="datetime-local"
+              value={customSchedule}
+              onChange={(e) => setCustomSchedule(e.target.value)}
+              className="h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[12px] text-ds-text-1"
+              aria-label="Fecha y hora personalizada"
+            />
+            <button
+              type="button"
+              disabled={!customSchedule}
+              onClick={() => {
+                const date = new Date(customSchedule);
+                if (Number.isNaN(date.getTime()) || date.getTime() < Date.now() + 2 * 60_000) {
+                  toast.error("Elegí una fecha futura (mínimo 2 minutos)");
+                  return;
+                }
+                void send(date);
+              }}
+              className="h-9 rounded-lg border border-ds-border-default px-3 text-[12px] ds-tap disabled:opacity-50"
+            >
+              Programar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

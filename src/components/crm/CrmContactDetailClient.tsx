@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { getQuoteStatus } from "@/lib/quoteStatus";
@@ -25,6 +25,11 @@ import {
 import { AttachmentPicker, EmptyState } from "@/components/opai-ds";
 import { EmailHistoryList, type EmailMessage } from "./EmailHistoryList";
 import { EmailSenderSelect } from "./EmailSenderSelect";
+import {
+  newEmailIdempotencyKey,
+  notifyEmailQueued,
+  sendCrmEmail,
+} from "@/components/crm/correos/email-send-client";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
@@ -242,6 +247,8 @@ export function CrmContactDetailClient({
   const [dealCreateOpen, setDealCreateOpen] = useState(false);
   const [quoteCreateOpen, setQuoteCreateOpen] = useState(false);
   const [sending, setSending] = useState(false);
+  // PR-12: una key por intento de composición — reintentos no duplican envío.
+  const emailIdempotencyKeyRef = useRef(newEmailIdempotencyKey());
   // B2/C02: hilo al que se responde y casilla dueña; casilla elegida al
   // componer nuevo (ver CrmDealDetailClient para la contraparte).
   const [replyThreadId, setReplyThreadId] = useState<string | null>(null);
@@ -373,17 +380,14 @@ export function CrmContactDetailClient({
         : emailBody;
       const cc = emailCc.split(",").map((s) => s.trim()).filter(Boolean);
       const bcc = emailBcc.split(",").map((s) => s.trim()).filter(Boolean);
-      const res = await fetch("/api/crm/gmail/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: contact.email, cc, bcc, subject: emailSubject, html: htmlForSend, contactId: contact.id, accountId: contact.account?.id || undefined, attachments: emailAttachments.readyAttachments, ...(replyThreadId ? { threadId: replyThreadId } : senderAccountId ? { emailAccountId: senderAccountId } : {}) }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Error enviando email");
+      const result = await sendCrmEmail({ to: contact.email, cc, bcc, subject: emailSubject, html: htmlForSend, contactId: contact.id, accountId: contact.account?.id || undefined, attachments: emailAttachments.readyAttachments, idempotencyKey: emailIdempotencyKeyRef.current, ...(replyThreadId ? { threadId: replyThreadId } : senderAccountId ? { emailAccountId: senderAccountId } : {}) });
+      if (!result.ok) throw new Error(result.error);
+      emailIdempotencyKeyRef.current = newEmailIdempotencyKey();
       setEmailOpen(false);
       setEmailBody(""); setEmailTiptapContent(null); setEmailSubject(""); setEmailCc(""); setEmailBcc(""); setShowCcBcc(false); setSelectedTemplateId(""); setReplyThreadId(null); setReplyAccountId(null); emailAttachments.resetAfterSend();
       setEmailCount((prev) => prev + 1);
-      if (data?.warning) toast.message(data.warning);
+      if (result.queued) notifyEmailQueued(result.data);
+      else if (result.warning) toast.message(result.warning);
       else toast.success("Correo enviado exitosamente");
     } catch (error) { console.error(error); toast.error("No se pudo enviar el correo."); }
     finally { setSending(false); }

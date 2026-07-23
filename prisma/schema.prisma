@@ -2723,6 +2723,36 @@ model CrmEmailSyncDeadLetter {
   @@schema("crm")
 }
 
+/// Outbox de envío Gmail (PR-12, §7): idempotencia por `idempotencyKey`
+/// (unique — reintentos con la misma key = 1 solo correo), ventana de
+/// deshacer (`undoUntil`) y envío programado (`scheduledAt`). El despachador
+/// (after() del enqueue + cron por minuto) envía lo vencido. `payload` guarda
+/// los inputs MIME ya validados y normalizados.
+model CrmEmailOutbox {
+  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId          String    @map("tenant_id")
+  userId            String    @map("user_id")
+  emailAccountId    String    @map("email_account_id") @db.Uuid
+  idempotencyKey    String    @unique(map: "uq_crm_email_outbox_idempotency") @map("idempotency_key")
+  status            String    @default("queued") // queued | held | sending | sent | failed | cancelled
+  scheduledAt       DateTime? @map("scheduled_at") @db.Timestamptz(6)
+  undoUntil         DateTime? @map("undo_until") @db.Timestamptz(6)
+  payload           Json
+  providerMessageId String?   @map("provider_message_id")
+  messageId         String?   @map("message_id") @db.Uuid
+  attempts          Int       @default(0)
+  nextAttemptAt     DateTime? @map("next_attempt_at") @db.Timestamptz(6)
+  lastError         String?   @map("last_error") @db.Text
+  sentAt            DateTime? @map("sent_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, nextAttemptAt], map: "idx_crm_email_outbox_due")
+  @@index([tenantId, userId, status], map: "idx_crm_email_outbox_user")
+  @@map("email_outbox")
+  @@schema("crm")
+}
+
 model CrmEmailThread {
   id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId         String    @map("tenant_id")
