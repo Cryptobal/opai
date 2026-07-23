@@ -57,6 +57,10 @@ type Props = {
   swipeConfig: CorreoSwipeConfig;
   /** Tap en el avatar alterna selección (variante móvil Gmail). */
   onAvatarPress?: () => void;
+  /** Long-press sobre la fila: entra/alterna el modo selección. */
+  onLongPress?: () => void;
+  /** Con selección activa el swipe se pausa (gestos no ambiguos, como Gmail). */
+  selectionMode?: boolean;
 };
 
 /**
@@ -67,7 +71,7 @@ type Props = {
 export function CorreoRowSwipe({
   thread, canModify, onOpen, onChanged, onRemove, onSnooze,
   selected, focused, checked, onToggleCheck, previewLines, swipeConfig,
-  onAvatarPress,
+  onAvatarPress, onLongPress, selectionMode = false,
 }: Props) {
   const [coarse, setCoarse] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -78,9 +82,15 @@ export function CorreoRowSwipe({
   }, []);
 
   const { dx, openSide, dragging, rowRef, close, wasDragged, handlers } = useRowSwipe({
-    enabled: coarse && canModify && !leaving,
+    enabled: coarse && canModify && !leaving && !selectionMode,
     onLongSwipe: (side) => execute(side === "right" ? swipeConfig.right[0] : swipeConfig.left[0]),
+    onLongPress: coarse && canModify ? onLongPress : undefined,
   });
+
+  // Entrar en selección repliega cualquier fila con botones revelados.
+  useEffect(() => {
+    if (selectionMode) close();
+  }, [selectionMode, close]);
 
   if (!coarse) {
     return (
@@ -183,9 +193,11 @@ export function CorreoRowSwipe({
         {...handlers}
       >
         {/* Variante Gmail móvil: sin kebab (swipe + long-press + detalle lo
-            cubren) y con avatar como toggle de selección. */}
+            cubren) y con avatar como toggle de selección. El guard wasDragged
+            evita que el click fantasma tras un long-press vuelva a alternar. */}
         <CorreoRow thread={thread} canModify={canModify} onOpen={handleOpen} onChanged={onChanged}
-          mobileGmail checked={checked} onAvatarPress={onAvatarPress}
+          mobileGmail checked={checked}
+          onAvatarPress={onAvatarPress ? () => { if (!wasDragged()) onAvatarPress(); } : undefined}
           previewLines={previewLines} />
       </div>
     </div>

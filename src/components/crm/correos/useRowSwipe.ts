@@ -12,6 +12,9 @@ const MIN_COMMIT = 36;
 export const SWIPE_LONG_RATIO = 0.55;
 /** Píxeles antes de decidir si el gesto es horizontal o scroll vertical. */
 const AXIS_LOCK = 8;
+/** Long-press: umbral de disparo y tolerancia de movimiento (estilo Gmail). */
+const LONG_PRESS_MS = 450;
+const LONG_PRESS_MOVE = 10;
 
 /**
  * Máquina de gestos del swipe de dos niveles: arrastre con pointer events
@@ -22,8 +25,11 @@ const AXIS_LOCK = 8;
 export function useRowSwipe(opts: {
   enabled: boolean;
   onLongSwipe: (side: CorreoSwipeSide) => void;
+  /** Long-press (~450ms sin arrastre) → modo selección. Sigue activo aunque
+   *  el swipe esté deshabilitado (p. ej. durante la selección). */
+  onLongPress?: () => void;
 }) {
-  const { enabled, onLongSwipe } = opts;
+  const { enabled, onLongSwipe, onLongPress } = opts;
   const [dx, setDx] = useState(0);
   const [openSide, setOpenSide] = useState<CorreoSwipeSide | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -32,6 +38,17 @@ export function useRowSwipe(opts: {
   const axis = useRef<"h" | "v" | null>(null);
   const dxRef = useRef(0);
   const suppressClick = useRef(false);
+  const longPressTimer = useRef<number | null>(null);
+  const longPressed = useRef(false);
+
+  const clearLongPress = useCallback(() => {
+    if (longPressTimer.current != null) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  useEffect(() => clearLongPress, [clearLongPress]);
 
   const close = useCallback(() => {
     setOpenSide(null);
@@ -53,7 +70,7 @@ export function useRowSwipe(opts: {
   }, [openSide, close]);
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (!enabled) return;
+    if (!enabled && !onLongPress) return;
     start.current = {
       x: event.clientX,
       y: event.clientY,
@@ -61,16 +78,38 @@ export function useRowSwipe(opts: {
     };
     axis.current = null;
     suppressClick.current = false;
+    longPressed.current = false;
+    if (onLongPress) {
+      clearLongPress();
+      longPressTimer.current = window.setTimeout(() => {
+        longPressTimer.current = null;
+        longPressed.current = true;
+        // El click fantasma tras soltar no debe abrir/alternar de nuevo.
+        suppressClick.current = true;
+        navigator.vibrate?.(10);
+        onLongPress();
+      }, LONG_PRESS_MS);
+    }
   }
 
   function onPointerMove(event: PointerEvent<HTMLDivElement>) {
-    if (!enabled) return;
     const rawDx = event.clientX - start.current.x;
     const rawDy = event.clientY - start.current.y;
+    // Moverse cancela el long-press (es scroll o swipe, no una pulsación).
+    if (
+      longPressTimer.current != null &&
+      (Math.abs(rawDx) > LONG_PRESS_MOVE || Math.abs(rawDy) > LONG_PRESS_MOVE)
+    ) {
+      clearLongPress();
+    }
+    // Tras dispararse el long-press, el resto del arrastre se ignora.
+    if (longPressed.current) return;
+    if (!enabled) return;
     if (axis.current === null) {
       if (Math.abs(rawDx) < AXIS_LOCK && Math.abs(rawDy) < AXIS_LOCK) return;
       axis.current = Math.abs(rawDx) > Math.abs(rawDy) ? "h" : "v";
       if (axis.current === "h") {
+        clearLongPress();
         event.currentTarget.setPointerCapture?.(event.pointerId);
         setDragging(true);
       }
@@ -83,6 +122,12 @@ export function useRowSwipe(opts: {
   }
 
   function onPointerEnd(event: PointerEvent<HTMLDivElement>) {
+    clearLongPress();
+    if (longPressed.current) {
+      longPressed.current = false;
+      axis.current = null;
+      return;
+    }
     const wasHorizontal = axis.current === "h";
     axis.current = null;
     if (!wasHorizontal) return;

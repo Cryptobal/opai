@@ -36,6 +36,7 @@ import {
   closeCorreoThreadInHistory,
   openCorreoThreadInHistory,
 } from "./correo-thread-history";
+import { useCloseOnBack } from "./useCloseOnBack";
 
 function matchesChip(t: CorreoThreadDTO, f: CorreoChipKey): boolean {
   if (f === "con_cuenta") return Boolean(t.accountId);
@@ -81,6 +82,11 @@ export function CorreosClient() {
   // Opción C: drawer lateral móvil (carpetas + filtros + acciones).
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [swipeSettingsOpen, setSwipeSettingsOpen] = useState(false);
+  // v2: táctil (long-press/selección móvil); en desktop nada de esto aplica.
+  const [isCoarse, setIsCoarse] = useState(false);
+  useEffect(() => {
+    setIsCoarse(typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches);
+  }, []);
   // C12: multi-select para acciones masivas. C20: fila enfocada por j/k.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [focusIndex, setFocusIndex] = useState(-1);
@@ -346,9 +352,15 @@ export function CorreosClient() {
       return next;
     });
   }
-  function clearSelection() {
+  const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
-  }
+  }, []);
+  // v2: modo selección móvil (long-press / tap en avatar). Deriva del estado
+  // existente — no hay un segundo estado de selección.
+  const selectionMode = selectedIds.size > 0;
+  // Gesto/botón atrás en móvil limpia la selección antes de salir de la vista
+  // (misma pila LIFO que usa el lector). En desktop no se toca el historial.
+  useCloseOnBack(isCoarse && selectionMode, clearSelection);
   function bulkAction(
     action: CorreoAction,
     okMsg: string,
@@ -599,12 +611,14 @@ export function CorreosClient() {
                   checked={selectedIds.has(t.id)}
                   onToggleCheck={canModify ? () => toggleSelect(t.id) : undefined}
                   onAvatarPress={canModify ? () => toggleSelect(t.id) : undefined}
+                  onLongPress={canModify ? () => toggleSelect(t.id) : undefined}
+                  selectionMode={selectionMode}
                   previewLines={previewLines}
                   swipeConfig={swipeConfig}
                   onChanged={() => void fetchPage(null, true)}
                   onRemove={removeThreadLocally}
                   onSnooze={() => setSnoozeId(t.id)}
-                  onOpen={() => openThread(t.id)} />
+                  onOpen={() => (selectionMode ? toggleSelect(t.id) : openThread(t.id))} />
               ))}
             </Surface>
           )}
