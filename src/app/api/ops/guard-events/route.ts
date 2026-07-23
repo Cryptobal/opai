@@ -434,7 +434,11 @@ async function autoGenerateAmonestacionDoc(
   const phone = guardia.persona.phoneMobile ?? guardia.persona.phone ?? "";
 
   const cfg = await getTenantCompanyConfig(tenantId);
-  const empresaNombre = cfg.razonSocial || cfg.companyName || "la empresa";
+  // getTenantCompanyConfig devuelve placeholders por defecto ("Empresa Sin
+  // Configurar" / "Mi Empresa"); tratarlos como vacíos para no firmar con ellos.
+  const razon = cfg.razonSocial !== "Empresa Sin Configurar" ? cfg.razonSocial.trim() : "";
+  const company = cfg.companyName !== "Mi Empresa" ? cfg.companyName.trim() : "";
+  const empresaNombre = razon || company || "la empresa";
   const repLegal = cfg.repLegalNombre
     ? `${cfg.repLegalNombre}${cfg.repLegalRut ? `, RUT ${cfg.repLegalRut}` : ""}`
     : "[Representante legal — configurar en Configuración › Empresa]";
