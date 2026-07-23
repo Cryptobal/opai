@@ -14,6 +14,8 @@ type Props = {
   inSpam?: boolean;
   canModify: boolean;
   variant?: "row" | "drawer" | "mobile-bar";
+  /** drawer compacto: fila de iconos sin etiquetas (rediseño del lector). */
+  compact?: boolean;
   onDone?: () => void;
   onReply?: () => void;
   /** Cierra el lector tras archivar/eliminar (drawer/mobile-bar). */
@@ -30,6 +32,7 @@ export function CorreoThreadActions({
   inSpam,
   canModify,
   variant = "row",
+  compact = false,
   onDone,
   onReply,
   onClose,
@@ -52,9 +55,14 @@ export function CorreoThreadActions({
   }
 
   const drawer = variant === "drawer";
-  const btn = drawer
-    ? "inline-flex h-10 items-center gap-1.5 rounded-xl border border-ds-border-default px-3 text-[13px] ds-tap sm:h-9"
-    : "inline-flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-3 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-ds-surface-3 hover:text-ds-text-1 ds-tap";
+  // drawer compacto: fila de iconos (rediseño lector). drawer normal:
+  // botones con etiqueta. row: icono que aparece en hover.
+  const showLabel = drawer && !compact;
+  const btn = compact
+    ? "inline-flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-2 hover:bg-ds-surface-3 hover:text-ds-text-1 ds-tap"
+    : drawer
+      ? "inline-flex h-10 items-center gap-1.5 rounded-xl border border-ds-border-default px-3 text-[13px] ds-tap sm:h-9"
+      : "inline-flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-3 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-ds-surface-3 hover:text-ds-text-1 ds-tap";
 
   function act(action: CorreoAction, okMsg: string, undo?: CorreoAction) {
     void runCorreoAction(threadId, action, okMsg, onDone, undo);
@@ -74,7 +82,13 @@ export function CorreoThreadActions({
 
   return (
     <div
-      className={drawer ? "hidden flex-wrap gap-2 md:flex" : "hidden items-center gap-0.5 md:flex"}
+      className={
+        compact
+          ? "flex flex-wrap items-center gap-0.5"
+          : drawer
+            ? "hidden flex-wrap gap-2 md:flex"
+            : "hidden items-center gap-0.5 md:flex"
+      }
       onClick={(e) => e.stopPropagation()}
     >
       <button
@@ -90,7 +104,7 @@ export function CorreoThreadActions({
         }
       >
         <Archive className="h-4 w-4" />
-        {drawer && <span>{archived ? "Desarchivar" : "Archivar"}</span>}
+        {showLabel && <span>{archived ? "Desarchivar" : "Archivar"}</span>}
       </button>
       <button
         type="button"
@@ -104,7 +118,7 @@ export function CorreoThreadActions({
         }}
       >
         <Trash2 className="h-4 w-4" />
-        {drawer && <span>Eliminar</span>}
+        {showLabel && <span>Eliminar</span>}
       </button>
       <button
         type="button"
@@ -113,7 +127,7 @@ export function CorreoThreadActions({
         onClick={() => act(isUnread ? "markRead" : "markUnread", isUnread ? "Marcado como leído" : "Marcado como no leído")}
       >
         {isUnread ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
-        {drawer && <span>{isUnread ? "Leído" : "No leído"}</span>}
+        {showLabel && <span>{isUnread ? "Leído" : "No leído"}</span>}
       </button>
       {!drawer && onSnooze && (
         <button
@@ -138,7 +152,7 @@ export function CorreoThreadActions({
           }
         >
           <Star className={`h-4 w-4 ${starred ? "fill-status-warn-fg text-status-warn-fg" : ""}`} />
-          <span>{starred ? "Destacado" : "Destacar"}</span>
+          {showLabel && <span>{starred ? "Destacado" : "Destacar"}</span>}
         </button>
       )}
       {drawer && inSpam !== undefined && (
@@ -153,19 +167,19 @@ export function CorreoThreadActions({
           }
         >
           <ShieldAlert className="h-4 w-4" />
-          <span>{inSpam ? "No es spam" : "Spam"}</span>
+          {showLabel && <span>{inSpam ? "No es spam" : "Spam"}</span>}
         </button>
       )}
       {drawer && onSnooze && (
         <button type="button" className={btn} title="Posponer" onClick={() => onSnooze()}>
           <Clock className="h-4 w-4" />
-          <span>Posponer</span>
+          {showLabel && <span>Posponer</span>}
         </button>
       )}
-      {drawer && onReply && (
+      {drawer && onReply && !compact && (
         <button type="button" className={btn} title="Responder" onClick={() => onReply()}>
           <Reply className="h-4 w-4" />
-          <span>Responder</span>
+          {showLabel && <span>Responder</span>}
         </button>
       )}
     </div>

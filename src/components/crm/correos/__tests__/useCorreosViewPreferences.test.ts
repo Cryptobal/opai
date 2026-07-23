@@ -93,4 +93,34 @@ describe("clampCorreoPanelWidth", () => {
       parseCorreosViewPreferences(JSON.stringify({ railCollapsed: "sí" })),
     ).toEqual({});
   });
+
+  it("mergea atajos guardados sobre los defaults y descarta teclas inválidas", () => {
+    const result = parseCorreosViewPreferences(
+      JSON.stringify({ shortcuts: { archive: "a", trash: 5, desconocida: "z" } }),
+    );
+    // 'archive' se sobreescribe; 'trash' inválido (number) conserva default '#';
+    // clave desconocida se ignora; el resto queda en default.
+    expect(result.shortcuts?.archive).toBe("a");
+    expect(result.shortcuts?.trash).toBe("#");
+    expect(result.shortcuts?.reply).toBe("r");
+    expect((result.shortcuts as Record<string, unknown>)?.desconocida).toBeUndefined();
+  });
+
+  it("sin atajos válidos no agrega la clave shortcuts", () => {
+    expect(
+      parseCorreosViewPreferences(JSON.stringify({ shortcuts: { nada: "x" } })).shortcuts,
+    ).toBeUndefined();
+    expect(
+      parseCorreosViewPreferences(JSON.stringify({ shortcuts: "abc" })).shortcuts,
+    ).toBeUndefined();
+  });
+
+  it("acepta alwaysShowImages booleano", () => {
+    expect(
+      parseCorreosViewPreferences(JSON.stringify({ alwaysShowImages: true })),
+    ).toEqual({ alwaysShowImages: true });
+    expect(
+      parseCorreosViewPreferences(JSON.stringify({ alwaysShowImages: 1 })),
+    ).toEqual({});
+  });
 });

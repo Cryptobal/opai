@@ -2,8 +2,8 @@
 
 import { useRef, type ReactNode } from "react";
 import {
-  AlignJustify, CalendarClock, Clock, Inbox, Mail, Pencil, RefreshCw, Send,
-  Settings, ShieldAlert, Star, Trash2, Wifi, WifiOff, X,
+  AlignJustify, CalendarClock, Clock, Inbox, Keyboard, Mail, Pencil, RefreshCw,
+  Send, Settings, ShieldAlert, Star, Trash2, Wifi, WifiOff, X,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -46,6 +46,8 @@ type Props = {
   lastSyncAt: string | null;
   /** Abre el sheet de configuración de gestos (Bloque 6). */
   onOpenSwipeSettings?: () => void;
+  /** Abre el sheet de atajos de teclado configurables. */
+  onOpenShortcuts?: () => void;
 };
 
 function Item({ active, onClick, children }: { active?: boolean; onClick: () => void; children: ReactNode }) {
@@ -70,7 +72,7 @@ function SectionTitle({ children }: { children: ReactNode }) {
 export function CorreosMobileDrawer({
   open, onClose, folder, onFolder, chip, onChip, vertical, onVertical, counts,
   previewLines, onPreviewLines, onSync, syncing, realtimeStatus, lastSyncAt,
-  onOpenSwipeSettings,
+  onOpenSwipeSettings, onOpenShortcuts,
 }: Props) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   useCloseOnBack(open, onClose);
@@ -134,13 +136,21 @@ export function CorreosMobileDrawer({
             </Item>
           ))}
 
-          {onOpenSwipeSettings && (
+          {(onOpenSwipeSettings || onOpenShortcuts) && (
             <>
               <SectionTitle>Configuración</SectionTitle>
-              <Item onClick={pick(onOpenSwipeSettings)}>
-                <Settings className="h-4 w-4 shrink-0" />
-                <span className="min-w-0 flex-1 truncate">Gestos de deslizar</span>
-              </Item>
+              {onOpenSwipeSettings && (
+                <Item onClick={pick(onOpenSwipeSettings)}>
+                  <Settings className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">Gestos de deslizar</span>
+                </Item>
+              )}
+              {onOpenShortcuts && (
+                <Item onClick={pick(onOpenShortcuts)}>
+                  <Keyboard className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">Atajos de teclado</span>
+                </Item>
+              )}
             </>
           )}
         </nav>

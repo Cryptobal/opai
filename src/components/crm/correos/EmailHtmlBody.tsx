@@ -11,6 +11,10 @@ import styles from "./email-html-body.module.css";
 type Props = {
   htmlBody: string | null;
   textBody: string | null;
+  /** Estado inicial de mostrar imágenes (preferencia "mostrar siempre"). */
+  defaultShowImages?: boolean;
+  /** Persiste "mostrar siempre las imágenes" (firmas/logos). */
+  onAlwaysShowImages?: () => void;
 };
 
 /**
@@ -29,29 +33,41 @@ function iframeSandboxEnabled(): boolean {
  * del correo es siempre claro (igual que antes del sandbox), también en dark
  * mode de la app.
  */
-export function buildEmailSrcDoc(safeHtml: string): string {
+export function buildEmailSrcDoc(safeHtml: string, night = false): string {
+  // Claro por defecto (fidelidad: los correos y sus firmas asumen fondo
+  // blanco). `night` invierte a un fondo oscuro suave para quien lo prefiera.
+  const bg = night ? "hsl(220 18% 10%)" : "hsl(0 0% 100%)";
+  const fg = night ? "hsl(220 14% 84%)" : "hsl(220 15% 18%)";
+  const border = night ? "hsl(220 12% 26%)" : "hsl(220 10% 85%)";
+  const quote = night ? "hsl(220 10% 60%)" : "hsl(220 10% 40%)";
   return `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>
-:root{color-scheme:light}
+:root{color-scheme:${night ? "dark" : "light"}}
 html,body{margin:0;padding:0}
 body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  font-size:13px;line-height:1.55;color:hsl(220 15% 18%);background:hsl(0 0% 100%);
+  font-size:13px;line-height:1.55;color:${fg};background:${bg};
   word-break:break-word;overflow-x:auto;padding:2px}
-a{color:hsl(174 72% 32%);text-decoration:underline;text-underline-offset:2px}
+a{color:hsl(174 72% ${night ? "55%" : "32%"});text-decoration:underline;text-underline-offset:2px}
 img{max-width:100%;height:auto}
 table{display:block;overflow-x:auto;border-collapse:collapse;max-width:100%;margin:.5rem 0}
-td,th{border:1px solid hsl(220 10% 85%);padding:.35rem .5rem;vertical-align:top}
+td,th{border:1px solid ${border};padding:.35rem .5rem;vertical-align:top}
 p,div,li{margin:.35em 0}
-blockquote{margin:.5rem 0;padding-left:.75rem;border-left:3px solid hsl(220 10% 78%);color:hsl(220 10% 40%)}
+blockquote{margin:.5rem 0;padding-left:.75rem;border-left:3px solid ${border};color:${quote}}
 </style></head><body>${safeHtml}</body></html>`;
 }
 
 /** Cuerpo de correo: HTML sanitizado en iframe sandbox; toggle a texto plano;
  * imágenes remotas bloqueadas por defecto con botón "Mostrar imágenes"
  * (estado de sesión por mensaje, sin persistencia). */
-export function EmailHtmlBody({ htmlBody, textBody }: Props) {
+export function EmailHtmlBody({
+  htmlBody,
+  textBody,
+  defaultShowImages = false,
+  onAlwaysShowImages,
+}: Props) {
   const hasHtml = Boolean(htmlBody?.trim());
   const [mode, setMode] = useState<"html" | "text">(hasHtml ? "html" : "text");
-  const [showImages, setShowImages] = useState(false);
+  const [showImages, setShowImages] = useState(defaultShowImages);
+  const [night, setNight] = useState(false);
 
   const safeHtml = useMemo(
     () => (hasHtml ? sanitizeEmailHtml(htmlBody!, { blockRemoteImages: !showImages }) : ""),
@@ -90,14 +106,14 @@ export function EmailHtmlBody({ htmlBody, textBody }: Props) {
   }, [useIframe, mode, safeHtml, measure]);
 
   const srcDoc = useMemo(
-    () => (useIframe && safeHtml ? buildEmailSrcDoc(safeHtml) : ""),
-    [useIframe, safeHtml],
+    () => (useIframe && safeHtml ? buildEmailSrcDoc(safeHtml, night) : ""),
+    [useIframe, safeHtml, night],
   );
 
   return (
     <div className="space-y-1.5">
       {(hasHtml || blockedAvailable) && (
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {hasHtml && (
             <button
               type="button"
@@ -108,12 +124,34 @@ export function EmailHtmlBody({ htmlBody, textBody }: Props) {
             </button>
           )}
           {blockedAvailable && mode === "html" && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowImages((v) => !v)}
+                className="text-[12px] text-primary ds-tap"
+              >
+                {showImages ? "Ocultar imágenes" : "Mostrar imágenes"}
+              </button>
+              {!showImages && onAlwaysShowImages && (
+                <button
+                  type="button"
+                  onClick={() => { onAlwaysShowImages(); setShowImages(true); }}
+                  className="text-[12px] text-ds-text-3 underline underline-offset-2 ds-tap"
+                >
+                  Mostrar siempre
+                </button>
+              )}
+            </>
+          )}
+          {hasHtml && mode === "html" && useIframe && (
             <button
               type="button"
-              onClick={() => setShowImages((v) => !v)}
-              className="text-[12px] text-primary ds-tap"
+              onClick={() => setNight((v) => !v)}
+              aria-pressed={night}
+              title={night ? "Fondo claro" : "Fondo oscuro"}
+              className="ml-auto text-[12px] text-ds-text-3 ds-tap"
             >
-              {showImages ? "Ocultar imágenes" : "Mostrar imágenes"}
+              {night ? "☀️ Claro" : "🌙 Oscuro"}
             </button>
           )}
         </div>

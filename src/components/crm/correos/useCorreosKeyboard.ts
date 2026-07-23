@@ -1,23 +1,20 @@
 "use client";
 
 /**
- * Atajos de teclado de la bandeja (C20, PR-14) — triage completo sin mouse:
- *   j / k   → navegar filas (↓ / ↑)
- *   Enter   → abrir la fila enfocada
- *   x       → seleccionar/deseleccionar la fila enfocada (bulk)
- *   e       → archivar
- *   r       → responder (abre el hilo y salta al composer)
- *   #       → papelera
- *   s       → posponer
- *   u       → alternar leído/no leído
- *   /       → foco en la búsqueda
+ * Atajos de teclado de la bandeja (C20) — triage completo sin mouse, con
+ * teclas CONFIGURABLES (opai.crm.correos.view.v1 → shortcuts). Además de las
+ * teclas configuradas, las flechas ↑/↓ siempre navegan (memoria muscular
+ * universal) y funcionan también con el lector abierto (saltan al hilo
+ * anterior/siguiente sin volver a la lista).
  *
  * No captura nada cuando el foco está en un input/textarea/contenteditable
  * (incluye el command palette y el composer Tiptap) ni con modificadores —
- * así no colisiona con los atajos globales (⌘K etc.).
+ * así no colisiona con los atajos globales (⌘K etc.). Excepción: `?` abre la
+ * ayuda de atajos aunque venga con Shift.
  */
 
 import { useEffect } from "react";
+import type { CorreoShortcuts } from "./useCorreosViewPreferences";
 
 export type CorreoKeyboardHandlers = {
   onDown: () => void;
@@ -27,9 +24,14 @@ export type CorreoKeyboardHandlers = {
   onArchive: () => void;
   onReply: () => void;
   onTrash: () => void;
+  onStar: () => void;
   onSnooze: () => void;
   onToggleRead: () => void;
   onFocusSearch: () => void;
+  /** Abre el overlay de ayuda de atajos (tecla fija `?`). */
+  onHelp: () => void;
+  /** Teclas configuradas por el usuario. */
+  shortcuts: CorreoShortcuts;
   /** false desactiva todo (p.ej. composer abierto). */
   enabled?: boolean;
 };
@@ -50,7 +52,6 @@ export function useCorreosKeyboard(handlers: CorreoKeyboardHandlers): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (handlers.enabled === false) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (isEditableTarget(event.target)) return;
 
       const key = event.key;
@@ -58,16 +59,32 @@ export function useCorreosKeyboard(handlers: CorreoKeyboardHandlers): void {
         event.preventDefault();
         fn();
       };
-      if (key === "j") return run(handlers.onDown);
-      if (key === "k") return run(handlers.onUp);
-      if (key === "Enter") return run(handlers.onOpen);
-      if (key === "x") return run(handlers.onToggleSelect);
-      if (key === "e") return run(handlers.onArchive);
-      if (key === "r") return run(handlers.onReply);
-      if (key === "#") return run(handlers.onTrash);
-      if (key === "s") return run(handlers.onSnooze);
-      if (key === "u") return run(handlers.onToggleRead);
-      if (key === "/") return run(handlers.onFocusSearch);
+
+      // `?` (Shift+/) abre la ayuda — antes del guard de modificadores.
+      if (key === "?") return run(handlers.onHelp);
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      // Flechas: navegación universal (además de las teclas configuradas).
+      if (key === "ArrowDown") return run(handlers.onDown);
+      if (key === "ArrowUp") return run(handlers.onUp);
+
+      const sc = handlers.shortcuts;
+      const map: Array<[string, () => void]> = [
+        [sc.down, handlers.onDown],
+        [sc.up, handlers.onUp],
+        [sc.open, handlers.onOpen],
+        [sc.toggleSelect, handlers.onToggleSelect],
+        [sc.archive, handlers.onArchive],
+        [sc.trash, handlers.onTrash],
+        [sc.reply, handlers.onReply],
+        [sc.star, handlers.onStar],
+        [sc.snooze, handlers.onSnooze],
+        [sc.toggleRead, handlers.onToggleRead],
+        [sc.focusSearch, handlers.onFocusSearch],
+      ];
+      for (const [bound, fn] of map) {
+        if (key === bound) return run(fn);
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

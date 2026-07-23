@@ -29,6 +29,8 @@ type Props = {
   onResizeReset?: () => void;
   desktopMode?: "split" | "overlay";
   manageBackHistory?: boolean;
+  alwaysShowImages?: boolean;
+  onAlwaysShowImages?: () => void;
 };
 
 export function CorreoDrawer({
@@ -44,6 +46,8 @@ export function CorreoDrawer({
   onResizeReset = () => {},
   desktopMode = "overlay",
   manageBackHistory = true,
+  alwaysShowImages,
+  onAlwaysShowImages,
 }: Props) {
   const [detail, setDetail] = useState<CorreoDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -152,6 +156,8 @@ export function CorreoDrawer({
           onClose={onClose}
           onReply={scrollToReply}
           onSnooze={() => setSnoozeOpen(true)}
+          alwaysShowImages={alwaysShowImages}
+          onAlwaysShowImages={onAlwaysShowImages}
         />
       )}
       <CorreoSnoozeSheet
