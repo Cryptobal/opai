@@ -26,6 +26,7 @@ import {
   useBreadcrumbTrailing,
   FxIndicator,
   GlassAmbient,
+  IslandActionProvider,
   ModuleSubNav,
 } from '@/components/opai-ds';
 import { resolveNavContext } from '@/lib/nav/resolve-context';
@@ -135,6 +136,7 @@ function AppShellInner({
   }, [isSidebarOpen]);
   return (
     <BreadcrumbTrailingProvider>
+      <IslandActionProvider>
       <DocumentTitle />
       <PlatformDataAttribute />
       <GlassAmbient />
@@ -323,6 +325,7 @@ function AppShellInner({
       </BottomNavPortal>
       <ChatSidePanel userRole={userRole} />
       <NotificationSidePanel />
+      </IslandActionProvider>
     </BreadcrumbTrailingProvider>
   );
 }
