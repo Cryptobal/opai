@@ -29,6 +29,16 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
       });
     });
 
+    // PWAs de larga vida (iOS standalone hace "resume", no navega): sin esto,
+    // el navegador puede tardar hasta ~24h en re-chequear /sw.js y el banner
+    // "Nueva versión disponible" no aparece tras un deploy. Chequeamos al
+    // volver a foreground y cada 30 min; update() es barato (If-None-Match).
+    const checkForUpdate = () => registration.update().catch(() => {});
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') checkForUpdate();
+    });
+    setInterval(checkForUpdate, 30 * 60_000);
+
     return registration;
   } catch (error) {
     console.error('[SW] Registration failed:', error);

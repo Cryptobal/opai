@@ -1,3 +1,9 @@
+// v8 (2026-07-23): bumped tras la Ola 1 de correo (bloqueo de imágenes,
+// iframe sandbox, typeahead de destinatarios, push de correo nuevo, badge).
+// Fuerza el update del SW en PWAs de larga vida (iOS standalone que solo
+// "resume" y no navega): el usuario ve el banner "Nueva versión disponible"
+// y al actualizar se purga la cache v7 con HTML/chunks previos a la ola.
+//
 // v7 (2026-05-12): bumped para invalidar SW viejo y aplicar el bypass de
 // caching en endpoints de auth/sesión (ver AUTH_BYPASS_PATTERNS abajo).
 // Esto evita que una respuesta cacheada del endpoint de sesión enmascare
@@ -9,7 +15,7 @@
 // ChunkLoadError → global-error.tsx ("Algo salió mal") en el portal del
 // guardia (y resto de portales) sin que refrescar lo arreglara, porque
 // el navigate handler nunca refrescaba la cache (ver fix abajo).
-const CACHE_NAME = 'opai-v7';
+const CACHE_NAME = 'opai-v8';
 
 // Endpoints de autenticación/sesión que NUNCA deben pasar por la cache del
 // SW. Si una respuesta antigua quedara cacheada, el cliente podría ver una
