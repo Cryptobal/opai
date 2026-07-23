@@ -23,6 +23,17 @@ interface Props {
   onCommit: (raw: string, move: "down" | "right" | "none") => void;
   onCancel: () => void;
   onOpenPopover: (anchor: DOMRect) => void;
+  /** Registra esta celda como objetivo del menú contextual del grid. */
+  onContextTarget: () => void;
+  /** Drag de plan (desktop): la celda es arrastrable (capa plan editable con monto). */
+  draggable: boolean;
+  onDragStartCell: () => void;
+  onDragOverCell: (e: React.DragEvent) => void;
+  onDropCell: () => void;
+  onDragEndCell: () => void;
+  isDropTarget: boolean;
+  /** Título (not-allowed) para celdas comprometido/real cuando el drag está activo. */
+  dragBlockedTitle?: string;
 }
 
 function EditInput({ initial, onCommit, onCancel }: {
@@ -114,6 +125,9 @@ export function PlanillaCell(p: Props) {
 
   const longValue = value !== 0 ? numSizeClass(fmtCell(value)) : "";
 
+  const cursorClass = p.draggable ? "cursor-grab" : p.editable ? "cursor-cell" : "cursor-default";
+  const dragBlocked = !!p.dragBlockedTitle;
+
   return (
     <td
       data-rc={p.dataRc}
@@ -121,8 +135,17 @@ export function PlanillaCell(p: Props) {
         CELL_BASE, COL_W, ROW_H, NUM_CLASS, longValue, layerClass, textClass,
         p.isCurrentCol ? TODAY_COL : "",
         p.selected ? SELECTED_CELL : "",
-        p.editable ? "cursor-cell" : "cursor-default",
+        cursorClass,
+        p.isDropTarget ? "outline outline-2 -outline-offset-2 outline-primary/70" : "",
+        dragBlocked ? "[cursor:not-allowed]" : "",
       ].join(" ")}
+      title={p.dragBlockedTitle}
+      draggable={p.draggable}
+      onDragStart={p.draggable ? p.onDragStartCell : undefined}
+      onDragOver={p.onDragOverCell}
+      onDrop={p.onDropCell}
+      onDragEnd={p.onDragEndCell}
+      onContextMenu={p.onContextTarget}
       onClick={(e) => {
         p.onSelect();
         if (cell.committed || cell.real || cell.plan !== 0) {

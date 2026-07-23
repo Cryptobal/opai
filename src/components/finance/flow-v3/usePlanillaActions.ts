@@ -54,6 +54,119 @@ export function usePlanillaActions(refetch: () => void) {
     [run],
   );
 
+  /** Edita sección/categoría (o nombre) de una fila. */
+  const updateRow = useCallback(
+    (rowId: string, body: { name?: string; section?: string; categoryId?: string }) =>
+      run(
+        () =>
+          api(`/api/finance/flow-v3/rows/${rowId}`, {
+            method: "PATCH",
+            body: JSON.stringify(body),
+          }),
+        "Fila actualizada",
+      ),
+    [run],
+  );
+
+  const unarchiveRow = useCallback(
+    (rowId: string) =>
+      run(
+        () => api(`/api/finance/flow-v3/rows/${rowId}/unarchive`, { method: "POST" }),
+        "Fila desarchivada",
+      ),
+    [run],
+  );
+
+  /** Elimina una fila. Devuelve el motivo del 409 sin toast (la UI ofrece
+   *  archivar); toast solo en éxito. */
+  const deleteRow = useCallback(
+    async (rowId: string): Promise<{ ok: true } | { ok: false; reason: string }> => {
+      setBusy(true);
+      try {
+        await api(`/api/finance/flow-v3/rows/${rowId}`, { method: "DELETE" });
+        toast.success("Fila eliminada");
+        refetch();
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : "No se pudo eliminar" };
+      } finally {
+        setBusy(false);
+      }
+    },
+    [refetch],
+  );
+
+  const createRecurring = useCallback(
+    (body: Record<string, unknown>) =>
+      run(
+        () => api("/api/finance/flow-v3/recurring-plan", { method: "POST", body: JSON.stringify(body) }),
+        "Egreso recurrente creado",
+      ),
+    [run],
+  );
+
+  const updateRecurring = useCallback(
+    (id: string, body: Record<string, unknown>) =>
+      run(
+        () =>
+          api(`/api/finance/flow-v3/recurring-plan/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify(body),
+          }),
+        "Egreso recurrente actualizado",
+      ),
+    [run],
+  );
+
+  const deleteRecurring = useCallback(
+    (id: string, keepCells: boolean) =>
+      run(
+        () =>
+          api(`/api/finance/flow-v3/recurring-plan/${id}`, {
+            method: "DELETE",
+            body: JSON.stringify({ keepCells }),
+          }),
+        "Egreso recurrente eliminado",
+      ),
+    [run],
+  );
+
+  /** Cierra la semana v3. Devuelve motivo del 409 (ya cerrada) sin toast. */
+  const closeWeek = useCallback(
+    async (body: {
+      weekEnd: string;
+      closedBalance: number;
+      notes?: string;
+      manualReason?: string;
+    }): Promise<{ ok: true } | { ok: false; reason: string }> => {
+      setBusy(true);
+      try {
+        await api("/api/finance/flow-v3/weekly-close", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+        toast.success("Semana cerrada");
+        refetch();
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : "No se pudo cerrar" };
+      } finally {
+        setBusy(false);
+      }
+    },
+    [refetch],
+  );
+
+  const reopenWeek = useCallback(
+    (weekEnd: string) =>
+      run(
+        () =>
+          api(`/api/finance/flow-v3/weekly-close?weekEnd=${weekEnd}`, { method: "DELETE" }),
+        "Semana reabierta",
+      ),
+    [run],
+  );
+
   const archiveRow = useCallback(
     (rowId: string) =>
       run(
@@ -117,5 +230,9 @@ export function usePlanillaActions(refetch: () => void) {
     [run],
   );
 
-  return { busy, createRow, renameRow, archiveRow, setTemplateEndDate, setTemplateDiasCobro, deactivateTemplate, bulkFill };
+  return {
+    busy, createRow, renameRow, updateRow, unarchiveRow, deleteRow,
+    archiveRow, setTemplateEndDate, setTemplateDiasCobro, deactivateTemplate,
+    createRecurring, updateRecurring, deleteRecurring, closeWeek, reopenWeek, bulkFill,
+  };
 }
