@@ -69,7 +69,10 @@ export function HubSummaryView({
             title={<span id="hub-my-day">Mi día</span>}
             hint="Agenda, correos y compromisos de los próximos días."
           />
-          <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+          {/* grid-cols-1 explícito: sin él, el track implícito `auto` crece
+              al min-content de los textos nowrap (truncate) y las tarjetas
+              se salen de la pantalla en móvil. minmax(0,1fr) lo impide. */}
+          <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
             <AgendaHubCard />
             {hubPerms.hasCrm && <RecentEmailCard />}
           </div>

@@ -47,8 +47,9 @@ export function HubCommercialView({
       />
 
       {/* Móvil: apila Agenda (lista vertical) y luego Radar resumido.
-          Desktop: columnas Agenda + Radar como antes. */}
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.85fr)]">
+          Desktop: columnas Agenda + Radar como antes. grid-cols-1 base evita
+          que el track auto crezca al min-content y desborde la pantalla. */}
+      <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.85fr)]">
         <AgendaHubCard />
         <RadarComercialCard />
       </div>
