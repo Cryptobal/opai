@@ -702,7 +702,14 @@ export const NAV_MODULES: NavNode[] = [
   // ═════════════════════════════════════════════════════════
   {
     key: "personas",
-    href: "/personas/guardias",
+    // href = raíz del módulo (no el submódulo Listado). `/personas` redirige a
+    // `/personas/guardias` (ver personas/page.tsx), pero el href DEBE ser la
+    // raíz para que el matcher por prefijo (`pathMatchesNode`) resuelva el
+    // módulo en TODOS los submódulos (`/personas/conocimiento`, `/onboarding`,
+    // …) y no solo en Listado. Con el href apuntando a `/personas/guardias`,
+    // findActiveModule/buildTrail fallaban fuera de Listado y la barra
+    // superior / breadcrumbs / isla móvil quedaban sin resolver.
+    href: "/personas",
     label: "Personas",
     icon: User,
     // Personas comparte el módulo "ops" en el modelo de permisos
