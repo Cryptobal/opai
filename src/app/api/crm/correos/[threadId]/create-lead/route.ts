@@ -1,7 +1,8 @@
 /** POST /api/crm/correos/[threadId]/create-lead — crea el lead (propuesta editada). */
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { hasCapability } from "@/lib/permissions";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { createLeadFromExtraction } from "@/modules/crm/email/email-to-lead-create.service";
@@ -18,6 +19,12 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!authCtx) return unauthorized();
   const forbidden = await requireCrmEdit(authCtx);
   if (forbidden) return forbidden;
+
+  // "Crear lead" es una acción del Radar Comercial: exige radar_comercial.
+  const perms = await resolveApiPerms(authCtx);
+  if (!hasCapability(perms, "radar_comercial")) {
+    return NextResponse.json({ error: "Sin permiso de Radar Comercial" }, { status: 403 });
+  }
 
   const account = await prisma.crmEmailAccount.findFirst({
     where: { tenantId: authCtx.tenantId, userId: authCtx.userId, provider: "gmail", status: "active" },

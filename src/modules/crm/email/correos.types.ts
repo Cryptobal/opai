@@ -22,6 +22,9 @@ export type CorreoThreadDTO = {
   hasDraft: boolean;
   /** A03: vertical de la clasificación v5 (operaciones|rrhh|comercial|…). */
   aiVertical: string | null;
+  /** F2: badge de radar por vertical (null si el solicitante no tiene la
+   *  capability). Calculado en servidor. */
+  radarBadge: import("./radar-types").RadarBadge | null;
 };
 
 export type CorreoMessageDTO = {

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import type { RadarClassification } from "./radar-types";
+import type { RadarClassification, RadarVertical, RadarKind } from "./radar-types";
 import { shortHash } from "./radar-util";
 
 export type CreatedRadarItem = { id: string; kind: string };
@@ -74,6 +74,33 @@ export async function upsertRadarItem(params: {
  * `nuevo_lead` (con borrador) · `senal_compra` · `compromiso` (dueAt).
  * Los items `compromiso` los procesa el cron de B7 (vencimiento/follow-up).
  */
+/**
+ * Item no comercial por vertical (F2). Regla de disparo derivada de la
+ * clasificación ya existente (vertical + urgencia + sentimiento) — SIN nuevas
+ * llamadas a IA. Devuelve null si la vertical no aplica o no dispara.
+ */
+function verticalItemSpec(
+  c: RadarClassification,
+): { kind: RadarKind; title: string } | null {
+  const v = c.vertical;
+  if (v === "operaciones" || v === "incidentes") {
+    if (c.sentimiento === "negativo") return { kind: "reclamo_cliente", title: "Reclamo de cliente" };
+    if (c.urgencia === "alta" || c.urgencia === "media") return { kind: "solicitud_operativa", title: "Solicitud operativa" };
+    return null;
+  }
+  if (v === "rrhh") {
+    return { kind: "solicitud_laboral", title: "Solicitud laboral / RRHH" };
+  }
+  if (v === "cobranza") {
+    return { kind: "cobranza", title: "Cobranza" };
+  }
+  if (v === "finanzas") {
+    if (c.sentimiento === "negativo") return { kind: "disputa_factura", title: "Disputa de factura" };
+    return null;
+  }
+  return null;
+}
+
 export async function generateThreadRadarItems(params: {
   tenantId: string;
   userId: string;
@@ -84,9 +111,51 @@ export async function generateThreadRadarItems(params: {
   accountId: string | null;
   classification: RadarClassification;
   draftReply: string | null;
+  /** Verticales habilitadas en el tenant. Si se omite, sólo comercial (default
+   *  conservador — preserva el comportamiento previo a F2). */
+  enabledVerticals?: Set<string>;
 }): Promise<CreatedRadarItem[]> {
   const c = params.classification;
   const created: CreatedRadarItem[] = [];
+  const enabled = params.enabledVerticals ?? new Set(["comercial"]);
+
+  // ── Verticales no comerciales (F2) ──
+  const effectiveVertical: RadarVertical = c.vertical;
+  // Flag de tenant que gobierna cada vertical (cobranza↦finanzas, incidentes↦operaciones).
+  const enableKey =
+    effectiveVertical === "operaciones" || effectiveVertical === "incidentes"
+      ? "operaciones"
+      : effectiveVertical === "rrhh"
+        ? "rrhh"
+        : effectiveVertical === "finanzas" || effectiveVertical === "cobranza"
+          ? "finanzas"
+          : null; // comercial, contratos, otro → sin item de vertical
+  if (enableKey && enabled.has(enableKey)) {
+    const spec = verticalItemSpec(c);
+    if (spec) {
+      const r = await upsertRadarItem({
+        tenantId: params.tenantId,
+        userId: params.userId,
+        kind: spec.kind,
+        title: `${spec.title} — ${params.fromEmail}`,
+        summary: c.resumen,
+        threadId: params.threadId,
+        accountId: params.accountId,
+        // dedupeKey por vertical: no colisiona con los items comerciales.
+        dedupeKey: `thread:${params.threadId}:${effectiveVertical}:${spec.kind}`,
+        payload: {
+          vertical: effectiveVertical,
+          urgencia: c.urgencia,
+          sentimiento: c.sentimiento,
+          remitente: params.fromEmail,
+        },
+      });
+      if (r) created.push(r);
+    }
+  }
+
+  // ── Comercial (comportamiento original, sin cambios de condición) ──
+  if (!enabled.has("comercial")) return created;
 
   if (isNewLeadCandidate(c, params.leadId, params.dealId)) {
     const r = await upsertRadarItem({

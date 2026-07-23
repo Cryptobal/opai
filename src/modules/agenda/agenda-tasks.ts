@@ -63,7 +63,7 @@ export async function listAgendaTasks(
           : null;
     // Fuente de verdad multi-responsable = task_assignees; fallback al
     // assignedTo denormalizado si aún no hay filas (tareas pre-migración).
-    const assigneeIds = t.assignees.length
+    const assigneeIds = t.assignees?.length
       ? t.assignees.map((a) => a.userId)
       : t.assignedTo
         ? [t.assignedTo]
