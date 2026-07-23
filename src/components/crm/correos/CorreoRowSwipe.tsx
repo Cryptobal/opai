@@ -21,6 +21,9 @@ type Props = {
   /** Abre el sheet de posponer (Bloque 3). */
   onSnooze?: () => void;
   selected?: boolean;
+  focused?: boolean;
+  checked?: boolean;
+  onToggleCheck?: () => void;
   previewLines?: CorreoPreviewLines;
 };
 
@@ -37,6 +40,9 @@ export function CorreoRowSwipe({
   onRemove,
   onSnooze,
   selected,
+  focused,
+  checked,
+  onToggleCheck,
   previewLines,
 }: Props) {
   const [coarse, setCoarse] = useState(false);
@@ -57,6 +63,9 @@ export function CorreoRowSwipe({
         onOpen={onOpen}
         onChanged={onChanged}
         selected={selected}
+        focused={focused}
+        checked={checked}
+        onToggleCheck={onToggleCheck}
         previewLines={previewLines}
       />
     );
@@ -121,6 +130,9 @@ export function CorreoRowSwipe({
           onChanged={onChanged}
           trailing={menu}
           selected={selected}
+          focused={focused}
+          checked={checked}
+          onToggleCheck={onToggleCheck}
           previewLines={previewLines}
         />
       </div>

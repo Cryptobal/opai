@@ -43,6 +43,9 @@ export function CorreoRow({
   onChanged,
   trailing,
   selected = false,
+  focused = false,
+  checked,
+  onToggleCheck,
   previewLines = 2,
 }: {
   thread: CorreoThreadDTO;
@@ -50,6 +53,11 @@ export function CorreoRow({
   canModify: boolean;
   onChanged?: () => void;
   selected?: boolean;
+  /** Fila enfocada por navegación j/k (C20). */
+  focused?: boolean;
+  /** Multi-select (C12): estado del checkbox; undefined = sin checkbox. */
+  checked?: boolean;
+  onToggleCheck?: () => void;
   previewLines?: CorreoPreviewLines;
   /** Slot final (kebab móvil). Si viene, reemplaza a las acciones hover. */
   trailing?: ReactNode;
@@ -59,10 +67,25 @@ export function CorreoRow({
 
   return (
     <div
+      data-correo-row={thread.id}
       className={`group relative flex w-full items-stretch border-b border-ds-border-subtle last:border-0 ${
         selected ? "border-l-2 border-l-primary bg-primary/5" : ""
-      }`}
+      } ${focused ? "ring-2 ring-inset ring-primary/60" : ""}`}
     >
+      {onToggleCheck && (
+        <label
+          className="flex shrink-0 cursor-pointer items-start px-2 pt-4 ds-tap"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <input
+            type="checkbox"
+            checked={Boolean(checked)}
+            onChange={onToggleCheck}
+            aria-label={`Seleccionar ${subject}`}
+            className="h-4 w-4 accent-[hsl(var(--primary))]"
+          />
+        </label>
+      )}
       <button
         type="button"
         onClick={onOpen}

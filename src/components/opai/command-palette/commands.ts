@@ -37,6 +37,7 @@ import {
   KeyRound,
   FolderOpen,
   PenLine,
+  Mail,
   FolderTree,
   Layers,
   MessageCircle,
@@ -1390,6 +1391,26 @@ const navigationCommands: CommandItem[] = [
 
 const actionCommands: CommandItem[] = [
   {
+    id: 'action-redactar-correo',
+    label: 'Redactar correo',
+    description: 'Componer un correo nuevo desde la bandeja',
+    category: 'action',
+    icon: PenLine,
+    href: '/crm/correos?compose=1',
+    keywords: ['correo nuevo', 'redactar', 'email', 'componer', 'gmail'],
+    canShow: (role) => hasAppAccess(role, 'crm'),
+  },
+  {
+    id: 'action-buscar-correos',
+    label: 'Buscar en correos',
+    description: 'Búsqueda en toda la casilla (from:, to:, has:attachment…)',
+    category: 'action',
+    icon: Mail,
+    href: '/crm/correos',
+    keywords: ['buscar correo', 'email', 'bandeja', 'inbox', 'gmail'],
+    canShow: (role) => hasAppAccess(role, 'crm'),
+  },
+  {
     id: 'action-turno-extra',
     label: 'Crear turno extra',
     description: 'Programar un turno extraordinario',
@@ -1825,6 +1846,7 @@ export const ICON_MAP: Record<string, LucideIcon> = {
   KeyRound,
   FolderOpen,
   PenLine,
+  Mail,
   FolderTree,
   Layers,
   MessageCircle,
