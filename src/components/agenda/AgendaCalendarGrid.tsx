@@ -206,7 +206,7 @@ export function AgendaCalendarGrid({
         ref={scrollRef}
         elevation={1}
         padding="none"
-        className="max-h-[70vh] overflow-auto shadow-none"
+        className="h-full max-h-full overflow-auto shadow-none"
       >
         <div>
           <div

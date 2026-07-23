@@ -31,6 +31,22 @@ export function addDaysChile(utcDate: Date, days: number): Date {
   return fromZonedTime(local, CHILE_TZ);
 }
 
+/**
+ * Número de semana ISO-8601 (1-53) del día calendario en Chile.
+ * Calcula sobre el ymd chileno para que un instante UTC cerca de medianoche
+ * no salte de semana respecto a lo que ve el usuario.
+ */
+export function isoWeekChile(date: Date): number {
+  const [y, m, d] = ymdInChile(date).split("-").map(Number);
+  const target = new Date(Date.UTC(y, m - 1, d));
+  const dayNum = (target.getUTCDay() + 6) % 7; // 0 = lunes
+  target.setUTCDate(target.getUTCDate() - dayNum + 3); // jueves de esa semana
+  const firstThursday = new Date(Date.UTC(target.getUTCFullYear(), 0, 4));
+  const firstDayNum = (firstThursday.getUTCDay() + 6) % 7;
+  firstThursday.setUTCDate(firstThursday.getUTCDate() - firstDayNum + 3);
+  return 1 + Math.round((target.getTime() - firstThursday.getTime()) / (7 * 86_400_000));
+}
+
 /** Medianoche UTC del YYYY-MM-DD (para comparar columnas @db.Date). */
 export function utcDateFromYmd(ymd: string): Date {
   return new Date(`${ymd.slice(0, 10)}T00:00:00.000Z`);
