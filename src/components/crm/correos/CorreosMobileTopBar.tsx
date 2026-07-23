@@ -43,14 +43,16 @@ export function CorreosMobileTopBar({
   const live = realtimeStatus === "live";
 
   return (
-    <div className="sticky top-[env(safe-area-inset-top,0px)] z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 lg:hidden">
+    <div className="pointer-events-none sticky top-[env(safe-area-inset-top,0px)] z-20 lg:hidden">
       {/* Tapa la franja del notch cuando la barra queda pegada arriba. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 bottom-full h-[env(safe-area-inset-top,0px)] bg-background"
       />
-      <div className="flex items-center px-3 pb-1.5 pt-2">
-        <div className="flex h-12 min-w-0 flex-1 items-center rounded-full bg-ds-surface-2 pl-1 pr-1.5 shadow-ds-xs">
+      {/* Isla flotante Liquid Glass (misma familia que la isla del AppShell):
+          la lista se desliza por debajo, nada de barras cuadradas. */}
+      <div className="px-3 pt-2">
+        <div className="pointer-events-auto opai-glass-strong flex min-h-12 min-w-0 items-center rounded-[22px] pl-1 pr-1.5">
           <button
             type="button"
             onClick={onOpenNav}
@@ -62,7 +64,7 @@ export function CorreosMobileTopBar({
           <Search aria-hidden className="mx-1 h-4 w-4 shrink-0 text-ds-text-4" />
           <input
             id="correos-search-input-mobile"
-            className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-ds-text-1 outline-none placeholder:text-ds-text-4"
+            className="h-11 min-w-0 flex-1 appearance-none border-0 bg-transparent text-[15px] text-ds-text-1 shadow-none outline-none ring-0 placeholder:text-ds-text-4 focus:ring-0"
             placeholder="Buscar en el correo"
             value={query}
             onChange={(e) => onQuery(e.target.value)}
@@ -82,7 +84,7 @@ export function CorreosMobileTopBar({
           </button>
         </div>
       </div>
-      <div className="flex items-center gap-1.5 px-4 pb-2 text-[12px] text-ds-text-3">
+      <div className="pointer-events-auto mx-3 mb-1 mt-1.5 inline-flex max-w-[calc(100%-1.5rem)] items-center gap-1.5 rounded-full opai-glass-pill px-3 py-1 text-[12px] text-ds-text-3">
         <span className="truncate font-medium text-ds-text-2">{folderLabel}</span>
         {folder === "inbox" && inboxUnread > 0 && (
           <>

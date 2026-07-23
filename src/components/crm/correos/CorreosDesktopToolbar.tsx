@@ -5,6 +5,7 @@ import {
   Search, ShieldAlert, Sparkles, Star, Trash2, X,
 } from "lucide-react";
 import type { CorreoAction } from "@/modules/crm/email/gmail-thread-actions";
+import { CorreoCheckbox } from "./CorreoCheckbox";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
 
 type Props = {
@@ -86,13 +87,11 @@ export function CorreosDesktopToolbar({
 
   return (
     <div className="sticky top-14 z-10 hidden h-12 items-center gap-2 rounded-xl border border-ds-border-default bg-background/95 px-3 backdrop-blur lg:flex">
-      <input
-        type="checkbox"
+      <CorreoCheckbox
         checked={allChecked}
         onChange={onToggleAll}
         disabled={!canModify}
-        aria-label="Seleccionar todo lo visible"
-        className="h-4 w-4 cursor-pointer accent-[hsl(var(--primary))] disabled:cursor-default"
+        ariaLabel="Seleccionar todo lo visible"
       />
       <button type="button" title="Actualizar" onClick={onRefresh} className={BTN}>
         <RefreshCw className="h-4 w-4" />

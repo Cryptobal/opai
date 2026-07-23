@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireTenantModule } from "@/lib/require-module";
 import { listCorreoThreads, type CorreoListFilter } from "@/modules/crm/email/correos-list";
 import { countCorreoFolders } from "@/modules/crm/email/correos-folder-counts";
-import { isGmailSyncParked } from "@/modules/crm/email/gmail-sync-queue";
+import { getGmailSyncParkedInfo } from "@/modules/crm/email/gmail-sync-queue";
 import { gmailMailboxChannel } from "@/modules/crm/email/gmail-realtime";
 
 function parseFolder(raw: string | null): CorreoListFilter {
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
   // cliente los pide (carga inicial, cambio de carpeta, invalidación realtime).
   // Load-more y tipeo de búsqueda ya no pagan los counts.
   const wantCounts = req.nextUrl.searchParams.get("counts") === "1";
-  const [{ items, nextCursor }, counts, syncParked] = await Promise.all([
+  const [{ items, nextCursor }, counts, syncParkedInfo] = await Promise.all([
     listCorreoThreads({
       tenantId: session.user.tenantId,
       emailAccountId: account.id,
@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
           emailAccountId: account.id,
         })
       : null,
-    isGmailSyncParked(account.id),
+    getGmailSyncParkedInfo(account.id),
   ]);
 
   const syncRaw =
@@ -108,6 +108,7 @@ export async function GET(req: NextRequest) {
     backfillDone: Boolean(syncRaw.backfillDone),
     totalThreads: counts ? counts.all + counts.trash : null,
     lastSyncAt: syncRaw.lastSyncAt ?? null,
-    syncParked,
+    syncParked: syncParkedInfo.parked,
+    syncParkedReason: syncParkedInfo.reason,
   });
 }

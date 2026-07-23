@@ -66,6 +66,7 @@ export function CorreosClient() {
   const [backfillDone, setBackfillDone] = useState<boolean | null>(null);
   const [totalThreads, setTotalThreads] = useState(0);
   const [syncParked, setSyncParked] = useState(false);
+  const [syncParkedReason, setSyncParkedReason] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [folder, setFolder] = useState<CorreoFolderTab>("inbox");
@@ -170,6 +171,11 @@ export function CorreosClient() {
       setLastSyncAt(typeof r.lastSyncAt === "string" ? r.lastSyncAt : null);
       if (r.totalThreads != null) setTotalThreads(Number(r.totalThreads) || 0);
       setSyncParked(r.syncParked === true);
+      setSyncParkedReason(
+        typeof (r as { syncParkedReason?: unknown }).syncParkedReason === "string"
+          ? ((r as { syncParkedReason?: string }).syncParkedReason ?? null)
+          : null,
+      );
       setItems((prev) => (reset ? r.items ?? [] : [...prev, ...(r.items ?? [])]));
       setCursor(r.nextCursor ?? null);
       // C22b: snapshot de los últimos 50 hilos del inbox para modo offline.
@@ -518,7 +524,8 @@ export function CorreosClient() {
           Los banners de estado quedan como franjas delgadas arriba. */}
       <div className="space-y-5 max-lg:px-4 lg:space-y-3">
         <CorreosSyncBanner backfillDone={backfillDone} totalThreads={totalThreads}
-          syncParked={syncParked} onConnected={() => void fetchPage(null, true)} />
+          syncParked={syncParked} syncParkedReason={syncParkedReason}
+          onConnected={() => void fetchPage(null, true)} />
 
         {offlineSince && (
           <div className="rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">
