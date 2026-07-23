@@ -80,6 +80,8 @@ export async function deleteStagedEmailFilesOlderThanPrefix(opts: {
   prefix: string;
   before: Date;
   limit?: number;
+  /** Keys a preservar (ej. adjuntos de envíos programados pendientes en el outbox). */
+  excludeKeys?: Set<string>;
 }): Promise<number> {
   const client = getR2Client();
   const bucket = getBucket();
@@ -95,7 +97,8 @@ export async function deleteStagedEmailFilesOlderThanPrefix(opts: {
       (object) =>
         object.Key &&
         object.LastModified &&
-        object.LastModified.getTime() < opts.before.getTime(),
+        object.LastModified.getTime() < opts.before.getTime() &&
+        !opts.excludeKeys?.has(object.Key),
     )
     .map((object) => ({ Key: object.Key! }));
   if (keys.length === 0) return 0;

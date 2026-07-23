@@ -8,6 +8,7 @@ export function flagsFromLabelIds(labelIds: string[] | null | undefined) {
     inSpam: labels.includes("SPAM"),
     inTrash: labels.includes("TRASH"),
     isUnread: labels.includes("UNREAD"),
+    isStarred: labels.includes("STARRED"),
   };
 }
 
@@ -48,12 +49,23 @@ export async function applyThreadLabelFlags(params: {
   };
   const current = await prisma.crmEmailThread.findFirst({
     where,
-    select: { archivedAt: true, trashedAt: true, spamAt: true, isUnread: true },
+    select: {
+      archivedAt: true,
+      trashedAt: true,
+      spamAt: true,
+      isUnread: true,
+      starredAt: true,
+    },
   });
   if (!current) return;
 
   const next = deriveThreadState(flags, current);
-  const data: Partial<ThreadStateFields & { isUnread: boolean }> = {};
+  const data: Partial<
+    ThreadStateFields & { isUnread: boolean; starredAt: Date | null }
+  > = {};
+  // Espejo STARRED (C11): setea/limpia sin pisar el timestamp existente.
+  if (flags.isStarred && !current.starredAt) data.starredAt = new Date();
+  if (!flags.isStarred && current.starredAt) data.starredAt = null;
   if ((next.archivedAt?.getTime() ?? null) !== (current.archivedAt?.getTime() ?? null)) {
     data.archivedAt = next.archivedAt;
   }

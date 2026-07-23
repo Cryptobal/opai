@@ -6,6 +6,14 @@ export type GmailOutboundAttachment = {
   content: Buffer;
 };
 
+/** Imagen inline referenciada desde el HTML vía `src="cid:<contentId>"` (P06). */
+export type GmailInlineImage = {
+  contentId: string;
+  mimeType: string;
+  content: Buffer;
+  fileName?: string;
+};
+
 export type GmailRawMessageInput = {
   from: string;
   to: string[];
@@ -17,6 +25,7 @@ export type GmailRawMessageInput = {
   inReplyTo?: string;
   references?: string;
   attachments?: GmailOutboundAttachment[];
+  inlineImages?: GmailInlineImage[];
 };
 
 function safeHeader(value: string): string {
@@ -87,6 +96,45 @@ function bodyEntity(input: GmailRawMessageInput): {
   };
 }
 
+/** Content-ID seguro para header: sin CRLF ni <> (se agregan al emitir). */
+function safeContentId(contentId: string): string {
+  return safeHeader(contentId).replace(/[<>"\s]/g, "");
+}
+
+/**
+ * Envuelve la entidad del cuerpo en multipart/related con las imágenes inline
+ * (Content-ID + Content-Disposition: inline), para HTML con `src="cid:..."`.
+ */
+function relatedEntity(
+  entity: { headers: string[]; body: string },
+  inlineImages: GmailInlineImage[],
+): { headers: string[]; body: string } {
+  const boundary = `opai_rel_${randomUUID()}`;
+  const parts = [`--${boundary}`, ...entity.headers, "", entity.body];
+  for (const image of inlineImages) {
+    const cid = safeContentId(image.contentId);
+    const mimeType = safeHeader(image.mimeType || "application/octet-stream");
+    parts.push(
+      `--${boundary}`,
+      `Content-Type: ${mimeType}`,
+      `Content-ID: <${cid}>`,
+      `Content-Disposition: inline${
+        image.fileName
+          ? `; filename="${safeHeader(image.fileName).replace(/[\\/\x00-\x1f\x7f"]/g, "_").replace(/[^\x20-\x7e]/g, "_").slice(0, 200)}"`
+          : ""
+      }`,
+      "Content-Transfer-Encoding: base64",
+      "",
+      wrapBase64(image.content),
+    );
+  }
+  parts.push(`--${boundary}--`);
+  return {
+    headers: [`Content-Type: multipart/related; boundary="${boundary}"`],
+    body: parts.join("\r\n"),
+  };
+}
+
 function attachmentDisposition(fileName: string): string {
   const clean = safeHeader(fileName)
     .replace(/[\\/\x00-\x1f\x7f"]/g, "_")
@@ -105,7 +153,12 @@ function attachmentDisposition(fileName: string): string {
  * requerido por `gmail.users.messages.send`.
  */
 export function buildGmailRawMessage(input: GmailRawMessageInput): string {
-  const entity = bodyEntity(input);
+  let entity = bodyEntity(input);
+  // Imágenes inline (P06): alternative va DENTRO de related, y related dentro
+  // de mixed si además hay adjuntos — jerarquía estándar de clientes de correo.
+  if (input.inlineImages?.length) {
+    entity = relatedEntity(entity, input.inlineImages);
+  }
   const attachments = input.attachments ?? [];
   let entityHeaders = entity.headers;
   let body = entity.body;

@@ -10,7 +10,11 @@ export type CorreoAction =
   | "markRead"
   | "markUnread"
   | "snooze"
-  | "unsnooze";
+  | "unsnooze"
+  | "star"
+  | "unstar"
+  | "spam"
+  | "unspam";
 
 /**
  * Ejecuta una acción de bandeja contra Gmail y SOLO entonces persiste local.
@@ -106,6 +110,54 @@ export async function runCorreoThreadAction(params: {
       await prisma.crmEmailThread.update({
         where: { id: thread.id },
         data: { snoozedUntil: null },
+      });
+      return { ok: true };
+    }
+    if (params.action === "star") {
+      await gmail.users.threads.modify({
+        userId: "me",
+        id: tid,
+        requestBody: { addLabelIds: ["STARRED"] },
+      });
+      await prisma.crmEmailThread.update({
+        where: { id: thread.id },
+        data: { starredAt: new Date() },
+      });
+      return { ok: true };
+    }
+    if (params.action === "unstar") {
+      await gmail.users.threads.modify({
+        userId: "me",
+        id: tid,
+        requestBody: { removeLabelIds: ["STARRED"] },
+      });
+      await prisma.crmEmailThread.update({
+        where: { id: thread.id },
+        data: { starredAt: null },
+      });
+      return { ok: true };
+    }
+    if (params.action === "spam") {
+      await gmail.users.threads.modify({
+        userId: "me",
+        id: tid,
+        requestBody: { addLabelIds: ["SPAM"], removeLabelIds: ["INBOX"] },
+      });
+      await prisma.crmEmailThread.update({
+        where: { id: thread.id },
+        data: { spamAt: new Date(), archivedAt: null, trashedAt: null },
+      });
+      return { ok: true };
+    }
+    if (params.action === "unspam") {
+      await gmail.users.threads.modify({
+        userId: "me",
+        id: tid,
+        requestBody: { removeLabelIds: ["SPAM"], addLabelIds: ["INBOX"] },
+      });
+      await prisma.crmEmailThread.update({
+        where: { id: thread.id },
+        data: { spamAt: null, archivedAt: null },
       });
       return { ok: true };
     }

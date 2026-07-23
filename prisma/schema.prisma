@@ -2636,6 +2636,9 @@ model CrmEmailAccount {
   syncState             Json?     @map("sync_state")
   /// Scopes OAuth concedidos (espacio-separados), p.ej. para detectar gmail.modify.
   grantedScopes         String?   @map("granted_scopes") @db.Text
+  /// Cache de users.settings.sendAs (aliases de envío): [{ email, displayName,
+  /// isDefault, verificationStatus }]. Se refresca al conectar y bajo demanda.
+  sendAs                Json?     @map("send_as")
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -2723,6 +2726,36 @@ model CrmEmailSyncDeadLetter {
   @@schema("crm")
 }
 
+/// Outbox de envío Gmail (PR-12, §7): idempotencia por `idempotencyKey`
+/// (unique — reintentos con la misma key = 1 solo correo), ventana de
+/// deshacer (`undoUntil`) y envío programado (`scheduledAt`). El despachador
+/// (after() del enqueue + cron por minuto) envía lo vencido. `payload` guarda
+/// los inputs MIME ya validados y normalizados.
+model CrmEmailOutbox {
+  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId          String    @map("tenant_id")
+  userId            String    @map("user_id")
+  emailAccountId    String    @map("email_account_id") @db.Uuid
+  idempotencyKey    String    @unique(map: "uq_crm_email_outbox_idempotency") @map("idempotency_key")
+  status            String    @default("queued") // queued | held | sending | sent | failed | cancelled
+  scheduledAt       DateTime? @map("scheduled_at") @db.Timestamptz(6)
+  undoUntil         DateTime? @map("undo_until") @db.Timestamptz(6)
+  payload           Json
+  providerMessageId String?   @map("provider_message_id")
+  messageId         String?   @map("message_id") @db.Uuid
+  attempts          Int       @default(0)
+  nextAttemptAt     DateTime? @map("next_attempt_at") @db.Timestamptz(6)
+  lastError         String?   @map("last_error") @db.Text
+  sentAt            DateTime? @map("sent_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, nextAttemptAt], map: "idx_crm_email_outbox_due")
+  @@index([tenantId, userId, status], map: "idx_crm_email_outbox_user")
+  @@map("email_outbox")
+  @@schema("crm")
+}
+
 model CrmEmailThread {
   id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId         String    @map("tenant_id")
@@ -2744,6 +2777,8 @@ model CrmEmailThread {
   // Snooze propio de OPAI (Gmail no expone su snooze por API): al posponer se
   // saca de INBOX en Gmail y vuelve solo al despertar (cron).
   snoozedUntil DateTime? @map("snoozed_until") @db.Timestamptz(6)
+  // Espejo del label STARRED de Gmail (C11), bidireccional vía sync/acciones.
+  starredAt DateTime? @map("starred_at") @db.Timestamptz(6)
 
   // ── Radar Comercial v4 — clasificación IA del hilo ──
   aiCategory     String?   @map("ai_category") // cotizacion|licitacion|consulta_comercial|facturacion|operacional|otro
@@ -2832,6 +2867,9 @@ model CrmEmailMessage {
   // Labels Gmail del mensaje (INBOX/SPAM/TRASH/UNREAD…). Fuente local para
   // derivar estado de hilo sin listados globales.
   labelIds       String[] @default([]) @map("label_ids")
+  // ── Borradores Gmail (C08): autosave bidireccional OPAI↔Gmail ──
+  isDraft         Boolean @default(false) @map("is_draft")
+  providerDraftId String? @map("provider_draft_id")
 
   thread CrmEmailThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
@@ -2842,26 +2880,8 @@ model CrmEmailMessage {
   @@index([followUpLogId], map: "idx_crm_email_messages_followup")
   @@index([emailAccountId], map: "idx_crm_email_messages_account")
   @@unique([emailAccountId, providerMessageId], map: "uq_crm_email_messages_account_provider")
+  @@index([emailAccountId, isDraft], map: "idx_crm_email_messages_draft")
   @@map("email_messages")
-  @@schema("crm")
-}
-
-model CrmEmailTemplate {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId  String   @map("tenant_id")
-  name      String
-  subject   String
-  body      String
-  scope     String   @default("global")
-  stageId   String?  @map("stage_id") @db.Uuid
-  createdBy String?  @map("created_by")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  @@index([tenantId], map: "idx_crm_email_templates_tenant")
-  @@index([scope], map: "idx_crm_email_templates_scope")
-  @@index([stageId], map: "idx_crm_email_templates_stage")
-  @@map("email_templates")
   @@schema("crm")
 }
 

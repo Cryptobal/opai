@@ -40,4 +40,25 @@ describe("folderWhere", () => {
       snoozedUntil: { gt: expect.any(Date) },
     });
   });
+
+  it("carpetas nuevas C10/C11: sent, drafts, spam, starred", () => {
+    expect(folderWhere("sent")).toEqual({
+      trashedAt: null,
+      spamAt: null,
+      messages: { some: { direction: "out", isDraft: false } },
+    });
+    expect(folderWhere("drafts")).toEqual({
+      trashedAt: null,
+      messages: { some: { isDraft: true } },
+    });
+    expect(folderWhere("spam")).toEqual({
+      trashedAt: null,
+      spamAt: { not: null },
+    });
+    expect(folderWhere("starred")).toEqual({
+      trashedAt: null,
+      spamAt: null,
+      starredAt: { not: null },
+    });
+  });
 });

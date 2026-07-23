@@ -29,6 +29,8 @@ export async function getCorreoDetail(params: {
       providerThreadId: true,
       isUnread: true,
       archivedAt: true,
+      starredAt: true,
+      spamAt: true,
     },
   });
   if (!thread) return null;
@@ -107,6 +109,8 @@ export async function getCorreoDetail(params: {
       providerThreadId: thread.providerThreadId,
       isUnread: thread.isUnread,
       archivedAt: thread.archivedAt?.toISOString() ?? null,
+      starredAt: thread.starredAt?.toISOString() ?? null,
+      spamAt: thread.spamAt?.toISOString() ?? null,
     },
     messages: messages.map((m) => ({ ...m, sentAt: m.sentAt?.toISOString() ?? null })),
     attachments,

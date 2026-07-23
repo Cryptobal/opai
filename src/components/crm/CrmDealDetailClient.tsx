@@ -36,6 +36,11 @@ import {
 } from "@/components/ui/select";
 import { EmailHistoryList, type EmailMessage } from "@/components/crm/EmailHistoryList";
 import { EmailSenderSelect } from "@/components/crm/EmailSenderSelect";
+import {
+  newEmailIdempotencyKey,
+  notifyEmailQueued,
+  sendCrmEmail,
+} from "@/components/crm/correos/email-send-client";
 import { RecipientTypeaheadInput } from "@/components/crm/RecipientTypeaheadInput";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
@@ -587,6 +592,8 @@ export function CrmDealDetailClient({
   // ── Email compose state ──
   const [emailOpen, setEmailOpen] = useState(false);
   const [sending, setSending] = useState(false);
+  // PR-12: una key por intento de composición — reintentos no duplican envío.
+  const emailIdempotencyKeyRef = useRef(newEmailIdempotencyKey());
   const [emailTo, setEmailTo] = useState(deal.primaryContact?.email || "");
   // B2/C02: hilo al que se responde (threading server-side) y casilla dueña
   // del hilo (selector fijo en reply); en composición nueva, casilla elegida.
@@ -1061,11 +1068,12 @@ export function CrmDealDetailClient({
         : emailBody;
       const cc = emailCc.split(",").map((s) => s.trim()).filter(Boolean);
       const bcc = emailBcc.split(",").map((s) => s.trim()).filter(Boolean);
-      const res = await fetch("/api/crm/gmail/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: emailTo, cc, bcc, subject: emailSubject, html: htmlForSend, dealId: deal.id, accountId: deal.account?.id, contactId: deal.primaryContactId, attachments: emailAttachments.readyAttachments, ...(replyThreadId ? { threadId: replyThreadId } : senderAccountId ? { emailAccountId: senderAccountId } : {}) }) });
-      const payload = await res.json();
-      if (!res.ok) throw new Error(payload?.error);
+      const result = await sendCrmEmail({ to: emailTo, cc, bcc, subject: emailSubject, html: htmlForSend, dealId: deal.id, accountId: deal.account?.id, contactId: deal.primaryContactId, attachments: emailAttachments.readyAttachments, idempotencyKey: emailIdempotencyKeyRef.current, ...(replyThreadId ? { threadId: replyThreadId } : senderAccountId ? { emailAccountId: senderAccountId } : {}) });
+      if (!result.ok) throw new Error(result.error);
+      emailIdempotencyKeyRef.current = newEmailIdempotencyKey();
       setEmailOpen(false); setEmailBody(""); setEmailTiptapContent(null); setEmailCc(""); setEmailBcc(""); setShowCcBcc(false); setReplyThreadId(null); setReplyAccountId(null); emailAttachments.resetAfterSend();
-      if (payload?.warning) toast.message(payload.warning);
+      if (result.queued) notifyEmailQueued(result.data);
+      else if (result.warning) toast.message(result.warning);
       else toast.success("Correo enviado exitosamente");
     } catch (error) { console.error(error); toast.error("No se pudo enviar."); }
     finally { setSending(false); }

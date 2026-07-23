@@ -17,6 +17,9 @@ export type CorreoThreadDTO = {
   archivedAt: string | null;
   trashedAt: string | null;
   snoozedUntil: string | null;
+  starredAt: string | null;
+  spamAt: string | null;
+  hasDraft: boolean;
 };
 
 export type CorreoMessageDTO = {
@@ -51,6 +54,8 @@ export type CorreoDetail = {
     providerThreadId: string | null;
     isUnread: boolean;
     archivedAt: string | null;
+    starredAt: string | null;
+    spamAt: string | null;
   };
   messages: CorreoMessageDTO[];
   attachments: CorreoAttachmentDTO[];

@@ -65,6 +65,13 @@ export async function upsertGmailMessage(params: {
   const direction = labelIds.includes("SENT") ? "out" : "in";
   const providerThreadId = full.data.threadId ?? null;
 
+  // C08: los borradores NO entran por el sync normal (quedarían como mensajes
+  // "in" sueltos). Su espejo local lo maneja syncGmailDrafts por draft id —
+  // el message.id de un draft rota en cada edición y rompería el upsert.
+  if (labelIds.includes("DRAFT")) {
+    return { wrote: false, providerThreadId };
+  }
+
   if (existing && !shouldBackfill) {
     // Refrescar labels aunque el body no cambie (fuente local de estado de hilo).
     await prisma.crmEmailMessage.update({

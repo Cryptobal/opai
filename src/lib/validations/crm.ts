@@ -79,7 +79,6 @@ export const rejectLeadSchema = z.object({
     .default("other"),
   note: z.string().trim().max(5000).optional().nullable(),
   sendEmail: z.boolean().optional().default(false),
-  emailTemplateId: z.string().uuid().optional().nullable(),
   emailSubject: z.string().trim().max(500).optional().nullable(),
   emailBody: z.string().trim().max(50000).optional().nullable(),
 });

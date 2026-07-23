@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, Clock, Mail, MailOpen, Reply, Trash2 } from "lucide-react";
+import { Archive, Clock, Mail, MailOpen, Reply, ShieldAlert, Star, Trash2 } from "lucide-react";
 import type { CorreoAction } from "@/modules/crm/email/gmail-thread-actions";
 import { CorreoThreadActionsBar } from "./CorreoThreadActionsBar";
 import { runCorreoAction } from "./correo-thread-action-client";
@@ -9,6 +9,9 @@ type Props = {
   threadId: string;
   isUnread: boolean;
   archived: boolean;
+  /** ISO de destacado/spam del hilo (C11); undefined = no mostrar el botón. */
+  starred?: boolean;
+  inSpam?: boolean;
   canModify: boolean;
   variant?: "row" | "drawer" | "mobile-bar";
   onDone?: () => void;
@@ -23,6 +26,8 @@ export function CorreoThreadActions({
   threadId,
   isUnread,
   archived,
+  starred,
+  inSpam,
   canModify,
   variant = "row",
   onDone,
@@ -55,9 +60,15 @@ export function CorreoThreadActions({
     void runCorreoAction(threadId, action, okMsg, onDone, undo);
   }
 
-  // drawer: archivar/eliminar cierran el lector y ofrecen "Deshacer".
-  function closeAfter(action: "archive" | "trash", okMsg: string) {
-    void runCorreoAction(threadId, action, okMsg, onDone, "unarchive");
+  // drawer: archivar/eliminar/spam cierran el lector y ofrecen "Deshacer".
+  function closeAfter(action: "archive" | "trash" | "spam", okMsg: string) {
+    void runCorreoAction(
+      threadId,
+      action,
+      okMsg,
+      onDone,
+      action === "spam" ? "unspam" : "unarchive",
+    );
     onClose?.();
   }
 
@@ -102,6 +113,37 @@ export function CorreoThreadActions({
         {isUnread ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
         {drawer && <span>{isUnread ? "Leído" : "No leído"}</span>}
       </button>
+      {drawer && starred !== undefined && (
+        <button
+          type="button"
+          className={btn}
+          title={starred ? "Quitar destacado" : "Destacar"}
+          onClick={() =>
+            act(
+              starred ? "unstar" : "star",
+              starred ? "Quitado de Destacados" : "Destacado",
+            )
+          }
+        >
+          <Star className={`h-4 w-4 ${starred ? "fill-status-warn-fg text-status-warn-fg" : ""}`} />
+          <span>{starred ? "Destacado" : "Destacar"}</span>
+        </button>
+      )}
+      {drawer && inSpam !== undefined && (
+        <button
+          type="button"
+          className={btn}
+          title={inSpam ? "No es spam" : "Marcar spam"}
+          onClick={() =>
+            inSpam
+              ? act("unspam", "Restaurado de Spam")
+              : closeAfter("spam", "Marcado como spam")
+          }
+        >
+          <ShieldAlert className="h-4 w-4" />
+          <span>{inSpam ? "No es spam" : "Spam"}</span>
+        </button>
+      )}
       {drawer && onSnooze && (
         <button type="button" className={btn} title="Posponer" onClick={() => onSnooze()}>
           <Clock className="h-4 w-4" />

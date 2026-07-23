@@ -7,10 +7,23 @@ import {
   isSystemSender,
   snippetFromBody,
 } from "./correos-list-helpers";
+import {
+  buildCorreoSearchIdsQuery,
+  parseCorreoSearchQuery,
+} from "./correos-search";
 
 const KEYWORDS = ["cotiz", "licitac", "servicio", "propuesta", "bases", "presupuesto"];
 
-export type CorreoListFilter = "inbox" | "archived" | "all" | "trash" | "snoozed";
+export type CorreoListFilter =
+  | "inbox"
+  | "archived"
+  | "all"
+  | "trash"
+  | "snoozed"
+  | "sent"
+  | "drafts"
+  | "spam"
+  | "starred";
 
 /**
  * "No pospuesto" null-safe. NUNCA usar `NOT: { snoozedUntil: { gt: now } }`:
@@ -33,10 +46,55 @@ export function folderWhere(folder: CorreoListFilter) {
   if (folder === "snoozed") return { trashedAt: null, spamAt: null, snoozedUntil: { gt: now } };
   if (folder === "archived") return { trashedAt: null, spamAt: null, archivedAt: { not: null } };
   if (folder === "all") return { trashedAt: null, spamAt: null };
+  // C10: Enviados = hilos con al menos un saliente real (label SENT espejado
+  // en direction); Borradores = hilos con draft vivo; Spam y Destacados por
+  // sus timestamps espejo.
+  if (folder === "sent") {
+    return {
+      trashedAt: null,
+      spamAt: null,
+      messages: { some: { direction: "out", isDraft: false } },
+    };
+  }
+  if (folder === "drafts") {
+    return { trashedAt: null, messages: { some: { isDraft: true } } };
+  }
+  if (folder === "spam") return { trashedAt: null, spamAt: { not: null } };
+  if (folder === "starred") {
+    return { trashedAt: null, spamAt: null, starredAt: { not: null } };
+  }
   return { trashedAt: null, spamAt: null, archivedAt: null, ...notSnoozedWhere(now) };
 }
 
-/** Lista paginada (cursor por fecha) de hilos de la casilla del usuario. */
+const THREAD_LIST_SELECT = {
+  id: true,
+  subject: true,
+  accountId: true,
+  dealId: true,
+  leadId: true,
+  lastMessageAt: true,
+  providerThreadId: true,
+  attachmentCount: true,
+  archivedAt: true,
+  trashedAt: true,
+  snoozedUntil: true,
+  starredAt: true,
+  spamAt: true,
+  isUnread: true,
+  messages: {
+    select: { fromEmail: true, textBody: true, htmlBody: true, isDraft: true },
+    orderBy: { sentAt: "desc" as const },
+    take: 1,
+  },
+  _count: { select: { messages: true } },
+} as const;
+
+/**
+ * Lista paginada (cursor por fecha) de hilos de la casilla del usuario.
+ * Con `q` activo (C15) la selección de hilos corre por SQL raw contra toda la
+ * casilla sincronizada (operadores from/to/domain requieren unnest de arrays,
+ * imposible en el where de Prisma) y luego se hidratan los DTOs por ID.
+ */
 export async function listCorreoThreads(params: {
   tenantId: string;
   emailAccountId: string;
@@ -44,48 +102,56 @@ export async function listCorreoThreads(params: {
   cursor?: string | null;
   limit?: number;
   folder?: CorreoListFilter;
+  q?: string | null;
 }): Promise<{ items: CorreoThreadDTO[]; nextCursor: string | null }> {
   const limit = Math.min(Math.max(params.limit ?? 30, 1), 100);
   const cursorDate = params.cursor ? new Date(params.cursor) : null;
   const folder = params.folder ?? "inbox";
-  // Pospuestos ordena por vencimiento ascendente (lo próximo a despertar arriba).
-  const isSnoozed = folder === "snoozed";
-  const hasCursor = cursorDate && !Number.isNaN(cursorDate.getTime());
-  const [rows, company] = await Promise.all([
-    prisma.crmEmailThread.findMany({
-      where: {
+  const parsedSearch = parseCorreoSearchQuery(params.q);
+  // Pospuestos ordena por vencimiento ascendente (lo próximo a despertar
+  // arriba); bajo búsqueda toda carpeta ordena por recencia.
+  const isSnoozed = folder === "snoozed" && !parsedSearch;
+  const hasCursor = Boolean(cursorDate && !Number.isNaN(cursorDate.getTime()));
+
+  const fetchRows = async () => {
+    if (!parsedSearch) {
+      return prisma.crmEmailThread.findMany({
+        where: {
+          tenantId: params.tenantId,
+          emailAccountId: params.emailAccountId,
+          ...folderWhere(folder),
+          ...(hasCursor && cursorDate
+            ? isSnoozed
+              ? { snoozedUntil: { gt: cursorDate } }
+              : { lastMessageAt: { lt: cursorDate } }
+            : {}),
+        },
+        orderBy: isSnoozed ? { snoozedUntil: "asc" } : { lastMessageAt: "desc" },
+        take: limit + 1,
+        select: THREAD_LIST_SELECT,
+      });
+    }
+    const idRows = await prisma.$queryRaw<Array<{ id: string; last_message_at: Date | null }>>(
+      buildCorreoSearchIdsQuery({
         tenantId: params.tenantId,
         emailAccountId: params.emailAccountId,
-        ...folderWhere(folder),
-        ...(hasCursor
-          ? isSnoozed
-            ? { snoozedUntil: { gt: cursorDate } }
-            : { lastMessageAt: { lt: cursorDate } }
-          : {}),
-      },
-      orderBy: isSnoozed ? { snoozedUntil: "asc" } : { lastMessageAt: "desc" },
-      take: limit + 1,
-      select: {
-        id: true,
-        subject: true,
-        accountId: true,
-        dealId: true,
-        leadId: true,
-        lastMessageAt: true,
-        providerThreadId: true,
-        attachmentCount: true,
-        archivedAt: true,
-        trashedAt: true,
-        snoozedUntil: true,
-        isUnread: true,
-        messages: {
-          select: { fromEmail: true, textBody: true, htmlBody: true },
-          orderBy: { sentAt: "desc" },
-          take: 1,
-        },
-        _count: { select: { messages: true } },
-      },
-    }),
+        parsed: parsedSearch,
+        folder,
+        cursorDate: hasCursor ? cursorDate : null,
+        take: limit + 1,
+      }),
+    );
+    if (idRows.length === 0) return [];
+    const threads = await prisma.crmEmailThread.findMany({
+      where: { tenantId: params.tenantId, id: { in: idRows.map((r) => r.id) } },
+      select: THREAD_LIST_SELECT,
+    });
+    const order = new Map(idRows.map((r, i) => [r.id, i]));
+    return threads.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  };
+
+  const [rows, company] = await Promise.all([
+    fetchRows(),
     getTenantCompanyConfig(params.tenantId),
   ]);
 
@@ -155,6 +221,9 @@ export async function listCorreoThreads(params: {
       archivedAt: r.archivedAt?.toISOString() ?? null,
       trashedAt: r.trashedAt?.toISOString() ?? null,
       snoozedUntil: r.snoozedUntil?.toISOString() ?? null,
+      starredAt: r.starredAt?.toISOString() ?? null,
+      spamAt: r.spamAt?.toISOString() ?? null,
+      hasDraft: Boolean(msg?.isDraft),
     };
   });
 

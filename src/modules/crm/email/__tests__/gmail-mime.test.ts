@@ -98,6 +98,68 @@ describe("buildGmailRawMessage", () => {
     );
   });
 
+  it("imagen inline genera multipart/related con Content-ID (P06)", () => {
+    const png = Buffer.from("png-bytes");
+    const message = decode(
+      buildGmailRawMessage({
+        from: "yo@example.com",
+        to: ["cliente@example.com"],
+        subject: "Con imagen",
+        html: '<p>Mirá: <img src="cid:img-1@opai"></p>',
+        inlineImages: [
+          { contentId: "img-1@opai", mimeType: "image/png", content: png },
+        ],
+      }),
+    );
+    expect(message).toContain("Content-Type: multipart/related;");
+    expect(message).toContain("Content-Type: multipart/alternative;");
+    expect(message).toContain("Content-ID: <img-1@opai>");
+    expect(message).toContain("Content-Disposition: inline");
+    expect(message).toContain(png.toString("base64"));
+  });
+
+  it("inline + adjunto: related queda DENTRO de mixed", () => {
+    const message = decode(
+      buildGmailRawMessage({
+        from: "yo@example.com",
+        to: ["cliente@example.com"],
+        subject: "Todo junto",
+        html: '<p><img src="cid:logo@opai"></p>',
+        inlineImages: [
+          { contentId: "logo@opai", mimeType: "image/png", content: Buffer.from("img") },
+        ],
+        attachments: [
+          { fileName: "doc.pdf", mimeType: "application/pdf", content: Buffer.from("pdf") },
+        ],
+      }),
+    );
+    const mixedIndex = message.indexOf("multipart/mixed");
+    const relatedIndex = message.indexOf("multipart/related");
+    const alternativeIndex = message.indexOf("multipart/alternative");
+    expect(mixedIndex).toBeGreaterThan(-1);
+    expect(relatedIndex).toBeGreaterThan(mixedIndex);
+    expect(alternativeIndex).toBeGreaterThan(relatedIndex);
+  });
+
+  it("neutraliza inyección de headers vía Content-ID", () => {
+    const message = decode(
+      buildGmailRawMessage({
+        from: "yo@example.com",
+        to: ["cliente@example.com"],
+        subject: "x",
+        html: "<p>x</p>",
+        inlineImages: [
+          {
+            contentId: "a@b>\r\nBcc: attacker@example.com",
+            mimeType: "image/png",
+            content: Buffer.from("i"),
+          },
+        ],
+      }),
+    );
+    expect(message).not.toContain("\r\nBcc: attacker@example.com");
+  });
+
   it("codifica caracteres reservados del filename* MIME", () => {
     const message = decode(
       buildGmailRawMessage({
