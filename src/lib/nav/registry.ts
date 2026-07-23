@@ -172,12 +172,23 @@ export interface NavNode extends NavVisibility {
    *  have a dedicated UI surface elsewhere — e.g. Configuración (TopbarActions) or Chat
    *  (ChatSidePanel). Default: false. */
   hideInSidebar?: boolean;
+  /** When true, este módulo NO renderiza tabs de secciones en la topbar
+   *  (TopbarSubNav). Lo usa Configuración, que navega por hub + categorías en
+   *  su propio shell (ConfigShell) en vez de la fila de tabs superior. */
+  hideInModuleTabs?: boolean;
 }
 
-/** Order + label for sub-sidebar categories. */
+/** Order + label for sub-sidebar categories. Las categorías de Configuración
+ *  son además navegables (nivel 2): tienen `href`, `icon` y `description`. */
 export interface NavCategory {
   key: string;
   label: string;
+  /** Ruta del nivel 2 de la categoría (ej. "/opai/configuracion/general"). */
+  href?: string;
+  /** Ícono para las tarjetas del hub y la cabecera del sub-sidebar. */
+  icon?: LucideIcon;
+  /** Descripción de una línea para las tarjetas del hub. */
+  description?: string;
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -238,14 +249,17 @@ export function pathMatchesNode(
  * REGISTRY — the only source of truth
  * ──────────────────────────────────────────────────────────── */
 
-/** Categorías ordenadas para el sub-sidebar de Configuración. */
+/** Categorías ordenadas para el hub y el sub-sidebar de Configuración.
+ *  Cada categoría es un destino navegable (nivel 2): href + icon + description.
+ *  Los slugs (general/permisos/comunicacion/plantillas/modulos/ia) NO colisionan
+ *  con ningún directorio de página hoja bajo `configuracion/`. */
 export const CONFIG_CATEGORIES: NavCategory[] = [
-  { key: "general", label: "General" },
-  { key: "permisos", label: "Permisos" },
-  { key: "comunicacion", label: "Comunicación" },
-  { key: "plantillas", label: "Plantillas" },
-  { key: "modulos", label: "Módulos" },
-  { key: "ia", label: "Inteligencia Artificial" },
+  { key: "general", label: "General", href: "/opai/configuracion/general", icon: Settings2, description: "Empresa, plan, cumplimiento y auditoría" },
+  { key: "permisos", label: "Permisos", href: "/opai/configuracion/permisos", icon: KeyRound, description: "Usuarios, roles y grupos de aprobación" },
+  { key: "comunicacion", label: "Comunicación", href: "/opai/configuracion/comunicacion", icon: Mail, description: "Integraciones, notificaciones, correos y firmas" },
+  { key: "plantillas", label: "Plantillas", href: "/opai/configuracion/plantillas", icon: LayoutTemplate, description: "Categorías y documentos operacionales" },
+  { key: "modulos", label: "Módulos", href: "/opai/configuracion/modulos", icon: Layers, description: "Parámetros de CRM, CPQ, Payroll, Ops, Finanzas y más" },
+  { key: "ia", label: "Inteligencia Artificial", href: "/opai/configuracion/ia", icon: Brain, description: "Asistente y proveedores de inteligencia artificial" },
 ];
 
 /** Rutas hermanas planas del sub-módulo Pautas (viven fuera de
@@ -793,6 +807,9 @@ export const NAV_MODULES: NavNode[] = [
     icon: Settings,
     module: "config",
     hideInSidebar: true,
+    // Configuración navega por hub + categorías en su propio shell
+    // (ConfigShell), no por la fila de tabs de la topbar → no la renderiza.
+    hideInModuleTabs: true,
     children: [
       // ── General ──
       { key: "config-empresa", href: "/opai/configuracion/empresa", label: "Empresa", icon: Building2, module: "config", submodule: "empresa", category: "general", description: "Razón social, RUT, dirección, representante legal" },
@@ -876,6 +893,40 @@ const MODULE_BY_KEY = new Map(NAV_MODULES.map((m) => [m.key, m]));
 
 export function getModule(key: string): NavNode | undefined {
   return MODULE_BY_KEY.get(key);
+}
+
+/* ────────────────────────────────────────────────────────────
+ * Configuración — helpers de categorías (nivel 2)
+ * ──────────────────────────────────────────────────────────── */
+
+/** Categoría de Configuración por slug (general/permisos/…). */
+export function getConfigCategory(slug: string): NavCategory | undefined {
+  return CONFIG_CATEGORIES.find((c) => c.key === slug);
+}
+
+/** Sección de Configuración (hijo del nodo `config`) que posee este pathname,
+ *  longest-prefix-wins. Resuelve también rutas anidadas de hojas
+ *  (ej. `/opai/configuracion/integraciones/slack` → sección "Integraciones"). */
+export function getConfigSectionOf(pathname: string): NavNode | undefined {
+  const config = getModule("config");
+  return (config?.children ?? [])
+    .filter((c) => pathMatchesNode(pathname, c))
+    .sort((a, b) => b.href.length - a.href.length)[0];
+}
+
+/** Categoría de Configuración a la que pertenece un pathname, derivada de la
+ *  sección que lo matchea (misma regla longest-prefix que useConfigCategories).
+ *  Si el pathname es la propia ruta de categoría (`/opai/configuracion/<slug>`),
+ *  resuelve por slug directo. */
+export function getConfigCategoryOf(pathname: string): NavCategory | undefined {
+  const CONFIG_BASE = "/opai/configuracion/";
+  if (pathname.startsWith(CONFIG_BASE)) {
+    const slug = pathname.slice(CONFIG_BASE.length).split("/")[0];
+    const direct = getConfigCategory(slug);
+    if (direct) return direct;
+  }
+  const section = getConfigSectionOf(pathname);
+  return section?.category ? getConfigCategory(section.category) : undefined;
 }
 
 /** Find which top-level module owns this pathname (longest-prefix wins) */
