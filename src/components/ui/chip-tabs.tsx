@@ -51,7 +51,10 @@ export function ChipTabs({
   const [showLeftFade, setShowLeftFade] = useState(false);
   const [showRightFade, setShowRightFade] = useState(false);
 
-  // Auto-scroll active chip into view
+  // Auto-scroll active chip into view.
+  // Solo scroll HORIZONTAL del contenedor: scrollIntoView también desplaza la
+  // página verticalmente y al montar (ej. entrar a una vista del Hub con
+  // ChipTabs a mitad de página) el viewport saltaba hacia abajo.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -60,11 +63,12 @@ export function ChipTabs({
     ) as HTMLElement | null;
     if (!activeEl) return;
 
-    activeEl.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-      inline: "center",
-    });
+    const cRect = container.getBoundingClientRect();
+    const eRect = activeEl.getBoundingClientRect();
+    const delta = eRect.left + eRect.width / 2 - (cRect.left + cRect.width / 2);
+    if (Math.abs(delta) > 1) {
+      container.scrollTo({ left: container.scrollLeft + delta, behavior: "smooth" });
+    }
   }, [activeTab]);
 
   // Track scroll fade visibility (desktop always shows gradient hint too)

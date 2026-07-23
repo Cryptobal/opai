@@ -107,7 +107,7 @@ export function RecentEmailCard() {
   const multipleAccounts = data.accountEmails.length > 1;
 
   return (
-    <Surface elevation={1} padding="md" className="space-y-3">
+    <Surface elevation={1} padding="md" className="min-w-0 space-y-3">
       <HeaderRow unreadCount={data.unreadCount} />
 
       {data.items.length === 0 ? (

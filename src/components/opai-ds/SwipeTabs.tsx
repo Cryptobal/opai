@@ -72,7 +72,10 @@ export function SwipeTabs({
     .filter((i) => pathMatchesNode(pathname ?? "/", i))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
-  // Auto-scroll active tab into view (centered) on mount and when active changes
+  // Auto-scroll active tab into view (centered) on mount and when active changes.
+  // IMPORTANTE: solo scroll HORIZONTAL del contenedor. scrollIntoView también
+  // desplaza los ancestros verticalmente, y al montar la página (ej. cambiar
+  // de vista del Hub) hacía saltar el viewport hasta el tab bar ("baja solo").
   useEffect(() => {
     const container = scrollRef.current;
     if (!container || !activeHref) return;
@@ -80,11 +83,12 @@ export function SwipeTabs({
       `[data-href="${activeHref}"]`,
     ) as HTMLElement | null;
     if (!activeEl) return;
-    activeEl.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-      inline: "center",
-    });
+    const cRect = container.getBoundingClientRect();
+    const eRect = activeEl.getBoundingClientRect();
+    const delta = eRect.left + eRect.width / 2 - (cRect.left + cRect.width / 2);
+    if (Math.abs(delta) > 1) {
+      container.scrollTo({ left: container.scrollLeft + delta, behavior: "smooth" });
+    }
   }, [activeHref]);
 
   // Measure active tab and update sliding indicator
