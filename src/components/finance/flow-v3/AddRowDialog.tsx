@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect, type SearchableOption } from "@/components/ui/SearchableSelect";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import { SECTION_LABELS, SECTION_ORDER } from "./grid-classes";
 
 interface Props {
@@ -113,11 +114,15 @@ export function AddRowDialog({ open, onOpenChange, busy, onCreate }: Props) {
         <div className="space-y-3">
           <label className="block space-y-1 text-xs text-ds-text-3">
             <span>Sección</span>
-            <select className={SELECT_CLASS} value={section} onChange={(e) => setSection(e.target.value)}>
-              {SECTION_ORDER.map((s) => (
-                <option key={s} value={s}>{SECTION_LABELS[s]}</option>
-              ))}
-            </select>
+            <SimpleSelect
+              className={SELECT_CLASS}
+              value={section}
+              onValueChange={(v) => setSection(v)}
+              options={SECTION_ORDER.map((s) => ({
+                value: s,
+                label: SECTION_LABELS[s],
+              }))}
+            />
           </label>
 
           {isIncome ? (
@@ -153,12 +158,15 @@ export function AddRowDialog({ open, onOpenChange, busy, onCreate }: Props) {
               {!manual && (
                 <label className="block space-y-1 text-xs text-ds-text-3">
                   <span>Categoría</span>
-                  <select className={SELECT_CLASS} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                    <option value="">Seleccionar…</option>
-                    {expenseCategories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                  <SimpleSelect
+                    className={SELECT_CLASS}
+                    value={categoryId}
+                    onValueChange={(v) => setCategoryId(v)}
+                    options={[
+                      { value: "", label: "Seleccionar…" },
+                      ...expenseCategories.map((c) => ({ value: c.id, label: c.name })),
+                    ]}
+                  />
                 </label>
               )}
             </>

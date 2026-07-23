@@ -12,6 +12,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import { Loader2, Plus, CheckCircle2, DollarSign } from "lucide-react";
 
 const MONTHS = [
@@ -166,12 +167,18 @@ export function AnticipoProcessClient() {
           </DialogHeader>
           <div className="space-y-1.5 py-2">
             <Label className="text-xs">Período</Label>
-            <select className={selectClass} value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)}>
-              <option value="">Selecciona...</option>
-              {periods.filter((p) => p.status !== "PAID").map((p) => (
-                <option key={p.id} value={p.id}>{MONTHS[p.month - 1]} {p.year}</option>
-              ))}
-            </select>
+            <SimpleSelect
+              className={selectClass}
+              value={selectedPeriod}
+              onValueChange={(v) => setSelectedPeriod(v)}
+              options={[
+                { value: "", label: "Selecciona..." },
+                ...periods.filter((p) => p.status !== "PAID").map((p) => ({
+                  value: p.id,
+                  label: `${MONTHS[p.month - 1]} ${p.year}`,
+                })),
+              ]}
+            />
             <p className="text-[10px] text-muted-foreground">Se incluirán todos los guardias activos con anticipo configurado.</p>
           </div>
           <DialogFooter>

@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import { StatusTag } from "@/components/ops/StatusTag";
 import { EmptyState, Spinner, Stat, StatGrid, Tag } from "@/components/opai-ds";
 import { Clock3, FileDown, Pencil, Plus, Search, Trash2 } from "lucide-react";
@@ -648,19 +649,20 @@ export function OpsRefuerzosClient({
             placeholder="Buscar por instalación, cliente, guardia o solicitado por..."
           />
         </div>
-        <select
+        <SimpleSelect
           className="h-9 rounded-md border border-input bg-background px-3 text-sm"
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <option value="all">Todos</option>
-          <option value="pendiente_aprobacion">Pendiente aprobación</option>
-          <option value="rechazado">Rechazado</option>
-          <option value="solicitado">Solicitado (aprobado)</option>
-          <option value="en_curso">En curso</option>
-          <option value="realizado">Realizado</option>
-          <option value="facturado">Facturado</option>
-        </select>
+          onValueChange={(v) => setStatusFilter(v)}
+          options={[
+            { value: "all", label: "Todos" },
+            { value: "pendiente_aprobacion", label: "Pendiente aprobación" },
+            { value: "rechazado", label: "Rechazado" },
+            { value: "solicitado", label: "Solicitado (aprobado)" },
+            { value: "en_curso", label: "En curso" },
+            { value: "realizado", label: "Realizado" },
+            { value: "facturado", label: "Facturado" },
+          ]}
+        />
         <label className="h-9 rounded-md border border-input px-3 text-sm flex items-center gap-2">
           <input
             type="checkbox"
@@ -816,13 +818,18 @@ export function OpsRefuerzosClient({
                   </div>
                   <div>
                     <Label>Canal</Label>
-                    <select className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={editForm.requestChannel} onChange={(e) => setEditForm((f) => ({ ...f, requestChannel: e.target.value }))}>
-                      <option value="telefono">Teléfono</option>
-                      <option value="email">Email</option>
-                      <option value="whatsapp">WhatsApp</option>
-                      <option value="presencial">Presencial</option>
-                      <option value="otro">Otro</option>
-                    </select>
+                    <SimpleSelect
+                      className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      value={editForm.requestChannel}
+                      onValueChange={(v) => setEditForm((f) => ({ ...f, requestChannel: v }))}
+                      options={[
+                        { value: "telefono", label: "Teléfono" },
+                        { value: "email", label: "Email" },
+                        { value: "whatsapp", label: "WhatsApp" },
+                        { value: "presencial", label: "Presencial" },
+                        { value: "otro", label: "Otro" },
+                      ]}
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -833,14 +840,15 @@ export function OpsRefuerzosClient({
                   <div>
                     <Label>Valor ofertado</Label>
                     <div className="flex gap-2">
-                      <select
+                      <SimpleSelect
                         className="h-9 w-24 rounded-md border border-input bg-background px-2 text-sm"
                         value={editForm.rateCurrency}
-                        onChange={(e) => setEditForm((f) => ({ ...f, rateCurrency: e.target.value as "clp" | "uf" }))}
-                      >
-                        <option value="clp">CLP</option>
-                        <option value="uf">UF</option>
-                      </select>
+                        onValueChange={(v) => setEditForm((f) => ({ ...f, rateCurrency: v as "clp" | "uf" }))}
+                        options={[
+                          { value: "clp", label: "CLP" },
+                          { value: "uf", label: "UF" },
+                        ]}
+                      />
                       <Input
                         inputMode="decimal"
                         value={editForm.rateCurrency === "uf" ? editForm.rateUf : formatClpInput(editForm.rateClp)}
@@ -1017,13 +1025,18 @@ export function OpsRefuerzosClient({
               </div>
               <div>
                 <Label>Canal *</Label>
-                <select className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm" value={createForm.requestChannel} onChange={(e) => setCreateForm((f) => ({ ...f, requestChannel: e.target.value }))}>
-                  <option value="telefono">Teléfono</option>
-                  <option value="email">Email</option>
-                  <option value="whatsapp">WhatsApp</option>
-                  <option value="presencial">Presencial</option>
-                  <option value="otro">Otro</option>
-                </select>
+                <SimpleSelect
+                  className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  value={createForm.requestChannel}
+                  onValueChange={(v) => setCreateForm((f) => ({ ...f, requestChannel: v }))}
+                  options={[
+                    { value: "telefono", label: "Teléfono" },
+                    { value: "email", label: "Email" },
+                    { value: "whatsapp", label: "WhatsApp" },
+                    { value: "presencial", label: "Presencial" },
+                    { value: "otro", label: "Otro" },
+                  ]}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -1042,11 +1055,11 @@ export function OpsRefuerzosClient({
                 <Label>Valor ofertado (CLP) *</Label>
                 <div className="space-y-1">
                   <div className="flex gap-2">
-                    <select
+                    <SimpleSelect
                       className="h-9 w-24 rounded-md border border-input bg-background px-2 text-sm"
                       value={createForm.rateCurrency}
-                      onChange={(e) => {
-                        const nextCurrency = e.target.value as "clp" | "uf";
+                      onValueChange={(v) => {
+                        const nextCurrency = v as "clp" | "uf";
                         setCreateForm((f) => {
                           if (nextCurrency === f.rateCurrency) return f;
                           if (nextCurrency === "uf") {
@@ -1059,10 +1072,11 @@ export function OpsRefuerzosClient({
                           return { ...f, rateCurrency: "clp", rateClp: clpFromUf };
                         });
                       }}
-                    >
-                      <option value="clp">CLP</option>
-                      <option value="uf">UF</option>
-                    </select>
+                      options={[
+                        { value: "clp", label: "CLP" },
+                        { value: "uf", label: "UF" },
+                      ]}
+                    />
                     <Input
                       inputMode="decimal"
                       value={

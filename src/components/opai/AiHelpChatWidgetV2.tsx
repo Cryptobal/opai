@@ -20,6 +20,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type {
@@ -1552,22 +1553,22 @@ export function AiHelpChatWidgetV2() {
             <Plus className="h-3.5 w-3.5" />
             Nueva
           </Button>
-          <select
-            className="h-8 flex-1 min-w-0 rounded-md border border-white/15 bg-white/5 px-2 text-xs text-white truncate"
+          <SimpleSelect
+            className="h-10 sm:h-9 flex-1 min-w-0 rounded-md border border-white/15 bg-white/5 px-2 text-xs text-white truncate"
             value={activeConversationId ?? ""}
-            onChange={(e) => {
-              setActiveConversationId(e.target.value || null);
+            onValueChange={(v) => {
+              setActiveConversationId(v || null);
               setIsNewConversation(false);
             }}
             disabled={!persistenceEnabled}
-          >
-            <option value="">Conversación nueva</option>
-            {conversations.map((conv) => (
-              <option key={conv.id} value={conv.id}>
-                {conv.title}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: "", label: "Conversación nueva" },
+              ...conversations.map((conv) => ({
+                value: conv.id,
+                label: conv.title,
+              })),
+            ]}
+          />
         </div>
       </div>
 

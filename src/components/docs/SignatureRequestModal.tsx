@@ -8,6 +8,7 @@ import { CcContactPicker } from "./CcContactPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import {
   Dialog,
   DialogContent,
@@ -414,14 +415,15 @@ export function SignatureRequestModal({
                     value={row.rut}
                     onChange={(e) => updateRow(row.id, { rut: e.target.value })}
                   />
-                  <select
+                  <SimpleSelect
                     className="sm:col-span-2 rounded-md border border-border bg-background px-3 py-2 text-sm"
                     value={row.role}
-                    onChange={(e) => updateRow(row.id, { role: e.target.value as "signer" | "cc" })}
-                  >
-                    <option value="signer">Firmante</option>
-                    <option value="cc">Copia</option>
-                  </select>
+                    onValueChange={(v) => updateRow(row.id, { role: v as "signer" | "cc" })}
+                    options={[
+                      { value: "signer", label: "Firmante" },
+                      { value: "cc", label: "Copia" },
+                    ]}
+                  />
                   {row.role === "signer" && signingMode === "sequential" ? (
                     <div className="sm:col-span-1 space-y-1">
                       <Label className="text-xs text-muted-foreground">Orden</Label>

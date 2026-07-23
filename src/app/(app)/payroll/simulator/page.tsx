@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import { formatCLP, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import {
   Calculator,
@@ -26,7 +27,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 const selectClass =
-  "flex h-9 w-full appearance-none rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 // AFP options con comisiones reales
 const AFP_OPTIONS = [
@@ -262,37 +263,41 @@ export default function PayrollSimulator() {
 
             <div className="space-y-1">
               <Label className="text-sm">AFP</Label>
-              <select value={afpName} onChange={(e) => setAfpName(e.target.value)} className={selectClass}>
-                {AFP_OPTIONS.map((afp) => (
-                  <option key={afp.value} value={afp.value}>
-                    {afp.label} ({afp.total})
-                  </option>
-                ))}
-              </select>
+              <SimpleSelect
+                value={afpName}
+                onValueChange={(v) => setAfpName(v)}
+                className={selectClass}
+                options={AFP_OPTIONS.map((afp) => ({
+                  value: afp.value,
+                  label: `${afp.label} (${afp.total})`,
+                }))}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-sm">Contrato</Label>
-                <select
+                <SimpleSelect
                   value={contractType}
-                  onChange={(e) => setContractType(e.target.value as any)}
+                  onValueChange={(v) => setContractType(v as any)}
                   className={selectClass}
-                >
-                  <option value="indefinite">Indefinido</option>
-                  <option value="fixed_term">Plazo Fijo</option>
-                </select>
+                  options={[
+                    { value: "indefinite", label: "Indefinido" },
+                    { value: "fixed_term", label: "Plazo Fijo" },
+                  ]}
+                />
               </div>
               <div className="space-y-1">
                 <Label className="text-sm">Salud</Label>
-                <select
+                <SimpleSelect
                   value={healthSystem}
-                  onChange={(e) => setHealthSystem(e.target.value as any)}
+                  onValueChange={(v) => setHealthSystem(v as any)}
                   className={selectClass}
-                >
-                  <option value="fonasa">Fonasa 7%</option>
-                  <option value="isapre">Isapre</option>
-                </select>
+                  options={[
+                    { value: "fonasa", label: "Fonasa 7%" },
+                    { value: "isapre", label: "Isapre" },
+                  ]}
+                />
               </div>
             </div>
 

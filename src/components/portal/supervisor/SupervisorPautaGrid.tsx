@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Calendar, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { EmptyState } from "@/components/opai-ds";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import { formatPersonName } from "@/lib/personas";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
 
@@ -161,15 +162,12 @@ export function SupervisorPautaGrid({ installations }: Props) {
     <div className="flex flex-col gap-3">
       <p className="text-xs text-muted-foreground uppercase tracking-wider">Pauta mensual</p>
 
-      <select
+      <SimpleSelect
         value={selectedId}
-        onChange={(e) => setSelectedId(e.target.value)}
+        onValueChange={(v) => setSelectedId(v)}
         className="w-full bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
-      >
-        {installations.map((i) => (
-          <option key={i.id} value={i.id}>{i.name}</option>
-        ))}
-      </select>
+        options={installations.map((i) => ({ value: i.id, label: i.name }))}
+      />
 
       <div className="flex items-center justify-between bg-card opai-glass-soft-m border border-border rounded-xl px-4 py-2.5">
         <button onClick={prevMonth} className="p-1 text-muted-foreground hover:text-foreground">

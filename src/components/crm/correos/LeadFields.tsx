@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import { useCpqCatalogs } from "@/lib/cpq/use-cpq-catalogs";
 import {
   WEEKDAYS_FULL,
@@ -35,15 +36,16 @@ function CatalogSelect({
 }) {
   const inList = Boolean(value) && options.some((o) => o.name === value);
   return (
-    <select className={INPUT} value={value ?? ""} onChange={(e) => onChange(e.target.value || null)}>
-      <option value="">—</option>
-      {value && !inList ? <option value={value}>{value} (del correo)</option> : null}
-      {options.map((o) => (
-        <option key={o.id} value={o.name}>
-          {o.name}
-        </option>
-      ))}
-    </select>
+    <SimpleSelect
+      className={INPUT}
+      value={value ?? ""}
+      onValueChange={(v) => onChange(v || null)}
+      options={[
+        { value: "", label: "—" },
+        ...(value && !inList ? [{ value, label: `${value} (del correo)` }] : []),
+        ...options.map((o) => ({ value: o.name, label: o.name })),
+      ]}
+    />
   );
 }
 
@@ -386,23 +388,21 @@ export function LeadFields({
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <div>
                       <Label>Inicio</Label>
-                      <select
+                      <SimpleSelect
                         className={`${INPUT} font-mono`}
                         value={row.horaInicio ?? "08:00"}
-                        onChange={(e) => updatePuesto(idx, { horaInicio: e.target.value || null })}
-                      >
-                        {HOURS.map((t) => <option key={t} value={t}>{t}</option>)}
-                      </select>
+                        onValueChange={(v) => updatePuesto(idx, { horaInicio: v || null })}
+                        options={HOURS.map((t) => ({ value: t, label: t }))}
+                      />
                     </div>
                     <div>
                       <Label>Fin</Label>
-                      <select
+                      <SimpleSelect
                         className={`${INPUT} font-mono`}
                         value={row.horaFin ?? "20:00"}
-                        onChange={(e) => updatePuesto(idx, { horaFin: e.target.value || null })}
-                      >
-                        {HOURS.map((t) => <option key={t} value={t}>{t}</option>)}
-                      </select>
+                        onValueChange={(v) => updatePuesto(idx, { horaFin: v || null })}
+                        options={HOURS.map((t) => ({ value: t, label: t }))}
+                      />
                     </div>
                     <div>
                       <Label>Guardias</Label>

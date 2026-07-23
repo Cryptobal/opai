@@ -46,6 +46,7 @@ import { UnassignedHiredBadge } from "@/components/ops/UnassignedHiredBadge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import { formatPersonName } from "@/lib/personas";
 import { SHOW_PIN_IN_PROFILE } from "@/lib/guard-portal";
 import {
@@ -1067,9 +1068,9 @@ export function GuardiaDetailClient({
             <div className="space-y-1.5"><Label className="text-sm">Celular</Label>
               <Input value={editPersonalForm.phoneMobile} onChange={(e) => setEditPersonalForm((p) => ({ ...p, phoneMobile: e.target.value }))} placeholder="912345678" /></div>
             <div className="space-y-1.5"><Label className="text-sm">Sexo</Label>
-              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.sex} onChange={(e) => setEditPersonalForm((p) => ({ ...p, sex: e.target.value }))}>
-                <option value="">Sin especificar</option><option value="masculino">Masculino</option><option value="femenino">Femenino</option>
-              </select></div>
+              <SimpleSelect className="h-9 w-full" value={editPersonalForm.sex} onValueChange={(v) => setEditPersonalForm((p) => ({ ...p, sex: v }))} options={[
+                { value: "", label: "Sin especificar" }, { value: "masculino", label: "Masculino" }, { value: "femenino", label: "Femenino" },
+              ]} /></div>
             <div className="space-y-1.5"><Label className="text-sm">Nacionalidad</Label>
               <SearchableSelect
                 value={editPersonalForm.nacionalidad}
@@ -1080,51 +1081,51 @@ export function GuardiaDetailClient({
             <div className="space-y-1.5"><Label className="text-sm">Fecha de nacimiento</Label>
               <Input type="date" value={editPersonalForm.birthDate} onChange={(e) => setEditPersonalForm((p) => ({ ...p, birthDate: e.target.value }))} /></div>
             <div className="space-y-1.5"><Label className="text-sm">Calzado</Label>
-              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.shoeSize} onChange={(e) => setEditPersonalForm((p) => ({ ...p, shoeSize: e.target.value }))}>
-                <option value="">Sin especificar</option>{SHOE_SIZES.map((s) => (<option key={s} value={s}>{s}</option>))}
-              </select></div>
+              <SimpleSelect className="h-9 w-full" value={editPersonalForm.shoeSize} onValueChange={(v) => setEditPersonalForm((p) => ({ ...p, shoeSize: v }))} options={[
+                { value: "", label: "Sin especificar" }, ...SHOE_SIZES.map((s) => ({ value: s, label: s })),
+              ]} /></div>
             <div className="space-y-1.5"><Label className="text-sm">Pantalón</Label>
-              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.pantsSize} onChange={(e) => setEditPersonalForm((p) => ({ ...p, pantsSize: e.target.value }))}>
-                <option value="">Sin especificar</option>{PANTS_SIZES.map((s) => (<option key={s} value={s}>{s}</option>))}
-              </select></div>
+              <SimpleSelect className="h-9 w-full" value={editPersonalForm.pantsSize} onValueChange={(v) => setEditPersonalForm((p) => ({ ...p, pantsSize: v }))} options={[
+                { value: "", label: "Sin especificar" }, ...PANTS_SIZES.map((s) => ({ value: s, label: s })),
+              ]} /></div>
             <div className="space-y-1.5"><Label className="text-sm">Polera</Label>
-              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.tshirtSize} onChange={(e) => setEditPersonalForm((p) => ({ ...p, tshirtSize: e.target.value }))}>
-                <option value="">Sin especificar</option>{TOP_GARMENT_SIZES.map((s) => (<option key={s} value={s}>{s}</option>))}
-              </select></div>
+              <SimpleSelect className="h-9 w-full" value={editPersonalForm.tshirtSize} onValueChange={(v) => setEditPersonalForm((p) => ({ ...p, tshirtSize: v }))} options={[
+                { value: "", label: "Sin especificar" }, ...TOP_GARMENT_SIZES.map((s) => ({ value: s, label: s })),
+              ]} /></div>
             <div className="space-y-1.5"><Label className="text-sm">Camisa</Label>
-              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.shirtSize} onChange={(e) => setEditPersonalForm((p) => ({ ...p, shirtSize: e.target.value }))}>
-                <option value="">Sin especificar</option>{TOP_GARMENT_SIZES.map((s) => (<option key={s} value={s}>{s}</option>))}
-              </select></div>
+              <SimpleSelect className="h-9 w-full" value={editPersonalForm.shirtSize} onValueChange={(v) => setEditPersonalForm((p) => ({ ...p, shirtSize: v }))} options={[
+                { value: "", label: "Sin especificar" }, ...TOP_GARMENT_SIZES.map((s) => ({ value: s, label: s })),
+              ]} /></div>
             <div className="space-y-1.5"><Label className="text-sm">Geólogo</Label>
-              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.geologoSize} onChange={(e) => setEditPersonalForm((p) => ({ ...p, geologoSize: e.target.value }))}>
-                <option value="">Sin especificar</option>{TOP_GARMENT_SIZES.map((s) => (<option key={s} value={s}>{s}</option>))}
-              </select></div>
+              <SimpleSelect className="h-9 w-full" value={editPersonalForm.geologoSize} onValueChange={(v) => setEditPersonalForm((p) => ({ ...p, geologoSize: v }))} options={[
+                { value: "", label: "Sin especificar" }, ...TOP_GARMENT_SIZES.map((s) => ({ value: s, label: s })),
+              ]} /></div>
             <div className="space-y-1.5"><Label className="text-sm">Polar</Label>
-              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.polarSize} onChange={(e) => setEditPersonalForm((p) => ({ ...p, polarSize: e.target.value }))}>
-                <option value="">Sin especificar</option>{TOP_GARMENT_SIZES.map((s) => (<option key={s} value={s}>{s}</option>))}
-              </select></div>
+              <SimpleSelect className="h-9 w-full" value={editPersonalForm.polarSize} onValueChange={(v) => setEditPersonalForm((p) => ({ ...p, polarSize: v }))} options={[
+                { value: "", label: "Sin especificar" }, ...TOP_GARMENT_SIZES.map((s) => ({ value: s, label: s })),
+              ]} /></div>
             <div className="space-y-1.5"><Label className="text-sm">Chaqueta</Label>
-              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.jacketSize} onChange={(e) => setEditPersonalForm((p) => ({ ...p, jacketSize: e.target.value }))}>
-                <option value="">Sin especificar</option>{TOP_GARMENT_SIZES.map((s) => (<option key={s} value={s}>{s}</option>))}
-              </select></div>
+              <SimpleSelect className="h-9 w-full" value={editPersonalForm.jacketSize} onValueChange={(v) => setEditPersonalForm((p) => ({ ...p, jacketSize: v }))} options={[
+                { value: "", label: "Sin especificar" }, ...TOP_GARMENT_SIZES.map((s) => ({ value: s, label: s })),
+              ]} /></div>
             <div className="space-y-1.5"><Label className="text-sm">Estatura (cm)</Label>
               <Input type="number" min="120" max="230" step="0.1" value={editPersonalForm.heightCm} onChange={(e) => setEditPersonalForm((p) => ({ ...p, heightCm: e.target.value }))} /></div>
             <div className="space-y-1.5"><Label className="text-sm">Peso (kg)</Label>
               <Input type="number" min="35" max="250" step="0.1" value={editPersonalForm.weightKg} onChange={(e) => setEditPersonalForm((p) => ({ ...p, weightKg: e.target.value }))} /></div>
             <div className="space-y-1.5 sm:col-span-2"><Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Datos previsionales</Label></div>
             <div className="space-y-1.5"><Label className="text-sm">Régimen previsional</Label>
-              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.regimenPrevisional} onChange={(e) => setEditPersonalForm((p) => ({ ...p, regimenPrevisional: e.target.value }))}>
-                <option value="">Sin especificar</option>{REGIMEN_PREVISIONAL.map((r) => (<option key={r.value} value={r.value}>{r.label}</option>))}
-              </select></div>
+              <SimpleSelect className="h-9 w-full" value={editPersonalForm.regimenPrevisional} onValueChange={(v) => setEditPersonalForm((p) => ({ ...p, regimenPrevisional: v }))} options={[
+                { value: "", label: "Sin especificar" }, ...REGIMEN_PREVISIONAL.map((r) => ({ value: r.value, label: r.label })),
+              ]} /></div>
             <div className="space-y-1.5 flex items-end">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" checked={editPersonalForm.isJubilado} onChange={(e) => setEditPersonalForm((p) => ({ ...p, isJubilado: e.target.checked }))} className="rounded border-input" />¿Jubilado?
               </label></div>
             {editPersonalForm.isJubilado && (<>
               <div className="space-y-1.5"><Label className="text-sm">Tipo de pensión</Label>
-                <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.tipoPension} onChange={(e) => setEditPersonalForm((p) => ({ ...p, tipoPension: e.target.value }))}>
-                  <option value="">Sin especificar</option>{TIPO_PENSION.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
-                </select></div>
+                <SimpleSelect className="h-9 w-full" value={editPersonalForm.tipoPension} onValueChange={(v) => setEditPersonalForm((p) => ({ ...p, tipoPension: v }))} options={[
+                  { value: "", label: "Sin especificar" }, ...TIPO_PENSION.map((t) => ({ value: t.value, label: t.label })),
+                ]} /></div>
               <div className="space-y-1.5 flex items-end"><label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" checked={editPersonalForm.cotizaAFP} onChange={(e) => setEditPersonalForm((p) => ({ ...p, cotizaAFP: e.target.checked }))} className="rounded border-input" />Cotiza AFP (voluntario)</label></div>
               <div className="space-y-1.5 flex items-end"><label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -1133,18 +1134,18 @@ export function GuardiaDetailClient({
             <div className="space-y-1.5 flex items-end"><label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={editPersonalForm.cotizaSalud} onChange={(e) => setEditPersonalForm((p) => ({ ...p, cotizaSalud: e.target.checked }))} className="rounded border-input" />Cotiza salud</label></div>
             <div className="space-y-1.5"><Label className="text-sm">AFP</Label>
-              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.afp} onChange={(e) => setEditPersonalForm((p) => ({ ...p, afp: e.target.value }))}>
-                <option value="">Sin AFP</option>{AFP_CHILE.map((a) => (<option key={a} value={a}>{a}</option>))}
-              </select></div>
+              <SimpleSelect className="h-9 w-full" value={editPersonalForm.afp} onValueChange={(v) => setEditPersonalForm((p) => ({ ...p, afp: v }))} options={[
+                { value: "", label: "Sin AFP" }, ...AFP_CHILE.map((a) => ({ value: a, label: a })),
+              ]} /></div>
             <div className="space-y-1.5"><Label className="text-sm">Sistema de salud</Label>
-              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.healthSystem} onChange={(e) => setEditPersonalForm((p) => ({ ...p, healthSystem: e.target.value }))}>
-                <option value="">Sin sistema</option>{HEALTH_SYSTEMS.map((h) => (<option key={h} value={h}>{h.toUpperCase()}</option>))}
-              </select></div>
+              <SimpleSelect className="h-9 w-full" value={editPersonalForm.healthSystem} onValueChange={(v) => setEditPersonalForm((p) => ({ ...p, healthSystem: v }))} options={[
+                { value: "", label: "Sin sistema" }, ...HEALTH_SYSTEMS.map((h) => ({ value: h, label: h.toUpperCase() })),
+              ]} /></div>
             {editPersonalForm.healthSystem === "isapre" && (<>
               <div className="space-y-1.5"><Label className="text-sm">Isapre</Label>
-                <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.isapreName} onChange={(e) => setEditPersonalForm((p) => ({ ...p, isapreName: e.target.value }))}>
-                  <option value="">Seleccionar</option>{ISAPRES_CHILE.map((i) => (<option key={i} value={i}>{i}</option>))}
-                </select></div>
+                <SimpleSelect className="h-9 w-full" value={editPersonalForm.isapreName} onValueChange={(v) => setEditPersonalForm((p) => ({ ...p, isapreName: v }))} options={[
+                  { value: "", label: "Seleccionar" }, ...ISAPRES_CHILE.map((i) => ({ value: i, label: i })),
+                ]} /></div>
               <div className="space-y-1.5 flex items-end gap-3">
                 <label className="flex items-center gap-2 text-xs cursor-pointer">
                   <input type="checkbox" checked={editPersonalForm.isapreHasExtraPercent} onChange={(e) => setEditPersonalForm((p) => ({ ...p, isapreHasExtraPercent: e.target.checked }))} className="rounded border-input" />Cotización extra</label>
