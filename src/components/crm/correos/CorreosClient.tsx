@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Mail, PenLine } from "lucide-react";
+import {
+  Archive, Building2, CheckSquare, Clock, Forward, Link2, Mail, MailOpen,
+  PenLine, Reply, Sparkles, Star, Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Surface, EmptyState, Spinner } from "@/components/opai-ds";
 import {
@@ -14,6 +17,7 @@ import { CorreosMobileTopBar } from "./CorreosMobileTopBar";
 import { CorreosMobileDrawer } from "./CorreosMobileDrawer";
 import { CorreoSwipeSettingsSheet } from "./CorreoSwipeSettingsSheet";
 import { CorreoShortcutsSheet } from "./CorreoShortcutsSheet";
+import { CorreoContextMenu, type CorreoMenuItem } from "./CorreoContextMenu";
 import { CorreoSelectionBar } from "./CorreoSelectionBar";
 import { CorreoRowSwipe } from "./CorreoRowSwipe";
 import { CorreoDrawer } from "./CorreoDrawer";
@@ -87,6 +91,8 @@ export function CorreosClient() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [swipeSettingsOpen, setSwipeSettingsOpen] = useState(false);
   const [shortcutsSheetOpen, setShortcutsSheetOpen] = useState(false);
+  // Menú contextual (click derecho) desktop sobre una fila.
+  const [ctxMenu, setCtxMenu] = useState<{ thread: CorreoThreadDTO; x: number; y: number } | null>(null);
   // v2: táctil (long-press/selección móvil); en desktop nada de esto aplica.
   const [isCoarse, setIsCoarse] = useState(false);
   useEffect(() => {
@@ -341,10 +347,10 @@ export function CorreosClient() {
     );
   }
 
-  function openThread(id: string) {
+  function openThread(id: string, opts?: { extract?: boolean }) {
     openCorreoThreadInHistory(id, openId !== null);
     setOpenId(id);
-    setAutoExtract(false);
+    setAutoExtract(opts?.extract === true);
   }
 
   function closeThread() {
@@ -494,6 +500,70 @@ export function CorreosClient() {
     onFocusSearch: () => document.getElementById("correos-search-input")?.focus(),
   });
 
+  // Ítems del menú contextual (click derecho, desktop) para un hilo. Reusa los
+  // mismos helpers que el swipe/teclado; las acciones CRM abren el hilo (el
+  // Panel comercial vive al fondo del lector; "Crear lead con IA" con extract).
+  function contextItems(t: CorreoThreadDTO): CorreoMenuItem[] {
+    const items: CorreoMenuItem[] = [
+      {
+        icon: <Reply className="h-4 w-4" />, label: "Responder",
+        onClick: () => {
+          openThread(t.id);
+          window.setTimeout(
+            () => document.getElementById("correo-suggested-reply")?.scrollIntoView({ block: "center" }),
+            600,
+          );
+        },
+      },
+      { icon: <Forward className="h-4 w-4" />, label: "Reenviar", onClick: () => openThread(t.id) },
+    ];
+    if (canModify) {
+      const unread = t.isUnread;
+      const starred = Boolean(t.starredAt);
+      items.push(
+        {
+          divider: true, icon: <Archive className="h-4 w-4" />, label: "Archivar",
+          onClick: () => {
+            removeThreadLocally(t.id);
+            void runCorreoAction(t.id, "archive", "Archivado", () => void fetchPage(null, true), "unarchive");
+          },
+        },
+        {
+          icon: <Trash2 className="h-4 w-4" />, label: "Eliminar", danger: true,
+          onClick: () => {
+            removeThreadLocally(t.id);
+            void runCorreoAction(t.id, "trash", "Movido a la Papelera", () => void fetchPage(null, true), "unarchive");
+          },
+        },
+        {
+          icon: unread ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />,
+          label: unread ? "Marcar leído" : "Marcar no leído",
+          onClick: () => void runCorreoAction(
+            t.id, unread ? "markRead" : "markUnread",
+            unread ? "Marcado como leído" : "Marcado como no leído",
+            () => void fetchPage(null, true),
+          ),
+        },
+        {
+          icon: <Star className="h-4 w-4" />, label: starred ? "Quitar destacado" : "Destacar",
+          onClick: () => void runCorreoAction(
+            t.id, starred ? "unstar" : "star",
+            starred ? "Quitado de Destacados" : "Destacado",
+            () => void fetchPage(null, true), starred ? "star" : "unstar",
+          ),
+        },
+        { icon: <Clock className="h-4 w-4" />, label: "Posponer", onClick: () => setSnoozeId(t.id) },
+      );
+    }
+    items.push(
+      { divider: true, icon: <Sparkles className="h-4 w-4" />, label: "Crear lead con IA", onClick: () => openThread(t.id, { extract: true }) },
+      { icon: <Building2 className="h-4 w-4" />, label: "Asociar cuenta", onClick: () => openThread(t.id) },
+      { icon: <Link2 className="h-4 w-4" />, label: "Vincular instalación/factura", onClick: () => openThread(t.id) },
+      { icon: <CheckSquare className="h-4 w-4" />, label: "Tareas", onClick: () => openThread(t.id) },
+    );
+    return items;
+  }
+
   return (
     <>
       {/* Top móvil tipo Gmail — fuera del root animado para no correr el
@@ -554,6 +624,11 @@ export function CorreosClient() {
         onClose={() => setShortcutsSheetOpen(false)}
         config={shortcuts}
         onConfig={setShortcuts}
+      />
+      <CorreoContextMenu
+        anchor={ctxMenu ? { x: ctxMenu.x, y: ctxMenu.y } : null}
+        items={ctxMenu ? contextItems(ctxMenu.thread) : []}
+        onClose={() => setCtxMenu(null)}
       />
     <div className="ds-page-enter space-y-5 max-lg:pb-28 lg:space-y-3">
       {/* Sin hero en desktop (rediseño Gmail): breadcrumb + tab ya ubican.
@@ -656,6 +731,15 @@ export function CorreosClient() {
               elevation={1}
               padding="none"
               className="overflow-hidden max-lg:-mx-4 max-lg:rounded-none max-lg:border-x-0"
+              onContextMenu={(e) => {
+                // Click derecho sobre una fila (desktop): menú contextual.
+                const rowEl = (e.target as HTMLElement).closest?.("[data-correo-row]");
+                const id = rowEl?.getAttribute("data-correo-row");
+                const t = id ? filtered.find((x) => x.id === id) : null;
+                if (!t) return;
+                e.preventDefault();
+                setCtxMenu({ thread: t, x: e.clientX, y: e.clientY });
+              }}
             >
               {searching && loading && (
                 <div className="flex items-center gap-2 border-b border-ds-border-subtle px-4 py-2 text-[12px] text-ds-text-3">
