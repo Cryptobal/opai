@@ -163,6 +163,15 @@ describe("nav registry", () => {
       expect(findActiveModule("/opai/documentos-operativos")?.key).toBe("docs");
       expect(findActiveModule("/opai/documentos-operativos/algo")?.key).toBe("docs");
     });
+    it("finds Personas en TODOS los submódulos (href raíz /personas, no solo Listado)", () => {
+      // Regresión: con href /personas/guardias, findActiveModule fallaba fuera
+      // de Listado y la barra superior/breadcrumbs quedaban sin resolver.
+      expect(findActiveModule("/personas/guardias")?.key).toBe("personas");
+      expect(findActiveModule("/personas/conocimiento")?.key).toBe("personas");
+      expect(findActiveModule("/personas/onboarding")?.key).toBe("personas");
+      expect(findActiveModule("/personas/comunicaciones")?.key).toBe("personas");
+      expect(findActiveModule("/personas/psicolaboral")?.key).toBe("personas");
+    });
     it("returns undefined for unknown path", () => {
       expect(findActiveModule("/unknown/path")).toBeUndefined();
     });
