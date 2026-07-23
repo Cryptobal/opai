@@ -1,12 +1,11 @@
 'use client';
 
 import { cloneElement, isValidElement, ReactElement, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, MessageCircle, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CommandPalette, CommandPaletteProvider, useCommandPalette } from './CommandPalette';
-import { ThemeLogo } from './ThemeLogo';
+import { MobileIsland } from './MobileIsland';
 import { TopbarActions } from './TopbarActions';
 import { QuickCreateModal, type QuickCreateType } from './QuickCreateModal';
 import { AiHelpChatWidgetV2 as AiHelpChatWidget } from './AiHelpChatWidgetV2';
@@ -141,61 +140,17 @@ function AppShellInner({
       <PlatformDataAttribute />
       <GlassAmbient />
       <div className="relative min-h-[100dvh] overflow-x-clip">
-        {/* ── Mobile topbar (redesigned — no hamburger, no sidebar) ── */}
+        {/* ── Isla contextual móvil (A/B/C/D) ── */}
         {/* En rutas inmersivas el módulo pinta su propio top móvil (la isla
             ya es lg:hidden, así que desktop no cambia al no renderizarla). */}
         {sidebar && !isImmersiveMobile && (
-          <header
-            className="fixed top-0 left-0 right-0 z-30 lg:hidden pointer-events-none"
-            style={{
-              paddingLeft: 'max(env(safe-area-inset-left), 0.75rem)',
-              paddingRight: 'max(env(safe-area-inset-right), 0.75rem)',
-              paddingTop: 'calc(env(safe-area-inset-top) + 8px)',
-            }}
-          >
-            {/* Liquid Glass v1 — isla flotante despegada de los bordes (iOS === Android). */}
-            <div className="pointer-events-auto opai-glass-strong flex min-h-12 items-center justify-between rounded-[22px] pl-3 pr-1">
-            {/* Left: Logo */}
-            <Link href="/hub" className="flex items-center gap-2 hover:opacity-80 shrink-0">
-              <ThemeLogo width={28} height={28} className="h-7 w-7" />
-              <span className="text-sm font-semibold tracking-tight">OPAI</span>
-            </Link>
-
-            {/* Right: Search, Chat, Notifications */}
-            <div className="flex items-center gap-0.5">
-              <button
-                type="button"
-                className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
-                onClick={() => openCommandPalette()}
-                aria-label="Buscar"
-              >
-                <Search className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                className="relative inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
-                onClick={handleToggleChat}
-                aria-label="Abrir chat"
-              >
-                <MessageCircle className="h-5 w-5" />
-                {chatCtx.totalUnread > 0 && (
-                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-status-danger ring-2 ring-background" />
-                )}
-              </button>
-              <button
-                type="button"
-                className="relative inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
-                onClick={handleToggleNotifications}
-                aria-label="Notificaciones"
-              >
-                <Bell className="h-5 w-5" />
-                {notifUnreadCount > 0 && (
-                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-status-danger ring-2 ring-background animate-pulse" />
-                )}
-              </button>
-            </div>
-            </div>
-          </header>
+          <MobileIsland
+            onSearch={() => openCommandPalette()}
+            onToggleChat={handleToggleChat}
+            onToggleNotifications={handleToggleNotifications}
+            chatUnread={chatCtx.totalUnread}
+            notifUnread={notifUnreadCount}
+          />
         )}
 
         {/* ── Desktop sidebar (unchanged) ── */}
