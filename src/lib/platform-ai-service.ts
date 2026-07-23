@@ -8,6 +8,7 @@
 import { prisma } from "@/lib/prisma";
 import { decryptApiKey } from "@/lib/ai-encryption";
 import { KNOWN_PROVIDERS } from "@/lib/ai-known-models";
+import { computeCostUSD } from "@/lib/ai-pricing";
 
 export type PlatformAIConfig = {
   providerType: string;
@@ -233,4 +234,148 @@ export async function getUsageStats(filters: UsageFilter = {}): Promise<UsageSta
     totalTokens: g._sum.totalTokens ?? 0,
     totalCost: g._sum.estimatedCost ?? 0,
   }));
+}
+
+/* ── Usage summary (con costo estimado por tarifario) ── */
+
+export type UsageRow = {
+  key: string;
+  label: string;
+  sublabel?: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  costUSD: number;
+  /** false cuando el modelo no está tarifado (costo no estimable). */
+  priced: boolean;
+};
+
+export type UsageSummary = {
+  totals: {
+    requests: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    costUSD: number;
+    /** Requests cuyo modelo no tiene tarifa conocida (costo subestimado). */
+    unpricedRequests: number;
+  };
+  byFeature: UsageRow[];
+  byModel: UsageRow[];
+  byTenant: UsageRow[];
+};
+
+/**
+ * Resumen de consumo de IA con costo estimado a partir del tarifario
+ * (`ai-pricing.ts`). Agrupa por (tenant, feature, modelo, proveedor) en una
+ * sola consulta y consolida en cortes por feature, modelo y tenant.
+ */
+export async function getUsageSummary(filters: UsageFilter = {}): Promise<UsageSummary> {
+  const where: Record<string, unknown> = {};
+  if (filters.tenantId) where.tenantId = filters.tenantId;
+  if (filters.feature) where.feature = filters.feature;
+  if (filters.from || filters.to) {
+    where.createdAt = {
+      ...(filters.from ? { gte: filters.from } : {}),
+      ...(filters.to ? { lte: filters.to } : {}),
+    };
+  }
+
+  const grouped = await prisma.aiUsageLog.groupBy({
+    by: ["tenantId", "feature", "model", "providerType"],
+    where,
+    _count: { id: true },
+    _sum: { inputTokens: true, outputTokens: true, totalTokens: true },
+  });
+
+  const totals = {
+    requests: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    totalTokens: 0,
+    costUSD: 0,
+    unpricedRequests: 0,
+  };
+
+  const featureMap = new Map<string, UsageRow>();
+  const modelMap = new Map<string, UsageRow>();
+  const tenantMap = new Map<string, UsageRow>();
+
+  const bump = (
+    map: Map<string, UsageRow>,
+    key: string,
+    label: string,
+    sublabel: string | undefined,
+    g: (typeof grouped)[number],
+    cost: { usd: number; priced: boolean },
+  ) => {
+    const input = g._sum.inputTokens ?? 0;
+    const output = g._sum.outputTokens ?? 0;
+    const total = g._sum.totalTokens ?? input + output;
+    const existing = map.get(key);
+    if (existing) {
+      existing.requests += g._count.id;
+      existing.inputTokens += input;
+      existing.outputTokens += output;
+      existing.totalTokens += total;
+      existing.costUSD += cost.usd;
+      existing.priced = existing.priced && cost.priced;
+    } else {
+      map.set(key, {
+        key,
+        label,
+        sublabel,
+        requests: g._count.id,
+        inputTokens: input,
+        outputTokens: output,
+        totalTokens: total,
+        costUSD: cost.usd,
+        priced: cost.priced,
+      });
+    }
+  };
+
+  for (const g of grouped) {
+    const input = g._sum.inputTokens ?? 0;
+    const output = g._sum.outputTokens ?? 0;
+    const total = g._sum.totalTokens ?? input + output;
+    const cost = computeCostUSD(g.model, input, output);
+
+    totals.requests += g._count.id;
+    totals.inputTokens += input;
+    totals.outputTokens += output;
+    totals.totalTokens += total;
+    totals.costUSD += cost.usd;
+    if (!cost.priced) totals.unpricedRequests += g._count.id;
+
+    bump(featureMap, g.feature, g.feature, undefined, g, cost);
+    bump(modelMap, `${g.providerType}:${g.model}`, g.model, g.providerType, g, cost);
+    bump(tenantMap, g.tenantId ?? "—", g.tenantId ?? "Sin tenant", undefined, g, cost);
+  }
+
+  // Enriquecer nombres de tenant.
+  const tenantIds = Array.from(tenantMap.keys()).filter((id) => id !== "—");
+  if (tenantIds.length > 0) {
+    const tenants = await prisma.tenant.findMany({
+      where: { id: { in: tenantIds } },
+      select: { id: true, name: true, slug: true },
+    });
+    for (const t of tenants) {
+      const row = tenantMap.get(t.id);
+      if (row) {
+        row.label = t.name;
+        row.sublabel = t.slug;
+      }
+    }
+  }
+
+  const byCost = (a: UsageRow, b: UsageRow) => b.costUSD - a.costUSD || b.totalTokens - a.totalTokens;
+
+  return {
+    totals,
+    byFeature: Array.from(featureMap.values()).sort(byCost),
+    byModel: Array.from(modelMap.values()).sort(byCost),
+    byTenant: Array.from(tenantMap.values()).sort(byCost),
+  };
 }
