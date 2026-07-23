@@ -69,6 +69,33 @@ describe("AgendaQuickCreate", () => {
     expect(body.allDay).toBe(false);
   });
 
+  it("modo Tarea usa el selector de 15 min y envía assigneeIds (sin assignedTo)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { id: "t1" } }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { onCreated } = renderPanel();
+    const title = screen.getByLabelText("Título");
+    fireEvent.keyDown(title, { key: "Tab" }); // → modo Tarea
+
+    // El selector horario es el picker de 15 min (botón), no un <input type="time">.
+    const timeBtn = screen.getByRole("button", { name: "Hora (pasos de 15 min)" });
+    expect(timeBtn).toHaveTextContent("10:00");
+
+    fireEvent.change(title, { target: { value: "Revisar propuesta" } });
+    fireEvent.keyDown(title, { key: "Enter" });
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse((init as RequestInit).body as string);
+    // Contrato nuevo: multi-responsable. Sin responsable seleccionado → el
+    // servidor asigna al creador (assigneeIds omitido, assignedTo ya no se usa).
+    expect(body).not.toHaveProperty("assignedTo");
+    expect(body.assigneeIds).toBeUndefined();
+  });
+
   it("Esc cierra el panel", () => {
     const { onClose } = renderPanel();
     fireEvent.keyDown(screen.getByLabelText("Título"), { key: "Escape" });

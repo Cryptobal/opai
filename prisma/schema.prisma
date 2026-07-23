@@ -2616,11 +2616,18 @@ model CrmTask {
   dueAt         DateTime? @map("due_at") @db.Timestamptz(6)
   // dueAt sin hora significativa: se agenda "todo el día" (aviso a media mañana).
   allDay        Boolean   @default(false) @map("all_day")
+  // Responsable principal (denormalización de compatibilidad = assignees[0]).
+  // La fuente de verdad multi-responsable es CrmTaskAssignee. No se elimina para
+  // preservar consumidores móviles y queries existentes.
   assignedTo    String?   @map("assigned_to")
+  // Quién y cuándo completó la tarea (idempotente: conserva el primero).
+  completedBy   String?   @map("completed_by")
+  completedAt   DateTime? @map("completed_at") @db.Timestamptz(6)
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  deal CrmDeal? @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  deal      CrmDeal?          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  assignees CrmTaskAssignee[]
 
   @@index([tenantId], map: "idx_crm_tasks_tenant")
   @@index([status], map: "idx_crm_tasks_status")
@@ -2629,6 +2636,24 @@ model CrmTask {
   @@index([accountId], map: "idx_crm_tasks_account")
   @@index([emailThreadId], map: "idx_crm_tasks_email_thread")
   @@map("tasks")
+  @@schema("crm")
+}
+
+/// Responsables de una tarea (multi-responsable). Cada guardia/admin asignado
+/// ve la tarea en su agenda. `assignedTo` en CrmTask se mantiene como
+/// denormalización de compatibilidad (= primer responsable).
+model CrmTaskAssignee {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  task CrmTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId], map: "uq_crm_task_assignees_task_user")
+  @@index([taskId], map: "idx_crm_task_assignees_task")
+  @@index([userId], map: "idx_crm_task_assignees_user")
+  @@map("task_assignees")
   @@schema("crm")
 }
 

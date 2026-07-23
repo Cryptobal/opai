@@ -11,7 +11,7 @@ export function useQuickCreateTask() {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(() => todayInChile());
   const [time, setTime] = useState("");
-  const [assignedTo, setAssignedTo] = useState("");
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [account, setAccount] = useState<AccountOption | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -19,7 +19,7 @@ export function useQuickCreateTask() {
     setTitle("");
     setDate(todayInChile());
     setTime("");
-    setAssignedTo("");
+    setAssigneeIds([]);
     setAccount(null);
   }, []);
 
@@ -43,7 +43,7 @@ export function useQuickCreateTask() {
         title: title.trim(),
         dueAt: dateAtChileSlot(date, hh * 60 + mm).toISOString(),
         allDay,
-        assignedTo: assignedTo || undefined,
+        assigneeIds: assigneeIds.length ? assigneeIds : undefined,
         accountId: account?.id ?? undefined,
       }),
     }).catch(() => null);
@@ -54,11 +54,11 @@ export function useQuickCreateTask() {
     }
     toast.success("Tarea creada");
     return true;
-  }, [saving, title, date, time, assignedTo, account]);
+  }, [saving, title, date, time, assigneeIds, account]);
 
   return {
-    form: { title, date, time, assignedTo, account },
-    set: { setTitle, setDate, setTime, setAssignedTo, setAccount },
+    form: { title, date, time, assigneeIds, account },
+    set: { setTitle, setDate, setTime, setAssigneeIds, setAccount },
     saving,
     reset,
     submit,

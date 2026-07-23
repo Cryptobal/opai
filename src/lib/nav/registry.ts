@@ -375,8 +375,7 @@ export const NAV_MODULES: NavNode[] = [
       // CRM, así se oculta para tenants sin ese módulo (acoplamiento conocido).
       { key: "productividad-correos", href: "/crm/correos", label: "Correos", icon: Mail, module: "productividad", submodule: "correos", tenantModule: "crm" },
       { key: "productividad-agenda", href: "/opai/agenda", label: "Agenda", icon: CalendarDays, module: "productividad", submodule: "agenda" },
-      // TODO F1: activar cuando exista la ruta /opai/tareas
-      // { key: "productividad-tareas", href: "/opai/tareas", label: "Tareas", icon: ClipboardList, module: "productividad", submodule: "tareas" },
+      { key: "productividad-tareas", href: "/opai/tareas", label: "Tareas", icon: ClipboardList, module: "productividad", submodule: "tareas" },
       // TODO F3: activar cuando exista la ruta /opai/agentes
       // { key: "productividad-agentes", href: "/opai/agentes", label: "Agentes IA", icon: Sparkles, module: "productividad", submodule: "agentes" },
     ],

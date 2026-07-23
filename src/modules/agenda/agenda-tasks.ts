@@ -27,6 +27,7 @@ export async function listAgendaTasks(
         accountId: true,
         emailThreadId: true,
         assignedTo: true,
+        assignees: { select: { userId: true } },
       },
       take: 500,
     }),
@@ -60,6 +61,16 @@ export async function listAgendaTasks(
         : t.accountId
           ? `/crm/accounts/${t.accountId}`
           : null;
+    // Fuente de verdad multi-responsable = task_assignees; fallback al
+    // assignedTo denormalizado si aún no hay filas (tareas pre-migración).
+    const assigneeIds = t.assignees.length
+      ? t.assignees.map((a) => a.userId)
+      : t.assignedTo
+        ? [t.assignedTo]
+        : [];
+    const assignedNames = assigneeIds
+      .map((id) => adminName.get(id))
+      .filter((n): n is string => Boolean(n));
     return {
       id: t.id,
       source: "tarea",
@@ -68,8 +79,10 @@ export async function listAgendaTasks(
       start,
       end: new Date((t.dueAt as Date).getTime() + 30 * 60_000).toISOString(),
       allDay: t.allDay,
-      assignedUserId: t.assignedTo ?? "",
-      assignedName: t.assignedTo ? adminName.get(t.assignedTo) ?? null : null,
+      assignedUserId: assigneeIds[0] ?? "",
+      assignedName: assigneeIds[0] ? adminName.get(assigneeIds[0]) ?? null : null,
+      assignedUserIds: assigneeIds,
+      assignedNames,
       accountName: (t.dealId && dealName.get(t.dealId)) || (t.accountId && accName.get(t.accountId)) || null,
       installationName: null,
       address: null,

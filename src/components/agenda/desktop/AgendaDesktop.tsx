@@ -139,8 +139,15 @@ export function AgendaDesktop() {
       if (contentFilter === "tareas" && !isTask) return false;
       if (contentFilter === "reuniones" && isTask) return false;
       if (!isTask && typeFilter !== "todos" && item.type !== typeFilter) return false;
-      if (assignedUserIds.length > 0 && !assignedUserIds.includes(item.assignedUserId)) {
-        return false;
+      if (assignedUserIds.length > 0) {
+        // Multi-responsable: la tarea aparece si CUALQUIER responsable está
+        // en el filtro (cada responsable la ve en su agenda).
+        const itemAssignees = item.assignedUserIds?.length
+          ? item.assignedUserIds
+          : [item.assignedUserId];
+        if (!itemAssignees.some((id) => assignedUserIds.includes(id))) {
+          return false;
+        }
       }
       if (!q) return true;
       const haystack = [
