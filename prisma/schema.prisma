@@ -2756,6 +2756,49 @@ model CrmEmailOutbox {
   @@schema("crm")
 }
 
+/// Chunks de correo con embeddings (A07 §7, pgvector): búsqueda semántica y
+/// Q&A sobre la casilla. `tenantId` en TODA fila y todo retrieval. Identidad
+/// estable por (messageId, chunkIndex); contentHash evita re-embeddings.
+model CrmEmailChunk {
+  id             String                       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String                       @map("tenant_id")
+  emailAccountId String                       @map("email_account_id") @db.Uuid
+  threadId       String                       @map("thread_id") @db.Uuid
+  messageId      String                       @map("message_id") @db.Uuid
+  chunkIndex     Int                          @default(0) @map("chunk_index")
+  content        String                       @db.Text
+  contentHash    String                       @map("content_hash")
+  embedding      Unsupported("vector(1536)")?
+  tokenCount     Int                          @default(0) @map("token_count")
+  createdAt      DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([messageId, chunkIndex], map: "uq_crm_email_chunks_message_chunk")
+  @@index([tenantId, threadId], map: "idx_crm_email_chunks_tenant_thread")
+  @@index([emailAccountId], map: "idx_crm_email_chunks_account")
+  @@map("email_chunks")
+  @@schema("crm")
+}
+
+/// Vinculación polimórfica hilo↔entidad operacional (O01-O04 §7):
+/// instalación, guardia, postulante, proveedor, factura, incidente…
+/// `linkedVia`: manual | ai | rule. El panel del hilo la consume.
+model CrmEmailThreadLink {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId   String   @map("tenant_id")
+  threadId   String   @map("thread_id") @db.Uuid
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  linkedVia  String   @default("manual") @map("linked_via")
+  createdBy  String?  @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([threadId, entityType, entityId], map: "uq_crm_email_thread_links")
+  @@index([tenantId, entityType, entityId], map: "idx_crm_email_thread_links_entity")
+  @@index([threadId], map: "idx_crm_email_thread_links_thread")
+  @@map("email_thread_links")
+  @@schema("crm")
+}
+
 model CrmEmailThread {
   id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId         String    @map("tenant_id")
@@ -2791,6 +2834,16 @@ model CrmEmailThread {
   aiIntent       String?   @map("ai_intent") // alta|media|baja
   aiSummary      String?   @map("ai_summary") // resumen 1 línea
   aiClassifiedAt DateTime? @map("ai_classified_at") @db.Timestamptz(6)
+  // ── Radar v5 (A03): taxonomía vertical completa + urgencia y sentimiento
+  // separados de intención. Mapeo v4→v5: cotizacion/licitacion/
+  // consulta_comercial→comercial · facturacion→finanzas · operacional→
+  // operaciones · otro→otro (backfill en la migración).
+  aiVertical  String? @map("ai_vertical") // operaciones|rrhh|comercial|finanzas|cobranza|contratos|incidentes|otro
+  aiUrgency   String? @map("ai_urgency") // alta|media|baja
+  aiSentiment String? @map("ai_sentiment") // positivo|neutral|negativo
+  // ── Resúmenes reales (A01/A02): caché por último mensaje + última lectura.
+  aiThreadSummary Json?     @map("ai_thread_summary") // { summary, lastMessageId, generatedAt }
+  lastReadAt      DateTime? @map("last_read_at") @db.Timestamptz(6)
   firstInboundAt DateTime? @map("first_inbound_at") @db.Timestamptz(6) // primer mensaje externo del hilo
   firstReplyAt   DateTime? @map("first_reply_at") @db.Timestamptz(6) // primera respuesta interna al inbound
 
@@ -2876,6 +2929,8 @@ model CrmEmailMessage {
   // ── Borradores Gmail (C08): autosave bidireccional OPAI↔Gmail ──
   isDraft         Boolean @default(false) @map("is_draft")
   providerDraftId String? @map("provider_draft_id")
+  // A07: marcado cuando sus chunks/embeddings ya se generaron (incremental).
+  chunksIndexed   Boolean @default(false) @map("chunks_indexed")
 
   thread CrmEmailThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlignJustify, RefreshCw, Search, Wifi, WifiOff } from "lucide-react";
+import { AlignJustify, RefreshCw, Search, Sparkles, Wifi, WifiOff } from "lucide-react";
 import type { CorreosRealtimeStatus } from "./useCorreosRealtime";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
 
@@ -60,6 +60,9 @@ type Props = {
   counts: Counts;
   query: string;
   onQuery: (q: string) => void;
+  /** A07: modo semántico ("buscar por significado"). */
+  semantic: boolean;
+  onSemantic: (v: boolean) => void;
   onSync: () => void;
   syncing: boolean;
   realtimeStatus: CorreosRealtimeStatus;
@@ -76,6 +79,8 @@ export function CorreosFilters({
   counts,
   query,
   onQuery,
+  semantic,
+  onSemantic,
   onSync,
   syncing,
   realtimeStatus,
@@ -96,12 +101,29 @@ export function CorreosFilters({
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ds-text-4" />
           <input
             id="correos-search-input"
-            className="h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 pl-9 pr-3 text-[13px] sm:h-9"
-            placeholder="Buscar en toda la casilla (from: to: domain: before: after: has:attachment)"
+            className="h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 pl-9 pr-24 text-[13px] sm:h-9"
+            placeholder={
+              semantic
+                ? "Buscar por significado (ej: el cliente que pidió más guardias)"
+                : "Buscar en toda la casilla (from: to: domain: before: after: has:attachment)"
+            }
             value={query}
             onChange={(e) => onQuery(e.target.value)}
             autoComplete="off"
           />
+          <button
+            type="button"
+            onClick={() => onSemantic(!semantic)}
+            aria-pressed={semantic}
+            title="Buscar por significado (búsqueda semántica con IA)"
+            className={`absolute right-1.5 top-1/2 inline-flex h-7 -translate-y-1/2 items-center gap-1 rounded-lg px-2 text-[12px] ds-tap ${
+              semantic
+                ? "bg-primary text-primary-foreground"
+                : "bg-ds-surface-2 text-ds-text-3"
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5" /> IA
+          </button>
         </div>
         <button
           type="button"

@@ -67,6 +67,8 @@ export function CorreosClient() {
   const [query, setQuery] = useState("");
   // C15: la búsqueda consulta al servidor (toda la casilla), con debounce.
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  // A07: modo "buscar por significado" (retrieval vectorial).
+  const [semantic, setSemantic] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [autoExtract, setAutoExtract] = useState(false);
   const [snoozeId, setSnoozeId] = useState<string | null>(null);
@@ -102,6 +104,7 @@ export function CorreosClient() {
       if (cur) qs.set("cursor", cur);
       if (f !== "inbox") qs.set("folder", f);
       if (debouncedQuery) qs.set("q", debouncedQuery);
+      if (debouncedQuery && semantic) qs.set("mode", "semantic");
       // C18: counts solo en cargas "reset" sin búsqueda activa (carga inicial,
       // cambio de carpeta, invalidación realtime) — tipear o paginar no los paga.
       const wantCounts = reset && !cur && !debouncedQuery;
@@ -155,7 +158,7 @@ export function CorreosClient() {
     } finally {
       setLoading(false);
     }
-  }, [folder, debouncedQuery]);
+  }, [folder, debouncedQuery, semantic]);
 
   // C22b: al reconectar, reconciliar acciones y envíos encolados offline.
   useEffect(() => {
@@ -464,7 +467,9 @@ export function CorreosClient() {
           sin el bloque grande del hero robando espacio. */}
       <div className="sticky top-[calc(4rem+env(safe-area-inset-top,0px))] z-10 -mx-1 bg-background/80 px-1 py-2 backdrop-blur-sm lg:static lg:top-auto lg:bg-transparent lg:px-0 lg:py-0 lg:backdrop-blur-none">
         <CorreosFilters folder={folder} onFolder={setFolder} chip={chip} onChip={setChip}
-          counts={counts} query={query} onQuery={setQuery} onSync={syncNow} syncing={syncing}
+          counts={counts} query={query} onQuery={setQuery}
+          semantic={semantic} onSemantic={setSemantic}
+          onSync={syncNow} syncing={syncing}
           realtimeStatus={realtimeStatus} previewLines={previewLines}
           onPreviewLines={setPreviewLines} lastSyncAt={lastSyncAt} />
       </div>
