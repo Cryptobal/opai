@@ -248,6 +248,21 @@ export const CONFIG_CATEGORIES: NavCategory[] = [
   { key: "ia", label: "Inteligencia Artificial" },
 ];
 
+/** Rutas hermanas planas del sub-módulo Pautas (viven fuera de
+ *  `/ops/pauta-mensual`). Se declaran arriba de NAV_MODULES para poder
+ *  referenciarlas como `activePaths` del nodo `ops-pautas` — así el
+ *  auto-detect del SubNav/topbar resuelve el grupo Pautas sin que cada
+ *  página tenga que forzar `moduleKey`. También las consume
+ *  `getContextualBottomNavNodes`. */
+const PAUTAS_ROUTES = [
+  "/ops/pauta-mensual",
+  "/ops/pauta-diaria",
+  "/ops/refuerzos",
+  "/ops/ppc",
+  "/ops/marcaciones",
+  "/ops/audit-pautas",
+];
+
 export const NAV_MODULES: NavNode[] = [
   // ═════════════════════════════════════════════════════════
   // HUB
@@ -555,6 +570,11 @@ export const NAV_MODULES: NavNode[] = [
         label: "Pautas",
         icon: CalendarDays,
         module: "ops",
+        // Rutas hermanas planas (pauta-diaria, ppc, refuerzos, marcaciones,
+        // audit-pautas) viven fuera de /ops/pauta-mensual. Declararlas como
+        // activePaths permite que findN3Parent/topbar resuelvan "Pautas"
+        // sin que cada página fuerce moduleKey.
+        activePaths: PAUTAS_ROUTES,
         // Visible si tiene CUALQUIERA de las sub-secciones
         show: (perms) =>
           canView(perms, "ops", "pauta_mensual") ||
@@ -910,15 +930,6 @@ export function findN3Parent(pathname: string): NavNode | undefined {
 /* ────────────────────────────────────────────────────────────
  * Special routes detection (overrides)
  * ──────────────────────────────────────────────────────────── */
-
-const PAUTAS_ROUTES = [
-  "/ops/pauta-mensual",
-  "/ops/pauta-diaria",
-  "/ops/refuerzos",
-  "/ops/ppc",
-  "/ops/marcaciones",
-  "/ops/audit-pautas",
-];
 
 /** Returns the contextual N2 slice for the bottom nav given a pathname.
  *  - Inside Pautas routes → returns Pautas children (N3 promoted to bottom).

@@ -69,6 +69,14 @@ export interface ModuleSubNavProps {
    *  se muestre (caso Finanzas, donde el N2 vive arriba del Hero y el N3
    *  abajo), pasá `disableAutoSuppress`. */
   disableAutoSuppress?: boolean;
+  /** Variante visual de los tabs (pass-through a SwipeTabs). */
+  variant?: "default" | "compact";
+  /** Modo de render:
+   *   - "stack" (default): fila propia, gateada por `visibility`.
+   *   - "topbar": sin wrapper de visibilidad (el contenedor fijo la controla),
+   *     tabs a la altura completa de la barra y sin su propio borde inferior
+   *     (la barra ya lo dibuja). Usado en la barra superior desktop. */
+  appearance?: "stack" | "topbar";
 }
 
 function nodeToTabItem(node: NavNode): SwipeTabItem {
@@ -88,6 +96,8 @@ export function ModuleSubNav({
   trailingAction,
   activeHref: _activeHref,
   disableAutoSuppress = false,
+  variant = "default",
+  appearance = "stack",
 }: ModuleSubNavProps) {
   const pathname = usePathname() ?? "/";
   const permissions = useEffectivePermissions();
@@ -140,6 +150,23 @@ export function ModuleSubNav({
 
   if (items.length === 0) return null;
 
+  // Modo topbar: la barra fija superior controla la visibilidad (hidden
+  // lg:flex) y dibuja su propio borde inferior, así que los tabs van a
+  // altura completa y sin su borde propio. El fade de overflow y el
+  // scroll horizontal ya viven en SwipeTabs.
+  if (appearance === "topbar") {
+    return (
+      <div className={cn("flex min-w-0 items-stretch", className)}>
+        <SwipeTabs
+          items={items}
+          trailingAction={trailingAction}
+          variant={variant}
+          className="h-full min-h-0 flex-1 border-b-0"
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -147,7 +174,7 @@ export function ModuleSubNav({
         className,
       )}
     >
-      <SwipeTabs items={items} trailingAction={trailingAction} />
+      <SwipeTabs items={items} trailingAction={trailingAction} variant={variant} />
     </div>
   );
 }

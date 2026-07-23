@@ -187,6 +187,16 @@ describe("nav registry", () => {
     it("returns undefined for /hub (no N3)", () => {
       expect(findN3Parent("/hub")).toBeUndefined();
     });
+
+    it("Pautas — rutas hermanas planas resuelven ops-pautas (activePaths)", () => {
+      // /ops/pauta-mensual es el href propio; el resto vive vía activePaths.
+      expect(findN3Parent("/ops/pauta-mensual")?.key).toBe("ops-pautas");
+      expect(findN3Parent("/ops/pauta-diaria")?.key).toBe("ops-pautas");
+      expect(findN3Parent("/ops/ppc")?.key).toBe("ops-pautas");
+      expect(findN3Parent("/ops/refuerzos")?.key).toBe("ops-pautas");
+      expect(findN3Parent("/ops/audit-pautas")?.key).toBe("ops-pautas");
+      expect(findN3Parent("/ops/marcaciones")?.key).toBe("ops-pautas");
+    });
   });
 
   describe("Banca — N3 + activePaths (rutas hermanas planas)", () => {

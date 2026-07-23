@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { ModuleSubNav, PageHero } from "@/components/opai-ds";
+import { PageHero } from "@/components/opai-ds";
 import { ShieldAlert } from "lucide-react";
 import { OpsPpcClient } from "@/components/ops";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
@@ -38,7 +38,6 @@ export default async function OpsPpcPage() {
 
   return (
     <div className="space-y-6 min-w-0">
-      <ModuleSubNav moduleKey="ops-pautas" />
       <PageHero
         icon={<ShieldAlert />}
         iconTone="emerald"

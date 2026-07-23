@@ -1,12 +1,11 @@
 'use client';
 
 import { cloneElement, isValidElement, ReactElement, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, MessageCircle, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CommandPalette, CommandPaletteProvider, useCommandPalette } from './CommandPalette';
-import { ThemeLogo } from './ThemeLogo';
+import { MobileIsland } from './MobileIsland';
 import { TopbarActions } from './TopbarActions';
 import { QuickCreateModal, type QuickCreateType } from './QuickCreateModal';
 import { AiHelpChatWidgetV2 as AiHelpChatWidget } from './AiHelpChatWidgetV2';
@@ -21,7 +20,15 @@ import { NotificationSidePanel } from '@/components/notifications/NotificationSi
 import { useNotifications } from '@/contexts/NotificationContext';
 import { PlatformDataAttribute } from '@/components/opai/portal-shell';
 import { useIsIOS } from '@/hooks/usePlatform';
-import { AutoBreadcrumbs, BreadcrumbTrailingProvider, GlassAmbient } from '@/components/opai-ds';
+import {
+  BreadcrumbTrailingProvider,
+  useBreadcrumbTrailing,
+  FxIndicator,
+  GlassAmbient,
+  IslandActionProvider,
+  ModuleSubNav,
+} from '@/components/opai-ds';
+import { resolveNavContext } from '@/lib/nav/resolve-context';
 
 export interface AppShellProps {
   sidebar?: ReactNode;
@@ -36,10 +43,23 @@ export interface AppShellProps {
  *  sin breadcrumbs, sin padding de página. BottomNav se mantiene. */
 const IMMERSIVE_MOBILE_PREFIXES = ['/crm/correos'];
 
-/** Rutas que en móvil conservan la isla OPAI pero quitan el breadcrumb y
- *  pegan su contenido justo bajo la isla (padding mínimo). El módulo pinta su
- *  propio header. Desktop no cambia. */
-const COMPACT_MOBILE_PREFIXES = ['/opai/agenda'];
+/**
+ * DocumentTitle — mantiene `document.title` sincronizado con la ruta activa
+ * usando el registry (`resolveNavContext`) y el trailing publicado por las
+ * fichas (`useSetBreadcrumbTrailing`). No toca el `metadata` de las páginas;
+ * solo el título del tab del navegador. Vive dentro del
+ * BreadcrumbTrailingProvider para leer el trailing.
+ */
+function DocumentTitle() {
+  const pathname = usePathname() ?? '/';
+  const trailing = useBreadcrumbTrailing();
+  useEffect(() => {
+    const ctx = resolveNavContext(pathname);
+    const label = trailing || ctx?.shortTitle || ctx?.title;
+    document.title = label ? `${label} · OPAI` : 'OPAI';
+  }, [pathname, trailing]);
+  return null;
+}
 
 /**
  * AppShell - Layout principal
@@ -72,7 +92,6 @@ function AppShellInner({
 }: AppShellProps) {
   const pathname = usePathname();
   const isImmersiveMobile = IMMERSIVE_MOBILE_PREFIXES.some((p) => pathname.startsWith(p));
-  const isCompactMobile = COMPACT_MOBILE_PREFIXES.some((p) => pathname.startsWith(p));
   const chatCtx = useChatSidePanelContext();
   const notifCtx = useNotificationSidePanelContext();
   const { unreadCount: notifUnreadCount } = useNotifications();
@@ -115,65 +134,23 @@ function AppShellInner({
     try { localStorage.setItem('opai-sidebar-open', String(isSidebarOpen)); } catch {}
   }, [isSidebarOpen]);
   return (
-    <>
+    <BreadcrumbTrailingProvider>
+      <IslandActionProvider>
+      <DocumentTitle />
       <PlatformDataAttribute />
       <GlassAmbient />
       <div className="relative min-h-[100dvh] overflow-x-clip">
-        {/* ── Mobile topbar (redesigned — no hamburger, no sidebar) ── */}
+        {/* ── Isla contextual móvil (A/B/C/D) ── */}
         {/* En rutas inmersivas el módulo pinta su propio top móvil (la isla
             ya es lg:hidden, así que desktop no cambia al no renderizarla). */}
         {sidebar && !isImmersiveMobile && (
-          <header
-            className="fixed top-0 left-0 right-0 z-30 lg:hidden pointer-events-none"
-            style={{
-              paddingLeft: 'max(env(safe-area-inset-left), 0.75rem)',
-              paddingRight: 'max(env(safe-area-inset-right), 0.75rem)',
-              paddingTop: 'calc(env(safe-area-inset-top) + 8px)',
-            }}
-          >
-            {/* Liquid Glass v1 — isla flotante despegada de los bordes (iOS === Android). */}
-            <div className="pointer-events-auto opai-glass-strong flex min-h-12 items-center justify-between rounded-[22px] pl-3 pr-1">
-            {/* Left: Logo */}
-            <Link href="/hub" className="flex items-center gap-2 hover:opacity-80 shrink-0">
-              <ThemeLogo width={28} height={28} className="h-7 w-7" />
-              <span className="text-sm font-semibold tracking-tight">OPAI</span>
-            </Link>
-
-            {/* Right: Search, Chat, Notifications */}
-            <div className="flex items-center gap-0.5">
-              <button
-                type="button"
-                className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
-                onClick={() => openCommandPalette()}
-                aria-label="Buscar"
-              >
-                <Search className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                className="relative inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
-                onClick={handleToggleChat}
-                aria-label="Abrir chat"
-              >
-                <MessageCircle className="h-5 w-5" />
-                {chatCtx.totalUnread > 0 && (
-                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-status-danger ring-2 ring-background" />
-                )}
-              </button>
-              <button
-                type="button"
-                className="relative inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
-                onClick={handleToggleNotifications}
-                aria-label="Notificaciones"
-              >
-                <Bell className="h-5 w-5" />
-                {notifUnreadCount > 0 && (
-                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-status-danger ring-2 ring-background animate-pulse" />
-                )}
-              </button>
-            </div>
-            </div>
-          </header>
+          <MobileIsland
+            onSearch={() => openCommandPalette()}
+            onToggleChat={handleToggleChat}
+            onToggleNotifications={handleToggleNotifications}
+            chatUnread={chatCtx.totalUnread}
+            notifUnread={notifUnreadCount}
+          />
         )}
 
         {/* ── Desktop sidebar (unchanged) ── */}
@@ -208,16 +185,37 @@ function AppShellInner({
             className
           )}
         >
-          {/* Topbar actions desktop — fija al viewport */}
+          {/* Topbar desktop — fija al viewport.
+              Izquierda: tabs del módulo activo (ModuleSubNav, auto-detect por
+              pathname; null si la ruta no tiene N3). Derecha: indicador UF/UTM,
+              botón buscar y el clúster de acciones (theme/chat/notif/config). */}
           <div className={cn(
-            "hidden lg:flex fixed top-0 right-0 z-20 h-12 items-center gap-3 px-4 shrink-0 transition-[left,right] duration-300 ease-out",
+            "hidden lg:flex fixed top-0 right-0 z-20 h-12 items-stretch shrink-0 transition-[left,right] duration-300 ease-out",
             isIOS
               ? "opai-liquid-glass-bar-top"
               : "border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
             isSidebarOpen ? 'left-64' : 'left-[72px]',
             anyPanelOpen && 'right-[400px]',
           )}>
-            <TopbarActions userName={userName} userEmail={userEmail} userRole={userRole} />
+            {/* Zona de tabs: siempre ocupa el espacio disponible (aunque
+                ModuleSubNav devuelva null en rutas sin N3) para empujar el
+                clúster derecho al borde. */}
+            <div className="flex-1 min-w-0 flex items-stretch overflow-hidden pl-3">
+              <ModuleSubNav appearance="topbar" className="flex-1 min-w-0" />
+            </div>
+            {/* Clúster derecho: FX → buscar → acciones. Nunca se comprime. */}
+            <div className="flex items-center gap-2 pl-3 pr-4 shrink-0 border-l border-ds-border-subtle">
+              <FxIndicator />
+              <button
+                type="button"
+                onClick={() => openCommandPalette()}
+                aria-label="Buscar"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <Search className="h-4 w-4" />
+              </button>
+              <TopbarActions userName={userName} userEmail={userEmail} userRole={userRole} />
+            </div>
           </div>
           {/* Simulation Banner — visible when simulating a different role */}
           <SimulationBanner />
@@ -229,47 +227,33 @@ function AppShellInner({
               </div>
             ) : (
               /*
-                Gold-standard nav anatomy: top of every page renders an
-                AutoBreadcrumbs derived from the registry. Detail pages
-                publish the entity name via `useSetBreadcrumbTrailing(name)`
-                and AutoBreadcrumbs reads it through BreadcrumbTrailingProvider
-                so the breadcrumb shows "Module › Submodule › <Entity>".
-                Module layouts mount ModuleSubNav (N3) just below; pages
-                render their own PageHero + content underneath.
+                Nav limpia v1: sin breadcrumb ni PageHero. El contexto de la
+                página vive en la barra superior (tabs del módulo) en desktop y
+                en la isla contextual en móvil. El contenido arranca pegado
+                arriba para recuperar el alto vertical. Las fichas publican el
+                nombre de la entidad vía `useSetBreadcrumbTrailing` que la isla
+                y el document.title consumen.
               */
-              <BreadcrumbTrailingProvider>
-                <div
-                  data-layout-mode={isSheetFocus ? 'sheet-focus' : undefined}
-                  className={cn(
-                    'w-full max-w-full animate-in-page min-w-0 lg:pt-0 lg:pb-6 lg:px-8 xl:px-10 2xl:px-12',
-                    // Inmersivo móvil (correos): el módulo ocupa todo el ancho
-                    // sin paddings de página y pinta su propio top móvil.
-                    isImmersiveMobile && 'overflow-x-clip pt-0 pb-0 px-0',
-                    // Sheet focus (planilla flujo de caja): full-bleed móvil
-                    // entre topbar y bottom nav; sin overflow-x-clip en móvil
-                    // (el scroll horizontal vive DENTRO de la hoja).
-                    isSheetFocus && 'pt-1 pb-0 px-0 lg:overflow-x-clip',
-                    // Compacto móvil (agenda): pegado a la isla, padding mínimo;
-                    // desktop mantiene sus paddings vía las clases lg:.
-                    isCompactMobile && 'overflow-x-clip pt-0 pb-28 px-2 sm:px-4 lg:pt-0 lg:px-8',
-                    !isImmersiveMobile && !isSheetFocus && !isCompactMobile &&
-                      'overflow-x-clip pt-4 pb-28 px-4 sm:px-6',
-                  )}
-                  role="region"
-                >
-                  <div
-                    className={cn(
-                      'lg:pt-3 lg:mb-3',
-                      isImmersiveMobile || isSheetFocus || isCompactMobile
-                        ? 'hidden lg:block'
-                        : 'pt-1 mb-2'
-                    )}
-                  >
-                    <AutoBreadcrumbs />
-                  </div>
-                  {children}
-                </div>
-              </BreadcrumbTrailingProvider>
+              <div
+                data-layout-mode={isSheetFocus ? 'sheet-focus' : undefined}
+                className={cn(
+                  'w-full max-w-full animate-in-page min-w-0 lg:pt-0 lg:pb-6 lg:px-8 xl:px-10 2xl:px-12',
+                  // Inmersivo móvil (correos): el módulo ocupa todo el ancho
+                  // sin paddings de página y pinta su propio top móvil.
+                  isImmersiveMobile && 'overflow-x-clip pt-0 pb-0 px-0',
+                  // Sheet focus (planilla flujo de caja): full-bleed móvil
+                  // entre topbar y bottom nav; sin overflow-x-clip en móvil
+                  // (el scroll horizontal vive DENTRO de la hoja).
+                  isSheetFocus && 'pt-1 pb-0 px-0 lg:overflow-x-clip',
+                  // Default: contenido pegado a la isla en móvil (padding-top
+                  // mínimo) y con un respiro moderado bajo la barra en desktop.
+                  !isImmersiveMobile && !isSheetFocus &&
+                    'overflow-x-clip pt-2 pb-28 px-4 sm:px-6 lg:pt-4',
+                )}
+                role="region"
+              >
+                {children}
+              </div>
             )}
           </main>
         </div>
@@ -296,6 +280,7 @@ function AppShellInner({
       </BottomNavPortal>
       <ChatSidePanel userRole={userRole} />
       <NotificationSidePanel />
-    </>
+      </IslandActionProvider>
+    </BreadcrumbTrailingProvider>
   );
 }

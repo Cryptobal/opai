@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { Spinner, ModuleSubNav } from "@/components/opai-ds";
+import { Spinner } from "@/components/opai-ds";
 import { AgendaPageClient } from "@/components/agenda/AgendaPageClient";
 
 export default async function AgendaPage() {
@@ -15,11 +15,10 @@ export default async function AgendaPage() {
     redirect("/hub");
   }
 
-  // La Agenda vive fuera del layout de /crm; montamos la subnav de CRM para no
-  // perder los tabs (Leads, Negocios, Correos, …) al entrar acá.
+  // La Agenda vive fuera del layout de /crm pero la barra superior la resuelve
+  // al módulo Comercial (activePaths en el registry), así los tabs se mantienen.
   return (
     <div className="space-y-3 min-w-0">
-      <ModuleSubNav moduleKey="crm" />
       <Suspense
         fallback={
           <div className="flex justify-center py-16">
