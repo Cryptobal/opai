@@ -17,6 +17,11 @@ const SelectTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       "flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 transition-colors",
+      // Liquid Glass (mobile < lg): el trigger comparte el material del DS
+      // (fill translúcido + borde glass, sin blur por regla de performance en
+      // controles, sin box-shadow para no pisar el focus ring). Desktop
+      // conserva bg-background. Sin efecto ≥ 1024px.
+      "opai-glass-control-m",
       className
     )}
     {...props}

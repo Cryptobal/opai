@@ -238,6 +238,9 @@ export function SearchableSelect({
         onKeyDown={handleKeyDown}
         className={cn(
           "group flex h-9 w-full items-center gap-2 rounded-lg border bg-background px-3 text-sm transition-all duration-200",
+          // Liquid Glass (mobile < lg): material del DS en el control (sin
+          // box-shadow para preservar el ring/shadow de estado open).
+          "opai-glass-control-m",
           "focus-visible:outline-none",
           open
             ? "border-primary/50 ring-2 ring-primary/20 shadow-sm shadow-primary/5"
@@ -400,6 +403,8 @@ export function SearchableSelect({
                 className={cn(
                   "fixed inset-x-0 bottom-0 z-50 flex flex-col",
                   "bg-popover border-t border-border/80 rounded-t-2xl shadow-xl",
+                  // Liquid Glass (mobile): bottom sheet con blur fuerte.
+                  "opai-ios-surface-sheet-bottom",
                   "animate-in slide-in-from-bottom duration-200",
                   "max-h-[85dvh]",
                 )}
@@ -441,6 +446,8 @@ export function SearchableSelect({
             ref={dropdownInPortal ? portalRef : undefined}
             className={cn(
               "z-50 rounded-xl border border-border/80 bg-popover shadow-xl shadow-black/25 overflow-hidden",
+              // Liquid Glass (mobile): popover con material glass del DS.
+              "opai-ios-surface-popover",
               "animate-in fade-in-0 zoom-in-[0.98] slide-in-from-top-1 duration-150",
               dropdownInPortal && portalRect ? "fixed" : "absolute mt-1.5 w-full",
             )}
