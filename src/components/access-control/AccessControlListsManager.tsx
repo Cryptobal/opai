@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import {
   Shield, ShieldAlert, Plus, Search, Edit2, Trash2,
   Loader2, Upload, X, Check, AlertTriangle, Car, UserPlus,
@@ -196,7 +197,11 @@ export function AccessControlListsManager({ installationId }: Props) {
   };
 
   const handleDeleteEntry = async (id: string) => {
-    if (!confirm("¿Eliminar esta entrada?")) return;
+    if (!(await confirmDialog({
+      description: "¿Eliminar esta entrada?",
+      variant: "destructive",
+      confirmLabel: "Eliminar",
+    }))) return;
     try {
       const res = await fetch(`/api/access-control/lists/item/${id}`, { method: "DELETE" });
       const json = await res.json();
@@ -257,7 +262,11 @@ export function AccessControlListsManager({ installationId }: Props) {
   };
 
   const handleDeleteGroup = async (g: AccessControlListGroupData) => {
-    if (!confirm(`¿Eliminar el grupo "${g.name}"? Las personas permanecen en la lista.`)) return;
+    if (!(await confirmDialog({
+      description: `¿Eliminar el grupo "${g.name}"? Las personas permanecen en la lista.`,
+      variant: "destructive",
+      confirmLabel: "Eliminar",
+    }))) return;
     try {
       const res = await fetch(
         `/api/access-control/groups/item/${g.id}?installationId=${installationId}`,

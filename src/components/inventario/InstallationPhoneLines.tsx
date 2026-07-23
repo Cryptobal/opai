@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Phone, Plus, Unlink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { Spinner } from "@/components/opai-ds";
 import { CARRIER_COLORS } from "@/lib/inventory/carrier-colors";
 
@@ -105,7 +106,7 @@ export function InstallationPhoneLines({ installationId }: { installationId: str
   };
 
   const handleUnassign = async (lineId: string) => {
-    if (!confirm("¿Desvincular esta línea de la instalación?")) return;
+    if (!(await confirmDialog({ description: "¿Desvincular esta línea de la instalación?" }))) return;
     try {
       const res = await fetch(`/api/ops/inventario/phone-lines/${lineId}/assign`, {
         method: "DELETE",

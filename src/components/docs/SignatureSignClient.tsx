@@ -9,6 +9,7 @@ import { SignatureMethodSelector, type SignatureMethodOption } from "./Signature
 import { SignatureTyped } from "./SignatureTyped";
 import { SignatureCanvas } from "./SignatureCanvas";
 import { SignatureUpload } from "./SignatureUpload";
+import { promptDialog } from "@/components/ui/confirm-service";
 
 interface SignatureSignClientProps {
   token: string;
@@ -149,7 +150,7 @@ export function SignatureSignClient({ token }: SignatureSignClientProps) {
   };
 
   const handleDecline = async () => {
-    const reason = window.prompt("Indica el motivo del rechazo de firma:");
+    const reason = await promptDialog({ description: "Indica el motivo del rechazo de firma:" });
     if (!reason || reason.trim().length < 3) return;
     setSubmitting(true);
     setError(null);

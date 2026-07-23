@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import {
   Briefcase,
   Users,
@@ -109,7 +110,7 @@ export function AtsDashboardClient({
       toast.error("Este aviso tiene postulaciones. Usa 'Cerrar' en lugar de eliminar.");
       return;
     }
-    if (!confirm("¿Eliminar este aviso? Esta acción no se puede deshacer.")) return;
+    if (!(await confirmDialog({ description: "¿Eliminar este aviso? Esta acción no se puede deshacer.", variant: "destructive", confirmLabel: "Eliminar" }))) return;
     const res = await fetch(`/api/ops/ats/jobs/${jobId}`, { method: "DELETE" });
     if (res.ok) {
       toast.success("Aviso eliminado");

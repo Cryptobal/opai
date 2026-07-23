@@ -23,6 +23,7 @@ import { useCpqCatalogs } from "@/lib/cpq/use-cpq-catalogs";
 import type { CpqPosition } from "@/types/cpq";
 import { Copy, Loader2, Moon, RefreshCw, Sun, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 interface CpqPositionCardProps {
   quoteId: string;
@@ -250,7 +251,14 @@ export function CpqPositionCard({
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("¿Eliminar este puesto?")) return;
+    if (
+      !(await confirmDialog({
+        description: "¿Eliminar este puesto?",
+        variant: "destructive",
+        confirmLabel: "Eliminar",
+      }))
+    )
+      return;
     try {
       await fetch(`/api/cpq/quotes/${quoteId}/positions/${position.id}`, {
         method: "DELETE",

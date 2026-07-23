@@ -11,6 +11,7 @@ import { getShiftType, WEEKDAY_ORDER, normalizeWeekdays } from "@/components/cpq
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import type { CpqPosition } from "@/types/cpq";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 const HOURS_24 = Array.from({ length: 96 }, (_, i) => {
   const h = Math.floor(i / 4);
@@ -134,7 +135,14 @@ export function CpqShiftCompactCard({
   };
 
   const del = async () => {
-    if (!confirm("¿Eliminar este turno?")) return;
+    if (
+      !(await confirmDialog({
+        description: "¿Eliminar este turno?",
+        variant: "destructive",
+        confirmLabel: "Eliminar",
+      }))
+    )
+      return;
     await fetch(`/api/cpq/quotes/${quoteId}/positions/${position.id}`, { method: "DELETE" });
     onUpdated();
   };

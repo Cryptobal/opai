@@ -20,6 +20,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { confirmDialog } from "@/components/ui/confirm-service";
+import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -217,9 +219,10 @@ export function DocVerificacionDrawer({
 
   async function handleResolve(h: DrawerHallazgo) {
     if (resolvingId) return;
-    const confirmed = window.confirm(
-      "¿Marcar este hallazgo como resuelto manualmente? El ticket asociado también se cerrará.",
-    );
+    const confirmed = await confirmDialog({
+      description:
+        "¿Marcar este hallazgo como resuelto manualmente? El ticket asociado también se cerrará.",
+    });
     if (!confirmed) return;
 
     setResolvingId(h.id);
@@ -239,7 +242,7 @@ export function DocVerificacionDrawer({
         return next;
       });
     } catch (err) {
-      alert(
+      toast.error(
         `No se pudo resolver el hallazgo: ${err instanceof Error ? err.message : "error desconocido"}`,
       );
     } finally {

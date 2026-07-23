@@ -30,6 +30,7 @@ import { CederDteDialog } from "../factoring/CederDteDialog";
 import { BulkCederDteDialog } from "../factoring/BulkCederDteDialog";
 import { PdfPreviewDialog } from "../PdfPreviewDialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { formatDateOnlyUtcYmd } from "@/lib/fx-date";
 import { EmisionConfirmDialog } from "../EmisionConfirmDialog";
 import { CreditNoteModal } from "../CreditNoteModal";
@@ -699,7 +700,14 @@ export function DtesEmitidosClient({
   };
 
   const handleVoid = async (id: string) => {
-    if (!confirm("¿Anular este DTE? Esta acción no se puede deshacer.")) return;
+    if (
+      !(await confirmDialog({
+        description: "¿Anular este DTE? Esta acción no se puede deshacer.",
+        variant: "destructive",
+        confirmLabel: "Anular",
+      }))
+    )
+      return;
     setVoiding(id);
     try {
       const res = await fetch(`/api/finance/billing/issued/${id}/void`, {
@@ -720,9 +728,12 @@ export function DtesEmitidosClient({
 
   const handleUnreconcile = async (id: string) => {
     if (
-      !confirm(
-        "¿Desconciliar este DTE? Se borrará el link al movimiento bancario. La factura sigue marcada como pagada — usá 'Desmarcar como pagada' por separado si también querés revertir el estado.",
-      )
+      !(await confirmDialog({
+        description:
+          "¿Desconciliar este DTE? Se borrará el link al movimiento bancario. La factura sigue marcada como pagada — usá 'Desmarcar como pagada' por separado si también querés revertir el estado.",
+        variant: "destructive",
+        confirmLabel: "Desconciliar",
+      }))
     ) {
       return;
     }
@@ -744,9 +755,12 @@ export function DtesEmitidosClient({
 
   const handleMarkUnpaid = async (id: string) => {
     if (
-      !confirm(
-        "¿Desmarcar este DTE como pagado? Volverá a estado 'Sin pagar'. Si tiene conciliación bancaria, primero hay que desconciliar.",
-      )
+      !(await confirmDialog({
+        description:
+          "¿Desmarcar este DTE como pagado? Volverá a estado 'Sin pagar'. Si tiene conciliación bancaria, primero hay que desconciliar.",
+        variant: "destructive",
+        confirmLabel: "Desmarcar",
+      }))
     ) {
       return;
     }
@@ -771,9 +785,9 @@ export function DtesEmitidosClient({
   const handleBulkResendEmail = async () => {
     if (selectedIds.size === 0) return;
     if (
-      !confirm(
-        `¿Reenviar email a ${selectedIds.size} DTE(s)? Se enviará al receptor por defecto.`,
-      )
+      !(await confirmDialog({
+        description: `¿Reenviar email a ${selectedIds.size} DTE(s)? Se enviará al receptor por defecto.`,
+      }))
     )
       return;
     try {
@@ -838,9 +852,9 @@ export function DtesEmitidosClient({
   const handleBulkMarkPaid = async () => {
     if (selectedIds.size === 0) return;
     if (
-      !confirm(
-        `¿Marcar ${selectedIds.size} DTE(s) como pagados? Esta operación es administrativa y queda en el audit log.`,
-      )
+      !(await confirmDialog({
+        description: `¿Marcar ${selectedIds.size} DTE(s) como pagados? Esta operación es administrativa y queda en el audit log.`,
+      }))
     )
       return;
     try {

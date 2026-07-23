@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { cn } from "@/lib/utils";
 
 type Section = {
@@ -152,7 +153,7 @@ export function VraReportViewerClient({ report: initialReport }: { report: Repor
 
   const handleDelete = async () => {
     const confirmMsg = `¿Eliminar permanentemente el informe "${report.title}"?\n\nEsto borra el informe completo: hallazgos, fotos cargadas, secciones generadas. El PDF en Documentos Operacionales (si existe) se mantiene como histórico.\n\nEsta acción no se puede deshacer.`;
-    if (!confirm(confirmMsg)) return;
+    if (!(await confirmDialog({ description: confirmMsg, variant: "destructive", confirmLabel: "Eliminar" }))) return;
     setDeleting(true);
     try {
       const res = await fetch(`/api/vra/reports/${report.id}?hard=true`, { method: "DELETE" });

@@ -10,6 +10,7 @@ import {
   PlayCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { confirmDialog } from '@/components/ui/confirm-service';
 import { EmptyState, IconBubble, Tag } from '@/components/opai-ds';
 import { cn } from '@/lib/utils';
 import type { UpcomingProject } from '../_lib/hub-types';
@@ -100,9 +101,9 @@ export function HubUpcomingProjects({ projects, canEdit = false }: Props) {
   }
 
   async function markStarted(project: UpcomingProject) {
-    const confirmed = window.confirm(
-      `¿Marcar "${project.title}" como servicio iniciado? Esta acción moverá el negocio a cierre ganado y activará su operación vinculada.`,
-    );
+    const confirmed = await confirmDialog({
+      description: `¿Marcar "${project.title}" como servicio iniciado? Esta acción moverá el negocio a cierre ganado y activará su operación vinculada.`,
+    });
     if (!confirmed) return;
 
     setBusy(`start:${project.id}`);

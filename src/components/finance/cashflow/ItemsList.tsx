@@ -11,6 +11,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Lock } from "lucide-react";
+import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { ItemFormDialog } from "./ItemFormDialog";
 import { humanReadableRecurrence } from "./recurrence-label";
 
@@ -98,11 +100,18 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
   }, []);
 
   async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar este item? Esta acción no se puede deshacer.")) return;
+    if (
+      !(await confirmDialog({
+        description: "¿Eliminar este item? Esta acción no se puede deshacer.",
+        variant: "destructive",
+        confirmLabel: "Eliminar",
+      }))
+    )
+      return;
     const r = await fetch(`/api/finance/cashflow/items/${id}`, { method: "DELETE" });
     const j = await r.json();
     if (j?.success) load();
-    else alert(j?.error ?? "Error al eliminar");
+    else toast.error(j?.error ?? "Error al eliminar");
   }
 
   const filtered = items.filter((i) => {

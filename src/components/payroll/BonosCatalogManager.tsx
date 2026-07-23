@@ -23,6 +23,8 @@ import {
   Target,
 } from "lucide-react";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
+import { confirmDialog } from "@/components/ui/confirm-service";
+import { toast } from "sonner";
 
 /* ── Types ──────────────────────────── */
 
@@ -162,7 +164,7 @@ export function BonosCatalogManager() {
 
       if (!res.ok) {
         const json = await res.json();
-        alert(json.error || "Error al guardar");
+        toast.error(json.error || "Error al guardar");
         return;
       }
 
@@ -176,12 +178,12 @@ export function BonosCatalogManager() {
   };
 
   const handleDelete = async (bono: Bono) => {
-    if (!confirm(`¿Eliminar el bono "${bono.name}"?`)) return;
+    if (!(await confirmDialog({ description: `¿Eliminar el bono "${bono.name}"?`, variant: "destructive", confirmLabel: "Eliminar" }))) return;
     try {
       const res = await fetch(`/api/payroll/bonos/${bono.id}`, { method: "DELETE" });
       if (!res.ok) {
         const json = await res.json();
-        alert(json.error || "Error al eliminar");
+        toast.error(json.error || "Error al eliminar");
         return;
       }
       await loadBonos();

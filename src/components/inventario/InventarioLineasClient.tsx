@@ -29,6 +29,7 @@ import {
   Download,
 } from "lucide-react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import ExcelJS from "exceljs";
 import { CARRIERS, CARRIER_COLORS } from "@/lib/inventory/carrier-colors";
 
@@ -253,7 +254,7 @@ export function InventarioLineasClient() {
 
   // ── Delete ─────────────────────────────────────────
   const handleDelete = async (line: PhoneLine) => {
-    if (!confirm(`¿Eliminar la línea ${line.phoneNumber}?`)) return;
+    if (!(await confirmDialog({ description: `¿Eliminar la línea ${line.phoneNumber}?`, variant: "destructive", confirmLabel: "Eliminar" }))) return;
     try {
       const res = await fetch(`/api/ops/inventario/phone-lines/${line.id}`, {
         method: "DELETE",
@@ -312,7 +313,7 @@ export function InventarioLineasClient() {
   };
 
   const handleUnassign = async (lineId: string) => {
-    if (!confirm("¿Desvincular esta línea?")) return;
+    if (!(await confirmDialog({ description: "¿Desvincular esta línea?" }))) return;
     try {
       const res = await fetch(`/api/ops/inventario/phone-lines/${lineId}/assign`, {
         method: "DELETE",

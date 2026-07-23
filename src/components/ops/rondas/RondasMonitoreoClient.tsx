@@ -13,6 +13,7 @@ import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Shield, AlertTriangl
 import { MobileMonitorView } from "@/components/ops/rondas/MobileMonitorView";
 import { formatPersonName } from "@/lib/personas";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import Pusher from "pusher-js";
 // PanicAlertBanner removed — panic alerts are now handled globally by PanicAlertProvider in AppLayoutClient
 import { CoberturaSheet } from "./CoberturaSheet";
@@ -722,7 +723,7 @@ export function RondasMonitoreoClient({
   }).length;
 
   const handleCloseOrphans = async () => {
-    if (!confirm(`¿Cerrar ${orphanCount} ronda${orphanCount !== 1 ? "s" : ""} libre${orphanCount !== 1 ? "s" : ""} huérfana${orphanCount !== 1 ? "s" : ""}?`)) return;
+    if (!(await confirmDialog({ description: `¿Cerrar ${orphanCount} ronda${orphanCount !== 1 ? "s" : ""} libre${orphanCount !== 1 ? "s" : ""} huérfana${orphanCount !== 1 ? "s" : ""}?` }))) return;
     setClosingOrphans(true);
     try {
       const res = await fetch("/api/ops/rondas/cerrar-huerfanas", {

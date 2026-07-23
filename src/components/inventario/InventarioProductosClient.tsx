@@ -31,6 +31,8 @@ import {
   parseBulkCatalogText,
   parseSizesInput,
 } from "@/lib/inventory-product-catalog";
+import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 type Product = {
   id: string;
@@ -175,18 +177,18 @@ export function InventarioProductosClient() {
         setForm({ name: "", sku: "", category: "uniform", notes: "", active: true, sizesText: "" });
         fetchProducts();
       } else {
-        alert(data.error || "Error al guardar");
+        toast.error(data.error || "Error al guardar");
       }
     } catch (e) {
       console.error(e);
-      alert("Error al guardar");
+      toast.error("Error al guardar");
     }
   };
 
   const handleBulkCreate = async () => {
     const parsed = parseBulkCatalogText(bulkText);
     if (parsed.length === 0) {
-      alert("Ingresa al menos una linea en formato Producto|Talla1,Talla2");
+      toast.error("Ingresa al menos una linea en formato Producto|Talla1,Talla2");
       return;
     }
 
@@ -198,22 +200,22 @@ export function InventarioProductosClient() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "No se pudo crear el catalogo en lote");
+        toast.error(data.error || "No se pudo crear el catalogo en lote");
         return;
       }
-      alert(
+      toast.success(
         `Catalogo procesado. Nuevos: ${data.createdProducts ?? 0}, actualizados: ${data.updatedProducts ?? 0}, tallas nuevas: ${data.createdSizes ?? 0}.`
       );
       setBulkDialogOpen(false);
       fetchProducts();
     } catch (e) {
       console.error(e);
-      alert("Error al crear catalogo en lote");
+      toast.error("Error al crear catalogo en lote");
     }
   };
 
   const handleDeleteProduct = async (p: Product) => {
-    if (!confirm(`¿Eliminar "${p.name}"?`)) return;
+    if (!(await confirmDialog({ description: `¿Eliminar "${p.name}"?`, variant: "destructive", confirmLabel: "Eliminar" }))) return;
     try {
       const res = await fetch(`/api/ops/inventario/products/${p.id}`, { method: "DELETE" });
       const data = await res.json();
@@ -221,12 +223,12 @@ export function InventarioProductosClient() {
         fetchProducts();
         return;
       }
-      const shouldArchive = confirm(`${data.error || "No se pudo eliminar."}\n\n¿Deseas desactivarlo en su lugar?`);
+      const shouldArchive = await confirmDialog({ description: `${data.error || "No se pudo eliminar."}\n\n¿Deseas desactivarlo en su lugar?` });
       if (!shouldArchive) return;
       await toggleActive(p, false);
     } catch (e) {
       console.error(e);
-      alert("Error al eliminar producto");
+      toast.error("Error al eliminar producto");
     }
   };
 
@@ -239,13 +241,13 @@ export function InventarioProductosClient() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "No se pudo actualizar estado");
+        toast.error(data.error || "No se pudo actualizar estado");
         return;
       }
       fetchProducts();
     } catch (e) {
       console.error(e);
-      alert("Error al actualizar estado");
+      toast.error("Error al actualizar estado");
     }
   };
 

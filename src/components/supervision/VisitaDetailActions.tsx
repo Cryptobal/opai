@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, XCircle, Trash2, PlayCircle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 type Props = {
   visitId: string;
@@ -43,7 +44,11 @@ export function VisitaDetailActions({ visitId, status, canEdit, canDelete, canRe
 
   async function deleteVisit() {
     if (!canDelete) return;
-    if (!confirm("¿Eliminar esta visita? Esta acción no se puede deshacer.")) return;
+    if (!(await confirmDialog({
+      description: "¿Eliminar esta visita? Esta acción no se puede deshacer.",
+      variant: "destructive",
+      confirmLabel: "Eliminar",
+    }))) return;
     setUpdating(true);
     try {
       const res = await fetch(`/api/ops/supervision/${visitId}`, { method: "DELETE" });
