@@ -11,20 +11,19 @@ import type {
   CorreoSwipeConfig,
 } from "./useCorreosViewPreferences";
 import {
-  SWIPE_LONG_RATIO,
   SWIPE_OPEN_WIDTH,
   useRowSwipe,
   type CorreoSwipeSide,
 } from "./useRowSwipe";
 
 /** Colores por acción — solo tokens de estado/categóricos del DS. */
-const ACTION_CLASS: Record<CorreoSwipeAction, string> = {
-  archive: "bg-status-ok-soft text-status-ok-fg",
-  trash: "bg-status-danger-soft text-status-danger-fg",
-  snooze: "bg-tint-violet/25 text-tint-violet-fg",
-  read: "bg-status-info-soft text-status-info-fg",
-  star: "bg-status-warn-soft text-status-warn-fg",
-  reply: "bg-primary/15 text-primary",
+const ACTION_STYLE: Record<CorreoSwipeAction, { bg: string; fg: string }> = {
+  archive: { bg: "bg-status-ok-soft", fg: "text-status-ok-fg" },
+  trash: { bg: "bg-status-danger-soft", fg: "text-status-danger-fg" },
+  snooze: { bg: "bg-tint-violet/25", fg: "text-tint-violet-fg" },
+  read: { bg: "bg-status-info-soft", fg: "text-status-info-fg" },
+  star: { bg: "bg-status-warn-soft", fg: "text-status-warn-fg" },
+  reply: { bg: "bg-primary/15", fg: "text-primary" },
 };
 
 function actionMeta(action: CorreoSwipeAction, thread: CorreoThreadDTO): { icon: LucideIcon; label: string } {
@@ -81,7 +80,7 @@ export function CorreoRowSwipe({
     setCoarse(typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches);
   }, []);
 
-  const { dx, openSide, dragging, rowRef, close, wasDragged, handlers } = useRowSwipe({
+  const { dx, openSide, dragging, progress, armed, rowRef, close, wasDragged, handlers } = useRowSwipe({
     enabled: coarse && canModify && !leaving && !selectionMode,
     onLongSwipe: (side) => execute(side === "right" ? swipeConfig.right[0] : swipeConfig.left[0]),
     onLongPress: coarse && canModify ? onLongPress : undefined,
@@ -146,10 +145,11 @@ export function CorreoRowSwipe({
   if (dx !== 0) lastSide.current = dx > 0 ? "right" : "left";
   const side: CorreoSwipeSide = dx !== 0 ? (dx > 0 ? "right" : "left") : openSide ?? lastSide.current;
   const actions = side === "right" ? swipeConfig.right : swipeConfig.left;
-  const rowWidth = rowRef.current?.offsetWidth ?? 360;
-  const long = dragging && Math.abs(dx) > rowWidth * SWIPE_LONG_RATIO;
+  const primary = actions[0];
+  const primaryMeta = actionMeta(primary, thread);
+  const PrimaryIcon = primaryMeta.icon;
   // El botón principal (índice 0) queda pegado al borde de la pantalla.
-  const shown = long ? [actions[0]] : side === "left" ? [actions[1], actions[0]] : actions;
+  const shown = side === "left" ? [actions[1], actions[0]] : actions;
   const revealed = openSide !== null || dx !== 0;
 
   return (
@@ -159,23 +159,43 @@ export function CorreoRowSwipe({
         leaving ? "max-h-0 opacity-0" : "max-h-[240px] opacity-100"
       }`}
     >
+      {/* Arrastre: fondo del color de la acción principal que se llena en
+          proporción al gesto, con el icono anclado al borde (no viaja con la
+          fila) y escala + vibración al armar el swipe largo — estilo Gmail. */}
+      {dragging && (
+        <div
+          aria-hidden
+          className={`absolute inset-0 flex items-center ${
+            side === "right" ? "justify-start" : "justify-end"
+          } ${ACTION_STYLE[primary].bg}`}
+          style={{ opacity: 0.35 + 0.65 * progress }}
+        >
+          <PrimaryIcon
+            className={`mx-6 h-6 w-6 transition-transform duration-150 ${ACTION_STYLE[primary].fg} ${
+              armed ? "scale-125" : "scale-100"
+            }`}
+          />
+        </div>
+      )}
+      {/* Reposo abierto: los 2 botones del lado (74px c/u) desde swipeConfig. */}
       <div
         aria-hidden={!revealed}
         className={`absolute inset-y-0 flex ${side === "right" ? "left-0" : "right-0"} ${
-          dragging ? "" : "transition-[width] duration-150"
+          dragging ? "invisible" : "transition-[width] duration-150"
         }`}
         style={{ width: Math.max(Math.abs(dx), SWIPE_OPEN_WIDTH) }}
       >
         {shown.map((action) => {
           const meta = actionMeta(action, thread);
           const Icon = meta.icon;
+          const style = ACTION_STYLE[action];
           return (
             <button
               key={action}
               type="button"
               tabIndex={revealed ? 0 : -1}
               onClick={() => execute(action)}
-              className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 ds-tap ${ACTION_CLASS[action]}`}
+              className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 ds-tap ${style.bg} ${style.fg}`}
             >
               <Icon className="h-5 w-5" />
               <span className="w-full truncate text-center text-[12px] font-medium">{meta.label}</span>

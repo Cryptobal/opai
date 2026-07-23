@@ -10,6 +10,8 @@ export const SWIPE_OPEN_WIDTH = 148;
 const MIN_COMMIT = 36;
 /** Proporción del ancho de fila que dispara la acción principal del lado. */
 export const SWIPE_LONG_RATIO = 0.55;
+/** Rubber-band: pasado el ancho de botones, el arrastre extra se amortigua. */
+const RUBBER_BAND = 0.35;
 /** Píxeles antes de decidir si el gesto es horizontal o scroll vertical. */
 const AXIS_LOCK = 8;
 /** Long-press: umbral de disparo y tolerancia de movimiento (estilo Gmail). */
@@ -30,9 +32,16 @@ export function useRowSwipe(opts: {
   onLongPress?: () => void;
 }) {
   const { enabled, onLongSwipe, onLongPress } = opts;
+  // `dx` es el desplazamiento VISUAL (con rubber-band); las decisiones de
+  // umbral usan el arrastre real en dxRef.
   const [dx, setDx] = useState(0);
   const [openSide, setOpenSide] = useState<CorreoSwipeSide | null>(null);
   const [dragging, setDragging] = useState(false);
+  /** Progreso 0..1 hacia el umbral largo (para el relleno del fondo). */
+  const [progress, setProgress] = useState(0);
+  /** true cuando el próximo release ejecuta la acción principal. */
+  const [armed, setArmed] = useState(false);
+  const armedRef = useRef(false);
   const rowRef = useRef<HTMLDivElement | null>(null);
   const start = useRef({ x: 0, y: 0, base: 0 });
   const axis = useRef<"h" | "v" | null>(null);
@@ -50,11 +59,18 @@ export function useRowSwipe(opts: {
 
   useEffect(() => clearLongPress, [clearLongPress]);
 
+  const resetFeedback = useCallback(() => {
+    armedRef.current = false;
+    setArmed(false);
+    setProgress(0);
+  }, []);
+
   const close = useCallback(() => {
     setOpenSide(null);
     dxRef.current = 0;
     setDx(0);
-  }, []);
+    resetFeedback();
+  }, [resetFeedback]);
 
   // Tap o arrastre fuera de la fila (p. ej. otra fila) cierra los botones.
   useEffect(() => {
@@ -118,7 +134,21 @@ export function useRowSwipe(opts: {
     const width = rowRef.current?.offsetWidth ?? 360;
     const next = Math.max(Math.min(start.current.base + rawDx, width), -width);
     dxRef.current = next;
-    setDx(next);
+    const absRaw = Math.abs(next);
+    // Rubber-band: pasado el ancho de botones el arrastre visual se amortigua.
+    setDx(
+      absRaw <= SWIPE_OPEN_WIDTH
+        ? next
+        : Math.sign(next) * (SWIPE_OPEN_WIDTH + (absRaw - SWIPE_OPEN_WIDTH) * RUBBER_BAND),
+    );
+    setProgress(Math.min(1, absRaw / (width * SWIPE_LONG_RATIO)));
+    const nowArmed = absRaw > width * SWIPE_LONG_RATIO;
+    if (nowArmed !== armedRef.current) {
+      armedRef.current = nowArmed;
+      setArmed(nowArmed);
+      // Feedback háptico al cruzar el umbral de "se va a disparar".
+      if (nowArmed) navigator.vibrate?.(10);
+    }
   }
 
   function onPointerEnd(event: PointerEvent<HTMLDivElement>) {
@@ -142,12 +172,14 @@ export function useRowSwipe(opts: {
       setOpenSide(null);
       dxRef.current = 0;
       setDx(0);
+      resetFeedback();
       onLongSwipe(side);
     } else if (Math.abs(value) >= MIN_COMMIT) {
       setOpenSide(side);
       const target = side === "right" ? SWIPE_OPEN_WIDTH : -SWIPE_OPEN_WIDTH;
       dxRef.current = target;
       setDx(target);
+      resetFeedback();
     } else {
       close();
     }
@@ -164,6 +196,8 @@ export function useRowSwipe(opts: {
     dx,
     openSide,
     dragging,
+    progress,
+    armed,
     rowRef,
     close,
     wasDragged,

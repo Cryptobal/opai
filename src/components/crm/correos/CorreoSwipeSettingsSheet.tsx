@@ -77,7 +77,7 @@ export function CorreoSwipeSettingsSheet({ open, onClose, config, onConfig }: Pr
           </button>
         </div>
         <p className="text-[12px] text-ds-text-3">
-          El deslizamiento largo ejecuta la acción 1 del lado; el corto muestra ambas.
+          Deslizá corto para ver los botones; largo para ejecutar la primera acción.
         </p>
 
         <div className="space-y-1.5">
