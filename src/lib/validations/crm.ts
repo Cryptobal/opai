@@ -165,6 +165,8 @@ export const createContactSchema = z.object({
   phone: z.string().trim().max(30).optional().nullable(),
   roleTitle: z.string().trim().max(100).optional().nullable(),
   isPrimary: z.boolean().default(false),
+  /** Recibe el aviso de cesión al deudor cuando se cede un DTE del cliente. */
+  recibeCesion: z.boolean().optional(),
 });
 
 export const updateContactSchema = z.object({
@@ -175,6 +177,7 @@ export const updateContactSchema = z.object({
   phone: z.string().trim().max(30).optional().nullable(),
   roleTitle: z.string().trim().max(100).optional().nullable(),
   isPrimary: z.boolean().optional(),
+  recibeCesion: z.boolean().optional(),
 });
 
 // ── Installation ──

@@ -23,6 +23,10 @@ import { getDteProvider } from "../shared/adapters/dte-provider.adapter";
 import type { DteCedeRequest, DteCedeResponse } from "../shared/adapters/dte-provider.adapter";
 import { getFactoringCompany } from "./factoring-companies.service";
 import {
+  resolveCesionRecipients,
+  decideCesionAviso,
+} from "./cesion-recipients.service";
+import {
   buildInitialCessionRpetcSnapshot,
   isTerminalRpetcAcceptedCode,
 } from "./cession-trace.util";
@@ -45,8 +49,13 @@ export interface CedeDteInput {
   emailDeudor?: string;
   /** Lista ordenada de correos del deudor. El PRIMERO va al AEC
    *  (<eMailDeudor>); a TODOS les llega el aviso de cesión por correo.
-   *  Si viene, tiene prioridad sobre `emailDeudor`. */
+   *  Si viene (aunque sea []), tiene prioridad sobre la resolución CRM.
+   *  Si NO viene, se resuelven desde los contactos con `recibeCesion`. */
   deudorEmails?: string[];
+  /** Opt-out explícito de la operación: si es false, NO se envía el aviso
+   *  de cesión al deudor (el <eMailDeudor> del AEC sigue su semántica SII).
+   *  Si no viene, se usa el default del cliente (CrmAccount). */
+  notificarDeudor?: boolean;
   notes?: string;
   contactNombre?: string;
   contactFono?: string;
@@ -217,6 +226,10 @@ async function validateAndLoadDte(tenantId: string, dteId: string) {
       receiverRut: true,
       receiverName: true,
       receiverEmail: true,
+      // Cuenta CRM del cliente (deudor) — fuente para resolver los
+      // contactos configurados con `recibeCesion`. Nullable: DTEs sin
+      // vincular a una cuenta no resuelven destinatarios (NO_ACCOUNT).
+      accountId: true,
       totalAmount: true,
       siiStatus: true,
       dteXml: true,
@@ -369,22 +382,31 @@ export async function cedeDte(
   // (<eMailDeudor>, único que admite el SII); a TODOS se les manda el aviso
   // de cesión por correo. Dedup case-insensitive.
   //
-  // Si el modal mandó `deudorEmails` (siempre lo hace, aunque sea []), esa
-  // lista es la fuente de verdad — incluyendo vacía = "no notificar a
-  // nadie". Sólo para callers legacy (sin el campo) caemos al fallback
-  // `emailDeudor` → email del receptor del DTE.
-  const deudorEmailList =
+  // Resolución SIN fallback a `dte.receiverEmail` (dato del XML SII
+  // histórico, no una preferencia de comunicación vigente — era la causa
+  // raíz de envíos a terceros):
+  //   • Si el modal mandó `deudorEmails` (aunque sea []), esa lista manda.
+  //   • Si NO vino, se resuelven los contactos CRM con `recibeCesion` de la
+  //     cuenta del DTE (o lista vacía si no hay cuenta / contactos / opt-out).
+  const resolvedRecipients =
     input.deudorEmails !== undefined
-      ? normalizeDeudorEmailList(input.deudorEmails)
-      : normalizeDeudorEmailList([input.emailDeudor ?? "", dte.receiverEmail ?? ""]);
+      ? null
+      : await resolveCesionRecipients(ctx.tenantId, { accountId: dte.accountId });
+  const aviso = decideCesionAviso({
+    explicitEmails: input.deudorEmails,
+    explicitNotificar: input.notificarDeudor,
+    resolved: resolvedRecipients,
+  });
+  const deudorEmailList = aviso.deudorEmailList;
+  const notificarDeudor = aviso.notificarDeudor;
   const emailDeudorTrimmed = deudorEmailList[0] ?? "";
   const emailDeudor = emailDeudorTrimmed || undefined;
 
   const cessionProvider = dteCfg.cessionProvider ?? "SII_DIRECT";
   if (cessionProvider === "OCTAVA" && !emailDeudorTrimmed) {
     throw new Error(
-      "Para cesión con App Octava se requiere el correo del deudor (receptor del DTE). " +
-        "Completá \"Email deudor\" en el modal o actualizá el email del receptor en la cuenta CRM antes de ceder.",
+      "Para cesión con App Octava se requiere el correo del deudor (va en el <eMailDeudor> del AEC). " +
+        "Agregá el correo en el modal de cesión, o marcá un contacto del cliente con \"Recibe aviso de cesión\" en CRM antes de ceder.",
     );
   }
 
@@ -599,9 +621,10 @@ export async function cedeDte(
   });
 
   // Avisar al DEUDOR (receptor del DTE) de la cesión por correo. Se manda
-  // a TODOS los correos elegidos en el modal (el primero además va en el
-  // AEC al SII). Fire-and-forget: si falla no aborta la operación.
-  if (deudorEmailList.length > 0) {
+  // a TODOS los correos configurados (el primero además va en el AEC al
+  // SII). Sólo se envía si hay destinatarios Y el opt-out no lo suprime.
+  // Fire-and-forget: si falla no aborta la operación.
+  if (deudorEmailList.length > 0 && notificarDeudor) {
     sendCesionDeudorNotificacionEmail({
       tenantId: ctx.tenantId,
       recipients: deudorEmailList,
@@ -617,6 +640,13 @@ export async function cedeDte(
     }).catch((err: unknown) => {
       console.error("[cession] Error enviando aviso al deudor:", err);
     });
+  } else {
+    // Registro explícito de la omisión (no silenciosa). Motivo: opt-out o
+    // sin destinatarios configurados (accountId null / sin recibeCesion).
+    const motivo = !notificarDeudor
+      ? "opt-out (notificarDeudor=false)"
+      : `sin destinatarios (${aviso.reason})`;
+    console.info(`[cession] Aviso al deudor omitido para ${op.code}: ${motivo}`);
   }
 
   return {
@@ -860,6 +890,11 @@ export interface BulkCedeInput {
   advanceRate: number;
   interestRate: number;
   emailDeudor?: string;
+  /** Correos del deudor por DTE (key = dteId). Si un DTE no aparece, se
+   *  resuelven sus contactos CRM con `recibeCesion`. */
+  deudorEmailsByDte?: Record<string, string[]>;
+  /** Opt-out global del batch: si es false, ningún DTE notifica al deudor. */
+  notificarDeudor?: boolean;
   notes?: string;
   contactNombre?: string;
   contactFono?: string;
@@ -1040,6 +1075,11 @@ export async function bulkCedeDtes(
           interestRate: input.interestRate,
           commissionAmount: dteComision,
           emailDeudor: input.emailDeudor,
+          // Destinatarios del aviso: los explícitos por DTE (si el modal los
+          // mandó) o, si no, resolución CRM dentro de cedeDte. El opt-out
+          // global suprime el envío sin vaciar el <eMailDeudor> del AEC.
+          deudorEmails: input.deudorEmailsByDte?.[dte.id],
+          notificarDeudor: input.notificarDeudor,
           notes: input.notes,
           contactNombre: input.contactNombre,
           contactFono: input.contactFono,

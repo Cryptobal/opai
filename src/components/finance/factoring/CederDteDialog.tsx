@@ -142,20 +142,6 @@ function collectReceiverEmails(
   return out;
 }
 
-function defaultDeudorEmailFromDte(
-  dte: Pick<DteSummary, "receiverEmail" | "receiverEmailCc">,
-): string {
-  const list = collectReceiverEmails(dte.receiverEmail, dte.receiverEmailCc);
-  return list[0] ?? "";
-}
-
-/** "Principal" si coincide con el email principal del DTE; sino "CC". */
-function deudorEmailTag(email: string, primary?: string | null): string {
-  const p = primary?.trim().toLowerCase();
-  const e = email.trim().toLowerCase();
-  return p && e === p ? "Principal" : "CC";
-}
-
 export function CederDteDialog({ open, onOpenChange, dte }: Props) {
   const router = useRouter();
   const [companies, setCompanies] = useState<FactoringCompanyOpt[]>([]);
@@ -192,6 +178,13 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
   // quedar vacía (SII_DIRECT); App Octava exige al menos uno.
   const [deudorEmails, setDeudorEmails] = useState<string[]>([]);
   const [customEmailDraft, setCustomEmailDraft] = useState("");
+  // Aviso de cesión al deudor: se envía a los contactos CRM marcados
+  // `recibeCesion`. El toggle permite suprimirlo (el 1er correo igual va al
+  // AEC/SII, por lo que Octava sigue funcionando).
+  const [notifyDeudor, setNotifyDeudor] = useState(true);
+  const [loadingRecipients, setLoadingRecipients] = useState(false);
+  const [recipientsReason, setRecipientsReason] = useState<string | null>(null);
+  const [recipientsError, setRecipientsError] = useState(false);
   const [notes, setNotes] = useState("");
 
   // ── Simulación del cesionario (Fase 1) ─────────────────────────
@@ -199,14 +192,39 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
   const [simulationUploading, setSimulationUploading] = useState(false);
   const [simulationDragOver, setSimulationDragOver] = useState(false);
 
-  // Pre-seleccionar el email principal del receptor del DTE al abrir
-  // (Octava exige al menos uno). El usuario puede sumar/quitar más.
+  // Pre-seleccionar los contactos CRM marcados con `recibeCesion` para el
+  // cliente de este DTE (fuente de verdad). El receiverEmail del DTE ya NO
+  // se preselecciona — es un dato histórico del XML, no una preferencia de
+  // comunicación vigente; queda sólo como opción manual añadible ("Del DTE").
   useEffect(() => {
     if (!open) return;
-    const first = defaultDeudorEmailFromDte(dte);
-    setDeudorEmails(first ? [first] : []);
     setCustomEmailDraft("");
-  }, [open, dte.id, dte.receiverEmail, dte.receiverEmailCc]);
+    setLoadingRecipients(true);
+    setRecipientsError(false);
+    setRecipientsReason(null);
+    fetch("/api/finance/factoring/cesion-recipients", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dteIds: [dte.id] }),
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        const resolved = j?.recipients?.[dte.id];
+        if (j?.success && resolved) {
+          setDeudorEmails(Array.isArray(resolved.emails) ? resolved.emails : []);
+          setNotifyDeudor(resolved.notificarDeudor !== false);
+          setRecipientsReason(resolved.reason ?? null);
+        } else {
+          setDeudorEmails([]);
+          setRecipientsError(true);
+        }
+      })
+      .catch(() => {
+        setDeudorEmails([]);
+        setRecipientsError(true);
+      })
+      .finally(() => setLoadingRecipients(false));
+  }, [open, dte.id]);
 
   useEffect(() => {
     if (!open) return;
@@ -464,6 +482,7 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
           // compatibilidad con clientes/legacy del schema.
           emailDeudor: deudorEmails[0]?.trim() || undefined,
           deudorEmails,
+          notificarDeudor: notifyDeudor,
           notes: notes.trim() || undefined,
           simulation: simPayload,
         }),
@@ -823,7 +842,46 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
             </p>
           </div>
           <div className="sm:col-span-2 space-y-2">
-            <Label>Correos del deudor para la cesión</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label>Aviso de cesión al deudor</Label>
+              {loadingRecipients ? (
+                <span className="inline-flex items-center gap-1 text-xs text-ds-text-3">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Cargando contactos…
+                </span>
+              ) : null}
+            </div>
+
+            <label className="flex items-start gap-2 text-xs text-ds-text-2">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={notifyDeudor}
+                onChange={(e) => setNotifyDeudor(e.target.checked)}
+              />
+              <span>
+                Notificar al deudor por correo
+                <span className="block text-ds-text-3">
+                  Si lo desmarcás, OPAI no envía el aviso. El primer correo (→ SII)
+                  igual se incluye en el AEC, por lo que App Octava sigue exigiéndolo.
+                </span>
+              </span>
+            </label>
+
+            {/* Estado de la resolución CRM. */}
+            {recipientsError ? (
+              <p className="text-xs text-status-danger-fg">
+                No se pudieron cargar los contactos del cliente. Podés agregar
+                correos a mano abajo.
+              </p>
+            ) : !loadingRecipients && deudorEmails.length === 0 ? (
+              <p className="text-xs text-status-warn-fg">
+                {recipientsReason === "NO_ACCOUNT"
+                  ? "Este DTE no tiene una cuenta CRM vinculada: no hay contactos configurados para el aviso."
+                  : recipientsReason === "OPTED_OUT"
+                    ? "Este cliente tiene desactivado el aviso de cesión por defecto."
+                    : "Este cliente no tiene contactos marcados para recibir avisos de cesión."}
+              </p>
+            ) : null}
 
             {/* Candidatos del DTE: marcar/desmarcar con un clic. */}
             {deudorEmailCandidates.length > 0 ? (
@@ -853,9 +911,7 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
                         {active ? <Check className="h-2.5 w-2.5" /> : null}
                       </span>
                       {e}
-                      <span className="text-ds-text-3">
-                        · {deudorEmailTag(e, dte.receiverEmail)}
-                      </span>
+                      <span className="text-ds-text-3">· Del DTE (no en CRM)</span>
                     </button>
                   );
                 })}
@@ -941,11 +997,13 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
             )}
 
             <p className="text-xs text-ds-text-3">
-              Es el contacto del receptor de la factura (tu cliente), no el del
-              factoring. El <strong>primero</strong> (→ SII) se incluye en el
-              documento de cesión (AEC) enviado al SII; a <strong>todos</strong>{" "}
-              les llega además un aviso de cesión por correo. Marcá los del DTE,
-              agregá otros, elegí cuál va al SII, o dejá la lista vacía.
+              La lista se prellena con los contactos del cliente marcados{" "}
+              <strong>“Recibe aviso de cesión”</strong> en CRM. El{" "}
+              <strong>primero</strong> (→ SII) se incluye en el documento de
+              cesión (AEC); a <strong>todos</strong> les llega el aviso por
+              correo si está activo. Los correos “Del DTE” provienen del XML
+              histórico y no están configurados en CRM — agregalos sólo si
+              corresponde.
             </p>
           </div>
           <div className="sm:col-span-2">

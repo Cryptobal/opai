@@ -86,6 +86,8 @@ export const cedeDteSchema = z.object({
     .array(z.string().email("Email deudor inválido"))
     .max(20, "Máximo 20 correos de deudor")
     .optional(),
+  /** Opt-out explícito del aviso de cesión al deudor para esta operación. */
+  notificarDeudor: z.boolean().optional(),
   notes: z.string().optional(),
   contactNombre: z.string().optional(),
   contactFono: z.string().optional(),
@@ -98,6 +100,18 @@ export const cedeDteSchema = z.object({
 });
 
 export type CedeDteSchema = z.infer<typeof cedeDteSchema>;
+
+/** Schema para POST /api/finance/factoring/cesion-recipients — resuelve los
+ *  destinatarios del aviso de cesión (contactos CRM con `recibeCesion`) de
+ *  uno o varios DTEs. Sólo lectura; filtrado por tenant en el servidor. */
+export const cesionRecipientsSchema = z.object({
+  dteIds: z
+    .array(z.string().uuid("dteId debe ser uuid"))
+    .min(1, "Mínimo 1 DTE")
+    .max(200, "Máximo 200 DTEs"),
+});
+
+export type CesionRecipientsSchema = z.infer<typeof cesionRecipientsSchema>;
 
 /** Schema para POST bulk-cede en /api/finance/factoring/bulk-cede (Fase 2).
  *  Cede N facturas bajo un mismo batch. Los totales se prorratean por
@@ -122,6 +136,16 @@ export const bulkCedeSchema = z.object({
     .partial()
     .default({}),
   emailDeudor: z.string().email("Email deudor inválido").optional().or(z.literal("")),
+  /** Opt-out global del batch: si es false, ningún DTE notifica al deudor. */
+  notificarDeudor: z.boolean().optional(),
+  /** Correos del deudor por DTE (key = dteId). Si un DTE no aparece, el
+   *  servidor resuelve sus contactos CRM con `recibeCesion`. */
+  deudorEmailsByDte: z
+    .record(
+      z.string().uuid("dteId debe ser uuid"),
+      z.array(z.string().email("Email deudor inválido")).max(20, "Máximo 20 correos de deudor"),
+    )
+    .optional(),
   notes: z.string().optional(),
   contactNombre: z.string().optional(),
   contactFono: z.string().optional(),
