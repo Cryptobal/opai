@@ -80,6 +80,7 @@ const THREAD_LIST_SELECT = {
   snoozedUntil: true,
   starredAt: true,
   spamAt: true,
+  aiVertical: true,
   isUnread: true,
   messages: {
     select: { fromEmail: true, textBody: true, htmlBody: true, isDraft: true },
@@ -105,6 +106,8 @@ export async function listCorreoThreads(params: {
   q?: string | null;
   /** A07: "buscar por significado" — retrieval vectorial en vez de operadores. */
   semantic?: boolean;
+  /** A03: filtra por vertical de la clasificación v5. */
+  vertical?: string | null;
 }): Promise<{ items: CorreoThreadDTO[]; nextCursor: string | null }> {
   const limit = Math.min(Math.max(params.limit ?? 30, 1), 100);
   const cursorDate = params.cursor ? new Date(params.cursor) : null;
@@ -163,6 +166,7 @@ export async function listCorreoThreads(params: {
           tenantId: params.tenantId,
           emailAccountId: params.emailAccountId,
           ...folderWhere(folder),
+          ...(params.vertical ? { aiVertical: params.vertical } : {}),
           ...(hasCursor && cursorDate
             ? isSnoozed
               ? { snoozedUntil: { gt: cursorDate } }
@@ -180,6 +184,7 @@ export async function listCorreoThreads(params: {
         emailAccountId: params.emailAccountId,
         parsed: parsedSearch,
         folder,
+        vertical: params.vertical ?? null,
         cursorDate: hasCursor ? cursorDate : null,
         take: limit + 1,
       }),
@@ -228,6 +233,7 @@ type ThreadRow = {
   snoozedUntil: Date | null;
   starredAt: Date | null;
   spamAt: Date | null;
+  aiVertical: string | null;
   isUnread: boolean;
   messages: Array<{
     fromEmail: string;
@@ -313,6 +319,7 @@ async function mapThreadRowsInternal(
       starredAt: r.starredAt?.toISOString() ?? null,
       spamAt: r.spamAt?.toISOString() ?? null,
       hasDraft: Boolean(msg?.isDraft),
+      aiVertical: r.aiVertical,
     };
   });
 }

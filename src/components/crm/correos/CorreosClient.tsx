@@ -69,6 +69,8 @@ export function CorreosClient() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   // A07: modo "buscar por significado" (retrieval vectorial).
   const [semantic, setSemantic] = useState(false);
+  // A03: filtro por vertical de la clasificación v5.
+  const [vertical, setVertical] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [autoExtract, setAutoExtract] = useState(false);
   const [snoozeId, setSnoozeId] = useState<string | null>(null);
@@ -105,6 +107,7 @@ export function CorreosClient() {
       if (f !== "inbox") qs.set("folder", f);
       if (debouncedQuery) qs.set("q", debouncedQuery);
       if (debouncedQuery && semantic) qs.set("mode", "semantic");
+      if (vertical) qs.set("vertical", vertical);
       // C18: counts solo en cargas "reset" sin búsqueda activa (carga inicial,
       // cambio de carpeta, invalidación realtime) — tipear o paginar no los paga.
       const wantCounts = reset && !cur && !debouncedQuery;
@@ -158,7 +161,7 @@ export function CorreosClient() {
     } finally {
       setLoading(false);
     }
-  }, [folder, debouncedQuery, semantic]);
+  }, [folder, debouncedQuery, semantic, vertical]);
 
   // C22b: al reconectar, reconciliar acciones y envíos encolados offline.
   useEffect(() => {
@@ -469,6 +472,7 @@ export function CorreosClient() {
         <CorreosFilters folder={folder} onFolder={setFolder} chip={chip} onChip={setChip}
           counts={counts} query={query} onQuery={setQuery}
           semantic={semantic} onSemantic={setSemantic}
+          vertical={vertical} onVertical={setVertical}
           onSync={syncNow} syncing={syncing}
           realtimeStatus={realtimeStatus} previewLines={previewLines}
           onPreviewLines={setPreviewLines} lastSyncAt={lastSyncAt} />

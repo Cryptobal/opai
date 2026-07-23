@@ -40,6 +40,17 @@ const CHIPS: { key: CorreoChipKey; label: string }[] = [
   { key: "leads_creados", label: "Leads creados" },
 ];
 
+// A03: verticales de la clasificación v5 (filtro server-side).
+export const VERTICAL_LABELS: Record<string, string> = {
+  operaciones: "Operaciones",
+  rrhh: "RRHH",
+  comercial: "Comercial",
+  finanzas: "Finanzas",
+  cobranza: "Cobranza",
+  contratos: "Contratos",
+  incidentes: "Incidentes",
+};
+
 type Counts = {
   inbox: number;
   inboxUnread?: number;
@@ -63,6 +74,9 @@ type Props = {
   /** A07: modo semántico ("buscar por significado"). */
   semantic: boolean;
   onSemantic: (v: boolean) => void;
+  /** A03: vertical activa (null = todas). */
+  vertical: string | null;
+  onVertical: (v: string | null) => void;
   onSync: () => void;
   syncing: boolean;
   realtimeStatus: CorreosRealtimeStatus;
@@ -81,6 +95,8 @@ export function CorreosFilters({
   onQuery,
   semantic,
   onSemantic,
+  vertical,
+  onVertical,
   onSync,
   syncing,
   realtimeStatus,
@@ -225,6 +241,21 @@ export function CorreosFilters({
             }`}
           >
             {c.label}
+          </button>
+        ))}
+        <span className="mx-1 h-9 w-px self-center bg-ds-border-subtle" aria-hidden />
+        {Object.entries(VERTICAL_LABELS).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onVertical(vertical === key ? null : key)}
+            className={`h-9 rounded-full px-3 text-[12px] ds-tap ${
+              vertical === key
+                ? "bg-primary text-primary-foreground"
+                : "bg-ds-surface-2 text-ds-text-2"
+            }`}
+          >
+            {label}
           </button>
         ))}
       </div>

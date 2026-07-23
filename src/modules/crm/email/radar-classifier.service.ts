@@ -3,7 +3,7 @@ import { isRadarComercialEnabled } from "@/lib/crm/radar-settings";
 import { classifyThread, generateDraftReply } from "./radar-classify-ai";
 import { getLeadFeedbackExamples, type LeadFeedback } from "./radar-feedback";
 import { generateThreadRadarItems, isNewLeadCandidate, type CreatedRadarItem } from "./radar-items";
-import type { RadarClassification } from "./radar-types";
+import { verticalFromLegacyCategoria, type RadarClassification } from "./radar-types";
 import { stripHtml, hoyISO } from "./radar-util";
 import { writeSyncState } from "./gmail-sync-state";
 import { dispatchRadarAlert } from "@/lib/crm/radar-alerts";
@@ -154,6 +154,12 @@ async function promoteClassifiedCommercialThreads(params: {
     const classification: RadarClassification = {
       categoria: row.ai_category as RadarClassification["categoria"],
       intencion: row.ai_intent as RadarClassification["intencion"],
+      // Reconstrucción desde filas ya clasificadas (v4): mapeo legacy.
+      vertical: verticalFromLegacyCategoria(
+        row.ai_category as RadarClassification["categoria"],
+      ),
+      urgencia: "baja",
+      sentimiento: "neutral",
       resumen: row.ai_summary ?? "",
       requiereRespuesta: true,
       senalesCompra: [],
@@ -237,6 +243,10 @@ async function classifyOne(
       ...base,
       aiCategory: classification.categoria,
       aiIntent: classification.intencion,
+      // A03 (v5): vertical + urgencia + sentimiento separados de la intención.
+      aiVertical: classification.vertical,
+      aiUrgency: classification.urgencia,
+      aiSentiment: classification.sentimiento,
       aiSummary: classification.resumen,
       aiClassifiedAt: now,
     },

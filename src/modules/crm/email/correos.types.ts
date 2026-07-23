@@ -20,6 +20,8 @@ export type CorreoThreadDTO = {
   starredAt: string | null;
   spamAt: string | null;
   hasDraft: boolean;
+  /** A03: vertical de la clasificación v5 (operaciones|rrhh|comercial|…). */
+  aiVertical: string | null;
 };
 
 export type CorreoMessageDTO = {

@@ -243,6 +243,8 @@ export function buildCorreoSearchIdsQuery(params: {
   emailAccountId: string;
   parsed: ParsedCorreoSearch;
   folder: CorreoListFilter;
+  /** A03: filtro por vertical v5 (ai_vertical). */
+  vertical?: string | null;
   cursorDate: Date | null;
   take: number;
   now?: Date;
@@ -253,6 +255,7 @@ export function buildCorreoSearchIdsQuery(params: {
     Prisma.sql`t.email_account_id = ${params.emailAccountId}::uuid`,
     folderWhereSql(params.folder, now),
     ...buildCorreoSearchConditions(params.parsed),
+    ...(params.vertical ? [Prisma.sql`t.ai_vertical = ${params.vertical}`] : []),
   ];
   if (params.cursorDate) conds.push(Prisma.sql`t.last_message_at < ${params.cursorDate}`);
   return Prisma.sql`

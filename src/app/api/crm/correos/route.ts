@@ -24,6 +24,21 @@ function parseFolder(raw: string | null): CorreoListFilter {
   return "inbox";
 }
 
+const VERTICALES = new Set([
+  "operaciones",
+  "rrhh",
+  "comercial",
+  "finanzas",
+  "cobranza",
+  "contratos",
+  "incidentes",
+  "otro",
+]);
+
+function parseVertical(raw: string | null): string | null {
+  return raw && VERTICALES.has(raw) ? raw : null;
+}
+
 export async function GET(req: NextRequest) {
   const mod = await requireTenantModule("crm");
   if (!mod.authorized) return mod.response;
@@ -62,6 +77,8 @@ export async function GET(req: NextRequest) {
       q: req.nextUrl.searchParams.get("q"),
       // A07: modo "buscar por significado" (retrieval vectorial).
       semantic: req.nextUrl.searchParams.get("mode") === "semantic",
+      // A03: filtro por vertical v5.
+      vertical: parseVertical(req.nextUrl.searchParams.get("vertical")),
     }),
     wantCounts
       ? countCorreoFolders({
