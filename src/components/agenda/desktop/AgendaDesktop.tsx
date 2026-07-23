@@ -40,6 +40,7 @@ import {
   type AgendaSourceKey,
 } from "./agenda-desktop-prefs";
 import { useAgendaDesktopData } from "./useAgendaDesktopData";
+import { useAgendaShortcuts } from "./useAgendaShortcuts";
 
 const CAL_RECONNECT_HREF =
   "/api/integrations/google-calendar/oauth/start?return=/opai/agenda";
@@ -179,6 +180,28 @@ export function AgendaDesktop() {
       current.includes(key) ? current.filter((k) => k !== key) : [...current, key],
     );
   }, []);
+
+  useAgendaShortcuts({
+    onCreate: useCallback(() => setQuickCreate({ mode: "evento", origin: null }), []),
+    onFocusSearch: useCallback(() => searchRef.current?.focus(), []),
+    onToday: useCallback(() => setAnchor(startOfDayChile(new Date())), []),
+    onViewChange: setView,
+    onPrevious: useCallback(
+      () => setAnchor((current) => navigateCalendar(current, view, 3, -1)),
+      [view],
+    ),
+    onNext: useCallback(
+      () => setAnchor((current) => navigateCalendar(current, view, 3, 1)),
+      [view],
+    ),
+    onEscape: useCallback(() => {
+      setQuickCreate((qc) => {
+        if (qc) return null;
+        setSelected(null);
+        return qc;
+      });
+    }, []),
+  });
 
   // El contenido del inspector permanece montado durante la animación de cierre.
   const lastSelectedRef = useRef<AgendaCalendarItem | null>(null);

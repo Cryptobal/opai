@@ -8,6 +8,12 @@ import {
   Plus,
   Search,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { isoWeekChile, CHILE_TZ } from "@/lib/dates-cl";
 import { cn } from "@/lib/utils";
 import type {
@@ -178,18 +184,27 @@ export function AgendaDesktopToolbar({
         buttonClass={CONTROL}
       />
 
-      <button
-        type="button"
-        onClick={onCreate}
-        title="Crear evento o tarea (C)"
-        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground shadow-ds-xs ds-tap"
-      >
-        <Plus className="h-4 w-4" />
-        Crear
-        <kbd className="rounded border border-primary-foreground/25 px-1 font-mono text-[12px] font-normal">
-          C
-        </kbd>
-      </button>
+      <TooltipProvider delayDuration={250}>
+        <Tooltip>
+          <TooltipTrigger
+            onClick={onCreate}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground shadow-ds-xs ds-tap"
+          >
+            <Plus className="h-4 w-4" />
+            Crear
+            <kbd className="rounded border border-primary-foreground/25 px-1 font-mono text-[12px] font-normal">
+              C
+            </kbd>
+          </TooltipTrigger>
+          <TooltipContent
+            align="end"
+            className="space-y-0.5 font-mono text-[12px] leading-relaxed"
+          >
+            <p>C crear · / buscar · T hoy</p>
+            <p>D / 3 / W / M vistas · ← → navegar · Esc cierra</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 }
