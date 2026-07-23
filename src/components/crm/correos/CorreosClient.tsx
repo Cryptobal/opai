@@ -587,7 +587,8 @@ export function CorreosClient() {
                 ? clearSelection()
                 : setSelectedIds(new Set(filtered.map((t) => t.id)))
             }
-            onRefresh={() => void fetchPage(null, true)}
+            onRefresh={syncNow}
+            syncing={syncing}
             query={query} onQuery={setQuery}
             semantic={semantic} onSemantic={setSemantic}
             shownCount={filtered.length}
