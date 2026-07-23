@@ -633,7 +633,12 @@ export function CorreosClient() {
                   onChanged={() => void fetchPage(null, true)}
                   onRemove={removeThreadLocally}
                   onSnooze={() => setSnoozeId(t.id)}
-                  onOpen={() => (selectionMode ? toggleSelect(t.id) : openThread(t.id))} />
+                  onOpen={() =>
+                    // Solo táctil: en selección el tap alterna. En desktop el
+                    // click sigue abriendo el hilo aunque haya checkboxes
+                    // marcados (comportamiento histórico intacto).
+                    selectionMode && isCoarse ? toggleSelect(t.id) : openThread(t.id)
+                  } />
               ))}
             </Surface>
           )}
