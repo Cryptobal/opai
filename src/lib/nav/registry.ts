@@ -34,6 +34,7 @@ import {
   Contact,
   DollarSign,
   Sparkles,
+  Bot,
   MapPin,
   // Ops
   Activity,
@@ -376,8 +377,7 @@ export const NAV_MODULES: NavNode[] = [
       { key: "productividad-correos", href: "/crm/correos", label: "Correos", icon: Mail, module: "productividad", submodule: "correos", tenantModule: "crm" },
       { key: "productividad-agenda", href: "/opai/agenda", label: "Agenda", icon: CalendarDays, module: "productividad", submodule: "agenda" },
       { key: "productividad-tareas", href: "/opai/tareas", label: "Tareas", icon: ClipboardList, module: "productividad", submodule: "tareas" },
-      // TODO F3: activar cuando exista la ruta /opai/agentes
-      // { key: "productividad-agentes", href: "/opai/agentes", label: "Agentes IA", icon: Sparkles, module: "productividad", submodule: "agentes" },
+      { key: "productividad-agentes", href: "/opai/agentes", label: "Agentes IA", icon: Bot, module: "productividad", submodule: "agentes" },
     ],
   },
 
