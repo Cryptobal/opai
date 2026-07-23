@@ -64,6 +64,12 @@ export function TopbarSubNav({ className }: { className?: string }) {
 
   const { sections, currentSection, tabs } = useMemo(() => {
     const mod = findActiveModule(pathname);
+    // Módulos con navegación propia (ej. Configuración) no renderizan tabs de
+    // secciones en la topbar. El early return de abajo (tabs.length === 0)
+    // se encarga de no pintar nada.
+    if (mod?.hideInModuleTabs) {
+      return { sections: [] as NavNode[], currentSection: undefined, tabs: [] as SwipeTabItem[] };
+    }
     const n2 = (mod?.children ?? []).filter(
       (c) => !c.hideInSubNav && isNodeVisible(c, ctx),
     );
