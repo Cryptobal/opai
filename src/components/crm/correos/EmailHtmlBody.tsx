@@ -6,6 +6,7 @@ import {
   hasBlockedImages,
   sanitizeEmailHtml,
 } from "@/lib/sanitize-email-html";
+import { setEmailNightMode, useEmailNightMode } from "./email-night-mode";
 import styles from "./email-html-body.module.css";
 
 type Props = {
@@ -67,7 +68,9 @@ export function EmailHtmlBody({
   const hasHtml = Boolean(htmlBody?.trim());
   const [mode, setMode] = useState<"html" | "text">(hasHtml ? "html" : "text");
   const [showImages, setShowImages] = useState(defaultShowImages);
-  const [night, setNight] = useState(false);
+  // Preferencia global persistente (no se pierde al refrescar ni al re-render
+  // del hilo; misma en móvil y desktop). Ver email-night-mode.ts.
+  const night = useEmailNightMode();
 
   const safeHtml = useMemo(
     () => (hasHtml ? sanitizeEmailHtml(htmlBody!, { blockRemoteImages: !showImages }) : ""),
@@ -146,7 +149,7 @@ export function EmailHtmlBody({
           {hasHtml && mode === "html" && useIframe && (
             <button
               type="button"
-              onClick={() => setNight((v) => !v)}
+              onClick={() => setEmailNightMode(!night)}
               aria-pressed={night}
               title={night ? "Fondo claro" : "Fondo oscuro"}
               className="ml-auto text-[12px] text-ds-text-3 ds-tap"

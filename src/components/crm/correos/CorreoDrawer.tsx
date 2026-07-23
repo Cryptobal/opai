@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   type KeyboardEventHandler,
   type PointerEventHandler,
@@ -54,32 +55,54 @@ export function CorreoDrawer({
   const [aiOpen, setAiOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!threadId) return;
-    setLoading(true);
+    // `silent`: refresh en vivo (mailbox-changed / foco). No muestra spinner ni
+    // vacía el detalle si la respuesta falla, para no parpadear el lector
+    // mientras se está leyendo el correo.
+    const silent = opts?.silent ?? false;
+    if (!silent) setLoading(true);
     try {
       const r = await fetch(`/api/crm/correos/${threadId}`);
       const data = r.ok ? ((await r.json()) as CorreoDetail) : null;
-      setDetail(data);
+      if (data || !silent) setDetail(data);
       // C22b: guardar el detalle para lectura offline (sin adjuntos binarios).
       if (data) {
         const { saveOfflineDetail } = await import("./offline-store");
         void saveOfflineDetail(data);
       }
     } catch {
-      // Sin red: servir el detalle guardado si existe.
-      const { loadOfflineDetail } = await import("./offline-store");
-      setDetail(await loadOfflineDetail(threadId));
+      // Sin red: servir el detalle guardado si existe (solo en carga visible).
+      if (!silent) {
+        const { loadOfflineDetail } = await import("./offline-store");
+        setDetail(await loadOfflineDetail(threadId));
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [threadId]);
 
+  // Carga inicial / cambio de hilo: limpia y muestra spinner.
   useEffect(() => {
     setDetail(null);
     setAiOpen(false);
     void load();
-  }, [load, refreshToken]);
+  }, [load]);
+
+  // Refresh en vivo: recarga en segundo plano sin vaciar ni parpadear el
+  // lector. Se omite la primera ejecución (el efecto de arriba ya cargó) para
+  // no duplicar el fetch inicial. Usa un ref a `load` para no reejecutarse
+  // cuando cambia el hilo (eso ya lo cubre el efecto de carga inicial).
+  const loadRef = useRef(load);
+  loadRef.current = load;
+  const firstRefreshRef = useRef(true);
+  useEffect(() => {
+    if (firstRefreshRef.current) {
+      firstRefreshRef.current = false;
+      return;
+    }
+    void loadRef.current({ silent: true });
+  }, [refreshToken]);
 
   useEffect(() => {
     if (autoExtract && detail && !detail.thread.leadId) setAiOpen(true);
