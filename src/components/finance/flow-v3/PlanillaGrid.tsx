@@ -260,13 +260,7 @@ export function PlanillaGrid({
           startNumber={footerStart}
         />
       </table>
-      <CellLayersPopover
-        state={popover}
-        canManage={canManage}
-        onClose={() => setPopover(null)}
-        onSetEndDate={onSetEndDate}
-        onSetDiasCobro={onSetDiasCobro}
-      />
+      <CellLayersPopover state={popover} onClose={() => setPopover(null)} />
       <FillRightDialog
         request={fillRight}
         busy={busy}
