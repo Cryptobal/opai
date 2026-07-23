@@ -1,35 +1,15 @@
 import type { ReactNode } from "react";
-import { LayoutDashboard } from "lucide-react";
-import { PageHero } from "@/components/opai-ds";
-import { HubIntegrationStatus } from "./_components/HubIntegrationStatus";
-import {
-  getHubIntegrationStatus,
-  getHubRequestContext,
-} from "./_lib/hub-context";
 
-export default async function HubLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  const { firstName, tenantId, userId } = await getHubRequestContext();
-  const integrations = await getHubIntegrationStatus(tenantId, userId);
-
-  return (
-    <div className="min-w-0 space-y-5">
-      {/* Las vistas del Hub (Resumen / Comercial / Operaciones / …) viven ahora
-          en los tabs de la barra superior (AppShell). El saludo se conserva. */}
-      <PageHero
-        title={`Buenos días, ${firstName}`}
-        subtitle="Centro de comando"
-        description="Todo lo importante para mover el negocio hoy, agrupado por área y sin perder el contexto."
-        icon={<LayoutDashboard />}
-        iconVariant="brand"
-        actions={<HubIntegrationStatus status={integrations} />}
-        className="hidden sm:block"
-      />
-
-      <div className="min-w-0">{children}</div>
-    </div>
-  );
+/**
+ * Layout del Hub.
+ *
+ * Las vistas del Hub (Resumen / Comercial / Operaciones / …) viven en los tabs
+ * de la barra superior (AppShell). El PageHero de bienvenida se retiró por
+ * decisión del owner: el saludo ("Buenos días"), el subtítulo ("Centro de
+ * comando"), la descripción y las píldoras de integraciones (Gmail/Calendar/
+ * Drive) resultaban redundantes con los accesos rápidos y la barra superior.
+ * El contenido de la vista arranca directo en los accesos directos.
+ */
+export default function HubLayout({ children }: { children: ReactNode }) {
+  return <div className="min-w-0">{children}</div>;
 }
