@@ -174,16 +174,17 @@ export function CorreoRowSwipe({
           />
         </div>
       )}
-      {/* Los 2 botones del lado (74px c/u, desde swipeConfig): se revelan
-          progresivamente DURANTE el arrastre (el principal pegado al borde
-          aparece primero y el segundo al seguir arrastrando) y quedan
-          abiertos al soltar en el rango corto. */}
+      {/* Los 2 botones del lado (desde swipeConfig). Durante el arrastre el
+          contenedor mide EXACTAMENTE lo expuesto (|dx|), así ambos botones
+          (flex-1) se revelan JUNTOS y crecen con el gesto — antes el ancho
+          mínimo 148px dejaba solo el primero asomando hasta arrastrar >74px.
+          Al soltar en el rango corto, se fija a SWIPE_OPEN_WIDTH (74px c/u). */}
       <div
         aria-hidden={!revealed}
         className={`absolute inset-y-0 flex ${side === "right" ? "left-0" : "right-0"} ${
           dragging ? (armed ? "invisible" : "") : "transition-[width] duration-150"
         }`}
-        style={{ width: Math.max(Math.abs(dx), SWIPE_OPEN_WIDTH) }}
+        style={{ width: dragging ? Math.abs(dx) : SWIPE_OPEN_WIDTH }}
       >
         {shown.map((action) => {
           const meta = actionMeta(action, thread);

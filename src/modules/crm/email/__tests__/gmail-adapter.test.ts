@@ -126,6 +126,26 @@ describe("wrapGmailClientWithQuota", () => {
     expect((res as { data: { id: string } }).data.id).toBe("m1");
     expect(attempts).toBe(2);
   });
+
+  it("no viola el invariante de Proxy con `users` non-writable+non-configurable (googleapis real)", async () => {
+    // Reproduce cómo googleapis define `users`: propiedad de datos
+    // non-writable + non-configurable. Un Proxy sobre el objeto real lanzaba
+    // TypeError al solo acceder `.users`; con target `{}` funciona.
+    const fake = {};
+    Object.defineProperty(fake, "users", {
+      value: {
+        threads: {
+          get: async (args: { id: string }) => ({ data: { id: args.id } }),
+        },
+      },
+      writable: false,
+      configurable: false,
+      enumerable: true,
+    });
+    const wrapped = wrapGmailClientWithQuota(fake as unknown as gmail_v1.Gmail, "acc-frozen");
+    const res = await wrapped.users.threads.get({ userId: "me", id: "t1" } as never);
+    expect((res as { data: { id: string } }).data.id).toBe("t1");
+  });
 });
 
 describe("parseBatchResponseBodies", () => {

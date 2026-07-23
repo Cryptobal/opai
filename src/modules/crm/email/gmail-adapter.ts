@@ -130,41 +130,60 @@ export async function runWithGmailQuota<T>(
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+// IMPORTANTE — el target del Proxy es un objeto VACÍO, no la instancia real de
+// googleapis. googleapis define `users`/`threads`/`messages`/… como propiedades
+// de datos NON-WRITABLE + NON-CONFIGURABLE. Un Proxy cuyo target es el objeto
+// real está obligado por el invariante del lenguaje a devolver EXACTAMENTE ese
+// valor en el trap `get`; devolver la versión envuelta lanza:
+//   "'get' on proxy: property 'users' is a read-only and non-configurable data
+//    property … the proxy did not return its actual value".
+// Eso tumbaba TODA la integración Gmail (sync, acciones, adjuntos, OAuth).
+// Con un target `{}` no hay propiedades non-configurable que respetar y el trap
+// es libre de devolver los wrappers; leemos/aplicamos siempre contra el objeto
+// real (`node`) por closure.
 function deepQuotaProxy(node: any, accountKey: string): any {
   const cache = new Map<PropertyKey, unknown>();
-  return new Proxy(node, {
-    get(target, prop, receiver) {
-      if (cache.has(prop)) return cache.get(prop);
-      const value = Reflect.get(target, prop, receiver);
-      let wrapped: unknown = value;
-      if (typeof value === "function") {
-        wrapped = (...args: unknown[]) =>
-          runWithGmailQuota(accountKey, () => value.apply(target, args));
-      } else if (value && typeof value === "object") {
-        wrapped = deepQuotaProxy(value, accountKey);
-      }
-      cache.set(prop, wrapped);
-      return wrapped;
+  return new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        if (cache.has(prop)) return cache.get(prop);
+        const value = Reflect.get(node, prop);
+        let wrapped: unknown = value;
+        if (typeof value === "function") {
+          wrapped = (...args: unknown[]) =>
+            runWithGmailQuota(accountKey, () => value.apply(node, args));
+        } else if (value && typeof value === "object") {
+          wrapped = deepQuotaProxy(value, accountKey);
+        }
+        cache.set(prop, wrapped);
+        return wrapped;
+      },
     },
-  });
+  );
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 /**
  * Envuelve el cliente Gmail: todas las llamadas bajo `users.*` pasan por el
  * token-bucket + retry. El resto del cliente (context/auth) queda intacto.
+ * Target `{}` por el mismo invariante de Proxy documentado en deepQuotaProxy.
  */
 export function wrapGmailClientWithQuota(
   gmail: gmail_v1.Gmail,
   accountKey: string,
 ): gmail_v1.Gmail {
   const users = deepQuotaProxy(gmail.users, accountKey);
-  return new Proxy(gmail, {
-    get(target, prop, receiver) {
-      if (prop === "users") return users;
-      return Reflect.get(target, prop, receiver);
+  return new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        if (prop === "users") return users;
+        const value = Reflect.get(gmail, prop);
+        return typeof value === "function" ? value.bind(gmail) : value;
+      },
     },
-  });
+  ) as unknown as gmail_v1.Gmail;
 }
 
 /** Solo para tests: resetea el estado de buckets. */

@@ -1,4 +1,10 @@
-import DOMPurify from "isomorphic-dompurify";
+// dompurify (browser), NO isomorphic-dompurify: este último arrastra `jsdom`
+// para el caso servidor, y jsdom@29 depende de `@exodus/bytes` (ESM-only) que
+// revienta el require del bundle en el servidor con ERR_REQUIRE_ESM → el SSR de
+// los componentes de Correos tiraba React #419. La sanitización solo se ejecuta
+// en el cliente (EmailHtmlBody/CorreoMessages son client components); en SSR se
+// devuelve vacío y el cliente rellena al hidratar.
+import DOMPurify from "dompurify";
 
 /** GIF 1x1 transparente: placeholder de imágenes remotas bloqueadas. */
 export const BLOCKED_IMG_PLACEHOLDER =
@@ -38,6 +44,10 @@ const ALLOWED_ATTR = [
  * las inline `cid:` y `data:` no se tocan. */
 export function sanitizeEmailHtml(html: string, options?: SanitizeEmailOptions): string {
   if (!html.trim()) return "";
+  // SSR (sin DOM): no sanitizamos ni emitimos HTML sin sanitizar — el cliente
+  // (client component, useMemo) recalcula y rellena al hidratar. dompurify sin
+  // window no filtra, así que devolver "" es la opción segura.
+  if (typeof window === "undefined") return "";
   const blockImages = options?.blockRemoteImages ?? remoteImageBlockingEnabled();
   const clean = DOMPurify.sanitize(html, {
     ALLOWED_TAGS,
