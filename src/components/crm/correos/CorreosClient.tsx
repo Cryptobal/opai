@@ -11,6 +11,7 @@ import {
 } from "./CorreosFilters";
 import { CorreosMobileTopBar } from "./CorreosMobileTopBar";
 import { CorreosMobileDrawer } from "./CorreosMobileDrawer";
+import { CorreoSwipeSettingsSheet } from "./CorreoSwipeSettingsSheet";
 import { CorreoRowSwipe } from "./CorreoRowSwipe";
 import { CorreoDrawer } from "./CorreoDrawer";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
@@ -79,6 +80,7 @@ export function CorreosClient() {
   const [composeOpen, setComposeOpen] = useState(false);
   // Opción C: drawer lateral móvil (carpetas + filtros + acciones).
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [swipeSettingsOpen, setSwipeSettingsOpen] = useState(false);
   // C12: multi-select para acciones masivas. C20: fila enfocada por j/k.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [focusIndex, setFocusIndex] = useState(-1);
@@ -473,6 +475,13 @@ export function CorreosClient() {
         syncing={syncing}
         realtimeStatus={realtimeStatus}
         lastSyncAt={lastSyncAt}
+        onOpenSwipeSettings={() => setSwipeSettingsOpen(true)}
+      />
+      <CorreoSwipeSettingsSheet
+        open={swipeSettingsOpen}
+        onClose={() => setSwipeSettingsOpen(false)}
+        config={swipeConfig}
+        onConfig={setSwipeConfig}
       />
     <div className="ds-page-enter space-y-5 max-lg:pb-28">
       {/* El encabezado se desplaza con el scroll: recupera pantalla en móvil
