@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,6 @@ export type QuickCreateState = {
 };
 
 const PANEL_W = 400;
-const PANEL_H = 470; // header + título + cuerpo fijo 322px + footer
 
 type Props = {
   state: QuickCreateState;
@@ -33,6 +32,9 @@ export function AgendaQuickCreate({ state, users, onClose, onCreated }: Props) {
   const [title, setTitle] = useState("");
   const composer = useEventComposer(true, state.dateKey ?? null);
   const task = useQuickCreateTask();
+  const panelRef = useRef<HTMLDivElement>(null);
+  // Oculto hasta medir el alto real (evita el salto del primer frame).
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
 
   // Prefill fecha/hora del slot clickeado (una vez por apertura).
   useEffect(() => {
@@ -49,17 +51,27 @@ export function AgendaQuickCreate({ state, users, onClose, onCreated }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
-  const position = useMemo(() => {
-    if (typeof window === "undefined") return { left: 0, top: 0 };
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const x = state.origin?.x ?? vw - PANEL_W - 24;
-    const y = state.origin?.y ?? 108;
-    return {
-      left: Math.max(8, Math.min(x, vw - PANEL_W - 8)),
-      top: Math.max(8, Math.min(y, vh - PANEL_H - 8)),
+  // Reposiciona clampeando por el alto REAL del panel (contenido natural, sin
+  // scroll interno): así no se sale del viewport ni se ancla raro hacia abajo.
+  useLayoutEffect(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    const clamp = () => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const h = el.offsetHeight;
+      const x = state.origin?.x ?? vw - PANEL_W - 24;
+      const y = state.origin?.y ?? 96;
+      // Clamp por el alto REAL medido: nunca cuelga por debajo del viewport.
+      setPosition({
+        left: Math.max(8, Math.min(x, vw - PANEL_W - 8)),
+        top: Math.max(8, Math.min(y, vh - h - 8)),
+      });
     };
-  }, [state.origin]);
+    clamp();
+    window.addEventListener("resize", clamp);
+    return () => window.removeEventListener("resize", clamp);
+  }, [state.origin, mode]);
 
   const saving = mode === "evento" ? composer.saving : task.saving;
 
@@ -115,11 +127,16 @@ export function AgendaQuickCreate({ state, users, onClose, onCreated }: Props) {
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} aria-hidden />
       <div
+        ref={panelRef}
         role="dialog"
         aria-label="Crear evento o tarea"
         onKeyDown={handleKeyDown}
         className="fixed z-50 flex w-[400px] flex-col rounded-2xl border border-ds-border-default bg-ds-surface-1 shadow-ds-lg"
-        style={position}
+        style={{
+          left: position?.left ?? 0,
+          top: position?.top ?? 0,
+          visibility: position ? "visible" : "hidden",
+        }}
       >
         <div className="flex h-12 shrink-0 items-center justify-between px-3">
           <div className="flex items-center gap-0.5 rounded-xl bg-ds-surface-2 p-0.5">
@@ -165,8 +182,9 @@ export function AgendaQuickCreate({ state, users, onClose, onCreated }: Props) {
           />
         </div>
 
-        {/* Cuerpo de altura FIJA: cambiar tipo o modo no mueve el layout. */}
-        <div className="h-[322px] shrink-0 overflow-y-auto px-4 pb-2">
+        {/* Cuerpo de altura natural: el contenido se ve completo sin scroll
+            interno. En viewports muy bajos cae un scroll de seguridad (max-h). */}
+        <div className="max-h-[calc(100dvh-8rem)] overflow-y-auto px-4 pb-3">
           {mode === "evento" ? (
             <QuickCreateEventFields composer={composer} users={users} />
           ) : (

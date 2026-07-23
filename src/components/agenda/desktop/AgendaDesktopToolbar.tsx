@@ -100,14 +100,16 @@ export function AgendaDesktopToolbar({
         <PanelLeft className="h-4 w-4" />
       </button>
 
-      <p className="min-w-0 shrink-0 truncate font-display text-[18px] font-semibold text-ds-text-1">
-        {monthYearLabel(anchor)}
+      <div className="flex min-w-0 shrink items-baseline gap-2">
+        <p className="min-w-0 truncate font-display text-[18px] font-semibold text-ds-text-1">
+          {monthYearLabel(anchor)}
+        </p>
         {view !== "month" && (
-          <span className="ml-2 font-mono text-[12px] font-normal text-ds-text-4">
+          <span className="shrink-0 whitespace-nowrap font-mono text-[12px] font-normal text-ds-text-4">
             · Semana {isoWeekChile(anchor)}
           </span>
         )}
-      </p>
+      </div>
 
       <div className="flex items-center gap-0.5">
         <button

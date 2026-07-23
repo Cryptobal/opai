@@ -36,6 +36,11 @@ export interface AppShellProps {
  *  sin breadcrumbs, sin padding de página. BottomNav se mantiene. */
 const IMMERSIVE_MOBILE_PREFIXES = ['/crm/correos'];
 
+/** Rutas que en móvil conservan la isla OPAI pero quitan el breadcrumb y
+ *  pegan su contenido justo bajo la isla (padding mínimo). El módulo pinta su
+ *  propio header. Desktop no cambia. */
+const COMPACT_MOBILE_PREFIXES = ['/opai/agenda'];
+
 /**
  * AppShell - Layout principal
  *
@@ -67,6 +72,7 @@ function AppShellInner({
 }: AppShellProps) {
   const pathname = usePathname();
   const isImmersiveMobile = IMMERSIVE_MOBILE_PREFIXES.some((p) => pathname.startsWith(p));
+  const isCompactMobile = COMPACT_MOBILE_PREFIXES.some((p) => pathname.startsWith(p));
   const chatCtx = useChatSidePanelContext();
   const notifCtx = useNotificationSidePanelContext();
   const { unreadCount: notifUnreadCount } = useNotifications();
@@ -243,7 +249,10 @@ function AppShellInner({
                     // entre topbar y bottom nav; sin overflow-x-clip en móvil
                     // (el scroll horizontal vive DENTRO de la hoja).
                     isSheetFocus && 'pt-1 pb-0 px-0 lg:overflow-x-clip',
-                    !isImmersiveMobile && !isSheetFocus &&
+                    // Compacto móvil (agenda): pegado a la isla, padding mínimo;
+                    // desktop mantiene sus paddings vía las clases lg:.
+                    isCompactMobile && 'overflow-x-clip pt-0 pb-28 px-2 sm:px-4 lg:pt-0 lg:px-8',
+                    !isImmersiveMobile && !isSheetFocus && !isCompactMobile &&
                       'overflow-x-clip pt-4 pb-28 px-4 sm:px-6',
                   )}
                   role="region"
@@ -251,7 +260,9 @@ function AppShellInner({
                   <div
                     className={cn(
                       'lg:pt-3 lg:mb-3',
-                      isImmersiveMobile || isSheetFocus ? 'hidden lg:block' : 'pt-1 mb-2'
+                      isImmersiveMobile || isSheetFocus || isCompactMobile
+                        ? 'hidden lg:block'
+                        : 'pt-1 mb-2'
                     )}
                   >
                     <AutoBreadcrumbs />
