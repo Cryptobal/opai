@@ -13,6 +13,7 @@ import { CorreosDesktopToolbar } from "./CorreosDesktopToolbar";
 import { CorreosMobileTopBar } from "./CorreosMobileTopBar";
 import { CorreosMobileDrawer } from "./CorreosMobileDrawer";
 import { CorreoSwipeSettingsSheet } from "./CorreoSwipeSettingsSheet";
+import { CorreoShortcutsSheet } from "./CorreoShortcutsSheet";
 import { CorreoSelectionBar } from "./CorreoSelectionBar";
 import { CorreoRowSwipe } from "./CorreoRowSwipe";
 import { CorreoDrawer } from "./CorreoDrawer";
@@ -85,6 +86,7 @@ export function CorreosClient() {
   // Opción C: drawer lateral móvil (carpetas + filtros + acciones).
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [swipeSettingsOpen, setSwipeSettingsOpen] = useState(false);
+  const [shortcutsSheetOpen, setShortcutsSheetOpen] = useState(false);
   // v2: táctil (long-press/selección móvil); en desktop nada de esto aplica.
   const [isCoarse, setIsCoarse] = useState(false);
   useEffect(() => {
@@ -108,6 +110,10 @@ export function CorreosClient() {
     setSwipeConfig,
     railCollapsed,
     setRailCollapsed,
+    shortcuts,
+    setShortcuts,
+    alwaysShowImages,
+    setAlwaysShowImages,
     resetPanelWidth,
     onResizePointerDown,
     onResizeKeyDown,
@@ -396,18 +402,41 @@ export function CorreosClient() {
   function moveFocus(delta: number) {
     if (filtered.length === 0) return;
     setFocusIndex((prev) => {
-      const next = Math.min(Math.max(prev + delta, 0), filtered.length - 1);
-      const id = filtered[next]?.id;
-      if (id) {
+      // Base: la fila enfocada; si no hay, el hilo abierto (flechas con el
+      // lector abierto); si tampoco, arranca desde el borde.
+      const base =
+        prev >= 0
+          ? prev
+          : openId !== null
+            ? filtered.findIndex((t) => t.id === openId)
+            : -1;
+      const next = Math.min(Math.max(base < 0 ? 0 : base + delta, 0), filtered.length - 1);
+      const t = filtered[next];
+      if (t) {
         document
-          .querySelector(`[data-correo-row="${id}"]`)
+          .querySelector(`[data-correo-row="${t.id}"]`)
           ?.scrollIntoView({ block: "nearest" });
+        // Con el lector abierto, navegar carga el hilo (flechas estilo Gmail).
+        if (openId !== null) openThread(t.id);
       }
       return next;
     });
   }
   useCorreosKeyboard({
-    enabled: !composeOpen && snoozeId === null,
+    enabled: !composeOpen && snoozeId === null && !shortcutsSheetOpen,
+    shortcuts,
+    onHelp: () => setShortcutsSheetOpen(true),
+    onStar: () => {
+      if (!focusedThread) return;
+      const starred = Boolean(focusedThread.starredAt);
+      void runCorreoAction(
+        focusedThread.id,
+        starred ? "unstar" : "star",
+        starred ? "Quitado de Destacados" : "Destacado",
+        () => void fetchPage(null, true),
+        starred ? "star" : "unstar",
+      );
+    },
     onDown: () => moveFocus(1),
     onUp: () => moveFocus(-1),
     onOpen: () => focusedThread && openThread(focusedThread.id),
@@ -512,12 +541,19 @@ export function CorreosClient() {
         realtimeStatus={realtimeStatus}
         lastSyncAt={lastSyncAt}
         onOpenSwipeSettings={() => setSwipeSettingsOpen(true)}
+        onOpenShortcuts={() => setShortcutsSheetOpen(true)}
       />
       <CorreoSwipeSettingsSheet
         open={swipeSettingsOpen}
         onClose={() => setSwipeSettingsOpen(false)}
         config={swipeConfig}
         onConfig={setSwipeConfig}
+      />
+      <CorreoShortcutsSheet
+        open={shortcutsSheetOpen}
+        onClose={() => setShortcutsSheetOpen(false)}
+        config={shortcuts}
+        onConfig={setShortcuts}
       />
     <div className="ds-page-enter space-y-5 max-lg:pb-28 lg:space-y-3">
       {/* Sin hero en desktop (rediseño Gmail): breadcrumb + tab ya ubican.
