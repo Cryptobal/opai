@@ -598,6 +598,7 @@ export function CorreosClient() {
                   focused={focusIndex === index}
                   checked={selectedIds.has(t.id)}
                   onToggleCheck={canModify ? () => toggleSelect(t.id) : undefined}
+                  onAvatarPress={canModify ? () => toggleSelect(t.id) : undefined}
                   previewLines={previewLines}
                   swipeConfig={swipeConfig}
                   onChanged={() => void fetchPage(null, true)}

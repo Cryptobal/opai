@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Archive, Clock, Mail, MailOpen, Reply, Star, Trash2, type LucideIcon } from "lucide-react";
 import { CorreoRow } from "./CorreoRow";
-import { CorreoRowMenu } from "./CorreoRowMenu";
 import { runCorreoAction } from "./correo-thread-action-client";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 import type {
@@ -56,6 +55,8 @@ type Props = {
   previewLines?: CorreoPreviewLines;
   /** Acciones configuradas por gesto (persistidas en view prefs). */
   swipeConfig: CorreoSwipeConfig;
+  /** Tap en el avatar alterna selección (variante móvil Gmail). */
+  onAvatarPress?: () => void;
 };
 
 /**
@@ -66,6 +67,7 @@ type Props = {
 export function CorreoRowSwipe({
   thread, canModify, onOpen, onChanged, onRemove, onSnooze,
   selected, focused, checked, onToggleCheck, previewLines, swipeConfig,
+  onAvatarPress,
 }: Props) {
   const [coarse, setCoarse] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -139,9 +141,6 @@ export function CorreoRowSwipe({
   // El botón principal (índice 0) queda pegado al borde de la pantalla.
   const shown = long ? [actions[0]] : side === "left" ? [actions[1], actions[0]] : actions;
   const revealed = openSide !== null || dx !== 0;
-  const menu = canModify
-    ? <CorreoRowMenu thread={thread} onChanged={onChanged} onRemove={onRemove} onSnooze={onSnooze} />
-    : undefined;
 
   return (
     <div
@@ -183,9 +182,11 @@ export function CorreoRowSwipe({
         }}
         {...handlers}
       >
+        {/* Variante Gmail móvil: sin kebab (swipe + long-press + detalle lo
+            cubren) y con avatar como toggle de selección. */}
         <CorreoRow thread={thread} canModify={canModify} onOpen={handleOpen} onChanged={onChanged}
-          trailing={menu} selected={selected} focused={focused} checked={checked}
-          onToggleCheck={onToggleCheck} previewLines={previewLines} />
+          mobileGmail checked={checked} onAvatarPress={onAvatarPress}
+          previewLines={previewLines} />
       </div>
     </div>
   );
