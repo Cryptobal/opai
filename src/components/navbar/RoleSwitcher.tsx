@@ -92,9 +92,8 @@ export function RoleSwitcher() {
     if (rolesLoading && roles.length === 0) {
         // Skeleton sutil mientras carga
         return (
-            <div className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium border border-border/40 bg-muted/30 text-muted-foreground/60 animate-pulse">
-                <Eye className="h-3 w-3 opacity-60 shrink-0" />
-                <span className="hidden sm:inline">Cargando…</span>
+            <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-ds-border-subtle/70 bg-ds-surface-1/40 animate-pulse">
+                <Eye className="h-3.5 w-3.5 text-ds-text-4" />
             </div>
         );
     }
@@ -108,7 +107,7 @@ export function RoleSwitcher() {
                 <button
                     type="button"
                     className={cn(
-                        'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all duration-200 border',
+                        'inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium transition-all duration-200 border',
                         isSimulating
                             ? 'bg-status-warn-soft text-status-warn-fg border-status-warn-border hover:bg-status-warn-soft ring-1 ring-amber-500/20'
                             : `${activeColor.bg} ${activeColor.text} ${activeColor.border} hover:opacity-80`,
@@ -118,7 +117,7 @@ export function RoleSwitcher() {
                     title="Simular rol"
                 >
                     <Eye className="h-3 w-3 opacity-70 shrink-0" />
-                    <span className="hidden sm:inline whitespace-nowrap min-w-0">{activeLabel}</span>
+                    <span className="hidden xl:inline whitespace-nowrap min-w-0 max-w-[7rem] truncate">{activeLabel}</span>
                     <ChevronDown className={cn('h-3 w-3 opacity-60 transition-transform duration-200 shrink-0', open && 'rotate-180')} />
                 </button>
             </PopoverTrigger>

@@ -2,7 +2,6 @@
 
 import { cloneElement, isValidElement, ReactElement, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CommandPalette, CommandPaletteProvider, useCommandPalette } from './CommandPalette';
 import { MobileIsland } from './MobileIsland';
@@ -220,18 +219,15 @@ function AppShellInner({
             <div className="flex-1 min-w-0 flex items-stretch overflow-hidden pl-3">
               <TopbarSubNav className="flex-1 min-w-0" />
             </div>
-            {/* Clúster derecho: FX → buscar → acciones. Nunca se comprime. */}
-            <div className="flex items-center gap-2 pl-3 pr-4 shrink-0 border-l border-ds-border-subtle">
+            {/* Clúster derecho: FX + acciones. Agrupado y alineado al centro del h-12. */}
+            <div className="flex h-full items-center gap-2.5 pl-3 pr-3 shrink-0 border-l border-ds-border-subtle">
               <FxIndicator />
-              <button
-                type="button"
-                onClick={() => openCommandPalette()}
-                aria-label="Buscar"
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <Search className="h-4 w-4" />
-              </button>
-              <TopbarActions userName={userName} userEmail={userEmail} userRole={userRole} />
+              <TopbarActions
+                userName={userName}
+                userEmail={userEmail}
+                userRole={userRole}
+                onSearch={() => openCommandPalette()}
+              />
             </div>
           </div>
           {/* Simulation Banner — visible when simulating a different role */}
