@@ -15,9 +15,9 @@ type Props = {
 
 /**
  * Top móvil tipo Gmail (Opción C): píldora de búsqueda (menú + input + IA).
- * Es lo único sticky del módulo en móvil; desktop conserva el riel intacto.
- * El estado "En vivo" y "Sincronizar" viven en el drawer (tres líneas); acá el
- * único indicador es el badge rojo de no leídos sobre el menú.
+ * `fixed` (no sticky): en PWA el overscroll rubber-band despega sticky y
+ * arrastra la barra; fixed + preventDefault del pull-to-refresh la mantiene
+ * pegada al viewport, igual que MobileIsland en el resto del ERP.
  */
 export function CorreosMobileTopBar({
   onOpenNav,
@@ -30,12 +30,12 @@ export function CorreosMobileTopBar({
   const unreadLabel = inboxUnread > 99 ? "99+" : String(inboxUnread);
 
   return (
-    <div className="pointer-events-none sticky top-[env(safe-area-inset-top,0px)] z-20 lg:hidden">
-      {/* Tapa la franja del notch cuando la barra queda pegada arriba. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-full h-[env(safe-area-inset-top,0px)] bg-background"
-      />
+    <div
+      className="pointer-events-none fixed inset-x-0 top-0 z-30 lg:hidden"
+      style={{
+        paddingTop: "env(safe-area-inset-top, 0px)",
+      }}
+    >
       {/* Isla flotante Liquid Glass (misma familia que la isla del AppShell):
           la lista se desliza por debajo, nada de barras cuadradas. */}
       <div className="px-3 pt-2">

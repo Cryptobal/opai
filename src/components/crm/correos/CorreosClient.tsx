@@ -15,6 +15,7 @@ import { CorreosDesktopRail } from "./CorreosDesktopRail";
 import { CorreosDesktopToolbar } from "./CorreosDesktopToolbar";
 import { CorreosMobileTopBar } from "./CorreosMobileTopBar";
 import { CorreosMobileDrawer } from "./CorreosMobileDrawer";
+import { CorreosPullToRefresh } from "./CorreosPullToRefresh";
 import { CorreoSwipeSettingsSheet } from "./CorreoSwipeSettingsSheet";
 import { CorreoShortcutsSheet } from "./CorreoShortcutsSheet";
 import { CorreoContextMenu, type CorreoMenuItem } from "./CorreoContextMenu";
@@ -45,6 +46,9 @@ import {
 } from "./correo-thread-history";
 import { useCloseOnBack } from "./useCloseOnBack";
 import { isUuid } from "@/lib/utils/uuid";
+
+/** Alto visual de la isla (pt-2 + min-h-12). El safe-area lo aporta AppShell. */
+const CORREOS_MOBILE_TOP_SPACER = "h-14 shrink-0 lg:hidden";
 
 function matchesChip(t: CorreoThreadDTO, f: CorreoChipKey): boolean {
   if (f === "con_cuenta") return Boolean(t.accountId);
@@ -320,7 +324,7 @@ export function CorreosClient() {
     [],
   );
 
-  async function syncNow() {
+  const syncNow = useCallback(async () => {
     setSyncing(true);
     try {
       // force=1: sweep INBOX/TRASH + self-heal para reparar Recibidos vacío.
@@ -347,7 +351,7 @@ export function CorreosClient() {
     } finally {
       setSyncing(false);
     }
-  }
+  }, [fetchPage]);
 
   /** Remoción optimista tras archivar/eliminar; los counts se corrigen al revalidar. */
   function removeThreadLocally(id: string) {
@@ -576,10 +580,8 @@ export function CorreosClient() {
 
   return (
     <>
-      {/* Top móvil tipo Gmail — fuera del root animado para no correr el
-          stagger de ds-page-enter en desktop; sticky contra el scroll de
-          página en modo inmersivo. Con selección activa, la barra contextual
-          ocupa el mismo slot sticky (como Gmail). */}
+      {/* Top móvil fijo (tipo MobileIsland): fuera del root animado. Con
+          selección activa, la barra contextual ocupa el mismo slot. */}
       {selectionMode ? (
         <CorreoSelectionBar
           count={selectedIds.size}
@@ -601,6 +603,8 @@ export function CorreosClient() {
           inboxUnread={counts?.inboxUnread ?? 0}
         />
       )}
+      {/* Reserva el alto de la barra fija para que la lista no quede debajo. */}
+      <div aria-hidden className={CORREOS_MOBILE_TOP_SPACER} />
       <CorreosMobileDrawer
         open={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
@@ -637,7 +641,11 @@ export function CorreosClient() {
         items={ctxMenu ? contextItems(ctxMenu.thread) : []}
         onClose={() => setCtxMenu(null)}
       />
-    <div className="ds-page-enter space-y-5 max-lg:pb-28 lg:space-y-3">
+    <CorreosPullToRefresh
+      onRefresh={syncNow}
+      disabled={syncing || !connected}
+      className="ds-page-enter space-y-5 max-lg:pb-28 lg:space-y-3"
+    >
       {/* Sin hero en desktop (rediseño Gmail): breadcrumb + tab ya ubican.
           Los banners de estado quedan como franjas delgadas arriba. */}
       <div className="space-y-5 max-lg:px-4 lg:space-y-3">
@@ -801,7 +809,7 @@ export function CorreosClient() {
           onChanged={() => void fetchPage(null, true)} />
       </div>
 
-    </div>
+    </CorreosPullToRefresh>
       {/* Fuera del root animado: los hijos de ds-page-enter retienen un
           transform (fill forwards) que dejaría estos overlays anclados al
           contenido y bajo la BottomNav en móvil. Aquí su fixed es viewport

@@ -58,8 +58,10 @@ export function TareaDueChips({
     { key: "semana", label: "Semana", ymd: weekYmd, on: false },
   ];
 
+  // Si el vencimiento ya lo cubre un chip rápido (Hoy / Mañana), no repetir
+  // la fecha del día en el chip de calendario — es redundante ("Hoy" + "24-jul.").
   const customLabel = (() => {
-    if (!value.dueAt) return "Fecha y hora";
+    if (!value.dueAt || active === "hoy" || active === "manana") return "Fecha y hora";
     const d = new Date(value.dueAt);
     const day = d.toLocaleDateString("es-CL", { day: "2-digit", month: "short", timeZone: "America/Santiago" });
     return value.allDay ? day : `${day} · ${formatAgendaTime(d)}`;
