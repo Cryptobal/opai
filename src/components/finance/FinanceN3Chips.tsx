@@ -52,8 +52,7 @@ export function FinanceN3Chips({ submoduleKey, activeHref }: Props) {
 
   if (items.length === 0) return null;
 
-  // Solo móvil: en desktop las sub-secciones N3 viven en la barra superior
-  // (TopbarSubNav, selector de sección + tabs), así no se duplican dos filas.
+  // Solo móvil: en desktop las sub-secciones N3 viven en TopbarSubNav.
   return (
     <nav className="lg:hidden -mx-4 px-4 sm:mx-0 sm:px-0">
       <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">

@@ -214,9 +214,8 @@ function AppShellInner({
           )}>
             {/* Zona de tabs: siempre ocupa el espacio disponible (aunque
                 TopbarSubNav devuelva null en rutas sin secciones) para empujar
-                el clúster derecho al borde. TopbarSubNav resuelve una sola fila:
-                secciones del módulo, o selector N2 + tabs N3 en módulos de 3
-                niveles (Finanzas, Ops). */}
+                el clúster derecho al borde. TopbarSubNav muestra solo tabs N3
+                del submódulo activo (Finanzas, Ops); cambiar N2 es por sidebar. */}
             <div className="flex-1 min-w-0 flex items-stretch overflow-hidden pl-3">
               <TopbarSubNav className="flex-1 min-w-0" />
             </div>
