@@ -17,6 +17,16 @@ const processMock = vi.fn();
 
 vi.mock("server-only", () => ({}));
 
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return {
+    ...actual,
+    after: vi.fn((callback: () => unknown) => {
+      void callback();
+    }),
+  };
+});
+
 vi.mock("google-auth-library", () => ({
   OAuth2Client: class {
     verifyIdToken = verifyIdTokenMock;
@@ -52,9 +62,14 @@ const ORIGINAL_ENV = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]])
 const SA_EMAIL = "pubsub-sa@proj.iam.gserviceaccount.com";
 const AUDIENCE = "https://opai.example/api/webhook/gmail";
 
-function pushRequest(opts: { jwt?: string; token?: string } = {}): NextRequest {
+function pushRequest(
+  opts: { jwt?: string; token?: string; historyId?: unknown } = {},
+): NextRequest {
   const data = Buffer.from(
-    JSON.stringify({ emailAddress: "casilla@gmail.com", historyId: "777" }),
+    JSON.stringify({
+      emailAddress: "casilla@gmail.com",
+      historyId: opts.historyId ?? "777",
+    }),
   ).toString("base64");
   const url = new URL("http://localhost/api/webhook/gmail");
   if (opts.token) url.searchParams.set("token", opts.token);
@@ -156,6 +171,26 @@ describe("modo transición (flag ausente)", () => {
     const res = await POST(pushRequest({ jwt: "x" }));
     expect(res.status).toBe(204);
     expect(enqueueMock).toHaveBeenCalled();
+  });
+
+  it("normaliza historyId numérico antes del enqueue", async () => {
+    const res = await POST(pushRequest({ historyId: 987654 }));
+    expect(res.status).toBe(204);
+    expect(enqueueMock).toHaveBeenCalledWith(
+      expect.objectContaining({ historyId: "987654" }),
+    );
+  });
+
+  it("encola igualmente cuando historyId es inválido", async () => {
+    const res = await POST(pushRequest({ historyId: "not-a-history-id" }));
+    expect(res.status).toBe(204);
+    expect(enqueueMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "acc-1",
+        reason: "push",
+        historyId: undefined,
+      }),
+    );
   });
 });
 

@@ -52,8 +52,23 @@ export async function POST(
     snoozeUntil = d;
   }
 
+  const threadOwner = await prisma.crmEmailThread.findFirst({
+    where: {
+      id: threadId,
+      tenantId: session.user.tenantId,
+    },
+    select: { emailAccountId: true },
+  });
+  if (!threadOwner?.emailAccountId) {
+    return NextResponse.json(
+      { error: "Hilo no vinculado a Gmail" },
+      { status: 400 },
+    );
+  }
+
   const account = await prisma.crmEmailAccount.findFirst({
     where: {
+      id: threadOwner.emailAccountId,
       tenantId: session.user.tenantId,
       userId: session.user.id,
       provider: "gmail",
@@ -61,7 +76,10 @@ export async function POST(
     },
     select: { id: true, grantedScopes: true },
   });
-  if (!hasGmailModify(account?.grantedScopes)) {
+  if (!account) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (!hasGmailModify(account.grantedScopes)) {
     return NextResponse.json(
       { error: "Reconectá Gmail para habilitar archivar y eliminar", needsReconnect: true },
       { status: 403 },

@@ -15,10 +15,12 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import type { HubRecentEmails } from "@/modules/crm/email/hub-recent-emails";
+import { useCorreosRealtime } from "@/components/crm/correos/useCorreosRealtime";
 
 export type HubEmailStatus = "loading" | "ready" | "disconnected" | "error";
 
@@ -45,28 +47,79 @@ export function HubEmailProvider({
 }) {
   const [status, setStatus] = useState<HubEmailStatus>("loading");
   const [data, setData] = useState<HubRecentEmails | null>(null);
+  const [realtimeChannel, setRealtimeChannel] = useState<string | null>(null);
+  const lastSuccessAtRef = useRef(0);
+  const requestRef = useRef(0);
 
-  const reload = useCallback(() => {
+  const load = useCallback((silent: boolean) => {
     if (!enabled) return;
-    setStatus("loading");
-    fetch("/api/hub/emails")
+    const requestId = ++requestRef.current;
+    if (!silent) setStatus("loading");
+    fetch("/api/hub/emails", { cache: "no-store" })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json() as Promise<HubRecentEmails>;
+        return r.json() as Promise<
+          HubRecentEmails & { realtimeChannel?: unknown }
+        >;
       })
       .then((json) => {
+        if (requestId !== requestRef.current) return;
         setData(json);
+        setRealtimeChannel(
+          typeof json.realtimeChannel === "string"
+            ? json.realtimeChannel
+            : null,
+        );
+        lastSuccessAtRef.current = Date.now();
         setStatus(json.connected ? "ready" : "disconnected");
       })
       .catch(() => {
+        if (requestId !== requestRef.current || silent) return;
         setData(null);
         setStatus("error");
       });
   }, [enabled]);
 
+  const reload = useCallback(() => {
+    load(false);
+  }, [load]);
+
+  const refreshSilently = useCallback(() => {
+    load(true);
+  }, [load]);
+
   useEffect(() => {
     reload();
   }, [reload]);
+
+  const realtimeStatus = useCorreosRealtime(
+    realtimeChannel,
+    refreshSilently,
+  );
+
+  useEffect(() => {
+    if (!enabled) return;
+    const refreshIfStale = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastSuccessAtRef.current < 30_000) return;
+      refreshSilently();
+    };
+    window.addEventListener("focus", refreshIfStale);
+    window.addEventListener("online", refreshIfStale);
+    document.addEventListener("visibilitychange", refreshIfStale);
+    // Sin realtime se consulta cada 30 s. Incluso con canal vivo hacemos una
+    // revalidación de seguridad cada 5 min por eventos perdidos/suspensión.
+    const interval = window.setInterval(
+      refreshSilently,
+      realtimeStatus === "fallback" ? 30_000 : 5 * 60_000,
+    );
+    return () => {
+      window.removeEventListener("focus", refreshIfStale);
+      window.removeEventListener("online", refreshIfStale);
+      document.removeEventListener("visibilitychange", refreshIfStale);
+      window.clearInterval(interval);
+    };
+  }, [enabled, realtimeStatus, refreshSilently]);
 
   if (!enabled) return <>{children}</>;
 

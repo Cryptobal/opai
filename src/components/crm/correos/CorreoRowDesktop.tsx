@@ -5,7 +5,7 @@ import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 import { CorreoCheckbox } from "./CorreoCheckbox";
 import { CorreoSenderAvatar } from "./CorreoSenderAvatar";
 import { parseSender } from "./correo-sender";
-import { relativeTime } from "./CorreoRow";
+import { formatGmailDateChile } from "@/modules/crm/email/gmail-date-format";
 import { CorreoThreadActions } from "./CorreoThreadActions";
 import { runCorreoAction } from "./correo-thread-action-client";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
@@ -156,7 +156,7 @@ export function CorreoRowDesktop({
       >
         {thread.snoozedUntil
           ? `hasta ${snoozeShort(thread.snoozedUntil)}`
-          : relativeTime(thread.lastMessageAt)}
+          : formatGmailDateChile(thread.lastMessageAt)}
       </span>
       {canModify && (
         <div className="absolute right-2 top-1/2 hidden -translate-y-1/2 items-center rounded-lg bg-ds-surface-2 pl-1 group-hover:flex">

@@ -12,19 +12,6 @@ export const PREVIEW_LINE_CLASS: Record<CorreoPreviewLines, string> = {
   3: "line-clamp-3",
 };
 
-export function relativeTime(iso: string | null): string {
-  if (!iso) return "";
-  const diff = Date.now() - new Date(iso).getTime();
-  const min = Math.round(diff / 60_000);
-  if (min < 1) return "ahora";
-  if (min < 60) return `hace ${min} min`;
-  const h = Math.round(min / 60);
-  if (h < 24) return `hace ${h} h`;
-  const d = Math.round(h / 24);
-  if (d < 7) return `hace ${d} d`;
-  return new Date(iso).toLocaleDateString("es-CL", { day: "numeric", month: "short" });
-}
-
 /**
  * Fila de correo — dispatcher de variantes: móvil Gmail (avatar + swipe,
  * activada por CorreoRowSwipe en pointer coarse) o desktop densa (una línea,
