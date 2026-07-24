@@ -23,15 +23,25 @@ type Account = {
  * limpiar cuentas huérfanas o de ex-integrantes cuyo token murió (aparecen
  * aquí aunque no estén en la lista de Usuarios). Desconectar revoca el grant
  * en Google y borra los tokens; los hilos ya sincronizados se conservan.
+ *
+ * `alwaysShow`: en la página de configuración de Gmail se muestra siempre
+ * (loading / vacío / lista) para que la sección se vea igual que Drive/Calendar.
  */
-export function GmailAccountsManager() {
+export function GmailAccountsManager({
+  alwaysShow = false,
+}: {
+  alwaysShow?: boolean;
+} = {}) {
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/crm/gmail/accounts");
-      if (!res.ok) return;
+      if (!res.ok) {
+        setAccounts([]);
+        return;
+      }
       const data = await res.json();
       setAccounts(data.accounts ?? []);
     } catch {
@@ -74,52 +84,65 @@ export function GmailAccountsManager() {
     }
   };
 
-  if (!accounts || accounts.length === 0) return null;
+  if (!alwaysShow && (!accounts || accounts.length === 0)) return null;
+
+  const count = accounts?.length ?? 0;
 
   return (
-    <div className="mt-4 rounded-xl border border-ds-border-1 bg-ds-surface-1 p-3">
+    <div className="rounded-xl border border-ds-border-subtle bg-ds-surface-1 p-3">
       <p className="mb-1 text-[12px] font-medium uppercase tracking-wide text-ds-text-4">
-        Casillas de correo del equipo ({accounts.length})
+        Casillas de correo del equipo{accounts ? ` (${count})` : ""}
       </p>
       <p className="mb-2 text-[12px] text-ds-text-4">
         Cuentas de Gmail conectadas a este espacio. Desconectá las que ya no uses.
       </p>
-      <ul className="flex flex-col gap-1.5">
-        {accounts.map((acc) => (
-          <li
-            key={acc.id}
-            className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-[13px]"
-          >
-            <span className="min-w-0 flex-1 truncate">
-              {acc.email}{" "}
-              <Badge variant={acc.status === "active" ? "success" : "secondary"}>
-                {acc.status === "active" ? "activa" : "desconectada"}
-              </Badge>
-              {acc.ownerEmail && acc.ownerEmail !== acc.email && (
-                <span className="ml-1 text-[12px] text-ds-text-4">
-                  dueño: {acc.ownerEmail}
-                </span>
-              )}
-            </span>
-            {acc.status === "active" && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 shrink-0 text-status-danger-fg"
-                onClick={() => disconnect(acc)}
-                disabled={busy === acc.id}
-              >
-                {busy === acc.id ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Unplug className="mr-1 h-3.5 w-3.5" />
+      {accounts === null ? (
+        <div className="flex items-center gap-2 px-2 py-3 text-[13px] text-ds-text-3">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Cargando casillas…
+        </div>
+      ) : count === 0 ? (
+        <p className="px-2 py-2 text-[13px] text-ds-text-3">
+          Todavía no hay casillas Gmail conectadas.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {accounts.map((acc) => (
+            <li
+              key={acc.id}
+              className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-[13px]"
+            >
+              <span className="min-w-0 flex-1 truncate">
+                {acc.email}{" "}
+                <Badge variant={acc.status === "active" ? "success" : "secondary"}>
+                  {acc.status === "active" ? "activa" : "desconectada"}
+                </Badge>
+                {acc.ownerEmail && acc.ownerEmail !== acc.email && (
+                  <span className="ml-1 text-[12px] text-ds-text-4">
+                    dueño: {acc.ownerEmail}
+                  </span>
                 )}
-                Desconectar
-              </Button>
-            )}
-          </li>
-        ))}
-      </ul>
+              </span>
+              {acc.status === "active" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-10 shrink-0 text-status-danger-fg sm:h-8"
+                  onClick={() => disconnect(acc)}
+                  disabled={busy === acc.id}
+                >
+                  {busy === acc.id ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Unplug className="mr-1 h-3.5 w-3.5" />
+                  )}
+                  Desconectar
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

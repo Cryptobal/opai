@@ -62,7 +62,7 @@ export const CONFIG_SEARCH_INDEX: ConfigSearchItem[] = [
     label: "Integraciones",
     group: "General",
     description: "Gmail y conectores externos",
-    keywords: "gmail integracion conector api sincronizar correo",
+    keywords: "gmail google drive calendar integracion conector api sincronizar correo invitar",
   },
   {
     type: "section",

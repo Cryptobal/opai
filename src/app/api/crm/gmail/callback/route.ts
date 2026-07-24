@@ -17,6 +17,10 @@ import {
   enqueueGmailSyncJob,
   processGmailSyncJob,
 } from "@/modules/crm/email/gmail-sync-queue";
+import {
+  GMAIL_DEFAULT_RETURN,
+  safeGmailReturnPath,
+} from "@/lib/google-workspace/gmail-return-path";
 
 export const maxDuration = 60;
 
@@ -26,11 +30,20 @@ function signState(payload: string) {
   return createHmac("sha256", getGmailTokenSecret()).update(payload).digest("hex");
 }
 
+function redirectWithGmail(
+  origin: string,
+  returnPath: string,
+  result: string,
+) {
+  return NextResponse.redirect(`${origin}${returnPath}?gmail=${result}`);
+}
+
 export async function GET(request: NextRequest) {
   const modCheck = await requireTenantModule('crm');
   if (!modCheck.authorized) return modCheck.response;
 
   const origin = new URL(request.url).origin;
+  let returnPath = GMAIL_DEFAULT_RETURN;
 
   const session = await auth();
   if (!session?.user) {
@@ -42,7 +55,7 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state");
 
   if (!code || !state) {
-    return NextResponse.redirect(`${origin}/crm/correos?gmail=error`);
+    return redirectWithGmail(origin, returnPath, "error");
   }
 
   const [payload, signature] = state.split(".");
@@ -52,15 +65,24 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     // Fail-closed pero sin 500 crudo (ej. GMAIL_TOKEN_SECRET ausente).
     console.error("Gmail OAuth callback: error verificando state:", error);
-    return NextResponse.redirect(`${origin}/crm/correos?gmail=error`);
+    return redirectWithGmail(origin, returnPath, "error");
   }
   if (!stateValid) {
-    return NextResponse.redirect(`${origin}/crm/correos?gmail=invalid_state`);
+    return redirectWithGmail(origin, returnPath, "invalid_state");
   }
 
-  const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+  const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
+    userId?: string;
+    tenantId?: string;
+    returnPath?: string;
+  };
+  returnPath = safeGmailReturnPath(decoded.returnPath);
   if (decoded.userId !== session.user.id) {
-    return NextResponse.redirect(`${origin}/crm/correos?gmail=invalid_user`);
+    return redirectWithGmail(origin, returnPath, "invalid_user");
+  }
+  const tenantId = decoded.tenantId;
+  if (!tenantId) {
+    return redirectWithGmail(origin, returnPath, "invalid_state");
   }
 
   try {
@@ -78,7 +100,7 @@ export async function GET(request: NextRequest) {
     const emailAddress = profile.data.emailAddress;
 
     if (!emailAddress) {
-      return NextResponse.redirect(`${origin}/crm/correos?gmail=missing_email`);
+      return redirectWithGmail(origin, returnPath, "missing_email");
     }
 
     const accessToken = tokens.access_token || "";
@@ -87,7 +109,7 @@ export async function GET(request: NextRequest) {
 
     const existing = await prisma.crmEmailAccount.findFirst({
       where: {
-        tenantId: decoded.tenantId,
+        tenantId,
         userId: session.user.id,
         email: emailAddress,
         provider: "gmail",
@@ -95,7 +117,7 @@ export async function GET(request: NextRequest) {
     });
 
     const data = {
-      tenantId: decoded.tenantId,
+      tenantId,
       userId: session.user.id,
       provider: "gmail",
       email: emailAddress,
@@ -123,7 +145,7 @@ export async function GET(request: NextRequest) {
     }
 
     void auditEmailAction({
-      tenantId: decoded.tenantId,
+      tenantId,
       userId: session.user.id,
       userEmail: session.user.email,
       action: "connect_account",
@@ -152,7 +174,7 @@ export async function GET(request: NextRequest) {
         lastReconcileComplete: false,
       });
       await enqueueGmailSyncJob({
-        tenantId: decoded.tenantId,
+        tenantId,
         emailAccountId: account.id,
         reason: "oauth",
         maintenance: true,
@@ -171,9 +193,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    return NextResponse.redirect(`${origin}/crm/correos?gmail=connected`);
+    return redirectWithGmail(origin, returnPath, "connected");
   } catch (error) {
     console.error("Gmail OAuth callback error:", error);
-    return NextResponse.redirect(`${origin}/crm/correos?gmail=error`);
+    return redirectWithGmail(origin, returnPath, "error");
   }
 }
