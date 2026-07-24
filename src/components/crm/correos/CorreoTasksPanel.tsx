@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CheckSquare, ListTodo, Plus, Sparkles, Square } from "lucide-react";
 import { toast } from "sonner";
+import { TaskTimePicker } from "@/components/agenda/TaskTimePicker";
 
 type Task = { id: string; title: string; status: string; dueAt: string | null; allDay: boolean };
 
@@ -129,21 +130,22 @@ export function CorreoTasksPanel({ threadId, subject }: { threadId: string; subj
           <Sparkles className="h-4 w-4" /> {busy === "sug" ? "…" : "Sugerir"}
         </button>
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <input
           type="date"
           value={due}
           onChange={(e) => setDue(e.target.value)}
           aria-label="Fecha"
-          className="h-9 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1"
+          className="h-9 min-w-[8rem] flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1"
         />
-        <input
-          type="time"
+        {/* Selector no nativo en pasos de 15 min (misma UX que Agenda/Tareas).
+            Se ancla a la derecha para no desbordar el panel angosto del lector. */}
+        <TaskTimePicker
           value={time}
-          onChange={(e) => setTime(e.target.value)}
-          aria-label="Hora de aviso (opcional)"
-          disabled={!due}
-          className="h-9 w-24 shrink-0 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1 disabled:opacity-50"
+          onChange={setTime}
+          ariaLabel="Hora de aviso (opcional)"
+          menuAlign="right"
+          className="shrink-0"
         />
         <button
           type="button"
