@@ -39,11 +39,12 @@ export function CorreoSelectionBar({
   const run = (fn: () => void) => () => { setMenuOpen(false); fn(); };
 
   return (
-    <div className="sticky top-[env(safe-area-inset-top,0px)] z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 animate-in fade-in slide-in-from-top-2 duration-150 lg:hidden">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-full h-[env(safe-area-inset-top,0px)] bg-background"
-      />
+    // fixed (no sticky): mismo criterio que CorreosMobileTopBar / MobileIsland —
+    // en PWA el rubber-band despega sticky y arrastra la barra.
+    <div
+      className="fixed inset-x-0 top-0 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 animate-in fade-in slide-in-from-top-2 duration-150 lg:hidden"
+      style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+    >
       <div className="flex items-center gap-1 px-2 pb-1.5 pt-2">
         <button type="button" aria-label="Salir de la selección" onClick={onClear} className={ICON_BTN}>
           <X className="h-5 w-5" />
