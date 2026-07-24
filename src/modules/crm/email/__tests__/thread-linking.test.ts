@@ -1,0 +1,159 @@
+/**
+ * Matching de hilos (fuga de borradores / bandeja desincronizada):
+ * el fallback por asunto SOLO adopta hilos huérfanos de la propia casilla o sin
+ * dueño y SIN threadId de Gmail — nunca roba el hilo de otra casilla ni fusiona
+ * dos hilos Gmail distintos con el mismo asunto.
+ */
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  contactFindFirst: vi.fn(),
+  dealFindMany: vi.fn(),
+  threadFindUnique: vi.fn(),
+  threadFindFirst: vi.fn(),
+  threadCreate: vi.fn(),
+  threadUpdate: vi.fn(),
+}));
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    crmContact: { findFirst: mocks.contactFindFirst },
+    crmDeal: { findMany: mocks.dealFindMany },
+    crmEmailThread: {
+      findUnique: mocks.threadFindUnique,
+      findFirst: mocks.threadFindFirst,
+      create: mocks.threadCreate,
+      update: mocks.threadUpdate,
+    },
+  },
+}));
+
+import { upsertLinkedThread } from "../thread-linking";
+
+const OWN = "acc-mine";
+const OTHER = "acc-other";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  // Sin contacto → links vacíos (no interesa el enriquecimiento aquí).
+  mocks.contactFindFirst.mockResolvedValue(null);
+  mocks.dealFindMany.mockResolvedValue([]);
+  mocks.threadFindUnique.mockResolvedValue(null);
+  mocks.threadFindFirst.mockResolvedValue(null);
+  mocks.threadCreate.mockResolvedValue({ id: "th-new" });
+  mocks.threadUpdate.mockResolvedValue({ id: "th-upd" });
+});
+
+describe("upsertLinkedThread — scope del fallback por asunto", () => {
+  it("acota el fallback a huérfanos propios/sin dueño y providerThreadId null", async () => {
+    await upsertLinkedThread({
+      tenantId: "t1",
+      subject: "(Borrador sin asunto)",
+      lastMessageAt: new Date(),
+      counterpartyEmails: [],
+      emailAccountId: OWN,
+      providerThreadId: "gmail-thread-1",
+      isInbound: false,
+    });
+
+    expect(mocks.threadFindFirst).toHaveBeenCalledTimes(1);
+    const where = mocks.threadFindFirst.mock.calls[0][0].where;
+    expect(where.providerThreadId).toBeNull();
+    expect(where.OR).toEqual([{ emailAccountId: null }, { emailAccountId: OWN }]);
+    // NO debe consultar por { tenantId, subject } a secas (cruzaba casillas).
+    expect(where).not.toEqual({ tenantId: "t1", subject: "(Borrador sin asunto)" });
+  });
+
+  it("no adopta el hilo de otra casilla con el mismo asunto → crea uno nuevo", async () => {
+    // El query scopeado no devuelve nada (el hilo de OTHER queda excluido).
+    mocks.threadFindFirst.mockResolvedValue(null);
+
+    const res = await upsertLinkedThread({
+      tenantId: "t1",
+      subject: "Cotización",
+      lastMessageAt: new Date(),
+      counterpartyEmails: ["cliente@acme.com"],
+      emailAccountId: OWN,
+      providerThreadId: "gmail-own-1",
+      isInbound: true,
+    });
+
+    expect(mocks.threadCreate).toHaveBeenCalledTimes(1);
+    expect(mocks.threadUpdate).not.toHaveBeenCalled();
+    expect(mocks.threadCreate.mock.calls[0][0].data).toMatchObject({
+      emailAccountId: OWN,
+      providerThreadId: "gmail-own-1",
+    });
+    expect(res).toEqual({ id: "th-new" });
+  });
+
+  it("adopta un hilo huérfano legacy (sin dueño, sin threadId)", async () => {
+    mocks.threadFindFirst.mockResolvedValue({
+      id: "th-legacy",
+      contactId: null,
+      accountId: null,
+      dealId: null,
+      lastMessageAt: null,
+    });
+
+    const res = await upsertLinkedThread({
+      tenantId: "t1",
+      subject: "Seguimiento propuesta",
+      lastMessageAt: new Date(),
+      counterpartyEmails: ["cliente@acme.com"],
+      emailAccountId: OWN,
+      providerThreadId: "gmail-own-2",
+      isInbound: true,
+    });
+
+    expect(mocks.threadCreate).not.toHaveBeenCalled();
+    expect(mocks.threadUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.threadUpdate.mock.calls[0][0].data).toMatchObject({
+      emailAccountId: OWN,
+      providerThreadId: "gmail-own-2",
+    });
+    expect(res).toEqual({ id: "th-legacy" });
+  });
+
+  it("sin emailAccountId, el fallback solo busca huérfanos sin dueño", async () => {
+    await upsertLinkedThread({
+      tenantId: "t1",
+      subject: "Sin casilla",
+      lastMessageAt: new Date(),
+      counterpartyEmails: [],
+      emailAccountId: null,
+      providerThreadId: null,
+    });
+
+    // Sin emailAccountId no hay findUnique; el fallback exige emailAccountId null.
+    expect(mocks.threadFindUnique).not.toHaveBeenCalled();
+    const where = mocks.threadFindFirst.mock.calls[0][0].where;
+    expect(where.providerThreadId).toBeNull();
+    expect(where.emailAccountId).toBeNull();
+    expect(where.OR).toBeUndefined();
+  });
+
+  it("prioriza el match exacto por (emailAccountId, providerThreadId)", async () => {
+    mocks.threadFindUnique.mockResolvedValue({
+      id: "th-exact",
+      contactId: null,
+      accountId: null,
+      dealId: null,
+      lastMessageAt: null,
+    });
+
+    const res = await upsertLinkedThread({
+      tenantId: "t1",
+      subject: "Cualquiera",
+      lastMessageAt: new Date(),
+      counterpartyEmails: [],
+      emailAccountId: OWN,
+      providerThreadId: "gmail-own-3",
+      isInbound: true,
+    });
+
+    // Con match exacto no se consulta el fallback por asunto.
+    expect(mocks.threadFindFirst).not.toHaveBeenCalled();
+    expect(res).toEqual({ id: "th-exact" });
+  });
+});

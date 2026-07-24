@@ -8,7 +8,7 @@ import {
 import { runBackfill } from "./gmail-backfill";
 import { runIncremental } from "./gmail-incremental";
 import { reconcileGmailFolders } from "./gmail-folder-reconcile";
-import { syncGmailDrafts } from "./gmail-drafts.service";
+import { detachForeignDraftMirrors, syncGmailDrafts } from "./gmail-drafts.service";
 import { healInboxFromLocalLabels, selfHealInbox } from "./gmail-inbox-selfheal";
 import { classifyAccountThreads } from "./radar-classifier.service";
 import { gmailClientForAccount } from "./gmail-account-client";
@@ -174,6 +174,23 @@ export async function syncGmailAccount(params: {
       tenantId: params.tenantId,
       emailAccountId: emailAccount.id,
     });
+  }
+
+  // Fase 3.4 — reparación DB-only (best-effort, sin presupuesto Gmail): saca de
+  // los hilos de esta casilla los espejos de borradores de OTRAS casillas que
+  // arrastró el bug histórico de matching por asunto. El dueño real los vuelve
+  // a materializar en su propio hilo en su siguiente sync.
+  try {
+    const detached = await detachForeignDraftMirrors({
+      tenantId: params.tenantId,
+      emailAccountId: emailAccount.id,
+    });
+    if (detached > 0) {
+      const { invalidateCorreoFolderCounts } = await import("./correos-folder-counts");
+      invalidateCorreoFolderCounts(params.tenantId, emailAccount.id);
+    }
+  } catch (err) {
+    console.warn("[gmail] detachForeignDraftMirrors:", err);
   }
 
   // Fase 3.5 — espejo de borradores Gmail→OPAI (C08). Presupuesto corto,

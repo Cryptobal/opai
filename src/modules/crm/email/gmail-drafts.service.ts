@@ -252,6 +252,45 @@ async function deleteLocalDraftMirror(params: {
 }
 
 /**
+ * Repara la contaminación cruzada de borradores del bug histórico de matching
+ * por asunto: elimina de los hilos de ESTA casilla los espejos de borradores
+ * cuyo dueño es OTRA casilla. El dueño real los vuelve a materializar en su
+ * propio hilo en su siguiente `syncGmailDrafts` (idempotente por
+ * providerDraftId). El borrador vive en Gmail (fuente de verdad); borrar el
+ * espejo local no pierde nada. `email_account_id <> $me` excluye por SQL los
+ * espejos legacy sin dueño (NULL), que no se tocan.
+ */
+export async function detachForeignDraftMirrors(params: {
+  tenantId: string;
+  emailAccountId: string;
+}): Promise<number> {
+  const { tenantId, emailAccountId } = params;
+  const foreign = await prisma.crmEmailMessage.findMany({
+    where: {
+      tenantId,
+      isDraft: true,
+      emailAccountId: { not: emailAccountId },
+      thread: { emailAccountId },
+    },
+    select: { id: true, threadId: true },
+  });
+  if (foreign.length === 0) return 0;
+  await prisma.crmEmailMessage.deleteMany({
+    where: { id: { in: foreign.map((m) => m.id) } },
+  });
+  // Hilos que quedaron vacíos (solo tenían borradores ajenos): fuera.
+  for (const threadId of new Set(foreign.map((m) => m.threadId))) {
+    const remaining = await prisma.crmEmailMessage.count({ where: { threadId } });
+    if (remaining === 0) {
+      await prisma.crmEmailThread.deleteMany({
+        where: { id: threadId, tenantId },
+      });
+    }
+  }
+  return foreign.length;
+}
+
+/**
  * Barrido entrante de drafts (mantenimiento): espeja los drafts de Gmail en
  * OPAI y elimina los espejos locales de drafts que ya no existen (enviados o
  * descartados fuera). Presupuesto acotado; best-effort.
