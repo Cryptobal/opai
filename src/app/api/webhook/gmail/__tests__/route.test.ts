@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 import { NextRequest } from "next/server";
 
+const afterMock = vi.hoisted(() => vi.fn());
 const verifyIdTokenMock = vi.fn();
 const accountFindMany = vi.fn();
 const writeSyncStateMock = vi.fn();
@@ -21,9 +22,7 @@ vi.mock("next/server", async (importOriginal) => {
   const actual = await importOriginal<typeof import("next/server")>();
   return {
     ...actual,
-    after: vi.fn((callback: () => unknown) => {
-      void callback();
-    }),
+    after: afterMock,
   };
 });
 
@@ -83,6 +82,14 @@ function pushRequest(
   });
 }
 
+function invalidPushRequest(): NextRequest {
+  return new NextRequest("http://localhost/api/webhook/gmail", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ message: {} }),
+  });
+}
+
 function validTicket(overrides: Record<string, unknown> = {}) {
   return {
     getPayload: () => ({
@@ -105,6 +112,9 @@ beforeEach(() => {
   writeSyncStateMock.mockReset().mockResolvedValue(undefined);
   enqueueMock.mockReset().mockResolvedValue(undefined);
   processMock.mockReset().mockResolvedValue(undefined);
+  afterMock.mockReset().mockImplementation((callback: () => unknown) => {
+    void callback();
+  });
 });
 
 afterAll(() => {
@@ -164,6 +174,59 @@ describe("modo transición (flag ausente)", () => {
     const res = await POST(pushRequest());
     expect(res.status).toBe(204);
     expect(enqueueMock).toHaveBeenCalled();
+  });
+
+  it("503 si falla el enqueue durable para que Pub/Sub reintente", async () => {
+    enqueueMock.mockRejectedValue(new Error("database temporarily unavailable"));
+
+    const res = await POST(pushRequest());
+
+    expect(res.status).toBe(503);
+    expect(enqueueMock).toHaveBeenCalledWith(
+      expect.objectContaining({ emailAccountId: "acc-1", reason: "push" }),
+    );
+    expect(processMock).not.toHaveBeenCalled();
+  });
+
+  it("503 si falla el estado previo al enqueue durable", async () => {
+    writeSyncStateMock.mockRejectedValue(
+      new Error("database temporarily unavailable"),
+    );
+
+    const res = await POST(pushRequest());
+
+    expect(res.status).toBe(503);
+    expect(enqueueMock).not.toHaveBeenCalled();
+    expect(processMock).not.toHaveBeenCalled();
+  });
+
+  it("204 para payload inválido sin intentar persistir", async () => {
+    const res = await POST(invalidPushRequest());
+
+    expect(res.status).toBe(204);
+    expect(accountFindMany).not.toHaveBeenCalled();
+    expect(enqueueMock).not.toHaveBeenCalled();
+  });
+
+  it("204 para casilla inexistente sin intentar encolar", async () => {
+    accountFindMany.mockResolvedValue([]);
+
+    const res = await POST(pushRequest());
+
+    expect(res.status).toBe(204);
+    expect(enqueueMock).not.toHaveBeenCalled();
+  });
+
+  it("204 si falla after porque el job ya quedó durable", async () => {
+    afterMock.mockImplementation(() => {
+      throw new Error("after unavailable");
+    });
+
+    const res = await POST(pushRequest());
+
+    expect(res.status).toBe(204);
+    expect(enqueueMock).toHaveBeenCalled();
+    expect(processMock).not.toHaveBeenCalled();
   });
 
   it("acepta con JWT inválido", async () => {

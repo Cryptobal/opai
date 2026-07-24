@@ -32,9 +32,6 @@ vi.mock("@/modules/crm/email/gmail-realtime", () => ({
 vi.mock("@/modules/crm/email/correos-folder-counts", () => ({
   invalidateCorreoFolderCounts: mocks.invalidateCounts,
 }));
-vi.mock("@/modules/crm/email/gmail-debug-trace", () => ({
-  appendGmailDebugTrace: vi.fn(),
-}));
 vi.mock("@/lib/audit-email", () => ({
   auditEmailAction: mocks.audit,
 }));

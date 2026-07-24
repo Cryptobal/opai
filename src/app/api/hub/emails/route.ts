@@ -9,7 +9,6 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { requireTenantModule } from "@/lib/require-module";
 import { getHubRecentEmails } from "@/modules/crm/email/hub-recent-emails";
-import { appendGmailDebugTrace } from "@/modules/crm/email/gmail-debug-trace";
 import { gmailMailboxChannel } from "@/modules/crm/email/gmail-realtime";
 
 export async function GET() {
@@ -25,32 +24,6 @@ export async function GET() {
     tenantId: session.user.tenantId,
     userId: session.user.id,
   });
-  const newestAt = data.items
-    .map((item) => item.lastMessageAt)
-    .filter((value): value is string => Boolean(value))
-    .reduce<number | null>((latest, value) => {
-      const timestamp = Date.parse(value);
-      return Number.isFinite(timestamp) && (latest == null || timestamp > latest)
-        ? timestamp
-        : latest;
-    }, null);
-  // #region agent log
-  appendGmailDebugTrace({
-    hypothesisId: "D",
-    location: "src/app/api/hub/emails/route.ts:response",
-    message: "Hub email snapshot served",
-    data: {
-      connected: data.connected,
-      accountCount: data.accountEmails.length,
-      itemCount: data.items.length,
-      unreadCount: data.unreadCount,
-      newestAgeMs: newestAt == null ? null : Date.now() - newestAt,
-      tenantScoped: Boolean(session.user.tenantId),
-      userScoped: Boolean(session.user.id),
-    },
-    timestamp: Date.now(),
-  });
-  // #endregion
 
   return NextResponse.json({
     ...data,

@@ -4,7 +4,6 @@ import { invalidateCorreoFolderCounts } from "./correos-folder-counts";
 import { captureEmailError } from "./email-observability";
 import { broadcastGmailMailboxChanged } from "./gmail-realtime";
 import { syncGmailAccount } from "./gmail-sync.service";
-import { appendGmailDebugTrace } from "./gmail-debug-trace";
 
 // Todas las rutas que ejecutan el worker tienen maxDuration <= 60 s. El lease
 // debe sobrevivir a la invocación para que un cron no arranque otro worker
@@ -121,20 +120,6 @@ export async function enqueueGmailSyncJob(params: {
   maintenance?: boolean;
 }): Promise<void> {
   const now = new Date();
-  // #region agent log
-  appendGmailDebugTrace({
-    hypothesisId: "A",
-    location: "src/modules/crm/email/gmail-sync-queue.ts:enqueue",
-    message: "Gmail sync job enqueue input",
-    data: {
-      reason: params.reason,
-      historyIdType: typeof params.historyId,
-      hasHistoryId: params.historyId != null,
-      maintenance: params.maintenance === true,
-    },
-    timestamp: Date.now(),
-  });
-  // #endregion
   await prisma.crmGmailSyncJob.upsert({
     where: { emailAccountId: params.emailAccountId },
     create: {
@@ -235,25 +220,6 @@ export async function processGmailSyncJob(params: {
       attempts: { increment: 1 },
     },
   });
-  // #region agent log
-  appendGmailDebugTrace({
-    hypothesisId: "B",
-    location: "src/modules/crm/email/gmail-sync-queue.ts:claim",
-    message: "Gmail sync job lease claim",
-    data: {
-      claimed: claimed.count,
-      profile,
-      pendingBeforeClaim: job.pending,
-      maintenanceRequested: job.maintenanceRequested,
-      availableDelayMs:
-        job.availableAt instanceof Date
-          ? job.availableAt.getTime() - now.getTime()
-          : null,
-      leaseActive: Boolean(job.leaseUntil && job.leaseUntil >= now),
-    },
-    timestamp: Date.now(),
-  });
-  // #endregion
   if (claimed.count === 0) return { status: "busy" };
 
   try {
@@ -290,21 +256,6 @@ export async function processGmailSyncJob(params: {
       job.emailAccount.tenantId,
       job.emailAccount.id,
     );
-    // #region agent log
-    appendGmailDebugTrace({
-      hypothesisId: "B",
-      location: "src/modules/crm/email/gmail-sync-queue.ts:completed",
-      message: "Gmail sync job completed before realtime broadcast",
-      data: {
-        reason: job.reason,
-        profile,
-        syncedCount: result.syncedCount,
-        fetched: result.fetched,
-        mode: result.mode,
-      },
-      timestamp: Date.now(),
-    });
-    // #endregion
     await broadcastGmailMailboxChanged({
       tenantId: job.emailAccount.tenantId,
       userId: job.emailAccount.userId,
