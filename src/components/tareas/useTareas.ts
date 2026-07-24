@@ -1,10 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { AgendaTeamMember } from "@/components/agenda/agenda-calendar.types";
 import { groupTasksByDue } from "@/modules/tareas/tareas.service";
-import type { TareaItem, TareaCreateInput, TareaFilters } from "./types";
+import type { TareaItem, TareaCreateInput, TareaUpdateInput, TareaFilters } from "./types";
+
+/** Aplica un patch parcial a una tarea (optimismo local). Resincroniza la
+ *  denormalización `assignedTo` (= primer responsable) igual que el servidor. */
+function applyTareaPatch(t: TareaItem, input: TareaUpdateInput): TareaItem {
+  const next: TareaItem = { ...t };
+  if (input.title !== undefined) next.title = input.title;
+  if (input.notes !== undefined) next.notes = input.notes;
+  if (input.dueAt !== undefined) next.dueAt = input.dueAt;
+  if (input.allDay !== undefined) next.allDay = input.allDay;
+  if (input.status !== undefined) next.status = input.status;
+  if (input.assigneeIds !== undefined) {
+    next.assigneeIds = input.assigneeIds;
+    next.assignedTo = input.assigneeIds[0] ?? null;
+  }
+  return next;
+}
 
 /** Datos + acciones de /opai/tareas (GET/POST/PATCH/DELETE /api/crm/tasks). */
 export function useTareas() {
@@ -12,6 +28,9 @@ export function useTareas() {
   const [users, setUsers] = useState<AgendaTeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<TareaFilters>({ status: "open", assigneeId: "", q: "" });
+  // Snapshot vivo para revertir el optimismo sin volver a pedir al servidor.
+  const tasksRef = useRef<TareaItem[]>(tasks);
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -43,6 +62,7 @@ export function useTareas() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: input.title,
+        notes: input.notes ?? undefined,
         dueAt: input.dueAt ?? undefined,
         allDay: input.allDay,
         assigneeIds: input.assigneeIds.length ? input.assigneeIds : undefined,
@@ -54,6 +74,28 @@ export function useTareas() {
     }
     toast.success("Tarea creada");
     void load();
+    return true;
+  }, [load]);
+
+  /**
+   * Edición parcial optimista. Aplica el patch local de inmediato, guarda el
+   * snapshot previo y revierte si el PATCH falla. Recarga cuando el cambio
+   * afecta el agrupamiento/filtro (dueAt / status).
+   */
+  const update = useCallback(async (id: string, input: TareaUpdateInput): Promise<boolean> => {
+    const snapshot = tasksRef.current;
+    setTasks((prev) => prev.map((t) => (t.id === id ? applyTareaPatch(t, input) : t)));
+    const res = await fetch(`/api/crm/tasks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }).catch(() => null);
+    if (!res?.ok) {
+      setTasks(snapshot);
+      toast.error("No se pudo guardar la tarea");
+      return false;
+    }
+    if (input.dueAt !== undefined || input.status !== undefined) void load();
     return true;
   }, [load]);
 
@@ -91,5 +133,5 @@ export function useTareas() {
   const groups = useMemo(() => groupTasksByDue(tasks), [tasks]);
   const nameById = useMemo(() => new Map(users.map((u) => [u.id, u.name])), [users]);
 
-  return { tasks, groups, users, nameById, loading, filters, setFilters, create, toggleDone, remove, reload: load };
+  return { tasks, groups, users, nameById, loading, filters, setFilters, create, update, toggleDone, remove, reload: load };
 }
