@@ -51,7 +51,7 @@ export async function runCorreoAction(
   okMsg: string,
   onDone?: () => void,
   undo?: CorreoAction,
-) {
+): Promise<boolean> {
   try {
     await postAction(threadId, action);
     if (undo) {
@@ -64,7 +64,9 @@ export async function runCorreoAction(
       });
     } else toast.success(okMsg);
     onDone?.();
+    return true;
   } catch (e) {
     toast.error(e instanceof Error ? e.message : "No se pudo completar");
+    return false;
   }
 }

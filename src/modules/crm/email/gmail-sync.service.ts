@@ -7,7 +7,7 @@ import {
 } from "./gmail-sync-state";
 import { runBackfill } from "./gmail-backfill";
 import { runIncremental } from "./gmail-incremental";
-import { reconcileGmailFolders } from "./gmail-folder-reconcile";
+import { reconcileGmailFolders, repairMissingInboxThreads } from "./gmail-folder-reconcile";
 import { detachForeignDraftMirrors, syncGmailDrafts } from "./gmail-drafts.service";
 import { healInboxFromLocalLabels, selfHealInbox } from "./gmail-inbox-selfheal";
 import { classifyAccountThreads } from "./radar-classifier.service";
@@ -148,25 +148,49 @@ export async function syncGmailAccount(params: {
     });
   }
 
+  // Fase 2.5 — huecos de Recibidos (ANTES del heal caro). historyId al día
+  // no reimporta hilos perdidos; sin esta fase el espejo queda agujereado y el
+  // sweep completo a menudo se salta por falta de presupuesto tras el heal.
+  let inboxRepaired = 0;
+  const gapRemaining = globalDeadline - Date.now();
+  if (gapRemaining >= 4_000) {
+    const gapBudget = Math.min(12_000, Math.floor(gapRemaining * 0.35));
+    const gap = await repairMissingInboxThreads({
+      gmail,
+      tenantId: params.tenantId,
+      emailAccount: runArgs.emailAccount,
+      deadline: Date.now() + gapBudget,
+    });
+    inboxRepaired = gap.imported;
+    if (gap.imported > 0 || !gap.complete) {
+      // Fuerza un sweep completo en cuanto haya presupuesto: aún hay huecos.
+      await writeSyncState(emailAccount.id, {
+        lastReconcileComplete: gap.complete && gap.missing === 0,
+        ...(gap.complete && gap.missing === 0
+          ? { lastReconcileAt: new Date().toISOString() }
+          : { lastReconcileAt: null }),
+      });
+    }
+  }
+
   // Fase 3 — self-heal Recibidos ANTES del sweep.
   // Heal local (instantáneo) siempre; remoto por-hilo cuando hay presupuesto
   // (incremental, force, o sync manual con selfHealBudgetMs).
   const healRemaining = globalDeadline - Date.now();
-  const minHeal = Math.max(params.selfHealBudgetMs ?? 8_000, 8_000);
+  // Cap más bajo (10s): priorizar import de huecos + sweep sobre re-chequear
+  // archivados ya conocidos.
+  const minHeal = Math.max(params.selfHealBudgetMs ?? 6_000, 6_000);
   const runRemoteHeal =
     healRemaining >= 3_000 &&
     (mode === "incremental" || params.forceReconcile === true || params.selfHealBudgetMs != null);
   let healed = 0;
   if (runRemoteHeal) {
-    // Cap 15s: sin tope, el heal remoto consumía todo el presupuesto restante
-    // y el sweep (fase 4, que importa hilos INBOX faltantes) quedaba con <5s
-    // y se saltaba siempre en el cron.
-    const healBudget = Math.min(Math.max(minHeal, healRemaining - 2_000), healRemaining, 15_000);
+    const healBudget = Math.min(Math.max(minHeal, healRemaining - 4_000), healRemaining, 10_000);
     const heal = await selfHealInbox({
       gmail,
       tenantId: params.tenantId,
       emailAccountId: emailAccount.id,
-      deadline: Date.now() + healBudget,
+      deadline: Date.now() + Math.max(healBudget, 0),
     });
     healed = heal.healed;
   } else {
@@ -225,7 +249,8 @@ export async function syncGmailAccount(params: {
     !state.lastReconcileAt ||
     Date.now() - Date.parse(state.lastReconcileAt) > RECONCILE_TTL_MS ||
     params.forceReconcile === true ||
-    healed > 0;
+    healed > 0 ||
+    inboxRepaired > 0;
   const sweepRemaining = globalDeadline - Date.now();
   if ((mode === "incremental" || params.forceReconcile === true) && sweepDue && sweepRemaining >= 5_000) {
     const sweepResult = await reconcileGmailFolders({

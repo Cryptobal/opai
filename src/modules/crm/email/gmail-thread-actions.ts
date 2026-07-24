@@ -62,6 +62,14 @@ export async function runCorreoThreadAction(params: {
         where: { id: thread.id },
         data: { trashedAt: new Date(), archivedAt: null },
       });
+      // Refrescar labelIds locales: si no, quedan con INBOX stale y el heal/
+      // derive desde mensajes puede reabrir el hilo en Recibidos.
+      await refreshThreadLabelsFromGmail({
+        gmail,
+        tenantId: params.tenantId,
+        emailAccountId: account.id,
+        providerThreadId: tid,
+      }).catch(() => {});
       return { ok: true };
     }
     if (params.action === "archive") {
@@ -74,6 +82,12 @@ export async function runCorreoThreadAction(params: {
         where: { id: thread.id },
         data: { archivedAt: new Date(), trashedAt: null },
       });
+      await refreshThreadLabelsFromGmail({
+        gmail,
+        tenantId: params.tenantId,
+        emailAccountId: account.id,
+        providerThreadId: tid,
+      }).catch(() => {});
       return { ok: true };
     }
     if (params.action === "unarchive") {

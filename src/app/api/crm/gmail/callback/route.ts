@@ -142,6 +142,15 @@ export async function GET(request: NextRequest) {
       },
     });
     if (account) {
+      // Reconexión / primer connect: forzar fallback 7d + sweep INBOX. Si
+      // conservamos lastHistoryId "al día" el incremental no reimporta hilos
+      // perdidos y Recibidos queda agujereado aunque el sync responda 200.
+      const { writeSyncState } = await import("@/modules/crm/email/gmail-sync-state");
+      await writeSyncState(account.id, {
+        lastHistoryId: null,
+        lastReconcileAt: null,
+        lastReconcileComplete: false,
+      });
       await enqueueGmailSyncJob({
         tenantId: decoded.tenantId,
         emailAccountId: account.id,
@@ -155,6 +164,8 @@ export async function GET(request: NextRequest) {
             emailAccountId: account.id,
             profile: "maintenance",
             deadlineMs: Date.now() + 50_000,
+            forceReconcile: true,
+            selfHealBudgetMs: 10_000,
           }),
         ]);
       });
