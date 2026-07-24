@@ -63,6 +63,13 @@ interface DteSummary {
   date?: string;
 }
 
+interface CrmContactCandidate {
+  id: string;
+  name: string;
+  email: string;
+  recibeCesion: boolean;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -122,26 +129,6 @@ function normalizeEmailKey(s: string): string {
   return s.trim().toLowerCase();
 }
 
-/** Principal primero, luego CC, sin duplicados (case-insensitive). */
-function collectReceiverEmails(
-  primary?: string | null,
-  cc?: string[] | null,
-): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  const push = (raw: string | undefined | null) => {
-    const e = raw?.trim();
-    if (!e) return;
-    const key = normalizeEmailKey(e);
-    if (seen.has(key)) return;
-    seen.add(key);
-    out.push(e);
-  };
-  push(primary);
-  for (const x of cc ?? []) push(x);
-  return out;
-}
-
 export function CederDteDialog({ open, onOpenChange, dte }: Props) {
   const router = useRouter();
   const [companies, setCompanies] = useState<FactoringCompanyOpt[]>([]);
@@ -185,6 +172,9 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
   const [loadingRecipients, setLoadingRecipients] = useState(false);
   const [recipientsReason, setRecipientsReason] = useState<string | null>(null);
   const [recipientsError, setRecipientsError] = useState(false);
+  const [crmContactCandidates, setCrmContactCandidates] = useState<
+    CrmContactCandidate[]
+  >([]);
   const [notes, setNotes] = useState("");
 
   // ── Simulación del cesionario (Fase 1) ─────────────────────────
@@ -193,9 +183,8 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
   const [simulationDragOver, setSimulationDragOver] = useState(false);
 
   // Pre-seleccionar los contactos CRM marcados con `recibeCesion` para el
-  // cliente de este DTE (fuente de verdad). El receiverEmail del DTE ya NO
-  // se preselecciona — es un dato histórico del XML, no una preferencia de
-  // comunicación vigente; queda sólo como opción manual añadible ("Del DTE").
+  // cliente de este DTE (fuente de verdad). Todos los correos de la cuenta se
+  // muestran como candidatos; sólo `recibeCesion` queda preseleccionado.
   useEffect(() => {
     if (!open) return;
     setCustomEmailDraft("");
@@ -212,15 +201,20 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
         const resolved = j?.recipients?.[dte.id];
         if (j?.success && resolved) {
           setDeudorEmails(Array.isArray(resolved.emails) ? resolved.emails : []);
+          setCrmContactCandidates(
+            Array.isArray(resolved.contacts) ? resolved.contacts : [],
+          );
           setNotifyDeudor(resolved.notificarDeudor !== false);
           setRecipientsReason(resolved.reason ?? null);
         } else {
           setDeudorEmails([]);
+          setCrmContactCandidates([]);
           setRecipientsError(true);
         }
       })
       .catch(() => {
         setDeudorEmails([]);
+        setCrmContactCandidates([]);
         setRecipientsError(true);
       })
       .finally(() => setLoadingRecipients(false));
@@ -240,11 +234,6 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
   const selectedCompany = useMemo(
     () => companies.find((c) => c.id === factoringId) ?? null,
     [factoringId, companies],
-  );
-
-  const deudorEmailCandidates = useMemo(
-    () => collectReceiverEmails(dte.receiverEmail, dte.receiverEmailCc),
-    [dte.receiverEmail, dte.receiverEmailCc],
   );
 
   const selectedDeudorKeys = useMemo(
@@ -883,21 +872,24 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
               </p>
             ) : null}
 
-            {/* Candidatos del DTE: marcar/desmarcar con un clic. */}
-            {deudorEmailCandidates.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {deudorEmailCandidates.map((e, i) => {
-                  const active = selectedDeudorKeys.has(normalizeEmailKey(e));
+            {/* Todos los contactos de la cuenta CRM; los configurados para
+                notificación DTE llegan preseleccionados. */}
+            {crmContactCandidates.length > 0 ? (
+              <div className="space-y-1.5">
+                {crmContactCandidates.map((contact) => {
+                  const active = selectedDeudorKeys.has(
+                    normalizeEmailKey(contact.email),
+                  );
                   return (
                     <button
-                      key={`cand-${e}-${i}`}
+                      key={contact.id}
                       type="button"
-                      onClick={() => toggleDeudorEmail(e)}
+                      onClick={() => toggleDeudorEmail(contact.email)}
                       className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
+                        "flex min-h-11 w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-xs transition-colors",
                         active
                           ? "border-primary bg-primary/10 text-ds-text-1"
-                          : "border-ds-border-subtle text-ds-text-2 hover:border-muted-foreground/50",
+                          : "border-ds-border-subtle text-ds-text-2 hover:border-ds-border-default",
                       )}
                     >
                       <span
@@ -910,8 +902,19 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
                       >
                         {active ? <Check className="h-2.5 w-2.5" /> : null}
                       </span>
-                      {e}
-                      <span className="text-ds-text-3">· Del DTE (no en CRM)</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium">
+                          {contact.name}
+                        </span>
+                        <span className="block truncate text-ds-text-3">
+                          {contact.email}
+                        </span>
+                      </span>
+                      {contact.recibeCesion ? (
+                        <span className="shrink-0 text-ds-text-3">
+                          Notificación DTE
+                        </span>
+                      ) : null}
                     </button>
                   );
                 })}
@@ -997,13 +1000,12 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
             )}
 
             <p className="text-xs text-ds-text-3">
-              La lista se prellena con los contactos del cliente marcados{" "}
+              Los correos provienen de los contactos de la cuenta CRM. La lista
+              se prellena con quienes estén marcados{" "}
               <strong>“Recibe aviso de cesión”</strong> en CRM. El{" "}
               <strong>primero</strong> (→ SII) se incluye en el documento de
               cesión (AEC); a <strong>todos</strong> les llega el aviso por
-              correo si está activo. Los correos “Del DTE” provienen del XML
-              histórico y no están configurados en CRM — agregalos sólo si
-              corresponde.
+              correo si está activo.
             </p>
           </div>
           <div className="sm:col-span-2">
