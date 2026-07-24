@@ -1,7 +1,6 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { PageHero } from "@/components/opai-ds";
 import { cn } from "@/lib/utils";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import { useTareas } from "./useTareas";
@@ -33,8 +32,6 @@ export function TareasPageClient({ canEdit }: { canEdit: boolean }) {
 
   return (
     <div className="space-y-4 min-w-0">
-      <PageHero title="Tareas" subtitle="Tus pendientes y los del equipo, agrupados por vencimiento." />
-
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex rounded-xl border border-ds-border-default bg-ds-surface-1 p-0.5">
           {STATUS_TABS.map((tab) => (

@@ -54,7 +54,7 @@ export type ModuleKey = (typeof MODULE_KEYS)[number];
 
 export const SUBMODULE_KEYS = {
   hub: [] as readonly string[],
-  productividad: ["correos", "agenda", "tareas", "agentes"] as const,
+  productividad: ["correos", "agenda", "tareas"] as const,
   ops: [
     "puestos",
     "pauta_mensual",
@@ -283,7 +283,6 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "productividad.correos", module: "productividad", submodule: "correos", label: "Correos", href: "/crm/correos" },
   { key: "productividad.agenda", module: "productividad", submodule: "agenda", label: "Agenda", href: "/opai/agenda" },
   { key: "productividad.tareas", module: "productividad", submodule: "tareas", label: "Tareas", href: "/opai/tareas" },
-  { key: "productividad.agentes", module: "productividad", submodule: "agentes", label: "Agentes IA", href: "/opai/agentes" },
   // ── Ops ──
   { key: "ops.puestos", module: "ops", submodule: "puestos", label: "Puestos", href: "/ops/puestos" },
   { key: "ops.pauta_mensual", module: "ops", submodule: "pauta_mensual", label: "Pauta mensual", href: "/ops/pauta-mensual" },
@@ -533,9 +532,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
   editor: {
     modules: { hub: "full", productividad: "edit", ops: "edit", crm: "edit", docs: "edit", cpq: "edit", payroll: "view", finance: "view", config: "view" },
     submodules: {
-      // Productividad: Correos/Agenda/Tareas editables; Agentes IA (control de
-      // gasto de IA) queda reservado a owner/admin.
-      "productividad.agentes": "none",
       // Admin-only: bloqueados explícitamente
       "config.empresa": "none",
       "config.roles": "none",
@@ -679,7 +675,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
 
   viewer: {
     modules: { hub: "view", productividad: "view", ops: "view", crm: "view", docs: "view", cpq: "none", payroll: "none", finance: "none", config: "none" },
-    submodules: { "productividad.agentes": "none" },
+    submodules: {},
     capabilities: {},
   },
 
@@ -721,7 +717,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
   // LEGACY
   solo_crm: {
     modules: { hub: "view", productividad: "edit", ops: "none", crm: "edit", docs: "none", payroll: "none", cpq: "none", config: "none", finance: "none" },
-    submodules: { "productividad.agentes": "none" },
+    submodules: {},
     capabilities: { radar_comercial: true },
   },
 
@@ -1147,7 +1143,6 @@ export function pathToPermission(
   // rutas transversales, pero su permiso es del módulo productividad.
   if (pathname.startsWith("/opai/agenda")) return { module: "productividad", submodule: "agenda" };
   if (pathname.startsWith("/opai/tareas")) return { module: "productividad", submodule: "tareas" };
-  if (pathname.startsWith("/opai/agentes")) return { module: "productividad", submodule: "agentes" };
 
   // Docs submodules — orden importa: rutas más específicas primero
   if (pathname.startsWith("/opai/documentos/templates"))
