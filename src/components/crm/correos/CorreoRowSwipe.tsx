@@ -103,12 +103,22 @@ export function CorreoRowSwipe({
     if (action === "archive" || action === "trash") {
       if (leaving) return;
       setLeaving(true);
+      const undo = action === "archive" ? "unarchive" : undefined;
       void runCorreoAction(
-        thread.id, action,
+        thread.id,
+        action,
         action === "archive" ? "Archivado" : "Movido a la Papelera",
-        onChanged, "unarchive",
-      );
-      window.setTimeout(() => onRemove?.(thread.id), 200);
+        () => {
+          onRemove?.(thread.id);
+          onChanged?.();
+        },
+        undo,
+      ).then((ok) => {
+        if (!ok) {
+          setLeaving(false);
+          onChanged?.();
+        }
+      });
       return;
     }
     close();

@@ -73,25 +73,35 @@ export async function reconcileGmailFolders(params: {
     }
 
     // INBOX primero (lo que el usuario ve en Recibidos), papelera después.
-    const importedInbox = await importMissingThreads({
+    const inboxMissing = Array.from(inboxSet.ids).filter((tid) => !localIds.has(tid));
+    const trashMissing = Array.from(trashSet.ids).filter((tid) => !localIds.has(tid));
+    const inboxImport = await importMissingThreads({
       gmail,
       tenantId,
       emailAccount,
       deadline,
-      threadIds: Array.from(inboxSet.ids).filter((tid) => !localIds.has(tid)),
+      threadIds: inboxMissing,
       cap: INBOX_IMPORT_CAP,
     });
-    const importedTrash = await importMissingThreads({
+    const trashImport = await importMissingThreads({
       gmail,
       tenantId,
       emailAccount,
       deadline,
-      threadIds: Array.from(trashSet.ids).filter((tid) => !localIds.has(tid)),
+      threadIds: trashMissing,
       cap: TRASH_IMPORT_CAP,
     });
 
     invalidateCorreoFolderCounts(tenantId, emailAccount.id);
-    return { updated, importedTrash, importedInbox, complete: setsComplete };
+    // complete=false si quedaron imports pendientes por deadline/cap: si no,
+    // el throttle de 10 min deja el espejo INBOX agujereado con historyId al día.
+    const importsDone = inboxImport.remaining === 0 && trashImport.remaining === 0;
+    return {
+      updated,
+      importedTrash: trashImport.imported,
+      importedInbox: inboxImport.imported,
+      complete: setsComplete && importsDone,
+    };
   } catch (err) {
     console.warn("[gmail] reconcileGmailFolders:", err);
     return { updated: 0, importedTrash: 0, importedInbox: 0, complete: false };
@@ -111,11 +121,14 @@ async function importMissingThreads(params: {
   deadline: number;
   threadIds: string[];
   cap: number;
-}): Promise<number> {
+}): Promise<{ imported: number; remaining: number }> {
   const { gmail, tenantId, emailAccount, deadline } = params;
+  const queue = params.threadIds.slice(0, params.cap);
   let imported = 0;
-  for (const tid of params.threadIds.slice(0, params.cap)) {
-    if (Date.now() >= deadline) break;
+  for (const tid of queue) {
+    if (Date.now() >= deadline) {
+      return { imported, remaining: queue.length - imported };
+    }
     try {
       const res = await gmail.users.threads.get({ userId: "me", id: tid, format: "metadata" });
       const messages = res.data.messages ?? [];
@@ -134,8 +147,69 @@ async function importMissingThreads(params: {
       });
       imported += 1;
     } catch (err) {
-      console.warn("[gmail] importMissingTrashThreads:", tid, err);
+      console.warn("[gmail] importMissingThreads:", tid, err);
     }
   }
-  return imported;
+  // Candidatos fuera del cap siguen pendientes para la próxima corrida.
+  const remaining = Math.max(params.threadIds.length - imported, 0);
+  return { imported, remaining };
+}
+
+/**
+ * Reparación barata del espejo Recibidos: 1–2 páginas de INBOX de Gmail e
+ * importa los hilos que faltan localmente. Se corre en CADA maintenance
+ * (aunque el sweep completo esté en throttle) porque el incremental +
+ * historyId al día NO recupera hilos perdidos en ventanas muertas.
+ */
+export async function repairMissingInboxThreads(params: {
+  gmail: gmail_v1.Gmail;
+  tenantId: string;
+  emailAccount: EmailAccountLite;
+  deadline: number;
+  /** Páginas de messages.list (500/msg). Default 2 ≈ hasta 1k hilos INBOX. */
+  maxPages?: number;
+  cap?: number;
+}): Promise<{ imported: number; missing: number; complete: boolean }> {
+  const { gmail, tenantId, emailAccount, deadline } = params;
+  try {
+    const inboxSet = await listGmailThreadIdSet({
+      gmail,
+      labelId: "INBOX",
+      maxPages: params.maxPages ?? 2,
+      deadline,
+    });
+    if (inboxSet.ids.size === 0) {
+      return { imported: 0, missing: 0, complete: inboxSet.complete };
+    }
+    const local = await prisma.crmEmailThread.findMany({
+      where: {
+        tenantId,
+        emailAccountId: emailAccount.id,
+        providerThreadId: { in: Array.from(inboxSet.ids) },
+      },
+      select: { providerThreadId: true },
+    });
+    const localIds = new Set(local.map((t) => t.providerThreadId as string));
+    const missingIds = Array.from(inboxSet.ids).filter((tid) => !localIds.has(tid));
+    if (missingIds.length === 0) {
+      return { imported: 0, missing: 0, complete: inboxSet.complete };
+    }
+    const { imported, remaining } = await importMissingThreads({
+      gmail,
+      tenantId,
+      emailAccount,
+      deadline,
+      threadIds: missingIds,
+      cap: params.cap ?? INBOX_IMPORT_CAP,
+    });
+    if (imported > 0) invalidateCorreoFolderCounts(tenantId, emailAccount.id);
+    return {
+      imported,
+      missing: missingIds.length,
+      complete: inboxSet.complete && remaining === 0,
+    };
+  } catch (err) {
+    console.warn("[gmail] repairMissingInboxThreads:", err);
+    return { imported: 0, missing: 0, complete: false };
+  }
 }

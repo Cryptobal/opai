@@ -19,6 +19,18 @@ type WatchResult = { skipped: true } | { error: true } | { ok: true };
 export async function registerGmailWatch(account: GmailWatchAccount): Promise<WatchResult> {
   if (!PUSH_ENABLED || !TOPIC) return { skipped: true };
 
+  // Google exige que el topic viva en el MISMO proyecto GCP del OAuth client.
+  // Un topic de otro proyecto tumba el watch con 400 y deja la casilla sin
+  // push realtime (solo cron/manual) — síntoma: "no se sincroniza".
+  if (!TOPIC.startsWith("projects/") || !TOPIC.includes("/topics/")) {
+    captureEmailError(new Error(`GMAIL_PUSH_TOPIC inválido: ${TOPIC}`), {
+      scope: "watch-register",
+      emailAccountId: account.id,
+      level: "warning",
+    });
+    return { error: true };
+  }
+
   const gmail = gmailClientForAccount(account);
   if (!gmail) return { error: true };
 
