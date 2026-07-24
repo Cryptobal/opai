@@ -2611,6 +2611,8 @@ model CrmTask {
   contactId     String?   @map("contact_id") @db.Uuid
   emailThreadId String?   @map("email_thread_id") @db.Uuid
   title         String
+  /// Contexto libre de la tarea (detalles, condiciones de cierre, enlaces).
+  notes         String?   @db.Text
   status        String    @default("open")
   type          String    @default("followup")
   dueAt         DateTime? @map("due_at") @db.Timestamptz(6)
