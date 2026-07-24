@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RecentEmailCard } from "../RecentEmailCard";
 import { HubEmailProvider } from "../hub-email-context";
@@ -138,7 +138,7 @@ describe("RecentEmailCard", () => {
     renderCard();
     await waitFor(() => expect(screen.getByText("Reintentar")).toBeTruthy());
     expect(screen.getByText("No pudimos cargar tus correos.")).toBeTruthy();
-    screen.getByText("Reintentar").closest("button")!.click();
+    fireEvent.click(screen.getByText("Reintentar").closest("button")!);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 });

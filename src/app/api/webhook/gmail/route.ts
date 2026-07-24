@@ -51,8 +51,9 @@ async function verifyPushOidc(
 
 /**
  * POST /api/webhook/gmail — notificaciones push de Gmail vía Cloud Pub/Sub.
- * Encola durablemente y responde 204; `after()` intenta el delta inmediato sin
- * hacer esperar a Pub/Sub. El cron de 1 minuto recupera cualquier fallo.
+ * Responde 204 solo después del enqueue durable (o para pushes descartables) y
+ * 503 ante fallas previas para que Pub/Sub reintente. `after()` intenta el
+ * delta inmediato sin hacer esperar a Pub/Sub; el cron recupera sus fallos.
  */
 export async function POST(req: NextRequest) {
   const pushToken = process.env.GMAIL_PUSH_TOKEN;
@@ -79,11 +80,12 @@ export async function POST(req: NextRequest) {
     return new NextResponse(null, { status: 204 });
   }
 
-  try {
-    const payload = parseGmailPushBody(await req.json().catch(() => null));
-    if (!payload?.emailAddress) return new NextResponse(null, { status: 204 });
+  const payload = parseGmailPushBody(await req.json().catch(() => null));
+  if (!payload?.emailAddress) return new NextResponse(null, { status: 204 });
 
-    const accounts = await prisma.crmEmailAccount.findMany({
+  let accounts: Array<{ id: string; tenantId: string }>;
+  try {
+    accounts = await prisma.crmEmailAccount.findMany({
       where: {
         provider: "gmail",
         email: payload.emailAddress,
@@ -112,13 +114,18 @@ export async function POST(req: NextRequest) {
         });
       }),
     );
+  } catch (err) {
+    captureEmailError(err, { scope: "push-enqueue", level: "warning" });
+    return new NextResponse(null, { status: 503 });
+  }
 
-    console.info("[gmail] push", {
-      emailAccountIds: accounts.map((account) => account.id),
-      email: payload.emailAddress,
-      historyId: payload.historyId,
-    });
+  console.info("[gmail] push", {
+    emailAccountIds: accounts.map((account) => account.id),
+    email: payload.emailAddress,
+    historyId: payload.historyId,
+  });
 
+  try {
     after(async () => {
       await Promise.allSettled(
         accounts.map(async (account) => {
@@ -142,7 +149,7 @@ export async function POST(req: NextRequest) {
       );
     });
   } catch (err) {
-    captureEmailError(err, { scope: "push-enqueue", level: "warning" });
+    captureEmailError(err, { scope: "push-after", level: "warning" });
   }
 
   return new NextResponse(null, { status: 204 });

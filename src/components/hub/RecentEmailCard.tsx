@@ -13,7 +13,8 @@ import Link from "next/link";
 import { ChevronRight, Mail, Paperclip, RefreshCw } from "lucide-react";
 import { EmptyState, Surface, Tag } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
-import { cn, timeAgo } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { formatGmailDateChile } from "@/modules/crm/email/gmail-date-format";
 import { useHubEmails } from "./hub-email-context";
 
 const MOBILE_VISIBLE = 3;
@@ -169,7 +170,7 @@ export function RecentEmailCard() {
                         {senderLabel(item.fromEmail)}
                       </span>
                       <span className="shrink-0 text-[12px] tabular-nums text-ds-text-4">
-                        {item.lastMessageAt ? timeAgo(new Date(item.lastMessageAt)) : ""}
+                        {formatGmailDateChile(item.lastMessageAt)}
                       </span>
                     </span>
                     <span className="flex min-w-0 items-center gap-1.5">

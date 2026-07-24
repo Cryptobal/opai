@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 import { NextRequest } from "next/server";
 
+const afterMock = vi.hoisted(() => vi.fn());
 const verifyIdTokenMock = vi.fn();
 const accountFindMany = vi.fn();
 const writeSyncStateMock = vi.fn();
@@ -16,6 +17,14 @@ const enqueueMock = vi.fn();
 const processMock = vi.fn();
 
 vi.mock("server-only", () => ({}));
+
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return {
+    ...actual,
+    after: afterMock,
+  };
+});
 
 vi.mock("google-auth-library", () => ({
   OAuth2Client: class {
@@ -52,9 +61,14 @@ const ORIGINAL_ENV = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]])
 const SA_EMAIL = "pubsub-sa@proj.iam.gserviceaccount.com";
 const AUDIENCE = "https://opai.example/api/webhook/gmail";
 
-function pushRequest(opts: { jwt?: string; token?: string } = {}): NextRequest {
+function pushRequest(
+  opts: { jwt?: string; token?: string; historyId?: unknown } = {},
+): NextRequest {
   const data = Buffer.from(
-    JSON.stringify({ emailAddress: "casilla@gmail.com", historyId: "777" }),
+    JSON.stringify({
+      emailAddress: "casilla@gmail.com",
+      historyId: opts.historyId ?? "777",
+    }),
   ).toString("base64");
   const url = new URL("http://localhost/api/webhook/gmail");
   if (opts.token) url.searchParams.set("token", opts.token);
@@ -65,6 +79,14 @@ function pushRequest(opts: { jwt?: string; token?: string } = {}): NextRequest {
       ...(opts.jwt ? { authorization: `Bearer ${opts.jwt}` } : {}),
     },
     body: JSON.stringify({ message: { data } }),
+  });
+}
+
+function invalidPushRequest(): NextRequest {
+  return new NextRequest("http://localhost/api/webhook/gmail", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ message: {} }),
   });
 }
 
@@ -90,6 +112,9 @@ beforeEach(() => {
   writeSyncStateMock.mockReset().mockResolvedValue(undefined);
   enqueueMock.mockReset().mockResolvedValue(undefined);
   processMock.mockReset().mockResolvedValue(undefined);
+  afterMock.mockReset().mockImplementation((callback: () => unknown) => {
+    void callback();
+  });
 });
 
 afterAll(() => {
@@ -151,11 +176,84 @@ describe("modo transición (flag ausente)", () => {
     expect(enqueueMock).toHaveBeenCalled();
   });
 
+  it("503 si falla el enqueue durable para que Pub/Sub reintente", async () => {
+    enqueueMock.mockRejectedValue(new Error("database temporarily unavailable"));
+
+    const res = await POST(pushRequest());
+
+    expect(res.status).toBe(503);
+    expect(enqueueMock).toHaveBeenCalledWith(
+      expect.objectContaining({ emailAccountId: "acc-1", reason: "push" }),
+    );
+    expect(processMock).not.toHaveBeenCalled();
+  });
+
+  it("503 si falla el estado previo al enqueue durable", async () => {
+    writeSyncStateMock.mockRejectedValue(
+      new Error("database temporarily unavailable"),
+    );
+
+    const res = await POST(pushRequest());
+
+    expect(res.status).toBe(503);
+    expect(enqueueMock).not.toHaveBeenCalled();
+    expect(processMock).not.toHaveBeenCalled();
+  });
+
+  it("204 para payload inválido sin intentar persistir", async () => {
+    const res = await POST(invalidPushRequest());
+
+    expect(res.status).toBe(204);
+    expect(accountFindMany).not.toHaveBeenCalled();
+    expect(enqueueMock).not.toHaveBeenCalled();
+  });
+
+  it("204 para casilla inexistente sin intentar encolar", async () => {
+    accountFindMany.mockResolvedValue([]);
+
+    const res = await POST(pushRequest());
+
+    expect(res.status).toBe(204);
+    expect(enqueueMock).not.toHaveBeenCalled();
+  });
+
+  it("204 si falla after porque el job ya quedó durable", async () => {
+    afterMock.mockImplementation(() => {
+      throw new Error("after unavailable");
+    });
+
+    const res = await POST(pushRequest());
+
+    expect(res.status).toBe(204);
+    expect(enqueueMock).toHaveBeenCalled();
+    expect(processMock).not.toHaveBeenCalled();
+  });
+
   it("acepta con JWT inválido", async () => {
     verifyIdTokenMock.mockRejectedValue(new Error("bad"));
     const res = await POST(pushRequest({ jwt: "x" }));
     expect(res.status).toBe(204);
     expect(enqueueMock).toHaveBeenCalled();
+  });
+
+  it("normaliza historyId numérico antes del enqueue", async () => {
+    const res = await POST(pushRequest({ historyId: 987654 }));
+    expect(res.status).toBe(204);
+    expect(enqueueMock).toHaveBeenCalledWith(
+      expect.objectContaining({ historyId: "987654" }),
+    );
+  });
+
+  it("encola igualmente cuando historyId es inválido", async () => {
+    const res = await POST(pushRequest({ historyId: "not-a-history-id" }));
+    expect(res.status).toBe(204);
+    expect(enqueueMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "acc-1",
+        reason: "push",
+        historyId: undefined,
+      }),
+    );
   });
 });
 

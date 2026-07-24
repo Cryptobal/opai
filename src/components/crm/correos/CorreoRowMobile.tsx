@@ -4,8 +4,9 @@ import { Star } from "lucide-react";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 import { CorreoSenderAvatar } from "./CorreoSenderAvatar";
 import { parseSender } from "./correo-sender";
-import { PREVIEW_LINE_CLASS, relativeTime } from "./CorreoRow";
+import { PREVIEW_LINE_CLASS } from "./CorreoRow";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
+import { formatGmailDateChile } from "@/modules/crm/email/gmail-date-format";
 
 type Props = {
   thread: CorreoThreadDTO;
@@ -84,7 +85,7 @@ export function CorreoRowMobile({
               unread ? "font-medium text-primary" : "text-ds-text-4"
             }`}
           >
-            {relativeTime(thread.lastMessageAt)}
+            {formatGmailDateChile(thread.lastMessageAt)}
           </span>
           {thread.starredAt && (
             <Star
