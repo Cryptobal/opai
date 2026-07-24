@@ -335,7 +335,13 @@ export function PlanillaGrid({
 
   return (
     <>
-      <ContextMenu onOpenChange={(o) => { if (!o) setCtxTarget(null); }}>
+      {/* modal={false}: un ContextMenu modal pone `pointer-events:none` en <body>
+          mientras está abierto y lo restaura al cerrar desde el efecto de
+          desmontaje de su Content. Como el Content se renderiza condicionalmente
+          (depende de ctxItems), al cerrar se desmontaba antes de restaurar y la
+          página quedaba congelada hasta refrescar. No-modal elimina ese bloqueo
+          (el menú igual se cierra con click afuera / Escape). */}
+      <ContextMenu modal={false}>
         <ContextMenuTrigger asChild>
           <div
             ref={scroller}
