@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import type { AgendaTeamMember } from "@/components/agenda/agenda-calendar.types";
 import { TareaCreateBar } from "./TareaCreateBar";
 import { TareaRow } from "./TareaRow";
+import type { DueValue } from "./TareaDatePopover";
 import type { TareaItem, TareaCreateInput } from "./types";
 import type { TareaBucket, TareaGroup } from "@/modules/tareas/tareas.service";
 
@@ -18,8 +19,10 @@ export function TareasMobile({
   loading,
   canEdit,
   onCreate,
+  onOpen,
   onToggle,
   onDelete,
+  onPostpone,
 }: {
   groups: TareaGroup<TareaItem>[];
   users: AgendaTeamMember[];
@@ -27,8 +30,10 @@ export function TareasMobile({
   loading: boolean;
   canEdit: boolean;
   onCreate: (input: TareaCreateInput) => Promise<boolean>;
+  onOpen: (t: TareaItem) => void;
   onToggle: (t: TareaItem) => void;
   onDelete: (id: string) => void;
+  onPostpone: (t: TareaItem, next: DueValue) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Set<TareaBucket>>(new Set());
   const [creating, setCreating] = useState(false);
@@ -77,8 +82,10 @@ export function TareasMobile({
                       task={task}
                       nameById={nameById}
                       canEdit={canEdit}
+                      onOpen={onOpen}
                       onToggle={onToggle}
                       onDelete={onDelete}
+                      onPostpone={onPostpone}
                     />
                   ))}
                 </Surface>
@@ -93,14 +100,18 @@ export function TareasMobile({
           type="button"
           onClick={() => setCreating(true)}
           aria-label="Nueva tarea"
-          className="fixed bottom-24 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-ds-lg"
+          style={{ bottom: "calc(var(--bottom-nav-height, 88px) + 12px)" }}
+          className="fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-ds-lg"
         >
           <Plus className="h-6 w-6" />
         </button>
       )}
 
       {canEdit && creating && (
-        <div className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border-t border-ds-border-default bg-ds-surface-1 p-3 shadow-ds-lg">
+        <div
+          className="opai-glass-strong fixed inset-x-0 bottom-0 z-50 max-h-[88vh] overflow-y-auto rounded-b-none p-3"
+          style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}
+        >
           <div className="mb-2 flex items-center justify-between">
             <span className="text-[13px] font-semibold text-ds-text-1">Nueva tarea</span>
             <button

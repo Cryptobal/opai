@@ -154,6 +154,10 @@ const REGISTRY_TO_CONTEXT: Record<string, string> = {
   hub: "hub",
   crm: "crm", ops: "ops", personas: "personas", payroll: "payroll",
   finance: "finanzas", config: "config", docs: "docs", reportes_dt: "reportes_dt",
+  // Productividad (Correos · Agenda · Tareas · Agentes). Sin esta clave,
+  // getActiveModule devolvía null en /opai/tareas, /opai/agenda y /crm/correos
+  // → la isla renderizaba MainNav (pill "Comercial") en vez del sub-nav.
+  productividad: "productividad",
 };
 
 /** Deriva el módulo activo del registry (findActiveModule = matchea NAV_MODULES
@@ -613,6 +617,7 @@ const MODULE_LABELS: Record<string, string> = {
   docs: "Docs",
   te: "TE",
   reportes_dt: "DT",
+  productividad: "Prod.",
 };
 
 function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: BottomNavItem[]; activeModule: string; pathname: string; onBack: () => void }) {

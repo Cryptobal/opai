@@ -2,6 +2,7 @@
 export interface TareaItem {
   id: string;
   title: string;
+  notes: string | null;
   status: string; // "open" | "done"
   type: string;
   dueAt: string | null;
@@ -18,9 +19,20 @@ export interface TareaItem {
 
 export interface TareaCreateInput {
   title: string;
+  notes?: string | null;
   dueAt: string | null;
   allDay: boolean;
   assigneeIds: string[];
+}
+
+/** Campos editables desde el detalle (PATCH parcial). Todos opcionales. */
+export interface TareaUpdateInput {
+  title?: string;
+  notes?: string | null;
+  dueAt?: string | null;
+  allDay?: boolean;
+  assigneeIds?: string[];
+  status?: string;
 }
 
 export type TareaStatusFilter = "all" | "open" | "done";

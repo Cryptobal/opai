@@ -44,6 +44,7 @@ import {
   openCorreoThreadInHistory,
 } from "./correo-thread-history";
 import { useCloseOnBack } from "./useCloseOnBack";
+import { isUuid } from "@/lib/utils/uuid";
 
 function matchesChip(t: CorreoThreadDTO, f: CorreoChipKey): boolean {
   if (f === "con_cuenta") return Boolean(t.accountId);
@@ -239,7 +240,11 @@ export function CorreosClient() {
     const sp = new URLSearchParams(window.location.search);
     const syncThreadFromUrl = () => {
       const current = new URLSearchParams(window.location.search);
-      setOpenId(current.get("thread"));
+      // Deep-link `?thread=<uuid>` (p. ej. desde el detalle de una tarea): sólo
+      // preseleccionamos si tiene forma de UUID. Un id de otro tenant no
+      // devuelve datos porque el backend ya filtra por tenantId.
+      const thread = current.get("thread");
+      setOpenId(isUuid(thread) ? thread : null);
       setAutoExtract(current.get("extract") === "1");
     };
     syncThreadFromUrl();

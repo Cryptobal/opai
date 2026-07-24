@@ -15,6 +15,20 @@ import { prisma } from "@/lib/prisma";
 import { requireTasksAccess } from "@/lib/api-auth-tareas";
 
 const MAX_ASSIGNEES = 20;
+const NOTES_MAX = 5000;
+
+/**
+ * Normaliza el contexto libre `notes`. Devuelve `{ value }` con la cadena
+ * saneada (o `null` si queda vacía / llega null), o `null` si es inválido
+ * (tipo incorrecto o supera NOTES_MAX). El caller decide el 400.
+ */
+function parseNotes(raw: unknown): { value: string | null } | null {
+  if (raw === null) return { value: null };
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (trimmed.length > NOTES_MAX) return null;
+  return { value: trimmed.length ? trimmed : null };
+}
 
 /** Normaliza responsables desde `assigneeIds` (o el legacy `assignedTo`). */
 function parseAssigneeIds(body: Record<string, unknown>): string[] {
@@ -61,6 +75,7 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         title: true,
+        notes: true,
         status: true,
         type: true,
         dueAt: true,
@@ -101,6 +116,15 @@ export async function POST(request: NextRequest) {
     const title = typeof body?.title === "string" ? body.title.trim() : "";
     if (!title) {
       return NextResponse.json({ success: false, error: "El título no puede quedar vacío" }, { status: 400 });
+    }
+
+    let notes: string | null = null;
+    if (body?.notes !== undefined) {
+      const parsed = parseNotes(body.notes);
+      if (!parsed) {
+        return NextResponse.json({ success: false, error: `Las notas superan el máximo de ${NOTES_MAX} caracteres` }, { status: 400 });
+      }
+      notes = parsed.value;
     }
 
     let dueAt: Date | null = null;
@@ -145,6 +169,7 @@ export async function POST(request: NextRequest) {
         data: {
           tenantId: ctx.tenantId,
           title,
+          notes,
           status: "open",
           type: "manual",
           dueAt,
@@ -154,7 +179,7 @@ export async function POST(request: NextRequest) {
           accountId,
         },
         select: {
-          id: true, title: true, status: true, type: true, dueAt: true,
+          id: true, title: true, notes: true, status: true, type: true, dueAt: true,
           allDay: true, assignedTo: true, createdAt: true,
         },
       });
