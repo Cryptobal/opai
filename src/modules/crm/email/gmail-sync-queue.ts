@@ -105,6 +105,7 @@ export function gmailSyncRetryDelayMs(attempts: number): number {
 export type GmailSyncReason =
   | "push"
   | "manual"
+  | "open"
   | "cron"
   | "oauth"
   | "retry"
