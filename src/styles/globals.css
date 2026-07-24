@@ -958,6 +958,18 @@ html {
   from { opacity: 0; transform: translateX(-50%) scale(0.6); }
   to { opacity: 1; transform: translateX(-50%) scale(1); }
 }
+/* Variante icon-only (ERP BottomNav): pill centrado en el botón, sin labels. */
+.opai-nav-pill-icon {
+  top: 50%;
+  width: 2.25rem;
+  height: 2.25rem;
+  transform: translate(-50%, -50%);
+  animation: opaiNavPillIconIn 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+@keyframes opaiNavPillIconIn {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
 /* Variantes semánticas del pill (portales: pánico / alerta) */
 .opai-nav-pill-danger {
   background: linear-gradient(180deg, hsl(var(--ds-danger) / 0.28), hsl(var(--ds-danger) / 0.10));

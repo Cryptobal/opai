@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from "react";
 export function useScrollDirection(threshold = 60): boolean {
   const [hidden, setHidden] = useState(false);
   const lastY = useRef(0);
+  const accum = useRef(0);
   const ticking = useRef(false);
 
   useEffect(() => {
@@ -22,6 +23,7 @@ export function useScrollDirection(threshold = 60): boolean {
     if (reduce) return;
 
     lastY.current = window.scrollY;
+    accum.current = 0;
 
     const onScroll = () => {
       if (ticking.current) return;
@@ -29,14 +31,26 @@ export function useScrollDirection(threshold = 60): boolean {
       requestAnimationFrame(() => {
         const y = Math.max(0, window.scrollY);
         const delta = y - lastY.current;
-        if (y < threshold) {
-          setHidden(false);
-        } else if (delta > 6) {
-          setHidden(true);
-        } else if (delta < -6) {
-          setHidden(false);
-        }
         lastY.current = y;
+
+        // Histéresis: acumula delta en la misma dirección y solo cambia de
+        // estado tras ~14px, para evitar parpadeos en scrolls cortos/oscilantes.
+        if (y < threshold) {
+          accum.current = 0;
+          setHidden(false);
+        } else if (delta !== 0) {
+          if ((delta > 0 && accum.current < 0) || (delta < 0 && accum.current > 0)) {
+            accum.current = 0;
+          }
+          accum.current += delta;
+          if (accum.current > 14) {
+            setHidden(true);
+            accum.current = 0;
+          } else if (accum.current < -14) {
+            setHidden(false);
+            accum.current = 0;
+          }
+        }
         ticking.current = false;
       });
     };
