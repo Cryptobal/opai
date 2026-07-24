@@ -16,6 +16,7 @@ import { prisma } from "@/lib/prisma";
 import { requireTasksAccess } from "@/lib/api-auth-tareas";
 
 const MAX_ASSIGNEES = 20;
+const NOTES_MAX = 5000;
 
 function parseAssigneeIds(value: unknown): string[] {
   const raw = Array.isArray(value) ? value : [];
@@ -44,6 +45,7 @@ export async function PATCH(
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const data: {
       title?: string;
+      notes?: string | null;
       status?: string;
       dueAt?: Date | null;
       allDay?: boolean;
@@ -96,6 +98,20 @@ export async function PATCH(
       if (!title) return NextResponse.json({ success: false, error: "El título no puede quedar vacío" }, { status: 400 });
       data.title = title;
     }
+    // notes: null o cadena vacía → limpia el campo. Máx 5000, validado en servidor.
+    if (body?.notes !== undefined) {
+      if (body.notes === null) {
+        data.notes = null;
+      } else if (typeof body.notes === "string") {
+        const trimmed = body.notes.trim();
+        if (trimmed.length > NOTES_MAX) {
+          return NextResponse.json({ success: false, error: `Las notas superan el máximo de ${NOTES_MAX} caracteres` }, { status: 400 });
+        }
+        data.notes = trimmed.length ? trimmed : null;
+      } else {
+        return NextResponse.json({ success: false, error: "Notas inválidas" }, { status: 400 });
+      }
+    }
     if (body?.status !== undefined) {
       if (body.status !== "open" && body.status !== "done") {
         return NextResponse.json({ success: false, error: "Estado inválido (open|done)" }, { status: 400 });
@@ -127,7 +143,7 @@ export async function PATCH(
         where: { id },
         data,
         select: {
-          id: true, title: true, status: true, type: true, dueAt: true,
+          id: true, title: true, notes: true, status: true, type: true, dueAt: true,
           allDay: true, assignedTo: true, completedBy: true, completedAt: true, createdAt: true,
         },
       });
