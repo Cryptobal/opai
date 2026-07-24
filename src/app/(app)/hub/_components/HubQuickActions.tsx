@@ -3,13 +3,15 @@
 /**
  * Accesos rápidos del Hub.
  *
- * Mobile: tres accesos directos visibles sin abrir sheets — Calendario
- * (/opai/agenda), Correos (/crm/correos, con badge de no leídos cuando el
- * conteo ya está disponible vía HubEmailProvider) y Crear (abre el bottom
- * sheet existente con las acciones de creación rápida). Las acciones
- * secundarias permanecen dentro del sheet.
+ * Orden canónico: Calendario → Correo → Tareas → Crear.
  *
- * Desktop: botones inline con "Abrir calendario" como primera acción.
+ * Mobile: cuatro accesos directos (icono + label corto). Con 4 slots en
+ * ~375px el ícono es el ancla visual; el label evita ambigüedad (solo
+ * iconos pierde claridad en "Tareas"/"Crear"). Crear abre el bottom sheet
+ * con las acciones de creación rápida.
+ *
+ * Desktop: botones inline en el mismo orden; Crear se expande a las
+ * acciones individuales del sheet.
  */
 
 import { useState } from 'react';
@@ -25,6 +27,7 @@ import {
 import {
   CalendarDays,
   ChevronRight,
+  ClipboardList,
   Clock3,
   Mail,
   MapPin,
@@ -50,8 +53,9 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
   const emails = useHubEmails();
   const unreadCount = emails?.data?.unreadCount ?? 0;
 
-  // Calendario/Correos requieren acceso CRM (Agenda y Correos viven ahí).
-  const hasAgenda = perms.hasCrm;
+  const hasCalendario = perms.hasAgenda;
+  const hasCorreo = perms.hasCorreos;
+  const hasTareas = perms.hasTareas;
 
   const sheetActions: QuickAction[] = [];
 
@@ -91,19 +95,20 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
     });
   }
 
-  if (!hasAgenda && sheetActions.length === 0) return null;
+  const productivityCount =
+    Number(hasCalendario) + Number(hasCorreo) + Number(hasTareas);
+  if (productivityCount === 0 && sheetActions.length === 0) return null;
 
   // Marcar la primera acción como primary para darle énfasis visual.
   if (sheetActions[0]) sheetActions[0].primary = true;
 
-  const mobileTileCols =
-    Number(hasAgenda) * 2 + Number(sheetActions.length > 0);
+  const mobileTileCols = productivityCount + Number(sheetActions.length > 0);
 
   return (
     <>
-      {/* Desktop: inline buttons — calendario primero */}
+      {/* Desktop: inline buttons — Calendario → Correo → Tareas → crear… */}
       <div className="hidden lg:flex flex-wrap gap-2">
-        {hasAgenda && (
+        {hasCalendario && (
           <Link href="/opai/agenda">
             <Button
               size="sm"
@@ -111,11 +116,11 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
               className="gap-2 rounded-full hover:shadow-sm"
             >
               <CalendarDays className="h-4 w-4" />
-              Abrir calendario
+              Calendario
             </Button>
           </Link>
         )}
-        {hasAgenda && (
+        {hasCorreo && (
           <Link href="/crm/correos">
             <Button
               size="sm"
@@ -123,12 +128,24 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
               className="gap-2 rounded-full hover:shadow-sm"
             >
               <Mail className="h-4 w-4" />
-              Correos
+              Correo
               {unreadCount > 0 && (
                 <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[12px] font-bold leading-none text-primary-foreground">
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}
+            </Button>
+          </Link>
+        )}
+        {hasTareas && (
+          <Link href="/opai/tareas">
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2 rounded-full hover:shadow-sm"
+            >
+              <ClipboardList className="h-4 w-4" />
+              Tareas
             </Button>
           </Link>
         )}
@@ -147,43 +164,69 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
       </div>
 
       {/* Mobile: accesos directos como pills compactos y monocromos.
-          Un solo acento por pantalla: el badge de no leídos en Correos —
+          Un solo acento por pantalla: el badge de no leídos en Correo —
           nada de superficies grandes en verde (diseño aprobado en mockup). */}
       <div className="lg:hidden">
         <div
           className={cn(
             'grid gap-2',
-            mobileTileCols >= 3 ? 'grid-cols-3' : mobileTileCols === 2 ? 'grid-cols-2' : 'grid-cols-1',
+            mobileTileCols >= 4
+              ? 'grid-cols-4'
+              : mobileTileCols === 3
+                ? 'grid-cols-3'
+                : mobileTileCols === 2
+                  ? 'grid-cols-2'
+                  : 'grid-cols-1',
           )}
         >
-          {hasAgenda && (
+          {hasCalendario && (
             <Link
               href="/opai/agenda"
-              className="flex h-11 min-w-0 items-center justify-center gap-1 rounded-full border border-border/60 bg-muted/30 px-1 text-foreground transition-colors active:scale-[0.98] hover:bg-muted/50"
+              aria-label="Calendario"
+              className="flex h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-full border border-border/60 bg-muted/30 px-1 text-foreground transition-colors active:scale-[0.98] hover:bg-muted/50"
             >
-              <CalendarDays className="hidden h-4 w-4 shrink-0 opacity-80 min-[370px]:block" />
-              <span className="min-w-0 truncate text-[13px] font-semibold">
+              <CalendarDays className="h-4 w-4 shrink-0 opacity-80" />
+              <span className="min-w-0 max-w-full truncate text-[12px] font-semibold leading-none">
                 Calendario
               </span>
             </Link>
           )}
-          {hasAgenda && (
+          {hasCorreo && (
             <Link
               href="/crm/correos"
-              className="flex h-11 min-w-0 items-center justify-center gap-1 rounded-full border border-border/60 bg-muted/30 px-1 text-foreground transition-colors active:scale-[0.98] hover:bg-muted/50"
+              aria-label={
+                unreadCount > 0
+                  ? `Correo, ${unreadCount} sin leer`
+                  : 'Correo'
+              }
+              className="relative flex h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-full border border-border/60 bg-muted/30 px-1 text-foreground transition-colors active:scale-[0.98] hover:bg-muted/50"
             >
-              <Mail className="hidden h-4 w-4 shrink-0 opacity-80 min-[370px]:block" />
-              <span className="min-w-0 truncate text-[13px] font-semibold">
-                Correos
+              <span className="relative">
+                <Mail className="h-4 w-4 shrink-0 opacity-80" />
+                {unreadCount > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute -right-2.5 -top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-0.5 text-[12px] font-bold leading-none text-primary-foreground"
+                  >
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </span>
-              {unreadCount > 0 && (
-                <span
-                  aria-label={`${unreadCount} correos sin leer`}
-                  className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1 text-[12px] font-bold leading-none text-primary-foreground"
-                >
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
+              <span className="min-w-0 max-w-full truncate text-[12px] font-semibold leading-none">
+                Correo
+              </span>
+            </Link>
+          )}
+          {hasTareas && (
+            <Link
+              href="/opai/tareas"
+              aria-label="Tareas"
+              className="flex h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-full border border-border/60 bg-muted/30 px-1 text-foreground transition-colors active:scale-[0.98] hover:bg-muted/50"
+            >
+              <ClipboardList className="h-4 w-4 shrink-0 opacity-80" />
+              <span className="min-w-0 max-w-full truncate text-[12px] font-semibold leading-none">
+                Tareas
+              </span>
             </Link>
           )}
           {sheetActions.length > 0 && (
@@ -191,10 +234,10 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
               type="button"
               onClick={() => setOpen(true)}
               aria-label={`Crear (${sheetActions.length} acciones)`}
-              className="flex h-11 min-w-0 items-center justify-center gap-1 rounded-full border border-border/60 bg-muted/30 px-1 text-foreground transition-colors active:scale-[0.98] hover:bg-muted/50"
+              className="flex h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-full border border-border/60 bg-muted/30 px-1 text-foreground transition-colors active:scale-[0.98] hover:bg-muted/50"
             >
-              <Plus className="hidden h-4 w-4 shrink-0 opacity-80 min-[370px]:block" />
-              <span className="min-w-0 truncate text-[13px] font-semibold">
+              <Plus className="h-4 w-4 shrink-0 opacity-80" />
+              <span className="min-w-0 max-w-full truncate text-[12px] font-semibold leading-none">
                 Crear
               </span>
             </button>

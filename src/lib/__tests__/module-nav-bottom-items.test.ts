@@ -252,4 +252,17 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     expect(hrefs).toContain("/crm/deals");
     expect(hrefs).toContain("/crm/accounts");
   });
+
+  it("Productividad → Correos, Tareas, Agenda (Tareas justo después de Correos)", () => {
+    for (const path of ["/opai/agenda", "/crm/correos", "/opai/tareas"]) {
+      const items = getBottomNavItems(path, "owner", ALL_ENABLED);
+      const keys = items.map((i) => i.key);
+      expect(keys).toContain("productividad-correos");
+      expect(keys).toContain("productividad-tareas");
+      expect(keys).toContain("productividad-agenda");
+      expect(keys.indexOf("productividad-tareas")).toBe(
+        keys.indexOf("productividad-correos") + 1,
+      );
+    }
+  });
 });

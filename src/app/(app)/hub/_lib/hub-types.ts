@@ -14,6 +14,12 @@ export type KpiVariant = 'default' | 'blue' | 'emerald' | 'purple' | 'amber' | '
 
 export interface HubPerms {
   hasCrm: boolean;
+  /** Acceso a Productividad → Agenda (/opai/agenda). */
+  hasAgenda: boolean;
+  /** Acceso a Productividad → Correos (/crm/correos). */
+  hasCorreos: boolean;
+  /** Acceso a Productividad → Tareas (/opai/tareas). */
+  hasTareas: boolean;
   hasDocs: boolean;
   hasFinance: boolean;
   hasOps: boolean;

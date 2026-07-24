@@ -32,6 +32,9 @@ export const getHubRequestContext = cache(async () => {
 
   const hubPerms: HubPerms = {
     hasCrm: hasModuleAccess(perms, "crm"),
+    hasAgenda: canView(perms, "productividad", "agenda"),
+    hasCorreos: canView(perms, "productividad", "correos"),
+    hasTareas: canView(perms, "productividad", "tareas"),
     hasDocs: hasModuleAccess(perms, "docs"),
     hasFinance: hasModuleAccess(perms, "finance"),
     hasOps: hasModuleAccess(perms, "ops"),

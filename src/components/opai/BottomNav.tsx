@@ -67,6 +67,7 @@ interface MainNavItem {
 /** All available nav slots the user can pick from (max 4 shown + Más) */
 const ALL_NAV_OPTIONS: MainNavItem[] = [
   { key: "home", href: "/hub", label: "Inicio", icon: Home },
+  { key: "productividad", href: "/opai/agenda", label: "Prod.", icon: Sparkles },
   { key: "comercial", href: "/crm", label: "Comercial", icon: Briefcase },
   { key: "operaciones", href: "/ops", label: "Operaciones", icon: Shield },
   { key: "personas", href: "/personas/guardias", label: "Personas", icon: Users },
@@ -328,6 +329,7 @@ function MasDrawer({ open, onOpenChange, userRole, navConfig }: { open: boolean;
   const isAdmin = userRole === 'owner' || userRole === 'admin';
 
   const modules: MasModuleItem[] = useMemo(() => [
+    { key: "productividad", href: "/opai/agenda", label: "Productividad", icon: Sparkles, color: "text-primary", show: hasModuleAccess(permissions, "productividad") },
     { key: "finanzas", href: "/finanzas", label: "Finanzas", icon: Landmark, color: "text-status-warn-fg", show: hasModuleAccess(permissions, "finance") },
     { key: "payroll", href: "/payroll", label: "Payroll", icon: Wallet, color: "text-tint-violet-fg", show: hasModuleAccess(permissions, "payroll") },
     { key: "documentos", href: "/opai/documentos", label: "Documentos", icon: FolderOpen, color: "text-status-info-fg", show: hasModuleAccess(permissions, "docs") },

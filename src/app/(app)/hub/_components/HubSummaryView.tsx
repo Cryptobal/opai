@@ -48,7 +48,7 @@ export function HubSummaryView({
   activities,
 }: HubSummaryViewProps) {
   return (
-    <HubEmailProvider enabled={hubPerms.hasCrm}>
+    <HubEmailProvider enabled={hubPerms.hasCorreos}>
       <div className="ds-page-enter flex min-w-0 flex-col gap-5">
         {/* 1. Accesos directos */}
         <div className="min-w-0 lg:order-1">
@@ -73,8 +73,8 @@ export function HubSummaryView({
               al min-content de los textos nowrap (truncate) y las tarjetas
               se salen de la pantalla en móvil. minmax(0,1fr) lo impide. */}
           <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
-            <AgendaHubCard />
-            {hubPerms.hasCrm && <RecentEmailCard />}
+            {hubPerms.hasAgenda && <AgendaHubCard />}
+            {hubPerms.hasCorreos && <RecentEmailCard />}
           </div>
         </section>
 
