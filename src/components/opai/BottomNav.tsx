@@ -218,36 +218,35 @@ export function BottomNav({ userRole }: BottomNavProps) {
   return (
     <nav
       ref={navRef}
-      className={cn(
-        // Liquid Glass v1 — isla flotante despegada de los bordes, con orbe OPAI
-        // a la derecha. Condensa al scroll (no se esconde hacia abajo). iOS === Android.
-        "fixed left-3 right-3 z-40 lg:hidden flex items-end gap-2",
-        "pointer-events-none",
-      )}
+      className="fixed left-3 right-3 z-40 lg:hidden pointer-events-none"
       style={{
         bottom: "calc(env(safe-area-inset-bottom) + 10px)",
       }}
     >
+      {/* Escala suave desde el borde inferior (estilo Instagram). Solo íconos —
+          sin labels — para que no haya reflow ni saltos al condensar. */}
       <div
         className={cn(
-          "pointer-events-auto opai-glass-strong flex-1 min-w-0 flex items-center justify-around overflow-hidden",
-          "motion-safe:transition-all motion-safe:duration-300 ease-out motion-reduce:transition-none",
-          condensed ? "h-12 px-0.5" : "h-16 px-1",
+          "pointer-events-auto flex w-full items-end gap-2 origin-bottom",
+          "motion-safe:transition-transform motion-safe:duration-[380ms]",
+          "motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+          condensed ? "scale-[0.86]" : "scale-100",
         )}
       >
-        {isInModule ? (
-          <ModuleSubNav
-            items={moduleItems}
-            activeModule={activeModule!}
-            pathname={pathname}
-            onBack={() => setForceMainNav(true)}
-            condensed={condensed}
-          />
-        ) : (
-          <MainNav pathname={pathname} userRole={userRole} navConfig={navConfig} condensed={condensed} />
-        )}
+        <div className="opai-glass-strong flex h-14 min-w-0 flex-1 items-center justify-around overflow-hidden px-1">
+          {isInModule ? (
+            <ModuleSubNav
+              items={moduleItems}
+              activeModule={activeModule!}
+              pathname={pathname}
+              onBack={() => setForceMainNav(true)}
+            />
+          ) : (
+            <MainNav pathname={pathname} userRole={userRole} navConfig={navConfig} />
+          )}
+        </div>
+        <OpaiOrb />
       </div>
-      <OpaiOrb condensed={condensed} />
     </nav>
   );
 }
@@ -258,26 +257,16 @@ export function BottomNav({ userRole }: BottomNavProps) {
    Al tocarlo emite `opai-ai-open`; el widget lo escucha y se abre.
    ════════════════════════════════════════════════════ */
 
-function OpaiOrb({ condensed }: { condensed: boolean }) {
+function OpaiOrb() {
   return (
     <button
       type="button"
       onClick={() => window.dispatchEvent(new CustomEvent("opai-ai-open"))}
       aria-label="Abrir OPAI Intelligence"
-      className={cn(
-        "pointer-events-auto opai-orb relative shrink-0 rounded-full overflow-hidden active:scale-95",
-        "motion-safe:transition-all motion-safe:duration-300 ease-out motion-reduce:transition-none",
-        condensed ? "h-12 w-12" : "h-16 w-16",
-      )}
+      className="opai-orb relative h-14 w-14 shrink-0 overflow-hidden rounded-full active:scale-95"
     >
       <span aria-hidden className="opai-orb-sweep absolute inset-0 rounded-full" />
-      <Sparkles
-        className={cn(
-          "relative mx-auto text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]",
-          "motion-safe:transition-all motion-safe:duration-300",
-          condensed ? "h-5 w-5" : "h-6 w-6",
-        )}
-      />
+      <Sparkles className="relative mx-auto h-5 w-5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" />
     </button>
   );
 }
@@ -290,18 +279,14 @@ function MainNav({
   pathname,
   userRole,
   navConfig,
-  condensed,
 }: {
   pathname: string;
   userRole: string;
   navConfig: ReturnType<typeof useNavConfig>;
-  condensed: boolean;
 }) {
   const [masOpen, setMasOpen] = useState(false);
-  const itemClass = cn(
-    "relative flex flex-col items-center justify-center min-w-[44px] active:scale-95 transition-all",
-    condensed ? "gap-0 min-h-[44px] px-2 py-0.5" : "gap-0.5 min-h-[52px] px-3 py-1",
-  );
+  const itemClass =
+    "relative flex min-h-11 min-w-11 flex-1 items-center justify-center active:scale-95 transition-transform";
 
   return (
     <>
@@ -312,12 +297,10 @@ function MainNav({
               key={item.key}
               type="button"
               onClick={() => setMasOpen(true)}
+              aria-label={item.label}
               className={cn(itemClass, "text-muted-foreground")}
             >
-              <item.icon className={cn(condensed ? "h-5 w-5" : "h-[21px] w-[21px]")} />
-              {!condensed && (
-                <span className="text-[10px] font-medium leading-tight">{item.label}</span>
-              )}
+              <item.icon className="h-[22px] w-[22px]" />
             </button>
           );
         }
@@ -328,13 +311,13 @@ function MainNav({
           <Link
             key={item.key}
             href={item.href}
+            aria-label={item.label}
             className={cn(itemClass, isActive ? "text-primary" : "text-muted-foreground")}
           >
-            {isActive && <span aria-hidden className="opai-nav-pill" />}
-            <item.icon className={cn("relative", condensed ? "h-5 w-5" : "h-[21px] w-[21px]")} />
-            {!condensed && (
-              <span className="relative text-[10px] font-medium leading-tight">{item.label}</span>
+            {isActive && (
+              <span aria-hidden className="opai-nav-pill top-1/2 h-9 w-9 -translate-x-1/2 -translate-y-1/2" />
             )}
+            <item.icon className="relative h-[22px] w-[22px]" />
           </Link>
         );
       })}
@@ -665,13 +648,11 @@ function ModuleSubNav({
   activeModule,
   pathname,
   onBack,
-  condensed,
 }: {
   items: BottomNavItem[];
   activeModule: string;
   pathname: string;
   onBack: () => void;
-  condensed: boolean;
 }) {
   const [overflowOpen, setOverflowOpen] = useState(false);
   const chatCtx = useContext(ChatSidePanelContext);
@@ -733,11 +714,8 @@ function ModuleSubNav({
     .filter((i) => pathMatchesNode(pathname, i))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
-  const slotClass = cn(
-    "relative flex flex-col items-center justify-center min-w-[44px] active:scale-95 transition-all",
-    condensed ? "gap-0 min-h-[44px] px-1.5 py-0.5" : "gap-0.5 min-h-[52px] px-2 py-1",
-  );
-  const iconClass = condensed ? "h-5 w-5" : "h-[21px] w-[21px]";
+  const slotClass =
+    "relative flex min-h-11 min-w-11 flex-1 items-center justify-center active:scale-95 transition-transform";
 
   return (
     <>
@@ -745,13 +723,10 @@ function ModuleSubNav({
       <button
         type="button"
         onClick={onBack}
-        className={cn(slotClass, "text-muted-foreground border-r border-white/10 mr-1")}
-        aria-label="Volver"
+        className={cn(slotClass, "mr-0.5 max-w-12 shrink-0 text-muted-foreground border-r border-white/10")}
+        aria-label={MODULE_LABELS[activeModule] ? `Volver a ${MODULE_LABELS[activeModule]}` : "Volver"}
       >
-        <ChevronLeft className={iconClass} />
-        {!condensed && (
-          <span className="text-[10px] font-medium leading-tight">{MODULE_LABELS[activeModule] || ''}</span>
-        )}
+        <ChevronLeft className="h-[22px] w-[22px]" />
       </button>
 
       {/* Visible sub-items */}
@@ -764,30 +739,34 @@ function ModuleSubNav({
 
         const content = (
           <>
-            {isActive && <span aria-hidden className="opai-nav-pill" />}
-            <Icon className={cn("relative", iconClass)} />
-            {!condensed && (
-              <span className="relative text-[10px] font-medium leading-tight truncate max-w-[60px]">{item.label}</span>
+            {isActive && (
+              <span aria-hidden className="opai-nav-pill top-1/2 h-9 w-9 -translate-x-1/2 -translate-y-1/2" />
             )}
+            <Icon className="relative h-[22px] w-[22px]" />
           </>
         );
 
         const itemClass = cn(
           slotClass,
-          "flex-1 px-1",
           isActive ? "text-primary" : "text-muted-foreground",
         );
 
         if (isChatToggle) {
           return (
-            <button key={item.key} type="button" onClick={() => chatCtx?.togglePanel()} className={itemClass}>
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => chatCtx?.togglePanel()}
+              aria-label={item.label}
+              className={itemClass}
+            >
               {content}
             </button>
           );
         }
 
         return (
-          <Link key={item.key} href={item.href} className={itemClass}>
+          <Link key={item.key} href={item.href} aria-label={item.label} className={itemClass}>
             {content}
           </Link>
         );
@@ -797,12 +776,10 @@ function ModuleSubNav({
       <button
         type="button"
         onClick={() => setOverflowOpen(true)}
-        className={cn(slotClass, "text-muted-foreground")}
+        aria-label="Más opciones"
+        className={cn(slotClass, "max-w-12 shrink-0 text-muted-foreground")}
       >
-        <MoreHorizontal className={iconClass} />
-        {!condensed && (
-          <span className="text-[10px] font-medium leading-tight">Más</span>
-        )}
+        <MoreHorizontal className="h-[22px] w-[22px]" />
       </button>
 
       {/* Overflow + customizer sheet */}
