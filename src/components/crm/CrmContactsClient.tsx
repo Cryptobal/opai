@@ -346,7 +346,7 @@ export function CrmContactsClient({
                       onChange={(event) => updateForm("recibeCesion", event.target.checked)}
                     />
                     <span>
-                      Recibe aviso de cesión
+                      Notificación DTE (cesión)
                       <span className="block text-xs text-muted-foreground">
                         Se le notifica cuando se cede una factura de este cliente a un factoring.
                       </span>
@@ -431,7 +431,7 @@ export function CrmContactsClient({
                   onChange={(e) => updateForm("recibeCesion", e.target.checked)}
                 />
                 <span>
-                  Recibe aviso de cesión
+                  Notificación DTE (cesión)
                   <span className="block text-xs text-muted-foreground">
                     Se le notifica cuando se cede una factura de este cliente a un factoring.
                   </span>
