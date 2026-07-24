@@ -1,13 +1,17 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { Search } from "lucide-react";
+import { toast } from "sonner";
 import { SimpleSelect } from "@/components/ui/simple-select";
 import { cn } from "@/lib/utils";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import { useTareas } from "./useTareas";
 import { TareasDesktop } from "./TareasDesktop";
 import { TareasMobile } from "./TareasMobile";
-import type { TareaStatusFilter } from "./types";
+import { TareaDetailSheet } from "./TareaDetailSheet";
+import type { DueValue } from "./TareaDatePopover";
+import type { TareaItem, TareaStatusFilter } from "./types";
 
 const STATUS_TABS: Array<{ id: TareaStatusFilter; label: string }> = [
   { id: "open", label: "Pendientes" },
@@ -18,7 +22,26 @@ const STATUS_TABS: Array<{ id: TareaStatusFilter; label: string }> = [
 /** Página de Tareas (Productividad). Switch responsive desktop/móvil. */
 export function TareasPageClient({ canEdit }: { canEdit: boolean }) {
   const isMobile = useIsMobileViewport();
-  const { groups, users, nameById, loading, filters, setFilters, create, toggleDone, remove } = useTareas();
+  const { tasks, groups, users, nameById, loading, filters, setFilters, create, update, toggleDone, remove } =
+    useTareas();
+
+  // El detalle se deriva de la lista viva (por id): así los cambios optimistas
+  // (posposición, edición) se reflejan en el panel abierto sin snapshot obsoleto.
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const detailTask = tasks.find((t) => t.id === detailId) ?? null;
+
+  // Posposición rápida optimista con toast "Deshacer" (~5 s), reversible.
+  const postpone = useCallback(
+    (task: TareaItem, next: DueValue) => {
+      const prev: DueValue = { dueAt: task.dueAt, allDay: task.allDay };
+      void update(task.id, next);
+      toast("Vencimiento actualizado", {
+        action: { label: "Deshacer", onClick: () => void update(task.id, prev) },
+        duration: 5000,
+      });
+    },
+    [update],
+  );
 
   const viewProps = {
     groups,
@@ -27,8 +50,10 @@ export function TareasPageClient({ canEdit }: { canEdit: boolean }) {
     loading,
     canEdit,
     onCreate: create,
+    onOpen: (t: TareaItem) => setDetailId(t.id),
     onToggle: toggleDone,
     onDelete: remove,
+    onPostpone: postpone,
   };
 
   const assigneeOptions = [
@@ -81,6 +106,17 @@ export function TareasPageClient({ canEdit }: { canEdit: boolean }) {
       </div>
 
       {isMobile ? <TareasMobile {...viewProps} /> : <TareasDesktop {...viewProps} />}
+
+      <TareaDetailSheet
+        task={detailTask}
+        users={users}
+        canEdit={canEdit}
+        onClose={() => setDetailId(null)}
+        onSave={update}
+        onDelete={remove}
+        onToggle={toggleDone}
+        onPostpone={postpone}
+      />
     </div>
   );
 }

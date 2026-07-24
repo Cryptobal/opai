@@ -5,6 +5,7 @@ import { Surface, EmptyState, Skeleton } from "@/components/opai-ds";
 import type { AgendaTeamMember } from "@/components/agenda/agenda-calendar.types";
 import { TareaCreateBar } from "./TareaCreateBar";
 import { TareaRow } from "./TareaRow";
+import type { DueValue } from "./TareaDatePopover";
 import type { TareaItem, TareaCreateInput } from "./types";
 import type { TareaGroup } from "@/modules/tareas/tareas.service";
 
@@ -16,8 +17,10 @@ export function TareasDesktop({
   loading,
   canEdit,
   onCreate,
+  onOpen,
   onToggle,
   onDelete,
+  onPostpone,
 }: {
   groups: TareaGroup<TareaItem>[];
   users: AgendaTeamMember[];
@@ -25,8 +28,10 @@ export function TareasDesktop({
   loading: boolean;
   canEdit: boolean;
   onCreate: (input: TareaCreateInput) => Promise<boolean>;
+  onOpen: (t: TareaItem) => void;
   onToggle: (t: TareaItem) => void;
   onDelete: (id: string) => void;
+  onPostpone: (t: TareaItem, next: DueValue) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -55,8 +60,10 @@ export function TareasDesktop({
                     task={task}
                     nameById={nameById}
                     canEdit={canEdit}
+                    onOpen={onOpen}
                     onToggle={onToggle}
                     onDelete={onDelete}
+                    onPostpone={onPostpone}
                   />
                 ))}
               </Surface>

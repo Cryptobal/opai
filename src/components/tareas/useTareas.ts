@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import type { AgendaTeamMember } from "@/components/agenda/agenda-calendar.types";
 import { groupTasksByDue } from "@/modules/tareas/tareas.service";
 import type { TareaItem, TareaCreateInput, TareaUpdateInput, TareaFilters } from "./types";
@@ -119,16 +120,28 @@ export function useTareas() {
     if (filters.status !== "all") void load();
   }, [load, filters.status]);
 
-  const remove = useCallback(async (id: string) => {
+  // El DELETE es permanente (sin soft-delete/restauración), así que confirmamos
+  // antes con el diálogo del DS en vez de un toast "Deshacer" que no podría
+  // recrear la tarea con su id/historial.
+  const remove = useCallback(async (id: string): Promise<boolean> => {
+    const ok = await confirmDialog({
+      title: "Eliminar tarea",
+      description: "Esta acción no se puede deshacer. ¿Eliminar la tarea?",
+      confirmLabel: "Eliminar",
+      variant: "destructive",
+    });
+    if (!ok) return false;
+    const snapshot = tasksRef.current;
     setTasks((prev) => prev.filter((t) => t.id !== id));
     const res = await fetch(`/api/crm/tasks/${id}`, { method: "DELETE" }).catch(() => null);
     if (!res?.ok) {
+      setTasks(snapshot);
       toast.error("No se pudo eliminar la tarea");
-      void load();
-      return;
+      return false;
     }
     toast.success("Tarea eliminada");
-  }, [load]);
+    return true;
+  }, []);
 
   const groups = useMemo(() => groupTasksByDue(tasks), [tasks]);
   const nameById = useMemo(() => new Map(users.map((u) => [u.id, u.name])), [users]);

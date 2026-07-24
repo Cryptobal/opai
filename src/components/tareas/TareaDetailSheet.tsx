@@ -133,7 +133,7 @@ export function TareaDetailSheet({
               className="flex shrink-0 items-center justify-between gap-2 border-t border-ds-border-subtle px-4 pt-3"
               style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}
             >
-              <button type="button" onClick={() => { onDelete(task.id); onClose(); }} className={cn(FOOTER_BTN, "text-status-danger-fg hover:bg-status-danger-soft")}>
+              <button type="button" onClick={() => onDelete(task.id)} className={cn(FOOTER_BTN, "text-status-danger-fg hover:bg-status-danger-soft")}>
                 <Trash2 className="h-4 w-4" /> Eliminar
               </button>
               <button type="button" onClick={() => void save()} disabled={saving || !dirty} className={cn(FOOTER_BTN, "bg-primary font-medium text-primary-foreground disabled:opacity-50")}>
