@@ -5,23 +5,20 @@ import { CalendarDays } from "lucide-react";
 import { Surface, Tag, Spinner } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { OAuthResultBanner } from "@/components/configuracion/OAuthResultBanner";
+import { GoogleTeamList, type GoogleTeamRow } from "@/components/configuracion/google-workspace/GoogleTeamList";
 import { CalendarPrefsList } from "./CalendarPrefsList";
-import { CalendarTeamList } from "./CalendarTeamList";
-
-type TeamRow = { userId: string; name: string; email: string; connected: boolean };
 
 type Status = {
   connected: boolean;
   googleEmail: string | null;
   calendarId: string;
   prefs: Record<string, boolean>;
-  team: TeamRow[];
+  team: GoogleTeamRow[];
 };
 
 export function GoogleCalendarConfigClient() {
   const [data, setData] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -52,14 +49,6 @@ export function GoogleCalendarConfigClient() {
   async function disconnect() {
     await fetch("/api/integrations/google-calendar/disconnect", { method: "POST" });
     await load();
-  }
-
-  function copyInviteLink() {
-    const url = `${window.location.origin}/api/integrations/google-calendar/oauth/start`;
-    void navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
   }
 
   if (loading) {
@@ -99,20 +88,35 @@ export function GoogleCalendarConfigClient() {
         </div>
         <div className="flex flex-wrap gap-2">
           {!connected ? (
-            <Button asChild>
+            <Button asChild className="h-10 sm:h-9">
               <a href="/api/integrations/google-calendar/oauth/start">
                 <CalendarDays className="mr-1.5 h-4 w-4" /> Conectar Calendar
               </a>
             </Button>
           ) : (
             <>
-              <Button variant="outline" size="sm" onClick={() => void patch({ createDedicated: true })}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 sm:h-9"
+                onClick={() => void patch({ createDedicated: true })}
+              >
                 Usar “Opai · Visitas”
               </Button>
-              <Button variant="outline" size="sm" onClick={() => void patch({ calendarId: "primary" })}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 sm:h-9"
+                onClick={() => void patch({ calendarId: "primary" })}
+              >
                 Usar primary
               </Button>
-              <Button variant="outline" size="sm" onClick={() => void disconnect()}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 sm:h-9"
+                onClick={() => void disconnect()}
+              >
                 Desconectar
               </Button>
             </>
@@ -127,7 +131,10 @@ export function GoogleCalendarConfigClient() {
         <CalendarPrefsList prefs={prefs} onToggle={(key, value) => void patch({ prefs: { [key]: value } })} />
       )}
 
-      <CalendarTeamList team={data?.team ?? []} copied={copied} onInvite={copyInviteLink} />
+      <GoogleTeamList
+        team={data?.team ?? []}
+        hint="Quién tiene Calendar conectado — Invitar envía mail con links a Gmail, Drive y Calendar"
+      />
     </div>
   );
 }

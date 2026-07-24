@@ -11,7 +11,7 @@ export function HubIntegrationStatus({ status }: HubIntegrationStatusProps) {
     {
       key: "gmail",
       label: "Gmail",
-      href: "/opai/configuracion/integraciones",
+      href: "/opai/configuracion/integraciones/gmail",
       connected: status.gmail.connected,
       email: status.gmail.email,
     },
