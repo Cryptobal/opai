@@ -21,7 +21,7 @@ export async function GET() {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
   const perms = await resolveApiPerms(ctx);
-  if (!canView(perms, "productividad", "agentes")) {
+  if (!canView(perms, "config", "inteligencia_artificial")) {
     return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
   }
 
@@ -33,7 +33,7 @@ export async function GET() {
   ]);
 
   return NextResponse.json({
-    canManage: canEdit(perms, "productividad", "agentes"),
+    canManage: canEdit(perms, "config", "inteligencia_artificial"),
     verticals,
     budget,
     usage,
@@ -46,7 +46,7 @@ export async function PUT(req: NextRequest) {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
   const perms = await resolveApiPerms(ctx);
-  if (!canEdit(perms, "productividad", "agentes")) {
+  if (!canEdit(perms, "config", "inteligencia_artificial")) {
     return NextResponse.json({ error: "Sin permisos para gestionar agentes" }, { status: 403 });
   }
 

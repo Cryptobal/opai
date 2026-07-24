@@ -49,8 +49,10 @@ export async function resolveThreadLinks(
  * Busca o crea el thread y, al hacerlo, vincula contacto/cuenta/deal.
  *
  * Matching: por `providerThreadId` (id de hilo Gmail) + `emailAccountId` del
- * dueño cuando está disponible; si no, por `subject` (legacy). Un thread legacy
- * matcheado por subject se "adopta" seteándole providerThreadId/emailAccountId.
+ * dueño cuando está disponible. El fallback por `subject` (legacy) SOLO adopta
+ * hilos huérfanos —sin `providerThreadId` y de la propia casilla o sin dueño—
+ * seteándoles providerThreadId/emailAccountId; nunca cruza casillas ni fusiona
+ * dos hilos Gmail distintos con el mismo asunto.
  *
  * En threads existentes hace backfill SOLO de los FKs que estén null — nunca
  * sobreescribe un dealId (u otro vínculo) ya seteado. `lastMessageAt` solo
@@ -72,6 +74,14 @@ export async function upsertLinkedThread(params: {
   const isInbound = params.isInbound !== false;
   const links = await resolveThreadLinks(tenantId, params.counterpartyEmails);
 
+  const threadSelect = {
+    id: true,
+    contactId: true,
+    accountId: true,
+    dealId: true,
+    lastMessageAt: true,
+  } as const;
+
   const existing =
     (providerThreadId && emailAccountId
       ? await prisma.crmEmailThread.findUnique({
@@ -81,12 +91,30 @@ export async function upsertLinkedThread(params: {
               providerThreadId,
             },
           },
-          select: { id: true, contactId: true, accountId: true, dealId: true, lastMessageAt: true },
+          select: threadSelect,
         })
       : null) ??
+    // Fallback legacy por asunto — SOLO para adoptar hilos huérfanos: los
+    // creados por otras vías (followup, web4leads) SIN threadId de Gmail y sin
+    // dueño, o los del propio dueño aún sin threadId. Se acota por:
+    //  · `providerThreadId: null` → nunca fusiona dos hilos Gmail distintos que
+    //    comparten asunto (adoptar solo, jamás mezclar).
+    //  · casilla == propia o sin dueño → NUNCA roba el hilo de otra casilla.
+    // Sin este scope, dos usuarios componiendo borradores con el mismo asunto
+    // (en especial el default "(Borrador sin asunto)") colisionaban en un único
+    // hilo, y un inbound de una casilla robaba el hilo de otra: los borradores
+    // de un usuario aparecían en la bandeja de otro y Recibidos se
+    // desincronizaba de Gmail.
     (await prisma.crmEmailThread.findFirst({
-      where: { tenantId, subject },
-      select: { id: true, contactId: true, accountId: true, dealId: true, lastMessageAt: true },
+      where: {
+        tenantId,
+        subject,
+        providerThreadId: null,
+        ...(emailAccountId
+          ? { OR: [{ emailAccountId: null }, { emailAccountId }] }
+          : { emailAccountId: null }),
+      },
+      select: threadSelect,
     }));
 
   if (!existing) {

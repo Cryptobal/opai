@@ -34,7 +34,6 @@ import {
   Contact,
   DollarSign,
   Sparkles,
-  Bot,
   MapPin,
   // Ops
   Activity,
@@ -359,7 +358,7 @@ export const NAV_MODULES: NavNode[] = [
   },
 
   // ═════════════════════════════════════════════════════════
-  // PRODUCTIVIDAD (Correos, Agenda, Tareas, Agentes)
+  // PRODUCTIVIDAD (Correos, Agenda, Tareas)
   // ═════════════════════════════════════════════════════════
   {
     key: "productividad",
@@ -368,16 +367,15 @@ export const NAV_MODULES: NavNode[] = [
     icon: Sparkles,
     module: "productividad",
     // Agenda es la landing accesible a todos los roles con Productividad.
-    // Correos/Tareas/Agentes se declaran como activePaths para que
+    // Correos/Tareas se declaran como activePaths para que
     // findActiveModule/breadcrumbs los resuelvan a este nodo.
-    activePaths: ["/crm/correos", "/opai/tareas", "/opai/agentes"],
+    activePaths: ["/crm/correos", "/opai/tareas"],
     children: [
       // Correos conserva tenantModule "crm": la casilla Gmail vive en el plan
       // CRM, así se oculta para tenants sin ese módulo (acoplamiento conocido).
       { key: "productividad-correos", href: "/crm/correos", label: "Correos", icon: Mail, module: "productividad", submodule: "correos", tenantModule: "crm" },
       { key: "productividad-agenda", href: "/opai/agenda", label: "Agenda", icon: CalendarDays, module: "productividad", submodule: "agenda" },
       { key: "productividad-tareas", href: "/opai/tareas", label: "Tareas", icon: ClipboardList, module: "productividad", submodule: "tareas" },
-      { key: "productividad-agentes", href: "/opai/agentes", label: "Agentes IA", icon: Bot, module: "productividad", submodule: "agentes" },
     ],
   },
 
