@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { Bell, LogOut, Settings, User } from "lucide-react";
-import { MessageCircle } from "lucide-react";
+import { Bell, LogOut, MessageCircle, Search, Settings, User } from "lucide-react";
 import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
 import { useNotificationSidePanelContext } from "@/components/notifications/NotificationSidePanelContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "./ThemeToggle";
+import { TopbarIconButton } from "./TopbarIconButton";
 import { RoleSwitcher } from "@/components/navbar/RoleSwitcher";
 import { Avatar } from "@/components/opai-ds";
 import {
@@ -27,6 +27,7 @@ interface TopbarActionsProps {
   userName?: string;
   userEmail?: string;
   userRole?: string;
+  onSearch?: () => void;
   className?: string;
 }
 
@@ -34,6 +35,7 @@ export function TopbarActions({
   userName = "Usuario",
   userEmail,
   userRole,
+  onSearch,
   className,
 }: TopbarActionsProps) {
   const [mounted, setMounted] = useState(false);
@@ -53,77 +55,62 @@ export function TopbarActions({
   };
 
   return (
-    <div className={cn("flex items-center gap-2 shrink-0", className)}>
-      {/* Role Switcher (solo owner/admin) */}
+    <div className={cn("flex items-center gap-2 shrink-0 min-w-0", className)}>
       <RoleSwitcher />
 
-      {/* Botón Fiscalización DT — Resolución N°38 */}
       <FiscalizacionDTButton userRole={userRole} />
 
-      {/* Right icons: Theme → Chat → Notifications → Settings */}
-      <ThemeToggle />
-      <button
-        type="button"
-        className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        onClick={handleToggleChat}
-        aria-label="Abrir chat"
+      {/* Utilidades: mismo alto/alineación que el resto del topbar */}
+      <div
+        className="flex items-center gap-0.5 rounded-lg border border-ds-border-subtle/70 bg-ds-surface-1/40 p-0.5"
+        role="group"
+        aria-label="Acciones rápidas"
       >
-        <MessageCircle className="h-4 w-4" />
-        {chatCtx.totalUnread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-status-danger ring-2 ring-background" />
+        {onSearch && (
+          <TopbarIconButton icon={Search} label="Buscar" onClick={onSearch} />
         )}
-      </button>
-      {/* Móvil: link directo a la lista. Desktop: toggle del side panel. */}
-      <Link
-        href="/opai/notificaciones"
-        className="sm:hidden relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        aria-label="Ver notificaciones"
-      >
-        <Bell className="h-4 w-4" />
-        {notifUnreadCount > 0 && (
-          <Badge
-            variant="destructive"
-            className="absolute -right-1 -top-1 h-5 min-w-5 rounded-full p-0 text-[10px] flex items-center justify-center animate-pulse"
-          >
-            {notifUnreadCount > 9 ? "9+" : notifUnreadCount}
-          </Badge>
-        )}
-      </Link>
-      <button
-        type="button"
-        className="hidden sm:inline-flex relative h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        onClick={handleToggleNotifications}
-        aria-label="Notificaciones"
-      >
-        <Bell className="h-4 w-4" />
-        {notifUnreadCount > 0 && (
-          <Badge
-            variant="destructive"
-            className="absolute -right-1 -top-1 h-5 min-w-5 rounded-full p-0 text-[10px] flex items-center justify-center animate-pulse"
-          >
-            {notifUnreadCount > 9 ? "9+" : notifUnreadCount}
-          </Badge>
-        )}
-      </button>
-      {hasConfigAccess && (
-        <Link
-          href="/opai/configuracion"
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          aria-label="Configuración"
+        <ThemeToggle compact />
+        <TopbarIconButton
+          icon={MessageCircle}
+          label="Abrir chat"
+          onClick={handleToggleChat}
         >
-          <Settings className="h-4 w-4" />
-        </Link>
-      )}
+          {chatCtx.totalUnread > 0 && (
+            <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-status-danger ring-2 ring-background" />
+          )}
+        </TopbarIconButton>
+        <TopbarIconButton
+          icon={Bell}
+          label="Notificaciones"
+          onClick={handleToggleNotifications}
+        >
+          {notifUnreadCount > 0 && (
+            <Badge
+              variant="destructive"
+              className="absolute -right-0.5 -top-0.5 h-4 min-w-4 rounded-full px-1 text-[12px] leading-none flex items-center justify-center"
+            >
+              {notifUnreadCount > 9 ? "9+" : notifUnreadCount}
+            </Badge>
+          )}
+        </TopbarIconButton>
+        {hasConfigAccess && (
+          <TopbarIconButton
+            icon={Settings}
+            label="Configuración"
+            href="/opai/configuracion"
+          />
+        )}
+      </div>
 
-      {/* Avatar + User Menu */}
+      {/* Menú de usuario — avatar compacto en lg, nombre solo en pantallas amplias */}
       {!mounted ? (
         <button
           type="button"
-          className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors"
+          className="inline-flex h-8 max-w-[9rem] items-center gap-2 rounded-lg px-1.5 transition-colors hover:bg-ds-surface-2"
           aria-label="Menú de usuario"
         >
           <Avatar name={userName} size="sm" />
-          <span className="hidden xl:inline text-sm font-medium truncate max-w-[120px]">
+          <span className="hidden 2xl:inline text-sm font-medium truncate">
             {userName}
           </span>
         </button>
@@ -132,11 +119,11 @@ export function TopbarActions({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-accent"
+              className="inline-flex h-8 max-w-[9rem] items-center gap-2 rounded-lg px-1.5 transition-colors hover:bg-ds-surface-2 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1"
               aria-label="Menú de usuario"
             >
               <Avatar name={userName} size="sm" />
-              <span className="hidden xl:inline text-sm font-medium truncate max-w-[120px]">
+              <span className="hidden 2xl:inline text-sm font-medium truncate">
                 {userName}
               </span>
             </button>
@@ -147,7 +134,7 @@ export function TopbarActions({
               <div className="flex flex-col min-w-0">
                 <p className="text-sm font-medium truncate">{userName}</p>
                 {userEmail && (
-                  <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
+                  <p className="text-xs text-ds-text-3 truncate">{userEmail}</p>
                 )}
               </div>
             </div>

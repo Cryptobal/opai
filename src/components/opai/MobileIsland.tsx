@@ -62,7 +62,7 @@ export function MobileIsland({
   const isDetail = mounted && !!trailing;
 
   const btnBase =
-    "relative inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95";
+    "relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ds-text-3 transition-colors hover:bg-ds-surface-2 hover:text-ds-text-1 active:scale-95";
 
   const back = () => {
     if (ctx?.parentHref) router.push(ctx.parentHref);
@@ -87,7 +87,7 @@ export function MobileIsland({
         {/* ── Left: contexto (A / B) ── */}
         {isDetail ? (
           <div className="flex min-w-0 items-center gap-1">
-            <button type="button" onClick={back} className={cn(btnBase, "w-9 shrink-0")} aria-label="Volver">
+            <button type="button" onClick={back} className={cn(btnBase, "shrink-0")} aria-label="Volver">
               <ChevronLeft className="h-5 w-5" />
             </button>
             <div key={pathname + trailing} className="min-w-0 animate-in fade-in duration-200">
@@ -145,8 +145,8 @@ export function MobileIsland({
         ) : (
           <div
             className={cn(
-              "flex shrink-0 items-center gap-0.5 transition-all duration-[250ms] ease-out origin-right motion-reduce:transition-none",
-              condensed && "scale-90 opacity-60",
+              "flex shrink-0 items-center gap-1 transition-opacity duration-[250ms] ease-out motion-reduce:transition-none",
+              condensed && "opacity-70",
             )}
           >
             <button type="button" className={btnBase} onClick={onSearch} aria-label="Buscar">

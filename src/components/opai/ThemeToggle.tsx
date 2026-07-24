@@ -16,13 +16,14 @@ interface ThemeToggleProps {
  */
 export function ThemeToggle({ compact, className }: ThemeToggleProps) {
   const { theme, toggleTheme } = useTheme();
+  const iconClass = compact ? "h-4 w-4" : "h-[18px] w-[18px]";
 
   return (
     <button
       type="button"
       onClick={toggleTheme}
       className={cn(
-        "inline-flex items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+        "inline-flex shrink-0 items-center justify-center rounded-md text-ds-text-3 transition-colors hover:bg-ds-surface-2 hover:text-ds-text-1 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1",
         compact ? "h-8 w-8" : "h-9 w-9",
         className
       )}
@@ -30,9 +31,9 @@ export function ThemeToggle({ compact, className }: ThemeToggleProps) {
       title={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}
     >
       {theme === 'dark' ? (
-        <Sun className={cn(compact ? "h-4 w-4" : "h-[18px] w-[18px]")} />
+        <Sun className={iconClass} />
       ) : (
-        <Moon className={cn(compact ? "h-4 w-4" : "h-[18px] w-[18px]")} />
+        <Moon className={iconClass} />
       )}
     </button>
   );
