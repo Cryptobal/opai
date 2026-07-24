@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Bot, AlertTriangle } from "lucide-react";
-import { PageHero, Surface, Skeleton, Tag } from "@/components/opai-ds";
+import { Surface, Skeleton, Tag } from "@/components/opai-ds";
 import { cn } from "@/lib/utils";
 
 type Vertical = "comercial" | "operaciones" | "rrhh" | "finanzas";
@@ -56,12 +56,7 @@ export function AgentesPageClient() {
   );
 
   if (!data) {
-    return (
-      <div className="space-y-4">
-        <PageHero title="Agentes IA" subtitle="Verticales del Radar, consumo de IA y presupuesto mensual." />
-        <Skeleton className="h-40 w-full rounded-2xl" />
-      </div>
-    );
+    return <Skeleton className="h-40 w-full rounded-2xl" />;
   }
 
   const { budget } = data;
@@ -69,7 +64,12 @@ export function AgentesPageClient() {
 
   return (
     <div className="space-y-4 min-w-0">
-      <PageHero title="Agentes IA" subtitle="Verticales del Radar, consumo de IA y presupuesto mensual." />
+      <div>
+        <h2 className="text-[15px] font-semibold text-ds-text-1">Agentes IA (Radar)</h2>
+        <p className="text-[13px] text-ds-text-3">
+          Activa las verticales del Radar, controla el presupuesto mensual de IA y revisa el consumo por feature.
+        </p>
+      </div>
 
       {budget.exceeded && (
         <Surface className="flex items-center gap-2 border-status-danger-fg/30 p-3 text-[13px] text-status-danger-fg">

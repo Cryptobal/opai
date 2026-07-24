@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { TenantAiProvidersConfig } from "@/components/tenant/TenantAiProvidersConfig";
 import { TenantAiRoutingConfig } from "@/components/tenant/TenantAiRoutingConfig";
+import { AgentesPageClient } from "@/components/agentes/AgentesPageClient";
 import { Sparkles } from "lucide-react";
 
 export default async function InteligenciaArtificialPage() {
@@ -33,6 +34,10 @@ export default async function InteligenciaArtificialPage() {
           </p>
         </div>
         <TenantAiRoutingConfig />
+      </section>
+
+      <section className="mt-10">
+        <AgentesPageClient />
       </section>
     </ConfigPageLayout>
   );
