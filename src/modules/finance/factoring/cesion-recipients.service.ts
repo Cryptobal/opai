@@ -6,8 +6,9 @@
  * provocaba envíos a terceros ajenos a la relación comercial.
  *
  * Cadena (sin fallback a receiverEmail):
- *   1. Sin cuenta CRM vinculada (accountId null) → NO_ACCOUNT, lista vacía.
- *   2. Cuenta con `cesionNotificarDeudor = false` → OPTED_OUT, lista vacía.
+ *   1. Resuelve la cuenta por `crmAccountId`; para DTEs históricos, por RUT.
+ *   2. Cuenta con `cesionNotificarDeudor = false` → conserva correos para el
+ *      AEC, pero suprime el envío del aviso.
  *   3. Contactos con `recibeCesion = true` y email no nulo → CONFIGURED.
  *   4. Sin contactos marcados → NO_CONTACTS, lista vacía.
  *
@@ -16,6 +17,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { cleanRut } from "@/lib/chile-rut";
 
 export type CesionRecipientsReason =
   | "CONFIGURED"
@@ -29,6 +31,13 @@ export interface CesionRecipientsResult {
   /** Default por-cliente (CrmAccount.cesionNotificarDeudor). */
   notificarDeudor: boolean;
   reason: CesionRecipientsReason;
+  /** Todos los correos de la cuenta CRM, para elegirlos en el modal. */
+  contacts: Array<{
+    id: string;
+    name: string;
+    email: string;
+    recibeCesion: boolean;
+  }>;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -50,40 +59,85 @@ function dedupeEmails(raw: Array<string | null | undefined>): string[] {
 
 export async function resolveCesionRecipients(
   tenantId: string,
-  dte: { accountId: string | null },
+  dte: { crmAccountId: string | null; receiverRut?: string | null },
 ): Promise<CesionRecipientsResult> {
-  if (!dte.accountId) {
-    return { emails: [], notificarDeudor: true, reason: "NO_ACCOUNT" };
+  let account: { id: string; cesionNotificarDeudor: boolean } | null = null;
+
+  if (dte.crmAccountId) {
+    account = await prisma.crmAccount.findFirst({
+      where: { id: dte.crmAccountId, tenantId },
+      select: { id: true, cesionNotificarDeudor: true },
+    });
+  } else {
+    // Compatibilidad con DTEs históricos emitidos antes de persistir
+    // crmAccountId. El RUT se normaliza en ambos lados porque existen cuentas
+    // antiguas con puntos, guion o caracteres invisibles.
+    const receiverRut = cleanRut(dte.receiverRut ?? "");
+    if (receiverRut) {
+      const candidates = await prisma.crmAccount.findMany({
+        where: { tenantId, rut: { not: null } },
+        select: { id: true, rut: true, cesionNotificarDeudor: true },
+      });
+      account =
+        candidates.find((candidate) => cleanRut(candidate.rut ?? "") === receiverRut) ??
+        null;
+    }
   }
 
-  // Cuenta scoped por tenant: si no pertenece a este tenant no se resuelve.
-  const account = await prisma.crmAccount.findFirst({
-    where: { id: dte.accountId, tenantId },
-    select: { cesionNotificarDeudor: true },
-  });
   if (!account) {
-    return { emails: [], notificarDeudor: true, reason: "NO_ACCOUNT" };
-  }
-  if (!account.cesionNotificarDeudor) {
-    return { emails: [], notificarDeudor: false, reason: "OPTED_OUT" };
+    return {
+      emails: [],
+      notificarDeudor: true,
+      reason: "NO_ACCOUNT",
+      contacts: [],
+    };
   }
 
   const contacts = await prisma.crmContact.findMany({
     where: {
       tenantId,
-      accountId: dte.accountId,
-      recibeCesion: true,
+      accountId: account.id,
       email: { not: null },
     },
-    select: { email: true },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      recibeCesion: true,
+    },
     orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
   });
 
-  const emails = dedupeEmails(contacts.map((c) => c.email));
+  const seen = new Set<string>();
+  const contactOptions: CesionRecipientsResult["contacts"] = [];
+  for (const contact of contacts) {
+    const email = dedupeEmails([contact.email])[0];
+    if (!email) continue;
+    const key = email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    contactOptions.push({
+      id: contact.id,
+      name:
+        [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim() ||
+        email,
+      email,
+      recibeCesion: contact.recibeCesion,
+    });
+  }
+  const emails = contactOptions
+    .filter((contact) => contact.recibeCesion)
+    .map((contact) => contact.email);
   return {
     emails,
-    notificarDeudor: true,
-    reason: emails.length > 0 ? "CONFIGURED" : "NO_CONTACTS",
+    notificarDeudor: account.cesionNotificarDeudor,
+    reason: !account.cesionNotificarDeudor
+      ? "OPTED_OUT"
+      : emails.length > 0
+        ? "CONFIGURED"
+        : "NO_CONTACTS",
+    contacts: contactOptions,
   };
 }
 

@@ -7,12 +7,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   accountFindFirst: vi.fn(),
+  accountFindMany: vi.fn(),
   contactFindMany: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    crmAccount: { findFirst: mocks.accountFindFirst },
+    crmAccount: {
+      findFirst: mocks.accountFindFirst,
+      findMany: mocks.accountFindMany,
+    },
     crmContact: { findMany: mocks.contactFindMany },
   },
 }));
@@ -25,47 +29,95 @@ import {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.accountFindFirst.mockResolvedValue({ cesionNotificarDeudor: true });
+  mocks.accountFindFirst.mockResolvedValue({
+    id: "acc-1",
+    cesionNotificarDeudor: true,
+  });
+  mocks.accountFindMany.mockResolvedValue([]);
   mocks.contactFindMany.mockResolvedValue([]);
 });
 
 describe("resolveCesionRecipients", () => {
   it("DTE sin cuenta CRM vinculada → NO_ACCOUNT, lista vacía", async () => {
-    const res = await resolveCesionRecipients("t1", { accountId: null });
-    expect(res).toEqual({ emails: [], notificarDeudor: true, reason: "NO_ACCOUNT" });
+    const res = await resolveCesionRecipients("t1", {
+      crmAccountId: null,
+      receiverRut: null,
+    });
+    expect(res).toEqual({
+      emails: [],
+      notificarDeudor: true,
+      reason: "NO_ACCOUNT",
+      contacts: [],
+    });
     expect(mocks.accountFindFirst).not.toHaveBeenCalled();
+    expect(mocks.accountFindMany).not.toHaveBeenCalled();
     expect(mocks.contactFindMany).not.toHaveBeenCalled();
   });
 
-  it("cuenta con opt-out (cesionNotificarDeudor=false) → OPTED_OUT, no consulta contactos", async () => {
-    mocks.accountFindFirst.mockResolvedValue({ cesionNotificarDeudor: false });
-    const res = await resolveCesionRecipients("t1", { accountId: "acc-1" });
-    expect(res).toEqual({ emails: [], notificarDeudor: false, reason: "OPTED_OUT" });
-    expect(mocks.contactFindMany).not.toHaveBeenCalled();
+  it("cuenta con opt-out conserva correos para el AEC pero no notifica", async () => {
+    mocks.accountFindFirst.mockResolvedValue({
+      id: "acc-1",
+      cesionNotificarDeudor: false,
+    });
+    mocks.contactFindMany.mockResolvedValue([
+      {
+        id: "contact-1",
+        firstName: "Ana",
+        lastName: "Pago",
+        email: "ana@cliente.cl",
+        recibeCesion: true,
+      },
+    ]);
+    const res = await resolveCesionRecipients("t1", {
+      crmAccountId: "acc-1",
+    });
+    expect(res).toMatchObject({
+      emails: ["ana@cliente.cl"],
+      notificarDeudor: false,
+      reason: "OPTED_OUT",
+    });
   });
 
   it("cuenta sin contactos marcados → NO_CONTACTS, lista vacía", async () => {
-    const res = await resolveCesionRecipients("t1", { accountId: "acc-1" });
-    expect(res).toEqual({ emails: [], notificarDeudor: true, reason: "NO_CONTACTS" });
+    const res = await resolveCesionRecipients("t1", {
+      crmAccountId: "acc-1",
+    });
+    expect(res).toEqual({
+      emails: [],
+      notificarDeudor: true,
+      reason: "NO_CONTACTS",
+      contacts: [],
+    });
   });
 
   it("cuenta con contactos → CONFIGURED, dedup case-insensitive preservando orden", async () => {
     mocks.contactFindMany.mockResolvedValue([
-      { email: "Pago@Cliente.cl" },
-      { email: "pago@cliente.cl" }, // duplicado (case-insensitive)
-      { email: "  tesoreria@cliente.cl  " }, // se recorta
-      { email: null }, // se descarta
-      { email: "no-es-email" }, // inválido, se descarta
+      { id: "c1", firstName: "Pago", lastName: "", email: "Pago@Cliente.cl", recibeCesion: true },
+      { id: "c2", firstName: "Duplicado", lastName: "", email: "pago@cliente.cl", recibeCesion: true },
+      { id: "c3", firstName: "Tesorería", lastName: "", email: "  tesoreria@cliente.cl  ", recibeCesion: true },
+      { id: "c4", firstName: "Sin", lastName: "Correo", email: null, recibeCesion: true },
+      { id: "c5", firstName: "Inválido", lastName: "", email: "no-es-email", recibeCesion: true },
     ]);
-    const res = await resolveCesionRecipients("t1", { accountId: "acc-1" });
+    const res = await resolveCesionRecipients("t1", {
+      crmAccountId: "acc-1",
+    });
     expect(res.reason).toBe("CONFIGURED");
     expect(res.notificarDeudor).toBe(true);
     expect(res.emails).toEqual(["Pago@Cliente.cl", "tesoreria@cliente.cl"]);
+    expect(res.contacts).toHaveLength(2);
   });
 
   it("aísla por tenant + cuenta en AMBAS queries (nunca sólo accountId)", async () => {
-    mocks.contactFindMany.mockResolvedValue([{ email: "x@cliente.cl" }]);
-    await resolveCesionRecipients("tenant-A", { accountId: "acc-9" });
+    mocks.accountFindFirst.mockResolvedValue({
+      id: "acc-9",
+      cesionNotificarDeudor: true,
+    });
+    mocks.contactFindMany.mockResolvedValue([
+      { id: "c1", firstName: "X", lastName: "", email: "x@cliente.cl", recibeCesion: true },
+    ]);
+    await resolveCesionRecipients("tenant-A", {
+      crmAccountId: "acc-9",
+    });
 
     expect(mocks.accountFindFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -76,7 +128,6 @@ describe("resolveCesionRecipients", () => {
     expect(contactArgs.where).toMatchObject({
       tenantId: "tenant-A",
       accountId: "acc-9",
-      recibeCesion: true,
       email: { not: null },
     });
     expect(contactArgs.orderBy).toEqual([
@@ -87,9 +138,50 @@ describe("resolveCesionRecipients", () => {
 
   it("cuenta inexistente en el tenant (posible cross-tenant) → NO_ACCOUNT", async () => {
     mocks.accountFindFirst.mockResolvedValue(null);
-    const res = await resolveCesionRecipients("t1", { accountId: "acc-de-otro-tenant" });
-    expect(res).toEqual({ emails: [], notificarDeudor: true, reason: "NO_ACCOUNT" });
+    const res = await resolveCesionRecipients("t1", {
+      crmAccountId: "acc-de-otro-tenant",
+    });
+    expect(res).toEqual({
+      emails: [],
+      notificarDeudor: true,
+      reason: "NO_ACCOUNT",
+      contacts: [],
+    });
     expect(mocks.contactFindMany).not.toHaveBeenCalled();
+  });
+
+  it("DTE histórico sin crmAccountId resuelve la cuenta por RUT normalizado", async () => {
+    mocks.accountFindMany.mockResolvedValue([
+      {
+        id: "acc-rut",
+        rut: "76.123.456-7",
+        cesionNotificarDeudor: true,
+      },
+    ]);
+    mocks.contactFindMany.mockResolvedValue([
+      {
+        id: "c1",
+        firstName: "Cobranza",
+        lastName: "",
+        email: "cobranza@cliente.cl",
+        recibeCesion: true,
+      },
+    ]);
+
+    const res = await resolveCesionRecipients("t1", {
+      crmAccountId: null,
+      receiverRut: "76123456-7",
+    });
+
+    expect(res.emails).toEqual(["cobranza@cliente.cl"]);
+    expect(mocks.contactFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenantId: "t1",
+          accountId: "acc-rut",
+        }),
+      }),
+    );
   });
 });
 
@@ -97,6 +189,7 @@ const RESOLVED = (over: Partial<CesionRecipientsResult>): CesionRecipientsResult
   emails: [],
   notificarDeudor: true,
   reason: "NO_CONTACTS",
+  contacts: [],
   ...over,
 });
 

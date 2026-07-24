@@ -226,10 +226,9 @@ async function validateAndLoadDte(tenantId: string, dteId: string) {
       receiverRut: true,
       receiverName: true,
       receiverEmail: true,
-      // Cuenta CRM del cliente (deudor) — fuente para resolver los
-      // contactos configurados con `recibeCesion`. Nullable: DTEs sin
-      // vincular a una cuenta no resuelven destinatarios (NO_ACCOUNT).
-      accountId: true,
+      // Cuenta CRM del cliente (deudor) — fuente para resolver contactos.
+      // Para DTEs históricos sin vínculo persistido usamos receiverRut.
+      crmAccountId: true,
       totalAmount: true,
       siiStatus: true,
       dteXml: true,
@@ -391,7 +390,10 @@ export async function cedeDte(
   const resolvedRecipients =
     input.deudorEmails !== undefined
       ? null
-      : await resolveCesionRecipients(ctx.tenantId, { accountId: dte.accountId });
+      : await resolveCesionRecipients(ctx.tenantId, {
+          crmAccountId: dte.crmAccountId,
+          receiverRut: dte.receiverRut,
+        });
   const aviso = decideCesionAviso({
     explicitEmails: input.deudorEmails,
     explicitNotificar: input.notificarDeudor,

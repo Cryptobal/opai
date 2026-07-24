@@ -119,6 +119,7 @@ type ContactRow = {
   phone?: string | null;
   roleTitle?: string | null;
   isPrimary?: boolean;
+  recibeCesion?: boolean;
   portalEnabled?: boolean;
   portalPinVisible?: string | null;
 };
@@ -373,14 +374,14 @@ export function CrmAccountDetailClient({
 
   // ── Contact edit state ──
   const [editContact, setEditContact] = useState<ContactRow | null>(null);
-  const [editForm, setEditForm] = useState({ firstName: "", lastName: "", email: "", phone: "", roleTitle: "", isPrimary: false });
+  const [editForm, setEditForm] = useState({ firstName: "", lastName: "", email: "", phone: "", roleTitle: "", isPrimary: false, recibeCesion: false });
   const [savingContact, setSavingContact] = useState(false);
 
   // ── New contact state ──
   const [newContactOpen, setNewContactOpen] = useState(false);
   const [dealCreateOpen, setDealCreateOpen] = useState(false);
   const [quoteCreateOpen, setQuoteCreateOpen] = useState(false);
-  const [newContactForm, setNewContactForm] = useState({ firstName: "", lastName: "", email: "", phone: "", roleTitle: "", isPrimary: false });
+  const [newContactForm, setNewContactForm] = useState({ firstName: "", lastName: "", email: "", phone: "", roleTitle: "", isPrimary: false, recibeCesion: false });
   const [creatingContact, setCreatingContact] = useState(false);
 
   // ── Delete state ──
@@ -754,6 +755,7 @@ export function CrmAccountDetailClient({
       phone: contact.phone || "",
       roleTitle: contact.roleTitle || "",
       isPrimary: contact.isPrimary || false,
+      recibeCesion: contact.recibeCesion || false,
     });
   };
 
@@ -835,7 +837,7 @@ export function CrmAccountDetailClient({
         };
       });
       setNewContactOpen(false);
-      setNewContactForm({ firstName: "", lastName: "", email: "", phone: "", roleTitle: "", isPrimary: false });
+      setNewContactForm({ firstName: "", lastName: "", email: "", phone: "", roleTitle: "", isPrimary: false, recibeCesion: false });
       setPrimaryChangeConfirm(null);
       toast.success("Contacto creado");
     } catch (err: any) {
@@ -2119,6 +2121,22 @@ export function CrmAccountDetailClient({
                 Principal
               </label>
             </div>
+            <div className="flex items-start md:col-span-2">
+              <label className="flex min-h-11 items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={editForm.recibeCesion}
+                  onChange={(e) => setEditForm((p) => ({ ...p, recibeCesion: e.target.checked }))}
+                />
+                <span>
+                  Notificación DTE (cesión)
+                  <span className="block text-xs text-ds-text-3">
+                    Este correo se preselecciona al ceder facturas de la cuenta.
+                  </span>
+                </span>
+              </label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditContact(null)}>Cancelar</Button>
@@ -2161,6 +2179,22 @@ export function CrmAccountDetailClient({
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={newContactForm.isPrimary} onChange={(e) => setNewContactForm((p) => ({ ...p, isPrimary: e.target.checked }))} />
                 Contacto principal
+              </label>
+            </div>
+            <div className="flex items-start md:col-span-2">
+              <label className="flex min-h-11 items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={newContactForm.recibeCesion}
+                  onChange={(e) => setNewContactForm((p) => ({ ...p, recibeCesion: e.target.checked }))}
+                />
+                <span>
+                  Notificación DTE (cesión)
+                  <span className="block text-xs text-ds-text-3">
+                    Este correo se preseleccionará al ceder facturas de la cuenta.
+                  </span>
+                </span>
               </label>
             </div>
           </div>

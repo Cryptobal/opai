@@ -7,7 +7,7 @@
  * mostrar a quién se notificará antes de confirmar.
  *
  * Seguridad: los DTEs se cargan filtrando por tenantId; la resolución de
- * contactos filtra por tenantId + accountId juntos. Nunca se retornan
+ * contactos filtra por tenantId + crmAccountId juntos. Nunca se retornan
  * contactos de otra cuenta ni de otro tenant.
  *
  * Capability: facturacion_issue (mismo scope que cedeDte / bulk-cede).
@@ -45,20 +45,35 @@ export async function POST(request: NextRequest) {
       tenantId: ctx.tenantId,
       direction: "ISSUED",
     },
-    select: { id: true, accountId: true },
+    select: { id: true, crmAccountId: true, receiverRut: true },
   });
 
   const recipients: Record<
     string,
-    { emails: string[]; notificarDeudor: boolean; reason: string; hasAccount: boolean }
+    {
+      emails: string[];
+      notificarDeudor: boolean;
+      reason: string;
+      hasAccount: boolean;
+      contacts: Array<{
+        id: string;
+        name: string;
+        email: string;
+        recibeCesion: boolean;
+      }>;
+    }
   > = {};
   for (const dte of dtes) {
-    const r = await resolveCesionRecipients(ctx.tenantId, { accountId: dte.accountId });
+    const r = await resolveCesionRecipients(ctx.tenantId, {
+      crmAccountId: dte.crmAccountId,
+      receiverRut: dte.receiverRut,
+    });
     recipients[dte.id] = {
       emails: r.emails,
       notificarDeudor: r.notificarDeudor,
       reason: r.reason,
-      hasAccount: dte.accountId != null,
+      hasAccount: r.reason !== "NO_ACCOUNT",
+      contacts: r.contacts,
     };
   }
 
