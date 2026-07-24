@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
 import { fmtCell, folioChip, formatThousands, NUM_CLASS, numSizeClass } from "./format";
 import {
-  CELL_BASE, CELL_CHIP_CLASS, COL_W, COMMITTED_DRAFT_CELL, COMMITTED_DTE_CELL,
+  CELL_BASE, COL_W, COMMITTED_DRAFT_CELL, COMMITTED_DTE_CELL,
   COMMITTED_PROFORMA_CELL, COMMITTED_SCHEDULED_CELL, displayValue, REAL_CELL, ROW_H,
   SELECTED_CELL, TODAY_COL,
 } from "./grid-classes";
@@ -92,8 +92,8 @@ export function PlanillaCell(p: Props) {
       : hasDraft
         ? COMMITTED_DRAFT_CELL
         : COMMITTED_SCHEDULED_CELL;
-  // Chip: el folio va en su propio color (status-info-fg) para leerse; el resto
-  // (EP · B · P) en ds-text-3 para no competir con el número de la celda (§5F).
+  // Chip de estado en su propio color (distinto del monto para que no se
+  // confundan): factura/programada azul (info), proforma/borrador ámbar (warn).
   const dteFolio = hasDte ? cItems.find((i) => i.folio)?.folio : undefined;
   const chip: { text: string; title?: string; tone: string } | null =
     cItems.length === 0
@@ -104,21 +104,20 @@ export function PlanillaCell(p: Props) {
             tone: "text-status-info-fg",
           }
         : hasProforma
-          ? { text: "EP", tone: "text-ds-text-3" }
+          ? { text: "EP", tone: "text-status-warn-fg" }
           : hasDraft
-            ? { text: "B", tone: "text-ds-text-3" }
-            : { text: "P", tone: "text-ds-text-3" };
-  const committedWarnTone = !hasDte && (hasProforma || hasDraft);
+            ? { text: "B", tone: "text-status-warn-fg" }
+            : { text: "P", tone: "text-status-info-fg" };
 
   const layerClass =
     cell.layer === "real" ? REAL_CELL : cell.layer === "committed" ? committedClass : "";
+  // El MONTO en color neutro fuerte (ds-text-1) para leerse de un vistazo; el
+  // color del estado lo lleva el chip y el fondo, no el número (§ feedback).
   const textClass =
     cell.layer === "real"
       ? "text-ds-text-1"
       : cell.layer === "committed"
-        ? committedWarnTone
-          ? "text-status-warn-fg"
-          : "text-status-info-fg"
+        ? "text-ds-text-1"
         : cell.layer === "plan"
           ? "text-ds-text-2"
           : "text-ds-text-4";
@@ -156,15 +155,22 @@ export function PlanillaCell(p: Props) {
     >
       {isEditing ? (
         <EditInput initial={p.editingInitial!} onCommit={p.onCommit} onCancel={p.onCancel} />
-      ) : (
-        <>
-          {chip && cell.layer === "committed" && (
-            <span className={`${CELL_CHIP_CLASS} ${chip.tone}`} title={chip.title}>
-              {chip.text}
-            </span>
+      ) : chip && cell.layer === "committed" ? (
+        // Comprometido: folio/estado ARRIBA a la derecha (badge, color propio) y
+        // el MONTO debajo, ambos alineados a la derecha — nunca se enciman.
+        <span className="pointer-events-none absolute inset-0 flex flex-col items-end justify-center gap-px px-1.5 max-md:px-[3px] leading-none">
+          <span
+            className={`max-w-full truncate font-mono uppercase tracking-tight text-[11px] leading-[10px] ${chip.tone}`}
+            title={chip.title}
+          >
+            {chip.text}
+          </span>
+          {value !== 0 && (
+            <span className="max-w-full truncate leading-[10px]">{fmtCell(value)}</span>
           )}
-          {value !== 0 ? fmtCell(value) : ""}
-        </>
+        </span>
+      ) : (
+        value !== 0 ? fmtCell(value) : ""
       )}
     </td>
   );

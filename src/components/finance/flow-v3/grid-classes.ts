@@ -60,17 +60,6 @@ export const COMMITTED_DRAFT_CELL =
 
 export const SELECTED_CELL = "outline outline-1 -outline-offset-1 outline-primary";
 
-/**
- * Chip de estado del comprometido (folio · EP · B · P). Eyebrow legible a
- * text-[11px]. Vive aquí (archivo .ts) a propósito: el guard `no-tiny-text`
- * solo escanea .tsx, y aquí el patrón eyebrow (font-mono + uppercase +
- * tracking) igual lo permitiría. Se coloca a la izquierda (como el punto real)
- * para no chocar con el número, alineado a la derecha. `pointer-events-none`
- * para no bloquear el click/drag de la celda.
- */
-export const CELL_CHIP_CLASS =
-  "pointer-events-none absolute left-[3px] top-1/2 -translate-y-1/2 max-w-[calc(100%-6px)] truncate font-mono uppercase tracking-tight text-[11px] leading-none";
-
 export const SECTION_LABELS: Record<string, string> = {
   INGRESOS: "Ingresos",
   REMUNERACIONES: "Remuneraciones",
