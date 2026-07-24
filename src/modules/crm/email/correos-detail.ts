@@ -65,7 +65,20 @@ export async function getCorreoDetail(params: {
   });
   if (!thread) return null;
 
-  const cacheFresh = isDetailCacheFresh(thread);
+  // Antes de confiar en el caché C18: si el hilo no tiene mensajes o todos
+  // tienen cuerpo vacío, hay que ir a Gmail sí o sí (hilos fantasma / sync
+  // que guardó el mensaje sin html/text). Si no, la UI muestra "Sin mensajes."
+  // o "(sin contenido)" aunque el correo exista en Gmail.
+  const localBodyProbe = await prisma.crmEmailMessage.findMany({
+    where: { threadId: thread.id, tenantId },
+    select: { htmlBody: true, textBody: true },
+    take: 20,
+  });
+  const needsBodyRepair =
+    localBodyProbe.length === 0 ||
+    localBodyProbe.every((m) => !m.htmlBody?.trim() && !m.textBody?.trim());
+
+  const cacheFresh = isDetailCacheFresh(thread) && !needsBodyRepair;
   let attachments: CorreoAttachmentDTO[] = [];
   // B3: si Gmail falla no devolvemos adjuntos vacíos en silencio — el hilo
   // sale con degraded=true y la UI muestra el aviso de reintento.
@@ -107,16 +120,23 @@ export async function getCorreoDetail(params: {
           accountUserId: emailAccount.userId,
           ownEmail: emailAccount.email,
           messages: gmailMessages,
+          gmail,
         });
         // Persistir el caché DESPUÉS de hidratar: la hidratación también
         // bumpea updatedAt y escribir al final deja detailCachedAt ≥ updatedAt.
-        await prisma.crmEmailThread.update({
-          where: { id: thread.id },
-          data: {
-            attachmentsMeta: attachments as unknown as object,
-            detailCachedAt: new Date(),
-          },
+        // No cachear si tras hidratar sigue vacío: forzará reintento al abrir.
+        const afterCount = await prisma.crmEmailMessage.count({
+          where: { threadId: thread.id, tenantId },
         });
+        if (afterCount > 0) {
+          await prisma.crmEmailThread.update({
+            where: { id: thread.id },
+            data: {
+              attachmentsMeta: attachments as unknown as object,
+              detailCachedAt: new Date(),
+            },
+          });
+        }
       } catch (err) {
         degraded = true;
         // Caché viejo como fallback honesto (mejor que lista vacía).

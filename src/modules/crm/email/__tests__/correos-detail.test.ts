@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   threadUpdate: vi.fn(),
   accountFindUnique: vi.fn(),
   messagesFindMany: vi.fn(),
+  messagesCount: vi.fn(),
   crmAccountFindFirst: vi.fn(),
   crmDealFindFirst: vi.fn(),
   gmailClientForAccount: vi.fn(),
@@ -21,7 +22,10 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     crmEmailThread: { findFirst: mocks.threadFindFirst, update: mocks.threadUpdate },
     crmEmailAccount: { findUnique: mocks.accountFindUnique },
-    crmEmailMessage: { findMany: mocks.messagesFindMany },
+    crmEmailMessage: {
+      findMany: mocks.messagesFindMany,
+      count: mocks.messagesCount,
+    },
     crmAccount: { findFirst: mocks.crmAccountFindFirst },
     crmDeal: { findFirst: mocks.crmDealFindFirst },
   },
@@ -55,6 +59,18 @@ const THREAD = {
   updatedAt: new Date("2026-07-21T12:00:00.000Z"),
 };
 
+const MSG_WITH_BODY = {
+  id: "msg-1",
+  direction: "in",
+  fromEmail: "OPAi app <noreply@gard.cl>",
+  toEmails: ["ops@gard.cl"],
+  ccEmails: [],
+  subject: "Contacto General",
+  htmlBody: "<p>hola</p>",
+  textBody: "hola",
+  sentAt: new Date("2026-07-21T12:00:00.000Z"),
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.threadFindFirst.mockResolvedValue(THREAD);
@@ -65,7 +81,9 @@ beforeEach(() => {
     accessTokenEncrypted: "x",
     refreshTokenEncrypted: "y",
   });
+  // Probe (cuerpos) + listado final: por defecto hilo vacío → fuerza repair.
   mocks.messagesFindMany.mockResolvedValue([]);
+  mocks.messagesCount.mockResolvedValue(0);
   mocks.hydrateMissingThreadMessages.mockResolvedValue(undefined);
 });
 
@@ -100,6 +118,7 @@ describe("getCorreoDetail — path degradado (B3)", () => {
   });
 
   it("con Gmail OK retorna degraded=false", async () => {
+    mocks.messagesCount.mockResolvedValue(1);
     mocks.gmailClientForAccount.mockReturnValue({
       users: {
         threads: {
@@ -116,6 +135,31 @@ describe("getCorreoDetail — path degradado (B3)", () => {
 
     expect(detail!.degraded).toBe(false);
     expect(mocks.captureEmailError).not.toHaveBeenCalled();
+  });
+
+  it("hilo sin mensajes fuerza hydrate aunque el caché C18 esté fresco", async () => {
+    const now = new Date();
+    mocks.threadFindFirst.mockResolvedValue({
+      ...THREAD,
+      attachmentsMeta: [],
+      detailCachedAt: now,
+      updatedAt: now,
+    });
+    mocks.messagesFindMany.mockResolvedValue([]); // probe vacío
+    mocks.messagesCount.mockResolvedValue(1);
+    const get = vi.fn().mockResolvedValue({
+      data: { messages: [{ id: "gm1", payload: { headers: [] } }] },
+    });
+    mocks.gmailClientForAccount.mockReturnValue({ users: { threads: { get } } });
+
+    await getCorreoDetail({
+      tenantId: "tenant-1",
+      emailAccountId: "acc-1",
+      threadId: "thr-1",
+    });
+
+    expect(get).toHaveBeenCalled();
+    expect(mocks.hydrateMissingThreadMessages).toHaveBeenCalled();
   });
 
   it("sin cliente Gmail (casilla sin tokens) no marca degradado", async () => {
@@ -140,6 +184,8 @@ describe("getCorreoDetail — caché de detalle (C18)", () => {
       detailCachedAt: now,
       updatedAt: now,
     });
+    // Probe con cuerpo → no necesita repair → hit de caché.
+    mocks.messagesFindMany.mockResolvedValue([MSG_WITH_BODY]);
     const detail = await getCorreoDetail({
       tenantId: "tenant-1",
       emailAccountId: "acc-1",
@@ -158,6 +204,8 @@ describe("getCorreoDetail — caché de detalle (C18)", () => {
       detailCachedAt: cachedAt,
       updatedAt: new Date(), // el sync escribió después del cacheo
     });
+    mocks.messagesFindMany.mockResolvedValue([MSG_WITH_BODY]);
+    mocks.messagesCount.mockResolvedValue(1);
     const get = vi.fn().mockResolvedValue({ data: { messages: [] } });
     mocks.gmailClientForAccount.mockReturnValue({ users: { threads: { get } } });
     await getCorreoDetail({

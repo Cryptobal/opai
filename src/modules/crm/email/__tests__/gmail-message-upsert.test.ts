@@ -22,10 +22,12 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: mocks.msgFindFirst,
       create: mocks.msgCreate,
       update: mocks.msgUpdate,
+      count: vi.fn().mockResolvedValue(0),
     },
     crmEmailThread: {
       update: mocks.threadUpdate,
       updateMany: mocks.threadUpdateMany,
+      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
   },
 }));
@@ -82,6 +84,8 @@ describe("upsertGmailMessage", () => {
     const data = mocks.msgCreate.mock.calls[0][0].data;
     expect(data.providerMessageId).toBe("msg-1");
     expect(data.tenantId).toBe("t1");
+    // Conserva display name del From (bandeja muestra "Cliente", no solo email).
+    expect(data.fromEmail).toBe("Cliente <cliente@acme.com>");
   });
 
   it("carrera P2002 en create degrada a update (idempotente, 1 sola fila)", async () => {

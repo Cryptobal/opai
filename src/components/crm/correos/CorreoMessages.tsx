@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import type { CorreoMessageDTO } from "@/modules/crm/email/correos.types";
 import { emailPlainFallback } from "@/lib/sanitize-email-html";
 import { EmailHtmlBody } from "./EmailHtmlBody";
+import { parseSender } from "./correo-sender";
 
 function snippet(m: CorreoMessageDTO): string {
   const plain = emailPlainFallback(m.htmlBody, m.textBody);
@@ -24,7 +25,11 @@ type ImagePrefs = {
 function MessageCard({
   m, open, onToggle, alwaysShowImages, onAlwaysShowImages,
 }: { m: CorreoMessageDTO; open: boolean; onToggle: () => void } & ImagePrefs) {
-  const who = m.direction === "out" ? m.toEmails[0] || "—" : m.fromEmail;
+  const sender = parseSender(m.fromEmail);
+  const who =
+    m.direction === "out"
+      ? m.toEmails[0] || "—"
+      : sender.name || sender.email || m.fromEmail || "—";
   const Chevron = open ? ChevronDown : ChevronRight;
   return (
     <div className="overflow-hidden rounded-xl border border-ds-border-subtle bg-ds-surface-1">
@@ -49,7 +54,11 @@ function MessageCard({
         <div className="border-t border-ds-border-subtle px-3 py-2">
           <div className="mb-2 space-y-0.5 text-[12px] text-ds-text-4">
             <p className="truncate">
-              <span className="font-medium text-ds-text-3">De:</span> {m.fromEmail || "—"}
+              <span className="font-medium text-ds-text-3">De:</span>{" "}
+              {sender.name || sender.email || m.fromEmail || "—"}
+              {sender.name && sender.email ? (
+                <span className="text-ds-text-4"> &lt;{sender.email}&gt;</span>
+              ) : null}
             </p>
             {m.toEmails.length > 0 && (
               <p className="truncate">

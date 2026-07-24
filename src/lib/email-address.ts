@@ -35,3 +35,23 @@ export function normalizeEmailList(values?: string[] | null): string[] {
 
   return Array.from(new Set(normalized));
 }
+
+/**
+ * Persiste el From de Gmail como `"Nombre" <email>` (o solo email) para que
+ * la bandeja muestre el display name (p.ej. "OPAi app") y no solo la parte
+ * local del noreply. Si no hay email parseable, usa `fallbackEmail`.
+ */
+export function formatFromHeaderForStorage(
+  rawFrom: string | null | undefined,
+  fallbackEmail: string,
+): string {
+  const email =
+    extractEmailAddresses(rawFrom)[0] || normalizeEmailAddress(fallbackEmail);
+  const raw = (rawFrom ?? "").trim();
+  if (!raw) return email;
+
+  const match = raw.match(/^"?([^"<]*)"?\s*<([^>]+)>\s*$/);
+  const name = (match?.[1] ?? "").replace(/"/g, "").trim();
+  if (name) return `${name} <${email}>`;
+  return email;
+}

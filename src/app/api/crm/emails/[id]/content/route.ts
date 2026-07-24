@@ -10,7 +10,7 @@ import { requireCrmView } from "@/lib/api-auth-crm";
 import { decryptText, getGmailTokenSecret } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
 import {
-  extractGmailMessageBodies,
+  extractGmailMessageBodiesAsync,
   type GmailMessagePart,
 } from "@/lib/gmail-message-content";
 import { requireTenantModule } from '@/lib/require-module';
@@ -79,8 +79,20 @@ export async function GET(_request: NextRequest, { params }: Params) {
       format: "full",
     });
 
-    const { htmlBody, textBody } = extractGmailMessageBodies(
-      full.data.payload as GmailMessagePart | undefined
+    const { htmlBody, textBody } = await extractGmailMessageBodiesAsync(
+      full.data.payload as GmailMessagePart | undefined,
+      async (attachmentId) => {
+        try {
+          const att = await gmail.users.messages.attachments.get({
+            userId: "me",
+            messageId: message.providerMessageId!,
+            id: attachmentId,
+          });
+          return att.data.data ?? null;
+        } catch {
+          return null;
+        }
+      },
     );
     const snippet = full.data.snippet?.trim() || null;
 

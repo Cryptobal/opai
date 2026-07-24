@@ -1,19 +1,49 @@
 import type { gmail_v1 } from "googleapis";
 import { prisma } from "@/lib/prisma";
-import { extractGmailMessageBodies, type GmailMessagePart } from "@/lib/gmail-message-content";
-import { extractEmailAddresses, normalizeEmailAddress } from "@/lib/email-address";
+import {
+  extractGmailMessageBodiesAsync,
+  type GmailMessagePart,
+} from "@/lib/gmail-message-content";
+import {
+  extractEmailAddresses,
+  formatFromHeaderForStorage,
+  normalizeEmailAddress,
+} from "@/lib/email-address";
 
 function header(msg: gmail_v1.Schema$Message, name: string): string {
   const headers = msg.payload?.headers ?? [];
   return headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value || "";
 }
 
+function attachmentFetcher(
+  gmail: gmail_v1.Gmail | null | undefined,
+  messageId: string,
+): ((attachmentId: string) => Promise<string | null>) | undefined {
+  if (!gmail) return undefined;
+  return async (attachmentId: string) => {
+    try {
+      const res = await gmail.users.messages.attachments.get({
+        userId: "me",
+        messageId,
+        id: attachmentId,
+      });
+      return res.data.data ?? null;
+    } catch (err) {
+      console.warn("[correos] attachment body fetch failed:", messageId, attachmentId, err);
+      return null;
+    }
+  };
+}
+
 /**
- * Hidrata los mensajes del hilo que existen en Gmail pero no localmente, a
- * partir del `threads.get format:full` que el detalle YA baja para listar
- * adjuntos (cero requests extra). Los hilos importados por el sweep solo
- * persisten su último mensaje: sin esto, la cadena completa (incluidos los
- * enviados) no se veía al abrir el correo — a diferencia de Gmail.
+ * Hidrata los mensajes del hilo desde un `threads.get format:full`:
+ *  - crea los que existen en Gmail y no localmente;
+ *  - reasigna al hilo actual los que viven en otro threadId (huérfanos);
+ *  - backfillea cuerpos vacíos (html/text) — el sync a veces guardó el
+ *    mensaje sin body cuando Gmail solo dejó `attachmentId`.
+ *
+ * Sin esto, la bandeja muestra hilos con "?" / sin snippet y el detalle
+ * "Sin mensajes." aunque Gmail sí tenga el correo.
  */
 export async function hydrateMissingThreadMessages(params: {
   tenantId: string;
@@ -23,6 +53,8 @@ export async function hydrateMissingThreadMessages(params: {
   accountUserId: string;
   ownEmail: string;
   messages: gmail_v1.Schema$Message[];
+  /** Cliente Gmail para resolver cuerpos que solo vienen como attachmentId. */
+  gmail?: gmail_v1.Gmail | null;
 }): Promise<number> {
   const { tenantId, threadId } = params;
   const ids = params.messages.map((m) => m.id).filter((v): v is string => Boolean(v));
@@ -30,47 +62,87 @@ export async function hydrateMissingThreadMessages(params: {
 
   const existing = await prisma.crmEmailMessage.findMany({
     where: { tenantId, providerMessageId: { in: ids } },
-    select: { providerMessageId: true },
+    select: {
+      id: true,
+      providerMessageId: true,
+      threadId: true,
+      htmlBody: true,
+      textBody: true,
+      fromEmail: true,
+    },
   });
-  const have = new Set(existing.map((e) => e.providerMessageId));
+  const byProvider = new Map(
+    existing
+      .filter((e): e is typeof e & { providerMessageId: string } => Boolean(e.providerMessageId))
+      .map((e) => [e.providerMessageId, e]),
+  );
   const own = normalizeEmailAddress(params.ownEmail);
 
-  let created = 0;
+  let touched = 0;
   for (const m of params.messages) {
-    if (!m.id || have.has(m.id)) continue;
+    if (!m.id) continue;
     const labelIds = m.labelIds ?? [];
-    const fromEmail = extractEmailAddresses(header(m, "From"))[0] || "";
+    const rawFrom = header(m, "From");
+    const fromEmail = formatFromHeaderForStorage(rawFrom, params.ownEmail);
+    const fromAddr = extractEmailAddresses(rawFrom)[0] || "";
     const direction =
-      labelIds.includes("SENT") || (fromEmail && normalizeEmailAddress(fromEmail) === own)
+      labelIds.includes("SENT") || (fromAddr && normalizeEmailAddress(fromAddr) === own)
         ? "out"
         : "in";
     const sentAt = m.internalDate ? new Date(Number(m.internalDate)) : new Date();
-    const { htmlBody, textBody } = extractGmailMessageBodies(
+    const { htmlBody, textBody } = await extractGmailMessageBodiesAsync(
       m.payload as GmailMessagePart | undefined,
+      attachmentFetcher(params.gmail, m.id),
     );
-    await prisma.crmEmailMessage.create({
+    const resolvedText = textBody || m.snippet?.trim() || null;
+    const common = {
+      direction,
+      fromEmail,
+      toEmails: extractEmailAddresses(header(m, "To")),
+      ccEmails: extractEmailAddresses(header(m, "Cc")),
+      bccEmails: [] as string[],
+      subject: header(m, "Subject") || "Sin asunto",
+      htmlBody,
+      textBody: resolvedText,
+      sentAt,
+      receivedAt: direction === "in" ? sentAt : null,
+      status: direction === "out" ? "sent" : "received",
+      source: "gmail",
+      emailAccountId: params.emailAccountId,
+      labelIds,
+    };
+
+    const row = byProvider.get(m.id);
+    if (!row) {
+      await prisma.crmEmailMessage.create({
+        data: {
+          tenantId,
+          threadId,
+          providerMessageId: m.id,
+          createdBy: params.accountUserId,
+          ...common,
+        },
+      });
+      touched += 1;
+      continue;
+    }
+
+    const emptyBody = !row.htmlBody && !row.textBody;
+    const wrongThread = row.threadId !== threadId;
+    const weakFrom = !row.fromEmail?.trim() || !row.fromEmail.includes("@");
+    if (!emptyBody && !wrongThread && !weakFrom) continue;
+
+    await prisma.crmEmailMessage.update({
+      where: { id: row.id },
       data: {
-        tenantId,
         threadId,
-        providerMessageId: m.id,
-        createdBy: params.accountUserId,
-        direction,
-        fromEmail: fromEmail || params.ownEmail,
-        toEmails: extractEmailAddresses(header(m, "To")),
-        ccEmails: extractEmailAddresses(header(m, "Cc")),
-        bccEmails: [],
-        subject: header(m, "Subject") || "Sin asunto",
-        htmlBody,
-        textBody: textBody || m.snippet?.trim() || null,
-        sentAt,
-        receivedAt: direction === "in" ? sentAt : null,
-        status: direction === "out" ? "sent" : "received",
-        source: "gmail",
-        emailAccountId: params.emailAccountId,
-        labelIds,
+        ...common,
+        // No pisar un cuerpo ya bueno con null si el fetch falló.
+        htmlBody: htmlBody || row.htmlBody,
+        textBody: resolvedText || row.textBody,
       },
     });
-    created += 1;
+    touched += 1;
   }
-  return created;
+  return touched;
 }

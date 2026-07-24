@@ -15,6 +15,7 @@ import { CorreoThreadActions } from "./CorreoThreadActions";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
 import { snoozeThread } from "./correo-thread-action-client";
 import { useMarkCorreoRead } from "./useMarkCorreoRead";
+import { parseSender } from "./correo-sender";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 
 type Props = {
@@ -129,10 +130,12 @@ export function CorreoDrawer({
   }
 
   if (!threadId) return null;
-  const from =
+  const rawFrom =
     detail?.messages.find((m) => m.direction !== "out")?.fromEmail ??
     detail?.messages[0]?.fromEmail ??
     "";
+  const sender = parseSender(rawFrom);
+  const from = sender.name || sender.email || rawFrom;
   const scrollToReply = () =>
     document.getElementById("correo-suggested-reply")?.scrollIntoView({ behavior: "smooth", block: "start" });
 

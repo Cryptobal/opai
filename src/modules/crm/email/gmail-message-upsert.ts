@@ -1,9 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { extractEmailAddresses, normalizeEmailAddress } from "@/lib/email-address";
 import {
-  extractGmailMessageBodies,
+  extractEmailAddresses,
+  formatFromHeaderForStorage,
+  normalizeEmailAddress,
+} from "@/lib/email-address";
+import {
+  extractGmailMessageBodiesAsync,
   extractGmailAttachments,
+  payloadHasMessageBody,
   type GmailMessagePart,
 } from "@/lib/gmail-message-content";
 import { upsertLinkedThread } from "./thread-linking";
@@ -54,7 +59,16 @@ export async function upsertGmailMessage(params: {
     }));
   const shouldBackfill = Boolean(existing) && !existing?.htmlBody && !existing?.textBody;
 
-  const full = params.prefetched
+  // Prefetch del batch a veces llega sin body.data (solo attachmentId o
+  // truncado). Si necesitamos cuerpo y el prefetch no trae nada usable,
+  // forzamos un get full individual.
+  const prefetchUsable =
+    Boolean(params.prefetched) &&
+    (!shouldBackfill ||
+      payloadHasMessageBody(params.prefetched?.payload as GmailMessagePart | undefined) ||
+      Boolean(params.prefetched?.snippet?.trim()));
+
+  const full = prefetchUsable && params.prefetched
     ? { data: params.prefetched }
     : await gmail.users.messages.get({
         userId: "me",
@@ -99,14 +113,28 @@ export async function upsertGmailMessage(params: {
     }
     return { wrote: false, providerThreadId };
   }
-  const fromEmail =
-    extractEmailAddresses(getHeader(headers, "From"))[0] ||
-    normalizeEmailAddress(emailAccount.email);
+  const rawFrom = getHeader(headers, "From");
+  const fromEmail = formatFromHeaderForStorage(rawFrom, emailAccount.email);
   const toEmails = extractEmailAddresses(getHeader(headers, "To"));
   const ccEmails = extractEmailAddresses(getHeader(headers, "Cc"));
   const bccEmails = extractEmailAddresses(getHeader(headers, "Bcc"));
   const sentOrReceivedAt = parseDateHeader(getHeader(headers, "Date"));
-  const { htmlBody, textBody } = extractGmailMessageBodies(payload as GmailMessagePart | undefined);
+  const { htmlBody, textBody } = await extractGmailMessageBodiesAsync(
+    payload as GmailMessagePart | undefined,
+    async (attachmentId) => {
+      try {
+        const res = await gmail.users.messages.attachments.get({
+          userId: "me",
+          messageId,
+          id: attachmentId,
+        });
+        return res.data.data ?? null;
+      } catch (err) {
+        console.warn("[gmail] body attachment fetch failed:", messageId, attachmentId, err);
+        return null;
+      }
+    },
+  );
   const snippet = full.data.snippet?.trim() || null;
 
   const common = {
@@ -127,14 +155,35 @@ export async function upsertGmailMessage(params: {
   };
 
   if (existing) {
-    await prisma.crmEmailMessage.update({ where: { id: existing.id }, data: common });
+    // Backfill de cuerpo: también reasigna al hilo Gmail correcto si el
+    // mensaje quedó colgado de un hilo huérfano (evita "Sin mensajes.").
+    let threadId = existing.threadId;
+    if (providerThreadId) {
+      const linked = await upsertLinkedThread({
+        tenantId,
+        subject,
+        lastMessageAt: sentOrReceivedAt,
+        counterpartyEmails: [extractEmailAddresses(rawFrom)[0] || fromEmail, ...toEmails, ...ccEmails]
+          .filter((e) => e && normalizeEmailAddress(e) !== normalizeEmailAddress(emailAccount.email)),
+        emailAccountId: emailAccount.id,
+        providerThreadId,
+        isInbound: direction === "in",
+      });
+      threadId = linked.id;
+    }
+    await prisma.crmEmailMessage.update({
+      where: { id: existing.id },
+      data: { ...common, threadId },
+    });
     return { wrote: true, providerThreadId };
   }
 
   const ownEmail = normalizeEmailAddress(emailAccount.email);
-  const counterpartyEmails = [fromEmail, ...toEmails, ...ccEmails].filter(
-    (e) => e && normalizeEmailAddress(e) !== ownEmail,
-  );
+  const counterpartyEmails = [
+    extractEmailAddresses(rawFrom)[0] || "",
+    ...toEmails,
+    ...ccEmails,
+  ].filter((e) => e && normalizeEmailAddress(e) !== ownEmail);
   const thread = await upsertLinkedThread({
     tenantId,
     subject,
@@ -171,6 +220,16 @@ export async function upsertGmailMessage(params: {
         data: { threadId: thread.id, ...common },
       });
       return { wrote: false, providerThreadId };
+    }
+    // Evitar hilos fantasma (thread sin mensajes) que en la bandeja se ven
+    // como "?" / sin snippet / "Sin mensajes." al abrir.
+    const leftover = await prisma.crmEmailMessage.count({
+      where: { threadId: thread.id, tenantId },
+    });
+    if (leftover === 0) {
+      await prisma.crmEmailThread.deleteMany({
+        where: { id: thread.id, tenantId },
+      }).catch(() => undefined);
     }
     throw error;
   }
