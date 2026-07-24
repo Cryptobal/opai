@@ -8,6 +8,7 @@ import {
   type CorreoAction,
 } from "@/modules/crm/email/gmail-thread-actions";
 import { broadcastGmailMailboxChanged } from "@/modules/crm/email/gmail-realtime";
+import { appendGmailDebugTrace } from "@/modules/crm/email/gmail-debug-trace";
 import { auditEmailAction } from "@/lib/audit-email";
 
 const ACTIONS = new Set<CorreoAction>([
@@ -67,6 +68,21 @@ export async function POST(
     );
   }
 
+  // #region agent log
+  appendGmailDebugTrace({
+    hypothesisId: "E",
+    location: "src/app/api/crm/correos/[threadId]/action/route.ts:request",
+    message: "Scoped Gmail thread action starting",
+    data: {
+      action: body.action,
+      accountResolved: Boolean(account),
+      tenantScoped: Boolean(session.user.tenantId),
+      userScoped: Boolean(session.user.id),
+      hasModifyScope: hasGmailModify(account?.grantedScopes),
+    },
+    timestamp: Date.now(),
+  });
+  // #endregion
   const result = await runCorreoThreadAction({
     tenantId: session.user.tenantId,
     userId: session.user.id,
@@ -74,6 +90,19 @@ export async function POST(
     action: body.action as CorreoAction,
     snoozeUntil,
   });
+  // #region agent log
+  appendGmailDebugTrace({
+    hypothesisId: "E",
+    location: "src/app/api/crm/correos/[threadId]/action/route.ts:result",
+    message: "Gmail thread action finished",
+    data: {
+      action: body.action,
+      ok: result.ok,
+      status: result.ok ? 200 : result.status,
+    },
+    timestamp: Date.now(),
+  });
+  // #endregion
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }

@@ -8,6 +8,7 @@ import {
   processGmailSyncJob,
 } from "@/modules/crm/email/gmail-sync-queue";
 import { captureEmailError } from "@/modules/crm/email/email-observability";
+import { appendGmailDebugTrace } from "@/modules/crm/email/gmail-debug-trace";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,6 +82,20 @@ export async function POST(req: NextRequest) {
 
   try {
     const payload = parseGmailPushBody(await req.json().catch(() => null));
+    // #region agent log
+    appendGmailDebugTrace({
+      hypothesisId: "A",
+      location: "src/app/api/webhook/gmail/route.ts:payload",
+      message: "Gmail push payload decoded",
+      data: {
+        parsed: Boolean(payload),
+        hasEmailAddress: Boolean(payload?.emailAddress),
+        historyIdType: typeof payload?.historyId,
+        oidcOk: oidc.ok,
+      },
+      timestamp: Date.now(),
+    });
+    // #endregion
     if (!payload?.emailAddress) return new NextResponse(null, { status: 204 });
 
     const accounts = await prisma.crmEmailAccount.findMany({

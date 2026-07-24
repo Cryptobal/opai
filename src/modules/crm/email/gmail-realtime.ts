@@ -1,4 +1,5 @@
 import { getPusherServer } from "@/lib/chat";
+import { appendGmailDebugTrace } from "./gmail-debug-trace";
 
 export const GMAIL_MAILBOX_EVENT = "mailbox-changed";
 
@@ -26,6 +27,20 @@ export async function broadcastGmailMailboxChanged(params: {
         at: new Date().toISOString(),
       },
     );
+    // #region agent log
+    appendGmailDebugTrace({
+      hypothesisId: "C",
+      location: "src/modules/crm/email/gmail-realtime.ts:trigger",
+      message: "Gmail mailbox realtime broadcast accepted",
+      data: {
+        reason: params.reason,
+        syncedCount: params.syncedCount ?? 0,
+        tenantScoped: Boolean(params.tenantId),
+        userScoped: Boolean(params.userId),
+      },
+      timestamp: Date.now(),
+    });
+    // #endregion
   } catch (error) {
     // Realtime es best-effort: focus/polling y el cron siguen recuperando.
     console.warn("[gmail-realtime] broadcast omitido", error);
