@@ -85,14 +85,17 @@ export function TareaDetailSheet({
   return (
     <Dialog.Root open onOpenChange={(o) => { if (!o) void requestClose(); }}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[60] bg-black/50 motion-safe:animate-in motion-safe:fade-in" />
+        <Dialog.Overlay className="fixed inset-0 z-[60] bg-black/55 motion-safe:animate-in motion-safe:fade-in" />
         <Dialog.Content
           aria-label={`Detalle de tarea: ${task.title}`}
           style={isMobile && kb > 0 ? { bottom: kb, maxHeight: `calc(92vh - ${kb}px)` } : undefined}
           className={cn(
-            "opai-glass-strong fixed z-[70] flex flex-col outline-none motion-safe:animate-in",
+            // Desktop: card opaco. Mobile: liquid glass con underlay (ios-surface-dialog)
+            // — sin opai-glass-strong solo, que dejaba leer el fondo a través del modal.
+            "fixed z-[70] flex flex-col border border-ds-border-default bg-card outline-none motion-safe:animate-in",
+            "opai-ios-surface-dialog",
             isMobile
-              ? "inset-x-0 bottom-0 max-h-[92vh] rounded-b-none motion-safe:slide-in-from-bottom"
+              ? "inset-x-0 bottom-0 max-h-[92vh] rounded-t-3xl rounded-b-none motion-safe:slide-in-from-bottom"
               : "left-1/2 top-1/2 w-[calc(100%-2rem)] max-w-[620px] max-h-[85vh] -translate-x-1/2 -translate-y-1/2 rounded-3xl motion-safe:fade-in",
           )}
         >

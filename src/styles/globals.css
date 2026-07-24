@@ -865,9 +865,11 @@ html {
     -webkit-backdrop-filter: var(--glass-blur-2);
   }
 
-  /* strong — barras, sheets, modales, header flotante, isla nav */
+  /* strong — barras, sheets, modales, header flotante, isla nav.
+     Card underlay (~0.72) evita que el texto detrás se lea a través del
+     vidrio; el blur sigue mostrando el contenido que pasa por debajo. */
   .opai-glass-strong {
-    background: var(--glass-fill-strong);
+    background: var(--glass-fill-strong), hsl(var(--card) / 0.72);
     backdrop-filter: var(--glass-blur-3);
     -webkit-backdrop-filter: var(--glass-blur-3);
     border-radius: 26px;
@@ -909,7 +911,7 @@ html {
     box-shadow: var(--glass-specular), var(--glass-shadow);
   }
   .opai-glass-strong-m {
-    background: var(--glass-fill-strong);
+    background: var(--glass-fill-strong), hsl(var(--card) / 0.72);
     backdrop-filter: var(--glass-blur-3);
     -webkit-backdrop-filter: var(--glass-blur-3);
     border-color: var(--glass-border);
