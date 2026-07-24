@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, Search, Sparkles } from "lucide-react";
+import { Menu, Search, Sparkles, X } from "lucide-react";
 
 type Props = {
   /** Abre el drawer lateral del módulo (carpetas + filtros + acciones). */
@@ -70,6 +70,16 @@ export function CorreosMobileTopBar({
             autoComplete="off"
             enterKeyHint="search"
           />
+          {query.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onQuery("")}
+              aria-label="Limpiar búsqueda"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ds-text-3 ds-tap"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onSemantic(!semantic)}

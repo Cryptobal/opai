@@ -278,6 +278,21 @@ export function CorreosClient() {
     void fetchPage(null, true, folder);
   }, [fetchPage, folder]);
 
+  // Al entrar a la bandeja (o volver tras >60s), disparamos un check delta en
+  // background — mismo mecanismo liviano que usa el push (solo history/labels,
+  // sin sweep ni self-heal) — para que "abrir Correos" siempre busque correo
+  // nuevo, sin esperar al próximo cron. No bloquea el primer render (la lista
+  // ya se pobló desde el espejo local) ni muestra toasts; si trae algo nuevo,
+  // el mismo broadcast de siempre (`mailbox-changed`) actualiza la lista sola.
+  useEffect(() => {
+    if (!statusReady || !connected) return;
+    const STORAGE_KEY = "correos:lastOpenSyncAt";
+    const last = Number(window.sessionStorage.getItem(STORAGE_KEY) ?? 0);
+    if (Date.now() - last < 60_000) return;
+    window.sessionStorage.setItem(STORAGE_KEY, String(Date.now()));
+    void fetch("/api/crm/gmail/sync?background=1", { method: "POST" }).catch(() => {});
+  }, [statusReady, connected]);
+
   const lastRefreshAtRef = useRef(0);
   const refreshMailbox = useCallback(() => {
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);

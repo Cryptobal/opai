@@ -45,23 +45,27 @@ async function handle(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Gmail no conectado" }, { status: 400 });
   }
 
-  // Sync manual: siempre forceReconcile + self-heal amplio para reparar
-  // Recibidos vacío (espejo INBOX de Gmail). `?force=0` desactiva el sweep.
+  // Sync manual (botón "Sincronizar ahora"): siempre forceReconcile +
+  // self-heal amplio para reparar Recibidos vacío. `?force=0` desactiva el
+  // sweep. `?background=1` es el check silencioso al abrir la bandeja: solo
+  // delta (history/labels, igual que el push), sin sweep ni self-heal, para
+  // no pagar una corrida de mantenimiento completa en cada apertura.
   const forceParam = request.nextUrl.searchParams.get("force");
+  const background = request.nextUrl.searchParams.get("background") === "1";
   await enqueueGmailSyncJob({
     tenantId: session.user.tenantId,
     emailAccountId: emailAccount.id,
-    reason: "manual",
-    maintenance: true,
+    reason: background ? "open" : "manual",
+    maintenance: !background,
   });
   const processed = await processGmailSyncJob({
     emailAccountId: emailAccount.id,
-    profile: "maintenance",
-    maxResults,
-    deadlineMs: Date.now() + 50_000,
+    profile: background ? "delta" : "maintenance",
+    maxResults: background ? Math.min(maxResults, 50) : maxResults,
+    deadlineMs: Date.now() + (background ? 20_000 : 50_000),
     createdByUserId: session.user.id,
-    forceReconcile: forceParam !== "0",
-    selfHealBudgetMs: 15_000,
+    forceReconcile: background ? false : forceParam !== "0",
+    selfHealBudgetMs: background ? undefined : 15_000,
   });
   const result =
     processed.status === "processed"

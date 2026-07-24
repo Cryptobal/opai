@@ -118,17 +118,32 @@ function AppShellInner({
   // Sidebar default: si el usuario no eligió antes, abrimos en viewports ≥ xl
   // (1280px) para que en pantallas grandes la nav N2 sea visible sin hover.
   // En lg (1024–1279) queda colapsado para no comer ancho.
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-    if (typeof window === 'undefined') return false;
+  //
+  // El estado inicial SIEMPRE arranca en `false` (igual en servidor y en el
+  // primer render del cliente): leer localStorage/matchMedia directo en el
+  // initializer de useState hacía que SSR devolviera `false` (sin `window`)
+  // pero la hidratación del cliente devolviera otra cosa según lo guardado,
+  // lo que React detecta como "Hydration failed" y fuerza un re-render de
+  // TODO el árbol (AppShell completo) en cada carga — el jank que rompía la
+  // fluidez en mobile. La preferencia real se aplica después del mount, en
+  // el efecto de abajo: un solo re-render normal en vez de descartar el HTML
+  // del servidor.
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
     try {
       const stored = localStorage.getItem('opai-sidebar-open');
-      if (stored !== null) return stored === 'true';
+      if (stored !== null) {
+        setIsSidebarOpen(stored === 'true');
+        return;
+      }
       // Sin preferencia guardada → expandido en xl+, colapsado en lg.
-      return typeof window.matchMedia === 'function'
-        ? window.matchMedia('(min-width: 1280px)').matches
-        : false;
-    } catch { return false; }
-  });
+      if (typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1280px)').matches) {
+        setIsSidebarOpen(true);
+      }
+    } catch { /* localStorage inaccesible (Safari privado, etc.): queda colapsado */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     try { localStorage.setItem('opai-sidebar-open', String(isSidebarOpen)); } catch {}
