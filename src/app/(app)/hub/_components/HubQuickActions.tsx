@@ -105,7 +105,11 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
       <div className="hidden lg:flex flex-wrap gap-2">
         {hasAgenda && (
           <Link href="/opai/agenda">
-            <Button size="sm" className="gap-2 rounded-full hover:shadow-sm">
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2 rounded-full hover:shadow-sm"
+            >
               <CalendarDays className="h-4 w-4" />
               Abrir calendario
             </Button>
