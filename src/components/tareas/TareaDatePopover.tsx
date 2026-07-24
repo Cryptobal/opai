@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { Calendar } from "@/components/ui/calendar";
-import { TaskTimePicker } from "@/components/agenda/TaskTimePicker";
+import { TareaTimeGrid } from "./TareaTimeGrid";
 import { dateAtChileSlot, formatAgendaTime } from "@/components/agenda/agenda-calendar-utils";
 import { todayInChile, ymdInChile } from "@/lib/dates-cl";
 
@@ -31,9 +31,11 @@ function ymdToLocalDate(ymd: string): Date {
 
 /**
  * Trigger + popover glass para elegir fecha y hora sin componentes nativos.
- * Contiene el Calendar del DS y TaskTimePicker (pasos de 15'). Portaleado a
- * <body> con posición fixed (no lo recorta ningún overflow); abre hacia arriba
- * si no hay espacio y descuenta la isla inferior (--bottom-nav-height).
+ * Contiene el Calendar del DS y una grilla horaria en flujo (TareaTimeGrid, 15').
+ * Portaleado a <body> con posición fixed (no lo recorta ningún overflow); abre
+ * hacia arriba si no hay espacio y descuenta la isla inferior (--bottom-nav-height).
+ * La hora va EN FLUJO (no un menú portaleado a z-[60]) para que funcione dentro
+ * del diálogo de detalle (z-[70]) sin quedar detrás ni cerrar el popover.
  */
 export function TareaDatePopover({
   value,
@@ -109,7 +111,7 @@ export function TareaDatePopover({
           <div
             ref={menuRef}
             style={{ position: "fixed", top: coords?.top ?? -9999, left: coords?.left ?? -9999, width: POPOVER_W }}
-            className={cn("opai-glass-strong z-[70] p-2", !coords && "pointer-events-none opacity-0")}
+            className={cn("opai-glass-strong z-[70] max-h-[80vh] overflow-y-auto p-2", !coords && "pointer-events-none opacity-0")}
             role="dialog"
             aria-label="Elegir fecha y hora"
           >
@@ -118,12 +120,11 @@ export function TareaDatePopover({
               selected={dueYmd ? ymdToLocalDate(dueYmd) : undefined}
               onSelect={(d) => d && onChange(dueFromYmd(pickedYmd(d), time ? minuteOf(time) : DEFAULT_MINUTE, !time))}
             />
-            <div className="flex items-center justify-between gap-2 border-t border-ds-border-subtle px-2 pt-2">
-              <span className="text-[12px] text-ds-text-4">Hora</span>
-              <TaskTimePicker
+            <div className="mt-1 border-t border-ds-border-subtle px-1 pt-2">
+              <TareaTimeGrid
                 value={time}
-                onChange={(t) => onChange(dueFromYmd(dueYmd ?? todayInChile(new Date()), t ? minuteOf(t) : DEFAULT_MINUTE, !t))}
-                menuAlign="right"
+                onPick={(t) => onChange(dueFromYmd(dueYmd ?? todayInChile(new Date()), minuteOf(t), false))}
+                onClear={() => onChange(dueFromYmd(dueYmd ?? todayInChile(new Date()), DEFAULT_MINUTE, true))}
               />
             </div>
           </div>,

@@ -29,9 +29,12 @@ export function useTareas() {
   const [users, setUsers] = useState<AgendaTeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<TareaFilters>({ status: "open", assigneeId: "", q: "" });
-  // Snapshot vivo para revertir el optimismo sin volver a pedir al servidor.
+  // Refs vivos: revertir el optimismo (tasks) y decidir recarga por filtro
+  // activo (filters) sin recrear callbacks en cada render/tecleo.
   const tasksRef = useRef<TareaItem[]>(tasks);
+  const filtersRef = useRef<TareaFilters>(filters);
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+  useEffect(() => { filtersRef.current = filters; }, [filters]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,7 +99,15 @@ export function useTareas() {
       toast.error("No se pudo guardar la tarea");
       return false;
     }
-    if (input.dueAt !== undefined || input.status !== undefined) void load();
+    // Recargar si el cambio puede sacar la tarea de la vista: agrupamiento
+    // (dueAt/status) o un filtro activo servidor-side (q / responsable).
+    const f = filtersRef.current;
+    const affectsView =
+      input.dueAt !== undefined ||
+      input.status !== undefined ||
+      (input.title !== undefined && f.q.trim() !== "") ||
+      (input.assigneeIds !== undefined && f.assigneeId !== "");
+    if (affectsView) void load();
     return true;
   }, [load]);
 
@@ -120,9 +131,8 @@ export function useTareas() {
     if (filters.status !== "all") void load();
   }, [load, filters.status]);
 
-  // El DELETE es permanente (sin soft-delete/restauración), así que confirmamos
-  // antes con el diálogo del DS en vez de un toast "Deshacer" que no podría
-  // recrear la tarea con su id/historial.
+  // El DELETE es permanente (sin restauración): confirmamos antes con el diálogo
+  // del DS en vez de un "Deshacer" que no podría recrear la tarea con su id.
   const remove = useCallback(async (id: string): Promise<boolean> => {
     const ok = await confirmDialog({
       title: "Eliminar tarea",
