@@ -109,7 +109,7 @@ export function CorreosDesktopToolbar({
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ds-text-4" />
         <input
           id="correos-search-input"
-          className="h-9 w-full rounded-full bg-ds-surface-2 pl-9 pr-16 text-[13px] text-ds-text-1 outline-none placeholder:text-ds-text-4"
+          className="h-9 w-full rounded-full bg-ds-surface-2 pl-9 pr-24 text-[13px] text-ds-text-1 outline-none placeholder:text-ds-text-4"
           placeholder={
             semantic
               ? "Buscar por significado (ej: el cliente que pidió más guardias)"
@@ -119,6 +119,17 @@ export function CorreosDesktopToolbar({
           onChange={(e) => onQuery(e.target.value)}
           autoComplete="off"
         />
+        {query.length > 0 && (
+          <button
+            type="button"
+            onClick={() => onQuery("")}
+            aria-label="Limpiar búsqueda"
+            title="Limpiar búsqueda"
+            className="absolute right-11 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
         <button
           type="button"
           onClick={() => onSemantic(!semantic)}
