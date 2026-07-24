@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * useScrollDirection — hide-on-scroll para la isla nav.
+ * useScrollDirection — condensación / hide-on-scroll para islas nav.
  *
- * `hidden` pasa a true cuando el usuario baja más de `threshold` px y a false
- * al subir. Usa el scroll del documento (window). Respeta
- * `prefers-reduced-motion` (nunca oculta). SSR-safe.
+ * Retorna `true` cuando el usuario baja más de `threshold` px (contenido
+ * sube) y `false` al subir. Usado por MobileIsland y BottomNav para achicar
+ * la barra (estilo Instagram), no para deslizarla fuera de pantalla.
+ * Usa el scroll del documento (window). Respeta `prefers-reduced-motion`
+ * (nunca condensa). SSR-safe.
  */
 export function useScrollDirection(threshold = 60): boolean {
   const [hidden, setHidden] = useState(false);
