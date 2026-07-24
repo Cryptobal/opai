@@ -12,16 +12,17 @@ export type { DueValue };
 /** Clase base de un chip de vencimiento (glass soft, sin blur). */
 function chipClass(active: boolean): string {
   return cn(
-    "opai-glass-soft inline-flex min-h-[40px] items-center gap-1.5 rounded-2xl px-3 text-[13px] transition-colors disabled:opacity-50",
+    "opai-glass-soft inline-flex shrink-0 min-h-[40px] items-center gap-1 rounded-2xl px-2.5 text-[13px] whitespace-nowrap transition-colors disabled:opacity-50",
     active ? "border-primary/50 bg-primary/15 text-primary" : "text-ds-text-2 hover:text-ds-text-1",
   );
 }
 
 /**
  * Chips de vencimiento sin componentes nativos del SO: Hoy · Mañana ·
- * Próx. semana · Fecha y hora · Sin fecha. "Fecha y hora" abre un popover glass
- * (Calendar del DS + TaskTimePicker). Conversiones vía dateAtChileSlot
- * (America/Santiago); sin hora → allDay.
+ * Semana · Fecha y hora · Sin fecha. En una sola fila (scroll horizontal si
+ * no caben). "Fecha y hora" abre un popover glass (Calendar del DS +
+ * TaskTimePicker). Conversiones vía dateAtChileSlot (America/Santiago);
+ * sin hora → allDay.
  */
 export function TareaDueChips({
   value,
@@ -53,7 +54,8 @@ export function TareaDueChips({
   const quick: Array<{ key: string; label: string; ymd: string; on: boolean }> = [
     { key: "hoy", label: "Hoy", ymd: todayYmd, on: active === "hoy" },
     { key: "manana", label: "Mañana", ymd: tomorrowYmd, on: active === "manana" },
-    { key: "semana", label: "Próx. semana", ymd: weekYmd, on: false },
+    // Label corto: en móvil los 5 chips deben caber / scrollear en 1 línea.
+    { key: "semana", label: "Semana", ymd: weekYmd, on: false },
   ];
 
   const customLabel = (() => {
@@ -64,7 +66,11 @@ export function TareaDueChips({
   })();
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div
+      role="group"
+      aria-label="Vencimiento"
+      className="flex flex-nowrap items-center gap-1.5 overflow-x-auto overscroll-x-contain scrollbar-none [-webkit-overflow-scrolling:touch]"
+    >
       {quick.map((q) => (
         <button
           key={q.key}
@@ -83,7 +89,7 @@ export function TareaDueChips({
         disabled={disabled}
         triggerClassName={chipClass(active === "custom")}
       >
-        <CalendarClock className="h-4 w-4" />
+        <CalendarClock className="h-4 w-4 shrink-0" />
         {customLabel}
       </TareaDatePopover>
 

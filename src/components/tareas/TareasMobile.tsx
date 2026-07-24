@@ -95,13 +95,15 @@ export function TareasMobile({
         })
       )}
 
+      {/* FAB a la izquierda: la derecha de la isla la ocupa el orbe OPAI
+          (chatbot). Apilar ambos a `right-4` los junta visualmente. */}
       {canEdit && !creating && (
         <button
           type="button"
           onClick={() => setCreating(true)}
           aria-label="Nueva tarea"
           style={{ bottom: "calc(var(--bottom-nav-height, 88px) + 12px)" }}
-          className="fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-ds-lg"
+          className="fixed left-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-ds-lg"
         >
           <Plus className="h-6 w-6" />
         </button>
