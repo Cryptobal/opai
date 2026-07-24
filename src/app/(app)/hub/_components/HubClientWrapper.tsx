@@ -170,7 +170,7 @@ export function HubClientWrapper({
       <HubQuickActions perms={hubPerms} />
       <HubAlertsBanner alerts={alerts} />
       {hubPerms.hasCrm ? <RadarComercialCard /> : null}
-      {hubPerms.hasCrm ? <AgendaHubCard /> : null}
+      {hubPerms.hasAgenda ? <AgendaHubCard /> : null}
 
       {isEditing ? (
         <HubCustomizeBar

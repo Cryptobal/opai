@@ -371,11 +371,12 @@ export const NAV_MODULES: NavNode[] = [
     // findActiveModule/breadcrumbs los resuelvan a este nodo.
     activePaths: ["/crm/correos", "/opai/tareas"],
     children: [
+      // Orden desktop/sidebar y sub-nav: Correos → Tareas → Agenda.
       // Correos conserva tenantModule "crm": la casilla Gmail vive en el plan
       // CRM, así se oculta para tenants sin ese módulo (acoplamiento conocido).
       { key: "productividad-correos", href: "/crm/correos", label: "Correos", icon: Mail, module: "productividad", submodule: "correos", tenantModule: "crm" },
-      { key: "productividad-agenda", href: "/opai/agenda", label: "Agenda", icon: CalendarDays, module: "productividad", submodule: "agenda" },
       { key: "productividad-tareas", href: "/opai/tareas", label: "Tareas", icon: ClipboardList, module: "productividad", submodule: "tareas" },
+      { key: "productividad-agenda", href: "/opai/agenda", label: "Agenda", icon: CalendarDays, module: "productividad", submodule: "agenda" },
     ],
   },
 

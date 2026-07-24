@@ -27,6 +27,7 @@ describe("nav registry", () => {
     it("has all top-level modules", () => {
       const keys = NAV_MODULES.map((m) => m.key).sort();
       expect(keys).toContain("hub");
+      expect(keys).toContain("productividad");
       expect(keys).toContain("crm");
       expect(keys).toContain("ops");
       expect(keys).toContain("personas");
@@ -35,6 +36,15 @@ describe("nav registry", () => {
       expect(keys).toContain("docs");
       expect(keys).toContain("config");
       expect(keys).toContain("compliance");
+    });
+
+    it("Productividad ordena Tareas inmediatamente después de Correos", () => {
+      const prod = NAV_MODULES.find((m) => m.key === "productividad")!;
+      const childKeys = prod.children!.map((c) => c.key);
+      const correoIdx = childKeys.indexOf("productividad-correos");
+      const tareasIdx = childKeys.indexOf("productividad-tareas");
+      expect(correoIdx).toBeGreaterThanOrEqual(0);
+      expect(tareasIdx).toBe(correoIdx + 1);
     });
 
     it("config is hideInSidebar (lives in topbar, not sidebar tree)", () => {
