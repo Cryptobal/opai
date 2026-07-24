@@ -1142,6 +1142,9 @@ export function pathToPermission(
   // Productividad — Agenda/Tareas/Agentes viven bajo /opai por convención de
   // rutas transversales, pero su permiso es del módulo productividad.
   if (pathname.startsWith("/opai/agenda")) return { module: "productividad", submodule: "agenda" };
+  if (pathname.startsWith("/opai/auditoria-productividad")) {
+    return { module: "productividad", submodule: "tareas" };
+  }
   if (pathname.startsWith("/opai/tareas")) return { module: "productividad", submodule: "tareas" };
 
   // Docs submodules — orden importa: rutas más específicas primero

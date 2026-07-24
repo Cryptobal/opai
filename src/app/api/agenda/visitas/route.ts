@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAgendaAccess } from "@/lib/api-auth-agenda";
+import { auditAgendaAction } from "@/lib/audit-productividad";
 import {
   createAgendaVisita,
   createVisitaTecnicaFromAgenda,
@@ -79,6 +80,14 @@ export async function POST(request: NextRequest) {
     contactIds: body.contactIds ?? null,
     syncCalendar: body.syncCalendar,
     inviteContacts: body.inviteContacts,
+  });
+  void auditAgendaAction({
+    tenantId: ctx.tenantId,
+    userId: ctx.userId,
+    userEmail: ctx.userEmail,
+    action: "created",
+    visitaId: result.visita.id,
+    meta: { title: result.visita.title, type: result.visita.type },
   });
   return NextResponse.json(result, { status: 201 });
 }

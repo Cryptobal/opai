@@ -16,6 +16,7 @@ export function TareasDesktop({
   nameById,
   loading,
   canEdit,
+  canDelete,
   onCreate,
   onOpen,
   onToggle,
@@ -27,6 +28,7 @@ export function TareasDesktop({
   nameById: Map<string, string>;
   loading: boolean;
   canEdit: boolean;
+  canDelete: (task: TareaItem) => boolean;
   onCreate: (input: TareaCreateInput) => Promise<boolean>;
   onOpen: (t: TareaItem) => void;
   onToggle: (t: TareaItem) => void;
@@ -60,6 +62,7 @@ export function TareasDesktop({
                     task={task}
                     nameById={nameById}
                     canEdit={canEdit}
+                    canDelete={canDelete(task)}
                     onOpen={onOpen}
                     onToggle={onToggle}
                     onDelete={onDelete}

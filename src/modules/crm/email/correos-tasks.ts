@@ -53,6 +53,7 @@ export async function createThreadTask(params: {
       type: params.dueAt ? "reminder" : "followup",
       status: "open",
       assignedTo: params.userId,
+      createdBy: params.userId,
       emailThreadId: thread.id,
       accountId: thread.accountId,
       dealId: thread.dealId,

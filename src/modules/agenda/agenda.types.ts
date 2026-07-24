@@ -37,6 +37,8 @@ export type AgendaListItem = {
   googleEventId?: string | null;
   /** Sólo tareas: deep-link al origen (correo / negocio / cuenta). */
   href?: string | null;
+  /** Sólo tareas: usuario que creó la tarea (ownership para eliminar). */
+  createdBy?: string | null;
 };
 
 export type LicitacionListItem = {

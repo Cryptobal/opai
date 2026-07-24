@@ -369,7 +369,7 @@ export const NAV_MODULES: NavNode[] = [
     // Agenda es la landing accesible a todos los roles con Productividad.
     // Correos/Tareas se declaran como activePaths para que
     // findActiveModule/breadcrumbs los resuelvan a este nodo.
-    activePaths: ["/crm/correos", "/opai/tareas"],
+    activePaths: ["/crm/correos", "/opai/tareas", "/opai/auditoria-productividad"],
     children: [
       // Orden desktop/sidebar y sub-nav: Correos → Tareas → Agenda.
       // Correos conserva tenantModule "crm": la casilla Gmail vive en el plan
@@ -377,6 +377,16 @@ export const NAV_MODULES: NavNode[] = [
       { key: "productividad-correos", href: "/crm/correos", label: "Correos", icon: Mail, module: "productividad", submodule: "correos", tenantModule: "crm" },
       { key: "productividad-tareas", href: "/opai/tareas", label: "Tareas", icon: ClipboardList, module: "productividad", submodule: "tareas" },
       { key: "productividad-agenda", href: "/opai/agenda", label: "Agenda", icon: CalendarDays, module: "productividad", submodule: "agenda" },
+      {
+        key: "productividad-auditoria",
+        href: "/opai/auditoria-productividad",
+        label: "Auditoría",
+        icon: FileBarChart,
+        module: "productividad",
+        submodule: "tareas",
+        adminOnly: true,
+        description: "Historial de cambios en tareas y agenda (solo administradores)",
+      },
     ],
   },
 

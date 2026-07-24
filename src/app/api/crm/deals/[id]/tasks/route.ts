@@ -91,6 +91,7 @@ export async function POST(
         type: "checklist",
         dueAt,
         assignedTo: ctx.userId,
+        createdBy: ctx.userId,
       },
       select: { id: true, title: true, status: true, type: true, dueAt: true, createdAt: true },
     });

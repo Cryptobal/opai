@@ -2625,6 +2625,8 @@ model CrmTask {
   // Quién y cuándo completó la tarea (idempotente: conserva el primero).
   completedBy   String?   @map("completed_by")
   completedAt   DateTime? @map("completed_at") @db.Timestamptz(6)
+  /// Usuario ERP que creó la tarea. Solo él (o owner/admin) puede eliminarla.
+  createdBy     String?   @map("created_by")
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 

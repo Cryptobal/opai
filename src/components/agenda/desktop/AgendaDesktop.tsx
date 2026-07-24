@@ -61,7 +61,13 @@ function useFillViewportHeight(ref: React.RefObject<HTMLElement | null>): string
 }
 
 /** Agenda desktop (≥lg): layout de alto completo estilo Notion Calendar. */
-export function AgendaDesktop() {
+export function AgendaDesktop({
+  currentUserId,
+  userRole,
+}: {
+  currentUserId: string;
+  userRole: string;
+}) {
   const search = useSearchParams();
   const [anchor, setAnchor] = useState(() => startOfDayChile(new Date()));
   const [view, setView] = useState<AgendaViewMode>("week");
@@ -311,6 +317,8 @@ export function AgendaDesktop() {
               <AgendaInspector
                 item={inspectorItem}
                 users={users}
+                currentUserId={currentUserId}
+                userRole={userRole}
                 onClose={() => setSelected(null)}
                 onChanged={() => {
                   void load();

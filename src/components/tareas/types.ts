@@ -14,6 +14,7 @@ export interface TareaItem {
   accountId: string | null;
   emailThreadId: string | null;
   createdAt: string;
+  createdBy: string | null;
   assigneeIds: string[];
 }
 

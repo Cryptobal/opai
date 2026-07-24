@@ -5,6 +5,7 @@ import {
   canMutateVisita,
   visitaForbidden,
 } from "@/lib/api-auth-agenda";
+import { auditAgendaAction } from "@/lib/audit-productividad";
 import {
   cancelAgendaVisita,
   completeAgendaVisita,
@@ -75,6 +76,15 @@ export async function PATCH(request: NextRequest, routeCtx: Ctx) {
     const result = await completeAgendaVisita(tenantId, id, body.resultNote ?? "");
     if (!result) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
 
+    void auditAgendaAction({
+      tenantId,
+      userId: ctx.userId,
+      userEmail: ctx.userEmail,
+      action: "completed",
+      visitaId: id,
+      meta: { title: result.visita.title },
+    });
+
     // Nota en timeline CRM si hay deal
     if (result.visita.dealId && body.resultNote) {
       try {
@@ -97,6 +107,14 @@ export async function PATCH(request: NextRequest, routeCtx: Ctx) {
   if (body.action === "cancel") {
     const result = await cancelAgendaVisita(tenantId, id);
     if (!result) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
+    void auditAgendaAction({
+      tenantId,
+      userId: ctx.userId,
+      userEmail: ctx.userEmail,
+      action: "cancelled",
+      visitaId: id,
+      meta: { title: result.visita.title },
+    });
     return NextResponse.json(result);
   }
 
@@ -109,6 +127,18 @@ export async function PATCH(request: NextRequest, routeCtx: Ctx) {
       typeof body.assignedUserId === "string" ? body.assignedUserId : undefined,
     );
     if (!result) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
+    void auditAgendaAction({
+      tenantId,
+      userId: ctx.userId,
+      userEmail: ctx.userEmail,
+      action: "reprogrammed",
+      visitaId: id,
+      meta: {
+        title: result.visita.title,
+        startAt: body.startAt,
+        endAt: body.endAt,
+      },
+    });
     return NextResponse.json(result);
   }
 
@@ -127,5 +157,13 @@ export async function DELETE(_req: NextRequest, routeCtx: Ctx) {
 
   const result = await cancelAgendaVisita(ctx.tenantId, id);
   if (!result) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
+  void auditAgendaAction({
+    tenantId: ctx.tenantId,
+    userId: ctx.userId,
+    userEmail: ctx.userEmail,
+    action: "cancelled",
+    visitaId: id,
+    meta: { title: result.visita.title },
+  });
   return NextResponse.json(result);
 }

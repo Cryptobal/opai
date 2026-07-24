@@ -27,6 +27,7 @@ export async function listAgendaTasks(
         accountId: true,
         emailThreadId: true,
         assignedTo: true,
+        createdBy: true,
         assignees: { select: { userId: true } },
       },
       take: 500,
@@ -90,6 +91,7 @@ export async function listAgendaTasks(
       dealId: t.dealId,
       status: "open",
       href,
+      createdBy: t.createdBy,
     };
   });
 }

@@ -25,11 +25,12 @@ const FOOTER_BTN = "flex min-h-[44px] items-center gap-1.5 rounded-xl px-4 text-
  * (TareaDueChips) se pospone de inmediato con Deshacer (onPostpone).
  */
 export function TareaDetailSheet({
-  task, users, canEdit, onClose, onSave, onDelete, onToggle, onPostpone,
+  task, users, canEdit, canDelete, onClose, onSave, onDelete, onToggle, onPostpone,
 }: {
   task: TareaItem | null;
   users: AgendaTeamMember[];
   canEdit: boolean;
+  canDelete: boolean;
   onClose: () => void;
   onSave: (id: string, input: TareaUpdateInput) => Promise<boolean>;
   onDelete: (id: string) => void;
@@ -131,17 +132,23 @@ export function TareaDetailSheet({
             />
           </div>
 
-          {canEdit && (
+          {(canEdit || canDelete) && (
             <div
               className="flex shrink-0 items-center justify-between gap-2 border-t border-ds-border-subtle px-4 pt-3"
               style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}
             >
-              <button type="button" onClick={() => onDelete(task.id)} className={cn(FOOTER_BTN, "text-status-danger-fg hover:bg-status-danger-soft")}>
-                <Trash2 className="h-4 w-4" /> Eliminar
-              </button>
-              <button type="button" onClick={() => void save()} disabled={saving || !dirty} className={cn(FOOTER_BTN, "bg-primary font-medium text-primary-foreground disabled:opacity-50")}>
-                Guardar
-              </button>
+              {canDelete ? (
+                <button type="button" onClick={() => onDelete(task.id)} className={cn(FOOTER_BTN, "text-status-danger-fg hover:bg-status-danger-soft")}>
+                  <Trash2 className="h-4 w-4" /> Eliminar
+                </button>
+              ) : (
+                <span />
+              )}
+              {canEdit && (
+                <button type="button" onClick={() => void save()} disabled={saving || !dirty} className={cn(FOOTER_BTN, "bg-primary font-medium text-primary-foreground disabled:opacity-50")}>
+                  Guardar
+                </button>
+              )}
             </div>
           )}
         </Dialog.Content>
