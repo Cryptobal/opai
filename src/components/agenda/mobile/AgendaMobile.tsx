@@ -32,7 +32,13 @@ import {
  * Experiencia Agenda móvil (< lg): header glass compacto + vistas
  * Agenda/Día/Mes + FAB. Nada de PageHero/toolbar desktop (spec §1).
  */
-export function AgendaMobile() {
+export function AgendaMobile({
+  currentUserId: _currentUserId,
+  userRole: _userRole,
+}: {
+  currentUserId: string;
+  userRole: string;
+}) {
   const search = useSearchParams();
   const [view, setView] = useState<AgendaMobileView>("agenda");
   const [selectedYmd, setSelectedYmd] = useState(() => todayInChile());

@@ -15,6 +15,8 @@ export default async function AgendaPage() {
     redirect("/hub");
   }
 
+  const role = session.user.role ?? "";
+
   // La Agenda vive fuera del layout de /crm pero la barra superior la resuelve
   // al nodo Productividad (activePaths en el registry), así los tabs se mantienen.
   return (
@@ -26,7 +28,10 @@ export default async function AgendaPage() {
           </div>
         }
       >
-        <AgendaPageClient />
+        <AgendaPageClient
+          currentUserId={session.user.id ?? ""}
+          userRole={role}
+        />
       </Suspense>
     </div>
   );

@@ -11,6 +11,7 @@ import { TareasDesktop } from "./TareasDesktop";
 import { TareasMobile } from "./TareasMobile";
 import { TareaDetailSheet } from "./TareaDetailSheet";
 import type { DueValue } from "./TareaDatePopover";
+import { canDeleteTarea } from "@/lib/productividad-task-ownership";
 import type { TareaItem, TareaStatusFilter } from "./types";
 
 const STATUS_TABS: Array<{ id: TareaStatusFilter; label: string }> = [
@@ -20,7 +21,15 @@ const STATUS_TABS: Array<{ id: TareaStatusFilter; label: string }> = [
 ];
 
 /** Página de Tareas (Productividad). Switch responsive desktop/móvil. */
-export function TareasPageClient({ canEdit }: { canEdit: boolean }) {
+export function TareasPageClient({
+  canEdit,
+  currentUserId,
+  userRole,
+}: {
+  canEdit: boolean;
+  currentUserId: string;
+  userRole: string;
+}) {
   const isMobile = useIsMobileViewport();
   const { tasks, groups, users, nameById, loading, filters, setFilters, create, update, toggleDone, remove } =
     useTareas();
@@ -43,12 +52,18 @@ export function TareasPageClient({ canEdit }: { canEdit: boolean }) {
     [update],
   );
 
+  const canDelete = useCallback(
+    (task: TareaItem) => canDeleteTarea(task, currentUserId, userRole),
+    [currentUserId, userRole],
+  );
+
   const viewProps = {
     groups,
     users,
     nameById,
     loading,
     canEdit,
+    canDelete,
     onCreate: create,
     onOpen: (t: TareaItem) => setDetailId(t.id),
     onToggle: toggleDone,
@@ -111,6 +126,7 @@ export function TareasPageClient({ canEdit }: { canEdit: boolean }) {
         task={detailTask}
         users={users}
         canEdit={canEdit}
+        canDelete={detailTask ? canDelete(detailTask) : false}
         onClose={() => setDetailId(null)}
         onSave={update}
         onDelete={remove}

@@ -22,11 +22,14 @@ import { CHILE_TZ } from "@/lib/dates-cl";
 import { dateAtChileSlot, formatAgendaTime } from "./agenda-calendar-utils";
 import { TaskTimePicker } from "./TaskTimePicker";
 import { TaskAssigneePicker } from "./TaskAssigneePicker";
+import { canDeleteTarea } from "@/lib/productividad-task-ownership";
 import type { AgendaCalendarItem, AgendaTeamMember } from "./agenda-calendar.types";
 
 type Props = {
   item: AgendaCalendarItem | null;
   users: AgendaTeamMember[];
+  currentUserId: string;
+  userRole: string;
   onClose: () => void;
   onChanged: () => void;
 };
@@ -60,7 +63,7 @@ function localParts(iso: string): { date: string; time: string } {
   };
 }
 
-export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
+export function AgendaInspector({ item, users, currentUserId, userRole, onClose, onChanged }: Props) {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [assignedUserId, setAssignedUserId] = useState("");
@@ -201,6 +204,9 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
   const inputClass =
     "h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 sm:h-9";
   const calendarLink = item.htmlLink ?? visitDetail?.htmlLink;
+  const canDeleteTaskItem =
+    item.source === "tarea" &&
+    canDeleteTarea({ createdBy: item.createdBy }, currentUserId, userRole);
 
   return (
     <Surface
@@ -352,26 +358,28 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
             >
               <CheckCircle2 className="h-4 w-4" /> Completar
             </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                const r = await fetch(`/api/crm/tasks/${item.id}`, { method: "DELETE" }).catch(
-                  () => null,
-                );
-                setBusy(false);
-                if (r?.ok) {
-                  toast.success("Tarea eliminada");
-                  onChanged();
-                  onClose();
-                } else toast.error("No se pudo eliminar");
-              }}
-              aria-label="Eliminar tarea"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-ds-border-default text-ds-text-3 ds-tap sm:h-9 sm:w-9"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            {canDeleteTaskItem && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  const r = await fetch(`/api/crm/tasks/${item.id}`, { method: "DELETE" }).catch(
+                    () => null,
+                  );
+                  setBusy(false);
+                  if (r?.ok) {
+                    toast.success("Tarea eliminada");
+                    onChanged();
+                    onClose();
+                  } else toast.error("No se pudo eliminar");
+                }}
+                aria-label="Eliminar tarea"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-ds-border-default text-ds-text-3 ds-tap sm:h-9 sm:w-9"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
           </>
         )}
 

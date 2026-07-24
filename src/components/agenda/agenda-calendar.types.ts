@@ -23,6 +23,8 @@ export type AgendaCalendarItem = {
   htmlLink?: string | null;
   calendarName?: string | null;
   href?: string | null;
+  /** Sólo tareas: creador (ownership para eliminar). */
+  createdBy?: string | null;
 };
 
 /** Alias legacy usado por TaskDrawer/VisitList (ex AgendaWeekStrip, retirado). */

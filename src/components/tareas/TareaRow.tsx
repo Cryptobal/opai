@@ -24,6 +24,7 @@ export function TareaRow({
   task,
   nameById,
   canEdit,
+  canDelete,
   onOpen,
   onToggle,
   onDelete,
@@ -32,6 +33,7 @@ export function TareaRow({
   task: TareaItem;
   nameById: Map<string, string>;
   canEdit: boolean;
+  canDelete: boolean;
   onOpen: (t: TareaItem) => void;
   onToggle: (t: TareaItem) => void;
   onDelete: (id: string) => void;
@@ -103,7 +105,7 @@ export function TareaRow({
         </div>
       )}
 
-      {canEdit && (
+      {canEdit && canDelete && (
         <div className="flex shrink-0 items-center">
           <button
             type="button"

@@ -14,6 +14,7 @@ import { NextResponse } from "next/server";
 import { resolveApiPerms, type AuthContext } from "./api-auth";
 import { requireTenantModule } from "./require-module";
 import { canView, canEdit } from "./permissions";
+import { canDeleteTarea } from "./productividad-task-ownership";
 
 export type TasksAuthResult =
   | { authorized: true; ctx: AuthContext }
@@ -43,4 +44,23 @@ export async function requireTasksAccess(
   }
 
   return { authorized: true, ctx };
+}
+
+/**
+ * Eliminar una tarea: solo su creador o rol owner/admin.
+ * Los responsables asignados NO pueden eliminar tareas ajenas (aunque sí completarlas).
+ * Tareas legacy sin `createdBy`: solo owner/admin.
+ */
+export function canDeleteTask(
+  ctx: AuthContext,
+  task: { createdBy: string | null },
+): boolean {
+  return canDeleteTarea(task, ctx.userId, ctx.userRole);
+}
+
+export function taskDeleteForbidden(): NextResponse {
+  return NextResponse.json(
+    { success: false, error: "Solo el creador de la tarea puede eliminarla" },
+    { status: 403 },
+  );
 }

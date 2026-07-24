@@ -18,6 +18,7 @@ export function TareasMobile({
   nameById,
   loading,
   canEdit,
+  canDelete,
   onCreate,
   onOpen,
   onToggle,
@@ -29,6 +30,7 @@ export function TareasMobile({
   nameById: Map<string, string>;
   loading: boolean;
   canEdit: boolean;
+  canDelete: (task: TareaItem) => boolean;
   onCreate: (input: TareaCreateInput) => Promise<boolean>;
   onOpen: (t: TareaItem) => void;
   onToggle: (t: TareaItem) => void;
@@ -82,6 +84,7 @@ export function TareasMobile({
                       task={task}
                       nameById={nameById}
                       canEdit={canEdit}
+                      canDelete={canDelete(task)}
                       onOpen={onOpen}
                       onToggle={onToggle}
                       onDelete={onDelete}

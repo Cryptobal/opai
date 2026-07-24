@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTasksAccess } from "@/lib/api-auth-tareas";
+import { auditTaskAction } from "@/lib/audit-productividad";
 
 const MAX_ASSIGNEES = 20;
 const NOTES_MAX = 5000;
@@ -86,6 +87,7 @@ export async function GET(request: NextRequest) {
         dealId: true,
         accountId: true,
         emailThreadId: true,
+        createdBy: true,
         createdAt: true,
         assignees: { select: { userId: true } },
       },
@@ -175,6 +177,7 @@ export async function POST(request: NextRequest) {
           dueAt,
           allDay: body?.allDay === true,
           assignedTo: primary, // denormalización de compatibilidad
+          createdBy: ctx.userId,
           dealId,
           accountId,
         },
@@ -188,6 +191,15 @@ export async function POST(request: NextRequest) {
         skipDuplicates: true,
       });
       return created;
+    });
+
+    void auditTaskAction({
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+      userEmail: ctx.userEmail,
+      action: "created",
+      taskId: task.id,
+      meta: { title: task.title, assigneeIds },
     });
 
     return NextResponse.json({ success: true, data: { ...task, assigneeIds } }, { status: 201 });

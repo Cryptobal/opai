@@ -18,6 +18,13 @@ export default async function TareasPage() {
   // la API). Con sólo `view` la página es de lectura.
   const canEditTasks =
     canEdit(perms, "productividad", "tareas") || canEdit(perms, "crm", "deals");
+  const role = session.user.role ?? "";
 
-  return <TareasPageClient canEdit={canEditTasks} />;
+  return (
+    <TareasPageClient
+      canEdit={canEditTasks}
+      currentUserId={session.user.id ?? ""}
+      userRole={role}
+    />
+  );
 }

@@ -13,7 +13,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireTasksAccess } from "@/lib/api-auth-tareas";
+import { requireTasksAccess, canDeleteTask, taskDeleteForbidden } from "@/lib/api-auth-tareas";
+import { auditTaskAction } from "@/lib/audit-productividad";
 
 const MAX_ASSIGNEES = 20;
 const NOTES_MAX = 5000;
@@ -36,7 +37,7 @@ export async function PATCH(
     const { id } = await params;
     const existing = await prisma.crmTask.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { id: true, completedBy: true },
+      select: { id: true, completedBy: true, createdBy: true, title: true, status: true },
     });
     if (!existing) {
       return NextResponse.json({ success: false, error: "Tarea no encontrada" }, { status: 404 });
@@ -158,6 +159,20 @@ export async function PATCH(
       return { ...updated, assigneeIds: assignees.map((a) => a.userId) };
     });
 
+    void auditTaskAction({
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+      userEmail: ctx.userEmail,
+      action:
+        body?.status === "done" && existing.status !== "done"
+          ? "completed"
+          : body?.status === "open" && existing.status === "done"
+            ? "reopened"
+            : "updated",
+      taskId: id,
+      meta: { title: task.title },
+    });
+
     return NextResponse.json({ success: true, data: task });
   } catch (error) {
     console.error("Error updating task:", error);
@@ -177,13 +192,25 @@ export async function DELETE(
     const { id } = await params;
     const existing = await prisma.crmTask.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { id: true },
+      select: { id: true, createdBy: true, title: true },
     });
     if (!existing) {
       return NextResponse.json({ success: false, error: "Tarea no encontrada" }, { status: 404 });
     }
+    if (!canDeleteTask(ctx, existing)) {
+      return taskDeleteForbidden();
+    }
 
     await prisma.crmTask.delete({ where: { id } });
+
+    void auditTaskAction({
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+      userEmail: ctx.userEmail,
+      action: "deleted",
+      taskId: id,
+      meta: { title: existing.title },
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

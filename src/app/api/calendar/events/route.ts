@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAgendaAccess } from "@/lib/api-auth-agenda";
+import { auditAgendaAction } from "@/lib/audit-productividad";
 import { dateAtChileSlot } from "@/components/agenda/agenda-calendar-utils";
 import { createAgendaVisita } from "@/modules/agenda/agenda.service";
 import { isCalendarV2Enabled } from "@/modules/calendar/calendar-flags";
@@ -139,6 +140,15 @@ export async function POST(request: NextRequest) {
       }).catch(() => undefined);
     }
   }
+
+  void auditAgendaAction({
+    tenantId: ctx.tenantId,
+    userId: ctx.userId,
+    userEmail: ctx.userEmail,
+    action: "created",
+    visitaId: visita.id,
+    meta: { title: visita.title, type: visita.type },
+  });
 
   return NextResponse.json({ visita, syncStatus }, { status: 201 });
 }
