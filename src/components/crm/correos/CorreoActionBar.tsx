@@ -1,6 +1,7 @@
 "use client";
 
 import { Forward, Reply, ReplyAll, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type Props = {
   /** Hay a quién responder (hilo con inbound o remitente conocido). Si es false
@@ -15,10 +16,10 @@ type Props = {
 };
 
 /**
- * Barra de acciones estilo Gmail bajo el último mensaje (Bloque 2). Píldoras:
- * Responder (R) · Responder a todos (A, condicional) · Reenviar (F) ·
- * Responder con IA (I). Al abrir el composer esta barra desaparece
- * (exclusividad total). Móvil: fila scrollable sin kbd; desktop: kbd visible.
+ * Barra de acciones estilo Gmail bajo el último mensaje (Bloque 2).
+ * Responder · Responder a todos (condicional) · Reenviar · IA.
+ * Al abrir el composer esta barra desaparece (exclusividad total).
+ * Sin scroll lateral: grid de ancho fijo con etiquetas cortas en móvil.
  */
 export function CorreoActionBar({
   canReply,
@@ -28,59 +29,78 @@ export function CorreoActionBar({
   onForward,
   onReplyAI,
 }: Props) {
+  const cols = !canReply ? 1 : replyAllAvailable ? 4 : 3;
+
   return (
     <div
       id="correo-suggested-reply"
-      className="flex items-center gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className={cn(
+        "grid w-full gap-0.5 rounded-xl border border-ds-border-subtle bg-ds-surface-1 p-0.5",
+        cols === 1 && "grid-cols-1",
+        cols === 3 && "grid-cols-3",
+        cols === 4 && "grid-cols-4",
+      )}
     >
       {canReply && (
-        <Pill onClick={onReply} kbd="R" primary>
-          <Reply className="h-4 w-4" /> Responder
-        </Pill>
+        <ActionBtn onClick={onReply} kbd="R" tone="primary" label="Responder">
+          <Reply className="h-4 w-4 shrink-0" />
+        </ActionBtn>
       )}
       {canReply && replyAllAvailable && (
-        <Pill onClick={onReplyAll} kbd="A">
-          <ReplyAll className="h-4 w-4" /> A todos
-        </Pill>
+        <ActionBtn onClick={onReplyAll} kbd="A" label="A todos" shortLabel="Todos">
+          <ReplyAll className="h-4 w-4 shrink-0" />
+        </ActionBtn>
       )}
-      <Pill onClick={onForward} kbd="F">
-        <Forward className="h-4 w-4" /> Reenviar
-      </Pill>
+      <ActionBtn onClick={onForward} kbd="F" label="Reenviar">
+        <Forward className="h-4 w-4 shrink-0" />
+      </ActionBtn>
       {canReply && (
-        <Pill onClick={onReplyAI} kbd="I" accent>
-          <Sparkles className="h-4 w-4" /> Responder con IA
-        </Pill>
+        <ActionBtn
+          onClick={onReplyAI}
+          kbd="I"
+          tone="accent"
+          label="Responder con IA"
+          shortLabel="IA"
+        >
+          <Sparkles className="h-4 w-4 shrink-0" />
+        </ActionBtn>
       )}
     </div>
   );
 }
 
-function Pill({
+function ActionBtn({
   onClick,
   kbd,
-  primary,
-  accent,
+  tone = "default",
+  label,
+  shortLabel,
   children,
 }: {
   onClick: () => void;
   kbd: string;
-  primary?: boolean;
-  accent?: boolean;
+  tone?: "default" | "primary" | "accent";
+  label: string;
+  shortLabel?: string;
   children: React.ReactNode;
 }) {
-  const base = primary
-    ? "bg-primary text-primary-foreground"
-    : accent
-      ? "border border-ds-border-default bg-ds-surface-1 text-tint-violet-fg hover:border-tint-violet"
-      : "border border-ds-border-default bg-ds-surface-1 text-ds-text-1 hover:border-primary";
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium ds-tap ${base}`}
+      aria-label={label}
+      title={label}
+      className={cn(
+        "flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-2.5 text-[12px] font-medium leading-tight ds-tap md:flex-row md:gap-1.5 md:px-2 md:py-2 md:text-[13px]",
+        tone === "primary" && "text-primary hover:bg-primary/10",
+        tone === "accent" && "text-tint-violet-fg hover:bg-tint-violet/10",
+        tone === "default" && "text-ds-text-2 hover:bg-ds-surface-3 hover:text-ds-text-1",
+      )}
     >
       {children}
-      <kbd className="ml-0.5 hidden rounded bg-ds-surface-3/60 px-1 font-mono text-[11px] uppercase tracking-[0.08em] text-ds-text-4 md:inline">
+      <span className="max-w-full truncate md:hidden">{shortLabel ?? label}</span>
+      <span className="hidden max-w-full truncate md:inline">{label}</span>
+      <kbd className="ml-0.5 hidden rounded bg-ds-surface-3/60 px-1 font-mono text-[11px] uppercase tracking-[0.08em] text-ds-text-4 lg:inline">
         {kbd}
       </kbd>
     </button>
