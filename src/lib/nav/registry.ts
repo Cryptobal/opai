@@ -369,14 +369,26 @@ export const NAV_MODULES: NavNode[] = [
     // Agenda es la landing accesible a todos los roles con Productividad.
     // Correos/Tareas se declaran como activePaths para que
     // findActiveModule/breadcrumbs los resuelvan a este nodo.
-    activePaths: ["/crm/correos", "/opai/tareas", "/opai/auditoria-productividad"],
+    activePaths: ["/crm/correos", "/opai/tareas", "/opai/auditoria-productividad", "/ops/tickets"],
     children: [
-      // Orden desktop/sidebar y sub-nav: Correos → Tareas → Agenda.
+      // Orden desktop/sidebar y sub-nav: Correos → Tareas → Agenda → Tickets.
       // Correos conserva tenantModule "crm": la casilla Gmail vive en el plan
       // CRM, así se oculta para tenants sin ese módulo (acoplamiento conocido).
       { key: "productividad-correos", href: "/crm/correos", label: "Correos", icon: Mail, module: "productividad", submodule: "correos", tenantModule: "crm" },
       { key: "productividad-tareas", href: "/opai/tareas", label: "Tareas", icon: ClipboardList, module: "productividad", submodule: "tareas" },
       { key: "productividad-agenda", href: "/opai/agenda", label: "Agenda", icon: CalendarDays, module: "productividad", submodule: "agenda" },
+      // Tickets — la casa es Productividad (seguimiento transversal). Conserva
+      // href /ops/tickets y su gating de Ops (la ficha/lista de tickets vive en
+      // Ops); la creación desde correo se habilita con Productividad (API).
+      {
+        key: "ops-tickets",
+        href: "/ops/tickets",
+        label: "Tickets",
+        icon: Ticket,
+        module: "ops",
+        submodule: "tickets",
+        badge: { notesKey: "ticket" },
+      },
       {
         key: "productividad-auditoria",
         href: "/opai/auditoria-productividad",
@@ -663,16 +675,6 @@ export const NAV_MODULES: NavNode[] = [
           { key: "sup-historial", href: "/ops/supervision/historial", label: "Historial", icon: ClipboardList, module: "ops", submodule: "supervision" },
           { key: "sup-asignaciones", href: "/ops/supervision/asignaciones", label: "Asignaciones", icon: Users, module: "ops", submodule: "supervision" },
         ],
-      },
-      // Tickets
-      {
-        key: "ops-tickets",
-        href: "/ops/tickets",
-        label: "Tickets",
-        icon: Ticket,
-        module: "ops",
-        submodule: "tickets",
-        badge: { notesKey: "ticket" },
       },
       // Rondas (sub-módulo con N3)
       {

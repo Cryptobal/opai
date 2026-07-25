@@ -61,6 +61,8 @@ export type CorreoDetail = {
     archivedAt: string | null;
     starredAt: string | null;
     spamAt: string | null;
+    /** Bloque 5: el hilo asociado es visible en la ficha de la cuenta. */
+    sharedWithAccount: boolean;
   };
   messages: CorreoMessageDTO[];
   attachments: CorreoAttachmentDTO[];

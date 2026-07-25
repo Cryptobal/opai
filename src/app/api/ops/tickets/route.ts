@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
+import { hasModuleAccess } from "@/lib/permissions";
 import { createOpsTicket } from "@/lib/tickets-create";
 import { getAssignedTeamsForUser } from "@/lib/tickets-team-membership";
 import type { Ticket } from "@/lib/tickets";
@@ -406,8 +407,13 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await ensureOpsAccess(ctx);
-    if (forbidden) return forbidden;
+    // Bloque 6c: la CREACIÓN de tickets se habilita para Ops o Productividad
+    // (seguimiento transversal desde el correo). El resto del CRUD (GET/PATCH…)
+    // conserva su guard de Ops. La lista/ficha sigue viviendo en Ops.
+    const perms = await resolveApiPerms(ctx);
+    if (!hasModuleAccess(perms, "ops") && !hasModuleAccess(perms, "productividad")) {
+      return NextResponse.json({ success: false, error: "Sin acceso" }, { status: 403 });
+    }
 
     const body = await request.json();
 

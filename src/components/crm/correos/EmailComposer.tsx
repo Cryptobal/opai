@@ -19,6 +19,7 @@ import { CalendarClock, Check, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AttachmentPicker, Spinner } from "@/components/opai-ds";
 import { ContractEditor } from "@/components/docs/ContractEditor";
+import { EmailToolbar } from "./EmailToolbar";
 import { tiptapToEmailHtml } from "@/lib/docs/tiptap-to-html";
 import { ReplyRecipientsField, isValidEmail } from "./ReplyRecipientsField";
 import { useEmailAttachments } from "./useEmailAttachments";
@@ -82,6 +83,11 @@ type Props = {
   contentEpoch?: number;
   /** C22b: notifica al host si hay cambios sin enviar (confirmación de cierre). */
   onDirtyChange?: (dirty: boolean) => void;
+  /** Bloque 2: reportan cuerpo/asunto/draftId al host para preservarlos al
+   *  cambiar de modo (Responder ↔ A todos ↔ Reenviar) sin perder trabajo. */
+  onBodyChange?: (doc: object | null) => void;
+  onSubjectChange?: (subject: string) => void;
+  onDraftIdChange?: (id: string | null) => void;
 };
 
 const AUTOSAVE_DEBOUNCE_MS = 3_000;
@@ -112,6 +118,9 @@ export function EmailComposer({
   footerExtras,
   contentEpoch = 0,
   onDirtyChange,
+  onBodyChange,
+  onSubjectChange,
+  onDraftIdChange,
 }: Props) {
   const attachments = useEmailAttachments();
   const [to, setTo] = useState<string[]>(initialTo);
@@ -242,6 +251,7 @@ export function EmailComposer({
       };
       if (res.ok && data.success && data.data?.providerDraftId) {
         providerDraftIdRef.current = data.data.providerDraftId;
+        onDraftIdChange?.(data.data.providerDraftId);
         dirtyRef.current = false;
         setDraftSavedAt(
           new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }),
@@ -417,21 +427,28 @@ export function EmailComposer({
         <span className="w-10 shrink-0 text-[12px] text-ds-text-3">Asunto</span>
         <input
           value={subject}
-          onChange={(e) => setSubject(e.target.value)}
+          onChange={(e) => {
+            setSubject(e.target.value);
+            onSubjectChange?.(e.target.value);
+          }}
           placeholder="Asunto"
-          className="h-9 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1"
+          className="h-9 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[16px] text-ds-text-1 sm:text-[13px]"
         />
       </div>
-      <div className="rounded-lg border border-ds-border-default bg-ds-surface-1 [&_.opai-editor-toolbar]:flex-wrap">
+      <div className="overflow-hidden rounded-lg border border-ds-border-default bg-ds-surface-1">
         <ContractEditor
           content={content ?? undefined}
-          onChange={(next) => setContent(next)}
+          onChange={(next) => {
+            setContent(next);
+            onBodyChange?.(next);
+          }}
           editable={!busy}
-          placeholder="Escribí tu mensaje… (# para tokens; pegá imágenes directo)"
-          filterModules={["system"]}
+          placeholder="Escribí tu mensaje… (pegá imágenes directo)"
           showPagePreview={false}
           enableImages
+          enableTokens={false}
           compact
+          renderToolbar={(editor) => <EmailToolbar editor={editor} />}
         />
       </div>
       {quotedHtml && (

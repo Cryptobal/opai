@@ -339,11 +339,14 @@ describe("nav registry", () => {
       expect(keys).toContain("sup-historial");
     });
 
-    it("returns Ops top-level children for /ops/tickets (no N3)", () => {
+    it("returns Productividad children for /ops/tickets (Tickets vive bajo Productividad)", () => {
+      // Tickets se reubicó como hijo de Productividad (conserva href /ops/tickets
+      // y su gating de Ops), así que su bottom-nav es el de Productividad.
       const nodes = getContextualBottomNavNodes("/ops/tickets");
       const keys = nodes.map((n) => n.key);
       expect(keys).toContain("ops-tickets");
-      expect(keys).toContain("ops-rondas");
+      expect(keys).toContain("productividad-correos");
+      expect(keys).not.toContain("ops-rondas");
     });
 
     it("returns Finance N2 children for /finanzas/rendiciones (PR: bottom nav always N2)", () => {

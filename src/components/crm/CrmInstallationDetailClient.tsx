@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldAlert, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power, Wallet, CalendarClock, Ticket as TicketIcon } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldAlert, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Mail, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power, Wallet, CalendarClock, Ticket as TicketIcon } from "lucide-react";
+import { EntityConversationsPanel } from "./EntityConversationsPanel";
 import { InstalacionRondasTab } from "./InstalacionRondasTab";
 import { InstalacionMarcacionesTab } from "@/components/ops/InstalacionMarcacionesTab";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
@@ -2360,6 +2361,7 @@ export function CrmInstallationDetailClient({
     { id: "documentos-guardias", label: "Documentos de Guardias", icon: FileCheck },
     { id: "access-control", label: "Control Acceso", icon: Shield },
     { id: "visitas-tecnicas", label: "Visitas Técnicas", icon: Briefcase },
+    { id: "conversaciones", label: "Conversaciones", icon: Mail },
     { id: "files", label: "Documentos", icon: FileText, count: fileCount },
     { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
@@ -3018,6 +3020,7 @@ export function CrmInstallationDetailClient({
         {activeTab === "files" && (
           <FileAttachments entityType="installation" entityId={installation.id} title="Documentos" />
         )}
+        {activeTab === "conversaciones" && <EntityConversationsPanel installationId={installation.id} />}
         {activeTab === "access-control" && (
           <div className="space-y-6">
             {accessControlSubTab === "registros" && (

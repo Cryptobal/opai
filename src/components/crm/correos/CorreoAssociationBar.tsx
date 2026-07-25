@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Eye, EyeOff, Sparkles } from "lucide-react";
 import { AsociarCuenta } from "./AsociarCuenta";
 import { QuickDealCreate } from "./QuickDealCreate";
 
@@ -18,6 +18,7 @@ export function CorreoAssociationBar({
   dealId,
   dealTitle,
   subject,
+  sharedWithAccount = true,
   onAssociate,
 }: {
   threadId?: string;
@@ -26,7 +27,9 @@ export function CorreoAssociationBar({
   dealId: string | null;
   dealTitle: string | null;
   subject?: string;
-  onAssociate: (p: { accountId: string | null; dealId: string | null }) => void;
+  /** Bloque 5: el hilo asociado es visible en la ficha de la cuenta. */
+  sharedWithAccount?: boolean;
+  onAssociate: (p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) => void;
 }) {
   const [deals, setDeals] = useState<DealOpt[]>([]);
   const [loadingDeals, setLoadingDeals] = useState(false);
@@ -79,6 +82,40 @@ export function CorreoAssociationBar({
           <AsociarCuenta onSelect={(id) => onAssociate({ accountId: id, dealId: null })} />
         </div>
       </div>
+
+      {accountId && (
+        <button
+          type="button"
+          onClick={() => onAssociate({ accountId, dealId, sharedWithAccount: !sharedWithAccount })}
+          aria-pressed={sharedWithAccount}
+          className="flex w-full items-start gap-2 rounded-lg border border-ds-border-subtle bg-ds-surface-1 px-3 py-2 text-left ds-tap"
+        >
+          {sharedWithAccount ? (
+            <Eye className="mt-0.5 h-4 w-4 shrink-0 text-status-ok-fg" />
+          ) : (
+            <EyeOff className="mt-0.5 h-4 w-4 shrink-0 text-ds-text-4" />
+          )}
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13px] font-medium text-ds-text-1">
+              {sharedWithAccount ? "Visible en la ficha de la cuenta" : "Privado (no visible en la ficha)"}
+            </span>
+            <span className="block text-[12px] text-ds-text-4">
+              El hilo aparece en «Conversaciones» de la cuenta para quienes tengan acceso a ella. Tu casilla sigue siendo privada.
+            </span>
+          </span>
+          <span
+            className={`mt-0.5 flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${
+              sharedWithAccount ? "bg-primary" : "bg-ds-surface-3"
+            }`}
+          >
+            <span
+              className={`h-4 w-4 rounded-full bg-ds-surface-1 transition-transform ${
+                sharedWithAccount ? "translate-x-4" : "translate-x-0"
+              }`}
+            />
+          </span>
+        </button>
+      )}
 
       {!accountId && suggestions.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">

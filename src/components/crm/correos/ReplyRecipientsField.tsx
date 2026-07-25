@@ -135,7 +135,7 @@ export function ReplyRecipientsField({
             }, 120);
           }}
           placeholder={values.length === 0 ? "correo@dominio.cl" : ""}
-          className="h-10 min-w-[140px] flex-1 bg-transparent text-[13px] text-ds-text-1 outline-none sm:h-8"
+          className="h-10 min-w-[140px] flex-1 bg-transparent text-[16px] text-ds-text-1 outline-none sm:h-8 sm:text-[13px]"
           type="email"
           autoComplete="off"
           role="combobox"

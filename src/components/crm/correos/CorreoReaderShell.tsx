@@ -138,7 +138,7 @@ export function CorreoReaderShell({
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3 md:px-4 md:py-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3 [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain] md:px-4 md:py-4">
           {children}
         </div>
 

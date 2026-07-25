@@ -35,13 +35,14 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     expect(hrefs).toContain("/crm/installations");
   });
 
-  it("Ops main page → ATS, Pautas, Supervision, Tickets, Rondas, Alertas, Inventario, Instalaciones", () => {
+  it("Ops main page → ATS, Pautas, Supervision, Rondas, Alertas, Inventario, Instalaciones", () => {
     const items = getBottomNavItems("/ops", "owner", ALL_ENABLED);
     const hrefs = items.map((i) => i.href);
     expect(hrefs).toContain("/ops/ats");
     expect(hrefs).toContain("/ops/pauta-mensual"); // pautas N2 entrypoint
     expect(hrefs).toContain("/ops/supervision");
-    expect(hrefs).toContain("/ops/tickets");
+    // Tickets se reubicó a Productividad (ya no cuelga de Ops).
+    expect(hrefs).not.toContain("/ops/tickets");
     expect(hrefs).toContain("/ops/rondas");
     expect(hrefs).toContain("/ops/alertas-cobertura");
     expect(hrefs).toContain("/ops/inventario");
@@ -209,7 +210,7 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     const items = getBottomNavItems("/ops", "owner", noAts);
     const hrefs = items.map((i) => i.href);
     expect(hrefs).not.toContain("/ops/ats");
-    expect(hrefs).toContain("/ops/tickets");
+    expect(hrefs).toContain("/ops/rondas");
   });
 
   it("Respects role: guardia (no CRM) gets [] on /crm", () => {

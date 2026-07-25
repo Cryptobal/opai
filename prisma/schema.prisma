@@ -2828,6 +2828,9 @@ model CrmEmailThreadLink {
   entityType String   @map("entity_type")
   entityId   String   @map("entity_id")
   linkedVia  String   @default("manual") @map("linked_via")
+  // Bloque 5: al vincular, el hilo queda visible en la ficha de la entidad
+  // (mismo modelo de visibilidad que la cuenta). Toggle para dejarlo privado.
+  visibleOnEntity Boolean @default(true) @map("visible_on_entity")
   createdBy  String?  @map("created_by")
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -2850,6 +2853,11 @@ model CrmEmailThread {
   attachmentCount  Int       @default(0) @map("attachment_count")
   subject          String
   lastMessageAt    DateTime? @map("last_message_at") @db.Timestamptz(6)
+
+  // Bloque 5: asociar = compartir. El hilo asociado es visible en la ficha de
+  // la cuenta (sección "Conversaciones") para quienes tengan acceso a ella; la
+  // casilla sigue siendo privada. Toggle para dejarlo privado.
+  sharedWithAccount Boolean @default(true) @map("shared_with_account")
 
   // ── Estado espejo Gmail (archivar / papelera / spam / leído) ──
   archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
