@@ -5,9 +5,18 @@ import Link from 'next/link';
 import {
   Wallet, Clock, FileText, TrendingUp, ShieldCheck, Ticket,
 } from 'lucide-react';
-import { Stat } from '@/components/opai-ds';
+import { Stat, Tag, MetricBar } from '@/components/opai-ds';
 import { cn } from '@/lib/utils';
 import { formatCompactCLP } from '../_lib/hub-utils';
+import {
+  cajaVariant,
+  cajaIsStale,
+  porCobrarVariant,
+  ufNegociandoVariant,
+  facturadoVariant,
+  coberturaVariant,
+  coberturaThreshold,
+} from '../_lib/hub-pulso-format';
 import type {
   ClosingHubData,
   FinanceMetrics,
@@ -90,13 +99,19 @@ export function HubPulsoNegocio({
           <Stat
             label="Caja"
             value={formatCompactCLP(caja.totalClp)}
+            // El color del valor sigue el SIGNO; la antigüedad es un aviso
+            // aparte (no sobrescribe el estado).
             hint={
-              caja.staleDays > 7
-                ? `Hace ${caja.staleDays === 999 ? '?' : caja.staleDays}d`
-                : 'Hoy'
+              cajaIsStale(caja.staleDays) ? (
+                <span className="text-status-warn-fg">
+                  Dato de hace {caja.staleDays === 999 ? '?' : caja.staleDays}d
+                </span>
+              ) : (
+                'Actualizado hoy'
+              )
             }
             icon={Wallet}
-            variant={caja.staleDays > 7 ? 'warn' : 'ok'}
+            variant={cajaVariant(caja.totalClp)}
             className={statClass}
           />
         </Link>
@@ -112,13 +127,19 @@ export function HubPulsoNegocio({
           <Stat
             label="Por cobrar"
             value={formatCompactCLP(porCobrar.totalAmount)}
-            hint={
-              porCobrar.vencidoCount > 0
-                ? `${porCobrar.vencidoCount} vencidas`
-                : `${porCobrar.count} facturas`
-            }
+            // El monto total va neutro; el vencido se destaca con su chip.
+            hint={`${porCobrar.count} ${porCobrar.count === 1 ? 'factura' : 'facturas'}`}
             icon={Clock}
-            variant={porCobrar.vencidoCount > 0 ? 'danger' : 'brand'}
+            variant={porCobrarVariant(porCobrar.vencidoAmount)}
+            footer={
+              porCobrar.vencidoCount > 0 ? (
+                <Tag variant="danger" size="sm">
+                  {porCobrar.vencidoCount}{' '}
+                  {porCobrar.vencidoCount === 1 ? 'vencida' : 'vencidas'} ·{' '}
+                  {formatCompactCLP(porCobrar.vencidoAmount)}
+                </Tag>
+              ) : undefined
+            }
             className={statClass}
           />
         </Link>
@@ -134,9 +155,9 @@ export function HubPulsoNegocio({
           <Stat
             label={`Fact. ${dteMes.periodLabel}`}
             value={formatCompactCLP(dteMes.emitidasAmount)}
-            hint={`${dteMes.emitidasCount} docs`}
+            hint={`${dteMes.emitidasCount} ${dteMes.emitidasCount === 1 ? 'doc' : 'docs'}`}
             icon={FileText}
-            variant="ok"
+            variant={facturadoVariant()}
             className={statClass}
           />
         </Link>
@@ -152,9 +173,13 @@ export function HubPulsoNegocio({
           <Stat
             label="UF negociando"
             value={fmtUF(ufNegoc)}
-            hint={dealsCount > 0 ? `${dealsCount} deals` : 'Sin deals'}
+            hint={
+              dealsCount > 0
+                ? `${dealsCount} ${dealsCount === 1 ? 'deal' : 'deals'}`
+                : 'Sin deals'
+            }
             icon={TrendingUp}
-            variant="brand"
+            variant={ufNegociandoVariant(ufNegoc)}
             className={statClass}
           />
         </Link>
@@ -171,7 +196,14 @@ export function HubPulsoNegocio({
             label="Cobertura hoy"
             value={`${cobertura}%`}
             icon={ShieldCheck}
-            variant={cobertura >= 95 ? 'ok' : cobertura >= 80 ? 'warn' : 'danger'}
+            variant={coberturaVariant(cobertura)}
+            footer={
+              <MetricBar
+                value={cobertura}
+                threshold={coberturaThreshold(cobertura)}
+                size="sm"
+              />
+            }
             className={statClass}
           />
         </Link>
