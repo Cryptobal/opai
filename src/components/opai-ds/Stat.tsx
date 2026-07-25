@@ -56,6 +56,14 @@ export interface StatProps {
   icon?: LucideIcon | ReactElement;
   /** Tendencia: número entre -100 y 100. + es up, - es down, 0 es flat. */
   trend?: number;
+  /**
+   * Slot inferior opcional para una micro-visualización de contexto
+   * (MetricBar, sparkline, chip de detalle…). Se renderiza como bloque
+   * DEBAJO del hint, por lo que admite elementos de bloque (a diferencia
+   * de `hint`, que vive dentro de un `<p>` y solo admite contenido inline).
+   * Aditivo: si no se pasa, el layout es idéntico al anterior.
+   */
+  footer?: ReactNode;
   /** Animación count-up (solo si value es number). */
   animate?: boolean;
   /** Acción: si se pasa, la card se vuelve clickable y muestra → al hover. */
@@ -94,6 +102,7 @@ export function Stat({
   variant = "default",
   icon,
   trend,
+  footer,
   animate = false,
   onClick,
   className,
@@ -169,6 +178,8 @@ export function Stat({
           {hint}
         </p>
       )}
+
+      {footer && <div className="relative mt-2">{footer}</div>}
     </Surface>
   );
 }
