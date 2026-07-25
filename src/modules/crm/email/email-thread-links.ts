@@ -20,6 +20,9 @@ export const THREAD_LINK_ENTITY_TYPES = [
   "proveedor",
   "factura",
   "incidente",
+  // Lector v3 (Bloques 6/7): ticket creado desde el correo y reunión agendada.
+  "ops_ticket",
+  "calendar_event",
 ] as const;
 export type ThreadLinkEntityType = (typeof THREAD_LINK_ENTITY_TYPES)[number];
 
@@ -138,7 +141,21 @@ export async function searchThreadLinkCandidates(params: {
       status: r.siiStatus,
     }));
   }
-  // incidente
+  if (type === "calendar_event") {
+    const rows = await prisma.calendarEvent.findMany({
+      where: { tenantId, deletedAt: null, ...(q ? { title: like(q) } : {}) },
+      select: { id: true, title: true, startAt: true, status: true },
+      orderBy: { startAt: "desc" },
+      take,
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      label: r.title,
+      sublabel: r.startAt.toISOString().slice(0, 10),
+      status: r.status,
+    }));
+  }
+  // incidente / ops_ticket
   const rows = await prisma.opsTicket.findMany({
     where: {
       tenantId,
@@ -184,6 +201,11 @@ export async function threadLinkEntityExists(params: {
         await prisma.financeDte.findFirst({ where: { tenantId, id: entityId }, select: { id: true } }),
       );
     }
+    if (type === "calendar_event") {
+      return Boolean(
+        await prisma.calendarEvent.findFirst({ where: { tenantId, id: entityId }, select: { id: true } }),
+      );
+    }
     return Boolean(
       await prisma.opsTicket.findFirst({ where: { tenantId, id: entityId }, select: { id: true } }),
     );
@@ -199,6 +221,8 @@ const HREFS: Record<ThreadLinkEntityType, (id: string) => string | null> = {
   proveedor: () => `/finanzas/proveedores`,
   factura: () => `/finanzas/facturacion`,
   incidente: () => `/ops/tickets`,
+  ops_ticket: () => `/ops/tickets`,
+  calendar_event: () => `/opai/agenda`,
 };
 
 /** Resuelve los links de un hilo a label + estado + deep-link. */
@@ -253,6 +277,15 @@ export async function resolveThreadLinks(params: {
         if (row) {
           label = `Folio ${row.folio} · ${row.receiverName}`;
           status = row.siiStatus;
+        }
+      } else if (type === "calendar_event") {
+        const row = await prisma.calendarEvent.findFirst({
+          where: { tenantId: params.tenantId, id: link.entityId },
+          select: { title: true, startAt: true, status: true },
+        });
+        if (row) {
+          label = row.title;
+          status = row.startAt.toISOString().slice(0, 10);
         }
       } else {
         const row = await prisma.opsTicket.findFirst({
