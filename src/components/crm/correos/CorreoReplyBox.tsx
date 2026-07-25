@@ -38,7 +38,7 @@ export function CorreoReplyBox({ detail, onSent }: { detail: CorreoDetail; onSen
   const threadId = detail.thread.id;
   const [meta, setMeta] = useState<Meta | null>(null);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState<{ mode: ComposerMode; ai: boolean } | null>(null);
+  const [open, setOpen] = useState<{ mode: ComposerMode; ai: boolean; expanded: boolean } | null>(null);
 
   useEffect(() => {
     setOpen(null);
@@ -80,10 +80,10 @@ export function CorreoReplyBox({ detail, onSent }: { detail: CorreoDetail; onSen
       const tag = el?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || (el as HTMLElement | null)?.isContentEditable) return;
       const k = e.key.toLowerCase();
-      if (k === "r" && canReply) setOpen({ mode: "reply", ai: false });
-      else if (k === "a" && canReply && replyAllAvailable) setOpen({ mode: "all", ai: false });
-      else if (k === "f") setOpen({ mode: "forward", ai: false });
-      else if (k === "i" && canReply) setOpen({ mode: "reply", ai: true });
+      if (k === "r" && canReply) setOpen({ mode: "reply", ai: false, expanded: false });
+      else if (k === "a" && canReply && replyAllAvailable) setOpen({ mode: "all", ai: false, expanded: false });
+      else if (k === "f") setOpen({ mode: "forward", ai: false, expanded: false });
+      else if (k === "i" && canReply) setOpen({ mode: "reply", ai: true, expanded: false });
       else return;
       e.preventDefault();
     }
@@ -98,10 +98,10 @@ export function CorreoReplyBox({ detail, onSent }: { detail: CorreoDetail; onSen
       <CorreoActionBar
         canReply={canReply}
         replyAllAvailable={replyAllAvailable}
-        onReply={() => setOpen({ mode: "reply", ai: false })}
-        onReplyAll={() => setOpen({ mode: "all", ai: false })}
-        onForward={() => setOpen({ mode: "forward", ai: false })}
-        onReplyAI={() => setOpen({ mode: "reply", ai: true })}
+        onReply={() => setOpen({ mode: "reply", ai: false, expanded: false })}
+        onReplyAll={() => setOpen({ mode: "all", ai: false, expanded: false })}
+        onForward={() => setOpen({ mode: "forward", ai: false, expanded: false })}
+        onReplyAI={() => setOpen({ mode: "reply", ai: true, expanded: false })}
       />
     );
   }
@@ -120,8 +120,10 @@ export function CorreoReplyBox({ detail, onSent }: { detail: CorreoDetail; onSen
       forwardAttachments={forwardAttachments}
       mode={open.mode}
       ai={open.ai}
+      expanded={open.expanded}
       onModeChange={(mode) => setOpen((o) => (o ? { ...o, mode } : o))}
       onToggleAi={() => setOpen((o) => (o ? { ...o, ai: !o.ai } : o))}
+      onToggleExpand={() => setOpen((o) => (o ? { ...o, expanded: !o.expanded } : o))}
       onClose={() => setOpen(null)}
       onSent={onSent}
     />

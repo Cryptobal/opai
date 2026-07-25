@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Sparkles, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Maximize2, Minimize2, Sparkles, X } from "lucide-react";
 import { EmailComposer, type ForwardAttachmentRefClient } from "./EmailComposer";
 import { plainTextToTiptapDoc } from "./email-inline-images";
 
@@ -21,12 +22,12 @@ type Props = {
   forwardAttachments: ForwardAttachmentRefClient[];
   mode: ComposerMode;
   ai: boolean;
+  expanded: boolean;
   onModeChange: (mode: ComposerMode) => void;
   onToggleAi: () => void;
+  onToggleExpand: () => void;
   onClose: () => void;
   onSent: () => void;
-  /** Bloque 3: cabecera con botón expandir (modal desktop / fullscreen móvil). */
-  headerExtra?: React.ReactNode;
 };
 
 function defaultSubject(mode: ComposerMode, subject: string): string {
@@ -35,14 +36,14 @@ function defaultSubject(mode: ComposerMode, subject: string): string {
 }
 
 /**
- * Composer abierto del lector (Bloque 2): tabs de modo (Responder / A todos /
- * Reenviar) + pill ✦ IA que alterna el asistente sobre el modo actual. Cambiar
- * de modo preserva cuerpo y asunto (se re-montan con los últimos valores vía
- * refs) sin duplicar el borrador de Gmail (resumeDraftId). El envío/outbox y el
- * autosave del EmailComposer no se tocan.
+ * Composer abierto del lector (Bloques 2/3): tabs de modo + pill ✦ IA, y
+ * botón Expandir (modal grande centrado en desktop; fullscreen en móvil, donde
+ * el botón se oculta). Cambiar de modo o expandir preserva cuerpo/asunto vía
+ * refs (re-siembra en el re-montaje) sin duplicar el borrador de Gmail. Esc en
+ * dos pasos: colapsa el modal y luego cierra el composer, sin cerrar el lector.
  */
 export function CorreoComposerBox(props: Props) {
-  const { threadId, subject, mode, ai, replyAll, to } = props;
+  const { threadId, subject, mode, ai, replyAll, to, expanded } = props;
   const bodyRef = useRef<object | null>(null);
   const subjectRef = useRef<string>("");
   const draftIdRef = useRef<string | null>(null);
@@ -50,14 +51,47 @@ export function CorreoComposerBox(props: Props) {
   const [epoch, setEpoch] = useState(0);
   const [instructions, setInstructions] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   const isForward = mode === "forward";
+  const asModal = expanded && isDesktop;
   const recipients =
     mode === "all" && replyAll
       ? { to: replyAll.to, cc: replyAll.cc }
-      : mode === "forward"
+      : isForward
         ? { to: [] as string[], cc: [] as string[] }
         : { to, cc: [] as string[] };
+
+  // Esc en dos pasos: capture para preempt al focus-trap del lector (que en
+  // burbuja cerraría el lector). Primero colapsa el modal; luego cierra.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      if (asModal) {
+        e.preventDefault();
+        e.stopPropagation();
+        props.onToggleExpand();
+      } else {
+        e.preventDefault();
+        e.stopPropagation();
+        props.onClose();
+      }
+    }
+    document.addEventListener("keydown", onKey, { capture: true });
+    return () => document.removeEventListener("keydown", onKey, { capture: true });
+  }, [asModal, props]);
+
+  function reseed() {
+    setSeed(bodyRef.current);
+  }
 
   function injectDraft(text: string) {
     const doc = plainTextToTiptapDoc(text);
@@ -81,29 +115,30 @@ export function CorreoComposerBox(props: Props) {
   }
 
   function switchMode(next: ComposerMode) {
-    // Preservar el cuerpo escrito: se re-siembra con lo último editado.
-    setSeed(bodyRef.current);
+    reseed();
     props.onModeChange(next);
+  }
+
+  function toggleExpand() {
+    reseed();
+    props.onToggleExpand();
   }
 
   function toggleAi() {
     const next = !ai;
     props.onToggleAi();
-    // Al activar la IA sin borrador previo, generar automáticamente.
     if (next && !bodyRef.current) {
       if (props.preDraft) injectDraft(props.preDraft);
       else void generate();
     }
   }
 
-  return (
-    <div id="correo-suggested-reply" className="space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-2.5">
+  const inner = (
+    <>
       <div className="flex items-center gap-1.5">
         <div className="flex items-center gap-1 rounded-lg bg-ds-surface-1 p-0.5">
           <ModeTab active={mode === "reply"} onClick={() => switchMode("reply")}>Responder</ModeTab>
-          {replyAll && (
-            <ModeTab active={mode === "all"} onClick={() => switchMode("all")}>A todos</ModeTab>
-          )}
+          {replyAll && <ModeTab active={mode === "all"} onClick={() => switchMode("all")}>A todos</ModeTab>}
           <ModeTab active={mode === "forward"} onClick={() => switchMode("forward")}>Reenviar</ModeTab>
         </div>
         {!isForward && (
@@ -112,16 +147,24 @@ export function CorreoComposerBox(props: Props) {
             onClick={toggleAi}
             aria-pressed={ai}
             className={`inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium ds-tap ${
-              ai
-                ? "bg-tint-violet/25 text-tint-violet-fg"
-                : "border border-ds-border-default text-ds-text-2 hover:text-ds-text-1"
+              ai ? "bg-tint-violet/25 text-tint-violet-fg" : "border border-ds-border-default text-ds-text-2 hover:text-ds-text-1"
             }`}
           >
             <Sparkles className="h-3.5 w-3.5" /> IA
           </button>
         )}
         <div className="ml-auto flex items-center gap-1">
-          {props.headerExtra}
+          {isDesktop && (
+            <button
+              type="button"
+              aria-label={asModal ? "Contraer" : "Expandir"}
+              title={asModal ? "Contraer" : "Expandir"}
+              onClick={toggleExpand}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1"
+            >
+              {asModal ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+          )}
           <button
             type="button"
             aria-label="Cerrar"
@@ -168,15 +211,9 @@ export function CorreoComposerBox(props: Props) {
         forwardAttachments={isForward ? props.forwardAttachments : []}
         accountId={props.accountId}
         dealId={props.dealId}
-        onBodyChange={(doc) => {
-          bodyRef.current = doc;
-        }}
-        onSubjectChange={(s) => {
-          subjectRef.current = s;
-        }}
-        onDraftIdChange={(id) => {
-          draftIdRef.current = id;
-        }}
+        onBodyChange={(doc) => { bodyRef.current = doc; }}
+        onSubjectChange={(s) => { subjectRef.current = s; }}
+        onDraftIdChange={(id) => { draftIdRef.current = id; }}
         onSent={() => {
           if (props.radarItemId) {
             void fetch(`/api/crm/radar/${props.radarItemId}`, {
@@ -189,6 +226,24 @@ export function CorreoComposerBox(props: Props) {
         }}
         onClose={props.onClose}
       />
+    </>
+  );
+
+  if (asModal) {
+    return createPortal(
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Redactar correo">
+        <div className="absolute inset-0 bg-black/40" onClick={toggleExpand} aria-hidden />
+        <div className="relative z-10 flex h-[min(84dvh,780px)] w-[min(820px,94vw)] flex-col gap-2 overflow-y-auto rounded-2xl border border-ds-border-default bg-ds-surface-2 p-3 shadow-2xl">
+          {inner}
+        </div>
+      </div>,
+      document.body,
+    );
+  }
+
+  return (
+    <div id="correo-suggested-reply" className="space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-2.5">
+      {inner}
     </div>
   );
 }
