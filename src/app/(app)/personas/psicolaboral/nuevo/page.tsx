@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { isTenantModuleEnabled } from "@/lib/tenant-modules";
-import { Breadcrumbs } from "@/components/opai-ds";
 import PsychCreateForm from "@/components/psych/dashboard/PsychCreateForm";
 
 export const dynamic = "force-dynamic";
@@ -15,14 +14,6 @@ export default async function PsychCreatePage() {
 
   return (
     <div className="space-y-4">
-      <Breadcrumbs
-        items={[
-          { label: "Inicio", href: "/hub" },
-          { label: "Psicolaboral", href: "/personas/psicolaboral" },
-          { label: "Nueva evaluación" },
-        ]}
-        className="mb-2"
-      />
       <PsychCreateForm />
     </div>
   );

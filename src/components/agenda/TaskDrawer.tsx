@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CheckCircle2, ExternalLink, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Surface } from "@/components/opai-ds";
+import { TimeChipPicker } from "@/components/opai/TimeChipPicker";
 import type { WeekItem } from "./agenda-calendar.types";
 
 type Props = {
@@ -89,11 +90,10 @@ export function TaskDrawer({ task, onClose, onChanged }: Props) {
           </button>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Fecha"
-            className="h-10 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1 sm:h-9" />
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label="Hora (vacía = todo el día)"
-            className="h-10 w-28 shrink-0 rounded-xl border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1 sm:h-9" />
+            className="h-11 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1 sm:h-9" />
+          <TimeChipPicker value={time} onChange={setTime} menuAlign="right" />
         </div>
         <p className="text-[12px] text-ds-text-4">Sin hora → todo el día (aviso a media mañana).</p>
 

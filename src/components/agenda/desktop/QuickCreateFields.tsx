@@ -7,7 +7,7 @@ import { InstallationField } from "../nueva-visita/InstallationField";
 import type { useEventComposer, ComposerType } from "../mobile/useEventComposer";
 import type { useQuickCreateTask } from "./useQuickCreateTask";
 import { QuickCreateParticipants } from "./QuickCreateParticipants";
-import { TaskTimePicker } from "../TaskTimePicker";
+import { TimeChipPicker } from "@/components/opai/TimeChipPicker";
 import { TaskAssigneePicker } from "../TaskAssigneePicker";
 
 const EVENT_TYPES: Array<{ id: ComposerType; label: string }> = [
@@ -173,7 +173,7 @@ export function QuickCreateTaskFields({
             aria-label="Fecha de vencimiento"
             className={cn(INPUT, "w-36")}
           />
-          <TaskTimePicker value={form.time} onChange={set.setTime} />
+          <TimeChipPicker value={form.time} onChange={set.setTime} />
         </div>
       </Row>
 

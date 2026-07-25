@@ -17,6 +17,7 @@ import { AgendaListView } from "./AgendaListView";
 import { AgendaMonthView } from "./AgendaMonthView";
 import { AgendaMobileFilterSheet } from "./AgendaMobileFilterSheet";
 import { AgendaMobileHeader } from "./AgendaMobileHeader";
+import { AgendaViewSheet } from "./AgendaViewSheet";
 import {
   readMobilePrefs,
   writeMobilePrefs,
@@ -46,6 +47,7 @@ export function AgendaMobile({
   const [typeFilter, setTypeFilter] = useState<AgendaTypeFilter>("todos");
   const [assignedUserId, setAssignedUserId] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [viewSheetOpen, setViewSheetOpen] = useState(false);
   const [visitaId, setVisitaId] = useState<string | null>(null);
   const [licId, setLicId] = useState<string | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
@@ -97,9 +99,12 @@ export function AgendaMobile({
         selectedYmd={selectedYmd}
         daysWithEvents={daysWithEvents}
         filterCount={filterCount}
-        onViewChange={setView}
+        onOpenViewSheet={() => setViewSheetOpen(true)}
         onSelectDate={setSelectedYmd}
-        onToday={() => setSelectedYmd(todayInChile())}
+        onToday={() => {
+          setSelectedYmd(todayInChile());
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
         onOpenFilters={() => setFiltersOpen(true)}
       />
 
@@ -141,6 +146,18 @@ export function AgendaMobile({
           setComposerDate(selectedYmd);
           setComposerOpen(true);
         }}
+      />
+
+      <AgendaViewSheet
+        open={viewSheetOpen}
+        view={view}
+        selectedYmd={selectedYmd}
+        onViewChange={(v) => {
+          setView(v);
+          setViewSheetOpen(false);
+        }}
+        onSelectDate={setSelectedYmd}
+        onClose={() => setViewSheetOpen(false)}
       />
 
       <AgendaMobileFilterSheet

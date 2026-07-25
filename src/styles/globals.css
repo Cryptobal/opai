@@ -286,6 +286,15 @@
     --glass-blur-1: blur(16px) saturate(160%);
     --glass-blur-2: blur(24px) saturate(180%);
     --glass-blur-3: blur(32px) saturate(200%);
+
+    /* ── Shell móvil v3.1 — scroll edge effect ──────────────────
+       Alto de los degradados de máscara del contenedor de scroll.
+       --fade-top: punto donde el contenido pasa a opaco por debajo del
+       header de vidrio (ajustable por pantalla: 112 base, 162 con segmented,
+       186 con tira de días expandida, 104 colapsada).
+       --fade-bot: desvanecido inferior sobre la bottom-nav. */
+    --fade-top: 112px;
+    --fade-bot: 44px;
   }
 
   /* ── Liquid Glass v1 — overrides tema claro ──────────────────
@@ -1538,6 +1547,48 @@ html {
   }
   .dark .ds-ring-inset {
     box-shadow: inset 0 0 0 1px hsl(0 0% 100% / 0.06);
+  }
+
+  /* ── Shell móvil v3.1 — scroll edge effect ──────────────────────
+     Enmascara el CONTENEDOR de scroll (no un velo de color): el contenido
+     real se desvanece antes del borde superior y sobre la bottom-nav, y
+     respeta cualquier fondo con gradiente. El degradado se ancla a la caja
+     visible, así el contenido scrollea por detrás. Solo transform/opacity
+     baratos; sin repaint costoso. `--fade-top`/`--fade-bot` se ajustan por
+     pantalla vía estilo inline. */
+  .mobile-scroll-fade {
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 30px,
+      #000 var(--fade-top, 112px),
+      #000 calc(100% - var(--fade-bot, 44px)),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 30px,
+      #000 var(--fade-top, 112px),
+      #000 calc(100% - var(--fade-bot, 44px)),
+      transparent 100%
+    );
+    /* La máscara riel-scroll debe seguir la caja, no el contenido. */
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    overscroll-behavior: contain;
+  }
+  /* Fallback: sin soporte de máscara, sin recorte duro (degradación limpia). */
+  @supports not (
+    (mask-image: linear-gradient(#000, #000)) or
+    (-webkit-mask-image: linear-gradient(#000, #000))
+  ) {
+    .mobile-scroll-fade {
+      -webkit-mask-image: none;
+      mask-image: none;
+    }
   }
 }
 

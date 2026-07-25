@@ -6,7 +6,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { Breadcrumbs } from "@/components/opai-ds";
 import { CpqQuoteDetail } from "@/components/cpq/CpqQuoteDetail";
 import { z } from "zod";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
@@ -93,18 +92,8 @@ export default async function CrmCotizacionDetailPage({
 
   return (
     <>
-      {/* Breadcrumb sólo en ≥lg: en mobile el sticky header del detalle ya
-          muestra back arrow + código + contexto, por lo que el breadcrumb
-          duplica info y consume ~50px de altura inútil. */}
-      <div className="hidden lg:block mb-1">
-        <Breadcrumbs
-          items={[
-            { label: "CRM", href: "/crm" },
-            { label: "Cotizaciones", href: "/crm/cotizaciones" },
-            { label: quote?.code || id },
-          ]}
-        />
-      </div>
+      {/* Sin breadcrumbs dentro de módulos (v3.1): el header del detalle ya
+          muestra back arrow + código + contexto en móvil y desktop. */}
       <CpqQuoteDetail
         quoteId={id}
         currentUserId={session.user.id}

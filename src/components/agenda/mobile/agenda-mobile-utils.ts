@@ -103,6 +103,17 @@ export function monthTitle(ymd: string): { month: string; year: string } {
   return { month: month.charAt(0).toUpperCase() + month.slice(1), year: String(d.getUTCFullYear()) };
 }
 
+/** Desplaza `ymd` `delta` meses conservando el día (clamp a fin de mes). */
+export function addMonthsYmd(ymd: string, delta: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const total = y * 12 + (m - 1) + delta;
+  const ny = Math.floor(total / 12);
+  const nm = (total % 12 + 12) % 12; // 0-based mes destino
+  const lastDay = new Date(Date.UTC(ny, nm + 1, 0)).getUTCDate();
+  const nd = Math.min(d, lastDay);
+  return `${ny}-${String(nm + 1).padStart(2, "0")}-${String(nd).padStart(2, "0")}`;
+}
+
 /** Header de día en la lista: "HOY · MIÉRCOLES 22" / "JUEVES 23". */
 export function listDayLabel(ymd: string): string {
   const today = todayInChile();
