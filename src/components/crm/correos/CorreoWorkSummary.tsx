@@ -1,6 +1,19 @@
 "use client";
 
-import { CheckCircle2, Link2, ListTodo, Sparkles, TicketPlus, UserPlus, Users, CalendarPlus } from "lucide-react";
+import {
+  AlertTriangle,
+  Building2,
+  CalendarPlus,
+  CheckCircle2,
+  ChevronRight,
+  Link2,
+  ListChecks,
+  ListTodo,
+  Sparkles,
+  TicketPlus,
+  UserPlus,
+  type LucideIcon,
+} from "lucide-react";
 import { hasModuleAccess } from "@/lib/permissions";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
 import { LeadFromEmailPanel } from "./LeadFromEmailPanel";
@@ -16,11 +29,20 @@ type Props = {
   onGoTo: (tab: WorkTab) => void;
 };
 
+type Tone = "violet" | "emerald" | "amber" | "sky";
+const TONE: Record<Tone, string> = {
+  violet: "bg-tint-violet text-tint-violet-fg",
+  emerald: "bg-tint-emerald text-tint-emerald-fg",
+  amber: "bg-tint-amber text-tint-amber-fg",
+  sky: "bg-tint-sky text-tint-sky-fg",
+};
+
 /**
- * Tab Resumen del Panel de trabajo (Bloque 4): acciones transversales grandes
- * (ticket / reunión con IA) y chips secundarios según los módulos del usuario
- * (unión). Cada acción valida su módulo en servidor; asociar/tarea/ticket/
- * reunión sólo requieren Productividad.
+ * Tab Resumen del Panel de trabajo (v3.1): grilla homogénea de celdas de acción
+ * con color semántico por tipo (Ticket/Reunión violeta, Tarea/Lead verde,
+ * Incidente ámbar, Candidato celeste). Las acciones por módulo llevan micro-chip
+ * (CRM/OPS/RRHH) y sólo aparecen si el usuario tiene ese módulo; el gating final
+ * es server-side. Debajo, tarjeta "Estado del hilo" con filas navegables.
  */
 export function CorreoWorkSummary({ threadId, accountId, hasLead, aiOpen, setAiOpen, onRefresh, onGoTo }: Props) {
   const perms = useEffectivePermissions();
@@ -29,30 +51,25 @@ export function CorreoWorkSummary({ threadId, accountId, hasLead, aiOpen, setAiO
 
   return (
     <div className="space-y-3">
-      {/* Acciones transversales (sólo Productividad). */}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <BigAction icon={TicketPlus} label="✦ Crear ticket con IA" onClick={() => onGoTo("productividad")} />
-        <BigAction icon={CalendarPlus} label="Proponer reunión con IA" onClick={() => onGoTo("reunion")} />
-      </div>
-
       <div className="grid grid-cols-2 gap-2">
-        <Quick icon={Link2} label="Vincular" onClick={() => onGoTo("vinculos")} />
-        <Quick icon={ListTodo} label="Tareas" onClick={() => onGoTo("productividad")} />
-      </div>
-
-      {/* Chips por módulo (unión). El gating final es server-side por acción. */}
-      <div className="flex flex-wrap gap-2">
+        <Tile tone="violet" icon={TicketPlus} title="Crear ticket" subtitle="✦ con IA" onClick={() => onGoTo("productividad")} />
+        <Tile tone="violet" icon={CalendarPlus} title="Proponer reunión" subtitle="✦ con IA" onClick={() => onGoTo("reunion")} />
+        <Tile tone="emerald" icon={ListTodo} title="Crear tarea" subtitle="Seguimiento" onClick={() => onGoTo("productividad")} />
         {hasCrm &&
           (hasLead ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-status-ok-border bg-status-ok-soft px-3 py-1.5 text-[12px] text-status-ok-fg">
-              <CheckCircle2 className="h-3.5 w-3.5" /> Lead creado
-            </span>
+            <Tile tone="emerald" icon={CheckCircle2} title="Lead creado" subtitle="En comercial" chip="CRM" done />
           ) : (
-            <Chip icon={Sparkles} label="Crear lead" onClick={() => setAiOpen(true)} accent />
+            <Tile tone="emerald" icon={Sparkles} title="Crear lead" subtitle="Desde el hilo" chip="CRM" onClick={() => setAiOpen(true)} />
           ))}
-        {hasOps && <Chip icon={Sparkles} label="Reportar incidente" onClick={() => onGoTo("productividad")} />}
-        {hasOps && <Chip icon={Users} label="Crear candidato" href="/ops/ats" />}
-        {hasCrm && !accountId && <Chip icon={UserPlus} label="Asociar cuenta" onClick={() => onGoTo("cuenta")} />}
+        {hasOps && <Tile tone="amber" icon={AlertTriangle} title="Reportar incidente" subtitle="Operaciones" chip="OPS" onClick={() => onGoTo("productividad")} />}
+        {hasOps && <Tile tone="sky" icon={UserPlus} title="Crear candidato" subtitle="Postulación" chip="RRHH" href="/ops/ats" />}
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-ds-border-subtle bg-ds-surface-2">
+        <p className="px-3 pt-2 text-[12px] font-medium text-ds-text-3">Estado del hilo</p>
+        <StatusRow icon={Building2} label="Cuenta" value={accountId ? "Cuenta asociada" : "Sin cuenta"} onClick={() => onGoTo("cuenta")} />
+        <StatusRow icon={Link2} label="Vínculos" value="Ver relaciones" onClick={() => onGoTo("vinculos")} />
+        <StatusRow icon={ListChecks} label="Seguimiento" value="Tareas y tickets" onClick={() => onGoTo("productividad")} />
       </div>
 
       {hasCrm && !hasLead && aiOpen && (
@@ -70,59 +87,59 @@ export function CorreoWorkSummary({ threadId, accountId, hasLead, aiOpen, setAiO
   );
 }
 
-function BigAction({ icon: Icon, label, onClick }: { icon: typeof Sparkles; label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex min-h-16 flex-col items-start justify-center gap-1 rounded-xl border border-ds-border-default bg-ds-surface-1 p-3 text-left ds-tap hover:border-tint-violet"
-    >
-      <Icon className="h-5 w-5 text-tint-violet-fg" />
-      <span className="text-[13px] font-medium text-ds-text-1">{label}</span>
-    </button>
-  );
-}
-
-function Quick({ icon: Icon, label, onClick }: { icon: typeof Sparkles; label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 ds-tap hover:border-primary"
-    >
-      <Icon className="h-4 w-4" /> {label}
-    </button>
-  );
-}
-
-function Chip({
+function Tile({
+  tone,
   icon: Icon,
-  label,
+  title,
+  subtitle,
+  chip,
   onClick,
   href,
-  accent,
+  done,
 }: {
-  icon: typeof Sparkles;
-  label: string;
+  tone: Tone;
+  icon: LucideIcon;
+  title: string;
+  subtitle: string;
+  chip?: string;
   onClick?: () => void;
   href?: string;
-  accent?: boolean;
+  done?: boolean;
 }) {
-  const cls = `inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] ds-tap ${
-    accent
-      ? "border-tint-violet/40 bg-tint-violet/15 text-tint-violet-fg"
-      : "border-ds-border-default bg-ds-surface-1 text-ds-text-1 hover:border-primary"
+  const inner = (
+    <>
+      <div className="flex items-center justify-between">
+        <span className={`grid h-7 w-7 place-items-center rounded-lg ${TONE[tone]}`}>
+          <Icon className="h-4 w-4" />
+        </span>
+        {chip && (
+          <span className="rounded-full bg-ds-surface-3 px-1.5 py-0.5 text-[11px] font-mono uppercase tracking-[0.06em] text-ds-text-3">
+            {chip}
+          </span>
+        )}
+      </div>
+      <span className="mt-1.5 text-[13px] font-medium leading-tight text-ds-text-1">{title}</span>
+      <span className="text-[12px] leading-tight text-ds-text-3">{subtitle}</span>
+    </>
+  );
+  const cls = `flex min-h-[76px] flex-col rounded-xl border p-2.5 text-left ds-tap ${
+    done ? "border-status-ok-border bg-status-ok-soft/40" : "border-ds-border-default bg-ds-surface-1"
   }`;
-  if (href) {
-    return (
-      <a href={href} className={cls}>
-        <Icon className="h-3.5 w-3.5" /> {label}
-      </a>
-    );
-  }
+  if (href) return <a href={href} className={cls}>{inner}</a>;
+  return <button type="button" onClick={onClick} className={cls}>{inner}</button>;
+}
+
+function StatusRow({ icon: Icon, label, value, onClick }: { icon: LucideIcon; label: string; value: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className={cls}>
-      <Icon className="h-3.5 w-3.5" /> {label}
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-11 w-full items-center gap-2.5 px-3 py-2 text-left ds-tap hover:bg-ds-surface-3"
+    >
+      <Icon className="h-4 w-4 shrink-0 text-ds-text-3" />
+      <span className="text-[13px] font-medium text-ds-text-1">{label}</span>
+      <span className="ml-auto truncate text-[12px] text-ds-text-3">{value}</span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-ds-text-4" />
     </button>
   );
 }

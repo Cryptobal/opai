@@ -30,8 +30,9 @@ type Props = {
  * Panel de trabajo transversal (Bloque 4): slide-over derecha en desktop /
  * bottom-sheet en móvil. Visible para todo usuario con Productividad; los chips
  * de módulo y las acciones se muestran por unión (gating client) y cada acción
- * valida su módulo server-side. Tabs: Resumen · Cuenta · Vínculos ·
- * Productividad · Reunión · Contacto.
+ * valida su módulo server-side. Cinco pestañas en una línea (icono + etiqueta,
+ * sin scroll horizontal): Resumen · Cuenta · Vínculos · Trabajo · Reunión.
+ * "Contacto" vive dentro de "Cuenta".
  */
 export function CorreoWorkPanel({ open, onClose, initialTab, detail, aiOpen, setAiOpen, onAssociate, onRefresh }: Props) {
   const [tab, setTab] = useState<WorkTab>(initialTab);
@@ -94,20 +95,27 @@ export function CorreoWorkPanel({ open, onClose, initialTab, detail, aiOpen, set
               </span>
             ))}
           </div>
-          <div className="mt-2 flex gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {WORK_TABS.map((wt) => (
-              <button
-                key={wt.id}
-                type="button"
-                onClick={() => setTab(wt.id)}
-                aria-pressed={tab === wt.id}
-                className={`h-8 shrink-0 rounded-full px-3 text-[12px] font-medium ds-tap ${
-                  tab === wt.id ? "bg-primary text-primary-foreground" : "bg-ds-surface-2 text-ds-text-2"
-                }`}
-              >
-                {wt.label}
-              </button>
-            ))}
+          <div className="mt-2 flex gap-1">
+            {WORK_TABS.map((wt) => {
+              const Icon = wt.icon;
+              const active = tab === wt.id;
+              return (
+                <button
+                  key={wt.id}
+                  type="button"
+                  onClick={() => setTab(wt.id)}
+                  aria-pressed={active}
+                  className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 ds-tap ${
+                    active ? "bg-primary/10 text-primary" : "text-ds-text-3"
+                  }`}
+                >
+                  <Icon className="h-[18px] w-[18px] shrink-0" />
+                  <span className="max-w-full truncate text-[12px] font-medium leading-none">
+                    {wt.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </header>
 
@@ -127,16 +135,20 @@ export function CorreoWorkPanel({ open, onClose, initialTab, detail, aiOpen, set
             />
           )}
           {tab === "cuenta" && (
-            <CorreoAssociationBar
-              threadId={t.id}
-              accountId={t.accountId}
-              accountName={t.accountName}
-              dealId={t.dealId}
-              dealTitle={t.dealTitle}
-              subject={t.subject}
-              sharedWithAccount={t.sharedWithAccount}
-              onAssociate={onAssociate}
-            />
+            <>
+              <CorreoAssociationBar
+                threadId={t.id}
+                accountId={t.accountId}
+                accountName={t.accountName}
+                dealId={t.dealId}
+                dealTitle={t.dealTitle}
+                subject={t.subject}
+                sharedWithAccount={t.sharedWithAccount}
+                onAssociate={onAssociate}
+              />
+              {/* Contacto integrado en Cuenta: ficha + últimas conversaciones. */}
+              <CorreoContactPanel threadId={t.id} />
+            </>
           )}
           {tab === "vinculos" && <CorreoLinksPanel threadId={t.id} />}
           {tab === "productividad" && (
@@ -146,7 +158,6 @@ export function CorreoWorkPanel({ open, onClose, initialTab, detail, aiOpen, set
             </>
           )}
           {tab === "reunion" && <CorreoMeetingPanel threadId={t.id} subject={t.subject} />}
-          {tab === "contacto" && <CorreoContactPanel threadId={t.id} />}
         </div>
       </div>
     </div>,
