@@ -2,11 +2,25 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { timeAgo } from '@/lib/utils';
-import { Activity, ChevronDown } from 'lucide-react';
+import {
+  Activity,
+  Briefcase,
+  ShieldCheck,
+  Users,
+  Wallet,
+  CalendarClock,
+  Settings2,
+  ChevronDown,
+  type LucideIcon,
+} from 'lucide-react';
+import { timeAgo, cn } from '@/lib/utils';
+import { IconBubble } from '@/components/opai-ds';
 import { HubCollapsibleSection } from './HubCollapsibleSection';
 import { groupActivities } from '../_lib/hub-utils';
-import { cn } from '@/lib/utils';
+import {
+  humanizeActivity,
+  type ActivityDomain,
+} from '../_lib/hub-activity-format';
 import type { ActivityEntry, ActivityCategory } from '../_lib/hub-types';
 
 interface HubActivitySectionProps {
@@ -21,46 +35,15 @@ const CATEGORY_FILTERS: { key: ActivityCategory; label: string }[] = [
   { key: 'sistema', label: 'Sistema' },
 ];
 
-const categoryDotColor: Record<ActivityCategory, string> = {
-  all: 'bg-muted-foreground',
-  comercial: 'bg-[#8b5cf6]',
-  ops: 'bg-[#10b981]',
-  finanzas: 'bg-[#f59e0b]',
-  sistema: 'bg-[#64748b]',
+/** Ícono por dominio para la burbuja teñida (tinte vía `tone`). */
+const DOMAIN_ICON: Record<ActivityDomain, LucideIcon> = {
+  comercial: Briefcase,
+  operaciones: ShieldCheck,
+  personas: Users,
+  finanzas: Wallet,
+  productividad: CalendarClock,
+  sistema: Settings2,
 };
-
-function formatActivityAction(action: string): string {
-  const map: Record<string, string> = {
-    create: 'creado',
-    update: 'actualizado',
-    delete: 'eliminado',
-    approve: 'aprobado',
-    reject: 'rechazado',
-    submit: 'enviado',
-    login: 'inicio sesion',
-    attendance_mark: 'marcado asistencia',
-    profile_update: 'perfil actualizado',
-    name_change: 'nombre cambiado',
-  };
-  return map[action] || action;
-}
-
-function formatEntity(type: string): string {
-  const map: Record<string, string> = {
-    CrmLead: 'lead',
-    CrmDeal: 'negocio',
-    CrmContact: 'contacto',
-    CrmAccount: 'cuenta',
-    OpsTurnoExtra: 'turno extra',
-    OpsGuardia: 'guardia',
-    OpsRondaEjecucion: 'ronda',
-    OpsAsistenciaDiaria: 'asistencia',
-    FinanceRendicion: 'rendicion',
-    Presentation: 'propuesta',
-    User: 'usuario',
-  };
-  return map[type] || type;
-}
 
 export function HubActivitySection({ activities }: HubActivitySectionProps) {
   const [activeFilter, setActiveFilter] = useState<ActivityCategory>('all');
@@ -97,7 +80,7 @@ export function HubActivitySection({ activities }: HubActivitySectionProps) {
               'rounded-full px-3 py-1 text-[12px] font-medium transition-colors',
               activeFilter === filter.key
                 ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground hover:bg-accent'
+                : 'bg-ds-surface-2 text-ds-text-3 hover:bg-ds-surface-3',
             )}
           >
             {filter.label}
@@ -105,39 +88,43 @@ export function HubActivitySection({ activities }: HubActivitySectionProps) {
         ))}
       </div>
 
-      {/* Grouped log */}
-      <div className="space-y-1">
-        {visible.map((entry, idx) => (
-          <div
-            key={entry.key}
-            className={cn(
-              'flex items-start gap-2.5 py-2 text-xs',
-              !showAll && idx >= 3 && 'hidden sm:flex',
-            )}
-          >
-            <span
-              className={`mt-1 h-2 w-2 shrink-0 rounded-full ${categoryDotColor[entry.category]}`}
-            />
-            <div className="min-w-0 flex-1">
-              <span className="text-foreground">
-                {formatEntity(entry.entity)} {formatActivityAction(entry.action)}
-                {entry.count > 1 && (
-                  <span className="ml-1 text-muted-foreground">
-                    x{entry.count}
-                  </span>
-                )}
-              </span>
-              {entry.userEmail && (
-                <span className="ml-1 text-muted-foreground/70">
-                  por {entry.userEmail.split('@')[0]}
-                </span>
+      {/* Grouped log — frase humanizada + burbuja teñida por dominio */}
+      <div className="space-y-0.5">
+        {visible.map((entry, idx) => {
+          const h = humanizeActivity({
+            action: entry.action,
+            entity: entry.entity,
+            count: entry.count,
+            userEmail: entry.userEmail,
+          });
+          const Icon = DOMAIN_ICON[h.domain];
+          return (
+            <div
+              key={entry.key}
+              className={cn(
+                'flex items-start gap-2.5 py-2',
+                !showAll && idx >= 3 && 'hidden sm:flex',
               )}
+            >
+              <IconBubble icon={<Icon />} tone={h.tone} size="sm" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] leading-snug text-ds-text-2">
+                  <span className="font-medium text-ds-text-1">{h.actor}</span>{' '}
+                  {h.phrase}
+                  {!h.countEmbedded && entry.count > 1 && (
+                    <span className="text-ds-text-3"> · {entry.count} veces</span>
+                  )}
+                </p>
+                <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
+                  {h.domainLabel}
+                </span>
+              </div>
+              <span className="shrink-0 text-[12px] text-ds-text-4 tabular-nums">
+                {timeAgo(entry.lastTimestamp)}
+              </span>
             </div>
-            <span className="shrink-0 text-[12px] text-muted-foreground/70 tabular-nums">
-              {timeAgo(entry.lastTimestamp)}
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Show more / link to log */}
