@@ -12,6 +12,57 @@ import { getCalendarClientForUser } from "@/lib/google-workspace/clients";
 import { buildCalendarEventGooglePayload, pendingAccountKey } from "./calendar-google-payload";
 import { applyAttendeeResponses } from "./calendar-rsvp-readback";
 
+/**
+ * Clasifica un fallo de push a Google para decidir el estado del link sin
+ * revertir jamás el cambio local (la fuente de verdad es OPAI):
+ * - PENDING (reintentable): red/timeout/rate-limit/5xx. El evento local ya se
+ *   persistió; el cambio se reconcilia en el próximo sync o retry.
+ * - ERROR (permanente, no reintentar en bucle): recurso ausente o sin acceso /
+ *   request inválido (400/401/403/404/410, "not found", "deleted"). P. ej. un
+ *   evento borrado en Google y editado en OPAI falla con "no encontrado".
+ */
+export function classifyGoogleSyncError(err: unknown): "ERROR" | "PENDING" {
+  const e = err as {
+    code?: unknown;
+    status?: number;
+    response?: {
+      status?: number;
+      data?: { error?: { errors?: Array<{ reason?: string }> } };
+    };
+  };
+  const status =
+    (typeof e?.code === "number" ? e.code : undefined) ??
+    e?.status ??
+    e?.response?.status;
+  const reason = e?.response?.data?.error?.errors?.[0]?.reason?.toLowerCase() ?? "";
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  const haystack = `${reason} ${msg}`;
+
+  // Rate limit / cuota / red: transitorio aunque llegue como 403.
+  if (
+    status === 429 ||
+    status === 408 ||
+    /rate|quota|backend error|timeout|timed out|socket|network|econn|etimedout|enotfound|eai_again/.test(
+      haystack,
+    )
+  ) {
+    return "PENDING";
+  }
+  // Recurso ausente / sin acceso / request inválido: permanente.
+  if (
+    status === 400 ||
+    status === 401 ||
+    status === 403 ||
+    status === 404 ||
+    status === 410 ||
+    /not ?found|has been deleted|deleted|forbidden|unauthorized|invalid/.test(msg)
+  ) {
+    return "ERROR";
+  }
+  // 5xx u otros sin clasificar: transitorio → reintentar.
+  return "PENDING";
+}
+
 export async function syncCalendarEventToGoogle(
   tenantId: string,
   eventId: string,
@@ -139,13 +190,19 @@ export async function syncCalendarEventToGoogle(
     return { syncStatus: "SYNCED" };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    // Un fallo remoto nunca revierte el cambio local (ya persistido arriba):
+    // transitorio → PENDING (se reintenta), permanente → ERROR (no en bucle).
+    const nextStatus = classifyGoogleSyncError(err);
     if (link) {
       await prisma.calendarProviderLink.update({
         where: { id: link.id },
-        data: { syncStatus: "ERROR", lastError: msg.slice(0, 500), lastSyncAt: new Date() },
+        data: { syncStatus: nextStatus, lastError: msg.slice(0, 500), lastSyncAt: new Date() },
       });
     }
-    console.warn("[calendar-v2] syncCalendarEventToGoogle error:", msg);
-    return { syncStatus: "ERROR" };
+    console.warn(
+      `[calendar-v2] syncCalendarEventToGoogle ${nextStatus.toLowerCase()}:`,
+      msg,
+    );
+    return { syncStatus: nextStatus };
   }
 }
