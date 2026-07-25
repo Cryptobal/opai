@@ -588,27 +588,8 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
 
   return (
     <div className="space-y-3 pb-24">
-      {/* Breadcrumbs */}
-      <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <button
-          type="button"
-          onClick={() => router.push("/ops")}
-          className="hover:text-foreground transition-colors"
-        >
-          Operaciones
-        </button>
-        <ChevronRight className="h-3 w-3" />
-        <button
-          type="button"
-          onClick={() => router.push("/ops/tickets")}
-          className="hover:text-foreground transition-colors"
-        >
-          Tickets
-        </button>
-        <ChevronRight className="h-3 w-3" />
-        <span className="font-medium text-foreground">{ticket.code}</span>
-      </nav>
-
+      {/* Sin breadcrumbs dentro de módulos (v3.1): la ubicación se comunica con
+          el título del header y el botón de volver (MobileIsland / topbar). */}
       {/* ── CARD: Header ── */}
       <div className={`rounded-xl border bg-ds-surface-1 p-4 space-y-3 ${breached && !isTerminal ? "border-status-danger-border" : "border-border"}`}>
         {/* Row 1: Code + Status + Priority + Delete */}

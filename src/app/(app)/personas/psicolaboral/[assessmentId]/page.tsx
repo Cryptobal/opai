@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth";
 import { isTenantModuleEnabled } from "@/lib/tenant-modules";
 import { prisma } from "@/lib/prisma";
 import { DetailHeader } from "@/components/opai-ds";
-import { Breadcrumbs } from "@/components/opai-ds";
 import PsychAssessmentDetail from "@/components/psych/dashboard/PsychAssessmentDetail";
 
 export const dynamic = "force-dynamic";
@@ -28,14 +27,6 @@ export default async function PsychDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-4">
-      <Breadcrumbs
-        items={[
-          { label: "Inicio", href: "/hub" },
-          { label: "Psicolaboral", href: "/personas/psicolaboral" },
-          { label: assessment.targetName },
-        ]}
-        className="mb-2"
-      />
       <DetailHeader
         title={assessment.targetName}
         backHref="/personas/psicolaboral"
