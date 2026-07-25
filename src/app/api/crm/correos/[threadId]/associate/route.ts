@@ -7,7 +7,7 @@ import { normalizeEmailAddress } from "@/lib/email-address";
 import { auditEmailAction } from "@/lib/audit-email";
 
 type Ctx = { params: Promise<{ threadId: string }> };
-type Body = { accountId?: string | null; dealId?: string | null };
+type Body = { accountId?: string | null; dealId?: string | null; sharedWithAccount?: boolean };
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   const mod = await requireCorreosAccess();
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   const thread = await prisma.crmEmailThread.findFirst({
     where: { id: threadId, tenantId, emailAccountId: account.id },
-    select: { id: true, accountId: true, dealId: true },
+    select: { id: true, accountId: true, dealId: true, sharedWithAccount: true },
   });
   if (!thread) return NextResponse.json({ error: "Hilo no encontrado" }, { status: 404 });
 
@@ -90,12 +90,19 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     contactId = contacts.find((c) => c.email && emails.has(normalizeEmailAddress(c.email)))?.id ?? null;
   }
 
+  // Bloque 5: "asociar = compartir". Al asociar una cuenta el hilo queda
+  // visible en su ficha (default true); el toggle puede dejarlo privado sin
+  // desasociar. Sin cuenta, la visibilidad no aplica (se conserva el valor).
+  const sharedWithAccount =
+    typeof body.sharedWithAccount === "boolean" ? body.sharedWithAccount : thread.sharedWithAccount;
+
   await prisma.crmEmailThread.update({
     where: { id: thread.id },
     data: {
       accountId: crmAccount?.id ?? null,
       dealId: newDealId,
       contactId: crmAccount ? contactId : null,
+      sharedWithAccount,
     },
   });
 
@@ -120,5 +127,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     dealId: newDealId,
     dealTitle,
     contactId,
+    sharedWithAccount,
   });
 }
