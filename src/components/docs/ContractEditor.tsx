@@ -1,6 +1,6 @@
 "use client";
 
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Underline from "@tiptap/extension-underline";
@@ -24,7 +24,7 @@ import { ClauseBubbleMenu } from "./editor/ClauseBubbleMenu";
 import { findDuplicateClauseIds } from "./editor/clause-utils-client";
 import { DocPreviewDialog, type PageType } from "./DocPreviewDialog";
 import { SIGNER_TOKEN_COLORS } from "@/lib/docs/signature-token-colors";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import "./editor/editor-styles.css";
 
 const PAGE_WIDTHS: Record<PageType, string> = {
@@ -50,6 +50,11 @@ interface ContractEditorProps {
   enableImages?: boolean;
   /** Altura compacta para composers embebidos (correo) en vez de página completa. */
   compact?: boolean;
+  /** Correo (Bloque 1): desactiva tokens `#`/{{…}} ajenos a email. Docs los usa. */
+  enableTokens?: boolean;
+  /** Correo (Bloque 1): toolbar propia (sin "Insertar Token"/"firmas"). Si se
+   *  provee, reemplaza a la toolbar de documentos manteniendo docs intacto. */
+  renderToolbar?: (editor: Editor) => ReactNode;
 }
 
 /** Lee archivos de imagen del clipboard/drop y los inserta como data URL. */
@@ -80,6 +85,8 @@ export function ContractEditor({
   showPagePreview = true,
   enableImages = false,
   compact = false,
+  enableTokens = true,
+  renderToolbar,
 }: ContractEditorProps) {
   // Default to "auto" (full container width) — readable on wide monitors.
   // Users can switch to A4/Carta/Oficio if they want page-width editing.
@@ -128,7 +135,9 @@ export function ContractEditor({
       Column,
       Columns,
       ColumnsCommands,
-      TokenSuggestionExtension.configure({ filterModules: filterModules ?? undefined }),
+      ...(enableTokens
+        ? [TokenSuggestionExtension.configure({ filterModules: filterModules ?? undefined })]
+        : []),
       ...(enableImages
         ? [Image.configure({ allowBase64: true, inline: false })]
         : []),
@@ -163,7 +172,7 @@ export function ContractEditor({
       onChange?.(editor.getJSON());
     },
   },
-  [editable, placeholder, filterModules, enableImages, compact]
+  [editable, placeholder, filterModules, enableImages, compact, enableTokens]
   );
 
   // Warning de clauseIds duplicados (solo console — banner UI queda para iteración futura)
@@ -226,17 +235,21 @@ export function ContractEditor({
     <div className={`border border-border rounded-lg bg-card flex flex-col max-h-[calc(100vh-160px)] min-h-[400px] overflow-hidden ${className}`}>
       {editable && (
         <div className="shrink-0 border-b border-border bg-card z-10">
-          <EditorToolbar
-            editor={editor}
-            onInsertToken={insertToken}
-            filterModules={filterModules}
-            pageType={pageType}
-            onPageTypeChange={setPageType}
-            onPreview={() => {
-              setPreviewOpen(true);
-            }}
-            showPreview={showPagePreview}
-          />
+          {renderToolbar ? (
+            renderToolbar(editor)
+          ) : (
+            <EditorToolbar
+              editor={editor}
+              onInsertToken={insertToken}
+              filterModules={filterModules}
+              pageType={pageType}
+              onPageTypeChange={setPageType}
+              onPreview={() => {
+                setPreviewOpen(true);
+              }}
+              showPreview={showPagePreview}
+            />
+          )}
         </div>
       )}
 

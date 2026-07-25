@@ -19,6 +19,7 @@ import { CalendarClock, Check, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AttachmentPicker, Spinner } from "@/components/opai-ds";
 import { ContractEditor } from "@/components/docs/ContractEditor";
+import { EmailToolbar } from "./EmailToolbar";
 import { tiptapToEmailHtml } from "@/lib/docs/tiptap-to-html";
 import { ReplyRecipientsField, isValidEmail } from "./ReplyRecipientsField";
 import { useEmailAttachments } from "./useEmailAttachments";
@@ -422,16 +423,17 @@ export function EmailComposer({
           className="h-9 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1"
         />
       </div>
-      <div className="rounded-lg border border-ds-border-default bg-ds-surface-1 [&_.opai-editor-toolbar]:flex-wrap">
+      <div className="overflow-hidden rounded-lg border border-ds-border-default bg-ds-surface-1">
         <ContractEditor
           content={content ?? undefined}
           onChange={(next) => setContent(next)}
           editable={!busy}
-          placeholder="Escribí tu mensaje… (# para tokens; pegá imágenes directo)"
-          filterModules={["system"]}
+          placeholder="Escribí tu mensaje… (pegá imágenes directo)"
           showPagePreview={false}
           enableImages
+          enableTokens={false}
           compact
+          renderToolbar={(editor) => <EmailToolbar editor={editor} />}
         />
       </div>
       {quotedHtml && (
