@@ -432,7 +432,7 @@ export function EmailComposer({
             onSubjectChange?.(e.target.value);
           }}
           placeholder="Asunto"
-          className="h-9 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1"
+          className="h-9 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[16px] text-ds-text-1 sm:text-[13px]"
         />
       </div>
       <div className="overflow-hidden rounded-lg border border-ds-border-default bg-ds-surface-1">

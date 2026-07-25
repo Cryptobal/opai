@@ -112,7 +112,7 @@ export function CorreoWorkPanel({ open, onClose, initialTab, detail, aiOpen, set
         </header>
 
         <div
-          className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 [overscroll-behavior:contain]"
+          className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain]"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
         >
           {tab === "resumen" && (
