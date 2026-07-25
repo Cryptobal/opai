@@ -1,17 +1,14 @@
 "use client";
 
-import { CheckCircle2, ExternalLink, Sparkles } from "lucide-react";
-import { CorreoCrmPanel } from "./CorreoCrmPanel";
-import { CorreoAssociationBar } from "./CorreoAssociationBar";
+import { useEffect, useState } from "react";
+import { Briefcase, ExternalLink, Eye, Plus } from "lucide-react";
 import { CorreoMessages } from "./CorreoMessages";
 import { CorreoAttachments } from "./CorreoAttachments";
-import { CorreoTasksPanel } from "./CorreoTasksPanel";
-import { LeadFromEmailPanel } from "./LeadFromEmailPanel";
 import { CorreoReplyBox } from "./CorreoReplyBox";
 import { CorreoThreadActions } from "./CorreoThreadActions";
-import { CorreoContactPanel } from "./CorreoContactPanel";
 import { CorreoSummaryPanel } from "./CorreoSummaryPanel";
-import { CorreoLinksPanel } from "./CorreoLinksPanel";
+import { CorreoWorkPanel } from "./CorreoWorkPanel";
+import type { WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 
 type Props = {
@@ -19,7 +16,7 @@ type Props = {
   canModify?: boolean;
   aiOpen: boolean;
   setAiOpen: (v: boolean) => void;
-  onAssociate: (p: { accountId: string | null; dealId: string | null }) => void;
+  onAssociate: (p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) => void;
   onRefresh: () => void;
   onClose?: () => void;
   onReply?: () => void;
@@ -41,23 +38,27 @@ export function CorreoDrawerContent({
   alwaysShowImages,
   onAlwaysShowImages,
 }: Props) {
-  const gmailUrl = detail.thread.providerThreadId
-    ? `https://mail.google.com/mail/u/0/#all/${detail.thread.providerThreadId}`
-    : null;
+  const t = detail.thread;
+  const [panel, setPanel] = useState<{ tab: WorkTab } | null>(null);
+  const gmailUrl = t.providerThreadId ? `https://mail.google.com/mail/u/0/#all/${t.providerThreadId}` : null;
+
+  // Posible lead (autoExtract) o "Crear lead con IA": abre el panel en Resumen.
+  useEffect(() => {
+    if (aiOpen) setPanel({ tab: "resumen" });
+  }, [aiOpen]);
+
+  const openPanel = (tab: WorkTab) => setPanel({ tab });
 
   return (
     <>
-      {/* Rediseño Gmail: header compacto de iconos + Resumir arriba; el CORREO
-          al frente; barra de acciones / composer bajo demanda; el panel de
-          trabajo al fondo. */}
       <div className="flex flex-wrap items-center gap-2">
         {canModify && (
           <CorreoThreadActions
-            threadId={detail.thread.id}
-            isUnread={detail.thread.isUnread}
-            archived={Boolean(detail.thread.archivedAt)}
-            starred={Boolean(detail.thread.starredAt)}
-            inSpam={Boolean(detail.thread.spamAt)}
+            threadId={t.id}
+            isUnread={t.isUnread}
+            archived={Boolean(t.archivedAt)}
+            starred={Boolean(t.starredAt)}
+            inSpam={Boolean(t.spamAt)}
             canModify
             variant="drawer"
             compact
@@ -73,65 +74,71 @@ export function CorreoDrawerContent({
           </a>
         )}
       </div>
-      {/* A01/A02: Resumir hilo — arriba, como pidió Carlos (acceso rápido). */}
-      <CorreoSummaryPanel key={`summary-${detail.thread.id}`} threadId={detail.thread.id} />
-      {detail.degraded && (
-        <div className="rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">
-          No se pudieron cargar los adjuntos de este hilo desde Gmail. Reintentá
-          en unos segundos.
-        </div>
-      )}
-      {/* EL CORREO al frente. */}
-      <CorreoMessages
-        messages={detail.messages}
-        alwaysShowImages={alwaysShowImages}
-        onAlwaysShowImages={onAlwaysShowImages}
-      />
-      <CorreoAttachments
-        items={detail.attachments}
-        threadId={detail.thread.id}
-        dealId={detail.thread.dealId}
-        dealTitle={detail.thread.dealTitle}
-        accountId={detail.thread.accountId}
-      />
-      {/* Responder — barra estilo Gmail (o composer bajo demanda), justo bajo el
-          correo. Nada de acciones de respuesta debajo del panel. */}
-      <CorreoReplyBox key={`reply-${detail.thread.id}`} detail={detail} onSent={onRefresh} />
 
-      {/* Panel comercial plegable al FONDO: Crear lead con IA primero, luego
-          Asociar, Vincular, Tareas y Contacto. */}
-      <CorreoCrmPanel>
-        {detail.thread.leadId ? (
-          <div className="flex items-center gap-2 rounded-xl border border-status-ok-border bg-status-ok-soft p-2.5 text-[13px] text-status-ok-fg">
-            <CheckCircle2 className="h-4 w-4" /> Lead creado desde este correo.
-          </div>
-        ) : aiOpen ? (
-          <LeadFromEmailPanel
-            threadId={detail.thread.id}
-            hasAccount={Boolean(detail.thread.accountId)}
-            onClose={() => setAiOpen(false)}
-            onCreated={() => { setAiOpen(false); onRefresh(); }}
-          />
+      {/* Chips contextuales del hilo: estado + entrada al Panel de trabajo. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {t.accountId ? (
+          <button
+            type="button"
+            onClick={() => openPanel("cuenta")}
+            className="inline-flex min-h-8 items-center gap-1 rounded-full border border-ds-border-default bg-ds-surface-1 px-2.5 text-[12px] text-ds-text-1 ds-tap"
+          >
+            {t.sharedWithAccount && <Eye className="h-3.5 w-3.5 text-status-ok-fg" />}
+            <span className="max-w-[12rem] truncate">{t.accountName || "Cuenta"}</span>
+          </button>
         ) : (
-          <button type="button" onClick={() => setAiOpen(true)} className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-primary text-[13px] font-medium text-primary-foreground ds-tap">
-            <Sparkles className="h-4 w-4" /> Crear lead con IA
+          <button
+            type="button"
+            onClick={() => openPanel("cuenta")}
+            className="inline-flex min-h-8 items-center gap-1 rounded-full border border-dashed border-ds-border-default px-2.5 text-[12px] text-ds-text-3 ds-tap"
+          >
+            <Plus className="h-3.5 w-3.5" /> Sin cuenta · Asociar
           </button>
         )}
-        <CorreoAssociationBar
-          threadId={detail.thread.id}
-          accountId={detail.thread.accountId}
-          accountName={detail.thread.accountName}
-          dealId={detail.thread.dealId}
-          dealTitle={detail.thread.dealTitle}
-          subject={detail.thread.subject}
-          onAssociate={onAssociate}
-        />
-        {/* O01-O04: entidades vinculadas + sugerencia IA. */}
-        <CorreoLinksPanel key={`links-${detail.thread.id}`} threadId={detail.thread.id} />
-        <CorreoTasksPanel key={`tasks-${detail.thread.id}`} threadId={detail.thread.id} subject={detail.thread.subject} />
-        {/* P11: ficha del contacto asociado + últimas conversaciones. */}
-        <CorreoContactPanel key={`contact-${detail.thread.id}`} threadId={detail.thread.id} />
-      </CorreoCrmPanel>
+        <button
+          type="button"
+          onClick={() => openPanel("resumen")}
+          className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-ds-border-default bg-ds-surface-1 px-2.5 text-[12px] font-medium text-ds-text-1 ds-tap hover:border-primary"
+        >
+          <Briefcase className="h-3.5 w-3.5 text-tint-violet-fg" /> Panel de trabajo
+        </button>
+      </div>
+
+      {/* A01/A02: Resumir hilo — acceso rápido. */}
+      <CorreoSummaryPanel key={`summary-${t.id}`} threadId={t.id} />
+      {detail.degraded && (
+        <div className="rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">
+          No se pudieron cargar los adjuntos de este hilo desde Gmail. Reintentá en unos segundos.
+        </div>
+      )}
+
+      {/* EL CORREO al frente. */}
+      <CorreoMessages messages={detail.messages} alwaysShowImages={alwaysShowImages} onAlwaysShowImages={onAlwaysShowImages} />
+      <CorreoAttachments
+        items={detail.attachments}
+        threadId={t.id}
+        dealId={t.dealId}
+        dealTitle={t.dealTitle}
+        accountId={t.accountId}
+      />
+
+      {/* Responder — barra Gmail / composer bajo demanda. Nada debajo (el panel
+          de trabajo es slide-over, no inline). */}
+      <CorreoReplyBox key={`reply-${t.id}`} detail={detail} onSent={onRefresh} />
+
+      <CorreoWorkPanel
+        open={panel !== null}
+        initialTab={panel?.tab ?? "resumen"}
+        detail={detail}
+        aiOpen={aiOpen}
+        setAiOpen={setAiOpen}
+        onAssociate={onAssociate}
+        onRefresh={onRefresh}
+        onClose={() => {
+          setPanel(null);
+          setAiOpen(false);
+        }}
+      />
     </>
   );
 }

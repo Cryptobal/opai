@@ -119,7 +119,7 @@ export function CorreoDrawer({
     onChanged?.();
   });
 
-  async function associate(p: { accountId: string | null; dealId: string | null }) {
+  async function associate(p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) {
     if (!threadId) return;
     await fetch(`/api/crm/correos/${threadId}/associate`, {
       method: "POST",
