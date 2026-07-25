@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
+import { triggerHaptic } from "@/lib/haptics";
+import { lockSwipeScroll, unlockSwipeScroll } from "@/lib/swipe-scroll-lock";
 
 export type CorreoSwipeSide = "right" | "left";
 
@@ -13,16 +15,16 @@ export const SWIPE_LONG_RATIO = 0.55;
 /** Rubber-band: pasado el ancho de botones, el arrastre extra se amortigua. */
 const RUBBER_BAND = 0.35;
 /** Píxeles antes de decidir si el gesto es horizontal o scroll vertical. */
-const AXIS_LOCK = 8;
+const AXIS_LOCK = 10;
 /** Long-press: umbral de disparo y tolerancia de movimiento (estilo Gmail). */
 const LONG_PRESS_MS = 450;
 const LONG_PRESS_MOVE = 10;
 
 /**
  * Máquina de gestos del swipe de dos niveles: arrastre con pointer events
- * (capture + touch-action pan-y en el consumidor), lock de eje para no pelear
- * con el scroll, estado "abierto" con botones revelados y swipe largo que
- * dispara la acción principal. El componente decide qué ejecutar.
+ * (capture + touch-action dinámico), lock de eje + scroll lock para no pelear
+ * con el scroll / pull-to-refresh, estado "abierto" con botones revelados y
+ * swipe largo que dispara la acción principal.
  */
 export function useRowSwipe(opts: {
   enabled: boolean;
@@ -41,6 +43,8 @@ export function useRowSwipe(opts: {
   const [progress, setProgress] = useState(0);
   /** true cuando el próximo release ejecuta la acción principal. */
   const [armed, setArmed] = useState(false);
+  /** `none` mientras el gesto es horizontal — bloquea pan vertical del browser. */
+  const [touchAction, setTouchAction] = useState<"pan-y" | "none">("pan-y");
   const armedRef = useRef(false);
   const rowRef = useRef<HTMLDivElement | null>(null);
   const start = useRef({ x: 0, y: 0, base: 0 });
@@ -49,6 +53,7 @@ export function useRowSwipe(opts: {
   const suppressClick = useRef(false);
   const longPressTimer = useRef<number | null>(null);
   const longPressed = useRef(false);
+  const scrollLocked = useRef(false);
 
   const clearLongPress = useCallback(() => {
     if (longPressTimer.current != null) {
@@ -57,7 +62,15 @@ export function useRowSwipe(opts: {
     }
   }, []);
 
+  const releaseScrollLock = useCallback(() => {
+    if (!scrollLocked.current) return;
+    scrollLocked.current = false;
+    unlockSwipeScroll();
+    setTouchAction("pan-y");
+  }, []);
+
   useEffect(() => clearLongPress, [clearLongPress]);
+  useEffect(() => () => releaseScrollLock(), [releaseScrollLock]);
 
   const resetFeedback = useCallback(() => {
     armedRef.current = false;
@@ -102,7 +115,7 @@ export function useRowSwipe(opts: {
         longPressed.current = true;
         // El click fantasma tras soltar no debe abrir/alternar de nuevo.
         suppressClick.current = true;
-        navigator.vibrate?.(10);
+        void triggerHaptic("selection");
         onLongPress();
       }, LONG_PRESS_MS);
     }
@@ -128,9 +141,17 @@ export function useRowSwipe(opts: {
         clearLongPress();
         event.currentTarget.setPointerCapture?.(event.pointerId);
         setDragging(true);
+        setTouchAction("none");
+        if (!scrollLocked.current) {
+          scrollLocked.current = true;
+          lockSwipeScroll();
+        }
+        void triggerHaptic("light");
       }
     }
     if (axis.current !== "h") return;
+    // Con pointer capture algunos browsers aún intentan scroll; cortamos.
+    if (event.cancelable) event.preventDefault();
     const width = rowRef.current?.offsetWidth ?? 360;
     const next = Math.max(Math.min(start.current.base + rawDx, width), -width);
     dxRef.current = next;
@@ -146,13 +167,14 @@ export function useRowSwipe(opts: {
     if (nowArmed !== armedRef.current) {
       armedRef.current = nowArmed;
       setArmed(nowArmed);
-      // Feedback háptico al cruzar el umbral de "se va a disparar".
-      if (nowArmed) navigator.vibrate?.(10);
+      // Click háptico al cruzar el umbral de "se va a disparar".
+      if (nowArmed) void triggerHaptic("medium");
     }
   }
 
   function onPointerEnd(event: PointerEvent<HTMLDivElement>) {
     clearLongPress();
+    releaseScrollLock();
     if (longPressed.current) {
       longPressed.current = false;
       axis.current = null;
@@ -173,6 +195,7 @@ export function useRowSwipe(opts: {
       dxRef.current = 0;
       setDx(0);
       resetFeedback();
+      void triggerHaptic("success");
       onLongSwipe(side);
     } else if (Math.abs(value) >= MIN_COMMIT) {
       setOpenSide(side);
@@ -180,6 +203,7 @@ export function useRowSwipe(opts: {
       dxRef.current = target;
       setDx(target);
       resetFeedback();
+      void triggerHaptic("light");
     } else {
       close();
     }
@@ -198,6 +222,7 @@ export function useRowSwipe(opts: {
     dragging,
     progress,
     armed,
+    touchAction,
     rowRef,
     close,
     wasDragged,

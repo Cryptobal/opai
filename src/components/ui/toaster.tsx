@@ -1,9 +1,6 @@
 /**
- * Global toast host (Sonner) — liquid-glass + mobile-aware positioning
- *
- * `expand` se mantiene en true para que las toasts se apilen como lista
- * vertical (en lugar de superponerse en abanico). Las nuevas toasts empujan
- * a las anteriores hacia arriba con animación.
+ * Global toast host (Sonner) — avisos informativos (éxito/error).
+ * Las acciones reversibles usan `<UndoSnackbarHost />` (Liquid Glass), no Sonner.
  */
 "use client";
 
@@ -15,30 +12,25 @@ export function Toaster() {
 
   return (
     <SonnerToaster
-      theme="dark"
+      theme="system"
       richColors={false}
       position={isMobile ? "bottom-center" : "bottom-right"}
-      closeButton
+      closeButton={false}
       expand
-      gap={12}
-      visibleToasts={5}
-      duration={4000}
-      offset={isMobile ? "calc(env(safe-area-inset-bottom) + 80px)" : "16px"}
+      gap={10}
+      visibleToasts={4}
+      duration={3500}
+      offset={isMobile ? "calc(var(--bottom-nav-height, 76px) + 16px)" : "16px"}
       toastOptions={{
         unstyled: false,
-        // `opai-toast` se define en globals.css y reemplaza al glass altamente
-        // translúcido para evitar que múltiples toasts se fundan visualmente
-        // entre sí cuando se apilan.
         classNames: {
           toast:
-            "!opai-toast !text-foreground !rounded-2xl !p-4 !shadow-2xl !border",
+            "!opai-toast !text-foreground !rounded-2xl !px-4 !py-3 !shadow-2xl !border",
           description: "!text-muted-foreground",
           actionButton:
-            "!opai-liquid-glass-button !text-white !rounded-full !px-3 !py-1.5 !text-xs !font-medium !ml-auto",
+            "!bg-transparent !text-primary !rounded-md !px-2 !py-1.5 !text-[13px] !font-semibold !ml-auto !shadow-none",
           cancelButton:
-            "!bg-transparent !text-muted-foreground !rounded-full !px-3 !py-1.5 !text-xs !font-medium",
-          closeButton:
-            "!bg-transparent !border-0 !text-muted-foreground hover:!text-foreground",
+            "!bg-transparent !text-muted-foreground !rounded-md !px-2 !py-1.5 !text-[13px] !font-medium",
           error: "!border-status-danger-border",
           success: "!border-status-ok-border",
           warning: "!border-status-warn-border",

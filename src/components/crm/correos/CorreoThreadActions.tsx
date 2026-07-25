@@ -124,7 +124,13 @@ export function CorreoThreadActions({
         type="button"
         className={btn}
         title={isUnread ? "Marcar leído" : "Marcar no leído"}
-        onClick={() => act(isUnread ? "markRead" : "markUnread", isUnread ? "Marcado como leído" : "Marcado como no leído")}
+        onClick={() =>
+          act(
+            isUnread ? "markRead" : "markUnread",
+            isUnread ? "Marcado como leído" : "Marcado como no leído",
+            isUnread ? "markUnread" : "markRead",
+          )
+        }
       >
         {isUnread ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
         {showLabel && <span>{isUnread ? "Leído" : "No leído"}</span>}

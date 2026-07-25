@@ -51,13 +51,13 @@ beforeEach(() => {
 });
 
 describe("emailUndoWindowMs", () => {
-  it("default 15s, configurable por env", () => {
+  it("default 10s, configurable por env", () => {
     delete process.env.EMAIL_UNDO_WINDOW_SECONDS;
-    expect(emailUndoWindowMs()).toBe(15_000);
+    expect(emailUndoWindowMs()).toBe(10_000);
     process.env.EMAIL_UNDO_WINDOW_SECONDS = "30";
     expect(emailUndoWindowMs()).toBe(30_000);
     process.env.EMAIL_UNDO_WINDOW_SECONDS = "abc";
-    expect(emailUndoWindowMs()).toBe(15_000);
+    expect(emailUndoWindowMs()).toBe(10_000);
     delete process.env.EMAIL_UNDO_WINDOW_SECONDS;
   });
 });

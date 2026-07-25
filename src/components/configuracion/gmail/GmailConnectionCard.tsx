@@ -81,6 +81,10 @@ export function GmailConnectionCard({
               ? statusLabel(sync)
               : "Tu cuenta Gmail está conectada. El histórico avanza solo vía cron."}
           </p>
+          <p className="rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5 text-[13px] text-ds-text-2">
+            Tras enviar un correo podés <span className="font-medium text-ds-text-1">Deshacer</span> durante{" "}
+            <span className="font-medium text-ds-text-1">10 segundos</span> (estilo Gmail). El tiempo de las acciones de bandeja se configura en Correos → Gestos de deslizar.
+          </p>
           {sync && sync.canModify === false && (
             <p className="rounded-lg border border-status-warn-border bg-status-warn-soft px-2.5 py-2 text-[13px] text-status-warn-fg">
               Reconectá Gmail para habilitar archivar y eliminar{" "}

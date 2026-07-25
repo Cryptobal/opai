@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { Search } from "lucide-react";
-import { toast } from "sonner";
+import { showUndo } from "@/components/opai-ds";
 import { SimpleSelect } from "@/components/ui/simple-select";
 import { cn } from "@/lib/utils";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
@@ -39,14 +39,14 @@ export function TareasPageClient({
   const [detailId, setDetailId] = useState<string | null>(null);
   const detailTask = tasks.find((t) => t.id === detailId) ?? null;
 
-  // Posposición rápida optimista con toast "Deshacer" (~5 s), reversible.
+  // Posposición rápida optimista con snackbar Deshacer (~10 s), reversible.
   const postpone = useCallback(
     (task: TareaItem, next: DueValue) => {
       const prev: DueValue = { dueAt: task.dueAt, allDay: task.allDay };
       void update(task.id, next);
-      toast("Vencimiento actualizado", {
-        action: { label: "Deshacer", onClick: () => void update(task.id, prev) },
-        duration: 5000,
+      showUndo({
+        message: "Vencimiento actualizado",
+        onUndo: () => void update(task.id, prev),
       });
     },
     [update],

@@ -73,8 +73,8 @@ export function CorreoSelectionBar({
           aria-label={allRead ? "Marcar como no leídos" : "Marcar como leídos"}
           onClick={run(() =>
             allRead
-              ? onAction("markUnread", "Marcados como no leídos")
-              : onAction("markRead", "Marcados como leídos"),
+              ? onAction("markUnread", "Marcados como no leídos", { undo: "markRead" })
+              : onAction("markRead", "Marcados como leídos", { undo: "markUnread" }),
           )}
           className={ICON_BTN}
         >

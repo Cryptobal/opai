@@ -80,7 +80,10 @@ export function CorreoRowSwipe({
     setCoarse(typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches);
   }, []);
 
-  const { dx, openSide, dragging, progress, armed, rowRef, close, wasDragged, handlers } = useRowSwipe({
+  const {
+    dx, openSide, dragging, progress, armed, touchAction,
+    rowRef, close, wasDragged, handlers,
+  } = useRowSwipe({
     enabled: coarse && canModify && !leaving && !selectionMode,
     onLongSwipe: (side) => execute(side === "right" ? swipeConfig.right[0] : swipeConfig.left[0]),
     onLongPress: coarse && canModify ? onLongPress : undefined,
@@ -124,9 +127,12 @@ export function CorreoRowSwipe({
     close();
     if (action === "snooze") { onSnooze?.(); return; }
     if (action === "read") {
+      const wasUnread = thread.isUnread;
       void runCorreoAction(
-        thread.id, thread.isUnread ? "markRead" : "markUnread",
-        thread.isUnread ? "Marcado como leído" : "Marcado como no leído", onChanged,
+        thread.id, wasUnread ? "markRead" : "markUnread",
+        wasUnread ? "Marcado como leído" : "Marcado como no leído",
+        onChanged,
+        wasUnread ? "markUnread" : "markRead",
       );
       return;
     }
@@ -219,7 +225,7 @@ export function CorreoRowSwipe({
         style={{
           transform: `translateX(${dx}px)`,
           transition: dragging ? "none" : "transform 150ms",
-          touchAction: "pan-y",
+          touchAction,
         }}
         {...handlers}
       >

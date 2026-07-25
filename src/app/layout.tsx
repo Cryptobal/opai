@@ -6,6 +6,7 @@ import { BadgeClear } from "@/components/pwa/BadgeClear";
 import { PWAProvider } from "@/components/pwa/PWAProvider";
 import { ThemeProvider } from "@/components/opai/ThemeProvider";
 import { Toaster } from "@/components/ui/toaster";
+import { UndoSnackbarHost } from "@/components/opai-ds";
 import { ConfirmHost } from "@/components/ui/confirm-service";
 import { CookieConsentBanner } from "@/components/CookieConsent";
 import { ConditionalAnalytics } from "@/components/ConditionalAnalytics";
@@ -110,6 +111,7 @@ export default function RootLayout({
             {children}
           </PWAProvider>
           <Toaster />
+          <UndoSnackbarHost />
           <ConfirmHost />
         </ThemeProvider>
         <CookieConsentBanner />
