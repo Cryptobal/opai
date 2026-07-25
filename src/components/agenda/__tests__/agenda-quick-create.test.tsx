@@ -80,8 +80,8 @@ describe("AgendaQuickCreate", () => {
     const title = screen.getByLabelText("Título");
     fireEvent.keyDown(title, { key: "Tab" }); // → modo Tarea
 
-    // El selector horario es el picker de 15 min (botón), no un <input type="time">.
-    const timeBtn = screen.getByRole("button", { name: "Hora (pasos de 15 min)" });
+    // El selector horario es el chip de hora propio (botón), no un <input type="time">.
+    const timeBtn = screen.getByRole("button", { name: "Cambiar hora" });
     expect(timeBtn).toHaveTextContent("10:00");
 
     fireEvent.change(title, { target: { value: "Revisar propuesta" } });
