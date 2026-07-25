@@ -1,44 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { CheckCircle2, ExternalLink, Forward, Sparkles, X } from "lucide-react";
+import { CheckCircle2, ExternalLink, Sparkles } from "lucide-react";
 import { CorreoCrmPanel } from "./CorreoCrmPanel";
 import { CorreoAssociationBar } from "./CorreoAssociationBar";
 import { CorreoMessages } from "./CorreoMessages";
 import { CorreoAttachments } from "./CorreoAttachments";
 import { CorreoTasksPanel } from "./CorreoTasksPanel";
 import { LeadFromEmailPanel } from "./LeadFromEmailPanel";
-import { SuggestedReplyPanel } from "./SuggestedReplyPanel";
+import { CorreoReplyBox } from "./CorreoReplyBox";
 import { CorreoThreadActions } from "./CorreoThreadActions";
 import { CorreoContactPanel } from "./CorreoContactPanel";
 import { CorreoSummaryPanel } from "./CorreoSummaryPanel";
 import { CorreoLinksPanel } from "./CorreoLinksPanel";
-import { EmailComposer } from "./EmailComposer";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
-
-/** HTML citado del último mensaje del hilo para reenviar (C13). */
-function buildForwardQuote(detail: CorreoDetail): string {
-  const last = detail.messages[detail.messages.length - 1];
-  if (!last) return "";
-  const meta = [
-    `De: ${last.fromEmail}`,
-    last.sentAt ? `Fecha: ${new Date(last.sentAt).toLocaleString("es-CL")}` : null,
-    `Asunto: ${last.subject}`,
-    `Para: ${last.toEmails.join(", ")}`,
-  ]
-    .filter(Boolean)
-    .join("<br>");
-  const body =
-    last.htmlBody ??
-    (last.textBody
-      ? last.textBody
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/\n/g, "<br>")
-      : "");
-  return `${meta}<br><br>${body}`;
-}
 
 type Props = {
   detail: CorreoDetail;
@@ -67,18 +41,15 @@ export function CorreoDrawerContent({
   alwaysShowImages,
   onAlwaysShowImages,
 }: Props) {
-  const [forwardOpen, setForwardOpen] = useState(false);
   const gmailUrl = detail.thread.providerThreadId
     ? `https://mail.google.com/mail/u/0/#all/${detail.thread.providerThreadId}`
     : null;
-  const forwardSubject = detail.thread.subject.toLowerCase().startsWith("fwd:")
-    ? detail.thread.subject
-    : `Fwd: ${detail.thread.subject}`;
 
   return (
     <>
       {/* Rediseño Gmail: header compacto de iconos + Resumir arriba; el CORREO
-          al frente; responder debajo; el CRM plegado al fondo. */}
+          al frente; barra de acciones / composer bajo demanda; el panel de
+          trabajo al fondo. */}
       <div className="flex flex-wrap items-center gap-2">
         {canModify && (
           <CorreoThreadActions
@@ -123,8 +94,9 @@ export function CorreoDrawerContent({
         dealTitle={detail.thread.dealTitle}
         accountId={detail.thread.accountId}
       />
-      {/* Responder — acción principal, justo bajo el correo. */}
-      <SuggestedReplyPanel key={detail.thread.id} threadId={detail.thread.id} subject={detail.thread.subject} onSent={onRefresh} />
+      {/* Responder — barra estilo Gmail (o composer bajo demanda), justo bajo el
+          correo. Nada de acciones de respuesta debajo del panel. */}
+      <CorreoReplyBox key={`reply-${detail.thread.id}`} detail={detail} onSent={onRefresh} />
 
       {/* Panel comercial plegable al FONDO: Crear lead con IA primero, luego
           Asociar, Vincular, Tareas y Contacto. */}
@@ -160,46 +132,6 @@ export function CorreoDrawerContent({
         {/* P11: ficha del contacto asociado + últimas conversaciones. */}
         <CorreoContactPanel key={`contact-${detail.thread.id}`} threadId={detail.thread.id} />
       </CorreoCrmPanel>
-
-      {/* C13: reenviar con adjuntos originales re-adjuntados desde Gmail. */}
-      {forwardOpen ? (
-        <div className="space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Forward className="h-4 w-4 text-tint-violet-fg" />
-              <p className="text-[13px] font-semibold text-ds-text-1">Reenviar</p>
-            </div>
-            <button type="button" aria-label="Cerrar reenvío" onClick={() => setForwardOpen(false)} className="text-ds-text-3 ds-tap">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <EmailComposer
-            key={`fwd-${detail.thread.id}`}
-            mode="forward"
-            initialSubject={forwardSubject}
-            quotedHtml={buildForwardQuote(detail)}
-            forwardFromThreadId={detail.thread.id}
-            forwardAttachments={detail.attachments.map((a) => ({
-              providerMessageId: a.messageId,
-              attachmentId: a.attachmentId,
-              fileName: a.filename,
-              size: a.size,
-            }))}
-            accountId={detail.thread.accountId}
-            dealId={detail.thread.dealId}
-            onSent={onRefresh}
-            onClose={() => setForwardOpen(false)}
-          />
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setForwardOpen(true)}
-          className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-ds-border-default px-3 text-[13px] ds-tap sm:h-9"
-        >
-          <Forward className="h-4 w-4" /> Reenviar
-        </button>
-      )}
     </>
   );
 }
