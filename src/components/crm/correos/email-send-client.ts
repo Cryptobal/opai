@@ -7,6 +7,7 @@
  */
 
 import { toast } from "sonner";
+import { showUndo } from "@/components/opai-ds";
 
 export type CrmEmailQueuedData = {
   outboxId: string;
@@ -103,8 +104,8 @@ async function cancelOutboxSend(outboxId: string): Promise<boolean> {
 }
 
 /**
- * Toast post-encolado: "Enviando… Deshacer (Ns)" o confirmación de programado
- * con opción de cancelar. `onUndone` permite al composer restaurar el borrador.
+ * Snackbar post-encolado (Liquid Glass): "Enviando…" / programado con Deshacer.
+ * `onUndone` permite al composer restaurar el borrador.
  */
 export function notifyEmailQueued(
   data: CrmEmailQueuedData,
@@ -128,17 +129,19 @@ export function notifyEmailQueued(
       hour: "2-digit",
       minute: "2-digit",
     });
-    toast.success(`Envío programado para ${when}`, {
-      action: { label: "Cancelar", onClick: () => void undo() },
-      duration: 8000,
+    showUndo({
+      message: `Envío programado para ${when}`,
+      actionLabel: "Cancelar",
+      durationMs: 10_000,
+      onUndo: () => void undo(),
     });
     return;
   }
 
-  const seconds = Math.max(Math.round(data.undoWindowMs / 1000), 1);
-  toast(`Enviando… podés deshacer durante ${seconds} s`, {
-    action: { label: "Deshacer", onClick: () => void undo() },
-    duration: data.undoWindowMs,
+  showUndo({
+    message: "Enviando…",
+    durationMs: Math.max(data.undoWindowMs, 1_000),
+    onUndo: () => void undo(),
   });
 }
 

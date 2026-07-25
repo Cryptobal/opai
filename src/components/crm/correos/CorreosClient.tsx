@@ -129,6 +129,8 @@ export function CorreosClient() {
     setShortcuts,
     alwaysShowImages,
     setAlwaysShowImages,
+    undoSeconds,
+    setUndoSeconds,
     resetPanelWidth,
     onResizePointerDown,
     onResizeKeyDown,
@@ -519,11 +521,13 @@ export function CorreosClient() {
     },
     onToggleRead: () => {
       if (!focusedThread) return;
+      const wasUnread = focusedThread.isUnread;
       void runCorreoAction(
         focusedThread.id,
-        focusedThread.isUnread ? "markRead" : "markUnread",
-        focusedThread.isUnread ? "Marcado como leído" : "Marcado como no leído",
+        wasUnread ? "markRead" : "markUnread",
+        wasUnread ? "Marcado como leído" : "Marcado como no leído",
         () => void fetchPage(null, true),
+        wasUnread ? "markUnread" : "markRead",
       );
     },
     onFocusSearch: () => document.getElementById("correos-search-input")?.focus(),
@@ -571,6 +575,7 @@ export function CorreosClient() {
             t.id, unread ? "markRead" : "markUnread",
             unread ? "Marcado como leído" : "Marcado como no leído",
             () => void fetchPage(null, true),
+            unread ? "markUnread" : "markRead",
           ),
         },
         {
@@ -644,6 +649,8 @@ export function CorreosClient() {
         onClose={() => setSwipeSettingsOpen(false)}
         config={swipeConfig}
         onConfig={setSwipeConfig}
+        undoSeconds={undoSeconds}
+        onUndoSeconds={setUndoSeconds}
       />
       <CorreoShortcutsSheet
         open={shortcutsSheetOpen}

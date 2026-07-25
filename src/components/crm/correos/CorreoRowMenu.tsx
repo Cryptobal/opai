@@ -53,6 +53,7 @@ export function CorreoRowMenu({
               unread ? "markRead" : "markUnread",
               unread ? "Marcado como leído" : "Marcado como no leído",
               onChanged,
+              unread ? "markUnread" : "markRead",
             )
           }
         >
@@ -71,6 +72,7 @@ export function CorreoRowMenu({
               thread.starredAt ? "unstar" : "star",
               thread.starredAt ? "Quitado de Destacados" : "Destacado",
               onChanged,
+              thread.starredAt ? "star" : "unstar",
             )
           }
         >

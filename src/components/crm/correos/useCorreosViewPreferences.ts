@@ -10,6 +10,10 @@ import {
 } from "react";
 
 export type CorreoPreviewLines = 1 | 2 | 3;
+/** Segundos que permanece el snackbar Deshacer tras una acción de correo. */
+export type CorreoUndoSeconds = 5 | 10 | 15 | 30;
+export const DEFAULT_CORREO_UNDO_SECONDS: CorreoUndoSeconds = 10;
+export const CORREO_UNDO_SECONDS_OPTIONS: readonly CorreoUndoSeconds[] = [5, 10, 15, 30];
 
 /** Acciones asignables a los gestos de deslizar (todas existen en CorreoAction). */
 export type CorreoSwipeAction = "archive" | "trash" | "snooze" | "read" | "star" | "reply";
@@ -120,6 +124,8 @@ type StoredPreferences = {
   shortcuts?: CorreoShortcuts;
   /** Cargar imágenes remotas de los correos sin pedir confirmación. */
   alwaysShowImages?: boolean;
+  /** Ventana visible del snackbar Deshacer (acciones de bandeja). */
+  undoSeconds?: CorreoUndoSeconds;
 };
 
 export function parseCorreosViewPreferences(
@@ -160,6 +166,14 @@ export function parseCorreosViewPreferences(
     if (typeof candidate.alwaysShowImages === "boolean") {
       preferences.alwaysShowImages = candidate.alwaysShowImages;
     }
+    if (
+      candidate.undoSeconds === 5 ||
+      candidate.undoSeconds === 10 ||
+      candidate.undoSeconds === 15 ||
+      candidate.undoSeconds === 30
+    ) {
+      preferences.undoSeconds = candidate.undoSeconds;
+    }
     return preferences;
   } catch {
     return {};
@@ -195,6 +209,9 @@ export function useCorreosViewPreferences(
     DEFAULT_CORREO_SHORTCUTS,
   );
   const [alwaysShowImages, setAlwaysShowImages] = useState(false);
+  const [undoSeconds, setUndoSeconds] = useState<CorreoUndoSeconds>(
+    DEFAULT_CORREO_UNDO_SECONDS,
+  );
   const [hydrated, setHydrated] = useState(false);
 
   const containerWidth = useCallback(
@@ -238,6 +255,9 @@ export function useCorreosViewPreferences(
     if (typeof stored.alwaysShowImages === "boolean") {
       setAlwaysShowImages(stored.alwaysShowImages);
     }
+    if (stored.undoSeconds) {
+      setUndoSeconds(stored.undoSeconds);
+    }
     setHydrated(true);
   }, [containerWidth]);
 
@@ -249,7 +269,7 @@ export function useCorreosViewPreferences(
           STORAGE_KEY,
           JSON.stringify({
             panelWidth, previewLines, swipeConfig, railCollapsed,
-            shortcuts, alwaysShowImages,
+            shortcuts, alwaysShowImages, undoSeconds,
           }),
         );
       } catch {
@@ -257,7 +277,7 @@ export function useCorreosViewPreferences(
       }
     }, 120);
     return () => window.clearTimeout(timer);
-  }, [hydrated, panelWidth, previewLines, swipeConfig, railCollapsed, shortcuts, alwaysShowImages]);
+  }, [hydrated, panelWidth, previewLines, swipeConfig, railCollapsed, shortcuts, alwaysShowImages, undoSeconds]);
 
   useEffect(() => {
     const node = containerRef.current;
@@ -337,6 +357,8 @@ export function useCorreosViewPreferences(
     setShortcuts,
     alwaysShowImages,
     setAlwaysShowImages,
+    undoSeconds,
+    setUndoSeconds,
     resetPanelWidth,
     onResizePointerDown,
     onResizeKeyDown,

@@ -33,9 +33,10 @@ import { captureEmailError } from "./email-observability";
 
 export const EMAIL_OUTBOX_MAX_ATTEMPTS = 5;
 
+/** Ventana por defecto al conectar Gmail / envío inmediato: 10 s (estilo Gmail). */
 export function emailUndoWindowMs(): number {
   const raw = Number(process.env.EMAIL_UNDO_WINDOW_SECONDS);
-  return Number.isFinite(raw) && raw >= 0 ? raw * 1000 : 15_000;
+  return Number.isFinite(raw) && raw >= 0 ? raw * 1000 : 10_000;
 }
 
 export function outboxBypassEnabled(): boolean {

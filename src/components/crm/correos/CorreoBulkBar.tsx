@@ -9,7 +9,9 @@
 
 import { Archive, CheckSquare, Clock, Mail, MailOpen, ShieldAlert, Star, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { showUndo } from "@/components/opai-ds";
 import type { CorreoAction } from "@/modules/crm/email/gmail-thread-actions";
+import { correoUndoDurationMs } from "./correo-thread-action-client";
 
 async function postBulk(
   threadIds: string[],
@@ -44,13 +46,11 @@ export function runBulkCorreoAction(params: {
     .then((result) => {
       const message = `${params.okMsg} (${result.applied})`;
       if (params.undo) {
-        toast.success(message, {
-          duration: 6000,
-          action: {
-            label: "Deshacer",
-            onClick: () =>
-              void postBulk(threadIds, params.undo!).then(() => params.onDone?.()),
-          },
+        showUndo({
+          message,
+          durationMs: correoUndoDurationMs(),
+          onUndo: () =>
+            void postBulk(threadIds, params.undo!).then(() => params.onDone?.()),
         });
       } else {
         toast.success(message);
@@ -101,7 +101,7 @@ export function CorreoBulkBar({ count, onClear, onSelectAllVisible, onAction, on
       <button
         type="button"
         title="Marcar leído"
-        onClick={() => onAction("markRead", "Marcados como leídos")}
+        onClick={() => onAction("markRead", "Marcados como leídos", { undo: "markUnread" })}
         className={BTN}
       >
         <MailOpen className="h-4 w-4" /> <span className="hidden md:inline">Leído</span>
@@ -109,7 +109,7 @@ export function CorreoBulkBar({ count, onClear, onSelectAllVisible, onAction, on
       <button
         type="button"
         title="Marcar no leído"
-        onClick={() => onAction("markUnread", "Marcados como no leídos")}
+        onClick={() => onAction("markUnread", "Marcados como no leídos", { undo: "markRead" })}
         className={BTN}
       >
         <Mail className="h-4 w-4" /> <span className="hidden md:inline">No leído</span>

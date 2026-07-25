@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isSwipeScrollLocked } from "@/lib/swipe-scroll-lock";
+import { triggerHaptic } from "@/lib/haptics";
 
 const PULL_THRESHOLD = 64;
 const MAX_PULL = 96;
@@ -56,7 +58,7 @@ export function CorreosPullToRefresh({
     if (!el) return;
 
     const onTouchStart = (e: TouchEvent) => {
-      if (disabledRef.current || refreshingRef.current) return;
+      if (disabledRef.current || refreshingRef.current || isSwipeScrollLocked()) return;
       // Solo móvil (<lg): en desktop el toolbar ya tiene refresh.
       if (window.matchMedia("(min-width: 1024px)").matches) return;
       if (scrollTop() > 1) {
@@ -68,6 +70,12 @@ export function CorreosPullToRefresh({
 
     const onTouchMove = (e: TouchEvent) => {
       if (startYRef.current === null || disabledRef.current || refreshingRef.current) return;
+      // Swipe horizontal de fila activo: no competir con pull-to-refresh.
+      if (isSwipeScrollLocked()) {
+        startYRef.current = null;
+        setPullBoth(0);
+        return;
+      }
       if (scrollTop() > 1) {
         startYRef.current = null;
         setPullBoth(0);
@@ -93,13 +101,7 @@ export function CorreosPullToRefresh({
       if (current >= PULL_THRESHOLD && !refreshingRef.current && !disabledRef.current) {
         setRefreshing(true);
         setPullBoth(PULL_THRESHOLD * 0.7);
-        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-          try {
-            navigator.vibrate(10);
-          } catch {
-            /* ignore */
-          }
-        }
+        void triggerHaptic("light");
         try {
           await onRefreshRef.current();
         } finally {
