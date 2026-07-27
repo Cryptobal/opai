@@ -91,6 +91,38 @@ export const DEFAULT_CORREO_SHORTCUTS: CorreoShortcuts = {
   focusSearch: "/",
 };
 
+/** Normaliza teclas grabadas/comparadas: letras en minúscula; especiales intactos. */
+export function normalizeShortcutKey(key: string): string {
+  if (key.length === 1 && /[a-zA-Z]/.test(key)) return key.toLowerCase();
+  return key;
+}
+
+/** Resuelve el input de búsqueda activo (desktop toolbar o top bar móvil). */
+export function focusCorreosSearch(): void {
+  const desktop = document.getElementById("correos-search-input");
+  if (desktop) {
+    desktop.focus();
+    return;
+  }
+  document.getElementById("correos-search-input-mobile")?.focus();
+}
+
+/** Asigna un atajo y libera duplicados (restaura default en la otra acción). */
+export function assignCorreoShortcut(
+  config: CorreoShortcuts,
+  action: CorreoShortcutAction,
+  key: string,
+): CorreoShortcuts {
+  const normalized = normalizeShortcutKey(key);
+  const next: CorreoShortcuts = { ...config, [action]: normalized };
+  for (const other of SHORTCUT_ACTIONS) {
+    if (other !== action && next[other] === normalized) {
+      next[other] = DEFAULT_CORREO_SHORTCUTS[other];
+    }
+  }
+  return next;
+}
+
 /** Merge de lo guardado sobre los defaults: solo teclas string no vacías para
  *  acciones conocidas; el resto conserva el default (nunca deja una acción sin
  *  atajo). */
@@ -102,7 +134,7 @@ function parseShortcuts(value: unknown): CorreoShortcuts | null {
   for (const action of SHORTCUT_ACTIONS) {
     const key = candidate[action];
     if (typeof key === "string" && key.length > 0 && key.length <= 12) {
-      merged[action] = key;
+      merged[action] = normalizeShortcutKey(key);
       touched = true;
     }
   }

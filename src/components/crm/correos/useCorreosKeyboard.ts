@@ -13,8 +13,11 @@
  * ayuda de atajos aunque venga con Shift.
  */
 
-import { useEffect } from "react";
-import type { CorreoShortcuts } from "./useCorreosViewPreferences";
+import { useEffect, useRef } from "react";
+import {
+  normalizeShortcutKey,
+  type CorreoShortcuts,
+} from "./useCorreosViewPreferences";
 
 export type CorreoKeyboardHandlers = {
   onDown: () => void;
@@ -34,6 +37,8 @@ export type CorreoKeyboardHandlers = {
   shortcuts: CorreoShortcuts;
   /** false desactiva todo (p.ej. composer abierto). */
   enabled?: boolean;
+  /** true cuando el lector está abierto: reply lo maneja CorreoReplyBox. */
+  replyHandledExternally?: boolean;
 };
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -48,10 +53,18 @@ function isEditableTarget(target: EventTarget | null): boolean {
   );
 }
 
+function keysMatch(eventKey: string, bound: string): boolean {
+  return normalizeShortcutKey(eventKey) === normalizeShortcutKey(bound);
+}
+
 export function useCorreosKeyboard(handlers: CorreoKeyboardHandlers): void {
+  const handlersRef = useRef(handlers);
+  handlersRef.current = handlers;
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (handlers.enabled === false) return;
+      const h = handlersRef.current;
+      if (h.enabled === false) return;
       if (isEditableTarget(event.target)) return;
 
       const key = event.key;
@@ -61,32 +74,32 @@ export function useCorreosKeyboard(handlers: CorreoKeyboardHandlers): void {
       };
 
       // `?` (Shift+/) abre la ayuda — antes del guard de modificadores.
-      if (key === "?") return run(handlers.onHelp);
+      if (key === "?") return run(h.onHelp);
       if (event.metaKey || event.ctrlKey || event.altKey) return;
 
       // Flechas: navegación universal (además de las teclas configuradas).
-      if (key === "ArrowDown") return run(handlers.onDown);
-      if (key === "ArrowUp") return run(handlers.onUp);
+      if (key === "ArrowDown") return run(h.onDown);
+      if (key === "ArrowUp") return run(h.onUp);
 
-      const sc = handlers.shortcuts;
+      const sc = h.shortcuts;
       const map: Array<[string, () => void]> = [
-        [sc.down, handlers.onDown],
-        [sc.up, handlers.onUp],
-        [sc.open, handlers.onOpen],
-        [sc.toggleSelect, handlers.onToggleSelect],
-        [sc.archive, handlers.onArchive],
-        [sc.trash, handlers.onTrash],
-        [sc.reply, handlers.onReply],
-        [sc.star, handlers.onStar],
-        [sc.snooze, handlers.onSnooze],
-        [sc.toggleRead, handlers.onToggleRead],
-        [sc.focusSearch, handlers.onFocusSearch],
+        [sc.down, h.onDown],
+        [sc.up, h.onUp],
+        [sc.open, h.onOpen],
+        [sc.toggleSelect, h.onToggleSelect],
+        [sc.archive, h.onArchive],
+        [sc.trash, h.onTrash],
+        ...(h.replyHandledExternally ? [] : [[sc.reply, h.onReply] as [string, () => void]]),
+        [sc.star, h.onStar],
+        [sc.snooze, h.onSnooze],
+        [sc.toggleRead, h.onToggleRead],
+        [sc.focusSearch, h.onFocusSearch],
       ];
       for (const [bound, fn] of map) {
-        if (key === bound) return run(fn);
+        if (keysMatch(key, bound)) return run(fn);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handlers]);
+  }, []);
 }

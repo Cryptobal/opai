@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  assignCorreoShortcut,
   clampCorreoPanelWidth,
+  normalizeShortcutKey,
   parseCorreosViewPreferences,
 } from "../useCorreosViewPreferences";
 
@@ -134,5 +136,38 @@ describe("clampCorreoPanelWidth", () => {
     expect(
       parseCorreosViewPreferences(JSON.stringify({ undoSeconds: "10" })),
     ).toEqual({});
+  });
+
+  it("normaliza letras de atajos a minúscula al parsear", () => {
+    const result = parseCorreosViewPreferences(
+      JSON.stringify({ shortcuts: { archive: "E", reply: "R" } }),
+    );
+    expect(result.shortcuts?.archive).toBe("e");
+    expect(result.shortcuts?.reply).toBe("r");
+  });
+});
+
+describe("normalizeShortcutKey", () => {
+  it("minúscula letras sueltas", () => {
+    expect(normalizeShortcutKey("E")).toBe("e");
+    expect(normalizeShortcutKey("r")).toBe("r");
+  });
+
+  it("conserva teclas especiales", () => {
+    expect(normalizeShortcutKey("Enter")).toBe("Enter");
+    expect(normalizeShortcutKey("#")).toBe("#");
+    expect(normalizeShortcutKey("/")).toBe("/");
+  });
+});
+
+describe("assignCorreoShortcut", () => {
+  it("libera duplicados restaurando el default en la otra acción", () => {
+    const config = {
+      down: "j", up: "k", open: "Enter", toggleSelect: "x", archive: "e",
+      trash: "#", reply: "q", star: "s", snooze: "b", toggleRead: "u", focusSearch: "/",
+    };
+    const next = assignCorreoShortcut(config, "archive", "q");
+    expect(next.archive).toBe("q");
+    expect(next.reply).toBe("r");
   });
 });

@@ -5,6 +5,8 @@ import { Keyboard, RotateCcw, X } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
 import {
   DEFAULT_CORREO_SHORTCUTS,
+  assignCorreoShortcut,
+  normalizeShortcutKey,
   type CorreoShortcutAction,
   type CorreoShortcuts,
 } from "./useCorreosViewPreferences";
@@ -34,7 +36,7 @@ function keyLabel(key: string): string {
   if (key === " ") return "Espacio";
   if (key === "ArrowUp") return "↑";
   if (key === "ArrowDown") return "↓";
-  return key.length === 1 ? key.toUpperCase() : key;
+  return key.length === 1 ? normalizeShortcutKey(key).toUpperCase() : key;
 }
 
 type Props = {
@@ -59,7 +61,7 @@ export function CorreoShortcutsSheet({ open, onClose, config, onConfig }: Props)
       return;
     }
     event.preventDefault();
-    onConfig({ ...config, [action]: event.key });
+    onConfig(assignCorreoShortcut(config, action, event.key));
     setRecording(null);
   };
 

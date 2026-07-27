@@ -6,6 +6,7 @@ import { CorreoActionBar } from "./CorreoActionBar";
 import { CorreoComposerBox, type ComposerMode, type ReplyAll } from "./CorreoComposerBox";
 import type { ForwardAttachmentRefClient } from "./EmailComposer";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
+import { DEFAULT_CORREO_SHORTCUTS, normalizeShortcutKey } from "./useCorreosViewPreferences";
 
 type Meta = { to: string[]; replyAll: ReplyAll | null; radarItemId: string | null; preDraft: string | null };
 
@@ -37,7 +38,16 @@ function buildForwardQuote(detail: CorreoDetail): string {
  * La barra de acciones se muestra de inmediato (sin esperar suggest-reply): el
  * meta se hidrata en background para no bloquear la lectura con un spinner.
  */
-export function CorreoReplyBox({ detail, onSent }: { detail: CorreoDetail; onSent: () => void }) {
+export function CorreoReplyBox({
+  detail,
+  onSent,
+  replyShortcut = DEFAULT_CORREO_SHORTCUTS.reply,
+}: {
+  detail: CorreoDetail;
+  onSent: () => void;
+  /** Tecla configurada para responder (bandeja + lector). */
+  replyShortcut?: string;
+}) {
   const threadId = detail.thread.id;
   const [meta, setMeta] = useState<Meta>({
     to: [],
@@ -91,13 +101,14 @@ export function CorreoReplyBox({ detail, onSent }: { detail: CorreoDetail; onSen
   // Atajos de teclado (solo con la barra visible y sin foco en inputs).
   useEffect(() => {
     if (open || !metaReady) return;
+    const replyKey = normalizeShortcutKey(replyShortcut);
     function onKey(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const el = document.activeElement;
       const tag = el?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || (el as HTMLElement | null)?.isContentEditable) return;
-      const k = e.key.toLowerCase();
-      if (k === "r" && canReply) setOpen({ mode: "reply", ai: false, expanded: false });
+      const k = normalizeShortcutKey(e.key);
+      if (k === replyKey && canReply) setOpen({ mode: "reply", ai: false, expanded: false });
       else if (k === "a" && canReply && replyAllAvailable) setOpen({ mode: "all", ai: false, expanded: false });
       else if (k === "f") setOpen({ mode: "forward", ai: false, expanded: false });
       else if (k === "i" && canReply) setOpen({ mode: "reply", ai: true, expanded: false });
@@ -106,7 +117,7 @@ export function CorreoReplyBox({ detail, onSent }: { detail: CorreoDetail; onSen
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, metaReady, canReply, replyAllAvailable]);
+  }, [open, metaReady, canReply, replyAllAvailable, replyShortcut]);
 
   if (!open) {
     return (
