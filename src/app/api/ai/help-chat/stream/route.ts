@@ -9,6 +9,11 @@ import {
 } from "@/lib/ai/help-chat-config";
 import { retrieveDocsContext, retrieveTemplatesContext } from "@/lib/ai/help-chat-retrieval";
 import { getToolDefinitionsV2, executeToolCallV2 } from "@/lib/ai/help-chat-tools-v2";
+import {
+  PENDING_TTL_MS,
+  decideWriteDeferral,
+  type PendingConfirmation,
+} from "@/lib/ai/help-chat-defer-writes";
 import { buildUserMessage, type MultimodalAttachment } from "@/lib/ai/help-chat-multimodal";
 import { buildAttachmentsContext } from "@/lib/ai/help-chat-attachments-context";
 import type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
@@ -419,6 +424,7 @@ REGLAS DE CONTEXTO DE MÓDULO:
         let fullText = "";
         let toolCallsUsed = 0;
         let usedInferredAnswer = false;
+        const deferredPendings: PendingConfirmation[] = [];
 
         // ── Inferred answer upfront ──
         // Para preguntas puramente funcionales (cómo/dónde/qué hace tal módulo)
@@ -491,12 +497,36 @@ REGLAS DE CONTEXTO DE MÓDULO:
               let args: Record<string, unknown> = {};
               try { args = JSON.parse(call.arguments || "{}"); } catch { args = {}; }
               send("tool_call", { name: call.name, status: "running" });
-              const result = await executeToolCallV2(
-                call.name, args, ctx.tenantId, ctx.userId,
-                perms,
-                hasCapability(perms, "rendicion_view_all"),
-                pageContext,
-              );
+
+              const pre = decideWriteDeferral({
+                toolName: call.name,
+                args,
+                allowWrites,
+                pendingCount: deferredPendings.length,
+              });
+
+              let result: unknown;
+              if (pre.kind === "defer" || pre.kind === "limit") {
+                if (pre.kind === "defer") deferredPendings.push(pre.pending);
+                result = pre.toolResult;
+              } else {
+                result = await executeToolCallV2(
+                  call.name, args, ctx.tenantId, ctx.userId,
+                  perms,
+                  hasCapability(perms, "rendicion_view_all"),
+                  pageContext,
+                );
+                const post = decideWriteDeferral({
+                  toolName: call.name,
+                  args,
+                  allowWrites,
+                  pendingCount: deferredPendings.length,
+                  executedResult: result as { ok?: boolean },
+                });
+                if (post.kind === "defer") deferredPendings.push(post.pending);
+                else if (post.kind === "limit") result = post.toolResult;
+              }
+
               send("tool_call", { name: call.name, status: "done" });
               messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
             }
@@ -561,14 +591,70 @@ REGLAS DE CONTEXTO DE MÓDULO:
         const { cleanText, visuals, suggestions } = parseVisualBlocks(assistantText);
         assistantText = cleanText;
 
-        /* save assistant message */
+        /* Persist pending confirmations (web) — espejo de SlackPendingAction */
+        type ClientPending = {
+          id: string;
+          confirmToolName: string;
+          summary: string;
+          status: string;
+          expiresAt: string;
+        };
+        const clientPendings: ClientPending[] = [];
+        const hasPendingModel = Boolean((prisma as unknown as Record<string, unknown>).aiPendingAction);
+        if (allowWrites && deferredPendings.length > 0 && hasPendingModel) {
+          const expiresAt = new Date(Date.now() + PENDING_TTL_MS);
+          for (const pc of deferredPendings) {
+            const row = await prisma.aiPendingAction.create({
+              data: {
+                tenantId: ctx.tenantId,
+                userId: ctx.userId,
+                conversationId: conversation?.id ?? null,
+                kind: "TOOL_CONFIRM",
+                toolName: pc.confirmToolName,
+                toolArgs: pc.args as object,
+                summary: pc.summary,
+                status: "PENDING",
+                expiresAt,
+              },
+              select: { id: true, expiresAt: true },
+            });
+            clientPendings.push({
+              id: row.id,
+              confirmToolName: pc.confirmToolName,
+              summary: pc.summary,
+              status: "PENDING",
+              expiresAt: row.expiresAt.toISOString(),
+            });
+          }
+        }
+
+        /* save assistant message (+ visuals / suggestions / pendings en metadata) */
         let assistantMessageId = `ephemeral-${Date.now()}`;
         if (persistenceEnabled && conversation) {
+          const metadata: Record<string, unknown> = {};
+          if (visuals.length) metadata.visuals = visuals;
+          if (suggestions.length) metadata.suggestions = suggestions;
+          if (clientPendings.length) metadata.pendingConfirmations = clientPendings;
+
           const saved = await prisma.aiChatMessage.create({
-            data: { conversationId: conversation.id, tenantId: ctx.tenantId, role: "assistant", content: assistantText },
+            data: {
+              conversationId: conversation.id,
+              tenantId: ctx.tenantId,
+              role: "assistant",
+              content: assistantText,
+              ...(Object.keys(metadata).length
+                ? { metadata: metadata as import("@prisma/client").Prisma.InputJsonValue }
+                : {}),
+            },
             select: { id: true },
           });
           assistantMessageId = saved.id;
+          if (clientPendings.length && hasPendingModel) {
+            await prisma.aiPendingAction.updateMany({
+              where: { id: { in: clientPendings.map((p) => p.id) } },
+              data: { messageId: assistantMessageId },
+            });
+          }
           await prisma.aiChatConversation.update({
             where: { id: conversation.id },
             data: { updatedAt: new Date() },
@@ -579,6 +665,7 @@ REGLAS DE CONTEXTO DE MÓDULO:
           assistantText,
           visuals,
           suggestions,
+          pendingConfirmations: clientPendings,
           assistantMessageId,
           model: effectiveModel,
           provider: aiConfig.providerType,

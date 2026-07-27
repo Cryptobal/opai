@@ -20,11 +20,12 @@ import { retrieveDocsContext, retrieveTemplatesContext } from "@/lib/ai/help-cha
 import {
   getToolDefinitionsV2,
   executeToolCallV2,
-  PREVIEW_TO_CONFIRM,
-  WRITE_TOOL_NAMES,
-  WRITE_TOOL_LABELS,
-  describeWriteArgs,
 } from "@/lib/ai/help-chat-tools-v2";
+import {
+  MAX_PENDING_WRITES,
+  decideWriteDeferral,
+  type PendingConfirmation,
+} from "@/lib/ai/help-chat-defer-writes";
 import { hasWriteIntent } from "@/lib/ai/help-chat-intents";
 import { buildHelpChatSystemPromptV2 } from "@/lib/ai/help-chat-system-prompt-v2";
 import { parseVisualBlocks } from "@/lib/ai/help-chat-visual-types";
@@ -45,17 +46,9 @@ import {
 } from "@/lib/ai/help-chat-shared";
 import { buildUserMessage } from "@/lib/ai/help-chat-multimodal";
 
-const MAX_TOOL_STEPS = 12;
-// Tope de escrituras diferidas por turno: cada una genera su propia tarjeta
-// de confirmación en Slack; más de 8 satura el mensaje y el TTL de 15 min.
-const MAX_PENDING_WRITES = 8;
+export type { PendingConfirmation };
 
-export interface PendingConfirmation {
-  previewToolName?: string;
-  confirmToolName: string;
-  args: Record<string, unknown>;
-  summary: string;
-}
+const MAX_TOOL_STEPS = 12;
 
 export interface HelpChatTurnResult {
   text: string;
@@ -268,75 +261,45 @@ export async function runHelpChatTurn(input: RunHelpChatTurnInput): Promise<Help
         args = {};
       }
 
-      const previewMap = PREVIEW_TO_CONFIRM[call.name];
-      const isDeferredWrite = deferWrites && WRITE_TOOL_NAMES.has(call.name);
+      const preDecision = decideWriteDeferral({
+        toolName: call.name,
+        args,
+        allowWrites: deferWrites,
+        pendingCount: pendings.length,
+      });
 
       let result: unknown;
-      if (isDeferredWrite) {
-        // Escritura directa (o el `create_*` de un flujo preview): NO se ejecuta.
-        // Se difiere a SU PROPIA tarjeta de confirmación con estos args exactos.
-        if (pendings.length >= MAX_PENDING_WRITES) {
-          result = {
-            ok: false,
-            executed: false,
-            status: "limit_reached",
-            message:
-              "Máximo 8 acciones por turno. Pide al usuario confirmar estas y luego continuar con el resto.",
-          };
-        } else {
-          pendings.push({
-            confirmToolName: call.name,
-            args,
-            summary: describeWriteArgs(call.name, args),
-          });
-          // executed:false es deliberado: el modelo NO debe afirmar que la acción
-          // ya ocurrió. Solo se ejecutará cuando el usuario presione Confirmar.
-          result = {
-            ok: true,
-            executed: false,
-            status: "pending_confirmation",
-            message:
-              "Acción PREPARADA pero NO ejecutada; se ejecutará solo cuando el usuario presione Confirmar en Slack. Si el usuario pidió VARIAS acciones, puedes preparar las siguientes (máx. 8 por turno). Al final resume en 1-2 frases QUÉ quedará pendiente de confirmar. NO afirmes que algo ya está hecho.",
-          };
-        }
+      let deferred = false;
+      if (preDecision.kind === "defer" || preDecision.kind === "limit") {
+        // Escritura directa: NO se ejecuta; va a tarjeta de confirmación.
+        if (preDecision.kind === "defer") pendings.push(preDecision.pending);
+        result = preDecision.toolResult;
+        deferred = true;
       } else {
         try {
           result = await executeToolCallV2(
             call.name, args, tenantId, userId, perms, canViewAllRendiciones, null,
           );
         } catch (err) {
-          // Aísla el fallo de UNA tool: el modelo puede recuperarse en vez de
-          // abortar todo el turno. Error ruidoso en logs.
           console.error(`[help-chat-runner] tool ${call.name} lanzó excepción:`, err);
           result = { ok: false, error: "La herramienta falló temporalmente. Intenta reformular o vuelve a intentar." };
         }
-        // `preview_*` es solo cálculo (no persiste): sí se ejecuta y, si sale
-        // ok, deja pendiente la escritura mapeada con SUS mismos args.
-        if (previewMap && (result as { ok?: boolean })?.ok) {
-          if (pendings.length >= MAX_PENDING_WRITES) {
-            result = {
-              ok: false,
-              executed: false,
-              status: "limit_reached",
-              message:
-                "Máximo 8 acciones por turno. Pide al usuario confirmar estas y luego continuar con el resto.",
-            };
-          } else {
-            // Si describeWriteArgs aporta detalle más allá de la etiqueta base,
-            // úsalo; si no, la etiqueta del preview sigue siendo lo más claro.
-            const desc = describeWriteArgs(previewMap.confirmToolName, args);
-            const baseLabel = WRITE_TOOL_LABELS[previewMap.confirmToolName] ?? previewMap.confirmToolName;
-            pendings.push({
-              previewToolName: call.name,
-              confirmToolName: previewMap.confirmToolName,
-              args,
-              summary: desc === baseLabel ? previewMap.label : desc,
-            });
-          }
+        // preview_* ok → encola la escritura mapeada.
+        const post = decideWriteDeferral({
+          toolName: call.name,
+          args,
+          allowWrites: deferWrites,
+          pendingCount: pendings.length,
+          executedResult: result as { ok?: boolean },
+        });
+        if (post.kind === "defer") {
+          pendings.push(post.pending);
+        } else if (post.kind === "limit") {
+          result = post.toolResult;
         }
       }
       messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
-      if (!isDeferredWrite) collectEntities(entities, result, appBaseUrl);
+      if (!deferred) collectEntities(entities, result, appBaseUrl);
     }
   }
 

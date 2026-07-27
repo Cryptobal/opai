@@ -12,16 +12,17 @@ import {
   Loader2,
   Mail,
   MessageCircle,
+  Mic,
+  MicOff,
   Paperclip,
-  Plus,
   Send,
   Sparkles,
+  Square,
   Users,
   X,
   BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SimpleSelect } from "@/components/ui/simple-select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type {
@@ -41,13 +42,19 @@ import {
 import { useIntelligenceSidePanelContext } from "./IntelligenceSidePanelContext";
 import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
 import { useNotificationSidePanelContext } from "@/components/notifications/NotificationSidePanelContext";
+import { useSpeechDictation } from "@/hooks/useSpeechDictation";
+import { useSwipeGesture } from "@/components/chat/hooks/useSwipeGesture";
+import {
+  ConversationHistoryBar,
+  type HistoryConversation,
+} from "@/components/opai/ai-help/ConversationHistoryBar";
+import { MessageActionBar } from "@/components/opai/ai-help/MessageActionBar";
+import {
+  PendingConfirmCards,
+  type PendingConfirmationClient,
+} from "@/components/opai/ai-help/PendingConfirmCards";
 
-type ConversationItem = {
-  id: string;
-  title: string;
-  updatedAt: string;
-  _count?: { messages: number };
-};
+type ConversationItem = HistoryConversation;
 
 type ChatMessage = {
   id: string;
@@ -56,6 +63,8 @@ type ChatMessage = {
   createdAt: string;
   visuals?: VisualBlock[];
   suggestions?: VisualSuggestionItem[];
+  feedback?: "up" | "down" | null;
+  pendingConfirmations?: PendingConfirmationClient[];
 };
 
 const MAX_VISIBLE_MESSAGES = 120;
@@ -1195,11 +1204,31 @@ export function AiHelpChatWidgetV2() {
   // aquí para que el useEffect que carga mensajes desde DB no clobere el estado
   // local mientras la respuesta del asistente aún no se persiste.
   const skipMessageFetchRef = useRef<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scrollDesktopRef = useRef<HTMLDivElement | null>(null);
   const scrollMobileRef = useRef<HTMLDivElement | null>(null);
   const textareaDesktopRef = useRef<HTMLTextAreaElement | null>(null);
   const textareaMobileRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const dictation = useSpeechDictation({
+    value: input,
+    onChange: setInput,
+    disabled: sending || staging,
+  });
+
+  useEffect(() => {
+    if (dictation.error) toast.error(dictation.error);
+  }, [dictation.error]);
+
+  const swipe = useSwipeGesture({
+    onSwipeDown: () => setOpen(false),
+    followFinger: true,
+    mobileOnly: false,
+    hapticOnComplete: true,
+    directionLock: true,
+  });
+
   const handleAction = (action: VisualCardItem["action"] | VisualSuggestionItem["action"] | undefined) => {
     if (!action) return;
     if (action.type === "navigate") {
@@ -1320,6 +1349,56 @@ export function AiHelpChatWidgetV2() {
     setMessages([]);
   };
 
+  const refreshConversations = async () => {
+    try {
+      const res = await fetch("/api/ai/help-chat/conversations");
+      const json = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        data?: ConversationItem[];
+        persistenceEnabled?: boolean;
+      };
+      if (json.success && Array.isArray(json.data)) {
+        setConversations(json.data);
+        setPersistenceEnabled(json.persistenceEnabled !== false);
+      }
+    } catch {
+      // noop
+    }
+  };
+
+  const stopStreaming = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setSending(false);
+    setActiveToolName(null);
+    dictation.stop();
+  };
+
+  const regenerateLast = () => {
+    if (sending) return;
+    let lastUser = "";
+    const next = [...messages];
+    while (next.length) {
+      const last = next[next.length - 1];
+      if (last.role === "assistant") {
+        next.pop();
+        continue;
+      }
+      if (last.role === "user") {
+        lastUser = last.content.replace(/\n\n📎 .+$/, "").trim();
+        next.pop();
+        break;
+      }
+      break;
+    }
+    if (!lastUser) {
+      toast.error("No hay un mensaje para regenerar");
+      return;
+    }
+    setMessages(next);
+    void sendMessage(lastUser);
+  };
+
   const addFiles = (list: FileList | null) => {
     if (!list?.length) return;
     setPendingFiles((prev) => {
@@ -1375,6 +1454,7 @@ export function AiHelpChatWidgetV2() {
     }
 
     setStreamingStarted(false);
+    dictation.stop();
 
     const optimisticUser: ChatMessage = {
       id: `tmp-user-${Date.now()}`,
@@ -1392,10 +1472,14 @@ export function AiHelpChatWidgetV2() {
     setInput("");
     setSending(true);
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const res = await fetch("/api/ai/help-chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           message: text,
           conversationId: activeConversationId ?? undefined,
@@ -1469,6 +1553,8 @@ export function AiHelpChatWidgetV2() {
                 const finalText = (data.assistantText as string) || streamedText;
                 const visuals = (data.visuals as VisualBlock[] | undefined) ?? [];
                 const suggestions = (data.suggestions as VisualSuggestionItem[] | undefined) ?? [];
+                const pendingConfirmations =
+                  (data.pendingConfirmations as PendingConfirmationClient[] | undefined) ?? [];
                 const msgId = (data.assistantMessageId as string) || `done-${Date.now()}`;
                 setMessages((prev) => {
                   const updated = [...prev];
@@ -1482,6 +1568,7 @@ export function AiHelpChatWidgetV2() {
                       content: finalText,
                       visuals,
                       suggestions,
+                      pendingConfirmations,
                       createdAt: new Date().toISOString(),
                     };
                   }
@@ -1520,33 +1607,41 @@ export function AiHelpChatWidgetV2() {
         }
       }
 
-      const listRes = await fetch("/api/ai/help-chat/conversations");
-      const listText = await listRes.text();
-      try {
-        const listJson = listText ? JSON.parse(listText) : {};
-        if (listJson.success && Array.isArray(listJson.data)) {
-          setConversations(listJson.data);
-          setPersistenceEnabled(listJson.persistenceEnabled !== false);
-        }
-      } catch {
-        // ignore
-      }
+      await refreshConversations();
     } catch (error) {
-      setMessages((prev) => {
-        const filtered = prev.filter(
-          (m) => !(m.role === "assistant" && m.id.startsWith("tmp-streaming-") && !m.content),
-        );
-        return [
-          ...filtered,
-          {
-            id: `tmp-error-${Date.now()}`,
-            role: "assistant",
-            content: (error as Error).message || "Ocurrió un error al responder. Intenta nuevamente.",
-            createdAt: new Date().toISOString(),
-          },
-        ];
-      });
+      if ((error as Error)?.name === "AbortError") {
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last?.role === "assistant" && last.id.startsWith("tmp-streaming-")) {
+            updated[updated.length - 1] = {
+              ...last,
+              id: `stopped-${Date.now()}`,
+              content: last.content?.trim()
+                ? `${last.content}\n\n_(respuesta detenida)_`
+                : "_(respuesta detenida)_",
+            };
+          }
+          return updated;
+        });
+      } else {
+        setMessages((prev) => {
+          const filtered = prev.filter(
+            (m) => !(m.role === "assistant" && m.id.startsWith("tmp-streaming-") && !m.content),
+          );
+          return [
+            ...filtered,
+            {
+              id: `tmp-error-${Date.now()}`,
+              role: "assistant",
+              content: (error as Error).message || "Ocurrió un error al responder. Intenta nuevamente.",
+              createdAt: new Date().toISOString(),
+            },
+          ];
+        });
+      }
     } finally {
+      abortRef.current = null;
       setSending(false);
       setActiveToolName(null);
     }
@@ -1609,30 +1704,18 @@ export function AiHelpChatWidgetV2() {
         </div>
       ) : null}
 
-      <div className="border-b border-white/[0.06] px-3 py-2 bg-black/10">
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="h-8 gap-1 border-white/20 bg-white/5 text-white" onClick={startNewConversation}>
-            <Plus className="h-3.5 w-3.5" />
-            Nueva
-          </Button>
-          <SimpleSelect
-            className="h-10 sm:h-9 flex-1 min-w-0 rounded-md border border-white/15 bg-white/5 px-2 text-xs text-white truncate"
-            value={activeConversationId ?? ""}
-            onValueChange={(v) => {
-              setActiveConversationId(v || null);
-              setIsNewConversation(false);
-            }}
-            disabled={!persistenceEnabled}
-            options={[
-              { value: "", label: "Conversación nueva" },
-              ...conversations.map((conv) => ({
-                value: conv.id,
-                label: conv.title,
-              })),
-            ]}
-          />
-        </div>
-      </div>
+      <ConversationHistoryBar
+        conversations={conversations}
+        activeConversationId={activeConversationId}
+        persistenceEnabled={persistenceEnabled}
+        onNew={startNewConversation}
+        onSelect={(id) => {
+          setActiveConversationId(id);
+          setIsNewConversation(!id);
+          if (!id) setMessages([]);
+        }}
+        onRefresh={refreshConversations}
+      />
 
       <div
         ref={mobile ? scrollMobileRef : scrollDesktopRef}
@@ -1664,7 +1747,12 @@ export function AiHelpChatWidgetV2() {
           </div>
         ) : (
           <>
-            {messages.map((msg) => (
+            {messages.map((msg, idx) => {
+              const isLastAssistant =
+                msg.role === "assistant" &&
+                idx === messages.length - 1 &&
+                !sending;
+              return (
               <div
                 key={msg.id}
                 className={cn(
@@ -1683,8 +1771,41 @@ export function AiHelpChatWidgetV2() {
                     onSuggestionAction={(a) => handleAction(a)}
                   />
                 ) : null}
+                {msg.role === "assistant" && msg.pendingConfirmations?.length ? (
+                  <PendingConfirmCards
+                    items={msg.pendingConfirmations}
+                    onResolved={(id, status) => {
+                      setMessages((prev) =>
+                        prev.map((m) => {
+                          if (m.id !== msg.id || !m.pendingConfirmations) return m;
+                          return {
+                            ...m,
+                            pendingConfirmations: m.pendingConfirmations.map((p) =>
+                              p.id === id ? { ...p, status } : p,
+                            ),
+                          };
+                        }),
+                      );
+                    }}
+                  />
+                ) : null}
+                {msg.role === "assistant" && !msg.id.startsWith("tmp-streaming-") ? (
+                  <MessageActionBar
+                    messageId={msg.id}
+                    content={msg.content}
+                    feedback={msg.feedback}
+                    canPersistFeedback={persistenceEnabled}
+                    onRegenerate={isLastAssistant ? regenerateLast : undefined}
+                    onFeedback={(next) => {
+                      setMessages((prev) =>
+                        prev.map((m) => (m.id === msg.id ? { ...m, feedback: next } : m)),
+                      );
+                    }}
+                  />
+                ) : null}
               </div>
-            ))}
+              );
+            })}
             {/* Quick starters contextuales tras cada respuesta del asistente
                 (solo si el último mensaje es del asistente, no estamos enviando
                 y el asistente no devolvió sus propias suggestions en el bloque
@@ -1763,14 +1884,33 @@ export function AiHelpChatWidgetV2() {
             disabled={sending || staging || pendingFiles.length >= 4}
             aria-label="Adjuntar archivo"
             title="Adjuntar imagen, PDF, Excel o Word (máx. 10MB)"
-            className="shrink-0 text-white/75 hover:text-white hover:bg-white/5"
+            className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 text-white/75 hover:text-white hover:bg-white/5"
           >
             <Paperclip className="h-4 w-4" />
           </Button>
+          {dictation.supported ? (
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => dictation.toggle()}
+              disabled={sending || staging}
+              aria-label={dictation.listening ? "Detener dictado" : "Dictar"}
+              title={dictation.listening ? "Detener dictado" : "Dictar por voz"}
+              className={cn(
+                "h-11 w-11 sm:h-10 sm:w-10 shrink-0 hover:bg-white/5",
+                dictation.listening
+                  ? "text-status-danger-fg animate-pulse"
+                  : "text-white/75 hover:text-white",
+              )}
+            >
+              {dictation.listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            </Button>
+          ) : null}
           <textarea
             ref={mobile ? textareaMobileRef : textareaDesktopRef}
             rows={1}
-            placeholder="Escribe tu pregunta..."
+            placeholder={dictation.listening ? "Escuchando…" : "Escribe o dicta tu pregunta..."}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onPaste={(e) => {
@@ -1796,15 +1936,28 @@ export function AiHelpChatWidgetV2() {
             autoComplete="off"
             className="min-h-[46px] flex-1 resize-none rounded-xl border border-white/15 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder:text-white/35 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/50 max-h-40 overflow-y-auto leading-snug"
           />
-          <Button
-            type="button"
-            size="icon"
-            onClick={() => void sendMessage()}
-            disabled={sending || staging || (!input.trim() && pendingFiles.length === 0)}
-            className="h-[46px] w-[46px] rounded-full bg-gradient-to-br from-primary to-primary/75 text-white shadow-[0_8px_24px_hsl(var(--primary)/0.4)] shrink-0"
-          >
-            {sending || staging ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          </Button>
+          {sending ? (
+            <Button
+              type="button"
+              size="icon"
+              onClick={stopStreaming}
+              aria-label="Detener respuesta"
+              title="Detener"
+              className="h-[46px] w-[46px] rounded-full bg-status-danger text-white shrink-0"
+            >
+              <Square className="h-4 w-4 fill-current" />
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="icon"
+              onClick={() => void sendMessage()}
+              disabled={staging || (!input.trim() && pendingFiles.length === 0)}
+              className="h-[46px] w-[46px] rounded-full bg-gradient-to-br from-primary to-primary/75 text-white shadow-[0_8px_24px_hsl(var(--primary)/0.4)] shrink-0"
+            >
+              {staging ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </Button>
+          )}
         </div>
       </div>
     </>
@@ -1863,18 +2016,39 @@ export function AiHelpChatWidgetV2() {
             ) : null}
           </div>
 
-          {/* Mobile / tablet (< xl): bottom sheet con overlay */}
+          {/* Mobile / tablet (< xl): bottom sheet con overlay + swipe-down en el handle */}
           <div
             className="xl:hidden fixed inset-x-0 bottom-0 z-50 flex h-[88dvh] flex-col overflow-hidden text-white opai-glass-strong"
-            style={{ borderTopLeftRadius: 26, borderTopRightRadius: 26 }}
+            style={{
+              borderTopLeftRadius: 26,
+              borderTopRightRadius: 26,
+              transform: swipe.translateY && swipe.translateY > 0
+                ? `translateY(${swipe.translateY}px)`
+                : undefined,
+              transition: swipe.translateY ? "none" : "transform 200ms ease-out",
+            }}
             role="dialog"
             aria-label="OPAI Intelligence"
           >
-            <span
-              aria-hidden
-              className="mx-auto mt-2 mb-1 block h-1.5 w-10 rounded-full"
-              style={{ background: "var(--glass-grabber)" }}
-            />
+            <div
+              className="shrink-0 touch-none pt-2 pb-1"
+              onTouchStart={swipe.onTouchStart}
+              onTouchMove={swipe.onTouchMove}
+              onTouchEnd={swipe.onTouchEnd}
+            >
+              <button
+                type="button"
+                aria-label="Desliza hacia abajo para cerrar"
+                className="mx-auto flex h-10 w-full items-center justify-center"
+                onClick={() => setOpen(false)}
+              >
+                <span
+                  aria-hidden
+                  className="block h-1.5 w-10 rounded-full"
+                  style={{ background: "var(--glass-grabber)" }}
+                />
+              </button>
+            </div>
             {panelShell(true)}
           </div>
         </>
