@@ -68,12 +68,13 @@ type State =
 
 async function shareOrDownload(url: string, filename: string, mimeType: string) {
   try {
-    const cached = blobCache.get(url);
-    const blob = cached ?? (await fetch(url).then((r) => {
-      if (!r.ok) throw new Error("download failed");
-      return r.blob();
-    }));
-    if (!cached) cacheBlob(url, blob);
+    let blob = blobCache.get(url);
+    if (!blob) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("download failed");
+      blob = await res.blob();
+      cacheBlob(url, blob);
+    }
     const type = mimeType || blob.type || "application/octet-stream";
     const file = new File([blob], filename, { type });
     if (typeof navigator !== "undefined" && navigator.canShare?.({ files: [file] })) {
