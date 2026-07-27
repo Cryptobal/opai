@@ -37,30 +37,42 @@ function iframeSandboxEnabled(): boolean {
 }
 
 /**
- * Documento completo para el iframe: replica los estilos base del css module
- * (fondo claro fijo, tipografía, tablas) para no degradar la lectura. El tema
- * del correo es siempre claro (igual que antes del sandbox), también en dark
- * mode de la app.
+ * Documento completo para el iframe: tipografía/tablas base + tema claro u
+ * oscuro (toggle 🌙/☀️). En noche forzamos texto legible: casi todos los
+ * correos traen `color:#000` / `color:black` inline y, sin override, el
+ * cuerpo queda negro sobre fondo pizarra (ilegible). El acento de links
+ * sigue el teal de marca OPAI.
  */
 export function buildEmailSrcDoc(safeHtml: string, night = false): string {
-  // Claro por defecto (fidelidad: los correos y sus firmas asumen fondo
-  // blanco). `night` invierte a un fondo oscuro suave para quien lo prefiera.
-  const bg = night ? "hsl(220 18% 10%)" : "hsl(0 0% 100%)";
-  const fg = night ? "hsl(220 14% 84%)" : "hsl(220 15% 18%)";
-  const border = night ? "hsl(220 12% 26%)" : "hsl(220 10% 85%)";
-  const quote = night ? "hsl(220 10% 60%)" : "hsl(220 10% 40%)";
+  // Claro por defecto (fidelidad: firmas asumen fondo blanco). Noche: pizarra
+  // azul alineada al dark de la app (`--ds-text-1` / background slate).
+  const bg = night ? "hsl(222 28% 12%)" : "hsl(0 0% 100%)";
+  const fg = night ? "hsl(210 40% 96%)" : "hsl(220 15% 18%)";
+  const border = night ? "hsl(220 16% 28%)" : "hsl(220 10% 85%)";
+  const quote = night ? "hsl(215 20% 70%)" : "hsl(220 10% 40%)";
+  const link = night ? "hsl(174 72% 55%)" : "hsl(174 72% 32%)";
+  // Override agresivo solo en noche: el HTML de Outlook/Gmail pinta negros
+  // y fondos blancos que matan el contraste. Links conservan teal; media
+  // no se recolorea.
+  const nightCss = night
+    ? `body,body *:not(a):not(img):not(svg):not(video):not(source){color:${fg}!important;background-color:transparent!important}
+body a,body a *{color:${link}!important}
+body table,body td,body th{border-color:${border}!important}
+body blockquote{color:${quote}!important;border-left-color:${border}!important}`
+    : "";
   return `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>
 :root{color-scheme:${night ? "dark" : "light"}}
 html,body{margin:0;padding:0}
 body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   font-size:13px;line-height:1.55;color:${fg};background:${bg};
   word-break:break-word;overflow-x:auto;padding:2px}
-a{color:hsl(174 72% ${night ? "55%" : "32%"});text-decoration:underline;text-underline-offset:2px}
+a{color:${link};text-decoration:underline;text-underline-offset:2px}
 img{max-width:100%;height:auto}
 table{display:block;overflow-x:auto;border-collapse:collapse;max-width:100%;margin:.5rem 0}
 td,th{border:1px solid ${border};padding:.35rem .5rem;vertical-align:top}
 p,div,li{margin:.35em 0}
 blockquote{margin:.5rem 0;padding-left:.75rem;border-left:3px solid ${border};color:${quote}}
+${nightCss}
 </style></head><body>${safeHtml}</body></html>`;
 }
 
@@ -158,6 +170,32 @@ export function EmailHtmlBody({
     return () => ro.disconnect();
   }, [useIframe, mode, safeHtml, measure]);
 
+  // El foco dentro del iframe no burbujea al padre: sin este puente, R/A/F/I
+  // (y el resto de atajos de bandeja) dejan de responder al leer el cuerpo.
+  useEffect(() => {
+    if (!useIframe || mode !== "html") return;
+    const doc = iframeRef.current?.contentDocument;
+    if (!doc) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const el = event.target as HTMLElement | null;
+      const tag = el?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable) {
+        return;
+      }
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: event.key,
+          code: event.code,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    };
+    doc.addEventListener("keydown", onKey);
+    return () => doc.removeEventListener("keydown", onKey);
+  }, [useIframe, mode, srcDoc]);
+
   return (
     <div className="space-y-1.5">
       {(hasHtml || blockedAvailable) && (
@@ -223,7 +261,7 @@ export function EmailHtmlBody({
             sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
             title="Contenido del correo"
             onLoad={measure}
-            className={styles.frame}
+            className={`${styles.frame}${night ? ` ${styles.frameNight}` : ""}`}
             style={{
               height: `${height}px`,
               opacity: frameReady ? 1 : 0,

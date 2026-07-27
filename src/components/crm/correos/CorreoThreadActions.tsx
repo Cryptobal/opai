@@ -61,6 +61,9 @@ export function CorreoThreadActions({
         onDone={onDone}
         onReply={onReply}
         onClose={onClose}
+        onRemove={onRemove}
+        onRemoveDone={onRemoveDone}
+        onUndoDone={onUndoDone}
         onSnooze={onSnooze}
       />
     );

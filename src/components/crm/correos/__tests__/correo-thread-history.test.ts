@@ -17,6 +17,8 @@ describe("historial del lector de correos", () => {
     expect(window.location.search).toBe("?thread=thread-a");
     expect(window.history.state.correoThread).toBe(true);
     expect(closeCorreoThreadInHistory()).toBe("back");
+    // URL limpia al instante (antes del popstate) + consume la entrada.
+    expect(window.location.search).toBe("");
     expect(back).toHaveBeenCalledOnce();
   });
 

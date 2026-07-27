@@ -50,8 +50,10 @@ export function CorreoSnoozeSheet({ open, onClose, onConfirm }: Props) {
   ].filter((p) => p.at.getTime() > now.getTime());
 
   function pick(at: Date, label: string) {
-    onConfirm(at.toISOString(), label);
+    // Cerrar el sheet antes del confirm: el confirm suele desmontar el lector
+    // (posponer/archivar) y un onClose después disparaba setState en unmounted.
     onClose();
+    onConfirm(at.toISOString(), label);
   }
 
   function pickCustom() {

@@ -67,4 +67,12 @@ describe("buildEmailSrcDoc", () => {
     expect(doc).toContain('<base target="_blank">');
     expect(doc).toContain("<p>contenido</p>");
   });
+
+  it("en modo noche fuerza texto claro (pisando color negro inline de correos)", () => {
+    const doc = buildEmailSrcDoc('<p style="color:#000">Hola</p>', true);
+    expect(doc).toContain("color-scheme:dark");
+    expect(doc).toContain("hsl(210 40% 96%)");
+    expect(doc).toContain("color:hsl(210 40% 96%)!important");
+    expect(doc).toContain("hsl(174 72% 55%)");
+  });
 });

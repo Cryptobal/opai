@@ -24,13 +24,17 @@ export function openCorreoThreadInHistory(
 }
 
 export function closeCorreoThreadInHistory(): "back" | "replaced" {
-  if (window.history.state?.[THREAD_HISTORY_MARKER]) {
-    window.history.back();
-    return "back";
-  }
   const url = new URL(window.location.href);
   url.searchParams.delete("thread");
   url.searchParams.delete("extract");
+  // Siempre limpiar la URL al instante (la UI ya cerró el lector). Si la
+  // apertura hizo pushState, además consumimos esa entrada con back() para
+  // que el gesto/atrás del sistema no deje una URL fantasma con ?thread=.
+  if (window.history.state?.[THREAD_HISTORY_MARKER]) {
+    window.history.replaceState(window.history.state, "", url);
+    window.history.back();
+    return "back";
+  }
   window.history.replaceState(window.history.state, "", url);
   return "replaced";
 }
