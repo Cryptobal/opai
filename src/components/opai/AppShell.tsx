@@ -8,6 +8,7 @@ import { MobileIsland } from './MobileIsland';
 import { TopbarActions } from './TopbarActions';
 import { QuickCreateModal, type QuickCreateType } from './QuickCreateModal';
 import { AiHelpChatWidgetV2 as AiHelpChatWidget } from './AiHelpChatWidgetV2';
+import { NavProgress } from './NavProgress';
 import { ChatPageContextProvider } from './ChatPageContextProvider';
 import { SimulationBanner } from '@/components/navbar/SimulationBanner';
 import { BottomNav } from './BottomNav';
@@ -303,6 +304,7 @@ function AppShellInner({
       <BottomNavPortal>
         <BottomNav userRole={userRole} surface={surface} />
       </BottomNavPortal>
+      <NavProgress />
       {/* Intelligence dock al mismo nivel que Chat/Notif para fixed right-0 correcto. */}
       <AiHelpChatWidget />
       <ChatSidePanel userRole={userRole} />

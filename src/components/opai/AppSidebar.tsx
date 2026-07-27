@@ -260,7 +260,7 @@ export function AppSidebar({
                     {item.badge != null && item.badge > 0 && (
                       <span
                         className={cn(
-                          "absolute rounded-full bg-destructive text-destructive-foreground animate-pulse",
+                          "absolute rounded-full bg-destructive text-destructive-foreground",
                           collapsed
                             ? "top-0 right-0 h-2 w-2 -translate-y-0.5 translate-x-0.5"
                             : "top-0 right-0 min-w-[18px] h-[18px] text-[10px] font-semibold flex items-center justify-center px-1 -translate-y-1/2 translate-x-1/2"
@@ -365,7 +365,7 @@ export function AppSidebar({
                       {item.badge != null && item.badge > 0 && (
                         <span
                           className={cn(
-                            "absolute rounded-full bg-destructive text-destructive-foreground animate-pulse",
+                            "absolute rounded-full bg-destructive text-destructive-foreground",
                             collapsed
                               ? "top-0 right-0 h-2 w-2 -translate-y-0.5 translate-x-0.5"
                               : "top-0 right-0 min-w-[18px] h-[18px] text-[10px] font-semibold flex items-center justify-center px-1 -translate-y-1/2 translate-x-1/2"

@@ -128,9 +128,15 @@ const nextConfig = {
   ],
   experimental: {
     staleTimes: {
-      dynamic: 0,
+      dynamic: 30,
       static: 30,
     },
+    optimizePackageImports: [
+      'lucide-react',
+      'date-fns',
+      'recharts',
+      '@radix-ui/react-icons',
+    ],
   },
   images: {
     formats: ["image/avif", "image/webp"],
