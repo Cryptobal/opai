@@ -759,6 +759,8 @@ export function CorreosClient() {
           mailboxEmail={mailboxEmail}
           collapsed={railCollapsed}
           onToggleCollapsed={() => setRailCollapsed(!railCollapsed)}
+          onOpenSwipeSettings={() => setSwipeSettingsOpen(true)}
+          onOpenShortcuts={() => setShortcutsSheetOpen(true)}
         />
         <div className="min-w-0 flex-1 space-y-4 max-lg:px-4 lg:space-y-3">
           {/* Toolbar desktop: búsqueda/refresh/densidad; con selección muta a
@@ -785,6 +787,7 @@ export function CorreosClient() {
             onClear={clearSelection}
             onAction={bulkAction}
             onSnooze={() => setSnoozeId("__bulk__")}
+            onOpenShortcuts={() => setShortcutsSheetOpen(true)}
           />
           {!connected ? (
             <EmptyState icon={Mail} title="Conectá tu Gmail" description="Conectá tu casilla en Integraciones." />
@@ -879,10 +882,8 @@ export function CorreosClient() {
       </div>
 
     </CorreosPullToRefresh>
-      {/* Fuera del root animado: los hijos de ds-page-enter retienen un
-          transform (fill forwards) que dejaría estos overlays anclados al
-          contenido y bajo la BottomNav en móvil. Aquí su fixed es viewport
-          real; en desktop no cambia nada (son modales). */}
+      {/* Fuera del root animado: modales que no deben heredar el transform
+          de ds-page-enter (FAB de compose, posponer masivo, etc.). */}
       <CorreoComposeSheet
         open={composeOpen}
         onClose={() => setComposeOpen(false)}
