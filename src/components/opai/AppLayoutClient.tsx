@@ -14,6 +14,7 @@ import { PushPermissionPrompt } from '@/components/pwa/PushPermissionPrompt';
 import { InAppNotificationProvider } from '@/components/notifications/InAppNotificationProvider';
 import { PanicAlertProvider } from '@/components/ops/PanicAlertProvider';
 import { buildNavItems } from '@/components/opai/role-nav-builder';
+import { LandingSurfacePrompt } from '@/components/opai/LandingSurfacePrompt';
 import { DEFAULT_SURFACE, type Surface } from '@/lib/surface';
 
 interface AppLayoutClientProps {
@@ -138,6 +139,7 @@ function AppLayoutClientInner({
               tenantId={tenantId}
             />
           )}
+          <LandingSurfacePrompt />
           {children}
         </AppShell>
       </ChatSidePanelProvider>

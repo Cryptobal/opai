@@ -23,6 +23,8 @@ const ACCENT = "#f43f5e";
 export function LoginPageClient({ callbackUrl: callbackUrlProp, error: errorProp, success: successProp }: LoginPageClientProps) {
   const [showPassword, setShowPassword] = useState(false);
   const searchParams = useSearchParams();
+  // Default /hub: tras autenticar, `authenticate` resuelve landingSurface.
+  // Si hay callbackUrl explícito (deep-link), se respeta.
   const callbackUrl = callbackUrlProp ?? searchParams.get('callbackUrl') ?? '/hub';
   const portal = searchParams.get('portal') ?? '';
   const error = errorProp ?? searchParams.get('error') ?? undefined;
