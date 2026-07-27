@@ -3,22 +3,15 @@
 /**
  * MobileIsland — isla contextual liquid-glass del ERP en móvil (<lg).
  *
- * Asume el rol de "dónde estoy" que antes cubrían breadcrumb + PageHero:
+ * Modos:
+ *  A. Normal: [SurfaceSegment] [título elástico] [buscar] [chat] [campana]
+ *     Sin acceso a Productividad: logo/ícono + título (sin segmento).
+ *  B. Detalle: chevron back + trailing (+ acción primaria); sin segmento
+ *  C. Condensación al scroll (useScrollDirection, respeta reduced-motion)
+ *  D. Búsqueda: cambio de modo dentro de la isla (bloque 4)
  *
- *  A. Título contextual: en /hub muestra el logo OPAI; en cualquier otra ruta,
- *     el ícono del nodo (con su tono) + el título corto resuelto del registry
- *     (`resolveNavContext`), con crossfade al navegar. Tap → /hub.
- *  B. Modo detalle: si hay trailing publicado (nombre de entidad), la isla
- *     muestra chevron back (→ listado padre del registry, fallback router.back),
- *     el trailing como título + subtítulo (sección), y a la derecha la acción
- *     primaria publicada (IslandActionContext) si existe.
- *  C. Condensación al scroll (useScrollDirection, respeta reduced-motion).
- *  D. Búsqueda: tap en la lupa abre el Command Palette (modal) — ver nota.
- *
- * Nota (idea D): el Command Palette no expone hoy un estado de query
- * compartido, así que el "morph" a campo de búsqueda dentro de la isla
- * requeriría un refactor mayor del palette. Se toma el fallback documentado
- * en el brief: la lupa abre el modal existente.
+ * Regla de no solapamiento: un único flex-1 min-w-0 (bloque título);
+ * segmento y botones son shrink-0 con ancho declarado.
  */
 
 import { useEffect, useState } from "react";
@@ -30,8 +23,17 @@ import { ThemeLogo } from "./ThemeLogo";
 import { IconBubble, useBreadcrumbTrailing, useIslandAction } from "@/components/opai-ds";
 import { resolveNavContext } from "@/lib/nav/resolve-context";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
+import { usePermissions } from "@/lib/permissions-context";
+import { useTenantModules } from "@/contexts/TenantModulesContext";
+import {
+  DEFAULT_SURFACE,
+  resolveProductividadLanding,
+  type Surface,
+} from "@/lib/surface";
+import { SurfaceSegment } from "./SurfaceSegment";
 
 interface MobileIslandProps {
+  surface?: Surface;
   onSearch: () => void;
   onToggleChat: () => void;
   onToggleNotifications: () => void;
@@ -40,6 +42,7 @@ interface MobileIslandProps {
 }
 
 export function MobileIsland({
+  surface = DEFAULT_SURFACE,
   onSearch,
   onToggleChat,
   onToggleNotifications,
@@ -51,6 +54,8 @@ export function MobileIsland({
   const trailing = useBreadcrumbTrailing();
   const islandAction = useIslandAction();
   const condensed = useScrollDirection(24);
+  const permissions = usePermissions();
+  const { isModuleEnabled } = useTenantModules();
 
   // Evita mismatch de hidratación: el contexto (título/ícono) es puramente de
   // cliente; en el primer render mostramos el estado base (logo).
@@ -60,14 +65,22 @@ export function MobileIsland({
   const ctx = mounted ? resolveNavContext(pathname) : null;
   const isHub = pathname === "/hub" || pathname.startsWith("/hub/");
   const isDetail = mounted && !!trailing;
+  const showSegment =
+    mounted && resolveProductividadLanding(permissions, isModuleEnabled) !== null;
 
-  const btnBase =
-    "relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ds-text-3 transition-colors hover:bg-ds-surface-2 hover:text-ds-text-1 active:scale-95";
+  const btnBase = cn(
+    "relative inline-flex shrink-0 items-center justify-center rounded-xl text-ds-text-3",
+    "transition-colors hover:bg-ds-surface-2 hover:text-ds-text-1 active:scale-95",
+    "motion-reduce:transition-none",
+    condensed ? "h-[34px] w-[34px]" : "h-10 w-10",
+  );
 
   const back = () => {
     if (ctx?.parentHref) router.push(ctx.parentHref);
     else router.back();
   };
+
+  const title = isHub || !ctx ? "OPAI" : ctx.shortTitle;
 
   return (
     <header
@@ -80,47 +93,61 @@ export function MobileIsland({
     >
       <div
         className={cn(
-          "pointer-events-auto opai-glass-strong flex items-center justify-between transition-all duration-[250ms] ease-out motion-reduce:transition-none",
+          "pointer-events-auto opai-glass-strong flex items-center gap-1 transition-all duration-[250ms] ease-out motion-reduce:transition-none",
           condensed ? "min-h-[36px] rounded-[17px] pl-2 pr-1" : "min-h-12 rounded-[22px] pl-3 pr-1",
         )}
       >
-        {/* ── Left: contexto (A / B) ── */}
+        {/* ── Left: contexto (A / B) — único bloque elástico ── */}
         {isDetail ? (
-          <div className="flex min-w-0 items-center gap-1">
+          <div className="flex min-w-0 flex-1 items-center gap-1">
             <button type="button" onClick={back} className={cn(btnBase, "shrink-0")} aria-label="Volver">
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <div key={pathname + trailing} className="min-w-0 animate-in fade-in duration-200">
+            <div key={pathname + trailing} className="min-w-0 flex-1 animate-in fade-in duration-200">
               <p className="truncate text-sm font-semibold leading-tight text-ds-text-1">{trailing}</p>
               {ctx?.title && !condensed && (
                 <p className="truncate text-[12px] leading-tight text-ds-text-3">{ctx.title}</p>
               )}
             </div>
           </div>
-        ) : isHub || !ctx ? (
-          <Link href="/hub" className="flex shrink-0 items-center gap-2 hover:opacity-80">
-            <ThemeLogo width={28} height={28} className={cn("transition-all", condensed ? "h-6 w-6" : "h-7 w-7")} />
-            <span className="text-sm font-semibold tracking-tight">OPAI</span>
-          </Link>
         ) : (
-          <Link
-            href="/hub"
-            key={pathname}
-            className="flex min-w-0 items-center gap-2 hover:opacity-80 animate-in fade-in duration-200"
-          >
-            <IconBubble
-              icon={ctx.icon}
-              tone={ctx.iconTone}
-              size="sm"
-              className={cn("shrink-0 transition-all", condensed && "scale-90")}
-            />
-            <span className="truncate text-sm font-semibold tracking-tight text-ds-text-1">
-              {ctx.shortTitle}
-            </span>
-          </Link>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {showSegment && (
+              <SurfaceSegment
+                surface={surface}
+                variant="compact"
+                condensed={condensed}
+                className="shrink-0"
+              />
+            )}
+            <Link
+              href="/hub"
+              key={pathname}
+              className="flex min-w-0 flex-1 items-center gap-2 hover:opacity-80"
+            >
+              {!showSegment &&
+                (isHub || !ctx ? (
+                  <ThemeLogo
+                    width={28}
+                    height={28}
+                    className={cn("shrink-0 transition-all", condensed ? "h-6 w-6" : "h-7 w-7")}
+                  />
+                ) : (
+                  <IconBubble
+                    icon={ctx.icon}
+                    tone={ctx.iconTone}
+                    size="sm"
+                    className={cn("shrink-0 transition-all", condensed && "scale-90")}
+                  />
+                ))}
+              <span className="truncate text-sm font-semibold tracking-tight text-ds-text-1">
+                {title}
+              </span>
+            </Link>
+          </div>
         )}
 
-        {/* ── Right: acción de detalle o botones estándar ── */}
+        {/* ── Right: acción de detalle o botones estándar (shrink-0) ── */}
         {isDetail && islandAction ? (
           <div className="shrink-0 pl-1">
             {islandAction.href ? (
@@ -145,7 +172,7 @@ export function MobileIsland({
         ) : (
           <div
             className={cn(
-              "flex shrink-0 items-center gap-1 transition-opacity duration-[250ms] ease-out motion-reduce:transition-none",
+              "flex shrink-0 items-center gap-px transition-opacity duration-[250ms] ease-out motion-reduce:transition-none",
               condensed && "opacity-70",
             )}
           >

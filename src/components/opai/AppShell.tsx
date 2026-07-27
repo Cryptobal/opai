@@ -178,6 +178,7 @@ function AppShellInner({
             ya es lg:hidden, así que desktop no cambia al no renderizarla). */}
         {sidebar && !isImmersiveMobile && (
           <MobileIsland
+            surface={surface}
             onSearch={() => openCommandPalette()}
             onToggleChat={handleToggleChat}
             onToggleNotifications={handleToggleNotifications}
