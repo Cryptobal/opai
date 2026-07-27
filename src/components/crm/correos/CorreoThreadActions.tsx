@@ -68,13 +68,13 @@ export function CorreoThreadActions({
 
   const drawer = variant === "drawer";
   // drawer compacto: fila de iconos (rediseño lector). drawer normal:
-  // botones con etiqueta. row: icono que aparece en hover.
+  // botones con etiqueta. row: iconos sueltos estilo Gmail (sin marco).
   const showLabel = drawer && !compact;
   const btn = compact
-    ? "inline-flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-2 hover:bg-ds-surface-3 hover:text-ds-text-1 ds-tap"
+    ? "inline-flex h-9 w-9 items-center justify-center rounded-full text-ds-text-2 hover:bg-ds-surface-3/80 hover:text-ds-text-1 ds-tap"
     : drawer
       ? "inline-flex h-10 items-center gap-1.5 rounded-xl border border-ds-border-default px-3 text-[13px] ds-tap sm:h-9"
-      : "inline-flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-3 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-ds-surface-3 hover:text-ds-text-1 ds-tap";
+      : "inline-flex h-8 w-8 items-center justify-center rounded-full text-ds-text-3 hover:bg-black/10 hover:text-ds-text-1 dark:hover:bg-white/10 ds-tap";
 
   function act(action: CorreoAction, okMsg: string, undo?: CorreoAction) {
     void runCorreoAction(threadId, action, okMsg, onDone, undo, onUndoDone);

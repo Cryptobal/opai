@@ -167,14 +167,19 @@ export function CorreoRowDesktop({
             : unread
               ? "font-semibold text-primary"
               : "text-ds-text-4"
-        } ${canModify ? "group-hover:invisible" : ""}`}
+        } ${canModify && active ? "invisible" : canModify ? "group-hover:invisible" : ""}`}
       >
         {thread.snoozedUntil
           ? `hasta ${snoozeShort(thread.snoozedUntil)}`
           : formatGmailDateChile(thread.lastMessageAt)}
       </span>
       {canModify && (
-        <div className="absolute right-2 top-1/2 hidden -translate-y-1/2 items-center rounded-lg bg-ds-surface-2 pl-1 group-hover:flex">
+        /* Gmail: iconos sueltos sobre la fila, sin caja/marco de fondo. */
+        <div
+          className={`absolute right-1 top-1/2 -translate-y-1/2 items-center gap-0 ${
+            active ? "flex" : "hidden group-hover:flex"
+          }`}
+        >
           <CorreoThreadActions
             threadId={thread.id}
             isUnread={unread}
