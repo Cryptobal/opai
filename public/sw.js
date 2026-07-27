@@ -1,46 +1,88 @@
+// v15 (2026-07-27): fix PWA iPhone ERP — pantalla negra→blanca al abrir.
+// Causas: (1) al 404 de chunks solo se purgaba HTML de portales/login, NO
+// /hub (start_url del ERP); (2) timeout de navigate 3s servía HTML stale
+// en cold starts; (3) rutas autenticadas del ERP no deberían caer a HTML
+// cacheado. Ahora: purga TODO HTML same-origin ante chunk 404, timeout 8s,
+// y rutas ERP hacen network-only (solo offline.html de fallback).
+//
 // v14 (2026-07-23): bumped tras el pulido minimalista del inicio móvil del
-// Hub (accesos rápidos como pills monocromos, tarjetas Agenda/Correos sin
-// botones redundantes, headers tocables con chevron). Purga HTML/chunks v13.
+// Hub. Purga HTML/chunks v13.
 //
-// v13 (2026-07-23): bumped tras FC-01.2 de la planilla (planilla como única
-// vista de Flujo de Caja, /finanzas/flujo-caja redirige, Cuentas deja de
-// rebotar, capas borrador/EP/programada con leyenda, filas asociadas sin
-// rename, ingreso manual sin cuenta).
-//
-// v12 (2026-07-23): bumped tras FC-01.1 de la planilla de flujo de caja
-// (planilla default en la nav, anclaje en semana anterior, filas más altas,
-// peek del concepto y candado de scroll móvil). v11 fue el bump de FC-01
-// (hoja de cálculo operativa: sheet focus + renderer).
-//
-// v10 (2026-07-23): bumped tras la Ola 1 del Hub / Centro de Control
-// (bottom bar global en /hub, selector móvil de vistas, accesos rápidos
-// Calendario/Correos/Crear, correos recientes, fixes de overflow y de salto
-// de scroll en SwipeTabs/ChipTabs). Purga HTML/chunks v9 en PWAs de larga
-// vida y dispara el banner "Nueva versión disponible".
-//
-// v9 (2026-07-23): bumped tras las Olas 2-3 de correo (búsqueda server-side,
-// outbox con deshacer/programar, composer Tiptap unificado con drafts,
-// carpetas nuevas, bulk+teclado, offline deliberado con IndexedDB). Purga
-// HTML/chunks v8 en PWAs de larga vida.
-//
-// v8 (2026-07-23): bumped tras la Ola 1 de correo (bloqueo de imágenes,
-// iframe sandbox, typeahead de destinatarios, push de correo nuevo, badge).
-// Fuerza el update del SW en PWAs de larga vida (iOS standalone que solo
-// "resume" y no navega): el usuario ve el banner "Nueva versión disponible"
-// y al actualizar se purga la cache v7 con HTML/chunks previos a la ola.
-//
-// v7 (2026-05-12): bumped para invalidar SW viejo y aplicar el bypass de
-// caching en endpoints de auth/sesión (ver AUTH_BYPASS_PATTERNS abajo).
-// Esto evita que una respuesta cacheada del endpoint de sesión enmascare
-// el flujo real de login/logout en PWAs iOS recién instaladas.
-//
-// v6 (2026-05-07): bumped to flush stale precached HTML que en clientes
-// viejos quedó apuntando a chunks `/_next/static/chunks/*.js` ya borrados
-// por Vercel. La combinación HTML viejo + chunk 404 producía
-// ChunkLoadError → global-error.tsx ("Algo salió mal") en el portal del
-// guardia (y resto de portales) sin que refrescar lo arreglara, porque
-// el navigate handler nunca refrescaba la cache (ver fix abajo).
-const CACHE_NAME = 'opai-v14';
+// v13–v6: ver historial git. v6 introdujo el refresh de HTML en navigate
+// ante chunks 404 de Vercel (ChunkLoadError → "Algo salió mal").
+const CACHE_NAME = 'opai-v15';
+
+// Prefijos de la app ERP autenticada. Cachear su HTML en el SW es peligroso:
+// tras un deploy, el shell apunta a chunks ya borrados y iOS PWA queda en
+// blanco (start_url=/hub). Portales públicos sí se benefician del cache.
+const ERP_APP_PREFIXES = [
+  '/hub',
+  '/crm',
+  '/cpq',
+  '/ops',
+  '/personas',
+  '/payroll',
+  '/finanzas',
+  '/opai/',
+  '/chat',
+  '/fiscalizacion',
+  '/reportes',
+  '/portales',
+  '/te',
+];
+
+function isErpAppPath(pathname) {
+  if (pathname === '/opai' || pathname === '/opai/') return true;
+  // /opai/login se precachea a propósito (shell de auth).
+  if (pathname === '/opai/login' || pathname.startsWith('/opai/login/')) {
+    return false;
+  }
+  return ERP_APP_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(p.endsWith('/') ? p : p + '/')
+  );
+}
+
+/** Borra todo documento HTML same-origin de la cache (navegaciones). */
+function purgeCachedNavigations(cache) {
+  return cache.keys().then((reqs) =>
+    Promise.all(
+      reqs
+        .filter((r) => {
+          try {
+            const u = new URL(r.url);
+            if (u.origin !== self.location.origin) return false;
+            // Conservar offline.html y el contexto de push.
+            if (u.pathname === OFFLINE_URL || u.pathname === '/_push-context') {
+              return false;
+            }
+            const accept = r.headers.get('Accept') || '';
+            const dest = r.destination;
+            return (
+              dest === 'document' ||
+              accept.includes('text/html') ||
+              u.pathname === '/' ||
+              u.pathname.startsWith('/portal/') ||
+              u.pathname.startsWith('/hub') ||
+              u.pathname.startsWith('/crm') ||
+              u.pathname.startsWith('/ops') ||
+              u.pathname.startsWith('/finanzas') ||
+              u.pathname.startsWith('/personas') ||
+              u.pathname.startsWith('/payroll') ||
+              u.pathname.startsWith('/opai') ||
+              u.pathname.startsWith('/chat') ||
+              u.pathname.startsWith('/cpq') ||
+              u.pathname.startsWith('/reportes') ||
+              u.pathname.startsWith('/portales') ||
+              u.pathname.startsWith('/fiscalizacion')
+            );
+          } catch {
+            return false;
+          }
+        })
+        .map((r) => cache.delete(r))
+    )
+  );
+}
 
 // Endpoints de autenticación/sesión que NUNCA deben pasar por la cache del
 // SW. Si una respuesta antigua quedara cacheada, el cliente podría ver una
@@ -130,11 +172,10 @@ self.addEventListener('fetch', (event) => {
 
   // Static assets: cache-first.
   // Safety net: si un chunk de `/_next/static/chunks/*` viene 404 (Vercel
-  // ya borró los chunks de un deploy viejo), invalidamos toda la cache de
-  // navigation para que el próximo refresh sirva HTML fresco con los
-  // chunks correctos. Sin esto el usuario queda atrapado en
-  // "Algo salió mal" porque el shell precacheado siempre apunta al
-  // mismo chunk 404.
+  // ya borró los chunks de un deploy viejo), invalidamos TODA la cache de
+  // navigation (incluido /hub del ERP) para que el próximo refresh sirva
+  // HTML fresco. Antes solo se purgaban portales + login → PWA ERP iOS
+  // quedaba atrapada en blanco.
   if (
     url.pathname.startsWith('/_next/static/') ||
     url.pathname.startsWith('/icons/') ||
@@ -151,25 +192,7 @@ self.addEventListener('fetch', (event) => {
               url.pathname.startsWith('/_next/static/chunks/')
             ) {
               caches.open(CACHE_NAME).then((cache) =>
-                cache.keys().then((reqs) =>
-                  Promise.all(
-                    reqs
-                      .filter((r) => {
-                        try {
-                          const u = new URL(r.url);
-                          return (
-                            u.origin === self.location.origin &&
-                            (u.pathname === '/' ||
-                              u.pathname.startsWith('/portal/') ||
-                              u.pathname === '/opai/login')
-                          );
-                        } catch {
-                          return false;
-                        }
-                      })
-                      .map((r) => cache.delete(r))
-                  )
-                )
+                purgeCachedNavigations(cache)
               ).catch(() => {});
             }
             return response;
@@ -179,36 +202,46 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigation: network-first with a 3s timeout fallback.
+  // Navigation: network-first.
   // iOS PWA can bail out of standalone mode if a navigation hangs, so we
-  // proactively fall back to cache rather than letting the request stall.
+  // proactively fall back rather than letting the request stall.
   //
-  // IMPORTANTE: cuando la red responde OK refrescamos la copia cacheada,
-  // si no, la HTML del primer install queda congelada en CACHE_NAME y
-  // termina sirviendo a usuarios viejos un shell con chunks
-  // `/_next/static/chunks/*.js` que Vercel ya eliminó tras varios deploys
-  // → ChunkLoadError → "Algo salió mal" sin recuperación al refrescar.
+  // ERP autenticado (/hub, /crm, …): NUNCA servir HTML cacheado — el shell
+  // stale + chunks 404 es la causa de "negro → blanco" en iPhone. Solo
+  // offline.html de fallback. Timeout 8s (cold start Vercel + auth/DB).
+  //
+  // Portales / login: sí cacheamos HTML (útil offline) y timeout 5s.
   if (request.mode === 'navigate') {
     event.respondWith((async () => {
+      const erp = isErpAppPath(url.pathname);
+      const offlineFallback = () =>
+        caches.match(OFFLINE_URL).then((offline) =>
+          offline || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } })
+        );
       const cacheFallback = () =>
         caches.match(request).then((cached) => {
           if (cached) return cached;
-          return caches.match(OFFLINE_URL).then((offline) =>
-            offline || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } })
-          );
+          return offlineFallback();
         });
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const timeoutMs = erp ? 8000 : 5000;
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
         const response = await fetch(request, { signal: controller.signal });
         clearTimeout(timeoutId);
-        if (response && response.ok && response.type === 'basic') {
+        // Solo cachear HTML de portales/login — nunca del ERP autenticado.
+        if (
+          !erp &&
+          response &&
+          response.ok &&
+          response.type === 'basic'
+        ) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(() => {});
         }
         return response;
       } catch (_) {
-        return cacheFallback();
+        return erp ? offlineFallback() : cacheFallback();
       }
     })());
     return;

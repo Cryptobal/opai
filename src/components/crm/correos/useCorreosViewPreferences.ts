@@ -250,10 +250,13 @@ export function useCorreosViewPreferences(
   );
   const [hydrated, setHydrated] = useState(false);
 
-  const containerWidth = useCallback(
-    () => containerRef.current?.getBoundingClientRect().width ?? window.innerWidth,
-    [containerRef],
-  );
+  const containerWidth = useCallback(() => {
+    const measured = containerRef.current?.getBoundingClientRect().width;
+    if (measured && measured > 0) return measured;
+    // SSR / primer paint sin layout: no tocar window (rompe /crm/correos).
+    if (typeof window === "undefined") return 1280;
+    return window.innerWidth;
+  }, [containerRef]);
 
   const panelWidth = useMemo(() => {
     const basis = workspaceWidth > 0 ? workspaceWidth : containerWidth();

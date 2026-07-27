@@ -53,7 +53,7 @@ export function CorreoSummaryPanel({ threadId }: { threadId: string }) {
           type="button"
           onClick={() => void run("full")}
           disabled={busy !== null}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-ds-border-default px-3 text-[13px] ds-tap disabled:opacity-50"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] ds-tap disabled:opacity-50"
         >
           {busy === "full" ? <Spinner className="h-4 w-4" /> : <ScrollText className="h-4 w-4" />}
           Resumir hilo
@@ -62,7 +62,7 @@ export function CorreoSummaryPanel({ threadId }: { threadId: string }) {
           type="button"
           onClick={() => void run("since-read")}
           disabled={busy !== null}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-ds-border-default px-3 text-[13px] ds-tap disabled:opacity-50"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] ds-tap disabled:opacity-50"
         >
           {busy === "since-read" ? <Spinner className="h-4 w-4" /> : <History className="h-4 w-4" />}
           Desde mi última lectura
