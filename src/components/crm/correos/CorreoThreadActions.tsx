@@ -17,9 +17,18 @@ type Props = {
   /** drawer compacto: fila de iconos sin etiquetas (rediseño del lector). */
   compact?: boolean;
   onDone?: () => void;
+  /** Refresh tras archivar/eliminar (suave); por defecto `onDone`. */
+  onRemoveDone?: () => void;
+  /** Refresh al Deshacer (p. ej. rehidratar lista tras archivar optimista). */
+  onUndoDone?: () => void;
   onReply?: () => void;
   /** Cierra el lector tras archivar/eliminar (drawer/mobile-bar). */
   onClose?: () => void;
+  /**
+   * Remoción optimista + avance al siguiente hilo (desktop split / fila).
+   * Si está definido, se prefiere sobre `onClose` al archivar/eliminar.
+   */
+  onRemove?: (threadId: string) => void;
   /** Abre el sheet de posponer (Bloque 3). */
   onSnooze?: () => void;
 };
@@ -34,8 +43,11 @@ export function CorreoThreadActions({
   variant = "row",
   compact = false,
   onDone,
+  onRemoveDone,
+  onUndoDone,
   onReply,
   onClose,
+  onRemove,
   onSnooze,
 }: Props) {
   if (!canModify) return null;
@@ -65,19 +77,22 @@ export function CorreoThreadActions({
       : "inline-flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-3 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-ds-surface-3 hover:text-ds-text-1 ds-tap";
 
   function act(action: CorreoAction, okMsg: string, undo?: CorreoAction) {
-    void runCorreoAction(threadId, action, okMsg, onDone, undo);
+    void runCorreoAction(threadId, action, okMsg, onDone, undo, onUndoDone);
   }
 
-  // drawer: archivar/eliminar/spam cierran el lector y ofrecen "Deshacer".
-  function closeAfter(action: "archive" | "trash" | "spam", okMsg: string) {
+  /** Archivar/eliminar: remoción optimista (+ avance) o cierre del lector. */
+  function removeAfter(action: "archive" | "trash" | "spam", okMsg: string) {
+    // Primero UI (sacar fila / avanzar lector); luego red + undo.
+    onRemove?.(threadId);
     void runCorreoAction(
       threadId,
       action,
       okMsg,
-      onDone,
+      onRemoveDone ?? onDone,
       action === "spam" ? "unspam" : "unarchive",
+      onUndoDone,
     );
-    onClose?.();
+    if (!onRemove) onClose?.();
   }
 
   return (
@@ -98,9 +113,7 @@ export function CorreoThreadActions({
         onClick={() =>
           archived
             ? act("unarchive", "Restaurado a bandeja")
-            : drawer
-              ? closeAfter("archive", "Archivado")
-              : act("archive", "Archivado", "unarchive")
+            : removeAfter("archive", "Archivado")
         }
       >
         <Archive className="h-4 w-4" />
@@ -111,10 +124,9 @@ export function CorreoThreadActions({
         className={btn}
         title="Eliminar"
         onClick={() => {
-          if (drawer) return closeAfter("trash", "Movido a la Papelera");
           // Sin confirm(): como Gmail, la papelera es directa y el toast
           // ofrece Deshacer (unarchive restaura a bandeja).
-          act("trash", "Movido a la Papelera", "unarchive");
+          removeAfter("trash", "Movido a la Papelera");
         }}
       >
         <Trash2 className="h-4 w-4" />
@@ -169,7 +181,7 @@ export function CorreoThreadActions({
           onClick={() =>
             inSpam
               ? act("unspam", "Restaurado de Spam")
-              : closeAfter("spam", "Marcado como spam")
+              : removeAfter("spam", "Marcado como spam")
           }
         >
           <ShieldAlert className="h-4 w-4" />

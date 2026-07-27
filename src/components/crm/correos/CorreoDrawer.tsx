@@ -32,6 +32,12 @@ type Props = {
   mailboxEmail?: string | null;
   onClose: () => void;
   onChanged?: () => void;
+  /** Remoción optimista + avance al siguiente (desktop split). */
+  onRemove?: (threadId: string) => void;
+  /** Refresh suave tras archivar/eliminar (sin re-pintar filas). */
+  onRemoveDone?: () => void;
+  /** Rehidratar lista al Deshacer archivar/eliminar. */
+  onUndoDone?: () => void;
   autoExtract?: boolean;
   canModify?: boolean;
   refreshToken?: number;
@@ -52,6 +58,9 @@ export function CorreoDrawer({
   mailboxEmail = null,
   onClose,
   onChanged,
+  onRemove,
+  onRemoveDone,
+  onUndoDone,
   autoExtract,
   canModify,
   refreshToken = 0,
@@ -71,17 +80,23 @@ export function CorreoDrawer({
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   // Evita reutilizar el detalle del hilo anterior al cambiar de correo.
   const detailThreadId = detail?.thread.id ?? null;
+  // Guarda el hilo pedido para descartar respuestas stale (p. ej. onDone de
+  // archivar que llega después de avanzar al siguiente correo).
+  const threadIdRef = useRef(threadId);
+  threadIdRef.current = threadId;
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!threadId) return;
+    const requestedId = threadId;
     // `silent`: refresh en vivo (mailbox-changed / foco). No muestra spinner ni
     // vacía el detalle si la respuesta falla, para no parpadear el lector
     // mientras se está leyendo el correo.
     const silent = opts?.silent ?? false;
     if (!silent) setLoading(true);
     try {
-      const r = await fetch(`/api/crm/correos/${threadId}`);
+      const r = await fetch(`/api/crm/correos/${requestedId}`);
       const data = r.ok ? ((await r.json()) as CorreoDetail) : null;
+      if (threadIdRef.current !== requestedId) return;
       if (data || !silent) setDetail(data);
       // C22b: guardar el detalle para lectura offline (sin adjuntos binarios).
       if (data) {
@@ -92,10 +107,12 @@ export function CorreoDrawer({
       // Sin red: servir el detalle guardado si existe (solo en carga visible).
       if (!silent) {
         const { loadOfflineDetail } = await import("./offline-store");
-        setDetail(await loadOfflineDetail(threadId));
+        const cached = await loadOfflineDetail(requestedId);
+        if (threadIdRef.current !== requestedId) return;
+        setDetail(cached);
       }
     } finally {
-      if (!silent) setLoading(false);
+      if (!silent && threadIdRef.current === requestedId) setLoading(false);
     }
   }, [threadId]);
 
@@ -139,9 +156,10 @@ export function CorreoDrawer({
     onChanged?.();
   }, [load, onChanged]);
 
+  // Solo actualiza el detalle local: la lista ya marca leído al abrir (openThread)
+  // y un onChanged aquí re-fetchaba la bandeja → pestañeo al cambiar de hilo.
   useMarkCorreoRead(threadId, detail?.thread.isUnread, canModify, () => {
     setDetail((d) => (d ? { ...d, thread: { ...d.thread, isUnread: false } } : d));
-    onChanged?.();
   });
 
   async function associate(p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) {
@@ -216,6 +234,9 @@ export function CorreoDrawer({
           onAssociate={associate}
           onRefresh={refresh}
           onClose={onClose}
+          onRemove={onRemove}
+          onRemoveDone={onRemoveDone}
+          onUndoDone={onUndoDone}
           onReply={scrollToReply}
           onSnooze={() => setSnoozeOpen(true)}
           alwaysShowImages={alwaysShowImages}
@@ -228,10 +249,12 @@ export function CorreoDrawer({
         onClose={() => setSnoozeOpen(false)}
         onConfirm={(iso, label) => {
           if (!detailReady) return;
-          void snoozeThread(detail.thread.id, iso, `Pospuesto hasta ${label}`, () => {
+          const id = detail.thread.id;
+          if (onRemove) onRemove(id);
+          else onClose();
+          void snoozeThread(id, iso, `Pospuesto hasta ${label}`, () => {
             onChanged?.();
           });
-          onClose();
         }}
       />
     </CorreoReaderShell>

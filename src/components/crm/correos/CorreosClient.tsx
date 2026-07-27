@@ -44,6 +44,7 @@ import {
   closeCorreoThreadInHistory,
   openCorreoThreadInHistory,
 } from "./correo-thread-history";
+import { nextThreadAfterRemove } from "./correo-list-advance";
 import { useCloseOnBack } from "./useCloseOnBack";
 import { isUuid } from "@/lib/utils/uuid";
 
@@ -146,7 +147,7 @@ export function CorreosClient() {
     cur: string | null,
     reset: boolean,
     nextFolder?: CorreoFolderTab,
-    opts?: { silent?: boolean },
+    opts?: { silent?: boolean; preserveItems?: boolean },
   ) => {
     // Si ya hay filas en pantalla (snapshot o carga previa), refrescar en
     // silencio: sin spinner ni opacity-70. Cambio de carpeta, búsqueda o
@@ -156,8 +157,11 @@ export function CorreosClient() {
     const silent =
       opts?.silent ??
       (Boolean(reset) && hasRows && !debouncedQuery && !folderSwitch && !cur);
-    if (silent) setRefreshing(true);
-    else setLoading(true);
+    // Tras archivar/atajos: solo reconciliar counts/meta sin reemplazar filas
+    // (la UI ya es optimista). Evita el pestañeo de remount de la lista.
+    const preserveItems = Boolean(opts?.preserveItems);
+    if (silent && !preserveItems) setRefreshing(true);
+    else if (!silent) setLoading(true);
     try {
       const f = nextFolder ?? folder;
       const qs = new URLSearchParams();
@@ -191,8 +195,10 @@ export function CorreosClient() {
         if (reset && f === "inbox" && !debouncedQuery) {
           const snapshot = await loadInboxSnapshot();
           if (snapshot) {
-            setItems(snapshot.items);
-            setCursor(null);
+            if (!preserveItems) {
+              setItems(snapshot.items);
+              setCursor(null);
+            }
             setOfflineSince(snapshot.savedAt);
             return;
           }
@@ -219,17 +225,38 @@ export function CorreosClient() {
           ? ((r as { syncParkedReason?: string }).syncParkedReason ?? null)
           : null,
       );
-      setItems((prev) => (reset ? r.items ?? [] : [...prev, ...(r.items ?? [])]));
-      setCursor(r.nextCursor ?? null);
-      // C22b: snapshot de los últimos 50 hilos del inbox para modo offline.
-      if (reset && f === "inbox" && !debouncedQuery && Array.isArray(r.items)) {
-        void saveInboxSnapshot(r.items);
+      if (!preserveItems) {
+        setItems((prev) => (reset ? r.items ?? [] : [...prev, ...(r.items ?? [])]));
+        setCursor(r.nextCursor ?? null);
+        // C22b: snapshot de los últimos 50 hilos del inbox para modo offline.
+        if (reset && f === "inbox" && !debouncedQuery && Array.isArray(r.items)) {
+          void saveInboxSnapshot(r.items);
+        }
       }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [folder, debouncedQuery, semantic, vertical]);
+
+  /** Refresh post-acción: counts/meta sin re-pintar la lista (anti-pestañeo). */
+  const softRefresh = useCallback(() => {
+    void fetchPage(null, true, undefined, { silent: true, preserveItems: true });
+  }, [fetchPage]);
+
+  /** Tras Deshacer archivar/papelera: rehidratar la lista completa. */
+  const hardRefresh = useCallback(() => {
+    void fetchPage(null, true);
+  }, [fetchPage]);
+
+  /** Archivar/papelera con UI optimista: soft al aplicar, hard al deshacer. */
+  function runRemoveAction(
+    threadId: string,
+    action: "archive" | "trash",
+    okMsg: string,
+  ) {
+    void runCorreoAction(threadId, action, okMsg, softRefresh, "unarchive", hardRefresh);
+  }
 
   // Pintura instantánea: snapshot IndexedDB antes de que llegue la red.
   useEffect(() => {
@@ -410,19 +437,12 @@ export function CorreosClient() {
     setCounts((c) =>
       c ? { ...c, inbox: Math.max(0, c.inbox - 1), all: Math.max(0, c.all - 1) } : c,
     );
-  }
-
-  function openThread(id: string, opts?: { extract?: boolean }) {
-    openCorreoThreadInHistory(id, openId !== null);
-    setOpenId(id);
-    setAutoExtract(opts?.extract === true);
-  }
-
-  function closeThread() {
-    if (closeCorreoThreadInHistory() === "replaced") {
-      setOpenId(null);
-      setAutoExtract(false);
-    }
+    setSelectedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   }
 
   // La búsqueda ya viene filtrada del servidor; los chips siguen siendo
@@ -433,6 +453,56 @@ export function CorreosClient() {
     if (filtered.length === 0) return "empty";
     return `${filtered.length}:${filtered[0]?.id}:${filtered[filtered.length - 1]?.id}`;
   }, [filtered]);
+
+  /**
+   * Archivar / papelera / snooze: saca el hilo y, si el lector lo mostraba (o
+   * es el enfocado con el panel abierto), avanza al siguiente como Gmail.
+   */
+  function removeThreadAndAdvance(id: string) {
+    const list = itemsRef.current.filter((t) => matchesChip(t, chip));
+    const { nextId, nextFocusIndex } = nextThreadAfterRemove(list, id);
+    const readerWasOnRemoved = openId === id;
+    const focusedId = focusIndex >= 0 ? list[focusIndex]?.id : undefined;
+    const readerOpen = openId !== null;
+    removeThreadLocally(id);
+    if (nextFocusIndex >= 0) setFocusIndex(nextFocusIndex);
+    else setFocusIndex(-1);
+    if (readerWasOnRemoved || (readerOpen && focusedId === id)) {
+      if (nextId) {
+        openCorreoThreadInHistory(nextId, true);
+        setOpenId(nextId);
+        setAutoExtract(false);
+        // Lectura optimista en lista (evita refetch al marcar leído).
+        setItems((prev) =>
+          prev.map((t) => (t.id === nextId && t.isUnread ? { ...t, isUnread: false } : t)),
+        );
+      } else if (closeCorreoThreadInHistory() === "replaced") {
+        setOpenId(null);
+        setAutoExtract(false);
+      } else {
+        setOpenId(null);
+        setAutoExtract(false);
+      }
+    }
+  }
+
+  function openThread(id: string, opts?: { extract?: boolean }) {
+    openCorreoThreadInHistory(id, openId !== null);
+    setOpenId(id);
+    setAutoExtract(opts?.extract === true);
+    setItems((prev) =>
+      prev.map((t) => (t.id === id && t.isUnread ? { ...t, isUnread: false } : t)),
+    );
+    const idx = filtered.findIndex((t) => t.id === id);
+    if (idx >= 0) setFocusIndex(idx);
+  }
+
+  function closeThread() {
+    if (closeCorreoThreadInHistory() === "replaced") {
+      setOpenId(null);
+      setAutoExtract(false);
+    }
+  }
 
   // ── C12: selección múltiple + acciones masivas ──
   function toggleSelect(id: string) {
@@ -460,7 +530,35 @@ export function CorreosClient() {
     const threadIds = Array.from(selectedIds);
     if (threadIds.length === 0) return;
     if (opts?.removes) {
+      const wasOpen = openId !== null && selectedIds.has(openId);
+      const remaining = filtered.filter((t) => !selectedIds.has(t.id));
+      const nextId = wasOpen ? (remaining[0]?.id ?? null) : null;
       setItems((prev) => prev.filter((t) => !selectedIds.has(t.id)));
+      setCounts((c) =>
+        c
+          ? {
+              ...c,
+              inbox: Math.max(0, c.inbox - threadIds.length),
+              all: Math.max(0, c.all - threadIds.length),
+            }
+          : c,
+      );
+      if (wasOpen) {
+        if (nextId) {
+          openCorreoThreadInHistory(nextId, true);
+          setOpenId(nextId);
+          setAutoExtract(false);
+          setFocusIndex(0);
+        } else if (closeCorreoThreadInHistory() === "replaced") {
+          setOpenId(null);
+          setAutoExtract(false);
+          setFocusIndex(-1);
+        } else {
+          setOpenId(null);
+          setAutoExtract(false);
+          setFocusIndex(-1);
+        }
+      }
     }
     clearSelection();
     runBulkCorreoAction({
@@ -468,7 +566,7 @@ export function CorreosClient() {
       action,
       okMsg,
       undo: opts?.undo,
-      onDone: () => void fetchPage(null, true),
+      onDone: softRefresh,
     });
   }
 
@@ -554,14 +652,8 @@ export function CorreosClient() {
       }
       const t = resolveThread();
       if (!t) return;
-      removeThreadLocally(t.id);
-      void runCorreoAction(
-        t.id,
-        "archive",
-        "Archivado",
-        () => void fetchPage(null, true),
-        "unarchive",
-      );
+      removeThreadAndAdvance(t.id);
+      runRemoveAction(t.id, "archive", "Archivado");
     },
     onReply: () => {
       const t = resolveThread();
@@ -580,14 +672,8 @@ export function CorreosClient() {
       }
       const t = resolveThread();
       if (!t) return;
-      removeThreadLocally(t.id);
-      void runCorreoAction(
-        t.id,
-        "trash",
-        "Movido a la Papelera",
-        () => void fetchPage(null, true),
-        "unarchive",
-      );
+      removeThreadAndAdvance(t.id);
+      runRemoveAction(t.id, "trash", "Movido a la Papelera");
     },
     onSnooze: () => {
       if (selectedIds.size > 0) setSnoozeId("__bulk__");
@@ -635,15 +721,15 @@ export function CorreosClient() {
         {
           divider: true, icon: <Archive className="h-4 w-4" />, label: "Archivar",
           onClick: () => {
-            removeThreadLocally(t.id);
-            void runCorreoAction(t.id, "archive", "Archivado", () => void fetchPage(null, true), "unarchive");
+            removeThreadAndAdvance(t.id);
+            runRemoveAction(t.id, "archive", "Archivado");
           },
         },
         {
           icon: <Trash2 className="h-4 w-4" />, label: "Eliminar", danger: true,
           onClick: () => {
-            removeThreadLocally(t.id);
-            void runCorreoAction(t.id, "trash", "Movido a la Papelera", () => void fetchPage(null, true), "unarchive");
+            removeThreadAndAdvance(t.id);
+            runRemoveAction(t.id, "trash", "Movido a la Papelera");
           },
         },
         {
@@ -850,7 +936,7 @@ export function CorreosClient() {
             <Surface
               elevation={1}
               padding="none"
-              className="overflow-hidden max-lg:-mx-4 max-lg:rounded-none max-lg:border-x-0"
+              className="relative overflow-hidden max-lg:-mx-4 max-lg:rounded-none max-lg:border-x-0"
               onContextMenu={(e) => {
                 // Click derecho sobre una fila (desktop): menú contextual.
                 const rowEl = (e.target as HTMLElement).closest?.("[data-correo-row]");
@@ -861,8 +947,9 @@ export function CorreosClient() {
                 setCtxMenu({ thread: t, x: e.clientX, y: e.clientY });
               }}
             >
+              {/* Overlay absoluto: no empuja filas (evita micro-salto al refrescar). */}
               {(refreshing || (loading && !searching)) && (
-                <div className="h-0.5 w-full overflow-hidden bg-ds-surface-3">
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden bg-ds-surface-3">
                   <div className="h-full w-1/3 animate-pulse bg-primary" />
                 </div>
               )}
@@ -882,8 +969,10 @@ export function CorreosClient() {
                   selectionMode={selectionMode}
                   previewLines={previewLines}
                   swipeConfig={swipeConfig}
-                  onChanged={() => void fetchPage(null, true)}
-                  onRemove={removeThreadLocally}
+                  onChanged={hardRefresh}
+                  onRemoveDone={softRefresh}
+                  onUndoDone={hardRefresh}
+                  onRemove={removeThreadAndAdvance}
                   onSnooze={() => setSnoozeId(t.id)}
                   onOpen={() =>
                     // Solo táctil: en selección el tap alterna. En desktop el
@@ -922,7 +1011,10 @@ export function CorreosClient() {
           alwaysShowImages={alwaysShowImages}
           onAlwaysShowImages={() => setAlwaysShowImages(true)}
           onClose={closeThread}
-          onChanged={() => void fetchPage(null, true)}
+          onRemove={removeThreadAndAdvance}
+          onRemoveDone={softRefresh}
+          onUndoDone={hardRefresh}
+          onChanged={hardRefresh}
         />
       </div>
 
@@ -956,8 +1048,8 @@ export function CorreosClient() {
             });
             return;
           }
-          removeThreadLocally(id);
-          void snoozeThread(id, iso, `Pospuesto hasta ${label}`, () => void fetchPage(null, true));
+          removeThreadAndAdvance(id);
+          void snoozeThread(id, iso, `Pospuesto hasta ${label}`, softRefresh);
         }}
       />
     </>

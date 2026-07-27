@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Download, FolderPlus, Link2, X } from "lucide-react";
+import { Briefcase, Building2, Check, Download, FolderPlus, Link2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/opai-ds";
+import { Switch } from "@/components/ui/switch";
 import type { SaveAttachmentResult } from "@/modules/crm/email/save-attachments";
 import { useCloseOnBack } from "./useCloseOnBack";
 
@@ -165,13 +166,39 @@ export function CorreoAttachmentSave({
           </div>
         ) : (
           <div className="space-y-4 p-4">
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <p className="text-[12px] font-medium text-ds-text-3">Guardar en OPAI (Documentos CRM)</p>
-              <div className="flex flex-wrap gap-1.5">
-                <DestChip active={dest?.type === "account" && dest.id === accountId} onClick={() => setDest({ type: "account", id: accountId })} label={accountName || "Cuenta"} />
-                {deals.map((d) => (
-                  <DestChip key={d.id} active={dest?.type === "deal" && dest.id === d.id} onClick={() => setDest({ type: "deal", id: d.id })} label={d.title} />
-                ))}
+              <p className="text-[12px] text-ds-text-4">
+                Para IA y seguimiento comercial, preferí el{" "}
+                <span className="font-medium text-ds-text-2">negocio</span>.
+                La cuenta es para documentos transversales del cliente.
+              </p>
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 text-[12px] text-ds-text-4">
+                    <Building2 className="h-3.5 w-3.5" /> Cuenta
+                  </span>
+                  <DestChip
+                    active={dest?.type === "account" && dest.id === accountId}
+                    onClick={() => setDest({ type: "account", id: accountId })}
+                    label={accountName || "Cuenta"}
+                  />
+                </div>
+                {deals.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1 text-[12px] text-ds-text-4">
+                      <Briefcase className="h-3.5 w-3.5" /> Negocio
+                    </span>
+                    {deals.map((d) => (
+                      <DestChip
+                        key={d.id}
+                        active={dest?.type === "deal" && dest.id === d.id}
+                        onClick={() => setDest({ type: "deal", id: d.id })}
+                        label={d.title}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -180,7 +207,7 @@ export function CorreoAttachmentSave({
               <select
                 value={folderId ?? ""}
                 onChange={(e) => setFolderId(e.target.value || null)}
-                className="h-11 w-full rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1"
+                className="h-11 w-full rounded-lg border border-ds-border-default bg-ds-surface-2 px-3 text-[13px] text-ds-text-1"
               >
                 <option value="">Sin carpeta</option>
                 {folders.map((f) => (
@@ -189,10 +216,19 @@ export function CorreoAttachmentSave({
               </select>
             </div>
 
-            <label className="flex items-center justify-between gap-3">
-              <span className="text-[13px] text-ds-text-1">Visible en portal cliente</span>
-              <input type="checkbox" checked={portalVisible} onChange={(e) => setPortalVisible(e.target.checked)} className="h-5 w-5 accent-[color:var(--primary)]" />
-            </label>
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium text-ds-text-1">Visible en portal cliente</p>
+                <p className="text-[12px] text-ds-text-4">
+                  El cliente podrá ver este archivo en su portal.
+                </p>
+              </div>
+              <Switch
+                checked={portalVisible}
+                onCheckedChange={setPortalVisible}
+                aria-label="Visible en portal cliente"
+              />
+            </div>
 
             <button
               type="button"
@@ -201,7 +237,7 @@ export function CorreoAttachmentSave({
               className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary text-[14px] font-medium text-primary-fg ds-tap disabled:opacity-50"
             >
               {saving ? <Spinner className="h-4 w-4" /> : <FolderPlus className="h-4 w-4" />}
-              Guardar en {dest ? destLabel(dest) : "…"}
+              Guardar en {dest ? `${dest.type === "deal" ? "negocio" : "cuenta"} · ${destLabel(dest)}` : "…"}
             </button>
 
             <p className="flex items-center justify-center gap-1.5 text-[12px] text-ds-text-4">
