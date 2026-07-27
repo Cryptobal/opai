@@ -10,8 +10,6 @@ import { pathMatchesNode } from '@/lib/nav/registry';
 import { DEFAULT_SURFACE, type Surface } from '@/lib/surface';
 import { ThemeLogo } from './ThemeLogo';
 import { SignOutDialog } from './SignOutDialog';
-import { SurfaceSwitcher } from './SurfaceSwitcher';
-
 export interface NavSubItem {
   href: string;
   label: string;
@@ -191,12 +189,6 @@ export function AppSidebar({
             </button>
           )}
         </div>
-        <SurfaceSwitcher
-          surface={surface}
-          compact={collapsed && !showCloseButton}
-          className={cn(collapsed && !showCloseButton ? "mx-auto" : "mt-1")}
-          onSwitched={onNavigate}
-        />
       </div>
 
       {/* Navigation */}

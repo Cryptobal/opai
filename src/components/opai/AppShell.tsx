@@ -31,7 +31,8 @@ import {
 } from '@/components/opai-ds';
 import { resolveNavContext } from '@/lib/nav/resolve-context';
 import { DEFAULT_SURFACE, type Surface } from '@/lib/surface';
-import { SurfaceReturnBar } from './SurfaceReturnBar';
+import { useTrackProductividadPath } from '@/lib/surface-tracking';
+import { SurfaceSegment } from './SurfaceSegment';
 
 export interface AppShellProps {
   sidebar?: ReactNode;
@@ -104,6 +105,9 @@ function AppShellInner({
   const { unreadCount: notifUnreadCount } = useNotifications();
   const { open: openCommandPalette } = useCommandPalette();
   const isIOS = useIsIOS();
+
+  // Conserva la última ruta de Productividad (antes vivía en SurfaceReturnBar).
+  useTrackProductividadPath(surface);
 
   // Close sibling docks when one opens (chat / notif / intelligence)
   const handleToggleChat = useCallback(() => {
@@ -226,6 +230,9 @@ function AppShellInner({
             isSidebarOpen ? 'left-64' : 'left-[72px]',
             anyPanelOpen && 'right-[400px]',
           )}>
+            <div className="flex h-full shrink-0 items-center border-r border-ds-border-subtle px-3">
+              <SurfaceSegment surface={surface} variant="labeled" />
+            </div>
             {/* Zona de tabs: siempre ocupa el espacio disponible (aunque
                 TopbarSubNav devuelva null en rutas sin secciones) para empujar
                 el clúster derecho al borde. TopbarSubNav muestra solo tabs N3
@@ -279,7 +286,6 @@ function AppShellInner({
                 )}
                 role="region"
               >
-                <SurfaceReturnBar surface={surface} className="mb-2 -mx-4 sm:-mx-6 lg:mx-0" />
                 {children}
               </div>
             )}
