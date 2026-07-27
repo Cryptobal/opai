@@ -59,17 +59,29 @@ export function VoiceBar({
   }, [levelRef, reducedMotion]);
 
   return (
-    <div className="space-y-2 rounded-[19px] border border-ds-border-default bg-ds-surface-2 p-3">
+    <div
+      className={cn(
+        "space-y-2 rounded-[19px] border border-primary/45 bg-ds-surface-2 p-3",
+        "ring-[3px] ring-primary/10",
+      )}
+      style={{
+        backgroundImage:
+          "linear-gradient(hsl(var(--primary) / 0.13), hsl(var(--primary) / 0.13))",
+      }}
+    >
       <p
         aria-live="polite"
-        className="line-clamp-3 min-h-[3.75rem] text-[13px] leading-snug text-ds-text-1"
+        className="line-clamp-3 text-[13px] leading-snug text-ds-text-1"
       >
         {confirmedText ? <span>{confirmedText}</span> : null}
         {interimText ? (
-          <span className="text-ds-text-4">{confirmedText ? " " : ""}{interimText}</span>
+          <span className="text-ds-text-3">
+            {confirmedText ? " " : ""}
+            {interimText}
+          </span>
         ) : null}
         {!confirmedText && !interimText ? (
-          <span className="text-ds-text-4">Escuchando…</span>
+          <span className="text-primary">Escuchando…</span>
         ) : null}
       </p>
 
@@ -88,7 +100,7 @@ export function VoiceBar({
           <X className="h-4 w-4" />
         </button>
 
-        <div className="flex min-w-0 flex-1 items-end justify-center gap-[3px] h-8" aria-hidden>
+        <div className="flex h-9 min-w-0 flex-1 items-center justify-center gap-[3px]" aria-hidden>
           {reducedMotion ? (
             <Mic className="h-4 w-4 text-primary" />
           ) : (
@@ -98,7 +110,7 @@ export function VoiceBar({
                 ref={(el) => {
                   barsRef.current[i] = el;
                 }}
-                className="w-[3px] rounded-full bg-primary/80"
+                className="w-[3px] min-h-[4px] rounded-full bg-primary/80"
                 style={{ height: 4 }}
               />
             ))

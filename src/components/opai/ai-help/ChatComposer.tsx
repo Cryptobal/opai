@@ -177,7 +177,7 @@ export function ChatComposer({
               "inline-flex h-9 items-center gap-1 rounded-full px-2 text-[12px]",
               polishEnabled
                 ? "bg-primary/15 text-primary"
-                : "text-ds-text-4 hover:bg-ds-surface-3",
+                : "border border-ds-border-default text-ds-text-4 hover:bg-ds-surface-3",
             )}
           >
             <Sparkles className="h-3.5 w-3.5" />
