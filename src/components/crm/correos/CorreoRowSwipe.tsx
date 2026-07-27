@@ -38,31 +38,23 @@ type Props = {
   thread: CorreoThreadDTO;
   canModify: boolean;
   onOpen: () => void;
-  /** Revalidación en background (fetchPage). */
   onChanged?: () => void;
-  /** Remoción optimista de la fila + counts. */
   onRemove?: (id: string) => void;
-  /** Abre el sheet de posponer. */
   onSnooze?: () => void;
   selected?: boolean;
   focused?: boolean;
   checked?: boolean;
   onToggleCheck?: () => void;
   previewLines?: CorreoPreviewLines;
-  /** Acciones configuradas por gesto (persistidas en view prefs). */
   swipeConfig: CorreoSwipeConfig;
-  /** Tap en el avatar alterna selección (variante móvil Gmail). */
   onAvatarPress?: () => void;
-  /** Long-press sobre la fila: entra/alterna el modo selección. */
   onLongPress?: () => void;
-  /** Con selección activa el swipe se pausa (gestos no ambiguos, como Gmail). */
   selectionMode?: boolean;
 };
 
 /**
  * Swipe de dos niveles (sólo pointer coarse): corto revela 2 botones o ejecuta
- * la secundaria; largo o flick ejecuta la principal. Motion values + spring —
- * sin setState por frame, sensación nativa.
+ * la secundaria; largo o flick ejecuta la principal. Motion values + spring.
  */
 export function CorreoRowSwipe({
   thread, canModify, onOpen, onChanged, onRemove, onSnooze,
@@ -177,7 +169,6 @@ export function CorreoRowSwipe({
       );
       return;
     }
-    // reply: abre el hilo enfocando la respuesta (mismo destino que el atajo "r").
     onOpen();
     window.setTimeout(() => {
       document.getElementById("correo-suggested-reply")?.scrollIntoView({ block: "center" });
@@ -250,8 +241,6 @@ export function CorreoRowSwipe({
         style={{ x, touchAction }}
         {...handlers}
       >
-        {/* Variante Gmail móvil: sin kebab (swipe + long-press + detalle lo
-            cubren) y con avatar como toggle de selección. */}
         <CorreoRow thread={thread} canModify={canModify} onOpen={handleOpen} onChanged={onChanged}
           mobileGmail checked={checked}
           onAvatarPress={onAvatarPress ? () => { if (!wasDragged()) onAvatarPress(); } : undefined}

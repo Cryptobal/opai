@@ -23,13 +23,15 @@ import {
 export type { CorreoSwipeSide } from "./row-swipe-gesture";
 export { SWIPE_LONG_RATIO, SWIPE_OPEN_WIDTH } from "./row-swipe-gesture";
 
-const AXIS_LOCK = 6;
+/** Umbral de main (#742): un poco más alto evita robar scroll vertical. */
+const AXIS_LOCK = 10;
 const LONG_PRESS_MS = 450;
 const LONG_PRESS_MOVE = 10;
 
 /**
- * Máquina de gestos del swipe de dos niveles con motion values (sin re-render
- * por frame), spring al soltar, flick por velocidad, scroll-lock y háptica.
+ * Swipe de dos niveles: motion values (sin re-render por frame), spring al
+ * soltar, flick por velocidad, scroll lock durante arrastre horizontal y
+ * háptica unificada (Capacitor + web).
  */
 export function useRowSwipe(opts: {
   enabled: boolean;
@@ -159,13 +161,13 @@ export function useRowSwipe(opts: {
         clearLongPress();
         event.currentTarget.setPointerCapture?.(event.pointerId);
         setDragging(true);
+        const initial = start.current.base + rawDx;
+        setDragSide(initial >= 0 ? "right" : "left");
         setTouchAction("none");
         if (!scrollLocked.current) {
           scrollLocked.current = true;
           lockSwipeScroll();
         }
-        const initial = start.current.base + rawDx;
-        setDragSide(initial >= 0 ? "right" : "left");
         void triggerHaptic("light");
       }
     }
@@ -176,6 +178,7 @@ export function useRowSwipe(opts: {
     const next = Math.max(Math.min(start.current.base + rawDx, width), -width);
     rawDxRef.current = next;
     x.set(toVisualDx(next));
+    // Actualizar lado si el usuario invierte el gesto a mitad de camino.
     setDragSide(next >= 0 ? "right" : "left");
 
     const absRaw = Math.abs(next);
