@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
 import { AppLayoutClient } from '@/components/opai/AppLayoutClient';
 import { resolvePermissions } from '@/lib/permissions-server';
 import { PermissionsProvider } from '@/lib/permissions-context';
@@ -11,6 +10,8 @@ import { getTenantModulesList, getTenantFeatureFlagsList } from '@/lib/tenant-mo
 import { TenantModulesProvider } from '@/contexts/TenantModulesContext';
 import { DpaConsentBanner } from '@/components/DpaConsentBanner';
 import { parseSurface, SURFACE_COOKIE } from '@/lib/surface';
+import { getTenantCompanyConfig } from '@/lib/tenant-config';
+import { brandCssVars } from '@/lib/branding/brand-css-vars';
 
 /** Evita pre-render en build; todas las rutas requieren auth/DB */
 export const dynamic = 'force-dynamic';
@@ -22,36 +23,23 @@ export const metadata: Metadata = {
 };
 
 /**
- * Layout para rutas privadas de la aplicación (App UI)
- * 
- * Server Component que valida autenticación, resuelve permisos
- * y provee el contexto de permisos a toda la app.
- * 
- * Aplica a:
- * - /opai/* (dashboard, usuarios, etc)
- * - /crm
- * - /hub
+ * Layout para rutas privadas de la aplicación (App UI).
+ * name/email salen del JWT (H2); se refrescan en cliente si hace falta.
  */
 export default async function AppLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Auth check (Server Component)
   const session = await auth();
   if (!session?.user) {
     redirect('/opai/login');
   }
 
-  // Resolver permisos, refrescar nombre/email desde BD, y cargar módulos del tenant.
-  const [permissions, dbUser, tenantModules, tenantFlags] = await Promise.all([
+  const [permissions, tenantModules, tenantFlags, companyConfig] = await Promise.all([
     resolvePermissions({
       role: session.user.role,
       roleTemplateId: session.user.roleTemplateId,
-    }),
-    prisma.admin.findUnique({
-      where: { id: session.user.id },
-      select: { name: true, email: true },
     }),
     session.user.tenantId
       ? getTenantModulesList(session.user.tenantId)
@@ -59,23 +47,38 @@ export default async function AppLayout({
     session.user.tenantId
       ? getTenantFeatureFlagsList(session.user.tenantId)
       : Promise.resolve([] as string[]),
+    session.user.tenantId
+      ? getTenantCompanyConfig(session.user.tenantId)
+      : Promise.resolve(null),
   ]);
 
-  const isImpersonating = (session as any).impersonating === true;
+  const isImpersonating = (session as { impersonating?: boolean }).impersonating === true;
 
-  // Superficie de presentación (cookie). No autoriza: solo filtra la nav.
   const cookieStore = await cookies();
   const surface = parseSurface(cookieStore.get(SURFACE_COOKIE)?.value);
 
-  // Delegar UI al Client Component con permisos resueltos
+  const brandCss = companyConfig
+    ? brandCssVars({
+        primaryColor: companyConfig.brandingPrimaryColor,
+        secondaryColor: companyConfig.brandingSecondaryColor,
+        accentColor: companyConfig.brandingAccentColor,
+      })
+    : "";
+
   return (
     <>
+      {brandCss ? (
+        <style
+          id="opai-brand"
+          dangerouslySetInnerHTML={{ __html: brandCss }}
+        />
+      ) : null}
       {isImpersonating && <ImpersonateBanner />}
       <PermissionsProvider permissions={permissions}>
         <TenantModulesProvider initialModules={tenantModules} initialFlags={tenantFlags}>
           <AppLayoutClient
-            userName={dbUser?.name ?? session.user?.name}
-            userEmail={dbUser?.email ?? session.user?.email}
+            userName={session.user?.name}
+            userEmail={session.user?.email}
             userRole={session.user.role}
             permissions={permissions}
             currentUserId={session.user.id}

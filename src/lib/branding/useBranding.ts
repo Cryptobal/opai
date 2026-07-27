@@ -38,8 +38,32 @@ const DEFAULTS: Branding = {
   contactEmail: "",
 };
 
+const LS_KEY = "opai-branding";
+
 let cachedBranding: Branding | null = null;
 let fetchPromise: Promise<Branding> | null = null;
+let seededFromDefaults = true;
+
+function readLocalBranding(): Branding | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<Branding>;
+    return { ...DEFAULTS, ...parsed };
+  } catch {
+    return null;
+  }
+}
+
+function persistLocal(b: Branding) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(b));
+  } catch {
+    // noop
+  }
+}
 
 async function fetchBranding(): Promise<Branding> {
   try {
@@ -47,22 +71,42 @@ async function fetchBranding(): Promise<Branding> {
     const json = await res.json();
     if (json.success && json.data) {
       cachedBranding = { ...DEFAULTS, ...json.data };
+      seededFromDefaults = false;
+      persistLocal(cachedBranding!);
       return cachedBranding!;
     }
   } catch {
-    // fall through to defaults
+    // fall through
   }
+  if (cachedBranding) return cachedBranding;
   cachedBranding = DEFAULTS;
+  seededFromDefaults = true;
   return DEFAULTS;
 }
 
+function initialBranding(): { branding: Branding; fromDefaults: boolean } {
+  if (cachedBranding) {
+    return { branding: cachedBranding, fromDefaults: seededFromDefaults };
+  }
+  const local = readLocalBranding();
+  if (local) {
+    cachedBranding = local;
+    seededFromDefaults = false;
+    return { branding: local, fromDefaults: false };
+  }
+  return { branding: DEFAULTS, fromDefaults: true };
+}
+
 export function useBranding() {
-  const [branding, setBranding] = useState<Branding>(cachedBranding ?? DEFAULTS);
-  const [loading, setLoading] = useState(!cachedBranding);
+  const init = initialBranding();
+  const [branding, setBranding] = useState<Branding>(init.branding);
+  const [loading, setLoading] = useState(!cachedBranding || seededFromDefaults);
+  const [fromDefaults, setFromDefaults] = useState(init.fromDefaults);
 
   useEffect(() => {
-    if (cachedBranding) {
+    if (cachedBranding && !seededFromDefaults) {
       setBranding(cachedBranding);
+      setFromDefaults(false);
       setLoading(false);
       return;
     }
@@ -71,9 +115,10 @@ export function useBranding() {
     }
     fetchPromise.then((b) => {
       setBranding(b);
+      setFromDefaults(seededFromDefaults);
       setLoading(false);
     });
   }, []);
 
-  return { branding, loading };
+  return { branding, loading, fromDefaults };
 }
