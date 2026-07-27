@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowDown,
   ArrowUp,
@@ -589,9 +589,40 @@ function renderBoldText(text: string, keyPrefix: string) {
   return nodes.length ? nodes : text;
 }
 
-function linkifyLine(line: string) {
+/**
+ * Same-origin → path interno navegable; otro origen / esquema inválido → externo.
+ * No acepta javascript:/data:; parseo fallido se trata como externo.
+ */
+function resolveNavigationTarget(
+  url: string,
+): { kind: "internal"; path: string } | { kind: "external"; url: string } {
+  const trimmed = url.trim();
+  if (!trimmed || /^javascript:/i.test(trimmed) || /^data:/i.test(trimmed)) {
+    return { kind: "external", url: trimmed };
+  }
+  try {
+    if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+      return { kind: "internal", path: trimmed };
+    }
+    const absolute = new URL(trimmed, typeof window !== "undefined" ? window.location.origin : "https://opai.local");
+    if (typeof window !== "undefined" && absolute.origin === window.location.origin) {
+      return {
+        kind: "internal",
+        path: `${absolute.pathname}${absolute.search}${absolute.hash}`,
+      };
+    }
+    return { kind: "external", url: absolute.href };
+  } catch {
+    return { kind: "external", url: trimmed };
+  }
+}
+
+function linkifyLine(
+  line: string,
+  onInternalNavigate?: (path: string) => void,
+) {
   const parts: Array<ReactElement | string> = [];
-  const regex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s]+)/g;
+  const regex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)|(https?:\/\/[^\s]+)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null = regex.exec(line);
 
@@ -610,17 +641,34 @@ function linkifyLine(line: string) {
     const text = label ?? href.replace(/^https?:\/\//, "");
 
     if (href) {
-      parts.push(
-        <a
-          key={`${match.index}-${href}`}
-          href={href}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="underline underline-offset-2 text-status-info-fg hover:brightness-110"
-        >
-          {text}
-        </a>,
-      );
+      const target = resolveNavigationTarget(href);
+      if (target.kind === "internal" && onInternalNavigate) {
+        parts.push(
+          <a
+            key={`${match.index}-${href}`}
+            href={target.path}
+            onClick={(e) => {
+              e.preventDefault();
+              onInternalNavigate(target.path);
+            }}
+            className="underline underline-offset-2 text-status-info-fg hover:brightness-110"
+          >
+            {text}
+          </a>,
+        );
+      } else {
+        parts.push(
+          <a
+            key={`${match.index}-${href}`}
+            href={target.kind === "external" ? target.url : href}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="underline underline-offset-2 text-status-info-fg hover:brightness-110"
+          >
+            {text}
+          </a>,
+        );
+      }
     }
 
     lastIndex = regex.lastIndex;
@@ -657,12 +705,15 @@ function stripVisualBlocks(content: string): string {
   return out.replace(/\n{3,}/g, "\n\n").trimEnd();
 }
 
-function renderMessageContent(content: string) {
+function renderMessageContent(
+  content: string,
+  onInternalNavigate?: (path: string) => void,
+) {
   const cleaned = stripVisualBlocks(content);
   const lines = cleaned.split("\n");
   return lines.map((line, idx) => (
     <Fragment key={`${idx}-${line.slice(0, 12)}`}>
-      {linkifyLine(line)}
+      {linkifyLine(line, onInternalNavigate)}
       {idx < lines.length - 1 ? <br /> : null}
     </Fragment>
   ));
@@ -1196,10 +1247,16 @@ export function AiHelpChatWidgetV2() {
   const pageContext = useChatPageContext();
   const clearPageContext = useClearChatPageContext();
   const pathname = usePathname();
+  const router = useRouter();
   const quickStarters = useMemo(
     () => getQuickStarters(pageContext, pathname),
     [pageContext, pathname],
   );
+
+  const navigateInternal = (path: string) => {
+    setOpen(false);
+    router.push(path);
+  };
   // Cuando una conversación nueva se crea durante un streaming, guardamos su id
   // aquí para que el useEffect que carga mensajes desde DB no clobere el estado
   // local mientras la respuesta del asistente aún no se persiste.
@@ -1232,8 +1289,12 @@ export function AiHelpChatWidgetV2() {
   const handleAction = (action: VisualCardItem["action"] | VisualSuggestionItem["action"] | undefined) => {
     if (!action) return;
     if (action.type === "navigate") {
-      const url = action.url.startsWith("http") ? action.url : `${window.location.origin}${action.url}`;
-      window.open(url, "_blank", "noopener,noreferrer");
+      const target = resolveNavigationTarget(action.url);
+      if (target.kind === "internal") {
+        navigateInternal(target.path);
+        return;
+      }
+      window.open(target.url, "_blank", "noopener,noreferrer");
       return;
     }
     if (action.type === "query") {
@@ -1762,7 +1823,7 @@ export function AiHelpChatWidgetV2() {
                     : "mr-auto bg-white/[0.04] text-white/95 border border-white/[0.06]",
                 )}
               >
-                <div className="whitespace-pre-wrap">{renderMessageContent(msg.content)}</div>
+                <div className="whitespace-pre-wrap">{renderMessageContent(msg.content, navigateInternal)}</div>
                 {msg.role === "assistant" && (msg.visuals?.length || msg.suggestions?.length) ? (
                   <VisualsRenderer
                     visuals={msg.visuals ?? []}

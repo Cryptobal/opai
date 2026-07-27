@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
@@ -9,6 +10,7 @@ import { ImpersonateBanner } from '@/components/platform/ImpersonateBanner';
 import { getTenantModulesList, getTenantFeatureFlagsList } from '@/lib/tenant-modules';
 import { TenantModulesProvider } from '@/contexts/TenantModulesContext';
 import { DpaConsentBanner } from '@/components/DpaConsentBanner';
+import { parseSurface, SURFACE_COOKIE } from '@/lib/surface';
 
 /** Evita pre-render en build; todas las rutas requieren auth/DB */
 export const dynamic = 'force-dynamic';
@@ -61,6 +63,10 @@ export default async function AppLayout({
 
   const isImpersonating = (session as any).impersonating === true;
 
+  // Superficie de presentación (cookie). No autoriza: solo filtra la nav.
+  const cookieStore = await cookies();
+  const surface = parseSurface(cookieStore.get(SURFACE_COOKIE)?.value);
+
   // Delegar UI al Client Component con permisos resueltos
   return (
     <>
@@ -74,6 +80,7 @@ export default async function AppLayout({
             permissions={permissions}
             currentUserId={session.user.id}
             tenantId={session.user.tenantId}
+            surface={surface}
           >
             {children}
             <DpaConsentBanner userRole={session.user.role ?? ""} />

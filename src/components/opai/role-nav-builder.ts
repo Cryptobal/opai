@@ -21,10 +21,12 @@ import {
 } from '@/lib/permissions';
 import {
   NAV_MODULES,
+  getModule,
   isNodeVisible,
   type NavNode,
   type VisibilityContext,
 } from '@/lib/nav/registry';
+import { type Surface, DEFAULT_SURFACE } from '@/lib/surface';
 
 export interface NavBadges {
   unreadMentionNotesCount?: number;
@@ -39,6 +41,11 @@ export interface BuildNavItemsOptions {
   /** Feature flags finos del tenant (opcional; ausente = todos OFF). */
   hasTenantFlag?: (flag: string) => boolean;
   badges?: NavBadges;
+  /**
+   * Superficie activa. `"erp"` (default) = sidebar completo actual.
+   * `"productividad"` = solo el subárbol del nodo productividad (sin Hub).
+   */
+  surface?: Surface;
 }
 
 /* ── Module-level badge aggregation (sums child note counts up to module) ── */
@@ -126,6 +133,28 @@ function moduleNodeToNavItem(
   };
 }
 
+/* ── Productividad surface: hijos del nodo como items top-level ── */
+
+function buildProductividadNavItems(
+  ctx: VisibilityContext,
+  notes: Record<string, number>,
+): NavItem[] {
+  const productividad = getModule('productividad');
+  if (!productividad) return [];
+
+  // Sin Hub ni módulos ERP: solo los children visibles del nodo registry.
+  return (productividad.children ?? [])
+    .filter((c) => isNodeVisible(c, ctx))
+    .map((c) => ({
+      href: c.href,
+      label: c.label,
+      icon: c.icon,
+      show: true as const,
+      badge: c.badge?.notesKey ? notes[c.badge.notesKey] : undefined,
+      activePaths: c.activePaths,
+    }));
+}
+
 /* ── Public builder ── */
 
 export function buildNavItems({
@@ -135,6 +164,7 @@ export function buildNavItems({
   isModuleEnabled,
   hasTenantFlag,
   badges,
+  surface = DEFAULT_SURFACE,
 }: BuildNavItemsOptions): NavItem[] {
   const notes = badges?.notesByModule ?? {};
   const unreadMentionNotesCount = badges?.unreadMentionNotesCount ?? 0;
@@ -147,6 +177,10 @@ export function buildNavItems({
     isComplianceVisible,
     hasTenantFlag,
   };
+
+  if (surface === 'productividad') {
+    return buildProductividadNavItems(ctx, notes);
+  }
 
   const items: NavItem[] = [];
 

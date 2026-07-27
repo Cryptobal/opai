@@ -216,6 +216,9 @@ model AdminPreference {
   /// Section keys ocultadas por el usuario. No se renderizan, pero
   /// aparecen como "ocultas" en el modo edición para reactivar.
   hubHidden String[] @default([]) @map("hub_hidden")
+  /// Superficie de arranque post-login: "erp" | "productividad".
+  /// null = sin preferencia (comportamiento actual → /hub + prompt una vez).
+  landingSurface String? @map("landing_surface")
   /// Reservado para futuras prefs (theme, defaults colapsados por sección,
   /// idioma, formato fecha personal, etc.) sin necesidad de migrar tabla.
   data      Json?    @db.JsonB

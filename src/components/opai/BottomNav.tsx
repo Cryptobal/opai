@@ -30,6 +30,8 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
+import { DEFAULT_SURFACE, type Surface } from '@/lib/surface';
+import { SurfaceSwitcher } from './SurfaceSwitcher';
 
 /** Tracks BottomNav real height and exposes it as --bottom-nav-height CSS variable */
 function useBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
@@ -52,6 +54,8 @@ function useBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
 
 interface BottomNavProps {
   userRole?: string;
+  /** Superficie activa. En `productividad` solo se muestran hijos del portal. */
+  surface?: Surface;
 }
 
 /* ── Main bottom nav items (configurable 4 + Más) ── */
@@ -172,7 +176,7 @@ function getActiveModule(pathname: string): string | null {
 
 /* ── Main export ── */
 
-export function BottomNav({ userRole }: BottomNavProps) {
+export function BottomNav({ userRole, surface = DEFAULT_SURFACE }: BottomNavProps) {
   const pathname = usePathname();
   const permissions = usePermissions();
   const { effectiveRole, effectivePermissions, isSimulating } = useRoleSimulation();
@@ -206,12 +210,58 @@ export function BottomNav({ userRole }: BottomNavProps) {
     ? activePerms
     : userRole;
 
+  const isAdmin = effectiveRole === 'owner' || effectiveRole === 'admin';
+
+  // Superficie Productividad: solo hijos del portal (sin MainNav ERP ni back).
+  // Usamos un pathname canónico del nodo para obtener los children del registry
+  // aunque el usuario esté viendo una ficha ERP con barra de retorno.
+  if (surface === 'productividad') {
+    const productividadItems = getBottomNavItems(
+      '/opai/agenda',
+      permsOrRole,
+      enabledModules,
+      isAdmin,
+      featureFlags,
+    );
+    return (
+      <nav
+        ref={navRef}
+        className="fixed left-3 right-3 z-40 lg:hidden pointer-events-none"
+        style={{
+          bottom: "calc(env(safe-area-inset-bottom) + 10px)",
+        }}
+      >
+        <div
+          className={cn(
+            "pointer-events-auto flex w-full items-end gap-2 origin-bottom",
+            "motion-safe:transition-transform motion-safe:duration-[380ms]",
+            "motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            condensed ? "scale-[0.86]" : "scale-100",
+          )}
+        >
+          <div className="opai-glass-strong flex h-14 min-w-0 flex-1 items-center justify-around overflow-hidden px-1">
+            <div className="shrink-0 pl-0.5">
+              <SurfaceSwitcher surface={surface} compact dropUp />
+            </div>
+            <ModuleSubNav
+              items={productividadItems}
+              activeModule="productividad"
+              pathname={pathname}
+              onBack={() => {}}
+              hideBack
+            />
+          </div>
+          <OpaiOrb />
+        </div>
+      </nav>
+    );
+  }
+
   // Determine which mode to show.
   // CRM detail pages render their section nav as horizontal ChipTabs inside
   // EntityDetailLayout (like HubSpot / Salesforce). The bottom nav always
   // shows module-level navigation so the user can jump between entity lists.
   const activeModule = getActiveModule(pathname);
-  const isAdmin = effectiveRole === 'owner' || effectiveRole === 'admin';
   const moduleItems = activeModule ? getBottomNavItems(pathname, permsOrRole, enabledModules, isAdmin, featureFlags) : [];
   const isInModule = !forceMainNav && !!activeModule && moduleItems.length > 0;
 
@@ -234,6 +284,9 @@ export function BottomNav({ userRole }: BottomNavProps) {
         )}
       >
         <div className="opai-glass-strong flex h-14 min-w-0 flex-1 items-center justify-around overflow-hidden px-1">
+          <div className="shrink-0 pl-0.5">
+            <SurfaceSwitcher surface={surface} compact dropUp />
+          </div>
           {isInModule ? (
             <ModuleSubNav
               items={moduleItems}
@@ -646,11 +699,14 @@ function ModuleSubNav({
   activeModule,
   pathname,
   onBack,
+  hideBack = false,
 }: {
   items: BottomNavItem[];
   activeModule: string;
   pathname: string;
   onBack: () => void;
+  /** Superficie Productividad: sin botón de vuelta al MainNav ERP. */
+  hideBack?: boolean;
 }) {
   const [overflowOpen, setOverflowOpen] = useState(false);
   const chatCtx = useContext(ChatSidePanelContext);
@@ -717,15 +773,17 @@ function ModuleSubNav({
 
   return (
     <>
-      {/* Back button */}
-      <button
-        type="button"
-        onClick={onBack}
-        className={cn(slotClass, "mr-0.5 max-w-12 shrink-0 text-muted-foreground border-r border-white/10")}
-        aria-label={MODULE_LABELS[activeModule] ? `Volver a ${MODULE_LABELS[activeModule]}` : "Volver"}
-      >
-        <ChevronLeft className="h-[22px] w-[22px]" />
-      </button>
+      {/* Back button — oculto en superficie Productividad (no hay MainNav ERP). */}
+      {!hideBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className={cn(slotClass, "mr-0.5 max-w-12 shrink-0 text-muted-foreground border-r border-white/10")}
+          aria-label={MODULE_LABELS[activeModule] ? `Volver a ${MODULE_LABELS[activeModule]}` : "Volver"}
+        >
+          <ChevronLeft className="h-[22px] w-[22px]" />
+        </button>
+      )}
 
       {/* Visible sub-items */}
       {visibleItems.map((item) => {
