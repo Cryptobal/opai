@@ -17,6 +17,7 @@ import { useMarkCorreoRead } from "./useMarkCorreoRead";
 import { parseSender } from "./correo-sender";
 import { loadOfflineDetail } from "./offline-store";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
+import type { CorreoShortcuts } from "./useCorreosViewPreferences";
 
 type ThreadPreview = {
   fromEmail?: string | null;
@@ -42,6 +43,7 @@ type Props = {
   manageBackHistory?: boolean;
   alwaysShowImages?: boolean;
   onAlwaysShowImages?: () => void;
+  shortcuts?: CorreoShortcuts;
 };
 
 export function CorreoDrawer({
@@ -61,6 +63,7 @@ export function CorreoDrawer({
   manageBackHistory = true,
   alwaysShowImages,
   onAlwaysShowImages,
+  shortcuts,
 }: Props) {
   const [detail, setDetail] = useState<CorreoDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -217,6 +220,7 @@ export function CorreoDrawer({
           onSnooze={() => setSnoozeOpen(true)}
           alwaysShowImages={alwaysShowImages}
           onAlwaysShowImages={onAlwaysShowImages}
+          shortcuts={shortcuts}
         />
       )}
       <CorreoSnoozeSheet

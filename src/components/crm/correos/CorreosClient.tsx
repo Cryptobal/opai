@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive, Building2, CheckSquare, Clock, Forward, Link2, Mail, MailOpen,
   PenLine, Reply, Sparkles, Star, Trash2,
@@ -39,7 +39,7 @@ import { CorreosSyncBanner } from "./CorreosSyncBanner";
 import { snoozeThread } from "./correo-thread-action-client";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 import { useCorreosRealtime } from "./useCorreosRealtime";
-import { useCorreosViewPreferences } from "./useCorreosViewPreferences";
+import { useCorreosViewPreferences, focusCorreosSearch } from "./useCorreosViewPreferences";
 import {
   closeCorreoThreadInHistory,
   openCorreoThreadInHistory,
@@ -429,6 +429,10 @@ export function CorreosClient() {
   // client-side (filtran metadata de asociación ya presente en la página).
   const filtered = items.filter((t) => matchesChip(t, chip));
   const searching = debouncedQuery.length > 0;
+  const filteredFocusKey = useMemo(() => {
+    if (filtered.length === 0) return "empty";
+    return `${filtered.length}:${filtered[0]?.id}:${filtered[filtered.length - 1]?.id}`;
+  }, [filtered]);
 
   // ── C12: selección múltiple + acciones masivas ──
   function toggleSelect(id: string) {
@@ -470,6 +474,29 @@ export function CorreosClient() {
 
   // ── C20: navegación y acciones por teclado sobre la fila enfocada ──
   const focusedThread = focusIndex >= 0 ? filtered[focusIndex] : undefined;
+
+  // Resalta la primera fila al cargar la bandeja (estilo Gmail) para que los
+  // atajos de acción tengan un hilo objetivo sin pulsar j/k antes.
+  useEffect(() => {
+    if (filtered.length === 0) {
+      setFocusIndex(-1);
+      return;
+    }
+    setFocusIndex((prev) => {
+      if (prev >= 0 && prev < filtered.length) return prev;
+      if (prev >= filtered.length) return filtered.length - 1;
+      return 0;
+    });
+  }, [filteredFocusKey, filtered.length]);
+
+  /** Hilo objetivo de atajos: fila enfocada o la primera visible. */
+  function resolveThread() {
+    if (focusedThread) return focusedThread;
+    if (filtered.length === 0) return undefined;
+    if (focusIndex < 0) setFocusIndex(0);
+    return filtered[0];
+  }
+
   function moveFocus(delta: number) {
     if (filtered.length === 0) return;
     setFocusIndex((prev) => {
@@ -495,13 +522,15 @@ export function CorreosClient() {
   }
   useCorreosKeyboard({
     enabled: !composeOpen && snoozeId === null && !shortcutsSheetOpen,
+    replyHandledExternally: openId !== null,
     shortcuts,
     onHelp: () => setShortcutsSheetOpen(true),
     onStar: () => {
-      if (!focusedThread) return;
-      const starred = Boolean(focusedThread.starredAt);
+      const t = resolveThread();
+      if (!t) return;
+      const starred = Boolean(t.starredAt);
       void runCorreoAction(
-        focusedThread.id,
+        t.id,
         starred ? "unstar" : "star",
         starred ? "Quitado de Destacados" : "Destacado",
         () => void fetchPage(null, true),
@@ -510,25 +539,34 @@ export function CorreosClient() {
     },
     onDown: () => moveFocus(1),
     onUp: () => moveFocus(-1),
-    onOpen: () => focusedThread && openThread(focusedThread.id),
-    onToggleSelect: () => focusedThread && toggleSelect(focusedThread.id),
+    onOpen: () => {
+      const t = resolveThread();
+      if (t) openThread(t.id);
+    },
+    onToggleSelect: () => {
+      const t = resolveThread();
+      if (t) toggleSelect(t.id);
+    },
     onArchive: () => {
       if (selectedIds.size > 0) {
         bulkAction("archive", "Archivados", { undo: "unarchive", removes: true });
-      } else if (focusedThread) {
-        removeThreadLocally(focusedThread.id);
-        void runCorreoAction(
-          focusedThread.id,
-          "archive",
-          "Archivado",
-          () => void fetchPage(null, true),
-          "unarchive",
-        );
+        return;
       }
+      const t = resolveThread();
+      if (!t) return;
+      removeThreadLocally(t.id);
+      void runCorreoAction(
+        t.id,
+        "archive",
+        "Archivado",
+        () => void fetchPage(null, true),
+        "unarchive",
+      );
     },
     onReply: () => {
-      if (!focusedThread) return;
-      openThread(focusedThread.id);
+      const t = resolveThread();
+      if (!t) return;
+      openThread(t.id);
       window.setTimeout(() => {
         document
           .getElementById("correo-suggested-reply")
@@ -538,33 +576,39 @@ export function CorreosClient() {
     onTrash: () => {
       if (selectedIds.size > 0) {
         bulkAction("trash", "Movidos a la Papelera", { undo: "unarchive", removes: true });
-      } else if (focusedThread) {
-        removeThreadLocally(focusedThread.id);
-        void runCorreoAction(
-          focusedThread.id,
-          "trash",
-          "Movido a la Papelera",
-          () => void fetchPage(null, true),
-          "unarchive",
-        );
+        return;
       }
+      const t = resolveThread();
+      if (!t) return;
+      removeThreadLocally(t.id);
+      void runCorreoAction(
+        t.id,
+        "trash",
+        "Movido a la Papelera",
+        () => void fetchPage(null, true),
+        "unarchive",
+      );
     },
     onSnooze: () => {
       if (selectedIds.size > 0) setSnoozeId("__bulk__");
-      else if (focusedThread) setSnoozeId(focusedThread.id);
+      else {
+        const t = resolveThread();
+        if (t) setSnoozeId(t.id);
+      }
     },
     onToggleRead: () => {
-      if (!focusedThread) return;
-      const wasUnread = focusedThread.isUnread;
+      const t = resolveThread();
+      if (!t) return;
+      const wasUnread = t.isUnread;
       void runCorreoAction(
-        focusedThread.id,
+        t.id,
         wasUnread ? "markRead" : "markUnread",
         wasUnread ? "Marcado como leído" : "Marcado como no leído",
         () => void fetchPage(null, true),
         wasUnread ? "markUnread" : "markRead",
       );
     },
-    onFocusSearch: () => document.getElementById("correos-search-input")?.focus(),
+    onFocusSearch: focusCorreosSearch,
   });
 
   // Ítems del menú contextual (click derecho, desktop) para un hilo. Reusa los
@@ -865,6 +909,7 @@ export function CorreosClient() {
           threadId={openId}
           preview={openId ? items.find((t) => t.id === openId) ?? null : null}
           mailboxEmail={mailboxEmail}
+          shortcuts={shortcuts}
           autoExtract={autoExtract}
           canModify={canModify}
           refreshToken={realtimeRevision}

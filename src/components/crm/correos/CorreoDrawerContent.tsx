@@ -10,6 +10,7 @@ import { CorreoSummaryPanel } from "./CorreoSummaryPanel";
 import { CorreoWorkPanel } from "./CorreoWorkPanel";
 import type { WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
+import type { CorreoShortcuts } from "./useCorreosViewPreferences";
 
 type Props = {
   detail: CorreoDetail;
@@ -24,6 +25,7 @@ type Props = {
   onSnooze?: () => void;
   alwaysShowImages?: boolean;
   onAlwaysShowImages?: () => void;
+  shortcuts?: CorreoShortcuts;
 };
 
 export function CorreoDrawerContent({
@@ -39,6 +41,7 @@ export function CorreoDrawerContent({
   onSnooze,
   alwaysShowImages,
   onAlwaysShowImages,
+  shortcuts,
 }: Props) {
   const t = detail.thread;
   const [panel, setPanel] = useState<{ tab: WorkTab } | null>(null);
@@ -155,7 +158,12 @@ export function CorreoDrawerContent({
           onSaved={onRefresh}
           onRequestAssociate={() => openPanel("cuenta")}
         />
-        <CorreoReplyBox key={`reply-${t.id}`} detail={detail} onSent={onRefresh} />
+        <CorreoReplyBox
+          key={`reply-${t.id}`}
+          detail={detail}
+          onSent={onRefresh}
+          replyShortcut={shortcuts?.reply}
+        />
       </div>
 
       <CorreoWorkPanel
