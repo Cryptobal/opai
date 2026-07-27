@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { canUseAiHelpChat, getAiHelpChatConfig } from "@/lib/ai/help-chat-config";
@@ -8,7 +8,7 @@ function hasChatPersistence(): boolean {
   return Boolean(db.aiChatConversation && db.aiChatMessage);
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
@@ -29,22 +29,33 @@ export async function GET() {
       });
     }
 
+    const q = (request.nextUrl.searchParams.get("q") ?? "").trim().slice(0, 80);
+
     const conversations = await prisma.aiChatConversation.findMany({
       where: {
         tenantId: ctx.tenantId,
         userId: ctx.userId,
+        ...(q
+          ? {
+              OR: [
+                { title: { contains: q, mode: "insensitive" } },
+                { messages: { some: { content: { contains: q, mode: "insensitive" } } } },
+              ],
+            }
+          : {}),
       },
       select: {
         id: true,
         title: true,
+        pinnedAt: true,
         createdAt: true,
         updatedAt: true,
         _count: {
           select: { messages: true },
         },
       },
-      orderBy: [{ updatedAt: "desc" }],
-      take: 30,
+      orderBy: [{ pinnedAt: { sort: "desc", nulls: "last" } }, { updatedAt: "desc" }],
+      take: 50,
     });
 
     return NextResponse.json({

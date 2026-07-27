@@ -49,6 +49,7 @@ model Tenant {
   roleTemplates                  RoleTemplate[]
   aiChatConversations            AiChatConversation[]
   aiChatMessages                 AiChatMessage[]
+  aiPendingActions               AiPendingAction[]
   financeConfig                  FinanceRendicionConfig?
   financePayments                FinancePayment[]
   adminGroups                    AdminGroup[]
@@ -741,12 +742,14 @@ model Setting {
 }
 
 model AiChatConversation {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   tenantId  String
   userId    String
   title     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  /// Si está fijada, aparece arriba del historial.
+  pinnedAt  DateTime? @map("pinned_at")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user     Admin           @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -754,6 +757,7 @@ model AiChatConversation {
 
   @@index([tenantId, userId], map: "idx_ai_chat_conv_tenant_user")
   @@index([updatedAt], map: "idx_ai_chat_conv_updated_at")
+  @@index([tenantId, userId, pinnedAt], map: "idx_ai_chat_conv_pinned")
   @@schema("public")
 }
 
@@ -763,6 +767,7 @@ model AiChatMessage {
   tenantId       String   @map("tenant_id")
   role           String
   content        String   @db.Text
+  /// visuals, suggestions, feedback (up|down), etc.
   metadata       Json?    @db.JsonB
   createdAt      DateTime @default(now()) @map("created_at")
 
@@ -771,6 +776,31 @@ model AiChatMessage {
 
   @@index([conversationId, createdAt], map: "idx_ai_chat_msg_conv_created")
   @@index([tenantId], map: "idx_ai_chat_msg_tenant")
+  @@schema("public")
+}
+
+/// Acción de escritura pendiente de confirmación en el chat web (TTL 15 min).
+/// Espejo de SlackPendingAction para el transporte web del asistente.
+model AiPendingAction {
+  id             String    @id @default(cuid())
+  tenantId       String    @map("tenant_id")
+  userId         String    @map("user_id")
+  conversationId String?   @map("conversation_id")
+  messageId      String?   @map("message_id")
+  kind           String // TOOL_CONFIRM
+  toolName       String    @map("tool_name")
+  toolArgs       Json      @map("tool_args") @db.JsonB
+  summary        String
+  status         String    @default("PENDING") // PENDING | CONFIRMED | CANCELLED | EXPIRED
+  expiresAt      DateTime  @map("expires_at")
+  resolvedAt     DateTime? @map("resolved_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, status], map: "idx_ai_pending_tenant_user_status")
+  @@index([expiresAt], map: "idx_ai_pending_expires")
+  @@map("ai_pending_actions")
   @@schema("public")
 }
 
