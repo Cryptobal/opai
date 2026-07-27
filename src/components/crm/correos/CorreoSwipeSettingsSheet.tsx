@@ -86,7 +86,7 @@ export function CorreoSwipeSettingsSheet({
           </button>
         </div>
         <p className="text-[12px] text-ds-text-3">
-          Deslizá corto para ver los botones; largo para ejecutar la primera acción.
+          Deslizá corto para ver los botones o ejecutar la acción secundaria; largo o flick para la principal.
         </p>
 
         <div className="space-y-1.5">
