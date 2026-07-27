@@ -328,6 +328,9 @@
     text-size-adjust: 100%;
     font-size: 17px;
     min-height: 100dvh;
+    /* Respaldo literal para el instante previo a variables CSS (splash PWA). */
+    background-color: #060a13;
+    background-color: hsl(var(--ds-surface-0));
   }
 
   @media (max-width: 768px) {
@@ -508,6 +511,19 @@
 html {
   overflow-x: clip;
   max-width: 100%;
+}
+
+@keyframes opai-nav-progress {
+  0% { transform: scaleX(0.08); opacity: 1; }
+  70% { transform: scaleX(0.75); opacity: 1; }
+  100% { transform: scaleX(1); opacity: 0; }
+}
+.opai-nav-progress {
+  transform-origin: left center;
+  animation: opai-nav-progress 420ms ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .opai-nav-progress { animation: none; opacity: 0; }
 }
 
 /* ============================================
@@ -1029,8 +1045,8 @@ html {
   -webkit-backdrop-filter: var(--glass-blur-2);
 }
 .opai-orb-sweep {
-  background: conic-gradient(from 0deg, transparent 0deg, hsl(var(--primary-foreground) / 0.32) 60deg, transparent 150deg);
-  mix-blend-mode: overlay;
+  background: conic-gradient(from 0deg, transparent 0deg, hsl(var(--primary-foreground) / 0.28) 60deg, transparent 150deg);
+  opacity: 0.55;
   animation: opaiOrbSweep 4.5s linear infinite;
 }
 @keyframes opaiOrbSweep {
@@ -1488,14 +1504,14 @@ html {
   /* Page enter staggered */
   .ds-page-enter > * {
     opacity: 0;
-    animation: ds-page-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation: ds-page-enter 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
   .ds-page-enter > *:nth-child(1) { animation-delay: 0ms; }
-  .ds-page-enter > *:nth-child(2) { animation-delay: 60ms; }
-  .ds-page-enter > *:nth-child(3) { animation-delay: 120ms; }
-  .ds-page-enter > *:nth-child(4) { animation-delay: 180ms; }
-  .ds-page-enter > *:nth-child(5) { animation-delay: 240ms; }
-  .ds-page-enter > *:nth-child(n+6) { animation-delay: 300ms; }
+  .ds-page-enter > *:nth-child(2) { animation-delay: 30ms; }
+  .ds-page-enter > *:nth-child(3) { animation-delay: 60ms; }
+  .ds-page-enter > *:nth-child(4) { animation-delay: 90ms; }
+  .ds-page-enter > *:nth-child(5) { animation-delay: 110ms; }
+  .ds-page-enter > *:nth-child(n+6) { animation-delay: 120ms; }
 
   @keyframes ds-page-enter {
     from { opacity: 0; transform: translateY(8px); }
@@ -1505,16 +1521,25 @@ html {
   /* List item cascade */
   .ds-list-cascade > * {
     opacity: 0;
-    animation: ds-page-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation: ds-page-enter 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
   .ds-list-cascade > *:nth-child(1) { animation-delay: 0ms; }
-  .ds-list-cascade > *:nth-child(2) { animation-delay: 40ms; }
-  .ds-list-cascade > *:nth-child(3) { animation-delay: 80ms; }
-  .ds-list-cascade > *:nth-child(4) { animation-delay: 120ms; }
-  .ds-list-cascade > *:nth-child(5) { animation-delay: 160ms; }
-  .ds-list-cascade > *:nth-child(6) { animation-delay: 200ms; }
-  .ds-list-cascade > *:nth-child(7) { animation-delay: 240ms; }
-  .ds-list-cascade > *:nth-child(n+8) { animation-delay: 280ms; }
+  .ds-list-cascade > *:nth-child(2) { animation-delay: 20ms; }
+  .ds-list-cascade > *:nth-child(3) { animation-delay: 40ms; }
+  .ds-list-cascade > *:nth-child(4) { animation-delay: 60ms; }
+  .ds-list-cascade > *:nth-child(5) { animation-delay: 80ms; }
+  .ds-list-cascade > *:nth-child(6) { animation-delay: 100ms; }
+  .ds-list-cascade > *:nth-child(7) { animation-delay: 110ms; }
+  .ds-list-cascade > *:nth-child(n+8) { animation-delay: 120ms; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ds-page-enter > *,
+    .ds-list-cascade > * {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
 
   /* Press feedback (replaces tap-mock) */
   .ds-tap {

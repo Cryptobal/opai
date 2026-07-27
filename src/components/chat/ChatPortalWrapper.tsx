@@ -292,24 +292,19 @@ export function ChatPortalWrapper({
     hapticOnComplete: true,
     mobileOnly: true,
   });
+  const swipeRightRef = useRef<HTMLDivElement | null>(null);
   const swipeRight = useSwipeGesture({
     onSwipeRight: () => onBack?.(),
     followFinger: true,
+    targetRef: swipeRightRef,
     hapticOnComplete: true,
     mobileOnly: true,
   });
 
   return (
     <div
-      className={cn(
-        "flex flex-col h-full overflow-hidden opai-chat-mobile-shell",
-        swipeRight.translateX != null ? "" : "transition-transform duration-[250ms] ease-out"
-      )}
-      style={
-        swipeRight.translateX != null && swipeRight.translateX > 0
-          ? { transform: `translateX(${swipeRight.translateX}px)` }
-          : undefined
-      }
+      ref={swipeRightRef}
+      className="flex flex-col h-full overflow-hidden opai-chat-mobile-shell transition-transform duration-[250ms] ease-out"
       {...(onBack ? { onTouchStart: swipeRight.onTouchStart, onTouchMove: swipeRight.onTouchMove, onTouchEnd: swipeRight.onTouchEnd } : {})}
     >
       {/* Header — en móvil: barra para arrastrar hacia abajo + botón X */}

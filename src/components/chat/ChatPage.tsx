@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef} from "react";
 import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ChatChannelList } from "./ChatChannelList";
@@ -48,11 +48,13 @@ export function ChatPage({ currentUserId, userRole }: ChatPageProps) {
     setChannelListRefreshSignal((signal) => signal + 1);
   }, [refreshUnread]);
 
+  const swipeBackRef = useRef<HTMLDivElement | null>(null);
   const swipeBack = useSwipeGesture({
     onSwipeRight: () => selectedChannelId && handleBack(),
     mobileOnly: true,
     edgeOnly: "left",
     followFinger: true,
+    targetRef: swipeBackRef,
     directionLock: true,
   });
 
@@ -78,8 +80,9 @@ export function ChatPage({ currentUserId, userRole }: ChatPageProps) {
 
       {/* Right panel: Conversation — swipe right en móvil para volver */}
       <div
+        ref={swipeBackRef}
         className={cn(
-          "flex-1 min-w-0 flex flex-col",
+          "flex-1 min-w-0 flex flex-col transition-transform duration-[250ms] ease-out",
           // On mobile, hide when no channel is selected
           !selectedChannelId ? "hidden lg:flex" : "flex"
         )}

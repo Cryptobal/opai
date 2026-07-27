@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import {
   getClosingHubData,
   getFinanceMetrics,
@@ -12,7 +13,11 @@ import { HubSummaryView } from "./_components/HubSummaryView";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function HubPage() {
+function HubSectionSkeleton({ h = "h-40" }: { h?: string }) {
+  return <div className={`w-full rounded-2xl bg-ds-surface-2 ${h}`} />;
+}
+
+async function HubBody() {
   const {
     tenantId,
     userId,
@@ -55,5 +60,13 @@ export default async function HubPage() {
       alerts={alerts}
       activities={activities}
     />
+  );
+}
+
+export default function HubPage() {
+  return (
+    <Suspense fallback={<HubSectionSkeleton h="h-96" />}>
+      <HubBody />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, type RefObject } from "react";
 
 const SWIPE_THRESHOLD = 60;
 const VELOCITY_THRESHOLD = 0.3;
@@ -26,6 +26,11 @@ interface UseSwipeGestureOptions {
   onSwipeUp?: () => void;
   /** Si true, el gesto sigue el dedo con translate (feedback visual) */
   followFinger?: boolean;
+  /**
+   * Elemento al que aplicar `transform` vía rAF (sin setState).
+   * Requerido para followFinger fluido; sin él no hay feedback visual.
+   */
+  targetRef?: RefObject<HTMLElement | null>;
   /** Vibración al completar el gesto (si el dispositivo lo soporta) */
   hapticOnComplete?: boolean;
   /** Solo activar en móvil */
@@ -38,8 +43,10 @@ interface UseSwipeGestureOptions {
 
 /**
  * Hook para detectar gestos de swipe (deslizar) en móvil.
- * Retorna handlers para onTouchStart/Move/End y opcionalmente
- * un valor de translate para feedback visual.
+ * Retorna handlers para onTouchStart/Move/End.
+ * Con `followFinger` + `targetRef`, escribe el transform en el DOM vía rAF
+ * (sin re-renders). `translateX`/`translateY` se mantienen en la firma
+ * devolviendo `undefined` por compatibilidad con consumidores legacy.
  */
 export function useSwipeGesture(options: UseSwipeGestureOptions): SwipeHandlers & {
   translateX?: number;
@@ -51,6 +58,7 @@ export function useSwipeGesture(options: UseSwipeGestureOptions): SwipeHandlers 
     onSwipeDown,
     onSwipeUp,
     followFinger = false,
+    targetRef,
     hapticOnComplete = true,
     mobileOnly = true,
     edgeOnly,
@@ -60,7 +68,36 @@ export function useSwipeGesture(options: UseSwipeGestureOptions): SwipeHandlers 
   const startRef = useRef<{ x: number; y: number; t: number } | null>(null);
   const lastRef = useRef<{ x: number; y: number; t: number } | null>(null);
   const lockedRef = useRef<"x" | "y" | null>(null);
-  const [translate, setTranslate] = useState<{ x: number; y: number } | null>(null);
+  const deltaRef = useRef({ x: 0, y: 0 });
+  const rafRef = useRef<number | null>(null);
+  const followingRef = useRef(false);
+
+  const applyTransform = useCallback(() => {
+    rafRef.current = null;
+    const el = targetRef?.current;
+    if (!el || !followingRef.current) return;
+    const { x, y } = deltaRef.current;
+    el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+  }, [targetRef]);
+
+  const scheduleTransform = useCallback(() => {
+    if (rafRef.current != null) return;
+    rafRef.current = requestAnimationFrame(applyTransform);
+  }, [applyTransform]);
+
+  const clearTransform = useCallback(() => {
+    if (rafRef.current != null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    const el = targetRef?.current;
+    if (el) {
+      el.style.transition = "";
+      el.style.transform = "";
+    }
+    followingRef.current = false;
+    deltaRef.current = { x: 0, y: 0 };
+  }, [targetRef]);
 
   const handleStart = useCallback(
     (e: React.TouchEvent) => {
@@ -68,16 +105,21 @@ export function useSwipeGesture(options: UseSwipeGestureOptions): SwipeHandlers 
 
       const t = e.touches[0];
 
-      // Edge-only: descarta si no aterriza en el borde indicado
       if (edgeOnly === "left" && t.clientX > EDGE_WIDTH) return;
-      if (edgeOnly === "right" && t.clientX < (window.innerWidth - EDGE_WIDTH)) return;
+      if (edgeOnly === "right" && t.clientX < window.innerWidth - EDGE_WIDTH) return;
 
       startRef.current = { x: t.clientX, y: t.clientY, t: Date.now() };
       lastRef.current = { x: t.clientX, y: t.clientY, t: Date.now() };
       lockedRef.current = null;
-      if (followFinger) setTranslate({ x: 0, y: 0 });
+
+      if (followFinger && targetRef?.current) {
+        followingRef.current = true;
+        deltaRef.current = { x: 0, y: 0 };
+        targetRef.current.style.transition = "none";
+        targetRef.current.style.transform = "translate3d(0,0,0)";
+      }
     },
-    [mobileOnly, followFinger, edgeOnly]
+    [mobileOnly, followFinger, edgeOnly, targetRef],
   );
 
   const handleMove = useCallback(
@@ -88,16 +130,14 @@ export function useSwipeGesture(options: UseSwipeGestureOptions): SwipeHandlers 
       const dy = t.clientY - startRef.current.y;
       lastRef.current = { x: t.clientX, y: t.clientY, t: Date.now() };
 
-      // Direction lock: una vez excedido LOCK_DELTA en cualquier eje, lo fija
       if (directionLock && lockedRef.current == null) {
         if (Math.abs(dx) > LOCK_DELTA || Math.abs(dy) > LOCK_DELTA) {
           lockedRef.current = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
         }
       }
 
-      if (followFinger) {
+      if (followFinger && followingRef.current) {
         const W = typeof window !== "undefined" ? window.innerWidth : 320;
-        // Resistencia exponencial al pasar el 60% del ancho
         const resist = (v: number) => {
           const sign = Math.sign(v);
           const abs = Math.abs(v);
@@ -106,13 +146,13 @@ export function useSwipeGesture(options: UseSwipeGestureOptions): SwipeHandlers 
           const over = abs - limit;
           return sign * (limit + Math.log10(1 + over) * 30);
         };
-        // Si está locked en x, no movemos en y (y viceversa)
         const tx = lockedRef.current === "y" ? 0 : resist(dx);
         const ty = lockedRef.current === "x" ? 0 : resist(dy);
-        setTranslate({ x: tx, y: ty });
+        deltaRef.current = { x: tx, y: ty };
+        scheduleTransform();
       }
     },
-    [followFinger, directionLock]
+    [followFinger, directionLock, scheduleTransform],
   );
 
   const handleEnd = useCallback(
@@ -125,11 +165,10 @@ export function useSwipeGesture(options: UseSwipeGestureOptions): SwipeHandlers 
       const vx = dt > 0 ? dx / dt : 0;
       const vy = dt > 0 ? dy / dt : 0;
 
-      if (followFinger) setTranslate(null);
+      if (followFinger) clearTransform();
 
       const locked = lockedRef.current;
 
-      // Si direction lock activo y dirección es y, solo aceptamos swipes verticales
       if (directionLock && locked === "y") {
         if ((dy > SWIPE_THRESHOLD || vy > VELOCITY_THRESHOLD) && Math.abs(dx) < Math.abs(dy) * 1.5) {
           if (hapticOnComplete) triggerHaptic();
@@ -139,7 +178,6 @@ export function useSwipeGesture(options: UseSwipeGestureOptions): SwipeHandlers 
           onSwipeUp?.();
         }
       } else if (directionLock && locked === "x") {
-        // Solo horizontales
         if ((dx > SWIPE_THRESHOLD || vx > VELOCITY_THRESHOLD) && Math.abs(dy) < Math.abs(dx) * 1.5) {
           if (hapticOnComplete) triggerHaptic();
           onSwipeRight?.();
@@ -148,7 +186,6 @@ export function useSwipeGesture(options: UseSwipeGestureOptions): SwipeHandlers 
           onSwipeLeft?.();
         }
       } else {
-        // Sin lock: comportamiento original (ambas direcciones)
         if ((dx > SWIPE_THRESHOLD || vx > VELOCITY_THRESHOLD) && Math.abs(dy) < Math.abs(dx) * 1.5) {
           if (hapticOnComplete) triggerHaptic();
           onSwipeRight?.();
@@ -168,14 +205,23 @@ export function useSwipeGesture(options: UseSwipeGestureOptions): SwipeHandlers 
       lastRef.current = null;
       lockedRef.current = null;
     },
-    [onSwipeRight, onSwipeLeft, onSwipeDown, onSwipeUp, followFinger, hapticOnComplete, directionLock]
+    [
+      onSwipeRight,
+      onSwipeLeft,
+      onSwipeDown,
+      onSwipeUp,
+      followFinger,
+      hapticOnComplete,
+      directionLock,
+      clearTransform,
+    ],
   );
 
   return {
     onTouchStart: handleStart,
     onTouchMove: handleMove,
     onTouchEnd: handleEnd,
-    translateX: translate?.x,
-    translateY: translate?.y,
+    translateX: undefined,
+    translateY: undefined,
   };
 }

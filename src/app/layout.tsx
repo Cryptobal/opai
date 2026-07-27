@@ -38,7 +38,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#142033",
+  themeColor: "#060a13",
   interactiveWidget: "resizes-content",
 };
 
@@ -94,6 +94,27 @@ export default function RootLayout({
     <html lang="es" className={`dark ${exo2.variable} ${dmSans.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
+        <style dangerouslySetInnerHTML={{ __html: "html{background:#060a13}" }} />
+        <link
+          rel="apple-touch-startup-image"
+          href="/icons/splash/apple-splash-1170-2532.png"
+          media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/icons/splash/apple-splash-1284-2778.png"
+          media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/icons/splash/apple-splash-1290-2796.png"
+          media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)"
+        />
+        <link
+          rel="apple-touch-startup-image"
+          href="/icons/splash/apple-splash-750-1334.png"
+          media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)"
+        />
         <Script id="theme-init" strategy="beforeInteractive">{`
           try {
             var t = localStorage.getItem('opai-theme');

@@ -1,16 +1,10 @@
+// v16 (2026-07-27): navigationPreload + clients.claim en waitUntil.
+// Acelera el arranque PWA: la petición de navegación arranca en paralelo
+// al boot del worker. Conserva network-only para ERP y la purga por chunk 404.
+//
 // v15 (2026-07-27): fix PWA iPhone ERP — pantalla negra→blanca al abrir.
-// Causas: (1) al 404 de chunks solo se purgaba HTML de portales/login, NO
-// /hub (start_url del ERP); (2) timeout de navigate 3s servía HTML stale
-// en cold starts; (3) rutas autenticadas del ERP no deberían caer a HTML
-// cacheado. Ahora: purga TODO HTML same-origin ante chunk 404, timeout 8s,
-// y rutas ERP hacen network-only (solo offline.html de fallback).
-//
-// v14 (2026-07-23): bumped tras el pulido minimalista del inicio móvil del
-// Hub. Purga HTML/chunks v13.
-//
-// v13–v6: ver historial git. v6 introdujo el refresh de HTML en navigate
-// ante chunks 404 de Vercel (ChunkLoadError → "Algo salió mal").
-const CACHE_NAME = 'opai-v15';
+// v14–v6: ver historial git.
+const CACHE_NAME = 'opai-v16';
 
 // Prefijos de la app ERP autenticada. Cachear su HTML en el SW es peligroso:
 // tras un deploy, el shell apunta a chunks ya borrados y iOS PWA queda en
@@ -122,16 +116,26 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// ACTIVATE: remove old caches (including legacy rondas-v1)
+// ACTIVATE: remove old caches + enable navigationPreload + claim clients
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys.filter((k) => k !== CACHE_NAME && k !== 'push-context').map((k) => caches.delete(k))
-      )
-    )
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter((k) => k !== CACHE_NAME && k !== 'push-context')
+          .map((k) => caches.delete(k)),
+      );
+      if ('navigationPreload' in self.registration) {
+        try {
+          await self.registration.navigationPreload.enable();
+        } catch (_) {
+          // noop — algunos WebViews no lo soportan
+        }
+      }
+      await self.clients.claim();
+    })(),
   );
-  self.clients.claim();
 });
 
 // FETCH: strategy by resource type
@@ -227,7 +231,9 @@ self.addEventListener('fetch', (event) => {
         const controller = new AbortController();
         const timeoutMs = erp ? 8000 : 5000;
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-        const response = await fetch(request, { signal: controller.signal });
+        const preload = await event.preloadResponse;
+        const response =
+          preload || (await fetch(request, { signal: controller.signal }));
         clearTimeout(timeoutId);
         // Solo cachear HTML de portales/login — nunca del ERP autenticado.
         if (

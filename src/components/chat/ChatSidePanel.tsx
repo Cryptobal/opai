@@ -263,9 +263,11 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
   const selectedChannel = ctx.channels.find((ch) => ch.id === ctx.selectedChannelId);
 
   // Swipe gestures para móvil: derecha = volver a lista, abajo = cerrar panel
+  const swipeBackRef = useRef<HTMLDivElement | null>(null);
   const swipeBack = useSwipeGesture({
     onSwipeRight: () => selectedChannel && ctx.selectChannel(null),
     followFinger: true,
+    targetRef: swipeBackRef,
     hapticOnComplete: true,
     mobileOnly: true,
     edgeOnly: "left",
@@ -758,17 +760,12 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
 
               {/* Conversation layer (slides in from right) — swipe right para volver */}
               <div
+                ref={swipeBackRef}
                 className={cn(
-                  "absolute inset-0 flex flex-col opai-chat-mobile-shell",
+                  "absolute inset-0 flex flex-col opai-chat-mobile-shell transition-transform duration-[250ms] ease-out",
                   isIOS ? "bg-transparent" : "bg-[#0a0e17]",
                   selectedChannel ? "translate-x-0" : "translate-x-full",
-                  swipeBack.translateX != null ? "" : "transition-transform duration-[250ms] ease-out"
                 )}
-                style={
-                  swipeBack.translateX != null
-                    ? { transform: `translateX(${swipeBack.translateX}px)` }
-                    : undefined
-                }
                 {...(selectedChannel ? { onTouchStart: swipeBack.onTouchStart, onTouchMove: swipeBack.onTouchMove, onTouchEnd: swipeBack.onTouchEnd } : {})}
               >
                 {ctx.selectedChannelId && selectedChannel && (

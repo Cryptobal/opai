@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useBranding } from "@/lib/branding/useBranding";
 import { hexToHslComponents, withLightness } from "@/lib/branding/hex-to-hsl";
 
@@ -48,34 +48,92 @@ function applyBrandTheme(opts: {
 }
 
 /**
- * Aplica colores de Configuración → Empresa al chrome (`--primary` y
- * superficies dark). Sin valor válido, deja los tokens del DS.
+ * Aplica colores de Configuración → Empresa al chrome.
+ * Si SSR ya inyectó `#opai-brand`, no escribe hasta que el branding real difiera.
+ * Nunca aplica DEFAULTS.
  */
 export function BrandThemeSync() {
-  const { branding } = useBranding();
+  const { branding, fromDefaults } = useBranding();
+  const lastDarkRef = useRef<boolean | null>(null);
 
   useEffect(() => {
-    const apply = () =>
+    if (fromDefaults) return;
+
+    const ssr = document.getElementById("opai-brand");
+    const accent =
+      hexToHslComponents(branding.accentColor) ??
+      hexToHslComponents(branding.secondaryColor);
+
+    // Si el SSR ya pintó el mismo acento, no reescribir (evita flash).
+    if (ssr && accent) {
+      const current = getComputedStyle(document.documentElement)
+        .getPropertyValue("--primary")
+        .trim();
+      if (current === accent.trim()) {
+        // Solo reaccionar a cambios reales de clase dark.
+        const applyDarkOnly = () => {
+          const isDark = document.documentElement.classList.contains("dark");
+          if (lastDarkRef.current === isDark) return;
+          lastDarkRef.current = isDark;
+          applyBrandTheme({
+            accentColor: branding.accentColor,
+            secondaryColor: branding.secondaryColor,
+            primaryColor: branding.primaryColor,
+          });
+        };
+        applyDarkOnly();
+        const obs = new MutationObserver(applyDarkOnly);
+        obs.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["class"],
+        });
+        return () => obs.disconnect();
+      }
+    }
+
+    const apply = () => {
+      const isDark = document.documentElement.classList.contains("dark");
+      if (lastDarkRef.current === isDark) {
+        // Reaplicar colores (branding cambió) aunque dark no cambió.
+        applyBrandTheme({
+          accentColor: branding.accentColor,
+          secondaryColor: branding.secondaryColor,
+          primaryColor: branding.primaryColor,
+        });
+        return;
+      }
+      lastDarkRef.current = isDark;
       applyBrandTheme({
         accentColor: branding.accentColor,
         secondaryColor: branding.secondaryColor,
         primaryColor: branding.primaryColor,
       });
+    };
+
     apply();
-    const obs = new MutationObserver(apply);
+    const obs = new MutationObserver(() => {
+      const isDark = document.documentElement.classList.contains("dark");
+      if (lastDarkRef.current === isDark) return;
+      lastDarkRef.current = isDark;
+      applyBrandTheme({
+        accentColor: branding.accentColor,
+        secondaryColor: branding.secondaryColor,
+        primaryColor: branding.primaryColor,
+      });
+    });
     obs.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["class"],
     });
     return () => {
       obs.disconnect();
-      document.documentElement.style.removeProperty("--primary");
-      document.documentElement.style.removeProperty("--ring");
-      for (const k of SURFACE_KEYS) {
-        document.documentElement.style.removeProperty(k);
-      }
     };
-  }, [branding.accentColor, branding.secondaryColor, branding.primaryColor]);
+  }, [
+    branding.accentColor,
+    branding.secondaryColor,
+    branding.primaryColor,
+    fromDefaults,
+  ]);
 
   return null;
 }
