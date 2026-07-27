@@ -75,6 +75,7 @@ export function CorreoRowSwipe({
     openSide,
     dragging,
     dragSide,
+    touchAction,
     rowRef,
     close,
     wasDragged,
@@ -150,9 +151,12 @@ export function CorreoRowSwipe({
     close();
     if (action === "snooze") { onSnooze?.(); return; }
     if (action === "read") {
+      const wasUnread = thread.isUnread;
       void runCorreoAction(
-        thread.id, thread.isUnread ? "markRead" : "markUnread",
-        thread.isUnread ? "Marcado como leído" : "Marcado como no leído", onChanged,
+        thread.id, wasUnread ? "markRead" : "markUnread",
+        wasUnread ? "Marcado como leído" : "Marcado como no leído",
+        onChanged,
+        wasUnread ? "markUnread" : "markRead",
       );
       return;
     }
@@ -234,7 +238,7 @@ export function CorreoRowSwipe({
       </motion.div>
       <motion.div
         className="relative bg-ds-surface-1 will-change-transform"
-        style={{ x, touchAction: "pan-y" }}
+        style={{ x, touchAction }}
         {...handlers}
       >
         <CorreoRow thread={thread} canModify={canModify} onOpen={handleOpen} onChanged={onChanged}

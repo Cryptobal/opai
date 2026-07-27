@@ -1,6 +1,24 @@
 import { toast } from "sonner";
+import { showUndo, DEFAULT_UNDO_DURATION_MS } from "@/components/opai-ds";
 import type { CorreoAction } from "@/modules/crm/email/gmail-thread-actions";
 import { queueOfflineAction } from "./offline-store";
+
+/** Lee la preferencia de duración del undo (localStorage) sin acoplar al hook. */
+export function correoUndoDurationMs(): number {
+  if (typeof window === "undefined") return DEFAULT_UNDO_DURATION_MS;
+  try {
+    const raw = localStorage.getItem("opai.crm.correos.view.v1");
+    if (!raw) return DEFAULT_UNDO_DURATION_MS;
+    const parsed = JSON.parse(raw) as { undoSeconds?: unknown };
+    const seconds = parsed.undoSeconds;
+    if (seconds === 5 || seconds === 10 || seconds === 15 || seconds === 30) {
+      return seconds * 1000;
+    }
+  } catch {
+    /* ignore */
+  }
+  return DEFAULT_UNDO_DURATION_MS;
+}
 
 async function postAction(threadId: string, action: CorreoAction, snoozeUntil?: string) {
   let res: Response;
@@ -32,12 +50,10 @@ export async function snoozeThread(
 ) {
   try {
     await postAction(threadId, "snooze", until);
-    toast.success(okMsg, {
-      duration: 5000,
-      action: {
-        label: "Deshacer",
-        onClick: () => void postAction(threadId, "unsnooze").then(() => onDone?.()),
-      },
+    showUndo({
+      message: okMsg,
+      durationMs: correoUndoDurationMs(),
+      onUndo: () => void postAction(threadId, "unsnooze").then(() => onDone?.()),
     });
     onDone?.();
   } catch (e) {
@@ -55,14 +71,14 @@ export async function runCorreoAction(
   try {
     await postAction(threadId, action);
     if (undo) {
-      toast.success(okMsg, {
-        duration: 5000,
-        action: {
-          label: "Deshacer",
-          onClick: () => void postAction(threadId, undo).then(() => onDone?.()),
-        },
+      showUndo({
+        message: okMsg,
+        durationMs: correoUndoDurationMs(),
+        onUndo: () => void postAction(threadId, undo).then(() => onDone?.()),
       });
-    } else toast.success(okMsg);
+    } else {
+      toast.success(okMsg);
+    }
     onDone?.();
     return true;
   } catch (e) {

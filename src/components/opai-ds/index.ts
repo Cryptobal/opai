@@ -63,4 +63,11 @@ export {
   type AttachmentPickerItem,
   type AttachmentPickerItemStatus,
 } from "./AttachmentPicker";
+export { UndoSnackbarHost } from "./UndoSnackbar";
+export {
+  showUndo,
+  dismissUndo,
+  DEFAULT_UNDO_DURATION_MS,
+  type UndoSnackbarInput,
+} from "./undo-snackbar-store";
 export { thresholdFromScore, type Threshold } from "./tokens";

@@ -13,6 +13,7 @@ import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 
 type Props = {
   detail: CorreoDetail;
+  mailboxEmail?: string | null;
   canModify?: boolean;
   aiOpen: boolean;
   setAiOpen: (v: boolean) => void;
@@ -27,6 +28,7 @@ type Props = {
 
 export function CorreoDrawerContent({
   detail,
+  mailboxEmail,
   canModify,
   aiOpen,
   setAiOpen,
@@ -120,6 +122,11 @@ export function CorreoDrawerContent({
         dealId={t.dealId}
         dealTitle={t.dealTitle}
         accountId={t.accountId}
+        accountName={t.accountName}
+        mailboxEmail={mailboxEmail}
+        degraded={detail.degraded}
+        onSaved={onRefresh}
+        onRequestAssociate={() => openPanel("cuenta")}
       />
 
       {/* Responder — barra Gmail / composer bajo demanda. Nada debajo (el panel

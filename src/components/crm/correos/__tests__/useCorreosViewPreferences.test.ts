@@ -123,4 +123,16 @@ describe("clampCorreoPanelWidth", () => {
       parseCorreosViewPreferences(JSON.stringify({ alwaysShowImages: 1 })),
     ).toEqual({});
   });
+
+  it("acepta undoSeconds válidos (5/10/15/30) y descarta el resto", () => {
+    expect(
+      parseCorreosViewPreferences(JSON.stringify({ undoSeconds: 10 })),
+    ).toEqual({ undoSeconds: 10 });
+    expect(
+      parseCorreosViewPreferences(JSON.stringify({ undoSeconds: 7 })),
+    ).toEqual({});
+    expect(
+      parseCorreosViewPreferences(JSON.stringify({ undoSeconds: "10" })),
+    ).toEqual({});
+  });
 });

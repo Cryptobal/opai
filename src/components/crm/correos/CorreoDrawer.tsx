@@ -8,7 +8,6 @@ import {
   type KeyboardEventHandler,
   type PointerEventHandler,
 } from "react";
-import { Spinner } from "@/components/opai-ds";
 import { CorreoReaderShell } from "./CorreoReaderShell";
 import { CorreoDrawerContent } from "./CorreoDrawerContent";
 import { CorreoThreadActions } from "./CorreoThreadActions";
@@ -18,8 +17,17 @@ import { useMarkCorreoRead } from "./useMarkCorreoRead";
 import { parseSender } from "./correo-sender";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 
+type ThreadPreview = {
+  fromEmail?: string | null;
+  subject?: string | null;
+};
+
 type Props = {
   threadId: string | null;
+  /** Datos de la fila de la lista: header inmediato sin esperar el fetch. */
+  preview?: ThreadPreview | null;
+  /** Casilla Gmail conectada (se muestra al guardar adjuntos). */
+  mailboxEmail?: string | null;
   onClose: () => void;
   onChanged?: () => void;
   autoExtract?: boolean;
@@ -37,6 +45,8 @@ type Props = {
 
 export function CorreoDrawer({
   threadId,
+  preview = null,
+  mailboxEmail = null,
   onClose,
   onChanged,
   autoExtract,
@@ -55,6 +65,8 @@ export function CorreoDrawer({
   const [loading, setLoading] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
+  // Evita reutilizar el detalle del hilo anterior al cambiar de correo.
+  const detailThreadId = detail?.thread.id ?? null;
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!threadId) return;
@@ -83,13 +95,14 @@ export function CorreoDrawer({
     }
   }, [threadId]);
 
-  // Carga inicial / cambio de hilo: limpia y muestra spinner.
+  // Carga inicial / cambio de hilo: descartamos el detalle del hilo anterior
+  // de inmediato (el header usa `preview` de la lista) y evitamos el spinner
+  // a pantalla completa que hacía sentir la app lenta.
   useEffect(() => {
-    setDetail(null);
+    setDetail((prev) => (prev?.thread.id === threadId ? prev : null));
     setAiOpen(false);
     void load();
-  }, [load]);
-
+  }, [load, threadId]);
   // Refresh en vivo: recarga en segundo plano sin vaciar ni parpadear el
   // lector. Se omite la primera ejecución (el efecto de arriba ya cargó) para
   // no duplicar el fetch inicial. Usa un ref a `load` para no reejecutarse
@@ -130,12 +143,17 @@ export function CorreoDrawer({
   }
 
   if (!threadId) return null;
+  const detailReady = detail && detailThreadId === threadId;
   const rawFrom =
-    detail?.messages.find((m) => m.direction !== "out")?.fromEmail ??
-    detail?.messages[0]?.fromEmail ??
-    "";
+    detailReady
+      ? (detail.messages.find((m) => m.direction !== "out")?.fromEmail ??
+        detail.messages[0]?.fromEmail ??
+        "")
+      : (preview?.fromEmail ?? "");
   const sender = parseSender(rawFrom);
   const from = sender.name || sender.email || rawFrom;
+  const headerSubject =
+    (detailReady ? detail.thread.subject : null) || preview?.subject || "Correo";
   const scrollToReply = () =>
     document.getElementById("correo-suggested-reply")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -144,7 +162,7 @@ export function CorreoDrawer({
       open
       onClose={onClose}
       headerFrom={from}
-      headerSubject={detail?.thread.subject || "Correo"}
+      headerSubject={headerSubject}
       desktopWidth={desktopWidth}
       onResizePointerDown={onResizePointerDown}
       onResizeKeyDown={onResizeKeyDown}
@@ -152,7 +170,7 @@ export function CorreoDrawer({
       desktopMode={desktopMode}
       manageBackHistory={manageBackHistory}
       mobileActions={
-        detail && canModify ? (
+        detailReady && canModify ? (
           <CorreoThreadActions
             threadId={detail.thread.id}
             isUnread={detail.thread.isUnread}
@@ -167,13 +185,19 @@ export function CorreoDrawer({
         ) : null
       }
     >
-      {loading && !detail ? (
-        <Spinner className="mx-auto" />
-      ) : !detail ? (
+      {loading && !detailReady ? (
+        <div className="flex flex-col items-center gap-2 py-8">
+          <div className="h-1 w-24 overflow-hidden rounded-full bg-ds-surface-3">
+            <div className="h-full w-1/2 animate-pulse rounded-full bg-primary" />
+          </div>
+          <p className="text-[12px] text-ds-text-4">Cargando correo…</p>
+        </div>
+      ) : !detailReady ? (
         <p className="text-[13px] text-ds-text-4">No se pudo cargar el hilo.</p>
       ) : (
         <CorreoDrawerContent
           detail={detail}
+          mailboxEmail={mailboxEmail}
           canModify={canModify}
           aiOpen={aiOpen}
           setAiOpen={setAiOpen}
@@ -190,7 +214,7 @@ export function CorreoDrawer({
         open={snoozeOpen}
         onClose={() => setSnoozeOpen(false)}
         onConfirm={(iso, label) => {
-          if (!detail) return;
+          if (!detailReady) return;
           void snoozeThread(detail.thread.id, iso, `Pospuesto hasta ${label}`, () => {
             onChanged?.();
           });

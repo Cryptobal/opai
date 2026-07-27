@@ -21,7 +21,8 @@ export type EmailAuditAction =
   | "associate"
   | "create_lead"
   | "connect_account"
-  | "disconnect_account";
+  | "disconnect_account"
+  | "save_attachment";
 
 export type EmailAuditEntityType =
   | "email_thread"

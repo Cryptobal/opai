@@ -8,6 +8,8 @@ import {
   useState,
   type PointerEvent,
 } from "react";
+import { triggerHaptic } from "@/lib/haptics";
+import { lockSwipeScroll, unlockSwipeScroll } from "@/lib/swipe-scroll-lock";
 import {
   isSwipeArmed,
   resolveSwipeRelease,
@@ -21,37 +23,14 @@ import {
 export type { CorreoSwipeSide } from "./row-swipe-gesture";
 export { SWIPE_LONG_RATIO, SWIPE_OPEN_WIDTH } from "./row-swipe-gesture";
 
-const AXIS_LOCK = 6;
+const AXIS_LOCK = 10;
 const LONG_PRESS_MS = 450;
 const LONG_PRESS_MOVE = 10;
 
-function hapticLight() {
-  try {
-    navigator.vibrate?.(8);
-  } catch {
-    // no-op
-  }
-}
-
-function hapticArmed() {
-  try {
-    navigator.vibrate?.([12, 8, 12]);
-  } catch {
-    // no-op
-  }
-}
-
-function hapticLongPress() {
-  try {
-    navigator.vibrate?.(10);
-  } catch {
-    // no-op
-  }
-}
-
 /**
- * Máquina de gestos del swipe de dos niveles con motion values (sin re-render
- * por frame), spring al soltar, flick por velocidad y háptica diferenciada.
+ * Swipe de dos niveles: motion values (sin re-render por frame), spring al
+ * soltar, flick por velocidad, scroll lock durante arrastre horizontal y
+ * háptica unificada (Capacitor + web).
  */
 export function useRowSwipe(opts: {
   enabled: boolean;
@@ -64,6 +43,7 @@ export function useRowSwipe(opts: {
   const [openSide, setOpenSide] = useState<CorreoSwipeSide | null>(null);
   const [dragging, setDragging] = useState(false);
   const [dragSide, setDragSide] = useState<CorreoSwipeSide | null>(null);
+  const [touchAction, setTouchAction] = useState<"pan-y" | "none">("pan-y");
 
   const armedRef = useRef(false);
   const snapHapticRef = useRef(false);
@@ -76,6 +56,7 @@ export function useRowSwipe(opts: {
   const suppressClick = useRef(false);
   const longPressTimer = useRef<number | null>(null);
   const longPressed = useRef(false);
+  const scrollLocked = useRef(false);
 
   const clearLongPress = useCallback(() => {
     if (longPressTimer.current != null) {
@@ -84,7 +65,15 @@ export function useRowSwipe(opts: {
     }
   }, []);
 
+  const releaseScrollLock = useCallback(() => {
+    if (!scrollLocked.current) return;
+    scrollLocked.current = false;
+    unlockSwipeScroll();
+    setTouchAction("pan-y");
+  }, []);
+
   useEffect(() => clearLongPress, [clearLongPress]);
+  useEffect(() => () => releaseScrollLock(), [releaseScrollLock]);
 
   const resetFeedback = useCallback(() => {
     armedRef.current = false;
@@ -142,7 +131,7 @@ export function useRowSwipe(opts: {
         longPressTimer.current = null;
         longPressed.current = true;
         suppressClick.current = true;
-        hapticLongPress();
+        void triggerHaptic("selection");
         onLongPress();
       }, LONG_PRESS_MS);
     }
@@ -173,9 +162,16 @@ export function useRowSwipe(opts: {
         setDragging(true);
         const initial = start.current.base + rawDx;
         setDragSide(initial >= 0 ? "right" : "left");
+        setTouchAction("none");
+        if (!scrollLocked.current) {
+          scrollLocked.current = true;
+          lockSwipeScroll();
+        }
+        void triggerHaptic("light");
       }
     }
     if (axis.current !== "h") return;
+    if (event.cancelable) event.preventDefault();
 
     const width = rowRef.current?.offsetWidth ?? 360;
     const next = Math.max(Math.min(start.current.base + rawDx, width), -width);
@@ -186,17 +182,18 @@ export function useRowSwipe(opts: {
     const nowArmed = isSwipeArmed(absRaw, width);
     if (nowArmed !== armedRef.current) {
       armedRef.current = nowArmed;
-      if (nowArmed) hapticArmed();
+      if (nowArmed) void triggerHaptic("medium");
     }
 
     if (!snapHapticRef.current && shouldHapticSnapOpen(absRaw)) {
       snapHapticRef.current = true;
-      hapticLight();
+      void triggerHaptic("light");
     }
   }
 
   function onPointerEnd(event: PointerEvent<HTMLDivElement>) {
     clearLongPress();
+    releaseScrollLock();
     if (longPressed.current) {
       longPressed.current = false;
       axis.current = null;
@@ -223,6 +220,7 @@ export function useRowSwipe(opts: {
       rawDxRef.current = 0;
       resetFeedback();
       animateTo(0, 0);
+      void triggerHaptic("success");
       onLongSwipe(outcome.side);
       return;
     }
@@ -243,7 +241,7 @@ export function useRowSwipe(opts: {
       rawDxRef.current = target;
       resetFeedback();
       animateTo(target, target);
-      if (!snapHapticRef.current) hapticLight();
+      if (!snapHapticRef.current) void triggerHaptic("light");
       return;
     }
 
@@ -261,6 +259,7 @@ export function useRowSwipe(opts: {
     openSide,
     dragging,
     dragSide,
+    touchAction,
     rowRef,
     close,
     wasDragged,

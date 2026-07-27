@@ -33,34 +33,51 @@ function buildForwardQuote(detail: CorreoDetail): string {
  * Orquesta la respuesta del lector (Bloque 2): barra de acciones Gmail (cerrado)
  * ⇄ composer con modos (abierto), en exclusividad total. Atajos R/A/F/I cuando
  * no hay foco en inputs. Absorbe la lógica IA del antiguo SuggestedReplyPanel.
+ *
+ * La barra de acciones se muestra de inmediato (sin esperar suggest-reply): el
+ * meta se hidrata en background para no bloquear la lectura con un spinner.
  */
 export function CorreoReplyBox({ detail, onSent }: { detail: CorreoDetail; onSent: () => void }) {
   const threadId = detail.thread.id;
-  const [meta, setMeta] = useState<Meta | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [meta, setMeta] = useState<Meta>({
+    to: [],
+    replyAll: null,
+    radarItemId: null,
+    preDraft: null,
+  });
+  const [metaReady, setMetaReady] = useState(false);
   const [open, setOpen] = useState<{ mode: ComposerMode; ai: boolean; expanded: boolean } | null>(null);
 
   useEffect(() => {
     setOpen(null);
-    setLoading(true);
+    setMetaReady(false);
+    let alive = true;
     fetch(`/api/crm/correos/${threadId}/suggest-reply`)
       .then((r) => r.json())
-      .then((d) =>
+      .then((d) => {
+        if (!alive) return;
         setMeta({
           to: d.to ? [String(d.to).toLowerCase()] : [],
           replyAll: d.replyAll ?? null,
           radarItemId: d.radarItemId ?? null,
           preDraft: d.draft ? String(d.draft) : null,
-        }),
-      )
-      .catch(() => setMeta({ to: [], replyAll: null, radarItemId: null, preDraft: null }))
-      .finally(() => setLoading(false));
+        });
+      })
+      .catch(() => {
+        if (alive) setMeta({ to: [], replyAll: null, radarItemId: null, preDraft: null });
+      })
+      .finally(() => {
+        if (alive) setMetaReady(true);
+      });
+    return () => {
+      alive = false;
+    };
   }, [threadId]);
 
-  const canReply = (meta?.to.length ?? 0) > 0 || Boolean(meta?.replyAll);
+  const canReply = meta.to.length > 0 || Boolean(meta.replyAll);
   const replyAllAvailable = useMemo(() => {
-    const ra = meta?.replyAll;
-    const to = meta?.to ?? [];
+    const ra = meta.replyAll;
+    const to = meta.to;
     return Boolean(ra && (ra.cc.length > 0 || ra.to.some((e) => !to.includes(e)) || ra.to.length !== to.length));
   }, [meta]);
 
@@ -73,7 +90,7 @@ export function CorreoReplyBox({ detail, onSent }: { detail: CorreoDetail; onSen
 
   // Atajos de teclado (solo con la barra visible y sin foco en inputs).
   useEffect(() => {
-    if (open || loading) return;
+    if (open || !metaReady) return;
     function onKey(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const el = document.activeElement;
@@ -89,15 +106,13 @@ export function CorreoReplyBox({ detail, onSent }: { detail: CorreoDetail; onSen
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, loading, canReply, replyAllAvailable]);
-
-  if (loading) return <Spinner className="mx-auto" />;
+  }, [open, metaReady, canReply, replyAllAvailable]);
 
   if (!open) {
     return (
       <CorreoActionBar
-        canReply={canReply}
-        replyAllAvailable={replyAllAvailable}
+        canReply={metaReady ? canReply : true}
+        replyAllAvailable={metaReady ? replyAllAvailable : false}
         onReply={() => setOpen({ mode: "reply", ai: false, expanded: false })}
         onReplyAll={() => setOpen({ mode: "all", ai: false, expanded: false })}
         onForward={() => setOpen({ mode: "forward", ai: false, expanded: false })}
@@ -106,16 +121,21 @@ export function CorreoReplyBox({ detail, onSent }: { detail: CorreoDetail; onSen
     );
   }
 
+  // Composer abierto antes de que llegue el meta: spinner mínimo en el box.
+  if (!metaReady) {
+    return <Spinner className="mx-auto" />;
+  }
+
   return (
     <CorreoComposerBox
       threadId={threadId}
       subject={detail.thread.subject}
       accountId={detail.thread.accountId}
       dealId={detail.thread.dealId}
-      to={meta?.to ?? []}
-      replyAll={meta?.replyAll ?? null}
-      radarItemId={meta?.radarItemId ?? null}
-      preDraft={meta?.preDraft ?? null}
+      to={meta.to}
+      replyAll={meta.replyAll}
+      radarItemId={meta.radarItemId}
+      preDraft={meta.preDraft}
       forwardQuotedHtml={buildForwardQuote(detail)}
       forwardAttachments={forwardAttachments}
       mode={open.mode}

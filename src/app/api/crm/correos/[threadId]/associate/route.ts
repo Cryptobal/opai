@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { normalizeEmailAddress } from "@/lib/email-address";
 import { auditEmailAction } from "@/lib/audit-email";
+import { materializeSharedThreadAttachments } from "@/modules/crm/email/share-materialize";
 
 type Ctx = { params: Promise<{ threadId: string }> };
 type Body = { accountId?: string | null; dealId?: string | null; sharedWithAccount?: boolean };
@@ -105,6 +106,22 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       sharedWithAccount,
     },
   });
+
+  // B7: al pasar a compartido con una cuenta (asociación nueva o re-compartir),
+  // materializar sus adjuntos a R2 para que la ficha no dependa del Gmail del
+  // dueño. Idempotente (dedupe por hash), no bloquea la respuesta.
+  const becameShared =
+    Boolean(crmAccount) &&
+    sharedWithAccount &&
+    (thread.accountId !== crmAccount!.id || !thread.sharedWithAccount);
+  if (becameShared && crmAccount) {
+    void materializeSharedThreadAttachments({
+      tenantId,
+      userId: session.user.id,
+      threadId: thread.id,
+      accountId: crmAccount.id,
+    });
+  }
 
   void auditEmailAction({
     tenantId,

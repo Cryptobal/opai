@@ -1,22 +1,41 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Download, RefreshCw, X } from "lucide-react";
-import { Spinner } from "@/components/opai-ds";
+import { Download, Share2, X } from "lucide-react";
+import { useState } from "react";
+import { AttachmentPreview } from "./AttachmentPreview";
 import { useCloseOnBack } from "./useCloseOnBack";
 
-export type ViewerFile = { url: string; filename: string; mimeType: string };
+export type ViewerFile = { url: string; filename: string; mimeType: string; size?: number };
 
-type State =
-  | { phase: "loading" }
-  | { phase: "error"; message: string }
-  | { phase: "ready"; objectUrl: string };
+async function shareFile(url: string, filename: string, mimeType: string) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("fail");
+    const blob = await res.blob();
+    const file = new File([blob], filename, {
+      type: mimeType || blob.type || "application/octet-stream",
+    });
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], title: filename });
+      return;
+    }
+  } catch {
+    // fallback descarga
+  }
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
 
 /**
- * Visor de adjuntos en overlay: baja el archivo con la sesión (fetch) y lo
- * muestra inline (imagen/PDF). Reemplaza el target=_blank crudo, que ante un
- * error dejaba al usuario en una página JSON sin contexto ni reintento (y es
- * frágil en el WebView del app móvil).
+ * Visor de adjuntos en overlay a pantalla completa. Baja el archivo con la
+ * sesión y lo previsualiza (PDF en canvas vía pdf.js, imagen, texto, DOCX) o
+ * muestra una tarjeta tipada con descarga/compartir. Reemplaza el `<iframe>`
+ * sobre `blob:` que dejaba el PDF en blanco en el WebView de iOS/Android.
  */
 export function CorreoAttachmentViewer({
   file,
@@ -25,40 +44,10 @@ export function CorreoAttachmentViewer({
   file: ViewerFile | null;
   onClose: () => void;
 }) {
-  const [state, setState] = useState<State>({ phase: "loading" });
-  const [attempt, setAttempt] = useState(0);
+  const [sharing, setSharing] = useState(false);
   useCloseOnBack(Boolean(file), onClose);
 
-  useEffect(() => {
-    if (!file) return;
-    let objectUrl: string | null = null;
-    let alive = true;
-    setState({ phase: "loading" });
-    fetch(file.url)
-      .then(async (r) => {
-        if (!r.ok) {
-          const data = (await r.json().catch(() => null)) as { error?: string } | null;
-          throw new Error(data?.error || `No se pudo cargar (error ${r.status})`);
-        }
-        return r.blob();
-      })
-      .then((blob) => {
-        if (!alive) return;
-        objectUrl = URL.createObjectURL(blob);
-        setState({ phase: "ready", objectUrl });
-      })
-      .catch((err: Error) => {
-        if (alive) setState({ phase: "error", message: err.message || "No se pudo cargar el adjunto" });
-      });
-    return () => {
-      alive = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [file, attempt]);
-
   if (!file) return null;
-  const isImage = file.mimeType.startsWith("image/");
-  const isPdf = file.mimeType.includes("pdf");
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-ds-surface-1">
@@ -66,17 +55,28 @@ export function CorreoAttachmentViewer({
         <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-ds-text-1" title={file.filename}>
           {file.filename}
         </p>
-        {state.phase === "ready" && (
-          <a
-            href={state.objectUrl}
-            download={file.filename}
-            aria-label="Descargar"
-            title="Descargar"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ds-text-2 ds-tap"
-          >
-            <Download className="h-4 w-4" />
-          </a>
-        )}
+        <button
+          type="button"
+          disabled={sharing}
+          onClick={() => {
+            setSharing(true);
+            void shareFile(file.url, file.filename, file.mimeType).finally(() => setSharing(false));
+          }}
+          aria-label="Compartir o guardar en el teléfono"
+          title="Compartir"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ds-text-2 ds-tap disabled:opacity-50"
+        >
+          <Share2 className="h-4 w-4" />
+        </button>
+        <a
+          href={file.url}
+          download={file.filename}
+          aria-label="Descargar"
+          title="Descargar"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ds-text-2 ds-tap"
+        >
+          <Download className="h-4 w-4" />
+        </a>
         <button
           type="button"
           onClick={onClose}
@@ -87,41 +87,14 @@ export function CorreoAttachmentViewer({
         </button>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-auto pb-[env(safe-area-inset-bottom)]">
-        {state.phase === "loading" && <Spinner className="mx-auto mt-12" />}
-
-        {state.phase === "error" && (
-          <div className="mx-auto mt-12 max-w-xs space-y-3 px-4 text-center">
-            <p className="text-[13px] text-ds-text-2">{state.message}</p>
-            <button
-              type="button"
-              onClick={() => setAttempt((a) => a + 1)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-ds-border-default px-3 text-[13px] ds-tap"
-            >
-              <RefreshCw className="h-4 w-4" /> Reintentar
-            </button>
-          </div>
-        )}
-
-        {state.phase === "ready" && isImage && (
-          // eslint-disable-next-line @next/next/no-img-element -- blob local, next/image no aplica
-          <img src={state.objectUrl} alt={file.filename} className="mx-auto max-w-full p-2" />
-        )}
-        {state.phase === "ready" && isPdf && (
-          <iframe src={state.objectUrl} title={file.filename} className="h-full w-full border-0" />
-        )}
-        {state.phase === "ready" && !isImage && !isPdf && (
-          <div className="mx-auto mt-12 max-w-xs space-y-3 px-4 text-center">
-            <p className="text-[13px] text-ds-text-2">Vista previa no disponible para este tipo de archivo.</p>
-            <a
-              href={state.objectUrl}
-              download={file.filename}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-ds-border-default px-3 text-[13px] ds-tap"
-            >
-              <Download className="h-4 w-4" /> Descargar
-            </a>
-          </div>
-        )}
+      <div className="min-h-0 flex-1 overflow-hidden pb-[env(safe-area-inset-bottom)]">
+        <AttachmentPreview
+          key={file.url}
+          url={file.url}
+          filename={file.filename}
+          mimeType={file.mimeType}
+          size={file.size}
+        />
       </div>
     </div>
   );

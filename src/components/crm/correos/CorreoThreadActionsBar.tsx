@@ -58,6 +58,7 @@ export function CorreoThreadActionsBar({ threadId, isUnread, archived, onDone, o
             isUnread ? "markRead" : "markUnread",
             isUnread ? "Marcado como leído" : "Marcado como no leído",
             onDone,
+            isUnread ? "markUnread" : "markRead",
           )
         }
       >

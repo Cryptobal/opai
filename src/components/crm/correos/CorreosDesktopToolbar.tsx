@@ -68,8 +68,8 @@ export function CorreosDesktopToolbar({
         <button type="button" title={allReadSelected ? "Marcar no leídos" : "Marcar leídos"} className={BTN}
           onClick={() =>
             allReadSelected
-              ? onAction("markUnread", "Marcados como no leídos")
-              : onAction("markRead", "Marcados como leídos")
+              ? onAction("markUnread", "Marcados como no leídos", { undo: "markRead" })
+              : onAction("markRead", "Marcados como leídos", { undo: "markUnread" })
           }>
           {allReadSelected ? <Mail className="h-4 w-4" /> : <MailOpen className="h-4 w-4" />}
         </button>

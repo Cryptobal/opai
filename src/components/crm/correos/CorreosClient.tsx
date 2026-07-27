@@ -72,6 +72,8 @@ export function CorreosClient() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [counts, setCounts] = useState<Counts>(null);
   const [connected, setConnected] = useState(true);
+  /** Casilla Gmail activa del usuario (viene del list endpoint). */
+  const [mailboxEmail, setMailboxEmail] = useState<string | null>(null);
   const [canModify, setCanModify] = useState(false);
   // El estado real de conexión/permisos solo se conoce tras el primer fetch;
   // hasta entonces no mostramos el aviso amarillo "Reconectá Gmail" (evita el
@@ -129,6 +131,8 @@ export function CorreosClient() {
     setShortcuts,
     alwaysShowImages,
     setAlwaysShowImages,
+    undoSeconds,
+    setUndoSeconds,
     resetPanelWidth,
     onResizePointerDown,
     onResizeKeyDown,
@@ -154,6 +158,7 @@ export function CorreosClient() {
       if (wantCounts) qs.set("counts", "1");
       let r: Record<string, unknown> & {
         connected?: boolean;
+        email?: string;
         canModify?: boolean;
         realtimeChannel?: unknown;
         counts?: unknown;
@@ -182,6 +187,8 @@ export function CorreosClient() {
         return;
       }
       setConnected(r.connected !== false);
+      if (typeof r.email === "string" && r.email) setMailboxEmail(r.email);
+      else if (r.connected === false) setMailboxEmail(null);
       setCanModify(Boolean(r.canModify));
       setStatusReady(true);
       setRealtimeChannel(
@@ -519,11 +526,13 @@ export function CorreosClient() {
     },
     onToggleRead: () => {
       if (!focusedThread) return;
+      const wasUnread = focusedThread.isUnread;
       void runCorreoAction(
         focusedThread.id,
-        focusedThread.isUnread ? "markRead" : "markUnread",
-        focusedThread.isUnread ? "Marcado como leído" : "Marcado como no leído",
+        wasUnread ? "markRead" : "markUnread",
+        wasUnread ? "Marcado como leído" : "Marcado como no leído",
         () => void fetchPage(null, true),
+        wasUnread ? "markUnread" : "markRead",
       );
     },
     onFocusSearch: () => document.getElementById("correos-search-input")?.focus(),
@@ -571,6 +580,7 @@ export function CorreosClient() {
             t.id, unread ? "markRead" : "markUnread",
             unread ? "Marcado como leído" : "Marcado como no leído",
             () => void fetchPage(null, true),
+            unread ? "markUnread" : "markRead",
           ),
         },
         {
@@ -636,6 +646,7 @@ export function CorreosClient() {
         syncing={syncing}
         realtimeStatus={realtimeStatus}
         lastSyncAt={lastSyncAt}
+        mailboxEmail={mailboxEmail}
         onOpenSwipeSettings={() => setSwipeSettingsOpen(true)}
         onOpenShortcuts={() => setShortcutsSheetOpen(true)}
       />
@@ -644,6 +655,8 @@ export function CorreosClient() {
         onClose={() => setSwipeSettingsOpen(false)}
         config={swipeConfig}
         onConfig={setSwipeConfig}
+        undoSeconds={undoSeconds}
+        onUndoSeconds={setUndoSeconds}
       />
       <CorreoShortcutsSheet
         open={shortcutsSheetOpen}
@@ -714,6 +727,7 @@ export function CorreosClient() {
           onCompose={() => setComposeOpen(true)}
           onSync={syncNow} syncing={syncing}
           realtimeStatus={realtimeStatus} lastSyncAt={lastSyncAt}
+          mailboxEmail={mailboxEmail}
           collapsed={railCollapsed}
           onToggleCollapsed={() => setRailCollapsed(!railCollapsed)}
         />
@@ -760,7 +774,9 @@ export function CorreosClient() {
             <Surface
               elevation={1}
               padding="none"
-              className="overflow-hidden max-lg:-mx-4 max-lg:rounded-none max-lg:border-x-0"
+              className={`overflow-hidden max-lg:-mx-4 max-lg:rounded-none max-lg:border-x-0 ${
+                loading && !searching ? "opacity-70 transition-opacity" : ""
+              }`}
               onContextMenu={(e) => {
                 // Click derecho sobre una fila (desktop): menú contextual.
                 const rowEl = (e.target as HTMLElement).closest?.("[data-correo-row]");
@@ -771,6 +787,11 @@ export function CorreosClient() {
                 setCtxMenu({ thread: t, x: e.clientX, y: e.clientY });
               }}
             >
+              {loading && !searching && (
+                <div className="h-0.5 w-full overflow-hidden bg-ds-surface-3">
+                  <div className="h-full w-1/3 animate-pulse bg-primary" />
+                </div>
+              )}
               {searching && loading && (
                 <div className="flex items-center gap-2 border-b border-ds-border-subtle px-4 py-2 text-[12px] text-ds-text-3">
                   <Spinner className="h-3.5 w-3.5" /> Buscando en toda la casilla…
@@ -810,7 +831,12 @@ export function CorreosClient() {
           )}
         </div>
 
-        <CorreoDrawer threadId={openId} autoExtract={autoExtract} canModify={canModify}
+        <CorreoDrawer
+          threadId={openId}
+          preview={openId ? items.find((t) => t.id === openId) ?? null : null}
+          mailboxEmail={mailboxEmail}
+          autoExtract={autoExtract}
+          canModify={canModify}
           refreshToken={realtimeRevision}
           desktopWidth={panelWidth}
           onResizePointerDown={onResizePointerDown}
@@ -821,7 +847,8 @@ export function CorreosClient() {
           alwaysShowImages={alwaysShowImages}
           onAlwaysShowImages={() => setAlwaysShowImages(true)}
           onClose={closeThread}
-          onChanged={() => void fetchPage(null, true)} />
+          onChanged={() => void fetchPage(null, true)}
+        />
       </div>
 
     </CorreosPullToRefresh>
