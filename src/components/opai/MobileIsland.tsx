@@ -81,8 +81,13 @@ export function MobileIsland({
   const ctx = mounted ? resolveNavContext(pathname) : null;
   const isHub = pathname === "/hub" || pathname.startsWith("/hub/");
   const isDetail = mounted && !!trailing;
-  const showSegment =
-    mounted && resolveProductividadLanding(permissions, isModuleEnabled) !== null;
+  const productividadLanding = resolveProductividadLanding(
+    permissions,
+    isModuleEnabled,
+  );
+  const showSegment = mounted && productividadLanding !== null;
+  const homeHref =
+    surface === "productividad" ? (productividadLanding ?? "/hub") : "/hub";
 
   const btnBase = cn(
     "relative inline-flex shrink-0 items-center justify-center rounded-xl text-ds-text-3",
@@ -237,7 +242,7 @@ export function MobileIsland({
               />
             )}
             <Link
-              href="/hub"
+              href={homeHref}
               key={pathname}
               className="flex min-w-0 flex-1 items-center gap-2 hover:opacity-80"
             >

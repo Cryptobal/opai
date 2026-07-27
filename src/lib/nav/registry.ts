@@ -91,6 +91,7 @@ import {
   FolderTree,
   Mail,
   KeyRound,
+  LayoutDashboard,
   // Portales
   Monitor,
   ScanLine,
@@ -358,20 +359,36 @@ export const NAV_MODULES: NavNode[] = [
   },
 
   // ═════════════════════════════════════════════════════════
-  // PRODUCTIVIDAD (Correos, Agenda, Tareas)
+  // PRODUCTIVIDAD (Inicio, Correos, Agenda, Tareas)
   // ═════════════════════════════════════════════════════════
   {
     key: "productividad",
-    href: "/opai/agenda",
+    href: "/productividad/inicio",
     label: "Productividad",
     icon: Sparkles,
     module: "productividad",
-    // Agenda es la landing accesible a todos los roles con Productividad.
-    // Correos/Tareas se declaran como activePaths para que
-    // findActiveModule/breadcrumbs los resuelvan a este nodo.
-    activePaths: ["/crm/correos", "/opai/tareas", "/opai/auditoria-productividad", "/ops/tickets"],
+    // Home propio de la superficie. Correos/Tareas/Agenda/Tickets se
+    // declaran como activePaths para que findActiveModule/breadcrumbs
+    // los resuelvan a este nodo (rutas hermanas planas).
+    activePaths: [
+      "/opai/agenda",
+      "/crm/correos",
+      "/opai/tareas",
+      "/opai/auditoria-productividad",
+      "/ops/tickets",
+    ],
     children: [
-      // Orden desktop/sidebar y sub-nav: Correos → Tareas → Agenda → Tickets.
+      // hideInBottomNav: la isla inferior mantiene Correos · Tareas · Agenda · Tickets.
+      {
+        key: "productividad-inicio",
+        href: "/productividad/inicio",
+        label: "Inicio",
+        icon: LayoutDashboard,
+        module: "productividad",
+        exactMatch: true,
+        hideInBottomNav: true,
+      },
+      // Orden desktop/sidebar: Inicio → Correos → Tareas → Agenda → Tickets.
       // Correos conserva tenantModule "crm": la casilla Gmail vive en el plan
       // CRM, así se oculta para tenants sin ese módulo (acoplamiento conocido).
       { key: "productividad-correos", href: "/crm/correos", label: "Correos", icon: Mail, module: "productividad", submodule: "correos", tenantModule: "crm" },
