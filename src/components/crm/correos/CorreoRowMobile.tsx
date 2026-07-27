@@ -1,6 +1,6 @@
 "use client";
 
-import { Star } from "lucide-react";
+import { Paperclip, Star } from "lucide-react";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 import { CorreoSenderAvatar } from "./CorreoSenderAvatar";
 import { parseSender } from "./correo-sender";
@@ -20,9 +20,10 @@ type Props = {
 
 /**
  * Fila móvil estilo Gmail: avatar de remitente + remitente/asunto/snippet +
- * hora (primary si no leído) y estrella. Sin checkbox, sin kebab y sin punto
- * de no leído — negrita + hora en color ya lo comunican. La selección vive
- * en el avatar y el long-press; el swipe la envuelve desde CorreoRowSwipe.
+ * hora (primary si no leído), clip si hay adjuntos y estrella. Sin checkbox,
+ * sin kebab y sin punto de no leído — negrita + hora en color ya lo
+ * comunican. La selección vive en el avatar y el long-press; el swipe la
+ * envuelve desde CorreoRowSwipe.
  */
 export function CorreoRowMobile({
   thread,
@@ -35,6 +36,7 @@ export function CorreoRowMobile({
   const compact = previewLines === 1;
   const subject = thread.subject || "(sin asunto)";
   const sender = parseSender(thread.fromEmail);
+  const hasAttachments = thread.attachmentCount > 0;
 
   return (
     <div
@@ -52,7 +54,9 @@ export function CorreoRowMobile({
       <button
         type="button"
         onClick={onOpen}
-        aria-label={`Abrir correo de ${sender.name || sender.email || "remitente"}: ${subject}`}
+        aria-label={`Abrir correo de ${sender.name || sender.email || "remitente"}: ${subject}${
+          hasAttachments ? ` (${thread.attachmentCount} adjuntos)` : ""
+        }`}
         className="flex min-w-0 flex-1 items-start gap-3 text-left ds-tap"
       >
         <span className="min-w-0 flex-1">
@@ -87,12 +91,20 @@ export function CorreoRowMobile({
           >
             {formatGmailDateChile(thread.lastMessageAt)}
           </span>
-          {thread.starredAt && (
-            <Star
-              className="h-4 w-4 fill-status-warn-fg text-status-warn-fg"
-              aria-label="Destacado"
-            />
-          )}
+          <span className="flex items-center gap-1.5">
+            {hasAttachments && (
+              <Paperclip
+                aria-label={`${thread.attachmentCount} adjuntos`}
+                className="h-3.5 w-3.5 text-ds-text-4"
+              />
+            )}
+            {thread.starredAt && (
+              <Star
+                className="h-4 w-4 fill-status-warn-fg text-status-warn-fg"
+                aria-label="Destacado"
+              />
+            )}
+          </span>
         </span>
       </button>
     </div>

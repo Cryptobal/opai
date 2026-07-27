@@ -21,6 +21,7 @@ type Props = {
   syncing: boolean;
   realtimeStatus: CorreosRealtimeStatus;
   lastSyncAt: string | null;
+  mailboxEmail?: string | null;
   /** Contraído (persistente); con hover hace peek overlay, como Gmail. */
   collapsed: boolean;
   onToggleCollapsed: () => void;
@@ -31,7 +32,8 @@ type Props = {
  *  de sync al pie. Contraíble a 68px con peek al pasar el mouse. */
 export function CorreosDesktopRail({
   folder, onFolder, chip, onChip, vertical, onVertical, counts,
-  onCompose, onSync, syncing, realtimeStatus, lastSyncAt, collapsed, onToggleCollapsed,
+  onCompose, onSync, syncing, realtimeStatus, lastSyncAt, mailboxEmail,
+  collapsed, onToggleCollapsed,
 }: Props) {
   const live = realtimeStatus === "live";
   const lastSyncLabel = lastSyncAt
@@ -79,6 +81,15 @@ export function CorreosDesktopRail({
           <PenLine className="h-4 w-4 shrink-0" />
           <span className={lbl}>Redactar</span>
         </button>
+
+        {mailboxEmail && (
+          <p
+            className={`mb-2 truncate px-3.5 text-[12px] text-ds-text-4 ${collapsed ? "hidden group-hover/rail:block" : ""}`}
+            title={mailboxEmail}
+          >
+            Gmail · {mailboxEmail}
+          </p>
+        )}
 
         {TABS.map((t) => {
           const Icon = FOLDER_ICONS[t.key] ?? Mail;
