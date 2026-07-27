@@ -85,11 +85,6 @@ export function CorreosClient() {
   const [syncParked, setSyncParked] = useState(false);
   const [syncParkedReason, setSyncParkedReason] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  /** Refresh en background: no dimmea la lista ni muestra spinner a pantalla. */
-  const [refreshing, setRefreshing] = useState(false);
-  // La barrita primary solo aparece si el refresh tarda (>350ms). Evita el
-  // pestañeo verde al abrir/enfocar la primera fila.
-  const [showRefreshBar, setShowRefreshBar] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const itemsRef = useRef<CorreoThreadDTO[]>([]);
   itemsRef.current = items;
@@ -163,8 +158,7 @@ export function CorreosClient() {
     // Tras archivar/atajos: solo reconciliar counts/meta sin reemplazar filas
     // (la UI ya es optimista). Evita el pestañeo de remount de la lista.
     const preserveItems = Boolean(opts?.preserveItems);
-    if (silent && !preserveItems) setRefreshing(true);
-    else if (!silent) setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const f = nextFolder ?? folder;
       const qs = new URLSearchParams();
@@ -238,7 +232,6 @@ export function CorreosClient() {
       }
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, [folder, debouncedQuery, semantic, vertical]);
 
@@ -452,15 +445,6 @@ export function CorreosClient() {
   // client-side (filtran metadata de asociación ya presente en la página).
   const filtered = items.filter((t) => matchesChip(t, chip));
   const searching = debouncedQuery.length > 0;
-  const listBusy = refreshing || (loading && !searching);
-  useEffect(() => {
-    if (!listBusy) {
-      setShowRefreshBar(false);
-      return;
-    }
-    const t = window.setTimeout(() => setShowRefreshBar(true), 350);
-    return () => window.clearTimeout(t);
-  }, [listBusy]);
   const filteredFocusKey = useMemo(() => {
     if (filtered.length === 0) return "empty";
     return `${filtered.length}:${filtered[0]?.id}:${filtered[filtered.length - 1]?.id}`;
@@ -560,7 +544,8 @@ export function CorreosClient() {
           openCorreoThreadInHistory(nextId, true);
           setOpenId(nextId);
           setAutoExtract(false);
-          setFocusIndex(0);
+          const nextIdx = remaining.findIndex((t) => t.id === nextId);
+          setFocusIndex(nextIdx >= 0 ? nextIdx : -1);
         } else if (closeCorreoThreadInHistory() === "replaced") {
           setOpenId(null);
           setAutoExtract(false);
@@ -585,25 +570,39 @@ export function CorreosClient() {
   // ── C20: navegación y acciones por teclado sobre la fila enfocada ──
   const focusedThread = focusIndex >= 0 ? filtered[focusIndex] : undefined;
 
-  // Resalta la primera fila al cargar la bandeja (estilo Gmail) para que los
-  // atajos de acción tengan un hilo objetivo sin pulsar j/k antes.
+  // No auto-marcar la fila 0 al entrar: sin j/k ni hilo abierto, focusIndex
+  // queda en -1 (ninguna fila verde). Solo clamp si el índice quedó fuera.
   useEffect(() => {
     if (filtered.length === 0) {
       setFocusIndex(-1);
       return;
     }
     setFocusIndex((prev) => {
-      if (prev >= 0 && prev < filtered.length) return prev;
+      if (prev < 0) return prev;
       if (prev >= filtered.length) return filtered.length - 1;
-      return 0;
+      return prev;
     });
   }, [filteredFocusKey, filtered.length]);
 
-  /** Hilo objetivo de atajos: fila enfocada o la primera visible. */
+  // Con el lector abierto, la fila enfocada = hilo abierto (una sola marca).
+  useEffect(() => {
+    if (!openId || filtered.length === 0) return;
+    const idx = filtered.findIndex((t) => t.id === openId);
+    if (idx >= 0) setFocusIndex((prev) => (prev === idx ? prev : idx));
+    // filtered se re-deriva; filteredFocusKey cubre cambios de lista.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- filteredFocusKey
+  }, [openId, filteredFocusKey]);
+
+  /** Hilo objetivo de atajos: fila enfocada, hilo abierto, o la primera visible. */
   function resolveThread() {
     if (focusedThread) return focusedThread;
+    if (openId) {
+      const open = filtered.find((t) => t.id === openId);
+      if (open) return open;
+    }
     if (filtered.length === 0) return undefined;
-    if (focusIndex < 0) setFocusIndex(0);
+    // Primera acción de teclado sin foco: apunta a la fila 0 sin abrirla.
+    setFocusIndex(0);
     return filtered[0];
   }
 
@@ -959,12 +958,6 @@ export function CorreosClient() {
                 setCtxMenu({ thread: t, x: e.clientX, y: e.clientY });
               }}
             >
-              {/* Overlay absoluto: no empuja filas. Solo si el refresh se demora. */}
-              {showRefreshBar && (
-                <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden bg-ds-surface-3">
-                  <div className="h-full w-1/3 animate-pulse bg-primary" />
-                </div>
-              )}
               {searching && loading && (
                 <div className="flex items-center gap-2 border-b border-ds-border-subtle px-4 py-2 text-[12px] text-ds-text-3">
                   <Spinner className="h-3.5 w-3.5" /> Buscando en toda la casilla…
