@@ -39,6 +39,7 @@ export function CorreoAttachments({
   degraded,
   onSaved,
   onRequestAssociate,
+  defaultOpen = false,
 }: {
   items: CorreoAttachmentDTO[];
   threadId: string;
@@ -52,12 +53,13 @@ export function CorreoAttachments({
   degraded?: boolean;
   onSaved?: () => void;
   onRequestAssociate?: () => void;
+  /** Por defecto colapsado (estilo Gmail). */
+  defaultOpen?: boolean;
 }) {
   const [viewer, setViewer] = useState<ViewerFile | null>(null);
   const [viewerKey, setViewerKey] = useState<string | null>(null);
-  // Abiertos por defecto: en móvil el usuario necesita ver los archivos sin
-  // un tap extra; con muchos adjuntos el scroll cubre el resto.
-  const [open, setOpen] = useState(true);
+  // Siempre colapsados al abrir el hilo; el usuario expande cuando quiere.
+  const [open, setOpen] = useState(defaultOpen);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sheetOpen, setSheetOpen] = useState(false);
   const rowRefs = useRef<Map<string, HTMLLIElement>>(new Map());

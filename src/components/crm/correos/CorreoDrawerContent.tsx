@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { Briefcase, ExternalLink, Eye, Plus } from "lucide-react";
 import { CorreoMessages } from "./CorreoMessages";
-import { CorreoAttachments } from "./CorreoAttachments";
 import { CorreoReplyBox } from "./CorreoReplyBox";
 import { CorreoThreadActions } from "./CorreoThreadActions";
 import { CorreoSummaryPanel } from "./CorreoSummaryPanel";
@@ -158,17 +157,13 @@ export function CorreoDrawerContent({
           onAlwaysShowImages={onAlwaysShowImages}
           threadId={t.id}
           attachments={detail.attachments}
-        />
-        <CorreoAttachments
-          items={detail.attachments}
-          threadId={t.id}
           dealId={t.dealId}
           dealTitle={t.dealTitle}
           accountId={t.accountId}
           accountName={t.accountName}
           mailboxEmail={mailboxEmail}
           degraded={detail.degraded}
-          onSaved={onRefresh}
+          onAttachmentsSaved={onRefresh}
           onRequestAssociate={() => openPanel("cuenta")}
         />
         <CorreoReplyBox

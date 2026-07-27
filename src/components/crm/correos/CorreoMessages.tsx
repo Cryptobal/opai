@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { ChevronDown, ChevronRight, Paperclip } from "lucide-react";
 import type {
   CorreoAttachmentDTO,
   CorreoMessageDTO,
 } from "@/modules/crm/email/correos.types";
 import { emailPlainFallback } from "@/lib/sanitize-email-html";
 import { EmailHtmlBody } from "./EmailHtmlBody";
+import { CorreoAttachments } from "./CorreoAttachments";
+import { attachmentsForMessage } from "./correo-attachments-scope";
 import { parseSender } from "./correo-sender";
 
 function snippet(m: CorreoMessageDTO): string {
@@ -26,16 +28,72 @@ type ImagePrefs = {
   attachments?: CorreoAttachmentDTO[];
 };
 
+type SavePrefs = {
+  dealId?: string | null;
+  dealTitle?: string | null;
+  accountId?: string | null;
+  accountName?: string | null;
+  mailboxEmail?: string | null;
+  degraded?: boolean;
+  onAttachmentsSaved?: () => void;
+  onRequestAssociate?: () => void;
+  /** Si se define, reemplaza el bloque CRM de adjuntos (p. ej. ficha entidad). */
+  renderMessageAttachments?: (m: CorreoMessageDTO, items: CorreoAttachmentDTO[]) => ReactNode;
+};
+
 /** Tarjeta de mensaje: cabecera siempre visible (tap = abrir/cerrar) + cuerpo. */
 function MessageCard({
-  m, open, onToggle, alwaysShowImages, onAlwaysShowImages, threadId, attachments,
-}: { m: CorreoMessageDTO; open: boolean; onToggle: () => void } & ImagePrefs) {
+  m,
+  open,
+  onToggle,
+  alwaysShowImages,
+  onAlwaysShowImages,
+  threadId,
+  attachments = [],
+  dealId = null,
+  dealTitle = null,
+  accountId = null,
+  accountName,
+  mailboxEmail,
+  degraded,
+  onAttachmentsSaved,
+  onRequestAssociate,
+  renderMessageAttachments,
+}: {
+  m: CorreoMessageDTO;
+  open: boolean;
+  onToggle: () => void;
+} & ImagePrefs &
+  SavePrefs) {
   const sender = parseSender(m.fromEmail);
   const who =
     m.direction === "out"
       ? m.toEmails[0] || "—"
       : sender.name || sender.email || m.fromEmail || "—";
   const Chevron = open ? ChevronDown : ChevronRight;
+  const msgAttachments = attachmentsForMessage(attachments, m);
+  const attachmentBlock =
+    msgAttachments.length === 0
+      ? null
+      : renderMessageAttachments
+        ? renderMessageAttachments(m, msgAttachments)
+        : threadId
+          ? (
+            <CorreoAttachments
+              items={msgAttachments}
+              threadId={threadId}
+              dealId={dealId}
+              dealTitle={dealTitle}
+              accountId={accountId}
+              accountName={accountName}
+              mailboxEmail={mailboxEmail}
+              degraded={degraded}
+              onSaved={onAttachmentsSaved}
+              onRequestAssociate={onRequestAssociate}
+              defaultOpen={false}
+            />
+          )
+          : null;
   return (
     <div className="overflow-hidden rounded-xl border border-ds-border-subtle bg-ds-surface-1">
       <button
@@ -50,7 +108,15 @@ function MessageCard({
               {m.direction === "out" ? "Para: " : ""}
               {who}
             </span>
-            <span className="shrink-0 text-ds-text-4">{fmtDate(m.sentAt)}</span>
+            <span className="flex shrink-0 items-center gap-1.5 text-ds-text-4">
+              {!open && msgAttachments.length > 0 && (
+                <span className="inline-flex items-center gap-0.5" title={`${msgAttachments.length} adjuntos`}>
+                  <Paperclip className="h-3.5 w-3.5" />
+                  <span className="tabular-nums">{msgAttachments.length}</span>
+                </span>
+              )}
+              {fmtDate(m.sentAt)}
+            </span>
           </div>
           {!open && <p className="truncate text-[12px] text-ds-text-4">{snippet(m)}</p>}
         </div>
@@ -85,16 +151,32 @@ function MessageCard({
             messageId={m.providerMessageId || m.id}
             attachments={attachments}
           />
+          {attachmentBlock && (
+            <div className="mt-2 border-t border-ds-border-subtle pt-2">{attachmentBlock}</div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-/** Cadena del hilo: por defecto el último abierto; todos se abren y cierran. */
+/** Cadena del hilo: por defecto el último abierto; adjuntos por mensaje. */
 export function CorreoMessages({
-  messages, alwaysShowImages, onAlwaysShowImages, threadId, attachments,
-}: { messages: CorreoMessageDTO[] } & ImagePrefs) {
+  messages,
+  alwaysShowImages,
+  onAlwaysShowImages,
+  threadId,
+  attachments = [],
+  dealId = null,
+  dealTitle = null,
+  accountId = null,
+  accountName,
+  mailboxEmail,
+  degraded,
+  onAttachmentsSaved,
+  onRequestAssociate,
+  renderMessageAttachments,
+}: { messages: CorreoMessageDTO[] } & ImagePrefs & SavePrefs) {
   const lastId = messages[messages.length - 1]?.id;
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(lastId ? [lastId] : []));
   if (messages.length === 0) {
@@ -111,9 +193,25 @@ export function CorreoMessages({
   return (
     <div className="space-y-2">
       {messages.map((m) => (
-        <MessageCard key={m.id} m={m} open={expanded.has(m.id)} onToggle={() => toggle(m.id)}
-          alwaysShowImages={alwaysShowImages} onAlwaysShowImages={onAlwaysShowImages}
-          threadId={threadId} attachments={attachments} />
+        <MessageCard
+          key={m.id}
+          m={m}
+          open={expanded.has(m.id)}
+          onToggle={() => toggle(m.id)}
+          alwaysShowImages={alwaysShowImages}
+          onAlwaysShowImages={onAlwaysShowImages}
+          threadId={threadId}
+          attachments={attachments}
+          dealId={dealId}
+          dealTitle={dealTitle}
+          accountId={accountId}
+          accountName={accountName}
+          mailboxEmail={mailboxEmail}
+          degraded={degraded}
+          onAttachmentsSaved={onAttachmentsSaved}
+          onRequestAssociate={onRequestAssociate}
+          renderMessageAttachments={renderMessageAttachments}
+        />
       ))}
     </div>
   );
