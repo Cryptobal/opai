@@ -103,14 +103,18 @@ export function CorreoReaderShell({
       )}
       <Surface
         ref={panelRef}
-        elevation={2}
+        // elevation 3 = sheet/modal: glass-strong con underlay opaco (~0.72).
+        // elevation 2 (glass-m) dejaba leer la bandeja a través del lector.
+        elevation={3}
         padding="none"
         role={isOverlay ? "dialog" : undefined}
         aria-modal={isOverlay ? "true" : undefined}
         aria-label={headerSubject || "Correo"}
         tabIndex={-1}
         className={cn(
-          "flex h-full w-full flex-col overflow-hidden lg:border lg:border-ds-border-default",
+          // Fondo sólido de respaldo: el underlay del glass-strong + este bg
+          // evitan que la lista de correos se lea detrás de chips/acciones.
+          "flex h-full w-full flex-col overflow-hidden bg-background lg:border lg:border-ds-border-default lg:bg-ds-surface-2",
           desktopMode === "overlay" &&
             "lg:w-[var(--correo-panel-width)] lg:shrink-0",
           // Entrada suave en móvil: slide desde la derecha (estilo Gmail/iOS).
@@ -118,7 +122,7 @@ export function CorreoReaderShell({
         )}
         onClick={(e: MouseEvent) => e.stopPropagation()}
       >
-        <header className="sticky top-0 z-10 border-b border-ds-border-subtle bg-ds-surface-1 px-2 py-2.5 pt-[calc(env(safe-area-inset-top)+0.625rem)] md:px-4">
+        <header className="sticky top-0 z-10 border-b border-ds-border-subtle bg-background px-2 py-2.5 pt-[calc(env(safe-area-inset-top)+0.625rem)] md:px-4 lg:bg-ds-surface-2">
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -144,12 +148,12 @@ export function CorreoReaderShell({
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3 [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain] md:px-4 md:py-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-background px-3 py-3 [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain] md:px-4 md:py-4 lg:bg-ds-surface-2">
           {children}
         </div>
 
         {mobileActions && (
-          <footer className="sticky bottom-0 z-10 border-t border-ds-border-subtle bg-ds-surface-1 p-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] lg:hidden">
+          <footer className="sticky bottom-0 z-10 border-t border-ds-border-subtle bg-background p-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] lg:hidden">
             <div className="h-11">{mobileActions}</div>
           </footer>
         )}

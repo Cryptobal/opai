@@ -65,7 +65,9 @@ export function CorreoDrawerContent({
       {/* Herramientas del hilo: en desktop quedan arriba; en móvil la barra
           inferior ya cubre archivar/eliminar, así que ocultamos acciones
           duplicadas y dejamos chips + resumen en bloque propio. */}
-      <div className="shrink-0 space-y-3 border-b border-ds-border-subtle pb-3">
+      {/* Fondo sólido: sin esto, glass del Surface dejaba leer la bandeja
+          detrás de Kalpataru / Panel / Resumir hilo. */}
+      <div className="shrink-0 space-y-3 border-b border-ds-border-subtle bg-background pb-3 lg:bg-ds-surface-2">
         {canModify && (
           <div className="hidden flex-wrap items-center gap-2 lg:flex">
             <CorreoThreadActions
@@ -125,7 +127,7 @@ export function CorreoDrawerContent({
             <button
               type="button"
               onClick={() => openPanel("cuenta")}
-              className="inline-flex min-h-8 items-center gap-1 rounded-full border border-dashed border-ds-border-default px-2.5 text-[12px] text-ds-text-3 ds-tap"
+              className="inline-flex min-h-8 items-center gap-1 rounded-full border border-dashed border-ds-border-default bg-ds-surface-1 px-2.5 text-[12px] text-ds-text-3 ds-tap"
             >
               <Plus className="h-3.5 w-3.5" /> Sin cuenta · Asociar
             </button>
