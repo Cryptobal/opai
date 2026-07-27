@@ -136,14 +136,18 @@ export function CorreoReplyBox({
     size: a.size,
   }));
 
-  // Atajos de teclado del lector (R/A/F/I configurables).
+  // Atajos de teclado del lector (R/A/F/I configurables). Capture para ganar
+  // a otros listeners; también recibe eventos re-despachados desde el iframe
+  // del cuerpo (el foco ahí no burbujea al documento padre).
   useEffect(() => {
     if (open) return;
     function onKey(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const el = document.activeElement;
+      const el = (e.target as HTMLElement | null) ?? (document.activeElement as HTMLElement | null);
       const tag = el?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || (el as HTMLElement | null)?.isContentEditable) return;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable) {
+        return;
+      }
       const k = normalizeShortcutKey(e.key);
       const reply = normalizeShortcutKey(shortcuts.reply);
       const replyAll = normalizeShortcutKey(shortcuts.replyAll);
@@ -165,8 +169,8 @@ export function CorreoReplyBox({
         openComposer("reply", true);
       }
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [open, metaReady, replyAllAvailable, shortcuts]);
 
   if (!open) {
@@ -174,6 +178,7 @@ export function CorreoReplyBox({
       <CorreoActionBar
         canReply={metaReady ? canReply : true}
         replyAllAvailable={metaReady ? replyAllAvailable : false}
+        shortcuts={shortcuts}
         onReply={() => openComposer("reply", false)}
         onReplyAll={() => openComposer("all", false)}
         onForward={() => openComposer("forward", false)}

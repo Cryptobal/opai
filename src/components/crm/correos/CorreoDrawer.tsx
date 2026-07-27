@@ -18,6 +18,7 @@ import { parseSender } from "./correo-sender";
 import { loadOfflineDetail } from "./offline-store";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoShortcuts } from "./useCorreosViewPreferences";
+import { nextIntentNonce, type ComposeIntent } from "./correo-reader-intent";
 
 type ThreadPreview = {
   fromEmail?: string | null;
@@ -51,7 +52,7 @@ type Props = {
   onAlwaysShowImages?: () => void;
   shortcuts?: CorreoShortcuts;
   workTabIntent?: { tab: import("./work-panel-tabs").WorkTab; nonce: number } | null;
-  composeIntent?: import("./correo-reader-intent").ComposeIntent | null;
+  composeIntent?: ComposeIntent | null;
 };
 
 export function CorreoDrawer({
@@ -82,6 +83,8 @@ export function CorreoDrawer({
   const [loading, setLoading] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
+  /** Pedido local (barra móvil Responder) sin pasar por CorreosClient. */
+  const [localComposeIntent, setLocalComposeIntent] = useState<ComposeIntent | null>(null);
   // Evita reutilizar el detalle del hilo anterior al cambiar de correo.
   const detailThreadId = detail?.thread.id ?? null;
   // Guarda el hilo pedido para descartar respuestas stale (p. ej. onDone de
@@ -127,6 +130,8 @@ export function CorreoDrawer({
   // de un pedazo de correo sobre otro).
   useEffect(() => {
     setAiOpen(false);
+    setLocalComposeIntent(null);
+    setSnoozeOpen(false);
     if (!threadId) {
       setDetail(null);
       return;
@@ -200,6 +205,14 @@ export function CorreoDrawer({
   const scrollToReply = () =>
     document.getElementById("correo-suggested-reply")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
+  const requestReply = () => {
+    setLocalComposeIntent({ mode: "reply", nonce: nextIntentNonce() });
+    scrollToReply();
+  };
+
+  // Intent externo (atajo/menú) gana; si no, el pedido local de la barra móvil.
+  const effectiveComposeIntent = composeIntent ?? localComposeIntent;
+
   return (
     <CorreoReaderShell
       open
@@ -220,8 +233,11 @@ export function CorreoDrawer({
             archived={Boolean(detail.thread.archivedAt)}
             canModify
             variant="mobile-bar"
-            onReply={scrollToReply}
+            onReply={requestReply}
             onClose={onClose}
+            onRemove={onRemove}
+            onRemoveDone={onRemoveDone}
+            onUndoDone={onUndoDone}
             onSnooze={() => setSnoozeOpen(true)}
             onDone={refresh}
           />
@@ -256,7 +272,7 @@ export function CorreoDrawer({
           onAlwaysShowImages={onAlwaysShowImages}
           shortcuts={shortcuts}
           workTabIntent={workTabIntent}
-          composeIntent={composeIntent}
+          composeIntent={effectiveComposeIntent}
         />
       )}
       <CorreoSnoozeSheet

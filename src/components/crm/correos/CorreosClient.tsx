@@ -490,8 +490,9 @@ export function CorreosClient() {
   );
 
   /**
-   * Archivar / papelera / snooze: saca el hilo y, si el lector lo mostraba (o
-   * es el enfocado con el panel abierto), avanza al siguiente como Gmail.
+   * Archivar / papelera / snooze: saca el hilo. En desktop (split) avanza al
+   * siguiente como Gmail. En móvil vuelve a la bandeja — quedarse en el
+   * siguiente hilo se sentía como “no vuelve a inicio” tras posponer.
    */
   function removeThreadAndAdvance(id: string) {
     const list = itemsRef.current.filter((t) => matchesChip(t, chip));
@@ -503,6 +504,15 @@ export function CorreosClient() {
     if (nextFocusIndex >= 0) setFocusIndex(nextFocusIndex);
     else setFocusIndex(-1);
     if (readerWasOnRemoved || (readerOpen && focusedId === id)) {
+      // Móvil: cerrar lector de inmediato (lista = pantalla de inicio).
+      if (isCoarse && readerWasOnRemoved) {
+        setOpenId(null);
+        setAutoExtract(false);
+        setWorkTabIntent(null);
+        setComposeIntent(null);
+        closeCorreoThreadInHistory();
+        return;
+      }
       if (nextId) {
         openCorreoThreadInHistory(nextId, true);
         setOpenId(nextId);
@@ -511,12 +521,10 @@ export function CorreosClient() {
         setItems((prev) =>
           prev.map((t) => (t.id === nextId && t.isUnread ? { ...t, isUnread: false } : t)),
         );
-      } else if (closeCorreoThreadInHistory() === "replaced") {
-        setOpenId(null);
-        setAutoExtract(false);
       } else {
         setOpenId(null);
         setAutoExtract(false);
+        closeCorreoThreadInHistory();
       }
     }
   }
@@ -549,12 +557,14 @@ export function CorreosClient() {
   }
 
   function closeThread() {
-    if (closeCorreoThreadInHistory() === "replaced") {
-      setOpenId(null);
-      setAutoExtract(false);
-      setWorkTabIntent(null);
-      setComposeIntent(null);
-    }
+    // UI primero: antes solo limpiábamos estado si replaceState (deep-link).
+    // Con pushState el cierre hacía history.back() y esperaba popstate → el
+    // lector quedaba montado un frame (o más) y se sentía “pegajoso” en móvil.
+    setOpenId(null);
+    setAutoExtract(false);
+    setWorkTabIntent(null);
+    setComposeIntent(null);
+    closeCorreoThreadInHistory();
   }
 
   // ── C12: selección múltiple + acciones masivas ──
@@ -597,20 +607,19 @@ export function CorreosClient() {
           : c,
       );
       if (wasOpen) {
-        if (nextId) {
+        if (nextId && !isCoarse) {
           openCorreoThreadInHistory(nextId, true);
           setOpenId(nextId);
           setAutoExtract(false);
           const nextIdx = remaining.findIndex((t) => t.id === nextId);
           setFocusIndex(nextIdx >= 0 ? nextIdx : -1);
-        } else if (closeCorreoThreadInHistory() === "replaced") {
-          setOpenId(null);
-          setAutoExtract(false);
-          setFocusIndex(-1);
         } else {
           setOpenId(null);
           setAutoExtract(false);
           setFocusIndex(-1);
+          setWorkTabIntent(null);
+          setComposeIntent(null);
+          closeCorreoThreadInHistory();
         }
       }
     }

@@ -2,6 +2,10 @@
 
 import { Forward, Reply, ReplyAll, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  DEFAULT_CORREO_SHORTCUTS,
+  type CorreoShortcuts,
+} from "./useCorreosViewPreferences";
 
 type Props = {
   /** Hay a quién responder (hilo con inbound o remitente conocido). Si es false
@@ -13,6 +17,8 @@ type Props = {
   onReplyAll: () => void;
   onForward: () => void;
   onReplyAI: () => void;
+  /** Teclas configuradas (hints del kbd); defaults estilo Gmail. */
+  shortcuts?: Pick<CorreoShortcuts, "reply" | "replyAll" | "forward" | "replyAi">;
 };
 
 /**
@@ -28,6 +34,7 @@ export function CorreoActionBar({
   onReplyAll,
   onForward,
   onReplyAI,
+  shortcuts = DEFAULT_CORREO_SHORTCUTS,
 }: Props) {
   const cols = !canReply ? 1 : replyAllAvailable ? 4 : 3;
 
@@ -42,22 +49,22 @@ export function CorreoActionBar({
       )}
     >
       {canReply && (
-        <ActionBtn onClick={onReply} kbd="R" tone="primary" label="Responder">
+        <ActionBtn onClick={onReply} kbd={shortcuts.reply} tone="primary" label="Responder">
           <Reply className="h-4 w-4 shrink-0" />
         </ActionBtn>
       )}
       {canReply && replyAllAvailable && (
-        <ActionBtn onClick={onReplyAll} kbd="A" label="A todos" shortLabel="Todos">
+        <ActionBtn onClick={onReplyAll} kbd={shortcuts.replyAll} label="A todos" shortLabel="Todos">
           <ReplyAll className="h-4 w-4 shrink-0" />
         </ActionBtn>
       )}
-      <ActionBtn onClick={onForward} kbd="F" label="Reenviar">
+      <ActionBtn onClick={onForward} kbd={shortcuts.forward} label="Reenviar">
         <Forward className="h-4 w-4 shrink-0" />
       </ActionBtn>
       {canReply && (
         <ActionBtn
           onClick={onReplyAI}
-          kbd="I"
+          kbd={shortcuts.replyAi}
           tone="accent"
           label="Responder con IA"
           shortLabel="IA"
@@ -87,9 +94,13 @@ function ActionBtn({
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
+      }}
       aria-label={label}
-      title={label}
+      title={`${label} (${kbdDisplay(kbd)})`}
       className={cn(
         "flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-2.5 text-[12px] font-medium leading-tight ds-tap md:flex-row md:gap-1.5 md:px-2 md:py-2 md:text-[13px]",
         tone === "primary" && "text-primary hover:bg-primary/10",
@@ -100,9 +111,15 @@ function ActionBtn({
       {children}
       <span className="max-w-full truncate md:hidden">{shortLabel ?? label}</span>
       <span className="hidden max-w-full truncate md:inline">{label}</span>
-      <kbd className="ml-0.5 hidden rounded bg-ds-surface-3/60 px-1 font-mono text-[11px] uppercase tracking-[0.08em] text-ds-text-4 lg:inline">
-        {kbd}
+      <kbd className="ml-0.5 hidden rounded bg-ds-surface-3/60 px-1 font-mono text-[12px] uppercase tracking-[0.08em] text-ds-text-4 lg:inline">
+        {kbdDisplay(kbd)}
       </kbd>
     </button>
   );
+}
+
+function kbdDisplay(key: string): string {
+  if (key === "Enter") return "↵";
+  if (key === " ") return "Space";
+  return key.length === 1 ? key.toUpperCase() : key;
 }

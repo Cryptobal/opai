@@ -11,6 +11,10 @@ type Props = {
   onReply?: () => void;
   /** Cierra el lector tras archivar/eliminar (vuelve a la lista). */
   onClose?: () => void;
+  /** Remoción optimista de la fila (+ cierre en móvil). */
+  onRemove?: (threadId: string) => void;
+  onRemoveDone?: () => void;
+  onUndoDone?: () => void;
   /** Abre el sheet de posponer (Bloque 3). */
   onSnooze?: () => void;
 };
@@ -20,13 +24,33 @@ type Props = {
  * [posponer] · responder. Archivar/Eliminar cierran el lector y ofrecen
  * "Deshacer" — nunca dejan al usuario mirando un hilo que ya salió.
  */
-export function CorreoThreadActionsBar({ threadId, isUnread, archived, onDone, onReply, onClose, onSnooze }: Props) {
+export function CorreoThreadActionsBar({
+  threadId,
+  isUnread,
+  archived,
+  onDone,
+  onReply,
+  onClose,
+  onRemove,
+  onRemoveDone,
+  onUndoDone,
+  onSnooze,
+}: Props) {
   const item =
     "flex flex-1 flex-col items-center justify-center gap-0.5 rounded-lg text-[12px] text-ds-text-2 ds-tap";
 
   function closeAfter(action: "archive" | "trash", okMsg: string) {
-    void runCorreoAction(threadId, action, okMsg, onDone, "unarchive");
-    onClose?.();
+    // UI primero (sacar fila / volver a bandeja); luego red + Deshacer.
+    if (onRemove) onRemove(threadId);
+    else onClose?.();
+    void runCorreoAction(
+      threadId,
+      action,
+      okMsg,
+      onRemoveDone ?? onDone,
+      "unarchive",
+      onUndoDone,
+    );
   }
 
   const cols = onSnooze ? "grid-cols-5" : "grid-cols-4";

@@ -8,6 +8,11 @@
   background-color: hsl(0 0% 100%);
 }
 
+/* Contenedor alineado al fondo noche del srcDoc (evita flash blanco). */
+.frameNight {
+  background-color: hsl(222 28% 12%);
+}
+
 /* Sandbox aislado del tema app: fondo claro fijo para HTML de correo.
  * (Render legacy, solo con NEXT_PUBLIC_EMAIL_IFRAME_SANDBOX=false.) */
 .root {
