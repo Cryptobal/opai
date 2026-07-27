@@ -158,12 +158,16 @@ export function CorreoDrawerContent({
           onSaved={onRefresh}
           onRequestAssociate={() => openPanel("cuenta")}
         />
+<<<<<<< HEAD
         <CorreoReplyBox
           key={`reply-${t.id}`}
           detail={detail}
           onSent={onRefresh}
           replyShortcut={shortcuts?.reply}
         />
+=======
+        <CorreoReplyBox key={`reply-${t.id}`} detail={detail} onSent={onRefresh} />
+>>>>>>> origin/main
       </div>
 
       <CorreoWorkPanel
