@@ -22,6 +22,17 @@ export type Surface = "productividad" | "erp";
 export const SURFACE_COOKIE = "opai-surface";
 export const DEFAULT_SURFACE: Surface = "erp";
 
+/** Opciones de cookie de superficie (sesión de presentación, no auth). */
+export function surfaceCookieOptions(maxAgeSeconds = 60 * 60 * 24 * 365) {
+  return {
+    path: "/",
+    sameSite: "lax" as const,
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+    maxAge: maxAgeSeconds,
+  };
+}
+
 /** Orden de landing del portal Productividad (Correos → Tareas → Agenda). */
 const PRODUCTIVIDAD_LANDING_HREFS = [
   "/crm/correos",

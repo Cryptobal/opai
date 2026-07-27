@@ -254,6 +254,7 @@ export default auth(async (req) => {
     if (
       (pathname.startsWith('/opai') && pathname !== '/opai/login' && !pathname.startsWith('/opai/forgot') && !pathname.startsWith('/opai/reset')) ||
       pathname.startsWith('/hub') ||
+      pathname.startsWith('/productividad') ||
       pathname.startsWith('/crm') ||
       pathname.startsWith('/personas') ||
       pathname.startsWith('/finanzas') ||
